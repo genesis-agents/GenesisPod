@@ -310,7 +310,7 @@ export class FeatureChecker {
    * 运行所有检查
    */
   async runAllChecks(): Promise<SystemHealthReport> {
-    console.log('🔍 开始系统健康检查...');
+    logger.debug('🔍 开始系统健康检查...');
 
     this.results = [];
 
@@ -356,16 +356,19 @@ export class FeatureChecker {
       recommendations,
     };
 
-    console.log('✅ 健康检查完成');
-    console.table(
-      this.results.map((r) => ({
-        功能: r.feature,
-        状态: r.status,
-        信息: r.message,
-      }))
-    );
-    console.log(`📊 总体评分: ${score}/100`);
-    console.log(`📈 状态: ${overallStatus}`);
+    logger.debug('✅ 健康检查完成');
+    // Note: console.table is intentionally kept for diagnostic display
+    if (typeof console !== 'undefined' && console.table) {
+      console.table(
+        this.results.map((r) => ({
+          功能: r.feature,
+          状态: r.status,
+          信息: r.message,
+        }))
+      );
+    }
+    logger.debug(`📊 总体评分: ${score}/100`);
+    logger.debug(`📈 状态: ${overallStatus}`);
 
     return report;
   }

@@ -1,55 +1,117 @@
 /**
- * 前端日志工具
- *
- * 在生产环境中自动禁用 console 输出
- * 在开发环境中正常输出以便调试
+ * Frontend Logger Utility
+ * 
+ * 统一的前端日志工具，替代 console.log
+ * 生产环境自动禁用 debug 日志
  */
 
-const isDevelopment = process.env.NODE_ENV === "development";
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-type LogLevel = "debug" | "info" | "warn" | "error";
-
-interface Logger {
-  debug: (...args: unknown[]) => void;
-  info: (...args: unknown[]) => void;
-  log: (...args: unknown[]) => void;
-  warn: (...args: unknown[]) => void;
-  error: (...args: unknown[]) => void;
+interface LogEntry {
+  timestamp: string;
+  level: LogLevel;
+  context?: string;
+  message: string;
+  data?: unknown;
 }
 
-const noop = () => {};
+class Logger {
+  private isDevelopment: boolean;
+  private enabledLevels: Set<LogLevel>;
+
+  constructor() {
+    this.isDevelopment = process.env.NODE_ENV === 'development';
+    this.enabledLevels = new Set(
+      this.isDevelopment 
+        ? ['debug', 'info', 'warn', 'error']
+        : ['warn', 'error']
+    );
+  }
+
+  private log(level: LogLevel, context: string | undefined, message: string, data?: unknown) {
+    if (!this.enabledLevels.has(level)) {
+      return;
+    }
+
+    const entry: LogEntry = {
+      timestamp: new Date().toISOString(),
+      level,
+      context,
+      message,
+      data,
+    };
+
+    const prefix = context ? `[${context}]` : '';
+    const logMessage = `${prefix} ${message}`;
+
+    switch (level) {
+      case 'debug':
+        console.debug(logMessage, data ?? '');
+        break;
+      case 'info':
+        console.info(logMessage, data ?? '');
+        break;
+      case 'warn':
+        console.warn(logMessage, data ?? '');
+        break;
+      case 'error':
+        console.error(logMessage, data ?? '');
+        break;
+    }
+  }
+
+  debug(message: string, data?: unknown): void;
+  debug(context: string, message: string, data?: unknown): void;
+  debug(contextOrMessage: string, messageOrData?: string | unknown, data?: unknown) {
+    if (typeof messageOrData === 'string') {
+      this.log('debug', contextOrMessage, messageOrData, data);
+    } else {
+      this.log('debug', undefined, contextOrMessage, messageOrData);
+    }
+  }
+
+  info(message: string, data?: unknown): void;
+  info(context: string, message: string, data?: unknown): void;
+  info(contextOrMessage: string, messageOrData?: string | unknown, data?: unknown) {
+    if (typeof messageOrData === 'string') {
+      this.log('info', contextOrMessage, messageOrData, data);
+    } else {
+      this.log('info', undefined, contextOrMessage, messageOrData);
+    }
+  }
+
+  warn(message: string, data?: unknown): void;
+  warn(context: string, message: string, data?: unknown): void;
+  warn(contextOrMessage: string, messageOrData?: string | unknown, data?: unknown) {
+    if (typeof messageOrData === 'string') {
+      this.log('warn', contextOrMessage, messageOrData, data);
+    } else {
+      this.log('warn', undefined, contextOrMessage, messageOrData);
+    }
+  }
+
+  error(message: string, error?: unknown): void;
+  error(context: string, message: string, error?: unknown): void;
+  error(contextOrMessage: string, messageOrError?: string | unknown, error?: unknown) {
+    if (typeof messageOrError === 'string') {
+      this.log('error', contextOrMessage, messageOrError, error);
+    } else {
+      this.log('error', undefined, contextOrMessage, messageOrError);
+    }
+  }
+}
+
+export const logger = new Logger();
 
 /**
- * 创建一个命名的 logger 实例
- * @param name Logger 名称，用于标识日志来源
+ * 创建带上下文的 logger 实例
+ * @param context 上下文名称
  */
-export function createLogger(name: string): Logger {
-  const prefix = `[${name}]`;
-
+export function createLogger(context: string) {
   return {
-    debug: isDevelopment
-      ? (...args: unknown[]) => console.debug(prefix, ...args)
-      : noop,
-    info: isDevelopment
-      ? (...args: unknown[]) => console.info(prefix, ...args)
-      : noop,
-    log: isDevelopment
-      ? (...args: unknown[]) => console.log(prefix, ...args)
-      : noop,
-    warn: (...args: unknown[]) => console.warn(prefix, ...args),
-    error: (...args: unknown[]) => console.error(prefix, ...args),
+    debug: (message: string, data?: unknown) => logger.debug(context, message, data),
+    info: (message: string, data?: unknown) => logger.info(context, message, data),
+    warn: (message: string, data?: unknown) => logger.warn(context, message, data),
+    error: (message: string, error?: unknown) => logger.error(context, message, error),
   };
 }
-
-/**
- * 默认 logger 实例
- */
-export const logger: Logger = {
-  debug: isDevelopment ? console.debug.bind(console) : noop,
-  info: isDevelopment ? console.info.bind(console) : noop,
-  log: isDevelopment ? console.log.bind(console) : noop,
-  warn: console.warn.bind(console),
-  error: console.error.bind(console),
-};
-
-export default logger;

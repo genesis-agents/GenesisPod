@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 interface ScenarioDetail {
   id: string;
   name: string;
@@ -65,7 +66,7 @@ export default function EditScenarioPage() {
         setError(true);
       }
     } catch (err) {
-      console.error('Failed to fetch scenario:', err);
+      logger.error('Failed to fetch scenario:', err);
       setError(true);
     } finally {
       setLoading(false);

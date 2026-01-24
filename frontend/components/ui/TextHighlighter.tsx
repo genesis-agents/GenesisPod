@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 
+import { logger } from '@/lib/utils/logger';
 interface Highlight {
   id: string;
   text: string;
@@ -134,7 +135,7 @@ export default function TextHighlighter({
           setSelectionRange(null);
         }
       } catch (err) {
-        console.error('Failed to add highlight:', err);
+        logger.error('Failed to add highlight:', err);
       }
     },
     [noteId, selectedText, selectionRange, noteText, onHighlightAdded]
@@ -154,7 +155,7 @@ export default function TextHighlighter({
           setSelectedHighlight(null);
         }
       } catch (err) {
-        console.error('Failed to remove highlight:', err);
+        logger.error('Failed to remove highlight:', err);
       }
     },
     [noteId, onHighlightRemoved]

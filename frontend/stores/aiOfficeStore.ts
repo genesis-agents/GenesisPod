@@ -15,6 +15,7 @@ import type {
   DocumentVersion,
 } from '@/types/ai-office';
 import { calculateSlideCount } from '@/lib/ai-office/ppt-utils';
+import { logger } from '@/lib/utils/logger';
 
 // ============================================================================
 // Resource Store (持久化 + 去重)
@@ -50,7 +51,7 @@ export const useResourceStore = create<ResourceState>()(
           // 去重：检查资源是否已存在
           const exists = state.resources.some((r) => r._id === resource._id);
           if (exists) {
-            console.warn(`Resource ${resource._id} already exists, skipping`);
+            logger.warn(`Resource ${resource._id} already exists, skipping`);
             return state;
           }
           return {
@@ -173,9 +174,9 @@ interface DocumentState {
   deleteVersion: (documentId: string, versionId: string) => void;
 }
 
-export const useDocumentStore: any = create<DocumentState>()(
+export const useDocumentStore = create<DocumentState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       documents: [],
       currentDocumentId: null,
       selectedSlideIndex: null,
@@ -268,7 +269,7 @@ export const useDocumentStore: any = create<DocumentState>()(
 
       // Version management implementations
       saveVersion: (documentId, type, trigger, description) => {
-        console.log('[saveVersion] Called with:', {
+        logger.debug('[saveVersion] Called with:', {
           documentId,
           type,
           trigger,
@@ -278,7 +279,7 @@ export const useDocumentStore: any = create<DocumentState>()(
         set((state) => {
           const document = state.documents.find((d) => d._id === documentId);
           if (!document) {
-            console.warn('[saveVersion] Document not found:', documentId);
+            logger.warn('[saveVersion] Document not found:', documentId);
             return state;
           }
 
@@ -287,9 +288,9 @@ export const useDocumentStore: any = create<DocumentState>()(
 
           // 计算 slideCount（如果是PPT文档）
           let slideCount = document.metadata.slideCount;
-          if (document.type === 'ppt' && (document.content as any)?.markdown) {
+          if (document.type === 'ppt' && typeof document.content === 'object' && document.content !== null && 'markdown' in document.content) {
             slideCount = calculateSlideCount(
-              (document.content as any).markdown
+              (document.content as { markdown: string }).markdown
             );
           }
 
@@ -314,7 +315,7 @@ export const useDocumentStore: any = create<DocumentState>()(
           }
 
           const currentVersionCount = document.versions?.length || 0;
-          console.log('[saveVersion] Creating version:', {
+          logger.debug('[saveVersion] Creating version:', {
             versionId,
             slideCount,
             currentVersionCount,
@@ -338,8 +339,8 @@ export const useDocumentStore: any = create<DocumentState>()(
         // 验证版本是否被正确保存
         const updatedDoc = useDocumentStore
           .getState()
-          .documents.find((d: any) => d._id === documentId);
-        console.log(
+          .documents.find((d) => d._id === documentId);
+        logger.debug(
           '[saveVersion] Version saved successfully. Total versions:',
           updatedDoc?.versions?.length || 0
         );
@@ -347,9 +348,9 @@ export const useDocumentStore: any = create<DocumentState>()(
         return versionId;
       },
 
-      getVersions: (documentId: string) => {
-        const state: any = useDocumentStore.getState();
-        const document = state.documents.find((d: any) => d._id === documentId);
+      getVersions: (documentId: string): DocumentVersion[] => {
+        const state = get();
+        const document = state.documents.find((d) => d._id === documentId);
         return document?.versions || [];
       },
 
@@ -695,13 +696,13 @@ export const useTaskStore = create<TaskState>()(
         })),
 
       restoreTaskContext: (taskId: string) => {
-        const task = get().tasks.find((t: any) => t._id === taskId);
+        const task = get().tasks.find((t) => t._id === taskId);
         if (!task) return;
 
         // 恢复资源选择
         const resourceStore = useResourceStore.getState();
         resourceStore.clearSelection();
-        task.context.resourceIds.forEach((id: any) => {
+        task.context.resourceIds.forEach((id) => {
           resourceStore.selectResource(id);
         });
 
@@ -709,15 +710,15 @@ export const useTaskStore = create<TaskState>()(
         if (task.context.documentId) {
           const documentStore = useDocumentStore.getState();
           let existingDoc = documentStore.documents.find(
-            (d: any) => d._id === task.context.documentId
+            (d) => d._id === task.context.documentId
           );
 
-          console.log(
+          logger.debug(
             '[restoreTaskContext] Document ID:',
             task.context.documentId
           );
-          console.log('[restoreTaskContext] Found document:', !!existingDoc);
-          console.log(
+          logger.debug('[restoreTaskContext] Found document:', !!existingDoc);
+          logger.debug(
             '[restoreTaskContext] Has saved content:',
             !!task.context.documentContent
           );
@@ -728,7 +729,7 @@ export const useTaskStore = create<TaskState>()(
             task.context.documentContent &&
             task.context.documentMetadata
           ) {
-            console.log(
+            logger.debug(
               '[restoreTaskContext] Document not found, recreating from snapshot'
             );
 
@@ -775,7 +776,7 @@ export const useTaskStore = create<TaskState>()(
             } as Document;
             documentStore.addDocument(restoredDocument);
             existingDoc = restoredDocument;
-            console.log(
+            logger.debug(
               '[restoreTaskContext] Document recreated with',
               restoredDocument.versions?.length || 0,
               'versions'
@@ -790,14 +791,16 @@ export const useTaskStore = create<TaskState>()(
               let slideCount = task.context.documentMetadata?.slideCount;
               if (
                 existingDoc.type === 'ppt' &&
-                task.context.documentContent?.markdown
+                typeof task.context.documentContent === 'object' &&
+                task.context.documentContent !== null &&
+                'markdown' in task.context.documentContent
               ) {
                 slideCount = calculateSlideCount(
-                  task.context.documentContent.markdown
+                  (task.context.documentContent as { markdown: string }).markdown
                 );
               }
 
-              const updatePayload: any = {
+              const updatePayload: Partial<Document> = {
                 content: task.context.documentContent, // 直接替换 content，不是合并
                 updatedAt: new Date(),
               };
@@ -811,13 +814,15 @@ export const useTaskStore = create<TaskState>()(
                 };
               }
 
-              console.log(
+              logger.debug(
                 '[restoreTaskContext] Updating document with payload:',
                 {
                   documentId: task.context.documentId,
                   hasContent: !!updatePayload.content,
-                  hasMarkdown: !!updatePayload.content?.markdown,
-                  markdownLength: updatePayload.content?.markdown?.length || 0,
+                  hasMarkdown: !!(typeof updatePayload.content === 'object' && updatePayload.content !== null && 'markdown' in updatePayload.content),
+                  markdownLength: typeof updatePayload.content === 'object' && updatePayload.content !== null && 'markdown' in updatePayload.content
+                    ? (updatePayload.content as { markdown: string }).markdown?.length || 0
+                    : 0,
                   slideCount: updatePayload.metadata?.slideCount,
                 }
               );
@@ -829,26 +834,28 @@ export const useTaskStore = create<TaskState>()(
 
               // 验证更新是否成功
               const updatedDoc = documentStore.documents.find(
-                (d: any) => d._id === task.context.documentId
+                (d) => d._id === task.context.documentId
               );
-              console.log(
+              logger.debug(
                 '[restoreTaskContext] After update - document content length:',
-                (updatedDoc?.content as any)?.markdown?.length || 0
+                typeof updatedDoc?.content === 'object' && updatedDoc.content !== null && 'markdown' in updatedDoc.content
+                  ? (updatedDoc.content as { markdown: string }).markdown?.length || 0
+                  : 0
               );
             } else {
-              console.warn(
+              logger.warn(
                 '[restoreTaskContext] Task has no saved documentContent'
               );
             }
 
             // 设置为当前文档（只有当文档存在时）
             documentStore.setCurrentDocument(task.context.documentId);
-            console.log(
+            logger.debug(
               '[restoreTaskContext] Set current document to:',
               task.context.documentId
             );
           } else {
-            console.warn(`任务关联的文档不存在: ${task.context.documentId}`);
+            logger.warn(`任务关联的文档不存在: ${task.context.documentId}`);
           }
         }
 
@@ -858,7 +865,7 @@ export const useTaskStore = create<TaskState>()(
           // 清空当前会话
           chatStore.clearSession(task.context.documentId);
           // 恢复历史消息
-          task.context.chatMessages.forEach((msg: any) => {
+          task.context.chatMessages.forEach((msg) => {
             chatStore.addMessage(task.context.documentId!, msg);
           });
         }
@@ -888,25 +895,25 @@ export const useSelectedResources = () => {
   return resources.filter((r) => selectedIds.includes(r._id));
 };
 
-export const useCurrentDocument = () => {
-  const documents = useDocumentStore((state: any) => state.documents);
-  const currentId = useDocumentStore((state: any) => state.currentDocumentId);
+export const useCurrentDocument = (): Document | undefined => {
+  const documents = useDocumentStore((state) => state.documents);
+  const currentId = useDocumentStore((state) => state.currentDocumentId);
 
-  return documents.find((d: any) => d._id === currentId);
+  return documents.find((d) => d._id === currentId);
 };
 
-export const useCurrentChatMessages = () => {
-  const sessions = useChatStore((state: any) => state.sessions);
+export const useCurrentChatMessages = (): ChatMessage[] => {
+  const sessions = useChatStore((state) => state.sessions);
   const currentDocumentId = useDocumentStore(
-    (state: any) => state.currentDocumentId
+    (state) => state.currentDocumentId
   );
 
   return currentDocumentId ? sessions[currentDocumentId] || [] : [];
 };
 
-export const useCurrentTask = () => {
+export const useCurrentTask = (): Task | undefined => {
   const tasks = useTaskStore((state) => state.tasks);
   const currentId = useTaskStore((state) => state.currentTaskId);
 
-  return tasks.find((t: any) => t._id === currentId);
+  return tasks.find((t) => t._id === currentId);
 };

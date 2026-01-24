@@ -36,7 +36,9 @@ import SlashCommandMenu, {
   buildCommandPrompt,
   type SlashCommand,
 } from './SlashCommandMenu';
+import DOMPurify from 'isomorphic-dompurify';
 
+import { logger } from '@/lib/utils/logger';
 export default function ChatPanel() {
   const [input, setInput] = useState('');
   const [showWizard, setShowWizard] = useState(false);
@@ -252,7 +254,7 @@ export default function ChatPanel() {
       userInput = buildCommandPrompt(slashCommand, slashArgs, {
         selectedResourceCount: selectedResourceIds.length,
       });
-      console.log(
+      logger.debug(
         '[ChatPanel] Slash command detected:',
         slashCommand.id,
         'args:',
@@ -312,7 +314,7 @@ export default function ChatPanel() {
     );
 
     if (arabicMatch) {
-      console.log('[ChatPanel] Arabic number page match:', arabicMatch);
+      logger.debug('[ChatPanel] Arabic number page match:', arabicMatch);
       if (arabicMatch[1]) {
         targetPages = [parseInt(arabicMatch[1])];
       } else if (arabicMatch[2] && arabicMatch[3]) {
@@ -333,7 +335,7 @@ export default function ChatPanel() {
         );
       }
     } else if (chineseMatch) {
-      console.log('[ChatPanel] Chinese number page match:', chineseMatch);
+      logger.debug('[ChatPanel] Chinese number page match:', chineseMatch);
       if (chineseMatch[1]) {
         // 单页：第一页
         targetPages = [chineseToNumber(chineseMatch[1])];
@@ -349,7 +351,7 @@ export default function ChatPanel() {
     }
 
     if (targetPages) {
-      console.log('[ChatPanel] Target pages detected:', targetPages);
+      logger.debug('[ChatPanel] Target pages detected:', targetPages);
     }
 
     // 检测文档类型
@@ -587,8 +589,8 @@ export default function ChatPanel() {
             .documents.find((d: any) => d._id === targetDocumentId)
         : null;
       const existingContent =
-        currentDoc && shouldUpdateExisting
-          ? currentDoc.content?.markdown || ''
+        currentDoc && shouldUpdateExisting && typeof currentDoc.content === 'object' && currentDoc.content !== null && 'markdown' in currentDoc.content
+          ? (currentDoc.content as { markdown: string }).markdown || ''
           : '';
 
       // 构建增强的prompt
@@ -864,7 +866,7 @@ ${userInput || ''}
                   if (separatorIndex !== -1 && !isPartialUpdateWithSeparator) {
                     // 检测到分隔符，切换到局部更新模式
                     isPartialUpdateWithSeparator = true;
-                    console.log(
+                    logger.debug(
                       '[ChatPanel] Detected partial update separator'
                     );
                   }
@@ -876,8 +878,8 @@ ${userInput || ''}
                     confirmationPart = parts[0].trim();
                     contentPart = parts[1] ? parts[1].trim() : '';
                     displayContent = confirmationPart; // 只显示确认消息
-                    console.log('[ChatPanel] Confirmation:', confirmationPart);
-                    console.log(
+                    logger.debug('[ChatPanel] Confirmation:', confirmationPart);
+                    logger.debug(
                       '[ChatPanel] Content length:',
                       contentPart.length
                     );
@@ -907,7 +909,7 @@ ${userInput || ''}
                       targetPages.length > 0 &&
                       existingContent
                     ) {
-                      console.log('[ChatPanel] Performing partial page update');
+                      logger.debug('[ChatPanel] Performing partial page update');
                       // 局部页面更新：合并页面
                       const existingSlides = existingContent
                         .split(/^---$/m)
@@ -916,15 +918,15 @@ ${userInput || ''}
                         .split(/^---$/m)
                         .filter((s: any) => s.trim());
 
-                      console.log(
+                      logger.debug(
                         '[ChatPanel] Existing slides:',
                         existingSlides.length
                       );
-                      console.log(
+                      logger.debug(
                         '[ChatPanel] New slides from AI:',
                         newSlides.length
                       );
-                      console.log(
+                      logger.debug(
                         '[ChatPanel] Target pages to update:',
                         targetPages
                       );
@@ -936,24 +938,24 @@ ${userInput || ''}
                           newSlides[index] &&
                           pageNum <= mergedSlides.length
                         ) {
-                          console.log(
+                          logger.debug(
                             `[ChatPanel] Replacing slide ${pageNum} with new content`
                           );
                           mergedSlides[pageNum - 1] = newSlides[index];
                         } else {
-                          console.warn(
+                          logger.warn(
                             `[ChatPanel] Cannot replace slide ${pageNum}: out of range or no new content`
                           );
                         }
                       });
 
                       finalContent = mergedSlides.join('\n\n---\n\n');
-                      console.log(
+                      logger.debug(
                         '[ChatPanel] Merge complete. Total slides:',
                         mergedSlides.length
                       );
                     } else {
-                      console.log(
+                      logger.debug(
                         '[ChatPanel] Full document update (no targetPages or no existingContent)'
                       );
                     }
@@ -1026,7 +1028,7 @@ ${userInput || ''}
             );
           }
         } catch (error) {
-          console.error('Failed to save version:', error);
+          logger.error('Failed to save version:', error);
         }
       }
 
@@ -1047,7 +1049,7 @@ ${userInput || ''}
           JSON.stringify(finalDocument.versions || [])
         );
 
-        console.log('[ChatPanel] Updating task with document snapshot:', {
+        logger.debug('[ChatPanel] Updating task with document snapshot:', {
           taskId,
           documentId: targetDocumentId,
           hasContent: !!documentContentSnapshot,
@@ -1077,7 +1079,7 @@ ${userInput || ''}
         const savedTask = useTaskStore
           .getState()
           .tasks.find((t: any) => t._id === taskId);
-        console.log('[ChatPanel] Task saved verification:', {
+        logger.debug('[ChatPanel] Task saved verification:', {
           taskId,
           hasDocumentContent: !!savedTask?.context.documentContent,
           contentMarkdownLength:
@@ -1085,7 +1087,7 @@ ${userInput || ''}
         });
       }
     } catch (error) {
-      console.error('AI chat error:', error);
+      logger.error('AI chat error:', error);
       // 添加错误消息到目标文档
       const errorMessage = {
         id: (Date.now() + 1).toString(),
@@ -1452,13 +1454,13 @@ ${userInput || ''}
           : `初始生成：${config.template.name}`;
         saveVersion(newDocumentId, 'auto', 'ai_generation', versionDescription);
       } catch (error) {
-        console.error('Failed to save version:', error);
+        logger.error('Failed to save version:', error);
       }
 
       setStreaming(false);
       setTimeout(() => setGenerating(false), 1500); // 延迟关闭进度显示，让用户看到完成状态
     } catch (error) {
-      console.error('Document generation error:', error);
+      logger.error('Document generation error:', error);
       const errorMessage = {
         id: Date.now().toString(),
         documentId: currentDocumentId,
@@ -1586,11 +1588,17 @@ ${userInput || ''}
                               `copy-btn-${message.id}`
                             );
                             if (btn) {
-                              const originalContent = btn.innerHTML;
-                              btn.innerHTML =
-                                '<span class="text-green-600">Copied!</span>';
+                              const originalContent = btn.textContent;
+                              const span = btn.querySelector('span:last-child');
+                              if (span) {
+                                span.textContent = 'Copied!';
+                                span.className = 'text-green-600';
+                              }
                               setTimeout(() => {
-                                btn.innerHTML = originalContent;
+                                if (span && originalContent) {
+                                  span.textContent = 'Copy';
+                                  span.className = '';
+                                }
                               }, 1500);
                             }
                           }}

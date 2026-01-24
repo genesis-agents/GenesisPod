@@ -131,7 +131,13 @@ function generatePreviewHTML(files: ProjectFile[], entryPoint: string): string {
     window.onerror = function(message, source, lineno, colno, error) {
       const errorDiv = document.createElement('div');
       errorDiv.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#fee2e2;color:#dc2626;padding:12px;font-family:monospace;font-size:12px;border-top:2px solid #dc2626;';
-      errorDiv.innerHTML = '<strong>Error:</strong> ' + message + ' (line ' + lineno + ')';
+      // Use textContent instead of innerHTML to prevent XSS
+      const errorText = document.createElement('span');
+      errorText.textContent = 'Error: ' + message + ' (line ' + lineno + ')';
+      const strong = document.createElement('strong');
+      strong.textContent = 'Error:';
+      errorDiv.appendChild(strong);
+      errorDiv.appendChild(document.createTextNode(' ' + message + ' (line ' + lineno + ')'));
       document.body.appendChild(errorDiv);
       return true;
     };

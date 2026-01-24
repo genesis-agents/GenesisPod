@@ -9,13 +9,14 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getAuthTokens } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
-import { KnowledgeBaseSelector } from '@/components/shared/selectors';
+import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import {
   TopicResearchTab,
   CreateTopicDialog as TopicCreateDialog,
 } from '@/components/ai-research';
 import { ResearchTopicType } from '@/types/topic-research';
 
+import { logger } from '@/lib/utils/logger';
 // ==================== 自定义图标组件 ====================
 const PlusIcon = ({ className }: { className?: string }) => (
   <svg
@@ -624,7 +625,7 @@ function StudioPageContent() {
       await archiveProject(id);
       setProjects((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
-      console.error('Failed to archive project:', err);
+      logger.error('Failed to archive project:', err);
     }
   };
 
@@ -636,7 +637,7 @@ function StudioPageContent() {
       await deleteProject(id);
       setProjects((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
-      console.error('Failed to delete project:', err);
+      logger.error('Failed to delete project:', err);
     }
   };
 

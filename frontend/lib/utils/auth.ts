@@ -14,15 +14,13 @@ export interface User {
   role?: 'USER' | 'ADMIN';
 }
 
-// 管理员邮箱白名单
-const ADMIN_EMAILS = ['hello.junjie.duan@gmail.com'];
-
 /**
  * 检查用户是否是管理员
+ * 仅依赖后端返回的角色，不使用前端硬编码的邮箱白名单
  */
 export function isUserAdmin(user: User | null): boolean {
   if (!user) return false;
-  return user.role === 'ADMIN' || ADMIN_EMAILS.includes(user.email);
+  return user.role === 'ADMIN';
 }
 
 export interface AuthTokens {
@@ -62,7 +60,7 @@ export function saveAuthTokens(tokens: AuthTokens): void {
   try {
     localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokens));
   } catch (error) {
-    console.error('Failed to save auth tokens:', error);
+    logger.error('Failed to save auth tokens:', error);
   }
 }
 
@@ -76,7 +74,7 @@ export function clearAuthTokens(): void {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     localStorage.removeItem(USER_STORAGE_KEY);
   } catch (error) {
-    console.error('Failed to clear auth tokens:', error);
+    logger.error('Failed to clear auth tokens:', error);
   }
 }
 
@@ -103,7 +101,7 @@ export function saveCurrentUser(user: User): void {
   try {
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
   } catch (error) {
-    console.error('Failed to save user:', error);
+    logger.error('Failed to save user:', error);
   }
 }
 

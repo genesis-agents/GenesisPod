@@ -43,6 +43,7 @@ import BatchCollectionDrawer from '@/components/admin/data-collection/BatchColle
 import SchedulerPanel from '@/components/admin/data-collection/SchedulerPanel';
 import { Modal } from '@/components/ui';
 
+import { logger } from '@/lib/utils/logger';
 // Extended type for edit form with schedule fields
 interface EditFormData extends Partial<DataSource> {
   scheduleFrequency?: string;
@@ -302,7 +303,7 @@ export default function ConfigPage() {
         const response = await getDataSources();
         setSources(response.data);
       } catch (err) {
-        console.error('Failed to fetch sources:', err);
+        logger.error('Failed to fetch sources:', err);
         setError(err instanceof Error ? err.message : 'Failed to load sources');
       } finally {
         setLoading(false);
@@ -341,7 +342,7 @@ export default function ConfigPage() {
               }, 5000);
             }
           } catch (err) {
-            console.error(`Failed to fetch task ${taskId}:`, err);
+            logger.error(`Failed to fetch task ${taskId}:`, err);
           }
         }
       }
@@ -382,7 +383,7 @@ export default function ConfigPage() {
         prev.map((s) => (s.id === source.id ? { ...s, status: newStatus } : s))
       );
     } catch (err) {
-      console.error('Failed to toggle source status:', err);
+      logger.error('Failed to toggle source status:', err);
       alert('Failed to update source status');
     }
   };
@@ -443,7 +444,7 @@ export default function ConfigPage() {
       setEditingSource(null);
       setEditForm({});
     } catch (err) {
-      console.error('Failed to update source:', err);
+      logger.error('Failed to update source:', err);
       alert('Failed to update source configuration');
     }
   };
@@ -524,7 +525,7 @@ export default function ConfigPage() {
       setRunNowSource(null);
       setRunNowConfig({ maxResults: 10 });
     } catch (err) {
-      console.error('Failed to run collection task:', err);
+      logger.error('Failed to run collection task:', err);
       setNotification({
         type: 'error',
         message:
@@ -617,7 +618,7 @@ export default function ConfigPage() {
       });
       alert('Data source added successfully!');
     } catch (err) {
-      console.error('Failed to add source:', err);
+      logger.error('Failed to add source:', err);
       alert(err instanceof Error ? err.message : 'Failed to add data source');
     }
   };
@@ -677,7 +678,7 @@ export default function ConfigPage() {
       // Auto-hide after 5 seconds
       setTimeout(() => setNotification(null), 5000);
     } catch (err) {
-      console.error('Failed to fix RSS URLs:', err);
+      logger.error('Failed to fix RSS URLs:', err);
       setNotification({
         type: 'error',
         message:

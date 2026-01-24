@@ -14,6 +14,7 @@ import type { Locale, I18nContextValue, Translations } from './types';
 import en from './locales/en.json';
 import zh from './locales/zh.json';
 
+import { logger } from '@/lib/utils/logger';
 const translations: Record<Locale, Translations> = { en, zh };
 
 const STORAGE_KEY = 'deepdive-locale';
@@ -132,7 +133,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         // Return empty string so fallback logic (|| 'fallback') works
         // Only log in development
         if (process.env.NODE_ENV === 'development') {
-          console.warn(`[i18n] Missing translation for key: ${key}`);
+          logger.warn(`[i18n] Missing translation for key: ${key}`);
         }
         return '';
       }

@@ -2,6 +2,7 @@ import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { AiWritingController } from "./ai-writing.controller";
 import { AiWritingService } from "./ai-writing.service";
+import { WritingRepository } from "./writing.repository";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
@@ -33,6 +34,15 @@ import { OutlineService } from "./services/writing/outline.service";
 // Mission services
 import { WritingMissionService } from "./services/mission/writing-mission.service";
 import { WritingMissionHealthCheckService } from "./services/mission/writing-mission-health-check.service";
+import { WritingAgentCoordinator } from "./services/mission/writing-agent-coordinator.service";
+import { WritingContextService } from "./services/mission/writing-context.service";
+import { WritingStyleService } from "./services/mission/writing-style.service";
+import { WritingQualityService } from "./services/mission/writing-quality.service";
+import { CheckpointService } from "./services/mission/checkpoint.service";
+import { WritingModelManager } from "./services/mission/writing-model-manager.service";
+import { WritingPersistence } from "./services/mission/writing-persistence.service";
+import { WritingExecutionService } from "./services/mission/writing-execution.service";
+import { WritingContentGeneratorService } from "./services/mission/writing-content-generator.service";
 
 // Consistency services
 import { ConsistencyEngineService } from "./services/consistency/consistency-engine.service";
@@ -85,6 +95,9 @@ import {
   imports: [PrismaModule, AiEngineModule, LongContentModule, ConfigModule],
   controllers: [AiWritingController],
   providers: [
+    // Repository
+    WritingRepository,
+
     AiWritingService,
     // WebSocket Gateway and Event Emitter
     AiWritingGateway,
@@ -107,6 +120,15 @@ import {
     // Mission services (integrates AI Teams mechanism)
     WritingMissionService,
     WritingMissionHealthCheckService,
+    WritingAgentCoordinator,
+    WritingContextService,
+    WritingStyleService,
+    WritingQualityService,
+    CheckpointService,
+    WritingModelManager,
+    WritingPersistence,
+    WritingExecutionService,
+    WritingContentGeneratorService,
     // Consistency services
     ConsistencyEngineService,
     PreWriteInjectionService,
@@ -147,6 +169,9 @@ import {
     EditorAgent,
   ],
   exports: [
+    // Repository
+    WritingRepository,
+
     AiWritingService,
     WritingEventEmitterService,
     StoryBibleService,

@@ -7,6 +7,7 @@ import AppShell from '@/components/layout/AppShell';
 import { getProjects, CodingProject } from '@/lib/api/ai-coding';
 import { useTranslation } from '@/lib/i18n';
 
+import { logger } from '@/lib/utils/logger';
 interface AgentStatus {
   status: 'pending' | 'running' | 'completed' | 'failed';
   startedAt?: string;
@@ -97,7 +98,7 @@ export default function AICodingPage() {
         const response = await getProjects({ limit: 50 });
         setProjects(response.projects || []);
       } catch (error) {
-        console.error('Failed to fetch projects:', error);
+        logger.error('Failed to fetch projects:', error);
         setProjectsError(
           error instanceof Error ? error.message : 'Failed to load projects'
         );

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { config } from '@/lib/utils/config';
 
+import { logger } from '@/lib/utils/logger';
 // AI模型类型 - 与后端 Prisma schema 保持一致
 export type AIModelType =
   | 'CHAT' // 标准聊天模型 (GPT-4, Claude, Gemini Pro)
@@ -85,7 +86,7 @@ export function useAIModels() {
         cachedModels &&
         !cachedModels.every((m) => m.modelType !== undefined)
       ) {
-        console.log(
+        logger.debug(
           '[useAIModels] Cache invalid: missing modelType, clearing...'
         );
         cachedModels = null;
@@ -105,7 +106,7 @@ export function useAIModels() {
           throw new Error('Failed to fetch AI models');
         }
       } catch (err) {
-        console.error('Failed to fetch AI models:', err);
+        logger.error('Failed to fetch AI models:', err);
         setError(err instanceof Error ? err.message : 'Unknown error');
         // 如果获取失败，使用默认的硬编码列表作为后备
         setModels(getDefaultModels());
@@ -143,7 +144,7 @@ export function getDefaultModelByType(
 ): AIModel | undefined {
   // Debug: 输出所有模型的 modelType 信息
   if (process.env.NODE_ENV === 'development') {
-    console.log(
+    logger.debug(
       '[getDefaultModelByType] Looking for type:',
       modelType,
       'Available models:',
@@ -162,7 +163,7 @@ export function getDefaultModelByType(
   );
   if (defaultOfType) {
     if (process.env.NODE_ENV === 'development') {
-      console.log(
+      logger.debug(
         '[getDefaultModelByType] Found default of type:',
         defaultOfType.name
       );
@@ -174,7 +175,7 @@ export function getDefaultModelByType(
   const firstOfType = models.find((m) => m.modelType === modelType);
   if (firstOfType) {
     if (process.env.NODE_ENV === 'development') {
-      console.log(
+      logger.debug(
         '[getDefaultModelByType] Found first of type:',
         firstOfType.name
       );
@@ -184,7 +185,7 @@ export function getDefaultModelByType(
 
   // 3. 如果该类型没有模型，返回 undefined
   if (process.env.NODE_ENV === 'development') {
-    console.log('[getDefaultModelByType] No model found for type:', modelType);
+    logger.debug('[getDefaultModelByType] No model found for type:', modelType);
   }
   return undefined;
 }
@@ -248,7 +249,7 @@ export function getDefaultChatModel(models: AIModel[]): AIModel | undefined {
   // 2. 如果没找到，尝试通过名称推断
   // 这是为了兼容 modelType 字段未设置的旧数据
   if (process.env.NODE_ENV === 'development') {
-    console.log(
+    logger.debug(
       '[getDefaultChatModel] No CHAT type found, trying to infer from name...'
     );
   }
@@ -257,7 +258,7 @@ export function getDefaultChatModel(models: AIModel[]): AIModel | undefined {
   const defaultChat = models.find((m) => m.isDefault && isChatModel(m));
   if (defaultChat) {
     if (process.env.NODE_ENV === 'development') {
-      console.log(
+      logger.debug(
         '[getDefaultChatModel] Found default chat model by inference:',
         defaultChat.name
       );
@@ -269,7 +270,7 @@ export function getDefaultChatModel(models: AIModel[]): AIModel | undefined {
   const anyChat = models.find((m) => isChatModel(m));
   if (anyChat) {
     if (process.env.NODE_ENV === 'development') {
-      console.log(
+      logger.debug(
         '[getDefaultChatModel] Found chat model by inference:',
         anyChat.name
       );

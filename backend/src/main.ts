@@ -3,6 +3,7 @@ import { ValidationPipe, LogLevel } from "@nestjs/common";
 import helmet from "helmet";
 import { Request, Response, NextFunction } from "express";
 import * as express from "express";
+import * as crypto from "crypto";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { isWorkspaceAiV2Enabled } from "./common/utils/feature-flags";
@@ -40,7 +41,7 @@ function validateEnvConfig(): void {
 
   // JWT_SECRET 指纹验证 (帮助调试跨部署的一致性问题)
   const jwtSecret = process.env.JWT_SECRET || "";
-  const secretFingerprint = require("crypto")
+  const secretFingerprint = crypto
     .createHash("sha256")
     .update(jwtSecret)
     .digest("hex")

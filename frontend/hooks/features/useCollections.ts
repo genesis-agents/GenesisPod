@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 export enum ReadStatus {
   UNREAD = 'UNREAD',
   READING = 'READING',
@@ -84,7 +85,7 @@ export function useCollections() {
   const [error, setError] = useState<string | null>(null);
 
   const handleError = (err: unknown, message: string) => {
-    console.error(message, err);
+    logger.error(message, err);
     setError(message);
     throw err;
   };

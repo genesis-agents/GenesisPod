@@ -10,6 +10,7 @@ import {
 } from '@/lib/utils/auth';
 import Link from 'next/link';
 
+import { logger } from '@/lib/utils/logger';
 interface Feedback {
   id: string;
   type: 'BUG' | 'FEATURE' | 'IMPROVEMENT' | 'OTHER';
@@ -97,7 +98,7 @@ export default function FeedbackHistoryPage() {
         setFeedbacks(data.feedbacks || []);
       }
     } catch (error) {
-      console.error('Failed to fetch feedbacks:', error);
+      logger.error('Failed to fetch feedbacks:', error);
     } finally {
       setLoading(false);
     }

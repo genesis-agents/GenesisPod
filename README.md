@@ -1,6 +1,6 @@
-# AI Teams Engine
+# DeepDive Engine
 
-> AI驱动的多智能体协作平台 - 从信息到洞察，重构你的知识探索之旅
+> 企业级 AI 深度研究和内容管理平台 - 从信息到洞察，重构你的知识探索之旅
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-完整文档-green.svg)](docs/readme.md)
@@ -8,7 +8,7 @@
 
 ## 📖 项目简介
 
-AI Teams Engine 是一个 **AI驱动的多智能体协作平台**，集成了内容聚合、AI分析、知识管理和智能办公功能。
+DeepDive Engine 是一个 **企业级 AI 深度研究和内容管理平台**，集成了内容聚合、AI分析、知识管理和智能办公功能。
 
 ### ⚡ 架构亮点
 
@@ -16,6 +16,7 @@ AI Teams Engine 是一个 **AI驱动的多智能体协作平台**，集成了内
 - **🔧 技术创新**: JSONB + Recursive CTEs 替代 MongoDB + Neo4j
 - **⚡ 高性能**: GIN 索引优化，原生 SQL 查询，零性能损失
 - **🛠️ 运维简化**: 单点备份，无需管理多数据库同步
+- **📦 模块化设计**: AI Engine (能力层) → AI Apps (应用层) 清晰分层
 
 ### 🌟 核心特性
 
@@ -59,13 +60,28 @@ AI Teams Engine 是一个 **AI驱动的多智能体协作平台**，集成了内
 - **上下文感知**: 支持多轮对话和上下文理解
 - **会话管理**: 创建、管理和切换多个对话会话
 
-#### 💻 AI Coding（新增）
+#### 💻 AI Coding
 
 - **多Agent协作**: PM→架构师→PM Lead→工程师→QA 完整开发流程
 - **Kanban看板**: 拖拽式项目管理，参考 vibe-kanban 设计
 - **实时进度**: WebSocket 推送项目执行状态
 - **断点恢复**: 任务检查点持久化，支持故障恢复
 - **代码生成**: AI驱动的完整项目代码生成
+
+#### 🎨 AI Writing
+
+- **长文本创作**: 支持小说、论文、报告等长文本创作
+- **章节管理**: 智能章节规划和内容组织
+- **多AI协作**: 结合不同AI模型优势，提升创作质量
+- **版本控制**: 完整的创作历史和版本管理
+- **智能续写**: AI辅助内容扩展和改写
+
+#### 📱 AI Social
+
+- **社交内容生成**: 微信公众号、小红书等平台内容创作
+- **多平台适配**: 自动适配不同平台的格式要求
+- **内容优化**: AI优化标题、配图、排版
+- **定时发布**: 支持内容定时发布和管理
 
 #### 📊 AI报告生成
 
@@ -88,7 +104,7 @@ AI Teams Engine 是一个 **AI驱动的多智能体协作平台**，集成了内
 - **Node.js** 20+
 - **Python** 3.11+
 - **Docker** & Docker Compose
-- **数据库**: PostgreSQL 16、Redis 7、Qdrant
+- **数据库**: PostgreSQL 16、Redis 7
 
 ### 一键启动（推荐）
 
@@ -134,9 +150,9 @@ docker-compose up -d
 
 这将启动：
 
-- PostgreSQL (5432) - 统一数据库（结构化数据 + 原始数据 + 知识图谱）
-- Redis (6379) - 缓存
-- Qdrant (6333) - 向量数据库
+- PostgreSQL (5432) - 统一数据库（结构化数据 + 原始数据 JSONB + 知识图谱 Recursive CTEs）
+- Redis (6379) - 缓存和会话管理
+- FlareSolverr (8191) - Cloudflare 绕过代理服务
 
 **4. 安装依赖**
 
@@ -191,81 +207,99 @@ uvicorn main:app --reload --port 5000
 ## 📁 项目结构
 
 ```
-ai-teams-engine/
+deepdive-engine/
 ├── docs/                          # 📚 完整项目文档
-│   ├── readme.md                  # 文档导航
-│   ├── prd.md                     # 产品需求文档
-│   ├── architecture/              # 架构设计
-│   │   ├── overview.md
-│   │   ├── ai-context.md
-│   │   └── improvements-summary.md
 │   ├── api/                       # API文档
-│   │   └── readme.md
-│   ├── guides/                    # 开发指南
-│   │   ├── development.md
-│   │   ├── deployment.md
-│   │   ├── testing.md
-│   │   ├── access.md
-│   │   └── service-management.md
+│   ├── architecture/              # 架构设计
+│   │   ├── ai-apps/               # AI应用架构
+│   │   ├── ai-engine/             # AI引擎架构
+│   │   ├── ai-teams/              # AI Teams架构
+│   │   └── system/                # 系统架构
 │   ├── features/                  # 功能文档
-│   │   ├── ai-office/
-│   │   ├── data-collection/
-│   │   └── workspace-reporting/
-│   └── archive/                   # 历史文档归档
+│   │   ├── ai-apps/               # AI应用功能
+│   │   └── ai-teams/              # AI Teams功能
+│   ├── guides/                    # 开发指南
+│   │   ├── authentication/        # 认证指南
+│   │   ├── claude-code/           # Claude Code使用指南
+│   │   ├── deployment/            # 部署指南
+│   │   ├── development/           # 开发指南
+│   │   └── testing/               # 测试指南
+│   ├── prd/                       # 产品需求文档
+│   │   ├── ai-apps/               # AI应用PRD
+│   │   ├── ai-teams/              # AI Teams PRD
+│   │   └── infra/                 # 基础设施PRD
+│   └── _archive/                  # 历史文档归档
 │
 ├── frontend/                      # Next.js 14前端
 │   ├── app/                       # App Router页面
-│   │   ├── api/                   # API路由
-│   │   ├── ai-ask/                # AI Ask 智能对话
-│   │   ├── ai-image/              # AI Image 图像生成
-│   │   ├── ai-office/             # AI Office 文档编辑
-│   │   ├── ai-studio/             # AI Studio 研究平台
-│   │   ├── ai-teams/              # AI Teams 多AI协作
-│   │   ├── explore/               # 内容探索
-│   │   └── workspace/             # Workspace功能
+│   │   ├── admin/                 # 管理后台（access, ai, data, system）
+│   │   ├── ai-ask/                # AI问答
+│   │   ├── ai-coding/             # AI编程
+│   │   ├── ai-image/              # AI图像生成
+│   │   ├── ai-office/             # AI办公
+│   │   ├── ai-research/           # AI研究
+│   │   ├── ai-simulation/         # AI模拟
+│   │   ├── ai-social/             # AI社交内容生成
+│   │   ├── ai-teams/              # AI团队
+│   │   ├── ai-writing/            # AI写作
+│   │   └── library/               # 资源库
 │   ├── components/                # React组件
-│   │   ├── ai-ask/                # AI Ask组件
-│   │   ├── ai-office/             # AI Office组件
-│   │   ├── feed/                  # Feed流组件
-│   │   └── workspace/             # Workspace组件
+│   ├── hooks/                     # React Hooks
 │   ├── lib/                       # 工具函数
 │   └── stores/                    # Zustand状态管理
 │
 ├── backend/                       # NestJS后端
 │   ├── src/
 │   │   ├── modules/               # 功能模块
-│   │   │   ├── ai/                # AI服务集成
-│   │   │   ├── resources/         # 资源管理
-│   │   │   ├── reports/           # 报告生成
-│   │   │   ├── notes/             # 笔记系统
-│   │   │   ├── comments/          # 评论系统
-│   │   │   └── crawler/           # 数据采集
-│   │   ├── common/                # 共享代码
-│   │   │   ├── filters/           # 全局异常过滤器
-│   │   │   └── config/            # 配置（限流等）
-│   │   └── proxy/                 # PDF/HTML代理服务
-│   ├── prisma/                    # Prisma ORM
-│   │   └── schema.prisma          # 数据库Schema
-│   └── test/                      # 测试文件
+│   │   │   ├── ai-engine/         # AI引擎层（核心能力）
+│   │   │   │   ├── image/         # 图像引擎
+│   │   │   │   ├── long-content/  # 长文本引擎
+│   │   │   │   └── teams/         # 团队引擎
+│   │   │   ├── ai-app/            # AI应用层
+│   │   │   │   ├── ask/           # 问答应用
+│   │   │   │   ├── coding/        # 编程应用
+│   │   │   │   ├── image/         # 图像应用
+│   │   │   │   ├── office/        # 办公应用
+│   │   │   │   ├── research/      # 研究应用
+│   │   │   │   ├── simulation/    # 模拟应用
+│   │   │   │   ├── social/        # 社交应用
+│   │   │   │   ├── teams/         # 团队应用
+│   │   │   │   └── writing/       # 写作应用
+│   │   │   ├── content/           # 内容层
+│   │   │   ├── core/              # 核心层
+│   │   │   ├── ingestion/         # 采集层
+│   │   │   ├── integrations/      # 集成层
+│   │   │   └── credits/           # 积分系统
+│   │   ├── common/                # 公共模块
+│   │   └── config/                # 应用配置
+│   └── prisma/                    # Prisma ORM
 │
 ├── ai-service/                    # FastAPI AI服务
-│   ├── services/                  # AI客户端
-│   │   ├── grok_client.py         # Grok API（首选）
-│   │   ├── openai_client.py       # OpenAI API（备用）
-│   │   └── orchestrator.py        # AI服务编排
+│   ├── models/                    # 数据模型
 │   ├── routers/                   # API路由
+│   ├── services/                  # 业务服务
+│   │   ├── ai_orchestrator.py     # AI编排
+│   │   ├── grok_client.py         # Grok客户端
+│   │   └── openai_client.py       # OpenAI客户端
 │   └── utils/                     # 工具函数
 │
 ├── .claude/                       # Claude Code配置
-│   ├── TODO.md                    # 任务追踪
-│   └── PROJECT_STATUS.md          # 项目状态
+│   ├── CLAUDE.md                  # 全局配置
+│   ├── adrs/                      # 架构决策记录
+│   ├── agents/                    # Agent配置
+│   ├── analysis/                  # 分析报告
+│   ├── commands/                  # 快捷命令
+│   ├── skills/                    # 技能定义
+│   ├── standards/                 # 编码标准
+│   └── tools/                     # 工具脚本
 │
-├── docker-compose.yml             # 本地开发环境
-├── project-rules.md               # 开发规范（v2.1）
-├── stop-all.bat                   # 停止所有服务
-├── start-all.bat                  # 启动所有服务
-└── readme.md                      # 本文件
+├── scripts/                       # 运维脚本
+├── docker-compose.yml             # Docker配置
+├── STRUCTURE.md                   # 项目结构文档（本文件）
+└── README.md                      # 项目说明
 ```
+
+详细结构请参考: [STRUCTURE.md](STRUCTURE.md)
 
 ---
 
@@ -299,19 +333,21 @@ ai-teams-engine/
 
 ### 数据库架构（统一 PostgreSQL）
 
-- **PostgreSQL 16**:
+- **PostgreSQL 16** (唯一数据库):
   - 结构化数据（用户、资源、笔记、评论等）
-  - 原始数据存储（JSONB，替代 MongoDB）
-  - 知识图谱（Recursive CTEs + JSONB，替代 Neo4j）
-- **Redis 7**: 缓存、会话管理
-- **Qdrant**: 向量存储、语义搜索
+  - 原始数据存储（JSONB 字段，替代 MongoDB）
+  - 知识图谱（Recursive CTEs，替代 Neo4j）
+  - 全文搜索（内置 ts_vector）
+- **Redis 7**: 缓存、会话管理、实时数据
+- **FlareSolverr**: Cloudflare 反爬虫绕过
 
 **架构优势**：
 
-- 💰 **成本优化**: 单一数据库，节省 70-75% 数据库成本
-- 🔧 **运维简化**: 无需管理多个数据库系统
-- ⚡ **性能提升**: JSONB GIN 索引，原生 SQL 查询
-- 🔄 **备份简化**: 单一备份点，数据一致性保证
+- 💰 **成本优化**: 单一数据库，月成本从 $35-40 降至 $10，节省 70-75%
+- 🔧 **运维简化**: 单点管理，无需管理多数据库同步和一致性
+- ⚡ **性能提升**: JSONB GIN 索引，Recursive CTE 原生图查询，零性能损失
+- 🔄 **备份简化**: 单一备份点，pg_dump 一键备份全量数据
+- 🎯 **数据一致性**: 单数据库事务，ACID 保证
 
 ---
 
@@ -494,8 +530,8 @@ npm run test:e2e
 ## 📊 项目状态
 
 **当前版本**: v0.10-alpha
-**完成度**: 约88%
-**最后更新**: 2025-12-21
+**完成度**: 约90%
+**最后更新**: 2026-01-23
 
 ### ✅ 已完成
 
@@ -503,9 +539,10 @@ npm run test:e2e
 
 - [x] 产品定义和技术架构
 - [x] 项目规范制定（v2.1）
-- [x] Monorepo项目初始化
-- [x] **数据库整合**：MongoDB + Neo4j → PostgreSQL（节省 70-75% 成本）
-- [x] **知识图谱**：PostgreSQL Recursive CTEs 实现
+- [x] Monorepo 项目初始化
+- [x] **数据库整合**: MongoDB + Neo4j → PostgreSQL（节省 70-75% 成本）
+- [x] **知识图谱**: PostgreSQL Recursive CTEs 实现
+- [x] **模块化架构**: AI Engine (能力层) + AI Apps (应用层) 分层设计
 - [x] 安全加固（限流、Helmet、异常处理）
 - [x] 测试框架建立
 
@@ -518,15 +555,18 @@ npm run test:e2e
 - [x] **实时监控Dashboard**（任务进度、质量问题、历史记录）
 - [x] **用户反馈问题修复**：4个致命问题已全部解决
 
-#### AI功能矩阵
+#### AI 功能矩阵
 
-- [x] AI服务集成（Grok + OpenAI + Claude + Gemini）
-- [x] AI Office核心功能（文档编辑、AI写作、导出）
-- [x] **AI Studio研究平台**（多文件分析、知识图谱、研究项目管理）
-- [x] **AI Image图像生成**（Flux Pro集成、多输入模式、历史管理）
-- [x] **AI Teams多AI协作**（主题管理、多模型协作、消息系统）
-- [x] **AI Ask智能对话**（多轮对话、会话管理）
-- [x] **AI Coding代码生成**（多Agent协作、Kanban看板、WebSocket实时进度、断点恢复）
+- [x] AI 服务集成（Grok + OpenAI + Claude + Gemini）
+- [x] **AI Coding 代码生成**（多 Agent 协作、Kanban 看板、WebSocket 实时进度、断点恢复）
+- [x] **AI Writing 写作助手**（长文本创作、章节管理、多 AI 协作、版本控制）
+- [x] **AI Social 社交内容**（多平台适配、内容优化、定时发布）
+- [x] **AI Studio 研究平台**（多文件分析、知识图谱、研究项目管理）
+- [x] **AI Teams 多 AI 协作**（主题管理、多模型协作、消息系统）
+- [x] **AI Ask 智能对话**（多轮对话、会话管理）
+- [x] **AI Office 办公套件**（文档编辑、AI 写作、PPT 生成）
+- [x] **AI Image 图像生成**（Flux Pro 集成、多输入模式、历史管理）
+- [x] **AI Simulation 模拟辩论**（多角色模拟、辩论分析）
 - [x] 报告生成系统（多素材分析、多模板）
 
 #### 用户功能

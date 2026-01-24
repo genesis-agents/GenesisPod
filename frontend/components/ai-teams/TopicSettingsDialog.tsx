@@ -14,6 +14,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import * as aiGroupApi from '@/lib/api/ai-teams';
 import { JoinRequest } from '@/lib/api/ai-teams';
 
+import { logger } from '@/lib/utils/logger';
 // User search result type
 interface SearchedUser {
   id: string;
@@ -57,7 +58,7 @@ export default function TopicSettingsDialog({
       aiGroupApi
         .getJoinRequests(topic.id)
         .then(setJoinRequests)
-        .catch(console.error)
+        .catch((err) => logger.error('Failed to fetch join requests:', err))
         .finally(() => setIsLoadingRequests(false));
     }
   }, [activeTab, topic.id]);
@@ -843,7 +844,7 @@ function AddMemberDialog({
           setSearchResults(filtered);
         }
       } catch (err) {
-        console.error('Search failed:', err);
+        logger.error('Search failed:', err);
       } finally {
         setIsSearching(false);
       }

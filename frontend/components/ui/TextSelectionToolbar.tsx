@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 interface TextSelectionToolbarProps {
   resourceId?: string;
   onAddToNotes?: (text: string, note?: string) => void;
@@ -181,7 +182,7 @@ export default function TextSelectionToolbar({
         setMode('main');
       }, 1000);
     } catch (err) {
-      console.error('Failed to copy:', err);
+      logger.error('Failed to copy:', err);
     }
   }, []);
 
@@ -225,7 +226,7 @@ export default function TextSelectionToolbar({
           setTranslation('Translation failed. Please try again.');
         }
       } catch (err) {
-        console.error('Translation error:', err);
+        logger.error('Translation error:', err);
         setTranslation('Translation service unavailable.');
       } finally {
         setTranslating(false);
@@ -279,7 +280,7 @@ export default function TextSelectionToolbar({
         }, 1500);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to add note:', response.status, errorData);
+        logger.error('Failed to add note:', response.status, errorData);
         setSuccessMessage('Failed to save. Please try again.');
         setMode('success');
         setTimeout(() => {
@@ -287,7 +288,7 @@ export default function TextSelectionToolbar({
         }, 2000);
       }
     } catch (err) {
-      console.error('Failed to add note:', err);
+      logger.error('Failed to add note:', err);
       setSuccessMessage('Network error. Please try again.');
       setMode('success');
       setTimeout(() => {

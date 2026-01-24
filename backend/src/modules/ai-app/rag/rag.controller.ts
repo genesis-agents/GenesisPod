@@ -42,6 +42,7 @@ import {
 } from "./dto";
 import { UrlFetchService } from "./services/url-fetch.service";
 import { PlatformImportService } from "./services/platform-import.service";
+import type { RequestWithUser } from "../../../common/types/express-request.types";
 
 @ApiTags("RAG")
 @Controller("rag")
@@ -74,7 +75,7 @@ export class RAGController {
   @ApiOperation({ summary: "Create a new knowledge base" })
   @ApiResponse({ status: 201, description: "Knowledge base created" })
   async createKnowledgeBase(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Body() dto: CreateKnowledgeBaseDto,
   ) {
     const kb = await this.knowledgeBaseService.create(req.user.id, dto);
@@ -107,21 +108,21 @@ export class RAGController {
   @Get("knowledge-bases")
   @ApiOperation({ summary: "List all knowledge bases for current user" })
   @ApiResponse({ status: 200, description: "List of knowledge bases" })
-  async listKnowledgeBases(@Req() req: any) {
+  async listKnowledgeBases(@Req() req: RequestWithUser) {
     return this.knowledgeBaseService.findByUser(req.user.id);
   }
 
   @Get("knowledge-bases/:id")
   @ApiOperation({ summary: "Get knowledge base by ID" })
   @ApiResponse({ status: 200, description: "Knowledge base details" })
-  async getKnowledgeBase(@Req() req: any, @Param("id") id: string) {
+  async getKnowledgeBase(@Req() req: RequestWithUser, @Param("id") id: string) {
     return this.knowledgeBaseService.findById(id, req.user.id);
   }
 
   @Get("knowledge-bases/:id/stats")
   @ApiOperation({ summary: "Get knowledge base statistics" })
   @ApiResponse({ status: 200, description: "Knowledge base statistics" })
-  async getKnowledgeBaseStats(@Req() req: any, @Param("id") id: string) {
+  async getKnowledgeBaseStats(@Req() req: RequestWithUser, @Param("id") id: string) {
     // Verify ownership
     await this.knowledgeBaseService.findById(id, req.user.id);
     return this.knowledgeBaseService.getStats(id);
@@ -133,7 +134,7 @@ export class RAGController {
     status: 200,
     description: "List of documents with vectorization status",
   })
-  async listDocuments(@Req() req: any, @Param("id") id: string) {
+  async listDocuments(@Req() req: RequestWithUser, @Param("id") id: string) {
     this.logger.debug(`Listing documents for KB ${id}`);
     // Verify ownership
     await this.knowledgeBaseService.findById(id, req.user.id);
@@ -146,7 +147,7 @@ export class RAGController {
   @ApiOperation({ summary: "Update a knowledge base" })
   @ApiResponse({ status: 200, description: "Knowledge base updated" })
   async updateKnowledgeBase(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: UpdateKnowledgeBaseDto,
   ) {
@@ -156,7 +157,7 @@ export class RAGController {
   @Delete("knowledge-bases/:id")
   @ApiOperation({ summary: "Delete a knowledge base" })
   @ApiResponse({ status: 200, description: "Knowledge base deleted" })
-  async deleteKnowledgeBase(@Req() req: any, @Param("id") id: string) {
+  async deleteKnowledgeBase(@Req() req: RequestWithUser, @Param("id") id: string) {
     await this.knowledgeBaseService.delete(id, req.user.id);
     return { success: true };
   }
@@ -167,7 +168,7 @@ export class RAGController {
   @ApiOperation({ summary: "Add a document to knowledge base" })
   @ApiResponse({ status: 201, description: "Document added" })
   async addDocument(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: AddDocumentDto,
   ) {
@@ -185,7 +186,7 @@ export class RAGController {
   @Delete("documents/:id")
   @ApiOperation({ summary: "Delete a document" })
   @ApiResponse({ status: 200, description: "Document deleted" })
-  async deleteDocument(@Req() req: any, @Param("id") id: string) {
+  async deleteDocument(@Req() req: RequestWithUser, @Param("id") id: string) {
     await this.knowledgeBaseService.deleteDocument(id, req.user.id);
     return { success: true };
   }
@@ -193,7 +194,7 @@ export class RAGController {
   @Post("knowledge-bases/:id/process")
   @ApiOperation({ summary: "Process all pending documents in knowledge base" })
   @ApiResponse({ status: 200, description: "Processing started" })
-  async processDocuments(@Req() req: any, @Param("id") id: string) {
+  async processDocuments(@Req() req: RequestWithUser, @Param("id") id: string) {
     // Verify ownership
     await this.knowledgeBaseService.findById(id, req.user.id);
     return this.knowledgeBaseService.processAllDocuments(id);
@@ -206,7 +207,7 @@ export class RAGController {
   })
   @ApiResponse({ status: 201, description: "Resources added successfully" })
   async addResources(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: AddResourcesDto,
   ) {
@@ -387,7 +388,7 @@ export class RAGController {
   @Post("knowledge-bases/:id/sync")
   @ApiOperation({ summary: "Sync knowledge base with Google Drive" })
   @ApiResponse({ status: 200, description: "Sync completed" })
-  async syncKnowledgeBase(@Req() req: any, @Param("id") id: string) {
+  async syncKnowledgeBase(@Req() req: RequestWithUser, @Param("id") id: string) {
     // Verify ownership
     await this.knowledgeBaseService.findById(id, req.user.id);
     return this.googleDriveRAGService.syncKnowledgeBase(id);
@@ -397,7 +398,7 @@ export class RAGController {
   @ApiOperation({ summary: "List Google Drive folders for selection" })
   @ApiResponse({ status: 200, description: "List of folders" })
   async listGoogleDriveFolders(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Query("parentId") parentId?: string,
   ) {
     return this.googleDriveRAGService.listFolders(req.user.id, parentId);
@@ -409,7 +410,7 @@ export class RAGController {
   @ApiOperation({ summary: "Preview URL content before importing" })
   @ApiResponse({ status: 200, description: "URL content preview" })
   async fetchUrl(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: FetchUrlDto,
   ) {
@@ -422,7 +423,7 @@ export class RAGController {
   @ApiOperation({ summary: "Batch import URLs to knowledge base" })
   @ApiResponse({ status: 201, description: "URLs imported" })
   async importUrls(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: ImportUrlsDto,
   ) {
@@ -437,7 +438,7 @@ export class RAGController {
   @ApiOperation({ summary: "Get available bookmarks for import" })
   @ApiResponse({ status: 200, description: "List of available bookmarks" })
   async getAvailableBookmarks(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Query("search") search?: string,
     @Query("page") page?: string,
@@ -456,7 +457,7 @@ export class RAGController {
   @ApiOperation({ summary: "Import platform bookmarks to knowledge base" })
   @ApiResponse({ status: 201, description: "Bookmarks imported" })
   async importBookmarks(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: ImportBookmarksDto,
   ) {
@@ -475,7 +476,7 @@ export class RAGController {
   @ApiOperation({ summary: "Get available notes for import" })
   @ApiResponse({ status: 200, description: "List of available notes" })
   async getAvailableNotes(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Query("search") search?: string,
     @Query("page") page?: string,
@@ -494,7 +495,7 @@ export class RAGController {
   @ApiOperation({ summary: "Import platform notes to knowledge base" })
   @ApiResponse({ status: 201, description: "Notes imported" })
   async importNotes(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: ImportNotesDto,
   ) {
@@ -514,7 +515,7 @@ export class RAGController {
   @ApiOperation({ summary: "Import OCR results to knowledge base" })
   @ApiResponse({ status: 201, description: "OCR results imported" })
   async importOcr(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: ImportOcrDto,
   ) {
@@ -547,7 +548,7 @@ export class RAGController {
   @Get("knowledge-bases/:id/members")
   @ApiOperation({ summary: "Get knowledge base members" })
   @ApiResponse({ status: 200, description: "List of members" })
-  async getMembers(@Req() req: any, @Param("id") id: string) {
+  async getMembers(@Req() req: RequestWithUser, @Param("id") id: string) {
     return this.knowledgeBaseService.getMembers(id, req.user.id);
   }
 
@@ -555,7 +556,7 @@ export class RAGController {
   @ApiOperation({ summary: "Add a member to knowledge base" })
   @ApiResponse({ status: 201, description: "Member added" })
   async addMember(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: { email: string; role?: "ADMIN" | "EDITOR" | "VIEWER" },
   ) {
@@ -571,7 +572,7 @@ export class RAGController {
   @ApiOperation({ summary: "Update member role" })
   @ApiResponse({ status: 200, description: "Member role updated" })
   async updateMemberRole(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Param("memberId") memberId: string,
     @Body() dto: { role: "ADMIN" | "EDITOR" | "VIEWER" },
@@ -588,7 +589,7 @@ export class RAGController {
   @ApiOperation({ summary: "Remove a member from knowledge base" })
   @ApiResponse({ status: 200, description: "Member removed" })
   async removeMember(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
     @Param("id") id: string,
     @Param("memberId") memberId: string,
   ) {
@@ -601,7 +602,7 @@ export class RAGController {
   @Post("query")
   @ApiOperation({ summary: "Execute full RAG pipeline query" })
   @ApiResponse({ status: 200, description: "Query results with context" })
-  async query(@Req() req: any, @Body() dto: RAGQueryDto) {
+  async query(@Req() req: RequestWithUser, @Body() dto: RAGQueryDto) {
     // Verify ownership of all knowledge bases
     for (const kbId of dto.knowledgeBaseIds) {
       await this.knowledgeBaseService.findById(kbId, req.user.id);
@@ -623,7 +624,7 @@ export class RAGController {
   @Post("simple-query")
   @ApiOperation({ summary: "Execute simple vector search query" })
   @ApiResponse({ status: 200, description: "Search results" })
-  async simpleQuery(@Req() req: any, @Body() dto: SimpleQueryDto) {
+  async simpleQuery(@Req() req: RequestWithUser, @Body() dto: SimpleQueryDto) {
     // Verify ownership of all knowledge bases
     for (const kbId of dto.knowledgeBaseIds) {
       await this.knowledgeBaseService.findById(kbId, req.user.id);

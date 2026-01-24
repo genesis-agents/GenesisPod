@@ -4,9 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { I18nProvider } from '@/lib/i18n';
-import { ChunkErrorHandler } from '@/components/shared/ChunkErrorHandler';
+import { ChunkErrorHandler } from '@/components/common/ChunkErrorHandler';
 import { ToastContainer } from '@/components/ui/Toast';
-import { toast } from '@/stores/toastStore';
+import { toast } from '@/stores';
 import { CheckinModal, InsufficientCreditsModal } from '@/components/credits';
 
 /**

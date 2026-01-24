@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 const AI_SERVICE_URL =
   process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:5000';
 
@@ -39,14 +40,14 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Grok API error:', errorText);
+      logger.error('Grok API error:', errorText);
       throw new Error(`Grok API responded with status: ${response.status}`);
     }
 
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Grok proxy error:', error);
+    logger.error('Grok proxy error:', error);
     return NextResponse.json(
       {
         error: 'Failed to communicate with Grok API',

@@ -150,15 +150,13 @@ export {
 } from "./teams";
 
 // NestJS 模块导出
-export {
-  AiEngineModule,
-  AiEngineToolsModule,
-  AiEngineSkillsModule,
-  AiEngineAgentsModule,
-  AiEngineOrchestrationModule,
-  AiEngineCollaborationModule,
-  AiEngineConstraintModule,
-} from "./ai-engine.module";
+export { AiEngineModule } from "./ai-engine.module";
+export { AiEngineLLMModule } from "./ai-engine-llm.module";
+export { AiEngineToolsModule } from "./ai-engine-tools.module";
+export { AiEngineSkillsModule } from "./ai-engine-skills.module";
+export { AiEngineOrchestrationModule } from "./ai-engine-orchestration.module";
+export { AiEngineMemoryModule } from "./ai-engine-memory.module";
+export { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 
 export { TeamsModule } from "./teams";
 

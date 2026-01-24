@@ -15,6 +15,7 @@ import AppShell from '@/components/layout/AppShell';
 import * as api from '@/lib/api/ai-teams';
 import { PublicTopic, JoinRequest } from '@/lib/api/ai-teams';
 import { useTranslation } from '@/lib/i18n';
+import { logger } from '@/lib/utils/logger';
 
 type TabType = 'my-teams' | 'discover';
 
@@ -63,7 +64,7 @@ export default function AIGroupPage() {
     if (!authLoading && isAuthenticated) {
       fetchTopics();
       // Also fetch my join requests
-      api.getMyJoinRequests().then(setMyJoinRequests).catch(console.error);
+      api.getMyJoinRequests().then(setMyJoinRequests).catch((err) => logger.error('Failed to fetch join requests:', err));
     }
   }, [authLoading, isAuthenticated, fetchTopics]);
 
@@ -86,7 +87,7 @@ export default function AIGroupPage() {
           );
           setPublicTopics(filteredTopics);
         })
-        .catch(console.error)
+        .catch((err) => logger.error('Failed to fetch public topics:', err))
         .finally(() => setIsLoadingPublicTopics(false));
     }
   }, [activeTab, isAuthenticated, searchQuery, myJoinRequests, topics]);

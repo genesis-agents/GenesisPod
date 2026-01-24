@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useCreditsStore } from '@/stores/creditsStore';
+import { useCreditsStore } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
 import Modal from '@/components/ui/Modal';
 

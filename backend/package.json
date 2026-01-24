@@ -25,15 +25,21 @@
     "prisma:studio": "prisma studio --schema=prisma/schema",
     "db:studio:railway": "dotenv -e .env.railway -- prisma studio --schema=prisma/schema",
     "prisma:seed": "tsx prisma/seed.ts",
-    "templates:seed": "ts-node -r tsconfig-paths/register src/scripts/seed-report-templates.ts",
-    "thumbnails:generate": "ts-node -r tsconfig-paths/register src/scripts/generate-thumbnails.ts",
-    "thumbnails:arxiv": "ts-node -r tsconfig-paths/register src/scripts/update-arxiv-thumbnails.ts",
     "seed": "tsx prisma/seed.ts",
+    "seed:templates": "tsx scripts/seed/seed-report-templates.ts",
+    "seed:simulation": "tsx scripts/seed/seed-simulation-providers.ts",
+    "seed:youtube": "tsx scripts/seed/seed-youtube-sources.ts",
+    "thumbnails:generate": "tsx scripts/thumbnails/generate-thumbnails.ts",
+    "thumbnails:arxiv": "tsx scripts/thumbnails/update-arxiv-thumbnails.ts",
+    "thumbnails:all": "tsx scripts/thumbnails/generate-all-thumbnails.ts",
     "diagnose": "tsx prisma/diagnose-db.ts",
     "deploy": "tsx prisma/deploy-migrations.ts && npm run prisma:seed",
     "deploy:migrate": "tsx prisma/deploy-migrations.ts",
-    "release:preview": "ts-node scripts/send-release-notification.ts --dry-run",
-    "release:notify": "ts-node scripts/send-release-notification.ts"
+    "release:preview": "tsx scripts/devops/send-release-notification.ts --dry-run",
+    "release:notify": "tsx scripts/devops/send-release-notification.ts",
+    "dev:circular": "tsx scripts/dev-tools/detect-circular-deps.ts",
+    "maintenance:policy": "tsx scripts/maintenance/update-policy-whitelist.ts",
+    "maintenance:validate": "tsx scripts/maintenance/validate-data-integrity.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

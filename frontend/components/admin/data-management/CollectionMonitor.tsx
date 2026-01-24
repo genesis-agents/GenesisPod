@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 import { Loader2, AlertCircle } from 'lucide-react';
 
+import { logger } from '@/lib/utils/logger';
 interface ImportTask {
   id: string;
   resourceType: string;
@@ -63,7 +64,7 @@ export function CollectionMonitor() {
       }
     } catch (err) {
       setError('获取采集任务失败');
-      console.error(err);
+      logger.error(err);
     } finally {
       setLoading(false);
     }

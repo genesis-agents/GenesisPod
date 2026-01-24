@@ -8,6 +8,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
+import { logger } from '@/lib/utils/logger';
 // 事件类型
 export type ResearchEventType =
   | 'mission:started'
@@ -163,14 +164,14 @@ export function useResearchWebSocket(
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
     if (!apiUrl) {
       // 本地开发环境
-      console.log('[ResearchWS] No API URL configured, using localhost');
+      logger.debug('[ResearchWS] No API URL configured, using localhost');
     }
 
     // 移除 /api/v1 后缀获取基础 URL
     const baseUrl = apiUrl?.replace('/api/v1', '') || 'http://localhost:3001';
 
     connectingRef.current = true;
-    console.log('[ResearchWS] Connecting to:', `${baseUrl}/topic-research`);
+    logger.debug('[ResearchWS] Connecting to:', `${baseUrl}/topic-research`);
 
     const socket = io(`${baseUrl}/topic-research`, {
       transports: ['websocket', 'polling'],
@@ -182,7 +183,7 @@ export function useResearchWebSocket(
     });
 
     socket.on('connect', () => {
-      console.log('[ResearchWS] Connected');
+      logger.debug('[ResearchWS] Connected');
       connectingRef.current = false;
       setIsConnected(true);
       setError(null);
@@ -192,13 +193,13 @@ export function useResearchWebSocket(
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('[ResearchWS] Disconnected:', reason);
+      logger.debug('[ResearchWS] Disconnected:', reason);
       connectingRef.current = false;
       setIsConnected(false);
     });
 
     socket.on('connect_error', (err) => {
-      console.error('[ResearchWS] Connection error:', err.message);
+      logger.error('[ResearchWS] Connection error:', err.message);
       connectingRef.current = false;
       // 只在首次失败时设置错误，避免频繁更新状态导致闪烁
       if (!error) {
@@ -225,7 +226,7 @@ export function useResearchWebSocket(
 
     // Mission 事件
     socket.on('mission:started', (data) => {
-      console.log('[ResearchWS] Mission started:', data);
+      logger.debug('[ResearchWS] Mission started:', data);
       setProgress(0);
       setPhase('started');
       setCurrentMessage(data.message || '研究任务已启动');
@@ -243,7 +244,7 @@ export function useResearchWebSocket(
     });
 
     socket.on('mission:completed', (data) => {
-      console.log('[ResearchWS] Mission completed:', data);
+      logger.debug('[ResearchWS] Mission completed:', data);
       setProgress(100);
       setPhase('completed');
       setCurrentMessage(data.message || '研究完成');
@@ -252,32 +253,32 @@ export function useResearchWebSocket(
     });
 
     socket.on('mission:failed', (data) => {
-      console.error('[ResearchWS] Mission failed:', data);
+      logger.error('[ResearchWS] Mission failed:', data);
       setError(data.error || '任务失败');
       handleEvent('mission:failed', data);
     });
 
     // Leader 事件
     socket.on('leader:thinking', (data: LeaderThinkingData) => {
-      console.log('[ResearchWS] Leader thinking:', data);
+      logger.debug('[ResearchWS] Leader thinking:', data);
       setCurrentMessage(data.content);
       handleEvent('leader:thinking', data);
     });
 
     socket.on('leader:planning', (data) => {
-      console.log('[ResearchWS] Leader planning:', data);
+      logger.debug('[ResearchWS] Leader planning:', data);
       setCurrentMessage(data.message || data.content);
       handleEvent('leader:planning', data);
     });
 
     socket.on('leader:plan_ready', (data) => {
-      console.log('[ResearchWS] Leader plan ready:', data);
+      logger.debug('[ResearchWS] Leader plan ready:', data);
       setCurrentMessage(data.message);
       handleEvent('leader:plan_ready', data);
     });
 
     socket.on('leader:response', (data) => {
-      console.log('[ResearchWS] Leader response:', data);
+      logger.debug('[ResearchWS] Leader response:', data);
       handleEvent('leader:response', data);
     });
 
@@ -294,13 +295,13 @@ export function useResearchWebSocket(
     });
 
     socket.on('agent:completed', (data) => {
-      console.log('[ResearchWS] Agent completed:', data);
+      logger.debug('[ResearchWS] Agent completed:', data);
       handleEvent('agent:completed', data);
     });
 
     // 任务事件
     socket.on('task:started', (data: TaskProgressData) => {
-      console.log('[ResearchWS] Task started:', data);
+      logger.debug('[ResearchWS] Task started:', data);
       setCurrentMessage(data.message || `开始执行: ${data.title}`);
       handleEvent('task:started', data);
     });
@@ -310,13 +311,13 @@ export function useResearchWebSocket(
     });
 
     socket.on('task:completed', (data: TaskProgressData) => {
-      console.log('[ResearchWS] Task completed:', data);
+      logger.debug('[ResearchWS] Task completed:', data);
       handleEvent('task:completed', data);
     });
 
     // 维度研究事件
     socket.on('dimension:research_started', (data) => {
-      console.log('[ResearchWS] Dimension research started:', data);
+      logger.debug('[ResearchWS] Dimension research started:', data);
       handleEvent('dimension:research_started', data);
     });
 
@@ -325,29 +326,29 @@ export function useResearchWebSocket(
     });
 
     socket.on('dimension:research_completed', (data) => {
-      console.log('[ResearchWS] Dimension research completed:', data);
+      logger.debug('[ResearchWS] Dimension research completed:', data);
       handleEvent('dimension:research_completed', data);
     });
 
     // 报告撰写事件
     socket.on('report:synthesis_started', (data) => {
-      console.log('[ResearchWS] Report synthesis started:', data);
+      logger.debug('[ResearchWS] Report synthesis started:', data);
       handleEvent('report:synthesis_started', data);
     });
 
     socket.on('report:synthesis_completed', (data) => {
-      console.log('[ResearchWS] Report synthesis completed:', data);
+      logger.debug('[ResearchWS] Report synthesis completed:', data);
       handleEvent('report:synthesis_completed', data);
     });
 
     // TODO 事件 (Phase TODO UX Enhancement)
     socket.on('todo:created', (data) => {
-      console.log('[ResearchWS] TODO created:', data);
+      logger.debug('[ResearchWS] TODO created:', data);
       handleEvent('todo:created', data);
     });
 
     socket.on('todo:status_changed', (data) => {
-      console.log('[ResearchWS] TODO status changed:', data);
+      logger.debug('[ResearchWS] TODO status changed:', data);
       handleEvent('todo:status_changed', data);
     });
 
@@ -356,29 +357,29 @@ export function useResearchWebSocket(
     });
 
     socket.on('todo:completed', (data) => {
-      console.log('[ResearchWS] TODO completed:', data);
+      logger.debug('[ResearchWS] TODO completed:', data);
       handleEvent('todo:completed', data);
     });
 
     socket.on('todo:failed', (data) => {
-      console.log('[ResearchWS] TODO failed:', data);
+      logger.debug('[ResearchWS] TODO failed:', data);
       handleEvent('todo:failed', data);
     });
 
     socket.on('todo:cancelled', (data) => {
-      console.log('[ResearchWS] TODO cancelled:', data);
+      logger.debug('[ResearchWS] TODO cancelled:', data);
       handleEvent('todo:cancelled', data);
     });
 
     // ★ v7.2: Leader 审核事件
     socket.on('todo:reviewing', (data) => {
-      console.log('[ResearchWS] TODO reviewing:', data);
+      logger.debug('[ResearchWS] TODO reviewing:', data);
       setCurrentMessage(data.message || 'Leader 正在审核任务结果...');
       handleEvent('todo:reviewing', data);
     });
 
     socket.on('todo:reviewed', (data) => {
-      console.log('[ResearchWS] TODO reviewed:', data);
+      logger.debug('[ResearchWS] TODO reviewed:', data);
       const decision = data.decision || 'unknown';
       const msg =
         decision === 'approved'

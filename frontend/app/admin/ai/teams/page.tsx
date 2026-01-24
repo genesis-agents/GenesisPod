@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { UsersRound, Plus, Search } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
-import AITeamsSettings from '@/components/admin/AITeamsSettings';
+import AITeamsSettings from '@/components/admin/ai-config/AITeamsSettings';
 
 export default function AITeamsPage() {
   const { t } = useTranslation();

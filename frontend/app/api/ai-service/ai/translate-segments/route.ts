@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 // Try NestJS backend first, fallback to AI service
 function ensureProtocol(url: string): string {
   if (!url) return url;
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
       batchSize = 10,
     } = body;
 
-    console.log(
+    logger.debug(
       `Translation request: ${segments.length} segments, model: ${model}, batchSize: ${batchSize}`
     );
 
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
 
       // If NestJS doesn't have this endpoint, try AI service
       if (response.status === 404) {
-        console.log('NestJS endpoint not found, trying AI service...');
+        logger.debug('NestJS endpoint not found, trying AI service...');
         response = await fetch(
           `${AI_SERVICE_URL}/api/v1/ai/translate-segments`,
           {
@@ -80,25 +81,25 @@ export async function POST(request: NextRequest) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`AI service error: ${response.status} - ${errorText}`);
+        logger.error(`AI service error: ${response.status} - ${errorText}`);
         throw new Error(`AI service responded with status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log(
+      logger.debug(
         `Translation completed: ${data.translations?.length || 0} translations`
       );
       return NextResponse.json(data);
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
-        console.error('Translation request timed out after 5 minutes');
+        logger.error('Translation request timed out after 5 minutes');
         throw new Error('Translation request timed out');
       }
       throw fetchError;
     }
   } catch (error: any) {
-    console.error('Translation error:', error?.message || error);
+    logger.error('Translation error:', error?.message || error);
     return NextResponse.json(
       { error: error?.message || 'Failed to translate segments' },
       { status: 500 }

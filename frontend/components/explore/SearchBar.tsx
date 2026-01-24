@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
-import type { SearchSuggestion } from './types';
+import type { SearchSuggestion } from './utils/types';
 import { useI18n } from '@/lib/i18n/i18n-context';
 
 interface SearchBarProps {

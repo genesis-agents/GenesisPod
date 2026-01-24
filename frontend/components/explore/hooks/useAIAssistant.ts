@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import type { AIMessage, AIInsight, Resource } from '../types';
+import type { AIMessage, AIInsight, Resource } from '../utils/types';
 import {
   AIContextBuilder,
   type Resource as AIResource,

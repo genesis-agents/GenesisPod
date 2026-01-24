@@ -24,7 +24,6 @@ import { ChapterImportService } from "./services/writing/chapter-import.service"
 import { ConsistencyEngineService } from "./services/consistency/consistency-engine.service";
 import { ParallelOrchestratorService } from "./services/parallel/parallel-orchestrator.service";
 import { WritingMissionService } from "./services/mission/writing-mission.service";
-import { PrismaService } from "../../../common/prisma/prisma.service";
 import {
   CreateProjectDto,
   UpdateProjectDto,
@@ -36,6 +35,7 @@ import {
   StartWritingDto,
 } from "./dto";
 import { getAllStylePresets, recommendStyleByGenre } from "./constants";
+import type { RequestWithUser } from "../../../common/types/express-request.types";
 
 @Controller("ai-writing")
 @UseGuards(JwtAuthGuard)
@@ -54,7 +54,6 @@ export class AiWritingController {
     private readonly consistencyEngine: ConsistencyEngineService,
     private readonly parallelOrchestrator: ParallelOrchestratorService,
     private readonly writingMissionService: WritingMissionService,
-    private readonly prisma: PrismaService,
   ) {
     void this.logger;
     void this.aiWritingService;
@@ -92,14 +91,14 @@ export class AiWritingController {
   // ==================== Project CRUD ====================
 
   @Post("projects")
-  async createProject(@Request() req: any, @Body() dto: CreateProjectDto) {
+  async createProject(@Request() req: RequestWithUser, @Body() dto: CreateProjectDto) {
     this.logger.log(`Creating writing project for user ${req.user.id}`);
     return this.projectService.create(req.user.id, dto);
   }
 
   @Get("projects")
   async getProjects(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Query("status") status?: string,
     @Query("limit") limit?: string,
     @Query("cursor") cursor?: string,
@@ -112,13 +111,13 @@ export class AiWritingController {
   }
 
   @Get("projects/:id")
-  async getProject(@Request() req: any, @Param("id") id: string) {
+  async getProject(@Request() req: RequestWithUser, @Param("id") id: string) {
     return this.projectService.findOne(id, req.user.id);
   }
 
   @Patch("projects/:id")
   async updateProject(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: UpdateProjectDto,
   ) {
@@ -126,7 +125,7 @@ export class AiWritingController {
   }
 
   @Delete("projects/:id")
-  async deleteProject(@Request() req: any, @Param("id") id: string) {
+  async deleteProject(@Request() req: RequestWithUser, @Param("id") id: string) {
     return this.projectService.delete(id, req.user.id);
   }
 
@@ -134,7 +133,7 @@ export class AiWritingController {
 
   @Get("projects/:projectId/bible")
   async getStoryBible(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
     return this.storyBibleService.getByProject(projectId, req.user.id);
@@ -142,9 +141,15 @@ export class AiWritingController {
 
   @Patch("projects/:projectId/bible")
   async updateStoryBible(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
-    @Body() dto: any,
+    @Body()
+    dto: {
+      premise?: string;
+      theme?: string;
+      tone?: string;
+      worldType?: string;
+    },
   ) {
     return this.storyBibleService.update(projectId, req.user.id, dto);
   }
@@ -153,7 +158,7 @@ export class AiWritingController {
 
   @Post("projects/:projectId/characters")
   async createCharacter(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Body() dto: CreateCharacterDto,
   ) {
@@ -162,7 +167,7 @@ export class AiWritingController {
 
   @Get("projects/:projectId/characters")
   async getCharacters(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
     return this.characterService.findAll(projectId, req.user.id);
@@ -170,7 +175,7 @@ export class AiWritingController {
 
   @Get("projects/:projectId/characters/:id")
   async getCharacter(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("id") id: string,
   ) {
@@ -179,7 +184,7 @@ export class AiWritingController {
 
   @Patch("projects/:projectId/characters/:id")
   async updateCharacter(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("id") id: string,
     @Body() dto: UpdateCharacterDto,
@@ -189,7 +194,7 @@ export class AiWritingController {
 
   @Delete("projects/:projectId/characters/:id")
   async deleteCharacter(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("id") id: string,
   ) {
@@ -200,7 +205,7 @@ export class AiWritingController {
 
   @Get("projects/:projectId/relationships/graph")
   async getRelationshipGraph(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
     return this.characterService.getRelationshipGraph(projectId, req.user.id);
@@ -208,7 +213,7 @@ export class AiWritingController {
 
   @Post("projects/:projectId/characters/:characterId/relationships")
   async addRelationship(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("characterId") characterId: string,
     @Body()
@@ -228,7 +233,7 @@ export class AiWritingController {
 
   @Delete("projects/:projectId/relationships/:relationshipId")
   async deleteRelationship(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("relationshipId") relationshipId: string,
   ) {
@@ -243,7 +248,7 @@ export class AiWritingController {
 
   @Post("projects/:projectId/volumes")
   async createVolume(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Body() dto: CreateVolumeDto,
   ) {
@@ -251,7 +256,7 @@ export class AiWritingController {
   }
 
   @Get("projects/:projectId/volumes")
-  async getVolumes(@Request() req: any, @Param("projectId") projectId: string) {
+  async getVolumes(@Request() req: RequestWithUser, @Param("projectId") projectId: string) {
     return this.projectService.getVolumes(projectId, req.user.id);
   }
 
@@ -259,7 +264,7 @@ export class AiWritingController {
 
   @Post("volumes/:volumeId/chapters")
   async createChapter(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("volumeId") volumeId: string,
     @Body() dto: CreateChapterDto,
   ) {
@@ -267,18 +272,18 @@ export class AiWritingController {
   }
 
   @Get("volumes/:volumeId/chapters")
-  async getChapters(@Request() req: any, @Param("volumeId") volumeId: string) {
+  async getChapters(@Request() req: RequestWithUser, @Param("volumeId") volumeId: string) {
     return this.chapterWritingService.getChapters(volumeId, req.user.id);
   }
 
   @Get("chapters/:id")
-  async getChapter(@Request() req: any, @Param("id") id: string) {
+  async getChapter(@Request() req: RequestWithUser, @Param("id") id: string) {
     return this.chapterWritingService.getChapter(id, req.user.id);
   }
 
   @Patch("chapters/:id")
   async updateChapter(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: UpdateChapterDto,
   ) {
@@ -289,7 +294,7 @@ export class AiWritingController {
 
   @Post("chapters/:id/write")
   async startWriting(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: StartWritingDto,
   ) {
@@ -299,7 +304,7 @@ export class AiWritingController {
 
   @Post("volumes/:volumeId/write-parallel")
   async startParallelWriting(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("volumeId") volumeId: string,
     @Body() dto: { maxParallel?: number },
   ) {
@@ -314,13 +319,13 @@ export class AiWritingController {
   // ==================== Consistency ====================
 
   @Post("chapters/:id/check-consistency")
-  async checkConsistency(@Request() req: any, @Param("id") id: string) {
+  async checkConsistency(@Request() req: RequestWithUser, @Param("id") id: string) {
     return this.consistencyEngine.validateChapter(id, req.user.id);
   }
 
   @Get("projects/:projectId/consistency-report")
   async getConsistencyReport(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
     return this.consistencyEngine.getProjectReport(projectId, req.user.id);
@@ -334,7 +339,7 @@ export class AiWritingController {
    */
   @Post("projects/:projectId/missions")
   async startMission(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Body()
     dto: {
@@ -370,13 +375,10 @@ export class AiWritingController {
     // 如果指定了章节号，查找对应的章节 ID
     let chapterId: string | undefined;
     if (dto.chapterNumber) {
-      const chapter = await this.prisma.writingChapter.findFirst({
-        where: {
-          volume: { projectId },
-          chapterNumber: dto.chapterNumber,
-        },
-        select: { id: true },
-      });
+      const chapter = await this.projectService.findChapterByNumber(
+        projectId,
+        dto.chapterNumber,
+      );
       if (chapter) {
         chapterId = chapter.id;
       }
@@ -412,7 +414,7 @@ export class AiWritingController {
    */
   @Get("missions/:missionId")
   async getMissionStatus(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("missionId") missionId: string,
   ) {
     return this.writingMissionService.getMissionStatus(missionId, req.user.id);
@@ -423,7 +425,7 @@ export class AiWritingController {
    */
   @Post("missions/:missionId/cancel")
   async cancelMission(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("missionId") missionId: string,
   ) {
     return this.writingMissionService.cancelMission(missionId, req.user.id);
@@ -435,7 +437,7 @@ export class AiWritingController {
    */
   @Post("projects/:projectId/force-cleanup")
   async forceCleanupStuckMissions(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
     // 先验证项目权限
@@ -451,7 +453,7 @@ export class AiWritingController {
    */
   @Get("projects/:projectId/missions")
   async getProjectMissions(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Query("status") status?: string,
   ) {
@@ -468,7 +470,7 @@ export class AiWritingController {
    */
   @Get("missions/:missionId/logs")
   async getMissionLogs(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("missionId") missionId: string,
     @Query("limit") limit?: string,
     @Query("offset") offset?: string,
@@ -509,7 +511,7 @@ export class AiWritingController {
    */
   @Post("projects/:projectId/reset-chapters")
   async resetChapterContent(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Body()
     dto: {
@@ -525,28 +527,10 @@ export class AiWritingController {
     await this.projectService.findOne(projectId, req.user.id);
 
     // 重置指定章节的内容
-    const result = await this.prisma.writingChapter.updateMany({
-      where: {
-        volume: { projectId },
-        chapterNumber: { in: dto.chapterNumbers },
-      },
-      data: {
-        content: "",
-        wordCount: 0,
-        status: "PLANNED",
-      },
-    });
-
-    // 更新项目字数统计
-    const totalWords = await this.prisma.writingChapter.aggregate({
-      where: { volume: { projectId } },
-      _sum: { wordCount: true },
-    });
-
-    await this.prisma.writingProject.update({
-      where: { id: projectId },
-      data: { currentWords: totalWords._sum.wordCount || 0 },
-    });
+    const result = await this.projectService.resetChaptersByNumbers(
+      projectId,
+      dto.chapterNumbers,
+    );
 
     this.logger.log(`Reset ${result.count} chapters`);
 
@@ -564,7 +548,7 @@ export class AiWritingController {
    */
   @Post("projects/:projectId/fix-titles")
   async fixChapterTitles(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
     this.logger.log(`Re-extracting chapter titles for project ${projectId}`);
@@ -589,7 +573,7 @@ export class AiWritingController {
    */
   @Get("chapters/:chapterId/revisions")
   async getChapterRevisions(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("chapterId") chapterId: string,
   ) {
     return this.chapterRevisionService.getRevisions(chapterId, req.user.id);
@@ -600,7 +584,7 @@ export class AiWritingController {
    */
   @Patch("chapters/:chapterId/content")
   async updateChapterContent(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("chapterId") chapterId: string,
     @Body() dto: { content: string; changeSummary?: string },
   ) {
@@ -616,7 +600,7 @@ export class AiWritingController {
    */
   @Post("chapters/:chapterId/ai-edit")
   async aiEditChapter(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("chapterId") chapterId: string,
     @Body()
     dto: {
@@ -643,7 +627,7 @@ export class AiWritingController {
    */
   @Get("chapters/:chapterId/revisions/diff")
   async compareRevisions(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("chapterId") chapterId: string,
     @Query("v1") revisionId1: string,
     @Query("v2") revisionId2: string,
@@ -661,7 +645,7 @@ export class AiWritingController {
    */
   @Post("chapters/:chapterId/revisions/:revisionId/rollback")
   async rollbackRevision(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("chapterId") chapterId: string,
     @Param("revisionId") revisionId: string,
     @Body() dto: { reason?: string },
@@ -681,7 +665,7 @@ export class AiWritingController {
    */
   @Get("chapters/:chapterId/annotations")
   async getChapterAnnotations(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("chapterId") chapterId: string,
     @Query("status") status?: string,
   ) {
@@ -697,7 +681,7 @@ export class AiWritingController {
    */
   @Post("chapters/:chapterId/annotations")
   async createAnnotation(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("chapterId") chapterId: string,
     @Body()
     dto: {
@@ -720,7 +704,7 @@ export class AiWritingController {
    */
   @Patch("chapters/:chapterId/annotations/:annotationId")
   async updateAnnotation(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("annotationId") annotationId: string,
     @Body()
     dto: { content?: string; status?: "OPEN" | "RESOLVED" | "DISMISSED" },
@@ -737,7 +721,7 @@ export class AiWritingController {
    */
   @Delete("chapters/:chapterId/annotations/:annotationId")
   async deleteAnnotation(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("annotationId") annotationId: string,
   ) {
     await this.chapterAnnotationService.deleteAnnotation(
@@ -752,7 +736,7 @@ export class AiWritingController {
    */
   @Post("chapters/:chapterId/annotations/resolve")
   async resolveAnnotations(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("chapterId") chapterId: string,
     @Body() dto: { annotationIds: string[] },
   ) {
@@ -770,7 +754,7 @@ export class AiWritingController {
    */
   @Post("projects/:projectId/import/parse")
   async parseImport(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Body()
     dto: {
@@ -794,7 +778,7 @@ export class AiWritingController {
    */
   @Post("projects/:projectId/import/:importId/confirm")
   async confirmImport(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("importId") importId: string,
     @Body()
@@ -822,7 +806,7 @@ export class AiWritingController {
    */
   @Get("projects/:projectId/import/:importId")
   async getImportStatus(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("importId") importId: string,
   ) {
@@ -838,7 +822,7 @@ export class AiWritingController {
    */
   @Get("projects/:projectId/import/history")
   async getImportHistory(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
     return this.chapterImportService.getImportHistory(projectId, req.user.id);
@@ -849,7 +833,7 @@ export class AiWritingController {
    */
   @Delete("projects/:projectId/import/:importId")
   async cancelImport(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("importId") importId: string,
   ) {

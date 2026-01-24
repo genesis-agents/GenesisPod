@@ -200,4 +200,176 @@ export class AiCoreService {
     };
     return langMap[code] || code;
   }
+
+  /**
+   * 获取所有 AI 模型（诊断用）
+   */
+  async getAllModels() {
+    return this.prisma.aIModel.findMany({
+      select: {
+        id: true,
+        name: true,
+        modelId: true,
+        provider: true,
+        isEnabled: true,
+        isDefault: true,
+        apiKey: true,
+        apiEndpoint: true,
+      },
+    });
+  }
+
+  /**
+   * 获取 Google/Gemini 模型列表
+   */
+  async getGoogleModels() {
+    return this.prisma.aIModel.findMany({
+      where: {
+        OR: [
+          { provider: { contains: "google", mode: "insensitive" } },
+          { provider: { contains: "gemini", mode: "insensitive" } },
+          { modelId: { contains: "gemini", mode: "insensitive" } },
+        ],
+      },
+    });
+  }
+
+  /**
+   * 获取第一个可用的 Google 模型（带 API Key）
+   */
+  async getFirstGoogleModelWithKey() {
+    return this.prisma.aIModel.findFirst({
+      where: {
+        AND: [
+          {
+            OR: [
+              { provider: { contains: "google", mode: "insensitive" } },
+              { provider: { contains: "gemini", mode: "insensitive" } },
+            ],
+          },
+          {
+            OR: [{ apiKey: { not: null } }, { secretKey: { not: null } }],
+          },
+        ],
+      },
+    });
+  }
+
+  /**
+   * 获取 Topic 的 AI 成员配置
+   */
+  async getTopicWithAIMembers(topicId: string) {
+    return this.prisma.topic.findUnique({
+      where: { id: topicId },
+      include: {
+        aiMembers: true,
+      },
+    });
+  }
+
+  /**
+   * 根据 modelId 查找启用的 AI 模型
+   */
+  async findModelByModelId(modelId: string) {
+    return this.prisma.aIModel.findFirst({
+      where: {
+        modelId: { equals: modelId, mode: "insensitive" },
+        isEnabled: true,
+      },
+    });
+  }
+
+  /**
+   * 根据 name 查找启用的 AI 模型
+   */
+  async findModelByName(name: string) {
+    return this.prisma.aIModel.findFirst({
+      where: {
+        name: { equals: name, mode: "insensitive" },
+        isEnabled: true,
+      },
+    });
+  }
+
+  /**
+   * 根据 name 或 modelId 查找启用的 AI 模型
+   */
+  async getModelConfig(model: string) {
+    const modelConfig = await this.prisma.aIModel.findFirst({
+      where: {
+        OR: [
+          { name: { equals: model, mode: "insensitive" } },
+          { modelId: { equals: model, mode: "insensitive" } },
+        ],
+        isEnabled: true,
+      },
+    });
+
+    return modelConfig;
+  }
+
+  /**
+   * 根据模型类型获取模型
+   */
+  async getModelByType(
+    modelType: AIModelType,
+    allowFallback: boolean = true,
+  ): Promise<{
+    id: string;
+    name: string;
+    provider: string;
+    modelId: string;
+    apiKey: string | null;
+    apiEndpoint: string;
+    maxTokens: number;
+    temperature: number;
+  } | null> {
+    // 首先尝试获取指定类型的默认模型
+    const defaultModel = await this.prisma.aIModel.findFirst({
+      where: {
+        isEnabled: true,
+        isDefault: true,
+        modelType: modelType,
+      },
+    });
+
+    if (defaultModel) {
+      return defaultModel;
+    }
+
+    // 如果没有默认模型，查找任意该类型的可用模型
+    const anyModelOfType = await this.prisma.aIModel.findFirst({
+      where: {
+        isEnabled: true,
+        modelType: modelType,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (anyModelOfType) {
+      return anyModelOfType;
+    }
+
+    // 如果允许降级且不是 CHAT 类型，降级到 CHAT
+    if (allowFallback && modelType !== AIModelType.CHAT) {
+      this.logger.warn(`No ${modelType} model available, falling back to CHAT`);
+      return this.getModelByType(AIModelType.CHAT, false);
+    }
+
+    return null;
+  }
+
+  /**
+   * 获取快速/廉价模型（用于简单任务）
+   */
+  async getFastModelConfig() {
+    const model = await this.getModelByType(AIModelType.CHAT_FAST);
+    if (!model) {
+      throw new HttpException(
+        "No CHAT_FAST AI model is available",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return model;
+  }
 }

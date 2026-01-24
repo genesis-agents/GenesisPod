@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 interface Feedback {
   id: string;
   type: 'BUG' | 'FEATURE' | 'IMPROVEMENT' | 'OTHER';
@@ -124,7 +125,7 @@ export default function FeedbackPage() {
         setFeedbacks(data.feedbacks || []);
       }
     } catch (error) {
-      console.error('Failed to fetch feedbacks:', error);
+      logger.error('Failed to fetch feedbacks:', error);
     } finally {
       setLoading(false);
     }
@@ -140,7 +141,7 @@ export default function FeedbackPage() {
         setStats(data);
       }
     } catch (error) {
-      console.error('Failed to fetch stats:', error);
+      logger.error('Failed to fetch stats:', error);
     }
   };
 
@@ -177,7 +178,7 @@ export default function FeedbackPage() {
         setNewStatus('');
       }
     } catch (error) {
-      console.error('Failed to update status:', error);
+      logger.error('Failed to update status:', error);
     } finally {
       setUpdating(false);
     }

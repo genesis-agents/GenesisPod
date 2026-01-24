@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import ReactMarkdown from 'react-markdown';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAIWritingStore } from '@/stores/aiWritingStore';
+import { useAIWritingStore } from '@/stores';
 import {
   useWritingWebSocket,
   type WritingEvent,
@@ -25,6 +25,7 @@ import CharacterRelationshipGraph from '@/components/ai-writing/CharacterRelatio
 import ChapterEditPanel from '@/components/ai-writing/ChapterEditPanel';
 import ChapterImportModal from '@/components/ai-writing/ChapterImportModal';
 
+import { logger } from '@/lib/utils/logger';
 // Dynamic import for Canvas component
 const WritingCanvas = dynamic(
   () => import('@/components/ai-writing/WritingCanvas'),
@@ -1002,7 +1003,7 @@ export default function WritingProjectPage() {
           hasLoadedLogsRef.current = true;
         }
       } catch (error) {
-        console.error('Failed to load mission logs:', error);
+        logger.error('Failed to load mission logs:', error);
         hasLoadedLogsRef.current = true;
       }
     };
@@ -1162,7 +1163,7 @@ export default function WritingProjectPage() {
       return;
     }
 
-    console.log(
+    logger.debug(
       '[handleStartWriting] Using prompt:',
       storyPrompt.slice(0, 100)
     );
@@ -1185,7 +1186,7 @@ export default function WritingProjectPage() {
     // ★★★ 修复：允许在任务运行中时重新开始（处理后端重启等情况）
     // 如果任务正在运行或卡住，先尝试取消再重新开始
     if (isMissionRunning || isStuckMission) {
-      console.log(
+      logger.debug(
         '[handleContinueWriting] Mission running or stuck, attempting to restart:',
         { isMissionRunning, isStuckMission, stuckMissionId }
       );
@@ -1194,7 +1195,7 @@ export default function WritingProjectPage() {
         await cancelMission(projectId);
       } catch {
         // 忽略取消错误，任务可能已经不存在
-        console.log('[handleContinueWriting] Cancel failed, continuing anyway');
+        logger.debug('[handleContinueWriting] Cancel failed, continuing anyway');
       }
       if (isStuckMission) {
         clearStuckMission();
@@ -1230,7 +1231,7 @@ export default function WritingProjectPage() {
         return;
       }
 
-      console.log(
+      logger.debug(
         '[handleContinueWriting] Using prompt:',
         continuePrompt.slice(0, 100)
       );

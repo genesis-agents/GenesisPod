@@ -605,11 +605,19 @@ export class ResearchMissionService {
     // 创建维度记录并建立映射 (plannedDimensionId -> dbDimensionId)
     const dimensionIdMap = new Map<string, string>();
 
+    // ★ 修复 N+1 查询：批量查询已存在的维度
+    const plannedDimensionNames = plan.dimensions.map((d) => d.name);
+    const existingDimensions = await this.prisma.topicDimension.findMany({
+      where: {
+        topicId,
+        name: { in: plannedDimensionNames },
+      },
+    });
+    const existingDimMap = new Map(existingDimensions.map((d) => [d.name, d]));
+
     for (const plannedDim of plan.dimensions) {
       // 检查是否已存在同名维度
-      const existingDim = await this.prisma.topicDimension.findFirst({
-        where: { topicId, name: plannedDim.name },
-      });
+      const existingDim = existingDimMap.get(plannedDim.name);
 
       if (existingDim) {
         dimensionIdMap.set(plannedDim.id, existingDim.id);
@@ -642,35 +650,56 @@ export class ResearchMissionService {
         `[createTasksFromPlan] Incremental mode: copying ${completedTasks.length} completed tasks: ${[...completedSet].join(", ")}`,
       );
 
-      for (const completedTask of completedTasks) {
-        // 查找对应的数据库维度 ID
-        const dbDim = await this.prisma.topicDimension.findFirst({
-          where: { topicId, name: completedTask.dimensionName },
-        });
+      // ★ 修复 N+1 查询：批量查询所有需要的维度
+      const completedDimensionNames = completedTasks.map((t) => t.dimensionName);
+      const dimensionsForCompleted = await this.prisma.topicDimension.findMany({
+        where: {
+          topicId,
+          name: { in: completedDimensionNames },
+        },
+      });
+      const dimensionNameToIdMap = new Map(
+        dimensionsForCompleted.map((d) => [d.name, d.id]),
+      );
 
-        const copiedTask = await this.prisma.researchTask.create({
-          data: {
-            missionId,
-            title: completedTask.title,
-            description: completedTask.description,
-            taskType: "dimension_research",
-            dimensionName: completedTask.dimensionName,
-            dimensionId: dbDim?.id || completedTask.dimensionId,
-            assignedAgent: completedTask.assignedAgent,
-            assignedAgentType: completedTask.assignedAgentType,
-            priority: completedTask.priority,
-            status: ResearchTaskStatus.COMPLETED, // ★ 标记为已完成
-            result: completedTask.result ?? undefined,
-            resultSummary: completedTask.resultSummary,
-            startedAt: completedTask.startedAt,
-            completedAt: completedTask.completedAt,
-          },
-        });
-        tasks.push(copiedTask);
-        this.logger.log(
-          `[createTasksFromPlan] Copied completed task: ${completedTask.dimensionName}`,
-        );
-      }
+      // ★ 使用 createMany 批量创建任务（性能优化）
+      const tasksToCreate = completedTasks.map((completedTask) => ({
+        missionId,
+        title: completedTask.title,
+        description: completedTask.description,
+        taskType: "dimension_research",
+        dimensionName: completedTask.dimensionName,
+        dimensionId:
+          dimensionNameToIdMap.get(completedTask.dimensionName) ||
+          completedTask.dimensionId,
+        assignedAgent: completedTask.assignedAgent,
+        assignedAgentType: completedTask.assignedAgentType,
+        priority: completedTask.priority,
+        status: ResearchTaskStatus.COMPLETED, // ★ 标记为已完成
+        result: completedTask.result ?? undefined,
+        resultSummary: completedTask.resultSummary,
+        startedAt: completedTask.startedAt,
+        completedAt: completedTask.completedAt,
+      }));
+
+      // ★ 批量创建任务
+      await this.prisma.researchTask.createMany({
+        data: tasksToCreate,
+      });
+
+      // ★ 查询刚创建的任务以返回完整数据
+      const copiedTasks = await this.prisma.researchTask.findMany({
+        where: {
+          missionId,
+          status: ResearchTaskStatus.COMPLETED,
+          dimensionName: { in: completedDimensionNames },
+        },
+      });
+      tasks.push(...copiedTasks);
+
+      this.logger.log(
+        `[createTasksFromPlan] Copied ${copiedTasks.length} completed tasks in batch`,
+      );
     }
 
     // 1. 为每个维度创建研究任务（跳过已完成的）

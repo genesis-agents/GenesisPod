@@ -49,7 +49,13 @@ import {
   UpdateMissionNotificationDto,
   UpdateAIMemberTeamRoleDto,
 } from "../dto";
-import { TopicType, MentionType } from "@prisma/client";
+import {
+  TopicType,
+  MentionType,
+  TopicRole,
+  MissionStatus,
+} from "@prisma/client";
+import type { RequestWithUser } from "../../../../common/types/express-request.types";
 
 @ApiTags("AI Teams - Topics")
 @ApiBearerAuth()
@@ -75,7 +81,7 @@ export class AiTeamsController {
   })
   @ApiResponse({ status: 201, description: "话题创建成功" })
   @ApiResponse({ status: 400, description: "请求参数错误" })
-  async createTopic(@Request() req: any, @Body() dto: CreateTopicDto) {
+  async createTopic(@Request() req: RequestWithUser, @Body() dto: CreateTopicDto) {
     return this.aiGroupService.createTopic(req.user.id, dto);
   }
 
@@ -93,7 +99,7 @@ export class AiTeamsController {
   @ApiQuery({ name: "search", required: false, description: "搜索关键词" })
   @ApiResponse({ status: 200, description: "话题列表" })
   async getTopics(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Query("type") type?: TopicType,
     @Query("search") search?: string,
   ) {
@@ -122,7 +128,7 @@ export class AiTeamsController {
    * GET /topics/my-join-requests
    */
   @Get("my-join-requests")
-  async getMyJoinRequests(@Request() req: any) {
+  async getMyJoinRequests(@Request() req: RequestWithUser) {
     return this.aiGroupService.getMyJoinRequests(req.user.id);
   }
 
@@ -132,7 +138,7 @@ export class AiTeamsController {
    */
   @Post("join-requests/:requestId/review")
   async reviewJoinRequest(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("requestId") requestId: string,
     @Body() body: { approve: boolean; responseNote?: string },
   ) {
@@ -150,7 +156,7 @@ export class AiTeamsController {
    */
   @Delete("join-requests/:requestId")
   async cancelJoinRequest(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("requestId") requestId: string,
   ) {
     return this.aiGroupService.cancelJoinRequest(requestId, req.user.id);
@@ -159,13 +165,13 @@ export class AiTeamsController {
   // ==================== Dynamic Routes ====================
 
   @Get(":topicId")
-  async getTopicById(@Request() req: any, @Param("topicId") topicId: string) {
+  async getTopicById(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
     return this.aiGroupService.getTopicById(topicId, req.user.id);
   }
 
   @Patch(":topicId")
   async updateTopic(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body() dto: UpdateTopicDto,
   ) {
@@ -173,26 +179,26 @@ export class AiTeamsController {
   }
 
   @Post(":topicId/archive")
-  async archiveTopic(@Request() req: any, @Param("topicId") topicId: string) {
+  async archiveTopic(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
     return this.aiGroupService.archiveTopic(topicId, req.user.id);
   }
 
   @Delete(":topicId")
-  async deleteTopic(@Request() req: any, @Param("topicId") topicId: string) {
+  async deleteTopic(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
     return this.aiGroupService.deleteTopic(topicId, req.user.id);
   }
 
   // ==================== Member Management ====================
 
   @Get(":topicId/members")
-  async getMembers(@Request() req: any, @Param("topicId") topicId: string) {
+  async getMembers(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
     const topic = await this.aiGroupService.getTopicById(topicId, req.user.id);
     return topic.members;
   }
 
   @Post(":topicId/members")
   async addMember(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body() dto: AddMemberDto,
   ) {
@@ -201,21 +207,21 @@ export class AiTeamsController {
 
   @Post(":topicId/members/invite")
   async addMemberByEmail(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
-    @Body() dto: { email: string; role?: string },
+    @Body() dto: { email: string; role?: TopicRole },
   ) {
     return this.aiGroupService.addMemberByEmail(
       topicId,
       req.user.id,
       dto.email,
-      dto.role as any,
+      dto.role,
     );
   }
 
   @Post(":topicId/members/batch")
   async addMembers(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body() dto: AddMembersDto,
   ) {
@@ -224,7 +230,7 @@ export class AiTeamsController {
 
   @Patch(":topicId/members/:memberId")
   async updateMember(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("memberId") memberId: string,
     @Body() dto: UpdateMemberDto,
@@ -239,7 +245,7 @@ export class AiTeamsController {
 
   @Delete(":topicId/members/:memberId")
   async removeMember(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("memberId") memberId: string,
   ) {
@@ -247,7 +253,7 @@ export class AiTeamsController {
   }
 
   @Post(":topicId/leave")
-  async leaveTopic(@Request() req: any, @Param("topicId") topicId: string) {
+  async leaveTopic(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
     return this.aiGroupService.leaveTopic(topicId, req.user.id);
   }
 
@@ -257,7 +263,7 @@ export class AiTeamsController {
    */
   @Post(":topicId/join-request")
   async requestToJoinTopic(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body() body: { requestMessage?: string },
   ) {
@@ -274,7 +280,7 @@ export class AiTeamsController {
    */
   @Get(":topicId/join-requests")
   async getJoinRequests(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
   ) {
     return this.aiGroupService.getJoinRequests(topicId, req.user.id);
@@ -283,14 +289,14 @@ export class AiTeamsController {
   // ==================== AI Member Management ====================
 
   @Get(":topicId/ai-members")
-  async getAIMembers(@Request() req: any, @Param("topicId") topicId: string) {
+  async getAIMembers(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
     const topic = await this.aiGroupService.getTopicById(topicId, req.user.id);
     return topic.aiMembers;
   }
 
   @Post(":topicId/ai-members")
   async addAIMember(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body() dto: AddAIMemberDto,
   ) {
@@ -299,7 +305,7 @@ export class AiTeamsController {
 
   @Patch(":topicId/ai-members/:aiMemberId")
   async updateAIMember(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("aiMemberId") aiMemberId: string,
     @Body() dto: UpdateAIMemberDto,
@@ -314,7 +320,7 @@ export class AiTeamsController {
 
   @Delete(":topicId/ai-members/:aiMemberId")
   async removeAIMember(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("aiMemberId") aiMemberId: string,
   ) {
@@ -327,7 +333,7 @@ export class AiTeamsController {
    */
   @Post(":topicId/ai-members/debate")
   async setupDebate(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body()
     dto: {
@@ -349,7 +355,7 @@ export class AiTeamsController {
 
   @Get(":topicId/messages")
   async getMessages(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Query("cursor") cursor?: string,
     @Query("limit") limit?: string,
@@ -371,7 +377,7 @@ export class AiTeamsController {
   @ApiResponse({ status: 201, description: "消息发送成功" })
   @ApiResponse({ status: 429, description: "请求过于频繁" })
   async sendMessage(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body() dto: SendMessageDto,
   ) {
@@ -906,7 +912,7 @@ export class AiTeamsController {
 
   @Delete(":topicId/messages/:messageId")
   async deleteMessage(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("messageId") messageId: string,
   ) {
@@ -915,7 +921,7 @@ export class AiTeamsController {
 
   @Post(":topicId/messages/:messageId/reactions")
   async addReaction(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("messageId") messageId: string,
     @Body("emoji") emoji: string,
@@ -930,7 +936,7 @@ export class AiTeamsController {
 
   @Delete(":topicId/messages/:messageId/reactions/:emoji")
   async removeReaction(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("messageId") messageId: string,
     @Param("emoji") emoji: string,
@@ -945,7 +951,7 @@ export class AiTeamsController {
 
   @Post(":topicId/read")
   async markAsRead(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body("messageId") messageId?: string,
   ) {
@@ -968,7 +974,7 @@ export class AiTeamsController {
   @ApiResponse({ status: 201, description: "AI响应生成成功" })
   @ApiResponse({ status: 429, description: "请求过于频繁" })
   async generateAIResponse(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body("aiMemberId") aiMemberId: string,
     @Body("contextMessageIds") contextMessageIds?: string[],
@@ -998,7 +1004,7 @@ export class AiTeamsController {
   @ApiResponse({ status: 200, description: "SSE 流连接成功" })
   @ApiResponse({ status: 429, description: "请求过于频繁" })
   async generateAIResponseStream(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body("aiMemberId") aiMemberId: string,
     @Body("contextMessageIds") contextMessageIds: string[] = [],
@@ -1071,7 +1077,7 @@ export class AiTeamsController {
   /**
    * 发送 SSE 事件
    */
-  private sendSSEEvent(res: Response, event: string, data: any): void {
+  private sendSSEEvent(res: Response, event: string, data: unknown): void {
     res.write(`event: ${event}\n`);
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   }
@@ -1086,13 +1092,13 @@ export class AiTeamsController {
   // ==================== Resources ====================
 
   @Get(":topicId/resources")
-  async getResources(@Request() req: any, @Param("topicId") topicId: string) {
+  async getResources(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
     return this.aiGroupService.getResources(topicId, req.user.id);
   }
 
   @Post(":topicId/resources")
   async addResource(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body() dto: AddResourceDto,
   ) {
@@ -1101,7 +1107,7 @@ export class AiTeamsController {
 
   @Delete(":topicId/resources/:resourceId")
   async removeResource(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("resourceId") resourceId: string,
   ) {
@@ -1111,13 +1117,13 @@ export class AiTeamsController {
   // ==================== Summaries ====================
 
   @Get(":topicId/summaries")
-  async getSummaries(@Request() req: any, @Param("topicId") topicId: string) {
+  async getSummaries(@Request() req: RequestWithUser, @Param("topicId") topicId: string) {
     return this.aiGroupService.getSummaries(topicId, req.user.id);
   }
 
   @Post(":topicId/summaries")
   async generateSummary(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body() dto: GenerateSummaryDto,
   ) {
@@ -1126,7 +1132,7 @@ export class AiTeamsController {
 
   @Delete(":topicId/summaries/:summaryId")
   async deleteSummary(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("summaryId") summaryId: string,
   ) {
@@ -1137,7 +1143,7 @@ export class AiTeamsController {
 
   @Post(":topicId/messages/forward")
   async forwardMessages(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body() dto: ForwardMessagesDto,
   ) {
@@ -1161,7 +1167,7 @@ export class AiTeamsController {
 
   @Post(":topicId/messages/:messageId/bookmark")
   async bookmarkMessage(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("messageId") messageId: string,
     @Body() dto: BookmarkMessageDto,
@@ -1176,7 +1182,7 @@ export class AiTeamsController {
 
   @Delete(":topicId/messages/:messageId/bookmark")
   async unbookmarkMessage(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("messageId") messageId: string,
   ) {
@@ -1203,7 +1209,7 @@ export class AiTeamsController {
   @ApiResponse({ status: 201, description: "任务创建成功" })
   @ApiResponse({ status: 429, description: "请求过于频繁" })
   async createMission(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Body() dto: CreateMissionDto,
   ) {
@@ -1213,10 +1219,10 @@ export class AiTeamsController {
   @Get(":topicId/missions")
   async getMissions(
     @Param("topicId") topicId: string,
-    @Query("status") status?: string,
+    @Query("status") status?: MissionStatus,
   ) {
     return this.teamMissionService.getMissions(topicId, {
-      status: status as any,
+      status,
     });
   }
 
@@ -1230,7 +1236,7 @@ export class AiTeamsController {
 
   @Post(":topicId/missions/:missionId/cancel")
   async cancelMission(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("missionId") missionId: string,
   ) {
@@ -1239,7 +1245,7 @@ export class AiTeamsController {
 
   @Post(":topicId/missions/:missionId/pause")
   async pauseMission(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("missionId") missionId: string,
   ) {
@@ -1248,7 +1254,7 @@ export class AiTeamsController {
 
   @Post(":topicId/missions/:missionId/resume")
   async resumeMission(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("missionId") missionId: string,
   ) {
@@ -1257,7 +1263,7 @@ export class AiTeamsController {
 
   @Post(":topicId/missions/:missionId/retry")
   async retryMission(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("missionId") missionId: string,
     @Body() body: { mode?: "full" | "continue"; reason?: string },
@@ -1314,7 +1320,7 @@ export class AiTeamsController {
   })
   @ApiResponse({ status: 200, description: "通知配置更新成功" })
   async updateMissionNotification(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("missionId") missionId: string,
     @Body() dto: UpdateMissionNotificationDto,
@@ -1334,7 +1340,7 @@ export class AiTeamsController {
   @ApiResponse({ status: 200, description: "任务删除成功" })
   @ApiResponse({ status: 400, description: "任务正在执行中，无法删除" })
   async deleteMission(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("missionId") missionId: string,
   ) {
@@ -1353,7 +1359,7 @@ export class AiTeamsController {
 
   @Patch(":topicId/ai-members/:aiMemberId/team-role")
   async updateTeamRole(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("aiMemberId") aiMemberId: string,
     @Body() dto: UpdateAIMemberTeamRoleDto,
@@ -1414,14 +1420,14 @@ export class BookmarksController {
 
   @Get()
   async getBookmarks(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Query("category") category?: string,
   ) {
     return this.aiGroupService.getBookmarks(req.user.id, { category });
   }
 
   @Get("categories")
-  async getBookmarkCategories(@Request() req: any) {
+  async getBookmarkCategories(@Request() req: RequestWithUser) {
     return this.aiGroupService.getBookmarkCategories(req.user.id);
   }
 }

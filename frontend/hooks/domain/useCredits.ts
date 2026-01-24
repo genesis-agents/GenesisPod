@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useApiGet, useApiPost } from '../core';
-import { useCreditsStore, CreditTransaction } from '@/stores/creditsStore';
+import { useCreditsStore, CreditTransaction } from '@/stores';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 /**

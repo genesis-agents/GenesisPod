@@ -3,6 +3,7 @@
 import { SUPPORTED_FILE_TYPES, SUPPORTED_FILE_EXTENSIONS } from './constants';
 import type { UploadedFile } from './types';
 
+import { logger } from '@/lib/utils/logger';
 /**
  * Convert image URL to Base64
  */
@@ -21,7 +22,7 @@ export async function imageUrlToBase64(imageUrl: string): Promise<string> {
       reader.readAsDataURL(blob);
     });
   } catch (err) {
-    console.error('Failed to convert image to base64:', err);
+    logger.error('Failed to convert image to base64:', err);
     throw err;
   }
 }
@@ -138,7 +139,7 @@ export async function downloadImage(
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   } catch (err) {
-    console.error('Download failed:', err);
+    logger.error('Download failed:', err);
     // Fallback: open in new tab
     window.open(imageUrl, '_blank', 'noopener,noreferrer');
   }

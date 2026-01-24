@@ -12,7 +12,7 @@ import {
 import { useTranslation } from '@/lib/i18n';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN, enUS } from 'date-fns/locale';
-import { toast } from '@/stores/toastStore';
+import { toast } from '@/stores';
 
 interface NotificationBellProps {
   isCollapsed?: boolean;

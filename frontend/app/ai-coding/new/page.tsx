@@ -24,6 +24,7 @@ import {
   DevWorkspace,
   ThinkingPanel,
 } from '@/components/ai-coding/DevWorkspace';
+import { logger } from '@/lib/utils/logger';
 import {
   parseCodeFiles,
   mergeFiles,
@@ -204,7 +205,7 @@ function NewCodingProjectPageContent() {
 
   // WebSocket event handlers
   const handleTeamMessage = useCallback((event: TeamMessageEvent) => {
-    console.log('[NewCodingProject] Team message received:', event);
+    logger.debug('[NewCodingProject] Team message received:', event);
     const { message } = event;
     const role = message.senderRole
       ? ROLE_MAP[message.senderRole] || 'pm'
@@ -281,7 +282,7 @@ function NewCodingProjectPageContent() {
   }, []);
 
   const handleProgress = useCallback((event: ProjectProgressEvent) => {
-    console.log('[NewCodingProject] Progress:', event);
+    logger.debug('[NewCodingProject] Progress:', event);
     setProgress(event.progress);
 
     // Map phase to agent role
@@ -313,7 +314,7 @@ function NewCodingProjectPageContent() {
   }, []);
 
   const handleAgentStatus = useCallback((event: AgentStatusEvent) => {
-    console.log('[NewCodingProject] Agent status:', event);
+    logger.debug('[NewCodingProject] Agent status:', event);
     const role =
       ROLE_MAP[event.agent.toUpperCase()] || (event.agent as AgentRole);
 
@@ -336,14 +337,14 @@ function NewCodingProjectPageContent() {
   }, []);
 
   const handleComplete = useCallback((event: ProjectCompleteEvent) => {
-    console.log('[NewCodingProject] Complete:', event);
+    logger.debug('[NewCodingProject] Complete:', event);
     setIsCompleted(true);
     setCurrentAgent(null);
     setAgents((prev) => prev.map((a) => ({ ...a, status: 'completed' })));
   }, []);
 
   const handleError = useCallback((event: ProjectErrorEvent) => {
-    console.error('[NewCodingProject] Error:', event);
+    logger.error('[NewCodingProject] Error:', event);
     setError(event.error);
   }, []);
 
@@ -382,7 +383,7 @@ function NewCodingProjectPageContent() {
         throw new Error('需求描述至少需要10个字符');
       }
 
-      console.log(
+      logger.debug(
         '[NewCodingProject] Creating project with requirement:',
         requirementText.slice(0, 50)
       );
@@ -406,7 +407,7 @@ function NewCodingProjectPageContent() {
       }
 
       const project = await createResponse.json();
-      console.log('[NewCodingProject] Project created:', project);
+      logger.debug('[NewCodingProject] Project created:', project);
       setProjectId(project.id);
       setIsStarted(true);
 
@@ -418,12 +419,12 @@ function NewCodingProjectPageContent() {
 
       while (!joined && joinAttempts < maxAttempts) {
         if (isConnected && joinProject) {
-          console.log(
+          logger.debug(
             `[NewCodingProject] Attempting to join project room (attempt ${joinAttempts + 1})...`
           );
           joined = await joinProject(project.id);
           if (joined) {
-            console.log('[NewCodingProject] Successfully joined project room');
+            logger.debug('[NewCodingProject] Successfully joined project room');
             break;
           }
         }
@@ -432,7 +433,7 @@ function NewCodingProjectPageContent() {
       }
 
       if (!joined) {
-        console.warn(
+        logger.warn(
           '[NewCodingProject] Could not join WebSocket room, proceeding anyway'
         );
       }
@@ -442,7 +443,7 @@ function NewCodingProjectPageContent() {
         try {
           const historyMessages = await getTeamMessages(project.id, 100);
           if (historyMessages && historyMessages.length > 0) {
-            console.log(
+            logger.debug(
               `[NewCodingProject] Fetched ${historyMessages.length} historical messages`
             );
             // Convert historical messages to our format
@@ -474,7 +475,7 @@ function NewCodingProjectPageContent() {
             });
           }
         } catch (historyError) {
-          console.warn(
+          logger.warn(
             '[NewCodingProject] Failed to fetch historical messages:',
             historyError
           );
@@ -482,7 +483,7 @@ function NewCodingProjectPageContent() {
       }
 
       // Step 2: Start the project execution
-      console.log('[NewCodingProject] Starting project execution...');
+      logger.debug('[NewCodingProject] Starting project execution...');
       const startResponse = await fetch(
         `/api/v1/ai-coding/projects/${project.id}/start`,
         {
@@ -499,9 +500,9 @@ function NewCodingProjectPageContent() {
         throw new Error(errorData.message || '启动项目失败');
       }
 
-      console.log('[NewCodingProject] Project started successfully');
+      logger.debug('[NewCodingProject] Project started successfully');
     } catch (err) {
-      console.error('[NewCodingProject] Error:', err);
+      logger.error('[NewCodingProject] Error:', err);
       setError(err instanceof Error ? err.message : '发生错误，请重试');
       setIsStarted(false);
     } finally {

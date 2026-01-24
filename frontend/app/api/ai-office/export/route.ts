@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { documentExportService } from '@/lib/utils/document-export.service';
 import { getTemplateById } from '@/lib/ai-office/ppt-templates';
 
+import { logger } from '@/lib/utils/logger';
 /**
  * 文档导出API路由
  * 使用Node.js Runtime以支持docx和pptxgenjs库
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Export API error:', error);
+    logger.error('Export API error:', error);
     return NextResponse.json(
       {
         success: false,

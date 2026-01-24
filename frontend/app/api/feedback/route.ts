@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 const GITHUB_ISSUES_URL =
   'https://github.com/JUNJIE-DUAN/deepdive-engine/issues';
 
@@ -55,10 +56,10 @@ export async function POST(request: NextRequest) {
           });
         } else {
           const errorData = await response.json().catch(() => ({}));
-          console.error('Backend feedback error:', errorData);
+          logger.error('Backend feedback error:', errorData);
         }
       } catch (backendError) {
-        console.error('Backend feedback service error:', backendError);
+        logger.error('Backend feedback service error:', backendError);
       }
     } else {
       // Handle JSON (no file uploads)
@@ -98,10 +99,10 @@ export async function POST(request: NextRequest) {
           });
         } else {
           const errorData = await response.json().catch(() => ({}));
-          console.error('Backend feedback error:', errorData);
+          logger.error('Backend feedback error:', errorData);
         }
       } catch (backendError) {
-        console.error('Backend feedback service error:', backendError);
+        logger.error('Backend feedback service error:', backendError);
       }
     }
 
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   } catch (error) {
-    console.error('Feedback submission error:', error);
+    logger.error('Feedback submission error:', error);
     return NextResponse.json(
       {
         success: false,

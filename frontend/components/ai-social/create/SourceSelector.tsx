@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n';
-import { useSocialCreateStore } from '@/stores/socialCreateStore';
+import { useSocialCreateStore } from '@/stores';
 import {
   useSocialSources,
   SocialContentSourceType,

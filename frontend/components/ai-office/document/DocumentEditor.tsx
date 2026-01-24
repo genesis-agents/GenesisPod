@@ -31,6 +31,7 @@ import EnhancedSlideRenderer from './EnhancedSlideRenderer';
 import ResearchPageRenderer from './ResearchPageRenderer';
 import { getResearchPageTemplateById } from '@/lib/templates/research-page-templates';
 
+import { logger } from '@/lib/utils/logger';
 // 旧版 Slide 类型定义（仅供后备使用）
 interface Slide {
   title: string;
@@ -158,18 +159,18 @@ export default function DocumentEditor() {
 
   // 当文档切换时更新内容和标题
   useEffect(() => {
-    console.log('[DocumentEditor] useEffect triggered');
-    console.log('[DocumentEditor] currentDocument:', !!currentDocument);
-    console.log('[DocumentEditor] currentDocumentId:', currentDocumentId);
+    logger.debug('[DocumentEditor] useEffect triggered');
+    logger.debug('[DocumentEditor] currentDocument:', !!currentDocument);
+    logger.debug('[DocumentEditor] currentDocumentId:', currentDocumentId);
 
     if (currentDocument) {
       const markdown = currentDocument.content?.markdown || '';
-      console.log(
+      logger.debug(
         '[DocumentEditor] Setting content from document, length:',
         markdown.length
       );
-      console.log('[DocumentEditor] Document type:', currentDocument.type);
-      console.log('[DocumentEditor] Document title:', currentDocument.title);
+      logger.debug('[DocumentEditor] Document type:', currentDocument.type);
+      logger.debug('[DocumentEditor] Document title:', currentDocument.title);
 
       if (currentDocument.type === 'article') {
         setContent(markdown);
@@ -179,7 +180,7 @@ export default function DocumentEditor() {
       }
       setTitle(currentDocument.title || '未命名演示文稿');
     } else {
-      console.log('[DocumentEditor] No current document, clearing content');
+      logger.debug('[DocumentEditor] No current document, clearing content');
       setContent('');
       setTitle('');
     }
@@ -285,7 +286,7 @@ export default function DocumentEditor() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error) {
-      console.error('Export error:', error);
+      logger.error('Export error:', error);
       alert('导出失败，请稍后重试');
     } finally {
       setExportLoading(null);

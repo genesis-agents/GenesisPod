@@ -49,7 +49,7 @@ export function clearHighlights(container: HTMLElement): void {
       }
     } catch (err) {
       // If DOM operation fails, just remove the mark element
-      console.warn(
+      logger.warn(
         '[clearHighlights] Error replacing mark, attempting removal:',
         err
       );
@@ -106,7 +106,7 @@ function highlightSingleNodeRange(
   try {
     // Skip if already inside an annotation mark (avoid nested annotations)
     if (isInsideAnnotationMark(range.startContainer)) {
-      console.warn('Skipping highlight: text is already inside an annotation');
+      logger.warn('Skipping highlight: text is already inside an annotation');
       return null;
     }
 
@@ -115,7 +115,7 @@ function highlightSingleNodeRange(
     return mark;
   } catch (e) {
     // surroundContents can fail if range partially selects non-text nodes
-    console.warn('surroundContents failed:', e);
+    logger.warn('surroundContents failed:', e);
     return null;
   }
 }
@@ -136,7 +136,7 @@ function wrapTextNodePortion(
 
     // Skip if already inside an annotation mark (avoid nested annotations)
     if (isInsideAnnotationMark(textNode)) {
-      console.warn('Skipping wrap: text node is already inside an annotation');
+      logger.warn('Skipping wrap: text node is already inside an annotation');
       return null;
     }
 
@@ -148,7 +148,7 @@ function wrapTextNodePortion(
       endOffset > fullText.length ||
       startOffset >= endOffset
     ) {
-      console.warn('Invalid offsets for wrap:', {
+      logger.warn('Invalid offsets for wrap:', {
         startOffset,
         endOffset,
         textLength: fullText.length,
@@ -180,7 +180,7 @@ function wrapTextNodePortion(
 
     return mark;
   } catch (e) {
-    console.warn('Failed to wrap text node:', e);
+    logger.warn('Failed to wrap text node:', e);
     return null;
   }
 }
@@ -207,7 +207,7 @@ function highlightMultiNodeRange(
 
     // Validate containers
     if (!startContainer || !endContainer) {
-      console.warn('Invalid range containers');
+      logger.warn('Invalid range containers');
       return marks;
     }
 
@@ -225,7 +225,7 @@ function highlightMultiNodeRange(
     // Get the common ancestor - if it doesn't exist, bail out
     const commonAncestor = range.commonAncestorContainer;
     if (!commonAncestor) {
-      console.warn('No common ancestor for range');
+      logger.warn('No common ancestor for range');
       return marks;
     }
 
@@ -303,7 +303,7 @@ function highlightMultiNodeRange(
       }
     }
   } catch (e) {
-    console.error('Error in highlightMultiNodeRange:', e);
+    logger.error('Error in highlightMultiNodeRange:', e);
   }
 
   return marks;
@@ -325,13 +325,13 @@ export function highlightRange(
 
     // Validate range before proceeding
     if (!range.startContainer || !range.endContainer) {
-      console.warn('Invalid range: missing start or end container');
+      logger.warn('Invalid range: missing start or end container');
       return [];
     }
 
     // Check if start/end containers are still in the DOM
     if (!range.startContainer.parentNode || !range.endContainer.parentNode) {
-      console.warn('Range containers are not in DOM');
+      logger.warn('Range containers are not in DOM');
       return [];
     }
 
@@ -347,7 +347,7 @@ export function highlightRange(
     // Range spans multiple nodes
     return highlightMultiNodeRange(range, annotation);
   } catch (e) {
-    console.error('Error highlighting range:', e);
+    logger.error('Error highlighting range:', e);
     return [];
   }
 }

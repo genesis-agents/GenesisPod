@@ -12,7 +12,7 @@ import {
   SocialContent,
   SocialContentType,
 } from '@/hooks/domain/useAISocial';
-import { toast } from '@/stores/toastStore';
+import { toast } from '@/stores';
 import {
   ArrowLeft,
   Loader2,

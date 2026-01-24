@@ -10,6 +10,7 @@ import { ensureError } from "../../../common/utils/error.utils";
 import { Prisma } from "@prisma/client";
 import { SourceWhitelistService } from "../../ingestion/config/services/source-whitelist.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
+import { ResourcesRepository } from "./resources.repository";
 
 /**
  * 资源管理服务
@@ -23,6 +24,7 @@ export class ResourcesService {
     private mongodb: MongoDBService,
     private whitelistService: SourceWhitelistService,
     private aiEnrichmentService: AIEnrichmentService,
+    private repository: ResourcesRepository,
   ) {}
 
   /**
@@ -75,7 +77,7 @@ export class ResourcesService {
 
     // 执行查询
     const [resources, total] = await Promise.all([
-      this.prisma.resource.findMany({
+      this.repository.findMany({
         where,
         skip,
         take,
@@ -83,7 +85,7 @@ export class ResourcesService {
           [sortBy]: sortOrder,
         },
       }),
-      this.prisma.resource.count({ where }),
+      this.repository.count(where),
     ]);
 
     this.logger.log(
@@ -105,9 +107,7 @@ export class ResourcesService {
    * 获取单个资源详情
    */
   async findOne(id: string) {
-    const resource = await this.prisma.resource.findUnique({
-      where: { id },
-    });
+    const resource = await this.repository.findById(id);
 
     if (!resource) {
       throw new NotFoundException(`Resource with ID ${id} not found`);
@@ -131,9 +131,7 @@ export class ResourcesService {
    * 创建资源
    */
   async create(data: Prisma.ResourceCreateInput) {
-    const resource = await this.prisma.resource.create({
-      data,
-    });
+    const resource = await this.repository.create(data);
 
     this.logger.log(`Created resource ${resource.id}`);
 
@@ -145,10 +143,7 @@ export class ResourcesService {
    */
   async update(id: string, data: Prisma.ResourceUpdateInput) {
     try {
-      const resource = await this.prisma.resource.update({
-        where: { id },
-        data,
-      });
+      const resource = await this.repository.update(id, data);
 
       this.logger.log(`Updated resource ${id}`);
 
@@ -167,9 +162,7 @@ export class ResourcesService {
    */
   async remove(id: string) {
     try {
-      const resource = await this.prisma.resource.delete({
-        where: { id },
-      });
+      const resource = await this.repository.delete(id);
 
       this.logger.log(`Deleted resource ${id}`);
 
@@ -187,14 +180,9 @@ export class ResourcesService {
    * 按类型统计资源数量
    */
   async getStats() {
-    const stats = await this.prisma.resource.groupBy({
-      by: ["type"],
-      _count: {
-        id: true,
-      },
-    });
+    const stats = await this.repository.groupByType();
 
-    const totalCount = await this.prisma.resource.count();
+    const totalCount = await this.repository.count({});
 
     return {
       total: totalCount,
@@ -210,15 +198,10 @@ export class ResourcesService {
    */
   async translateResource(id: string, targetLanguage = "zh-CN") {
     // 1. 检查是否存在翻译
-    const existingTranslation =
-      await this.prisma.resourceTranslation.findUnique({
-        where: {
-          resourceId_language: {
-            resourceId: id,
-            language: targetLanguage,
-          },
-        },
-      });
+    const existingTranslation = await this.repository.findTranslation(
+      id,
+      targetLanguage,
+    );
 
     if (existingTranslation) {
       this.logger.log(
@@ -246,13 +229,11 @@ export class ResourcesService {
     }
 
     // 4. 保存翻译
-    const translation = await this.prisma.resourceTranslation.create({
-      data: {
-        resourceId: id,
-        language: targetLanguage,
-        content: translationResult.translatedText,
-        modelUsed: translationResult.model,
-      },
+    const translation = await this.repository.createTranslation({
+      resourceId: id,
+      language: targetLanguage,
+      content: translationResult.translatedText,
+      modelUsed: translationResult.model,
     });
 
     this.logger.log(
@@ -473,14 +454,12 @@ export class ResourcesService {
 
       // 检查URL是否已存在（使用规范化后的URL检查）
       // 同时检查 sourceUrl 精确匹配和 normalizedUrl 匹配
-      const existing = await this.prisma.resource.findFirst({
-        where: {
-          OR: [
-            { sourceUrl: finalUrl },
-            { sourceUrl: normalizedUrl },
-            { normalizedUrl: normalizedUrl },
-          ],
-        },
+      const existing = await this.repository.findFirst({
+        OR: [
+          { sourceUrl: finalUrl },
+          { sourceUrl: normalizedUrl },
+          { normalizedUrl: normalizedUrl },
+        ],
       });
 
       // 获取真实标题和摘要
@@ -543,16 +522,13 @@ export class ResourcesService {
           `URL already exists, refreshing resource: ${existing.id} (type: ${existing.type} -> ${type})`,
         );
 
-        const resource = await this.prisma.resource.update({
-          where: { id: existing.id },
-          data: {
-            type: type as any, // 更新类型（允许用户更改分类）
-            title: title,
-            abstract: abstract || `从URL导入: ${finalUrl}`,
-            pdfUrl: pdfUrl,
-            normalizedUrl: normalizedUrl, // 确保规范化URL已保存
-            // 保留原有的统计数据
-          },
+        const resource = await this.repository.update(existing.id, {
+          type: type as any, // 更新类型（允许用户更改分类）
+          title: title,
+          abstract: abstract || `从URL导入: ${finalUrl}`,
+          pdfUrl: pdfUrl,
+          normalizedUrl: normalizedUrl, // 确保规范化URL已保存
+          // 保留原有的统计数据
         });
 
         this.logger.log(
@@ -578,9 +554,7 @@ export class ResourcesService {
         trendingScore: 0,
       };
 
-      const resource = await this.prisma.resource.create({
-        data: resourceData,
-      });
+      const resource = await this.repository.create(resourceData);
 
       this.logger.log(`Resource imported successfully: ${resource.id}`);
 
@@ -879,17 +853,7 @@ export class ResourcesService {
     const typeFilter = resourceType ? { type: resourceType as any } : {};
 
     // 查找所有重复的 sourceUrl
-    const duplicateUrls = await this.prisma.resource.groupBy({
-      by: ["sourceUrl"],
-      where: {
-        ...typeFilter,
-        NOT: { sourceUrl: "" },
-      },
-      _count: { id: true },
-      having: {
-        id: { _count: { gt: 1 } },
-      },
-    });
+    const duplicateUrls = await this.repository.groupBySourceUrl(typeFilter);
 
     this.logger.log(`Found ${duplicateUrls.length} URLs with duplicates`);
 
@@ -922,9 +886,7 @@ export class ResourcesService {
 
       // 删除重复项
       const deleteIds = toDelete.map((r) => r.id);
-      await this.prisma.resource.deleteMany({
-        where: { id: { in: deleteIds } },
-      });
+      await this.repository.deleteMany(deleteIds);
 
       deletedCount += toDelete.length;
       details.push({
@@ -935,17 +897,8 @@ export class ResourcesService {
     }
 
     // 同样处理 normalizedUrl 的重复
-    const duplicateNormalizedUrls = await this.prisma.resource.groupBy({
-      by: ["normalizedUrl"],
-      where: {
-        ...typeFilter,
-        normalizedUrl: { not: "" },
-      },
-      _count: { id: true },
-      having: {
-        id: { _count: { gt: 1 } },
-      },
-    });
+    const duplicateNormalizedUrls =
+      await this.repository.groupByNormalizedUrl(typeFilter);
 
     for (const group of duplicateNormalizedUrls) {
       if (!group.normalizedUrl) continue;
@@ -969,9 +922,7 @@ export class ResourcesService {
       );
 
       const deleteIds = toDelete.map((r) => r.id);
-      await this.prisma.resource.deleteMany({
-        where: { id: { in: deleteIds } },
-      });
+      await this.repository.deleteMany(deleteIds);
 
       deletedCount += toDelete.length;
 
@@ -1006,35 +957,21 @@ export class ResourcesService {
     userId: string,
   ): Promise<{ upvoted: boolean; upvoteCount: number }> {
     // 检查资源是否存在
-    const resource = await this.prisma.resource.findUnique({
-      where: { id: resourceId },
-    });
+    const resource = await this.repository.findById(resourceId);
 
     if (!resource) {
       throw new NotFoundException(`Resource with ID ${resourceId} not found`);
     }
 
     // 检查用户是否已点赞
-    const existingUpvote = await this.prisma.resourceUpvote.findUnique({
-      where: {
-        userId_resourceId: {
-          userId,
-          resourceId,
-        },
-      },
-    });
+    const existingUpvote = await this.repository.findUpvote(userId, resourceId);
 
     if (existingUpvote) {
       // 已点赞，取消点赞
-      await this.prisma.$transaction([
-        this.prisma.resourceUpvote.delete({
-          where: { id: existingUpvote.id },
-        }),
-        this.prisma.resource.update({
-          where: { id: resourceId },
-          data: { upvoteCount: { decrement: 1 } },
-        }),
-      ]);
+      await this.repository.deleteUpvoteWithCount(
+        existingUpvote.id,
+        resourceId,
+      );
 
       this.logger.log(
         `User ${userId} removed upvote from resource ${resourceId}`,
@@ -1046,15 +983,7 @@ export class ResourcesService {
       };
     } else {
       // 未点赞，添加点赞
-      await this.prisma.$transaction([
-        this.prisma.resourceUpvote.create({
-          data: { userId, resourceId },
-        }),
-        this.prisma.resource.update({
-          where: { id: resourceId },
-          data: { upvoteCount: { increment: 1 } },
-        }),
-      ]);
+      await this.repository.createUpvoteWithCount(userId, resourceId);
 
       this.logger.log(`User ${userId} upvoted resource ${resourceId}`);
 

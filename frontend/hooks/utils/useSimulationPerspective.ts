@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ViewPerspective } from '@/components/ai-simulation/PerspectiveSelector';
 
+import { logger } from '@/lib/utils/logger';
 const STORAGE_KEY = 'deepdive_simulation_preferences';
 
 interface SimulationPreferences {
@@ -42,7 +43,7 @@ function getStoredPreferences(): SimulationPreferences {
       return JSON.parse(stored);
     }
   } catch (e) {
-    console.error('Failed to parse simulation preferences:', e);
+    logger.error('Failed to parse simulation preferences:', e);
   }
 
   return {
@@ -65,7 +66,7 @@ function savePreferences(preferences: SimulationPreferences): void {
       })
     );
   } catch (e) {
-    console.error('Failed to save simulation preferences:', e);
+    logger.error('Failed to save simulation preferences:', e);
   }
 }
 

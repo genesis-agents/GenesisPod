@@ -39,6 +39,7 @@ import {
   CheckComplianceDto,
 } from "./dto";
 import { AiCodingProjectStatus, AiCodingDocumentType } from "@prisma/client";
+import type { RequestWithUser } from "../../../common/types/express-request.types";
 
 @Controller("ai-coding")
 @UseGuards(JwtAuthGuard)
@@ -63,7 +64,7 @@ export class AiCodingController {
    */
   @Post("projects")
   async createProject(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() dto: CreateCodingProjectDto,
   ) {
     this.logger.log(`Creating project for user ${req.user.id}`);
@@ -76,7 +77,7 @@ export class AiCodingController {
    */
   @Get("projects")
   async getProjects(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Query("status") status?: AiCodingProjectStatus,
     @Query("limit") limit?: string,
     @Query("cursor") cursor?: string,
@@ -93,7 +94,7 @@ export class AiCodingController {
    * GET /api/v1/ai-coding/projects/:id
    */
   @Get("projects/:id")
-  async getProjectById(@Request() req: any, @Param("id") id: string) {
+  async getProjectById(@Request() req: RequestWithUser, @Param("id") id: string) {
     return this.aiCodingService.getProjectById(id, req.user.id);
   }
 
@@ -103,7 +104,7 @@ export class AiCodingController {
    */
   @Patch("projects/:id")
   async updateProject(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: UpdateProjectDto,
   ) {
@@ -115,7 +116,7 @@ export class AiCodingController {
    * DELETE /api/v1/ai-coding/projects/:id
    */
   @Delete("projects/:id")
-  async deleteProject(@Request() req: any, @Param("id") id: string) {
+  async deleteProject(@Request() req: RequestWithUser, @Param("id") id: string) {
     await this.aiCodingService.deleteProject(id, req.user.id);
     return { success: true, message: "Project deleted" };
   }
@@ -128,7 +129,7 @@ export class AiCodingController {
    */
   @Post("projects/:id/start")
   async startProject(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto?: StartProjectDto,
   ) {
@@ -141,7 +142,7 @@ export class AiCodingController {
    * GET /api/v1/ai-coding/projects/:id/can-resume
    */
   @Get("projects/:id/can-resume")
-  async canResumeProject(@Request() req: any, @Param("id") id: string) {
+  async canResumeProject(@Request() req: RequestWithUser, @Param("id") id: string) {
     // 验证项目归属
     await this.aiCodingService.getProjectById(id, req.user.id);
     return this.codingTaskService.canResume(id);
@@ -152,7 +153,7 @@ export class AiCodingController {
    * POST /api/v1/ai-coding/projects/:id/resume
    */
   @Post("projects/:id/resume")
-  async resumeProject(@Request() req: any, @Param("id") id: string) {
+  async resumeProject(@Request() req: RequestWithUser, @Param("id") id: string) {
     this.logger.log(`Resuming project ${id} for user ${req.user.id}`);
     return this.aiCodingService.resumeProject(id, req.user.id);
   }
@@ -163,7 +164,7 @@ export class AiCodingController {
    */
   @Post("projects/:id/iterate")
   async iterateProject(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: IterateProjectDto,
   ) {
@@ -178,7 +179,7 @@ export class AiCodingController {
    * GET /api/v1/ai-coding/projects/:id/files
    */
   @Get("projects/:id/files")
-  async getProjectFiles(@Request() req: any, @Param("id") id: string) {
+  async getProjectFiles(@Request() req: RequestWithUser, @Param("id") id: string) {
     return this.aiCodingService.getProjectFiles(id, req.user.id);
   }
 
@@ -188,7 +189,7 @@ export class AiCodingController {
    */
   @Get("projects/:id/download")
   async downloadProject(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Res() res: Response,
   ) {
@@ -264,7 +265,7 @@ export class AiCodingController {
    * GET /api/v1/ai-coding/standards
    */
   @Get("standards")
-  async getStandards(@Request() req: any) {
+  async getStandards(@Request() req: RequestWithUser) {
     return this.standardsService.getUserStandards(req.user.id);
   }
 
@@ -282,7 +283,7 @@ export class AiCodingController {
    * POST /api/v1/ai-coding/standards
    */
   @Post("standards")
-  async createStandard(@Request() req: any, @Body() dto: CreateStandardDto) {
+  async createStandard(@Request() req: RequestWithUser, @Body() dto: CreateStandardDto) {
     return this.standardsService.createStandard(req.user.id, dto);
   }
 
@@ -292,7 +293,7 @@ export class AiCodingController {
    */
   @Post("standards/apply-template")
   async applyStandardTemplate(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() dto: ApplyTemplateDto,
   ) {
     return this.standardsService.applyTemplate(req.user.id, dto.templateId);
@@ -303,7 +304,7 @@ export class AiCodingController {
    * GET /api/v1/ai-coding/standards/:id
    */
   @Get("standards/:id")
-  async getStandardById(@Request() req: any, @Param("id") id: string) {
+  async getStandardById(@Request() req: RequestWithUser, @Param("id") id: string) {
     return this.standardsService.getStandardById(id, req.user.id);
   }
 
@@ -313,7 +314,7 @@ export class AiCodingController {
    */
   @Patch("standards/:id")
   async updateStandard(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: UpdateStandardDto,
   ) {
@@ -325,7 +326,7 @@ export class AiCodingController {
    * DELETE /api/v1/ai-coding/standards/:id
    */
   @Delete("standards/:id")
-  async deleteStandard(@Request() req: any, @Param("id") id: string) {
+  async deleteStandard(@Request() req: RequestWithUser, @Param("id") id: string) {
     await this.standardsService.deleteStandard(id, req.user.id);
     return { success: true, message: "Standard deleted" };
   }
@@ -338,7 +339,7 @@ export class AiCodingController {
    */
   @Post("projects/:id/compliance/check")
   async checkCompliance(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") projectId: string,
     @Body() dto?: CheckComplianceDto,
   ) {
@@ -352,7 +353,7 @@ export class AiCodingController {
    */
   @Get("projects/:id/compliance")
   async getComplianceReports(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") projectId: string,
   ) {
     return this.complianceService.getProjectReports(projectId, req.user.id);
@@ -364,7 +365,7 @@ export class AiCodingController {
    */
   @Get("compliance/:reportId")
   async getComplianceReportById(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("reportId") reportId: string,
   ) {
     return this.complianceService.getReportById(reportId, req.user.id);
@@ -377,7 +378,7 @@ export class AiCodingController {
    * GET /api/v1/ai-coding/github/status
    */
   @Get("github/status")
-  async getGithubStatus(@Request() req: any) {
+  async getGithubStatus(@Request() req: RequestWithUser) {
     return this.githubOAuthService.getStatus(req.user.id);
   }
 
@@ -386,7 +387,7 @@ export class AiCodingController {
    * GET /api/v1/ai-coding/github/auth
    */
   @Get("github/auth")
-  async getGithubAuthUrl(@Request() req: any) {
+  async getGithubAuthUrl(@Request() req: RequestWithUser) {
     const state = Buffer.from(
       JSON.stringify({ userId: req.user.id, timestamp: Date.now() }),
     ).toString("base64");
@@ -431,7 +432,7 @@ export class AiCodingController {
    * DELETE /api/v1/ai-coding/github/disconnect
    */
   @Delete("github/disconnect")
-  async disconnectGithub(@Request() req: any) {
+  async disconnectGithub(@Request() req: RequestWithUser) {
     await this.githubOAuthService.disconnect(req.user.id);
     return { success: true, message: "GitHub disconnected" };
   }
@@ -442,7 +443,7 @@ export class AiCodingController {
    */
   @Post("projects/:id/github/repo")
   async createGithubRepo(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") projectId: string,
     @Body() dto: CreateRepoDto,
   ) {
@@ -454,7 +455,7 @@ export class AiCodingController {
    * GET /api/v1/ai-coding/projects/:id/github
    */
   @Get("projects/:id/github")
-  async getGithubRepoInfo(@Request() req: any, @Param("id") projectId: string) {
+  async getGithubRepoInfo(@Request() req: RequestWithUser, @Param("id") projectId: string) {
     return this.githubRepoService.getRepoInfo(projectId, req.user.id);
   }
 
@@ -464,7 +465,7 @@ export class AiCodingController {
    */
   @Post("projects/:id/github/push")
   async pushToGithub(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") projectId: string,
     @Body() dto?: PushToRepoDto,
   ) {
@@ -477,7 +478,7 @@ export class AiCodingController {
    */
   @Post("projects/:id/github/branches")
   async createBranch(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") projectId: string,
     @Body() dto: CreateBranchDto,
   ) {
@@ -490,7 +491,7 @@ export class AiCodingController {
    */
   @Post("projects/:id/github/prs")
   async createPullRequest(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") projectId: string,
     @Body() dto: CreatePRDto,
   ) {
@@ -506,7 +507,7 @@ export class AiCodingController {
    * GET /api/v1/ai-coding/projects/:id/github/prs
    */
   @Get("projects/:id/github/prs")
-  async getPullRequests(@Request() req: any, @Param("id") projectId: string) {
+  async getPullRequests(@Request() req: RequestWithUser, @Param("id") projectId: string) {
     return this.githubRepoService.getPullRequests(projectId, req.user.id);
   }
 
@@ -515,7 +516,7 @@ export class AiCodingController {
    * POST /api/v1/ai-coding/projects/:id/github/sync
    */
   @Post("projects/:id/github/sync")
-  async syncGithubStatus(@Request() req: any, @Param("id") projectId: string) {
+  async syncGithubStatus(@Request() req: RequestWithUser, @Param("id") projectId: string) {
     await this.githubRepoService.syncPRStatus(projectId, req.user.id);
     return { success: true, message: "GitHub status synced" };
   }
@@ -528,7 +529,7 @@ export class AiCodingController {
    */
   @Get("projects/:id/documents")
   async getProjectDocuments(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") projectId: string,
     @Query("type") type?: string,
   ) {
@@ -544,7 +545,7 @@ export class AiCodingController {
    * GET /api/v1/ai-coding/documents/:id
    */
   @Get("documents/:id")
-  async getDocumentById(@Request() req: any, @Param("id") docId: string) {
+  async getDocumentById(@Request() req: RequestWithUser, @Param("id") docId: string) {
     return this.documentService.getDocumentById(docId, req.user.id);
   }
 
@@ -554,7 +555,7 @@ export class AiCodingController {
    */
   @Post("projects/:id/documents/regenerate")
   async regenerateDocument(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") projectId: string,
     @Query("type") type: string,
   ) {

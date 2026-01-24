@@ -89,6 +89,13 @@ import {
 // Style Template Service (Three-layer style configuration)
 import { StyleTemplateService } from "../style/style-template.service";
 
+// New sub-services (refactored from God Service)
+import { WritingAgentCoordinator } from "./writing-agent-coordinator.service";
+import { WritingContextService } from "./writing-context.service";
+import { WritingStyleService } from "./writing-style.service";
+import { WritingQualityService } from "./writing-quality.service";
+import { CheckpointService } from "./checkpoint.service";
+
 /**
  * 写作任务类型
  */
@@ -242,6 +249,12 @@ export class WritingMissionService {
     private readonly worldBuildingEnhancer: WorldBuildingEnhancerService,
     // 节奏控制服务 - 用于控制章节节奏变化
     private readonly pacingControl: PacingControlService,
+    // ★ 新增：拆分的子服务
+    private readonly agentCoordinator: WritingAgentCoordinator,
+    private readonly contextService: WritingContextService,
+    private readonly styleService: WritingStyleService,
+    private readonly qualityService: WritingQualityService,
+    private readonly checkpointService: CheckpointService,
   ) {
     // 注册角色和团队配置（不需要 LLM）
     this.registerWritingRoles();
@@ -254,6 +267,12 @@ export class WritingMissionService {
     void this.sensoryImmersion;
     void this.openingHook;
     void this.pacingControl;
+    // 新子服务
+    void this.agentCoordinator;
+    void this.contextService;
+    void this.styleService;
+    void this.qualityService;
+    void this.checkpointService;
   }
 
   /**

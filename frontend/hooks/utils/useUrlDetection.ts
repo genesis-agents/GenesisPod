@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { detectAndParseUrls, ParsedUrl, DetectedUrl } from '@/lib/api/ai-teams';
 
+import { logger } from '@/lib/utils/logger';
 // URL 检测正则表达式（与后端保持一致）
 const URL_REGEX =
   /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)/gi;
@@ -198,7 +199,7 @@ export function useUrlDetection(
           // 请求被取消，忽略
           return;
         }
-        console.error('Failed to parse URLs:', err);
+        logger.error('Failed to parse URLs:', err);
         setError((err as Error).message);
 
         // 将 pending 状态改为 failed

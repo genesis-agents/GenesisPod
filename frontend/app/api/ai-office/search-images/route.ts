@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 /**
  * 图片搜索API路由
  * POST /api/ai-office/search-images
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
       total: data.total || 0,
     });
   } catch (error) {
-    console.error('Image search API error:', error);
+    logger.error('Image search API error:', error);
     return NextResponse.json(
       {
         success: false,

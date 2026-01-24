@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useRef } from 'react';
-import { useSlidesStore, calculateOverallProgress } from '@/stores/slidesStore';
+import { useSlidesStore, calculateOverallProgress } from '@/stores';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import type {
@@ -24,6 +24,7 @@ import type {
 } from '@/types/slides';
 import { PHASE_MAPPING } from '@/types/slides';
 
+import { logger } from '@/lib/utils/logger';
 const API_BASE = config.apiUrl || '';
 
 interface UseSlideGenerationOptions {
@@ -67,7 +68,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
    */
   const handlePhaseCompleted = useCallback(
     (phase: string, data: unknown) => {
-      console.log('[SSE] Phase completed:', phase, data);
+      logger.debug('[SSE] Phase completed:', phase, data);
       switch (phase) {
         case 'task_decomposition':
           setTaskDecomposition(data as TaskDecomposition);
@@ -108,7 +109,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
    */
   const handleStreamEvent = useCallback(
     (event: StreamEvent) => {
-      console.log('[SSE] Received event:', event.type, event);
+      logger.debug('[SSE] Received event:', event.type, event);
       const data = event.data as Record<string, unknown>;
 
       switch (event.type) {
@@ -121,7 +122,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
             event.sessionId ||
             event.executionId ||
             '';
-          console.log('[SSE] Execution started, sessionId:', sessionId);
+          logger.debug('[SSE] Execution started, sessionId:', sessionId);
           setSession({
             id: sessionId,
             userId: user?.id || 'anonymous',
@@ -139,7 +140,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
           const backendPhase = (data.phase as string) || '';
           const frontendPhase = mapPhase(backendPhase);
           const agent = data.agent as string | undefined;
-          console.log(
+          logger.debug(
             '[SSE] Phase started:',
             backendPhase,
             '-> mapped to:',
@@ -155,7 +156,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
 
           // Agent 状态更新（可选，通过 console 跟踪）
           if (agent) {
-            console.log('[SSE] Agent started:', agent, data.description);
+            logger.debug('[SSE] Agent started:', agent, data.description);
           }
 
           options.onPhaseStarted?.(frontendPhase);
@@ -186,7 +187,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
           const backendPhase = (data.phase as string) || '';
           const frontendPhase = mapPhase(backendPhase);
           const result = data.result;
-          console.log(
+          logger.debug(
             '[SSE] Phase completed:',
             backendPhase,
             '-> mapped to:',
@@ -203,7 +204,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
           const agentName = data.agentName as string;
           const task = data.task as string;
           const progressValue = data.progress as number;
-          console.log('[SSE] Agent working:', agentName, task, progressValue);
+          logger.debug('[SSE] Agent working:', agentName, task, progressValue);
           // TODO: 可扩展为在 UI 显示 agent 状态
           break;
         }
@@ -212,7 +213,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
         case 'agent:completed': {
           const agentName = data.agentName as string;
           const result = data.result as string;
-          console.log('[SSE] Agent completed:', agentName, result);
+          logger.debug('[SSE] Agent completed:', agentName, result);
           // TODO: 可扩展为在 UI 显示 agent 状态
           break;
         }
@@ -223,7 +224,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
           const totalPages = (data.totalPages as number) || pageNumber;
           const html = data.html as string;
           const title = data.title as string;
-          console.log(
+          logger.debug(
             '[SSE] Slide generated:',
             pageNumber,
             '/',
@@ -291,7 +292,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
             useSlidesStore.getState().pages.length;
           const checkpointId =
             (data.checkpointId as string) || event.sessionId || '';
-          console.log('[SSE] Execution completed, totalPages:', totalPages);
+          logger.debug('[SSE] Execution completed, totalPages:', totalPages);
 
           setProgress({
             phase: 'quality_review',
@@ -312,7 +313,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
         // 执行失败
         case 'execution:failed': {
           const errorMsg = (data.error as string) || '生成失败';
-          console.error('[SSE] Execution failed:', errorMsg);
+          logger.error('[SSE] Execution failed:', errorMsg);
 
           setError(errorMsg);
           setGenerating(false);
@@ -326,7 +327,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
           const sessionData = data as {
             session: { id: string; title: string };
           };
-          console.log(
+          logger.debug(
             '[SSE] Session created (legacy):',
             sessionData.session?.id
           );
@@ -346,7 +347,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
 
         case 'phase_started': {
           const phase = data.phase as string;
-          console.log('[SSE] Phase started (legacy):', phase);
+          logger.debug('[SSE] Phase started (legacy):', phase);
           const frontendPhase = mapPhase(phase);
           setProgress({
             phase: frontendPhase,
@@ -368,14 +369,14 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
         }
 
         case 'checkpoint_created': {
-          console.log('[SSE] Checkpoint created:', data.name || data.type);
+          logger.debug('[SSE] Checkpoint created:', data.name || data.type);
           break;
         }
 
         case 'page_started': {
           const pageNumber = data.pageNumber as number;
           const totalPages = data.totalPages as number;
-          console.log('[SSE] Page started (legacy):', pageNumber);
+          logger.debug('[SSE] Page started (legacy):', pageNumber);
           const currentProgress = useSlidesStore.getState().progress;
           setProgress({
             phase: currentProgress?.phase || 'page_rendering',
@@ -393,7 +394,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
           const pageNumber = data.pageNumber as number;
           const totalPages = data.totalPages as number;
           const html = data.html as string;
-          console.log(
+          logger.debug(
             '[SSE] Page completed (legacy):',
             pageNumber,
             'hasHtml:',
@@ -431,7 +432,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
 
         case 'error': {
           const errorMsg = data.error as string;
-          console.error('[SSE] Error (legacy):', errorMsg);
+          logger.error('[SSE] Error (legacy):', errorMsg);
           setError(errorMsg);
           setGenerating(false);
           options.onError?.(errorMsg);
@@ -442,7 +443,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
           const sessionId = data.sessionId as string;
           const checkpointId = data.checkpointId as string;
           const totalPages = data.totalPages as number;
-          console.log('[SSE] Complete (legacy):', totalPages);
+          logger.debug('[SSE] Complete (legacy):', totalPages);
           setProgress({
             phase: 'quality_review',
             phaseProgress: 100,
@@ -456,7 +457,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
         }
 
         default:
-          console.log('[SSE] Unknown event type:', event.type);
+          logger.debug('[SSE] Unknown event type:', event.type);
       }
     },
     [
@@ -479,8 +480,8 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
    */
   const generate = useCallback(
     async (request: GenerateRequest) => {
-      console.log('[SSE] Starting generation:', request.title);
-      console.log('[SSE] Source text length:', request.sourceText?.length || 0);
+      logger.debug('[SSE] Starting generation:', request.title);
+      logger.debug('[SSE] Source text length:', request.sourceText?.length || 0);
 
       // 清理之前的状态
       clearStreamEvents();
@@ -499,7 +500,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
       try {
         // 使用 POST 请求，通过 body 传递数据（避免 URL 长度限制）
         const url = `${API_BASE}/ai-office/slides/generate?userId=${encodeURIComponent(user?.id || 'anonymous')}`;
-        console.log('[SSE] Connecting via POST to:', url);
+        logger.debug('[SSE] Connecting via POST to:', url);
 
         const response = await fetch(url, {
           method: 'POST',
@@ -526,7 +527,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
           throw new Error('Response body is null');
         }
 
-        console.log('[SSE] Connection opened via POST');
+        logger.debug('[SSE] Connection opened via POST');
 
         // 使用 ReadableStream 读取 SSE 流
         const reader = response.body.getReader();
@@ -538,7 +539,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
             while (true) {
               const { done, value } = await reader.read();
               if (done) {
-                console.log('[SSE] Stream completed');
+                logger.debug('[SSE] Stream completed');
                 break;
               }
 
@@ -552,7 +553,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
                 if (line.startsWith('data: ')) {
                   const data = line.slice(6).trim();
                   if (data) {
-                    console.log(
+                    logger.debug(
                       '[SSE] Raw message received:',
                       data.substring(0, 200)
                     );
@@ -561,7 +562,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
                       addStreamEvent(streamEvent);
                       handleStreamEvent(streamEvent);
                     } catch (e) {
-                      console.error(
+                      logger.error(
                         '[SSE] Failed to parse stream event:',
                         e,
                         'Data:',
@@ -574,7 +575,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
             }
           } catch (err) {
             if ((err as Error).name === 'AbortError') {
-              console.log('[SSE] Stream aborted by user');
+              logger.debug('[SSE] Stream aborted by user');
             } else {
               throw err;
             }
@@ -584,10 +585,10 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
         await processStream();
       } catch (err) {
         if ((err as Error).name === 'AbortError') {
-          console.log('[SSE] Request aborted');
+          logger.debug('[SSE] Request aborted');
           return;
         }
-        console.error('[SSE] Error:', err);
+        logger.error('[SSE] Error:', err);
         const errorMessage = err instanceof Error ? err.message : '生成失败';
         setError(errorMessage);
         setGenerating(false);

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 
+import { logger } from '@/lib/utils/logger';
 export interface SubtitleSegment {
   text: string;
   start: number;
@@ -78,7 +79,7 @@ export function useYoutubeSubtitleExport(): UseYoutubeSubtitleExportReturn {
         const errorMessage =
           err instanceof Error ? err.message : 'Unknown error occurred';
         setError(errorMessage);
-        console.error('Failed to fetch subtitles:', err);
+        logger.error('Failed to fetch subtitles:', err);
         return null;
       } finally {
         setIsLoading(false);
@@ -137,7 +138,7 @@ export function useYoutubeSubtitleExport(): UseYoutubeSubtitleExportReturn {
         const errorMessage =
           err instanceof Error ? err.message : 'Unknown error occurred';
         setError(errorMessage);
-        console.error('Failed to export PDF:', err);
+        logger.error('Failed to export PDF:', err);
         throw err;
       } finally {
         setIsLoading(false);

@@ -30,7 +30,6 @@ import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { WechatDataSourceService } from "./wechat-data-source.service";
 import { WechatWorkCryptoService } from "./wechat-work-crypto.service";
 import { WechatItemType } from "@prisma/client";
-import { PrismaService } from "../../../common/prisma/prisma.service";
 
 interface AuthenticatedRequest extends Request {
   user?: { id: string };
@@ -45,7 +44,6 @@ export class WechatDataSourceController {
   constructor(
     private readonly wechatDataSourceService: WechatDataSourceService,
     private readonly wechatCryptoService: WechatWorkCryptoService,
-    private readonly prisma: PrismaService,
   ) {}
 
   private getUserId(req: AuthenticatedRequest): string {
@@ -293,21 +291,7 @@ export class WechatDataSourceController {
   @ApiResponse({ status: 200, description: "Returns binding status" })
   async getBinding(@Req() req: AuthenticatedRequest) {
     const userId = this.getUserId(req);
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { preferences: true },
-    });
-
-    const preferences = user?.preferences as Record<string, unknown> | null;
-    const wechatWorkUserId = preferences?.wechatWorkUserId as
-      | string
-      | undefined;
-
-    return {
-      isBound: !!wechatWorkUserId,
-      wechatWorkUserId: wechatWorkUserId || null,
-    };
+    return this.wechatDataSourceService.getWechatWorkBinding(userId);
   }
 
   /**
@@ -333,51 +317,26 @@ export class WechatDataSourceController {
 
     const wechatWorkUserId = body.wechatWorkUserId.trim();
 
-    // Check if this WeChat Work ID is already bound to another user
-    const existingUser = await this.prisma.user.findFirst({
-      where: {
-        preferences: {
-          path: ["wechatWorkUserId"],
-          equals: wechatWorkUserId,
-        },
-        NOT: { id: userId },
-      },
-    });
-
-    if (existingUser) {
-      throw new HttpException(
-        "This WeChat Work ID is already bound to another account",
-        HttpStatus.CONFLICT,
+    try {
+      const result = await this.wechatDataSourceService.bindWechatWorkUserId(
+        userId,
+        wechatWorkUserId,
       );
+
+      return {
+        success: true,
+        message: "WeChat Work ID bound successfully",
+        wechatWorkUserId: result.wechatWorkUserId,
+      };
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("already bound to another account")
+      ) {
+        throw new HttpException(error.message, HttpStatus.CONFLICT);
+      }
+      throw error;
     }
-
-    // Get current preferences
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { preferences: true },
-    });
-
-    const currentPreferences =
-      (user?.preferences as Record<string, unknown>) || {};
-
-    // Update preferences with WeChat Work ID
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        preferences: {
-          ...currentPreferences,
-          wechatWorkUserId,
-        },
-      },
-    });
-
-    this.logger.log(`User ${userId} bound WeChat Work ID: ${wechatWorkUserId}`);
-
-    return {
-      success: true,
-      message: "WeChat Work ID bound successfully",
-      wechatWorkUserId,
-    };
   }
 
   /**
@@ -389,27 +348,7 @@ export class WechatDataSourceController {
   @ApiResponse({ status: 200, description: "Unbinding successful" })
   async unbindWechatWork(@Req() req: AuthenticatedRequest) {
     const userId = this.getUserId(req);
-
-    // Get current preferences
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { preferences: true },
-    });
-
-    const currentPreferences =
-      (user?.preferences as Record<string, unknown>) || {};
-
-    // Remove wechatWorkUserId from preferences
-    const { wechatWorkUserId, ...remainingPreferences } = currentPreferences;
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        preferences: remainingPreferences as object,
-      },
-    });
-
-    this.logger.log(`User ${userId} unbound WeChat Work ID`);
+    await this.wechatDataSourceService.unbindWechatWorkUserId(userId);
 
     return {
       success: true,

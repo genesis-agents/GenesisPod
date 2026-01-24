@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 /**
  * Slides Team 生成 API 代理
  *
@@ -24,12 +25,12 @@ export async function POST(request: NextRequest) {
   // 构建后端 URL
   const backendUrl = `${BACKEND_API_URL}/ai-office/slides/team/generate?userId=${encodeURIComponent(userId)}`;
 
-  console.log('[Slides Team Generate] Proxying to:', backendUrl);
+  logger.debug('[Slides Team Generate] Proxying to:', backendUrl);
 
   try {
     // 获取请求体
     const body = await request.json();
-    console.log('[Slides Team Generate] Request body:', {
+    logger.debug('[Slides Team Generate] Request body:', {
       title: body.title,
       sourceTextLength: body.sourceText?.length || 0,
       targetPages: body.targetPages,
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(
+      logger.error(
         '[Slides Team Generate] Backend error:',
         response.status,
         errorText
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     // 转发 SSE 流
     if (response.body) {
-      console.log('[Slides Team Generate] Starting SSE stream');
+      logger.debug('[Slides Team Generate] Starting SSE stream');
       return new Response(response.body, {
         headers: {
           'Content-Type': 'text/event-stream',
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Slides Team Generate] Error:', error);
+    logger.error('[Slides Team Generate] Error:', error);
     return new Response(
       JSON.stringify({
         error: 'Failed to connect to backend service',

@@ -1,13 +1,14 @@
 import { Module } from "@nestjs/common";
 import { CollectionsService } from "./collections.service";
 import { CollectionsController } from "./collections.controller";
+import { CollectionsRepository } from "./collections.repository";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { AiOfficeModule } from "../../ai-app/office/ai-office.module";
+import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 
 @Module({
-  imports: [PrismaModule, AiOfficeModule],
+  imports: [PrismaModule, AiEngineModule],
   controllers: [CollectionsController],
-  providers: [CollectionsService],
-  exports: [CollectionsService],
+  providers: [CollectionsRepository, CollectionsService],
+  exports: [CollectionsRepository, CollectionsService],
 })
 export class CollectionsModule {}

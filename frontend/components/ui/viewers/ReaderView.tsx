@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
 import TableOfContents from './TableOfContents';
 
+import { logger } from '@/lib/utils/logger';
 interface ReaderViewProps {
   url: string;
   title?: string;
@@ -274,7 +275,7 @@ export default function ReaderView({
       try {
         // 根据资源类别选择合适的API端点
         // News类型使用html-reader-news（无域名限制），其他类型使用html-reader（有域名白名单）
-        console.log('[ReaderView] Category:', category, 'URL:', url);
+        logger.debug('[ReaderView] Category:', category, 'URL:', url);
 
         // 决定使用哪个端点：
         // 1. 已导入的资源（来自数据库）：使用无域名限制的 html-reader-news 端点
@@ -308,10 +309,10 @@ export default function ReaderView({
           ? 'html-reader-news'
           : 'html-reader';
         const readerUrl = `${config.apiUrl}/proxy/${endpoint}?url=${encodeURIComponent(url)}`;
-        console.log(
+        logger.debug(
           `[ReaderView] Using endpoint: ${endpoint} (imported: ${isImportedResource}, category: ${isNewsByCategory}, domain: ${isNewsByDomain})`
         );
-        console.log(`[ReaderView] Fetching: ${readerUrl}`);
+        logger.debug(`[ReaderView] Fetching: ${readerUrl}`);
 
         const response = await fetch(readerUrl);
 
@@ -329,7 +330,7 @@ export default function ReaderView({
           throw new Error('Failed to extract readable content from this page');
         }
 
-        console.log(
+        logger.debug(
           `Article loaded successfully: "${data.title}" (${data.length} characters)`
         );
         setArticle(data);
@@ -337,7 +338,7 @@ export default function ReaderView({
         setLoading(false);
         setError(null);
       } catch (err) {
-        console.error(`Failed to load article from ${url}:`, err);
+        logger.error(`Failed to load article from ${url}:`, err);
         setLoading(false);
         setError(
           err instanceof Error

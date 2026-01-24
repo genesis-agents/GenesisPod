@@ -32,6 +32,7 @@ import { ParsedFile } from '@/lib/utils/codeParser';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { logger } from '@/lib/utils/logger';
 // Code file viewer component with live preview
 function CodeViewer({ files }: { files: ProjectFile[] }) {
   const [selectedFile, setSelectedFile] = useState<ProjectFile | null>(
@@ -102,7 +103,7 @@ function CodeViewer({ files }: { files: ProjectFile[] }) {
         <DevWorkspace
           files={parsedFiles}
           onFileChange={(path, content) => {
-            console.log('File changed:', path, content.length);
+            logger.debug('File changed:', path, content.length);
           }}
           showPreview={true}
         />
@@ -357,7 +358,7 @@ export default function ProjectDetailPage() {
       setFiles(filesData);
       setDocuments(docsData);
     } catch (err) {
-      console.error('Failed to fetch project:', err);
+      logger.error('Failed to fetch project:', err);
       setError(err instanceof Error ? err.message : 'Failed to load project');
     } finally {
       setIsLoading(false);
@@ -450,7 +451,7 @@ export default function ProjectDetailPage() {
   }, [fetchProject]);
 
   const handleSocketError = useCallback((event: { error: string }) => {
-    console.error('[Project] Error:', event.error);
+    logger.error('[Project] Error:', event.error);
     setProgressMessage(`错误: ${event.error}`);
   }, []);
 
@@ -476,7 +477,7 @@ export default function ProjectDetailPage() {
       const updated = await startProject(project.id);
       setProject(updated);
     } catch (err) {
-      console.error('Failed to start project:', err);
+      logger.error('Failed to start project:', err);
       alert('启动项目失败');
     } finally {
       setIsStarting(false);
@@ -493,7 +494,7 @@ export default function ProjectDetailPage() {
       setShowIterateDialog(false);
       fetchProject();
     } catch (err) {
-      console.error('Failed to iterate project:', err);
+      logger.error('Failed to iterate project:', err);
       alert('迭代失败');
     }
   };
@@ -506,7 +507,7 @@ export default function ProjectDetailPage() {
     try {
       await downloadProjectZip(project.id);
     } catch (err) {
-      console.error('Failed to download project:', err);
+      logger.error('Failed to download project:', err);
       alert('下载失败');
     } finally {
       setIsDownloading(false);
@@ -540,7 +541,7 @@ export default function ProjectDetailPage() {
         setShowGithubDialog(false);
       }
     } catch (err: unknown) {
-      console.error('Failed to push to GitHub:', err);
+      logger.error('Failed to push to GitHub:', err);
       const errorMessage = err instanceof Error ? err.message : '推送失败';
       alert(errorMessage);
     } finally {

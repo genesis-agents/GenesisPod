@@ -3,7 +3,7 @@
 import { Mail } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
-import EmailSettings from '@/components/admin/EmailSettings';
+import EmailSettings from '@/components/admin/settings/EmailSettings';
 
 export default function EmailPage() {
   const { t } = useTranslation();

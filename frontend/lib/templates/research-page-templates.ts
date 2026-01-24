@@ -266,7 +266,7 @@ export const RESEARCH_PAGE_TEMPLATES: ResearchPageTemplate[] = [
 export function getResearchPageTemplateById(id: string): ResearchPageTemplate {
   const template = RESEARCH_PAGE_TEMPLATES.find((t) => t.id === id);
   if (!template) {
-    console.warn(`Research Page template "${id}" not found, using default`);
+    logger.warn(`Research Page template "${id}" not found, using default`);
     return academicResearchTemplate;
   }
   return template;

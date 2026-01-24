@@ -73,6 +73,7 @@ import {
 } from '@/components/ai-research/deep-research/citations';
 import { ResearchTab } from '@/components/ai-research/deep-research/ResearchTab';
 
+import { logger } from '@/lib/utils/logger';
 // ==================== 类型定义 ====================
 interface Source {
   id: string;
@@ -471,7 +472,7 @@ function SourcesPanel({
       setSearchResults(result.results || []);
       setSearchStats(result.stats);
     } catch (err) {
-      console.error('Search failed:', err);
+      logger.error('Search failed:', err);
     } finally {
       setSearching(false);
     }
@@ -892,7 +893,7 @@ function SourcesPanel({
                                   new Set(prev).add(resultId)
                                 );
                               } catch (err) {
-                                console.error('Failed to import:', err);
+                                logger.error('Failed to import:', err);
                               }
                             }
                           }}
@@ -931,7 +932,7 @@ function SourcesPanel({
                                   new Set(prev).add(resultId)
                                 );
                               } catch (err) {
-                                console.error('Failed to import:', err);
+                                logger.error('Failed to import:', err);
                               }
                             }
                           }}
@@ -1034,7 +1035,7 @@ function SourcesPanel({
                                         new Set(prev).add(resultId)
                                       );
                                     } catch (err) {
-                                      console.error(
+                                      logger.error(
                                         'Failed to add source:',
                                         err
                                       );
@@ -1253,7 +1254,7 @@ function SourcesPanel({
                                   );
                                   setViewingSource(null);
                                 } catch (err) {
-                                  console.error('Failed to add source:', err);
+                                  logger.error('Failed to add source:', err);
                                 } finally {
                                   setAddingId(null);
                                 }
@@ -2859,7 +2860,7 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (aiModels.length > 0 && !selectedModel) {
       // Debug: 输出所有可用模型
-      console.log(
+      logger.debug(
         '[AI Studio] Available models:',
         aiModels.map((m) => ({
           name: m.name,
@@ -2871,11 +2872,11 @@ export default function ProjectDetailPage() {
 
       // 优先使用标准聊天(CHAT)类型的默认模型
       const chatModel = getDefaultChatModel(aiModels);
-      console.log('[AI Studio] getDefaultChatModel returned:', chatModel?.name);
+      logger.debug('[AI Studio] getDefaultChatModel returned:', chatModel?.name);
 
       const defaultModel =
         chatModel || aiModels.find((m) => m.isDefault) || aiModels[0];
-      console.log('[AI Studio] Final selected model:', defaultModel?.name);
+      logger.debug('[AI Studio] Final selected model:', defaultModel?.name);
 
       if (defaultModel) {
         setSelectedModel(defaultModel.modelName);
@@ -2935,7 +2936,7 @@ export default function ProjectDetailPage() {
           });
         }
       } catch (err) {
-        console.error('Failed to poll output status:', err);
+        logger.error('Failed to poll output status:', err);
       }
     }, 3000); // Poll every 3 seconds
 
@@ -2973,7 +2974,7 @@ export default function ProjectDetailPage() {
           : null
       );
     } catch (err) {
-      console.error('Failed to add source:', err);
+      logger.error('Failed to add source:', err);
     }
   };
 
@@ -2994,7 +2995,7 @@ export default function ProjectDetailPage() {
         prev.filter((sourceId) => sourceId !== id)
       );
     } catch (err) {
-      console.error('Failed to remove source:', err);
+      logger.error('Failed to remove source:', err);
     }
   };
 
@@ -3025,7 +3026,7 @@ export default function ProjectDetailPage() {
         );
       }
     } catch (err) {
-      console.error('Failed to batch remove sources:', err);
+      logger.error('Failed to batch remove sources:', err);
       alert('批量删除失败，请重试');
     }
   };
@@ -3104,7 +3105,7 @@ export default function ProjectDetailPage() {
       }
       setChatLoading(false);
     } catch (err) {
-      console.error('Failed to send message:', err);
+      logger.error('Failed to send message:', err);
       // Show error message
       const errorResponse: ChatMessage = {
         id: `error-${Date.now()}`,
@@ -3147,7 +3148,7 @@ export default function ProjectDetailPage() {
           : null
       );
     } catch (err) {
-      console.error('Failed to save note:', err);
+      logger.error('Failed to save note:', err);
     }
   };
 
@@ -3165,7 +3166,7 @@ export default function ProjectDetailPage() {
           : null
       );
     } catch (err) {
-      console.error('Failed to create note:', err);
+      logger.error('Failed to create note:', err);
     }
   };
 
@@ -3183,7 +3184,7 @@ export default function ProjectDetailPage() {
           : null
       );
     } catch (err) {
-      console.error('Failed to update note:', err);
+      logger.error('Failed to update note:', err);
     }
   };
 
@@ -3201,7 +3202,7 @@ export default function ProjectDetailPage() {
           : null
       );
     } catch (err) {
-      console.error('Failed to delete note:', err);
+      logger.error('Failed to delete note:', err);
     }
   };
 
@@ -3223,7 +3224,7 @@ export default function ProjectDetailPage() {
           : null
       );
     } catch (err) {
-      console.error('Failed to generate output:', err);
+      logger.error('Failed to generate output:', err);
     }
   };
 
@@ -3264,7 +3265,7 @@ export default function ProjectDetailPage() {
           : null
       );
     } catch (err) {
-      console.error('Failed to regenerate output:', err);
+      logger.error('Failed to regenerate output:', err);
     }
   };
 
@@ -3282,7 +3283,7 @@ export default function ProjectDetailPage() {
           : null
       );
     } catch (err) {
-      console.error('Failed to delete output:', err);
+      logger.error('Failed to delete output:', err);
     }
   };
 
@@ -3305,7 +3306,7 @@ export default function ProjectDetailPage() {
           : null
       );
     } catch (err) {
-      console.error('Failed to update output:', err);
+      logger.error('Failed to update output:', err);
     }
   };
 
@@ -3455,7 +3456,7 @@ export default function ProjectDetailPage() {
                 projectId={projectId}
                 onExportToOutputs={(report) => {
                   // TODO: Export research report to outputs
-                  console.log('Export research report:', report);
+                  logger.debug('Export research report:', report);
                 }}
                 className="flex-1"
               />

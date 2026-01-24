@@ -3,6 +3,7 @@
  * 与后端 Agent 系统通信
  */
 
+import { logger } from '@/lib/utils/logger';
 import {
   AgentType,
   AgentInput,
@@ -110,12 +111,12 @@ export function subscribeToTask(
         eventSource.close();
       }
     } catch (err) {
-      console.error('Failed to parse event:', err);
+      logger.error('Failed to parse event:', err);
     }
   };
 
   eventSource.onerror = (e) => {
-    console.error('SSE error:', e);
+    logger.error('SSE error:', e);
     onError?.(new Error('Connection error'));
     eventSource.close();
   };

@@ -99,7 +99,7 @@ export function createMermaidWorker(): Worker | null {
 
     return worker;
   } catch (err) {
-    console.error('Failed to create Mermaid worker:', err);
+    logger.error('Failed to create Mermaid worker:', err);
     return null;
   }
 }

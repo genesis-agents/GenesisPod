@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
 
+import { logger } from '@/lib/utils/logger';
 // Lazy load PDF.js only in browser context
 let pdfjsLib: typeof import('pdfjs-dist') | null = null;
 
@@ -131,7 +132,7 @@ export function useThumbnailGenerator(options: ThumbnailGeneratorOptions = {}) {
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to generate thumbnail';
-        console.error('Thumbnail generation error:', err);
+        logger.error('Thumbnail generation error:', err);
         setError(errorMessage);
         setIsGenerating(false);
         return null;
@@ -177,7 +178,7 @@ export function useThumbnailGenerator(options: ThumbnailGeneratorOptions = {}) {
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to upload thumbnail';
-        console.error('Thumbnail upload error:', err);
+        logger.error('Thumbnail upload error:', err);
         setError(errorMessage);
         return false;
       }

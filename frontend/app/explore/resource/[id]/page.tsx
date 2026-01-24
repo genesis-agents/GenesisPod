@@ -4,16 +4,16 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { config } from '@/lib/utils/config';
-import NoteEditor from '@/components/features/NoteEditor';
-import NotesList from '@/components/features/NotesList';
-import CommentsList from '@/components/features/CommentsList';
+import NoteEditor from '@/components/library/resources/NoteEditor';
+import NotesList from '@/components/library/resources/NotesList';
+import CommentsList from '@/components/common/comments/CommentsList';
 import AppShell from '@/components/layout/AppShell';
 import dynamic from 'next/dynamic';
 import {
   StructuredAISummaryRouter,
   isStructuredAISummary,
   convertToStructuredSummary,
-} from '@/components/features/StructuredAISummary';
+} from '@/components/library/resources/StructuredAISummary';
 import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
 
 // Dynamic import for PDF viewer (client-side only)
@@ -31,6 +31,7 @@ const PDFViewerClient = dynamic(
 
 import type { ResourceAISummary } from '@/types/ai-office';
 
+import { logger } from '@/lib/utils/logger';
 interface Resource {
   id: string;
   type: string;
@@ -105,7 +106,7 @@ export default function ResourcePage() {
         setResource(data);
       }
     } catch (err) {
-      console.error('Failed to load resource:', err);
+      logger.error('Failed to load resource:', err);
     } finally {
       setLoading(false);
     }
@@ -130,7 +131,7 @@ export default function ResourcePage() {
         );
       }
     } catch (err) {
-      console.error('Failed to generate AI summary:', err);
+      logger.error('Failed to generate AI summary:', err);
     } finally {
       setIsGeneratingSummary(false);
     }
@@ -319,17 +320,17 @@ export default function ResourcePage() {
               <TextSelectionToolbar
                 resourceId={resource.id}
                 onAddToNotes={(text, note) => {
-                  console.log('Added to notes:', { text, note });
+                  logger.debug('Added to notes:', { text, note });
                   // Refresh notes if on notes tab
                   if (activeTab === 'notes') {
                     // Component will auto-refresh
                   }
                 }}
                 onTranslate={(text, lang, translation) => {
-                  console.log('Translated:', { text, lang, translation });
+                  logger.debug('Translated:', { text, lang, translation });
                 }}
                 onHighlight={(text, color) => {
-                  console.log('Highlighted:', { text, color });
+                  logger.debug('Highlighted:', { text, color });
                 }}
                 onAskAI={(text) => {
                   setAskAIText(text);
@@ -711,7 +712,7 @@ export default function ResourcePage() {
                         resourceId={resource.id}
                         noteId={editingNoteId}
                         onSave={(note) => {
-                          console.log('Note saved:', note);
+                          logger.debug('Note saved:', note);
                           setShowNoteEditor(false);
                           setEditingNoteId(undefined);
                         }}

@@ -4,6 +4,7 @@
 
 import { useState, useCallback } from 'react';
 
+import { logger } from '@/lib/utils/logger';
 interface ThumbnailStatus {
   [resourceId: string]: 'idle' | 'generating' | 'success' | 'error';
 }
@@ -37,7 +38,7 @@ export function useThumbnailGenerator() {
           return null;
         }
       } catch (error) {
-        console.error(`Failed to generate thumbnail for ${resourceId}:`, error);
+        logger.error(`Failed to generate thumbnail for ${resourceId}:`, error);
         setThumbnailStatus((prev) => ({ ...prev, [resourceId]: 'error' }));
         return null;
       }

@@ -25,6 +25,7 @@ import {
 } from "./dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
+import type { RequestWithUser } from "../../../common/types/express-request.types";
 
 /**
  * 收藏系统控制器
@@ -43,7 +44,7 @@ export class CollectionsController {
   @Post()
   @UseGuards(JwtAuthGuard)
   async createCollection(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() dto: CreateCollectionDto,
   ) {
     if (!req.user?.id) {
@@ -57,7 +58,7 @@ export class CollectionsController {
    */
   @Get()
   @UseGuards(JwtAuthGuard)
-  async getUserCollections(@Request() req: any) {
+  async getUserCollections(@Request() req: RequestWithUser) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
@@ -70,7 +71,7 @@ export class CollectionsController {
    */
   @Get(":id")
   @UseGuards(OptionalJwtAuthGuard)
-  async getCollection(@Param("id") id: string, @Request() req: any) {
+  async getCollection(@Param("id") id: string, @Request() req: RequestWithUser) {
     const userId = req.user?.id;
     return this.collectionsService.getCollection(id, userId);
   }
@@ -82,7 +83,7 @@ export class CollectionsController {
   @UseGuards(JwtAuthGuard)
   async updateCollection(
     @Param("id") id: string,
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() dto: UpdateCollectionDto,
   ) {
     if (!req.user?.id) {
@@ -96,7 +97,7 @@ export class CollectionsController {
    */
   @Delete(":id")
   @UseGuards(JwtAuthGuard)
-  async deleteCollection(@Param("id") id: string, @Request() req: any) {
+  async deleteCollection(@Param("id") id: string, @Request() req: RequestWithUser) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
@@ -110,7 +111,7 @@ export class CollectionsController {
   @UseGuards(JwtAuthGuard)
   async addToCollection(
     @Param("id") id: string,
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() dto: AddToCollectionDto,
   ) {
     if (!req.user?.id) {
@@ -127,7 +128,7 @@ export class CollectionsController {
   async removeFromCollection(
     @Param("id") id: string,
     @Param("resourceId") resourceId: string,
-    @Request() req: any,
+    @Request() req: RequestWithUser,
   ) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
@@ -147,7 +148,7 @@ export class CollectionsController {
   async updateNote(
     @Param("id") id: string,
     @Param("resourceId") resourceId: string,
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() dto: UpdateNoteDto,
   ) {
     if (!req.user?.id) {
@@ -168,7 +169,7 @@ export class CollectionsController {
   @UseGuards(JwtAuthGuard)
   async checkResource(
     @Param("resourceId") resourceId: string,
-    @Request() req: any,
+    @Request() req: RequestWithUser,
   ) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
@@ -184,7 +185,7 @@ export class CollectionsController {
    */
   @Get("tags/all")
   @UseGuards(JwtAuthGuard)
-  async getUserTags(@Request() req: any) {
+  async getUserTags(@Request() req: RequestWithUser) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
@@ -196,7 +197,7 @@ export class CollectionsController {
    */
   @Get("stats/summary")
   @UseGuards(JwtAuthGuard)
-  async getUserStats(@Request() req: any) {
+  async getUserStats(@Request() req: RequestWithUser) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
@@ -209,7 +210,7 @@ export class CollectionsController {
   @Get("items/paginated")
   @UseGuards(JwtAuthGuard)
   async getItemsPaginated(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Query("collectionId") collectionId?: string,
     @Query("page") page?: string,
     @Query("limit") limit?: string,
@@ -244,7 +245,7 @@ export class CollectionsController {
   @UseGuards(JwtAuthGuard)
   async updateItem(
     @Param("itemId") itemId: string,
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() dto: UpdateCollectionItemDto,
   ) {
     if (!req.user?.id) {
@@ -262,7 +263,7 @@ export class CollectionsController {
    */
   @Post("items/batch/move")
   @UseGuards(JwtAuthGuard)
-  async batchMoveItems(@Request() req: any, @Body() dto: BatchMoveItemsDto) {
+  async batchMoveItems(@Request() req: RequestWithUser, @Body() dto: BatchMoveItemsDto) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
@@ -275,7 +276,7 @@ export class CollectionsController {
   @Post("items/batch/delete")
   @UseGuards(JwtAuthGuard)
   async batchDeleteItems(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() dto: BatchDeleteItemsDto,
   ) {
     if (!req.user?.id) {
@@ -289,7 +290,7 @@ export class CollectionsController {
    */
   @Post("items/batch/tags")
   @UseGuards(JwtAuthGuard)
-  async batchUpdateTags(@Request() req: any, @Body() dto: BatchUpdateTagsDto) {
+  async batchUpdateTags(@Request() req: RequestWithUser, @Body() dto: BatchUpdateTagsDto) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
@@ -302,7 +303,7 @@ export class CollectionsController {
   @Post("items/batch/status")
   @UseGuards(JwtAuthGuard)
   async batchUpdateStatus(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() dto: BatchUpdateStatusDto,
   ) {
     if (!req.user?.id) {
@@ -318,7 +319,7 @@ export class CollectionsController {
    */
   @Get("ai/stats")
   @UseGuards(JwtAuthGuard)
-  async getAIOrganizeStats(@Request() req: any) {
+  async getAIOrganizeStats(@Request() req: RequestWithUser) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
@@ -331,7 +332,7 @@ export class CollectionsController {
   @Post("ai/batch-tags")
   @UseGuards(JwtAuthGuard)
   async aiBatchTags(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() body: { collectionId?: string },
   ) {
     if (!req.user?.id) {
@@ -348,7 +349,7 @@ export class CollectionsController {
    */
   @Post("ai/smart-classify")
   @UseGuards(JwtAuthGuard)
-  async aiSmartClassify(@Request() req: any) {
+  async aiSmartClassify(@Request() req: RequestWithUser) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
@@ -360,7 +361,7 @@ export class CollectionsController {
    */
   @Post("ai/theme-cluster")
   @UseGuards(JwtAuthGuard)
-  async aiThemeCluster(@Request() req: any) {
+  async aiThemeCluster(@Request() req: RequestWithUser) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }

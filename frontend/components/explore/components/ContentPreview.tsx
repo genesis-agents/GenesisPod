@@ -1,6 +1,6 @@
 'use client';
 
-import { Resource } from '../types';
+import { Resource } from '../utils/types';
 import { extractYouTubeVideoId } from '../utils';
 import PDFViewer from '@/components/ui/PDFViewer';
 import HTMLViewer from '@/components/ui/HTMLViewer';

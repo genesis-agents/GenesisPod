@@ -30,7 +30,7 @@ import {
   ThinkingStep,
   useThinkingSteps,
   useIsProcessing,
-} from '@/stores/agentStore';
+} from '@/stores';
 
 // AI 思考步骤状态
 export type ThinkingStepStatus =

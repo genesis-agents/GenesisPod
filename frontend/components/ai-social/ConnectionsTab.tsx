@@ -20,7 +20,7 @@ import {
   SocialPlatformConnection,
   InitConnectionResponse,
 } from '@/hooks/domain/useAISocial';
-import { toast } from '@/stores/toastStore';
+import { toast } from '@/stores';
 
 // Platform types matching backend
 type PlatformType = 'WECHAT_MP' | 'XIAOHONGSHU';

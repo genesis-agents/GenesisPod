@@ -16,6 +16,7 @@ import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
 import { parsePagination } from "../../../common/utils/pagination.utils";
+import type { RequestWithUser } from "../../../common/types/express-request.types";
 
 /**
  * 笔记控制器
@@ -42,7 +43,7 @@ export class NotesController {
    */
   @Post()
   @UseGuards(JwtAuthGuard)
-  async createNote(@Request() req: any, @Body() dto: CreateNoteDto) {
+  async createNote(@Request() req: RequestWithUser, @Body() dto: CreateNoteDto) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -56,7 +57,7 @@ export class NotesController {
   @Get()
   @UseGuards(JwtAuthGuard)
   async getUserNotes(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Query("skip") skip?: string,
     @Query("take") take?: string,
     @Query("source") source?: string,
@@ -76,7 +77,7 @@ export class NotesController {
   @UseGuards(OptionalJwtAuthGuard)
   async getResourceNotes(
     @Param("resourceId") resourceId: string,
-    @Request() req: any,
+    @Request() req: RequestWithUser,
   ) {
     const userId = req.user?.id;
     return this.notesService.getResourceNotes(resourceId, userId);
@@ -87,7 +88,7 @@ export class NotesController {
    */
   @Get(":id")
   @UseGuards(OptionalJwtAuthGuard)
-  async getNote(@Param("id") id: string, @Request() req: any) {
+  async getNote(@Param("id") id: string, @Request() req: RequestWithUser) {
     const userId = req.user?.id;
     return this.notesService.getNote(id, userId);
   }
@@ -99,7 +100,7 @@ export class NotesController {
   @UseGuards(JwtAuthGuard)
   async updateNote(
     @Param("id") id: string,
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() dto: UpdateNoteDto,
   ) {
     const userId = req.user?.id;
@@ -114,7 +115,7 @@ export class NotesController {
    */
   @Delete(":id")
   @UseGuards(JwtAuthGuard)
-  async deleteNote(@Param("id") id: string, @Request() req: any) {
+  async deleteNote(@Param("id") id: string, @Request() req: RequestWithUser) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -127,7 +128,7 @@ export class NotesController {
    */
   @Post(":id/bookmark")
   @UseGuards(JwtAuthGuard)
-  async toggleBookmark(@Param("id") id: string, @Request() req: any) {
+  async toggleBookmark(@Param("id") id: string, @Request() req: RequestWithUser) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -142,7 +143,7 @@ export class NotesController {
   @UseGuards(JwtAuthGuard)
   async addHighlight(
     @Param("id") id: string,
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() dto: AddHighlightDto,
   ) {
     const userId = req.user?.id;
@@ -160,7 +161,7 @@ export class NotesController {
   async removeHighlight(
     @Param("id") id: string,
     @Param("highlightId") highlightId: string,
-    @Request() req: any,
+    @Request() req: RequestWithUser,
   ) {
     const userId = req.user?.id;
     if (!userId) {
@@ -176,7 +177,7 @@ export class NotesController {
   @UseGuards(JwtAuthGuard)
   async requestAIExplanation(
     @Param("id") id: string,
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body("text") text: string,
     @Body("pdfContext") pdfContext?: string,
   ) {
@@ -194,7 +195,7 @@ export class NotesController {
   @UseGuards(JwtAuthGuard)
   async linkGraphNode(
     @Param("id") id: string,
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body("nodeId") nodeId: string,
     @Body("nodeType") nodeType: string,
   ) {
@@ -213,7 +214,7 @@ export class NotesController {
   async unlinkGraphNode(
     @Param("id") id: string,
     @Param("nodeId") nodeId: string,
-    @Request() req: any,
+    @Request() req: RequestWithUser,
   ) {
     const userId = req.user?.id;
     if (!userId) {
@@ -230,7 +231,7 @@ export class NotesController {
    */
   @Post("ai/extract-keypoints")
   @UseGuards(JwtAuthGuard)
-  async extractKeyPoints(@Request() req: any) {
+  async extractKeyPoints(@Request() req: RequestWithUser) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -244,7 +245,7 @@ export class NotesController {
    */
   @Post("ai/find-connections")
   @UseGuards(JwtAuthGuard)
-  async findConnections(@Request() req: any) {
+  async findConnections(@Request() req: RequestWithUser) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -258,7 +259,7 @@ export class NotesController {
    */
   @Post("ai/summarize")
   @UseGuards(JwtAuthGuard)
-  async summarizeNotes(@Request() req: any) {
+  async summarizeNotes(@Request() req: RequestWithUser) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");

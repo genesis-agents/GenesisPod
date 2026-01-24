@@ -8,7 +8,7 @@ import { EmailModule } from "../email/email.module";
 import { SecretsModule } from "../secrets/secrets.module";
 
 // AI Services
-import { AiOfficeModule } from "../../ai-app/office/ai-office.module";
+import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 
 // Triage
 import { TriageAgentService } from "./triage/triage-agent.service";
@@ -31,7 +31,7 @@ import { FeedbackEventListener } from "./events/feedback-event.listener";
     EmailModule,
     SecretsModule,
     // AI Services for Triage and Screenshot Analysis
-    AiOfficeModule,
+    AiEngineModule,
   ],
   controllers: [FeedbackController],
   providers: [

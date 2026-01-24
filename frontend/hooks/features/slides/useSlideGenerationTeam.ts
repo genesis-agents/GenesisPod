@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import { useSlidesStore, calculateOverallProgress } from '@/stores/slidesStore';
+import { useSlidesStore, calculateOverallProgress } from '@/stores';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import type {
@@ -42,6 +42,7 @@ import type {
 } from '@/types/slides-team';
 import type { PageState, GenerationProgress } from '@/types/slides';
 
+import { logger } from '@/lib/utils/logger';
 // 使用前端 API 代理，避免 CORS 问题
 const API_BASE = '/api';
 
@@ -190,17 +191,17 @@ export function useSlideGenerationTeam(
     (event: SlidesTeamEvent) => {
       // 防御性检查：确保 event 有效
       if (!event || !event.type) {
-        console.warn('[Team SSE] Invalid event received:', event);
+        logger.warn('[Team SSE] Invalid event received:', event);
         return;
       }
 
       // ★★★ 关键诊断日志 ★★★
-      console.log(
+      logger.debug(
         `[Team SSE] ★ Event received: type=${event.type}, data keys=${Object.keys(event.data || {}).join(',')}`
       );
       if (event.type === 'slide:generated') {
         const slideData = event.data as { pageNumber?: number; html?: string };
-        console.log(
+        logger.debug(
           `[Team SSE] ★★★ SLIDE:GENERATED ★★★ pageNumber=${slideData.pageNumber}, htmlLength=${slideData.html?.length || 0}`
         );
       }
@@ -213,7 +214,7 @@ export function useSlideGenerationTeam(
           case 'execution:started': {
             const data = (event.data || {}) as Partial<ExecutionStartedData>;
             const sessionId = data.sessionId || `session-${Date.now()}`;
-            console.log('[Team SSE] Execution started:', sessionId);
+            logger.debug('[Team SSE] Execution started:', sessionId);
 
             // 初始化 Team 状态
             setTeamState({
@@ -248,7 +249,7 @@ export function useSlideGenerationTeam(
             const data = (event.data || {}) as Partial<PhaseStartedData>;
             const phase = data.phase || 'generating';
             const agent = data.agent || 'writer';
-            console.log('[Team SSE] Phase started:', phase, 'by', agent);
+            logger.debug('[Team SSE] Phase started:', phase, 'by', agent);
 
             setTeamState((prev) => {
               if (!prev) return prev;
@@ -295,7 +296,7 @@ export function useSlideGenerationTeam(
           case 'phase:completed': {
             const data = (event.data || {}) as Partial<PhaseCompletedData>;
             const phase = data.phase || 'generating';
-            console.log(
+            logger.debug(
               '[Team SSE] Phase completed:',
               phase,
               'in',
@@ -388,7 +389,7 @@ export function useSlideGenerationTeam(
           case 'agent:handoff': {
             const data = (event.data || {}) as Partial<AgentHandoffData>;
             if (data.fromAgent && data.toAgent) {
-              console.log(
+              logger.debug(
                 '[Team SSE] Handoff:',
                 data.fromAgent,
                 '->',
@@ -415,7 +416,7 @@ export function useSlideGenerationTeam(
             const data = (event.data || {}) as Partial<SlideGeneratingData>;
             const pageNumber = data.pageNumber ?? 1;
             const totalPages = data.totalPages ?? 1;
-            console.log(
+            logger.debug(
               '[Team SSE] Slide generating:',
               pageNumber,
               '/',
@@ -458,7 +459,7 @@ export function useSlideGenerationTeam(
             const title = data.title || `第 ${pageNumber} 页`;
 
             // ★★★ 关键诊断日志 ★★★
-            console.log(
+            logger.debug(
               `[Team SSE] ★★★ PROCESSING slide:generated ★★★ pageNumber=${pageNumber}, title=${title}, htmlLength=${data.html?.length || 0}, hasDesign=${!!data.design}`
             );
 
@@ -489,14 +490,14 @@ export function useSlideGenerationTeam(
               design,
             };
 
-            console.log(
+            logger.debug(
               `[Team SSE] ★★★ CALLING updatePage(${pageNumber}, ...) with design=${!!design} ★★★`
             );
             updatePage(pageNumber, pageUpdate);
 
             // ★ 验证更新后的状态
             const currentPages = useSlidesStore.getState().pages;
-            console.log(
+            logger.debug(
               `[Team SSE] ★★★ AFTER updatePage: pages.length=${currentPages.length}, pageNumbers=${currentPages.map((p) => p.pageNumber).join(',')} ★★★`
             );
 
@@ -535,7 +536,7 @@ export function useSlideGenerationTeam(
 
           case 'review:issue_found': {
             const data = (event.data || {}) as Partial<ReviewIssueData>;
-            console.log(
+            logger.debug(
               '[Team SSE] Issue found:',
               data.type,
               'on page',
@@ -556,7 +557,7 @@ export function useSlideGenerationTeam(
 
           case 'review:auto_fixed': {
             const data = (event.data || {}) as Partial<ReviewFixedData>;
-            console.log(
+            logger.debug(
               '[Team SSE] Issue fixed:',
               data.issueType,
               'on page',
@@ -577,7 +578,7 @@ export function useSlideGenerationTeam(
 
           case 'review:scoring': {
             const data = (event.data || {}) as Partial<ReviewScoringData>;
-            console.log(
+            logger.debug(
               '[Team SSE] Review scoring:',
               data.phase,
               data.score,
@@ -609,7 +610,7 @@ export function useSlideGenerationTeam(
 
           case 'review:rejected': {
             const data = (event.data || {}) as Partial<ReviewRejectedData>;
-            console.log(
+            logger.debug(
               '[Team SSE] Review rejected:',
               data.phase,
               'attempt',
@@ -632,7 +633,7 @@ export function useSlideGenerationTeam(
 
           case 'review:max_retries_reached': {
             const data = (event.data || {}) as Partial<ReviewMaxRetriesData>;
-            console.log(
+            logger.debug(
               '[Team SSE] Max retries reached:',
               data.phase,
               'action:',
@@ -645,7 +646,7 @@ export function useSlideGenerationTeam(
             // v3.2: 接收诊断信息
             const data = (event.data || {}) as Partial<ReviewDiagnosticsData>;
             if (data.diagnostics && Array.isArray(data.diagnostics)) {
-              console.log(
+              logger.debug(
                 '[Team SSE] Diagnostics received:',
                 data.diagnostics.length,
                 'pages, fix rate:',
@@ -665,7 +666,7 @@ export function useSlideGenerationTeam(
 
           case 'phase:retry': {
             const data = (event.data || {}) as Partial<PhaseRetryData>;
-            console.log(
+            logger.debug(
               '[Team SSE] Phase retry:',
               data.phase,
               'attempt',
@@ -687,7 +688,7 @@ export function useSlideGenerationTeam(
           case 'agent:switched': {
             const data = (event.data || {}) as Partial<AgentSwitchedData>;
             if (data.originalAgent && data.newAgent) {
-              console.log(
+              logger.debug(
                 '[Team SSE] Agent switched:',
                 data.originalAgent,
                 '->',
@@ -718,7 +719,7 @@ export function useSlideGenerationTeam(
             const data = (event.data || {}) as Partial<ExecutionCompletedData>;
             const totalPages = data.totalPages ?? 0;
             const totalTime = data.totalTime ?? 0;
-            console.log(
+            logger.debug(
               '[Team SSE] Execution completed:',
               totalPages,
               'pages in',
@@ -751,7 +752,7 @@ export function useSlideGenerationTeam(
           case 'execution:failed': {
             const data = (event.data || {}) as Partial<ExecutionFailedData>;
             const errorMsg = data.error || '未知错误';
-            console.error('[Team SSE] Execution failed:', errorMsg);
+            logger.error('[Team SSE] Execution failed:', errorMsg);
 
             setTeamState((prev) => {
               if (!prev) return prev;
@@ -770,11 +771,11 @@ export function useSlideGenerationTeam(
           }
 
           default:
-            console.log('[Team SSE] Unknown event:', event.type);
+            logger.debug('[Team SSE] Unknown event:', event.type);
         }
       } catch (err) {
         // 捕获事件处理中的任何错误，确保不会中断整体流程
-        console.error('[Team SSE] Error handling event:', event.type, err);
+        logger.error('[Team SSE] Error handling event:', event.type, err);
       }
     },
     [
@@ -797,7 +798,7 @@ export function useSlideGenerationTeam(
 
   const generateWithTeam = useCallback(
     async (request: GenerateTeamRequest) => {
-      console.log('[Team SSE] Starting Team generation');
+      logger.debug('[Team SSE] Starting Team generation');
 
       // 清理状态
       clearStreamEvents();
@@ -817,7 +818,7 @@ export function useSlideGenerationTeam(
 
       try {
         const url = `${API_BASE}/ai-office/slides/team/generate?userId=${user?.id || 'anonymous'}`;
-        console.log('[Team SSE] Connecting to:', url);
+        logger.debug('[Team SSE] Connecting to:', url);
 
         // 使用 fetch 发送 POST 请求并处理 SSE 流
         const response = await fetch(url, {
@@ -843,13 +844,13 @@ export function useSlideGenerationTeam(
         let buffer = '';
         let eventCount = 0;
 
-        console.log('[Team SSE] ★★★ Starting stream read loop ★★★');
+        logger.debug('[Team SSE] ★★★ Starting stream read loop ★★★');
 
         while (true) {
           const { done, value } = await reader.read();
 
           if (done) {
-            console.log(
+            logger.debug(
               `[Team SSE] ★★★ Stream ended. Total events received: ${eventCount} ★★★`
             );
             break;
@@ -860,7 +861,7 @@ export function useSlideGenerationTeam(
 
           // ★ 诊断：显示接收的数据块
           if (chunk.includes('slide:generated')) {
-            console.log(
+            logger.debug(
               `[Team SSE] ★★★ CHUNK contains slide:generated ★★★ chunkLength=${chunk.length}`
             );
           }
@@ -876,12 +877,12 @@ export function useSlideGenerationTeam(
                 try {
                   const event: SlidesTeamEvent = JSON.parse(jsonStr);
                   eventCount++;
-                  console.log(
+                  logger.debug(
                     `[Team SSE] ★ Parsed event #${eventCount}: ${event.type}`
                   );
                   handleTeamEvent(event);
                 } catch (e) {
-                  console.error(
+                  logger.error(
                     '[Team SSE] ★★★ PARSE ERROR ★★★:',
                     e,
                     'Data length:',
@@ -896,11 +897,11 @@ export function useSlideGenerationTeam(
         }
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
-          console.log('[Team SSE] Aborted by user');
+          logger.debug('[Team SSE] Aborted by user');
           return;
         }
 
-        console.error('[Team SSE] Error:', err);
+        logger.error('[Team SSE] Error:', err);
         const errorMessage = err instanceof Error ? err.message : '生成失败';
         setError(errorMessage);
         setGenerating(false);

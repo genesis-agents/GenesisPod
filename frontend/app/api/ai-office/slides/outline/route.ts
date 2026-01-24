@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 // 后端 API URL
 const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
@@ -17,17 +18,17 @@ export const runtime = 'nodejs';
  * POST /api/ai-office/slides/outline
  */
 export async function POST(request: NextRequest) {
-  console.log('[Slides Outline] API route called');
+  logger.debug('[Slides Outline] API route called');
 
   try {
     const body = await request.json();
 
-    console.log(
+    logger.debug(
       '[Slides Outline] Request body:',
       JSON.stringify(body).slice(0, 500)
     );
-    console.log('[Slides Outline] prompt:', body.prompt?.slice(0, 100));
-    console.log('[Slides Outline] slideCount:', body.slideCount);
+    logger.debug('[Slides Outline] prompt:', body.prompt?.slice(0, 100));
+    logger.debug('[Slides Outline] slideCount:', body.slideCount);
 
     const backendUrl = `${BACKEND_API_URL}/ai-office/slides/outline`;
 
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(
+      logger.error(
         '[Slides Outline] Backend error:',
         response.status,
         errorText
@@ -63,14 +64,14 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    console.log(
+    logger.debug(
       '[Slides Outline] Success, slides count:',
       data.outline?.slides?.length || 0
     );
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[Slides Outline] Error:', error);
+    logger.error('[Slides Outline] Error:', error);
     return NextResponse.json(
       {
         error: 'Failed to generate outline',

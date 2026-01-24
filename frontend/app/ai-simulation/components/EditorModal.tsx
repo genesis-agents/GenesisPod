@@ -19,6 +19,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { AgentCard } from './AgentCard';
 import { CompanyCard } from './CompanyCard';
 
+import { logger } from '@/lib/utils/logger';
 interface EditorModalProps {
   scenario: ScenarioCard | null;
   seed?: ScenarioTemplate | null;
@@ -624,13 +625,13 @@ export function EditorModal({
       };
 
       // 调试日志
-      console.log('[saveScenario] Method:', method);
-      console.log('[saveScenario] URL:', url);
-      console.log('[saveScenario] isEditing:', isEditing);
-      console.log('[saveScenario] localScenario?.id:', localScenario?.id);
-      console.log('[saveScenario] Agents count:', agents.length);
-      console.log('[saveScenario] Companies count:', companies.length);
-      console.log(
+      logger.debug('[saveScenario] Method:', method);
+      logger.debug('[saveScenario] URL:', url);
+      logger.debug('[saveScenario] isEditing:', isEditing);
+      logger.debug('[saveScenario] localScenario?.id:', localScenario?.id);
+      logger.debug('[saveScenario] Agents count:', agents.length);
+      logger.debug('[saveScenario] Companies count:', companies.length);
+      logger.debug(
         '[saveScenario] Request body:',
         JSON.stringify(requestBody, null, 2)
       );
@@ -644,9 +645,9 @@ export function EditorModal({
         body: JSON.stringify(requestBody),
       });
 
-      console.log('[saveScenario] Response status:', res.status);
+      logger.debug('[saveScenario] Response status:', res.status);
       const data = await res.json();
-      console.log('[saveScenario] Response data:', data);
+      logger.debug('[saveScenario] Response data:', data);
 
       if (res.ok) {
         setMessage(isEditing ? '场景已更新' : '场景已保存');

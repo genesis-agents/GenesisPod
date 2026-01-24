@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 import { Loader2, AlertCircle } from 'lucide-react';
 
+import { logger } from '@/lib/utils/logger';
 interface DataQualityMetric {
   id: string;
   resourceType: string;
@@ -66,7 +67,7 @@ export function DataQualityManager() {
       }
     } catch (err) {
       setError('获取质量指标失败');
-      console.error(err);
+      logger.error(err);
     } finally {
       setLoading(false);
     }

@@ -7,8 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
-import ShareModal from '@/components/common/ShareModal';
+import ShareModal from '@/components/common/dialogs/ShareModal';
 
+import { logger } from '@/lib/utils/logger';
 // AI Image Team - Preview (3 core agents)
 const AI_TEAM_PREVIEW = [
   {
@@ -70,7 +71,7 @@ export default function AIImagePage() {
         setImages(data || []);
       }
     } catch (err) {
-      console.error('Failed to fetch history:', err);
+      logger.error('Failed to fetch history:', err);
     } finally {
       setIsLoadingImages(false);
     }
@@ -98,7 +99,7 @@ export default function AIImagePage() {
         setImages((prev) => prev.filter((img) => img.id !== imageId));
       }
     } catch (err) {
-      console.error('Failed to delete image:', err);
+      logger.error('Failed to delete image:', err);
     }
   };
 
@@ -127,7 +128,7 @@ export default function AIImagePage() {
         );
       }
     } catch (err) {
-      console.error('Failed to toggle bookmark:', err);
+      logger.error('Failed to toggle bookmark:', err);
     }
   };
 
@@ -158,7 +159,7 @@ export default function AIImagePage() {
         );
       }
     } catch (err) {
-      console.error('Failed to toggle visibility:', err);
+      logger.error('Failed to toggle visibility:', err);
     }
   };
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useImageSourceStore } from '@/stores/imageSourceStore';
+import { useImageSourceStore } from '@/stores';
 
 export default function SourcePool() {
   const { sources, removeSource, clearSources } = useImageSourceStore();

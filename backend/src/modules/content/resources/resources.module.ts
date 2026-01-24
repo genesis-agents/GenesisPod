@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ResourcesController } from "./resources.controller";
 import { ResourcesService } from "./resources.service";
+import { ResourcesRepository } from "./resources.repository";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { PdfThumbnailService } from "./pdf-thumbnail.service";
 import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
@@ -23,12 +24,14 @@ import { ProxyModule } from "../../integrations/proxy/proxy.module";
   ],
   controllers: [ResourcesController],
   providers: [
+    ResourcesRepository,
     ResourcesService,
     AIEnrichmentService,
     PdfThumbnailService,
     DynamicThumbnailService,
   ],
   exports: [
+    ResourcesRepository,
     ResourcesService,
     AIEnrichmentService,
     PdfThumbnailService,

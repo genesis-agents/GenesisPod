@@ -10,7 +10,7 @@ import {
   useThemeStore,
   USER_MESSAGE_STYLES,
   AI_MESSAGE_STYLES,
-} from '@/stores/themeStore';
+} from '@/stores';
 import { config } from '@/lib/utils/config';
 import {
   getConnections,
@@ -18,9 +18,10 @@ import {
   disconnectNotion,
   NotionConnection,
 } from '@/lib/api/notion';
-import { GoogleDriveConnectionCard } from '@/components/google-drive/GoogleDriveConnectionCard';
-import { WechatWorkBindingCard } from '@/components/wechat/WechatWorkBindingCard';
+import { GoogleDriveConnectionCard } from '@/components/library/integrations/google-drive/GoogleDriveConnectionCard';
+import { WechatWorkBindingCard } from '@/components/library/integrations/wechat/WechatWorkBindingCard';
 
+import { logger } from '@/lib/utils/logger';
 interface UserStats {
   userId: string;
   memberSince: string;
@@ -130,7 +131,7 @@ function ProfileContent() {
         setUserStats(data);
       }
     } catch (error) {
-      console.error('Failed to fetch user stats:', error);
+      logger.error('Failed to fetch user stats:', error);
     } finally {
       setStatsLoading(false);
     }
@@ -150,7 +151,7 @@ function ProfileContent() {
       const result = await getConnections();
       setNotionConnections(result.connections);
     } catch (error) {
-      console.error('Failed to fetch integrations:', error);
+      logger.error('Failed to fetch integrations:', error);
     } finally {
       setIntegrationsLoading(false);
     }
@@ -170,7 +171,7 @@ function ProfileContent() {
       const result = await getConnectUrl();
       window.location.href = result.url;
     } catch (error) {
-      console.error('Failed to connect Notion:', error);
+      logger.error('Failed to connect Notion:', error);
       setMessage({
         type: 'error',
         text: 'Failed to connect Notion. Please try again.',
@@ -194,7 +195,7 @@ function ProfileContent() {
         text: 'Notion workspace disconnected successfully.',
       });
     } catch (error) {
-      console.error('Failed to disconnect Notion:', error);
+      logger.error('Failed to disconnect Notion:', error);
       setMessage({
         type: 'error',
         text: 'Failed to disconnect. Please try again.',
@@ -267,7 +268,7 @@ function ProfileContent() {
         window.location.reload();
       }, 1500);
     } catch (error) {
-      console.error('Failed to update profile:', error);
+      logger.error('Failed to update profile:', error);
       setMessage({
         type: 'error',
         text: 'Failed to update profile. Please try again.',

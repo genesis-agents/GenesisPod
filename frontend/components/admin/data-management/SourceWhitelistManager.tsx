@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 import { Loader2, AlertCircle, Plus, Trash2 } from 'lucide-react';
 
+import { logger } from '@/lib/utils/logger';
 interface SourceWhitelist {
   id: string;
   resourceType: string;
@@ -47,7 +48,7 @@ export function SourceWhitelistManager() {
       }
     } catch (err) {
       setError('获取白名单失败');
-      console.error(err);
+      logger.error(err);
     } finally {
       setLoading(false);
     }
@@ -73,7 +74,7 @@ export function SourceWhitelistManager() {
       }
     } catch (err) {
       setError('添加域名失败');
-      console.error(err);
+      logger.error(err);
     }
   };
 
@@ -89,7 +90,7 @@ export function SourceWhitelistManager() {
       }
     } catch (err) {
       setError('移除域名失败');
-      console.error(err);
+      logger.error(err);
     }
   };
 
@@ -112,7 +113,7 @@ export function SourceWhitelistManager() {
       }
     } catch (err) {
       setError('更新白名单状态失败');
-      console.error(err);
+      logger.error(err);
     }
   };
 

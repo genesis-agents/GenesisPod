@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 import {
   Key,
   Plus,
@@ -420,7 +421,7 @@ export default function SecretsManager({
       const data = await response.json();
       setAccessLogs(data);
     } catch (err) {
-      console.error('Failed to fetch logs:', err);
+      logger.error('Failed to fetch logs:', err);
     }
   };
 

@@ -29,22 +29,22 @@ const ReaderView = dynamic(() => import('@/components/ui/ReaderView'), {
   ssr: false,
 });
 
-const NotesList = dynamic(() => import('@/components/features/NotesList'), {
+const NotesList = dynamic(() => import('@/components/library/resources/NotesList'), {
   ssr: false,
 });
 
 const CommentsList = dynamic(
-  () => import('@/components/features/CommentsList'),
+  () => import('@/components/common/comments/CommentsList'),
   { ssr: false }
 );
 
 const SimilarResourcesList = dynamic(
-  () => import('@/components/features/SimilarResourcesList'),
+  () => import('@/components/library/resources/SimilarResourcesList'),
   { ssr: false }
 );
 
 const ReportWorkspace = dynamic(
-  () => import('@/components/features/ReportWorkspace'),
+  () => import('@/components/ai-research').then(mod => ({ default: mod.ReportWorkspace })),
   { ssr: false }
 );
 
@@ -142,13 +142,13 @@ function Base64Image({ src, alt }: { src: string; alt: string }) {
 import { useReportWorkspace } from '@/hooks';
 
 // 懒加载对话框组件
-const FilterPanel = dynamic(() => import('@/components/features/FilterPanel'), {
+const FilterPanel = dynamic(() => import('@/components/common/FilterPanel'), {
   ssr: false,
 });
 
 const ImportUrlDialog = dynamic(
   () =>
-    import('@/components/shared/dialogs/ImportUrlDialog').then(
+    import('@/components/common/dialogs/ImportUrlDialog').then(
       (mod) => mod.ImportUrlDialog
     ),
   { ssr: false }
@@ -156,7 +156,7 @@ const ImportUrlDialog = dynamic(
 
 const ImportFileDialog = dynamic(
   () =>
-    import('@/components/shared/dialogs/ImportFileDialog').then(
+    import('@/components/common/dialogs/ImportFileDialog').then(
       (mod) => mod.ImportFileDialog
     ),
   { ssr: false }
@@ -173,8 +173,9 @@ import { useResourceStore } from '@/stores/aiOfficeStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
 import { ThumbsUp, TrendingUp, Clock, Star, ChevronDown } from 'lucide-react';
 import { useAIModels } from '@/hooks';
-import { useImageSourceStore } from '@/stores/imageSourceStore';
+import { useImageSourceStore } from '@/stores';
 
+import { logger } from '@/lib/utils/logger';
 interface Resource {
   id: string;
   type: string;
@@ -657,7 +658,7 @@ function HomeContent() {
         }
       }
     } catch (err) {
-      console.error('Failed to load bookmarks:', err);
+      logger.error('Failed to load bookmarks:', err);
     }
   }, [user]);
 
@@ -740,7 +741,7 @@ function HomeContent() {
           handleResource(data);
         }
       } catch (error) {
-        console.error('Failed to fetch resource by id:', error);
+        logger.error('Failed to fetch resource by id:', error);
       }
     };
 
@@ -791,9 +792,9 @@ function HomeContent() {
         }
 
         setPdfText(fullText.substring(0, 15000));
-        console.log('PDF text extracted:', fullText.length, 'characters');
+        logger.debug('PDF text extracted:', fullText.length, 'characters');
       } catch (error) {
-        console.error('Failed to extract PDF text:', error);
+        logger.error('Failed to extract PDF text:', error);
         setPdfText('');
       }
     };
@@ -898,7 +899,7 @@ function HomeContent() {
       const data = await res.json();
       setResources(Array.isArray(data) ? data : data.data || []);
     } catch (error) {
-      console.error('Failed to fetch:', error);
+      logger.error('Failed to fetch:', error);
       setResources([]);
     } finally {
       setLoading(false);
@@ -994,7 +995,7 @@ function HomeContent() {
       }
 
       const data = await response.json();
-      console.log('File uploaded successfully:', data);
+      logger.debug('File uploaded successfully:', data);
 
       // Show success message
       alert(
@@ -1004,7 +1005,7 @@ function HomeContent() {
       // Refresh resources list
       await fetchResources();
     } catch (error) {
-      console.error('File upload error:', error);
+      logger.error('File upload error:', error);
       const errorMessage =
         error instanceof Error ? error.message : '文件上传失败';
       alert(errorMessage);
@@ -1121,7 +1122,7 @@ function HomeContent() {
         setShowSuggestions(data.suggestions.length > 0);
       }
     } catch (error) {
-      console.error('Failed to fetch suggestions:', error);
+      logger.error('Failed to fetch suggestions:', error);
       setSearchSuggestions([]);
       setShowSuggestions(false);
     }
@@ -1176,7 +1177,7 @@ function HomeContent() {
         handleResourceClick(resource);
       }
     } catch (error) {
-      console.error('Failed to fetch resource:', error);
+      logger.error('Failed to fetch resource:', error);
     }
   };
 
@@ -1196,10 +1197,10 @@ function HomeContent() {
         body: JSON.stringify(data),
       });
       if (res.ok) {
-        console.log('AI analysis saved to database for resource:', resourceId);
+        logger.debug('AI analysis saved to database for resource:', resourceId);
       }
     } catch (error) {
-      console.error('Failed to save AI analysis to database:', error);
+      logger.error('Failed to save AI analysis to database:', error);
     }
   };
 
@@ -1209,7 +1210,7 @@ function HomeContent() {
 
     // Check if we already have summary in database
     if (resource.aiSummary) {
-      console.log('Using cached summary from database');
+      logger.debug('Using cached summary from database');
       setAiSummary(resource.aiSummary);
       return;
     }
@@ -1218,7 +1219,7 @@ function HomeContent() {
       setAiLoading(true);
       // Use extracted article content if available, otherwise fallback to abstract/title
       const content = articleTextContent || resource.abstract || resource.title;
-      console.log('Generating summary with content length:', content.length);
+      logger.debug('Generating summary with content length:', content.length);
 
       const res = await fetch('/api/ai-service/ai/summary', {
         method: 'POST',
@@ -1256,7 +1257,7 @@ function HomeContent() {
         saveAIAnalysisToDatabase(resource.id, { aiSummary: data.summary });
       }
     } catch (error) {
-      console.error('Failed to generate summary:', error);
+      logger.error('Failed to generate summary:', error);
       setAiSummary(
         '⚠️ 无法连接到AI服务\n\n请确保 ai-service 已启动：\ncd ai-service && uvicorn main:app --reload'
       );
@@ -1270,7 +1271,7 @@ function HomeContent() {
 
     // Check if we already have insights in database
     if (resource.keyInsights && resource.keyInsights.length > 0) {
-      console.log('Using cached insights from database');
+      logger.debug('Using cached insights from database');
       setAiInsights(resource.keyInsights);
       return;
     }
@@ -1278,7 +1279,7 @@ function HomeContent() {
     try {
       // Use extracted article content if available, otherwise fallback to abstract/title
       const content = articleTextContent || resource.abstract || resource.title;
-      console.log('Generating insights with content length:', content.length);
+      logger.debug('Generating insights with content length:', content.length);
 
       const res = await fetch('/api/ai-service/ai/insights', {
         method: 'POST',
@@ -1298,7 +1299,7 @@ function HomeContent() {
         saveAIAnalysisToDatabase(resource.id, { keyInsights: insights });
       }
     } catch (error) {
-      console.error('Failed to generate insights:', error);
+      logger.error('Failed to generate insights:', error);
     }
   };
 
@@ -1314,7 +1315,7 @@ function HomeContent() {
     length?: number;
     sourceUrl: string;
   }) => {
-    console.log('Article loaded from ReaderView:', {
+    logger.debug('Article loaded from ReaderView:', {
       title: article.title,
       textLength: article.textContent.length,
       siteName: article.siteName,
@@ -1350,7 +1351,7 @@ function HomeContent() {
 
     try {
       setSavingNote(true);
-      console.log(
+      logger.debug(
         'Saving note to resource:',
         selectedResource?.id || 'none',
         'content:',
@@ -1373,7 +1374,7 @@ function HomeContent() {
 
       if (response.ok) {
         const savedNote = await response.json();
-        console.log('Note saved successfully:', savedNote);
+        logger.debug('Note saved successfully:', savedNote);
         setToast({ message: 'Note saved successfully!', type: 'success' });
 
         // Close context menu first
@@ -1385,18 +1386,18 @@ function HomeContent() {
         // Trigger notes list refresh after a small delay
         setTimeout(() => {
           setNotesRefreshKey((prev) => prev + 1);
-          console.log('Notes list refreshed');
+          logger.debug('Notes list refreshed');
         }, 100);
       } else {
         const errorData = await response.json();
-        console.error('Failed to save note:', response.status, errorData);
+        logger.error('Failed to save note:', response.status, errorData);
         setToast({
           message: `Failed to save note: ${errorData.message || 'Unknown error'}`,
           type: 'error',
         });
       }
     } catch (error) {
-      console.error('Failed to save note:', error);
+      logger.error('Failed to save note:', error);
       alert('Failed to save note: Network error or server unreachable');
     } finally {
       setSavingNote(false);
@@ -1487,7 +1488,7 @@ function HomeContent() {
       alert('Conversation saved to notes successfully!');
       setNotesRefreshKey((prev) => prev + 1); // Refresh notes list
     } catch (error) {
-      console.error('Failed to save conversation:', error);
+      logger.error('Failed to save conversation:', error);
       alert('Failed to save conversation. Please try again.');
     }
   };
@@ -1522,7 +1523,7 @@ function HomeContent() {
         maxContentLength: 15000,
       });
 
-      console.log(
+      logger.debug(
         `Built AI context for ${selectedResource.type}:`,
         context.substring(0, 200) + '...'
       );
@@ -1588,13 +1589,13 @@ function HomeContent() {
                 });
               }
             } catch (e) {
-              console.debug('Failed to parse SSE data:', e);
+              logger.debug('Failed to parse SSE data:', e);
             }
           }
         }
       }
     } catch (error) {
-      console.error('Failed to send message:', error);
+      logger.error('Failed to send message:', error);
       const errorMessage: AIMessage = {
         role: 'assistant',
         content: 'AI 服务暂时不可用，请稍后重试。如果问题持续，请联系管理员。',
@@ -1656,7 +1657,7 @@ function HomeContent() {
             }
           } catch {
             // If not valid JSON, try to parse markdown format
-            console.log(
+            logger.debug(
               'JSON parsing failed, trying markdown parsing for insights'
             );
             const parsedInsights = parseMarkdownToInsights(data.content);
@@ -1679,7 +1680,7 @@ function HomeContent() {
             }
           } catch {
             // If not valid JSON, try to parse markdown format
-            console.log(
+            logger.debug(
               'JSON parsing failed, trying markdown parsing for methodology'
             );
             const parsedMethodology = parseMarkdownToInsights(data.content);
@@ -1701,7 +1702,7 @@ function HomeContent() {
         setAiMessages((prev) => [...prev, assistantMessage]);
       }
     } catch (error) {
-      console.error(`Failed to execute ${action}:`, error);
+      logger.error(`Failed to execute ${action}:`, error);
       const errorMessage: AIMessage = {
         role: 'assistant',
         content: `执行 ${action} 失败，请检查AI服务`,
@@ -1728,7 +1729,7 @@ function HomeContent() {
     }
 
     if (!defaultCollectionId) {
-      console.error('Default collection not found');
+      logger.error('Default collection not found');
       return;
     }
 
@@ -1772,7 +1773,7 @@ function HomeContent() {
         }
       }
     } catch (err) {
-      console.error('Failed to toggle bookmark:', err);
+      logger.error('Failed to toggle bookmark:', err);
     }
   };
 
@@ -1878,7 +1879,7 @@ function HomeContent() {
         alert('Failed to delete resource');
       }
     } catch (err) {
-      console.error('Failed to delete resource:', err);
+      logger.error('Failed to delete resource:', err);
       alert('Failed to delete resource');
     }
   };
@@ -3818,7 +3819,7 @@ function HomeContent() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              console.log('Button clicked!');
+              logger.debug('Button clicked!');
               saveToNotes();
             }}
             disabled={savingNote}

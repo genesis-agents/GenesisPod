@@ -51,7 +51,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npm run type-check",
+            "command": "npm run type-check --silent 2>&1 | head -20",
             "timeout": 90000
           }
         ]
@@ -75,6 +75,17 @@
             "type": "command",
             "command": "npm run lint",
             "timeout": 120000
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "reviewer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '✓ 代码审查完成，请检查审查报告'"
           }
         ]
       }

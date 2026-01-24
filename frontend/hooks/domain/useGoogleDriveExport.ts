@@ -11,6 +11,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useApiPost, useApiGet } from '../core';
 import type { ApiError } from '@/lib/api/client';
+import { logger } from '@/lib/utils/logger';
 import {
   exportResources as exportResourcesApi,
   getExportProgress as getExportProgressApi,
@@ -98,7 +99,7 @@ export function useGoogleDriveExport(
       setPollingEnabled(true);
     },
     onError: (err) => {
-      console.error('Export failed:', err);
+      logger.error('Export failed:', err);
       onError?.(err as Error);
     },
   });
@@ -182,7 +183,7 @@ export function useGoogleDriveExport(
     try {
       await fetchProgress();
     } catch (err) {
-      console.error('Failed to fetch progress:', err);
+      logger.error('Failed to fetch progress:', err);
     }
   }, [exportId, pollingEnabled, fetchProgress]);
 

@@ -4,8 +4,9 @@
 
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
-import type { Resource } from '../types';
+import type { Resource } from '../utils/types';
 
+import { logger } from '@/lib/utils/logger';
 export function usePDFText(selectedResource: Resource | null) {
   const [pdfText, setPdfText] = useState<string>('');
 
@@ -46,9 +47,9 @@ export function usePDFText(selectedResource: Resource | null) {
         }
 
         setPdfText(fullText.substring(0, 15000));
-        console.log('PDF text extracted:', fullText.length, 'characters');
+        logger.debug('PDF text extracted:', fullText.length, 'characters');
       } catch (error) {
-        console.error('Failed to extract PDF text:', error);
+        logger.error('Failed to extract PDF text:', error);
         setPdfText('');
       }
     };

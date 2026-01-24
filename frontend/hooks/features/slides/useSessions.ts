@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import type { SlidesSession } from '@/types/slides';
 
+import { logger } from '@/lib/utils/logger';
 const API_BASE = config.apiUrl || '';
 const API_OFFICE_BASE = `${API_BASE}/ai-office/slides`;
 
@@ -39,7 +40,7 @@ export function useSessions(options: UseSessionsOptions = {}) {
    */
   const loadSessions = useCallback(async () => {
     if (!user?.id) {
-      console.warn('[useSessions] No user ID');
+      logger.warn('[useSessions] No user ID');
       return;
     }
 
@@ -85,7 +86,7 @@ export function useSessions(options: UseSessionsOptions = {}) {
       const errorMessage =
         err instanceof Error ? err.message : '加载会话列表失败';
       setError(errorMessage);
-      console.error('[useSessions] Error:', err);
+      logger.error('[useSessions] Error:', err);
     } finally {
       setLoading(false);
     }
@@ -126,7 +127,7 @@ export function useSessions(options: UseSessionsOptions = {}) {
 
         return true;
       } catch (err) {
-        console.error('[useSessions] Update error:', err);
+        logger.error('[useSessions] Update error:', err);
         setError(err instanceof Error ? err.message : '更新会话失败');
         return false;
       }
@@ -156,7 +157,7 @@ export function useSessions(options: UseSessionsOptions = {}) {
 
         return true;
       } catch (err) {
-        console.error('[useSessions] Delete error:', err);
+        logger.error('[useSessions] Delete error:', err);
         setError(err instanceof Error ? err.message : '删除会话失败');
         return false;
       }

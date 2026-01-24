@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useApiGet, useApiDelete, useApiPost } from '../core';
 import type { ApiError } from '@/lib/api/client';
+import { logger } from '@/lib/utils/logger';
 import {
   getConnections,
   disconnectGoogleDrive as disconnectApi,
@@ -141,7 +142,7 @@ export function useGoogleDrive(
       const { url } = await getConnectUrlApi();
       window.location.href = url;
     } catch (error) {
-      console.error('Failed to get connect URL:', error);
+      logger.error('Failed to get connect URL:', error);
       throw error;
     }
   }, []);
@@ -153,7 +154,7 @@ export function useGoogleDrive(
         await disconnectApi(id);
         await fetchConnections();
       } catch (error) {
-        console.error('Failed to disconnect:', error);
+        logger.error('Failed to disconnect:', error);
         throw error;
       }
     },
@@ -174,7 +175,7 @@ export function useGoogleDrive(
         await new Promise((resolve) => setTimeout(resolve, 500));
         await fetchSyncStatus();
       } catch (error) {
-        console.error('Failed to trigger sync:', error);
+        logger.error('Failed to trigger sync:', error);
         throw error;
       }
     },

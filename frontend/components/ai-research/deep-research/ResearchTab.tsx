@@ -43,6 +43,7 @@ import ThinkingChainPanel from './ThinkingChainPanel';
 import { useTranslation } from '@/lib/i18n';
 import { getAuthHeader } from '@/lib/utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 // ==================== Types ====================
 interface ResearchSession {
   id: string;
@@ -110,7 +111,7 @@ export function ResearchTab({
         setView('viewing');
       },
       onError: (error) => {
-        console.error('Deep Research error:', error);
+        logger.error('Deep Research error:', error);
         setView('list');
       },
     }
@@ -131,7 +132,7 @@ export function ResearchTab({
           setSessions(data.data || []);
         }
       } catch (err) {
-        console.error('Failed to load research sessions:', err);
+        logger.error('Failed to load research sessions:', err);
       } finally {
         setLoadingSessions(false);
       }
@@ -214,7 +215,7 @@ export function ResearchTab({
           }
         }
       } catch (err) {
-        console.error('Failed to delete session:', err);
+        logger.error('Failed to delete session:', err);
       } finally {
         setDeletingSessionId(null);
       }

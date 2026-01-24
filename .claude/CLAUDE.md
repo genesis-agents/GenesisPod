@@ -8,19 +8,22 @@
 
 ### 核心模块
 
-| 模块      | 描述                       | 路径                                     |
-| --------- | -------------------------- | ---------------------------------------- |
-| AI Studio | 深度研究，多步骤规划和报告 | `backend/src/modules/ai/ai-studio/`      |
-| AI Teams  | 多 Agent 协作，辩论碰撞    | `backend/src/modules/ai/ai-teams/`       |
-| AI Office | 文档/PPT/设计生成          | `backend/src/modules/ai/ai-office/`      |
-| AI Ask    | 智能问答，多模型切换       | `backend/src/modules/ai/ai-ask/`         |
-| Library   | 资源库，内容管理           | `backend/src/modules/content/resources/` |
+| 模块          | 描述                       | 路径                                          |
+| ------------- | -------------------------- | --------------------------------------------- |
+| AI Research   | 深度研究，多步骤规划和报告 | `backend/src/modules/ai-app/research/`        |
+| AI Teams      | 多 Agent 协作，辩论碰撞    | `backend/src/modules/ai-app/teams/`           |
+| AI Office     | 文档/PPT/设计生成          | `backend/src/modules/ai-app/office/`          |
+| AI Ask        | 智能问答，多模型切换       | `backend/src/modules/ai-app/ask/`             |
+| AI Coding     | AI 编程助手，代码生成      | `backend/src/modules/ai-app/coding/`          |
+| AI Writing    | AI 写作助手，长文本创作    | `backend/src/modules/ai-app/writing/`         |
+| AI Social     | AI 社交内容生成            | `backend/src/modules/ai-app/social/`          |
+| Library       | 资源库，内容管理           | `backend/src/modules/content/resources/`      |
 
 ### 技术栈
 
 ```
 Frontend: Next.js 14 + TypeScript + Zustand + TailwindCSS
-Backend:  NestJS 10 + Prisma ORM + PostgreSQL + MongoDB + Neo4j
+Backend:  NestJS 10 + Prisma ORM + PostgreSQL (统一数据库架构)
 AI:       LiteLLM + OpenAI/Claude/Grok API
 Infra:    Docker + Railway + PM2
 ```

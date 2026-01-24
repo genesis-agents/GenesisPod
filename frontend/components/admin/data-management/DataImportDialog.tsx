@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Loader2, CheckCircle, AlertCircle, Copy, X } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 
+import { logger } from '@/lib/utils/logger';
 interface DataImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -84,7 +85,7 @@ export function DataImportDialog({
       }
     } catch (err) {
       setError('获取白名单失败');
-      console.error(err);
+      logger.error(err);
     } finally {
       setLoading(false);
     }
@@ -137,7 +138,7 @@ export function DataImportDialog({
       setError(
         '无法读取该URL的内容。请检查:\n• URL是否正确\n• 网络连接是否正常\n• 该网站是否支持'
       );
-      console.error(err);
+      logger.error(err);
     } finally {
       setLoading(false);
     }
@@ -176,7 +177,7 @@ export function DataImportDialog({
       }
     } catch (err) {
       setError('导入失败，请重试');
-      console.error(err);
+      logger.error(err);
     } finally {
       setLoading(false);
     }

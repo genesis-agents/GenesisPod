@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { logger } from '@/lib/utils/logger';
 interface PDFThumbnailProps {
   pdfUrl: string;
   alt: string;
@@ -71,7 +72,7 @@ export default function PDFThumbnail({
           setLoading(false);
         }
       } catch (err) {
-        console.error('Failed to render PDF thumbnail:', err);
+        logger.error('Failed to render PDF thumbnail:', err);
         if (!cancelled) {
           setError(true);
           setLoading(false);

@@ -15,6 +15,7 @@ import {
 } from '@/lib/utils/auth';
 import { config } from '@/lib/utils/config';
 
+import { logger } from '@/lib/utils/logger';
 interface AuthContextType extends AuthState {
   login: (user: User, accessToken: string, refreshToken: string) => void;
   logout: () => void;
@@ -63,12 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         } else {
           // Token 无效，清除登录状态
-          console.warn('Token validation failed, clearing auth state');
+          logger.warn('Token validation failed, clearing auth state');
           clearAuthTokens();
         }
       } catch (error) {
         // 网络错误时使用缓存的用户数据
-        console.warn(
+        logger.warn(
           'Token validation failed due to network error, using cached user'
         );
         setAuthState({

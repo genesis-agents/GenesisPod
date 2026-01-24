@@ -4,6 +4,7 @@ import { useState, DragEvent } from 'react';
 import { CodingProject } from '@/lib/api/ai-coding';
 import KanbanColumn from './KanbanColumn';
 
+import { logger } from '@/lib/utils/logger';
 export type KanbanStatus = 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
 
 interface KanbanBoardProps {
@@ -104,7 +105,7 @@ export default function KanbanBoard({
     if (draggedProject && draggedProject.status !== newStatus) {
       // Note: In a real implementation, this would call an API to update the project status
       // For now, we just show a message
-      console.log(
+      logger.debug(
         `Would move project ${draggedProject.id} from ${draggedProject.status} to ${newStatus}`
       );
       // TODO: Implement status update API call

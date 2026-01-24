@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { config } from '@/lib/utils/config';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { logger } from '@/lib/utils/logger';
 interface Session {
   id: string;
   title: string;
@@ -63,7 +64,7 @@ export default function SessionSidebar({
         setSessions(data.sessions || []);
       }
     } catch (error) {
-      console.error('Failed to fetch sessions:', error);
+      logger.error('Failed to fetch sessions:', error);
     } finally {
       setLoading(false);
     }
@@ -184,7 +185,7 @@ export default function SessionSidebar({
           s.id === sessionId ? { ...s, isBookmarked: !newBookmarkState } : s
         )
       );
-      console.error('Failed to toggle bookmark:', error);
+      logger.error('Failed to toggle bookmark:', error);
     }
   };
 
@@ -212,7 +213,7 @@ export default function SessionSidebar({
         }
       }
     } catch (error) {
-      console.error('Failed to delete session:', error);
+      logger.error('Failed to delete session:', error);
     }
   };
 
@@ -247,7 +248,7 @@ export default function SessionSidebar({
         );
       }
     } catch (error) {
-      console.error('Failed to rename session:', error);
+      logger.error('Failed to rename session:', error);
     }
     setEditingSessionId(null);
   };

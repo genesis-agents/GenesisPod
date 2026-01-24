@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useMermaidWorker } from '@/hooks/useMermaidWorker';
 import { sanitizeSvg } from '@/lib/utils/sanitize';
 
+import { logger } from '@/lib/utils/logger';
 interface MermaidDiagramProps {
   chart: string;
   className?: string;
@@ -107,7 +108,7 @@ export default function MermaidDiagram({
           setFallbackLoading(false);
         }
       } catch (err) {
-        console.error('Mermaid fallback rendering error:', err);
+        logger.error('Mermaid fallback rendering error:', err);
         if (isMounted) {
           if (timeoutId) clearTimeout(timeoutId);
           setFallbackError(err instanceof Error ? err.message : '图表渲染失败');

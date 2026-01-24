@@ -12,6 +12,7 @@ import {
   Activity,
   AlertCircle,
 } from 'lucide-react';
+import { logger } from '@/lib/utils/logger';
 import {
   createCollectionTask,
   executeTask,
@@ -103,7 +104,7 @@ export default function BatchCollectionDrawer({
               hasRunning = true;
             }
           } catch (error) {
-            console.error(`Failed to fetch task ${taskId}:`, error);
+            logger.error(`Failed to fetch task ${taskId}:`, error);
           }
         }
       }
@@ -142,7 +143,7 @@ export default function BatchCollectionDrawer({
   const handleRun = async () => {
     // 防止重复点击
     if (isRunning) {
-      console.log('Collection already running, ignoring click');
+      logger.debug('Collection already running, ignoring click');
       return;
     }
 
@@ -165,7 +166,7 @@ export default function BatchCollectionDrawer({
 
         try {
           // 创建任务
-          console.log(`Creating task for ${source.name}...`);
+          logger.debug(`Creating task for ${source.name}...`);
           const taskResponse = await createCollectionTask({
             sourceId: source.id,
             name: `Batch: ${categoryName} - ${source.name}`,
@@ -176,7 +177,7 @@ export default function BatchCollectionDrawer({
           });
 
           const taskId = taskResponse.data.id;
-          console.log(`Task created: ${taskId}, executing...`);
+          logger.debug(`Task created: ${taskId}, executing...`);
 
           // 立即添加到进度显示（状态为PENDING）
           const progressEntry: TaskProgress = {
@@ -193,13 +194,13 @@ export default function BatchCollectionDrawer({
 
           // 执行任务（后端会异步执行）
           await executeTask(taskId);
-          console.log(`Task ${taskId} execution started`);
+          logger.debug(`Task ${taskId} execution started`);
 
           // 更新状态为RUNNING
           progressEntry.status = 'RUNNING';
           return { taskId, progressEntry };
         } catch (taskError) {
-          console.error(`Failed to start task for ${source.name}:`, taskError);
+          logger.error(`Failed to start task for ${source.name}:`, taskError);
           // 单个任务失败不影响其他任务
           return {
             taskId: `failed-${sourceId}`,
@@ -238,7 +239,7 @@ export default function BatchCollectionDrawer({
         setIsRunning(false);
       }
     } catch (error) {
-      console.error('Failed to start batch collection:', error);
+      logger.error('Failed to start batch collection:', error);
       alert(
         error instanceof Error
           ? error.message
@@ -258,7 +259,7 @@ export default function BatchCollectionDrawer({
       }
       setIsPaused(true);
     } catch (error) {
-      console.error('Failed to pause tasks:', error);
+      logger.error('Failed to pause tasks:', error);
     }
   };
 
@@ -271,7 +272,7 @@ export default function BatchCollectionDrawer({
       }
       setIsPaused(false);
     } catch (error) {
-      console.error('Failed to resume tasks:', error);
+      logger.error('Failed to resume tasks:', error);
     }
   };
 
@@ -287,7 +288,7 @@ export default function BatchCollectionDrawer({
       setIsRunning(false);
       setIsPaused(false);
     } catch (error) {
-      console.error('Failed to stop tasks:', error);
+      logger.error('Failed to stop tasks:', error);
     }
   };
 

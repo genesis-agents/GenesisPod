@@ -78,32 +78,91 @@ const SENSITIVE_PATTERNS = [
   /bearer\s+\S+/gi,
 ];
 
+// ==================== Feature Interfaces ====================
+
+/**
+ * 记忆能力特性
+ * 包含短期和长期记忆服务
+ */
+interface MemoryFeature {
+  shortTerm: ShortTermMemoryService;
+  longTerm: LongTermMemoryService;
+}
+
+/**
+ * 工具执行特性
+ * 包含工具注册表和函数调用执行器
+ */
+interface ToolFeature {
+  registry: ToolRegistry;
+  executor: FunctionCallingExecutor;
+}
+
+/**
+ * 编排能力特性
+ * 包含熔断器和 Agent 执行器
+ */
+interface OrchestrationFeature {
+  circuitBreaker: CircuitBreakerService;
+  agentExecutor: AgentExecutorService;
+}
+
+/**
+ * 技能特性
+ * 包含技能加载器和提示词构建器
+ */
+interface SkillFeature {
+  loader: SkillLoaderService;
+  promptBuilder: SkillPromptBuilder;
+}
+
 /**
  * AI Engine 统一入口
  *
  * 所有 AI Apps 应该通过此 Facade 消费 AI 能力，而不是直接依赖内部服务。
+ *
+ * ★ 架构优化：将 12 个可选依赖分组为 5 个特性模块，提高代码可预测性
  */
 @Injectable()
 export class AIEngineFacade {
   private readonly logger = new Logger(AIEngineFacade.name);
 
   constructor(
+    // 核心服务（必需）
     private readonly aiChatService: AiChatService,
-    // ★ 架构重构：移除 SearchService 直接依赖，通过 ToolRegistry 调用
-    @Optional() private readonly circuitBreaker?: CircuitBreakerService,
+    // 特性模块（可选）
+    @Optional() private readonly memory?: MemoryFeature,
+    @Optional() private readonly tools?: ToolFeature,
+    @Optional() private readonly orchestration?: OrchestrationFeature,
+    @Optional() private readonly skills?: SkillFeature,
     @Optional() private readonly prisma?: PrismaService,
     @Optional() private readonly teamsService?: TeamsService,
-    @Optional() private readonly shortTermMemory?: ShortTermMemoryService,
-    @Optional() private readonly longTermMemory?: LongTermMemoryService,
-    @Optional() private readonly agentExecutor?: AgentExecutorService,
-    @Optional() private readonly toolRegistry?: ToolRegistry,
-    @Optional() private readonly skillLoader?: SkillLoaderService,
-    @Optional() private readonly skillPromptBuilder?: SkillPromptBuilder,
     @Optional() private readonly capabilityResolver?: AICapabilityResolver,
-    @Optional()
-    private readonly functionCallingExecutor?: FunctionCallingExecutor,
   ) {
     this.logger.log("AIEngineFacade initialized");
+    this.logFeatureAvailability();
+  }
+
+  /**
+   * 记录可用特性
+   */
+  private logFeatureAvailability(): void {
+    const features = {
+      memory: !!this.memory,
+      tools: !!this.tools,
+      orchestration: !!this.orchestration,
+      skills: !!this.skills,
+      database: !!this.prisma,
+      teams: !!this.teamsService,
+      capabilities: !!this.capabilityResolver,
+    };
+
+    this.logger.log(
+      `Available features: ${Object.entries(features)
+        .filter(([_, enabled]) => enabled)
+        .map(([name]) => name)
+        .join(", ")}`,
+    );
   }
 
   // ==================== LLM 能力 ====================
@@ -116,11 +175,7 @@ export class AIEngineFacade {
    */
   async chat(request: ChatRequest): Promise<ChatResponse> {
     // K3 Fix: 如果提供了 domain 或 taskType，自动委托给 chatWithSkills
-    if (
-      (request.domain || request.taskType) &&
-      this.skillLoader &&
-      this.skillPromptBuilder
-    ) {
+    if ((request.domain || request.taskType) && this.skills) {
       this.logger.debug(
         `[chat] K3 Fix: Auto-delegating to chatWithSkills (domain=${request.domain}, taskType=${request.taskType})`,
       );
@@ -157,8 +212,8 @@ export class AIEngineFacade {
     );
 
     // 熔断器检查
-    if (this.circuitBreaker && !this.circuitBreaker.canExecute(entityId)) {
-      const cooldown = this.circuitBreaker.getCooldownRemaining(entityId);
+    if (this.orchestration?.circuitBreaker && !this.orchestration?.circuitBreaker.canExecute(entityId)) {
+      const cooldown = this.orchestration?.circuitBreaker.getCooldownRemaining(entityId);
       this.logger.warn(
         `[chat] Circuit breaker OPEN for ${entityId}, cooldown=${cooldown}ms`,
       );
@@ -174,7 +229,7 @@ export class AIEngineFacade {
 
     try {
       // 增加负载计数
-      this.circuitBreaker?.incrementLoad(entityId);
+      this.orchestration?.circuitBreaker?.incrementLoad(entityId);
 
       const result = await this.aiChatService.chat({
         messages: request.messages,
@@ -191,13 +246,13 @@ export class AIEngineFacade {
 
       // 记录成功
       if (!result.isError) {
-        this.circuitBreaker?.recordSuccess(entityId, duration);
+        this.orchestration?.circuitBreaker?.recordSuccess(entityId, duration);
         this.logger.log(
           `[chat] Completed in ${duration}ms, model=${result.model}, tokens=${result.usage?.totalTokens || 0}`,
         );
       } else {
         // API 返回错误内容（非严格模式）
-        this.circuitBreaker?.recordFailure(
+        this.orchestration?.circuitBreaker?.recordFailure(
           entityId,
           TaskCompletionType.API_ERROR,
           result.content.slice(0, 100),
@@ -219,9 +274,9 @@ export class AIEngineFacade {
 
       // 解析错误类型并记录失败
       const errorType =
-        this.circuitBreaker?.parseErrorType(errorMsg) ||
+        this.orchestration?.circuitBreaker?.parseErrorType(errorMsg) ||
         TaskCompletionType.API_ERROR;
-      this.circuitBreaker?.recordFailure(entityId, errorType, errorMsg);
+      this.orchestration?.circuitBreaker?.recordFailure(entityId, errorType, errorMsg);
 
       this.logger.error(`[chat] Failed after ${duration}ms: ${errorMsg}`);
 
@@ -239,7 +294,7 @@ export class AIEngineFacade {
       };
     } finally {
       // 减少负载计数
-      this.circuitBreaker?.decrementLoad(entityId);
+      this.orchestration?.circuitBreaker?.decrementLoad(entityId);
     }
   }
 
@@ -260,7 +315,7 @@ export class AIEngineFacade {
     );
 
     // 检查 Skills 服务是否可用
-    if (!this.skillLoader || !this.skillPromptBuilder) {
+    if (!this.skills?.loader || !this.skills?.promptBuilder) {
       this.logger.warn(
         "[Skills] ⚠️ Skills services not available, falling back to plain chat",
       );
@@ -287,7 +342,7 @@ export class AIEngineFacade {
 
     // 1. 加载匹配的 Skills
     this.logger.log(`[Skills] Step 1: Loading skills for task...`);
-    const skills = await this.skillLoader.getSkillsForTask({
+    const skills = await this.skills?.loader.getSkillsForTask({
       taskType: request.taskType,
       domain: request.domain as SkillDomain,
       additionalSkillIds: request.additionalSkills,
@@ -296,7 +351,7 @@ export class AIEngineFacade {
 
     // 2. 组装 System Prompt
     this.logger.log(`[Skills] Step 2: Building System Prompt...`);
-    const buildResult = this.skillPromptBuilder.buildSystemPrompt(skills, {
+    const buildResult = this.skills?.promptBuilder.buildSystemPrompt(skills, {
       context: request.skillContext,
       maxTokens: 4000,
       includeMetadata: false,
@@ -366,8 +421,8 @@ export class AIEngineFacade {
     const entityId = `chat:${modelId}`;
 
     // 熔断器检查
-    if (this.circuitBreaker && !this.circuitBreaker.canExecute(entityId)) {
-      const cooldown = this.circuitBreaker.getCooldownRemaining(entityId);
+    if (this.orchestration?.circuitBreaker && !this.orchestration?.circuitBreaker.canExecute(entityId)) {
+      const cooldown = this.orchestration?.circuitBreaker.getCooldownRemaining(entityId);
       this.logger.warn(
         `[chatStream] Circuit breaker OPEN for ${entityId}, cooldown=${cooldown}ms`,
       );
@@ -381,7 +436,7 @@ export class AIEngineFacade {
 
     try {
       // 增加负载计数
-      this.circuitBreaker?.incrementLoad(entityId);
+      this.orchestration?.circuitBreaker?.incrementLoad(entityId);
 
       // 使用 AiChatService 的真正流式输出
       for await (const chunk of this.aiChatService.chatStream({
@@ -400,7 +455,7 @@ export class AIEngineFacade {
 
         // 如果有错误，记录失败
         if (chunk.error) {
-          this.circuitBreaker?.recordFailure(
+          this.orchestration?.circuitBreaker?.recordFailure(
             entityId,
             TaskCompletionType.API_ERROR,
             chunk.error,
@@ -409,10 +464,10 @@ export class AIEngineFacade {
       }
 
       // 流式完成，记录成功
-      this.circuitBreaker?.recordSuccess(entityId, 0);
+      this.orchestration?.circuitBreaker?.recordSuccess(entityId, 0);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      this.circuitBreaker?.recordFailure(
+      this.orchestration?.circuitBreaker?.recordFailure(
         entityId,
         TaskCompletionType.API_ERROR,
         errorMsg,
@@ -422,7 +477,7 @@ export class AIEngineFacade {
       yield { content: "", done: true, error: errorMsg };
     } finally {
       // 减少负载计数
-      this.circuitBreaker?.decrementLoad(entityId);
+      this.orchestration?.circuitBreaker?.decrementLoad(entityId);
     }
   }
 
@@ -498,9 +553,9 @@ export class AIEngineFacade {
     }
 
     // 4. 考虑熔断器状态选择最佳模型
-    if (this.circuitBreaker) {
+    if (this.orchestration?.circuitBreaker) {
       const entityIds = candidates.map((m) => `chat:${m.id}`);
-      const bestEntityId = this.circuitBreaker.selectBest(entityIds);
+      const bestEntityId = this.orchestration?.circuitBreaker.selectBest(entityIds);
 
       if (bestEntityId) {
         const modelId = bestEntityId.replace("chat:", "");
@@ -549,7 +604,7 @@ export class AIEngineFacade {
         name: name,
         provider: this.inferProviderFromModel(name),
         isReasoning: this.aiChatService.isReasoningModel(name),
-        isAvailable: this.circuitBreaker?.canExecute(`chat:${name}`) ?? true,
+        isAvailable: this.orchestration?.circuitBreaker?.canExecute(`chat:${name}`) ?? true,
       }));
     }
 
@@ -580,7 +635,7 @@ export class AIEngineFacade {
       const patternIsReasoning = this.aiChatService.isReasoningModel(m.modelId);
       const isReasoning = dbIsReasoning || patternIsReasoning;
       const isAvailable =
-        this.circuitBreaker?.canExecute(`chat:${m.modelId}`) ?? true;
+        this.orchestration?.circuitBreaker?.canExecute(`chat:${m.modelId}`) ?? true;
 
       this.logger.debug(
         `[getAvailableModelsExtended] Model ${m.modelId}: db=${m.isReasoning}, pattern=${patternIsReasoning}, final=${isReasoning}, available=${isAvailable}`,
@@ -882,7 +937,7 @@ export class AIEngineFacade {
     );
 
     // ★ 优先通过 ToolRegistry 调用 web-search 工具
-    const webSearchTool = this.toolRegistry?.tryGet("web-search");
+    const webSearchTool = this.tools?.registry?.tryGet("web-search");
     if (webSearchTool) {
       try {
         const toolResult = await webSearchTool.execute(
@@ -1134,8 +1189,8 @@ export class AIEngineFacade {
           break;
 
         case "memory":
-          if (source.id && this.shortTermMemory) {
-            const memory = await this.shortTermMemory.getWithSession(
+          if (source.id && this.memory?.shortTerm) {
+            const memory = await this.memory?.shortTerm.getWithSession(
               source.id,
               "context",
             );
@@ -1397,14 +1452,14 @@ export class AIEngineFacade {
       `[storeMemory] sessionId=${request.sessionId}, type=${request.type}`,
     );
 
-    if (request.type === "short" && this.shortTermMemory) {
-      await this.shortTermMemory.setWithSession(
+    if (request.type === "short" && this.memory?.shortTerm) {
+      await this.memory?.shortTerm.setWithSession(
         request.sessionId,
         "memory",
         request.content,
       );
-    } else if (request.type === "long" && this.longTermMemory) {
-      await this.longTermMemory.setWithUser(
+    } else if (request.type === "long" && this.memory?.longTerm) {
+      await this.memory?.longTerm.setWithUser(
         request.sessionId,
         "memory",
         request.content,
@@ -1427,8 +1482,8 @@ export class AIEngineFacade {
     const items: MemoryItem[] = [];
 
     // 从短期记忆检索
-    if (this.shortTermMemory) {
-      const memory = await this.shortTermMemory.getWithSession(
+    if (this.memory?.shortTerm) {
+      const memory = await this.memory?.shortTerm.getWithSession(
         request.sessionId,
         "memory",
       );
@@ -1443,8 +1498,8 @@ export class AIEngineFacade {
     }
 
     // 从长期记忆检索
-    if (this.longTermMemory && request.query) {
-      const results = await this.longTermMemory.search(request.query, {
+    if (this.memory?.longTerm && request.query) {
+      const results = await this.memory?.longTerm.search(request.query, {
         userId: request.sessionId,
         limit: request.topK,
       });
@@ -1471,8 +1526,8 @@ export class AIEngineFacade {
   async clearMemory(sessionId: string): Promise<void> {
     this.logger.debug(`[clearMemory] sessionId=${sessionId}`);
 
-    if (this.shortTermMemory) {
-      await this.shortTermMemory.deleteWithSession(sessionId, "memory");
+    if (this.memory?.shortTerm) {
+      await this.memory?.shortTerm.deleteWithSession(sessionId, "memory");
     }
   }
 
@@ -1493,7 +1548,7 @@ export class AIEngineFacade {
       `[executeAgent] agentType=${request.agentType}, task="${request.task.slice(0, 50)}..."`,
     );
 
-    if (!this.agentExecutor) {
+    if (!this.orchestration?.agentExecutor) {
       return {
         success: false,
         content: "",
@@ -1567,7 +1622,7 @@ export class AIEngineFacade {
     }
 
     try {
-      const result = await this.agentExecutor.executeTask(
+      const result = await this.orchestration?.agentExecutor.executeTask(
         executionContext,
         config,
       );
@@ -1604,10 +1659,10 @@ export class AIEngineFacade {
    * 检查 Agent 是否可用
    */
   isAgentAvailable(agentId: string): boolean {
-    if (!this.agentExecutor) {
+    if (!this.orchestration?.agentExecutor) {
       return false;
     }
-    return this.agentExecutor.isAgentAvailable(agentId);
+    return this.orchestration?.agentExecutor.isAgentAvailable(agentId);
   }
 
   // ==================== Tool 执行能力 ====================
@@ -1630,7 +1685,7 @@ export class AIEngineFacade {
       `[executeTool] toolId=${request.toolId}, executionId=${executionId}`,
     );
 
-    if (!this.toolRegistry) {
+    if (!this.tools?.registry) {
       return {
         success: false,
         error: {
@@ -1646,7 +1701,7 @@ export class AIEngineFacade {
     }
 
     // 查找工具
-    const tool = this.toolRegistry.tryGet(request.toolId);
+    const tool = this.tools?.registry.tryGet(request.toolId);
     if (!tool) {
       return {
         success: false,
@@ -1737,13 +1792,13 @@ export class AIEngineFacade {
    * 获取可用工具列表
    */
   getAvailableTools(category?: ToolCategory): ToolInfo[] {
-    if (!this.toolRegistry) {
+    if (!this.tools?.registry) {
       return [];
     }
 
     let tools = category
-      ? this.toolRegistry.getByCategory(category)
-      : this.toolRegistry.getEnabled();
+      ? this.tools?.registry.getByCategory(category)
+      : this.tools?.registry.getEnabled();
 
     return tools.map((tool) => ({
       id: tool.id,
@@ -1759,10 +1814,10 @@ export class AIEngineFacade {
    * 检查工具是否可用
    */
   isToolAvailable(toolId: string): boolean {
-    if (!this.toolRegistry) {
+    if (!this.tools?.registry) {
       return false;
     }
-    return this.toolRegistry.isAvailable(toolId);
+    return this.tools?.registry.isAvailable(toolId);
   }
 
   /**
@@ -1773,13 +1828,13 @@ export class AIEngineFacade {
     description: string;
     parameters: object;
   }> {
-    if (!this.toolRegistry) {
+    if (!this.tools?.registry) {
       return [];
     }
 
     const definitions = toolIds
-      ? this.toolRegistry.getFunctionDefinitions(toolIds)
-      : this.toolRegistry.getAllFunctionDefinitions();
+      ? this.tools?.registry.getFunctionDefinitions(toolIds)
+      : this.tools?.registry.getAllFunctionDefinitions();
 
     return definitions;
   }
@@ -1811,7 +1866,7 @@ export class AIEngineFacade {
 
     // 构建工具摘要
     const toolSummaries = tools.map((toolId) => {
-      const tool = this.toolRegistry?.tryGet(toolId);
+      const tool = this.tools?.registry?.tryGet(toolId);
       return {
         id: toolId,
         name: tool?.name || toolId,
@@ -1889,7 +1944,7 @@ export class AIEngineFacade {
       `[chatWithTools] Starting with context: ${JSON.stringify(request.context)}`,
     );
 
-    if (!this.capabilityResolver || !this.functionCallingExecutor) {
+    if (!this.capabilityResolver || !this.tools?.executor) {
       this.logger.warn(
         "[chatWithTools] AICapabilityResolver or FunctionCallingExecutor not available",
       );

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ExportDialog } from './export-dialog';
+import { logger } from '@/lib/utils/logger';
 import {
   useYoutubeSubtitleExport,
   BilingualSubtitles,
@@ -61,7 +62,7 @@ export function SubtitleExportButton({
       );
       setIsDialogOpen(false);
     } catch (err) {
-      console.error('Export failed:', err);
+      logger.error('Export failed:', err);
       // Error is already handled in the hook
     }
   };

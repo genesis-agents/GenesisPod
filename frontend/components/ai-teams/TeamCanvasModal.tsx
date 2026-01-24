@@ -19,6 +19,7 @@ import {
 import * as api from '@/lib/api/ai-teams';
 import { useExport } from '@/hooks/features/useExport';
 
+import { logger } from '@/lib/utils/logger';
 interface TeamCanvasModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -621,19 +622,19 @@ export default function TeamCanvasModal({
     if (!mission) return;
 
     try {
-      console.log('[Export] Starting unified export for mission:', mission.id);
+      logger.debug('[Export] Starting unified export for mission:', mission.id);
 
       // 使用统一导出系统
       const result = await exportMission(mission.id, mission.topicId, 'PDF');
 
-      console.log('[Export] Export job completed:', result);
+      logger.debug('[Export] Export job completed:', result);
 
       // 触发下载
       if (result.jobId) {
         downloadExport(result.jobId);
       }
     } catch (error) {
-      console.error('[Export] Failed to export via unified system:', error);
+      logger.error('[Export] Failed to export via unified system:', error);
 
       // Fallback to legacy HTML export
       const useHtml = window.confirm(
@@ -2350,7 +2351,7 @@ function AgentPopover({
   const handleShareLink = useCallback(() => {
     if (!mission?.id) return;
     // Public report URL - accessible without login
-    const shareUrl = `${window.location.origin}/report/${mission.id}`;
+    const shareUrl = `${window.location.origin}/ai-writing/report/${mission.id}`;
     navigator.clipboard.writeText(shareUrl).then(() => {
       setCopyStatus('copied');
       setTimeout(() => setCopyStatus('idle'), 2000);

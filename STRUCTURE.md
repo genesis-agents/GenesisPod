@@ -1,16 +1,16 @@
 # DeepDive Engine 项目结构
 
-> 最后更新: 2024-12-25 | 维护者: Claude Code | 版本: 2.0
+> 最后更新: 2026-01-23 | 维护者: Claude Code | 版本: 3.0
 
 ## 项目概览
 
-DeepDive Engine 是一个基于 AI 的深度研究和内容管理平台，采用 monorepo 结构，包含前端、后端、AI 服务和文档。
+DeepDive Engine 是一个企业级 AI 深度研究和内容管理平台，采用 monorepo 结构，包含前端、后端、AI 服务和文档。
 
 ```
-deepdive/
+deepdive-engine/
 ├── frontend/           # Next.js 14 前端应用
 ├── backend/            # NestJS 后端服务
-├── ai-service/         # Python AI 微服务
+├── ai-service/         # Python FastAPI 微服务
 ├── docs/               # 项目文档
 ├── scripts/            # 运维脚本
 └── .claude/            # Claude Code 配置
@@ -26,17 +26,27 @@ Next.js 14 应用，使用 App Router、TypeScript 和 Zustand 状态管理。
 frontend/
 ├── app/                        # Next.js App Router 页面
 │   ├── admin/                  # 管理后台
-│   │   ├── ai-models/          # AI 模型管理
-│   │   ├── collection/         # 数据采集任务管理
-│   │   ├── dashboard/          # 管理仪表板
+│   │   ├── overview/           # 管理总览
+│   │   ├── access/             # 访问控制
+│   │   │   ├── secrets/        # 密钥管理
+│   │   │   ├── security/       # 安全管理
+│   │   │   └── users/          # 用户管理
+│   │   ├── ai/                 # AI 管理
+│   │   │   ├── models/         # AI 模型管理
+│   │   │   ├── skills/         # AI 技能管理
+│   │   │   ├── teams/          # AI 团队管理
+│   │   │   └── tools/          # AI 工具管理
+│   │   ├── data/               # 数据管理
+│   │   │   ├── collection/     # 数据采集
+│   │   │   ├── quality/        # 数据质量
+│   │   │   └── whitelists/     # 白名单
 │   │   ├── data-management/    # 数据源管理
-│   │   ├── external-api/       # 外部 API 密钥管理
 │   │   ├── feedback/           # 用户反馈管理
-│   │   ├── settings/           # 系统设置
-│   │   ├── storage/            # 存储管理
+│   │   ├── system/             # 系统设置
+│   │   │   ├── email/          # 邮件配置
+│   │   │   ├── site/           # 站点配置
+│   │   │   └── storage/        # 存储配置
 │   │   ├── thumbnails/         # 缩略图管理
-│   │   ├── users/              # 用户管理
-│   │   ├── whitelists/         # 白名单管理
 │   │   └── workspace/          # 工作空间管理
 │   │
 │   ├── ai-ask/                 # AI 问答模块
@@ -45,23 +55,36 @@ frontend/
 │   │   ├── kanban/             # 看板视图
 │   │   └── new/                # 创建新项目
 │   │
+│   ├── ai-image/               # AI 图像生成
+│   │   └── create/             # 创建图像
+│   │
 │   ├── ai-office/              # AI 办公套件
-│   │   ├── designer/           # 设计工具
-│   │   ├── docs/               # 文档生成
 │   │   └── slides/             # 幻灯片生成
+│   │
+│   ├── ai-research/            # AI 研究平台
+│   │   ├── [projectId]/        # 研究项目详情
+│   │   ├── topic/              # 话题研究
+│   │   │   └── [topicId]/      # 话题详情
+│   │   └── topic-research/     # 话题研究页
 │   │
 │   ├── ai-simulation/          # AI 辩论模拟
 │   │   ├── [id]/               # 模拟详情
-│   │   ├── components/         # 模拟专用组件
-│   │   ├── edit/               # 编辑模拟
-│   │   └── run/                # 运行模拟
+│   │   ├── edit/[id]/          # 编辑模拟
+│   │   └── run/[id]/           # 运行模拟
+│   │
+│   ├── ai-skills/              # AI 技能
+│   ├── ai-social/              # AI 社交内容生成
+│   │   ├── create/             # 创建内容
+│   │   └── edit/[id]/          # 编辑内容
 │   │
 │   ├── ai-store/               # AI 应用商店
 │   ├── ai-studio/              # AI 深度研究工作室
-│   │   └── [projectId]/        # 项目详情
 │   │
 │   ├── ai-teams/               # AI 团队协作
 │   │   └── [topicId]/          # 话题详情
+│   │
+│   ├── ai-writing/             # AI 写作助手
+│   │   └── [id]/               # 写作项目详情
 │   │
 │   ├── api/                    # API Routes (BFF层)
 │   │   ├── agents/             # Agent 相关 API
@@ -73,26 +96,29 @@ frontend/
 │   ├── auth/                   # 认证页面
 │   │   └── callback/           # OAuth 回调
 │   │
+│   ├── credits/                # 积分中心
+│   │
 │   ├── explore/                # 内容浏览
-│   │   ├── report/             # 报告详情
-│   │   ├── resource/           # 资源详情
+│   │   ├── report/[id]/        # 报告详情
+│   │   ├── resource/[id]/      # 资源详情
 │   │   └── youtube/            # YouTube 内容
 │   │
 │   ├── feedback/               # 用户反馈
 │   │   └── history/            # 反馈历史
 │   │
 │   ├── knowledge-graph/        # 知识图谱可视化
-│   ├── labs/                   # 实验性功能
 │   ├── library/                # 资源库
 │   ├── notifications/          # 通知中心
-│   ├── notion/                 # Notion 集成
-│   │   └── [pageId]/           # Notion 页面
-│   │
+│   ├── notion/[pageId]/        # Notion 集成
 │   ├── profile/                # 用户资料
-│   ├── studio/                 # 内容工作室
-│   │   └── [id]/               # 内容详情
+│   ├── rag/                    # RAG 检索增强生成
 │   │
-│   └── whats-new/              # 更新日志
+│   ├── report/[missionId]/     # 任务报告
+│   │
+│   └── share/                  # 分享页面
+│       ├── image/[id]/         # 分享图像
+│       ├── topic/[id]/         # 分享话题
+│       └── writing/[id]/       # 分享写作
 │
 ├── components/                 # React 组件库
 │   ├── admin/                  # 管理后台组件
@@ -118,12 +144,15 @@ frontend/
 │   │   ├── task/               # 任务组件
 │   │   └── visualizations/     # 可视化
 │   │
+│   ├── ai-research/            # AI 研究组件
 │   ├── ai-simulation/          # AI 模拟组件
+│   ├── ai-social/              # AI 社交组件
 │   ├── ai-studio/              # AI Studio 组件
 │   │   ├── citations/          # 引用组件
 │   │   └── outputs/            # 输出组件
 │   │
 │   ├── ai-teams/               # AI 团队组件
+│   ├── ai-writing/             # AI 写作组件
 │   ├── common/                 # 通用业务组件
 │   ├── explore/                # 浏览组件
 │   │   ├── components/         # 子组件
@@ -177,7 +206,7 @@ frontend/
 
 ## 后端目录 (backend/)
 
-NestJS 应用，提供 RESTful API，集成 Prisma ORM、MongoDB 和 Neo4j。
+NestJS 应用，提供 RESTful API，集成 Prisma ORM 和 PostgreSQL（统一数据库架构）。
 
 ```
 backend/
@@ -206,177 +235,209 @@ backend/
 │   │   ├── content-processing/ # 内容处理服务
 │   │   ├── deduplication/      # 去重服务
 │   │   ├── filters/            # 异常过滤器
-│   │   ├── graph/              # 图数据库工具
+│   │   ├── graph/              # 图数据库工具 (PostgreSQL Recursive CTEs)
 │   │   ├── guards/             # 认证守卫
 │   │   │   └── __tests__/      # 守卫测试
 │   │   │
 │   │   ├── interceptors/       # 拦截器
 │   │   │   └── decorators/     # 拦截器装饰器
 │   │   │
-│   │   ├── mongodb/            # MongoDB 服务
-│   │   ├── neo4j/              # Neo4j 服务
 │   │   ├── prisma/             # Prisma 服务
-│   │   ├── rawdata/            # 原始数据服务
+│   │   ├── rawdata/            # 原始数据服务 (PostgreSQL JSONB)
 │   │   ├── streaming/          # SSE 流式响应
 │   │   └── utils/              # 工具函数
 │   │
 │   ├── config/                 # 应用配置
 │   │
 │   ├── modules/                # 功能模块
-│   │   ├── ai/                 # AI 模块群
-│   │   │   ├── ai-agents/      # Agent 框架
-│   │   │   │   ├── core/       # 核心功能
-│   │   │   │   │   ├── agent/      # Agent 基类
-│   │   │   │   │   ├── errors/     # 错误处理
-│   │   │   │   │   ├── execution/  # 执行引擎
-│   │   │   │   │   ├── guardrails/ # 安全护栏
-│   │   │   │   │   ├── llm/        # LLM 适配器
-│   │   │   │   │   ├── mcp/        # MCP 协议
-│   │   │   │   │   ├── memory/     # 记忆系统
-│   │   │   │   │   ├── tool/       # 工具系统
-│   │   │   │   │   └── validation/ # 验证
-│   │   │   │   │
-│   │   │   │   ├── dto/            # 数据传输对象
-│   │   │   │   ├── implementations/# Agent 实现
-│   │   │   │   │   ├── designer/   # 设计 Agent
-│   │   │   │   │   ├── developer/  # 开发 Agent
-│   │   │   │   │   ├── docs/       # 文档 Agent
-│   │   │   │   │   ├── image-designer/ # 图像设计
-│   │   │   │   │   ├── researcher/ # 研究 Agent
-│   │   │   │   │   ├── simulator/  # 模拟 Agent
-│   │   │   │   │   ├── slides/     # 幻灯片 Agent
-│   │   │   │   │   └── team-collaboration/ # 团队协作
-│   │   │   │   │
-│   │   │   │   └── tools/          # Agent 工具
-│   │   │   │       ├── collaboration/  # 协作工具
-│   │   │   │       ├── execution/      # 执行工具
-│   │   │   │       ├── export/         # 导出工具
-│   │   │   │       ├── generation/     # 生成工具
-│   │   │   │       ├── information/    # 信息工具
-│   │   │   │       ├── integration/    # 集成工具
-│   │   │   │       ├── memory/         # 记忆工具
-│   │   │   │       └── processing/     # 处理工具
+│   │   ├── ai-engine/          # AI 引擎层 (领域无关的通用 AI 能力)
+│   │   │   ├── ai-engine.module.ts # AI 引擎模块
+│   │   │   ├── image/          # 图像引擎
+│   │   │   ├── long-content/   # 长文本处理引擎
+│   │   │   └── teams/          # 团队协作引擎
+│   │   │
+│   │   ├── ai-app/             # AI 应用层 (具体业务应用)
+│   │   │   ├── ask/            # AI 问答应用
+│   │   │   │   └── ai-ask.module.ts
 │   │   │   │
-│   │   │   ├── ai-ask/         # AI 问答服务
-│   │   │   │   └── adapters/   # 模型适配器
-│   │   │   │
-│   │   │   ├── ai-coding/      # AI 编程服务
+│   │   │   ├── coding/         # AI 编程助手
+│   │   │   │   ├── ai-coding.module.ts
 │   │   │   │   ├── constants/  # 常量定义
 │   │   │   │   ├── dto/        # DTO
 │   │   │   │   ├── prompts/    # 提示词模板
 │   │   │   │   └── services/   # 服务层
 │   │   │   │
-│   │   │   ├── ai-core/        # AI 核心服务
-│   │   │   │   └── exceptions/ # AI 异常
+│   │   │   ├── image/          # AI 图像生成应用
+│   │   │   │   ├── ai-image.module.ts
+│   │   │   │   ├── analytics/  # 图像分析
+│   │   │   │   ├── brand-kit/  # 品牌套件
+│   │   │   │   ├── core/       # 核心服务
+│   │   │   │   ├── export/     # 图像导出
+│   │   │   │   ├── generation/ # 图像生成
+│   │   │   │   ├── infographic/# 信息图
+│   │   │   │   │   └── templates/ # 模板
+│   │   │   │   └── storage/    # 图像存储
 │   │   │   │
-│   │   │   ├── ai-image/       # AI 图像服务
-│   │   │   │   ├── analytics/      # 图像分析
-│   │   │   │   ├── brand-kit/      # 品牌套件
-│   │   │   │   ├── core/           # 核心服务
-│   │   │   │   ├── export/         # 图像导出
-│   │   │   │   ├── generation/     # 图像生成
-│   │   │   │   ├── infographic/    # 信息图
-│   │   │   │   │   └── templates/  # 模板
-│   │   │   │   └── storage/        # 图像存储
-│   │   │   │
-│   │   │   ├── ai-office/      # AI 办公服务
-│   │   │   │   ├── __tests__/      # 测试
-│   │   │   │   ├── agents/         # Office Agent
+│   │   │   ├── office/         # AI 办公套件应用
+│   │   │   │   ├── ai-office.module.ts
+│   │   │   │   ├── __tests__/  # 测试
+│   │   │   │   ├── agents/     # Office Agent
 │   │   │   │   ├── code-execution/ # 代码执行
-│   │   │   │   ├── core/           # 核心服务
-│   │   │   │   ├── designer/       # 设计服务
-│   │   │   │   ├── docs/           # 文档服务
-│   │   │   │   ├── documents/      # 文档管理
-│   │   │   │   ├── export/         # 导出服务
-│   │   │   │   ├── generation/     # 生成服务
-│   │   │   │   └── ppt/            # PPT 服务
+│   │   │   │   ├── common/     # 通用模块
+│   │   │   │   │   └── common.module.ts
+│   │   │   │   ├── core/       # 核心服务
+│   │   │   │   ├── designer/   # 设计服务
+│   │   │   │   ├── docs/       # 文档服务
+│   │   │   │   ├── documents/  # 文档管理
+│   │   │   │   ├── export/     # 导出服务
+│   │   │   │   ├── generation/ # 生成服务
+│   │   │   │   ├── ppt/        # PPT 服务
+│   │   │   │   └── slides/     # 幻灯片服务
+│   │   │   │       └── skills/ # 幻灯片技能
+│   │   │   │           └── slides-skills.module.ts
 │   │   │   │
-│   │   │   ├── ai-simulation/  # AI 辩论模拟
+│   │   │   ├── rag/            # RAG 应用
+│   │   │   │   └── rag.module.ts
 │   │   │   │
-│   │   │   ├── ai-studio/      # AI 深度研究
-│   │   │   │   ├── deep-research/  # 深度研究引擎
-│   │   │   │   ├── dto/            # DTO
-│   │   │   │   └── services/       # 服务层
+│   │   │   ├── research/       # 研究应用集合
+│   │   │   │   ├── research.module.ts # 研究模块
+│   │   │   │   ├── deep-research/ # 深度研究
+│   │   │   │   │   └── deep-research.module.ts
+│   │   │   │   ├── fast-research/ # 快速研究
+│   │   │   │   │   └── fast-research.module.ts
+│   │   │   │   ├── notebook-research/ # 笔记本研究
+│   │   │   │   │   └── notebook-research.module.ts
+│   │   │   │   └── topic-research/ # 话题研究
+│   │   │   │       └── topic-research.module.ts
 │   │   │   │
-│   │   │   └── ai-teams/       # AI 团队服务
-│   │   │       ├── __tests__/      # 测试
-│   │   │       ├── agents/         # 团队 Agent
-│   │   │       ├── dto/            # DTO
-│   │   │       └── services/       # 服务层
-│   │   │           ├── ai/         # AI 服务
-│   │   │           ├── collaboration/ # 协作服务
-│   │   │           ├── topic/      # 话题服务
-│   │   │           └── utils/      # 工具
+│   │   │   ├── simulation/     # AI 模拟应用
+│   │   │   │   └── ai-simulation.module.ts
+│   │   │   │
+│   │   │   ├── social/         # AI 社交内容生成
+│   │   │   │   └── ai-social.module.ts
+│   │   │   │
+│   │   │   ├── teams/          # AI 团队应用
+│   │   │   │   ├── ai-teams.module.ts
+│   │   │   │   ├── __tests__/  # 测试
+│   │   │   │   ├── agents/     # 团队 Agent
+│   │   │   │   ├── dto/        # DTO
+│   │   │   │   └── services/   # 服务层
+│   │   │   │       ├── ai/     # AI 服务
+│   │   │   │       ├── collaboration/ # 协作服务
+│   │   │   │       ├── topic/  # 话题服务
+│   │   │   │       └── utils/  # 工具
+│   │   │   │
+│   │   │   └── writing/        # AI 写作应用
+│   │   │       └── ai-writing.module.ts
 │   │   │
-│   │   ├── content/            # 内容模块
+│   │   ├── content/            # 内容层 (内容管理)
 │   │   │   ├── collections/    # 收藏夹
+│   │   │   │   ├── collections.module.ts
 │   │   │   │   └── dto/        # DTO
 │   │   │   │
 │   │   │   ├── comments/       # 评论系统
+│   │   │   │   ├── comments.module.ts
 │   │   │   │   └── dto/        # DTO
 │   │   │   │
 │   │   │   ├── explore/        # 内容浏览
+│   │   │   │   ├── explore.module.ts
 │   │   │   │   └── dto/        # DTO
 │   │   │   │
 │   │   │   ├── feed/           # 信息流
+│   │   │   │   └── feed.module.ts
+│   │   │   │
+│   │   │   ├── knowledge-graph/# 知识图谱
+│   │   │   │   └── knowledge-graph.module.ts
+│   │   │   │
 │   │   │   ├── notes/          # 笔记系统
+│   │   │   │   ├── notes.module.ts
 │   │   │   │   └── dto/        # DTO
 │   │   │   │
+│   │   │   ├── recommendations/# 推荐系统
+│   │   │   │   └── recommendations.module.ts
+│   │   │   │
 │   │   │   ├── reports/        # 报告系统
+│   │   │   │   ├── reports.module.ts
 │   │   │   │   └── dto/        # DTO
 │   │   │   │
 │   │   │   ├── resources/      # 资源管理
+│   │   │   │   ├── resources.module.ts
 │   │   │   │   ├── config/     # 资源配置
 │   │   │   │   └── types/      # 类型定义
 │   │   │   │
 │   │   │   └── workspace/      # 工作空间
+│   │   │       ├── workspace.module.ts
 │   │   │       └── dto/        # DTO
 │   │   │
-│   │   ├── core/               # 核心模块
+│   │   ├── core/               # 核心层 (基础服务)
 │   │   │   ├── admin/          # 管理功能
+│   │   │   │   ├── admin.module.ts
 │   │   │   │   └── __tests__/  # 测试
 │   │   │   │
 │   │   │   ├── auth/           # 认证授权
+│   │   │   │   ├── auth.module.ts
 │   │   │   │   ├── __tests__/  # 测试
 │   │   │   │   ├── dto/        # DTO
 │   │   │   │   └── strategies/ # Passport 策略
 │   │   │   │
 │   │   │   ├── email/          # 邮件服务
+│   │   │   │   └── email.module.ts
+│   │   │   │
 │   │   │   ├── feedback/       # 反馈系统
+│   │   │   │   ├── feedback.module.ts
 │   │   │   │   └── dto/        # DTO
 │   │   │   │
-│   │   │   ├── settings/       # 系统设置
-│   │   │   └── storage/        # 文件存储
-│   │   │
-│   │   ├── data-services/      # 数据服务
-│   │   │   ├── blog-collection/# 博客采集
-│   │   │   │   ├── controllers/# 控制器
-│   │   │   │   ├── services/   # 服务
-│   │   │   │   └── types/      # 类型
+│   │   │   ├── notifications/  # 通知中心
+│   │   │   │   └── notification.module.ts
 │   │   │   │
-│   │   │   ├── crawler/        # 爬虫服务
-│   │   │   ├── data-collection/# 数据采集
-│   │   │   ├── data-management/# 数据管理
-│   │   │   │   ├── controllers/# 控制器
+│   │   │   ├── release/        # 发布管理
+│   │   │   │   └── release.module.ts
+│   │   │   │
+│   │   │   ├── secrets/        # 密钥管理
+│   │   │   │   └── secrets.module.ts
+│   │   │   │
+│   │   │   ├── settings/       # 系统设置
+│   │   │   │   └── settings.module.ts
+│   │   │   │
+│   │   │   └── storage/        # 文件存储
+│   │   │       └── storage.module.ts
+│   │   │
+│   │   ├── credits/            # 积分系统
+│   │   │   └── credits.module.ts
+│   │   │
+│   │   ├── ingestion/          # 采集层 (数据采集)
+│   │   │   ├── config/         # 采集配置
+│   │   │   │   └── config.module.ts
+│   │   │   │
+│   │   │   ├── crawlers/       # 爬虫服务
+│   │   │   │   └── crawlers.module.ts
+│   │   │   │
+│   │   │   ├── scheduler/      # 调度器
+│   │   │   │   └── scheduler.module.ts
+│   │   │   │
+│   │   │   └── sources/        # 数据源管理
+│   │   │       └── sources.module.ts
+│   │   │
+│   │   ├── integrations/       # 集成层 (第三方集成)
+│   │   │   ├── ai-file-organizer/ # AI 文件组织器
+│   │   │   │   └── ai-file-organizer.module.ts
+│   │   │   │
+│   │   │   ├── google-drive/   # Google Drive 集成
+│   │   │   │   └── google-drive.module.ts
+│   │   │   │
+│   │   │   ├── notion/         # Notion 集成
+│   │   │   │   ├── notion.module.ts
+│   │   │   │   ├── dto/        # DTO
 │   │   │   │   └── services/   # 服务
 │   │   │   │
-│   │   │   ├── knowledge-graph/# 知识图谱
-│   │   │   └── recommendations/# 推荐系统
+│   │   │   ├── proxy/          # 代理服务
+│   │   │   │   └── proxy.module.ts
+│   │   │   │
+│   │   │   └── wechat-work/    # 企业微信
+│   │   │       └── wechat-work.module.ts
 │   │   │
-│   │   ├── export/             # 统一导出模块
-│   │   │   ├── controllers/    # 导出控制器
-│   │   │   ├── renderers/      # 格式渲染器
-│   │   │   ├── services/       # 导出服务
-│   │   │   ├── templates/      # 导出模板
-│   │   │   └── types/          # 类型定义
-│   │   │
-│   │   └── integrations/       # 第三方集成
-│   │       ├── notion/         # Notion 集成
-│   │       │   ├── dto/        # DTO
-│   │       │   └── services/   # 服务
-│   │       │
-│   │       ├── proxy/          # 代理服务
-│   │       └── wechat-work/    # 企业微信
+│   │   └── webhooks/           # Webhooks
+│   │       └── webhooks.module.ts
 │   │
 │   └── types/                  # 全局类型定义
 │
@@ -392,126 +453,266 @@ backend/
 
 ## AI 服务目录 (ai-service/)
 
-Python FastAPI 微服务，提供 AI 推理能力。
+Python FastAPI 微服务，提供 AI 推理和编排能力。
 
 ```
 ai-service/
 ├── main.py                     # 应用入口
-├── configs/                    # 配置文件
-│   └── templates/              # 提示词模板
 │
 ├── models/                     # 数据模型
+│   ├── schemas.py              # Pydantic 模型
+│   └── __init__.py
+│
 ├── routers/                    # API 路由
+│   ├── add_options.py          # 添加选项
+│   ├── ai.py                   # AI 服务路由
+│   ├── quick_generate.py       # 快速生成
+│   ├── report.py               # 报告生成
+│   ├── trend.py                # 趋势分析
+│   ├── workspace.py            # 工作空间
+│   └── __init__.py
+│
 ├── services/                   # 业务服务
-├── scripts/                    # 工具脚本
+│   ├── ai_orchestrator.py      # AI 服务编排
+│   ├── grok_client.py          # Grok API 客户端
+│   ├── openai_client.py        # OpenAI API 客户端
+│   ├── precise_citation.py     # 精确引用
+│   ├── template_loader.py      # 模板加载器
+│   ├── trend_analysis.py       # 趋势分析
+│   ├── workspace_pipeline.py   # 工作空间流水线
+│   ├── workspace_task_manager.py # 任务管理器
+│   └── __init__.py
+│
 └── utils/                      # 工具函数
+    ├── cors_fix.py             # CORS 修复
+    ├── feature_flags.py        # 功能开关
+    ├── secret_manager.py       # 密钥管理
+    └── __init__.py
 ```
 
 ---
 
 ## 文档目录 (docs/)
 
-项目文档、架构设计和功能规格。
+项目文档、架构设计和产品需求文档。
 
 ```
 docs/
-├── ai-trends/                  # AI 趋势研究
-│   ├── agentic-ai/             # Agent AI
-│   ├── agi/                    # 通用人工智能
-│   ├── ai4science/             # AI for Science
-│   ├── ai-medicine/            # AI 医疗
-│   ├── code-agents/            # 代码 Agent
-│   ├── hardware/               # AI 硬件
-│   ├── inference/              # 推理优化
-│   ├── model-evolution/        # 模型演进
-│   ├── multimodal/             # 多模态
-│   └── spatial-intelligence/   # 空间智能
-│
 ├── api/                        # API 文档
-├── architecture/               # 架构设计文档
-├── archive/                    # 归档文档
-│   ├── 2025-q1/                # 2025 Q1 归档
-│   │   ├── audits/             # 审计报告
-│   │   ├── execution-logs/     # 执行日志
-│   │   ├── issues/             # 问题记录
-│   │   ├── planning/           # 规划文档
-│   │   ├── reports/            # 报告
-│   │   └── summaries/          # 摘要
-│   │
-│   ├── planning/               # 历史规划
-│   └── weekly-reports/         # 周报
+│   ├── data-collection-api.md  # 数据采集 API
+│   └── readme.md               # API 文档总览
 │
-├── data-management/            # 数据管理文档
-├── decisions/                  # 技术决策记录 (ADR)
-├── design/                     # UI/UX 设计规范
+├── architecture/               # 架构设计文档
+│   ├── ai-apps/                # AI 应用架构
+│   │   ├── ai-office/          # AI Office 架构
+│   │   └── ai-writing/         # AI Writing 架构
+│   ├── ai-engine/              # AI 引擎架构
+│   │   ├── ai-engine-parameter-abstraction.md
+│   │   └── ai-engine-target-architecture.md
+│   ├── ai-teams/               # AI Teams 架构
+│   │   ├── ai-teams-long-content-e2e-design.md
+│   │   └── ai-teams-long-text-processing.md
+│   └── system/                 # 系统架构
+│       ├── integrations/       # 集成架构
+│       └── unified-secrets-management-design.md
+│
 ├── features/                   # 功能特性文档
-│   ├── ai-agents/              # Agent 功能
-│   ├── ai-coding/              # AI 编程功能
-│   ├── ai-office/              # AI 办公功能
-│   ├── ai-studio/              # AI Studio 功能
-│   ├── ai-teams/               # AI 团队功能
-│   ├── blog-collection/        # 博客采集
-│   ├── image-generator/        # 图像生成
-│   └── workspace-reporting/    # 工作空间报告
+│   ├── ai-apps/                # AI 应用功能
+│   │   ├── blog-collection/    # 博客采集
+│   │   └── image-generator/    # 图像生成
+│   └── ai-teams/               # AI Teams 功能
+│       ├── ai-teams-product-vision.md
+│       ├── code-review-report.md
+│       ├── debate-system.md
+│       ├── gap-analysis.md
+│       ├── mission-execution.md
+│       └── system-design.md
 │
 ├── guides/                     # 开发指南
 │   ├── authentication/         # 认证指南
-│   └── deployment/             # 部署指南
+│   │   └── google-oauth-setup.md
+│   ├── claude-code/            # Claude Code 使用指南
+│   │   ├── claude-skills-ecosystem.md
+│   │   └── claude-skills-guide.md
+│   ├── deployment/             # 部署指南
+│   │   ├── deployment-guide.md
+│   │   └── railway-env-config.md
+│   ├── development/            # 开发指南
+│   │   └── ai-calling-standards.md
+│   └── testing/                # 测试指南
+│       └── test-coverage-analysis.md
 │
-├── implementation/             # 实现文档
-├── operations/                 # 运维文档
 ├── prd/                        # 产品需求文档
-│   └── archive/                # 归档 PRD
+│   ├── ai-apps/                # AI 应用 PRD
+│   │   ├── ai-ask/             # AI Ask PRD
+│   │   ├── ai-coding/          # AI Coding PRD
+│   │   ├── ai-office/          # AI Office PRD
+│   │   ├── ai-slides/          # AI Slides PRD
+│   │   └── ai-writing/         # AI Writing PRD
+│   ├── ai-teams/               # AI Teams PRD
+│   │   ├── ai-group-*.md       # AI 群组 PRD
+│   │   └── topic-research/     # 话题研究 PRD
+│   └── infra/                  # 基础设施 PRD
+│       ├── core/               # 核心功能 PRD
+│       ├── data-collection/    # 数据采集 PRD
+│       ├── integrations/       # 集成 PRD
+│       ├── knowledge-base/     # 知识库 PRD
+│       └── library/            # 资源库 PRD
 │
-├── product-reviews/            # 产品评审
-├── project-reports/            # 项目报告
-├── releases/                   # 发布说明
-├── tech-stack/                 # 技术栈文档
-│   ├── ai-llm/                 # AI/LLM 技术
-│   ├── backend/                # 后端技术
-│   ├── database/               # 数据库
-│   ├── data-collection/        # 数据采集
-│   ├── frontend/               # 前端技术
-│   └── realtime/               # 实时通信
-│
-└── testing/                    # 测试文档
+└── _archive/                   # 历史归档
+    ├── _CLEANUP_README.md      # 清理说明
+    ├── _CLEANUP_TASK_COMPLETION.md
+    ├── architecture-old/       # 旧架构文档
+    └── old-structure/          # 旧结构文档
+        ├── archive/            # 历史归档
+        │   └── 2025-q1/        # 2025 Q1 归档
+        ├── improvement/        # 改进计划
+        └── tasks/              # 任务记录
 ```
 
 ---
 
 ## Claude Code 配置 (.claude/)
 
-Claude Code AI 助手配置和 Skills。
+Claude Code AI 助手配置、技能和编码标准。
 
 ```
 .claude/
-├── CLAUDE.md                   # 全局指令
-├── adrs/                       # 架构决策记录
-├── agents/                     # Agent 配置
-├── config/                     # 配置文件
-├── logs/                       # 日志
-├── orchestrator/               # 任务编排
-├── skills/                     # 技能定义
-│   ├── ai-service-expert/      # AI 服务专家
-│   ├── ai-teams-expert/        # AI 团队专家
-│   ├── api-developer/          # API 开发者
-│   ├── code-reviewer/          # 代码审查
-│   ├── data-collection-expert/ # 数据采集专家
-│   ├── database-manager/       # 数据库管理
-│   ├── deployment-ops/         # 部署运维
-│   ├── dev-environment/        # 开发环境
-│   ├── document-processor/     # 文档处理
-│   ├── frontend-builder/       # 前端构建
-│   ├── git-workflow/           # Git 工作流
-│   ├── i18n-localization/      # 国际化
-│   ├── knowledge-graph-expert/ # 知识图谱专家
-│   ├── monitoring-ops/         # 监控运维
-│   ├── performance-optimizer/  # 性能优化
-│   ├── security-specialist/    # 安全专家
-│   └── testing-expert/         # 测试专家
+├── CLAUDE.md                   # 全局配置
+├── settings.json               # VS Code 设置
+├── README.md                   # 配置总览
 │
-├── standards/                  # 编码标准
-└── tools/                      # 工具配置
+├── adrs/                       # 架构决策记录 (ADR)
+│   ├── 0001-monorepo-architecture.md
+│   ├── 0002-typescript-strict-mode.md
+│   ├── 0003-dual-database-strategy.md
+│   ├── README.md
+│   └── template.md
+│
+├── agents/                     # Agent 配置 (9 个)
+│   ├── architect.md            # 架构师
+│   ├── coder.md                # 编码者
+│   ├── docs-specialist.md      # 文档专家
+│   ├── merge-to-main.md        # 合并管理
+│   ├── monitoring.md           # 监控
+│   ├── pm.md                   # 产品经理
+│   ├── reviewer.md             # 审查者
+│   ├── scripts-guardian.md     # 脚本守护者
+│   └── tester.md               # 测试者
+│
+├── analysis/                   # 分析报告
+│   └── documentation-analysis-report.md # 文档分析报告 (本次生成)
+│
+├── commands/                   # 快捷命令 (13 个)
+│   ├── ai-teams.md             # AI Teams 命令
+│   ├── ai-writing.md           # AI Writing 命令
+│   ├── debug.md                # 调试命令
+│   ├── deploy.md               # 部署命令
+│   ├── docs.md                 # 文档命令
+│   ├── fix.md                  # 修复命令
+│   ├── perf.md                 # 性能命令
+│   ├── prompt.md               # 提示词命令
+│   ├── review.md               # 审查命令
+│   ├── schema.md               # Schema 命令
+│   ├── tdd.md                  # TDD 命令
+│   ├── test.md                 # 测试命令
+│   └── verify.md               # 验证命令
+│
+├── config/                     # 配置文件
+│   ├── merge-to-main.yml       # 合并配置
+│   ├── monitoring.yml          # 监控配置
+│   └── README.md
+│
+├── prompts/                    # 提示词模板
+│   ├── system/                 # 系统提示词
+│   │   ├── researcher-agent.md
+│   │   ├── reviewer-agent.md
+│   │   └── writer-agent.md
+│   └── README.md
+│
+├── skills/                     # 技能定义 (33 个)
+│   ├── ai/                     # AI 技能 (7 个)
+│   │   ├── ai-app-developer/
+│   │   ├── ai-architecture-layering/
+│   │   ├── ai-engine-development-paradigm/
+│   │   ├── ai-service-expert/
+│   │   ├── ai-teams-expert/
+│   │   ├── document-generation/
+│   │   ├── prompt-engineering/
+│   │   └── writing-quality/
+│   │
+│   ├── architecture/           # 架构技能 (4 个)
+│   │   ├── document-processor/
+│   │   ├── mcp-builder/
+│   │   ├── schema-architect/
+│   │   └── security-specialist/
+│   │
+│   ├── data/                   # 数据技能 (2 个)
+│   │   ├── data-pipeline-expert/
+│   │   └── knowledge-graph-expert/
+│   │
+│   ├── development/            # 开发技能 (8 个)
+│   │   ├── api-developer/
+│   │   ├── complex-feature-implementation/
+│   │   ├── database-manager/
+│   │   ├── database-migration/
+│   │   ├── frontend-expert/
+│   │   ├── git-automation/
+│   │   ├── realtime-communication-expert/
+│   │   ├── state-management-expert/
+│   │   └── webapp-testing/
+│   │
+│   ├── frontend/               # 前端技能 (3 个)
+│   │   ├── admin-config-layout.skill.md
+│   │   ├── defect-patterns.skill.md
+│   │   └── page-layout-standard.skill.md
+│   │
+│   ├── operations/             # 运维技能 (4 个)
+│   │   ├── debug-ops/
+│   │   ├── dev-environment/
+│   │   ├── devops-platform/
+│   │   └── git-workflow/
+│   │
+│   ├── quality/                # 质量技能 (3 个)
+│   │   ├── code-reviewer/
+│   │   ├── performance-optimizer/
+│   │   └── testing-suite/
+│   │
+│   └── README.md
+│
+├── standards/                  # 编码标准 (15 个)
+│   ├── 00-overview.md          # 规范总览
+│   ├── 02-directory-structure.md
+│   ├── 03-naming-conventions.md
+│   ├── 04-code-style.md
+│   ├── 05-api-design.md
+│   ├── 06-database-design.md
+│   ├── 07-testing-standards.md
+│   ├── 08-git-workflow.md
+│   ├── 09-documentation.md
+│   ├── 10-documentation-organization.md
+│   ├── 10-security.md
+│   ├── 11-logging-standards.md
+│   ├── 12-scripts-management.md
+│   ├── 13-module-dependencies.md
+│   └── 99-quick-reference.md
+│
+├── templates/                  # 模板 (4 个)
+│   ├── commit-template.md
+│   ├── issue-template.md
+│   ├── pr-template.md
+│   └── README.md
+│
+└── tools/                      # 工具脚本 (6 个)
+    ├── check-all.ps1           # Windows 检查脚本
+    ├── check-all.sh            # Linux/Mac 检查脚本
+    ├── monitor-ci.ps1
+    ├── monitor-ci.sh
+    ├── pre-merge-validation.ps1
+    ├── pre-merge-validation.sh
+    ├── rollback-merge.sh
+    ├── validate-commit.ps1
+    └── validate-commit.sh
 ```
 
 ---
@@ -574,6 +775,80 @@ deepdive/
 
 ---
 
-**最后更新**: 2024-12-25
+---
+
+## 架构分层说明
+
+DeepDive Engine 采用清晰的分层架构：
+
+```
+AI Engine (ai-engine/)
+    ├── 核心能力层 - 领域无关的通用 AI 能力
+    ├── image/           # 图像处理引擎
+    ├── long-content/    # 长文本处理引擎
+    └── teams/           # 团队协作引擎
+
+AI Apps (ai-app/)
+    ├── 应用层 - 具体业务应用
+    ├── ask/             # AI 问答应用
+    ├── coding/          # AI 编程助手
+    ├── image/           # AI 图像生成
+    ├── office/          # AI 办公套件
+    ├── research/        # AI 研究平台
+    ├── simulation/      # AI 模拟
+    ├── social/          # AI 社交内容生成
+    ├── teams/           # AI 团队
+    └── writing/         # AI 写作
+
+Content (content/)
+    ├── 内容层 - 内容管理
+    ├── collections/     # 收藏夹
+    ├── resources/       # 资源管理
+    ├── notes/           # 笔记系统
+    ├── knowledge-graph/ # 知识图谱
+    └── workspace/       # 工作空间
+
+Ingestion (ingestion/)
+    ├── 采集层 - 数据采集
+    ├── crawlers/        # 爬虫服务
+    ├── sources/         # 数据源管理
+    └── scheduler/       # 调度器
+
+Integrations (integrations/)
+    ├── 集成层 - 第三方集成
+    ├── notion/          # Notion 集成
+    ├── google-drive/    # Google Drive 集成
+    └── wechat-work/     # 企业微信集成
+
+Core (core/)
+    ├── 核心层 - 基础服务
+    ├── auth/            # 认证授权
+    ├── admin/           # 管理功能
+    ├── secrets/         # 密钥管理
+    └── storage/         # 文件存储
+```
+
+---
+
+## 数据库架构
+
+**统一 PostgreSQL 架构** - 成本优化 70-75%
+
+- **PostgreSQL 16**: 唯一数据库
+  - 结构化数据（用户、资源、笔记等）
+  - 原始数据存储（JSONB 字段）
+  - 知识图谱（Recursive CTEs）
+- **Redis 7**: 缓存、会话管理
+- **FlareSolverr**: Cloudflare 绕过代理服务
+
+**架构优势**:
+- 单点数据管理，备份简化
+- JSONB GIN 索引，查询性能优异
+- 递归 CTE 实现图关系，无需 Neo4j
+- 运维成本降低，数据一致性保证
+
+---
+
+**最后更新**: 2026-01-23
 **维护者**: Claude Code
-**版本**: 2.0
+**版本**: 3.0

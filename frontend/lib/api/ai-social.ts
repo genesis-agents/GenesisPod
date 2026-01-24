@@ -9,6 +9,7 @@
 
 import { getAuthTokens } from '../utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 // ==================== Types ====================
 
 export type SocialPlatformType = 'WECHAT_MP' | 'XIAOHONGSHU';
@@ -233,7 +234,7 @@ async function fetchWithAuth<T>(
     try {
       data = JSON.parse(text);
     } catch (parseError) {
-      console.error('Failed to parse API response:', text.substring(0, 200));
+      logger.error('Failed to parse API response:', text.substring(0, 200));
       throw new ApiError('服务器响应格式错误', response.status);
     }
 

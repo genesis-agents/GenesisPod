@@ -35,7 +35,7 @@ class PerformanceMonitor {
   end(name: string): number {
     const startTime = this.marks.get(name);
     if (startTime === undefined || typeof startTime !== 'number') {
-      console.warn(`Performance mark "${name}" not found`);
+      logger.warn(`Performance mark "${name}" not found`);
       return 0;
     }
 
@@ -57,7 +57,7 @@ class PerformanceMonitor {
 
     // 如果性能较差，记录警告
     if (duration > 1000) {
-      console.warn(
+      logger.warn(
         `Slow operation detected: ${name} took ${duration.toFixed(2)}ms`
       );
     }

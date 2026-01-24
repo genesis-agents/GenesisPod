@@ -19,6 +19,7 @@ import { config } from '@/lib/utils/config';
 import { cn } from '@/lib/utils/common';
 import { getAuthHeader } from '@/lib/utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 interface ExportDropdownProps {
   documentId: string;
   documentTitle: string;
@@ -152,7 +153,7 @@ export default function ExportDropdown({
 
       setIsOpen(false);
     } catch (error) {
-      console.error('Export error:', error);
+      logger.error('Export error:', error);
       alert(`导出失败: ${error instanceof Error ? error.message : '未知错误'}`);
     } finally {
       setIsExporting(false);
@@ -167,7 +168,7 @@ export default function ExportDropdown({
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
+      logger.error('Failed to copy:', err);
     }
   };
 

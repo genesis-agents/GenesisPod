@@ -7,6 +7,7 @@
 
 import type { Resource } from '@/types/ai-office';
 
+import { logger } from '@/lib/utils/logger';
 export type VerificationStatus =
   | 'verified'
   | 'uncertain'
@@ -109,7 +110,7 @@ export class VerificationAgent {
         verifiedAt: new Date(),
       };
     } catch (error) {
-      console.error('VerificationAgent error:', error);
+      logger.error('VerificationAgent error:', error);
 
       // 降级策略：返回基础验证
       return this.getFallbackVerification(input.content);

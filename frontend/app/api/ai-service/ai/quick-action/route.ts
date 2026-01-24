@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 // Use the main backend API URL (NestJS)
 function ensureProtocol(url: string): string {
   if (!url) return url;
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('AI quick action error:', error);
+    logger.error('AI quick action error:', error);
     return NextResponse.json(
       { error: 'Failed to communicate with AI service' },
       { status: 500 }

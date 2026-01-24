@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+import { logger } from '@/lib/utils/logger';
 const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
   'https://deepdive-engine.up.railway.app/api/v1';
@@ -22,7 +23,7 @@ export async function GET() {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[Agents] Backend error:', response.status, errorText);
+      logger.error('[Agents] Backend error:', response.status, errorText);
       return NextResponse.json(
         { error: 'Failed to fetch agents', details: errorText },
         { status: response.status }
@@ -32,7 +33,7 @@ export async function GET() {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[Agents] Error:', error);
+    logger.error('[Agents] Error:', error);
     return NextResponse.json(
       {
         error: 'Internal server error',

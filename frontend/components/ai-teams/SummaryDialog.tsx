@@ -7,6 +7,7 @@ import * as api from '@/lib/api/ai-teams';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import { FileText, Download, CheckCircle } from 'lucide-react';
 
+import { logger } from '@/lib/utils/logger';
 interface SummaryDialogProps {
   topic: Topic;
   onClose: () => void;
@@ -45,7 +46,7 @@ export default function SummaryDialog({ topic, onClose }: SummaryDialogProps) {
       const data = await api.getSummaries(topic.id);
       setSummaries(data);
     } catch (error) {
-      console.error('Failed to load summaries:', error);
+      logger.error('Failed to load summaries:', error);
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +60,7 @@ export default function SummaryDialog({ topic, onClose }: SummaryDialogProps) {
         setSelectedSummary(null);
       }
     } catch (error) {
-      console.error('Failed to delete summary:', error);
+      logger.error('Failed to delete summary:', error);
     }
   };
 

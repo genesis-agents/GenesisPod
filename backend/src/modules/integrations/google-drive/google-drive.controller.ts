@@ -33,7 +33,6 @@ import {
   ExportResourcesDto,
   UpdateConnectionDto,
 } from "./dto/google-drive.dto";
-import { PrismaService } from "../../../common/prisma/prisma.service";
 
 // Extend Express Request to include user
 interface AuthenticatedRequest extends Request {
@@ -52,7 +51,6 @@ export class GoogleDriveController {
     private readonly importService: GoogleDriveImportService,
     private readonly exportService: GoogleDriveExportService,
     private readonly syncService: GoogleDriveSyncService,
-    private readonly prisma: PrismaService,
   ) {}
 
   private getUserId(req: AuthenticatedRequest): string {
@@ -376,11 +374,10 @@ export class GoogleDriveController {
       );
     }
 
-    const history = await this.prisma.googleDriveSyncHistory.findMany({
-      where: { connectionId: connection.id },
-      orderBy: { startedAt: "desc" },
-      take: limit || 10,
-    });
+    const history = await this.syncService.getSyncHistory(
+      connection.id,
+      limit || 10,
+    );
 
     return { history };
   }

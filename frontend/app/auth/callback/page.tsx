@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 
+import { logger } from '@/lib/utils/logger';
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -16,7 +17,7 @@ function AuthCallbackContent() {
       const refreshToken = searchParams?.get('refreshToken');
 
       if (!token || !refreshToken) {
-        console.error('Missing tokens in callback URL');
+        logger.error('Missing tokens in callback URL');
         router.push('/');
         return;
       }
@@ -41,7 +42,7 @@ function AuthCallbackContent() {
         // Redirect to home page
         router.push('/');
       } catch (error) {
-        console.error('Authentication failed:', error);
+        logger.error('Authentication failed:', error);
         router.push('/');
       }
     };

@@ -23,6 +23,7 @@
 
 ```
 docs/
+├── analysis/                   # 分析报告
 ├── api/                        # API 接口文档
 ├── architecture/               # 架构设计
 │   ├── system/                # 系统架构
@@ -81,6 +82,13 @@ docs/
 - [AI Engine](architecture/ai-engine/)
 - [AI Teams](architecture/ai-teams/)
 - [AI Apps](architecture/ai-apps/)
+
+### 分析报告
+
+- [分析报告索引](analysis/readme.md)
+- [Claude Code 架构评估](analysis/claude-code-architecture-evaluation.md)
+- [前端架构评估](analysis/frontend-architecture-evaluation.md)
+- [后端架构评估](analysis/backend-architecture-evaluation.md)
 
 ### PRD
 

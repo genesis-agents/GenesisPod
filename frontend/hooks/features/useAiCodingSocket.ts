@@ -9,6 +9,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { logger } from '@/lib/utils/logger';
 // ==================== 类型定义 ====================
 
 export type CodingAgentRole =
@@ -342,18 +343,18 @@ export function useAiCodingSocket(options: UseAiCodingSocketOptions = {}) {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('[AI Coding Socket] Connected:', socket.id);
+      logger.debug('[AI Coding Socket] Connected:', socket.id);
       setIsConnected(true);
       setConnectionError(null);
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('[AI Coding Socket] Disconnected:', reason);
+      logger.debug('[AI Coding Socket] Disconnected:', reason);
       setIsConnected(false);
     });
 
     socket.on('connect_error', (error) => {
-      console.error('[AI Coding Socket] Connection error:', error.message);
+      logger.error('[AI Coding Socket] Connection error:', error.message);
       setConnectionError(error.message);
       setIsConnected(false);
     });
@@ -361,41 +362,41 @@ export function useAiCodingSocket(options: UseAiCodingSocketOptions = {}) {
     // ==================== 原有事件监听 ====================
 
     socket.on('project:progress', (event: ProjectProgressEvent) => {
-      console.log('[AI Coding Socket] Progress:', event);
+      logger.debug('[AI Coding Socket] Progress:', event);
       callbacksRef.current.onProgress?.(event);
     });
 
     socket.on('agent:status', (event: AgentStatusEvent) => {
-      console.log('[AI Coding Socket] Agent status:', event);
+      logger.debug('[AI Coding Socket] Agent status:', event);
       callbacksRef.current.onAgentStatus?.(event);
     });
 
     socket.on('project:complete', (event: ProjectCompleteEvent) => {
-      console.log('[AI Coding Socket] Complete:', event);
+      logger.debug('[AI Coding Socket] Complete:', event);
       callbacksRef.current.onComplete?.(event);
     });
 
     socket.on('project:error', (event: ProjectErrorEvent) => {
-      console.error('[AI Coding Socket] Error:', event);
+      logger.error('[AI Coding Socket] Error:', event);
       callbacksRef.current.onError?.(event);
     });
 
     // ==================== 团队协作事件监听 ====================
 
     socket.on('team:initialized', (event: TeamInitializedEvent) => {
-      console.log('[AI Coding Socket] Team initialized:', event);
+      logger.debug('[AI Coding Socket] Team initialized:', event);
       setTeamMembers(event.members);
       callbacksRef.current.onTeamInitialized?.(event);
     });
 
     socket.on('team:message', (event: TeamMessageEvent) => {
-      console.log('[AI Coding Socket] Team message:', event);
+      logger.debug('[AI Coding Socket] Team message:', event);
       setMessages((prev) => [...prev.slice(-99), event.message]);
       callbacksRef.current.onTeamMessage?.(event);
     });
 
     socket.on('agent:status', (event: AgentDetailStatusEvent) => {
-      console.log('[AI Coding Socket] Agent detail status:', event);
+      logger.debug('[AI Coding Socket] Agent detail status:', event);
       // 更新本地团队成员状态
       setTeamMembers((prev) =>
         prev.map((m) =>
@@ -408,7 +409,7 @@ export function useAiCodingSocket(options: UseAiCodingSocketOptions = {}) {
     });
 
     socket.on('agent:thinking', (event: AgentThinkingEvent) => {
-      console.log('[AI Coding Socket] Agent thinking:', event);
+      logger.debug('[AI Coding Socket] Agent thinking:', event);
       // 更新本地团队成员的思考状态
       setTeamMembers((prev) =>
         prev.map((m) =>
@@ -419,51 +420,51 @@ export function useAiCodingSocket(options: UseAiCodingSocketOptions = {}) {
     });
 
     socket.on('agent:output', (event: AgentOutputEvent) => {
-      console.log('[AI Coding Socket] Agent output:', event);
+      logger.debug('[AI Coding Socket] Agent output:', event);
       callbacksRef.current.onAgentOutput?.(event);
     });
 
     // ==================== Mission 事件监听 ====================
 
     socket.on('mission:started', (event: MissionStartedEvent) => {
-      console.log('[AI Coding Socket] Mission started:', event);
+      logger.debug('[AI Coding Socket] Mission started:', event);
       callbacksRef.current.onMissionStarted?.(event);
     });
 
     socket.on('mission:progress', (event: MissionProgressEvent) => {
-      console.log('[AI Coding Socket] Mission progress:', event);
+      logger.debug('[AI Coding Socket] Mission progress:', event);
       callbacksRef.current.onMissionProgress?.(event);
     });
 
     socket.on('mission:completed', (event: MissionCompletedEvent) => {
-      console.log('[AI Coding Socket] Mission completed:', event);
+      logger.debug('[AI Coding Socket] Mission completed:', event);
       callbacksRef.current.onMissionCompleted?.(event);
     });
 
     socket.on('mission:failed', (event: MissionFailedEvent) => {
-      console.error('[AI Coding Socket] Mission failed:', event);
+      logger.error('[AI Coding Socket] Mission failed:', event);
       callbacksRef.current.onMissionFailed?.(event);
     });
 
     // ==================== 任务事件监听 ====================
 
     socket.on('task:started', (event: TaskStartedEvent) => {
-      console.log('[AI Coding Socket] Task started:', event);
+      logger.debug('[AI Coding Socket] Task started:', event);
       callbacksRef.current.onTaskStarted?.(event);
     });
 
     socket.on('task:completed', (event: TaskCompletedEvent) => {
-      console.log('[AI Coding Socket] Task completed:', event);
+      logger.debug('[AI Coding Socket] Task completed:', event);
       callbacksRef.current.onTaskCompleted?.(event);
     });
 
     socket.on('task:failed', (event: TaskFailedEvent) => {
-      console.error('[AI Coding Socket] Task failed:', event);
+      logger.error('[AI Coding Socket] Task failed:', event);
       callbacksRef.current.onTaskFailed?.(event);
     });
 
     socket.on('task:review', (event: TaskReviewEvent) => {
-      console.log('[AI Coding Socket] Task review:', event);
+      logger.debug('[AI Coding Socket] Task review:', event);
       callbacksRef.current.onTaskReview?.(event);
     });
 
@@ -480,15 +481,15 @@ export function useAiCodingSocket(options: UseAiCodingSocketOptions = {}) {
       return;
     }
 
-    console.log('[AI Coding Socket] Joining project:', projectId);
+    logger.debug('[AI Coding Socket] Joining project:', projectId);
     socket.emit(
       'project:join',
       { projectId },
       (response: { success?: boolean; error?: string }) => {
         if (response.success) {
-          console.log('[AI Coding Socket] Joined project successfully');
+          logger.debug('[AI Coding Socket] Joined project successfully');
         } else {
-          console.error(
+          logger.error(
             '[AI Coding Socket] Failed to join project:',
             response.error
           );
@@ -498,7 +499,7 @@ export function useAiCodingSocket(options: UseAiCodingSocketOptions = {}) {
 
     return () => {
       if (socket.connected && projectId) {
-        console.log('[AI Coding Socket] Leaving project:', projectId);
+        logger.debug('[AI Coding Socket] Leaving project:', projectId);
         socket.emit('project:leave', { projectId });
       }
     };
@@ -509,14 +510,14 @@ export function useAiCodingSocket(options: UseAiCodingSocketOptions = {}) {
     return new Promise((resolve, reject) => {
       const socket = socketRef.current;
       if (!socket || !socket.connected) {
-        console.warn('[AI Coding Socket] Cannot join project: not connected');
+        logger.warn('[AI Coding Socket] Cannot join project: not connected');
         resolve(false);
         return;
       }
 
       // Set a timeout for join acknowledgment
       const timeout = setTimeout(() => {
-        console.warn('[AI Coding Socket] Join project timeout');
+        logger.warn('[AI Coding Socket] Join project timeout');
         resolve(false);
       }, 5000);
 
@@ -526,10 +527,10 @@ export function useAiCodingSocket(options: UseAiCodingSocketOptions = {}) {
         (response: { success?: boolean; error?: string }) => {
           clearTimeout(timeout);
           if (response.success) {
-            console.log('[AI Coding Socket] Joined project:', pid);
+            logger.debug('[AI Coding Socket] Joined project:', pid);
             resolve(true);
           } else {
-            console.error(
+            logger.error(
               '[AI Coding Socket] Failed to join project:',
               response.error
             );

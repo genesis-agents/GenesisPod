@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 // 后端 API URL
 const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    console.log('[Slides Plan] Request:', JSON.stringify(body).slice(0, 200));
+    logger.debug('[Slides Plan] Request:', JSON.stringify(body).slice(0, 200));
 
     const backendUrl = `${BACKEND_API_URL}/ai-office/slides/plan-slides`;
 
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[Slides Plan] Backend error:', response.status, errorText);
+      logger.error('[Slides Plan] Backend error:', response.status, errorText);
       return NextResponse.json(
         {
           error: `Backend error: ${response.status}`,
@@ -54,14 +55,14 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    console.log(
+    logger.debug(
       '[Slides Plan] Success, specs count:',
       data.slideSpecs?.length || 0
     );
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[Slides Plan] Error:', error);
+    logger.error('[Slides Plan] Error:', error);
     return NextResponse.json(
       {
         error: 'Failed to plan slides',

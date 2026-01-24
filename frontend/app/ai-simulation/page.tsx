@@ -13,6 +13,7 @@ import { TemplateCard } from './components/TemplateCard';
 import { ScenarioCardItem } from './components/ScenarioCardItem';
 import { useTranslation } from '@/lib/i18n';
 
+import { logger } from '@/lib/utils/logger';
 export default function AISimulationPage() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -103,7 +104,7 @@ export default function AISimulationPage() {
         setMessage(t('aiSimulation.error.deleteFailed'));
       }
     } catch (err) {
-      console.error('Failed to delete scenario:', err);
+      logger.error('Failed to delete scenario:', err);
       setMessage(t('aiSimulation.error.deleteFailed'));
     }
   };

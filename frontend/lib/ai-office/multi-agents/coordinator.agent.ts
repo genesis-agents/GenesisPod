@@ -87,7 +87,7 @@ export class CoordinatorAgent {
       const plan = this.parseResponse(content);
       return plan;
     } catch (error) {
-      console.error('CoordinatorAgent error:', error);
+      logger.error('CoordinatorAgent error:', error);
 
       // 降级策略：返回基础计划
       return this.getFallbackPlan(input);

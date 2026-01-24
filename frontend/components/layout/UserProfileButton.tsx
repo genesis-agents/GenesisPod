@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { User, LogOut, LogIn, UserCircle, Coins } from 'lucide-react';
 import Link from 'next/link';
-import { useCreditsStore } from '@/stores/creditsStore';
+import { useCreditsStore } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
 
 interface UserProfileButtonProps {

@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
-import { useAIWritingStore } from '@/stores/aiWritingStore';
+import { useAIWritingStore } from '@/stores';
 import { getStylePresets, type WritingStylePreset } from '@/lib/api/ai-writing';
 import { WRITING_AGENT_REGISTRY } from '@/lib/ai-writing/agent-config';
-import ShareModal from '@/components/common/ShareModal';
+import ShareModal from '@/components/common/dialogs/ShareModal';
 
 // AI Writing Team - Preview (5 core agents) - 使用统一配置
 const AI_TEAM_PREVIEW = Object.values(WRITING_AGENT_REGISTRY)

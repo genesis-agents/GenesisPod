@@ -17,6 +17,7 @@ import {
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 interface Collection {
   id: string;
   name: string;
@@ -103,7 +104,7 @@ export default function AIOrganizePanel({
         setStats(data);
       }
     } catch (err) {
-      console.error('Failed to fetch stats:', err);
+      logger.error('Failed to fetch stats:', err);
     }
   };
 
@@ -149,10 +150,10 @@ export default function AIOrganizePanel({
         results: result,
       });
       onRefresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
       updateTaskState('batch-tags', {
         status: 'error',
-        message: err.message || 'Failed to generate tags',
+        message: err instanceof Error ? err.message : 'Failed to generate tags',
       });
     }
   };
@@ -187,10 +188,10 @@ export default function AIOrganizePanel({
         results: result,
       });
       onRefresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
       updateTaskState('smart-classify', {
         status: 'error',
-        message: err.message || 'Failed to classify',
+        message: err instanceof Error ? err.message : 'Failed to classify',
       });
     }
   };
@@ -224,10 +225,10 @@ export default function AIOrganizePanel({
         message: `Found ${result.clusters?.length || 0} theme clusters`,
         results: result,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       updateTaskState('theme-cluster', {
         status: 'error',
-        message: err.message || 'Failed to analyze themes',
+        message: err instanceof Error ? err.message : 'Failed to analyze themes',
       });
     }
   };
@@ -264,10 +265,10 @@ export default function AIOrganizePanel({
         results: result,
       });
       onRefresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
       updateTaskState('notes-keypoints', {
         status: 'error',
-        message: err.message || 'Failed to extract key points',
+        message: err instanceof Error ? err.message : 'Failed to extract key points',
       });
     }
   };
@@ -301,10 +302,10 @@ export default function AIOrganizePanel({
         message: `Found ${result.connections?.length || 0} connections`,
         results: result,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       updateTaskState('notes-connections', {
         status: 'error',
-        message: err.message || 'Failed to analyze connections',
+        message: err instanceof Error ? err.message : 'Failed to analyze connections',
       });
     }
   };
@@ -338,10 +339,10 @@ export default function AIOrganizePanel({
         message: 'Summary generated successfully',
         results: result,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       updateTaskState('notes-summarize', {
         status: 'error',
-        message: err.message || 'Failed to summarize notes',
+        message: err instanceof Error ? err.message : 'Failed to summarize notes',
       });
     }
   };
@@ -378,10 +379,10 @@ export default function AIOrganizePanel({
         results: result,
       });
       onRefresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
       updateTaskState('images-autotag', {
         status: 'error',
-        message: err.message || 'Failed to auto-tag images',
+        message: err instanceof Error ? err.message : 'Failed to auto-tag images',
       });
     }
   };
@@ -415,10 +416,10 @@ export default function AIOrganizePanel({
         message: `Identified ${result.styles?.length || 0} styles`,
         results: result,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       updateTaskState('images-style', {
         status: 'error',
-        message: err.message || 'Failed to analyze styles',
+        message: err instanceof Error ? err.message : 'Failed to analyze styles',
       });
     }
   };
@@ -452,10 +453,10 @@ export default function AIOrganizePanel({
         message: `Found ${result.clusters?.length || 0} visual themes`,
         results: result,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       updateTaskState('images-cluster', {
         status: 'error',
-        message: err.message || 'Failed to cluster themes',
+        message: err instanceof Error ? err.message : 'Failed to cluster themes',
       });
     }
   };
@@ -582,7 +583,7 @@ export default function AIOrganizePanel({
               <p className="text-violet-800">
                 个人知识库已具备 AI 向量检索能力。前往{' '}
                 <a
-                  href="/rag"
+                  href="/library/rag"
                   className="font-medium underline hover:text-violet-900"
                 >
                   RAG 工作台
@@ -598,7 +599,7 @@ export default function AIOrganizePanel({
               <p className="text-teal-800">
                 团队知识库支持多人协作和 AI 智能检索。前往{' '}
                 <a
-                  href="/rag"
+                  href="/library/rag"
                   className="font-medium underline hover:text-teal-900"
                 >
                   RAG 工作台

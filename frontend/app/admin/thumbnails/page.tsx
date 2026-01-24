@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 import { useThumbnailGenerator } from '@/hooks';
 
+import { logger } from '@/lib/utils/logger';
 // Disable static generation for this page (requires browser APIs)
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +43,7 @@ export default function ThumbnailsAdminPage() {
         setResources(data.resources || []);
       }
     } catch (error) {
-      console.error('Failed to fetch resources:', error);
+      logger.error('Failed to fetch resources:', error);
     } finally {
       setLoading(false);
     }

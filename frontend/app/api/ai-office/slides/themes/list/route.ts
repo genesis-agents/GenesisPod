@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 // 后端 API URL
 const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
@@ -30,7 +31,7 @@ export async function GET() {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[Slides Themes] Error:', error);
+    logger.error('[Slides Themes] Error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch themes' },
       { status: 500 }

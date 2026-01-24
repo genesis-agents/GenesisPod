@@ -68,8 +68,9 @@ export class BlogSchedulerService implements OnModuleInit, OnModuleDestroy {
       // 动态导入node-cron（避免硬依赖）
       let cron: any;
       try {
-        // @ts-ignore - Dynamic import of optional dependency
-        const module = await import("node-cron");
+        // Dynamic import of optional dependency - cron library may not be installed
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const module = await import("node-cron" as any);
         // Handle both ESM default export and CommonJS module.exports
         cron = module.default || module;
       } catch (error) {

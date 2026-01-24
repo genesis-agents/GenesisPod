@@ -3,7 +3,7 @@
 import { HardDrive } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
-import StorageSettings from '@/components/admin/StorageSettings';
+import StorageSettings from '@/components/admin/settings/StorageSettings';
 
 export default function StoragePage() {
   const { t } = useTranslation();

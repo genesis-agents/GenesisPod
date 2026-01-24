@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, AIModel } from '@/hooks';
 import { config } from '@/lib/utils/config';
-import { KnowledgeBaseSelector } from '@/components/shared/selectors';
+import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import AppShell from '@/components/layout/AppShell';
 import SessionSidebar from '@/components/ai-ask/SessionSidebar';
 import MessageContextMenu from '@/components/ai-ask/MessageContextMenu';
@@ -19,10 +19,11 @@ import { CollapsibleBlockquote } from '@/components/ui/CollapsibleBlockquote';
 import { CollapsibleMessage } from '@/components/ui/CollapsibleMessage';
 import { CollapsibleRagSources } from '@/components/ui/CollapsibleRagSources';
 import MermaidDiagram from '@/components/ui/MermaidDiagram';
-import { useThemeStore } from '@/stores/themeStore';
+import { useThemeStore } from '@/stores';
 import { useI18n } from '@/lib/i18n/i18n-context';
 import { sanitizeSvg } from '@/lib/utils/sanitize';
 
+import { logger } from '@/lib/utils/logger';
 // Inspirational quotes data with bilingual support
 interface Quote {
   textZh: string;
@@ -923,7 +924,7 @@ export default function AskPage() {
 
   // Debug: Log knowledge base selection changes
   useEffect(() => {
-    console.log(
+    logger.debug(
       '[AiAsk] selectedKnowledgeBases changed:',
       selectedKnowledgeBases
     );
@@ -1065,7 +1066,7 @@ export default function AskPage() {
   // Create a new session
   const createSession = useCallback(async (): Promise<string | null> => {
     if (!token) {
-      console.warn('Cannot create session: no auth token');
+      logger.warn('Cannot create session: no auth token');
       return null;
     }
 
@@ -1086,10 +1087,10 @@ export default function AskPage() {
         return session.id;
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to create session:', response.status, errorData);
+        logger.error('Failed to create session:', response.status, errorData);
       }
     } catch (error) {
-      console.error('Failed to create session:', error);
+      logger.error('Failed to create session:', error);
     }
     return null;
   }, [token, selectedModel]);
@@ -1098,7 +1099,7 @@ export default function AskPage() {
   const sendMessageToSession = useCallback(
     async (sessionId: string, content: string, modelId?: string) => {
       if (!token) {
-        console.warn('Cannot send message: no auth token');
+        logger.warn('Cannot send message: no auth token');
         return null;
       }
 
@@ -1120,7 +1121,7 @@ export default function AskPage() {
         requestBody.knowledgeBaseIds = selectedKnowledgeBases;
       }
 
-      console.log('[AiAsk] sendMessageToSession:', {
+      logger.debug('[AiAsk] sendMessageToSession:', {
         sessionId,
         contentLength: content.length,
         knowledgeBaseIds: requestBody.knowledgeBaseIds,
@@ -1141,17 +1142,17 @@ export default function AskPage() {
 
         if (response.ok) {
           const result = await response.json();
-          console.log('[AiAsk] sendMessageToSession response:', {
+          logger.debug('[AiAsk] sendMessageToSession response:', {
             hasRagSources: !!result.ragSources,
             ragSourcesCount: result.ragSources?.length || 0,
           });
           return result;
         } else {
           const errorData = await response.json().catch(() => ({}));
-          console.error('Failed to send message:', response.status, errorData);
+          logger.error('Failed to send message:', response.status, errorData);
         }
       } catch (error) {
-        console.error('Failed to send message:', error);
+        logger.error('Failed to send message:', error);
       }
       return null;
     },
@@ -1189,7 +1190,7 @@ export default function AskPage() {
           setMixtureResponses([]);
         }
       } catch (error) {
-        console.error('Failed to load session:', error);
+        logger.error('Failed to load session:', error);
       }
     },
     [token]
@@ -1234,7 +1235,7 @@ export default function AskPage() {
     };
 
     // Debug: Log request before sending
-    console.log('[AiAsk] Sending request:', {
+    logger.debug('[AiAsk] Sending request:', {
       url: `${config.apiUrl}/ai/simple-chat`,
       knowledgeBaseIds: requestBody.knowledgeBaseIds,
       model: requestBody.model,
@@ -1256,7 +1257,7 @@ export default function AskPage() {
     }
 
     const data = await response.json();
-    console.log('[AiAsk] Response data:', {
+    logger.debug('[AiAsk] Response data:', {
       hasContent: !!data.content,
       usedKnowledgeBase: data.usedKnowledgeBase,
       ragSourcesCount: data.ragSources?.length || 0,
@@ -1301,7 +1302,7 @@ export default function AskPage() {
             );
           }
         } catch (err) {
-          console.error(`Failed to read file ${item.file.name}:`, err);
+          logger.error(`Failed to read file ${item.file.name}:`, err);
           fileDescriptions.push(`[文件: ${item.file.name}] (读取失败)`);
         }
       }
@@ -1495,7 +1496,7 @@ export default function AskPage() {
       if ((error as Error).name === 'AbortError') {
         return;
       }
-      console.error('Error:', error);
+      logger.error('Error:', error);
       setMessages((prev) => [
         ...prev,
         {

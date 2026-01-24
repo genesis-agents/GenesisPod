@@ -13,3 +13,6 @@ export * from "./task-breakdown.service";
 export * from "./mission-lifecycle.service";
 export * from "./mission-retry.service";
 export * from "./mission-health-check.service";
+export * from "./mission-ai-caller.service";
+export * from "./team-message.service";
+export * from "./team-member.service";

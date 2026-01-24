@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 
 // 懒加载重型组件 (4207 行)
 const ExploreContent = dynamic(
-  () => import('@/components/explore/ExploreContent'),
+  () => import('@/components/explore/core/ExploreContent'),
   {
     loading: () => (
       <div className="flex h-screen items-center justify-center">

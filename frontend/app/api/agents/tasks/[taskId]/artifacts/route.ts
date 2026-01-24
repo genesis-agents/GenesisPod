@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+import { logger } from '@/lib/utils/logger';
 const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
   'https://deepdive-engine.up.railway.app/api/v1';
@@ -29,7 +30,7 @@ export async function GET(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(
+      logger.error(
         '[Agents Artifacts] Backend error:',
         response.status,
         errorText
@@ -43,7 +44,7 @@ export async function GET(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[Agents Artifacts] Error:', error);
+    logger.error('[Agents Artifacts] Error:', error);
     return NextResponse.json(
       {
         error: 'Internal server error',

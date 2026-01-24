@@ -14,8 +14,6 @@ import {
 import { Response } from "express";
 import { AiCoreService } from "./ai-core.service";
 import { AiChatService } from "../llm/services/ai-chat.service";
-import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AIModelType } from "@prisma/client";
 import {
   IRAGPipelineService,
   RAG_PIPELINE_SERVICE_TOKEN,
@@ -61,7 +59,6 @@ export class AiCoreController {
   constructor(
     private readonly aiCoreService: AiCoreService,
     private readonly aiChatService: AiChatService,
-    private readonly prisma: PrismaService,
     @Optional()
     @Inject(RAG_PIPELINE_SERVICE_TOKEN)
     private readonly ragPipelineService?: IRAGPipelineService,
@@ -87,18 +84,7 @@ export class AiCoreController {
     this.logger.log("Diagnosing AI model configuration");
 
     // Get all models from database
-    const allModels = await this.prisma.aIModel.findMany({
-      select: {
-        id: true,
-        name: true,
-        modelId: true,
-        provider: true,
-        isEnabled: true,
-        isDefault: true,
-        apiKey: true,
-        apiEndpoint: true,
-      },
-    });
+    const allModels = await this.aiCoreService.getAllModels();
 
     // Check environment variables
     const envVars = {
@@ -145,15 +131,7 @@ export class AiCoreController {
     this.logger.log("Testing Gemini image generation models");
 
     // Get all Google/Gemini models
-    const geminiModels = await this.prisma.aIModel.findMany({
-      where: {
-        OR: [
-          { provider: { contains: "google", mode: "insensitive" } },
-          { provider: { contains: "gemini", mode: "insensitive" } },
-          { modelId: { contains: "gemini", mode: "insensitive" } },
-        ],
-      },
-    });
+    const geminiModels = await this.aiCoreService.getGoogleModels();
 
     if (geminiModels.length === 0) {
       return {
@@ -277,21 +255,7 @@ export class AiCoreController {
 
     // Try to get API key from database or environment
     // ★ 支持 secretKey 或 apiKey
-    const googleModel = await this.prisma.aIModel.findFirst({
-      where: {
-        AND: [
-          {
-            OR: [
-              { provider: { contains: "google", mode: "insensitive" } },
-              { provider: { contains: "gemini", mode: "insensitive" } },
-            ],
-          },
-          {
-            OR: [{ apiKey: { not: null } }, { secretKey: { not: null } }],
-          },
-        ],
-      },
-    });
+    const googleModel = await this.aiCoreService.getFirstGoogleModelWithKey();
 
     // ★ 优先从 Secret Manager 获取 API Key
     let apiKey: string | null = null;
@@ -392,12 +356,7 @@ export class AiCoreController {
   async checkTopicAI(@Param("topicId") topicId: string) {
     this.logger.log(`Checking AI members for topic ${topicId}`);
 
-    const topic = await this.prisma.topic.findUnique({
-      where: { id: topicId },
-      include: {
-        aiMembers: true,
-      },
-    });
+    const topic = await this.aiCoreService.getTopicWithAIMembers(topicId);
 
     if (!topic) {
       return { error: "Topic not found" };
@@ -407,20 +366,10 @@ export class AiCoreController {
     const results: any[] = [];
     for (const ai of topic.aiMembers) {
       // Try to find by modelId
-      const byModelId = await this.prisma.aIModel.findFirst({
-        where: {
-          modelId: { equals: ai.aiModel, mode: "insensitive" },
-          isEnabled: true,
-        },
-      });
+      const byModelId = await this.aiCoreService.findModelByModelId(ai.aiModel);
 
       // Try to find by name
-      const byName = await this.prisma.aIModel.findFirst({
-        where: {
-          name: { equals: ai.aiModel, mode: "insensitive" },
-          isEnabled: true,
-        },
-      });
+      const byName = await this.aiCoreService.findModelByName(ai.aiModel);
 
       results.push({
         aiMemberId: ai.id,
@@ -558,15 +507,7 @@ export class AiCoreController {
       }
 
       // Get model config from database
-      const modelConfig = await this.prisma.aIModel.findFirst({
-        where: {
-          OR: [
-            { name: { equals: model, mode: "insensitive" } },
-            { modelId: { equals: model, mode: "insensitive" } },
-          ],
-          isEnabled: true,
-        },
-      });
+      const modelConfig = await this.aiCoreService.getModelConfig(model);
 
       if (!modelConfig) {
         this.logger.warn(`Model ${model} not found or not enabled`);
@@ -705,7 +646,10 @@ ${ragContext}
     }
 
     try {
-      const modelConfig = await this.getModelConfig(model);
+      const modelConfig = await this.aiCoreService.getModelConfig(model);
+      if (!modelConfig) {
+        throw new BadRequestException(`Model ${model} is not available`);
+      }
       let prompt: string;
 
       if (action === "methodology") {
@@ -801,7 +745,7 @@ JSON output:`;
 
     try {
       // 使用 CHAT_FAST tier（低成本快速模型）
-      const modelConfig = await this.getFastModelConfig();
+      const modelConfig = await this.aiCoreService.getFastModelConfig();
       this.logger.log(
         `[Summary] Using model: ${modelConfig.name} (${modelConfig.modelId}) - Tier: CHAT_FAST`,
       );
@@ -853,7 +797,7 @@ JSON output:`;
 
     try {
       // 使用 CHAT_FAST tier（低成本快速模型）
-      const modelConfig = await this.getFastModelConfig();
+      const modelConfig = await this.aiCoreService.getFastModelConfig();
       this.logger.log(
         `[Insights] Using model: ${modelConfig.name} (${modelConfig.modelId}) - Tier: CHAT_FAST`,
       );
@@ -950,7 +894,7 @@ JSON output:`;
 
     try {
       // Use fast model for translation
-      const modelConfig = await this.getFastModelConfig();
+      const modelConfig = await this.aiCoreService.getFastModelConfig();
       this.logger.log(
         `[Translate] Using model: ${modelConfig.name} (${modelConfig.modelId})`,
       );
@@ -1046,90 +990,6 @@ Translation:`;
       this.logger.error(`Unexpected translation error: ${errorMessage}`);
       throw new BadRequestException(`Translation failed: ${errorMessage}`);
     }
-  }
-
-  /**
-   * Helper: Get model config by name
-   */
-  private async getModelConfig(model: string) {
-    const modelConfig = await this.prisma.aIModel.findFirst({
-      where: {
-        OR: [
-          { name: { equals: model, mode: "insensitive" } },
-          { modelId: { equals: model, mode: "insensitive" } },
-        ],
-        isEnabled: true,
-      },
-    });
-
-    if (!modelConfig) {
-      throw new BadRequestException(`Model ${model} is not available`);
-    }
-
-    return modelConfig;
-  }
-
-  /**
-   * Helper: Get model config by type with fallback support
-   * 支持 Tier 分级，如果指定类型没有模型，会自动降级到 CHAT
-   * @param modelType - 模型类型
-   * @param allowFallback - 是否允许降级到 CHAT（默认 true）
-   */
-  private async getModelByType(
-    modelType: AIModelType,
-    allowFallback: boolean = true,
-  ): Promise<{
-    id: string;
-    name: string;
-    provider: string;
-    modelId: string;
-    apiKey: string | null;
-    apiEndpoint: string;
-    maxTokens: number;
-    temperature: number;
-  }> {
-    // 首先尝试获取指定类型的默认模型
-    const defaultModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        isDefault: true,
-        modelType: modelType,
-      },
-    });
-
-    if (defaultModel) {
-      return defaultModel;
-    }
-
-    // 如果没有默认模型，查找任意该类型的可用模型
-    const anyModelOfType = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        modelType: modelType,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (anyModelOfType) {
-      return anyModelOfType;
-    }
-
-    // 如果允许降级且不是 CHAT 类型，降级到 CHAT
-    if (allowFallback && modelType !== AIModelType.CHAT) {
-      this.logger.warn(`No ${modelType} model available, falling back to CHAT`);
-      return this.getModelByType(AIModelType.CHAT, false);
-    }
-
-    throw new BadRequestException(`No ${modelType} AI model is available`);
-  }
-
-  /**
-   * Helper: Get fast/cheap model for simple tasks
-   * 用于分类、翻译、摘要提取等简单任务
-   * 如果没有配置 CHAT_FAST，会自动降级到 CHAT
-   */
-  private async getFastModelConfig() {
-    return this.getModelByType(AIModelType.CHAT_FAST);
   }
 
   /**

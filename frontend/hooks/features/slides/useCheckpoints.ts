@@ -8,9 +8,10 @@
  */
 
 import { useCallback, useState } from 'react';
-import { useSlidesStore } from '@/stores/slidesStore';
+import { useSlidesStore } from '@/stores';
 import { config } from '@/lib/utils/config';
 import type { Checkpoint, CheckpointState } from '@/types/slides';
+import { logger } from '@/lib/utils/logger';
 
 const API_BASE = config.apiUrl || '';
 
@@ -41,7 +42,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
     async (sessionId?: string) => {
       const targetSessionId = sessionId || session?.id;
       if (!targetSessionId) {
-        console.warn('No session ID provided');
+        logger.warn('No session ID provided');
         return;
       }
 
@@ -121,7 +122,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           updatedAt: new Date(),
         });
 
-        console.log(
+        logger.debug(
           '[restoreCheckpoint] Restored pages:',
           checkpointState.pages?.length,
           'with html:',
@@ -226,7 +227,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
   const pruneCheckpoints = useCallback(
     async (keepCount: number = 10) => {
       if (!session?.id) {
-        console.warn('No session ID');
+        logger.warn('No session ID');
         return;
       }
 
@@ -282,7 +283,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
   const createCheckpoint = useCallback(
     async (name: string) => {
       if (!session?.id) {
-        console.warn('No session ID');
+        logger.warn('No session ID');
         return;
       }
 

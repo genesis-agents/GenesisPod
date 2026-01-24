@@ -214,7 +214,7 @@ function findTextWithContext(
         exactWithoutCitations
       );
       if (citationFreeMatches.length > 0) {
-        console.log(
+        logger.debug(
           '[findTextWithContext] Found match after removing citations'
         );
         // Map the position back to the original text (approximate)
@@ -240,7 +240,7 @@ function findTextWithContext(
     if (shortExact.length >= 20) {
       const shortIndex = normalizedText.indexOf(shortExact);
       if (shortIndex !== -1) {
-        console.log(
+        logger.debug(
           '[findTextWithContext] Found partial match using first 50 chars'
         );
         return shortIndex;
@@ -254,7 +254,7 @@ function findTextWithContext(
       if (firstThreeWords.length >= 10) {
         const wordIndex = normalizedText.indexOf(firstThreeWords);
         if (wordIndex !== -1) {
-          console.log(
+          logger.debug(
             '[findTextWithContext] Found partial match using first 3 words'
           );
           return wordIndex;
@@ -385,7 +385,7 @@ export function findTextRange(
   selector: TextSelector
 ): Range | null {
   if (!container || !selector.exact) {
-    console.warn('[findTextRange] Invalid input:', {
+    logger.warn('[findTextRange] Invalid input:', {
       hasContainer: !!container,
       hasExact: !!selector.exact,
     });
@@ -396,7 +396,7 @@ export function findTextRange(
   const { nodeMap, fullText } = buildTextNodeMap(container);
 
   if (!fullText || nodeMap.length === 0) {
-    console.warn('[findTextRange] No text content found in container:', {
+    logger.warn('[findTextRange] No text content found in container:', {
       fullTextLength: fullText?.length,
       nodeMapLength: nodeMap.length,
       containerTagName: container.tagName,
@@ -409,7 +409,7 @@ export function findTextRange(
   const { normalizedText, originalPositions } = buildPositionMap(fullText);
 
   // Debug: Log normalization info
-  console.log('[findTextRange] Text analysis:', {
+  logger.debug('[findTextRange] Text analysis:', {
     fullTextLength: fullText.length,
     normalizedTextLength: normalizedText.length,
     selectorExactLength: selector.exact.length,
@@ -420,7 +420,7 @@ export function findTextRange(
   const normalizedExact = normalizeWhitespace(selector.exact);
   const normalizedMatchIndex = findTextWithContext(normalizedText, selector);
 
-  console.log('[findTextRange] Search result:', {
+  logger.debug('[findTextRange] Search result:', {
     normalizedExactLength: normalizedExact.length,
     normalizedExactPreview: normalizedExact.slice(0, 50),
     matchIndex: normalizedMatchIndex,
@@ -430,7 +430,7 @@ export function findTextRange(
   if (normalizedMatchIndex === -1) {
     // Debug: Try to understand why the match failed
     const simpleIndex = normalizedText.indexOf(normalizedExact);
-    console.warn('[findTextRange] Text not found. Debug info:', {
+    logger.warn('[findTextRange] Text not found. Debug info:', {
       simpleSearchResult: simpleIndex,
       normalizedTextPreview: normalizedText.slice(0, 200),
       searchingFor: normalizedExact.slice(0, 100),
@@ -458,7 +458,7 @@ export function findTextRange(
   const range = createRangeFromPositions(nodeMap, originalStart, originalEnd);
 
   if (!range) {
-    console.warn('[findTextRange] Failed to create range from positions:', {
+    logger.warn('[findTextRange] Failed to create range from positions:', {
       originalStart,
       originalEnd,
       nodeMapLength: nodeMap.length,

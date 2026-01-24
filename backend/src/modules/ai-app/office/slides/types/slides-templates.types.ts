@@ -45,7 +45,7 @@ export interface BaseSlideContent {
   insight?: InsightConfig;
   /** 演讲备注 */
   speakerNotes?: string;
-  [key: string]: any; // 允许额外属性
+  [key: string]: unknown; // 允许额外属性
 }
 
 /**
@@ -72,7 +72,7 @@ export interface TocItem {
   description?: string;
   subtitle?: string;
   isActive?: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -105,7 +105,7 @@ export interface KeyPointItem {
   icon?: string;
   highlight?: boolean;
   emphasis?: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -133,7 +133,7 @@ export interface ConclusionSlideContent extends BaseSlideContent {
     name?: string;
     email?: string;
     phone?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -147,7 +147,7 @@ export interface TimelineEvent {
   icon?: string;
   status?: string;
   highlight?: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -165,7 +165,7 @@ export interface TimelineSlideContent extends BaseSlideContent {
  */
 export interface ColumnContent {
   title: string;
-  content: any;
+  content: unknown;
   icon?: string;
   highlight?: boolean;
   items?: any[];
@@ -175,7 +175,7 @@ export interface ColumnContent {
   logo?: string;
   /** 底部KPI统计 */
   kpis?: KpiItem[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -193,9 +193,9 @@ export interface MultiColumnSlideContent extends BaseSlideContent {
  */
 export interface SplitContent {
   title?: string;
-  content: any;
+  content: unknown;
   image?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -233,7 +233,7 @@ export interface EvolutionStage {
   description?: string;
   milestones?: string[];
   status?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -254,7 +254,7 @@ export interface ComparisonOption {
   points: any[];
   pros?: any[];
   cons?: any[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -282,7 +282,7 @@ export interface CaseStudySlideContent extends BaseSlideContent {
     text: string;
     author: string;
     role?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -296,7 +296,7 @@ export interface MaturityModelSlideContent extends BaseSlideContent {
   currentAssessment?: {
     level: number;
     notes?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 

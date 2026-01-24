@@ -1,6 +1,6 @@
 'use client';
 
-import { Resource } from '../types';
+import { Resource } from '../utils/types';
 import { ThumbsUp } from 'lucide-react';
 
 interface ResourceHeaderProps {

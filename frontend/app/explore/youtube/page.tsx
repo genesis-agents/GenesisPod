@@ -11,7 +11,7 @@ import {
 import { useSearchParams, useRouter } from 'next/navigation';
 import { config } from '@/lib/utils/config';
 import AppShell from '@/components/layout/AppShell';
-import NotesList from '@/components/features/NotesList';
+import NotesList from '@/components/library/resources/NotesList';
 import {
   AIContextBuilder,
   type Resource as AIResource,
@@ -23,6 +23,7 @@ import KeyMomentsPanel, {
 import { SubtitleExportButton } from '@/components/explore/youtube';
 import { useAIModels } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
+import { logger } from '@/lib/utils/logger';
 import {
   fetchTranscriptSmart,
   uploadTranscriptToCache,
@@ -330,7 +331,7 @@ function YouTubeTLDWContent() {
         try {
           playerRef.current.destroy();
         } catch (err) {
-          console.error('Failed to destroy player', err);
+          logger.error('Failed to destroy player', err);
         }
       }
     };
@@ -416,7 +417,7 @@ function YouTubeTLDWContent() {
           setTranscriptStatus('暂无字幕');
         }
       } catch (error) {
-        console.error('Failed to fetch transcript:', error);
+        logger.error('Failed to fetch transcript:', error);
         setTranscriptStatus('获取字幕失败');
       } finally {
         setLoading(false);
@@ -456,7 +457,7 @@ function YouTubeTLDWContent() {
         setCommentsTotalCount(stats.total || 0);
       }
     } catch (error) {
-      console.error('Failed to fetch comments:', error);
+      logger.error('Failed to fetch comments:', error);
       setCommentsError('Failed to load comments. Please try again.');
     } finally {
       setCommentsLoading(false);
@@ -496,7 +497,7 @@ function YouTubeTLDWContent() {
         alert(error.message || 'Failed to post comment');
       }
     } catch (error) {
-      console.error('Failed to submit comment:', error);
+      logger.error('Failed to submit comment:', error);
       alert('Failed to post comment');
     } finally {
       setSubmittingComment(false);
@@ -519,7 +520,7 @@ function YouTubeTLDWContent() {
         );
       }
     } catch (error) {
-      console.error('Failed to upvote:', error);
+      logger.error('Failed to upvote:', error);
     }
   };
 
@@ -665,7 +666,7 @@ function YouTubeTLDWContent() {
 
     try {
       setSavingNote(true);
-      console.log(
+      logger.debug(
         'Saving note for video:',
         videoId,
         'content:',
@@ -689,16 +690,16 @@ function YouTubeTLDWContent() {
       });
 
       if (response.ok) {
-        console.log('Note saved successfully');
+        logger.debug('Note saved successfully');
         setContextMenu(null);
         setNotesRefreshKey((prev) => prev + 1);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to save note:', response.status, errorData);
+        logger.error('Failed to save note:', response.status, errorData);
         alert(`Failed to save note: ${errorData.message || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Failed to save note:', error);
+      logger.error('Failed to save note:', error);
       alert('Failed to save note');
     } finally {
       setSavingNote(false);
@@ -824,7 +825,7 @@ function YouTubeTLDWContent() {
                 });
               }
             } catch (e) {
-              console.debug('Failed to parse SSE data:', e);
+              logger.debug('Failed to parse SSE data:', e);
             }
           }
         }
@@ -832,10 +833,10 @@ function YouTubeTLDWContent() {
     } catch (error: unknown) {
       // Check if it was an abort
       if (error instanceof Error && error.name === 'AbortError') {
-        console.log('AI message streaming was stopped by user');
+        logger.debug('AI message streaming was stopped by user');
         return;
       }
-      console.error('Failed to send message:', error);
+      logger.error('Failed to send message:', error);
       const errorMessage: AIMessage = {
         role: 'assistant',
         content: 'AI 服务暂时不可用，请稍后重试。如果问题持续，请联系管理员。',
@@ -897,11 +898,11 @@ function YouTubeTLDWContent() {
           return newMap;
         });
 
-        console.log(
+        logger.debug(
           `Translated merged segment ${activeMergedIndex}: "${currentMerged.text.substring(0, 50)}..." -> "${data.translation?.substring(0, 50)}..."`
         );
       } catch (error: any) {
-        console.error('Failed to translate segment:', error?.message || error);
+        logger.error('Failed to translate segment:', error?.message || error);
         // Fallback to original text on error
         setTranslations((prev) => {
           const newMap = new Map(prev);
@@ -1786,7 +1787,7 @@ function YouTubeTLDWContent() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              console.log('Button clicked!');
+              logger.debug('Button clicked!');
               saveToNotes();
             }}
             disabled={savingNote}

@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils/common';
 import { useDeepResearch, DeepResearchReport } from '@/hooks';
 import ThinkingChainPanel from './ThinkingChainPanel';
 
+import { logger } from '@/lib/utils/logger';
 interface DeepResearchPanelProps {
   projectId: string;
   onReportGenerated?: (report: DeepResearchReport) => void;
@@ -55,7 +56,7 @@ export function DeepResearchPanel({
         onReportGenerated?.(report);
       },
       onError: (error) => {
-        console.error('Deep Research error:', error);
+        logger.error('Deep Research error:', error);
       },
     }
   );

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+import { logger } from '@/lib/utils/logger';
 const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
   'https://deepdive-engine.up.railway.app/api/v1';
@@ -18,7 +19,7 @@ export async function POST(
     const cookieStore = await cookies();
     const token = cookieStore.get('auth-token')?.value;
 
-    console.log('[Agents Cancel] Canceling task:', taskId);
+    logger.debug('[Agents Cancel] Canceling task:', taskId);
 
     const response = await fetch(
       `${BACKEND_API_URL}/agents/tasks/${taskId}/cancel`,
@@ -33,7 +34,7 @@ export async function POST(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(
+      logger.error(
         '[Agents Cancel] Backend error:',
         response.status,
         errorText
@@ -47,7 +48,7 @@ export async function POST(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[Agents Cancel] Error:', error);
+    logger.error('[Agents Cancel] Error:', error);
     return NextResponse.json(
       {
         error: 'Internal server error',

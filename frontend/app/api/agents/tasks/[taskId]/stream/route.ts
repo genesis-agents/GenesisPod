@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 
+import { logger } from '@/lib/utils/logger';
 const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
   'https://deepdive-engine.up.railway.app/api/v1';
@@ -21,7 +22,7 @@ export async function GET(
     const cookieStore = await cookies();
     const token = cookieStore.get('auth-token')?.value;
 
-    console.log('[Agents Stream] Connecting to task:', taskId);
+    logger.debug('[Agents Stream] Connecting to task:', taskId);
 
     const response = await fetch(
       `${BACKEND_API_URL}/agents/tasks/${taskId}/stream`,
@@ -35,7 +36,7 @@ export async function GET(
     );
 
     if (!response.ok) {
-      console.error(
+      logger.error(
         '[Agents Stream] Backend error:',
         response.status,
         response.statusText
@@ -68,7 +69,7 @@ export async function GET(
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Agents Stream] Error:', error);
+    logger.error('[Agents Stream] Error:', error);
     return new Response(
       JSON.stringify({
         error: 'Failed to connect to backend service',

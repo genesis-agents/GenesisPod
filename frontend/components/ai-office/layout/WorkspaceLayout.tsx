@@ -15,6 +15,7 @@ import CommandPalette, {
 import { SlidesTab } from '../slides';
 import { useTranslation } from '@/lib/i18n';
 
+import { logger } from '@/lib/utils/logger';
 // 工作模式类型
 type WorkspaceTab = 'slides' | 'docs' | 'excel';
 
@@ -170,7 +171,7 @@ export default function WorkspaceLayout({
         isOpen={commandPalette.isOpen}
         onClose={commandPalette.close}
         onExecuteCommand={(cmd) => {
-          console.log('Execute command:', cmd.id);
+          logger.debug('Execute command:', cmd.id);
         }}
       />
     </div>

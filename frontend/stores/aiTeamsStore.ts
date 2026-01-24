@@ -23,6 +23,7 @@ import * as api from '@/lib/api/ai-teams';
 import { getAuthTokens } from '@/lib/utils/auth';
 import { io, Socket } from 'socket.io-client';
 
+import { logger } from '@/lib/utils/logger';
 // Performance: Maximum messages to keep in memory to prevent browser memory overflow
 // Older messages will be discarded when this limit is exceeded
 const MAX_MESSAGES_IN_MEMORY = 200;
@@ -180,7 +181,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       const topics = await api.getTopics(options as any);
       set({ topics, isLoadingTopics: false });
     } catch (error) {
-      console.error('Failed to fetch topics:', error);
+      logger.error('Failed to fetch topics:', error);
       set({ isLoadingTopics: false });
     }
   },
@@ -194,7 +195,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         topics: state.topics.map((t) => (t.id === topicId ? topic : t)),
       }));
     } catch (error) {
-      console.error('Failed to fetch topic:', error);
+      logger.error('Failed to fetch topic:', error);
     }
   },
 
@@ -240,7 +241,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       // Debug: Log image message content lengths
       response.messages.forEach((m) => {
         if (m.content?.includes('![')) {
-          console.log('[fetchMessages] Image message found:', {
+          logger.debug('[fetchMessages] Image message found:', {
             messageId: m.id,
             contentLength: m.content.length,
             hasBase64: m.content.includes('data:image'),
@@ -258,7 +259,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         if (newMessages.length > MAX_MESSAGES_IN_MEMORY) {
           // Keep the most recent messages (at the end of the array)
           newMessages = newMessages.slice(-MAX_MESSAGES_IN_MEMORY);
-          console.log(
+          logger.debug(
             `[Messages] Trimmed to ${MAX_MESSAGES_IN_MEMORY} most recent messages`
           );
         }
@@ -271,7 +272,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         };
       });
     } catch (error) {
-      console.error('Failed to fetch messages:', error);
+      logger.error('Failed to fetch messages:', error);
       set({ isLoadingMessages: false });
     }
   },
@@ -363,7 +364,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       return message;
     } catch (error) {
       // Log the error but don't re-throw to prevent UI disruption
-      console.error('Failed to generate AI response:', error);
+      logger.error('Failed to generate AI response:', error);
       // Return a placeholder message indicating the error
       throw error; // Re-throw for the caller to handle
     } finally {
@@ -384,7 +385,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       const resources = await api.getResources(topicId);
       set({ resources, isLoadingResources: false });
     } catch (error) {
-      console.error('Failed to fetch resources:', error);
+      logger.error('Failed to fetch resources:', error);
       set({ isLoadingResources: false });
     }
   },
@@ -432,7 +433,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
     });
 
     newSocket.on('connect', () => {
-      console.log(
+      logger.debug(
         '[WS] Connected, socket id:',
         newSocket.id,
         'transport:',
@@ -442,7 +443,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
     });
 
     newSocket.on('disconnect', (reason) => {
-      console.log(
+      logger.debug(
         '[WS] Disconnected, reason:',
         reason,
         'socket id:',
@@ -457,13 +458,13 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
     });
 
     newSocket.on('connect_error', (error) => {
-      console.error('[WS] Connection error:', error.message);
+      logger.error('[WS] Connection error:', error.message);
       // 如果是代理导致的 WebSocket 连接失败，Socket.IO 会自动降级到 polling
     });
 
     // 重连事件
     newSocket.io.on('reconnect', (attempt) => {
-      console.log(
+      logger.debug(
         '[WS] Reconnected after',
         attempt,
         'attempts, transport:',
@@ -472,25 +473,25 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
     });
 
     newSocket.io.on('reconnect_attempt', (attempt) => {
-      console.log('[WS] Reconnection attempt', attempt);
+      logger.debug('[WS] Reconnection attempt', attempt);
     });
 
     newSocket.io.on('reconnect_error', (error) => {
-      console.error('[WS] Reconnection error:', error.message);
+      logger.error('[WS] Reconnection error:', error.message);
     });
 
     newSocket.io.on('reconnect_failed', () => {
-      console.error('[WS] Reconnection failed after all attempts');
+      logger.error('[WS] Reconnection failed after all attempts');
     });
 
     // 传输层升级事件（从 polling 升级到 websocket）
     newSocket.io.engine?.on('upgrade', (transport: { name: string }) => {
-      console.log('[WS] Transport upgraded to:', transport.name);
+      logger.debug('[WS] Transport upgraded to:', transport.name);
     });
 
     // 新消息
     newSocket.on('message:new', (message: TopicMessage) => {
-      console.log('[WS] Received message:new event:', {
+      logger.debug('[WS] Received message:new event:', {
         messageId: message.id,
         topicId: message.topicId,
         senderId: message.senderId,
@@ -503,16 +504,16 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       set((state) => {
         // 防止重复添加消息
         if (state.messages.some((m) => m.id === message.id)) {
-          console.log('[WS] Message already exists, skipping:', message.id);
+          logger.debug('[WS] Message already exists, skipping:', message.id);
           return state;
         }
-        console.log('[WS] Adding new message to state:', message.id);
+        logger.debug('[WS] Adding new message to state:', message.id);
 
         // Performance: Trim old messages if exceeding limit
         let newMessages = [...state.messages, message];
         if (newMessages.length > MAX_MESSAGES_IN_MEMORY) {
           const trimCount = newMessages.length - MAX_MESSAGES_IN_MEMORY;
-          console.log(
+          logger.debug(
             `[WS] Trimming ${trimCount} old messages to stay within ${MAX_MESSAGES_IN_MEMORY} limit`
           );
           newMessages = newMessages.slice(trimCount);
@@ -600,7 +601,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
     newSocket.on(
       'ai:error',
       ({ aiMemberId, error }: { aiMemberId: string; error: string }) => {
-        console.error(`AI ${aiMemberId} error:`, error);
+        logger.error(`AI ${aiMemberId} error:`, error);
         set((state) => {
           const newSet = new Set(state.typingAIs);
           newSet.delete(aiMemberId);
@@ -700,7 +701,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
     newSocket.on(
       'mission:created',
       ({ mission }: { mission: TeamMission; messageId?: string }) => {
-        console.log('[WS] Mission created:', mission.id);
+        logger.debug('[WS] Mission created:', mission.id);
         set((state) => ({
           missions: [
             mission,
@@ -735,7 +736,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
           dependsOnIds: string[];
         }>;
       }) => {
-        console.log('[WS] Mission status changed:', {
+        logger.debug('[WS] Mission status changed:', {
           missionId,
           status,
           previousStatus,
@@ -765,7 +766,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         totalTasks: number;
         progressPercent: number;
       }) => {
-        console.log('[WS] Mission progress updated:', {
+        logger.debug('[WS] Mission progress updated:', {
           missionId,
           completedTasks,
           totalTasks,
@@ -795,7 +796,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         completedTasks: number;
         totalTasks: number;
       }) => {
-        console.log('[WS] Mission status update:', {
+        logger.debug('[WS] Mission status update:', {
           missionId,
           status,
           progressPercent,
@@ -821,7 +822,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         taskId: string;
         agentId: string;
       }) => {
-        console.log('[WS] Task completed:', { missionId, taskId, agentId });
+        logger.debug('[WS] Task completed:', { missionId, taskId, agentId });
         set((state) => {
           const updateTasks = (tasks?: AgentTask[]) =>
             tasks?.map((t) =>
@@ -867,7 +868,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         result?: string;
         leaderFeedback?: string;
       }) => {
-        console.log('[WS] Task status update:', { missionId, taskId, status });
+        logger.debug('[WS] Task status update:', { missionId, taskId, status });
         set((state) => {
           const updateTasks = (tasks?: AgentTask[]) =>
             tasks?.map((t) =>
@@ -913,7 +914,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         agentName?: string;
         status?: string; // planning, started, reviewing
       }) => {
-        console.log('[WS] Mission agent working:', {
+        logger.debug('[WS] Mission agent working:', {
           missionId,
           agentId,
           taskId,
@@ -940,7 +941,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         agentId: string;
         taskId: string | null;
       }) => {
-        console.log('[WS] Mission agent done:', { missionId, agentId, taskId });
+        logger.debug('[WS] Mission agent done:', { missionId, agentId, taskId });
         set((state) => {
           const newSet = new Set(state.typingAIs);
           newSet.delete(agentId);
@@ -963,7 +964,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         summary: string;
         participantAIIds?: string[];
       }) => {
-        console.log('[WS] Mission completed:', { missionId, participantAIIds });
+        logger.debug('[WS] Mission completed:', { missionId, participantAIIds });
         set((state) => {
           // 【关键修复】Mission 完成时，清除所有相关 AI 的 typing 状态
           // 优先使用后端传递的 participantAIIds，否则从本地 mission 中提取
@@ -1017,7 +1018,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
     newSocket.on(
       'mission:failed',
       ({ missionId, error }: { missionId: string; error: string }) => {
-        console.error('[WS] Mission failed:', { missionId, error });
+        logger.error('[WS] Mission failed:', { missionId, error });
         set((state) => {
           // 【关键修复】Mission 失败时，也要清除所有相关 AI 的 typing 状态
           const mission = state.missions.find((m) => m.id === missionId);
@@ -1066,7 +1067,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
 
   joinTopicRoom: (topicId) => {
     const { socket } = get();
-    console.log(
+    logger.debug(
       `[WS] joinTopicRoom called for topic ${topicId}, socket connected: ${socket?.connected}, socket id: ${socket?.id}`
     );
     if (socket?.connected) {
@@ -1078,25 +1079,25 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
           onlineUsers?: string[];
           error?: string;
         }) => {
-          console.log(`[WS] topic:join response for ${topicId}:`, response);
+          logger.debug(`[WS] topic:join response for ${topicId}:`, response);
           if (response.success && response.onlineUsers) {
             // 设置在线用户列表（后端已经包含当前用户）
             set({ onlineUsers: new Set(response.onlineUsers) });
-            console.log(
+            logger.debug(
               '[WS] Joined topic room, online users:',
               response.onlineUsers
             );
           } else if (response.error) {
-            console.error('[WS] Failed to join topic room:', response.error);
+            logger.error('[WS] Failed to join topic room:', response.error);
           }
         }
       );
     } else {
       // 如果 socket 还没连接，等待连接后再加入
-      console.log('[WS] Socket not connected, waiting...');
+      logger.debug('[WS] Socket not connected, waiting...');
       const checkAndJoin = () => {
         const { socket: currentSocket } = get();
-        console.log(
+        logger.debug(
           `[WS] Retry join: socket connected: ${currentSocket?.connected}, socket id: ${currentSocket?.id}`
         );
         if (currentSocket?.connected) {
@@ -1108,13 +1109,13 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
               onlineUsers?: string[];
               error?: string;
             }) => {
-              console.log(
+              logger.debug(
                 `[WS] topic:join response (delayed) for ${topicId}:`,
                 response
               );
               if (response.success && response.onlineUsers) {
                 set({ onlineUsers: new Set(response.onlineUsers) });
-                console.log(
+                logger.debug(
                   '[WS] Joined topic room (delayed), online users:',
                   response.onlineUsers
                 );
@@ -1161,7 +1162,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         : response?.missions || [];
       set({ missions, isLoadingMissions: false });
     } catch (error) {
-      console.error('Failed to fetch missions:', error);
+      logger.error('Failed to fetch missions:', error);
       // On error during refresh, keep existing data instead of clearing
       if (!currentMissions || currentMissions.length === 0) {
         set({ missions: [], isLoadingMissions: false });
@@ -1180,7 +1181,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         missions: state.missions.map((m) => (m.id === missionId ? mission : m)),
       }));
     } catch (error) {
-      console.error('Failed to fetch mission:', error);
+      logger.error('Failed to fetch mission:', error);
     }
   },
 
@@ -1275,7 +1276,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       const teamMembers = response?.all || [];
       set({ teamMembers, isLoadingTeamMembers: false });
     } catch (error) {
-      console.error('Failed to fetch team members:', error);
+      logger.error('Failed to fetch team members:', error);
       set({ teamMembers: [], isLoadingTeamMembers: false });
     }
   },

@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { Sparkles, Loader2, CheckCircle } from 'lucide-react';
 import { useDocumentStore } from '@/stores/aiOfficeStore';
 
+import { logger } from '@/lib/utils/logger';
 export default function QuickGenerateInput() {
   const [input, setInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -92,7 +93,7 @@ export default function QuickGenerateInput() {
       // 3秒后清除成功提示
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
-      console.error('Generation failed:', err);
+      logger.error('Generation failed:', err);
       setError(err.message || 'Failed to generate document. Please try again.');
     } finally {
       setIsGenerating(false);

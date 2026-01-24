@@ -484,4 +484,15 @@ export class GoogleDriveSyncService {
 
     this.logger.log(`Unlinked resource ${resourceId} from Google Drive sync`);
   }
+
+  /**
+   * 获取同步历史记录
+   */
+  async getSyncHistory(connectionId: string, limit: number = 10) {
+    return this.prisma.googleDriveSyncHistory.findMany({
+      where: { connectionId },
+      orderBy: { startedAt: "desc" },
+      take: limit,
+    });
+  }
 }

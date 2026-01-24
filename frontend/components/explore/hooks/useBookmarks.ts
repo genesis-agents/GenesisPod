@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { config } from '@/lib/utils/config';
 
+import { logger } from '@/lib/utils/logger';
 export function useBookmarks() {
   const { user } = useAuth();
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
@@ -72,7 +73,7 @@ export function useBookmarks() {
         }
       }
     } catch (err) {
-      console.error('Failed to load bookmarks:', err);
+      logger.error('Failed to load bookmarks:', err);
     }
   }, [user]);
 
@@ -141,7 +142,7 @@ export function useBookmarks() {
         }
       }
     } catch (err) {
-      console.error('Failed to toggle bookmark:', err);
+      logger.error('Failed to toggle bookmark:', err);
     }
   };
 

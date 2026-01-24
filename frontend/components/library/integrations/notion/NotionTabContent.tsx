@@ -29,18 +29,18 @@ import {
 import {
   SyncControls,
   type SyncDirection,
-} from '@/components/common/SyncControls';
+} from '@/components/common/sync/SyncControls';
 import {
   ConflictResolver,
   type SyncConflict,
-} from '@/components/common/ConflictResolver';
+} from '@/components/common/sync/ConflictResolver';
 import AddToKnowledgeBaseDialog, {
   type ResourceToAdd,
-} from '@/components/common/AddToKnowledgeBaseDialog';
+} from '@/components/common/dialogs/AddToKnowledgeBaseDialog';
 import { ViewToggle, type ViewMode } from '@/components/common/ViewToggle';
 import { NotionPageRow } from './NotionPageRow';
-import { AiOrganizeButton } from '@/components/common/AiOrganizeButton';
-import { AiOrganizePanel } from '@/components/common/AiOrganizePanel';
+import { AiOrganizeButton } from '@/components/common/ai/AiOrganizeButton';
+import { AiOrganizePanel } from '@/components/common/ai/AiOrganizePanel';
 import type { FileInfo } from '@/lib/api/ai-organizer';
 
 export default function NotionTabContent() {

@@ -308,4 +308,100 @@ export class WechatDataSourceService {
       createdAt: item.createdAt,
     };
   }
+
+  /**
+   * 获取用户的 WeChat Work 绑定信息
+   */
+  async getWechatWorkBinding(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { preferences: true },
+    });
+
+    const preferences = user?.preferences as Record<string, unknown> | null;
+    const wechatWorkUserId = preferences?.wechatWorkUserId as
+      | string
+      | undefined;
+
+    return {
+      isBound: !!wechatWorkUserId,
+      wechatWorkUserId: wechatWorkUserId || null,
+    };
+  }
+
+  /**
+   * 绑定 WeChat Work 用户 ID
+   */
+  async bindWechatWorkUserId(userId: string, wechatWorkUserId: string) {
+    // 检查该 WeChat Work ID 是否已被其他用户绑定
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        preferences: {
+          path: ["wechatWorkUserId"],
+          equals: wechatWorkUserId,
+        },
+        NOT: { id: userId },
+      },
+    });
+
+    if (existingUser) {
+      throw new Error("This WeChat Work ID is already bound to another account");
+    }
+
+    // 获取当前用户的 preferences
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { preferences: true },
+    });
+
+    const currentPreferences =
+      (user?.preferences as Record<string, unknown>) || {};
+
+    // 更新 preferences
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        preferences: {
+          ...currentPreferences,
+          wechatWorkUserId,
+        },
+      },
+    });
+
+    this.logger.log(`User ${userId} bound WeChat Work ID: ${wechatWorkUserId}`);
+
+    return {
+      success: true,
+      wechatWorkUserId,
+    };
+  }
+
+  /**
+   * 解绑 WeChat Work 用户 ID
+   */
+  async unbindWechatWorkUserId(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { preferences: true },
+    });
+
+    const currentPreferences =
+      (user?.preferences as Record<string, unknown>) || {};
+
+    // 移除 wechatWorkUserId
+    const { wechatWorkUserId, ...remainingPreferences } = currentPreferences;
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        preferences: remainingPreferences as object,
+      },
+    });
+
+    this.logger.log(`User ${userId} unbound WeChat Work ID`);
+
+    return {
+      success: true,
+    };
+  }
 }

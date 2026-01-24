@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { logger } from '@/lib/utils/logger';
 import {
   CheckCircle,
   XCircle,
@@ -1041,7 +1042,7 @@ function ConfigureEnvDialog({
           );
         }
       } catch (error) {
-        console.error('Failed to fetch secrets:', error);
+        logger.error('Failed to fetch secrets:', error);
       } finally {
         setLoadingSecrets(false);
       }

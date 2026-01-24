@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
-import { useSettingsStore, type Notification } from '@/stores/settingsStore';
+import { useSettingsStore, type Notification } from '@/stores';
 import {
   Bell,
   BellOff,

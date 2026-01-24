@@ -1518,35 +1518,16 @@ export class AdminController {
         };
       }
 
-      // 2. 在数据库中创建技能配置
-      const { PrismaClient } = await import("@prisma/client");
-      const prisma = new PrismaClient();
-
-      try {
-        await prisma.skillConfig.upsert({
-          where: { skillId: skill.id },
-          create: {
-            skillId: skill.id,
-            displayName: skill.displayName || skill.name,
-            description: skill.description,
-            layer: skill.layer || "application",
-            domain: skill.domain || "common",
-            enabled: true,
-            tags: skill.tags || [],
-            config: {},
-          },
-          update: {
-            displayName: skill.displayName || skill.name,
-            description: skill.description,
-            layer: skill.layer || "application",
-            domain: skill.domain || "common",
-            enabled: true,
-            tags: skill.tags || [],
-          },
-        });
-      } finally {
-        await prisma.$disconnect();
-      }
+      // 2. 调用 Service 在数据库中创建技能配置
+      await this.adminService.installSkillFromMarketplace({
+        id: skill.id,
+        name: skill.name,
+        displayName: skill.displayName,
+        description: skill.description,
+        layer: skill.layer,
+        domain: skill.domain,
+        tags: skill.tags,
+      });
 
       this.logger.log(`Successfully installed skill: ${skillId}`);
       return {

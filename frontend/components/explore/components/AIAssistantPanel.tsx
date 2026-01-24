@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Resource, AIMessage, AIInsight } from '../types';
+import { Resource, AIMessage, AIInsight } from '../utils/types';
 import { extractImagesFromMarkdown } from '../utils';
-import { Base64Image } from '../Base64Image';
+import { Base64Image } from '../resources/Base64Image';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import NotesList from '@/components/features/NotesList';
-import CommentsList from '@/components/features/CommentsList';
-import SimilarResourcesList from '@/components/features/SimilarResourcesList';
+import NotesList from '@/components/library/resources/NotesList';
+import CommentsList from '@/components/common/comments/CommentsList';
+import SimilarResourcesList from '@/components/library/resources/SimilarResourcesList';
 import AIModelSelector from './AIModelSelector';
 import QuickActions from './QuickActions';
 import AISummaryCard from './AISummaryCard';

@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 // 知名公司Logo映射 - 使用 Clearbit Logo API 或官方Logo
 const COMPANY_LOGOS: Record<string, string> = {
   // 科技巨头
@@ -100,16 +101,56 @@ function getCompanyInitials(name: string): string {
     .slice(0, 2);
 }
 
+interface Company {
+  id: string;
+  name: string;
+  type?: 'benchmark' | 'challenger' | 'startup' | string;
+  metrics?: string | Record<string, unknown>;
+  description?: string;
+}
+
+interface Agent {
+  id: string;
+  role: string;
+  team?: 'BLUE' | 'RED' | 'GREEN' | 'WHITE' | 'CHAOS' | string;
+  companyId?: string;
+  persona?: string | Record<string, unknown>;
+  name?: string;
+}
+
+interface Run {
+  id: string;
+  status: string;
+  currentRound?: number;
+  rounds?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Turn {
+  id: string;
+  round: number;
+  agentId: string;
+  action?: unknown;
+  result?: unknown;
+}
+
+interface ScenarioParams {
+  humanBreakEvery?: number;
+  chaosProb?: number;
+  [key: string]: unknown;
+}
+
 interface ScenarioDetail {
   id: string;
   name: string;
   industry: string;
   region?: string;
-  goals?: any;
-  params?: any;
-  companies?: any[];
-  agents?: any[];
-  runs?: any[];
+  goals?: Record<string, unknown>;
+  params?: ScenarioParams;
+  companies?: Company[];
+  agents?: Agent[];
+  runs?: Run[];
   createdAt: string;
   updatedAt: string;
 }
@@ -119,9 +160,9 @@ interface RunDetail {
   status: string;
   currentRound: number;
   rounds: number;
-  turns?: any[];
-  worldState?: any;
-  evidenceTrail?: any;
+  turns?: Turn[];
+  worldState?: Record<string, unknown>;
+  evidenceTrail?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -162,9 +203,9 @@ export default function ScenarioDetailPage() {
       );
       if (res.ok) {
         const data = await res.json();
-        console.log('[ScenarioDetail] Fetched scenario:', data);
-        console.log('[ScenarioDetail] Agents count:', data.agents?.length);
-        console.log('[ScenarioDetail] Agents:', data.agents);
+        logger.debug('[ScenarioDetail] Fetched scenario:', data);
+        logger.debug('[ScenarioDetail] Agents count:', data.agents?.length);
+        logger.debug('[ScenarioDetail] Agents:', data.agents);
         setScenario(data);
         // If there are runs, load the latest one
         if (data.runs && data.runs.length > 0) {
@@ -172,7 +213,7 @@ export default function ScenarioDetailPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to fetch scenario:', err);
+      logger.error('Failed to fetch scenario:', err);
     } finally {
       setLoading(false);
     }
@@ -188,7 +229,7 @@ export default function ScenarioDetailPage() {
         setActiveRun(data);
       }
     } catch (err) {
-      console.error('Failed to fetch run:', err);
+      logger.error('Failed to fetch run:', err);
     }
   };
 
@@ -216,7 +257,7 @@ export default function ScenarioDetailPage() {
         body: JSON.stringify({
           scenarioId: scenario.id,
           rounds: scenario.params?.humanBreakEvery
-            ? scenario.params.humanBreakEvery * 5
+            ? (scenario.params.humanBreakEvery as number) * 5
             : 10,
           params: {
             ...scenario.params,
@@ -235,7 +276,7 @@ export default function ScenarioDetailPage() {
         if (data?.id) {
           // 立即导航到实际的run页面
           const actualUrl = `/ai-simulation/run/${data.id}?role=${selectedRole}&mode=${simulationMode}`;
-          console.log('[Simulation] Navigating immediately to:', actualUrl);
+          logger.debug('[Simulation] Navigating immediately to:', actualUrl);
           // 使用 window.location 确保跳转（避免 Next.js router 可能的问题）
           window.location.href = actualUrl;
         } else {
@@ -247,9 +288,10 @@ export default function ScenarioDetailPage() {
         setStartError(errorData.message || `启动失败 (${res.status})`);
         setStartingRun(false);
       }
-    } catch (err: any) {
-      console.error('Failed to start run:', err);
-      setStartError(err.message || '网络错误，请重试');
+    } catch (err: unknown) {
+      logger.error('Failed to start run:', err);
+      const message = err instanceof Error ? err.message : '网络错误，请重试';
+      setStartError(message);
       setStartingRun(false);
     }
   };
@@ -294,9 +336,10 @@ export default function ScenarioDetailPage() {
           await fetchScenario();
         }
       }
-    } catch (err: any) {
-      console.error('Failed to delete run:', err);
-      alert('删除失败: ' + (err.message || '网络错误'));
+    } catch (err: unknown) {
+      logger.error('Failed to delete run:', err);
+      const message = err instanceof Error ? err.message : '网络错误';
+      alert('删除失败: ' + message);
     } finally {
       setDeletingRunId(null);
     }
@@ -852,36 +895,36 @@ export default function ScenarioDetailPage() {
                       目标与约束
                     </h3>
                     <div className="grid gap-4 md:grid-cols-2">
-                      {scenario.goals?.targetShare && (
+                      {scenario.goals?.targetShare != null ? (
                         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                           <div className="text-xs font-medium text-gray-500">
                             目标
                           </div>
                           <div className="mt-1 text-sm text-gray-900">
-                            {scenario.goals.targetShare}
+                            {String(scenario.goals.targetShare)}
                           </div>
                         </div>
-                      )}
-                      {scenario.goals?.risk && (
+                      ) : null}
+                      {scenario.goals?.risk != null ? (
                         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                           <div className="text-xs font-medium text-gray-500">
                             风险/合规
                           </div>
                           <div className="mt-1 text-sm text-gray-900">
-                            {scenario.goals.risk}
+                            {String(scenario.goals.risk)}
                           </div>
                         </div>
-                      )}
-                      {scenario.goals?.growth && (
+                      ) : null}
+                      {scenario.goals?.growth != null ? (
                         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                           <div className="text-xs font-medium text-gray-500">
                             增长
                           </div>
                           <div className="mt-1 text-sm text-gray-900">
-                            {scenario.goals.growth}
+                            {String(scenario.goals.growth)}
                           </div>
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
 
@@ -1028,7 +1071,7 @@ export default function ScenarioDetailPage() {
                                           ).parentElement;
                                           if (parent) {
                                             parent.className = `flex h-12 w-12 items-center justify-center rounded-xl text-lg font-bold text-white ${bgClass}`;
-                                            parent.innerHTML = initials;
+                                            parent.textContent = initials;
                                           }
                                         }}
                                       />

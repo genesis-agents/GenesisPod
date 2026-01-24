@@ -2,9 +2,9 @@
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { AIMessage } from '../types';
+import { AIMessage } from '../utils/types';
 import { extractImagesFromMarkdown } from '../utils';
-import { Base64Image } from '../Base64Image';
+import { Base64Image } from '../resources/Base64Image';
 
 interface AIChatMessagesProps {
   aiMessages: AIMessage[];

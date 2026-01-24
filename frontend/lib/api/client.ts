@@ -12,6 +12,7 @@
 import { config } from '../utils/config';
 import { getAuthTokens } from '../utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 // ==================== 类型定义 ====================
 
 export interface ApiResponse<T = unknown> {
@@ -318,7 +319,7 @@ class ApiClient {
           handlers.onError(parsed.data || parsed);
         }
       } catch (e) {
-        console.error('[ApiClient] SSE parse error:', e);
+        logger.error('[ApiClient] SSE parse error:', e);
       }
     };
 

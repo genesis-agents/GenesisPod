@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 
+import { logger } from '@/lib/utils/logger';
 interface PreviewFrameProps {
   url: string;
   type: 'pdf' | 'html';
@@ -41,14 +42,14 @@ export default function PreviewFrame({
 
   // iframe加载完成
   const handleLoad = () => {
-    console.log(`Preview loaded successfully: ${type} from ${url}`);
+    logger.debug(`Preview loaded successfully: ${type} from ${url}`);
     setLoading(false);
     setError(null);
   };
 
   // iframe加载错误
   const handleError = () => {
-    console.error(`Preview failed to load: ${type} from ${url}`);
+    logger.error(`Preview failed to load: ${type} from ${url}`);
     setLoading(false);
     setError(
       'Failed to load preview. The content may be unavailable or blocked.'

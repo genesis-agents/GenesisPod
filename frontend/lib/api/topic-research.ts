@@ -100,7 +100,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
   try {
     return JSON.parse(text);
   } catch {
-    console.warn(
+    logger.warn(
       '[fetchWithAuth] Failed to parse JSON response:',
       text.slice(0, 100)
     );
@@ -1432,6 +1432,7 @@ export async function canPublishReport(
 
 // ==================== TODO API ====================
 
+import { logger } from '@/lib/utils/logger';
 import type {
   ResearchTodo,
   TodoListResponse,

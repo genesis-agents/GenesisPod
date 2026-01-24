@@ -16,7 +16,6 @@ import {
   MessageContentType,
 } from "@prisma/client";
 import { CreateMissionDto } from "../../../dto/create-mission.dto";
-import { AIEngineFacade, ChatMessage } from "../../../../../ai-engine/facade";
 // ★ 架构重构：通过 ToolRegistry 调用工具
 import { ToolRegistry } from "../../../../../ai-engine/tools/registry/tool-registry";
 import type { ToolContext } from "../../../../../ai-engine/tools/abstractions/tool.interface";
@@ -52,6 +51,9 @@ import { MissionStateManager } from "./mission-state.manager";
 import { MissionLifecycleService } from "./mission-lifecycle.service";
 import { MissionRetryService } from "./mission-retry.service";
 import { MissionHealthCheckService } from "./mission-health-check.service";
+import { MissionAICallerService } from "./mission-ai-caller.service";
+import { TeamMessageService } from "./team-message.service";
+import { TeamMemberService } from "./team-member.service";
 // ★ AI Engine 能力下沉：使用 AI Engine 的上下文初始化服务
 import { ContextInitializationService } from "../../../../../ai-engine/orchestration/services";
 import { RETRY_CONFIG, AGENT_SWITCH_CONFIG } from "../config";
@@ -109,7 +111,6 @@ export class TeamMissionService implements OnModuleInit {
 
   constructor(
     private prisma: PrismaService,
-    private aiFacade: AIEngineFacade,
     // ★ 架构重构：通过 ToolRegistry 调用工具
     private toolRegistry: ToolRegistry,
     private topicEventEmitter: TopicEventEmitterService,
@@ -126,6 +127,12 @@ export class TeamMissionService implements OnModuleInit {
     private contextInitializationService: ContextInitializationService,
     // ★ Leader 模型容错服务：支持重试和模型切换
     private leaderModelService: LeaderModelService,
+    // ★ AI 调用服务：封装基础 AI 调用和 Token 追踪
+    private aiCallerService: MissionAICallerService,
+    // ★ 消息和日志服务：处理消息发送和日志记录
+    private messageService: TeamMessageService,
+    // ★ 团队成员服务：管理团队成员和 Leader
+    private memberService: TeamMemberService,
   ) {}
 
   /**
@@ -327,103 +334,13 @@ export class TeamMissionService implements OnModuleInit {
   }
 
   // ==================== AI 模型配置 ====================
-
-  /**
-   * Get AI model config from database by model identifier
-   * ★ 使用 AIEngineFacade 替代直接访问 prisma.aIModel
-   */
-  private async getModelConfig(aiModel: string) {
-    const modelConfig = await this.aiFacade.getModelById(aiModel);
-
-    if (!modelConfig) {
-      this.logger.warn(`Model config not found for: ${aiModel}`);
-      return null;
-    }
-
-    return modelConfig;
-  }
-
-  /**
-   * Call AI with database API key
-   * Optionally tracks token usage for a mission
-   */
-  private async callAIWithConfig(
-    aiModel: string,
-    messages: { role: string; content: string }[],
-    systemPrompt: string,
-    options?: {
-      maxTokens?: number;
-      temperature?: number;
-      missionId?: string;
-      enableSearch?: boolean; // ★ 是否启用网页搜索，内部调用默认关闭
-    },
-  ) {
-    const modelConfig = await this.getModelConfig(aiModel);
-
-    // ★ 内部调用默认关闭网页搜索，避免任务修订等场景误触发搜索
-    // searchOptions 暂不支持，后续可扩展 Facade
-
-    // 构建消息列表，包含系统提示
-    const facadeMessages: ChatMessage[] = [
-      { role: "system", content: systemPrompt },
-      ...(messages as { role: "user" | "assistant"; content: string }[]).map(
-        (m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        }),
-      ),
-    ];
-
-    // Map legacy temperature/maxTokens to taskProfile
-    const creativity = this.mapTemperatureToCreativity(options?.temperature);
-    const outputLength = this.mapMaxTokensToOutputLength(options?.maxTokens);
-
-    const result = await this.aiFacade.chat({
-      messages: facadeMessages,
-      model: modelConfig?.modelId ?? aiModel,
-      taskProfile: {
-        creativity,
-        outputLength,
-      },
-    });
-
-    // ★ Track token consumption for mission
-    const tokensUsed = result.tokensUsed || 0;
-    if (options?.missionId && tokensUsed > 0) {
-      this.trackMissionTokens(options.missionId, tokensUsed).catch((err) => {
-        this.logger.warn(
-          `[callAIWithConfig] Failed to track tokens for mission ${options.missionId}: ${err}`,
-        );
-      });
-    }
-
-    return result;
-  }
-
-  /**
-   * 追踪任务的 Token 消耗
-   * 使用原始 SQL 更新以支持尚未 regenerate 的 Prisma client
-   */
-  private async trackMissionTokens(
-    missionId: string,
-    tokensUsed: number,
-  ): Promise<void> {
-    try {
-      // 使用原始 SQL 更新，避免 Prisma client 未 regenerate 的问题
-      await this.prisma.$executeRaw`
-        UPDATE team_missions
-        SET total_tokens_used = COALESCE(total_tokens_used, 0) + ${tokensUsed}
-        WHERE id = ${missionId}
-      `;
-      this.logger.debug(
-        `[trackMissionTokens] Added ${tokensUsed} tokens to mission ${missionId}`,
-      );
-    } catch (error) {
-      this.logger.warn(
-        `[trackMissionTokens] Failed to update tokens for mission ${missionId}: ${error}`,
-      );
-    }
-  }
+  // 注：AI 调用相关方法已迁移至 MissionAICallerService
+  // - getModelConfig: 获取模型配置
+  // - callAIWithConfig: 使用数据库配置调用 AI
+  // - trackMissionTokens: 追踪 Token 消耗
+  // - mapTemperatureToCreativity: 映射 temperature
+  // - mapMaxTokensToOutputLength: 映射 maxTokens
+  // 使用方式：this.aiCallerService.callAIWithConfig(...)
 
   // ==================== 重试与 Agent 切换辅助方法 ====================
   // 注：工具函数已迁移至 ./utils/retry.utils.ts
@@ -588,7 +505,7 @@ export class TeamMissionService implements OnModuleInit {
         // ★ 启动心跳
         startHeartbeat();
 
-        const response = await this.callAIWithConfig(
+        const response = await this.aiCallerService.callAIWithConfig(
           aiModel,
           messages,
           systemPrompt,
@@ -859,7 +776,7 @@ export class TeamMissionService implements OnModuleInit {
             const result = await this.leaderModelService.executeWithFallback(
               mission.leader.aiModel,
               async (modelConfig) => {
-                const response = await this.callAIWithConfig(
+                const response = await this.aiCallerService.callAIWithConfig(
                   modelConfig.modelId,
                   messages.map((m) => ({ role: m.role, content: m.content })),
                   messages.find((m) => m.role === "system")?.content || "",
@@ -1016,7 +933,7 @@ export class TeamMissionService implements OnModuleInit {
           const result = await this.leaderModelService.executeWithFallback(
             leader.aiModel,
             async (modelConfig) => {
-              return this.callAIWithConfig(
+              return this.aiCallerService.callAIWithConfig(
                 modelConfig.modelId,
                 [{ role: "user", content: currentPrompt }],
                 systemPrompt,
@@ -2383,7 +2300,7 @@ export class TeamMissionService implements OnModuleInit {
       const result = await this.leaderModelService.executeWithFallback(
         leader.aiModel,
         async (modelConfig) => {
-          return this.callAIWithConfig(
+          return this.aiCallerService.callAIWithConfig(
             modelConfig.modelId,
             [{ role: "user", content: replanPrompt }],
             this.getLeaderSystemPrompt(leader),
@@ -2581,7 +2498,7 @@ export class TeamMissionService implements OnModuleInit {
         const result = await this.leaderModelService.executeWithFallback(
           leader.aiModel,
           async (modelConfig) => {
-            return this.callAIWithConfig(
+            return this.aiCallerService.callAIWithConfig(
               modelConfig.modelId,
               [{ role: "user", content: reviewPrompt }],
               this.getLeaderSystemPrompt(leader),
@@ -2850,7 +2767,7 @@ export class TeamMissionService implements OnModuleInit {
       // 调用 AI 执行修改 (使用数据库 API Key)
       let aiResponse;
       try {
-        aiResponse = await this.callAIWithConfig(
+        aiResponse = await this.aiCallerService.callAIWithConfig(
           assignedTo.aiModel,
           [{ role: "user", content: revisionPrompt }],
           this.getAgentSystemPrompt(
@@ -3091,7 +3008,7 @@ export class TeamMissionService implements OnModuleInit {
         const result = await this.leaderModelService.executeWithFallback(
           mission.leader.aiModel,
           async (modelConfig) => {
-            return this.callAIWithConfig(
+            return this.aiCallerService.callAIWithConfig(
               modelConfig.modelId,
               [{ role: "user", content: summaryPrompt }],
               this.getLeaderSystemPrompt(mission.leader),
@@ -3298,12 +3215,7 @@ export class TeamMissionService implements OnModuleInit {
       metadata?: Prisma.InputJsonValue;
     },
   ) {
-    return this.prisma.missionLog.create({
-      data: {
-        missionId,
-        ...data,
-      },
-    });
+    return this.messageService.createLog(missionId, data);
   }
 
   private async sendMessageToTopic(
@@ -3312,35 +3224,12 @@ export class TeamMissionService implements OnModuleInit {
     content: string,
     contentType: MessageContentType,
   ) {
-    try {
-      const message = await this.prisma.topicMessage.create({
-        data: {
-          topicId,
-          aiMemberId,
-          content,
-          contentType,
-        },
-        include: {
-          aiMember: {
-            select: {
-              id: true,
-              displayName: true,
-              agentName: true,
-              avatar: true,
-              aiModel: true,
-            },
-          },
-        },
-      });
-
-      // 广播新消息
-      this.topicEventEmitter.emitToTopic(topicId, "message:new", message);
-
-      return message;
-    } catch (error) {
-      this.logger.error(`Failed to send message: ${error}`);
-      return null;
-    }
+    return this.messageService.sendMessageToTopic(
+      topicId,
+      aiMemberId,
+      content,
+      contentType,
+    );
   }
 
   // ==================== 任务自动恢复 ====================
@@ -4348,7 +4237,7 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
       const result = await this.leaderModelService.executeWithFallback(
         leaderModel,
         async (modelConfig) => {
-          return this.callAIWithConfig(
+          return this.aiCallerService.callAIWithConfig(
             modelConfig.modelId,
             [{ role: "user", content: prompt }],
             "你是一位专业的内容审核助手，擅长快速提炼长文精华。请客观、准确地生成摘要。",
@@ -5983,62 +5872,13 @@ ${taskList}
   // ==================== 设置 Leader ====================
 
   async setLeader(topicId: string, aiMemberId: string) {
-    // 先取消该 Topic 下其他 Leader
-    await this.prisma.topicAIMember.updateMany({
-      where: { topicId, isLeader: true },
-      data: { isLeader: false },
-    });
-
-    // 设置新 Leader
-    return this.prisma.topicAIMember.update({
-      where: { id: aiMemberId },
-      data: { isLeader: true },
-    });
+    return this.memberService.setLeader(topicId, aiMemberId);
   }
 
   async getTeamMembers(topicId: string) {
-    const members = await this.prisma.topicAIMember.findMany({
-      where: { topicId },
-      orderBy: [{ isLeader: "desc" }, { createdAt: "asc" }],
-    });
-
-    const leader = members.find((m) => m.isLeader);
-    const otherMembers = members.filter((m) => !m.isLeader);
-
-    return {
-      leader,
-      members: otherMembers,
-      all: members,
-    };
+    return this.memberService.getTeamMembers(topicId);
   }
 
   // ==================== Helper Methods ====================
-
-  /**
-   * Map legacy temperature values to creativity levels
-   */
-  private mapTemperatureToCreativity(
-    temperature?: number,
-  ): "deterministic" | "low" | "medium" | "high" {
-    if (temperature === undefined) return "medium";
-    if (temperature <= 0.2) return "deterministic";
-    if (temperature <= 0.3) return "low";
-    if (temperature <= 0.7) return "medium";
-    return "high";
-  }
-
-  /**
-   * Map legacy maxTokens values to outputLength levels
-   */
-  private mapMaxTokensToOutputLength(
-    maxTokens?: number,
-  ): "minimal" | "short" | "medium" | "standard" | "long" | "extended" {
-    if (maxTokens === undefined) return "standard";
-    if (maxTokens <= 1000) return "minimal";
-    if (maxTokens <= 2000) return "short";
-    if (maxTokens <= 4000) return "medium";
-    if (maxTokens <= 6000) return "standard";
-    if (maxTokens <= 8000) return "long";
-    return "extended";
-  }
+  // 注：映射方法已迁移至 MissionAICallerService
 }

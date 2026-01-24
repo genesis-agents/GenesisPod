@@ -7,6 +7,7 @@
 
 import type { Resource } from '@/types/ai-office';
 
+import { logger } from '@/lib/utils/logger';
 export interface ResourceAnalysis {
   // 核心洞察
   insights: string[];
@@ -103,7 +104,7 @@ export class ResourceAnalysisAgent {
         analyzedAt: new Date(),
       };
     } catch (error) {
-      console.error('ResourceAnalysisAgent error:', error);
+      logger.error('ResourceAnalysisAgent error:', error);
 
       // 降级策略：返回基础分析
       return this.getFallbackAnalysis(input.resources);

@@ -3,7 +3,7 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { extractImagesFromMarkdown } from '../utils';
-import { Base64Image } from '../Base64Image';
+import { Base64Image } from '../resources/Base64Image';
 
 interface AISummaryCardProps {
   aiSummary: string;

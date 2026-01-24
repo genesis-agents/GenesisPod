@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 // Use the main backend API URL (NestJS), not separate AI service
 // Priority: BACKEND_INTERNAL_URL > NEXT_PUBLIC_API_URL > RAILWAY_SERVICE_BACKEND_URL > localhost
 function ensureProtocol(url: string): string {
@@ -32,8 +33,8 @@ export async function POST(request: NextRequest) {
     const { message, context, model = 'gemini', stream = true } = body;
 
     // 诊断日志
-    console.log('[AI Chat API] Using backend URL:', API_URL);
-    console.log('[AI Chat API] ENV check:', {
+    logger.debug('[AI Chat API] Using backend URL:', API_URL);
+    logger.debug('[AI Chat API] ENV check:', {
       BACKEND_INTERNAL_URL: process.env.BACKEND_INTERNAL_URL
         ? 'set'
         : 'not set',
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI service error:', response.status, errorText);
+      logger.error('AI service error:', response.status, errorText);
       throw new Error(`AI service responded with status: ${response.status}`);
     }
 
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('AI chat error:', error);
+    logger.error('AI chat error:', error);
     return NextResponse.json(
       { error: 'Failed to communicate with AI service' },
       { status: 500 }

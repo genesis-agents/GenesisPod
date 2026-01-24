@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { config } from '@/lib/utils/config';
 
+import { logger } from '@/lib/utils/logger';
 interface HTMLViewerProps {
   url: string;
   title?: string;
@@ -54,7 +55,7 @@ export default function HTMLViewer({
 
       try {
         const proxyUrl = `${config.apiUrl}/proxy/html?url=${encodeURIComponent(url)}`;
-        console.log(`Fetching HTML from proxy: ${proxyUrl}`);
+        logger.debug(`Fetching HTML from proxy: ${proxyUrl}`);
 
         const response = await fetch(proxyUrl);
 
@@ -63,10 +64,10 @@ export default function HTMLViewer({
         }
 
         const htmlContent = await response.text();
-        console.log(
+        logger.debug(
           `HTML loaded successfully: ${htmlContent.length} characters from ${url}`
         );
-        console.log(
+        logger.debug(
           `HTML preview (first 500 chars):`,
           htmlContent.substring(0, 500)
         );
@@ -74,14 +75,14 @@ export default function HTMLViewer({
         // 创建Blob URL - 同时保存到ref和state
         const blob = new Blob([htmlContent], { type: 'text/html' });
         const newBlobUrl = URL.createObjectURL(blob);
-        console.log(`Created Blob URL: ${newBlobUrl}`);
+        logger.debug(`Created Blob URL: ${newBlobUrl}`);
         blobUrlRef.current = newBlobUrl;
         setBlobUrl(newBlobUrl);
 
         setLoading(false);
         setError(null);
       } catch (err) {
-        console.error(`Failed to load HTML from ${url}:`, err);
+        logger.error(`Failed to load HTML from ${url}:`, err);
         setLoading(false);
         setError(
           err instanceof Error

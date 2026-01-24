@@ -30,7 +30,7 @@ import {
   SocialContentStatus,
   SocialPlatformConnection,
 } from '@/hooks/domain/useAISocial';
-import { toast } from '@/stores/toastStore';
+import { toast } from '@/stores';
 
 // Types matching backend
 type ContentStatus = SocialContentStatus;

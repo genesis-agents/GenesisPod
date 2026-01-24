@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 // Use the main backend API URL (NestJS)
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -22,14 +23,14 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`AI service error: ${response.status} - ${errorText}`);
+      logger.error(`AI service error: ${response.status} - ${errorText}`);
       throw new Error(`AI service responded with status: ${response.status}`);
     }
 
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error('Translation error:', error?.message || error);
+    logger.error('Translation error:', error?.message || error);
     return NextResponse.json(
       { error: error?.message || 'Failed to translate text' },
       { status: 500 }

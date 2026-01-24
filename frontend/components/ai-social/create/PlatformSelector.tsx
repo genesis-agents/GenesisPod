@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslation } from '@/lib/i18n';
-import { useSocialCreateStore } from '@/stores/socialCreateStore';
+import { useSocialCreateStore } from '@/stores';
 import {
   useSocialConnections,
   SocialContentType,

@@ -93,6 +93,7 @@ import AppShell from '@/components/layout/AppShell';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { logger } from '@/lib/utils/logger';
 // 懒加载条件渲染的对话框和面板组件
 const TopicSettingsDialog = dynamic(
   () => import('@/components/ai-teams/TopicSettingsDialog'),
@@ -1411,14 +1412,14 @@ function MessageInput({
     if (!content.trim()) return;
 
     // DEBUG: Log the content and available AI members
-    console.log('[Mentions Debug] handleSend called with content:', content);
-    console.log(
+    logger.debug('[Mentions Debug] handleSend called with content:', content);
+    logger.debug(
       '[Mentions Debug] topic.aiMembers exists:',
       !!topic.aiMembers,
       'length:',
       topic.aiMembers?.length || 0
     );
-    console.log(
+    logger.debug(
       '[Mentions Debug] Available AI members:',
       topic.aiMembers?.map((a) => ({
         id: a.id,
@@ -1449,7 +1450,7 @@ function MessageInput({
         .toLowerCase()
         .replace(/-\(/, ' (')
         .replace(/\($/, '');
-      console.log(
+      logger.debug(
         '[Mentions Debug] Found mention match:',
         match[0],
         '-> name:',
@@ -1489,8 +1490,8 @@ function MessageInput({
 
         const normalizedName = normalizeForMatch(name);
         const nameWithHyphens = name.replace(/\s+/g, '-').toLowerCase();
-        console.log('[Mentions Debug] Normalized input name:', normalizedName);
-        console.log('[Mentions Debug] Name with hyphens:', nameWithHyphens);
+        logger.debug('[Mentions Debug] Normalized input name:', normalizedName);
+        logger.debug('[Mentions Debug] Name with hyphens:', nameWithHyphens);
 
         // First pass: exact match with full name including parentheses (highest priority)
         // This ensures @AI-Gemini-(Image) matches "AI-Gemini (Image)" not "AI-Gemini (Gemini3)"
@@ -1559,7 +1560,7 @@ function MessageInput({
           });
         }
 
-        console.log(
+        logger.debug(
           '[Mentions Debug] Final match for',
           normalizedName,
           '->',
@@ -1567,7 +1568,7 @@ function MessageInput({
         );
 
         // Debug: log all AI member names for comparison
-        console.log(
+        logger.debug(
           '[Mentions Debug] AI members available:',
           aiMembers.map((a) => ({
             id: a.id,
@@ -1576,7 +1577,7 @@ function MessageInput({
             hyphenated: a.displayName.toLowerCase().replace(/\s+/g, '-'),
           }))
         );
-        console.log(
+        logger.debug(
           '[Mentions Debug] Matching result for',
           name,
           '-> user:',
@@ -1593,7 +1594,7 @@ function MessageInput({
       }
     }
 
-    console.log('[Mentions Debug] Final mentions array:', mentions);
+    logger.debug('[Mentions Debug] Final mentions array:', mentions);
     onSend(content.trim(), mentions);
     setContent('');
   };
@@ -1967,7 +1968,7 @@ export default function TopicPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Export failed:', error);
+      logger.error('Export failed:', error);
       alert('导出失败，请重试');
     } finally {
       setIsExporting(false);
@@ -2059,7 +2060,7 @@ export default function TopicPage() {
   // 因为 WebSocket 连接是异步的，可能在 useEffect 第一次执行时还未连接
   useEffect(() => {
     if (topicId && isConnected) {
-      console.log('[Page] WebSocket connected, joining topic room:', topicId);
+      logger.debug('[Page] WebSocket connected, joining topic room:', topicId);
       joinTopicRoom(topicId);
 
       return () => {
@@ -2226,7 +2227,7 @@ export default function TopicPage() {
           setInviteSearchResults(filtered);
         }
       } catch (err) {
-        console.error('Search failed:', err);
+        logger.error('Search failed:', err);
       } finally {
         setIsSearchingUsers(false);
       }
@@ -2362,11 +2363,11 @@ export default function TopicPage() {
             typingAIs={typingAIs}
             onMemberClick={(member) => {
               // Could show member profile or initiate DM
-              console.log('Member clicked:', member);
+              logger.debug('Member clicked:', member);
             }}
             onAIClick={(ai) => {
               // Could show AI config or quick mention
-              console.log('AI clicked:', ai);
+              logger.debug('AI clicked:', ai);
             }}
             onInviteMember={() => setShowInviteDialog(true)}
             isOwnerOrAdmin={isOwnerOrAdmin}
@@ -2831,7 +2832,7 @@ export default function TopicPage() {
                           mode: 'full',
                         });
                       } catch (error) {
-                        console.error('Failed to retry mission:', error);
+                        logger.error('Failed to retry mission:', error);
                       }
                     }
                   }}

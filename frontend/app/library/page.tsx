@@ -18,9 +18,9 @@ import {
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import AppShell from '@/components/layout/AppShell';
-import { Tag, UserStats } from '@/components/library/CollectionNav';
-import ReadStatusBadge from '@/components/library/ReadStatusBadge';
-import TagList from '@/components/library/TagList';
+import { Tag, UserStats } from '@/components/library/resources/CollectionNav';
+import ReadStatusBadge from '@/components/library/resources/ReadStatusBadge';
+import TagList from '@/components/library/resources/TagList';
 import { getAuthHeader } from '@/lib/utils/auth';
 import {
   useMultiSelect,
@@ -31,21 +31,22 @@ import {
   PaginatedResult,
 } from '@/hooks';
 import { useResourceStore } from '@/stores/aiOfficeStore';
-import { useImageSourceStore } from '@/stores/imageSourceStore';
+import { useImageSourceStore } from '@/stores';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
-import type { Note } from '@/components/features/NotesList';
+import type { Note } from '@/components/library/resources/NotesList';
+import { logger } from '@/lib/utils/logger';
 import AddToKnowledgeBaseDialog, {
   type ResourceToAdd,
-} from '@/components/shared/AddToKnowledgeBaseDialog';
+} from '@/components/common/dialogs/AddToKnowledgeBaseDialog';
 
 // 懒加载条件渲染的组件
 const NotesList = dynamicImport(
-  () => import('@/components/features/NotesList'),
+  () => import('@/components/library/resources/NotesList'),
   { ssr: false }
 );
 
 const KnowledgeGraphView = dynamicImport(
-  () => import('@/components/shared/views/KnowledgeGraphView'),
+  () => import('@/components/common/views/KnowledgeGraphView'),
   { ssr: false, loading: () => <GraphLoadingSkeleton /> }
 );
 
@@ -62,18 +63,18 @@ function GraphLoadingSkeleton() {
 }
 
 const CollectionModal = dynamicImport(
-  () => import('@/components/library/CollectionModal'),
+  () => import('@/components/library/resources/CollectionModal'),
   { ssr: false }
 );
 
 const BatchActionBar = dynamicImport(
-  () => import('@/components/library/BatchActionBar'),
+  () => import('@/components/library/resources/BatchActionBar'),
   { ssr: false }
 );
 
 const AddToAIStudioDialog = dynamicImport(
   () =>
-    import('@/components/shared/dialogs/AddToAIStudioDialog').then(
+    import('@/components/common/dialogs/AddToAIStudioDialog').then(
       (mod) => mod.AddToAIStudioDialog
     ),
   { ssr: false }
@@ -85,7 +86,7 @@ const AIOrganizePanel = dynamicImport(
 );
 
 const NotionTabContent = dynamicImport(
-  () => import('@/components/notion/NotionTabContent'),
+  () => import('@/components/library/integrations/notion/NotionTabContent'),
   {
     ssr: false,
     loading: () => (
@@ -97,7 +98,7 @@ const NotionTabContent = dynamicImport(
 );
 
 const GoogleDriveTabContent = dynamicImport(
-  () => import('@/components/google-drive/GoogleDriveTabContent'),
+  () => import('@/components/library/integrations/google-drive/GoogleDriveTabContent'),
   {
     ssr: false,
     loading: () => (
@@ -109,7 +110,7 @@ const GoogleDriveTabContent = dynamicImport(
 );
 
 const KnowledgeBaseTabContent = dynamicImport(
-  () => import('@/components/library/KnowledgeBaseTabContent'),
+  () => import('@/components/library/knowledge-base/KnowledgeBaseTabContent'),
   {
     ssr: false,
     loading: () => (
@@ -121,7 +122,7 @@ const KnowledgeBaseTabContent = dynamicImport(
 );
 
 const PersonalKnowledgeBaseTab = dynamicImport(
-  () => import('@/components/library/PersonalKnowledgeBaseTab'),
+  () => import('@/components/library/knowledge-base/PersonalKnowledgeBaseTab'),
   {
     ssr: false,
     loading: () => (
@@ -133,7 +134,7 @@ const PersonalKnowledgeBaseTab = dynamicImport(
 );
 
 const TeamKnowledgeBaseTab = dynamicImport(
-  () => import('@/components/library/TeamKnowledgeBaseTab'),
+  () => import('@/components/library/knowledge-base/TeamKnowledgeBaseTab'),
   {
     ssr: false,
     loading: () => (
@@ -145,7 +146,7 @@ const TeamKnowledgeBaseTab = dynamicImport(
 );
 
 const DataSourcesTab = dynamicImport(
-  () => import('@/components/library/DataSourcesTab'),
+  () => import('@/components/library/data-sources/DataSourcesTab'),
   {
     ssr: false,
     loading: () => (
@@ -446,7 +447,7 @@ function LibraryPageContent() {
       setTags(tagsData);
       setStats(statsData);
     } catch (err) {
-      console.error('Failed to load tags/stats:', err);
+      logger.error('Failed to load tags/stats:', err);
     }
   }, [collectionsApi]);
 
@@ -496,7 +497,7 @@ function LibraryPageContent() {
           setPaginatedItems(result);
         }
       } catch (err) {
-        console.error('Failed to load items:', err);
+        logger.error('Failed to load items:', err);
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -537,7 +538,7 @@ function LibraryPageContent() {
       }
       return [];
     } catch (err) {
-      console.error('Failed to load collections:', err);
+      logger.error('Failed to load collections:', err);
       return [];
     }
   }, []);
@@ -570,7 +571,7 @@ function LibraryPageContent() {
           setBookmarkedImagesLoaded(true);
         }
       } catch (err) {
-        console.error('Failed to load bookmarked images:', err);
+        logger.error('Failed to load bookmarked images:', err);
         setBookmarkedImagesError('网络错误，请重试');
         setBookmarkedImagesLoaded(true); // 防止无限重试
       } finally {
@@ -629,7 +630,7 @@ function LibraryPageContent() {
       const data = await response.json();
       setGraphData(data);
     } catch (err) {
-      console.error('Error fetching graph:', err);
+      logger.error('Error fetching graph:', err);
       setGraphError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setGraphLoading(false);
@@ -703,7 +704,7 @@ function LibraryPageContent() {
         setActiveCollectionId(null);
       }
     } catch (err) {
-      console.error('Failed to delete collection:', err);
+      logger.error('Failed to delete collection:', err);
       alert('Failed to delete collection');
     }
   };
@@ -737,7 +738,7 @@ function LibraryPageContent() {
       loadItems(1, false);
       loadCollections();
     } catch (err) {
-      console.error('Failed to move items:', err);
+      logger.error('Failed to move items:', err);
       alert('Failed to move items');
     }
   };
@@ -751,7 +752,7 @@ function LibraryPageContent() {
       loadCollections();
       loadTagsAndStats();
     } catch (err) {
-      console.error('Failed to delete items:', err);
+      logger.error('Failed to delete items:', err);
       alert('Failed to delete items');
     }
   };
@@ -764,7 +765,7 @@ function LibraryPageContent() {
       loadItems(1, false);
       loadTagsAndStats();
     } catch (err) {
-      console.error('Failed to update status:', err);
+      logger.error('Failed to update status:', err);
       alert('Failed to update status');
     }
   };
@@ -777,7 +778,7 @@ function LibraryPageContent() {
       loadItems(1, false);
       loadTagsAndStats();
     } catch (err) {
-      console.error('Failed to add tags:', err);
+      logger.error('Failed to add tags:', err);
       alert('Failed to add tags');
     }
   };
@@ -797,7 +798,7 @@ function LibraryPageContent() {
       }
       loadTagsAndStats();
     } catch (err) {
-      console.error('Failed to update status:', err);
+      logger.error('Failed to update status:', err);
     }
   };
 
@@ -815,7 +816,7 @@ function LibraryPageContent() {
       }
       loadTagsAndStats();
     } catch (err) {
-      console.error('Failed to update tags:', err);
+      logger.error('Failed to update tags:', err);
     }
   };
 
@@ -852,7 +853,7 @@ function LibraryPageContent() {
       setRemoveDialogOpen(false);
       setSelectedItem(null);
     } catch (err) {
-      console.error('Failed to remove:', err);
+      logger.error('Failed to remove:', err);
       alert('Failed to remove from collection');
     }
   };
@@ -875,7 +876,7 @@ function LibraryPageContent() {
       setEditNoteModalOpen(false);
       setSelectedItem(null);
     } catch (err) {
-      console.error('Failed to update note:', err);
+      logger.error('Failed to update note:', err);
       alert('Failed to update note');
     }
   };
@@ -916,7 +917,7 @@ function LibraryPageContent() {
         setBookmarkedImages((prev) => prev.filter((img) => img.id !== imageId));
       }
     } catch (err) {
-      console.error('Failed to remove bookmark:', err);
+      logger.error('Failed to remove bookmark:', err);
     }
   };
 
@@ -1962,7 +1963,7 @@ function LibraryPageContent() {
                     )}
                   </button>
                   <Link
-                    href="/knowledge-graph"
+                    href="/library/knowledge-graph"
                     className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-all hover:bg-gray-50"
                     title="Open in full screen"
                   >

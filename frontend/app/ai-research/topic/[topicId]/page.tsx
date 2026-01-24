@@ -12,10 +12,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { getAuthTokens } from '@/lib/utils/auth';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
-import { TopicDetail } from '@/components/ai-research/TopicDetail';
+import { TopicDetail } from '@/components/ai-research';
 import type { ResearchTopic } from '@/types/topic-research';
 import * as api from '@/lib/api/topic-research';
 
+import { logger } from '@/lib/utils/logger';
 export default function TopicDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -48,7 +49,7 @@ export default function TopicDetailPage() {
       const data = await api.getTopic(topicId);
       setTopic(data);
     } catch (err) {
-      console.error('Failed to load topic:', err);
+      logger.error('Failed to load topic:', err);
       setError(err instanceof Error ? err.message : '加载专题失败');
     } finally {
       setIsLoading(false);

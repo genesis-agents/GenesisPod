@@ -6,6 +6,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { config } from './config';
 
+import { logger } from '@/lib/utils/logger';
 // Configure PDF.js worker
 // PDF.js 5.x uses .mjs extension and different build path
 if (typeof window !== 'undefined') {
@@ -79,7 +80,7 @@ export async function generatePdfThumbnail(
 
     return dataUrl;
   } catch (error) {
-    console.error('Failed to generate PDF thumbnail:', error);
+    logger.error('Failed to generate PDF thumbnail:', error);
     return null;
   }
 }
@@ -127,7 +128,7 @@ export async function generateAndSaveThumbnail(
     const result = (await uploadResponse.json()) as { thumbnailUrl: string };
     return result.thumbnailUrl;
   } catch (error) {
-    console.error('Failed to generate and save thumbnail:', error);
+    logger.error('Failed to generate and save thumbnail:', error);
     return null;
   }
 }
@@ -164,7 +165,7 @@ export async function batchGenerateThumbnails(
         stats.failed++;
       }
     } catch (error) {
-      console.error(`Failed to process resource ${resource.id}:`, error);
+      logger.error(`Failed to process resource ${resource.id}:`, error);
       stats.failed++;
     }
 

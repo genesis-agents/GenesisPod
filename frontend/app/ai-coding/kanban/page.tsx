@@ -7,6 +7,7 @@ import AppShell from '@/components/layout/AppShell';
 import { getProjects, CodingProject } from '@/lib/api/ai-coding';
 import KanbanBoard from '@/components/ai-coding/KanbanBoard';
 
+import { logger } from '@/lib/utils/logger';
 export default function KanbanPage() {
   const router = useRouter();
   const { accessToken, isLoading: authLoading } = useAuth();
@@ -27,7 +28,7 @@ export default function KanbanPage() {
       const response = await getProjects({ limit: 100 });
       setProjects(response.projects || []);
     } catch (err) {
-      console.error('Failed to fetch projects:', err);
+      logger.error('Failed to fetch projects:', err);
       setError(err instanceof Error ? err.message : 'Failed to load projects');
     } finally {
       setIsLoading(false);

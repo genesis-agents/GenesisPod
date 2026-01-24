@@ -41,6 +41,7 @@ import {
 } from "./dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { parsePagination } from "../../../../common/utils/pagination.utils";
+import type { RequestWithUser } from "../../../../common/types/express-request.types";
 
 @ApiTags("ai-studio")
 @ApiBearerAuth("access-token")
@@ -68,7 +69,7 @@ export class AiStudioController {
   @ApiResponse({ status: 201, description: "项目创建成功" })
   @ApiResponse({ status: 401, description: "未认证" })
   async createProject(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() dto: CreateStudioProjectDto,
   ) {
     const userId = req.user?.id;
@@ -103,7 +104,7 @@ export class AiStudioController {
   @ApiQuery({ name: "skip", required: false, description: "跳过数量" })
   @ApiResponse({ status: 200, description: "返回项目列表" })
   async getProjects(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Query("status") status?: "ACTIVE" | "ARCHIVED",
     @Query("researchType") researchType?: "FAST" | "DEEP",
     @Query("search") search?: string,
@@ -127,7 +128,7 @@ export class AiStudioController {
    * Get a single project by ID
    */
   @Get("projects/:id")
-  async getProject(@Request() req: any, @Param("id") id: string) {
+  async getProject(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -140,7 +141,7 @@ export class AiStudioController {
    */
   @Patch("projects/:id")
   async updateProject(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: UpdateProjectDto,
   ) {
@@ -155,7 +156,7 @@ export class AiStudioController {
    * Delete a project
    */
   @Delete("projects/:id")
-  async deleteProject(@Request() req: any, @Param("id") id: string) {
+  async deleteProject(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -167,7 +168,7 @@ export class AiStudioController {
    * Archive a project
    */
   @Post("projects/:id/archive")
-  async archiveProject(@Request() req: any, @Param("id") id: string) {
+  async archiveProject(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -179,7 +180,7 @@ export class AiStudioController {
    * Restore an archived project
    */
   @Post("projects/:id/restore")
-  async restoreProject(@Request() req: any, @Param("id") id: string) {
+  async restoreProject(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -194,7 +195,7 @@ export class AiStudioController {
    */
   @Post("projects/:projectId/sources")
   async addSource(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Body() dto: AddSourceDto,
   ) {
@@ -210,7 +211,7 @@ export class AiStudioController {
    */
   @Post("projects/:projectId/sources/batch")
   async addSources(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Body() dto: AddSourcesDto,
   ) {
@@ -255,7 +256,7 @@ export class AiStudioController {
     }),
   )
   async uploadSources(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
@@ -270,7 +271,7 @@ export class AiStudioController {
    * Get all sources for a project
    */
   @Get("projects/:projectId/sources")
-  async getSources(@Request() req: any, @Param("projectId") projectId: string) {
+  async getSources(@Request() req: RequestWithUser, @Param("projectId") projectId: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -283,7 +284,7 @@ export class AiStudioController {
    */
   @Get("projects/:projectId/sources/:sourceId")
   async getSource(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("sourceId") sourceId: string,
   ) {
@@ -299,7 +300,7 @@ export class AiStudioController {
    */
   @Delete("projects/:projectId/sources/:sourceId")
   async removeSource(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("sourceId") sourceId: string,
   ) {
@@ -314,7 +315,7 @@ export class AiStudioController {
    * Search for sources
    */
   @Post("search")
-  async searchSources(@Request() req: any, @Body() dto: SearchSourcesDto) {
+  async searchSources(@Request() req: RequestWithUser, @Body() dto: SearchSourcesDto) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -329,7 +330,7 @@ export class AiStudioController {
    */
   @Get("projects/:projectId/chat")
   async getCurrentChat(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
     const userId = req.user?.id;
@@ -344,7 +345,7 @@ export class AiStudioController {
    */
   @Post("projects/:projectId/chat/messages")
   async sendChatMessage(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Body() dto: SendChatMessageDto,
   ) {
@@ -360,7 +361,7 @@ export class AiStudioController {
    */
   @Get("projects/:projectId/chat/history")
   async getChatHistory(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
     const userId = req.user?.id;
@@ -375,7 +376,7 @@ export class AiStudioController {
    */
   @Post("projects/:projectId/chat/new")
   async startNewChat(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
     const userId = req.user?.id;
@@ -392,7 +393,7 @@ export class AiStudioController {
    */
   @Post("projects/:projectId/notes")
   async createNote(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Body() dto: CreateNoteDto,
   ) {
@@ -407,7 +408,7 @@ export class AiStudioController {
    * Get all notes for a project
    */
   @Get("projects/:projectId/notes")
-  async getNotes(@Request() req: any, @Param("projectId") projectId: string) {
+  async getNotes(@Request() req: RequestWithUser, @Param("projectId") projectId: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -420,7 +421,7 @@ export class AiStudioController {
    */
   @Patch("projects/:projectId/notes/:noteId")
   async updateNote(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("noteId") noteId: string,
     @Body() dto: UpdateNoteDto,
@@ -437,7 +438,7 @@ export class AiStudioController {
    */
   @Delete("projects/:projectId/notes/:noteId")
   async deleteNote(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("noteId") noteId: string,
   ) {
@@ -463,7 +464,7 @@ export class AiStudioController {
    */
   @Post("projects/:projectId/outputs")
   async generateOutput(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Body() dto: GenerateOutputDto,
   ) {
@@ -478,7 +479,7 @@ export class AiStudioController {
    * Get all outputs for a project
    */
   @Get("projects/:projectId/outputs")
-  async getOutputs(@Request() req: any, @Param("projectId") projectId: string) {
+  async getOutputs(@Request() req: RequestWithUser, @Param("projectId") projectId: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -491,7 +492,7 @@ export class AiStudioController {
    */
   @Get("projects/:projectId/outputs/:outputId")
   async getOutput(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("outputId") outputId: string,
   ) {
@@ -507,7 +508,7 @@ export class AiStudioController {
    */
   @Delete("projects/:projectId/outputs/:outputId")
   async deleteOutput(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("outputId") outputId: string,
   ) {
@@ -523,7 +524,7 @@ export class AiStudioController {
    */
   @Patch("projects/:projectId/outputs/:outputId")
   async updateOutput(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("outputId") outputId: string,
     @Body() body: { title?: string },
@@ -545,7 +546,7 @@ export class AiStudioController {
    */
   @Post("projects/:projectId/outputs/:outputId/regenerate")
   async regenerateOutput(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("outputId") outputId: string,
   ) {
@@ -563,7 +564,7 @@ export class AiStudioController {
   @ApiOperation({ summary: "Generate audio for an Audio Overview output" })
   @ApiResponse({ status: 200, description: "Audio generated successfully" })
   async generateAudio(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("outputId") outputId: string,
   ) {

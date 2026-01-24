@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Resource } from '../types';
-import { PAGE_SIZE } from '../constants';
+import type { Resource } from '../utils/types';
+import { PAGE_SIZE } from '../utils/constants';
 
+import { logger } from '@/lib/utils/logger';
 interface UseResourcesProps {
   activeTab: string;
   searchQuery: string;
@@ -170,7 +171,7 @@ export function useResources({
       setHasMore(newResources.length >= PAGE_SIZE);
       setPage(currentPage);
     } catch (error) {
-      console.error('Failed to fetch:', error);
+      logger.error('Failed to fetch:', error);
       if (!loadMore) {
         setResources([]);
       }

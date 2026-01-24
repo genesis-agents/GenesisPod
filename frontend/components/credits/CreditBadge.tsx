@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { useCreditsStore } from '@/stores/creditsStore';
+import { useCreditsStore } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
 
 interface CreditBadgeProps {

@@ -13,13 +13,13 @@ import {
   Mic,
 } from 'lucide-react';
 
-interface TTSSegment {
+export interface TTSSegment {
   speaker: string;
   text: string;
   emotion?: string;
 }
 
-interface AudioOverviewScript {
+export interface AudioOverviewScript {
   title: string;
   script: {
     segments: TTSSegment[];

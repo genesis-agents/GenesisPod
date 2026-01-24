@@ -34,6 +34,7 @@ import type {
   ResearchTodoStatus,
 } from '@/types/topic-research';
 import * as api from '@/lib/api/topic-research';
+import { logger } from '@/lib/utils/logger';
 import type {
   MissionStatus,
   TeamInfo,
@@ -532,7 +533,7 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
               const healthResult = await api.getMissionHealth(topicId);
               if (healthResult.health && !healthResult.health.isHealthy) {
                 // Mission is unhealthy - log issues and stop polling
-                console.warn(
+                logger.warn(
                   'Mission health issues detected:',
                   healthResult.health.issues
                 );
@@ -540,7 +541,7 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
               }
             } catch (healthError) {
               // Health check failed, continue with normal polling
-              console.debug('Health check failed:', healthError);
+              logger.debug('Health check failed:', healthError);
             }
           }
 
@@ -555,7 +556,7 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
           }
         }
       } catch (error) {
-        console.error('Mission polling error:', error);
+        logger.error('Mission polling error:', error);
       }
     }, 2000);
 
@@ -569,7 +570,7 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
       const messages = await api.getTeamMessages(topicId, { limit: 100 });
       set({ teamMessages: messages });
     } catch (error) {
-      console.error('Failed to fetch team messages:', error);
+      logger.error('Failed to fetch team messages:', error);
     }
   },
 
@@ -578,7 +579,7 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
       const activities = await api.getAgentActivities(topicId, { limit: 100 });
       set({ agentActivities: activities });
     } catch (error) {
-      console.error('Failed to fetch agent activities:', error);
+      logger.error('Failed to fetch agent activities:', error);
     }
   },
 
@@ -595,7 +596,7 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
         isLoadingTeamData: false,
       });
     } catch (error) {
-      console.error('Failed to fetch team data:', error);
+      logger.error('Failed to fetch team data:', error);
       set({ isLoadingTeamData: false });
     }
   },

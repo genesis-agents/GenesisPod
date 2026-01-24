@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 import { Loader2, AlertCircle } from 'lucide-react';
 
+import { logger } from '@/lib/utils/logger';
 interface CollectionRule {
   id: string;
   resourceType: string;
@@ -44,7 +45,7 @@ export function CollectionRuleManager() {
       }
     } catch (err) {
       setError('获取采集规则失败');
-      console.error(err);
+      logger.error(err);
     } finally {
       setLoading(false);
     }
@@ -66,7 +67,7 @@ export function CollectionRuleManager() {
       }
     } catch (err) {
       setError('更新规则失败');
-      console.error(err);
+      logger.error(err);
     }
   };
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { logger } from '@/lib/utils/logger';
 import {
   createMermaidWorker,
   MermaidWorkerRequest,
@@ -51,7 +52,7 @@ function getSharedWorker(): Worker | null {
       };
 
       sharedWorker.onerror = (err) => {
-        console.error('Mermaid Worker error:', err);
+        logger.error('Mermaid Worker error:', err);
         // 拒绝所有挂起的请求，触发回退渲染
         pendingRequests.forEach((pending, id) => {
           clearTimeout(pending.timeoutId);

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { config } from '@/lib/utils/config';
 
+import { logger } from '@/lib/utils/logger';
 interface PDFViewerProps {
   url: string;
   title?: string;
@@ -54,7 +55,7 @@ export default function PDFViewer({
 
       try {
         const proxyUrl = `${config.apiUrl}/proxy/pdf?url=${encodeURIComponent(url)}`;
-        console.log(`Fetching PDF from proxy: ${proxyUrl}`);
+        logger.debug(`Fetching PDF from proxy: ${proxyUrl}`);
 
         const response = await fetch(proxyUrl);
 
@@ -63,7 +64,7 @@ export default function PDFViewer({
         }
 
         const pdfBlob = await response.blob();
-        console.log(
+        logger.debug(
           `PDF loaded successfully: ${pdfBlob.size} bytes from ${url}`
         );
 
@@ -75,7 +76,7 @@ export default function PDFViewer({
         setLoading(false);
         setError(null);
       } catch (err) {
-        console.error(`Failed to load PDF from ${url}:`, err);
+        logger.error(`Failed to load PDF from ${url}:`, err);
         setLoading(false);
         setError(
           err instanceof Error

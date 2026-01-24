@@ -1,8 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 'use client';
 
 import React, { useState } from 'react';
@@ -21,6 +16,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { AudioPlayer } from './AudioPlayer';
+import type { AudioOverviewScript } from './AudioPlayer';
 
 interface Output {
   id: string;
@@ -38,6 +34,242 @@ interface OutputViewerProps {
   onRegenerate: () => void;
   onExport: (format: 'markdown' | 'json') => void;
 }
+
+// Type definitions for different output content types
+interface FAQQuestion {
+  question: string;
+  answer: string;
+}
+
+interface FAQCategory {
+  name: string;
+  questions?: FAQQuestion[];
+}
+
+interface FAQData {
+  categories?: FAQCategory[];
+}
+
+interface KeyTerm {
+  term: string;
+  definition: string;
+}
+
+interface StudyQuestion {
+  question: string;
+  answer: string;
+}
+
+interface StudySection {
+  title: string;
+  content?: string;
+  keyTerms?: KeyTerm[];
+  objectives?: string[];
+  questions?: StudyQuestion[];
+}
+
+interface StudyGuideData {
+  sections?: StudySection[];
+}
+
+interface Finding {
+  importance?: 'high' | 'medium' | 'low';
+  finding?: string;
+}
+
+interface Recommendation {
+  action: string;
+  rationale: string;
+}
+
+interface BriefingDocData {
+  executiveSummary?: string;
+  keyFindings?: Finding[];
+  recommendations?: Recommendation[];
+  nextSteps?: string[];
+}
+
+interface TimelineEvent {
+  date: string;
+  title: string;
+  description: string;
+  importance?: 'major' | 'minor';
+}
+
+interface TimelineData {
+  events?: TimelineEvent[];
+}
+
+interface Trend {
+  name: string;
+  direction: 'rising' | 'declining' | 'stable';
+  description: string;
+}
+
+interface Prediction {
+  prediction: string;
+  timeframe: string;
+  probability: string;
+}
+
+interface TrendReportData {
+  overview?: string;
+  trends?: Trend[];
+  predictions?: Prediction[];
+}
+
+interface DimensionValue {
+  value: string;
+  notes?: string;
+}
+
+interface Dimension {
+  name: string;
+  values?: Record<string, DimensionValue>;
+}
+
+interface ComparisonData {
+  dimensions?: Dimension[];
+  subjects?: string[];
+  summary?: {
+    rationale: string;
+  };
+}
+
+interface KnowledgeNode {
+  id: string;
+  label: string;
+  type?: 'concept' | 'entity' | 'person' | 'other';
+  description?: string;
+}
+
+interface KnowledgeEdge {
+  from: string;
+  to: string;
+  label: string;
+}
+
+interface KnowledgeGraphData {
+  nodes?: KnowledgeNode[];
+  edges?: KnowledgeEdge[];
+}
+
+interface AudioSegment {
+  speaker: string;
+  text: string;
+  emotion?: string;
+}
+
+interface AudioScript {
+  segments?: AudioSegment[];
+}
+
+interface AudioOverviewData {
+  title?: string;
+  script?: AudioScript;
+}
+
+interface Flashcard {
+  id: string;
+  front: string;
+  back: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  category?: string;
+  tags?: string[];
+}
+
+interface FlashcardStats {
+  byDifficulty?: {
+    easy?: number;
+    medium?: number;
+    hard?: number;
+  };
+}
+
+interface FlashcardsData {
+  title?: string;
+  cards?: Flashcard[];
+  stats?: FlashcardStats;
+}
+
+interface QuizOption {
+  id: string;
+  text: string;
+}
+
+interface QuizQuestion {
+  id: string;
+  question: string;
+  type: 'multiple_choice' | 'true_false' | 'short_answer';
+  difficulty?: 'easy' | 'medium' | 'hard';
+  points?: number;
+  correctAnswer?: string | boolean;
+  options?: QuizOption[];
+  explanation?: string;
+}
+
+interface QuizSettings {
+  passingScore?: number;
+}
+
+interface QuizData {
+  title?: string;
+  questions?: QuizQuestion[];
+  settings?: QuizSettings;
+}
+
+interface MindMapNode {
+  id: string;
+  label: string;
+  description?: string;
+  color?: string;
+  children?: MindMapNode[];
+}
+
+interface MindMapCentralTopic {
+  label: string;
+  description?: string;
+}
+
+interface MindMapConnection {
+  from: string;
+  to: string;
+  label: string;
+}
+
+interface MindMapLegendItem {
+  color: string;
+  meaning: string;
+}
+
+interface MindMapStats {
+  totalNodes: number;
+  branchCount: number;
+  maxDepth: number;
+}
+
+interface MindMapData {
+  title?: string;
+  centralTopic?: MindMapCentralTopic;
+  branches?: MindMapNode[];
+  connections?: MindMapConnection[];
+  legend?: MindMapLegendItem[];
+  stats?: MindMapStats;
+}
+
+type OutputContent =
+  | FAQData
+  | StudyGuideData
+  | BriefingDocData
+  | TimelineData
+  | TrendReportData
+  | ComparisonData
+  | KnowledgeGraphData
+  | AudioOverviewData
+  | FlashcardsData
+  | QuizData
+  | MindMapData
+  | { raw?: string };
 
 export function OutputViewer({
   output,
@@ -79,11 +311,11 @@ export function OutputViewer({
   }
 
   // Parse content
-  let content: any = null;
+  let content: OutputContent = {};
   try {
-    content = JSON.parse(output.content || '{}');
+    content = JSON.parse(output.content || '{}') as OutputContent;
   } catch {
-    content = { raw: output.content };
+    content = { raw: output.content || '' };
   }
 
   return (
@@ -119,57 +351,57 @@ export function OutputViewer({
 
 function renderOutputContent(
   type: string,
-  content: any,
+  content: OutputContent,
   outputId: string,
   projectId: string
 ) {
   switch (type) {
     case 'FAQ':
-      return <FAQContent data={content} />;
+      return <FAQContent data={content as FAQData} />;
     case 'STUDY_GUIDE':
-      return <StudyGuideContent data={content} />;
+      return <StudyGuideContent data={content as StudyGuideData} />;
     case 'BRIEFING_DOC':
-      return <BriefingDocContent data={content} />;
+      return <BriefingDocContent data={content as BriefingDocData} />;
     case 'TIMELINE':
-      return <TimelineContent data={content} />;
+      return <TimelineContent data={content as TimelineData} />;
     case 'TREND_REPORT':
-      return <TrendReportContent data={content} />;
+      return <TrendReportContent data={content as TrendReportData} />;
     case 'COMPARISON':
-      return <ComparisonContent data={content} />;
+      return <ComparisonContent data={content as ComparisonData} />;
     case 'KNOWLEDGE_GRAPH':
-      return <KnowledgeGraphContent data={content} />;
+      return <KnowledgeGraphContent data={content as KnowledgeGraphData} />;
     case 'AUDIO_OVERVIEW':
       return (
         <AudioOverviewContent
-          data={content}
+          data={content as AudioOverviewData}
           outputId={outputId}
           projectId={projectId}
         />
       );
     case 'FLASHCARDS':
-      return <FlashcardsContent data={content} />;
+      return <FlashcardsContent data={content as FlashcardsData} />;
     case 'QUIZ':
-      return <QuizContent data={content} />;
+      return <QuizContent data={content as QuizData} />;
     case 'MIND_MAP':
-      return <MindMapContent data={content} />;
+      return <MindMapContent data={content as MindMapData} />;
     default:
       return <pre className="text-sm">{JSON.stringify(content, null, 2)}</pre>;
   }
 }
 
 // FAQ Component
-function FAQContent({ data }: { data: any }) {
+function FAQContent({ data }: { data: FAQData }) {
   if (!data.categories) return <p>No FAQ data</p>;
 
   return (
     <div className="space-y-6">
-      {data.categories.map((cat: any, i: number) => (
+      {data.categories.map((cat, i) => (
         <div key={i}>
           <h3 className="mb-3 text-lg font-semibold text-purple-700">
             {cat.name}
           </h3>
           <div className="space-y-4">
-            {cat.questions?.map((q: any, j: number) => (
+            {cat.questions?.map((q, j) => (
               <div key={j} className="border-l-4 border-purple-200 pl-4">
                 <p className="font-medium text-gray-900">{q.question}</p>
                 <p className="mt-1 text-gray-600">{q.answer}</p>
@@ -183,12 +415,12 @@ function FAQContent({ data }: { data: any }) {
 }
 
 // Study Guide Component
-function StudyGuideContent({ data }: { data: any }) {
+function StudyGuideContent({ data }: { data: StudyGuideData }) {
   if (!data.sections) return <p>No study guide data</p>;
 
   return (
     <div className="space-y-8">
-      {data.sections.map((section: any, i: number) => (
+      {data.sections.map((section, i) => (
         <div key={i}>
           <h3 className="mb-3 border-b pb-2 text-lg font-semibold text-purple-700">
             {section.title}
@@ -200,7 +432,7 @@ function StudyGuideContent({ data }: { data: any }) {
 
           {section.keyTerms && (
             <div className="grid gap-2">
-              {section.keyTerms.map((term: any, j: number) => (
+              {section.keyTerms.map((term, j) => (
                 <div key={j} className="rounded-lg bg-purple-50 p-3">
                   <span className="font-semibold text-purple-800">
                     {term.term}
@@ -213,7 +445,7 @@ function StudyGuideContent({ data }: { data: any }) {
 
           {section.objectives && (
             <ul className="list-inside list-disc space-y-1">
-              {section.objectives.map((obj: string, j: number) => (
+              {section.objectives.map((obj, j) => (
                 <li key={j} className="text-gray-700">
                   {obj}
                 </li>
@@ -223,7 +455,7 @@ function StudyGuideContent({ data }: { data: any }) {
 
           {section.questions && (
             <div className="space-y-3">
-              {section.questions.map((q: any, j: number) => (
+              {section.questions.map((q, j) => (
                 <div key={j} className="rounded-lg bg-gray-50 p-3">
                   <p className="font-medium text-gray-900">{q.question}</p>
                   <p className="mt-1 text-sm text-gray-600">{q.answer}</p>
@@ -238,7 +470,7 @@ function StudyGuideContent({ data }: { data: any }) {
 }
 
 // Briefing Doc Component
-function BriefingDocContent({ data }: { data: any }) {
+function BriefingDocContent({ data }: { data: BriefingDocData }) {
   return (
     <div className="space-y-6">
       {data.executiveSummary && (
@@ -254,7 +486,7 @@ function BriefingDocContent({ data }: { data: any }) {
         <div>
           <h3 className="mb-3 font-semibold text-gray-900">Key Findings</h3>
           <div className="space-y-2">
-            {data.keyFindings.map((f: any, i: number) => (
+            {data.keyFindings.map((f, i) => (
               <div
                 key={i}
                 className="flex items-start gap-2 rounded border p-2"
@@ -281,7 +513,7 @@ function BriefingDocContent({ data }: { data: any }) {
         <div>
           <h3 className="mb-3 font-semibold text-gray-900">Recommendations</h3>
           <div className="space-y-2">
-            {data.recommendations.map((r: any, i: number) => (
+            {data.recommendations.map((r, i) => (
               <div key={i} className="border-l-4 border-green-400 py-2 pl-4">
                 <p className="font-medium text-gray-900">{r.action}</p>
                 <p className="text-sm text-gray-500">{r.rationale}</p>
@@ -295,7 +527,7 @@ function BriefingDocContent({ data }: { data: any }) {
         <div>
           <h3 className="mb-3 font-semibold text-gray-900">Next Steps</h3>
           <ol className="list-inside list-decimal space-y-1">
-            {data.nextSteps.map((step: string, i: number) => (
+            {data.nextSteps.map((step, i) => (
               <li key={i} className="text-gray-700">
                 {step}
               </li>
@@ -308,14 +540,14 @@ function BriefingDocContent({ data }: { data: any }) {
 }
 
 // Timeline Component
-function TimelineContent({ data }: { data: any }) {
+function TimelineContent({ data }: { data: TimelineData }) {
   if (!data.events) return <p>No timeline data</p>;
 
   return (
     <div className="relative">
       <div className="absolute bottom-0 left-4 top-0 w-0.5 bg-purple-200" />
       <div className="space-y-6">
-        {data.events.map((event: any, i: number) => (
+        {data.events.map((event, i) => (
           <div key={i} className="relative pl-10">
             <div
               className={`absolute left-2 h-4 w-4 rounded-full ${
@@ -337,7 +569,7 @@ function TimelineContent({ data }: { data: any }) {
 }
 
 // Trend Report Component
-function TrendReportContent({ data }: { data: any }) {
+function TrendReportContent({ data }: { data: TrendReportData }) {
   return (
     <div className="space-y-6">
       {data.overview && (
@@ -352,7 +584,7 @@ function TrendReportContent({ data }: { data: any }) {
             Identified Trends
           </h3>
           <div className="grid gap-4">
-            {data.trends.map((trend: any, i: number) => (
+            {data.trends.map((trend, i) => (
               <div key={i} className="rounded-lg border p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-semibold text-gray-900">
@@ -381,7 +613,7 @@ function TrendReportContent({ data }: { data: any }) {
         <div>
           <h3 className="mb-3 font-semibold text-gray-900">Predictions</h3>
           <div className="space-y-2">
-            {data.predictions.map((p: any, i: number) => (
+            {data.predictions.map((p, i) => (
               <div
                 key={i}
                 className="border-l-4 border-yellow-400 bg-yellow-50 p-3"
@@ -400,8 +632,11 @@ function TrendReportContent({ data }: { data: any }) {
 }
 
 // Comparison Component
-function ComparisonContent({ data }: { data: any }) {
+function ComparisonContent({ data }: { data: ComparisonData }) {
   if (!data.dimensions || !data.subjects) return <p>No comparison data</p>;
+
+  // Type assertion safe here because we checked above
+  const subjects = data.subjects as string[];
 
   return (
     <div className="space-y-6">
@@ -410,7 +645,7 @@ function ComparisonContent({ data }: { data: any }) {
           <thead>
             <tr className="bg-purple-50">
               <th className="border p-3 text-left">Dimension</th>
-              {data.subjects.map((s: string, i: number) => (
+              {subjects.map((s, i) => (
                 <th key={i} className="border p-3 text-left font-semibold">
                   {s}
                 </th>
@@ -418,12 +653,12 @@ function ComparisonContent({ data }: { data: any }) {
             </tr>
           </thead>
           <tbody>
-            {data.dimensions.map((dim: any, i: number) => (
+            {data.dimensions.map((dim, i) => (
               <tr key={i}>
                 <td className="border bg-gray-50 p-3 font-medium">
                   {dim.name}
                 </td>
-                {data.subjects.map((s: string, j: number) => (
+                {subjects.map((s, j) => (
                   <td key={j} className="border p-3">
                     <div className="font-medium">
                       {dim.values?.[s]?.value || '-'}
@@ -452,7 +687,7 @@ function ComparisonContent({ data }: { data: any }) {
 }
 
 // Knowledge Graph Component (简化版)
-function KnowledgeGraphContent({ data }: { data: any }) {
+function KnowledgeGraphContent({ data }: { data: KnowledgeGraphData }) {
   if (!data.nodes) return <p>No knowledge graph data</p>;
 
   return (
@@ -462,7 +697,7 @@ function KnowledgeGraphContent({ data }: { data: any }) {
       </p>
 
       <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-        {data.nodes.map((node: any) => (
+        {data.nodes.map((node) => (
           <div key={node.id} className="rounded-lg border p-3">
             <div className="flex items-center gap-2">
               <span
@@ -494,22 +729,35 @@ function AudioOverviewContent({
   outputId,
   projectId,
 }: {
-  data: any;
+  data: AudioOverviewData;
   outputId: string;
   projectId: string;
 }) {
   if (!data.script?.segments) return <p>No audio script data</p>;
 
+  // Transform data to match AudioPlayer's expected type
+  const audioScript: AudioOverviewScript | undefined = data.title && data.script ? {
+    title: data.title,
+    script: {
+      segments: data.script.segments.map(seg => ({
+        speaker: seg.speaker,
+        text: seg.text,
+        emotion: seg.emotion,
+      })),
+      estimatedDuration: '0:00', // Default duration
+    },
+  } : undefined;
+
   return (
     <div className="space-y-4">
       {/* Audio Player */}
-      <AudioPlayer outputId={outputId} projectId={projectId} script={data} />
+      <AudioPlayer outputId={outputId} projectId={projectId} script={audioScript} />
 
       {/* Script Transcript */}
       <div className="mt-6">
         <h4 className="mb-3 text-sm font-medium text-gray-700">Transcript</h4>
         <div className="space-y-3">
-          {data.script.segments.map((seg: any, i: number) => (
+          {data.script.segments.map((seg, i) => (
             <div
               key={i}
               className={`rounded-lg p-3 ${
@@ -531,7 +779,7 @@ function AudioOverviewContent({
 }
 
 // Flashcards Component - Interactive card flipping and navigation
-function FlashcardsContent({ data }: { data: any }) {
+function FlashcardsContent({ data }: { data: FlashcardsData }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [knownCards, setKnownCards] = useState<Set<string>>(new Set());
@@ -610,7 +858,7 @@ function FlashcardsContent({ data }: { data: any }) {
 
         {/* All Cards Grid */}
         <div className="grid gap-3 md:grid-cols-2">
-          {cards.map((card: any, idx: number) => (
+          {cards.map((card, idx) => (
             <div
               key={card.id}
               className={`cursor-pointer rounded-lg border p-4 transition-all hover:shadow-md ${
@@ -732,7 +980,7 @@ function FlashcardsContent({ data }: { data: any }) {
             </div>
             {currentCard.tags && currentCard.tags.length > 0 && (
               <div className="mt-4 flex flex-wrap justify-center gap-1">
-                {currentCard.tags.map((tag: string, i: number) => (
+                {currentCard.tags.map((tag, i) => (
                   <span
                     key={i}
                     className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700"
@@ -774,9 +1022,9 @@ function FlashcardsContent({ data }: { data: any }) {
 }
 
 // Quiz Component - Interactive quiz with scoring
-function QuizContent({ data }: { data: any }) {
+function QuizContent({ data }: { data: QuizData }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [answers, setAnswers] = useState<Record<string, string | boolean>>({});
   const [showResults, setShowResults] = useState(false);
   const [showExplanation, setShowExplanation] = useState<string | null>(null);
 
@@ -785,16 +1033,16 @@ function QuizContent({ data }: { data: any }) {
 
   const currentQuestion = questions[currentIndex];
   const isAnswered = answers[currentQuestion.id] !== undefined;
-  const allAnswered = questions.every((q: any) => answers[q.id] !== undefined);
+  const allAnswered = questions.every((q) => answers[q.id] !== undefined);
 
-  const handleAnswer = (answer: any) => {
+  const handleAnswer = (answer: string | boolean) => {
     setAnswers((prev) => ({ ...prev, [currentQuestion.id]: answer }));
   };
 
   const calculateScore = () => {
     let score = 0;
     let totalPoints = 0;
-    questions.forEach((q: any) => {
+    questions.forEach((q) => {
       totalPoints += q.points || 1;
       const userAnswer = answers[q.id];
       if (q.type === 'multiple_choice' && userAnswer === q.correctAnswer) {
@@ -811,7 +1059,7 @@ function QuizContent({ data }: { data: any }) {
   };
 
   const isCorrect = (questionId: string) => {
-    const q = questions.find((q: any) => q.id === questionId);
+    const q = questions.find((q) => q.id === questionId);
     if (!q) return false;
     return answers[questionId] === q.correctAnswer;
   };
@@ -846,7 +1094,7 @@ function QuizContent({ data }: { data: any }) {
         {/* Review Questions */}
         <div className="space-y-4">
           <h4 className="font-semibold text-gray-900">Review Answers</h4>
-          {questions.map((q: any, idx: number) => {
+          {questions.map((q, idx) => {
             const correct = isCorrect(q.id);
             return (
               <div
@@ -942,7 +1190,7 @@ function QuizContent({ data }: { data: any }) {
         {/* Answer Options */}
         <div className="mt-6 space-y-2">
           {currentQuestion.type === 'multiple_choice' &&
-            currentQuestion.options?.map((opt: any) => (
+            currentQuestion.options?.map((opt) => (
               <button
                 key={opt.id}
                 onClick={() => handleAnswer(opt.id)}
@@ -984,7 +1232,7 @@ function QuizContent({ data }: { data: any }) {
 
           {currentQuestion.type === 'short_answer' && (
             <textarea
-              value={answers[currentQuestion.id] || ''}
+              value={String(answers[currentQuestion.id] || '')}
               onChange={(e) => handleAnswer(e.target.value)}
               placeholder="Type your answer here..."
               className="w-full rounded-lg border border-gray-200 p-3 focus:border-purple-500 focus:outline-none"
@@ -1055,7 +1303,7 @@ function QuizContent({ data }: { data: any }) {
 }
 
 // Mind Map Component - Visual hierarchical display
-function MindMapContent({ data }: { data: any }) {
+function MindMapContent({ data }: { data: MindMapData }) {
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
     new Set(['all'])
   );
@@ -1076,16 +1324,18 @@ function MindMapContent({ data }: { data: any }) {
 
   const expandAll = () => {
     const allIds = new Set<string>(['all']);
-    const collectIds = (children: any[]) => {
+    const collectIds = (children: MindMapNode[]) => {
       children?.forEach((child) => {
         allIds.add(child.id);
         if (child.children) collectIds(child.children);
       });
     };
-    data.branches.forEach((branch: any) => {
-      allIds.add(branch.id);
-      if (branch.children) collectIds(branch.children);
-    });
+    if (data.branches) {
+      data.branches.forEach((branch) => {
+        allIds.add(branch.id);
+        if (branch.children) collectIds(branch.children);
+      });
+    }
     setExpandedBranches(allIds);
   };
 
@@ -1093,7 +1343,7 @@ function MindMapContent({ data }: { data: any }) {
     setExpandedBranches(new Set(['all']));
   };
 
-  const renderNode = (node: any, depth: number = 0, parentColor?: string) => {
+  const renderNode = (node: MindMapNode, depth: number = 0, parentColor?: string) => {
     const isExpanded = expandedBranches.has(node.id);
     const hasChildren = node.children && node.children.length > 0;
     const color = node.color || parentColor || '#7C3AED';
@@ -1147,7 +1397,7 @@ function MindMapContent({ data }: { data: any }) {
         </div>
 
         {/* Children */}
-        {hasChildren && isExpanded && (
+        {hasChildren && isExpanded && node.children && (
           <div className="relative">
             {/* Vertical line */}
             <div
@@ -1159,7 +1409,7 @@ function MindMapContent({ data }: { data: any }) {
                 opacity: 0.3,
               }}
             />
-            {node.children.map((child: any) =>
+            {node.children.map((child) =>
               renderNode(child, depth + 1, color)
             )}
           </div>
@@ -1201,7 +1451,7 @@ function MindMapContent({ data }: { data: any }) {
       {/* Legend */}
       {data.legend && data.legend.length > 0 && (
         <div className="flex flex-wrap gap-3">
-          {data.legend.map((item: any, i: number) => (
+          {data.legend.map((item, i) => (
             <div key={i} className="flex items-center gap-1.5">
               <div
                 className="h-3 w-3 rounded-full"
@@ -1227,7 +1477,7 @@ function MindMapContent({ data }: { data: any }) {
 
       {/* Branches */}
       <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-4">
-        {data.branches.map((branch: any) => renderNode(branch, 0))}
+        {data.branches.map((branch) => renderNode(branch, 0))}
       </div>
 
       {/* Cross-connections */}
@@ -1237,7 +1487,7 @@ function MindMapContent({ data }: { data: any }) {
             Connections
           </h4>
           <div className="space-y-1">
-            {data.connections.map((conn: any, i: number) => (
+            {data.connections.map((conn, i) => (
               <div
                 key={i}
                 className="flex items-center gap-2 text-sm text-gray-600"

@@ -297,4 +297,47 @@ export class ProjectService {
 
     return project;
   }
+
+  /**
+   * 根据章节号查找章节
+   */
+  async findChapterByNumber(projectId: string, chapterNumber: number) {
+    return this.prisma.writingChapter.findFirst({
+      where: {
+        volume: { projectId },
+        chapterNumber,
+      },
+      select: { id: true },
+    });
+  }
+
+  /**
+   * 批量重置章节内容
+   */
+  async resetChaptersByNumbers(projectId: string, chapterNumbers: number[]) {
+    const result = await this.prisma.writingChapter.updateMany({
+      where: {
+        volume: { projectId },
+        chapterNumber: { in: chapterNumbers },
+      },
+      data: {
+        content: "",
+        wordCount: 0,
+        status: "PLANNED",
+      },
+    });
+
+    // 更新项目字数统计
+    const totalWords = await this.prisma.writingChapter.aggregate({
+      where: { volume: { projectId } },
+      _sum: { wordCount: true },
+    });
+
+    await this.prisma.writingProject.update({
+      where: { id: projectId },
+      data: { currentWords: totalWords._sum.wordCount || 0 },
+    });
+
+    return result;
+  }
 }

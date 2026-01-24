@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 // 后端 API URL
 const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
@@ -45,7 +46,7 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error('[Slides Export] Error:', error);
+    logger.error('[Slides Export] Error:', error);
     return NextResponse.json(
       { error: 'Failed to export Slides' },
       { status: 500 }

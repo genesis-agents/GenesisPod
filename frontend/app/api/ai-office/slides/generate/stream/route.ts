@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 // 后端 API URL
 const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     backendUrl.searchParams.set(key, value);
   });
 
-  console.log('[Slides 3.0 Stream] Proxying to:', backendUrl.toString());
+  logger.debug('[Slides 3.0 Stream] Proxying to:', backendUrl.toString());
 
   try {
     const response = await fetch(backendUrl.toString(), {
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      console.error(
+      logger.error(
         '[Slides 3.0 Stream] Backend error:',
         response.status,
         response.statusText
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Slides 3.0 Stream] Error:', error);
+    logger.error('[Slides 3.0 Stream] Error:', error);
     return new Response(
       JSON.stringify({
         error: 'Failed to connect to backend service',

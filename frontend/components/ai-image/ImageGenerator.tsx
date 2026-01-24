@@ -11,7 +11,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
-import { useImageSourceStore } from '@/stores/imageSourceStore';
+import { useImageSourceStore } from '@/stores';
 
 // Note: The following extracted components are available for future integration:
 import { InputArea } from './components/InputArea';
@@ -27,6 +27,7 @@ import { InputArea } from './components/InputArea';
 
 import SourcePool from './SourcePool';
 
+import { logger } from '@/lib/utils/logger';
 // ===================== TYPE DEFINITIONS =====================
 
 interface ProcessingStep {
@@ -1267,7 +1268,7 @@ export default function ImageGenerator({
         if (defaultImageModel) setSelectedImageModelId(defaultImageModel.id);
       }
     } catch (err) {
-      console.error('Failed to fetch models:', err);
+      logger.error('Failed to fetch models:', err);
     } finally {
       setIsLoadingModels(false);
     }
@@ -1300,7 +1301,7 @@ export default function ImageGenerator({
         }
       }
     } catch (err) {
-      console.error('Failed to fetch history:', err);
+      logger.error('Failed to fetch history:', err);
     }
   }, [initialImageId]);
 
@@ -1457,7 +1458,7 @@ export default function ImageGenerator({
         reader.readAsDataURL(blob);
       });
     } catch (err) {
-      console.error('Failed to convert image to base64:', err);
+      logger.error('Failed to convert image to base64:', err);
       throw err;
     }
   };
@@ -1682,7 +1683,7 @@ export default function ImageGenerator({
                 throw new Error(data.error || 'Generation failed');
               }
             } catch (parseError) {
-              console.warn('Failed to parse SSE data:', line);
+              logger.warn('Failed to parse SSE data:', line);
             }
           }
         }
@@ -1694,7 +1695,7 @@ export default function ImageGenerator({
         setInputMode('prompt');
       }
     } catch (err) {
-      console.error('Image generation failed:', err);
+      logger.error('Image generation failed:', err);
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to generate image';
       setError(errorMessage);
@@ -1737,7 +1738,7 @@ export default function ImageGenerator({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Download failed:', err);
+      logger.error('Download failed:', err);
       // Fallback: open in new tab so the user can manually save
       window.open(image.imageUrl, '_blank', 'noopener,noreferrer');
     }
@@ -1776,7 +1777,7 @@ export default function ImageGenerator({
         );
       }
     } catch (err) {
-      console.error('Bookmark failed:', err);
+      logger.error('Bookmark failed:', err);
     }
     setContextMenu(null);
   };
@@ -1807,7 +1808,7 @@ export default function ImageGenerator({
         });
       }
     } catch (err) {
-      console.error('Delete failed:', err);
+      logger.error('Delete failed:', err);
     }
     setContextMenu(null);
   };
@@ -1817,7 +1818,7 @@ export default function ImageGenerator({
     try {
       await navigator.clipboard.writeText(image.imageUrl);
     } catch (err) {
-      console.error('Copy link failed:', err);
+      logger.error('Copy link failed:', err);
     }
     setContextMenu(null);
   };
@@ -1830,7 +1831,7 @@ export default function ImageGenerator({
         new ClipboardItem({ [blob.type]: blob }),
       ]);
     } catch (err) {
-      console.error('Copy image failed:', err);
+      logger.error('Copy image failed:', err);
     }
     setContextMenu(null);
   };

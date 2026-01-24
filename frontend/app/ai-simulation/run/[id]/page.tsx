@@ -29,6 +29,7 @@ import {
 import { useSimulationPerspective } from '@/hooks';
 import { isContentVisible } from '@/lib/ai-simulation/perspectiveFilter';
 
+import { logger } from '@/lib/utils/logger';
 // 智能解析长文本，提取结构化信息
 function parseStructuredContent(text: string): {
   summary: string;
@@ -312,7 +313,7 @@ export default function RunConsolePage() {
         setRun(data);
       }
     } catch (err) {
-      console.error('Failed to fetch run:', err);
+      logger.error('Failed to fetch run:', err);
     } finally {
       setLoading(false);
     }
@@ -326,7 +327,7 @@ export default function RunConsolePage() {
       });
       await fetchRun();
     } catch (err) {
-      console.error('Failed to resume run:', err);
+      logger.error('Failed to resume run:', err);
     }
   };
 
@@ -338,7 +339,7 @@ export default function RunConsolePage() {
       });
       await fetchRun();
     } catch (err) {
-      console.error('Failed to pause run:', err);
+      logger.error('Failed to pause run:', err);
     }
   };
 
@@ -357,7 +358,7 @@ export default function RunConsolePage() {
       setInterventionText('');
       await fetchRun();
     } catch (err) {
-      console.error('Failed to intervene:', err);
+      logger.error('Failed to intervene:', err);
     } finally {
       setIntervening(false);
     }

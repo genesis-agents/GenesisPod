@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+import { logger } from '@/lib/utils/logger';
 const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
   'https://deepdive-engine.up.railway.app/api/v1';
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
     const cookieStore = await cookies();
     const token = cookieStore.get('auth-token')?.value;
 
-    console.log('[Agents Execute] Request:', {
+    logger.debug('[Agents Execute] Request:', {
       agentType: body.agentType,
       hasPrompt: !!body.prompt,
     });
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(
+      logger.error(
         '[Agents Execute] Backend error:',
         response.status,
         errorText
@@ -46,10 +47,10 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    console.log('[Agents Execute] Success:', data);
+    logger.debug('[Agents Execute] Success:', data);
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[Agents Execute] Error:', error);
+    logger.error('[Agents Execute] Error:', error);
     return NextResponse.json(
       {
         error: 'Internal server error',

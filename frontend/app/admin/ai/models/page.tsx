@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Bot, Plus, Shield } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
-import AIModelSettings from '@/components/admin/AIModelSettings';
+import AIModelSettings from '@/components/admin/ai-config/AIModelSettings';
 
 export default function AIModelsPage() {
   const { t } = useTranslation();

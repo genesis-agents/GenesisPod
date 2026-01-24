@@ -12,6 +12,7 @@ import React, {
   useMemo,
   useRef,
 } from 'react';
+import { logger } from '@/lib/utils/logger';
 import {
   Search,
   TrendingUp,
@@ -178,7 +179,7 @@ export default function CommandPalette({
     const defaultWithActions = DEFAULT_COMMANDS.map((cmd) => ({
       ...cmd,
       action: () => {
-        console.log(`Execute command: ${cmd.id}`);
+        logger.debug(`Execute command: ${cmd.id}`);
         onExecuteCommand?.({
           ...cmd,
           action: () => {},

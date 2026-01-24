@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 // Extend Next.js serverless function timeout (Vercel/Railway)
 export const maxDuration = 120; // 2 minutes
 
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
       throw error;
     }
   } catch (error) {
-    console.error('[process-source] Proxy error:', error);
+    logger.error('[process-source] Proxy error:', error);
 
     return NextResponse.json(
       {

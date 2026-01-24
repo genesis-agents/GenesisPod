@@ -75,6 +75,7 @@ import { ReviewWorkflowService } from "./services/review-workflow.service";
 import { ResearchTodoService } from "./services/research-todo.service";
 import { ResearchMissionHealthService } from "./services/research-mission-health.service";
 import { ResearchCheckpointService } from "./services/research-checkpoint.service";
+import type { RequestWithUser } from "../../../../common/types/express-request.types";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
@@ -139,7 +140,7 @@ export class TopicResearchController {
   })
   @ApiResponse({ status: 201, description: "专题创建成功" })
   @ApiResponse({ status: 401, description: "未认证" })
-  async createTopic(@Request() req: any, @Body() dto: CreateTopicDto) {
+  async createTopic(@Request() req: RequestWithUser, @Body() dto: CreateTopicDto) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -162,7 +163,7 @@ export class TopicResearchController {
   @ApiQuery({ name: "skip", required: false, description: "跳过数量" })
   @ApiQuery({ name: "take", required: false, description: "返回数量" })
   @ApiResponse({ status: 200, description: "返回专题列表" })
-  async listTopics(@Request() req: any, @Query() query: ListTopicsDto) {
+  async listTopics(@Request() req: RequestWithUser, @Query() query: ListTopicsDto) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -179,7 +180,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回专题详情" })
   @ApiResponse({ status: 404, description: "专题不存在" })
-  async getTopic(@Request() req: any, @Param("id") id: string) {
+  async getTopic(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -197,7 +198,7 @@ export class TopicResearchController {
   @ApiResponse({ status: 200, description: "更新成功" })
   @ApiResponse({ status: 404, description: "专题不存在" })
   async updateTopic(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: UpdateTopicDto,
   ) {
@@ -217,7 +218,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "删除成功" })
   @ApiResponse({ status: 404, description: "专题不存在" })
-  async deleteTopic(@Request() req: any, @Param("id") id: string) {
+  async deleteTopic(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -239,7 +240,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 202, description: "刷新任务已创建" })
   async triggerRefresh(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: TriggerRefreshDto,
   ) {
@@ -261,7 +262,7 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回研究策略建议" })
-  async getResearchStrategy(@Request() req: any, @Param("id") id: string) {
+  async getResearchStrategy(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -279,7 +280,7 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回研究状态摘要" })
-  async quickCheckResearchStatus(@Request() req: any, @Param("id") id: string) {
+  async quickCheckResearchStatus(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -299,7 +300,7 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 202, description: "研究任务已创建" })
-  async smartStartResearch(@Request() req: any, @Param("id") id: string) {
+  async smartStartResearch(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -319,7 +320,7 @@ export class TopicResearchController {
   @ApiQuery({ name: "missionId", required: false, description: "任务ID" })
   @ApiResponse({ status: 200, description: "返回按维度分组的 Agent 活动记录" })
   async getAgentActivitiesByDimension(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Query("missionId") missionId?: string,
   ) {
@@ -342,7 +343,7 @@ export class TopicResearchController {
   @ApiQuery({ name: "missionId", required: false, description: "任务ID" })
   @ApiResponse({ status: 200, description: "返回活动统计" })
   async getAgentActivityStats(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Query("missionId") missionId?: string,
   ) {
@@ -364,7 +365,7 @@ export class TopicResearchController {
   @ApiOperation({ summary: "获取当前刷新状态" })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回刷新状态" })
-  async getRefreshStatus(@Request() req: any, @Param("id") id: string) {
+  async getRefreshStatus(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -383,7 +384,7 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   streamRefreshProgress(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
   ): Observable<MessageEvent> {
     const userId = req.user?.id;
@@ -402,7 +403,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "取消成功" })
   async cancelRefresh(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: CancelRefreshDto,
   ) {
@@ -423,7 +424,7 @@ export class TopicResearchController {
   @ApiOperation({ summary: "获取专题的所有维度" })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回维度列表" })
-  async listDimensions(@Request() req: any, @Param("id") id: string) {
+  async listDimensions(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -440,7 +441,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 201, description: "维度创建成功" })
   async addDimension(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: AddDimensionDto,
   ) {
@@ -461,7 +462,7 @@ export class TopicResearchController {
   @ApiParam({ name: "dimensionId", description: "维度ID" })
   @ApiResponse({ status: 200, description: "更新成功" })
   async updateDimension(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("dimensionId") dimensionId: string,
     @Body() dto: UpdateDimensionDto,
@@ -488,7 +489,7 @@ export class TopicResearchController {
   @ApiParam({ name: "dimensionId", description: "维度ID" })
   @ApiResponse({ status: 200, description: "删除成功" })
   async deleteDimension(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("dimensionId") dimensionId: string,
   ) {
@@ -513,7 +514,7 @@ export class TopicResearchController {
   @ApiParam({ name: "dimensionId", description: "维度ID" })
   @ApiResponse({ status: 202, description: "刷新任务已创建" })
   async refreshDimension(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("dimensionId") dimensionId: string,
     @Body() dto: RefreshDimensionDto,
@@ -539,7 +540,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "顺序调整成功" })
   async reorderDimensions(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: ReorderDimensionsDto,
   ) {
@@ -566,7 +567,7 @@ export class TopicResearchController {
   @ApiQuery({ name: "cursor", required: false, description: "游标" })
   @ApiResponse({ status: 200, description: "返回报告列表" })
   async listReports(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Query() query: ListReportsDto,
   ) {
@@ -586,7 +587,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回最新报告" })
   @ApiResponse({ status: 404, description: "报告不存在" })
-  async getLatestReport(@Request() req: any, @Param("id") id: string) {
+  async getLatestReport(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -604,7 +605,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "返回报告详情" })
   async getReport(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
   ) {
@@ -629,7 +630,7 @@ export class TopicResearchController {
   @ApiResponse({ status: 200, description: "删除成功" })
   @ApiResponse({ status: 404, description: "报告不存在" })
   async deleteReport(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
   ) {
@@ -649,7 +650,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "返回下载链接" })
   async exportReport(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Body() dto: ExportReportDto,
@@ -675,7 +676,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回差异对比" })
   async compareReports(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: CompareReportsDto,
   ) {
@@ -700,7 +701,7 @@ export class TopicResearchController {
   @ApiResponse({ status: 200, description: "更新成功" })
   @ApiResponse({ status: 404, description: "报告不存在" })
   async updateReportContent(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Body() dto: UpdateReportContentDto,
@@ -730,7 +731,7 @@ export class TopicResearchController {
   @ApiResponse({ status: 200, description: "编辑成功" })
   @ApiResponse({ status: 404, description: "报告不存在" })
   async aiEditReport(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Body() dto: AIEditReportDto,
@@ -760,7 +761,7 @@ export class TopicResearchController {
   @ApiResponse({ status: 200, description: "返回修订历史列表" })
   @ApiResponse({ status: 404, description: "报告不存在" })
   async getReportRevisions(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
   ) {
@@ -788,7 +789,7 @@ export class TopicResearchController {
   @ApiResponse({ status: 200, description: "回滚成功" })
   @ApiResponse({ status: 404, description: "报告或修订版本不存在" })
   async rollbackReport(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Body() dto: RollbackReportDto,
@@ -819,7 +820,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "返回变更列表" })
   async getReportChanges(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
   ) {
@@ -845,7 +846,7 @@ export class TopicResearchController {
   @ApiParam({ name: "changeId", description: "变更ID" })
   @ApiResponse({ status: 200, description: "Checkin 成功" })
   async checkinChange(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Param("changeId") changeId: string,
@@ -872,7 +873,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "Checkin 成功" })
   async checkinAllChanges(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Body() dto: { changeIds?: string[] },
@@ -904,7 +905,7 @@ export class TopicResearchController {
   })
   @ApiResponse({ status: 200, description: "返回批注列表" })
   async getReportAnnotations(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Query("status") status?: string,
@@ -931,7 +932,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 201, description: "批注创建成功" })
   async createAnnotation(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Body() dto: any,
@@ -959,7 +960,7 @@ export class TopicResearchController {
   @ApiParam({ name: "annotationId", description: "批注ID" })
   @ApiResponse({ status: 200, description: "更新成功" })
   async updateAnnotation(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Param("annotationId") annotationId: string,
@@ -989,7 +990,7 @@ export class TopicResearchController {
   @ApiParam({ name: "annotationId", description: "批注ID" })
   @ApiResponse({ status: 200, description: "删除成功" })
   async deleteAnnotation(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Param("annotationId") annotationId: string,
@@ -1017,7 +1018,7 @@ export class TopicResearchController {
   @ApiParam({ name: "annotationId", description: "批注ID" })
   @ApiResponse({ status: 200, description: "解决成功" })
   async resolveAnnotation(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Param("annotationId") annotationId: string,
@@ -1044,7 +1045,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "批量解决成功" })
   async resolveAllAnnotations(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Body() dto: { annotationIds?: string[] },
@@ -1080,7 +1081,7 @@ export class TopicResearchController {
   @ApiQuery({ name: "page", required: false, description: "页码" })
   @ApiResponse({ status: 200, description: "返回证据列表" })
   async listEvidence(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Query() query: ListEvidenceDto,
@@ -1108,7 +1109,7 @@ export class TopicResearchController {
   @ApiParam({ name: "evidenceId", description: "证据ID" })
   @ApiResponse({ status: 200, description: "返回证据详情" })
   async getEvidence(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Param("evidenceId") evidenceId: string,
@@ -1135,7 +1136,7 @@ export class TopicResearchController {
   @ApiOperation({ summary: "获取专题模板列表" })
   @ApiQuery({ name: "type", required: true, description: "专题类型" })
   @ApiResponse({ status: 200, description: "返回模板列表" })
-  async getTemplates(@Request() req: any, @Query() query: GetTemplatesDto) {
+  async getTemplates(@Request() req: RequestWithUser, @Query() query: GetTemplatesDto) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1151,7 +1152,7 @@ export class TopicResearchController {
   @ApiOperation({ summary: "从模板创建专题" })
   @ApiResponse({ status: 201, description: "专题创建成功" })
   async createFromTemplate(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Body() dto: CreateFromTemplateDto,
   ) {
     const userId = req.user?.id;
@@ -1171,7 +1172,7 @@ export class TopicResearchController {
   @ApiOperation({ summary: "获取专题的刷新计划" })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回刷新计划" })
-  async getSchedule(@Request() req: any, @Param("id") id: string) {
+  async getSchedule(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1188,7 +1189,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "更新成功" })
   async updateSchedule(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: UpdateScheduleDto,
   ) {
@@ -1212,7 +1213,7 @@ export class TopicResearchController {
   @ApiQuery({ name: "status", required: false, description: "日志状态" })
   @ApiResponse({ status: 200, description: "返回日志列表" })
   async getLogs(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Query() query: ListLogsDto,
   ) {
@@ -1233,7 +1234,7 @@ export class TopicResearchController {
   @ApiOperation({ summary: "获取专题统计数据" })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回统计数据" })
-  async getStats(@Request() req: any, @Param("id") id: string) {
+  async getStats(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1255,7 +1256,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 201, description: "规划成功" })
   async leaderPlan(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: LeaderPlanDto,
   ) {
@@ -1291,7 +1292,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "消息处理成功" })
   async leaderMessage(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: LeaderMessageDto,
   ) {
@@ -1343,7 +1344,7 @@ export class TopicResearchController {
     },
   })
   async leaderChat(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") topicId: string,
     @Body() dto: { message: string; missionId?: string },
   ) {
@@ -1447,7 +1448,7 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回决策历史" })
-  async getLeaderDecisions(@Request() req: any, @Param("id") id: string) {
+  async getLeaderDecisions(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1471,7 +1472,7 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回 Mission 状态" })
-  async getMission(@Request() req: any, @Param("id") id: string) {
+  async getMission(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1490,7 +1491,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "重试成功" })
   async retryMission(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: MissionRetryDto,
   ) {
@@ -1532,7 +1533,7 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回团队信息" })
-  async getTeam(@Request() req: any, @Param("id") id: string) {
+  async getTeam(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1561,7 +1562,7 @@ export class TopicResearchController {
   })
   @ApiResponse({ status: 200, description: "返回团队消息列表" })
   async getTeamMessages(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Query("limit") limit?: string,
     @Query("missionId") missionId?: string,
@@ -1598,7 +1599,7 @@ export class TopicResearchController {
   })
   @ApiResponse({ status: 200, description: "返回 Agent 活动列表" })
   async getAgentActivities(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Query("limit") limit?: string,
     @Query("missionId") missionId?: string,
@@ -1626,7 +1627,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "调整成功" })
   async adjustMission(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: MissionAdjustDto,
   ) {
@@ -1651,7 +1652,7 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "取消成功" })
-  async cancelMission(@Request() req: any, @Param("id") id: string) {
+  async cancelMission(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1684,7 +1685,7 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回协作者列表" })
-  async getCollaborators(@Request() req: any, @Param("id") id: string) {
+  async getCollaborators(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1703,7 +1704,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 201, description: "协作者添加成功" })
   async addCollaborator(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: AddCollaboratorDto,
   ) {
@@ -1731,7 +1732,7 @@ export class TopicResearchController {
   @ApiParam({ name: "collaboratorId", description: "协作者ID" })
   @ApiResponse({ status: 200, description: "更新成功" })
   async updateCollaboratorRole(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("collaboratorId") collaboratorId: string,
     @Body() dto: UpdateCollaboratorRoleDto,
@@ -1760,7 +1761,7 @@ export class TopicResearchController {
   @ApiParam({ name: "collaboratorId", description: "协作者ID" })
   @ApiResponse({ status: 200, description: "移除成功" })
   async removeCollaborator(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("collaboratorId") collaboratorId: string,
   ) {
@@ -1786,7 +1787,7 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "退出成功" })
-  async leaveTopic(@Request() req: any, @Param("id") id: string) {
+  async leaveTopic(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1806,7 +1807,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "更新成功" })
   async updateVisibility(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Body() dto: UpdateTopicVisibilityDto,
   ) {
@@ -1831,7 +1832,7 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回共享设置" })
-  async getSharingSettings(@Request() req: any, @Param("id") id: string) {
+  async getSharingSettings(@Request() req: RequestWithUser, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1853,7 +1854,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "返回可信度评估" })
   async getCredibilityReport(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("reportId") reportId: string,
   ) {
@@ -1876,7 +1877,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "返回新的可信度评估" })
   async regenerateCredibilityReport(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("reportId") reportId: string,
   ) {
@@ -1902,7 +1903,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "返回更新统计" })
   async recalculateEvidenceCredibility(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("reportId") reportId: string,
   ) {
@@ -1925,7 +1926,7 @@ export class TopicResearchController {
   @ApiParam({ name: "topicId", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回更新后的专题" })
   async recalculateTopicStats(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
   ) {
     const userId = req.user?.id;
@@ -1949,7 +1950,7 @@ export class TopicResearchController {
   @ApiQuery({ name: "limit", required: false, description: "返回数量" })
   @ApiResponse({ status: 200, description: "返回研究历史列表" })
   async getResearchHistory(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("id") id: string,
     @Query("limit") limit?: string,
   ) {
@@ -1978,7 +1979,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "返回审核任务列表" })
   async getReviewTasks(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("reportId") reportId: string,
   ) {
@@ -2001,7 +2002,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 201, description: "审核任务创建成功" })
   async createReviewTasks(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("reportId") reportId: string,
   ) {
@@ -2028,7 +2029,7 @@ export class TopicResearchController {
   @ApiParam({ name: "taskId", description: "任务ID" })
   @ApiResponse({ status: 200, description: "分配成功" })
   async assignReviewTask(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("reportId") _reportId: string,
     @Param("taskId") taskId: string,
@@ -2062,7 +2063,7 @@ export class TopicResearchController {
   @ApiParam({ name: "taskId", description: "任务ID" })
   @ApiResponse({ status: 200, description: "审核完成" })
   async completeReviewTask(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("reportId") _reportId: string,
     @Param("taskId") taskId: string,
@@ -2095,7 +2096,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "返回审核任务统计" })
   async getReviewTaskStats(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("reportId") reportId: string,
   ) {
@@ -2118,7 +2119,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "返回发布状态" })
   async canPublishReport(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("reportId") reportId: string,
   ) {
@@ -2147,7 +2148,7 @@ export class TopicResearchController {
   })
   @ApiResponse({ status: 200, description: "返回 TODO 列表和汇总" })
   async getTodos(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Query() query: GetTodosQueryDto,
   ) {
@@ -2174,7 +2175,7 @@ export class TopicResearchController {
   @ApiParam({ name: "todoId", description: "TODO ID" })
   @ApiResponse({ status: 200, description: "返回 TODO 详情" })
   async getTodoById(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("todoId") todoId: string,
   ) {
@@ -2197,7 +2198,7 @@ export class TopicResearchController {
   @ApiParam({ name: "todoId", description: "TODO ID" })
   @ApiResponse({ status: 200, description: "返回 TODO 详情和活动" })
   async getTodoDetails(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("todoId") todoId: string,
   ) {
@@ -2221,7 +2222,7 @@ export class TopicResearchController {
   @ApiParam({ name: "taskId", description: "任务ID (ResearchTask.id)" })
   @ApiResponse({ status: 200, description: "返回任务信息和活动记录" })
   async getTaskActivities(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("taskId") taskId: string,
   ) {
@@ -2245,7 +2246,7 @@ export class TopicResearchController {
   @ApiParam({ name: "todoId", description: "TODO ID" })
   @ApiResponse({ status: 200, description: "暂停成功" })
   async pauseTodo(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("todoId") todoId: string,
   ) {
@@ -2270,7 +2271,7 @@ export class TopicResearchController {
   @ApiParam({ name: "todoId", description: "TODO ID" })
   @ApiResponse({ status: 200, description: "恢复成功" })
   async resumeTodo(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("todoId") todoId: string,
   ) {
@@ -2295,7 +2296,7 @@ export class TopicResearchController {
   @ApiParam({ name: "todoId", description: "TODO ID" })
   @ApiResponse({ status: 200, description: "取消成功" })
   async cancelTodo(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("todoId") todoId: string,
     @Body() dto: CancelTodoDto,
@@ -2323,7 +2324,7 @@ export class TopicResearchController {
   @ApiParam({ name: "todoId", description: "TODO ID 或 Task ID" })
   @ApiResponse({ status: 200, description: "重试已排队" })
   async retryTodo(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("todoId") todoId: string,
   ) {
@@ -2377,7 +2378,7 @@ export class TopicResearchController {
   @ApiParam({ name: "todoId", description: "TODO ID" })
   @ApiResponse({ status: 202, description: "执行已开始" })
   async executeTodo(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("todoId") todoId: string,
   ) {
@@ -2401,7 +2402,7 @@ export class TopicResearchController {
   @ApiParam({ name: "todoId", description: "TODO ID" })
   @ApiResponse({ status: 200, description: "优先级已调整" })
   async prioritizeTodo(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("todoId") todoId: string,
     @Body() dto: PrioritizeTodoDto,
@@ -2426,7 +2427,7 @@ export class TopicResearchController {
   @ApiParam({ name: "todoId", description: "TODO ID" })
   @ApiResponse({ status: 200, description: "进度已更新" })
   async updateTodoProgress(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("todoId") todoId: string,
     @Body() dto: UpdateTodoProgressDto,
@@ -2454,7 +2455,7 @@ export class TopicResearchController {
   @ApiParam({ name: "missionId", description: "Mission ID" })
   @ApiResponse({ status: 201, description: "TODO 创建成功" })
   async createUserRequestTodo(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("missionId") missionId: string,
     @Body() dto: CreateUserRequestTodoDto,
@@ -2484,7 +2485,7 @@ export class TopicResearchController {
   @ApiParam({ name: "todoId", description: "TODO ID" })
   @ApiResponse({ status: 200, description: "更新成功" })
   async updateTodo(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("todoId") todoId: string,
     @Body() dto: { title?: string; description?: string },
@@ -2510,7 +2511,7 @@ export class TopicResearchController {
   @ApiParam({ name: "todoId", description: "TODO ID" })
   @ApiResponse({ status: 200, description: "删除成功" })
   async deleteTodo(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("todoId") todoId: string,
   ) {
@@ -2536,7 +2537,7 @@ export class TopicResearchController {
   @ApiParam({ name: "missionId", description: "Mission ID" })
   @ApiResponse({ status: 200, description: "返回健康状态" })
   async getMissionHealth(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("missionId") missionId: string,
   ) {
@@ -2559,7 +2560,7 @@ export class TopicResearchController {
   @ApiParam({ name: "topicId", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回健康状态" })
   async getTopicMissionHealth(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
   ) {
     const userId = req.user?.id;
@@ -2589,7 +2590,7 @@ export class TopicResearchController {
   @ApiParam({ name: "missionId", description: "Mission ID" })
   @ApiResponse({ status: 200, description: "返回是否可恢复" })
   async canResumeMission(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("missionId") missionId: string,
   ) {
@@ -2613,7 +2614,7 @@ export class TopicResearchController {
   @ApiParam({ name: "missionId", description: "Mission ID" })
   @ApiResponse({ status: 200, description: "恢复成功" })
   async resumeMission(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("missionId") missionId: string,
   ) {
@@ -2645,7 +2646,7 @@ export class TopicResearchController {
     description: "获取当前用户所有可恢复的失败/取消研究任务",
   })
   @ApiResponse({ status: 200, description: "返回可恢复任务列表" })
-  async getResumableMissions(@Request() req: any) {
+  async getResumableMissions(@Request() req: RequestWithUser) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -2663,7 +2664,7 @@ export class TopicResearchController {
     description: "管理员手动触发所有活跃任务的健康检查",
   })
   @ApiResponse({ status: 200, description: "健康检查完成" })
-  async triggerHealthCheck(@Request() req: any) {
+  async triggerHealthCheck(@Request() req: RequestWithUser) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");

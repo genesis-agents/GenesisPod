@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslation } from '@/lib/i18n';
-import { useSocialCreateStore, CreateStep } from '@/stores/socialCreateStore';
+import { useSocialCreateStore, CreateStep } from '@/stores';
 import {
   FileText,
   Smartphone,

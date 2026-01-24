@@ -3,7 +3,7 @@
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
-import DataQualityManagement from '@/components/admin/DataQualityManagement';
+import DataQualityManagement from '@/components/admin/data-management/DataQualityManagement';
 
 export default function QualityRulesPage() {
   const { t } = useTranslation();

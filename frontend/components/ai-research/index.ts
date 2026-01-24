@@ -8,45 +8,71 @@
 
 // ==================== Topic Research ====================
 
-// Core Components
-export { TopicCard } from './TopicCard';
-export { CreateTopicDialog } from './CreateTopicDialog';
-export { TopicDetail } from './TopicDetail';
-export { TopicResearchTab } from './TopicResearchTab';
+// Topic Components
+export {
+  TopicCard,
+  TopicCollaborationPanel,
+  TopicContentPanel,
+  TopicCredibilityPanel,
+  TopicDetail,
+  TopicHistoryPanel,
+  TopicReferencesPanel,
+  TopicReportView,
+  TopicResearchLayout,
+  TopicResearchTab,
+  TopicTeamPanel,
+} from './topics';
 
-// Layout Components
-export { TopicResearchLayout } from './TopicResearchLayout';
-export { TopicTeamPanel } from './TopicTeamPanel';
-export { TopicContentPanel } from './TopicContentPanel';
-export { ResearchTeamPanel } from './ResearchTeamPanel';
-export { ResearchProgressBar } from './ResearchProgressBar';
-export { ResearchCommandInput } from './ResearchCommandInput';
-
-// TODO & Collaboration Components
-export { ResearchTodoList } from './ResearchTodoList';
-export { QuickCommandBar } from './QuickCommandBar';
-export { ResearchCollaborationPanel } from './ResearchCollaborationPanel';
-export { TodoDetailPanel } from './TodoDetailPanel';
-export { ResearchProgressSummary } from './ResearchProgressSummary';
+// Research Control Components
+export {
+  ResearchCommandInput,
+  ResearchProgressBar,
+  ResearchProgressSummary,
+  ResearchSettingsModal,
+  ResearchTeamPanel,
+  ResearchTodoList,
+  QuickCommandBar,
+} from './research-control';
 
 // Report Components
-export { ReportEditor } from './ReportEditor';
-export { ReportOutlineNav } from './ReportOutlineNav';
-export { TextSelectionContextMenu } from './TextSelectionContextMenu';
+export {
+  ReportEditor,
+  ReportEditPanel,
+  ReportOutlineNav,
+  ReportRevisionHistory,
+  ReportTemplateDialog,
+  ReportWorkspace,
+  ChapterizedReportView,
+  ChangeReviewPanel,
+  ChangeSummaryPanel,
+} from './reports';
 
-// Team & Reference Components
-export { AgentThinkingGraph } from './AgentThinkingGraph';
-export { ReferencePanel } from './ReferencePanel';
+// Panel Components
+export {
+  CredibilityPanel,
+  ReferencePanel,
+  TextSelectionContextMenu,
+  TodoDetailPanel,
+} from './panels';
 
-// Advanced Components
-export { ReportRevisionHistory } from './ReportRevisionHistory';
-export { ReportAnnotations } from './ReportAnnotations';
+// Dialog Components
+export {
+  CreateTopicDialog,
+  TopicSharingModal,
+} from './dialogs';
 
-// Sharing Components
-export { TopicSharingModal } from './TopicSharingModal';
+// Collaboration Components
+export { ResearchCollaborationPanel } from './collaboration/ResearchCollaborationPanel';
+export { AgentThinkingGraph } from './collaboration/AgentThinkingGraph';
 
-// Settings Components
-export { ResearchSettingsModal } from './ResearchSettingsModal';
+// Annotation Components
+export { ReportAnnotations } from './annotations/ReportAnnotations';
+
+// AI Edit Components
+export * from './ai-edit';
+
+// Topic Content Components
+export * from './topic-content';
 
 // ==================== Deep Research ====================
 

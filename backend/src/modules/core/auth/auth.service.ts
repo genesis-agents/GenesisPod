@@ -7,6 +7,7 @@ import {
 import { JwtService } from "@nestjs/jwt";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import * as bcrypt from "bcrypt";
+import * as crypto from "crypto";
 
 /**
  * 登录请求信息（用于记录登录历史）
@@ -14,6 +15,16 @@ import * as bcrypt from "bcrypt";
 export interface LoginRequestInfo {
   ipAddress?: string;
   userAgent?: string;
+}
+
+/**
+ * 授权码存储结构
+ */
+interface AuthCodeData {
+  accessToken: string;
+  refreshToken: string;
+  userId: string;
+  expiresAt: Date;
 }
 
 /**
@@ -73,11 +84,81 @@ function parseUserAgent(userAgent?: string): {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly authCodeStore = new Map<string, AuthCodeData>();
 
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-  ) {}
+  ) {
+    // 定期清理过期的授权码（每分钟）
+    setInterval(() => this.cleanupExpiredAuthCodes(), 60000);
+  }
+
+  /**
+   * 清理过期的授权码
+   */
+  private cleanupExpiredAuthCodes(): void {
+    const now = new Date();
+    for (const [code, data] of this.authCodeStore.entries()) {
+      if (data.expiresAt < now) {
+        this.authCodeStore.delete(code);
+      }
+    }
+  }
+
+  /**
+   * 生成短期授权码
+   */
+  generateAuthCode(
+    accessToken: string,
+    refreshToken: string,
+    userId: string,
+  ): string {
+    const authCode = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 60000); // 60秒过期
+
+    this.authCodeStore.set(authCode, {
+      accessToken,
+      refreshToken,
+      userId,
+      expiresAt,
+    });
+
+    this.logger.debug(
+      `Auth code generated for user: ${userId}, expires at: ${expiresAt.toISOString()}`,
+    );
+    return authCode;
+  }
+
+  /**
+   * 用授权码换取 token
+   */
+  exchangeAuthCode(code: string): {
+    accessToken: string;
+    refreshToken: string;
+  } {
+    const data = this.authCodeStore.get(code);
+
+    if (!data) {
+      throw new UnauthorizedException("Invalid or expired authorization code");
+    }
+
+    // 检查是否过期
+    if (data.expiresAt < new Date()) {
+      this.authCodeStore.delete(code);
+      throw new UnauthorizedException("Authorization code has expired");
+    }
+
+    // 删除已使用的授权码（一次性使用）
+    this.authCodeStore.delete(code);
+
+    this.logger.log(`Auth code exchanged for user: ${data.userId}`);
+
+    return {
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+    };
+  }
 
   /**
    * 记录登录历史

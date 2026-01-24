@@ -28,6 +28,9 @@ export {
   MissionLifecycleService,
   MissionRetryService,
   MissionHealthCheckService,
+  MissionAICallerService,
+  TeamMessageService,
+  TeamMemberService,
   // MissionPromptService 中的非冲突类型
   TaskBreakdown,
   TeamMemberInfo,

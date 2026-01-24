@@ -7,6 +7,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 
+import { logger } from '@/lib/utils/logger';
 // ==================== 类型定义 ====================
 
 export type ResearchStepType =
@@ -360,7 +361,7 @@ export function useDeepResearch(
             break;
         }
       } catch (error) {
-        console.error('Failed to parse SSE event:', error);
+        logger.error('Failed to parse SSE event:', error);
       }
     },
     [
@@ -485,16 +486,17 @@ export function useDeepResearch(
             }
           }
         }
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
+      } catch (error: unknown) {
+        if (error instanceof Error && error.name === 'AbortError') {
           return; // 用户主动取消
         }
+        const errorMessage = error instanceof Error ? error.message : '研究启动失败';
         setState((prev) => ({
           ...prev,
           phase: 'error',
-          error: error.message || '研究启动失败',
+          error: errorMessage,
         }));
-        onError?.(error.message || '研究启动失败');
+        onError?.(errorMessage);
       }
     },
     [projectId, cleanup, handleEvent, onError]

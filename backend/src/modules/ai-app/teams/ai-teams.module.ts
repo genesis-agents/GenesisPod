@@ -25,6 +25,7 @@ import {
   PublicReportsController,
 } from "./controllers";
 import { AiTeamsService } from "./ai-teams.service";
+import { TeamsRepository } from "./teams.repository";
 import { AiTeamsGateway } from "./ai-teams.gateway";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
@@ -51,6 +52,9 @@ import {
   MissionLifecycleService,
   MissionRetryService,
   MissionHealthCheckService,
+  MissionAICallerService,
+  TeamMessageService,
+  TeamMemberService,
   // 长内容处理增强服务
   ConstraintEnforcementService,
   TokenBudgetService,
@@ -77,6 +81,9 @@ import { TeamMemberAgent } from "./agents";
     PublicReportsController,
   ],
   providers: [
+    // Repository
+    TeamsRepository,
+
     // 核心业务服务
     AiTeamsService,
     AiTeamsGateway,
@@ -103,6 +110,9 @@ import { TeamMemberAgent } from "./agents";
     MissionLifecycleService,
     MissionRetryService,
     MissionHealthCheckService,
+    MissionAICallerService,
+    TeamMessageService,
+    TeamMemberService,
 
     // 长内容处理增强服务
     ConstraintEnforcementService,
@@ -120,6 +130,9 @@ import { TeamMemberAgent } from "./agents";
     // 注意：UrlParserService 和 WebContentExtractionService 由 @Global() ContentProcessingModule 提供
   ],
   exports: [
+    // Repository
+    TeamsRepository,
+
     // 核心业务服务
     AiTeamsService,
 

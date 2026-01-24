@@ -48,6 +48,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { ViewPerspective } from '@/components/ai-simulation/PerspectiveSelector';
 import { isContentVisible } from '@/lib/ai-simulation/perspectiveFilter';
 
+import { logger } from '@/lib/utils/logger';
 // 类型定义
 interface Agent {
   id?: string;
@@ -469,11 +470,11 @@ export default function SandboxView({
         }
       } else {
         const error = await response.text();
-        console.warn('Failed to generate background:', error);
+        logger.warn('Failed to generate background:', error);
         setBackgroundError('背景生成失败');
       }
     } catch (error) {
-      console.warn('Background generation error:', error);
+      logger.warn('Background generation error:', error);
       setBackgroundError('网络错误');
     } finally {
       setIsGeneratingBackground(false);

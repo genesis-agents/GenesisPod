@@ -1,6 +1,6 @@
 'use client';
 
-import { AIInsight } from '../types';
+import { AIInsight } from '../utils/types';
 
 interface AIMethodologyCardProps {
   aiMethodology: AIInsight[];

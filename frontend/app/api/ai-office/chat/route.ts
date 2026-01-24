@@ -5,6 +5,7 @@ import {
 } from '@/lib/ai-office/multi-agents';
 import type { Resource } from '@/types/ai-office';
 
+import { logger } from '@/lib/utils/logger';
 // 服务器端使用内部域名进行服务间通信
 // Railway 生产环境使用硬编码的 URL（因为是内部服务通信）
 const AI_SERVICE_URL = 'https://deepdive-engine-ai-service.up.railway.app';
@@ -42,16 +43,16 @@ async function getDefaultModel(): Promise<string> {
       if (defaultModel?.name) {
         cachedDefaultModel = defaultModel.name;
         cacheTimestamp = now;
-        console.log('[AI Office] Using default model:', defaultModel.name);
+        logger.debug('[AI Office] Using default model:', defaultModel.name);
         return defaultModel.name;
       }
     }
   } catch (err) {
-    console.warn('[AI Office] Failed to fetch default model:', err);
+    logger.warn('[AI Office] Failed to fetch default model:', err);
   }
 
   // 如果获取失败，回退到 grok（保底方案）
-  console.warn('[AI Office] Falling back to grok model');
+  logger.warn('[AI Office] Falling back to grok model');
   return 'grok';
 }
 
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
           existingDocumentId: documentId,
         });
 
-        console.log('[Multi-Agent] Plan:', agentPlan);
+        logger.debug('[Multi-Agent] Plan:', agentPlan);
 
         // Step 2: ResourceAnalysisAgent深度分析资源（如果需要）
         if (agentPlan.needsResourceAnalysis) {
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
             analysisDepth: agentPlan.depth,
           });
 
-          console.log('[Multi-Agent] Resource Analysis:', {
+          logger.debug('[Multi-Agent] Resource Analysis:', {
             insights: resourceAnalysis.insights.length,
             findings: resourceAnalysis.findings.length,
             confidence: resourceAnalysis.confidence,
@@ -157,7 +158,7 @@ export async function POST(request: NextRequest) {
             ResourceAnalysisAgent.toPromptEnhancement(resourceAnalysis);
         }
       } catch (error) {
-        console.error('[Multi-Agent] Pre-processing error:', error);
+        logger.error('[Multi-Agent] Pre-processing error:', error);
         // 降级到basic模式
       }
     }
@@ -350,7 +351,7 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('AI Office chat error:', error);
+    logger.error('AI Office chat error:', error);
     return NextResponse.json(
       { error: 'Failed to communicate with AI service' },
       { status: 500 }

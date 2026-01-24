@@ -2,7 +2,7 @@
  * Global API utilities with automatic error handling and toast notifications
  */
 
-import { toast } from '@/stores/toastStore';
+import { toast } from '@/stores';
 
 export interface ApiErrorResponse {
   message: string;

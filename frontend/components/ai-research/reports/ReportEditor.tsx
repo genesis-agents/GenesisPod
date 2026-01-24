@@ -1,0 +1,1691 @@
+'use client';
+
+/**
+ * Report Editor Component
+ *
+ * v10.0 报告编辑器:
+ * - 三种视图模式（预览/富文本编辑/源码编辑）
+ * - 富文本编辑器（TipTap WYSIWYG）
+ * - 右键上下文菜单支持（AI编辑、批注）
+ * - Markdown 工具栏（源码模式）
+ * - AI 浮动工具栏（选中文本时显示）
+ *
+ * 参考 PRD: docs/prd/topic-research-report-editing.md
+ */
+
+import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import Typography from '@tiptap/extension-typography';
+import Highlight from '@tiptap/extension-highlight';
+import TurndownService from 'turndown';
+import type { TopicReport, TopicEvidence } from '@/types/topic-research';
+import { TextSelectionContextMenu } from '../panels/TextSelectionContextMenu';
+import type { AIEditOperation } from '../types';
+import { triggerCitationClick } from '../citationNavigation';
+import {
+  splitTextIntoSegments,
+  findAnnotationMatches,
+  normalizeWhitespace,
+  type Annotation as PreprocessorAnnotation,
+  type AnnotationColor,
+} from '@/lib/annotation';
+import { AnnotatedText, useScrollToAnnotation } from '../annotations/AnnotatedText';
+
+import { logger } from '@/lib/utils/logger';
+// View modes: preview, richtext (WYSIWYG), source (raw markdown)
+type ViewMode = 'preview' | 'richtext' | 'source';
+
+// Initialize Turndown for HTML to Markdown conversion
+const turndownService = new TurndownService({
+  headingStyle: 'atx',
+  bulletListMarker: '-',
+  codeBlockStyle: 'fenced',
+});
+
+// Comprehensive markdown to HTML converter (for TipTap)
+function markdownToHtml(markdown: string): string {
+  // First normalize and clean the markdown
+  let normalized = markdown
+    .replace(/\r\n/g, '\n') // Normalize Windows line endings
+    // Fix accumulated backslashes before periods (from Turndown escaping round-trips)
+    // Pattern: number followed by one or more \\ then period → number + period
+    .replace(/(\d)\\+\./g, '$1.') // Remove all backslashes between digit and period
+    .replace(/\\#/g, '#') // Remove escaped hash symbols (common from AI output)
+    .replace(/\\-/g, '-') // Remove escaped dashes
+    .replace(/\\\*/g, '*') // Remove escaped asterisks
+    .replace(/\\\[/g, '[') // Remove escaped brackets
+    .replace(/\\\]/g, ']')
+    .replace(/\\\./g, '.') // Remove escaped periods
+    .replace(/\n{3,}/g, '\n\n') // Collapse 3+ newlines to 2
+    .trim();
+
+  // Process line by line for better control
+  const lines = normalized.split('\n');
+  const processedLines: string[] = [];
+  let inList = false;
+  let listType: 'ul' | 'ol' | null = null;
+
+  for (const line of lines) {
+    let processed = line;
+
+    // Headers (h1-h6) - must be at start of line
+    const headerMatch = processed.match(/^(#{1,6})\s+(.+)$/);
+    if (headerMatch) {
+      const level = headerMatch[1].length;
+      const content = headerMatch[2];
+      // Close any open list
+      if (inList) {
+        processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
+        inList = false;
+        listType = null;
+      }
+      processedLines.push(
+        `<h${level}>${processInlineMarkdown(content)}</h${level}>`
+      );
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^-{3,}$/.test(processed.trim()) || /^\*{3,}$/.test(processed.trim())) {
+      if (inList) {
+        processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
+        inList = false;
+        listType = null;
+      }
+      processedLines.push('<hr>');
+      continue;
+    }
+
+    // Unordered list item
+    const ulMatch = processed.match(/^[-*]\s+(.+)$/);
+    if (ulMatch) {
+      if (!inList || listType !== 'ul') {
+        if (inList) processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
+        processedLines.push('<ul>');
+        inList = true;
+        listType = 'ul';
+      }
+      processedLines.push(`<li>${processInlineMarkdown(ulMatch[1])}</li>`);
+      continue;
+    }
+
+    // Ordered list item
+    const olMatch = processed.match(/^\d+\.\s+(.+)$/);
+    if (olMatch) {
+      if (!inList || listType !== 'ol') {
+        if (inList) processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
+        processedLines.push('<ol>');
+        inList = true;
+        listType = 'ol';
+      }
+      processedLines.push(`<li>${processInlineMarkdown(olMatch[1])}</li>`);
+      continue;
+    }
+
+    // Close list if we hit a non-list line
+    if (inList && processed.trim()) {
+      processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
+      inList = false;
+      listType = null;
+    }
+
+    // Empty line
+    if (!processed.trim()) {
+      processedLines.push('');
+      continue;
+    }
+
+    // Regular paragraph
+    processedLines.push(`<p>${processInlineMarkdown(processed)}</p>`);
+  }
+
+  // Close any remaining list
+  if (inList) {
+    processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
+  }
+
+  // Join and clean up
+  let html = processedLines
+    .join('\n')
+    .replace(/<\/p>\n<p>/g, '</p><p>') // Remove newlines between paragraphs
+    .replace(/<p>\s*<\/p>/g, '') // Remove empty paragraphs
+    .replace(/\n+/g, ''); // Remove remaining newlines
+
+  return html || '<p></p>';
+}
+
+// Process inline markdown (bold, italic, links, code)
+function processInlineMarkdown(text: string): string {
+  return (
+    text
+      // Code (inline) - must come before bold/italic to preserve backticks
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      // Bold and italic combined
+      .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+      .replace(/___(.+?)___/g, '<strong><em>$1</em></strong>')
+      // Bold
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/__(.+?)__/g, '<strong>$1</strong>')
+      // Italic
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/_(.+?)_/g, '<em>$1</em>')
+      // Links [text](url)
+      .replace(
+        /\[([^\]]+)\]\(([^)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+      )
+  );
+}
+
+// Color mapping for annotation highlights (matches AnnotatedText component)
+const ANNOTATION_COLOR_CLASSES: Record<AnnotationColor, string> = {
+  yellow: 'bg-yellow-200',
+  green: 'bg-green-200',
+  blue: 'bg-blue-200',
+  pink: 'bg-pink-200',
+  purple: 'bg-purple-200',
+};
+
+/**
+ * Apply annotation highlights to HTML content for TipTap editor
+ * Uses the same matching algorithm as preview mode (splitTextIntoSegments)
+ * to ensure consistent highlighting across modes.
+ */
+function applyAnnotationHighlightsToHtml(
+  html: string,
+  annotations: PreprocessorAnnotation[]
+): string {
+  if (!annotations || annotations.length === 0) {
+    return html;
+  }
+
+  // SSR guard
+  if (typeof document === 'undefined') return html;
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+
+  // Process each text node using the same algorithm as preview mode
+  const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT, null);
+  const textNodes: Text[] = [];
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    textNodes.push(node as Text);
+  }
+
+  // Process text nodes in reverse order to avoid offset issues when modifying DOM
+  for (let i = textNodes.length - 1; i >= 0; i--) {
+    const textNode = textNodes[i];
+    const text = textNode.textContent || '';
+    if (!text.trim()) continue;
+
+    // Use the same splitTextIntoSegments function as preview mode
+    const segments = splitTextIntoSegments(text, annotations);
+
+    // If no annotations found in this text node, skip
+    if (segments.length === 1 && !segments[0].annotationId) {
+      continue;
+    }
+
+    // Create a document fragment with the annotated segments
+    const fragment = document.createDocumentFragment();
+    for (const segment of segments) {
+      if (segment.annotationId && segment.color) {
+        // Annotated segment - wrap in <mark>
+        const colorClass =
+          ANNOTATION_COLOR_CLASSES[segment.color] || 'bg-yellow-200';
+        const mark = document.createElement('mark');
+        mark.className = `${colorClass} px-0.5 rounded annotation-highlight`;
+        mark.setAttribute('data-annotation-id', segment.annotationId);
+        mark.textContent = segment.text;
+        fragment.appendChild(mark);
+      } else {
+        // Plain text segment
+        fragment.appendChild(document.createTextNode(segment.text));
+      }
+    }
+
+    // Replace the text node with the fragment
+    textNode.parentNode?.replaceChild(fragment, textNode);
+  }
+
+  return tempDiv.innerHTML;
+}
+
+// Annotation type for highlighting
+interface ReportAnnotation {
+  id: string;
+  selectedText: string;
+  startOffset: number;
+  endOffset: number;
+  color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
+  status: 'active' | 'resolved' | 'archived';
+  /** Context before the selection for reliable matching */
+  selectorPrefix?: string;
+  /** Context after the selection for reliable matching */
+  selectorSuffix?: string;
+}
+
+interface ReportEditorProps {
+  report: TopicReport | null;
+  /** Evidence data for citation display - if not provided, falls back to report.evidence */
+  evidence?: TopicEvidence[];
+  isLoading?: boolean;
+  onSave?: (content: string) => Promise<void>;
+  /**
+   * New AI edit callback - opens modal for AI editing
+   * (Preferred over onAIEdit)
+   */
+  onOpenAIEdit?: (selection: {
+    text: string;
+    startOffset: number;
+    endOffset: number;
+    selectorPrefix?: string;
+    selectorSuffix?: string;
+  }) => void;
+  /**
+   * Legacy AI edit callback
+   * @deprecated Use onOpenAIEdit instead
+   */
+  onAIEdit?: (
+    operation: AIEditOperation,
+    selection?: string
+  ) => Promise<string>;
+  onAddAnnotation?: (data: {
+    selectedText: string;
+    startOffset: number;
+    endOffset: number;
+    color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
+    /** Context before the selection for reliable matching */
+    selectorPrefix?: string;
+    /** Context after the selection for reliable matching */
+    selectorSuffix?: string;
+  }) => void;
+  /** Annotations for highlighting in preview */
+  annotations?: ReportAnnotation[];
+  /** Currently highlighted annotation ID (for navigation) */
+  highlightedAnnotationId?: string | null;
+  /**
+   * Whether to show annotation highlights in the content.
+   * When false, annotations are still available for adding but not displayed as highlights.
+   * This allows clean reading when annotation panel is closed.
+   * Default: true (show highlights)
+   */
+  showAnnotationHighlights?: boolean;
+}
+
+/**
+ * Custom comparison function for React.memo
+ *
+ * Prevents unnecessary re-renders when parent state changes (like sidePanelType)
+ * but the actual content data hasn't changed.
+ *
+ * With React Controlled Highlighting, we now render annotations inline via React.
+ * This means we need to compare:
+ * - report, evidence, isLoading - core data
+ * - annotations - content for highlighting
+ * - highlightedAnnotationId - for scroll-to and highlight state
+ *
+ * What we DON'T compare:
+ * - Callback functions (onSave, onAIEdit, onAddAnnotation) - parent may use inline functions
+ */
+function areReportEditorPropsEqual(
+  prevProps: ReportEditorProps,
+  nextProps: ReportEditorProps
+): boolean {
+  // Compare core data props
+  if (prevProps.report !== nextProps.report) return false;
+  if (prevProps.evidence !== nextProps.evidence) return false;
+  if (prevProps.isLoading !== nextProps.isLoading) return false;
+
+  // Compare highlightedAnnotationId (needed for React Controlled Highlighting)
+  if (prevProps.highlightedAnnotationId !== nextProps.highlightedAnnotationId)
+    return false;
+
+  // Compare showAnnotationHighlights
+  if (prevProps.showAnnotationHighlights !== nextProps.showAnnotationHighlights)
+    return false;
+
+  // Deep compare annotations
+  const prevAnnotations = prevProps.annotations || [];
+  const nextAnnotations = nextProps.annotations || [];
+  if (prevAnnotations.length !== nextAnnotations.length) return false;
+
+  for (let i = 0; i < prevAnnotations.length; i++) {
+    const prev = prevAnnotations[i];
+    const next = nextAnnotations[i];
+    if (
+      prev.id !== next.id ||
+      prev.selectedText !== next.selectedText ||
+      prev.color !== next.color ||
+      prev.status !== next.status
+    ) {
+      return false;
+    }
+  }
+
+  // All data props are equal - skip re-render
+  return true;
+}
+
+// Icons
+const PreviewIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+    />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+    />
+  </svg>
+);
+
+const RichTextIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+    />
+  </svg>
+);
+
+const CodeIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+    />
+  </svg>
+);
+
+const AIIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+    />
+  </svg>
+);
+
+// Markdown toolbar icons
+const BoldIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6V4zm0 8h9a4 4 0 014 4 4 4 0 01-4 4H6v-8z"
+    />
+  </svg>
+);
+
+const ItalicIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M10 4h4m-2 0v16m-4 0h8"
+    />
+  </svg>
+);
+
+const HeadingIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M4 6h16M4 12h16M4 18h7"
+    />
+  </svg>
+);
+
+const ListIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M4 6h16M4 10h16M4 14h16M4 18h16"
+    />
+  </svg>
+);
+
+// AI Edit buttons config
+const aiEditButtons: readonly {
+  readonly key: AIEditOperation;
+  readonly label: string;
+  readonly icon: string;
+  readonly description: string;
+}[] = [
+  {
+    key: 'rewrite',
+    label: '重写',
+    icon: '🔄',
+    description: '完全重写选中内容',
+  },
+  { key: 'polish', label: '润色', icon: '✨', description: '优化语言表达' },
+  { key: 'expand', label: '扩写', icon: '📈', description: '补充更多细节' },
+  { key: 'compress', label: '缩写', icon: '📉', description: '精简内容' },
+  { key: 'style', label: '风格', icon: '🎨', description: '调整写作风格' },
+] as const;
+
+// Citation badge component with hover tooltip
+interface CitationBadgeProps {
+  index: number;
+  evidence: {
+    id: string;
+    title?: string | null;
+    url?: string | null;
+    snippet?: string | null;
+    domain?: string | null;
+  };
+}
+
+function CitationBadge({ index, evidence }: CitationBadgeProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  // ★ 点击跳转到参考文献面板
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (evidence.id) {
+      triggerCitationClick(evidence.id);
+    }
+  };
+
+  return (
+    <span
+      className="relative inline-block"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <sup
+        onClick={handleClick}
+        className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
+        title="点击跳转到参考文献"
+      >
+        [{index}]
+      </sup>
+
+      {isHovered && (
+        <div
+          className="absolute bottom-full left-1/2 z-50 mb-2 w-96 -translate-x-1/2 rounded-lg border border-gray-200 bg-white shadow-xl"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          {/* Header */}
+          <div className="flex items-start gap-2 border-b border-gray-100 p-3">
+            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-600 text-xs font-bold text-white">
+              {index}
+            </span>
+            <div className="min-w-0 flex-1">
+              <h4 className="line-clamp-2 text-sm font-medium text-gray-900">
+                {evidence.title || '未知来源'}
+              </h4>
+              {evidence.domain && (
+                <span className="mt-0.5 inline-block text-xs text-gray-400">
+                  {evidence.domain}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Content - 引用正文预览 */}
+          {evidence.snippet && (
+            <div className="max-h-48 overflow-y-auto p-3">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                {evidence.snippet}
+              </p>
+            </div>
+          )}
+
+          {/* Footer - 操作按钮 */}
+          <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-2">
+            <button
+              onClick={handleClick}
+              className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
+            >
+              查看完整来源 →
+            </button>
+            {evidence.url && (
+              <a
+                href={evidence.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                onClick={(e) => e.stopPropagation()}
+              >
+                打开原文 ↗
+              </a>
+            )}
+          </div>
+
+          {/* Arrow */}
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-gray-50" />
+        </div>
+      )}
+    </span>
+  );
+}
+
+function ReportEditorInner({
+  report,
+  evidence: evidenceProp,
+  isLoading = false,
+  onSave,
+  onOpenAIEdit,
+  onAIEdit,
+  onAddAnnotation,
+  annotations = [],
+  highlightedAnnotationId,
+  showAnnotationHighlights = true,
+}: ReportEditorProps) {
+  // Use passed evidence or fall back to report.evidence
+  const evidence = evidenceProp || report?.evidence || [];
+  const [viewMode, setViewMode] = useState<ViewMode>('preview');
+  const [editContent, setEditContent] = useState('');
+  const [showAIPanel, setShowAIPanel] = useState(false);
+  const [isAIProcessing, setIsAIProcessing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const richTextRef = useRef<HTMLDivElement>(null);
+
+  // TipTap editor for rich text mode
+  const tiptapEditor = useEditor({
+    extensions: [
+      StarterKit,
+      Placeholder.configure({
+        placeholder: '开始编辑报告...',
+      }),
+      Typography,
+      Highlight.configure({
+        multicolor: true,
+        HTMLAttributes: {
+          class: 'annotation-highlight',
+        },
+      }),
+    ],
+    content: '',
+    editable: true,
+    onUpdate: ({ editor }) => {
+      // Convert HTML to Markdown and update editContent
+      const html = editor.getHTML();
+      const markdown = turndownService.turndown(html);
+      setEditContent(markdown);
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-gray max-w-none focus:outline-none min-h-full p-6',
+      },
+    },
+  });
+
+  // Build evidence map for citation lookup (evidenceId -> index)
+  const evidenceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (evidence.length > 0) {
+      evidence.forEach((ev, idx) => {
+        map.set(ev.id, idx + 1); // 1-based index for citations
+      });
+    }
+    return map;
+  }, [evidence]);
+
+  // Helper to format citation references like [1][2][3]
+  const formatCitations = useCallback(
+    (evidenceIds: string[] | undefined) => {
+      if (!evidenceIds || evidenceIds.length === 0) return '';
+      const citations = evidenceIds
+        .map((id) => evidenceMap.get(id))
+        .filter((idx): idx is number => idx !== undefined)
+        .map((idx) => `[${idx}]`)
+        .join('');
+      return citations ? ` ${citations}` : '';
+    },
+    [evidenceMap]
+  );
+
+  // Get markdown content from report - filter out placeholder text
+  const markdownContent = useMemo(() => {
+    if (!report) return '';
+
+    // Build markdown from report structure
+    const parts: string[] = [];
+
+    // Title
+    if (report.title) {
+      parts.push(`# ${report.title}\n`);
+    }
+
+    // Helper to check if content is just a placeholder
+    const isPlaceholder = (text: string | undefined | null): boolean => {
+      if (!text) return true;
+      const trimmed = text.trim();
+      // Only filter if content is EXACTLY a placeholder or very short
+      return (
+        trimmed === '请查看详细内容' ||
+        trimmed === '详细内容待生成' ||
+        trimmed === '...' ||
+        trimmed.length < 5
+      );
+    };
+
+    // Summary - filter placeholder
+    if (report.summary && !isPlaceholder(report.summary)) {
+      parts.push(`## 摘要\n\n${report.summary}\n`);
+    }
+
+    // Highlights - filter placeholders (关键发现/核心洞察)
+    if (report.highlights && report.highlights.length > 0) {
+      const validHighlights = report.highlights.filter(
+        (h) => h.content && !isPlaceholder(h.content)
+      );
+      if (validHighlights.length > 0) {
+        parts.push(`## 关键发现\n\n`);
+        validHighlights.forEach((h, idx) => {
+          // 使用带序号的列表项，突出显示
+          parts.push(`**${idx + 1}. ${h.title}**\n\n${h.content}\n\n`);
+        });
+      }
+    }
+
+    // Dimension analyses - filter placeholders
+    if (report.dimensionAnalyses && report.dimensionAnalyses.length > 0) {
+      report.dimensionAnalyses.forEach((analysis, idx) => {
+        const dimName = analysis.dimension?.name || `维度 ${idx + 1}`;
+        parts.push(`## ${dimName}\n`);
+
+        if (analysis.summary && !isPlaceholder(analysis.summary)) {
+          parts.push(`${analysis.summary}\n`);
+        }
+
+        if (analysis.keyFindings && analysis.keyFindings.length > 0) {
+          const validFindings = analysis.keyFindings.filter(
+            (f) => f.finding && !isPlaceholder(f.finding)
+          );
+          if (validFindings.length > 0) {
+            parts.push(`### 关键发现\n\n`);
+            validFindings.forEach((f, fIdx) => {
+              const citations = formatCitations(f.evidenceIds);
+              // 使用有序列表格式，确保正确渲染
+              parts.push(`${fIdx + 1}. **${f.finding}**${citations}\n\n`);
+            });
+          }
+        }
+
+        // Add trends with citations
+        if (analysis.trends && analysis.trends.length > 0) {
+          parts.push(`### 趋势\n`);
+          analysis.trends.forEach((t, tIdx) => {
+            const citations = formatCitations(t.evidenceIds);
+            const directionMap: Record<string, string> = {
+              increasing: '📈 上升',
+              decreasing: '📉 下降',
+              stable: '➡️ 稳定',
+              emerging: '🌱 新兴',
+            };
+            const direction = directionMap[t.direction] || t.direction;
+            parts.push(
+              `${tIdx + 1}. **${direction}**: ${t.trend} (${t.timeframe})${citations}\n`
+            );
+          });
+        }
+
+        // Add challenges with citations
+        if (analysis.challenges && analysis.challenges.length > 0) {
+          parts.push(`### 挑战\n`);
+          analysis.challenges.forEach((c, cIdx) => {
+            const citations = formatCitations(c.evidenceIds);
+            parts.push(
+              `${cIdx + 1}. **${c.challenge}** - ${c.impact}${citations}\n`
+            );
+          });
+        }
+
+        // Add opportunities with citations
+        if (analysis.opportunities && analysis.opportunities.length > 0) {
+          parts.push(`### 机遇\n`);
+          analysis.opportunities.forEach((o, oIdx) => {
+            const citations = formatCitations(o.evidenceIds);
+            parts.push(
+              `${oIdx + 1}. **${o.opportunity}** - ${o.potential}${citations}\n`
+            );
+          });
+        }
+
+        if (
+          analysis.detailedContent &&
+          !isPlaceholder(analysis.detailedContent)
+        ) {
+          parts.push(`\n${analysis.detailedContent}\n`);
+        }
+      });
+    }
+
+    // Add References section with rich information
+    if (report.evidence && report.evidence.length > 0) {
+      parts.push(`\n---\n\n## 参考文献\n\n`);
+      report.evidence.forEach((ev, idx) => {
+        let domain = ev.domain;
+        if (!domain) {
+          try {
+            domain = new URL(ev.url).hostname;
+          } catch {
+            domain = '来源';
+          }
+        }
+        const date = ev.publishedAt
+          ? new Date(ev.publishedAt).toLocaleDateString('zh-CN')
+          : '';
+        const dateStr = date ? ` (${date})` : '';
+
+        // Reference with sequence number, clickable title, source info
+        parts.push(`**[${idx + 1}]** [${ev.title}](${ev.url})\n`);
+        parts.push(`*${domain}*${dateStr}\n`);
+
+        // Add snippet/quote if available
+        if (ev.snippet) {
+          parts.push(
+            `> ${ev.snippet.slice(0, 200)}${ev.snippet.length > 200 ? '...' : ''}\n`
+          );
+        }
+
+        parts.push(`\n`);
+      });
+    }
+
+    return parts.join('\n') || '暂无报告内容';
+  }, [report, formatCitations]);
+
+  // Initialize edit content when report changes
+  useEffect(() => {
+    setEditContent(markdownContent);
+  }, [markdownContent]);
+
+  // Convert annotations to PreprocessorAnnotation format for TipTap highlighting
+  // Only include annotations if showAnnotationHighlights is true
+  const tiptapAnnotations: PreprocessorAnnotation[] = useMemo(
+    () =>
+      showAnnotationHighlights
+        ? (annotations || []).map((a) => ({
+            id: a.id,
+            selectedText: a.selectedText,
+            startOffset: a.startOffset,
+            endOffset: a.endOffset,
+            selectorPrefix: a.selectorPrefix,
+            selectorSuffix: a.selectorSuffix,
+            color: a.color,
+            status: a.status,
+          }))
+        : [],
+    [annotations, showAnnotationHighlights]
+  );
+
+  // Update TipTap editor when switching to richtext mode or annotations change
+  // Note: editContent is intentionally excluded from deps to avoid re-render loops
+  // (TipTap is the source of truth for content when in richtext mode)
+  useEffect(() => {
+    if (viewMode === 'richtext' && tiptapEditor) {
+      const html = markdownToHtml(editContent);
+      // Apply annotation highlights to the HTML before setting content
+      const highlightedHtml = applyAnnotationHighlightsToHtml(
+        html,
+        tiptapAnnotations
+      );
+      tiptapEditor.commands.setContent(highlightedHtml);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, tiptapEditor, tiptapAnnotations]);
+
+  // Sync TipTap content when editContent changes from source mode
+  useEffect(() => {
+    if (viewMode === 'source' && tiptapEditor) {
+      // Mark that we need to sync when switching back to richtext
+    }
+  }, [editContent, viewMode, tiptapEditor]);
+
+  // Check if we're in any edit mode
+  const isEditing = viewMode === 'richtext' || viewMode === 'source';
+
+  // Handle AI edit operation from context menu
+  const handleAIEditFromMenu = useCallback(
+    async (operation: AIEditOperation, selectedText: string) => {
+      if (!onAIEdit) return;
+
+      setIsAIProcessing(true);
+      try {
+        const result = await onAIEdit(operation, selectedText);
+        if (viewMode === 'source' && editorRef.current) {
+          // Replace selected text or append result
+          const start = editorRef.current.selectionStart;
+          const end = editorRef.current.selectionEnd;
+          if (start !== end) {
+            const newContent =
+              editContent.substring(0, start) +
+              result +
+              editContent.substring(end);
+            setEditContent(newContent);
+          } else {
+            setEditContent((prev) => prev + '\n\n' + result);
+          }
+        } else if (viewMode === 'richtext' && tiptapEditor) {
+          // Insert at cursor or replace selection
+          tiptapEditor.commands.insertContent(result);
+        }
+      } catch (error) {
+        logger.error('AI edit failed:', error);
+      } finally {
+        setIsAIProcessing(false);
+      }
+    },
+    [onAIEdit, viewMode, editContent, tiptapEditor]
+  );
+
+  // Handle AI edit operation from panel
+  const handleAIEdit = useCallback(
+    async (operation: AIEditOperation) => {
+      if (!onAIEdit) return;
+
+      let selectedText = '';
+      if (viewMode === 'source' && editorRef.current) {
+        const start = editorRef.current.selectionStart;
+        const end = editorRef.current.selectionEnd;
+        selectedText = editContent.substring(start, end);
+      } else if (viewMode === 'richtext' && tiptapEditor) {
+        const { from, to } = tiptapEditor.state.selection;
+        selectedText = tiptapEditor.state.doc.textBetween(from, to);
+      }
+
+      await handleAIEditFromMenu(operation, selectedText);
+    },
+    [onAIEdit, viewMode, editContent, tiptapEditor, handleAIEditFromMenu]
+  );
+
+  // Handle save
+  const handleSave = useCallback(async () => {
+    if (!onSave) return;
+
+    setIsSaving(true);
+    try {
+      await onSave(editContent);
+    } catch (error) {
+      logger.error('Save failed:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [onSave, editContent]);
+
+  // Insert markdown formatting (for source mode)
+  const insertMarkdown = useCallback(
+    (prefix: string, suffix: string = '') => {
+      if (!editorRef.current) return;
+
+      const start = editorRef.current.selectionStart;
+      const end = editorRef.current.selectionEnd;
+      const selectedText = editContent.substring(start, end);
+
+      const newContent =
+        editContent.substring(0, start) +
+        prefix +
+        selectedText +
+        suffix +
+        editContent.substring(end);
+
+      setEditContent(newContent);
+
+      // Focus and set cursor position
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.focus();
+          const newCursorPos =
+            start + prefix.length + selectedText.length + suffix.length;
+          editorRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        }
+      }, 0);
+    },
+    [editContent]
+  );
+
+  // Word count
+  const wordCount = useMemo(() => {
+    const content = isEditing ? editContent : markdownContent;
+    // Count Chinese characters and English words
+    const chineseChars = (content.match(/[\u4e00-\u9fa5]/g) || []).length;
+    const englishWords = (content.match(/[a-zA-Z]+/g) || []).length;
+    return chineseChars + englishWords;
+  }, [isEditing, editContent, markdownContent]);
+
+  // Automatically switch to preview mode when highlighted annotation changes
+  useEffect(() => {
+    if (highlightedAnnotationId && viewMode !== 'preview') {
+      setViewMode('preview');
+    }
+  }, [highlightedAnnotationId, viewMode]);
+
+  // Process text to convert citation patterns to interactive components
+  // Supports: [1], [2], [1, 2], [temp-x-y], [uuid]
+  const processTextWithCitations = useCallback(
+    (text: string): React.ReactNode => {
+      if (!text || !evidence?.length) return text;
+
+      // Build evidence ID to index map for UUID lookup
+      const evidenceIdMap = new Map<string, number>();
+      evidence.forEach((ev, idx) => {
+        evidenceIdMap.set(ev.id, idx + 1);
+      });
+
+      // Match multiple formats:
+      // 1. [1], [2], [1, 2] - numeric
+      // 2. [temp-x-y] - temp ID
+      // 3. [uuid] - full UUID format
+      const citationPattern =
+        /\[(\d+(?:\s*,\s*\d+)*)\]|\[(temp-\d+-\d+)\]|\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/gi;
+      const parts: React.ReactNode[] = [];
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      citationPattern.lastIndex = 0;
+
+      while ((match = citationPattern.exec(text)) !== null) {
+        // Add text before match
+        if (match.index > lastIndex) {
+          parts.push(text.slice(lastIndex, match.index));
+        }
+
+        if (match[1]) {
+          // Numeric format [1] or [1, 2]
+          const indices = match[1].split(/\s*,\s*/).map((s) => parseInt(s, 10));
+          indices.forEach((idx, i) => {
+            const evidenceItem = evidence[idx - 1];
+            if (evidenceItem) {
+              parts.push(
+                <CitationBadge
+                  key={`cite-${match!.index}-${idx}-${i}`}
+                  index={idx}
+                  evidence={evidenceItem}
+                />
+              );
+            } else {
+              parts.push(
+                <sup
+                  key={`cite-unknown-${match!.index}-${i}`}
+                  className="rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-500"
+                >
+                  [{idx}]
+                </sup>
+              );
+            }
+          });
+        } else if (match[2] || match[3]) {
+          // temp-x-y or UUID format - look up by ID
+          const evidenceId = match[2] || match[3];
+          const idx = evidenceIdMap.get(evidenceId);
+          if (idx) {
+            const evidenceItem = evidence[idx - 1];
+            parts.push(
+              <CitationBadge
+                key={`cite-${match!.index}-${evidenceId}`}
+                index={idx}
+                evidence={evidenceItem}
+              />
+            );
+          } else {
+            // Unknown evidence ID - hide the raw UUID
+            parts.push(
+              <sup
+                key={`cite-unknown-${match!.index}`}
+                className="rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-500"
+                title={evidenceId}
+              >
+                [?]
+              </sup>
+            );
+          }
+        }
+
+        lastIndex = match.index + match[0].length;
+      }
+
+      // Add remaining text
+      if (lastIndex < text.length) {
+        parts.push(text.slice(lastIndex));
+      }
+
+      return parts.length === 1 ? parts[0] : parts;
+    },
+    [evidence]
+  );
+
+  // Convert ReportAnnotation to PreprocessorAnnotation
+  // Only include annotations if showAnnotationHighlights is true
+  const preprocessorAnnotations: PreprocessorAnnotation[] = useMemo(
+    () =>
+      showAnnotationHighlights
+        ? (annotations || []).map((a) => ({
+            id: a.id,
+            selectedText: a.selectedText,
+            startOffset: a.startOffset,
+            endOffset: a.endOffset,
+            selectorPrefix: a.selectorPrefix,
+            selectorSuffix: a.selectorSuffix,
+            color: a.color,
+            status: a.status,
+          }))
+        : [],
+    [annotations, showAnnotationHighlights]
+  );
+
+  // Hook for scrolling to annotations
+  const scrollToAnnotation = useScrollToAnnotation();
+
+  // Handle annotation click - scroll to annotation panel
+  const handleAnnotationClick = useCallback((annotationId: string) => {
+    // Dispatch custom event for annotation panel to handle
+    window.dispatchEvent(
+      new CustomEvent('annotation-click', { detail: { annotationId } })
+    );
+  }, []);
+
+  // ★ Process text with both annotations AND citations (React Controlled Highlighting)
+  // This replaces the DOM-based AnnotationHighlighter approach to avoid React reconciliation conflicts
+  const processText = useCallback(
+    (text: string, keyPrefix: string = ''): React.ReactNode => {
+      if (!text) return text;
+
+      // First, split text into annotated segments
+      const segments = splitTextIntoSegments(text, preprocessorAnnotations);
+
+      // If no annotations found, just process citations
+      if (segments.length === 1 && !segments[0].annotationId) {
+        return processTextWithCitations(text);
+      }
+
+      // Render segments with annotation highlights
+      // Pass processTextWithCitations as renderText to handle citations within segments
+      return (
+        <AnnotatedText
+          segments={segments}
+          highlightedId={highlightedAnnotationId}
+          onAnnotationClick={handleAnnotationClick}
+          renderText={processTextWithCitations}
+        />
+      );
+    },
+    [
+      preprocessorAnnotations,
+      highlightedAnnotationId,
+      handleAnnotationClick,
+      processTextWithCitations,
+    ]
+  );
+
+  // Handle scroll to annotation when highlightedAnnotationId changes
+  useEffect(() => {
+    if (highlightedAnnotationId && previewRef.current) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        scrollToAnnotation(highlightedAnnotationId, previewRef.current!);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedAnnotationId, scrollToAnnotation]);
+
+  // ★ ReactMarkdown content with React Controlled Highlighting
+  // Annotations are now rendered inline via processText → AnnotatedText component
+  // This eliminates DOM manipulation conflicts that caused React error #310
+  const memoizedMarkdownContent = useMemo(
+    () => (
+      <article className="prose prose-gray max-w-none">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            // Custom link component to open in new tab
+            a: ({ href, children }) => (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                {children}
+              </a>
+            ),
+            // ★ Process text nodes for both citations AND annotations (React Controlled)
+            p: ({ children, ...props }) => (
+              <p {...props}>
+                {typeof children === 'string'
+                  ? processText(children)
+                  : Array.isArray(children)
+                    ? children.map((child, i) =>
+                        typeof child === 'string' ? (
+                          <span key={i}>{processText(child)}</span>
+                        ) : (
+                          child
+                        )
+                      )
+                    : children}
+              </p>
+            ),
+            li: ({ children, ...props }) => (
+              <li {...props}>
+                {typeof children === 'string'
+                  ? processText(children)
+                  : Array.isArray(children)
+                    ? children.map((child, i) =>
+                        typeof child === 'string' ? (
+                          <span key={i}>{processText(child)}</span>
+                        ) : (
+                          child
+                        )
+                      )
+                    : children}
+              </li>
+            ),
+            strong: ({ children, ...props }) => (
+              <strong {...props}>
+                {typeof children === 'string'
+                  ? processText(children)
+                  : children}
+              </strong>
+            ),
+            em: ({ children, ...props }) => (
+              <em {...props}>
+                {typeof children === 'string'
+                  ? processText(children)
+                  : children}
+              </em>
+            ),
+          }}
+        >
+          {markdownContent}
+        </ReactMarkdown>
+      </article>
+    ),
+    [markdownContent, processText]
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+          <p className="text-sm text-gray-500">加载报告中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!report) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-500">暂无报告</p>
+          <p className="mt-1 text-sm text-gray-400">开始研究后将在此显示报告</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
+        {/* View mode toggle */}
+        <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+          <button
+            onClick={() => setViewMode('preview')}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              viewMode === 'preview'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+            title="预览模式"
+          >
+            <PreviewIcon className="h-4 w-4" />
+            <span>预览</span>
+          </button>
+          <button
+            onClick={() => {
+              // Sync content to TipTap before switching
+              if (tiptapEditor) {
+                const html = markdownToHtml(editContent);
+                tiptapEditor.commands.setContent(html);
+              }
+              setViewMode('richtext');
+            }}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              viewMode === 'richtext'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+            title="富文本编辑"
+          >
+            <RichTextIcon className="h-4 w-4" />
+            <span>编辑</span>
+          </button>
+          <button
+            onClick={() => setViewMode('source')}
+            className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
+              viewMode === 'source'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+            title="源码编辑 (Markdown)"
+          >
+            <CodeIcon className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-400">{wordCount} 字</span>
+
+          {isEditing && (
+            <>
+              {/* Preview button in edit mode */}
+              <button
+                onClick={() => setShowPreviewModal(true)}
+                className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200"
+                title="预览 (悬浮窗口)"
+              >
+                <PreviewIcon className="h-4 w-4" />
+                <span>预览</span>
+              </button>
+
+              <button
+                onClick={() => setShowAIPanel(!showAIPanel)}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  showAIPanel
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <AIIcon className="h-4 w-4" />
+                <span>AI 编辑</span>
+              </button>
+
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:bg-blue-400"
+              >
+                {isSaving ? '保存中...' : '保存'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Markdown toolbar (only in source mode) */}
+      {viewMode === 'source' && (
+        <div className="flex items-center gap-1 border-b border-gray-100 bg-gray-50 px-4 py-1.5">
+          <button
+            onClick={() => insertMarkdown('**', '**')}
+            className="rounded p-1.5 text-gray-600 hover:bg-gray-200"
+            title="粗体 (Ctrl+B)"
+          >
+            <BoldIcon className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => insertMarkdown('*', '*')}
+            className="rounded p-1.5 text-gray-600 hover:bg-gray-200"
+            title="斜体 (Ctrl+I)"
+          >
+            <ItalicIcon className="h-4 w-4" />
+          </button>
+          <div className="mx-1 h-4 w-px bg-gray-300" />
+          <button
+            onClick={() => insertMarkdown('## ')}
+            className="rounded p-1.5 text-gray-600 hover:bg-gray-200"
+            title="标题"
+          >
+            <HeadingIcon className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => insertMarkdown('- ')}
+            className="rounded p-1.5 text-gray-600 hover:bg-gray-200"
+            title="列表"
+          >
+            <ListIcon className="h-4 w-4" />
+          </button>
+          <div className="mx-1 h-4 w-px bg-gray-300" />
+          <button
+            onClick={() => insertMarkdown('[', '](url)')}
+            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-200"
+            title="链接"
+          >
+            链接
+          </button>
+          <button
+            onClick={() => insertMarkdown('> ')}
+            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-200"
+            title="引用"
+          >
+            引用
+          </button>
+          <button
+            onClick={() => insertMarkdown('```\n', '\n```')}
+            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-200"
+            title="代码块"
+          >
+            代码
+          </button>
+        </div>
+      )}
+
+      {/* TipTap toolbar (only in richtext mode) */}
+      {viewMode === 'richtext' && tiptapEditor && (
+        <div className="flex items-center gap-1 border-b border-gray-100 bg-gray-50 px-4 py-1.5">
+          <button
+            onClick={() => tiptapEditor.chain().focus().toggleBold().run()}
+            className={`rounded p-1.5 ${
+              tiptapEditor.isActive('bold')
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-600 hover:bg-gray-200'
+            }`}
+            title="粗体 (Ctrl+B)"
+          >
+            <BoldIcon className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => tiptapEditor.chain().focus().toggleItalic().run()}
+            className={`rounded p-1.5 ${
+              tiptapEditor.isActive('italic')
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-600 hover:bg-gray-200'
+            }`}
+            title="斜体 (Ctrl+I)"
+          >
+            <ItalicIcon className="h-4 w-4" />
+          </button>
+          <div className="mx-1 h-4 w-px bg-gray-300" />
+          <button
+            onClick={() =>
+              tiptapEditor.chain().focus().toggleHeading({ level: 2 }).run()
+            }
+            className={`rounded p-1.5 ${
+              tiptapEditor.isActive('heading', { level: 2 })
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-600 hover:bg-gray-200'
+            }`}
+            title="标题"
+          >
+            <HeadingIcon className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() =>
+              tiptapEditor.chain().focus().toggleBulletList().run()
+            }
+            className={`rounded p-1.5 ${
+              tiptapEditor.isActive('bulletList')
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-600 hover:bg-gray-200'
+            }`}
+            title="列表"
+          >
+            <ListIcon className="h-4 w-4" />
+          </button>
+          <div className="mx-1 h-4 w-px bg-gray-300" />
+          <button
+            onClick={() =>
+              tiptapEditor.chain().focus().toggleBlockquote().run()
+            }
+            className={`rounded px-2 py-1 text-xs ${
+              tiptapEditor.isActive('blockquote')
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-600 hover:bg-gray-200'
+            }`}
+            title="引用"
+          >
+            引用
+          </button>
+          <button
+            onClick={() => tiptapEditor.chain().focus().toggleCodeBlock().run()}
+            className={`rounded px-2 py-1 text-xs ${
+              tiptapEditor.isActive('codeBlock')
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-600 hover:bg-gray-200'
+            }`}
+            title="代码块"
+          >
+            代码
+          </button>
+          <div className="mx-1 h-4 w-px bg-gray-300" />
+          <button
+            onClick={() => tiptapEditor.chain().focus().undo().run()}
+            disabled={!tiptapEditor.can().undo()}
+            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-200 disabled:opacity-50"
+            title="撤销"
+          >
+            撤销
+          </button>
+          <button
+            onClick={() => tiptapEditor.chain().focus().redo().run()}
+            disabled={!tiptapEditor.can().redo()}
+            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-200 disabled:opacity-50"
+            title="重做"
+          >
+            重做
+          </button>
+        </div>
+      )}
+
+      {/* Content area */}
+      <div className="flex-1 overflow-hidden">
+        {viewMode === 'preview' && (
+          <div ref={previewRef} className="relative h-full overflow-auto p-6">
+            {/* Mode indicator */}
+            <div className="absolute right-6 top-6 z-10">
+              <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700">
+                <PreviewIcon className="h-3 w-3" />
+                预览模式
+              </span>
+            </div>
+
+            {/* Markdown content with React Controlled annotation highlighting */}
+            {memoizedMarkdownContent}
+
+            {/* Context menu for preview mode */}
+            <TextSelectionContextMenu
+              containerRef={previewRef}
+              onOpenAIEdit={onOpenAIEdit}
+              onAIEdit={onAIEdit ? handleAIEditFromMenu : undefined}
+              onAddAnnotation={onAddAnnotation}
+              isAIProcessing={isAIProcessing}
+            />
+          </div>
+        )}
+
+        {viewMode === 'richtext' && (
+          <div
+            ref={richTextRef}
+            className="relative h-full overflow-auto border-l-4 border-amber-300 bg-amber-50/30 p-6"
+          >
+            {/* Mode indicator */}
+            <div className="absolute right-6 top-6 z-10">
+              <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700">
+                <RichTextIcon className="h-3 w-3" />
+                编辑模式
+              </span>
+            </div>
+
+            {/* Apply same prose styling as preview mode for consistent appearance */}
+            <EditorContent
+              editor={tiptapEditor}
+              className="prose prose-gray prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base prose-h5:text-sm prose-h6:text-sm prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:text-purple-600 prose-code:bg-purple-50 prose-code:px-1 prose-code:rounded max-w-none"
+            />
+
+            {/* Context menu for richtext mode */}
+            <TextSelectionContextMenu
+              containerRef={richTextRef}
+              onOpenAIEdit={onOpenAIEdit}
+              onAIEdit={onAIEdit ? handleAIEditFromMenu : undefined}
+              onAddAnnotation={onAddAnnotation}
+              isAIProcessing={isAIProcessing}
+            />
+          </div>
+        )}
+
+        {viewMode === 'source' && (
+          <textarea
+            ref={editorRef}
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            className="font-mono h-full w-full resize-none border-none p-6 text-sm focus:outline-none"
+            placeholder="在此编辑报告内容..."
+          />
+        )}
+      </div>
+
+      {/* AI Edit Panel */}
+      {showAIPanel && isEditing && (
+        <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-500">AI 编辑:</span>
+            {aiEditButtons.map((btn) => (
+              <button
+                key={btn.key}
+                onClick={() => handleAIEdit(btn.key)}
+                disabled={isAIProcessing}
+                title={btn.description}
+                className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
+              >
+                <span>{btn.icon}</span>
+                {btn.label}
+              </button>
+            ))}
+            {isAIProcessing && (
+              <span className="ml-2 flex items-center gap-1 text-xs text-purple-600">
+                <div className="h-3 w-3 animate-spin rounded-full border border-purple-600 border-t-transparent" />
+                AI 处理中...
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal (floating preview) */}
+      {showPreviewModal && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/30"
+            onClick={() => setShowPreviewModal(false)}
+          />
+          <div className="fixed right-4 top-20 z-50 max-h-[80vh] w-[500px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2">
+              <span className="text-sm font-medium text-gray-700">预览</span>
+              <button
+                onClick={() => setShowPreviewModal(false)}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[calc(80vh-48px)] overflow-auto p-4">
+              <article className="prose prose-gray prose-sm max-w-none">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ href, children }) => (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {children}
+                      </a>
+                    ),
+                  }}
+                >
+                  {editContent}
+                </ReactMarkdown>
+              </article>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Memoized ReportEditor
+ *
+ * Uses custom comparison to prevent re-renders when only highlightedAnnotationId
+ * or callback references change. This is critical to avoid React DOM reconciliation
+ * conflicts with AnnotationHighlighter's direct DOM manipulation.
+ */
+export const ReportEditor = memo(ReportEditorInner, areReportEditorPropsEqual);

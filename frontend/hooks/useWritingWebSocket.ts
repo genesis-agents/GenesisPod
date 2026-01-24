@@ -7,6 +7,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
+import { logger } from '@/lib/utils/logger';
 // 事件类型
 export type WritingEventType =
   | 'mission:started'
@@ -177,14 +178,14 @@ export function useWritingWebSocket(
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
     if (!apiUrl) {
       // 本地开发环境
-      console.log('[WritingWS] No API URL configured, using localhost');
+      logger.debug('[WritingWS] No API URL configured, using localhost');
     }
 
     // 移除 /api/v1 后缀获取基础 URL
     const baseUrl = apiUrl?.replace('/api/v1', '') || 'http://localhost:3001';
 
     connectingRef.current = true;
-    console.log('[WritingWS] Connecting to:', `${baseUrl}/ai-writing`);
+    logger.debug('[WritingWS] Connecting to:', `${baseUrl}/ai-writing`);
 
     const socket = io(`${baseUrl}/ai-writing`, {
       transports: ['websocket', 'polling'],
@@ -196,7 +197,7 @@ export function useWritingWebSocket(
     });
 
     socket.on('connect', () => {
-      console.log('[WritingWS] Connected');
+      logger.debug('[WritingWS] Connected');
       connectingRef.current = false;
       setIsConnected(true);
       setError(null);
@@ -206,13 +207,13 @@ export function useWritingWebSocket(
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('[WritingWS] Disconnected:', reason);
+      logger.debug('[WritingWS] Disconnected:', reason);
       connectingRef.current = false;
       setIsConnected(false);
     });
 
     socket.on('connect_error', (err) => {
-      console.error('[WritingWS] Connection error:', err.message);
+      logger.error('[WritingWS] Connection error:', err.message);
       connectingRef.current = false;
       // 只在首次失败时设置错误，避免频繁更新状态导致闪烁
       if (!error) {
@@ -233,7 +234,7 @@ export function useWritingWebSocket(
 
     // 任务事件
     socket.on('mission:started', (data) => {
-      console.log('[WritingWS] Mission started:', data);
+      logger.debug('[WritingWS] Mission started:', data);
       setProgress(0);
       setCurrentStep('任务已启动');
       emitEvent('mission:started', data);
@@ -247,7 +248,7 @@ export function useWritingWebSocket(
     });
 
     socket.on('mission:completed', (data) => {
-      console.log('[WritingWS] Mission completed:', data);
+      logger.debug('[WritingWS] Mission completed:', data);
       setProgress(100);
       setCurrentStep('创作完成');
       setActiveAgentIds([]);
@@ -255,14 +256,14 @@ export function useWritingWebSocket(
     });
 
     socket.on('mission:failed', (data) => {
-      console.error('[WritingWS] Mission failed:', data);
+      logger.error('[WritingWS] Mission failed:', data);
       setError(data.error || '任务失败');
       emitEvent('mission:failed', data);
     });
 
     // Leader 多轮对话响应事件
     socket.on('leader:response', (data) => {
-      console.log('[WritingWS] Leader response:', data);
+      logger.debug('[WritingWS] Leader response:', data);
       emitEvent('leader:response', data);
     });
 
@@ -280,7 +281,7 @@ export function useWritingWebSocket(
 
     // 章节事件
     socket.on('chapter:started', (data) => {
-      console.log('[WritingWS] Chapter started:', data);
+      logger.debug('[WritingWS] Chapter started:', data);
       emitEvent('chapter:started', data);
     });
 
@@ -294,13 +295,13 @@ export function useWritingWebSocket(
     });
 
     socket.on('chapter:completed', (data: { chapterNumber: number }) => {
-      console.log(`[WritingWS] Chapter ${data.chapterNumber} completed`);
+      logger.debug(`[WritingWS] Chapter ${data.chapterNumber} completed`);
       emitEvent('chapter:completed', data);
     });
 
     // 一致性检查事件
     socket.on('consistency:check_started', (data) => {
-      console.log('[WritingWS] Consistency check started:', data);
+      logger.debug('[WritingWS] Consistency check started:', data);
       emitEvent('consistency:check_started', data);
     });
 
@@ -310,12 +311,12 @@ export function useWritingWebSocket(
     });
 
     socket.on('consistency:fix_started', (data) => {
-      console.log('[WritingWS] Consistency fix started:', data);
+      logger.debug('[WritingWS] Consistency fix started:', data);
       emitEvent('consistency:fix_started', data);
     });
 
     socket.on('consistency:fix_completed', (data) => {
-      console.log(
+      logger.debug(
         `[WritingWS] Chapter ${data.chapterNumber} fixed ${data.fixedIssues} issues`
       );
       emitEvent('consistency:fix_completed', data);
@@ -323,7 +324,7 @@ export function useWritingWebSocket(
 
     // 世界观设定事件
     socket.on('world:building_started', (data) => {
-      console.log('[WritingWS] World building started');
+      logger.debug('[WritingWS] World building started');
       emitEvent('world:building_started', data);
     });
 
@@ -336,28 +337,28 @@ export function useWritingWebSocket(
 
     // 守护者增强事件
     socket.on('keeper:extracting_context', (data: KeeperContextData) => {
-      console.log(
+      logger.debug(
         `[WritingWS] Keeper extracting context for chapter ${data.chapterNumber}`
       );
       emitEvent('keeper:extracting_context', data);
     });
 
     socket.on('keeper:context_ready', (data: KeeperContextData) => {
-      console.log(
+      logger.debug(
         `[WritingWS] Keeper context ready for chapter ${data.chapterNumber}`
       );
       emitEvent('keeper:context_ready', data);
     });
 
     socket.on('keeper:updating_bible', (data: KeeperContextData) => {
-      console.log(
+      logger.debug(
         `[WritingWS] Keeper updating bible after chapter ${data.chapterNumber}`
       );
       emitEvent('keeper:updating_bible', data);
     });
 
     socket.on('keeper:bible_updated', (data: KeeperBibleUpdateData) => {
-      console.log(
+      logger.debug(
         `[WritingWS] Keeper bible updated: ${data.updates?.newFacts?.length || 0} new facts`
       );
       emitEvent('keeper:bible_updated', data);

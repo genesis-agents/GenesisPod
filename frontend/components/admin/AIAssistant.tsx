@@ -13,6 +13,7 @@ import {
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 interface AIAssistantProps {
   context:
     | 'whitelist'
@@ -284,7 +285,7 @@ export default function AIAssistant({
         throw new Error(errorData.message || 'API request failed');
       }
     } catch (error) {
-      console.error('AI Assistant error:', error);
+      logger.error('AI Assistant error:', error);
       setMessages((prev) => [
         ...prev,
         {

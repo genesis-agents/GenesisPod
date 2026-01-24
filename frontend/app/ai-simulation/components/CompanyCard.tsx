@@ -5,6 +5,7 @@ import { ScenarioFormCompany } from '../types';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 interface CompanyCardProps {
   index: number;
   company: ScenarioFormCompany;
@@ -71,7 +72,7 @@ export function CompanyCard({
       setAiSuggestion(data);
       setShowConfirmDialog(true);
     } catch (err) {
-      console.error('AI assist error:', err);
+      logger.error('AI assist error:', err);
       alert('AI生成失败，请重试');
     } finally {
       setAiLoading(false);

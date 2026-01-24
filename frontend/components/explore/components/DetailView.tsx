@@ -1,6 +1,6 @@
 'use client';
 
-import { Resource } from '../types';
+import { Resource } from '../utils/types';
 import ResourceHeader from './ResourceHeader';
 import ContentPreview from './ContentPreview';
 

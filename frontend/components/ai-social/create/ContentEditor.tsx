@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '@/lib/i18n';
-import { useSocialCreateStore } from '@/stores/socialCreateStore';
+import { useSocialCreateStore } from '@/stores';
 import {
   useSocialAIEngine,
   useSocialContents,
@@ -29,7 +29,9 @@ import {
   Code,
   Link,
 } from 'lucide-react';
+import DOMPurify from 'isomorphic-dompurify';
 
+import { logger } from '@/lib/utils/logger';
 export function ContentEditor() {
   const { t } = useTranslation();
   const {
@@ -276,7 +278,7 @@ export function ContentEditor() {
         setCoverImagePrompt('');
       }
     } catch (err) {
-      console.error('Failed to generate cover image:', err);
+      logger.error('Failed to generate cover image:', err);
     }
   };
 
@@ -498,7 +500,7 @@ export function ContentEditor() {
               style={{ minHeight: '300px', maxHeight: '500px' }}
             >
               {content ? (
-                <div dangerouslySetInnerHTML={{ __html: content }} />
+                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }} />
               ) : (
                 <p className="italic text-gray-400">
                   {t('aiSocial.create.noContentPreview') ||

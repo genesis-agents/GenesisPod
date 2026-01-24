@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Inject,
   forwardRef,
+  Logger,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
@@ -27,6 +28,8 @@ interface AIReportResponse {
 
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
+
   constructor(
     private prisma: PrismaService,
     @Inject(forwardRef(() => ExportOrchestratorService))
@@ -94,7 +97,7 @@ export class ReportsService {
 
         // Handle stream errors
         response.data.on("error", (error: Error) => {
-          console.error("Stream error:", error);
+          this.logger.error("Stream error", error);
           res.end();
         });
 

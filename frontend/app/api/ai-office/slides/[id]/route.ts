@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger';
 // 后端 API URL
 const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
@@ -32,7 +33,7 @@ export async function GET(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[Slides GET] Error:', error);
+    logger.error('[Slides GET] Error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch Slides document' },
       { status: 500 }
@@ -66,7 +67,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[Slides DELETE] Error:', error);
+    logger.error('[Slides DELETE] Error:', error);
     return NextResponse.json(
       { error: 'Failed to delete Slides document' },
       { status: 500 }

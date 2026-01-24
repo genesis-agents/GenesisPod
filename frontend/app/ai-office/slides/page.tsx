@@ -43,7 +43,7 @@ import Link from 'next/link';
 
 import AppShell from '@/components/layout/AppShell';
 import { cn } from '@/lib/utils/common';
-import { useSlidesStore } from '@/stores/slidesStore';
+import { useSlidesStore } from '@/stores';
 import { useSlideGenerationTeam } from '@/hooks/features/slides/useSlideGenerationTeam';
 import type {
   SlidesAgentRole,
@@ -54,6 +54,7 @@ import type {
 import type { PageState, GenerationProgress } from '@/types/slides';
 import { sanitizeSlideHtml } from '@/lib/utils/sanitize';
 
+import { logger } from '@/lib/utils/logger';
 // ============================================
 // Agent 图标映射
 // ============================================
@@ -231,16 +232,16 @@ export default function SlidesPage() {
   const { generating, teamState, generateWithTeam, cancel } =
     useSlideGenerationTeam({
       onExecutionStarted: (sessionId) => {
-        console.log('Execution started:', sessionId);
+        logger.debug('Execution started:', sessionId);
       },
       onSlideGenerated: (pageNumber, html) => {
-        console.log('Slide generated:', pageNumber);
+        logger.debug('Slide generated:', pageNumber);
       },
       onComplete: (result) => {
-        console.log('Generation complete:', result);
+        logger.debug('Generation complete:', result);
       },
       onError: (error) => {
-        console.error('Generation error:', error);
+        logger.error('Generation error:', error);
       },
     });
 

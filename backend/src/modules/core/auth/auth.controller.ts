@@ -9,6 +9,7 @@ import {
   Response,
   Logger,
 } from "@nestjs/common";
+import { Request as ExpressRequest, Response as ExpressResponse } from "express";
 import { AuthGuard } from "@nestjs/passport";
 import { AuthService } from "./auth.service";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
@@ -42,7 +43,7 @@ export class AuthController {
    */
   @Post("login")
   async login(
-    @Request() req: any,
+    @Request() req: ExpressRequest,
     @Body("email") email: string,
     @Body("password") password: string,
   ) {
@@ -51,9 +52,9 @@ export class AuthController {
     // 获取请求信息用于记录登录历史
     const requestInfo = {
       ipAddress:
-        req.headers["x-forwarded-for"]?.split(",")[0] ||
+        req.headers["x-forwarded-for"]?.toString().split(",")[0] ||
         req.ip ||
-        req.connection?.remoteAddress,
+        (req as any).connection?.remoteAddress,
       userAgent: req.headers["user-agent"],
     };
 
@@ -96,17 +97,37 @@ export class AuthController {
    */
   @Get("google/callback")
   @UseGuards(AuthGuard("google"))
-  async googleAuthCallback(@Request() req: any, @Response() res: any) {
+  async googleAuthCallback(
+    @Request() req: ExpressRequest & { user: any },
+    @Response() res: ExpressResponse,
+  ) {
     // 成功认证后，返回用户信息和tokens
     const { user, accessToken, refreshToken } = req.user;
 
     this.logger.log(`Google OAuth callback for user: ${user.email}`);
 
-    // 重定向到前端，携带token
+    // 生成短期授权码
+    const authCode = this.authService.generateAuthCode(
+      accessToken,
+      refreshToken,
+      user.id,
+    );
+
+    // 重定向到前端，只携带授权码
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-    const redirectUrl = `${frontendUrl}/auth/callback?token=${accessToken}&refreshToken=${refreshToken}`;
+    const redirectUrl = `${frontendUrl}/auth/callback?code=${authCode}`;
 
     return res.redirect(redirectUrl);
+  }
+
+  /**
+   * 用授权码换取 token
+   * POST /api/v1/auth/exchange
+   */
+  @Post("exchange")
+  async exchangeAuthCode(@Body("code") code: string) {
+    this.logger.log(`Token exchange request with code: ${code.substring(0, 8)}...`);
+    return this.authService.exchangeAuthCode(code);
   }
 
   /**

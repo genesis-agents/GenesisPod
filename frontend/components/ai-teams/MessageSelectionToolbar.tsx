@@ -5,6 +5,7 @@ import { TopicMessage, Topic } from '@/types/ai-teams';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
+import { logger } from '@/lib/utils/logger';
 interface MessageSelectionToolbarProps {
   selectedMessages: Set<string>;
   messages: TopicMessage[];
@@ -192,7 +193,7 @@ export default function MessageSelectionToolbar({
         alert(`Forward failed: ${error.message || 'Unknown error'}`);
       }
     } catch (err) {
-      console.error('Forward error:', err);
+      logger.error('Forward error:', err);
       alert('Forward failed');
     } finally {
       setIsForwarding(false);
@@ -218,7 +219,7 @@ export default function MessageSelectionToolbar({
       alert(`${selectedCount} messages bookmarked`);
       onClearSelection();
     } catch (err) {
-      console.error('Bookmark error:', err);
+      logger.error('Bookmark error:', err);
       alert('Bookmark failed');
     }
   };

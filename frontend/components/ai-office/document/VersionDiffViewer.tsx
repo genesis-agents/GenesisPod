@@ -9,6 +9,7 @@ import React, { useMemo } from 'react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import type { DocumentVersion } from '@/types/ai-office';
+import { logger } from '@/lib/utils/logger';
 import {
   comparePPTVersions,
   compareDocVersions,
@@ -61,7 +62,7 @@ export default function VersionDiffViewer({
         return compareDocVersions(oldContent, newContent, oldMeta, newMeta);
       }
     } catch (error) {
-      console.error('版本对比失败:', error);
+      logger.error('版本对比失败:', error);
       return null;
     }
   }, [oldVersion, newVersion, documentType]);

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { config } from '@/lib/utils/config';
 
+import { logger } from '@/lib/utils/logger';
 // Configure PDF.js worker (CSS is imported globally in globals.css)
 // PDF.js 5.x uses .mjs extension and different build path
 if (typeof window !== 'undefined') {
@@ -44,14 +45,14 @@ export default function PDFViewerClient({
   }, [url]);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    console.log(`PDF loaded successfully: ${numPages} pages from ${url}`);
+    logger.debug(`PDF loaded successfully: ${numPages} pages from ${url}`);
     setNumPages(numPages);
     setLoading(false);
     setError(null);
   };
 
   const onDocumentLoadError = (error: Error) => {
-    console.error(`PDF failed to load from ${url}:`, error);
+    logger.error(`PDF failed to load from ${url}:`, error);
     setLoading(false);
     setError('Failed to load PDF. The file may be unavailable or corrupted.');
   };

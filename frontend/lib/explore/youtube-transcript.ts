@@ -132,7 +132,7 @@ function extractCaptionTracksFromHTML(html: string): Array<{
       }
     }
   } catch (e) {
-    console.warn('Failed to extract caption tracks from HTML:', e);
+    logger.warn('Failed to extract caption tracks from HTML:', e);
   }
 
   return tracks;
@@ -163,7 +163,7 @@ function extractVideoTitleFromHTML(html: string): string | null {
     );
     if (ogMatch) return decodeHTMLEntities(ogMatch[1]);
   } catch (e) {
-    console.warn('Failed to extract video title:', e);
+    logger.warn('Failed to extract video title:', e);
   }
 
   return null;
@@ -191,7 +191,7 @@ export async function fetchTranscriptFromClient(
     );
 
     if (!response.ok) {
-      console.warn(`Client fetch failed: ${response.status}`);
+      logger.warn(`Client fetch failed: ${response.status}`);
       return null;
     }
 
@@ -209,7 +209,7 @@ export async function fetchTranscriptFromClient(
 
     return null;
   } catch (error) {
-    console.error('Client transcript fetch error:', error);
+    logger.error('Client transcript fetch error:', error);
     return null;
   }
 }
@@ -243,7 +243,7 @@ export async function uploadTranscriptToCache(
 
     return response.ok;
   } catch (error) {
-    console.error('Failed to upload transcript to cache:', error);
+    logger.error('Failed to upload transcript to cache:', error);
     return false;
   }
 }
@@ -283,7 +283,7 @@ export async function fetchTranscriptSmart(
       }
     }
   } catch (e) {
-    console.warn('Server fetch failed, trying client fetch:', e);
+    logger.warn('Server fetch failed, trying client fetch:', e);
   }
 
   // 2. 服务器失败，尝试客户端获取

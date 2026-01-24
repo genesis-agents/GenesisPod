@@ -155,8 +155,9 @@ export class BlogCollectionService {
       // 动态导入rss-parser（避免直接依赖）
       let Parser: any;
       try {
-        // @ts-ignore - Dynamic import of optional dependency
-        const module = await import("rss-parser");
+        // Dynamic import of optional dependency - rss-parser may not be installed
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const module = await import("rss-parser" as any);
         Parser = module.default;
       } catch (error) {
         this.logger.warn("rss-parser not available, skipping RSS collection");

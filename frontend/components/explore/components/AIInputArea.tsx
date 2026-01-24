@@ -1,6 +1,6 @@
 'use client';
 
-import { Resource, AIMessage } from '../types';
+import { Resource, AIMessage } from '../utils/types';
 
 interface AIInputAreaProps {
   selectedResource: Resource | null;
