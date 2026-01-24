@@ -37,6 +37,11 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
  * 优先保留标记为默认的模型
  */
 function deduplicateModels(models: AIModel[]): AIModel[] {
+  // Guard against undefined/null models
+  if (!models || !Array.isArray(models)) {
+    return [];
+  }
+
   const modelMap = new Map<string, AIModel>();
 
   for (const model of models) {
@@ -98,9 +103,14 @@ export function useAIModels() {
         const response = await fetch(`${config.apiUrl}/ai/models`);
         if (response.ok) {
           const data = await response.json();
-          cachedModels = data;
+          // Ensure data is an array, handle cases where API returns non-array
+          const modelsArray = Array.isArray(data) ? data : [];
+          if (!Array.isArray(data)) {
+            logger.warn('[useAIModels] API returned non-array data:', typeof data);
+          }
+          cachedModels = modelsArray;
           cacheTimestamp = now;
-          setModels(data);
+          setModels(modelsArray);
           setError(null);
         } else {
           throw new Error('Failed to fetch AI models');

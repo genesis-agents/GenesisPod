@@ -716,7 +716,14 @@ function SvgRenderer({ svgCode }: { svgCode: string }) {
 // Custom code renderer for ReactMarkdown that supports Mermaid and SVG
 // Note: react-markdown v9+ no longer passes 'inline' prop, need to detect differently
 // Code block component for assistant messages (light theme)
-function CodeBlock({ className, children, node, ...props }: any) {
+interface CodeBlockProps {
+  className?: string;
+  children?: React.ReactNode;
+  node?: unknown;
+  [key: string]: unknown;
+}
+
+function CodeBlock({ className, children, node, ...props }: CodeBlockProps) {
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
   const codeString = String(children).replace(/\n$/, '');
@@ -1023,7 +1030,7 @@ export default function AskPage() {
 
   // Filter CHAT and CHAT_FAST models for the selector
   // CHAT_FAST includes models like Gemini Flash, GPT-4o-mini, Claude Haiku
-  const chatModels = models.filter(
+  const chatModels = (models || []).filter(
     (m) => m.modelType === 'CHAT' || m.modelType === 'CHAT_FAST'
   );
 
