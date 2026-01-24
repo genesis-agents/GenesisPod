@@ -44,7 +44,15 @@
     "profile": "Profile",
     "balance": "Balance",
     "credits": "Credits",
-    "continue": "Continue"
+    "continue": "Continue",
+    "processing": "Processing...",
+    "pageOf": "Page {page} of {total}",
+    "time": {
+      "justNow": "Just now",
+      "minutesAgo": "{n} minutes ago",
+      "hoursAgo": "{n} hours ago",
+      "daysAgo": "{n} days ago"
+    }
   },
   "share": {
     "title": "Share",
@@ -1832,6 +1840,105 @@
         "browser": "Browser",
         "location": "Location",
         "time": "Time"
+      }
+    },
+    "credits": {
+      "title": "Credits Management",
+      "description": "Manage user credit accounts, transactions, and balances",
+      "searchPlaceholder": "Search by email or username...",
+      "noAccounts": "No credit accounts found",
+      "selectAccount": "Select an account to view details",
+      "frozen": "Frozen",
+      "low": "Low",
+      "balance": "Balance",
+      "earned": "Earned",
+      "spent": "Spent",
+      "grant": "Grant",
+      "freeze": "Freeze",
+      "unfreeze": "Unfreeze",
+      "recentTransactions": "Recent Transactions",
+      "noTransactions": "No transactions found",
+      "grantTitle": "Grant Credits",
+      "grantTo": "Grant credits to {email}",
+      "amount": "Amount",
+      "amountPlaceholder": "Enter credit amount",
+      "reason": "Reason (optional)",
+      "reasonPlaceholder": "Enter grant reason",
+      "grantButton": "Grant Credits",
+      "defaultGrantReason": "Admin grant",
+      "grantSuccess": "{amount} credits granted successfully",
+      "freezeSuccess": "Account frozen successfully",
+      "unfreezeSuccess": "Account unfrozen successfully",
+      "freezeReason": "Frozen by admin",
+      "unfreezeReason": "Unfrozen by admin",
+      "stats": {
+        "totalAccounts": "Total Accounts",
+        "totalBalance": "Total Balance",
+        "totalEarned": "Total Earned",
+        "totalSpent": "Total Spent",
+        "frozen": "Frozen",
+        "lowBalance": "Low Balance"
+      },
+      "errors": {
+        "fetchFailed": "Failed to load credit accounts",
+        "statsFailed": "Failed to load statistics",
+        "transactionsFailed": "Failed to load transactions",
+        "grantFailed": "Failed to grant credits",
+        "freezeFailed": "Failed to update account status",
+        "invalidAmount": "Please enter a valid amount"
+      }
+    },
+    "feedback": {
+      "title": "Feedback Management",
+      "description": "View and manage user feedback and bug reports",
+      "searchPlaceholder": "Search feedback...",
+      "noFeedback": "No feedback found",
+      "detailTitle": "Feedback Details",
+      "urgentCount": "{count} urgent items need attention",
+      "filesCount": "{count} files",
+      "submittedAt": "Submitted",
+      "email": "Email",
+      "descriptionLabel": "Description",
+      "attachments": "Attachments",
+      "previousNotes": "Previous Admin Notes",
+      "updateTitle": "Update Status",
+      "statusLabel": "Status",
+      "priorityLabel": "Priority",
+      "adminNotesLabel": "Admin Notes",
+      "adminNotesPlaceholder": "Add notes about this feedback...",
+      "saveChanges": "Save Changes",
+      "updateSuccess": "Feedback updated successfully",
+      "stats": {
+        "total": "Total"
+      },
+      "types": {
+        "bug": "Bug",
+        "feature": "Feature Request",
+        "improvement": "Improvement",
+        "other": "Other"
+      },
+      "statuses": {
+        "pending": "Pending",
+        "reviewed": "Reviewed",
+        "inProgress": "In Progress",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      },
+      "priorities": {
+        "critical": "Critical",
+        "high": "High",
+        "normal": "Normal",
+        "low": "Low"
+      },
+      "filters": {
+        "allStatus": "All Status",
+        "allTypes": "All Types",
+        "allPriority": "All Priority"
+      },
+      "errors": {
+        "fetchFailed": "Failed to load feedback",
+        "statsFailed": "Failed to load statistics",
+        "updateFailed": "Failed to update feedback"
       }
     },
     "system": {

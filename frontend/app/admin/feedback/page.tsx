@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
+import { useTranslation } from '@/lib/i18n';
 
 interface Feedback {
   id: string;
@@ -42,27 +43,12 @@ const TYPE_COLORS: Record<string, string> = {
   OTHER: 'bg-gray-100 text-gray-800',
 };
 
-const TYPE_LABELS: Record<string, string> = {
-  BUG: 'Bug',
-  FEATURE: 'Feature',
-  IMPROVEMENT: 'Improvement',
-  OTHER: 'Other',
-};
-
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800',
   REVIEWED: 'bg-blue-100 text-blue-800',
   IN_PROGRESS: 'bg-purple-100 text-purple-800',
   RESOLVED: 'bg-green-100 text-green-800',
   CLOSED: 'bg-gray-100 text-gray-800',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Pending',
-  REVIEWED: 'Reviewed',
-  IN_PROGRESS: 'In Progress',
-  RESOLVED: 'Resolved',
-  CLOSED: 'Closed',
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -72,21 +58,10 @@ const PRIORITY_COLORS: Record<string, string> = {
   LOW: 'bg-slate-100 text-slate-600',
 };
 
-const PRIORITY_LABELS: Record<string, string> = {
-  CRITICAL: 'Critical',
-  HIGH: 'High',
-  NORMAL: 'Normal',
-  LOW: 'Low',
-};
-
-const PRIORITY_ICONS: Record<string, string> = {
-  CRITICAL: 'text-red-600',
-  HIGH: 'text-orange-500',
-  NORMAL: 'text-gray-400',
-  LOW: 'text-slate-400',
-};
-
-function formatRelativeTime(dateString: string): string {
+function formatRelativeTime(
+  dateString: string,
+  t: (key: string) => string
+): string {
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -94,17 +69,58 @@ function formatRelativeTime(dateString: string): string {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffMins < 1) return t('common.time.justNow');
+  if (diffMins < 60)
+    return t('common.time.minutesAgo').replace('{n}', String(diffMins));
+  if (diffHours < 24)
+    return t('common.time.hoursAgo').replace('{n}', String(diffHours));
+  if (diffDays < 7)
+    return t('common.time.daysAgo').replace('{n}', String(diffDays));
   return date.toLocaleDateString();
 }
 
+// Priority Icon component - only render for CRITICAL and HIGH
+function PriorityIcon({ priority }: { priority: string }) {
+  if (priority === 'CRITICAL') {
+    return (
+      <svg
+        className="h-4 w-4 text-red-600"
+        fill="currentColor"
+        viewBox="0 0 20 20"
+      >
+        <path
+          fillRule="evenodd"
+          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+          clipRule="evenodd"
+        />
+      </svg>
+    );
+  }
+  if (priority === 'HIGH') {
+    return (
+      <svg
+        className="h-4 w-4 text-orange-500"
+        fill="currentColor"
+        viewBox="0 0 20 20"
+      >
+        <path
+          fillRule="evenodd"
+          d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z"
+          clipRule="evenodd"
+        />
+      </svg>
+    );
+  }
+  return null;
+}
+
 export default function FeedbackPage() {
+  const { t } = useTranslation();
+
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [stats, setStats] = useState<FeedbackStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(
     null
   );
@@ -116,129 +132,243 @@ export default function FeedbackPage() {
   const [newStatus, setNewStatus] = useState('');
   const [newPriority, setNewPriority] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
+  // Action feedback
+  const [actionMessage, setActionMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
+  const showMessage = useCallback((type: 'success' | 'error', text: string) => {
+    setActionMessage({ type, text });
+    setTimeout(() => setActionMessage(null), 3000);
+  }, []);
+
+  // Type and Status labels (using i18n)
+  const getTypeLabel = useCallback(
+    (type: string) => {
+      const labels: Record<string, string> = {
+        BUG: t('admin.feedback.types.bug'),
+        FEATURE: t('admin.feedback.types.feature'),
+        IMPROVEMENT: t('admin.feedback.types.improvement'),
+        OTHER: t('admin.feedback.types.other'),
+      };
+      return labels[type] || type;
+    },
+    [t]
+  );
+
+  const getStatusLabel = useCallback(
+    (status: string) => {
+      const labels: Record<string, string> = {
+        PENDING: t('admin.feedback.statuses.pending'),
+        REVIEWED: t('admin.feedback.statuses.reviewed'),
+        IN_PROGRESS: t('admin.feedback.statuses.inProgress'),
+        RESOLVED: t('admin.feedback.statuses.resolved'),
+        CLOSED: t('admin.feedback.statuses.closed'),
+      };
+      return labels[status] || status;
+    },
+    [t]
+  );
+
+  const getPriorityLabel = useCallback(
+    (priority: string) => {
+      const labels: Record<string, string> = {
+        CRITICAL: t('admin.feedback.priorities.critical'),
+        HIGH: t('admin.feedback.priorities.high'),
+        NORMAL: t('admin.feedback.priorities.normal'),
+        LOW: t('admin.feedback.priorities.low'),
+      };
+      return labels[priority] || priority;
+    },
+    [t]
+  );
 
   const fetchFeedbacks = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams();
       if (filterStatus) params.append('status', filterStatus);
       if (filterType) params.append('type', filterType);
       if (filterPriority) params.append('priority', filterPriority);
+      if (searchQuery) params.append('search', searchQuery);
 
       const response = await fetch(
         `${config.apiUrl}/feedback?${params.toString()}`,
         { headers: getAuthHeader() }
       );
-      if (response.ok) {
-        const result = await response.json();
-        const data = result?.data ?? result;
-        let feedbackList = data.feedbacks || [];
 
-        // Client-side search filtering
-        if (searchQuery) {
-          const query = searchQuery.toLowerCase();
-          feedbackList = feedbackList.filter(
-            (f: Feedback) =>
-              f.title.toLowerCase().includes(query) ||
-              f.description.toLowerCase().includes(query) ||
-              f.user_email?.toLowerCase().includes(query) ||
-              f.id.toLowerCase().includes(query)
-          );
-        }
-
-        setFeedbacks(feedbackList);
+      if (!response.ok) {
+        throw new Error(t('admin.feedback.errors.fetchFailed'));
       }
-    } catch (error) {
-      logger.error('Failed to fetch feedbacks:', error);
+
+      const result = await response.json();
+      const data = result?.data ?? result;
+      setFeedbacks(data.feedbacks || []);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : t('admin.feedback.errors.fetchFailed');
+      setError(message);
+      logger.error('Failed to fetch feedbacks:', err);
     } finally {
       setLoading(false);
     }
-  }, [filterStatus, filterType, filterPriority, searchQuery]);
+  }, [filterStatus, filterType, filterPriority, searchQuery, t]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const response = await fetch(`${config.apiUrl}/feedback/stats`, {
         headers: getAuthHeader(),
       });
-      if (response.ok) {
-        const result = await response.json();
-        const data = result?.data ?? result;
-        setStats(data);
+
+      if (!response.ok) {
+        throw new Error(t('admin.feedback.errors.statsFailed'));
       }
-    } catch (error) {
-      logger.error('Failed to fetch stats:', error);
+
+      const result = await response.json();
+      const data = result?.data ?? result;
+      setStats(data);
+    } catch (err) {
+      logger.error('Failed to fetch stats:', err);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     void fetchFeedbacks();
     void fetchStats();
-  }, [fetchFeedbacks]);
+  }, [fetchFeedbacks, fetchStats]);
 
   const handleUpdateFeedback = async () => {
     if (!selectedFeedback) return;
 
     setUpdating(true);
+    setUpdateError(null);
+
     try {
+      const updates: Promise<Response>[] = [];
+
       // Update status if changed
-      if (newStatus !== selectedFeedback.status) {
-        await fetch(`${config.apiUrl}/feedback/${selectedFeedback.id}/status`, {
-          method: 'PATCH',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            status: newStatus,
-            adminNotes: adminNotes || undefined,
-          }),
-        });
+      if (newStatus && newStatus !== selectedFeedback.status) {
+        updates.push(
+          fetch(`${config.apiUrl}/feedback/${selectedFeedback.id}/status`, {
+            method: 'PATCH',
+            headers: {
+              ...getAuthHeader(),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              status: newStatus,
+              adminNotes: adminNotes || undefined,
+            }),
+          })
+        );
       }
 
       // Update priority if changed
-      if (newPriority !== selectedFeedback.priority) {
-        await fetch(
-          `${config.apiUrl}/feedback/${selectedFeedback.id}/priority`,
-          {
+      if (newPriority && newPriority !== selectedFeedback.priority) {
+        updates.push(
+          fetch(`${config.apiUrl}/feedback/${selectedFeedback.id}/priority`, {
             method: 'PATCH',
             headers: {
               ...getAuthHeader(),
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({ priority: newPriority }),
-          }
+          })
         );
       }
 
-      await fetchFeedbacks();
-      await fetchStats();
+      if (updates.length === 0) {
+        setSelectedFeedback(null);
+        return;
+      }
+
+      const results = await Promise.all(updates);
+      const failedResults = results.filter((r) => !r.ok);
+
+      if (failedResults.length > 0) {
+        // Try to get error message from first failed response
+        const errorData = await failedResults[0].json().catch(() => ({}));
+        throw new Error(
+          errorData.message || t('admin.feedback.errors.updateFailed')
+        );
+      }
+
+      await Promise.all([fetchFeedbacks(), fetchStats()]);
       setSelectedFeedback(null);
       setAdminNotes('');
       setNewStatus('');
       setNewPriority('');
-    } catch (error) {
-      logger.error('Failed to update feedback:', error);
+      showMessage('success', t('admin.feedback.updateSuccess'));
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : t('admin.feedback.errors.updateFailed');
+      setUpdateError(message);
+      logger.error('Failed to update feedback:', err);
     } finally {
       setUpdating(false);
     }
   };
 
-  const openDetail = (feedback: Feedback) => {
+  const openDetail = useCallback((feedback: Feedback) => {
     setSelectedFeedback(feedback);
     setNewStatus(feedback.status);
     setNewPriority(feedback.priority || 'NORMAL');
     setAdminNotes(feedback.admin_notes || '');
-  };
+    setUpdateError(null);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     void fetchFeedbacks();
   };
 
-  // Get critical/high priority count for badge
-  const urgentCount = feedbacks.filter(
-    (f) => f.priority === 'CRITICAL' || f.priority === 'HIGH'
-  ).length;
+  // Memoized computed values
+  const urgentCount = useMemo(
+    () =>
+      feedbacks.filter(
+        (f) => f.priority === 'CRITICAL' || f.priority === 'HIGH'
+      ).length,
+    [feedbacks]
+  );
+
+  const typeOptions = useMemo(
+    () => [
+      { key: 'BUG', label: t('admin.feedback.types.bug') },
+      { key: 'FEATURE', label: t('admin.feedback.types.feature') },
+      { key: 'IMPROVEMENT', label: t('admin.feedback.types.improvement') },
+      { key: 'OTHER', label: t('admin.feedback.types.other') },
+    ],
+    [t]
+  );
+
+  const statusOptions = useMemo(
+    () => [
+      { key: 'PENDING', label: t('admin.feedback.statuses.pending') },
+      { key: 'REVIEWED', label: t('admin.feedback.statuses.reviewed') },
+      { key: 'IN_PROGRESS', label: t('admin.feedback.statuses.inProgress') },
+      { key: 'RESOLVED', label: t('admin.feedback.statuses.resolved') },
+      { key: 'CLOSED', label: t('admin.feedback.statuses.closed') },
+    ],
+    [t]
+  );
+
+  const priorityOptions = useMemo(
+    () => [
+      { key: 'CRITICAL', label: t('admin.feedback.priorities.critical') },
+      { key: 'HIGH', label: t('admin.feedback.priorities.high') },
+      { key: 'NORMAL', label: t('admin.feedback.priorities.normal') },
+      { key: 'LOW', label: t('admin.feedback.priorities.low') },
+    ],
+    [t]
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -248,9 +378,9 @@ export default function FeedbackPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                Feedback Management
+                {t('admin.feedback.title')}
               </h1>
-              <p className="text-gray-600">Review and manage user feedback</p>
+              <p className="text-gray-600">{t('admin.feedback.description')}</p>
             </div>
             {urgentCount > 0 && (
               <div className="flex items-center gap-2 rounded-lg bg-red-100 px-4 py-2 text-red-800">
@@ -267,11 +397,45 @@ export default function FeedbackPage() {
                     d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                   />
                 </svg>
-                <span className="font-medium">{urgentCount} urgent</span>
+                <span className="font-medium">
+                  {t('admin.feedback.urgentCount').replace(
+                    '{count}',
+                    String(urgentCount)
+                  )}
+                </span>
               </div>
             )}
           </div>
         </div>
+
+        {/* Action Message Toast */}
+        {actionMessage && (
+          <div
+            className={`fixed right-4 top-4 z-50 rounded-lg px-4 py-3 shadow-lg ${
+              actionMessage.type === 'success'
+                ? 'bg-green-600 text-white'
+                : 'bg-red-600 text-white'
+            }`}
+          >
+            {actionMessage.text}
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-800">
+            <div className="flex items-center gap-2">
+              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span>{error}</span>
+            </div>
+          </div>
+        )}
 
         {/* Stats Cards */}
         {stats && (
@@ -280,37 +444,49 @@ export default function FeedbackPage() {
               <div className="text-2xl font-bold text-gray-900">
                 {stats.total}
               </div>
-              <div className="text-sm text-gray-500">Total</div>
+              <div className="text-sm text-gray-500">
+                {t('admin.feedback.stats.total')}
+              </div>
             </div>
             <div className="rounded-lg bg-white p-4 shadow">
               <div className="text-2xl font-bold text-yellow-600">
                 {stats.byStatus?.PENDING || 0}
               </div>
-              <div className="text-sm text-gray-500">Pending</div>
+              <div className="text-sm text-gray-500">
+                {t('admin.feedback.statuses.pending')}
+              </div>
             </div>
             <div className="rounded-lg bg-white p-4 shadow">
               <div className="text-2xl font-bold text-purple-600">
                 {stats.byStatus?.IN_PROGRESS || 0}
               </div>
-              <div className="text-sm text-gray-500">In Progress</div>
+              <div className="text-sm text-gray-500">
+                {t('admin.feedback.statuses.inProgress')}
+              </div>
             </div>
             <div className="rounded-lg bg-white p-4 shadow">
               <div className="text-2xl font-bold text-green-600">
                 {stats.byStatus?.RESOLVED || 0}
               </div>
-              <div className="text-sm text-gray-500">Resolved</div>
+              <div className="text-sm text-gray-500">
+                {t('admin.feedback.statuses.resolved')}
+              </div>
             </div>
             <div className="rounded-lg bg-white p-4 shadow">
               <div className="text-2xl font-bold text-red-600">
                 {stats.byType?.BUG || 0}
               </div>
-              <div className="text-sm text-gray-500">Bugs</div>
+              <div className="text-sm text-gray-500">
+                {t('admin.feedback.types.bug')}
+              </div>
             </div>
             <div className="rounded-lg bg-white p-4 shadow">
               <div className="text-2xl font-bold text-amber-600">
                 {stats.byType?.FEATURE || 0}
               </div>
-              <div className="text-sm text-gray-500">Features</div>
+              <div className="text-sm text-gray-500">
+                {t('admin.feedback.types.feature')}
+              </div>
             </div>
           </div>
         )}
@@ -323,7 +499,7 @@ export default function FeedbackPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by title, description, email, or ID..."
+                placeholder={t('admin.feedback.searchPlaceholder')}
                 className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm"
               />
               <svg
@@ -346,8 +522,8 @@ export default function FeedbackPage() {
             onChange={(e) => setFilterStatus(e.target.value)}
             className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm"
           >
-            <option value="">All Status</option>
-            {Object.entries(STATUS_LABELS).map(([key, label]) => (
+            <option value="">{t('admin.feedback.filters.allStatus')}</option>
+            {statusOptions.map(({ key, label }) => (
               <option key={key} value={key}>
                 {label}
               </option>
@@ -358,8 +534,8 @@ export default function FeedbackPage() {
             onChange={(e) => setFilterType(e.target.value)}
             className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm"
           >
-            <option value="">All Types</option>
-            {Object.entries(TYPE_LABELS).map(([key, label]) => (
+            <option value="">{t('admin.feedback.filters.allTypes')}</option>
+            {typeOptions.map(({ key, label }) => (
               <option key={key} value={key}>
                 {label}
               </option>
@@ -370,8 +546,8 @@ export default function FeedbackPage() {
             onChange={(e) => setFilterPriority(e.target.value)}
             className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm"
           >
-            <option value="">All Priority</option>
-            {Object.entries(PRIORITY_LABELS).map(([key, label]) => (
+            <option value="">{t('admin.feedback.filters.allPriority')}</option>
+            {priorityOptions.map(({ key, label }) => (
               <option key={key} value={key}>
                 {label}
               </option>
@@ -382,10 +558,12 @@ export default function FeedbackPage() {
         {/* Feedback List */}
         <div className="rounded-lg bg-white shadow">
           {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading...</div>
+            <div className="p-8 text-center text-gray-500">
+              {t('common.loading')}
+            </div>
           ) : feedbacks.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              No feedback found
+              {t('admin.feedback.noFeedback')}
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
@@ -398,58 +576,34 @@ export default function FeedbackPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="mb-2 flex items-center gap-2">
-                        {/* Priority indicator */}
-                        <span
-                          className={`flex h-6 w-6 items-center justify-center ${PRIORITY_ICONS[feedback.priority || 'NORMAL']}`}
-                        >
-                          {feedback.priority === 'CRITICAL' && (
-                            <svg
-                              className="h-4 w-4"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          )}
-                          {feedback.priority === 'HIGH' && (
-                            <svg
-                              className="h-4 w-4"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          )}
-                        </span>
+                        {/* Priority indicator - only show icon for CRITICAL/HIGH */}
+                        <PriorityIcon
+                          priority={feedback.priority || 'NORMAL'}
+                        />
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[feedback.type]}`}
                         >
-                          {TYPE_LABELS[feedback.type]}
+                          {getTypeLabel(feedback.type)}
                         </span>
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[feedback.status]}`}
                         >
-                          {STATUS_LABELS[feedback.status]}
+                          {getStatusLabel(feedback.status)}
                         </span>
                         {feedback.priority &&
                           feedback.priority !== 'NORMAL' && (
                             <span
                               className={`rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_COLORS[feedback.priority]}`}
                             >
-                              {PRIORITY_LABELS[feedback.priority]}
+                              {getPriorityLabel(feedback.priority)}
                             </span>
                           )}
                         {feedback.attachments?.length > 0 && (
                           <span className="text-xs text-gray-500">
-                            {feedback.attachments.length} file(s)
+                            {t('admin.feedback.filesCount').replace(
+                              '{count}',
+                              String(feedback.attachments.length)
+                            )}
                           </span>
                         )}
                       </div>
@@ -460,7 +614,9 @@ export default function FeedbackPage() {
                         {feedback.description}
                       </p>
                       <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
-                        <span>{formatRelativeTime(feedback.created_at)}</span>
+                        <span>
+                          {formatRelativeTime(feedback.created_at, t)}
+                        </span>
                         {feedback.user_email && (
                           <span>{feedback.user_email}</span>
                         )}
@@ -481,7 +637,9 @@ export default function FeedbackPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl">
               <div className="sticky top-0 flex items-center justify-between border-b bg-white p-4">
-                <h2 className="text-lg font-semibold">Feedback Details</h2>
+                <h2 className="text-lg font-semibold">
+                  {t('admin.feedback.detailTitle')}
+                </h2>
                 <button
                   onClick={() => setSelectedFeedback(null)}
                   className="text-gray-500 hover:text-gray-700"
@@ -508,17 +666,17 @@ export default function FeedbackPage() {
                   <span
                     className={`rounded-full px-3 py-1 text-sm font-medium ${TYPE_COLORS[selectedFeedback.type]}`}
                   >
-                    {TYPE_LABELS[selectedFeedback.type]}
+                    {getTypeLabel(selectedFeedback.type)}
                   </span>
                   <span
                     className={`rounded-full px-3 py-1 text-sm font-medium ${STATUS_COLORS[selectedFeedback.status]}`}
                   >
-                    {STATUS_LABELS[selectedFeedback.status]}
+                    {getStatusLabel(selectedFeedback.status)}
                   </span>
                   <span
                     className={`rounded-full px-3 py-1 text-sm font-medium ${PRIORITY_COLORS[selectedFeedback.priority || 'NORMAL']}`}
                   >
-                    {PRIORITY_LABELS[selectedFeedback.priority || 'NORMAL']}
+                    {getPriorityLabel(selectedFeedback.priority || 'NORMAL')}
                   </span>
                 </div>
 
@@ -533,12 +691,12 @@ export default function FeedbackPage() {
                     ID: <span className="font-mono">{selectedFeedback.id}</span>
                   </div>
                   <div>
-                    Submitted:{' '}
+                    {t('admin.feedback.submittedAt')}:{' '}
                     {new Date(selectedFeedback.created_at).toLocaleString()}
                   </div>
                   {selectedFeedback.user_email && (
                     <div>
-                      Email:{' '}
+                      {t('admin.feedback.email')}:{' '}
                       <a
                         href={`mailto:${selectedFeedback.user_email}`}
                         className="text-blue-600 hover:underline"
@@ -565,7 +723,7 @@ export default function FeedbackPage() {
                 {/* Description */}
                 <div className="mb-4 rounded-lg bg-gray-50 p-4">
                   <h4 className="mb-2 font-medium text-gray-700">
-                    Description
+                    {t('admin.feedback.descriptionLabel')}
                   </h4>
                   <p className="whitespace-pre-wrap text-gray-600">
                     {selectedFeedback.description}
@@ -576,7 +734,8 @@ export default function FeedbackPage() {
                 {selectedFeedback.attachments?.length > 0 && (
                   <div className="mb-4">
                     <h4 className="mb-2 font-medium text-gray-700">
-                      Attachments ({selectedFeedback.attachments.length})
+                      {t('admin.feedback.attachments')} (
+                      {selectedFeedback.attachments.length})
                     </h4>
                     <div className="space-y-2">
                       {selectedFeedback.attachments.map((att, idx) => (
@@ -616,7 +775,7 @@ export default function FeedbackPage() {
                 {selectedFeedback.admin_notes && (
                   <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
                     <h4 className="mb-2 font-medium text-blue-800">
-                      Previous Admin Notes
+                      {t('admin.feedback.previousNotes')}
                     </h4>
                     <p className="whitespace-pre-wrap text-blue-700">
                       {selectedFeedback.admin_notes}
@@ -627,20 +786,26 @@ export default function FeedbackPage() {
                 {/* Update Section */}
                 <div className="border-t pt-4">
                   <h4 className="mb-3 font-medium text-gray-700">
-                    Update Feedback
+                    {t('admin.feedback.updateTitle')}
                   </h4>
+
+                  {updateError && (
+                    <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">
+                      {updateError}
+                    </div>
+                  )}
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Status
+                        {t('admin.feedback.statusLabel')}
                       </label>
                       <select
                         value={newStatus}
                         onChange={(e) => setNewStatus(e.target.value)}
                         className="w-full rounded-lg border border-gray-300 px-4 py-2"
                       >
-                        {Object.entries(STATUS_LABELS).map(([key, label]) => (
+                        {statusOptions.map(({ key, label }) => (
                           <option key={key} value={key}>
                             {label}
                           </option>
@@ -649,14 +814,14 @@ export default function FeedbackPage() {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Priority
+                        {t('admin.feedback.priorityLabel')}
                       </label>
                       <select
                         value={newPriority}
                         onChange={(e) => setNewPriority(e.target.value)}
                         className="w-full rounded-lg border border-gray-300 px-4 py-2"
                       >
-                        {Object.entries(PRIORITY_LABELS).map(([key, label]) => (
+                        {priorityOptions.map(({ key, label }) => (
                           <option key={key} value={key}>
                             {label}
                           </option>
@@ -667,12 +832,12 @@ export default function FeedbackPage() {
 
                   <div className="mt-4">
                     <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Admin Notes
+                      {t('admin.feedback.adminNotesLabel')}
                     </label>
                     <textarea
                       value={adminNotes}
                       onChange={(e) => setAdminNotes(e.target.value)}
-                      placeholder="Add notes about this feedback..."
+                      placeholder={t('admin.feedback.adminNotesPlaceholder')}
                       className="h-24 w-full resize-none rounded-lg border border-gray-300 px-4 py-2"
                     />
                   </div>
@@ -682,7 +847,9 @@ export default function FeedbackPage() {
                     disabled={updating}
                     className="mt-4 w-full rounded-lg bg-blue-600 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {updating ? 'Updating...' : 'Save Changes'}
+                    {updating
+                      ? t('common.processing')
+                      : t('admin.feedback.saveChanges')}
                   </button>
                 </div>
               </div>
