@@ -12,6 +12,13 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { SecretsModule } from "../secrets/secrets.module";
 
+// Admin sub-services
+import {
+  UserManagementService,
+  ResourceManagementService,
+  StatisticsService,
+} from "./services";
+
 @Module({
   imports: [PrismaModule, AiEngineModule, SecretsModule],
   controllers: [
@@ -20,7 +27,22 @@ import { SecretsModule } from "../secrets/secrets.module";
     AITeamsTemplatesController,
     AIAdminController, // /admin/ai/* routes for tools, skills, mcp-servers
   ],
-  providers: [AdminService, AITeamsAdminService, AIAdminService],
-  exports: [AdminService, AITeamsAdminService, AIAdminService],
+  providers: [
+    AdminService,
+    AITeamsAdminService,
+    AIAdminService,
+    // Admin sub-services (dependencies of AdminService)
+    UserManagementService,
+    ResourceManagementService,
+    StatisticsService,
+  ],
+  exports: [
+    AdminService,
+    AITeamsAdminService,
+    AIAdminService,
+    UserManagementService,
+    ResourceManagementService,
+    StatisticsService,
+  ],
 })
 export class AdminModule {}
