@@ -212,8 +212,12 @@ export class AIEngineFacade {
     );
 
     // 熔断器检查
-    if (this.orchestration?.circuitBreaker && !this.orchestration?.circuitBreaker.canExecute(entityId)) {
-      const cooldown = this.orchestration?.circuitBreaker.getCooldownRemaining(entityId);
+    if (
+      this.orchestration?.circuitBreaker &&
+      !this.orchestration?.circuitBreaker.canExecute(entityId)
+    ) {
+      const cooldown =
+        this.orchestration?.circuitBreaker.getCooldownRemaining(entityId);
       this.logger.warn(
         `[chat] Circuit breaker OPEN for ${entityId}, cooldown=${cooldown}ms`,
       );
@@ -276,7 +280,11 @@ export class AIEngineFacade {
       const errorType =
         this.orchestration?.circuitBreaker?.parseErrorType(errorMsg) ||
         TaskCompletionType.API_ERROR;
-      this.orchestration?.circuitBreaker?.recordFailure(entityId, errorType, errorMsg);
+      this.orchestration?.circuitBreaker?.recordFailure(
+        entityId,
+        errorType,
+        errorMsg,
+      );
 
       this.logger.error(`[chat] Failed after ${duration}ms: ${errorMsg}`);
 
@@ -421,8 +429,12 @@ export class AIEngineFacade {
     const entityId = `chat:${modelId}`;
 
     // 熔断器检查
-    if (this.orchestration?.circuitBreaker && !this.orchestration?.circuitBreaker.canExecute(entityId)) {
-      const cooldown = this.orchestration?.circuitBreaker.getCooldownRemaining(entityId);
+    if (
+      this.orchestration?.circuitBreaker &&
+      !this.orchestration?.circuitBreaker.canExecute(entityId)
+    ) {
+      const cooldown =
+        this.orchestration?.circuitBreaker.getCooldownRemaining(entityId);
       this.logger.warn(
         `[chatStream] Circuit breaker OPEN for ${entityId}, cooldown=${cooldown}ms`,
       );
@@ -555,7 +567,8 @@ export class AIEngineFacade {
     // 4. 考虑熔断器状态选择最佳模型
     if (this.orchestration?.circuitBreaker) {
       const entityIds = candidates.map((m) => `chat:${m.id}`);
-      const bestEntityId = this.orchestration?.circuitBreaker.selectBest(entityIds);
+      const bestEntityId =
+        this.orchestration?.circuitBreaker.selectBest(entityIds);
 
       if (bestEntityId) {
         const modelId = bestEntityId.replace("chat:", "");
@@ -604,7 +617,9 @@ export class AIEngineFacade {
         name: name,
         provider: this.inferProviderFromModel(name),
         isReasoning: this.aiChatService.isReasoningModel(name),
-        isAvailable: this.orchestration?.circuitBreaker?.canExecute(`chat:${name}`) ?? true,
+        isAvailable:
+          this.orchestration?.circuitBreaker?.canExecute(`chat:${name}`) ??
+          true,
       }));
     }
 
@@ -635,7 +650,8 @@ export class AIEngineFacade {
       const patternIsReasoning = this.aiChatService.isReasoningModel(m.modelId);
       const isReasoning = dbIsReasoning || patternIsReasoning;
       const isAvailable =
-        this.orchestration?.circuitBreaker?.canExecute(`chat:${m.modelId}`) ?? true;
+        this.orchestration?.circuitBreaker?.canExecute(`chat:${m.modelId}`) ??
+        true;
 
       this.logger.debug(
         `[getAvailableModelsExtended] Model ${m.modelId}: db=${m.isReasoning}, pattern=${patternIsReasoning}, final=${isReasoning}, available=${isAvailable}`,
@@ -777,6 +793,10 @@ export class AIEngineFacade {
     maxTokens?: number;
     apiEndpoint?: string;
     isReasoning?: boolean;
+    // ★ 额外字段：支持非 CHAT 类型模型（如 IMAGE_GENERATION）
+    apiKey?: string | null;
+    secretKey?: string | null;
+    modelType?: string;
   } | null> {
     // ★ 首先尝试按 modelId 查找（如 "imagen-4.0-generate-001"）
     let config = await this.aiChatService.getModelConfig(idOrModelId);
@@ -797,8 +817,29 @@ export class AIEngineFacade {
         },
       });
       if (dbModel) {
-        // 使用数据库模型的 modelId 重新获取完整配置
+        // ★ 修复：对于非 CHAT 类型的模型（如 IMAGE_GENERATION），
+        // getModelConfig() 会返回 null，需要直接使用数据库记录
         config = await this.aiChatService.getModelConfig(dbModel.modelId);
+
+        // ★ 如果 getModelConfig 返回 null（非 CHAT 类型），直接使用数据库记录
+        if (!config && dbModel) {
+          this.logger.debug(
+            `[getModelById] Model ${dbModel.modelId} is not CHAT type (${dbModel.modelType}), using db record directly`,
+          );
+          return {
+            id: dbModel.id,
+            modelId: dbModel.modelId,
+            displayName: dbModel.displayName || dbModel.name || dbModel.modelId,
+            provider: dbModel.provider,
+            maxTokens: dbModel.maxTokens,
+            apiEndpoint: dbModel.apiEndpoint,
+            isReasoning: (dbModel as any).isReasoning ?? false,
+            // ★ 额外字段供 ImageGenerationService 使用
+            apiKey: dbModel.apiKey,
+            secretKey: dbModel.secretKey,
+            modelType: dbModel.modelType,
+          };
+        }
       }
     }
 
@@ -845,7 +886,55 @@ export class AIEngineFacade {
     priceOutputPerMillion?: number | null;
     priority?: number | null;
   } | null> {
-    const config = await this.aiChatService.getModelConfig(modelId);
+    // ★ 首先尝试从 CHAT 模型缓存获取
+    let config = await this.aiChatService.getModelConfig(modelId);
+
+    // ★ 如果缓存未命中，直接从数据库查询（支持所有模型类型）
+    if (!config && this.prisma) {
+      const dbModel = await this.prisma.aIModel.findFirst({
+        where: {
+          OR: [
+            { modelId: { equals: modelId, mode: "insensitive" } },
+            { id: modelId },
+          ],
+          isEnabled: true,
+        },
+      });
+
+      if (dbModel) {
+        this.logger.debug(
+          `[getFullModelConfig] Found model ${dbModel.modelId} (type: ${dbModel.modelType}) directly from database`,
+        );
+        // ★ 直接使用数据库记录
+        return {
+          id: dbModel.id,
+          modelId: dbModel.modelId,
+          displayName: dbModel.displayName || dbModel.name || dbModel.modelId,
+          name: dbModel.name || dbModel.modelId,
+          provider: dbModel.provider,
+          apiKey: dbModel.apiKey || "",
+          secretKey: dbModel.secretKey || null,
+          apiEndpoint: dbModel.apiEndpoint || null,
+          maxTokens: dbModel.maxTokens || null,
+          temperature: dbModel.temperature ? Number(dbModel.temperature) : null,
+          isEnabled: dbModel.isEnabled,
+          isDefault: dbModel.isDefault,
+          isReasoning: (dbModel as any).isReasoning ?? false,
+          apiFormat: (dbModel as any).apiFormat || null,
+          supportsTemperature: (dbModel as any).supportsTemperature ?? true,
+          supportsStreaming: (dbModel as any).supportsStreaming ?? false,
+          supportsFunctionCalling:
+            (dbModel as any).supportsFunctionCalling ?? false,
+          supportsVision: (dbModel as any).supportsVision ?? false,
+          tokenParamName: (dbModel as any).tokenParamName || null,
+          defaultTimeoutMs: (dbModel as any).defaultTimeoutMs || null,
+          priceInputPerMillion: (dbModel as any).priceInputPerMillion || null,
+          priceOutputPerMillion: (dbModel as any).priceOutputPerMillion || null,
+          priority: (dbModel as any).priority || null,
+        };
+      }
+    }
+
     if (!config) return null;
     return {
       id: config.id || config.modelId,
