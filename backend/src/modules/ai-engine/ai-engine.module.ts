@@ -44,10 +44,8 @@ import { AgentRegistry } from "./agents/registry";
 import { LLMFactory } from "./llm/factory/llm-factory";
 import { UniversalLLMAdapter } from "./llm/adapters/universal-llm-adapter";
 
-// Controllers & API Services
-import { AgentsController } from "./agents/api";
+// Controllers & API Services (only AiCoreController, others in sub-modules)
 import { AiCoreController, AiCoreService } from "./api";
-import { SkillsController } from "./skills/api";
 
 // Other Modules
 import { ImageModule } from "./image/image.module";
@@ -118,7 +116,7 @@ const handoffCoordinatorFactory = {
     TeamsModule,
     LongContentModule,
   ],
-  controllers: [AgentsController, AiCoreController, SkillsController],
+  controllers: [AiCoreController],
   providers: [
     // === API Service ===
     AiCoreService,
