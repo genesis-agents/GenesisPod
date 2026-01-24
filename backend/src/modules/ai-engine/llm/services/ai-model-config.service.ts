@@ -502,43 +502,57 @@ export class AiModelConfigService {
       isDefault: boolean;
     }[]
   > {
-    const where: any = { isEnabled: true };
-    if (modelType) {
-      where.modelType = modelType;
+    try {
+      const where: any = { isEnabled: true };
+      if (modelType) {
+        where.modelType = modelType;
+      }
+
+      const models = await this.prisma.aIModel.findMany({
+        where,
+        orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          provider: true,
+          modelId: true,
+          modelType: true,
+          icon: true,
+          color: true,
+          description: true,
+          isDefault: true,
+        },
+      });
+
+      // Ensure models is always an array
+      if (!models || !Array.isArray(models)) {
+        this.logger.warn(
+          `[getEnabledModelsForFrontend] Prisma returned non-array: ${typeof models}`,
+        );
+        return [];
+      }
+
+      return models.map((model) => ({
+        id: model.id,
+        dbId: model.id,
+        name: model.displayName,
+        modelName: model.name,
+        provider: model.provider,
+        modelId: model.modelId,
+        modelType: model.modelType,
+        icon: model.icon,
+        iconUrl: this.getIconUrl(model.name),
+        color: model.color,
+        description:
+          model.description || `${model.provider} ${model.displayName}`,
+        isDefault: model.isDefault,
+      }));
+    } catch (error) {
+      this.logger.error(`[getEnabledModelsForFrontend] Failed: ${error}`);
+      // Always return an empty array, never null/undefined
+      return [];
     }
-
-    const models = await this.prisma.aIModel.findMany({
-      where,
-      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-        provider: true,
-        modelId: true,
-        modelType: true,
-        icon: true,
-        color: true,
-        description: true,
-        isDefault: true,
-      },
-    });
-
-    return models.map((model) => ({
-      id: model.id,
-      dbId: model.id,
-      name: model.displayName,
-      modelName: model.name,
-      provider: model.provider,
-      modelId: model.modelId,
-      modelType: model.modelType,
-      icon: model.icon,
-      iconUrl: this.getIconUrl(model.name),
-      color: model.color,
-      description:
-        model.description || `${model.provider} ${model.displayName}`,
-      isDefault: model.isDefault,
-    }));
   }
 
   /**
