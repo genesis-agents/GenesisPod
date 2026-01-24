@@ -224,17 +224,24 @@ export default function ToolsManagement() {
         return result.value;
       });
 
-      const searchData = searchRes?.ok ? await searchRes.json() : null;
-      const extractionData = extractionRes?.ok
-        ? await extractionRes.json()
-        : null;
-      const youtubeData = youtubeRes?.ok ? await youtubeRes.json() : null;
-      const ttsData = ttsRes?.ok ? await ttsRes.json() : null;
-      const skillsmpData = skillsmpRes?.ok ? await skillsmpRes.json() : null;
+      // Helper to unwrap API response { success: true, data: T }
+      const unwrapResponse = async (res: Response | null) => {
+        if (!res?.ok) return null;
+        const json = await res.json();
+        return json?.data ?? json;
+      };
 
-      const allConfigsData = allConfigsRes?.ok
-        ? await allConfigsRes.json()
-        : { tools: null, mcpServers: { servers: [] } };
+      const searchData = await unwrapResponse(searchRes);
+      const extractionData = await unwrapResponse(extractionRes);
+      const youtubeData = await unwrapResponse(youtubeRes);
+      const ttsData = await unwrapResponse(ttsRes);
+      const skillsmpData = await unwrapResponse(skillsmpRes);
+
+      const allConfigsRaw = await unwrapResponse(allConfigsRes);
+      const allConfigsData = allConfigsRaw || {
+        tools: null,
+        mcpServers: { servers: [] },
+      };
       const capabilitiesData = allConfigsData.tools;
       const mcpServersData = allConfigsData.mcpServers || { servers: [] };
 
