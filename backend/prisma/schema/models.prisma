@@ -8207,3 +8207,39 @@ model SocialPublishLog {
   @@index([status])
   @@map("social_publish_logs")
 }
+
+// ============================================================================
+// Provider Quota Cache - API 配额缓存
+// 用于存储各 AI Provider 的 API 使用量和配额信息
+// ============================================================================
+
+model ProviderQuotaCache {
+  id       String @id @default(uuid())
+  provider String @unique @db.VarChar(50) // openai, anthropic, google, xai, cohere, deepseek
+
+  // 配额数据
+  quotaType       String  @default("tokens") @map("quota_type") @db.VarChar(20) // tokens, requests, credits, dollars
+  usage           BigInt  @default(0) // 已使用量
+  quotaLimit      BigInt? @map("quota_limit") // 配额限制 (null 表示无限制或不可查)
+  remaining       BigInt? // 剩余量
+  usagePercentage Float?  @map("usage_percentage") // 使用率百分比
+
+  // 周期
+  unit   String @default("tokens") @db.VarChar(20) // tokens, requests, credits, USD
+  period String @default("monthly") @db.VarChar(20) // daily, monthly, unlimited
+
+  // 状态
+  status        String  @default("unavailable") @db.VarChar(20) // normal, warning, critical, unavailable, error
+  statusMessage String? @map("status_message") @db.Text
+
+  // 元数据
+  dataSource String  @default("unavailable") @map("data_source") @db.VarChar(20) // api, estimated, manual, unavailable
+  consoleUrl String? @map("console_url") @db.Text // 官方控制台链接
+  rawData    Json? // 原始 API 响应
+
+  // 时间戳
+  lastUpdated DateTime @default(now()) @updatedAt @map("last_updated")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("provider_quota_cache")
+}

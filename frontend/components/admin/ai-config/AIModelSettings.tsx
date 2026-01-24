@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
+import { QuotaDashboard } from '../quota';
 
 import { logger } from '@/lib/utils/logger';
 // AI模型类型枚举 - 支持 Tier 分级
@@ -1276,6 +1277,9 @@ export default function AIModelSettings({
           </div>
         </div>
       )}
+
+      {/* API Quota Dashboard */}
+      <QuotaDashboard defaultExpanded={true} />
     </div>
   );
 }
@@ -1597,7 +1601,9 @@ function EditModelModal({
                 onChange={(modelId) => setFormData({ ...formData, modelId })}
                 provider={formData.provider}
                 apiKey={keySourceMode === 'direct' ? apiKey : ''}
-                secretKey={keySourceMode === 'secret' ? formData.secretKey : null}
+                secretKey={
+                  keySourceMode === 'secret' ? formData.secretKey : null
+                }
                 modelType={formData.modelType}
               />
             </div>
@@ -2274,7 +2280,9 @@ function AddModelModal({
                 onChange={(modelId) => setFormData({ ...formData, modelId })}
                 provider={formData.provider}
                 apiKey={keySourceMode === 'direct' ? formData.apiKey || '' : ''}
-                secretKey={keySourceMode === 'secret' ? formData.secretKey : null}
+                secretKey={
+                  keySourceMode === 'secret' ? formData.secretKey : null
+                }
                 modelType={formData.modelType}
               />
             </div>

@@ -11,6 +11,7 @@ import { AIAdminService } from "./ai-admin.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { SecretsModule } from "../secrets/secrets.module";
+import { QuotaModule } from "./quota/quota.module";
 
 // Admin sub-services
 import {
@@ -20,7 +21,7 @@ import {
 } from "./services";
 
 @Module({
-  imports: [PrismaModule, AiEngineModule, SecretsModule],
+  imports: [PrismaModule, AiEngineModule, SecretsModule, QuotaModule],
   controllers: [
     AdminController,
     AITeamsAdminController,
