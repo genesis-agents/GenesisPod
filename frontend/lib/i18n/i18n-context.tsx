@@ -33,6 +33,10 @@ const I18nContext = createContext<I18nContextValue>({
  * e.g., getNestedValue({ a: { b: 'hello' } }, 'a.b') => 'hello'
  */
 function getNestedValue(obj: Translations, path: string): string | undefined {
+  // Guard against undefined or null path
+  if (!path || typeof path !== 'string') {
+    return undefined;
+  }
   const keys = path.split('.');
   let current: unknown = obj;
 
@@ -116,6 +120,11 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   // Translation function
   const t = useCallback(
     (key: string, params?: Record<string, string | number>): string => {
+      // Guard against undefined or null key
+      if (!key || typeof key !== 'string') {
+        return '';
+      }
+
       // During SSR or before hydration, translations might not be available
       // Return empty string to let fallback logic work
       if (typeof window === 'undefined' && isLoading) {
