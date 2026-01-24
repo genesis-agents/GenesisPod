@@ -44,9 +44,9 @@ import { AgentRegistry } from "./agents/registry";
 import { LLMFactory } from "./llm/factory/llm-factory";
 import { UniversalLLMAdapter } from "./llm/adapters/universal-llm-adapter";
 
-// Controllers
+// Controllers & API Services
 import { AgentsController } from "./agents/api";
-import { AiCoreController } from "./api";
+import { AiCoreController, AiCoreService } from "./api";
 import { SkillsController } from "./skills/api";
 
 // Other Modules
@@ -120,6 +120,9 @@ const handoffCoordinatorFactory = {
   ],
   controllers: [AgentsController, AiCoreController, SkillsController],
   providers: [
+    // === API Service ===
+    AiCoreService,
+
     // === Collaboration (TODO: move to sub-module) ===
     votingManagerFactory,
     handoffCoordinatorFactory,
