@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS "provider_quota_cache" (
     "status_message" TEXT,
     "data_source" VARCHAR(20) NOT NULL DEFAULT 'unavailable',
     "console_url" TEXT,
-    "raw_data" JSONB,
+    "rawData" JSONB,
     "last_updated" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
