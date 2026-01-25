@@ -477,7 +477,10 @@ export default function EditSocialContentPage() {
                   )}
                   {t('aiSocial.edit.save')}
                 </button>
-                {currentContent.status === 'DRAFT' && (
+                {/* Show publish button for DRAFT, FAILED, or PENDING status */}
+                {(currentContent.status === 'DRAFT' ||
+                  currentContent.status === 'FAILED' ||
+                  currentContent.status === 'PENDING') && (
                   <button
                     onClick={handlePublish}
                     disabled={!title || !content || isSaving}
@@ -485,10 +488,14 @@ export default function EditSocialContentPage() {
                   >
                     {publishLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : currentContent.status === 'FAILED' ? (
+                      <RefreshCw className="h-4 w-4" />
                     ) : (
                       <Send className="h-4 w-4" />
                     )}
-                    {t('aiSocial.edit.publish')}
+                    {currentContent.status === 'FAILED'
+                      ? t('aiSocial.edit.retry') || 'Retry Publish'
+                      : t('aiSocial.edit.publish')}
                   </button>
                 )}
               </div>
