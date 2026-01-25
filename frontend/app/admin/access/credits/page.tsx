@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Coins } from 'lucide-react';
+import { Coins, Settings, Sparkles, X, Save, Loader2 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -43,6 +43,72 @@ interface CreditsStats {
   frozenAccounts: number;
   lowBalanceAccounts: number;
 }
+
+interface CreditRule {
+  moduleType: string;
+  operationType: string;
+  baseCredits: number;
+  name: string;
+  isActive: boolean;
+}
+
+// Module display names - matches DEFAULT_RULES in credit-rules.service.ts
+const MODULE_NAMES: Record<string, string> = {
+  'ai-ask': 'AI Ask',
+  'ai-studio': 'AI Research',
+  'topic-research': 'Topic Research',
+  'ai-teams': 'AI Teams',
+  'ai-office': 'AI Office',
+  'ai-writing': 'AI Writing',
+  'ai-image': 'AI Image',
+  'ai-simulation': 'AI Simulation',
+  'ai-social': 'AI Social',
+  library: 'Library',
+  explore: 'Explore',
+};
+
+// Operation type display names
+const OPERATION_NAMES: Record<string, string> = {
+  // AI Ask
+  chat: 'Chat',
+  'rag-chat': 'RAG Chat',
+  // AI Research
+  'research-quick': 'Quick Research',
+  'research-standard': 'Standard Research',
+  'research-deep': 'Deep Research',
+  // Topic Research
+  refresh: 'Refresh',
+  create: 'Create',
+  // AI Teams
+  'ai-reply': 'AI Reply',
+  debate: 'Debate',
+  summary: 'Summary',
+  // AI Office
+  'generate-ppt': 'Generate PPT',
+  'generate-doc': 'Generate Doc',
+  'rerender-page': 'Rerender Page',
+  // AI Writing
+  'generate-article': 'Generate Article',
+  'generate-chapter': 'Generate Chapter',
+  rewrite: 'Rewrite',
+  continue: 'Continue',
+  // AI Image
+  generate: 'Generate',
+  edit: 'Edit',
+  variation: 'Variation',
+  // AI Simulation
+  run: 'Run',
+  analysis: 'Analysis',
+  // AI Social
+  'generate-post': 'Generate Post',
+  'generate-thread': 'Generate Thread',
+  // Library
+  'ai-summary': 'AI Summary',
+  'ai-extract': 'AI Extract',
+  // Explore
+  'ai-search': 'AI Search',
+  'ai-recommend': 'AI Recommend',
+};
 
 const TYPE_COLORS: Record<string, string> = {
   INITIAL: 'bg-green-100 text-green-800',
@@ -110,6 +176,13 @@ export default function CreditsManagementPage() {
   const [grantReason, setGrantReason] = useState('');
   const [granting, setGranting] = useState(false);
   const [grantError, setGrantError] = useState<string | null>(null);
+
+  // Credit rules configuration
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [creditRules, setCreditRules] = useState<CreditRule[]>([]);
+  const [editedRules, setEditedRules] = useState<Record<string, number>>({});
+  const [loadingRules, setLoadingRules] = useState(false);
+  const [savingRules, setSavingRules] = useState(false);
 
   // Action feedback
   const [actionMessage, setActionMessage] = useState<{
@@ -202,6 +275,108 @@ export default function CreditsManagementPage() {
     },
     [t, showMessage]
   );
+
+  // Fetch credit rules
+  const fetchCreditRules = useCallback(async () => {
+    setLoadingRules(true);
+    try {
+      const response = await fetch(`${config.apiUrl}/credits/rules`, {
+        headers: getAuthHeader(),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch credit rules');
+      }
+      const result = await response.json();
+      const data = result?.data ?? result;
+      setCreditRules(Array.isArray(data) ? data : []);
+      setEditedRules({});
+    } catch (err) {
+      logger.error('Failed to fetch credit rules:', err);
+      showMessage('error', t('admin.credits.errors.rulesFailed'));
+    } finally {
+      setLoadingRules(false);
+    }
+  }, [t, showMessage]);
+
+  // Save credit rule
+  const saveCreditRule = useCallback(
+    async (moduleType: string, operationType: string, baseCredits: number) => {
+      try {
+        const response = await fetch(
+          `${config.apiUrl}/admin/credits/rules/update`,
+          {
+            method: 'POST',
+            headers: {
+              ...getAuthHeader(),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ moduleType, operationType, baseCredits }),
+          }
+        );
+        if (!response.ok) {
+          throw new Error('Failed to update rule');
+        }
+        return true;
+      } catch (err) {
+        logger.error('Failed to update credit rule:', err);
+        return false;
+      }
+    },
+    []
+  );
+
+  // Save all edited rules
+  const saveAllRules = useCallback(async () => {
+    const edits = Object.entries(editedRules);
+    if (edits.length === 0) {
+      setShowRulesModal(false);
+      return;
+    }
+
+    setSavingRules(true);
+    let successCount = 0;
+
+    for (const [key, baseCredits] of edits) {
+      const [moduleType, operationType] = key.split(':');
+      const success = await saveCreditRule(
+        moduleType,
+        operationType,
+        baseCredits
+      );
+      if (success) successCount++;
+    }
+
+    setSavingRules(false);
+
+    if (successCount === edits.length) {
+      showMessage('success', t('admin.credits.rulesSaved'));
+      setShowRulesModal(false);
+      setEditedRules({});
+      await fetchCreditRules();
+    } else {
+      showMessage('error', t('admin.credits.errors.ruleSaveFailed'));
+    }
+  }, [editedRules, saveCreditRule, fetchCreditRules, showMessage, t]);
+
+  // Handle rule edit
+  const handleRuleEdit = useCallback((rule: CreditRule, newValue: number) => {
+    const key = `${rule.moduleType}:${rule.operationType}`;
+    if (newValue === rule.baseCredits) {
+      setEditedRules((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    } else {
+      setEditedRules((prev) => ({ ...prev, [key]: newValue }));
+    }
+  }, []);
+
+  // Open rules modal
+  const openRulesModal = useCallback(() => {
+    setShowRulesModal(true);
+    void fetchCreditRules();
+  }, [fetchCreditRules]);
 
   useEffect(() => {
     void fetchAccounts();
@@ -347,6 +522,15 @@ export default function CreditsManagementPage() {
       description={t('admin.credits.description')}
       icon={Coins}
       domain="access"
+      actions={
+        <button
+          onClick={openRulesModal}
+          className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+        >
+          <Settings className="h-4 w-4" />
+          {t('admin.credits.configureRules')}
+        </button>
+      }
     >
       <div>
         {/* Action Message Toast */}
@@ -733,6 +917,166 @@ export default function CreditsManagementPage() {
                     ? t('common.processing')
                     : t('admin.credits.grantButton')}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Credit Rules Configuration Modal */}
+        {showRulesModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-2xl rounded-lg bg-white shadow-xl">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b px-6 py-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {t('admin.credits.rulesTitle')}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {t('admin.credits.rulesDescription')}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowRulesModal(false);
+                    setEditedRules({});
+                  }}
+                  className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="max-h-[60vh] overflow-y-auto p-6">
+                {loadingRules ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                    <span className="ml-2 text-gray-500">
+                      {t('common.loading')}
+                    </span>
+                  </div>
+                ) : creditRules.length === 0 ? (
+                  <div className="py-8 text-center text-gray-500">
+                    {t('admin.credits.noRules')}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {creditRules.map((rule) => {
+                      const key = `${rule.moduleType}:${rule.operationType}`;
+                      const editedValue = editedRules[key];
+                      const currentValue =
+                        editedValue !== undefined
+                          ? editedValue
+                          : rule.baseCredits;
+                      const isEdited = editedValue !== undefined;
+                      const moduleName =
+                        MODULE_NAMES[rule.moduleType] || rule.moduleType;
+                      const operationName =
+                        OPERATION_NAMES[rule.operationType] ||
+                        rule.operationType;
+
+                      return (
+                        <div
+                          key={key}
+                          className={`flex items-center justify-between rounded-lg border p-4 transition-colors ${
+                            isEdited
+                              ? 'border-indigo-300 bg-indigo-50'
+                              : 'border-gray-200 bg-white'
+                          }`}
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900">
+                                {rule.name ||
+                                  `${moduleName} - ${operationName}`}
+                              </span>
+                              {!rule.isActive && (
+                                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">
+                                  {t('admin.credits.inactive')}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs text-gray-400">
+                              {moduleName} / {operationName}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                value={currentValue}
+                                onChange={(e) =>
+                                  handleRuleEdit(
+                                    rule,
+                                    parseInt(e.target.value, 10) || 0
+                                  )
+                                }
+                                min="0"
+                                className={`w-24 rounded-lg border px-3 py-2 text-right text-sm ${
+                                  isEdited
+                                    ? 'border-indigo-400 bg-white'
+                                    : 'border-gray-300'
+                                }`}
+                              />
+                              <span className="text-sm text-gray-500">
+                                {t('admin.credits.creditsUnit')}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() =>
+                                handleRuleEdit(rule, rule.baseCredits * 2)
+                              }
+                              className="rounded-lg p-2 text-amber-600 hover:bg-amber-50"
+                              title={t('admin.credits.aiSuggest')}
+                            >
+                              <Sparkles className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between border-t px-6 py-4">
+                <div className="text-sm text-gray-500">
+                  {Object.keys(editedRules).length > 0 && (
+                    <span className="text-indigo-600">
+                      {t('admin.credits.unsavedChanges').replace(
+                        '{count}',
+                        String(Object.keys(editedRules).length)
+                      )}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowRulesModal(false);
+                      setEditedRules({});
+                    }}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    onClick={() => void saveAllRules()}
+                    disabled={
+                      Object.keys(editedRules).length === 0 || savingRules
+                    }
+                    className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {savingRules ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    {t('common.save')}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

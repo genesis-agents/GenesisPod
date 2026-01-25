@@ -398,6 +398,32 @@ export function useTableManagement(initialQuery?: TableListQuery) {
     setCleanupResult(null);
   }, []);
 
+  // Batch cleanup all cleanable tables
+  const [batchCleanupLoading, setBatchCleanupLoading] = useState(false);
+  const batchCleanup = useCallback(async (): Promise<CleanupResult[]> => {
+    setBatchCleanupLoading(true);
+    try {
+      const response = await fetch(
+        `${config.apiUrl}/admin/tables/batch-cleanup`,
+        {
+          method: 'POST',
+          headers: getAuthHeader(),
+        }
+      );
+      const data = await response.json();
+      if (data.success) {
+        // Refresh list after cleanup
+        await fetchList();
+        return data.data?.results || [];
+      }
+      return [];
+    } catch {
+      return [];
+    } finally {
+      setBatchCleanupLoading(false);
+    }
+  }, [fetchList]);
+
   return {
     // Data
     tables: listData?.tables ?? [],
@@ -446,5 +472,7 @@ export function useTableManagement(initialQuery?: TableListQuery) {
     cleanupResult,
     cleanupTable,
     clearCleanupResult,
+    batchCleanup,
+    batchCleanupLoading,
   };
 }

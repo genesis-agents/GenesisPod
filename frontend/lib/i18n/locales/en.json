@@ -1878,8 +1878,20 @@
         "transactionsFailed": "Failed to load transactions",
         "grantFailed": "Failed to grant credits",
         "freezeFailed": "Failed to update account status",
-        "invalidAmount": "Please enter a valid amount"
-      }
+        "invalidAmount": "Please enter a valid amount",
+        "rulesFailed": "Failed to load credit rules",
+        "ruleSaveFailed": "Some rules failed to save"
+      },
+      "configureRules": "Configure Rules",
+      "rulesTitle": "Credit Rules Configuration",
+      "rulesDescription": "Configure credit cost for each AI module",
+      "noRules": "No credit rules configured",
+      "currentCost": "Current cost",
+      "creditsUnit": "credits",
+      "inactive": "Inactive",
+      "aiSuggest": "AI Suggestion",
+      "unsavedChanges": "{count} unsaved changes",
+      "rulesSaved": "Credit rules saved successfully"
     },
     "feedback": {
       "title": "Feedback Management",
@@ -1987,6 +1999,7 @@
       "actions": {
         "diagnose": "Diagnose",
         "cleanup": "Cleanup",
+        "cleanupAll": "Cleanup All",
         "viewDetails": "View Details",
         "refresh": "Refresh",
         "diagnoseAll": "Diagnose All"
@@ -2026,10 +2039,13 @@
       },
       "cleanup": {
         "confirm": "Are you sure you want to cleanup this table?",
+        "confirmBatch": "Are you sure you want to cleanup all tables with cleanable data?",
         "estimatedRows": "Estimated rows to remove",
         "estimatedSpace": "Estimated space to free",
         "success": "Cleanup completed successfully",
-        "failed": "Cleanup failed"
+        "failed": "Cleanup failed",
+        "batchSuccess": "Cleaned up {count} tables, freed {size}",
+        "noCleanableData": "No cleanable data found"
       },
       "pagination": {
         "showing": "Showing {{from}}-{{to}} of {{total}} tables",

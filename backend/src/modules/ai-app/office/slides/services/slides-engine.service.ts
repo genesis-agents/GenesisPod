@@ -39,6 +39,7 @@ import { ContentCompressionSkill } from "../skills/content-compression.skill";
 import { TemplateRenderingSkill } from "../skills/template-rendering.skill";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
+import { CreditsService } from "@/modules/credits/credits.service";
 
 /**
  * PPT 生成输入参数
@@ -117,6 +118,7 @@ export class SlidesEngineService {
     @Optional() private readonly templateRendering: TemplateRenderingSkill,
     @Optional() private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly eventEmitter: EventEmitter2,
+    @Optional() private readonly creditsService: CreditsService,
   ) {}
 
   /**
@@ -517,6 +519,28 @@ export class SlidesEngineService {
       // 8. 保存最终检查点
       if (missionCompleteData) {
         await this.saveFinalCheckpointFromEvent(sessionId, missionCompleteData);
+      }
+
+      // 8.0.5 扣减积分
+      if (this.creditsService && missionCompleteData) {
+        try {
+          const pages = (missionCompleteData?.pages as unknown[]) || [];
+          await this.creditsService.consumeCredits({
+            userId: input.userId,
+            moduleType: "ai-office",
+            operationType: "generate-ppt",
+            referenceId: sessionId,
+            description: `PPT 生成 - ${pages.length} 页`,
+          });
+          this.logger.log(
+            `[generateSlides] Credits consumed for PPT generation (${pages.length} pages)`,
+          );
+        } catch (creditError) {
+          this.logger.warn(
+            `[generateSlides] Failed to consume credits: ${creditError}`,
+          );
+          // 积分扣减失败不应阻止响应返回
+        }
       }
 
       // 8.1 清理自动保存跟踪器

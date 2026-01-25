@@ -1,17 +1,21 @@
 'use client';
 
-import { Database, HardDrive, Trash2, Clock } from 'lucide-react';
+import { Database, HardDrive, Trash2, Clock, Loader2 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import type { TableStats } from '@/hooks/domain';
 
 interface TableStatsCardsProps {
   stats: TableStats | null;
   loading?: boolean;
+  onCleanup?: () => void;
+  cleanupLoading?: boolean;
 }
 
 export default function TableStatsCards({
   stats,
   loading,
+  onCleanup,
+  cleanupLoading,
 }: TableStatsCardsProps) {
   const { t } = useTranslation();
 
@@ -75,11 +79,16 @@ export default function TableStatsCards({
     },
   };
 
+  const hasCleanableData = (stats?.cleanableSizeBytes ?? 0) > 0;
+
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       {cards.map((card) => {
         const IconComponent = card.icon;
         const colors = colorClasses[card.color as keyof typeof colorClasses];
+        const isCleanableCard = card.id === 'cleanableSpace';
+        const showCleanupButton =
+          isCleanableCard && hasCleanableData && onCleanup;
 
         return (
           <div
@@ -95,8 +104,27 @@ export default function TableStatsCards({
                   {loading ? '-' : card.formatted}
                 </p>
               </div>
-              <div className={`rounded-lg p-2.5 ${colors.icon}`}>
-                <IconComponent className="h-5 w-5" />
+              <div className="flex items-center gap-2">
+                {showCleanupButton && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCleanup();
+                    }}
+                    disabled={cleanupLoading}
+                    className="rounded-lg bg-amber-100 p-2 text-amber-700 transition-colors hover:bg-amber-200 disabled:opacity-50"
+                    title={t('admin.tables.actions.cleanupAll')}
+                  >
+                    {cleanupLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-5 w-5" />
+                    )}
+                  </button>
+                )}
+                <div className={`rounded-lg p-2.5 ${colors.icon}`}>
+                  <IconComponent className="h-5 w-5" />
+                </div>
               </div>
             </div>
           </div>

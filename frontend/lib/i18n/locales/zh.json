@@ -1879,8 +1879,20 @@
         "transactionsFailed": "加载交易记录失败",
         "grantFailed": "发放积分失败",
         "freezeFailed": "更新账户状态失败",
-        "invalidAmount": "请输入有效的数量"
-      }
+        "invalidAmount": "请输入有效的数量",
+        "rulesFailed": "加载积分规则失败",
+        "ruleSaveFailed": "部分规则保存失败"
+      },
+      "configureRules": "配置规则",
+      "rulesTitle": "积分规则配置",
+      "rulesDescription": "配置各 AI 模块的积分消耗",
+      "noRules": "暂无积分规则",
+      "currentCost": "当前消耗",
+      "creditsUnit": "积分",
+      "inactive": "未启用",
+      "aiSuggest": "AI 建议",
+      "unsavedChanges": "{count} 项未保存",
+      "rulesSaved": "积分规则保存成功"
     },
     "feedback": {
       "title": "反馈管理",
@@ -1988,6 +2000,7 @@
       "actions": {
         "diagnose": "诊断",
         "cleanup": "清理",
+        "cleanupAll": "全部清理",
         "viewDetails": "查看详情",
         "refresh": "刷新",
         "diagnoseAll": "全部诊断"
@@ -2027,10 +2040,13 @@
       },
       "cleanup": {
         "confirm": "确定要清理此数据表吗？",
+        "confirmBatch": "确定要清理所有可清理的数据表吗？",
         "estimatedRows": "预计删除行数",
         "estimatedSpace": "预计释放空间",
         "success": "清理完成",
-        "failed": "清理失败"
+        "batchSuccess": "已清理 {count} 个表，释放 {size}",
+        "failed": "清理失败",
+        "noCleanableData": "未找到可清理的数据"
       },
       "pagination": {
         "showing": "显示 {{from}}-{{to}}，共 {{total}} 个表",

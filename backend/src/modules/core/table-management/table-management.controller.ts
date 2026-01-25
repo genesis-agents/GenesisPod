@@ -74,6 +74,16 @@ export class TableManagementController {
   }
 
   /**
+   * Cleanup all tables with cleanable data
+   */
+  @Post("batch-cleanup")
+  async cleanupBatch(): Promise<{ results: CleanupResultDto[] }> {
+    this.logger.log("Running batch cleanup on all tables");
+    const results = await this.tableManagementService.cleanupBatch();
+    return { results };
+  }
+
+  /**
    * Get detailed info for a single table
    */
   @Get(":name")

@@ -255,12 +255,30 @@ export class CreditsService implements OnModuleInit {
     // 使用事务执行扣减
     const result = await this.prisma.$transaction(async (tx) => {
       // 获取账户并检查
-      const account = await tx.creditAccount.findUnique({
+      let account = await tx.creditAccount.findUnique({
         where: { userId },
       });
 
+      // 如果账户不存在，自动创建
       if (!account) {
-        throw new InsufficientCreditsException(creditsToConsume, 0);
+        this.logger.log(`Auto-creating credit account for user ${userId}`);
+        account = await tx.creditAccount.create({
+          data: {
+            userId,
+            balance: 10000,
+            totalEarned: 10000,
+          },
+        });
+        // 创建初始积分交易记录
+        await tx.creditTransaction.create({
+          data: {
+            accountId: account.id,
+            type: "INITIAL" as any,
+            amount: 10000,
+            balanceAfter: 10000,
+            description: "初始积分 / Initial credits",
+          },
+        });
       }
 
       if (account.isFrozen) {

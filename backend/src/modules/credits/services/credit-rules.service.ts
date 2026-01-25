@@ -4,9 +4,12 @@ import { CreditRule } from "@prisma/client";
 
 /**
  * 默认积分规则
+ * 基于菜单模块划分，积分约为 Token 消耗的 2 倍
  */
 const DEFAULT_RULES = [
-  // AI Ask
+  // ============================================
+  // AI Ask (AI 问答)
+  // ============================================
   {
     moduleType: "ai-ask",
     operationType: "chat",
@@ -16,10 +19,13 @@ const DEFAULT_RULES = [
   {
     moduleType: "ai-ask",
     operationType: "rag-chat",
-    baseCredits: 15,
+    baseCredits: 20,
     name: "AI知识库问答",
   },
-  // AI Studio
+
+  // ============================================
+  // AI Research (AI 研究 - Deep Research)
+  // ============================================
   {
     moduleType: "ai-studio",
     operationType: "research-quick",
@@ -38,14 +44,26 @@ const DEFAULT_RULES = [
     baseCredits: 1000,
     name: "深度研究",
   },
+
+  // ============================================
   // Topic Research (专题研究)
+  // ============================================
   {
     moduleType: "topic-research",
     operationType: "refresh",
     baseCredits: 2000,
     name: "专题研究刷新",
   },
-  // AI Teams
+  {
+    moduleType: "topic-research",
+    operationType: "create",
+    baseCredits: 500,
+    name: "创建专题",
+  },
+
+  // ============================================
+  // AI Teams (AI 团队)
+  // ============================================
   {
     moduleType: "ai-teams",
     operationType: "ai-reply",
@@ -58,24 +76,147 @@ const DEFAULT_RULES = [
     baseCredits: 50,
     name: "AI辩论",
   },
-  // AI Office
+  {
+    moduleType: "ai-teams",
+    operationType: "summary",
+    baseCredits: 40,
+    name: "团队总结",
+  },
+
+  // ============================================
+  // AI Office (AI 报告/PPT)
+  // ============================================
   {
     moduleType: "ai-office",
     operationType: "generate-ppt",
-    baseCredits: 300,
+    baseCredits: 500,
     name: "生成PPT",
   },
   {
     moduleType: "ai-office",
     operationType: "generate-doc",
-    baseCredits: 200,
+    baseCredits: 300,
     name: "生成文档",
   },
   {
     moduleType: "ai-office",
-    operationType: "generate-image",
+    operationType: "rerender-page",
+    baseCredits: 50,
+    name: "重新渲染页面",
+  },
+
+  // ============================================
+  // AI Writing (AI 写作)
+  // ============================================
+  {
+    moduleType: "ai-writing",
+    operationType: "generate-article",
+    baseCredits: 200,
+    name: "生成文章",
+  },
+  {
+    moduleType: "ai-writing",
+    operationType: "generate-chapter",
+    baseCredits: 100,
+    name: "生成章节",
+  },
+  {
+    moduleType: "ai-writing",
+    operationType: "rewrite",
+    baseCredits: 50,
+    name: "内容改写",
+  },
+  {
+    moduleType: "ai-writing",
+    operationType: "continue",
+    baseCredits: 30,
+    name: "续写内容",
+  },
+
+  // ============================================
+  // AI Image (AI 绘画)
+  // ============================================
+  {
+    moduleType: "ai-image",
+    operationType: "generate",
     baseCredits: 100,
     name: "生成图片",
+  },
+  {
+    moduleType: "ai-image",
+    operationType: "edit",
+    baseCredits: 80,
+    name: "编辑图片",
+  },
+  {
+    moduleType: "ai-image",
+    operationType: "variation",
+    baseCredits: 60,
+    name: "图片变体",
+  },
+
+  // ============================================
+  // AI Simulation (AI 模拟)
+  // ============================================
+  {
+    moduleType: "ai-simulation",
+    operationType: "run",
+    baseCredits: 100,
+    name: "运行模拟",
+  },
+  {
+    moduleType: "ai-simulation",
+    operationType: "analysis",
+    baseCredits: 50,
+    name: "模拟分析",
+  },
+
+  // ============================================
+  // AI Social (AI 社交内容)
+  // ============================================
+  {
+    moduleType: "ai-social",
+    operationType: "generate-post",
+    baseCredits: 30,
+    name: "生成社交帖子",
+  },
+  {
+    moduleType: "ai-social",
+    operationType: "generate-thread",
+    baseCredits: 60,
+    name: "生成帖子串",
+  },
+
+  // ============================================
+  // Library (资源库 - AI 摘要等)
+  // ============================================
+  {
+    moduleType: "library",
+    operationType: "ai-summary",
+    baseCredits: 30,
+    name: "AI摘要",
+  },
+  {
+    moduleType: "library",
+    operationType: "ai-extract",
+    baseCredits: 20,
+    name: "AI提取",
+  },
+
+  // ============================================
+  // Explore (探索 - AI 相关操作)
+  // ============================================
+  {
+    moduleType: "explore",
+    operationType: "ai-search",
+    baseCredits: 15,
+    name: "AI搜索",
+  },
+  {
+    moduleType: "explore",
+    operationType: "ai-recommend",
+    baseCredits: 10,
+    name: "AI推荐",
   },
 ];
 

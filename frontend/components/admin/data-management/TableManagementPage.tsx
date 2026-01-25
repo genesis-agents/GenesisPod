@@ -59,6 +59,8 @@ export default function TableManagementPage() {
     // Cleanup
     cleaningTable,
     cleanupTable,
+    batchCleanup,
+    batchCleanupLoading,
   } = useTableManagement();
 
   // Handle batch diagnose
@@ -89,6 +91,28 @@ export default function TableManagementPage() {
     }
   }, [diagnosingTable, closeDiagnosis, cleanupTable]);
 
+  // Handle batch cleanup
+  const handleBatchCleanup = useCallback(async () => {
+    const confirmed = window.confirm(t('admin.tables.cleanup.confirmBatch'));
+    if (!confirmed) return;
+
+    const results = await batchCleanup();
+    if (results.length > 0) {
+      const totalFreed = results.reduce((sum, r) => sum + r.freedBytes, 0);
+      const formattedSize =
+        totalFreed > 1024 * 1024
+          ? `${(totalFreed / 1024 / 1024).toFixed(2)} MB`
+          : `${(totalFreed / 1024).toFixed(2)} KB`;
+      alert(
+        t('admin.tables.cleanup.batchSuccess')
+          .replace('{count}', String(results.length))
+          .replace('{size}', formattedSize)
+      );
+    } else {
+      alert(t('admin.tables.cleanup.noCleanableData'));
+    }
+  }, [batchCleanup, t]);
+
   return (
     <AdminPageLayout
       title={t('admin.tables.title')}
@@ -99,7 +123,12 @@ export default function TableManagementPage() {
     >
       <div className="space-y-6">
         {/* Stats Cards */}
-        <TableStatsCards stats={stats} loading={loading} />
+        <TableStatsCards
+          stats={stats}
+          loading={loading}
+          onCleanup={handleBatchCleanup}
+          cleanupLoading={batchCleanupLoading}
+        />
 
         {/* Toolbar */}
         <TableToolbar

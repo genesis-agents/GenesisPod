@@ -969,4 +969,35 @@ export class TableManagementService {
       };
     }
   }
+
+  /**
+   * Run cleanup on all tables with cleanup policies
+   */
+  async cleanupBatch(): Promise<CleanupResultDto[]> {
+    const results: CleanupResultDto[] = [];
+    const tablesWithPolicies = Object.keys(CLEANUP_POLICIES);
+
+    this.logger.log(
+      `Running batch cleanup on ${tablesWithPolicies.length} tables`,
+    );
+
+    for (const tableName of tablesWithPolicies) {
+      try {
+        const result = await this.cleanupTable(tableName);
+        if (result.deletedCount > 0) {
+          results.push(result);
+          this.logger.log(
+            `Cleaned ${tableName}: ${result.deletedCount} rows, freed ${result.freedFormatted}`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(`Failed to cleanup ${tableName}:`, error);
+      }
+    }
+
+    this.logger.log(
+      `Batch cleanup completed: ${results.length} tables cleaned`,
+    );
+    return results;
+  }
 }
