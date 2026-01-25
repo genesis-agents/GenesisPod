@@ -13,10 +13,10 @@ import {
   UseGuards,
   UnauthorizedException,
   NotFoundException,
-  ForbiddenException,
   Sse,
   MessageEvent,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import {
   ApiTags,
   ApiOperation,
@@ -68,6 +68,7 @@ import {
 } from "./dto/collaborator.dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { Public } from "../../../../common/decorators/public.decorator";
+import { TopicAccessGuard, RequireTopicAccess } from "./guards";
 import { ResearchMissionService } from "./services/research-mission.service";
 import { ResearchLeaderService } from "./services/research-leader.service";
 import { TopicCollaboratorService } from "./services/topic-collaborator.service";
@@ -101,8 +102,10 @@ export class TopicResearchController {
 
   /**
    * 获取公开专题（无需认证）
+   * ★ Security: 速率限制 30次/分钟，防止滥用
    */
   @Public()
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("shared/topics/:id")
   @ApiOperation({
     summary: "获取公开专题",
@@ -111,14 +114,17 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回专题详情" })
   @ApiResponse({ status: 404, description: "专题不存在或不公开" })
+  @ApiResponse({ status: 429, description: "请求过于频繁" })
   async getSharedTopic(@Param("id") id: string) {
     return this.topicResearchService.getSharedTopic(id);
   }
 
   /**
    * 获取公开专题的最新报告（无需认证）
+   * ★ Security: 速率限制 30次/分钟，防止滥用
    */
   @Public()
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get("shared/topics/:id/reports/latest")
   @ApiOperation({
     summary: "获取公开专题最新报告",
@@ -127,6 +133,7 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回最新报告" })
   @ApiResponse({ status: 404, description: "专题不存在或不公开" })
+  @ApiResponse({ status: 429, description: "请求过于频繁" })
   async getSharedTopicLatestReport(@Param("id") id: string) {
     return this.topicResearchService.getSharedTopicLatestReport(id);
   }
@@ -756,7 +763,9 @@ export class TopicResearchController {
 
   /**
    * AI 编辑报告
+   * ★ Security: 速率限制 15次/分钟，AI 密集型操作
    */
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("topics/:topicId/reports/:reportId/ai-edit")
   @ApiOperation({
     summary: "AI 编辑报告",
@@ -766,6 +775,7 @@ export class TopicResearchController {
   @ApiParam({ name: "reportId", description: "报告ID" })
   @ApiResponse({ status: 200, description: "编辑成功" })
   @ApiResponse({ status: 404, description: "报告不存在" })
+  @ApiResponse({ status: 429, description: "请求过于频繁" })
   async aiEditReport(
     @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
@@ -1286,7 +1296,12 @@ export class TopicResearchController {
 
   /**
    * Leader 生成研究规划
+   * ★ Security: 速率限制 10次/分钟，AI 密集型操作
+   * ★ Security: 使用 TopicAccessGuard 统一权限检查
    */
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:id/leader/plan")
   @ApiOperation({
     summary: "Leader 生成研究规划",
@@ -1294,24 +1309,10 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 201, description: "规划成功" })
-  async leaderPlan(
-    @Request() req: RequestWithUser,
-    @Param("id") id: string,
-    @Body() dto: LeaderPlanDto,
-  ) {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new UnauthorizedException("User not authenticated");
-    }
-    // ★ 权限检查：只有创建者或 EDITOR/ADMIN 角色才能启动研究
-    const hasPermission = await this.collaboratorService.hasAccess(
-      id,
-      userId,
-      CollaboratorRole.EDITOR,
-    );
-    if (!hasPermission) {
-      throw new ForbiddenException("无权启动研究任务，需要编辑权限");
-    }
+  @ApiResponse({ status: 403, description: "无权限" })
+  @ApiResponse({ status: 429, description: "请求过于频繁" })
+  async leaderPlan(@Param("id") id: string, @Body() dto: LeaderPlanDto) {
+    // ★ 权限检查已由 TopicAccessGuard 完成
     return this.missionService.createMission({
       topicId: id,
       userPrompt: dto.userPrompt,
@@ -1322,7 +1323,9 @@ export class TopicResearchController {
 
   /**
    * 处理 @Leader 用户消息
+   * ★ Security: 速率限制 20次/分钟，AI 对话操作
    */
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post("topics/:id/leader/message")
   @ApiOperation({
     summary: "处理 @Leader 消息",
@@ -1330,6 +1333,7 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "消息处理成功" })
+  @ApiResponse({ status: 429, description: "请求过于频繁" })
   async leaderMessage(
     @Request() req: RequestWithUser,
     @Param("id") id: string,
@@ -1350,7 +1354,9 @@ export class TopicResearchController {
   /**
    * ★ Leader 解码用户输入（Claude Code CLI 风格）
    * 先理解用户意图，再决定如何响应
+   * ★ Security: 速率限制 20次/分钟，AI 对话操作
    */
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post("topics/:id/leader/chat")
   @ApiOperation({
     summary: "Leader 解码用户输入",
@@ -1524,7 +1530,10 @@ export class TopicResearchController {
 
   /**
    * 重试失败的任务
+   * ★ Security: 使用 TopicAccessGuard 统一权限检查
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:id/mission/retry")
   @ApiOperation({
     summary: "重试失败任务",
@@ -1532,24 +1541,9 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "重试成功" })
-  async retryMission(
-    @Request() req: RequestWithUser,
-    @Param("id") id: string,
-    @Body() dto: MissionRetryDto,
-  ) {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new UnauthorizedException("User not authenticated");
-    }
-    // ★ 权限检查：只有创建者或 EDITOR/ADMIN 角色才能重试任务
-    const hasPermission = await this.collaboratorService.hasAccess(
-      id,
-      userId,
-      CollaboratorRole.EDITOR,
-    );
-    if (!hasPermission) {
-      throw new ForbiddenException("无权重试研究任务，需要编辑权限");
-    }
+  @ApiResponse({ status: 403, description: "无权限" })
+  async retryMission(@Param("id") id: string, @Body() dto: MissionRetryDto) {
+    // ★ 权限检查已由 TopicAccessGuard 完成
     const mission = await this.missionService.getMissionByTopicId(id);
     if (!mission) {
       throw new Error("No mission found for this topic");
@@ -1686,7 +1680,10 @@ export class TopicResearchController {
 
   /**
    * 取消 Mission
+   * ★ Security: 使用 TopicAccessGuard 统一权限检查
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:id/mission/cancel")
   @ApiOperation({
     summary: "取消 Mission",
@@ -1694,22 +1691,15 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "取消成功" })
+  @ApiResponse({ status: 403, description: "无权限" })
   async cancelMission(
     @Request() req: RequestWithUser,
     @Param("id") id: string,
   ) {
+    // ★ 权限检查已由 TopicAccessGuard 完成
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
-    }
-    // ★ 权限检查：只有创建者或 EDITOR/ADMIN 角色才能取消任务
-    const hasPermission = await this.collaboratorService.hasAccess(
-      id,
-      userId,
-      CollaboratorRole.EDITOR,
-    );
-    if (!hasPermission) {
-      throw new ForbiddenException("无权取消研究任务，需要编辑权限");
     }
     const mission = await this.missionService.getMissionByTopicId(id);
     if (!mission) {
@@ -2652,7 +2642,10 @@ export class TopicResearchController {
 
   /**
    * 恢复失败的 Mission
+   * ★ Security: 使用 TopicAccessGuard 统一权限检查
    */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
   @Post("topics/:topicId/missions/:missionId/resume")
   @ApiOperation({
     summary: "恢复失败的 Mission",
@@ -2661,26 +2654,12 @@ export class TopicResearchController {
   @ApiParam({ name: "topicId", description: "专题ID" })
   @ApiParam({ name: "missionId", description: "Mission ID" })
   @ApiResponse({ status: 200, description: "恢复成功" })
+  @ApiResponse({ status: 403, description: "无权限" })
   async resumeMission(
-    @Request() req: RequestWithUser,
-    @Param("topicId") topicId: string,
+    @Param("topicId") _topicId: string, // Used by TopicAccessGuard for permission check
     @Param("missionId") missionId: string,
   ) {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new UnauthorizedException("User not authenticated");
-    }
-
-    // 权限检查
-    const hasPermission = await this.collaboratorService.hasAccess(
-      topicId,
-      userId,
-      CollaboratorRole.EDITOR,
-    );
-    if (!hasPermission) {
-      throw new ForbiddenException("无权恢复研究任务，需要编辑权限");
-    }
-
+    // ★ 权限检查已由 TopicAccessGuard 完成（使用 _topicId 验证权限）
     const result = await this.checkpointService.resumeMission(missionId);
     return result;
   }

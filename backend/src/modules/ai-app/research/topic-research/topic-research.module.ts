@@ -40,6 +40,7 @@ import {
   ResearchReflectionService,
   DataSourcePlannerService,
 } from "./services";
+import { TopicAccessGuard } from "./guards";
 
 const services = [
   TopicResearchService,
@@ -89,7 +90,7 @@ const services = [
     // EventEmitterModule is globally configured in AppModule
   ],
   controllers: [TopicResearchController],
-  providers: [...services, TopicResearchGateway],
-  exports: services,
+  providers: [...services, TopicResearchGateway, TopicAccessGuard],
+  exports: [...services, TopicAccessGuard],
 })
 export class TopicResearchModule {}

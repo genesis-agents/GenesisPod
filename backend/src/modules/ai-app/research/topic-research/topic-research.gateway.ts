@@ -30,6 +30,10 @@ import { ConfigService } from "@nestjs/config";
 import { ResearchMissionStatus } from "@prisma/client";
 import { ResearchEventEmitterService } from "./services/research-event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import {
+  createSecurityLogger,
+  SecurityEventType,
+} from "./utils/security-audit-logger";
 
 // ==================== Types ====================
 
@@ -123,6 +127,7 @@ export class TopicResearchGateway
   server!: Server;
 
   private readonly logger = new Logger(TopicResearchGateway.name);
+  private readonly securityLogger = createSecurityLogger("WebSocketGateway");
   private readonly jwtSecret: string;
 
   constructor(
@@ -157,6 +162,8 @@ export class TopicResearchGateway
    * 验证失败会断开连接
    */
   async handleConnection(client: AuthenticatedSocket) {
+    const clientIp = client.handshake.address;
+
     try {
       // 1. 从 handshake 获取 token
       const token =
@@ -165,6 +172,12 @@ export class TopicResearchGateway
 
       if (!token) {
         this.logger.warn(`Client ${client.id} connected without token`);
+        this.securityLogger.logAuthEvent({
+          eventType: SecurityEventType.AUTH_FAILURE,
+          clientIp,
+          action: "WebSocket connection - no token",
+          outcome: "FAILURE",
+        });
         client.emit("auth:error", { message: "Authentication required" });
         client.disconnect(true);
         return;
@@ -174,6 +187,12 @@ export class TopicResearchGateway
       const payload = await this.verifyToken(token);
       if (!payload) {
         this.logger.warn(`Client ${client.id} provided invalid token`);
+        this.securityLogger.logAuthEvent({
+          eventType: SecurityEventType.TOKEN_INVALID,
+          clientIp,
+          action: "WebSocket connection - invalid token",
+          outcome: "FAILURE",
+        });
         client.emit("auth:error", { message: "Invalid token" });
         client.disconnect(true);
         return;
@@ -187,6 +206,13 @@ export class TopicResearchGateway
 
       if (!dbUser || !dbUser.email) {
         this.logger.warn(`Client ${client.id} token user not found`);
+        this.securityLogger.logAuthEvent({
+          eventType: SecurityEventType.AUTH_FAILURE,
+          userId: payload.sub,
+          clientIp,
+          action: "WebSocket connection - user not found",
+          outcome: "FAILURE",
+        });
         client.emit("auth:error", { message: "User not found" });
         client.disconnect(true);
         return;
@@ -204,8 +230,24 @@ export class TopicResearchGateway
       this.logger.log(
         `Client ${client.id} authenticated as ${user.username} (${user.id})`,
       );
+
+      // ★ Security: 记录认证成功
+      this.securityLogger.logAuthEvent({
+        eventType: SecurityEventType.AUTH_SUCCESS,
+        userId: user.id,
+        clientIp,
+        action: "WebSocket connection",
+        outcome: "SUCCESS",
+      });
     } catch (error) {
       this.logger.error(`Authentication error for ${client.id}:`, error);
+      this.securityLogger.logAuthEvent({
+        eventType: SecurityEventType.AUTH_FAILURE,
+        clientIp,
+        action: "WebSocket connection - error",
+        outcome: "FAILURE",
+        details: { error: error instanceof Error ? error.message : "Unknown" },
+      });
       client.emit("auth:error", { message: "Authentication failed" });
       client.disconnect(true);
     }

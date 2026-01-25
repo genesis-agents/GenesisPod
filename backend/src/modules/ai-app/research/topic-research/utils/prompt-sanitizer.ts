@@ -13,8 +13,10 @@
  */
 
 import { Logger } from "@nestjs/common";
+import { createSecurityLogger } from "./security-audit-logger";
 
 const logger = new Logger("PromptSanitizer");
+const securityLogger = createSecurityLogger("PromptSanitizer");
 
 /**
  * 危险模式定义
@@ -244,6 +246,12 @@ export function sanitizePromptInput(
     logger.warn(
       `Detected ${detectedPatterns.length} dangerous pattern(s): ${detectedPatterns.join(", ")}`,
     );
+
+    // ★ Security: 记录安全审计日志
+    securityLogger.logPromptInjection({
+      detectedPatterns,
+      inputPreview: input.substring(0, 100), // 只记录前100字符
+    });
   }
 
   return {
