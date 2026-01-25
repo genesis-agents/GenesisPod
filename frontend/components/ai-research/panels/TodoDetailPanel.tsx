@@ -18,6 +18,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
+  Database,
+  Search,
+  Globe,
+  ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getTodoDetails, getTaskActivities } from '@/lib/api/topic-research';
@@ -31,6 +35,28 @@ import type { AgentActivity } from '@/lib/api/topic-research';
 import { cn, safeString } from '@/lib/utils/common';
 
 import { logger } from '@/lib/utils/logger';
+
+// 搜索结果类型
+interface SearchResultsMetadata {
+  total?: number;
+  filtered?: number;
+  searchTool?: string;
+  query?: string;
+  searchedAt?: string;
+  freshnessInfo?: {
+    newestDate?: string;
+    oldestDate?: string;
+    avgAgeInDays?: number;
+  };
+  sources?: Array<{
+    title: string;
+    url: string;
+    domain?: string;
+    sourceType?: string;
+    publishedDate?: string;
+  }>;
+}
+
 interface TodoDetailPanelProps {
   topicId: string;
   todoId: string;
@@ -38,6 +64,121 @@ interface TodoDetailPanelProps {
   initialTodo?: ResearchTodo;
   onClose: () => void;
   className?: string;
+}
+
+// ★ 搜索结果详情展示组件
+function SearchResultsDisplay({ sr }: { sr: SearchResultsMetadata }) {
+  return (
+    <div className="mt-2 space-y-2 rounded-lg bg-blue-50 p-3">
+      <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
+        <Database className="h-4 w-4" />
+        搜索结果详情
+      </div>
+
+      {/* 基本统计 */}
+      <div className="flex flex-wrap gap-2 text-xs">
+        <span className="rounded bg-blue-100 px-2 py-1 text-blue-700">
+          找到 {safeString(sr.total)} 条
+        </span>
+        {sr.filtered && sr.filtered !== sr.total && (
+          <span className="rounded bg-green-100 px-2 py-1 text-green-700">
+            筛选 {safeString(sr.filtered)} 条
+          </span>
+        )}
+      </div>
+
+      {/* 搜索工具 */}
+      {sr.searchTool && (
+        <div className="flex items-center gap-2 text-xs text-gray-600">
+          <Search className="h-3 w-3" />
+          <span>搜索工具:</span>
+          <span className="rounded bg-purple-100 px-1.5 py-0.5 text-purple-700">
+            {sr.searchTool}
+          </span>
+        </div>
+      )}
+
+      {/* 搜索查询 */}
+      {sr.query && (
+        <div className="text-xs text-gray-600">
+          <span className="font-medium">查询:</span>{' '}
+          <span className="italic">&quot;{sr.query}&quot;</span>
+        </div>
+      )}
+
+      {/* 时效性信息 */}
+      {sr.freshnessInfo && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+          <Clock className="h-3 w-3" />
+          {sr.freshnessInfo.avgAgeInDays !== undefined && (
+            <span
+              className={cn(
+                'rounded px-1.5 py-0.5',
+                (sr.freshnessInfo.avgAgeInDays ?? 999) <= 30
+                  ? 'bg-green-100 text-green-700'
+                  : (sr.freshnessInfo.avgAgeInDays ?? 999) <= 180
+                    ? 'bg-yellow-100 text-yellow-700'
+                    : 'bg-gray-100 text-gray-600'
+              )}
+            >
+              平均 {sr.freshnessInfo.avgAgeInDays} 天前
+            </span>
+          )}
+          {sr.freshnessInfo.newestDate && (
+            <span className="text-green-600">
+              最新:{' '}
+              {(() => {
+                try {
+                  const d = new Date(sr.freshnessInfo?.newestDate || '');
+                  return !isNaN(d.getTime())
+                    ? d.toLocaleDateString('zh-CN')
+                    : '--';
+                } catch {
+                  return '--';
+                }
+              })()}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* 来源列表 */}
+      {Array.isArray(sr.sources) && sr.sources.length > 0 && (
+        <div className="mt-2 space-y-1">
+          <div className="flex items-center gap-1 text-xs font-medium text-gray-600">
+            <Globe className="h-3 w-3" />
+            来源 ({sr.sources.length})
+          </div>
+          <div className="max-h-32 space-y-1 overflow-y-auto">
+            {sr.sources.slice(0, 5).map((source, idx) => (
+              <a
+                key={idx}
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start gap-1 rounded bg-white p-1.5 text-xs hover:bg-gray-50"
+              >
+                <ExternalLink className="mt-0.5 h-3 w-3 flex-shrink-0 text-blue-500" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium text-gray-700">
+                    {source.title}
+                  </div>
+                  {source.domain && (
+                    <div className="text-gray-400">{source.domain}</div>
+                  )}
+                </div>
+              </a>
+            ))}
+            {sr.sources.length > 5 && (
+              <div className="text-xs text-gray-400">
+                ...还有 {sr.sources.length - 5} 条来源
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 const STATUS_LABELS: Record<ResearchTodoStatus, string> = {
@@ -586,16 +727,38 @@ export function TodoDetailPanel({
                             维度: {safeString(activity.dimensionName)}
                           </div>
                         )}
+
+                        {/* ★ 搜索结果详情展示 */}
+                        {activity.metadata?.searchResults != null ? (
+                          <SearchResultsDisplay
+                            sr={
+                              activity.metadata
+                                .searchResults as SearchResultsMetadata
+                            }
+                          />
+                        ) : null}
+
+                        {/* 其他 metadata（排除 searchResults 后显示） */}
                         {activity.metadata &&
-                          Object.keys(activity.metadata).length > 0 && (
-                            <div className="rounded bg-gray-50 p-2 text-xs">
-                              <span className="font-medium text-gray-600">
-                                元数据:
-                              </span>
-                              <pre className="mt-1 overflow-x-auto text-gray-500">
-                                {JSON.stringify(activity.metadata, null, 2)}
+                          Object.keys(activity.metadata).filter(
+                            (k) => k !== 'searchResults'
+                          ).length > 0 && (
+                            <details className="text-xs">
+                              <summary className="cursor-pointer font-medium text-gray-500 hover:text-gray-700">
+                                其他元数据
+                              </summary>
+                              <pre className="mt-1 overflow-x-auto rounded bg-gray-50 p-2 text-gray-500">
+                                {JSON.stringify(
+                                  Object.fromEntries(
+                                    Object.entries(activity.metadata).filter(
+                                      ([k]) => k !== 'searchResults'
+                                    )
+                                  ),
+                                  null,
+                                  2
+                                )}
                               </pre>
-                            </div>
+                            </details>
                           )}
                       </div>
                     )}
