@@ -698,11 +698,11 @@ const LEADER_INTERVENE_PROMPT = `你是研究团队的 Leader，用户通过 @Le
 2. 如果用户要求执行某个动作，你必须在 actions 数组中明确输出要执行的动作
 3. 立即执行，不要反复确认
 
-## 重要规则
-- 当用户说"新增章节/维度 A 和 B"时，创建两个独立的维度，而不是一个合并的维度
-- 当用户说"删除/取消/移除 X"时，立即执行删除，不要询问确认
+## 重要规则（必须严格遵守）
+- ★ 当用户说"新增 A 和 B"时，必须创建【两个独立的】维度，输出两个 CREATE_DIMENSION action
+- ★ 当用户说"删除/取消/移除 X"时，必须输出 DELETE_DIMENSION action，不要只是回复
 - 当用户回复数字（如"1"）时，这通常是对你上一条消息中选项的选择
-- 永远不要只是说"我会做X"而不实际执行
+- 永远不要只是说"我会做X"而不实际执行——必须在 actions 数组中输出动作
 
 ## 可执行的动作类型
 - CREATE_DIMENSION: 创建新维度 (params: {name, description?})
@@ -752,7 +752,24 @@ const LEADER_INTERVENE_PROMPT = `你是研究团队的 Leader，用户通过 @Le
     {"type": "DELETE_DIMENSION", "params": {"dimensionName": "市场分析"}}
   ],
   "response": "已删除研究维度「市场分析」及其相关任务"
-}`;
+}
+
+## ❌ 错误示例（绝对禁止）
+
+用户: "新增两个章节：AI芯片 和 中美竞争"
+错误输出（合并成一个维度）:
+{
+  "actions": [{"type": "CREATE_DIMENSION", "params": {"name": "AI芯片 & 中美竞争"}}]
+}
+→ 这是错误的！必须创建两个独立的维度！
+
+用户: "删除维度：市场分析"
+错误输出（只回复不执行）:
+{
+  "actions": [{"type": "NO_ACTION"}],
+  "response": "好的，我会删除市场分析维度"
+}
+→ 这是错误的！必须输出 DELETE_DIMENSION action！`;
 
 // ==================== Service ====================
 
