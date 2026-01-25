@@ -451,6 +451,13 @@ export class TopicResearchService {
    */
   async createTopic(userId: string, dto: CreateTopicDto) {
     this.logger.log(`Creating topic for user ${userId}: ${dto.name}`);
+    // ★ Debug: 详细记录接收到的 topicConfig
+    this.logger.log(
+      `★ [createTopic] Received topicConfig: ${JSON.stringify(dto.topicConfig)}`,
+    );
+    this.logger.log(
+      `★ [createTopic] Full DTO keys: ${Object.keys(dto).join(", ")}`,
+    );
 
     // ★ v8.0: 只有用户明确提供维度时才创建
     // 否则维度将在研究开始时由 Leader AI 根据主题名称动态规划

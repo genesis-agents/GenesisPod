@@ -6,7 +6,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import * as React from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Clock,
@@ -66,6 +67,166 @@ interface SearchResultsMetadata {
     similarity?: number;
     documentId?: string;
   }>;
+}
+
+// ★ 工具类型映射
+const TOOL_ICONS: Record<string, string> = {
+  'web-search': '🔍',
+  'knowledge-base': '📚',
+  hackernews: '📰',
+  'rag-search': '📚',
+  'federal-register': '📜',
+  'congress-gov': '⚖️',
+  'whitehouse-news': '🏛️',
+  'academic-search': '🎓',
+  'data-analysis': '📊',
+  web: '🌐',
+  news: '📰',
+  academic: '🎓',
+};
+
+const TOOL_NAMES: Record<string, string> = {
+  'web-search': '网络搜索',
+  'knowledge-base': '知识库',
+  hackernews: 'HackerNews',
+  'rag-search': '知识库',
+  'federal-register': '联邦公报',
+  'congress-gov': '国会立法',
+  'whitehouse-news': '白宫新闻',
+  'academic-search': '学术搜索',
+  'data-analysis': '数据分析',
+  web: '网页',
+  news: '新闻',
+  academic: '学术',
+};
+
+// ★ 工具使用摘要组件 - 提供快速概览
+function ToolUsageSummary({ sr }: { sr: SearchResultsMetadata }) {
+  // 统计各工具的结果数量
+  // ★ 优化: 使用更稳定的依赖，避免频繁重新计算
+  const sourcesLength = sr.sources?.length ?? 0;
+  const searchTool = sr.searchTool;
+  const total = sr.total;
+
+  const toolStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+
+    // 从来源中统计
+    if (Array.isArray(sr.sources)) {
+      sr.sources.forEach((source) => {
+        if (source.isKnowledgeBase) {
+          stats['knowledge-base'] = (stats['knowledge-base'] || 0) + 1;
+        } else {
+          const tool = source.sourceType || 'web';
+          stats[tool] = (stats[tool] || 0) + 1;
+        }
+      });
+    }
+
+    // 确保主搜索工具被显示（仅当 sources 中没有该工具时）
+    if (searchTool && !stats[searchTool] && total) {
+      const totalFromSources = Object.values(stats).reduce(
+        (sum, count) => sum + count,
+        0
+      );
+      const missing = total - totalFromSources;
+      if (missing > 0) {
+        stats[searchTool] = missing;
+      }
+    }
+
+    return stats;
+  }, [sr.sources, sourcesLength, searchTool, total]);
+
+  const hasTools = Object.keys(toolStats).length > 0;
+  const hasKnowledgeBase = sr.knowledgeBaseInfo?.enabled;
+
+  if (!hasTools && !hasKnowledgeBase) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-lg border border-blue-100 bg-gradient-to-r from-blue-50 to-purple-50 p-3">
+      <div className="mb-2 flex items-center gap-2 text-xs font-medium text-gray-700">
+        <Search className="h-3.5 w-3.5" />
+        使用工具
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {/* 主搜索工具 */}
+        {Object.entries(toolStats).map(([tool, count]) => (
+          <div
+            key={tool}
+            className={cn(
+              'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
+              tool === 'knowledge-base'
+                ? 'bg-purple-100 text-purple-700'
+                : 'bg-blue-100 text-blue-700'
+            )}
+          >
+            <span>{TOOL_ICONS[tool] || '🔧'}</span>
+            <span>{TOOL_NAMES[tool] || tool}</span>
+            <span className="rounded bg-white/60 px-1.5 py-0.5">{count}条</span>
+          </div>
+        ))}
+
+        {/* 知识库特殊显示（如果有匹配但不在 sources 中） */}
+        {hasKnowledgeBase &&
+          sr.knowledgeBaseInfo!.matchedCount > 0 &&
+          !toolStats['knowledge-base'] && (
+            <div className="flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-1 text-xs font-medium text-purple-700">
+              <span>📚</span>
+              <span>知识库</span>
+              <span className="rounded bg-white/60 px-1.5 py-0.5">
+                {sr.knowledgeBaseInfo!.matchedCount}条
+              </span>
+              {sr.knowledgeBaseInfo!.avgSimilarity && (
+                <span className="text-purple-500">
+                  ({(sr.knowledgeBaseInfo!.avgSimilarity * 100).toFixed(0)}%)
+                </span>
+              )}
+            </div>
+          )}
+      </div>
+
+      {/* 时效性一行摘要 */}
+      {sr.freshnessInfo && (
+        <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
+          <Clock className="h-3 w-3" />
+          <span>数据时效:</span>
+          {sr.freshnessInfo.avgAgeInDays !== undefined && (
+            <span
+              className={cn(
+                'rounded px-1.5 py-0.5',
+                (sr.freshnessInfo.avgAgeInDays ?? 999) <= 30
+                  ? 'bg-green-100 text-green-700'
+                  : (sr.freshnessInfo.avgAgeInDays ?? 999) <= 180
+                    ? 'bg-yellow-100 text-yellow-700'
+                    : 'bg-gray-100 text-gray-600'
+              )}
+            >
+              平均 {sr.freshnessInfo.avgAgeInDays} 天前
+            </span>
+          )}
+          {sr.freshnessInfo.newestDate && (
+            <span className="text-green-600">
+              最新:{' '}
+              {(() => {
+                try {
+                  const d = new Date(sr.freshnessInfo?.newestDate || '');
+                  return !isNaN(d.getTime())
+                    ? d.toLocaleDateString('zh-CN')
+                    : '--';
+                } catch {
+                  return '--';
+                }
+              })()}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface TodoDetailPanelProps {
@@ -782,6 +943,16 @@ export function TodoDetailPanel({
                           <div className="text-xs text-muted-foreground">
                             维度: {safeString(activity.dimensionName)}
                           </div>
+                        )}
+
+                        {/* ★ 工具使用摘要 - 快速概览 */}
+                        {activity.metadata?.searchResults != null && (
+                          <ToolUsageSummary
+                            sr={
+                              activity.metadata
+                                .searchResults as SearchResultsMetadata
+                            }
+                          />
                         )}
 
                         {/* ★ 搜索结果详情展示 */}

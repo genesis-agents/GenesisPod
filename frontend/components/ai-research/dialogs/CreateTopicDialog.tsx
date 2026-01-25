@@ -302,7 +302,21 @@ export function CreateTopicDialog({
           Object.keys(topicConfig).length > 0 ? topicConfig : undefined,
       };
 
+      // ★ Debug: 记录发送的 DTO
+      console.log('★ [CreateTopicDialog] Sending DTO:', {
+        ...dto,
+        topicConfig: dto.topicConfig,
+        selectedKnowledgeBases,
+      });
+
       const topic = await createTopic(dto);
+
+      // ★ Debug: 记录返回的 topic
+      console.log('★ [CreateTopicDialog] Created topic:', {
+        id: topic.id,
+        name: topic.name,
+        topicConfig: topic.topicConfig,
+      });
       onCreated(topic);
       onClose();
     } catch (err) {

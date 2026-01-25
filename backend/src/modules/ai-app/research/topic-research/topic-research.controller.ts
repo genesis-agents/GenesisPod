@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  Logger,
   Param,
   Patch,
   Post,
@@ -82,6 +83,8 @@ import type { RequestWithUser } from "../../../../common/types/express-request.t
 @Controller("topic-research")
 @UseGuards(JwtAuthGuard)
 export class TopicResearchController {
+  private readonly logger = new Logger(TopicResearchController.name);
+
   constructor(
     private readonly topicResearchService: TopicResearchService,
     private readonly missionService: ResearchMissionService,
@@ -148,7 +151,16 @@ export class TopicResearchController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement createTopic
+    // ★ Debug: 记录接收到的 DTO
+    this.logger.log(
+      `★ [createTopic] Received DTO: ${JSON.stringify({
+        name: dto.name,
+        type: dto.type,
+        topicConfig: dto.topicConfig,
+        hasTopicConfig: !!dto.topicConfig,
+        topicConfigKeys: dto.topicConfig ? Object.keys(dto.topicConfig) : [],
+      })}`,
+    );
     return this.topicResearchService.createTopic(userId, dto);
   }
 
