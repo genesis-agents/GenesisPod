@@ -10,9 +10,11 @@ import {
   Logger,
   BadRequestException,
   MessageEvent,
+  Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { Observable, Subject } from "rxjs";
+import { CreditsService } from "../../../credits/credits.service";
 // 直接从具体文件导入，避免通过 barrel export 引发循环依赖
 import { ContentExtractorService } from "../../../../common/content-processing/content-extractor.service";
 import {
@@ -69,6 +71,7 @@ export class AiImageService {
     private readonly imageStorageService: ImageStorageService,
     private readonly imagen4PromptService: Imagen4PromptService,
     private readonly aiFacade: AIEngineFacade,
+    @Optional() private readonly creditsService: CreditsService,
   ) {}
 
   /**
@@ -720,6 +723,26 @@ export class AiImageService {
       });
 
       emitStep("save_db", "Saved to Database", "completed");
+
+      // Consume credits for image generation
+      if (this.creditsService && userId) {
+        try {
+          await this.creditsService.consumeCredits({
+            userId,
+            moduleType: "ai-image",
+            operationType: "generate",
+            referenceId: savedImage.id,
+            description: `图片生成 - ${imageModelUsed}`,
+          });
+          this.logger.log(
+            `[generateImageStream] Credits consumed for image generation`,
+          );
+        } catch (creditError) {
+          this.logger.warn(
+            `[generateImageStream] Failed to consume credits: ${creditError}`,
+          );
+        }
+      }
 
       // Cleanup old images
       if (userId) {

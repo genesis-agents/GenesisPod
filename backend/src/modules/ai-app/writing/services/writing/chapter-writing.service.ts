@@ -3,8 +3,10 @@ import {
   Logger,
   NotFoundException,
   ForbiddenException,
+  Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { CreditsService } from "../../../../credits/credits.service";
 import {
   CreateChapterDto,
   UpdateChapterDto,
@@ -23,6 +25,7 @@ export class ChapterWritingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly writingMissionService: WritingMissionService,
+    @Optional() private readonly creditsService: CreditsService,
   ) {}
 
   async createChapter(volumeId: string, userId: string, dto: CreateChapterDto) {
@@ -175,6 +178,26 @@ export class ChapterWritingService {
             revisedAt: new Date(),
           },
         });
+
+        // Consume credits for chapter writing
+        if (this.creditsService) {
+          try {
+            await this.creditsService.consumeCredits({
+              userId,
+              moduleType: "ai-writing",
+              operationType: "generate-chapter",
+              referenceId: id,
+              description: `章节写作 - ${missionInput.targetWordCount || 3000}字`,
+            });
+            this.logger.log(
+              `[executeWritingStream] Credits consumed for chapter writing`,
+            );
+          } catch (creditError) {
+            this.logger.warn(
+              `[executeWritingStream] Failed to consume credits: ${creditError}`,
+            );
+          }
+        }
       }
 
       // 如果任务失败

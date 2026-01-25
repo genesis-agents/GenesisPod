@@ -1,6 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 import { SocialContentType, AIModelType } from "@prisma/client";
+import { CreditsService } from "../../../credits/credits.service";
 
 export interface TransformInput {
   sourceContent: string;
@@ -13,6 +14,8 @@ export interface TransformInput {
   isBilingual?: boolean;
   targetType: SocialContentType;
   additionalInstructions?: string;
+  /** 用户ID（用于积分消费） */
+  userId?: string;
 }
 
 export interface TransformOutput {
@@ -26,7 +29,10 @@ export interface TransformOutput {
 export class ContentTransformerService {
   private readonly logger = new Logger(ContentTransformerService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(
+    private readonly aiFacade: AIEngineFacade,
+    @Optional() private readonly creditsService: CreditsService,
+  ) {}
 
   async transform(input: TransformInput): Promise<TransformOutput> {
     this.logger.log(
@@ -67,6 +73,29 @@ export class ContentTransformerService {
         `AI returned invalid content (length=${response.content?.length || 0})`,
       );
       throw new Error("AI 返回的内容无效或过短，请重试");
+    }
+
+    // Consume credits for social content transformation
+    if (this.creditsService && input.userId) {
+      try {
+        const operationType =
+          input.targetType === SocialContentType.WECHAT_ARTICLE
+            ? "generate-post"
+            : "generate-post";
+        await this.creditsService.consumeCredits({
+          userId: input.userId,
+          moduleType: "ai-social",
+          operationType,
+          description: `社交内容生成 - ${input.targetType}`,
+        });
+        this.logger.log(
+          `[transform] Credits consumed for social content transformation`,
+        );
+      } catch (creditError) {
+        this.logger.warn(
+          `[transform] Failed to consume credits: ${creditError}`,
+        );
+      }
     }
 
     return this.parseResponse(response.content, input.sourceTitle);

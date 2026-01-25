@@ -1,8 +1,9 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { getErrorMessage } from "../../../common/utils/error.utils";
 import axios, { AxiosInstance } from "axios";
 import { ResourceType } from "@prisma/client";
+import { CreditsService } from "../../credits/credits.service";
 import {
   ResourceAISummary,
   convertToStructuredSummary,
@@ -19,7 +20,10 @@ export class AIEnrichmentService {
   private readonly aiServiceUrl: string;
   private readonly httpClient: AxiosInstance;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    @Optional() private readonly creditsService: CreditsService,
+  ) {
     this.aiServiceUrl = this.configService.get<string>(
       "AI_SERVICE_URL",
       "http://localhost:5000",
@@ -173,12 +177,15 @@ export class AIEnrichmentService {
    * 完整的 AI 增强处理
    * 对资源内容进行摘要、洞察提取和分类
    */
-  async enrichResource(resource: {
-    title: string;
-    abstract?: string;
-    content?: string;
-    sourceUrl?: string;
-  }): Promise<{
+  async enrichResource(
+    resource: {
+      title: string;
+      abstract?: string;
+      content?: string;
+      sourceUrl?: string;
+    },
+    userId?: string,
+  ): Promise<{
     aiSummary: string | null;
     keyInsights: any[];
     primaryCategory: string | null;
@@ -209,6 +216,23 @@ export class AIEnrichmentService {
       autoTags: classification?.tags || [],
       difficultyLevel: difficultyLevelNum,
     };
+
+    // Consume credits for AI enrichment
+    if (this.creditsService && userId && result.aiSummary) {
+      try {
+        await this.creditsService.consumeCredits({
+          userId,
+          moduleType: "library",
+          operationType: "ai-summary",
+          description: `AI资源增强 - ${resource.title.slice(0, 30)}`,
+        });
+        this.logger.log(`[enrichResource] Credits consumed for AI enrichment`);
+      } catch (creditError) {
+        this.logger.warn(
+          `[enrichResource] Failed to consume credits: ${creditError}`,
+        );
+      }
+    }
 
     this.logger.log(
       `Resource enrichment completed: ${result.aiSummary ? "summary ✓" : "summary ✗"}, ${result.keyInsights.length} insights, ${result.autoTags.length} tags`,
@@ -384,6 +408,7 @@ export class AIEnrichmentService {
       type?: ResourceType;
     },
     resourceType: ResourceType = "PAPER",
+    userId?: string,
   ): Promise<{
     aiSummary: string | null;
     keyInsights: any[];
@@ -429,6 +454,25 @@ export class AIEnrichmentService {
       difficultyLevel: difficultyLevelNum,
       structuredAISummary: finalStructuredSummary,
     };
+
+    // Consume credits for structured AI enrichment
+    if (this.creditsService && userId && result.aiSummary) {
+      try {
+        await this.creditsService.consumeCredits({
+          userId,
+          moduleType: "library",
+          operationType: "ai-summary",
+          description: `AI结构化增强 - ${resource.title.slice(0, 30)}`,
+        });
+        this.logger.log(
+          `[enrichResourceWithStructured] Credits consumed for AI enrichment`,
+        );
+      } catch (creditError) {
+        this.logger.warn(
+          `[enrichResourceWithStructured] Failed to consume credits: ${creditError}`,
+        );
+      }
+    }
 
     this.logger.log(
       `Resource enrichment completed: summary ✓, ${result.keyInsights.length} insights, structured summary ${finalStructuredSummary ? "✓" : "✗"}`,
