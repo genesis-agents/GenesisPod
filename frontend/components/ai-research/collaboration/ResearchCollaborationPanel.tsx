@@ -497,6 +497,24 @@ export function ResearchCollaborationPanel({
           }
         }
 
+        // 方法3: 基于"新增章节/维度"标题匹配
+        // 当用户请求 "新增章节：XX" 时，executeAddDimension 会创建 "研究: XX" 任务
+        // 两者需要去重，只显示 ResearchTask
+        if (!shouldSkip) {
+          const addDimensionMatch = apiTodo.title.match(
+            /^(?:新增|添加)(?:章节|维度)[：:]\s*(.+)$/
+          );
+          if (addDimensionMatch) {
+            const normalizedTitle = addDimensionMatch[1].toLowerCase().trim();
+            if (
+              taskTitlePrefixes.has(normalizedTitle) ||
+              taskDimensionNames.has(normalizedTitle)
+            ) {
+              shouldSkip = true;
+            }
+          }
+        }
+
         if (shouldSkip) {
           continue;
         }
