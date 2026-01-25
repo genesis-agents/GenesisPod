@@ -310,6 +310,24 @@ function ActionButtons({
             执行
           </button>
         )}
+      {/* 取消按钮：对于未完成的 USER_REQUEST 任务显示 */}
+      {todo.userCanCancel &&
+        todo.status !== ResearchTodoStatus.COMPLETED &&
+        todo.status !== ResearchTodoStatus.FAILED &&
+        todo.status !== ResearchTodoStatus.CANCELLED && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (confirm('确定要取消这个任务吗？')) {
+                handleAction('cancel');
+              }
+            }}
+            className="rounded p-1 text-red-500 hover:bg-red-50"
+            title="取消"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
     </div>
   );
 }
