@@ -60,6 +60,13 @@ export default function EditSocialContentPage() {
   const [selectedPlatform, setSelectedPlatform] =
     useState<SocialPlatformType>('WECHAT_MP');
 
+  // Client-side mount state to avoid hydration mismatch with DOMPurify
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Load content on mount
   useEffect(() => {
     const loadContent = async () => {
@@ -336,49 +343,55 @@ export default function EditSocialContentPage() {
                       }}
                     >
                       {currentContent.contentType === 'WECHAT_ARTICLE' ? (
-                        <div
-                          dangerouslySetInnerHTML={{
-                            __html: DOMPurify.sanitize(
-                              content ||
-                                `<p style="color: #999;">${t('aiSocial.edit.previewPlaceholder')}</p>`,
-                              {
-                                ALLOWED_TAGS: [
-                                  'p',
-                                  'h1',
-                                  'h2',
-                                  'h3',
-                                  'h4',
-                                  'h5',
-                                  'h6',
-                                  'strong',
-                                  'em',
-                                  'b',
-                                  'i',
-                                  'u',
-                                  'blockquote',
-                                  'ul',
-                                  'ol',
-                                  'li',
-                                  'br',
-                                  'hr',
-                                  'span',
-                                  'div',
-                                  'img',
-                                  'a',
-                                ],
-                                ALLOWED_ATTR: [
-                                  'style',
-                                  'class',
-                                  'href',
-                                  'src',
-                                  'alt',
-                                  'title',
-                                ],
-                                ALLOW_DATA_ATTR: false,
-                              }
-                            ),
-                          }}
-                        />
+                        mounted ? (
+                          <div
+                            dangerouslySetInnerHTML={{
+                              __html: DOMPurify.sanitize(
+                                content ||
+                                  `<p style="color: #999;">${t('aiSocial.edit.previewPlaceholder')}</p>`,
+                                {
+                                  ALLOWED_TAGS: [
+                                    'p',
+                                    'h1',
+                                    'h2',
+                                    'h3',
+                                    'h4',
+                                    'h5',
+                                    'h6',
+                                    'strong',
+                                    'em',
+                                    'b',
+                                    'i',
+                                    'u',
+                                    'blockquote',
+                                    'ul',
+                                    'ol',
+                                    'li',
+                                    'br',
+                                    'hr',
+                                    'span',
+                                    'div',
+                                    'img',
+                                    'a',
+                                  ],
+                                  ALLOWED_ATTR: [
+                                    'style',
+                                    'class',
+                                    'href',
+                                    'src',
+                                    'alt',
+                                    'title',
+                                  ],
+                                  ALLOW_DATA_ATTR: false,
+                                }
+                              ),
+                            }}
+                          />
+                        ) : (
+                          <div className="text-gray-400">
+                            {t('aiSocial.edit.previewPlaceholder')}
+                          </div>
+                        )
                       ) : (
                         <div className="whitespace-pre-wrap">
                           {content || t('aiSocial.edit.previewPlaceholder')}
