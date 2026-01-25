@@ -592,12 +592,12 @@ export class TopicResearchService {
             },
           },
           // ★ 包含最新【有内容的】报告以获取 totalSources 和 lastRefreshAt
-          // 跳过空草稿报告（executiveSummary 为空且没有维度分析）
+          // 跳过空草稿报告（executiveSummary 和 fullReport 都为空）
           reports: {
             where: {
               OR: [
                 { executiveSummary: { not: "" } },
-                { dimensionAnalyses: { some: {} } },
+                { fullReport: { not: "" } },
               ],
             },
             orderBy: { generatedAt: "desc" },
@@ -660,7 +660,7 @@ export class TopicResearchService {
           where: {
             OR: [
               { executiveSummary: { not: "" } },
-              { dimensionAnalyses: { some: {} } },
+              { fullReport: { not: "" } },
             ],
           },
           orderBy: { generatedAt: "desc" },
@@ -2377,23 +2377,18 @@ export class TopicResearchService {
     }
 
     // ★ 获取【有内容的】报告统计，跳过空草稿
+    // 判断条件：executiveSummary 或 fullReport 非空
     const [completedReportCount, latestCompletedReport] = await Promise.all([
       this.prisma.topicReport.count({
         where: {
           topicId,
-          OR: [
-            { executiveSummary: { not: "" } },
-            { dimensionAnalyses: { some: {} } },
-          ],
+          OR: [{ executiveSummary: { not: "" } }, { fullReport: { not: "" } }],
         },
       }),
       this.prisma.topicReport.findFirst({
         where: {
           topicId,
-          OR: [
-            { executiveSummary: { not: "" } },
-            { dimensionAnalyses: { some: {} } },
-          ],
+          OR: [{ executiveSummary: { not: "" } }, { fullReport: { not: "" } }],
         },
         orderBy: { generatedAt: "desc" },
         select: {
@@ -2449,14 +2444,11 @@ export class TopicResearchService {
 
     // ★ 获取最新的【有内容的】报告
     // 跳过空报告（草稿状态，尚未填充内容）
+    // 判断条件：executiveSummary 或 fullReport 非空
     const report = await this.prisma.topicReport.findFirst({
       where: {
         topicId,
-        // ★ 只返回有内容的报告：executiveSummary 非空 或 有维度分析
-        OR: [
-          { executiveSummary: { not: "" } },
-          { dimensionAnalyses: { some: {} } },
-        ],
+        OR: [{ executiveSummary: { not: "" } }, { fullReport: { not: "" } }],
       },
       orderBy: { generatedAt: "desc" },
       include: {
