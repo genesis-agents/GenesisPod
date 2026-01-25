@@ -51,7 +51,17 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
     sendLeaderInstruction,
     deleteReport,
     resetTopicData,
+    setCurrentTopic,
   } = useTopicResearchStore();
+
+  // ★ 同步 topic 到 store，确保 ResearchSettingsModal 等组件能读取到 currentTopic
+  useEffect(() => {
+    setCurrentTopic(topic);
+    return () => {
+      // 离开页面时清除 currentTopic
+      setCurrentTopic(null);
+    };
+  }, [topic, setCurrentTopic]);
 
   // WebSocket 实时事件
   const {
