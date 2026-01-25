@@ -53,8 +53,44 @@ export class ErrorBoundary extends Component<Props, State> {
       this.props.onError(error, errorInfo);
     }
 
-    // 可以在这里发送错误到监控服务
-    // 例如: Sentry, LogRocket, etc.
+    // 发送错误到监控服务
+    this.reportErrorToMonitoring(error, errorInfo);
+  }
+
+  /**
+   * 上报错误到监控服务
+   * 预留 Sentry 等错误监控工具的集成接口
+   */
+  private reportErrorToMonitoring(_error: Error, _errorInfo: ErrorInfo): void {
+    // TODO: 集成 Sentry 或其他错误监控服务
+    // 示例代码（需要安装 @sentry/react）:
+    /*
+    import * as Sentry from '@sentry/react';
+    Sentry.captureException(error, {
+      contexts: {
+        react: {
+          componentStack: errorInfo.componentStack,
+        },
+      },
+    });
+    */
+
+    // 当前仅记录日志，生产环境可在此上报到后端
+    if (process.env.NODE_ENV === 'production') {
+      // 可以在这里调用 API 将错误发送到后端
+      // fetch('/api/errors/report', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     message: error.message,
+      //     stack: error.stack,
+      //     componentStack: errorInfo.componentStack,
+      //     timestamp: new Date().toISOString(),
+      //     userAgent: navigator.userAgent,
+      //     url: window.location.href,
+      //   }),
+      // }).catch(err => logger.error('Failed to report error:', err));
+    }
   }
 
   handleReset = (): void => {

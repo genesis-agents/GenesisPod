@@ -23,6 +23,7 @@ import { UpdateContentDto } from "./dto/update-content.dto";
 import { ProcessUrlDto } from "./dto/process-url.dto";
 import { ProcessSourceDto } from "./dto/process-source.dto";
 import { PublishContentDto } from "./dto/publish-content.dto";
+import { BatchDeleteDto, BatchPublishDto } from "./dto/batch-operation.dto";
 
 interface AuthenticatedRequest {
   user: { id: string };
@@ -141,6 +142,28 @@ export class AiSocialController {
     @Param("id") id: string,
   ) {
     return this.aiSocialService.deleteContent(req.user.id, id);
+  }
+
+  // ==================== 批量操作 ====================
+
+  @Post("contents/batch-delete")
+  async batchDeleteContents(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: BatchDeleteDto,
+  ) {
+    return this.aiSocialService.batchDeleteContents(req.user.id, dto.ids);
+  }
+
+  @Post("contents/batch-publish")
+  async batchPublishContents(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: BatchPublishDto,
+  ) {
+    return this.aiSocialService.batchPublishContents(
+      req.user.id,
+      dto.ids,
+      dto.connectionId,
+    );
   }
 
   // ==================== 内容检测 ====================

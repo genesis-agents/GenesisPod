@@ -5,19 +5,15 @@ import {
   OnModuleInit,
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
+import { SessionData } from "../types/platform.types";
+
+// Re-export SessionData for backward compatibility
+export { SessionData };
 
 // Playwright types - will be properly typed when playwright-core is installed
 type Browser = any;
 type BrowserContext = any;
 type Page = any;
-
-export interface SessionData {
-  cookies: any[];
-  localStorage: Record<string, string>;
-  sessionStorage: Record<string, string>;
-  // WeChat MP specific: token is required for API calls and navigation
-  wechatToken?: string;
-}
 
 // Platform login configuration
 export interface PlatformLoginConfig {

@@ -1310,6 +1310,19 @@
       "title": "Access Denied",
       "description": "Sorry, you don't have permission to access this page. Please contact an administrator."
     },
+    "error": {
+      "title": "Something went wrong",
+      "description": "Sorry, AI Social encountered an error. We've logged this issue and will fix it soon.",
+      "possibleCauses": "Possible causes",
+      "cause1": "Network connection interrupted or unstable",
+      "cause2": "Platform authorization expired, need to reconnect",
+      "cause3": "Data loading failed or incorrect format",
+      "retry": "Retry",
+      "reload": "Reload Page",
+      "goHome": "Go Home",
+      "helpText": "If the problem persists, please",
+      "reportIssue": "report an issue"
+    },
     "tabs": {
       "contents": "Content",
       "connections": "Connections",
@@ -1326,7 +1339,8 @@
     "reviewStatus": {
       "pending": "Pending Review",
       "approved": "Approved",
-      "rejected": "Rejected"
+      "rejected": "Rejected",
+      "revision_requested": "Revision Requested"
     },
     "platforms": {
       "wechat_mp": "WeChat Official Account",
@@ -1358,7 +1372,12 @@
       },
       "addTitle": "Connect {{platform}}",
       "addDescription": "Follow the instructions to authorize your account. Once authorized, you can publish content to this platform.",
-      "startAuth": "Start Authorization"
+      "startAuth": "Start Authorization",
+      "tooltip": {
+        "refresh": "Refresh connection status",
+        "test": "Test connection",
+        "delete": "Disconnect"
+      }
     },
     "contents": {
       "title": "Content Management",
@@ -1389,6 +1408,15 @@
         "source": "Source",
         "status": "Status",
         "date": "Updated"
+      },
+      "tooltip": {
+        "refresh": "Refresh content list",
+        "create": "Create new content",
+        "edit": "Edit content",
+        "preview": "Preview content",
+        "publish": "Publish to platform",
+        "delete": "Delete content",
+        "viewExternal": "Open original in new window"
       }
     },
     "sources": {
@@ -1498,7 +1526,18 @@
       "coverImagePromptPlaceholder": "e.g., A futuristic cityscape with AI robots, vibrant colors, digital art style...",
       "generateCoverImage": "Generate Cover Image",
       "generating": "Generating...",
-      "enterImageUrl": "Enter image URL"
+      "enterImageUrl": "Enter image URL",
+      "tooltip": {
+        "back": "Go back to previous step",
+        "regenerate": "Regenerate content with AI",
+        "previewMode": "Switch to preview mode",
+        "sourceMode": "Switch to source code editing mode",
+        "addTag": "Add tag",
+        "removeTag": "Remove tag",
+        "removeCoverImage": "Remove cover image",
+        "generateAICover": "Generate cover image with AI",
+        "uploadCover": "Upload cover image"
+      }
     },
     "edit": {
       "title": "Edit Content",
@@ -1531,6 +1570,15 @@
       "reject": "Reject",
       "note": "Review Note"
     },
+    "batch": {
+      "selectAll": "Select All",
+      "select": "Select",
+      "selected": "{count} / {total} selected",
+      "delete": "Batch Delete",
+      "publish": "Batch Publish",
+      "deleting": "Deleting...",
+      "publishing": "Publishing..."
+    },
     "toast": {
       "created": "Content created successfully",
       "updated": "Content updated successfully",
@@ -1540,7 +1588,12 @@
       "scheduled": "Schedule set successfully",
       "cancelled": "Publish cancelled",
       "approved": "Approved",
-      "rejected": "Rejected"
+      "rejected": "Rejected",
+      "batchDeleteSuccess": "Successfully deleted {count} items",
+      "batchDeletePartial": "Delete completed: {success} succeeded, {fail} failed",
+      "batchPublishSuccess": "Successfully published {count} items",
+      "batchPublishPartial": "Publish completed: {success} succeeded, {fail} failed",
+      "batchPublishInvalid": "Only draft or failed items can be batch published"
     },
     "publish": {
       "selectAccount": "Select Account",
@@ -1551,7 +1604,30 @@
     },
     "confirm": {
       "delete": "Are you sure you want to delete this content? This action cannot be undone.",
-      "disconnect": "Are you sure you want to disconnect \"{{name}}\"?"
+      "disconnect": "Are you sure you want to disconnect \"{{name}}\"?",
+      "batchDelete": "Are you sure you want to delete {count} selected items? This action cannot be undone.",
+      "batchPublish": "Are you sure you want to publish {count} selected items?"
+    },
+    "filters": {
+      "advancedFilters": "Advanced Filters",
+      "more": "More",
+      "clearAll": "Clear All",
+      "dateRange": "Date Range",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "clearDates": "Clear dates",
+      "datePresets": {
+        "today": "Today",
+        "week": "This Week",
+        "month": "This Month",
+        "last30": "Last 30 Days"
+      },
+      "contentType": "Content Type",
+      "sourceType": "Source Type",
+      "reviewStatus": "Review Status",
+      "platformConnection": "Platform Connection",
+      "withConnection": "With Connection",
+      "withoutConnection": "Without Connection"
     }
   },
   "aiStore": {

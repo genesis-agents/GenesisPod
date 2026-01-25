@@ -3,6 +3,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SocialContentSourceType } from "@prisma/client";
 import { WebContentExtractionService } from "../../../../common/content-processing/web-content-extraction.service";
 import { YoutubeService } from "../../../content/explore/youtube.service";
+import { validateUrl } from "../utils/url-validator";
 
 export interface FetchedContent {
   title: string;
@@ -63,8 +64,16 @@ export class ContentFetcherService {
   /**
    * 从外部URL获取内容
    * 支持：YouTube 视频（自动获取字幕）、普通网页（Jina/Firecrawl）
+   *
+   * 安全检查：
+   * - SSRF 防护（阻止内网 IP、本地回环等）
+   * - URL 格式和长度验证
+   * - 协议限制（仅 HTTP/HTTPS）
    */
   async fetchFromUrl(url: string): Promise<FetchedContent> {
+    // SSRF 防护：验证 URL 安全性
+    validateUrl(url);
+
     this.logger.log(`Fetching content from URL: ${url}`);
 
     try {

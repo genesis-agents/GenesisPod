@@ -5,8 +5,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import AppShell from '@/components/layout/AppShell';
 import { LogIn, Share2, Link2, FileText, Bot, ShieldAlert } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { SocialErrorFallback } from '@/components/ai-social/SocialErrorFallback';
 import ConnectionsTab from '@/components/ai-social/ConnectionsTab';
 import ContentsTab from '@/components/ai-social/ContentsTab';
+import { AnimatePresence } from 'framer-motion';
+import { SlideIn } from '@/components/ui/animations';
 
 type TabType = 'connections' | 'contents';
 
@@ -100,61 +104,81 @@ export default function AISocialPage() {
 
   return (
     <AppShell>
-      <main className="flex-1 overflow-auto">
-        {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
-          <div className="px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-lg shadow-rose-500/25">
-                  <Share2 className="h-7 w-7 text-white" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-bold text-gray-900">
-                      {t('aiSocial.title')}
-                    </h1>
-                    <span className="flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-600">
-                      <Bot className="h-3 w-3" />
-                      AI
-                    </span>
+      <ErrorBoundary
+        fallback={
+          <SocialErrorFallback
+            onReset={() => window.location.reload()}
+            onReload={() => window.location.reload()}
+            onGoHome={() => (window.location.href = '/')}
+          />
+        }
+      >
+        <main className="flex-1 overflow-auto">
+          {/* Header */}
+          <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
+            <div className="px-8 py-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-lg shadow-rose-500/25">
+                    <Share2 className="h-7 w-7 text-white" />
                   </div>
-                  <p className="text-sm text-gray-500">
-                    {t('aiSocial.subtitle')}
-                  </p>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-2xl font-bold text-gray-900">
+                        {t('aiSocial.title')}
+                      </h1>
+                      <span className="flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-600">
+                        <Bot className="h-3 w-3" />
+                        AI
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {t('aiSocial.subtitle')}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Tabs */}
-            <div className="mt-6 flex gap-1">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                      activeTab === tab.id
-                        ? 'bg-rose-100 text-rose-700'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {tab.label}
-                  </button>
-                );
-              })}
+              {/* Tabs */}
+              <div className="mt-6 flex gap-1">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                        activeTab === tab.id
+                          ? 'bg-rose-100 text-rose-700'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Content */}
-        <div className="p-8">
-          {activeTab === 'connections' && <ConnectionsTab />}
-          {activeTab === 'contents' && <ContentsTab />}
-        </div>
-      </main>
+          {/* Content */}
+          <div className="p-8">
+            <AnimatePresence mode="wait">
+              {activeTab === 'connections' && (
+                <SlideIn key="connections" direction="left">
+                  <ConnectionsTab />
+                </SlideIn>
+              )}
+              {activeTab === 'contents' && (
+                <SlideIn key="contents" direction="right">
+                  <ContentsTab />
+                </SlideIn>
+              )}
+            </AnimatePresence>
+          </div>
+        </main>
+      </ErrorBoundary>
     </AppShell>
   );
 }

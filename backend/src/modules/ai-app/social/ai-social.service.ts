@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ContentCheckerService } from "./services/content-checker.service";
 import { PublishExecutorService } from "./services/publish-executor.service";
@@ -16,6 +17,8 @@ import {
   SocialContentStatus,
   SocialContentSourceType,
 } from "./types";
+import { encryptSession, decryptSession } from "./utils/session-crypto";
+import { SessionData } from "./types/platform.types";
 
 // Prisma client accessor for models not yet migrated
 type PrismaAny = any;
@@ -163,6 +166,9 @@ export class AiSocialService {
         }
 
         // 登录成功，使用 upsert 处理已存在的连接
+        // Encrypt session data before storing
+        const encryptedSessionData = encryptSession(result.sessionData);
+
         const connection = await this.db.socialPlatformConnection.upsert({
           where: {
             userId_platformType: {
@@ -172,7 +178,7 @@ export class AiSocialService {
           },
           update: {
             accountName: result.accountName || platformType,
-            sessionData: JSON.stringify(result.sessionData),
+            sessionData: encryptedSessionData,
             isActive: true,
             lastCheckAt: new Date(),
           },
@@ -180,7 +186,7 @@ export class AiSocialService {
             userId,
             platformType,
             accountName: result.accountName || platformType,
-            sessionData: JSON.stringify(result.sessionData),
+            sessionData: encryptedSessionData,
             isActive: true,
             lastCheckAt: new Date(),
           },
@@ -277,11 +283,13 @@ export class AiSocialService {
     const contextId = `validate-${connection.id}-${Date.now()}`;
 
     try {
-      // 恢复会话
-      const sessionData =
+      // Decrypt and restore session
+      const sessionDataStr =
         typeof connection.sessionData === "string"
-          ? JSON.parse(connection.sessionData)
-          : connection.sessionData;
+          ? connection.sessionData
+          : JSON.stringify(connection.sessionData);
+
+      const sessionData = decryptSession<SessionData>(sessionDataStr);
 
       await this.playwright.restoreSession(contextId, sessionData);
       const page = await this.playwright.createPage(contextId);
@@ -423,6 +431,71 @@ export class AiSocialService {
 
   // ==================== 内容管理 ====================
 
+  /**
+   * 内容查询结果类型
+   */
+  private readonly CONTENT_SELECT_FIELDS = Prisma.sql`
+    sc.id,
+    sc.user_id AS "userId",
+    sc.connection_id AS "connectionId",
+    sc.content_type AS "contentType",
+    sc.source_type AS "sourceType",
+    sc.source_id AS "sourceId",
+    sc.source_url AS "sourceUrl",
+    sc.title,
+    sc.content,
+    sc.author,
+    sc.digest,
+    sc.cover_image_url AS "coverImageUrl",
+    sc.images,
+    sc.tags,
+    sc.location,
+    sc.status,
+    sc.ai_process_log AS "aiProcessLog",
+    sc.ai_suggestions AS "aiSuggestions",
+    sc.compliance_check AS "complianceCheck",
+    sc.review_status AS "reviewStatus",
+    sc.reviewed_by_id AS "reviewedById",
+    sc.reviewed_at AS "reviewedAt",
+    sc.review_note AS "reviewNote",
+    sc.scheduled_at AS "scheduledAt",
+    sc.published_at AS "publishedAt",
+    sc.auto_publish AS "autoPublish",
+    sc.external_id AS "externalId",
+    sc.external_url AS "externalUrl",
+    sc.error_message AS "errorMessage",
+    sc.retry_count AS "retryCount",
+    sc.created_at AS "createdAt",
+    sc.updated_at AS "updatedAt",
+    spc.account_name AS "connectionAccountName",
+    spc.platform_type AS "connectionPlatformType"
+  `;
+
+  /**
+   * 构建内容查询的 WHERE 条件
+   */
+  private buildContentWhereClause(
+    userId: string,
+    statusFilter?: string,
+    contentTypeFilter?: string,
+  ): Prisma.Sql {
+    const conditions: Prisma.Sql[] = [Prisma.sql`sc.user_id = ${userId}`];
+
+    if (statusFilter) {
+      conditions.push(
+        Prisma.sql`sc.status = ${statusFilter}::"SocialContentStatus"`,
+      );
+    }
+
+    if (contentTypeFilter) {
+      conditions.push(
+        Prisma.sql`sc.content_type = ${contentTypeFilter}::"SocialContentType"`,
+      );
+    }
+
+    return Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
+  }
+
   async getContents(
     userId: string,
     options: {
@@ -498,216 +571,27 @@ export class AiSocialService {
       connectionPlatformType: string | null;
     }
 
-    // Use parameterized query to prevent SQL injection
-    // Build query based on which filters are provided
-    let contents: ContentRow[];
-    let countResult: Array<{ count: bigint }>;
+    // Build dynamic WHERE clause
+    const whereClause = this.buildContentWhereClause(
+      userId,
+      statusFilter,
+      contentTypeFilter,
+    );
 
-    if (statusFilter && contentTypeFilter) {
-      // Both filters
-      contents = (await this.db.$queryRaw`
-        SELECT
-          sc.id,
-          sc.user_id AS "userId",
-          sc.connection_id AS "connectionId",
-          sc.content_type AS "contentType",
-          sc.source_type AS "sourceType",
-          sc.source_id AS "sourceId",
-          sc.source_url AS "sourceUrl",
-          sc.title,
-          sc.content,
-          sc.author,
-          sc.digest,
-          sc.cover_image_url AS "coverImageUrl",
-          sc.images,
-          sc.tags,
-          sc.location,
-          sc.status,
-          sc.ai_process_log AS "aiProcessLog",
-          sc.ai_suggestions AS "aiSuggestions",
-          sc.compliance_check AS "complianceCheck",
-          sc.review_status AS "reviewStatus",
-          sc.reviewed_by_id AS "reviewedById",
-          sc.reviewed_at AS "reviewedAt",
-          sc.review_note AS "reviewNote",
-          sc.scheduled_at AS "scheduledAt",
-          sc.published_at AS "publishedAt",
-          sc.auto_publish AS "autoPublish",
-          sc.external_id AS "externalId",
-          sc.external_url AS "externalUrl",
-          sc.error_message AS "errorMessage",
-          sc.retry_count AS "retryCount",
-          sc.created_at AS "createdAt",
-          sc.updated_at AS "updatedAt",
-          spc.account_name AS "connectionAccountName",
-          spc.platform_type AS "connectionPlatformType"
-        FROM social_contents sc
-        LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
-        WHERE sc.user_id = ${userId}
-          AND sc.status = ${statusFilter}::"SocialContentStatus"
-          AND sc.content_type = ${contentTypeFilter}::"SocialContentType"
-        ORDER BY sc.created_at DESC
-        LIMIT ${options.limit} OFFSET ${offset}
-      `) as ContentRow[];
+    // Execute queries using shared SQL fragments
+    const contents = (await this.db.$queryRaw`
+      SELECT ${this.CONTENT_SELECT_FIELDS}
+      FROM social_contents sc
+      LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
+      ${whereClause}
+      ORDER BY sc.created_at DESC
+      LIMIT ${options.limit} OFFSET ${offset}
+    `) as ContentRow[];
 
-      countResult = (await this.db.$queryRaw`
-        SELECT COUNT(*) as count FROM social_contents sc
-        WHERE sc.user_id = ${userId}
-          AND sc.status = ${statusFilter}::"SocialContentStatus"
-          AND sc.content_type = ${contentTypeFilter}::"SocialContentType"
-      `) as Array<{ count: bigint }>;
-    } else if (statusFilter) {
-      // Only status filter
-      contents = (await this.db.$queryRaw`
-        SELECT
-          sc.id,
-          sc.user_id AS "userId",
-          sc.connection_id AS "connectionId",
-          sc.content_type AS "contentType",
-          sc.source_type AS "sourceType",
-          sc.source_id AS "sourceId",
-          sc.source_url AS "sourceUrl",
-          sc.title,
-          sc.content,
-          sc.author,
-          sc.digest,
-          sc.cover_image_url AS "coverImageUrl",
-          sc.images,
-          sc.tags,
-          sc.location,
-          sc.status,
-          sc.ai_process_log AS "aiProcessLog",
-          sc.ai_suggestions AS "aiSuggestions",
-          sc.compliance_check AS "complianceCheck",
-          sc.review_status AS "reviewStatus",
-          sc.reviewed_by_id AS "reviewedById",
-          sc.reviewed_at AS "reviewedAt",
-          sc.review_note AS "reviewNote",
-          sc.scheduled_at AS "scheduledAt",
-          sc.published_at AS "publishedAt",
-          sc.auto_publish AS "autoPublish",
-          sc.external_id AS "externalId",
-          sc.external_url AS "externalUrl",
-          sc.error_message AS "errorMessage",
-          sc.retry_count AS "retryCount",
-          sc.created_at AS "createdAt",
-          sc.updated_at AS "updatedAt",
-          spc.account_name AS "connectionAccountName",
-          spc.platform_type AS "connectionPlatformType"
-        FROM social_contents sc
-        LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
-        WHERE sc.user_id = ${userId}
-          AND sc.status = ${statusFilter}::"SocialContentStatus"
-        ORDER BY sc.created_at DESC
-        LIMIT ${options.limit} OFFSET ${offset}
-      `) as ContentRow[];
-
-      countResult = (await this.db.$queryRaw`
-        SELECT COUNT(*) as count FROM social_contents sc
-        WHERE sc.user_id = ${userId}
-          AND sc.status = ${statusFilter}::"SocialContentStatus"
-      `) as Array<{ count: bigint }>;
-    } else if (contentTypeFilter) {
-      // Only content type filter
-      contents = (await this.db.$queryRaw`
-        SELECT
-          sc.id,
-          sc.user_id AS "userId",
-          sc.connection_id AS "connectionId",
-          sc.content_type AS "contentType",
-          sc.source_type AS "sourceType",
-          sc.source_id AS "sourceId",
-          sc.source_url AS "sourceUrl",
-          sc.title,
-          sc.content,
-          sc.author,
-          sc.digest,
-          sc.cover_image_url AS "coverImageUrl",
-          sc.images,
-          sc.tags,
-          sc.location,
-          sc.status,
-          sc.ai_process_log AS "aiProcessLog",
-          sc.ai_suggestions AS "aiSuggestions",
-          sc.compliance_check AS "complianceCheck",
-          sc.review_status AS "reviewStatus",
-          sc.reviewed_by_id AS "reviewedById",
-          sc.reviewed_at AS "reviewedAt",
-          sc.review_note AS "reviewNote",
-          sc.scheduled_at AS "scheduledAt",
-          sc.published_at AS "publishedAt",
-          sc.auto_publish AS "autoPublish",
-          sc.external_id AS "externalId",
-          sc.external_url AS "externalUrl",
-          sc.error_message AS "errorMessage",
-          sc.retry_count AS "retryCount",
-          sc.created_at AS "createdAt",
-          sc.updated_at AS "updatedAt",
-          spc.account_name AS "connectionAccountName",
-          spc.platform_type AS "connectionPlatformType"
-        FROM social_contents sc
-        LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
-        WHERE sc.user_id = ${userId}
-          AND sc.content_type = ${contentTypeFilter}::"SocialContentType"
-        ORDER BY sc.created_at DESC
-        LIMIT ${options.limit} OFFSET ${offset}
-      `) as ContentRow[];
-
-      countResult = (await this.db.$queryRaw`
-        SELECT COUNT(*) as count FROM social_contents sc
-        WHERE sc.user_id = ${userId}
-          AND sc.content_type = ${contentTypeFilter}::"SocialContentType"
-      `) as Array<{ count: bigint }>;
-    } else {
-      // No filters, just userId
-      contents = (await this.db.$queryRaw`
-        SELECT
-          sc.id,
-          sc.user_id AS "userId",
-          sc.connection_id AS "connectionId",
-          sc.content_type AS "contentType",
-          sc.source_type AS "sourceType",
-          sc.source_id AS "sourceId",
-          sc.source_url AS "sourceUrl",
-          sc.title,
-          sc.content,
-          sc.author,
-          sc.digest,
-          sc.cover_image_url AS "coverImageUrl",
-          sc.images,
-          sc.tags,
-          sc.location,
-          sc.status,
-          sc.ai_process_log AS "aiProcessLog",
-          sc.ai_suggestions AS "aiSuggestions",
-          sc.compliance_check AS "complianceCheck",
-          sc.review_status AS "reviewStatus",
-          sc.reviewed_by_id AS "reviewedById",
-          sc.reviewed_at AS "reviewedAt",
-          sc.review_note AS "reviewNote",
-          sc.scheduled_at AS "scheduledAt",
-          sc.published_at AS "publishedAt",
-          sc.auto_publish AS "autoPublish",
-          sc.external_id AS "externalId",
-          sc.external_url AS "externalUrl",
-          sc.error_message AS "errorMessage",
-          sc.retry_count AS "retryCount",
-          sc.created_at AS "createdAt",
-          sc.updated_at AS "updatedAt",
-          spc.account_name AS "connectionAccountName",
-          spc.platform_type AS "connectionPlatformType"
-        FROM social_contents sc
-        LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
-        WHERE sc.user_id = ${userId}
-        ORDER BY sc.created_at DESC
-        LIMIT ${options.limit} OFFSET ${offset}
-      `) as ContentRow[];
-
-      countResult = (await this.db.$queryRaw`
-        SELECT COUNT(*) as count FROM social_contents sc
-        WHERE sc.user_id = ${userId}
-      `) as Array<{ count: bigint }>;
-    }
+    const countResult = (await this.db.$queryRaw`
+      SELECT COUNT(*) as count FROM social_contents sc
+      ${whereClause}
+    `) as Array<{ count: bigint }>;
 
     const total = Number(countResult[0]?.count || 0);
 
@@ -861,69 +745,53 @@ export class AiSocialService {
     // First verify the content exists and belongs to user
     await this.getContent(userId, id);
 
-    // Build dynamic update query
-    const updates: string[] = [];
-    const values: unknown[] = [];
-    let paramIndex = 1;
+    // Build safe update data object - only include defined fields
+    const updateData: Record<string, unknown> = {};
 
     if (dto.title !== undefined) {
-      updates.push(`title = $${paramIndex++}`);
-      values.push(dto.title);
+      updateData.title = dto.title;
     }
     if (dto.content !== undefined) {
-      updates.push(`content = $${paramIndex++}`);
-      values.push(dto.content);
+      updateData.content = dto.content;
     }
     if (dto.author !== undefined) {
-      updates.push(`author = $${paramIndex++}`);
-      values.push(dto.author);
+      updateData.author = dto.author;
     }
     if (dto.digest !== undefined) {
-      updates.push(`digest = $${paramIndex++}`);
-      values.push(dto.digest);
+      updateData.digest = dto.digest;
     }
     if (dto.coverImageUrl !== undefined) {
-      updates.push(`cover_image_url = $${paramIndex++}`);
-      values.push(dto.coverImageUrl);
+      updateData.coverImageUrl = dto.coverImageUrl;
     }
     if (dto.images !== undefined) {
-      updates.push(
-        `images = ARRAY(SELECT jsonb_array_elements_text($${paramIndex++}::jsonb))`,
-      );
-      values.push(JSON.stringify(dto.images));
+      updateData.images = dto.images;
     }
     if (dto.tags !== undefined) {
-      updates.push(
-        `tags = ARRAY(SELECT jsonb_array_elements_text($${paramIndex++}::jsonb))`,
-      );
-      values.push(JSON.stringify(dto.tags));
+      updateData.tags = dto.tags;
     }
     if (dto.location !== undefined) {
-      updates.push(`location = $${paramIndex++}`);
-      values.push(dto.location);
+      updateData.location = dto.location;
     }
     if (dto.connectionId !== undefined) {
-      updates.push(`connection_id = $${paramIndex++}`);
-      values.push(dto.connectionId);
+      updateData.connectionId = dto.connectionId;
     }
 
-    updates.push(`updated_at = NOW()`);
-
-    if (updates.length === 1) {
-      // Only updated_at, no actual changes
+    // If no fields to update, just return current content
+    if (Object.keys(updateData).length === 0) {
       return this.getContent(userId, id);
     }
 
-    // Execute update - we need to use $queryRawUnsafe here because we're building dynamic SQL
-    // But all values are parameterized, so it's safe
-    const query = `
-      UPDATE social_contents
-      SET ${updates.join(", ")}
-      WHERE id = $${paramIndex++} AND user_id = $${paramIndex}
-    `;
-    values.push(id, userId);
-
-    await this.db.$executeRawUnsafe(query, ...values);
+    // Use Prisma ORM for safe parameterized update
+    await this.db.socialContent.update({
+      where: {
+        id,
+        userId, // Ensures user owns the content
+      },
+      data: {
+        ...updateData,
+        updatedAt: new Date(),
+      },
+    });
 
     return this.getContent(userId, id);
   }
@@ -1144,5 +1012,152 @@ export class AiSocialService {
     });
 
     return projects;
+  }
+
+  // ==================== 批量操作 ====================
+
+  /**
+   * 批量删除内容（使用数据库事务）
+   */
+  async batchDeleteContents(
+    userId: string,
+    ids: string[],
+  ): Promise<{
+    success: boolean;
+    total: number;
+    succeeded: number;
+    failed: number;
+    errors?: Array<{ id: string; error: string }>;
+  }> {
+    const errors: Array<{ id: string; error: string }> = [];
+    let succeeded = 0;
+
+    // 使用事务确保原子性
+    await this.prisma.$transaction(async (tx) => {
+      for (const id of ids) {
+        try {
+          // 验证内容存在且属于用户
+          const content = await tx.socialContent.findFirst({
+            where: { id, userId },
+          });
+
+          if (!content) {
+            errors.push({ id, error: "内容不存在或无权限" });
+            continue;
+          }
+
+          // 不允许删除已发布的内容
+          if (content.status === "PUBLISHED") {
+            errors.push({ id, error: "已发布内容无法删除" });
+            continue;
+          }
+
+          await tx.socialContent.delete({ where: { id } });
+          succeeded++;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "删除失败";
+          errors.push({ id, error: message });
+        }
+      }
+    });
+
+    return {
+      success: errors.length === 0,
+      total: ids.length,
+      succeeded,
+      failed: errors.length,
+      errors: errors.length > 0 ? errors : undefined,
+    };
+  }
+
+  /**
+   * 批量发布内容（使用数据库事务）
+   */
+  async batchPublishContents(
+    userId: string,
+    ids: string[],
+    connectionId: string,
+  ): Promise<{
+    success: boolean;
+    total: number;
+    succeeded: number;
+    failed: number;
+    errors?: Array<{ id: string; error: string }>;
+  }> {
+    const errors: Array<{ id: string; error: string }> = [];
+    let succeeded = 0;
+
+    // 验证连接有效性
+    const connection = await this.prisma.socialPlatformConnection.findFirst({
+      where: { id: connectionId, userId, isActive: true },
+    });
+
+    if (!connection) {
+      return {
+        success: false,
+        total: ids.length,
+        succeeded: 0,
+        failed: ids.length,
+        errors: [{ id: "connection", error: "平台连接无效或已断开" }],
+      };
+    }
+
+    // 使用事务处理批量发布
+    await this.prisma.$transaction(async (tx) => {
+      for (const id of ids) {
+        try {
+          const content = await tx.socialContent.findFirst({
+            where: { id, userId },
+          });
+
+          if (!content) {
+            errors.push({ id, error: "内容不存在或无权限" });
+            continue;
+          }
+
+          // 只允许发布草稿或已审核状态的内容
+          if (!["DRAFT", "APPROVED"].includes(content.status)) {
+            errors.push({
+              id,
+              error: `当前状态(${content.status})不允许发布`,
+            });
+            continue;
+          }
+
+          // 更新状态为待发布
+          await tx.socialContent.update({
+            where: { id },
+            data: {
+              status: "PENDING",
+              updatedAt: new Date(),
+            },
+          });
+
+          // 创建发布记录
+          await tx.socialPublishLog.create({
+            data: {
+              contentId: id,
+              action: "PUBLISH",
+              status: "PENDING",
+              details: { connectionId },
+              createdAt: new Date(),
+            },
+          });
+
+          succeeded++;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "发布失败";
+          errors.push({ id, error: message });
+        }
+      }
+    });
+
+    return {
+      success: errors.length === 0,
+      total: ids.length,
+      succeeded,
+      failed: errors.length,
+      errors: errors.length > 0 ? errors : undefined,
+    };
   }
 }

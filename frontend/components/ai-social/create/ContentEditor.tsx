@@ -9,6 +9,8 @@ import {
   SocialContentType,
 } from '@/hooks/domain/useAISocial';
 import { useAIImage } from '@/hooks/domain/useAIImage';
+import { useAutoSave } from '@/hooks/utils/useAutoSave';
+import { generateDraftId, type DraftData } from '@/lib/storage/draft-storage';
 import {
   ArrowLeft,
   Sparkles,
@@ -28,10 +30,14 @@ import {
   Eye,
   Code,
   Link,
+  Save,
 } from 'lucide-react';
 import DOMPurify from 'isomorphic-dompurify';
+import { DraftRecoveryDialog } from './DraftRecoveryDialog';
 
 import { logger } from '@/lib/utils/logger';
+import { Tooltip } from '@/components/ui/Tooltip';
+
 export function ContentEditor() {
   const { t } = useTranslation();
   const {
@@ -74,8 +80,39 @@ export function ContentEditor() {
   );
   const [coverImageMode, setCoverImageMode] = useState<'url' | 'ai'>('ai');
   const [coverImagePrompt, setCoverImagePrompt] = useState('');
+  const [showDraftRecovery, setShowDraftRecovery] = useState(false);
+  const [detectedDraft, setDetectedDraft] = useState<DraftData | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Generate draft ID
+  const draftId =
+    platform && sourceType
+      ? generateDraftId(platform, sourceType, sourceId || undefined)
+      : '';
+
+  // Auto-save hook
+  const autoSave = useAutoSave(
+    {
+      title,
+      content,
+      digest,
+      tags,
+      coverImage,
+    },
+    {
+      draftId,
+      platform: platform || '',
+      sourceType: sourceType || '',
+      sourceId: sourceId || undefined,
+      externalUrl: externalUrl || undefined,
+      enabled: !!platform && !!sourceType && hasGenerated,
+      onDraftDetected: (draft) => {
+        setDetectedDraft(draft);
+        setShowDraftRecovery(true);
+      },
+    }
+  );
 
   // Progress messages for friendly UI
   const progressMessages = [
@@ -289,6 +326,59 @@ export function ContentEditor() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Handle draft recovery
+  const handleRecoverDraft = () => {
+    if (!detectedDraft) return;
+
+    setContentFromAI({
+      title: detectedDraft.title,
+      content: detectedDraft.content,
+      digest: detectedDraft.digest,
+      tags: detectedDraft.tags,
+    });
+    setCoverImage(detectedDraft.coverImage);
+
+    setShowDraftRecovery(false);
+    setDetectedDraft(null);
+
+    logger.debug('Draft recovered:', detectedDraft.id);
+  };
+
+  // Handle draft discard
+  const handleDiscardDraft = () => {
+    if (!detectedDraft) return;
+
+    autoSave.clear();
+    setShowDraftRecovery(false);
+    setDetectedDraft(null);
+
+    logger.debug('Draft discarded:', detectedDraft.id);
+  };
+
+  // Format last saved time
+  const formatLastSaved = (): string => {
+    if (!autoSave.lastSaved) return '';
+
+    const now = new Date();
+    const diffMs = now.getTime() - autoSave.lastSaved.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+
+    if (diffSecs < 5) {
+      return t('aiSocial.draft.justSaved') || 'Saved just now';
+    } else if (diffSecs < 60) {
+      return (
+        t('aiSocial.draft.savedSecondsAgo', { count: diffSecs }) ||
+        `Saved ${diffSecs}s ago`
+      );
+    } else {
+      const diffMins = Math.floor(diffSecs / 60);
+      return (
+        t('aiSocial.draft.savedMinutesAgo', { count: diffMins }) ||
+        `Saved ${diffMins}m ago`
+      );
+    }
+  };
+
   // Loading state - generating content with friendly progress
   if (isProcessing || aiLoading) {
     const currentMessage = progressMessages[progressStep];
@@ -363,314 +453,360 @@ export function ContentEditor() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => setStep(3)}
-          className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200"
-        >
-          <ArrowLeft className="h-5 w-5 text-gray-600" />
-        </button>
-        <div className="flex-1">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {t('aiSocial.create.editContent') || 'Edit Content'}
-          </h2>
-          <p className="text-sm text-gray-500">
-            {t('aiSocial.create.editContentDesc') ||
-              'Review and customize before publishing'}
-          </p>
-        </div>
-        {/* Regenerate button */}
-        {sourceType !== 'MANUAL' && (
-          <button
-            onClick={handleGenerate}
-            disabled={isProcessing}
-            className={`flex items-center gap-2 rounded-xl bg-gradient-to-r ${config.gradient} px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-50`}
-          >
-            <Sparkles className="h-4 w-4" />
-            {t('aiSocial.create.regenerate') || 'Regenerate'}
-          </button>
-        )}
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div className="flex items-start gap-3 rounded-xl bg-red-50 p-4">
-          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
-          <div>
-            <p className="font-medium text-red-800">{error}</p>
-            <button
-              onClick={handleGenerate}
-              className="mt-2 text-sm text-red-600 underline hover:no-underline"
-            >
-              {t('common.retry') || 'Retry'}
-            </button>
-          </div>
-        </div>
+    <>
+      {/* Draft Recovery Dialog */}
+      {showDraftRecovery && detectedDraft && (
+        <DraftRecoveryDialog
+          draft={detectedDraft}
+          onRecover={handleRecoverDraft}
+          onDiscard={handleDiscardDraft}
+        />
       )}
 
-      {/* Content form */}
-      <div className="space-y-5">
-        {/* Title */}
-        <div>
-          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-            <Type className="h-4 w-4" />
-            {t('aiSocial.create.titleLabel') || 'Title'}
-            <span className="ml-auto text-xs text-gray-400">
-              {title.length}/{config.maxTitleLength}
-            </span>
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) =>
-              setTitle(e.target.value.slice(0, config.maxTitleLength))
-            }
-            placeholder={
-              t('aiSocial.create.titlePlaceholder') || 'Enter title...'
-            }
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-base focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-          />
-        </div>
-
-        {/* Digest (WeChat only) */}
-        {config.showDigest && (
-          <div>
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-              <FileText className="h-4 w-4" />
-              {t('aiSocial.create.digestLabel') || 'Digest'}
-              <span className="ml-auto text-xs text-gray-400">
-                {digest.length}/{config.maxDigestLength}
-              </span>
-            </label>
-            <textarea
-              value={digest}
-              onChange={(e) =>
-                setDigest(e.target.value.slice(0, config.maxDigestLength))
-              }
-              placeholder={
-                t('aiSocial.create.digestPlaceholder') ||
-                'Brief summary for preview...'
-              }
-              rows={2}
-              className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-            />
-          </div>
-        )}
-
-        {/* Content */}
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-              <FileText className="h-4 w-4" />
-              {t('aiSocial.create.contentLabel') || 'Content'}
-            </label>
-            {/* View mode toggle */}
-            <div className="flex items-center rounded-lg bg-gray-100 p-1">
-              <button
-                onClick={() => setContentViewMode('preview')}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                  contentViewMode === 'preview'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Eye className="h-3.5 w-3.5" />
-                {t('aiSocial.create.previewMode') || 'Preview'}
-              </button>
-              <button
-                onClick={() => setContentViewMode('source')}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                  contentViewMode === 'source'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Code className="h-3.5 w-3.5" />
-                {t('aiSocial.create.sourceMode') || 'Source'}
-              </button>
-            </div>
-          </div>
-
-          {contentViewMode === 'preview' ? (
-            /* Preview mode - rendered HTML */
-            <div
-              className="prose prose-sm max-w-none overflow-auto rounded-xl border border-gray-200 bg-white p-6"
-              style={{ minHeight: '300px', maxHeight: '500px' }}
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Tooltip content={t('aiSocial.create.tooltip.back')}>
+            <button
+              onClick={() => setStep(3)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200"
             >
-              {content ? (
-                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }} />
-              ) : (
-                <p className="italic text-gray-400">
-                  {t('aiSocial.create.noContentPreview') ||
-                    'No content to preview'}
-                </p>
-              )}
-            </div>
-          ) : (
-            /* Source mode - editable HTML */
-            <textarea
-              value={content}
-              onChange={(e) => setContentText(e.target.value)}
-              placeholder={
-                t('aiSocial.create.contentPlaceholder') || 'Enter content...'
-              }
-              rows={12}
-              className="font-mono w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-              style={{ minHeight: '300px' }}
-            />
-          )}
-        </div>
-
-        {/* Tags */}
-        <div>
-          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-            <Hash className="h-4 w-4" />
-            {t('aiSocial.create.tagsLabel') || 'Tags'}
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className={`flex items-center gap-1 rounded-full bg-gradient-to-r ${config.bgGradient} px-3 py-1 text-sm`}
-              >
-                #{tag}
-                <button
-                  onClick={() => handleRemoveTag(tag)}
-                  className="ml-1 rounded-full p-0.5 hover:bg-white/50"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-            <div className="flex items-center gap-1">
-              <input
-                type="text"
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
-                onKeyDown={handleTagKeyDown}
-                placeholder={t('aiSocial.create.addTag') || 'Add tag...'}
-                className="w-24 rounded-full border border-gray-200 px-3 py-1 text-sm focus:border-rose-500 focus:outline-none"
-              />
-              <button
-                onClick={handleAddTag}
-                disabled={!newTag.trim()}
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Cover Image */}
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-              <ImageIcon className="h-4 w-4" />
-              {t('aiSocial.create.coverImageLabel') || 'Cover Image'}
-            </label>
-            {/* Mode toggle */}
-            <div className="flex items-center rounded-lg bg-gray-100 p-1">
-              <button
-                onClick={() => setCoverImageMode('ai')}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                  coverImageMode === 'ai'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                {t('aiSocial.create.aiGenerate') || 'AI Generate'}
-              </button>
-              <button
-                onClick={() => setCoverImageMode('url')}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                  coverImageMode === 'url'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Link className="h-3.5 w-3.5" />
-                {t('aiSocial.create.urlInput') || 'URL'}
-              </button>
-            </div>
-          </div>
-
-          {coverImage ? (
-            <div className="relative">
-              <img
-                src={coverImage}
-                alt="Cover"
-                className="h-48 w-full rounded-xl object-cover"
-              />
-              <button
-                onClick={() => setCoverImage('')}
-                className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          ) : coverImageMode === 'ai' ? (
-            /* AI Generation Mode */
-            <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-4">
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Sparkles className="h-4 w-4 text-rose-500" />
-                  <span>
-                    {t('aiSocial.create.describeCoverImage') ||
-                      'Describe the cover image you want'}
-                  </span>
-                </div>
-                <textarea
-                  value={coverImagePrompt}
-                  onChange={(e) => setCoverImagePrompt(e.target.value)}
-                  placeholder={
-                    t('aiSocial.create.coverImagePromptPlaceholder') ||
-                    'e.g., A futuristic cityscape with AI robots, vibrant colors, digital art style...'
-                  }
-                  rows={2}
-                  className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-                />
-                <button
-                  onClick={handleGenerateCoverImage}
-                  disabled={!coverImagePrompt.trim() || isGeneratingImage}
-                  className={`flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r ${config.gradient} px-4 py-2.5 text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-50`}
-                >
-                  {isGeneratingImage ? (
+              <ArrowLeft className="h-5 w-5 text-gray-600" />
+            </button>
+          </Tooltip>
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {t('aiSocial.create.editContent') || 'Edit Content'}
+            </h2>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-500">
+                {t('aiSocial.create.editContentDesc') ||
+                  'Review and customize before publishing'}
+              </p>
+              {/* Auto-save status */}
+              {autoSave.lastSaved && (
+                <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                  <span>•</span>
+                  {autoSave.isSaving ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {t('aiSocial.create.generating') || 'Generating...'}
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>{t('aiSocial.draft.saving') || 'Saving...'}</span>
                     </>
                   ) : (
                     <>
-                      <Wand2 className="h-4 w-4" />
-                      {t('aiSocial.create.generateCoverImage') ||
-                        'Generate Cover Image'}
+                      <CheckCircle2 className="h-3 w-3 text-green-500" />
+                      <span>{formatLastSaved()}</span>
                     </>
                   )}
-                </button>
-              </div>
+                </div>
+              )}
             </div>
-          ) : (
-            /* URL Input Mode */
-            <div className="flex h-32 flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 transition-colors hover:border-gray-300">
-              <Link className="mb-2 h-8 w-8 text-gray-400" />
-              <p className="text-sm text-gray-500">
-                {t('aiSocial.create.enterImageUrl') || 'Enter image URL'}
-              </p>
-              <input
-                type="url"
-                placeholder="https://..."
-                value={coverImage}
-                onChange={(e) => setCoverImage(e.target.value)}
-                className="mt-2 w-64 rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:border-rose-500 focus:outline-none"
+          </div>
+          {/* Regenerate button */}
+          {sourceType !== 'MANUAL' && (
+            <Tooltip content={t('aiSocial.create.tooltip.regenerate')}>
+              <button
+                onClick={handleGenerate}
+                disabled={isProcessing}
+                className={`flex items-center gap-2 rounded-xl bg-gradient-to-r ${config.gradient} px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-50`}
+              >
+                <Sparkles className="h-4 w-4" />
+                {t('aiSocial.create.regenerate') || 'Regenerate'}
+              </button>
+            </Tooltip>
+          )}
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="flex items-start gap-3 rounded-xl bg-red-50 p-4">
+            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
+            <div>
+              <p className="font-medium text-red-800">{error}</p>
+              <button
+                onClick={handleGenerate}
+                className="mt-2 text-sm text-red-600 underline hover:no-underline"
+              >
+                {t('common.retry') || 'Retry'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Content form */}
+        <div className="space-y-5">
+          {/* Title */}
+          <div>
+            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+              <Type className="h-4 w-4" />
+              {t('aiSocial.create.titleLabel') || 'Title'}
+              <span className="ml-auto text-xs text-gray-400">
+                {title.length}/{config.maxTitleLength}
+              </span>
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) =>
+                setTitle(e.target.value.slice(0, config.maxTitleLength))
+              }
+              placeholder={
+                t('aiSocial.create.titlePlaceholder') || 'Enter title...'
+              }
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-base focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+            />
+          </div>
+
+          {/* Digest (WeChat only) */}
+          {config.showDigest && (
+            <div>
+              <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+                <FileText className="h-4 w-4" />
+                {t('aiSocial.create.digestLabel') || 'Digest'}
+                <span className="ml-auto text-xs text-gray-400">
+                  {digest.length}/{config.maxDigestLength}
+                </span>
+              </label>
+              <textarea
+                value={digest}
+                onChange={(e) =>
+                  setDigest(e.target.value.slice(0, config.maxDigestLength))
+                }
+                placeholder={
+                  t('aiSocial.create.digestPlaceholder') ||
+                  'Brief summary for preview...'
+                }
+                rows={2}
+                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
               />
             </div>
           )}
+
+          {/* Content */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <FileText className="h-4 w-4" />
+                {t('aiSocial.create.contentLabel') || 'Content'}
+              </label>
+              {/* View mode toggle */}
+              <div className="flex items-center rounded-lg bg-gray-100 p-1">
+                <button
+                  onClick={() => setContentViewMode('preview')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                    contentViewMode === 'preview'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  {t('aiSocial.create.previewMode') || 'Preview'}
+                </button>
+                <button
+                  onClick={() => setContentViewMode('source')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                    contentViewMode === 'source'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Code className="h-3.5 w-3.5" />
+                  {t('aiSocial.create.sourceMode') || 'Source'}
+                </button>
+              </div>
+            </div>
+
+            {contentViewMode === 'preview' ? (
+              /* Preview mode - rendered HTML */
+              <div
+                className="prose prose-sm max-w-none overflow-auto rounded-xl border border-gray-200 bg-white p-6"
+                style={{ minHeight: '300px', maxHeight: '500px' }}
+              >
+                {content ? (
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(content),
+                    }}
+                  />
+                ) : (
+                  <p className="italic text-gray-400">
+                    {t('aiSocial.create.noContentPreview') ||
+                      'No content to preview'}
+                  </p>
+                )}
+              </div>
+            ) : (
+              /* Source mode - editable HTML */
+              <textarea
+                value={content}
+                onChange={(e) => setContentText(e.target.value)}
+                placeholder={
+                  t('aiSocial.create.contentPlaceholder') || 'Enter content...'
+                }
+                rows={12}
+                className="font-mono w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                style={{ minHeight: '300px' }}
+              />
+            )}
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+              <Hash className="h-4 w-4" />
+              {t('aiSocial.create.tagsLabel') || 'Tags'}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className={`flex items-center gap-1 rounded-full bg-gradient-to-r ${config.bgGradient} px-3 py-1 text-sm`}
+                >
+                  #{tag}
+                  <Tooltip content={t('aiSocial.create.tooltip.removeTag')}>
+                    <button
+                      onClick={() => handleRemoveTag(tag)}
+                      className="ml-1 rounded-full p-0.5 hover:bg-white/50"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Tooltip>
+                </span>
+              ))}
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  onKeyDown={handleTagKeyDown}
+                  placeholder={t('aiSocial.create.addTag') || 'Add tag...'}
+                  className="w-24 rounded-full border border-gray-200 px-3 py-1 text-sm focus:border-rose-500 focus:outline-none"
+                />
+                <Tooltip content={t('aiSocial.create.tooltip.addTag')}>
+                  <button
+                    onClick={handleAddTag}
+                    disabled={!newTag.trim()}
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </Tooltip>
+              </div>
+            </div>
+          </div>
+
+          {/* Cover Image */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <ImageIcon className="h-4 w-4" />
+                {t('aiSocial.create.coverImageLabel') || 'Cover Image'}
+              </label>
+              {/* Mode toggle */}
+              <div className="flex items-center rounded-lg bg-gray-100 p-1">
+                <button
+                  onClick={() => setCoverImageMode('ai')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                    coverImageMode === 'ai'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {t('aiSocial.create.aiGenerate') || 'AI Generate'}
+                </button>
+                <button
+                  onClick={() => setCoverImageMode('url')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                    coverImageMode === 'url'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Link className="h-3.5 w-3.5" />
+                  {t('aiSocial.create.urlInput') || 'URL'}
+                </button>
+              </div>
+            </div>
+
+            {coverImage ? (
+              <div className="relative">
+                <img
+                  src={coverImage}
+                  alt="Cover"
+                  className="h-48 w-full rounded-xl object-cover"
+                />
+                <Tooltip
+                  content={t('aiSocial.create.tooltip.removeCoverImage')}
+                >
+                  <button
+                    onClick={() => setCoverImage('')}
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </Tooltip>
+              </div>
+            ) : coverImageMode === 'ai' ? (
+              /* AI Generation Mode */
+              <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-4">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Sparkles className="h-4 w-4 text-rose-500" />
+                    <span>
+                      {t('aiSocial.create.describeCoverImage') ||
+                        'Describe the cover image you want'}
+                    </span>
+                  </div>
+                  <textarea
+                    value={coverImagePrompt}
+                    onChange={(e) => setCoverImagePrompt(e.target.value)}
+                    placeholder={
+                      t('aiSocial.create.coverImagePromptPlaceholder') ||
+                      'e.g., A futuristic cityscape with AI robots, vibrant colors, digital art style...'
+                    }
+                    rows={2}
+                    className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                  />
+                  <button
+                    onClick={handleGenerateCoverImage}
+                    disabled={!coverImagePrompt.trim() || isGeneratingImage}
+                    className={`flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r ${config.gradient} px-4 py-2.5 text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-50`}
+                  >
+                    {isGeneratingImage ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {t('aiSocial.create.generating') || 'Generating...'}
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4" />
+                        {t('aiSocial.create.generateCoverImage') ||
+                          'Generate Cover Image'}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* URL Input Mode */
+              <div className="flex h-32 flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 transition-colors hover:border-gray-300">
+                <Link className="mb-2 h-8 w-8 text-gray-400" />
+                <p className="text-sm text-gray-500">
+                  {t('aiSocial.create.enterImageUrl') || 'Enter image URL'}
+                </p>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={coverImage}
+                  onChange={(e) => setCoverImage(e.target.value)}
+                  className="mt-2 w-64 rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:border-rose-500 focus:outline-none"
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

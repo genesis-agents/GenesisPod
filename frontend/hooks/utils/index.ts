@@ -9,6 +9,7 @@
  * - useSimulationPerspective: 模拟视角
  * - useWorkspaceSync: 工作区同步
  * - useYoutubeSubtitleExport: YouTube 字幕导出
+ * - useAutoSave: 自动保存草稿
  */
 
 export * from './useMultiSelect';
@@ -21,3 +22,4 @@ export * from './useSimulationPerspective';
 export * from './useReportWorkspace';
 export * from './useWorkspaceSync';
 export * from './useYoutubeSubtitleExport';
+export * from './useAutoSave';

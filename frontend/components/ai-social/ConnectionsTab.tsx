@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useTranslation } from '@/lib/i18n';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Link2,
   Plus,
@@ -14,13 +15,24 @@ import {
   Loader2,
   QrCode,
   X,
+  Database,
 } from 'lucide-react';
 import {
   useSocialConnections,
   SocialPlatformConnection,
   InitConnectionResponse,
 } from '@/hooks/domain/useAISocial';
+import { useSocialConnectionsSWR } from '@/hooks/swr/useSocialSWR';
 import { toast } from '@/stores';
+import { useFocusTrap } from '@/hooks/utils/useFocusTrap';
+import { Tooltip } from '@/components/ui/Tooltip';
+import {
+  AnimatedList,
+  AnimatedListItem,
+  scaleVariants,
+  backdropVariants,
+  getAnimationConfig,
+} from '@/components/ui/animations';
 
 // Platform types matching backend
 type PlatformType = 'WECHAT_MP' | 'XIAOHONGSHU';
@@ -55,17 +67,29 @@ const PLATFORMS: Record<
 
 export default function ConnectionsTab() {
   const { t } = useTranslation();
+
+  // SWR data fetching - primary data source with caching
   const {
-    connections,
-    loading,
-    error,
-    fetchConnections,
+    connections: swrConnections,
+    isLoading: swrLoading,
+    isValidating,
+    refresh: swrRefresh,
+    error: swrError,
+  } = useSocialConnectionsSWR();
+
+  // Legacy hook for mutations (delete, test, refresh, init, verify)
+  const {
     removeConnection,
     testConnection,
     refreshConnection,
     startConnection,
     checkConnection,
   } = useSocialConnections();
+
+  // Use SWR data as primary source, with loading and error states
+  const connections = swrConnections;
+  const loading = swrLoading;
+  const error = swrError?.message || null;
 
   const [testingId, setTestingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -80,10 +104,17 @@ export default function ConnectionsTab() {
   });
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load connections on mount
-  useEffect(() => {
-    fetchConnections();
-  }, [fetchConnections]);
+  // Focus trap for login modal
+  const modalRef = useFocusTrap<HTMLDivElement>(
+    loginModal.isOpen,
+    useCallback(() => {
+      if (loginModal.status === 'scanning') {
+        closeLoginModal();
+      }
+    }, [loginModal.status])
+  );
+
+  // SWR handles initial data loading automatically - no need for useEffect
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -158,7 +189,7 @@ export default function ConnectionsTab() {
             message: verifyResult.message || '连接成功',
           }));
           toast.success(verifyResult.message || '连接成功');
-          fetchConnections(); // 刷新连接列表
+          swrRefresh(); // 使用 SWR 刷新连接列表
           setTimeout(closeLoginModal, 1500);
         } else if (verifyResult.status === 'pending') {
           // Update screenshot if available
@@ -188,7 +219,7 @@ export default function ConnectionsTab() {
   };
 
   const handleRefresh = async () => {
-    await fetchConnections();
+    await swrRefresh();
     toast.success(t('common.refresh') + ' ' + t('common.success'));
   };
 
@@ -252,18 +283,40 @@ export default function ConnectionsTab() {
           <h2 className="text-lg font-semibold text-gray-900">
             {t('aiSocial.connections.title')}
           </h2>
-          <p className="text-sm text-gray-500">
-            {t('aiSocial.connections.description')}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-gray-500">
+              {t('aiSocial.connections.description')}
+            </p>
+            {!loading && isValidating && (
+              <div className="flex items-center gap-1 text-xs text-blue-600">
+                <Database className="h-3 w-3 animate-pulse" />
+                <span>Refreshing...</span>
+              </div>
+            )}
+            {!loading && !isValidating && connections.length > 0 && (
+              <div
+                className="flex items-center gap-1 text-xs text-green-600"
+                title="Data loaded from cache"
+              >
+                <Database className="h-3 w-3" />
+                <span>Cached</span>
+              </div>
+            )}
+          </div>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={loading}
-          className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          {t('aiSocial.connections.refresh')}
-        </button>
+        <Tooltip content={t('aiSocial.connections.tooltip.refresh')}>
+          <button
+            onClick={handleRefresh}
+            disabled={loading || isValidating}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:opacity-50"
+            aria-label={t('aiSocial.connections.refresh')}
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${loading || isValidating ? 'animate-spin' : ''}`}
+            />
+            {t('aiSocial.connections.refresh')}
+          </button>
+        </Tooltip>
       </div>
 
       {/* Error Display */}
@@ -274,13 +327,13 @@ export default function ConnectionsTab() {
       )}
 
       {/* Available Platforms */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <AnimatedList className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Object.entries(PLATFORMS).map(([key, platform]) => {
           const platformType = key as PlatformType;
           const existingConnection = getConnectionForPlatform(platformType);
 
           return (
-            <div
+            <AnimatedListItem
               key={key}
               className={`relative rounded-xl border p-6 transition-all ${
                 existingConnection
@@ -339,46 +392,55 @@ export default function ConnectionsTab() {
                     </div>
                   )}
                   <div className="flex gap-2 pt-2">
-                    <button
-                      onClick={() =>
-                        handleTestConnection(existingConnection.id)
-                      }
-                      disabled={testingId === existingConnection.id}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      {testingId === existingConnection.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Settings className="h-4 w-4" />
-                      )}
-                      {t('aiSocial.connections.configure')}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteConnection(existingConnection)}
-                      disabled={deletingId === existingConnection.id}
-                      className="flex items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
-                    >
-                      {deletingId === existingConnection.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </button>
+                    <Tooltip content={t('aiSocial.connections.tooltip.test')}>
+                      <button
+                        onClick={() =>
+                          handleTestConnection(existingConnection.id)
+                        }
+                        disabled={testingId === existingConnection.id}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:opacity-50"
+                        aria-label={t('aiSocial.connections.configure')}
+                      >
+                        {testingId === existingConnection.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Settings className="h-4 w-4" />
+                        )}
+                        {t('aiSocial.connections.configure')}
+                      </button>
+                    </Tooltip>
+                    <Tooltip content={t('aiSocial.connections.tooltip.delete')}>
+                      <button
+                        onClick={() =>
+                          handleDeleteConnection(existingConnection)
+                        }
+                        disabled={deletingId === existingConnection.id}
+                        className="flex items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50"
+                        aria-label={`${t('common.delete')} ${existingConnection.accountName || t(`aiSocial.platforms.${platformType.toLowerCase()}`)}`}
+                      >
+                        {deletingId === existingConnection.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </button>
+                    </Tooltip>
                   </div>
                 </div>
               ) : (
                 <button
                   onClick={() => handleAddConnection(platformType)}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                  aria-label={`${t('aiSocial.connections.connect')} ${t(`aiSocial.platforms.${platformType.toLowerCase()}`)}`}
                 >
                   <Plus className="h-4 w-4" />
                   {t('aiSocial.connections.connect')}
                 </button>
               )}
-            </div>
+            </AnimatedListItem>
           );
         })}
-      </div>
+      </AnimatedList>
 
       {/* Empty State - Only show if no connections and not loading */}
       {connections.length === 0 && !loading && (
@@ -405,103 +467,128 @@ export default function ConnectionsTab() {
       </div>
 
       {/* Login Modal with QR Code */}
-      {loginModal.isOpen && loginModal.platform && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-6 shadow-xl">
-            {/* Header */}
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">
-                {t('aiSocial.connections.addTitle', {
-                  platform: t(
-                    `aiSocial.platforms.${loginModal.platform.toLowerCase()}`
-                  ),
-                })}
-              </h3>
-              <button
-                onClick={closeLoginModal}
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      <AnimatePresence>
+        {loginModal.isOpen && loginModal.platform && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                closeLoginModal();
+              }
+            }}
+            role="presentation"
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            variants={getAnimationConfig(backdropVariants) || undefined}
+          >
+            <motion.div
+              ref={modalRef}
+              className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-6 shadow-xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="login-modal-title"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={getAnimationConfig(scaleVariants) || undefined}
+            >
+              {/* Header */}
+              <div className="mb-4 flex items-center justify-between">
+                <h3 id="login-modal-title" className="text-lg font-semibold">
+                  {t('aiSocial.connections.addTitle', {
+                    platform: t(
+                      `aiSocial.platforms.${loginModal.platform.toLowerCase()}`
+                    ),
+                  })}
+                </h3>
+                <button
+                  onClick={closeLoginModal}
+                  className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                  aria-label={t('common.close')}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
 
-            {/* Content based on status */}
-            <div className="min-h-[300px]">
-              {loginModal.status === 'loading' && (
-                <div className="flex h-[300px] flex-col items-center justify-center">
-                  <Loader2 className="h-12 w-12 animate-spin text-gray-400" />
-                  <p className="mt-4 text-sm text-gray-500">
-                    {loginModal.message}
-                  </p>
-                </div>
-              )}
-
-              {loginModal.status === 'scanning' && (
-                <div className="flex flex-col items-center">
-                  <p className="mb-4 text-sm text-gray-600">
-                    {loginModal.screenshot
-                      ? `请使用${loginModal.platform === 'WECHAT_MP' ? '微信' : '小红书'}扫描下方二维码登录`
-                      : '正在加载登录页面...'}
-                  </p>
-                  {loginModal.screenshot ? (
-                    <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-white">
-                      <img
-                        src={loginModal.screenshot}
-                        alt="Login QR Code"
-                        className="h-auto w-full max-w-[500px]"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex h-[300px] w-full max-w-[500px] items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
-                      <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                    </div>
-                  )}
-                  <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>{loginModal.message || '等待扫码确认...'}</span>
+              {/* Content based on status */}
+              <div className="min-h-[300px]">
+                {loginModal.status === 'loading' && (
+                  <div className="flex h-[300px] flex-col items-center justify-center">
+                    <Loader2 className="h-12 w-12 animate-spin text-gray-400" />
+                    <p className="mt-4 text-sm text-gray-500">
+                      {loginModal.message}
+                    </p>
                   </div>
-                </div>
-              )}
+                )}
 
-              {loginModal.status === 'success' && (
-                <div className="flex h-[300px] flex-col items-center justify-center">
-                  <CheckCircle className="h-16 w-16 text-green-500" />
-                  <p className="mt-4 text-lg font-medium text-gray-900">
-                    {loginModal.message}
-                  </p>
-                </div>
-              )}
+                {loginModal.status === 'scanning' && (
+                  <div className="flex flex-col items-center">
+                    <p className="mb-4 text-sm text-gray-600">
+                      {loginModal.screenshot
+                        ? `请使用${loginModal.platform === 'WECHAT_MP' ? '微信' : '小红书'}扫描下方二维码登录`
+                        : '正在加载登录页面...'}
+                    </p>
+                    {loginModal.screenshot ? (
+                      <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-white">
+                        <img
+                          src={loginModal.screenshot}
+                          alt="Login QR Code"
+                          className="h-auto w-full max-w-[500px]"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex h-[300px] w-full max-w-[500px] items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
+                        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                      </div>
+                    )}
+                    <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>{loginModal.message || '等待扫码确认...'}</span>
+                    </div>
+                  </div>
+                )}
 
-              {loginModal.status === 'error' && (
-                <div className="flex h-[300px] flex-col items-center justify-center">
-                  <XCircle className="h-16 w-16 text-red-500" />
-                  <p className="mt-4 text-lg font-medium text-gray-900">
-                    {loginModal.message}
-                  </p>
+                {loginModal.status === 'success' && (
+                  <div className="flex h-[300px] flex-col items-center justify-center">
+                    <CheckCircle className="h-16 w-16 text-green-500" />
+                    <p className="mt-4 text-lg font-medium text-gray-900">
+                      {loginModal.message}
+                    </p>
+                  </div>
+                )}
+
+                {loginModal.status === 'error' && (
+                  <div className="flex h-[300px] flex-col items-center justify-center">
+                    <XCircle className="h-16 w-16 text-red-500" />
+                    <p className="mt-4 text-lg font-medium text-gray-900">
+                      {loginModal.message}
+                    </p>
+                    <button
+                      onClick={() => handleAddConnection(loginModal.platform!)}
+                      className="mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                    >
+                      重试
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              {loginModal.status === 'scanning' && (
+                <div className="mt-4 border-t border-gray-100 pt-4">
                   <button
-                    onClick={() => handleAddConnection(loginModal.platform!)}
-                    className="mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                    onClick={closeLoginModal}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
                   >
-                    重试
+                    取消
                   </button>
                 </div>
               )}
-            </div>
-
-            {/* Footer */}
-            {loginModal.status === 'scanning' && (
-              <div className="mt-4 border-t border-gray-100 pt-4">
-                <button
-                  onClick={closeLoginModal}
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  取消
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

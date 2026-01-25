@@ -12,6 +12,7 @@ import {
 } from '@/hooks/domain/useAISocial';
 import { toast } from '@/stores';
 import { Loader2, AlertCircle } from 'lucide-react';
+import { deleteDraft, generateDraftId } from '@/lib/storage/draft-storage';
 
 // Import new components
 import { StepNavigation } from '@/components/ai-social/create/StepNavigation';
@@ -104,6 +105,16 @@ function CreateSocialContentForm() {
         });
 
         if (updated) {
+          // Clear draft after successful save
+          if (platform && sourceType) {
+            const draftId = generateDraftId(
+              platform,
+              sourceType,
+              sourceId || undefined
+            );
+            deleteDraft(draftId);
+          }
+
           toast.success(t('aiSocial.toast.saved'));
           router.push('/ai-social');
         } else {
@@ -124,6 +135,17 @@ function CreateSocialContentForm() {
 
         if (created) {
           setCurrentContentId(created.id);
+
+          // Clear draft after successful save
+          if (platform && sourceType) {
+            const draftId = generateDraftId(
+              platform,
+              sourceType,
+              sourceId || undefined
+            );
+            deleteDraft(draftId);
+          }
+
           toast.success(t('aiSocial.toast.saved'));
           router.push('/ai-social');
         } else {
@@ -196,6 +218,16 @@ function CreateSocialContentForm() {
       const result = await publish(contentId, connectionId || undefined);
 
       if (result.success) {
+        // Clear draft after successful publish
+        if (platform && sourceType) {
+          const draftId = generateDraftId(
+            platform,
+            sourceType,
+            sourceId || undefined
+          );
+          deleteDraft(draftId);
+        }
+
         toast.success(t('aiSocial.toast.published'));
         router.push('/ai-social');
       } else {

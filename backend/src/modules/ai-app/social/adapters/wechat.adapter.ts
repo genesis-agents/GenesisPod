@@ -2,6 +2,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PlaywrightService } from "../services/playwright.service";
 import { PublishResult } from "../services/publish-executor.service";
 import { SocialContent, SocialPlatformConnection } from "../types";
+import { decryptSession } from "../utils/session-crypto";
+import { SessionData } from "../types/platform.types";
 
 @Injectable()
 export class WechatAdapter {
@@ -36,11 +38,12 @@ export class WechatAdapter {
         };
       }
 
-      // Parse sessionData - it's stored as JSON string in database
-      const sessionData =
+      // Decrypt sessionData - it's stored encrypted in database
+      const sessionDataStr =
         typeof connection.sessionData === "string"
-          ? JSON.parse(connection.sessionData)
-          : connection.sessionData;
+          ? connection.sessionData
+          : JSON.stringify(connection.sessionData);
+      const sessionData = decryptSession<SessionData>(sessionDataStr);
       const cookiesCount = sessionData?.cookies?.length || 0;
       this.logger.log(`Session data found, cookies count: ${cookiesCount}`);
 

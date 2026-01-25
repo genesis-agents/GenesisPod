@@ -2,6 +2,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PlaywrightService } from "../services/playwright.service";
 import { PublishResult } from "../services/publish-executor.service";
 import { SocialContent, SocialPlatformConnection } from "../types";
+import { decryptSession } from "../utils/session-crypto";
+import { SessionData } from "../types/platform.types";
 
 @Injectable()
 export class XiaohongshuAdapter {
@@ -22,12 +24,14 @@ export class XiaohongshuAdapter {
     const contextId = `xhs-${connection.id}`;
 
     try {
-      // 恢复登录会话
+      // 恢复登录会话 - 解密 sessionData
       if (connection.sessionData) {
-        await this.playwright.restoreSession(
-          contextId,
-          connection.sessionData as any,
-        );
+        const sessionDataStr =
+          typeof connection.sessionData === "string"
+            ? connection.sessionData
+            : JSON.stringify(connection.sessionData);
+        const sessionData = decryptSession<SessionData>(sessionDataStr);
+        await this.playwright.restoreSession(contextId, sessionData);
       }
 
       const page = await this.playwright.createPage(contextId);

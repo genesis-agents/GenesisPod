@@ -9,6 +9,8 @@ import {
   SocialContent,
   SocialPlatformConnection,
 } from "../types";
+import { decryptSession } from "../utils/session-crypto";
+import { SessionData } from "../types/platform.types";
 
 // Prisma client accessor for models not yet migrated
 type PrismaAny = any;
@@ -201,11 +203,19 @@ export class PublishExecutorService {
       return false;
     }
 
-    const sessionData =
-      typeof connection.sessionData === "string"
-        ? JSON.parse(connection.sessionData)
-        : connection.sessionData;
+    try {
+      // Decrypt session data (handles legacy unencrypted data)
+      const sessionDataStr =
+        typeof connection.sessionData === "string"
+          ? connection.sessionData
+          : JSON.stringify(connection.sessionData);
 
-    return sessionData?.cookies?.length > 0;
+      const sessionData = decryptSession<SessionData>(sessionDataStr);
+
+      return sessionData?.cookies?.length > 0;
+    } catch (error) {
+      this.logger.error(`Failed to decrypt session data: ${error}`);
+      return false;
+    }
   }
 }
