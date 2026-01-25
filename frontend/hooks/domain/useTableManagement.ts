@@ -4,6 +4,8 @@
  */
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useApiGet } from '../core';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 // Table Category Enum
 export type TableCategory =
@@ -202,7 +204,7 @@ export function useTableManagement(initialQuery?: TableListQuery) {
     loading: listLoading,
     error: listError,
     execute: fetchList,
-  } = useApiGet<TableListResponse>(`/api/admin/tables?${queryString}`, {
+  } = useApiGet<TableListResponse>(`/admin/tables?${queryString}`, {
     immediate: true,
   });
 
@@ -289,7 +291,12 @@ export function useTableManagement(initialQuery?: TableListQuery) {
     setSelectedTable(tableName);
     setDetailLoading(true);
     try {
-      const response = await fetch(`/api/admin/tables/${tableName}`);
+      const response = await fetch(
+        `${config.apiUrl}/admin/tables/${tableName}`,
+        {
+          headers: getAuthHeader(),
+        }
+      );
       const data = await response.json();
       if (data.success) {
         setTableDetail(data.data);
@@ -312,9 +319,13 @@ export function useTableManagement(initialQuery?: TableListQuery) {
     setDiagnosingTable(tableName);
     setDiagnosisLoading(true);
     try {
-      const response = await fetch(`/api/admin/tables/${tableName}/diagnose`, {
-        method: 'POST',
-      });
+      const response = await fetch(
+        `${config.apiUrl}/admin/tables/${tableName}/diagnose`,
+        {
+          method: 'POST',
+          headers: getAuthHeader(),
+        }
+      );
       const data = await response.json();
       if (data.success) {
         setDiagnosis(data.data);
@@ -337,9 +348,13 @@ export function useTableManagement(initialQuery?: TableListQuery) {
     async (tableName: string) => {
       setCleaningTable(tableName);
       try {
-        const response = await fetch(`/api/admin/tables/${tableName}/cleanup`, {
-          method: 'POST',
-        });
+        const response = await fetch(
+          `${config.apiUrl}/admin/tables/${tableName}/cleanup`,
+          {
+            method: 'POST',
+            headers: getAuthHeader(),
+          }
+        );
         const data = await response.json();
         if (data.success) {
           setCleanupResult(data.data);
@@ -359,9 +374,13 @@ export function useTableManagement(initialQuery?: TableListQuery) {
   const batchDiagnose = useCallback(async (): Promise<TableDiagnosis[]> => {
     setBatchDiagnoseLoading(true);
     try {
-      const response = await fetch('/api/admin/tables/batch-diagnose', {
-        method: 'POST',
-      });
+      const response = await fetch(
+        `${config.apiUrl}/admin/tables/batch-diagnose`,
+        {
+          method: 'POST',
+          headers: getAuthHeader(),
+        }
+      );
       const data = await response.json();
       if (data.success) {
         return data.data;

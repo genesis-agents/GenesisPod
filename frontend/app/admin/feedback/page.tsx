@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { MessageSquareWarning } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
+import { AdminPageLayout } from '@/components/admin/layout';
 
 interface Feedback {
   id: string;
@@ -371,43 +373,38 @@ export default function FeedbackPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {t('admin.feedback.title')}
-              </h1>
-              <p className="text-gray-600">{t('admin.feedback.description')}</p>
-            </div>
-            {urgentCount > 0 && (
-              <div className="flex items-center gap-2 rounded-lg bg-red-100 px-4 py-2 text-red-800">
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
-                <span className="font-medium">
-                  {t('admin.feedback.urgentCount').replace(
-                    '{count}',
-                    String(urgentCount)
-                  )}
-                </span>
-              </div>
-            )}
+    <AdminPageLayout
+      title={t('admin.feedback.title')}
+      description={t('admin.feedback.description')}
+      icon={MessageSquareWarning}
+      domain="support"
+      actions={
+        urgentCount > 0 ? (
+          <div className="flex items-center gap-2 rounded-lg bg-red-100 px-4 py-2 text-red-800">
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <span className="font-medium">
+              {t('admin.feedback.urgentCount').replace(
+                '{count}',
+                String(urgentCount)
+              )}
+            </span>
           </div>
-        </div>
-
+        ) : undefined
+      }
+    >
+      <div>
         {/* Action Message Toast */}
         {actionMessage && (
           <div
@@ -857,6 +854,6 @@ export default function FeedbackPage() {
           </div>
         )}
       </div>
-    </div>
+    </AdminPageLayout>
   );
 }

@@ -69,6 +69,19 @@ export const ADMIN_COLORS = {
     icon: 'text-slate-600',
     ring: 'ring-slate-500',
   },
+
+  // 支持/反馈 - 红色/粉色
+  support: {
+    primary: 'rose',
+    gradient: 'from-rose-500 to-pink-500',
+    bg: 'bg-rose-50',
+    bgHover: 'hover:bg-rose-100',
+    text: 'text-rose-700',
+    textMuted: 'text-rose-600',
+    border: 'border-rose-200',
+    icon: 'text-rose-600',
+    ring: 'ring-rose-500',
+  },
 } as const;
 
 // 状态色

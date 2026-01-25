@@ -9,8 +9,18 @@ import {
   loginWithGoogle,
 } from '@/lib/utils/auth';
 import Link from 'next/link';
-
+import AppShell from '@/components/layout/AppShell';
+import { useTranslation } from '@/lib/i18n';
+import {
+  FileText,
+  Plus,
+  ChevronRight,
+  Paperclip,
+  MessageSquare,
+  X,
+} from 'lucide-react';
 import { logger } from '@/lib/utils/logger';
+
 interface Feedback {
   id: string;
   type: 'BUG' | 'FEATURE' | 'IMPROVEMENT' | 'OTHER';
@@ -33,35 +43,12 @@ const TYPE_COLORS: Record<string, string> = {
   OTHER: 'bg-gray-100 text-gray-800',
 };
 
-const TYPE_LABELS: Record<string, string> = {
-  BUG: 'Bug',
-  FEATURE: 'Feature',
-  IMPROVEMENT: 'Improvement',
-  OTHER: 'Other',
-};
-
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   REVIEWED: 'bg-blue-100 text-blue-800 border-blue-200',
   IN_PROGRESS: 'bg-purple-100 text-purple-800 border-purple-200',
   RESOLVED: 'bg-green-100 text-green-800 border-green-200',
   CLOSED: 'bg-gray-100 text-gray-800 border-gray-200',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Pending',
-  REVIEWED: 'Reviewed',
-  IN_PROGRESS: 'In Progress',
-  RESOLVED: 'Resolved',
-  CLOSED: 'Closed',
-};
-
-const STATUS_DESCRIPTIONS: Record<string, string> = {
-  PENDING: 'Your feedback has been received and is waiting for review.',
-  REVIEWED: 'Your feedback has been reviewed by our team.',
-  IN_PROGRESS: 'We are actively working on addressing your feedback.',
-  RESOLVED: 'Your feedback has been addressed!',
-  CLOSED: 'This feedback has been closed.',
 };
 
 function formatDate(dateString: string): string {
@@ -76,10 +63,52 @@ function formatDate(dateString: string): string {
 
 export default function FeedbackHistoryPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(
     null
+  );
+
+  const getTypeLabel = useCallback(
+    (type: string) => {
+      const labels: Record<string, string> = {
+        BUG: t('feedback.feedbackType.bug'),
+        FEATURE: t('feedback.feedbackType.feature'),
+        IMPROVEMENT: t('feedback.feedbackType.improvement'),
+        OTHER: t('feedback.feedbackType.other'),
+      };
+      return labels[type] || type;
+    },
+    [t]
+  );
+
+  const getStatusLabel = useCallback(
+    (status: string) => {
+      const labels: Record<string, string> = {
+        PENDING: t('feedback.status.pending'),
+        REVIEWED: t('feedback.status.reviewed'),
+        IN_PROGRESS: t('feedback.status.inProgress'),
+        RESOLVED: t('feedback.status.resolved'),
+        CLOSED: t('feedback.status.closed'),
+      };
+      return labels[status] || status;
+    },
+    [t]
+  );
+
+  const getStatusDescription = useCallback(
+    (status: string) => {
+      const descriptions: Record<string, string> = {
+        PENDING: t('feedback.statusDesc.pending'),
+        REVIEWED: t('feedback.statusDesc.reviewed'),
+        IN_PROGRESS: t('feedback.statusDesc.inProgress'),
+        RESOLVED: t('feedback.statusDesc.resolved'),
+        CLOSED: t('feedback.statusDesc.closed'),
+      };
+      return descriptions[status] || '';
+    },
+    [t]
   );
 
   const fetchFeedbacks = useCallback(async () => {
@@ -95,7 +124,6 @@ export default function FeedbackHistoryPage() {
       });
       if (response.ok) {
         const result = await response.json();
-        // Handle wrapped response { success: true, data: {...} }
         const data = result?.data ?? result;
         setFeedbacks(data?.feedbacks || []);
       }
@@ -104,149 +132,132 @@ export default function FeedbackHistoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     fetchFeedbacks();
   }, [fetchFeedbacks]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-          <p className="text-gray-600">Loading your feedback...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="mx-auto max-w-4xl">
+    <AppShell>
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">My Feedback</h1>
-            <p className="text-gray-600">
-              Track the status of your submitted feedback
-            </p>
+        <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
+          <div className="flex items-center gap-3">
+            <FileText className="h-6 w-6 text-violet-600" />
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">
+                {t('feedback.myFeedbackTitle')}
+              </h1>
+              <p className="text-sm text-gray-500">
+                {t('feedback.trackStatus')}
+              </p>
+            </div>
           </div>
           <Link
             href="/feedback"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
-            Submit New Feedback
+            <Plus className="h-4 w-4" />
+            {t('feedback.submitNew')}
           </Link>
-        </div>
+        </header>
 
-        {/* Feedback List */}
-        {feedbacks.length === 0 ? (
-          <div className="rounded-lg bg-white p-12 text-center shadow">
-            <svg
-              className="mx-auto mb-4 h-12 w-12 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-              />
-            </svg>
-            <h3 className="mb-2 text-lg font-medium text-gray-900">
-              No feedback yet
-            </h3>
-            <p className="mb-4 text-gray-600">
-              You haven&apos;t submitted any feedback yet. We&apos;d love to
-              hear from you!
-            </p>
-            <Link
-              href="/feedback"
-              className="inline-block rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-700"
-            >
-              Submit Feedback
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {feedbacks.map((feedback) => (
-              <div
-                key={feedback.id}
-                className="cursor-pointer rounded-lg bg-white p-6 shadow transition-shadow hover:shadow-md"
-                onClick={() => setSelectedFeedback(feedback)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="mb-2 flex items-center gap-2">
-                      <span
-                        className={`rounded-full px-2 py-1 text-xs font-medium ${TYPE_COLORS[feedback.type]}`}
-                      >
-                        {TYPE_LABELS[feedback.type]}
-                      </span>
-                      <span
-                        className={`rounded-full border px-2 py-1 text-xs font-medium ${STATUS_COLORS[feedback.status]}`}
-                      >
-                        {STATUS_LABELS[feedback.status]}
-                      </span>
-                    </div>
-                    <h3 className="mb-1 font-medium text-gray-900">
-                      {feedback.title}
-                    </h3>
-                    <p className="line-clamp-2 text-sm text-gray-600">
-                      {feedback.description}
-                    </p>
-                    <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
-                      <span>Submitted: {formatDate(feedback.created_at)}</span>
-                      {feedback.updated_at !== feedback.created_at && (
-                        <span>Updated: {formatDate(feedback.updated_at)}</span>
-                      )}
-                    </div>
-                  </div>
-                  <svg
-                    className="h-5 w-5 flex-shrink-0 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+          <div className="mx-auto max-w-4xl">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+                  <p className="text-gray-600">{t('common.loading')}</p>
                 </div>
               </div>
-            ))}
+            ) : feedbacks.length === 0 ? (
+              <div className="rounded-lg bg-white p-12 text-center shadow">
+                <MessageSquare className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                <h3 className="mb-2 text-lg font-medium text-gray-900">
+                  {t('feedback.noFeedback')}
+                </h3>
+                <p className="mb-4 text-gray-600">
+                  {t('feedback.noFeedbackDesc')}
+                </p>
+                <Link
+                  href="/feedback"
+                  className="inline-block rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-700"
+                >
+                  {t('feedback.submitFeedback')}
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {feedbacks.map((feedback) => (
+                  <div
+                    key={feedback.id}
+                    className="cursor-pointer rounded-lg bg-white p-6 shadow transition-shadow hover:shadow-md"
+                    onClick={() => setSelectedFeedback(feedback)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="mb-2 flex items-center gap-2">
+                          <span
+                            className={`rounded-full px-2 py-1 text-xs font-medium ${TYPE_COLORS[feedback.type]}`}
+                          >
+                            {getTypeLabel(feedback.type)}
+                          </span>
+                          <span
+                            className={`rounded-full border px-2 py-1 text-xs font-medium ${STATUS_COLORS[feedback.status]}`}
+                          >
+                            {getStatusLabel(feedback.status)}
+                          </span>
+                          {feedback.attachments?.length > 0 && (
+                            <span className="flex items-center gap-1 text-xs text-gray-500">
+                              <Paperclip className="h-3 w-3" />
+                              {feedback.attachments.length}
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="mb-1 font-medium text-gray-900">
+                          {feedback.title}
+                        </h3>
+                        <p className="line-clamp-2 text-sm text-gray-600">
+                          {feedback.description}
+                        </p>
+                        <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
+                          <span>
+                            {t('feedback.submitted')}:{' '}
+                            {formatDate(feedback.created_at)}
+                          </span>
+                          {feedback.updated_at !== feedback.created_at && (
+                            <span>
+                              {t('feedback.updated')}:{' '}
+                              {formatDate(feedback.updated_at)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <ChevronRight className="h-5 w-5 flex-shrink-0 text-gray-400" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </main>
 
         {/* Detail Modal */}
         {selectedFeedback && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl">
               <div className="sticky top-0 flex items-center justify-between border-b bg-white p-4">
-                <h2 className="text-lg font-semibold">Feedback Details</h2>
+                <h2 className="text-lg font-semibold">
+                  {t('feedback.details')}
+                </h2>
                 <button
                   onClick={() => setSelectedFeedback(null)}
                   className="text-gray-500 hover:text-gray-700"
                 >
-                  <svg
-                    className="h-6 w-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
+                  <X className="h-6 w-6" />
                 </button>
               </div>
 
@@ -257,11 +268,11 @@ export default function FeedbackHistoryPage() {
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-semibold">
-                      {STATUS_LABELS[selectedFeedback.status]}
+                      {getStatusLabel(selectedFeedback.status)}
                     </span>
                   </div>
                   <p className="mt-1 text-sm opacity-80">
-                    {STATUS_DESCRIPTIONS[selectedFeedback.status]}
+                    {getStatusDescription(selectedFeedback.status)}
                   </p>
                 </div>
 
@@ -270,7 +281,7 @@ export default function FeedbackHistoryPage() {
                   <span
                     className={`mb-2 inline-block rounded-full px-3 py-1 text-sm font-medium ${TYPE_COLORS[selectedFeedback.type]}`}
                   >
-                    {TYPE_LABELS[selectedFeedback.type]}
+                    {getTypeLabel(selectedFeedback.type)}
                   </span>
                   <h3 className="text-xl font-semibold text-gray-900">
                     {selectedFeedback.title}
@@ -283,12 +294,14 @@ export default function FeedbackHistoryPage() {
                     ID: <span className="font-mono">{selectedFeedback.id}</span>
                   </div>
                   <div>
-                    Submitted: {formatDate(selectedFeedback.created_at)}
+                    {t('feedback.submitted')}:{' '}
+                    {formatDate(selectedFeedback.created_at)}
                   </div>
                   {selectedFeedback.updated_at !==
                     selectedFeedback.created_at && (
                     <div>
-                      Last updated: {formatDate(selectedFeedback.updated_at)}
+                      {t('feedback.lastUpdated')}:{' '}
+                      {formatDate(selectedFeedback.updated_at)}
                     </div>
                   )}
                 </div>
@@ -296,7 +309,7 @@ export default function FeedbackHistoryPage() {
                 {/* Description */}
                 <div className="mb-6 rounded-lg bg-gray-50 p-4">
                   <h4 className="mb-2 font-medium text-gray-700">
-                    Your Feedback
+                    {t('feedback.yourFeedback')}
                   </h4>
                   <p className="whitespace-pre-wrap text-gray-600">
                     {selectedFeedback.description}
@@ -307,7 +320,7 @@ export default function FeedbackHistoryPage() {
                 {selectedFeedback.admin_notes && (
                   <div className="mb-6 rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4">
                     <h4 className="mb-2 font-medium text-blue-900">
-                      Response from Team
+                      {t('feedback.teamResponse')}
                     </h4>
                     <p className="whitespace-pre-wrap text-blue-800">
                       {selectedFeedback.admin_notes}
@@ -319,7 +332,8 @@ export default function FeedbackHistoryPage() {
                 {selectedFeedback.attachments?.length > 0 && (
                   <div>
                     <h4 className="mb-2 font-medium text-gray-700">
-                      Attachments ({selectedFeedback.attachments.length})
+                      {t('feedback.attachments')} (
+                      {selectedFeedback.attachments.length})
                     </h4>
                     <div className="space-y-2">
                       {selectedFeedback.attachments.map((att, idx) => (
@@ -330,19 +344,7 @@ export default function FeedbackHistoryPage() {
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 rounded-lg border p-2 text-sm hover:bg-gray-50"
                         >
-                          <svg
-                            className="h-5 w-5 text-gray-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                            />
-                          </svg>
+                          <Paperclip className="h-5 w-5 text-gray-400" />
                           <span className="flex-1 truncate">
                             {att.filename}
                           </span>
@@ -356,6 +358,6 @@ export default function FeedbackHistoryPage() {
           </div>
         )}
       </div>
-    </div>
+    </AppShell>
   );
 }

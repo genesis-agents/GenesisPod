@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Coins } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
+import { AdminPageLayout } from '@/components/admin/layout';
 
 // Constants
 const LOW_BALANCE_THRESHOLD = 500;
@@ -340,16 +342,13 @@ export default function CreditsManagementPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {t('admin.credits.title')}
-          </h1>
-          <p className="text-gray-600">{t('admin.credits.description')}</p>
-        </div>
-
+    <AdminPageLayout
+      title={t('admin.credits.title')}
+      description={t('admin.credits.description')}
+      icon={Coins}
+      domain="access"
+    >
+      <div>
         {/* Action Message Toast */}
         {actionMessage && (
           <div
@@ -739,6 +738,6 @@ export default function CreditsManagementPage() {
           </div>
         )}
       </div>
-    </div>
+    </AdminPageLayout>
   );
 }

@@ -237,31 +237,24 @@ export class FeedbackService {
     limit?: number;
     offset?: number;
   }) {
-    const { status, type, priority, limit = 50, offset = 0 } = options || {};
+    const { status, type, limit = 50, offset = 0 } = options || {};
 
-    // Build where clause parts
+    // Build where clause parts (skip priority filter as column may not exist yet)
     const whereParts: string[] = [];
     if (status) whereParts.push(`"status" = '${status}'::"FeedbackStatus"`);
     if (type) whereParts.push(`"type" = '${type}'::"FeedbackType"`);
-    if (priority)
-      whereParts.push(`"priority" = '${priority}'::"FeedbackPriority"`);
+    // Note: priority filtering temporarily disabled until migration adds column
+    // if (priority)
+    //   whereParts.push(`"priority" = '${priority}'::"FeedbackPriority"`);
 
     const whereClause =
       whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
 
-    // Sort by priority (CRITICAL > HIGH > NORMAL > LOW), then by created_at
+    // Sort by created_at DESC (priority column may not exist yet until migration runs)
     const feedbacks = await this.prisma.$queryRawUnsafe<unknown[]>(`
       SELECT * FROM "feedbacks"
       ${whereClause}
-      ORDER BY
-        CASE "priority"
-          WHEN 'CRITICAL' THEN 1
-          WHEN 'HIGH' THEN 2
-          WHEN 'NORMAL' THEN 3
-          WHEN 'LOW' THEN 4
-          ELSE 5
-        END,
-        "created_at" DESC
+      ORDER BY "created_at" DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
 

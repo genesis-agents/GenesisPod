@@ -2408,7 +2408,26 @@
       "inProgress": "In Progress",
       "resolved": "Resolved",
       "closed": "Closed"
-    }
+    },
+    "myFeedbackTitle": "My Feedback",
+    "trackStatus": "Track the status of your submitted feedback",
+    "submitNew": "Submit New",
+    "noFeedback": "No feedback submitted yet",
+    "noFeedbackDesc": "Once you submit feedback, you can track its status here.",
+    "submitFeedback": "Submit Feedback",
+    "details": "Feedback Details",
+    "statusDesc": {
+      "pending": "Your feedback has been received and is awaiting review.",
+      "reviewed": "Our team has reviewed your feedback and is considering it.",
+      "inProgress": "We are actively working on addressing your feedback.",
+      "resolved": "Your feedback has been addressed and implemented.",
+      "closed": "This feedback has been closed."
+    },
+    "submitted": "Submitted",
+    "updated": "Updated",
+    "lastUpdated": "Last Updated",
+    "yourFeedback": "Your Feedback",
+    "teamResponse": "Team Response"
   },
   "profile": {
     "title": "Profile",
