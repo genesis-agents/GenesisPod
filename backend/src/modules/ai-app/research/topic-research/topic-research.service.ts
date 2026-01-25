@@ -418,6 +418,43 @@ const COMPANY_INSIGHT_DIMENSIONS = [
   },
 ];
 
+/**
+ * 清理AI生成内容中的HTML标签
+ * 主要处理 <br> 标签转换为换行，其他标签移除
+ * @param content 原始内容
+ * @returns 清理后的内容
+ */
+function cleanHtmlTagsFromContent(
+  content: string | null | undefined,
+): string | null {
+  if (!content) return content as null;
+
+  let cleaned = content;
+
+  // 1. 将 <br>, <br/>, <br /> 转换为换行符
+  cleaned = cleaned.replace(/<br\s*\/?>/gi, "\n");
+
+  // 2. 将 </p><p> 转换为双换行（段落分隔）
+  cleaned = cleaned.replace(/<\/p>\s*<p>/gi, "\n\n");
+
+  // 3. 将 <p> 和 </p> 单独出现时转换为换行
+  cleaned = cleaned.replace(/<\/?p>/gi, "\n");
+
+  // 4. 移除其他常见HTML标签但保留内容
+  cleaned = cleaned.replace(
+    /<\/?(?:div|span|strong|em|b|i|u|a|ul|ol|li|h[1-6])[^>]*>/gi,
+    "",
+  );
+
+  // 5. 清理多余的连续换行（超过2个变成2个）
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+
+  // 6. 清理行首行尾的空白
+  cleaned = cleaned.trim();
+
+  return cleaned;
+}
+
 @Injectable()
 export class TopicResearchService {
   private readonly logger = new Logger(TopicResearchService.name);
@@ -1513,9 +1550,20 @@ export class TopicResearchService {
   /**
    * 转换报告数据以适配前端接口
    * 主要将 dataPoints JSON 字段中的内容提取到顶层
+   * ★ 同时清理AI生成内容中的HTML标签（如<br>）
    */
   private transformReportForFrontend(report: any) {
     if (!report) return report;
+
+    // ★ 清理报告级别的内容字段
+    if (report.executiveSummary) {
+      report.executiveSummary = cleanHtmlTagsFromContent(
+        report.executiveSummary,
+      );
+    }
+    if (report.fullReport) {
+      report.fullReport = cleanHtmlTagsFromContent(report.fullReport);
+    }
 
     // 转换维度分析数据
     if (report.dimensionAnalyses) {
@@ -1529,14 +1577,61 @@ export class TopicResearchService {
             detailedContent?: string;
           } | null;
 
+          // ★ 清理维度分析中的文本内容
+          const cleanedAnalysis = cleanHtmlTagsFromContent(analysis.analysis);
+          const cleanedSummary = cleanHtmlTagsFromContent(analysis.summary);
+          const cleanedDetailedContent = cleanHtmlTagsFromContent(
+            dataPoints?.detailedContent,
+          );
+
+          // ★ 清理 keyFindings 中的文本
+          const cleanedKeyFindings =
+            analysis.keyFindings?.map((kf: any) => ({
+              ...kf,
+              finding: cleanHtmlTagsFromContent(kf.finding),
+              implication: cleanHtmlTagsFromContent(kf.implication),
+            })) || [];
+
+          // ★ 清理趋势、挑战、机会中的文本
+          const cleanedTrends = (dataPoints?.trends || []).map((t: any) => ({
+            ...t,
+            trend: cleanHtmlTagsFromContent(t.trend),
+            drivers: cleanHtmlTagsFromContent(t.drivers),
+            prediction: cleanHtmlTagsFromContent(t.prediction),
+          }));
+
+          const cleanedChallenges = (dataPoints?.challenges || []).map(
+            (c: any) => ({
+              ...c,
+              challenge: cleanHtmlTagsFromContent(c.challenge),
+              rootCause: cleanHtmlTagsFromContent(c.rootCause),
+              impact: cleanHtmlTagsFromContent(c.impact),
+              potentialSolutions: cleanHtmlTagsFromContent(
+                c.potentialSolutions,
+              ),
+            }),
+          );
+
+          const cleanedOpportunities = (dataPoints?.opportunities || []).map(
+            (o: any) => ({
+              ...o,
+              opportunity: cleanHtmlTagsFromContent(o.opportunity),
+              potential: cleanHtmlTagsFromContent(o.potential),
+              requirements: cleanHtmlTagsFromContent(o.requirements),
+            }),
+          );
+
           return {
             ...analysis,
-            // 从 dataPoints 提取到顶层
-            trends: dataPoints?.trends || [],
-            challenges: dataPoints?.challenges || [],
-            opportunities: dataPoints?.opportunities || [],
+            analysis: cleanedAnalysis,
+            summary: cleanedSummary,
+            keyFindings: cleanedKeyFindings,
+            // 从 dataPoints 提取到顶层（已清理）
+            trends: cleanedTrends,
+            challenges: cleanedChallenges,
+            opportunities: cleanedOpportunities,
             confidenceLevel: dataPoints?.confidenceLevel || null,
-            detailedContent: dataPoints?.detailedContent || null,
+            detailedContent: cleanedDetailedContent,
           };
         },
       );
