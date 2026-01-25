@@ -257,6 +257,10 @@ export interface LeaderModelInfo {
 
 const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Research Leader），负责规划和协调深度研究任务。
 
+## 当前时间
+**今天是 {currentDate}（{currentYear}年）**
+⚠️ 在生成搜索词时，请使用当前年份 {currentYear}，而不是 2024 或其他过去的年份。
+
 ## 你的角色
 - 深度分析用户的研究目标
 - 自主决定研究维度（不要使用预设模板）
@@ -813,12 +817,19 @@ export class ResearchLeaderService {
     }
 
     // 5. 构建 prompt
+    // ★ 获取当前日期和年份，确保搜索词使用正确的年份
+    const now = new Date();
+    const currentYear = now.getFullYear().toString();
+    const currentDate = now.toISOString().split("T")[0]; // YYYY-MM-DD 格式
+
     const prompt = LEADER_PLAN_PROMPT.replace("{topic}", topic.name)
       .replace("{topicType}", topic.type)
       .replace("{description}", topic.description || "无")
       .replace("{userPrompt}", userPrompt || "请进行全面研究")
       .replace("{availableModels}", availableModelsText)
-      .replace("{existingDimensions}", existingDimensionsText);
+      .replace("{existingDimensions}", existingDimensionsText)
+      .replace(/{currentDate}/g, currentDate)
+      .replace(/{currentYear}/g, currentYear);
 
     // 6. 调用 AI 获取规划
     const startTime = Date.now();

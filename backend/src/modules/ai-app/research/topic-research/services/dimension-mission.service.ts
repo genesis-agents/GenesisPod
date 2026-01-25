@@ -520,15 +520,15 @@ export class DimensionMissionService {
         missionId,
       );
 
-      // ★ 记录写作阶段开始
+      // ★ 记录写作阶段开始（使用研究员身份，因为写作是研究员的工作）
       await this.agentActivity.startThinkingPhase({
         topicId: topic.id,
         missionId: effectiveMissionId,
         dimensionId: dimension.id,
         dimensionName: dimension.name,
-        agentId: leaderAgentId,
-        agentName: leaderAgentName,
-        agentRole: "leader",
+        agentId: researcherAgentId,
+        agentName: researcherAgentName,
+        agentRole: "researcher",
         activityType: AgentActivityType.WRITING,
         phase: "writing",
         content: `开始撰写 ${outline.sections.length} 个章节...`,
@@ -547,14 +547,14 @@ export class DimensionMissionService {
         temporalContext, // ★ 传递时间上下文
       );
 
-      // ★ 记录写作完成
+      // ★ 记录写作完成（使用研究员身份，与 startThinkingPhase 匹配）
       const totalWordCount = sectionResults.reduce(
         (sum, r) => sum + (r.content?.length || 0),
         0,
       );
       await this.agentActivity.endThinkingPhase(
         topic.id,
-        leaderAgentId,
+        researcherAgentId,
         "writing" as ThinkingPhase,
         {
           writingProgress: {
