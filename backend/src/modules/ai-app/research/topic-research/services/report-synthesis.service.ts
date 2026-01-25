@@ -609,6 +609,7 @@ export class ReportSynthesisService {
 
   /**
    * 从结构化报告中提取亮点
+   * ★ 优化：从内容中智能提取标题，避免机械化的"核心观点 N"
    */
   private extractHighlights(
     report: ComprehensiveReport,
@@ -626,9 +627,11 @@ export class ReportSynthesisService {
       const dimension = dimensionInputs[i];
 
       if (section.coreViewpoints) {
-        section.coreViewpoints.slice(0, 2).forEach((vp, j) => {
+        section.coreViewpoints.slice(0, 2).forEach((vp) => {
+          // ★ 智能提取标题：从内容中提取关键信息
+          const title = this.extractTitleFromContent(vp, section.title);
           highlights.push({
-            title: `${section.title} - 核心观点 ${j + 1}`,
+            title,
             content: vp,
             category: this.categorizeViewpoint(vp),
             dimensionName: dimension.dimensionName,
@@ -639,6 +642,47 @@ export class ReportSynthesisService {
 
     // 限制亮点数量
     return highlights.slice(0, 10);
+  }
+
+  /**
+   * 从内容中智能提取标题
+   * ★ 优化策略：
+   * 1. 提取冒号前的关键短语（如 "市场规模：2025年..."）
+   * 2. 提取开头的关键词组（如 "2025年AI投资..."）
+   * 3. 回退到截取开头字符
+   */
+  private extractTitleFromContent(
+    content: string,
+    sectionTitle: string,
+  ): string {
+    // 清理内容
+    const cleanContent = content.trim();
+
+    // 策略1：提取冒号/顿号前的关键短语
+    const colonMatch = cleanContent.match(/^([^：:、]+)[：:、]/);
+    if (colonMatch && colonMatch[1].length >= 4 && colonMatch[1].length <= 20) {
+      return colonMatch[1].trim();
+    }
+
+    // 策略2：提取开头到第一个逗号/句号的部分（作为核心论点）
+    const firstPart = cleanContent.match(/^([^，。,\.]+)/);
+    if (firstPart && firstPart[1].length >= 8 && firstPart[1].length <= 30) {
+      return firstPart[1].trim();
+    }
+
+    // 策略3：截取开头15-25个字符作为标题
+    if (cleanContent.length > 20) {
+      // 尝试在20-30字符范围内找到合适的断点
+      const cutPoint = cleanContent.substring(15, 35).search(/[，。、：:,\.]/);
+      if (cutPoint > 0) {
+        return cleanContent.substring(0, 15 + cutPoint).trim();
+      }
+      // 直接截取
+      return cleanContent.substring(0, 25).trim() + "...";
+    }
+
+    // 回退：使用章节标题
+    return sectionTitle;
   }
 
   /**
