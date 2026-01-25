@@ -6254,6 +6254,7 @@ model TopicReport {
   executiveSummary String @map("executive_summary") @db.Text // 执行摘要
   fullReport       String @map("full_report") @db.Text // 完整报告（Markdown）
   highlights       Json   @default("[]") // 核心亮点（结构化）
+  charts           Json   @default("[]") // 图表数据（结构化）
 
   // ========== 统计数据 ==========
   totalDimensions Int @default(0) @map("total_dimensions") // 研究的维度数量

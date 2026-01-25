@@ -42,6 +42,7 @@ export enum LeaderActionType {
   CREATE_DIMENSION = "CREATE_DIMENSION",
   DELETE_DIMENSION = "DELETE_DIMENSION",
   UPDATE_DIMENSION = "UPDATE_DIMENSION",
+  MERGE_DIMENSIONS = "MERGE_DIMENSIONS",
   CANCEL_TASK = "CANCEL_TASK",
   PAUSE_TASK = "PAUSE_TASK",
   RESUME_TASK = "RESUME_TASK",
@@ -96,6 +97,17 @@ export interface CancelTaskParams {
   taskId?: string;
   taskName?: string;
   dimensionName?: string;
+}
+
+/**
+ * 合并维度参数
+ */
+export interface MergeDimensionsParams {
+  topicId: string;
+  /** 源维度名称（将被合并到目标维度） */
+  sourceDimensionNames: string[];
+  /** 目标维度名称 */
+  targetDimensionName: string;
 }
 
 /**
@@ -494,6 +506,114 @@ export class LeaderToolService {
           : `创建了 ${successCount}/${dimensions.length} 个维度`,
       data: { created: successCount, total: dimensions.length },
     };
+  }
+
+  /**
+   * ★ 合并维度
+   * 将一个或多个源维度的内容合并到目标维度，然后删除源维度
+   */
+  async mergeDimensions(
+    params: MergeDimensionsParams,
+  ): Promise<LeaderActionResult> {
+    const { topicId, sourceDimensionNames, targetDimensionName } = params;
+    this.logger.log(
+      `[mergeDimensions] Merging dimensions ${sourceDimensionNames.join(", ")} into "${targetDimensionName}" for topic ${topicId}`,
+    );
+
+    try {
+      // 1. 查找目标维度
+      const targetDimension = await this.prisma.topicDimension.findFirst({
+        where: {
+          topicId,
+          name: { contains: targetDimensionName, mode: "insensitive" },
+        },
+      });
+
+      if (!targetDimension) {
+        return {
+          success: false,
+          action: LeaderActionType.MERGE_DIMENSIONS,
+          message: `未找到目标维度「${targetDimensionName}」`,
+        };
+      }
+
+      // 2. 查找所有源维度
+      const sourceDimensions = await this.prisma.topicDimension.findMany({
+        where: {
+          topicId,
+          OR: sourceDimensionNames.map((name) => ({
+            name: { contains: name, mode: "insensitive" as const },
+          })),
+        },
+      });
+
+      if (sourceDimensions.length === 0) {
+        return {
+          success: false,
+          action: LeaderActionType.MERGE_DIMENSIONS,
+          message: `未找到任何源维度：${sourceDimensionNames.join(", ")}`,
+        };
+      }
+
+      // 3. 合并描述信息
+      const sourceDescriptions = sourceDimensions
+        .map((d) => d.description)
+        .filter(Boolean)
+        .join("\n\n");
+
+      const mergedDescription = targetDimension.description
+        ? `${targetDimension.description}\n\n--- 合并内容 ---\n${sourceDescriptions}`
+        : sourceDescriptions;
+
+      // 4. 将源维度的任务转移到目标维度
+      for (const sourceDim of sourceDimensions) {
+        if (sourceDim.id !== targetDimension.id) {
+          await this.prisma.researchTask.updateMany({
+            where: { dimensionId: sourceDim.id },
+            data: { dimensionId: targetDimension.id },
+          });
+        }
+      }
+
+      // 5. 更新目标维度描述
+      await this.prisma.topicDimension.update({
+        where: { id: targetDimension.id },
+        data: { description: mergedDescription },
+      });
+
+      // 6. 删除源维度（排除目标维度）
+      const sourceIdsToDelete = sourceDimensions
+        .filter((d) => d.id !== targetDimension.id)
+        .map((d) => d.id);
+
+      if (sourceIdsToDelete.length > 0) {
+        await this.prisma.topicDimension.deleteMany({
+          where: { id: { in: sourceIdsToDelete } },
+        });
+      }
+
+      const mergedNames = sourceDimensions.map((d) => d.name).join("、");
+      this.logger.log(
+        `[mergeDimensions] Successfully merged ${sourceDimensions.length} dimensions into "${targetDimension.name}"`,
+      );
+
+      return {
+        success: true,
+        action: LeaderActionType.MERGE_DIMENSIONS,
+        message: `已成功将「${mergedNames}」合并到「${targetDimension.name}」`,
+        data: {
+          targetDimensionId: targetDimension.id,
+          mergedCount: sourceDimensions.length,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`[mergeDimensions] Failed: ${error}`);
+      return {
+        success: false,
+        action: LeaderActionType.MERGE_DIMENSIONS,
+        message: `合并维度失败: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
   }
 
   /**

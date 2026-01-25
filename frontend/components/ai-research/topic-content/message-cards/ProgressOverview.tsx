@@ -57,7 +57,12 @@ export function ProgressOverview({
     for (const msg of messages) {
       if (msg.agentType === 'researcher' && msg.agent?.includes('研究员')) {
         const dimName = (msg.agent || '').replace('研究员', '').trim();
-        if (dimName && !dimensions.has(dimName)) {
+        // ★ Fix: 添加 isValidDimensionName 验证，过滤掉模型 ID
+        if (
+          dimName &&
+          isValidDimensionName(dimName) &&
+          !dimensions.has(dimName)
+        ) {
           const status = safeString(msg.content).includes('完成')
             ? 'completed'
             : 'in_progress';

@@ -17,6 +17,7 @@ import type {
   AIReportSynthesisResponse,
   DimensionAnalysisInput,
   EvidenceInput,
+  ReportChart,
 } from "../types/report.types";
 import {
   REPORT_SYNTHESIS_SYSTEM_PROMPT,
@@ -231,6 +232,7 @@ export class ReportSynthesisService {
         fullReport: synthesisResult.fullReport,
         highlights:
           synthesisResult.highlights as unknown as Prisma.InputJsonValue,
+        charts: synthesisResult.charts as unknown as Prisma.InputJsonValue,
         totalDimensions: dimensionAnalyses.length,
         totalSources,
         generationTimeMs,
@@ -382,7 +384,9 @@ export class ReportSynthesisService {
     });
 
     // 解析 AI 响应
-    const structuredReport = this.parseAIReportResponse(response.content);
+    const { structuredReport, charts } = this.parseAIReportWithCharts(
+      response.content,
+    );
 
     // 构建完整的 Markdown 报告
     const fullReport = this.buildFullReport(structuredReport);
@@ -398,14 +402,18 @@ export class ReportSynthesisService {
       fullReport,
       highlights,
       structuredReport,
+      charts,
     };
   }
 
   /**
-   * 解析 AI 报告响应
-   * 使用共享的 JSON 提取工具，支持截断修复
+   * 解析 AI 响应并提取图表
+   * ★ 新增：同时提取报告结构和图表数据
    */
-  private parseAIReportResponse(content: string): ComprehensiveReport {
+  private parseAIReportWithCharts(content: string): {
+    structuredReport: ComprehensiveReport;
+    charts: ReportChart[];
+  } {
     const extractionResult =
       extractJsonFromAIResponse<AIReportSynthesisResponse>(content, {
         requiredKey: "preface",
@@ -415,14 +423,28 @@ export class ReportSynthesisService {
       this.logger.debug(
         `Successfully extracted report JSON using method: ${extractionResult.method}`,
       );
-      return this.normalizeReportResponse(extractionResult.data);
+      const data = extractionResult.data;
+
+      // 提取图表数据
+      const charts: ReportChart[] = data.charts || [];
+      if (charts.length > 0) {
+        this.logger.log(`Extracted ${charts.length} charts from AI response`);
+      }
+
+      return {
+        structuredReport: this.normalizeReportResponse(data),
+        charts,
+      };
     }
 
     // 如果都失败，创建一个基础的报告结构
     this.logger.warn(
       `Failed to parse AI report response: ${extractionResult.error}`,
     );
-    return this.createFallbackReport(content);
+    return {
+      structuredReport: this.createFallbackReport(content),
+      charts: [],
+    };
   }
 
   /**

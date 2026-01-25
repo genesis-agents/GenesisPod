@@ -693,20 +693,30 @@ const LEADER_INTERVENE_PROMPT = `你是研究团队的 Leader，用户通过 @Le
 ## 用户指令
 {userMessage}
 
+## ⚠️ 核心规则 - 在输出前必须检查 ⚠️
+
+【规则1 - 维度拆分】仅当用户明确要求拆分时才创建多个维度：
+- 触发拆分的关键词：分别、各自、两个维度、三个维度、独立的、拆分成、分开创建
+- "分别研究 A 和 B" → 两个 action: {name: "A"}, {name: "B"}
+- "新增维度：AI芯片与中美竞争" → 一个 action: {name: "AI芯片与中美竞争"}（无拆分词，保持原样）
+- ❗ 没有明确拆分意图时，不要自作主张拆分
+
+【规则2 - 维度合并】用户说"合并 X 和 Y"或"把 X 并入 Y"时：
+- 输出 MERGE_DIMENSIONS action: {sourceDimensionNames: ["X"], targetDimensionName: "Y"}
+
+【规则3 - 删除必须执行】用户说"删除/取消/移除"时，必须输出 DELETE_DIMENSION action，不能只回复。
+
+【规则4 - 立即执行】不要说"我会做X"然后不执行，必须在 actions 数组中输出动作。
+
 ## 你的职责
 1. 准确理解用户的意图（注意：用户说"1"可能是指上一条消息中的选项1）
 2. 如果用户要求执行某个动作，你必须在 actions 数组中明确输出要执行的动作
 3. 立即执行，不要反复确认
 
-## 重要规则（必须严格遵守）
-- ★ 当用户说"新增 A 和 B"时，必须创建【两个独立的】维度，输出两个 CREATE_DIMENSION action
-- ★ 当用户说"删除/取消/移除 X"时，必须输出 DELETE_DIMENSION action，不要只是回复
-- 当用户回复数字（如"1"）时，这通常是对你上一条消息中选项的选择
-- 永远不要只是说"我会做X"而不实际执行——必须在 actions 数组中输出动作
-
 ## 可执行的动作类型
 - CREATE_DIMENSION: 创建新维度 (params: {name, description?})
 - DELETE_DIMENSION: 删除维度 (params: {dimensionName})
+- MERGE_DIMENSIONS: 合并维度 (params: {sourceDimensionNames: string[], targetDimensionName: string})
 - CANCEL_TASK: 取消任务 (params: {dimensionName 或 taskName})
 - UPDATE_DIMENSION: 更新维度 (params: {dimensionName, newName?, newDescription?})
 - NO_ACTION: 无需执行动作（仅回复）
@@ -1289,13 +1299,15 @@ export class ResearchLeaderService {
           let actionResult: LeaderActionResult;
 
           switch (actionType) {
-            case LeaderActionType.CREATE_DIMENSION:
+            case LeaderActionType.CREATE_DIMENSION: {
+              // 创建维度（拆分由 AI 根据用户明确意图决定，代码不强制拆分）
               actionResult = await this.leaderToolService.createDimension({
                 topicId,
                 name: params.name as string,
                 description: params.description as string | undefined,
               });
               break;
+            }
 
             case LeaderActionType.DELETE_DIMENSION:
               actionResult = await this.leaderToolService.deleteDimension({
@@ -1318,6 +1330,14 @@ export class ResearchLeaderService {
                 dimensionName: params.dimensionName as string,
                 newName: params.newName as string | undefined,
                 newDescription: params.newDescription as string | undefined,
+              });
+              break;
+
+            case LeaderActionType.MERGE_DIMENSIONS:
+              actionResult = await this.leaderToolService.mergeDimensions({
+                topicId,
+                sourceDimensionNames: params.sourceDimensionNames as string[],
+                targetDimensionName: params.targetDimensionName as string,
               });
               break;
 
@@ -1354,6 +1374,71 @@ export class ResearchLeaderService {
             message: `执行失败: ${error instanceof Error ? error.message : String(error)}`,
           });
         }
+      }
+    }
+
+    // ★ Fix: 代码级别的删除意图检测和强制执行
+    // 如果用户消息明确包含删除意图但 AI 没有输出 DELETE_DIMENSION action，强制执行
+    const deleteKeywords = ["删除", "移除", "取消", "去掉", "不要"];
+    const hasDeleteIntent = deleteKeywords.some((kw) =>
+      sanitizedMessage.includes(kw),
+    );
+    const hasDeleteAction = actionResults.some(
+      (r) => r.action === LeaderActionType.DELETE_DIMENSION,
+    );
+
+    if (hasDeleteIntent && !hasDeleteAction) {
+      this.logger.warn(
+        `[handleUserMessage] Detected delete intent but no DELETE_DIMENSION action, attempting fallback delete`,
+      );
+
+      // 尝试从消息中提取维度名称
+      // 模式: "删除维度：X" / "删除 X 维度" / "把 X 删除" / "删除「X」"
+      const dimensionPatterns = [
+        /删除[维度章节]*[：:「\s]*([^」\s,，。]+)/,
+        /移除[维度章节]*[：:「\s]*([^」\s,，。]+)/,
+        /把[「\s]*([^」\s,，。]+)[」\s]*删除/,
+        /不要[「\s]*([^」\s,，。]+)/,
+        /取消[「\s]*([^」\s,，。]+)/,
+      ];
+
+      let extractedDimensionName: string | null = null;
+      for (const pattern of dimensionPatterns) {
+        const match = sanitizedMessage.match(pattern);
+        if (match && match[1]) {
+          extractedDimensionName = match[1].replace(/[「」]/g, "").trim();
+          break;
+        }
+      }
+
+      if (extractedDimensionName) {
+        this.logger.log(
+          `[handleUserMessage] Fallback: Attempting to delete dimension "${extractedDimensionName}"`,
+        );
+
+        try {
+          const deleteResult = await this.leaderToolService.deleteDimension({
+            topicId,
+            dimensionName: extractedDimensionName,
+          });
+          actionResults.push(deleteResult);
+
+          if (deleteResult.success) {
+            this.logger.log(
+              `[handleUserMessage] Fallback delete successful: ${deleteResult.message}`,
+            );
+            // 更新响应以反映删除操作
+            result.response = deleteResult.message;
+          }
+        } catch (error) {
+          this.logger.error(
+            `[handleUserMessage] Fallback delete failed: ${error}`,
+          );
+        }
+      } else {
+        this.logger.warn(
+          `[handleUserMessage] Could not extract dimension name from delete intent`,
+        );
       }
     }
 

@@ -117,6 +117,59 @@ export interface ReportHighlight {
   dimensionName: string;
 }
 
+// ==================== Report Chart Types ====================
+
+/**
+ * 图表数据点
+ */
+export interface ChartDataPoint {
+  /** X轴标签 */
+  label: string;
+  /** 数值 */
+  value: number;
+  /** 系列名称（多系列时使用） */
+  series?: string;
+  /** 额外数据 */
+  extra?: Record<string, unknown>;
+}
+
+/**
+ * 图表类型
+ */
+export type ChartType = "line" | "bar" | "area" | "pie" | "radar" | "composed";
+
+/**
+ * 报告图表
+ */
+export interface ReportChart {
+  /** 图表ID */
+  id: string;
+  /** 图表类型 */
+  type: ChartType;
+  /** 图表标题 */
+  title: string;
+  /** 图表描述 */
+  description?: string;
+  /** 数据 */
+  data: ChartDataPoint[];
+  /** X轴配置 */
+  xAxis?: {
+    label: string;
+    type?: "category" | "number" | "time";
+  };
+  /** Y轴配置 */
+  yAxis?: {
+    label: string;
+    unit?: string;
+    min?: number;
+    max?: number;
+  };
+  /** 数据来源 */
+  source?: string;
+  /** 关联的章节ID */
+  sectionId?: string;
+}
+
 // ==================== AI Response Types ====================
 
 /**
@@ -129,6 +182,7 @@ export interface AIReportSynthesisResponse {
   sections: ReportSection[];
   conclusion: string;
   appendices: ReportAppendix[];
+  charts?: ReportChart[];
   references: Array<{
     index: number;
     title: string;
@@ -208,4 +262,6 @@ export interface ReportSynthesisResult {
   highlights: ReportHighlight[];
   /** 结构化报告数据 */
   structuredReport: ComprehensiveReport;
+  /** 图表数据 */
+  charts: ReportChart[];
 }
