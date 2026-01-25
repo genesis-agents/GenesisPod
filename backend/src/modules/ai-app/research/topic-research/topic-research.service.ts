@@ -2240,32 +2240,43 @@ export class TopicResearchService {
 
   /**
    * 更新专题可见性
-   * 注意：需要运行数据库迁移后此功能才能正常工作
+   * ★ 修复：使用 Prisma update 替代 raw SQL，确保更新成功
    */
   async updateVisibility(
     userId: string,
     topicId: string,
     visibility: string,
   ): Promise<{ success: boolean; visibility: string }> {
+    this.logger.log(
+      `[updateVisibility] 更新专题 ${topicId} 可见性为 ${visibility}`,
+    );
+
     // 验证所有者权限
     const topic = await this.prisma.researchTopic.findFirst({
       where: { id: topicId, userId },
     });
 
     if (!topic) {
+      this.logger.warn(
+        `[updateVisibility] 专题 ${topicId} 不存在或用户 ${userId} 无权修改`,
+      );
       throw new NotFoundException("专题不存在或无权修改");
     }
 
-    // 使用 $executeRaw 直接更新，因为 Prisma 客户端可能尚未包含新字段
-    await this.prisma.$executeRaw`
-      UPDATE research_topics
-      SET visibility = ${visibility}::"TopicVisibility"
-      WHERE id = ${topicId}
-    `;
+    // 使用 Prisma update 替代 raw SQL，确保类型安全
+    const updatedTopic = await this.prisma.researchTopic.update({
+      where: { id: topicId },
+      data: {
+        visibility: visibility as "PRIVATE" | "SHARED" | "PUBLIC",
+      },
+      select: { id: true, name: true, visibility: true },
+    });
 
-    this.logger.log(`专题 ${topicId} 可见性更新为 ${visibility}`);
+    this.logger.log(
+      `[updateVisibility] 专题 "${updatedTopic.name}" (${topicId}) 可见性已更新为 ${updatedTopic.visibility}`,
+    );
 
-    return { success: true, visibility };
+    return { success: true, visibility: updatedTopic.visibility };
   }
 
   /**
@@ -2320,37 +2331,12 @@ export class TopicResearchService {
 
   /**
    * 获取公开的专题详情（无需认证）
+   * ★ 优化：使用 Prisma 直接查询，确保返回完整数据
    */
   async getSharedTopic(topicId: string) {
-    this.logger.debug(`[getSharedTopic] Fetching topic ${topicId}`);
+    this.logger.log(`[getSharedTopic] 获取公开专题 ${topicId}`);
 
-    // 检查专题是否存在且为公开
-    const result = await this.prisma.$queryRaw<
-      { id: string; visibility: string }[]
-    >`
-      SELECT id, visibility FROM research_topics WHERE id = ${topicId}
-    `;
-
-    if (!result.length) {
-      this.logger.log(`[getSharedTopic] Topic ${topicId} not found`);
-      throw new NotFoundException("Topic not found");
-    }
-
-    const visibility = result[0].visibility;
-    this.logger.debug(
-      `[getSharedTopic] Topic ${topicId} visibility: ${visibility}`,
-    );
-
-    if (visibility !== "PUBLIC") {
-      this.logger.log(
-        `[getSharedTopic] Topic ${topicId} is not public, rejecting access`,
-      );
-      throw new NotFoundException("Topic not found or not publicly accessible");
-    }
-
-    this.logger.debug(`[getSharedTopic] Topic ${topicId} is public`);
-
-    // 获取专题详情（不验证用户）
+    // 直接查询专题（包含 visibility 检查）
     const topic = await this.prisma.researchTopic.findUnique({
       where: { id: topicId },
       include: {
@@ -2361,7 +2347,19 @@ export class TopicResearchService {
     });
 
     if (!topic) {
+      this.logger.warn(`[getSharedTopic] 专题 ${topicId} 不存在`);
       throw new NotFoundException("Topic not found");
+    }
+
+    this.logger.debug(
+      `[getSharedTopic] 专题 "${topic.name}" 可见性: ${topic.visibility}`,
+    );
+
+    if (topic.visibility !== "PUBLIC") {
+      this.logger.warn(
+        `[getSharedTopic] 专题 "${topic.name}" (${topicId}) 不是公开的，拒绝访问`,
+      );
+      throw new NotFoundException("Topic not found or not publicly accessible");
     }
 
     // 获取报告统计
@@ -2379,30 +2377,44 @@ export class TopicResearchService {
       }),
     ]);
 
-    return {
+    const result = {
       ...topic,
       totalReports: reportCount,
       totalSources: latestReport?.totalSources || topic.totalSources || 0,
       lastRefreshAt: latestReport?.generatedAt || topic.lastRefreshAt,
     };
+
+    this.logger.log(
+      `[getSharedTopic] 返回专题 "${topic.name}", ${reportCount} 份报告, ${result.totalSources} 个来源`,
+    );
+
+    return result;
   }
 
   /**
    * 获取公开专题的最新报告（无需认证）
+   * ★ 优化：增强日志和错误处理
    */
   async getSharedTopicLatestReport(topicId: string) {
-    // 检查专题是否存在且为公开
-    const result = await this.prisma.$queryRaw<
-      { id: string; visibility: string }[]
-    >`
-      SELECT id, visibility FROM research_topics WHERE id = ${topicId}
-    `;
+    this.logger.log(
+      `[getSharedTopicLatestReport] 获取专题 ${topicId} 的最新报告`,
+    );
 
-    if (!result.length) {
+    // 检查专题是否存在且为公开
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: topicId },
+      select: { id: true, name: true, visibility: true },
+    });
+
+    if (!topic) {
+      this.logger.warn(`[getSharedTopicLatestReport] 专题 ${topicId} 不存在`);
       throw new NotFoundException("Topic not found");
     }
 
-    if (result[0].visibility !== "PUBLIC") {
+    if (topic.visibility !== "PUBLIC") {
+      this.logger.warn(
+        `[getSharedTopicLatestReport] 专题 "${topic.name}" 不是公开的`,
+      );
       throw new NotFoundException("Topic not found or not publicly accessible");
     }
 
@@ -2440,8 +2452,17 @@ export class TopicResearchService {
     });
 
     if (!report) {
+      this.logger.warn(
+        `[getSharedTopicLatestReport] 专题 "${topic.name}" 没有报告`,
+      );
       throw new NotFoundException("No reports found for this topic");
     }
+
+    this.logger.log(
+      `[getSharedTopicLatestReport] 返回报告 v${report.version}, ` +
+        `${report.dimensionAnalyses?.length || 0} 个维度分析, ` +
+        `executiveSummary: ${report.executiveSummary?.length || 0} 字符`,
+    );
 
     // 转换报告数据，提取 dataPoints 中的字段到顶层
     return this.transformReportForFrontend(report);

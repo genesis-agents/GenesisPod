@@ -45,6 +45,8 @@ export interface CleanupPolicyDto {
   threshold?: number;
   condition?: string;
   description?: string;
+  /** Date field to use for threshold comparison (defaults to created_at) */
+  dateField?: string;
 }
 
 /**

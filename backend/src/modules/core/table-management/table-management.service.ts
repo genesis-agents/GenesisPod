@@ -171,6 +171,7 @@ const CLEANUP_POLICIES: Record<string, CleanupPolicyDto> = {
     field: "status",
     condition: "COMPLETED OR FAILED",
     threshold: 7,
+    dateField: "created_at",
     description: "Delete completed/failed tasks older than 7 days",
   },
   import_tasks: {
@@ -178,6 +179,7 @@ const CLEANUP_POLICIES: Record<string, CleanupPolicyDto> = {
     field: "status",
     condition: "SUCCESS OR FAILED",
     threshold: 7,
+    dateField: "createdAt", // Note: ImportTask model uses camelCase column names (no @map in schema)
     description: "Delete completed/failed import tasks older than 7 days",
   },
   user_activities: {
@@ -928,10 +930,11 @@ export class TableManagementService {
         deletedCount = result;
       } else if (policy.type === "status" && policy.field && policy.condition) {
         const conditions = policy.condition.split(" OR ").map((s) => s.trim());
+        const dateField = policy.dateField || "created_at";
         const result = await this.prisma.$executeRawUnsafe(`
           DELETE FROM "${tableName}"
           WHERE "${policy.field}" IN (${conditions.map((c) => `'${c}'`).join(", ")})
-          ${policy.threshold ? `AND created_at < NOW() - INTERVAL '${policy.threshold} days'` : ""}
+          ${policy.threshold ? `AND "${dateField}" < NOW() - INTERVAL '${policy.threshold} days'` : ""}
         `);
         deletedCount = result;
       }
