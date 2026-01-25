@@ -54,6 +54,12 @@ export function VersionTabs({
     SocialPlatformType | 'all' | null
   >(null);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Set mounted state to avoid hydration mismatch with date formatting
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Load versions
   const loadVersions = useCallback(async () => {
@@ -305,7 +311,7 @@ export function VersionTabs({
                 )}
               </span>
             )}
-            {version && (
+            {version && mounted && (
               <span className="ml-auto text-gray-400">
                 {version.generatedBy === 'AI' ? 'AI 生成' : '手动编辑'} ·{' '}
                 {new Date(version.updatedAt).toLocaleString('zh-CN', {
