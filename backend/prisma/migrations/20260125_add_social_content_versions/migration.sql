@@ -1,7 +1,7 @@
 -- CreateTable
 CREATE TABLE "social_content_versions" (
-    "id" TEXT NOT NULL,
-    "content_id" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "content_id" UUID NOT NULL,
     "platform_type" "SocialPlatformType" NOT NULL,
     "title" VARCHAR(200) NOT NULL,
     "content" TEXT NOT NULL,
