@@ -283,11 +283,12 @@ export function ContentEditor() {
     }
   };
 
-  // Auto-generate on mount if not manual
+  // Auto-generate on mount if not manual, or mark as generated if editing existing content
   useEffect(() => {
     if (!hasGenerated && sourceType !== 'MANUAL' && !title && !content) {
       handleGenerate();
-    } else if (sourceType === 'MANUAL') {
+    } else if (sourceType === 'MANUAL' || title || content) {
+      // Manual mode or editing existing content - mark as generated
       setHasGenerated(true);
     }
   }, []);
