@@ -430,14 +430,67 @@ export class ReportSynthesisService {
 
   /**
    * 标准化报告响应
+   * ★ v2.0: 处理结构化 executiveSummary 对象
    */
   private normalizeReportResponse(
     parsed: AIReportSynthesisResponse,
   ): ComprehensiveReport {
+    // ★ v2.0: executiveSummary 可能是对象或字符串
+    // 如果是对象（v2.0 格式），提取 fullText 作为字符串存储
+    let executiveSummary = "";
+    if (
+      typeof parsed.executiveSummary === "object" &&
+      parsed.executiveSummary !== null
+    ) {
+      // v2.0 格式：使用 fullText，或者组装成 Markdown
+      const esObj = parsed.executiveSummary as {
+        coreConclusions?: string[];
+        keyMetrics?: Array<{ metric: string; value: string; source: string }>;
+        riskAlerts?: string[];
+        actionItems?: string[];
+        fullText?: string;
+      };
+      if (esObj.fullText) {
+        executiveSummary = esObj.fullText;
+      } else {
+        // 如果没有 fullText，从结构化字段组装
+        const parts: string[] = [];
+        if (esObj.coreConclusions?.length) {
+          parts.push(
+            "## 核心结论\n" +
+              esObj.coreConclusions.map((c, i) => `${i + 1}. ${c}`).join("\n"),
+          );
+        }
+        if (esObj.keyMetrics?.length) {
+          parts.push(
+            "\n## 关键数据\n| 指标 | 数值 | 来源 |\n|------|------|------|\n" +
+              esObj.keyMetrics
+                .map((m) => `| ${m.metric} | ${m.value} | ${m.source} |`)
+                .join("\n"),
+          );
+        }
+        if (esObj.riskAlerts?.length) {
+          parts.push(
+            "\n## 风险提示\n" +
+              esObj.riskAlerts.map((r) => `- ⚠️ ${r}`).join("\n"),
+          );
+        }
+        if (esObj.actionItems?.length) {
+          parts.push(
+            "\n## 行动建议\n" +
+              esObj.actionItems.map((a) => `- ✅ ${a}`).join("\n"),
+          );
+        }
+        executiveSummary = parts.join("\n") || "";
+      }
+    } else {
+      executiveSummary = (parsed.executiveSummary as string) || "";
+    }
+
     return {
       preface: parsed.preface || "",
       tableOfContents: parsed.tableOfContents || "",
-      executiveSummary: parsed.executiveSummary || "",
+      executiveSummary,
       sections: parsed.sections || [],
       conclusion: parsed.conclusion || "",
       appendices: parsed.appendices || [],
