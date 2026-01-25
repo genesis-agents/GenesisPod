@@ -177,15 +177,27 @@ export const CONTENT_LIMITS = {
   // 摘要最大长度
   DIGEST_MAX_LENGTH: 500,
   // 正文最大长度（不同平台有不同限制）
-  // 注意：微信公众号实际限制约 10000 字符，保守设置避免 API 报错
+  // 注意：微信公众号正文无明确限制，但标题限64字节、摘要限120字
   CONTENT_MAX_LENGTH: {
-    XIAOHONGSHU: 1000,
+    XIAOHONGSHU: 1000, // 小红书笔记最多1000字
     WEIBO: 2000,
-    WECHAT: 10000, // 微信公众号实际限制，避免 64705 错误
-    WECHAT_ARTICLE: 10000,
+    WECHAT: 50000, // 微信公众号正文无明确限制
+    WECHAT_ARTICLE: 50000,
     TWITTER: 280,
     LINKEDIN: 3000,
-    DEFAULT: 10000,
+    DEFAULT: 20000,
+  },
+  // 标题最大长度（按平台）
+  TITLE_MAX_LENGTH_BY_PLATFORM: {
+    WECHAT: 30, // 64字节 ≈ 32汉字，保守取30
+    XIAOHONGSHU: 20,
+    DEFAULT: 200,
+  },
+  // 摘要/描述最大长度（按平台）
+  DIGEST_MAX_LENGTH_BY_PLATFORM: {
+    WECHAT: 120,
+    XIAOHONGSHU: 100,
+    DEFAULT: 500,
   },
   // 标签数量限制
   MAX_TAGS: 20,

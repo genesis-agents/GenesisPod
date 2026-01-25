@@ -58,19 +58,19 @@ export class XiaohongshuAdapter {
         await this.uploadImages(page, content.images);
       }
 
-      // 5. 填写内容（截断超长内容）
+      // 5. 填写内容（小红书限制1000字，超长时返回错误让用户编辑）
       const maxLength = CONTENT_LIMITS.CONTENT_MAX_LENGTH.XIAOHONGSHU;
-      let truncatedContent = content;
       if (content.content && content.content.length > maxLength) {
-        this.logger.warn(
-          `Content exceeds Xiaohongshu limit (${content.content.length} > ${maxLength}), truncating...`,
+        const currentLength = content.content.length;
+        this.logger.error(
+          `Content exceeds Xiaohongshu limit: ${currentLength} > ${maxLength}`,
         );
-        truncatedContent = {
-          ...content,
-          content: content.content.slice(0, maxLength - 50) + "...",
+        return {
+          success: false,
+          errorMessage: `内容超出小红书字数限制（当前 ${currentLength} 字，限制 ${maxLength} 字）。请编辑缩短内容后重试。`,
         };
       }
-      await this.fillContent(page, truncatedContent);
+      await this.fillContent(page, content);
 
       // 6. 发布（或保存草稿）
       const result = await this.submitPost(page, false); // false = 保存草稿

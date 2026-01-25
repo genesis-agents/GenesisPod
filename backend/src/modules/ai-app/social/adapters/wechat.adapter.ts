@@ -4,7 +4,6 @@ import { PublishResult } from "../services/publish-executor.service";
 import { SocialContent, SocialPlatformConnection } from "../types";
 import { decryptSession } from "../utils/session-crypto";
 import { SessionData } from "../types/platform.types";
-import { CONTENT_LIMITS } from "../utils/url-validator";
 
 @Injectable()
 export class WechatAdapter {
@@ -438,21 +437,10 @@ export class WechatAdapter {
         };
       }
 
-      // Step 8: 填写内容（截断超长内容避免 API 64705 错误）
-      const maxLength = CONTENT_LIMITS.CONTENT_MAX_LENGTH.WECHAT;
-      let truncatedContent = content;
-      if (content.content && content.content.length > maxLength) {
-        this.logger.warn(
-          `Content exceeds WeChat limit (${content.content.length} > ${maxLength}), truncating...`,
-        );
-        truncatedContent = {
-          ...content,
-          content:
-            content.content.slice(0, maxLength - 100) + "\n\n...(内容已截断)",
-        };
-      }
+      // Step 8: 处理字段长度限制（微信公众号：标题64字节/32汉字，摘要120字，正文无限制）
+      const processedContent = this.truncateFieldsForWechat(content);
       this.logger.log("Filling content...");
-      await this.fillContent(page, truncatedContent);
+      await this.fillContent(page, processedContent);
       this.logger.log("Content filled successfully");
 
       // Step 9: 保存为草稿
@@ -496,6 +484,37 @@ export class WechatAdapter {
     } finally {
       await this.playwright.closeContext(contextId);
     }
+  }
+
+  /**
+   * 截断字段以符合微信公众号限制
+   * - 标题：64字节（约32汉字）
+   * - 摘要：120字
+   * - 正文：无限制
+   */
+  private truncateFieldsForWechat(content: SocialContent): SocialContent {
+    const result = { ...content };
+
+    // 标题限制：64字节 ≈ 32汉字（保守估计，1汉字=2字节）
+    if (result.title && result.title.length > 30) {
+      const originalLength = result.title.length;
+      result.title = result.title.slice(0, 30) + "...";
+      this.logger.warn(
+        `Title truncated: ${originalLength} -> ${result.title.length} chars`,
+      );
+    }
+
+    // 摘要限制：120字
+    if (result.digest && result.digest.length > 117) {
+      const originalLength = result.digest.length;
+      result.digest = result.digest.slice(0, 117) + "...";
+      this.logger.warn(
+        `Digest truncated: ${originalLength} -> ${result.digest.length} chars`,
+      );
+    }
+
+    // 正文：微信公众号无明确限制，不截断
+    return result;
   }
 
   /**
