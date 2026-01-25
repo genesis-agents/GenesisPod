@@ -121,6 +121,9 @@ export class PublishExecutorService {
       });
 
       // 获取平台适配版本内容
+      this.logger.log(
+        `Fetching version for content ${contentId}, platform: ${connection.platformType}`,
+      );
       const versionData = await this.contentVersionService.getVersionForPublish(
         contentId,
         connection.platformType,
@@ -136,9 +139,12 @@ export class PublishExecutorService {
           }
         : content;
 
+      // 详细日志：版本内容 vs 原始内容
       this.logger.log(
-        `Publishing content ${contentId} to ${connection.platformType}, ` +
-          `using ${versionData ? "platform version" : "original content"}`,
+        `Publishing content ${contentId} to ${connection.platformType}: ` +
+          `version=${versionData ? "YES" : "NO"}, ` +
+          `title=${publishContent.title.length}字, ` +
+          `content=${publishContent.content.length}字`,
       );
 
       let result: PublishResult;
