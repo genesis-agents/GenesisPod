@@ -233,10 +233,19 @@ export class DimensionMissionService {
       );
 
       // ★ 记录搜索完成并保存搜索结果
-      // 计算时效性信息
+      // 计算时效性信息 - 安全解析日期
       const publishedDates = enrichedResults
-        .map((item) => item.publishedAt)
-        .filter((d): d is Date => d instanceof Date && !isNaN(d.getTime()))
+        .map((item) => {
+          if (!item.publishedAt) return null;
+          // 处理 Date 对象或字符串
+          const d =
+            item.publishedAt instanceof Date
+              ? item.publishedAt
+              : new Date(item.publishedAt);
+          // 验证日期有效性
+          return !isNaN(d.getTime()) ? d : null;
+        })
+        .filter((d): d is Date => d !== null)
         .sort((a, b) => b.getTime() - a.getTime());
 
       const freshnessInfo =
@@ -267,13 +276,30 @@ export class DimensionMissionService {
         query: searchResult.metadata?.searchQuery || dimension.name, // 搜索查询
         searchedAt: new Date().toISOString(), // 搜索时间
         freshnessInfo, // 时效性信息
-        sources: enrichedResults.slice(0, 20).map((item) => ({
-          title: item.title || "未知标题",
-          url: item.url || "",
-          domain: item.domain,
-          sourceType: String(item.sourceType),
-          publishedDate: item.publishedAt?.toISOString(), // 发布日期
-        })),
+        sources: enrichedResults.slice(0, 20).map((item) => {
+          // 安全解析发布日期
+          let publishedDate: string | undefined;
+          if (item.publishedAt) {
+            try {
+              const d =
+                item.publishedAt instanceof Date
+                  ? item.publishedAt
+                  : new Date(item.publishedAt);
+              if (!isNaN(d.getTime())) {
+                publishedDate = d.toISOString();
+              }
+            } catch {
+              // 忽略无效日期
+            }
+          }
+          return {
+            title: item.title || "未知标题",
+            url: item.url || "",
+            domain: item.domain,
+            sourceType: String(item.sourceType),
+            publishedDate,
+          };
+        }),
       };
 
       await this.agentActivity.endThinkingPhase(

@@ -359,14 +359,24 @@ function ThinkingPhasesTimeline({
                           天前
                         </span>
                       )}
-                      {activity.searchResults.freshnessInfo.newestDate && (
-                        <span className="text-green-600 dark:text-green-400">
-                          最新:{' '}
-                          {new Date(
-                            activity.searchResults.freshnessInfo.newestDate
-                          ).toLocaleDateString('zh-CN')}
-                        </span>
-                      )}
+                      {activity.searchResults.freshnessInfo.newestDate &&
+                        (() => {
+                          try {
+                            const d = new Date(
+                              activity.searchResults.freshnessInfo.newestDate
+                            );
+                            if (!isNaN(d.getTime())) {
+                              return (
+                                <span className="text-green-600 dark:text-green-400">
+                                  最新: {d.toLocaleDateString('zh-CN')}
+                                </span>
+                              );
+                            }
+                          } catch {
+                            // 忽略无效日期
+                          }
+                          return null;
+                        })()}
                     </div>
                   )}
 
