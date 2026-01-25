@@ -122,6 +122,7 @@ export interface TopicDimension {
 
 /**
  * 研究报告
+ * v2.0 - 增强版报告结构
  */
 export interface TopicReport {
   id: string;
@@ -129,7 +130,7 @@ export interface TopicReport {
   version: number;
   title: string | null;
   summary: string | null;
-  executiveSummary?: string; // 执行摘要
+  executiveSummary?: string; // 执行摘要（兼容旧版，字符串格式）
   fullReport?: string; // 完整报告（Markdown）
   highlights: ReportHighlight[] | null;
   totalSources: number;
@@ -140,6 +141,187 @@ export interface TopicReport {
   // Relations
   dimensionAnalyses?: DimensionAnalysis[];
   evidence?: TopicEvidence[];
+
+  // ========== v2.0 增强字段 ==========
+  /** 结构化执行摘要 */
+  executiveSummaryV2?: ExecutiveSummaryV2;
+  /** 跨维度关联分析 */
+  crossDimensionAnalysis?: CrossDimensionAnalysis;
+  /** 风险评估 */
+  riskAssessment?: RiskAssessment;
+  /** 战略建议 */
+  strategicRecommendations?: StrategicRecommendations;
+  /** 数据来源说明 */
+  dataSourceNotes?: string;
+  /** 图表数据 */
+  charts?: ReportChart[];
+}
+
+/**
+ * v2.0 结构化执行摘要
+ */
+export interface ExecutiveSummaryV2 {
+  /** 核心结论（3-5条一句话结论） */
+  coreConclusions: string[];
+  /** 关键数据点 */
+  keyMetrics: Array<{
+    metric: string;
+    value: string;
+    source: string;
+  }>;
+  /** 风险提示 */
+  riskAlerts: string[];
+  /** 行动建议 */
+  actionItems: string[];
+  /** 完整文本 */
+  fullText: string;
+}
+
+/**
+ * 跨维度关联分析
+ */
+export interface CrossDimensionAnalysis {
+  title: string;
+  /** 因果链 */
+  causalChains: Array<{
+    chain: string;
+    explanation: string;
+    timeframe: string;
+  }>;
+  /** 关键联动点 */
+  keyLinkages: Array<{
+    dimensions: string[];
+    relationship: string;
+    impact: string;
+  }>;
+  fullText: string;
+}
+
+/**
+ * 风险评估
+ */
+export interface RiskAssessment {
+  title: string;
+  /** 风险矩阵 */
+  riskMatrix: Array<{
+    riskType: string;
+    probability: '高' | '中' | '低';
+    impact: '高' | '中' | '低';
+    timeframe: '短期' | '中期' | '长期';
+    indicators: string;
+    mitigation: string;
+  }>;
+  fullText: string;
+}
+
+/**
+ * 战略建议
+ */
+export interface StrategicRecommendations {
+  title: string;
+  /** 对企业决策者 */
+  forEnterprise: {
+    shortTerm: string[];
+    midTerm: string[];
+  };
+  /** 对投资者 */
+  forInvestors: {
+    opportunities: string[];
+    risks: string[];
+  };
+  /** 对政策研究者 */
+  forPolicymakers: {
+    keyObservations: string[];
+  };
+  fullText: string;
+}
+
+// ========== 图表数据类型 ==========
+
+/**
+ * 图表类型
+ */
+export type ChartType = 'line' | 'bar' | 'area' | 'pie' | 'radar' | 'composed';
+
+/**
+ * 图表数据点
+ */
+export interface ChartDataPoint {
+  /** X轴标签（通常是时间或类别） */
+  label: string;
+  /** 数值 */
+  value: number;
+  /** 系列名称（用于多系列图表） */
+  series?: string;
+  /** 额外数据 */
+  extra?: Record<string, unknown>;
+}
+
+/**
+ * 图表配置
+ */
+export interface ReportChart {
+  /** 图表ID */
+  id: string;
+  /** 图表类型 */
+  type: ChartType;
+  /** 图表标题 */
+  title: string;
+  /** 图表描述 */
+  description?: string;
+  /** 数据 */
+  data: ChartDataPoint[];
+  /** X轴配置 */
+  xAxis?: {
+    label: string;
+    type?: 'category' | 'number' | 'time';
+  };
+  /** Y轴配置 */
+  yAxis?: {
+    label: string;
+    unit?: string;
+    min?: number;
+    max?: number;
+  };
+  /** 系列配置（多系列图表） */
+  series?: Array<{
+    name: string;
+    color?: string;
+  }>;
+  /** 数据来源 */
+  source?: string;
+  /** 关联的章节ID */
+  sectionId?: string;
+}
+
+/**
+ * 风险矩阵图表数据（特殊类型）
+ */
+export interface RiskMatrixChart {
+  id: string;
+  type: 'risk-matrix';
+  title: string;
+  data: Array<{
+    risk: string;
+    probability: number; // 0-100
+    impact: number; // 0-100
+    category?: string;
+  }>;
+}
+
+/**
+ * 时间轴图表数据（特殊类型）
+ */
+export interface TimelineChart {
+  id: string;
+  type: 'timeline';
+  title: string;
+  data: Array<{
+    date: string;
+    event: string;
+    description?: string;
+    category?: string;
+  }>;
 }
 
 /**

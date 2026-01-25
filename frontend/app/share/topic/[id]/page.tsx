@@ -18,10 +18,15 @@ import type {
   ResearchTopic,
   TopicReport,
   DimensionAnalysis,
+  ReportChart,
 } from '@/types/topic-research';
 import { ResearchTopicType } from '@/types/topic-research';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import {
+  ReportChartRenderer,
+  RiskMatrixRenderer,
+} from '@/components/ai-research/charts/ReportChartRenderer';
 
 // Icons
 const LoaderIcon = ({ className }: { className?: string }) => (
@@ -77,24 +82,42 @@ const topicTypeConfig: Record<
   },
 };
 
-// ★ 目录项类型
+// ★ 目录项类型（v2.0 增强）
 interface TocItem {
   id: string;
   title: string;
-  type: 'overview' | 'highlights' | 'dimension';
+  type:
+    | 'executive-summary'
+    | 'overview'
+    | 'highlights'
+    | 'dimension'
+    | 'cross-dimension'
+    | 'risk-assessment'
+    | 'strategic-recommendations'
+    | 'data-visualization';
   analysis?: DimensionAnalysis;
+  charts?: ReportChart[];
 }
 
-// ★ 生成目录结构
+// ★ 生成目录结构（v2.0 增强）
 function generateToc(report: TopicReport): TocItem[] {
   const items: TocItem[] = [];
 
-  // 概览（如果有标题或摘要）
-  if (report.title || report.summary) {
-    items.push({ id: 'overview', title: '概览', type: 'overview' });
+  // 1. 执行摘要（v2.0 新增，最重要）
+  if (report.executiveSummaryV2?.fullText || report.executiveSummary) {
+    items.push({
+      id: 'executive-summary',
+      title: '执行摘要',
+      type: 'executive-summary',
+    });
   }
 
-  // 核心发现
+  // 2. 概览（如果有标题或摘要）
+  if (report.title || report.summary) {
+    items.push({ id: 'overview', title: '研究概览', type: 'overview' });
+  }
+
+  // 3. 核心发现
   if (report.highlights && report.highlights.length > 0) {
     const validHighlights = report.highlights.filter(
       (h) => h.content && h.content.trim().length > 20
@@ -104,7 +127,7 @@ function generateToc(report: TopicReport): TocItem[] {
     }
   }
 
-  // 维度分析
+  // 4. 维度分析
   if (report.dimensionAnalyses && report.dimensionAnalyses.length > 0) {
     report.dimensionAnalyses.forEach((analysis) => {
       const content = analysis.detailedContent || analysis.summary;
@@ -121,11 +144,103 @@ function generateToc(report: TopicReport): TocItem[] {
     });
   }
 
+  // 5. 跨维度关联分析（v2.0 新增）
+  if (report.crossDimensionAnalysis?.fullText) {
+    items.push({
+      id: 'cross-dimension',
+      title: '跨维度关联',
+      type: 'cross-dimension',
+    });
+  }
+
+  // 6. 风险评估（v2.0 新增）
+  if (
+    report.riskAssessment?.fullText ||
+    report.riskAssessment?.riskMatrix?.length
+  ) {
+    items.push({
+      id: 'risk-assessment',
+      title: '风险评估',
+      type: 'risk-assessment',
+    });
+  }
+
+  // 7. 战略建议（v2.0 新增）
+  if (report.strategicRecommendations?.fullText) {
+    items.push({
+      id: 'strategic-recommendations',
+      title: '战略建议',
+      type: 'strategic-recommendations',
+    });
+  }
+
+  // 8. 数据可视化（v2.0 新增）
+  if (report.charts && report.charts.length > 0) {
+    items.push({
+      id: 'data-visualization',
+      title: '数据可视化',
+      type: 'data-visualization',
+      charts: report.charts,
+    });
+  }
+
   return items;
 }
 
-// ★ 生成单个章节内容
+// ★ 生成单个章节内容（v2.0 增强）
 function generateSectionContent(report: TopicReport, section: TocItem): string {
+  // 1. 执行摘要（v2.0 新增）
+  if (section.type === 'executive-summary') {
+    // 优先使用 v2.0 结构化摘要
+    if (report.executiveSummaryV2) {
+      const es = report.executiveSummaryV2;
+      const parts: string[] = [];
+
+      // 核心结论
+      if (es.coreConclusions?.length > 0) {
+        parts.push('## 核心结论\n\n');
+        es.coreConclusions.forEach((c, i) => {
+          parts.push(`${i + 1}. **${c}**\n`);
+        });
+        parts.push('\n');
+      }
+
+      // 关键数据
+      if (es.keyMetrics?.length > 0) {
+        parts.push('## 关键数据\n\n');
+        parts.push('| 指标 | 数值 | 来源 |\n');
+        parts.push('|------|------|------|\n');
+        es.keyMetrics.forEach((m) => {
+          parts.push(`| ${m.metric} | ${m.value} | ${m.source} |\n`);
+        });
+        parts.push('\n');
+      }
+
+      // 风险提示
+      if (es.riskAlerts?.length > 0) {
+        parts.push('## 风险提示\n\n');
+        es.riskAlerts.forEach((r) => {
+          parts.push(`- ⚠️ ${r}\n`);
+        });
+        parts.push('\n');
+      }
+
+      // 行动建议
+      if (es.actionItems?.length > 0) {
+        parts.push('## 行动建议\n\n');
+        es.actionItems.forEach((a) => {
+          parts.push(`- ✅ ${a}\n`);
+        });
+        parts.push('\n');
+      }
+
+      return parts.join('') || es.fullText || '暂无执行摘要';
+    }
+    // 兼容旧版
+    return report.executiveSummary || '暂无执行摘要';
+  }
+
+  // 2. 概览
   if (section.type === 'overview') {
     const parts: string[] = [];
     if (report.title) {
@@ -137,6 +252,7 @@ function generateSectionContent(report: TopicReport, section: TocItem): string {
     return parts.join('') || '暂无概览内容';
   }
 
+  // 3. 核心发现
   if (section.type === 'highlights') {
     const parts: string[] = [];
     if (report.highlights && report.highlights.length > 0) {
@@ -153,13 +269,150 @@ function generateSectionContent(report: TopicReport, section: TocItem): string {
     return parts.join('') || '暂无核心发现';
   }
 
+  // 4. 维度分析
   if (section.type === 'dimension' && section.analysis) {
     const content =
       section.analysis.detailedContent || section.analysis.summary;
     return content || '暂无此维度的分析内容';
   }
 
+  // 5. 跨维度关联分析（v2.0 新增）
+  if (section.type === 'cross-dimension' && report.crossDimensionAnalysis) {
+    const cda = report.crossDimensionAnalysis;
+    const parts: string[] = [];
+
+    // 因果链
+    if (cda.causalChains?.length > 0) {
+      parts.push('## 因果关系链\n\n');
+      cda.causalChains.forEach((chain, i) => {
+        parts.push(`### ${i + 1}. ${chain.chain}\n\n`);
+        parts.push(`${chain.explanation}\n\n`);
+        parts.push(`**影响时间窗口**: ${chain.timeframe}\n\n`);
+      });
+    }
+
+    // 关键联动点
+    if (cda.keyLinkages?.length > 0) {
+      parts.push('## 关键联动点\n\n');
+      cda.keyLinkages.forEach((link, i) => {
+        parts.push(
+          `${i + 1}. **${link.dimensions.join(' ↔ ')}**: ${link.relationship}\n`
+        );
+        parts.push(`   - 影响程度: ${link.impact}\n\n`);
+      });
+    }
+
+    return parts.join('') || cda.fullText || '暂无跨维度分析';
+  }
+
+  // 6. 风险评估（v2.0 新增）
+  if (section.type === 'risk-assessment' && report.riskAssessment) {
+    const ra = report.riskAssessment;
+    const parts: string[] = [];
+
+    // 风险矩阵表格
+    if (ra.riskMatrix?.length > 0) {
+      parts.push('## 风险矩阵\n\n');
+      parts.push(
+        '| 风险类型 | 发生概率 | 影响程度 | 时间窗口 | 预警指标 | 应对建议 |\n'
+      );
+      parts.push(
+        '|----------|----------|----------|----------|----------|----------|\n'
+      );
+      ra.riskMatrix.forEach((risk) => {
+        parts.push(
+          `| ${risk.riskType} | ${risk.probability} | ${risk.impact} | ${risk.timeframe} | ${risk.indicators} | ${risk.mitigation} |\n`
+        );
+      });
+      parts.push('\n');
+    }
+
+    return parts.join('') || ra.fullText || '暂无风险评估';
+  }
+
+  // 7. 战略建议（v2.0 新增）
+  if (
+    section.type === 'strategic-recommendations' &&
+    report.strategicRecommendations
+  ) {
+    const sr = report.strategicRecommendations;
+    const parts: string[] = [];
+
+    // 对企业决策者
+    if (sr.forEnterprise) {
+      parts.push('## 对企业决策者\n\n');
+      if (sr.forEnterprise.shortTerm?.length > 0) {
+        parts.push('### 短期建议（6-12个月）\n\n');
+        sr.forEnterprise.shortTerm.forEach((s) => {
+          parts.push(`- ${s}\n`);
+        });
+        parts.push('\n');
+      }
+      if (sr.forEnterprise.midTerm?.length > 0) {
+        parts.push('### 中期建议（1-3年）\n\n');
+        sr.forEnterprise.midTerm.forEach((s) => {
+          parts.push(`- ${s}\n`);
+        });
+        parts.push('\n');
+      }
+    }
+
+    // 对投资者
+    if (sr.forInvestors) {
+      parts.push('## 对投资者\n\n');
+      if (sr.forInvestors.opportunities?.length > 0) {
+        parts.push('### 看好方向\n\n');
+        sr.forInvestors.opportunities.forEach((s) => {
+          parts.push(`- 🔥 ${s}\n`);
+        });
+        parts.push('\n');
+      }
+      if (sr.forInvestors.risks?.length > 0) {
+        parts.push('### 警惕风险\n\n');
+        sr.forInvestors.risks.forEach((s) => {
+          parts.push(`- ⚠️ ${s}\n`);
+        });
+        parts.push('\n');
+      }
+    }
+
+    // 对政策研究者
+    if (sr.forPolicymakers?.keyObservations?.length > 0) {
+      parts.push('## 对政策研究者\n\n');
+      sr.forPolicymakers.keyObservations.forEach((s) => {
+        parts.push(`- ${s}\n`);
+      });
+      parts.push('\n');
+    }
+
+    return parts.join('') || sr.fullText || '暂无战略建议';
+  }
+
+  // 8. 数据可视化章节（返回空字符串，由React组件单独渲染）
+  if (section.type === 'data-visualization') {
+    return ''; // 图表由 ChartsSectionRenderer 组件渲染
+  }
+
   return '暂无内容';
+}
+
+// ★ 图表章节渲染组件
+function ChartsSectionRenderer({ charts }: { charts: ReportChart[] }) {
+  if (!charts || charts.length === 0) {
+    return <p className="text-gray-500">暂无数据可视化图表</p>;
+  }
+
+  return (
+    <div className="space-y-8">
+      <p className="text-gray-600">
+        本报告基于研究数据生成了 {charts.length}{' '}
+        个可视化图表，帮助您更直观地理解研究发现。
+      </p>
+      {charts.map((chart) => (
+        <ReportChartRenderer key={chart.id} chart={chart} />
+      ))}
+    </div>
+  );
 }
 
 // ★ 生成完整报告内容（用于没有选中章节时的全文显示）
@@ -482,15 +735,40 @@ export default function SharedTopicPage() {
             {/* Content */}
             <div className="prose prose-gray prose-p:text-gray-700 prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-a:text-blue-600 prose-strong:text-gray-900 prose-li:text-gray-700 max-w-none">
               {selectedSection ? (
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {generateSectionContent(report, selectedSection)}
-                </ReactMarkdown>
+                selectedSection.type === 'data-visualization' &&
+                selectedSection.charts ? (
+                  <ChartsSectionRenderer charts={selectedSection.charts} />
+                ) : (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {generateSectionContent(report, selectedSection)}
+                  </ReactMarkdown>
+                )
               ) : (
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {generateFullReportContent(report)}
                 </ReactMarkdown>
               )}
             </div>
+
+            {/* Inline Charts for current section */}
+            {selectedSection &&
+              selectedSection.type !== 'data-visualization' &&
+              report.charts &&
+              report.charts.filter((c) => c.sectionId === selectedSection.id)
+                .length > 0 && (
+                <div className="mt-8 border-t border-gray-100 pt-8">
+                  <h3 className="mb-4 text-lg font-semibold text-gray-900">
+                    相关图表
+                  </h3>
+                  <div className="space-y-6">
+                    {report.charts
+                      .filter((c) => c.sectionId === selectedSection.id)
+                      .map((chart) => (
+                        <ReportChartRenderer key={chart.id} chart={chart} />
+                      ))}
+                  </div>
+                </div>
+              )}
 
             {/* Navigation */}
             <nav className="mt-12 flex items-center justify-between border-t border-gray-100 pt-6">
