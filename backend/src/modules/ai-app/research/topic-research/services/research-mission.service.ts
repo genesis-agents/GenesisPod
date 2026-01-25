@@ -651,7 +651,9 @@ export class ResearchMissionService {
       );
 
       // ★ 修复 N+1 查询：批量查询所有需要的维度
-      const completedDimensionNames = completedTasks.map((t) => t.dimensionName);
+      const completedDimensionNames = completedTasks.map(
+        (t) => t.dimensionName,
+      );
       const dimensionsForCompleted = await this.prisma.topicDimension.findMany({
         where: {
           topicId,
@@ -889,10 +891,14 @@ export class ResearchMissionService {
     //   - 报告撰写/质量审核任务：显示对应阶段的活动
     let whereCondition: Prisma.ResearchAgentActivityWhereInput;
 
+    // ★ 获取 topicId 用于跨 Mission 查询
+    const topicId = task.mission?.topicId;
+
     if (task.dimensionId) {
-      // 有 dimensionId 的任务（维度研究）：只获取该维度的特定活动
+      // ★ 修复：维度研究任务使用 topicId + dimensionId 查询
+      // 这样即使 Mission 更新（新 missionId），也能找到旧 Mission 下的活动记录
       whereCondition = {
-        missionId: task.missionId,
+        topicId: topicId,
         dimensionId: task.dimensionId,
       };
     } else if (task.taskType === "leader_planning") {
