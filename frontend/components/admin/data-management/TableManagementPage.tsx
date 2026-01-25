@@ -5,6 +5,7 @@ import { Layers } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useTableManagement } from '@/hooks/domain';
 import { AdminPageLayout } from '@/components/admin/layout';
+import { toast } from '@/stores';
 import TableStatsCards from './TableStatsCards';
 import TableToolbar from './TableToolbar';
 import TableDataGrid from './TableDataGrid';
@@ -68,14 +69,15 @@ export default function TableManagementPage() {
     setBatchDiagnosing(true);
     try {
       const results = await batchDiagnose();
-      // Show results (could be a toast or modal)
       if (results.length === 0) {
-        alert(t('admin.tables.diagnosis.noIssuesFound'));
+        toast.success(
+          t('admin.tables.diagnosis.title'),
+          t('admin.tables.diagnosis.noIssuesFound')
+        );
       } else {
-        alert(
-          t('admin.tables.diagnosis.issuesFound', {
-            count: results.length,
-          })
+        toast.warning(
+          t('admin.tables.diagnosis.title'),
+          t('admin.tables.diagnosis.issuesFound', { count: results.length })
         );
       }
     } finally {
@@ -103,15 +105,21 @@ export default function TableManagementPage() {
         totalFreed > 1024 * 1024
           ? `${(totalFreed / 1024 / 1024).toFixed(2)} MB`
           : `${(totalFreed / 1024).toFixed(2)} KB`;
-      alert(
+      toast.success(
+        t('admin.tables.cleanup.success'),
         t('admin.tables.cleanup.batchSuccess')
           .replace('{count}', String(results.length))
           .replace('{size}', formattedSize)
       );
+      // Refresh data after cleanup
+      refresh();
     } else {
-      alert(t('admin.tables.cleanup.noCleanableData'));
+      toast.info(
+        t('admin.tables.cleanup.title'),
+        t('admin.tables.cleanup.noCleanableData')
+      );
     }
-  }, [batchCleanup, t]);
+  }, [batchCleanup, t, refresh]);
 
   return (
     <AdminPageLayout

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
+import { toast } from '@/stores';
 
 type ResourceType = 'PAPER' | 'BLOG' | 'REPORT' | 'YOUTUBE_VIDEO' | 'NEWS';
 
@@ -29,7 +30,7 @@ export function ConfigurationView({
 
   const handleAddConfiguration = () => {
     if (!formData.name || !formData.keywords) {
-      alert('请输入名称和关键词');
+      toast.warning('表单验证', '请输入名称和关键词');
       return;
     }
 

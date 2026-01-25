@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import EmailSettings from './EmailSettings';
 import { getAuthTokens } from '@/lib/utils/auth';
-
+import { toast } from '@/stores';
 import { logger } from '@/lib/utils/logger';
 interface SearchConfig {
   provider: string;
@@ -100,13 +100,13 @@ export default function SystemSettings() {
         setSearchConfig(data);
         setTavilyApiKey('');
         setSerperApiKey('');
-        alert('Search configuration saved successfully!');
+        toast.success('保存成功', '搜索配置已保存');
       } else {
-        alert('Failed to save search configuration');
+        toast.error('保存失败', '无法保存搜索配置');
       }
     } catch (error) {
       logger.error('Failed to save search config:', error);
-      alert('Failed to save search configuration');
+      toast.error('保存失败', '无法保存搜索配置');
     } finally {
       setSearchSaving(false);
     }

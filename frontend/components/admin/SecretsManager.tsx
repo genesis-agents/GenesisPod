@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
-
+import { toast } from '@/stores';
 import { logger } from '@/lib/utils/logger';
 import {
   Key,
@@ -360,8 +360,9 @@ export default function SecretsManager({
       }
 
       fetchSecrets();
+      toast.success('删除成功', '密钥已删除');
     } catch (err) {
-      alert((err as Error).message);
+      toast.error('删除失败', (err as Error).message);
     }
   };
 
@@ -488,8 +489,9 @@ export default function SecretsManager({
       const result = await response.json();
       setMigrationResult(result);
       fetchSecrets();
+      toast.success('迁移完成', '密钥迁移成功');
     } catch (err) {
-      alert((err as Error).message);
+      toast.error('迁移失败', (err as Error).message);
     } finally {
       setMigrating(false);
     }
