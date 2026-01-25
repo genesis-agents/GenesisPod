@@ -238,11 +238,12 @@ export class WechatAdapter {
       let editorPage = page; // 默认使用当前页面
       let clickSucceeded = false;
 
-      // 尝试点击 Photo/图文 按钮进入编辑器
+      // 尝试点击 图文/Photo 按钮进入编辑器
       // 基于 Playwright 实际分析：按钮结构是 div.new-creation__menu-content 包含文本
-      this.logger.log("Looking for Photo/图文 button on home page...");
+      // 中文优先 - 微信公众号默认中文界面
+      this.logger.log("Looking for 图文/Photo button on home page...");
 
-      const buttonTexts = ["Photo", "图文", "Article", "文章"];
+      const buttonTexts = ["图文", "图文消息", "文章", "Photo", "Article"];
 
       for (const buttonText of buttonTexts) {
         if (clickSucceeded) break;
@@ -692,18 +693,25 @@ export class WechatAdapter {
     this.logger.log("Waiting for editor to load...");
 
     const editorReadySelectors = [
-      // Photo 编辑器 - 基于实际 Playwright 分析
+      // 中文 Photo/Article 编辑器 - 微信公众号默认中文界面（优先）
+      '[placeholder*="请输入标题"]', // 中文标题输入
+      '[placeholder*="填写标题"]', // 中文标题
+      '[placeholder*="填写描述"]', // 描述输入框
+      '[placeholder*="标题"]', // 通用中文标题
+      // 根据字数限制特征匹配
+      'input[maxlength="20"]', // 图文标题限制20字
+      'textarea[maxlength="1000"]', // 正文限制1000字
+      // 英文 Photo 编辑器 - 基于实际 Playwright 分析
       '[placeholder*="Enter title here"]', // 英文 Photo 编辑器
       '[placeholder*="title"]', // 通用英文
-      '[placeholder*="标题"]', // 中文
       // Article 编辑器 - 旧版选择器
       "#title",
       ".js_title",
       ".js_article_title",
       "textarea.frm_input",
-      // 通用 input/textarea
-      'input[placeholder*="title"]',
-      'textarea[placeholder*="title"]',
+      // 通用后备 - 查找任何可编辑元素
+      '[contenteditable="true"]',
+      'textarea',
     ];
 
     let editorReady = false;
@@ -755,10 +763,10 @@ export class WechatAdapter {
       let titleFilled = false;
 
       // 方法1: 使用 getByRole - 这是 Playwright 实际使用的方式
-      // page.getByRole('textbox', { name: 'Input a title here' }).fill(...)
+      // 优先中文界面，微信公众号默认中文
       try {
         const titleTextbox = page.getByRole("textbox", {
-          name: /Input a title here|请在这里输入标题|标题/i,
+          name: /请在这里输入标题|请输入标题|标题|Input a title here|title/i,
         });
         const count = await titleTextbox.count();
         this.logger.log(`Found ${count} title textbox via getByRole`);
@@ -771,15 +779,24 @@ export class WechatAdapter {
         this.logger.warn(`getByRole failed: ${(roleError as Error).message}`);
       }
 
-      // 方法2: 使用 placeholder 选择器
+      // 方法2: 使用 placeholder 选择器 - 中文优先
       if (!titleFilled) {
         const titleSelectors = [
+          // 中文界面 - 微信公众号默认
+          '[placeholder*="请输入标题"]',
+          '[placeholder*="填写标题"]',
+          '[placeholder*="标题"]',
+          // 英文界面
           '[placeholder="Enter title here (optional)"]',
           '[placeholder*="Enter title here"]',
           '[placeholder*="title"]',
-          '[placeholder*="标题"]',
+          // 通用选择器
           "#title",
           ".js_article_title",
+          // 根据字数限制特征匹配 - 图文消息标题限制20字
+          'input[maxlength="20"]',
+          'textarea[maxlength="20"]',
+          // 最后尝试通用元素
           "textarea",
           'input[type="text"]',
         ];
@@ -1025,15 +1042,23 @@ export class WechatAdapter {
       }
     }
 
-    // 填写摘要 - 摘要是可选的，如果填写失败不应该阻止发布
+    // 填写摘要/描述 - 摘要是可选的，如果填写失败不应该阻止发布
     if (content.digest) {
       try {
         const digestSelectors = [
+          // 中文界面 - 基于日志 "填写描述信息，让大家了解更多内容"
+          '[placeholder*="填写描述"]',
+          '[placeholder*="描述信息"]',
+          '[placeholder*="摘要"]',
+          // 根据字数限制匹配
+          'textarea[maxlength="120"]', // 微信公众号摘要限制120字
+          // 英文界面 / ID 选择器
           "#js_description", // 微信公众号实际使用的 ID
           "#digest",
           'textarea[name="digest"]',
           ".js_desc",
           ".digest-input",
+          '[placeholder*="description"]',
         ];
         for (const selector of digestSelectors) {
           try {
@@ -1065,11 +1090,11 @@ export class WechatAdapter {
 
     let saveClicked = false;
 
-    // 方法1: 使用 getByRole - 这是 Playwright 实际使用的方式
-    // page.getByRole('button', { name: 'Save as draft' }).click()
+    // 方法1: 使用 getByRole - 中文优先
+    // 微信公众号默认中文界面
     try {
       const saveButton = page.getByRole("button", {
-        name: /Save as draft|保存为草稿|保存草稿/i,
+        name: /保存为草稿|保存草稿|存为草稿|保存|Save as draft|Save/i,
       });
       const count = await saveButton.count();
       this.logger.log(`Found ${count} save button via getByRole`);
@@ -1084,13 +1109,20 @@ export class WechatAdapter {
       );
     }
 
-    // 方法2: 使用选择器
+    // 方法2: 使用选择器 - 中文优先
     if (!saveClicked) {
       const saveSelectors = [
-        'button:has-text("Save as draft")',
+        // 中文界面
         'button:has-text("保存为草稿")',
+        'button:has-text("保存草稿")',
+        'button:has-text("存草稿")',
         'button:has-text("保存")',
+        // 英文界面
+        'button:has-text("Save as draft")',
+        'button:has-text("Save")',
+        // 通用
         ".js_save",
+        '[class*="save"]',
       ];
 
       for (const selector of saveSelectors) {
