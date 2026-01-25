@@ -4,6 +4,7 @@ import { PublishResult } from "../services/publish-executor.service";
 import { SocialContent, SocialPlatformConnection } from "../types";
 import { decryptSession } from "../utils/session-crypto";
 import { SessionData } from "../types/platform.types";
+import { CONTENT_LIMITS } from "../utils/url-validator";
 
 @Injectable()
 export class WechatAdapter {
@@ -437,9 +438,21 @@ export class WechatAdapter {
         };
       }
 
-      // Step 8: 填写内容
+      // Step 8: 填写内容（截断超长内容避免 API 64705 错误）
+      const maxLength = CONTENT_LIMITS.CONTENT_MAX_LENGTH.WECHAT;
+      let truncatedContent = content;
+      if (content.content && content.content.length > maxLength) {
+        this.logger.warn(
+          `Content exceeds WeChat limit (${content.content.length} > ${maxLength}), truncating...`,
+        );
+        truncatedContent = {
+          ...content,
+          content:
+            content.content.slice(0, maxLength - 100) + "\n\n...(内容已截断)",
+        };
+      }
       this.logger.log("Filling content...");
-      await this.fillContent(page, content);
+      await this.fillContent(page, truncatedContent);
       this.logger.log("Content filled successfully");
 
       // Step 9: 保存为草稿

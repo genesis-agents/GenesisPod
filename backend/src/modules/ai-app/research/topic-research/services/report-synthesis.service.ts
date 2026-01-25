@@ -74,9 +74,6 @@ export class ReportSynthesisService {
       },
     });
 
-    this.logger.log(
-      `Created draft report v${nextVersion} for topic ${topicId}`,
-    );
     return report;
   }
 
@@ -904,7 +901,7 @@ export class ReportSynthesisService {
    * ★ 只返回有内容的报告（至少有一个 dimensionAnalysis）
    */
   async getLatestReport(topicId: string): Promise<TopicReport | null> {
-    return this.prisma.topicReport.findFirst({
+    const report = await this.prisma.topicReport.findFirst({
       where: {
         topicId,
         dimensionAnalyses: { some: {} }, // ★ 只返回非空报告
@@ -920,6 +917,8 @@ export class ReportSynthesisService {
         },
       },
     });
+
+    return report;
   }
 
   /**

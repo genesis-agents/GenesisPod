@@ -177,10 +177,12 @@ export const CONTENT_LIMITS = {
   // 摘要最大长度
   DIGEST_MAX_LENGTH: 500,
   // 正文最大长度（不同平台有不同限制）
+  // 注意：微信公众号实际限制约 10000 字符，保守设置避免 API 报错
   CONTENT_MAX_LENGTH: {
     XIAOHONGSHU: 1000,
     WEIBO: 2000,
-    WECHAT: 20000,
+    WECHAT: 10000, // 微信公众号实际限制，避免 64705 错误
+    WECHAT_ARTICLE: 10000,
     TWITTER: 280,
     LINKEDIN: 3000,
     DEFAULT: 10000,

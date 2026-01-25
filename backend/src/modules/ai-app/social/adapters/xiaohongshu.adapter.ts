@@ -4,6 +4,7 @@ import { PublishResult } from "../services/publish-executor.service";
 import { SocialContent, SocialPlatformConnection } from "../types";
 import { decryptSession } from "../utils/session-crypto";
 import { SessionData } from "../types/platform.types";
+import { CONTENT_LIMITS } from "../utils/url-validator";
 
 @Injectable()
 export class XiaohongshuAdapter {
@@ -57,8 +58,19 @@ export class XiaohongshuAdapter {
         await this.uploadImages(page, content.images);
       }
 
-      // 5. 填写内容
-      await this.fillContent(page, content);
+      // 5. 填写内容（截断超长内容）
+      const maxLength = CONTENT_LIMITS.CONTENT_MAX_LENGTH.XIAOHONGSHU;
+      let truncatedContent = content;
+      if (content.content && content.content.length > maxLength) {
+        this.logger.warn(
+          `Content exceeds Xiaohongshu limit (${content.content.length} > ${maxLength}), truncating...`,
+        );
+        truncatedContent = {
+          ...content,
+          content: content.content.slice(0, maxLength - 50) + "...",
+        };
+      }
+      await this.fillContent(page, truncatedContent);
 
       // 6. 发布（或保存草稿）
       const result = await this.submitPost(page, false); // false = 保存草稿

@@ -1736,6 +1736,53 @@ export class ResearchMissionService {
       `[startExecution] Created draft report: ${draftReport.id} for evidence association`,
     );
 
+    // ★ 检查是否有继承的已完成任务（增量模式）
+    // 如果有，需要将之前报告的证据复制到新报告
+    const completedTasks = await this.prisma.researchTask.findMany({
+      where: {
+        missionId,
+        taskType: "dimension_research",
+        status: ResearchTaskStatus.COMPLETED,
+      },
+    });
+
+    if (completedTasks.length > 0) {
+      // ★ 找到最近的有证据的报告，复制证据到新报告
+      const previousReport = await this.prisma.topicReport.findFirst({
+        where: {
+          topicId,
+          id: { not: draftReport.id }, // 排除刚创建的草稿
+          evidences: { some: {} }, // 必须有证据
+        },
+        orderBy: { generatedAt: "desc" },
+        include: { evidences: true },
+      });
+
+      if (previousReport && previousReport.evidences.length > 0) {
+        // 复制证据到新报告（保持 citationIndex）
+        const evidencesCopyData = previousReport.evidences.map((e) => ({
+          reportId: draftReport.id, // ★ 关联到新报告
+          title: e.title,
+          url: e.url,
+          domain: e.domain,
+          snippet: e.snippet,
+          sourceType: e.sourceType,
+          publishedAt: e.publishedAt,
+          credibilityScore: e.credibilityScore,
+          citationIndex: e.citationIndex,
+          analysisId: e.analysisId, // 保持分析关联
+        }));
+
+        await this.prisma.topicEvidence.createMany({
+          data: evidencesCopyData,
+        });
+
+        this.logger.log(
+          `[startExecution] ★ Copied ${previousReport.evidences.length} evidences from report ${previousReport.id.slice(0, 8)} to new report ${draftReport.id.slice(0, 8)}`,
+        );
+      }
+    }
+
     // 执行循环
     let iteration = 0;
     const maxIterations = 100; // 防止无限循环
