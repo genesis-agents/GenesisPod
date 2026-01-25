@@ -15,6 +15,11 @@ import {
 import { LeaderDecisionType } from "@prisma/client";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
 import { sanitize } from "../utils/prompt-sanitizer";
+import {
+  LeaderToolService,
+  LeaderActionType,
+  LeaderActionResult,
+} from "./leader-tool.service";
 
 // ==================== Types ====================
 
@@ -683,31 +688,71 @@ const LEADER_INTERVENE_PROMPT = `你是研究团队的 Leader，用户通过 @Le
 当前阶段：{stage}
 已完成维度：{completedDimensions}
 进行中维度：{inProgressDimensions}
+当前维度列表：{dimensionList}
 
 ## 用户指令
 {userMessage}
 
 ## 你的职责
-1. 理解用户的意图
-2. 决定是否需要调整研究计划
-3. 给出响应和执行方案
+1. 准确理解用户的意图（注意：用户说"1"可能是指上一条消息中的选项1）
+2. 如果用户要求执行某个动作，你必须在 actions 数组中明确输出要执行的动作
+3. 立即执行，不要反复确认
+
+## 重要规则
+- 当用户说"新增章节/维度 A 和 B"时，创建两个独立的维度，而不是一个合并的维度
+- 当用户说"删除/取消/移除 X"时，立即执行删除，不要询问确认
+- 当用户回复数字（如"1"）时，这通常是对你上一条消息中选项的选择
+- 永远不要只是说"我会做X"而不实际执行
+
+## 可执行的动作类型
+- CREATE_DIMENSION: 创建新维度 (params: {name, description?})
+- DELETE_DIMENSION: 删除维度 (params: {dimensionName})
+- CANCEL_TASK: 取消任务 (params: {dimensionName 或 taskName})
+- UPDATE_DIMENSION: 更新维度 (params: {dimensionName, newName?, newDescription?})
+- NO_ACTION: 无需执行动作（仅回复）
 
 ## 输出要求
 请输出 JSON 格式的响应：
 
 \`\`\`json
 {
-  "understanding": "对用户指令的理解",
-  "action": "adjust_plan | add_dimension | focus_area | provide_update | other",
-  "response": "回复给用户的消息",
-  "planAdjustments": {
-    "newDimensions": [],
-    "removeDimensions": [],
-    "priorityChanges": {},
-    "focusAreas": []
-  }
+  "understanding": "对用户指令的理解（一句话）",
+  "actions": [
+    {
+      "type": "CREATE_DIMENSION | DELETE_DIMENSION | CANCEL_TASK | UPDATE_DIMENSION | NO_ACTION",
+      "params": {
+        "name": "维度名称",
+        "dimensionName": "要操作的维度名称",
+        "description": "描述（可选）"
+      }
+    }
+  ],
+  "response": "执行完成后回复给用户的消息（简洁，确认已执行的动作）"
 }
-\`\`\``;
+\`\`\`
+
+## 示例
+
+用户: "新增两个章节：思想根源 和 AI政策"
+正确输出:
+{
+  "understanding": "用户要求新增两个独立的研究维度",
+  "actions": [
+    {"type": "CREATE_DIMENSION", "params": {"name": "思想根源"}},
+    {"type": "CREATE_DIMENSION", "params": {"name": "AI政策"}}
+  ],
+  "response": "已创建两个新的研究维度：「思想根源」和「AI政策」"
+}
+
+用户: "删除维度：市场分析"
+正确输出:
+{
+  "understanding": "用户要求删除市场分析维度",
+  "actions": [
+    {"type": "DELETE_DIMENSION", "params": {"dimensionName": "市场分析"}}
+  ],
+  "response": "已删除研究维度「市场分析」及其相关任务"
+}`;
 
 // ==================== Service ====================
 
@@ -720,6 +765,7 @@ export class ResearchLeaderService {
     private readonly aiFacade: AIEngineFacade,
     private readonly intentDetectionService: IntentDetectionService,
     private readonly eventEmitter: ResearchEventEmitterService,
+    private readonly leaderToolService: LeaderToolService,
   ) {}
 
   /**
@@ -1042,7 +1088,7 @@ export class ResearchLeaderService {
     topicId: string,
     missionId: string,
     userMessage: string,
-  ): Promise<{ response: string; planAdjustments?: any }> {
+  ): Promise<{ response: string; actionResults?: LeaderActionResult[] }> {
     this.logger.log(
       `[handleUserMessage] Processing @Leader message for topic ${topicId}`,
     );
@@ -1064,11 +1110,15 @@ export class ResearchLeaderService {
       `[handleUserMessage] Intent detected: ${intentResult.intent} (confidence: ${intentResult.confidence})`,
     );
 
-    // 1. 获取当前状态
+    // 1. 获取当前状态（包含 dimensions 用于显示当前维度列表）
     const mission = await this.prisma.researchMission.findUnique({
       where: { id: missionId },
       include: {
-        topic: true,
+        topic: {
+          include: {
+            dimensions: true,
+          },
+        },
         tasks: true,
       },
     });
@@ -1130,7 +1180,15 @@ export class ResearchLeaderService {
       throw new Error("No reasoning model available for Leader");
     }
 
-    // 5. 构建 prompt（添加检测到的意图信息）
+    // 5. 构建维度列表（供 Leader 了解当前有哪些维度）
+    const dimensionList =
+      mission.topic.dimensions && mission.topic.dimensions.length > 0
+        ? mission.topic.dimensions
+            .map((d, i) => `${i + 1}. ${d.name}（${d.status}）`)
+            .join("\n")
+        : "无维度";
+
+    // 6. 构建 prompt（添加检测到的意图信息）
     const prompt = LEADER_INTERVENE_PROMPT.replace(
       "{topic}",
       mission.topic.name,
@@ -1151,9 +1209,10 @@ export class ResearchLeaderService {
           .filter(Boolean)
           .join(", ") || "无",
       )
+      .replace("{dimensionList}", dimensionList)
       .replace("{userMessage}", sanitizedMessage);
 
-    // 6. 调用 AI
+    // 7. 调用 AI
     const startTime = Date.now();
     const response = await this.aiFacade.chat({
       messages: [
@@ -1172,8 +1231,16 @@ export class ResearchLeaderService {
     });
     const latencyMs = Date.now() - startTime;
 
-    // 7. 解析响应
-    const result = this.extractJsonFromResponse<any>(response.content);
+    // 8. 解析响应
+    const result = this.extractJsonFromResponse<{
+      understanding?: string;
+      actions?: Array<{
+        type: string;
+        params?: Record<string, unknown>;
+      }>;
+      response: string;
+      planAdjustments?: unknown;
+    }>(response.content);
 
     if (!result) {
       const fallbackResponse = "收到您的指令，我会继续推进研究工作。";
@@ -1188,27 +1255,120 @@ export class ResearchLeaderService {
       };
     }
 
-    // 8. 记录决策
+    // ★★★ 9. 执行 actions 数组中的动作 ★★★
+    const actionResults: LeaderActionResult[] = [];
+    if (result.actions && Array.isArray(result.actions)) {
+      this.logger.log(
+        `[handleUserMessage] Executing ${result.actions.length} actions`,
+      );
+
+      for (const action of result.actions) {
+        const actionType = action.type as LeaderActionType;
+        const params = action.params || {};
+
+        this.logger.log(`[handleUserMessage] Executing action: ${actionType}`);
+
+        try {
+          let actionResult: LeaderActionResult;
+
+          switch (actionType) {
+            case LeaderActionType.CREATE_DIMENSION:
+              actionResult = await this.leaderToolService.createDimension({
+                topicId,
+                name: params.name as string,
+                description: params.description as string | undefined,
+              });
+              break;
+
+            case LeaderActionType.DELETE_DIMENSION:
+              actionResult = await this.leaderToolService.deleteDimension({
+                topicId,
+                dimensionName: params.dimensionName as string,
+              });
+              break;
+
+            case LeaderActionType.CANCEL_TASK:
+              actionResult = await this.leaderToolService.cancelTask({
+                topicId,
+                dimensionName: params.dimensionName as string | undefined,
+                taskName: params.taskName as string | undefined,
+              });
+              break;
+
+            case LeaderActionType.UPDATE_DIMENSION:
+              actionResult = await this.leaderToolService.updateDimension({
+                topicId,
+                dimensionName: params.dimensionName as string,
+                newName: params.newName as string | undefined,
+                newDescription: params.newDescription as string | undefined,
+              });
+              break;
+
+            case LeaderActionType.NO_ACTION:
+              actionResult = {
+                success: true,
+                action: LeaderActionType.NO_ACTION,
+                message: "无需执行动作",
+              };
+              break;
+
+            default:
+              this.logger.warn(
+                `[handleUserMessage] Unknown action type: ${actionType}`,
+              );
+              actionResult = {
+                success: false,
+                action: actionType,
+                message: `未知的动作类型: ${actionType}`,
+              };
+          }
+
+          actionResults.push(actionResult);
+          this.logger.log(
+            `[handleUserMessage] Action result: ${actionResult.success ? "SUCCESS" : "FAILED"} - ${actionResult.message}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `[handleUserMessage] Action execution failed: ${error}`,
+          );
+          actionResults.push({
+            success: false,
+            action: actionType,
+            message: `执行失败: ${error instanceof Error ? error.message : String(error)}`,
+          });
+        }
+      }
+    }
+
+    // 10. 记录决策（包含动作执行结果）
     await this.recordDecision(
       missionId,
       LeaderDecisionType.INTERVENE,
       { userMessage: sanitizedMessage, detectedIntent: intentResult.intent },
-      result,
+      { ...result, actionResults },
       result.response,
       leaderModel.modelId,
       latencyMs,
     );
 
+    // 11. 构建最终响应（如果有动作执行失败，附加错误信息）
+    const failedActions = actionResults.filter((r) => !r.success);
+    let finalResponse = result.response;
+    if (failedActions.length > 0) {
+      const errorMessages = failedActions.map((r) => r.message).join("; ");
+      finalResponse += `\n\n⚠️ 部分操作未成功: ${errorMessages}`;
+    }
+
     // ★ 发射 WebSocket 事件到团队互动区
     await this.eventEmitter.emitLeaderResponse(
       topicId,
       missionId,
-      result.response,
+      finalResponse,
     );
 
     return {
-      response: result.response,
-      planAdjustments: result.planAdjustments,
+      response: finalResponse,
+      actionResults,
     };
   }
 
@@ -1222,7 +1382,7 @@ export class ResearchLeaderService {
     progress: number,
     completedCount: number,
     inProgressCount: number,
-  ): { response: string; planAdjustments?: any } | null {
+  ): { response: string; actionResults?: LeaderActionResult[] } | null {
     switch (intent) {
       case UserIntent.CONTINUE:
         // 继续研究：返回当前进度并确认继续
