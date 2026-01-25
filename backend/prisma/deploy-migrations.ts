@@ -267,6 +267,41 @@ async function deploy(): Promise<void> {
     } else {
       console.log("   OK ai_usage_logs table");
     }
+
+    // Check if social_content_versions table exists
+    const socialContentVersionsCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = 'social_content_versions'
+      ) as exists
+    `;
+
+    if (!socialContentVersionsCheck[0]?.exists) {
+      console.log("   Creating social_content_versions table...");
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "social_content_versions" (
+          "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+          "content_id" UUID NOT NULL,
+          "platform_type" "SocialPlatformType" NOT NULL,
+          "title" VARCHAR(200) NOT NULL,
+          "content" TEXT NOT NULL,
+          "digest" VARCHAR(500),
+          "is_default" BOOLEAN NOT NULL DEFAULT false,
+          "generated_by" VARCHAR(20),
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" TIMESTAMP(3) NOT NULL,
+          CONSTRAINT "social_content_versions_pkey" PRIMARY KEY ("id"),
+          CONSTRAINT "social_content_versions_content_id_fkey" FOREIGN KEY ("content_id") REFERENCES "social_contents"("id") ON DELETE CASCADE ON UPDATE CASCADE
+        )
+      `;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "social_content_versions_content_id_idx" ON "social_content_versions"("content_id")`;
+      await prisma.$executeRaw`CREATE UNIQUE INDEX IF NOT EXISTS "social_content_versions_content_id_platform_type_key" ON "social_content_versions"("content_id", "platform_type")`;
+      console.log("   Created social_content_versions table");
+    } else {
+      console.log("   OK social_content_versions table");
+    }
     console.log("");
 
     // Step 4: Generate Prisma Client
