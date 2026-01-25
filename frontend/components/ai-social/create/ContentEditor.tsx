@@ -34,6 +34,12 @@ import {
 } from 'lucide-react';
 import DOMPurify from 'isomorphic-dompurify';
 import { DraftRecoveryDialog } from './DraftRecoveryDialog';
+import { VersionTabs, PLATFORMS } from './VersionTabs';
+import {
+  SocialContentVersion,
+  SocialPlatformType,
+  updateVersion,
+} from '@/lib/api/ai-social';
 
 import { logger } from '@/lib/utils/logger';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -84,6 +90,14 @@ export function ContentEditor() {
   const [detectedDraft, setDetectedDraft] = useState<DraftData | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Version management state
+  const [selectedPlatform, setSelectedPlatform] = useState<SocialPlatformType>(
+    platform === 'XIAOHONGSHU_NOTE' ? 'XIAOHONGSHU' : 'WECHAT_MP'
+  );
+  const [currentVersion, setCurrentVersion] =
+    useState<SocialContentVersion | null>(null);
+  const [isVersionMode, setIsVersionMode] = useState(false);
 
   // Generate draft ID
   const draftId =
@@ -355,6 +369,31 @@ export function ContentEditor() {
     logger.debug('Draft discarded:', detectedDraft.id);
   };
 
+  // Handle version selection from VersionTabs
+  const handleVersionSelect = (
+    version: SocialContentVersion | null,
+    platformType: SocialPlatformType
+  ) => {
+    setSelectedPlatform(platformType);
+    setCurrentVersion(version);
+
+    if (version) {
+      // Switch to version mode and load version content
+      setIsVersionMode(true);
+      setTitle(version.title);
+      setContentText(version.content);
+      if (version.digest) {
+        setDigest(version.digest);
+      }
+    } else {
+      // No version for this platform, keep current content
+      setIsVersionMode(false);
+    }
+  };
+
+  // Get content ID from store (if content was created)
+  const contentId = useSocialCreateStore((state) => state.currentContentId);
+
   // Format last saved time
   const formatLastSaved = (): string => {
     if (!autoSave.lastSaved) return '';
@@ -516,6 +555,17 @@ export function ContentEditor() {
             </Tooltip>
           )}
         </div>
+
+        {/* Version Tabs - only show after content is generated */}
+        {hasGenerated && contentId && (
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <VersionTabs
+              contentId={contentId}
+              selectedPlatform={selectedPlatform}
+              onVersionSelect={handleVersionSelect}
+            />
+          </div>
+        )}
 
         {/* Error */}
         {error && (

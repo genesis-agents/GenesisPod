@@ -6,6 +6,7 @@ import { SocialLeaderService } from "./services/social-leader.service";
 import { ContentFetcherService } from "./services/content-fetcher.service";
 import { ContentTransformerService } from "./services/content-transformer.service";
 import { ContentCheckerService } from "./services/content-checker.service";
+import { ContentVersionService } from "./services/content-version.service";
 import { ReviewService } from "./services/review.service";
 import { PublishExecutorService } from "./services/publish-executor.service";
 import { PlaywrightService } from "./services/playwright.service";
@@ -32,6 +33,7 @@ import { NotificationModule } from "../../core/notifications/notification.module
     ContentFetcherService,
     ContentTransformerService,
     ContentCheckerService,
+    ContentVersionService,
     ReviewService,
     PublishExecutorService,
     PlaywrightService,

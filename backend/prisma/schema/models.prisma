@@ -7472,6 +7472,37 @@ model SocialContent {
 
   // 发布日志
   publishLogs SocialPublishLog[]
+
+  // 平台适配版本
+  versions SocialContentVersion[]
+}
+
+// 社交媒体内容平台适配版本
+// 同一内容针对不同平台的适配版本（微信公众号、小红书等有不同的字数限制）
+model SocialContentVersion {
+  id        String             @id @default(uuid())
+  contentId String             @map("content_id")
+  platformType SocialPlatformType @map("platform_type")
+
+  // 适配后的内容
+  title   String  @db.VarChar(200)
+  content String  @db.Text
+  digest  String? @db.VarChar(500)
+
+  // 版本元信息
+  isDefault   Boolean @default(false) @map("is_default") // 是否为默认版本
+  generatedBy String? @map("generated_by") @db.VarChar(20) // AI | MANUAL
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  socialContent SocialContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@unique([contentId, platformType])
+  @@index([contentId])
+  @@map("social_content_versions")
 }
 
 // 社交媒体发布日志

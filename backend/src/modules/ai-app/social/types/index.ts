@@ -85,4 +85,18 @@ export interface SocialContent {
   createdAt: Date;
   updatedAt: Date;
   connection?: SocialPlatformConnection | null;
+  versions?: SocialContentVersion[];
+}
+
+export interface SocialContentVersion {
+  id: string;
+  contentId: string;
+  platformType: SocialPlatformType;
+  title: string;
+  content: string;
+  digest?: string | null;
+  isDefault: boolean;
+  generatedBy?: string | null; // "AI" | "MANUAL"
+  createdAt: Date;
+  updatedAt: Date;
 }

@@ -776,3 +776,95 @@ export async function getWritingSources(options?: {
     total: items.length,
   };
 }
+
+// ==================== Content Version API ====================
+
+export interface SocialContentVersion {
+  id: string;
+  contentId: string;
+  platformType: SocialPlatformType;
+  title: string;
+  content: string;
+  digest: string | null;
+  isDefault: boolean;
+  generatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateVersionDto {
+  title?: string;
+  content?: string;
+  digest?: string;
+}
+
+/**
+ * Get all platform versions for a content
+ */
+export async function getContentVersions(
+  contentId: string
+): Promise<{ versions: SocialContentVersion[] }> {
+  return fetchWithAuth(`/api/v1/ai-social/contents/${contentId}/versions`);
+}
+
+/**
+ * Generate a version for a specific platform
+ */
+export async function generateVersion(
+  contentId: string,
+  platformType: SocialPlatformType
+): Promise<{ version: SocialContentVersion }> {
+  return fetchWithAuth(
+    `/api/v1/ai-social/contents/${contentId}/versions/generate`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ platformType }),
+    }
+  );
+}
+
+/**
+ * Generate versions for all platforms
+ */
+export async function generateAllVersions(
+  contentId: string
+): Promise<{ versions: SocialContentVersion[] }> {
+  return fetchWithAuth(
+    `/api/v1/ai-social/contents/${contentId}/versions/generate-all`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+/**
+ * Update a platform version
+ */
+export async function updateVersion(
+  contentId: string,
+  platformType: SocialPlatformType,
+  dto: UpdateVersionDto
+): Promise<{ version: SocialContentVersion }> {
+  return fetchWithAuth(
+    `/api/v1/ai-social/contents/${contentId}/versions/${platformType.toLowerCase()}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(dto),
+    }
+  );
+}
+
+/**
+ * Delete a platform version
+ */
+export async function deleteVersion(
+  contentId: string,
+  platformType: SocialPlatformType
+): Promise<{ success: boolean }> {
+  return fetchWithAuth(
+    `/api/v1/ai-social/contents/${contentId}/versions/${platformType.toLowerCase()}`,
+    {
+      method: 'DELETE',
+    }
+  );
+}

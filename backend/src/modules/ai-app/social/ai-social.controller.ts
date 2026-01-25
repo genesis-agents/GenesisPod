@@ -16,6 +16,7 @@ import {
 import { AiSocialService } from "./ai-social.service";
 import { SocialLeaderService } from "./services/social-leader.service";
 import { ReviewService } from "./services/review.service";
+import { ContentVersionService } from "./services/content-version.service";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { CreateContentDto } from "./dto/create-content.dto";
@@ -24,6 +25,11 @@ import { ProcessUrlDto } from "./dto/process-url.dto";
 import { ProcessSourceDto } from "./dto/process-source.dto";
 import { PublishContentDto } from "./dto/publish-content.dto";
 import { BatchDeleteDto, BatchPublishDto } from "./dto/batch-operation.dto";
+import {
+  GenerateVersionDto,
+  UpdateVersionDto,
+} from "./dto/content-version.dto";
+import { SocialPlatformType } from "./types";
 
 interface AuthenticatedRequest {
   user: { id: string };
@@ -38,6 +44,7 @@ export class AiSocialController {
     private readonly aiSocialService: AiSocialService,
     private readonly socialLeaderService: SocialLeaderService,
     private readonly reviewService: ReviewService,
+    private readonly contentVersionService: ContentVersionService,
   ) {}
 
   // ==================== 平台连接 ====================
@@ -142,6 +149,90 @@ export class AiSocialController {
     @Param("id") id: string,
   ) {
     return this.aiSocialService.deleteContent(req.user.id, id);
+  }
+
+  // ==================== 平台适配版本 ====================
+
+  @Get("contents/:id/versions")
+  async getContentVersions(
+    @Request() req: AuthenticatedRequest,
+    @Param("id") id: string,
+  ) {
+    // 验证内容所有权
+    await this.aiSocialService.getContent(req.user.id, id);
+    const versions = await this.contentVersionService.getVersions(id);
+    return { versions };
+  }
+
+  @Post("contents/:id/versions/generate")
+  async generateVersion(
+    @Request() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body() dto: GenerateVersionDto,
+  ) {
+    // 验证内容所有权
+    await this.aiSocialService.getContent(req.user.id, id);
+    try {
+      const version = await this.contentVersionService.generateVersion(
+        id,
+        dto.platformType,
+      );
+      return { version };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "版本生成失败，请重试";
+      this.logger.error(`generateVersion failed: ${message}`);
+      throw new HttpException(message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  @Post("contents/:id/versions/generate-all")
+  async generateAllVersions(
+    @Request() req: AuthenticatedRequest,
+    @Param("id") id: string,
+  ) {
+    // 验证内容所有权
+    await this.aiSocialService.getContent(req.user.id, id);
+    try {
+      const versions = await this.contentVersionService.generateAllVersions(id);
+      return { versions };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "版本生成失败，请重试";
+      this.logger.error(`generateAllVersions failed: ${message}`);
+      throw new HttpException(message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  @Patch("contents/:id/versions/:platform")
+  async updateVersion(
+    @Request() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Param("platform") platform: string,
+    @Body() dto: UpdateVersionDto,
+  ) {
+    // 验证内容所有权
+    await this.aiSocialService.getContent(req.user.id, id);
+    const platformType = platform.toUpperCase() as SocialPlatformType;
+    const version = await this.contentVersionService.updateVersion(
+      id,
+      platformType,
+      dto,
+    );
+    return { version };
+  }
+
+  @Delete("contents/:id/versions/:platform")
+  async deleteVersion(
+    @Request() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Param("platform") platform: string,
+  ) {
+    // 验证内容所有权
+    await this.aiSocialService.getContent(req.user.id, id);
+    const platformType = platform.toUpperCase() as SocialPlatformType;
+    await this.contentVersionService.deleteVersion(id, platformType);
+    return { success: true };
   }
 
   // ==================== 批量操作 ====================

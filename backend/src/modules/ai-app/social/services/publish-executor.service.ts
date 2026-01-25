@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { PlaywrightService } from "./playwright.service";
+import { ContentVersionService } from "./content-version.service";
 import { WechatAdapter } from "../adapters/wechat.adapter";
 import { XiaohongshuAdapter } from "../adapters/xiaohongshu.adapter";
 import {
@@ -29,6 +30,7 @@ export class PublishExecutorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly playwrightService: PlaywrightService,
+    private readonly contentVersionService: ContentVersionService,
     private readonly wechatAdapter: WechatAdapter,
     private readonly xiaohongshuAdapter: XiaohongshuAdapter,
   ) {}
@@ -118,18 +120,39 @@ export class PublishExecutorService {
         data: { status: SocialContentStatus.PUBLISHING },
       });
 
+      // 获取平台适配版本内容
+      const versionData = await this.contentVersionService.getVersionForPublish(
+        contentId,
+        connection.platformType,
+      );
+
+      // 使用版本内容覆盖原始内容（如果存在）
+      const publishContent = versionData
+        ? {
+            ...content,
+            title: versionData.title,
+            content: versionData.content,
+            digest: versionData.digest ?? content.digest,
+          }
+        : content;
+
+      this.logger.log(
+        `Publishing content ${contentId} to ${connection.platformType}, ` +
+          `using ${versionData ? "platform version" : "original content"}`,
+      );
+
       let result: PublishResult;
 
       switch (connection.platformType) {
         case SocialPlatformType.WECHAT_MP:
           result = await this.wechatAdapter.publish(
-            content as SocialContent,
+            publishContent as SocialContent,
             connection as SocialPlatformConnection,
           );
           break;
         case SocialPlatformType.XIAOHONGSHU:
           result = await this.xiaohongshuAdapter.publish(
-            content as SocialContent,
+            publishContent as SocialContent,
             connection as SocialPlatformConnection,
           );
           break;

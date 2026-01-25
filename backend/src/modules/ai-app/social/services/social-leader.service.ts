@@ -9,6 +9,7 @@ import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 import { ContentFetcherService } from "./content-fetcher.service";
 import { ContentTransformerService } from "./content-transformer.service";
 import { ContentCheckerService } from "./content-checker.service";
+import { ContentVersionService } from "./content-version.service";
 import { ProcessUrlDto } from "../dto/process-url.dto";
 import { ProcessSourceDto } from "../dto/process-source.dto";
 import {
@@ -168,6 +169,7 @@ export class SocialLeaderService {
     private readonly contentFetcher: ContentFetcherService,
     private readonly contentTransformer: ContentTransformerService,
     private readonly contentChecker: ContentCheckerService,
+    private readonly contentVersionService: ContentVersionService,
   ) {}
 
   // Helper to access prisma with new models
@@ -317,12 +319,42 @@ export class SocialLeaderService {
         `[processUrl] Step 2 success: Updated content ${updatedContent.id}`,
       );
 
+      // 6. 生成所有平台的适配版本（同步等待，告知用户结果）
+      let versionGenerationFailed = false;
+      let versionCount = 0;
+      try {
+        const versions = await this.contentVersionService.generateAllVersions(
+          updatedContent.id,
+        );
+        versionCount = versions.length;
+        this.logger.log(
+          `[processUrl] Generated ${versionCount} platform versions for content ${updatedContent.id}`,
+        );
+      } catch (err) {
+        versionGenerationFailed = true;
+        this.logger.error(
+          `[processUrl] Failed to generate platform versions: ${(err as Error).message}`,
+          (err as Error).stack,
+        );
+      }
+
+      // 构建响应消息
+      let message = checkResult.passed
+        ? "内容已生成，请确认后发布"
+        : "内容存在合规问题，请修改后再发布";
+
+      if (versionGenerationFailed) {
+        message += "（平台版本生成失败，可在编辑页面手动重试）";
+      } else if (versionCount > 0) {
+        message += `（已生成 ${versionCount} 个平台版本）`;
+      }
+
       return {
         content: updatedContent,
         checkResult,
-        message: checkResult.passed
-          ? "内容已生成，请确认后发布"
-          : "内容存在合规问题，请修改后再发布",
+        message,
+        versionCount,
+        versionGenerationFailed,
       };
     } catch (error) {
       this.logger.error(`[processUrl] Insert failed: ${error}`);
@@ -496,12 +528,42 @@ export class SocialLeaderService {
         updatedAt: row.updated_at,
       };
 
+      // 6. 生成所有平台的适配版本（同步等待，告知用户结果）
+      let versionGenerationFailed = false;
+      let versionCount = 0;
+      try {
+        const versions = await this.contentVersionService.generateAllVersions(
+          content.id,
+        );
+        versionCount = versions.length;
+        this.logger.log(
+          `[processSource] Generated ${versionCount} platform versions for content ${content.id}`,
+        );
+      } catch (err) {
+        versionGenerationFailed = true;
+        this.logger.error(
+          `[processSource] Failed to generate platform versions: ${(err as Error).message}`,
+          (err as Error).stack,
+        );
+      }
+
+      // 构建响应消息
+      let message = checkResult.passed
+        ? "内容已生成，请确认后发布"
+        : "内容存在合规问题，请修改后再发布";
+
+      if (versionGenerationFailed) {
+        message += "（平台版本生成失败，可在编辑页面手动重试）";
+      } else if (versionCount > 0) {
+        message += `（已生成 ${versionCount} 个平台版本）`;
+      }
+
       return {
         content,
         checkResult,
-        message: checkResult.passed
-          ? "内容已生成，请确认后发布"
-          : "内容存在合规问题，请修改后再发布",
+        message,
+        versionCount,
+        versionGenerationFailed,
       };
     } catch (error) {
       this.logger.error(`[processSource] Insert failed: ${error}`);

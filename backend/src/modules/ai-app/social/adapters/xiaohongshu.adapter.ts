@@ -4,7 +4,6 @@ import { PublishResult } from "../services/publish-executor.service";
 import { SocialContent, SocialPlatformConnection } from "../types";
 import { decryptSession } from "../utils/session-crypto";
 import { SessionData } from "../types/platform.types";
-import { CONTENT_LIMITS } from "../utils/url-validator";
 
 @Injectable()
 export class XiaohongshuAdapter {
@@ -58,18 +57,7 @@ export class XiaohongshuAdapter {
         await this.uploadImages(page, content.images);
       }
 
-      // 5. 填写内容（小红书限制1000字，超长时返回错误让用户编辑）
-      const maxLength = CONTENT_LIMITS.CONTENT_MAX_LENGTH.XIAOHONGSHU;
-      if (content.content && content.content.length > maxLength) {
-        const currentLength = content.content.length;
-        this.logger.error(
-          `Content exceeds Xiaohongshu limit: ${currentLength} > ${maxLength}`,
-        );
-        return {
-          success: false,
-          errorMessage: `内容超出小红书字数限制（当前 ${currentLength} 字，限制 ${maxLength} 字）。请编辑缩短内容后重试。`,
-        };
-      }
+      // 5. 填充内容（使用平台适配版本，无需截断）
       await this.fillContent(page, content);
 
       // 6. 发布（或保存草稿）
