@@ -114,15 +114,20 @@ interface ExtendedAgentActivity extends AgentActivity {
   durationMs?: number;
 }
 
-// 从 metadata 中提取扩展字段
+// ★ 从活动记录中提取扩展字段
+// 注意：thinkingPhase, thinkingContent, searchResults 现在是直接字段，不在 metadata 中
 function getExtendedActivity(activity: AgentActivity): ExtendedAgentActivity {
   const metadata = activity.metadata || {};
   return {
     ...activity,
-    thinkingPhase: metadata.thinkingPhase as ThinkingPhase | undefined,
-    thinkingContent: metadata.thinkingContent as string | undefined,
-    searchResults:
-      metadata.searchResults as ExtendedAgentActivity['searchResults'],
+    // ★ 修复：优先使用直接字段，兼容旧数据从 metadata 获取
+    thinkingPhase: (activity.thinkingPhase || metadata.thinkingPhase) as
+      | ThinkingPhase
+      | undefined,
+    thinkingContent:
+      activity.thinkingContent || (metadata.thinkingContent as string),
+    searchResults: (activity.searchResults ||
+      metadata.searchResults) as ExtendedAgentActivity['searchResults'],
     writingProgress:
       metadata.writingProgress as ExtendedAgentActivity['writingProgress'],
     durationMs: metadata.durationMs as number | undefined,

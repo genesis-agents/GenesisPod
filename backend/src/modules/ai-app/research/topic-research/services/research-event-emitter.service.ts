@@ -379,9 +379,11 @@ export class ResearchEventEmitterService {
 
         const activityType = this.mapAgentStatusToActivityType(data.status);
         // ★ 在 Agent 名称后显示模型 ID（如果有）
-        const agentDisplayName = data.modelId
-          ? `${data.agentName} [${data.modelId}]`
-          : data.agentName;
+        // ★ 修复：检查 agentName 是否已包含 modelId，避免重复显示如 "研究员 [gpt-5.1] [gpt-5.1]"
+        const agentDisplayName =
+          data.modelId && !data.agentName?.includes(`[${data.modelId}]`)
+            ? `${data.agentName} [${data.modelId}]`
+            : data.agentName;
         await this.prisma.researchAgentActivity.create({
           data: {
             topicId,

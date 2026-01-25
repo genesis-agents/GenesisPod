@@ -603,6 +603,9 @@ export function ResearchCollaborationPanel({
       setConversationMessages((prev) => [...prev, userMessage]);
       setIsProcessingInput(true);
 
+      // ★ 提交后自动展开对话区，让用户看到消息和响应
+      setIsConversationCollapsed(false);
+
       try {
         // 2. 调用 Leader 解码 API
         logger.debug('[handleInstructionSubmit] Calling leaderChat API...');

@@ -185,9 +185,9 @@ function StatusBadge({
 }) {
   const config = STATUS_CONFIG[status];
   const isRunning = status === ResearchTodoStatus.IN_PROGRESS;
-  // 只有当 progress 有实际值（>0）时才显示百分比
-  const showProgress =
-    isRunning && typeof progress === 'number' && progress > 0;
+  // ★ 修改：研究中状态始终显示进度百分比（即使是 0%）
+  const showProgress = isRunning && typeof progress === 'number';
+  const progressValue = progress ?? 0;
 
   return (
     <span
@@ -202,7 +202,7 @@ function StatusBadge({
       <span>{config.label}</span>
       {showProgress && (
         <span className="rounded-full bg-white/50 px-1.5 py-0.5 text-[10px] font-bold">
-          {progress}%
+          {progressValue}%
         </span>
       )}
     </span>
