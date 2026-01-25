@@ -14,6 +14,7 @@ import {
 } from "@/modules/ai-engine/orchestration/services";
 import { LeaderDecisionType } from "@prisma/client";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
+import { sanitize } from "../utils/prompt-sanitizer";
 
 // ==================== Types ====================
 
@@ -822,10 +823,13 @@ export class ResearchLeaderService {
     const currentYear = now.getFullYear().toString();
     const currentDate = now.toISOString().split("T")[0]; // YYYY-MM-DD 格式
 
+    // ★ Security: 对用户输入进行消毒，防止 Prompt Injection
+    const sanitizedUserPrompt = sanitize(userPrompt || "请进行全面研究");
+
     const prompt = LEADER_PLAN_PROMPT.replace("{topic}", topic.name)
       .replace("{topicType}", topic.type)
       .replace("{description}", topic.description || "无")
-      .replace("{userPrompt}", userPrompt || "请进行全面研究")
+      .replace("{userPrompt}", sanitizedUserPrompt)
       .replace("{availableModels}", availableModelsText)
       .replace("{existingDimensions}", existingDimensionsText)
       .replace(/{currentDate}/g, currentDate)
@@ -1043,11 +1047,19 @@ export class ResearchLeaderService {
       `[handleUserMessage] Processing @Leader message for topic ${topicId}`,
     );
 
+    // ★ Security: 对用户输入进行消毒，防止 Prompt Injection
+    const sanitizedMessage = sanitize(userMessage);
+
     // ★ 保存用户消息到数据库（对话历史）
-    await this.eventEmitter.saveUserMessage(topicId, missionId, userMessage);
+    await this.eventEmitter.saveUserMessage(
+      topicId,
+      missionId,
+      sanitizedMessage,
+    );
 
     // 0. 使用 AI Engine 的意图检测服务进行快速预检测
-    const intentResult = this.intentDetectionService.detectIntent(userMessage);
+    const intentResult =
+      this.intentDetectionService.detectIntent(sanitizedMessage);
     this.logger.log(
       `[handleUserMessage] Intent detected: ${intentResult.intent} (confidence: ${intentResult.confidence})`,
     );
@@ -1093,7 +1105,10 @@ export class ResearchLeaderService {
         await this.recordDecision(
           missionId,
           LeaderDecisionType.INTERVENE,
-          { userMessage, detectedIntent: intentResult.intent },
+          {
+            userMessage: sanitizedMessage,
+            detectedIntent: intentResult.intent,
+          },
           { action: "quick_response" },
           quickResponse.response,
           "intent_detection_service",
@@ -1136,7 +1151,7 @@ export class ResearchLeaderService {
           .filter(Boolean)
           .join(", ") || "无",
       )
-      .replace("{userMessage}", userMessage);
+      .replace("{userMessage}", sanitizedMessage);
 
     // 6. 调用 AI
     const startTime = Date.now();
@@ -1177,7 +1192,7 @@ export class ResearchLeaderService {
     await this.recordDecision(
       missionId,
       LeaderDecisionType.INTERVENE,
-      { userMessage, detectedIntent: intentResult.intent },
+      { userMessage: sanitizedMessage, detectedIntent: intentResult.intent },
       result,
       result.response,
       leaderModel.modelId,
@@ -1416,8 +1431,11 @@ ${teamMembersText}`;
     clarifyQuestion?: string;
     clarifyOptions?: string[];
   }> {
+    // ★ Security: 对用户输入进行消毒，防止 Prompt Injection
+    const sanitizedMessage = sanitize(userMessage);
+
     this.logger.log(
-      `[decodeUserInput] Decoding user input for topic ${topicId}: "${userMessage.substring(0, 50)}..."`,
+      `[decodeUserInput] Decoding user input for topic ${topicId}: "${sanitizedMessage.substring(0, 50)}..."`,
     );
 
     // 1. 获取专题信息
@@ -1489,18 +1507,18 @@ ${teamMembersText}`;
     // 4. 快速意图检测（简单情况不需要调用 AI）
     // ★ 跳过快速检测如果用户询问项目配置相关问题
     const isProjectConfigQuestion =
-      userMessage.includes("工具") ||
-      userMessage.includes("技能") ||
-      userMessage.includes("团队") ||
-      userMessage.includes("成员") ||
-      userMessage.includes("知识库") ||
-      userMessage.includes("配置") ||
-      userMessage.includes("你能") ||
-      userMessage.includes("你有");
+      sanitizedMessage.includes("工具") ||
+      sanitizedMessage.includes("技能") ||
+      sanitizedMessage.includes("团队") ||
+      sanitizedMessage.includes("成员") ||
+      sanitizedMessage.includes("知识库") ||
+      sanitizedMessage.includes("配置") ||
+      sanitizedMessage.includes("你能") ||
+      sanitizedMessage.includes("你有");
 
     if (!isProjectConfigQuestion) {
       const quickResult = this.quickDecodeIntent(
-        userMessage,
+        sanitizedMessage,
         progress,
         topic.name,
       );
@@ -1519,7 +1537,7 @@ ${teamMembersText}`;
       return {
         decisionType: "ACKNOWLEDGE",
         understanding: "收到您的消息",
-        response: `收到！我会处理您的请求："${userMessage}"`,
+        response: `收到！我会处理您的请求："${sanitizedMessage}"`,
       };
     }
 
@@ -1535,7 +1553,7 @@ ${teamMembersText}`;
         inProgressDimensions.join(", ") || "无",
       )
       .replace("{projectContext}", projectContext)
-      .replace("{userMessage}", userMessage);
+      .replace("{userMessage}", sanitizedMessage);
 
     // 7. 调用 AI
     const startTime = Date.now();

@@ -131,15 +131,16 @@ const DANGEROUS_PATTERNS: DangerousPattern[] = [
 
 /**
  * 隐藏的 Unicode 字符（用于隐藏恶意指令）
+ * 注意: 保留 \t (0x09) 和 \n (0x0A) 换行符
  */
 const HIDDEN_UNICODE_RANGES = [
   // 零宽字符
   /[\u200B-\u200F]/g, // Zero-width characters
-  /[\u2028-\u202F]/g, // Various space characters
+  /[\u2028-\u202F]/g, // Various space characters (includes line/paragraph separators)
   /[\u2060-\u206F]/g, // Word joiner and invisible operators
   /[\uFEFF]/g, // Byte order mark
-  // 控制字符
-  /[\u0000-\u001F]/g, // C0 control characters (except newline, tab)
+  // 控制字符 (排除 \t=0x09 和 \n=0x0A)
+  /[\u0000-\u0008\u000B-\u001F]/g, // C0 control characters except tab and newline
   /[\u007F-\u009F]/g, // C1 control characters
   // 特殊空白
   /[\u00A0\u1680\u180E]/g, // Non-breaking space, Ogham space, etc.
@@ -201,13 +202,11 @@ export function sanitizePromptInput(
   let sanitized = input;
   const originalLength = input.length;
 
-  // 1. 移除隐藏的 Unicode 字符
+  // 1. 移除隐藏的 Unicode 字符 (保留 \t 和 \n)
   if (removeHiddenUnicode) {
     for (const pattern of HIDDEN_UNICODE_RANGES) {
       sanitized = sanitized.replace(pattern, "");
     }
-    // 保留 \n 和 \t
-    sanitized = sanitized.replace(/[\u0000-\u0008\u000B-\u001F]/g, "");
   }
 
   // 2. 检测并替换危险模式
