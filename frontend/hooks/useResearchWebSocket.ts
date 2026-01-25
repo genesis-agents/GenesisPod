@@ -3,12 +3,17 @@
  *
  * 连接到 Topic Research WebSocket Gateway，接收实时更新
  * 参考 AI Writing 的 useWritingWebSocket 设计
+ *
+ * ★ Security: JWT 认证已启用
+ * - 连接时自动传递 JWT token
+ * - 认证失败会断开连接并显示错误
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 import { logger } from '@/lib/utils/logger';
+import { getAuthTokens } from '@/lib/utils/auth';
 // 事件类型
 export type ResearchEventType =
   | 'mission:started'
@@ -101,10 +106,26 @@ export interface ResearchEvent {
   timestamp: string;
 }
 
+// ★ Phase 5: Sync request/response types
+interface SyncResponse {
+  success: boolean;
+  needsRecovery: boolean;
+  currentState: {
+    phase: string;
+    progress: number;
+    message: string;
+    missionId?: string;
+    lastActivityAt?: string;
+  } | null;
+  error?: string;
+}
+
 // Hook 配置选项
 interface UseResearchWebSocketOptions {
   enabled?: boolean;
   onEvent?: (event: ResearchEvent) => void;
+  /** ★ Phase 5: Callback when state needs recovery after reconnect */
+  onNeedsRecovery?: (state: SyncResponse['currentState']) => void;
 }
 
 // Hook 返回类型
@@ -118,10 +139,15 @@ interface UseResearchWebSocketResult {
   activeAgentIds: string[];
   // 事件历史（用于显示在团队互动区）
   events: ResearchEvent[];
+  // ★ Phase 5: Sync state
+  isSyncing: boolean;
+  lastSyncAt: string | null;
   // 方法
   connect: () => void;
   disconnect: () => void;
   clearEvents: () => void;
+  /** ★ Phase 5: Request state sync from server */
+  requestSync: () => void;
 }
 
 export function useResearchWebSocket(
@@ -133,9 +159,11 @@ export function useResearchWebSocket(
     typeof enabledOrOptions === 'boolean'
       ? { enabled: enabledOrOptions }
       : enabledOrOptions;
-  const { enabled = true, onEvent } = options;
+  const { enabled = true, onEvent, onNeedsRecovery } = options;
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
+  const onNeedsRecoveryRef = useRef(onNeedsRecovery);
+  onNeedsRecoveryRef.current = onNeedsRecovery;
   const socketRef = useRef<Socket | null>(null);
   const connectingRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -148,15 +176,69 @@ export function useResearchWebSocket(
   const [activeAgentIds, setActiveAgentIds] = useState<string[]>([]);
   const [events, setEvents] = useState<ResearchEvent[]>([]);
 
+  // ★ Phase 5: Sync state
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+
   // 清除事件
   const clearEvents = useCallback(() => {
     setEvents([]);
   }, []);
 
+  // ★ Phase 5: Request state sync from server
+  const requestSync = useCallback(() => {
+    if (!socketRef.current?.connected || !topicId) {
+      return;
+    }
+
+    setIsSyncing(true);
+
+    socketRef.current.emit(
+      'sync:request',
+      {
+        topicId,
+        lastKnownPhase: phase || undefined,
+        lastKnownProgress: progress || undefined,
+      },
+      (response: SyncResponse) => {
+        setIsSyncing(false);
+        setLastSyncAt(new Date().toISOString());
+
+        if (!response.success) {
+          logger.error('[ResearchWS] Sync failed:', response.error);
+          return;
+        }
+
+        if (response.currentState) {
+          // Update local state with server state
+          setProgress(response.currentState.progress);
+          setPhase(response.currentState.phase);
+          setCurrentMessage(response.currentState.message);
+
+          // Notify if recovery is needed
+          if (response.needsRecovery && onNeedsRecoveryRef.current) {
+            logger.debug('[ResearchWS] State recovery needed');
+            onNeedsRecoveryRef.current(response.currentState);
+          }
+        }
+
+        logger.debug('[ResearchWS] Sync completed:', response);
+      }
+    );
+  }, [topicId, phase, progress]);
+
   // 连接
   const connect = useCallback(() => {
     // 防止重复连接
     if (!topicId || socketRef.current?.connected || connectingRef.current) {
+      return;
+    }
+
+    // ★ Security: 获取 JWT token
+    const tokens = getAuthTokens();
+    if (!tokens?.accessToken) {
+      logger.warn('[ResearchWS] No auth token available, cannot connect');
+      setError('请先登录后再使用研究功能');
       return;
     }
 
@@ -180,6 +262,10 @@ export function useResearchWebSocket(
       reconnectionDelay: 2000,
       timeout: 10000,
       withCredentials: true,
+      // ★ Security: 在 handshake 中传递 JWT token
+      auth: {
+        token: tokens.accessToken,
+      },
     });
 
     socket.on('connect', () => {
@@ -190,6 +276,28 @@ export function useResearchWebSocket(
 
       // 加入专题房间
       socket.emit('join:topic', { topicId });
+
+      // ★ Phase 5: Auto-sync state after connecting
+      // Use setTimeout to ensure join is processed first
+      setTimeout(() => {
+        if (socket.connected) {
+          setIsSyncing(true);
+          socket.emit('sync:request', { topicId }, (response: SyncResponse) => {
+            setIsSyncing(false);
+            setLastSyncAt(new Date().toISOString());
+
+            if (response.success && response.currentState) {
+              setProgress(response.currentState.progress);
+              setPhase(response.currentState.phase);
+              setCurrentMessage(response.currentState.message);
+
+              if (response.needsRecovery && onNeedsRecoveryRef.current) {
+                onNeedsRecoveryRef.current(response.currentState);
+              }
+            }
+          });
+        }
+      }, 100);
     });
 
     socket.on('disconnect', (reason) => {
@@ -205,6 +313,14 @@ export function useResearchWebSocket(
       if (!error) {
         setError(`WebSocket 连接失败`);
       }
+    });
+
+    // ★ Security: 处理认证错误
+    socket.on('auth:error', (data: { message: string }) => {
+      logger.error('[ResearchWS] Authentication error:', data.message);
+      connectingRef.current = false;
+      setError(data.message || '认证失败，请重新登录');
+      setIsConnected(false);
     });
 
     // Helper to emit event to callback and store in history
@@ -433,8 +549,13 @@ export function useResearchWebSocket(
     currentMessage,
     activeAgentIds,
     events,
+    // ★ Phase 5: Sync state
+    isSyncing,
+    lastSyncAt,
+    // Methods
     connect,
     disconnect,
     clearEvents,
+    requestSync,
   };
 }

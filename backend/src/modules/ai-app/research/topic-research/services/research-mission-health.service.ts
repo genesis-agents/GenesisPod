@@ -2,6 +2,8 @@
  * Research Mission Health Service
  *
  * 健康检测服务 - 检测卡死的研究任务并进行恢复
+ * ★ Phase 5: 增加服务重启后自动恢复功能
+ *
  * 参考 AI Writing 模块的 WritingMissionHealthCheckService 实现
  */
 
@@ -11,6 +13,7 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   ResearchMissionStatus,
@@ -36,6 +39,20 @@ const HEALTH_CHECK_CONFIG = {
 
   /** Max retries before giving up */
   maxRetries: 3,
+} as const;
+
+/**
+ * ★ Phase 5: 服务启动时的自动恢复配置
+ */
+const RECOVERY_CONFIG = {
+  /** 服务启动后多久开始恢复（等待其他服务就绪） */
+  recoveryDelayMs: 10 * 1000,
+
+  /** 任务被认为是"中断"的阈值（服务重启期间无更新） */
+  interruptedThresholdMs: 5 * 60 * 1000,
+
+  /** 最大并发恢复任务数 */
+  maxConcurrentRecovery: 3,
 } as const;
 
 // ==================== Types ====================
@@ -72,6 +89,68 @@ export interface MissionHealthStatus {
   issues: string[];
 }
 
+/**
+ * ★ Phase 5: 自动恢复结果
+ */
+export interface RecoveryResult {
+  checkedAt: Date;
+  interruptedMissions: number;
+  recoveredMissions: number;
+  failedRecoveries: number;
+  details: RecoveryDetail[];
+}
+
+export interface RecoveryDetail {
+  missionId: string;
+  topicId: string;
+  action: "recovered" | "failed" | "skipped";
+  reason: string;
+}
+
+/**
+ * ★ Phase 5: Mission with tasks type for recovery
+ */
+interface MissionWithTasks {
+  id: string;
+  topicId: string;
+  status: ResearchMissionStatus;
+  progressPercent: number;
+  updatedAt: Date;
+  createdAt: Date;
+  startedAt: Date | null;
+  userContext: unknown;
+  tasks: Array<{
+    id: string;
+    status: ResearchTaskStatus;
+    updatedAt: Date;
+    startedAt: Date | null;
+  }>;
+  topic?: {
+    id: string;
+    name: string;
+    userId: string;
+  };
+}
+
+/**
+ * Mission type for health check (with tasks array)
+ */
+interface MissionForHealthCheck {
+  id: string;
+  topicId: string;
+  status: ResearchMissionStatus;
+  progressPercent: number;
+  updatedAt: Date;
+  createdAt: Date;
+  startedAt: Date | null;
+  tasks: Array<{
+    id: string;
+    status: ResearchTaskStatus;
+    updatedAt: Date;
+    startedAt: Date | null;
+  }>;
+}
+
 // ==================== Service ====================
 
 @Injectable()
@@ -81,28 +160,47 @@ export class ResearchMissionHealthService
   private readonly logger = new Logger(ResearchMissionHealthService.name);
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private isRunning = false;
+  private isRecovering = false;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly eventEmitter: ResearchEventEmitterService,
+    private readonly researchEventEmitter: ResearchEventEmitterService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
    * Module initialization - start health check loop
+   * ★ Phase 5: 增加服务启动后自动恢复中断任务
    */
   onModuleInit(): void {
     this.startHealthCheckLoop();
     this.logger.log(
       `Health check service started with ${HEALTH_CHECK_CONFIG.checkIntervalMs / 1000}s interval`,
     );
+
+    // ★ Phase 5: 延迟启动自动恢复（等待其他服务就绪）
+    setTimeout(() => {
+      this.recoverInterruptedMissions().catch((err) => {
+        this.logger.error(`Auto-recovery failed: ${err.message}`);
+      });
+    }, RECOVERY_CONFIG.recoveryDelayMs);
+
+    this.logger.log(
+      `Auto-recovery scheduled in ${RECOVERY_CONFIG.recoveryDelayMs / 1000}s`,
+    );
   }
 
   /**
    * Module destruction - stop health check loop
+   * ★ Phase 5: 增加优雅关机时保存检查点
    */
-  onModuleDestroy(): void {
+  async onModuleDestroy(): Promise<void> {
     this.stopHealthCheckLoop();
-    this.logger.log("Health check service stopped");
+
+    // ★ Phase 5: 保存执行中任务的检查点
+    await this.saveCheckpointsBeforeShutdown();
+
+    this.logger.log("Health check service stopped, checkpoints saved");
   }
 
   /**
@@ -233,7 +331,7 @@ export class ResearchMissionHealthService
    * 3. 超过卡死阈值且没有正在执行的任务 → 标记失败
    */
   private async checkMissionHealth(
-    mission: any,
+    mission: MissionForHealthCheck,
     now: Date,
   ): Promise<MissionHealthDetail> {
     const detail: MissionHealthDetail = {
@@ -269,7 +367,7 @@ export class ResearchMissionHealthService
     if (detail.stuckDurationMs > HEALTH_CHECK_CONFIG.stuckThresholdMs) {
       // 检查是否有 EXECUTING 状态的任务
       const hasExecutingTasks = mission.tasks?.some(
-        (task: any) => task.status === ResearchTaskStatus.EXECUTING,
+        (task) => task.status === ResearchTaskStatus.EXECUTING,
       );
 
       if (hasExecutingTasks) {
@@ -298,7 +396,10 @@ export class ResearchMissionHealthService
   /**
    * Get the last activity time from mission or tasks
    */
-  private getLastActivityTime(mission: any): Date | null {
+  private getLastActivityTime(mission: {
+    updatedAt: Date;
+    tasks?: Array<{ updatedAt: Date }>;
+  }): Date | null {
     const times: Date[] = [];
 
     if (mission.updatedAt) times.push(new Date(mission.updatedAt));
@@ -315,7 +416,10 @@ export class ResearchMissionHealthService
   /**
    * Mark a mission as failed
    */
-  private async markMissionFailed(mission: any, reason: string): Promise<void> {
+  private async markMissionFailed(
+    mission: { id: string; topicId: string },
+    reason: string,
+  ): Promise<void> {
     this.logger.warn(`Marking mission ${mission.id} as failed: ${reason}`);
 
     // Update mission status
@@ -362,7 +466,7 @@ export class ResearchMissionHealthService
     });
 
     // Emit failure event
-    await this.eventEmitter.emitMissionFailed(
+    await this.researchEventEmitter.emitMissionFailed(
       mission.topicId,
       mission.id,
       reason,
@@ -371,10 +475,11 @@ export class ResearchMissionHealthService
 
   /**
    * Get health status for a specific mission
+   * ★ Phase 5: 返回 null 而不是抛错，方便调用方处理
    */
   async getMissionHealthStatus(
     missionId: string,
-  ): Promise<MissionHealthStatus> {
+  ): Promise<MissionHealthStatus | null> {
     const mission = await this.prisma.researchMission.findUnique({
       where: { id: missionId },
       include: {
@@ -383,7 +488,7 @@ export class ResearchMissionHealthService
     });
 
     if (!mission) {
-      throw new Error(`Mission ${missionId} not found`);
+      return null;
     }
 
     const now = new Date();
@@ -487,5 +592,294 @@ export class ResearchMissionHealthService
    */
   async forceHealthCheck(): Promise<HealthCheckResult> {
     return this.runHealthCheck();
+  }
+
+  // ==================== Phase 5: Auto Recovery ====================
+
+  /**
+   * ★ Phase 5: 服务启动时恢复中断的任务
+   *
+   * 场景：服务重启（部署/崩溃）后，EXECUTING 状态的任务需要继续执行
+   */
+  async recoverInterruptedMissions(): Promise<RecoveryResult> {
+    if (this.isRecovering) {
+      this.logger.debug("Recovery already in progress, skipping");
+      return {
+        checkedAt: new Date(),
+        interruptedMissions: 0,
+        recoveredMissions: 0,
+        failedRecoveries: 0,
+        details: [],
+      };
+    }
+
+    this.isRecovering = true;
+    this.logger.log("Starting auto-recovery of interrupted missions...");
+
+    const result: RecoveryResult = {
+      checkedAt: new Date(),
+      interruptedMissions: 0,
+      recoveredMissions: 0,
+      failedRecoveries: 0,
+      details: [],
+    };
+
+    try {
+      // 1. 查找所有 EXECUTING 状态的 Mission
+      const executingMissions = await this.prisma.researchMission.findMany({
+        where: {
+          status: ResearchMissionStatus.EXECUTING,
+        },
+        include: {
+          tasks: true,
+          topic: { select: { id: true, name: true, userId: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+      });
+
+      if (executingMissions.length === 0) {
+        this.logger.log("No interrupted missions found");
+        return result;
+      }
+
+      const now = Date.now();
+      const threshold = RECOVERY_CONFIG.interruptedThresholdMs;
+
+      // 2. 筛选需要恢复的任务（超过阈值无更新）
+      const interruptedMissions = executingMissions.filter((mission) => {
+        const lastUpdate = new Date(mission.updatedAt).getTime();
+        const isStale = now - lastUpdate > threshold;
+
+        // 检查是否有正在执行但可能中断的任务
+        const hasStaleExecutingTask = mission.tasks.some((task) => {
+          if (task.status !== ResearchTaskStatus.EXECUTING) return false;
+          const taskLastUpdate = new Date(task.updatedAt).getTime();
+          return now - taskLastUpdate > threshold;
+        });
+
+        return isStale || hasStaleExecutingTask;
+      });
+
+      result.interruptedMissions = interruptedMissions.length;
+
+      if (interruptedMissions.length === 0) {
+        this.logger.log(
+          "All executing missions are active, no recovery needed",
+        );
+        return result;
+      }
+
+      this.logger.warn(
+        `Found ${interruptedMissions.length} interrupted missions, starting recovery...`,
+      );
+
+      // 3. 并发恢复（限制并发数）
+      const concurrencyLimit = RECOVERY_CONFIG.maxConcurrentRecovery;
+
+      for (let i = 0; i < interruptedMissions.length; i += concurrencyLimit) {
+        const batch = interruptedMissions.slice(i, i + concurrencyLimit);
+
+        const batchResults = await Promise.allSettled(
+          batch.map((mission) =>
+            this.recoverSingleMission(mission as MissionWithTasks),
+          ),
+        );
+
+        for (let j = 0; j < batchResults.length; j++) {
+          const batchResult = batchResults[j];
+          const mission = batch[j];
+
+          if (batchResult.status === "fulfilled" && batchResult.value.success) {
+            result.recoveredMissions++;
+            result.details.push({
+              missionId: mission.id,
+              topicId: mission.topicId,
+              action: "recovered",
+              reason: batchResult.value.reason,
+            });
+          } else {
+            result.failedRecoveries++;
+            result.details.push({
+              missionId: mission.id,
+              topicId: mission.topicId,
+              action: "failed",
+              reason:
+                batchResult.status === "rejected"
+                  ? batchResult.reason?.message || "Unknown error"
+                  : batchResult.value.reason,
+            });
+          }
+        }
+      }
+
+      this.logger.log(
+        `Auto-recovery completed: ${result.recoveredMissions} recovered, ` +
+          `${result.failedRecoveries} failed`,
+      );
+
+      return result;
+    } finally {
+      this.isRecovering = false;
+    }
+  }
+
+  /**
+   * ★ Phase 5: 恢复单个中断的 Mission
+   * 使用事件驱动方案，避免循环依赖
+   */
+  private async recoverSingleMission(
+    mission: MissionWithTasks,
+  ): Promise<{ success: boolean; reason: string }> {
+    const { id: missionId, topicId } = mission;
+
+    this.logger.log(`Recovering mission ${missionId}...`);
+
+    try {
+      // 1. 发出恢复开始事件
+      const completedCount = mission.tasks.filter(
+        (t) => t.status === ResearchTaskStatus.COMPLETED,
+      ).length;
+      const totalCount = mission.tasks.length;
+
+      await this.researchEventEmitter.emitMissionProgress(topicId, {
+        missionId,
+        progress: mission.progressPercent || 0,
+        phase: "recovering",
+        message: "系统正在恢复中断的研究任务...",
+        completedTasks: completedCount,
+        totalTasks: totalCount,
+      });
+
+      // 2. 重置所有 EXECUTING 状态的任务为 PENDING
+      const resetTaskResult = await this.prisma.researchTask.updateMany({
+        where: {
+          missionId,
+          status: ResearchTaskStatus.EXECUTING,
+        },
+        data: {
+          status: ResearchTaskStatus.PENDING,
+          startedAt: null,
+        },
+      });
+
+      // 3. 重置所有 IN_PROGRESS 状态的 TODO 为 PENDING
+      await this.prisma.researchTodo.updateMany({
+        where: {
+          missionId,
+          status: ResearchTodoStatus.IN_PROGRESS,
+        },
+        data: {
+          status: ResearchTodoStatus.PENDING,
+          startedAt: null,
+        },
+      });
+
+      // 4. 更新 Mission 的 updatedAt 以标记恢复
+      await this.prisma.researchMission.update({
+        where: { id: missionId },
+        data: {
+          updatedAt: new Date(),
+        },
+      });
+
+      // 5. 发出恢复事件，让 MissionService 处理继续执行
+      // ★ 使用事件驱动避免循环依赖
+      this.eventEmitter.emit("research.mission.recovery_needed", {
+        missionId,
+        topicId,
+        resetTaskCount: resetTaskResult.count,
+      });
+
+      this.logger.log(
+        `Mission ${missionId} recovered successfully, ` +
+          `${resetTaskResult.count} tasks reset to PENDING`,
+      );
+
+      return {
+        success: true,
+        reason: `Recovered with ${resetTaskResult.count} tasks reset`,
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to recover mission ${missionId}: ${errorMessage}`,
+      );
+
+      // 恢复失败不标记为 FAILED，让健康检查来处理
+      return {
+        success: false,
+        reason: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * ★ Phase 5: 优雅关机前保存检查点
+   */
+  private async saveCheckpointsBeforeShutdown(): Promise<void> {
+    this.logger.log("Saving checkpoints before shutdown...");
+
+    try {
+      const executingMissions = await this.prisma.researchMission.findMany({
+        where: {
+          status: ResearchMissionStatus.EXECUTING,
+        },
+        include: {
+          tasks: true,
+        },
+      });
+
+      if (executingMissions.length === 0) {
+        this.logger.log("No executing missions to checkpoint");
+        return;
+      }
+
+      for (const mission of executingMissions) {
+        try {
+          // 保存当前进度到 userContext
+          const checkpoint = {
+            savedAt: new Date().toISOString(),
+            reason: "graceful_shutdown",
+            completedTasks: mission.tasks
+              .filter((t) => t.status === ResearchTaskStatus.COMPLETED)
+              .map((t) => t.id),
+            executingTasks: mission.tasks
+              .filter((t) => t.status === ResearchTaskStatus.EXECUTING)
+              .map((t) => t.id),
+            progressPercent: mission.progressPercent,
+          };
+
+          const existingContext =
+            (mission.userContext as Record<string, unknown>) || {};
+
+          await this.prisma.researchMission.update({
+            where: { id: mission.id },
+            data: {
+              userContext: {
+                ...existingContext,
+                shutdownCheckpoint: checkpoint,
+              },
+            },
+          });
+
+          this.logger.debug(`Checkpoint saved for mission ${mission.id}`);
+        } catch (error: unknown) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            `Failed to save checkpoint for ${mission.id}: ${errorMessage}`,
+          );
+        }
+      }
+
+      this.logger.log(
+        `Saved checkpoints for ${executingMissions.length} missions`,
+      );
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to save checkpoints: ${errorMessage}`);
+    }
   }
 }

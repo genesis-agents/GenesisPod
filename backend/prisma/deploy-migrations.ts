@@ -282,8 +282,8 @@ async function deploy(): Promise<void> {
       console.log("   Creating social_content_versions table...");
       await prisma.$executeRaw`
         CREATE TABLE IF NOT EXISTS "social_content_versions" (
-          "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-          "content_id" UUID NOT NULL,
+          "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+          "content_id" TEXT NOT NULL,
           "platform_type" "SocialPlatformType" NOT NULL,
           "title" VARCHAR(200) NOT NULL,
           "content" TEXT NOT NULL,
