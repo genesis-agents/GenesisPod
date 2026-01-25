@@ -591,8 +591,15 @@ export class TopicResearchService {
               sortOrder: true,
             },
           },
-          // ★ 包含最新报告以获取 totalSources 和 lastRefreshAt
+          // ★ 包含最新【有内容的】报告以获取 totalSources 和 lastRefreshAt
+          // 跳过空草稿报告（executiveSummary 为空且没有维度分析）
           reports: {
+            where: {
+              OR: [
+                { executiveSummary: { not: "" } },
+                { dimensionAnalyses: { some: {} } },
+              ],
+            },
             orderBy: { generatedAt: "desc" },
             take: 1,
             select: {
@@ -648,7 +655,14 @@ export class TopicResearchService {
         dimensions: {
           orderBy: { sortOrder: "asc" },
         },
+        // ★ 只获取有内容的报告，跳过空草稿
         reports: {
+          where: {
+            OR: [
+              { executiveSummary: { not: "" } },
+              { dimensionAnalyses: { some: {} } },
+            ],
+          },
           orderBy: { generatedAt: "desc" },
           take: 1,
           select: {
@@ -2362,11 +2376,25 @@ export class TopicResearchService {
       throw new NotFoundException("Topic not found or not publicly accessible");
     }
 
-    // 获取报告统计
-    const [reportCount, latestReport] = await Promise.all([
-      this.prisma.topicReport.count({ where: { topicId } }),
+    // ★ 获取【有内容的】报告统计，跳过空草稿
+    const [completedReportCount, latestCompletedReport] = await Promise.all([
+      this.prisma.topicReport.count({
+        where: {
+          topicId,
+          OR: [
+            { executiveSummary: { not: "" } },
+            { dimensionAnalyses: { some: {} } },
+          ],
+        },
+      }),
       this.prisma.topicReport.findFirst({
-        where: { topicId },
+        where: {
+          topicId,
+          OR: [
+            { executiveSummary: { not: "" } },
+            { dimensionAnalyses: { some: {} } },
+          ],
+        },
         orderBy: { generatedAt: "desc" },
         select: {
           id: true,
@@ -2379,13 +2407,14 @@ export class TopicResearchService {
 
     const result = {
       ...topic,
-      totalReports: reportCount,
-      totalSources: latestReport?.totalSources || topic.totalSources || 0,
-      lastRefreshAt: latestReport?.generatedAt || topic.lastRefreshAt,
+      totalReports: completedReportCount,
+      totalSources:
+        latestCompletedReport?.totalSources || topic.totalSources || 0,
+      lastRefreshAt: latestCompletedReport?.generatedAt || topic.lastRefreshAt,
     };
 
     this.logger.log(
-      `[getSharedTopic] 返回专题 "${topic.name}", ${reportCount} 份报告, ${result.totalSources} 个来源`,
+      `[getSharedTopic] 返回专题 "${topic.name}", ${completedReportCount} 份已完成报告, ${result.totalSources} 个来源`,
     );
 
     return result;
@@ -2418,9 +2447,17 @@ export class TopicResearchService {
       throw new NotFoundException("Topic not found or not publicly accessible");
     }
 
-    // 获取最新报告（包含维度分析数据用于渲染内容）
+    // ★ 获取最新的【有内容的】报告
+    // 跳过空报告（草稿状态，尚未填充内容）
     const report = await this.prisma.topicReport.findFirst({
-      where: { topicId },
+      where: {
+        topicId,
+        // ★ 只返回有内容的报告：executiveSummary 非空 或 有维度分析
+        OR: [
+          { executiveSummary: { not: "" } },
+          { dimensionAnalyses: { some: {} } },
+        ],
+      },
       orderBy: { generatedAt: "desc" },
       include: {
         topic: {
@@ -2453,9 +2490,9 @@ export class TopicResearchService {
 
     if (!report) {
       this.logger.warn(
-        `[getSharedTopicLatestReport] 专题 "${topic.name}" 没有报告`,
+        `[getSharedTopicLatestReport] 专题 "${topic.name}" 没有已完成的报告`,
       );
-      throw new NotFoundException("No reports found for this topic");
+      throw new NotFoundException("No completed reports found for this topic");
     }
 
     this.logger.log(
