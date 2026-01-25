@@ -1668,13 +1668,6 @@
       "welcome": "Welcome to Admin Console",
       "welcomeDescription": "Manage your system settings, AI configurations, data collection, and access control from here."
     },
-    "subtitle": "System management and configuration",
-    "users": "User Management",
-    "settings": "Settings",
-    "aiModels": "AI Models",
-    "systemStats": "System Stats",
-    "dataCollection": "Data Collection",
-    "feedback": "Feedback",
     "tabs": {
       "dashboard": "Dashboard",
       "aiModels": "AI Models",
@@ -2143,17 +2136,6 @@
         "configure": "Configure",
         "enabled": "enabled",
         "toggleAll": "Toggle all"
-      },
-      "categories": {
-        "search": "Web Search",
-        "extraction": "Content Extraction",
-        "generation": "Content Generation",
-        "processing": "Data Processing",
-        "memory": "Knowledge & Memory",
-        "integration": "External Integration",
-        "export": "Export",
-        "policy": "Policy Research",
-        "devtools": "Dev Tools"
       },
       "mcp": {
         "addServer": "Add Server",

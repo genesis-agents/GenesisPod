@@ -1667,13 +1667,6 @@
       "welcome": "欢迎使用管理控制台",
       "welcomeDescription": "在这里管理系统设置、AI 配置、数据采集和访问控制。"
     },
-    "subtitle": "系统管理与配置",
-    "users": "用户管理",
-    "settings": "系统设置",
-    "aiModels": "AI 模型",
-    "systemStats": "系统统计",
-    "dataCollection": "数据采集",
-    "feedback": "用户反馈",
     "tabs": {
       "dashboard": "仪表板",
       "aiModels": "AI 模型",
@@ -2144,17 +2137,6 @@
         "configure": "配置",
         "enabled": "已启用",
         "toggleAll": "切换全部"
-      },
-      "categories": {
-        "search": "网络搜索",
-        "extraction": "内容提取",
-        "generation": "内容生成",
-        "processing": "数据处理",
-        "memory": "知识记忆",
-        "integration": "外部集成",
-        "export": "导出",
-        "policy": "政策研究",
-        "devtools": "开发工具"
       },
       "mcp": {
         "addServer": "添加服务器",
