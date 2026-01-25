@@ -1716,6 +1716,7 @@ export async function updateTopicVisibility(
 
 /**
  * 获取公开的专题详情（无需认证）
+ * ★ 修复：正确提取 data 字段
  */
 export async function getSharedTopic(topicId: string): Promise<ResearchTopic> {
   const response = await fetch(
@@ -1727,11 +1728,14 @@ export async function getSharedTopic(topicId: string): Promise<ResearchTopic> {
       .catch(() => ({ message: 'Failed to fetch shared topic' }));
     throw new Error(error.message || 'Failed to fetch shared topic');
   }
-  return response.json();
+  const json = await response.json();
+  // API 返回 {success: true, data: {...}}，需要提取 data
+  return json.data || json;
 }
 
 /**
  * 获取公开专题的最新报告（无需认证）
+ * ★ 修复：正确提取 data 字段
  */
 export async function getSharedTopicLatestReport(
   topicId: string
@@ -1745,7 +1749,9 @@ export async function getSharedTopicLatestReport(
       .catch(() => ({ message: 'Failed to fetch shared report' }));
     throw new Error(error.message || 'Failed to fetch shared report');
   }
-  return response.json();
+  const json = await response.json();
+  // API 返回 {success: true, data: {...}}，需要提取 data
+  return json.data || json;
 }
 
 // ==================== Report Annotations ====================
