@@ -23,6 +23,8 @@ import {
   Eye,
   Code,
 } from 'lucide-react';
+import { VersionTabs } from '@/components/ai-social/create/VersionTabs';
+import { SocialPlatformType } from '@/lib/api/ai-social';
 
 export default function EditSocialContentPage() {
   const { t } = useTranslation();
@@ -53,6 +55,10 @@ export default function EditSocialContentPage() {
 
   // Tab state: 'preview' or 'source'
   const [activeTab, setActiveTab] = useState<'preview' | 'source'>('preview');
+
+  // Platform version state
+  const [selectedPlatform, setSelectedPlatform] =
+    useState<SocialPlatformType>('WECHAT_MP');
 
   // Load content on mount
   useEffect(() => {
@@ -227,6 +233,24 @@ export default function EditSocialContentPage() {
           {error && (
             <div className="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-600">
               {error}
+            </div>
+          )}
+
+          {/* Version Tabs */}
+          {contentId && (
+            <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
+              <VersionTabs
+                contentId={contentId}
+                selectedPlatform={selectedPlatform}
+                onVersionSelect={(version, platform) => {
+                  setSelectedPlatform(platform);
+                  if (version) {
+                    setTitle(version.title);
+                    setContent(version.content);
+                    setDigest(version.digest || '');
+                  }
+                }}
+              />
             </div>
           )}
 
