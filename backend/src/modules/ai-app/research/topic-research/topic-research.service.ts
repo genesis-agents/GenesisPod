@@ -592,13 +592,10 @@ export class TopicResearchService {
             },
           },
           // ★ 包含最新【有内容的】报告以获取 totalSources 和 lastRefreshAt
-          // 跳过空草稿报告（executiveSummary 和 fullReport 都为空）
+          // 跳过空草稿报告（需有维度分析记录）
           reports: {
             where: {
-              OR: [
-                { executiveSummary: { not: "" } },
-                { fullReport: { not: "" } },
-              ],
+              dimensionAnalyses: { some: {} },
             },
             orderBy: { generatedAt: "desc" },
             take: 1,
@@ -655,13 +652,10 @@ export class TopicResearchService {
         dimensions: {
           orderBy: { sortOrder: "asc" },
         },
-        // ★ 只获取有内容的报告，跳过空草稿
+        // ★ 只获取有内容的报告，跳过空草稿（需有维度分析记录）
         reports: {
           where: {
-            OR: [
-              { executiveSummary: { not: "" } },
-              { fullReport: { not: "" } },
-            ],
+            dimensionAnalyses: { some: {} },
           },
           orderBy: { generatedAt: "desc" },
           take: 1,
@@ -2377,18 +2371,18 @@ export class TopicResearchService {
     }
 
     // ★ 获取【有内容的】报告统计，跳过空草稿
-    // 判断条件：executiveSummary 或 fullReport 非空
+    // 判断条件：有维度分析记录（与 authenticated getLatestReport 一致）
     const [completedReportCount, latestCompletedReport] = await Promise.all([
       this.prisma.topicReport.count({
         where: {
           topicId,
-          OR: [{ executiveSummary: { not: "" } }, { fullReport: { not: "" } }],
+          dimensionAnalyses: { some: {} },
         },
       }),
       this.prisma.topicReport.findFirst({
         where: {
           topicId,
-          OR: [{ executiveSummary: { not: "" } }, { fullReport: { not: "" } }],
+          dimensionAnalyses: { some: {} },
         },
         orderBy: { generatedAt: "desc" },
         select: {
@@ -2444,11 +2438,11 @@ export class TopicResearchService {
 
     // ★ 获取最新的【有内容的】报告
     // 跳过空报告（草稿状态，尚未填充内容）
-    // 判断条件：executiveSummary 或 fullReport 非空
+    // 判断条件：有维度分析记录（与 authenticated getLatestReport 一致）
     const report = await this.prisma.topicReport.findFirst({
       where: {
         topicId,
-        OR: [{ executiveSummary: { not: "" } }, { fullReport: { not: "" } }],
+        dimensionAnalyses: { some: {} },
       },
       orderBy: { generatedAt: "desc" },
       include: {
