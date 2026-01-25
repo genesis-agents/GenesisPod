@@ -11,6 +11,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { SkillLoaderService } from "@/modules/ai-engine/skills/loader/skill-loader.service";
 import { AIModelType } from "@prisma/client";
 import type { SectionPlan } from "./research-leader.service";
 import {
@@ -80,7 +81,10 @@ export interface SectionRevisionInput {
 export class SectionWriterService {
   private readonly logger = new Logger(SectionWriterService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(
+    private readonly aiFacade: AIEngineFacade,
+    private readonly skillLoader: SkillLoaderService,
+  ) {}
 
   /**
    * 撰写单个章节
@@ -486,6 +490,7 @@ export class SectionWriterService {
   /**
    * 格式化 Agent 配置为指导文本
    * 将 Leader 的 agentConfig 转换为 Agent 可理解的指导
+   * ★ 增强：真正加载 skill.md 文件内容
    */
   private formatAgentGuidance(section: SectionPlan): string {
     const config = section.agentConfig;
@@ -495,9 +500,27 @@ export class SectionWriterService {
 
     const parts: string[] = [];
 
-    // 分析技能指导
+    // ★ 真正加载分析技能（从 skill.md 文件）
     if (config.skills && config.skills.length > 0) {
-      const skillDescriptions: Record<string, string> = {
+      const loadedSkillContents: string[] = [];
+      const fallbackDescriptions: string[] = [];
+
+      // 技能 ID 到文件 ID 的映射（下划线转换为连字符）
+      const skillIdMapping: Record<string, string> = {
+        trend_analysis: "trend-analysis",
+        swot_analysis: "swot-analysis",
+        competitive_analysis: "competitive-analysis",
+        deep_dive: "deep-dive",
+        data_interpretation: "data-interpretation",
+        synthesis: "synthesis",
+        critical_thinking: "critical-thinking",
+        future_projection: "future-projection",
+        cause_effect: "cause-effect",
+        comparison: "comparison",
+      };
+
+      // 备用描述（当技能文件不存在时使用）
+      const fallbackSkillDescriptions: Record<string, string> = {
         trend_analysis: "趋势分析 - 识别发展趋势、变化方向、未来走向",
         swot_analysis: "SWOT分析 - 分析优势、劣势、机会、威胁",
         competitive_analysis: "竞争分析 - 分析竞争格局、主要玩家、策略对比",
@@ -510,10 +533,43 @@ export class SectionWriterService {
         comparison: "对比分析 - 比较不同方案、事物、路径",
       };
 
-      const skillGuide = config.skills
-        .map((s) => `- ${skillDescriptions[s] || s}`)
-        .join("\n");
-      parts.push(`**分析方法**:\n${skillGuide}`);
+      for (const skillId of config.skills) {
+        const fileId = skillIdMapping[skillId] || skillId.replace(/_/g, "-");
+        // 同步获取技能（skillLoader 已在启动时预加载所有技能）
+        const skill = this.skillLoader
+          .getAllLoadedSkills()
+          .find((s) => s.metadata.id === fileId);
+
+        if (skill) {
+          // ★ 使用技能文件的完整内容
+          loadedSkillContents.push(
+            `### ${skill.metadata.name}\n\n${skill.content}`,
+          );
+          this.logger.debug(
+            `[formatAgentGuidance] Loaded skill: ${fileId} (${skill.content.length} chars)`,
+          );
+        } else {
+          // 技能文件不存在，使用备用描述
+          fallbackDescriptions.push(
+            `- ${fallbackSkillDescriptions[skillId] || skillId}`,
+          );
+          this.logger.debug(
+            `[formatAgentGuidance] Skill not found, using fallback: ${skillId}`,
+          );
+        }
+      }
+
+      // 组合已加载的技能内容
+      if (loadedSkillContents.length > 0) {
+        parts.push(
+          `## 分析技能指导\n\n${loadedSkillContents.join("\n\n---\n\n")}`,
+        );
+      }
+
+      // 添加备用描述（如果有未找到的技能）
+      if (fallbackDescriptions.length > 0) {
+        parts.push(`**其他分析方法**:\n${fallbackDescriptions.join("\n")}`);
+      }
     }
 
     // 分析指导

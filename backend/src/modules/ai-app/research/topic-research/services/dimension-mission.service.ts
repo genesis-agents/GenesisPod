@@ -141,6 +141,9 @@ export class DimensionMissionService {
     // ★ Agent 信息定义
     const leaderAgentId = "leader-" + dimId;
     const leaderAgentName = "研究组长";
+    // ★ 研究员信息（搜索阶段使用，而非 Leader）
+    const researcherAgentId = `researcher_${dimId}`;
+    const researcherAgentName = `研究员 [${modelId || "default"}]`;
     const effectiveMissionId = missionId || dimension.id;
 
     try {
@@ -158,15 +161,15 @@ export class DimensionMissionService {
         5, // 阶段进度：5%
       );
 
-      // ★ 记录搜索阶段开始
+      // ★ 记录搜索阶段开始（使用研究员身份，而非 Leader）
       await this.agentActivity.startThinkingPhase({
         topicId: topic.id,
         missionId: effectiveMissionId,
         dimensionId: dimension.id,
         dimensionName: dimension.name,
-        agentId: leaderAgentId,
-        agentName: leaderAgentName,
-        agentRole: "leader",
+        agentId: researcherAgentId,
+        agentName: researcherAgentName,
+        agentRole: "researcher",
         activityType: AgentActivityType.RESEARCHING,
         phase: "searching",
         content: `正在为维度「${dimension.name}」收集资料...`,
@@ -213,9 +216,7 @@ export class DimensionMissionService {
         );
       }
 
-      // ★ 发送研究员搜索完成事件
-      const researcherAgentId = `researcher_${dimId}`;
-      const researcherAgentName = `研究员 [${modelId || "default"}]`;
+      // ★ 发送研究员搜索完成事件（使用开头定义的 researcherAgentId/Name）
       await this.eventEmitter.emitAgentWorking(
         topic.id,
         {
@@ -354,9 +355,10 @@ export class DimensionMissionService {
         }),
       };
 
+      // ★ 使用研究员身份结束搜索阶段（与 startThinkingPhase 匹配）
       await this.agentActivity.endThinkingPhase(
         topic.id,
-        leaderAgentId,
+        researcherAgentId,
         "searching" as ThinkingPhase,
         {
           searchResults: searchResultsRecord,
