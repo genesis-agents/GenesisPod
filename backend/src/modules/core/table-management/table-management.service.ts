@@ -159,9 +159,10 @@ const TABLE_CATEGORIES: Record<string, TableCategory> = {
  * Cleanup policies for tables
  */
 const CLEANUP_POLICIES: Record<string, CleanupPolicyDto> = {
+  // Use snake_case column names to match PostgreSQL
   raw_data: {
     type: "age",
-    field: "processedAt",
+    field: "processed_at",
     threshold: 30, // days
     description: "Delete processed raw data older than 30 days",
   },
@@ -179,52 +180,47 @@ const CLEANUP_POLICIES: Record<string, CleanupPolicyDto> = {
     threshold: 7,
     description: "Delete completed/failed import tasks older than 7 days",
   },
-  parsed_metadata_cache: {
-    type: "age",
-    field: "expiresAt",
-    description: "Delete expired metadata cache entries",
-  },
   user_activities: {
     type: "age",
-    field: "createdAt",
+    field: "created_at",
     threshold: 30,
     description: "Archive user activities older than 30 days",
   },
   generated_images: {
     type: "status",
-    field: "isBookmarked",
+    field: "is_bookmarked",
     condition: "false",
     description: "Delete unbookmarked images (keep latest 20 per user)",
   },
   ask_sessions: {
     type: "age",
-    field: "updatedAt",
+    field: "updated_at",
     threshold: 30,
     description: "Delete old Ask AI sessions older than 30 days",
   },
   office_documents: {
     type: "age",
-    field: "createdAt",
+    field: "created_at",
     threshold: 7,
     description: "Delete old office documents older than 7 days",
   },
   slides_sessions: {
     type: "age",
-    field: "updatedAt",
+    field: "updated_at",
     threshold: 7,
     description: "Delete old slides sessions older than 7 days",
   },
-  audit_logs: {
+  deep_research_sessions: {
     type: "age",
-    field: "createdAt",
-    threshold: 90,
-    description: "Archive audit logs older than 90 days",
+    field: "created_at",
+    threshold: 30,
+    description: "Delete old research sessions older than 30 days",
   },
-  scheduler_logs: {
+  agent_tasks: {
     type: "age",
-    field: "createdAt",
+    field: "created_at",
     threshold: 7,
-    description: "Delete scheduler logs older than 7 days",
+    description: "Delete old agent tasks older than 7 days",
   },
 };
 

@@ -1,6 +1,13 @@
 'use client';
 
-import { Database, HardDrive, Trash2, Clock, Loader2 } from 'lucide-react';
+import {
+  Database,
+  HardDrive,
+  Recycle,
+  Clock,
+  Loader2,
+  Trash2,
+} from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import type { TableStats } from '@/hooks/domain';
 
@@ -41,7 +48,7 @@ export default function TableStatsCards({
       labelKey: 'admin.tables.stats.cleanableSpace',
       value: stats?.cleanableSizeBytes ?? 0,
       formatted: stats?.cleanableSizeFormatted ?? '0 B',
-      icon: Trash2,
+      icon: Recycle,
       color: 'amber',
     },
     {
