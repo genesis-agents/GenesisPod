@@ -87,7 +87,21 @@ interface ExtendedAgentActivity extends AgentActivity {
   searchResults?: {
     total: number;
     filtered: number;
-    sources: Array<{ domain: string; count: number }>;
+    searchTool?: string; // 使用的搜索工具 (web, academic, github, etc.)
+    query?: string; // 搜索查询
+    searchedAt?: string; // 搜索时间
+    freshnessInfo?: {
+      newestDate?: string;
+      oldestDate?: string;
+      avgAgeInDays?: number;
+    };
+    sources: Array<{
+      title: string;
+      url: string;
+      domain?: string;
+      sourceType: string;
+      publishedDate?: string;
+    }>;
   };
   writingProgress?: {
     sections: Array<{
@@ -306,27 +320,83 @@ function ThinkingPhasesTimeline({
                 </div>
               )}
 
-              {/* 搜索结果统计 */}
+              {/* 搜索结果统计 - 增强版 */}
               {activity.searchResults && activity.searchResults.total > 0 && (
-                <div className="mt-1 flex items-center gap-2 text-gray-500">
-                  <Database className="h-3 w-3" />
-                  <span>
-                    检索 {activity.searchResults.total} 条
-                    {activity.searchResults.filtered > 0 &&
-                      activity.searchResults.filtered <
-                        activity.searchResults.total &&
-                      `，筛选 ${activity.searchResults.filtered} 条`}
-                  </span>
+                <div className="mt-1 space-y-1">
+                  {/* 搜索工具和查询 */}
+                  <div className="flex flex-wrap items-center gap-2 text-gray-500">
+                    <Database className="h-3 w-3" />
+                    <span>
+                      检索 {activity.searchResults.total} 条
+                      {activity.searchResults.filtered > 0 &&
+                        activity.searchResults.filtered <
+                          activity.searchResults.total &&
+                        `，筛选 ${activity.searchResults.filtered} 条`}
+                    </span>
+                    {activity.searchResults.searchTool && (
+                      <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                        {activity.searchResults.searchTool}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 搜索查询 */}
+                  {activity.searchResults.query && (
+                    <div className="truncate text-xs italic text-gray-400">
+                      查询: &quot;{activity.searchResults.query}&quot;
+                    </div>
+                  )}
+
+                  {/* 时效性信息 */}
+                  {activity.searchResults.freshnessInfo && (
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+                      <Clock className="h-3 w-3" />
+                      {activity.searchResults.freshnessInfo.avgAgeInDays !==
+                        undefined && (
+                        <span>
+                          平均
+                          {activity.searchResults.freshnessInfo.avgAgeInDays}
+                          天前
+                        </span>
+                      )}
+                      {activity.searchResults.freshnessInfo.newestDate && (
+                        <span className="text-green-600 dark:text-green-400">
+                          最新:{' '}
+                          {new Date(
+                            activity.searchResults.freshnessInfo.newestDate
+                          ).toLocaleDateString('zh-CN')}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 来源列表（显示前3个） */}
                   {Array.isArray(activity.searchResults.sources) &&
                     activity.searchResults.sources.length > 0 && (
-                      <span className="text-gray-400">
-                        (来源:{' '}
+                      <div className="space-y-0.5">
                         {activity.searchResults.sources
-                          .slice(0, 2)
-                          .map((s) => s.domain)
-                          .join(', ')}
-                        )
-                      </span>
+                          .slice(0, 3)
+                          .map((source, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-1 text-xs text-gray-500"
+                            >
+                              <span className="text-blue-500">+</span>
+                              <span className="truncate">{source.title}</span>
+                              {source.domain && (
+                                <span className="flex-shrink-0 text-gray-400">
+                                  ({source.domain})
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        {activity.searchResults.sources.length > 3 && (
+                          <div className="text-xs text-gray-400">
+                            ...还有 {activity.searchResults.sources.length - 3}{' '}
+                            条来源
+                          </div>
+                        )}
+                      </div>
                     )}
                 </div>
               )}
@@ -377,17 +447,34 @@ function extractMeaningfulSummary(activities: ExtendedAgentActivity[]): {
   sourcesFiltered: number;
   keyInsight: string | null;
   sectionsWritten: number;
+  searchTools: string[];
+  avgFreshness: number | null;
 } {
   let sourcesFound = 0;
   let sourcesFiltered = 0;
   let keyInsight: string | null = null;
   let sectionsWritten = 0;
+  const searchTools: string[] = [];
+  const freshnessValues: number[] = [];
 
   for (const activity of activities) {
     // 搜索结果统计
     if (activity.searchResults) {
       sourcesFound += activity.searchResults.total || 0;
       sourcesFiltered += activity.searchResults.filtered || 0;
+
+      // 收集搜索工具
+      if (
+        activity.searchResults.searchTool &&
+        !searchTools.includes(activity.searchResults.searchTool)
+      ) {
+        searchTools.push(activity.searchResults.searchTool);
+      }
+
+      // 收集时效性数据
+      if (activity.searchResults.freshnessInfo?.avgAgeInDays !== undefined) {
+        freshnessValues.push(activity.searchResults.freshnessInfo.avgAgeInDays);
+      }
     }
 
     // 撰写进度
@@ -412,7 +499,22 @@ function extractMeaningfulSummary(activities: ExtendedAgentActivity[]): {
     }
   }
 
-  return { sourcesFound, sourcesFiltered, keyInsight, sectionsWritten };
+  // 计算平均时效性
+  const avgFreshness =
+    freshnessValues.length > 0
+      ? Math.round(
+          freshnessValues.reduce((a, b) => a + b, 0) / freshnessValues.length
+        )
+      : null;
+
+  return {
+    sourcesFound,
+    sourcesFiltered,
+    keyInsight,
+    sectionsWritten,
+    searchTools,
+    avgFreshness,
+  };
 }
 
 /**
@@ -514,6 +616,29 @@ function ResearcherCard({
                       ，筛选 {summary.sourcesFiltered} 条
                     </span>
                   )}
+              </span>
+            )}
+            {/* 显示使用的搜索工具 */}
+            {summary.searchTools.length > 0 && (
+              <span className="flex items-center gap-0.5">
+                <Search className="h-3 w-3" />
+                {summary.searchTools.join(', ')}
+              </span>
+            )}
+            {/* 显示时效性 */}
+            {summary.avgFreshness !== null && (
+              <span
+                className={cn(
+                  'flex items-center gap-0.5',
+                  summary.avgFreshness <= 30
+                    ? 'text-green-600 dark:text-green-400'
+                    : summary.avgFreshness <= 180
+                      ? 'text-yellow-600 dark:text-yellow-400'
+                      : 'text-gray-400'
+                )}
+              >
+                <Clock className="h-3 w-3" />
+                平均 {summary.avgFreshness} 天前
               </span>
             )}
             {citations > 0 && (

@@ -233,14 +233,46 @@ export class DimensionMissionService {
       );
 
       // ★ 记录搜索完成并保存搜索结果
+      // 计算时效性信息
+      const publishedDates = enrichedResults
+        .map((item) => item.publishedAt)
+        .filter((d): d is Date => d instanceof Date && !isNaN(d.getTime()))
+        .sort((a, b) => b.getTime() - a.getTime());
+
+      const freshnessInfo =
+        publishedDates.length > 0
+          ? {
+              newestDate: publishedDates[0]?.toISOString(),
+              oldestDate:
+                publishedDates[publishedDates.length - 1]?.toISOString(),
+              avgAgeInDays: Math.round(
+                publishedDates.reduce(
+                  (sum, d) =>
+                    sum + (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24),
+                  0,
+                ) / publishedDates.length,
+              ),
+            }
+          : undefined;
+
+      // 获取使用的数据源类型（搜索工具）
+      const usedSources = (searchResult.sources || [])
+        .map((s) => String(s))
+        .join(", ");
+
       const searchResultsRecord: SearchResultsRecord = {
         total: searchResult.items.length,
         filtered: enrichedResults.length,
+        searchTool: usedSources || "web", // 使用的搜索工具
+        query: searchResult.metadata?.searchQuery || dimension.name, // 搜索查询
+        searchedAt: new Date().toISOString(), // 搜索时间
+        freshnessInfo, // 时效性信息
         sources: enrichedResults.slice(0, 20).map((item) => ({
           title: item.title || "未知标题",
           url: item.url || "",
           domain: item.domain,
           sourceType: String(item.sourceType),
+          publishedDate: item.publishedAt?.toISOString(), // 发布日期
         })),
       };
 

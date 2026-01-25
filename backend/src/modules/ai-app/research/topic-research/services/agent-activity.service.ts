@@ -30,12 +30,21 @@ export type ThinkingPhase =
 export interface SearchResultsRecord {
   total: number; // 搜索到的总数
   filtered: number; // 过滤后的数量
+  searchTool?: string; // 使用的搜索工具 (tavily, serper, google, bing, etc.)
+  query?: string; // 搜索查询
+  searchedAt?: string; // 搜索时间 (ISO string)
+  freshnessInfo?: {
+    newestDate?: string; // 最新结果的日期
+    oldestDate?: string; // 最旧结果的日期
+    avgAgeInDays?: number; // 平均结果年龄（天）
+  };
   sources: Array<{
     title: string;
     url: string;
     domain?: string;
     sourceType: string;
     credibilityScore?: number;
+    publishedDate?: string; // 发布日期
   }>;
 }
 
