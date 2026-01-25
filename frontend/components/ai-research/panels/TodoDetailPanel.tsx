@@ -946,22 +946,17 @@ export function TodoDetailPanel({
                         )}
 
                         {/* ★ 工具使用摘要 - 快速概览 */}
-                        {activity.metadata?.searchResults != null && (
+                        {/* ★ v8.1 修复：searchResults 是顶层字段，不在 metadata 中 */}
+                        {activity.searchResults != null && (
                           <ToolUsageSummary
-                            sr={
-                              activity.metadata
-                                .searchResults as SearchResultsMetadata
-                            }
+                            sr={activity.searchResults as SearchResultsMetadata}
                           />
                         )}
 
                         {/* ★ 搜索结果详情展示 */}
-                        {activity.metadata?.searchResults != null ? (
+                        {activity.searchResults != null ? (
                           <SearchResultsDisplay
-                            sr={
-                              activity.metadata
-                                .searchResults as SearchResultsMetadata
-                            }
+                            sr={activity.searchResults as SearchResultsMetadata}
                           />
                         ) : null}
 

@@ -964,6 +964,38 @@ export interface TeamMessage {
 }
 
 /**
+ * 搜索结果记录（用于工具使用透明度展示）
+ */
+export interface SearchResultsRecord {
+  total: number;
+  filtered: number;
+  searchTool?: string;
+  query?: string;
+  searchedAt?: string;
+  freshnessInfo?: {
+    newestDate?: string;
+    oldestDate?: string;
+    avgAgeInDays?: number;
+  };
+  knowledgeBaseInfo?: {
+    enabled: boolean;
+    knowledgeBaseIds?: string[];
+    matchedCount: number;
+    avgSimilarity?: number;
+  };
+  sources?: Array<{
+    title: string;
+    url: string;
+    domain?: string;
+    sourceType?: string;
+    publishedDate?: string;
+    isKnowledgeBase?: boolean;
+    similarity?: number;
+    documentId?: string;
+  }>;
+}
+
+/**
  * Agent 活动记录
  */
 export interface AgentActivity {
@@ -986,6 +1018,10 @@ export interface AgentActivity {
   progress?: number;
   dimensionId?: string;
   dimensionName?: string;
+  // ★ v8.1: 思考链增强字段（直接从数据库返回）
+  thinkingPhase?: string;
+  thinkingContent?: string;
+  searchResults?: SearchResultsRecord; // ★ 搜索结果（顶层字段）
   metadata?: Record<string, unknown>;
   createdAt: string;
 }
