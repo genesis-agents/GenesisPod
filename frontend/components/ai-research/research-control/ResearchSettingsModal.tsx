@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import { logger } from '@/lib/utils/logger';
+import { updateTopic } from '@/lib/api/topic-research';
+import { toast } from '@/stores';
 import {
   Settings,
   Trash2,
@@ -75,7 +77,15 @@ export function ResearchSettingsModal({
       if (currentTopic.visibility) {
         setVisibility(currentTopic.visibility as VisibilityType);
       }
-      // Knowledge base IDs would need to be loaded from backend or stored elsewhere
+      // ★ 从 topicConfig 加载知识库ID
+      const knowledgeBaseIds = currentTopic.topicConfig?.knowledgeBaseIds;
+      if (Array.isArray(knowledgeBaseIds) && knowledgeBaseIds.length > 0) {
+        setSelectedKnowledgeBases(knowledgeBaseIds);
+        logger.debug(
+          'Loaded knowledge base IDs from topicConfig:',
+          knowledgeBaseIds
+        );
+      }
     }
   }, [currentTopic]);
 
@@ -83,21 +93,44 @@ export function ResearchSettingsModal({
   const handleSaveSettings = useCallback(async () => {
     setIsSavingSettings(true);
     try {
-      // TODO: Call API to update topic config
-      // await updateTopicConfig(topicId, {
-      //   knowledgeBaseIds: selectedKnowledgeBases,
-      //   visibility,
-      //   teamMemberIds: selectedMembers.map(m => m.id)
-      // });
-      logger.debug('Saving settings:', {
+      // ★ 调用 API 更新专题配置
+      await updateTopic(topicId, {
+        topicConfig: {
+          knowledgeBaseIds: selectedKnowledgeBases,
+          // 保留其他已有配置
+          ...currentTopic?.topicConfig,
+        },
+        visibility:
+          visibility === 'private'
+            ? 'PRIVATE'
+            : visibility === 'team'
+              ? 'SHARED'
+              : 'PUBLIC',
+      });
+
+      logger.debug('Saved settings successfully:', {
         selectedKnowledgeBases,
         visibility,
         teamMembers: selectedMembers,
       });
+
+      toast.success('保存成功', '研究设置已更新');
+    } catch (error) {
+      logger.error('Failed to save settings:', error);
+      toast.error(
+        '保存失败',
+        error instanceof Error ? error.message : '无法保存设置'
+      );
     } finally {
       setIsSavingSettings(false);
     }
-  }, [selectedKnowledgeBases, visibility, selectedMembers]);
+  }, [
+    topicId,
+    selectedKnowledgeBases,
+    visibility,
+    selectedMembers,
+    currentTopic?.topicConfig,
+  ]);
 
   // Search for team members
   const handleMemberSearch = useCallback(
@@ -173,9 +206,21 @@ export function ResearchSettingsModal({
       subtitle="配置研究专题的各项参数"
       size="md"
       footer={
-        <Button variant="outline" onClick={onClose}>
-          关闭
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onClose}>
+            关闭
+          </Button>
+          <Button onClick={handleSaveSettings} disabled={isSavingSettings}>
+            {isSavingSettings ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                保存中...
+              </>
+            ) : (
+              '保存设置'
+            )}
+          </Button>
+        </div>
       }
     >
       <div className="space-y-6">

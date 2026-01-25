@@ -38,6 +38,13 @@ export interface SearchResultsRecord {
     oldestDate?: string; // 最旧结果的日期
     avgAgeInDays?: number; // 平均结果年龄（天）
   };
+  // ★ 知识库搜索记录（用于溯源）
+  knowledgeBaseInfo?: {
+    enabled: boolean; // 是否启用了知识库
+    knowledgeBaseIds?: string[]; // 使用的知识库ID列表
+    matchedCount: number; // 匹配到的结果数
+    avgSimilarity?: number; // 平均相似度
+  };
   sources: Array<{
     title: string;
     url: string;
@@ -45,6 +52,10 @@ export interface SearchResultsRecord {
     sourceType: string;
     credibilityScore?: number;
     publishedDate?: string; // 发布日期
+    // ★ 知识库来源标记
+    isKnowledgeBase?: boolean; // 是否来自知识库
+    similarity?: number; // 相似度（知识库结果）
+    documentId?: string; // 文档ID（知识库结果）
   }>;
 }
 

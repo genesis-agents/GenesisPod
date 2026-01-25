@@ -63,6 +63,15 @@ export enum ReportStatus {
 // ==================== Core Types ====================
 
 /**
+ * 专题配置（存储在 topicConfig JSON 字段中）
+ */
+export interface TopicConfig {
+  knowledgeBaseIds?: string[]; // 关联的知识库ID列表
+  searchTimeRange?: string; // 搜索时间范围: '1m', '3m', '6m', '1y', 'all'
+  [key: string]: unknown; // 允许其他扩展配置
+}
+
+/**
  * 研究专题
  */
 // 专题可见性
@@ -75,6 +84,7 @@ export interface ResearchTopic {
   type: ResearchTopicType;
   status: ResearchTopicStatus;
   visibility?: TopicVisibility; // 可见性：私有/共享/公开
+  topicConfig?: TopicConfig; // ★ 专题配置（含知识库ID等）
   icon: string | null;
   color: string | null;
   refreshFrequency: RefreshFrequency;
@@ -288,6 +298,8 @@ export interface UpdateTopicDto {
   color?: string;
   refreshFrequency?: RefreshFrequency;
   status?: ResearchTopicStatus;
+  topicConfig?: TopicConfig; // ★ 专题配置更新
+  visibility?: TopicVisibility; // ★ 可见性设置
 }
 
 /**

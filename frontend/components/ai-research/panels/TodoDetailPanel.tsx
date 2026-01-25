@@ -48,12 +48,23 @@ interface SearchResultsMetadata {
     oldestDate?: string;
     avgAgeInDays?: number;
   };
+  // ★ 知识库搜索信息（用于溯源）
+  knowledgeBaseInfo?: {
+    enabled: boolean;
+    knowledgeBaseIds?: string[];
+    matchedCount: number;
+    avgSimilarity?: number;
+  };
   sources?: Array<{
     title: string;
     url: string;
     domain?: string;
     sourceType?: string;
     publishedDate?: string;
+    // ★ 知识库来源标记
+    isKnowledgeBase?: boolean;
+    similarity?: number;
+    documentId?: string;
   }>;
 }
 
@@ -142,6 +153,29 @@ function SearchResultsDisplay({ sr }: { sr: SearchResultsMetadata }) {
         </div>
       )}
 
+      {/* ★ 知识库使用信息 */}
+      {sr.knowledgeBaseInfo?.enabled && (
+        <div className="flex flex-wrap items-center gap-2 rounded bg-purple-50 p-2 text-xs">
+          <Database className="h-3 w-3 text-purple-600" />
+          <span className="font-medium text-purple-700">知识库已启用</span>
+          {sr.knowledgeBaseInfo.matchedCount > 0 ? (
+            <>
+              <span className="rounded bg-purple-100 px-1.5 py-0.5 text-purple-700">
+                匹配 {sr.knowledgeBaseInfo.matchedCount} 条
+              </span>
+              {sr.knowledgeBaseInfo.avgSimilarity !== undefined && (
+                <span className="text-purple-600">
+                  相似度:{' '}
+                  {(sr.knowledgeBaseInfo.avgSimilarity * 100).toFixed(1)}%
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-gray-500">未匹配到结果</span>
+          )}
+        </div>
+      )}
+
       {/* 来源列表 */}
       {Array.isArray(sr.sources) && sr.sources.length > 0 && (
         <div className="mt-2 space-y-1">
@@ -156,16 +190,38 @@ function SearchResultsDisplay({ sr }: { sr: SearchResultsMetadata }) {
                 href={source.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-start gap-1 rounded bg-white p-1.5 text-xs hover:bg-gray-50"
+                className={cn(
+                  'flex items-start gap-1 rounded p-1.5 text-xs hover:bg-gray-50',
+                  source.isKnowledgeBase ? 'bg-purple-50' : 'bg-white'
+                )}
               >
-                <ExternalLink className="mt-0.5 h-3 w-3 flex-shrink-0 text-blue-500" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium text-gray-700">
-                    {source.title}
-                  </div>
-                  {source.domain && (
-                    <div className="text-gray-400">{source.domain}</div>
+                <ExternalLink
+                  className={cn(
+                    'mt-0.5 h-3 w-3 flex-shrink-0',
+                    source.isKnowledgeBase ? 'text-purple-500' : 'text-blue-500'
                   )}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1">
+                    <span className="truncate font-medium text-gray-700">
+                      {source.title}
+                    </span>
+                    {source.isKnowledgeBase && (
+                      <span className="flex-shrink-0 rounded bg-purple-100 px-1 py-0.5 text-[10px] text-purple-600">
+                        知识库
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {source.domain && (
+                      <span className="text-gray-400">{source.domain}</span>
+                    )}
+                    {source.similarity !== undefined && (
+                      <span className="text-purple-500">
+                        相似度: {(source.similarity * 100).toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
                 </div>
               </a>
             ))}

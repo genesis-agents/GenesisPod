@@ -269,6 +269,44 @@ export class DimensionMissionService {
         .map((s) => String(s))
         .join(", ");
 
+      // ★ 知识库搜索结果统计（用于溯源）
+      const knowledgeBaseResults = searchResult.items.filter(
+        (item) =>
+          String(item.sourceType).toLowerCase() === "local" ||
+          (item.metadata as Record<string, unknown>)?.knowledgeBaseSource,
+      );
+      const knowledgeBaseIds =
+        (topicConfig?.knowledgeBaseIds as string[]) || [];
+      const knowledgeBaseInfo =
+        knowledgeBaseIds.length > 0
+          ? {
+              enabled: true,
+              knowledgeBaseIds,
+              matchedCount: knowledgeBaseResults.length,
+              avgSimilarity:
+                knowledgeBaseResults.length > 0
+                  ? knowledgeBaseResults.reduce(
+                      (sum, item) =>
+                        sum +
+                        (((item.metadata as Record<string, unknown>)
+                          ?.similarity as number) || 0),
+                      0,
+                    ) / knowledgeBaseResults.length
+                  : undefined,
+            }
+          : undefined;
+
+      // ★ 记录知识库使用日志
+      if (
+        knowledgeBaseInfo?.matchedCount &&
+        knowledgeBaseInfo.matchedCount > 0
+      ) {
+        this.logger.log(
+          `${logPrefix} ★ Knowledge base used! Matched ${knowledgeBaseInfo.matchedCount} results ` +
+            `from ${knowledgeBaseIds.length} knowledge bases. Avg similarity: ${knowledgeBaseInfo.avgSimilarity?.toFixed(2) || "N/A"}`,
+        );
+      }
+
       const searchResultsRecord: SearchResultsRecord = {
         total: searchResult.items.length,
         filtered: enrichedResults.length,
@@ -276,6 +314,7 @@ export class DimensionMissionService {
         query: searchResult.metadata?.searchQuery || dimension.name, // 搜索查询
         searchedAt: new Date().toISOString(), // 搜索时间
         freshnessInfo, // 时效性信息
+        knowledgeBaseInfo, // ★ 知识库搜索信息
         sources: enrichedResults.slice(0, 20).map((item) => {
           // 安全解析发布日期
           let publishedDate: string | undefined;
@@ -292,12 +331,25 @@ export class DimensionMissionService {
               // 忽略无效日期
             }
           }
+          // ★ 检查是否来自知识库
+          const metadata = item.metadata as Record<string, unknown> | undefined;
+          const isKnowledgeBase =
+            String(item.sourceType).toLowerCase() === "local" ||
+            metadata?.knowledgeBaseSource === true;
           return {
             title: item.title || "未知标题",
             url: item.url || "",
             domain: item.domain,
             sourceType: String(item.sourceType),
             publishedDate,
+            // ★ 知识库来源标记
+            isKnowledgeBase,
+            similarity: isKnowledgeBase
+              ? (metadata?.similarity as number | undefined)
+              : undefined,
+            documentId: isKnowledgeBase
+              ? (metadata?.documentId as string | undefined)
+              : undefined,
           };
         }),
       };

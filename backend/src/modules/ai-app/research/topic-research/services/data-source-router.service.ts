@@ -15,6 +15,10 @@ import {
 // ★ 架构重构：通过 ToolRegistry 调用工具
 import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 
+// ★ RAG 服务导入 - 用于 LOCAL 数据源搜索
+import { EmbeddingService } from "@/modules/ai-engine/rag/embedding";
+import { VectorService } from "@/modules/ai-engine/rag/vector";
+
 import {
   DataSourceType,
   DataSourceResult,
@@ -71,7 +75,13 @@ export class DataSourceRouterService {
     private readonly capabilityResolver: AICapabilityResolver,
     // ★ AI 数据源规划器
     private readonly dataSourcePlanner: DataSourcePlannerService,
+    // ★ RAG 服务 - 用于 LOCAL 数据源搜索
+    private readonly embeddingService: EmbeddingService,
+    private readonly vectorService: VectorService,
   ) {}
+
+  /** 当前搜索的 topic（用于 LOCAL 数据源获取 knowledgeBaseIds） */
+  private currentTopic: ResearchTopic | null = null;
 
   /** 缓存 AI 规划结果，避免同一维度重复规划 */
   private planCache = new Map<string, DataSourcePlan>();
@@ -95,6 +105,9 @@ export class DataSourceRouterService {
     this.logger.log(
       `Fetching data for dimension: ${dimension.name} (topic: ${topic.name}, AI planning: ${useAIPlanning})`,
     );
+
+    // ★ 保存当前 topic，用于 LOCAL 数据源获取 knowledgeBaseIds
+    this.currentTopic = topic;
 
     // 1. 确定要使用的数据源
     let sources: DataSourceType[];
@@ -441,9 +454,7 @@ export class DataSourceRouterService {
         return [];
 
       case DataSourceType.LOCAL:
-        // TODO: 实现本地 RAG 搜索
-        this.logger.warn("Local RAG search not implemented yet");
-        return [];
+        return this.searchLocal(query, maxResults);
 
       // ★ 政策研究数据源
       case DataSourceType.FEDERAL_REGISTER:
@@ -801,6 +812,112 @@ export class DataSourceRouterService {
       );
       return [];
     }
+  }
+
+  // ============================================================================
+  // ★ 本地知识库（RAG）搜索方法
+  // ============================================================================
+
+  /**
+   * 本地知识库搜索 (使用 RAG 向量检索)
+   * 搜索用户配置的知识库中的相关内容
+   *
+   * @param query 搜索查询
+   * @param maxResults 最大结果数
+   * @returns 数据源结果数组
+   */
+  private async searchLocal(
+    query: string,
+    maxResults: number,
+  ): Promise<DataSourceResult[]> {
+    try {
+      // 1. 从当前 topic 配置获取知识库 ID 列表
+      const topicConfig = this.currentTopic?.topicConfig as Record<
+        string,
+        unknown
+      > | null;
+      const knowledgeBaseIds = topicConfig?.knowledgeBaseIds as
+        | string[]
+        | undefined;
+
+      if (!knowledgeBaseIds || knowledgeBaseIds.length === 0) {
+        this.logger.debug(
+          "[searchLocal] No knowledge bases configured for this topic",
+        );
+        return [];
+      }
+
+      this.logger.log(
+        `[searchLocal] Searching ${knowledgeBaseIds.length} knowledge bases: "${query}"`,
+      );
+
+      // 2. 生成查询嵌入向量
+      const queryEmbedding =
+        await this.embeddingService.generateEmbedding(query);
+
+      // 3. 在指定知识库中进行相似度搜索
+      const searchResults = await this.vectorService.similaritySearch(
+        queryEmbedding.embedding,
+        {
+          limit: maxResults,
+          threshold: 0.3, // 最小相似度阈值
+          knowledgeBaseIds,
+        },
+      );
+
+      this.logger.log(
+        `[searchLocal] Found ${searchResults.length} results from knowledge bases`,
+      );
+
+      // ★ 记录知识库匹配日志（用于溯源）
+      if (searchResults.length > 0) {
+        this.logger.log(
+          `[searchLocal] ★ Knowledge base matched! Topic: ${this.currentTopic?.name}, ` +
+            `Query: "${query}", Results: ${searchResults.length}, ` +
+            `KBs: [${knowledgeBaseIds.join(", ")}]`,
+        );
+      }
+
+      // 4. 转换为统一的 DataSourceResult 格式
+      return searchResults.map((result) => ({
+        sourceType: DataSourceType.LOCAL,
+        title: this.extractTitle(result.parentContent || result.content),
+        url: `kb://${result.documentId}#${result.childChunkId}`, // 内部链接格式
+        snippet: result.content.slice(0, 500), // 截取前 500 字符
+        domain: "knowledge-base",
+        metadata: {
+          similarity: result.similarity,
+          documentId: result.documentId,
+          chunkId: result.childChunkId,
+          parentChunkId: result.parentChunkId,
+          // ★ 标记知识库来源，用于前端展示和溯源
+          knowledgeBaseSource: true,
+        },
+      }));
+    } catch (error) {
+      this.logger.error(
+        `[searchLocal] Failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * 从内容中提取标题
+   * 尝试从 Markdown 标题或首行提取
+   */
+  private extractTitle(content: string): string {
+    if (!content) return "Knowledge Base Entry";
+
+    // 尝试匹配 Markdown 标题
+    const markdownTitleMatch = content.match(/^#+\s+(.+)$/m);
+    if (markdownTitleMatch) {
+      return markdownTitleMatch[1].slice(0, 100);
+    }
+
+    // 使用首行作为标题（截取前 100 字符）
+    const firstLine = content.split("\n")[0].trim();
+    return firstLine.slice(0, 100) || "Knowledge Base Entry";
   }
 
   // ============================================================================
