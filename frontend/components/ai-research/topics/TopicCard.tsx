@@ -12,7 +12,6 @@ interface TopicCardProps {
   topic: ResearchTopic;
   currentUserId?: string; // ★ 用于判断是否显示申请按钮
   onClick: () => void;
-  onRefresh: () => void;
   onDelete: () => void;
   onShare?: () => void; // 打开共享设置弹窗
   onEdit?: () => void; // ★ 编辑专题
@@ -38,22 +37,6 @@ const EditIcon = ({ className }: { className?: string }) => (
 );
 
 // Icons
-const RefreshIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-    />
-  </svg>
-);
-
 const TrashIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -271,7 +254,6 @@ export function TopicCard({
   topic,
   currentUserId,
   onClick,
-  onRefresh,
   onDelete,
   onShare,
   onEdit,
@@ -333,16 +315,6 @@ export function TopicCard({
       {/* Action Buttons - Inline on hover (AI Writing style) - 仅自己的专题显示 */}
       {isOwnTopic && (
         <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onRefresh();
-            }}
-            className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-violet-50 hover:text-violet-600"
-            title="立即刷新"
-          >
-            <RefreshIcon className="h-4 w-4" />
-          </button>
           {onEdit && (
             <button
               onClick={(e) => {

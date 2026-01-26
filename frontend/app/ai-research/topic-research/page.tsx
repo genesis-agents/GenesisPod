@@ -395,7 +395,6 @@ export default function TopicResearchPage() {
                 key={topic.id}
                 topic={topic}
                 onClick={() => setSelectedTopic(topic)}
-                onRefresh={() => handleRefresh(topic.id)}
                 onDelete={() => handleDelete(topic.id)}
                 onShare={() => setSharingTopic(topic)}
                 onCopyLink={() => handleCopyLink(topic.id)}

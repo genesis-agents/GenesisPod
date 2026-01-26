@@ -228,7 +228,6 @@ export function TopicResearchTab({
               topic={topic}
               currentUserId={user?.id}
               onClick={() => handleTopicClick(topic)}
-              onRefresh={() => handleRefresh(topic.id)}
               onDelete={() => handleDelete(topic.id)}
               onShare={() => setSharingTopic(topic)}
               onEdit={() => handleEdit(topic)}
