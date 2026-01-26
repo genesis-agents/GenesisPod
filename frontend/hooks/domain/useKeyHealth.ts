@@ -31,9 +31,12 @@ export function useKeyHealth(
 
   // 将 secretName 映射到 toolId（后端 API 使用 toolId）
   const toolIdMap: Record<string, string> = {
+    // Tavily 变体
     'tavily-api-key': 'tavily',
-    'serper-api-key': 'serper',
+    'tavily-search-api-key': 'tavily',
     tavily: 'tavily',
+    // Serper 变体
+    'serper-api-key': 'serper',
     serper: 'serper',
   };
 
