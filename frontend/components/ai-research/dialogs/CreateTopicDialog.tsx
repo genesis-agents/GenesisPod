@@ -11,6 +11,7 @@ import type {
   ResearchTopic,
   CreateTopicDto,
   ResearchTemplate,
+  TopicVisibility,
 } from '@/types/topic-research';
 import { ResearchTopicType, RefreshFrequency } from '@/types/topic-research';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
@@ -149,8 +150,76 @@ export function CreateTopicDialog({
   const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<
     string[]
   >([]);
+  const [visibility, setVisibility] = useState<TopicVisibility>('PRIVATE'); // ★ 默认私有
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ★ 可见性选项
+  const visibilityOptions = useMemo(
+    () => [
+      {
+        value: 'PRIVATE' as TopicVisibility,
+        label: '私有',
+        description: '仅自己可见',
+        icon: (
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+            />
+          </svg>
+        ),
+      },
+      {
+        value: 'SHARED' as TopicVisibility,
+        label: '团队',
+        description: '团队成员可见',
+        icon: (
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+            />
+          </svg>
+        ),
+      },
+      {
+        value: 'PUBLIC' as TopicVisibility,
+        label: '公开',
+        description: '所有人可见',
+        icon: (
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        ),
+      },
+    ],
+    []
+  );
 
   // Build options with i18n
   const topicTypeOptions = useMemo(
@@ -259,6 +328,7 @@ export function CreateTopicDialog({
       setRefreshFrequency(RefreshFrequency.WEEKLY);
       setSearchTimeRange('6months');
       setSelectedKnowledgeBases([]);
+      setVisibility('PRIVATE'); // ★ 重置可见性为私有
       setError(null);
     }
   }, [isOpen, defaultType]);
@@ -297,6 +367,7 @@ export function CreateTopicDialog({
         description: description.trim() || undefined,
         type: selectedType,
         refreshFrequency,
+        visibility, // ★ 可见性
         dimensions: selectedTemplate?.dimensions,
         topicConfig:
           Object.keys(topicConfig).length > 0 ? topicConfig : undefined,
@@ -494,6 +565,40 @@ export function CreateTopicDialog({
                       title={option.description}
                     >
                       <span className="block text-sm font-medium">
+                        {option.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ★ Visibility Selector */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  可见性
+                  <span className="ml-2 text-xs font-normal text-gray-400">
+                    设置专题的可见范围
+                  </span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {visibilityOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setVisibility(option.value)}
+                      className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 transition-all ${
+                        visibility === option.value
+                          ? option.value === 'PRIVATE'
+                            ? 'border-gray-500 bg-gray-50 text-gray-700'
+                            : option.value === 'SHARED'
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                      title={option.description}
+                    >
+                      {option.icon}
+                      <span className="text-sm font-medium">
                         {option.label}
                       </span>
                     </button>

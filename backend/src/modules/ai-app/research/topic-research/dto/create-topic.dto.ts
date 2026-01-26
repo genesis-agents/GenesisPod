@@ -9,6 +9,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ResearchTopicType, RefreshFrequency } from "../types";
+import { TopicVisibility } from "./collaborator.dto";
 
 export class DimensionConfigDto {
   @IsString()
@@ -70,6 +71,10 @@ export class CreateTopicDto {
   @IsOptional()
   @IsEnum(RefreshFrequency)
   refreshFrequency?: RefreshFrequency;
+
+  @IsOptional()
+  @IsEnum(TopicVisibility)
+  visibility?: TopicVisibility;
 
   @IsOptional()
   @IsArray()

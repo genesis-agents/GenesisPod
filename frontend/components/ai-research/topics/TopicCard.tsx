@@ -15,7 +15,26 @@ interface TopicCardProps {
   onRefresh: () => void;
   onDelete: () => void;
   onShare?: () => void;
+  onEdit?: () => void; // ★ 编辑专题
+  onVisibilityChange?: (visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC') => void; // ★ 切换可见性
 }
+
+// Edit icon
+const EditIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+    />
+  </svg>
+);
 
 // Icons
 const RefreshIcon = ({ className }: { className?: string }) => (
@@ -253,13 +272,33 @@ export function TopicCard({
   onRefresh,
   onDelete,
   onShare,
+  onEdit,
+  onVisibilityChange,
 }: TopicCardProps) {
-  // ★ 判断是否显示申请加入按钮：非自己的 SHARED/PUBLIC 专题
+  // ★ 判断是否是自己的专题
   const isOwnTopic = currentUserId && topic.userId === currentUserId;
+  // ★ 判断是否显示申请加入按钮：非自己的 SHARED/PUBLIC 专题
   const canApply =
     !isOwnTopic &&
     topic.visibility &&
     ['SHARED', 'PUBLIC'].includes(topic.visibility);
+
+  // ★ 可见性循环切换：PRIVATE -> SHARED -> PUBLIC -> PRIVATE
+  const handleVisibilityToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isOwnTopic || !onVisibilityChange) return;
+
+    const visibilityOrder: ('PRIVATE' | 'SHARED' | 'PUBLIC')[] = [
+      'PRIVATE',
+      'SHARED',
+      'PUBLIC',
+    ];
+    const currentIndex = visibilityOrder.indexOf(
+      topic.visibility as 'PRIVATE' | 'SHARED' | 'PUBLIC'
+    );
+    const nextIndex = (currentIndex + 1) % visibilityOrder.length;
+    onVisibilityChange(visibilityOrder[nextIndex]);
+  };
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '从未';
     const date = new Date(dateStr);
@@ -298,41 +337,55 @@ export function TopicCard({
       onClick={onClick}
       className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-violet-300 hover:shadow-lg"
     >
-      {/* Action Buttons - Inline on hover (AI Writing style) */}
-      <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRefresh();
-          }}
-          className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-violet-50 hover:text-violet-600"
-          title="立即刷新"
-        >
-          <RefreshIcon className="h-4 w-4" />
-        </button>
-        {onShare && (
+      {/* Action Buttons - Inline on hover (AI Writing style) - 仅自己的专题显示 */}
+      {isOwnTopic && (
+        <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onShare();
+              onRefresh();
             }}
-            className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-blue-50 hover:text-blue-600"
-            title="共享设置"
+            className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-violet-50 hover:text-violet-600"
+            title="立即刷新"
           >
-            <ShareIcon className="h-4 w-4" />
+            <RefreshIcon className="h-4 w-4" />
           </button>
-        )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-red-50 hover:text-red-600"
-          title="删除专题"
-        >
-          <TrashIcon className="h-4 w-4" />
-        </button>
-      </div>
+          {onEdit && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-blue-50 hover:text-blue-600"
+              title="编辑专题"
+            >
+              <EditIcon className="h-4 w-4" />
+            </button>
+          )}
+          {onShare && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onShare();
+              }}
+              className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-green-50 hover:text-green-600"
+              title="共享设置"
+            >
+              <ShareIcon className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-red-50 hover:text-red-600"
+            title="删除专题"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Topic Icon */}
       <div
@@ -346,14 +399,35 @@ export function TopicCard({
         <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
           {typeConfig.label}
         </span>
-        {topic.visibility && (
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${visibilityConfig[topic.visibility]?.color || 'bg-gray-100 text-gray-600'}`}
-          >
-            {visibilityConfig[topic.visibility]?.icon}
-            {visibilityConfig[topic.visibility]?.label}
-          </span>
-        )}
+        {topic.visibility &&
+          (isOwnTopic && onVisibilityChange ? (
+            // ★ 自己的专题：可点击切换可见性
+            <button
+              onClick={handleVisibilityToggle}
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-all hover:ring-2 hover:ring-offset-1 ${
+                visibilityConfig[topic.visibility]?.color ||
+                'bg-gray-100 text-gray-600'
+              } ${
+                topic.visibility === 'PRIVATE'
+                  ? 'hover:ring-gray-300'
+                  : topic.visibility === 'SHARED'
+                    ? 'hover:ring-blue-300'
+                    : 'hover:ring-green-300'
+              }`}
+              title="点击切换可见性"
+            >
+              {visibilityConfig[topic.visibility]?.icon}
+              {visibilityConfig[topic.visibility]?.label}
+            </button>
+          ) : (
+            // 他人的专题：仅显示
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${visibilityConfig[topic.visibility]?.color || 'bg-gray-100 text-gray-600'}`}
+            >
+              {visibilityConfig[topic.visibility]?.icon}
+              {visibilityConfig[topic.visibility]?.label}
+            </span>
+          ))}
       </div>
 
       {/* Topic Info */}

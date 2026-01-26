@@ -514,6 +514,7 @@ export class TopicResearchService {
           icon: dto.icon,
           color: dto.color,
           refreshFrequency: dto.refreshFrequency || RefreshFrequency.MANUAL,
+          visibility: dto.visibility || "PRIVATE", // ★ 默认私有
           status: ResearchTopicStatus.DRAFT,
         },
       });

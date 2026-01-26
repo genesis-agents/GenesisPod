@@ -459,6 +459,7 @@ export interface CreateTopicDto {
   icon?: string;
   color?: string;
   refreshFrequency?: RefreshFrequency;
+  visibility?: TopicVisibility; // ★ 可见性：私有/团队/公开
   dimensions?: DimensionConfigDto[];
 }
 
