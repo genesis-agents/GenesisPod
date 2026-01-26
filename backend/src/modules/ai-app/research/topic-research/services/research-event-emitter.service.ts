@@ -79,6 +79,35 @@ export interface AgentWorkingData {
   progress?: number;
   /** ★ Agent 使用的模型 ID（实现多元化显示） */
   modelId?: string;
+  /** ★ 搜索结果元数据（用于工具使用透明度） */
+  searchResults?: {
+    total: number;
+    filtered: number;
+    searchTool?: string;
+    query?: string;
+    searchedAt?: string;
+    freshnessInfo?: {
+      newestDate?: string;
+      oldestDate?: string;
+      avgAgeInDays?: number;
+    };
+    knowledgeBaseInfo?: {
+      enabled: boolean;
+      knowledgeBaseIds?: string[];
+      matchedCount: number;
+      avgSimilarity?: number;
+    };
+    sources?: Array<{
+      title: string;
+      url: string;
+      domain?: string;
+      sourceType?: string;
+      publishedDate?: string;
+      isKnowledgeBase?: boolean;
+      similarity?: number;
+      documentId?: string;
+    }>;
+  };
 }
 
 /**
@@ -396,6 +425,10 @@ export class ResearchEventEmitterService {
             progress: data.progress || 0,
             dimensionId: data.dimensionId, // ★ 新增：保存维度ID以便精确查询
             dimensionName: data.dimensionName,
+            // ★ 保存搜索结果（用于工具使用透明度）
+            searchResults: data.searchResults
+              ? JSON.parse(JSON.stringify(data.searchResults))
+              : undefined,
           },
         });
 
@@ -592,6 +625,7 @@ export class ResearchEventEmitterService {
   /**
    * 发送维度研究进度事件
    * ★ 同时保存到数据库
+   * @param taskId 可选的任务ID，用于前端匹配进度更新
    */
   async emitDimensionResearchProgress(
     topicId: string,
@@ -599,6 +633,7 @@ export class ResearchEventEmitterService {
     progress: number,
     currentStep: string,
     missionId?: string,
+    taskId?: string,
   ): Promise<void> {
     const message = `「${dimensionName}」研究进度 ${progress}%`;
     await this.emitToTopic(
@@ -609,6 +644,7 @@ export class ResearchEventEmitterService {
         progress,
         currentStep,
         message,
+        taskId, // ★ 添加 taskId 用于前端精确匹配
       },
     );
 

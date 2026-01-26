@@ -115,6 +115,7 @@ export class DimensionMissionService {
    * @param reportId 报告ID（可选，用于关联证据）
    * @param missionId 任务ID（可选，用于持久化团队消息）
    * @param modelId ★ Leader 分配给此维度研究员的模型 ID（实现多元化）
+   * @param taskId ★ 研究任务ID（可选，用于前端精确匹配进度更新）
    * @returns Mission 执行结果
    */
   async executeDimensionMission(
@@ -123,6 +124,7 @@ export class DimensionMissionService {
     reportId?: string,
     missionId?: string,
     modelId?: string,
+    taskId?: string,
   ): Promise<DimensionMissionResult> {
     // ★ 统一日志前缀，便于区分不同维度的 Agent
     const dimId = dimension.id.slice(0, 8);
@@ -159,6 +161,7 @@ export class DimensionMissionService {
         },
         missionId,
         5, // 阶段进度：5%
+        taskId, // ★ 传递 taskId
       );
 
       // ★ 记录搜索阶段开始（使用研究员身份，而非 Leader）
@@ -366,6 +369,24 @@ export class DimensionMissionService {
         },
       );
 
+      // ★ 发送搜索完成事件（包含完整搜索结果用于工具透明度显示）
+      await this.eventEmitter.emitAgentWorking(
+        topic.id,
+        {
+          agentId: researcherAgentId,
+          agentName: researcherAgentName,
+          agentRole: "researcher",
+          status: "working",
+          taskDescription: `维度「${dimension.name}」搜索完成：${searchResultsRecord.searchTool || "网络"} 找到 ${searchResultsRecord.total} 条${searchResultsRecord.knowledgeBaseInfo?.matchedCount ? `，知识库匹配 ${searchResultsRecord.knowledgeBaseInfo.matchedCount} 条` : ""}`,
+          dimensionId: dimension.id,
+          dimensionName: dimension.name,
+          progress: 20,
+          modelId,
+          searchResults: searchResultsRecord, // ★ 传递搜索结果用于前端展示
+        },
+        effectiveMissionId,
+      );
+
       // ★ 新增：生成时间上下文（从 topic 配置获取时效性要求）
       // 注：topicConfig 已在上方数据增强部分声明
       const searchTimeRange =
@@ -439,6 +460,8 @@ export class DimensionMissionService {
           message: "Leader 正在规划研究大纲...",
         },
         missionId,
+        undefined,
+        taskId, // ★ 传递 taskId
       );
 
       // ★ 记录规划阶段开始
@@ -518,6 +541,8 @@ export class DimensionMissionService {
           message: "Agent 正在撰写章节...",
         },
         missionId,
+        undefined,
+        taskId, // ★ 传递 taskId
       );
 
       // ★ 记录写作阶段开始（使用研究员身份，因为写作是研究员的工作）
@@ -545,6 +570,7 @@ export class DimensionMissionService {
         missionId,
         modelId, // ★ 传递 Leader 分配的模型
         temporalContext, // ★ 传递时间上下文
+        taskId, // ★ 传递 taskId 用于进度匹配
       );
 
       // ★ 记录写作完成（使用研究员身份，与 startThinkingPhase 匹配）
@@ -583,6 +609,8 @@ export class DimensionMissionService {
           message: "Leader 正在整合最终报告...",
         },
         missionId,
+        undefined,
+        taskId, // ★ 传递 taskId
       );
 
       // ★ 记录整合阶段开始
@@ -679,6 +707,8 @@ export class DimensionMissionService {
           message: "维度研究完成",
         },
         missionId,
+        undefined,
+        taskId, // ★ 传递 taskId
       );
 
       // ★ 发送研究员完成事件
@@ -738,6 +768,8 @@ export class DimensionMissionService {
           message: `研究失败: ${errorMessage}`,
         },
         missionId,
+        undefined,
+        taskId, // ★ 传递 taskId
       );
 
       return {
@@ -765,6 +797,7 @@ export class DimensionMissionService {
     missionId?: string,
     modelId?: string, // ★ Leader 分配的模型
     temporalContext?: TemporalContext, // ★ 时间上下文
+    taskId?: string, // ★ 研究任务ID（用于前端精确匹配进度更新）
   ): Promise<SectionWriteResult[]> {
     const sectionResults: SectionWriteResult[] = [];
     const sectionMap = new Map<string, SectionWriteResult>();
@@ -940,6 +973,8 @@ export class DimensionMissionService {
             message: `已完成章节: ${section.title}`,
           },
           missionId,
+          undefined,
+          taskId, // ★ 传递 taskId
         );
       }
     }
@@ -1302,6 +1337,7 @@ export class DimensionMissionService {
    * 发送进度事件
    * @param dimensionName - 维度名称（用于前端显示）
    * @param stageProgress - 当前阶段的进度百分比（可选，如果提供则使用此值）
+   * @param taskId - 研究任务ID（可选，用于前端精确匹配进度更新）
    *
    * ★ v7.3: 同时更新 ResearchTask.progress，确保前端能正确显示实时进度
    * ★ 同时更新 mission.updatedAt 作为心跳，防止被健康检测误判为卡死
@@ -1312,6 +1348,7 @@ export class DimensionMissionService {
     progress: MissionProgress,
     missionId?: string,
     stageProgress?: number,
+    taskId?: string,
   ): Promise<void> {
     // 计算进度：优先使用 stageProgress，否则根据 section 完成比例计算
     let calculatedProgress: number;
@@ -1333,6 +1370,7 @@ export class DimensionMissionService {
       calculatedProgress,
       progress.message,
       missionId,
+      taskId, // ★ 传递 taskId 用于前端精确匹配
     );
 
     // ★ 心跳更新：更新关联的 mission.updatedAt，防止被健康检测误判为卡死

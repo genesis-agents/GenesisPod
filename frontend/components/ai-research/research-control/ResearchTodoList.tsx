@@ -496,7 +496,25 @@ export function ResearchTodoList({
                               {todo.dimensionName}
                             </div>
                           )}
+                        {/* ★ 依赖关系提示 */}
+                        {hasDependencies && (
+                          <div className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-600">
+                            <Clock className="h-2.5 w-2.5" />
+                            <span>
+                              等待{' '}
+                              {todo
+                                .dependsOn!.map((depId) => {
+                                  const depTodo = sortedTodos.find(
+                                    (t) => t.id === depId
+                                  );
+                                  return depTodo?.title || depId.slice(0, 6);
+                                })
+                                .join('、')}
+                            </span>
+                          </div>
+                        )}
                       </div>
+                      {/* ★ 被依赖指示器（此任务阻塞其他任务） */}
                       {blockingCount > 0 && (
                         <span
                           className="flex-shrink-0 text-orange-500"

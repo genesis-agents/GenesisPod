@@ -36,6 +36,8 @@ import { TopicCollaboratorService } from "./topic-collaborator.service";
 import { AgentActivityService } from "./agent-activity.service";
 import { CollaboratorRole } from "../dto/collaborator.dto";
 import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
+import { ResearchReviewerService } from "./research-reviewer.service";
+import type { DimensionAnalysisResult } from "../types/research.types";
 
 // ==================== Constants ====================
 
@@ -161,6 +163,7 @@ export class ResearchMissionService {
     private readonly collaboratorService: TopicCollaboratorService,
     private readonly agentActivity: AgentActivityService,
     private readonly aiFacade: AIEngineFacade,
+    private readonly reviewerService: ResearchReviewerService,
   ) {}
 
   /**
@@ -752,6 +755,7 @@ export class ResearchMissionService {
         taskType: "quality_review",
         assignedAgent: reviewerAssignment?.agentId || "reviewer_default",
         assignedAgentType: "quality_reviewer",
+        modelId: reviewerAssignment?.modelId, // ★ 保存审核员使用的模型 ID
         priority: TASK_PRIORITY.QUALITY_REVIEW,
         dependencies: tasks.map((t) => t.id),
         status: ResearchTaskStatus.PENDING,
@@ -771,6 +775,7 @@ export class ResearchMissionService {
         taskType: "report_synthesis",
         assignedAgent: writerAssignment?.agentId || "writer_default",
         assignedAgentType: "report_writer",
+        modelId: writerAssignment?.modelId, // ★ 保存撰写员使用的模型 ID
         priority: TASK_PRIORITY.REPORT_SYNTHESIS,
         dependencies: [reviewTask.id],
         status: ResearchTaskStatus.PENDING,
@@ -854,6 +859,8 @@ export class ResearchMissionService {
       resultSummary: task.resultSummary ?? undefined,
       startedAt: task.startedAt ?? undefined,
       completedAt: task.completedAt ?? undefined,
+      // ★ 返回依赖关系用于可视化
+      dependencies: (task.dependencies as string[]) ?? [],
     }));
 
     return {
@@ -1874,7 +1881,7 @@ export class ResearchMissionService {
     const [currentTask, currentMission] = await Promise.all([
       this.prisma.researchTask.findUnique({
         where: { id: task.id },
-        select: { status: true },
+        select: { status: true, modelId: true },
       }),
       this.prisma.researchMission.findUnique({
         where: { id: missionId },
@@ -1905,12 +1912,14 @@ export class ResearchMissionService {
     const agentRole = this.getAgentRoleFromTaskType(task.taskType);
     const agentName = this.getAgentNameFromTaskType(task.taskType);
 
-    // ★ 从 leaderPlan 中查找此 Agent 分配的模型（用于 Activity 显示）
+    // ★ 优先使用任务记录中的 modelId，fallback 到 leaderPlan 查找
+    // 任务创建时已保存 modelId，直接使用更可靠
     const leaderPlan = currentMission?.leaderPlan as LeaderPlan | null;
     const agentAssignment = leaderPlan?.agentAssignments?.find(
       (a) => a.agentId === task.assignedAgent,
     );
-    const assignedModelId = agentAssignment?.modelId;
+    const assignedModelId =
+      currentTask.modelId || task.modelId || agentAssignment?.modelId;
 
     try {
       // 更新任务状态为执行中
@@ -1981,6 +1990,7 @@ export class ResearchMissionService {
               30,
               "正在采集相关数据...",
               missionId,
+              task.id, // ★ 传递 taskId 用于前端精确匹配
             );
 
             // 使用新的 Leader-Agent 协作机制
@@ -1991,6 +2001,7 @@ export class ResearchMissionService {
                 reportId, // ★ 传入 reportId 以便关联证据
                 missionId, // ★ 传入 missionId 以便持久化团队消息
                 assignedModelId, // ★ 传入 Leader 分配的模型
+                task.id, // ★ 传入任务ID用于前端精确匹配进度
               );
 
             if (!missionResult.success) {
@@ -2041,24 +2052,154 @@ export class ResearchMissionService {
               agentRole: "reviewer",
               status: "working",
               taskDescription: "正在审核所有维度研究结果的质量...",
-              progress: 50,
+              progress: 10,
+              modelId: assignedModelId, // ★ 传递模型 ID
             },
             missionId,
           );
 
-          // 获取所有已完成的维度研究结果
+          // ★ 获取所有已完成的维度研究结果及其维度信息
           const completedTasks = await this.prisma.researchTask.findMany({
             where: {
               missionId,
               taskType: "dimension_research",
               status: ResearchTaskStatus.COMPLETED,
             },
+            include: {
+              mission: {
+                include: {
+                  topic: {
+                    include: {
+                      dimensions: true,
+                    },
+                  },
+                },
+              },
+            },
           });
+
+          if (completedTasks.length === 0) {
+            result = {
+              reviewedTasks: 0,
+              status: "skipped",
+              feedback: "没有已完成的维度研究任务需要审核",
+            };
+            break;
+          }
+
+          // ★ 执行真正的 AI 质量审核
+          const dimensionReviews = [];
+          const dimensions = topic.dimensions || [];
+
+          for (let i = 0; i < completedTasks.length; i++) {
+            const completedTask = completedTasks[i];
+            const dimension = dimensions.find(
+              (d: { id: string }) => d.id === completedTask.dimensionId,
+            );
+
+            if (!dimension) continue;
+
+            // 更新进度
+            const reviewProgress = Math.round(
+              10 + ((i + 1) / completedTasks.length) * 70,
+            );
+            await this.researchEventEmitter.emitAgentWorking(
+              topic.id,
+              {
+                agentId: task.assignedAgent,
+                agentName: "质量审核员",
+                agentRole: "reviewer",
+                status: "working",
+                taskDescription: `正在审核维度「${dimension.name}」...`,
+                progress: reviewProgress,
+                modelId: assignedModelId,
+              },
+              missionId,
+            );
+
+            // 从任务结果中提取分析数据
+            // DimensionMissionResult 包含 analysisResult?: DimensionAnalysisResult
+            const missionResult = completedTask.result as {
+              analysisResult?: DimensionAnalysisResult;
+              evidenceIds?: string[];
+            } | null;
+
+            const analysisResult = missionResult?.analysisResult;
+
+            // 如果没有分析结果，跳过审核
+            if (!analysisResult) {
+              this.logger.warn(
+                `No analysis result found for dimension ${dimension.name}, skipping review`,
+              );
+              continue;
+            }
+
+            // 调用审核服务
+            try {
+              const review = await this.reviewerService.reviewDimension(
+                topic,
+                dimension,
+                analysisResult,
+                analysisResult.evidenceUsed || 0,
+              );
+              dimensionReviews.push(review);
+            } catch (error) {
+              this.logger.warn(
+                `Failed to review dimension ${dimension.name}: ${error}`,
+              );
+            }
+          }
+
+          // ★ 执行全局审核
+          let overallReview = null;
+          if (dimensionReviews.length > 0) {
+            try {
+              overallReview = await this.reviewerService.reviewOverall(
+                topic,
+                dimensions,
+                dimensionReviews,
+              );
+            } catch (error) {
+              this.logger.warn(`Failed to perform overall review: ${error}`);
+            }
+          }
+
+          // 更新最终进度
+          await this.researchEventEmitter.emitAgentWorking(
+            topic.id,
+            {
+              agentId: task.assignedAgent,
+              agentName: "质量审核员",
+              agentRole: "reviewer",
+              status: "working",
+              taskDescription: "质量审核完成",
+              progress: 100,
+              modelId: assignedModelId,
+            },
+            missionId,
+          );
 
           result = {
             reviewedTasks: completedTasks.length,
-            status: "approved",
-            feedback: `已审核 ${completedTasks.length} 个维度研究结果，质量合格`,
+            dimensionReviews: dimensionReviews.map((r) => ({
+              dimensionName: r.dimensionName,
+              qualityLevel: r.qualityLevel,
+              score: r.overallScore,
+              issues: r.issues.length,
+              suggestions: r.suggestions.slice(0, 3),
+            })),
+            overallReview: overallReview
+              ? {
+                  qualityLevel: overallReview.qualityLevel,
+                  score: overallReview.overallScore,
+                  recommendations: overallReview.recommendations.slice(0, 5),
+                  needsReresearch: overallReview.needsReresearch,
+                }
+              : null,
+            status: overallReview?.qualityLevel || "approved",
+            feedback:
+              overallReview?.recommendations?.join("; ") ||
+              `已审核 ${completedTasks.length} 个维度研究结果`,
           };
           break;
         }
@@ -2275,6 +2416,8 @@ export class ResearchMissionService {
         topic,
         dimension,
         reportId, // ★ 传入 reportId 以便关联证据
+        undefined, // missionId
+        task.modelId ?? undefined, // ★ 传入任务分配的模型 ID
       );
 
     if (!missionResult.success || !missionResult.analysisResult) {

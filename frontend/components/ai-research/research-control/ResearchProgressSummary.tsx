@@ -36,33 +36,49 @@ function calculateStats(todos: ResearchTodo[]): TodoSummary {
   let failed = 0;
   let cancelled = 0;
 
+  // ★ 累计所有任务的进度用于计算加权平均
+  let totalProgressSum = 0;
+
   for (const todo of todos) {
     switch (todo.status) {
       case ResearchTodoStatus.COMPLETED:
         completed++;
+        totalProgressSum += 100; // 已完成 = 100%
         break;
       case ResearchTodoStatus.IN_PROGRESS:
         inProgress++;
+        // ★ 使用任务自身的进度（0-100），而不是固定值
+        totalProgressSum += todo.progress ?? 0;
         break;
       case ResearchTodoStatus.PENDING:
         pending++;
+        // 待处理 = 0%
         break;
       case ResearchTodoStatus.QUEUED:
         queued++;
+        // 排队中 = 0%
         break;
       case ResearchTodoStatus.PAUSED:
         paused++;
+        // 已暂停：保留当前进度
+        totalProgressSum += todo.progress ?? 0;
         break;
       case ResearchTodoStatus.FAILED:
         failed++;
+        // 失败：保留失败前的进度
+        totalProgressSum += todo.progress ?? 0;
         break;
       case ResearchTodoStatus.CANCELLED:
         cancelled++;
+        // 取消的任务不计入进度
         break;
     }
   }
 
-  const overallProgress = total > 0 ? Math.round((completed / total) * 100) : 0;
+  // ★ 计算加权平均进度（排除已取消的任务）
+  const effectiveTotal = total - cancelled;
+  const overallProgress =
+    effectiveTotal > 0 ? Math.round(totalProgressSum / effectiveTotal) : 0;
 
   return {
     total,

@@ -262,22 +262,42 @@ export function TopicTeamPanel({
       },
     ];
 
-    // 添加研究员（根据维度任务数量）
-    // ★ 最大支持 6 个研究员并行，匹配后端 MAX_CONCURRENT_TASKS=5
-    const researcherCount = Math.max(1, Math.min(dimensionTasks.length, 6));
+    // 添加研究员
+    // ★ 优先使用 leaderPlan.agentAssignments 中的实际分配
+    const agentAssignments = missionStatus?.leaderPlan?.agentAssignments || [];
+    const researcherAssignments = agentAssignments.filter(
+      (a) => a.agentType === 'dimension_researcher'
+    );
+
+    // ★ 如果有实际分配，使用分配数据；否则按任务数量估算（最大 6 个）
+    const researcherCount =
+      researcherAssignments.length > 0
+        ? researcherAssignments.length
+        : Math.max(1, Math.min(dimensionTasks.length, 6));
+
     for (let i = 0; i < researcherCount; i++) {
-      const assignedTasks = dimensionTasks.filter(
-        (_, idx) => idx % researcherCount === i
-      );
+      const assignment = researcherAssignments[i];
+      // 使用分配信息或按 round-robin 计算
+      const assignedDimensionIds = assignment?.assignedDimensions || [];
+      const assignedTasks =
+        assignedDimensionIds.length > 0
+          ? dimensionTasks.filter((t) =>
+              assignedDimensionIds.some(
+                (dim) =>
+                  t.dimensionName?.includes(dim) || t.description?.includes(dim)
+              )
+            )
+          : dimensionTasks.filter((_, idx) => idx % researcherCount === i);
+
       const hasExecuting = assignedTasks.some((t) => t.status === 'EXECUTING');
       const allCompleted =
         assignedTasks.length > 0 &&
         assignedTasks.every((t) => t.status === 'COMPLETED');
 
       agentList.push({
-        id: `researcher-${i}`,
+        id: assignment?.agentId || `researcher-${i}`,
         role: 'researcher',
-        name: `研究员 ${i + 1}`,
+        name: assignment?.role || `研究员 ${i + 1}`,
         status: hasExecuting ? 'working' : allCompleted ? 'completed' : 'idle',
         taskCount: assignedTasks.length,
         completedCount: assignedTasks.filter((t) => t.status === 'COMPLETED')

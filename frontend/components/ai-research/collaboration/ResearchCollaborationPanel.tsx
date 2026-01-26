@@ -131,7 +131,7 @@ function convertTaskToTodo(task: TaskStatus): ResearchTodo {
     status: statusMap[task.status] || ('PENDING' as ResearchTodoStatus),
     progress,
     priority: 0,
-    dependsOn: [],
+    dependsOn: task.dependencies || [], // ★ 传递任务依赖关系
     // ★ ResearchTask 不支持暂停/取消/优先级调整操作
     // 这些功能只对真正的 ResearchTodo（用户创建的任务）有效
     userCanPause: false,

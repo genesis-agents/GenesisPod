@@ -907,6 +907,8 @@ export interface TaskStatus {
   startedAt?: string;
   /** 完成时间 */
   completedAt?: string;
+  /** ★ 依赖的任务 ID 列表（用于可视化任务依赖关系） */
+  dependencies?: string[];
 }
 
 export interface TeamInfo {
