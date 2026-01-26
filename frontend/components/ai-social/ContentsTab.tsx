@@ -268,12 +268,15 @@ export default function ContentsTab() {
     }
   };
 
-  const getStatusBadge = (status: ContentStatus) => {
+  const getStatusBadge = (
+    status: ContentStatus,
+    errorMessage?: string | null
+  ) => {
     const config = STATUS_CONFIG[status];
     const Icon = config.icon;
-    return (
+    const badge = (
       <span
-        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${config.bgColor} ${config.color}`}
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${config.bgColor} ${config.color} ${status === 'FAILED' && errorMessage ? 'cursor-pointer' : ''}`}
       >
         <Icon
           className={`h-3 w-3 ${status === 'PUBLISHING' ? 'animate-spin' : ''}`}
@@ -281,6 +284,13 @@ export default function ContentsTab() {
         {t(`aiSocial.status.${status.toLowerCase()}`)}
       </span>
     );
+
+    // Show error message in tooltip for FAILED status
+    if (status === 'FAILED' && errorMessage) {
+      return <Tooltip content={errorMessage}>{badge}</Tooltip>;
+    }
+
+    return badge;
   };
 
   // Handle advanced filter changes with useCallback
@@ -751,7 +761,7 @@ export default function ContentsTab() {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
-                      {getStatusBadge(content.status)}
+                      {getStatusBadge(content.status, content.errorMessage)}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                       {new Date(content.updatedAt).toLocaleDateString()}

@@ -24,6 +24,15 @@ export class WechatAdapter {
       `Connection ID: ${connection.id}, Platform: ${connection.platformType}`,
     );
 
+    // 根据内容长度选择文章类型
+    // type=10: 普通图文消息（无字数限制，适合长文章）
+    // type=77: 小绿书/图文笔记（限制 1000 字，适合短内容）
+    const contentLength = content.content.length;
+    const articleType = contentLength > 1000 ? "10" : "77";
+    this.logger.log(
+      `Content length: ${contentLength} chars, using article type: ${articleType} (${articleType === "10" ? "普通图文" : "小绿书"})`,
+    );
+
     const contextId = `wechat-${connection.id}`;
     let page: any = null;
 
@@ -370,7 +379,7 @@ export class WechatAdapter {
         );
 
         if (token) {
-          const editorUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&createType=8&token=${token}`;
+          const editorUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=${articleType}&createType=8&token=${token}`;
           this.logger.log(`Direct navigation to: ${editorUrl}`);
           await editorPage.goto(editorUrl, {
             waitUntil: "networkidle",
@@ -392,7 +401,7 @@ export class WechatAdapter {
             const linkTokenMatch = links[0]?.match(/token=(\d+)/);
             if (linkTokenMatch) {
               token = linkTokenMatch[1];
-              const editorUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&createType=8&token=${token}`;
+              const editorUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=${articleType}&createType=8&token=${token}`;
               this.logger.log(
                 `Found token from link, direct navigation to: ${editorUrl}`,
               );
@@ -711,7 +720,7 @@ export class WechatAdapter {
       "textarea.frm_input",
       // 通用后备 - 查找任何可编辑元素
       '[contenteditable="true"]',
-      'textarea',
+      "textarea",
     ];
 
     let editorReady = false;
@@ -879,12 +888,29 @@ export class WechatAdapter {
         );
         this.logger.log(`Editor element: ${editorSelector}`);
 
-        // 将纯文本转换为 HTML 段落
-        const htmlContent = content.content
-          .split("\n")
-          .filter((line) => line.trim())
-          .map((line) => `<p>${line}</p>`)
-          .join("");
+        // 检测内容是否已经是 HTML 格式
+        const isHtml = /<[a-z][\s\S]*>/i.test(content.content);
+
+        let htmlContent: string;
+        if (isHtml) {
+          // 内容已经是 HTML 格式，直接使用
+          this.logger.log("Content is already HTML format, using as-is");
+          htmlContent = content.content;
+        } else {
+          // 纯文本转换为 HTML 段落
+          this.logger.log(
+            "Content is plain text, converting to HTML paragraphs",
+          );
+          htmlContent = content.content
+            .split("\n")
+            .filter((line) => line.trim())
+            .map((line) => `<p>${line}</p>`)
+            .join("");
+        }
+
+        this.logger.log(
+          `HTML content length: ${htmlContent.length} chars (original: ${content.content.length})`,
+        );
 
         // 方法1: 使用 execCommand 插入 HTML（最兼容 ProseMirror）
         // ProseMirror 会监听 beforeinput 和 input 事件来处理内容
