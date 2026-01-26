@@ -12,6 +12,7 @@ import {
 } from '@/types/ai-teams';
 import { useAIModels, AIModel } from '@/hooks';
 import AppShell from '@/components/layout/AppShell';
+import ShareModal from '@/components/common/dialogs/ShareModal';
 import * as api from '@/lib/api/ai-teams';
 import { PublicTopic, JoinRequest } from '@/lib/api/ai-teams';
 import { useTranslation } from '@/lib/i18n';
@@ -47,6 +48,8 @@ export default function AIGroupPage() {
   const [showJoinDialog, setShowJoinDialog] = useState<PublicTopic | null>(
     null
   );
+  // ★ Social share modal state
+  const [shareModalTopic, setShareModalTopic] = useState<Topic | null>(null);
 
   const isAuthenticated = !!accessToken;
 
@@ -377,6 +380,7 @@ export default function AIGroupPage() {
                         });
                         await fetchTopics();
                       }}
+                      onShare={(topic) => setShareModalTopic(topic)}
                       findModel={findModel}
                     />
                   ))}
@@ -635,6 +639,19 @@ export default function AIGroupPage() {
           }}
         />
       )}
+
+      {/* ★ Social Share Modal (same as AI Image / AI Research) */}
+      <ShareModal
+        isOpen={!!shareModalTopic}
+        onClose={() => setShareModalTopic(null)}
+        shareUrl={
+          shareModalTopic
+            ? `${typeof window !== 'undefined' ? window.location.origin : ''}/ai-teams/${shareModalTopic.id}`
+            : ''
+        }
+        title={shareModalTopic?.name || ''}
+        description={shareModalTopic?.description || ''}
+      />
     </AppShell>
   );
 }
@@ -692,6 +709,7 @@ function TopicCard({
   onEdit,
   onDelete,
   onTogglePublic,
+  onShare,
   findModel,
 }: {
   topic: Topic;
@@ -700,6 +718,7 @@ function TopicCard({
   onEdit: (topic: Topic) => void;
   onDelete: (topicId: string) => void;
   onTogglePublic: (topicId: string, isPublic: boolean) => void;
+  onShare?: (topic: Topic) => void;
   findModel: (aiModel: string) => AIModel | undefined;
 }) {
   const { t } = useTranslation();
@@ -744,9 +763,82 @@ function TopicCard({
 
   return (
     <div className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-blue-300 hover:shadow-md">
-      {/* Action Buttons - only show for owner */}
+      {/* Action Buttons - unified style: visibility + share + edit + delete */}
       {isOwner && (
         <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {/* Visibility Toggle */}
+          <button
+            onClick={handleTogglePublic}
+            disabled={isTogglingPublic}
+            className={`rounded-lg bg-white p-1.5 shadow-sm transition-colors ${
+              isPublic
+                ? 'text-green-500 hover:bg-green-50 hover:text-green-600'
+                : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
+            } ${isTogglingPublic ? 'cursor-wait opacity-70' : ''}`}
+            title={
+              isPublic
+                ? t('aiTeams.card.makePrivate')
+                : t('aiTeams.card.makePublic')
+            }
+          >
+            {isTogglingPublic ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : isPublic ? (
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
+              </svg>
+            )}
+          </button>
+          {/* Share Button - only show when PUBLIC */}
+          {isPublic && onShare && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onShare(topic);
+              }}
+              className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-cyan-50 hover:text-cyan-600"
+              title={t('aiTeams.card.share') || '分享'}
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                />
+              </svg>
+            </button>
+          )}
+          {/* Edit Button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -769,6 +861,7 @@ function TopicCard({
               />
             </svg>
           </button>
+          {/* Delete Button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -822,60 +915,8 @@ function TopicCard({
             <div className="absolute inset-0 rounded-2xl ring-2 ring-white/20 transition-all group-hover:ring-4 group-hover:ring-white/30" />
           </div>
           <div className="flex items-center gap-2">
-            {/* Public/Private indicator with toggle */}
-            {isOwner ? (
-              <button
-                onClick={handleTogglePublic}
-                disabled={isTogglingPublic}
-                className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-all ${
-                  isPublic
-                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                } ${isTogglingPublic ? 'cursor-wait opacity-70' : ''}`}
-                title={
-                  isPublic
-                    ? t('aiTeams.card.makePrivate')
-                    : t('aiTeams.card.makePublic')
-                }
-              >
-                {isTogglingPublic ? (
-                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                ) : isPublic ? (
-                  <svg
-                    className="h-3 w-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="h-3 w-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                    />
-                  </svg>
-                )}
-                <span className="hidden sm:inline">
-                  {isPublic
-                    ? t('aiTeams.card.public')
-                    : t('aiTeams.card.private')}
-                </span>
-              </button>
-            ) : isPublic ? (
+            {/* Public/Private indicator - for non-owners, show badge; for owners, visibility is in action buttons row */}
+            {!isOwner && isPublic && (
               <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
                 <svg
                   className="h-3 w-3"
@@ -891,7 +932,7 @@ function TopicCard({
                   />
                 </svg>
               </span>
-            ) : null}
+            )}
             {/* Unread count badge */}
             {topic.unreadCount && topic.unreadCount > 0 && (
               <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-2 text-xs font-semibold text-white shadow-sm">
