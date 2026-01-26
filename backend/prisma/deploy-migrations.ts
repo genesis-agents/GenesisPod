@@ -322,6 +322,66 @@ async function deploy(): Promise<void> {
     } else {
       console.log("   OK research_tasks.progress");
     }
+
+    // Check if research_tasks.skills column exists
+    // ★ 2026-01-26: Leader 分配的技能
+    const researchTasksSkillsCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'research_tasks' AND column_name = 'skills'
+      ) as exists
+    `;
+
+    if (!researchTasksSkillsCheck[0]?.exists) {
+      console.log("   Adding research_tasks.skills column...");
+      await prisma.$executeRaw`ALTER TABLE "research_tasks" ADD COLUMN IF NOT EXISTS "skills" TEXT[] DEFAULT ARRAY[]::TEXT[]`;
+      await prisma.$executeRaw`COMMENT ON COLUMN "research_tasks"."skills" IS 'Leader-assigned skills for this task'`;
+      console.log("   Added research_tasks.skills");
+    } else {
+      console.log("   OK research_tasks.skills");
+    }
+
+    // Check if research_tasks.tools column exists
+    // ★ 2026-01-26: Leader 分配的工具
+    const researchTasksToolsCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'research_tasks' AND column_name = 'tools'
+      ) as exists
+    `;
+
+    if (!researchTasksToolsCheck[0]?.exists) {
+      console.log("   Adding research_tasks.tools column...");
+      await prisma.$executeRaw`ALTER TABLE "research_tasks" ADD COLUMN IF NOT EXISTS "tools" TEXT[] DEFAULT ARRAY[]::TEXT[]`;
+      await prisma.$executeRaw`COMMENT ON COLUMN "research_tasks"."tools" IS 'Leader-assigned tools for this task'`;
+      console.log("   Added research_tasks.tools");
+    } else {
+      console.log("   OK research_tasks.tools");
+    }
+
+    // Check if research_topics.language column exists
+    // ★ 2026-01-26: 报告语言配置
+    const researchTopicsLanguageCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'research_topics' AND column_name = 'language'
+      ) as exists
+    `;
+
+    if (!researchTopicsLanguageCheck[0]?.exists) {
+      console.log("   Adding research_topics.language column...");
+      await prisma.$executeRaw`ALTER TABLE "research_topics" ADD COLUMN IF NOT EXISTS "language" VARCHAR(10) NOT NULL DEFAULT 'zh'`;
+      await prisma.$executeRaw`COMMENT ON COLUMN "research_topics"."language" IS 'Report language: zh (Chinese) or en (English)'`;
+      console.log("   Added research_topics.language");
+    } else {
+      console.log("   OK research_topics.language");
+    }
     console.log("");
 
     // Step 4: Generate Prisma Client
