@@ -46,6 +46,22 @@ const LoaderIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const PlusIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 4v16m8-8H4"
+    />
+  </svg>
+);
+
 // ==================== 主页面内容 ====================
 function ResearchPageContent() {
   const { t } = useTranslation();
@@ -85,6 +101,15 @@ function ResearchPageContent() {
                 </p>
               </div>
             </div>
+
+            {/* Create Button */}
+            <button
+              onClick={() => setShowTopicCreateDialog(true)}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
+            >
+              <PlusIcon className="h-5 w-5" />
+              {t('aiStudio.actions.createNew')}
+            </button>
           </div>
 
           {/* Search Bar */}

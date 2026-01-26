@@ -642,6 +642,18 @@ export class TopicResearchService {
               generatedAt: true,
             },
           },
+          // ★ 包含最新 Mission 以获取任务进度（Card 显示用）
+          missions: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: {
+              id: true,
+              status: true,
+              totalTasks: true,
+              completedTasks: true,
+              progressPercent: true,
+            },
+          },
           _count: {
             select: {
               reports: true,
@@ -656,13 +668,20 @@ export class TopicResearchService {
     // ★ 映射数据，确保 totalReports/totalSources/lastRefreshAt 从实际数据计算
     const topics = rawTopics.map((topic) => {
       const latestReport = topic.reports?.[0];
+      const latestMission = topic.missions?.[0];
       return {
         ...topic,
         totalReports: topic._count?.reports || 0,
         totalSources: latestReport?.totalSources || topic.totalSources || 0,
         lastRefreshAt: latestReport?.generatedAt || topic.lastRefreshAt,
-        // 移除 reports 数组，避免返回多余数据
+        // ★ 任务进度数据（优先使用 Mission 数据，Card 显示用）
+        missionTotalTasks: latestMission?.totalTasks ?? 0,
+        missionCompletedTasks: latestMission?.completedTasks ?? 0,
+        missionProgress: latestMission?.progressPercent ?? 0,
+        missionStatus: latestMission?.status ?? null,
+        // 移除 reports 和 missions 数组，避免返回多余数据
         reports: undefined,
+        missions: undefined,
       };
     });
 

@@ -297,10 +297,17 @@ export function TopicCard({
   };
 
   const typeConfig = topicTypeConfig[topic.type];
-  const completedDimensions =
-    topic.dimensions?.filter((d) => d.status === DimensionStatus.COMPLETED)
-      .length ?? 0;
-  const totalDimensions = topic.dimensions?.length ?? 0;
+
+  // ★ 优先使用 Mission 任务数据（与详情页保持一致），否则回退到维度统计
+  const hasMissionData =
+    topic.missionTotalTasks !== undefined && topic.missionTotalTasks > 0;
+  const completedDimensions = hasMissionData
+    ? (topic.missionCompletedTasks ?? 0)
+    : (topic.dimensions?.filter((d) => d.status === DimensionStatus.COMPLETED)
+        .length ?? 0);
+  const totalDimensions = hasMissionData
+    ? (topic.missionTotalTasks ?? 0)
+    : (topic.dimensions?.length ?? 0);
 
   return (
     <div

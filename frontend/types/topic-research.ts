@@ -95,6 +95,11 @@ export interface ResearchTopic {
   createdById?: string; // ★ 兼容旧代码
   createdAt: string;
   updatedAt: string;
+  // ★ Mission 任务进度（Card 显示用，与 missionStatus 保持一致）
+  missionTotalTasks?: number;
+  missionCompletedTasks?: number;
+  missionProgress?: number;
+  missionStatus?: string | null;
   // Relations
   dimensions?: TopicDimension[];
   latestReport?: TopicReport | null;
