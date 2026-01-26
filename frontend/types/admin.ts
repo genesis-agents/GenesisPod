@@ -21,23 +21,29 @@ export interface KeyHealthStatus {
 }
 
 /**
- * 支持多密钥配置的 Secret 分类
- * 这些分类的免费 API 配额有限，需要多 Key 轮换
+ * 支持多密钥配置的 Secret 名称
+ * 按具体服务判断，而不是整个分类（如 TTS 中只有 ElevenLabs 需要，Google TTS 配额充足）
  */
-export const MULTI_KEY_CATEGORIES = [
-  'SEARCH', // Tavily, Serper
-  'EXTRACTION', // Jina, Firecrawl, Tavily Extract
-  'YOUTUBE', // Supadata
-  'TTS', // ElevenLabs
+export const MULTI_KEY_SECRETS = [
+  // SEARCH 分类 - 全部需要
+  'tavily-search-api-key',
+  'tavily-api-key',
+  'serper-api-key',
+  // EXTRACTION 分类 - 全部需要
+  'jina-api-key',
+  'firecrawl-api-key',
+  'tavily-extraction-api-key',
+  // YOUTUBE 分类
+  'supadata-api-key',
+  // TTS 分类 - 只有 ElevenLabs 需要（Google TTS 配额充足）
+  'elevenlabs-api-key',
 ] as const;
 
-export type MultiKeyCategory = (typeof MULTI_KEY_CATEGORIES)[number];
+export type MultiKeySecretName = (typeof MULTI_KEY_SECRETS)[number];
 
 /**
- * 判断分类是否支持多密钥配置
+ * 判断 Secret 是否支持多密钥配置
  */
-export function isMultiKeyCategory(
-  category: string
-): category is MultiKeyCategory {
-  return (MULTI_KEY_CATEGORIES as readonly string[]).includes(category);
+export function isMultiKeySecret(secretName: string): boolean {
+  return (MULTI_KEY_SECRETS as readonly string[]).includes(secretName);
 }

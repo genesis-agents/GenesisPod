@@ -17,6 +17,9 @@ import {
   Settings,
   Loader2,
   Lock,
+  GraduationCap,
+  Newspaper,
+  Github,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import type {
@@ -34,6 +37,9 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Landmark,
   Scale,
   Building2,
+  GraduationCap,
+  Newspaper,
+  Github,
 };
 
 interface UnifiedCapabilityCardProps {

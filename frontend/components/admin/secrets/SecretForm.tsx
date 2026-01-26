@@ -19,15 +19,7 @@ import {
   UpdateSecretDto,
 } from '@/hooks/domain/useAdminSecrets';
 import { useKeyHealth } from '@/hooks/domain';
-import type { KeyHealthStatus } from '@/types/admin';
-
-// 支持多密钥输入的分类（免费 API 配额有限，需要多 Key 轮换）
-const MULTI_KEY_CATEGORIES: SecretCategory[] = [
-  'SEARCH', // Tavily, Serper
-  'EXTRACTION', // Jina, Firecrawl, Tavily Extract
-  'YOUTUBE', // Supadata
-  'TTS', // ElevenLabs
-];
+import { isMultiKeySecret, type KeyHealthStatus } from '@/types/admin';
 
 // Category keys for i18n lookup
 const CATEGORY_KEYS: { value: SecretCategory; key: string }[] = [
@@ -77,11 +69,13 @@ export function SecretForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // 判断当前分类是否支持多密钥
-  const isMultiKeyCategory = MULTI_KEY_CATEGORIES.includes(formData.category);
+  // 判断当前密钥是否支持多密钥（按具体 Secret 名称判断）
+  // 编辑时使用 secret.name，新建时使用 formData.name
+  const currentSecretName = isEditing ? secret?.name : formData.name;
+  const supportsMultiKey = isMultiKeySecret(currentSecretName ?? '');
 
-  // 获取密钥健康状态（仅在编辑 SEARCH 分类时有效）
-  const shouldFetchHealth = isEditing && isMultiKeyCategory && !!secret?.name;
+  // 获取密钥健康状态（仅在编辑多密钥类型时有效）
+  const shouldFetchHealth = isEditing && supportsMultiKey && !!secret?.name;
   const {
     keyHealth,
     stats: healthStats,
@@ -180,8 +174,8 @@ export function SecretForm({
     e.preventDefault();
     if (!validate()) return;
 
-    // 如果是多密钥分类，将换行格式转为逗号分隔
-    const finalValue = isMultiKeyCategory
+    // 如果是多密钥类型，将换行格式转为逗号分隔
+    const finalValue = supportsMultiKey
       ? normalizeMultiKeys(formData.value)
       : formData.value;
 
@@ -293,13 +287,13 @@ export function SecretForm({
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               密钥值 {!isEditing && <span className="text-red-500">*</span>}
-              {isMultiKeyCategory && keyCount > 0 && (
+              {supportsMultiKey && keyCount > 0 && (
                 <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-normal text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                   {keyCount} 个密钥
                 </span>
               )}
             </label>
-            {isMultiKeyCategory ? (
+            {supportsMultiKey ? (
               <>
                 <textarea
                   value={formData.value}
