@@ -1,17 +1,16 @@
-'use client';
-
 /**
  * Topic Card Component
  *
  * 显示研究专题的卡片
  */
 
-import { useState, useEffect } from 'react';
 import type { ResearchTopic } from '@/types/topic-research';
 import { ResearchTopicType, DimensionStatus } from '@/types/topic-research';
+import { ApplicationButton } from './ApplicationButton';
 
 interface TopicCardProps {
   topic: ResearchTopic;
+  currentUserId?: string; // ★ 用于判断是否显示申请按钮
   onClick: () => void;
   onRefresh: () => void;
   onDelete: () => void;
@@ -19,14 +18,6 @@ interface TopicCardProps {
 }
 
 // Icons
-const MoreVerticalIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-    <circle cx="12" cy="5" r="1.5" />
-    <circle cx="12" cy="12" r="1.5" />
-    <circle cx="12" cy="19" r="1.5" />
-  </svg>
-);
-
 const RefreshIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -257,25 +248,18 @@ const topicTypeConfig: Record<
 
 export function TopicCard({
   topic,
+  currentUserId,
   onClick,
   onRefresh,
   onDelete,
   onShare,
 }: TopicCardProps) {
-  const [showMenu, setShowMenu] = useState(false);
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => {
-      if (showMenu) setShowMenu(false);
-    };
-
-    if (showMenu) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [showMenu]);
-
+  // ★ 判断是否显示申请加入按钮：非自己的 SHARED/PUBLIC 专题
+  const isOwnTopic = currentUserId && topic.userId === currentUserId;
+  const canApply =
+    !isOwnTopic &&
+    topic.visibility &&
+    ['SHARED', 'PUBLIC'].includes(topic.visibility);
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '从未';
     const date = new Date(dateStr);
@@ -312,59 +296,43 @@ export function TopicCard({
   return (
     <div
       onClick={onClick}
-      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-blue-300 hover:shadow-lg"
+      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-violet-300 hover:shadow-lg"
     >
-      {/* Menu Button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setShowMenu(!showMenu);
-        }}
-        className="absolute right-3 top-3 rounded-lg p-1.5 opacity-0 transition-opacity hover:bg-gray-100 group-hover:opacity-100"
-      >
-        <MoreVerticalIcon className="h-4 w-4 text-gray-500" />
-      </button>
-
-      {/* Dropdown Menu */}
-      {showMenu && (
-        <div
-          className="absolute right-3 top-10 z-10 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
-          onClick={(e) => e.stopPropagation()}
+      {/* Action Buttons - Inline on hover (AI Writing style) */}
+      <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRefresh();
+          }}
+          className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-violet-50 hover:text-violet-600"
+          title="立即刷新"
         >
+          <RefreshIcon className="h-4 w-4" />
+        </button>
+        {onShare && (
           <button
-            onClick={() => {
-              onRefresh();
-              setShowMenu(false);
+            onClick={(e) => {
+              e.stopPropagation();
+              onShare();
             }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-blue-50 hover:text-blue-600"
+            title="共享设置"
           >
-            <RefreshIcon className="h-4 w-4" />
-            立即刷新
+            <ShareIcon className="h-4 w-4" />
           </button>
-          {onShare && (
-            <button
-              onClick={() => {
-                onShare();
-                setShowMenu(false);
-              }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
-              <ShareIcon className="h-4 w-4" />
-              共享设置
-            </button>
-          )}
-          <button
-            onClick={() => {
-              onDelete();
-              setShowMenu(false);
-            }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-          >
-            <TrashIcon className="h-4 w-4" />
-            删除专题
-          </button>
-        </div>
-      )}
+        )}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-red-50 hover:text-red-600"
+          title="删除专题"
+        >
+          <TrashIcon className="h-4 w-4" />
+        </button>
+      </div>
 
       {/* Topic Icon */}
       <div
@@ -428,10 +396,15 @@ export function TopicCard({
         </div>
       )}
 
-      {/* Last Refresh */}
-      <div className="mt-3 flex items-center gap-1 text-xs text-gray-400">
-        <ClockIcon className="h-3 w-3" />
-        <span>上次刷新: {formatDate(topic.lastRefreshAt)}</span>
+      {/* Last Refresh + Application Button */}
+      <div className="mt-3 flex items-center justify-between">
+        <div className="flex items-center gap-1 text-xs text-gray-400">
+          <ClockIcon className="h-3 w-3" />
+          <span>上次刷新: {formatDate(topic.lastRefreshAt)}</span>
+        </div>
+
+        {/* ★ 申请加入按钮 - 仅对非自己的 SHARED/PUBLIC 专题显示 */}
+        {canApply && <ApplicationButton topicId={topic.id} />}
       </div>
     </div>
   );

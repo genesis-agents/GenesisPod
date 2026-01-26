@@ -11,6 +11,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
 import { TopicCard } from './TopicCard';
 import { CreateTopicDialog } from '../dialogs/CreateTopicDialog';
@@ -87,6 +88,7 @@ export function TopicResearchTab({
 }: TopicResearchTabProps) {
   const { t } = useTranslation();
   const router = useRouter();
+  const { user } = useAuth();
 
   const {
     topics,
@@ -207,6 +209,7 @@ export function TopicResearchTab({
             <TopicCard
               key={topic.id}
               topic={topic}
+              currentUserId={user?.id}
               onClick={() => handleTopicClick(topic)}
               onRefresh={() => handleRefresh(topic.id)}
               onDelete={() => handleDelete(topic.id)}
