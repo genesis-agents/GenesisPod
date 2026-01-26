@@ -14,6 +14,7 @@ interface TopicCardProps {
   onClick: () => void;
   onDelete: () => void;
   onShare?: () => void; // 打开共享设置弹窗
+  onShareToSocial?: () => void; // ★ 打开社交分享弹窗
   onEdit?: () => void; // ★ 编辑专题
   onVisibilityChange?: (visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC') => void; // ★ 切换可见性
   onCopyLink?: () => void; // ★ 复制链接
@@ -101,8 +102,8 @@ const LinkIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Copy link icon
-const CopyLinkIcon = ({ className }: { className?: string }) => (
+// Share icon (same as AI Image)
+const ShareIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
     fill="none"
@@ -113,12 +114,12 @@ const CopyLinkIcon = ({ className }: { className?: string }) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
     />
   </svg>
 );
 
-// Visibility icons
+// Visibility icons (LockClosedIcon removed as unused)
 const LockClosedIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -256,6 +257,7 @@ export function TopicCard({
   onClick,
   onDelete,
   onShare,
+  onShareToSocial,
   onEdit,
   onVisibilityChange,
   onCopyLink,
@@ -312,7 +314,7 @@ export function TopicCard({
       onClick={onClick}
       className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-violet-300 hover:shadow-lg"
     >
-      {/* Action Buttons - Inline on hover (AI Writing style) - 仅自己的专题显示 */}
+      {/* Action Buttons - Inline on hover (AI Image style) - 仅自己的专题显示 */}
       {isOwnTopic && (
         <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           {onEdit && (
@@ -327,16 +329,17 @@ export function TopicCard({
               <EditIcon className="h-4 w-4" />
             </button>
           )}
-          {onCopyLink && (
+          {/* ★ Share 按钮 - 仅 PUBLIC 可见性时显示 (与 AI Image 一致) */}
+          {onShareToSocial && topic.visibility === 'PUBLIC' && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onCopyLink();
+                onShareToSocial();
               }}
-              className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-green-50 hover:text-green-600"
-              title="复制链接"
+              className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-cyan-50 hover:text-cyan-600"
+              title="分享到社交媒体"
             >
-              <CopyLinkIcon className="h-4 w-4" />
+              <ShareIcon className="h-4 w-4" />
             </button>
           )}
           <button

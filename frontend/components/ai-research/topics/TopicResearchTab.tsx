@@ -16,6 +16,7 @@ import { useTopicResearchStore } from '@/stores/topicResearchStore';
 import { TopicCard } from './TopicCard';
 import { CreateTopicDialog } from '../dialogs/CreateTopicDialog';
 import { TopicSharingModal } from '../dialogs/TopicSharingModal';
+import ShareModal from '@/components/common/dialogs/ShareModal';
 import type { ResearchTopic } from '@/types/topic-research';
 import { ResearchTopicType } from '@/types/topic-research';
 
@@ -103,6 +104,10 @@ export function TopicResearchTab({
 
   const [sharingTopic, setSharingTopic] = useState<ResearchTopic | null>(null);
   const [editingTopic, setEditingTopic] = useState<ResearchTopic | null>(null);
+  // ★ 社交分享弹窗状态
+  const [shareModalTopic, setShareModalTopic] = useState<ResearchTopic | null>(
+    null
+  );
 
   // Ensure topics is always an array
   const topicsList = Array.isArray(topics) ? topics : [];
@@ -230,6 +235,7 @@ export function TopicResearchTab({
               onClick={() => handleTopicClick(topic)}
               onDelete={() => handleDelete(topic.id)}
               onShare={() => setSharingTopic(topic)}
+              onShareToSocial={() => setShareModalTopic(topic)}
               onEdit={() => handleEdit(topic)}
             />
           ))}
@@ -268,6 +274,19 @@ export function TopicResearchTab({
           onClose={() => setSharingTopic(null)}
         />
       )}
+
+      {/* ★ Social Share Modal (same as AI Image) */}
+      <ShareModal
+        isOpen={!!shareModalTopic}
+        onClose={() => setShareModalTopic(null)}
+        shareUrl={
+          shareModalTopic
+            ? `${typeof window !== 'undefined' ? window.location.origin : ''}/ai-research/topic/${shareModalTopic.id}`
+            : ''
+        }
+        title={shareModalTopic?.name || ''}
+        description={shareModalTopic?.description || ''}
+      />
     </>
   );
 }
