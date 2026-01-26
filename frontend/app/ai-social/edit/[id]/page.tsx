@@ -477,27 +477,23 @@ export default function EditSocialContentPage() {
                   )}
                   {t('aiSocial.edit.save')}
                 </button>
-                {/* Show publish button for DRAFT, FAILED, or PENDING status */}
-                {(currentContent.status === 'DRAFT' ||
-                  currentContent.status === 'FAILED' ||
-                  currentContent.status === 'PENDING') && (
-                  <button
-                    onClick={handlePublish}
-                    disabled={!title || !content || isSaving}
-                    className="flex items-center gap-2 rounded-lg bg-rose-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {publishLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : currentContent.status === 'FAILED' ? (
-                      <RefreshCw className="h-4 w-4" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                    {currentContent.status === 'FAILED'
-                      ? t('aiSocial.edit.retry') || 'Retry Publish'
-                      : t('aiSocial.edit.publish')}
-                  </button>
-                )}
+                {/* Publish button - always visible */}
+                <button
+                  onClick={handlePublish}
+                  disabled={!title || !content || isSaving}
+                  className="flex items-center gap-2 rounded-lg bg-rose-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {publishLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : currentContent.status === 'FAILED' ? (
+                    <RefreshCw className="h-4 w-4" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  {currentContent.status === 'FAILED'
+                    ? t('aiSocial.edit.retry') || 'Retry Publish'
+                    : t('aiSocial.edit.publish')}
+                </button>
               </div>
             </div>
           )}

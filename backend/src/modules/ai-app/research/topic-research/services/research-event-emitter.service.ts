@@ -398,6 +398,24 @@ export class ResearchEventEmitterService {
             dimensionName: data.dimensionName,
           },
         });
+
+        // ★ 同步更新 ResearchTask.progress 以便 Tasks 面板显示正确进度
+        if (data.dimensionName && typeof data.progress === "number") {
+          await this.prisma.researchTask
+            .updateMany({
+              where: {
+                missionId,
+                dimensionName: data.dimensionName,
+                status: "EXECUTING",
+              },
+              data: { progress: data.progress },
+            })
+            .catch((err) => {
+              this.logger.debug(
+                `[emitAgentWorking] Failed to sync task progress: ${err}`,
+              );
+            });
+        }
       } catch (error) {
         const errorStr = String(error);
         if (errorStr.includes("Foreign key constraint")) {

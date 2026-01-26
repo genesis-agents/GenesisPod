@@ -6488,6 +6488,7 @@ model ResearchTask {
 
   // ========== 执行状态 ==========
   status      ResearchTaskStatus @default(PENDING)
+  progress    Int                @default(0) // ★ 任务进度 0-100
   startedAt   DateTime?          @map("started_at")
   completedAt DateTime?          @map("completed_at")
 

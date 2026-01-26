@@ -1152,6 +1152,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Fetch content from a URL and extract main text
+   * ★ 超时优化：普通页面 30s，PDF/大文件 45s
    */
   async fetchUrlContent(url: string): Promise<{
     success: boolean;
@@ -1162,6 +1163,13 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     try {
       this.logger.debug(`Fetching URL content: ${url}`);
 
+      // ★ PDF 和大文件使用更长的超时时间
+      const isPdfOrLargeFile =
+        url.toLowerCase().endsWith(".pdf") ||
+        url.toLowerCase().includes("/pdf/") ||
+        url.toLowerCase().includes(".gov/"); // 政府网站通常较慢
+      const timeout = isPdfOrLargeFile ? 45000 : 30000;
+
       const response = await firstValueFrom(
         this.httpService.get(url, {
           headers: {
@@ -1171,7 +1179,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
               "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
           },
-          timeout: 15000,
+          timeout,
           maxRedirects: 5,
         }),
       );
@@ -1221,7 +1229,8 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       const errorMessage = error.response?.status
         ? `HTTP ${error.response.status}: ${error.response.statusText}`
         : error.message;
-      this.logger.error(`Failed to fetch URL ${url}: ${errorMessage}`);
+      // ★ 降级为 warn：URL 获取失败不是致命错误，研究会继续处理其他结果
+      this.logger.warn(`Failed to fetch URL ${url}: ${errorMessage}`);
       return { success: false, error: errorMessage };
     }
   }

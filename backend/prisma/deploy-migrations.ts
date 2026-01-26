@@ -302,6 +302,26 @@ async function deploy(): Promise<void> {
     } else {
       console.log("   OK social_content_versions table");
     }
+
+    // Check if research_tasks.progress column exists
+    // ★ 2026-01-25: 任务进度追踪字段
+    const researchTasksProgressCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'research_tasks' AND column_name = 'progress'
+      ) as exists
+    `;
+
+    if (!researchTasksProgressCheck[0]?.exists) {
+      console.log("   Adding research_tasks.progress column...");
+      await prisma.$executeRaw`ALTER TABLE "research_tasks" ADD COLUMN IF NOT EXISTS "progress" INTEGER NOT NULL DEFAULT 0`;
+      await prisma.$executeRaw`COMMENT ON COLUMN "research_tasks"."progress" IS 'Task execution progress (0-100)'`;
+      console.log("   Added research_tasks.progress");
+    } else {
+      console.log("   OK research_tasks.progress");
+    }
     console.log("");
 
     // Step 4: Generate Prisma Client

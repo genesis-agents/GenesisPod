@@ -803,6 +803,7 @@ export class ResearchMissionService {
       assignedAgent: task.assignedAgent,
       modelId: task.modelId ?? undefined, // ★ 返回 Agent 使用的模型 ID
       status: task.status,
+      progress: task.progress ?? 0, // ★ 返回任务进度
       reviewStatus: task.reviewStatus ?? undefined,
       // ★ 修复：返回完整的任务结果，包含成功数据或错误信息
       result: task.result ?? undefined,
@@ -846,6 +847,7 @@ export class ResearchMissionService {
       assignedAgent: task.assignedAgent,
       modelId: task.modelId ?? undefined, // ★ 返回 Agent 使用的模型 ID
       status: task.status,
+      progress: task.progress ?? 0, // ★ 返回任务进度
       reviewStatus: task.reviewStatus ?? undefined,
       // ★ 修复：返回完整的任务结果
       result: task.result ?? undefined,
@@ -1838,16 +1840,16 @@ export class ResearchMissionService {
         continue;
       }
 
-      // ★ 限制并发执行任务数量，避免 API 限流
-      // 同时最多执行 5 个任务（搜索 API + LLM API 都有限流）
-      const MAX_CONCURRENT_TASKS = 5; // ★ 最大并行研究员数量
+      // ★ 动态计算并发数：根据可用 Provider 数量调整
+      // 每个 Provider 有独立的限流配额，多 Provider 可支持更高并发
+      const maxConcurrentTasks = await this.calculateDynamicConcurrency();
       this.logger.log(
-        `[startExecution] Executing ${executableTasks.length} tasks with max concurrency ${MAX_CONCURRENT_TASKS}`,
+        `[startExecution] Executing ${executableTasks.length} tasks with max concurrency ${maxConcurrentTasks}`,
       );
 
       await this.executeTasksWithConcurrencyLimit(
         executableTasks,
-        MAX_CONCURRENT_TASKS,
+        maxConcurrentTasks,
         (task) => this.executeTask(task, topic, missionId, draftReport.id),
       );
     }
@@ -2280,6 +2282,48 @@ export class ResearchMissionService {
     }
 
     return missionResult.analysisResult;
+  }
+
+  /**
+   * ★ 动态计算并发度
+   * 根据可用 Provider 数量调整，每个 Provider 有独立的限流配额
+   *
+   * 逻辑：
+   * - 单 Provider: 5 并发
+   * - 2 Providers: 7 并发
+   * - 3+ Providers: 9 并发
+   * - 最大 10 并发（避免过度占用资源）
+   */
+  private async calculateDynamicConcurrency(): Promise<number> {
+    const MIN_CONCURRENCY = 5;
+    const MAX_CONCURRENCY = 10;
+
+    try {
+      // 获取所有启用的 CHAT 模型
+      const models = await this.aiFacade.getAvailableModels(AIModelType.CHAT);
+
+      // 统计唯一 Provider 数量
+      const uniqueProviders = new Set(models.map((m) => m.provider));
+      const providerCount = uniqueProviders.size;
+
+      // 根据 Provider 数量计算并发度
+      // 公式：基础 5 + 每多一个 Provider 增加 2，上限 10
+      const concurrency = Math.min(
+        MAX_CONCURRENCY,
+        Math.max(MIN_CONCURRENCY, MIN_CONCURRENCY + (providerCount - 1) * 2),
+      );
+
+      this.logger.log(
+        `[calculateDynamicConcurrency] ${providerCount} providers (${Array.from(uniqueProviders).join(", ")}) → concurrency=${concurrency}`,
+      );
+
+      return concurrency;
+    } catch (error) {
+      this.logger.warn(
+        `[calculateDynamicConcurrency] Failed to get models, using default: ${error}`,
+      );
+      return MIN_CONCURRENCY;
+    }
   }
 
   /**

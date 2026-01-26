@@ -26,6 +26,10 @@ import {
   formatEvidenceList,
   renderReportSynthesisPrompt,
 } from "../prompts/report-synthesis.prompt";
+import {
+  CONSISTENCY_CHECK_SYSTEM_PROMPT,
+  CONSISTENCY_CHECK_USER_PROMPT,
+} from "../prompts/consistency-check.prompt";
 
 /**
  * Report Synthesis Service
@@ -212,11 +216,25 @@ export class ReportSynthesisService {
     // 4. 准备证据输入
     const evidenceInputs = this.prepareEvidenceInputs(allEvidences);
 
-    // 5. 使用 AI 生成综合报告
+    // 4.5 ★ 跨维度一致性检查
+    const consistencyCheck = await this.checkCrossDimensionConsistency(
+      topic,
+      dimensionInputs,
+    );
+
+    if (consistencyCheck.overallConsistency === "low") {
+      this.logger.warn(
+        `[synthesizeReport] Low consistency detected: ${consistencyCheck.conflicts.length} conflicts found`,
+      );
+      // 记录冲突信息，但继续生成报告（在报告中标注）
+    }
+
+    // 5. 使用 AI 生成综合报告（传入一致性检查结果）
     const synthesisResult = await this.generateComprehensiveReport(
       topic,
       dimensionInputs,
       evidenceInputs,
+      consistencyCheck, // ★ 传入冲突信息，让 AI 在报告中主动说明
     );
 
     // 6. 计算统计数据
@@ -244,6 +262,120 @@ export class ReportSynthesisService {
     );
 
     return updatedReport;
+  }
+
+  /**
+   * ★ 跨维度一致性检查 Skill
+   *
+   * 在报告整合前检查各维度之间的数据/逻辑冲突
+   * 参考: skills/consistency-check.skill.md
+   */
+  private async checkCrossDimensionConsistency(
+    topic: ResearchTopic,
+    dimensionInputs: DimensionAnalysisInput[],
+  ): Promise<{
+    overallConsistency: "high" | "medium" | "low";
+    conflicts: Array<{
+      type: "data_conflict" | "logic_conflict" | "source_conflict";
+      severity: "critical" | "warning" | "info";
+      dimensions: string[];
+      description: string;
+      suggestedResolution: string;
+    }>;
+    recommendations: string[];
+    summary: string;
+  }> {
+    this.logger.log(
+      `[checkCrossDimensionConsistency] Checking ${dimensionInputs.length} dimensions`,
+    );
+
+    // 如果只有一个维度，无需检查
+    if (dimensionInputs.length <= 1) {
+      return {
+        overallConsistency: "high",
+        conflicts: [],
+        recommendations: [],
+        summary: "单维度研究，无需跨维度一致性检查",
+      };
+    }
+
+    // 准备维度摘要用于检查
+    const dimensionSummaries = dimensionInputs
+      .map(
+        (d) => `
+### ${d.dimensionName}
+**核心发现**: ${
+          d.keyFindings
+            ?.slice(0, 3)
+            .map((f) => f.finding)
+            .join("; ") || "无"
+        }
+**趋势**: ${
+          d.trends
+            ?.slice(0, 2)
+            .map((t) => t.trend)
+            .join("; ") || "无"
+        }
+**摘要**: ${(d.summary || "").slice(0, 800)}
+`,
+      )
+      .join("\n---\n");
+
+    try {
+      const response = await this.aiFacade.chat({
+        messages: [
+          { role: "system", content: CONSISTENCY_CHECK_SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: CONSISTENCY_CHECK_USER_PROMPT.replace(
+              "{topicName}",
+              topic.name,
+            ).replace("{dimensionSummaries}", dimensionSummaries),
+          },
+        ],
+        modelType: AIModelType.CHAT, // 使用标准聊天模型
+        taskProfile: {
+          creativity: "low",
+          outputLength: "medium",
+        },
+      });
+
+      const extractionResult = extractJsonFromAIResponse<{
+        overallConsistency: "high" | "medium" | "low";
+        conflicts: Array<{
+          type: "data_conflict" | "logic_conflict" | "source_conflict";
+          severity: "critical" | "warning" | "info";
+          dimensions: string[];
+          description: string;
+          suggestedResolution: string;
+        }>;
+        recommendations: string[];
+        summary: string;
+      }>(response.content);
+
+      if (extractionResult.success && extractionResult.data) {
+        const result = extractionResult.data;
+        const criticalCount = result.conflicts.filter(
+          (c) => c.severity === "critical",
+        ).length;
+        this.logger.log(
+          `[checkCrossDimensionConsistency] Found ${result.conflicts.length} conflicts (${criticalCount} critical), consistency: ${result.overallConsistency}`,
+        );
+        return result;
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[checkCrossDimensionConsistency] Check failed, proceeding anyway: ${error}`,
+      );
+    }
+
+    // 默认返回高一致性（检查失败时不阻止流程）
+    return {
+      overallConsistency: "high",
+      conflicts: [],
+      recommendations: [],
+      summary: "一致性检查跳过",
+    };
   }
 
   /**
@@ -322,6 +454,17 @@ export class ReportSynthesisService {
     topic: ResearchTopic,
     dimensionInputs: DimensionAnalysisInput[],
     evidenceInputs: EvidenceInput[],
+    consistencyCheck?: {
+      overallConsistency: "high" | "medium" | "low";
+      conflicts: Array<{
+        type: string;
+        severity: string;
+        dimensions: string[];
+        description: string;
+        suggestedResolution: string;
+      }>;
+      recommendations: string[];
+    },
   ): Promise<ReportSynthesisResult> {
     // 准备维度概览
     const dimensionOverview = formatDimensionOverview(
@@ -339,18 +482,49 @@ export class ReportSynthesisService {
     // 准备证据列表
     const evidenceList = formatEvidenceList(evidenceInputs);
 
+    // ★ 准备数据冲突提示（如果有）
+    let conflictNotice = "";
+    if (
+      consistencyCheck &&
+      consistencyCheck.conflicts &&
+      consistencyCheck.conflicts.length > 0
+    ) {
+      const criticalConflicts = consistencyCheck.conflicts.filter(
+        (c) => c.severity === "critical",
+      );
+      const warningConflicts = consistencyCheck.conflicts.filter(
+        (c) => c.severity === "warning",
+      );
+
+      conflictNotice = `
+## ⚠️ 数据一致性提醒
+
+在整合报告时，请注意以下跨维度数据差异，并在报告中主动说明：
+
+${criticalConflicts.length > 0 ? `### 关键差异（必须说明）\n${criticalConflicts.map((c) => `- **${c.dimensions.join(" vs ")}**: ${c.description}\n  建议处理: ${c.suggestedResolution}`).join("\n")}` : ""}
+
+${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningConflicts.map((c) => `- ${c.dimensions.join(" vs ")}: ${c.description}`).join("\n")}` : ""}
+
+**处理原则**：
+1. 对于数值差异 > 20% 的数据，使用区间表述或说明统计口径差异
+2. 对于逻辑矛盾，分析原因并给出合理解释
+3. 在"前言"或相关章节中主动披露数据来源的差异
+`;
+    }
+
     // 渲染用户提示词
-    const userPrompt = renderReportSynthesisPrompt(
-      topic.name,
-      topic.type,
-      topic.description,
-      new Date().toISOString().split("T")[0],
-      dimensionInputs.length,
-      evidenceInputs.length,
-      dimensionOverview,
-      dimensionDetails,
-      evidenceList,
-    );
+    const userPrompt =
+      renderReportSynthesisPrompt(
+        topic.name,
+        topic.type,
+        topic.description,
+        new Date().toISOString().split("T")[0],
+        dimensionInputs.length,
+        evidenceInputs.length,
+        dimensionOverview,
+        dimensionDetails,
+        evidenceList,
+      ) + conflictNotice;
 
     this.logger.debug("Calling AI for comprehensive report synthesis");
 

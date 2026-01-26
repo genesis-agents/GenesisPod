@@ -1559,7 +1559,7 @@
     "batch": {
       "selectAll": "全选",
       "select": "选择",
-      "selected": "已选择 {count} / {total} 项",
+      "selected": "已选择 {{count}} / {{total}} 项",
       "delete": "批量删除",
       "publish": "批量发布",
       "deleting": "删除中...",

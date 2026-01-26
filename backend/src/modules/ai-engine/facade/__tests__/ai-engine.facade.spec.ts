@@ -14,6 +14,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AIEngineFacade } from "../ai-engine.facade";
 import { AiChatService } from "../../llm/services/ai-chat.service";
+import { AiModelConfigService } from "../../llm/services/ai-model-config.service";
 import { ToolRegistry } from "../../tools/registry/tool-registry";
 import { CircuitBreakerService } from "../../orchestration/services/circuit-breaker.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
@@ -104,10 +105,25 @@ describe("AIEngineFacade", () => {
       } as any,
     };
 
+    const mockModelConfigService = {
+      getDefaultModel: jest.fn().mockResolvedValue(null),
+      getModelById: jest.fn().mockResolvedValue(null),
+      refreshModelConfigCache: jest.fn().mockResolvedValue(undefined),
+      getEnabledModelsForFrontend: jest.fn().mockResolvedValue([
+        { modelId: "gpt-4o", name: "GPT-4o", displayName: "GPT-4o" },
+        {
+          modelId: "claude-3-opus",
+          name: "Claude 3 Opus",
+          displayName: "Claude 3 Opus",
+        },
+      ]),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: mockAiChatService },
+        { provide: AiModelConfigService, useValue: mockModelConfigService },
         { provide: ToolRegistry, useValue: mockToolRegistry },
         { provide: CircuitBreakerService, useValue: mockCircuitBreaker },
         { provide: PrismaService, useValue: mockPrisma },
@@ -386,10 +402,22 @@ describe("AIEngineFacade without optional dependencies", () => {
       isReasoningModel: jest.fn().mockReturnValue(false),
     };
 
+    const mockModelConfigService = {
+      getDefaultModel: jest.fn().mockResolvedValue(null),
+      getModelById: jest.fn().mockResolvedValue(null),
+      refreshModelConfigCache: jest.fn().mockResolvedValue(undefined),
+      getEnabledModelsForFrontend: jest
+        .fn()
+        .mockResolvedValue([
+          { modelId: "gpt-4o", name: "GPT-4o", displayName: "GPT-4o" },
+        ]),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: mockAiChatService },
+        { provide: AiModelConfigService, useValue: mockModelConfigService },
         // No ToolRegistry, CircuitBreakerService, PrismaService, etc.
       ],
     }).compile();

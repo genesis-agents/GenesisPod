@@ -1573,7 +1573,7 @@
     "batch": {
       "selectAll": "Select All",
       "select": "Select",
-      "selected": "{count} / {total} selected",
+      "selected": "{{count}} / {{total}} selected",
       "delete": "Batch Delete",
       "publish": "Batch Publish",
       "deleting": "Deleting...",

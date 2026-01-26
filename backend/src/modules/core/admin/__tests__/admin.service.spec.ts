@@ -2,6 +2,10 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { AdminService } from "../admin.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { SecretsService } from "../../secrets/secrets.service";
+import { UserManagementService } from "../services/user-management.service";
+import { ResourceManagementService } from "../services/resource-management.service";
+import { StatisticsService } from "../services/statistics.service";
 
 describe("AdminService", () => {
   let service: AdminService;
@@ -68,6 +72,36 @@ describe("AdminService", () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: SecretsService,
+          useValue: {
+            getValue: jest.fn().mockResolvedValue(null),
+            getValueInternal: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: UserManagementService,
+          useValue: {
+            getAllUsers: jest.fn().mockResolvedValue({ users: [], total: 0 }),
+            getUserDetail: jest.fn().mockResolvedValue(null),
+            updateUserRole: jest.fn().mockResolvedValue({}),
+            toggleUserStatus: jest.fn().mockResolvedValue({}),
+          },
+        },
+        {
+          provide: ResourceManagementService,
+          useValue: {
+            getResourceById: jest.fn().mockResolvedValue(null),
+            deleteResource: jest.fn().mockResolvedValue({}),
+          },
+        },
+        {
+          provide: StatisticsService,
+          useValue: {
+            getSystemStats: jest.fn().mockResolvedValue({}),
+            getResourceStats: jest.fn().mockResolvedValue({}),
+          },
         },
       ],
     }).compile();

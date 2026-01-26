@@ -50,6 +50,10 @@ import { MissionRetryService } from "../mission/mission-retry.service";
 import { MissionHealthCheckService } from "../mission/mission-health-check.service";
 import { ConfigService } from "@nestjs/config";
 import { AIEngineFacade } from "../../../../../ai-engine/facade";
+import { ToolRegistry } from "../../../../../ai-engine/tools/registry/tool-registry";
+import { MissionAICallerService } from "../mission/mission-ai-caller.service";
+import { TeamMessageService } from "../mission/team-message.service";
+import { TeamMemberService } from "../mission/team-member.service";
 
 /**
  * 这些测试验证 TeamMissionService 与 LongContentEngine 的集成
@@ -257,6 +261,44 @@ describe("TeamMissionService Long Content Integration", () => {
                 };
               }),
             getReasoningModelFallbackChain: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: ToolRegistry,
+          useValue: {
+            getTool: jest.fn().mockReturnValue(null),
+            getAllTools: jest.fn().mockReturnValue([]),
+            registerTool: jest.fn(),
+          },
+        },
+        {
+          provide: MissionAICallerService,
+          useValue: {
+            callAIWithConfig: jest.fn().mockResolvedValue({
+              content: "Mock AI response",
+              tokensUsed: 100,
+            }),
+            getModelConfig: jest.fn().mockResolvedValue({
+              modelId: "mock-model",
+              provider: "openai",
+            }),
+            trackMissionTokens: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: TeamMessageService,
+          useValue: {
+            createSystemMessage: jest.fn().mockResolvedValue({ id: "msg-1" }),
+            createAgentMessage: jest.fn().mockResolvedValue({ id: "msg-2" }),
+            sendMessageToTopic: jest.fn().mockResolvedValue({ id: "msg-3" }),
+            createLog: jest.fn().mockResolvedValue({ id: "log-1" }),
+          },
+        },
+        {
+          provide: TeamMemberService,
+          useValue: {
+            getMemberById: jest.fn().mockResolvedValue(null),
+            getMembersByMission: jest.fn().mockResolvedValue([]),
           },
         },
       ],
