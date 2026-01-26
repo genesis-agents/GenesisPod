@@ -2872,4 +2872,104 @@ export class ResearchMissionService {
         });
     });
   }
+
+  /**
+   * ★ v8.1: 添加新 Agent 到 leaderPlan.agentAssignments
+   *
+   * 当通过 Leader 对话创建任务时，需要将新 Agent 的配置
+   * （包括 skills、tools、modelId）添加到 leaderPlan 中，
+   * 以便前端能够正确显示 Agent 的能力配置。
+   *
+   * @param missionId Mission ID
+   * @param agentAssignment 新的 Agent 分配信息
+   */
+  async addAgentToLeaderPlan(
+    missionId: string,
+    agentAssignment: {
+      agentId: string;
+      agentName?: string;
+      agentType: string;
+      role?: string;
+      modelId?: string;
+      skills?: string[];
+      tools?: string[];
+    },
+  ): Promise<void> {
+    try {
+      // 1. 获取当前 Mission 的 leaderPlan
+      const mission = await this.prisma.researchMission.findUnique({
+        where: { id: missionId },
+        select: { leaderPlan: true },
+      });
+
+      if (!mission) {
+        this.logger.warn(
+          `[addAgentToLeaderPlan] Mission ${missionId} not found`,
+        );
+        return;
+      }
+
+      // 2. 解析现有的 leaderPlan
+      const leaderPlan = (mission.leaderPlan as unknown as LeaderPlan) || {
+        taskUnderstanding: { topic: "", scope: "", objectives: [] },
+        dimensions: [],
+        executionStrategy: { parallelism: 5, priorityOrder: [] },
+        agentAssignments: [],
+      };
+
+      // 3. 检查是否已存在该 Agent
+      const existingIndex = leaderPlan.agentAssignments?.findIndex(
+        (a) => a.agentId === agentAssignment.agentId,
+      );
+
+      if (existingIndex !== undefined && existingIndex >= 0) {
+        // 更新现有 Agent 的配置（保留原有的 agentType）
+        const existingAgent = leaderPlan.agentAssignments[existingIndex];
+        leaderPlan.agentAssignments[existingIndex] = {
+          ...existingAgent,
+          agentName: agentAssignment.agentName ?? existingAgent.agentName,
+          role: agentAssignment.role ?? existingAgent.role,
+          modelId: agentAssignment.modelId ?? existingAgent.modelId,
+          skills: agentAssignment.skills ?? existingAgent.skills,
+          tools: agentAssignment.tools ?? existingAgent.tools,
+        };
+        this.logger.log(
+          `[addAgentToLeaderPlan] Updated existing agent ${agentAssignment.agentId} in leaderPlan`,
+        );
+      } else {
+        // 添加新 Agent
+        if (!leaderPlan.agentAssignments) {
+          leaderPlan.agentAssignments = [];
+        }
+        leaderPlan.agentAssignments.push({
+          agentId: agentAssignment.agentId,
+          agentName: agentAssignment.agentName,
+          agentType: agentAssignment.agentType as
+            | "dimension_researcher"
+            | "quality_reviewer"
+            | "report_writer",
+          role: agentAssignment.role || "用户请求研究员",
+          modelId: agentAssignment.modelId,
+          skills: agentAssignment.skills,
+          tools: agentAssignment.tools,
+        });
+        this.logger.log(
+          `[addAgentToLeaderPlan] Added new agent ${agentAssignment.agentId} to leaderPlan with skills: [${agentAssignment.skills?.join(", ")}], tools: [${agentAssignment.tools?.join(", ")}]`,
+        );
+      }
+
+      // 4. 更新数据库
+      await this.prisma.researchMission.update({
+        where: { id: missionId },
+        data: {
+          leaderPlan: leaderPlan as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        `[addAgentToLeaderPlan] Failed to update leaderPlan: ${error}`,
+      );
+      // 不抛出异常，避免影响主流程
+    }
+  }
 }

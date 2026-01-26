@@ -13,10 +13,11 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
+import { updateTopicVisibility } from '@/lib/api/topic-research';
 import { TopicCard } from './TopicCard';
 import { CreateTopicDialog } from '../dialogs/CreateTopicDialog';
 import { TopicSharingModal } from '../dialogs/TopicSharingModal';
-import type { ResearchTopic } from '@/types/topic-research';
+import type { ResearchTopic, TopicVisibility } from '@/types/topic-research';
 import { ResearchTopicType } from '@/types/topic-research';
 
 // Icons
@@ -97,10 +98,12 @@ export function TopicResearchTab({
     fetchTopics,
     triggerRefresh,
     deleteTopic,
+    updateTopic,
     clearError,
   } = useTopicResearchStore();
 
   const [sharingTopic, setSharingTopic] = useState<ResearchTopic | null>(null);
+  const [editingTopic, setEditingTopic] = useState<ResearchTopic | null>(null);
 
   // Ensure topics is always an array
   const topicsList = Array.isArray(topics) ? topics : [];
@@ -153,6 +156,28 @@ export function TopicResearchTab({
       // Error is already handled in store
     }
   };
+
+  // ★ Handle edit - 导航到专题详情页
+  const handleEdit = useCallback(
+    (topic: ResearchTopic) => {
+      router.push(`/ai-research/topic/${topic.id}`);
+    },
+    [router]
+  );
+
+  // ★ Handle visibility change - 调用 API 更新可见性
+  const handleVisibilityChange = useCallback(
+    async (topicId: string, newVisibility: TopicVisibility) => {
+      try {
+        await updateTopicVisibility(topicId, newVisibility);
+        // 重新加载专题列表以获取最新状态
+        await loadTopics();
+      } catch (err) {
+        // Error will be handled by the store or show in UI
+      }
+    },
+    [loadTopics]
+  );
 
   return (
     <>
@@ -214,6 +239,10 @@ export function TopicResearchTab({
               onRefresh={() => handleRefresh(topic.id)}
               onDelete={() => handleDelete(topic.id)}
               onShare={() => setSharingTopic(topic)}
+              onEdit={() => handleEdit(topic)}
+              onVisibilityChange={(visibility) =>
+                handleVisibilityChange(topic.id, visibility)
+              }
             />
           ))}
 

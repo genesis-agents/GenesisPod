@@ -1448,6 +1448,18 @@ export class TopicResearchController {
           assignedAgent: agentAssignment.agentName,
         };
 
+        // ★ v8.1: 将新 Agent 的 skills 和 tools 添加到 leaderPlan 中
+        // 这样前端能够正确显示 Agent 的能力配置
+        await this.missionService.addAgentToLeaderPlan(missionId, {
+          agentId: agentAssignment.agentId,
+          agentName: agentAssignment.agentName,
+          agentType: agentAssignment.agentType,
+          role: agentAssignment.role,
+          modelId: agentAssignment.modelId,
+          skills: agentAssignment.skills,
+          tools: agentAssignment.tools,
+        });
+
         // ★ v7.2: 不再立即执行，而是将任务加入队列
         // 任务将通过 Mission 的调度器统一处理
         // 异步调度新创建的 TODO（不阻塞响应）

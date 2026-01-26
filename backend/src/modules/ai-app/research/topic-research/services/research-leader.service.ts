@@ -2081,7 +2081,17 @@ ${teamMembersText}`;
       );
     }
 
-    // 5. 记录 Leader 决策（使用 ADJUST 类型表示动态调整任务分配）
+    // 5. 根据任务内容智能选择技能和工具
+    const { skills, tools } = this.selectSkillsAndToolsForTask(
+      taskTitle,
+      taskDescription,
+    );
+
+    this.logger.log(
+      `[selectAgentForTask] Selected skills: [${skills.join(", ")}], tools: [${tools.join(", ")}]`,
+    );
+
+    // 6. 记录 Leader 决策（使用 ADJUST 类型表示动态调整任务分配）
     await this.recordDecision(
       missionId,
       LeaderDecisionType.ADJUST,
@@ -2090,8 +2100,10 @@ ${teamMembersText}`;
         agentId: selectedAgentId,
         agentName,
         modelId: selectedModelId,
+        skills,
+        tools,
       },
-      `Leader 为任务「${taskTitle}」选择了 ${agentName}（${selectedModelId}）`,
+      `Leader 为任务「${taskTitle}」选择了 ${agentName}（${selectedModelId}），技能：[${skills.join(", ")}]，工具：[${tools.join(", ")}]`,
     );
 
     return {
@@ -2100,7 +2112,192 @@ ${teamMembersText}`;
       agentType: "dimension_researcher",
       role: "用户请求研究员",
       modelId: selectedModelId,
+      skills,
+      tools,
     };
+  }
+
+  /**
+   * 根据任务标题和描述智能选择技能和工具
+   * 用于 Leader 对话创建的任务
+   */
+  private selectSkillsAndToolsForTask(
+    taskTitle: string,
+    taskDescription?: string,
+  ): { skills: string[]; tools: string[] } {
+    const content = `${taskTitle} ${taskDescription || ""}`.toLowerCase();
+
+    // 政策法规类关键词
+    const policyKeywords = [
+      "政策",
+      "法规",
+      "监管",
+      "立法",
+      "法案",
+      "法律",
+      "policy",
+      "regulation",
+      "regulatory",
+      "legislation",
+      "law",
+      "compliance",
+      "执法",
+      "合规",
+      "框架",
+      "framework",
+      "白宫",
+      "国会",
+      "联邦",
+      "行政命令",
+    ];
+
+    // 市场分析类关键词
+    const marketKeywords = [
+      "市场",
+      "竞争",
+      "格局",
+      "份额",
+      "趋势",
+      "投资",
+      "融资",
+      "资本",
+      "商业",
+      "market",
+      "competition",
+      "trend",
+      "investment",
+      "business",
+      "产业",
+      "行业",
+      "企业",
+      "公司",
+    ];
+
+    // 技术研究类关键词
+    const techKeywords = [
+      "技术",
+      "研发",
+      "创新",
+      "算法",
+      "架构",
+      "系统",
+      "technology",
+      "research",
+      "innovation",
+      "algorithm",
+      "infrastructure",
+      "基础设施",
+      "底层",
+      "核心",
+    ];
+
+    // 数据分析类关键词
+    const dataKeywords = [
+      "数据",
+      "统计",
+      "分析",
+      "指标",
+      "报告",
+      "data",
+      "statistics",
+      "metrics",
+      "analysis",
+      "report",
+      "增长",
+      "下降",
+      "百分比",
+    ];
+
+    // 战略/综合类关键词
+    const strategyKeywords = [
+      "战略",
+      "布局",
+      "发展",
+      "规划",
+      "展望",
+      "预测",
+      "未来",
+      "strategy",
+      "development",
+      "outlook",
+      "forecast",
+      "思想",
+      "哲学",
+      "根源",
+      "动向",
+    ];
+
+    let skills: string[] = [];
+    let tools: string[] = [];
+
+    // 判断任务类型并选择技能和工具
+    const isPolicyRelated = policyKeywords.some((kw) => content.includes(kw));
+    const isMarketRelated = marketKeywords.some((kw) => content.includes(kw));
+    const isTechRelated = techKeywords.some((kw) => content.includes(kw));
+    const isDataRelated = dataKeywords.some((kw) => content.includes(kw));
+    const isStrategyRelated = strategyKeywords.some((kw) =>
+      content.includes(kw),
+    );
+
+    // 政策法规类
+    if (isPolicyRelated) {
+      skills.push(
+        "policy_analysis",
+        "regulatory_impact",
+        "legislative_tracking",
+      );
+      tools.push("federal-register", "congress-gov", "whitehouse-news");
+    }
+
+    // 市场分析类
+    if (isMarketRelated) {
+      skills.push(
+        "trend_analysis",
+        "competitive_analysis",
+        "data_interpretation",
+      );
+      tools.push("web-search", "data-analysis");
+    }
+
+    // 技术研究类
+    if (isTechRelated) {
+      skills.push("deep_dive", "comparison", "synthesis");
+      tools.push("academic-search", "web-search");
+    }
+
+    // 数据分析类
+    if (isDataRelated) {
+      skills.push("data_interpretation", "trend_analysis");
+      tools.push("data-analysis", "web-search");
+    }
+
+    // 战略/综合类
+    if (isStrategyRelated) {
+      skills.push("future_projection", "cause_effect", "synthesis");
+      tools.push("web-search", "news");
+    }
+
+    // 去重
+    skills = [...new Set(skills)];
+    tools = [...new Set(tools)];
+
+    // 如果没有匹配到任何关键词，使用默认值
+    if (skills.length === 0) {
+      skills = ["deep_dive", "synthesis", "data_interpretation"];
+    }
+    if (tools.length === 0) {
+      tools = ["web-search"];
+    }
+
+    // 限制数量：skills 2-4 个，tools 1-3 个
+    if (skills.length > 4) {
+      skills = skills.slice(0, 4);
+    }
+    if (tools.length > 3) {
+      tools = tools.slice(0, 3);
+    }
+
+    return { skills, tools };
   }
 
   /**
