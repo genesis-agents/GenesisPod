@@ -519,9 +519,13 @@ export class ImageGenerationService {
           ? "16:9"
           : "9:16";
 
-    const generateImagesUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateImages?key=${apiKey}`;
+    // ★ 不在 URL 中包含 API Key，使用 header 认证
+    const generateImagesUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateImages`;
 
-    this.logger.log(`Calling Imagen API: ${generateImagesUrl}`);
+    // ★ 安全：不在日志中打印 API Key
+    this.logger.log(
+      `Calling Imagen API: models/${modelId}:generateImages, aspectRatio=${aspectRatio}`,
+    );
 
     try {
       const response = await firstValueFrom(
@@ -535,7 +539,10 @@ export class ImageGenerationService {
             },
           },
           {
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "x-goog-api-key": apiKey,
+              "Content-Type": "application/json",
+            },
             timeout: 120000,
           },
         ),
@@ -605,6 +612,7 @@ export class ImageGenerationService {
 
   /**
    * Imagen predict endpoint (fallback)
+   * ★ 使用 x-goog-api-key header 认证（与 admin 测试一致）
    */
   private async generateWithImagenPredict(
     apiKey: string,
@@ -612,9 +620,13 @@ export class ImageGenerationService {
     prompt: string,
     aspectRatio: string,
   ): Promise<string> {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:predict?key=${apiKey}`;
+    // ★ 不在 URL 中包含 API Key，使用 header 认证
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:predict`;
 
-    this.logger.log(`Calling Imagen predict API: ${url}`);
+    // ★ 安全：不在日志中打印 API Key
+    this.logger.log(
+      `Calling Imagen predict API: models/${modelId}:predict, aspectRatio=${aspectRatio}`,
+    );
 
     try {
       const response = await firstValueFrom(
@@ -625,10 +637,16 @@ export class ImageGenerationService {
             parameters: {
               sampleCount: 1,
               aspectRatio: aspectRatio,
+              outputOptions: {
+                mimeType: "image/png",
+              },
             },
           },
           {
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "x-goog-api-key": apiKey,
+              "Content-Type": "application/json",
+            },
             timeout: 120000,
           },
         ),
