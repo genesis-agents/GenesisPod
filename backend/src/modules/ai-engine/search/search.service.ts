@@ -62,10 +62,24 @@ const FAILOVER_STATUS_CODES = [401, 429, 432, 500, 502, 503, 504];
 /** 搜索提供商优先级顺序 */
 type SearchProvider = "tavily" | "serper" | "duckduckgo";
 
-/** API Key 健康状态 */
+/** API Key 健康状态（内部使用） */
 interface KeyHealth {
   failedAt: number;
   errorCode: number;
+}
+
+/** API Key 健康状态（对外导出） */
+export interface KeyHealthStatus {
+  /** 密钥序号 (0-indexed) */
+  index: number;
+  /** 脱敏显示的密钥 (如 tvly-abcd****xyz) */
+  maskedKey: string;
+  /** 是否健康可用 */
+  isHealthy: boolean;
+  /** 最近错误码 (如 HTTP 429) */
+  lastError?: string;
+  /** 冷却结束时间 (ISO 格式) */
+  cooldownUntil?: string;
 }
 
 /** Key 冷却时间（毫秒）- 失败后多久重试 */
@@ -264,6 +278,54 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         `[Search] Cleared failure status for ${provider} key ${this.getMaskedKey(key)}`,
       );
     }
+  }
+
+  /**
+   * 获取用于显示的脱敏密钥
+   * 显示前4位 + **** + 后3位（如 tvly-abcd****xyz）
+   */
+  getMaskedKeyForDisplay(key: string): string {
+    if (!key || key.length < 10) {
+      return "****";
+    }
+    const prefix = key.substring(0, 8);
+    const suffix = key.substring(key.length - 3);
+    return `${prefix}****${suffix}`;
+  }
+
+  /**
+   * 获取指定 Provider 的所有 Key 健康状态
+   * ★ 供管理后台 API 调用，展示密钥健康状况
+   */
+  async getKeyHealthStatus(
+    provider: "tavily" | "serper",
+  ): Promise<KeyHealthStatus[]> {
+    const config = await this.getSearchConfig();
+    const keys = provider === "tavily" ? config.tavilyKeys : config.serperKeys;
+    const now = Date.now();
+
+    return keys.map((key, index) => {
+      const healthKey = this.getKeyHash(provider, key);
+      const health = this.keyHealthMap.get(healthKey);
+
+      // 计算是否健康：未失败过，或冷却期已过
+      const isHealthy = !health || now - health.failedAt >= KEY_COOLDOWN_MS;
+
+      // 计算冷却结束时间
+      let cooldownUntil: string | undefined;
+      if (health && !isHealthy) {
+        const cooldownEnd = new Date(health.failedAt + KEY_COOLDOWN_MS);
+        cooldownUntil = cooldownEnd.toISOString();
+      }
+
+      return {
+        index,
+        maskedKey: this.getMaskedKeyForDisplay(key),
+        isHealthy,
+        lastError: health ? `HTTP ${health.errorCode}` : undefined,
+        cooldownUntil,
+      };
+    });
   }
 
   /**

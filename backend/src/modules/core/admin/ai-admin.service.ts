@@ -184,6 +184,10 @@ import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
 import { SkillLoaderService } from "../../ai-engine/skills/loader/skill-loader.service";
 import { MCPManager } from "../../ai-engine/mcp/manager/mcp-manager";
 import { SecretsService } from "../secrets/secrets.service";
+import {
+  SearchService,
+  KeyHealthStatus,
+} from "../../ai-engine/search/search.service";
 
 /**
  * AI 能力管理服务
@@ -227,6 +231,7 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     private readonly skillLoaderService: SkillLoaderService,
     private readonly mcpManager: MCPManager,
     private readonly secretsService: SecretsService,
+    private readonly searchService: SearchService,
   ) {}
 
   /**
@@ -1262,6 +1267,32 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
       },
       breakpoints,
     };
+  }
+
+  /**
+   * ★ 获取工具的 API Key 健康状态
+   * 供管理后台展示密钥轮换状态
+   *
+   * @param toolId - 工具 ID (tavily, serper, web-search 等)
+   * @returns 密钥健康状态列表
+   */
+  async getToolKeyHealth(toolId: string): Promise<KeyHealthStatus[]> {
+    // 映射 toolId 到 provider
+    const providerMap: Record<string, "tavily" | "serper"> = {
+      tavily: "tavily",
+      "tavily-search": "tavily",
+      serper: "serper",
+      "serper-search": "serper",
+      "web-search": "tavily", // 默认使用 tavily
+    };
+
+    const provider = providerMap[toolId];
+    if (!provider) {
+      this.logger.warn(`Unknown tool ID for key health: ${toolId}`);
+      return [];
+    }
+
+    return this.searchService.getKeyHealthStatus(provider);
   }
 
   /**

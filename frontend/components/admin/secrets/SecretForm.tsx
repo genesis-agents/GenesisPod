@@ -1,7 +1,16 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { X, Key, Save, Info } from 'lucide-react';
+import {
+  X,
+  Key,
+  Save,
+  Info,
+  Circle,
+  AlertCircle,
+  Clock,
+  RefreshCw,
+} from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import {
   Secret,
@@ -9,6 +18,8 @@ import {
   CreateSecretDto,
   UpdateSecretDto,
 } from '@/hooks/domain/useAdminSecrets';
+import { useKeyHealth } from '@/hooks/domain';
+import type { KeyHealthStatus } from '@/types/admin';
 
 // 支持多密钥输入的分类（如搜索工具的 API Key）
 const MULTI_KEY_CATEGORIES: SecretCategory[] = ['SEARCH'];
@@ -63,6 +74,61 @@ export function SecretForm({
 
   // 判断当前分类是否支持多密钥
   const isMultiKeyCategory = MULTI_KEY_CATEGORIES.includes(formData.category);
+
+  // 获取密钥健康状态（仅在编辑 SEARCH 分类时有效）
+  const shouldFetchHealth = isEditing && isMultiKeyCategory && !!secret?.name;
+  const {
+    keyHealth,
+    stats: healthStats,
+    isLoading: isLoadingHealth,
+    refetch: refetchHealth,
+  } = useKeyHealth(shouldFetchHealth ? (secret?.name ?? null) : null, {
+    immediate: shouldFetchHealth,
+  });
+
+  // 渲染单个密钥的健康状态指示器
+  const renderHealthIndicator = (health: KeyHealthStatus) => {
+    if (health.isHealthy) {
+      return (
+        <span className="flex items-center gap-1.5 text-xs text-green-600">
+          <Circle className="h-2.5 w-2.5 fill-green-500" />
+          <span className="font-medium">{health.maskedKey}</span>
+          <span className="text-green-500">健康</span>
+        </span>
+      );
+    }
+
+    if (health.cooldownUntil) {
+      const cooldownEnd = new Date(health.cooldownUntil);
+      const now = new Date();
+      const remainingMs = cooldownEnd.getTime() - now.getTime();
+      const remainingMin = Math.max(0, Math.ceil(remainingMs / 60000));
+
+      return (
+        <span
+          className="flex items-center gap-1.5 text-xs text-amber-600"
+          title={`冷却结束: ${cooldownEnd.toLocaleTimeString()}`}
+        >
+          <Clock className="h-2.5 w-2.5" />
+          <span className="font-medium">{health.maskedKey}</span>
+          <span>
+            {remainingMin > 0 ? `冷却 ${remainingMin}分钟` : '即将恢复'}
+          </span>
+        </span>
+      );
+    }
+
+    return (
+      <span
+        className="flex items-center gap-1.5 text-xs text-red-600"
+        title={health.lastError}
+      >
+        <AlertCircle className="h-2.5 w-2.5" />
+        <span className="font-medium">{health.maskedKey}</span>
+        <span>{health.lastError || '失败'}</span>
+      </span>
+    );
+  };
 
   // 计算输入的密钥数量（支持逗号分隔或换行分隔）
   const keyCount = useMemo(() => {
@@ -253,6 +319,37 @@ export function SecretForm({
                     支持多个密钥轮换使用，当一个密钥配额耗尽时自动切换到下一个
                   </span>
                 </div>
+                {/* 健康状态显示（仅编辑时） */}
+                {isEditing && keyHealth.length > 0 && (
+                  <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        密钥健康状态
+                        {healthStats && (
+                          <span className="ml-2 font-normal text-gray-500">
+                            ({healthStats.healthy}/{healthStats.total} 可用)
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => refetchHealth()}
+                        disabled={isLoadingHealth}
+                        className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-gray-500 hover:bg-gray-200 disabled:opacity-50 dark:hover:bg-gray-600"
+                      >
+                        <RefreshCw
+                          className={`h-3 w-3 ${isLoadingHealth ? 'animate-spin' : ''}`}
+                        />
+                        刷新
+                      </button>
+                    </div>
+                    <div className="space-y-1.5">
+                      {keyHealth.map((health, idx) => (
+                        <div key={idx}>{renderHealthIndicator(health)}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <input

@@ -1,1 +1,6 @@
-export { SearchService, SearchResult, SearchResponse } from "./search.service";
+export {
+  SearchService,
+  SearchResult,
+  SearchResponse,
+  KeyHealthStatus,
+} from "./search.service";
