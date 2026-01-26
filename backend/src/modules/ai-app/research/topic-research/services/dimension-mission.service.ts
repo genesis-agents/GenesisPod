@@ -16,7 +16,7 @@
  * - 支持多轮质量审核
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, forwardRef, Inject } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   DimensionStatus,
@@ -92,6 +92,7 @@ export class DimensionMissionService {
 
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => ResearchLeaderService))
     private readonly leaderService: ResearchLeaderService,
     private readonly sectionWriter: SectionWriterService,
     private readonly dataSourceRouter: DataSourceRouterService,
