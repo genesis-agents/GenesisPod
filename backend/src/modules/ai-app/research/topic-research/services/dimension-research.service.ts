@@ -19,6 +19,7 @@ import {
   renderPromptTemplate,
   getCurrentDateString,
   getFreshnessRequirementDescription,
+  getLanguageInstruction,
 } from "../prompts/dimension-research.prompt";
 import { DataSourceRouterService } from "./data-source-router.service";
 
@@ -187,6 +188,9 @@ export class DimensionResearchService {
     const topicConfig = topic.topicConfig as Record<string, unknown> | null;
     const searchTimeRange = topicConfig?.searchTimeRange as string | undefined;
 
+    // ★ 根据专题语言设置获取语言指令
+    const languageInstruction = getLanguageInstruction(topic.language || "zh");
+
     // 准备提示词变量
     const promptVariables = {
       topicName: topic.name,
@@ -201,7 +205,17 @@ export class DimensionResearchService {
       // ★ 时间上下文：确保 AI 使用最新数据而非训练数据
       currentDate: getCurrentDateString(),
       freshnessRequirement: getFreshnessRequirementDescription(searchTimeRange),
+      // ★ 语言指令：根据专题设置使用相应语言
+      languageInstruction,
     };
+
+    // ★ 渲染系统提示词（包含语言指令）
+    const systemPrompt = renderPromptTemplate(
+      DIMENSION_RESEARCH_SYSTEM_PROMPT,
+      {
+        languageInstruction,
+      },
+    );
 
     // 渲染用户提示词
     const userPrompt = renderPromptTemplate(
@@ -209,12 +223,14 @@ export class DimensionResearchService {
       promptVariables,
     );
 
-    this.logger.debug(`Calling AI for dimension analysis: ${dimension.name}`);
+    this.logger.debug(
+      `Calling AI for dimension analysis: ${dimension.name} (language: ${topic.language || "zh"})`,
+    );
 
     // 调用 AI (通过 AIEngineFacade 统一入口)
     const response = await this.aiFacade.chat({
       messages: [
-        { role: "system", content: DIMENSION_RESEARCH_SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       modelType: AIModelType.CHAT, // 使用标准聊天模型

@@ -1902,17 +1902,42 @@ ${teamMembersText}`;
       .replace("{projectContext}", projectContext)
       .replace("{userMessage}", sanitizedMessage);
 
-    // 7. 调用 AI
+    // 6.5 ★ 获取对话历史（多轮上下文）
+    const conversationHistory =
+      await this.eventEmitter.getLeaderConversationHistory(
+        topicId,
+        missionId,
+        5, // 最近 5 轮对话
+      );
+
+    // 7. 调用 AI（包含对话历史）
     const startTime = Date.now();
+
+    // 构建消息数组：系统提示 + 对话历史 + 当前用户消息
+    const messages: Array<{
+      role: "system" | "user" | "assistant";
+      content: string;
+    }> = [
+      {
+        role: "system",
+        content:
+          "你是研究团队的 AI Leader。请理解用户意图并输出 JSON 格式的响应。",
+      },
+    ];
+
+    // 添加对话历史（不包括当前消息，当前消息通过 prompt 发送）
+    if (conversationHistory.length > 0) {
+      this.logger.debug(
+        `[decodeUserInput] Including ${conversationHistory.length} messages from conversation history`,
+      );
+      messages.push(...conversationHistory);
+    }
+
+    // 添加当前用户消息（包含完整上下文的 prompt）
+    messages.push({ role: "user", content: prompt });
+
     const response = await this.aiFacade.chat({
-      messages: [
-        {
-          role: "system",
-          content:
-            "你是研究团队的 AI Leader。请理解用户意图并输出 JSON 格式的响应。",
-        },
-        { role: "user", content: prompt },
-      ],
+      messages,
       model: leaderModel.modelId,
       taskProfile: {
         creativity: "low", // 解码任务需要准确性
@@ -1921,7 +1946,9 @@ ${teamMembersText}`;
     });
     const latencyMs = Date.now() - startTime;
 
-    this.logger.log(`[decodeUserInput] AI response in ${latencyMs}ms`);
+    this.logger.log(
+      `[decodeUserInput] AI response in ${latencyMs}ms (with ${conversationHistory.length} history messages)`,
+    );
 
     // 7. 解析响应
     const result = this.extractJsonFromResponse<{

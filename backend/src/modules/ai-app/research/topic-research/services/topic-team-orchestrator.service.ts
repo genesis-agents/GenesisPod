@@ -18,7 +18,10 @@ import {
   type OverallReviewResult,
   ReviewQualityLevel,
 } from "./research-reviewer.service";
-import { ResearchLeaderService } from "./research-leader.service";
+import {
+  ResearchLeaderService,
+  type AgentAssignment,
+} from "./research-leader.service";
 import type { DimensionAnalysisResult } from "../types/research.types";
 
 /**
@@ -134,6 +137,8 @@ export class TopicTeamOrchestratorService {
 
       // 2. 获取要研究的维度
       let dimensions = await this.getDimensionsToResearch(topicId, options);
+      // ★ 保存 Leader 的 Agent 分配信息（包含工具和技能）
+      let agentAssignments: AgentAssignment[] = [];
 
       // ★ v8.0: 如果没有维度，由 Leader AI 动态规划
       if (dimensions.length === 0) {
@@ -162,6 +167,14 @@ export class TopicTeamOrchestratorService {
         this.logger.log(
           `[executeRefresh] Leader planned ${leaderPlan.dimensions.length} dimensions: ${leaderPlan.dimensions.map((d) => d.name).join(", ")}`,
         );
+
+        // ★ 保存 Agent 分配信息（用于后续传递工具和技能）
+        agentAssignments = leaderPlan.agentAssignments || [];
+        if (agentAssignments.length > 0) {
+          this.logger.log(
+            `[executeRefresh] Leader assigned ${agentAssignments.length} agents with tools: ${agentAssignments.map((a) => `${a.agentId}:[${(a.tools || []).join(",")}]`).join("; ")}`,
+          );
+        }
 
         // 将规划的维度保存到数据库
         const createdDimensions = await Promise.all(
@@ -199,12 +212,13 @@ export class TopicTeamOrchestratorService {
         message: `开始研究 ${dimensions.length} 个维度...`,
       });
 
-      // 3. 并行执行维度研究
+      // 3. 并行执行维度研究（传递 Agent 分配信息以使用正确的工具和技能）
       const analysisResults = await this.researchDimensionsInParallel(
         topic,
         dimensions,
         report.id,
         abortController.signal,
+        agentAssignments,
       );
 
       // 检查是否被取消
@@ -439,12 +453,14 @@ export class TopicTeamOrchestratorService {
 
   /**
    * 并行执行维度研究
+   * @param agentAssignments Leader 分配的 Agent 信息（包含工具和技能）
    */
   private async researchDimensionsInParallel(
     topic: ResearchTopic,
     dimensions: TopicDimension[],
     reportId: string,
     signal: AbortSignal,
+    agentAssignments: AgentAssignment[] = [],
   ): Promise<
     PromiseSettledResult<{
       dimensionId: string;
@@ -461,13 +477,46 @@ export class TopicTeamOrchestratorService {
         throw new Error("Refresh cancelled");
       }
 
+      // ★ 根据维度 ID 找到对应的 Agent 分配，提取工具和技能
+      const assignment = agentAssignments.find(
+        (a) =>
+          a.assignedDimensions?.includes(dimension.id) ||
+          a.assignedDimensions?.includes(dimension.name),
+      );
+
+      // ★ 优先使用 Leader 分配的工具，如果没有则使用维度自身的 searchSources
+      let assignedTools = assignment?.tools || [];
+      if (assignedTools.length === 0 && dimension.searchSources) {
+        // 从维度的 searchSources 中提取工具（searchSources 是 JSON 数组）
+        const sources = dimension.searchSources as string[];
+        if (Array.isArray(sources) && sources.length > 0) {
+          assignedTools = sources;
+          this.logger.debug(
+            `[researchDimensionsInParallel] Dimension "${dimension.name}" using searchSources as tools: [${assignedTools.join(", ")}]`,
+          );
+        }
+      }
+      const assignedSkills = assignment?.skills || [];
+      const modelId = assignment?.modelId;
+
+      if (assignedTools.length > 0 || assignedSkills.length > 0) {
+        this.logger.debug(
+          `[researchDimensionsInParallel] Dimension "${dimension.name}" assigned tools: [${assignedTools.join(", ")}], skills: [${assignedSkills.join(", ")}]`,
+        );
+      }
+
       try {
-        // 执行维度研究（使用新的 Leader-Agent 协作机制）
+        // 执行维度研究（传递 Leader 分配的工具和技能）
         const missionResult =
           await this.dimensionMissionService.executeDimensionMission(
             topic,
             dimension,
             reportId,
+            undefined, // missionId
+            modelId, // ★ Leader 分配的模型 ID
+            undefined, // taskId
+            assignedTools, // ★ Leader 分配的工具
+            assignedSkills, // ★ Leader 分配的技能
           );
 
         if (!missionResult.success) {

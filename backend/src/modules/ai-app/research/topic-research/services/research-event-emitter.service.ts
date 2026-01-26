@@ -790,6 +790,42 @@ export class ResearchEventEmitterService {
   }
 
   /**
+   * 获取 Leader 对话历史（格式化为 AI 消息格式）
+   *
+   * 返回最近的对话历史，用于 Leader 多轮上下文
+   *
+   * @param topicId 专题 ID
+   * @param missionId 任务 ID（可选）
+   * @param maxTurns 最大对话轮数（默认 10 轮，每轮包含用户+助手消息）
+   * @returns 格式化的消息数组，用于 AI chat
+   */
+  async getLeaderConversationHistory(
+    topicId: string,
+    missionId?: string,
+    maxTurns: number = 10,
+  ): Promise<Array<{ role: "user" | "assistant"; content: string }>> {
+    // 获取最近的对话消息（用户消息 + Leader 响应）
+    const messages = await this.prisma.researchTeamMessage.findMany({
+      where: {
+        topicId,
+        ...(missionId ? { missionId } : {}),
+        messageType: { in: ["USER_MESSAGE", "LEADER_RESPONSE"] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: maxTurns * 2, // 每轮对话包含用户+助手消息
+    });
+
+    // 反转为时间正序
+    const sortedMessages = messages.reverse();
+
+    // 转换为 AI 消息格式
+    return sortedMessages.map((msg) => ({
+      role: msg.messageType === "USER_MESSAGE" ? "user" : "assistant",
+      content: msg.content,
+    })) as Array<{ role: "user" | "assistant"; content: string }>;
+  }
+
+  /**
    * 标准化事件数据
    */
   private normalizeEventData(data: unknown): Record<string, unknown> {

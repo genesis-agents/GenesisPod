@@ -129,6 +129,29 @@ export class DataSourcePlannerService {
       requiresApiKey: false,
       isAvailable: false, // TODO: 待实现
     },
+    // ★ 社媒数据源
+    {
+      type: DataSourceType.SOCIAL_X,
+      displayName: "X/Twitter",
+      description: "X/Twitter 社媒热点搜索，获取实时社交媒体讨论和舆情",
+      useCases: [
+        "舆情监测",
+        "社会热点",
+        "用户反馈",
+        "品牌声誉",
+        "实时事件",
+        "KOL观点",
+      ],
+      characteristics: [
+        "实时性强",
+        "覆盖面广",
+        "情绪分析",
+        "影响力指标",
+        "需要 Grok 模型",
+      ],
+      requiresApiKey: true, // 需要 xAI API 或 Web Search 作为降级
+      isAvailable: true,
+    },
   ];
 
   constructor(
@@ -227,6 +250,7 @@ export class DataSourcePlannerService {
       [DataSourceType.FEDERAL_REGISTER]: "federal-register",
       [DataSourceType.CONGRESS]: "congress-gov",
       [DataSourceType.WHITEHOUSE]: "whitehouse-news",
+      [DataSourceType.SOCIAL_X]: "social-x", // X/Twitter 社媒热点
     };
     return mapping[source] || null;
   }

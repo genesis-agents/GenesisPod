@@ -582,9 +582,10 @@ export class AiModelConfigService {
   /**
    * 根据 ID（数据库 UUID 或 modelId）查找模型
    * ★ 统一入口，支持多种 ID 格式
+   * ★ 支持所有 modelType（包括 IMAGE_GENERATION、EMBEDDING 等）
    */
   async getModelById(idOrModelId: string): Promise<AIModelConfig | null> {
-    // 1. 先尝试按 modelId/name 查找（使用缓存）
+    // 1. 先尝试按 modelId/name 查找（使用缓存，仅 CHAT/CHAT_FAST）
     const configByModelId = await this.getModelConfig(idOrModelId);
     if (configByModelId) {
       return configByModelId;
@@ -605,6 +606,28 @@ export class AiModelConfigService {
       } catch (error) {
         this.logger.warn(`[getModelById] Database query failed: ${error}`);
       }
+    }
+
+    // 3. ★ 直接按 modelId/name 查找所有类型的模型（包括 IMAGE_GENERATION、EMBEDDING 等）
+    //    这是为了支持非 CHAT 类型模型的查找
+    try {
+      const model = await this.prisma.aIModel.findFirst({
+        where: {
+          OR: [
+            { modelId: { equals: idOrModelId, mode: "insensitive" } },
+            { name: { equals: idOrModelId, mode: "insensitive" } },
+          ],
+          isEnabled: true,
+        },
+      });
+      if (model) {
+        this.logger.debug(
+          `[getModelById] Found model ${model.modelId} (type: ${model.modelType}) via direct query`,
+        );
+        return this.buildModelConfig(model);
+      }
+    } catch (error) {
+      this.logger.warn(`[getModelById] Direct modelId query failed: ${error}`);
     }
 
     return null;

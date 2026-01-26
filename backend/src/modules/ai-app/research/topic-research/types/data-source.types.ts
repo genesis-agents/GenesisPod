@@ -18,6 +18,35 @@ export enum DataSourceType {
   FEDERAL_REGISTER = "federal-register", // 联邦公报 (行政命令、法规)
   CONGRESS = "congress-gov", // 国会立法 (法案、决议)
   WHITEHOUSE = "whitehouse-news", // 白宫新闻 (声明、政策)
+  // ★ 社媒数据源
+  SOCIAL_X = "social-x", // X/Twitter 社媒热点 (via Grok Live Search)
+}
+
+/**
+ * ★ 社媒热点数据项
+ */
+export interface SocialTrendItem {
+  title: string;
+  url: string;
+  author: string;
+  authorFollowers?: string;
+  content: string;
+  engagement: {
+    likes: number;
+    retweets: number;
+    replies: number;
+  };
+  sentiment: "positive" | "negative" | "neutral";
+  publishedAt: string;
+}
+
+/**
+ * ★ 社媒搜索响应
+ */
+export interface SocialSearchResponse {
+  trends: SocialTrendItem[];
+  summary: string;
+  dominantSentiment: string;
 }
 
 /**

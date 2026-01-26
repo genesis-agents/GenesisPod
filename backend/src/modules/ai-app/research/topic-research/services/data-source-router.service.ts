@@ -5,6 +5,9 @@ import { Injectable, Logger } from "@nestjs/common";
 // import { GithubService } from '../../../ingestion/crawlers/github.service';
 // import { HackernewsService } from '../../../ingestion/crawlers/hackernews.service';
 
+// ★ AI Engine Facade 导入 - 用于 Social X 搜索
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
+
 // ★ 政策研究工具导入
 import {
   FederalRegisterTool,
@@ -82,6 +85,8 @@ export class DataSourceRouterService {
     // ★ RAG 服务 - 用于 LOCAL 数据源搜索
     private readonly embeddingService: EmbeddingService,
     private readonly vectorService: VectorService,
+    // ★ AI Facade - 用于 Social X 搜索（Grok Live Search）
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /** 当前搜索的 topic（用于 LOCAL 数据源获取 knowledgeBaseIds） */
@@ -106,8 +111,11 @@ export class DataSourceRouterService {
     const startTime = Date.now();
     const useAIPlanning = options?.useAIPlanning ?? false;
 
+    // ★ 提取 Leader 分配的工具
+    const assignedTools = options?.assignedTools || [];
+
     this.logger.log(
-      `Fetching data for dimension: ${dimension.name} (topic: ${topic.name}, AI planning: ${useAIPlanning})`,
+      `Fetching data for dimension: ${dimension.name} (topic: ${topic.name}, AI planning: ${useAIPlanning}, assignedTools: [${assignedTools.join(", ")}])`,
     );
 
     // ★ 保存当前 topic，用于 LOCAL 数据源获取 knowledgeBaseIds
@@ -117,7 +125,20 @@ export class DataSourceRouterService {
     let sources: DataSourceType[];
     let aiPlan: DataSourcePlan | undefined;
 
-    if (useAIPlanning) {
+    // ★ 优先使用 Leader 分配的工具
+    if (assignedTools.length > 0) {
+      sources = this.convertToolsToDataSources(assignedTools);
+      this.logger.log(
+        `[Assigned Tools] Using Leader-assigned tools: [${assignedTools.join(", ")}] → DataSources: [${sources.join(", ")}]`,
+      );
+      // 如果转换后没有有效的数据源，回退到其他方式
+      if (sources.length === 0) {
+        this.logger.warn(
+          `[Assigned Tools] No valid data sources from assigned tools, falling back to dimension config`,
+        );
+        sources = this.getDataSourcesForDimension(dimension);
+      }
+    } else if (useAIPlanning) {
       // ★ 使用 AI 规划数据源
       aiPlan = await this.getAIPlanForDimension(dimension, topic);
       sources = aiPlan.recommendedSources;
@@ -151,6 +172,8 @@ export class DataSourceRouterService {
             [DataSourceType.FEDERAL_REGISTER]: 0,
             [DataSourceType.CONGRESS]: 0,
             [DataSourceType.WHITEHOUSE]: 0,
+            // ★ 社媒数据源
+            [DataSourceType.SOCIAL_X]: 0,
           },
         },
       };
@@ -469,6 +492,10 @@ export class DataSourceRouterService {
 
       case DataSourceType.WHITEHOUSE:
         return this.searchWhiteHouse(query, maxResults);
+
+      // ★ 社媒数据源
+      case DataSourceType.SOCIAL_X:
+        return this.searchSocialX(query, maxResults);
 
       default:
         this.logger.warn(`Unknown data source type: ${source}`);
@@ -1088,6 +1115,254 @@ export class DataSourceRouterService {
     }
   }
 
+  // ==================== Social Media Data Source ====================
+
+  /**
+   * ★ X/Twitter 社媒搜索
+   * 主方案：使用 Grok Live Search 获取实时社媒热点
+   * 降级方案：使用 Web Search + site:x.com
+   */
+  private async searchSocialX(
+    query: string,
+    maxResults: number,
+  ): Promise<DataSourceResult[]> {
+    this.logger.log(`[searchSocialX] Searching: "${query}"`);
+
+    // 主方案：Grok Live Search
+    try {
+      const results = await this.searchSocialXViaGrok(query, maxResults);
+      if (results.length > 0) {
+        this.logger.log(
+          `[searchSocialX] Grok Live Search returned ${results.length} results`,
+        );
+        return results;
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[searchSocialX] Grok Live Search failed, falling back to web search: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    // 降级方案：Web Search + site:x.com
+    return this.searchSocialXViaWebSearch(query, maxResults);
+  }
+
+  /**
+   * 通过 Grok Live Search 获取 X/Twitter 内容
+   */
+  private async searchSocialXViaGrok(
+    query: string,
+    maxResults: number,
+    retries = 2,
+  ): Promise<DataSourceResult[]> {
+    // 检查是否有可用的 Grok 模型
+    const aiModels = await this.aiFacade.getAvailableModels();
+    const grokModel = aiModels.find(
+      (m: { id: string; provider: string }) => m.provider === "xai",
+    );
+
+    if (!grokModel) {
+      this.logger.warn(
+        "[searchSocialXViaGrok] No xAI/Grok model available, skipping",
+      );
+      return [];
+    }
+
+    const systemPrompt = `You are a social media analyst. Search X/Twitter for recent discussions about the given topic.
+Return results in JSON format:
+{
+  "trends": [
+    {
+      "title": "Brief title describing the discussion point",
+      "url": "https://x.com/username/status/xxx",
+      "author": "@username",
+      "content": "Key quote or summary of the post",
+      "engagement": { "likes": 0, "retweets": 0, "replies": 0 },
+      "sentiment": "positive|negative|neutral",
+      "publishedAt": "2026-01-26"
+    }
+  ],
+  "summary": "Brief overview of the social media discourse",
+  "dominantSentiment": "positive|negative|neutral|mixed"
+}
+Focus on high-engagement posts from credible accounts. Provide ${maxResults} most relevant posts.`;
+
+    const userPrompt = `Search X/Twitter for recent discussions about: "${query}"
+
+Return the ${maxResults} most relevant and high-engagement posts in the specified JSON format.`;
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const response = await this.aiFacade.chat({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          model: grokModel.id,
+          taskProfile: { creativity: "low", outputLength: "long" },
+        });
+
+        const results = this.parseSocialSearchResponse(response.content, query);
+        if (results.length > 0) {
+          return results;
+        }
+
+        this.logger.warn(
+          `[searchSocialXViaGrok] Attempt ${attempt + 1}: No results parsed`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `[searchSocialXViaGrok] Attempt ${attempt + 1} failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        if (attempt === retries) throw error;
+      }
+    }
+    return [];
+  }
+
+  /**
+   * 解析 Grok 社媒搜索响应
+   */
+  private parseSocialSearchResponse(
+    content: string,
+    originalQuery: string,
+  ): DataSourceResult[] {
+    // 尝试多种 JSON 提取模式
+    const extractJson = (text: string): string | null => {
+      // 模式1：```json ... ```
+      const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonBlockMatch) return jsonBlockMatch[1];
+
+      // 模式2：``` ... ```（无 json 标记）
+      const codeBlockMatch = text.match(/```\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) return codeBlockMatch[1];
+
+      // 模式3：直接 JSON 对象
+      const jsonObjectMatch = text.match(/\{[\s\S]*"trends"[\s\S]*\}/);
+      if (jsonObjectMatch) return jsonObjectMatch[0];
+
+      return null;
+    };
+
+    try {
+      const jsonStr = extractJson(content);
+      if (!jsonStr) {
+        this.logger.warn(
+          "[parseSocialSearchResponse] No JSON found in response",
+        );
+        return this.extractFallbackSocialResults(content, originalQuery);
+      }
+
+      const parsed = JSON.parse(jsonStr) as {
+        trends?: Array<{
+          title?: string;
+          url?: string;
+          author?: string;
+          content?: string;
+          engagement?: { likes?: number; retweets?: number; replies?: number };
+          sentiment?: string;
+          publishedAt?: string;
+        }>;
+      };
+
+      if (!parsed.trends || !Array.isArray(parsed.trends)) {
+        this.logger.warn(
+          "[parseSocialSearchResponse] Invalid trends structure",
+        );
+        return this.extractFallbackSocialResults(content, originalQuery);
+      }
+
+      return parsed.trends.map((trend) => ({
+        sourceType: DataSourceType.SOCIAL_X,
+        title: trend.title || `X 讨论: ${originalQuery}`,
+        url: trend.url || "https://x.com",
+        snippet: trend.content || "",
+        publishedAt: trend.publishedAt
+          ? new Date(trend.publishedAt)
+          : undefined,
+        domain: "x.com",
+        metadata: {
+          author: trend.author,
+          engagement: trend.engagement,
+          sentiment: trend.sentiment,
+          fetchedVia: "grok-live-search",
+        },
+      }));
+    } catch (error) {
+      this.logger.error(
+        `[parseSocialSearchResponse] Parse failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return this.extractFallbackSocialResults(content, originalQuery);
+    }
+  }
+
+  /**
+   * JSON 解析失败时的降级提取
+   */
+  private extractFallbackSocialResults(
+    content: string,
+    originalQuery: string,
+  ): DataSourceResult[] {
+    // 尝试从纯文本中提取 URL
+    const urlMatches =
+      content.match(/https?:\/\/(?:x\.com|twitter\.com)\/\S+/g) || [];
+
+    return urlMatches.slice(0, 5).map((url, index) => ({
+      sourceType: DataSourceType.SOCIAL_X,
+      title: `X/Twitter 讨论 #${index + 1}`,
+      url,
+      snippet: `关于「${originalQuery}」的社媒讨论`,
+      domain: "x.com",
+      metadata: {
+        fetchedVia: "grok-live-search-fallback",
+        parseMethod: "url-extraction",
+      },
+    }));
+  }
+
+  /**
+   * 降级方案：通过 Web Search 获取 X 内容
+   */
+  private async searchSocialXViaWebSearch(
+    query: string,
+    maxResults: number,
+  ): Promise<DataSourceResult[]> {
+    this.logger.log(
+      `[searchSocialXViaWebSearch] Fallback searching: "${query}"`,
+    );
+
+    try {
+      // 使用 web search 工具搜索 X/Twitter 内容
+      const socialQuery = `${query} site:x.com OR site:twitter.com`;
+      const webResults = await this.searchWeb(socialQuery, maxResults);
+
+      // 转换为 SOCIAL_X 类型
+      return webResults.map((result) => ({
+        ...result,
+        sourceType: DataSourceType.SOCIAL_X,
+        domain: "x.com",
+        metadata: {
+          ...result.metadata,
+          fetchedVia: "web-search-fallback",
+          sentiment: null, // 降级方案无情感分析
+        },
+      }));
+    } catch (error) {
+      this.logger.error(
+        `[searchSocialXViaWebSearch] Failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return [];
+    }
+  }
+
   /**
    * 聚合搜索结果
    */
@@ -1225,6 +1500,8 @@ export class DataSourceRouterService {
       [DataSourceType.FEDERAL_REGISTER]: 95, // 联邦公报（官方）
       [DataSourceType.CONGRESS]: 95, // 国会立法（官方）
       [DataSourceType.WHITEHOUSE]: 90, // 白宫新闻（官方）
+      // ★ 社媒数据源
+      [DataSourceType.SOCIAL_X]: 60, // X/Twitter 社媒热点
     };
 
     return scores[sourceType] || 50;
@@ -1342,10 +1619,55 @@ export class DataSourceRouterService {
       [DataSourceType.FEDERAL_REGISTER]: "federal-register",
       [DataSourceType.CONGRESS]: "congress-gov",
       [DataSourceType.WHITEHOUSE]: "whitehouse-news",
+      [DataSourceType.SOCIAL_X]: "social-x", // ★ 社媒数据源
       // RSS, LOCAL 暂时不映射，因为它们需要依赖 RSS/RAG 系统
     };
 
     return mapping[source] || null;
+  }
+
+  /**
+   * ★ 将 Tool ID 映射回 DataSourceType
+   * Leader 分配的工具需要转换为数据源类型
+   */
+  private toolIdToDataSource(toolId: string): DataSourceType | null {
+    const mapping: Record<string, DataSourceType> = {
+      "web-search": DataSourceType.WEB,
+      "arxiv-search": DataSourceType.ACADEMIC,
+      "academic-search": DataSourceType.ACADEMIC,
+      "github-search": DataSourceType.GITHUB,
+      "hackernews-search": DataSourceType.HACKERNEWS,
+      "federal-register": DataSourceType.FEDERAL_REGISTER,
+      "congress-gov": DataSourceType.CONGRESS,
+      "whitehouse-news": DataSourceType.WHITEHOUSE,
+      // ★ 社媒数据源别名
+      "social-x": DataSourceType.SOCIAL_X,
+      "social-media": DataSourceType.SOCIAL_X,
+      "x-twitter": DataSourceType.SOCIAL_X,
+      twitter: DataSourceType.SOCIAL_X,
+      // 支持更多常见的别名
+      web: DataSourceType.WEB,
+      academic: DataSourceType.ACADEMIC,
+      github: DataSourceType.GITHUB,
+      hackernews: DataSourceType.HACKERNEWS,
+      hn: DataSourceType.HACKERNEWS,
+    };
+
+    return mapping[toolId.toLowerCase()] || null;
+  }
+
+  /**
+   * ★ 将 Leader 分配的工具列表转换为数据源类型列表
+   */
+  private convertToolsToDataSources(tools: string[]): DataSourceType[] {
+    const sources: DataSourceType[] = [];
+    for (const tool of tools) {
+      const source = this.toolIdToDataSource(tool);
+      if (source && !sources.includes(source)) {
+        sources.push(source);
+      }
+    }
+    return sources;
   }
 
   /**
