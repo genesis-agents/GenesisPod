@@ -176,6 +176,18 @@ export function TopicResearchTab({
     [onShowCreateDialog]
   );
 
+  // ★ Handle visibility change - 切换可见性
+  const handleVisibilityChange = useCallback(
+    async (topicId: string, visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC') => {
+      try {
+        await updateTopic(topicId, { visibility });
+      } catch (err) {
+        // Error is handled in store
+      }
+    },
+    [updateTopic]
+  );
+
   return (
     <>
       {/* Error */}
@@ -237,6 +249,9 @@ export function TopicResearchTab({
               onShare={() => setSharingTopic(topic)}
               onShareToSocial={() => setShareModalTopic(topic)}
               onEdit={() => handleEdit(topic)}
+              onVisibilityChange={(visibility) =>
+                handleVisibilityChange(topic.id, visibility)
+              }
             />
           ))}
 

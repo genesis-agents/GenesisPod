@@ -314,22 +314,36 @@ export function TopicCard({
       onClick={onClick}
       className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-violet-300 hover:shadow-lg"
     >
-      {/* Action Buttons - Inline on hover (AI Image style) - 仅自己的专题显示 */}
+      {/* Action Buttons - Unified style: visibility + share + edit + delete (与 AI Teams/AI Writing 一致) */}
       {isOwnTopic && (
         <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          {onEdit && (
+          {/* Visibility Toggle */}
+          {onVisibilityChange && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onEdit();
+                // Cycle: PRIVATE -> PUBLIC -> PRIVATE
+                const nextVisibility =
+                  topic.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
+                onVisibilityChange(nextVisibility);
               }}
-              className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-blue-50 hover:text-blue-600"
-              title="编辑专题"
+              className={`rounded-lg bg-white p-1.5 shadow-sm transition-colors ${
+                topic.visibility === 'PUBLIC'
+                  ? 'text-green-500 hover:bg-green-50 hover:text-green-600'
+                  : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
+              }`}
+              title={
+                topic.visibility === 'PUBLIC' ? '点击设为私有' : '点击设为公开'
+              }
             >
-              <EditIcon className="h-4 w-4" />
+              {topic.visibility === 'PUBLIC' ? (
+                <GlobeIcon className="h-4 w-4" />
+              ) : (
+                <LockClosedIcon className="h-4 w-4" />
+              )}
             </button>
           )}
-          {/* ★ Share 按钮 - 仅 PUBLIC 可见性时显示 (与 AI Image 一致) */}
+          {/* ★ Share 按钮 - 仅 PUBLIC 可见性时显示 (与 AI Image/Teams 一致) */}
           {onShareToSocial && topic.visibility === 'PUBLIC' && (
             <button
               onClick={(e) => {
@@ -342,6 +356,20 @@ export function TopicCard({
               <ShareIcon className="h-4 w-4" />
             </button>
           )}
+          {/* Edit Button */}
+          {onEdit && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-blue-50 hover:text-blue-600"
+              title="编辑专题"
+            >
+              <EditIcon className="h-4 w-4" />
+            </button>
+          )}
+          {/* Delete Button */}
           <button
             onClick={(e) => {
               e.stopPropagation();

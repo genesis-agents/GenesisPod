@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
 import { toast } from '@/stores';
 import {
@@ -154,6 +155,7 @@ const CompanyIcon = () => (
 export default function TopicResearchPage() {
   const router = useRouter();
   const { t } = useTranslation();
+  const { user } = useAuth();
   const {
     topics,
     isLoadingTopics,
@@ -161,6 +163,7 @@ export default function TopicResearchPage() {
     fetchTopics,
     triggerRefresh,
     deleteTopic,
+    updateTopic,
     clearError,
   } = useTopicResearchStore();
 
@@ -175,6 +178,8 @@ export default function TopicResearchPage() {
   const [shareModalTopic, setShareModalTopic] = useState<ResearchTopic | null>(
     null
   );
+  // ★ 编辑专题状态
+  const [editingTopic, setEditingTopic] = useState<ResearchTopic | null>(null);
 
   // Topic type tabs with i18n
   const topicTypeTabs = [
@@ -249,6 +254,24 @@ export default function TopicResearchPage() {
     } catch (err) {
       console.error('Failed to copy link:', err);
       toast.error(t('common.copyFailed') || '复制失败');
+    }
+  };
+
+  // ★ Handle edit - 打开编辑对话框
+  const handleEdit = (topic: ResearchTopic) => {
+    setEditingTopic(topic);
+    setShowCreateDialog(true);
+  };
+
+  // ★ Handle visibility change - 切换可见性
+  const handleVisibilityChange = async (
+    topicId: string,
+    visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC'
+  ) => {
+    try {
+      await updateTopic(topicId, { visibility });
+    } catch (err) {
+      // Error is handled in store
     }
   };
 
@@ -399,10 +422,15 @@ export default function TopicResearchPage() {
               <TopicCard
                 key={topic.id}
                 topic={topic}
+                currentUserId={user?.id}
                 onClick={() => setSelectedTopic(topic)}
                 onDelete={() => handleDelete(topic.id)}
                 onShare={() => setSharingTopic(topic)}
                 onShareToSocial={() => setShareModalTopic(topic)}
+                onEdit={() => handleEdit(topic)}
+                onVisibilityChange={(visibility) =>
+                  handleVisibilityChange(topic.id, visibility)
+                }
               />
             ))}
 
@@ -420,12 +448,24 @@ export default function TopicResearchPage() {
         )}
       </div>
 
-      {/* Create Dialog */}
+      {/* Create/Edit Dialog */}
       <CreateTopicDialog
         isOpen={showCreateDialog}
-        onClose={() => setShowCreateDialog(false)}
-        onCreated={handleTopicCreated}
+        onClose={() => {
+          setShowCreateDialog(false);
+          setEditingTopic(null);
+        }}
+        onCreated={(topic) => {
+          setShowCreateDialog(false);
+          setEditingTopic(null);
+          if (editingTopic) {
+            loadTopics(); // 编辑后刷新列表
+          } else {
+            setSelectedTopic(topic); // 创建后进入详情
+          }
+        }}
         defaultType={activeType || ResearchTopicType.MACRO}
+        editTopic={editingTopic}
       />
 
       {/* Sharing Modal */}
