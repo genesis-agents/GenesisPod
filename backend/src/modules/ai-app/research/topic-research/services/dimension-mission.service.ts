@@ -126,6 +126,8 @@ export class DimensionMissionService {
     missionId?: string,
     modelId?: string,
     taskId?: string,
+    assignedTools?: string[], // ★ Leader 分配的工具
+    assignedSkills?: string[], // ★ Leader 分配的技能
   ): Promise<DimensionMissionResult> {
     // ★ 统一日志前缀，便于区分不同维度的 Agent
     const dimId = dimension.id.slice(0, 8);
@@ -185,6 +187,10 @@ export class DimensionMissionService {
       const searchResult = await this.dataSourceRouter.fetchDataForDimension(
         dimension,
         topic,
+        {
+          assignedTools, // ★ 传递 Leader 分配的工具
+          assignedSkills, // ★ 传递 Leader 分配的技能
+        },
       );
 
       this.logger.log(

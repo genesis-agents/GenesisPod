@@ -14,9 +14,10 @@ interface TopicCardProps {
   onClick: () => void;
   onRefresh: () => void;
   onDelete: () => void;
-  onShare?: () => void;
+  onShare?: () => void; // 打开共享设置弹窗
   onEdit?: () => void; // ★ 编辑专题
   onVisibilityChange?: (visibility: 'PRIVATE' | 'SHARED' | 'PUBLIC') => void; // ★ 切换可见性
+  onCopyLink?: () => void; // ★ 复制链接
 }
 
 // Edit icon
@@ -117,7 +118,8 @@ const LinkIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const ShareIcon = ({ className }: { className?: string }) => (
+// Copy link icon
+const CopyLinkIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
     fill="none"
@@ -128,7 +130,7 @@ const ShareIcon = ({ className }: { className?: string }) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+      d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
     />
   </svg>
 );
@@ -274,6 +276,7 @@ export function TopicCard({
   onShare,
   onEdit,
   onVisibilityChange,
+  onCopyLink,
 }: TopicCardProps) {
   // ★ 判断是否是自己的专题
   const isOwnTopic = currentUserId && topic.userId === currentUserId;
@@ -352,16 +355,16 @@ export function TopicCard({
               <EditIcon className="h-4 w-4" />
             </button>
           )}
-          {onShare && (
+          {onCopyLink && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onShare();
+                onCopyLink();
               }}
               className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-green-50 hover:text-green-600"
-              title="共享设置"
+              title="复制链接"
             >
-              <ShareIcon className="h-4 w-4" />
+              <CopyLinkIcon className="h-4 w-4" />
             </button>
           )}
           <button

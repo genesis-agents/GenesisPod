@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsObject,
   MaxLength,
+  IsIn,
 } from "class-validator";
 import { ResearchTopicStatus, RefreshFrequency } from "../types";
 
@@ -39,4 +40,9 @@ export class UpdateTopicDto {
   @IsOptional()
   @IsEnum(RefreshFrequency)
   refreshFrequency?: RefreshFrequency;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(["zh", "en"])
+  language?: string;
 }

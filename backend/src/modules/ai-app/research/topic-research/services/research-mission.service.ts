@@ -740,6 +740,8 @@ export class ResearchMissionService {
           assignedAgent: assignment?.agentId || "researcher_default",
           assignedAgentType: "dimension_researcher",
           modelId: assignment?.modelId, // ★ 保存 Agent 使用的模型 ID
+          skills: assignment?.skills || [], // ★ 保存 Leader 分配的技能
+          tools: assignment?.tools || [], // ★ 保存 Leader 分配的工具
           priority: dimension.priority,
           status: ResearchTaskStatus.PENDING,
         },
@@ -760,6 +762,8 @@ export class ResearchMissionService {
         assignedAgent: reviewerAssignment?.agentId || "reviewer_default",
         assignedAgentType: "quality_reviewer",
         modelId: reviewerAssignment?.modelId, // ★ 保存审核员使用的模型 ID
+        skills: reviewerAssignment?.skills || [], // ★ 保存 Leader 分配的技能
+        tools: reviewerAssignment?.tools || [], // ★ 保存 Leader 分配的工具
         priority: TASK_PRIORITY.QUALITY_REVIEW,
         dependencies: tasks.map((t) => t.id),
         status: ResearchTaskStatus.PENDING,
@@ -780,6 +784,8 @@ export class ResearchMissionService {
         assignedAgent: writerAssignment?.agentId || "writer_default",
         assignedAgentType: "report_writer",
         modelId: writerAssignment?.modelId, // ★ 保存撰写员使用的模型 ID
+        skills: writerAssignment?.skills || [], // ★ 保存 Leader 分配的技能
+        tools: writerAssignment?.tools || [], // ★ 保存 Leader 分配的工具
         priority: TASK_PRIORITY.REPORT_SYNTHESIS,
         dependencies: [reviewTask.id],
         status: ResearchTaskStatus.PENDING,
@@ -1828,7 +1834,7 @@ export class ResearchMissionService {
     const [currentTask, currentMission] = await Promise.all([
       this.prisma.researchTask.findUnique({
         where: { id: task.id },
-        select: { status: true, modelId: true },
+        select: { status: true, modelId: true, skills: true, tools: true },
       }),
       this.prisma.researchMission.findUnique({
         where: { id: missionId },
@@ -1867,6 +1873,16 @@ export class ResearchMissionService {
     );
     const assignedModelId =
       currentTask.modelId || task.modelId || agentAssignment?.modelId;
+
+    // ★ 提取 Leader 分配的 skills 和 tools（优先从任务记录，fallback 到 agentAssignment）
+    const assignedSkills =
+      currentTask.skills?.length > 0
+        ? currentTask.skills
+        : agentAssignment?.skills || [];
+    const assignedTools =
+      currentTask.tools?.length > 0
+        ? currentTask.tools
+        : agentAssignment?.tools || [];
 
     try {
       // 更新任务状态为执行中
@@ -1960,6 +1976,8 @@ export class ResearchMissionService {
                 missionId, // ★ 传入 missionId 以便持久化团队消息
                 assignedModelId, // ★ 传入 Leader 分配的模型
                 task.id, // ★ 传入任务ID用于前端精确匹配进度
+                assignedTools, // ★ 传入 Leader 分配的工具
+                assignedSkills, // ★ 传入 Leader 分配的技能
               );
 
             if (!missionResult.success) {
@@ -2101,6 +2119,15 @@ export class ResearchMissionService {
                 analysisResult.evidenceUsed || 0,
               );
               dimensionReviews.push(review);
+
+              // ★ 记录维度审核结果到活动记录（供前端展示详细审核数据）
+              await this.agentActivity.recordDimensionReview(
+                topic.id,
+                missionId,
+                dimension.id,
+                dimension.name,
+                review,
+              );
             } catch (error) {
               this.logger.warn(
                 `Failed to review dimension ${dimension.name}: ${error}`,
@@ -2117,6 +2144,15 @@ export class ResearchMissionService {
                 dimensions,
                 dimensionReviews,
               );
+
+              // ★ 记录整体审核结果到活动记录
+              if (overallReview) {
+                await this.agentActivity.recordOverallReview(
+                  topic.id,
+                  missionId,
+                  overallReview,
+                );
+              }
             } catch (error) {
               this.logger.warn(`Failed to perform overall review: ${error}`);
             }

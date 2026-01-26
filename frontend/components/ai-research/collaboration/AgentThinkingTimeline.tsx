@@ -31,6 +31,11 @@ import {
   Target,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import {
+  ReviewResultCard,
+  DimensionReviewResult,
+  OverallReviewResult,
+} from './ReviewResultCard';
 
 // ==================== Types ====================
 
@@ -298,6 +303,31 @@ function PhaseDetail({ activity }: { activity: AgentActivity }) {
       {activity.actionTaken && (
         <div className="mt-2 text-xs text-gray-500">
           <span className="font-medium">行动：</span> {activity.actionTaken}
+        </div>
+      )}
+
+      {/* ★ 审核结果卡片 */}
+      {activity.actionTaken === 'dimension_review' && activity.actionResult && (
+        <div className="mt-3">
+          <ReviewResultCard
+            reviewResult={
+              activity.actionResult as unknown as DimensionReviewResult
+            }
+            type="dimension"
+            dimensionName={activity.dimensionName}
+            compact
+          />
+        </div>
+      )}
+      {activity.actionTaken === 'overall_review' && activity.actionResult && (
+        <div className="mt-3">
+          <ReviewResultCard
+            reviewResult={
+              activity.actionResult as unknown as OverallReviewResult
+            }
+            type="overall"
+            compact
+          />
         </div>
       )}
     </div>

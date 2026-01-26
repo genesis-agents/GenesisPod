@@ -29,6 +29,7 @@
     "import": "导入",
     "copy": "复制",
     "copied": "已复制！",
+    "copyFailed": "复制失败",
     "share": "分享",
     "settings": "设置",
     "logout": "退出登录",
@@ -2769,6 +2770,13 @@
     "dimensionProgress": "维度完成度",
     "reports": "份报告",
     "sources": "个来源",
+    "linkCopied": "专题链接已复制到剪贴板",
+    "language": "报告语言",
+    "languageDesc": "生成报告使用的语言",
+    "languageOptions": {
+      "zh": "中文",
+      "en": "英文"
+    },
     "tabs": {
       "all": "全部",
       "macro": "宏观洞察",

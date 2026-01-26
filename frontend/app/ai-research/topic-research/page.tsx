@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
+import { toast } from '@/stores';
 import {
   TopicCard,
   CreateTopicDialog,
@@ -234,6 +235,18 @@ export default function TopicResearchPage() {
     }
   };
 
+  // Handle copy link - 复制 Topic 链接到剪贴板
+  const handleCopyLink = async (topicId: string) => {
+    const url = `${window.location.origin}/ai-research/topic/${topicId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(t('topicResearch.linkCopied') || '链接已复制到剪贴板');
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+      toast.error(t('common.copyFailed') || '复制失败');
+    }
+  };
+
   // Ensure topics is always an array
   const topicsList = Array.isArray(topics) ? topics : [];
 
@@ -385,6 +398,7 @@ export default function TopicResearchPage() {
                 onRefresh={() => handleRefresh(topic.id)}
                 onDelete={() => handleDelete(topic.id)}
                 onShare={() => setSharingTopic(topic)}
+                onCopyLink={() => handleCopyLink(topic.id)}
               />
             ))}
 

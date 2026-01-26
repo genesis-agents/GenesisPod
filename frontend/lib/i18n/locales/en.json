@@ -29,6 +29,7 @@
     "import": "Import",
     "copy": "Copy",
     "copied": "Copied!",
+    "copyFailed": "Copy failed",
     "share": "Share",
     "settings": "Settings",
     "logout": "Log out",
@@ -2781,6 +2782,13 @@
     "dimensionProgress": "Dimension Progress",
     "reports": "reports",
     "sources": "sources",
+    "linkCopied": "Topic link copied to clipboard",
+    "language": "Report Language",
+    "languageDesc": "Language for generated reports",
+    "languageOptions": {
+      "zh": "Chinese",
+      "en": "English"
+    },
     "tabs": {
       "all": "All",
       "macro": "Macro Insights",

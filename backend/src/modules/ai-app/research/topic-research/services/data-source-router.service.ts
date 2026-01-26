@@ -40,6 +40,10 @@ export interface FetchDataOptions {
   maxResults?: number;
   /** 覆盖默认的时间范围 */
   since?: Date;
+  /** Leader 分配的工具（可用于过滤数据源） */
+  assignedTools?: string[];
+  /** Leader 分配的技能（可用于定制搜索策略） */
+  assignedSkills?: string[];
 }
 
 /**

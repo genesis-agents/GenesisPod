@@ -6075,6 +6075,7 @@ model ResearchTopic {
   type        ResearchTopicType // 专题类型
   status      ResearchTopicStatus @default(DRAFT) // 专题状态
   visibility  TopicVisibility     @default(PRIVATE) // 可见性：私有/共享/公开
+  language    String              @default("zh") @db.VarChar(10) // 报告语言：zh/en
 
   // ========== 类型特定配置 ==========
   // JSON 字段，根据 type 存储不同的配置
@@ -6499,6 +6500,8 @@ model ResearchTask {
   assignedAgentType String? @map("assigned_agent_type") // Agent 类型
   modelId           String? @map("model_id") @db.VarChar(100) // ★ Agent 使用的 AI 模型 ID
   priority          Int     @default(0)
+  skills            String[] @default([]) // Leader 分配的技能
+  tools             String[] @default([]) // Leader 分配的工具
 
   // ========== 依赖关系 ==========
   dependencies String[] @default([]) // 依赖的任务 ID 列表

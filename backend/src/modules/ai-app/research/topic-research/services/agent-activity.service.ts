@@ -593,4 +593,151 @@ export class AgentActivityService {
       }
     }
   }
+
+  /**
+   * 记录单维度审核结果
+   * 将审核详情存储到 actionResult 字段中，供前端展示
+   */
+  async recordDimensionReview(
+    topicId: string,
+    missionId: string,
+    dimensionId: string,
+    dimensionName: string,
+    reviewResult: {
+      qualityLevel: string;
+      overallScore: number;
+      scores: {
+        breadth: number;
+        depth: number;
+        evidence: number;
+        coherence: number;
+        currency: number;
+      };
+      issues: Array<{
+        type: string;
+        severity: string;
+        description: string;
+        affectedSection?: string;
+      }>;
+      suggestions: string[];
+      needsReresearch: boolean;
+      reresearchFocus?: string[];
+    },
+  ): Promise<string> {
+    try {
+      const activity = await this.prisma.researchAgentActivity.create({
+        data: {
+          topicId,
+          missionId,
+          dimensionId,
+          dimensionName,
+          agentId: "quality_reviewer",
+          agentName: "质量审核员",
+          agentRole: "reviewer",
+          activityType: AgentActivityType.REVIEWING,
+          phase: "dimension_review_completed",
+          content: `维度「${dimensionName}」审核完成：${reviewResult.qualityLevel} (${reviewResult.overallScore}/100)`,
+          progress: 100,
+          thinkingPhase: "reviewing",
+          thinkingContent: `审核结果：${reviewResult.qualityLevel}`,
+          actionTaken: "dimension_review",
+          actionResult: {
+            qualityLevel: reviewResult.qualityLevel,
+            overallScore: reviewResult.overallScore,
+            scores: reviewResult.scores,
+            issues: reviewResult.issues,
+            suggestions: reviewResult.suggestions,
+            needsReresearch: reviewResult.needsReresearch,
+            reresearchFocus: reviewResult.reresearchFocus,
+          },
+        },
+      });
+      this.logger.log(
+        `Recorded dimension review for ${dimensionName}: ${reviewResult.qualityLevel} (${reviewResult.overallScore}/100)`,
+      );
+      return activity.id;
+    } catch (error) {
+      const errorStr = String(error);
+      if (!errorStr.includes("Foreign key constraint")) {
+        this.logger.error(`Failed to record dimension review: ${error}`);
+      }
+      return "";
+    }
+  }
+
+  /**
+   * 记录整体审核结果
+   * 将全局审核详情存储到 actionResult 字段中
+   */
+  async recordOverallReview(
+    topicId: string,
+    missionId: string,
+    overallReview: {
+      qualityLevel: string;
+      overallScore: number;
+      dimensionReviews: Array<{
+        dimensionId: string;
+        dimensionName: string;
+        qualityLevel: string;
+        overallScore: number;
+      }>;
+      crossDimensionIssues: Array<{
+        type: string;
+        severity: string;
+        description: string;
+      }>;
+      coverageAnalysis: {
+        coveredAspects: string[];
+        missingAspects: string[];
+        coverageScore: number;
+      };
+      recommendations: string[];
+      needsReresearch: boolean;
+      dimensionsToReresearch: string[];
+    },
+  ): Promise<string> {
+    try {
+      const activity = await this.prisma.researchAgentActivity.create({
+        data: {
+          topicId,
+          missionId,
+          agentId: "quality_reviewer",
+          agentName: "质量审核员",
+          agentRole: "reviewer",
+          activityType: AgentActivityType.REVIEWING,
+          phase: "overall_review_completed",
+          content: `整体审核完成：${overallReview.qualityLevel} (${overallReview.overallScore.toFixed(1)}/100)，${overallReview.dimensionsToReresearch.length} 个维度需要重研`,
+          progress: 100,
+          thinkingPhase: "reviewing",
+          thinkingContent: `整体质量：${overallReview.qualityLevel}`,
+          actionTaken: "overall_review",
+          actionResult: {
+            qualityLevel: overallReview.qualityLevel,
+            overallScore: overallReview.overallScore,
+            dimensionReviews: overallReview.dimensionReviews.map((d) => ({
+              dimensionId: d.dimensionId,
+              dimensionName: d.dimensionName,
+              qualityLevel: d.qualityLevel,
+              overallScore: d.overallScore,
+            })),
+            crossDimensionIssues: overallReview.crossDimensionIssues,
+            coverageAnalysis: overallReview.coverageAnalysis,
+            recommendations: overallReview.recommendations,
+            needsReresearch: overallReview.needsReresearch,
+            dimensionsToReresearch: overallReview.dimensionsToReresearch,
+          },
+        },
+      });
+      this.logger.log(
+        `Recorded overall review: ${overallReview.qualityLevel} (${overallReview.overallScore.toFixed(1)}/100)`,
+      );
+      return activity.id;
+    } catch (error) {
+      const errorStr = String(error);
+      if (!errorStr.includes("Foreign key constraint")) {
+        this.logger.error(`Failed to record overall review: ${error}`);
+      }
+      return "";
+    }
+  }
 }

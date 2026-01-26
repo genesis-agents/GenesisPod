@@ -84,6 +84,7 @@ export interface ResearchTopic {
   type: ResearchTopicType;
   status: ResearchTopicStatus;
   visibility?: TopicVisibility; // 可见性：私有/共享/公开
+  language?: 'zh' | 'en'; // 报告语言
   topicConfig?: TopicConfig; // ★ 专题配置（含知识库ID等）
   icon: string | null;
   color: string | null;
@@ -460,6 +461,7 @@ export interface CreateTopicDto {
   color?: string;
   refreshFrequency?: RefreshFrequency;
   visibility?: TopicVisibility; // ★ 可见性：私有/团队/公开
+  language?: 'zh' | 'en'; // ★ 报告语言
   dimensions?: DimensionConfigDto[];
 }
 

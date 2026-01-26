@@ -6,6 +6,7 @@ import {
   IsObject,
   MaxLength,
   ValidateNested,
+  IsIn,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ResearchTopicType, RefreshFrequency } from "../types";
@@ -75,6 +76,11 @@ export class CreateTopicDto {
   @IsOptional()
   @IsEnum(TopicVisibility)
   visibility?: TopicVisibility;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(["zh", "en"])
+  language?: string;
 
   @IsOptional()
   @IsArray()

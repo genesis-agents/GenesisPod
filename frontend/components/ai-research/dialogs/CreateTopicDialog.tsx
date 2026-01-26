@@ -157,6 +157,7 @@ export function CreateTopicDialog({
     string[]
   >([]);
   const [visibility, setVisibility] = useState<TopicVisibility>('PRIVATE'); // ★ 默认私有
+  const [language, setLanguage] = useState<'zh' | 'en'>('zh'); // ★ 报告语言，默认中文
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -345,6 +346,7 @@ export function CreateTopicDialog({
             ?.knowledgeBaseIds || []
         );
         setVisibility((editTopic.visibility as TopicVisibility) || 'PRIVATE');
+        setLanguage((editTopic.language as 'zh' | 'en') || 'zh');
         setError(null);
       } else {
         // ★ 创建模式：重置表单
@@ -357,6 +359,7 @@ export function CreateTopicDialog({
         setSearchTimeRange('6months');
         setSelectedKnowledgeBases([]);
         setVisibility('PRIVATE');
+        setLanguage('zh');
         setError(null);
       }
     }
@@ -398,6 +401,7 @@ export function CreateTopicDialog({
           description: description.trim() || undefined,
           refreshFrequency,
           visibility,
+          language,
           topicConfig:
             Object.keys(topicConfig).length > 0 ? topicConfig : undefined,
         };
@@ -419,6 +423,7 @@ export function CreateTopicDialog({
           type: selectedType,
           refreshFrequency,
           visibility,
+          language,
           dimensions: selectedTemplate?.dimensions,
           topicConfig:
             Object.keys(topicConfig).length > 0 ? topicConfig : undefined,
@@ -650,6 +655,44 @@ export function CreateTopicDialog({
                       </span>
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* ★ Language Selector */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  {t('topicResearch.language')}
+                  <span className="ml-2 text-xs font-normal text-gray-400">
+                    {t('topicResearch.languageDesc')}
+                  </span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLanguage('zh')}
+                    className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 transition-all ${
+                      language === 'zh'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-sm font-medium">
+                      {t('topicResearch.languageOptions.zh')}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLanguage('en')}
+                    className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 transition-all ${
+                      language === 'en'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-sm font-medium">
+                      {t('topicResearch.languageOptions.en')}
+                    </span>
+                  </button>
                 </div>
               </div>
 
