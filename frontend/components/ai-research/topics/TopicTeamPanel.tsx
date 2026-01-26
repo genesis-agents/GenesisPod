@@ -61,6 +61,8 @@ interface ResearchAgent {
   role: ResearchAgentRole;
   name: string;
   status: 'idle' | 'working' | 'completed' | 'error';
+  /** ★ 具体工作状态：研究中、审核中、修订中、整合中 */
+  workingStatus?: '研究中' | '审核中' | '修订中' | '整合中';
   taskCount: number;
   completedCount: number;
 }
@@ -263,47 +265,93 @@ export function TopicTeamPanel({
     ];
 
     // 添加研究员
-    // ★ 优先使用 leaderPlan.agentAssignments 中的实际分配
+    // ★ v7.5: 动态收集所有参与研究的 Agent（从任务的 assignedAgent 字段）
+    // 这样新创建的任务（如通过 Leader 对话添加的维度）也会显示对应的 Agent
+    const uniqueAgentIds = new Set<string>();
+    dimensionTasks.forEach((t) => {
+      if (t.assignedAgent) {
+        uniqueAgentIds.add(t.assignedAgent);
+      }
+    });
+
+    // 合并 leaderPlan 中的分配信息（用于获取 Agent 名称等元信息）
     const agentAssignments = missionStatus?.leaderPlan?.agentAssignments || [];
     const researcherAssignments = agentAssignments.filter(
       (a) => a.agentType === 'dimension_researcher'
     );
 
-    // ★ 如果有实际分配，使用分配数据；否则按任务数量估算（最大 6 个）
-    const researcherCount =
-      researcherAssignments.length > 0
-        ? researcherAssignments.length
-        : Math.max(1, Math.min(dimensionTasks.length, 6));
+    // 把 leaderPlan 中的 agentId 也加入
+    researcherAssignments.forEach((a) => {
+      if (a.agentId) uniqueAgentIds.add(a.agentId);
+    });
 
-    for (let i = 0; i < researcherCount; i++) {
-      const assignment = researcherAssignments[i];
-      // 使用分配信息或按 round-robin 计算
-      const assignedDimensionIds = assignment?.assignedDimensions || [];
-      const assignedTasks =
-        assignedDimensionIds.length > 0
-          ? dimensionTasks.filter((t) =>
-              assignedDimensionIds.some(
-                (dim) =>
-                  t.dimensionName?.includes(dim) || t.description?.includes(dim)
-              )
-            )
-          : dimensionTasks.filter((_, idx) => idx % researcherCount === i);
+    // 如果没有任何 Agent，使用默认逻辑
+    if (uniqueAgentIds.size === 0 && dimensionTasks.length > 0) {
+      // 兜底：按任务数量估算（最大 6 个）
+      const fallbackCount = Math.max(1, Math.min(dimensionTasks.length, 6));
+      for (let i = 0; i < fallbackCount; i++) {
+        uniqueAgentIds.add(`researcher-${i}`);
+      }
+    }
+
+    // 遍历所有唯一的 Agent
+    const sortedAgentIds = Array.from(uniqueAgentIds).sort();
+    sortedAgentIds.forEach((agentId, i) => {
+      // 查找 leaderPlan 中的分配信息（如果有）
+      const assignment = researcherAssignments.find(
+        (a) => a.agentId === agentId
+      );
+
+      // 通过 assignedAgent 匹配任务
+      const assignedTasks = dimensionTasks.filter(
+        (t) => t.assignedAgent === agentId
+      );
 
       const hasExecuting = assignedTasks.some((t) => t.status === 'EXECUTING');
+      const hasNeedsRevision = assignedTasks.some(
+        (t) => t.status === 'NEEDS_REVISION'
+      );
       const allCompleted =
         assignedTasks.length > 0 &&
         assignedTasks.every((t) => t.status === 'COMPLETED');
 
+      // ★ 确定具体工作状态
+      let workingStatus: '研究中' | '审核中' | '修订中' | '整合中' | undefined;
+      if (hasExecuting) {
+        workingStatus = '研究中';
+      } else if (hasNeedsRevision) {
+        workingStatus = '修订中';
+      }
+
+      // ★ 从 agentId 提取更友好的名称
+      // agentId 格式如: researcher_美国AI政策洞察_1737xxx 或 researcher_strategy_governance
+      let displayName = assignment?.role || `研究员 ${i + 1}`;
+      if (!assignment?.role && agentId.startsWith('researcher_')) {
+        const parts = agentId.replace('researcher_', '').split('_');
+        // 取第一个有意义的部分作为名称，移除时间戳
+        const namePart = parts.find((p) => p && !/^\d{10,}$/.test(p));
+        if (namePart) {
+          displayName =
+            namePart.length > 8 ? namePart.substring(0, 8) + '...' : namePart;
+        }
+      }
+
       agentList.push({
-        id: assignment?.agentId || `researcher-${i}`,
+        id: agentId,
         role: 'researcher',
-        name: assignment?.role || `研究员 ${i + 1}`,
-        status: hasExecuting ? 'working' : allCompleted ? 'completed' : 'idle',
+        name: displayName,
+        status:
+          hasExecuting || hasNeedsRevision
+            ? 'working'
+            : allCompleted
+              ? 'completed'
+              : 'idle',
+        workingStatus,
         taskCount: assignedTasks.length,
         completedCount: assignedTasks.filter((t) => t.status === 'COMPLETED')
           .length,
       });
-    }
+    });
 
     // 审核员
     if (reviewTasks.length > 0) {
@@ -314,6 +362,7 @@ export function TopicTeamPanel({
         role: 'reviewer',
         name: '质量审核员',
         status: hasExecuting ? 'working' : allCompleted ? 'completed' : 'idle',
+        workingStatus: hasExecuting ? '审核中' : undefined,
         taskCount: reviewTasks.length,
         completedCount: reviewTasks.filter((t) => t.status === 'COMPLETED')
           .length,
@@ -331,6 +380,7 @@ export function TopicTeamPanel({
         role: 'synthesizer',
         name: '报告撰写者',
         status: hasExecuting ? 'working' : allCompleted ? 'completed' : 'idle',
+        workingStatus: hasExecuting ? '整合中' : undefined,
         taskCount: synthesisTasks.length,
         completedCount: synthesisTasks.filter((t) => t.status === 'COMPLETED')
           .length,
@@ -855,6 +905,18 @@ function TeamCanvasView({
           >
             {display.name}
           </text>
+
+          {/* ★ 工作状态标签 */}
+          {agent.workingStatus && (
+            <text
+              textAnchor="middle"
+              y={nodeRadius + 22}
+              className="animate-pulse fill-blue-600 font-medium"
+              style={{ fontSize: '8px' }}
+            >
+              {agent.workingStatus}
+            </text>
+          )}
 
           {/* 任务计数 */}
           {agent.taskCount > 0 && (

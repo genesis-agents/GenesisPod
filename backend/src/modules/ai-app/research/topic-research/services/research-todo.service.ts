@@ -1116,14 +1116,20 @@ export class ResearchTodoService {
         todoTitle.includes("补充") ||
         todoTitle.includes("完善");
 
+      // ★ 标记是否是"入队列"操作（这些操作只创建任务，实际研究会单独审核）
+      const isDeepResearch =
+        todoTitle.includes("深入研究") ||
+        todoTitle.includes("详细分析") ||
+        todoTitle.includes("分析");
+
+      // ★ "入队列"操作：创建维度/深入研究只是把任务加入队列，不需要审核
+      // 实际的研究工作会在 ResearchTask 执行完成后由质量审核任务统一审核
+      const isQueueOperation = isAddDimension || isDeepResearch;
+
       if (isAddDimension) {
         // 新增维度/章节操作
         resultMessage = await this.executeAddDimension(topicId, todo);
-      } else if (
-        todoTitle.includes("深入研究") ||
-        todoTitle.includes("详细分析") ||
-        todoTitle.includes("分析")
-      ) {
+      } else if (isDeepResearch) {
         // 深入研究操作
         resultMessage = await this.executeDeepResearch(topicId, todo);
       } else {
@@ -1131,28 +1137,39 @@ export class ResearchTodoService {
         resultMessage = `任务「${todo.title}」已记录，将在后续研究中考虑`;
       }
 
-      // 5. ★ v7.2: Leader 审核 Agent 的工作成果
-      const reviewResult = await this.reviewTodoResult(
-        topicId,
-        todo,
-        resultMessage,
-      );
-
-      // 6. 根据审核结果更新状态
+      // 5. ★ v7.4: 只对非"入队列"操作进行 Leader 审核
+      // "入队列"操作（新增维度、深入研究）的实际研究会在 ResearchTask 完成后审核
       let finalStatus: ResearchTodoStatus;
       let finalMessage: string;
 
-      if (reviewResult.status === "approved") {
+      if (isQueueOperation) {
+        // ★ 跳过审核：入队列操作直接标记为完成
+        // 实际研究会在 ResearchTask 执行完成后由质量审核任务统一审核
         finalStatus = ResearchTodoStatus.COMPLETED;
-        finalMessage = `${resultMessage}\n\n✅ Leader 审核通过: ${reviewResult.feedback}`;
-      } else if (reviewResult.status === "needs_revision") {
-        // 需要修订：标记为失败，用户可以重试
-        finalStatus = ResearchTodoStatus.FAILED;
-        finalMessage = `⚠️ Leader 要求修订: ${reviewResult.feedback}${reviewResult.revisionInstructions ? `\n修订建议: ${reviewResult.revisionInstructions}` : ""}`;
+        finalMessage = resultMessage;
+        this.logger.log(
+          `[executeTodo] Skipping review for queue operation: ${todo.title}`,
+        );
       } else {
-        // rejected
-        finalStatus = ResearchTodoStatus.FAILED;
-        finalMessage = `❌ Leader 审核未通过: ${reviewResult.feedback}`;
+        // 非入队列操作：进行 Leader 审核
+        const reviewResult = await this.reviewTodoResult(
+          topicId,
+          todo,
+          resultMessage,
+        );
+
+        if (reviewResult.status === "approved") {
+          finalStatus = ResearchTodoStatus.COMPLETED;
+          finalMessage = `${resultMessage}\n\n✅ Leader 审核通过: ${reviewResult.feedback}`;
+        } else if (reviewResult.status === "needs_revision") {
+          // 需要修订：标记为失败，用户可以重试
+          finalStatus = ResearchTodoStatus.FAILED;
+          finalMessage = `⚠️ Leader 要求修订: ${reviewResult.feedback}${reviewResult.revisionInstructions ? `\n修订建议: ${reviewResult.revisionInstructions}` : ""}`;
+        } else {
+          // rejected
+          finalStatus = ResearchTodoStatus.FAILED;
+          finalMessage = `❌ Leader 审核未通过: ${reviewResult.feedback}`;
+        }
       }
 
       const completedTodo = await this.prisma.researchTodo.update({
@@ -1166,13 +1183,6 @@ export class ResearchTodoService {
             : null,
           statusMessage: finalMessage,
         },
-      });
-
-      // 发送审核完成事件
-      await this.emitTodoEvent(topicId, TodoEventType.TODO_REVIEWED, {
-        todoId,
-        reviewResult,
-        todo: this.formatTodoForClient(completedTodo),
       });
 
       // 发送完成/失败事件
@@ -1192,7 +1202,7 @@ export class ResearchTodoService {
       }
 
       this.logger.log(
-        `[executeTodo] TODO ${todoId} review result: ${reviewResult.status}`,
+        `[executeTodo] TODO ${todoId} completed with status: ${finalStatus}`,
       );
 
       // ★ v7.2: 任务完成后，检查并执行队列中的下一个任务
@@ -1303,6 +1313,13 @@ export class ResearchTodoService {
       });
       queuePosition = pendingCount + 1;
 
+      // ★ v7.4: 为新维度创建专属 Agent，而非复用已有 Agent
+      // 每个维度内容不同，应由专属研究员负责，避免"经济研究员"研究"哲学"的问题
+      const sanitizedDimName = dimensionName
+        .replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, "_")
+        .substring(0, 30);
+      const newAgentId = `researcher_${sanitizedDimName}_${Date.now()}`;
+
       task = await this.prisma.researchTask.create({
         data: {
           missionId: todo.missionId,
@@ -1312,10 +1329,10 @@ export class ResearchTodoService {
           taskType: "dimension_research",
           dimensionName: dimensionName,
           dimensionId: dimension.id,
-          // ★ v7.2: 使用 Leader 分配的 Agent 而非硬编码
-          assignedAgent: todo.agentId || "researcher_dynamic",
+          // ★ v7.4: 为新维度创建专属 Agent，确保 Agent 与维度内容匹配
+          assignedAgent: newAgentId,
           assignedAgentType: "dimension_researcher",
-          modelId: todo.modelId, // ★ 使用 Leader 分配的模型
+          modelId: todo.modelId || "gpt-4o", // ★ 使用 Leader 分配的模型或默认模型
           // ★ v7.3: 使用计算的优先级，确保排在已有任务后面
           priority: newPriority,
           // ★ v7.3: 状态为 PENDING，由 Mission 调度执行
@@ -1330,6 +1347,30 @@ export class ResearchTodoService {
           totalTasks: { increment: 1 },
         },
       });
+
+      // ★ v7.4: 更新质量审核任务的依赖，把新任务加进去
+      // 这样质量审核会等待所有维度研究（包括新增的）完成后才执行
+      const qualityReviewTask = await this.prisma.researchTask.findFirst({
+        where: {
+          missionId: todo.missionId,
+          taskType: "quality_review",
+        },
+      });
+
+      if (qualityReviewTask) {
+        const currentDeps = (qualityReviewTask.dependencies as string[]) || [];
+        if (!currentDeps.includes(task.id)) {
+          await this.prisma.researchTask.update({
+            where: { id: qualityReviewTask.id },
+            data: {
+              dependencies: [...currentDeps, task.id],
+            },
+          });
+          this.logger.log(
+            `[executeAddDimension] Updated quality_review task dependencies to include ${task.id}`,
+          );
+        }
+      }
 
       this.logger.log(
         `[executeAddDimension] Created ResearchTask ${task.id} for dimension ${dimensionName}, priority: ${newPriority}, queue position: ${queuePosition}`,
