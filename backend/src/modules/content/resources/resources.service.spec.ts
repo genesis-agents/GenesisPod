@@ -4,6 +4,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import { MongoDBService } from "../../../common/mongodb/mongodb.service.postgres";
 import { SourceWhitelistService } from "../../ingestion/config/services/source-whitelist.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
+import { ResourcesRepository } from "./resources.repository";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { ResourceType } from "@prisma/client";
 
@@ -12,6 +13,7 @@ describe("ResourcesService", () => {
   let prismaService: jest.Mocked<PrismaService>;
   let mongoDBService: jest.Mocked<MongoDBService>;
   let aiEnrichmentService: jest.Mocked<AIEnrichmentService>;
+  let repositoryService: jest.Mocked<ResourcesRepository>;
 
   const mockResource = {
     id: "resource-123",
@@ -88,6 +90,30 @@ describe("ResourcesService", () => {
       translateContent: jest.fn(),
     };
 
+    const mockResourcesRepository = {
+      findMany: jest.fn(),
+      findById: jest.fn(),
+      findFirst: jest.fn(),
+      count: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      groupByType: jest.fn(),
+      findTranslation: jest.fn(),
+      createTranslation: jest.fn(),
+      groupBySourceUrl: jest.fn(),
+      groupByNormalizedUrl: jest.fn(),
+      deleteMany: jest.fn(),
+      findUpvote: jest.fn(),
+      createUpvote: jest.fn(),
+      deleteUpvote: jest.fn(),
+      incrementUpvoteCount: jest.fn(),
+      decrementUpvoteCount: jest.fn(),
+      createUpvoteWithCount: jest.fn(),
+      deleteUpvoteWithCount: jest.fn(),
+      findUserUpvotedResourceIds: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResourcesService,
@@ -95,6 +121,7 @@ describe("ResourcesService", () => {
         { provide: MongoDBService, useValue: mockMongoDBService },
         { provide: SourceWhitelistService, useValue: mockWhitelistService },
         { provide: AIEnrichmentService, useValue: mockAIEnrichmentService },
+        { provide: ResourcesRepository, useValue: mockResourcesRepository },
       ],
     }).compile();
 
@@ -102,6 +129,7 @@ describe("ResourcesService", () => {
     prismaService = module.get(PrismaService);
     mongoDBService = module.get(MongoDBService);
     aiEnrichmentService = module.get(AIEnrichmentService);
+    repositoryService = module.get(ResourcesRepository);
   });
 
   afterEach(() => {
@@ -112,16 +140,16 @@ describe("ResourcesService", () => {
     it("should return paginated resources with default parameters", async () => {
       // Arrange
       const mockResources = [mockResource];
-      (prismaService.resource.findMany as jest.Mock).mockResolvedValue(
+      (repositoryService.findMany as jest.Mock).mockResolvedValue(
         mockResources,
       );
-      (prismaService.resource.count as jest.Mock).mockResolvedValue(1);
+      (repositoryService.count as jest.Mock).mockResolvedValue(1);
 
       // Act
       const result = await service.findAll({});
 
       // Assert
-      expect(prismaService.resource.findMany).toHaveBeenCalledWith({
+      expect(repositoryService.findMany).toHaveBeenCalledWith({
         where: { NOT: { title: "" } },
         skip: 0,
         take: 20,
@@ -134,16 +162,16 @@ describe("ResourcesService", () => {
 
     it("should filter resources by type", async () => {
       // Arrange
-      (prismaService.resource.findMany as jest.Mock).mockResolvedValue([
+      (repositoryService.findMany as jest.Mock).mockResolvedValue([
         mockResource,
       ]);
-      (prismaService.resource.count as jest.Mock).mockResolvedValue(1);
+      (repositoryService.count as jest.Mock).mockResolvedValue(1);
 
       // Act
       await service.findAll({ type: "PAPER" });
 
       // Assert
-      expect(prismaService.resource.findMany).toHaveBeenCalledWith(
+      expect(repositoryService.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             type: "PAPER",
@@ -154,16 +182,16 @@ describe("ResourcesService", () => {
 
     it("should filter resources by category", async () => {
       // Arrange
-      (prismaService.resource.findMany as jest.Mock).mockResolvedValue([
+      (repositoryService.findMany as jest.Mock).mockResolvedValue([
         mockResource,
       ]);
-      (prismaService.resource.count as jest.Mock).mockResolvedValue(1);
+      (repositoryService.count as jest.Mock).mockResolvedValue(1);
 
       // Act
       await service.findAll({ category: "AI" });
 
       // Assert
-      expect(prismaService.resource.findMany).toHaveBeenCalledWith(
+      expect(repositoryService.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             categories: expect.any(Object),
@@ -174,16 +202,16 @@ describe("ResourcesService", () => {
 
     it("should search resources by title and abstract", async () => {
       // Arrange
-      (prismaService.resource.findMany as jest.Mock).mockResolvedValue([
+      (repositoryService.findMany as jest.Mock).mockResolvedValue([
         mockResource,
       ]);
-      (prismaService.resource.count as jest.Mock).mockResolvedValue(1);
+      (repositoryService.count as jest.Mock).mockResolvedValue(1);
 
       // Act
       await service.findAll({ search: "machine learning" });
 
       // Assert
-      expect(prismaService.resource.findMany).toHaveBeenCalledWith(
+      expect(repositoryService.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             OR: [
@@ -200,16 +228,16 @@ describe("ResourcesService", () => {
     it("should handle custom pagination parameters", async () => {
       // Arrange
       const mockResources = Array(10).fill(mockResource);
-      (prismaService.resource.findMany as jest.Mock).mockResolvedValue(
+      (repositoryService.findMany as jest.Mock).mockResolvedValue(
         mockResources,
       );
-      (prismaService.resource.count as jest.Mock).mockResolvedValue(50);
+      (repositoryService.count as jest.Mock).mockResolvedValue(50);
 
       // Act
       const result = await service.findAll({ skip: 20, take: 10 });
 
       // Assert
-      expect(prismaService.resource.findMany).toHaveBeenCalledWith(
+      expect(repositoryService.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           skip: 20,
           take: 10,
@@ -220,16 +248,16 @@ describe("ResourcesService", () => {
 
     it("should sort by different fields", async () => {
       // Arrange
-      (prismaService.resource.findMany as jest.Mock).mockResolvedValue([
+      (repositoryService.findMany as jest.Mock).mockResolvedValue([
         mockResource,
       ]);
-      (prismaService.resource.count as jest.Mock).mockResolvedValue(1);
+      (repositoryService.count as jest.Mock).mockResolvedValue(1);
 
       // Act
       await service.findAll({ sortBy: "qualityScore", sortOrder: "desc" });
 
       // Assert
-      expect(prismaService.resource.findMany).toHaveBeenCalledWith(
+      expect(repositoryService.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           orderBy: { qualityScore: "desc" },
         }),
@@ -240,9 +268,7 @@ describe("ResourcesService", () => {
   describe("findOne", () => {
     it("should return resource with raw data if available", async () => {
       // Arrange
-      (prismaService.resource.findUnique as jest.Mock).mockResolvedValue(
-        mockResource,
-      );
+      (repositoryService.findById as jest.Mock).mockResolvedValue(mockResource);
       (mongoDBService.findRawDataById as jest.Mock).mockResolvedValue({
         data: { original: "data" },
       });
@@ -251,9 +277,7 @@ describe("ResourcesService", () => {
       const result = await service.findOne("resource-123");
 
       // Assert
-      expect(prismaService.resource.findUnique).toHaveBeenCalledWith({
-        where: { id: "resource-123" },
-      });
+      expect(repositoryService.findById).toHaveBeenCalledWith("resource-123");
       expect(mongoDBService.findRawDataById).toHaveBeenCalledWith(
         "rawdata-123",
       );
@@ -263,7 +287,7 @@ describe("ResourcesService", () => {
     it("should return resource without raw data if rawDataId is null", async () => {
       // Arrange
       const resourceWithoutRawData = { ...mockResource, rawDataId: null };
-      (prismaService.resource.findUnique as jest.Mock).mockResolvedValue(
+      (repositoryService.findById as jest.Mock).mockResolvedValue(
         resourceWithoutRawData,
       );
 
@@ -277,7 +301,7 @@ describe("ResourcesService", () => {
 
     it("should throw NotFoundException if resource not found", async () => {
       // Arrange
-      (prismaService.resource.findUnique as jest.Mock).mockResolvedValue(null);
+      (repositoryService.findById as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
       await expect(service.findOne("nonexistent-id")).rejects.toThrow(
@@ -294,7 +318,7 @@ describe("ResourcesService", () => {
         title: "New Paper",
         sourceUrl: "https://example.com/new-paper",
       };
-      (prismaService.resource.create as jest.Mock).mockResolvedValue({
+      (repositoryService.create as jest.Mock).mockResolvedValue({
         id: "new-resource-id",
         ...createData,
       });
@@ -303,9 +327,7 @@ describe("ResourcesService", () => {
       const result = await service.create(createData);
 
       // Assert
-      expect(prismaService.resource.create).toHaveBeenCalledWith({
-        data: createData,
-      });
+      expect(repositoryService.create).toHaveBeenCalledWith(createData);
       expect(result.id).toBe("new-resource-id");
     });
   });
@@ -314,7 +336,7 @@ describe("ResourcesService", () => {
     it("should update an existing resource", async () => {
       // Arrange
       const updateData = { title: "Updated Title" };
-      (prismaService.resource.update as jest.Mock).mockResolvedValue({
+      (repositoryService.update as jest.Mock).mockResolvedValue({
         ...mockResource,
         title: "Updated Title",
       });
@@ -323,16 +345,16 @@ describe("ResourcesService", () => {
       const result = await service.update("resource-123", updateData);
 
       // Assert
-      expect(prismaService.resource.update).toHaveBeenCalledWith({
-        where: { id: "resource-123" },
-        data: updateData,
-      });
+      expect(repositoryService.update).toHaveBeenCalledWith(
+        "resource-123",
+        updateData,
+      );
       expect(result.title).toBe("Updated Title");
     });
 
     it("should throw NotFoundException if resource not found", async () => {
       // Arrange
-      (prismaService.resource.update as jest.Mock).mockRejectedValue({
+      (repositoryService.update as jest.Mock).mockRejectedValue({
         code: "P2025",
       });
 
@@ -346,23 +368,19 @@ describe("ResourcesService", () => {
   describe("remove", () => {
     it("should delete an existing resource", async () => {
       // Arrange
-      (prismaService.resource.delete as jest.Mock).mockResolvedValue(
-        mockResource,
-      );
+      (repositoryService.delete as jest.Mock).mockResolvedValue(mockResource);
 
       // Act
       const result = await service.remove("resource-123");
 
       // Assert
-      expect(prismaService.resource.delete).toHaveBeenCalledWith({
-        where: { id: "resource-123" },
-      });
+      expect(repositoryService.delete).toHaveBeenCalledWith("resource-123");
       expect(result.id).toBe("resource-123");
     });
 
     it("should throw NotFoundException if resource not found", async () => {
       // Arrange
-      (prismaService.resource.delete as jest.Mock).mockRejectedValue({
+      (repositoryService.delete as jest.Mock).mockRejectedValue({
         code: "P2025",
       });
 
@@ -376,12 +394,12 @@ describe("ResourcesService", () => {
   describe("getStats", () => {
     it("should return resource statistics grouped by type", async () => {
       // Arrange
-      (prismaService.resource.groupBy as jest.Mock).mockResolvedValue([
+      (repositoryService.groupByType as jest.Mock).mockResolvedValue([
         { type: "PAPER", _count: { id: 100 } },
         { type: "BLOG", _count: { id: 50 } },
         { type: "NEWS", _count: { id: 30 } },
       ]);
-      (prismaService.resource.count as jest.Mock).mockResolvedValue(180);
+      (repositoryService.count as jest.Mock).mockResolvedValue(180);
 
       // Act
       const result = await service.getStats();
@@ -402,9 +420,9 @@ describe("ResourcesService", () => {
         language: "zh-CN",
         content: "翻译后的内容",
       };
-      (
-        prismaService.resourceTranslation.findUnique as jest.Mock
-      ).mockResolvedValue(existingTranslation);
+      (repositoryService.findTranslation as jest.Mock).mockResolvedValue(
+        existingTranslation,
+      );
 
       // Act
       const result = await service.translateResource("resource-123", "zh-CN");
@@ -416,50 +434,42 @@ describe("ResourcesService", () => {
 
     it("should create new translation if not exists", async () => {
       // Arrange
-      (
-        prismaService.resourceTranslation.findUnique as jest.Mock
-      ).mockResolvedValue(null);
-      (prismaService.resource.findUnique as jest.Mock).mockResolvedValue(
-        mockResource,
-      );
+      (repositoryService.findTranslation as jest.Mock).mockResolvedValue(null);
+      (repositoryService.findById as jest.Mock).mockResolvedValue(mockResource);
       (mongoDBService.findRawDataById as jest.Mock).mockResolvedValue(null);
       (aiEnrichmentService.translateContent as jest.Mock).mockResolvedValue({
         translatedText: "翻译后的内容",
         model: "gpt-4",
       });
-      (prismaService.resourceTranslation.create as jest.Mock).mockResolvedValue(
-        {
-          id: "new-translation-id",
-          resourceId: "resource-123",
-          language: "zh-CN",
-          content: "翻译后的内容",
-          modelUsed: "gpt-4",
-        },
-      );
+      (repositoryService.createTranslation as jest.Mock).mockResolvedValue({
+        id: "new-translation-id",
+        resourceId: "resource-123",
+        language: "zh-CN",
+        content: "翻译后的内容",
+        modelUsed: "gpt-4",
+      });
 
       // Act
       const result = await service.translateResource("resource-123", "zh-CN");
 
       // Assert
       expect(aiEnrichmentService.translateContent).toHaveBeenCalled();
-      expect(prismaService.resourceTranslation.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+      expect(repositoryService.createTranslation).toHaveBeenCalledWith(
+        expect.objectContaining({
           resourceId: "resource-123",
           language: "zh-CN",
           content: "翻译后的内容",
           modelUsed: "gpt-4",
         }),
-      });
+      );
       expect(result.content).toBe("翻译后的内容");
     });
 
     it("should throw BadRequestException if resource has no content", async () => {
       // Arrange
       const emptyResource = { ...mockResource, content: null, abstract: null };
-      (
-        prismaService.resourceTranslation.findUnique as jest.Mock
-      ).mockResolvedValue(null);
-      (prismaService.resource.findUnique as jest.Mock).mockResolvedValue(
+      (repositoryService.findTranslation as jest.Mock).mockResolvedValue(null);
+      (repositoryService.findById as jest.Mock).mockResolvedValue(
         emptyResource,
       );
       (mongoDBService.findRawDataById as jest.Mock).mockResolvedValue(null);
@@ -472,12 +482,8 @@ describe("ResourcesService", () => {
 
     it("should throw BadRequestException if translation fails", async () => {
       // Arrange
-      (
-        prismaService.resourceTranslation.findUnique as jest.Mock
-      ).mockResolvedValue(null);
-      (prismaService.resource.findUnique as jest.Mock).mockResolvedValue(
-        mockResource,
-      );
+      (repositoryService.findTranslation as jest.Mock).mockResolvedValue(null);
+      (repositoryService.findById as jest.Mock).mockResolvedValue(mockResource);
       (mongoDBService.findRawDataById as jest.Mock).mockResolvedValue(null);
       (aiEnrichmentService.translateContent as jest.Mock).mockResolvedValue(
         null,

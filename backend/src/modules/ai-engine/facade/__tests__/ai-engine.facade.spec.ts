@@ -15,10 +15,9 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { AIEngineFacade } from "../ai-engine.facade";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../llm/services/ai-model-config.service";
-import { ToolRegistry } from "../../tools/registry/tool-registry";
-import { CircuitBreakerService } from "../../orchestration/services/circuit-breaker.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
+import { TOOL_FEATURE, ORCHESTRATION_FEATURE } from "../facade.providers";
 
 describe("AIEngineFacade", () => {
   let facade: AIEngineFacade;
@@ -110,11 +109,31 @@ describe("AIEngineFacade", () => {
       getModelById: jest.fn().mockResolvedValue(null),
       refreshModelConfigCache: jest.fn().mockResolvedValue(undefined),
       getEnabledModelsForFrontend: jest.fn().mockResolvedValue([
-        { modelId: "gpt-4o", name: "GPT-4o", displayName: "GPT-4o" },
+        {
+          modelId: "gpt-4o",
+          name: "GPT-4o",
+          displayName: "GPT-4o",
+          provider: "openai",
+        },
         {
           modelId: "claude-3-opus",
           name: "Claude 3 Opus",
           displayName: "Claude 3 Opus",
+          provider: "anthropic",
+        },
+      ]),
+      getAllEnabledModelsByType: jest.fn().mockResolvedValue([
+        {
+          modelId: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+        },
+        {
+          modelId: "claude-3-opus",
+          name: "Claude 3 Opus",
+          provider: "anthropic",
+          isReasoning: false,
         },
       ]),
     };
@@ -124,8 +143,15 @@ describe("AIEngineFacade", () => {
         AIEngineFacade,
         { provide: AiChatService, useValue: mockAiChatService },
         { provide: AiModelConfigService, useValue: mockModelConfigService },
-        { provide: ToolRegistry, useValue: mockToolRegistry },
-        { provide: CircuitBreakerService, useValue: mockCircuitBreaker },
+        // ★ 使用 Feature Token 而非直接提供服务
+        {
+          provide: TOOL_FEATURE,
+          useValue: { registry: mockToolRegistry, executor: null },
+        },
+        {
+          provide: ORCHESTRATION_FEATURE,
+          useValue: { circuitBreaker: mockCircuitBreaker, agentExecutor: null },
+        },
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
@@ -409,7 +435,22 @@ describe("AIEngineFacade without optional dependencies", () => {
       getEnabledModelsForFrontend: jest
         .fn()
         .mockResolvedValue([
-          { modelId: "gpt-4o", name: "GPT-4o", displayName: "GPT-4o" },
+          {
+            modelId: "gpt-4o",
+            name: "GPT-4o",
+            displayName: "GPT-4o",
+            provider: "openai",
+          },
+        ]),
+      getAllEnabledModelsByType: jest
+        .fn()
+        .mockResolvedValue([
+          {
+            modelId: "gpt-4o",
+            name: "GPT-4o",
+            provider: "openai",
+            isReasoning: false,
+          },
         ]),
     };
 

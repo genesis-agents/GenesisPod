@@ -9,6 +9,13 @@ import { StatisticsService } from "../services/statistics.service";
 
 describe("AdminService", () => {
   let service: AdminService;
+  let mockUserMgmtService: {
+    getAllUsers: jest.Mock;
+    getUserDetail: jest.Mock;
+    updateUserRole: jest.Mock;
+    toggleUserStatus: jest.Mock;
+    isUserAdmin: jest.Mock;
+  };
 
   const mockPrismaService = {
     user: {
@@ -82,11 +89,15 @@ describe("AdminService", () => {
         },
         {
           provide: UserManagementService,
-          useValue: {
-            getAllUsers: jest.fn().mockResolvedValue({ users: [], total: 0 }),
-            getUserDetail: jest.fn().mockResolvedValue(null),
-            updateUserRole: jest.fn().mockResolvedValue({}),
-            toggleUserStatus: jest.fn().mockResolvedValue({}),
+          useFactory: () => {
+            mockUserMgmtService = {
+              getAllUsers: jest.fn().mockResolvedValue({ users: [], total: 0 }),
+              getUserDetail: jest.fn().mockResolvedValue(null),
+              updateUserRole: jest.fn().mockResolvedValue({}),
+              toggleUserStatus: jest.fn().mockResolvedValue({}),
+              isUserAdmin: jest.fn().mockResolvedValue(false),
+            };
+            return mockUserMgmtService;
           },
         },
         {
@@ -278,21 +289,17 @@ describe("AdminService", () => {
 
   describe("isUserAdmin", () => {
     it("should return true for user with ADMIN role", async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        role: "ADMIN",
-        email: "random@test.com",
-      });
+      // AdminService delegates to UserManagementService.isUserAdmin()
+      mockUserMgmtService.isUserAdmin.mockResolvedValue(true);
 
       const result = await service.isUserAdmin("user-1");
 
       expect(result).toBe(true);
+      expect(mockUserMgmtService.isUserAdmin).toHaveBeenCalledWith("user-1");
     });
 
     it("should return true for user in admin email list", async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        role: "USER",
-        email: "admin@test.com", // In ADMIN_EMAILS
-      });
+      mockUserMgmtService.isUserAdmin.mockResolvedValue(true);
 
       const result = await service.isUserAdmin("user-1");
 
@@ -300,10 +307,7 @@ describe("AdminService", () => {
     });
 
     it("should return false for non-admin user", async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        role: "USER",
-        email: "regular@test.com",
-      });
+      mockUserMgmtService.isUserAdmin.mockResolvedValue(false);
 
       const result = await service.isUserAdmin("user-1");
 
@@ -311,7 +315,7 @@ describe("AdminService", () => {
     });
 
     it("should return false for non-existent user", async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockUserMgmtService.isUserAdmin.mockResolvedValue(false);
 
       const result = await service.isUserAdmin("non-existent");
 
