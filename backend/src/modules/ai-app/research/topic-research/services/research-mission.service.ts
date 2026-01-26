@@ -1792,74 +1792,17 @@ export class ResearchMissionService {
       }
     }
 
-    // 执行循环
-    let iteration = 0;
-    const maxIterations = 100; // 防止无限循环
+    // ★ v7.5: 使用动态调度器替代批量执行
+    // 动态调度器会在每个任务完成后立即检查是否有新的可执行任务
+    // 不再等待当前批次全部完成，实现真正的动态调度
+    const maxConcurrentTasks = await this.calculateDynamicConcurrency();
+    this.logger.log(
+      `[startExecution] Starting dynamic scheduler with max concurrency ${maxConcurrentTasks}`,
+    );
 
-    while (iteration < maxIterations) {
-      iteration++;
-
-      // ★ 心跳更新：每次循环都更新 mission.updatedAt，防止被健康检测误判为卡死
-      await this.prisma.researchMission.update({
-        where: { id: missionId },
-        data: { updatedAt: new Date() },
-      });
-
-      // ★ 检查 Mission 是否已被取消
-      const currentMission = await this.prisma.researchMission.findUnique({
-        where: { id: missionId },
-        select: { status: true },
-      });
-
-      if (
-        !currentMission ||
-        currentMission.status === ResearchMissionStatus.CANCELLED
-      ) {
-        this.logger.log(
-          `[startExecution] Mission ${missionId} was cancelled, stopping execution`,
-        );
-        return; // 直接返回，不调用 finalizeMission
-      }
-
-      // 获取可执行的任务
-      const executableTasks = await this.getExecutableTasks(missionId);
-
-      if (executableTasks.length === 0) {
-        // 检查是否所有任务都完成了
-        const allTasks = await this.prisma.researchTask.findMany({
-          where: { missionId },
-        });
-        const pendingTasks = allTasks.filter(
-          (t) =>
-            t.status === ResearchTaskStatus.PENDING ||
-            t.status === ResearchTaskStatus.EXECUTING,
-        );
-
-        if (pendingTasks.length === 0) {
-          this.logger.log(
-            `[startExecution] All tasks completed for mission ${missionId}`,
-          );
-          break;
-        }
-
-        // 有任务在等待依赖，短暂等待后继续
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        continue;
-      }
-
-      // ★ 动态计算并发数：根据可用 Provider 数量调整
-      // 每个 Provider 有独立的限流配额，多 Provider 可支持更高并发
-      const maxConcurrentTasks = await this.calculateDynamicConcurrency();
-      this.logger.log(
-        `[startExecution] Executing ${executableTasks.length} tasks with max concurrency ${maxConcurrentTasks}`,
-      );
-
-      await this.executeTasksWithConcurrencyLimit(
-        executableTasks,
-        maxConcurrentTasks,
-        (task) => this.executeTask(task, topic, missionId, draftReport.id),
-      );
-    }
+    await this.executeDynamicScheduler(missionId, maxConcurrentTasks, (task) =>
+      this.executeTask(task, topic, missionId, draftReport.id),
+    );
 
     // 更新最终状态
     await this.finalizeMission(missionId, topicId);
@@ -2578,43 +2521,119 @@ export class ResearchMissionService {
   }
 
   /**
-   * 限制并发执行任务
-   * ★ 解决 API 限流问题：同时最多执行 maxConcurrent 个任务
+   * ★ v7.5: 动态任务调度器
    *
-   * @param tasks 要执行的任务列表
+   * 核心改进：每完成一个任务就立即检查是否有新的可执行任务
+   * 不再等待当前批次全部完成，实现真正的动态调度
+   *
+   * @param missionId Mission ID
    * @param maxConcurrent 最大并发数
    * @param executor 任务执行函数
    */
-  private async executeTasksWithConcurrencyLimit<T, R>(
-    tasks: T[],
+  private async executeDynamicScheduler(
+    missionId: string,
     maxConcurrent: number,
-    executor: (task: T) => Promise<R>,
-  ): Promise<R[]> {
-    const results: R[] = [];
-    const executing: Promise<void>[] = [];
+    executor: (task: ResearchTask) => Promise<void>,
+  ): Promise<void> {
+    const executingTasks = new Map<string, Promise<void>>();
+    const completedTaskIds = new Set<string>();
 
-    for (const task of tasks) {
-      // 创建任务 Promise
-      const promise = executor(task).then((result) => {
-        results.push(result);
+    // ★ 主调度循环
+    while (true) {
+      // 0. 检查 Mission 是否被取消
+      const mission = await this.prisma.researchMission.findUnique({
+        where: { id: missionId },
+        select: { status: true },
       });
-
-      // 包装为可追踪的 Promise
-      const trackedPromise = promise.then(() => {
-        executing.splice(executing.indexOf(trackedPromise), 1);
-      });
-      executing.push(trackedPromise);
-
-      // 当达到最大并发数时，等待任一任务完成
-      if (executing.length >= maxConcurrent) {
-        await Promise.race(executing);
+      if (
+        !mission ||
+        mission.status === ResearchMissionStatus.CANCELLED ||
+        mission.status === ResearchMissionStatus.FAILED
+      ) {
+        this.logger.log(
+          `[dynamicScheduler] Mission ${missionId} cancelled/failed, stopping`,
+        );
+        break;
       }
+
+      // 1. 获取当前可执行的任务（依赖已满足的 PENDING 任务）
+      const executableTasks = await this.getExecutableTasks(missionId);
+
+      // 过滤掉已完成或正在执行的任务
+      const newTasks = executableTasks.filter(
+        (t) => !completedTaskIds.has(t.id) && !executingTasks.has(t.id),
+      );
+
+      // 2. 如果有空闲槽位，启动新任务
+      const availableSlots = maxConcurrent - executingTasks.size;
+      const tasksToStart = newTasks.slice(0, availableSlots);
+
+      for (const task of tasksToStart) {
+        this.logger.log(
+          `[dynamicScheduler] Starting task: ${task.title} (${task.id}), ` +
+            `active: ${executingTasks.size + 1}/${maxConcurrent}`,
+        );
+
+        // 创建任务执行 Promise
+        const taskPromise = executor(task)
+          .then(() => {
+            this.logger.log(
+              `[dynamicScheduler] Task completed: ${task.title} (${task.id})`,
+            );
+          })
+          .catch((error) => {
+            this.logger.error(
+              `[dynamicScheduler] Task failed: ${task.title} (${task.id}): ${error.message}`,
+            );
+          })
+          .finally(() => {
+            // 任务完成后从执行列表移除
+            executingTasks.delete(task.id);
+            completedTaskIds.add(task.id);
+          });
+
+        executingTasks.set(task.id, taskPromise);
+      }
+
+      // 3. 检查是否需要退出循环
+      if (executingTasks.size === 0) {
+        // 没有正在执行的任务，检查是否还有待处理的
+        const remainingPending = await this.prisma.researchTask.count({
+          where: {
+            missionId,
+            status: ResearchTaskStatus.PENDING,
+          },
+        });
+
+        if (remainingPending === 0) {
+          this.logger.log(
+            `[dynamicScheduler] No more tasks to execute, exiting scheduler`,
+          );
+          break;
+        }
+
+        // 还有待处理任务但依赖未满足，等待一下再检查
+        this.logger.log(
+          `[dynamicScheduler] Waiting for dependencies, ${remainingPending} tasks pending`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        continue;
+      }
+
+      // 4. 等待任意一个任务完成，然后立即检查是否有新的可执行任务
+      await Promise.race(executingTasks.values());
+
+      // 短暂延迟，让数据库状态稳定
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    // 等待所有剩余任务完成
-    await Promise.all(executing);
-
-    return results;
+    // 5. 等待所有剩余任务完成
+    if (executingTasks.size > 0) {
+      this.logger.log(
+        `[dynamicScheduler] Waiting for ${executingTasks.size} remaining tasks`,
+      );
+      await Promise.all(executingTasks.values());
+    }
   }
 
   /**

@@ -496,20 +496,44 @@ export function ResearchTodoList({
                               {todo.dimensionName}
                             </div>
                           )}
-                        {/* ★ 依赖关系提示 */}
+                        {/* ★ 依赖关系提示 - 超过 2 个时只显示数量，悬停显示详情 */}
                         {hasDependencies && (
-                          <div className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-600">
+                          <div
+                            className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-600"
+                            title={
+                              todo.dependsOn!.length > 2
+                                ? `等待: ${todo
+                                    .dependsOn!.map((depId) => {
+                                      const depTodo = sortedTodos.find(
+                                        (t) => t.id === depId
+                                      );
+                                      return (
+                                        depTodo?.title || depId.slice(0, 6)
+                                      );
+                                    })
+                                    .join('\n')}`
+                                : undefined
+                            }
+                          >
                             <Clock className="h-2.5 w-2.5" />
                             <span>
-                              等待{' '}
-                              {todo
-                                .dependsOn!.map((depId) => {
-                                  const depTodo = sortedTodos.find(
-                                    (t) => t.id === depId
-                                  );
-                                  return depTodo?.title || depId.slice(0, 6);
-                                })
-                                .join('、')}
+                              {todo.dependsOn!.length > 2 ? (
+                                <>⏳ 等待 {todo.dependsOn!.length} 个任务</>
+                              ) : (
+                                <>
+                                  等待{' '}
+                                  {todo
+                                    .dependsOn!.map((depId) => {
+                                      const depTodo = sortedTodos.find(
+                                        (t) => t.id === depId
+                                      );
+                                      return (
+                                        depTodo?.title || depId.slice(0, 6)
+                                      );
+                                    })
+                                    .join('、')}
+                                </>
+                              )}
                             </span>
                           </div>
                         )}
