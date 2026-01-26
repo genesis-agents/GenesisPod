@@ -1430,11 +1430,18 @@ export class TopicResearchController {
           decodeResult.todoDescription,
         );
 
+        // ★ v8.2: 确保 Leader 创建的任务标题以 "研究:" 开头
+        // 这样 executeTodo 才能正确识别为研究任务并执行实际研究
+        let taskTitle = decodeResult.todoTitle;
+        if (!taskTitle.startsWith("研究:") && !taskTitle.startsWith("研究：")) {
+          taskTitle = `研究: ${taskTitle}`;
+        }
+
         const todo = await this.todoService.createTodo({
           topicId,
           missionId,
           type: "USER_REQUEST",
-          title: decodeResult.todoTitle,
+          title: taskTitle,
           description: decodeResult.todoDescription,
           // ★ 使用 Leader 分配的 Agent 信息
           agentId: agentAssignment.agentId,
