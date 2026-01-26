@@ -2184,6 +2184,7 @@
         "keySource": "API Key 来源",
         "secretManager": "密钥管理器",
         "directInput": "直接输入",
+        "multiKey": "多密钥",
         "selectSecret": "选择密钥",
         "noSecretsAvailable": "暂无可用密钥",
         "addSecretsHint": "请先在密钥管理中添加密钥",
@@ -2197,6 +2198,21 @@
         "pricing": "定价",
         "cancel": "取消",
         "save": "保存"
+      },
+      "multiKey": {
+        "title": "API Keys",
+        "rotationHint": "多个密钥自动轮换使用",
+        "addKey": "添加 Key",
+        "removeKey": "移除",
+        "keyPlaceholder": "输入 API 密钥",
+        "healthy": "健康",
+        "unhealthy": "失败",
+        "cooldown": "冷却中",
+        "cooldownUntil": "冷却结束于",
+        "minLeft": "分钟",
+        "new": "新增",
+        "keyCount": "已配置 {count} 个密钥",
+        "refresh": "刷新"
       },
       "tabs": {
         "builtin": "内置工具",

@@ -2,6 +2,7 @@
 export { useAdminModels } from './useAdminModels';
 export { useAdminUsers, useUserStats } from './useAdminUsers';
 export { useTableManagement } from './useTableManagement';
+export { useKeyHealth } from './useKeyHealth';
 export type {
   TableCategory,
   HealthStatus,
