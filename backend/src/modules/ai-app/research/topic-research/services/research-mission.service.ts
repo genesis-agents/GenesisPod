@@ -11,6 +11,8 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  forwardRef,
+  Inject,
 } from "@nestjs/common";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
@@ -156,6 +158,7 @@ export class ResearchMissionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    @Inject(forwardRef(() => ResearchLeaderService))
     private readonly leaderService: ResearchLeaderService,
     private readonly dimensionMissionService: DimensionMissionService,
     private readonly reportSynthesisService: ReportSynthesisService,
@@ -1919,6 +1922,17 @@ export class ResearchMissionService {
             dimension = topic.dimensions?.find(
               (d: any) => d.name === task.dimensionName,
             );
+          }
+
+          // ★ v8.2: 如果在缓存的 topic.dimensions 中没找到，从数据库重新查询
+          // 这处理 Leader 在 Mission 执行过程中创建新维度的情况
+          if (!dimension && task.dimensionId) {
+            this.logger.log(
+              `[executeTask] Dimension not in cached topic, querying DB for ${task.dimensionId}`,
+            );
+            dimension = await this.prisma.topicDimension.findUnique({
+              where: { id: task.dimensionId },
+            });
           }
 
           if (dimension) {

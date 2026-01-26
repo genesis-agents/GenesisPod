@@ -5,14 +5,14 @@
  * 负责：任务理解、维度规划、Agent 分配、质量审核、报告整合
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, forwardRef, Inject } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import {
   IntentDetectionService,
   UserIntent,
 } from "@/modules/ai-engine/orchestration/services";
-import { LeaderDecisionType } from "@prisma/client";
+import { LeaderDecisionType, ResearchTaskStatus } from "@prisma/client";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
 import { sanitize } from "../utils/prompt-sanitizer";
 import {
@@ -20,6 +20,10 @@ import {
   LeaderActionType,
   LeaderActionResult,
 } from "./leader-tool.service";
+import {
+  ResearchMissionService,
+  TASK_PRIORITY,
+} from "./research-mission.service";
 
 // ==================== Types ====================
 
@@ -793,6 +797,8 @@ export class ResearchLeaderService {
     private readonly intentDetectionService: IntentDetectionService,
     private readonly eventEmitter: ResearchEventEmitterService,
     private readonly leaderToolService: LeaderToolService,
+    @Inject(forwardRef(() => ResearchMissionService))
+    private readonly missionService: ResearchMissionService,
   ) {}
 
   /**
@@ -1306,6 +1312,85 @@ export class ResearchLeaderService {
                 name: params.name as string,
                 description: params.description as string | undefined,
               });
+
+              // ★ v8.2: 创建维度成功后，自动创建 ResearchTask 并恢复 Mission 执行
+              if (actionResult.success && actionResult.data?.dimensionId) {
+                const dimensionId = actionResult.data.dimensionId as string;
+                const dimensionName = actionResult.data.name as string;
+
+                try {
+                  // 为新维度创建 ResearchTask
+                  const sanitizedDimName = dimensionName
+                    .replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, "_")
+                    .substring(0, 30);
+                  const newAgentId = `researcher_${sanitizedDimName}_${Date.now()}`;
+
+                  const task = await this.prisma.researchTask.create({
+                    data: {
+                      missionId,
+                      title: `研究: ${dimensionName}`,
+                      description:
+                        (params.description as string) ||
+                        `Leader 创建的新维度研究：${dimensionName}`,
+                      taskType: "dimension_research",
+                      dimensionName: dimensionName,
+                      dimensionId: dimensionId,
+                      assignedAgent: newAgentId,
+                      assignedAgentType: "dimension_researcher",
+                      priority: TASK_PRIORITY.DIMENSION_RESEARCH_DYNAMIC,
+                      status: ResearchTaskStatus.PENDING,
+                    },
+                  });
+
+                  // 更新 Mission 的 totalTasks 计数
+                  await this.prisma.researchMission.update({
+                    where: { id: missionId },
+                    data: {
+                      totalTasks: { increment: 1 },
+                    },
+                  });
+
+                  // 更新质量审核任务的依赖
+                  const qualityReviewTask =
+                    await this.prisma.researchTask.findFirst({
+                      where: {
+                        missionId,
+                        taskType: "quality_review",
+                      },
+                    });
+
+                  if (qualityReviewTask) {
+                    const currentDeps =
+                      (qualityReviewTask.dependencies as string[]) || [];
+                    if (!currentDeps.includes(task.id)) {
+                      await this.prisma.researchTask.update({
+                        where: { id: qualityReviewTask.id },
+                        data: {
+                          dependencies: [...currentDeps, task.id],
+                        },
+                      });
+                    }
+                  }
+
+                  this.logger.log(
+                    `[handleUserMessage] Created ResearchTask ${task.id} for dimension "${dimensionName}"`,
+                  );
+
+                  // 触发 Mission 恢复执行
+                  this.missionService
+                    .resumeExecutionForNewTask(missionId, topicId)
+                    .catch((err: Error) => {
+                      this.logger.error(
+                        `[handleUserMessage] Failed to resume mission: ${err.message}`,
+                      );
+                    });
+                } catch (taskError) {
+                  this.logger.error(
+                    `[handleUserMessage] Failed to create ResearchTask: ${taskError}`,
+                  );
+                  // 不影响主流程，只记录错误
+                }
+              }
               break;
             }
 
