@@ -22,8 +22,14 @@ export interface KeyHealthStatus {
 
 /**
  * 支持多密钥配置的 Secret 分类
+ * 这些分类的免费 API 配额有限，需要多 Key 轮换
  */
-export const MULTI_KEY_CATEGORIES = ['SEARCH'] as const;
+export const MULTI_KEY_CATEGORIES = [
+  'SEARCH', // Tavily, Serper
+  'EXTRACTION', // Jina, Firecrawl, Tavily Extract
+  'YOUTUBE', // Supadata
+  'TTS', // ElevenLabs
+] as const;
 
 export type MultiKeyCategory = (typeof MULTI_KEY_CATEGORIES)[number];
 

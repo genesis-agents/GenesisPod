@@ -328,14 +328,16 @@ export class AIAdminController {
     return this.aiAdminService.diagnoseAllCapabilities();
   }
 
-  @Get("tools/:toolId/key-health")
+  @Get("services/:serviceId/key-health")
   @ApiOperation({
-    summary: "获取工具的 API Key 健康状态",
-    description: "返回工具配置的所有 API Key 的健康状态，用于多密钥轮换监控",
+    summary: "获取服务的 API Key 健康状态",
+    description:
+      "返回服务配置的所有 API Key 的健康状态，用于多密钥轮换监控。支持 SEARCH/EXTRACTION/YOUTUBE/TTS 分类的服务。",
   })
   @ApiParam({
-    name: "toolId",
-    description: "工具 ID (tavily, serper, web-search 等)",
+    name: "serviceId",
+    description:
+      "服务 ID (tavily, serper, jina, firecrawl, tavily-extract, supadata, elevenlabs)",
   })
   @ApiResponse({
     status: 200,
@@ -354,9 +356,25 @@ export class AIAdminController {
       },
     },
   })
+  async getServiceKeyHealth(@Param("serviceId") serviceId: string) {
+    this.logger.log(`Admin: Getting key health for service ${serviceId}`);
+    return this.aiAdminService.getServiceKeyHealth(serviceId);
+  }
+
+  /**
+   * @deprecated 使用 GET /services/:serviceId/key-health 代替
+   */
+  @Get("tools/:toolId/key-health")
+  @ApiOperation({
+    summary: "[已弃用] 获取工具的 API Key 健康状态",
+    description: "请使用 GET /admin/ai/services/:serviceId/key-health 代替",
+    deprecated: true,
+  })
   async getToolKeyHealth(@Param("toolId") toolId: string) {
-    this.logger.log(`Admin: Getting key health for tool ${toolId}`);
-    return this.aiAdminService.getToolKeyHealth(toolId);
+    this.logger.log(
+      `Admin: Getting key health for tool ${toolId} (deprecated)`,
+    );
+    return this.aiAdminService.getServiceKeyHealth(toolId);
   }
 
   @Get("tools/available-for-agent")

@@ -21,8 +21,13 @@ import {
 import { useKeyHealth } from '@/hooks/domain';
 import type { KeyHealthStatus } from '@/types/admin';
 
-// 支持多密钥输入的分类（如搜索工具的 API Key）
-const MULTI_KEY_CATEGORIES: SecretCategory[] = ['SEARCH'];
+// 支持多密钥输入的分类（免费 API 配额有限，需要多 Key 轮换）
+const MULTI_KEY_CATEGORIES: SecretCategory[] = [
+  'SEARCH', // Tavily, Serper
+  'EXTRACTION', // Jina, Firecrawl, Tavily Extract
+  'YOUTUBE', // Supadata
+  'TTS', // ElevenLabs
+];
 
 // Category keys for i18n lookup
 const CATEGORY_KEYS: { value: SecretCategory; key: string }[] = [

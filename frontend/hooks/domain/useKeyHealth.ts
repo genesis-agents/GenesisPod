@@ -29,25 +29,37 @@ export function useKeyHealth(
 ) {
   const { immediate = true } = options;
 
-  // 将 secretName 映射到 toolId（后端 API 使用 toolId）
-  const toolIdMap: Record<string, string> = {
-    // Tavily 变体
+  // 将 secretName 映射到 serviceId（后端 API 使用 serviceId）
+  const serviceIdMap: Record<string, string> = {
+    // SEARCH 分类
     'tavily-api-key': 'tavily',
     'tavily-search-api-key': 'tavily',
     tavily: 'tavily',
-    // Serper 变体
     'serper-api-key': 'serper',
     serper: 'serper',
+    // EXTRACTION 分类
+    'jina-api-key': 'jina',
+    jina: 'jina',
+    'firecrawl-api-key': 'firecrawl',
+    firecrawl: 'firecrawl',
+    'tavily-extraction-api-key': 'tavily-extract',
+    'tavily-extract': 'tavily-extract',
+    // YOUTUBE 分类
+    'supadata-api-key': 'supadata',
+    supadata: 'supadata',
+    // TTS 分类
+    'elevenlabs-api-key': 'elevenlabs',
+    elevenlabs: 'elevenlabs',
   };
 
-  const toolId = secretName ? toolIdMap[secretName] || null : null;
+  const serviceId = secretName ? serviceIdMap[secretName] || null : null;
 
-  // 只在 toolId 存在时发起请求
-  const apiPath = toolId
-    ? `/admin/ai/tools/${encodeURIComponent(toolId)}/key-health`
-    : '/admin/ai/tools/__placeholder__/key-health';
+  // 只在 serviceId 存在时发起请求
+  const apiPath = serviceId
+    ? `/admin/ai/services/${encodeURIComponent(serviceId)}/key-health`
+    : '/admin/ai/services/__placeholder__/key-health';
 
-  const shouldFetch = immediate && !!toolId;
+  const shouldFetch = immediate && !!serviceId;
 
   const {
     data: keyHealth,
@@ -76,7 +88,7 @@ export function useKeyHealth(
     isLoading: shouldFetch ? isLoading : false,
     /** 错误信息 */
     error: shouldFetch ? error : null,
-    /** 刷新数据 - 仅当 toolId 有效时才执行 */
-    refetch: toolId ? refetch : () => Promise.resolve(undefined),
+    /** 刷新数据 - 仅当 serviceId 有效时才执行 */
+    refetch: serviceId ? refetch : () => Promise.resolve(undefined),
   };
 }

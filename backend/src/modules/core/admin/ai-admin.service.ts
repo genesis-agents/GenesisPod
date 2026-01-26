@@ -184,10 +184,11 @@ import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
 import { SkillLoaderService } from "../../ai-engine/skills/loader/skill-loader.service";
 import { MCPManager } from "../../ai-engine/mcp/manager/mcp-manager";
 import { SecretsService } from "../secrets/secrets.service";
+import { SearchService } from "../../ai-engine/search/search.service";
 import {
-  SearchService,
+  MultiKeyRegistry,
   KeyHealthStatus,
-} from "../../ai-engine/search/search.service";
+} from "../../ai-engine/common/multi-key-manager";
 
 /**
  * AI 能力管理服务
@@ -1270,29 +1271,67 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * ★ 获取工具的 API Key 健康状态
+   * ★ 获取服务的 API Key 健康状态
    * 供管理后台展示密钥轮换状态
    *
-   * @param toolId - 工具 ID (tavily, serper, web-search 等)
+   * @param serviceId - 服务 ID (tavily, serper, jina, firecrawl, supadata, elevenlabs 等)
    * @returns 密钥健康状态列表
    */
-  async getToolKeyHealth(toolId: string): Promise<KeyHealthStatus[]> {
-    // 映射 toolId 到 provider
-    const providerMap: Record<string, "tavily" | "serper"> = {
-      tavily: "tavily",
-      "tavily-search": "tavily",
-      serper: "serper",
-      "serper-search": "serper",
-      "web-search": "tavily", // 默认使用 tavily
+  async getServiceKeyHealth(serviceId: string): Promise<KeyHealthStatus[]> {
+    // 服务到 Secret 名称的映射
+    const serviceSecretMap: Record<string, string> = {
+      // SEARCH 分类
+      tavily: "tavily-search-api-key",
+      serper: "serper-api-key",
+      // EXTRACTION 分类
+      jina: "jina-api-key",
+      firecrawl: "firecrawl-api-key",
+      "tavily-extract": "tavily-extraction-api-key",
+      // YOUTUBE 分类
+      supadata: "supadata-api-key",
+      // TTS 分类
+      elevenlabs: "elevenlabs-api-key",
     };
 
-    const provider = providerMap[toolId];
-    if (!provider) {
-      this.logger.warn(`Unknown tool ID for key health: ${toolId}`);
+    const secretName = serviceSecretMap[serviceId];
+    if (!secretName) {
+      this.logger.warn(`Unknown service ID for key health: ${serviceId}`);
       return [];
     }
 
-    return this.searchService.getKeyHealthStatus(provider);
+    // 获取密钥值（支持逗号分隔的多个 Key）
+    const secretValue = await this.secretsService.getValueInternal(secretName);
+    if (!secretValue) {
+      this.logger.warn(`Secret not found: ${secretName}`);
+      return [];
+    }
+
+    // 解析多个 Key
+    const keys = secretValue
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean);
+
+    if (keys.length === 0) {
+      return [];
+    }
+
+    // 对于 SEARCH 分类，使用 SearchService 的健康状态（它有实际的轮换机制）
+    if (serviceId === "tavily" || serviceId === "serper") {
+      return this.searchService.getKeyHealthStatus(
+        serviceId as "tavily" | "serper",
+      );
+    }
+
+    // 对于其他服务，使用 MultiKeyRegistry 获取健康状态
+    return MultiKeyRegistry.getHealthStatus(serviceId, keys);
+  }
+
+  /**
+   * @deprecated 使用 getServiceKeyHealth 代替
+   */
+  async getToolKeyHealth(toolId: string): Promise<KeyHealthStatus[]> {
+    return this.getServiceKeyHealth(toolId);
   }
 
   /**
