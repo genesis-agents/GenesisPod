@@ -118,7 +118,7 @@ interface TopicResearchState {
   fetchTopics: (options?: ListTopicsDto) => Promise<void>;
   fetchTopic: (topicId: string) => Promise<void>;
   createTopic: (dto: CreateTopicDto) => Promise<ResearchTopic>;
-  updateTopic: (topicId: string, dto: UpdateTopicDto) => Promise<void>;
+  updateTopic: (topicId: string, dto: UpdateTopicDto) => Promise<ResearchTopic>;
   deleteTopic: (topicId: string) => Promise<void>;
   setCurrentTopic: (topic: ResearchTopic | null) => void;
 
@@ -340,6 +340,7 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
       currentTopic:
         state.currentTopic?.id === topicId ? topic : state.currentTopic,
     }));
+    return topic; // ★ 返回更新后的专题
   },
 
   deleteTopic: async (topicId) => {

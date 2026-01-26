@@ -13,11 +13,10 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
-import { updateTopicVisibility } from '@/lib/api/topic-research';
 import { TopicCard } from './TopicCard';
 import { CreateTopicDialog } from '../dialogs/CreateTopicDialog';
 import { TopicSharingModal } from '../dialogs/TopicSharingModal';
-import type { ResearchTopic, TopicVisibility } from '@/types/topic-research';
+import type { ResearchTopic } from '@/types/topic-research';
 import { ResearchTopicType } from '@/types/topic-research';
 
 // Icons
@@ -132,10 +131,16 @@ export function TopicResearchTab({
     [router]
   );
 
-  // Handle topic created - 导航到新创建的专题
+  // Handle topic created/updated - 刷新列表或导航
   const handleTopicCreated = (topic: ResearchTopic) => {
     onShowCreateDialog(false);
-    router.push(`/ai-research/topic/${topic.id}`);
+    setEditingTopic(null); // ★ 关闭编辑模式
+    // ★ 如果是编辑模式，刷新列表；如果是创建模式，导航到新专题
+    if (editingTopic) {
+      loadTopics();
+    } else {
+      router.push(`/ai-research/topic/${topic.id}`);
+    }
   };
 
   // Handle refresh
@@ -157,26 +162,13 @@ export function TopicResearchTab({
     }
   };
 
-  // ★ Handle edit - 导航到专题详情页
+  // ★ Handle edit - 打开编辑对话框
   const handleEdit = useCallback(
     (topic: ResearchTopic) => {
-      router.push(`/ai-research/topic/${topic.id}`);
+      setEditingTopic(topic);
+      onShowCreateDialog(true);
     },
-    [router]
-  );
-
-  // ★ Handle visibility change - 调用 API 更新可见性
-  const handleVisibilityChange = useCallback(
-    async (topicId: string, newVisibility: TopicVisibility) => {
-      try {
-        await updateTopicVisibility(topicId, newVisibility);
-        // 重新加载专题列表以获取最新状态
-        await loadTopics();
-      } catch (err) {
-        // Error will be handled by the store or show in UI
-      }
-    },
-    [loadTopics]
+    [onShowCreateDialog]
   );
 
   return (
@@ -240,9 +232,6 @@ export function TopicResearchTab({
               onDelete={() => handleDelete(topic.id)}
               onShare={() => setSharingTopic(topic)}
               onEdit={() => handleEdit(topic)}
-              onVisibilityChange={(visibility) =>
-                handleVisibilityChange(topic.id, visibility)
-              }
             />
           ))}
 
@@ -259,12 +248,16 @@ export function TopicResearchTab({
         </div>
       )}
 
-      {/* Create Dialog */}
+      {/* Create/Edit Dialog */}
       <CreateTopicDialog
         isOpen={showCreateDialog}
-        onClose={() => onShowCreateDialog(false)}
+        onClose={() => {
+          onShowCreateDialog(false);
+          setEditingTopic(null); // ★ 关闭时重置编辑状态
+        }}
         onCreated={handleTopicCreated}
         defaultType={activeType || ResearchTopicType.MACRO}
+        editTopic={editingTopic} // ★ 传入要编辑的专题
       />
 
       {/* Sharing Modal */}

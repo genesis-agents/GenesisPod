@@ -23,6 +23,7 @@ interface CreateTopicDialogProps {
   onClose: () => void;
   onCreated: (topic: ResearchTopic) => void;
   defaultType?: ResearchTopicType;
+  editTopic?: ResearchTopic | null; // ★ 编辑模式：传入要编辑的专题
 }
 
 // Icons
@@ -123,14 +124,19 @@ export function CreateTopicDialog({
   onClose,
   onCreated,
   defaultType = ResearchTopicType.MACRO,
+  editTopic = null, // ★ 编辑模式
 }: CreateTopicDialogProps) {
   const { t } = useTranslation();
   const {
     createTopic,
+    updateTopic, // ★ 更新专题
     fetchTemplates,
     templates: rawTemplates,
     isLoadingTemplates,
   } = useTopicResearchStore();
+
+  // ★ 是否为编辑模式
+  const isEditMode = !!editTopic;
 
   // Ensure templates is always an array
   const templates = Array.isArray(rawTemplates) ? rawTemplates : [];
@@ -320,18 +326,41 @@ export function CreateTopicDialog({
   // Reset when dialog opens
   useEffect(() => {
     if (isOpen) {
-      setStep('type');
-      setSelectedType(defaultType);
-      setSelectedTemplate(null);
-      setName('');
-      setDescription('');
-      setRefreshFrequency(RefreshFrequency.WEEKLY);
-      setSearchTimeRange('6months');
-      setSelectedKnowledgeBases([]);
-      setVisibility('PRIVATE'); // ★ 重置可见性为私有
-      setError(null);
+      if (editTopic) {
+        // ★ 编辑模式：使用现有专题数据填充表单
+        setStep('details'); // 直接进入详情步骤
+        setSelectedType(editTopic.type);
+        setSelectedTemplate(null);
+        setName(editTopic.name);
+        setDescription(editTopic.description || '');
+        setRefreshFrequency(
+          editTopic.refreshFrequency || RefreshFrequency.WEEKLY
+        );
+        setSearchTimeRange(
+          (editTopic.topicConfig as { searchTimeRange?: TimeRangeValue })
+            ?.searchTimeRange || '6months'
+        );
+        setSelectedKnowledgeBases(
+          (editTopic.topicConfig as { knowledgeBaseIds?: string[] })
+            ?.knowledgeBaseIds || []
+        );
+        setVisibility((editTopic.visibility as TopicVisibility) || 'PRIVATE');
+        setError(null);
+      } else {
+        // ★ 创建模式：重置表单
+        setStep('type');
+        setSelectedType(defaultType);
+        setSelectedTemplate(null);
+        setName('');
+        setDescription('');
+        setRefreshFrequency(RefreshFrequency.WEEKLY);
+        setSearchTimeRange('6months');
+        setSelectedKnowledgeBases([]);
+        setVisibility('PRIVATE');
+        setError(null);
+      }
     }
-  }, [isOpen, defaultType]);
+  }, [isOpen, defaultType, editTopic]);
 
   const handleTypeSelect = (type: ResearchTopicType) => {
     setSelectedType(type);
@@ -362,39 +391,53 @@ export function CreateTopicDialog({
         topicConfig.knowledgeBaseIds = selectedKnowledgeBases;
       }
 
-      const dto: CreateTopicDto = {
-        name: name.trim(),
-        description: description.trim() || undefined,
-        type: selectedType,
-        refreshFrequency,
-        visibility, // ★ 可见性
-        dimensions: selectedTemplate?.dimensions,
-        topicConfig:
-          Object.keys(topicConfig).length > 0 ? topicConfig : undefined,
-      };
+      if (isEditMode && editTopic) {
+        // ★ 编辑模式：更新专题
+        const updateDto = {
+          name: name.trim(),
+          description: description.trim() || undefined,
+          refreshFrequency,
+          visibility,
+          topicConfig:
+            Object.keys(topicConfig).length > 0 ? topicConfig : undefined,
+        };
 
-      // ★ Debug: 记录发送的 DTO
-      console.log('★ [CreateTopicDialog] Sending DTO:', {
-        ...dto,
-        topicConfig: dto.topicConfig,
-        selectedKnowledgeBases,
-      });
+        console.log('★ [CreateTopicDialog] Updating topic:', {
+          id: editTopic.id,
+          ...updateDto,
+        });
 
-      const topic = await createTopic(dto);
+        const topic = await updateTopic(editTopic.id, updateDto);
+        console.log('★ [CreateTopicDialog] Updated topic:', topic);
+        onCreated(topic);
+        onClose();
+      } else {
+        // ★ 创建模式：创建新专题
+        const dto: CreateTopicDto = {
+          name: name.trim(),
+          description: description.trim() || undefined,
+          type: selectedType,
+          refreshFrequency,
+          visibility,
+          dimensions: selectedTemplate?.dimensions,
+          topicConfig:
+            Object.keys(topicConfig).length > 0 ? topicConfig : undefined,
+        };
 
-      // ★ Debug: 记录返回的 topic
-      console.log('★ [CreateTopicDialog] Created topic:', {
-        id: topic.id,
-        name: topic.name,
-        topicConfig: topic.topicConfig,
-      });
-      onCreated(topic);
-      onClose();
+        console.log('★ [CreateTopicDialog] Creating topic:', dto);
+
+        const topic = await createTopic(dto);
+        console.log('★ [CreateTopicDialog] Created topic:', topic);
+        onCreated(topic);
+        onClose();
+      }
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : t('topicResearch.createDialog.createFailed')
+          : isEditMode
+            ? '更新失败，请重试'
+            : t('topicResearch.createDialog.createFailed')
       );
     } finally {
       setLoading(false);
@@ -409,14 +452,18 @@ export function CreateTopicDialog({
         {/* Header */}
         <div className="border-b border-gray-200 px-6 py-4">
           <h2 className="text-xl font-semibold text-gray-900">
-            {step === 'type'
-              ? t('topicResearch.createDialog.selectType')
-              : t('topicResearch.createDialog.configTopic')}
+            {isEditMode
+              ? '编辑专题'
+              : step === 'type'
+                ? t('topicResearch.createDialog.selectType')
+                : t('topicResearch.createDialog.configTopic')}
           </h2>
           <p className="mt-1 text-sm text-gray-500">
-            {step === 'type'
-              ? t('topicResearch.createDialog.selectTypeHint')
-              : t('topicResearch.createDialog.configHint')}
+            {isEditMode
+              ? '修改专题的基本信息和设置'
+              : step === 'type'
+                ? t('topicResearch.createDialog.selectTypeHint')
+                : t('topicResearch.createDialog.configHint')}
           </p>
         </div>
 
@@ -638,7 +685,8 @@ export function CreateTopicDialog({
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
           <div>
-            {step === 'details' && (
+            {/* ★ 编辑模式不显示返回按钮 */}
+            {step === 'details' && !isEditMode && (
               <button
                 type="button"
                 onClick={() => setStep('type')}
@@ -663,7 +711,7 @@ export function CreateTopicDialog({
                 className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 {loading && <LoaderIcon className="h-4 w-4 animate-spin" />}
-                {t('topicResearch.createTopic')}
+                {isEditMode ? '保存修改' : t('topicResearch.createTopic')}
               </button>
             )}
           </div>

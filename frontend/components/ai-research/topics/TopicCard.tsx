@@ -283,21 +283,11 @@ export function TopicCard({
     topic.visibility &&
     ['SHARED', 'PUBLIC'].includes(topic.visibility);
 
-  // ★ 可见性循环切换：PRIVATE -> SHARED -> PUBLIC -> PRIVATE
-  const handleVisibilityToggle = (e: React.MouseEvent) => {
+  // ★ 点击可见性标签打开共享设置弹窗
+  const handleVisibilityClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isOwnTopic || !onVisibilityChange) return;
-
-    const visibilityOrder: ('PRIVATE' | 'SHARED' | 'PUBLIC')[] = [
-      'PRIVATE',
-      'SHARED',
-      'PUBLIC',
-    ];
-    const currentIndex = visibilityOrder.indexOf(
-      topic.visibility as 'PRIVATE' | 'SHARED' | 'PUBLIC'
-    );
-    const nextIndex = (currentIndex + 1) % visibilityOrder.length;
-    onVisibilityChange(visibilityOrder[nextIndex]);
+    if (!isOwnTopic || !onShare) return;
+    onShare(); // 打开共享设置弹窗
   };
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '从未';
@@ -400,10 +390,10 @@ export function TopicCard({
           {typeConfig.label}
         </span>
         {topic.visibility &&
-          (isOwnTopic && onVisibilityChange ? (
-            // ★ 自己的专题：可点击切换可见性
+          (isOwnTopic && onShare ? (
+            // ★ 自己的专题：点击打开共享设置弹窗
             <button
-              onClick={handleVisibilityToggle}
+              onClick={handleVisibilityClick}
               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-all hover:ring-2 hover:ring-offset-1 ${
                 visibilityConfig[topic.visibility]?.color ||
                 'bg-gray-100 text-gray-600'
@@ -414,7 +404,7 @@ export function TopicCard({
                     ? 'hover:ring-blue-300'
                     : 'hover:ring-green-300'
               }`}
-              title="点击切换可见性"
+              title="点击设置共享"
             >
               {visibilityConfig[topic.visibility]?.icon}
               {visibilityConfig[topic.visibility]?.label}
