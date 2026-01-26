@@ -88,7 +88,7 @@ echo "✅ Diagnostic completed!"
 
 echo ""
 echo "🔧 Running comprehensive database structure fix..."
-npx prisma db execute --file=./prisma/fix-all-missing-structures.sql || echo "⚠️ Some fixes skipped (may already be applied)"
+npx prisma db execute --schema=prisma/schema --file=./prisma/fix-all-missing-structures.sql || echo "⚠️ Some fixes skipped (may already be applied)"
 echo "✅ Structure fix completed!"
 
 echo ""
