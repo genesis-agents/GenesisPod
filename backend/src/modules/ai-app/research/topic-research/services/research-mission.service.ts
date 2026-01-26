@@ -160,6 +160,7 @@ export class ResearchMissionService {
     private readonly eventEmitter: EventEmitter2,
     @Inject(forwardRef(() => ResearchLeaderService))
     private readonly leaderService: ResearchLeaderService,
+    @Inject(forwardRef(() => DimensionMissionService))
     private readonly dimensionMissionService: DimensionMissionService,
     private readonly reportSynthesisService: ReportSynthesisService,
     private readonly researchEventEmitter: ResearchEventEmitterService,
