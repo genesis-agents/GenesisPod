@@ -16,6 +16,15 @@ describe("AdminService", () => {
     toggleUserStatus: jest.Mock;
     isUserAdmin: jest.Mock;
   };
+  let mockResourceMgmtService: {
+    getResourceById: jest.Mock;
+    deleteResource: jest.Mock;
+    deleteResources: jest.Mock;
+  };
+  let mockStatisticsService: {
+    getSystemStats: jest.Mock;
+    getResourceStats: jest.Mock;
+  };
 
   const mockPrismaService = {
     user: {
@@ -73,6 +82,26 @@ describe("AdminService", () => {
     // Set ADMIN_EMAILS env var for testing
     process.env.ADMIN_EMAILS = "admin@test.com,super@test.com";
 
+    // Initialize mocks with default values
+    mockUserMgmtService = {
+      getAllUsers: jest.fn().mockResolvedValue({ users: [], total: 0 }),
+      getUserDetail: jest.fn().mockResolvedValue(null),
+      updateUserRole: jest.fn().mockResolvedValue({}),
+      toggleUserStatus: jest.fn().mockResolvedValue({}),
+      isUserAdmin: jest.fn().mockResolvedValue(false),
+    };
+
+    mockResourceMgmtService = {
+      getResourceById: jest.fn().mockResolvedValue(null),
+      deleteResource: jest.fn().mockResolvedValue({ success: true }),
+      deleteResources: jest.fn().mockResolvedValue({ success: true, count: 0 }),
+    };
+
+    mockStatisticsService = {
+      getSystemStats: jest.fn().mockResolvedValue({}),
+      getResourceStats: jest.fn().mockResolvedValue({}),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminService,
@@ -89,30 +118,15 @@ describe("AdminService", () => {
         },
         {
           provide: UserManagementService,
-          useFactory: () => {
-            mockUserMgmtService = {
-              getAllUsers: jest.fn().mockResolvedValue({ users: [], total: 0 }),
-              getUserDetail: jest.fn().mockResolvedValue(null),
-              updateUserRole: jest.fn().mockResolvedValue({}),
-              toggleUserStatus: jest.fn().mockResolvedValue({}),
-              isUserAdmin: jest.fn().mockResolvedValue(false),
-            };
-            return mockUserMgmtService;
-          },
+          useValue: mockUserMgmtService,
         },
         {
           provide: ResourceManagementService,
-          useValue: {
-            getResourceById: jest.fn().mockResolvedValue(null),
-            deleteResource: jest.fn().mockResolvedValue({}),
-          },
+          useValue: mockResourceMgmtService,
         },
         {
           provide: StatisticsService,
-          useValue: {
-            getSystemStats: jest.fn().mockResolvedValue({}),
-            getResourceStats: jest.fn().mockResolvedValue({}),
-          },
+          useValue: mockStatisticsService,
         },
       ],
     }).compile();
@@ -125,44 +139,35 @@ describe("AdminService", () => {
 
   describe("getAllUsers", () => {
     it("should return paginated users with admin flag", async () => {
-      const mockUsers = [
-        {
-          id: "user-1",
-          email: "admin@test.com",
-          username: "admin",
-          role: "USER",
-          avatarUrl: null,
-          isActive: true,
-          isVerified: true,
-          oauthProvider: null,
-          subscriptionTier: "FREE",
-          createdAt: new Date(),
-          lastLoginAt: new Date(),
-          _count: { notes: 5, comments: 10, collections: 3 },
+      // AdminService delegates to UserManagementService.getAllUsers()
+      const mockResult = {
+        users: [
+          {
+            id: "user-1",
+            email: "admin@test.com",
+            username: "admin",
+            isAdmin: true,
+          },
+          {
+            id: "user-2",
+            email: "regular@test.com",
+            username: "regular",
+            isAdmin: false,
+          },
+        ],
+        pagination: {
+          page: 1,
+          limit: 20,
+          total: 2,
+          totalPages: 1,
         },
-        {
-          id: "user-2",
-          email: "regular@test.com",
-          username: "regular",
-          role: "USER",
-          avatarUrl: null,
-          isActive: true,
-          isVerified: true,
-          oauthProvider: "google",
-          subscriptionTier: "FREE",
-          createdAt: new Date(),
-          lastLoginAt: new Date(),
-          _count: { notes: 2, comments: 5, collections: 1 },
-        },
-      ];
-
-      mockPrismaService.user.findMany.mockResolvedValue(mockUsers);
-      mockPrismaService.user.count.mockResolvedValue(2);
+      };
+      mockUserMgmtService.getAllUsers.mockResolvedValue(mockResult);
 
       const result = await service.getAllUsers(1, 20);
 
       expect(result.users).toHaveLength(2);
-      expect(result.users[0].isAdmin).toBe(true); // email in ADMIN_EMAILS
+      expect(result.users[0].isAdmin).toBe(true);
       expect(result.users[1].isAdmin).toBe(false);
       expect(result.pagination).toEqual({
         page: 1,
@@ -170,43 +175,49 @@ describe("AdminService", () => {
         total: 2,
         totalPages: 1,
       });
+      expect(mockUserMgmtService.getAllUsers).toHaveBeenCalledWith(
+        1,
+        20,
+        undefined,
+      );
     });
 
     it("should search users by email or username", async () => {
-      mockPrismaService.user.findMany.mockResolvedValue([]);
-      mockPrismaService.user.count.mockResolvedValue(0);
+      mockUserMgmtService.getAllUsers.mockResolvedValue({
+        users: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      });
 
       await service.getAllUsers(1, 20, "search-term");
 
-      expect(mockPrismaService.user.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            OR: [
-              { email: { contains: "search-term", mode: "insensitive" } },
-              { username: { contains: "search-term", mode: "insensitive" } },
-            ],
-          },
-        }),
+      expect(mockUserMgmtService.getAllUsers).toHaveBeenCalledWith(
+        1,
+        20,
+        "search-term",
       );
     });
   });
 
   describe("deleteResource", () => {
     it("should delete a resource successfully", async () => {
-      const mockResource = { id: "resource-1", title: "Test Resource" };
-      mockPrismaService.resource.findUnique.mockResolvedValue(mockResource);
-      mockPrismaService.resource.delete.mockResolvedValue(mockResource);
+      // AdminService delegates to ResourceManagementService.deleteResource()
+      mockResourceMgmtService.deleteResource.mockResolvedValue({
+        success: true,
+        message: "Resource deleted",
+      });
 
       const result = await service.deleteResource("resource-1");
 
       expect(result.success).toBe(true);
-      expect(mockPrismaService.resource.delete).toHaveBeenCalledWith({
-        where: { id: "resource-1" },
-      });
+      expect(mockResourceMgmtService.deleteResource).toHaveBeenCalledWith(
+        "resource-1",
+      );
     });
 
     it("should throw NotFoundException for non-existent resource", async () => {
-      mockPrismaService.resource.findUnique.mockResolvedValue(null);
+      mockResourceMgmtService.deleteResource.mockRejectedValue(
+        new NotFoundException("Resource not found"),
+      );
 
       await expect(service.deleteResource("non-existent")).rejects.toThrow(
         NotFoundException,
@@ -216,30 +227,47 @@ describe("AdminService", () => {
 
   describe("deleteResources", () => {
     it("should delete multiple resources", async () => {
-      mockPrismaService.resource.deleteMany.mockResolvedValue({ count: 3 });
+      // AdminService delegates to ResourceManagementService.deleteResources()
+      mockResourceMgmtService.deleteResources.mockResolvedValue({
+        success: true,
+        count: 3,
+      });
 
       const result = await service.deleteResources(["id-1", "id-2", "id-3"]);
 
       expect(result.success).toBe(true);
       expect(result.count).toBe(3);
+      expect(mockResourceMgmtService.deleteResources).toHaveBeenCalledWith([
+        "id-1",
+        "id-2",
+        "id-3",
+      ]);
     });
   });
 
   describe("updateUserRole", () => {
     it("should update user role successfully", async () => {
-      const mockUser = { id: "user-1", email: "test@test.com" };
-      const updatedUser = { ...mockUser, role: "ADMIN" };
-
-      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
-      mockPrismaService.user.update.mockResolvedValue(updatedUser);
+      // AdminService delegates to UserManagementService.updateUserRole()
+      const updatedUser = {
+        id: "user-1",
+        email: "test@test.com",
+        role: "ADMIN",
+      };
+      mockUserMgmtService.updateUserRole.mockResolvedValue(updatedUser);
 
       const result = await service.updateUserRole("user-1", "ADMIN");
 
       expect(result.role).toBe("ADMIN");
+      expect(mockUserMgmtService.updateUserRole).toHaveBeenCalledWith(
+        "user-1",
+        "ADMIN",
+      );
     });
 
     it("should throw NotFoundException for non-existent user", async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockUserMgmtService.updateUserRole.mockRejectedValue(
+        new NotFoundException("User not found"),
+      );
 
       await expect(
         service.updateUserRole("non-existent", "ADMIN"),
@@ -249,30 +277,38 @@ describe("AdminService", () => {
 
   describe("toggleUserStatus", () => {
     it("should toggle user status to inactive", async () => {
-      const mockUser = { id: "user-1", isActive: true };
-      const updatedUser = { ...mockUser, isActive: false };
-
-      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
-      mockPrismaService.user.update.mockResolvedValue(updatedUser);
+      // AdminService delegates to UserManagementService.toggleUserStatus()
+      const updatedUser = { id: "user-1", isActive: false };
+      mockUserMgmtService.toggleUserStatus.mockResolvedValue(updatedUser);
 
       const result = await service.toggleUserStatus("user-1", false);
 
       expect(result.isActive).toBe(false);
+      expect(mockUserMgmtService.toggleUserStatus).toHaveBeenCalledWith(
+        "user-1",
+        false,
+      );
     });
   });
 
   describe("getSystemStats", () => {
     it("should return system statistics", async () => {
-      mockPrismaService.user.count
-        .mockResolvedValueOnce(100) // totalUsers
-        .mockResolvedValueOnce(80) // activeUsers
-        .mockResolvedValueOnce(5); // recentUsers
-
-      mockPrismaService.resource.count.mockResolvedValue(500);
-      mockPrismaService.resource.groupBy.mockResolvedValue([
-        { type: "ARTICLE", _count: { type: 300 } },
-        { type: "VIDEO", _count: { type: 200 } },
-      ]);
+      // AdminService delegates to StatisticsService.getSystemStats()
+      const mockStats = {
+        users: {
+          total: 100,
+          active: 80,
+          newLast7Days: 5,
+        },
+        resources: {
+          total: 500,
+          byType: {
+            ARTICLE: 300,
+            VIDEO: 200,
+          },
+        },
+      };
+      mockStatisticsService.getSystemStats.mockResolvedValue(mockStats);
 
       const result = await service.getSystemStats();
 
@@ -284,6 +320,7 @@ describe("AdminService", () => {
         ARTICLE: 300,
         VIDEO: 200,
       });
+      expect(mockStatisticsService.getSystemStats).toHaveBeenCalled();
     });
   });
 
