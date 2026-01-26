@@ -2789,6 +2789,7 @@
       "zh": "Chinese",
       "en": "English"
     },
+    "visibilityDesc": "Set topic visibility scope",
     "tabs": {
       "all": "All",
       "macro": "Macro Insights",

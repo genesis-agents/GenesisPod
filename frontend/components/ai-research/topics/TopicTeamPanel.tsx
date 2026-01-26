@@ -1368,31 +1368,18 @@ function TaskItem({ task }: { task: TaskStatus }) {
         {task.dimensionName || task.title}
       </span>
 
-      {/* 进度或状态 */}
-      {task.status === 'EXECUTING' && task.progress !== undefined ? (
-        <span
-          className={`rounded-full px-1.5 py-0.5 text-[10px] ${colorClass}`}
-        >
-          {task.progress}%
-          <span className="ml-1 text-blue-500/70">
-            {getProgressStage(task.progress)}
-          </span>
-        </span>
-      ) : (
-        <span
-          className={`rounded-full px-1.5 py-0.5 text-[10px] ${colorClass}`}
-        >
-          {task.status === 'COMPLETED'
-            ? '完成'
-            : task.status === 'FAILED'
-              ? '失败'
-              : task.status === 'EXECUTING'
-                ? '执行中'
-                : task.status === 'NEEDS_REVISION'
-                  ? '待修订'
-                  : '待处理'}
-        </span>
-      )}
+      {/* 状态标签（不显示具体进度） */}
+      <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${colorClass}`}>
+        {task.status === 'COMPLETED'
+          ? '完成'
+          : task.status === 'FAILED'
+            ? '失败'
+            : task.status === 'EXECUTING'
+              ? '执行中'
+              : task.status === 'NEEDS_REVISION'
+                ? '待修订'
+                : '待处理'}
+      </span>
     </div>
   );
 }

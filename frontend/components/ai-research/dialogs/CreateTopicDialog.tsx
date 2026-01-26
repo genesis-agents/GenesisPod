@@ -161,13 +161,13 @@ export function CreateTopicDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ★ 可见性选项
+  // ★ 可见性选项 (使用 i18n)
   const visibilityOptions = useMemo(
     () => [
       {
         value: 'PRIVATE' as TopicVisibility,
-        label: '私有',
-        description: '仅自己可见',
+        label: t('topicResearch.sharing.visibility.private'),
+        description: t('topicResearch.sharing.visibility.privateDesc'),
         icon: (
           <svg
             className="h-4 w-4"
@@ -186,8 +186,8 @@ export function CreateTopicDialog({
       },
       {
         value: 'SHARED' as TopicVisibility,
-        label: '团队',
-        description: '团队成员可见',
+        label: t('topicResearch.sharing.visibility.shared'),
+        description: t('topicResearch.sharing.visibility.sharedDesc'),
         icon: (
           <svg
             className="h-4 w-4"
@@ -206,8 +206,8 @@ export function CreateTopicDialog({
       },
       {
         value: 'PUBLIC' as TopicVisibility,
-        label: '公开',
-        description: '所有人可见',
+        label: t('topicResearch.sharing.visibility.public'),
+        description: t('topicResearch.sharing.visibility.publicDesc'),
         icon: (
           <svg
             className="h-4 w-4"
@@ -225,7 +225,7 @@ export function CreateTopicDialog({
         ),
       },
     ],
-    []
+    [t]
   );
 
   // Build options with i18n
@@ -627,9 +627,9 @@ export function CreateTopicDialog({
               {/* ★ Visibility Selector */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  可见性
+                  {t('topicResearch.sharing.visibility.title')}
                   <span className="ml-2 text-xs font-normal text-gray-400">
-                    设置专题的可见范围
+                    {t('topicResearch.visibilityDesc')}
                   </span>
                 </label>
                 <div className="grid grid-cols-3 gap-2">
