@@ -601,9 +601,11 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
 
       // 提取图表数据
       const charts: ReportChart[] = data.charts || [];
-      if (charts.length > 0) {
-        this.logger.log(`Extracted ${charts.length} charts from AI response`);
-      }
+      // ★ 无论是否有图表都记录日志，方便诊断
+      this.logger.log(
+        `[parseAIReportWithCharts] Charts extracted: ${charts.length} items. ` +
+          `Raw charts field exists: ${data.charts !== undefined}`,
+      );
 
       return {
         structuredReport: this.normalizeReportResponse(data),
