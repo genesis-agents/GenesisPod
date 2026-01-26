@@ -11,7 +11,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getAuthTokens } from '@/lib/utils/auth';
-
+import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
 // Helper function to get headers with auth token
 function getAuthHeaders(): HeadersInit {
@@ -28,6 +28,7 @@ function getAuthHeaders(): HeadersInit {
 // Types
 export type TopicVisibility = 'PRIVATE' | 'SHARED' | 'PUBLIC';
 export type CollaboratorRole = 'VIEWER' | 'EDITOR' | 'ADMIN';
+export type CollaboratorStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
 
 interface Collaborator {
   id: string;
@@ -36,7 +37,9 @@ interface Collaborator {
   username?: string;
   avatarUrl?: string;
   role: CollaboratorRole;
+  status?: CollaboratorStatus;
   invitedAt: string;
+  requestedAt?: string;
   isActive: boolean;
 }
 
@@ -144,42 +147,73 @@ const TrashIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Visibility options
-const visibilityOptions: {
+const CheckIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M5 13l4 4L19 7"
+    />
+  </svg>
+);
+
+const XMarkIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M6 18L18 6M6 6l12 12"
+    />
+  </svg>
+);
+
+// Visibility option keys for i18n
+const visibilityKeys: {
   value: TopicVisibility;
-  label: string;
-  description: string;
+  labelKey: string;
+  descKey: string;
   icon: React.ReactNode;
 }[] = [
   {
     value: 'PRIVATE',
-    label: '私有',
-    description: '仅自己可见',
+    labelKey: 'topicResearch.sharing.visibility.private',
+    descKey: 'topicResearch.sharing.visibility.privateDesc',
     icon: <LockIcon className="h-5 w-5" />,
   },
   {
     value: 'SHARED',
-    label: '共享',
-    description: '邀请的协作者可见',
+    labelKey: 'topicResearch.sharing.visibility.shared',
+    descKey: 'topicResearch.sharing.visibility.sharedDesc',
     icon: <UsersIcon className="h-5 w-5" />,
   },
   {
     value: 'PUBLIC',
-    label: '公开',
-    description: '所有人可见',
+    labelKey: 'topicResearch.sharing.visibility.public',
+    descKey: 'topicResearch.sharing.visibility.publicDesc',
     icon: <GlobeIcon className="h-5 w-5" />,
   },
 ];
 
-// Role options
-const roleOptions: {
+// Role option keys for i18n
+const roleKeys: {
   value: CollaboratorRole;
-  label: string;
-  description: string;
+  labelKey: string;
 }[] = [
-  { value: 'VIEWER', label: '查看者', description: '只能查看内容' },
-  { value: 'EDITOR', label: '编辑者', description: '可以编辑内容' },
-  { value: 'ADMIN', label: '管理员', description: '可以管理成员' },
+  { value: 'VIEWER', labelKey: 'topicResearch.sharing.roles.viewer' },
+  { value: 'EDITOR', labelKey: 'topicResearch.sharing.roles.editor' },
+  { value: 'ADMIN', labelKey: 'topicResearch.sharing.roles.admin' },
 ];
 
 export function TopicSharingModal({
@@ -188,12 +222,17 @@ export function TopicSharingModal({
   isOpen,
   onClose,
 }: TopicSharingModalProps) {
+  const { t } = useTranslation();
   const [visibility, setVisibility] = useState<TopicVisibility>('PRIVATE');
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [pendingApplications, setPendingApplications] = useState<
+    Collaborator[]
+  >([]);
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState<CollaboratorRole>('VIEWER');
   const [isLoading, setIsLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [isReviewing, setIsReviewing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch sharing settings
@@ -204,14 +243,19 @@ export function TopicSharingModal({
     setError(null);
 
     try {
-      const [sharingRes, collaboratorsRes] = await Promise.all([
-        fetch(`/api/v1/topic-research/topics/${topicId}/sharing`, {
-          headers: getAuthHeaders(),
-        }),
-        fetch(`/api/v1/topic-research/topics/${topicId}/collaborators`, {
-          headers: getAuthHeaders(),
-        }),
-      ]);
+      const [sharingRes, collaboratorsRes, applicationsRes] = await Promise.all(
+        [
+          fetch(`/api/v1/topic-research/topics/${topicId}/sharing`, {
+            headers: getAuthHeaders(),
+          }),
+          fetch(`/api/v1/topic-research/topics/${topicId}/collaborators`, {
+            headers: getAuthHeaders(),
+          }),
+          fetch(`/api/v1/topic-research/topics/${topicId}/applications`, {
+            headers: getAuthHeaders(),
+          }),
+        ]
+      );
 
       if (sharingRes.ok) {
         const result = await sharingRes.json();
@@ -226,9 +270,16 @@ export function TopicSharingModal({
         const data = result?.data ?? result;
         setCollaborators(data.collaborators || []);
       }
+
+      if (applicationsRes.ok) {
+        const result = await applicationsRes.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
+        setPendingApplications(Array.isArray(data) ? data : []);
+      }
     } catch (err) {
       logger.error('Failed to fetch sharing settings:', err);
-      setError('获取共享设置失败');
+      setError(t('topicResearch.sharing.fetchFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -257,7 +308,7 @@ export function TopicSharingModal({
       }
     } catch (err) {
       logger.error('Failed to update visibility:', err);
-      setError('更新可见性失败');
+      setError(t('topicResearch.sharing.updateVisibilityFailed'));
       // Revert on error
       fetchSettings();
     }
@@ -293,7 +344,11 @@ export function TopicSharingModal({
       setCollaborators((prev) => [...prev, newCollaborator]);
       setNewEmail('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '添加协作者失败');
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('topicResearch.sharing.collaborators.addFailed')
+      );
     } finally {
       setIsAdding(false);
     }
@@ -323,7 +378,7 @@ export function TopicSharingModal({
       );
     } catch (err) {
       logger.error('Failed to update role:', err);
-      setError('更新角色失败');
+      setError(t('topicResearch.sharing.collaborators.updateFailed'));
     }
   };
 
@@ -342,8 +397,68 @@ export function TopicSharingModal({
       setCollaborators((prev) => prev.filter((c) => c.id !== collaboratorId));
     } catch (err) {
       logger.error('Failed to remove collaborator:', err);
-      setError('移除协作者失败');
+      setError(t('topicResearch.sharing.collaborators.removeFailed'));
     }
+  };
+
+  // Review application (approve/reject)
+  const handleReviewApplication = async (
+    applicationId: string,
+    decision: 'ACCEPTED' | 'REJECTED'
+  ) => {
+    setIsReviewing(applicationId);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `/api/v1/topic-research/topics/${topicId}/applications/${applicationId}/review`,
+        {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ decision }),
+        }
+      );
+
+      if (!res.ok) {
+        const result = await res.json();
+        const data = result?.data ?? result;
+        throw new Error(data.message || 'Failed to review application');
+      }
+
+      const result = await res.json();
+      const reviewedApp = result?.data ?? result;
+
+      // Remove from pending applications
+      setPendingApplications((prev) =>
+        prev.filter((a) => a.id !== applicationId)
+      );
+
+      // If accepted, add to collaborators
+      if (decision === 'ACCEPTED' && reviewedApp) {
+        setCollaborators((prev) => [...prev, reviewedApp]);
+      }
+    } catch (err) {
+      logger.error('Failed to review application:', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('topicResearch.sharing.applications.reviewFailed')
+      );
+    } finally {
+      setIsReviewing(null);
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateStr: string | undefined) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('zh-CN', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   if (!isOpen) return null;
@@ -354,7 +469,9 @@ export function TopicSharingModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">共享设置</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {t('topicResearch.sharing.title')}
+            </h2>
             <p className="text-sm text-gray-500">{topicName}</p>
           </div>
           <button
@@ -376,17 +493,19 @@ export function TopicSharingModal({
               {/* Error */}
               {error && (
                 <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-                  {typeof error === 'string' ? error : '操作失败'}
+                  {typeof error === 'string'
+                    ? error
+                    : t('topicResearch.sharing.operationFailed')}
                 </div>
               )}
 
               {/* Visibility */}
               <div className="mb-6">
                 <h3 className="mb-3 text-sm font-medium text-gray-700">
-                  可见性
+                  {t('topicResearch.sharing.visibility.title')}
                 </h3>
                 <div className="space-y-2">
-                  {visibilityOptions.map((option) => (
+                  {visibilityKeys.map((option) => (
                     <label
                       key={option.value}
                       className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
@@ -414,10 +533,10 @@ export function TopicSharingModal({
                       </span>
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {option.label}
+                          {t(option.labelKey)}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {option.description}
+                          {t(option.descKey)}
                         </p>
                       </div>
                     </label>
@@ -425,18 +544,86 @@ export function TopicSharingModal({
                 </div>
               </div>
 
+              {/* Pending Applications (only show when shared and there are applications) */}
+              {visibility === 'SHARED' && pendingApplications.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="mb-3 text-sm font-medium text-gray-700">
+                    {t('topicResearch.sharing.applications.count', {
+                      count: pendingApplications.length,
+                    })}
+                  </h3>
+                  <div className="space-y-2">
+                    {pendingApplications.map((app) => (
+                      <div
+                        key={app.id}
+                        className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-2"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-200 text-sm font-medium text-amber-700">
+                            {app.username?.[0] || app.email[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {app.username || app.email}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {t(
+                                'topicResearch.sharing.applications.appliedAt',
+                                {
+                                  time: formatDate(app.requestedAt),
+                                }
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() =>
+                              handleReviewApplication(app.id, 'ACCEPTED')
+                            }
+                            disabled={isReviewing === app.id}
+                            className="flex items-center gap-1 rounded-lg bg-green-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600 disabled:opacity-50"
+                          >
+                            {isReviewing === app.id ? (
+                              <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            ) : (
+                              <CheckIcon className="h-3.5 w-3.5" />
+                            )}
+                            {t('topicResearch.sharing.applications.approve')}
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleReviewApplication(app.id, 'REJECTED')
+                            }
+                            disabled={isReviewing === app.id}
+                            className="flex items-center gap-1 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600 disabled:opacity-50"
+                          >
+                            <XMarkIcon className="h-3.5 w-3.5" />
+                            {t('topicResearch.sharing.applications.reject')}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Collaborators (only show when shared) */}
               {visibility === 'SHARED' && (
                 <div>
                   <h3 className="mb-3 text-sm font-medium text-gray-700">
-                    协作者 ({collaborators.length})
+                    {t('topicResearch.sharing.collaborators.count', {
+                      count: collaborators.length,
+                    })}
                   </h3>
 
                   {/* Add collaborator */}
                   <div className="mb-4 flex gap-2">
                     <input
                       type="email"
-                      placeholder="输入邮箱地址"
+                      placeholder={t(
+                        'topicResearch.sharing.collaborators.emailPlaceholder'
+                      )}
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
                       className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-blue-500"
@@ -448,9 +635,9 @@ export function TopicSharingModal({
                       }
                       className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500"
                     >
-                      {roleOptions.map((role) => (
+                      {roleKeys.map((role) => (
                         <option key={role.value} value={role.value}>
-                          {role.label}
+                          {t(role.labelKey)}
                         </option>
                       ))}
                     </select>
@@ -471,7 +658,9 @@ export function TopicSharingModal({
                   <div className="space-y-2">
                     {collaborators.length === 0 ? (
                       <p className="py-4 text-center text-sm text-gray-500">
-                        暂无协作者
+                        {t(
+                          'topicResearch.sharing.collaborators.noCollaborators'
+                        )}
                       </p>
                     ) : (
                       collaborators.map((collaborator) => (
@@ -506,9 +695,9 @@ export function TopicSharingModal({
                               }
                               className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-900 outline-none focus:border-blue-500"
                             >
-                              {roleOptions.map((role) => (
+                              {roleKeys.map((role) => (
                                 <option key={role.value} value={role.value}>
-                                  {role.label}
+                                  {t(role.labelKey)}
                                 </option>
                               ))}
                             </select>
@@ -537,7 +726,7 @@ export function TopicSharingModal({
             onClick={onClose}
             className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
           >
-            完成
+            {t('topicResearch.sharing.done')}
           </button>
         </div>
       </div>

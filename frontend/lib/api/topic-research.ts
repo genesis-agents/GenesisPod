@@ -2014,6 +2014,11 @@ export async function aiEditReport(
 export type CollaboratorRole = 'VIEWER' | 'EDITOR' | 'ADMIN';
 
 /**
+ * 协作者申请状态
+ */
+export type CollaboratorStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
+
+/**
  * 协作者信息
  */
 export interface Collaborator {
@@ -2023,8 +2028,22 @@ export interface Collaborator {
   username?: string;
   avatarUrl?: string;
   role: CollaboratorRole;
+  status: CollaboratorStatus;
   invitedAt: string;
+  requestedAt?: string;
+  acceptedAt?: string;
+  reviewedAt?: string;
+  rejectReason?: string;
   isActive: boolean;
+}
+
+/**
+ * 申请状态响应
+ */
+export interface ApplicationStatusResponse {
+  status: CollaboratorStatus | null;
+  requestedAt?: string;
+  rejectReason?: string;
 }
 
 /**
@@ -2080,6 +2099,57 @@ export async function checkEditPermission(
     // 如果无法获取协作者信息，默认无权限
     return false;
   }
+}
+
+// ==================== 申请审核机制 ====================
+
+/**
+ * 申请加入专题
+ */
+export async function applyToJoin(
+  topicId: string,
+  message?: string
+): Promise<Collaborator> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/apply`, {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  });
+}
+
+/**
+ * 获取待审核的申请列表
+ */
+export async function getPendingApplications(
+  topicId: string
+): Promise<Collaborator[]> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/applications`);
+}
+
+/**
+ * 审核申请
+ */
+export async function reviewApplication(
+  topicId: string,
+  applicationId: string,
+  decision: 'ACCEPTED' | 'REJECTED',
+  reason?: string
+): Promise<Collaborator> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/applications/${applicationId}/review`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ decision, reason }),
+    }
+  );
+}
+
+/**
+ * 获取当前用户的申请状态
+ */
+export async function getMyApplicationStatus(
+  topicId: string
+): Promise<ApplicationStatusResponse> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/my-application`);
 }
 
 // ==================== Health Check API ====================

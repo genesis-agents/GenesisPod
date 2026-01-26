@@ -1,10 +1,26 @@
-import { IsEnum, IsOptional, IsEmail, IsArray } from "class-validator";
+import {
+  IsEnum,
+  IsOptional,
+  IsEmail,
+  IsArray,
+  IsString,
+  MaxLength,
+} from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export enum CollaboratorRole {
   VIEWER = "VIEWER",
   EDITOR = "EDITOR",
   ADMIN = "ADMIN",
+}
+
+/**
+ * 协作者申请状态
+ */
+export enum CollaboratorStatus {
+  PENDING = "PENDING", // 待审核
+  ACCEPTED = "ACCEPTED", // 已通过
+  REJECTED = "REJECTED", // 已拒绝
 }
 
 /**
@@ -84,14 +100,78 @@ export class CollaboratorResponseDto {
   @ApiProperty({ description: "角色", enum: CollaboratorRole })
   role!: CollaboratorRole;
 
+  @ApiProperty({ description: "申请状态", enum: CollaboratorStatus })
+  status!: CollaboratorStatus;
+
   @ApiProperty({ description: "邀请时间" })
   invitedAt!: Date;
+
+  @ApiPropertyOptional({ description: "申请时间（用户主动申请）" })
+  requestedAt?: Date;
 
   @ApiPropertyOptional({ description: "接受时间" })
   acceptedAt?: Date;
 
+  @ApiPropertyOptional({ description: "审核时间" })
+  reviewedAt?: Date;
+
+  @ApiPropertyOptional({ description: "拒绝原因" })
+  rejectReason?: string;
+
   @ApiProperty({ description: "是否激活" })
   isActive!: boolean;
+}
+
+/**
+ * 申请加入 DTO
+ */
+export class ApplyToJoinDto {
+  @ApiPropertyOptional({
+    description: "申请备注信息",
+    maxLength: 500,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  message?: string;
+}
+
+/**
+ * 审核申请 DTO
+ */
+export class ReviewApplicationDto {
+  @ApiProperty({
+    description: "审核决定",
+    enum: ["ACCEPTED", "REJECTED"],
+  })
+  @IsEnum(CollaboratorStatus)
+  decision!: "ACCEPTED" | "REJECTED";
+
+  @ApiPropertyOptional({
+    description: "拒绝原因（仅当决定为 REJECTED 时）",
+    maxLength: 500,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  reason?: string;
+}
+
+/**
+ * 用户申请状态响应 DTO
+ */
+export class ApplicationStatusResponseDto {
+  @ApiPropertyOptional({
+    description: "申请状态，null 表示未申请",
+    enum: CollaboratorStatus,
+  })
+  status: CollaboratorStatus | null = null;
+
+  @ApiPropertyOptional({ description: "申请时间" })
+  requestedAt?: Date;
+
+  @ApiPropertyOptional({ description: "拒绝原因" })
+  rejectReason?: string;
 }
 
 /**

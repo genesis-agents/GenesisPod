@@ -126,9 +126,10 @@ model User {
   writingStyleTemplates WritingStyleTemplate[] @relation("WritingStyleTemplateOwner")
 
   // Topic Research 专题研究
-  researchTopics     ResearchTopic[]     @relation("UserResearchTopics")
-  topicCollaborators TopicCollaborator[] @relation("TopicCollaborators")
-  topicInvitations   TopicCollaborator[] @relation("TopicInvitations")
+  researchTopics      ResearchTopic[]     @relation("UserResearchTopics")
+  topicCollaborators  TopicCollaborator[] @relation("TopicCollaborators")
+  topicInvitations    TopicCollaborator[] @relation("TopicInvitations")
+  topicReviewedApps   TopicCollaborator[] @relation("TopicReviewer") // 审核的协作申请
 
   // 报告编辑相关
   reportChangesCheckedIn    ReportChange[]     @relation("ReportChangeCheckedInBy")
@@ -6140,6 +6141,13 @@ enum TopicCollaboratorRole {
   ADMIN // 管理员（可邀请/移除成员）
 }
 
+/// 协作者申请状态
+enum CollaboratorStatus {
+  PENDING // 待审核
+  ACCEPTED // 已通过
+  REJECTED // 已拒绝
+}
+
 /// 专题协作者
 /// 用于实现专题的成员共享功能
 model TopicCollaborator {
@@ -6155,6 +6163,13 @@ model TopicCollaborator {
   invitedAt   DateTime  @default(now()) @map("invited_at")
   acceptedAt  DateTime? @map("accepted_at")
 
+  // 申请状态（申请审核机制）
+  status       CollaboratorStatus @default(PENDING)
+  requestedAt  DateTime?          @map("requested_at") // 用户主动申请时间
+  reviewedAt   DateTime?          @map("reviewed_at") // 审核时间
+  reviewedById String?            @map("reviewed_by") // 审核人 ID
+  rejectReason String?            @map("reject_reason") @db.Text // 拒绝原因
+
   // 状态
   isActive Boolean @default(true) @map("is_active")
 
@@ -6163,14 +6178,16 @@ model TopicCollaborator {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // 关系
-  topic     ResearchTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  user      User          @relation("TopicCollaborators", fields: [userId], references: [id], onDelete: Cascade)
-  invitedBy User          @relation("TopicInvitations", fields: [invitedById], references: [id], onDelete: Cascade)
+  topic      ResearchTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  user       User          @relation("TopicCollaborators", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy  User          @relation("TopicInvitations", fields: [invitedById], references: [id], onDelete: Cascade)
+  reviewedBy User?         @relation("TopicReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   // 索引
   @@unique([topicId, userId])
   @@index([userId])
   @@index([topicId, isActive])
+  @@index([topicId, status])
   @@map("research_topic_collaborators")
 }
 

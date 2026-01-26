@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
+import { NotificationModule } from "../../../core/notifications/notification.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 import { CreditsModule } from "../../../credits/credits.module";
@@ -75,6 +76,7 @@ const services = [
 @Module({
   imports: [
     PrismaModule,
+    NotificationModule,
     AiEngineModule,
     CreditsModule,
     ExportModule,

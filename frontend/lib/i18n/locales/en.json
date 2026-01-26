@@ -2974,6 +2974,61 @@
     },
     "editor": {
       "startEditing": "Start editing chapter content..."
+    },
+    "sharing": {
+      "title": "Sharing Settings",
+      "visibility": {
+        "title": "Visibility",
+        "private": "Private",
+        "privateDesc": "Only you can see",
+        "shared": "Shared",
+        "sharedDesc": "Visible to invited collaborators",
+        "public": "Public",
+        "publicDesc": "Visible to everyone"
+      },
+      "collaborators": {
+        "title": "Collaborators",
+        "count": "Collaborators ({{count}})",
+        "emailPlaceholder": "Enter email address",
+        "noCollaborators": "No collaborators",
+        "addFailed": "Failed to add collaborator",
+        "updateFailed": "Failed to update role",
+        "removeFailed": "Failed to remove collaborator"
+      },
+      "applications": {
+        "title": "Pending Applications",
+        "count": "Pending Applications ({{count}})",
+        "appliedAt": "Applied at: {{time}}",
+        "approve": "Approve",
+        "reject": "Reject",
+        "approving": "Approving...",
+        "noApplications": "No pending applications",
+        "reviewFailed": "Failed to review application"
+      },
+      "apply": {
+        "button": "Apply to Join",
+        "applying": "Applying...",
+        "pending": "Application Pending",
+        "joined": "Joined",
+        "rejected": "Application Rejected",
+        "failed": "Failed to apply",
+        "alreadyCollaborator": "Already a collaborator",
+        "alreadyPending": "Application already pending",
+        "cannotApplyOwn": "Cannot apply to your own topic",
+        "topicPrivate": "This topic is private"
+      },
+      "roles": {
+        "viewer": "Viewer",
+        "viewerDesc": "Can only view content",
+        "editor": "Editor",
+        "editorDesc": "Can edit content",
+        "admin": "Admin",
+        "adminDesc": "Can manage members"
+      },
+      "done": "Done",
+      "fetchFailed": "Failed to fetch sharing settings",
+      "updateVisibilityFailed": "Failed to update visibility",
+      "operationFailed": "Operation failed"
     }
   }
 }

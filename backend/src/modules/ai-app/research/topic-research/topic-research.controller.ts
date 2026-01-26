@@ -65,6 +65,8 @@ import {
   UpdateCollaboratorRoleDto,
   UpdateTopicVisibilityDto,
   CollaboratorRole,
+  ApplyToJoinDto,
+  ReviewApplicationDto,
 } from "./dto/collaborator.dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { Public } from "../../../../common/decorators/public.decorator";
@@ -1879,6 +1881,102 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     return this.topicResearchService.getSharingSettings(userId, id);
+  }
+
+  // ==================== 申请审核机制 ====================
+
+  /**
+   * 用户申请加入专题
+   */
+  @Post("topics/:id/apply")
+  @ApiOperation({
+    summary: "申请加入专题",
+    description: "用户申请加入 SHARED 或 PUBLIC 专题，等待所有者审核",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 201, description: "申请已提交" })
+  async applyToJoin(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+    @Body() dto: ApplyToJoinDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.collaboratorService.requestToJoin(id, userId, dto.message);
+  }
+
+  /**
+   * 获取待审核的申请列表
+   */
+  @Get("topics/:id/applications")
+  @ApiOperation({
+    summary: "获取待审核申请",
+    description: "获取专题的待审核申请列表（仅所有者或管理员可用）",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回待审核申请列表" })
+  async getPendingApplications(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.collaboratorService.getPendingApplications(id, userId);
+  }
+
+  /**
+   * 审核申请
+   */
+  @Post("topics/:topicId/applications/:applicationId/review")
+  @ApiOperation({
+    summary: "审核申请",
+    description: "通过或拒绝加入申请（仅所有者或管理员可用）",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "applicationId", description: "申请ID" })
+  @ApiResponse({ status: 200, description: "审核完成" })
+  async reviewApplication(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+    @Param("applicationId") applicationId: string,
+    @Body() dto: ReviewApplicationDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.collaboratorService.reviewApplication(
+      topicId,
+      applicationId,
+      userId,
+      dto.decision,
+      dto.reason,
+    );
+  }
+
+  /**
+   * 检查当前用户的申请状态
+   */
+  @Get("topics/:id/my-application")
+  @ApiOperation({
+    summary: "获取我的申请状态",
+    description: "检查当前用户是否已申请该专题，以及申请状态",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回申请状态" })
+  async getMyApplicationStatus(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.collaboratorService.getMyApplicationStatus(id, userId);
   }
 
   // ==================== Credibility Report (Phase 2.2) ====================
