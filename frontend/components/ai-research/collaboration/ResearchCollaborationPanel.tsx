@@ -889,6 +889,7 @@ export function ResearchCollaborationPanel({
           todoId={selectedTodoId}
           initialTodo={selectedTodo}
           onClose={handleCloseDetail}
+          wsEvents={wsEvents}
           className="w-1/2"
         />
       )}

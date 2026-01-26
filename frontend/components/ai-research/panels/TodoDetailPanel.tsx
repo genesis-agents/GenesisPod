@@ -229,6 +229,13 @@ function ToolUsageSummary({ sr }: { sr: SearchResultsMetadata }) {
   );
 }
 
+// ★ WebSocket事件类型
+interface WsEvent {
+  type: string;
+  data: unknown;
+  timestamp: string;
+}
+
 interface TodoDetailPanelProps {
   topicId: string;
   todoId: string;
@@ -236,6 +243,8 @@ interface TodoDetailPanelProps {
   initialTodo?: ResearchTodo;
   onClose: () => void;
   className?: string;
+  /** ★ WebSocket事件，用于实时进度同步 */
+  wsEvents?: WsEvent[];
 }
 
 // ★ 搜索结果详情展示组件
@@ -426,6 +435,7 @@ export function TodoDetailPanel({
   initialTodo,
   onClose,
   className,
+  wsEvents,
 }: TodoDetailPanelProps) {
   const [todo, setTodo] = useState<ResearchTodo | null>(initialTodo || null);
   const [activities, setActivities] = useState<AgentActivity[]>([]);
@@ -439,6 +449,44 @@ export function TodoDetailPanel({
   // 整个对象作为依赖会导致每次父组件渲染时 useEffect 都重新执行
   const initialTodoId = initialTodo?.id;
   const initialTodoTopicId = initialTodo?.topicId;
+
+  // ★ 从WebSocket事件中提取实时进度（与左侧面板使用同一数据源）
+  const realtimeProgress = useMemo(() => {
+    if (!wsEvents || !todo) return undefined;
+
+    let progress: number | undefined;
+    const dimensionNameLower = todo.dimensionName?.toLowerCase().trim();
+
+    // 遍历所有事件，获取最新的进度（后面的事件覆盖前面的）
+    for (const event of wsEvents) {
+      if (
+        event.type === 'dimension:research_progress' ||
+        event.type === 'task:progress'
+      ) {
+        const data = event.data as {
+          taskId?: string;
+          progress?: number;
+          dimensionName?: string;
+        };
+
+        // 按 taskId 匹配
+        if (data.taskId === todoId && typeof data.progress === 'number') {
+          progress = data.progress;
+        }
+
+        // 按 dimensionName 匹配
+        if (
+          dimensionNameLower &&
+          data.dimensionName?.toLowerCase().trim() === dimensionNameLower &&
+          typeof data.progress === 'number'
+        ) {
+          progress = data.progress;
+        }
+      }
+    }
+
+    return progress;
+  }, [wsEvents, todoId, todo?.dimensionName]);
 
   useEffect(() => {
     // 如果已有 initialTodo，先设置基础数据
@@ -654,22 +702,25 @@ export function TodoDetailPanel({
             >
               {STATUS_LABELS[todo.status]}
             </span>
-            {todo.progress > 0 && todo.progress < 100 && (
-              <span className="text-xs text-muted-foreground">
-                {todo.progress}%
-              </span>
-            )}
+            {/* ★ 使用实时进度（优先）或todo.progress */}
+            {(realtimeProgress ?? todo.progress) > 0 &&
+              (realtimeProgress ?? todo.progress) < 100 && (
+                <span className="text-xs text-muted-foreground">
+                  {realtimeProgress ?? todo.progress}%
+                </span>
+              )}
           </div>
 
-          {/* Progress bar */}
-          {todo.progress > 0 && todo.progress < 100 && (
-            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-              <div
-                className="h-full bg-blue-500 transition-all duration-300"
-                style={{ width: `${todo.progress}%` }}
-              />
-            </div>
-          )}
+          {/* Progress bar - 使用实时进度 */}
+          {(realtimeProgress ?? todo.progress) > 0 &&
+            (realtimeProgress ?? todo.progress) < 100 && (
+              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                <div
+                  className="h-full bg-blue-500 transition-all duration-300"
+                  style={{ width: `${realtimeProgress ?? todo.progress}%` }}
+                />
+              </div>
+            )}
 
           {todo.statusMessage && todo.status !== 'FAILED' && (
             <p className="text-xs text-muted-foreground">
