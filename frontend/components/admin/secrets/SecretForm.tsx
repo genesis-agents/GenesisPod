@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Key, Save } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { X, Key, Save, Info } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import {
   Secret,
@@ -9,6 +9,9 @@ import {
   CreateSecretDto,
   UpdateSecretDto,
 } from '@/hooks/domain/useAdminSecrets';
+
+// 支持多密钥输入的分类（如搜索工具的 API Key）
+const MULTI_KEY_CATEGORIES: SecretCategory[] = ['SEARCH'];
 
 // Category keys for i18n lookup
 const CATEGORY_KEYS: { value: SecretCategory; key: string }[] = [
@@ -58,6 +61,29 @@ export function SecretForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // 判断当前分类是否支持多密钥
+  const isMultiKeyCategory = MULTI_KEY_CATEGORIES.includes(formData.category);
+
+  // 计算输入的密钥数量（支持逗号分隔或换行分隔）
+  const keyCount = useMemo(() => {
+    if (!formData.value.trim()) return 0;
+    // 先按换行分割，再按逗号分割，过滤空值
+    const keys = formData.value
+      .split(/[\n,]/)
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
+    return keys.length;
+  }, [formData.value]);
+
+  // 处理多密钥保存时的格式转换（换行转逗号）
+  const normalizeMultiKeys = (value: string): string => {
+    return value
+      .split(/[\n,]/)
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0)
+      .join(',');
+  };
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
@@ -83,6 +109,11 @@ export function SecretForm({
     e.preventDefault();
     if (!validate()) return;
 
+    // 如果是多密钥分类，将换行格式转为逗号分隔
+    const finalValue = isMultiKeyCategory
+      ? normalizeMultiKeys(formData.value)
+      : formData.value;
+
     if (isEditing) {
       const updateData: UpdateSecretDto = {
         displayName: formData.displayName,
@@ -91,15 +122,15 @@ export function SecretForm({
         provider: formData.provider || undefined,
         isActive: formData.isActive,
       };
-      if (formData.value.trim()) {
-        updateData.value = formData.value;
+      if (finalValue.trim()) {
+        updateData.value = finalValue;
       }
       await onSubmit(updateData);
     } else {
       await onSubmit({
         name: formData.name,
         displayName: formData.displayName,
-        value: formData.value,
+        value: finalValue,
         category: formData.category,
         description: formData.description || undefined,
         provider: formData.provider || undefined,
@@ -191,21 +222,54 @@ export function SecretForm({
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               密钥值 {!isEditing && <span className="text-red-500">*</span>}
+              {isMultiKeyCategory && keyCount > 0 && (
+                <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-normal text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                  {keyCount} 个密钥
+                </span>
+              )}
             </label>
-            <input
-              type="password"
-              value={formData.value}
-              autoComplete="new-password"
-              onChange={(e) =>
-                setFormData({ ...formData, value: e.target.value })
-              }
-              placeholder={isEditing ? '留空则不修改' : '输入密钥值'}
-              className={`w-full rounded-lg border bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
-                errors.value
-                  ? 'border-red-500'
-                  : 'border-gray-300 dark:border-gray-600'
-              }`}
-            />
+            {isMultiKeyCategory ? (
+              <>
+                <textarea
+                  value={formData.value}
+                  onChange={(e) =>
+                    setFormData({ ...formData, value: e.target.value })
+                  }
+                  placeholder={
+                    isEditing
+                      ? '留空则不修改\n每行一个密钥，或用逗号分隔'
+                      : '每行一个密钥，或用逗号分隔\n例如:\ntvly-xxxxxxxxxxxx\ntvly-yyyyyyyyyyyy'
+                  }
+                  rows={4}
+                  className={`font-mono w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
+                    errors.value
+                      ? 'border-red-500'
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                />
+                <div className="mt-1 flex items-start gap-1 text-xs text-gray-500">
+                  <Info className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                  <span>
+                    支持多个密钥轮换使用，当一个密钥配额耗尽时自动切换到下一个
+                  </span>
+                </div>
+              </>
+            ) : (
+              <input
+                type="password"
+                value={formData.value}
+                autoComplete="new-password"
+                onChange={(e) =>
+                  setFormData({ ...formData, value: e.target.value })
+                }
+                placeholder={isEditing ? '留空则不修改' : '输入密钥值'}
+                className={`w-full rounded-lg border bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
+                  errors.value
+                    ? 'border-red-500'
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}
+              />
+            )}
             {errors.value && (
               <p className="mt-1 text-sm text-red-500">{errors.value}</p>
             )}
