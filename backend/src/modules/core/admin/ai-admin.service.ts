@@ -184,10 +184,6 @@ import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
 import { SkillLoaderService } from "../../ai-engine/skills/loader/skill-loader.service";
 import { MCPManager } from "../../ai-engine/mcp/manager/mcp-manager";
 import { SecretsService } from "../secrets/secrets.service";
-import {
-  SearchService,
-  KeyHealthStatus,
-} from "../../ai-engine/search/search.service";
 
 /**
  * AI 能力管理服务
@@ -231,7 +227,6 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     private readonly skillLoaderService: SkillLoaderService,
     private readonly mcpManager: MCPManager,
     private readonly secretsService: SecretsService,
-    private readonly searchService: SearchService,
   ) {}
 
   /**
@@ -808,43 +803,6 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     };
 
     return { tools: diagnostics, summary };
-  }
-
-  /**
-   * ★ 获取工具的 API Key 健康状态
-   * 用于 Admin UI 显示多 Key 配置的健康状况
-   *
-   * @param toolId - 工具 ID (如 'tavily', 'serper', 'web-search')
-   * @returns 密钥健康状态列表
-   */
-  async getToolKeyHealth(toolId: string): Promise<KeyHealthStatus[]> {
-    // 工具 ID 到搜索 Provider 的映射
-    const toolToProvider: Record<string, "tavily" | "serper"> = {
-      tavily: "tavily",
-      "tavily-search": "tavily",
-      serper: "serper",
-      "serper-search": "serper",
-      "web-search": "tavily", // web-search 默认使用 tavily
-    };
-
-    const provider = toolToProvider[toolId];
-
-    if (!provider) {
-      this.logger.debug(
-        `[KeyHealth] Tool ${toolId} does not support multi-key health tracking`,
-      );
-      // 返回空数组，前端会根据工具类型判断是否支持多密钥
-      return [];
-    }
-
-    try {
-      return await this.searchService.getKeyHealthStatus(provider);
-    } catch (error) {
-      this.logger.error(
-        `[KeyHealth] Failed to get health for tool ${toolId}: ${error instanceof Error ? error.message : error}`,
-      );
-      return [];
-    }
   }
 
   /**

@@ -2196,7 +2196,6 @@
         "keySource": "API Key Source",
         "secretManager": "Secret Manager",
         "directInput": "Direct Input",
-        "multiKey": "Multi-Key",
         "selectSecret": "Select Secret",
         "noSecretsAvailable": "No secrets available",
         "addSecretsHint": "Add secrets in Secret Management first",
@@ -2210,21 +2209,6 @@
         "pricing": "Pricing",
         "cancel": "Cancel",
         "save": "Save"
-      },
-      "multiKey": {
-        "title": "API Keys",
-        "rotationHint": "Multiple keys rotate automatically",
-        "addKey": "Add Key",
-        "removeKey": "Remove",
-        "keyPlaceholder": "Enter API key",
-        "healthy": "Healthy",
-        "unhealthy": "Failed",
-        "cooldown": "Cooldown",
-        "cooldownUntil": "Cooldown until",
-        "minLeft": "m",
-        "new": "New",
-        "keyCount": "{count} keys configured",
-        "refresh": "Refresh"
       },
       "tabs": {
         "builtin": "Built-in Tools",

@@ -246,34 +246,6 @@ export class AIAdminController {
     return this.aiAdminService.testTool(toolId, body.input);
   }
 
-  @Get("tools/:toolId/key-health")
-  @ApiOperation({
-    summary: "获取工具的 API Key 健康状态",
-    description: "返回工具配置的多个 API Key 的健康状态，用于显示轮换配置情况",
-  })
-  @ApiParam({ name: "toolId", description: "工具 ID (如 tavily, serper)" })
-  @ApiResponse({
-    status: 200,
-    description: "返回密钥健康状态列表",
-    schema: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          index: { type: "number", description: "密钥序号" },
-          maskedKey: { type: "string", description: "脱敏显示的密钥" },
-          isHealthy: { type: "boolean", description: "是否健康" },
-          lastError: { type: "string", description: "最近错误码" },
-          cooldownUntil: { type: "string", description: "冷却结束时间 ISO" },
-        },
-      },
-    },
-  })
-  async getToolKeyHealth(@Param("toolId") toolId: string) {
-    this.logger.log(`Admin: Getting key health for tool ${toolId}`);
-    return this.aiAdminService.getToolKeyHealth(toolId);
-  }
-
   @Get("tools/diagnose")
   @ApiOperation({
     summary: "诊断所有工具健康状态",

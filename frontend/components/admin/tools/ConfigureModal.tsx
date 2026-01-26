@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import {
   CheckCircle,
@@ -12,11 +12,7 @@ import {
   Lock,
   Key,
   X,
-  Layers,
 } from 'lucide-react';
-import { ApiKeyList } from './ApiKeyList';
-import { useKeyHealth } from '@/hooks/domain';
-import { isMultiKeyTool } from '@/types/admin';
 
 interface Tool {
   id: string;
@@ -68,28 +64,12 @@ export default function ConfigureModal({
   const { t } = useTranslation();
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [keySourceMode, setKeySourceMode] = useState<
-    'direct' | 'secret' | 'multi'
-  >(tool.secretKey ? 'secret' : 'direct');
+  const [keySourceMode, setKeySourceMode] = useState<'direct' | 'secret'>(
+    tool.secretKey ? 'secret' : 'direct'
+  );
   const [selectedSecretKey, setSelectedSecretKey] = useState<string | null>(
     tool.secretKey || null
   );
-
-  // Multi-key support
-  const supportsMultiKey = isMultiKeyTool(tool.id);
-  const [multiKeys, setMultiKeys] = useState<string[]>(['']);
-
-  // 使用 useMemo 缓存工具 ID，避免频繁重渲染
-  const healthToolId = useMemo(
-    () => (supportsMultiKey && keySourceMode === 'multi' ? tool.id : null),
-    [supportsMultiKey, keySourceMode, tool.id]
-  );
-
-  const {
-    keyHealth,
-    refetch: refetchKeyHealth,
-    isLoading: isLoadingHealth,
-  } = useKeyHealth(healthToolId, { immediate: keySourceMode === 'multi' });
 
   // Filter secrets by tool category
   const secretCategory = CATEGORY_TO_SECRET_CATEGORY[tool.category];
@@ -112,24 +92,13 @@ export default function ConfigureModal({
     e.preventDefault();
     if (keySourceMode === 'secret') {
       await onSave(tool.id, '', selectedSecretKey);
-    } else if (keySourceMode === 'multi') {
-      // 合并多个 Key 为逗号分隔格式
-      const validKeys = multiKeys.filter((k) => k.trim() !== '');
-      const combinedKeys = validKeys.join(',');
-      await onSave(tool.id, combinedKeys, null);
     } else {
       await onSave(tool.id, apiKey, null);
     }
     setApiKey('');
-    setMultiKeys(['']);
   };
 
-  const canSubmit =
-    keySourceMode === 'secret'
-      ? !!selectedSecretKey
-      : keySourceMode === 'multi'
-        ? multiKeys.some((k) => k.trim() !== '')
-        : !!apiKey;
+  const canSubmit = keySourceMode === 'secret' ? !!selectedSecretKey : !!apiKey;
 
   return (
     <div
@@ -215,20 +184,6 @@ export default function ConfigureModal({
                       <Key className="h-4 w-4" />
                       {t('admin.tools.modal.directInput')}
                     </button>
-                    {supportsMultiKey && (
-                      <button
-                        type="button"
-                        onClick={() => setKeySourceMode('multi')}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                          keySourceMode === 'multi'
-                            ? 'bg-white text-blue-600 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        <Layers className="h-4 w-4" />
-                        {t('admin.tools.modal.multiKey')}
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -339,31 +294,6 @@ export default function ConfigureModal({
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        {t('admin.tools.modal.getApiKey')}
-                      </a>
-                    )}
-                  </div>
-                )}
-
-                {/* Multi-Key Input */}
-                {keySourceMode === 'multi' && supportsMultiKey && (
-                  <div>
-                    <ApiKeyList
-                      keys={multiKeys}
-                      onChange={setMultiKeys}
-                      keyHealth={keyHealth}
-                      placeholder={t('admin.tools.multiKey.keyPlaceholder')}
-                      onRefreshHealth={refetchKeyHealth}
-                      isRefreshing={isLoadingHealth}
-                    />
-                    {tool.url && (
-                      <a
-                        href={tool.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-3 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
                       >
                         <ExternalLink className="h-3 w-3" />
                         {t('admin.tools.modal.getApiKey')}

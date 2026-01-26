@@ -62,19 +62,10 @@ const FAILOVER_STATUS_CODES = [401, 429, 432, 500, 502, 503, 504];
 /** 搜索提供商优先级顺序 */
 type SearchProvider = "tavily" | "serper" | "duckduckgo";
 
-/** API Key 健康状态（内部使用） */
+/** API Key 健康状态 */
 interface KeyHealth {
   failedAt: number;
   errorCode: number;
-}
-
-/** API Key 健康状态（公开 API 返回格式） */
-export interface KeyHealthStatus {
-  index: number;
-  maskedKey: string;
-  isHealthy: boolean;
-  lastError?: string;
-  cooldownUntil?: string;
 }
 
 /** Key 冷却时间（毫秒）- 失败后多久重试 */
@@ -161,81 +152,6 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         `[Search] Cleaned up ${cleanedCount} expired health records`,
       );
     }
-  }
-
-  /**
-   * ★ 获取搜索 Provider 的 Key 健康状态
-   * 用于 Admin UI 显示多 Key 配置的健康状况
-   *
-   * @param provider - 搜索提供商 (tavily, serper)
-   * @returns 密钥健康状态列表
-   */
-  async getKeyHealthStatus(
-    provider: "tavily" | "serper",
-  ): Promise<KeyHealthStatus[]> {
-    try {
-      const config = await this.getSearchConfig();
-      const keys =
-        provider === "tavily" ? config.tavilyKeys : config.serperKeys;
-
-      // 处理空配置情况
-      if (keys.length === 0) {
-        this.logger.debug(
-          `[KeyHealth] No keys configured for provider: ${provider}`,
-        );
-        return [];
-      }
-
-      const now = Date.now();
-
-      return keys.map((key, index) => {
-        const healthKey = this.getKeyHash(provider, key);
-        const health = this.keyHealthMap.get(healthKey);
-
-        // 生成脱敏显示的 Key (前4位 + **** + 后3位)
-        const maskedKey = this.getMaskedKeyForDisplay(key);
-
-        if (!health) {
-          // 从未失败过
-          return {
-            index,
-            maskedKey,
-            isHealthy: true,
-          };
-        }
-
-        const isCoolingDown = now - health.failedAt < KEY_COOLDOWN_MS;
-
-        return {
-          index,
-          maskedKey,
-          isHealthy: !isCoolingDown,
-          lastError: `HTTP ${health.errorCode}`,
-          cooldownUntil: isCoolingDown
-            ? new Date(health.failedAt + KEY_COOLDOWN_MS).toISOString()
-            : undefined,
-        };
-      });
-    } catch (error) {
-      this.logger.error(
-        `[KeyHealth] Failed to get health status for ${provider}: ${error instanceof Error ? error.message : error}`,
-      );
-      // 返回空数组而非抛出异常，避免前端崩溃
-      return [];
-    }
-  }
-
-  /**
-   * 生成用于显示的脱敏 Key
-   * 格式: 前缀-前4位****后3位 (如 tvly-abcd****xyz)
-   */
-  private getMaskedKeyForDisplay(key: string): string {
-    if (key.length <= 8) {
-      return "****";
-    }
-    const prefix = key.substring(0, 4);
-    const suffix = key.substring(key.length - 3);
-    return `${prefix}****${suffix}`;
   }
 
   /**
