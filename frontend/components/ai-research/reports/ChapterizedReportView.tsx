@@ -26,13 +26,17 @@ import {
   splitTextIntoSegments,
   type Annotation as PreprocessorAnnotation,
 } from '@/lib/annotation';
-import { AnnotatedText, useScrollToAnnotation } from '../annotations/AnnotatedText';
+import {
+  AnnotatedText,
+  useScrollToAnnotation,
+} from '../annotations/AnnotatedText';
 import type { AIEditOperation } from '../types';
 import type {
   TopicReport,
   TopicDimension,
   TopicEvidence,
 } from '@/types/topic-research';
+import { ReportChartRenderer } from '../charts/ReportChartRenderer';
 
 // Initialize Turndown for HTML to Markdown conversion
 const turndownService = new TurndownService({
@@ -1208,6 +1212,33 @@ function ChapterizedReportViewInner({
             </button>
           ))}
         </div>
+
+        {/* Charts Section - 报告图表 */}
+        {report?.charts && report.charts.length > 0 && (
+          <div className="mt-6 border-t border-gray-100 pt-6">
+            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <svg
+                className="h-5 w-5 text-blue-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+              数据可视化
+            </h3>
+            <div className="grid gap-4">
+              {report.charts.map((chart, idx) => (
+                <ReportChartRenderer key={chart.id || idx} chart={chart} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
