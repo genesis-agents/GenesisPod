@@ -11,6 +11,11 @@
     "edit": "Edit",
     "create": "Create",
     "search": "Search",
+    "execute": "Execute",
+    "pause": "Pause",
+    "resume": "Resume",
+    "start": "Start",
+    "stop": "Stop",
     "filter": "Filter",
     "refresh": "Refresh",
     "back": "Back",
@@ -3038,7 +3043,240 @@
       "done": "Done",
       "fetchFailed": "Failed to fetch sharing settings",
       "updateVisibilityFailed": "Failed to update visibility",
-      "operationFailed": "Operation failed"
+      "operationFailed": "Operation failed",
+      "readOnlyHint": "You are a read-only collaborator and cannot edit this topic"
+    },
+    "feedbackLoop": {
+      "title": "Feedback Loop",
+      "description": "Manage research feedback, AI analysis and knowledge distillation"
+    },
+    "status": {
+      "pending": "Pending",
+      "queued": "Queued",
+      "researching": "Researching",
+      "reviewing": "Reviewing",
+      "paused": "Paused",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "inProgress": "In Progress",
+      "unknown": "Unknown",
+      "idle": "Idle",
+      "planning": "Planning",
+      "executing": "Executing",
+      "synthesizing": "Synthesizing"
+    },
+    "roles": {
+      "researcher": "Researcher",
+      "reviewer": "Reviewer",
+      "writer": "Writer",
+      "leader": "Coordinator"
+    },
+    "eventTypes": {
+      "start": "Start",
+      "progress": "In Progress",
+      "complete": "Complete",
+      "error": "Error",
+      "decision": "Decision"
+    },
+    "thinkingPhases": {
+      "understanding": "Understanding",
+      "searching": "Searching",
+      "writing": "Writing",
+      "reviewing": "Reviewing",
+      "integrating": "Integrating"
+    },
+    "qualityLevels": {
+      "excellent": "Excellent",
+      "good": "Good",
+      "acceptable": "Acceptable",
+      "needsRevision": "Needs Revision",
+      "rejected": "Rejected"
+    },
+    "scoreDimensions": {
+      "breadth": "Breadth",
+      "depth": "Depth",
+      "evidence": "Evidence",
+      "coherence": "Coherence",
+      "currency": "Currency"
+    },
+    "issueSeverity": {
+      "critical": "Critical",
+      "important": "Important",
+      "minor": "Minor"
+    },
+    "visibility": {
+      "private": "Private",
+      "team": "Team",
+      "public": "Public"
+    },
+    "researchTypes": {
+      "macro": "Macro Insights",
+      "technology": "Tech Trends",
+      "company": "Company Tracking"
+    },
+    "changeTypes": {
+      "added": "Added",
+      "modified": "Modified",
+      "deleted": "Deleted"
+    },
+    "editOperations": {
+      "rewrite": "Rewrite",
+      "polish": "Polish",
+      "expand": "Expand",
+      "compress": "Compress"
+    },
+    "highlightColors": {
+      "yellow": "Yellow",
+      "green": "Green",
+      "blue": "Blue",
+      "pink": "Pink",
+      "purple": "Purple"
+    },
+    "responseTypes": {
+      "directAnswer": "Direct Answer",
+      "createTask": "Create Task",
+      "needClarification": "Need Clarification",
+      "acknowledged": "Acknowledged"
+    },
+    "credibilityLevels": {
+      "unrated": "Unrated",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "sourceTypes": {
+      "government": "Government/Official",
+      "academic": "Academic Research",
+      "industry": "Industry Reports",
+      "news": "News Media",
+      "blog": "Blog/Other"
+    },
+    "trendDirections": {
+      "up": "Rising",
+      "stable": "Stable",
+      "down": "Declining"
+    },
+    "annotationFilters": {
+      "all": "All",
+      "active": "Active",
+      "resolved": "Resolved"
+    },
+    "common": {
+      "you": "You",
+      "default": "Default",
+      "totalTasks": "{{count}} tasks total",
+      "overallProgress": "Overall Progress",
+      "readOnlyMode": "Read Only Mode",
+      "working": "Working",
+      "dateUnknown": "Date Unknown",
+      "loadingActivities": "Loading agent activities...",
+      "totalActivities": "{{count}} activities total",
+      "assignTo": "Assign to...",
+      "reviewProgress": "Review Progress",
+      "chaptersRejected": "{{count}} chapters rejected",
+      "action": "Action",
+      "progress": "Progress",
+      "taskAssignment": "Review Task Assignment",
+      "taskProgress": "Tasks: {{completed}}/{{total}} completed",
+      "taskProgressLabel": "Task Progress",
+      "taskProgressValue": "{{completed}}/{{total}} completed",
+      "noTasks": "No tasks",
+      "executing": "Executing...",
+      "phase": "Phase",
+      "start": "Start",
+      "update": "Update",
+      "cancel": "Cancel",
+      "needEditPermission": "Edit permission required",
+      "waitingForLeader": "Waiting for Leader Planning",
+      "clickStartHint": "Click \"Start Research\" and Leader will analyze the task and assign researchers",
+      "responsibilities": "Responsibilities",
+      "skills": "Skills",
+      "assignedSkills": "Assigned Skills",
+      "capabilityRange": "Capability Range",
+      "assignedTools": "Assigned Tools",
+      "configMethod": "Configuration",
+      "aiModel": "AI Model",
+      "notSpecified": "Not Specified",
+      "pendingAssignment": "Pending Leader Assignment",
+      "completed": "Completed",
+      "failed": "Failed",
+      "inProgress": "In Progress",
+      "needsRevision": "Needs Revision",
+      "pendingProcess": "Pending"
+    },
+    "workingStatus": {
+      "researching": "Researching",
+      "reviewing": "Reviewing",
+      "revising": "Revising",
+      "integrating": "Integrating"
+    },
+    "progressStage": {
+      "collecting": "Collecting",
+      "planning": "Planning",
+      "researching": "Researching",
+      "integrating": "Integrating"
+    },
+    "agentNames": {
+      "leader": "Leader",
+      "researcher": "Researcher",
+      "reviewer": "Reviewer",
+      "synthesizer": "Synthesizer",
+      "qualityReviewer": "Quality Reviewer",
+      "reportWriter": "Report Writer",
+      "researcherIndex": "Researcher {{index}}"
+    },
+    "agentDescriptions": {
+      "leader": "Responsible for planning research outline, assigning tasks to researchers, reviewing quality, and integrating final results",
+      "researcher": "Responsible for in-depth research on specific dimensions, collecting evidence, and writing analysis",
+      "reviewer": "Responsible for reviewing research content accuracy, completeness, and consistency",
+      "synthesizer": "Responsible for integrating research results from all dimensions and writing the final comprehensive report",
+      "default": "AI Research Assistant"
+    },
+    "agentCapabilities": {
+      "leader": "Smart Planning,Task Coordination,Quality Control,Result Integration",
+      "researcher": "Information Retrieval,Content Analysis,Report Writing",
+      "reviewer": "Quality Review,Consistency Check,Accuracy Verification",
+      "synthesizer": "Content Integration,Report Generation,Format Optimization",
+      "default": "Research,Analysis"
+    },
+    "agentNotes": {
+      "leader": "Uses reasoning model for advanced decisions",
+      "worker": "Leader assigns model and tools based on task"
+    },
+    "errors": {
+      "confirmDelete": "Are you sure you want to delete {{count}} selected items? This action cannot be undone.",
+      "batchDeleteFailed": "Batch delete failed, please try again",
+      "messageSendFailed": "Sorry, failed to send message. Please try again later.",
+      "regenerateReportFailed": "Failed to regenerate report, please try again later",
+      "confirmCancelTask": "Are you sure you want to cancel this task?",
+      "startResearchFailed": "Failed to start research",
+      "pleaseStartResearchFirst": "Please start a research task first"
+    },
+    "chart": {
+      "dataIncomplete": "Chart data incomplete",
+      "missingChartType": "Missing chart type",
+      "missingChartData": "Missing chart data",
+      "cannotRender": "Cannot render chart",
+      "missingRequiredData": "Missing required data (image URL or chart data)"
+    },
+    "filters": {
+      "all": "All",
+      "byCredibility": "By Credibility",
+      "byDate": "By Date",
+      "bySource": "By Source"
+    },
+    "topicCard": {
+      "clickToSetPrivate": "Click to set private",
+      "clickToSetPublic": "Click to set public",
+      "shareToSocial": "Share to social media",
+      "editTopic": "Edit topic",
+      "deleteTopic": "Delete topic",
+      "clickToShare": "Click to configure sharing",
+      "reports": "{{count}} reports",
+      "sources": "{{count}} sources",
+      "dimensionProgress": "Dimension Progress",
+      "lastRefresh": "Last refresh"
     }
   }
 }

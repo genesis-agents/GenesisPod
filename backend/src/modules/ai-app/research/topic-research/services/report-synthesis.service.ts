@@ -2,7 +2,10 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
-import { sanitizeMarkdownContent } from "@/common/utils/sanitize-content.utils";
+import {
+  sanitizeMarkdownContent,
+  sanitizeAllStrings,
+} from "@/common/utils/sanitize-content.utils";
 import { AIModelType, Prisma } from "@prisma/client";
 import type {
   ResearchTopic,
@@ -451,6 +454,7 @@ export class ReportSynthesisService {
   /**
    * 准备维度分析输入
    * ★ 包含 figureReferences 和 generatedCharts
+   * ★ 对所有内容字段进行清理，移除下划线等格式问题
    */
   private prepareDimensionInputs(
     dimensionAnalyses: Array<
@@ -490,7 +494,8 @@ export class ReportSynthesisService {
           evidenceIds: string[];
         }>) || [];
 
-      return {
+      // ★ 构建原始输入
+      const rawInput: DimensionAnalysisInput = {
         dimensionId: da.dimensionId,
         dimensionName: da.dimension.name,
         dimensionDescription: da.dimension.description,
@@ -505,6 +510,9 @@ export class ReportSynthesisService {
         figureReferences: dataPoints?.figureReferences || [],
         generatedCharts: dataPoints?.generatedCharts || [],
       };
+
+      // ★ 清理所有文本内容，移除下划线等格式问题
+      return sanitizeAllStrings(rawInput);
     });
   }
 

@@ -6,6 +6,7 @@
 
 import type { ResearchTopic } from '@/types/topic-research';
 import { ResearchTopicType, DimensionStatus } from '@/types/topic-research';
+import { useTranslation } from '@/lib/i18n';
 import { ApplicationButton } from './ApplicationButton';
 
 interface TopicCardProps {
@@ -168,30 +169,32 @@ const GlobeIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Visibility config
-const visibilityConfig = {
+// Visibility config factory
+const getVisibilityConfig = (t: (key: string) => string) => ({
   PRIVATE: {
-    label: '私有',
+    label: t('topicResearch.visibility.private'),
     icon: <LockClosedIcon className="h-3 w-3" />,
     color: 'bg-gray-100 text-gray-600',
   },
   SHARED: {
-    label: '团队',
+    label: t('topicResearch.visibility.team'),
     icon: <UsersIcon className="h-3 w-3" />,
     color: 'bg-blue-100 text-blue-600',
   },
   PUBLIC: {
-    label: '公开',
+    label: t('topicResearch.visibility.public'),
     icon: <GlobeIcon className="h-3 w-3" />,
     color: 'bg-green-100 text-green-600',
   },
-};
+});
 
-// Topic type icons and colors
-const topicTypeConfig: Record<
+// Topic type icons and colors factory
+const getTopicTypeConfig = (
+  t: (key: string) => string
+): Record<
   ResearchTopicType,
   { icon: React.ReactNode; gradient: string; label: string }
-> = {
+> => ({
   [ResearchTopicType.MACRO]: {
     icon: (
       <svg
@@ -209,7 +212,7 @@ const topicTypeConfig: Record<
       </svg>
     ),
     gradient: 'from-blue-500 to-cyan-600',
-    label: '宏观洞察',
+    label: t('topicResearch.researchTypes.macro'),
   },
   [ResearchTopicType.TECHNOLOGY]: {
     icon: (
@@ -228,7 +231,7 @@ const topicTypeConfig: Record<
       </svg>
     ),
     gradient: 'from-purple-500 to-pink-600',
-    label: '技术趋势',
+    label: t('topicResearch.researchTypes.technology'),
   },
   [ResearchTopicType.COMPANY]: {
     icon: (
@@ -247,9 +250,9 @@ const topicTypeConfig: Record<
       </svg>
     ),
     gradient: 'from-emerald-500 to-teal-600',
-    label: '企业追踪',
+    label: t('topicResearch.researchTypes.company'),
   },
-};
+});
 
 export function TopicCard({
   topic,
@@ -262,6 +265,10 @@ export function TopicCard({
   onVisibilityChange,
   onCopyLink,
 }: TopicCardProps) {
+  const { t } = useTranslation();
+  const visibilityConfig = getVisibilityConfig(t);
+  const topicTypeConfig = getTopicTypeConfig(t);
+
   // ★ 判断是否是自己的专题
   const isOwnTopic = currentUserId && topic.userId === currentUserId;
   // ★ 判断是否显示申请加入按钮：非自己的 SHARED/PUBLIC 专题
@@ -277,7 +284,7 @@ export function TopicCard({
     onShare(); // 打开共享设置弹窗
   };
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '从未';
+    if (!dateStr) return t('topicResearch.never');
     const date = new Date(dateStr);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -287,12 +294,12 @@ export function TopicCard({
       const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
       if (diffHours === 0) {
         const diffMins = Math.floor(diffMs / (1000 * 60));
-        return `${diffMins} 分钟前`;
+        return t('topicResearch.minutesAgo', { count: diffMins });
       }
-      return `${diffHours} 小时前`;
+      return t('topicResearch.hoursAgo', { count: diffHours });
     }
-    if (diffDays === 1) return '昨天';
-    if (diffDays < 7) return `${diffDays} 天前`;
+    if (diffDays === 1) return t('topicResearch.yesterday');
+    if (diffDays < 7) return t('topicResearch.daysAgo', { count: diffDays });
     return date.toLocaleDateString('zh-CN');
   };
 
@@ -333,7 +340,9 @@ export function TopicCard({
                   : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
               }`}
               title={
-                topic.visibility === 'PUBLIC' ? '点击设为私有' : '点击设为公开'
+                topic.visibility === 'PUBLIC'
+                  ? t('topicResearch.topicCard.clickToSetPrivate')
+                  : t('topicResearch.topicCard.clickToSetPublic')
               }
             >
               {topic.visibility === 'PUBLIC' ? (
@@ -351,7 +360,7 @@ export function TopicCard({
                 onShareToSocial();
               }}
               className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-cyan-50 hover:text-cyan-600"
-              title="分享到社交媒体"
+              title={t('topicResearch.topicCard.shareToSocial')}
             >
               <ShareIcon className="h-4 w-4" />
             </button>
@@ -364,7 +373,7 @@ export function TopicCard({
                 onEdit();
               }}
               className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-blue-50 hover:text-blue-600"
-              title="编辑专题"
+              title={t('topicResearch.topicCard.editTopic')}
             >
               <EditIcon className="h-4 w-4" />
             </button>
@@ -376,7 +385,7 @@ export function TopicCard({
               onDelete();
             }}
             className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm transition-colors hover:bg-red-50 hover:text-red-600"
-            title="删除专题"
+            title={t('topicResearch.topicCard.deleteTopic')}
           >
             <TrashIcon className="h-4 w-4" />
           </button>
@@ -410,7 +419,7 @@ export function TopicCard({
                     ? 'hover:ring-blue-300'
                     : 'hover:ring-green-300'
               }`}
-              title="点击设置共享"
+              title={t('topicResearch.topicCard.clickToShare')}
             >
               {visibilityConfig[topic.visibility]?.icon}
               {visibilityConfig[topic.visibility]?.label}
@@ -438,11 +447,19 @@ export function TopicCard({
       <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">
         <div className="flex items-center gap-1">
           <FileTextIcon className="h-3.5 w-3.5" />
-          <span>{topic.totalReports} 份报告</span>
+          <span>
+            {t('topicResearch.topicCard.reports', {
+              count: topic.totalReports,
+            })}
+          </span>
         </div>
         <div className="flex items-center gap-1">
           <LinkIcon className="h-3.5 w-3.5" />
-          <span>{topic.totalSources} 个来源</span>
+          <span>
+            {t('topicResearch.topicCard.sources', {
+              count: topic.totalSources,
+            })}
+          </span>
         </div>
       </div>
 
@@ -450,7 +467,7 @@ export function TopicCard({
       {totalDimensions > 0 && (
         <div className="mt-3">
           <div className="flex items-center justify-between text-xs text-gray-500">
-            <span>维度完成度</span>
+            <span>{t('topicResearch.topicCard.dimensionProgress')}</span>
             <span>
               {completedDimensions}/{totalDimensions}
             </span>
@@ -470,7 +487,10 @@ export function TopicCard({
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center gap-1 text-xs text-gray-400">
           <ClockIcon className="h-3 w-3" />
-          <span>上次刷新: {formatDate(topic.lastRefreshAt)}</span>
+          <span>
+            {t('topicResearch.topicCard.lastRefresh')}:{' '}
+            {formatDate(topic.lastRefreshAt)}
+          </span>
         </div>
 
         {/* ★ 申请加入按钮 - 仅对非自己的 SHARED/PUBLIC 专题显示 */}

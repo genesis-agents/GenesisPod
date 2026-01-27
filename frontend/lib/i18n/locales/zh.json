@@ -11,6 +11,11 @@
     "edit": "编辑",
     "create": "创建",
     "search": "搜索",
+    "execute": "执行",
+    "pause": "暂停",
+    "resume": "继续",
+    "start": "开始",
+    "stop": "停止",
     "filter": "筛选",
     "refresh": "刷新",
     "back": "返回",
@@ -3028,7 +3033,240 @@
       "done": "完成",
       "fetchFailed": "获取共享设置失败",
       "updateVisibilityFailed": "更新可见性失败",
-      "operationFailed": "操作失败"
+      "operationFailed": "操作失败",
+      "readOnlyHint": "您是只读协作者，无法编辑此专题"
+    },
+    "feedbackLoop": {
+      "title": "反馈闭环",
+      "description": "管理研究报告反馈，进行 AI 分析和知识沉淀"
+    },
+    "status": {
+      "pending": "待处理",
+      "queued": "队列中",
+      "researching": "研究中",
+      "reviewing": "审核中",
+      "paused": "已暂停",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "inProgress": "进行中",
+      "unknown": "未知",
+      "idle": "待研究",
+      "planning": "规划中",
+      "executing": "执行中",
+      "synthesizing": "撰写中"
+    },
+    "roles": {
+      "researcher": "研究员",
+      "reviewer": "审核员",
+      "writer": "撰写员",
+      "leader": "协调员"
+    },
+    "eventTypes": {
+      "start": "开始",
+      "progress": "进行中",
+      "complete": "完成",
+      "error": "错误",
+      "decision": "决策"
+    },
+    "thinkingPhases": {
+      "understanding": "理解",
+      "searching": "搜索",
+      "writing": "撰写",
+      "reviewing": "审核",
+      "integrating": "整合"
+    },
+    "qualityLevels": {
+      "excellent": "优秀",
+      "good": "良好",
+      "acceptable": "可接受",
+      "needsRevision": "需修订",
+      "rejected": "拒绝"
+    },
+    "scoreDimensions": {
+      "breadth": "广度",
+      "depth": "深度",
+      "evidence": "证据",
+      "coherence": "连贯",
+      "currency": "时效"
+    },
+    "issueSeverity": {
+      "critical": "严重",
+      "important": "重要",
+      "minor": "次要"
+    },
+    "visibility": {
+      "private": "私有",
+      "team": "团队",
+      "public": "公开"
+    },
+    "researchTypes": {
+      "macro": "宏观洞察",
+      "technology": "技术趋势",
+      "company": "企业追踪"
+    },
+    "changeTypes": {
+      "added": "新增",
+      "modified": "修改",
+      "deleted": "删除"
+    },
+    "editOperations": {
+      "rewrite": "重写",
+      "polish": "润色",
+      "expand": "扩展",
+      "compress": "精简"
+    },
+    "highlightColors": {
+      "yellow": "黄色",
+      "green": "绿色",
+      "blue": "蓝色",
+      "pink": "粉色",
+      "purple": "紫色"
+    },
+    "responseTypes": {
+      "directAnswer": "直接回答",
+      "createTask": "创建任务",
+      "needClarification": "需要澄清",
+      "acknowledged": "已了解"
+    },
+    "credibilityLevels": {
+      "unrated": "未评估",
+      "high": "高可信",
+      "medium": "中可信",
+      "low": "低可信"
+    },
+    "sourceTypes": {
+      "government": "政府/官方",
+      "academic": "学术研究",
+      "industry": "行业报告",
+      "news": "新闻媒体",
+      "blog": "博客/其他"
+    },
+    "trendDirections": {
+      "up": "上升",
+      "stable": "稳定",
+      "down": "下降"
+    },
+    "annotationFilters": {
+      "all": "全部",
+      "active": "待处理",
+      "resolved": "已解决"
+    },
+    "common": {
+      "you": "你",
+      "default": "默认",
+      "totalTasks": "共 {{count}} 个任务",
+      "overallProgress": "整体进度",
+      "readOnlyMode": "只读模式",
+      "working": "工作中",
+      "dateUnknown": "日期未知",
+      "loadingActivities": "加载Agent活动...",
+      "totalActivities": "共 {{count}} 个活动",
+      "assignTo": "分配给...",
+      "reviewProgress": "审核进度",
+      "chaptersRejected": "有 {{count}} 个章节未通过审核",
+      "action": "行动",
+      "progress": "进度",
+      "taskAssignment": "审核任务分配",
+      "taskProgress": "任务: {{completed}}/{{total}} 完成",
+      "taskProgressLabel": "任务进度",
+      "taskProgressValue": "{{completed}}/{{total}} 完成",
+      "noTasks": "暂无任务",
+      "executing": "正在执行...",
+      "phase": "阶段",
+      "start": "开始",
+      "update": "更新",
+      "cancel": "取消",
+      "needEditPermission": "需要编辑权限",
+      "waitingForLeader": "等待 Leader 规划",
+      "clickStartHint": "点击\"开始研究\"后，Leader 将分析任务并分配研究员",
+      "responsibilities": "职责",
+      "skills": "技能",
+      "assignedSkills": "分配的技能",
+      "capabilityRange": "能力范围",
+      "assignedTools": "分配的工具",
+      "configMethod": "配置方式",
+      "aiModel": "AI 模型",
+      "notSpecified": "未指定",
+      "pendingAssignment": "待 Leader 分配",
+      "completed": "完成",
+      "failed": "失败",
+      "inProgress": "执行中",
+      "needsRevision": "待修订",
+      "pendingProcess": "待处理"
+    },
+    "workingStatus": {
+      "researching": "研究中",
+      "reviewing": "审核中",
+      "revising": "修订中",
+      "integrating": "整合中"
+    },
+    "progressStage": {
+      "collecting": "收集中",
+      "planning": "规划中",
+      "researching": "研究中",
+      "integrating": "整合中"
+    },
+    "agentNames": {
+      "leader": "Leader",
+      "researcher": "研究员",
+      "reviewer": "审核员",
+      "synthesizer": "撰写者",
+      "qualityReviewer": "质量审核员",
+      "reportWriter": "报告撰写者",
+      "researcherIndex": "研究员 {{index}}"
+    },
+    "agentDescriptions": {
+      "leader": "负责规划研究大纲、分配任务给研究员、审核研究质量、整合最终结果",
+      "researcher": "负责深入研究特定维度，收集证据，撰写分析内容",
+      "reviewer": "负责审核研究内容的准确性、完整性和一致性",
+      "synthesizer": "负责整合各维度研究结果，撰写最终综合报告",
+      "default": "AI 研究助手"
+    },
+    "agentCapabilities": {
+      "leader": "智能规划,任务协调,质量把控,结果整合",
+      "researcher": "信息检索,内容分析,报告撰写",
+      "reviewer": "质量审核,一致性检查,准确性验证",
+      "synthesizer": "内容整合,报告生成,格式优化",
+      "default": "研究,分析"
+    },
+    "agentNotes": {
+      "leader": "使用推理模型进行高级决策",
+      "worker": "Leader 根据任务分配模型和工具"
+    },
+    "errors": {
+      "confirmDelete": "确定要删除选中的 {{count}} 个资料吗？此操作无法撤销。",
+      "batchDeleteFailed": "批量删除失败，请重试",
+      "messageSendFailed": "抱歉，消息发送失败。请稍后重试。",
+      "regenerateReportFailed": "重新生成报告失败，请稍后重试",
+      "confirmCancelTask": "确定要取消这个任务吗？",
+      "startResearchFailed": "研究启动失败",
+      "pleaseStartResearchFirst": "请先启动研究任务"
+    },
+    "chart": {
+      "dataIncomplete": "图表数据不完整",
+      "missingChartType": "缺少图表类型",
+      "missingChartData": "缺少图表数据",
+      "cannotRender": "无法渲染图表",
+      "missingRequiredData": "缺少必要的数据（图片URL或图表数据）"
+    },
+    "filters": {
+      "all": "全部",
+      "byCredibility": "按可信度",
+      "byDate": "按日期",
+      "bySource": "按来源"
+    },
+    "topicCard": {
+      "clickToSetPrivate": "点击设为私有",
+      "clickToSetPublic": "点击设为公开",
+      "shareToSocial": "分享到社交媒体",
+      "editTopic": "编辑专题",
+      "deleteTopic": "删除专题",
+      "clickToShare": "点击设置共享",
+      "reports": "{{count}} 份报告",
+      "sources": "{{count}} 个来源",
+      "dimensionProgress": "维度完成度",
+      "lastRefresh": "上次刷新"
     }
   }
 }

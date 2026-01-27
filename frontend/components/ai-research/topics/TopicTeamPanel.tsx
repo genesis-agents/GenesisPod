@@ -10,6 +10,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { useTranslation } from '@/lib/i18n';
 import type {
   MissionStatus,
   TaskStatus,
@@ -62,117 +63,107 @@ interface ResearchAgent {
   name: string;
   status: 'idle' | 'working' | 'completed' | 'error';
   /** ★ 具体工作状态：研究中、审核中、修订中、整合中 */
-  workingStatus?: '研究中' | '审核中' | '修订中' | '整合中';
+  workingStatus?: string;
   taskCount: number;
   completedCount: number;
 }
 
-// Agent 显示信息
-const AGENT_DISPLAY: Record<
+// Agent icon and color mapping (name will be translated)
+const AGENT_ICON_MAP: Record<
   ResearchAgentRole,
-  { name: string; icon: string; color: string }
+  { icon: string; color: string }
 > = {
-  leader: { name: 'Leader', icon: '👑', color: 'purple' },
-  researcher: { name: '研究员', icon: '🔍', color: 'blue' },
-  reviewer: { name: '审核员', icon: '✅', color: 'green' },
-  synthesizer: { name: '撰写者', icon: '📝', color: 'orange' },
+  leader: { icon: '👑', color: 'purple' },
+  researcher: { icon: '🔍', color: 'blue' },
+  reviewer: { icon: '✅', color: 'green' },
+  synthesizer: { icon: '📝', color: 'orange' },
 };
 
 // ★ 默认显示信息，用于未知角色
-const DEFAULT_AGENT_DISPLAY = { name: 'Agent', icon: '🤖', color: 'gray' };
+const DEFAULT_AGENT_ICON = { icon: '🤖', color: 'gray' };
 
-// ★ 安全获取 Agent 显示信息
-function getAgentDisplay(role: string): {
-  name: string;
-  icon: string;
-  color: string;
-} {
-  // 尝试直接匹配
-  if (role in AGENT_DISPLAY) {
-    return AGENT_DISPLAY[role as ResearchAgentRole];
-  }
-  // 尝试小写匹配
-  const lowerRole = role.toLowerCase();
-  if (lowerRole in AGENT_DISPLAY) {
-    return AGENT_DISPLAY[lowerRole as ResearchAgentRole];
-  }
-  return DEFAULT_AGENT_DISPLAY;
-}
+// Agent 显示信息工厂函数
+const getAgentDisplayFactory = (t: (key: string) => string) => {
+  return (role: string): { name: string; icon: string; color: string } => {
+    const roleKey = role.toLowerCase() as ResearchAgentRole;
+    const iconInfo = AGENT_ICON_MAP[roleKey] || DEFAULT_AGENT_ICON;
+    const nameKey = `topicResearch.agentNames.${roleKey}`;
+    return {
+      name: t(nameKey) || role,
+      ...iconInfo,
+    };
+  };
+};
 
-// Agent 角色详细信息
+// Agent 角色详细信息工厂函数
 // ★ v8.0: 技能和工具由 Leader 根据任务动态分配，这里显示的是角色的能力范围
-const AGENT_ROLE_INFO: Record<
-  ResearchAgentRole,
-  { description: string; capabilities: string[]; note: string }
-> = {
-  leader: {
-    description:
-      '负责规划研究大纲、分配任务给研究员、审核研究质量、整合最终结果',
-    capabilities: ['智能规划', '任务协调', '质量把控', '结果整合'],
-    note: '使用推理模型进行高级决策',
-  },
-  researcher: {
-    description: '负责深入研究特定维度，收集证据，撰写分析内容',
-    capabilities: ['信息检索', '内容分析', '报告撰写'],
-    note: 'Leader 根据任务分配模型和工具',
-  },
-  reviewer: {
-    description: '负责审核研究内容的准确性、完整性和一致性',
-    capabilities: ['质量审核', '一致性检查', '准确性验证'],
-    note: 'Leader 根据任务分配模型和工具',
-  },
-  synthesizer: {
-    description: '负责整合各维度研究结果，撰写最终综合报告',
-    capabilities: ['内容整合', '报告生成', '格式优化'],
-    note: 'Leader 根据任务分配模型和工具',
-  },
+const getAgentRoleInfoFactory = (t: (key: string) => string) => {
+  return (
+    role: string
+  ): { description: string; capabilities: string[]; note: string } => {
+    const roleKey = role.toLowerCase() as ResearchAgentRole;
+    const validRoles: ResearchAgentRole[] = [
+      'leader',
+      'researcher',
+      'reviewer',
+      'synthesizer',
+    ];
+
+    // Helper to parse comma-separated capabilities string into array
+    const parseCapabilities = (capStr: string): string[] => {
+      return capStr
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    };
+
+    if (validRoles.includes(roleKey)) {
+      return {
+        description: t(`topicResearch.agentDescriptions.${roleKey}`),
+        capabilities: parseCapabilities(
+          t(`topicResearch.agentCapabilities.${roleKey}`)
+        ),
+        note:
+          roleKey === 'leader'
+            ? t('topicResearch.agentNotes.leader')
+            : t('topicResearch.agentNotes.worker'),
+      };
+    }
+
+    return {
+      description: t('topicResearch.agentDescriptions.default'),
+      capabilities: parseCapabilities(
+        t('topicResearch.agentCapabilities.default')
+      ),
+      note: t('topicResearch.agentNotes.worker'),
+    };
+  };
 };
 
-// ★ 默认角色详细信息
-const DEFAULT_AGENT_ROLE_INFO = {
-  description: 'AI 研究助手',
-  capabilities: ['研究', '分析'],
-  note: 'Leader 根据任务分配模型和工具',
-};
-
-// ★ 安全获取角色详细信息
-function getAgentRoleInfo(role: string): {
-  description: string;
-  capabilities: string[];
-  note: string;
-} {
-  if (role in AGENT_ROLE_INFO) {
-    return AGENT_ROLE_INFO[role as ResearchAgentRole];
-  }
-  const lowerRole = role.toLowerCase();
-  if (lowerRole in AGENT_ROLE_INFO) {
-    return AGENT_ROLE_INFO[lowerRole as ResearchAgentRole];
-  }
-  return DEFAULT_AGENT_ROLE_INFO;
-}
-
-// Phase display mapping
-const phaseDisplay: Record<string, string> = {
-  idle: '待研究',
-  unknown: '待研究',
-  planning: '规划中',
-  PLANNING: '规划中',
-  researching: '研究中',
-  RESEARCHING: '研究中',
-  EXECUTING: '执行中',
-  reviewing: '审核中',
-  REVIEWING: '审核中',
-  synthesizing: '撰写中',
-  SYNTHESIZING: '撰写中',
-  completed: '已完成',
-  COMPLETED: '已完成',
-  failed: '失败',
-  FAILED: '失败',
-  paused: '已暂停',
-  PAUSED: '已暂停',
-  cancelled: '已取消',
-  CANCELLED: '已取消',
-};
+// Phase display mapping factory
+const getPhaseDisplay = (
+  t: (key: string) => string
+): Record<string, string> => ({
+  idle: t('topicResearch.status.idle'),
+  unknown: t('topicResearch.status.idle'),
+  planning: t('topicResearch.status.planning'),
+  PLANNING: t('topicResearch.status.planning'),
+  researching: t('topicResearch.status.researching'),
+  RESEARCHING: t('topicResearch.status.researching'),
+  EXECUTING: t('topicResearch.status.executing'),
+  reviewing: t('topicResearch.status.reviewing'),
+  REVIEWING: t('topicResearch.status.reviewing'),
+  synthesizing: t('topicResearch.status.synthesizing'),
+  SYNTHESIZING: t('topicResearch.status.synthesizing'),
+  completed: t('topicResearch.status.completed'),
+  COMPLETED: t('topicResearch.status.completed'),
+  failed: t('topicResearch.status.failed'),
+  FAILED: t('topicResearch.status.failed'),
+  paused: t('topicResearch.status.paused'),
+  PAUSED: t('topicResearch.status.paused'),
+  cancelled: t('topicResearch.status.cancelled'),
+  CANCELLED: t('topicResearch.status.cancelled'),
+});
 
 // 状态图标映射
 const statusIcons: Record<string, string> = {
@@ -204,6 +195,10 @@ export function TopicTeamPanel({
   canEdit = true,
   teamInfo,
 }: TopicTeamPanelProps) {
+  const { t } = useTranslation();
+  const phaseDisplay = useMemo(() => getPhaseDisplay(t), [t]);
+  const getAgentDisplay = useMemo(() => getAgentDisplayFactory(t), [t]);
+  const getAgentRoleInfo = useMemo(() => getAgentRoleInfoFactory(t), [t]);
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
@@ -316,16 +311,18 @@ export function TopicTeamPanel({
         assignedTasks.every((t) => t.status === 'COMPLETED');
 
       // ★ 确定具体工作状态
-      let workingStatus: '研究中' | '审核中' | '修订中' | '整合中' | undefined;
+      let workingStatus: string | undefined;
       if (hasExecuting) {
-        workingStatus = '研究中';
+        workingStatus = t('topicResearch.workingStatus.researching');
       } else if (hasNeedsRevision) {
-        workingStatus = '修订中';
+        workingStatus = t('topicResearch.workingStatus.revising');
       }
 
       // ★ 从 agentId 提取更友好的名称
       // agentId 格式如: researcher_美国AI政策洞察_1737xxx 或 researcher_strategy_governance
-      let displayName = assignment?.role || `研究员 ${i + 1}`;
+      let displayName =
+        assignment?.role ||
+        t('topicResearch.agentNames.researcherIndex', { index: i + 1 });
       if (!assignment?.role && agentId.startsWith('researcher_')) {
         const parts = agentId.replace('researcher_', '').split('_');
         // 取第一个有意义的部分作为名称，移除时间戳
@@ -355,35 +352,47 @@ export function TopicTeamPanel({
 
     // 审核员
     if (reviewTasks.length > 0) {
-      const hasExecuting = reviewTasks.some((t) => t.status === 'EXECUTING');
-      const allCompleted = reviewTasks.every((t) => t.status === 'COMPLETED');
+      const hasExecuting = reviewTasks.some(
+        (task) => task.status === 'EXECUTING'
+      );
+      const allCompleted = reviewTasks.every(
+        (task) => task.status === 'COMPLETED'
+      );
       agentList.push({
         id: 'reviewer',
         role: 'reviewer',
-        name: '质量审核员',
+        name: t('topicResearch.agentNames.qualityReviewer'),
         status: hasExecuting ? 'working' : allCompleted ? 'completed' : 'idle',
-        workingStatus: hasExecuting ? '审核中' : undefined,
+        workingStatus: hasExecuting
+          ? t('topicResearch.workingStatus.reviewing')
+          : undefined,
         taskCount: reviewTasks.length,
-        completedCount: reviewTasks.filter((t) => t.status === 'COMPLETED')
-          .length,
+        completedCount: reviewTasks.filter(
+          (task) => task.status === 'COMPLETED'
+        ).length,
       });
     }
 
     // 撰写者
     if (synthesisTasks.length > 0) {
-      const hasExecuting = synthesisTasks.some((t) => t.status === 'EXECUTING');
+      const hasExecuting = synthesisTasks.some(
+        (task) => task.status === 'EXECUTING'
+      );
       const allCompleted = synthesisTasks.every(
-        (t) => t.status === 'COMPLETED'
+        (task) => task.status === 'COMPLETED'
       );
       agentList.push({
         id: 'synthesizer',
         role: 'synthesizer',
-        name: '报告撰写者',
+        name: t('topicResearch.agentNames.reportWriter'),
         status: hasExecuting ? 'working' : allCompleted ? 'completed' : 'idle',
-        workingStatus: hasExecuting ? '整合中' : undefined,
+        workingStatus: hasExecuting
+          ? t('topicResearch.workingStatus.integrating')
+          : undefined,
         taskCount: synthesisTasks.length,
-        completedCount: synthesisTasks.filter((t) => t.status === 'COMPLETED')
-          .length,
+        completedCount: synthesisTasks.filter(
+          (task) => task.status === 'COMPLETED'
+        ).length,
       });
     }
 
@@ -484,7 +493,9 @@ export function TopicTeamPanel({
             {stats.failed > 0 && (
               <span className="text-red-600">❌ {stats.failed}</span>
             )}
-            <span className="text-gray-400">共 {stats.total} 个任务</span>
+            <span className="text-gray-400">
+              {t('topicResearch.common.totalTasks', { count: stats.total })}
+            </span>
           </div>
         )}
 
@@ -503,7 +514,7 @@ export function TopicTeamPanel({
             />
           </div>
           <div className="mt-1 flex justify-between text-xs text-gray-400">
-            <span>整体进度</span>
+            <span>{t('topicResearch.common.overallProgress')}</span>
             <span>{Math.round(stats.progress)}%</span>
           </div>
         </div>
@@ -521,6 +532,8 @@ export function TopicTeamPanel({
           onSelect={setSelectedAgent}
           teamInfo={teamInfo}
           missionStatus={missionStatus}
+          getAgentDisplay={getAgentDisplay}
+          getAgentRoleInfo={getAgentRoleInfo}
         />
       </div>
 
@@ -530,10 +543,10 @@ export function TopicTeamPanel({
           <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
             <div className="mb-3 text-3xl">👑</div>
             <p className="text-sm font-medium text-gray-700">
-              等待 Leader 规划
+              {t('topicResearch.common.waitingForLeader')}
             </p>
             <p className="mt-1 text-xs text-gray-500">
-              点击"开始研究"后，Leader 将分析任务并分配研究员
+              {t('topicResearch.common.clickStartHint')}
             </p>
           </div>
         ) : (
@@ -566,7 +579,8 @@ export function TopicTeamPanel({
       <div className="border-t border-gray-100 px-4 py-2">
         <div className="mb-2 flex items-center justify-between text-xs">
           <span className="text-gray-500">
-            阶段: {phaseDisplay[currentPhase] || currentPhase}
+            {t('topicResearch.common.phase')}:{' '}
+            {phaseDisplay[currentPhase] || currentPhase}
           </span>
           {/* ★ 统一使用 currentPhase 显示状态，与上方保持一致 */}
           <span
@@ -602,15 +616,15 @@ export function TopicTeamPanel({
               'reviewing',
               'REVIEWING',
             ].includes(currentPhase)
-              ? '进行中'
+              ? t('topicResearch.status.inProgress')
               : missionStatus &&
                   ['PAUSED', 'CANCELLED'].includes(missionStatus.status || '')
-                ? '已暂停'
+                ? t('topicResearch.status.paused')
                 : currentPhase === 'completed'
-                  ? '已完成'
+                  ? t('topicResearch.status.completed')
                   : currentPhase === 'failed'
-                    ? '失败'
-                    : '空闲'}
+                    ? t('topicResearch.status.failed')
+                    : t('topicResearch.status.idle')}
           </span>
         </div>
 
@@ -619,10 +633,12 @@ export function TopicTeamPanel({
           <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             <div className="mb-1 flex items-center gap-2 font-medium">
               <span>⚠️</span>
-              <span>研究启动失败</span>
+              <span>{t('topicResearch.errors.startResearchFailed')}</span>
             </div>
             <p className="text-xs text-red-600">
-              {typeof error === 'string' ? error : '研究启动失败'}
+              {typeof error === 'string'
+                ? error
+                : t('topicResearch.errors.startResearchFailed')}
             </p>
           </div>
         )}
@@ -631,8 +647,10 @@ export function TopicTeamPanel({
         {/* ★ 权限提示：没有编辑权限时显示提示 */}
         {!canEdit && (
           <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            <span className="font-medium">只读模式</span> -
-            只有创建者才能运行研究任务
+            <span className="font-medium">
+              {t('topicResearch.common.readOnlyMode')}
+            </span>{' '}
+            -{t('topicResearch.sharing.readOnlyHint')}
           </div>
         )}
         <div className="grid grid-cols-3 gap-2">
@@ -640,7 +658,11 @@ export function TopicTeamPanel({
           <button
             onClick={onStartRefresh}
             disabled={isMissionActive || !canEdit}
-            title={!canEdit ? '需要编辑权限' : undefined}
+            title={
+              !canEdit
+                ? t('topicResearch.common.needEditPermission')
+                : undefined
+            }
             className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
               isMissionActive || !canEdit
                 ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
@@ -648,14 +670,18 @@ export function TopicTeamPanel({
             }`}
           >
             <span>▶</span>
-            开始
+            {t('topicResearch.common.start')}
           </button>
 
           {/* 更新按钮 - 在现有基础上更新 */}
           <button
             onClick={onContinueRefresh}
             disabled={isMissionActive || !missionStatus || !canEdit}
-            title={!canEdit ? '需要编辑权限' : undefined}
+            title={
+              !canEdit
+                ? t('topicResearch.common.needEditPermission')
+                : undefined
+            }
             className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
               isMissionActive || !missionStatus || !canEdit
                 ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
@@ -663,14 +689,18 @@ export function TopicTeamPanel({
             }`}
           >
             <span>🔄</span>
-            更新
+            {t('topicResearch.common.update')}
           </button>
 
           {/* 取消按钮 - 停止当前任务 */}
           <button
             onClick={onCancelRefresh}
             disabled={!isMissionActive || !canEdit}
-            title={!canEdit ? '需要编辑权限' : undefined}
+            title={
+              !canEdit
+                ? t('topicResearch.common.needEditPermission')
+                : undefined
+            }
             className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
               !isMissionActive || !canEdit
                 ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
@@ -678,7 +708,7 @@ export function TopicTeamPanel({
             }`}
           >
             <span>⏹</span>
-            取消
+            {t('topicResearch.common.cancel')}
           </button>
         </div>
       </div>
@@ -699,6 +729,8 @@ function TeamCanvasView({
   onSelect,
   teamInfo,
   missionStatus,
+  getAgentDisplay,
+  getAgentRoleInfo,
 }: {
   agents: ResearchAgent[];
   currentPhase: string;
@@ -709,7 +741,18 @@ function TeamCanvasView({
   onSelect: (id: string | null) => void;
   teamInfo?: TeamInfo | null;
   missionStatus?: MissionStatus | null;
+  getAgentDisplay: (role: string) => {
+    name: string;
+    icon: string;
+    color: string;
+  };
+  getAgentRoleInfo: (role: string) => {
+    description: string;
+    capabilities: string[];
+    note: string;
+  };
 }) {
+  const { t } = useTranslation();
   const canvasSize = { width: 320, height: 200 };
 
   // 计算节点位置
@@ -995,15 +1038,15 @@ function TeamCanvasView({
         </div>
         <div className="flex items-center gap-1">
           <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500"></div>
-          <span>工作中</span>
+          <span>{t('topicResearch.common.working')}</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="h-2 w-2 rounded-full bg-green-500"></div>
-          <span>完成</span>
+          <span>{t('topicResearch.status.completed')}</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="h-2 w-2 rounded-full bg-gray-400"></div>
-          <span>空闲</span>
+          <span>{t('topicResearch.status.idle')}</span>
         </div>
       </div>
 
@@ -1034,11 +1077,16 @@ function TeamCanvasView({
                 </div>
                 <div className="mt-0.5 text-gray-500">
                   {agent.taskCount > 0
-                    ? `任务: ${agent.completedCount}/${agent.taskCount} 完成`
-                    : '暂无任务'}
+                    ? t('topicResearch.common.taskProgress', {
+                        completed: agent.completedCount,
+                        total: agent.taskCount,
+                      })
+                    : t('topicResearch.common.noTasks')}
                 </div>
                 {agent.status === 'working' && (
-                  <div className="mt-0.5 text-blue-600">正在执行...</div>
+                  <div className="mt-0.5 text-blue-600">
+                    {t('topicResearch.common.executing')}
+                  </div>
                 )}
               </div>
             </div>
@@ -1089,12 +1137,12 @@ function TeamCanvasView({
                           }`}
                         >
                           {agent.status === 'working'
-                            ? '工作中'
+                            ? t('topicResearch.common.working')
                             : agent.status === 'completed'
-                              ? '已完成'
+                              ? t('topicResearch.status.completed')
                               : agent.status === 'error'
-                                ? '出错'
-                                : '空闲'}
+                                ? t('common.error')
+                                : t('topicResearch.status.idle')}
                         </span>
                       </div>
                     </div>
@@ -1119,13 +1167,18 @@ function TeamCanvasView({
                   </button>
                 </div>
 
-                {/* 任务进度 */}
+                {/* Task Progress */}
                 {agent.taskCount > 0 && (
                   <div className="mb-3 rounded-lg bg-gray-50 px-3 py-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">任务进度</span>
+                      <span className="text-gray-500">
+                        {t('topicResearch.common.taskProgressLabel')}
+                      </span>
                       <span className="font-medium text-gray-700">
-                        {agent.completedCount}/{agent.taskCount} 完成
+                        {t('topicResearch.common.taskProgressValue', {
+                          completed: agent.completedCount,
+                          total: agent.taskCount,
+                        })}
                       </span>
                     </div>
                     <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-200">
@@ -1146,7 +1199,7 @@ function TeamCanvasView({
                 {/* 职责描述 */}
                 <div className="mb-3">
                   <div className="mb-1 text-xs font-medium text-gray-500">
-                    📋 职责
+                    📋 {t('topicResearch.common.responsibilities')}
                   </div>
                   <p className="text-sm text-gray-700">
                     {roleInfo.description}
@@ -1173,7 +1226,10 @@ function TeamCanvasView({
                       {/* 技能 */}
                       <div className="mb-3">
                         <div className="mb-1.5 text-xs font-medium text-gray-500">
-                          🎯 {hasRealData ? '分配的技能' : '能力范围'}
+                          🎯{' '}
+                          {hasRealData
+                            ? t('topicResearch.common.assignedSkills')
+                            : t('topicResearch.common.capabilityRange')}
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {realSkills ? (
@@ -1199,7 +1255,7 @@ function TeamCanvasView({
                             )
                           ) : (
                             <span className="italic text-gray-400">
-                              待 Leader 分配
+                              {t('topicResearch.common.pendingAssignment')}
                             </span>
                           )}
                         </div>
@@ -1209,7 +1265,7 @@ function TeamCanvasView({
                       {hasRealData && realTools && realTools.length > 0 && (
                         <div className="mb-3">
                           <div className="mb-1.5 text-xs font-medium text-gray-500">
-                            🔧 分配的工具
+                            🔧 {t('topicResearch.common.assignedTools')}
                           </div>
                           <div className="flex flex-wrap gap-1.5">
                             {realTools.map((tool: string, i: number) => (
@@ -1228,7 +1284,7 @@ function TeamCanvasView({
                       {!hasRealData && (
                         <div className="mb-3">
                           <div className="mb-1.5 text-xs font-medium text-gray-500">
-                            ⚙️ 配置方式
+                            ⚙️ {t('topicResearch.common.configMethod')}
                           </div>
                           <p className="text-xs italic text-gray-600">
                             {roleInfo.note}
@@ -1242,12 +1298,13 @@ function TeamCanvasView({
                 {/* ★ AI 模型 - 显示 Agent 实际使用的模型 */}
                 <div>
                   <div className="mb-1.5 text-xs font-medium text-gray-500">
-                    🤖 AI 模型
+                    🤖 {t('topicResearch.common.aiModel')}
                   </div>
                   <div className="rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 px-3 py-2">
                     {agent.role === 'leader' ? (
                       <span className="font-mono text-sm font-medium text-indigo-700">
-                        {teamInfo?.leaderModel || '未指定'}
+                        {teamInfo?.leaderModel ||
+                          t('topicResearch.common.notSpecified')}
                       </span>
                     ) : (
                       (() => {
@@ -1295,7 +1352,7 @@ function TeamCanvasView({
                         if (models.length === 0) {
                           return (
                             <span className="font-mono text-sm text-gray-400">
-                              未指定
+                              {t('topicResearch.common.notSpecified')}
                             </span>
                           );
                         }
@@ -1345,6 +1402,7 @@ function getProgressStage(progress: number): string {
 }
 
 function TaskItem({ task }: { task: TaskStatus }) {
+  const { t } = useTranslation();
   const icon = statusIcons[task.status] || '⏳';
   const colorClass = statusColors[task.status] || statusColors.PENDING;
 
@@ -1371,14 +1429,14 @@ function TaskItem({ task }: { task: TaskStatus }) {
       {/* 状态标签（不显示具体进度） */}
       <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${colorClass}`}>
         {task.status === 'COMPLETED'
-          ? '完成'
+          ? t('topicResearch.common.completed')
           : task.status === 'FAILED'
-            ? '失败'
+            ? t('topicResearch.common.failed')
             : task.status === 'EXECUTING'
-              ? '执行中'
+              ? t('topicResearch.common.inProgress')
               : task.status === 'NEEDS_REVISION'
-                ? '待修订'
-                : '待处理'}
+                ? t('topicResearch.common.needsRevision')
+                : t('topicResearch.common.pendingProcess')}
       </span>
     </div>
   );

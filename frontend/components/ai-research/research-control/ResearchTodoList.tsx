@@ -20,6 +20,7 @@ import {
   Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { useTranslation } from '@/lib/i18n';
 import {
   ResearchTodo,
   ResearchTodoStatus,
@@ -50,59 +51,62 @@ interface ResearchTodoListProps {
 
 // ==================== Constants ====================
 
-const STATUS_CONFIG: Record<
+// Status config factory - returns config with translated labels
+const getStatusConfig = (
+  t: (key: string) => string
+): Record<
   ResearchTodoStatus,
   { label: string; icon: React.ReactNode; color: string; bgColor: string }
-> = {
+> => ({
   [ResearchTodoStatus.PENDING]: {
-    label: '待处理',
+    label: t('topicResearch.status.pending'),
     icon: <Circle className="h-3 w-3" />,
     color: 'text-gray-500',
     bgColor: 'bg-gray-100',
   },
   [ResearchTodoStatus.QUEUED]: {
-    label: '队列中',
+    label: t('topicResearch.status.queued'),
     icon: <Clock className="h-3 w-3" />,
     color: 'text-yellow-600',
     bgColor: 'bg-yellow-50',
   },
   [ResearchTodoStatus.IN_PROGRESS]: {
-    label: '研究中',
+    label: t('topicResearch.status.researching'),
     icon: <Loader2 className="h-3 w-3 animate-spin" />,
     color: 'text-blue-600',
     bgColor: 'bg-blue-50',
   },
   [ResearchTodoStatus.REVIEWING]: {
-    label: '审核中',
+    label: t('topicResearch.status.reviewing'),
     icon: <Loader2 className="h-3 w-3 animate-spin" />,
     color: 'text-purple-600',
     bgColor: 'bg-purple-50',
   },
   [ResearchTodoStatus.PAUSED]: {
-    label: '已暂停',
+    label: t('topicResearch.status.paused'),
     icon: <Pause className="h-3 w-3" />,
     color: 'text-orange-600',
     bgColor: 'bg-orange-50',
   },
   [ResearchTodoStatus.COMPLETED]: {
-    label: '已完成',
+    label: t('topicResearch.status.completed'),
     icon: <CheckCircle2 className="h-3 w-3" />,
     color: 'text-green-600',
     bgColor: 'bg-green-50',
   },
   [ResearchTodoStatus.FAILED]: {
-    label: '失败',
+    label: t('topicResearch.status.failed'),
     icon: <X className="h-3 w-3" />,
     color: 'text-red-600',
     bgColor: 'bg-red-50',
   },
   [ResearchTodoStatus.CANCELLED]: {
-    label: '已取消',
+    label: t('topicResearch.status.cancelled'),
     icon: <X className="h-3 w-3" />,
     color: 'text-gray-500',
     bgColor: 'bg-gray-100',
   },
-};
+});
 
 const TYPE_ICONS: Record<ResearchTodoType, string> = {
   [ResearchTodoType.LEADER_PLANNING]: '🧠',
@@ -183,6 +187,8 @@ function StatusBadge({
   status: ResearchTodoStatus;
   progress?: number;
 }) {
+  const { t } = useTranslation();
+  const STATUS_CONFIG = useMemo(() => getStatusConfig(t), [t]);
   const config = STATUS_CONFIG[status];
   const isRunning = status === ResearchTodoStatus.IN_PROGRESS;
   // ★ 修改：研究中状态始终显示进度百分比（即使是 0%）
@@ -221,6 +227,7 @@ function ActionButtons({
   topicId: string;
   onUpdated?: (todo: ResearchTodo) => void;
 }) {
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleAction = async (action: string) => {
@@ -267,7 +274,7 @@ function ActionButtons({
             handleAction('pause');
           }}
           className="rounded p-1 text-orange-500 hover:bg-orange-50"
-          title="暂停"
+          title={t('common.pause')}
         >
           <Pause className="h-3.5 w-3.5" />
         </button>
@@ -279,7 +286,7 @@ function ActionButtons({
             handleAction('resume');
           }}
           className="rounded p-1 text-green-500 hover:bg-green-50"
-          title="继续"
+          title={t('common.resume')}
         >
           <Play className="h-3.5 w-3.5" />
         </button>
@@ -304,10 +311,10 @@ function ActionButtons({
               handleAction('execute');
             }}
             className="flex items-center gap-1 rounded bg-green-500 px-2 py-0.5 text-xs text-white hover:bg-green-600"
-            title="执行"
+            title={t('common.execute')}
           >
             <Play className="h-3 w-3" />
-            执行
+            {t('common.execute')}
           </button>
         )}
       {/* 取消按钮：对于未完成的 USER_REQUEST 任务显示 */}
@@ -318,12 +325,12 @@ function ActionButtons({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm('确定要取消这个任务吗？')) {
+              if (confirm(t('topicResearch.errors.confirmCancelTask'))) {
                 handleAction('cancel');
               }
             }}
             className="rounded p-1 text-red-500 hover:bg-red-50"
-            title="取消"
+            title={t('common.cancel')}
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -343,6 +350,9 @@ export function ResearchTodoList({
   onTodoSelect,
   selectedTodoId,
 }: ResearchTodoListProps) {
+  const { t } = useTranslation();
+  const STATUS_CONFIG = useMemo(() => getStatusConfig(t), [t]);
+
   // 按状态优先级排序
   const sortedTodos = useMemo(() => {
     return [...todos].sort((a, b) => {
