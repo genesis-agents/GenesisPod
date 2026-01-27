@@ -532,6 +532,7 @@ export class DimensionResearchService {
    * 获取来源类型分数 (0-100)
    */
   private getSourceTypeScore(sourceType: string): number {
+    if (!sourceType) return 40;
     const scores: Record<string, number> = {
       academic: 100,
       news: 70,

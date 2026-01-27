@@ -1389,7 +1389,9 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
           }
 
           seenUrls.add(normalizedUrl);
-          seenTitles.set(item.title.toLowerCase(), 0.9);
+          if (item.title) {
+            seenTitles.set(item.title.toLowerCase(), 0.9);
+          }
           allResults.push(item);
         }
       }
@@ -1433,6 +1435,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
     title: string,
     seenTitles: Map<string, number>,
   ): boolean {
+    if (!title) return false;
     const titleLower = title.toLowerCase();
 
     for (const [seenTitle, threshold] of seenTitles.entries()) {
@@ -1449,6 +1452,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
    * 计算标题相似度 (简单的 Jaccard 相似度)
    */
   private calculateTitleSimilarity(title1: string, title2: string): number {
+    if (!title1 || !title2) return 0;
     const words1 = new Set(title1.toLowerCase().split(/\s+/));
     const words2 = new Set(title2.toLowerCase().split(/\s+/));
 
