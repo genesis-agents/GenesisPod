@@ -7,13 +7,27 @@
  * - 删除检查点
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import { useSlidesStore } from '@/stores';
+import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import type { Checkpoint, CheckpointState } from '@/types/slides';
 import { logger } from '@/lib/utils/logger';
 
 const API_BASE = config.apiUrl || '';
+
+/**
+ * Get auth headers for API requests
+ */
+function getAuthHeaders(accessToken: string | null): HeadersInit {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+  return headers;
+}
 
 interface UseCheckpointsOptions {
   onRestoreSuccess?: (checkpointId: string) => void;
@@ -21,8 +35,12 @@ interface UseCheckpointsOptions {
 }
 
 export function useCheckpoints(options: UseCheckpointsOptions = {}) {
+  const { accessToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState(false);
+
+  // Memoize auth headers
+  const authHeaders = useMemo(() => getAuthHeaders(accessToken), [accessToken]);
 
   const {
     session,
@@ -51,7 +69,8 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
 
       try {
         const response = await fetch(
-          `${API_BASE}/ai-office/slides/sessions/${targetSessionId}/checkpoints`
+          `${API_BASE}/ai-office/slides/sessions/${targetSessionId}/checkpoints`,
+          { headers: authHeaders }
         );
 
         if (!response.ok) {
@@ -71,7 +90,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         setCheckpointsLoading(false);
       }
     },
-    [session?.id, setCheckpoints, setCheckpointsLoading, setError]
+    [session?.id, setCheckpoints, setCheckpointsLoading, setError, authHeaders]
   );
 
   /**
@@ -84,7 +103,8 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
       try {
         // 先获取检查点详情
         const detailResponse = await fetch(
-          `${API_BASE}/ai-office/slides/checkpoints/${checkpointId}`
+          `${API_BASE}/ai-office/slides/checkpoints/${checkpointId}`,
+          { headers: authHeaders }
         );
 
         if (!detailResponse.ok) {
@@ -99,7 +119,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         // 调用恢复 API
         const restoreResponse = await fetch(
           `${API_BASE}/ai-office/slides/restore/${checkpointId}`,
-          { method: 'POST' }
+          { method: 'POST', headers: authHeaders }
         );
 
         if (!restoreResponse.ok) {
@@ -145,7 +165,13 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         setRestoring(false);
       }
     },
-    [restoreFromCheckpointState, setCurrentCheckpointId, setError, options]
+    [
+      restoreFromCheckpointState,
+      setCurrentCheckpointId,
+      setError,
+      options,
+      authHeaders,
+    ]
   );
 
   /**
@@ -159,7 +185,8 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
       try {
         // 获取会话详情
         const sessionResponse = await fetch(
-          `${API_BASE}/ai-office/slides/sessions/${sessionId}`
+          `${API_BASE}/ai-office/slides/sessions/${sessionId}`,
+          { headers: authHeaders }
         );
 
         if (!sessionResponse.ok) {
@@ -176,7 +203,8 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
 
         // 获取检查点详情
         const detailResponse = await fetch(
-          `${API_BASE}/ai-office/slides/checkpoints/${sessionData.latestCheckpoint.id}`
+          `${API_BASE}/ai-office/slides/checkpoints/${sessionData.latestCheckpoint.id}`,
+          { headers: authHeaders }
         );
 
         if (!detailResponse.ok) {
@@ -191,7 +219,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         // 调用恢复 API
         const restoreResponse = await fetch(
           `${API_BASE}/ai-office/slides/restore/${sessionData.latestCheckpoint.id}`,
-          { method: 'POST' }
+          { method: 'POST', headers: authHeaders }
         );
 
         if (!restoreResponse.ok) {
@@ -226,7 +254,13 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         setRestoring(false);
       }
     },
-    [restoreFromCheckpointState, setCurrentCheckpointId, setError, options]
+    [
+      restoreFromCheckpointState,
+      setCurrentCheckpointId,
+      setError,
+      options,
+      authHeaders,
+    ]
   );
 
   /**
@@ -242,7 +276,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
       try {
         const response = await fetch(
           `${API_BASE}/ai-office/slides/sessions/${session.id}/prune?keepCount=${keepCount}`,
-          { method: 'POST' }
+          { method: 'POST', headers: authHeaders }
         );
 
         if (!response.ok) {
@@ -264,7 +298,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         return 0;
       }
     },
-    [session?.id, fetchCheckpoints, setError]
+    [session?.id, fetchCheckpoints, setError, authHeaders]
   );
 
   /**
@@ -302,7 +336,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           `${API_BASE}/ai-office/slides/sessions/${session.id}/checkpoints`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders,
             body: JSON.stringify({ name, type: 'user_modified' }),
           }
         );
@@ -319,7 +353,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         setError(errorMessage);
       }
     },
-    [session?.id, fetchCheckpoints, setError]
+    [session?.id, fetchCheckpoints, setError, authHeaders]
   );
 
   return {

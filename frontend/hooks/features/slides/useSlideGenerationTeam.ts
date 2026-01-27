@@ -92,7 +92,7 @@ export function useSlideGenerationTeam(
   options: UseSlideGenerationTeamOptions = {}
 ) {
   const abortControllerRef = useRef<AbortController | null>(null);
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
 
   // Team 状态
   const [teamState, setTeamState] = useState<TeamExecutionState | null>(null);
@@ -789,7 +789,7 @@ export function useSlideGenerationTeam(
       abortControllerRef.current = new AbortController();
 
       try {
-        const url = `${API_BASE}/ai-office/slides/team/generate?userId=${user?.id || 'anonymous'}`;
+        const url = `${API_BASE}/ai-office/slides/team/generate`;
         logger.debug('[Team SSE] Connecting to:', url);
 
         // 使用 fetch 发送 POST 请求并处理 SSE 流
@@ -798,6 +798,7 @@ export function useSlideGenerationTeam(
           headers: {
             'Content-Type': 'application/json',
             Accept: 'text/event-stream',
+            ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
           },
           body: JSON.stringify(request),
           signal: abortControllerRef.current.signal,
@@ -879,6 +880,7 @@ export function useSlideGenerationTeam(
     },
     [
       user?.id,
+      accessToken,
       clearStreamEvents,
       setError,
       setGenerating,

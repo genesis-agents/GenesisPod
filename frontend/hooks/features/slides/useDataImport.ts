@@ -8,9 +8,22 @@
  * - Library resources
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { logger } from '@/lib/utils/logger';
+
+/**
+ * Get auth headers for API requests
+ */
+function getAuthHeaders(accessToken: string | null): HeadersInit {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+  return headers;
+}
 
 // ============================================
 // Types
@@ -100,9 +113,12 @@ export interface SlidesSourceData {
 // ============================================
 
 export function useDataImport() {
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Memoize auth headers
+  const authHeaders = useMemo(() => getAuthHeaders(accessToken), [accessToken]);
 
   // Fetch sources for a specific type
   const fetchSources = useCallback(
@@ -116,9 +132,9 @@ export function useDataImport() {
       setError(null);
 
       try {
-        const response = await fetch(
-          `/api/ai-office/slides/sources/${type}?userId=${user.id}`
-        );
+        const response = await fetch(`/api/ai-office/slides/sources/${type}`, {
+          headers: authHeaders,
+        });
 
         if (!response.ok) {
           throw new Error(`Failed to fetch ${type} sources`);
@@ -136,7 +152,7 @@ export function useDataImport() {
         setLoading(false);
       }
     },
-    [user?.id]
+    [user?.id, authHeaders]
   );
 
   // Import from Research
@@ -152,8 +168,8 @@ export function useDataImport() {
 
       try {
         const response = await fetch(
-          `/api/ai-office/slides/import/research/${topicId}?userId=${user.id}`,
-          { method: 'POST' }
+          `/api/ai-office/slides/import/research/${topicId}`,
+          { method: 'POST', headers: authHeaders }
         );
 
         if (!response.ok) {
@@ -171,7 +187,7 @@ export function useDataImport() {
         setLoading(false);
       }
     },
-    [user?.id]
+    [user?.id, authHeaders]
   );
 
   // Import from Writing
@@ -187,8 +203,8 @@ export function useDataImport() {
 
       try {
         const response = await fetch(
-          `/api/ai-office/slides/import/writing/${projectId}?userId=${user.id}`,
-          { method: 'POST' }
+          `/api/ai-office/slides/import/writing/${projectId}`,
+          { method: 'POST', headers: authHeaders }
         );
 
         if (!response.ok) {
@@ -206,7 +222,7 @@ export function useDataImport() {
         setLoading(false);
       }
     },
-    [user?.id]
+    [user?.id, authHeaders]
   );
 
   // Import from Teams
@@ -222,8 +238,8 @@ export function useDataImport() {
 
       try {
         const response = await fetch(
-          `/api/ai-office/slides/import/teams/${topicId}?userId=${user.id}`,
-          { method: 'POST' }
+          `/api/ai-office/slides/import/teams/${topicId}`,
+          { method: 'POST', headers: authHeaders }
         );
 
         if (!response.ok) {
@@ -241,7 +257,7 @@ export function useDataImport() {
         setLoading(false);
       }
     },
-    [user?.id]
+    [user?.id, authHeaders]
   );
 
   // Import from Library
@@ -256,14 +272,11 @@ export function useDataImport() {
       setError(null);
 
       try {
-        const response = await fetch(
-          `/api/ai-office/slides/import/library?userId=${user.id}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ resourceIds }),
-          }
-        );
+        const response = await fetch(`/api/ai-office/slides/import/library`, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify({ resourceIds }),
+        });
 
         if (!response.ok) {
           throw new Error('Failed to import from library');
@@ -280,7 +293,7 @@ export function useDataImport() {
         setLoading(false);
       }
     },
-    [user?.id]
+    [user?.id, authHeaders]
   );
 
   return {

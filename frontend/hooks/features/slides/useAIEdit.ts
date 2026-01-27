@@ -7,9 +7,22 @@
  * - Fact Check
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { logger } from '@/lib/utils/logger';
+
+/**
+ * Get auth headers for API requests
+ */
+function getAuthHeaders(accessToken: string | null): HeadersInit {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+  return headers;
+}
 
 // ============================================
 // Types
@@ -67,9 +80,12 @@ export interface PolishOptions {
 // ============================================
 
 export function useAIEdit() {
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Memoize auth headers
+  const authHeaders = useMemo(() => getAuthHeaders(accessToken), [accessToken]);
 
   /**
    * Fix layout issues on a specific page
@@ -89,8 +105,8 @@ export function useAIEdit() {
 
       try {
         const response = await fetch(
-          `/api/ai-office/slides/edit/fix-layout/${missionId}/${pageIndex}?userId=${user.id}`,
-          { method: 'POST' }
+          `/api/ai-office/slides/edit/fix-layout/${missionId}/${pageIndex}`,
+          { method: 'POST', headers: authHeaders }
         );
 
         if (!response.ok) {
@@ -109,7 +125,7 @@ export function useAIEdit() {
         setLoading(false);
       }
     },
-    [user?.id]
+    [user?.id, authHeaders]
   );
 
   /**
@@ -130,10 +146,10 @@ export function useAIEdit() {
 
       try {
         const response = await fetch(
-          `/api/ai-office/slides/edit/polish/${missionId}?userId=${user.id}`,
+          `/api/ai-office/slides/edit/polish/${missionId}`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders,
             body: JSON.stringify(options),
           }
         );
@@ -154,7 +170,7 @@ export function useAIEdit() {
         setLoading(false);
       }
     },
-    [user?.id]
+    [user?.id, authHeaders]
   );
 
   /**
@@ -175,8 +191,8 @@ export function useAIEdit() {
 
       try {
         const response = await fetch(
-          `/api/ai-office/slides/edit/fact-check/${missionId}?userId=${user.id}&strictMode=${strictMode}`,
-          { method: 'POST' }
+          `/api/ai-office/slides/edit/fact-check/${missionId}?strictMode=${strictMode}`,
+          { method: 'POST', headers: authHeaders }
         );
 
         if (!response.ok) {
@@ -195,7 +211,7 @@ export function useAIEdit() {
         setLoading(false);
       }
     },
-    [user?.id]
+    [user?.id, authHeaders]
   );
 
   /**

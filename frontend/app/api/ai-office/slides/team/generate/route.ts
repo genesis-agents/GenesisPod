@@ -19,13 +19,13 @@ export const maxDuration = 300;
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const userId = searchParams.get('userId') || 'anonymous';
-
-  // 构建后端 URL
-  const backendUrl = `${BACKEND_API_URL}/ai-office/slides/team/generate?userId=${encodeURIComponent(userId)}`;
+  // 构建后端 URL - no longer need userId in query params
+  const backendUrl = `${BACKEND_API_URL}/ai-office/slides/team/generate`;
 
   logger.debug('[Slides Team Generate] Proxying to:', backendUrl);
+
+  // Forward Authorization header from the request
+  const authHeader = request.headers.get('Authorization');
 
   try {
     // 获取请求体
@@ -37,12 +37,13 @@ export async function POST(request: NextRequest) {
       themeId: body.themeId,
     });
 
-    // 代理到后端
+    // 代理到后端 with auth header
     const response = await fetch(backendUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
+        ...(authHeader && { Authorization: authHeader }),
       },
       body: JSON.stringify(body),
     });

@@ -4,7 +4,7 @@
  * 从后端加载、管理用户的会话列表
  */
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import type { SlidesSession } from '@/types/slides';
@@ -12,6 +12,19 @@ import type { SlidesSession } from '@/types/slides';
 import { logger } from '@/lib/utils/logger';
 const API_BASE = config.apiUrl || '';
 const API_OFFICE_BASE = `${API_BASE}/ai-office/slides`;
+
+/**
+ * Get auth headers for API requests
+ */
+function getAuthHeaders(accessToken: string | null): HeadersInit {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+  return headers;
+}
 
 export interface SessionWithCheckpoint extends SlidesSession {
   latestCheckpoint?: {
@@ -30,10 +43,13 @@ interface UseSessionsOptions {
 
 export function useSessions(options: UseSessionsOptions = {}) {
   const { autoLoad = true, status, limit = 50 } = options;
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const [sessions, setSessions] = useState<SessionWithCheckpoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Memoize auth headers
+  const authHeaders = useMemo(() => getAuthHeaders(accessToken), [accessToken]);
 
   /**
    * 从后端加载会话列表
@@ -48,9 +64,7 @@ export function useSessions(options: UseSessionsOptions = {}) {
     setError(null);
 
     try {
-      const params = new URLSearchParams({
-        userId: user.id,
-      });
+      const params = new URLSearchParams();
       if (status) {
         params.append('status', status);
       }
@@ -59,7 +73,8 @@ export function useSessions(options: UseSessionsOptions = {}) {
       }
 
       const response = await fetch(
-        `${API_BASE}/ai-office/slides/sessions?${params.toString()}`
+        `${API_BASE}/ai-office/slides/sessions?${params.toString()}`,
+        { headers: authHeaders }
       );
 
       if (!response.ok) {
@@ -103,7 +118,7 @@ export function useSessions(options: UseSessionsOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, status, limit]);
+  }, [user?.id, status, limit, authHeaders]);
 
   /**
    * 刷新会话列表
@@ -122,9 +137,7 @@ export function useSessions(options: UseSessionsOptions = {}) {
           `${API_OFFICE_BASE}/sessions/${sessionId}`,
           {
             method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: authHeaders,
             body: JSON.stringify({ title }),
           }
         );
@@ -145,7 +158,7 @@ export function useSessions(options: UseSessionsOptions = {}) {
         return false;
       }
     },
-    []
+    [authHeaders]
   );
 
   /**
@@ -158,6 +171,7 @@ export function useSessions(options: UseSessionsOptions = {}) {
           `${API_OFFICE_BASE}/sessions/${sessionId}`,
           {
             method: 'DELETE',
+            headers: authHeaders,
           }
         );
 
@@ -175,7 +189,7 @@ export function useSessions(options: UseSessionsOptions = {}) {
         return false;
       }
     },
-    []
+    [authHeaders]
   );
 
   // 自动加载
