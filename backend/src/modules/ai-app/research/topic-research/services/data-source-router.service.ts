@@ -1378,6 +1378,9 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
     for (const result of results) {
       if (result.status === "fulfilled") {
         for (const item of result.value) {
+          // 跳过没有 URL 的结果
+          if (!item.url) continue;
+
           // URL 去重
           const normalizedUrl = this.normalizeUrl(item.url);
           if (seenUrls.has(normalizedUrl)) {
@@ -1415,6 +1418,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
    * URL 标准化
    */
   private normalizeUrl(url: string): string {
+    if (!url) return "";
     try {
       const parsed = new URL(url);
       // 移除 tracking 参数
