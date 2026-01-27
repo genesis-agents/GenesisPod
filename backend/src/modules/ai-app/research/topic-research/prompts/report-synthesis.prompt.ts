@@ -176,7 +176,7 @@ export const REPORT_SYNTHESIS_SYSTEM_PROMPT = `你是一位资深的战略研究
 
 ## 输出格式
 
-以 JSON 格式返回，包含以下字段：
+以 JSON 格式返回，包含以下字段（注意：charts 必须在前面优先输出）：
 {
   "executiveSummary": {
     "coreConclusions": [
@@ -197,6 +197,20 @@ export const REPORT_SYNTHESIS_SYSTEM_PROMPT = `你是一位资深的战略研究
     ],
     "fullText": "执行摘要完整文本（Markdown格式，400-600字）"
   },
+  "charts": [
+    {
+      "id": "chart-1",
+      "type": "line|bar|pie|area|radar",
+      "title": "图表标题",
+      "description": "图表说明",
+      "data": [
+        { "label": "标签", "value": 100, "series": "系列名" }
+      ],
+      "xAxis": { "label": "X轴标签" },
+      "yAxis": { "label": "Y轴标签", "unit": "单位" },
+      "source": "数据来源"
+    }
+  ],
   "preface": "前言内容（Markdown格式，300-500字）",
   "tableOfContents": "目录内容（Markdown格式）",
   "sections": [
@@ -262,23 +276,6 @@ export const REPORT_SYNTHESIS_SYSTEM_PROMPT = `你是一位资深的战略研究
     },
     "fullText": "战略建议完整内容（Markdown格式）"
   },
-  "charts": [
-    {
-      "id": "chart-market-size",
-      "type": "line",
-      "title": "市场规模趋势（2024-2030）",
-      "description": "基于多家机构预测数据",
-      "data": [
-        { "label": "2024", "value": 540.9, "series": "美国" },
-        { "label": "2025", "value": 664.2, "series": "美国" },
-        { "label": "2024", "value": 180.5, "series": "中国" },
-        { "label": "2025", "value": 250.3, "series": "中国" }
-      ],
-      "xAxis": { "label": "年份" },
-      "yAxis": { "label": "市场规模", "unit": "亿美元" },
-      "source": "数据来源"
-    }
-  ],
   "conclusion": "结束语（Markdown格式，200-300字）",
   "appendices": [
     {
