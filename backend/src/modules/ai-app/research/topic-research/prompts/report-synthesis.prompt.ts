@@ -324,7 +324,7 @@ ${
   da.keyFindings
     .map(
       (f, j) => `
-${j + 1}. **[${f.significance.toUpperCase()}]** ${f.finding}
+${j + 1}. **[${(f.significance || "medium").toUpperCase()}]** ${f.finding}
    - 证据支撑: ${f.evidenceIds.length > 0 ? f.evidenceIds.map((id) => `[${id}]`).join(", ") : "无"}`,
     )
     .join("\n") || "暂无关键发现"

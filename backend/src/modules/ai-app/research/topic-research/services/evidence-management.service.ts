@@ -418,6 +418,7 @@ export class EvidenceManagementService {
    * URL 标准化
    */
   private normalizeUrl(url: string): string {
+    if (!url) return "";
     try {
       const parsed = new URL(url);
       // 移除 tracking 参数

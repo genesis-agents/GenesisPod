@@ -1255,10 +1255,11 @@ export class ResearchTodoService {
     );
 
     // 从 title 或 description 中提取维度名称
-    const titleMatch = todo.title.match(/[：:「](.+?)[」]?$/);
+    const todoTitleStr = todo.title || "";
+    const titleMatch = todoTitleStr.match(/[：:「](.+?)[」]?$/);
     const dimensionName = titleMatch
       ? titleMatch[1].trim()
-      : todo.title.replace(/新增维度|添加维度|[：:]/g, "").trim();
+      : todoTitleStr.replace(/新增维度|添加维度|[：:]/g, "").trim();
 
     // 获取 topic 信息
     const topic = await this.prisma.researchTopic.findUnique({

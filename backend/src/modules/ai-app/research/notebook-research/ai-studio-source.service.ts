@@ -165,7 +165,9 @@ export class AiStudioSourceService {
         // Also check for duplicates within the batch
         const isDuplicateInBatch = uniqueSources.some(
           (s) =>
-            s.title.toLowerCase() === dto.title.toLowerCase() ||
+            (s.title &&
+              dto.title &&
+              s.title.toLowerCase() === dto.title.toLowerCase()) ||
             (s.sourceUrl && s.sourceUrl === dto.sourceUrl) ||
             (s.resourceId && s.resourceId === dto.resourceId),
         );
@@ -572,7 +574,7 @@ export class AiStudioSourceService {
     return results.map((r) => ({
       ...r,
       source: "local",
-      sourceType: r.type.toLowerCase(),
+      sourceType: (r.type || "unknown").toLowerCase(),
     }));
   }
 
@@ -667,8 +669,8 @@ export class AiStudioSourceService {
 
     return results.map((r) => ({
       ...r,
-      source: category.toLowerCase(),
-      sourceType: r.type.toLowerCase(),
+      source: (category || "unknown").toLowerCase(),
+      sourceType: (r.type || "unknown").toLowerCase(),
     }));
   }
 
@@ -783,6 +785,7 @@ export class AiStudioSourceService {
    * Generate related queries based on initial results
    */
   private generateRelatedQueries(query: string, results: any[]): string[] {
+    if (!query) return [];
     const queries: string[] = [];
     const words = query
       .toLowerCase()
@@ -872,6 +875,7 @@ export class AiStudioSourceService {
    * - Depth (10%): Content length and detail
    */
   private rankByRelevance(results: any[], query: string): any[] {
+    if (!query) return results;
     const queryTerms = query
       .toLowerCase()
       .split(/\s+/)

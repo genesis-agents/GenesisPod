@@ -222,6 +222,7 @@ export class IterativeSearchService {
    * 根据搜索类型增强查询
    */
   private enhanceQuery(query: string, stepType: string): string {
+    if (!query) return query;
     switch (stepType) {
       case "academic":
         // 添加学术搜索关键词
