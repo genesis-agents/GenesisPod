@@ -18,6 +18,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { ReportEditor } from './ReportEditor';
 import { ReportRevisionHistory } from './ReportRevisionHistory';
 import { ReportAnnotations } from '../annotations/ReportAnnotations';
+import { ReportChartRenderer } from '../charts/ReportChartRenderer';
 import type { TopicReport, TopicEvidence } from '@/types/topic-research';
 import type { AIEditOperation, TextSelection } from '../types';
 
