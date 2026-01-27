@@ -717,12 +717,18 @@ function ReportEditorInner({
   const markdownContent = useMemo(() => {
     if (!report) return '';
 
-    // ★ Priority 1: Use fullReport if available (contains chart placeholders)
-    if (report.fullReport && report.fullReport.trim().length > 100) {
+    // ★ Priority 1: Use fullReport ONLY if it contains chart placeholders (new format)
+    // This ensures backward compatibility with old reports that have different fullReport content
+    const hasChartPlaceholders = report.fullReport?.includes('<!-- chart:');
+    if (
+      hasChartPlaceholders &&
+      report.fullReport &&
+      report.fullReport.trim().length > 100
+    ) {
       return report.fullReport;
     }
 
-    // ★ Priority 2: Fall back to building markdown from report structure
+    // ★ Priority 2: Build markdown from report structure (default for old reports)
     const parts: string[] = [];
 
     // Title
