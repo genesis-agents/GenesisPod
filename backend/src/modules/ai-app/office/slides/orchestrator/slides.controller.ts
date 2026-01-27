@@ -39,6 +39,12 @@ import { SlidesEngineService } from "../services/slides-engine.service";
 import { SlidesDataImportService } from "../services/data-import.service";
 import { AIEditService, PolishOptions } from "../services/ai-edit.service";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
+import {
+  VoiceNarrationSkill,
+  NarrationSlidePage,
+  NarrationStyle,
+} from "../skills/voice-narration.skill";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { GlobalStyles } from "../checkpoint/checkpoint.types";
 import { getAllThemes } from "../templates/base/themes";
 import {
@@ -128,6 +134,27 @@ class CreateCheckpointDto {
   type?: string;
 }
 
+class GenerateNarrationDto {
+  @IsOptional()
+  @IsIn(["formal", "casual", "professional", "storytelling"])
+  style?: NarrationStyle;
+
+  @IsOptional()
+  @IsIn(["zh", "en"])
+  language?: "zh" | "en";
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  targetAudience?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(100)
+  @Max(300)
+  wordsPerMinute?: number;
+}
+
 class ExportDto {
   @IsIn(["pptx", "pdf", "png", "html"])
   format!: "pptx" | "pdf" | "png" | "html";
@@ -181,6 +208,8 @@ export class SlidesController {
     private readonly checkpointService: CheckpointService,
     private readonly dataImportService: SlidesDataImportService,
     private readonly aiEditService: AIEditService,
+    private readonly voiceNarrationSkill: VoiceNarrationSkill,
+    private readonly prisma: PrismaService,
   ) {}
 
   // ============================================
@@ -1171,6 +1200,222 @@ export class SlidesController {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to fact check";
       this.logger.error(`[factCheck] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  // ============================================
+  // Voice Narration API (V5.0)
+  // ============================================
+
+  /**
+   * 生成语音旁白
+   * POST /ai-office/slides/narrations/:missionId
+   */
+  @Post("narrations/:missionId")
+  @UseGuards(JwtAuthGuard, RateLimitGuard)
+  @RateLimit({
+    maxRequests: 5,
+    windowSeconds: 60,
+    message: "旁白生成请求过于频繁，请稍后重试",
+  })
+  async generateNarrations(
+    @Req() req: RequestWithUser,
+    @Param("missionId") missionId: string,
+    @Body() dto: GenerateNarrationDto,
+  ) {
+    const userId = req.user.id;
+    this.logger.log(
+      `[generateNarrations] Mission: ${missionId}, User: ${userId}`,
+    );
+
+    try {
+      // Get mission with pages
+      const mission = await this.prisma.slidesMission.findUnique({
+        where: { id: missionId },
+        select: {
+          id: true,
+          userId: true,
+          sourceText: true,
+          pages: true,
+        },
+      });
+
+      if (!mission) {
+        throw new NotFoundException("Mission not found");
+      }
+
+      if (mission.userId !== userId) {
+        throw new BadRequestException("Unauthorized access to mission");
+      }
+
+      // Parse pages from JSON
+      const pagesJson = mission.pages as unknown[];
+      if (!Array.isArray(pagesJson) || pagesJson.length === 0) {
+        throw new BadRequestException("No pages found in mission");
+      }
+
+      // Convert to NarrationSlidePage format
+      const pages: NarrationSlidePage[] = pagesJson.map(
+        (page: unknown, index: number) => {
+          const p = page as {
+            title?: string;
+            html?: string;
+            content?: string;
+            keyPoints?: string[];
+          };
+          return {
+            index: index + 1,
+            title: p.title || `第 ${index + 1} 页`,
+            content: p.html || p.content || "",
+            keyPoints: p.keyPoints,
+          };
+        },
+      );
+
+      // Generate narrations
+      const context = {
+        executionId: `narration-${missionId}-${Date.now()}`,
+        skillId: this.voiceNarrationSkill.id,
+        userId,
+        sessionId: missionId,
+        createdAt: new Date(),
+      };
+
+      const result = await this.voiceNarrationSkill.execute(
+        {
+          pages,
+          presentationTitle: (mission.sourceText || "").slice(0, 100),
+          style: dto.style,
+          language: dto.language,
+          targetAudience: dto.targetAudience,
+          wordsPerMinute: dto.wordsPerMinute,
+        },
+        context,
+      );
+
+      if (!result.success || !result.data) {
+        throw new InternalServerErrorException(
+          result.error?.message || "Failed to generate narrations",
+        );
+      }
+
+      // Save narrations to database
+      const { narrations, totalDuration, stats } = result.data;
+
+      for (const narration of narrations) {
+        await this.prisma.slidesNarration.upsert({
+          where: {
+            missionId_pageIndex: {
+              missionId,
+              pageIndex: narration.pageIndex,
+            },
+          },
+          create: {
+            missionId,
+            pageIndex: narration.pageIndex,
+            script: narration.script,
+            duration: narration.estimatedDuration,
+          },
+          update: {
+            script: narration.script,
+            duration: narration.estimatedDuration,
+          },
+        });
+      }
+
+      return {
+        data: {
+          narrations: narrations.map((n) => ({
+            pageIndex: n.pageIndex,
+            script: n.script,
+            estimatedDuration: n.estimatedDuration,
+          })),
+          totalDuration,
+          stats,
+        },
+      };
+    } catch (error: unknown) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to generate narrations";
+      this.logger.error(`[generateNarrations] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * 获取语音旁白列表
+   * GET /ai-office/slides/narrations/:missionId
+   */
+  @Get("narrations/:missionId")
+  @UseGuards(JwtAuthGuard)
+  async getNarrations(
+    @Req() req: RequestWithUser,
+    @Param("missionId") missionId: string,
+  ) {
+    const userId = req.user.id;
+    this.logger.log(`[getNarrations] Mission: ${missionId}, User: ${userId}`);
+
+    try {
+      // Verify mission ownership
+      const mission = await this.prisma.slidesMission.findUnique({
+        where: { id: missionId },
+        select: { userId: true },
+      });
+
+      if (!mission) {
+        throw new NotFoundException("Mission not found");
+      }
+
+      if (mission.userId !== userId) {
+        throw new BadRequestException("Unauthorized access to mission");
+      }
+
+      // Get narrations
+      const narrations = await this.prisma.slidesNarration.findMany({
+        where: { missionId },
+        orderBy: { pageIndex: "asc" },
+        select: {
+          pageIndex: true,
+          script: true,
+          audioUrl: true,
+          voiceId: true,
+          duration: true,
+        },
+      });
+
+      return {
+        data: {
+          narrations: narrations.map((n) => ({
+            pageIndex: n.pageIndex,
+            script: n.script,
+            audioUrl: n.audioUrl,
+            estimatedDuration: n.duration,
+          })),
+          totalDuration: narrations.reduce(
+            (sum, n) => sum + (n.duration || 0),
+            0,
+          ),
+        },
+      };
+    } catch (error: unknown) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to get narrations";
+      this.logger.error(`[getNarrations] Error: ${errorMessage}`);
       throw new InternalServerErrorException(errorMessage);
     }
   }
