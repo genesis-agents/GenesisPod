@@ -80,4 +80,103 @@ export class SlidesDebugController {
       })),
     };
   }
+
+  /**
+   * 获取单个检查点的详细信息（包括页面数据摘要）
+   */
+  @Get("checkpoint/:id")
+  async getCheckpointDetail(@Param("id") id: string): Promise<object> {
+    this.logger.log(`[getCheckpointDetail] Fetching checkpoint: ${id}`);
+
+    const checkpoints = await this.checkpointService.list({});
+    const cp = checkpoints.find((c) => c.id === id || c.id.startsWith(id));
+
+    if (!cp) {
+      return { error: "Checkpoint not found", id };
+    }
+
+    const state = cp.state || {};
+    const pages = state.pages || [];
+
+    return {
+      id: cp.id,
+      sessionId: cp.sessionId,
+      name: cp.name,
+      type: cp.type,
+      timestamp: cp.timestamp,
+      stateKeys: Object.keys(state),
+      pagesCount: pages.length,
+      pages: pages.map((p: unknown, i: number) => {
+        const page = p as Record<string, unknown>;
+        return {
+          index: i,
+          id: (page.id as string)?.slice(0, 8),
+          pageNumber: page.pageNumber || page.index,
+          title:
+            (page.title as string)?.slice(0, 50) ||
+            (page.spec as { title?: string })?.title?.slice(0, 50),
+          htmlLength: (page.html as string)?.length || 0,
+          renderedHtmlLength: (page.renderedHtml as string)?.length || 0,
+          status: page.status,
+          hasDesign: !!page.design,
+          hasSpec: !!page.spec,
+          hasContent: !!page.content,
+          keys: Object.keys(page),
+        };
+      }),
+      outlinePlan: state.outlinePlan
+        ? {
+            title: state.outlinePlan.title,
+            pagesCount: state.outlinePlan.pages?.length || 0,
+            pagesTitles: state.outlinePlan.pages?.map(
+              (p: { title?: string }) => p.title,
+            ),
+          }
+        : null,
+      taskDecomposition: state.taskDecomposition
+        ? {
+            totalPages: (state.taskDecomposition as { totalPages?: number })
+              .totalPages,
+            sectionsCount: (state.taskDecomposition as { sections?: unknown[] })
+              .sections?.length,
+          }
+        : null,
+      rawStatePreview: JSON.stringify(state).slice(0, 500),
+    };
+  }
+
+  /**
+   * 获取会话的所有检查点
+   */
+  @Get("session/:sessionId")
+  async getSessionCheckpoints(
+    @Param("sessionId") sessionId: string,
+  ): Promise<object> {
+    this.logger.log(
+      `[getSessionCheckpoints] Fetching for session: ${sessionId}`,
+    );
+
+    const checkpoints = await this.checkpointService.list({});
+    const filtered = checkpoints.filter(
+      (cp) => cp.sessionId === sessionId || cp.sessionId.startsWith(sessionId),
+    );
+
+    return {
+      sessionId,
+      total: filtered.length,
+      checkpoints: filtered.map((cp) => ({
+        id: cp.id,
+        name: cp.name,
+        type: cp.type,
+        pagesCount: cp.state?.pages?.length || 0,
+        pagesWithHtml:
+          cp.state?.pages?.filter(
+            (p: { html?: string }) => p.html && p.html.length > 0,
+          ).length || 0,
+        hasOutlinePlan: !!cp.state?.outlinePlan,
+        timestamp: cp.timestamp,
+        stateKeys: Object.keys(cp.state || {}),
+      })),
+    };
+  }
 }

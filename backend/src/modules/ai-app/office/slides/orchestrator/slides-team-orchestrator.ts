@@ -127,6 +127,27 @@ export class SlidesTeamOrchestrator {
         );
       }
 
+      // ★ 诊断：检查 mission.pages 数据
+      this.logger.log(
+        `[executeMission] ★ Creating mission:completed event with ${mission.pages.length} pages`,
+      );
+      if (mission.pages.length > 0) {
+        mission.pages.forEach((p, i) => {
+          const page = p as {
+            html?: string;
+            renderedHtml?: string;
+            id?: string;
+          };
+          this.logger.log(
+            `[executeMission] ★ Page ${i + 1}: id=${page.id?.slice(0, 8)}, htmlLength=${page.html?.length || 0}, renderedHtmlLength=${page.renderedHtml?.length || 0}`,
+          );
+        });
+      } else {
+        this.logger.warn(
+          `[executeMission] ★ WARNING: mission.pages is empty! Tasks: ${mission.tasks.map((t) => `${t.skillId}:${t.status}`).join(", ")}`,
+        );
+      }
+
       const completedEvent = this.createEvent("mission:completed", mission.id, {
         mission,
         duration,
@@ -950,17 +971,24 @@ export class SlidesTeamOrchestrator {
    */
   private extractPagesFromTasks(mission: SlidesMission): void {
     this.logger.log(
-      `[extractPagesFromTasks] Starting extraction, ${mission.tasks.length} tasks to process`,
+      `[extractPagesFromTasks] ★ Starting extraction, ${mission.tasks.length} tasks to process`,
     );
 
+    // ★ 诊断：列出所有任务状态
+    for (const t of mission.tasks) {
+      this.logger.log(
+        `[extractPagesFromTasks] ★ Task overview: id=${t.id.slice(0, 8)}, skillId=${t.skillId}, status=${t.status}, hasResult=${!!t.result}`,
+      );
+    }
+
     for (const task of mission.tasks) {
-      this.logger.debug(
-        `[extractPagesFromTasks] Task ${task.id}: skillId=${task.skillId}, status=${task.status}, hasResult=${!!task.result}`,
+      this.logger.log(
+        `[extractPagesFromTasks] ★ Processing task: skillId=${task.skillId}, status=${task.status}, hasResult=${!!task.result}`,
       );
 
       if (task.status !== "completed" || !task.result) {
-        this.logger.debug(
-          `[extractPagesFromTasks] Skipping task ${task.id}: not completed or no result`,
+        this.logger.log(
+          `[extractPagesFromTasks] ★ Skipping task ${task.skillId}: status=${task.status}, hasResult=${!!task.result}`,
         );
         continue;
       }
