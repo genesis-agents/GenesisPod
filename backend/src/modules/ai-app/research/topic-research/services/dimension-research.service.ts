@@ -286,6 +286,18 @@ export class DimensionResearchService {
     // 解析 AI 响应
     const aiResult = this.parseAIResponse(response.content);
 
+    // ★ 诊断日志：检查 AI 输出的图表数据
+    const figRefsCount = aiResult.figureReferences?.length ?? 0;
+    const genChartsCount = aiResult.generatedCharts?.length ?? 0;
+    this.logger.log(
+      `[Charts] AI output: figureReferences=${figRefsCount}, generatedCharts=${genChartsCount}`,
+    );
+    if (figRefsCount > 0 && aiResult.figureReferences) {
+      this.logger.debug(
+        `[Charts] figureReferences preview: ${JSON.stringify(aiResult.figureReferences[0])}`,
+      );
+    }
+
     // 转换为标准格式
     return {
       dimensionId: dimension.id,

@@ -2216,6 +2216,17 @@ function processChildrenWithCitations(
   return children;
 }
 
+/**
+ * Calculate word count for mixed Chinese/English content
+ * Counts Chinese characters individually and English words as units
+ */
+function countWords(text: string): number {
+  if (!text) return 0;
+  const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+  const englishWords = (text.match(/[a-zA-Z]+/g) || []).length;
+  return chineseChars + englishWords;
+}
+
 // Section card for chapter-like display (AI Writing pattern)
 interface ReportSection {
   id: string;
@@ -2257,7 +2268,7 @@ function ReportTabContent({
           report.summary.slice(0, 100) +
           (report.summary.length > 100 ? '...' : ''),
         isCompleted: true,
-        wordCount: report.summary.length,
+        wordCount: countWords(report.summary),
         content: report.summary,
       });
     }
@@ -2278,7 +2289,7 @@ function ReportTabContent({
           title: '关键发现',
           summary: `${validHighlights.length} 个关键洞察`,
           isCompleted: true,
-          wordCount: highlightsContent.length,
+          wordCount: countWords(highlightsContent),
           content: highlightsContent,
         });
       }
@@ -2312,7 +2323,7 @@ function ReportTabContent({
           title: dimName,
           summary: analysis.summary?.slice(0, 80) || '正在分析...',
           isCompleted: !!analysis.summary,
-          wordCount: content.length,
+          wordCount: countWords(content),
           content,
         });
       });

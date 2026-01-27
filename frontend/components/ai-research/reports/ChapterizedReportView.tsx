@@ -262,6 +262,17 @@ interface Chapter {
   charts?: ReportChart[];
 }
 
+/**
+ * Calculate word count for mixed Chinese/English content
+ * Counts Chinese characters individually and English words as units
+ */
+function countWords(text: string): number {
+  if (!text) return 0;
+  const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+  const englishWords = (text.match(/[a-zA-Z]+/g) || []).length;
+  return chineseChars + englishWords;
+}
+
 // Icons
 const BackIcon = ({ className }: { className?: string }) => (
   <svg
@@ -692,7 +703,7 @@ function ChapterizedReportViewInner({
           status,
           outline,
           content,
-          wordCount: content.length,
+          wordCount: countWords(content),
           charts: chapterCharts, // ★ 附加该章节的图表
         });
 

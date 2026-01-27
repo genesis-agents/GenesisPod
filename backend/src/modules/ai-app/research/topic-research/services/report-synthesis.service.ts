@@ -246,6 +246,21 @@ export class ReportSynthesisService {
       ? this.collectAllCharts(dimensionInputs)
       : []; // 禁用图表时返回空数组
 
+    // ★ 诊断日志：检查收集到的图表
+    this.logger.log(
+      `[Charts] enableFigures=${enableFigures}, collected=${collectedCharts.length} charts from ${dimensionInputs.length} dimensions`,
+    );
+    if (collectedCharts.length === 0 && enableFigures) {
+      // 详细检查为什么没有图表
+      const figRefCounts = dimensionInputs.map(
+        (d) =>
+          `${d.dimensionName}:figRefs=${d.figureReferences?.length || 0},gen=${d.generatedCharts?.length || 0}`,
+      );
+      this.logger.warn(
+        `[Charts] No charts collected! Dimension details: ${figRefCounts.join(", ")}`,
+      );
+    }
+
     if (!enableFigures) {
       this.logger.log(
         `[synthesizeReport] Figures disabled for topic ${topic.name}`,
