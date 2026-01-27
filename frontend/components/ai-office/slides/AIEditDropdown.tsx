@@ -32,7 +32,8 @@ import {
 // ============================================
 
 interface AIEditDropdownProps {
-  missionId: string;
+  /** Session ID (will be resolved to mission ID on backend) */
+  sessionId: string;
   pageIndex?: number;
   onEditComplete?: (action: AIEditAction, result: unknown) => void;
   className?: string;
@@ -77,7 +78,7 @@ const AI_EDIT_OPTIONS: EditOption[] = [
 // ============================================
 
 export function AIEditDropdown({
-  missionId,
+  sessionId,
   pageIndex,
   onEditComplete,
   className,
@@ -94,7 +95,8 @@ export function AIEditDropdown({
     setActiveAction(option.id);
 
     try {
-      const result = await executeAction(option.id, missionId, pageIndex);
+      // Pass sessionId - backend will resolve to missionId
+      const result = await executeAction(option.id, sessionId, pageIndex);
 
       if (result && onEditComplete) {
         onEditComplete(option.id, result);

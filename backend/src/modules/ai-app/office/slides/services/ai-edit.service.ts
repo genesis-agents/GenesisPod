@@ -348,6 +348,44 @@ export class AIEditService {
   // ============================================
 
   /**
+   * Resolve mission ID from session ID or mission ID
+   * If the input looks like a session ID (has a corresponding session), find the latest mission
+   */
+  private async resolveMissionId(
+    idOrSessionId: string,
+    userId: string,
+  ): Promise<string> {
+    // First, check if it's a direct mission ID
+    const directMission = await this.prisma.slidesMission.findFirst({
+      where: { id: idOrSessionId, userId },
+    });
+
+    if (directMission) {
+      return directMission.id;
+    }
+
+    // If not a direct mission, try to find the latest mission for this session
+    const latestMission = await this.prisma.slidesMission.findFirst({
+      where: {
+        sessionId: idOrSessionId,
+        userId,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (latestMission) {
+      this.logger.log(
+        `[resolveMissionId] Resolved session ${idOrSessionId} to mission ${latestMission.id}`,
+      );
+      return latestMission.id;
+    }
+
+    throw new NotFoundException(
+      `No mission found for ID or session: ${idOrSessionId}`,
+    );
+  }
+
+  /**
    * Get page HTML from mission
    */
   private async getPageHtml(
@@ -355,9 +393,12 @@ export class AIEditService {
     pageIndex: number,
     userId: string,
   ): Promise<{ html: string; title: string }> {
+    // Resolve mission ID (supports both missionId and sessionId)
+    const resolvedMissionId = await this.resolveMissionId(missionId, userId);
+
     const mission = await this.prisma.slidesMission.findFirst({
       where: {
-        id: missionId,
+        id: resolvedMissionId,
         userId,
       },
     });
@@ -388,9 +429,12 @@ export class AIEditService {
     missionId: string,
     userId: string,
   ): Promise<Array<{ index: number; title: string; content: string }>> {
+    // Resolve mission ID (supports both missionId and sessionId)
+    const resolvedMissionId = await this.resolveMissionId(missionId, userId);
+
     const mission = await this.prisma.slidesMission.findFirst({
       where: {
-        id: missionId,
+        id: resolvedMissionId,
         userId,
       },
     });

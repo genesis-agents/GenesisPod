@@ -28,12 +28,10 @@ import {
 import { cn } from '@/lib/utils/common';
 import { useSlidesStore, selectOverallProgress } from '@/stores';
 import { useCheckpoints } from '@/hooks/features/slides';
-import {
-  SlidesHistoryItem,
-  formatRelativeTime,
-} from '@/stores';
+import { SlidesHistoryItem, formatRelativeTime } from '@/stores';
 import { config } from '@/lib/utils/config';
 import { AIAssistMenu } from './AIAssistMenu';
+import { AIEditDropdown } from './AIEditDropdown';
 
 import { logger } from '@/lib/utils/logger';
 // ============================================================================
@@ -54,6 +52,10 @@ interface HeaderProps {
   showViewToggle?: boolean;
   showBackButton?: boolean;
   hasPages?: boolean;
+  // V5.0: AI Edit
+  sessionId?: string;
+  selectedPageIndex?: number;
+  onAIEditComplete?: (action: string, result: unknown) => void;
 }
 
 export function Header({
@@ -70,6 +72,9 @@ export function Header({
   showViewToggle = false,
   showBackButton = false,
   hasPages = false,
+  sessionId,
+  selectedPageIndex,
+  onAIEditComplete,
 }: HeaderProps) {
   const [showExportMenu, setShowExportMenu] = useState(false);
 
@@ -171,6 +176,15 @@ export function Header({
           {/* AI 辅助菜单 */}
           {hasPages && (
             <AIAssistMenu onSmartTags={onSmartTags} disabled={false} />
+          )}
+
+          {/* V5.0: AI Edit Dropdown */}
+          {hasPages && sessionId && (
+            <AIEditDropdown
+              sessionId={sessionId}
+              pageIndex={selectedPageIndex}
+              onEditComplete={onAIEditComplete}
+            />
           )}
 
           {/* 播放演示 */}

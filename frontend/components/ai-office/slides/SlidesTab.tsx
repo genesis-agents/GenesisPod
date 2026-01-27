@@ -978,6 +978,8 @@ export function SlidesTab() {
         onStartPresentation={() => setShowPresentation(true)}
         hasPages={pages.length > 0}
         onSmartTags={handleSmartTags}
+        sessionId={session?.id}
+        selectedPageIndex={useSlidesStore.getState().selectedPageIndex}
       />
 
       {/* 历史记录面板 */}
