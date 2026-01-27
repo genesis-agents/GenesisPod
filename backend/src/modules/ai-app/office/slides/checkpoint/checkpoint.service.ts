@@ -370,6 +370,24 @@ export class CheckpointService {
       throw new NotFoundException(`Checkpoint not found: ${checkpointId}`);
     }
 
+    // ★ DIAGNOSTIC: Log raw database data
+    const stateJson = checkpoint.stateJson as Record<string, unknown>;
+    this.logger.log(
+      `[get] ★ Checkpoint ${checkpointId.slice(0, 8)}... DB stateJson keys: ${Object.keys(stateJson || {}).join(", ")}`,
+    );
+    this.logger.log(
+      `[get] ★ DB stateJson.pages: type=${typeof stateJson?.pages}, isArray=${Array.isArray(stateJson?.pages)}, length=${(stateJson?.pages as unknown[])?.length || 0}`,
+    );
+    if (
+      Array.isArray(stateJson?.pages) &&
+      (stateJson.pages as unknown[]).length > 0
+    ) {
+      const firstPage = (stateJson.pages as Record<string, unknown>[])[0];
+      this.logger.log(
+        `[get] ★ DB First page: keys=${Object.keys(firstPage || {}).join(", ")}, html=${(firstPage?.html as string)?.length || 0} chars`,
+      );
+    }
+
     return this.mapToCheckpoint(checkpoint);
   }
 
@@ -427,6 +445,17 @@ export class CheckpointService {
     this.logger.log(`[restore] Restoring to checkpoint: ${checkpointId}`);
 
     const checkpoint = await this.get(checkpointId);
+
+    // ★ DIAGNOSTIC: Log checkpoint state after get()
+    this.logger.log(
+      `[restore] ★ checkpoint.state keys: ${Object.keys(checkpoint.state || {}).join(", ")}`,
+    );
+    this.logger.log(
+      `[restore] ★ checkpoint.state.pages: ${checkpoint.state?.pages?.length || 0} pages`,
+    );
+    this.logger.log(
+      `[restore] ★ checkpoint.state.outlinePlan: ${checkpoint.state?.outlinePlan ? "exists" : "undefined"}`,
+    );
 
     // 更新会话的当前状态
     await this.prisma.slidesSession.update({
