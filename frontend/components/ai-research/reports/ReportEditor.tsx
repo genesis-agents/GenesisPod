@@ -22,7 +22,11 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
 import Highlight from '@tiptap/extension-highlight';
 import TurndownService from 'turndown';
-import type { TopicReport, TopicEvidence } from '@/types/topic-research';
+import type {
+  TopicReport,
+  TopicEvidence,
+  ReportChart,
+} from '@/types/topic-research';
 import { TextSelectionContextMenu } from '../panels/TextSelectionContextMenu';
 import { ReportChartRenderer } from '../charts/ReportChartRenderer';
 import type { AIEditOperation } from '../types';
@@ -1194,78 +1198,169 @@ function ReportEditorInner({
     }
   }, [highlightedAnnotationId, scrollToAnnotation]);
 
-  // ★ ReactMarkdown content with React Controlled Highlighting
+  // ★ Parse markdown content and extract chart placeholders
+  // Chart placeholders format: <!-- chart:chart-id -->
+  const contentSegments = useMemo(() => {
+    if (!markdownContent) return [];
+
+    // Split by chart placeholder pattern
+    const chartPattern = /<!--\s*chart:([a-zA-Z0-9_-]+)\s*-->/g;
+    const segments: Array<{ type: 'markdown' | 'chart'; content: string }> = [];
+
+    let lastIndex = 0;
+    let match;
+
+    while ((match = chartPattern.exec(markdownContent)) !== null) {
+      // Add markdown segment before the chart
+      if (match.index > lastIndex) {
+        segments.push({
+          type: 'markdown',
+          content: markdownContent.slice(lastIndex, match.index),
+        });
+      }
+
+      // Add chart placeholder
+      segments.push({
+        type: 'chart',
+        content: match[1], // chart id
+      });
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining markdown content
+    if (lastIndex < markdownContent.length) {
+      segments.push({
+        type: 'markdown',
+        content: markdownContent.slice(lastIndex),
+      });
+    }
+
+    return segments;
+  }, [markdownContent]);
+
+  // ★ Create charts map for quick lookup
+  const chartsMap = useMemo(() => {
+    const map = new Map<string, ReportChart>();
+    if (report?.charts) {
+      for (const chart of report.charts) {
+        map.set(chart.id, chart);
+      }
+    }
+    return map;
+  }, [report?.charts]);
+
+  // ★ Track which charts have been rendered inline
+  const renderedChartIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const segment of contentSegments) {
+      if (segment.type === 'chart') {
+        ids.add(segment.content);
+      }
+    }
+    return ids;
+  }, [contentSegments]);
+
+  // ★ ReactMarkdown component for rendering markdown segments
+  const renderMarkdownSegment = useCallback(
+    (content: string, key: string) => (
+      <ReactMarkdown
+        key={key}
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // Custom link component to open in new tab
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              {children}
+            </a>
+          ),
+          // ★ Process text nodes for both citations AND annotations (React Controlled)
+          p: ({ children, ...props }) => (
+            <p {...props}>
+              {typeof children === 'string'
+                ? processText(children)
+                : Array.isArray(children)
+                  ? children.map((child, i) =>
+                      typeof child === 'string' ? (
+                        <span key={i}>{processText(child)}</span>
+                      ) : (
+                        child
+                      )
+                    )
+                  : children}
+            </p>
+          ),
+          li: ({ children, ...props }) => (
+            <li {...props}>
+              {typeof children === 'string'
+                ? processText(children)
+                : Array.isArray(children)
+                  ? children.map((child, i) =>
+                      typeof child === 'string' ? (
+                        <span key={i}>{processText(child)}</span>
+                      ) : (
+                        child
+                      )
+                    )
+                  : children}
+            </li>
+          ),
+          strong: ({ children, ...props }) => (
+            <strong {...props}>
+              {typeof children === 'string' ? processText(children) : children}
+            </strong>
+          ),
+          em: ({ children, ...props }) => (
+            <em {...props}>
+              {typeof children === 'string' ? processText(children) : children}
+            </em>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    ),
+    [processText]
+  );
+
+  // ★ ReactMarkdown content with React Controlled Highlighting and inline charts
   // Annotations are now rendered inline via processText → AnnotatedText component
   // This eliminates DOM manipulation conflicts that caused React error #310
   const memoizedMarkdownContent = useMemo(
     () => (
       <article className="prose prose-gray max-w-none">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{
-            // Custom link component to open in new tab
-            a: ({ href, children }) => (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 hover:underline"
+        {contentSegments.map((segment, index) => {
+          if (segment.type === 'markdown') {
+            return renderMarkdownSegment(segment.content, `md-${index}`);
+          } else {
+            // Render chart
+            const chart = chartsMap.get(segment.content);
+            if (chart) {
+              return (
+                <div key={`chart-${index}`} className="my-6">
+                  <ReportChartRenderer chart={chart} />
+                </div>
+              );
+            }
+            // Chart not found, render placeholder
+            return (
+              <div
+                key={`chart-missing-${index}`}
+                className="my-6 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500"
               >
-                {children}
-              </a>
-            ),
-            // ★ Process text nodes for both citations AND annotations (React Controlled)
-            p: ({ children, ...props }) => (
-              <p {...props}>
-                {typeof children === 'string'
-                  ? processText(children)
-                  : Array.isArray(children)
-                    ? children.map((child, i) =>
-                        typeof child === 'string' ? (
-                          <span key={i}>{processText(child)}</span>
-                        ) : (
-                          child
-                        )
-                      )
-                    : children}
-              </p>
-            ),
-            li: ({ children, ...props }) => (
-              <li {...props}>
-                {typeof children === 'string'
-                  ? processText(children)
-                  : Array.isArray(children)
-                    ? children.map((child, i) =>
-                        typeof child === 'string' ? (
-                          <span key={i}>{processText(child)}</span>
-                        ) : (
-                          child
-                        )
-                      )
-                    : children}
-              </li>
-            ),
-            strong: ({ children, ...props }) => (
-              <strong {...props}>
-                {typeof children === 'string'
-                  ? processText(children)
-                  : children}
-              </strong>
-            ),
-            em: ({ children, ...props }) => (
-              <em {...props}>
-                {typeof children === 'string'
-                  ? processText(children)
-                  : children}
-              </em>
-            ),
-          }}
-        >
-          {markdownContent}
-        </ReactMarkdown>
+                图表未找到: {segment.content}
+              </div>
+            );
+          }
+        })}
       </article>
     ),
-    [markdownContent, processText]
+    [contentSegments, chartsMap, renderMarkdownSegment]
   );
 
   if (isLoading) {
@@ -1549,32 +1644,42 @@ function ReportEditorInner({
             {/* Markdown content with React Controlled annotation highlighting */}
             {memoizedMarkdownContent}
 
-            {/* Charts Section - 报告图表 */}
-            {report?.charts && report.charts.length > 0 && (
-              <div className="mt-8 border-t border-gray-200 pt-6">
-                <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-                  <svg
-                    className="h-5 w-5 text-blue-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                    />
-                  </svg>
-                  数据可视化
-                </h3>
-                <div className="grid gap-4">
-                  {report.charts.map((chart, idx) => (
-                    <ReportChartRenderer key={chart.id || idx} chart={chart} />
-                  ))}
+            {/* Charts Section - 仅显示未在正文中渲染的图表（向后兼容旧报告） */}
+            {(() => {
+              const unrenderedCharts = report?.charts?.filter(
+                (chart) => !renderedChartIds.has(chart.id)
+              );
+              if (!unrenderedCharts || unrenderedCharts.length === 0)
+                return null;
+              return (
+                <div className="mt-8 border-t border-gray-200 pt-6">
+                  <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                    <svg
+                      className="h-5 w-5 text-blue-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                      />
+                    </svg>
+                    数据可视化
+                  </h3>
+                  <div className="grid gap-4">
+                    {unrenderedCharts.map((chart, idx) => (
+                      <ReportChartRenderer
+                        key={chart.id || idx}
+                        chart={chart}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Context menu for preview mode */}
             <TextSelectionContextMenu
