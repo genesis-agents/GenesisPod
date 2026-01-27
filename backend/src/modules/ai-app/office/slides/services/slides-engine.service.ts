@@ -502,10 +502,20 @@ export class SlidesEngineService {
         // 保存阶段检查点 - 每个关键阶段完成后都保存
         if (event.type.endsWith(":completed")) {
           const phase = event.type.replace(":completed", "");
+          this.logger.log(
+            `[generateSlides] ★ Received :completed event: ${event.type}, phase=${phase}`,
+          );
           if (this.isCheckpointPhase(phase)) {
+            this.logger.log(
+              `[generateSlides] ★ Saving checkpoint for phase: ${phase}`,
+            );
             await this.saveCheckpoint(sessionId, phase, event.data);
             this.logger.log(
-              `[generateSlides] ★ Saved checkpoint for phase: ${phase}`,
+              `[generateSlides] ★ Checkpoint saved for phase: ${phase}`,
+            );
+          } else {
+            this.logger.log(
+              `[generateSlides] ★ Skipping checkpoint for phase: ${phase} (not a checkpoint phase)`,
             );
           }
         }
