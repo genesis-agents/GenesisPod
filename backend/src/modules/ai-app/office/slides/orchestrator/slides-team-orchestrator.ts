@@ -346,7 +346,10 @@ export class SlidesTeamOrchestrator {
     errors: SlidesExecutionError[],
   ): AsyncGenerator<SlidesMissionEvent> {
     this.logger.log(
-      `[executeTasksPhase] Starting task execution for mission ${mission.id}`,
+      `[executeTasksPhase] ★ Starting task execution for mission ${mission.id}`,
+    );
+    this.logger.log(
+      `[executeTasksPhase] ★ Tasks to execute: ${mission.tasks.map((t) => `${t.skillId}(${t.status})`).join(", ")}`,
     );
 
     mission.currentPhase = "executing";
@@ -452,6 +455,11 @@ export class SlidesTeamOrchestrator {
           await this.persistEvent(taskEvent);
         } else {
           task.status = "failed";
+
+          // ★ 诊断：任务失败
+          this.logger.error(
+            `[executeTasksPhase] ★★★ TASK FAILED: ${task.skillId}, error: ${result.error}`,
+          );
 
           // 记录错误
           errors.push({

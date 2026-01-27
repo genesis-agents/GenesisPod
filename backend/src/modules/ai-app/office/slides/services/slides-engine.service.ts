@@ -513,12 +513,34 @@ export class SlidesEngineService {
         // 捕获 mission:completed 数据
         if (event.type === "mission:completed") {
           missionCompleteData = event.data;
+          this.logger.log(
+            `[generateSlides] ★ Captured mission:completed data, pages count: ${(event.data.pages as unknown[])?.length || 0}`,
+          );
+        }
+
+        // ★ 诊断：检测失败事件
+        if (event.type === "mission:failed" || event.type === "task:failed") {
+          this.logger.error(
+            `[generateSlides] ★★★ FAILURE EVENT: ${event.type}, error: ${JSON.stringify(event.data).slice(0, 500)}`,
+          );
         }
       }
 
+      // ★ 诊断：事件循环结束
+      this.logger.log(
+        `[generateSlides] ★ Event loop ended. Total events: ${eventCount}, missionCompleteData exists: ${!!missionCompleteData}`,
+      );
+
       // 8. 保存最终检查点
       if (missionCompleteData) {
+        this.logger.log(
+          `[generateSlides] ★ Saving final checkpoint with missionCompleteData`,
+        );
         await this.saveFinalCheckpointFromEvent(sessionId, missionCompleteData);
+      } else {
+        this.logger.warn(
+          `[generateSlides] ★ WARNING: No missionCompleteData captured! Mission may have failed or disconnected.`,
+        );
       }
 
       // 8.0.5 扣减积分
