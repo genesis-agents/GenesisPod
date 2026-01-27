@@ -589,9 +589,11 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
     structuredReport: ComprehensiveReport;
     charts: ReportChart[];
   } {
+    // ★ 使用 "sections" 作为必需键，因为这是报告的核心内容
+    // 之前用 "preface" 导致解析失败（AI 可能不返回 preface 字段）
     const extractionResult =
       extractJsonFromAIResponse<AIReportSynthesisResponse>(content, {
-        requiredKey: "preface",
+        requiredKey: "sections",
       });
 
     if (extractionResult.success && extractionResult.data) {
