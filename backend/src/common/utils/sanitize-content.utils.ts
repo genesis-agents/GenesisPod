@@ -9,9 +9,11 @@
  *
  * 处理的问题：
  * 1. 引用后的孤立下划线: [1]__ → [1]
- * 2. 连续多个下划线（非有效 markdown bold）: ____ → 无
- * 3. 不完整的 bold 标记: 文字__ → 文字
- * 4. 引用之间的多余下划线: [1] __ [2] → [1] [2]
+ * 2. 引用前的孤立下划线: __[1] → [1]
+ * 3. 连续多个下划线（非有效 markdown bold）: ____ → 无
+ * 4. 不完整的 bold 标记: 文字__ → 文字
+ * 5. 引用之间的多余下划线: [1] __ [2] → [1] [2]
+ * 6. 文字和引用之间的下划线: 文字__[1] → 文字[1]
  */
 export function sanitizeMarkdownContent(content: string): string {
   if (!content) return content;
@@ -25,27 +27,42 @@ export function sanitizeMarkdownContent(content: string): string {
     "$1",
   );
 
-  // 2. 清理句末或段落末的孤立下划线
+  // 2. ★ 清理引用前的孤立下划线: __[1] 或 __ [1]
+  // 例如: 文字__[54] → 文字[54]
+  sanitized = sanitized.replace(/_+\s*(\[\d+(?:\s*,\s*\d+)*\])/g, "$1");
+
+  // 3. ★ 清理引用之间的孤立下划线（可能有多个引用）: [1] ___ [2] → [1] [2]
+  // 需要多次执行以处理连续的情况
+  for (let i = 0; i < 3; i++) {
+    sanitized = sanitized.replace(/(\[\d+\])\s*_+\s*(\[\d+\])/g, "$1 $2");
+  }
+
+  // 4. 清理句末或段落末的孤立下划线
   // 匹配 。或 . 或换行前的 __ 或 _
   sanitized = sanitized.replace(/_+\s*([。.!?！？]|\n|$)/g, "$1");
 
-  // 3. 清理连续4个以上的下划线（不是有效的 markdown）
-  sanitized = sanitized.replace(/_{4,}/g, "");
+  // 5. 清理连续3个以上的下划线（不是有效的 markdown）
+  sanitized = sanitized.replace(/_{3,}/g, "");
 
-  // 4. 清理单词/句子后面的孤立 __ 但不是 bold 格式
-  // 匹配 文字__ 但后面没有对应的 __ 闭合
-  sanitized = sanitized.replace(/([^\s_])__(?![^\s_][\s\S]*?__)/g, "$1");
+  // 6. 清理单词/句子后面的孤立 __ 但不是 bold 格式
+  // 匹配 文字__ 但后面没有对应的 __ 闭合（排除有效的 bold）
+  // 检测方法：如果 __ 后面不是空白或标点，且后面没有匹配的 __，则移除
+  sanitized = sanitized.replace(
+    /([^\s_\[])_+(?=\s*[\[。.!?！？,，、；;：:\n]|$)/g,
+    "$1",
+  );
 
-  // 5. 清理引用之间的孤立下划线: [1] __ [2] → [1] [2]
-  sanitized = sanitized.replace(/(\[\d+\])\s*_+\s*(\[\d+\])/g, "$1 $2");
-
-  // 6. 清理行首的孤立下划线
+  // 7. 清理行首的孤立下划线
   sanitized = sanitized.replace(/^_+\s*/gm, "");
 
-  // 7. 清理 ** 和 __ 混用导致的格式问题
+  // 8. 清理 ** 和 __ 混用导致的格式问题
   // 例如 **text__ 或 __text**
   sanitized = sanitized.replace(/\*\*([^*_]+)__/g, "**$1**");
   sanitized = sanitized.replace(/__([^*_]+)\*\*/g, "**$1**");
+
+  // 9. ★ 最后再清理一次可能残留的孤立下划线（紧邻引用的）
+  sanitized = sanitized.replace(/_+(\[\d+\])/g, "$1");
+  sanitized = sanitized.replace(/(\[\d+\])_+/g, "$1");
 
   return sanitized;
 }

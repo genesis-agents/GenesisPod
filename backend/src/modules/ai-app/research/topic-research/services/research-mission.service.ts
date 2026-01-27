@@ -2233,6 +2233,9 @@ export class ResearchMissionService {
                     evidenceUsed: taskResult.evidenceUsed || 0,
                     confidenceLevel: taskResult.confidenceLevel || "medium",
                     detailedContent: taskResult.detailedContent || "",
+                    // ★ 新增：保存图表引用和生成图表
+                    figureReferences: taskResult.figureReferences || [],
+                    generatedCharts: taskResult.generatedCharts || [],
                   },
                 );
                 this.logger.log(
