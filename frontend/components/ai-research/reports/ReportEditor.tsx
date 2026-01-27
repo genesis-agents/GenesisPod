@@ -717,7 +717,12 @@ function ReportEditorInner({
   const markdownContent = useMemo(() => {
     if (!report) return '';
 
-    // Build markdown from report structure
+    // ★ Priority 1: Use fullReport if available (contains chart placeholders)
+    if (report.fullReport && report.fullReport.trim().length > 100) {
+      return report.fullReport;
+    }
+
+    // ★ Priority 2: Fall back to building markdown from report structure
     const parts: string[] = [];
 
     // Title
