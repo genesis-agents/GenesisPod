@@ -51,6 +51,8 @@ import { ResearchCollaborationPanel } from '../collaboration/ResearchCollaborati
 import { ResearchTimeline } from '../collaboration/ResearchTimeline';
 // 反馈管理组件
 import { FeedbackDashboard } from '@/components/feedback';
+// 反馈API - 用于将批注提交为反馈
+import { createFeedbackFromAnnotation } from '@/lib/api/research-feedback';
 
 // 报告视图模式
 type ReportViewMode = 'continuous' | 'chapter';
@@ -1079,6 +1081,28 @@ export function TopicContentPanel({
     [user?.id, user?.username, user?.email]
   );
 
+  // ★ 将批注提交为反馈 - 反馈闭环系统入口
+  const handleSubmitFeedback = useCallback(async (annotationId: string) => {
+    try {
+      await createFeedbackFromAnnotation(annotationId);
+      // 更新批注状态，标记为已提交反馈
+      setAnnotations((prev) =>
+        prev.map((ann) =>
+          ann.id === annotationId
+            ? {
+                ...ann,
+                status: 'resolved' as const,
+                updatedAt: new Date().toISOString(),
+              }
+            : ann
+        )
+      );
+      logger.info('Annotation submitted as feedback:', annotationId);
+    } catch (error) {
+      logger.error('Failed to submit annotation as feedback:', error);
+    }
+  }, []);
+
   // Safe array fallbacks (★ 使用 Array.isArray 确保是数组)
   const safeDimensions = Array.isArray(dimensions) ? dimensions : [];
   const safeEvidence = Array.isArray(evidence) ? evidence : [];
@@ -1441,6 +1465,7 @@ export function TopicContentPanel({
                         onDelete={handleAnnotationDelete}
                         onResolve={handleAnnotationResolve}
                         onReply={handleAnnotationReply}
+                        onSubmitFeedback={handleSubmitFeedback}
                         onNavigate={(annotationId) => {
                           const annotationEl = document.querySelector(
                             `[data-annotation-id="${annotationId}"]`
@@ -1951,6 +1976,7 @@ export function TopicContentPanel({
                           onDelete={handleAnnotationDelete}
                           onResolve={handleAnnotationResolve}
                           onReply={handleAnnotationReply}
+                          onSubmitFeedback={handleSubmitFeedback}
                           onNavigate={(annotationId: string) => {
                             // ★ 设置高亮批注ID，触发滚动到原文
                             setHighlightedAnnotationId(annotationId);

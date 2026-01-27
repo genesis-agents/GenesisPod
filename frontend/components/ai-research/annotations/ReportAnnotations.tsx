@@ -55,6 +55,8 @@ interface ReportAnnotationsProps {
   onResolve?: (annotationId: string) => Promise<void>;
   onReply?: (annotationId: string, content: string) => Promise<void>;
   onNavigate?: (annotationId: string) => void;
+  /** ★ 提交批注为反馈 - 用于反馈闭环系统 */
+  onSubmitFeedback?: (annotationId: string) => Promise<void>;
 }
 
 // Color config
@@ -165,6 +167,23 @@ const NavigateIcon = ({ className }: { className?: string }) => (
 // Filter types
 type FilterStatus = 'all' | 'active' | 'resolved';
 
+// Feedback icon
+const FeedbackIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+    />
+  </svg>
+);
+
 export function ReportAnnotations({
   annotations,
   currentUserId,
@@ -175,6 +194,7 @@ export function ReportAnnotations({
   onResolve,
   onReply,
   onNavigate,
+  onSubmitFeedback,
 }: ReportAnnotationsProps) {
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [expandedAnnotations, setExpandedAnnotations] = useState<Set<string>>(
@@ -445,6 +465,18 @@ export function ReportAnnotations({
                         >
                           <TrashIcon className="h-3.5 w-3.5" />
                           删除
+                        </button>
+                      )}
+
+                      {/* ★ Submit as Feedback - 提交到反馈闭环 */}
+                      {onSubmitFeedback && annotation.status === 'active' && (
+                        <button
+                          onClick={() => onSubmitFeedback(annotation.id)}
+                          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                          title="将此批注提交为反馈，进入反馈闭环流程"
+                        >
+                          <FeedbackIcon className="h-3.5 w-3.5" />
+                          提交反馈
                         </button>
                       )}
 
