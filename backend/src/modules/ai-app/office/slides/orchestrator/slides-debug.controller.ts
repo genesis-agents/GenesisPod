@@ -9,7 +9,7 @@ import { Controller, Get, Param, Logger } from "@nestjs/common";
 import { Public } from "../../../../../common/decorators/public.decorator";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
 
-@Controller("ai-office/slides/debug")
+@Controller("internal/slides-debug")
 @Public()
 export class SlidesDebugController {
   private readonly logger = new Logger(SlidesDebugController.name);
