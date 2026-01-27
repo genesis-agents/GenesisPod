@@ -187,57 +187,95 @@ function generateToc(report: TopicReport): TocItem[] {
   return items;
 }
 
+// ★ 辅助函数：将结构化执行摘要转为 Markdown
+function formatExecutiveSummaryToMarkdown(es: {
+  coreConclusions?: string[];
+  keyMetrics?: Array<{ metric: string; value: string; source: string }>;
+  riskAlerts?: string[];
+  actionItems?: string[];
+  fullText?: string;
+}): string {
+  const parts: string[] = [];
+
+  // 核心结论
+  const conclusions = es.coreConclusions;
+  if (conclusions && conclusions.length > 0) {
+    parts.push('## 核心结论\n\n');
+    conclusions.forEach((c, i) => {
+      parts.push(`${i + 1}. **${c}**\n`);
+    });
+    parts.push('\n');
+  }
+
+  // 关键数据
+  const metrics = es.keyMetrics;
+  if (metrics && metrics.length > 0) {
+    parts.push('## 关键数据\n\n');
+    parts.push('| 指标 | 数值 | 来源 |\n');
+    parts.push('|------|------|------|\n');
+    metrics.forEach((m) => {
+      parts.push(`| ${m.metric} | ${m.value} | ${m.source} |\n`);
+    });
+    parts.push('\n');
+  }
+
+  // 风险提示
+  const alerts = es.riskAlerts;
+  if (alerts && alerts.length > 0) {
+    parts.push('## 风险提示\n\n');
+    alerts.forEach((r) => {
+      parts.push(`- ${r}\n`);
+    });
+    parts.push('\n');
+  }
+
+  // 行动建议
+  const actions = es.actionItems;
+  if (actions && actions.length > 0) {
+    parts.push('## 行动建议\n\n');
+    actions.forEach((a) => {
+      parts.push(`- ${a}\n`);
+    });
+    parts.push('\n');
+  }
+
+  return parts.join('') || es.fullText || '';
+}
+
 // ★ 生成单个章节内容（v2.0 增强）
 function generateSectionContent(report: TopicReport, section: TocItem): string {
   // 1. 执行摘要（v2.0 新增）
   if (section.type === 'executive-summary') {
     // 优先使用 v2.0 结构化摘要
     if (report.executiveSummaryV2) {
-      const es = report.executiveSummaryV2;
-      const parts: string[] = [];
-
-      // 核心结论
-      if (es.coreConclusions?.length > 0) {
-        parts.push('## 核心结论\n\n');
-        es.coreConclusions.forEach((c, i) => {
-          parts.push(`${i + 1}. **${c}**\n`);
-        });
-        parts.push('\n');
-      }
-
-      // 关键数据
-      if (es.keyMetrics?.length > 0) {
-        parts.push('## 关键数据\n\n');
-        parts.push('| 指标 | 数值 | 来源 |\n');
-        parts.push('|------|------|------|\n');
-        es.keyMetrics.forEach((m) => {
-          parts.push(`| ${m.metric} | ${m.value} | ${m.source} |\n`);
-        });
-        parts.push('\n');
-      }
-
-      // 风险提示
-      if (es.riskAlerts?.length > 0) {
-        parts.push('## 风险提示\n\n');
-        es.riskAlerts.forEach((r) => {
-          parts.push(`- ⚠️ ${r}\n`);
-        });
-        parts.push('\n');
-      }
-
-      // 行动建议
-      if (es.actionItems?.length > 0) {
-        parts.push('## 行动建议\n\n');
-        es.actionItems.forEach((a) => {
-          parts.push(`- ✅ ${a}\n`);
-        });
-        parts.push('\n');
-      }
-
-      return parts.join('') || es.fullText || '暂无执行摘要';
+      const result = formatExecutiveSummaryToMarkdown(
+        report.executiveSummaryV2
+      );
+      return result || '暂无执行摘要';
     }
-    // 兼容旧版
-    return report.executiveSummary || '暂无执行摘要';
+
+    // 兼容旧版：检测 executiveSummary 是否是 JSON 字符串
+    if (report.executiveSummary) {
+      const trimmed = report.executiveSummary.trim();
+      // 检测是否为 JSON 格式
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          // 支持 { executiveSummary: {...} } 或直接 { coreConclusions: [...] } 格式
+          const esData = parsed.executiveSummary || parsed;
+          if (esData && (esData.coreConclusions || esData.keyMetrics)) {
+            const result = formatExecutiveSummaryToMarkdown(esData);
+            if (result) return result;
+          }
+        } catch {
+          // 解析失败，作为普通文本处理
+        }
+      }
+      // 非 JSON 或解析失败，直接返回原文本
+      return report.executiveSummary;
+    }
+
+    return '暂无执行摘要';
   }
 
   // 2. 概览

@@ -96,9 +96,11 @@ export default function ResourceSelectPanel({
       }
 
       const result = await response.json();
-      // Handle wrapped response { success: true, data: [...] }
-      const data = result?.data ?? result;
-      const resourceList = Array.isArray(data) ? data : [];
+      // Handle wrapped response { data: { data: [...], pagination } }
+      const responseData = result?.data ?? result;
+      const resourceList = Array.isArray(responseData)
+        ? responseData
+        : responseData?.data || [];
       setResources(resourceList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load resources');

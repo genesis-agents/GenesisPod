@@ -702,8 +702,61 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
         }
         executiveSummary = parts.join("\n") || "";
       }
+    } else if (typeof parsed.executiveSummary === "string") {
+      // ★ 检测字符串是否为 JSON 格式（AI 可能意外返回字符串化的 JSON）
+      const esStr = parsed.executiveSummary.trim();
+      if (esStr.startsWith("{") && esStr.endsWith("}")) {
+        try {
+          const esJsonParsed = JSON.parse(esStr);
+          // 支持 { executiveSummary: {...} } 或直接 { coreConclusions: [...] } 格式
+          const esData = esJsonParsed.executiveSummary || esJsonParsed;
+          if (esData && (esData.coreConclusions || esData.keyMetrics)) {
+            // 从解析后的对象组装 Markdown
+            const parts: string[] = [];
+            if (esData.coreConclusions?.length) {
+              parts.push(
+                "## 核心结论\n" +
+                  esData.coreConclusions
+                    .map((c: string, i: number) => `${i + 1}. ${c}`)
+                    .join("\n"),
+              );
+            }
+            if (esData.keyMetrics?.length) {
+              parts.push(
+                "\n## 关键数据\n| 指标 | 数值 | 来源 |\n|------|------|------|\n" +
+                  esData.keyMetrics
+                    .map(
+                      (m: { metric: string; value: string; source: string }) =>
+                        `| ${m.metric} | ${m.value} | ${m.source} |`,
+                    )
+                    .join("\n"),
+              );
+            }
+            if (esData.riskAlerts?.length) {
+              parts.push(
+                "\n## 风险提示\n" +
+                  esData.riskAlerts.map((r: string) => `- ${r}`).join("\n"),
+              );
+            }
+            if (esData.actionItems?.length) {
+              parts.push(
+                "\n## 行动建议\n" +
+                  esData.actionItems.map((a: string) => `- ${a}`).join("\n"),
+              );
+            }
+            executiveSummary = parts.join("\n") || esData.fullText || esStr;
+          } else {
+            executiveSummary = esStr;
+          }
+        } catch {
+          // JSON 解析失败，使用原始字符串
+          executiveSummary = esStr;
+        }
+      } else {
+        executiveSummary = esStr;
+      }
     } else {
-      executiveSummary = (parsed.executiveSummary as string) || "";
+      executiveSummary = "";
     }
 
     return {
