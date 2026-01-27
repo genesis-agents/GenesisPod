@@ -65,6 +65,9 @@ export * from "./quality-audit.skill";
 // Layer 7 - Monitoring & Transparency (v5.0)
 export * from "./slide-thinking.skill";
 
+// Layer 8 - Voice & Narration (v5.0)
+export * from "./voice-narration.skill";
+
 // Module (v4.0: 技能注册模块)
 export * from "./slides-skills.module";
 

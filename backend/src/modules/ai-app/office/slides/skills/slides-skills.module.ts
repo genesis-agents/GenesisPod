@@ -55,6 +55,9 @@ import { QualityAuditSkill } from "./quality-audit.skill";
 // Layer 7 - Monitoring & Transparency (v5.0)
 import { SlideThinkingSkill } from "./slide-thinking.skill";
 
+// Layer 8 - Voice & Narration (v5.0)
+import { VoiceNarrationSkill } from "./voice-narration.skill";
+
 // Layer 0 - Orchestration
 import { PagePipelineSkill } from "./page-pipeline.skill";
 
@@ -90,6 +93,8 @@ const SLIDES_SKILL_PROVIDERS = [
   QualityAuditSkill,
   // Layer 7
   SlideThinkingSkill,
+  // Layer 8
+  VoiceNarrationSkill,
 ];
 
 @Module({
@@ -131,6 +136,8 @@ export class SlidesSkillsModule implements OnModuleInit {
     private readonly qualityAudit: QualityAuditSkill,
     // Layer 7
     private readonly slideThinking: SlideThinkingSkill,
+    // Layer 8
+    private readonly voiceNarration: VoiceNarrationSkill,
   ) {}
 
   /**
@@ -168,6 +175,8 @@ export class SlidesSkillsModule implements OnModuleInit {
       this.qualityAudit,
       // Layer 7
       this.slideThinking,
+      // Layer 8
+      this.voiceNarration,
     ];
 
     let registered = 0;

@@ -96,6 +96,9 @@ import { SessionsGallery } from './SlidesGallery';
 import { SourceImportModal } from './SourceImportModal';
 import type { SlidesSourceData } from '@/hooks/features/slides';
 
+// ★ V5.0 新布局组件 (PRD Section 12)
+import { SlidesWorkspace } from './SlidesWorkspace';
+
 import { logger } from '@/lib/utils/logger';
 // ============================================================================
 // 类型定义
@@ -966,49 +969,43 @@ export function SlidesTab() {
     );
   }
 
-  // 生成中或已有内容 - 显示两栏布局
+  // 生成中或已有内容 - 显示 V5.0 新布局 (PRD Section 12)
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white">
-      {/* 头部 */}
-      <Header
-        title={session?.title}
-        showHistory={showHistory}
-        onToggleHistory={() => setShowHistory(!showHistory)}
-        onCreateCheckpoint={handleCreateCheckpoint}
-        showBackButton={true}
-        onBackToGallery={handleBackToGallery}
-        onStartPresentation={() => setShowPresentation(true)}
-        hasPages={pages.length > 0}
-        onSmartTags={handleSmartTags}
-        sessionId={session?.id}
-        selectedPageIndex={useSlidesStore.getState().selectedPageIndex}
-      />
+      {/* 顶部标题栏 - 简化版 */}
+      <header className="flex-shrink-0 border-b border-slate-200 bg-white">
+        <div className="flex h-12 items-center justify-between px-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleBackToGallery}
+              className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
+              title="返回"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-orange-600">
+              <Sparkles className="h-3.5 w-3.5 text-white" />
+            </div>
+            <span className="text-sm font-medium text-slate-800">
+              {session?.title || 'AI 演示文稿'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {pages.length > 0 && (
+              <button
+                onClick={() => setShowPresentation(true)}
+                className="flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-600"
+              >
+                <Play className="h-4 w-4" />
+                演示
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
 
-      {/* 历史记录面板 */}
-      <HistoryPanel
-        show={showHistory}
-        history={history}
-        onRemove={removeHistory}
-        onClear={clearHistory}
-        onRestore={handleRestoreHistory}
-      />
-
-      {/* 两栏布局 */}
-      <div className="flex flex-1 overflow-hidden">
-        <ConversationPanel
-          onSendMessage={handleSendMessage}
-          onCancel={cancel}
-          toolCalls={toolCalls}
-          generating={generating}
-          progress={progress}
-          outlinePlan={outlinePlan}
-          teamState={teamState}
-        />
-        <PreviewPanel />
-      </div>
-
-      {/* 底部进度条 */}
-      <ProgressBar />
+      {/* V5.0 新布局 - 左右分栏 */}
+      <SlidesWorkspace className="flex-1" />
 
       {/* 演示模式 */}
       {showPresentation && (
