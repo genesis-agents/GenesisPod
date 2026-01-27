@@ -71,7 +71,7 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
   // Handle suggestion execution
   const handleSuggestionExecute = useCallback(
     async (suggestion: { id: string; action: string }) => {
-      console.log('Execute suggestion:', suggestion);
+      logger.debug('[SlidesWorkspace] Execute suggestion:', suggestion);
       // TODO: Implement suggestion actions
     },
     []
@@ -92,14 +92,14 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
 
   // Handle fact check
   const handleFactCheck = useCallback(async () => {
-    console.log('Fact check');
+    logger.debug('[SlidesWorkspace] Fact check triggered');
     // TODO: Implement fact check via AIEditService
   }, []);
 
   // Handle AI edit
   const handleAIEdit = useCallback(
     async (action: 'fix-layout' | 'polish-content' | 'mark-edit') => {
-      console.log('AI Edit:', action);
+      logger.debug('[SlidesWorkspace] AI Edit:', action);
       // TODO: Implement AI edit via AIEditService
     },
     []
@@ -107,7 +107,7 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
 
   // Handle advanced options
   const handleAdvanced = useCallback(() => {
-    console.log('Advanced options');
+    logger.debug('[SlidesWorkspace] Advanced options clicked');
     // TODO: Show advanced options modal
   }, []);
 

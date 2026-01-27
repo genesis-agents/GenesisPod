@@ -23,8 +23,9 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import { useSlidesStore } from '@/stores';
+import { useSlidesStore, toast } from '@/stores';
 import type { PageState } from '@/types/slides';
+import { logger } from '@/lib/utils/logger';
 import { sanitizeSlideHtml } from '@/lib/utils/sanitize';
 import { CodePreview } from './CodePreview';
 import { ThinkingPanel } from './ThinkingPanel';
@@ -74,7 +75,7 @@ export function RightPanel({
     async (format: 'pptx' | 'pdf') => {
       const currentSessionId = sessionId || session?.id;
       if (!currentSessionId) {
-        alert('请先生成幻灯片');
+        toast.warning('请先生成幻灯片');
         return;
       }
 
@@ -104,8 +105,11 @@ export function RightPanel({
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+
+        toast.success(`${format.toUpperCase()} 导出成功`);
       } catch (error) {
-        alert('导出失败，请重试');
+        logger.error('[RightPanel] Export failed:', error);
+        toast.error('导出失败，请重试');
       } finally {
         setExporting(null);
       }
@@ -241,14 +245,15 @@ export function RightPanel({
               }}
             >
               <iframe
-                srcDoc={enhanceHtml(currentPage.html, scale)}
+                srcDoc={enhanceHtml(sanitizeSlideHtml(currentPage.html), scale)}
                 style={{
                   width: scaledWidth,
                   height: scaledHeight,
                   border: 'none',
                   display: 'block',
                 }}
-                sandbox="allow-scripts"
+                sandbox="allow-same-origin"
+                title={`Slide ${selectedPageIndex + 1} preview`}
               />
             </div>
           ) : (
