@@ -184,6 +184,39 @@ export class SlidesController {
   ) {}
 
   // ============================================
+  // Diagnostic API (TEMPORARY - Remove after debugging)
+  // ============================================
+
+  /**
+   * 临时诊断端点 - 检查检查点数据
+   * TODO: 调试完成后删除此端点
+   */
+  @Get("debug/checkpoints")
+  async debugCheckpoints(): Promise<object> {
+    this.logger.log("[debugCheckpoints] Fetching checkpoint diagnostics");
+
+    const checkpoints = await this.checkpointService.list({});
+    const latest15 = checkpoints.slice(0, 15);
+
+    return {
+      total: checkpoints.length,
+      checkpoints: latest15.map((cp) => ({
+        id: cp.id.slice(0, 8),
+        sessionId: cp.sessionId.slice(0, 8),
+        name: cp.name?.slice(0, 40),
+        type: cp.type,
+        pagesCount: cp.state?.pages?.length || 0,
+        pagesWithHtml:
+          cp.state?.pages?.filter((p) => p.html && p.html.length > 0).length ||
+          0,
+        hasOutlinePlan: !!cp.state?.outlinePlan,
+        outlineTitle: cp.state?.outlinePlan?.title?.slice(0, 30) || null,
+        stateKeys: Object.keys(cp.state || {}),
+      })),
+    };
+  }
+
+  // ============================================
   // Themes API
   // ============================================
 
