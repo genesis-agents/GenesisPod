@@ -43,6 +43,9 @@ export class OpenAIQuotaProvider extends BaseQuotaProvider {
   readonly provider = "openai";
   readonly supportsApiQuery = true;
 
+  // 缓存权限检查结果，避免重复警告
+  private permissionDenied = false;
+
   /**
    * 获取 OpenAI 配额信息
    * 使用 Usage API 获取 token 使用量
@@ -52,6 +55,14 @@ export class OpenAIQuotaProvider extends BaseQuotaProvider {
       return {
         success: false,
         error: "API Key not provided",
+      };
+    }
+
+    // 如果已知没有权限，直接返回，避免重复请求和日志
+    if (this.permissionDenied) {
+      return {
+        success: false,
+        error: "API Key 没有 api.usage.read 权限，需要在 OpenAI 控制台配置",
       };
     }
 
@@ -73,18 +84,25 @@ export class OpenAIQuotaProvider extends BaseQuotaProvider {
       );
 
       if (!response.ok) {
+        // 如果是 401/403，可能是 API Key 没有权限访问 organization usage
+        if (response.status === 401 || response.status === 403) {
+          // 标记权限被拒绝，后续请求直接跳过
+          this.permissionDenied = true;
+          // 只在首次出现时记录日志
+          this.logger.warn(
+            `[fetchQuota] OpenAI API Key 缺少 api.usage.read 权限，配额查询已禁用。` +
+              `如需启用，请在 OpenAI 控制台为 API Key 添加此权限。`,
+          );
+          return {
+            success: false,
+            error: "API Key 没有 api.usage.read 权限",
+          };
+        }
+
         const errorText = await response.text();
         this.logger.warn(
           `[fetchQuota] OpenAI API error: ${response.status} - ${errorText}`,
         );
-
-        // 如果是 401/403，可能是 API Key 没有权限访问 organization usage
-        if (response.status === 401 || response.status === 403) {
-          return {
-            success: false,
-            error: "API Key 没有组织用量查询权限",
-          };
-        }
 
         return {
           success: false,
