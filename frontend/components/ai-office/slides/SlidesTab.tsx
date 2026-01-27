@@ -93,6 +93,8 @@ import { PreviewPanel } from './SlidesPreview';
 import { PresentationMode } from './SlidesPresentation';
 import { Header, HistoryPanel, ProgressBar } from './SlidesToolbar';
 import { SessionsGallery } from './SlidesGallery';
+import { SourceImportModal } from './SourceImportModal';
+import type { SlidesSourceData } from '@/hooks/features/slides';
 
 import { logger } from '@/lib/utils/logger';
 // ============================================================================
@@ -1034,7 +1036,24 @@ function InitialInputForm({
   const [sourceText, setSourceText] = useState('');
   const [targetPages, setTargetPages] = useState(10);
   const [themeId, setThemeId] = useState<SlideThemeId>('genspark-dark');
+  const [showImportModal, setShowImportModal] = useState(false);
   const { generating } = useSlidesStore();
+
+  // Handle import from platform sources
+  const handleImportData = useCallback(
+    (data: SlidesSourceData) => {
+      if (data.metadata?.title && !title) {
+        setTitle(data.metadata.title);
+      }
+      // Append imported content to source text
+      setSourceText((prev) => {
+        const imported = data.sourceText || '';
+        return prev ? `${prev}\n\n---\n\n${imported}` : imported;
+      });
+      setShowImportModal(false);
+    },
+    [title]
+  );
 
   const handleSubmit = useCallback(() => {
     if (!title.trim() || !sourceText.trim()) return;
@@ -1081,13 +1100,23 @@ function InitialInputForm({
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  素材内容
-                </label>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700">
+                    素材内容
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowImportModal(true)}
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800"
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                    从平台导入
+                  </button>
+                </div>
                 <textarea
                   value={sourceText}
                   onChange={(e) => setSourceText(e.target.value)}
-                  placeholder="粘贴要转换为幻灯片的文本内容..."
+                  placeholder="粘贴要转换为幻灯片的文本内容，或点击上方按钮从平台其他模块导入..."
                   rows={8}
                   className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
@@ -1154,6 +1183,13 @@ function InitialInputForm({
           </button>
         </div>
       </div>
+
+      {/* V5.0: Source Import Modal */}
+      <SourceImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImport={handleImportData}
+      />
     </main>
   );
 }
