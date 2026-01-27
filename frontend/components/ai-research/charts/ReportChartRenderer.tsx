@@ -113,7 +113,8 @@ function LineChartComponent({
   chart: ReportChart;
   data: Record<string, unknown>[];
 }) {
-  const seriesNames = getSeriesNames(chart.data);
+  const chartData = chart.data || [];
+  const seriesNames = getSeriesNames(chartData);
   const hasSeries = seriesNames.length > 0;
 
   return (
@@ -185,7 +186,8 @@ function BarChartComponent({
   chart: ReportChart;
   data: Record<string, unknown>[];
 }) {
-  const seriesNames = getSeriesNames(chart.data);
+  const chartData = chart.data || [];
+  const seriesNames = getSeriesNames(chartData);
   const hasSeries = seriesNames.length > 0;
 
   return (
@@ -247,7 +249,8 @@ function AreaChartComponent({
   chart: ReportChart;
   data: Record<string, unknown>[];
 }) {
-  const seriesNames = getSeriesNames(chart.data);
+  const chartData = chart.data || [];
+  const seriesNames = getSeriesNames(chartData);
   const hasSeries = seriesNames.length > 0;
 
   return (
@@ -382,7 +385,8 @@ function RadarChartComponent({
  * 风险矩阵图（散点图）
  */
 function RiskMatrixComponent({ chart }: { chart: ReportChart }) {
-  const data = chart.data.map((d) => ({
+  const chartData = chart.data || [];
+  const data = chartData.map((d) => ({
     name: d.label,
     probability: d.value,
     impact: (d.extra?.impact as number) || 50,
@@ -456,51 +460,192 @@ function RiskMatrixComponent({ chart }: { chart: ReportChart }) {
 }
 
 /**
+ * 生成图表类型的中文名称
+ */
+function getChartTypeName(type: string): string {
+  const typeNames: Record<string, string> = {
+    line: '折线图',
+    bar: '柱状图',
+    area: '面积图',
+    pie: '饼图',
+    radar: '雷达图',
+    composed: '组合图',
+  };
+  return typeNames[type] || '图表';
+}
+
+/**
+ * 为屏幕阅读器生成图表数据摘要
+ */
+function generateChartSummary(
+  chart: ReportChart,
+  data: ChartDataPoint[]
+): string {
+  const typeName = getChartTypeName(chart.type || 'bar');
+  const dataCount = data.length;
+
+  if (dataCount === 0) {
+    return `${chart.title || '图表'}，${typeName}，暂无数据`;
+  }
+
+  // 计算基本统计信息
+  const values = data
+    .map((d) => d.value)
+    .filter((v) => typeof v === 'number' && isFinite(v));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+
+  let summary = `${chart.title || '图表'}，${typeName}，包含${dataCount}个数据点`;
+
+  if (values.length > 0) {
+    summary += `，数值范围从${min.toFixed(1)}到${max.toFixed(1)}`;
+  }
+
+  if (chart.description) {
+    summary += `。${chart.description}`;
+  }
+
+  return summary;
+}
+
+/**
  * 主渲染组件
  */
 export function ReportChartRenderer({
   chart,
   className = '',
 }: ReportChartRendererProps) {
-  const transformedData = useMemo(
-    () => transformData(chart.data),
-    [chart.data]
+  // ★ 处理 data 为空的情况
+  const chartData = chart.data || [];
+  const chartType = chart.type || 'bar';
+
+  const transformedData = useMemo(() => transformData(chartData), [chartData]);
+
+  // 生成唯一 ID 用于 aria 属性
+  const chartId = useMemo(
+    () => `chart-${chart.id || Math.random().toString(36).substr(2, 9)}`,
+    [chart.id]
+  );
+  const descriptionId = `${chartId}-desc`;
+  const tableId = `${chartId}-table`;
+
+  // 生成屏幕阅读器摘要
+  const chartSummary = useMemo(
+    () => generateChartSummary(chart, chartData),
+    [chart, chartData]
   );
 
+  // ★ 如果没有数据，显示空状态
+  if (chartData.length === 0) {
+    return (
+      <div
+        className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm ${className}`}
+        role="figure"
+        aria-label={`${chart.title || '图表'}：暂无数据`}
+      >
+        <div className="mb-4">
+          <h4 className="text-base font-semibold text-gray-900">
+            {chart.title}
+          </h4>
+          {chart.description && (
+            <p className="mt-1 text-sm text-gray-500">{chart.description}</p>
+          )}
+        </div>
+        <div className="flex min-h-[200px] items-center justify-center text-sm text-gray-400">
+          暂无图表数据
+        </div>
+      </div>
+    );
+  }
+
+  // ★ 创建一个带数据的 chart 对象用于子组件
+  const chartWithData = { ...chart, data: chartData, type: chartType };
+
   const renderChart = () => {
-    switch (chart.type) {
+    switch (chartType) {
       case 'line':
-        return <LineChartComponent chart={chart} data={transformedData} />;
+        return (
+          <LineChartComponent chart={chartWithData} data={transformedData} />
+        );
       case 'bar':
-        return <BarChartComponent chart={chart} data={transformedData} />;
+        return (
+          <BarChartComponent chart={chartWithData} data={transformedData} />
+        );
       case 'area':
-        return <AreaChartComponent chart={chart} data={transformedData} />;
+        return (
+          <AreaChartComponent chart={chartWithData} data={transformedData} />
+        );
       case 'pie':
-        return <PieChartComponent chart={chart} data={transformedData} />;
+        return (
+          <PieChartComponent chart={chartWithData} data={transformedData} />
+        );
       case 'radar':
-        return <RadarChartComponent chart={chart} data={transformedData} />;
+        return (
+          <RadarChartComponent chart={chartWithData} data={transformedData} />
+        );
       case 'composed':
         // 组合图使用柱状图+折线图
-        return <BarChartComponent chart={chart} data={transformedData} />;
+        return (
+          <BarChartComponent chart={chartWithData} data={transformedData} />
+        );
       default:
-        return <BarChartComponent chart={chart} data={transformedData} />;
+        return (
+          <BarChartComponent chart={chartWithData} data={transformedData} />
+        );
     }
   };
 
   return (
     <div
       className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm ${className}`}
+      role="figure"
+      aria-labelledby={chartId}
+      aria-describedby={descriptionId}
     >
       {/* 图表标题 */}
       <div className="mb-4">
-        <h4 className="text-base font-semibold text-gray-900">{chart.title}</h4>
+        <h4 id={chartId} className="text-base font-semibold text-gray-900">
+          {chart.title}
+        </h4>
         {chart.description && (
-          <p className="mt-1 text-sm text-gray-500">{chart.description}</p>
+          <p id={descriptionId} className="mt-1 text-sm text-gray-500">
+            {chart.description}
+          </p>
         )}
       </div>
 
+      {/* 屏幕阅读器摘要（视觉隐藏） */}
+      <div className="sr-only" aria-live="polite">
+        {chartSummary}
+      </div>
+
       {/* 图表内容 */}
-      <div className="min-h-[300px]">{renderChart()}</div>
+      <div className="min-h-[300px]" aria-hidden="true">
+        {renderChart()}
+      </div>
+
+      {/* 数据表格（屏幕阅读器可访问，视觉隐藏） */}
+      <table
+        id={tableId}
+        className="sr-only"
+        aria-label={`${chart.title || '图表'}数据表`}
+      >
+        <caption>{chart.title} - 数据详情</caption>
+        <thead>
+          <tr>
+            <th scope="col">项目</th>
+            <th scope="col">数值</th>
+          </tr>
+        </thead>
+        <tbody>
+          {chartData.map((item, index) => (
+            <tr key={index}>
+              <td>{item.label}</td>
+              <td>{item.value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       {/* 数据来源 */}
       {chart.source && (
@@ -519,39 +664,95 @@ export function RiskMatrixRenderer({
   chart,
   className = '',
 }: ReportChartRendererProps) {
+  const chartData = chart.data || [];
+  const chartId = `risk-matrix-${chart.id || Math.random().toString(36).substr(2, 9)}`;
+
+  // 计算风险等级
+  const getRiskLevel = (probability: number, impact: number): string => {
+    const score = (probability + impact) / 2;
+    if (score >= 70) return '高风险';
+    if (score >= 40) return '中风险';
+    return '低风险';
+  };
+
   return (
     <div
       className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm ${className}`}
+      role="figure"
+      aria-labelledby={chartId}
     >
       <div className="mb-4">
-        <h4 className="text-base font-semibold text-gray-900">{chart.title}</h4>
+        <h4 id={chartId} className="text-base font-semibold text-gray-900">
+          {chart.title}
+        </h4>
         {chart.description && (
           <p className="mt-1 text-sm text-gray-500">{chart.description}</p>
         )}
       </div>
 
-      <RiskMatrixComponent chart={chart} />
+      {/* 屏幕阅读器摘要 */}
+      <div className="sr-only">
+        风险矩阵图，显示{chartData.length}个风险项的概率和影响程度分布。
+        横轴为发生概率（0-100%），纵轴为影响程度（0-100%）。
+      </div>
+
+      <div aria-hidden="true">
+        <RiskMatrixComponent chart={chart} />
+      </div>
+
+      {/* 数据表格（屏幕阅读器可访问） */}
+      <table className="sr-only" aria-label="风险矩阵数据">
+        <caption>{chart.title} - 风险详情</caption>
+        <thead>
+          <tr>
+            <th scope="col">风险项</th>
+            <th scope="col">发生概率</th>
+            <th scope="col">影响程度</th>
+            <th scope="col">风险等级</th>
+          </tr>
+        </thead>
+        <tbody>
+          {chartData.map((item, index) => {
+            const impact = (item.extra?.impact as number) || 50;
+            return (
+              <tr key={index}>
+                <td>{item.label}</td>
+                <td>{item.value}%</td>
+                <td>{impact}%</td>
+                <td>{getRiskLevel(item.value, impact)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
 
       {/* 图例 */}
-      <div className="mt-4 flex items-center justify-center gap-6">
-        <div className="flex items-center gap-2">
+      <div
+        className="mt-4 flex items-center justify-center gap-6"
+        role="list"
+        aria-label="风险等级图例"
+      >
+        <div className="flex items-center gap-2" role="listitem">
           <span
             className="h-3 w-3 rounded-full"
             style={{ backgroundColor: RISK_COLORS.low }}
+            aria-hidden="true"
           />
           <span className="text-sm text-gray-600">低风险</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" role="listitem">
           <span
             className="h-3 w-3 rounded-full"
             style={{ backgroundColor: RISK_COLORS.medium }}
+            aria-hidden="true"
           />
           <span className="text-sm text-gray-600">中风险</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" role="listitem">
           <span
             className="h-3 w-3 rounded-full"
             style={{ backgroundColor: RISK_COLORS.high }}
+            aria-hidden="true"
           />
           <span className="text-sm text-gray-600">高风险</span>
         </div>

@@ -20,6 +20,7 @@ import type {
   EvidenceInput,
   ReportChart,
 } from "../types/report.types";
+import type { FigureReference, GeneratedChart } from "../types/research.types";
 import {
   REPORT_SYNTHESIS_SYSTEM_PROMPT,
   formatDimensionOverview,
@@ -85,6 +86,7 @@ export class ReportSynthesisService {
 
   /**
    * 保存维度分析结果到报告
+   * ★ 支持保存 figureReferences 和 generatedCharts
    */
   async saveDimensionAnalysis(
     reportId: string,
@@ -115,6 +117,8 @@ export class ReportSynthesisService {
       evidenceUsed: number;
       confidenceLevel: string;
       detailedContent?: string;
+      figureReferences?: FigureReference[];
+      generatedCharts?: GeneratedChart[];
     },
   ): Promise<DimensionAnalysis> {
     const analysis = await this.prisma.dimensionAnalysis.create({
@@ -129,6 +133,9 @@ export class ReportSynthesisService {
           opportunities: result.opportunities,
           confidenceLevel: result.confidenceLevel,
           detailedContent: result.detailedContent || "",
+          // ★ 新增：保存图表引用和生成图表
+          figureReferences: result.figureReferences || [],
+          generatedCharts: result.generatedCharts || [],
         } as unknown as Prisma.InputJsonValue,
         sourcesUsed: result.evidenceUsed,
       },
@@ -230,7 +237,22 @@ export class ReportSynthesisService {
       // 记录冲突信息，但继续生成报告（在报告中标注）
     }
 
-    // 5. 使用 AI 生成综合报告（传入一致性检查结果）
+    // 5. ★ 收集所有维度的图表（引用图表 + 生成图表）
+    // ★ 检查 enableFigures 配置（默认 true）
+    const topicConfig = topic.topicConfig as Record<string, unknown> | null;
+    const enableFigures = topicConfig?.enableFigures !== false;
+
+    const collectedCharts = enableFigures
+      ? this.collectAllCharts(dimensionInputs)
+      : []; // 禁用图表时返回空数组
+
+    if (!enableFigures) {
+      this.logger.log(
+        `[synthesizeReport] Figures disabled for topic ${topic.name}`,
+      );
+    }
+
+    // 6. 使用 AI 生成综合报告（传入一致性检查结果）
     const synthesisResult = await this.generateComprehensiveReport(
       topic,
       dimensionInputs,
@@ -238,20 +260,52 @@ export class ReportSynthesisService {
       consistencyCheck, // ★ 传入冲突信息，让 AI 在报告中主动说明
     );
 
-    // 6. 计算统计数据
+    // 7. ★ 构建完整报告：直接使用 detailedContent 而非 AI 重写
+    // 从 synthesisResult 中提取补充内容（前言、执行摘要、跨维度分析、风险评估、战略建议、结语）
+    const structuredReport = synthesisResult.structuredReport;
+    const fullReportFromDimensions = this.buildFullReportFromDimensions(
+      topic,
+      dimensionInputs,
+      {
+        preface: structuredReport?.preface || "",
+        executiveSummary: synthesisResult.executiveSummary || "",
+        // ★ v3.0: 从 conclusion 中提取跨维度分析等内容（已在 normalizeReportResponse 中合并）
+        crossDimensionAnalysis: this.extractSectionFromConclusion(
+          structuredReport?.conclusion || "",
+          "跨维度关联分析",
+        ),
+        riskAssessment: this.extractSectionFromConclusion(
+          structuredReport?.conclusion || "",
+          "风险评估",
+        ),
+        strategicRecommendations: this.extractSectionFromConclusion(
+          structuredReport?.conclusion || "",
+          "战略建议",
+        ),
+        conclusion: this.extractFinalConclusion(
+          structuredReport?.conclusion || "",
+        ),
+      },
+    );
+
+    // 8. ★ 合并图表：收集的图表 + AI 生成的图表
+    const allCharts = [...collectedCharts, ...(synthesisResult.charts || [])];
+
+    // 9. 计算统计数据
     const totalSources = allEvidences.length;
 
-    // 7. 更新报告
+    // 10. 更新报告
     const generationTimeMs = Date.now() - startTime;
 
     const updatedReport = await this.prisma.topicReport.update({
       where: { id: reportId },
       data: {
         executiveSummary: synthesisResult.executiveSummary,
-        fullReport: synthesisResult.fullReport,
+        // ★ 使用拼接版本的 fullReport（而非 AI 重写版本）
+        fullReport: fullReportFromDimensions,
         highlights:
           synthesisResult.highlights as unknown as Prisma.InputJsonValue,
-        charts: synthesisResult.charts as unknown as Prisma.InputJsonValue,
+        charts: allCharts as unknown as Prisma.InputJsonValue,
         totalDimensions: dimensionAnalyses.length,
         totalSources,
         generationTimeMs,
@@ -381,6 +435,7 @@ export class ReportSynthesisService {
 
   /**
    * 准备维度分析输入
+   * ★ 包含 figureReferences 和 generatedCharts
    */
   private prepareDimensionInputs(
     dimensionAnalyses: Array<
@@ -409,6 +464,8 @@ export class ReportSynthesisService {
           evidenceIds: string[];
         }>;
         detailedContent?: string;
+        figureReferences?: FigureReference[];
+        generatedCharts?: GeneratedChart[];
       } | null;
 
       const keyFindings =
@@ -429,6 +486,9 @@ export class ReportSynthesisService {
         opportunities: dataPoints?.opportunities || [],
         detailedContent: dataPoints?.detailedContent || "",
         sourcesUsed: da.sourcesUsed || 0,
+        // ★ 新增：图表引用和生成图表
+        figureReferences: dataPoints?.figureReferences || [],
+        generatedCharts: dataPoints?.generatedCharts || [],
       };
     });
   }
@@ -446,6 +506,158 @@ export class ReportSynthesisService {
       publishedAt: e.publishedAt,
       credibilityScore: e.credibilityScore,
     }));
+  }
+
+  /**
+   * ★ 从维度分析直接构建完整报告（拼接而非重写）
+   *
+   * 核心策略：
+   * 1. 直接使用各维度的 detailedContent（研究员生成的完整内容）
+   * 2. 只由 AI 生成补充内容（执行摘要、前言、跨维度分析、风险评估、战略建议、结语）
+   * 3. 保持报告的完整性和一致性
+   */
+  private buildFullReportFromDimensions(
+    topic: ResearchTopic,
+    dimensionInputs: DimensionAnalysisInput[],
+    supplementaryContent: {
+      preface?: string;
+      executiveSummary?: string;
+      crossDimensionAnalysis?: string;
+      riskAssessment?: string;
+      strategicRecommendations?: string;
+      conclusion?: string;
+    },
+  ): string {
+    const parts: string[] = [];
+
+    // 1. 报告标题
+    parts.push(`# ${topic.name}`);
+    parts.push(`\n> 生成时间：${new Date().toLocaleDateString("zh-CN")}\n`);
+
+    // 2. 前言（AI 生成）
+    if (supplementaryContent.preface) {
+      parts.push("## 前言\n");
+      parts.push(supplementaryContent.preface);
+      parts.push("\n");
+    }
+
+    // 3. 执行摘要（AI 生成）
+    if (supplementaryContent.executiveSummary) {
+      parts.push("## 执行摘要\n");
+      parts.push(supplementaryContent.executiveSummary);
+      parts.push("\n");
+    }
+
+    // 4. 目录
+    parts.push("## 目录\n");
+    dimensionInputs.forEach((dim, idx) => {
+      parts.push(
+        `${idx + 1}. [${dim.dimensionName}](#${idx + 1}--${dim.dimensionName.toLowerCase().replace(/\s+/g, "-")})`,
+      );
+    });
+    parts.push(
+      `${dimensionInputs.length + 1}. [跨维度关联分析](#跨维度关联分析)`,
+    );
+    parts.push(`${dimensionInputs.length + 2}. [风险评估](#风险评估)`);
+    parts.push(`${dimensionInputs.length + 3}. [战略建议](#战略建议)`);
+    parts.push("\n---\n");
+
+    // 5. 各维度章节（直接使用 detailedContent）
+    dimensionInputs.forEach((dim, idx) => {
+      parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);
+
+      // ★ 直接使用研究员生成的完整内容
+      if (dim.detailedContent) {
+        parts.push(dim.detailedContent);
+      } else {
+        // 降级：如果没有 detailedContent，使用摘要
+        parts.push(dim.summary || "暂无详细内容");
+      }
+
+      parts.push("\n---\n");
+    });
+
+    // 6. 跨维度关联分析（AI 生成）
+    if (supplementaryContent.crossDimensionAnalysis) {
+      parts.push("## 跨维度关联分析\n");
+      parts.push(supplementaryContent.crossDimensionAnalysis);
+      parts.push("\n---\n");
+    }
+
+    // 7. 风险评估（AI 生成）
+    if (supplementaryContent.riskAssessment) {
+      parts.push("## 风险评估\n");
+      parts.push(supplementaryContent.riskAssessment);
+      parts.push("\n---\n");
+    }
+
+    // 8. 战略建议（AI 生成）
+    if (supplementaryContent.strategicRecommendations) {
+      parts.push("## 战略建议\n");
+      parts.push(supplementaryContent.strategicRecommendations);
+      parts.push("\n---\n");
+    }
+
+    // 9. 结语（AI 生成）
+    if (supplementaryContent.conclusion) {
+      parts.push("## 结语\n");
+      parts.push(supplementaryContent.conclusion);
+      parts.push("\n");
+    }
+
+    return sanitizeMarkdownContent(parts.join("\n"));
+  }
+
+  /**
+   * ★ 收集所有维度的图表（引用图表 + 生成图表）
+   */
+  private collectAllCharts(
+    dimensionInputs: DimensionAnalysisInput[],
+  ): ReportChart[] {
+    const charts: ReportChart[] = [];
+
+    dimensionInputs.forEach((dim) => {
+      // 收集引用图表
+      if (dim.figureReferences && dim.figureReferences.length > 0) {
+        dim.figureReferences.forEach((fig) => {
+          charts.push({
+            id: fig.id,
+            chartType: "reference", // 标记为引用图表
+            title: fig.caption,
+            position: fig.position,
+            dimensionId: dim.dimensionId,
+            dimensionName: dim.dimensionName,
+            // 引用图表特有字段
+            imageUrl: fig.imageUrl,
+            evidenceCitationIndex: fig.evidenceCitationIndex,
+            source: fig.source || `来源：证据 [${fig.evidenceCitationIndex}]`,
+          });
+        });
+      }
+
+      // 收集生成图表
+      if (dim.generatedCharts && dim.generatedCharts.length > 0) {
+        dim.generatedCharts.forEach((chart) => {
+          charts.push({
+            id: chart.id,
+            chartType: "generated", // 标记为生成图表
+            type: chart.type,
+            title: chart.title,
+            position: chart.position,
+            data: chart.data,
+            source: chart.source,
+            dimensionId: dim.dimensionId,
+            dimensionName: dim.dimensionName,
+          });
+        });
+      }
+    });
+
+    this.logger.log(
+      `Collected ${charts.length} charts (${charts.filter((c) => c.chartType === "reference").length} references, ${charts.filter((c) => c.chartType === "generated").length} generated)`,
+    );
+
+    return charts;
   }
 
   /**
@@ -583,18 +795,17 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
 
   /**
    * 解析 AI 响应并提取图表
-   * ★ v3.0: 从各章节的 inlineCharts 提取图表（新格式）
-   * ★ 兼容: 仍支持旧的顶层 charts 数组
+   * ★ v3.0: 新格式只返回补充内容（executiveSummary, crossDimensionAnalysis 等）
+   * ★ 不再返回 sections（章节内容由 dimension research 生成）
    */
   private parseAIReportWithCharts(content: string): {
     structuredReport: ComprehensiveReport;
     charts: ReportChart[];
   } {
-    // ★ 使用 "sections" 作为必需键，因为这是报告的核心内容
-    // 之前用 "preface" 导致解析失败（AI 可能不返回 preface 字段）
+    // ★ v3.0: 使用 "executiveSummary" 作为必需键，因为新格式不再返回 sections
     const extractionResult =
       extractJsonFromAIResponse<AIReportSynthesisResponse>(content, {
-        requiredKey: "sections",
+        requiredKey: "executiveSummary",
       });
 
     if (extractionResult.success && extractionResult.data) {
@@ -603,32 +814,12 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
       );
       const data = extractionResult.data;
 
-      // ★ v3.0: 优先从各章节的 inlineCharts 提取图表（新格式）
-      const inlineCharts: ReportChart[] = [];
-      if (data.sections && Array.isArray(data.sections)) {
-        for (const section of data.sections) {
-          if (
-            section.inlineCharts &&
-            Array.isArray(section.inlineCharts) &&
-            section.inlineCharts.length > 0
-          ) {
-            for (const chart of section.inlineCharts) {
-              inlineCharts.push({
-                ...chart,
-                sectionId: section.sectionNumber, // 关联章节
-              });
-            }
-          }
-        }
-      }
-
-      // ★ 兼容旧格式：如果没有 inlineCharts，回退到顶层 charts
-      const charts: ReportChart[] =
-        inlineCharts.length > 0 ? inlineCharts : data.charts || [];
+      // ★ v3.0: 新格式不再返回 sections，图表从维度研究中收集
+      // 这里只处理可能的补充图表（crossDimensionAnalysis 等可能包含的图表）
+      const charts: ReportChart[] = data.charts || [];
 
       this.logger.log(
-        `[parseAIReportWithCharts] Charts extracted: ${charts.length} items. ` +
-          `Inline charts: ${inlineCharts.length}, Legacy charts: ${data.charts?.length || 0}`,
+        `[parseAIReportWithCharts] Parsed supplementary content. Charts: ${charts.length}`,
       );
 
       return {
@@ -649,122 +840,48 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
 
   /**
    * 标准化报告响应
-   * ★ v2.0: 处理结构化 executiveSummary 对象
+   * ★ v3.0: 处理补充内容格式（crossDimensionAnalysis, riskAssessment, strategicRecommendations）
+   * ★ 兼容 v2.0: 处理结构化 executiveSummary 对象
    */
   private normalizeReportResponse(
     parsed: AIReportSynthesisResponse,
   ): ComprehensiveReport {
-    // ★ v2.0: executiveSummary 可能是对象或字符串
-    // 如果是对象（v2.0 格式），提取 fullText 作为字符串存储
-    let executiveSummary = "";
-    if (
-      typeof parsed.executiveSummary === "object" &&
-      parsed.executiveSummary !== null
-    ) {
-      // v2.0 格式：使用 fullText，或者组装成 Markdown
-      const esObj = parsed.executiveSummary as {
-        coreConclusions?: string[];
-        keyMetrics?: Array<{ metric: string; value: string; source: string }>;
-        riskAlerts?: string[];
-        actionItems?: string[];
-        fullText?: string;
-      };
-      if (esObj.fullText) {
-        executiveSummary = esObj.fullText;
-      } else {
-        // 如果没有 fullText，从结构化字段组装
-        const parts: string[] = [];
-        if (esObj.coreConclusions?.length) {
-          parts.push(
-            "## 核心结论\n" +
-              esObj.coreConclusions.map((c, i) => `${i + 1}. ${c}`).join("\n"),
-          );
-        }
-        if (esObj.keyMetrics?.length) {
-          parts.push(
-            "\n## 关键数据\n| 指标 | 数值 | 来源 |\n|------|------|------|\n" +
-              esObj.keyMetrics
-                .map((m) => `| ${m.metric} | ${m.value} | ${m.source} |`)
-                .join("\n"),
-          );
-        }
-        if (esObj.riskAlerts?.length) {
-          parts.push(
-            "\n## 风险提示\n" +
-              esObj.riskAlerts.map((r) => `- ⚠️ ${r}`).join("\n"),
-          );
-        }
-        if (esObj.actionItems?.length) {
-          parts.push(
-            "\n## 行动建议\n" +
-              esObj.actionItems.map((a) => `- ✅ ${a}`).join("\n"),
-          );
-        }
-        executiveSummary = parts.join("\n") || "";
-      }
-    } else if (typeof parsed.executiveSummary === "string") {
-      // ★ 检测字符串是否为 JSON 格式（AI 可能意外返回字符串化的 JSON）
-      const esStr = parsed.executiveSummary.trim();
-      if (esStr.startsWith("{") && esStr.endsWith("}")) {
-        try {
-          const esJsonParsed = JSON.parse(esStr);
-          // 支持 { executiveSummary: {...} } 或直接 { coreConclusions: [...] } 格式
-          const esData = esJsonParsed.executiveSummary || esJsonParsed;
-          if (esData && (esData.coreConclusions || esData.keyMetrics)) {
-            // 从解析后的对象组装 Markdown
-            const parts: string[] = [];
-            if (esData.coreConclusions?.length) {
-              parts.push(
-                "## 核心结论\n" +
-                  esData.coreConclusions
-                    .map((c: string, i: number) => `${i + 1}. ${c}`)
-                    .join("\n"),
-              );
-            }
-            if (esData.keyMetrics?.length) {
-              parts.push(
-                "\n## 关键数据\n| 指标 | 数值 | 来源 |\n|------|------|------|\n" +
-                  esData.keyMetrics
-                    .map(
-                      (m: { metric: string; value: string; source: string }) =>
-                        `| ${m.metric} | ${m.value} | ${m.source} |`,
-                    )
-                    .join("\n"),
-              );
-            }
-            if (esData.riskAlerts?.length) {
-              parts.push(
-                "\n## 风险提示\n" +
-                  esData.riskAlerts.map((r: string) => `- ${r}`).join("\n"),
-              );
-            }
-            if (esData.actionItems?.length) {
-              parts.push(
-                "\n## 行动建议\n" +
-                  esData.actionItems.map((a: string) => `- ${a}`).join("\n"),
-              );
-            }
-            executiveSummary = parts.join("\n") || esData.fullText || esStr;
-          } else {
-            executiveSummary = esStr;
-          }
-        } catch {
-          // JSON 解析失败，使用原始字符串
-          executiveSummary = esStr;
-        }
-      } else {
-        executiveSummary = esStr;
-      }
-    } else {
-      executiveSummary = "";
+    // ★ 处理 executiveSummary（支持对象或字符串格式）
+    const executiveSummary = this.normalizeExecutiveSummary(
+      parsed.executiveSummary,
+    );
+
+    // ★ v3.0: 处理跨维度分析、风险评估、战略建议
+    // 这些内容将被添加到 conclusion 或作为额外 sections
+    let conclusion = parsed.conclusion || "";
+
+    // 添加跨维度分析内容
+    const crossDimensionAnalysis = (parsed as any).crossDimensionAnalysis;
+    if (crossDimensionAnalysis?.fullText) {
+      conclusion =
+        `## 跨维度关联分析\n\n${crossDimensionAnalysis.fullText}\n\n` +
+        conclusion;
+    }
+
+    // 添加风险评估内容
+    const riskAssessment = (parsed as any).riskAssessment;
+    if (riskAssessment?.fullText) {
+      conclusion = `## 风险评估\n\n${riskAssessment.fullText}\n\n` + conclusion;
+    }
+
+    // 添加战略建议内容
+    const strategicRecommendations = (parsed as any).strategicRecommendations;
+    if (strategicRecommendations?.fullText) {
+      conclusion =
+        `## 战略建议\n\n${strategicRecommendations.fullText}\n\n` + conclusion;
     }
 
     return {
       preface: parsed.preface || "",
       tableOfContents: parsed.tableOfContents || "",
       executiveSummary,
-      sections: parsed.sections || [],
-      conclusion: parsed.conclusion || "",
+      sections: parsed.sections || [], // ★ v3.0: 可能为空，由 buildFullReportFromDimensions 填充
+      conclusion,
       appendices: parsed.appendices || [],
       references: parsed.references || [],
       metadata: {
@@ -774,6 +891,123 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
         generatedAt: parsed.metadata?.generatedAt || new Date().toISOString(),
       },
     };
+  }
+
+  /**
+   * 标准化执行摘要（支持对象或字符串格式）
+   */
+  private normalizeExecutiveSummary(executiveSummaryInput: unknown): string {
+    if (
+      typeof executiveSummaryInput === "object" &&
+      executiveSummaryInput !== null
+    ) {
+      // v2.0/v3.0 格式：使用 fullText，或者组装成 Markdown
+      const esObj = executiveSummaryInput as {
+        coreConclusions?: string[];
+        keyMetrics?: Array<{ metric: string; value: string; source: string }>;
+        riskAlerts?: string[];
+        actionItems?: string[];
+        fullText?: string;
+      };
+      if (esObj.fullText) {
+        return esObj.fullText;
+      }
+      // 如果没有 fullText，从结构化字段组装
+      const parts: string[] = [];
+      if (esObj.coreConclusions?.length) {
+        parts.push(
+          "### 核心结论\n" +
+            esObj.coreConclusions.map((c, i) => `${i + 1}. ${c}`).join("\n"),
+        );
+      }
+      if (esObj.keyMetrics?.length) {
+        parts.push(
+          "\n### 关键数据\n| 指标 | 数值 | 来源 |\n|------|------|------|\n" +
+            esObj.keyMetrics
+              .map((m) => `| ${m.metric} | ${m.value} | ${m.source} |`)
+              .join("\n"),
+        );
+      }
+      if (esObj.riskAlerts?.length) {
+        parts.push(
+          "\n### 风险提示\n" + esObj.riskAlerts.map((r) => `- ${r}`).join("\n"),
+        );
+      }
+      if (esObj.actionItems?.length) {
+        parts.push(
+          "\n### 行动建议\n" +
+            esObj.actionItems.map((a) => `- ${a}`).join("\n"),
+        );
+      }
+      return parts.join("\n") || "";
+    }
+
+    if (typeof executiveSummaryInput === "string") {
+      // ★ 检测字符串是否为 JSON 格式（AI 可能意外返回字符串化的 JSON）
+      const esStr = executiveSummaryInput.trim();
+      if (esStr.startsWith("{") && esStr.endsWith("}")) {
+        try {
+          const esJsonParsed = JSON.parse(esStr);
+          // 支持 { executiveSummary: {...} } 或直接 { coreConclusions: [...] } 格式
+          const esData = esJsonParsed.executiveSummary || esJsonParsed;
+          if (esData && (esData.coreConclusions || esData.keyMetrics)) {
+            // 递归调用处理解析后的对象
+            return this.normalizeExecutiveSummary(esData);
+          }
+          return esStr;
+        } catch {
+          // JSON 解析失败，使用原始字符串
+          return esStr;
+        }
+      }
+      return esStr;
+    }
+
+    return "";
+  }
+
+  /**
+   * 从合并的 conclusion 中提取特定章节
+   * ★ v3.0: normalizeReportResponse 将跨维度分析等合并到 conclusion 中
+   */
+  private extractSectionFromConclusion(
+    conclusion: string,
+    sectionTitle: string,
+  ): string {
+    if (!conclusion) return "";
+
+    // 查找章节开始位置
+    const sectionPattern = new RegExp(
+      `## ${sectionTitle}\\n\\n([\\s\\S]*?)(?=## |$)`,
+      "i",
+    );
+    const match = conclusion.match(sectionPattern);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    return "";
+  }
+
+  /**
+   * 从合并的 conclusion 中提取最终结语
+   * ★ v3.0: 移除已提取的跨维度分析等章节，保留原始结语
+   */
+  private extractFinalConclusion(conclusion: string): string {
+    if (!conclusion) return "";
+
+    // 移除跨维度分析、风险评估、战略建议章节
+    let result = conclusion;
+    const sectionsToRemove = ["跨维度关联分析", "风险评估", "战略建议"];
+
+    for (const section of sectionsToRemove) {
+      const pattern = new RegExp(
+        `## ${section}\\n\\n[\\s\\S]*?(?=## |$)`,
+        "gi",
+      );
+      result = result.replace(pattern, "");
+    }
+
+    return result.trim();
   }
 
   /**

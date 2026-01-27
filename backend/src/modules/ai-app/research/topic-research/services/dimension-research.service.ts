@@ -10,6 +10,10 @@ import type {
   DimensionAnalysisResult,
   AIDimensionAnalysisResponse,
   EvidenceData,
+  FigureReference,
+  GeneratedChart,
+  EnrichedEvidenceData,
+  ExtractedFigure,
 } from "../types/research.types";
 import type { DataSourceResult } from "../types/data-source.types";
 import {
@@ -22,6 +26,7 @@ import {
   getLanguageInstruction,
 } from "../prompts/dimension-research.prompt";
 import { DataSourceRouterService } from "./data-source-router.service";
+import { DataEnrichmentService } from "./data-enrichment.service";
 
 /**
  * 维度研究结果（包含证据ID）
@@ -48,6 +53,7 @@ export class DimensionResearchService {
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
     private readonly dataSourceRouter: DataSourceRouterService,
+    private readonly dataEnrichmentService: DataEnrichmentService,
   ) {}
 
   /**
@@ -83,8 +89,31 @@ export class DimensionResearchService {
         `Found ${searchResult.items.length} sources for dimension: ${dimension.name}`,
       );
 
+      // 2.5. ★ 数据增强：抓取完整内容和提取图表
+      // ★ 从 topicConfig 获取 enableFigures 配置（默认 true）
+      const topicConfig = topic.topicConfig as Record<string, unknown> | null;
+      const enableFigures = topicConfig?.enableFigures !== false;
+
+      const enrichedResults =
+        await this.dataEnrichmentService.enrichSearchResults(
+          searchResult.items,
+          {
+            topN: 10, // 增强前 10 条结果
+            maxContentLength: 3000,
+            fetchTimeout: 10000,
+            parallel: true,
+            enableFigures, // ★ 传递图表提取开关
+          },
+        );
+
+      const enrichmentStats =
+        this.dataEnrichmentService.getEnrichmentStats(enrichedResults);
+      this.logger.log(
+        `Data enrichment: ${enrichmentStats.fetched}/${enrichmentStats.total} fetched, ${enrichedResults.reduce((sum, r) => sum + (r.extractedFigures?.length || 0), 0)} figures extracted`,
+      );
+
       // 3. 准备证据数据（用于 AI 分析）
-      const evidenceData = await this.prepareEvidenceData(searchResult.items);
+      const evidenceData = await this.prepareEvidenceData(enrichedResults);
 
       // 4. 使用 AI 分析数据
       const analysisResult = await this.analyzeWithAI(
@@ -156,21 +185,35 @@ export class DimensionResearchService {
 
   /**
    * 准备证据数据（从搜索结果转换为证据数据）
+   * ★ 支持 EnrichedResult，包含 fullContent 和 extractedFigures
    */
   private async prepareEvidenceData(
     searchItems: DataSourceResult[],
-  ): Promise<EvidenceData[]> {
-    return searchItems.map((item, index) => ({
-      id: `temp-${index}-${Date.now()}`, // 临时 ID，稍后替换为数据库 ID
-      title: item.title,
-      url: item.url,
-      // 优先使用 item.domain，如果没有则从 URL 提取
-      domain: item.domain || this.extractDomainFromUrl(item.url),
-      snippet: item.snippet || null,
-      sourceType: item.sourceType,
-      publishedAt: item.publishedAt || null,
-      credibilityScore: null, // 稍后评估
-    }));
+  ): Promise<EnrichedEvidenceData[]> {
+    return searchItems.map((item, index) => {
+      // 类型断言：检查是否为 EnrichedResult
+      const enrichedItem = item as DataSourceResult & {
+        fullContent?: string | null;
+        contentSource?: "fetched" | "snippet";
+        extractedFigures?: ExtractedFigure[];
+      };
+
+      return {
+        id: `temp-${index}-${Date.now()}`, // 临时 ID，稍后替换为数据库 ID
+        title: item.title,
+        url: item.url,
+        // 优先使用 item.domain，如果没有则从 URL 提取
+        domain: item.domain || this.extractDomainFromUrl(item.url),
+        snippet: item.snippet || null,
+        sourceType: item.sourceType,
+        publishedAt: item.publishedAt || null,
+        credibilityScore: null, // 稍后评估
+        // ★ 新增：完整内容和图表
+        fullContent: enrichedItem.fullContent || null,
+        contentSource: enrichedItem.contentSource,
+        extractedFigures: enrichedItem.extractedFigures,
+      };
+    });
   }
 
   /**
@@ -254,6 +297,9 @@ export class DimensionResearchService {
       evidenceUsed: aiResult.evidenceUsage.total,
       confidenceLevel: aiResult.dimensionAnalysis.confidenceLevel,
       detailedContent: aiResult.detailedContent,
+      // ★ 新增：图表引用和生成图表
+      figureReferences: aiResult.figureReferences,
+      generatedCharts: aiResult.generatedCharts,
     };
   }
 
@@ -316,6 +362,11 @@ export class DimensionResearchService {
         confidenceReason: response.dimensionAnalysis.confidenceReason || "",
       },
       detailedContent: response.detailedContent || "",
+      // ★ 新增：图表引用和生成图表
+      figureReferences: this.normalizeFigureReferences(
+        response.figureReferences,
+      ),
+      generatedCharts: this.normalizeGeneratedCharts(response.generatedCharts),
       evidenceUsage: response.evidenceUsage || {
         total: 0,
         highCredibility: 0,
@@ -326,6 +377,47 @@ export class DimensionResearchService {
 
     // ★ 清理 AI 生成内容中的格式问题（如引用后的孤立下划线 [1]__）
     return sanitizeObjectContent(normalized);
+  }
+
+  /**
+   * 标准化图表引用列表
+   */
+  private normalizeFigureReferences(
+    refs: FigureReference[] | undefined,
+  ): FigureReference[] {
+    if (!refs || !Array.isArray(refs)) {
+      return [];
+    }
+    return refs.map((ref, idx) => ({
+      id: ref.id || `fig-${idx}`,
+      evidenceCitationIndex: ref.evidenceCitationIndex || 0,
+      figureIndex: ref.figureIndex || 0,
+      imageUrl: ref.imageUrl,
+      caption: ref.caption || "",
+      position: ref.position || `after_paragraph_${idx + 1}`,
+      source: ref.source,
+      relevance: ref.relevance,
+    }));
+  }
+
+  /**
+   * 标准化生成图表列表
+   */
+  private normalizeGeneratedCharts(
+    charts: GeneratedChart[] | undefined,
+  ): GeneratedChart[] {
+    if (!charts || !Array.isArray(charts)) {
+      return [];
+    }
+    return charts.map((chart, idx) => ({
+      id: chart.id || `chart-${idx}`,
+      type: chart.type || "bar",
+      title: chart.title || `图表 ${idx + 1}`,
+      position: chart.position || `after_paragraph_${idx + 1}`,
+      data: Array.isArray(chart.data) ? chart.data : [],
+      source: chart.source || "基于证据数据生成",
+      reason: chart.reason,
+    }));
   }
 
   /**

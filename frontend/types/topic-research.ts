@@ -68,6 +68,7 @@ export enum ReportStatus {
 export interface TopicConfig {
   knowledgeBaseIds?: string[]; // 关联的知识库ID列表
   searchTimeRange?: string; // 搜索时间范围: '1m', '3m', '6m', '1y', 'all'
+  enableFigures?: boolean; // ★ 是否在报告中显示图表（默认 true）
   [key: string]: unknown; // 允许其他扩展配置
 }
 
@@ -264,19 +265,29 @@ export interface ChartDataPoint {
 }
 
 /**
+ * 图表来源类型
+ * - reference: 引用原始证据中的图表/图片
+ * - generated: AI 根据数据生成的图表
+ */
+export type ChartSourceType = 'reference' | 'generated';
+
+/**
  * 图表配置
+ * ★ v3.0: 支持两种类型：reference（引用图表）和 generated（生成图表）
  */
 export interface ReportChart {
   /** 图表ID */
   id: string;
-  /** 图表类型 */
-  type: ChartType;
+  /** ★ 图表来源类型：reference=引用原始图表，generated=AI生成图表 */
+  chartType?: ChartSourceType;
+  /** 图表类型（仅 generated 需要） */
+  type?: ChartType;
   /** 图表标题 */
   title: string;
   /** 图表描述 */
   description?: string;
-  /** 数据 */
-  data: ChartDataPoint[];
+  /** 数据（仅 generated 需要） */
+  data?: ChartDataPoint[];
   /** X轴配置 */
   xAxis?: {
     label: string;
@@ -298,6 +309,16 @@ export interface ReportChart {
   source?: string;
   /** 关联的章节ID */
   sectionId?: string;
+  /** 图表在章节内的位置 */
+  position?: string;
+  /** ★ 关联的维度ID */
+  dimensionId?: string;
+  /** ★ 关联的维度名称 */
+  dimensionName?: string;
+  /** ★ 引用图表特有：图片URL */
+  imageUrl?: string;
+  /** ★ 引用图表特有：证据引用索引 */
+  evidenceCitationIndex?: number;
 }
 
 /**

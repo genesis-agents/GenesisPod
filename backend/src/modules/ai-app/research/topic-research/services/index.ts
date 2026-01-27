@@ -30,6 +30,8 @@ export { DataEnrichmentService } from "./data-enrichment.service";
 export { LeaderToolService } from "./leader-tool.service";
 export { ResearchReflectionService } from "./research-reflection.service";
 export { DataSourcePlannerService } from "./data-source-planner.service";
+export { FigureExtractorService } from "./figure-extractor.service";
+export { ReportValidationService } from "./report-validation.service";
 
 // Re-export types
 export type {

@@ -46,6 +46,10 @@ export interface DimensionAnalysisResult {
   confidenceLevel: "high" | "medium" | "low";
   /** 详细内容（Markdown 格式） */
   detailedContent: string;
+  /** 引用的原始图表 */
+  figureReferences?: FigureReference[];
+  /** AI 补充生成的图表 */
+  generatedCharts?: GeneratedChart[];
 }
 
 // ==================== Key Finding ====================
@@ -130,6 +134,50 @@ export interface EvidenceData {
   credibilityScore: number | null;
 }
 
+// ==================== Figure Reference Types ====================
+
+/**
+ * 图表引用（引用原始证据中的图表）
+ */
+export interface FigureReference {
+  /** 图表 ID */
+  id: string;
+  /** 来源证据编号 [1], [2] */
+  evidenceCitationIndex: number;
+  /** 证据中的第几个图表（从 0 开始） */
+  figureIndex: number;
+  /** 图片 URL（从证据中提取） */
+  imageUrl?: string;
+  /** 图表标题 */
+  caption: string;
+  /** 位置：after_paragraph_N */
+  position: string;
+  /** 来源说明 */
+  source?: string;
+  /** 相关性说明 */
+  relevance?: string;
+}
+
+/**
+ * 生成的图表（当原始图表不足时 AI 补充生成）
+ */
+export interface GeneratedChart {
+  /** 图表 ID */
+  id: string;
+  /** 图表类型 */
+  type: "line" | "bar" | "pie" | "area" | "radar";
+  /** 图表标题 */
+  title: string;
+  /** 位置：after_paragraph_N */
+  position: string;
+  /** 图表数据 */
+  data: Array<{ label: string; value: number; series?: string }>;
+  /** 数据来源说明 */
+  source: string;
+  /** 生成原因 */
+  reason?: string;
+}
+
 // ==================== AI Response Types ====================
 
 /**
@@ -170,6 +218,10 @@ export interface AIDimensionAnalysisResponse {
     confidenceReason: string;
   };
   detailedContent: string;
+  /** 引用的原始图表 */
+  figureReferences?: FigureReference[];
+  /** AI 补充生成的图表 */
+  generatedCharts?: GeneratedChart[];
   evidenceUsage: {
     total: number;
     highCredibility: number;
@@ -186,6 +238,24 @@ export interface AIDimensionAnalysisResponse {
 import type { DataSourceResult } from "./data-source.types";
 
 /**
+ * 从网页中提取的图表/图片信息
+ */
+export interface ExtractedFigure {
+  /** 图片 URL */
+  imageUrl: string;
+  /** 图片标题/说明 */
+  caption: string;
+  /** 图表类型 */
+  type: "chart" | "table" | "diagram" | "photo";
+  /** alt 文本 */
+  alt?: string;
+  /** 图片宽度 */
+  width?: number;
+  /** 图片高度 */
+  height?: number;
+}
+
+/**
  * 增强后的搜索结果
  * 在原有 DataSourceResult 基础上增加完整内容字段
  */
@@ -196,6 +266,8 @@ export interface EnrichedResult extends DataSourceResult {
   contentSource: "fetched" | "snippet";
   /** URL 有效性：内容是否有意义（非 404/403 等错误页面） */
   urlValid: boolean;
+  /** 从网页中提取的图表/图片列表 */
+  extractedFigures?: ExtractedFigure[];
 }
 
 /**
@@ -207,4 +279,6 @@ export interface EnrichedEvidenceData extends EvidenceData {
   fullContent?: string | null;
   /** 内容来源：fetched=成功抓取，snippet=降级到原snippet */
   contentSource?: "fetched" | "snippet";
+  /** 从网页中提取的图表/图片列表 */
+  extractedFigures?: ExtractedFigure[];
 }

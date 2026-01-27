@@ -40,6 +40,8 @@ import {
   LeaderToolService,
   ResearchReflectionService,
   DataSourcePlannerService,
+  FigureExtractorService,
+  ReportValidationService,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
 
@@ -71,6 +73,8 @@ const services = [
   LeaderToolService,
   ResearchReflectionService,
   DataSourcePlannerService,
+  FigureExtractorService,
+  ReportValidationService,
 ];
 
 @Module({

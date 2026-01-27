@@ -203,13 +203,18 @@ export class DimensionMissionService {
       const enrichmentTopN = (topicConfig?.enrichmentTopN as number) || 5;
       const enrichmentMaxLength =
         (topicConfig?.enrichmentMaxLength as number) || 3000;
+      const enableFigures = topicConfig?.enableFigures !== false; // ★ 图表提取开关
 
       this.logger.log(
-        `${logPrefix} Enriching search results (topN=${enrichmentTopN})...`,
+        `${logPrefix} Enriching search results (topN=${enrichmentTopN}, enableFigures=${enableFigures})...`,
       );
       const enrichedResults = await this.dataEnrichment.enrichSearchResults(
         searchResult.items,
-        { topN: enrichmentTopN, maxContentLength: enrichmentMaxLength },
+        {
+          topN: enrichmentTopN,
+          maxContentLength: enrichmentMaxLength,
+          enableFigures, // ★ 传递图表提取开关
+        },
       );
 
       const enrichmentStats =

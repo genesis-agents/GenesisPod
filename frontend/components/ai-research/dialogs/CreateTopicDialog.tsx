@@ -158,6 +158,7 @@ export function CreateTopicDialog({
   >([]);
   const [visibility, setVisibility] = useState<TopicVisibility>('PRIVATE'); // ★ 默认私有
   const [language, setLanguage] = useState<'zh' | 'en'>('zh'); // ★ 报告语言，默认中文
+  const [enableFigures, setEnableFigures] = useState(true); // ★ 是否显示图表，默认开启
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -345,6 +346,10 @@ export function CreateTopicDialog({
           (editTopic.topicConfig as { knowledgeBaseIds?: string[] })
             ?.knowledgeBaseIds || []
         );
+        setEnableFigures(
+          (editTopic.topicConfig as { enableFigures?: boolean })
+            ?.enableFigures !== false // 默认 true
+        );
         setVisibility((editTopic.visibility as TopicVisibility) || 'PRIVATE');
         setLanguage((editTopic.language as 'zh' | 'en') || 'zh');
         setError(null);
@@ -358,6 +363,7 @@ export function CreateTopicDialog({
         setRefreshFrequency(RefreshFrequency.WEEKLY);
         setSearchTimeRange('6months');
         setSelectedKnowledgeBases([]);
+        setEnableFigures(true); // ★ 默认开启图表
         setVisibility('PRIVATE');
         setLanguage('zh');
         setError(null);
@@ -385,13 +391,17 @@ export function CreateTopicDialog({
     setError(null);
 
     try {
-      // Build topicConfig with searchTimeRange and knowledgeBaseIds
+      // Build topicConfig with searchTimeRange, knowledgeBaseIds, and enableFigures
       const topicConfig: Record<string, unknown> = {};
       if (searchTimeRange !== 'all') {
         topicConfig.searchTimeRange = searchTimeRange;
       }
       if (selectedKnowledgeBases.length > 0) {
         topicConfig.knowledgeBaseIds = selectedKnowledgeBases;
+      }
+      // ★ 只有当禁用图表时才保存（默认为 true）
+      if (!enableFigures) {
+        topicConfig.enableFigures = false;
       }
 
       if (isEditMode && editTopic) {
@@ -692,6 +702,33 @@ export function CreateTopicDialog({
                     <span className="text-sm font-medium">
                       {t('topicResearch.languageOptions.en')}
                     </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* ★ Figure Display Toggle */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      报告图表
+                    </label>
+                    <p className="text-xs text-gray-400">
+                      在研究报告中自动提取和展示相关图表
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEnableFigures(!enableFigures)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      enableFigures ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        enableFigures ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
                   </button>
                 </div>
               </div>

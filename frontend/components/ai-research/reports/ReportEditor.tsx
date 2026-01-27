@@ -28,7 +28,7 @@ import type {
   ReportChart,
 } from '@/types/topic-research';
 import { TextSelectionContextMenu } from '../panels/TextSelectionContextMenu';
-import { ReportChartRenderer } from '../charts/ReportChartRenderer';
+import { FigureRenderer, FigureGallery } from '../charts';
 import type { AIEditOperation } from '../types';
 import { triggerCitationClick } from '../citationNavigation';
 import {
@@ -1272,6 +1272,12 @@ function ReportEditorInner({
     return ids;
   }, [contentSegments]);
 
+  // ★ 性能优化：memoize 未渲染的图表（未在正文中内联显示的）
+  const unrenderedCharts = useMemo(() => {
+    if (!report?.charts) return [];
+    return report.charts.filter((chart) => !renderedChartIds.has(chart.id));
+  }, [report?.charts, renderedChartIds]);
+
   // ★ ReactMarkdown component for rendering markdown segments
   const renderMarkdownSegment = useCallback(
     (content: string, key: string) => (
@@ -1349,12 +1355,12 @@ function ReportEditorInner({
           if (segment.type === 'markdown') {
             return renderMarkdownSegment(segment.content, `md-${index}`);
           } else {
-            // Render chart
+            // Render chart (supports both reference images and generated charts)
             const chart = chartsMap.get(segment.content);
             if (chart) {
               return (
                 <div key={`chart-${index}`} className="my-6">
-                  <ReportChartRenderer chart={chart} />
+                  <FigureRenderer chart={chart} />
                 </div>
               );
             }
@@ -1656,41 +1662,27 @@ function ReportEditorInner({
             {memoizedMarkdownContent}
 
             {/* Charts Section - 仅显示未在正文中渲染的图表（向后兼容旧报告） */}
-            {(() => {
-              const unrenderedCharts = report?.charts?.filter(
-                (chart) => !renderedChartIds.has(chart.id)
-              );
-              if (!unrenderedCharts || unrenderedCharts.length === 0)
-                return null;
-              return (
-                <div className="mt-8 border-t border-gray-200 pt-6">
-                  <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-                    <svg
-                      className="h-5 w-5 text-blue-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                      />
-                    </svg>
-                    数据可视化
-                  </h3>
-                  <div className="grid gap-4">
-                    {unrenderedCharts.map((chart, idx) => (
-                      <ReportChartRenderer
-                        key={chart.id || idx}
-                        chart={chart}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
+            {unrenderedCharts.length > 0 && (
+              <div className="mt-8 border-t border-gray-200 pt-6">
+                <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                  <svg
+                    className="h-5 w-5 text-blue-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                    />
+                  </svg>
+                  数据可视化
+                </h3>
+                <FigureGallery charts={unrenderedCharts} columns={2} />
+              </div>
+            )}
 
             {/* Context menu for preview mode */}
             <TextSelectionContextMenu

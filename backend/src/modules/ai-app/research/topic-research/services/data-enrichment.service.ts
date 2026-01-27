@@ -18,7 +18,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 import type { ToolContext } from "@/modules/ai-engine/tools/abstractions/tool.interface";
 import type { DataSourceResult } from "../types/data-source.types";
-import type { EnrichedResult } from "../types/research.types";
+import type { EnrichedResult, ExtractedFigure } from "../types/research.types";
+import { FigureExtractorService } from "./figure-extractor.service";
 
 /**
  * URL 验证结果
@@ -44,6 +45,8 @@ export interface DataEnrichmentOptions {
   fetchTimeout?: number;
   /** 是否并行抓取，默认 true */
   parallel?: boolean;
+  /** ★ 是否提取图表，默认 true */
+  enableFigures?: boolean;
 }
 
 @Injectable()
@@ -51,7 +54,10 @@ export class DataEnrichmentService {
   private readonly logger = new Logger(DataEnrichmentService.name);
 
   // ★ 架构重构：通过 ToolRegistry 调用工具，不再直接依赖 SearchService
-  constructor(private readonly toolRegistry: ToolRegistry) {}
+  constructor(
+    private readonly toolRegistry: ToolRegistry,
+    private readonly figureExtractor: FigureExtractorService,
+  ) {}
 
   /**
    * 创建工具执行上下文
@@ -81,6 +87,7 @@ export class DataEnrichmentService {
       maxContentLength = 3000,
       fetchTimeout = 10000,
       parallel = true,
+      enableFigures = true, // ★ 默认开启图表提取
     } = options;
 
     if (results.length === 0) {
@@ -104,12 +111,14 @@ export class DataEnrichmentService {
         toEnrich,
         maxContentLength,
         fetchTimeout,
+        enableFigures,
       );
     } else {
       enrichedTop = await this.enrichSequential(
         toEnrich,
         maxContentLength,
         fetchTimeout,
+        enableFigures,
       );
     }
 
@@ -140,9 +149,15 @@ export class DataEnrichmentService {
     results: DataSourceResult[],
     maxContentLength: number,
     fetchTimeout: number,
+    enableFigures: boolean,
   ): Promise<EnrichedResult[]> {
     const enrichPromises = results.map((result) =>
-      this.enrichSingleResult(result, maxContentLength, fetchTimeout),
+      this.enrichSingleResult(
+        result,
+        maxContentLength,
+        fetchTimeout,
+        enableFigures,
+      ),
     );
 
     return Promise.all(enrichPromises);
@@ -155,6 +170,7 @@ export class DataEnrichmentService {
     results: DataSourceResult[],
     maxContentLength: number,
     fetchTimeout: number,
+    enableFigures: boolean,
   ): Promise<EnrichedResult[]> {
     const enrichedResults: EnrichedResult[] = [];
 
@@ -163,6 +179,7 @@ export class DataEnrichmentService {
         result,
         maxContentLength,
         fetchTimeout,
+        enableFigures,
       );
       enrichedResults.push(enriched);
     }
@@ -173,11 +190,13 @@ export class DataEnrichmentService {
   /**
    * 增强单个搜索结果
    * ★ 架构重构：通过 ToolRegistry 调用 web-scraper 工具
+   * @param enableFigures 是否提取图表（来自 topicConfig）
    */
   private async enrichSingleResult(
     result: DataSourceResult,
     maxContentLength: number,
     fetchTimeout: number,
+    enableFigures: boolean = true,
   ): Promise<EnrichedResult> {
     // ★ 通过 ToolRegistry 获取 web-scraper 工具
     const webScraperTool = this.toolRegistry.tryGet("web-scraper");
@@ -218,6 +237,7 @@ export class DataEnrichmentService {
       if (toolResult.success && toolResult.data) {
         const scraperData = toolResult.data as {
           content: string;
+          html?: string;
           title?: string;
           success: boolean;
         };
@@ -231,8 +251,26 @@ export class DataEnrichmentService {
           // ★ 检查内容是否有意义（非错误页面）
           const isValid = this.isContentMeaningful(truncatedContent);
 
+          // ★ 提取图表：使用 HTML 内容（如果可用）
+          // ★ 仅当 enableFigures=true 时提取图表
+          let extractedFigures: ExtractedFigure[] = [];
+          if (enableFigures) {
+            const htmlContent = scraperData.html || scraperData.content;
+            if (htmlContent) {
+              extractedFigures = this.figureExtractor.extractFigures(
+                result.url,
+                htmlContent,
+              );
+              if (extractedFigures.length > 0) {
+                this.logger.debug(
+                  `Extracted ${extractedFigures.length} figures from ${result.domain || result.url}`,
+                );
+              }
+            }
+          }
+
           this.logger.debug(
-            `Fetched ${truncatedContent.length} chars from ${result.domain || result.url}, valid: ${isValid}`,
+            `Fetched ${truncatedContent.length} chars from ${result.domain || result.url}, valid: ${isValid}, figures: ${extractedFigures.length}`,
           );
 
           return {
@@ -240,6 +278,7 @@ export class DataEnrichmentService {
             fullContent: truncatedContent,
             contentSource: "fetched",
             urlValid: isValid,
+            extractedFigures,
           };
         }
       }

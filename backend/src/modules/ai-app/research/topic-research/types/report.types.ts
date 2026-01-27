@@ -159,18 +159,21 @@ export type ChartType = "line" | "bar" | "area" | "pie" | "radar" | "composed";
 
 /**
  * 报告图表
+ * ★ 支持两种类型：reference（引用原始图表）和 generated（AI 生成图表）
  */
 export interface ReportChart {
   /** 图表ID */
   id: string;
-  /** 图表类型 */
-  type: ChartType;
+  /** ★ 图表来源类型：reference=引用原始图表，generated=AI生成图表 */
+  chartType?: "reference" | "generated";
+  /** 图表类型（仅 generated 需要） */
+  type?: ChartType;
   /** 图表标题 */
   title: string;
   /** 图表描述 */
   description?: string;
-  /** 数据 */
-  data: ChartDataPoint[];
+  /** 数据（仅 generated 需要） */
+  data?: ChartDataPoint[];
   /** X轴配置 */
   xAxis?: {
     label: string;
@@ -187,6 +190,16 @@ export interface ReportChart {
   source?: string;
   /** 关联的章节ID */
   sectionId?: string;
+  /** 图表位置 */
+  position?: string;
+  /** ★ 关联的维度ID */
+  dimensionId?: string;
+  /** ★ 关联的维度名称 */
+  dimensionName?: string;
+  /** ★ 引用图表特有：图片URL */
+  imageUrl?: string;
+  /** ★ 引用图表特有：证据引用索引 */
+  evidenceCitationIndex?: number;
 }
 
 /**
@@ -264,6 +277,25 @@ export interface DimensionAnalysisInput {
   }>;
   detailedContent: string;
   sourcesUsed: number;
+  /** ★ 引用的原始图表（来自证据） */
+  figureReferences?: Array<{
+    id: string;
+    evidenceCitationIndex: number;
+    figureIndex: number;
+    imageUrl?: string;
+    caption: string;
+    position: string;
+    source?: string;
+  }>;
+  /** ★ AI 补充生成的图表 */
+  generatedCharts?: Array<{
+    id: string;
+    type: "line" | "bar" | "pie" | "area" | "radar";
+    title: string;
+    position: string;
+    data: Array<{ label: string; value: number; series?: string }>;
+    source: string;
+  }>;
 }
 
 // ==================== Evidence Input ====================
