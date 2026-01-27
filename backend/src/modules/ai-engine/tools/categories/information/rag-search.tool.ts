@@ -12,8 +12,7 @@ import {
 } from "../../abstractions/tool.interface";
 
 import { PrismaService } from "@/common/prisma/prisma.service";
-import OpenAI from "openai";
-import { ConfigService } from "@nestjs/config";
+import { EmbeddingService } from "@/modules/ai-engine/rag/embedding/embedding.service";
 
 // ============================================================================
 // Types
@@ -289,25 +288,12 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
     },
   };
 
-  private openai: OpenAI;
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
+    private readonly embeddingService: EmbeddingService,
   ) {
     super();
     // defaultTimeout set in class property // 30 秒超时
-
-    // 初始化 OpenAI 客户端
-    const apiKey = this.configService.get<string>("OPENAI_API_KEY");
-    if (!apiKey) {
-      this.logger.warn("OPENAI_API_KEY not configured");
-    }
-    if (apiKey) {
-      this.openai = new OpenAI({ apiKey });
-    } else {
-      this.openai = null as any;
-    }
   }
 
   /**
@@ -433,17 +419,9 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
    */
   private async generateEmbedding(text: string): Promise<number[]> {
     try {
-      const response = await this.openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: text,
-        encoding_format: "float",
-      });
-
-      if (!response.data || response.data.length === 0) {
-        throw new Error("No embedding returned from OpenAI");
-      }
-
-      return response.data[0].embedding;
+      // 使用 EmbeddingService，支持数据库配置和 Secret Manager
+      const result = await this.embeddingService.generateEmbedding(text);
+      return result.embedding;
     } catch (error) {
       this.logger.error(
         `Failed to generate embedding: ${error instanceof Error ? error.message : String(error)}`,

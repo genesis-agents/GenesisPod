@@ -1022,66 +1022,75 @@ export class AiChatService {
     );
 
     try {
-      switch (apiFormat) {
-        case "openai":
-          return await this.apiCallerService.callOpenAICompatibleAPI(
-            apiEndpoint,
-            apiKey,
-            modelId,
-            messages,
-            maxTokens,
-            effectiveTemperature,
-            timeout,
-            tokenParamName,
-          );
+      // ★ 使用 withRetry 包装 API 调用，自动处理网络错误重试
+      const apiCall = async (): Promise<ChatCompletionResult> => {
+        switch (apiFormat) {
+          case "openai":
+            return await this.apiCallerService.callOpenAICompatibleAPI(
+              apiEndpoint,
+              apiKey,
+              modelId,
+              messages,
+              maxTokens,
+              effectiveTemperature,
+              timeout,
+              tokenParamName,
+            );
 
-        case "anthropic":
-          return await this.apiCallerService.callAnthropicAPI(
-            apiEndpoint,
-            apiKey,
-            modelId,
-            messages,
-            maxTokens,
-            temperature,
-            timeout,
-          );
+          case "anthropic":
+            return await this.apiCallerService.callAnthropicAPI(
+              apiEndpoint,
+              apiKey,
+              modelId,
+              messages,
+              maxTokens,
+              temperature,
+              timeout,
+            );
 
-        case "google":
-          return await this.apiCallerService.callGoogleAPI(
-            apiEndpoint,
-            apiKey,
-            modelId,
-            messages,
-            maxTokens,
-            temperature,
-            timeout,
-          );
+          case "google":
+            return await this.apiCallerService.callGoogleAPI(
+              apiEndpoint,
+              apiKey,
+              modelId,
+              messages,
+              maxTokens,
+              temperature,
+              timeout,
+            );
 
-        case "xai":
-          return await this.apiCallerService.callXAIAPI(
-            apiEndpoint,
-            apiKey,
-            modelId,
-            messages,
-            maxTokens,
-            temperature,
-            timeout,
-            tokenParamName,
-          );
+          case "xai":
+            return await this.apiCallerService.callXAIAPI(
+              apiEndpoint,
+              apiKey,
+              modelId,
+              messages,
+              maxTokens,
+              temperature,
+              timeout,
+              tokenParamName,
+            );
 
-        default:
-          // 默认使用 OpenAI 兼容格式
-          return await this.apiCallerService.callOpenAICompatibleAPI(
-            apiEndpoint,
-            apiKey,
-            modelId,
-            messages,
-            maxTokens,
-            effectiveTemperature,
-            timeout,
-            tokenParamName,
-          );
-      }
+          default:
+            // 默认使用 OpenAI 兼容格式
+            return await this.apiCallerService.callOpenAICompatibleAPI(
+              apiEndpoint,
+              apiKey,
+              modelId,
+              messages,
+              maxTokens,
+              effectiveTemperature,
+              timeout,
+              tokenParamName,
+            );
+        }
+      };
+
+      return await this.withRetry(
+        apiCall,
+        `callAPIWithConfig [${modelId}]`,
+        provider,
+      );
     } catch (error: any) {
       // ★ 详细错误日志：捕获 API 响应中的错误信息
       let errorMsg = error instanceof Error ? error.message : String(error);

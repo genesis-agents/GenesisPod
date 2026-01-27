@@ -15,6 +15,7 @@ import {
 import { LeaderDecisionType, ResearchTaskStatus } from "@prisma/client";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
 import { sanitize } from "../utils/prompt-sanitizer";
+import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import {
   LeaderToolService,
   LeaderActionType,
@@ -953,7 +954,10 @@ export class ResearchLeaderService {
     );
 
     // 7. 解析响应
-    const plan = this.extractJsonFromResponse<LeaderPlan>(response.content);
+    const plan = this.extractJsonFromResponse<LeaderPlan>(
+      response.content,
+      "dimensions", // requiredKey for validation
+    );
 
     if (!plan) {
       this.logger.error(
@@ -1077,7 +1081,13 @@ export class ResearchLeaderService {
     const latencyMs = Date.now() - startTime;
 
     // 解析审核结果
-    const review = this.extractJsonFromResponse<any>(response.content);
+    const review = this.extractJsonFromResponse<{
+      status: "approved" | "needs_revision" | "rejected";
+      feedback?: string;
+      suggestions?: string[];
+      revisionInstructions?: string;
+      revisionNeeded?: boolean;
+    }>(response.content, "status"); // requiredKey for validation
 
     if (!review) {
       this.logger.warn(
@@ -1099,14 +1109,14 @@ export class ResearchLeaderService {
         dimensionName,
       },
       review,
-      review.feedback,
+      review.feedback || "",
       leaderModel.modelId,
       latencyMs,
     );
 
     return {
       taskId,
-      status: review.status || "approved",
+      status: review.status ?? "approved",
       feedback: review.feedback || "",
       suggestions: review.suggestions,
       revisionInstructions: review.revisionInstructions,
@@ -1273,7 +1283,7 @@ export class ResearchLeaderService {
       }>;
       response: string;
       planAdjustments?: unknown;
-    }>(response.content);
+    }>(response.content, "response"); // requiredKey for validation
 
     if (!result) {
       const fallbackResponse = "收到您的指令，我会继续推进研究工作。";
@@ -1959,7 +1969,7 @@ ${teamMembersText}`;
       todoDescription?: string;
       clarifyQuestion?: string;
       clarifyOptions?: string[];
-    }>(response.content);
+    }>(response.content, "decisionType"); // requiredKey for validation
 
     if (!result) {
       // 解析失败时的降级处理
@@ -2429,53 +2439,31 @@ ${teamMembersText}`;
 
   /**
    * 从 AI 响应中提取 JSON
+   * 使用增强的 extractJsonFromAIResponse 工具，支持截断响应修复
    */
-  private extractJsonFromResponse<T>(response: string): T | null {
+  private extractJsonFromResponse<T>(
+    response: string,
+    requiredKey?: string,
+  ): T | null {
     // 处理空响应
     if (!response || response.trim().length === 0) {
       this.logger.warn("[extractJsonFromResponse] Empty response received");
       return null;
     }
 
-    try {
-      // 尝试直接解析
-      return JSON.parse(response) as T;
-    } catch (directError) {
+    const result = extractJsonFromAIResponse<T>(response, { requiredKey });
+
+    if (result.success && result.data) {
       this.logger.debug(
-        `[extractJsonFromResponse] Direct parse failed: ${directError instanceof Error ? directError.message : directError}`,
+        `[extractJsonFromResponse] Extracted via method: ${result.method}`,
       );
-
-      // 尝试从 markdown 代码块中提取
-      const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch && jsonMatch[1].trim()) {
-        try {
-          return JSON.parse(jsonMatch[1].trim()) as T;
-        } catch (codeBlockError) {
-          this.logger.warn(
-            `[extractJsonFromResponse] Failed to parse JSON from code block: ${codeBlockError instanceof Error ? codeBlockError.message : codeBlockError}`,
-          );
-        }
-      }
-
-      // 尝试找到第一个 { 和最后一个 }
-      const start = response.indexOf("{");
-      const end = response.lastIndexOf("}");
-      if (start !== -1 && end !== -1 && end > start) {
-        const jsonSubstring = response.slice(start, end + 1);
-        try {
-          return JSON.parse(jsonSubstring) as T;
-        } catch (substringError) {
-          this.logger.warn(
-            `[extractJsonFromResponse] Failed to parse JSON substring: ${substringError instanceof Error ? substringError.message : substringError}`,
-          );
-        }
-      }
-
-      this.logger.error(
-        "[extractJsonFromResponse] Could not extract JSON from response",
-      );
-      return null;
+      return result.data;
     }
+
+    this.logger.error(
+      `[extractJsonFromResponse] Could not extract JSON: ${result.error || "unknown error"}`,
+    );
+    return null;
   }
 
   // ==================== 维度分析核心方法 ====================
@@ -2584,6 +2572,7 @@ ${teamMembersText}`;
 
         const outline = this.extractJsonFromResponse<DimensionOutline>(
           response.content,
+          "sections", // requiredKey for validation
         );
 
         if (!outline || !outline.sections || outline.sections.length === 0) {
@@ -2689,7 +2678,7 @@ ${teamMembersText}`;
       score: number;
       feedback: string;
       revisionInstructions?: string;
-    }>(response.content);
+    }>(response.content, "approved"); // requiredKey for validation
 
     if (!review) {
       // 解析失败，默认通过
@@ -2802,6 +2791,7 @@ ${teamMembersText}`;
 
     const result = this.extractJsonFromResponse<IntegratedDimensionResult>(
       response.content,
+      "content", // requiredKey for validation
     );
 
     if (!result) {

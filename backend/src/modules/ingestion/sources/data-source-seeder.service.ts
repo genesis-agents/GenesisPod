@@ -57,11 +57,19 @@ export class DataSourceSeederService implements OnModuleInit {
         // 尝试检查响应内容是否以XML标签开头
         const text = await response.text();
         const trimmedText = text.trim();
+        // 如果不是 XML/RSS/Feed 格式，且是 HTML 页面，则验证失败
         if (
           !trimmedText.startsWith("<?xml") &&
           !trimmedText.startsWith("<rss") &&
           !trimmedText.startsWith("<feed") &&
-          !trimmedText.startsWith("<html") === false
+          !trimmedText.startsWith("<html")
+        ) {
+          return false;
+        }
+        // 如果以 <html 开头，说明返回的是 HTML 页面而非 RSS
+        if (
+          trimmedText.startsWith("<html") ||
+          trimmedText.startsWith("<!DOCTYPE html")
         ) {
           return false;
         }

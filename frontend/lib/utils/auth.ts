@@ -148,3 +148,71 @@ export function logout(): void {
     window.location.href = '/';
   }
 }
+
+// Flag to prevent multiple simultaneous refresh attempts
+let isRefreshing = false;
+let refreshPromise: Promise<AuthTokens | null> | null = null;
+
+/**
+ * Refresh the access token using the refresh token
+ * Returns new tokens on success, null on failure
+ * Uses a singleton pattern to prevent multiple simultaneous refresh attempts
+ */
+export async function refreshAccessToken(): Promise<AuthTokens | null> {
+  // If already refreshing, return the existing promise
+  if (isRefreshing && refreshPromise) {
+    return refreshPromise;
+  }
+
+  const tokens = getAuthTokens();
+  if (!tokens?.refreshToken) {
+    logger.warn('[Auth] No refresh token available');
+    return null;
+  }
+
+  isRefreshing = true;
+
+  refreshPromise = (async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${apiUrl}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokens.accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        logger.warn(`[Auth] Token refresh failed: ${response.status}`);
+        // Clear tokens on refresh failure
+        clearAuthTokens();
+        return null;
+      }
+
+      const data = await response.json();
+      const newTokens: AuthTokens = {
+        accessToken: data.accessToken || data.data?.accessToken,
+        refreshToken:
+          data.refreshToken || data.data?.refreshToken || tokens.refreshToken,
+      };
+
+      if (newTokens.accessToken) {
+        saveAuthTokens(newTokens);
+        logger.info('[Auth] Token refreshed successfully');
+        return newTokens;
+      }
+
+      return null;
+    } catch (error) {
+      logger.error('[Auth] Token refresh error:', error);
+      clearAuthTokens();
+      return null;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}

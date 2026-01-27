@@ -10,7 +10,7 @@
  */
 
 import { config } from '../utils/config';
-import { getAuthTokens } from '../utils/auth';
+import { getAuthTokens, refreshAccessToken, logout } from '../utils/auth';
 
 import { logger } from '@/lib/utils/logger';
 // ==================== 类型定义 ====================
@@ -226,6 +226,68 @@ class ApiClient {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
+          // Handle 401 Unauthorized - try to refresh token
+          if (response.status === 401) {
+            const newTokens = await refreshAccessToken();
+            if (newTokens) {
+              // Retry the request with new token
+              const retryHeaders = {
+                ...init.headers,
+                Authorization: `Bearer ${newTokens.accessToken}`,
+              };
+              const retryResponse = await fetch(url, {
+                ...init,
+                headers: retryHeaders,
+                signal: controller.signal,
+              });
+
+              if (retryResponse.ok) {
+                const text = await retryResponse.text();
+                if (!text) return {} as T;
+                const parsed = JSON.parse(text);
+                if (
+                  parsed &&
+                  typeof parsed === 'object' &&
+                  'success' in parsed &&
+                  'data' in parsed
+                ) {
+                  const otherKeys = Object.keys(parsed).filter(
+                    (k) =>
+                      !['success', 'data', 'metadata', 'message'].includes(k)
+                  );
+                  if (otherKeys.length === 0) {
+                    return parsed.data as T;
+                  }
+                }
+                return parsed as T;
+              }
+
+              // If retry also fails with 401, log out user
+              if (retryResponse.status === 401) {
+                logger.warn(
+                  '[API Client] Token refresh succeeded but request still unauthorized, logging out'
+                );
+                logout();
+                throw this.createApiError(
+                  'Session expired. Please sign in again.',
+                  'SESSION_EXPIRED',
+                  401,
+                  {}
+                );
+              }
+            } else {
+              // Token refresh failed, log out user
+              logger.warn('[API Client] Token refresh failed, logging out');
+              logout();
+              throw this.createApiError(
+                'Session expired. Please sign in again.',
+                'SESSION_EXPIRED',
+                401,
+                {}
+              );
+            }
+          }
+
           const errorData = await response.json().catch(() => ({}));
           throw this.createApiError(
             errorData.message || response.statusText,

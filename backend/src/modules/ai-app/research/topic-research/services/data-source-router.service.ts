@@ -650,7 +650,7 @@ export class DataSourceRouterService {
         sourceType: DataSourceType.ACADEMIC,
         title: paper.title,
         url: paper.absUrl, // 使用摘要页 URL 作为主链接
-        snippet: paper.summary.slice(0, 500), // 截取摘要前 500 字符
+        snippet: paper.summary?.slice(0, 500) || "", // 截取摘要前 500 字符
         publishedAt: paper.published ? new Date(paper.published) : undefined,
         domain: "arxiv.org",
         metadata: {
@@ -914,7 +914,7 @@ export class DataSourceRouterService {
         sourceType: DataSourceType.LOCAL,
         title: this.extractTitle(result.parentContent || result.content),
         url: `kb://${result.documentId}#${result.childChunkId}`, // 内部链接格式
-        snippet: result.content.slice(0, 500), // 截取前 500 字符
+        snippet: result.content?.slice(0, 500) || "", // 截取前 500 字符
         domain: "knowledge-base",
         metadata: {
           similarity: result.similarity,

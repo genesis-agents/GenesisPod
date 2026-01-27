@@ -9,29 +9,53 @@
  * - LLM Factory & Adapters
  */
 
-import { Module } from '@nestjs/common';
-import { HttpModule } from '@nestjs/axios';
-import { SecretsModule } from '../core/secrets/secrets.module';
+import { Module } from "@nestjs/common";
+import { HttpModule } from "@nestjs/axios";
+import { SecretsModule } from "../core/secrets/secrets.module";
+import * as http from "http";
+import * as https from "https";
 
 // LLM Core
-import { LLMFactory } from './llm/factory/llm-factory';
-import { FunctionCallingLLMAdapter } from './llm/adapters/function-calling-llm-adapter';
-import { AiChatLLMAdapter } from './llm/adapters/ai-chat-llm-adapter';
-import { UniversalLLMAdapter } from './llm/adapters/universal-llm-adapter';
-import { TaskProfileMapperService } from './llm/services/task-profile-mapper.service';
+import { LLMFactory } from "./llm/factory/llm-factory";
+import { FunctionCallingLLMAdapter } from "./llm/adapters/function-calling-llm-adapter";
+import { AiChatLLMAdapter } from "./llm/adapters/ai-chat-llm-adapter";
+import { UniversalLLMAdapter } from "./llm/adapters/universal-llm-adapter";
+import { TaskProfileMapperService } from "./llm/services/task-profile-mapper.service";
 
 // Core Services
-import { AiChatService } from './llm/services/ai-chat.service';
-import { AiModelConfigService } from './llm/services/ai-model-config.service';
-import { AiApiCallerService } from './llm/services/ai-api-caller.service';
-import { AiStreamHandlerService } from './llm/services/ai-stream-handler.service';
-import { SearchService } from './search/search.service';
+import { AiChatService } from "./llm/services/ai-chat.service";
+import { AiModelConfigService } from "./llm/services/ai-model-config.service";
+import { AiApiCallerService } from "./llm/services/ai-api-caller.service";
+import { AiStreamHandlerService } from "./llm/services/ai-stream-handler.service";
+import { SearchService } from "./search/search.service";
 
 // Model Fallback
-import { ModelFallbackService } from './llm/model-fallback/model-fallback.service';
+import { ModelFallbackService } from "./llm/model-fallback/model-fallback.service";
 
 @Module({
-  imports: [HttpModule, SecretsModule],
+  imports: [
+    HttpModule.register({
+      timeout: 120000,
+      maxRedirects: 3,
+      // Custom agents with increased maxHeaderSize (default is 16KB)
+      httpAgent: new http.Agent({
+        keepAlive: true,
+        keepAliveMsecs: 30000,
+        maxSockets: 50,
+        maxFreeSockets: 10,
+      }),
+      httpsAgent: new https.Agent({
+        keepAlive: true,
+        keepAliveMsecs: 30000,
+        maxSockets: 50,
+        maxFreeSockets: 10,
+      }),
+      // Axios config for large responses
+      maxContentLength: 10 * 1024 * 1024, // 10MB
+      maxBodyLength: 10 * 1024 * 1024, // 10MB
+    }),
+    SecretsModule,
+  ],
   providers: [
     // LLM Factory & Adapters
     LLMFactory,
