@@ -507,6 +507,23 @@ export class SlidesController {
     try {
       const result = await this.slidesEngine.restoreCheckpoint(checkpointId);
 
+      // ★ DIAGNOSTIC: Log state details for debugging
+      this.logger.log(
+        `[getCheckpoint] ★ State keys: ${Object.keys(result.state || {}).join(", ")}`,
+      );
+      this.logger.log(
+        `[getCheckpoint] ★ Pages count: ${result.state?.pages?.length || 0}`,
+      );
+      this.logger.log(
+        `[getCheckpoint] ★ Has outlinePlan: ${!!result.state?.outlinePlan}`,
+      );
+      if (result.state?.pages?.length > 0) {
+        const firstPage = result.state.pages[0];
+        this.logger.log(
+          `[getCheckpoint] ★ First page: htmlLength=${firstPage?.html?.length || 0}, status=${firstPage?.status}`,
+        );
+      }
+
       return {
         sessionId: result.sessionId,
         checkpointId,

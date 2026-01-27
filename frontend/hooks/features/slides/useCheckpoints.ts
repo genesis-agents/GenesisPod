@@ -116,6 +116,20 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         const detailData = detailResult?.data ?? detailResult;
         const checkpointState: CheckpointState = detailData.state;
 
+        // ★ DIAGNOSTIC: Log checkpoint state for debugging
+        logger.debug('[restoreCheckpoint] ★ Raw detailResult:', detailResult);
+        logger.debug(
+          '[restoreCheckpoint] ★ detailData keys:',
+          Object.keys(detailData || {})
+        );
+        logger.debug('[restoreCheckpoint] ★ checkpointState:', {
+          hasPages: !!checkpointState?.pages,
+          pagesLength: checkpointState?.pages?.length,
+          pagesType: typeof checkpointState?.pages,
+          hasOutlinePlan: !!checkpointState?.outlinePlan,
+          stateKeys: Object.keys(checkpointState || {}),
+        });
+
         // 调用恢复 API
         const restoreResponse = await fetch(
           `${API_BASE}/ai-office/slides/restore/${checkpointId}`,
@@ -215,6 +229,20 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         // Handle wrapped response { success: true, data: {...} }
         const detailData = detailResult?.data ?? detailResult;
         const checkpointState: CheckpointState = detailData.state;
+
+        // ★ DIAGNOSTIC: Log checkpoint state for debugging
+        logger.debug('[restoreBySessionId] ★ Raw detailResult:', detailResult);
+        logger.debug(
+          '[restoreBySessionId] ★ detailData keys:',
+          Object.keys(detailData || {})
+        );
+        logger.debug('[restoreBySessionId] ★ checkpointState:', {
+          hasPages: !!checkpointState?.pages,
+          pagesLength: checkpointState?.pages?.length,
+          pagesType: typeof checkpointState?.pages,
+          hasOutlinePlan: !!checkpointState?.outlinePlan,
+          stateKeys: Object.keys(checkpointState || {}),
+        });
 
         // 调用恢复 API
         const restoreResponse = await fetch(
