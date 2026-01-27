@@ -382,6 +382,26 @@ async function deploy(): Promise<void> {
     } else {
       console.log("   OK research_topics.language");
     }
+
+    // Check if slides_missions.context_package column exists
+    // ★ 2026-01-27: Mission Context Package for slides
+    const slidesMissionsContextPackageCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'slides_missions' AND column_name = 'context_package'
+      ) as exists
+    `;
+
+    if (!slidesMissionsContextPackageCheck[0]?.exists) {
+      console.log("   Adding slides_missions.context_package column...");
+      await prisma.$executeRaw`ALTER TABLE "slides_missions" ADD COLUMN IF NOT EXISTS "context_package" JSONB`;
+      await prisma.$executeRaw`COMMENT ON COLUMN "slides_missions"."context_package" IS 'Mission Context Package - structured context from Leader'`;
+      console.log("   Added slides_missions.context_package");
+    } else {
+      console.log("   OK slides_missions.context_package");
+    }
     console.log("");
 
     // Step 4: Generate Prisma Client
