@@ -42,6 +42,9 @@ import {
   MultiModelService,
 } from "./slides";
 
+// Debug Controller (TEMPORARY - Remove after debugging)
+import { SlidesDebugController } from "./slides/orchestrator/slides-debug.controller";
+
 // Agents
 import { AgentsController } from "./agents";
 
@@ -63,7 +66,12 @@ import { AIOfficeCommonModule } from "./common";
     // 使用 forwardRef: SlidesSkillsModule 也导入 AiEngineModule，形成循环
     forwardRef(() => SlidesSkillsModule),
   ],
-  controllers: [AIModelController, SlidesController, AgentsController],
+  controllers: [
+    AIModelController,
+    SlidesController,
+    SlidesDebugController,
+    AgentsController,
+  ],
   providers: [
     AIModelService,
     // Slides Services (v5.0: Team-based Orchestrator)
