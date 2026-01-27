@@ -806,7 +806,14 @@ export type StreamEventType =
   | 'user_message'
   | 'system_message'
   // 恢复事件
-  | 'tool_call';
+  | 'tool_call'
+  // AI 思考事件（V5.0）
+  | 'thinking:step'
+  | 'thinking:decision'
+  | 'thinking:insight'
+  | 'thinking:warning'
+  | 'thinking:output'
+  | 'thinking:summary';
 
 export interface StreamEvent {
   type: StreamEventType;

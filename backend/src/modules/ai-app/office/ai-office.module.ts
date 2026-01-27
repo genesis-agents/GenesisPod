@@ -23,6 +23,14 @@ import {
   SlidesController,
   // Engine Service (v4.0: 核心服务)
   SlidesEngineService,
+  // v5.0: Data Import Service
+  SlidesDataImportService,
+  // v5.0: AI Edit Service
+  AIEditService,
+  // v5.0: Health Check Service
+  SlidesMissionHealthService,
+  // v5.0: Metrics Service
+  SlidesMetricsService,
   // Skills Module (v4.0: 技能注册模块)
   SlidesSkillsModule,
   // v5.0: Team-based Orchestrator
@@ -63,6 +71,10 @@ import { AIOfficeCommonModule } from "./common";
     ParameterizedRendererService,
     CheckpointService,
     SlidesEngineService, // v4.0: 核心引擎服务
+    SlidesDataImportService, // v5.0: 数据导入服务
+    AIEditService, // v5.0: AI 编辑服务
+    SlidesMissionHealthService, // v5.0: 健康检查服务
+    SlidesMetricsService, // v5.0: 指标收集服务
     SlidesLeader, // v5.0: Leader 角色
     SlidesTeamMember, // v5.0: 成员基类
     SlidesTeamOrchestrator, // v5.0: 主编排器
@@ -76,6 +88,10 @@ import { AIOfficeCommonModule } from "./common";
     ParameterizedRendererService,
     CheckpointService,
     SlidesEngineService,
+    SlidesDataImportService, // v5.0: 数据导入服务
+    AIEditService, // v5.0: AI 编辑服务
+    SlidesMissionHealthService, // v5.0: 健康检查服务
+    SlidesMetricsService, // v5.0: 指标收集服务
     SlidesLeader,
     SlidesTeamMember,
     SlidesTeamOrchestrator,

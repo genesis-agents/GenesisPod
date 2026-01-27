@@ -95,6 +95,13 @@ const EVENT_TYPE_MAP: Record<SlidesMissionEventType, string> = {
   "synthesis:completed": "SYNTHESIS_COMPLETED",
   "page:generated": "PAGE_GENERATED",
   progress: "PROGRESS",
+  // AI 思考事件（V5.0）
+  "thinking:step": "THINKING_STEP",
+  "thinking:decision": "THINKING_DECISION",
+  "thinking:insight": "THINKING_INSIGHT",
+  "thinking:warning": "THINKING_WARNING",
+  "thinking:output": "THINKING_OUTPUT",
+  "thinking:summary": "THINKING_SUMMARY",
 };
 
 // 反向映射

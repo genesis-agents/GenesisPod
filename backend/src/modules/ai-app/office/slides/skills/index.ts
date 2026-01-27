@@ -50,12 +50,20 @@ export * from "./image-fetcher.skill";
 export * from "./content-analyzer.skill";
 export * from "./layout-optimizer.skill";
 
+// Layer 5.5 - AI Edit Skills (v5.0)
+export * from "./layout-fixer.skill";
+export * from "./content-polisher.skill";
+export * from "./fact-checker.skill";
+
 // Layer 5 - Consistency
 export * from "./terminology-unifier.skill";
 export * from "./transition-checker.skill";
 
 // Layer 6 - Quality Assurance
 export * from "./quality-audit.skill";
+
+// Layer 7 - Monitoring & Transparency (v5.0)
+export * from "./slide-thinking.skill";
 
 // Module (v4.0: 技能注册模块)
 export * from "./slides-skills.module";

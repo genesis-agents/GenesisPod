@@ -195,7 +195,14 @@ export type SlidesMissionEventType =
   | "synthesis:started"
   | "synthesis:completed"
   | "page:generated"
-  | "progress";
+  | "progress"
+  // AI 思考事件（V5.0）
+  | "thinking:step"
+  | "thinking:decision"
+  | "thinking:insight"
+  | "thinking:warning"
+  | "thinking:output"
+  | "thinking:summary";
 
 export interface SlidesMissionEvent {
   type: SlidesMissionEventType;

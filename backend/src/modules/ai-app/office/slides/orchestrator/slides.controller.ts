@@ -23,6 +23,7 @@ import {
   Query,
   Sse,
   Res,
+  Req,
   HttpStatus,
   HttpException,
   Logger,
@@ -30,10 +31,13 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  UseGuards,
 } from "@nestjs/common";
 import { Response } from "express";
 import { Observable, map, catchError, of } from "rxjs";
 import { SlidesEngineService } from "../services/slides-engine.service";
+import { SlidesDataImportService } from "../services/data-import.service";
+import { AIEditService, PolishOptions } from "../services/ai-edit.service";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
 import { GlobalStyles } from "../checkpoint/checkpoint.types";
 import { getAllThemes } from "../templates/base/themes";
@@ -42,9 +46,18 @@ import {
   IsOptional,
   IsNumber,
   IsIn,
+  IsArray,
+  IsNotEmpty,
   Min,
   Max,
+  MaxLength,
 } from "class-validator";
+import { JwtAuthGuard } from "../../../../../common/guards/jwt-auth.guard";
+import {
+  RateLimitGuard,
+  RateLimit,
+} from "../../../../../common/guards/rate-limit.guard";
+import type { RequestWithUser } from "../../../../../common/types/express-request.types";
 
 // ============================================
 // DTOs
@@ -52,13 +65,18 @@ import {
 
 class GenerateDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   title!: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(100000) // 100KB limit
   sourceText!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   userRequirement?: string;
 
   @IsOptional()
@@ -73,6 +91,7 @@ class GenerateDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   targetAudience?: string;
 
   @IsOptional()
@@ -80,18 +99,21 @@ class GenerateDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   themeId?: string;
 }
 
 class RerenderPageDto {
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   feedback?: string;
 }
 
 class CreateCheckpointDto {
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   name?: string;
 
   @IsOptional()
@@ -120,7 +142,15 @@ class ExportDto {
 
 class UpdateSessionDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   title!: string;
+}
+
+class ImportFromLibraryDto {
+  @IsArray()
+  @IsString({ each: true })
+  resourceIds!: string[];
 }
 
 /**
@@ -142,12 +172,15 @@ function fromAsyncGenerator<T>(generator: AsyncGenerator<T>): Observable<T> {
 }
 
 @Controller("ai-office/slides")
+@UseGuards(JwtAuthGuard, RateLimitGuard)
 export class SlidesController {
   private readonly logger = new Logger(SlidesController.name);
 
   constructor(
     private readonly slidesEngine: SlidesEngineService,
     private readonly checkpointService: CheckpointService,
+    private readonly dataImportService: SlidesDataImportService,
+    private readonly aiEditService: AIEditService,
   ) {}
 
   // ============================================
@@ -186,8 +219,13 @@ export class SlidesController {
    * 通过 AI Engine 的 TeamsService 编排生成
    */
   @Sse("generate")
+  @RateLimit({
+    maxRequests: 10,
+    windowSeconds: 60,
+    message: "生成请求过于频繁，请稍后重试",
+  })
   generateSlides(
-    @Query("userId") userId: string,
+    @Req() req: RequestWithUser,
     @Query("title") title: string,
     @Query("sourceText") sourceText: string,
     @Query("userRequirement") userRequirement?: string,
@@ -196,12 +234,13 @@ export class SlidesController {
     @Query("targetAudience") targetAudience?: string,
     @Query("themeId") themeId?: string,
   ): Observable<MessageEvent> {
+    const userId = req.user.id;
     this.logger.log(
-      `[generateSlides] Starting generation: ${title?.slice(0, 50)}...`,
+      `[generateSlides] Starting generation: ${title?.slice(0, 50)}... for user ${userId}`,
     );
 
     const generator = this.slidesEngine.generateSlides({
-      userId: userId || "anonymous",
+      userId,
       sourceText: sourceText || "",
       userRequirement,
       targetPages: targetPages ? parseInt(targetPages, 10) : undefined,
@@ -237,17 +276,23 @@ export class SlidesController {
    * ★ 手动设置 SSE 响应头，确保 POST 请求也能正确流式传输
    */
   @Post("generate")
+  @RateLimit({
+    maxRequests: 10,
+    windowSeconds: 60,
+    message: "生成请求过于频繁，请稍后重试",
+  })
   async generateSlidesPost(
+    @Req() req: RequestWithUser,
     @Body() dto: GenerateDto,
-    @Query("userId") userId?: string,
     @Res() res?: Response,
   ): Promise<void> {
     if (!res) {
       throw new HttpException("Response object not available", 500);
     }
 
+    const userId = req.user.id;
     this.logger.log(
-      `[generateSlidesPost] Starting generation: ${dto.title?.slice(0, 50)}...`,
+      `[generateSlidesPost] Starting generation: ${dto.title?.slice(0, 50)}... for user ${userId}`,
     );
 
     // ★ 手动设置 SSE 响应头
@@ -258,7 +303,7 @@ export class SlidesController {
     res.flushHeaders(); // 立即发送响应头
 
     const generator = this.slidesEngine.generateSlides({
-      userId: userId || "anonymous",
+      userId,
       sourceText: dto.sourceText,
       userRequirement: dto.userRequirement,
       targetPages: dto.targetPages,
@@ -293,17 +338,23 @@ export class SlidesController {
    * ★ 手动设置 SSE 响应头，确保 POST 请求也能正确流式传输
    */
   @Post("team/generate")
+  @RateLimit({
+    maxRequests: 10,
+    windowSeconds: 60,
+    message: "生成请求过于频繁，请稍后重试",
+  })
   async generateTeam(
+    @Req() req: RequestWithUser,
     @Body() dto: GenerateDto,
-    @Query("userId") userId?: string,
     @Res() res?: Response,
   ): Promise<void> {
     if (!res) {
       throw new HttpException("Response object not available", 500);
     }
 
+    const userId = req.user.id;
     this.logger.log(
-      `[generateTeam] Starting Team generation with ${dto.sourceText?.length || 0} chars`,
+      `[generateTeam] Starting Team generation with ${dto.sourceText?.length || 0} chars for user ${userId}`,
     );
 
     // ★ 手动设置 SSE 响应头
@@ -315,7 +366,7 @@ export class SlidesController {
 
     // 使用相同的引擎，AI Engine 会负责团队协作编排
     const generator = this.slidesEngine.generateSlides({
-      userId: userId || "anonymous",
+      userId,
       sourceText: dto.sourceText,
       userRequirement: dto.userRequirement,
       targetPages: dto.targetPages,
@@ -540,10 +591,11 @@ export class SlidesController {
    */
   @Get("sessions")
   async getSessions(
-    @Query("userId") userId: string,
+    @Req() req: RequestWithUser,
     @Query("status") status?: string,
     @Query("limit") limit?: string,
   ): Promise<object> {
+    const userId = req.user.id;
     this.logger.log(`[getSessions] Getting sessions for user: ${userId}`);
 
     try {
@@ -780,6 +832,328 @@ export class SlidesController {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to prune checkpoints";
       this.logger.error(`[pruneCheckpoints] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  // ============================================
+  // Data Source API (v5.0)
+  // ============================================
+
+  /**
+   * 获取可导入的 Research 专题列表
+   */
+  @Get("sources/research")
+  async listResearchSources(@Req() req: RequestWithUser): Promise<object> {
+    const userId = req.user.id;
+    this.logger.log(`[listResearchSources] User: ${userId}`);
+
+    try {
+      const sources = await this.dataImportService.listResearchTopics(userId);
+      return { sources };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to list research sources";
+      this.logger.error(`[listResearchSources] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * 获取可导入的 Writing 项目列表
+   */
+  @Get("sources/writing")
+  async listWritingSources(@Req() req: RequestWithUser): Promise<object> {
+    const userId = req.user.id;
+    this.logger.log(`[listWritingSources] User: ${userId}`);
+
+    try {
+      const sources = await this.dataImportService.listWritingProjects(userId);
+      return { sources };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to list writing sources";
+      this.logger.error(`[listWritingSources] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * 获取可导入的 Teams 话题列表
+   */
+  @Get("sources/teams")
+  async listTeamsSources(@Req() req: RequestWithUser): Promise<object> {
+    const userId = req.user.id;
+    this.logger.log(`[listTeamsSources] User: ${userId}`);
+
+    try {
+      const sources = await this.dataImportService.listTeamsTopics(userId);
+      return { sources };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to list teams sources";
+      this.logger.error(`[listTeamsSources] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * 获取可导入的 Library 资源列表
+   */
+  @Get("sources/library")
+  async listLibrarySources(
+    @Req() req: RequestWithUser,
+    @Query("type") type?: string,
+  ): Promise<object> {
+    const userId = req.user.id;
+    this.logger.log(`[listLibrarySources] User: ${userId}, Type: ${type}`);
+
+    try {
+      const sources = await this.dataImportService.listLibraryResources(
+        userId,
+        type,
+      );
+      return { sources };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to list library sources";
+      this.logger.error(`[listLibrarySources] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * 从 Research 专题导入数据
+   */
+  @Post("import/research/:topicId")
+  async importFromResearch(
+    @Req() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+  ): Promise<object> {
+    const userId = req.user.id;
+    this.logger.log(`[importFromResearch] Topic: ${topicId}, User: ${userId}`);
+
+    try {
+      const data = await this.dataImportService.importFromResearch(
+        topicId,
+        userId,
+      );
+      return { data };
+    } catch (error: unknown) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to import from research";
+      this.logger.error(`[importFromResearch] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * 从 Writing 项目导入数据
+   */
+  @Post("import/writing/:projectId")
+  async importFromWriting(
+    @Req() req: RequestWithUser,
+    @Param("projectId") projectId: string,
+  ): Promise<object> {
+    const userId = req.user.id;
+    this.logger.log(
+      `[importFromWriting] Project: ${projectId}, User: ${userId}`,
+    );
+
+    try {
+      const data = await this.dataImportService.importFromWriting(
+        projectId,
+        userId,
+      );
+      return { data };
+    } catch (error: unknown) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to import from writing";
+      this.logger.error(`[importFromWriting] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * 从 Teams 话题导入数据
+   */
+  @Post("import/teams/:topicId")
+  async importFromTeams(
+    @Req() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+  ): Promise<object> {
+    const userId = req.user.id;
+    this.logger.log(`[importFromTeams] Topic: ${topicId}, User: ${userId}`);
+
+    try {
+      const data = await this.dataImportService.importFromTeams(
+        topicId,
+        userId,
+      );
+      return { data };
+    } catch (error: unknown) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to import from teams";
+      this.logger.error(`[importFromTeams] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * 从 Library 导入资源
+   */
+  @Post("import/library")
+  async importFromLibrary(
+    @Req() req: RequestWithUser,
+    @Body() dto: ImportFromLibraryDto,
+  ): Promise<object> {
+    const userId = req.user.id;
+    this.logger.log(
+      `[importFromLibrary] Resources: ${dto.resourceIds.length}, User: ${userId}`,
+    );
+
+    if (!dto.resourceIds || dto.resourceIds.length === 0) {
+      throw new BadRequestException("resourceIds is required");
+    }
+
+    try {
+      const assets = await this.dataImportService.importFromLibrary(
+        dto.resourceIds,
+        userId,
+      );
+      return { assets };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to import from library";
+      this.logger.error(`[importFromLibrary] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  // ============================================
+  // AI Edit API (v5.0)
+  // ============================================
+
+  /**
+   * 修复布局问题
+   * POST /ai-office/slides/edit/fix-layout/:missionId/:pageIndex
+   */
+  @Post("edit/fix-layout/:missionId/:pageIndex")
+  @RateLimit({
+    maxRequests: 30,
+    windowSeconds: 60,
+    message: "编辑请求过于频繁，请稍后重试",
+  })
+  async fixLayout(
+    @Req() req: RequestWithUser,
+    @Param("missionId") missionId: string,
+    @Param("pageIndex") pageIndex: string,
+  ) {
+    const userId = req.user.id;
+    this.logger.log(
+      `[fixLayout] Mission: ${missionId}, Page: ${pageIndex}, User: ${userId}`,
+    );
+
+    try {
+      const result = await this.aiEditService.fixLayout(
+        missionId,
+        parseInt(pageIndex, 10),
+        userId,
+      );
+      return { data: result };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to fix layout";
+      this.logger.error(`[fixLayout] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * 润色内容
+   * POST /ai-office/slides/edit/polish/:missionId
+   */
+  @Post("edit/polish/:missionId")
+  @RateLimit({
+    maxRequests: 20,
+    windowSeconds: 60,
+    message: "编辑请求过于频繁，请稍后重试",
+  })
+  async polishContent(
+    @Req() req: RequestWithUser,
+    @Param("missionId") missionId: string,
+    @Body() options: PolishOptions,
+  ) {
+    const userId = req.user.id;
+    this.logger.log(`[polishContent] Mission: ${missionId}, User: ${userId}`);
+
+    try {
+      const result = await this.aiEditService.polishContent(
+        missionId,
+        options,
+        userId,
+      );
+      return { data: result };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to polish content";
+      this.logger.error(`[polishContent] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * 事实核查
+   * POST /ai-office/slides/edit/fact-check/:missionId
+   */
+  @Post("edit/fact-check/:missionId")
+  @RateLimit({
+    maxRequests: 10,
+    windowSeconds: 60,
+    message: "编辑请求过于频繁，请稍后重试",
+  })
+  async factCheck(
+    @Req() req: RequestWithUser,
+    @Param("missionId") missionId: string,
+    @Query("strictMode") strictMode?: string,
+  ) {
+    const userId = req.user.id;
+    this.logger.log(
+      `[factCheck] Mission: ${missionId}, User: ${userId}, Strict: ${strictMode}`,
+    );
+
+    try {
+      const result = await this.aiEditService.factCheck(
+        missionId,
+        strictMode === "true",
+        userId,
+      );
+      return { data: result };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to fact check";
+      this.logger.error(`[factCheck] Error: ${errorMessage}`);
       throw new InternalServerErrorException(errorMessage);
     }
   }

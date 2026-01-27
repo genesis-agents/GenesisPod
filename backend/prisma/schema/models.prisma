@@ -4564,6 +4564,13 @@ enum SlidesEventType {
   SYNTHESIS_COMPLETED
   PAGE_GENERATED
   PROGRESS
+  // V5.0 AI 思考事件
+  THINKING_STEP
+  THINKING_DECISION
+  THINKING_INSIGHT
+  THINKING_WARNING
+  THINKING_OUTPUT
+  THINKING_SUMMARY
 }
 
 // AI Slides Mission (主任务)
@@ -4626,6 +4633,12 @@ model SlidesMission {
   tasks     SlidesTask[]
   events    SlidesMissionEvent[]
   proposals SlidesProposal[]
+
+  // V5.0 关系
+  sources         SlidesMissionSource[]
+  thinkingEntries SlidesThinkingEntry[]
+  factChecks      SlidesFactCheck[]
+  narrations      SlidesNarration[]
 
   @@index([userId, status])
   @@index([sessionId])
@@ -4794,6 +4807,149 @@ model SlidesVote {
   @@unique([proposalId, voterRole])
   @@index([proposalId])
   @@map("slides_votes")
+}
+
+// ============ AI Slides V5.0 - 新增表 ============
+
+// 数据源类型枚举
+enum SlidesSourceType {
+  RESEARCH // AI Research 报告
+  WRITING // AI Writing 项目
+  TEAMS // AI Teams 讨论
+  LIBRARY // 资源库
+  UPLOAD // 用户上传
+  TEXT // 纯文本输入
+}
+
+// Slides Mission Source (素材来源记录)
+model SlidesMissionSource {
+  id String @id @default(uuid())
+
+  missionId String        @map("mission_id")
+  mission   SlidesMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  // 来源信息
+  sourceType SlidesSourceType @map("source_type")
+  sourceId   String?          @map("source_id") @db.VarChar(100) // 原始资源ID
+  sourceName String?          @map("source_name") @db.VarChar(200) // 来源名称
+
+  // 导入的内容摘要
+  contentPreview String? @map("content_preview") @db.Text
+  wordCount      Int?    @map("word_count")
+  sectionCount   Int?    @map("section_count")
+
+  // 元数据（JSON）
+  metadata Json @default("{}")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([missionId])
+  @@index([sourceType])
+  @@map("slides_mission_sources")
+}
+
+// AI 思考类型枚举
+enum SlidesThinkingType {
+  STEP // 步骤
+  DECISION // 决策
+  INSIGHT // 洞察
+  WARNING // 警告
+  OUTPUT // 输出
+}
+
+// Slides Thinking Entry (AI 思考记录)
+model SlidesThinkingEntry {
+  id String @id @default(uuid())
+
+  missionId String        @map("mission_id")
+  mission   SlidesMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  // 思考内容
+  type      SlidesThinkingType
+  title     String             @db.VarChar(200)
+  content   String             @db.Text
+  reasoning String?            @db.Text
+  decision  String?            @db.Text
+
+  // 关联信息
+  pageIndex Int?    @map("page_index")
+  skillId   String? @map("skill_id") @db.VarChar(100)
+  taskId    String? @map("task_id")
+
+  // 执行时长（毫秒）
+  duration Int?
+
+  // 元数据（JSON）
+  metadata Json @default("{}")
+
+  // 时间戳
+  timestamp DateTime @default(now())
+
+  @@index([missionId, timestamp(sort: Desc)])
+  @@index([type])
+  @@index([skillId])
+  @@map("slides_thinking_entries")
+}
+
+// 事实核查状态枚举
+enum FactCheckStatus {
+  VERIFIED // 已验证
+  DISPUTED // 存疑
+  NEEDS_CITATION // 需要引用
+  UNCHECKED // 未检查
+}
+
+// Slides Fact Check (事实核查记录)
+model SlidesFactCheck {
+  id String @id @default(uuid())
+
+  missionId String        @map("mission_id")
+  mission   SlidesMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  // 核查内容
+  pageIndex Int    @map("page_index")
+  claim     String @db.Text // 待核查的声明
+  source    String @db.Text // 原始出处
+
+  // 核查结果
+  status        FactCheckStatus
+  confidence    Float? // 置信度 0-1
+  explanation   String?         @db.Text // 解释
+  suggestion    String?         @db.Text // 修改建议
+  references    String[]        @default([]) // 参考来源
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([missionId, pageIndex])
+  @@index([status])
+  @@map("slides_fact_checks")
+}
+
+// Slides Narration (语音旁白)
+model SlidesNarration {
+  id String @id @default(uuid())
+
+  missionId String        @map("mission_id")
+  mission   SlidesMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  // 页面关联
+  pageIndex Int @map("page_index")
+
+  // 旁白内容
+  script    String  @db.Text // 旁白文本
+  audioUrl  String? @map("audio_url") @db.VarChar(500) // 音频文件URL
+  voiceId   String? @map("voice_id") @db.VarChar(100) // 使用的声音ID
+  duration  Int? // 音频时长（秒）
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([missionId, pageIndex])
+  @@index([missionId])
+  @@map("slides_narrations")
 }
 
 // ============ AI Writing 长篇写作模块 ============

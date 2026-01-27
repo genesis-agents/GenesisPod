@@ -40,12 +40,20 @@ import { ImageFetcherSkill } from "./image-fetcher.skill";
 import { ContentAnalyzerSkill } from "./content-analyzer.skill";
 import { LayoutOptimizerSkill } from "./layout-optimizer.skill";
 
+// Layer 5.5 - AI Edit Skills (v5.0)
+import { LayoutFixerSkill } from "./layout-fixer.skill";
+import { ContentPolisherSkill } from "./content-polisher.skill";
+import { FactCheckerSkill } from "./fact-checker.skill";
+
 // Layer 5 - Consistency
 import { TerminologyUnifierSkill } from "./terminology-unifier.skill";
 import { TransitionCheckerSkill } from "./transition-checker.skill";
 
 // Layer 6 - Quality Assurance
 import { QualityAuditSkill } from "./quality-audit.skill";
+
+// Layer 7 - Monitoring & Transparency (v5.0)
+import { SlideThinkingSkill } from "./slide-thinking.skill";
 
 // Layer 0 - Orchestration
 import { PagePipelineSkill } from "./page-pipeline.skill";
@@ -71,11 +79,17 @@ const SLIDES_SKILL_PROVIDERS = [
   // Layer 4.5
   ContentAnalyzerSkill,
   LayoutOptimizerSkill,
+  // Layer 5.5
+  LayoutFixerSkill,
+  ContentPolisherSkill,
+  FactCheckerSkill,
   // Layer 5
   TerminologyUnifierSkill,
   TransitionCheckerSkill,
   // Layer 6
   QualityAuditSkill,
+  // Layer 7
+  SlideThinkingSkill,
 ];
 
 @Module({
@@ -106,11 +120,17 @@ export class SlidesSkillsModule implements OnModuleInit {
     // Layer 4.5
     private readonly contentAnalyzer: ContentAnalyzerSkill,
     private readonly layoutOptimizer: LayoutOptimizerSkill,
+    // Layer 5.5
+    private readonly layoutFixer: LayoutFixerSkill,
+    private readonly contentPolisher: ContentPolisherSkill,
+    private readonly factChecker: FactCheckerSkill,
     // Layer 5
     private readonly terminologyUnifier: TerminologyUnifierSkill,
     private readonly transitionChecker: TransitionCheckerSkill,
     // Layer 6
     private readonly qualityAudit: QualityAuditSkill,
+    // Layer 7
+    private readonly slideThinking: SlideThinkingSkill,
   ) {}
 
   /**
@@ -137,11 +157,17 @@ export class SlidesSkillsModule implements OnModuleInit {
       // Layer 4.5
       this.contentAnalyzer,
       this.layoutOptimizer,
+      // Layer 5.5
+      this.layoutFixer,
+      this.contentPolisher,
+      this.factChecker,
       // Layer 5
       this.terminologyUnifier,
       this.transitionChecker,
       // Layer 6
       this.qualityAudit,
+      // Layer 7
+      this.slideThinking,
     ];
 
     let registered = 0;
