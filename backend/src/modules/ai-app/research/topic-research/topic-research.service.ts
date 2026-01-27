@@ -1048,6 +1048,37 @@ export class TopicResearchService {
   }
 
   /**
+   * ★ 重新合成报告内容
+   * 用于修复已保存报告中的格式问题（如下划线等）
+   */
+  async regenerateReportContent(userId: string, reportId: string) {
+    // 验证报告所有权
+    const report = await this.prisma.topicReport.findUnique({
+      where: { id: reportId },
+      include: { topic: true },
+    });
+
+    if (!report || report.topic.userId !== userId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    // 调用报告合成服务重新生成内容
+    const updatedReport = await this.reportService.synthesizeReport(
+      report.topic,
+      reportId,
+    );
+
+    this.logger.log(
+      `[regenerateReportContent] Report ${reportId} regenerated successfully`,
+    );
+
+    return {
+      success: true,
+      report: updatedReport,
+    };
+  }
+
+  /**
    * ★ 重新计算证据可信度评分
    */
   async recalculateEvidenceCredibility(reportId: string) {

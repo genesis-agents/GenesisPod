@@ -9,9 +9,13 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, RefreshCw } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
-import { aiEditReport, type AIEditOperation as AIEditOperationType } from '@/lib/api/topic-research';
+import {
+  aiEditReport,
+  regenerateReportContent,
+  type AIEditOperation as AIEditOperationType,
+} from '@/lib/api/topic-research';
 import { ReportEditPanel } from '../reports/ReportEditPanel';
 import { ChapterizedReportView } from '../reports/ChapterizedReportView';
 import { ReportRevisionHistory } from '../reports/ReportRevisionHistory';
@@ -130,8 +134,26 @@ export function TopicReportView({
   const [reportViewMode, setReportViewMode] =
     useState<ReportViewMode>('continuous');
   const [sidePanelType, setSidePanelType] = useState<SidePanelType>(null);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   const reportContentRef = useRef<HTMLDivElement>(null);
+
+  // Handle regenerate report content
+  const handleRegenerateReport = useCallback(async () => {
+    if (!topicId || !report?.id || isRegenerating) return;
+
+    setIsRegenerating(true);
+    try {
+      await regenerateReportContent(topicId, report.id);
+      // 刷新页面以获取新内容
+      window.location.reload();
+    } catch (error) {
+      logger.error('Failed to regenerate report:', error);
+      alert('重新生成报告失败，请稍后重试');
+    } finally {
+      setIsRegenerating(false);
+    }
+  }, [topicId, report?.id, isRegenerating]);
 
   // Handle AI edit for report
   const handleAIEdit = useCallback(
@@ -249,6 +271,19 @@ export function TopicReportView({
 
         {/* Right: Action buttons */}
         <div className="flex items-center gap-2">
+          {/* Regenerate button */}
+          <button
+            onClick={handleRegenerateReport}
+            disabled={isRegenerating}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            title="重新生成报告内容"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${isRegenerating ? 'animate-spin' : ''}`}
+            />
+            <span>{isRegenerating ? '生成中...' : '重新生成'}</span>
+          </button>
+
           {/* History button */}
           <button
             onClick={() =>
@@ -363,7 +398,9 @@ export function TopicReportView({
           <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-                <h3 className="text-sm font-semibold text-gray-700">版本历史</h3>
+                <h3 className="text-sm font-semibold text-gray-700">
+                  版本历史
+                </h3>
                 <button
                   onClick={() => setSidePanelType(null)}
                   className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"

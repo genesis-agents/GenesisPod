@@ -2024,6 +2024,29 @@ export class TopicResearchController {
   }
 
   /**
+   * ★ 重新合成报告内容
+   */
+  @Post("topics/:topicId/reports/:reportId/regenerate")
+  @ApiOperation({
+    summary: "重新合成报告内容",
+    description: "重新合成报告的 Markdown 内容，用于修复格式问题",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "返回更新后的报告" })
+  async regenerateReportContent(
+    @Request() req: RequestWithUser,
+    @Param("topicId") _topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.regenerateReportContent(userId, reportId);
+  }
+
+  /**
    * 重新生成可信度报告
    */
   @Post("topics/:topicId/reports/:reportId/credibility/regenerate")

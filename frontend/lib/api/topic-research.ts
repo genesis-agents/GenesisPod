@@ -1176,6 +1176,20 @@ export async function regenerateCredibilityReport(
   );
 }
 
+/**
+ * 重新合成报告内容
+ * 用于修复已保存报告中的格式问题
+ */
+export async function regenerateReportContent(
+  topicId: string,
+  reportId: string
+): Promise<{ success: boolean; report: TopicReport }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/regenerate`,
+    { method: 'POST' }
+  );
+}
+
 // ==================== Research History (Phase 2.3) ====================
 
 /**
