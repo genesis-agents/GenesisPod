@@ -22,6 +22,7 @@ import {
   Image as ImageIcon,
   FileText,
   File,
+  BarChart3,
 } from 'lucide-react';
 
 type FeedbackType = 'bug' | 'feature' | 'improvement' | 'other';
@@ -256,13 +257,22 @@ export default function Feedback() {
               </p>
             </div>
           </div>
-          <Link
-            href="/feedback/history"
-            className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            <FileText className="h-4 w-4" />
-            {t('feedback.myFeedback')}
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/feedback/research"
+              className="flex items-center gap-2 rounded-lg border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
+            >
+              <BarChart3 className="h-4 w-4" />
+              研究反馈管理
+            </Link>
+            <Link
+              href="/feedback/history"
+              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <FileText className="h-4 w-4" />
+              {t('feedback.myFeedback')}
+            </Link>
+          </div>
         </header>
 
         {/* Content */}

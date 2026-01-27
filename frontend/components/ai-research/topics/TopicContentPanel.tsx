@@ -12,7 +12,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Shield, Maximize2, X } from 'lucide-react';
+import { Shield, Maximize2, X, RefreshCw } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import type {
@@ -29,6 +29,7 @@ import {
   resolveAnnotation as resolveAnnotationApi,
   aiEditReport,
   updateTopicVisibility,
+  regenerateReportContent,
   type ReportAnnotation as ApiReportAnnotation,
   type AIEditOperation as AIEditOperationType,
 } from '@/lib/api/topic-research';
@@ -416,6 +417,26 @@ export function TopicContentPanel({
     message: string;
     type: 'success' | 'error';
   } | null>(null);
+
+  // ★ 重新生成报告状态
+  const [isRegenerating, setIsRegenerating] = useState(false);
+
+  // ★ 重新生成报告处理函数
+  const handleRegenerateReport = useCallback(async () => {
+    if (!topicId || !report?.id || isRegenerating) return;
+
+    setIsRegenerating(true);
+    try {
+      await regenerateReportContent(topicId, report.id);
+      // 刷新页面以获取新内容
+      window.location.reload();
+    } catch (error) {
+      logger.error('Failed to regenerate report:', error);
+      setToast({ message: '重新生成报告失败，请稍后重试', type: 'error' });
+    } finally {
+      setIsRegenerating(false);
+    }
+  }, [topicId, report?.id, isRegenerating]);
 
   // ★ AI Edit Hook - 统一的 AI 编辑逻辑
   const aiEdit = useAIEdit({
@@ -1172,6 +1193,19 @@ export function TopicContentPanel({
 
             {/* 右侧：操作按钮 */}
             <div className="flex items-center gap-2">
+              {/* 重新生成按钮 */}
+              <button
+                onClick={handleRegenerateReport}
+                disabled={isRegenerating}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                title="重新生成报告内容"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${isRegenerating ? 'animate-spin' : ''}`}
+                />
+                <span>{isRegenerating ? '生成中...' : '重新生成'}</span>
+              </button>
+
               {/* 历史按钮 */}
               <button
                 onClick={() =>
@@ -1481,6 +1515,19 @@ export function TopicContentPanel({
 
             {/* 右侧：操作按钮 */}
             <div className="flex items-center gap-2">
+              {/* 重新生成按钮 */}
+              <button
+                onClick={handleRegenerateReport}
+                disabled={isRegenerating}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                title="重新生成报告内容"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${isRegenerating ? 'animate-spin' : ''}`}
+                />
+                <span>{isRegenerating ? '生成中...' : '重新生成'}</span>
+              </button>
+
               {/* 历史按钮 */}
               <button
                 onClick={() =>
