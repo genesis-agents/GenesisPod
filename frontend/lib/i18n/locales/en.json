@@ -3047,7 +3047,7 @@
       "readOnlyHint": "You are a read-only collaborator and cannot edit this topic"
     },
     "feedbackLoop": {
-      "title": "Feedback Loop",
+      "title": "Feedback",
       "description": "Manage research feedback, AI analysis and knowledge distillation"
     },
     "status": {

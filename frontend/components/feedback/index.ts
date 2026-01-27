@@ -6,3 +6,5 @@ export {
   FeedbackTrendChart,
   CategoryBreakdown,
 } from './FeedbackStats';
+export { FeedbackButton, type FeedbackContext } from './FeedbackButton';
+export { FeedbackModal } from './FeedbackModal';

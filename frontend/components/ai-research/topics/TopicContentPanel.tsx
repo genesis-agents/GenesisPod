@@ -50,7 +50,7 @@ import { ResearchCollaborationPanel } from '../collaboration/ResearchCollaborati
 // 研究历史组件 - 简化版，显示会话列表 + 对比功能
 import { ResearchTimeline } from '../collaboration/ResearchTimeline';
 // 反馈管理组件
-import { FeedbackDashboard } from '@/components/feedback';
+import { FeedbackDashboard, FeedbackButton } from '@/components/feedback';
 // 反馈API - 用于将批注提交为反馈
 import { createFeedbackFromAnnotation } from '@/lib/api/research-feedback';
 
@@ -1621,6 +1621,21 @@ export function TopicContentPanel({
                   </span>
                 )}
               </button>
+
+              {/* ★ 反馈按钮 - 用于提交功能问题、建议等 */}
+              {topicId && (
+                <FeedbackButton
+                  context={{
+                    topicId,
+                    topicName: report?.title || undefined,
+                    reportId: report?.id,
+                  }}
+                  variant="inline"
+                  label="反馈"
+                  size="sm"
+                  className="border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                />
+              )}
 
               {/* 分隔线 */}
               <div className="mx-1 h-4 w-px bg-gray-300" />
