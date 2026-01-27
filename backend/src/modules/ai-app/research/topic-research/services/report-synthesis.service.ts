@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
+import { sanitizeMarkdownContent } from "@/common/utils/sanitize-content.utils";
 import { AIModelType, Prisma } from "@prisma/client";
 import type {
   ResearchTopic,
@@ -890,7 +891,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
       });
     }
 
-    return parts.join("\n");
+    // ★ 清理 AI 生成内容中的格式问题（如引用后的孤立下划线 [1]___）
+    return sanitizeMarkdownContent(parts.join("\n"));
   }
 
   /**
