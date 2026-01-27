@@ -23,11 +23,30 @@ export interface ReportSection {
     data: string;
     source: string;
   }>;
-  /** 图表引用 */
+  /** 图表引用 (旧格式，保持兼容) */
   figureReferences: Array<{
     id: string;
     description: string;
     suggestedType: "趋势图" | "对比图" | "流程图" | "表格" | "其他";
+  }>;
+  /**
+   * 内联图表 (新格式)
+   * ★ 图表嵌入章节，根据正文内容需求生成
+   */
+  inlineCharts?: Array<{
+    id: string;
+    position: string;
+    type: "line" | "bar" | "area" | "pie" | "radar" | "composed";
+    title: string;
+    description?: string;
+    data: Array<{
+      label: string;
+      value: number;
+      series?: string;
+    }>;
+    xAxis?: { label: string };
+    yAxis?: { label: string; unit?: string };
+    source?: string;
   }>;
 }
 
@@ -168,6 +187,20 @@ export interface ReportChart {
   source?: string;
   /** 关联的章节ID */
   sectionId?: string;
+}
+
+/**
+ * 内联图表（嵌入章节内）
+ * ★ 新增：图表根据正文内容需求生成，位置由 position 指定
+ */
+export interface InlineChart extends ReportChart {
+  /**
+   * 图表在章节内的位置
+   * - "after_paragraph_N": 在第 N 段之后 (N=1,2,3...)
+   * - "after_heading_N": 在第 N 个小标题之后
+   * - "end_of_section": 章节末尾
+   */
+  position: string;
 }
 
 // ==================== AI Response Types ====================

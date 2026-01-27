@@ -582,7 +582,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
 
   /**
    * 解析 AI 响应并提取图表
-   * ★ 新增：同时提取报告结构和图表数据
+   * ★ v3.0: 从各章节的 inlineCharts 提取图表（新格式）
+   * ★ 兼容: 仍支持旧的顶层 charts 数组
    */
   private parseAIReportWithCharts(content: string): {
     structuredReport: ComprehensiveReport;
@@ -599,12 +600,32 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
       );
       const data = extractionResult.data;
 
-      // 提取图表数据
-      const charts: ReportChart[] = data.charts || [];
-      // ★ 无论是否有图表都记录日志，方便诊断
+      // ★ v3.0: 优先从各章节的 inlineCharts 提取图表（新格式）
+      const inlineCharts: ReportChart[] = [];
+      if (data.sections && Array.isArray(data.sections)) {
+        for (const section of data.sections) {
+          if (
+            section.inlineCharts &&
+            Array.isArray(section.inlineCharts) &&
+            section.inlineCharts.length > 0
+          ) {
+            for (const chart of section.inlineCharts) {
+              inlineCharts.push({
+                ...chart,
+                sectionId: section.sectionNumber, // 关联章节
+              });
+            }
+          }
+        }
+      }
+
+      // ★ 兼容旧格式：如果没有 inlineCharts，回退到顶层 charts
+      const charts: ReportChart[] =
+        inlineCharts.length > 0 ? inlineCharts : data.charts || [];
+
       this.logger.log(
         `[parseAIReportWithCharts] Charts extracted: ${charts.length} items. ` +
-          `Raw charts field exists: ${data.charts !== undefined}`,
+          `Inline charts: ${inlineCharts.length}, Legacy charts: ${data.charts?.length || 0}`,
       );
 
       return {
@@ -775,6 +796,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
 
   /**
    * 构建完整的 Markdown 报告
+   * ★ v3.0: 支持根据 inlineCharts 的 position 插入图表占位符
    */
   private buildFullReport(report: ComprehensiveReport): string {
     const parts: string[] = [];
@@ -802,9 +824,13 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
         parts.push("");
       }
 
-      // 章节内容
+      // ★ v3.0: 处理章节内容，根据 inlineCharts 的 position 插入图表占位符
       if (section.content) {
-        parts.push(section.content);
+        const contentWithCharts = this.injectChartPlaceholders(
+          section.content,
+          section.inlineCharts || [],
+        );
+        parts.push(contentWithCharts);
       }
 
       // 关键数据
@@ -816,13 +842,23 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
         parts.push("");
       }
 
-      // 图表引用
+      // 图表引用（旧格式，保持兼容）
       if (section.figureReferences && section.figureReferences.length > 0) {
         section.figureReferences.forEach((fig) => {
           parts.push(
             `\n[${fig.id}: ${fig.description}] (${fig.suggestedType})\n`,
           );
         });
+      }
+
+      // ★ v3.0: 处理 end_of_section 位置的图表
+      if (section.inlineCharts && section.inlineCharts.length > 0) {
+        const endCharts = section.inlineCharts.filter(
+          (c) => c.position === "end_of_section",
+        );
+        for (const chart of endCharts) {
+          parts.push(`\n<!-- chart:${chart.id} -->\n`);
+        }
       }
 
       parts.push("\n---\n");
@@ -853,6 +889,112 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
     }
 
     return parts.join("\n");
+  }
+
+  /**
+   * 根据 inlineCharts 的 position 在内容中插入图表占位符
+   * ★ v3.0 新增
+   *
+   * position 格式:
+   * - "after_paragraph_N": 在第 N 段落之后
+   * - "after_heading_N": 在第 N 个小标题之后
+   * - "end_of_section": 在章节末尾（由 buildFullReport 处理）
+   */
+  private injectChartPlaceholders(
+    content: string,
+    inlineCharts: Array<{
+      id: string;
+      position: string;
+      [key: string]: unknown;
+    }>,
+  ): string {
+    if (!inlineCharts || inlineCharts.length === 0) {
+      return content;
+    }
+
+    // 过滤出需要在内容中插入的图表（排除 end_of_section）
+    const chartsToInject = inlineCharts.filter(
+      (c) => c.position && c.position !== "end_of_section",
+    );
+
+    if (chartsToInject.length === 0) {
+      return content;
+    }
+
+    // 按段落分割内容
+    const paragraphs = content.split(/\n\n+/);
+    const result: string[] = [];
+
+    // 收集各位置需要插入的图表
+    const afterParagraph: Map<number, string[]> = new Map();
+    const afterHeading: Map<number, string[]> = new Map();
+
+    for (const chart of chartsToInject) {
+      const pos = chart.position;
+
+      // 解析 after_paragraph_N
+      const paragraphMatch = pos.match(/^after_paragraph_(\d+)$/);
+      if (paragraphMatch) {
+        const idx = parseInt(paragraphMatch[1], 10);
+        if (!afterParagraph.has(idx)) {
+          afterParagraph.set(idx, []);
+        }
+        afterParagraph.get(idx)!.push(chart.id);
+        continue;
+      }
+
+      // 解析 after_heading_N
+      const headingMatch = pos.match(/^after_heading_(\d+)$/);
+      if (headingMatch) {
+        const idx = parseInt(headingMatch[1], 10);
+        if (!afterHeading.has(idx)) {
+          afterHeading.set(idx, []);
+        }
+        afterHeading.get(idx)!.push(chart.id);
+        continue;
+      }
+    }
+
+    // 构建带占位符的内容
+    let paragraphCount = 0;
+    let headingCount = 0;
+
+    for (const para of paragraphs) {
+      const trimmedPara = para.trim();
+      if (!trimmedPara) {
+        result.push(para);
+        continue;
+      }
+
+      // 检查是否为标题（以 # 开头或全粗体）
+      const isHeading =
+        trimmedPara.startsWith("#") ||
+        (trimmedPara.startsWith("**") && trimmedPara.endsWith("**"));
+
+      if (isHeading) {
+        headingCount++;
+        result.push(para);
+
+        // 在标题后插入图表
+        if (afterHeading.has(headingCount)) {
+          for (const chartId of afterHeading.get(headingCount)!) {
+            result.push(`\n<!-- chart:${chartId} -->\n`);
+          }
+        }
+      } else {
+        paragraphCount++;
+        result.push(para);
+
+        // 在段落后插入图表
+        if (afterParagraph.has(paragraphCount)) {
+          for (const chartId of afterParagraph.get(paragraphCount)!) {
+            result.push(`\n<!-- chart:${chartId} -->\n`);
+          }
+        }
+      }
+    }
+
+    return result.join("\n\n");
   }
 
   /**

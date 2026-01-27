@@ -35,6 +35,7 @@ import type {
   TopicReport,
   TopicDimension,
   TopicEvidence,
+  ReportChart,
 } from '@/types/topic-research';
 import { ReportChartRenderer } from '../charts/ReportChartRenderer';
 
@@ -257,6 +258,8 @@ interface Chapter {
   outline: string; // Brief description/outline
   content: string; // Full content
   wordCount: number;
+  /** ★ v3.0: 该章节关联的图表 */
+  charts?: ReportChart[];
 }
 
 // Icons
@@ -569,6 +572,21 @@ function ChapterizedReportViewInner({
     [preprocessorAnnotations, highlightedAnnotationId, handleAnnotationClick]
   );
 
+  // ★ v3.0: Create charts map by sectionId for quick lookup
+  const chartsBySectionId = useMemo(() => {
+    const map = new Map<string, ReportChart[]>();
+    if (report?.charts) {
+      for (const chart of report.charts) {
+        const sectionId = chart.sectionId || '';
+        if (!map.has(sectionId)) {
+          map.set(sectionId, []);
+        }
+        map.get(sectionId)!.push(chart);
+      }
+    }
+    return map;
+  }, [report?.charts]);
+
   // Build chapters from report and dimensions
   const chapters = useMemo<Chapter[]>(() => {
     if (!report) return [];
@@ -581,6 +599,7 @@ function ChapterizedReportViewInner({
       report.dimensionAnalyses.forEach((analysis) => {
         const dimName = analysis.dimension?.name || `维度 ${chapterNum}`;
         const dimId = analysis.dimension?.id || `dim-${chapterNum}`;
+        const sectionNumber = String(chapterNum);
 
         // Find corresponding dimension for status
         const dimension = dimensions.find((d) => d.id === dimId);
@@ -655,6 +674,9 @@ function ChapterizedReportViewInner({
         const content = parts.join('\n');
         const outline = analysis.summary?.slice(0, 100) || dimName;
 
+        // ★ v3.0: Get charts for this chapter by sectionNumber
+        const chapterCharts = chartsBySectionId.get(sectionNumber) || [];
+
         result.push({
           id: dimId,
           chapterNumber: chapterNum,
@@ -665,6 +687,7 @@ function ChapterizedReportViewInner({
           outline,
           content,
           wordCount: content.length,
+          charts: chapterCharts, // ★ 附加该章节的图表
         });
 
         chapterNum++;
@@ -672,7 +695,7 @@ function ChapterizedReportViewInner({
     }
 
     return result;
-  }, [report, dimensions]);
+  }, [report, dimensions, chartsBySectionId]);
 
   // ★ Navigate to highlighted annotation when it changes
   // Auto-select the chapter containing the annotation and switch to preview mode
@@ -1125,6 +1148,15 @@ function ChapterizedReportViewInner({
                 </article>
               )}
 
+              {/* ★ v3.0: 章节内联图表 */}
+              {selectedChapter.charts && selectedChapter.charts.length > 0 && (
+                <div className="mt-6 space-y-4">
+                  {selectedChapter.charts.map((chart, idx) => (
+                    <ReportChartRenderer key={chart.id || idx} chart={chart} />
+                  ))}
+                </div>
+              )}
+
               {/* ★ 右键菜单 - 与连续视图保持一致 */}
               <TextSelectionContextMenu
                 containerRef={previewRef}
@@ -1213,32 +1245,40 @@ function ChapterizedReportViewInner({
           ))}
         </div>
 
-        {/* Charts Section - 报告图表 */}
-        {report?.charts && report.charts.length > 0 && (
-          <div className="mt-6 border-t border-gray-100 pt-6">
-            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-              <svg
-                className="h-5 w-5 text-blue-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                />
-              </svg>
-              数据可视化
-            </h3>
-            <div className="grid gap-4">
-              {report.charts.map((chart, idx) => (
-                <ReportChartRenderer key={chart.id || idx} chart={chart} />
-              ))}
-            </div>
-          </div>
-        )}
+        {/* ★ v3.0: 只显示未分配到章节的图表（兼容旧格式） */}
+        {report?.charts &&
+          report.charts.length > 0 &&
+          (() => {
+            // 过滤出没有 sectionId 的图表（未分配的图表）
+            const unassignedCharts = report.charts.filter((c) => !c.sectionId);
+            if (unassignedCharts.length === 0) return null;
+
+            return (
+              <div className="mt-6 border-t border-gray-100 pt-6">
+                <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                  <svg
+                    className="h-5 w-5 text-blue-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                    />
+                  </svg>
+                  数据可视化
+                </h3>
+                <div className="grid gap-4">
+                  {unassignedCharts.map((chart, idx) => (
+                    <ReportChartRenderer key={chart.id || idx} chart={chart} />
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
       </div>
     </div>
   );
