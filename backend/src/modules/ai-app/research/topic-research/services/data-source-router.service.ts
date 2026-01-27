@@ -353,6 +353,7 @@ export class DataSourceRouterService {
    * 根据维度类型获取时效性关键词
    */
   private getFreshnessKeywords(dimension: TopicDimension): string {
+    if (!dimension?.name) return "";
     const dimensionLower = dimension.name.toLowerCase();
 
     // 政策法规类
@@ -1657,6 +1658,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
       hn: DataSourceType.HACKERNEWS,
     };
 
+    if (!toolId) return null;
     return mapping[toolId.toLowerCase()] || null;
   }
 

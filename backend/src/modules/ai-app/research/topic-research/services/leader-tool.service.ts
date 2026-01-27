@@ -956,6 +956,7 @@ ${resultsText}
   ): typeof results {
     const seen = new Set<string>();
     return results.filter((r) => {
+      if (!r.url) return true; // 保留没有 URL 的结果
       const key = r.url.toLowerCase();
       if (seen.has(key)) {
         return false;

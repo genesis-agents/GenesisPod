@@ -566,8 +566,9 @@ export class ReportSynthesisService {
     // 4. 目录
     parts.push("## 目录\n");
     dimensionInputs.forEach((dim, idx) => {
+      const dimName = dim.dimensionName || `维度${idx + 1}`;
       parts.push(
-        `${idx + 1}. [${dim.dimensionName}](#${idx + 1}--${dim.dimensionName.toLowerCase().replace(/\s+/g, "-")})`,
+        `${idx + 1}. [${dimName}](#${idx + 1}--${dimName.toLowerCase().replace(/\s+/g, "-")})`,
       );
     });
     parts.push(
@@ -1385,6 +1386,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议说明）\n${warningCo
    * 分类观点
    */
   private categorizeViewpoint(viewpoint: string): string {
+    if (!viewpoint) return "综合观点";
     const lowerVp = viewpoint.toLowerCase();
     if (
       lowerVp.includes("机会") ||

@@ -1090,7 +1090,7 @@ export class ResearchTodoService {
     });
 
     // 4. 解析 TODO 内容，判断要执行什么操作
-    const todoTitle = todo.title.toLowerCase();
+    const todoTitle = (todo.title || "").toLowerCase();
     const todoDesc = (todo.description || "").toLowerCase();
 
     let resultMessage = "";

@@ -428,8 +428,8 @@ ${sourcesDescription}
    */
   private getDefaultPlan(input: DataSourcePlanInput): DataSourcePlan {
     // 根据主题类型返回预设规划
-    const topicType = input.topicType.toUpperCase();
-    const dimensionLower = input.dimensionName.toLowerCase();
+    const topicType = (input.topicType || "").toUpperCase();
+    const dimensionLower = (input.dimensionName || "").toLowerCase();
 
     let recommendedSources: DataSourceType[] = [DataSourceType.WEB];
     let rationale = "默认使用 Web 搜索";

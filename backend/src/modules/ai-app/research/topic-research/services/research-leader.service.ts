@@ -2162,7 +2162,7 @@ ${teamMembersText}`;
     taskTitle: string,
     taskDescription?: string,
   ): { skills: string[]; tools: string[] } {
-    const content = `${taskTitle} ${taskDescription || ""}`.toLowerCase();
+    const content = `${taskTitle || ""} ${taskDescription || ""}`.toLowerCase();
 
     // 政策法规类关键词
     const policyKeywords = [
@@ -2350,6 +2350,7 @@ ${teamMembersText}`;
     understanding: string;
     response: string;
   } | null {
+    if (!message) return null;
     const lowerMessage = message.toLowerCase().trim();
 
     // 进度查询

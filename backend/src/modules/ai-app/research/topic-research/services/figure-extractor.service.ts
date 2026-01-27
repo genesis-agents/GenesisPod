@@ -297,7 +297,8 @@ export class FigureExtractorService {
    * 判断图片是否可能是图表
    */
   private isLikelyChart(url: string, caption: string, alt?: string): boolean {
-    const combinedText = `${url} ${caption} ${alt || ""}`.toLowerCase();
+    const combinedText =
+      `${url || ""} ${caption || ""} ${alt || ""}`.toLowerCase();
 
     // 排除模式：明显不是图表的图片
     const excludePatterns = [
@@ -385,6 +386,7 @@ export class FigureExtractorService {
   private classifyFigureType(
     text: string,
   ): "chart" | "table" | "diagram" | "photo" {
+    if (!text) return "chart";
     const lowerText = text.toLowerCase();
 
     // 表格
