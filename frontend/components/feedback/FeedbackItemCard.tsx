@@ -6,6 +6,7 @@ import {
   type ResearchFeedbackItemStatus,
   type ResearchFeedbackCategory,
   type FeedbackPriority,
+  type ResearchFeedbackSource,
 } from '@/hooks/domain/useResearchFeedback';
 import {
   useUpdateFeedback,
@@ -89,6 +90,27 @@ const priorityConfig: Record<
   LOW: { label: '低', color: 'bg-gray-400 text-white' },
 };
 
+const sourceConfig: Record<
+  ResearchFeedbackSource,
+  { label: string; icon: React.ReactNode; color: string }
+> = {
+  REPORT_ANNOTATION: {
+    label: '批注',
+    icon: <MessageSquare className="h-3 w-3" />,
+    color: 'bg-indigo-50 text-indigo-600 border border-indigo-200',
+  },
+  MANUAL: {
+    label: '手动',
+    icon: <Lightbulb className="h-3 w-3" />,
+    color: 'bg-amber-50 text-amber-600 border border-amber-200',
+  },
+  SYSTEM: {
+    label: '系统',
+    icon: <AlertCircle className="h-3 w-3" />,
+    color: 'bg-gray-50 text-gray-600 border border-gray-200',
+  },
+};
+
 export function FeedbackItemCard({
   item,
   onUpdate,
@@ -104,6 +126,7 @@ export function FeedbackItemCard({
     : categoryConfig.IMPROVEMENT;
   const status = statusConfig[item.status];
   const priority = priorityConfig[item.priority];
+  const source = sourceConfig[item.sourceType] || sourceConfig.MANUAL;
 
   const handleStatusChange = async (newStatus: ResearchFeedbackItemStatus) => {
     await updateFeedback(item.id, { status: newStatus });
@@ -126,7 +149,15 @@ export function FeedbackItemCard({
     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 来源标签 - 显示在最前面 */}
+          <span
+            className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs ${source.color}`}
+            title={`来源: ${source.label}`}
+          >
+            {source.icon}
+            {source.label}
+          </span>
           <span
             className={`rounded-full px-2 py-0.5 text-xs ${category.color}`}
           >

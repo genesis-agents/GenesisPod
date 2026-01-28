@@ -7,6 +7,7 @@ import {
   type ResearchFeedbackItemStatus,
   type ResearchFeedbackCategory,
   type FeedbackPriority,
+  type ResearchFeedbackSource,
 } from '@/hooks/domain/useResearchFeedback';
 import {
   FeedbackStats,
@@ -29,6 +30,7 @@ interface FilterState {
   status?: ResearchFeedbackItemStatus;
   category?: ResearchFeedbackCategory;
   priority?: FeedbackPriority;
+  sourceType?: ResearchFeedbackSource;
 }
 
 const statusOptions: { value: ResearchFeedbackItemStatus; label: string }[] = [
@@ -54,6 +56,12 @@ const priorityOptions: { value: FeedbackPriority; label: string }[] = [
   { value: 'HIGH', label: '高' },
   { value: 'NORMAL', label: '普通' },
   { value: 'LOW', label: '低' },
+];
+
+const sourceOptions: { value: ResearchFeedbackSource; label: string }[] = [
+  { value: 'REPORT_ANNOTATION', label: '报告批注' },
+  { value: 'MANUAL', label: '手动提交' },
+  { value: 'SYSTEM', label: '系统生成' },
 ];
 
 export function FeedbackDashboard() {
@@ -225,6 +233,22 @@ export function FeedbackDashboard() {
             >
               <option value="">全部</option>
               {priorityOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-500">来源</label>
+            <select
+              value={filters.sourceType || ''}
+              onChange={(e) => handleFilterChange('sourceType', e.target.value)}
+              className="mt-1 rounded border border-gray-300 px-2 py-1 text-sm"
+            >
+              <option value="">全部</option>
+              {sourceOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
