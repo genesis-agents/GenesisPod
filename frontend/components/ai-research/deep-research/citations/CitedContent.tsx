@@ -136,6 +136,17 @@ export function CitedMarkdown({
       return `__CITE_GROUP_${indices.join('_')}__`;
     });
 
+    // Remove standalone underscores that cause Markdown emphasis rendering issues
+    // In AI-generated reports, underscores sometimes appear as artifacts or placeholders
+    // We remove underscores that appear at word boundaries (not part of valid _italic_ patterns)
+    processed = processed
+      // Remove underscores adjacent to citation markers
+      .replace(/_+(?=__CITE_GROUP_)/g, '')
+      .replace(/(?<=__CITE_GROUP_\d+(?:_\d+)*__)_+/g, '')
+      // Remove underscores at word boundaries (adjacent to spaces, punctuation, or brackets)
+      .replace(/(?<=[\s。，、；：！？（）「」『』【】\[\]\.])_+/g, '')
+      .replace(/_+(?=[\s。，、；：！？（）「」『』【】\[\]\.])/g, '');
+
     return { processedContent: processed, citationMap: map };
   }, [content, sources]);
 
