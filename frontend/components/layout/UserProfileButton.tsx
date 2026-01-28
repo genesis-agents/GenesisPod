@@ -133,7 +133,7 @@ export default function UserProfileButton({
                 </span>
               </div>
               <span className="font-semibold text-blue-600">
-                {account?.balance?.toLocaleString() ?? 0}
+                {account?.balance ?? 0}
               </span>
             </div>
           </div>
