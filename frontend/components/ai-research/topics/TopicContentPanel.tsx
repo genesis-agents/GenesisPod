@@ -748,6 +748,74 @@ export function TopicContentPanel({
     null | 'history' | 'annotations'
   >(null);
 
+  // ★ 计算版本列表（使用 useMemo 避免 hydration 错误）
+  const allRevisions = useMemo(() => {
+    const result: {
+      id: string;
+      version: number;
+      title: string;
+      summary: string;
+      changeType: 'create' | 'edit' | 'ai_edit' | 'rollback';
+      changeDescription: string;
+      author: string;
+      createdAt: string;
+      wordCount: number;
+      wordCountDelta: number;
+    }[] = [];
+
+    // 添加当前版本（如果不在 revisions 中）
+    const currentVersionExists = revisions.some(
+      (rev) => rev.version === report?.version
+    );
+    if (report && !currentVersionExists) {
+      result.push({
+        id: report.id,
+        version: report.version,
+        title: `v${report.version}`,
+        summary: '',
+        changeType: 'edit',
+        changeDescription: t(
+          'topicResearch.contentPanel.revisionHistory.sourcesAndChars',
+          {
+            sources: report.totalSources || 0,
+            chars: report.fullReport?.length || 0,
+          }
+        ),
+        author: '',
+        createdAt: report.updatedAt || report.createdAt || '',
+        wordCount: report.fullReport?.length || 0,
+        wordCountDelta: 0,
+      });
+    }
+
+    // 添加历史版本
+    revisions.forEach((rev, idx) => {
+      result.push({
+        id: rev.id,
+        version: rev.version,
+        title: `v${rev.version}`,
+        summary: rev.summary || '',
+        changeType: idx === revisions.length - 1 ? 'create' : 'edit',
+        changeDescription: rev.totalSources
+          ? t('topicResearch.contentPanel.revisionHistory.sourcesAndChars', {
+              sources: rev.totalSources,
+              chars: rev.wordCount || 0,
+            })
+          : rev.summary || '',
+        author: rev.author || '',
+        createdAt:
+          typeof rev.createdAt === 'string'
+            ? rev.createdAt
+            : (rev.createdAt as Date).toISOString(),
+        wordCount: rev.wordCount || 0,
+        wordCountDelta: 0,
+      });
+    });
+
+    // 按版本号降序排列
+    return result.sort((a, b) => b.version - a.version);
+  }, [report, revisions, t]);
+
   // ★ 最大化模式状态
   const [isMaximized, setIsMaximized] = useState(false);
   const scrollPositionRef = useRef(0);
@@ -1400,85 +1468,7 @@ export function TopicContentPanel({
                     </div>
                     <div className="flex-1 overflow-auto">
                       <ReportRevisionHistory
-                        revisions={(() => {
-                          // 构建完整的版本列表，包含当前版本
-                          const allRevisions: {
-                            id: string;
-                            version: number;
-                            title: string;
-                            summary: string;
-                            changeType:
-                              | 'create'
-                              | 'edit'
-                              | 'ai_edit'
-                              | 'rollback';
-                            changeDescription: string;
-                            author: string;
-                            createdAt: string;
-                            wordCount: number;
-                            wordCountDelta: number;
-                          }[] = [];
-
-                          // 添加当前版本（如果不在 revisions 中）
-                          const currentVersionExists = revisions.some(
-                            (rev) => rev.version === report?.version
-                          );
-                          if (report && !currentVersionExists) {
-                            allRevisions.push({
-                              id: report.id,
-                              version: report.version,
-                              title: `v${report.version}`,
-                              summary: '',
-                              changeType: 'edit',
-                              changeDescription: t(
-                                'topicResearch.contentPanel.revisionHistory.sourcesAndChars',
-                                {
-                                  sources: report.totalSources || 0,
-                                  chars: report.fullReport?.length || 0,
-                                }
-                              ),
-                              author: '',
-                              createdAt: report.updatedAt || report.createdAt,
-                              wordCount: report.fullReport?.length || 0,
-                              wordCountDelta: 0,
-                            });
-                          }
-
-                          // 添加历史版本
-                          revisions.forEach((rev, idx) => {
-                            allRevisions.push({
-                              id: rev.id,
-                              version: rev.version,
-                              title: `v${rev.version}`,
-                              summary: rev.summary || '',
-                              changeType:
-                                idx === revisions.length - 1
-                                  ? 'create'
-                                  : 'edit',
-                              changeDescription: rev.totalSources
-                                ? t(
-                                    'topicResearch.contentPanel.revisionHistory.sourcesAndChars',
-                                    {
-                                      sources: rev.totalSources,
-                                      chars: rev.wordCount || 0,
-                                    }
-                                  )
-                                : rev.summary || '',
-                              author: rev.author || '',
-                              createdAt:
-                                typeof rev.createdAt === 'string'
-                                  ? rev.createdAt
-                                  : (rev.createdAt as Date).toISOString(),
-                              wordCount: rev.wordCount || 0,
-                              wordCountDelta: 0,
-                            });
-                          });
-
-                          // 按版本号降序排列
-                          return allRevisions.sort(
-                            (a, b) => b.version - a.version
-                          );
-                        })()}
+                        revisions={allRevisions}
                         currentVersion={report?.version || 1}
                         isLoading={false}
                         onRollback={
@@ -1940,85 +1930,7 @@ export function TopicContentPanel({
                       </div>
                       <div className="flex-1 overflow-auto">
                         <ReportRevisionHistory
-                          revisions={(() => {
-                            // 构建完整的版本列表，包含当前版本
-                            const allRevisions: {
-                              id: string;
-                              version: number;
-                              title: string;
-                              summary: string;
-                              changeType:
-                                | 'create'
-                                | 'edit'
-                                | 'ai_edit'
-                                | 'rollback';
-                              changeDescription: string;
-                              author: string;
-                              createdAt: string;
-                              wordCount: number;
-                              wordCountDelta: number;
-                            }[] = [];
-
-                            // 添加当前版本（如果不在 revisions 中）
-                            const currentVersionExists = revisions.some(
-                              (rev) => rev.version === report?.version
-                            );
-                            if (report && !currentVersionExists) {
-                              allRevisions.push({
-                                id: report.id,
-                                version: report.version,
-                                title: `v${report.version}`,
-                                summary: '',
-                                changeType: 'edit',
-                                changeDescription: t(
-                                  'topicResearch.contentPanel.revisionHistory.sourcesAndChars',
-                                  {
-                                    sources: report.totalSources || 0,
-                                    chars: report.fullReport?.length || 0,
-                                  }
-                                ),
-                                author: '',
-                                createdAt: report.updatedAt || report.createdAt,
-                                wordCount: report.fullReport?.length || 0,
-                                wordCountDelta: 0,
-                              });
-                            }
-
-                            // 添加历史版本
-                            revisions.forEach((rev, idx) => {
-                              allRevisions.push({
-                                id: rev.id,
-                                version: rev.version,
-                                title: `v${rev.version}`,
-                                summary: rev.summary || '',
-                                changeType:
-                                  idx === revisions.length - 1
-                                    ? 'create'
-                                    : 'edit',
-                                changeDescription: rev.totalSources
-                                  ? t(
-                                      'topicResearch.contentPanel.revisionHistory.sourcesAndChars',
-                                      {
-                                        sources: rev.totalSources,
-                                        chars: rev.wordCount || 0,
-                                      }
-                                    )
-                                  : rev.summary || '',
-                                author: rev.author || '',
-                                createdAt:
-                                  typeof rev.createdAt === 'string'
-                                    ? rev.createdAt
-                                    : (rev.createdAt as Date).toISOString(),
-                                wordCount: rev.wordCount || 0,
-                                wordCountDelta: 0,
-                              });
-                            });
-
-                            // 按版本号降序排列
-                            return allRevisions.sort(
-                              (a, b) => b.version - a.version
-                            );
-                          })()}
+                          revisions={allRevisions}
                           currentVersion={report?.version || 1}
                           isLoading={false}
                           onRollback={
