@@ -16,6 +16,7 @@ import {
   Link2,
   ArrowLeft,
 } from 'lucide-react';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface Document {
   id: string;
@@ -242,7 +243,7 @@ export default function DocumentListDialog({
                           {doc.createdAt && (
                             <span className="flex items-center gap-1">
                               <Calendar className="h-3.5 w-3.5" />
-                              {new Date(doc.createdAt).toLocaleDateString()}
+                              {formatDateSafe(doc.createdAt, 'date')}
                             </span>
                           )}
                         </div>

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { VideoAISummary } from '@/types/ai-office';
+import ClientDate from '@/components/common/ClientDate';
 
 /**
  * 视频专属结构化摘要组件
@@ -170,7 +171,7 @@ export const VideoAISummaryComponent: React.FC<VideoAISummaryProps> = ({
                           {chapter.summary}
                         </p>
                       </div>
-                      <span className="flex-shrink-0 rounded border border-blue-200 bg-white px-2 py-1 font-mono text-xs text-blue-700">
+                      <span className="font-mono flex-shrink-0 rounded border border-blue-200 bg-white px-2 py-1 text-xs text-blue-700">
                         {formatTimestamp(chapter.timestamp)}
                       </span>
                     </div>
@@ -245,7 +246,7 @@ export const VideoAISummaryComponent: React.FC<VideoAISummaryProps> = ({
                           </div>
                         </div>
                       </div>
-                      <span className="flex-shrink-0 rounded bg-white px-2 py-1 font-mono text-xs text-purple-700">
+                      <span className="font-mono flex-shrink-0 rounded bg-white px-2 py-1 text-xs text-purple-700">
                         {formatTimestamp(frame.timestamp)}
                       </span>
                     </div>
@@ -277,7 +278,8 @@ export const VideoAISummaryComponent: React.FC<VideoAISummaryProps> = ({
           {/* 元信息 */}
           <div className="border-t border-gray-100 pt-2">
             <p className="text-xs text-gray-500">
-              AI-analyzed on {summary.generatedAt.toLocaleDateString()} using{' '}
+              AI-analyzed on{' '}
+              <ClientDate date={summary.generatedAt} format="date" /> using{' '}
               {summary.model}
             </p>
           </div>

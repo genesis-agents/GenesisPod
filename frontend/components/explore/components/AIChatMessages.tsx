@@ -7,6 +7,7 @@ import { extractImagesFromMarkdown } from '../utils';
 import { Base64Image } from '../resources/Base64Image';
 import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
 import { useTranslation } from '@/lib/i18n/i18n-context';
+import { ClientDate } from '@/components/common/ClientDate';
 
 interface AIChatMessagesProps {
   aiMessages: AIMessage[];
@@ -74,7 +75,7 @@ export default function AIChatMessages({
                   msg.role === 'user' ? 'text-red-100' : 'text-gray-500'
                 }`}
               >
-                {new Date(msg.timestamp).toLocaleTimeString()}
+                <ClientDate date={msg.timestamp} format="time" />
               </div>
             </div>
           </div>

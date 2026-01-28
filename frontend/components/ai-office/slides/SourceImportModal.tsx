@@ -28,6 +28,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { formatDateSafe } from '@/lib/utils/date';
 import {
   useDataImport,
   type SlidesSourceType,
@@ -165,12 +166,7 @@ export function SourceImportModal({
 
   // Format date
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatDateSafe(dateString, 'date');
   };
 
   if (!isOpen) return null;

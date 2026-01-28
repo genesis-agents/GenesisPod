@@ -6,6 +6,7 @@ import ResourceThumbnail from '../resources/ResourceThumbnail';
 import { InsightChip } from '../InsightBadge';
 import { useExplore } from './ExploreContext';
 import { getSourceName, getSourceBadgeColor } from '../utils/resourceHelpers';
+import { ClientDate } from '@/components/common/ClientDate';
 
 export default function ExploreList() {
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
@@ -125,20 +126,26 @@ export default function ExploreList() {
                   resource.type === 'PAPER' ? 'w-36' : 'w-64'
                 }`}
               >
-                <ResourceThumbnail resource={resource} className="h-full w-full" />
+                <ResourceThumbnail
+                  resource={resource}
+                  className="h-full w-full"
+                />
               </div>
 
               {/* Content */}
               <div className="flex min-w-0 flex-1 flex-col overflow-hidden p-5">
                 {/* Metadata */}
                 <div className="mb-2 flex flex-shrink-0 flex-wrap items-center gap-2 text-xs text-gray-500">
-                  <span>
-                    {new Date(resource.publishedAt).toLocaleDateString('en-US', {
+                  <ClientDate
+                    date={resource.publishedAt}
+                    format="date"
+                    locale="en-US"
+                    dateOptions={{
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
-                    })}
-                  </span>
+                    }}
+                  />
 
                   {/* Source Badge */}
                   {(() => {
@@ -148,18 +155,21 @@ export default function ExploreList() {
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${getSourceBadgeColor(sourceName, resource.type)}`}
                         title={`Source: ${sourceName}`}
                       >
-                        <span className="max-w-[120px] truncate">{sourceName}</span>
+                        <span className="max-w-[120px] truncate">
+                          {sourceName}
+                        </span>
                       </span>
                     ) : null;
                   })()}
 
                   {/* Upvote Count */}
-                  {resource.upvoteCount !== undefined && resource.upvoteCount > 0 && (
-                    <span className="flex items-center gap-1 text-gray-600">
-                      <ThumbsUp className="h-3 w-3" />
-                      {resource.upvoteCount}
-                    </span>
-                  )}
+                  {resource.upvoteCount !== undefined &&
+                    resource.upvoteCount > 0 && (
+                      <span className="flex items-center gap-1 text-gray-600">
+                        <ThumbsUp className="h-3 w-3" />
+                        {resource.upvoteCount}
+                      </span>
+                    )}
 
                   {/* Categories */}
                   {resource.categories &&
@@ -193,7 +203,10 @@ export default function ExploreList() {
                       {resource.sourceUrl && (
                         <>
                           <span className="font-medium">Source:</span>{' '}
-                          {new URL(resource.sourceUrl).hostname.replace('www.', '')}
+                          {new URL(resource.sourceUrl).hostname.replace(
+                            'www.',
+                            ''
+                          )}
                         </>
                       )}
                       {resource.authors && resource.authors.length > 0 && (

@@ -24,6 +24,7 @@ import {
   type ImportStatusResponse,
   type ImportHistoryItem,
 } from '@/lib/api/ai-writing';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface ChapterImportModalProps {
   projectId: string;
@@ -250,7 +251,7 @@ export default function ChapterImportModal({
 
   // 格式化时间
   const formatTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('zh-CN');
+    return formatDateSafe(dateStr, 'datetime');
   };
 
   return (

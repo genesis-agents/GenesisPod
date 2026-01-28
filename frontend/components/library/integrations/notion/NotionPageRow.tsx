@@ -2,6 +2,7 @@
 
 import { Check, ExternalLink } from 'lucide-react';
 import type { NotionPage } from '@/lib/api/notion';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface NotionPageRowProps {
   page: NotionPage;
@@ -22,12 +23,7 @@ export function NotionPageRow({
 }: NotionPageRowProps) {
   // 格式化日期
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return formatDateSafe(dateStr, 'date');
   };
 
   // 判断是否为 URL

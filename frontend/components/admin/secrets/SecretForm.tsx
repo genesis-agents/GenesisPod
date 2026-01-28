@@ -20,6 +20,7 @@ import {
 } from '@/hooks/domain/useAdminSecrets';
 import { useKeyHealth } from '@/hooks/domain';
 import { isMultiKeySecret, type KeyHealthStatus } from '@/types/admin';
+import { formatDateSafe } from '@/lib/utils/date';
 
 // Category keys for i18n lookup
 const CATEGORY_KEYS: { value: SecretCategory; key: string }[] = [
@@ -106,7 +107,7 @@ export function SecretForm({
       return (
         <span
           className="flex items-center gap-1.5 text-xs text-amber-600"
-          title={`冷却结束: ${cooldownEnd.toLocaleTimeString()}`}
+          title={`冷却结束: ${formatDateSafe(cooldownEnd, 'time')}`}
         >
           <Clock className="h-2.5 w-2.5" />
           <span className="font-medium">{health.maskedKey}</span>

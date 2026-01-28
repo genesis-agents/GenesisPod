@@ -10,6 +10,8 @@ import AppShell from '@/components/layout/AppShell';
 import PDFThumbnail from '@/components/ui/PDFThumbnail';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { formatDateSafe } from '@/lib/utils/date';
+import ClientDate from '@/components/common/ClientDate';
 
 // 懒加载条件渲染的重型组件
 const PDFViewer = dynamic(() => import('@/components/ui/PDFViewer'), {
@@ -1556,12 +1558,12 @@ function HomeContent() {
       // Format conversation as markdown
       let conversationText = `# AI Conversation: ${selectedResource.title}\n\n`;
       conversationText += `**Resource:** ${selectedResource.title}\n`;
-      conversationText += `**Date:** ${new Date().toLocaleString()}\n\n`;
+      conversationText += `**Date:** ${formatDateSafe(new Date(), 'datetime')}\n\n`;
       conversationText += `---\n\n`;
 
       aiMessages.forEach((msg) => {
         const role = msg.role === 'user' ? '👤 You' : '🤖 AI';
-        conversationText += `**${role}** (${new Date(msg.timestamp).toLocaleTimeString()})\n\n`;
+        conversationText += `**${role}** (${formatDateSafe(msg.timestamp, 'time')})\n\n`;
         conversationText += `${msg.content}\n\n`;
         conversationText += `---\n\n`;
       });
@@ -2269,15 +2271,16 @@ function HomeContent() {
                           <div className="min-w-0 flex-1">
                             {/* Date, Source Badge, Tags, and Stats */}
                             <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                              <span>
-                                {new Date(
-                                  resource.publishedAt
-                                ).toLocaleDateString('en-US', {
+                              <ClientDate
+                                date={resource.publishedAt}
+                                format="date"
+                                locale="en-US"
+                                dateOptions={{
                                   day: 'numeric',
                                   month: 'short',
                                   year: 'numeric',
-                                })}
-                              </span>
+                                }}
+                              />
                               {/* Source Badge */}
                               {(() => {
                                 const sourceName = getSourceName(resource);
@@ -2758,13 +2761,16 @@ function HomeContent() {
                               d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                             />
                           </svg>
-                          {new Date(
-                            selectedResource.publishedAt
-                          ).toLocaleDateString('en-US', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
+                          <ClientDate
+                            date={selectedResource.publishedAt}
+                            format="date"
+                            locale="en-US"
+                            dateOptions={{
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            }}
+                          />
                         </span>
 
                         {/* 分类标签 */}
@@ -3485,7 +3491,7 @@ function HomeContent() {
                                   : 'text-gray-500'
                               }`}
                             >
-                              {new Date(msg.timestamp).toLocaleTimeString()}
+                              <ClientDate date={msg.timestamp} format="time" />
                             </div>
                           </div>
                         </div>

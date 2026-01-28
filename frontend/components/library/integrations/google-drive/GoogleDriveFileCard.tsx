@@ -10,6 +10,7 @@ import {
   File,
 } from 'lucide-react';
 import type { GoogleDriveFile } from '@/lib/api/google-drive';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface GoogleDriveFileCardProps {
   file: GoogleDriveFile;
@@ -78,11 +79,7 @@ export function GoogleDriveFileCard({
     if (days < 7) return `${days} days ago`;
     if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
 
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-    });
+    return formatDateSafe(dateStr, 'date');
   };
 
   // 处理点击

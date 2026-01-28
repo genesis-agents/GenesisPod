@@ -27,6 +27,7 @@ import {
 import { SimulationAPITab } from '../simulation/SimulationAPITab';
 
 import { logger } from '@/lib/utils/logger';
+import { ClientDate } from '@/components/common/ClientDate';
 interface SearchConfig {
   provider: string;
   enabled: boolean;
@@ -2938,7 +2939,10 @@ export default function ExternalAPISettings() {
                 {skillsmpConfig.lastSync && (
                   <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
                     <span className="font-medium">上次同步：</span>
-                    {new Date(skillsmpConfig.lastSync).toLocaleString()}
+                    <ClientDate
+                      date={skillsmpConfig.lastSync}
+                      format="datetime"
+                    />
                   </div>
                 )}
 

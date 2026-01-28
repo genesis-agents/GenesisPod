@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import { ClientDate } from '@/components/common/ClientDate';
 
 interface MarkdownEditorProps {
   initialContent?: string;
@@ -184,7 +185,7 @@ export default function MarkdownEditor({
           {/* Save status */}
           {autoSave && lastSaved && (
             <span className="text-xs text-gray-500">
-              已保存于 {lastSaved.toLocaleTimeString()}
+              已保存于 <ClientDate date={lastSaved} format="time" />
             </span>
           )}
 
@@ -214,7 +215,7 @@ export default function MarkdownEditor({
               value={content}
               onChange={(e) => handleContentChange(e.target.value)}
               placeholder={placeholder}
-              className="h-full w-full resize-none p-4 font-mono text-sm focus:outline-none"
+              className="font-mono h-full w-full resize-none p-4 text-sm focus:outline-none"
             />
           </div>
         )}

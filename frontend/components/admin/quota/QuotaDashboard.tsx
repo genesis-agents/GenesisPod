@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, BarChart3, ChevronDown, ChevronUp } from 'lucide-react';
 import { useProviderQuotas } from '@/hooks/domain/useProviderQuotas';
 import QuotaCard from './QuotaCard';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface QuotaDashboardProps {
   /** 是否默认展开 */
@@ -44,12 +45,7 @@ export default function QuotaDashboard({
   // 格式化最后更新时间
   const formatLastGlobalUpdate = () => {
     if (!lastUpdated) return '未知';
-    return lastUpdated.toLocaleString('zh-CN', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDateSafe(lastUpdated, 'datetime-short');
   };
 
   // 统计摘要

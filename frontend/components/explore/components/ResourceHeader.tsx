@@ -3,6 +3,7 @@
 import { Resource } from '../utils/types';
 import { ThumbsUp } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/i18n-context';
+import { ClientDate } from '@/components/common/ClientDate';
 
 interface ResourceHeaderProps {
   selectedResource: Resource;
@@ -194,14 +195,16 @@ export default function ResourceHeader({
                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                   />
                 </svg>
-                {new Date(selectedResource.publishedAt).toLocaleDateString(
-                  'en-US',
-                  {
+                <ClientDate
+                  date={selectedResource.publishedAt}
+                  format="date"
+                  locale="en-US"
+                  dateOptions={{
                     day: 'numeric',
                     month: 'short',
                     year: 'numeric',
-                  }
-                )}
+                  }}
+                />
               </span>
 
               {/* Categories */}

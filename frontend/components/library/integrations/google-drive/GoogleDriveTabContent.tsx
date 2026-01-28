@@ -14,6 +14,7 @@ import {
   type SyncConflict,
 } from '@/components/common/sync/ConflictResolver';
 import { syncBidirectional, resolveConflict } from '@/lib/api/google-drive';
+import { formatDateSafe } from '@/lib/utils/date';
 
 import { logger } from '@/lib/utils/logger';
 /**
@@ -198,14 +199,7 @@ export default function GoogleDriveTabContent() {
   // 格式化日期
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'Never';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDateSafe(dateStr, 'datetime');
   };
 
   // 格式化文件大小

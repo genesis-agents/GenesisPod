@@ -28,6 +28,7 @@ import {
   Timer,
   MessageSquare,
 } from 'lucide-react';
+import { ClientDate } from '@/components/common/ClientDate';
 import { cn } from '@/lib/utils/common';
 import type {
   SlidesTeamPhase,
@@ -456,14 +457,15 @@ function PhaseItem({
                             </span>
                           )}
                           <span className="text-gray-400">
-                            {new Date(item.timestamp).toLocaleTimeString(
-                              'zh-CN',
-                              {
+                            <ClientDate
+                              date={item.timestamp}
+                              format="time"
+                              timeOptions={{
                                 hour: '2-digit',
                                 minute: '2-digit',
                                 second: '2-digit',
-                              }
-                            )}
+                              }}
+                            />
                           </span>
                         </div>
                         {/* 任务内容 */}

@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useSlidesStore } from '@/stores';
+import { formatDateSafe } from '@/lib/utils/date';
 import type {
   PageOutline,
   GenerationProgress,
@@ -324,7 +325,7 @@ export function ConversationPanel({
   const handleCopyLog = useCallback(() => {
     const logText = streamEvents
       .map((event) => {
-        const time = new Date(event.timestamp).toLocaleTimeString();
+        const time = formatDateSafe(event.timestamp, 'time');
         const data = JSON.stringify(event.data, null, 2);
         return `[${time}] ${event.type}\n${data}`;
       })
@@ -410,7 +411,7 @@ export function ConversationPanel({
                       {msg.author}
                     </span>
                     <span className="text-slate-400">
-                      {msg.timestamp.toLocaleTimeString()}
+                      {formatDateSafe(msg.timestamp, 'time')}
                     </span>
                   </div>
                   <div className="whitespace-pre-wrap text-sm text-slate-800">
@@ -720,7 +721,7 @@ export function ToolCallCard({ call }: { call: ToolCallItem }) {
             </div>
           )}
           <div className="mt-0.5 text-[10px] text-gray-400">
-            {call.timestamp.toLocaleTimeString()}
+            {formatDateSafe(call.timestamp, 'time')}
           </div>
         </div>
         {getStatusIcon()}

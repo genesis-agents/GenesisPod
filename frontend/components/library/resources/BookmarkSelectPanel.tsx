@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface AvailableBookmark {
   id: string;
@@ -162,11 +163,7 @@ export default function BookmarkSelectPanel({
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatDateSafe(dateString, 'date');
   };
 
   return (

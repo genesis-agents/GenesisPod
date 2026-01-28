@@ -26,6 +26,7 @@ import {
   useKnowledgeBaseDetail,
   type KnowledgeBaseDocument,
 } from '@/hooks/domain/useKnowledgeBase';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface KnowledgeBaseDetailDialogProps {
   knowledgeBaseId: string;
@@ -254,29 +255,20 @@ export default function KnowledgeBaseDetailDialog({
                 <div className="flex items-center gap-2 text-gray-600">
                   <Calendar className="h-4 w-4 text-gray-400" />
                   <span>
-                    创建:{' '}
-                    {new Date(knowledgeBase.createdAt).toLocaleDateString(
-                      'zh-CN'
-                    )}
+                    创建: {formatDateSafe(knowledgeBase.createdAt, 'date')}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                   <Calendar className="h-4 w-4 text-gray-400" />
                   <span>
-                    更新:{' '}
-                    {new Date(knowledgeBase.updatedAt).toLocaleDateString(
-                      'zh-CN'
-                    )}
+                    更新: {formatDateSafe(knowledgeBase.updatedAt, 'date')}
                   </span>
                 </div>
                 {knowledgeBase.lastSyncedAt && (
                   <div className="flex items-center gap-2 text-gray-600">
                     <RefreshCw className="h-4 w-4 text-gray-400" />
                     <span>
-                      同步:{' '}
-                      {new Date(knowledgeBase.lastSyncedAt).toLocaleDateString(
-                        'zh-CN'
-                      )}
+                      同步: {formatDateSafe(knowledgeBase.lastSyncedAt, 'date')}
                     </span>
                   </div>
                 )}

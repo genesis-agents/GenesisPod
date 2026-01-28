@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { StructuredAISummary } from '@/types/ai-office';
+import ClientDate from '@/components/common/ClientDate';
 
 /**
  * 结构化AI摘要基础组件
@@ -146,7 +147,8 @@ export const StructuredAISummaryBase: React.FC<
           {/* 元信息 */}
           <div className="border-t border-gray-100 pt-2">
             <p className="text-xs text-gray-500">
-              Generated on {summary.generatedAt.toLocaleDateString()} using{' '}
+              Generated on{' '}
+              <ClientDate date={summary.generatedAt} format="date" /> using{' '}
               {summary.model}
             </p>
           </div>

@@ -12,6 +12,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import type { GoogleDriveFile } from '@/lib/api/google-drive';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface GoogleDriveFileRowProps {
   file: GoogleDriveFile;
@@ -70,12 +71,7 @@ export function GoogleDriveFileRow({
 
   // 格式化日期
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return formatDateSafe(dateStr, 'date');
   };
 
   // 获取文件类型显示文本

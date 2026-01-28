@@ -19,6 +19,7 @@ import { RightPanel } from './RightPanel';
 import { SourceImportModal } from './SourceImportModal';
 import type { SlidesSourceData } from '@/hooks/features/slides';
 import { logger } from '@/lib/utils/logger';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface SlidesWorkspaceProps {
   className?: string;
@@ -87,7 +88,7 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
 
   // Handle create checkpoint
   const handleCreateCheckpoint = useCallback(() => {
-    createCheckpoint(`保存点 ${new Date().toLocaleTimeString()}`);
+    createCheckpoint(`保存点 ${formatDateSafe(new Date(), 'time')}`);
   }, [createCheckpoint]);
 
   // Handle fact check

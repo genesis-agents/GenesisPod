@@ -6,6 +6,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import CommentInput, { type Comment as BaseComment } from './CommentInput';
 
 import { logger } from '@/lib/utils/logger';
+import { formatDateSafe } from '@/lib/utils/date';
 interface User {
   id: string;
   username: string;
@@ -135,7 +136,7 @@ export default function CommentItem({
     const days = Math.floor(hours / 24);
 
     if (days > 7) {
-      return date.toLocaleDateString();
+      return formatDateSafe(date, 'date');
     } else if (days > 0) {
       return `${days}天前`;
     } else if (hours > 0) {

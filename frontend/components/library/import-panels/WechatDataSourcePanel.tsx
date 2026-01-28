@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { formatDateSafe } from '@/lib/utils/date';
 
 import { logger } from '@/lib/utils/logger';
 interface WechatItem {
@@ -459,7 +460,7 @@ export default function WechatDataSourcePanel() {
                       {getItemTypeLabel(item.type)}
                     </span>
                     {item.author && <span>作者: {item.author}</span>}
-                    <span>{new Date(item.syncedAt).toLocaleDateString()}</span>
+                    <span>{formatDateSafe(item.syncedAt, 'date')}</span>
                     {item.syncedToRag && (
                       <span className="flex items-center gap-1 text-green-600">
                         <Database className="h-3 w-3" />

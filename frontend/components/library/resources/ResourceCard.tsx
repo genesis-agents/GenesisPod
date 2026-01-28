@@ -5,6 +5,7 @@ import { config } from '@/lib/utils/config';
 import { useThumbnailGenerator, needsThumbnail } from '@/hooks';
 import { useRouter } from 'next/navigation';
 import { useImageSourceStore } from '@/stores';
+import ClientDate from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
 interface Resource {
@@ -319,11 +320,16 @@ function ResourceCardComponent({
           {/* Date, Source Badge and Tags */}
           <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
             <span>
-              {new Date(resource.publishedAt).toLocaleDateString('en-US', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-              })}
+              <ClientDate
+                date={resource.publishedAt}
+                format="date"
+                locale="en-US"
+                dateOptions={{
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                }}
+              />
             </span>
             {/* Source Badge */}
             {sourceName && (

@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ClientDate } from '@/components/common/ClientDate';
 
 interface CollectionConfigCardProps {
   config: {
@@ -79,9 +80,11 @@ export function CollectionConfigCard({
         <div>
           <p>上次运行</p>
           <p className="font-medium text-gray-700">
-            {config.lastRunAt
-              ? new Date(config.lastRunAt).toLocaleString()
-              : '从未'}
+            {config.lastRunAt ? (
+              <ClientDate date={config.lastRunAt} format="datetime" />
+            ) : (
+              '从未'
+            )}
           </p>
         </div>
         <div className="text-right">

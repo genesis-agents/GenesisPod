@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
+import { formatDateSafe } from '@/lib/utils/date';
 
 import { logger } from '@/lib/utils/logger';
 interface SimilarResource {
@@ -148,12 +149,7 @@ export default function SimilarResourcesList({
   }, [resourceId, limit]);
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatDateSafe(dateString, 'date');
   };
 
   const truncateText = (text: string, maxLength: number) => {

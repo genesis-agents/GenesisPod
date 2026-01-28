@@ -19,6 +19,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
+import { ClientDate } from '@/components/common/ClientDate';
 
 export function AccountSelector() {
   const { t } = useTranslation();
@@ -220,7 +221,7 @@ export function AccountSelector() {
                         <p className="mt-1 flex items-center gap-1 text-xs text-amber-600">
                           <AlertCircle className="h-3 w-3" />
                           {t('aiSocial.create.expiresAt') || 'Expires'}:{' '}
-                          {new Date(account.expiresAt).toLocaleDateString()}
+                          <ClientDate date={account.expiresAt} format="date" />
                         </p>
                       )}
                     </div>

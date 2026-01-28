@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { NewsAISummary } from '@/types/ai-office';
+import ClientDate from '@/components/common/ClientDate';
 
 /**
  * 新闻文章专属结构化摘要组件
@@ -240,7 +241,8 @@ export const NewsAISummaryComponent: React.FC<NewsAISummaryProps> = ({
           {/* 元信息 */}
           <div className="border-t border-gray-100 pt-2">
             <p className="text-xs text-gray-500">
-              AI-analyzed on {summary.generatedAt.toLocaleDateString()} using{' '}
+              AI-analyzed on{' '}
+              <ClientDate date={summary.generatedAt} format="date" /> using{' '}
               {summary.model}
             </p>
           </div>

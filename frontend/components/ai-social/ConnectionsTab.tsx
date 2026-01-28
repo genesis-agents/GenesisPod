@@ -33,6 +33,7 @@ import {
   backdropVariants,
   getAnimationConfig,
 } from '@/components/ui/animations';
+import { ClientDate } from '@/components/common/ClientDate';
 
 // Platform types matching backend
 type PlatformType = 'WECHAT_MP' | 'XIAOHONGSHU';
@@ -386,9 +387,10 @@ export default function ConnectionsTab() {
                   {existingConnection.lastCheckAt && (
                     <div className="text-xs text-gray-400">
                       {t('aiSocial.connections.lastSync')}:{' '}
-                      {new Date(
-                        existingConnection.lastCheckAt
-                      ).toLocaleString()}
+                      <ClientDate
+                        date={existingConnection.lastCheckAt}
+                        format="datetime"
+                      />
                     </div>
                   )}
                   <div className="flex gap-2 pt-2">

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface AvailableNote {
   id: string;
@@ -158,11 +159,7 @@ export default function NoteSelectPanel({
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatDateSafe(dateString, 'date');
   };
 
   return (

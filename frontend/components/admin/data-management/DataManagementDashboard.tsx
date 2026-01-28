@@ -17,6 +17,7 @@ import { ConfigurationView } from './ConfigurationView';
 import { QualityView } from './QualityView';
 import { MonitoringView } from './MonitoringView';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { ClientDate } from '@/components/common/ClientDate';
 
 type ResourceType = 'PAPER' | 'BLOG' | 'REPORT' | 'YOUTUBE_VIDEO' | 'NEWS';
 type ManagementTab = 'overview' | 'configuration' | 'monitoring' | 'quality';
@@ -309,9 +310,10 @@ export function DataManagementDashboard() {
                                     {task.sourceUrl}
                                   </p>
                                   <p className="mt-1 text-xs text-gray-500">
-                                    {new Date(task.createdAt).toLocaleString(
-                                      'zh-CN'
-                                    )}
+                                    <ClientDate
+                                      date={task.createdAt}
+                                      format="datetime"
+                                    />
                                   </p>
                                   {task.errorMessage && (
                                     <p className="mt-1 truncate text-xs text-red-600">

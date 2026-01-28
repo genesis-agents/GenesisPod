@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import type { TableDiagnosis } from '@/hooks/domain';
+import { ClientDate } from '@/components/common/ClientDate';
 
 interface TableDiagnosisPanelProps {
   diagnosis: TableDiagnosis | null;
@@ -245,7 +246,7 @@ export default function TableDiagnosisPanel({
               {/* Analyzed Time */}
               <p className="text-center text-xs text-gray-400">
                 {t('admin.tables.diagnosis.analyzedAt')}:{' '}
-                {new Date(diagnosis.analyzedAt).toLocaleString()}
+                <ClientDate date={diagnosis.analyzedAt} format="datetime" />
               </p>
             </div>
           ) : (

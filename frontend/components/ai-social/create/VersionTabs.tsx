@@ -10,6 +10,7 @@ import {
   generateVersion,
   generateAllVersions,
 } from '@/lib/api/ai-social';
+import { ClientDate } from '@/components/common/ClientDate';
 
 interface PlatformConfig {
   type: SocialPlatformType;
@@ -311,15 +312,19 @@ export function VersionTabs({
                 )}
               </span>
             )}
-            {version && mounted && (
+            {version && (
               <span className="ml-auto text-gray-400">
                 {version.generatedBy === 'AI' ? 'AI 生成' : '手动编辑'} ·{' '}
-                {new Date(version.updatedAt).toLocaleString('zh-CN', {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                <ClientDate
+                  date={version.updatedAt}
+                  format="datetime"
+                  dateOptions={{
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }}
+                />
               </span>
             )}
           </div>

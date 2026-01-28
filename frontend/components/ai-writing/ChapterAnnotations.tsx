@@ -21,6 +21,7 @@ import {
   type AnnotationType,
   type AnnotationStatus,
 } from '@/lib/api/ai-writing';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface ChapterAnnotationsProps {
   chapterId: string;
@@ -201,13 +202,7 @@ export default function ChapterAnnotations({
 
   // 格式化时间
   const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleString('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDateSafe(dateStr, 'datetime-short');
   };
 
   // 过滤后的批注

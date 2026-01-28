@@ -15,6 +15,7 @@ import {
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { getPages, getConnections, type NotionPage } from '@/lib/api/notion';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface NotionImportPanelProps {
   knowledgeBaseId: string;
@@ -154,10 +155,7 @@ export default function NotionImportPanel({
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('zh-CN', {
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatDateSafe(dateStr, 'datetime-short');
   };
 
   // Not connected state

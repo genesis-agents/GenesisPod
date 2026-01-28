@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 import type { GeneratedImage } from '../types';
+import { ClientDate } from '@/components/common/ClientDate';
 
 interface ThumbnailGalleryProps {
   images: GeneratedImage[];
@@ -109,10 +110,14 @@ export function ThumbnailGallery({
           {/* Time indicator */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-1 py-0.5">
             <span className="text-[8px] text-white/90">
-              {new Date(img.createdAt).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              <ClientDate
+                date={img.createdAt}
+                format="time"
+                timeOptions={{
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }}
+              />
             </span>
           </div>
           <img

@@ -26,6 +26,7 @@ import { InputArea } from './components/InputArea';
 // Utilities are available at: import { ... } from './utils';
 
 import SourcePool from './SourcePool';
+import { ClientDate } from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
 // ===================== TYPE DEFINITIONS =====================
@@ -244,10 +245,14 @@ function ThumbnailGallery({
           {/* Time indicator */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-1 py-0.5">
             <span className="text-[8px] text-white/90">
-              {new Date(img.createdAt).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              <ClientDate
+                date={img.createdAt}
+                format="time"
+                timeOptions={{
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }}
+              />
             </span>
           </div>
           <img
@@ -1961,7 +1966,10 @@ export default function ImageGenerator({
                     )}
                   </div>
                   <span className="text-xs text-white/70">
-                    {new Date(selectedImage.createdAt).toLocaleString()}
+                    <ClientDate
+                      date={selectedImage.createdAt}
+                      format="datetime"
+                    />
                   </span>
                 </div>
                 {/* Main Image */}
@@ -2334,7 +2342,10 @@ export default function ImageGenerator({
               <div className="mt-1 flex items-center justify-between">
                 <p className="text-xs text-gray-500">
                   {lightboxImage.width} x {lightboxImage.height} -{' '}
-                  {new Date(lightboxImage.createdAt).toLocaleString()}
+                  <ClientDate
+                    date={lightboxImage.createdAt}
+                    format="datetime"
+                  />
                 </p>
                 <p className="text-xs text-gray-600">ESC to close</p>
               </div>

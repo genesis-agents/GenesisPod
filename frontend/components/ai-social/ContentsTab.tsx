@@ -50,6 +50,7 @@ import {
   backdropVariants,
   getAnimationConfig,
 } from '@/components/ui/animations';
+import { ClientDate } from '@/components/common/ClientDate';
 
 // Types matching backend
 type ContentStatus = SocialContentStatus;
@@ -764,7 +765,7 @@ export default function ContentsTab() {
                       {getStatusBadge(content.status, content.errorMessage)}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                      {new Date(content.updatedAt).toLocaleDateString()}
+                      <ClientDate date={content.updatedAt} format="date" />
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { PaperAISummary } from '@/types/ai-office';
+import ClientDate from '@/components/common/ClientDate';
 
 /**
  * 学术论文专属结构化摘要组件
@@ -265,7 +266,8 @@ export const PaperAISummaryComponent: React.FC<PaperAISummaryProps> = ({
           {/* 元信息 */}
           <div className="border-t border-gray-100 pt-2">
             <p className="text-xs text-gray-500">
-              AI-generated on {summary.generatedAt.toLocaleDateString()} using{' '}
+              AI-generated on{' '}
+              <ClientDate date={summary.generatedAt} format="date" /> using{' '}
               {summary.model}
             </p>
           </div>

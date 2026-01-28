@@ -5,6 +5,7 @@ import { config } from '@/lib/utils/config';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 import { logger } from '@/lib/utils/logger';
+import { ClientDate } from '@/components/common/ClientDate';
 interface DataQualityMetric {
   id: string;
   resourceType: string;
@@ -241,7 +242,7 @@ export function DataQualityManager() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right text-xs text-gray-600">
-                    {new Date(metric.createdAt).toLocaleString()}
+                    <ClientDate date={metric.createdAt} format="datetime" />
                   </td>
                 </tr>
               ))}

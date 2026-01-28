@@ -5,6 +5,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { toast } from '@/stores';
 import { logger } from '@/lib/utils/logger';
+import { formatDateSafe } from '@/lib/utils/date';
 import {
   Key,
   Plus,
@@ -500,7 +501,7 @@ export default function SecretsManager({
   // Format date
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'Never';
-    return new Date(dateStr).toLocaleString();
+    return formatDateSafe(dateStr, 'datetime');
   };
 
   return (

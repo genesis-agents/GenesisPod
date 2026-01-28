@@ -21,6 +21,7 @@ import {
   Calendar,
   FileText,
 } from 'lucide-react';
+import { ClientDate } from '@/components/common/ClientDate';
 
 interface SourceItem {
   id: string;
@@ -386,7 +387,7 @@ export function SourceSelector() {
                   {item.createdAt && (
                     <div className="mt-2 flex items-center gap-1 text-xs text-gray-400">
                       <Calendar className="h-3 w-3" />
-                      {new Date(item.createdAt).toLocaleDateString()}
+                      <ClientDate date={item.createdAt} format="date" />
                     </div>
                   )}
                 </div>

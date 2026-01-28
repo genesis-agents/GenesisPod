@@ -18,6 +18,7 @@ import {
   type RevisionDiff,
   type RevisionChangeType,
 } from '@/lib/api/ai-writing';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface ChapterRevisionHistoryProps {
   chapterId: string;
@@ -147,13 +148,7 @@ export default function ChapterRevisionHistory({
 
   // 格式化时间
   const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleString('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDateSafe(dateStr, 'datetime-short');
   };
 
   if (loading) {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { AlertTriangle, Check, X, FileText, Cloud, Laptop } from 'lucide-react';
+import { formatDateSafe } from '@/lib/utils/date';
 
 export interface SyncConflict {
   id: string;
@@ -31,8 +32,7 @@ export function ConflictResolver({
   if (conflicts.length === 0) return null;
 
   const formatDate = (date: Date | string): string => {
-    const d = typeof date === 'string' ? new Date(date) : date;
-    return d.toLocaleString();
+    return formatDateSafe(date, 'datetime');
   };
 
   const handleResolve = async (

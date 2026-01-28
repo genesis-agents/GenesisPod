@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface Resource {
   id: string;
@@ -254,10 +255,7 @@ export default function ResourceSelectPanel({
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('zh-CN', {
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatDateSafe(dateStr, 'datetime-short');
   };
 
   return (

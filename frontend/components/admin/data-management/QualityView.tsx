@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { ClientDate } from '@/components/common/ClientDate';
 
 type ResourceType = 'PAPER' | 'BLOG' | 'REPORT' | 'YOUTUBE_VIDEO' | 'NEWS';
 
@@ -141,7 +142,7 @@ export function QualityView({ resourceType }: { resourceType: ResourceType }) {
                       {item.url}
                     </p>
                     <p className="mt-1 text-xs text-gray-400">
-                      {new Date(item.createdAt).toLocaleDateString('zh-CN')}
+                      <ClientDate date={item.createdAt} format="date" />
                     </p>
                   </div>
 

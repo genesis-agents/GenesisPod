@@ -29,6 +29,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { ClientDate } from '@/components/common/ClientDate';
 
 interface StorageCategory {
   name: string;
@@ -702,7 +703,8 @@ export default function DatabaseManagement() {
           )}
 
           <p className="text-xs text-gray-500">
-            Diagnosed at: {new Date(aiDiagnosis.timestamp).toLocaleString()}
+            Diagnosed at:{' '}
+            <ClientDate date={aiDiagnosis.timestamp} format="datetime" />
           </p>
         </div>
       )}

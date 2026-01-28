@@ -26,6 +26,7 @@ import {
   SyncStatus,
   NotionSyncConflict,
 } from '@/lib/api/notion';
+import { formatDateSafe } from '@/lib/utils/date';
 import {
   SyncControls,
   type SyncDirection,
@@ -240,12 +241,7 @@ export default function NotionTabContent() {
   };
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return formatDateSafe(dateStr, 'date');
   };
 
   // Multi-select functions

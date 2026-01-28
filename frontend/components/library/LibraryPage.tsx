@@ -41,6 +41,7 @@ import { logger } from '@/lib/utils/logger';
 import AddToKnowledgeBaseDialog, {
   type ResourceToAdd,
 } from '@/components/common/dialogs/AddToKnowledgeBaseDialog';
+import { formatDateSafe } from '@/lib/utils/date';
 
 // 懒加载条件渲染的组件
 const NotesList = dynamicImport(
@@ -1289,7 +1290,7 @@ function LibraryPageContent() {
                   <span>
                     {image.width}×{image.height}
                   </span>
-                  <span>{new Date(image.createdAt).toLocaleDateString()}</span>
+                  <span>{formatDateSafe(image.createdAt, 'date')}</span>
                 </div>
               </div>
             </div>
@@ -1572,9 +1573,7 @@ function LibraryPageContent() {
 
             {/* Footer */}
             <div className="flex items-center justify-between text-xs text-gray-500">
-              <span>
-                {new Date(resource.publishedAt).toLocaleDateString('en-US')}
-              </span>
+              <span>{formatDateSafe(resource.publishedAt, 'date')}</span>
               {resource.upvoteCount !== undefined &&
                 resource.upvoteCount > 0 && (
                   <div className="flex items-center gap-1">
@@ -2178,13 +2177,7 @@ function LibraryPageContent() {
                   Published Date
                 </label>
                 <p className="text-gray-700">
-                  {new Date(
-                    selectedItem.resource.publishedAt
-                  ).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
+                  {formatDateSafe(selectedItem.resource.publishedAt, 'date')}
                 </p>
               </div>
 
@@ -2288,9 +2281,7 @@ function LibraryPageContent() {
               </p>
               <p className="mt-1 text-xs text-gray-500">
                 {selectedItem.resource.type.replace('_', ' ')} •{' '}
-                {new Date(selectedItem.resource.publishedAt).toLocaleDateString(
-                  'en-US'
-                )}
+                {formatDateSafe(selectedItem.resource.publishedAt, 'date')}
               </p>
             </div>
 
@@ -2448,9 +2439,7 @@ function LibraryPageContent() {
                 <span>
                   {selectedImage.width} × {selectedImage.height}
                 </span>
-                <span>
-                  {new Date(selectedImage.createdAt).toLocaleDateString()}
-                </span>
+                <span>{formatDateSafe(selectedImage.createdAt, 'date')}</span>
               </div>
             </div>
 

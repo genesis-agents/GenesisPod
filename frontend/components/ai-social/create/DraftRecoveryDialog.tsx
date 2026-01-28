@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { Clock, AlertCircle, RotateCcw, Trash2 } from 'lucide-react';
 import type { DraftData } from '@/lib/storage/draft-storage';
+import { ClientDate } from '@/components/common/ClientDate';
 
 interface DraftRecoveryDialogProps {
   draft: DraftData;
@@ -40,8 +41,8 @@ export function DraftRecoveryDialog({
     }
   };
 
-  // Format saved time
-  const formatSavedTime = (timestamp: number): string => {
+  // Format saved time using ClientDate for relative time or fallback
+  const formatSavedTime = (timestamp: number): React.ReactNode => {
     const date = new Date(timestamp);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -67,7 +68,8 @@ export function DraftRecoveryDialog({
         `${diffDays} days ago`
       );
     } else {
-      return date.toLocaleDateString();
+      // For dates older than 7 days, use ClientDate to avoid hydration errors
+      return <ClientDate date={date} format="date" />;
     }
   };
 

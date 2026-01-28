@@ -1,6 +1,7 @@
 'use client';
 
 import type { GeneratedImage } from '../types';
+import { ClientDate } from '@/components/common/ClientDate';
 
 interface LightboxModalProps {
   image: GeneratedImage | null;
@@ -80,7 +81,7 @@ export function LightboxModal({
           <div className="mt-1 flex items-center justify-between">
             <p className="text-xs text-gray-500">
               {image.width} x {image.height} -{' '}
-              {new Date(image.createdAt).toLocaleString()}
+              <ClientDate date={image.createdAt} format="datetime" />
             </p>
             <p className="text-xs text-gray-600">ESC to close</p>
           </div>

@@ -5,6 +5,7 @@ import { config } from '@/lib/utils/config';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 import { logger } from '@/lib/utils/logger';
+import { ClientDate } from '@/components/common/ClientDate';
 interface CollectionRule {
   id: string;
   resourceType: string;
@@ -152,9 +153,14 @@ export function CollectionRuleManager() {
                 <div className="rounded bg-purple-50 p-2">
                   <div className="text-gray-600">下次执行</div>
                   <div className="font-mono text-xs">
-                    {rule.nextScheduledAt
-                      ? new Date(rule.nextScheduledAt).toLocaleString()
-                      : '待定'}
+                    {rule.nextScheduledAt ? (
+                      <ClientDate
+                        date={rule.nextScheduledAt}
+                        format="datetime"
+                      />
+                    ) : (
+                      '待定'
+                    )}
                   </div>
                 </div>
               </div>

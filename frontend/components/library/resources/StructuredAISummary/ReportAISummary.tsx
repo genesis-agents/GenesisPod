@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { ReportAISummary } from '@/types/ai-office';
+import ClientDate from '@/components/common/ClientDate';
 
 /**
  * 报告专属结构化摘要组件
@@ -144,7 +145,7 @@ export const ReportAISummaryComponent: React.FC<ReportAISummaryProps> = ({
                 {summary.publisherName}
               </p>
               <p className="text-xs text-gray-500">
-                {new Date(summary.reportDate).toLocaleDateString('zh-CN')}
+                <ClientDate date={summary.reportDate} format="date" />
               </p>
             </div>
           </div>

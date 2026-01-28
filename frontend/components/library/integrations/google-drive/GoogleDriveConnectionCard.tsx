@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useGoogleDrive } from '@/hooks/domain/useGoogleDrive';
 import { useTranslation } from '@/lib/i18n';
+import { formatDateSafe } from '@/lib/utils/date';
 
 import { logger } from '@/lib/utils/logger';
 /**
@@ -71,11 +72,7 @@ export function GoogleDriveConnectionCard() {
   // 格式化日期
   const formatDate = (dateString: string | null): string => {
     if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatDateSafe(dateString, 'date');
   };
 
   // 获取状态颜色

@@ -7,6 +7,7 @@ import { InsightChip } from '../InsightBadge';
 import { getSourceName, getSourceBadgeColor } from '../utils/resourceHelpers';
 import type { Resource } from '../utils/types';
 import { useI18n } from '@/lib/i18n/i18n-context';
+import { ClientDate } from '@/components/common/ClientDate';
 
 interface ResourceCardProps {
   resource: Resource;
@@ -54,13 +55,16 @@ export function ResourceCard({
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden p-5">
           {/* Date, Source Badge, Tags, and Stats */}
           <div className="mb-2 flex flex-shrink-0 flex-wrap items-center gap-2 text-xs text-gray-500">
-            <span>
-              {new Date(resource.publishedAt).toLocaleDateString('en-US', {
+            <ClientDate
+              date={resource.publishedAt}
+              format="date"
+              locale="en-US"
+              dateOptions={{
                 day: 'numeric',
                 month: 'short',
                 year: 'numeric',
-              })}
-            </span>
+              }}
+            />
 
             {/* Source Badge */}
             {sourceName && (

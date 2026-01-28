@@ -2,6 +2,7 @@
 
 import { config } from '@/lib/utils/config';
 import { CURRENT_VERSION } from '@/lib/utils/changelog';
+import { formatDateSafe } from '@/lib/utils/date';
 
 /**
  * 构建信息组件 - 显示版本号、commit hash 和构建时间
@@ -9,13 +10,7 @@ import { CURRENT_VERSION } from '@/lib/utils/changelog';
  */
 export default function BuildInfo() {
   const buildDate = config.buildTime
-    ? new Date(config.buildTime).toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+    ? formatDateSafe(config.buildTime, 'datetime')
     : 'Unknown';
 
   return (
@@ -23,13 +18,13 @@ export default function BuildInfo() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <div className="flex items-center gap-1">
           <span className="font-medium">版本:</span>
-          <span className="rounded bg-white px-2 py-0.5 font-mono">
+          <span className="font-mono rounded bg-white px-2 py-0.5">
             v{CURRENT_VERSION}
           </span>
         </div>
         <div className="flex items-center gap-1">
           <span className="font-medium">Commit:</span>
-          <span className="rounded bg-white px-2 py-0.5 font-mono">
+          <span className="font-mono rounded bg-white px-2 py-0.5">
             {config.gitCommitHash}
           </span>
         </div>

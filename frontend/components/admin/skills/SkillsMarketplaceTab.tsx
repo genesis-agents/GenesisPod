@@ -5,6 +5,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
 import { createLogger } from '@/lib/utils/logger';
+import { ClientDate } from '@/components/common/ClientDate';
 import {
   Search,
   Download,
@@ -225,13 +226,20 @@ export function SkillsMarketplaceTab({
                     'SkillsMP Not Configured'}
               </h3>
               <p className="text-sm text-gray-600">
-                {skillsmpConfig?.hasApiKey
-                  ? lastSync
-                    ? `${t('admin.skills.marketplace.lastSync') || 'Last synced'}: ${new Date(lastSync).toLocaleString()}`
-                    : t('admin.skills.marketplace.neverSynced') ||
-                      'Never synced - click Sync to fetch skills'
-                  : t('admin.skills.marketplace.configureHint') ||
-                    'Configure SkillsMP API Key in Tools Management to sync skills from the marketplace'}
+                {skillsmpConfig?.hasApiKey ? (
+                  lastSync ? (
+                    <>
+                      {t('admin.skills.marketplace.lastSync') || 'Last synced'}:{' '}
+                      <ClientDate date={lastSync} format="datetime" />
+                    </>
+                  ) : (
+                    t('admin.skills.marketplace.neverSynced') ||
+                    'Never synced - click Sync to fetch skills'
+                  )
+                ) : (
+                  t('admin.skills.marketplace.configureHint') ||
+                  'Configure SkillsMP API Key in Tools Management to sync skills from the marketplace'
+                )}
               </p>
             </div>
           </div>
@@ -553,7 +561,7 @@ function SkillPreviewModal({
                 <div>
                   <dt className="text-gray-500">Updated</dt>
                   <dd className="font-medium text-gray-900">
-                    {new Date(skill.updatedAt).toLocaleDateString()}
+                    <ClientDate date={skill.updatedAt} format="date" />
                   </dd>
                 </div>
               </dl>

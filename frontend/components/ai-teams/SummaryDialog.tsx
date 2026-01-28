@@ -9,6 +9,7 @@ import { useResourceStore } from '@/stores/aiOfficeStore';
 import { FileText, Download, CheckCircle } from 'lucide-react';
 
 import { logger } from '@/lib/utils/logger';
+import { formatDateSafe } from '@/lib/utils/date';
 import ClientDate from '@/components/common/ClientDate';
 interface SummaryDialogProps {
   topic: Topic;
@@ -372,7 +373,8 @@ function GenerateSummaryDialog({
 
     try {
       const summary = await api.generateSummary(topicId, {
-        title: title.trim() || `Summary - ${new Date().toLocaleDateString()}`,
+        title:
+          title.trim() || `Summary - ${formatDateSafe(new Date(), 'date')}`,
         aiModel: selectedModel,
       });
       onGenerate(summary);

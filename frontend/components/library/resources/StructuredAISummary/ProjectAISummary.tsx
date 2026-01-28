@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { ProjectAISummary } from '@/types/ai-office';
+import ClientDate from '@/components/common/ClientDate';
 
 /**
  * 开源项目专属结构化摘要组件
@@ -280,7 +281,8 @@ export const ProjectAISummaryComponent: React.FC<ProjectAISummaryProps> = ({
           {/* 最后更新 */}
           <div className="border-t border-gray-100 pt-2 text-xs text-gray-500">
             <p>
-              Last updated on {summary.activity.lastUpdate.toLocaleDateString()}
+              Last updated on{' '}
+              <ClientDate date={summary.activity.lastUpdate} format="date" />
             </p>
             <p className="mt-1">AI-analyzed using {summary.model}</p>
           </div>

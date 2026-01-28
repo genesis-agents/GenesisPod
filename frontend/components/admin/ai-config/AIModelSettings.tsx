@@ -7,6 +7,7 @@ import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
 import { QuotaDashboard } from '../quota';
 
 import { logger } from '@/lib/utils/logger';
+import { ClientDate } from '@/components/common/ClientDate';
 // AI模型类型枚举 - 支持 Tier 分级
 type AIModelType =
   | 'CHAT'
@@ -1178,7 +1179,7 @@ export default function AIModelSettings({
             {/* Timestamp */}
             <p className="mb-4 text-xs text-gray-500">
               Diagnosed at:{' '}
-              {new Date(diagnoseResult.timestamp).toLocaleString()}
+              <ClientDate date={diagnoseResult.timestamp} format="datetime" />
             </p>
 
             {/* Models Table */}

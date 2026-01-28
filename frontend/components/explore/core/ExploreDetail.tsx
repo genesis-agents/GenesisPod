@@ -6,6 +6,7 @@ import HTMLViewer from '@/components/ui/HTMLViewer';
 import ReaderView from '@/components/ui/ReaderView';
 import { useExplore } from './ExploreContext';
 import ExploreActions from './ExploreActions';
+import { ClientDate } from '@/components/common/ClientDate';
 
 export default function ExploreDetail() {
   const {
@@ -22,7 +23,9 @@ export default function ExploreDetail() {
     return null;
   }
 
-  const isPDF = selectedResource.type === 'PAPER' && selectedResource.sourceUrl?.endsWith('.pdf');
+  const isPDF =
+    selectedResource.type === 'PAPER' &&
+    selectedResource.sourceUrl?.endsWith('.pdf');
   const isHTML = !isPDF && selectedResource.sourceUrl;
 
   return (
@@ -69,32 +72,34 @@ export default function ExploreDetail() {
           {/* Right: View Mode Toggle + Info Button */}
           <div className="flex items-center gap-2">
             {/* View Mode Toggle for HTML */}
-            {isHTML && selectedResource.type !== 'YOUTUBE' && selectedResource.type !== 'YOUTUBE_VIDEO' && (
-              <div className="flex h-8 items-center rounded-md border border-gray-200 bg-gray-50 p-0.5">
-                <button
-                  onClick={() => setHtmlViewMode('reader')}
-                  className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
-                    htmlViewMode === 'reader'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <Book className="h-3.5 w-3.5" />
-                  Reader
-                </button>
-                <button
-                  onClick={() => setHtmlViewMode('original')}
-                  className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
-                    htmlViewMode === 'original'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <Globe className="h-3.5 w-3.5" />
-                  Original
-                </button>
-              </div>
-            )}
+            {isHTML &&
+              selectedResource.type !== 'YOUTUBE' &&
+              selectedResource.type !== 'YOUTUBE_VIDEO' && (
+                <div className="flex h-8 items-center rounded-md border border-gray-200 bg-gray-50 p-0.5">
+                  <button
+                    onClick={() => setHtmlViewMode('reader')}
+                    className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
+                      htmlViewMode === 'reader'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Book className="h-3.5 w-3.5" />
+                    Reader
+                  </button>
+                  <button
+                    onClick={() => setHtmlViewMode('original')}
+                    className={`flex h-7 items-center gap-1.5 rounded px-3 text-xs font-medium transition-all ${
+                      htmlViewMode === 'original'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Globe className="h-3.5 w-3.5" />
+                    Original
+                  </button>
+                </div>
+              )}
 
             {/* Toggle Info Panel */}
             <button
@@ -133,37 +138,44 @@ export default function ExploreDetail() {
                 {/* Date */}
                 <span className="flex items-center gap-1.5">
                   <Calendar className="h-4 w-4" />
-                  {new Date(selectedResource.publishedAt).toLocaleDateString('en-US', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
+                  <ClientDate
+                    date={selectedResource.publishedAt}
+                    format="date"
+                    locale="en-US"
+                    dateOptions={{
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    }}
+                  />
                 </span>
 
                 {/* Categories */}
-                {selectedResource.categories && selectedResource.categories.length > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    {selectedResource.categories.slice(0, 2).map((cat, i) => (
-                      <span
-                        key={i}
-                        className="rounded-full bg-gray-200/80 px-2 py-0.5 text-xs font-medium text-gray-600"
-                      >
-                        {cat}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                {selectedResource.categories &&
+                  selectedResource.categories.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      {selectedResource.categories.slice(0, 2).map((cat, i) => (
+                        <span
+                          key={i}
+                          className="rounded-full bg-gray-200/80 px-2 py-0.5 text-xs font-medium text-gray-600"
+                        >
+                          {cat}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                 {/* Authors */}
-                {selectedResource.authors && selectedResource.authors.length > 0 && (
-                  <span className="flex items-center gap-1.5">
-                    <User className="h-4 w-4" />
-                    {selectedResource.authors
-                      .slice(0, 2)
-                      .map((a) => a.name || a.username || 'Unknown')
-                      .join(', ')}
-                  </span>
-                )}
+                {selectedResource.authors &&
+                  selectedResource.authors.length > 0 && (
+                    <span className="flex items-center gap-1.5">
+                      <User className="h-4 w-4" />
+                      {selectedResource.authors
+                        .slice(0, 2)
+                        .map((a) => a.name || a.username || 'Unknown')
+                        .join(', ')}
+                    </span>
+                  )}
 
                 {/* View Count */}
                 {selectedResource.viewCount !== undefined && (
@@ -184,13 +196,18 @@ export default function ExploreDetail() {
       {/* Content Area - Scrollable */}
       <div className="flex-1 overflow-auto bg-gray-50">
         {isPDF && (
-          <PDFViewer url={selectedResource.sourceUrl!} className="h-full w-full" />
+          <PDFViewer
+            url={selectedResource.sourceUrl!}
+            className="h-full w-full"
+          />
         )}
 
         {isHTML && htmlViewMode === 'reader' && (
           <ReaderView
             url={selectedResource.sourceUrl!}
-            onArticleLoaded={(article) => setArticleTextContent(article.textContent || '')}
+            onArticleLoaded={(article) =>
+              setArticleTextContent(article.textContent || '')
+            }
           />
         )}
 
@@ -214,7 +231,9 @@ export default function ExploreDetail() {
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
-              <p className="mt-4 text-sm text-gray-500">No preview available for this resource</p>
+              <p className="mt-4 text-sm text-gray-500">
+                No preview available for this resource
+              </p>
               {selectedResource.sourceUrl && (
                 <a
                   href={selectedResource.sourceUrl}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, History, User, Clock, Activity } from 'lucide-react';
 import { SecretAccessLog } from '@/hooks/domain/useAdminSecrets';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface SecretAccessLogsProps {
   secretName: string;
@@ -38,14 +39,7 @@ export function SecretAccessLogs({
   }, [secretName, getAccessLogs]);
 
   const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleString('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
+    return formatDateSafe(timestamp, 'datetime-short');
   };
 
   return (

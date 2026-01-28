@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import ReactMarkdown from 'react-markdown';
+import ClientDate from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
 interface Note {
@@ -510,10 +511,11 @@ export default function NotesList({
                   })()}
                   {/* Date */}
                   <span className="text-gray-400">
-                    {new Date(note.createdAt).toLocaleDateString('zh-CN', {
-                      month: 'short',
-                      day: 'numeric',
-                    })}
+                    <ClientDate
+                      date={note.createdAt}
+                      format="date"
+                      dateOptions={{ month: 'short', day: 'numeric' }}
+                    />
                   </span>
                 </div>
 

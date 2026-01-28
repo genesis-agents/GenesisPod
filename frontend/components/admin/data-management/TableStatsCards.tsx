@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import type { TableStats } from '@/hooks/domain';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface TableStatsCardsProps {
   stats: TableStats | null;
@@ -56,7 +57,7 @@ export default function TableStatsCards({
       labelKey: 'admin.tables.stats.lastUpdated',
       value: 0,
       formatted: stats?.lastAnalyzed
-        ? new Date(stats.lastAnalyzed).toLocaleTimeString()
+        ? formatDateSafe(stats.lastAnalyzed, 'time')
         : 'Never',
       icon: Clock,
       color: 'slate',

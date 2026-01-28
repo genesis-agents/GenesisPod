@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
 import { toast } from '@/stores';
+import { ClientDate } from '@/components/common/ClientDate';
 
 type ResourceType = 'PAPER' | 'BLOG' | 'REPORT' | 'YOUTUBE_VIDEO' | 'NEWS';
 
@@ -195,7 +196,7 @@ export function ConfigurationView({
                       </h5>
                       <p className="mt-1 text-xs text-gray-500">
                         创建于{' '}
-                        {new Date(config.createdAt).toLocaleDateString('zh-CN')}
+                        <ClientDate date={config.createdAt} format="date" />
                       </p>
                     </div>
                   </div>

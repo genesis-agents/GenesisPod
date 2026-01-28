@@ -9,6 +9,7 @@ import { config } from '@/lib/utils/config';
 
 import React, { useState, useEffect } from 'react';
 import { logger } from '@/lib/utils/logger';
+import ClientDate from '@/components/common/ClientDate';
 import {
   RefreshCw,
   Settings,
@@ -342,9 +343,14 @@ export const BlogCollectionManager: React.FC<BlogCollectionManagerProps> = ({
                   </p>
                   <p className="text-xs text-gray-500">
                     {source.category} •{' '}
-                    {source.lastCollected
-                      ? new Date(source.lastCollected).toLocaleString('zh-CN')
-                      : '未采集'}
+                    {source.lastCollected ? (
+                      <ClientDate
+                        date={source.lastCollected}
+                        format="datetime"
+                      />
+                    ) : (
+                      '未采集'
+                    )}
                   </p>
                 </div>
               </div>
@@ -445,9 +451,10 @@ export const BlogCollectionManager: React.FC<BlogCollectionManagerProps> = ({
                   </p>
                   <p className="text-xs text-gray-500">
                     {post.publisherName || 'Unknown'} •{' '}
-                    {new Date(
-                      post.publishedAt || post.createdAt
-                    ).toLocaleString('zh-CN')}
+                    <ClientDate
+                      date={post.publishedAt || post.createdAt}
+                      format="datetime"
+                    />
                   </p>
                 </a>
               )
