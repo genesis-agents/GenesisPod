@@ -23,6 +23,7 @@
 8. [同步策略](#8-同步策略)
 9. [Railway CLI 使用指南](#9-railway-cli-使用指南)
 10. [实施检查清单](#10-实施检查清单)
+11. [新增环境操作指南](#11-新增环境操作指南)
 
 ---
 
@@ -152,15 +153,15 @@ deepdive-engine (Railway Project)
 
 ### 3.1 变量分类矩阵
 
-| 分类         | 说明                   | 环境隔离 | 示例                            |
-| ------------ | ---------------------- | -------- | ------------------------------- |
-| 基础设施连接 | 数据库、缓存等服务地址 | **是**   | `DATABASE_URL`, `REDIS_URL`     |
-| 应用 URLs    | 前后端服务地址         | **是**   | `FRONTEND_URL`, `CORS_ORIGIN`   |
-| OAuth 配置   | 认证回调地址           | **是**   | `GOOGLE_CALLBACK_URL`           |
-| 安全密钥     | JWT、加密密钥          | **是**   | `JWT_SECRET`                    |
-| AI API Keys  | LLM 提供商密钥         | 可共享   | `OPENAI_API_KEY`, `XAI_API_KEY` |
-| 运行时配置   | 日志级别、超时等       | **是**   | `LOG_LEVEL`, `NODE_ENV`         |
-| 功能开关     | 特性开关               | 可共享   | `ENABLE_FEATURE_X`              |
+| 分类         | 说明                                                 | 环境隔离 | 示例                          |
+| ------------ | ---------------------------------------------------- | -------- | ----------------------------- |
+| 基础设施连接 | 数据库、缓存等服务地址                               | **是**   | `DATABASE_URL`, `REDIS_URL`   |
+| 应用 URLs    | 前后端服务地址                                       | **是**   | `FRONTEND_URL`, `CORS_ORIGIN` |
+| OAuth 配置   | 认证回调地址                                         | **是**   | `GOOGLE_CALLBACK_URL`         |
+| 安全密钥     | JWT、加密密钥                                        | **是**   | `JWT_SECRET`                  |
+| AI API Keys  | LLM 提供商密钥（存储在数据库密钥管理中，非环境变量） | N/A      | 由数据库统一管理              |
+| 运行时配置   | 日志级别、超时等                                     | **是**   | `LOG_LEVEL`, `NODE_ENV`       |
+| 功能开关     | 特性开关                                             | 可共享   | `ENABLE_FEATURE_X`            |
 
 ### 3.2 Backend 完整变量配置
 
@@ -211,13 +212,10 @@ GITHUB_CLIENT_SECRET=<github-client-secret>
 GITHUB_CALLBACK_URL=https://deepdive-engine-backend.up.railway.app/api/v1/auth/github/callback
 
 # ============================================
-# AI API Keys (可跨环境共用)
+# AI API Keys
+# 注意: AI API Keys 由数据库密钥管理模块统一管理，
+# 不再作为环境变量配置。新环境需通过数据库迁移或手动录入。
 # ============================================
-OPENAI_API_KEY=sk-xxxx
-ANTHROPIC_API_KEY=sk-ant-xxxx
-XAI_API_KEY=xai-xxxx
-LITELLM_API_KEY=<litellm-key>
-LITELLM_API_URL=<litellm-proxy-url>
 
 # ============================================
 # 监控
@@ -277,13 +275,10 @@ GITHUB_CLIENT_SECRET=<github-client-secret>
 GITHUB_CALLBACK_URL=https://backend-development-5f56.up.railway.app/api/v1/auth/github/callback
 
 # ============================================
-# AI API Keys (共用生产 keys)
+# AI API Keys
+# 注意: AI API Keys 由数据库密钥管理模块统一管理，
+# 不再作为环境变量配置。新环境需通过数据库迁移或手动录入。
 # ============================================
-OPENAI_API_KEY=sk-xxxx
-ANTHROPIC_API_KEY=sk-ant-xxxx
-XAI_API_KEY=xai-xxxx
-LITELLM_API_KEY=<litellm-key>
-LITELLM_API_URL=<litellm-proxy-url>
 
 # ============================================
 # 监控 (可选)
@@ -329,11 +324,27 @@ NEXT_PUBLIC_AI_URL=https://ai-service-development-1cb6.up.railway.app
 PORT=8000
 HOST=0.0.0.0
 
-# AI API Keys (共用)
-OPENAI_API_KEY=sk-xxxx
-XAI_API_KEY=xai-xxxx
-ANTHROPIC_API_KEY=sk-ant-xxxx
+# AI API Keys
+# 注意: AI API Keys 由数据库密钥管理模块统一管理，
+# AI Service 通过内部 API 从 Backend 获取密钥。
 ```
+
+### 3.5 密钥管理说明
+
+> AI API Keys（OpenAI、Anthropic、xAI 等）由数据库密钥管理模块统一存储和分发，不再作为环境变量配置。
+
+**架构**:
+
+```
+Backend 启动 → 从数据库读取 API Keys → 注入 AI 调用链路
+                                      → 通过内部 API 提供给 AI Service
+```
+
+**新环境操作**:
+
+1. 如果从已有环境迁移数据库（pg_dump/pg_restore），API Keys 会自动带入
+2. 如果使用全新数据库，需通过管理后台手动录入 API Keys
+3. 迁移后需验证密钥有效性和额度
 
 ---
 
@@ -408,6 +419,42 @@ railway run npx prisma migrate deploy
 railway environment development
 railway run npx prisma db seed
 ```
+
+### 4.5 数据库迁移到新环境
+
+当新增 Railway 环境（如 staging）时，需要将数据库迁移到新实例。
+
+#### 方式 1: pg_dump / pg_restore
+
+```bash
+# 1. 从源环境导出
+railway environment development
+railway connect postgres
+# 在另一个终端执行:
+pg_dump -h localhost -p <proxy-port> -U postgres -Fc railway > dev-backup.dump
+
+# 2. 在新环境创建数据库后导入
+railway environment staging
+railway connect postgres
+# 在另一个终端执行:
+pg_restore -h localhost -p <proxy-port> -U postgres -d railway dev-backup.dump
+```
+
+#### 方式 2: Railway Dashboard 备份恢复
+
+1. 进入源环境的 PostgreSQL 服务
+2. 点击 "Backups" → "Create Backup"
+3. 下载备份文件
+4. 在新环境的 PostgreSQL 服务中恢复
+
+#### 迁移后注意事项
+
+| 检查项          | 说明                                        |
+| --------------- | ------------------------------------------- |
+| API Keys 有效性 | 迁移后的密钥可能需要验证额度和有效期        |
+| 测试数据清理    | 从生产迁移时需脱敏处理用户数据              |
+| OAuth 配置      | 数据库中的 OAuth 相关配置需更新为新环境地址 |
+| Prisma 迁移状态 | 运行 `prisma migrate deploy` 确保迁移表一致 |
 
 ---
 
@@ -890,7 +937,7 @@ verify_deployment() {
 # verify_deployment "https://deepdive-engine-backend.up.railway.app" "a1b2c3d"
 ```
 
-### 6.2 语义化版本号 (SemVer)
+### 6.8 语义化版本号 (SemVer)
 
 ```
 MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
@@ -913,7 +960,7 @@ MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
 | Bug 修复         | PATCH      | v1.1.1 → v1.1.2 |
 | 预发布           | PRERELEASE | v1.2.0-beta.1   |
 
-### 6.3 Git Tag 管理
+### 6.9 Git Tag 管理
 
 #### 创建版本标签
 
@@ -1011,7 +1058,7 @@ echo "  2. Verify deployment: railway logs --service backend"
 echo "  3. Create GitHub Release: https://github.com/YOUR_ORG/deepdive-engine/releases/new?tag=$TAG"
 ```
 
-### 6.4 环境变量版本追踪
+### 6.10 环境变量版本追踪
 
 在每个服务中添加版本追踪变量:
 
@@ -1047,7 +1094,7 @@ getVersion() {
 }
 ```
 
-### 6.5 Railway 部署版本管理
+### 6.11 Railway 部署版本管理
 
 #### 查看部署历史
 
@@ -1074,7 +1121,7 @@ railway up
 # Service → Settings → Deploy → 选择 commit
 ```
 
-### 6.6 回滚策略
+### 6.12 回滚策略
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -1128,7 +1175,7 @@ cat backup-vars.json | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while re
 done
 ```
 
-### 6.7 环境变量版本控制
+### 6.13 环境变量版本控制
 
 #### 方案 1: Git 加密存储 (推荐)
 
@@ -1189,7 +1236,7 @@ echo "Backups saved to $BACKUP_DIR"
 - ADD: `DEBUG_MODE=true` - 启用调试模式
 ```
 
-### 6.8 发布检查清单模板
+### 6.14 发布检查清单模板
 
 创建 `docs/templates/release-checklist.md`:
 
@@ -1227,7 +1274,7 @@ echo "Backups saved to $BACKUP_DIR"
 - [ ] 更新发布文档
 ```
 
-### 6.9 CI/CD 集成
+### 6.15 CI/CD 集成
 
 在 GitHub Actions 中自动化版本管理:
 
@@ -1275,7 +1322,7 @@ jobs:
       #     railway up --service backend
 ```
 
-### 6.10 版本查询命令
+### 6.16 版本查询命令
 
 ```bash
 # 查看当前生产版本
@@ -1295,7 +1342,7 @@ git log v1.2.2..v1.2.3 --oneline
 
 ## 7. 本地开发连接
 
-### 6.1 连接选项
+### 7.1 连接选项
 
 | 方案           | 适用场景               | 复杂度 |
 | -------------- | ---------------------- | ------ |
@@ -1303,7 +1350,7 @@ git log v1.2.2..v1.2.3 --oneline
 | Railway Dev DB | 需要真实开发数据       | 中     |
 | Railway Proxy  | 需要调试 Railway 服务  | 高     |
 
-### 6.2 方案 1: 本地 Docker (推荐)
+### 7.2 方案 1: 本地 Docker (推荐)
 
 ```bash
 # 启动本地数据库服务
@@ -1320,7 +1367,7 @@ cd backend && npx prisma migrate dev
 npm run dev
 ```
 
-### 6.3 方案 2: 连接 Railway 开发数据库
+### 7.3 方案 2: 连接 Railway 开发数据库
 
 ```bash
 # 1. 获取开发环境数据库连接串
@@ -1336,7 +1383,7 @@ npm run dev:backend
 
 **注意**: 需要在 Railway 数据库设置中启用公网访问。
 
-### 6.4 方案 3: Railway Proxy (高级)
+### 7.4 方案 3: Railway Proxy (高级)
 
 ```bash
 # 建立到 Railway 服务的本地代理
@@ -1347,7 +1394,7 @@ railway connect postgres
 railway connect redis
 ```
 
-### 6.5 本地环境变量模板
+### 7.5 本地环境变量模板
 
 创建 `backend/.env.local`:
 
@@ -1376,8 +1423,7 @@ GOOGLE_CLIENT_SECRET=<your-google-client-secret>
 GOOGLE_CALLBACK_URL=http://localhost:4000/api/v1/auth/google/callback
 
 # AI API Keys
-OPENAI_API_KEY=sk-xxxx
-ANTHROPIC_API_KEY=sk-ant-xxxx
+# 注意: AI API Keys 由数据库管理，本地开发时需确保数据库中已录入密钥
 ```
 
 ---
@@ -1663,6 +1709,92 @@ railway run npx prisma studio
 
 ---
 
+## 11. 新增环境操作指南
+
+> 完整的新环境创建流程，适用于新增 staging 或其他环境。
+
+### 11.1 步骤 1: 创建 Railway Environment
+
+1. 进入 Railway Dashboard → 项目设置
+2. 点击 "New Environment"
+3. 命名环境（如 `staging`）
+4. 选择是否从现有环境复制服务结构
+
+### 11.2 步骤 2: 添加独立 PostgreSQL
+
+```bash
+railway environment staging
+railway add --plugin postgresql
+```
+
+或通过 Dashboard: New → Database → PostgreSQL
+
+### 11.3 步骤 3: 数据库迁移
+
+如果需要从现有环境复制数据（含 API Keys）：
+
+```bash
+# 从开发环境导出
+pg_dump -Fc <source-database-url> > backup.dump
+
+# 导入到新环境
+pg_restore -d <target-database-url> backup.dump
+```
+
+> 通过数据库迁移，密钥管理模块中的 API Keys 会自动带入新环境。
+
+### 11.4 步骤 4: 运行 Prisma 迁移
+
+```bash
+railway environment staging
+railway run npx prisma migrate deploy
+```
+
+### 11.5 步骤 5: 配置环境变量
+
+仅需配置 URL 类和基础设施变量，AI API Keys 已通过数据库迁移带入：
+
+```bash
+railway variables set \
+  NODE_ENV=staging \
+  PORT=4000 \
+  DATABASE_URL='${{postgres.DATABASE_URL}}' \
+  REDIS_URL='${{redis.REDIS_URL}}' \
+  FRONTEND_URL=https://frontend-staging-xxxx.up.railway.app \
+  CORS_ORIGIN=https://frontend-staging-xxxx.up.railway.app \
+  JWT_SECRET=<staging-unique-secret-64-chars> \
+  GOOGLE_CALLBACK_URL=https://backend-staging-xxxx.up.railway.app/api/v1/auth/google/callback \
+  GITHUB_CALLBACK_URL=https://backend-staging-xxxx.up.railway.app/api/v1/auth/github/callback
+```
+
+### 11.6 步骤 6: OAuth 回调地址注册
+
+在第三方平台注册新环境的回调地址：
+
+| 平台   | 操作位置                                                                                      | 添加内容             |
+| ------ | --------------------------------------------------------------------------------------------- | -------------------- |
+| Google | [Google Cloud Console](https://console.cloud.google.com/) → APIs → Credentials → OAuth Client | 添加新环境的回调 URI |
+| GitHub | GitHub Settings → Developer settings → OAuth Apps                                             | 添加新环境的回调 URL |
+
+### 11.7 步骤 7: Git 分支映射
+
+在 Railway Dashboard 中为新环境配置源分支：
+
+1. 选择新环境中的 Backend 服务 → Settings → Deploy
+2. 设置 Branch（如 `staging` 或 `release/*`）
+3. 配置 Auto Deploy 策略
+
+### 11.8 步骤 8: 验证清单
+
+- [ ] 数据库连接正常: `railway run npx prisma db pull`
+- [ ] API 健康检查: `curl https://backend-staging-xxxx.up.railway.app/api/v1/health`
+- [ ] 前端可访问: `curl -I https://frontend-staging-xxxx.up.railway.app`
+- [ ] OAuth 登录流程正常（Google / GitHub）
+- [ ] AI 功能正常（API Keys 已从数据库加载）
+- [ ] 版本端点返回正确环境信息: `curl .../api/v1/version`
+
+---
+
 ## 附录 A: 故障排查
 
 ### A.1 部署失败
@@ -1721,4 +1853,4 @@ _注: 实际成本取决于使用量，Railway 按执行时间计费。_
 ---
 
 **最后更新**: 2026-01-28
-**版本**: 1.0
+**版本**: 1.1

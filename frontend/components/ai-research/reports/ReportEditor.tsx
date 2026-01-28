@@ -33,6 +33,7 @@ import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
 import { useReportTextProcessor } from '@/lib/report/useReportTextProcessor';
 import { createMarkdownComponents } from '@/lib/report/createMarkdownComponents';
 import { TipTapToolbar } from '../editor/TipTapToolbar';
+import { ViewModeToggle } from '../editor/ViewModeToggle';
 import {
   splitTextIntoSegments,
   findAnnotationMatches,
@@ -47,8 +48,8 @@ import {
 import { formatDateSafe } from '@/lib/utils/date';
 
 import { logger } from '@/lib/utils/logger';
-// View modes: preview, richtext (WYSIWYG), source (raw markdown)
-type ViewMode = 'preview' | 'richtext' | 'source';
+// View modes: preview, edit (WYSIWYG)
+type ViewMode = 'preview' | 'edit';
 
 // Color mapping for annotation highlights (matches AnnotatedText component)
 const ANNOTATION_COLOR_CLASSES: Record<AnnotationColor, string> = {
@@ -280,22 +281,6 @@ const RichTextIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const CodeIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-    />
-  </svg>
-);
-
 const AIIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -308,71 +293,6 @@ const AIIcon = ({ className }: { className?: string }) => (
       strokeLinejoin="round"
       strokeWidth={2}
       d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-    />
-  </svg>
-);
-
-// Markdown toolbar icons
-const BoldIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6V4zm0 8h9a4 4 0 014 4 4 4 0 01-4 4H6v-8z"
-    />
-  </svg>
-);
-
-const ItalicIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M10 4h4m-2 0v16m-4 0h8"
-    />
-  </svg>
-);
-
-const HeadingIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M4 6h16M4 12h16M4 18h7"
-    />
-  </svg>
-);
-
-const ListIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M4 6h16M4 10h16M4 14h16M4 18h16"
     />
   </svg>
 );
@@ -416,7 +336,6 @@ function ReportEditorInner({
   const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const editorRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const richTextRef = useRef<HTMLDivElement>(null);
 
@@ -666,7 +585,7 @@ function ReportEditorInner({
   // Note: editContent is intentionally excluded from deps to avoid re-render loops
   // (TipTap is the source of truth for content when in richtext mode)
   useEffect(() => {
-    if (viewMode === 'richtext' && tiptapEditor) {
+    if (viewMode === 'edit' && tiptapEditor) {
       const html = markdownToHtml(editContent);
       // Apply annotation highlights to the HTML before setting content
       const highlightedHtml = applyAnnotationHighlightsToHtml(
@@ -678,15 +597,7 @@ function ReportEditorInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode, tiptapEditor, tiptapAnnotations]);
 
-  // Sync TipTap content when editContent changes from source mode
-  useEffect(() => {
-    if (viewMode === 'source' && tiptapEditor) {
-      // Mark that we need to sync when switching back to richtext
-    }
-  }, [editContent, viewMode, tiptapEditor]);
-
-  // Check if we're in any edit mode
-  const isEditing = viewMode === 'richtext' || viewMode === 'source';
+  const isEditing = viewMode === 'edit';
 
   // Handle AI edit operation from context menu
   const handleAIEditFromMenu = useCallback(
@@ -696,21 +607,7 @@ function ReportEditorInner({
       setIsAIProcessing(true);
       try {
         const result = await onAIEdit(operation, selectedText);
-        if (viewMode === 'source' && editorRef.current) {
-          // Replace selected text or append result
-          const start = editorRef.current.selectionStart;
-          const end = editorRef.current.selectionEnd;
-          if (start !== end) {
-            const newContent =
-              editContent.substring(0, start) +
-              result +
-              editContent.substring(end);
-            setEditContent(newContent);
-          } else {
-            setEditContent((prev) => prev + '\n\n' + result);
-          }
-        } else if (viewMode === 'richtext' && tiptapEditor) {
-          // Insert at cursor or replace selection
+        if (viewMode === 'edit' && tiptapEditor) {
           tiptapEditor.commands.insertContent(result);
         }
       } catch (error) {
@@ -728,11 +625,7 @@ function ReportEditorInner({
       if (!onAIEdit) return;
 
       let selectedText = '';
-      if (viewMode === 'source' && editorRef.current) {
-        const start = editorRef.current.selectionStart;
-        const end = editorRef.current.selectionEnd;
-        selectedText = editContent.substring(start, end);
-      } else if (viewMode === 'richtext' && tiptapEditor) {
+      if (viewMode === 'edit' && tiptapEditor) {
         const { from, to } = tiptapEditor.state.selection;
         selectedText = tiptapEditor.state.doc.textBetween(from, to);
       }
@@ -755,37 +648,6 @@ function ReportEditorInner({
       setIsSaving(false);
     }
   }, [onSave, editContent]);
-
-  // Insert markdown formatting (for source mode)
-  const insertMarkdown = useCallback(
-    (prefix: string, suffix: string = '') => {
-      if (!editorRef.current) return;
-
-      const start = editorRef.current.selectionStart;
-      const end = editorRef.current.selectionEnd;
-      const selectedText = editContent.substring(start, end);
-
-      const newContent =
-        editContent.substring(0, start) +
-        prefix +
-        selectedText +
-        suffix +
-        editContent.substring(end);
-
-      setEditContent(newContent);
-
-      // Focus and set cursor position
-      setTimeout(() => {
-        if (editorRef.current) {
-          editorRef.current.focus();
-          const newCursorPos =
-            start + prefix.length + selectedText.length + suffix.length;
-          editorRef.current.setSelectionRange(newCursorPos, newCursorPos);
-        }
-      }, 0);
-    },
-    [editContent]
-  );
 
   // Word count
   const wordCount = useMemo(() => {
@@ -997,150 +859,82 @@ function ReportEditorInner({
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
         {/* View mode toggle */}
-        <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
-          <button
-            onClick={() => setViewMode('preview')}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              viewMode === 'preview'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-            title="预览模式"
-          >
-            <PreviewIcon className="h-4 w-4" />
-            <span>预览</span>
-          </button>
-          <button
-            onClick={() => {
-              // Sync content to TipTap before switching
-              if (tiptapEditor) {
-                const html = markdownToHtml(editContent);
-                tiptapEditor.commands.setContent(html);
-              }
-              setViewMode('richtext');
-            }}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              viewMode === 'richtext'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-            title="富文本编辑"
-          >
-            <RichTextIcon className="h-4 w-4" />
-            <span>编辑</span>
-          </button>
-          <button
-            onClick={() => setViewMode('source')}
-            className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
-              viewMode === 'source'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-            title="源码编辑 (Markdown)"
-          >
-            <CodeIcon className="h-4 w-4" />
-          </button>
-        </div>
+        <ViewModeToggle
+          modes={[
+            {
+              key: 'preview',
+              label: '预览',
+              icon: <PreviewIcon className="h-4 w-4" />,
+            },
+            {
+              key: 'edit',
+              label: '编辑',
+              icon: <RichTextIcon className="h-4 w-4" />,
+            },
+          ]}
+          activeMode={viewMode}
+          onModeChange={(mode) => {
+            if (mode === 'edit' && tiptapEditor) {
+              const html = markdownToHtml(editContent);
+              tiptapEditor.commands.setContent(html);
+            }
+            setViewMode(mode as ViewMode);
+          }}
+        />
 
         {/* Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400">{wordCount} 字</span>
 
           {isEditing && (
             <>
-              {/* Preview button in edit mode */}
               <button
                 onClick={() => setShowPreviewModal(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200"
-                title="预览 (悬浮窗口)"
+                className="rounded-lg p-1.5 text-gray-600 transition-colors hover:bg-gray-100"
+                title="预览"
               >
                 <PreviewIcon className="h-4 w-4" />
-                <span>预览</span>
               </button>
 
               <button
                 onClick={() => setShowAIPanel(!showAIPanel)}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                className={`rounded-lg p-1.5 transition-colors ${
                   showAIPanel
                     ? 'bg-purple-100 text-purple-700'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'text-gray-600 hover:bg-gray-100'
                 }`}
+                title="AI 编辑"
               >
                 <AIIcon className="h-4 w-4" />
-                <span>AI 编辑</span>
               </button>
 
               <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:bg-blue-400"
+                className="rounded-lg bg-blue-600 p-1.5 text-white transition-colors hover:bg-blue-700 disabled:bg-blue-400"
+                title={isSaving ? '保存中...' : '保存'}
               >
-                {isSaving ? '保存中...' : '保存'}
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+                  />
+                </svg>
               </button>
             </>
           )}
         </div>
       </div>
 
-      {/* Markdown toolbar (only in source mode) */}
-      {viewMode === 'source' && (
-        <div className="flex items-center gap-1 border-b border-gray-100 bg-gray-50 px-4 py-1.5">
-          <button
-            onClick={() => insertMarkdown('**', '**')}
-            className="rounded p-1.5 text-gray-600 hover:bg-gray-200"
-            title="粗体 (Ctrl+B)"
-          >
-            <BoldIcon className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => insertMarkdown('*', '*')}
-            className="rounded p-1.5 text-gray-600 hover:bg-gray-200"
-            title="斜体 (Ctrl+I)"
-          >
-            <ItalicIcon className="h-4 w-4" />
-          </button>
-          <div className="mx-1 h-4 w-px bg-gray-300" />
-          <button
-            onClick={() => insertMarkdown('## ')}
-            className="rounded p-1.5 text-gray-600 hover:bg-gray-200"
-            title="标题"
-          >
-            <HeadingIcon className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => insertMarkdown('- ')}
-            className="rounded p-1.5 text-gray-600 hover:bg-gray-200"
-            title="列表"
-          >
-            <ListIcon className="h-4 w-4" />
-          </button>
-          <div className="mx-1 h-4 w-px bg-gray-300" />
-          <button
-            onClick={() => insertMarkdown('[', '](url)')}
-            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-200"
-            title="链接"
-          >
-            链接
-          </button>
-          <button
-            onClick={() => insertMarkdown('> ')}
-            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-200"
-            title="引用"
-          >
-            引用
-          </button>
-          <button
-            onClick={() => insertMarkdown('```\n', '\n```')}
-            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-200"
-            title="代码块"
-          >
-            代码
-          </button>
-        </div>
-      )}
-
-      {/* TipTap toolbar (only in richtext mode) */}
-      {viewMode === 'richtext' && tiptapEditor && (
+      {/* TipTap toolbar (only in edit mode) */}
+      {viewMode === 'edit' && tiptapEditor && (
         <TipTapToolbar editor={tiptapEditor} />
       )}
 
@@ -1193,7 +987,7 @@ function ReportEditorInner({
           </div>
         )}
 
-        {viewMode === 'richtext' && (
+        {viewMode === 'edit' && (
           <div
             ref={richTextRef}
             className="relative h-full overflow-auto border-l-4 border-amber-300 bg-amber-50/30 p-6"
@@ -1221,16 +1015,6 @@ function ReportEditorInner({
               isAIProcessing={isAIProcessing}
             />
           </div>
-        )}
-
-        {viewMode === 'source' && (
-          <textarea
-            ref={editorRef}
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            className="font-mono h-full w-full resize-none border-none p-6 text-sm focus:outline-none"
-            placeholder="在此编辑报告内容..."
-          />
         )}
       </div>
 

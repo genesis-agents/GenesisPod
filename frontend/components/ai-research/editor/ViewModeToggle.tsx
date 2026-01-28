@@ -28,9 +28,9 @@ export function ViewModeToggle({
               ? 'bg-white font-medium text-gray-900 shadow-sm'
               : 'text-gray-500 hover:text-gray-700'
           }`}
+          title={mode.label}
         >
           {mode.icon}
-          {mode.label}
         </button>
       ))}
     </div>

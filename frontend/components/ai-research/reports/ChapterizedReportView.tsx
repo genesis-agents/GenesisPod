@@ -215,7 +215,7 @@ const AIIcon = ({ className }: { className?: string }) => (
 );
 
 // View mode type (consistent with continuous view)
-type ViewMode = 'preview' | 'edit' | 'source';
+type ViewMode = 'preview' | 'edit';
 
 // Eye icon for preview mode
 const EyeIcon = ({ className }: { className?: string }) => (
@@ -236,23 +236,6 @@ const EyeIcon = ({ className }: { className?: string }) => (
       strokeLinejoin="round"
       strokeWidth={2}
       d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-    />
-  </svg>
-);
-
-// Code icon for source view
-const CodeIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
     />
   </svg>
 );
@@ -695,22 +678,21 @@ function ChapterizedReportViewInner({
             modes={[
               {
                 key: 'preview',
+                label: '预览',
                 icon: <EyeIcon className="h-4 w-4" />,
               },
               {
                 key: 'edit',
+                label: '编辑',
                 icon: <EditIcon className="h-4 w-4" />,
               },
-              { key: 'source', icon: <CodeIcon className="h-4 w-4" /> },
             ]}
             activeMode={viewMode}
-            onModeChange={(mode) =>
-              setViewMode(mode as 'preview' | 'edit' | 'source')
-            }
+            onModeChange={(mode) => setViewMode(mode as ViewMode)}
           />
 
           <div className="flex items-center gap-2">
-            {(viewMode === 'edit' || viewMode === 'source') && (
+            {viewMode === 'edit' && (
               <>
                 <button
                   onClick={cancelEdit}
@@ -752,13 +734,6 @@ function ChapterizedReportViewInner({
                 isAIProcessing={isAIProcessing}
               />
             </div>
-          ) : viewMode === 'source' ? (
-            <textarea
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              className="font-mono h-full w-full resize-none border-none p-6 text-sm focus:outline-none"
-              placeholder="编辑 Markdown 源码..."
-            />
           ) : (
             // ★ Preview mode - 与连续视图（ReportEditor）完全一致的渲染管线
             <div ref={previewRef} className="p-6">
