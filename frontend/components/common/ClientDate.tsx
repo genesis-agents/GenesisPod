@@ -27,21 +27,35 @@ interface ClientDateProps {
   fallback?: string;
   /** Additional className */
   className?: string;
+  /** Custom time format options (for 'time' format only) */
+  timeOptions?: Intl.DateTimeFormatOptions;
 }
 
 /**
  * Format date based on format type
  */
-function formatDate(date: Date, format: DateFormat, locale: string): string {
+function formatDate(
+  date: Date,
+  format: DateFormat,
+  locale: string,
+  timeOptions?: Intl.DateTimeFormatOptions
+): string {
   switch (format) {
     case 'date':
       return date.toLocaleDateString(locale);
     case 'time':
-      return date.toLocaleTimeString(locale);
+      return date.toLocaleTimeString(
+        locale,
+        timeOptions || {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }
+      );
     case 'datetime':
       return date.toLocaleString(locale);
     case 'relative':
-      return getRelativeTime(date);
+      return getRelativeTime(date, locale);
     default:
       return date.toLocaleString(locale);
   }
@@ -50,7 +64,7 @@ function formatDate(date: Date, format: DateFormat, locale: string): string {
 /**
  * Get relative time string (e.g., "3 minutes ago")
  */
-function getRelativeTime(date: Date): string {
+function getRelativeTime(date: Date, locale: string = 'zh-CN'): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffSec = Math.floor(diffMs / 1000);
@@ -58,13 +72,29 @@ function getRelativeTime(date: Date): string {
   const diffHour = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHour / 24);
 
-  if (diffSec < 60) return '刚刚';
-  if (diffMin < 60) return `${diffMin} 分钟前`;
-  if (diffHour < 24) return `${diffHour} 小时前`;
-  if (diffDay < 7) return `${diffDay} 天前`;
-  if (diffDay < 30) return `${Math.floor(diffDay / 7)} 周前`;
-  if (diffDay < 365) return `${Math.floor(diffDay / 30)} 个月前`;
-  return `${Math.floor(diffDay / 365)} 年前`;
+  // Chinese locale
+  if (locale === 'zh-CN') {
+    if (diffSec < 60) return '刚刚';
+    if (diffMin < 60) return `${diffMin} 分钟前`;
+    if (diffHour < 24) return `${diffHour} 小时前`;
+    if (diffDay === 1) return '昨天';
+    if (diffDay < 7) return `${diffDay} 天前`;
+    if (diffDay < 30) return `${Math.floor(diffDay / 7)} 周前`;
+    if (diffDay < 365) return `${Math.floor(diffDay / 30)} 个月前`;
+    return date.toLocaleDateString('zh-CN');
+  }
+
+  // English locale
+  if (diffSec < 60) return 'just now';
+  if (diffMin < 60) return `${diffMin} minute${diffMin > 1 ? 's' : ''} ago`;
+  if (diffHour < 24) return `${diffHour} hour${diffHour > 1 ? 's' : ''} ago`;
+  if (diffDay === 1) return 'yesterday';
+  if (diffDay < 7) return `${diffDay} day${diffDay > 1 ? 's' : ''} ago`;
+  if (diffDay < 30)
+    return `${Math.floor(diffDay / 7)} week${Math.floor(diffDay / 7) > 1 ? 's' : ''} ago`;
+  if (diffDay < 365)
+    return `${Math.floor(diffDay / 30)} month${Math.floor(diffDay / 30) > 1 ? 's' : ''} ago`;
+  return `${Math.floor(diffDay / 365)} year${Math.floor(diffDay / 365) > 1 ? 's' : ''} ago`;
 }
 
 /**
@@ -89,6 +119,7 @@ export function ClientDate({
   locale = 'zh-CN',
   fallback = '-',
   className,
+  timeOptions,
 }: ClientDateProps) {
   // 使用 useState 延迟渲染，避免 hydration 不匹配
   const [mounted, setMounted] = useState(false);
@@ -98,9 +129,9 @@ export function ClientDate({
     setMounted(true);
     const parsedDate = parseDate(date);
     if (parsedDate) {
-      setFormattedDate(formatDate(parsedDate, format, locale));
+      setFormattedDate(formatDate(parsedDate, format, locale, timeOptions));
     }
-  }, [date, format, locale]);
+  }, [date, format, locale, timeOptions]);
 
   // 在客户端挂载前显示占位符，避免 hydration 错误
   if (!mounted) {

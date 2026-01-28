@@ -1337,6 +1337,64 @@ function ReportEditorInner({
               {typeof children === 'string' ? processText(children) : children}
             </em>
           ),
+          // ★ 表格单元格引用处理
+          td: ({ children, ...props }) => (
+            <td {...props}>
+              {typeof children === 'string'
+                ? processText(children)
+                : Array.isArray(children)
+                  ? children.map((child, i) =>
+                      typeof child === 'string' ? (
+                        <span key={i}>{processText(child)}</span>
+                      ) : (
+                        child
+                      )
+                    )
+                  : children}
+            </td>
+          ),
+          th: ({ children, ...props }) => (
+            <th {...props}>
+              {typeof children === 'string'
+                ? processText(children)
+                : Array.isArray(children)
+                  ? children.map((child, i) =>
+                      typeof child === 'string' ? (
+                        <span key={i}>{processText(child)}</span>
+                      ) : (
+                        child
+                      )
+                    )
+                  : children}
+            </th>
+          ),
+          // ★ 标题引用处理
+          h1: ({ children, ...props }) => (
+            <h1 {...props}>
+              {typeof children === 'string' ? processText(children) : children}
+            </h1>
+          ),
+          h2: ({ children, ...props }) => (
+            <h2 {...props}>
+              {typeof children === 'string' ? processText(children) : children}
+            </h2>
+          ),
+          h3: ({ children, ...props }) => (
+            <h3 {...props}>
+              {typeof children === 'string' ? processText(children) : children}
+            </h3>
+          ),
+          h4: ({ children, ...props }) => (
+            <h4 {...props}>
+              {typeof children === 'string' ? processText(children) : children}
+            </h4>
+          ),
+          // ★ 引用块处理
+          blockquote: ({ children, ...props }) => (
+            <blockquote {...props}>
+              {typeof children === 'string' ? processText(children) : children}
+            </blockquote>
+          ),
         }}
       >
         {content}

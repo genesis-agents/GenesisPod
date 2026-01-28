@@ -8,6 +8,7 @@ import type { ResearchTopic } from '@/types/topic-research';
 import { ResearchTopicType, DimensionStatus } from '@/types/topic-research';
 import { useTranslation } from '@/lib/i18n';
 import { ApplicationButton } from './ApplicationButton';
+import { ClientDate } from '@/components/common/ClientDate';
 
 interface TopicCardProps {
   topic: ResearchTopic;
@@ -283,24 +284,18 @@ export function TopicCard({
     if (!isOwnTopic || !onShare) return;
     onShare(); // 打开共享设置弹窗
   };
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return t('topicResearch.never');
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-      if (diffHours === 0) {
-        const diffMins = Math.floor(diffMs / (1000 * 60));
-        return t('topicResearch.minutesAgo', { count: diffMins });
-      }
-      return t('topicResearch.hoursAgo', { count: diffHours });
+  // Format date using ClientDate component to avoid hydration issues
+  const formatLastRefresh = (dateStr: string | null) => {
+    if (!dateStr) {
+      return <span>{t('topicResearch.never')}</span>;
     }
-    if (diffDays === 1) return t('topicResearch.yesterday');
-    if (diffDays < 7) return t('topicResearch.daysAgo', { count: diffDays });
-    return date.toLocaleDateString('zh-CN');
+    return (
+      <ClientDate
+        date={dateStr}
+        format="relative"
+        fallback={t('topicResearch.never')}
+      />
+    );
   };
 
   const typeConfig = topicTypeConfig[topic.type];
@@ -489,7 +484,7 @@ export function TopicCard({
           <ClockIcon className="h-3 w-3" />
           <span>
             {t('topicResearch.topicCard.lastRefresh')}:{' '}
-            {formatDate(topic.lastRefreshAt)}
+            {formatLastRefresh(topic.lastRefreshAt)}
           </span>
         </div>
 

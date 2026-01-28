@@ -4081,12 +4081,6 @@ function TeamInteractionTabContent({
 
             <div className="space-y-4 p-4">
               {filteredMessages.map((msg) => {
-                const time = msg.timestamp.toLocaleTimeString('zh-CN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                });
-
                 // ★ 根据状态确定时间线节点颜色
                 const getNodeColor = () => {
                   switch (msg.status) {
@@ -4132,7 +4126,9 @@ function TeamInteractionTabContent({
                     <div className={`flex-1 ${getCardBorderClass()}`}>
                       {/* 时间戳和 Agent 标识 */}
                       <div className="mb-2 flex items-center gap-3">
-                        <span className="text-xs text-gray-400">{time}</span>
+                        <span className="text-xs text-gray-400">
+                          <ClientDate date={msg.timestamp} format="time" />
+                        </span>
                         <div className="h-px flex-1 bg-gray-100" />
                         <div className="flex items-center gap-1.5">
                           <span
@@ -4228,14 +4224,7 @@ function TeamInteractionTabContent({
                           )}
                         </div>
                         <span className="text-xs text-gray-400">
-                          {new Date(event.timestamp).toLocaleTimeString(
-                            'zh-CN',
-                            {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit',
-                            }
-                          )}
+                          <ClientDate date={event.timestamp} format="time" />
                         </span>
                       </div>
                       <p className="mt-2 text-sm text-gray-700">
@@ -5162,10 +5151,11 @@ function ActivityItem({
             <span className="text-blue-500">{activity.progress}%</span>
           )}
           <span>
-            {activity.timestamp.toLocaleTimeString('zh-CN', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            <ClientDate
+              date={activity.timestamp}
+              format="time"
+              timeOptions={{ hour: '2-digit', minute: '2-digit' }}
+            />
           </span>
         </div>
       </div>
