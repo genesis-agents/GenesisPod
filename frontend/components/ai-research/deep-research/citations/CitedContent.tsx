@@ -151,23 +151,20 @@ export function CitedMarkdown({
       return `__CITE_GROUP_${indices.join('_')}__`;
     });
 
-    // Remove standalone underscores that cause Markdown emphasis rendering issues
-    // In AI-generated reports, underscores sometimes appear as artifacts or placeholders
-    processed = processed
-      // Remove underscores adjacent to citation markers (handles ____CITE_GROUP... patterns)
-      .replace(/_+\s*(?=__CITE_GROUP_)/g, '')
-      .replace(/(?<=__CITE_GROUP_\d+(?:_\d+)*__)\s*_+/g, '')
-      // Remove underscores between adjacent citation markers
-      .replace(/(__CITE_GROUP_\d+(?:_\d+)*__)\s*_+\s*(?=__CITE_GROUP_)/g, '$1')
-      // Remove underscores at word boundaries (adjacent to spaces, punctuation, CJK chars)
-      .replace(/(?<=[\s。，、；：！？（）「」『』【】\[\]\.])_+/g, '')
-      .replace(/_+(?=[\s。，、；：！？（）「」『』【】\[\]\.])/g, '')
-      // Remove underscores adjacent to CJK characters (Chinese/Japanese/Korean)
-      .replace(/(?<=[\u4e00-\u9fff\u3000-\u303f])_+/g, '')
-      .replace(/_+(?=[\u4e00-\u9fff\u3000-\u303f])/g, '')
-      // Remove underscores at quote boundaries (Chinese and English quotes)
-      .replace(/(?<=[""\u201c\u201d''\u2018\u2019])_+/g, '')
-      .replace(/_+(?=[""\u201c\u201d''\u2018\u2019])/g, '');
+    // Remove ALL standalone underscores that aren't part of __CITE_GROUP__ markers.
+    // After citation conversion, any remaining underscores are AI artifacts.
+    // Strategy: temporarily protect markers, strip all underscores, restore markers.
+    const markerPlaceholders: string[] = [];
+    processed = processed.replace(/__CITE_GROUP_[\d_]+__/g, (marker) => {
+      markerPlaceholders.push(marker);
+      return `\x00MARKER_${markerPlaceholders.length - 1}\x00`;
+    });
+    // Remove all underscores (they are artifacts in AI-generated report text)
+    processed = processed.replace(/_+/g, '');
+    // Restore citation markers
+    processed = processed.replace(/\x00MARKER_(\d+)\x00/g, (_, idx) => {
+      return markerPlaceholders[parseInt(idx, 10)];
+    });
 
     return { processedContent: processed, citationMap: map };
   }, [content, sources]);
@@ -502,30 +499,10 @@ const CITATION_PATTERN =
 
 /**
  * Clean citation-related stray underscores from AI-generated text
- * AI sometimes generates formats like: [32]____[39], [33]__[38], [33] [35]__
+ * Removes all underscores as they are artifacts in AI report output
  */
 function cleanCitationMarkers(text: string): string {
-  return (
-    text
-      // Remove underscores between adjacent citations
-      .replace(/\]_+\[/g, '][')
-      .replace(/\]_+\s*\[/g, '][')
-      .replace(/\]\s*_+\[/g, '][')
-      // Remove underscores wrapping citations
-      .replace(/_+(\[\d+(?:\s*,\s*\d+)*\])/g, '$1')
-      .replace(/(\[\d+(?:\s*,\s*\d+)*\])_+/g, '$1')
-      // Remove underscores before punctuation
-      .replace(/_+\s*([。.!?！？,，;；])/g, '$1')
-      // Remove underscores adjacent to CJK characters
-      .replace(/(?<=[\u4e00-\u9fff])_+/g, '')
-      .replace(/_+(?=[\u4e00-\u9fff])/g, '')
-      // Remove underscores adjacent to quotes
-      .replace(/(?<=[""\u201c\u201d])_+/g, '')
-      .replace(/_+(?=[""\u201c\u201d])/g, '')
-      // Remove trailing underscores
-      .replace(/_+$/g, '')
-      .replace(/^_+/, '')
-  );
+  return text.replace(/_+/g, '');
 }
 
 /**

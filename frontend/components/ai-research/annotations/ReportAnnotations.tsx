@@ -165,6 +165,22 @@ const NavigateIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const EditIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+    />
+  </svg>
+);
+
 // Filter types
 type FilterStatus = 'all' | 'active' | 'resolved';
 
@@ -415,16 +431,16 @@ export function ReportAnnotations({
                       </p>
                     )}
 
-                    {/* Actions */}
-                    <div className="mt-3 flex items-center gap-2">
+                    {/* Actions - icon-only buttons with tooltips */}
+                    <div className="mt-3 flex items-center gap-1">
                       {/* Navigate */}
                       {onNavigate && (
                         <button
                           onClick={() => onNavigate(annotation.id)}
-                          className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+                          className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                          title="跳转到原文"
                         >
-                          <NavigateIcon className="h-3.5 w-3.5" />
-                          跳转
+                          <NavigateIcon className="h-4 w-4" />
                         </button>
                       )}
 
@@ -432,10 +448,10 @@ export function ReportAnnotations({
                       {onReply && (
                         <button
                           onClick={() => setReplyingTo(annotation.id)}
-                          className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+                          className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                          title="回复"
                         >
-                          <ReplyIcon className="h-3.5 w-3.5" />
-                          回复
+                          <ReplyIcon className="h-4 w-4" />
                         </button>
                       )}
 
@@ -443,10 +459,10 @@ export function ReportAnnotations({
                       {onResolve && annotation.status === 'active' && (
                         <button
                           onClick={() => onResolve(annotation.id)}
-                          className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700"
+                          className="rounded p-1.5 text-green-400 transition-colors hover:bg-green-50 hover:text-green-600"
+                          title="标记为已解决"
                         >
-                          <CheckIcon className="h-3.5 w-3.5" />
-                          解决
+                          <CheckIcon className="h-4 w-4" />
                         </button>
                       )}
 
@@ -454,9 +470,10 @@ export function ReportAnnotations({
                       {onUpdate && isOwner && (
                         <button
                           onClick={() => startEditing(annotation)}
-                          className="text-xs text-gray-500 hover:text-gray-700"
+                          className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                          title="编辑"
                         >
-                          编辑
+                          <EditIcon className="h-4 w-4" />
                         </button>
                       )}
 
@@ -464,22 +481,21 @@ export function ReportAnnotations({
                       {onDelete && isOwner && (
                         <button
                           onClick={() => onDelete(annotation.id)}
-                          className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600"
+                          className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                          title="删除"
                         >
-                          <TrashIcon className="h-3.5 w-3.5" />
-                          删除
+                          <TrashIcon className="h-4 w-4" />
                         </button>
                       )}
 
-                      {/* ★ Submit as Feedback - 所有批注都可以提交反馈 */}
+                      {/* Submit as Feedback */}
                       {onSubmitFeedback && (
                         <button
                           onClick={() => onSubmitFeedback(annotation.id)}
-                          className="flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100"
-                          title="将此批注提交为反馈，进入反馈闭环流程"
+                          className="rounded p-1.5 text-blue-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+                          title="提交反馈"
                         >
-                          <FeedbackIcon className="h-3.5 w-3.5" />
-                          提交反馈
+                          <FeedbackIcon className="h-4 w-4" />
                         </button>
                       )}
 
@@ -487,7 +503,7 @@ export function ReportAnnotations({
                       {annotation.replies && annotation.replies.length > 0 && (
                         <button
                           onClick={() => toggleExpanded(annotation.id)}
-                          className="ml-auto text-xs text-gray-500 hover:text-gray-700"
+                          className="ml-auto rounded px-2 py-1 text-xs text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                         >
                           {isExpanded
                             ? '收起'
