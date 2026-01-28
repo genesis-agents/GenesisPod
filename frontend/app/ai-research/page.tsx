@@ -2,9 +2,6 @@
 
 /**
  * AI Research - 专题研究页面
- * 直接显示 Topic Research 内容，无 Tab 切换
- *
- * ★ Hydration 问题已在 Providers 层面统一处理
  */
 
 import { useState, Suspense } from 'react';

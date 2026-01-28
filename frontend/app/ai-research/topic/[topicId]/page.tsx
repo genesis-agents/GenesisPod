@@ -2,12 +2,7 @@
 
 /**
  * AI Research - Topic Detail Page
- * 专题研究详情页面 - 直接路径访问
- *
- * 路由: /ai-research/topic/[topicId]
- * 用于分享链接直接跳转到报告
- *
- * ★ Hydration 问题已在 Providers 层面统一处理
+ * 专题研究详情页面
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -16,7 +11,6 @@ import { getAuthTokens } from '@/lib/utils/auth';
 import { TopicDetail } from '@/components/ai-research';
 import type { ResearchTopic } from '@/types/topic-research';
 import * as api from '@/lib/api/topic-research';
-
 import { logger } from '@/lib/utils/logger';
 
 export default function TopicDetailPage() {
@@ -25,14 +19,12 @@ export default function TopicDetailPage() {
   const searchParams = useSearchParams();
   const topicId = params?.topicId as string;
 
-  // ★ 读取 view 参数（用于直接跳转到报告视图）
   const viewParam = searchParams?.get('view');
 
   const [topic, setTopic] = useState<ResearchTopic | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Check authentication
   useEffect(() => {
     const tokens = getAuthTokens();
     if (!tokens?.accessToken) {
@@ -40,7 +32,6 @@ export default function TopicDetailPage() {
     }
   }, [router]);
 
-  // Load topic data
   const loadTopic = useCallback(async () => {
     if (!topicId) return;
 
@@ -62,24 +53,21 @@ export default function TopicDetailPage() {
     loadTopic();
   }, [loadTopic]);
 
-  // Handle back navigation
   const handleBack = useCallback(() => {
     router.push('/ai-research?tab=topic');
   }, [router]);
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
-          <div className="border-3 h-10 w-10 animate-spin rounded-full border-gray-300 border-t-violet-600" />
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-300 border-t-violet-600" />
           <p className="text-sm text-gray-500">加载中...</p>
         </div>
       </div>
     );
   }
 
-  // Error state
   if (error || !topic) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-gray-50">

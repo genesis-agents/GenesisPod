@@ -132,12 +132,6 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         return '';
       }
 
-      // During SSR or before hydration, translations might not be available
-      // Return empty string to let fallback logic work
-      if (typeof window === 'undefined' && isLoading) {
-        return '';
-      }
-
       const translation = getNestedValue(translations[locale], key);
 
       if (translation === undefined) {
@@ -156,7 +150,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
       return interpolate(translation, params);
     },
-    [locale, isLoading]
+    [locale]
   );
 
   // Update document lang attribute when locale changes

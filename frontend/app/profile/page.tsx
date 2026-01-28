@@ -1392,16 +1392,5 @@ function ProfileContent() {
 }
 
 export default function Profile() {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Avoid hydration mismatch by not rendering until mounted
-  if (!isMounted) {
-    return null;
-  }
-
   return <ProfileContent />;
 }

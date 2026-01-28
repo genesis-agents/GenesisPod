@@ -1829,18 +1829,6 @@ function YouTubeTLDWContent() {
 }
 
 export default function YouTubeTLDW() {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // On server, render nothing to avoid hydration mismatch
-  // On client, render the actual content immediately
-  if (!isMounted) {
-    return null;
-  }
-
   return (
     <Suspense fallback={<YouTubeLoadingFallback />}>
       <YouTubeTLDWContent />
