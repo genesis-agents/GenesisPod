@@ -90,11 +90,23 @@ function detectBrowserLocale(): Locale {
  * I18n Provider Component
  */
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
+  // ★ 修复 hydration 问题：使用函数初始化，确保 SSR 和 CSR 一致
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    // 在服务端或客户端首次渲染时都返回默认值
+    // 避免 SSR/CSR 不匹配
+    if (typeof window === 'undefined') return DEFAULT_LOCALE;
+    const stored = localStorage.getItem(STORAGE_KEY) as Locale | null;
+    if (stored && (stored === 'en' || stored === 'zh')) {
+      return stored;
+    }
+    return DEFAULT_LOCALE;
+  });
   const [isLoading, setIsLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Initialize locale from storage or browser settings
   useEffect(() => {
+    setIsMounted(true);
     const stored = localStorage.getItem(STORAGE_KEY) as Locale | null;
     if (stored && (stored === 'en' || stored === 'zh')) {
       setLocaleState(stored);

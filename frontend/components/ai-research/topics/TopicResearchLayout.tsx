@@ -42,11 +42,14 @@ interface WsEvent {
 }
 
 // Report revision for version history
+// ★ 使用 string | Date 避免 hydration 错误
 interface ReportRevision {
   id: string;
   version: number;
-  createdAt: Date;
+  createdAt: string | Date;
   summary?: string;
+  wordCount?: number;
+  totalSources?: number;
 }
 
 interface TopicResearchLayoutProps {
@@ -225,13 +228,7 @@ export function TopicResearchLayout({
 
     // 未知可见性，默认无权限（避免不必要的 API 调用）
     setCanEdit(false);
-  }, [
-    user?.id,
-    topic.id,
-    topic.userId,
-    topic.createdById,
-    topic.visibility,
-  ]);
+  }, [user?.id, topic.id, topic.userId, topic.createdById, topic.visibility]);
 
   const handleExport = useCallback(
     (format: 'pdf' | 'docx') => {

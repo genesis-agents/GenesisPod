@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useTopicContent } from './TopicContentContext';
+import { ClientDate } from '@/components/common/ClientDate';
 
 // Icons
 const SpinnerIcon = ({ className }: { className?: string }) => (
@@ -53,8 +54,7 @@ export function TopicReferencesPanel({
   autoExpandId,
   onAutoExpandHandled,
 }: TopicReferencesPanelProps) {
-  const { report, dimensions, evidence, isLoadingEvidence } =
-    useTopicContent();
+  const { report, dimensions, evidence, isLoadingEvidence } = useTopicContent();
 
   const safeEvidence = Array.isArray(evidence) ? evidence : [];
 
@@ -382,11 +382,7 @@ export function TopicReferencesPanel({
                           {item.sourceType || '网页'}
                         </span>
                         {item.publishedAt && (
-                          <span>
-                            {new Date(item.publishedAt).toLocaleDateString(
-                              'zh-CN'
-                            )}
-                          </span>
+                          <ClientDate date={item.publishedAt} format="date" />
                         )}
                       </div>
                       {item.url && (

@@ -12,6 +12,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { TopicEvidence, TopicDimension } from '@/types/topic-research';
 import { recalculateCredibilityScores } from '@/lib/api/topic-research';
+import { ClientDate } from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
 type FilterType = 'all' | 'dimension' | 'source' | 'time';
@@ -453,11 +454,11 @@ export function ReferencePanel({
                         {credibility.percentage || credibility.label}
                       </span>
                       {/* Date */}
-                      <span className="text-gray-400">
-                        {item.publishedAt
-                          ? new Date(item.publishedAt).toLocaleDateString()
-                          : new Date(item.createdAt).toLocaleDateString()}
-                      </span>
+                      <ClientDate
+                        date={item.publishedAt || item.createdAt}
+                        format="date"
+                        className="text-gray-400"
+                      />
                     </div>
                   </div>
 

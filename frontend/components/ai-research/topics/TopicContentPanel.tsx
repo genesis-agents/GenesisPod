@@ -13,6 +13,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Shield, Maximize2, X, RefreshCw } from 'lucide-react';
+import { ClientDate } from '@/components/common/ClientDate';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import type {
@@ -102,7 +103,8 @@ export interface AgentThinking {
 interface ReportRevision {
   id: string;
   version: number;
-  createdAt: Date;
+  // ★ 使用字符串类型避免 Date 对象导致的 hydration 错误
+  createdAt: string | Date;
   summary?: string;
   wordCount?: number;
   totalSources?: number;
@@ -2536,11 +2538,11 @@ function ReportTabContent({
             <LinkIcon className="h-4 w-4" />
             {report.totalSources || 0} 个来源
           </span>
-          <span>
-            {report.generatedAt
-              ? new Date(report.generatedAt).toLocaleString('zh-CN')
-              : '-'}
-          </span>
+          <ClientDate
+            date={report.generatedAt}
+            format="datetime"
+            fallback="-"
+          />
         </div>
       </div>
 
@@ -5496,11 +5498,7 @@ function EvidenceTabContent({
                           {item.sourceType || '网页'}
                         </span>
                         {item.publishedAt && (
-                          <span>
-                            {new Date(item.publishedAt).toLocaleDateString(
-                              'zh-CN'
-                            )}
-                          </span>
+                          <ClientDate date={item.publishedAt} format="date" />
                         )}
                       </div>
                       {item.url && (

@@ -11,6 +11,7 @@
 
 import { useState, useCallback } from 'react';
 import { useTranslation } from '@/lib/i18n';
+import { ClientDate } from '@/components/common/ClientDate';
 
 // Revision types
 interface ReportRevision {
@@ -357,9 +358,10 @@ export function ReportRevisionHistory({
                                 'topicResearch.contentPanel.revisionHistory.unknown'
                               )}
                           </span>
-                          <span>
-                            {new Date(revision.createdAt).toLocaleString()}
-                          </span>
+                          <ClientDate
+                            date={revision.createdAt}
+                            format="datetime"
+                          />
                           <span>
                             {t(
                               'topicResearch.contentPanel.revisionHistory.characters',

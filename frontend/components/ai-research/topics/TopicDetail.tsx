@@ -8,7 +8,7 @@
  * v7.1: 集成 WebSocket 实时事件推送
  */
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import type { ResearchTopic } from '@/types/topic-research';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
 import { useResearchWebSocket } from '@/hooks/useResearchWebSocket';
@@ -222,14 +222,22 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
   const safeReports = Array.isArray(reports) ? reports : [];
 
   // Convert reports to revisions format (exclude current report)
-  const revisions = safeReports
-    .filter((r) => r.id !== currentReport?.id)
-    .map((r) => ({
-      id: r.id,
-      version: r.version,
-      createdAt: r.generatedAt ? new Date(r.generatedAt) : new Date(),
-      summary: r.title || `版本 ${r.version}`,
-    }));
+  // ★ 使用 useMemo 并避免 new Date() 以防止 hydration 错误
+  const revisions = useMemo(
+    () =>
+      safeReports
+        .filter((r) => r.id !== currentReport?.id)
+        .map((r) => ({
+          id: r.id,
+          version: r.version,
+          // 使用字符串而非 Date 对象，避免 SSR/客户端不一致
+          createdAt: r.generatedAt || r.updatedAt || r.createdAt || '',
+          summary: r.title || `v${r.version}`,
+          wordCount: r.fullReport?.length || 0,
+          totalSources: r.totalSources || 0,
+        })),
+    [safeReports, currentReport?.id]
+  );
 
   return (
     <TopicResearchLayout
