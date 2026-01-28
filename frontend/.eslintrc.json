@@ -67,8 +67,9 @@
     "prefer-const": "error",
     "no-var": "error",
 
-    // ★ Hydration 安全规则：禁止在 JSX 组件中直接使用 toLocaleDateString/toLocaleTimeString
-    // 使用 <ClientDate> 组件或 formatDateSafe() 替代
+    // ★ Hydration 安全规则：禁止 locale-dependent 方法（SSR/CSR 结果不一致）
+    // - toLocaleDateString/toLocaleTimeString: 使用 <ClientDate> 组件
+    // - toLocaleString: 直接显示数字或使用 Intl.NumberFormat 在客户端格式化
     "no-restricted-syntax": [
       "warn",
       {
@@ -78,6 +79,10 @@
       {
         "selector": "CallExpression[callee.property.name='toLocaleTimeString']",
         "message": "Avoid toLocaleTimeString() - causes hydration errors. Use <ClientDate> component or formatDateSafe() from '@/lib/utils/date'."
+      },
+      {
+        "selector": "CallExpression[callee.property.name='toLocaleString']",
+        "message": "Avoid toLocaleString() in JSX - causes hydration errors. For numbers, display directly or format in useEffect/event handlers."
       }
     ]
   },
