@@ -153,12 +153,23 @@ const nextConfig = {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     const aiUrl = process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:5000';
     return [
+      // ★ 静态资源（带 content hash）可以长期缓存
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      // ★ HTML 页面不缓存，确保用户总是获取最新版本
       {
         source: '/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=0, s-maxage=60, stale-while-revalidate=300',
+            value: 'public, max-age=0, must-revalidate',
           },
           {
             key: 'X-Frame-Options',
