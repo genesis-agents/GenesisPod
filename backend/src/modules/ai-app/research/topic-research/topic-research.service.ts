@@ -1621,6 +1621,12 @@ export class TopicResearchService {
 
     // 转换维度分析数据
     if (report.dimensionAnalyses) {
+      // ★ 辅助函数：清理HTML + 下划线等格式问题
+      const cleanAndSanitize = (content: string | undefined | null): string => {
+        if (!content) return "";
+        return sanitizeMarkdownContent(cleanHtmlTagsFromContent(content) || "");
+      };
+
       report.dimensionAnalyses = report.dimensionAnalyses.map(
         (analysis: any) => {
           const dataPoints = analysis.dataPoints as {
@@ -1631,10 +1637,10 @@ export class TopicResearchService {
             detailedContent?: string;
           } | null;
 
-          // ★ 清理维度分析中的文本内容
-          const cleanedAnalysis = cleanHtmlTagsFromContent(analysis.analysis);
-          const cleanedSummary = cleanHtmlTagsFromContent(analysis.summary);
-          const cleanedDetailedContent = cleanHtmlTagsFromContent(
+          // ★ 清理维度分析中的文本内容（HTML标签 + 下划线等格式问题）
+          const cleanedAnalysis = cleanAndSanitize(analysis.analysis);
+          const cleanedSummary = cleanAndSanitize(analysis.summary);
+          const cleanedDetailedContent = cleanAndSanitize(
             dataPoints?.detailedContent,
           );
 
@@ -1642,36 +1648,34 @@ export class TopicResearchService {
           const cleanedKeyFindings =
             analysis.keyFindings?.map((kf: any) => ({
               ...kf,
-              finding: cleanHtmlTagsFromContent(kf.finding),
-              implication: cleanHtmlTagsFromContent(kf.implication),
+              finding: cleanAndSanitize(kf.finding),
+              implication: cleanAndSanitize(kf.implication),
             })) || [];
 
           // ★ 清理趋势、挑战、机会中的文本
           const cleanedTrends = (dataPoints?.trends || []).map((t: any) => ({
             ...t,
-            trend: cleanHtmlTagsFromContent(t.trend),
-            drivers: cleanHtmlTagsFromContent(t.drivers),
-            prediction: cleanHtmlTagsFromContent(t.prediction),
+            trend: cleanAndSanitize(t.trend),
+            drivers: cleanAndSanitize(t.drivers),
+            prediction: cleanAndSanitize(t.prediction),
           }));
 
           const cleanedChallenges = (dataPoints?.challenges || []).map(
             (c: any) => ({
               ...c,
-              challenge: cleanHtmlTagsFromContent(c.challenge),
-              rootCause: cleanHtmlTagsFromContent(c.rootCause),
-              impact: cleanHtmlTagsFromContent(c.impact),
-              potentialSolutions: cleanHtmlTagsFromContent(
-                c.potentialSolutions,
-              ),
+              challenge: cleanAndSanitize(c.challenge),
+              rootCause: cleanAndSanitize(c.rootCause),
+              impact: cleanAndSanitize(c.impact),
+              potentialSolutions: cleanAndSanitize(c.potentialSolutions),
             }),
           );
 
           const cleanedOpportunities = (dataPoints?.opportunities || []).map(
             (o: any) => ({
               ...o,
-              opportunity: cleanHtmlTagsFromContent(o.opportunity),
-              potential: cleanHtmlTagsFromContent(o.potential),
-              requirements: cleanHtmlTagsFromContent(o.requirements),
+              opportunity: cleanAndSanitize(o.opportunity),
+              potential: cleanAndSanitize(o.potential),
+              requirements: cleanAndSanitize(o.requirements),
             }),
           );
 
