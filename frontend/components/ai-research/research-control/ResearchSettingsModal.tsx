@@ -73,9 +73,17 @@ export function ResearchSettingsModal({
   // Initialize from currentTopic
   useEffect(() => {
     if (currentTopic) {
-      // Set visibility from topic
+      // Set visibility from topic (API uses PRIVATE/SHARED/PUBLIC, local uses private/team/public)
       if (currentTopic.visibility) {
-        setVisibility(currentTopic.visibility as VisibilityType);
+        const visibilityMap: Record<string, VisibilityType> = {
+          PRIVATE: 'private',
+          SHARED: 'team',
+          PUBLIC: 'public',
+          private: 'private',
+          team: 'team',
+          public: 'public',
+        };
+        setVisibility(visibilityMap[currentTopic.visibility] || 'private');
       }
       // ★ 从 topicConfig 加载知识库ID
       const knowledgeBaseIds = currentTopic.topicConfig?.knowledgeBaseIds;
@@ -85,6 +93,8 @@ export function ResearchSettingsModal({
           'Loaded knowledge base IDs from topicConfig:',
           knowledgeBaseIds
         );
+      } else {
+        setSelectedKnowledgeBases([]);
       }
     }
   }, [currentTopic]);
@@ -96,9 +106,9 @@ export function ResearchSettingsModal({
       // ★ 调用 API 更新专题配置
       await updateTopic(topicId, {
         topicConfig: {
-          knowledgeBaseIds: selectedKnowledgeBases,
           // 保留其他已有配置
           ...currentTopic?.topicConfig,
+          knowledgeBaseIds: selectedKnowledgeBases,
         },
         visibility:
           visibility === 'private'

@@ -16,6 +16,7 @@ import {
   regenerateReportContent,
   type AIEditOperation as AIEditOperationType,
 } from '@/lib/api/topic-research';
+import { createFeedbackFromAnnotation } from '@/lib/api/research-feedback';
 import { ReportEditPanel } from '../reports/ReportEditPanel';
 import { ChapterizedReportView } from '../reports/ChapterizedReportView';
 import { ReportRevisionHistory } from '../reports/ReportRevisionHistory';
@@ -137,6 +138,20 @@ export function TopicReportView({
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   const reportContentRef = useRef<HTMLDivElement>(null);
+
+  // ★ 将批注提交为反馈
+  const handleSubmitFeedback = useCallback(
+    async (annotationId: string) => {
+      try {
+        await createFeedbackFromAnnotation(annotationId);
+        onAnnotationResolve?.(annotationId);
+        logger.info('Annotation submitted as feedback:', annotationId);
+      } catch (error) {
+        logger.error('Failed to submit annotation as feedback:', error);
+      }
+    },
+    [onAnnotationResolve]
+  );
 
   // Handle regenerate report content
   const handleRegenerateReport = useCallback(async () => {
@@ -461,6 +476,7 @@ export function TopicReportView({
                   onDelete={onAnnotationDelete}
                   onResolve={onAnnotationResolve}
                   onReply={onAnnotationReply}
+                  onSubmitFeedback={handleSubmitFeedback}
                   onNavigate={(annotationId: string) => {
                     setHighlightedAnnotationId(annotationId);
                     setTimeout(() => {

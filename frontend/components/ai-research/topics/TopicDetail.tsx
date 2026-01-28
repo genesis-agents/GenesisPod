@@ -221,21 +221,19 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
   // ★ 安全处理：确保 reports 是数组，防止 undefined 报错
   const safeReports = Array.isArray(reports) ? reports : [];
 
-  // Convert reports to revisions format (exclude current report)
+  // Convert reports to revisions format (include all versions)
   // ★ 使用 useMemo 并避免 new Date() 以防止 hydration 错误
   const revisions = useMemo(
     () =>
-      safeReports
-        .filter((r) => r.id !== currentReport?.id)
-        .map((r) => ({
-          id: r.id,
-          version: r.version,
-          // 使用字符串而非 Date 对象，避免 SSR/客户端不一致
-          createdAt: r.generatedAt || r.updatedAt || r.createdAt || '',
-          summary: r.title || `v${r.version}`,
-          wordCount: r.fullReport?.length || 0,
-          totalSources: r.totalSources || 0,
-        })),
+      safeReports.map((r) => ({
+        id: r.id,
+        version: r.version,
+        // 使用字符串而非 Date 对象，避免 SSR/客户端不一致
+        createdAt: r.generatedAt || r.updatedAt || r.createdAt || '',
+        summary: r.title || `v${r.version}`,
+        wordCount: r.fullReport?.length || 0,
+        totalSources: r.totalSources || 0,
+      })),
     [safeReports, currentReport?.id]
   );
 
