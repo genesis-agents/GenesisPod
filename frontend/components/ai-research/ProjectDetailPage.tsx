@@ -72,6 +72,7 @@ import {
   type SourceReference,
 } from '@/components/ai-research/deep-research/citations';
 import { ResearchTab } from '@/components/ai-research/deep-research/ResearchTab';
+import ClientDate from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
 // ==================== 类型定义 ====================
@@ -674,8 +675,15 @@ function SourcesPanel({
                         {getStatusIcon(source.analysisStatus)}
                         <span className="truncate">
                           {source.sourceType}
-                          {source.publishedAt &&
-                            ` · ${new Date(source.publishedAt).toLocaleDateString()}`}
+                          {source.publishedAt && (
+                            <>
+                              {' · '}
+                              <ClientDate
+                                date={source.publishedAt}
+                                format="date"
+                              />
+                            </>
+                          )}
                         </span>
                       </div>
                       {/* Show highlighted content when this source is referenced */}
@@ -1036,11 +1044,10 @@ function SourcesPanel({
                                     </span>
                                   )}
                                 {result.publishedAt && (
-                                  <span>
-                                    {new Date(
-                                      result.publishedAt
-                                    ).toLocaleDateString()}
-                                  </span>
+                                  <ClientDate
+                                    date={result.publishedAt}
+                                    format="date"
+                                  />
                                 )}
                                 {result.metadata?.stars && (
                                   <span className="flex items-center gap-0.5">
@@ -1190,11 +1197,10 @@ function SourcesPanel({
                               </span>
                             )}
                           {viewingSource.publishedAt && (
-                            <span>
-                              {new Date(
-                                viewingSource.publishedAt
-                              ).toLocaleDateString()}
-                            </span>
+                            <ClientDate
+                              date={viewingSource.publishedAt}
+                              format="date"
+                            />
                           )}
                           {viewingSource.metadata?.stars && (
                             <span className="flex items-center gap-1">
@@ -1839,9 +1845,11 @@ function StudioPanel({
                       </button>
                     </div>
                   </div>
-                  <div className="mt-2 text-xs text-gray-400">
-                    {new Date(note.createdAt).toLocaleDateString()}
-                  </div>
+                  <ClientDate
+                    date={note.createdAt}
+                    format="date"
+                    className="mt-2 text-xs text-gray-400"
+                  />
                 </div>
               ))}
             </div>
@@ -2398,9 +2406,11 @@ function ArtifactsSidebar({
                       <p className="line-clamp-2 text-sm text-gray-600">
                         {note.content}
                       </p>
-                      <div className="mt-1 text-xs text-gray-400">
-                        {new Date(note.createdAt).toLocaleDateString()}
-                      </div>
+                      <ClientDate
+                        date={note.createdAt}
+                        format="date"
+                        className="mt-1 text-xs text-gray-400"
+                      />
                     </div>
                     <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                       <button
@@ -2769,9 +2779,11 @@ function ArtifactsView({
                           </h4>
                         )}
                         <p className="text-gray-600">{note.content}</p>
-                        <div className="mt-2 text-xs text-gray-400">
-                          {new Date(note.createdAt).toLocaleDateString()}
-                        </div>
+                        <ClientDate
+                          date={note.createdAt}
+                          format="date"
+                          className="mt-2 text-xs text-gray-400"
+                        />
                       </div>
                       <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                         <button
