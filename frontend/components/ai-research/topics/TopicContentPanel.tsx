@@ -1981,7 +1981,7 @@ export function TopicContentPanel({
                       <div className="flex-1 overflow-auto">
                         <ReportAnnotations
                           annotations={annotations}
-                          currentUserId="current-user"
+                          currentUserId={user?.id}
                           isLoading={false}
                           onUpdate={handleAnnotationUpdate}
                           onDelete={handleAnnotationDelete}
