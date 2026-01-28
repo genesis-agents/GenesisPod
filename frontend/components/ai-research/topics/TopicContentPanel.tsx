@@ -1213,26 +1213,27 @@ export function TopicContentPanel({
               </div>
             </div>
 
-            {/* 中间：报告标题 */}
+            {/* 中间：版本号 */}
             <div className="absolute left-1/2 -translate-x-1/2">
-              <h2 className="text-base font-semibold text-gray-800">
-                {report?.title || t('topicResearch.insightReport')}
-              </h2>
+              {report && (
+                <span className="text-sm font-medium text-gray-700">
+                  v{report.version}
+                </span>
+              )}
             </div>
 
-            {/* 右侧：操作按钮 */}
+            {/* 右侧：操作按钮 - 图标形式 */}
             <div className="flex items-center gap-2">
               {/* 重新生成按钮 */}
               <button
                 onClick={handleRegenerateReport}
                 disabled={isRegenerating}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                title="重新生成报告内容"
+                className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                title={t('topicResearch.contentPanel.toolbar.regenerate')}
               >
                 <RefreshCw
-                  className={`h-3.5 w-3.5 ${isRegenerating ? 'animate-spin' : ''}`}
+                  className={`h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`}
                 />
-                <span>{isRegenerating ? '生成中...' : '重新生成'}</span>
               </button>
 
               {/* 历史按钮 */}
@@ -1242,14 +1243,14 @@ export function TopicContentPanel({
                     sidePanelType === 'history' ? null : 'history'
                   )
                 }
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                className={`rounded-lg p-2 transition-colors ${
                   sidePanelType === 'history'
                     ? 'bg-blue-100 text-blue-700'
-                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
+                title={t('topicResearch.contentPanel.toolbar.history')}
               >
-                <HistoryIcon className="h-3.5 w-3.5" />
-                <span>{t('topicResearch.history')}</span>
+                <HistoryIcon className="h-4 w-4" />
               </button>
 
               {/* 批注按钮 */}
@@ -1259,14 +1260,14 @@ export function TopicContentPanel({
                     sidePanelType === 'annotations' ? null : 'annotations'
                   )
                 }
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                className={`rounded-lg p-2 transition-colors ${
                   sidePanelType === 'annotations'
                     ? 'bg-purple-100 text-purple-700'
-                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
+                title={t('topicResearch.contentPanel.toolbar.annotations')}
               >
-                <AnnotationIcon className="h-3.5 w-3.5" />
-                <span>{t('topicResearch.annotations')}</span>
+                <AnnotationIcon className="h-4 w-4" />
               </button>
             </div>
           </header>
@@ -1399,26 +1400,73 @@ export function TopicContentPanel({
                     </div>
                     <div className="flex-1 overflow-auto">
                       <ReportRevisionHistory
-                        revisions={revisions.map((rev, idx) => ({
-                          id: rev.id,
-                          version: rev.version,
-                          title: `v${rev.version}`,
-                          summary: rev.summary || '',
-                          changeType:
-                            idx === revisions.length - 1
-                              ? ('create' as const)
-                              : ('edit' as const),
-                          changeDescription: rev.totalSources
-                            ? `${rev.totalSources} sources · ${rev.wordCount || 0} 字`
-                            : rev.summary || '',
-                          author: rev.author || '',
-                          createdAt:
-                            typeof rev.createdAt === 'string'
-                              ? rev.createdAt
-                              : (rev.createdAt as Date).toISOString(),
-                          wordCount: rev.wordCount || 0,
-                          wordCountDelta: 0,
-                        }))}
+                        revisions={(() => {
+                          // 构建完整的版本列表，包含当前版本
+                          const allRevisions: {
+                            id: string;
+                            version: number;
+                            title: string;
+                            summary: string;
+                            changeType:
+                              | 'create'
+                              | 'edit'
+                              | 'ai_edit'
+                              | 'rollback';
+                            changeDescription: string;
+                            author: string;
+                            createdAt: string;
+                            wordCount: number;
+                            wordCountDelta: number;
+                          }[] = [];
+
+                          // 添加当前版本（如果不在 revisions 中）
+                          const currentVersionExists = revisions.some(
+                            (rev) => rev.version === report?.version
+                          );
+                          if (report && !currentVersionExists) {
+                            allRevisions.push({
+                              id: report.id,
+                              version: report.version,
+                              title: `v${report.version}`,
+                              summary: '',
+                              changeType: 'edit',
+                              changeDescription: `${report.totalSources || 0} sources · ${report.fullReport?.length || 0} 字`,
+                              author: '',
+                              createdAt: new Date().toISOString(),
+                              wordCount: report.fullReport?.length || 0,
+                              wordCountDelta: 0,
+                            });
+                          }
+
+                          // 添加历史版本
+                          revisions.forEach((rev, idx) => {
+                            allRevisions.push({
+                              id: rev.id,
+                              version: rev.version,
+                              title: `v${rev.version}`,
+                              summary: rev.summary || '',
+                              changeType:
+                                idx === revisions.length - 1
+                                  ? 'create'
+                                  : 'edit',
+                              changeDescription: rev.totalSources
+                                ? `${rev.totalSources} sources · ${rev.wordCount || 0} 字`
+                                : rev.summary || '',
+                              author: rev.author || '',
+                              createdAt:
+                                typeof rev.createdAt === 'string'
+                                  ? rev.createdAt
+                                  : (rev.createdAt as Date).toISOString(),
+                              wordCount: rev.wordCount || 0,
+                              wordCountDelta: 0,
+                            });
+                          });
+
+                          // 按版本号降序排列
+                          return allRevisions.sort(
+                            (a, b) => b.version - a.version
+                          );
+                        })()}
                         currentVersion={report?.version || 1}
                         isLoading={false}
                         onRollback={
@@ -1505,20 +1553,8 @@ export function TopicContentPanel({
         {/* 报告工具栏 - 仅在报告 Tab 时显示，合并为一行 */}
         {activeTab === 'report' && (
           <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4 py-2.5">
-            {/* 左侧：版本号 */}
-            <div className="flex items-center">
-              {report && (
-                <span className="text-sm font-medium text-gray-700">
-                  v{report.version}
-                </span>
-              )}
-            </div>
-
-            {/* 中间：占位 */}
-            <div className="flex-1" />
-
-            {/* 右侧：操作按钮 - 只显示图标，悬停显示文字 */}
-            <div className="flex items-center gap-1">
+            {/* 左侧：视图切换 + 版本号 */}
+            <div className="flex items-center gap-3">
               {/* 视图模式切换 */}
               <div className="flex rounded-md border border-gray-200 bg-white p-0.5">
                 <button
@@ -1545,9 +1581,16 @@ export function TopicContentPanel({
                 </button>
               </div>
 
-              {/* 分隔线 */}
-              <div className="mx-1 h-5 w-px bg-gray-200" />
+              {/* 版本号 */}
+              {report && (
+                <span className="text-sm font-medium text-gray-700">
+                  v{report.version}
+                </span>
+              )}
+            </div>
 
+            {/* 右侧：操作按钮 - 只显示图标，悬停显示文字 */}
+            <div className="flex items-center gap-2">
               {/* 重新生成按钮 */}
               <button
                 onClick={handleRegenerateReport}
@@ -1883,26 +1926,73 @@ export function TopicContentPanel({
                       </div>
                       <div className="flex-1 overflow-auto">
                         <ReportRevisionHistory
-                          revisions={revisions.map((rev, idx) => ({
-                            id: rev.id,
-                            version: rev.version,
-                            title: `v${rev.version}`,
-                            summary: rev.summary || '',
-                            changeType:
-                              idx === 0
-                                ? ('create' as const)
-                                : ('edit' as const),
-                            changeDescription: rev.totalSources
-                              ? `${rev.totalSources} sources · ${rev.wordCount || 0} 字`
-                              : rev.summary || '',
-                            author: rev.author || '',
-                            createdAt:
-                              typeof rev.createdAt === 'string'
-                                ? rev.createdAt
-                                : (rev.createdAt as Date).toISOString(),
-                            wordCount: rev.wordCount || 0,
-                            wordCountDelta: 0,
-                          }))}
+                          revisions={(() => {
+                            // 构建完整的版本列表，包含当前版本
+                            const allRevisions: {
+                              id: string;
+                              version: number;
+                              title: string;
+                              summary: string;
+                              changeType:
+                                | 'create'
+                                | 'edit'
+                                | 'ai_edit'
+                                | 'rollback';
+                              changeDescription: string;
+                              author: string;
+                              createdAt: string;
+                              wordCount: number;
+                              wordCountDelta: number;
+                            }[] = [];
+
+                            // 添加当前版本（如果不在 revisions 中）
+                            const currentVersionExists = revisions.some(
+                              (rev) => rev.version === report?.version
+                            );
+                            if (report && !currentVersionExists) {
+                              allRevisions.push({
+                                id: report.id,
+                                version: report.version,
+                                title: `v${report.version}`,
+                                summary: '',
+                                changeType: 'edit',
+                                changeDescription: `${report.totalSources || 0} sources · ${report.fullReport?.length || 0} 字`,
+                                author: '',
+                                createdAt: new Date().toISOString(),
+                                wordCount: report.fullReport?.length || 0,
+                                wordCountDelta: 0,
+                              });
+                            }
+
+                            // 添加历史版本
+                            revisions.forEach((rev, idx) => {
+                              allRevisions.push({
+                                id: rev.id,
+                                version: rev.version,
+                                title: `v${rev.version}`,
+                                summary: rev.summary || '',
+                                changeType:
+                                  idx === revisions.length - 1
+                                    ? 'create'
+                                    : 'edit',
+                                changeDescription: rev.totalSources
+                                  ? `${rev.totalSources} sources · ${rev.wordCount || 0} 字`
+                                  : rev.summary || '',
+                                author: rev.author || '',
+                                createdAt:
+                                  typeof rev.createdAt === 'string'
+                                    ? rev.createdAt
+                                    : (rev.createdAt as Date).toISOString(),
+                                wordCount: rev.wordCount || 0,
+                                wordCountDelta: 0,
+                              });
+                            });
+
+                            // 按版本号降序排列
+                            return allRevisions.sort(
+                              (a, b) => b.version - a.version
+                            );
+                          })()}
                           currentVersion={report?.version || 1}
                           isLoading={false}
                           onRollback={
