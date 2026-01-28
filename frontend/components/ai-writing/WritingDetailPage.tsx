@@ -293,7 +293,7 @@ function ChapterContentStructured({
 export function WritingDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const projectId = params.id as string;
+  const projectId = params?.id as string;
   const { user, isLoading: authLoading } = useAuth();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 

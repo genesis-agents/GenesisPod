@@ -50,7 +50,7 @@ function ProfileContent() {
 
   // Read initial tab from URL query parameter
   const initialTab =
-    (searchParams.get('tab') as
+    (searchParams?.get('tab') as
       | 'profile'
       | 'settings'
       | 'stats'

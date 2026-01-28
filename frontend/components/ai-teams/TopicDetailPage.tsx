@@ -1822,7 +1822,7 @@ function MessageInput({
 export function TopicDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const topicId = params.topicId as string;
+  const topicId = params?.topicId as string;
   const { user, accessToken, isLoading: authLoading } = useAuth();
   const { models: aiModels } = useAIModels();
 

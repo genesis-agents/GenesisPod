@@ -12,7 +12,7 @@ function AIImageCreateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useTranslation();
-  const initialImageId = searchParams.get('id') || undefined;
+  const initialImageId = searchParams?.get('id') || undefined;
 
   useEffect(() => {
     if (!isLoading && !user) {

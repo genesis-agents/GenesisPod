@@ -30,6 +30,12 @@ const nextConfig = {
   images: {
     domains: ['arxiv.org', 'github.com'],
   },
+  // ★ 关键配置：跳过静态生成，使用纯动态渲染
+  // 这是一个需要用户认证和客户端状态的应用，静态生成无意义
+  experimental: {
+    // 允许 CSR bailout 而不报错
+    missingSuspenseWithCSRBailout: false,
+  },
   env: {
     NEXT_PUBLIC_API_URL:
       process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',

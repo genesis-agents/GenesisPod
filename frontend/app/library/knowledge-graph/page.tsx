@@ -138,7 +138,7 @@ function KnowledgeGraphPageContent() {
   const [userId, setUserId] = useState<string | null>(null);
 
   // 从 URL 获取 collectionId 参数
-  const collectionId = searchParams.get('collectionId');
+  const collectionId = searchParams?.get('collectionId');
 
   // 获取当前用户 ID
   useEffect(() => {

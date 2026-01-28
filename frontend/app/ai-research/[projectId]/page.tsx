@@ -2861,7 +2861,7 @@ function ArtifactsView({
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const projectId = params.projectId as string;
+  const projectId = params?.projectId as string;
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);

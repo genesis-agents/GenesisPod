@@ -64,7 +64,7 @@ interface Resource {
 export default function ResourcePage() {
   const params = useParams();
   const router = useRouter();
-  const id = params.id as string;
+  const id = params?.id as string;
 
   const [resource, setResource] = useState<Resource | null>(null);
   const [loading, setLoading] = useState(true);

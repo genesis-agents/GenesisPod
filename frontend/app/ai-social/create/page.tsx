@@ -55,9 +55,9 @@ function CreateSocialContentForm() {
   const { publish } = useSocialPublish();
 
   // URL params for deep linking
-  const sourceParam = searchParams.get('source');
-  const urlParam = searchParams.get('url');
-  const sourceIdParam = searchParams.get('sourceId');
+  const sourceParam = searchParams?.get('source');
+  const urlParam = searchParams?.get('url');
+  const sourceIdParam = searchParams?.get('sourceId');
 
   // Initialize from URL params
   useEffect(() => {

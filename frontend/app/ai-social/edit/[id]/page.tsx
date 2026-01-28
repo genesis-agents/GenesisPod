@@ -30,7 +30,7 @@ export default function EditSocialContentPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useParams();
-  const contentId = params.id as string;
+  const contentId = params?.id as string;
   const { user, isLoading: authLoading, isAdmin } = useAuth();
 
   // Hooks

@@ -78,7 +78,7 @@ export default function WorkspaceLayout({
   const router = useRouter();
 
   // Derive active tab directly from URL (source of truth)
-  const tabParam = searchParams.get('tab') as WorkspaceTab | null;
+  const tabParam = searchParams?.get('tab') as WorkspaceTab | null;
   const activeTab: WorkspaceTab =
     tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'slides';
 

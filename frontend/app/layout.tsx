@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 import Providers from './providers';
 
+// ★ 跳过静态生成 - 应用使用客户端上下文，必须在运行时渲染
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'AI Teams Engine - AI驱动的多智能体协作平台',
   description: '多Agent协作，智能完成复杂任务',

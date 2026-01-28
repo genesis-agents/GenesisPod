@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 import { logger } from '@/lib/utils/logger';
+
+// ★ 使用 cookies() 必须标记为动态
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+export const runtime = 'nodejs';
+
 const BACKEND_API_URL =
   process.env.BACKEND_API_URL ||
   'https://deepdive-engine.up.railway.app/api/v1';
-
-export const maxDuration = 60;
-export const runtime = 'nodejs';
 
 /**
  * POST /api/agents/execute

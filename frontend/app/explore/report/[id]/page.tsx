@@ -45,7 +45,7 @@ interface Report {
 export default function ReportPage() {
   const params = useParams();
   const router = useRouter();
-  const reportId = params.id as string;
+  const reportId = params?.id as string;
 
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);

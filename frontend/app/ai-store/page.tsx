@@ -15,10 +15,10 @@ function AIStoreContent() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const activeTab = (searchParams.get('tab') as TabType) || 'tools';
+  const activeTab = (searchParams?.get('tab') as TabType) || 'tools';
 
   const setActiveTab = (tab: TabType) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(searchParams?.toString() || '');
     params.set('tab', tab);
     router.push(`${pathname}?${params.toString()}`);
   };

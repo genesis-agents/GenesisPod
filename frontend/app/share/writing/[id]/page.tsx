@@ -68,7 +68,7 @@ const cleanChapterContent = (content: string): string => {
 
 export default function PublicReadPage() {
   const params = useParams();
-  const projectId = params.id as string;
+  const projectId = params?.id as string;
 
   const [project, setProject] = useState<PublicProject | null>(null);
   const [loading, setLoading] = useState(true);
