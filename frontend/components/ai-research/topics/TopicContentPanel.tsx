@@ -415,11 +415,15 @@ export function TopicContentPanel({
     resetTopicData();
   }, [onClearWsEvents, resetTopicData]);
 
-  // ★ 根据 initialView 设置初始 Tab（用于分享链接直接跳转到报告）
-  const [activeTab, setActiveTab] = useState<TabType>(() => {
-    if (initialView === 'report') return 'report';
-    return 'research_collab';
-  });
+  // ★ 使用固定初始值避免 hydration 错误（useSearchParams 在 SSR 时为空）
+  const [activeTab, setActiveTab] = useState<TabType>('research_collab');
+
+  // ★ 在客户端 hydration 后根据 initialView 切换 Tab
+  useEffect(() => {
+    if (initialView === 'report') {
+      setActiveTab('report');
+    }
+  }, [initialView]);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [versionMenuOpen, setVersionMenuOpen] = useState(false);
   // Toast 提示状态
