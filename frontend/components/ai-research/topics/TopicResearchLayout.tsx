@@ -399,7 +399,6 @@ export function TopicResearchLayout({
         open={showSettings}
         onClose={() => setShowSettings(false)}
         topicId={topic.id}
-        onClearMessages={onClearWsEvents}
       />
     </div>
   );
