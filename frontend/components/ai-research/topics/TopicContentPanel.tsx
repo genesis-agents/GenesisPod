@@ -1457,7 +1457,7 @@ export function TopicContentPanel({
 
             {/* 侧边栏 - 历史/批注 */}
             {sidePanelType && (
-              <div className="w-[400px] flex-shrink-0 overflow-hidden bg-white">
+              <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
                 {sidePanelType === 'history' && (
                   <div className="flex h-full flex-col">
                     <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
