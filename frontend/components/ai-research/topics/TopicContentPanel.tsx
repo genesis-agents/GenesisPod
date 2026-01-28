@@ -1438,7 +1438,7 @@ export function TopicContentPanel({
                                 }
                               ),
                               author: '',
-                              createdAt: new Date().toISOString(),
+                              createdAt: report.updatedAt || report.createdAt,
                               wordCount: report.fullReport?.length || 0,
                               wordCountDelta: 0,
                             });
@@ -1978,7 +1978,7 @@ export function TopicContentPanel({
                                   }
                                 ),
                                 author: '',
-                                createdAt: new Date().toISOString(),
+                                createdAt: report.updatedAt || report.createdAt,
                                 wordCount: report.fullReport?.length || 0,
                                 wordCountDelta: 0,
                               });
