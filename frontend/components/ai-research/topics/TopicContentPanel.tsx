@@ -1517,39 +1517,10 @@ export function TopicContentPanel({
         {/* 报告工具栏 - 仅在报告 Tab 时显示，合并为一行 */}
         {activeTab === 'report' && (
           <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4 py-2.5">
-            {/* 左侧：视图模式 + 版本信息 */}
-            <div className="flex items-center gap-3">
-              {/* 视图模式切换 */}
-              <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
-                <button
-                  onClick={() => setReportViewMode('continuous')}
-                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    reportViewMode === 'continuous'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                  title={t('topicResearch.contentPanel.toolbar.continuousView')}
-                >
-                  <ListIcon className="h-3.5 w-3.5" />
-                  <span>
-                    {t('topicResearch.contentPanel.toolbar.continuous')}
-                  </span>
-                </button>
-                <button
-                  onClick={() => setReportViewMode('chapter')}
-                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    reportViewMode === 'chapter'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                  title={t('topicResearch.contentPanel.toolbar.chapterView')}
-                >
-                  <DocumentIcon className="h-3.5 w-3.5" />
-                  <span>{t('topicResearch.contentPanel.toolbar.chapter')}</span>
-                </button>
-              </div>
+            {/* 左侧：版本信息 */}
+            <div className="flex items-center gap-2">
               {report && (
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-500">
                   v{report.version} · {report.totalSources}{' '}
                   {t('topicResearch.contentPanel.toolbar.sources')}
                 </span>
@@ -1564,25 +1535,49 @@ export function TopicContentPanel({
               </h3>
             </div>
 
-            {/* 右侧：操作按钮 */}
-            <div className="flex items-center gap-2">
+            {/* 右侧：操作按钮 - 只显示图标，悬停显示文字 */}
+            <div className="flex items-center gap-1">
+              {/* 视图模式切换 */}
+              <div className="flex rounded-md border border-gray-200 bg-white p-0.5">
+                <button
+                  onClick={() => setReportViewMode('continuous')}
+                  className={`rounded p-1.5 transition-colors ${
+                    reportViewMode === 'continuous'
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                  }`}
+                  title={t('topicResearch.contentPanel.toolbar.continuousView')}
+                >
+                  <ListIcon className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setReportViewMode('chapter')}
+                  className={`rounded p-1.5 transition-colors ${
+                    reportViewMode === 'chapter'
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                  }`}
+                  title={t('topicResearch.contentPanel.toolbar.chapterView')}
+                >
+                  <DocumentIcon className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* 分隔线 */}
+              <div className="mx-1 h-5 w-px bg-gray-200" />
+
               {/* 重新生成按钮 */}
               <button
                 onClick={handleRegenerateReport}
                 disabled={isRegenerating}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                 title={t(
                   'topicResearch.contentPanel.toolbar.regenerateTooltip'
                 )}
               >
                 <RefreshCw
-                  className={`h-3.5 w-3.5 ${isRegenerating ? 'animate-spin' : ''}`}
+                  className={`h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`}
                 />
-                <span>
-                  {isRegenerating
-                    ? t('topicResearch.contentPanel.toolbar.regenerating')
-                    : t('topicResearch.contentPanel.toolbar.regenerate')}
-                </span>
               </button>
 
               {/* 历史按钮 */}
@@ -1592,17 +1587,16 @@ export function TopicContentPanel({
                     sidePanelType === 'history' ? null : 'history'
                   )
                 }
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                className={`relative rounded p-1.5 transition-colors ${
                   sidePanelType === 'history'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                    ? 'bg-blue-100 text-blue-600'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
                 title={t('topicResearch.contentPanel.toolbar.historyTooltip')}
               >
-                <HistoryIcon className="h-3.5 w-3.5" />
-                <span>{t('topicResearch.contentPanel.toolbar.history')}</span>
+                <HistoryIcon className="h-4 w-4" />
                 {revisions.length > 0 && (
-                  <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs">
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-gray-500 text-[10px] text-white">
                     {revisions.length}
                   </span>
                 )}
@@ -1615,38 +1609,34 @@ export function TopicContentPanel({
                     sidePanelType === 'annotations' ? null : 'annotations'
                   )
                 }
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                className={`relative rounded p-1.5 transition-colors ${
                   sidePanelType === 'annotations'
-                    ? 'bg-purple-100 text-purple-700'
-                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                    ? 'bg-purple-100 text-purple-600'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
                 title={t(
                   'topicResearch.contentPanel.toolbar.annotationsTooltip'
                 )}
               >
-                <AnnotationIcon className="h-3.5 w-3.5" />
-                <span>
-                  {t('topicResearch.contentPanel.toolbar.annotations')}
-                </span>
+                <AnnotationIcon className="h-4 w-4" />
                 {annotations.filter((a) => a.status === 'active').length >
                   0 && (
-                  <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs text-white">
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
                     {annotations.filter((a) => a.status === 'active').length}
                   </span>
                 )}
               </button>
 
               {/* 分隔线 */}
-              <div className="mx-1 h-4 w-px bg-gray-300" />
+              <div className="mx-1 h-5 w-px bg-gray-200" />
 
-              {/* ★ 最大化按钮 - 桌面端显示 */}
+              {/* ★ 最大化按钮 */}
               <button
                 onClick={enterMaximized}
-                className="hidden items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 md:flex"
+                className="hidden rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 md:block"
                 title={t('topicResearch.maximize') + ' (F)'}
               >
-                <Maximize2 className="h-3.5 w-3.5" />
-                <span>{t('topicResearch.maximize')}</span>
+                <Maximize2 className="h-4 w-4" />
               </button>
 
               {/* 导出下拉菜单 */}
@@ -1654,23 +1644,10 @@ export function TopicContentPanel({
                 <div className="relative">
                   <button
                     onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                    title={t('topicResearch.contentPanel.export')}
                   >
-                    <DownloadIcon className="h-3.5 w-3.5" />
-                    <span>{t('topicResearch.contentPanel.export')}</span>
-                    <svg
-                      className="h-3 w-3 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
+                    <DownloadIcon className="h-4 w-4" />
                   </button>
                   {exportMenuOpen && (
                     <>
