@@ -36,7 +36,7 @@ import {
 @ApiTags("研究反馈闭环")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller("api/v1/feedback")
+@Controller("feedback")
 export class FeedbackController {
   constructor(
     private readonly feedbackProcessingService: FeedbackProcessingService,
