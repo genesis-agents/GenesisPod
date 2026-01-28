@@ -749,6 +749,7 @@ export function TopicContentPanel({
   >(null);
 
   // ★ 计算版本列表（使用 useMemo 避免 hydration 错误）
+  // 注意：不在 useMemo 中使用 t() 函数，避免 SSR/客户端不一致
   const allRevisions = useMemo(() => {
     const result: {
       id: string;
@@ -768,53 +769,50 @@ export function TopicContentPanel({
       (rev) => rev.version === report?.version
     );
     if (report && !currentVersionExists) {
+      const sources = report.totalSources || 0;
+      const chars = report.fullReport?.length || 0;
       result.push({
         id: report.id,
         version: report.version,
         title: `v${report.version}`,
         summary: '',
         changeType: 'edit',
-        changeDescription: t(
-          'topicResearch.contentPanel.revisionHistory.sourcesAndChars',
-          {
-            sources: report.totalSources || 0,
-            chars: report.fullReport?.length || 0,
-          }
-        ),
+        // 使用简单字符串格式，避免 i18n hydration 问题
+        changeDescription: `${sources} sources · ${chars} chars`,
         author: '',
         createdAt: report.updatedAt || report.createdAt || '',
-        wordCount: report.fullReport?.length || 0,
+        wordCount: chars,
         wordCountDelta: 0,
       });
     }
 
     // 添加历史版本
     revisions.forEach((rev, idx) => {
+      const sources = rev.totalSources || 0;
+      const chars = rev.wordCount || 0;
       result.push({
         id: rev.id,
         version: rev.version,
         title: `v${rev.version}`,
         summary: rev.summary || '',
         changeType: idx === revisions.length - 1 ? 'create' : 'edit',
-        changeDescription: rev.totalSources
-          ? t('topicResearch.contentPanel.revisionHistory.sourcesAndChars', {
-              sources: rev.totalSources,
-              chars: rev.wordCount || 0,
-            })
-          : rev.summary || '',
+        changeDescription:
+          sources > 0
+            ? `${sources} sources · ${chars} chars`
+            : rev.summary || '',
         author: rev.author || '',
         createdAt:
           typeof rev.createdAt === 'string'
             ? rev.createdAt
             : (rev.createdAt as Date).toISOString(),
-        wordCount: rev.wordCount || 0,
+        wordCount: chars,
         wordCountDelta: 0,
       });
     });
 
     // 按版本号降序排列
     return result.sort((a, b) => b.version - a.version);
-  }, [report, revisions, t]);
+  }, [report, revisions]);
 
   // ★ 最大化模式状态
   const [isMaximized, setIsMaximized] = useState(false);

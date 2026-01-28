@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AIEngineFacade } from "../../../ai-engine/facade";
+import { sanitizeMarkdownContent } from "../../../../common/utils/sanitize-content.utils";
 import {
   SearchRound,
   SearchSource,
@@ -81,10 +82,14 @@ export class ReportSynthesizerService {
 
     const duration = (Date.now() - startTime) / 1000;
 
+    // ★ 清理 AI 生成内容中的格式问题（如引用后的孤立下划线）
     return {
-      executiveSummary: reportContent.executiveSummary,
-      sections: reportContent.sections,
-      conclusion: reportContent.conclusion,
+      executiveSummary: sanitizeMarkdownContent(reportContent.executiveSummary),
+      sections: reportContent.sections.map((section) => ({
+        ...section,
+        content: sanitizeMarkdownContent(section.content),
+      })),
+      conclusion: sanitizeMarkdownContent(reportContent.conclusion),
       references: allReferences,
       metadata: {
         totalSources: sources.length + previousRefsCount,

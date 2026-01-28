@@ -5,6 +5,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { sanitizeMarkdownContent } from "../../../../common/utils/sanitize-content.utils";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Observable, Subject, filter, map } from "rxjs";
 import { MessageEvent } from "@nestjs/common";
@@ -1601,19 +1602,21 @@ export class TopicResearchService {
   /**
    * 转换报告数据以适配前端接口
    * 主要将 dataPoints JSON 字段中的内容提取到顶层
-   * ★ 同时清理AI生成内容中的HTML标签（如<br>）
+   * ★ 同时清理AI生成内容中的HTML标签和Markdown格式问题
    */
   private transformReportForFrontend(report: any) {
     if (!report) return report;
 
-    // ★ 清理报告级别的内容字段
+    // ★ 清理报告级别的内容字段（HTML标签 + 下划线等格式问题）
     if (report.executiveSummary) {
-      report.executiveSummary = cleanHtmlTagsFromContent(
-        report.executiveSummary,
+      report.executiveSummary = sanitizeMarkdownContent(
+        cleanHtmlTagsFromContent(report.executiveSummary) || "",
       );
     }
     if (report.fullReport) {
-      report.fullReport = cleanHtmlTagsFromContent(report.fullReport);
+      report.fullReport = sanitizeMarkdownContent(
+        cleanHtmlTagsFromContent(report.fullReport) || "",
+      );
     }
 
     // 转换维度分析数据
