@@ -27,6 +27,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { getTodoDetails, getTaskActivities } from '@/lib/api/topic-research';
 import { ClientDate } from '@/components/common/ClientDate';
+import { ReviewResultCard } from '../collaboration/ReviewResultCard';
+import type {
+  DimensionReviewResult,
+  OverallReviewResult,
+} from '../collaboration/ReviewResultCard';
 import type {
   ResearchTodo,
   ResearchTodoStatus,
@@ -975,6 +980,33 @@ export function TodoDetailPanel({
                             维度: {safeString(activity.dimensionName)}
                           </div>
                         )}
+
+                        {/* ★ 审核结果卡片 */}
+                        {activity.actionTaken === 'dimension_review' &&
+                          activity.actionResult && (
+                            <div className="mt-2">
+                              <ReviewResultCard
+                                reviewResult={
+                                  activity.actionResult as unknown as DimensionReviewResult
+                                }
+                                type="dimension"
+                                dimensionName={activity.dimensionName}
+                                compact
+                              />
+                            </div>
+                          )}
+                        {activity.actionTaken === 'overall_review' &&
+                          activity.actionResult && (
+                            <div className="mt-2">
+                              <ReviewResultCard
+                                reviewResult={
+                                  activity.actionResult as unknown as OverallReviewResult
+                                }
+                                type="overall"
+                                compact
+                              />
+                            </div>
+                          )}
 
                         {/* ★ 工具使用摘要 - 快速概览 */}
                         {/* ★ v8.1 修复：searchResults 是顶层字段，不在 metadata 中 */}

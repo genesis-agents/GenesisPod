@@ -591,13 +591,35 @@ export class ReportSynthesisService {
       parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);
 
       // ★ 直接使用研究员生成的完整内容
-      if (dim.detailedContent) {
-        parts.push(dim.detailedContent);
-      } else {
-        // 降级：如果没有 detailedContent，使用摘要
-        parts.push(dim.summary || "暂无详细内容");
+      let content = dim.detailedContent || dim.summary || "暂无详细内容";
+
+      // ★ 转换 <!-- figure:N:M --> 占位符为 <!-- chart:chartId -->
+      if (dim.figureReferences && dim.figureReferences.length > 0) {
+        content = content.replace(
+          /<!--\s*figure:(\d+):(\d+)\s*-->/g,
+          (_match, evidenceIdx, figIdx) => {
+            const ref = dim.figureReferences?.find(
+              (r) =>
+                r.evidenceCitationIndex === Number(evidenceIdx) &&
+                r.figureIndex === Number(figIdx),
+            );
+            return ref ? `<!-- chart:${ref.id} -->` : _match;
+          },
+        );
       }
 
+      // ★ 注入 generatedCharts 占位符（基于 position）
+      if (dim.generatedCharts && dim.generatedCharts.length > 0) {
+        content = this.injectChartPlaceholders(
+          content,
+          dim.generatedCharts.map((c) => ({
+            id: c.id,
+            position: c.position,
+          })),
+        );
+      }
+
+      parts.push(content);
       parts.push("\n---\n");
     });
 
@@ -640,7 +662,10 @@ export class ReportSynthesisService {
   ): ReportChart[] {
     const charts: ReportChart[] = [];
 
-    dimensionInputs.forEach((dim) => {
+    dimensionInputs.forEach((dim, dimIndex) => {
+      // ★ sectionId 对应章节编号（从1开始），用于章节视图匹配
+      const sectionId = String(dimIndex + 1);
+
       // 收集引用图表
       if (dim.figureReferences && dim.figureReferences.length > 0) {
         dim.figureReferences.forEach((fig) => {
@@ -649,6 +674,7 @@ export class ReportSynthesisService {
             chartType: "reference", // 标记为引用图表
             title: fig.caption,
             position: fig.position,
+            sectionId,
             dimensionId: dim.dimensionId,
             dimensionName: dim.dimensionName,
             // 引用图表特有字段
@@ -668,6 +694,7 @@ export class ReportSynthesisService {
             type: chart.type,
             title: chart.title,
             position: chart.position,
+            sectionId,
             data: chart.data,
             source: chart.source,
             dimensionId: dim.dimensionId,

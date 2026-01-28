@@ -1024,6 +1024,8 @@ export interface AgentActivity {
   thinkingPhase?: string;
   thinkingContent?: string;
   searchResults?: SearchResultsRecord; // ★ 搜索结果（顶层字段）
+  actionTaken?: string; // ★ 审核动作（dimension_review / overall_review）
+  actionResult?: Record<string, unknown>; // ★ 审核结果详情
   metadata?: Record<string, unknown>;
   createdAt: string;
 }

@@ -659,63 +659,57 @@ function ChapterizedReportViewInner({
   if (selectedChapter) {
     return (
       <div className="flex h-full flex-col bg-white">
-        {/* Header with back button */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-          <div className="flex items-center gap-3">
-            {/* Back button */}
-            <button
-              onClick={closeChapter}
-              className="flex items-center gap-1 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-              title="返回章节列表"
-            >
-              <BackIcon className="h-5 w-5" />
-            </button>
-            <span
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium ${
-                selectedChapter.status === 'completed'
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 text-gray-500'
-              }`}
-            >
-              {selectedChapter.status === 'completed' ? (
-                <CheckIcon className="h-4 w-4" />
-              ) : (
-                selectedChapter.chapterNumber
-              )}
-            </span>
-            <div>
-              <h3 className="font-medium text-gray-900">
-                第{selectedChapter.chapterNumber}章 {selectedChapter.title}
-              </h3>
-              <p className="text-xs text-gray-500">
-                {selectedChapter.wordCount} 字
-              </p>
-            </div>
-          </div>
+        {/* Header: back + title */}
+        <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-2">
+          <button
+            onClick={closeChapter}
+            className="shrink-0 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            title="返回章节列表"
+          >
+            <BackIcon className="h-5 w-5" />
+          </button>
+          <span
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
+              selectedChapter.status === 'completed'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-gray-100 text-gray-500'
+            }`}
+          >
+            {selectedChapter.status === 'completed' ? (
+              <CheckIcon className="h-3.5 w-3.5" />
+            ) : (
+              selectedChapter.chapterNumber
+            )}
+          </span>
+          <h3 className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900">
+            第{selectedChapter.chapterNumber}章 {selectedChapter.title}
+          </h3>
+          <span className="shrink-0 text-xs text-gray-400">
+            {selectedChapter.wordCount} 字
+          </span>
+        </div>
+
+        {/* Toolbar: view mode + actions */}
+        <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
+          <ViewModeToggle
+            modes={[
+              {
+                key: 'preview',
+                icon: <EyeIcon className="h-4 w-4" />,
+              },
+              {
+                key: 'edit',
+                icon: <EditIcon className="h-4 w-4" />,
+              },
+              { key: 'source', icon: <CodeIcon className="h-4 w-4" /> },
+            ]}
+            activeMode={viewMode}
+            onModeChange={(mode) =>
+              setViewMode(mode as 'preview' | 'edit' | 'source')
+            }
+          />
 
           <div className="flex items-center gap-2">
-            {/* View Mode Switcher - consistent with continuous view */}
-            <ViewModeToggle
-              modes={[
-                {
-                  key: 'preview',
-                  label: '预览',
-                  icon: <EyeIcon className="h-4 w-4" />,
-                },
-                {
-                  key: 'edit',
-                  label: '编辑',
-                  icon: <EditIcon className="h-4 w-4" />,
-                },
-                { key: 'source', icon: <CodeIcon className="h-4 w-4" /> },
-              ]}
-              activeMode={viewMode}
-              onModeChange={(mode) =>
-                setViewMode(mode as 'preview' | 'edit' | 'source')
-              }
-            />
-
-            {/* Save/Cancel buttons when editing */}
             {(viewMode === 'edit' || viewMode === 'source') && (
               <>
                 <button
