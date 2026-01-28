@@ -396,6 +396,9 @@ export function TopicReportView({
                 startOffset: a.startOffset,
                 endOffset: a.endOffset,
                 color: a.color,
+                status: a.status,
+                selectorPrefix: a.selectorPrefix,
+                selectorSuffix: a.selectorSuffix,
               }))}
               highlightedAnnotationId={highlightedAnnotationId}
             />
