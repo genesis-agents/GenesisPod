@@ -2875,7 +2875,22 @@
       },
       "export": "Export",
       "exportPdf": "Export PDF",
-      "exportDocx": "Export Word"
+      "exportDocx": "Export Word",
+      "toolbar": {
+        "continuous": "Continuous",
+        "continuousView": "Continuous view",
+        "chapter": "Chapter",
+        "chapterView": "Chapter view",
+        "sources": "sources",
+        "insightsReport": "Insights Report",
+        "regenerate": "Regenerate",
+        "regenerating": "Regenerating...",
+        "regenerateTooltip": "Regenerate report content",
+        "history": "History",
+        "historyTooltip": "Version history",
+        "annotations": "Notes",
+        "annotationsTooltip": "Annotations"
+      }
     },
     "credibility": {
       "title": "Source Credibility Analysis",

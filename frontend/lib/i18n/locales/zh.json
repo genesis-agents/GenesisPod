@@ -2865,7 +2865,22 @@
       },
       "export": "导出",
       "exportPdf": "导出 PDF",
-      "exportDocx": "导出 Word"
+      "exportDocx": "导出 Word",
+      "toolbar": {
+        "continuous": "连续",
+        "continuousView": "连续视图",
+        "chapter": "章节",
+        "chapterView": "章节视图",
+        "sources": "源",
+        "insightsReport": "洞察报告",
+        "regenerate": "重新生成",
+        "regenerating": "生成中...",
+        "regenerateTooltip": "重新生成报告内容",
+        "history": "历史",
+        "historyTooltip": "版本历史",
+        "annotations": "批注",
+        "annotationsTooltip": "批注"
+      }
     },
     "credibility": {
       "title": "来源可信度分析",

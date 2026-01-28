@@ -50,7 +50,7 @@ import { ResearchCollaborationPanel } from '../collaboration/ResearchCollaborati
 // 研究历史组件 - 简化版，显示会话列表 + 对比功能
 import { ResearchTimeline } from '../collaboration/ResearchTimeline';
 // 反馈管理组件
-import { FeedbackDashboard, FeedbackButton } from '@/components/feedback';
+import { FeedbackDashboard } from '@/components/feedback';
 // 反馈API - 用于将批注提交为反馈
 import { createFeedbackFromAnnotation } from '@/lib/api/research-feedback';
 
@@ -1528,10 +1528,10 @@ export function TopicContentPanel({
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
-                  title="连续视图"
+                  title={t('topicResearch.report.toolbar.continuousView')}
                 >
                   <ListIcon className="h-3.5 w-3.5" />
-                  <span>连续</span>
+                  <span>{t('topicResearch.report.toolbar.continuous')}</span>
                 </button>
                 <button
                   onClick={() => setReportViewMode('chapter')}
@@ -1540,15 +1540,16 @@ export function TopicContentPanel({
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
-                  title="章节视图"
+                  title={t('topicResearch.report.toolbar.chapterView')}
                 >
                   <DocumentIcon className="h-3.5 w-3.5" />
-                  <span>章节</span>
+                  <span>{t('topicResearch.report.toolbar.chapter')}</span>
                 </button>
               </div>
               {report && (
                 <span className="text-xs text-gray-400">
-                  v{report.version} · {report.totalSources}源
+                  v{report.version} · {report.totalSources}{' '}
+                  {t('topicResearch.report.toolbar.sources')}
                 </span>
               )}
             </div>
@@ -1556,7 +1557,8 @@ export function TopicContentPanel({
             {/* 中间：报告标题 */}
             <div className="flex-1 text-center">
               <h3 className="text-sm font-semibold text-gray-800">
-                {report?.title || '洞察报告'}
+                {report?.title ||
+                  t('topicResearch.report.toolbar.insightsReport')}
               </h3>
             </div>
 
@@ -1567,12 +1569,16 @@ export function TopicContentPanel({
                 onClick={handleRegenerateReport}
                 disabled={isRegenerating}
                 className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                title="重新生成报告内容"
+                title={t('topicResearch.report.toolbar.regenerateTooltip')}
               >
                 <RefreshCw
                   className={`h-3.5 w-3.5 ${isRegenerating ? 'animate-spin' : ''}`}
                 />
-                <span>{isRegenerating ? '生成中...' : '重新生成'}</span>
+                <span>
+                  {isRegenerating
+                    ? t('topicResearch.report.toolbar.regenerating')
+                    : t('topicResearch.report.toolbar.regenerate')}
+                </span>
               </button>
 
               {/* 历史按钮 */}
@@ -1587,10 +1593,10 @@ export function TopicContentPanel({
                     ? 'bg-blue-100 text-blue-700'
                     : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                 }`}
-                title="版本历史"
+                title={t('topicResearch.report.toolbar.historyTooltip')}
               >
                 <HistoryIcon className="h-3.5 w-3.5" />
-                <span>历史</span>
+                <span>{t('topicResearch.report.toolbar.history')}</span>
                 {revisions.length > 0 && (
                   <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs">
                     {revisions.length}
@@ -1610,10 +1616,10 @@ export function TopicContentPanel({
                     ? 'bg-purple-100 text-purple-700'
                     : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                 }`}
-                title="批注"
+                title={t('topicResearch.report.toolbar.annotationsTooltip')}
               >
                 <AnnotationIcon className="h-3.5 w-3.5" />
-                <span>批注</span>
+                <span>{t('topicResearch.report.toolbar.annotations')}</span>
                 {annotations.filter((a) => a.status === 'active').length >
                   0 && (
                   <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs text-white">
@@ -1621,21 +1627,6 @@ export function TopicContentPanel({
                   </span>
                 )}
               </button>
-
-              {/* ★ 反馈按钮 - 用于提交功能问题、建议等 */}
-              {topicId && (
-                <FeedbackButton
-                  context={{
-                    topicId,
-                    topicName: report?.title || undefined,
-                    reportId: report?.id,
-                  }}
-                  variant="inline"
-                  label="反馈"
-                  size="sm"
-                  className="border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                />
-              )}
 
               {/* 分隔线 */}
               <div className="mx-1 h-4 w-px bg-gray-300" />
@@ -1658,7 +1649,7 @@ export function TopicContentPanel({
                     className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
                   >
                     <DownloadIcon className="h-3.5 w-3.5" />
-                    <span>导出</span>
+                    <span>{t('topicResearch.report.export')}</span>
                     <svg
                       className="h-3 w-3 text-gray-400"
                       fill="none"
