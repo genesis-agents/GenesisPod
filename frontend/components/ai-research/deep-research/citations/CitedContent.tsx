@@ -96,11 +96,17 @@ export function CitedMarkdown({
     let processed = content;
 
     // Pre-clean: remove underscores wrapping bracket citations
-    // AI often generates __[8]__ or _[8]_ or [8]__ patterns
+    // AI generates patterns like: __[8]__, _[8]_, _ [1], [8]_, "能力"_ [1]
     processed = processed
+      // Underscores directly wrapping citations: _[8]_, __[8]__
       .replace(/_+(\[\d+(?:\s*,\s*\d+)*\])_+/g, '$1')
       .replace(/_+(\[\d+(?:\s*,\s*\d+)*\])/g, '$1')
       .replace(/(\[\d+(?:\s*,\s*\d+)*\])_+/g, '$1')
+      // Underscores with space before citations: _ [1], __ [1]
+      .replace(/_+\s*(\[\d+(?:\s*,\s*\d+)*\])/g, ' $1')
+      // Underscores with space after citations: [1]_ , [1]__
+      .replace(/(\[\d+(?:\s*,\s*\d+)*\])\s*_+/g, '$1')
+      // Underscores between adjacent citations
       .replace(/\]_+\[/g, '][')
       .replace(/\]\s*_+\s*\[/g, '][');
 
@@ -149,19 +155,19 @@ export function CitedMarkdown({
     // In AI-generated reports, underscores sometimes appear as artifacts or placeholders
     processed = processed
       // Remove underscores adjacent to citation markers (handles ____CITE_GROUP... patterns)
-      .replace(/_+(?=__CITE_GROUP_)/g, '')
-      .replace(/(?<=__CITE_GROUP_\d+(?:_\d+)*__)_+/g, '')
+      .replace(/_+\s*(?=__CITE_GROUP_)/g, '')
+      .replace(/(?<=__CITE_GROUP_\d+(?:_\d+)*__)\s*_+/g, '')
       // Remove underscores between adjacent citation markers
-      .replace(/(__CITE_GROUP_\d+(?:_\d+)*__)_+(?=__CITE_GROUP_)/g, '$1')
+      .replace(/(__CITE_GROUP_\d+(?:_\d+)*__)\s*_+\s*(?=__CITE_GROUP_)/g, '$1')
       // Remove underscores at word boundaries (adjacent to spaces, punctuation, CJK chars)
       .replace(/(?<=[\s。，、；：！？（）「」『』【】\[\]\.])_+/g, '')
       .replace(/_+(?=[\s。，、；：！？（）「」『』【】\[\]\.])/g, '')
       // Remove underscores adjacent to CJK characters (Chinese/Japanese/Korean)
       .replace(/(?<=[\u4e00-\u9fff\u3000-\u303f])_+/g, '')
       .replace(/_+(?=[\u4e00-\u9fff\u3000-\u303f])/g, '')
-      // Remove underscores at quote boundaries
-      .replace(/(?<=[""\u201c\u201d])_+/g, '')
-      .replace(/_+(?=[""\u201c\u201d])/g, '');
+      // Remove underscores at quote boundaries (Chinese and English quotes)
+      .replace(/(?<=[""\u201c\u201d''\u2018\u2019])_+/g, '')
+      .replace(/_+(?=[""\u201c\u201d''\u2018\u2019])/g, '');
 
     return { processedContent: processed, citationMap: map };
   }, [content, sources]);
