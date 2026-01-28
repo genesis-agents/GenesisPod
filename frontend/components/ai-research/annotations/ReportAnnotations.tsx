@@ -414,18 +414,6 @@ export function ReportAnnotations({
 
                     {/* Actions */}
                     <div className="mt-3 flex items-center gap-2">
-                      {/* ★ Submit as Feedback - 放在最前面，更醒目 */}
-                      {onSubmitFeedback && annotation.status === 'active' && (
-                        <button
-                          onClick={() => onSubmitFeedback(annotation.id)}
-                          className="flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100"
-                          title="将此批注提交为反馈，进入反馈闭环流程"
-                        >
-                          <FeedbackIcon className="h-3.5 w-3.5" />
-                          提交反馈
-                        </button>
-                      )}
-
                       {/* Navigate */}
                       {onNavigate && (
                         <button
@@ -477,6 +465,18 @@ export function ReportAnnotations({
                         >
                           <TrashIcon className="h-3.5 w-3.5" />
                           删除
+                        </button>
+                      )}
+
+                      {/* ★ Submit as Feedback - 放在最后面 */}
+                      {onSubmitFeedback && annotation.status === 'active' && (
+                        <button
+                          onClick={() => onSubmitFeedback(annotation.id)}
+                          className="flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100"
+                          title="将此批注提交为反馈，进入反馈闭环流程"
+                        >
+                          <FeedbackIcon className="h-3.5 w-3.5" />
+                          提交反馈
                         </button>
                       )}
 
