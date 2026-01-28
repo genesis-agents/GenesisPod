@@ -34,7 +34,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { Response } from "express";
-import { Observable, map, catchError, of } from "rxjs";
+import { Observable } from "rxjs";
 import { SlidesEngineService } from "../services/slides-engine.service";
 import { SlidesDataImportService } from "../services/data-import.service";
 import { AIEditService, PolishOptions } from "../services/ai-edit.service";
@@ -64,6 +64,7 @@ import {
   RateLimit,
 } from "../../../../../common/guards/rate-limit.guard";
 import type { RequestWithUser } from "../../../../../common/types/express-request.types";
+import { BillingContext } from "../../../../credits/billing-context";
 
 // ============================================
 // DTOs
@@ -180,24 +181,6 @@ class ImportFromLibraryDto {
   resourceIds!: string[];
 }
 
-/**
- * 辅助函数：将 AsyncGenerator 转换为 Observable
- */
-function fromAsyncGenerator<T>(generator: AsyncGenerator<T>): Observable<T> {
-  return new Observable<T>((subscriber) => {
-    (async () => {
-      try {
-        for await (const value of generator) {
-          subscriber.next(value);
-        }
-        subscriber.complete();
-      } catch (error) {
-        subscriber.error(error);
-      }
-    })();
-  });
-}
-
 @Controller("ai-office/slides")
 @UseGuards(JwtAuthGuard, RateLimitGuard)
 export class SlidesController {
@@ -268,34 +251,46 @@ export class SlidesController {
       `[generateSlides] Starting generation: ${title?.slice(0, 50)}... for user ${userId}`,
     );
 
-    const generator = this.slidesEngine.generateSlides({
+    const slidesEngine = this.slidesEngine;
+    const logger = this.logger;
+    const billingData = {
       userId,
-      sourceText: sourceText || "",
-      userRequirement,
-      targetPages: targetPages ? parseInt(targetPages, 10) : undefined,
-      stylePreference: stylePreference as "dark" | "light",
-      targetAudience,
-      themeId,
-    });
+      moduleType: "ai-office",
+      operationType: "generate-ppt",
+    };
 
-    return fromAsyncGenerator(generator).pipe(
-      map((event) => {
-        this.logger.debug(`[generateSlides] Sending SSE event: ${event.type}`);
-        return {
-          data: JSON.stringify(event),
-        };
-      }),
-      catchError((error) => {
-        this.logger.error("[generateSlides] Error:", error);
-        return of({
-          data: JSON.stringify({
-            type: "error",
-            timestamp: new Date().toISOString(),
-            error: error.message || "Generation failed",
-          }),
-        });
-      }),
-    );
+    return new Observable<MessageEvent>((subscriber) => {
+      BillingContext.run(billingData, async () => {
+        try {
+          const generator = slidesEngine.generateSlides({
+            userId,
+            sourceText: sourceText || "",
+            userRequirement,
+            targetPages: targetPages ? parseInt(targetPages, 10) : undefined,
+            stylePreference: stylePreference as "dark" | "light",
+            targetAudience,
+            themeId,
+          });
+
+          for await (const event of generator) {
+            logger.debug(`[generateSlides] Sending SSE event: ${event.type}`);
+            subscriber.next({ data: JSON.stringify(event) });
+          }
+          subscriber.complete();
+        } catch (error) {
+          logger.error("[generateSlides] Error:", error);
+          subscriber.next({
+            data: JSON.stringify({
+              type: "error",
+              timestamp: new Date().toISOString(),
+              error:
+                error instanceof Error ? error.message : "Generation failed",
+            }),
+          });
+          subscriber.complete();
+        }
+      });
+    });
   }
 
   /**
@@ -331,33 +326,40 @@ export class SlidesController {
     res.setHeader("X-Accel-Buffering", "no"); // 禁用 Nginx/代理缓冲
     res.flushHeaders(); // 立即发送响应头
 
-    const generator = this.slidesEngine.generateSlides({
-      userId,
-      sourceText: dto.sourceText,
-      userRequirement: dto.userRequirement,
-      targetPages: dto.targetPages,
-      stylePreference: dto.stylePreference as "dark" | "light",
-      targetAudience: dto.targetAudience,
-      themeId: dto.themeId,
-    });
+    await BillingContext.run(
+      { userId, moduleType: "ai-office", operationType: "generate-ppt" },
+      async () => {
+        const generator = this.slidesEngine.generateSlides({
+          userId,
+          sourceText: dto.sourceText,
+          userRequirement: dto.userRequirement,
+          targetPages: dto.targetPages,
+          stylePreference: dto.stylePreference as "dark" | "light",
+          targetAudience: dto.targetAudience,
+          themeId: dto.themeId,
+        });
 
-    try {
-      for await (const event of generator) {
-        const sseData = `data: ${JSON.stringify(event)}\n\n`;
-        res.write(sseData);
-        this.logger.debug(`[generateSlidesPost] Sent SSE event: ${event.type}`);
-      }
-    } catch (error) {
-      this.logger.error("[generateSlidesPost] Error:", error);
-      const errorEvent = {
-        type: "error",
-        timestamp: new Date().toISOString(),
-        error: error instanceof Error ? error.message : "Generation failed",
-      };
-      res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
-    } finally {
-      res.end();
-    }
+        try {
+          for await (const event of generator) {
+            const sseData = `data: ${JSON.stringify(event)}\n\n`;
+            res.write(sseData);
+            this.logger.debug(
+              `[generateSlidesPost] Sent SSE event: ${event.type}`,
+            );
+          }
+        } catch (error) {
+          this.logger.error("[generateSlidesPost] Error:", error);
+          const errorEvent = {
+            type: "error",
+            timestamp: new Date().toISOString(),
+            error: error instanceof Error ? error.message : "Generation failed",
+          };
+          res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
+        } finally {
+          res.end();
+        }
+      },
+    );
   }
 
   /**
@@ -394,35 +396,40 @@ export class SlidesController {
     res.flushHeaders(); // 立即发送响应头
 
     // 使用相同的引擎，AI Engine 会负责团队协作编排
-    const generator = this.slidesEngine.generateSlides({
-      userId,
-      sourceText: dto.sourceText,
-      userRequirement: dto.userRequirement,
-      targetPages: dto.targetPages,
-      stylePreference: dto.stylePreference as "dark" | "light",
-      targetAudience: dto.targetAudience,
-      themeId: dto.themeId,
-    });
+    await BillingContext.run(
+      { userId, moduleType: "ai-office", operationType: "generate-ppt" },
+      async () => {
+        const generator = this.slidesEngine.generateSlides({
+          userId,
+          sourceText: dto.sourceText,
+          userRequirement: dto.userRequirement,
+          targetPages: dto.targetPages,
+          stylePreference: dto.stylePreference as "dark" | "light",
+          targetAudience: dto.targetAudience,
+          themeId: dto.themeId,
+        });
 
-    try {
-      for await (const event of generator) {
-        const sseData = `data: ${JSON.stringify(event)}\n\n`;
-        res.write(sseData);
-        this.logger.log(`[generateTeam] Sent SSE event: ${event.type}`);
-      }
-      this.logger.log("[generateTeam] SSE stream completed");
-    } catch (error) {
-      this.logger.error("[generateTeam] Error:", error);
-      const errorEvent = {
-        type: "error",
-        timestamp: new Date().toISOString(),
-        error:
-          error instanceof Error ? error.message : "Team generation failed",
-      };
-      res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
-    } finally {
-      res.end();
-    }
+        try {
+          for await (const event of generator) {
+            const sseData = `data: ${JSON.stringify(event)}\n\n`;
+            res.write(sseData);
+            this.logger.log(`[generateTeam] Sent SSE event: ${event.type}`);
+          }
+          this.logger.log("[generateTeam] SSE stream completed");
+        } catch (error) {
+          this.logger.error("[generateTeam] Error:", error);
+          const errorEvent = {
+            type: "error",
+            timestamp: new Date().toISOString(),
+            error:
+              error instanceof Error ? error.message : "Team generation failed",
+          };
+          res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
+        } finally {
+          res.end();
+        }
+      },
+    );
   }
 
   // ============================================

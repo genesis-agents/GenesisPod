@@ -18,6 +18,7 @@ import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function
 import { RAGPipelineService } from "../rag/services/rag-pipeline.service";
 import { CreditsService } from "../../credits/credits.service";
 import { InsufficientCreditsException } from "../../credits/exceptions/insufficient-credits.exception";
+import { BillingContext } from "../../credits/billing-context";
 import {
   DEEPDIVE_ENGINE_CONTEXT,
   isProjectRelatedQuery,
@@ -254,278 +255,270 @@ export class AiAskService {
       }
     }
 
-    // 构建上下文消息
-    const contextMessages = await this.buildContext(sessionId);
+    // Wrap main body with BillingContext for automatic credit tracking
+    return BillingContext.run(
+      { userId, moduleType: "ai-ask", operationType },
+      async () => {
+        // 构建上下文消息
+        const contextMessages = await this.buildContext(sessionId);
 
-    // 保存用户消息
-    const userMessage = await this.prisma.askMessage.create({
-      data: {
-        sessionId,
-        role: "user",
-        content: dto.content,
-        modelId: modelConfig.id,
-        modelName: modelConfig.name,
-        webSearch: dto.webSearch || false,
-      },
-    });
+        // 保存用户消息
+        const userMessage = await this.prisma.askMessage.create({
+          data: {
+            sessionId,
+            role: "user",
+            content: dto.content,
+            modelId: modelConfig.id,
+            modelName: modelConfig.name,
+            webSearch: dto.webSearch || false,
+          },
+        });
 
-    // 添加当前用户消息到上下文
-    contextMessages.push({
-      role: "user" as const,
-      content: dto.content,
-    });
+        // 添加当前用户消息到上下文
+        contextMessages.push({
+          role: "user" as const,
+          content: dto.content,
+        });
 
-    try {
-      let aiResponseContent: string;
-      let tokensUsed = 0;
-      const toolsUsed: string[] = [];
-
-      // RAG 查询：如果指定了知识库，先进行 RAG 检索
-      let ragContext = "";
-      let ragSources: Array<{
-        documentTitle: string;
-        excerpt: string;
-        score: number;
-      }> = [];
-
-      this.logger.log(
-        `[sendMessage] Received knowledgeBaseIds: ${dto.knowledgeBaseIds?.join(", ") || "none"}, ragPipelineService available: ${!!this.ragPipelineService}`,
-      );
-      if (
-        dto.knowledgeBaseIds &&
-        dto.knowledgeBaseIds.length > 0 &&
-        this.ragPipelineService
-      ) {
         try {
+          let aiResponseContent: string;
+          let tokensUsed = 0;
+          const toolsUsed: string[] = [];
+
+          // RAG 查询：如果指定了知识库，先进行 RAG 检索
+          let ragContext = "";
+          let ragSources: Array<{
+            documentTitle: string;
+            excerpt: string;
+            score: number;
+          }> = [];
+
           this.logger.log(
-            `[sendMessage] Performing RAG query for KBs: ${dto.knowledgeBaseIds.join(", ")}`,
+            `[sendMessage] Received knowledgeBaseIds: ${dto.knowledgeBaseIds?.join(", ") || "none"}, ragPipelineService available: ${!!this.ragPipelineService}`,
           );
-          const ragResponse = await this.ragPipelineService.query({
-            query: dto.content,
-            knowledgeBaseIds: dto.knowledgeBaseIds,
-            options: {
-              topK: 5,
-              useHyde: false, // 简化查询，加快速度
-              useRerank: false,
-              // When useRerank=false, scores are RRF scores (max ~0.016)
-              // So we need a much lower threshold than when using rerank scores (0-1)
-              minScore: 0.001,
+          if (
+            dto.knowledgeBaseIds &&
+            dto.knowledgeBaseIds.length > 0 &&
+            this.ragPipelineService
+          ) {
+            try {
+              this.logger.log(
+                `[sendMessage] Performing RAG query for KBs: ${dto.knowledgeBaseIds.join(", ")}`,
+              );
+              const ragResponse = await this.ragPipelineService.query({
+                query: dto.content,
+                knowledgeBaseIds: dto.knowledgeBaseIds,
+                options: {
+                  topK: 5,
+                  useHyde: false, // 简化查询，加快速度
+                  useRerank: false,
+                  // When useRerank=false, scores are RRF scores (max ~0.016)
+                  // So we need a much lower threshold than when using rerank scores (0-1)
+                  minScore: 0.001,
+                },
+              });
+
+              if (
+                ragResponse.context &&
+                ragResponse.context.sources.length > 0
+              ) {
+                ragContext = ragResponse.context.text;
+                // Collect RAG sources to return to frontend
+                ragSources = ragResponse.context.sources.map((s) => ({
+                  documentTitle: s.documentTitle,
+                  excerpt: s.excerpt,
+                  score: s.score,
+                }));
+                this.logger.log(
+                  `[sendMessage] RAG context added (${ragSources.length} sources): ${ragSources.map((s) => s.documentTitle).join(", ")}`,
+                );
+              } else {
+                this.logger.log(
+                  `[sendMessage] RAG query returned no results above threshold`,
+                );
+              }
+            } catch (ragError) {
+              this.logger.warn(`[sendMessage] RAG query failed: ${ragError}`);
+              // RAG 失败不应阻止正常回复
+            }
+          }
+
+          // 判断是否使用工具调用模式
+          // ★ webSearch 也需要启用工具调用模式，因为搜索是通过工具实现的
+          const useTools =
+            (dto.enableTools || dto.webSearch) &&
+            this.isToolCapabilityAvailable();
+
+          if (useTools) {
+            // 使用 AgentOrchestrator 进行工具调用
+            this.logger.log(
+              `[sendMessage] Using tool-enabled mode for session ${sessionId}`,
+            );
+
+            // 配置 LLM 适配器（使用 AI Engine 的 FunctionCallingLLMAdapter）
+            this.functionCallingLLMAdapter.setConfig({
+              provider: modelConfig.provider,
+              modelId: modelConfig.modelId,
+              apiKey: modelConfig.apiKey ?? undefined,
+              apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+            });
+
+            // 构建系统提示词（包含 RAG 上下文和项目上下文）
+            const systemPrompt = this.buildSystemPromptWithContext(
+              contextMessages,
+              ragContext,
+              dto.content,
+            );
+
+            // T2 Fix: 构建 AICapabilityContext，使用 executeWithContext() 以支持工具启用/禁用
+            const capabilityContext: AICapabilityContext = {
+              agentId: `ai-ask-${sessionId}`,
+              userId: userId,
+              domain: "ask",
+            };
+
+            // 执行配置 - 使用 TaskProfile 替代硬编码参数
+            const executionConfig: Partial<ExecutionConfig> = {
+              maxIterations: 5,
+              maxToolCalls: 10,
+              taskProfile: {
+                creativity: "medium",
+                outputLength: "standard",
+              },
+            };
+
+            // T2 Fix: 使用 executeWithContext() 替代 execute()
+            // executeWithContext() 会：
+            // 1. 通过 AICapabilityResolver 解析可用工具（尊重 enabled/disabled 状态）
+            // 2. 自动记录工具使用日志
+            const events = this.functionCallingExecutor.executeWithContext(
+              this.functionCallingLLMAdapter,
+              systemPrompt,
+              dto.content,
+              capabilityContext,
+              executionConfig,
+            );
+
+            // 收集执行结果
+            let finalContent = "";
+            for await (const event of events) {
+              if (event.type === "tool_call") {
+                toolsUsed.push(event.tool);
+                this.logger.log(`[sendMessage] Tool called: ${event.tool}`);
+              } else if (event.type === "tool_result") {
+                this.logger.log(`[sendMessage] Tool result: ${event.tool}`);
+              } else if (event.type === "complete") {
+                tokensUsed = event.result?.tokensUsed || 0;
+                if (event.result?.summary) {
+                  finalContent = event.result.summary;
+                }
+              } else if (event.type === "error") {
+                throw new Error(event.error);
+              }
+            }
+
+            aiResponseContent = finalContent || "抱歉，我无法完成这个请求。";
+          } else {
+            // 使用传统模式（通过 AIEngineFacade 调用）
+            // 构建系统提示词（包含项目上下文和 RAG 上下文）
+            const systemPrompt = this.buildSystemPromptForChat(
+              dto.content,
+              ragContext,
+            );
+
+            const messagesWithSystem = [
+              {
+                role: "system" as const,
+                content: systemPrompt,
+              },
+              ...contextMessages,
+            ];
+
+            // 使用 AIEngineFacade 统一入口
+            const aiResponse = await this.aiFacade.chat({
+              messages: messagesWithSystem,
+              model: modelConfig.modelId, // 指定模型
+              modelType: AIModelType.CHAT,
+              taskProfile: {
+                creativity: "medium", // 对话需要中等创造性 (mapped from temperature: 0.7)
+                outputLength: "standard", // 标准输出长度 (mapped from maxTokens: 4000)
+              },
+            });
+            aiResponseContent = aiResponse.content;
+            tokensUsed = aiResponse.tokensUsed || 0;
+          }
+
+          // 保存 AI 响应（如果使用了工具，在内容末尾添加工具使用信息）
+          let responseContent = aiResponseContent;
+          if (toolsUsed.length > 0) {
+            responseContent += `\n\n---\n*使用了工具: ${toolsUsed.join(", ")}*`;
+          }
+
+          // 如果使用了 RAG，添加来源引用
+          if (ragContext) {
+            responseContent += `\n\n---\n📚 *回答基于知识库内容*`;
+          }
+
+          const assistantMessage = await this.prisma.askMessage.create({
+            data: {
+              sessionId,
+              role: "assistant",
+              content: responseContent,
+              modelId: modelConfig.id,
+              modelName: modelConfig.name,
+              webSearch: dto.webSearch || false,
+              tokens: tokensUsed,
             },
           });
 
-          if (ragResponse.context && ragResponse.context.sources.length > 0) {
-            ragContext = ragResponse.context.text;
-            // Collect RAG sources to return to frontend
-            ragSources = ragResponse.context.sources.map((s) => ({
-              documentTitle: s.documentTitle,
-              excerpt: s.excerpt,
-              score: s.score,
-            }));
-            this.logger.log(
-              `[sendMessage] RAG context added (${ragSources.length} sources): ${ragSources.map((s) => s.documentTitle).join(", ")}`,
-            );
-          } else {
-            this.logger.log(
-              `[sendMessage] RAG query returned no results above threshold`,
-            );
-          }
-        } catch (ragError) {
-          this.logger.warn(`[sendMessage] RAG query failed: ${ragError}`);
-          // RAG 失败不应阻止正常回复
-        }
-      }
-
-      // 判断是否使用工具调用模式
-      // ★ webSearch 也需要启用工具调用模式，因为搜索是通过工具实现的
-      const useTools =
-        (dto.enableTools || dto.webSearch) && this.isToolCapabilityAvailable();
-
-      if (useTools) {
-        // 使用 AgentOrchestrator 进行工具调用
-        this.logger.log(
-          `[sendMessage] Using tool-enabled mode for session ${sessionId}`,
-        );
-
-        // 配置 LLM 适配器（使用 AI Engine 的 FunctionCallingLLMAdapter）
-        this.functionCallingLLMAdapter.setConfig({
-          provider: modelConfig.provider,
-          modelId: modelConfig.modelId,
-          apiKey: modelConfig.apiKey ?? undefined,
-          apiEndpoint: modelConfig.apiEndpoint ?? undefined,
-        });
-
-        // 构建系统提示词（包含 RAG 上下文和项目上下文）
-        const systemPrompt = this.buildSystemPromptWithContext(
-          contextMessages,
-          ragContext,
-          dto.content,
-        );
-
-        // T2 Fix: 构建 AICapabilityContext，使用 executeWithContext() 以支持工具启用/禁用
-        const capabilityContext: AICapabilityContext = {
-          agentId: `ai-ask-${sessionId}`,
-          userId: userId,
-          domain: "ask",
-        };
-
-        // 执行配置 - 使用 TaskProfile 替代硬编码参数
-        const executionConfig: Partial<ExecutionConfig> = {
-          maxIterations: 5,
-          maxToolCalls: 10,
-          taskProfile: {
-            creativity: "medium",
-            outputLength: "standard",
-          },
-        };
-
-        // T2 Fix: 使用 executeWithContext() 替代 execute()
-        // executeWithContext() 会：
-        // 1. 通过 AICapabilityResolver 解析可用工具（尊重 enabled/disabled 状态）
-        // 2. 自动记录工具使用日志
-        const events = this.functionCallingExecutor.executeWithContext(
-          this.functionCallingLLMAdapter,
-          systemPrompt,
-          dto.content,
-          capabilityContext,
-          executionConfig,
-        );
-
-        // 收集执行结果
-        let finalContent = "";
-        for await (const event of events) {
-          if (event.type === "tool_call") {
-            toolsUsed.push(event.tool);
-            this.logger.log(`[sendMessage] Tool called: ${event.tool}`);
-          } else if (event.type === "tool_result") {
-            this.logger.log(`[sendMessage] Tool result: ${event.tool}`);
-          } else if (event.type === "complete") {
-            tokensUsed = event.result?.tokensUsed || 0;
-            if (event.result?.summary) {
-              finalContent = event.result.summary;
-            }
-          } else if (event.type === "error") {
-            throw new Error(event.error);
-          }
-        }
-
-        aiResponseContent = finalContent || "抱歉，我无法完成这个请求。";
-      } else {
-        // 使用传统模式（通过 AIEngineFacade 调用）
-        // 构建系统提示词（包含项目上下文和 RAG 上下文）
-        const systemPrompt = this.buildSystemPromptForChat(
-          dto.content,
-          ragContext,
-        );
-
-        const messagesWithSystem = [
-          {
-            role: "system" as const,
-            content: systemPrompt,
-          },
-          ...contextMessages,
-        ];
-
-        // 使用 AIEngineFacade 统一入口
-        const aiResponse = await this.aiFacade.chat({
-          messages: messagesWithSystem,
-          model: modelConfig.modelId, // 指定模型
-          modelType: AIModelType.CHAT,
-          taskProfile: {
-            creativity: "medium", // 对话需要中等创造性 (mapped from temperature: 0.7)
-            outputLength: "standard", // 标准输出长度 (mapped from maxTokens: 4000)
-          },
-        });
-        aiResponseContent = aiResponse.content;
-        tokensUsed = aiResponse.tokensUsed || 0;
-      }
-
-      // 保存 AI 响应（如果使用了工具，在内容末尾添加工具使用信息）
-      let responseContent = aiResponseContent;
-      if (toolsUsed.length > 0) {
-        responseContent += `\n\n---\n*使用了工具: ${toolsUsed.join(", ")}*`;
-      }
-
-      // 如果使用了 RAG，添加来源引用
-      if (ragContext) {
-        responseContent += `\n\n---\n📚 *回答基于知识库内容*`;
-      }
-
-      const assistantMessage = await this.prisma.askMessage.create({
-        data: {
-          sessionId,
-          role: "assistant",
-          content: responseContent,
-          modelId: modelConfig.id,
-          modelName: modelConfig.name,
-          webSearch: dto.webSearch || false,
-          tokens: tokensUsed,
-        },
-      });
-
-      // 扣减积分
-      if (this.creditsService) {
-        try {
-          await this.creditsService.consumeCredits({
-            userId,
-            moduleType: "ai-ask",
-            operationType,
-            tokenCount: tokensUsed,
-            modelName: modelConfig.name,
-            referenceId: assistantMessage.id,
-            description: `AI Ask ${operationType === "rag-chat" ? "(RAG)" : ""} - ${modelConfig.name}`,
+          // 更新会话时间戳
+          await this.prisma.askSession.update({
+            where: { id: sessionId },
+            data: { updatedAt: new Date() },
           });
-        } catch (creditError) {
-          this.logger.warn(
-            `Failed to consume credits for AI Ask: ${creditError}`,
-          );
-          // 积分扣减失败不应阻止响应返回
+
+          // 如果是第一条消息，自动生成标题
+          const messageCount = await this.prisma.askMessage.count({
+            where: { sessionId },
+          });
+
+          if (messageCount === 2 && session.title === "New Chat") {
+            // 异步生成标题
+            this.generateSessionTitle(sessionId, dto.content).catch((err) => {
+              this.logger.warn(
+                `Failed to generate session title: ${err.message}`,
+              );
+            });
+          }
+
+          return {
+            userMessage,
+            assistantMessage,
+            toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
+            // Include RAG sources for frontend display
+            ragSources: ragSources.length > 0 ? ragSources : undefined,
+          };
+        } catch (error) {
+          this.logger.error(`Failed to get AI response: ${error}`);
+
+          // 保存错误消息
+          const errorMessage = await this.prisma.askMessage.create({
+            data: {
+              sessionId,
+              role: "assistant",
+              content: `Error: ${error instanceof Error ? error.message : "Failed to get response"}`,
+              modelId: modelConfig.id,
+              modelName: modelConfig.name,
+            },
+          });
+
+          return {
+            userMessage,
+            assistantMessage: errorMessage,
+          };
         }
-      }
-
-      // 更新会话时间戳
-      await this.prisma.askSession.update({
-        where: { id: sessionId },
-        data: { updatedAt: new Date() },
-      });
-
-      // 如果是第一条消息，自动生成标题
-      const messageCount = await this.prisma.askMessage.count({
-        where: { sessionId },
-      });
-
-      if (messageCount === 2 && session.title === "New Chat") {
-        // 异步生成标题
-        this.generateSessionTitle(sessionId, dto.content).catch((err) => {
-          this.logger.warn(`Failed to generate session title: ${err.message}`);
-        });
-      }
-
-      return {
-        userMessage,
-        assistantMessage,
-        toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
-        // Include RAG sources for frontend display
-        ragSources: ragSources.length > 0 ? ragSources : undefined,
-      };
-    } catch (error) {
-      this.logger.error(`Failed to get AI response: ${error}`);
-
-      // 保存错误消息
-      const errorMessage = await this.prisma.askMessage.create({
-        data: {
-          sessionId,
-          role: "assistant",
-          content: `Error: ${error instanceof Error ? error.message : "Failed to get response"}`,
-          modelId: modelConfig.id,
-          modelName: modelConfig.name,
-        },
-      });
-
-      return {
-        userMessage,
-        assistantMessage: errorMessage,
-      };
-    }
+      },
+    );
   }
 
   /**

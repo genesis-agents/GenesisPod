@@ -27,6 +27,7 @@ import { AICapabilityContext } from "../../../../ai-engine/capabilities/ai-capab
 import { TopicEventEmitterService } from "../events";
 import { CreditsService } from "../../../../credits/credits.service";
 import { InsufficientCreditsException } from "../../../../credits/exceptions/insufficient-credits.exception";
+import { BillingContext } from "../../../../credits/billing-context";
 import { MetricsService, Trace } from "../../../../../common/observability";
 import { AuditService } from "../../../../../common/audit";
 
@@ -432,214 +433,217 @@ export class AiResponseService {
       }
     }
 
-    const aiMember = await this.prisma.topicAIMember.findFirst({
-      where: { id: aiMemberId, topicId },
-      select: {
-        id: true,
-        aiModel: true,
-        displayName: true,
-        avatar: true,
-        roleDescription: true,
-        systemPrompt: true,
-        contextWindow: true,
-        capabilities: true,
-        canMentionOtherAI: true,
-        collaborationStyle: true,
-      },
-    });
-
-    if (!aiMember) {
-      throw new NotFoundException("AI member not found");
-    }
-
-    // 使用智能上下文管理器获取消息
-    // 【关键】更激进的上下文限制，防止累积超过模型限制
-    const MAX_CONTEXT_MESSAGES = 10; // 从30减少到10
-    const debateOpponentId = debateRole?.opponent?.id;
-    const smartContext = await this.buildSmartContext(
-      topicId,
-      aiMemberId,
-      Math.min(aiMember.contextWindow || 10, MAX_CONTEXT_MESSAGES),
-      debateOpponentId,
-    );
-
-    const contextMessages = smartContext.messages;
-    const contextSummary = smartContext.summary;
-    const parsedUrlsContext = smartContext.parsedUrlsContext;
-
-    // 构建Prompt
-    const topic = await this.prisma.topic.findUnique({
-      where: { id: topicId },
-      select: { name: true, description: true },
-    });
-
-    // 获取Topic关联的资源内容作为上下文
-    const topicResources = await this.prisma.topicResource.findMany({
-      where: { topicId },
-      include: {
-        resource: {
+    return BillingContext.run(
+      { userId, moduleType: "ai-teams", operationType: "ai-reply" },
+      async () => {
+        const aiMember = await this.prisma.topicAIMember.findFirst({
+          where: { id: aiMemberId, topicId },
           select: {
-            title: true,
-            abstract: true,
-            sourceUrl: true,
-            type: true,
+            id: true,
+            aiModel: true,
+            displayName: true,
+            avatar: true,
+            roleDescription: true,
+            systemPrompt: true,
+            contextWindow: true,
+            capabilities: true,
+            canMentionOtherAI: true,
+            collaborationStyle: true,
           },
-        },
-      },
-      take: 5,
-      orderBy: { createdAt: "desc" },
-    });
+        });
 
-    // 构建资源上下文
-    let resourceContext = "";
-    if (topicResources.length > 0) {
-      const resourceSummaries = topicResources
-        .filter((tr) => tr.resource)
-        .map((tr) => {
-          const r = tr.resource!;
-          let summary = `- **${r.title || tr.name}**`;
-          if (r.sourceUrl) summary += ` (${r.sourceUrl})`;
-          if (r.abstract) {
-            const abstractPreview = r.abstract.substring(0, 300);
-            summary += `\n  ${abstractPreview}${r.abstract.length > 300 ? "..." : ""}`;
+        if (!aiMember) {
+          throw new NotFoundException("AI member not found");
+        }
+
+        // 使用智能上下文管理器获取消息
+        // 【关键】更激进的上下文限制，防止累积超过模型限制
+        const MAX_CONTEXT_MESSAGES = 10; // 从30减少到10
+        const debateOpponentId = debateRole?.opponent?.id;
+        const smartContext = await this.buildSmartContext(
+          topicId,
+          aiMemberId,
+          Math.min(aiMember.contextWindow || 10, MAX_CONTEXT_MESSAGES),
+          debateOpponentId,
+        );
+
+        const contextMessages = smartContext.messages;
+        const contextSummary = smartContext.summary;
+        const parsedUrlsContext = smartContext.parsedUrlsContext;
+
+        // 构建Prompt
+        const topic = await this.prisma.topic.findUnique({
+          where: { id: topicId },
+          select: { name: true, description: true },
+        });
+
+        // 获取Topic关联的资源内容作为上下文
+        const topicResources = await this.prisma.topicResource.findMany({
+          where: { topicId },
+          include: {
+            resource: {
+              select: {
+                title: true,
+                abstract: true,
+                sourceUrl: true,
+                type: true,
+              },
+            },
+          },
+          take: 5,
+          orderBy: { createdAt: "desc" },
+        });
+
+        // 构建资源上下文
+        let resourceContext = "";
+        if (topicResources.length > 0) {
+          const resourceSummaries = topicResources
+            .filter((tr) => tr.resource)
+            .map((tr) => {
+              const r = tr.resource!;
+              let summary = `- **${r.title || tr.name}**`;
+              if (r.sourceUrl) summary += ` (${r.sourceUrl})`;
+              if (r.abstract) {
+                const abstractPreview = r.abstract.substring(0, 300);
+                summary += `\n  ${abstractPreview}${r.abstract.length > 300 ? "..." : ""}`;
+              }
+              return summary;
+            })
+            .join("\n\n");
+
+          if (resourceSummaries) {
+            resourceContext = `\n\n## Reference Materials\nThe following resources have been shared in this discussion group. Use them to provide more informed responses:\n\n${resourceSummaries}`;
           }
-          return summary;
-        })
-        .join("\n\n");
+        }
 
-      if (resourceSummaries) {
-        resourceContext = `\n\n## Reference Materials\nThe following resources have been shared in this discussion group. Use them to provide more informed responses:\n\n${resourceSummaries}`;
-      }
-    }
+        // 检测是否需要搜索实时信息或抓取URL
+        const recentUserMessages = contextMessages
+          .filter((m) => m.senderId)
+          .slice(0, 5);
+        let searchContext = "";
+        let urlContext = "";
 
-    // 检测是否需要搜索实时信息或抓取URL
-    const recentUserMessages = contextMessages
-      .filter((m) => m.senderId)
-      .slice(0, 5);
-    let searchContext = "";
-    let urlContext = "";
+        // 1. 从最近的用户消息中提取所有URL
+        const allUrls: string[] = [];
+        for (const msg of recentUserMessages) {
+          const messageSample = msg.content.substring(0, 10000);
+          const urls = this.extractUrls(messageSample);
+          allUrls.push(...urls);
+        }
+        const uniqueUrls = [...new Set(allUrls)].slice(0, 2);
 
-    // 1. 从最近的用户消息中提取所有URL
-    const allUrls: string[] = [];
-    for (const msg of recentUserMessages) {
-      const messageSample = msg.content.substring(0, 10000);
-      const urls = this.extractUrls(messageSample);
-      allUrls.push(...urls);
-    }
-    const uniqueUrls = [...new Set(allUrls)].slice(0, 2);
+        if (uniqueUrls.length > 0) {
+          this.logger.log(
+            `Found ${uniqueUrls.length} URLs in recent messages, fetching content...`,
+          );
+          // ★ 通过 ToolRegistry 调用 web-fetch 工具获取 URL 内容
+          const webFetchTool = this.toolRegistry.tryGet("web-fetch");
+          if (webFetchTool) {
+            const urlContents: string[] = [];
+            for (const url of uniqueUrls) {
+              try {
+                const fetchResult = await webFetchTool.execute(
+                  { url },
+                  this.createToolContext("web-fetch"),
+                );
+                if (fetchResult.success && fetchResult.data) {
+                  const fetchData = fetchResult.data as {
+                    content?: string;
+                    title?: string;
+                  };
+                  if (fetchData.content) {
+                    urlContents.push(
+                      `**${fetchData.title || url}**\n${fetchData.content.substring(0, 2000)}`,
+                    );
+                  }
+                }
+              } catch (e) {
+                this.logger.warn(`Failed to fetch URL ${url}: ${e}`);
+              }
+            }
+            if (urlContents.length > 0) {
+              urlContext = `\n\n## URL 内容\n${urlContents.join("\n\n---\n\n")}`;
+              this.logger.log(`Added URL content to context`);
+            }
+          }
+        }
 
-    if (uniqueUrls.length > 0) {
-      this.logger.log(
-        `Found ${uniqueUrls.length} URLs in recent messages, fetching content...`,
-      );
-      // ★ 通过 ToolRegistry 调用 web-fetch 工具获取 URL 内容
-      const webFetchTool = this.toolRegistry.tryGet("web-fetch");
-      if (webFetchTool) {
-        const urlContents: string[] = [];
-        for (const url of uniqueUrls) {
-          try {
-            const fetchResult = await webFetchTool.execute(
-              { url },
-              this.createToolContext("web-fetch"),
+        // 2. 检测是否需要搜索实时信息（仅当没有URL时才搜索）
+        const lastUserMessage = recentUserMessages[0];
+        if (
+          lastUserMessage &&
+          !urlContext &&
+          this.shouldSearchForInfo(lastUserMessage.content)
+        ) {
+          this.logger.log(
+            `Searching for real-time info: "${lastUserMessage.content.substring(0, 100)}..."`,
+          );
+          // ★ 通过 ToolRegistry 调用 web-search 工具
+          const webSearchTool = this.toolRegistry.tryGet("web-search");
+          if (webSearchTool) {
+            const toolResult = await webSearchTool.execute(
+              { query: lastUserMessage.content, numResults: 5 },
+              this.createToolContext("web-search"),
             );
-            if (fetchResult.success && fetchResult.data) {
-              const fetchData = fetchResult.data as {
-                content?: string;
-                title?: string;
+            if (toolResult.success && toolResult.data) {
+              const searchData = toolResult.data as {
+                results: Array<{ title: string; url: string; content: string }>;
+                success: boolean;
               };
-              if (fetchData.content) {
-                urlContents.push(
-                  `**${fetchData.title || url}**\n${fetchData.content.substring(0, 2000)}`,
+              if (searchData.success && searchData.results?.length > 0) {
+                searchContext =
+                  "\n\n## 搜索结果\n" +
+                  searchData.results
+                    .map(
+                      (r, i) =>
+                        `[${i + 1}] **${r.title}**\n${r.content}\nSource: ${r.url}`,
+                    )
+                    .join("\n\n");
+                this.logger.log(
+                  `Added ${searchData.results.length} search results to context`,
                 );
               }
             }
-          } catch (e) {
-            this.logger.warn(`Failed to fetch URL ${url}: ${e}`);
           }
         }
-        if (urlContents.length > 0) {
-          urlContext = `\n\n## URL 内容\n${urlContents.join("\n\n---\n\n")}`;
-          this.logger.log(`Added URL content to context`);
-        }
-      }
-    }
 
-    // 2. 检测是否需要搜索实时信息（仅当没有URL时才搜索）
-    const lastUserMessage = recentUserMessages[0];
-    if (
-      lastUserMessage &&
-      !urlContext &&
-      this.shouldSearchForInfo(lastUserMessage.content)
-    ) {
-      this.logger.log(
-        `Searching for real-time info: "${lastUserMessage.content.substring(0, 100)}..."`,
-      );
-      // ★ 通过 ToolRegistry 调用 web-search 工具
-      const webSearchTool = this.toolRegistry.tryGet("web-search");
-      if (webSearchTool) {
-        const toolResult = await webSearchTool.execute(
-          { query: lastUserMessage.content, numResults: 5 },
-          this.createToolContext("web-search"),
-        );
-        if (toolResult.success && toolResult.data) {
-          const searchData = toolResult.data as {
-            results: Array<{ title: string; url: string; content: string }>;
-            success: boolean;
-          };
-          if (searchData.success && searchData.results?.length > 0) {
-            searchContext =
-              "\n\n## 搜索结果\n" +
-              searchData.results
-                .map(
-                  (r, i) =>
-                    `[${i + 1}] **${r.title}**\n${r.content}\nSource: ${r.url}`,
-                )
-                .join("\n\n");
-            this.logger.log(
-              `Added ${searchData.results.length} search results to context`,
-            );
-          }
-        }
-      }
-    }
+        // 构建上下文摘要部分
+        const contextSummarySection = contextSummary
+          ? `\n\n## Earlier Discussion Context\n${contextSummary}`
+          : "";
 
-    // 构建上下文摘要部分
-    const contextSummarySection = contextSummary
-      ? `\n\n## Earlier Discussion Context\n${contextSummary}`
-      : "";
+        // ==================== 辩论模式处理 ====================
+        let debatePrompt = "";
 
-    // ==================== 辩论模式处理 ====================
-    let debatePrompt = "";
+        if (debateRole) {
+          const isRedTeam = debateRole.role === "red";
+          const opponentName = debateRole.opponent.displayName;
+          const debateTopic = debateRole.topic;
+          const myName = aiMember.displayName;
 
-    if (debateRole) {
-      const isRedTeam = debateRole.role === "red";
-      const opponentName = debateRole.opponent.displayName;
-      const debateTopic = debateRole.topic;
-      const myName = aiMember.displayName;
+          this.logger.log(
+            `[Debate Mode] Using Controller-assigned role: AI=${myName}, role=${isRedTeam ? "红方/正方" : "蓝方/反方"}, opponent=${opponentName}, topic=${debateTopic}`,
+          );
 
-      this.logger.log(
-        `[Debate Mode] Using Controller-assigned role: AI=${myName}, role=${isRedTeam ? "红方/正方" : "蓝方/反方"}, opponent=${opponentName}, topic=${debateTopic}`,
-      );
+          // 过滤上下文消息
+          const filteredContextMessages = contextMessages.filter((msg) => {
+            if (msg.senderId) return true;
+            if (msg.aiMemberId === debateRole.opponent.id) return true;
+            if (msg.aiMemberId === aiMemberId) return true;
+            return false;
+          });
 
-      // 过滤上下文消息
-      const filteredContextMessages = contextMessages.filter((msg) => {
-        if (msg.senderId) return true;
-        if (msg.aiMemberId === debateRole.opponent.id) return true;
-        if (msg.aiMemberId === aiMemberId) return true;
-        return false;
-      });
+          const recentContextMessages = filteredContextMessages.slice(-5);
 
-      const recentContextMessages = filteredContextMessages.slice(-5);
+          this.logger.log(
+            `[Debate Mode] Context filtered: ${contextMessages.length} -> ${recentContextMessages.length} messages`,
+          );
 
-      this.logger.log(
-        `[Debate Mode] Context filtered: ${contextMessages.length} -> ${recentContextMessages.length} messages`,
-      );
+          contextMessages.length = 0;
+          contextMessages.push(...recentContextMessages);
 
-      contextMessages.length = 0;
-      contextMessages.push(...recentContextMessages);
-
-      if (isRedTeam) {
-        debatePrompt = `
+          if (isRedTeam) {
+            debatePrompt = `
 #############################################
 #  🔴 辩论系统指令 - 你是【红方/正方】       #
 #############################################
@@ -670,8 +674,8 @@ export class AiResponseService {
 
 @${opponentName} 请回应
 `;
-      } else {
-        debatePrompt = `
+          } else {
+            debatePrompt = `
 #############################################
 #  🔵 辩论系统指令 - 你是【蓝方/反方】       #
 #############################################
@@ -703,31 +707,31 @@ export class AiResponseService {
 
 @${opponentName} 请继续
 `;
-      }
-    }
+          }
+        }
 
-    // AI-AI协作
-    let aiCollaborationPrompt = "";
-    if (aiMember.canMentionOtherAI) {
-      const otherAIs = await this.prisma.topicAIMember.findMany({
-        where: {
-          topicId,
-          id: { not: aiMemberId },
-        },
-        select: {
-          displayName: true,
-          roleDescription: true,
-        },
-      });
+        // AI-AI协作
+        let aiCollaborationPrompt = "";
+        if (aiMember.canMentionOtherAI) {
+          const otherAIs = await this.prisma.topicAIMember.findMany({
+            where: {
+              topicId,
+              id: { not: aiMemberId },
+            },
+            select: {
+              displayName: true,
+              roleDescription: true,
+            },
+          });
 
-      if (otherAIs.length > 0) {
-        const aiList = otherAIs
-          .map(
-            (ai) =>
-              `- @${ai.displayName}${ai.roleDescription ? ` (${ai.roleDescription})` : ""}`,
-          )
-          .join("\n");
-        aiCollaborationPrompt = `\n\n## AI 协作功能（重要）
+          if (otherAIs.length > 0) {
+            const aiList = otherAIs
+              .map(
+                (ai) =>
+                  `- @${ai.displayName}${ai.roleDescription ? ` (${ai.roleDescription})` : ""}`,
+              )
+              .join("\n");
+            aiCollaborationPrompt = `\n\n## AI 协作功能（重要）
 
 你可以通过 @AI名称 来触发其他 AI 助手响应。当你在回复中写 "@AI-Name" 时，系统会**自动调用该 AI 的 API**，他们**会真实地生成响应**。
 
@@ -746,569 +750,563 @@ ${aiList}
 → 系统会自动触发 AI-Claude 生成响应
 
 **注意：** 最大递归深度为 3 轮，避免无限循环。`;
-      }
-    }
-
-    const combinedUrlContext = parsedUrlsContext || urlContext;
-
-    // 【长文支持】使用向量检索获取相关历史上下文
-    let semanticRetrievalContext = "";
-    if (this.contextRetrievalService && !debateRole) {
-      try {
-        const recentMessageIds = contextMessages.map((m) => m.id);
-        const currentQuery =
-          contextMessages
-            .filter((m) => m.senderId)
-            .slice(-3)
-            .map((m) => m.content)
-            .join(" ") || "";
-
-        if (currentQuery.length > 50) {
-          semanticRetrievalContext =
-            await this.contextRetrievalService.buildEnhancedContext(
-              topicId,
-              currentQuery,
-              recentMessageIds,
-            );
-          if (semanticRetrievalContext) {
-            this.logger.log(
-              `[Long Text Support] Added semantic retrieval context (${semanticRetrievalContext.length} chars)`,
-            );
           }
         }
-      } catch (error) {
-        this.logger.warn(
-          `[Long Text Support] Semantic retrieval failed:`,
-          error,
-        );
-        // 失败不影响主流程
-      }
-    }
 
-    const systemPrompt = debatePrompt
-      ? `You are ${aiMember.displayName}.
+        const combinedUrlContext = parsedUrlsContext || urlContext;
+
+        // 【长文支持】使用向量检索获取相关历史上下文
+        let semanticRetrievalContext = "";
+        if (this.contextRetrievalService && !debateRole) {
+          try {
+            const recentMessageIds = contextMessages.map((m) => m.id);
+            const currentQuery =
+              contextMessages
+                .filter((m) => m.senderId)
+                .slice(-3)
+                .map((m) => m.content)
+                .join(" ") || "";
+
+            if (currentQuery.length > 50) {
+              semanticRetrievalContext =
+                await this.contextRetrievalService.buildEnhancedContext(
+                  topicId,
+                  currentQuery,
+                  recentMessageIds,
+                );
+              if (semanticRetrievalContext) {
+                this.logger.log(
+                  `[Long Text Support] Added semantic retrieval context (${semanticRetrievalContext.length} chars)`,
+                );
+              }
+            }
+          } catch (error) {
+            this.logger.warn(
+              `[Long Text Support] Semantic retrieval failed:`,
+              error,
+            );
+            // 失败不影响主流程
+          }
+        }
+
+        const systemPrompt = debatePrompt
+          ? `You are ${aiMember.displayName}.
 ${debatePrompt}
 ${contextSummarySection}${resourceContext}${combinedUrlContext}${searchContext}`
-      : aiMember.systemPrompt ||
-        `You are ${aiMember.displayName}, an AI assistant participating in a group discussion.
+          : aiMember.systemPrompt ||
+            `You are ${aiMember.displayName}, an AI assistant participating in a group discussion.
 ${aiMember.roleDescription ? `Your role: ${aiMember.roleDescription}` : ""}
 You are in a discussion group called "${topic?.name}".
 ${topic?.description ? `Group description: ${topic.description}` : ""}${contextSummarySection}${resourceContext}${combinedUrlContext}${searchContext}${semanticRetrievalContext}${aiCollaborationPrompt}
 
 Respond naturally and helpfully to the discussion. When relevant, reference the shared materials, fetched web content, and search results to provide accurate, up-to-date information. Keep your responses concise but informative.`;
 
-    // 使用 ContextRouter 智能路由上下文
-    const userMessages = contextMessages.filter((m) => m.senderId);
-    const lastUserMsg = userMessages[userMessages.length - 1];
-    const userMessageContent = lastUserMsg?.content || "";
+        // 使用 ContextRouter 智能路由上下文
+        const userMessages = contextMessages.filter((m) => m.senderId);
+        const lastUserMsg = userMessages[userMessages.length - 1];
+        const userMessageContent = lastUserMsg?.content || "";
 
-    this.logger.log(
-      `[ContextRouter] Last user message: "${userMessageContent.substring(0, 100)}..."`,
-    );
-
-    const routeResult = await this.contextRouter.routeContext(
-      topicId,
-      userMessageContent,
-      [],
-    );
-
-    this.logger.log(
-      `[ContextRouter] Intent: ${routeResult.intent}, Strategy: ${routeResult.strategy}`,
-    );
-
-    let filteredContextMessages = contextMessages;
-    let intentSystemPrompt = "";
-
-    if (!debateRole) {
-      const debatePatterns = [
-        /辩论主题[：:]/,
-        /我方立场[：:]/,
-        /正方观点/,
-        /反方观点/,
-        /核心论点[：:]/,
-        /向对方提问/,
-        /@[\w\u4e00-\u9fa5\-]+\s*请回应/,
-        /@[\w\u4e00-\u9fa5\-]+\s*请继续/,
-      ];
-
-      const isDebateMessage = (content: string): boolean => {
-        return debatePatterns.some((pattern) => pattern.test(content));
-      };
-
-      const extractDebateSummary = (
-        content: string,
-        senderName: string,
-      ): string => {
-        const corePointsMatch = content.match(
-          /核心论点[：:]([\s\S]*?)(?=\n\n|\*\*|$)/,
+        this.logger.log(
+          `[ContextRouter] Last user message: "${userMessageContent.substring(0, 100)}..."`,
         );
-        const stanceMatch = content.match(/我方立场[：:]\s*([^\n]+)/);
 
-        let summary = `【${senderName}的观点】`;
-        if (stanceMatch) {
-          summary += `立场：${stanceMatch[1].trim()}。`;
-        }
-        if (corePointsMatch) {
-          const points = corePointsMatch[1]
-            .replace(/^\d+\.\s*/gm, "")
-            .replace(/\*\*/g, "")
-            .trim()
-            .split("\n")
-            .filter((p) => p.trim())
-            .slice(0, 3)
-            .join("；");
-          summary += `论点：${points}`;
-        }
-        return summary || content.substring(0, 200) + "...";
-      };
+        const routeResult = await this.contextRouter.routeContext(
+          topicId,
+          userMessageContent,
+          [],
+        );
 
-      switch (routeResult.strategy) {
-        case ContextStrategy.REFERENCE_RECENT:
-          this.logger.log(`[ContextRouter] Using REFERENCE_RECENT strategy`);
-          filteredContextMessages = contextMessages.map((msg) => {
-            if (msg.aiMemberId && isDebateMessage(msg.content)) {
-              const senderName = msg.aiMember?.displayName || "AI";
-              return {
-                ...msg,
-                content: extractDebateSummary(msg.content, senderName),
-              };
+        this.logger.log(
+          `[ContextRouter] Intent: ${routeResult.intent}, Strategy: ${routeResult.strategy}`,
+        );
+
+        let filteredContextMessages = contextMessages;
+        let intentSystemPrompt = "";
+
+        if (!debateRole) {
+          const debatePatterns = [
+            /辩论主题[：:]/,
+            /我方立场[：:]/,
+            /正方观点/,
+            /反方观点/,
+            /核心论点[：:]/,
+            /向对方提问/,
+            /@[\w\u4e00-\u9fa5\-]+\s*请回应/,
+            /@[\w\u4e00-\u9fa5\-]+\s*请继续/,
+          ];
+
+          const isDebateMessage = (content: string): boolean => {
+            return debatePatterns.some((pattern) => pattern.test(content));
+          };
+
+          const extractDebateSummary = (
+            content: string,
+            senderName: string,
+          ): string => {
+            const corePointsMatch = content.match(
+              /核心论点[：:]([\s\S]*?)(?=\n\n|\*\*|$)/,
+            );
+            const stanceMatch = content.match(/我方立场[：:]\s*([^\n]+)/);
+
+            let summary = `【${senderName}的观点】`;
+            if (stanceMatch) {
+              summary += `立场：${stanceMatch[1].trim()}。`;
             }
-            return msg;
-          });
-          const MAX_REF_CONTEXT = 12;
-          if (filteredContextMessages.length > MAX_REF_CONTEXT) {
-            filteredContextMessages =
-              filteredContextMessages.slice(-MAX_REF_CONTEXT);
-          }
-          intentSystemPrompt = routeResult.systemPromptAddition || "";
-          break;
+            if (corePointsMatch) {
+              const points = corePointsMatch[1]
+                .replace(/^\d+\.\s*/gm, "")
+                .replace(/\*\*/g, "")
+                .trim()
+                .split("\n")
+                .filter((p) => p.trim())
+                .slice(0, 3)
+                .join("；");
+              summary += `论点：${points}`;
+            }
+            return summary || content.substring(0, 200) + "...";
+          };
 
-        case ContextStrategy.STANDARD:
-        default:
-          this.logger.log(`[ContextRouter] Using STANDARD strategy`);
-
-          let standardFiltered = contextMessages.filter((msg) => {
-            if (msg.senderId) return true;
-            if (msg.aiMemberId && isDebateMessage(msg.content)) {
+          switch (routeResult.strategy) {
+            case ContextStrategy.REFERENCE_RECENT:
               this.logger.log(
-                `[Context Filter] Removing debate message from ${msg.aiMember?.displayName || "AI"}`,
+                `[ContextRouter] Using REFERENCE_RECENT strategy`,
               );
-              return false;
-            }
-            return true;
-          });
+              filteredContextMessages = contextMessages.map((msg) => {
+                if (msg.aiMemberId && isDebateMessage(msg.content)) {
+                  const senderName = msg.aiMember?.displayName || "AI";
+                  return {
+                    ...msg,
+                    content: extractDebateSummary(msg.content, senderName),
+                  };
+                }
+                return msg;
+              });
+              const MAX_REF_CONTEXT = 12;
+              if (filteredContextMessages.length > MAX_REF_CONTEXT) {
+                filteredContextMessages =
+                  filteredContextMessages.slice(-MAX_REF_CONTEXT);
+              }
+              intentSystemPrompt = routeResult.systemPromptAddition || "";
+              break;
 
-          const userMessagesInContext = standardFiltered.filter(
-            (m) => m.senderId,
-          );
-          const latestUserMsgForContext =
-            userMessagesInContext[userMessagesInContext.length - 1];
+            case ContextStrategy.STANDARD:
+            default:
+              this.logger.log(`[ContextRouter] Using STANDARD strategy`);
 
-          const MAX_NORMAL_CONTEXT = 6;
-          if (standardFiltered.length > MAX_NORMAL_CONTEXT) {
-            const recentMessages = standardFiltered.slice(-MAX_NORMAL_CONTEXT);
+              let standardFiltered = contextMessages.filter((msg) => {
+                if (msg.senderId) return true;
+                if (msg.aiMemberId && isDebateMessage(msg.content)) {
+                  this.logger.log(
+                    `[Context Filter] Removing debate message from ${msg.aiMember?.displayName || "AI"}`,
+                  );
+                  return false;
+                }
+                return true;
+              });
 
-            if (
-              latestUserMsgForContext &&
-              !recentMessages.find((m) => m.id === latestUserMsgForContext.id)
-            ) {
-              recentMessages.shift();
-              recentMessages.push(latestUserMsgForContext);
-              recentMessages.sort(
-                (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+              const userMessagesInContext = standardFiltered.filter(
+                (m) => m.senderId,
               );
-            }
-            standardFiltered = recentMessages;
+              const latestUserMsgForContext =
+                userMessagesInContext[userMessagesInContext.length - 1];
+
+              const MAX_NORMAL_CONTEXT = 6;
+              if (standardFiltered.length > MAX_NORMAL_CONTEXT) {
+                const recentMessages =
+                  standardFiltered.slice(-MAX_NORMAL_CONTEXT);
+
+                if (
+                  latestUserMsgForContext &&
+                  !recentMessages.find(
+                    (m) => m.id === latestUserMsgForContext.id,
+                  )
+                ) {
+                  recentMessages.shift();
+                  recentMessages.push(latestUserMsgForContext);
+                  recentMessages.sort(
+                    (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+                  );
+                }
+                standardFiltered = recentMessages;
+              }
+
+              if (latestUserMsgForContext) {
+                const lastMsg = standardFiltered[standardFiltered.length - 1];
+                if (lastMsg && lastMsg.id !== latestUserMsgForContext.id) {
+                  standardFiltered = standardFiltered.filter(
+                    (m) => m.id !== latestUserMsgForContext.id,
+                  );
+                  standardFiltered.push(latestUserMsgForContext);
+                }
+              }
+
+              filteredContextMessages = standardFiltered;
+
+              this.logger.log(
+                `[STANDARD] Latest user msg: "${latestUserMsgForContext?.content.substring(0, 50)}..."`,
+              );
+              break;
           }
-
-          if (latestUserMsgForContext) {
-            const lastMsg = standardFiltered[standardFiltered.length - 1];
-            if (lastMsg && lastMsg.id !== latestUserMsgForContext.id) {
-              standardFiltered = standardFiltered.filter(
-                (m) => m.id !== latestUserMsgForContext.id,
-              );
-              standardFiltered.push(latestUserMsgForContext);
-            }
-          }
-
-          filteredContextMessages = standardFiltered;
 
           this.logger.log(
-            `[STANDARD] Latest user msg: "${latestUserMsgForContext?.content.substring(0, 50)}..."`,
+            `[ContextRouter] Context: ${contextMessages.length} -> ${filteredContextMessages.length} messages`,
           );
-          break;
-      }
+        }
 
-      this.logger.log(
-        `[ContextRouter] Context: ${contextMessages.length} -> ${filteredContextMessages.length} messages`,
-      );
-    }
+        let finalSystemPrompt = systemPrompt;
+        if (intentSystemPrompt) {
+          finalSystemPrompt = systemPrompt + "\n\n" + intentSystemPrompt;
+        }
 
-    let finalSystemPrompt = systemPrompt;
-    if (intentSystemPrompt) {
-      finalSystemPrompt = systemPrompt + "\n\n" + intentSystemPrompt;
-    }
+        // ==================== 工具调用模式 ====================
+        // 检查是否应该使用工具
+        const memberConfig = this.buildMemberConfig(aiMember);
+        const toolTypes = this.teamMemberAgent.resolveTools(memberConfig);
 
-    // ==================== 工具调用模式 ====================
-    // 检查是否应该使用工具
-    const memberConfig = this.buildMemberConfig(aiMember);
-    const toolTypes = this.teamMemberAgent.resolveTools(memberConfig);
-
-    this.logger.debug(
-      `[Tool Integration] Member ${aiMember.displayName}: ${toolTypes.length} tools available`,
-    );
-
-    // 如果有工具且应该使用工具，尝试工具模式
-    if (toolTypes.length > 0 && this.shouldUseTools(aiMember)) {
-      this.logger.log(
-        `[Tool Integration] Using tool mode for ${aiMember.displayName} with ${toolTypes.length} tools`,
-      );
-
-      try {
-        return await this.generateWithTools(
-          topicId,
-          aiMember,
-          filteredContextMessages,
-          toolTypes,
-          finalSystemPrompt,
+        this.logger.debug(
+          `[Tool Integration] Member ${aiMember.displayName}: ${toolTypes.length} tools available`,
         );
-      } catch (error) {
-        this.logger.error(
-          `[Tool Integration] Tool mode failed, falling back to standard mode:`,
-          error,
-        );
-        // 降级到标准模式（继续执行下面的代码）
-      }
-    }
 
-    // Build chat messages for AI service
-    const MAX_MESSAGE_LENGTH = 4000;
+        // 如果有工具且应该使用工具，尝试工具模式
+        if (toolTypes.length > 0 && this.shouldUseTools(aiMember)) {
+          this.logger.log(
+            `[Tool Integration] Using tool mode for ${aiMember.displayName} with ${toolTypes.length} tools`,
+          );
 
-    const missionMessagePatterns = [
-      /^\[任务规划\]/,
-      /^\[任务分解\]/,
-      /^\[任务分配\]/,
-      /^\[任务进度\]/,
-      /^\[开始工作\]/,
-      /^\[工作汇报\]/,
-      /^\[任务修改\]/,
-      /^\[结果整合\]/,
-      /^\[最终交付\]/,
-      /^\[Leader反馈\]/,
-      /^\[Mission\]/i,
-      /^\[AgentTask\]/i,
-      /\(本报告由.*共同完成.*\)/,
-      /\*\(系统提示[：:].*任务流.*\)\*/,
-      /^🚀\s*\*\*团队任务已创建\*\*/,
-      /^📋\s*\[任务分配\]/,
-      /^❌\s*任务.*失败/,
-      /^❌\s*任务执行出错/,
-    ];
+          try {
+            return await this.generateWithTools(
+              topicId,
+              aiMember,
+              filteredContextMessages,
+              toolTypes,
+              finalSystemPrompt,
+            );
+          } catch (error) {
+            this.logger.error(
+              `[Tool Integration] Tool mode failed, falling back to standard mode:`,
+              error,
+            );
+            // 降级到标准模式（继续执行下面的代码）
+          }
+        }
 
-    const isMissionSystemMessage = (content: string): boolean => {
-      const trimmedContent = content.trim();
-      if (
-        missionMessagePatterns.some((pattern) => pattern.test(trimmedContent))
-      ) {
-        return true;
-      }
-      if (
-        trimmedContent.includes("[任务分解]") ||
-        trimmedContent.includes("[工作汇报]") ||
-        trimmedContent.includes("[最终交付]") ||
-        trimmedContent.includes("[Leader反馈]") ||
-        trimmedContent.includes("[结果整合]")
-      ) {
-        return true;
-      }
-      return false;
-    };
+        // Build chat messages for AI service
+        const MAX_MESSAGE_LENGTH = 4000;
 
-    let normalContextMessages = filteredContextMessages.filter((msg) => {
-      if (isMissionSystemMessage(msg.content)) {
-        this.logger.log(
-          `[Context Filter] Removing mission message: "${msg.content.substring(0, 50)}..."`,
-        );
-        return false;
-      }
-      return true;
-    });
+        const missionMessagePatterns = [
+          /^\[任务规划\]/,
+          /^\[任务分解\]/,
+          /^\[任务分配\]/,
+          /^\[任务进度\]/,
+          /^\[开始工作\]/,
+          /^\[工作汇报\]/,
+          /^\[任务修改\]/,
+          /^\[结果整合\]/,
+          /^\[最终交付\]/,
+          /^\[Leader反馈\]/,
+          /^\[Mission\]/i,
+          /^\[AgentTask\]/i,
+          /\(本报告由.*共同完成.*\)/,
+          /\*\(系统提示[：:].*任务流.*\)\*/,
+          /^🚀\s*\*\*团队任务已创建\*\*/,
+          /^📋\s*\[任务分配\]/,
+          /^❌\s*任务.*失败/,
+          /^❌\s*任务执行出错/,
+        ];
 
-    this.logger.log(
-      `[Context Filter] After mission filter: ${filteredContextMessages.length} -> ${normalContextMessages.length} messages`,
-    );
-
-    // ========== Context Size Management ==========
-    // 【最佳实践】严格限制上下文大小，防止超过模型限制
-    //
-    // 关键策略：
-    // 1. 每次对话只保留最近的少量消息
-    // 2. 任务消息已在 buildSmartContext 中被过滤
-    // 3. 总字符数严格限制，为响应留出足够空间
-
-    // 1. 限制消息数量（更激进：从25减少到10）
-    const MAX_CHAT_CONTEXT_MESSAGES = 10;
-    if (normalContextMessages.length > MAX_CHAT_CONTEXT_MESSAGES) {
-      this.logger.log(
-        `[Context Management] Trimming messages: ${normalContextMessages.length} -> ${MAX_CHAT_CONTEXT_MESSAGES}`,
-      );
-      normalContextMessages = normalContextMessages.slice(
-        -MAX_CHAT_CONTEXT_MESSAGES,
-      );
-    }
-
-    // 2. 限制总字符数
-    // 目标：~25k tokens = ~100k chars（扩展以支持长文创作场景）
-    // 注：大多数模型支持 128k+ 上下文，100k chars 约占用 25% 容量
-    const MAX_TOTAL_CONTEXT_CHARS = 100000;
-    let totalContextChars = normalContextMessages.reduce(
-      (sum, m) => sum + m.content.length,
-      0,
-    );
-
-    // 如果仍然超过限制，从最旧的消息开始删除
-    while (
-      totalContextChars > MAX_TOTAL_CONTEXT_CHARS &&
-      normalContextMessages.length > 2
-    ) {
-      const removed = normalContextMessages.shift();
-      if (removed) {
-        totalContextChars -= removed.content.length;
-        this.logger.log(
-          `[Context Management] Removed oldest message (${removed.content.length} chars), remaining: ${normalContextMessages.length} messages, ${totalContextChars} chars`,
-        );
-      }
-    }
-
-    // 3. 对过长的单条消息进行截断（最多2000字符）
-    const MAX_SINGLE_MESSAGE_LENGTH = 2000;
-    normalContextMessages = normalContextMessages.map((msg) => {
-      if (msg.content.length > MAX_SINGLE_MESSAGE_LENGTH) {
-        this.logger.log(
-          `[Context Management] Truncating long message: ${msg.content.length} -> ${MAX_SINGLE_MESSAGE_LENGTH} chars`,
-        );
-        return {
-          ...msg,
-          content:
-            msg.content.substring(0, MAX_SINGLE_MESSAGE_LENGTH) +
-            "\n[... 内容过长已截断 ...]",
+        const isMissionSystemMessage = (content: string): boolean => {
+          const trimmedContent = content.trim();
+          if (
+            missionMessagePatterns.some((pattern) =>
+              pattern.test(trimmedContent),
+            )
+          ) {
+            return true;
+          }
+          if (
+            trimmedContent.includes("[任务分解]") ||
+            trimmedContent.includes("[工作汇报]") ||
+            trimmedContent.includes("[最终交付]") ||
+            trimmedContent.includes("[Leader反馈]") ||
+            trimmedContent.includes("[结果整合]")
+          ) {
+            return true;
+          }
+          return false;
         };
-      }
-      return msg;
-    });
 
-    // 重新计算总字符数
-    totalContextChars = normalContextMessages.reduce(
-      (sum, m) => sum + m.content.length,
-      0,
-    );
+        let normalContextMessages = filteredContextMessages.filter((msg) => {
+          if (isMissionSystemMessage(msg.content)) {
+            this.logger.log(
+              `[Context Filter] Removing mission message: "${msg.content.substring(0, 50)}..."`,
+            );
+            return false;
+          }
+          return true;
+        });
 
-    this.logger.log(
-      `[Context Management] Final context: ${normalContextMessages.length} messages, ${totalContextChars} chars, ~${Math.round(totalContextChars / 4)} tokens`,
-    );
-
-    const chatMessages: ChatMessage[] = normalContextMessages.map((m) => {
-      const senderName = m.sender
-        ? m.sender.fullName || m.sender.username || "User"
-        : m.aiMember?.displayName || "AI";
-      const isAI = !!m.aiMemberId;
-
-      let content = m.content;
-
-      if (m.replyTo?.content) {
-        const replyToSender = m.replyTo.sender
-          ? m.replyTo.sender.fullName || m.replyTo.sender.username || "User"
-          : m.replyTo.aiMember?.displayName || "AI";
-        const quotedContent =
-          m.replyTo.content.length > 500
-            ? m.replyTo.content.substring(0, 500) + "..."
-            : m.replyTo.content;
-        content = `[引用 ${replyToSender} 的消息: "${quotedContent}"]\n\n${m.content}`;
-      }
-
-      if (content.length > MAX_MESSAGE_LENGTH) {
-        content =
-          content.substring(0, MAX_MESSAGE_LENGTH) +
-          "\n\n[Message truncated due to length...]";
-        this.logger.warn(
-          `Message ${m.id} truncated from ${m.content.length} to ${MAX_MESSAGE_LENGTH} chars`,
+        this.logger.log(
+          `[Context Filter] After mission filter: ${filteredContextMessages.length} -> ${normalContextMessages.length} messages`,
         );
-      }
 
-      return {
-        role: isAI ? "assistant" : "user",
-        content,
-        name: senderName,
-      } as ChatMessage;
-    });
+        // ========== Context Size Management ==========
+        // 【最佳实践】严格限制上下文大小，防止超过模型限制
+        //
+        // 关键策略：
+        // 1. 每次对话只保留最近的少量消息
+        // 2. 任务消息已在 buildSmartContext 中被过滤
+        // 3. 总字符数严格限制，为响应留出足够空间
 
-    // Get AI model configuration
-    this.logger.log(
-      `[AI Model Lookup] aiMember.aiModel = "${aiMember.aiModel}", displayName = "${aiMember.displayName}"`,
-    );
+        // 1. 限制消息数量（更激进：从25减少到10）
+        const MAX_CHAT_CONTEXT_MESSAGES = 10;
+        if (normalContextMessages.length > MAX_CHAT_CONTEXT_MESSAGES) {
+          this.logger.log(
+            `[Context Management] Trimming messages: ${normalContextMessages.length} -> ${MAX_CHAT_CONTEXT_MESSAGES}`,
+          );
+          normalContextMessages = normalContextMessages.slice(
+            -MAX_CHAT_CONTEXT_MESSAGES,
+          );
+        }
 
-    const aiModelConfig = await this.aiFacade.getModelById(aiMember.aiModel);
+        // 2. 限制总字符数
+        // 目标：~25k tokens = ~100k chars（扩展以支持长文创作场景）
+        // 注：大多数模型支持 128k+ 上下文，100k chars 约占用 25% 容量
+        const MAX_TOTAL_CONTEXT_CHARS = 100000;
+        let totalContextChars = normalContextMessages.reduce(
+          (sum, m) => sum + m.content.length,
+          0,
+        );
 
-    this.logger.log(
-      `[AI Model Lookup] By modelId "${aiMember.aiModel}": ${aiModelConfig ? `found (id=${aiModelConfig.id})` : "NOT FOUND"}`,
-    );
+        // 如果仍然超过限制，从最旧的消息开始删除
+        while (
+          totalContextChars > MAX_TOTAL_CONTEXT_CHARS &&
+          normalContextMessages.length > 2
+        ) {
+          const removed = normalContextMessages.shift();
+          if (removed) {
+            totalContextChars -= removed.content.length;
+            this.logger.log(
+              `[Context Management] Removed oldest message (${removed.content.length} chars), remaining: ${normalContextMessages.length} messages, ${totalContextChars} chars`,
+            );
+          }
+        }
 
-    // Call AI service
-    this.logger.log(
-      `Generating AI response for topic ${topicId} using ${aiMember.aiModel}`,
-    );
-    let aiResponse: string;
-    let tokensUsed = 0;
-    const startTime = Date.now();
+        // 3. 对过长的单条消息进行截断（最多2000字符）
+        const MAX_SINGLE_MESSAGE_LENGTH = 2000;
+        normalContextMessages = normalContextMessages.map((msg) => {
+          if (msg.content.length > MAX_SINGLE_MESSAGE_LENGTH) {
+            this.logger.log(
+              `[Context Management] Truncating long message: ${msg.content.length} -> ${MAX_SINGLE_MESSAGE_LENGTH} chars`,
+            );
+            return {
+              ...msg,
+              content:
+                msg.content.substring(0, MAX_SINGLE_MESSAGE_LENGTH) +
+                "\n[... 内容过长已截断 ...]",
+            };
+          }
+          return msg;
+        });
 
-    try {
-      // Determine output length based on model capabilities
-      // ★ 使用 AIEngineFacade 返回的 isReasoning 字段，不再硬编码模型名称
-      const modelId =
-        aiModelConfig?.modelId || this.getDefaultModelId(aiMember.aiModel);
-      const isReasoningModel = aiModelConfig?.isReasoning ?? false;
-      const isLargeModel =
-        modelId.includes("gpt-4") ||
-        modelId.includes("claude") ||
-        modelId.includes("gemini");
+        // 重新计算总字符数
+        totalContextChars = normalContextMessages.reduce(
+          (sum, m) => sum + m.content.length,
+          0,
+        );
 
-      // 【长文支持】根据模型能力确定输出长度
-      // - Reasoning models: "extended" (复杂多步骤任务、长文创作)
-      // - Large models: "long" (标准对话、中等长度内容)
-      // - Other models: "medium" (简单响应)
-      const outputLength = isReasoningModel
-        ? ("extended" as const)
-        : isLargeModel
-          ? ("long" as const)
-          : ("medium" as const);
+        this.logger.log(
+          `[Context Management] Final context: ${normalContextMessages.length} messages, ${totalContextChars} chars, ~${Math.round(totalContextChars / 4)} tokens`,
+        );
 
-      this.logger.log(
-        `Calling AI API: modelId=${modelId}, isReasoning=${isReasoningModel}, outputLength=${outputLength}`,
-      );
+        const chatMessages: ChatMessage[] = normalContextMessages.map((m) => {
+          const senderName = m.sender
+            ? m.sender.fullName || m.sender.username || "User"
+            : m.aiMember?.displayName || "AI";
+          const isAI = !!m.aiMemberId;
 
-      // 构建消息列表，包含系统提示
-      const facadeMessages: ChatMessage[] = [
-        { role: "system", content: finalSystemPrompt },
-        ...chatMessages.map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
-      ];
+          let content = m.content;
 
-      const result = await this.aiFacade.chat({
-        messages: facadeMessages,
-        model: modelId,
-        taskProfile: {
-          creativity: "medium",
-          outputLength,
-        },
-      });
-      aiResponse = result.content;
-      tokensUsed = result.tokensUsed;
+          if (m.replyTo?.content) {
+            const replyToSender = m.replyTo.sender
+              ? m.replyTo.sender.fullName || m.replyTo.sender.username || "User"
+              : m.replyTo.aiMember?.displayName || "AI";
+            const quotedContent =
+              m.replyTo.content.length > 500
+                ? m.replyTo.content.substring(0, 500) + "..."
+                : m.replyTo.content;
+            content = `[引用 ${replyToSender} 的消息: "${quotedContent}"]\n\n${m.content}`;
+          }
 
-      // 记录AI响应指标
-      const duration = Date.now() - startTime;
-      if (this.metricsService) {
-        this.metricsService.recordAIResponseLatency(aiMember.aiModel, duration);
-        this.metricsService.recordAIResponseTokens(
+          if (content.length > MAX_MESSAGE_LENGTH) {
+            content =
+              content.substring(0, MAX_MESSAGE_LENGTH) +
+              "\n\n[Message truncated due to length...]";
+            this.logger.warn(
+              `Message ${m.id} truncated from ${m.content.length} to ${MAX_MESSAGE_LENGTH} chars`,
+            );
+          }
+
+          return {
+            role: isAI ? "assistant" : "user",
+            content,
+            name: senderName,
+          } as ChatMessage;
+        });
+
+        // Get AI model configuration
+        this.logger.log(
+          `[AI Model Lookup] aiMember.aiModel = "${aiMember.aiModel}", displayName = "${aiMember.displayName}"`,
+        );
+
+        const aiModelConfig = await this.aiFacade.getModelById(
           aiMember.aiModel,
-          tokensUsed,
         );
-      }
 
-      this.logger.log(
-        `[AI Response Debug] Content received from AI, length: ${aiResponse?.length || 0}, duration: ${duration}ms`,
-      );
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "未知错误";
-      this.logger.error(`Failed to generate AI response: ${errorMsg}`);
-
-      // 记录AI响应错误指标
-      if (this.metricsService) {
-        this.metricsService.recordAIResponseError(
-          aiMember.aiModel,
-          "generation_failed",
+        this.logger.log(
+          `[AI Model Lookup] By modelId "${aiMember.aiModel}": ${aiModelConfig ? `found (id=${aiModelConfig.id})` : "NOT FOUND"}`,
         );
-      }
 
-      aiResponse = `**AI 响应生成失败**
+        // Call AI service
+        this.logger.log(
+          `Generating AI response for topic ${topicId} using ${aiMember.aiModel}`,
+        );
+        let aiResponse: string;
+        let tokensUsed = 0;
+        const startTime = Date.now();
+
+        try {
+          // Determine output length based on model capabilities
+          // ★ 使用 AIEngineFacade 返回的 isReasoning 字段，不再硬编码模型名称
+          const modelId =
+            aiModelConfig?.modelId || this.getDefaultModelId(aiMember.aiModel);
+          const isReasoningModel = aiModelConfig?.isReasoning ?? false;
+          const isLargeModel =
+            modelId.includes("gpt-4") ||
+            modelId.includes("claude") ||
+            modelId.includes("gemini");
+
+          // 【长文支持】根据模型能力确定输出长度
+          // - Reasoning models: "extended" (复杂多步骤任务、长文创作)
+          // - Large models: "long" (标准对话、中等长度内容)
+          // - Other models: "medium" (简单响应)
+          const outputLength = isReasoningModel
+            ? ("extended" as const)
+            : isLargeModel
+              ? ("long" as const)
+              : ("medium" as const);
+
+          this.logger.log(
+            `Calling AI API: modelId=${modelId}, isReasoning=${isReasoningModel}, outputLength=${outputLength}`,
+          );
+
+          // 构建消息列表，包含系统提示
+          const facadeMessages: ChatMessage[] = [
+            { role: "system", content: finalSystemPrompt },
+            ...chatMessages.map((m) => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            })),
+          ];
+
+          const result = await this.aiFacade.chat({
+            messages: facadeMessages,
+            model: modelId,
+            taskProfile: {
+              creativity: "medium",
+              outputLength,
+            },
+          });
+          aiResponse = result.content;
+          tokensUsed = result.tokensUsed;
+
+          // 记录AI响应指标
+          const duration = Date.now() - startTime;
+          if (this.metricsService) {
+            this.metricsService.recordAIResponseLatency(
+              aiMember.aiModel,
+              duration,
+            );
+            this.metricsService.recordAIResponseTokens(
+              aiMember.aiModel,
+              tokensUsed,
+            );
+          }
+
+          this.logger.log(
+            `[AI Response Debug] Content received from AI, length: ${aiResponse?.length || 0}, duration: ${duration}ms`,
+          );
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : "未知错误";
+          this.logger.error(`Failed to generate AI response: ${errorMsg}`);
+
+          // 记录AI响应错误指标
+          if (this.metricsService) {
+            this.metricsService.recordAIResponseError(
+              aiMember.aiModel,
+              "generation_failed",
+            );
+          }
+
+          aiResponse = `**AI 响应生成失败**
 
 我是 ${aiMember.displayName}，生成回复时遇到错误：
 
 **错误信息**：${errorMsg}
 
 请稍后重试，或联系管理员检查 API 配置。`;
-    }
+        }
 
-    // 创建AI消息
-    this.logger.log(
-      `[AI Response Debug] Saving to DB, content length: ${aiResponse?.length || 0}`,
-    );
-    const message = await this.prisma.topicMessage.create({
-      data: {
-        topicId,
-        aiMemberId,
-        content: aiResponse,
-        contentType: MessageContentType.TEXT,
-        prompt: systemPrompt,
-        modelUsed: aiMember.aiModel,
-        tokensUsed,
-      },
-      include: {
-        aiMember: {
-          select: {
-            id: true,
-            aiModel: true,
-            displayName: true,
-            avatar: true,
-            roleDescription: true,
-          },
-        },
-      },
-    });
-
-    this.logger.log(
-      `[AI Response Debug] Saved to DB, message.content length: ${message.content?.length || 0}`,
-    );
-
-    // 更新Topic的updatedAt
-    await this.prisma.topic.update({
-      where: { id: topicId },
-      data: { updatedAt: new Date() },
-    });
-
-    // 扣减积分
-    if (this.creditsService) {
-      try {
-        await this.creditsService.consumeCredits({
-          userId,
-          moduleType: "ai-teams",
-          operationType: "ai-reply",
-          tokenCount: tokensUsed,
-          modelName: aiMember.aiModel,
-          referenceId: message.id,
-          description: `AI Teams - ${aiMember.displayName} 回复`,
-        });
-      } catch (creditError) {
-        this.logger.warn(
-          `Failed to consume credits for AI Teams: ${creditError}`,
+        // 创建AI消息
+        this.logger.log(
+          `[AI Response Debug] Saving to DB, content length: ${aiResponse?.length || 0}`,
         );
-        // 积分扣减失败不应阻止响应返回
-      }
-    }
+        const message = await this.prisma.topicMessage.create({
+          data: {
+            topicId,
+            aiMemberId,
+            content: aiResponse,
+            contentType: MessageContentType.TEXT,
+            prompt: systemPrompt,
+            modelUsed: aiMember.aiModel,
+            tokensUsed,
+          },
+          include: {
+            aiMember: {
+              select: {
+                id: true,
+                aiModel: true,
+                displayName: true,
+                avatar: true,
+                roleDescription: true,
+              },
+            },
+          },
+        });
 
-    // 记录AI响应审计日志
-    if (this.auditService) {
-      await this.auditService.logAIResponseGenerate(
-        topicId,
-        aiMemberId,
-        message.id,
-        aiMember.aiModel,
-        tokensUsed,
-      );
-    }
+        this.logger.log(
+          `[AI Response Debug] Saved to DB, message.content length: ${message.content?.length || 0}`,
+        );
 
-    return message;
+        // 更新Topic的updatedAt
+        await this.prisma.topic.update({
+          where: { id: topicId },
+          data: { updatedAt: new Date() },
+        });
+
+        // 记录AI响应审计日志
+        if (this.auditService) {
+          await this.auditService.logAIResponseGenerate(
+            topicId,
+            aiMemberId,
+            message.id,
+            aiMember.aiModel,
+            tokensUsed,
+          );
+        }
+
+        return message;
+      },
+    );
   }
 
   /**

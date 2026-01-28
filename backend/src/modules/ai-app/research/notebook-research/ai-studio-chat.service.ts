@@ -11,6 +11,7 @@ import {
   AIEngineFacade,
   ChatMessage as FacadeChatMessage,
 } from "../../../ai-engine/facade";
+import { BillingContext } from "../../../credits/billing-context";
 
 export interface ChatMessage {
   id: string;
@@ -75,6 +76,22 @@ export class AiStudioChatService {
    * Send a message in a chat session and get AI response
    */
   async sendMessage(
+    userId: string,
+    projectId: string,
+    dto: SendChatMessageDto,
+  ) {
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "ai-studio",
+        operationType: "chat",
+        referenceId: projectId,
+      },
+      () => this._sendMessageInternal(userId, projectId, dto),
+    );
+  }
+
+  private async _sendMessageInternal(
     userId: string,
     projectId: string,
     dto: SendChatMessageDto,

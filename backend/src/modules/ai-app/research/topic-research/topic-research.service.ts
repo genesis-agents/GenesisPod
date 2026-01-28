@@ -54,7 +54,7 @@ import {
   buildEnhancedEditPrompt,
 } from "./prompts";
 import { ExportOrchestratorService } from "../../../../common/export/services/export-orchestrator.service";
-import { CreditsService } from "../../../credits/credits.service";
+import { BillingContext } from "../../../credits/billing-context";
 import { ExportFormat } from "@prisma/client";
 
 // 导入维度模板
@@ -474,7 +474,6 @@ export class TopicResearchService {
     private readonly researchStrategyService: ResearchStrategyService,
     private readonly agentActivityService: AgentActivityService,
     private readonly credibilityReportService: CredibilityReportService,
-    private readonly creditsService: CreditsService,
   ) {}
 
   // ==================== Topics CRUD ====================
@@ -886,39 +885,34 @@ export class TopicResearchService {
     topicId: string,
     dto: TriggerRefreshDto,
   ) {
-    // 验证专题所有权
-    const topic = await this.getTopic(userId, topicId);
-
-    // 扣除积分（专题研究消耗大量 AI tokens）
-    try {
-      await this.creditsService.consumeCredits({
+    return BillingContext.run(
+      {
         userId,
         moduleType: "topic-research",
         operationType: "refresh",
         referenceId: topicId,
-        description: `专题研究刷新: ${topic.name}`,
-      });
-      this.logger.log(`Deducted credits for topic research: ${topicId}`);
-    } catch (error) {
-      this.logger.error(`Failed to deduct credits: ${error}`);
-      throw error; // 积分不足则阻止执行
-    }
+      },
+      async () => {
+        // 验证专题所有权
+        const topic = await this.getTopic(userId, topicId);
 
-    // 根据刷新类型决定是否增量刷新
-    const isIncremental = dto.type === "INCREMENTAL";
+        // 根据刷新类型决定是否增量刷新
+        const isIncremental = dto.type === "INCREMENTAL";
 
-    // 执行刷新
-    const report = await this.orchestrator.executeRefresh(topic, {
-      forceRefresh: dto.type === "FULL",
-      dimensionIds: dto.dimensionIds,
-      incremental: isIncremental,
-    });
+        // 执行刷新
+        const report = await this.orchestrator.executeRefresh(topic, {
+          forceRefresh: dto.type === "FULL",
+          dimensionIds: dto.dimensionIds,
+          incremental: isIncremental,
+        });
 
-    return {
-      success: true,
-      reportId: report.id,
-      message: "刷新完成",
-    };
+        return {
+          success: true,
+          reportId: report.id,
+          message: "刷新完成",
+        };
+      },
+    );
   }
 
   /**
@@ -952,49 +946,40 @@ export class TopicResearchService {
    * - 全部过期 → 全量刷新
    */
   async smartStartResearch(userId: string, topicId: string) {
-    // 验证专题所有权
-    const topic = await this.getTopic(userId, topicId);
-
-    // 获取智能策略
-    const smartOptions =
-      await this.researchStrategyService.getSmartRefreshOptions(topicId);
-
-    this.logger.log(
-      `Smart research for topic ${topicId}: ${smartOptions.strategy} - ${smartOptions.message}`,
-    );
-
-    // 扣除积分（根据策略类型决定消耗）
-    // 增量刷新消耗较少，全量刷新消耗较多
-    const operationType = smartOptions.incremental ? "refresh" : "refresh";
-    try {
-      await this.creditsService.consumeCredits({
+    return BillingContext.run(
+      {
         userId,
         moduleType: "topic-research",
-        operationType,
+        operationType: "refresh",
         referenceId: topicId,
-        description: `智能研究 (${smartOptions.strategy}): ${topic.name}`,
-      });
-      this.logger.log(
-        `Deducted credits for smart research: ${topicId}, strategy: ${smartOptions.strategy}`,
-      );
-    } catch (error) {
-      this.logger.error(`Failed to deduct credits: ${error}`);
-      throw error; // 积分不足则阻止执行
-    }
+      },
+      async () => {
+        // 验证专题所有权
+        const topic = await this.getTopic(userId, topicId);
 
-    // 执行研究
-    const report = await this.orchestrator.executeRefresh(topic, {
-      forceRefresh: smartOptions.forceRefresh,
-      dimensionIds: smartOptions.dimensionIds,
-      incremental: smartOptions.incremental,
-    });
+        // 获取智能策略
+        const smartOptions =
+          await this.researchStrategyService.getSmartRefreshOptions(topicId);
 
-    return {
-      success: true,
-      reportId: report.id,
-      strategy: smartOptions.strategy,
-      message: smartOptions.message,
-    };
+        this.logger.log(
+          `Smart research for topic ${topicId}: ${smartOptions.strategy} - ${smartOptions.message}`,
+        );
+
+        // 执行研究
+        const report = await this.orchestrator.executeRefresh(topic, {
+          forceRefresh: smartOptions.forceRefresh,
+          dimensionIds: smartOptions.dimensionIds,
+          incremental: smartOptions.incremental,
+        });
+
+        return {
+          success: true,
+          reportId: report.id,
+          strategy: smartOptions.strategy,
+          message: smartOptions.message,
+        };
+      },
+    );
   }
 
   /**

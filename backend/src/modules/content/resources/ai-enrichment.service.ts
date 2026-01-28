@@ -1,9 +1,9 @@
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { getErrorMessage } from "../../../common/utils/error.utils";
 import axios, { AxiosInstance } from "axios";
 import { ResourceType } from "@prisma/client";
-import { CreditsService } from "../../credits/credits.service";
+import { BillingContext } from "../../credits/billing-context";
 import {
   ResourceAISummary,
   convertToStructuredSummary,
@@ -20,10 +20,7 @@ export class AIEnrichmentService {
   private readonly aiServiceUrl: string;
   private readonly httpClient: AxiosInstance;
 
-  constructor(
-    private configService: ConfigService,
-    @Optional() private readonly creditsService: CreditsService,
-  ) {
+  constructor(private configService: ConfigService) {
     this.aiServiceUrl = this.configService.get<string>(
       "AI_SERVICE_URL",
       "http://localhost:5000",
@@ -192,53 +189,51 @@ export class AIEnrichmentService {
     autoTags: string[];
     difficultyLevel: number | null;
   }> {
-    // 构建用于 AI 分析的内容
-    const contentForAI = this.buildContentForAI(resource);
+    const doEnrich = async () => {
+      // 构建用于 AI 分析的内容
+      const contentForAI = this.buildContentForAI(resource);
 
-    this.logger.log(`Enriching resource: ${resource.title}`);
+      this.logger.log(`Enriching resource: ${resource.title}`);
 
-    // 并行调用所有 AI 服务
-    const [summary, insights, classification] = await Promise.all([
-      this.generateSummary(contentForAI, 200, "zh"),
-      this.extractInsights(contentForAI, "zh"),
-      this.classifyContent(contentForAI),
-    ]);
+      // 并行调用所有 AI 服务
+      const [summary, insights, classification] = await Promise.all([
+        this.generateSummary(contentForAI, 200, "zh"),
+        this.extractInsights(contentForAI, "zh"),
+        this.classifyContent(contentForAI),
+      ]);
 
-    // 将难度等级字符串转换为数字
-    const difficultyLevelNum = classification?.difficultyLevel
-      ? this.mapDifficultyToNumber(classification.difficultyLevel)
-      : null;
+      // 将难度等级字符串转换为数字
+      const difficultyLevelNum = classification?.difficultyLevel
+        ? this.mapDifficultyToNumber(classification.difficultyLevel)
+        : null;
 
-    const result = {
-      aiSummary: summary,
-      keyInsights: insights || [],
-      primaryCategory: classification?.category || null,
-      autoTags: classification?.tags || [],
-      difficultyLevel: difficultyLevelNum,
+      const result = {
+        aiSummary: summary,
+        keyInsights: insights || [],
+        primaryCategory: classification?.category || null,
+        autoTags: classification?.tags || [],
+        difficultyLevel: difficultyLevelNum,
+      };
+
+      this.logger.log(
+        `Resource enrichment completed: ${result.aiSummary ? "summary ✓" : "summary ✗"}, ${result.keyInsights.length} insights, ${result.autoTags.length} tags`,
+      );
+
+      return result;
     };
 
-    // Consume credits for AI enrichment
-    if (this.creditsService && userId && result.aiSummary) {
-      try {
-        await this.creditsService.consumeCredits({
+    if (userId) {
+      return BillingContext.run(
+        {
           userId,
           moduleType: "library",
           operationType: "ai-summary",
           description: `AI资源增强 - ${resource.title.slice(0, 30)}`,
-        });
-        this.logger.log(`[enrichResource] Credits consumed for AI enrichment`);
-      } catch (creditError) {
-        this.logger.warn(
-          `[enrichResource] Failed to consume credits: ${creditError}`,
-        );
-      }
+        },
+        doEnrich,
+      );
     }
-
-    this.logger.log(
-      `Resource enrichment completed: ${result.aiSummary ? "summary ✓" : "summary ✗"}, ${result.keyInsights.length} insights, ${result.autoTags.length} tags`,
-    );
-
-    return result;
+    return doEnrich();
   }
 
   /**
@@ -417,67 +412,63 @@ export class AIEnrichmentService {
     difficultyLevel: number | null;
     structuredAISummary: ResourceAISummary | null;
   }> {
-    const contentForAI = this.buildContentForAI(resource);
+    const doEnrich = async () => {
+      const contentForAI = this.buildContentForAI(resource);
 
-    this.logger.log(
-      `Enriching resource with structured data: ${resource.title}`,
-    );
+      this.logger.log(
+        `Enriching resource with structured data: ${resource.title}`,
+      );
 
-    // 并行调用三个 AI 服务
-    const [summary, insights, classification, structuredSummary] =
-      await Promise.all([
-        this.generateSummary(contentForAI, 200, "zh"),
-        this.extractInsights(contentForAI, "zh"),
-        this.classifyContent(contentForAI),
-        this.generateStructuredSummary(resource, resourceType),
-      ]);
+      // 并行调用三个 AI 服务
+      const [summary, insights, classification, structuredSummary] =
+        await Promise.all([
+          this.generateSummary(contentForAI, 200, "zh"),
+          this.extractInsights(contentForAI, "zh"),
+          this.classifyContent(contentForAI),
+          this.generateStructuredSummary(resource, resourceType),
+        ]);
 
-    // 如果结构化摘要生成失败，尝试从普通摘要降级转换
-    const finalStructuredSummary =
-      structuredSummary ||
-      (summary
-        ? convertToStructuredSummary(
-            summary,
-            classification?.category || "General",
-          )
-        : null);
+      // 如果结构化摘要生成失败，尝试从普通摘要降级转换
+      const finalStructuredSummary =
+        structuredSummary ||
+        (summary
+          ? convertToStructuredSummary(
+              summary,
+              classification?.category || "General",
+            )
+          : null);
 
-    const difficultyLevelNum = classification?.difficultyLevel
-      ? this.mapDifficultyToNumber(classification.difficultyLevel)
-      : null;
+      const difficultyLevelNum = classification?.difficultyLevel
+        ? this.mapDifficultyToNumber(classification.difficultyLevel)
+        : null;
 
-    const result = {
-      aiSummary: summary,
-      keyInsights: insights || [],
-      primaryCategory: classification?.category || null,
-      autoTags: classification?.tags || [],
-      difficultyLevel: difficultyLevelNum,
-      structuredAISummary: finalStructuredSummary,
+      const result = {
+        aiSummary: summary,
+        keyInsights: insights || [],
+        primaryCategory: classification?.category || null,
+        autoTags: classification?.tags || [],
+        difficultyLevel: difficultyLevelNum,
+        structuredAISummary: finalStructuredSummary,
+      };
+
+      this.logger.log(
+        `Resource enrichment completed: summary ✓, ${result.keyInsights.length} insights, structured summary ${finalStructuredSummary ? "✓" : "✗"}`,
+      );
+
+      return result;
     };
 
-    // Consume credits for structured AI enrichment
-    if (this.creditsService && userId && result.aiSummary) {
-      try {
-        await this.creditsService.consumeCredits({
+    if (userId) {
+      return BillingContext.run(
+        {
           userId,
           moduleType: "library",
           operationType: "ai-summary",
           description: `AI结构化增强 - ${resource.title.slice(0, 30)}`,
-        });
-        this.logger.log(
-          `[enrichResourceWithStructured] Credits consumed for AI enrichment`,
-        );
-      } catch (creditError) {
-        this.logger.warn(
-          `[enrichResourceWithStructured] Failed to consume credits: ${creditError}`,
-        );
-      }
+        },
+        doEnrich,
+      );
     }
-
-    this.logger.log(
-      `Resource enrichment completed: summary ✓, ${result.keyInsights.length} insights, structured summary ${finalStructuredSummary ? "✓" : "✗"}`,
-    );
-
-    return result;
+    return doEnrich();
   }
 }

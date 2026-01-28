@@ -33,6 +33,8 @@ import {
   AICapabilityContext,
 } from "../capabilities/ai-capability-resolver.service";
 import { CreditsService } from "../../credits/credits.service";
+import { BillingContext } from "../../credits/billing-context";
+import type { CreditBillingInfo } from "./types/facade.types";
 
 // ★ P1 重构：使用分组的 Feature Providers
 import {
@@ -278,20 +280,21 @@ export class AIEngineFacade {
 
       const tokensUsed = result.usage?.totalTokens || 0;
 
-      // ★ 自动积分扣除：当提供 billing 信息时自动扣费
-      if (request.billing && this.creditsService && !result.isError) {
+      // ★ 自动积分扣除：显式 billing 优先，否则从 BillingContext 读取
+      const billing = request.billing ?? this.resolveBillingFromContext();
+      if (billing && this.creditsService && !result.isError) {
         try {
           await this.creditsService.consumeCredits({
-            userId: request.billing.userId,
-            moduleType: request.billing.moduleType,
-            operationType: request.billing.operationType,
+            userId: billing.userId,
+            moduleType: billing.moduleType,
+            operationType: billing.operationType,
             tokenCount: tokensUsed,
             modelName: result.model,
-            referenceId: request.billing.referenceId,
-            description: request.billing.description,
+            referenceId: billing.referenceId,
+            description: billing.description,
           });
           this.logger.debug(
-            `[chat] Auto-billed ${tokensUsed} tokens for ${request.billing.moduleType}:${request.billing.operationType}`,
+            `[chat] Auto-billed ${tokensUsed} tokens for ${billing.moduleType}:${billing.operationType}`,
           );
         } catch (creditError) {
           this.logger.warn(
@@ -339,6 +342,18 @@ export class AIEngineFacade {
       // 减少负载计数
       this.orchestration?.circuitBreaker?.decrementLoad(entityId);
     }
+  }
+
+  private resolveBillingFromContext(): CreditBillingInfo | undefined {
+    const ctx = BillingContext.get();
+    if (!ctx) return undefined;
+    return {
+      userId: ctx.userId,
+      moduleType: ctx.moduleType,
+      operationType: ctx.operationType,
+      referenceId: ctx.referenceId,
+      description: ctx.description,
+    };
   }
 
   /**

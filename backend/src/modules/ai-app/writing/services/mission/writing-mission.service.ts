@@ -17,7 +17,6 @@ import {
   Logger,
   ConflictException,
   NotFoundException,
-  Optional,
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
@@ -67,7 +66,7 @@ import {
 // Services
 import { ContextBuilderService } from "../writing/context-builder.service";
 import { StoryBibleService } from "../bible/story-bible.service";
-import { CreditsService } from "../../../../credits/credits.service";
+import { BillingContext } from "../../../../credits/billing-context";
 import { ExpressionMemoryService } from "../quality/expression-memory.service";
 import { QualityGateService } from "../quality/quality-gate.service";
 import { ProfessionalVoiceService } from "../quality/professional-voice.service";
@@ -257,8 +256,6 @@ export class WritingMissionService {
     private readonly styleService: WritingStyleService,
     private readonly qualityService: WritingQualityService,
     private readonly checkpointService: CheckpointService,
-    // ★ 积分服务
-    @Optional() private readonly creditsService: CreditsService,
   ) {
     // 注册角色和团队配置（不需要 LLM）
     this.registerWritingRoles();
@@ -938,72 +935,64 @@ export class WritingMissionService {
     userId: string,
   ): Promise<{ missionId: string }> {
     const missionId = uuidv4();
-    // ★★★ 增强日志：记录 userPrompt 以便调试
-    this.logger.log(
-      `Starting async writing mission ${missionId} for project ${input.projectId}, type: ${input.missionType}, userPrompt: "${input.userPrompt?.slice(0, 100) || "(empty)"}"`,
-    );
 
-    // 验证项目访问权限
-    await this.verifyProjectAccess(input.projectId, userId);
-
-    // 检查是否有正在运行的任务（防止并发任务）
-    const runningMission = await this.prisma.writingMission.findFirst({
-      where: {
-        projectId: input.projectId,
-        status: "IN_PROGRESS",
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "ai-writing",
+        operationType: `mission-${input.missionType}`,
+        referenceId: missionId,
       },
-    });
-
-    if (runningMission) {
-      this.logger.warn(
-        `Project ${input.projectId} already has a running mission ${runningMission.id}, rejecting new mission`,
-      );
-      throw new ConflictException(
-        "当前项目已有正在执行的任务，请等待完成或取消后再试。",
-      );
-    }
-
-    // 检查可用的 AI 模型并分配给角色
-    const modelAssignments = await this.assignModelsToRoles();
-    const activeRoles = modelAssignments.filter((a) => a.isActive);
-
-    if (activeRoles.length === 0) {
-      throw new Error(
-        "没有可用的 AI 模型。请先在系统设置中配置并启用至少一个 AI 模型。",
-      );
-    }
-
-    // ★ 积分扣除（写作任务消耗大量 AI tokens）
-    if (this.creditsService) {
-      try {
-        await this.creditsService.consumeCredits({
-          userId,
-          moduleType: "ai-writing",
-          operationType: `mission-${input.missionType}`,
-          referenceId: missionId,
-          description: `AI 写作任务 (${input.missionType})`,
-        });
-        this.logger.log(`Deducted credits for writing mission: ${missionId}`);
-      } catch (error) {
-        this.logger.error(
-          `Failed to deduct credits for writing mission: ${error}`,
+      async () => {
+        // ★★★ 增强日志：记录 userPrompt 以便调试
+        this.logger.log(
+          `Starting async writing mission ${missionId} for project ${input.projectId}, type: ${input.missionType}, userPrompt: "${input.userPrompt?.slice(0, 100) || "(empty)"}"`,
         );
-        throw error; // 积分不足则阻止执行
-      }
-    }
 
-    // 创建数据库记录（状态为 IN_PROGRESS）
-    await this.createMissionRecord(missionId, input, userId);
+        // 验证项目访问权限
+        await this.verifyProjectAccess(input.projectId, userId);
 
-    // 在后台执行任务
-    void this.runMissionInBackground(
-      missionId,
-      input,
-      userId,
-      modelAssignments,
+        // 检查是否有正在运行的任务（防止并发任务）
+        const runningMission = await this.prisma.writingMission.findFirst({
+          where: {
+            projectId: input.projectId,
+            status: "IN_PROGRESS",
+          },
+        });
+
+        if (runningMission) {
+          this.logger.warn(
+            `Project ${input.projectId} already has a running mission ${runningMission.id}, rejecting new mission`,
+          );
+          throw new ConflictException(
+            "当前项目已有正在执行的任务，请等待完成或取消后再试。",
+          );
+        }
+
+        // 检查可用的 AI 模型并分配给角色
+        const modelAssignments = await this.assignModelsToRoles();
+        const activeRoles = modelAssignments.filter((a) => a.isActive);
+
+        if (activeRoles.length === 0) {
+          throw new Error(
+            "没有可用的 AI 模型。请先在系统设置中配置并启用至少一个 AI 模型。",
+          );
+        }
+
+        // 创建数据库记录（状态为 IN_PROGRESS）
+        await this.createMissionRecord(missionId, input, userId);
+
+        // 在后台执行任务
+        void this.runMissionInBackground(
+          missionId,
+          input,
+          userId,
+          modelAssignments,
+        );
+
+        return { missionId };
+      },
     );
-
-    return { missionId };
   }
 
   /**

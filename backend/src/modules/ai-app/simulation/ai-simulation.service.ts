@@ -1,13 +1,8 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  Optional,
-} from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { SimulationRunStatus, SimulationTeam } from "@prisma/client";
 import { AiSimulationEngineService } from "./ai-simulation.engine";
-import { CreditsService } from "../../credits/credits.service";
+import { BillingContext } from "../../credits/billing-context";
 
 export interface CreateScenarioInput {
   name: string;
@@ -101,7 +96,6 @@ export class AiSimulationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly engine: AiSimulationEngineService,
-    @Optional() private readonly creditsService: CreditsService,
   ) {}
 
   async createScenario(input: CreateScenarioInput) {
@@ -326,24 +320,7 @@ export class AiSimulationService {
   async startRun(input: StartRunInput) {
     const scenario = await this.getScenarioById(input.scenarioId);
 
-    // 扣除积分（根据回合数计算）
     const rounds = input.rounds ?? 2;
-    if (this.creditsService && input.startedById) {
-      try {
-        await this.creditsService.consumeCredits({
-          userId: input.startedById,
-          moduleType: "ai-simulation",
-          operationType: "run",
-          referenceId: scenario.id,
-          description: `AI 模拟推演 - ${scenario.name} (${rounds}轮)`,
-        });
-        this.logger.log(`Deducted credits for simulation run: ${scenario.id}`);
-      } catch (error) {
-        this.logger.error(`Failed to deduct credits for simulation: ${error}`);
-        throw error; // 积分不足则阻止执行
-      }
-    }
-
     const run = await this.prisma.simulationRun.create({
       data: {
         scenarioId: scenario.id,
@@ -357,16 +334,25 @@ export class AiSimulationService {
     // 立即返回run ID，后台异步执行推演
     // 前端通过轮询 /runs/:id 获取进度更新
     // 不使用 await，让推演在后台运行
-    this.engine.executeRun(run.id).catch((err) => {
-      this.logger.error(`[Simulation] Run ${run.id} failed: ${err.message}`);
-      // 更新状态为失败
-      this.prisma.simulationRun
-        .update({
-          where: { id: run.id },
-          data: { status: SimulationRunStatus.FAILED },
-        })
-        .catch(() => {});
-    });
+    const billingData = {
+      userId: input.startedById || "",
+      moduleType: "ai-simulation",
+      operationType: "run",
+      referenceId: scenario.id,
+      description: `AI 模拟推演 - ${scenario.name} (${rounds}轮)`,
+    };
+    BillingContext.run(billingData, () => this.engine.executeRun(run.id)).catch(
+      (err) => {
+        this.logger.error(`[Simulation] Run ${run.id} failed: ${err.message}`);
+        // 更新状态为失败
+        this.prisma.simulationRun
+          .update({
+            where: { id: run.id },
+            data: { status: SimulationRunStatus.FAILED },
+          })
+          .catch(() => {});
+      },
+    );
 
     // 立即返回，让前端可以导航到run页面
     return this.getRunById(run.id);

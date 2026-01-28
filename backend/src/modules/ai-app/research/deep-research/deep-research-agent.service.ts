@@ -15,6 +15,7 @@ import {
 } from "./types";
 import { CreditsService } from "../../../credits/credits.service";
 import { InsufficientCreditsException } from "../../../credits/exceptions/insufficient-credits.exception";
+import { BillingContext } from "../../../credits/billing-context";
 
 /**
  * 深度研究 Agent 主控服务
@@ -45,8 +46,33 @@ export class DeepResearchAgentService {
   ): Observable<DeepResearchSSEEvent> {
     const subject = new Subject<DeepResearchSSEEvent>();
 
-    // 异步执行研究流程
-    this.executeResearch(projectId, dto, subject).catch((error) => {
+    // 异步执行研究流程 (包装在 BillingContext 中)
+    (async () => {
+      // 先获取项目信息以获取 userId
+      const project = await this.prisma.researchProject.findUnique({
+        where: { id: projectId },
+        select: { userId: true },
+      });
+
+      if (!project) {
+        throw new Error("Project not found");
+      }
+
+      const depth = dto.options?.depth || "standard";
+
+      // 在 BillingContext 中执行研究，会自动处理积分扣减
+      await BillingContext.run(
+        {
+          userId: project.userId,
+          moduleType: "ai-studio",
+          operationType: `research-${depth}`,
+          description: `Deep Research (${depth}) - ${dto.query.slice(0, 50)}...`,
+        },
+        async () => {
+          await this.executeResearch(projectId, dto, subject);
+        },
+      );
+    })().catch((error) => {
       this.logger.error(`Research execution failed: ${error}`);
       subject.next({
         type: "error",
@@ -347,27 +373,6 @@ export class DeepResearchAgentService {
         sourcesUsed: totalSources,
         completedAt: new Date(),
       });
-
-      // 扣减积分
-      if (this.creditsService) {
-        try {
-          await this.creditsService.consumeCredits({
-            userId,
-            moduleType: "ai-studio",
-            operationType: `research-${depth}`,
-            referenceId: session.id,
-            description: `Deep Research (${depth}) - ${dto.query.slice(0, 50)}...`,
-          });
-          this.logger.log(
-            `Credits consumed for research: ${estimatedCredits} credits for session ${session.id}`,
-          );
-        } catch (creditError) {
-          this.logger.warn(
-            `Failed to consume credits for research: ${creditError}`,
-          );
-          // 积分扣减失败不应阻止研究完成
-        }
-      }
 
       // 发送完成事件
       subject.next({
