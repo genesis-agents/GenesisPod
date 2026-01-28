@@ -1052,7 +1052,7 @@ function SourcesPanel({
                                 {result.metadata?.stars && (
                                   <span className="flex items-center gap-0.5">
                                     <Sparkles className="h-3 w-3" />
-                                    {result.metadata.stars.toLocaleString()}
+                                    {result.metadata.stars}
                                   </span>
                                 )}
                               </div>
@@ -1205,8 +1205,7 @@ function SourcesPanel({
                           {viewingSource.metadata?.stars && (
                             <span className="flex items-center gap-1">
                               <Sparkles className="h-3.5 w-3.5" />
-                              {viewingSource.metadata.stars.toLocaleString()}{' '}
-                              stars
+                              {viewingSource.metadata.stars} stars
                             </span>
                           )}
                         </div>

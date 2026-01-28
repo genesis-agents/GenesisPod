@@ -854,7 +854,7 @@ function ChapterizedReportViewInner({
                 第{selectedChapter.chapterNumber}章 {selectedChapter.title}
               </h3>
               <p className="text-xs text-gray-500">
-                {selectedChapter.wordCount.toLocaleString()} 字
+                {selectedChapter.wordCount} 字
               </p>
             </div>
           </div>
@@ -1195,8 +1195,7 @@ function ChapterizedReportViewInner({
       {/* Stats Header */}
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4">
         <div className="text-base text-gray-600">
-          共 {stats.total} 章 · {stats.completed} 已完成 ·{' '}
-          {stats.totalWords.toLocaleString()} 字
+          共 {stats.total} 章 · {stats.completed} 已完成 · {stats.totalWords} 字
         </div>
       </div>
 
@@ -1254,7 +1253,7 @@ function ChapterizedReportViewInner({
                 {/* Word Count Badge */}
                 {chapter.wordCount > 0 && (
                   <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                    {chapter.wordCount.toLocaleString()} 字
+                    {chapter.wordCount} 字
                   </span>
                 )}
               </div>

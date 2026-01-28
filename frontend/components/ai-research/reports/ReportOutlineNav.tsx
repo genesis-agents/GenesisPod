@@ -204,9 +204,7 @@ export function ReportOutlineNav({
       {/* Header */}
       <div className="border-b border-gray-100 px-4 py-3">
         <h3 className="text-sm font-semibold text-gray-700">报告大纲</h3>
-        <p className="mt-1 text-xs text-gray-400">
-          共 {totalWordCount.toLocaleString()} 字
-        </p>
+        <p className="mt-1 text-xs text-gray-400">共 {totalWordCount} 字</p>
       </div>
 
       {/* Outline tree */}
