@@ -19,9 +19,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
 import TurndownService from 'turndown';
-import { CitedMarkdown } from '../deep-research/citations';
-import type { SourceReference } from '../deep-research/citations/types';
 import { TextSelectionContextMenu } from '../panels/TextSelectionContextMenu';
+import { triggerCitationClick } from '../citationNavigation';
 import {
   splitTextIntoSegments,
   type Annotation as PreprocessorAnnotation,
@@ -193,6 +192,100 @@ interface ReportAnnotation {
   selectorPrefix?: string;
   /** Context after the selection for reliable matching */
   selectorSuffix?: string;
+}
+
+// ★ CitationBadge - 与连续视图（ReportEditor）完全一致的引用角标组件
+interface CitationBadgeProps {
+  index: number;
+  evidence: {
+    id: string;
+    title?: string | null;
+    url?: string | null;
+    snippet?: string | null;
+    domain?: string | null;
+  };
+}
+
+function CitationBadge({ index, evidence }: CitationBadgeProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (evidence.id) {
+      triggerCitationClick(evidence.id);
+    }
+  };
+
+  return (
+    <span
+      className="relative inline-block"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <sup
+        onClick={handleClick}
+        className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
+        title="点击跳转到参考文献"
+      >
+        [{index}]
+      </sup>
+
+      {isHovered && (
+        <div
+          className="absolute bottom-full left-1/2 z-50 mb-2 w-96 -translate-x-1/2 rounded-lg border border-gray-200 bg-white shadow-xl"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          <div className="flex items-start gap-2 border-b border-gray-100 p-3">
+            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-600 text-xs font-bold text-white">
+              {index}
+            </span>
+            <div className="min-w-0 flex-1">
+              <h4 className="line-clamp-2 text-sm font-medium text-gray-900">
+                {evidence.title || '未知来源'}
+              </h4>
+              {evidence.domain && (
+                <span className="mt-0.5 inline-block text-xs text-gray-400">
+                  {evidence.domain}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {evidence.snippet && (
+            <div className="max-h-48 overflow-y-auto p-3">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                {evidence.snippet}
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-2">
+            <button
+              onClick={handleClick}
+              className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
+            >
+              查看完整来源 →
+            </button>
+            {evidence.url && (
+              <a
+                href={evidence.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                onClick={(e) => e.stopPropagation()}
+              >
+                打开原文 ↗
+              </a>
+            )}
+          </div>
+
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-gray-50" />
+        </div>
+      )}
+    </span>
+  );
 }
 
 interface ChapterizedReportViewProps {
@@ -521,16 +614,6 @@ function ChapterizedReportViewInner({
     }
   }, [viewMode, tiptapEditor, selectedChapter?.id]);
 
-  // Convert evidence to SourceReference format for citation linking
-  const sources: SourceReference[] = useMemo(() => {
-    return evidence.map((ev) => ({
-      id: ev.id,
-      title: ev.title,
-      content: ev.snippet || null,
-      abstract: ev.snippet || null,
-    }));
-  }, [evidence]);
-
   // Convert ReportAnnotation to PreprocessorAnnotation for React Controlled Highlighting
   // Only include annotations if showAnnotationHighlights is true
   const preprocessorAnnotations: PreprocessorAnnotation[] = useMemo(
@@ -560,16 +643,98 @@ function ChapterizedReportViewInner({
     );
   }, []);
 
-  // Process text with annotation highlighting (React Controlled approach)
-  const processTextWithAnnotations = useCallback(
+  // ★ 引用角标处理 - 与连续视图（ReportEditor）完全一致
+  const processTextWithCitations = useCallback(
     (text: string): React.ReactNode => {
-      if (!text || preprocessorAnnotations.length === 0) return text;
+      if (!text || !evidence?.length) return text;
+
+      const evidenceIdMap = new Map<string, number>();
+      evidence.forEach((ev, idx) => {
+        evidenceIdMap.set(ev.id, idx + 1);
+      });
+
+      const citationPattern =
+        /\[(\d+(?:\s*,\s*\d+)*)\]|\[(temp-\d+-\d+)\]|\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/gi;
+      const parts: React.ReactNode[] = [];
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      citationPattern.lastIndex = 0;
+
+      while ((match = citationPattern.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+          parts.push(text.slice(lastIndex, match.index));
+        }
+
+        if (match[1]) {
+          const indices = match[1].split(/\s*,\s*/).map((s) => parseInt(s, 10));
+          indices.forEach((idx, i) => {
+            const evidenceItem = evidence[idx - 1];
+            if (evidenceItem) {
+              parts.push(
+                <CitationBadge
+                  key={`cite-${match!.index}-${idx}-${i}`}
+                  index={idx}
+                  evidence={evidenceItem}
+                />
+              );
+            } else {
+              parts.push(
+                <sup
+                  key={`cite-unknown-${match!.index}-${i}`}
+                  className="rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-500"
+                >
+                  [{idx}]
+                </sup>
+              );
+            }
+          });
+        } else if (match[2] || match[3]) {
+          const evidenceId = match[2] || match[3];
+          const idx = evidenceIdMap.get(evidenceId);
+          if (idx) {
+            const evidenceItem = evidence[idx - 1];
+            parts.push(
+              <CitationBadge
+                key={`cite-${match!.index}-${evidenceId}`}
+                index={idx}
+                evidence={evidenceItem}
+              />
+            );
+          } else {
+            parts.push(
+              <sup
+                key={`cite-unknown-${match!.index}`}
+                className="rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-500"
+                title={evidenceId}
+              >
+                [?]
+              </sup>
+            );
+          }
+        }
+
+        lastIndex = match.index + match[0].length;
+      }
+
+      if (lastIndex < text.length) {
+        parts.push(text.slice(lastIndex));
+      }
+
+      return parts.length === 1 ? parts[0] : parts;
+    },
+    [evidence]
+  );
+
+  // ★ 合并处理：批注 + 引用 - 与连续视图（ReportEditor）完全一致
+  const processText = useCallback(
+    (text: string): React.ReactNode => {
+      if (!text) return text;
 
       const segments = splitTextIntoSegments(text, preprocessorAnnotations);
 
-      // If no annotations found, return plain text
       if (segments.length === 1 && !segments[0].annotationId) {
-        return text;
+        return processTextWithCitations(text);
       }
 
       return (
@@ -577,10 +742,16 @@ function ChapterizedReportViewInner({
           segments={segments}
           highlightedId={highlightedAnnotationId}
           onAnnotationClick={handleAnnotationClick}
+          renderText={processTextWithCitations}
         />
       );
     },
-    [preprocessorAnnotations, highlightedAnnotationId, handleAnnotationClick]
+    [
+      preprocessorAnnotations,
+      highlightedAnnotationId,
+      handleAnnotationClick,
+      processTextWithCitations,
+    ]
   );
 
   // ★ v3.0: Create charts map by sectionId for quick lookup
@@ -1089,81 +1260,136 @@ function ChapterizedReportViewInner({
               placeholder="编辑 Markdown 源码..."
             />
           ) : (
-            // Preview mode with React Controlled annotation highlighting
+            // ★ Preview mode - 与连续视图（ReportEditor）完全一致的渲染管线
             <div ref={previewRef} className="p-6">
-              {sources.length > 0 ? (
-                // CitedMarkdown handles both citations and annotations
-                <CitedMarkdown
-                  content={selectedChapter.content || '暂无内容'}
-                  sources={sources}
-                  annotations={preprocessorAnnotations.map((a) => ({
-                    id: a.id,
-                    selectedText: a.selectedText,
-                    color: a.color,
-                  }))}
-                  highlightedAnnotationId={highlightedAnnotationId}
-                />
-              ) : (
-                // Plain markdown with annotation highlighting
-                <article className="prose prose-gray max-w-none">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      // Process text nodes for annotations
-                      p: ({ children, ...props }) => (
-                        <p {...props}>
-                          {typeof children === 'string'
-                            ? processTextWithAnnotations(children)
-                            : Array.isArray(children)
-                              ? children.map((child, i) =>
-                                  typeof child === 'string' ? (
-                                    <span key={i}>
-                                      {processTextWithAnnotations(child)}
-                                    </span>
-                                  ) : (
-                                    child
-                                  )
+              <article className="prose prose-gray max-w-none">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ href, children }) => (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {children}
+                      </a>
+                    ),
+                    p: ({ children, ...props }) => (
+                      <p {...props}>
+                        {typeof children === 'string'
+                          ? processText(children)
+                          : Array.isArray(children)
+                            ? children.map((child, i) =>
+                                typeof child === 'string' ? (
+                                  <span key={i}>{processText(child)}</span>
+                                ) : (
+                                  child
                                 )
-                              : children}
-                        </p>
-                      ),
-                      li: ({ children, ...props }) => (
-                        <li {...props}>
-                          {typeof children === 'string'
-                            ? processTextWithAnnotations(children)
-                            : Array.isArray(children)
-                              ? children.map((child, i) =>
-                                  typeof child === 'string' ? (
-                                    <span key={i}>
-                                      {processTextWithAnnotations(child)}
-                                    </span>
-                                  ) : (
-                                    child
-                                  )
+                              )
+                            : children}
+                      </p>
+                    ),
+                    li: ({ children, ...props }) => (
+                      <li {...props}>
+                        {typeof children === 'string'
+                          ? processText(children)
+                          : Array.isArray(children)
+                            ? children.map((child, i) =>
+                                typeof child === 'string' ? (
+                                  <span key={i}>{processText(child)}</span>
+                                ) : (
+                                  child
                                 )
-                              : children}
-                        </li>
-                      ),
-                      strong: ({ children, ...props }) => (
-                        <strong {...props}>
-                          {typeof children === 'string'
-                            ? processTextWithAnnotations(children)
+                              )
                             : children}
-                        </strong>
-                      ),
-                      em: ({ children, ...props }) => (
-                        <em {...props}>
-                          {typeof children === 'string'
-                            ? processTextWithAnnotations(children)
+                      </li>
+                    ),
+                    strong: ({ children, ...props }) => (
+                      <strong {...props}>
+                        {typeof children === 'string'
+                          ? processText(children)
+                          : children}
+                      </strong>
+                    ),
+                    em: ({ children, ...props }) => (
+                      <em {...props}>
+                        {typeof children === 'string'
+                          ? processText(children)
+                          : children}
+                      </em>
+                    ),
+                    td: ({ children, ...props }) => (
+                      <td {...props}>
+                        {typeof children === 'string'
+                          ? processText(children)
+                          : Array.isArray(children)
+                            ? children.map((child, i) =>
+                                typeof child === 'string' ? (
+                                  <span key={i}>{processText(child)}</span>
+                                ) : (
+                                  child
+                                )
+                              )
                             : children}
-                        </em>
-                      ),
-                    }}
-                  >
-                    {selectedChapter.content || '暂无内容'}
-                  </ReactMarkdown>
-                </article>
-              )}
+                      </td>
+                    ),
+                    th: ({ children, ...props }) => (
+                      <th {...props}>
+                        {typeof children === 'string'
+                          ? processText(children)
+                          : Array.isArray(children)
+                            ? children.map((child, i) =>
+                                typeof child === 'string' ? (
+                                  <span key={i}>{processText(child)}</span>
+                                ) : (
+                                  child
+                                )
+                              )
+                            : children}
+                      </th>
+                    ),
+                    h1: ({ children, ...props }) => (
+                      <h1 {...props}>
+                        {typeof children === 'string'
+                          ? processText(children)
+                          : children}
+                      </h1>
+                    ),
+                    h2: ({ children, ...props }) => (
+                      <h2 {...props}>
+                        {typeof children === 'string'
+                          ? processText(children)
+                          : children}
+                      </h2>
+                    ),
+                    h3: ({ children, ...props }) => (
+                      <h3 {...props}>
+                        {typeof children === 'string'
+                          ? processText(children)
+                          : children}
+                      </h3>
+                    ),
+                    h4: ({ children, ...props }) => (
+                      <h4 {...props}>
+                        {typeof children === 'string'
+                          ? processText(children)
+                          : children}
+                      </h4>
+                    ),
+                    blockquote: ({ children, ...props }) => (
+                      <blockquote {...props}>
+                        {typeof children === 'string'
+                          ? processText(children)
+                          : children}
+                      </blockquote>
+                    ),
+                  }}
+                >
+                  {selectedChapter.content || '暂无内容'}
+                </ReactMarkdown>
+              </article>
 
               {/* ★ v3.0: 章节内联图表 */}
               {selectedChapter.charts && selectedChapter.charts.length > 0 && (
@@ -1242,9 +1468,7 @@ function ChapterizedReportViewInner({
                   {/* Content Preview with annotation highlights */}
                   {chapter.content && (
                     <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm text-gray-500">
-                      {processTextWithAnnotations(
-                        chapter.content.slice(0, 200)
-                      )}
+                      {processText(chapter.content.slice(0, 200))}
                       {chapter.content.length > 200 ? '...' : ''}
                     </div>
                   )}
