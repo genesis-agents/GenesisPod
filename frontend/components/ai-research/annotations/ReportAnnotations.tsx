@@ -468,8 +468,8 @@ export function ReportAnnotations({
                         </button>
                       )}
 
-                      {/* ★ Submit as Feedback - 放在最后面 */}
-                      {onSubmitFeedback && annotation.status === 'active' && (
+                      {/* ★ Submit as Feedback - 所有批注都可以提交反馈 */}
+                      {onSubmitFeedback && (
                         <button
                           onClick={() => onSubmitFeedback(annotation.id)}
                           className="flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100"
