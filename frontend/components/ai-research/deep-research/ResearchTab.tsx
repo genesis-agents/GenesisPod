@@ -42,6 +42,7 @@ import { useDeepResearch, DeepResearchReport, ReportReference } from '@/hooks';
 import ThinkingChainPanel from './ThinkingChainPanel';
 import { useTranslation } from '@/lib/i18n';
 import { getAuthHeader } from '@/lib/utils/auth';
+import ClientDate from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
 // ==================== Types ====================
@@ -689,7 +690,7 @@ function ResearchSessionCard({
             )}
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
-              {formatTimeAgo(session.createdAt, t)}
+              <ClientDate date={session.createdAt} format="relative" />
             </span>
           </div>
         </div>
@@ -1266,22 +1267,6 @@ function DeepCitationLink({
       )}
     </span>
   );
-}
-
-function formatTimeAgo(dateString: string, t: TranslateFunction): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return t('aiStudio.time.justNow');
-  if (diffMins < 60) return t('aiStudio.time.minutesAgo', { count: diffMins });
-  if (diffHours < 24) return t('aiStudio.time.hoursAgo', { count: diffHours });
-  if (diffDays === 1) return t('aiStudio.time.yesterday');
-  if (diffDays < 7) return t('aiStudio.time.daysAgo', { count: diffDays });
-  return date.toLocaleDateString();
 }
 
 export default ResearchTab;

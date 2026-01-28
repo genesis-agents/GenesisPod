@@ -11,6 +11,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { safeString } from '@/lib/utils/common';
+import ClientDate from '@/components/common/ClientDate';
 
 // Annotation types
 interface ReportAnnotation {
@@ -367,9 +368,11 @@ export function ReportAnnotations({
                             已解决
                           </span>
                         )}
-                        <span className="text-xs text-gray-400">
-                          {new Date(annotation.createdAt).toLocaleDateString()}
-                        </span>
+                        <ClientDate
+                          date={annotation.createdAt}
+                          format="date"
+                          className="text-xs text-gray-400"
+                        />
                       </div>
                     </div>
 
@@ -521,11 +524,11 @@ export function ReportAnnotations({
                                 <span className="text-xs font-medium text-gray-700">
                                   {reply.userName}
                                 </span>
-                                <span className="text-xs text-gray-400">
-                                  {new Date(
-                                    reply.createdAt
-                                  ).toLocaleDateString()}
-                                </span>
+                                <ClientDate
+                                  date={reply.createdAt}
+                                  format="date"
+                                  className="text-xs text-gray-400"
+                                />
                               </div>
                               <p className="mt-0.5 text-sm text-gray-600">
                                 {safeString(reply.content)}

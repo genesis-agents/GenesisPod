@@ -27,6 +27,8 @@ interface ClientDateProps {
   fallback?: string;
   /** Additional className */
   className?: string;
+  /** Custom date format options (for 'date' format only) */
+  dateOptions?: Intl.DateTimeFormatOptions;
   /** Custom time format options (for 'time' format only) */
   timeOptions?: Intl.DateTimeFormatOptions;
 }
@@ -38,15 +40,18 @@ function formatDate(
   date: Date,
   format: DateFormat,
   locale: string,
-  timeOptions?: Intl.DateTimeFormatOptions
+  options?: {
+    dateOptions?: Intl.DateTimeFormatOptions;
+    timeOptions?: Intl.DateTimeFormatOptions;
+  }
 ): string {
   switch (format) {
     case 'date':
-      return date.toLocaleDateString(locale);
+      return date.toLocaleDateString(locale, options?.dateOptions);
     case 'time':
       return date.toLocaleTimeString(
         locale,
-        timeOptions || {
+        options?.timeOptions || {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
@@ -119,6 +124,7 @@ export function ClientDate({
   locale = 'zh-CN',
   fallback = '-',
   className,
+  dateOptions,
   timeOptions,
 }: ClientDateProps) {
   // 使用 useState 延迟渲染，避免 hydration 不匹配
@@ -129,9 +135,11 @@ export function ClientDate({
     setMounted(true);
     const parsedDate = parseDate(date);
     if (parsedDate) {
-      setFormattedDate(formatDate(parsedDate, format, locale, timeOptions));
+      setFormattedDate(
+        formatDate(parsedDate, format, locale, { dateOptions, timeOptions })
+      );
     }
-  }, [date, format, locale, timeOptions]);
+  }, [date, format, locale, dateOptions, timeOptions]);
 
   // 在客户端挂载前显示占位符，避免 hydration 错误
   if (!mounted) {

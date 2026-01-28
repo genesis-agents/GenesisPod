@@ -17,6 +17,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import ClientDate from '@/components/common/ClientDate';
 import {
   Users,
   CheckCircle2,
@@ -262,8 +263,12 @@ function ReviewTaskList({
                 </div>
                 <div className="text-xs text-gray-500">
                   {task.assigneeName || '待分配'}
-                  {task.dueAt &&
-                    ` · 截止 ${new Date(task.dueAt).toLocaleDateString()}`}
+                  {task.dueAt && (
+                    <>
+                      {' · 截止 '}
+                      <ClientDate date={task.dueAt} format="date" />
+                    </>
+                  )}
                 </div>
               </div>
               <span

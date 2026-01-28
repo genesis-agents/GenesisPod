@@ -15,6 +15,7 @@ import type {
   TaskStatus,
   LeaderDecision,
 } from '@/lib/api/topic-research';
+import ClientDate from '@/components/common/ClientDate';
 
 interface AgentThinkingGraphProps {
   missionStatus: MissionStatus | null;
@@ -358,9 +359,11 @@ function LeaderThinkingSection({
                           ? '调整'
                           : '干预'}
                   </span>
-                  <span className="text-xs text-gray-400">
-                    {new Date(decision.createdAt).toLocaleTimeString()}
-                  </span>
+                  <ClientDate
+                    date={decision.createdAt}
+                    format="time"
+                    className="text-xs text-gray-400"
+                  />
                 </div>
                 {decision.reasoning && (
                   <p className="mt-1 text-gray-500">{decision.reasoning}</p>

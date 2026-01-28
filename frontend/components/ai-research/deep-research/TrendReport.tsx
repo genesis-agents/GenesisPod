@@ -20,6 +20,7 @@ import {
   ExternalLink,
   BarChart3,
 } from 'lucide-react';
+import ClientDate from '@/components/common/ClientDate';
 
 export interface TechTrend {
   name: string;
@@ -217,7 +218,7 @@ export default function TrendReport({
             <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                {new Date(report.generatedAt).toLocaleDateString('zh-CN')}
+                <ClientDate date={report.generatedAt} format="date" />
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />

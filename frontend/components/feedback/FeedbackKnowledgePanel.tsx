@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import ClientDate from '@/components/common/ClientDate';
 import {
   type ResearchFeedbackKnowledge,
   type ImprovementType,
@@ -175,9 +176,11 @@ function KnowledgeItemRow({
           </>
         )}
 
-        <span className="ml-auto text-xs text-gray-400">
-          {new Date(item.createdAt).toLocaleDateString('zh-CN')}
-        </span>
+        <ClientDate
+          date={item.createdAt}
+          format="date"
+          className="ml-auto text-xs text-gray-400"
+        />
       </div>
     </div>
   );

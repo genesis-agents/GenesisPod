@@ -1,5 +1,6 @@
 'use client';
 
+import ClientDate from '@/components/common/ClientDate';
 import {
   useFeedbackStats,
   useImprovementTracking,
@@ -126,12 +127,12 @@ export function FeedbackTrendChart() {
                 minHeight: day.count > 0 ? '4px' : '0',
               }}
             />
-            <span className="mt-2 text-xs text-gray-500">
-              {new Date(day.date).toLocaleDateString('zh-CN', {
-                month: 'numeric',
-                day: 'numeric',
-              })}
-            </span>
+            <ClientDate
+              date={day.date}
+              format="date"
+              dateOptions={{ month: 'numeric', day: 'numeric' }}
+              className="mt-2 text-xs text-gray-500"
+            />
           </div>
         ))}
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import ClientDate from '@/components/common/ClientDate';
 import {
   type ResearchFeedbackItem,
   type ResearchFeedbackItemStatus,
@@ -173,9 +174,11 @@ export function FeedbackItemCard({
             {status.label}
           </span>
         </div>
-        <span className="text-xs text-gray-400">
-          {new Date(item.createdAt).toLocaleDateString('zh-CN')}
-        </span>
+        <ClientDate
+          date={item.createdAt}
+          format="date"
+          className="text-xs text-gray-400"
+        />
       </div>
 
       {/* Content */}
