@@ -821,6 +821,14 @@ export class CollectionsService {
                 creativity: "low",
                 outputLength: "minimal",
               },
+              // ★ 自动积分扣除
+              billing: {
+                userId,
+                moduleType: "library",
+                operationType: "ai-extract",
+                referenceId: item.id,
+                description: "批量生成标签",
+              },
             });
 
             let tags: string[] = [];
@@ -952,6 +960,13 @@ export class CollectionsService {
             creativity: "low",
             outputLength: "minimal",
           },
+          billing: {
+            userId,
+            moduleType: "library",
+            operationType: "ai-classify",
+            referenceId: item.id,
+            description: `智能分类 - ${item.resource.title.substring(0, 30)}`,
+          },
         });
 
         try {
@@ -1032,6 +1047,13 @@ export class CollectionsService {
         taskProfile: {
           creativity: "medium",
           outputLength: "short",
+        },
+        billing: {
+          userId,
+          moduleType: "library",
+          operationType: "ai-cluster",
+          referenceId: userId,
+          description: `主题聚类 - ${items.length} 个资源`,
         },
       });
 

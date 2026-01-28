@@ -52,6 +52,7 @@ import { ImageModule } from "./image/image.module";
 import { TeamsModule } from "./teams/teams.module";
 import { LongContentModule } from "./long-content/long-content.module";
 import { PromptsModule } from "./prompts/prompts.module";
+import { CreditsModule } from "../credits/credits.module";
 
 // MCP
 import { MCPManager } from "./mcp/manager/mcp-manager";
@@ -118,6 +119,7 @@ const handoffCoordinatorFactory = {
     TeamsModule,
     LongContentModule,
     PromptsModule,
+    CreditsModule, // ★ 积分服务（用于 Facade 自动计费）
   ],
   controllers: [AiCoreController],
   providers: [

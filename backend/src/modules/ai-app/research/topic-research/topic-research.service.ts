@@ -963,6 +963,25 @@ export class TopicResearchService {
       `Smart research for topic ${topicId}: ${smartOptions.strategy} - ${smartOptions.message}`,
     );
 
+    // 扣除积分（根据策略类型决定消耗）
+    // 增量刷新消耗较少，全量刷新消耗较多
+    const operationType = smartOptions.incremental ? "refresh" : "refresh";
+    try {
+      await this.creditsService.consumeCredits({
+        userId,
+        moduleType: "topic-research",
+        operationType,
+        referenceId: topicId,
+        description: `智能研究 (${smartOptions.strategy}): ${topic.name}`,
+      });
+      this.logger.log(
+        `Deducted credits for smart research: ${topicId}, strategy: ${smartOptions.strategy}`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to deduct credits: ${error}`);
+      throw error; // 积分不足则阻止执行
+    }
+
     // 执行研究
     const report = await this.orchestrator.executeRefresh(topic, {
       forceRefresh: smartOptions.forceRefresh,
@@ -1902,7 +1921,7 @@ export class TopicResearchService {
       });
     }
 
-    // 调用 AI 服务进行编辑
+    // 调用 AI 服务进行编辑（带自动积分扣除）
     const aiResponse = await this.aiFacade.chat({
       messages: [
         {
@@ -1915,6 +1934,14 @@ export class TopicResearchService {
       taskProfile: {
         creativity: dto.operation === "rewrite" ? "high" : "medium",
         outputLength: dto.operation === "compress" ? "short" : "medium",
+      },
+      // ★ 自动积分扣除：基于实际 token 消耗
+      billing: {
+        userId,
+        moduleType: "topic-research",
+        operationType: "ai-edit",
+        referenceId: reportId,
+        description: `AI 编辑报告 (${dto.operation})`,
       },
     });
 

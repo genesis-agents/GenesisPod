@@ -302,6 +302,16 @@ export class DebateService {
         creativity: "medium",
         outputLength: "standard",
       },
+      // ★ 自动积分扣除
+      billing: session.initiatedById
+        ? {
+            userId: session.initiatedById,
+            moduleType: "ai-teams",
+            operationType: "debate",
+            referenceId: sessionId,
+            description: `AI辩论 - ${agent.displayName} (${session.topic})`,
+          }
+        : undefined,
     });
     const latencyMs = Date.now() - startTime;
 

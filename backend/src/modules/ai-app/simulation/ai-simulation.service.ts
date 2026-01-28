@@ -1,7 +1,13 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { SimulationRunStatus, SimulationTeam } from "@prisma/client";
 import { AiSimulationEngineService } from "./ai-simulation.engine";
+import { CreditsService } from "../../credits/credits.service";
 
 export interface CreateScenarioInput {
   name: string;
@@ -95,6 +101,7 @@ export class AiSimulationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly engine: AiSimulationEngineService,
+    @Optional() private readonly creditsService: CreditsService,
   ) {}
 
   async createScenario(input: CreateScenarioInput) {
@@ -318,12 +325,31 @@ export class AiSimulationService {
 
   async startRun(input: StartRunInput) {
     const scenario = await this.getScenarioById(input.scenarioId);
+
+    // 扣除积分（根据回合数计算）
+    const rounds = input.rounds ?? 2;
+    if (this.creditsService && input.startedById) {
+      try {
+        await this.creditsService.consumeCredits({
+          userId: input.startedById,
+          moduleType: "ai-simulation",
+          operationType: "run",
+          referenceId: scenario.id,
+          description: `AI 模拟推演 - ${scenario.name} (${rounds}轮)`,
+        });
+        this.logger.log(`Deducted credits for simulation run: ${scenario.id}`);
+      } catch (error) {
+        this.logger.error(`Failed to deduct credits for simulation: ${error}`);
+        throw error; // 积分不足则阻止执行
+      }
+    }
+
     const run = await this.prisma.simulationRun.create({
       data: {
         scenarioId: scenario.id,
         status: SimulationRunStatus.RUNNING,
         params: input.params,
-        rounds: input.rounds ?? 2,
+        rounds,
         startedById: input.startedById,
       },
     });

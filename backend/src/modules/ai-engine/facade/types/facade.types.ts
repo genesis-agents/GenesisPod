@@ -56,6 +56,23 @@ export interface ChatMessage {
 }
 
 /**
+ * 积分计费信息
+ * 当提供此信息时，AI Engine 会自动扣除积分
+ */
+export interface CreditBillingInfo {
+  /** 用户 ID（必需） */
+  userId: string;
+  /** 模块类型（如 ai-ask, ai-teams, topic-research） */
+  moduleType: string;
+  /** 操作类型（如 chat, refresh, summary） */
+  operationType: string;
+  /** 关联的业务实体 ID（可选） */
+  referenceId?: string;
+  /** 操作描述（可选） */
+  description?: string;
+}
+
+/**
  * 聊天请求
  */
 export interface ChatRequest {
@@ -85,6 +102,15 @@ export interface ChatRequest {
 
   /** 严格模式：API失败时抛出异常 */
   strictMode?: boolean;
+
+  // ==================== 积分计费 ====================
+
+  /**
+   * ★ 积分计费信息
+   * 提供后会自动扣除积分，无需在业务代码中手动调用 consumeCredits
+   * tokensUsed 会自动从响应中获取
+   */
+  billing?: CreditBillingInfo;
 
   // ==================== K3 Fix: Skill Injection Options ====================
 

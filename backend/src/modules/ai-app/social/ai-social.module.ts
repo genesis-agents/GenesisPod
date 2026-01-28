@@ -17,6 +17,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { ExploreModule } from "../../content/explore/explore.module";
 import { NotificationModule } from "../../core/notifications/notification.module";
+import { CreditsModule } from "../../credits/credits.module";
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { NotificationModule } from "../../core/notifications/notification.module
     ExploreModule,
     ConfigModule,
     NotificationModule,
+    CreditsModule,
   ],
   controllers: [AiSocialController],
   providers: [

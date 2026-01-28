@@ -735,7 +735,7 @@ export class AiAskService {
     }));
 
     try {
-      // 调用 AI (通过 AIEngineFacade 统一入口)
+      // 调用 AI (通过 AIEngineFacade 统一入口，带自动积分扣除)
       const aiResponse = await this.aiFacade.chat({
         messages: contextMessages,
         model: modelConfig.modelId, // 指定模型
@@ -743,6 +743,14 @@ export class AiAskService {
         taskProfile: {
           creativity: "medium", // 对话需要中等创造性 (mapped from temperature: 0.7)
           outputLength: "standard", // 标准输出长度 (mapped from maxTokens: 4000)
+        },
+        // ★ 自动积分扣除：基于实际 token 消耗
+        billing: {
+          userId: session.userId,
+          moduleType: "ai-ask",
+          operationType: "regenerate",
+          referenceId: message.sessionId,
+          description: `AI Ask 重新生成 - ${modelConfig.name}`,
         },
       });
 

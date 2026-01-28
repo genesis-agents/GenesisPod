@@ -406,6 +406,14 @@ export class NotesService {
           creativity: "low",
           outputLength: "medium",
         },
+        // ★ 自动积分扣除
+        billing: {
+          userId,
+          moduleType: "library",
+          operationType: "ai-explanation",
+          referenceId: noteId,
+          description: "AI 解释笔记内容",
+        },
       });
 
       if (response.content) {
@@ -627,6 +635,13 @@ export class NotesService {
           creativity: "low",
           outputLength: "short",
         },
+        // ★ 自动积分扣除
+        billing: {
+          userId,
+          moduleType: "library",
+          operationType: "ai-extract",
+          description: "提取笔记要点",
+        },
       });
 
       try {
@@ -705,6 +720,13 @@ export class NotesService {
         taskProfile: {
           creativity: "low",
           outputLength: "short",
+        },
+        // ★ 自动积分扣除
+        billing: {
+          userId,
+          moduleType: "library",
+          operationType: "ai-extract",
+          description: "发现笔记关联",
         },
       });
 
@@ -826,6 +848,13 @@ export class NotesService {
         taskProfile: {
           creativity: "medium",
           outputLength: "short",
+        },
+        // ★ 自动积分扣除
+        billing: {
+          userId,
+          moduleType: "library",
+          operationType: "ai-summary",
+          description: "笔记综合摘要",
         },
       });
 

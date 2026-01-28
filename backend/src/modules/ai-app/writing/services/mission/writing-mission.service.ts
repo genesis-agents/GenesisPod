@@ -17,6 +17,7 @@ import {
   Logger,
   ConflictException,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
@@ -66,6 +67,7 @@ import {
 // Services
 import { ContextBuilderService } from "../writing/context-builder.service";
 import { StoryBibleService } from "../bible/story-bible.service";
+import { CreditsService } from "../../../../credits/credits.service";
 import { ExpressionMemoryService } from "../quality/expression-memory.service";
 import { QualityGateService } from "../quality/quality-gate.service";
 import { ProfessionalVoiceService } from "../quality/professional-voice.service";
@@ -255,6 +257,8 @@ export class WritingMissionService {
     private readonly styleService: WritingStyleService,
     private readonly qualityService: WritingQualityService,
     private readonly checkpointService: CheckpointService,
+    // ★ 积分服务
+    @Optional() private readonly creditsService: CreditsService,
   ) {
     // 注册角色和团队配置（不需要 LLM）
     this.registerWritingRoles();
@@ -967,6 +971,25 @@ export class WritingMissionService {
       throw new Error(
         "没有可用的 AI 模型。请先在系统设置中配置并启用至少一个 AI 模型。",
       );
+    }
+
+    // ★ 积分扣除（写作任务消耗大量 AI tokens）
+    if (this.creditsService) {
+      try {
+        await this.creditsService.consumeCredits({
+          userId,
+          moduleType: "ai-writing",
+          operationType: `mission-${input.missionType}`,
+          referenceId: missionId,
+          description: `AI 写作任务 (${input.missionType})`,
+        });
+        this.logger.log(`Deducted credits for writing mission: ${missionId}`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to deduct credits for writing mission: ${error}`,
+        );
+        throw error; // 积分不足则阻止执行
+      }
     }
 
     // 创建数据库记录（状态为 IN_PROGRESS）

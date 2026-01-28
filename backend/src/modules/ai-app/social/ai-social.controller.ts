@@ -176,6 +176,7 @@ export class AiSocialController {
       const version = await this.contentVersionService.generateVersion(
         id,
         dto.platformType,
+        req.user.id,
       );
       return { version };
     } catch (error) {
@@ -194,7 +195,10 @@ export class AiSocialController {
     // 验证内容所有权
     await this.aiSocialService.getContent(req.user.id, id);
     try {
-      const versions = await this.contentVersionService.generateAllVersions(id);
+      const versions = await this.contentVersionService.generateAllVersions(
+        id,
+        req.user.id,
+      );
       return { versions };
     } catch (error) {
       const message =

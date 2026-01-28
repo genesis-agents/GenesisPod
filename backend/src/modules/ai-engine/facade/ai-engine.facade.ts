@@ -9,7 +9,13 @@
  * 4. 向下委托：Facade 只做路由和适配，具体实现委托给内部服务
  */
 
-import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Optional,
+  Inject,
+  forwardRef,
+} from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { AiModelConfigService } from "../llm/services/ai-model-config.service";
@@ -26,6 +32,7 @@ import {
   AICapabilityResolver,
   AICapabilityContext,
 } from "../capabilities/ai-capability-resolver.service";
+import { CreditsService } from "../../credits/credits.service";
 
 // ★ P1 重构：使用分组的 Feature Providers
 import {
@@ -138,6 +145,9 @@ export class AIEngineFacade {
     @Optional() private readonly prisma?: PrismaService,
     @Optional() private readonly teamsService?: TeamsService,
     @Optional() private readonly capabilityResolver?: AICapabilityResolver,
+    @Optional()
+    @Inject(forwardRef(() => CreditsService))
+    private readonly creditsService?: CreditsService,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -266,10 +276,35 @@ export class AIEngineFacade {
         );
       }
 
+      const tokensUsed = result.usage?.totalTokens || 0;
+
+      // ★ 自动积分扣除：当提供 billing 信息时自动扣费
+      if (request.billing && this.creditsService && !result.isError) {
+        try {
+          await this.creditsService.consumeCredits({
+            userId: request.billing.userId,
+            moduleType: request.billing.moduleType,
+            operationType: request.billing.operationType,
+            tokenCount: tokensUsed,
+            modelName: result.model,
+            referenceId: request.billing.referenceId,
+            description: request.billing.description,
+          });
+          this.logger.debug(
+            `[chat] Auto-billed ${tokensUsed} tokens for ${request.billing.moduleType}:${request.billing.operationType}`,
+          );
+        } catch (creditError) {
+          this.logger.warn(
+            `[chat] Failed to auto-bill credits: ${creditError}`,
+          );
+          // 积分扣除失败不阻止响应返回
+        }
+      }
+
       return {
         content: result.content,
         model: result.model,
-        tokensUsed: result.usage?.totalTokens || 0,
+        tokensUsed,
         isError: result.isError,
       };
     } catch (error) {

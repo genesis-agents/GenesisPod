@@ -55,6 +55,7 @@ export class ContentVersionService {
   async generateVersion(
     contentId: string,
     platformType: SocialPlatformType,
+    userId?: string,
   ): Promise<SocialContentVersion> {
     this.logger.log(
       `Generating ${platformType} version for content ${contentId}`,
@@ -81,6 +82,8 @@ export class ContentVersionService {
       },
       platformType,
       limits,
+      userId,
+      contentId,
     );
 
     // 使用 upsert 创建或更新版本
@@ -121,6 +124,7 @@ export class ContentVersionService {
    */
   async generateAllVersions(
     contentId: string,
+    userId?: string,
   ): Promise<SocialContentVersion[]> {
     this.logger.log(
       `Generating all platform versions for content ${contentId}`,
@@ -131,7 +135,7 @@ export class ContentVersionService {
     // 并发生成所有版本，提升性能
     const results = await Promise.allSettled(
       platforms.map((platformType) =>
-        this.generateVersion(contentId, platformType),
+        this.generateVersion(contentId, platformType, userId),
       ),
     );
 
@@ -321,6 +325,8 @@ export class ContentVersionService {
     content: ContentVersionData,
     platformType: SocialPlatformType,
     limits: PlatformLimits,
+    userId?: string,
+    contentId?: string,
   ): Promise<ContentVersionData> {
     // 检查是否需要 AI 适配
     const needsAdaptation = this.needsAdaptation(content, limits);
@@ -350,6 +356,16 @@ export class ContentVersionService {
           creativity: "low",
           outputLength: "medium",
         },
+        // ★ 自动积分扣除
+        billing: userId
+          ? {
+              userId,
+              moduleType: "ai-social",
+              operationType: "adapt-version",
+              referenceId: contentId,
+              description: `适配 ${platformType} 版本`,
+            }
+          : undefined,
       });
 
       if (response.isError) {

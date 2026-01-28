@@ -22,6 +22,12 @@ const DEFAULT_RULES = [
     baseCredits: 20,
     name: "AI知识库问答",
   },
+  {
+    moduleType: "ai-ask",
+    operationType: "regenerate",
+    baseCredits: 10,
+    name: "重新生成回复",
+  },
 
   // ============================================
   // AI Research (AI 研究 - Deep Research)
@@ -59,6 +65,12 @@ const DEFAULT_RULES = [
     operationType: "create",
     baseCredits: 500,
     name: "创建专题",
+  },
+  {
+    moduleType: "topic-research",
+    operationType: "ai-edit",
+    baseCredits: 50,
+    name: "AI编辑报告",
   },
 
   // ============================================
@@ -132,6 +144,36 @@ const DEFAULT_RULES = [
     baseCredits: 30,
     name: "续写内容",
   },
+  {
+    moduleType: "ai-writing",
+    operationType: "mission-GENERATE_FULL_STORY",
+    baseCredits: 500,
+    name: "生成完整故事",
+  },
+  {
+    moduleType: "ai-writing",
+    operationType: "mission-GENERATE_CHAPTERS",
+    baseCredits: 300,
+    name: "生成多章节",
+  },
+  {
+    moduleType: "ai-writing",
+    operationType: "mission-REWRITE_CHAPTER",
+    baseCredits: 100,
+    name: "重写章节",
+  },
+  {
+    moduleType: "ai-writing",
+    operationType: "mission-REFINE_CHAPTER",
+    baseCredits: 80,
+    name: "精炼章节",
+  },
+  {
+    moduleType: "ai-writing",
+    operationType: "mission-EXPAND_OUTLINE",
+    baseCredits: 100,
+    name: "扩展大纲",
+  },
 
   // ============================================
   // AI Image (AI 绘画)
@@ -186,6 +228,12 @@ const DEFAULT_RULES = [
     baseCredits: 60,
     name: "生成帖子串",
   },
+  {
+    moduleType: "ai-social",
+    operationType: "adapt-version",
+    baseCredits: 20,
+    name: "适配平台版本",
+  },
 
   // ============================================
   // Library (资源库 - AI 摘要等)
@@ -201,6 +249,24 @@ const DEFAULT_RULES = [
     operationType: "ai-extract",
     baseCredits: 20,
     name: "AI提取",
+  },
+  {
+    moduleType: "library",
+    operationType: "ai-explanation",
+    baseCredits: 20,
+    name: "AI解释",
+  },
+  {
+    moduleType: "library",
+    operationType: "ai-classify",
+    baseCredits: 15,
+    name: "AI智能分类",
+  },
+  {
+    moduleType: "library",
+    operationType: "ai-cluster",
+    baseCredits: 25,
+    name: "AI主题聚类",
   },
 
   // ============================================
@@ -255,7 +321,7 @@ export class CreditRulesService implements OnModuleInit {
           update: {},
           create: {
             ...rule,
-            tokenMultiplier: 1.0,
+            tokenMultiplier: 2.0, // Token 消耗 × 2 计算积分
             modelMultipliers: {},
           },
         });

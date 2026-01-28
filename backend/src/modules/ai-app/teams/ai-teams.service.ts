@@ -38,6 +38,7 @@ import {
   TopicForwardBookmarkService,
   TopicEventEmitterService,
 } from "./services";
+import { CreditsService } from "../../credits/credits.service";
 
 @Injectable()
 export class AiTeamsService {
@@ -53,6 +54,7 @@ export class AiTeamsService {
     private forwardBookmarkService: TopicForwardBookmarkService,
     @Optional() private auditService: AuditService,
     @Optional() private topicEventEmitter: TopicEventEmitterService,
+    @Optional() private creditsService: CreditsService,
   ) {}
 
   // ==================== Topic CRUD ====================
@@ -1032,6 +1034,25 @@ ${messagesForSummary.map((m) => `[${m.sender}]: ${m.content}`).join("\n")}`;
         taskProfile: { creativity: "low", outputLength: "standard" },
       });
       summaryContent = result.content;
+
+      // 扣除积分
+      if (this.creditsService) {
+        try {
+          await this.creditsService.consumeCredits({
+            userId,
+            moduleType: "ai-teams",
+            operationType: "summary",
+            tokenCount: result.tokensUsed,
+            modelName: aiModel,
+            referenceId: topicId,
+            description: `AI Teams 讨论纪要 - ${topic.name}`,
+          });
+        } catch (creditError) {
+          this.logger.warn(
+            `Failed to consume credits for summary: ${creditError}`,
+          );
+        }
+      }
     } catch (error) {
       this.logger.error(`Failed to generate summary: ${error}`);
       summaryContent = `## 讨论纪要

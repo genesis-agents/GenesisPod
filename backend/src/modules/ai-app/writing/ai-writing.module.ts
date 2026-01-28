@@ -6,6 +6,7 @@ import { WritingRepository } from "./writing.repository";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
+import { CreditsModule } from "../../credits/credits.module";
 
 // AI Engine Long Content (for long-form writing) - 直接文件导入
 import { LongContentModule } from "../../ai-engine/long-content/long-content.module";
@@ -92,7 +93,13 @@ import {
 } from "./agents";
 
 @Module({
-  imports: [PrismaModule, AiEngineModule, LongContentModule, ConfigModule],
+  imports: [
+    PrismaModule,
+    AiEngineModule,
+    LongContentModule,
+    ConfigModule,
+    CreditsModule,
+  ],
   controllers: [AiWritingController],
   providers: [
     // Repository
