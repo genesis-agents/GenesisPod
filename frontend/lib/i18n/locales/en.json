@@ -2890,6 +2890,34 @@
         "historyTooltip": "Version history",
         "annotations": "Notes",
         "annotationsTooltip": "Annotations"
+      },
+      "revisionHistory": {
+        "title": "Version History",
+        "revisionHistory": "Revision History",
+        "totalVersions": "{{count}} versions, current v{{version}}",
+        "version": "Version {{version}}",
+        "sources": "{{count}} sources",
+        "characters": "{{count}} chars",
+        "sourcesAndChars": "{{sources}} sources · {{chars}} chars",
+        "unknown": "Unknown",
+        "reportUpdate": "Report update",
+        "current": "Current",
+        "changeTypes": {
+          "create": "Created",
+          "edit": "Edited",
+          "ai_edit": "AI Edited",
+          "rollback": "Rollback"
+        },
+        "actions": {
+          "preview": "Preview this version",
+          "rollback": "Rollback to this version",
+          "select": "Select for comparison",
+          "deselect": "Deselect",
+          "compare": "Compare selected versions"
+        },
+        "loading": "Loading revision history...",
+        "noHistory": "No revision history",
+        "noHistoryHint": "Version records will appear here after report changes"
       }
     },
     "credibility": {

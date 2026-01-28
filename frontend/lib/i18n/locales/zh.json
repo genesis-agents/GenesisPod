@@ -2880,6 +2880,34 @@
         "historyTooltip": "版本历史",
         "annotations": "批注",
         "annotationsTooltip": "批注"
+      },
+      "revisionHistory": {
+        "title": "版本历史",
+        "revisionHistory": "修订历史",
+        "totalVersions": "共 {{count}} 个版本，当前版本 v{{version}}",
+        "version": "版本 {{version}}",
+        "sources": "{{count}} 源",
+        "characters": "{{count}} 字",
+        "sourcesAndChars": "{{sources}} 源 · {{chars}} 字",
+        "unknown": "未知",
+        "reportUpdate": "报告更新",
+        "current": "当前",
+        "changeTypes": {
+          "create": "创建",
+          "edit": "编辑",
+          "ai_edit": "AI 编辑",
+          "rollback": "回滚"
+        },
+        "actions": {
+          "preview": "预览此版本",
+          "rollback": "回滚到此版本",
+          "select": "选择比较",
+          "deselect": "取消选择",
+          "compare": "比较选中版本"
+        },
+        "loading": "加载修订历史...",
+        "noHistory": "暂无修订历史",
+        "noHistoryHint": "报告修改后将在此显示版本记录"
       }
     },
     "credibility": {

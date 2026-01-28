@@ -10,6 +10,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { useTranslation } from '@/lib/i18n';
 
 // Revision types
 interface ReportRevision {
@@ -137,29 +138,25 @@ const EyeIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Change type config
-const changeTypeConfig: Record<
+// Change type config (icons and colors only, labels come from i18n)
+const changeTypeIcons: Record<
   string,
   {
     icon: React.ComponentType<{ className?: string }>;
-    label: string;
     color: string;
   }
 > = {
   create: {
     icon: PlusIcon,
-    label: '创建',
     color: 'text-green-600 bg-green-50',
   },
-  edit: { icon: EditIcon, label: '编辑', color: 'text-blue-600 bg-blue-50' },
+  edit: { icon: EditIcon, color: 'text-blue-600 bg-blue-50' },
   ai_edit: {
     icon: AIIcon,
-    label: 'AI 编辑',
     color: 'text-purple-600 bg-purple-50',
   },
   rollback: {
     icon: RollbackIcon,
-    label: '回滚',
     color: 'text-orange-600 bg-orange-50',
   },
 };
@@ -172,10 +169,19 @@ export function ReportRevisionHistory({
   onRollback,
   onCompare,
 }: ReportRevisionHistoryProps) {
+  const { t } = useTranslation();
   const [selectedRevisions, setSelectedRevisions] = useState<Set<string>>(
     new Set()
   );
   const [isRollingBack, setIsRollingBack] = useState<string | null>(null);
+
+  // Get change type label from i18n
+  const getChangeTypeLabel = (changeType: string) => {
+    const key = `topicResearch.contentPanel.revisionHistory.changeTypes.${changeType}`;
+    const translated = t(key);
+    // If translation key not found, return the changeType itself
+    return translated === key ? changeType : translated;
+  };
 
   // Toggle revision selection for comparison
   const toggleSelection = useCallback((revisionId: string) => {
@@ -219,7 +225,9 @@ export function ReportRevisionHistory({
       <div className="flex h-full items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
-          <p className="text-sm text-gray-500">加载修订历史...</p>
+          <p className="text-sm text-gray-500">
+            {t('topicResearch.contentPanel.revisionHistory.loading')}
+          </p>
         </div>
       </div>
     );
@@ -229,9 +237,11 @@ export function ReportRevisionHistory({
     return (
       <div className="flex h-full flex-col items-center justify-center p-6 text-center">
         <ClockIcon className="h-12 w-12 text-gray-300" />
-        <p className="mt-3 text-gray-500">暂无修订历史</p>
+        <p className="mt-3 text-gray-500">
+          {t('topicResearch.contentPanel.revisionHistory.noHistory')}
+        </p>
         <p className="mt-1 text-sm text-gray-400">
-          报告修改后将在此显示版本记录
+          {t('topicResearch.contentPanel.revisionHistory.noHistoryHint')}
         </p>
       </div>
     );
@@ -243,9 +253,14 @@ export function ReportRevisionHistory({
       <div className="border-b border-gray-200 bg-white px-4 py-3">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-gray-700">修订历史</h3>
+            <h3 className="text-sm font-semibold text-gray-700">
+              {t('topicResearch.contentPanel.revisionHistory.revisionHistory')}
+            </h3>
             <p className="mt-0.5 text-xs text-gray-400">
-              共 {revisions.length} 个版本，当前版本 v{currentVersion}
+              {t('topicResearch.contentPanel.revisionHistory.totalVersions', {
+                count: revisions.length,
+                version: currentVersion,
+              })}
             </p>
           </div>
 
@@ -255,14 +270,17 @@ export function ReportRevisionHistory({
               onClick={handleCompare}
               className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
             >
-              比较选中版本
+              {t('topicResearch.contentPanel.revisionHistory.actions.compare')}
             </button>
           )}
         </div>
 
         {selectedRevisions.size > 0 && selectedRevisions.size < 2 && (
           <p className="mt-2 text-xs text-blue-500">
-            已选择 {selectedRevisions.size} 个版本，再选择 1 个进行比较
+            {t('topicResearch.contentPanel.revisionHistory.selectMore', {
+              count: selectedRevisions.size,
+              defaultValue: `Selected ${selectedRevisions.size} version(s), select 1 more to compare`,
+            })}
           </p>
         )}
       </div>
@@ -275,9 +293,9 @@ export function ReportRevisionHistory({
 
           {/* Revision items */}
           <div className="space-y-4">
-            {revisions.map((revision, index) => {
+            {revisions.map((revision) => {
               const config =
-                changeTypeConfig[revision.changeType] || changeTypeConfig.edit;
+                changeTypeIcons[revision.changeType] || changeTypeIcons.edit;
               const Icon = config.icon;
               const isCurrent = revision.version === currentVersion;
               const isSelected = selectedRevisions.has(revision.id);
@@ -315,11 +333,13 @@ export function ReportRevisionHistory({
                             className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs ${config.color}`}
                           >
                             <Icon className="h-3 w-3" />
-                            {config.label}
+                            {getChangeTypeLabel(revision.changeType)}
                           </span>
                           {isCurrent && (
                             <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">
-                              当前
+                              {t(
+                                'topicResearch.contentPanel.revisionHistory.current'
+                              )}
                             </span>
                           )}
                         </div>
@@ -331,12 +351,20 @@ export function ReportRevisionHistory({
 
                         {/* Meta info */}
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-400">
-                          <span>{revision.author}</span>
+                          <span>
+                            {revision.author ||
+                              t(
+                                'topicResearch.contentPanel.revisionHistory.unknown'
+                              )}
+                          </span>
                           <span>
                             {new Date(revision.createdAt).toLocaleString()}
                           </span>
                           <span>
-                            {revision.wordCount} 字
+                            {t(
+                              'topicResearch.contentPanel.revisionHistory.characters',
+                              { count: revision.wordCount }
+                            )}
                             {revision.wordCountDelta !== 0 && (
                               <span
                                 className={
@@ -365,7 +393,15 @@ export function ReportRevisionHistory({
                                 ? 'bg-blue-100 text-blue-600'
                                 : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                             }`}
-                            title={isSelected ? '取消选择' : '选择比较'}
+                            title={
+                              isSelected
+                                ? t(
+                                    'topicResearch.contentPanel.revisionHistory.actions.deselect'
+                                  )
+                                : t(
+                                    'topicResearch.contentPanel.revisionHistory.actions.select'
+                                  )
+                            }
                           >
                             <input
                               type="checkbox"
@@ -381,7 +417,9 @@ export function ReportRevisionHistory({
                           <button
                             onClick={() => onPreview(revision.id)}
                             className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                            title="预览此版本"
+                            title={t(
+                              'topicResearch.contentPanel.revisionHistory.actions.preview'
+                            )}
                           >
                             <EyeIcon className="h-4 w-4" />
                           </button>
@@ -393,7 +431,9 @@ export function ReportRevisionHistory({
                             onClick={() => handleRollback(revision.id)}
                             disabled={isRollingBack !== null}
                             className="rounded p-1.5 text-gray-400 transition-colors hover:bg-orange-50 hover:text-orange-600 disabled:opacity-50"
-                            title="回滚到此版本"
+                            title={t(
+                              'topicResearch.contentPanel.revisionHistory.actions.rollback'
+                            )}
                           >
                             {isRollingBack === revision.id ? (
                               <div className="h-4 w-4 animate-spin rounded-full border-2 border-orange-300 border-t-orange-600" />

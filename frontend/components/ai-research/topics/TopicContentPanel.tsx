@@ -1430,7 +1430,13 @@ export function TopicContentPanel({
                               title: `v${report.version}`,
                               summary: '',
                               changeType: 'edit',
-                              changeDescription: `${report.totalSources || 0} sources · ${report.fullReport?.length || 0} 字`,
+                              changeDescription: t(
+                                'topicResearch.contentPanel.revisionHistory.sourcesAndChars',
+                                {
+                                  sources: report.totalSources || 0,
+                                  chars: report.fullReport?.length || 0,
+                                }
+                              ),
                               author: '',
                               createdAt: new Date().toISOString(),
                               wordCount: report.fullReport?.length || 0,
@@ -1450,7 +1456,13 @@ export function TopicContentPanel({
                                   ? 'create'
                                   : 'edit',
                               changeDescription: rev.totalSources
-                                ? `${rev.totalSources} sources · ${rev.wordCount || 0} 字`
+                                ? t(
+                                    'topicResearch.contentPanel.revisionHistory.sourcesAndChars',
+                                    {
+                                      sources: rev.totalSources,
+                                      chars: rev.wordCount || 0,
+                                    }
+                                  )
                                 : rev.summary || '',
                               author: rev.author || '',
                               createdAt:
@@ -1903,7 +1915,9 @@ export function TopicContentPanel({
                     <div className="flex h-full flex-col">
                       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
                         <h3 className="text-sm font-semibold text-gray-700">
-                          版本历史
+                          {t(
+                            'topicResearch.contentPanel.revisionHistory.title'
+                          )}
                         </h3>
                         <button
                           onClick={() => setSidePanelType(null)}
@@ -1956,7 +1970,13 @@ export function TopicContentPanel({
                                 title: `v${report.version}`,
                                 summary: '',
                                 changeType: 'edit',
-                                changeDescription: `${report.totalSources || 0} sources · ${report.fullReport?.length || 0} 字`,
+                                changeDescription: t(
+                                  'topicResearch.contentPanel.revisionHistory.sourcesAndChars',
+                                  {
+                                    sources: report.totalSources || 0,
+                                    chars: report.fullReport?.length || 0,
+                                  }
+                                ),
                                 author: '',
                                 createdAt: new Date().toISOString(),
                                 wordCount: report.fullReport?.length || 0,
@@ -1976,7 +1996,13 @@ export function TopicContentPanel({
                                     ? 'create'
                                     : 'edit',
                                 changeDescription: rev.totalSources
-                                  ? `${rev.totalSources} sources · ${rev.wordCount || 0} 字`
+                                  ? t(
+                                      'topicResearch.contentPanel.revisionHistory.sourcesAndChars',
+                                      {
+                                        sources: rev.totalSources,
+                                        chars: rev.wordCount || 0,
+                                      }
+                                    )
                                   : rev.summary || '',
                                 author: rev.author || '',
                                 createdAt:
