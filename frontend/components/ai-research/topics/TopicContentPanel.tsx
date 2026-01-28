@@ -2512,6 +2512,32 @@ function ReportTabContent({
                   li: ({ children }) => (
                     <li>{processChildrenWithCitations(children, evidence)}</li>
                   ),
+                  // ★ 表格单元格引用处理
+                  td: ({ children }) => (
+                    <td>{processChildrenWithCitations(children, evidence)}</td>
+                  ),
+                  th: ({ children }) => (
+                    <th>{processChildrenWithCitations(children, evidence)}</th>
+                  ),
+                  // ★ 标题引用处理
+                  h1: ({ children }) => (
+                    <h1>{processChildrenWithCitations(children, evidence)}</h1>
+                  ),
+                  h2: ({ children }) => (
+                    <h2>{processChildrenWithCitations(children, evidence)}</h2>
+                  ),
+                  h3: ({ children }) => (
+                    <h3>{processChildrenWithCitations(children, evidence)}</h3>
+                  ),
+                  h4: ({ children }) => (
+                    <h4>{processChildrenWithCitations(children, evidence)}</h4>
+                  ),
+                  // ★ 引用块引用处理
+                  blockquote: ({ children }) => (
+                    <blockquote>
+                      {processChildrenWithCitations(children, evidence)}
+                    </blockquote>
+                  ),
                 }}
               >
                 {selectedContent.content || ''}
