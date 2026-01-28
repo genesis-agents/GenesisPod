@@ -665,7 +665,11 @@ export function RiskMatrixRenderer({
   className = '',
 }: ReportChartRendererProps) {
   const chartData = chart.data || [];
-  const chartId = `risk-matrix-${chart.id || Math.random().toString(36).substr(2, 9)}`;
+  // ★ 使用 useMemo 避免 hydration 错误（Math.random 在 SSR/CSR 产生不同值）
+  const chartId = useMemo(
+    () => `risk-matrix-${chart.id || Math.random().toString(36).substr(2, 9)}`,
+    [chart.id]
+  );
 
   // 计算风险等级
   const getRiskLevel = (probability: number, impact: number): string => {

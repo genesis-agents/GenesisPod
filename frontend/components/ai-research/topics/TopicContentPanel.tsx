@@ -767,11 +767,11 @@ export function TopicContentPanel({
       wordCountDelta: number;
     }[] = [];
 
-    // 添加当前版本（如果不在 revisions 中）
-    const currentVersionExists = revisions.some(
-      (rev) => rev.version === report?.version
-    );
-    if (report && !currentVersionExists) {
+    // ★ 使用 ID 检查是否已存在（比 version 更可靠）
+    const existingIds = new Set(revisions.map((rev) => rev.id));
+
+    // ★ 始终添加当前版本（如果 report 存在且 ID 不在 revisions 中）
+    if (report && !existingIds.has(report.id)) {
       const sources = report.totalSources || 0;
       const chars = report.fullReport?.length || 0;
       result.push({
