@@ -65,6 +65,28 @@
     "no-debugger": "error",
     "no-alert": "warn", // Admin pages may use confirm dialogs
     "prefer-const": "error",
-    "no-var": "error"
-  }
+    "no-var": "error",
+
+    // ★ Hydration 安全规则：禁止在 JSX 组件中直接使用 toLocaleDateString/toLocaleTimeString
+    // 使用 <ClientDate> 组件或 formatDateSafe() 替代
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "CallExpression[callee.property.name='toLocaleDateString']",
+        "message": "Avoid toLocaleDateString() - causes hydration errors. Use <ClientDate> component or formatDateSafe() from '@/lib/utils/date'."
+      },
+      {
+        "selector": "CallExpression[callee.property.name='toLocaleTimeString']",
+        "message": "Avoid toLocaleTimeString() - causes hydration errors. Use <ClientDate> component or formatDateSafe() from '@/lib/utils/date'."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["components/common/ClientDate.tsx"],
+      "rules": {
+        "no-restricted-syntax": "off"
+      }
+    }
+  ]
 }
