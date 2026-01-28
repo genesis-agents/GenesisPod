@@ -9,6 +9,7 @@ import {
 } from '@/types/ai-teams';
 import { useAiGroupStore } from '@/stores/aiTeamsStore';
 import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
+import ClientDate from '@/components/common/ClientDate';
 
 interface MissionProgressPanelProps {
   topicId: string;
@@ -896,13 +897,7 @@ function MissionDetailView({
               👑 {mission.leader?.displayName || 'Unknown'}
             </span>
             <span>
-              创建于{' '}
-              {new Date(mission.createdAt).toLocaleString('zh-CN', {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              创建于 <ClientDate date={mission.createdAt} format="datetime" />
             </span>
           </div>
         </div>
@@ -1319,24 +1314,12 @@ function TaskDetailCard({
           <div className="flex flex-wrap gap-3 border-t border-gray-200/50 pt-2 text-xs text-gray-400">
             {task.startedAt && (
               <span>
-                开始:{' '}
-                {new Date(task.startedAt).toLocaleString('zh-CN', {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                开始: <ClientDate date={task.startedAt} format="datetime" />
               </span>
             )}
             {task.completedAt && (
               <span>
-                完成:{' '}
-                {new Date(task.completedAt).toLocaleString('zh-CN', {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                完成: <ClientDate date={task.completedAt} format="datetime" />
               </span>
             )}
           </div>

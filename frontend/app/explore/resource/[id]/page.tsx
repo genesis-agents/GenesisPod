@@ -15,6 +15,7 @@ import {
   convertToStructuredSummary,
 } from '@/components/library/resources/StructuredAISummary';
 import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
+import ClientDate from '@/components/common/ClientDate';
 
 // Dynamic import for PDF viewer (client-side only)
 const PDFViewerClient = dynamic(
@@ -257,7 +258,7 @@ export default function ResourcePage() {
                       />
                     </svg>
                     <span>
-                      {new Date(resource.publishedAt).toLocaleDateString()}
+                      <ClientDate date={resource.publishedAt} format="date" />
                     </span>
                   </div>
                 </div>
@@ -311,7 +312,7 @@ export default function ResourcePage() {
                         Published:
                       </span>
                       <p className="mt-1 text-gray-700">
-                        {new Date(resource.publishedAt).toLocaleDateString()}
+                        <ClientDate date={resource.publishedAt} format="date" />
                       </p>
                     </div>
                   )}

@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { config } from '@/lib/utils/config';
 import { useTranslation } from '@/lib/i18n';
+import ClientDate from '@/components/common/ClientDate';
 
 interface SharedImage {
   id: string;
@@ -188,7 +189,7 @@ export default function SharedImagePage() {
             </span>
             <span>
               {t('share.createdAt')}:{' '}
-              {new Date(image.createdAt).toLocaleDateString()}
+              <ClientDate date={image.createdAt} format="date" />
             </span>
           </div>
         </div>

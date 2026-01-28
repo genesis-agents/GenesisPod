@@ -31,6 +31,7 @@ import {
   Target,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { ClientDate } from '@/components/common/ClientDate';
 import {
   ReviewResultCard,
   DimensionReviewResult,
@@ -184,13 +185,18 @@ function formatDuration(ms: number): string {
   return `${Math.floor(ms / 60000)}分${Math.floor((ms % 60000) / 1000)}秒`;
 }
 
-function formatTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+function formatTime(dateStr: string): React.ReactNode {
+  return (
+    <ClientDate
+      date={dateStr}
+      format="time"
+      timeOptions={{
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }}
+    />
+  );
 }
 
 // ==================== Sub Components ====================

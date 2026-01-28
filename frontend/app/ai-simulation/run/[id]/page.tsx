@@ -30,6 +30,7 @@ import { useSimulationPerspective } from '@/hooks';
 import { isContentVisible } from '@/lib/ai-simulation/perspectiveFilter';
 
 import { logger } from '@/lib/utils/logger';
+import ClientDate from '@/components/common/ClientDate';
 // 智能解析长文本，提取结构化信息
 function parseStructuredContent(text: string): {
   summary: string;
@@ -873,7 +874,7 @@ export default function RunConsolePage() {
                             </span>
                             <span className="text-gray-400">·</span>
                             <span className="text-gray-500">
-                              {new Date(turn.createdAt).toLocaleTimeString()}
+                              <ClientDate date={turn.createdAt} format="time" />
                             </span>
                             <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">
                               {submissionCount} 条行动
@@ -1540,11 +1541,14 @@ export default function RunConsolePage() {
                                       {event.name}
                                     </span>
                                     <span className="ml-auto text-[10px] text-gray-400">
-                                      {event.triggeredAt
-                                        ? new Date(
-                                            event.triggeredAt
-                                          ).toLocaleTimeString()
-                                        : ''}
+                                      {event.triggeredAt ? (
+                                        <ClientDate
+                                          date={event.triggeredAt}
+                                          format="time"
+                                        />
+                                      ) : (
+                                        ''
+                                      )}
                                     </span>
                                   </div>
                                 )
@@ -1893,11 +1897,14 @@ export default function RunConsolePage() {
                                 {iv.round && (
                                   <div className="mt-1 text-[10px] text-gray-400">
                                     第 {iv.round} 轮 ·{' '}
-                                    {iv.timestamp
-                                      ? new Date(
-                                          iv.timestamp
-                                        ).toLocaleTimeString()
-                                      : ''}
+                                    {iv.timestamp ? (
+                                      <ClientDate
+                                        date={iv.timestamp}
+                                        format="time"
+                                      />
+                                    ) : (
+                                      ''
+                                    )}
                                   </div>
                                 )}
                               </div>

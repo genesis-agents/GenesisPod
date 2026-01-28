@@ -17,6 +17,7 @@ import { ResearchTodoList } from '../research-control/ResearchTodoList';
 import { QuickCommandBar } from '../research-control/QuickCommandBar';
 import { TodoDetailPanel } from '../panels/TodoDetailPanel';
 import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
+import { ClientDate } from '@/components/common/ClientDate';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
 import {
   Loader2,
@@ -252,10 +253,11 @@ function ConversationMessageItem({
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-gray-700">你</span>
             <span className="text-xs text-gray-400">
-              {message.timestamp.toLocaleTimeString('zh-CN', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              <ClientDate
+                date={message.timestamp}
+                format="time"
+                timeOptions={{ hour: '2-digit', minute: '2-digit' }}
+              />
             </span>
           </div>
           <p className="mt-1 text-sm text-gray-900">
@@ -292,10 +294,11 @@ function ConversationMessageItem({
             </span>
           )}
           <span className="text-xs text-gray-400">
-            {message.timestamp.toLocaleTimeString('zh-CN', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            <ClientDate
+              date={message.timestamp}
+              format="time"
+              timeOptions={{ hour: '2-digit', minute: '2-digit' }}
+            />
           </span>
         </div>
 

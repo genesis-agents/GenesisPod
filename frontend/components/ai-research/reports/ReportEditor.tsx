@@ -42,6 +42,7 @@ import {
   AnnotatedText,
   useScrollToAnnotation,
 } from '../annotations/AnnotatedText';
+import { formatDateSafe } from '@/lib/utils/date';
 
 import { logger } from '@/lib/utils/logger';
 // View modes: preview, richtext (WYSIWYG), source (raw markdown)
@@ -854,9 +855,9 @@ function ReportEditorInner({
           }
         }
         const date = ev.publishedAt
-          ? new Date(ev.publishedAt).toLocaleDateString('zh-CN')
+          ? formatDateSafe(ev.publishedAt, 'date')
           : '';
-        const dateStr = date ? ` (${date})` : '';
+        const dateStr = date && date !== '--' ? ` (${date})` : '';
 
         // Reference with sequence number, clickable title, source info
         parts.push(`**[${idx + 1}]** [${ev.title}](${ev.url})\n`);

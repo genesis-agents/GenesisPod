@@ -13,6 +13,7 @@ import {
 import AppShell from '@/components/layout/AppShell';
 
 import { logger } from '@/lib/utils/logger';
+import ClientDate from '@/components/common/ClientDate';
 // Dynamically import the editor to avoid SSR issues
 const NotionBlockEditor = dynamic(
   () => import('@/components/library/integrations/notion/NotionBlockEditor'),
@@ -61,9 +62,12 @@ export default function NotionPageDetail() {
   }, [fetchPage]);
 
   // Handle block changes from editor
-  const handleBlocksChange = useCallback((blocks: Array<Record<string, unknown>>) => {
-    setLocalBlocks(blocks);
-  }, []);
+  const handleBlocksChange = useCallback(
+    (blocks: Array<Record<string, unknown>>) => {
+      setLocalBlocks(blocks);
+    },
+    []
+  );
 
   // Save blocks to backend
   const handleSave = useCallback(
@@ -96,15 +100,7 @@ export default function NotionPageDetail() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  // Removed formatDate helper - using ClientDate component instead to avoid hydration errors
 
   if (loading) {
     return (
@@ -185,7 +181,21 @@ export default function NotionPageDetail() {
                   </h1>
                 </div>
                 <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                  <span>Updated {formatDate(page.notionUpdatedAt)}</span>
+                  <span>
+                    Updated{' '}
+                    <ClientDate
+                      date={page.notionUpdatedAt}
+                      format="date"
+                      locale="en-US"
+                      dateOptions={{
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      }}
+                    />
+                  </span>
                   {page.isLocallyModified && (
                     <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
                       <svg
@@ -375,7 +385,20 @@ export default function NotionPageDetail() {
                         </span>
                       </div>
                       <span className="text-sm text-gray-500">
-                        {formatDate(version.createdAt)}
+                        {
+                          <ClientDate
+                            date={version.createdAt}
+                            format="date"
+                            locale="en-US"
+                            dateOptions={{
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }}
+                          />
+                        }
                       </span>
                     </div>
                   ))}

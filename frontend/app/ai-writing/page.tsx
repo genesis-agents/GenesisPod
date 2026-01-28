@@ -9,6 +9,7 @@ import { useAIWritingStore } from '@/stores';
 import { getStylePresets, type WritingStylePreset } from '@/lib/api/ai-writing';
 import { WRITING_AGENT_REGISTRY } from '@/lib/ai-writing/agent-config';
 import ShareModal from '@/components/common/dialogs/ShareModal';
+import ClientDate from '@/components/common/ClientDate';
 
 // AI Writing Team - Preview (5 core agents) - 使用统一配置
 const AI_TEAM_PREVIEW = Object.values(WRITING_AGENT_REGISTRY)
@@ -258,20 +259,7 @@ export default function AIWritingPage() {
     );
   };
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return '刚刚';
-    if (minutes < 60) return `${minutes}分钟前`;
-    if (hours < 24) return `${hours}小时前`;
-    if (days < 7) return `${days}天前`;
-    return date.toLocaleDateString();
-  };
+  // Removed formatTime function - using ClientDate component instead
 
   // Filter projects by search query
   const filteredProjects = projects.filter((project) => {
@@ -632,7 +620,10 @@ export default function AIWritingPage() {
                         {getGenreLabel(project.genre || 'NOVEL')}
                       </span>
                       <span className="text-xs text-gray-400">
-                        {formatTime(project.updatedAt)}
+                        <ClientDate
+                          date={project.updatedAt}
+                          format="relative"
+                        />
                       </span>
                     </div>
                   </div>

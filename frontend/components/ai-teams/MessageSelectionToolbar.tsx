@@ -6,6 +6,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
+import { formatDateSafe } from '@/lib/utils/date';
 interface MessageSelectionToolbarProps {
   selectedMessages: Set<string>;
   messages: TopicMessage[];
@@ -82,7 +83,7 @@ export default function MessageSelectionToolbar({
           m.sender?.username ||
           m.aiMember?.displayName ||
           'Unknown';
-        const time = new Date(m.createdAt).toLocaleString();
+        const time = formatDateSafe(m.createdAt, 'datetime');
         content += `**${sender}** (${time}):\n${m.content}\n\n`;
       });
     } else if (mergeMode === 'SUMMARY') {
@@ -128,7 +129,7 @@ export default function MessageSelectionToolbar({
           m.sender?.username ||
           m.aiMember?.displayName ||
           'Unknown';
-        const time = new Date(m.createdAt).toLocaleString();
+        const time = formatDateSafe(m.createdAt, 'datetime');
         content += `---\n\n`;
         content += `### ${sender}\n`;
         content += `*${time}*\n\n`;

@@ -30,6 +30,7 @@ import {
 } from '@/hooks/domain';
 import { useTranslation } from '@/lib/i18n';
 import { LoadingState, ErrorState, useConfirm } from '@/components/ui';
+import ClientDate from '@/components/common/ClientDate';
 
 // Export components for use in page layout
 export function UsersAddButton({ onClick }: { onClick: () => void }) {
@@ -266,7 +267,7 @@ function LoginHistoryModal({
                     </div>
                     <div className="flex items-center gap-1 text-xs text-gray-500">
                       <Calendar className="h-3.5 w-3.5" />
-                      {new Date(item.loginAt).toLocaleString()}
+                      <ClientDate date={item.loginAt} format="datetime" />
                     </div>
                   </div>
                 </div>

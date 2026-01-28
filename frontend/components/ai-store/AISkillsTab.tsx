@@ -100,11 +100,10 @@ const defaultTimelineData: TimelineDataPoint[] = (() => {
     date.setDate(date.getDate() + i * 7);
     const count = counts[i];
     cumulative += count;
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
     data.push({
-      date: date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      }),
+      date: `${month}-${day}`,
       count,
       cumulative,
     });
@@ -210,11 +209,10 @@ export default function AISkillsTab() {
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'Never';
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   // Chart data key based on cumulative toggle

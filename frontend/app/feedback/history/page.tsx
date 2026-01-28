@@ -11,6 +11,7 @@ import {
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { useTranslation } from '@/lib/i18n';
+import ClientDate from '@/components/common/ClientDate';
 import {
   FileText,
   Plus,
@@ -50,16 +51,6 @@ const STATUS_COLORS: Record<string, string> = {
   RESOLVED: 'bg-green-100 text-green-800 border-green-200',
   CLOSED: 'bg-gray-100 text-gray-800 border-gray-200',
 };
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 export default function FeedbackHistoryPage() {
   const router = useRouter();
@@ -226,12 +217,34 @@ export default function FeedbackHistoryPage() {
                         <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
                           <span>
                             {t('feedback.submitted')}:{' '}
-                            {formatDate(feedback.created_at)}
+                            <ClientDate
+                              date={feedback.created_at}
+                              format="datetime"
+                              locale="zh-CN"
+                              dateOptions={{
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              }}
+                            />
                           </span>
                           {feedback.updated_at !== feedback.created_at && (
                             <span>
                               {t('feedback.updated')}:{' '}
-                              {formatDate(feedback.updated_at)}
+                              <ClientDate
+                                date={feedback.updated_at}
+                                format="datetime"
+                                locale="zh-CN"
+                                dateOptions={{
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                }}
+                              />
                             </span>
                           )}
                         </div>
@@ -295,13 +308,35 @@ export default function FeedbackHistoryPage() {
                   </div>
                   <div>
                     {t('feedback.submitted')}:{' '}
-                    {formatDate(selectedFeedback.created_at)}
+                    <ClientDate
+                      date={selectedFeedback.created_at}
+                      format="datetime"
+                      locale="zh-CN"
+                      dateOptions={{
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      }}
+                    />
                   </div>
                   {selectedFeedback.updated_at !==
                     selectedFeedback.created_at && (
                     <div>
                       {t('feedback.lastUpdated')}:{' '}
-                      {formatDate(selectedFeedback.updated_at)}
+                      <ClientDate
+                        date={selectedFeedback.updated_at}
+                        format="datetime"
+                        locale="zh-CN"
+                        dateOptions={{
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }}
+                      />
                     </div>
                   )}
                 </div>

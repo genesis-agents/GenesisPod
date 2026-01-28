@@ -17,6 +17,7 @@ import * as api from '@/lib/api/ai-teams';
 import { PublicTopic, JoinRequest } from '@/lib/api/ai-teams';
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
+import ClientDate from '@/components/common/ClientDate';
 
 type TabType = 'my-teams' | 'discover';
 
@@ -736,7 +737,8 @@ function TopicCard({
     if (minutes < 60) return t('aiTeams.card.mAgo', { count: minutes });
     if (hours < 24) return t('aiTeams.card.hAgo', { count: hours });
     if (days < 7) return t('aiTeams.card.dAgo', { count: days });
-    return date.toLocaleDateString();
+    // Return React component for dates older than 7 days
+    return null; // Will be handled by ClientDate component below
   };
 
   // Check if current user is the creator (owner)
@@ -1009,7 +1011,16 @@ function TopicCard({
             </svg>
             {topic.aiMemberCount} AI
           </span>
-          <span className="ml-auto">{formatTime(topic.updatedAt)}</span>
+          <span className="ml-auto">
+            {(() => {
+              const formattedTime = formatTime(topic.updatedAt);
+              return formattedTime !== null ? (
+                formattedTime
+              ) : (
+                <ClientDate date={topic.updatedAt} format="date" />
+              );
+            })()}
+          </span>
         </div>
 
         {/* Member Avatars */}
@@ -1545,7 +1556,8 @@ function PublicTopicCard({
     if (days < 7) return t('aiTeams.publicCard.daysAgo', { count: days });
     if (days < 30)
       return t('aiTeams.publicCard.weeksAgo', { count: Math.floor(days / 7) });
-    return date.toLocaleDateString();
+    // Return null for older dates to use ClientDate component
+    return null;
   };
 
   return (
@@ -1641,7 +1653,16 @@ function PublicTopicCard({
             </svg>
             {topic.aiMemberCount} AI
           </span>
-          <span className="ml-auto">{formatTime(topic.createdAt)}</span>
+          <span className="ml-auto">
+            {(() => {
+              const formattedTime = formatTime(topic.createdAt);
+              return formattedTime !== null ? (
+                formattedTime
+              ) : (
+                <ClientDate date={topic.createdAt} format="date" />
+              );
+            })()}
+          </span>
         </div>
 
         {/* Creator */}

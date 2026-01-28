@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { config } from '@/lib/utils/config';
+import ClientDate from '@/components/common/ClientDate';
+import { formatDateSafe } from '@/lib/utils/date';
 
 interface ReportSection {
   title: string;
@@ -83,7 +85,7 @@ export default function ReportPage() {
     let markdown = `# ${report.title}\n\n`;
     markdown += `**${report.templateIcon} ${report.templateName}** | `;
     markdown += `📄 ${report.resourceCount} 篇素材 | `;
-    markdown += `🕐 ${new Date(report.createdAt).toLocaleString()}\n\n`;
+    markdown += `🕐 ${formatDateSafe(report.createdAt, 'datetime')}\n\n`;
     markdown += `## 📝 核心摘要\n\n${report.summary}\n\n`;
 
     report.sections.forEach((section) => {
@@ -160,7 +162,7 @@ export default function ReportPage() {
                 <span>📄 {report.resourceCount} 篇素材</span>
                 <span>•</span>
                 <span>
-                  🕐 {new Date(report.createdAt).toLocaleDateString()}
+                  🕐 <ClientDate date={report.createdAt} format="date" />
                 </span>
               </div>
 
@@ -278,9 +280,10 @@ export default function ReportPage() {
                             <>
                               <span>•</span>
                               <span>
-                                {new Date(
-                                  resource.publishedAt
-                                ).toLocaleDateString()}
+                                <ClientDate
+                                  date={resource.publishedAt}
+                                  format="date"
+                                />
                               </span>
                             </>
                           )}

@@ -13,7 +13,10 @@ import {
   useTaskStore,
   Task,
 } from '@/stores/aiOfficeStore';
-import type { Document as AiOfficeDocument, DocumentType } from '@/types/ai-office';
+import type {
+  Document as AiOfficeDocument,
+  DocumentType,
+} from '@/types/ai-office';
 import {
   Send,
   Paperclip,
@@ -38,6 +41,7 @@ import SlashCommandMenu, {
   type SlashCommand,
 } from './SlashCommandMenu';
 import DOMPurify from 'isomorphic-dompurify';
+import { formatDateSafe } from '@/lib/utils/date';
 
 import { logger } from '@/lib/utils/logger';
 export default function ChatPanel() {
@@ -524,12 +528,13 @@ export default function ChatPanel() {
 
       // 生成任务标题
       let taskTitle = '';
+      const timeStr = formatDateSafe(new Date(), 'time');
       if (isDocumentGenerationRequest) {
-        taskTitle = `${isPPTRequest ? 'PPT演示' : '文档'} - ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
+        taskTitle = `${isPPTRequest ? 'PPT演示' : '文档'} - ${timeStr}`;
       } else if ((userInput || '').length > 30) {
-        taskTitle = `${(userInput || '').substring(0, 30)}... - ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
+        taskTitle = `${(userInput || '').substring(0, 30)}... - ${timeStr}`;
       } else {
-        taskTitle = `${userInput || ''} - ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
+        taskTitle = `${userInput || ''} - ${timeStr}`;
       }
 
       const newTask: Task = {
@@ -585,7 +590,7 @@ export default function ChatPanel() {
       const currentDoc = targetDocumentId
         ? useDocumentStore
             .getState()
-            .documents.find((d) => d._id ===targetDocumentId)
+            .documents.find((d) => d._id === targetDocumentId)
         : null;
       const existingContent =
         currentDoc &&
@@ -898,7 +903,7 @@ ${userInput || ''}
                   // 实时同步到文档
                   const currentDoc = useDocumentStore
                     .getState()
-                    .documents.find((d) => d._id ===targetDocumentId);
+                    .documents.find((d) => d._id === targetDocumentId);
                   if (currentDoc) {
                     // 判断是局部更新还是全文更新
                     // 如果是带分隔符的局部更新，使用 contentPart；否则使用 aiContent
@@ -1001,7 +1006,7 @@ ${userInput || ''}
       // 获取最终的文档状态（确保是最新的）
       const finalDocument = useDocumentStore
         .getState()
-        .documents.find((d) => d._id ===targetDocumentId);
+        .documents.find((d) => d._id === targetDocumentId);
 
       // 如果是文档生成请求，更新文档状态并自动保存版本
       if (isDocumentGenerationRequest && finalDocument) {
@@ -1016,7 +1021,7 @@ ${userInput || ''}
           // 重新获取文档以确保状态最新
           const currentDocument = useDocumentStore
             .getState()
-            .documents.find((d) => d._id ===targetDocumentId);
+            .documents.find((d) => d._id === targetDocumentId);
 
           if (currentDocument) {
             // 判断是更新现有文档还是初始生成
@@ -1067,7 +1072,7 @@ ${userInput || ''}
         useTaskStore.getState().updateTask(taskId, {
           context: {
             resourceIds:
-              useTaskStore.getState().tasks.find((t) => t._id ===taskId)
+              useTaskStore.getState().tasks.find((t) => t._id === taskId)
                 ?.context.resourceIds || selectedResourceIds,
             documentId: targetDocumentId,
             documentContent: documentContentSnapshot, // 保存文档内容快照
@@ -1083,12 +1088,16 @@ ${userInput || ''}
         // 验证任务是否正确保存
         const savedTask = useTaskStore
           .getState()
-          .tasks.find((t) => t._id ===taskId);
+          .tasks.find((t) => t._id === taskId);
         logger.debug('[ChatPanel] Task saved verification:', {
           taskId,
           hasDocumentContent: !!savedTask?.context.documentContent,
           contentMarkdownLength:
-            (savedTask?.context.documentContent as { markdown?: string } | undefined)?.markdown?.length || 0,
+            (
+              savedTask?.context.documentContent as
+                | { markdown?: string }
+                | undefined
+            )?.markdown?.length || 0,
         });
       }
     } catch (error) {
@@ -1140,7 +1149,7 @@ ${userInput || ''}
       taskId = `task-${Date.now()}`;
       const newTask: Task = {
         _id: taskId,
-        title: `${config.template.name} - ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`,
+        title: `${config.template.name} - ${formatDateSafe(new Date(), 'time')}`,
         type:
           config.template.name.includes('PPT') ||
           config.template.name.includes('演示')
@@ -1287,7 +1296,7 @@ ${userInput || ''}
           _id: newDocumentId,
           userId: 'current-user',
           type: 'article' as const,
-          title: `${config.template.name} - ${new Date().toLocaleDateString('zh-CN')}`,
+          title: `${config.template.name} - ${formatDateSafe(new Date(), 'date')}`,
           status: 'generating' as const,
           resources: selectedResources.map((r) => ({
             resourceRef: {
@@ -1415,7 +1424,7 @@ ${userInput || ''}
         // 完成任务并保存上下文（包含文档内容快照）
         const finalDocument = useDocumentStore
           .getState()
-          .documents.find((d) => d._id ===newDocumentId);
+          .documents.find((d) => d._id === newDocumentId);
 
         // 深拷贝文档内容和元数据
         const documentContentSnapshot = finalDocument?.content
@@ -1575,12 +1584,7 @@ ${userInput || ''}
                         : 'text-gray-500'
                     }`}
                   >
-                    <span>
-                      {new Date(message.timestamp).toLocaleTimeString('zh-CN', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
+                    <span>{formatDateSafe(message.timestamp, 'time')}</span>
                     {/* Action buttons for AI messages */}
                     {message.role === 'assistant' && (
                       <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">

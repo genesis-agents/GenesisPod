@@ -360,7 +360,7 @@ function ThinkingPhasesTimeline({
                             if (!isNaN(d.getTime())) {
                               return (
                                 <span className="text-green-600 dark:text-green-400">
-                                  最新: {d.toLocaleDateString('zh-CN')}
+                                  最新: <ClientDate date={d} format="date" />
                                 </span>
                               );
                             }

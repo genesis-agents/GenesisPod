@@ -9,6 +9,7 @@ import { useResourceStore } from '@/stores/aiOfficeStore';
 import { FileText, Download, CheckCircle } from 'lucide-react';
 
 import { logger } from '@/lib/utils/logger';
+import ClientDate from '@/components/common/ClientDate';
 interface SummaryDialogProps {
   topic: Topic;
   onClose: () => void;
@@ -116,16 +117,7 @@ export default function SummaryDialog({ topic, onClose }: SummaryDialogProps) {
     );
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  // formatDate removed - using ClientDate component for hydration safety
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -220,7 +212,7 @@ export default function SummaryDialog({ topic, onClose }: SummaryDialogProps) {
                       {summary.title}
                     </h3>
                     <p className="mt-1 text-xs text-gray-500">
-                      {formatDate(summary.createdAt)}
+                      <ClientDate date={summary.createdAt} format="datetime" />
                     </p>
                     <p className="mt-1 text-xs text-gray-400">
                       by{' '}
@@ -242,7 +234,12 @@ export default function SummaryDialog({ topic, onClose }: SummaryDialogProps) {
                       {selectedSummary.title}
                     </h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      Generated on {formatDate(selectedSummary.createdAt)} by{' '}
+                      Generated on{' '}
+                      <ClientDate
+                        date={selectedSummary.createdAt}
+                        format="datetime"
+                      />{' '}
+                      by{' '}
                       {selectedSummary.createdBy.fullName ||
                         selectedSummary.createdBy.username}
                     </p>

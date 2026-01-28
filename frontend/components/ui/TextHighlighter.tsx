@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
-
+import ClientDate from '@/components/common/ClientDate';
 import { logger } from '@/lib/utils/logger';
 interface Highlight {
   id: string;
@@ -312,7 +312,11 @@ export default function TextHighlighter({
 
             <div className="mb-4 flex items-center justify-between text-xs text-gray-500">
               <span>
-                创建于 {new Date(selectedHighlight.createdAt).toLocaleString()}
+                创建于{' '}
+                <ClientDate
+                  date={selectedHighlight.createdAt}
+                  format="datetime"
+                />
               </span>
             </div>
 

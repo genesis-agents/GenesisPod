@@ -16,6 +16,7 @@ import * as aiGroupApi from '@/lib/api/ai-teams';
 import { JoinRequest } from '@/lib/api/ai-teams';
 
 import { logger } from '@/lib/utils/logger';
+import ClientDate from '@/components/common/ClientDate';
 // User search result type
 interface SearchedUser {
   id: string;
@@ -1163,12 +1164,7 @@ function JoinRequestsSettings({
     }
   };
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return (
-      date.toLocaleDateString() + ' ' + date.toLocaleTimeString().slice(0, 5)
-    );
-  };
+  // formatTime removed - using ClientDate component instead
 
   if (isLoading) {
     return (
@@ -1246,7 +1242,7 @@ function JoinRequestsSettings({
                 </div>
               </div>
               <div className="text-xs text-gray-400">
-                {formatTime(request.createdAt)}
+                <ClientDate date={request.createdAt} format="datetime" />
               </div>
             </div>
 

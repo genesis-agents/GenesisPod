@@ -7,6 +7,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
+import ClientDate from '@/components/common/ClientDate';
 
 // Constants
 const LOW_BALANCE_THRESHOLD = 500;
@@ -128,7 +129,7 @@ const TYPE_COLORS: Record<string, string> = {
 function formatRelativeTime(
   dateString: string,
   t: (key: string) => string
-): string {
+): string | null {
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -143,7 +144,8 @@ function formatRelativeTime(
     return t('common.time.hoursAgo').replace('{n}', String(diffHours));
   if (diffDays < 7)
     return t('common.time.daysAgo').replace('{n}', String(diffDays));
-  return date.toLocaleDateString();
+  // Return null to use ClientDate component
+  return null;
 }
 
 function formatNumber(num: number): string {
@@ -828,7 +830,12 @@ export default function CreditsManagementPage() {
                                 {formatNumber(tx.amount)}
                               </div>
                               <div className="text-xs text-gray-400">
-                                {formatRelativeTime(tx.createdAt, t)}
+                                {formatRelativeTime(tx.createdAt, t) || (
+                                  <ClientDate
+                                    date={tx.createdAt}
+                                    format="date"
+                                  />
+                                )}
                               </div>
                             </div>
                           </div>

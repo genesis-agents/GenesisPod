@@ -8,6 +8,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
+import ClientDate from '@/components/common/ClientDate';
 // 知名公司Logo映射 - 使用 Clearbit Logo API 或官方Logo
 const COMPANY_LOGOS: Record<string, string> = {
   // 科技巨头
@@ -1687,9 +1688,10 @@ export default function ScenarioDetailPage() {
                           <div className="flex items-center gap-3">
                             <div className="text-right">
                               <div className="text-xs text-gray-500">
-                                {new Date(
-                                  run.createdAt || Date.now()
-                                ).toLocaleString()}
+                                <ClientDate
+                                  date={run.createdAt || Date.now()}
+                                  format="datetime"
+                                />
                               </div>
                               <div className="mt-1 h-1.5 w-24 rounded-full bg-gray-200">
                                 <div

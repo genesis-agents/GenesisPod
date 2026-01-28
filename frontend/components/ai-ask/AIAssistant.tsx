@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
-
+import ClientDate from '@/components/common/ClientDate';
 import { logger } from '@/lib/utils/logger';
 interface AIExplanation {
   text: string;
@@ -218,7 +218,10 @@ export default function AIAssistant({
               </p>
             </div>
             <div className="mt-2 text-xs text-gray-500">
-              {new Date(currentExplanation.timestamp).toLocaleString()}
+              <ClientDate
+                date={currentExplanation.timestamp}
+                format="datetime"
+              />
             </div>
           </div>
         </div>
@@ -251,7 +254,7 @@ export default function AIAssistant({
                   </p>
                 </div>
                 <div className="mt-2 text-xs text-gray-400">
-                  {new Date(exp.timestamp).toLocaleString()}
+                  <ClientDate date={exp.timestamp} format="datetime" />
                 </div>
               </div>
             ))}

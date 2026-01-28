@@ -13,6 +13,7 @@ import {
   listWorkspaceTemplates,
 } from '@/lib/api/workspace';
 import { useReportWorkspace, useWorkspaceSync, useAIModels } from '@/hooks';
+import ClientDate from '@/components/common/ClientDate';
 
 const TERMINAL_STATUSES = new Set(['SUCCESS', 'FAILED']);
 
@@ -42,19 +43,11 @@ function toneStyles(tone: 'success' | 'danger' | 'info' | 'muted') {
   }
 }
 
-function formatTimestamp(value?: string | null) {
-  if (!value) return '-';
+// Helper to validate date - removed direct formatting to avoid hydration errors
+function isValidDate(value?: string | null): boolean {
+  if (!value) return false;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '-';
-  }
-  return date.toLocaleString('zh-CN', {
-    hour12: false,
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return !Number.isNaN(date.getTime());
 }
 
 function extractQuestion(parameters: WorkspaceTaskSummary['parameters']) {
@@ -255,9 +248,9 @@ export default function WorkspacePage() {
 
     const templateName =
       templates.find((tpl) => tpl.id === task.templateId)?.name ?? 'AI 报告';
-    setReportTitle(
-      `${templateName} - ${new Date().toLocaleDateString('zh-CN')}`
-    );
+    // Use a simple date format that doesn't cause hydration issues
+    const dateStr = new Date().toISOString().split('T')[0];
+    setReportTitle(`${templateName} - ${dateStr}`);
     const questionText = extractQuestion(task.parameters);
     setReportNotes(questionText);
     setReportState('idle');
@@ -701,7 +694,18 @@ export default function WorkspacePage() {
                       </div>
                       <div className="mt-1 text-xs text-gray-500">
                         模板：{report.template} ·{' '}
-                        {formatTimestamp(report.createdAt)}
+                        <ClientDate
+                          date={report.createdAt}
+                          format="datetime"
+                          locale="zh-CN"
+                          dateOptions={{
+                            hour12: false,
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          }}
+                        />
                       </div>
                     </li>
                   ))}
@@ -875,8 +879,19 @@ export default function WorkspacePage() {
                                 </span>
                               </div>
                               <div className="mt-1 text-xs text-gray-500">
-                                {formatTimestamp(task.createdAt)} · 模型{' '}
-                                {task.model}
+                                <ClientDate
+                                  date={task.createdAt}
+                                  format="datetime"
+                                  locale="zh-CN"
+                                  dateOptions={{
+                                    hour12: false,
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  }}
+                                />{' '}
+                                · 模型 {task.model}
                               </div>
                               {extractQuestion(task.parameters) && (
                                 <p className="mt-2 line-clamp-2 text-xs text-gray-600">

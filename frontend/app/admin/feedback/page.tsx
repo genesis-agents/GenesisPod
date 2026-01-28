@@ -7,6 +7,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
+import ClientDate from '@/components/common/ClientDate';
 
 interface Feedback {
   id: string;
@@ -60,26 +61,7 @@ const PRIORITY_COLORS: Record<string, string> = {
   LOW: 'bg-slate-100 text-slate-600',
 };
 
-function formatRelativeTime(
-  dateString: string,
-  t: (key: string) => string
-): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return t('common.time.justNow');
-  if (diffMins < 60)
-    return t('common.time.minutesAgo').replace('{n}', String(diffMins));
-  if (diffHours < 24)
-    return t('common.time.hoursAgo').replace('{n}', String(diffHours));
-  if (diffDays < 7)
-    return t('common.time.daysAgo').replace('{n}', String(diffDays));
-  return date.toLocaleDateString();
-}
+// Removed formatRelativeTime function - using ClientDate component instead
 
 // Priority Icon component - only render for CRITICAL and HIGH
 function PriorityIcon({ priority }: { priority: string }) {
@@ -612,7 +594,10 @@ export default function FeedbackPage() {
                       </p>
                       <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
                         <span>
-                          {formatRelativeTime(feedback.created_at, t)}
+                          <ClientDate
+                            date={feedback.created_at}
+                            format="relative"
+                          />
                         </span>
                         {feedback.user_email && (
                           <span>{feedback.user_email}</span>
@@ -689,7 +674,10 @@ export default function FeedbackPage() {
                   </div>
                   <div>
                     {t('admin.feedback.submittedAt')}:{' '}
-                    {new Date(selectedFeedback.created_at).toLocaleString()}
+                    <ClientDate
+                      date={selectedFeedback.created_at}
+                      format="datetime"
+                    />
                   </div>
                   {selectedFeedback.user_email && (
                     <div>

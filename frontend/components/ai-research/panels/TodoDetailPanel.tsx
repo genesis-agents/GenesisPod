@@ -610,17 +610,14 @@ export function TodoDetailPanel({
 
   const formatTimestamp = (timestamp: string | null | undefined) => {
     if (!timestamp) return '--:--:--';
-    try {
-      const date = new Date(timestamp);
-      if (isNaN(date.getTime())) return '--:--:--';
-      return date.toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      });
-    } catch {
-      return '--:--:--';
-    }
+    return (
+      <ClientDate
+        date={timestamp}
+        format="time"
+        timeOptions={{ hour: '2-digit', minute: '2-digit', second: '2-digit' }}
+        fallback="--:--:--"
+      />
+    );
   };
 
   const formatDuration = (ms: number) => {

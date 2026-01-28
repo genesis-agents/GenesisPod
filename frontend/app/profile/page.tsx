@@ -20,6 +20,7 @@ import {
 } from '@/lib/api/notion';
 import { GoogleDriveConnectionCard } from '@/components/library/integrations/google-drive/GoogleDriveConnectionCard';
 import { WechatWorkBindingCard } from '@/components/library/integrations/wechat/WechatWorkBindingCard';
+import ClientDate from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
 interface UserStats {
@@ -205,13 +206,7 @@ function ProfileContent() {
     }
   };
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-    });
-  };
+  // Removed formatDate function - using ClientDate component instead
 
   // Add interest
   const handleAddInterest = () => {
@@ -851,11 +846,23 @@ function ProfileContent() {
                           </svg>
                         </div>
                         <p className="text-lg font-bold text-gray-900">
-                          {userStats?.memberSince
-                            ? formatDate(userStats.memberSince)
-                            : user?.createdAt
-                              ? formatDate(user.createdAt)
-                              : 'N/A'}
+                          {userStats?.memberSince ? (
+                            <ClientDate
+                              date={userStats.memberSince}
+                              format="date"
+                              locale="en-US"
+                              dateOptions={{ year: 'numeric', month: 'long' }}
+                            />
+                          ) : user?.createdAt ? (
+                            <ClientDate
+                              date={user.createdAt}
+                              format="date"
+                              locale="en-US"
+                              dateOptions={{ year: 'numeric', month: 'long' }}
+                            />
+                          ) : (
+                            'N/A'
+                          )}
                         </p>
                       </div>
                     </div>
@@ -1098,11 +1105,15 @@ function ProfileContent() {
                                   </p>
                                   <p className="text-xs text-gray-500">
                                     {conn.pagesCount || 0} pages · Last synced:{' '}
-                                    {conn.lastSyncAt
-                                      ? new Date(
-                                          conn.lastSyncAt
-                                        ).toLocaleDateString()
-                                      : 'Never'}
+                                    {conn.lastSyncAt ? (
+                                      <ClientDate
+                                        date={conn.lastSyncAt}
+                                        format="date"
+                                        locale="en-US"
+                                      />
+                                    ) : (
+                                      'Never'
+                                    )}
                                   </p>
                                 </div>
                               </div>

@@ -28,6 +28,7 @@ import {
   fetchTranscriptSmart,
   uploadTranscriptToCache,
 } from '@/lib/explore/youtube-transcript';
+import ClientDate from '@/components/common/ClientDate';
 
 interface TranscriptSegment {
   text: string;
@@ -1415,7 +1416,10 @@ function YouTubeTLDWContent() {
                                     : 'border-gray-100 text-gray-400'
                                 }`}
                               >
-                                {new Date(msg.timestamp).toLocaleTimeString()}
+                                <ClientDate
+                                  date={msg.timestamp}
+                                  format="time"
+                                />
                               </div>
                             </div>
                           </div>
@@ -1694,9 +1698,10 @@ function YouTubeTLDWContent() {
                                     </span>
                                   )}
                                   <span className="text-xs text-gray-400">
-                                    {new Date(
-                                      comment.createdAt
-                                    ).toLocaleDateString()}
+                                    <ClientDate
+                                      date={comment.createdAt}
+                                      format="date"
+                                    />
                                   </span>
                                 </div>
                               </div>

@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import ClientDate from '@/components/common/ClientDate';
 
 interface PublicReport {
   id: string;
@@ -363,9 +364,15 @@ export default function PublicReportPage() {
         <div className="mx-auto max-w-5xl px-4 text-center text-sm text-gray-500">
           <p>
             报告完成于{' '}
-            {report.completedAt
-              ? new Date(report.completedAt).toLocaleString('zh-CN')
-              : '未知时间'}
+            {report.completedAt ? (
+              <ClientDate
+                date={report.completedAt}
+                format="datetime"
+                locale="zh-CN"
+              />
+            ) : (
+              '未知时间'
+            )}
           </p>
           <p className="mt-1">Powered by AI Teams</p>
         </div>

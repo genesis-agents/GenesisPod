@@ -41,6 +41,7 @@ import { logger } from '@/lib/utils/logger';
 import AddToKnowledgeBaseDialog, {
   type ResourceToAdd,
 } from '@/components/common/dialogs/AddToKnowledgeBaseDialog';
+import ClientDate from '@/components/common/ClientDate';
 
 // 懒加载条件渲染的组件
 const NotesList = dynamicImport(
@@ -1288,7 +1289,9 @@ function LibraryPageContent() {
                   <span>
                     {image.width}×{image.height}
                   </span>
-                  <span>{new Date(image.createdAt).toLocaleDateString()}</span>
+                  <span>
+                    <ClientDate date={image.createdAt} format="date" />
+                  </span>
                 </div>
               </div>
             </div>
@@ -1572,7 +1575,11 @@ function LibraryPageContent() {
             {/* Footer */}
             <div className="flex items-center justify-between text-xs text-gray-500">
               <span>
-                {new Date(resource.publishedAt).toLocaleDateString('en-US')}
+                <ClientDate
+                  date={resource.publishedAt}
+                  format="date"
+                  locale="en-US"
+                />
               </span>
               {resource.upvoteCount !== undefined &&
                 resource.upvoteCount > 0 && (
@@ -2177,13 +2184,16 @@ function LibraryPageContent() {
                   Published Date
                 </label>
                 <p className="text-gray-700">
-                  {new Date(
-                    selectedItem.resource.publishedAt
-                  ).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
+                  <ClientDate
+                    date={selectedItem.resource.publishedAt}
+                    format="date"
+                    locale="en-US"
+                    dateOptions={{
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    }}
+                  />
                 </p>
               </div>
 
@@ -2287,9 +2297,11 @@ function LibraryPageContent() {
               </p>
               <p className="mt-1 text-xs text-gray-500">
                 {selectedItem.resource.type.replace('_', ' ')} •{' '}
-                {new Date(selectedItem.resource.publishedAt).toLocaleDateString(
-                  'en-US'
-                )}
+                <ClientDate
+                  date={selectedItem.resource.publishedAt}
+                  format="date"
+                  locale="en-US"
+                />
               </p>
             </div>
 
@@ -2448,7 +2460,7 @@ function LibraryPageContent() {
                   {selectedImage.width} × {selectedImage.height}
                 </span>
                 <span>
-                  {new Date(selectedImage.createdAt).toLocaleDateString()}
+                  <ClientDate date={selectedImage.createdAt} format="date" />
                 </span>
               </div>
             </div>

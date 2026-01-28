@@ -24,6 +24,7 @@ import {
 import CharacterRelationshipGraph from '@/components/ai-writing/CharacterRelationshipGraph';
 import ChapterEditPanel from '@/components/ai-writing/ChapterEditPanel';
 import ChapterImportModal from '@/components/ai-writing/ChapterImportModal';
+import ClientDate from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
 // Dynamic import for Canvas component
@@ -1195,7 +1196,9 @@ export default function WritingProjectPage() {
         await cancelMission(projectId);
       } catch {
         // 忽略取消错误，任务可能已经不存在
-        logger.debug('[handleContinueWriting] Cancel failed, continuing anyway');
+        logger.debug(
+          '[handleContinueWriting] Cancel failed, continuing anyway'
+        );
       }
       if (isStuckMission) {
         clearStuckMission();
@@ -3546,13 +3549,14 @@ export default function WritingProjectPage() {
                                 })()}
                               </span>
                               <span className="text-[10px] text-gray-400">
-                                {new Date(msg.timestamp).toLocaleTimeString(
-                                  'zh-CN',
-                                  {
+                                <ClientDate
+                                  date={msg.timestamp}
+                                  format="time"
+                                  timeOptions={{
                                     hour: '2-digit',
                                     minute: '2-digit',
-                                  }
-                                )}
+                                  }}
+                                />
                               </span>
                             </div>
                             {/* Message Content */}

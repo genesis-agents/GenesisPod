@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
+import ClientDate from '@/components/common/ClientDate';
 import {
   useKnowledgeBase,
   useKnowledgeBaseDetail,
@@ -288,9 +289,11 @@ export default function RAGPage() {
                   {knowledgeBase.lastSyncedAt && (
                     <span className="text-sm text-gray-500">
                       上次同步:{' '}
-                      {new Date(knowledgeBase.lastSyncedAt).toLocaleString(
-                        'zh-CN'
-                      )}
+                      <ClientDate
+                        date={knowledgeBase.lastSyncedAt}
+                        format="datetime"
+                        locale="zh-CN"
+                      />
                     </span>
                   )}
                 </div>

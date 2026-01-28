@@ -14,6 +14,7 @@ import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Shield, Maximize2, X, RefreshCw } from 'lucide-react';
 import { ClientDate } from '@/components/common/ClientDate';
+import { formatDateSafe } from '@/lib/utils/date';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import type {
@@ -620,7 +621,7 @@ export function TopicContentPanel({
   <h1>${report.title || '研究报告'}</h1>
   ${htmlContent}
   <div class="footer">
-    <p>由 AI Research 生成 · DeepDive Engine · ${new Date().toLocaleDateString('zh-CN')}</p>
+    <p>由 AI Research 生成 · DeepDive Engine · ${formatDateSafe(new Date(), 'date')}</p>
   </div>
 </body>
 </html>`;

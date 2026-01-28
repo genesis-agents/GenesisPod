@@ -10,6 +10,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import ShareModal from '@/components/common/dialogs/ShareModal';
 
 import { logger } from '@/lib/utils/logger';
+import ClientDate from '@/components/common/ClientDate';
 // AI Image Team - Preview (3 core agents)
 const AI_TEAM_PREVIEW = [
   {
@@ -170,20 +171,7 @@ export default function AIImagePage() {
     setShareImage(image);
   };
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return t('aiImage.time.justNow');
-    if (minutes < 60) return t('aiImage.time.minutesAgo', { count: minutes });
-    if (hours < 24) return t('aiImage.time.hoursAgo', { count: hours });
-    if (days < 7) return t('aiImage.time.daysAgo', { count: days });
-    return date.toLocaleDateString();
-  };
+  // Removed formatTime function - using ClientDate component instead
 
   // Filter images by search query
   const filteredImages = images.filter((image) => {
@@ -535,7 +523,10 @@ export default function AIImagePage() {
                             {image.width} × {image.height}
                           </span>
                           <span className="text-[10px] text-white/60">
-                            {formatTime(image.createdAt)}
+                            <ClientDate
+                              date={image.createdAt}
+                              format="relative"
+                            />
                           </span>
                         </div>
                       </div>

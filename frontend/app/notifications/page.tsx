@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { useSettingsStore, type Notification } from '@/stores';
+import ClientDate from '@/components/common/ClientDate';
 import {
   Bell,
   BellOff,
@@ -86,7 +87,8 @@ export default function Notifications() {
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
     if (days < 7) return `${days}d ago`;
-    return d.toLocaleDateString();
+    // Return null to use ClientDate component for date display
+    return null;
   };
 
   const getTypeLabel = (type: Notification['type']) => {
@@ -221,7 +223,12 @@ export default function Notifications() {
                             </span>
                           </div>
                           <span className="whitespace-nowrap text-xs text-gray-500">
-                            {formatTimestamp(notification.timestamp)}
+                            {formatTimestamp(notification.timestamp) || (
+                              <ClientDate
+                                date={notification.timestamp}
+                                format="date"
+                              />
+                            )}
                           </span>
                         </div>
                         <p className="mb-3 text-sm text-gray-600">

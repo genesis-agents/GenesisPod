@@ -20,6 +20,7 @@ import * as api from '@/lib/api/ai-teams';
 import { useExport } from '@/hooks/features/useExport';
 
 import { logger } from '@/lib/utils/logger';
+import ClientDate from '@/components/common/ClientDate';
 interface TeamCanvasModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -2189,11 +2190,13 @@ function TaskDetailPanel({
         {/* Timestamps */}
         <div className="space-y-1 text-xs text-gray-400">
           {task.startedAt && (
-            <div>开始: {new Date(task.startedAt).toLocaleString('zh-CN')}</div>
+            <div>
+              开始: <ClientDate date={task.startedAt} format="datetime" />
+            </div>
           )}
           {task.completedAt && (
             <div>
-              完成: {new Date(task.completedAt).toLocaleString('zh-CN')}
+              完成: <ClientDate date={task.completedAt} format="datetime" />
             </div>
           )}
         </div>
@@ -3197,23 +3200,13 @@ function TaskPopover({
               {task.startedAt && (
                 <div>
                   <span className="font-semibold text-gray-600">开始:</span>{' '}
-                  {new Date(task.startedAt).toLocaleString('zh-CN', {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  <ClientDate date={task.startedAt} format="datetime" />
                 </div>
               )}
               {task.completedAt && (
                 <div>
                   <span className="font-semibold text-gray-600">完成:</span>{' '}
-                  {new Date(task.completedAt).toLocaleString('zh-CN', {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  <ClientDate date={task.completedAt} format="datetime" />
                 </div>
               )}
             </div>

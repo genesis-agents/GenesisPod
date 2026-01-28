@@ -12,6 +12,7 @@ import {
   useCheckinHistory,
 } from '@/hooks/domain';
 import { useCreditsTransactions } from '@/hooks/domain/useCredits';
+import ClientDate from '@/components/common/ClientDate';
 
 /**
  * 积分中心页面
@@ -176,7 +177,6 @@ export default function CreditsPage() {
                   <div
                     key={idx}
                     className="flex h-12 w-12 flex-col items-center justify-center rounded-lg bg-green-100 text-green-700"
-                    title={`${new Date(day.date).toLocaleDateString()} - ${day.credits} ${t('credits.credits')}`}
                   >
                     <svg
                       className="h-5 w-5"
@@ -274,7 +274,7 @@ export default function CreditsPage() {
                           {tx.description}
                         </p>
                         <p className="text-sm text-gray-500">
-                          {new Date(tx.createdAt).toLocaleString()}
+                          <ClientDate date={tx.createdAt} format="datetime" />
                         </p>
                       </div>
                       <span

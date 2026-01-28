@@ -27,6 +27,7 @@ import {
   ReportChartRenderer,
   RiskMatrixRenderer,
 } from '@/components/ai-research/charts/ReportChartRenderer';
+import ClientDate from '@/components/common/ClientDate';
 
 // Icons
 const LoaderIcon = ({ className }: { className?: string }) => (
@@ -764,9 +765,11 @@ export default function SharedTopicPage() {
                 {selectedSection?.title || report.title || '研究报告'}
               </h2>
               <p className="mt-2 text-sm text-gray-400">
-                {report.generatedAt
-                  ? new Date(report.generatedAt).toLocaleString('zh-CN')
-                  : ''}
+                {report.generatedAt ? (
+                  <ClientDate date={report.generatedAt} format="datetime" />
+                ) : (
+                  ''
+                )}
               </p>
             </header>
 
