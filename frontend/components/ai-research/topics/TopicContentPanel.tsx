@@ -1512,16 +1512,11 @@ export function TopicContentPanel({
                         onResolve={handleAnnotationResolve}
                         onReply={handleAnnotationReply}
                         onSubmitFeedback={handleSubmitFeedback}
-                        onNavigate={(annotationId) => {
-                          const annotationEl = document.querySelector(
-                            `[data-annotation-id="${annotationId}"]`
-                          );
-                          if (annotationEl) {
-                            annotationEl.scrollIntoView({
-                              behavior: 'smooth',
-                              block: 'center',
-                            });
-                          }
+                        onNavigate={(annotationId: string) => {
+                          setHighlightedAnnotationId(annotationId);
+                          setTimeout(() => {
+                            setHighlightedAnnotationId(null);
+                          }, 3000);
                         }}
                       />
                     </div>
@@ -1963,25 +1958,13 @@ export function TopicContentPanel({
                     <div className="flex h-full flex-col">
                       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
                         <h3 className="text-sm font-semibold text-gray-700">
-                          批注
+                          {t('topicResearch.annotations')}
                         </h3>
                         <button
                           onClick={() => setSidePanelType(null)}
                           className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                         >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
+                          <X className="h-4 w-4" />
                         </button>
                       </div>
                       <div className="flex-1 overflow-auto">

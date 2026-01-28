@@ -18,9 +18,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
-import TurndownService from 'turndown';
 import { TextSelectionContextMenu } from '../panels/TextSelectionContextMenu';
-import { triggerCitationClick } from '../citationNavigation';
 import {
   splitTextIntoSegments,
   type Annotation as PreprocessorAnnotation,
@@ -37,148 +35,11 @@ import type {
   ReportChart,
 } from '@/types/topic-research';
 import { FigureRenderer, FigureGallery } from '../charts';
-
-// Initialize Turndown for HTML to Markdown conversion
-const turndownService = new TurndownService({
-  headingStyle: 'atx',
-  bulletListMarker: '-',
-  codeBlockStyle: 'fenced',
-});
-
-// Comprehensive markdown to HTML converter (for TipTap)
-function markdownToHtml(markdown: string): string {
-  // First normalize and clean the markdown
-  let normalized = markdown
-    .replace(/\r\n/g, '\n') // Normalize Windows line endings
-    // Fix accumulated backslashes before periods (from Turndown escaping round-trips)
-    // Pattern: number followed by one or more \\ then period → number + period
-    .replace(/(\d)\\+\./g, '$1.') // Remove all backslashes between digit and period
-    .replace(/\\#/g, '#') // Remove escaped hash symbols (common from AI output)
-    .replace(/\\-/g, '-') // Remove escaped dashes
-    .replace(/\\\*/g, '*') // Remove escaped asterisks
-    .replace(/\\\[/g, '[') // Remove escaped brackets
-    .replace(/\\\]/g, ']')
-    .replace(/\\\./g, '.') // Remove escaped periods
-    .replace(/\n{3,}/g, '\n\n') // Collapse 3+ newlines to 2
-    .trim();
-
-  // Process line by line for better control
-  const lines = normalized.split('\n');
-  const processedLines: string[] = [];
-  let inList = false;
-  let listType: 'ul' | 'ol' | null = null;
-
-  for (const line of lines) {
-    let processed = line;
-
-    // Headers (h1-h6) - must be at start of line
-    const headerMatch = processed.match(/^(#{1,6})\s+(.+)$/);
-    if (headerMatch) {
-      const level = headerMatch[1].length;
-      const content = headerMatch[2];
-      // Close any open list
-      if (inList) {
-        processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
-        inList = false;
-        listType = null;
-      }
-      processedLines.push(
-        `<h${level}>${processInlineMarkdown(content)}</h${level}>`
-      );
-      continue;
-    }
-
-    // Horizontal rule
-    if (/^-{3,}$/.test(processed.trim()) || /^\*{3,}$/.test(processed.trim())) {
-      if (inList) {
-        processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
-        inList = false;
-        listType = null;
-      }
-      processedLines.push('<hr>');
-      continue;
-    }
-
-    // Unordered list item
-    const ulMatch = processed.match(/^[-*]\s+(.+)$/);
-    if (ulMatch) {
-      if (!inList || listType !== 'ul') {
-        if (inList) processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
-        processedLines.push('<ul>');
-        inList = true;
-        listType = 'ul';
-      }
-      processedLines.push(`<li>${processInlineMarkdown(ulMatch[1])}</li>`);
-      continue;
-    }
-
-    // Ordered list item
-    const olMatch = processed.match(/^\d+\.\s+(.+)$/);
-    if (olMatch) {
-      if (!inList || listType !== 'ol') {
-        if (inList) processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
-        processedLines.push('<ol>');
-        inList = true;
-        listType = 'ol';
-      }
-      processedLines.push(`<li>${processInlineMarkdown(olMatch[1])}</li>`);
-      continue;
-    }
-
-    // Close list if we hit a non-list line
-    if (inList && processed.trim()) {
-      processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
-      inList = false;
-      listType = null;
-    }
-
-    // Empty line
-    if (!processed.trim()) {
-      processedLines.push('');
-      continue;
-    }
-
-    // Regular paragraph
-    processedLines.push(`<p>${processInlineMarkdown(processed)}</p>`);
-  }
-
-  // Close any remaining list
-  if (inList) {
-    processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
-  }
-
-  // Join and clean up
-  let html = processedLines
-    .join('\n')
-    .replace(/<\/p>\n<p>/g, '</p><p>') // Remove newlines between paragraphs
-    .replace(/<p>\s*<\/p>/g, '') // Remove empty paragraphs
-    .replace(/\n+/g, ''); // Remove remaining newlines
-
-  return html || '<p></p>';
-}
-
-// Process inline markdown (bold, italic, links, code)
-function processInlineMarkdown(text: string): string {
-  return (
-    text
-      // Code (inline) - must come before bold/italic to preserve backticks
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      // Bold and italic combined
-      .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-      .replace(/___(.+?)___/g, '<strong><em>$1</em></strong>')
-      // Bold
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/__(.+?)__/g, '<strong>$1</strong>')
-      // Italic
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/_(.+?)_/g, '<em>$1</em>')
-      // Links [text](url)
-      .replace(
-        /\[([^\]]+)\]\(([^)]+)\)/g,
-        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
-      )
-  );
-}
+import { markdownToHtml, turndownService } from '@/lib/markdown/markdownToHtml';
+import { useReportTextProcessor } from '@/lib/report/useReportTextProcessor';
+import { createMarkdownComponents } from '@/lib/report/createMarkdownComponents';
+import { TipTapToolbar } from '../editor/TipTapToolbar';
+import { ViewModeToggle } from '../editor/ViewModeToggle';
 
 // Annotation type for highlighting
 interface ReportAnnotation {
@@ -192,100 +53,6 @@ interface ReportAnnotation {
   selectorPrefix?: string;
   /** Context after the selection for reliable matching */
   selectorSuffix?: string;
-}
-
-// ★ CitationBadge - 与连续视图（ReportEditor）完全一致的引用角标组件
-interface CitationBadgeProps {
-  index: number;
-  evidence: {
-    id: string;
-    title?: string | null;
-    url?: string | null;
-    snippet?: string | null;
-    domain?: string | null;
-  };
-}
-
-function CitationBadge({ index, evidence }: CitationBadgeProps) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (evidence.id) {
-      triggerCitationClick(evidence.id);
-    }
-  };
-
-  return (
-    <span
-      className="relative inline-block"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <sup
-        onClick={handleClick}
-        className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
-        title="点击跳转到参考文献"
-      >
-        [{index}]
-      </sup>
-
-      {isHovered && (
-        <div
-          className="absolute bottom-full left-1/2 z-50 mb-2 w-96 -translate-x-1/2 rounded-lg border border-gray-200 bg-white shadow-xl"
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
-          <div className="flex items-start gap-2 border-b border-gray-100 p-3">
-            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-600 text-xs font-bold text-white">
-              {index}
-            </span>
-            <div className="min-w-0 flex-1">
-              <h4 className="line-clamp-2 text-sm font-medium text-gray-900">
-                {evidence.title || '未知来源'}
-              </h4>
-              {evidence.domain && (
-                <span className="mt-0.5 inline-block text-xs text-gray-400">
-                  {evidence.domain}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {evidence.snippet && (
-            <div className="max-h-48 overflow-y-auto p-3">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-                {evidence.snippet}
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-2">
-            <button
-              onClick={handleClick}
-              className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
-            >
-              查看完整来源 →
-            </button>
-            {evidence.url && (
-              <a
-                href={evidence.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
-                onClick={(e) => e.stopPropagation()}
-              >
-                打开原文 ↗
-              </a>
-            )}
-          </div>
-
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-gray-50" />
-        </div>
-      )}
-    </span>
-  );
 }
 
 interface ChapterizedReportViewProps {
@@ -643,116 +410,12 @@ function ChapterizedReportViewInner({
     );
   }, []);
 
-  // ★ 引用角标处理 - 与连续视图（ReportEditor）完全一致
-  const processTextWithCitations = useCallback(
-    (text: string): React.ReactNode => {
-      if (!text || !evidence?.length) return text;
-
-      const evidenceIdMap = new Map<string, number>();
-      evidence.forEach((ev, idx) => {
-        evidenceIdMap.set(ev.id, idx + 1);
-      });
-
-      const citationPattern =
-        /\[(\d+(?:\s*,\s*\d+)*)\]|\[(temp-\d+-\d+)\]|\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/gi;
-      const parts: React.ReactNode[] = [];
-      let lastIndex = 0;
-      let match: RegExpExecArray | null;
-
-      citationPattern.lastIndex = 0;
-
-      while ((match = citationPattern.exec(text)) !== null) {
-        if (match.index > lastIndex) {
-          parts.push(text.slice(lastIndex, match.index));
-        }
-
-        if (match[1]) {
-          const indices = match[1].split(/\s*,\s*/).map((s) => parseInt(s, 10));
-          indices.forEach((idx, i) => {
-            const evidenceItem = evidence[idx - 1];
-            if (evidenceItem) {
-              parts.push(
-                <CitationBadge
-                  key={`cite-${match!.index}-${idx}-${i}`}
-                  index={idx}
-                  evidence={evidenceItem}
-                />
-              );
-            } else {
-              parts.push(
-                <sup
-                  key={`cite-unknown-${match!.index}-${i}`}
-                  className="rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-500"
-                >
-                  [{idx}]
-                </sup>
-              );
-            }
-          });
-        } else if (match[2] || match[3]) {
-          const evidenceId = match[2] || match[3];
-          const idx = evidenceIdMap.get(evidenceId);
-          if (idx) {
-            const evidenceItem = evidence[idx - 1];
-            parts.push(
-              <CitationBadge
-                key={`cite-${match!.index}-${evidenceId}`}
-                index={idx}
-                evidence={evidenceItem}
-              />
-            );
-          } else {
-            parts.push(
-              <sup
-                key={`cite-unknown-${match!.index}`}
-                className="rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-500"
-                title={evidenceId}
-              >
-                [?]
-              </sup>
-            );
-          }
-        }
-
-        lastIndex = match.index + match[0].length;
-      }
-
-      if (lastIndex < text.length) {
-        parts.push(text.slice(lastIndex));
-      }
-
-      return parts.length === 1 ? parts[0] : parts;
-    },
-    [evidence]
-  );
-
-  // ★ 合并处理：批注 + 引用 - 与连续视图（ReportEditor）完全一致
-  const processText = useCallback(
-    (text: string): React.ReactNode => {
-      if (!text) return text;
-
-      const segments = splitTextIntoSegments(text, preprocessorAnnotations);
-
-      if (segments.length === 1 && !segments[0].annotationId) {
-        return processTextWithCitations(text);
-      }
-
-      return (
-        <AnnotatedText
-          segments={segments}
-          highlightedId={highlightedAnnotationId}
-          onAnnotationClick={handleAnnotationClick}
-          renderText={processTextWithCitations}
-        />
-      );
-    },
-    [
-      preprocessorAnnotations,
-      highlightedAnnotationId,
-      handleAnnotationClick,
-      processTextWithCitations,
-    ]
-  );
+  const { processText, processTextWithCitations } = useReportTextProcessor({
+    evidence,
+    preprocessorAnnotations,
+    highlightedAnnotationId: highlightedAnnotationId ?? null,
+    onAnnotationClick: handleAnnotationClick,
+  });
 
   // ★ v3.0: Create charts map by sectionId for quick lookup
   const chartsBySectionId = useMemo(() => {
@@ -1032,40 +695,25 @@ function ChapterizedReportViewInner({
 
           <div className="flex items-center gap-2">
             {/* View Mode Switcher - consistent with continuous view */}
-            <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
-              <button
-                onClick={() => setViewMode('preview')}
-                className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-sm transition-colors ${
-                  viewMode === 'preview'
-                    ? 'bg-white font-medium text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <EyeIcon className="h-4 w-4" />
-                预览
-              </button>
-              <button
-                onClick={() => setViewMode('edit')}
-                className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-sm transition-colors ${
-                  viewMode === 'edit'
-                    ? 'bg-white font-medium text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <EditIcon className="h-4 w-4" />
-                编辑
-              </button>
-              <button
-                onClick={() => setViewMode('source')}
-                className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-sm transition-colors ${
-                  viewMode === 'source'
-                    ? 'bg-white font-medium text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <CodeIcon className="h-4 w-4" />
-              </button>
-            </div>
+            <ViewModeToggle
+              modes={[
+                {
+                  key: 'preview',
+                  label: '预览',
+                  icon: <EyeIcon className="h-4 w-4" />,
+                },
+                {
+                  key: 'edit',
+                  label: '编辑',
+                  icon: <EditIcon className="h-4 w-4" />,
+                },
+                { key: 'source', icon: <CodeIcon className="h-4 w-4" /> },
+              ]}
+              activeMode={viewMode}
+              onModeChange={(mode) =>
+                setViewMode(mode as 'preview' | 'edit' | 'source')
+              }
+            />
 
             {/* Save/Cancel buttons when editing */}
             {(viewMode === 'edit' || viewMode === 'source') && (
@@ -1089,149 +737,7 @@ function ChapterizedReportViewInner({
 
         {/* TipTap toolbar (only in edit mode) */}
         {viewMode === 'edit' && tiptapEditor && (
-          <div className="flex items-center gap-1 border-b border-gray-100 bg-gray-50 px-4 py-1.5">
-            <button
-              onClick={() => tiptapEditor.chain().focus().toggleBold().run()}
-              className={`rounded p-1.5 ${
-                tiptapEditor.isActive('bold')
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-200'
-              }`}
-              title="粗体 (Ctrl+B)"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6V4zm0 8h9a4 4 0 014 4 4 4 0 01-4 4H6v-8z"
-                />
-              </svg>
-            </button>
-            <button
-              onClick={() => tiptapEditor.chain().focus().toggleItalic().run()}
-              className={`rounded p-1.5 ${
-                tiptapEditor.isActive('italic')
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-200'
-              }`}
-              title="斜体 (Ctrl+I)"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 4h4m-2 0v16m-4 0h8"
-                />
-              </svg>
-            </button>
-            <div className="mx-1 h-4 w-px bg-gray-300" />
-            <button
-              onClick={() =>
-                tiptapEditor.chain().focus().toggleHeading({ level: 2 }).run()
-              }
-              className={`rounded p-1.5 ${
-                tiptapEditor.isActive('heading', { level: 2 })
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-200'
-              }`}
-              title="标题"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h7"
-                />
-              </svg>
-            </button>
-            <button
-              onClick={() =>
-                tiptapEditor.chain().focus().toggleBulletList().run()
-              }
-              className={`rounded p-1.5 ${
-                tiptapEditor.isActive('bulletList')
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-200'
-              }`}
-              title="列表"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 10h16M4 14h16M4 18h16"
-                />
-              </svg>
-            </button>
-            <div className="mx-1 h-4 w-px bg-gray-300" />
-            <button
-              onClick={() =>
-                tiptapEditor.chain().focus().toggleBlockquote().run()
-              }
-              className={`rounded px-2 py-1 text-xs ${
-                tiptapEditor.isActive('blockquote')
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-200'
-              }`}
-              title="引用"
-            >
-              引用
-            </button>
-            <button
-              onClick={() =>
-                tiptapEditor.chain().focus().toggleCodeBlock().run()
-              }
-              className={`rounded px-2 py-1 text-xs ${
-                tiptapEditor.isActive('codeBlock')
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-200'
-              }`}
-              title="代码块"
-            >
-              代码
-            </button>
-            <div className="mx-1 h-4 w-px bg-gray-300" />
-            <button
-              onClick={() => tiptapEditor.chain().focus().undo().run()}
-              disabled={!tiptapEditor.can().undo()}
-              className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-200 disabled:opacity-50"
-              title="撤销"
-            >
-              撤销
-            </button>
-            <button
-              onClick={() => tiptapEditor.chain().focus().redo().run()}
-              disabled={!tiptapEditor.can().redo()}
-              className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-200 disabled:opacity-50"
-              title="重做"
-            >
-              重做
-            </button>
-          </div>
+          <TipTapToolbar editor={tiptapEditor} />
         )}
 
         {/* Chapter Content - Full Screen */}
@@ -1265,127 +771,7 @@ function ChapterizedReportViewInner({
               <article className="prose prose-gray max-w-none">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
-                  components={{
-                    a: ({ href, children }) => (
-                      <a
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 hover:underline"
-                      >
-                        {children}
-                      </a>
-                    ),
-                    p: ({ children, ...props }) => (
-                      <p {...props}>
-                        {typeof children === 'string'
-                          ? processText(children)
-                          : Array.isArray(children)
-                            ? children.map((child, i) =>
-                                typeof child === 'string' ? (
-                                  <span key={i}>{processText(child)}</span>
-                                ) : (
-                                  child
-                                )
-                              )
-                            : children}
-                      </p>
-                    ),
-                    li: ({ children, ...props }) => (
-                      <li {...props}>
-                        {typeof children === 'string'
-                          ? processText(children)
-                          : Array.isArray(children)
-                            ? children.map((child, i) =>
-                                typeof child === 'string' ? (
-                                  <span key={i}>{processText(child)}</span>
-                                ) : (
-                                  child
-                                )
-                              )
-                            : children}
-                      </li>
-                    ),
-                    strong: ({ children, ...props }) => (
-                      <strong {...props}>
-                        {typeof children === 'string'
-                          ? processText(children)
-                          : children}
-                      </strong>
-                    ),
-                    em: ({ children, ...props }) => (
-                      <em {...props}>
-                        {typeof children === 'string'
-                          ? processText(children)
-                          : children}
-                      </em>
-                    ),
-                    td: ({ children, ...props }) => (
-                      <td {...props}>
-                        {typeof children === 'string'
-                          ? processText(children)
-                          : Array.isArray(children)
-                            ? children.map((child, i) =>
-                                typeof child === 'string' ? (
-                                  <span key={i}>{processText(child)}</span>
-                                ) : (
-                                  child
-                                )
-                              )
-                            : children}
-                      </td>
-                    ),
-                    th: ({ children, ...props }) => (
-                      <th {...props}>
-                        {typeof children === 'string'
-                          ? processText(children)
-                          : Array.isArray(children)
-                            ? children.map((child, i) =>
-                                typeof child === 'string' ? (
-                                  <span key={i}>{processText(child)}</span>
-                                ) : (
-                                  child
-                                )
-                              )
-                            : children}
-                      </th>
-                    ),
-                    h1: ({ children, ...props }) => (
-                      <h1 {...props}>
-                        {typeof children === 'string'
-                          ? processText(children)
-                          : children}
-                      </h1>
-                    ),
-                    h2: ({ children, ...props }) => (
-                      <h2 {...props}>
-                        {typeof children === 'string'
-                          ? processText(children)
-                          : children}
-                      </h2>
-                    ),
-                    h3: ({ children, ...props }) => (
-                      <h3 {...props}>
-                        {typeof children === 'string'
-                          ? processText(children)
-                          : children}
-                      </h3>
-                    ),
-                    h4: ({ children, ...props }) => (
-                      <h4 {...props}>
-                        {typeof children === 'string'
-                          ? processText(children)
-                          : children}
-                      </h4>
-                    ),
-                    blockquote: ({ children, ...props }) => (
-                      <blockquote {...props}>
-                        {typeof children === 'string'
-                          ? processText(children)
-                          : children}
-                      </blockquote>
-                    ),
-                  }}
+                  components={createMarkdownComponents(processText)}
                 >
                   {selectedChapter.content || '暂无内容'}
                 </ReactMarkdown>
