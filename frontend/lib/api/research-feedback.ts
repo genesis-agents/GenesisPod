@@ -164,7 +164,7 @@ export interface FeedbackQueryParams {
 export async function createFeedback(
   dto: CreateFeedbackDto
 ): Promise<ResearchFeedbackItem> {
-  return apiClient.post('/api/v1/feedback', dto);
+  return apiClient.post('/feedback', dto);
 }
 
 /**
@@ -174,7 +174,7 @@ export async function createFeedbackFromAnnotation(
   annotationId: string,
   additionalNotes?: string
 ): Promise<ResearchFeedbackItem> {
-  return apiClient.post(`/api/v1/feedback/from-annotation/${annotationId}`, {
+  return apiClient.post(`/feedback/from-annotation/${annotationId}`, {
     additionalNotes,
   });
 }
@@ -194,7 +194,7 @@ export async function getFeedbackItems(
     });
   }
   const query = searchParams.toString();
-  return apiClient.get(`/api/v1/feedback${query ? `?${query}` : ''}`);
+  return apiClient.get(`/feedback${query ? `?${query}` : ''}`);
 }
 
 /**
@@ -203,7 +203,7 @@ export async function getFeedbackItems(
 export async function getFeedbackItem(
   id: string
 ): Promise<ResearchFeedbackItem> {
-  return apiClient.get(`/api/v1/feedback/${id}`);
+  return apiClient.get(`/feedback/${id}`);
 }
 
 /**
@@ -213,7 +213,7 @@ export async function updateFeedback(
   id: string,
   dto: UpdateFeedbackDto
 ): Promise<ResearchFeedbackItem> {
-  return apiClient.patch(`/api/v1/feedback/${id}`, dto);
+  return apiClient.patch(`/feedback/${id}`, dto);
 }
 
 /**
@@ -222,14 +222,14 @@ export async function updateFeedback(
 export async function deleteFeedback(
   id: string
 ): Promise<{ success: boolean }> {
-  return apiClient.delete(`/api/v1/feedback/${id}`);
+  return apiClient.delete(`/feedback/${id}`);
 }
 
 /**
  * 触发 AI 分析
  */
 export async function analyzeFeedback(id: string): Promise<AIAnalysisResult> {
-  return apiClient.post(`/api/v1/feedback/${id}/analyze`, {});
+  return apiClient.post(`/feedback/${id}/analyze`, {});
 }
 
 /**
@@ -239,7 +239,7 @@ export async function processPendingFeedback(
   limit?: number
 ): Promise<{ processed: number }> {
   const query = limit ? `?limit=${limit}` : '';
-  return apiClient.post(`/api/v1/feedback/process-pending${query}`, {});
+  return apiClient.post(`/feedback/process-pending${query}`, {});
 }
 
 /**
@@ -253,9 +253,7 @@ export async function clusterSimilarFeedback(params?: {
   if (params?.topicId) searchParams.set('topicId', params.topicId);
   if (params?.minItems) searchParams.set('minItems', String(params.minItems));
   const query = searchParams.toString();
-  return apiClient.get(
-    `/api/v1/feedback/clusters/similar${query ? `?${query}` : ''}`
-  );
+  return apiClient.get(`/feedback/clusters/similar${query ? `?${query}` : ''}`);
 }
 
 // ==================== 仪表板 API ====================
@@ -264,7 +262,7 @@ export async function clusterSimilarFeedback(params?: {
  * 获取仪表板统计
  */
 export async function getFeedbackStats(): Promise<FeedbackStats> {
-  return apiClient.get('/api/v1/feedback/dashboard/stats');
+  return apiClient.get('/feedback/dashboard/stats');
 }
 
 /**
@@ -279,7 +277,7 @@ export async function getPendingReview(
   if (limit) searchParams.set('limit', String(limit));
   const query = searchParams.toString();
   return apiClient.get(
-    `/api/v1/feedback/dashboard/pending${query ? `?${query}` : ''}`
+    `/feedback/dashboard/pending${query ? `?${query}` : ''}`
   );
 }
 
@@ -298,7 +296,7 @@ export async function getImprovementTracking(): Promise<{
     effectScore: number | null;
   }>;
 }> {
-  return apiClient.get('/api/v1/feedback/dashboard/tracking');
+  return apiClient.get('/feedback/dashboard/tracking');
 }
 
 /**
@@ -308,7 +306,7 @@ export async function getHighPriorityItems(
   limit?: number
 ): Promise<ResearchFeedbackItem[]> {
   const query = limit ? `?limit=${limit}` : '';
-  return apiClient.get(`/api/v1/feedback/dashboard/high-priority${query}`);
+  return apiClient.get(`/feedback/dashboard/high-priority${query}`);
 }
 
 /**
@@ -321,7 +319,7 @@ export async function getTopicFeedbackStats(topicId: string): Promise<{
   byCategory: Record<string, number>;
   byStatus: Record<string, number>;
 }> {
-  return apiClient.get(`/api/v1/feedback/dashboard/topic/${topicId}`);
+  return apiClient.get(`/feedback/dashboard/topic/${topicId}`);
 }
 
 // ==================== 知识沉淀 API ====================
@@ -356,7 +354,7 @@ export async function createKnowledge(
   feedbackId: string,
   dto: CreateKnowledgeDto
 ): Promise<ResearchFeedbackKnowledge> {
-  return apiClient.post(`/api/v1/feedback/${feedbackId}/knowledge`, dto);
+  return apiClient.post(`/feedback/${feedbackId}/knowledge`, dto);
 }
 
 /**
@@ -366,7 +364,7 @@ export async function extractKnowledge(feedbackId: string): Promise<{
   shouldExtract: boolean;
   suggestion: CreateKnowledgeDto | null;
 }> {
-  return apiClient.post(`/api/v1/feedback/${feedbackId}/extract-knowledge`, {});
+  return apiClient.post(`/feedback/${feedbackId}/extract-knowledge`, {});
 }
 
 /**
@@ -388,7 +386,7 @@ export async function getKnowledgeItems(
     });
   }
   const query = searchParams.toString();
-  return apiClient.get(`/api/v1/feedback/knowledge${query ? `?${query}` : ''}`);
+  return apiClient.get(`/feedback/knowledge${query ? `?${query}` : ''}`);
 }
 
 /**
@@ -397,7 +395,7 @@ export async function getKnowledgeItems(
 export async function getKnowledgeItem(
   id: string
 ): Promise<ResearchFeedbackKnowledge> {
-  return apiClient.get(`/api/v1/feedback/knowledge/${id}`);
+  return apiClient.get(`/feedback/knowledge/${id}`);
 }
 
 /**
@@ -407,7 +405,7 @@ export async function updateKnowledge(
   id: string,
   dto: UpdateKnowledgeDto
 ): Promise<ResearchFeedbackKnowledge> {
-  return apiClient.patch(`/api/v1/feedback/knowledge/${id}`, dto);
+  return apiClient.patch(`/feedback/knowledge/${id}`, dto);
 }
 
 /**
@@ -416,7 +414,7 @@ export async function updateKnowledge(
 export async function applyImprovement(
   id: string
 ): Promise<{ success: boolean }> {
-  return apiClient.post(`/api/v1/feedback/knowledge/${id}/apply`, {});
+  return apiClient.post(`/feedback/knowledge/${id}/apply`, {});
 }
 
 /**
@@ -427,7 +425,7 @@ export async function evaluateEffect(
   effectScore: number,
   effectNotes?: string
 ): Promise<ResearchFeedbackKnowledge> {
-  return apiClient.post(`/api/v1/feedback/knowledge/${id}/evaluate`, {
+  return apiClient.post(`/feedback/knowledge/${id}/evaluate`, {
     effectScore,
     effectNotes,
   });
@@ -440,5 +438,5 @@ export async function syncToKnowledgeBase(
   id: string,
   kbId: string
 ): Promise<{ success: boolean; message: string }> {
-  return apiClient.post(`/api/v1/feedback/knowledge/${id}/sync-kb`, { kbId });
+  return apiClient.post(`/feedback/knowledge/${id}/sync-kb`, { kbId });
 }

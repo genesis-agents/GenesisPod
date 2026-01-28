@@ -1172,9 +1172,10 @@ export function TopicContentPanel({
             : ann
         )
       );
-      logger.info('Annotation submitted as feedback:', annotationId);
+      setToast({ message: '反馈已提交', type: 'success' });
     } catch (error) {
       logger.error('Failed to submit annotation as feedback:', error);
+      setToast({ message: '提交反馈失败，请稍后重试', type: 'error' });
     }
   }, []);
 
@@ -1333,14 +1334,20 @@ export function TopicContentPanel({
                     sidePanelType === 'annotations' ? null : 'annotations'
                   )
                 }
-                className={`rounded-lg p-2 transition-colors ${
+                className={`relative rounded p-1.5 transition-colors ${
                   sidePanelType === 'annotations'
-                    ? 'bg-purple-100 text-purple-700'
+                    ? 'bg-purple-100 text-purple-600'
                     : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
                 title={t('topicResearch.contentPanel.toolbar.annotations')}
               >
                 <AnnotationIcon className="h-4 w-4" />
+                {annotations.filter((a) => a.status === 'active').length >
+                  0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                    {annotations.filter((a) => a.status === 'active').length}
+                  </span>
+                )}
               </button>
             </div>
           </header>
