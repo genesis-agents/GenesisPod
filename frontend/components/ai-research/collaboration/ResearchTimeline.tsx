@@ -45,6 +45,7 @@ import {
   Award,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { ClientDate } from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
 // ==================== Types ====================
@@ -134,21 +135,7 @@ function getExtendedActivity(activity: AgentActivity): ExtendedAgentActivity {
   };
 }
 
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '--';
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '--';
-    return date.toLocaleDateString('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return '--';
-  }
-}
+// formatDate removed - use ClientDate component directly for i18n support
 
 function formatDuration(ms: number): string {
   if (ms < 60000) return `${Math.round(ms / 1000)}秒`;
@@ -990,9 +977,11 @@ function TeamInteractionSection({ messages }: { messages: TeamMessage[] }) {
               <div className="mb-0.5 flex items-center gap-1.5 text-purple-700 dark:text-purple-300">
                 <Users className="h-3 w-3" />
                 <span className="font-medium">{msg.senderName}</span>
-                <span className="text-gray-500">
-                  {formatDate(msg.createdAt)}
-                </span>
+                <ClientDate
+                  date={msg.createdAt}
+                  format="datetime"
+                  className="text-gray-500"
+                />
               </div>
               <div className="text-gray-700 dark:text-gray-300">
                 {msg.content}
@@ -1131,9 +1120,11 @@ function SessionCard({
           <span className="text-gray-900 dark:text-white">
             第 {history.researchNumber} 次研究
           </span>
-          <span className="text-xs text-gray-500">
-            {formatDate(history.startedAt)}
-          </span>
+          <ClientDate
+            date={history.startedAt}
+            format="datetime"
+            className="text-xs text-gray-500"
+          />
           {history.totalDurationMs && (
             <span className="text-xs text-gray-500">
               耗时 {formatDuration(history.totalDurationMs)}

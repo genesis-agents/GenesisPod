@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getAuthTokens } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
+import { formatDateSafe } from '@/lib/utils/date';
 // Helper function to get headers with auth token
 function getAuthHeaders(): HeadersInit {
   const tokens = getAuthTokens();
@@ -449,16 +450,10 @@ export function TopicSharingModal({
     }
   };
 
-  // Format date for display
+  // Format date for display - uses formatDateSafe to avoid hydration errors
   const formatDate = (dateStr: string | undefined) => {
     if (!dateStr) return '';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('zh-CN', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDateSafe(dateStr, 'datetime-short');
   };
 
   if (!isOpen) return null;

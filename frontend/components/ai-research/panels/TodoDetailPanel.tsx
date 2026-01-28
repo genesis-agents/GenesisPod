@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getTodoDetails, getTaskActivities } from '@/lib/api/topic-research';
+import { ClientDate } from '@/components/common/ClientDate';
 import type {
   ResearchTodo,
   ResearchTodoStatus,
@@ -211,16 +212,7 @@ function ToolUsageSummary({ sr }: { sr: SearchResultsMetadata }) {
           {sr.freshnessInfo.newestDate && (
             <span className="text-green-600">
               最新:{' '}
-              {(() => {
-                try {
-                  const d = new Date(sr.freshnessInfo?.newestDate || '');
-                  return !isNaN(d.getTime())
-                    ? d.toLocaleDateString('zh-CN')
-                    : '--';
-                } catch {
-                  return '--';
-                }
-              })()}
+              <ClientDate date={sr.freshnessInfo.newestDate} format="date" />
             </span>
           )}
         </div>
@@ -308,16 +300,7 @@ function SearchResultsDisplay({ sr }: { sr: SearchResultsMetadata }) {
           {sr.freshnessInfo.newestDate && (
             <span className="text-green-600">
               最新:{' '}
-              {(() => {
-                try {
-                  const d = new Date(sr.freshnessInfo?.newestDate || '');
-                  return !isNaN(d.getTime())
-                    ? d.toLocaleDateString('zh-CN')
-                    : '--';
-                } catch {
-                  return '--';
-                }
-              })()}
+              <ClientDate date={sr.freshnessInfo.newestDate} format="date" />
             </span>
           )}
         </div>
