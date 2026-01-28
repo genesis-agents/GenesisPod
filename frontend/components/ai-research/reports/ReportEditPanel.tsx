@@ -118,6 +118,7 @@ interface ReportEditPanelProps {
   onAnnotationDelete?: (annotationId: string) => Promise<void>;
   onAnnotationResolve?: (annotationId: string) => Promise<void>;
   onAnnotationReply?: (annotationId: string, content: string) => Promise<void>;
+  onSubmitFeedback?: (annotationId: string) => Promise<void>;
 }
 
 // Icons
@@ -222,6 +223,7 @@ export function ReportEditPanel({
   onAnnotationDelete,
   onAnnotationResolve,
   onAnnotationReply,
+  onSubmitFeedback,
 }: ReportEditPanelProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const [internalSidePanelType, setInternalSidePanelType] =
@@ -561,6 +563,7 @@ export function ReportEditPanel({
                     onDelete={onAnnotationDelete}
                     onResolve={onAnnotationResolve}
                     onReply={onAnnotationReply}
+                    onSubmitFeedback={onSubmitFeedback}
                     onNavigate={handleNavigateToAnnotation}
                   />
                 )}

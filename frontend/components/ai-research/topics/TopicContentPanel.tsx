@@ -1404,6 +1404,7 @@ export function TopicContentPanel({
                       onAnnotationDelete={handleAnnotationDelete}
                       onAnnotationResolve={handleAnnotationResolve}
                       onAnnotationReply={handleAnnotationReply}
+                      onSubmitFeedback={handleSubmitFeedback}
                     />
                   )}
                   {reportViewMode === 'chapter' && report && (
@@ -1467,7 +1468,7 @@ export function TopicContentPanel({
 
             {/* 侧边栏 - 历史/批注 */}
             {sidePanelType && (
-              <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
+              <div className="w-96 flex-shrink-0 overflow-hidden border-l border-gray-200 bg-white">
                 {sidePanelType === 'history' && (
                   <div className="flex h-full flex-col">
                     <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
@@ -1840,6 +1841,7 @@ export function TopicContentPanel({
               onAnnotationDelete={handleAnnotationDelete}
               onAnnotationResolve={handleAnnotationResolve}
               onAnnotationReply={handleAnnotationReply}
+              onSubmitFeedback={handleSubmitFeedback}
             />
           )}
           {activeTab === 'report' && reportViewMode === 'chapter' && (
@@ -1914,7 +1916,7 @@ export function TopicContentPanel({
 
                 {/* Side panel for history/annotations in chapter view */}
                 {sidePanelType === 'history' && (
-                  <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
+                  <div className="w-96 flex-shrink-0 overflow-hidden border-l border-gray-200 bg-white">
                     <div className="flex h-full flex-col">
                       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
                         <h3 className="text-sm font-semibold text-gray-700">
@@ -1961,7 +1963,7 @@ export function TopicContentPanel({
 
                 {/* ★ Annotations side panel for chapter view */}
                 {sidePanelType === 'annotations' && (
-                  <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
+                  <div className="w-96 flex-shrink-0 overflow-hidden border-l border-gray-200 bg-white">
                     <div className="flex h-full flex-col">
                       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
                         <h3 className="text-sm font-semibold text-gray-700">
