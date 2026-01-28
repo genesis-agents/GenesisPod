@@ -1528,10 +1528,12 @@ export function TopicContentPanel({
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
-                  title={t('topicResearch.report.toolbar.continuousView')}
+                  title={t('topicResearch.contentPanel.toolbar.continuousView')}
                 >
                   <ListIcon className="h-3.5 w-3.5" />
-                  <span>{t('topicResearch.report.toolbar.continuous')}</span>
+                  <span>
+                    {t('topicResearch.contentPanel.toolbar.continuous')}
+                  </span>
                 </button>
                 <button
                   onClick={() => setReportViewMode('chapter')}
@@ -1540,16 +1542,16 @@ export function TopicContentPanel({
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
-                  title={t('topicResearch.report.toolbar.chapterView')}
+                  title={t('topicResearch.contentPanel.toolbar.chapterView')}
                 >
                   <DocumentIcon className="h-3.5 w-3.5" />
-                  <span>{t('topicResearch.report.toolbar.chapter')}</span>
+                  <span>{t('topicResearch.contentPanel.toolbar.chapter')}</span>
                 </button>
               </div>
               {report && (
                 <span className="text-xs text-gray-400">
                   v{report.version} · {report.totalSources}{' '}
-                  {t('topicResearch.report.toolbar.sources')}
+                  {t('topicResearch.contentPanel.toolbar.sources')}
                 </span>
               )}
             </div>
@@ -1558,7 +1560,7 @@ export function TopicContentPanel({
             <div className="flex-1 text-center">
               <h3 className="text-sm font-semibold text-gray-800">
                 {report?.title ||
-                  t('topicResearch.report.toolbar.insightsReport')}
+                  t('topicResearch.contentPanel.toolbar.insightsReport')}
               </h3>
             </div>
 
@@ -1569,15 +1571,17 @@ export function TopicContentPanel({
                 onClick={handleRegenerateReport}
                 disabled={isRegenerating}
                 className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                title={t('topicResearch.report.toolbar.regenerateTooltip')}
+                title={t(
+                  'topicResearch.contentPanel.toolbar.regenerateTooltip'
+                )}
               >
                 <RefreshCw
                   className={`h-3.5 w-3.5 ${isRegenerating ? 'animate-spin' : ''}`}
                 />
                 <span>
                   {isRegenerating
-                    ? t('topicResearch.report.toolbar.regenerating')
-                    : t('topicResearch.report.toolbar.regenerate')}
+                    ? t('topicResearch.contentPanel.toolbar.regenerating')
+                    : t('topicResearch.contentPanel.toolbar.regenerate')}
                 </span>
               </button>
 
@@ -1593,10 +1597,10 @@ export function TopicContentPanel({
                     ? 'bg-blue-100 text-blue-700'
                     : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                 }`}
-                title={t('topicResearch.report.toolbar.historyTooltip')}
+                title={t('topicResearch.contentPanel.toolbar.historyTooltip')}
               >
                 <HistoryIcon className="h-3.5 w-3.5" />
-                <span>{t('topicResearch.report.toolbar.history')}</span>
+                <span>{t('topicResearch.contentPanel.toolbar.history')}</span>
                 {revisions.length > 0 && (
                   <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs">
                     {revisions.length}
@@ -1616,10 +1620,14 @@ export function TopicContentPanel({
                     ? 'bg-purple-100 text-purple-700'
                     : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                 }`}
-                title={t('topicResearch.report.toolbar.annotationsTooltip')}
+                title={t(
+                  'topicResearch.contentPanel.toolbar.annotationsTooltip'
+                )}
               >
                 <AnnotationIcon className="h-3.5 w-3.5" />
-                <span>{t('topicResearch.report.toolbar.annotations')}</span>
+                <span>
+                  {t('topicResearch.contentPanel.toolbar.annotations')}
+                </span>
                 {annotations.filter((a) => a.status === 'active').length >
                   0 && (
                   <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs text-white">
@@ -1649,7 +1657,7 @@ export function TopicContentPanel({
                     className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
                   >
                     <DownloadIcon className="h-3.5 w-3.5" />
-                    <span>{t('topicResearch.report.export')}</span>
+                    <span>{t('topicResearch.contentPanel.export')}</span>
                     <svg
                       className="h-3 w-3 text-gray-400"
                       fill="none"
