@@ -1991,7 +1991,8 @@
         "bug": "问题",
         "feature": "功能建议",
         "improvement": "改进建议",
-        "other": "其他"
+        "other": "其他",
+        "annotation": "批注反馈"
       },
       "statuses": {
         "pending": "待处理",

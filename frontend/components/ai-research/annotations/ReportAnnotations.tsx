@@ -27,6 +27,7 @@ interface ReportAnnotation {
   sectionId?: string;
   color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
   status: 'active' | 'resolved' | 'archived';
+  feedbackSubmitted?: boolean;
   createdAt: string;
   updatedAt: string;
   replies?: AnnotationReply[];
@@ -489,15 +490,23 @@ export function ReportAnnotations({
                       )}
 
                       {/* Submit as Feedback */}
-                      {onSubmitFeedback && (
-                        <button
-                          onClick={() => onSubmitFeedback(annotation.id)}
-                          className="rounded p-1.5 text-blue-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-                          title="提交反馈"
-                        >
-                          <FeedbackIcon className="h-4 w-4" />
-                        </button>
-                      )}
+                      {onSubmitFeedback &&
+                        (annotation.feedbackSubmitted ? (
+                          <span
+                            className="rounded p-1.5 text-green-500"
+                            title="已提交反馈"
+                          >
+                            <CheckIcon className="h-4 w-4" />
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => onSubmitFeedback(annotation.id)}
+                            className="rounded p-1.5 text-blue-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+                            title="提交反馈"
+                          >
+                            <FeedbackIcon className="h-4 w-4" />
+                          </button>
+                        ))}
 
                       {/* Expand replies */}
                       {annotation.replies && annotation.replies.length > 0 && (

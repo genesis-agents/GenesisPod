@@ -51,10 +51,8 @@ import { CredibilityPanel } from '../panels/CredibilityPanel';
 import { ResearchCollaborationPanel } from '../collaboration/ResearchCollaborationPanel';
 // 研究历史组件 - 简化版，显示会话列表 + 对比功能
 import { ResearchTimeline } from '../collaboration/ResearchTimeline';
-// 反馈管理组件
-// FeedbackDashboard removed from Topic - now in Admin only
-// 反馈API - 用于将批注提交为反馈
-import { createFeedbackFromAnnotation } from '@/lib/api/research-feedback';
+// 反馈API - 用于将批注提交为反馈（统一使用 Core Feedback）
+import { apiClient } from '@/lib/api/client';
 
 // 报告视图模式
 type ReportViewMode = 'continuous' | 'chapter';
@@ -1159,14 +1157,14 @@ export function TopicContentPanel({
   // ★ 将批注提交为反馈 - 反馈闭环系统入口
   const handleSubmitFeedback = useCallback(async (annotationId: string) => {
     try {
-      await createFeedbackFromAnnotation(annotationId);
-      // 更新批注状态，标记为已提交反馈
+      await apiClient.post(`/feedback/from-annotation/${annotationId}`);
+      // 标记批注为已提交反馈（不改变 status）
       setAnnotations((prev) =>
         prev.map((ann) =>
           ann.id === annotationId
             ? {
                 ...ann,
-                status: 'resolved' as const,
+                feedbackSubmitted: true,
                 updatedAt: new Date().toISOString(),
               }
             : ann

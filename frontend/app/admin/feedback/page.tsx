@@ -11,7 +11,7 @@ import ClientDate from '@/components/common/ClientDate';
 
 interface Feedback {
   id: string;
-  type: 'BUG' | 'FEATURE' | 'IMPROVEMENT' | 'OTHER';
+  type: 'BUG' | 'FEATURE' | 'IMPROVEMENT' | 'OTHER' | 'ANNOTATION';
   status: 'PENDING' | 'REVIEWED' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
   title: string;
@@ -44,6 +44,7 @@ const TYPE_COLORS: Record<string, string> = {
   FEATURE: 'bg-amber-100 text-amber-800',
   IMPROVEMENT: 'bg-blue-100 text-blue-800',
   OTHER: 'bg-gray-100 text-gray-800',
+  ANNOTATION: 'bg-purple-100 text-purple-800',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -137,6 +138,7 @@ export default function FeedbackPage() {
         FEATURE: t('admin.feedback.types.feature'),
         IMPROVEMENT: t('admin.feedback.types.improvement'),
         OTHER: t('admin.feedback.types.other'),
+        ANNOTATION: t('admin.feedback.types.annotation'),
       };
       return labels[type] || type;
     },
@@ -329,6 +331,7 @@ export default function FeedbackPage() {
       { key: 'FEATURE', label: t('admin.feedback.types.feature') },
       { key: 'IMPROVEMENT', label: t('admin.feedback.types.improvement') },
       { key: 'OTHER', label: t('admin.feedback.types.other') },
+      { key: 'ANNOTATION', label: t('admin.feedback.types.annotation') },
     ],
     [t]
   );

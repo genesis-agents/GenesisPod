@@ -16,7 +16,7 @@ import {
   regenerateReportContent,
   type AIEditOperation as AIEditOperationType,
 } from '@/lib/api/topic-research';
-import { createFeedbackFromAnnotation } from '@/lib/api/research-feedback';
+import { apiClient } from '@/lib/api/client';
 import { ReportEditPanel } from '../reports/ReportEditPanel';
 import { ChapterizedReportView } from '../reports/ChapterizedReportView';
 import { ReportRevisionHistory } from '../reports/ReportRevisionHistory';
@@ -139,19 +139,15 @@ export function TopicReportView({
 
   const reportContentRef = useRef<HTMLDivElement>(null);
 
-  // ★ 将批注提交为反馈
-  const handleSubmitFeedback = useCallback(
-    async (annotationId: string) => {
-      try {
-        await createFeedbackFromAnnotation(annotationId);
-        onAnnotationResolve?.(annotationId);
-        logger.info('Annotation submitted as feedback:', annotationId);
-      } catch (error) {
-        logger.error('Failed to submit annotation as feedback:', error);
-      }
-    },
-    [onAnnotationResolve]
-  );
+  // ★ 将批注提交为反馈（统一进入 Core Feedback）
+  const handleSubmitFeedback = useCallback(async (annotationId: string) => {
+    try {
+      await apiClient.post(`/feedback/from-annotation/${annotationId}`);
+      logger.info('Annotation submitted as feedback:', annotationId);
+    } catch (error) {
+      logger.error('Failed to submit annotation as feedback:', error);
+    }
+  }, []);
 
   // Handle regenerate report content
   const handleRegenerateReport = useCallback(async () => {

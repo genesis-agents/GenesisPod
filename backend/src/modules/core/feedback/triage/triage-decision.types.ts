@@ -11,7 +11,12 @@
 /**
  * 反馈类型
  */
-export type FeedbackType = "BUG" | "FEATURE" | "IMPROVEMENT" | "OTHER";
+export type FeedbackType =
+  | "BUG"
+  | "FEATURE"
+  | "IMPROVEMENT"
+  | "OTHER"
+  | "ANNOTATION";
 
 /**
  * 问题分类

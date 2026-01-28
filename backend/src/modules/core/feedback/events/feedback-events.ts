@@ -47,7 +47,7 @@ export enum FeedbackEvent {
  */
 export interface FeedbackCreatedPayload {
   feedbackId: string;
-  type: "BUG" | "FEATURE" | "IMPROVEMENT" | "OTHER";
+  type: "BUG" | "FEATURE" | "IMPROVEMENT" | "OTHER" | "ANNOTATION";
   title: string;
   description: string;
   attachments: FeedbackAttachment[];

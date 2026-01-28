@@ -27,7 +27,12 @@ type FeedbackStatusEnum =
   | "IN_PROGRESS"
   | "RESOLVED"
   | "CLOSED";
-type FeedbackTypeEnum = "BUG" | "FEATURE" | "IMPROVEMENT" | "OTHER";
+type FeedbackTypeEnum =
+  | "BUG"
+  | "FEATURE"
+  | "IMPROVEMENT"
+  | "OTHER"
+  | "ANNOTATION";
 type FeedbackPriorityEnum = "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
 
 @Controller("feedback")
@@ -80,6 +85,20 @@ export class FeedbackController {
       `Feedback submitted: ${dto.type} - ${dto.title} (${files?.length || 0} files)`,
     );
     return this.feedbackService.createFeedback(dto, req.user?.id, files);
+  }
+
+  /**
+   * Create feedback from a report annotation
+   * POST /api/v1/feedback/from-annotation/:annotationId
+   */
+  @Post("from-annotation/:annotationId")
+  @UseGuards(JwtAuthGuard)
+  async createFromAnnotation(
+    @Param("annotationId") annotationId: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    this.logger.log(`Creating feedback from annotation: ${annotationId}`);
+    return this.feedbackService.createFromAnnotation(req.user.id, annotationId);
   }
 
   /**

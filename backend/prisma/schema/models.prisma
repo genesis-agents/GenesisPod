@@ -150,8 +150,6 @@ model User {
   assignedFeedbacks Feedback[]      @relation("FeedbackAssignee")
 
   // 研究反馈闭环系统
-  researchFeedbackItems         ResearchFeedbackItem[] @relation("ResearchFeedbackItemUser")
-  assignedResearchFeedbackItems ResearchFeedbackItem[] @relation("ResearchFeedbackItemAssignee")
 
   // AI Social 社交媒体发布
   socialPlatformConnections SocialPlatformConnection[]
@@ -3184,6 +3182,7 @@ enum FeedbackType {
   FEATURE
   IMPROVEMENT
   OTHER
+  ANNOTATION
 }
 
 enum FeedbackStatus {
@@ -6273,7 +6272,6 @@ model ResearchTopic {
   dimensionFreshness DimensionFreshness[] // 维度新鲜度 (Phase 3.1)
   researchHistories  ResearchHistory[] // 研究历史 (Phase 2.3)
   researchTodos      ResearchTodo[] // 研究 TODO 列表 (UX Enhancement)
-  feedbackItems      ResearchFeedbackItem[] @relation("ResearchFeedbackItemTopic") // 反馈闭环
 
   // ========== 索引 ==========
   @@index([userId, status]) // 按用户和状态查询
@@ -6457,7 +6455,6 @@ model TopicReport {
   annotations       ReportAnnotation[] // 批注
   credibilityReport CredibilityReport? // 可信度报告 (Phase 2.1)
   reviewTasks       ReviewTask[] // 协作审核任务 (Phase 3.3)
-  feedbackItems     ResearchFeedbackItem[] @relation("ResearchFeedbackItemReport") // 反馈闭环
 
   // ========== 唯一约束 ==========
   @@unique([topicId, version])
@@ -7779,132 +7776,3 @@ model PromptTemplate {
   @@map("prompt_templates")
 }
 
-// ============================================================================
-// Research Feedback Loop - 研究反馈闭环系统
-// 用于收集、分析、沉淀用户对研究报告的反馈，形成知识闭环
-// ============================================================================
-
-/// 反馈来源
-enum ResearchFeedbackSource {
-  REPORT_ANNOTATION // 来自报告批注
-  MANUAL // 手动提交
-  SYSTEM // 系统生成
-}
-
-/// 反馈分类
-enum ResearchFeedbackCategory {
-  QUALITY_ISSUE // 质量问题（内容错误、逻辑不通）
-  FEATURE_REQUEST // 功能建议
-  CONTENT_ERROR // 内容错误（数据错误、引用错误）
-  IMPROVEMENT // 改进建议（表述、结构）
-  POSITIVE // 正面反馈
-}
-
-/// 反馈处理状态
-enum ResearchFeedbackItemStatus {
-  PENDING // 待处理
-  ANALYZING // AI 分析中
-  REVIEWING // 人工审核中
-  APPROVED // 已批准
-  REJECTED // 已拒绝
-  APPLIED // 已应用
-  CLOSED // 已关闭
-}
-
-/// 改进类型
-enum ImprovementType {
-  PROMPT_UPDATE // Prompt 模板更新
-  STRATEGY_CHANGE // 研究策略调整
-  QUALITY_RULE // 质量规则新增
-  DOCUMENTATION // 文档更新
-}
-
-/// 研究反馈处理记录
-/// 记录来自报告批注的反馈，经过 AI 分析、人工审核、知识沉淀
-model ResearchFeedbackItem {
-  id String @id @default(cuid())
-
-  // ========== 来源（多态关联）==========
-  sourceType ResearchFeedbackSource @map("source_type")
-  sourceId   String?                @map("source_id") // 批注 ID 或其他来源 ID
-
-  // ========== 内容 ==========
-  content      String  @db.Text // 反馈内容
-  selectedText String? @map("selected_text") @db.Text // 选中的文本
-
-  // ========== AI 分类结果 ==========
-  category    ResearchFeedbackCategory?     @default(IMPROVEMENT)
-  subcategory String?                       @db.VarChar(100) // 子分类
-  priority    FeedbackPriority              @default(NORMAL) // 复用已有枚举
-  aiAnalysis  Json?                         @map("ai_analysis") // AI 分析详情
-
-  // ========== 处理状态 ==========
-  status     ResearchFeedbackItemStatus @default(PENDING)
-  assignedTo String?                    @map("assigned_to") // 分配给的处理人
-
-  // ========== 知识沉淀关联 ==========
-  knowledgeItemId String? @map("knowledge_item_id") // 关联的知识条目 ID
-  actionTaken     String? @map("action_taken") @db.Text // 采取的措施描述
-
-  // ========== 元数据 ==========
-  topicId   String? @map("topic_id") // 关联的研究专题
-  reportId  String? @map("report_id") // 关联的报告
-  sectionId String? @map("section_id") // 关联的报告章节
-  userId    String  @map("user_id") // 提交者
-
-  // ========== 时间戳 ==========
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  resolvedAt DateTime? @map("resolved_at")
-
-  // ========== 关系 ==========
-  user            User                     @relation("ResearchFeedbackItemUser", fields: [userId], references: [id])
-  topic           ResearchTopic?           @relation("ResearchFeedbackItemTopic", fields: [topicId], references: [id], onDelete: SetNull)
-  report          TopicReport?             @relation("ResearchFeedbackItemReport", fields: [reportId], references: [id], onDelete: SetNull)
-  assignee        User?                    @relation("ResearchFeedbackItemAssignee", fields: [assignedTo], references: [id], onDelete: SetNull)
-  knowledgeItem   ResearchFeedbackKnowledge? @relation("FeedbackToKnowledge", fields: [knowledgeItemId], references: [id], onDelete: SetNull)
-
-  // ========== 索引 ==========
-  @@index([status, priority])
-  @@index([category])
-  @@index([topicId])
-  @@index([reportId])
-  @@index([userId])
-  @@index([sourceType, sourceId])
-  @@index([createdAt(sort: Desc)])
-  @@map("research_feedback_items")
-}
-
-/// 研究反馈知识条目
-/// 将反馈沉淀为可复用的知识，用于改进 AI 系统
-model ResearchFeedbackKnowledge {
-  id             String @id @default(cuid())
-  feedbackItemId String @map("feedback_item_id")
-
-  // ========== 知识内容 ==========
-  title   String   @db.VarChar(500)
-  content String   @db.Text
-  tags    String[] @default([]) // 标签
-
-  // ========== 改进措施 ==========
-  improvementType ImprovementType   @map("improvement_type")
-  improvementData Json?             @map("improvement_data") // 改进详情（如 Prompt 变更、策略调整等）
-
-  // ========== 效果追踪 ==========
-  appliedAt   DateTime? @map("applied_at") // 应用时间
-  effectScore Float?    @map("effect_score") // 改进效果评分 (0-5)
-  effectNotes String?   @map("effect_notes") @db.Text // 效果说明
-
-  // ========== 时间戳 ==========
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // ========== 关系 ==========
-  feedbackItems ResearchFeedbackItem[] @relation("FeedbackToKnowledge")
-
-  // ========== 索引 ==========
-  @@index([feedbackItemId])
-  @@index([improvementType])
-  @@index([appliedAt])
-  @@map("research_feedback_knowledge")
-}

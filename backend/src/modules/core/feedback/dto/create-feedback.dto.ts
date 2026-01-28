@@ -14,6 +14,7 @@ export enum FeedbackTypeDto {
   FEATURE = "feature",
   IMPROVEMENT = "improvement",
   OTHER = "other",
+  ANNOTATION = "annotation",
 }
 
 export class AttachmentDto {

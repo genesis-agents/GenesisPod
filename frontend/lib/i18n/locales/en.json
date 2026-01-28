@@ -2003,7 +2003,8 @@
         "bug": "Bug",
         "feature": "Feature Request",
         "improvement": "Improvement",
-        "other": "Other"
+        "other": "Other",
+        "annotation": "Annotation"
       },
       "statuses": {
         "pending": "Pending",

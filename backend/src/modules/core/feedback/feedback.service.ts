@@ -10,7 +10,12 @@ import {
 } from "./events/feedback-events";
 
 // Type mapping for feedback types
-type FeedbackTypeEnum = "BUG" | "FEATURE" | "IMPROVEMENT" | "OTHER";
+type FeedbackTypeEnum =
+  | "BUG"
+  | "FEATURE"
+  | "IMPROVEMENT"
+  | "OTHER"
+  | "ANNOTATION";
 type FeedbackStatusEnum =
   | "PENDING"
   | "REVIEWED"
@@ -45,6 +50,7 @@ export class FeedbackService {
       [FeedbackTypeDto.FEATURE]: "FEATURE",
       [FeedbackTypeDto.IMPROVEMENT]: "IMPROVEMENT",
       [FeedbackTypeDto.OTHER]: "OTHER",
+      [FeedbackTypeDto.ANNOTATION]: "ANNOTATION",
     };
     return mapping[type];
   }
@@ -196,6 +202,75 @@ export class FeedbackService {
       feedbackId: createdId,
       message: "Feedback submitted successfully",
       attachmentsCount: attachments.length,
+    };
+  }
+
+  /**
+   * Create feedback from a report annotation
+   */
+  async createFromAnnotation(userId: string, annotationId: string) {
+    this.logger.log(
+      `Creating feedback from annotation: ${annotationId} by user: ${userId}`,
+    );
+
+    // Fetch annotation with report context
+    const annotations = await this.prisma.$queryRaw<
+      {
+        id: string;
+        content: string;
+        selected_text: string | null;
+        report_id: string;
+      }[]
+    >`
+      SELECT "id", "content", "selected_text", "report_id"
+      FROM "report_annotations"
+      WHERE "id" = ${annotationId}
+    `;
+
+    const annotation = annotations[0];
+    if (!annotation) {
+      throw new Error(`Annotation not found: ${annotationId}`);
+    }
+
+    const title = annotation.selected_text
+      ? `Annotation: ${annotation.selected_text.substring(0, 100)}`
+      : `Annotation feedback`;
+
+    const description = [
+      annotation.content,
+      annotation.selected_text
+        ? `\n\nSelected text: ${annotation.selected_text}`
+        : "",
+      `\n\nReport ID: ${annotation.report_id}`,
+      `\nAnnotation ID: ${annotationId}`,
+    ].join("");
+
+    const feedbackId = crypto.randomUUID();
+
+    await this.prisma.$queryRaw`
+      INSERT INTO "feedbacks" (
+        "id", "type", "status", "title", "description",
+        "user_id", "page_url", "created_at", "updated_at"
+      ) VALUES (
+        ${feedbackId}::uuid,
+        'ANNOTATION'::"FeedbackType",
+        'PENDING'::"FeedbackStatus",
+        ${title},
+        ${description},
+        ${userId},
+        ${null},
+        NOW(),
+        NOW()
+      )
+      RETURNING id
+    `;
+
+    this.logger.log(`Feedback created from annotation: ${feedbackId}`);
+
+    return {
+      success: true,
+      feedbackId,
+      message: "Feedback created from annotation",
     };
   }
 
