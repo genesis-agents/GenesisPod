@@ -4,22 +4,16 @@
  * AI Research - 专题研究页面
  * 直接显示 Topic Research 内容，无 Tab 切换
  *
- * ★ 使用 dynamic import + ssr: false 彻底避免 hydration 错误
+ * ★ Hydration 问题已在 Providers 层面统一处理
  */
 
 import { useState, Suspense } from 'react';
-import dynamic from 'next/dynamic';
 import { useTranslation } from '@/lib/i18n';
+import {
+  TopicResearchTab,
+  CreateTopicDialog as TopicCreateDialog,
+} from '@/components/ai-research';
 import { ResearchTopicType } from '@/types/topic-research';
-
-// ★ 动态导入复杂组件，禁用 SSR 以避免 hydration 错误
-const TopicResearchTab = dynamic(
-  () =>
-    import('@/components/ai-research').then((mod) => ({
-      default: mod.TopicResearchTab,
-    })),
-  { ssr: false }
-);
 
 // ==================== 图标组件 ====================
 const SearchIcon = ({ className }: { className?: string }) => (

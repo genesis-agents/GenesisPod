@@ -7,39 +7,17 @@
  * 路由: /ai-research/topic/[topicId]
  * 用于分享链接直接跳转到报告
  *
- * ★ 使用 dynamic import + ssr: false 彻底避免 hydration 错误
- * 原因：TopicDetail 组件链中有大量依赖客户端状态的逻辑（Zustand stores、
- * useSearchParams、WebSocket 等），SSR 与 CSR 状态难以保持一致。
- * 通过禁用 SSR，组件只在客户端渲染，从根本上消除 hydration mismatch。
+ * ★ Hydration 问题已在 Providers 层面统一处理
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import { getAuthTokens } from '@/lib/utils/auth';
+import { TopicDetail } from '@/components/ai-research';
 import type { ResearchTopic } from '@/types/topic-research';
 import * as api from '@/lib/api/topic-research';
 
 import { logger } from '@/lib/utils/logger';
-
-// ★ 动态导入 TopicDetail，禁用 SSR 以避免 hydration 错误
-const TopicDetail = dynamic(
-  () =>
-    import('@/components/ai-research').then((mod) => ({
-      default: mod.TopicDetail,
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-3">
-          <div className="border-3 h-10 w-10 animate-spin rounded-full border-gray-300 border-t-violet-600" />
-          <p className="text-sm text-gray-500">加载研究面板...</p>
-        </div>
-      </div>
-    ),
-  }
-);
 
 export default function TopicDetailPage() {
   const params = useParams();
