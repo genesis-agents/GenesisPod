@@ -105,6 +105,9 @@ interface ReportRevision {
   version: number;
   createdAt: Date;
   summary?: string;
+  wordCount?: number;
+  totalSources?: number;
+  author?: string;
 }
 
 // WebSocket 事件类型
@@ -1416,19 +1419,24 @@ export function TopicContentPanel({
                     </div>
                     <div className="flex-1 overflow-auto">
                       <ReportRevisionHistory
-                        revisions={revisions.map((rev) => ({
+                        revisions={revisions.map((rev, idx) => ({
                           id: rev.id,
                           version: rev.version,
-                          title: rev.summary || `版本 ${rev.version}`,
+                          title: `v${rev.version}`,
                           summary: rev.summary || '',
-                          changeType: 'edit' as const,
-                          changeDescription: rev.summary || '报告更新',
-                          author: '系统',
+                          changeType:
+                            idx === revisions.length - 1
+                              ? ('create' as const)
+                              : ('edit' as const),
+                          changeDescription: rev.totalSources
+                            ? `${rev.totalSources} sources · ${rev.wordCount || 0} 字`
+                            : rev.summary || '',
+                          author: rev.author || '',
                           createdAt:
                             typeof rev.createdAt === 'string'
                               ? rev.createdAt
                               : (rev.createdAt as Date).toISOString(),
-                          wordCount: 0,
+                          wordCount: rev.wordCount || 0,
                           wordCountDelta: 0,
                         }))}
                         currentVersion={report?.version || 1}
@@ -1517,23 +1525,17 @@ export function TopicContentPanel({
         {/* 报告工具栏 - 仅在报告 Tab 时显示，合并为一行 */}
         {activeTab === 'report' && (
           <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4 py-2.5">
-            {/* 左侧：版本信息 */}
-            <div className="flex items-center gap-2">
+            {/* 左侧：版本号 */}
+            <div className="flex items-center">
               {report && (
-                <span className="text-xs text-gray-500">
-                  v{report.version} · {report.totalSources}{' '}
-                  {t('topicResearch.contentPanel.toolbar.sources')}
+                <span className="text-sm font-medium text-gray-700">
+                  v{report.version}
                 </span>
               )}
             </div>
 
-            {/* 中间：报告标题 */}
-            <div className="flex-1 text-center">
-              <h3 className="text-sm font-semibold text-gray-800">
-                {report?.title ||
-                  t('topicResearch.contentPanel.toolbar.insightsReport')}
-              </h3>
-            </div>
+            {/* 中间：占位 */}
+            <div className="flex-1" />
 
             {/* 右侧：操作按钮 - 只显示图标，悬停显示文字 */}
             <div className="flex items-center gap-1">
@@ -1901,19 +1903,24 @@ export function TopicContentPanel({
                       </div>
                       <div className="flex-1 overflow-auto">
                         <ReportRevisionHistory
-                          revisions={revisions.map((rev) => ({
+                          revisions={revisions.map((rev, idx) => ({
                             id: rev.id,
                             version: rev.version,
-                            title: rev.summary || `版本 ${rev.version}`,
+                            title: `v${rev.version}`,
                             summary: rev.summary || '',
-                            changeType: 'edit' as const,
-                            changeDescription: rev.summary || '报告更新',
-                            author: '系统',
+                            changeType:
+                              idx === 0
+                                ? ('create' as const)
+                                : ('edit' as const),
+                            changeDescription: rev.totalSources
+                              ? `${rev.totalSources} sources · ${rev.wordCount || 0} 字`
+                              : rev.summary || '',
+                            author: rev.author || '',
                             createdAt:
                               typeof rev.createdAt === 'string'
                                 ? rev.createdAt
                                 : (rev.createdAt as Date).toISOString(),
-                            wordCount: 0,
+                            wordCount: rev.wordCount || 0,
                             wordCountDelta: 0,
                           }))}
                           currentVersion={report?.version || 1}
