@@ -383,6 +383,89 @@ async function deploy(): Promise<void> {
       console.log("   OK research_topics.language");
     }
 
+    // Check if research_feedback_items table exists
+    // ★ 2026-01-27: Research Feedback Loop System
+    const researchFeedbackCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = 'research_feedback_items'
+      ) as exists
+    `;
+
+    if (!researchFeedbackCheck[0]?.exists) {
+      console.log("   Creating research feedback tables...");
+
+      // Create enums if not exist
+      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "ResearchFeedbackSource" AS ENUM ('REPORT_ANNOTATION', 'MANUAL', 'SYSTEM'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
+      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "ResearchFeedbackCategory" AS ENUM ('QUALITY_ISSUE', 'FEATURE_REQUEST', 'CONTENT_ERROR', 'IMPROVEMENT', 'POSITIVE'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
+      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "ResearchFeedbackItemStatus" AS ENUM ('PENDING', 'ANALYZING', 'REVIEWING', 'APPROVED', 'REJECTED', 'APPLIED', 'CLOSED'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
+      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "ImprovementType" AS ENUM ('PROMPT_UPDATE', 'STRATEGY_CHANGE', 'QUALITY_RULE', 'DOCUMENTATION'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
+      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "FeedbackPriority" AS ENUM ('LOW', 'NORMAL', 'HIGH', 'CRITICAL'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
+
+      // Create research_feedback_knowledge table first (referenced by FK)
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "research_feedback_knowledge" (
+          "id" TEXT NOT NULL,
+          "feedback_item_id" TEXT NOT NULL,
+          "title" VARCHAR(500) NOT NULL,
+          "content" TEXT NOT NULL,
+          "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+          "improvement_type" "ImprovementType" NOT NULL,
+          "improvement_data" JSONB,
+          "applied_at" TIMESTAMP(3),
+          "effect_score" DOUBLE PRECISION,
+          "effect_notes" TEXT,
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "research_feedback_knowledge_pkey" PRIMARY KEY ("id")
+        )
+      `;
+
+      // Create research_feedback_items table
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "research_feedback_items" (
+          "id" TEXT NOT NULL,
+          "source_type" "ResearchFeedbackSource" NOT NULL,
+          "source_id" TEXT,
+          "content" TEXT NOT NULL,
+          "selected_text" TEXT,
+          "category" "ResearchFeedbackCategory" DEFAULT 'IMPROVEMENT',
+          "subcategory" VARCHAR(100),
+          "priority" "FeedbackPriority" NOT NULL DEFAULT 'NORMAL',
+          "ai_analysis" JSONB,
+          "status" "ResearchFeedbackItemStatus" NOT NULL DEFAULT 'PENDING',
+          "assigned_to" TEXT,
+          "knowledge_item_id" TEXT,
+          "action_taken" TEXT,
+          "topic_id" TEXT,
+          "report_id" TEXT,
+          "section_id" TEXT,
+          "user_id" TEXT NOT NULL,
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "resolved_at" TIMESTAMP(3),
+          CONSTRAINT "research_feedback_items_pkey" PRIMARY KEY ("id"),
+          CONSTRAINT "research_feedback_items_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+          CONSTRAINT "research_feedback_items_topic_id_fkey" FOREIGN KEY ("topic_id") REFERENCES "research_topics"("id") ON DELETE SET NULL ON UPDATE CASCADE,
+          CONSTRAINT "research_feedback_items_report_id_fkey" FOREIGN KEY ("report_id") REFERENCES "topic_reports"("id") ON DELETE SET NULL ON UPDATE CASCADE,
+          CONSTRAINT "research_feedback_items_assigned_to_fkey" FOREIGN KEY ("assigned_to") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE,
+          CONSTRAINT "research_feedback_items_knowledge_item_id_fkey" FOREIGN KEY ("knowledge_item_id") REFERENCES "research_feedback_knowledge"("id") ON DELETE SET NULL ON UPDATE CASCADE
+        )
+      `;
+
+      // Create indexes
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_feedback_items_status_priority_idx" ON "research_feedback_items"("status", "priority")`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_feedback_items_topic_id_idx" ON "research_feedback_items"("topic_id")`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_feedback_items_user_id_idx" ON "research_feedback_items"("user_id")`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_feedback_knowledge_feedback_item_id_idx" ON "research_feedback_knowledge"("feedback_item_id")`;
+
+      console.log("   Created research feedback tables");
+    } else {
+      console.log("   OK research_feedback_items table");
+    }
+
     // Check if slides_missions.context_package column exists
     // ★ 2026-01-27: Mission Context Package for slides
     const slidesMissionsContextPackageCheck = await prisma.$queryRaw<
