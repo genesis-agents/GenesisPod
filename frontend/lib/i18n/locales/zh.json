@@ -1766,7 +1766,9 @@
       "site": "站点设置和品牌",
       "email": "邮件服务配置",
       "storage": "数据库存储管理",
-      "settings": "系统配置"
+      "settings": "系统配置",
+      "logs": "登录和任务历史日志",
+      "monitoring": "实时系统监控"
     },
     "dashboard": {
       "title": "数据采集仪表板",
@@ -1878,7 +1880,82 @@
       "email": "邮件配置",
       "storage": "存储管理",
       "externalServices": "外部服务",
-      "externalApi": "外部 API"
+      "externalApi": "外部 API",
+      "permissions": "权限管理",
+      "billing": "计费管理",
+      "notifications": "通知管理",
+      "logs": "日志管理",
+      "monitoring": "监控管理"
+    },
+    "logs": {
+      "title": "日志管理",
+      "description": "查看登录历史和采集任务历史记录",
+      "loginTab": "登录日志",
+      "taskTab": "采集任务历史",
+      "searchPlaceholder": "搜索邮箱或用户名...",
+      "noLoginRecords": "暂无登录记录",
+      "noTaskRecords": "暂无任务记录",
+      "allStatuses": "全部状态",
+      "stats": {
+        "totalLogins": "总登录次数",
+        "todayLogins": "今日登录",
+        "totalTasks": "总任务数",
+        "failedTasks": "失败任务"
+      },
+      "columns": {
+        "email": "邮箱",
+        "loginTime": "登录时间",
+        "ip": "IP 地址",
+        "device": "设备",
+        "browser": "浏览器",
+        "location": "位置",
+        "taskName": "任务名称",
+        "source": "数据源",
+        "status": "状态",
+        "items": "数据项",
+        "createdAt": "创建时间"
+      },
+      "taskStatuses": {
+        "pending": "等待中",
+        "running": "运行中",
+        "completed": "已完成",
+        "failed": "失败",
+        "cancelled": "已取消",
+        "paused": "已暂停"
+      },
+      "errors": {
+        "fetchFailed": "加载日志数据失败"
+      }
+    },
+    "monitoring": {
+      "title": "系统监控",
+      "description": "实时系统指标和运行任务状态",
+      "autoRefreshOn": "自动刷新 开",
+      "autoRefreshOff": "自动刷新",
+      "cpuUsage": "CPU 使用率",
+      "memoryUsage": "内存使用率",
+      "uptime": "运行时间",
+      "activeTasks": "活跃任务",
+      "errorRate": "错误率",
+      "runningTasks": "运行中的任务",
+      "noRunningTasks": "暂无运行中的任务",
+      "taskName": "任务名称",
+      "source": "数据源",
+      "progress": "进度",
+      "collected": "已采集",
+      "duplicates": "重复",
+      "failed": "失败",
+      "elapsed": "耗时",
+      "aiDiagnosis": "AI 服务诊断",
+      "aiTools": "工具",
+      "aiSkills": "技能",
+      "aiMcp": "MCP 服务器",
+      "healthy": "正常",
+      "unhealthy": "异常",
+      "total": "总计",
+      "errors": {
+        "fetchFailed": "加载监控数据失败"
+      }
     },
     "dataCollection": {
       "title": "AI探索数据源",
@@ -2404,6 +2481,12 @@
         "aiEngineDesc": "核心能力配置",
         "infrastructure": "第一层：基础设施",
         "infrastructureDesc": "基础服务配置"
+      },
+      "groups": {
+        "userAccess": "用户与访问",
+        "operationBilling": "运营与计费",
+        "dataStorage": "数据与存储",
+        "systemOps": "系统运维"
       },
       "legend": {
         "clickable": "可配置",

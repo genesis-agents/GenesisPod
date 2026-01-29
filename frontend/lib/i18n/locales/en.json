@@ -1780,7 +1780,9 @@
       "site": "Site settings and branding",
       "email": "Email provider configuration",
       "storage": "Database storage management",
-      "settings": "System configuration"
+      "settings": "System configuration",
+      "logs": "Login and task history logs",
+      "monitoring": "Real-time system monitoring"
     },
     "dashboard": {
       "title": "Data Collection Dashboard",
@@ -1890,7 +1892,82 @@
       "systemManagement": "System Management",
       "site": "Site",
       "email": "Email",
-      "storage": "Storage Management"
+      "storage": "Storage Management",
+      "permissions": "Permissions",
+      "billing": "Billing",
+      "notifications": "Notifications",
+      "logs": "Logs",
+      "monitoring": "Monitoring"
+    },
+    "logs": {
+      "title": "Log Management",
+      "description": "View login history and collection task history",
+      "loginTab": "Login History",
+      "taskTab": "Task History",
+      "searchPlaceholder": "Search by email or name...",
+      "noLoginRecords": "No login records found",
+      "noTaskRecords": "No task records found",
+      "allStatuses": "All Statuses",
+      "stats": {
+        "totalLogins": "Total Logins",
+        "todayLogins": "Today Logins",
+        "totalTasks": "Total Tasks",
+        "failedTasks": "Failed Tasks"
+      },
+      "columns": {
+        "email": "Email",
+        "loginTime": "Login Time",
+        "ip": "IP Address",
+        "device": "Device",
+        "browser": "Browser",
+        "location": "Location",
+        "taskName": "Task Name",
+        "source": "Source",
+        "status": "Status",
+        "items": "Items",
+        "createdAt": "Created At"
+      },
+      "taskStatuses": {
+        "pending": "Pending",
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed",
+        "cancelled": "Cancelled",
+        "paused": "Paused"
+      },
+      "errors": {
+        "fetchFailed": "Failed to load log data"
+      }
+    },
+    "monitoring": {
+      "title": "System Monitoring",
+      "description": "Real-time system metrics and running task status",
+      "autoRefreshOn": "Auto Refresh ON",
+      "autoRefreshOff": "Auto Refresh",
+      "cpuUsage": "CPU Usage",
+      "memoryUsage": "Memory Usage",
+      "uptime": "Uptime",
+      "activeTasks": "Active Tasks",
+      "errorRate": "Error Rate",
+      "runningTasks": "Running Tasks",
+      "noRunningTasks": "No running tasks",
+      "taskName": "Task Name",
+      "source": "Source",
+      "progress": "Progress",
+      "collected": "Collected",
+      "duplicates": "Duplicates",
+      "failed": "Failed",
+      "elapsed": "Elapsed",
+      "aiDiagnosis": "AI Service Diagnosis",
+      "aiTools": "Tools",
+      "aiSkills": "Skills",
+      "aiMcp": "MCP Servers",
+      "healthy": "healthy",
+      "unhealthy": "unhealthy",
+      "total": "Total",
+      "errors": {
+        "fetchFailed": "Failed to load monitoring data"
+      }
     },
     "dataCollection": {
       "title": "AI Explore Data Sources",
@@ -2416,6 +2493,12 @@
         "aiEngineDesc": "Core Capabilities",
         "infrastructure": "Layer 1: Infrastructure",
         "infrastructureDesc": "Foundation Services"
+      },
+      "groups": {
+        "userAccess": "Users & Access",
+        "operationBilling": "Operations & Billing",
+        "dataStorage": "Data & Storage",
+        "systemOps": "System Ops"
       },
       "legend": {
         "clickable": "Configurable",

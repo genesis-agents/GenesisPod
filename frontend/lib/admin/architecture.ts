@@ -32,6 +32,10 @@ import {
   Settings,
   Layers,
   Coins,
+  CreditCard,
+  Bell,
+  ScrollText,
+  Activity,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -203,61 +207,117 @@ const aiEngineLayer: ArchitectureLayer = {
 };
 
 // Layer 1: Infrastructure Layer (Foundation)
-// 7 cards in grid layout: Storage, Data, Users, Credits, Secrets, Feedback, System
+// 12 modules in 4 groups: User & Access, Operations & Billing, Data & Storage, System Ops
 const infrastructureLayer: ArchitectureLayer = {
   id: 'infrastructure',
   titleKey: 'admin.architecture.layers.infrastructure',
   subtitleKey: 'admin.architecture.layers.infrastructureDesc',
   level: 1,
-  cards: [
+  groups: [
     {
-      id: 'storage',
-      i18nKey: 'admin.nav.storage',
-      href: '/admin/system/storage',
-      icon: HardDrive,
-      clickable: true,
+      id: 'userAccess',
+      titleKey: 'admin.architecture.groups.userAccess',
+      cards: [
+        {
+          id: 'users',
+          i18nKey: 'admin.nav.users',
+          href: '/admin/access/users',
+          icon: Users,
+          clickable: true,
+        },
+        {
+          id: 'permissions',
+          i18nKey: 'admin.nav.permissions',
+          icon: Shield,
+          clickable: false,
+        },
+        {
+          id: 'secrets',
+          i18nKey: 'admin.nav.secrets',
+          href: '/admin/access/secrets',
+          icon: Key,
+          clickable: true,
+        },
+      ],
     },
     {
-      id: 'dataManagement',
-      i18nKey: 'admin.nav.dataManagement',
-      href: '/admin/data-management',
-      icon: Layers,
-      clickable: true,
+      id: 'operationBilling',
+      titleKey: 'admin.architecture.groups.operationBilling',
+      cards: [
+        {
+          id: 'credits',
+          i18nKey: 'admin.nav.credits',
+          href: '/admin/access/credits',
+          icon: Coins,
+          clickable: true,
+        },
+        {
+          id: 'billing',
+          i18nKey: 'admin.nav.billing',
+          icon: CreditCard,
+          clickable: false,
+        },
+        {
+          id: 'notifications',
+          i18nKey: 'admin.nav.notifications',
+          icon: Bell,
+          clickable: false,
+        },
+      ],
     },
     {
-      id: 'users',
-      i18nKey: 'admin.nav.users',
-      href: '/admin/access/users',
-      icon: Users,
-      clickable: true,
+      id: 'dataStorage',
+      titleKey: 'admin.architecture.groups.dataStorage',
+      cards: [
+        {
+          id: 'dataManagement',
+          i18nKey: 'admin.nav.dataManagement',
+          href: '/admin/data-management',
+          icon: Layers,
+          clickable: true,
+        },
+        {
+          id: 'storage',
+          i18nKey: 'admin.nav.storage',
+          href: '/admin/system/storage',
+          icon: HardDrive,
+          clickable: true,
+        },
+      ],
     },
     {
-      id: 'credits',
-      i18nKey: 'admin.nav.credits',
-      href: '/admin/access/credits',
-      icon: Coins,
-      clickable: true,
-    },
-    {
-      id: 'secrets',
-      i18nKey: 'admin.nav.secrets',
-      href: '/admin/access/secrets',
-      icon: Key,
-      clickable: true,
-    },
-    {
-      id: 'feedback',
-      i18nKey: 'admin.nav.feedback',
-      href: '/admin/feedback',
-      icon: MessageSquare,
-      clickable: true,
-    },
-    {
-      id: 'system',
-      i18nKey: 'admin.nav.systemManagement',
-      href: '/admin/system',
-      icon: Settings,
-      clickable: true,
+      id: 'systemOps',
+      titleKey: 'admin.architecture.groups.systemOps',
+      cards: [
+        {
+          id: 'system',
+          i18nKey: 'admin.nav.systemManagement',
+          href: '/admin/system',
+          icon: Settings,
+          clickable: true,
+        },
+        {
+          id: 'logs',
+          i18nKey: 'admin.nav.logs',
+          href: '/admin/system/logs',
+          icon: ScrollText,
+          clickable: true,
+        },
+        {
+          id: 'monitoring',
+          i18nKey: 'admin.nav.monitoring',
+          href: '/admin/system/monitoring',
+          icon: Activity,
+          clickable: true,
+        },
+        {
+          id: 'feedback',
+          i18nKey: 'admin.nav.feedback',
+          href: '/admin/feedback',
+          icon: MessageSquare,
+          clickable: true,
+        },
+      ],
     },
   ],
 };

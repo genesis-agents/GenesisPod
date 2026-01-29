@@ -20,6 +20,8 @@ import {
   HardDrive,
   Coins,
   MessageSquare,
+  ScrollText,
+  Activity,
   type LucideIcon,
 } from 'lucide-react';
 import { type AdminDomain } from './styles';
@@ -176,6 +178,18 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         labelKey: 'admin.nav.storage',
         href: '/admin/system/storage',
         icon: HardDrive,
+      },
+      {
+        key: 'logs',
+        labelKey: 'admin.nav.logs',
+        href: '/admin/system/logs',
+        icon: ScrollText,
+      },
+      {
+        key: 'monitoring',
+        labelKey: 'admin.nav.monitoring',
+        href: '/admin/system/monitoring',
+        icon: Activity,
       },
     ],
   },
