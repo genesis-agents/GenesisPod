@@ -147,187 +147,181 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         className={`flex flex-shrink-0 items-center overflow-hidden px-4 py-2.5 ${!showExpanded ? 'justify-center' : ''}`}
       >
         {!showExpanded ? (
-          /* Collapsed Logo - AI Teams: Circular collaboration */
-          <Link href="/" className="group relative" title="AI Teams Engine">
+          /* Collapsed Logo - Raven flock */
+          <Link
+            href="/"
+            className="group relative"
+            title="Raven - AI Teams Engine"
+          >
             <svg
               className="h-8 w-8 transition-transform duration-300 group-hover:scale-105"
               viewBox="0 0 32 32"
               fill="none"
             >
-              <defs>
-                <linearGradient
-                  id="logoGradientCollapsed"
-                  x1="0%"
-                  y1="0%"
-                  x2="100%"
-                  y2="100%"
-                >
-                  <stop offset="0%" stopColor="#0F2A46" />
-                  <stop offset="40%" stopColor="#2BB7DA" />
-                  <stop offset="100%" stopColor="#7C5BFE" />
-                </linearGradient>
-                <radialGradient id="glowCollapsed" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.3" />
-                  <stop offset="100%" stopColor="#7C5BFE" stopOpacity="0" />
-                </radialGradient>
-              </defs>
-              {/* Central glow */}
-              <circle
-                cx="16"
-                cy="16"
-                r="14"
-                fill="url(#glowCollapsed)"
-                className="opacity-50 group-hover:opacity-80"
-              />
-              {/* Circular connection - holding hands ring */}
-              <circle
-                cx="16"
-                cy="16"
-                r="10"
-                stroke="url(#logoGradientCollapsed)"
-                strokeWidth="2"
+              {/* Lead bird */}
+              <path
+                d="M10 14 C12.5 9 14 7 16 6 C18 7 19.5 9 22 14"
+                stroke="#1E3A8A"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 fill="none"
-                className="group-hover:stroke-[#2BB7DA]"
               />
-              {/* Four agent nodes around the circle */}
-              <circle
-                cx="16"
-                cy="6"
-                r="3"
-                fill="#0F2A46"
-                className="transition-colors group-hover:fill-[#2BB7DA]"
+              {/* Second row */}
+              <path
+                d="M4 19 C5.8 15.5 7 14 8.5 13 C10 14 11.2 15.5 13 19"
+                stroke="#2563EB"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
               />
-              <circle
-                cx="26"
-                cy="16"
-                r="3"
-                fill="#2BB7DA"
-                className="transition-colors group-hover:fill-[#7C5BFE]"
+              <path
+                d="M19 18 C20.8 14.5 22 13 23.5 12 C25 13 26.2 14.5 28 18"
+                stroke="#2563EB"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
               />
-              <circle
-                cx="16"
-                cy="26"
-                r="3"
-                fill="#7C5BFE"
-                className="transition-colors group-hover:fill-[#0F2A46]"
+              {/* Third row */}
+              <path
+                d="M1 25 C2.3 22.5 3 21.5 4 21 C5 21.5 5.7 22.5 7 25"
+                stroke="#3B82F6"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
               />
-              <circle
-                cx="6"
-                cy="16"
-                r="3"
-                fill="#2BB7DA"
-                className="transition-colors group-hover:fill-[#7C5BFE]"
+              <path
+                d="M12.5 23 C13.8 20.5 14.5 19.5 15.5 19 C16.5 19.5 17.2 20.5 18.5 23"
+                stroke="#3B82F6"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
               />
-              {/* Engine core at center */}
-              <circle
-                cx="16"
-                cy="16"
-                r="3"
-                fill="url(#logoGradientCollapsed)"
-                className="transition-transform group-hover:scale-110"
+              <path
+                d="M24 24 C25.3 21.5 26 20.5 27 20 C28 20.5 28.7 21.5 30 24"
+                stroke="#3B82F6"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+              {/* Distant birds */}
+              <path
+                d="M7 29 C7.8 27.5 8.2 27 8.8 26.7 C9.4 27 9.8 27.5 10.6 29"
+                stroke="#93C5FD"
+                strokeWidth="1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+              <path
+                d="M21 29.5 C21.8 28 22.2 27.5 22.8 27.2 C23.4 27.5 23.8 28 24.6 29.5"
+                stroke="#93C5FD"
+                strokeWidth="1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
               />
             </svg>
           </Link>
         ) : (
-          /* Expanded Logo - AI Teams + Text */
+          /* Expanded Logo - Raven flock + Text */
           <Link
             href="/"
             className="group relative flex items-center gap-2.5"
-            title="AI Teams Engine"
+            title="Raven - AI Teams Engine"
           >
             <svg
               className="h-8 w-8 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
               viewBox="0 0 32 32"
               fill="none"
             >
-              <defs>
-                <linearGradient
-                  id="logoGradient"
-                  x1="0%"
-                  y1="0%"
-                  x2="100%"
-                  y2="100%"
-                >
-                  <stop offset="0%" stopColor="#0F2A46" />
-                  <stop offset="40%" stopColor="#2BB7DA" />
-                  <stop offset="100%" stopColor="#7C5BFE" />
-                </linearGradient>
-                <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.3" />
-                  <stop offset="100%" stopColor="#7C5BFE" stopOpacity="0" />
-                </radialGradient>
-              </defs>
-              {/* Central glow */}
-              <circle
-                cx="16"
-                cy="16"
-                r="14"
-                fill="url(#glow)"
-                className="opacity-50 group-hover:opacity-80"
-              />
-              {/* Circular connection - holding hands ring */}
-              <circle
-                cx="16"
-                cy="16"
-                r="10"
-                stroke="url(#logoGradient)"
-                strokeWidth="2"
+              {/* Lead bird */}
+              <path
+                d="M10 14 C12.5 9 14 7 16 6 C18 7 19.5 9 22 14"
+                stroke="#1E3A8A"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 fill="none"
-                className="group-hover:stroke-[#2BB7DA]"
               />
-              {/* Four agent nodes around the circle */}
-              <circle
-                cx="16"
-                cy="6"
-                r="3"
-                fill="#0F2A46"
-                className="transition-colors group-hover:fill-[#2BB7DA]"
+              {/* Second row */}
+              <path
+                d="M4 19 C5.8 15.5 7 14 8.5 13 C10 14 11.2 15.5 13 19"
+                stroke="#2563EB"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
               />
-              <circle
-                cx="26"
-                cy="16"
-                r="3"
-                fill="#2BB7DA"
-                className="transition-colors group-hover:fill-[#7C5BFE]"
+              <path
+                d="M19 18 C20.8 14.5 22 13 23.5 12 C25 13 26.2 14.5 28 18"
+                stroke="#2563EB"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
               />
-              <circle
-                cx="16"
-                cy="26"
-                r="3"
-                fill="#7C5BFE"
-                className="transition-colors group-hover:fill-[#0F2A46]"
+              {/* Third row */}
+              <path
+                d="M1 25 C2.3 22.5 3 21.5 4 21 C5 21.5 5.7 22.5 7 25"
+                stroke="#3B82F6"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
               />
-              <circle
-                cx="6"
-                cy="16"
-                r="3"
-                fill="#2BB7DA"
-                className="transition-colors group-hover:fill-[#7C5BFE]"
+              <path
+                d="M12.5 23 C13.8 20.5 14.5 19.5 15.5 19 C16.5 19.5 17.2 20.5 18.5 23"
+                stroke="#3B82F6"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
               />
-              {/* Engine core at center */}
-              <circle
-                cx="16"
-                cy="16"
-                r="3"
-                fill="url(#logoGradient)"
-                className="transition-transform group-hover:scale-110"
+              <path
+                d="M24 24 C25.3 21.5 26 20.5 27 20 C28 20.5 28.7 21.5 30 24"
+                stroke="#3B82F6"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+              {/* Distant birds */}
+              <path
+                d="M7 29 C7.8 27.5 8.2 27 8.8 26.7 C9.4 27 9.8 27.5 10.6 29"
+                stroke="#93C5FD"
+                strokeWidth="1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+              <path
+                d="M21 29.5 C21.8 28 22.2 27.5 22.8 27.2 C23.4 27.5 23.8 28 24.6 29.5"
+                stroke="#93C5FD"
+                strokeWidth="1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
               />
             </svg>
 
             <div className="flex flex-col leading-none">
-              <div className="flex items-center gap-1">
-                <span
-                  className="bg-gradient-to-r from-[#0F2A46] via-[#2BB7DA] to-[#7C5BFE] bg-clip-text text-[15px] font-bold tracking-tight text-transparent"
-                  style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
-                >
-                  AI Teams
+              <div className="flex items-center gap-1.5">
+                <span className="text-[15px] font-bold tracking-tight">
+                  <span className="text-[#1E3A8A]">R</span>
+                  <span className="text-slate-900">AVEN</span>
                 </span>
                 <span className="rounded bg-gradient-to-r from-blue-500 to-indigo-500 px-1 py-0.5 text-[7px] font-bold text-white">
                   v{process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0'}
                 </span>
               </div>
-              <span className="text-[9px] font-medium tracking-[0.15em] text-[#0F2A46]/50">
-                ENGINE
+              <span className="animate-shimmer bg-gradient-to-r from-blue-600 via-purple-500 to-pink-500 bg-[length:200%_100%] bg-clip-text text-[9px] font-medium tracking-[0.15em] text-transparent">
+                AI TEAMS ENGINE
               </span>
             </div>
           </Link>
