@@ -322,8 +322,8 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 >
                   AI Teams
                 </span>
-                <span className="rounded bg-gradient-to-r from-amber-500 to-orange-500 px-1 py-0.5 text-[7px] font-bold text-white">
-                  Beta
+                <span className="rounded bg-gradient-to-r from-blue-500 to-indigo-500 px-1 py-0.5 text-[7px] font-bold text-white">
+                  v{process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0'}
                 </span>
               </div>
               <span className="text-[9px] font-medium tracking-[0.15em] text-[#0F2A46]/50">

@@ -1,6 +1,6 @@
 {
   "name": "ai-teams-engine",
-  "version": "1.0.0",
+  "version": "2.2.0",
   "description": "AI驱动的知识发现引擎",
   "private": true,
   "workspaces": [
@@ -51,7 +51,13 @@
     "verify:backend": "cd backend && npm run type-check && npm run test:quick",
     "verify:changed": "node scripts/verify-changed.js",
     "verify:pre-push": "npm run type-check && npm run build:backend",
-    "verify:ci-local": "npm run type-check && npm run lint && npm run build && npm run test:quick"
+    "verify:ci-local": "npm run type-check && npm run lint && npm run build && npm run test:quick",
+    "release": "standard-version",
+    "release:minor": "standard-version --release-as minor",
+    "release:major": "standard-version --release-as major",
+    "release:patch": "standard-version --release-as patch",
+    "release:first": "standard-version --first-release --release-as 2.2.0",
+    "release:push": "git push --follow-tags origin main"
   },
   "devDependencies": {
     "@commitlint/cli": "^18.4.3",
@@ -65,6 +71,7 @@
     "husky": "^8.0.3",
     "lint-staged": "^15.2.0",
     "prettier": "^3.0.0",
+    "standard-version": "^9.5.0",
     "typescript": "^5.3.0"
   },
   "engines": {

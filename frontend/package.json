@@ -1,6 +1,6 @@
 {
   "name": "deepdive-frontend",
-  "version": "1.0.1",
+  "version": "2.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

@@ -24,6 +24,7 @@ function getGitCommitHash() {
 }
 
 const gitInfo = getGitCommitHash();
+const packageJson = require('./package.json');
 
 const nextConfig = {
   reactStrictMode: true,
@@ -42,6 +43,7 @@ const nextConfig = {
     NEXT_PUBLIC_GIT_COMMIT_HASH: gitInfo.short,
     NEXT_PUBLIC_GIT_COMMIT_HASH_FULL: gitInfo.full,
     NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
+    NEXT_PUBLIC_APP_VERSION: packageJson.version,
   },
   eslint: {
     ignoreDuringBuilds: true,
