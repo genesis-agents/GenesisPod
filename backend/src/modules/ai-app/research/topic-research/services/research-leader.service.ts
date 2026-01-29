@@ -201,6 +201,22 @@ export interface AgentSectionConfig {
 }
 
 /**
+ * Leader 预分配给章节的图表
+ */
+export interface AllocatedFigure {
+  /** 证据编号 [1], [2]... */
+  evidenceIndex: number;
+  /** 该证据中图表索引 */
+  figureIndex: number;
+  /** 图片 URL */
+  imageUrl: string;
+  /** 图表标题/说明 */
+  caption: string;
+  /** 为什么分配给这个章节 */
+  relevanceReason: string;
+}
+
+/**
  * Leader 规划的章节
  */
 export interface SectionPlan {
@@ -216,6 +232,8 @@ export interface SectionPlan {
   dependsOn?: string[];
   /** Agent 执行配置 */
   agentConfig?: AgentSectionConfig;
+  /** ★ Leader 预分配的图表（避免写手重复选图） */
+  allocatedFigures?: AllocatedFigure[];
 }
 
 /**
@@ -501,7 +519,16 @@ const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Research L
         "analysisGuidance": "针对该章节的分析指导，如：关注最新数据，对比历史趋势",
         "preferredDataSources": ["web", "academic"],
         "outputStyle": "analytical"
-      }
+      },
+      "allocatedFigures": [
+        {
+          "evidenceIndex": 1,
+          "figureIndex": 0,
+          "imageUrl": "图片URL",
+          "caption": "图表说明",
+          "relevanceReason": "与章节内容的关联说明"
+        }
+      ]
     }
   ],
   "executionPlan": {
@@ -2488,6 +2515,7 @@ ${teamMembersText}`;
       searchQueries?: string[] | unknown;
     },
     evidenceSummary: string,
+    figuresSummary?: string, // ★ 新增：可用图表列表
   ): Promise<DimensionOutline> {
     this.logger.log(
       `[planDimensionOutline] Planning outline for dimension: ${dimension.name}`,
@@ -2504,6 +2532,12 @@ ${teamMembersText}`;
       .replace("{dimensionDescription}", dimension.description || "无")
       .replace("{focusAreas}", focusAreas)
       .replace("{evidenceSummary}", evidenceSummary);
+
+    // ★ 注入图表分配信息
+    const figuresSection = figuresSummary
+      ? `\n\n## 可用图表资源\n${figuresSummary}\n\n**图表分配指令**：请为每个 section 分配 0-2 个最相关的图表。每张图只能分配给一个 section。在 sections 的每个条目中新增 "allocatedFigures" 字段。`
+      : "";
+    const finalPrompt = prompt + figuresSection;
 
     // ★ 添加重试机制，处理 API 临时故障
     const MAX_RETRIES = 3;
@@ -2529,7 +2563,7 @@ ${teamMembersText}`;
               content:
                 "你是研究协调专家 Leader，负责规划维度分析大纲。请输出 JSON 格式。",
             },
-            { role: "user", content: prompt },
+            { role: "user", content: finalPrompt },
           ],
           model: leaderModel.modelId,
           taskProfile: {

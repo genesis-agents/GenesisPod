@@ -495,6 +495,16 @@ export class DimensionMissionService {
         thinkingContent: `分析研究主题：${topic.name}\n维度：${dimension.name}\n参考资料数量：${evidenceSummary.split("\n").length} 条`,
       });
 
+      // ★ 构建图表摘要，传给 Leader 用于预分配
+      const figuresSummary = this.buildFiguresSummary(
+        evidenceData as EnrichedEvidenceData[],
+      );
+      if (figuresSummary) {
+        this.logger.log(
+          `${logPrefix} Figures summary for Leader: ${figuresSummary.split("\n").length - 1} figures available`,
+        );
+      }
+
       const outline = await this.leaderService.planDimensionOutline(
         { name: topic.name, type: topic.type, description: topic.description },
         {
@@ -503,6 +513,13 @@ export class DimensionMissionService {
           searchQueries: dimension.searchQueries,
         },
         evidenceSummary,
+        figuresSummary || undefined,
+      );
+
+      // ★ 校验并清理 Leader 分配的图表
+      this.validateAllocatedFigures(
+        outline,
+        evidenceData as EnrichedEvidenceData[],
       );
 
       this.logger.log(
@@ -665,13 +682,21 @@ export class DimensionMissionService {
         },
       );
 
-      // ★ 汇总所有章节的图表
+      // ★ 汇总所有章节的图表（去重）
       const allGeneratedCharts = sectionResults.flatMap(
         (r) => r.generatedCharts || [],
       );
-      const allFigureReferences = sectionResults.flatMap(
+      const allFigureReferencesRaw = sectionResults.flatMap(
         (r) => r.figureReferences || [],
       );
+      // ★ 按 imageUrl 去重，避免同一张图在多个 section 中被重复引用
+      const seenImageUrls = new Set<string>();
+      const allFigureReferences = allFigureReferencesRaw.filter((fig) => {
+        if (!fig.imageUrl) return true;
+        if (seenImageUrls.has(fig.imageUrl)) return false;
+        seenImageUrls.add(fig.imageUrl);
+        return true;
+      });
       this.logger.log(
         `${logPrefix} Charts from sections: ${allFigureReferences.length} refs, ${allGeneratedCharts.length} generated`,
       );
@@ -865,6 +890,7 @@ export class DimensionMissionService {
         ),
         modelId, // ★ 传递模型
         temporalContext, // ★ 传递时间上下文
+        allocatedFigures: section.allocatedFigures, // ★ 传递 Leader 预分配的图表
       }));
 
       // ★ 发送研究员开始写作事件
@@ -1097,6 +1123,101 @@ export class DimensionMissionService {
       .join("\n");
 
     return `共收集到 ${evidenceData.length} 条证据，摘要如下：\n${summary}\n${evidenceData.length > 10 ? `...还有 ${evidenceData.length - 10} 条` : ""}`;
+  }
+
+  /**
+   * 构建图表摘要（用于 Leader 规划时分配图表）
+   * 从证据数据中提取所有 extractedFigures，生成可读摘要
+   */
+  private buildFiguresSummary(evidenceData: EnrichedEvidenceData[]): string {
+    const entries: string[] = [];
+    for (let i = 0; i < evidenceData.length; i++) {
+      const evidence = evidenceData[i];
+      if (evidence.extractedFigures && evidence.extractedFigures.length > 0) {
+        for (let j = 0; j < evidence.extractedFigures.length; j++) {
+          const fig = evidence.extractedFigures[j];
+          entries.push(
+            `图表 [${i + 1}:${j}] - ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) URL: ${fig.imageUrl}`,
+          );
+        }
+      }
+    }
+    if (entries.length === 0) {
+      return "";
+    }
+    // ★ 限制最多 20 个图表，避免 prompt 膨胀挤占 Leader 思考空间
+    const MAX_FIGURES_FOR_LEADER = 20;
+    const displayEntries = entries.slice(0, MAX_FIGURES_FOR_LEADER);
+    const suffix =
+      entries.length > MAX_FIGURES_FOR_LEADER
+        ? `\n...还有 ${entries.length - MAX_FIGURES_FOR_LEADER} 个图表未列出`
+        : "";
+    return `共 ${entries.length} 个可用图表（展示前 ${displayEntries.length} 个）：\n${displayEntries.join("\n")}${suffix}`;
+  }
+
+  /**
+   * 校验并清理 Leader 分配的 allocatedFigures
+   * - 过滤 evidenceIndex 越界的条目
+   * - 过滤 imageUrl 为空的条目
+   * - 全局去重：确保同一图表不被分配给多个 section
+   * - 记录分配结果日志
+   */
+  private validateAllocatedFigures(
+    outline: DimensionOutline,
+    evidenceData: EnrichedEvidenceData[],
+  ): void {
+    const globalSeen = new Set<string>(); // "evidenceIndex:figureIndex"
+    let totalAllocated = 0;
+
+    for (const section of outline.sections) {
+      if (!section.allocatedFigures || section.allocatedFigures.length === 0) {
+        continue;
+      }
+
+      const valid: typeof section.allocatedFigures = [];
+      for (const fig of section.allocatedFigures) {
+        // 校验 evidenceIndex 范围（1-based）
+        if (fig.evidenceIndex < 1 || fig.evidenceIndex > evidenceData.length) {
+          this.logger.warn(
+            `[validateAllocatedFigures] Section "${section.title}": evidenceIndex ${fig.evidenceIndex} out of range (1-${evidenceData.length}), skipping`,
+          );
+          continue;
+        }
+        // 校验 imageUrl 非空
+        if (!fig.imageUrl) {
+          // 尝试从原始证据数据中补全
+          const evidence = evidenceData[fig.evidenceIndex - 1];
+          const originalFig = evidence?.extractedFigures?.[fig.figureIndex];
+          if (originalFig?.imageUrl) {
+            fig.imageUrl = originalFig.imageUrl;
+            fig.caption =
+              fig.caption || originalFig.caption || originalFig.alt || "";
+          } else {
+            this.logger.warn(
+              `[validateAllocatedFigures] Section "${section.title}": empty imageUrl for [${fig.evidenceIndex}:${fig.figureIndex}], skipping`,
+            );
+            continue;
+          }
+        }
+        // 全局去重
+        const key = `${fig.evidenceIndex}:${fig.figureIndex}`;
+        if (globalSeen.has(key)) {
+          this.logger.warn(
+            `[validateAllocatedFigures] Section "${section.title}": duplicate figure [${key}], skipping`,
+          );
+          continue;
+        }
+        globalSeen.add(key);
+        valid.push(fig);
+      }
+
+      section.allocatedFigures = valid;
+      totalAllocated += valid.length;
+    }
+
+    this.logger.log(
+      `[validateAllocatedFigures] Total allocated: ${totalAllocated} figures across ${outline.sections.length} sections`,
+    );
   }
 
   /**

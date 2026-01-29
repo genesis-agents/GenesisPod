@@ -69,6 +69,8 @@ export interface SectionWriteInput {
   modelId?: string;
   /** ★ 时间上下文（当前日期和时效性要求） */
   temporalContext?: TemporalContext;
+  /** ★ Leader 预分配的图表（避免写手重复选图） */
+  allocatedFigures?: import("./research-leader.service").AllocatedFigure[];
 }
 
 /**
@@ -149,7 +151,10 @@ export class SectionWriterService {
         temporalContext?.freshnessRequirement ||
         "不限制时间范围，但建议优先使用最近的数据",
       // ★ 图片资源列表
-      figuresList: this.formatFiguresForSection(evidenceData),
+      figuresList: this.formatFiguresForSection(
+        evidenceData,
+        input.allocatedFigures,
+      ),
     };
 
     // 渲染用户提示词
@@ -210,8 +215,14 @@ export class SectionWriterService {
     const wordCount = content.length;
     const referencesUsed = this.extractReferences(content);
 
+    // ★ 用 allocatedFigures 补全 figureReferences 中缺失的 imageUrl
+    const finalFigureRefs = this.backfillFigureUrls(
+      charts.figureReferences,
+      input.allocatedFigures,
+    );
+
     this.logger.log(
-      `[writeSection] Completed ${section.title}: ${wordCount} chars, ${referencesUsed.length} refs, ${charts.generatedCharts.length} charts, ${latencyMs}ms`,
+      `[writeSection] Completed ${section.title}: ${wordCount} chars, ${referencesUsed.length} refs, ${finalFigureRefs.length} figRefs, ${charts.generatedCharts.length} charts, ${latencyMs}ms`,
     );
 
     return {
@@ -221,7 +232,7 @@ export class SectionWriterService {
       wordCount,
       referencesUsed,
       generatedCharts: charts.generatedCharts,
-      figureReferences: charts.figureReferences,
+      figureReferences: finalFigureRefs,
     };
   }
 
@@ -741,8 +752,22 @@ export class SectionWriterService {
 
   /**
    * 格式化证据中的图片列表（用于图表生成提示）
+   * ★ 如果有 Leader 预分配的图表，只展示分配的图表
    */
-  private formatFiguresForSection(evidenceData: EvidenceData[]): string {
+  private formatFiguresForSection(
+    evidenceData: EvidenceData[],
+    allocatedFigures?: import("./research-leader.service").AllocatedFigure[],
+  ): string {
+    // ★ 优先使用 Leader 预分配的图表
+    if (allocatedFigures && allocatedFigures.length > 0) {
+      const entries = allocatedFigures.map(
+        (fig) =>
+          `- 【已分配】证据[${fig.evidenceIndex}] 图${fig.figureIndex}: "${fig.caption}" (URL: ${fig.imageUrl})\n  分配原因: ${fig.relevanceReason}`,
+      );
+      return `Leader 已为本章节分配以下图表（请优先使用）：\n${entries.join("\n")}`;
+    }
+
+    // 退回到全量展示（兼容旧流程）
     const figureEntries: string[] = [];
     for (let i = 0; i < evidenceData.length; i++) {
       const evidence = evidenceData[i] as EvidenceData & {
@@ -761,6 +786,44 @@ export class SectionWriterService {
       return "无可用图片资源";
     }
     return figureEntries.join("\n");
+  }
+
+  /**
+   * 用 Leader 预分配的 allocatedFigures 补全 Writer 输出的 figureReferences
+   * LLM 输出 figureReferences 时经常省略 imageUrl，需要从 allocatedFigures 回填
+   */
+  private backfillFigureUrls(
+    figureRefs: FigureReference[],
+    allocatedFigures?: import("./research-leader.service").AllocatedFigure[],
+  ): FigureReference[] {
+    if (!allocatedFigures || allocatedFigures.length === 0) {
+      return figureRefs;
+    }
+
+    // 构建 "evidenceIndex:figureIndex" -> allocatedFigure 映射
+    const allocatedMap = new Map<
+      string,
+      import("./research-leader.service").AllocatedFigure
+    >();
+    for (const fig of allocatedFigures) {
+      allocatedMap.set(`${fig.evidenceIndex}:${fig.figureIndex}`, fig);
+    }
+
+    // 补全缺失的 imageUrl
+    for (const ref of figureRefs) {
+      const key = `${ref.evidenceCitationIndex}:${ref.figureIndex}`;
+      const allocated = allocatedMap.get(key);
+      if (allocated) {
+        if (!ref.imageUrl) {
+          ref.imageUrl = allocated.imageUrl;
+        }
+        if (!ref.caption) {
+          ref.caption = allocated.caption;
+        }
+      }
+    }
+
+    return figureRefs;
   }
 
   /**

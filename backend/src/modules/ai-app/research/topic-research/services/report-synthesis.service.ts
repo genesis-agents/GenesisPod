@@ -661,14 +661,23 @@ export class ReportSynthesisService {
     dimensionInputs: DimensionAnalysisInput[],
   ): ReportChart[] {
     const charts: ReportChart[] = [];
+    // ★ 跨维度去重：同一张图片只保留首次出现
+    const seenImageUrls = new Set<string>();
 
     dimensionInputs.forEach((dim, dimIndex) => {
       // ★ sectionId 对应章节编号（从1开始），用于章节视图匹配
       const sectionId = String(dimIndex + 1);
 
-      // 收集引用图表
+      // 收集引用图表（去重）
       if (dim.figureReferences && dim.figureReferences.length > 0) {
         dim.figureReferences.forEach((fig) => {
+          // ★ 按 imageUrl 去重，防止同一张图在不同维度重复出现
+          if (fig.imageUrl && seenImageUrls.has(fig.imageUrl)) {
+            return;
+          }
+          if (fig.imageUrl) {
+            seenImageUrls.add(fig.imageUrl);
+          }
           charts.push({
             id: fig.id,
             chartType: "reference", // 标记为引用图表
@@ -705,7 +714,7 @@ export class ReportSynthesisService {
     });
 
     this.logger.log(
-      `Collected ${charts.length} charts (${charts.filter((c) => c.chartType === "reference").length} references, ${charts.filter((c) => c.chartType === "generated").length} generated)`,
+      `Collected ${charts.length} charts (${charts.filter((c) => c.chartType === "reference").length} references, ${charts.filter((c) => c.chartType === "generated").length} generated) [deduped by imageUrl]`,
     );
 
     return charts;
