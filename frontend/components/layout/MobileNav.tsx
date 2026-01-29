@@ -418,79 +418,54 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       >
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <svg className="h-7 w-7" viewBox="0 0 32 32" fill="none">
+          <svg className="h-8 w-8" viewBox="0 0 32 32" fill="none">
             {/* Lead bird */}
             <path
-              d="M10 14 C12.5 9 14 7 16 6 C18 7 19.5 9 22 14"
+              d="M9 13 C12 7 13.5 5 16 4 C18.5 5 20 7 23 13"
               stroke="#1E3A8A"
-              strokeWidth="2.2"
+              strokeWidth="3"
               strokeLinecap="round"
               strokeLinejoin="round"
               fill="none"
             />
             {/* Second row */}
             <path
-              d="M4 19 C5.8 15.5 7 14 8.5 13 C10 14 11.2 15.5 13 19"
+              d="M3 20 C5.5 15 7 13 9 12 C11 13 12.5 15 15 20"
               stroke="#2563EB"
-              strokeWidth="1.8"
+              strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
               fill="none"
             />
             <path
-              d="M19 18 C20.8 14.5 22 13 23.5 12 C25 13 26.2 14.5 28 18"
+              d="M17 19 C19.5 14 21 12 23 11 C25 12 26.5 14 29 19"
               stroke="#2563EB"
-              strokeWidth="1.8"
+              strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
               fill="none"
             />
             {/* Third row */}
             <path
-              d="M1 25 C2.3 22.5 3 21.5 4 21 C5 21.5 5.7 22.5 7 25"
+              d="M6 27 C8 23.5 9 22 10.5 21.5 C12 22 13 23.5 15 27"
               stroke="#3B82F6"
-              strokeWidth="1.4"
+              strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
               fill="none"
             />
             <path
-              d="M12.5 23 C13.8 20.5 14.5 19.5 15.5 19 C16.5 19.5 17.2 20.5 18.5 23"
+              d="M17 27 C19 23.5 20 22 21.5 21.5 C23 22 24 23.5 26 27"
               stroke="#3B82F6"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-            <path
-              d="M24 24 C25.3 21.5 26 20.5 27 20 C28 20.5 28.7 21.5 30 24"
-              stroke="#3B82F6"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-            {/* Distant birds */}
-            <path
-              d="M7 29 C7.8 27.5 8.2 27 8.8 26.7 C9.4 27 9.8 27.5 10.6 29"
-              stroke="#93C5FD"
-              strokeWidth="1"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-            <path
-              d="M21 29.5 C21.8 28 22.2 27.5 22.8 27.2 C23.4 27.5 23.8 28 24.6 29.5"
-              stroke="#93C5FD"
-              strokeWidth="1"
+              strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
               fill="none"
             />
           </svg>
-          <span className="text-lg font-bold">
+          <span className="text-lg font-extrabold italic tracking-wide">
             <span className="text-[#1E3A8A]">R</span>
-            <span className="text-slate-900">AVEN</span>
+            <span className="text-slate-800">AVEN</span>
           </span>
         </Link>
 
