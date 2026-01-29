@@ -134,13 +134,14 @@ export default function ArchitectureLayer({
                     </span>
                     <div className="h-px flex-1 bg-gray-200/50" />
                   </div>
-                  {/* Group cards */}
-                  <div className="flex flex-wrap gap-2">
+                  {/* Group cards - grid layout for consistent card widths */}
+                  <div className="grid grid-cols-4 gap-3">
                     {group.cards.map((card) => (
                       <ArchitectureCard
                         key={card.id}
                         card={card}
                         layerLevel={layer.level}
+                        fixedWidth
                       />
                     ))}
                   </div>
