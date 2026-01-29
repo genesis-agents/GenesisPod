@@ -56,8 +56,9 @@ interface CreditRule {
 // Module display names - matches DEFAULT_RULES in credit-rules.service.ts
 const MODULE_NAMES: Record<string, string> = {
   'ai-ask': 'AI Ask',
-  'ai-studio': 'AI Research',
+  'deep-research': 'Deep Research',
   'topic-research': 'Topic Research',
+  'notebook-research': 'Notebook Research',
   'ai-teams': 'AI Teams',
   'ai-office': 'AI Office',
   'ai-writing': 'AI Writing',
@@ -65,6 +66,8 @@ const MODULE_NAMES: Record<string, string> = {
   'ai-simulation': 'AI Simulation',
   'ai-social': 'AI Social',
   library: 'Library',
+  notes: 'Notes',
+  collections: 'Collections',
   explore: 'Explore',
 };
 
@@ -106,6 +109,21 @@ const OPERATION_NAMES: Record<string, string> = {
   // Library
   'ai-summary': 'AI Summary',
   'ai-extract': 'AI Extract',
+  'ai-explanation': 'AI Explanation',
+  'ai-classify': 'AI Classify',
+  'ai-cluster': 'AI Cluster',
+  // Notes
+  'extract-key-points': 'Extract Key Points',
+  'find-connections': 'Find Connections',
+  summarize: 'Summarize',
+  // Collections
+  'ai-batch-tags': 'AI Batch Tags',
+  'ai-smart-classify': 'AI Smart Classify',
+  'ai-theme-cluster': 'AI Theme Cluster',
+  // Social
+  'adapt-version': 'Adapt Version',
+  // Notebook Research
+  // (chat already defined above)
   // Explore
   'ai-search': 'AI Search',
   'ai-recommend': 'AI Recommend',
@@ -118,10 +136,18 @@ const TYPE_COLORS: Record<string, string> = {
   ADMIN_GRANT: 'bg-indigo-100 text-indigo-800',
   PURCHASE: 'bg-emerald-100 text-emerald-800',
   AI_ASK: 'bg-orange-100 text-orange-800',
-  AI_STUDIO: 'bg-amber-100 text-amber-800',
   AI_TEAMS: 'bg-rose-100 text-rose-800',
   AI_OFFICE: 'bg-pink-100 text-pink-800',
   AI_SIMULATION: 'bg-cyan-100 text-cyan-800',
+  AI_WRITING: 'bg-violet-100 text-violet-800',
+  AI_IMAGE: 'bg-fuchsia-100 text-fuchsia-800',
+  AI_SOCIAL: 'bg-lime-100 text-lime-800',
+  DEEP_RESEARCH: 'bg-amber-100 text-amber-800',
+  TOPIC_RESEARCH: 'bg-yellow-100 text-yellow-800',
+  NOTEBOOK_RESEARCH: 'bg-sky-100 text-sky-800',
+  LIBRARY: 'bg-emerald-100 text-emerald-800',
+  NOTES: 'bg-stone-100 text-stone-800',
+  COLLECTIONS: 'bg-slate-100 text-slate-800',
   REFUND: 'bg-teal-100 text-teal-800',
   ADJUSTMENT: 'bg-gray-100 text-gray-800',
 };

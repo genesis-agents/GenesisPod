@@ -167,6 +167,7 @@ export class AIEngineFacade {
       database: !!this.prisma,
       teams: !!this.teamsService,
       capabilities: !!this.capabilityResolver,
+      credits: !!this.creditsService,
     };
 
     this.logger.log(
@@ -293,15 +294,27 @@ export class AIEngineFacade {
             referenceId: billing.referenceId,
             description: billing.description,
           });
-          this.logger.debug(
-            `[chat] Auto-billed ${tokensUsed} tokens for ${billing.moduleType}:${billing.operationType}`,
+          this.logger.log(
+            `[Billing] Deducted credits: module=${billing.moduleType}, op=${billing.operationType}, tokens=${tokensUsed}, user=${billing.userId.slice(0, 8)}`,
           );
         } catch (creditError) {
           this.logger.warn(
-            `[chat] Failed to auto-bill credits: ${creditError}`,
+            `[Billing] Failed to deduct credits: ${creditError}`,
           );
           // 积分扣除失败不阻止响应返回
         }
+      } else if (!billing) {
+        this.logger.warn(
+          `[Billing] No billing context found for chat call (model=${result.model}, tokens=${tokensUsed}). Credits NOT deducted.`,
+        );
+      } else if (billing && !this.creditsService) {
+        this.logger.error(
+          `[Billing] CreditsService NOT injected! Billing info present (module=${billing.moduleType}, op=${billing.operationType}) but cannot deduct credits. Check module imports.`,
+        );
+      } else if (billing && result.isError) {
+        this.logger.warn(
+          `[Billing] Skipped billing due to AI error response (module=${billing.moduleType}, op=${billing.operationType})`,
+        );
       }
 
       return {

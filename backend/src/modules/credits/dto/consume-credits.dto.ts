@@ -5,7 +5,7 @@ import { IsString, IsInt, IsOptional, Min } from "class-validator";
  */
 export class ConsumeCreditsDto {
   @IsString()
-  moduleType!: string; // ai-ask, ai-studio, ai-teams, ai-office
+  moduleType!: string; // ai-ask, deep-research, ai-teams, ai-office, notes, collections
 
   @IsString()
   operationType!: string; // chat, research-quick, ai-reply

@@ -4089,10 +4089,18 @@ enum CreditTransactionType {
   COMPENSATION // 异常补偿
   // 消耗类型
   AI_ASK // AI 问答消耗
-  AI_STUDIO // AI 研究室消耗
   AI_TEAMS // AI 团队消耗
   AI_OFFICE // AI 办公消耗
   AI_SIMULATION // AI 模拟消耗
+  AI_WRITING // AI 写作消耗
+  AI_IMAGE // AI 绘画消耗
+  AI_SOCIAL // AI 社交内容消耗
+  DEEP_RESEARCH // 深度研究消耗
+  TOPIC_RESEARCH // 专题研究消耗
+  NOTEBOOK_RESEARCH // 笔记本研究消耗
+  LIBRARY // 资源库消耗
+  NOTES // 笔记消耗
+  COLLECTIONS // 收藏集消耗
   // 调整类型
   EXPIRATION // 过期扣除
   REFUND // 退款
@@ -4131,7 +4139,7 @@ model CreditTransaction {
   amount         Int // 正数为收入，负数为支出
   balanceAfter   Int                   @map("balance_after")
   description    String                @db.VarChar(500)
-  moduleType     String?               @map("module_type") // ai-ask, ai-studio 等
+  moduleType     String?               @map("module_type") // ai-ask, deep-research 等
   operationType  String?               @map("operation_type") // chat, research-deep 等
   referenceId    String?               @map("reference_id") // 关联的业务ID
   tokenCount     Int?                  @map("token_count") // AI调用消耗的token数

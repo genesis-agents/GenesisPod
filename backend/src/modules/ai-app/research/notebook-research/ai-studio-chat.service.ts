@@ -83,7 +83,7 @@ export class AiStudioChatService {
     return BillingContext.run(
       {
         userId,
-        moduleType: "ai-studio",
+        moduleType: "notebook-research",
         operationType: "chat",
         referenceId: projectId,
       },

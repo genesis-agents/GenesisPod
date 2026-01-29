@@ -33,19 +33,19 @@ const DEFAULT_RULES = [
   // AI Research (AI 研究 - Deep Research)
   // ============================================
   {
-    moduleType: "ai-studio",
+    moduleType: "deep-research",
     operationType: "research-quick",
     baseCredits: 200,
     name: "快速研究",
   },
   {
-    moduleType: "ai-studio",
+    moduleType: "deep-research",
     operationType: "research-standard",
     baseCredits: 500,
     name: "标准研究",
   },
   {
-    moduleType: "ai-studio",
+    moduleType: "deep-research",
     operationType: "research-deep",
     baseCredits: 1000,
     name: "深度研究",
@@ -71,6 +71,16 @@ const DEFAULT_RULES = [
     operationType: "ai-edit",
     baseCredits: 50,
     name: "AI编辑报告",
+  },
+
+  // ============================================
+  // Notebook Research (笔记本研究)
+  // ============================================
+  {
+    moduleType: "notebook-research",
+    operationType: "chat",
+    baseCredits: 20,
+    name: "笔记本研究对话",
   },
 
   // ============================================
@@ -267,6 +277,62 @@ const DEFAULT_RULES = [
     operationType: "ai-cluster",
     baseCredits: 25,
     name: "AI主题聚类",
+  },
+
+  // ============================================
+  // Notes (笔记 - AI 操作)
+  // ============================================
+  {
+    moduleType: "notes",
+    operationType: "ai-explanation",
+    baseCredits: 20,
+    name: "AI解释",
+  },
+  {
+    moduleType: "notes",
+    operationType: "extract-key-points",
+    baseCredits: 15,
+    name: "提取要点",
+  },
+  {
+    moduleType: "notes",
+    operationType: "find-connections",
+    baseCredits: 20,
+    name: "发现关联",
+  },
+  {
+    moduleType: "notes",
+    operationType: "summarize",
+    baseCredits: 25,
+    name: "笔记总结",
+  },
+
+  // ============================================
+  // Collections (收藏集 - AI 操作)
+  // ============================================
+  {
+    moduleType: "collections",
+    operationType: "ai-batch-tags",
+    baseCredits: 20,
+    name: "AI批量标签",
+  },
+  {
+    moduleType: "collections",
+    operationType: "ai-smart-classify",
+    baseCredits: 25,
+    name: "AI智能分类",
+  },
+  {
+    moduleType: "collections",
+    operationType: "ai-theme-cluster",
+    baseCredits: 30,
+    name: "AI主题聚类",
+  },
+  {
+    moduleType: "collections",
+    operationType: "ai-summary",
+    baseCredits: 20,
+    name: "AI收藏摘要",
   },
 
   // ============================================

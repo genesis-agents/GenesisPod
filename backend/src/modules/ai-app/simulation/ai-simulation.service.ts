@@ -368,8 +368,17 @@ export class AiSimulationService {
       data: { status: SimulationRunStatus.RUNNING },
     });
 
-    // 后台异步执行推演，不阻塞
-    this.engine.executeRun(runId, { resume: true }).catch((err) => {
+    // 后台异步执行推演，不阻塞（包装在 BillingContext 中）
+    const billingData = {
+      userId: run.startedById || "",
+      moduleType: "ai-simulation",
+      operationType: "run",
+      referenceId: run.scenarioId,
+      description: `AI 模拟推演续行 - Run ${runId}`,
+    };
+    BillingContext.run(billingData, () =>
+      this.engine.executeRun(runId, { resume: true }),
+    ).catch((err) => {
       this.logger.error(
         `[Simulation] Run ${runId} resume failed: ${err.message}`,
       );

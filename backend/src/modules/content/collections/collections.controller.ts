@@ -12,6 +12,7 @@ import {
   UnauthorizedException,
   HttpCode,
 } from "@nestjs/common";
+import { BillingContext } from "../../credits/billing-context";
 import { CollectionsService } from "./collections.service";
 import {
   CreateCollectionDto,
@@ -353,9 +354,18 @@ export class CollectionsController {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
-    return this.collectionsService.aiBatchGenerateTags(
-      req.user.id,
-      body.collectionId,
+    return BillingContext.run(
+      {
+        userId: req.user.id,
+        moduleType: "collections",
+        operationType: "ai-batch-tags",
+        description: "AI Batch Generate Tags",
+      },
+      () =>
+        this.collectionsService.aiBatchGenerateTags(
+          req.user.id,
+          body.collectionId,
+        ),
     );
   }
 
@@ -368,7 +378,15 @@ export class CollectionsController {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
-    return this.collectionsService.aiSmartClassify(req.user.id);
+    return BillingContext.run(
+      {
+        userId: req.user.id,
+        moduleType: "collections",
+        operationType: "ai-smart-classify",
+        description: "AI Smart Classify",
+      },
+      () => this.collectionsService.aiSmartClassify(req.user.id),
+    );
   }
 
   /**
@@ -380,6 +398,14 @@ export class CollectionsController {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
-    return this.collectionsService.aiThemeCluster(req.user.id);
+    return BillingContext.run(
+      {
+        userId: req.user.id,
+        moduleType: "collections",
+        operationType: "ai-theme-cluster",
+        description: "AI Theme Cluster",
+      },
+      () => this.collectionsService.aiThemeCluster(req.user.id),
+    );
   }
 }

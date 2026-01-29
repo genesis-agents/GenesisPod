@@ -12,6 +12,7 @@ import {
   UnauthorizedException,
   HttpCode,
 } from "@nestjs/common";
+import { BillingContext } from "../../credits/billing-context";
 import { NotesService } from "./notes.service";
 import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
@@ -198,7 +199,16 @@ export class NotesController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    return this.notesService.requestAIExplanation(id, userId, text, pdfContext);
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "notes",
+        operationType: "ai-explanation",
+        description: "AI Explanation",
+      },
+      () =>
+        this.notesService.requestAIExplanation(id, userId, text, pdfContext),
+    );
   }
 
   /**
@@ -249,7 +259,15 @@ export class NotesController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    return this.notesService.extractKeyPoints(userId);
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "notes",
+        operationType: "extract-key-points",
+        description: "Extract Key Points",
+      },
+      () => this.notesService.extractKeyPoints(userId),
+    );
   }
 
   /**
@@ -263,7 +281,15 @@ export class NotesController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    return this.notesService.findConnections(userId);
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "notes",
+        operationType: "find-connections",
+        description: "Find Connections",
+      },
+      () => this.notesService.findConnections(userId),
+    );
   }
 
   /**
@@ -277,6 +303,14 @@ export class NotesController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    return this.notesService.summarizeNotes(userId);
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "notes",
+        operationType: "summarize",
+        description: "Summarize Notes",
+      },
+      () => this.notesService.summarizeNotes(userId),
+    );
   }
 }

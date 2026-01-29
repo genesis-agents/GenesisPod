@@ -17,6 +17,7 @@ import { AiSocialService } from "./ai-social.service";
 import { SocialLeaderService } from "./services/social-leader.service";
 import { ReviewService } from "./services/review.service";
 import { ContentVersionService } from "./services/content-version.service";
+import { BillingContext } from "../../credits/billing-context";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { CreateContentDto } from "./dto/create-content.dto";
@@ -173,10 +174,19 @@ export class AiSocialController {
     // 验证内容所有权
     await this.aiSocialService.getContent(req.user.id, id);
     try {
-      const version = await this.contentVersionService.generateVersion(
-        id,
-        dto.platformType,
-        req.user.id,
+      const version = await BillingContext.run(
+        {
+          userId: req.user.id,
+          moduleType: "ai-social",
+          operationType: "adapt-version",
+          description: "AI Social - Generate Version",
+        },
+        () =>
+          this.contentVersionService.generateVersion(
+            id,
+            dto.platformType,
+            req.user.id,
+          ),
       );
       return { version };
     } catch (error) {
@@ -195,9 +205,14 @@ export class AiSocialController {
     // 验证内容所有权
     await this.aiSocialService.getContent(req.user.id, id);
     try {
-      const versions = await this.contentVersionService.generateAllVersions(
-        id,
-        req.user.id,
+      const versions = await BillingContext.run(
+        {
+          userId: req.user.id,
+          moduleType: "ai-social",
+          operationType: "adapt-version",
+          description: "AI Social - Generate All Versions",
+        },
+        () => this.contentVersionService.generateAllVersions(id, req.user.id),
       );
       return { versions };
     } catch (error) {
@@ -350,7 +365,15 @@ export class AiSocialController {
     @Body() dto: ProcessUrlDto,
   ) {
     try {
-      return await this.socialLeaderService.processUrl(req.user.id, dto);
+      return await BillingContext.run(
+        {
+          userId: req.user.id,
+          moduleType: "ai-social",
+          operationType: "generate-post",
+          description: "AI Social - Process URL",
+        },
+        () => this.socialLeaderService.processUrl(req.user.id, dto),
+      );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "内容处理失败，请重试";
@@ -372,9 +395,14 @@ export class AiSocialController {
     const startTime = Date.now();
 
     try {
-      const result = await this.socialLeaderService.processSource(
-        req.user.id,
-        dto,
+      const result = await BillingContext.run(
+        {
+          userId: req.user.id,
+          moduleType: "ai-social",
+          operationType: "generate-post",
+          description: "AI Social - Process Source",
+        },
+        () => this.socialLeaderService.processSource(req.user.id, dto),
       );
       this.logger.log(
         `[process-source] Success in ${Date.now() - startTime}ms`,
@@ -397,7 +425,15 @@ export class AiSocialController {
     @Param("id") id: string,
   ) {
     try {
-      return await this.socialLeaderService.regenerateContent(req.user.id, id);
+      return await BillingContext.run(
+        {
+          userId: req.user.id,
+          moduleType: "ai-social",
+          operationType: "generate-post",
+          description: "AI Social - Regenerate Content",
+        },
+        () => this.socialLeaderService.regenerateContent(req.user.id, id),
+      );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "内容重新生成失败，请重试";

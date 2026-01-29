@@ -574,10 +574,18 @@ export class CreditsService implements OnModuleInit {
   private getTransactionType(moduleType: string): CreditTransactionType {
     const typeMap: Record<string, CreditTransactionType> = {
       "ai-ask": CreditTransactionType.AI_ASK,
-      "ai-studio": CreditTransactionType.AI_STUDIO,
       "ai-teams": CreditTransactionType.AI_TEAMS,
       "ai-office": CreditTransactionType.AI_OFFICE,
       "ai-simulation": CreditTransactionType.AI_SIMULATION,
+      "ai-writing": CreditTransactionType.AI_WRITING,
+      "ai-image": CreditTransactionType.AI_IMAGE,
+      "ai-social": CreditTransactionType.AI_SOCIAL,
+      "deep-research": CreditTransactionType.DEEP_RESEARCH,
+      "topic-research": CreditTransactionType.TOPIC_RESEARCH,
+      "notebook-research": CreditTransactionType.NOTEBOOK_RESEARCH,
+      library: CreditTransactionType.LIBRARY,
+      notes: CreditTransactionType.NOTES,
+      collections: CreditTransactionType.COLLECTIONS,
     };
 
     return typeMap[moduleType] || CreditTransactionType.ADJUSTMENT;

@@ -697,6 +697,14 @@ export class ReportSynthesisService {
       // 收集生成图表
       if (dim.generatedCharts && dim.generatedCharts.length > 0) {
         dim.generatedCharts.forEach((chart) => {
+          // ★ 按 title 去重，防止相似图表重复
+          const titleKey = chart.title?.trim().toLowerCase();
+          if (titleKey && seenImageUrls.has(`gen:${titleKey}`)) {
+            return;
+          }
+          if (titleKey) {
+            seenImageUrls.add(`gen:${titleKey}`);
+          }
           charts.push({
             id: chart.id,
             chartType: "generated", // 标记为生成图表

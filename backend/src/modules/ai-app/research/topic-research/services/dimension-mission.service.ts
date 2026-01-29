@@ -683,16 +683,27 @@ export class DimensionMissionService {
       );
 
       // ★ 汇总所有章节的图表（去重）
-      const allGeneratedCharts = sectionResults.flatMap(
+      // ★ 问题1修复：对 generatedCharts 按 title 去重（同名图表只保留第一个）
+      const allGeneratedChartsRaw = sectionResults.flatMap(
         (r) => r.generatedCharts || [],
       );
+      const seenChartTitles = new Set<string>();
+      const allGeneratedCharts = allGeneratedChartsRaw.filter((chart) => {
+        const key = chart.title?.trim().toLowerCase();
+        if (!key) return true;
+        if (seenChartTitles.has(key)) return false;
+        seenChartTitles.add(key);
+        return true;
+      });
+
       const allFigureReferencesRaw = sectionResults.flatMap(
         (r) => r.figureReferences || [],
       );
       // ★ 按 imageUrl 去重，避免同一张图在多个 section 中被重复引用
       const seenImageUrls = new Set<string>();
       const allFigureReferences = allFigureReferencesRaw.filter((fig) => {
-        if (!fig.imageUrl) return true;
+        // ★ 问题2修复：没有 imageUrl 的引用无效，过滤掉
+        if (!fig.imageUrl) return false;
         if (seenImageUrls.has(fig.imageUrl)) return false;
         seenImageUrls.add(fig.imageUrl);
         return true;

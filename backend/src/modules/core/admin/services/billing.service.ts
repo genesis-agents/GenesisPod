@@ -4,10 +4,18 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 const SPEND_TYPES: CreditTransactionType[] = [
   CreditTransactionType.AI_ASK,
-  CreditTransactionType.AI_STUDIO,
   CreditTransactionType.AI_TEAMS,
   CreditTransactionType.AI_OFFICE,
   CreditTransactionType.AI_SIMULATION,
+  CreditTransactionType.AI_WRITING,
+  CreditTransactionType.AI_IMAGE,
+  CreditTransactionType.AI_SOCIAL,
+  CreditTransactionType.DEEP_RESEARCH,
+  CreditTransactionType.TOPIC_RESEARCH,
+  CreditTransactionType.NOTEBOOK_RESEARCH,
+  CreditTransactionType.LIBRARY,
+  CreditTransactionType.NOTES,
+  CreditTransactionType.COLLECTIONS,
 ];
 
 @Injectable()

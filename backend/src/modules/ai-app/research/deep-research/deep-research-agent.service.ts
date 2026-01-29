@@ -64,7 +64,7 @@ export class DeepResearchAgentService {
       await BillingContext.run(
         {
           userId: project.userId,
-          moduleType: "ai-studio",
+          moduleType: "deep-research",
           operationType: `research-${depth}`,
           description: `Deep Research (${depth}) - ${dto.query.slice(0, 50)}...`,
         },
