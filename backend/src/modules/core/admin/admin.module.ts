@@ -9,6 +9,9 @@ import { AITeamsAdminService } from "./ai-teams-admin.service";
 import { AIAdminController } from "./ai-admin.controller";
 import { AIAdminService } from "./ai-admin.service";
 import { LogsAdminController } from "./logs-admin.controller";
+import { PermissionsAdminController } from "./permissions-admin.controller";
+import { BillingAdminController } from "./billing-admin.controller";
+import { NotificationsAdminController } from "./notifications-admin.controller";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { SecretsModule } from "../secrets/secrets.module";
@@ -20,6 +23,9 @@ import {
   ResourceManagementService,
   StatisticsService,
   LogsService,
+  PermissionsService,
+  BillingService,
+  NotificationsAdminService,
 } from "./services";
 
 @Module({
@@ -30,6 +36,9 @@ import {
     AITeamsTemplatesController,
     AIAdminController, // /admin/ai/* routes for tools, skills, mcp-servers
     LogsAdminController, // /admin/logs/* routes
+    PermissionsAdminController, // /admin/permissions/* routes
+    BillingAdminController, // /admin/billing/* routes
+    NotificationsAdminController, // /admin/notifications/* routes
   ],
   providers: [
     AdminService,
@@ -40,6 +49,9 @@ import {
     ResourceManagementService,
     StatisticsService,
     LogsService,
+    PermissionsService,
+    BillingService,
+    NotificationsAdminService,
   ],
   exports: [
     AdminService,
@@ -49,6 +61,9 @@ import {
     ResourceManagementService,
     StatisticsService,
     LogsService,
+    PermissionsService,
+    BillingService,
+    NotificationsAdminService,
   ],
 })
 export class AdminModule {}

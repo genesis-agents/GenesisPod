@@ -4428,6 +4428,18 @@ function AgentThinkingTabContent({
       dimensionName?: string;
       agentName?: string;
       timestamp: Date;
+      reviewResult?: {
+        qualityLevel?: string;
+        overallScore?: number;
+        scores?: Record<string, number>;
+        issueCount?: number;
+        suggestions?: string[];
+        needsReresearch?: boolean;
+        type?: string;
+        dimensionCount?: number;
+        recommendations?: string[];
+        dimensionsToReresearch?: string[];
+      };
     };
 
     const activities: AgentActivity[] = [];
@@ -4499,8 +4511,8 @@ function AgentThinkingTabContent({
         activities.push({
           id: `agent-working-${idx}`,
           agentType: role as AgentActivity['agentType'],
-          eventType: 'working',
-          phase: 'working',
+          eventType: data.status === 'completed' ? 'complete' : 'working',
+          phase: data.status === 'completed' ? 'completed' : 'working',
           content:
             safeString(data.taskDescription) ||
             `${safeString(data.agentName) || 'Agent'} 正在工作...`,
@@ -4508,6 +4520,7 @@ function AgentThinkingTabContent({
           dimensionName: safeString(data.dimensionName),
           agentName: safeString(data.agentName),
           timestamp: new Date(e.timestamp),
+          reviewResult: data.reviewResult as AgentActivity['reviewResult'],
         });
       }
       // 报告撰写事件
@@ -5125,6 +5138,18 @@ function ActivityItem({
     dimensionName?: string;
     agentName?: string;
     timestamp: Date;
+    reviewResult?: {
+      qualityLevel?: string;
+      overallScore?: number;
+      scores?: Record<string, number>;
+      issueCount?: number;
+      suggestions?: string[];
+      needsReresearch?: boolean;
+      type?: string;
+      dimensionCount?: number;
+      recommendations?: string[];
+      dimensionsToReresearch?: string[];
+    };
   };
 }) {
   const eventTypeColors: Record<string, string> = {
@@ -5145,6 +5170,92 @@ function ActivityItem({
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-sm text-gray-700">{activity.content}</p>
+
+        {/* ★ 审核结果展示 */}
+        {activity.reviewResult && (
+          <div className="mt-1.5 rounded-md bg-gray-50 p-2">
+            {activity.reviewResult.overallScore !== undefined && (
+              <div className="flex items-center gap-2">
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                    activity.reviewResult.qualityLevel === 'excellent'
+                      ? 'bg-green-100 text-green-700'
+                      : activity.reviewResult.qualityLevel === 'good'
+                        ? 'bg-blue-100 text-blue-700'
+                        : activity.reviewResult.qualityLevel === 'acceptable'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : 'bg-red-100 text-red-700'
+                  }`}
+                >
+                  {activity.reviewResult.qualityLevel === 'excellent'
+                    ? '优秀'
+                    : activity.reviewResult.qualityLevel === 'good'
+                      ? '良好'
+                      : activity.reviewResult.qualityLevel === 'acceptable'
+                        ? '合格'
+                        : activity.reviewResult.qualityLevel ===
+                            'needs_revision'
+                          ? '需修订'
+                          : '不通过'}
+                </span>
+                <span className="text-xs font-semibold text-gray-700">
+                  {activity.reviewResult.overallScore}分
+                </span>
+              </div>
+            )}
+            {activity.reviewResult.scores && (
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-500">
+                {Object.entries(activity.reviewResult.scores).map(
+                  ([key, val]) => (
+                    <span key={key}>
+                      {key === 'breadth'
+                        ? '广度'
+                        : key === 'depth'
+                          ? '深度'
+                          : key === 'evidence'
+                            ? '证据'
+                            : key === 'coherence'
+                              ? '连贯'
+                              : key === 'currency'
+                                ? '时效'
+                                : key}
+                      : {val as number}
+                    </span>
+                  )
+                )}
+              </div>
+            )}
+            {activity.reviewResult.suggestions &&
+              activity.reviewResult.suggestions.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {activity.reviewResult.suggestions.map((s, i) => (
+                    <p key={i} className="text-[10px] text-gray-500">
+                      • {s}
+                    </p>
+                  ))}
+                </div>
+              )}
+            {activity.reviewResult.recommendations &&
+              activity.reviewResult.recommendations.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {activity.reviewResult.recommendations.map((r, i) => (
+                    <p key={i} className="text-[10px] text-gray-500">
+                      • {r}
+                    </p>
+                  ))}
+                </div>
+              )}
+            {activity.reviewResult.needsReresearch && (
+              <p className="mt-1 text-[10px] font-medium text-orange-600">
+                需要重新研究
+                {activity.reviewResult.dimensionsToReresearch?.length
+                  ? `：${activity.reviewResult.dimensionsToReresearch.join('、')}`
+                  : ''}
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="mt-1 flex items-center gap-2 text-[10px] text-gray-400">
           {activity.dimensionName && <span>{activity.dimensionName}</span>}
           {activity.agentName && <span>• {activity.agentName}</span>}

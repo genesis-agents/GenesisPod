@@ -19,6 +19,8 @@ import {
   Mail,
   HardDrive,
   Coins,
+  CreditCard,
+  Bell,
   MessageSquare,
   ScrollText,
   Activity,
@@ -130,10 +132,22 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         icon: Users,
       },
       {
+        key: 'permissions',
+        labelKey: 'admin.nav.permissions',
+        href: '/admin/access/permissions',
+        icon: Shield,
+      },
+      {
         key: 'credits',
         labelKey: 'admin.nav.credits',
         href: '/admin/access/credits',
         icon: Coins,
+      },
+      {
+        key: 'billing',
+        labelKey: 'admin.nav.billing',
+        href: '/admin/access/billing',
+        icon: CreditCard,
       },
       {
         key: 'secrets',
@@ -178,6 +192,12 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         labelKey: 'admin.nav.storage',
         href: '/admin/system/storage',
         icon: HardDrive,
+      },
+      {
+        key: 'notifications',
+        labelKey: 'admin.nav.notifications',
+        href: '/admin/system/notifications',
+        icon: Bell,
       },
       {
         key: 'logs',

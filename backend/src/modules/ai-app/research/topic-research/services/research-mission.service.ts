@@ -2128,6 +2128,31 @@ export class ResearchMissionService {
                 dimension.name,
                 review,
               );
+
+              // ★ 发送维度审核结果事件（包含评分和结论）
+              await this.researchEventEmitter.emitAgentWorking(
+                topic.id,
+                {
+                  agentId: task.assignedAgent,
+                  agentName: "质量审核员",
+                  agentRole: "reviewer",
+                  status: "working",
+                  taskDescription: `维度「${dimension.name}」审核完成`,
+                  progress: reviewProgress,
+                  modelId: assignedModelId,
+                  dimensionId: dimension.id,
+                  dimensionName: dimension.name,
+                  reviewResult: {
+                    qualityLevel: review.qualityLevel,
+                    overallScore: review.overallScore,
+                    scores: review.scores,
+                    issueCount: review.issues.length,
+                    suggestions: review.suggestions.slice(0, 3),
+                    needsReresearch: review.needsReresearch,
+                  },
+                },
+                missionId,
+              );
             } catch (error) {
               this.logger.warn(
                 `Failed to review dimension ${dimension.name}: ${error}`,
@@ -2152,26 +2177,39 @@ export class ResearchMissionService {
                   missionId,
                   overallReview,
                 );
+
+                // ★ 发送整体审核结果事件
+                await this.researchEventEmitter.emitAgentWorking(
+                  topic.id,
+                  {
+                    agentId: task.assignedAgent,
+                    agentName: "质量审核员",
+                    agentRole: "reviewer",
+                    status: "completed",
+                    taskDescription: `质量审核完成：${overallReview.qualityLevel === "excellent" ? "优秀" : overallReview.qualityLevel === "good" ? "良好" : overallReview.qualityLevel === "acceptable" ? "合格" : "需修订"} (${overallReview.overallScore}分)`,
+                    progress: 100,
+                    modelId: assignedModelId,
+                    reviewResult: {
+                      type: "overall",
+                      qualityLevel: overallReview.qualityLevel,
+                      overallScore: overallReview.overallScore,
+                      dimensionCount: dimensionReviews.length,
+                      recommendations: overallReview.recommendations.slice(
+                        0,
+                        5,
+                      ),
+                      needsReresearch: overallReview.needsReresearch,
+                      dimensionsToReresearch:
+                        overallReview.dimensionsToReresearch,
+                    },
+                  },
+                  missionId,
+                );
               }
             } catch (error) {
               this.logger.warn(`Failed to perform overall review: ${error}`);
             }
           }
-
-          // 更新最终进度
-          await this.researchEventEmitter.emitAgentWorking(
-            topic.id,
-            {
-              agentId: task.assignedAgent,
-              agentName: "质量审核员",
-              agentRole: "reviewer",
-              status: "working",
-              taskDescription: "质量审核完成",
-              progress: 100,
-              modelId: assignedModelId,
-            },
-            missionId,
-          );
 
           result = {
             reviewedTasks: completedTasks.length,

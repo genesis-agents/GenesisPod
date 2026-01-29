@@ -2053,6 +2053,89 @@
       "unsavedChanges": "{count} unsaved changes",
       "rulesSaved": "Credit rules saved successfully"
     },
+    "permissions": {
+      "title": "Permissions Management",
+      "description": "Role distribution overview and administrator management",
+      "loading": "Loading permissions...",
+      "adminList": "Administrator List",
+      "noAdmins": "No administrators found",
+      "stats": {
+        "adminCount": "Administrators",
+        "regularUsers": "Regular Users",
+        "activeUsers": "Active Users",
+        "recentNew": "New (7 days)"
+      },
+      "columns": {
+        "email": "Email",
+        "username": "Username",
+        "role": "Role",
+        "createdAt": "Created At",
+        "lastLogin": "Last Login"
+      },
+      "errors": {
+        "fetchFailed": "Failed to load permissions data"
+      }
+    },
+    "billing": {
+      "title": "Billing Management",
+      "description": "Credit consumption analytics and usage trends",
+      "loading": "Loading billing data...",
+      "byModule": "Spending by Module",
+      "byModel": "Spending by Model",
+      "dailyTrend": "Daily Trend (Last 14 Days)",
+      "noData": "No data available",
+      "stats": {
+        "totalSpent": "Total Spent",
+        "todaySpent": "Today Spent",
+        "monthSpent": "This Month",
+        "activeSpenders": "Active Spenders"
+      },
+      "columns": {
+        "module": "Module",
+        "model": "Model",
+        "spent": "Credits Spent",
+        "tokens": "Tokens",
+        "calls": "Calls",
+        "date": "Date",
+        "bar": "Volume"
+      },
+      "errors": {
+        "fetchFailed": "Failed to load billing data"
+      }
+    },
+    "notifications": {
+      "title": "Notification Management",
+      "description": "View notification statistics and send system broadcasts",
+      "loading": "Loading notifications...",
+      "broadcast": "Send Broadcast",
+      "titlePlaceholder": "Notification title...",
+      "messagePlaceholder": "Notification message...",
+      "sendButton": "Send to All Users",
+      "broadcastSuccess": "Notification sent to {count} users",
+      "recentTitle": "Recent Notifications",
+      "noNotifications": "No notifications found",
+      "read": "Read",
+      "unread": "Unread",
+      "previous": "Previous",
+      "next": "Next",
+      "stats": {
+        "totalCount": "Total Notifications",
+        "todayCount": "Today Sent",
+        "unreadRate": "Unread Rate",
+        "typeCount": "Types"
+      },
+      "columns": {
+        "type": "Type",
+        "title": "Title",
+        "user": "User",
+        "time": "Time",
+        "status": "Status"
+      },
+      "errors": {
+        "fetchFailed": "Failed to load notifications",
+        "broadcastFailed": "Failed to send broadcast"
+      }
+    },
     "feedback": {
       "title": "Feedback Management",
       "description": "View and manage user feedback and bug reports",

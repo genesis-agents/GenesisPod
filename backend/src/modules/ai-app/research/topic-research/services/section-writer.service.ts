@@ -21,7 +21,12 @@ import {
   formatEvidenceForPrompt,
   renderPromptTemplate,
 } from "../prompts/dimension-research.prompt";
-import type { EvidenceData } from "../types/research.types";
+import type {
+  EvidenceData,
+  GeneratedChart,
+  FigureReference,
+  ExtractedFigure,
+} from "../types/research.types";
 
 /**
  * 内容质量检查阈值
@@ -49,6 +54,8 @@ export interface SectionWriteResult {
   content: string;
   wordCount: number;
   referencesUsed: string[];
+  generatedCharts?: GeneratedChart[];
+  figureReferences?: FigureReference[];
 }
 
 /**
@@ -141,6 +148,8 @@ export class SectionWriterService {
       freshnessRequirement:
         temporalContext?.freshnessRequirement ||
         "不限制时间范围，但建议优先使用最近的数据",
+      // ★ 图片资源列表
+      figuresList: this.formatFiguresForSection(evidenceData),
     };
 
     // 渲染用户提示词
@@ -177,7 +186,11 @@ export class SectionWriterService {
     }
 
     // 提取内容（移除可能的 markdown 代码块包装）
-    const content = this.extractContent(response.content);
+    const rawContent = this.extractContent(response.content);
+
+    // 解析图表数据
+    const { markdown, charts } = this.parseChartOutput(rawContent);
+    const content = markdown;
 
     // ★ 检查内容质量（长度检查）
     const minLength = Math.max(
@@ -198,7 +211,7 @@ export class SectionWriterService {
     const referencesUsed = this.extractReferences(content);
 
     this.logger.log(
-      `[writeSection] Completed ${section.title}: ${wordCount} chars, ${referencesUsed.length} refs, ${latencyMs}ms`,
+      `[writeSection] Completed ${section.title}: ${wordCount} chars, ${referencesUsed.length} refs, ${charts.generatedCharts.length} charts, ${latencyMs}ms`,
     );
 
     return {
@@ -207,6 +220,8 @@ export class SectionWriterService {
       content,
       wordCount,
       referencesUsed,
+      generatedCharts: charts.generatedCharts,
+      figureReferences: charts.figureReferences,
     };
   }
 
@@ -280,7 +295,9 @@ export class SectionWriterService {
     }
 
     // 提取内容
-    const content = this.extractContent(response.content);
+    const rawContent = this.extractContent(response.content);
+    const { markdown, charts } = this.parseChartOutput(rawContent);
+    const content = markdown;
 
     // ★ 检查内容质量（长度检查）
     const minLength = Math.max(
@@ -310,6 +327,8 @@ export class SectionWriterService {
       content,
       wordCount,
       referencesUsed,
+      generatedCharts: charts.generatedCharts,
+      figureReferences: charts.figureReferences,
     };
   }
 
@@ -596,6 +615,152 @@ export class SectionWriterService {
     }
 
     return parts.length > 0 ? parts.join("\n\n") : "无特殊指导";
+  }
+
+  /**
+   * 解析混合输出（markdown + 图表 JSON）
+   */
+  private parseChartOutput(raw: string): {
+    markdown: string;
+    charts: {
+      generatedCharts: GeneratedChart[];
+      figureReferences: FigureReference[];
+    };
+  } {
+    const separator = "---CHARTS---";
+    const idx = raw.indexOf(separator);
+    if (idx === -1) {
+      return {
+        markdown: raw,
+        charts: { generatedCharts: [], figureReferences: [] },
+      };
+    }
+    const markdown = raw.substring(0, idx).trim();
+    const jsonPart = raw.substring(idx + separator.length).trim();
+    try {
+      const parsed = JSON.parse(this.extractJsonBlock(jsonPart));
+      if (typeof parsed !== "object" || parsed === null) {
+        this.logger.warn(
+          "[parseChartOutput] Parsed chart data is not an object",
+        );
+        return {
+          markdown,
+          charts: { generatedCharts: [], figureReferences: [] },
+        };
+      }
+      return {
+        markdown,
+        charts: {
+          generatedCharts: this.normalizeGeneratedCharts(
+            parsed.generatedCharts,
+          ),
+          figureReferences: this.normalizeFigureReferences(
+            parsed.figureReferences,
+          ),
+        },
+      };
+    } catch {
+      this.logger.warn("[parseChartOutput] Failed to parse chart JSON");
+      return {
+        markdown,
+        charts: { generatedCharts: [], figureReferences: [] },
+      };
+    }
+  }
+
+  /**
+   * 提取 JSON 块（移除可能的 ```json 包装）
+   */
+  private extractJsonBlock(text: string): string {
+    let content = text.trim();
+    if (content.startsWith("```json")) {
+      content = content.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+    } else if (content.startsWith("```")) {
+      content = content.replace(/^```\s*/, "").replace(/\s*```$/, "");
+    }
+    return content.trim();
+  }
+
+  /**
+   * 标准化图表引用列表
+   */
+  private normalizeFigureReferences(
+    refs: FigureReference[] | undefined,
+  ): FigureReference[] {
+    if (!refs || !Array.isArray(refs)) {
+      return [];
+    }
+    return refs.map((ref, idx) => ({
+      id: ref.id || `fig-${idx}`,
+      evidenceCitationIndex: ref.evidenceCitationIndex || 0,
+      figureIndex: ref.figureIndex || 0,
+      imageUrl: ref.imageUrl,
+      caption: ref.caption || "",
+      position: ref.position || `after_paragraph_${idx + 1}`,
+      source: ref.source,
+      relevance: ref.relevance,
+    }));
+  }
+
+  /**
+   * 标准化生成图表列表
+   */
+  private normalizeGeneratedCharts(
+    charts: GeneratedChart[] | undefined,
+  ): GeneratedChart[] {
+    if (!charts || !Array.isArray(charts)) {
+      return [];
+    }
+    return charts.map((chart, idx) => ({
+      id: chart.id || `chart-${idx}`,
+      type: this.validateChartType(chart.type),
+      title: chart.title || `图表 ${idx + 1}`,
+      position: chart.position || `after_paragraph_${idx + 1}`,
+      data: Array.isArray(chart.data) ? chart.data : [],
+      source: chart.source || "基于证据数据生成",
+      reason: chart.reason,
+    }));
+  }
+
+  /**
+   * 验证图表类型是否在支持列表内
+   */
+  private validateChartType(type: string | undefined): GeneratedChart["type"] {
+    const validTypes: GeneratedChart["type"][] = [
+      "line",
+      "bar",
+      "pie",
+      "area",
+      "radar",
+    ];
+    if (type && validTypes.includes(type as GeneratedChart["type"])) {
+      return type as GeneratedChart["type"];
+    }
+    return "bar";
+  }
+
+  /**
+   * 格式化证据中的图片列表（用于图表生成提示）
+   */
+  private formatFiguresForSection(evidenceData: EvidenceData[]): string {
+    const figureEntries: string[] = [];
+    for (let i = 0; i < evidenceData.length; i++) {
+      const evidence = evidenceData[i] as EvidenceData & {
+        extractedFigures?: ExtractedFigure[];
+      };
+      if (evidence.extractedFigures && evidence.extractedFigures.length > 0) {
+        for (let j = 0; j < evidence.extractedFigures.length; j++) {
+          const fig = evidence.extractedFigures[j];
+          figureEntries.push(
+            `- 证据[${i + 1}] 图${j}: ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (URL: ${fig.imageUrl})`,
+          );
+        }
+      }
+    }
+    if (figureEntries.length === 0) {
+      return "无可用图片资源";
+    }
+    return figureEntries.join("\n");
   }
 
   /**

@@ -228,8 +228,9 @@ const infrastructureLayer: ArchitectureLayer = {
         {
           id: 'permissions',
           i18nKey: 'admin.nav.permissions',
+          href: '/admin/access/permissions',
           icon: Shield,
-          clickable: false,
+          clickable: true,
         },
         {
           id: 'secrets',
@@ -254,14 +255,16 @@ const infrastructureLayer: ArchitectureLayer = {
         {
           id: 'billing',
           i18nKey: 'admin.nav.billing',
+          href: '/admin/access/billing',
           icon: CreditCard,
-          clickable: false,
+          clickable: true,
         },
         {
           id: 'notifications',
           i18nKey: 'admin.nav.notifications',
+          href: '/admin/system/notifications',
           icon: Bell,
-          clickable: false,
+          clickable: true,
         },
       ],
     },

@@ -47,6 +47,8 @@ import type {
   EvidenceData,
   DimensionAnalysisResult,
   EnrichedEvidenceData,
+  GeneratedChart,
+  FigureReference,
 } from "../types/research.types";
 import { AgentActivityType } from "@prisma/client";
 import {
@@ -663,6 +665,17 @@ export class DimensionMissionService {
         },
       );
 
+      // ★ 汇总所有章节的图表
+      const allGeneratedCharts = sectionResults.flatMap(
+        (r) => r.generatedCharts || [],
+      );
+      const allFigureReferences = sectionResults.flatMap(
+        (r) => r.figureReferences || [],
+      );
+      this.logger.log(
+        `${logPrefix} Charts from sections: ${allFigureReferences.length} refs, ${allGeneratedCharts.length} generated`,
+      );
+
       // 6. 保存证据到数据库并替换临时ID
       let savedEvidenceIds: string[] = [];
       let finalIntegratedResult = integratedResult;
@@ -689,6 +702,16 @@ export class DimensionMissionService {
             ),
           };
         }
+
+        // ★ 映射图表引用中的 evidenceCitationIndex
+        if (indexMapping.size > 0) {
+          for (const ref of allFigureReferences) {
+            const mapped = indexMapping.get(ref.evidenceCitationIndex);
+            if (mapped !== undefined) {
+              ref.evidenceCitationIndex = mapped;
+            }
+          }
+        }
       }
 
       // 7. 转换为标准结果格式
@@ -696,6 +719,8 @@ export class DimensionMissionService {
         dimension.id,
         finalIntegratedResult,
         savedEvidenceIds,
+        allFigureReferences,
+        allGeneratedCharts,
       );
 
       // 8. ★ 更新维度状态为 COMPLETED
@@ -895,6 +920,10 @@ export class DimensionMissionService {
             section,
             result.content,
             revisionCount,
+            {
+              generatedCharts: result.generatedCharts,
+              figureReferences: result.figureReferences,
+            },
           );
 
           if (review.approved) {
@@ -1051,6 +1080,7 @@ export class DimensionMissionService {
       // ★ 新增：完整内容和内容来源
       fullContent: item.fullContent,
       contentSource: item.contentSource,
+      extractedFigures: item.extractedFigures,
     }));
   }
 
@@ -1326,6 +1356,8 @@ export class DimensionMissionService {
     dimensionId: string,
     integratedResult: IntegratedDimensionResult,
     evidenceIds: string[],
+    figureReferences: FigureReference[] = [],
+    generatedCharts: GeneratedChart[] = [],
   ): DimensionAnalysisResult {
     return {
       dimensionId,
@@ -1342,6 +1374,8 @@ export class DimensionMissionService {
       evidenceUsed: evidenceIds.length,
       confidenceLevel: integratedResult.metadata.confidenceLevel,
       detailedContent: integratedResult.content,
+      figureReferences,
+      generatedCharts,
     };
   }
 

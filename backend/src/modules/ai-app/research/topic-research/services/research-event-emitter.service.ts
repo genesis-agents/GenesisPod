@@ -108,6 +108,19 @@ export interface AgentWorkingData {
       documentId?: string;
     }>;
   };
+  /** ★ 审核结果数据（用于展示质量审核详情） */
+  reviewResult?: {
+    type?: string;
+    qualityLevel?: string;
+    overallScore?: number;
+    scores?: Record<string, number>;
+    issueCount?: number;
+    suggestions?: string[];
+    needsReresearch?: boolean;
+    dimensionCount?: number;
+    recommendations?: string[];
+    dimensionsToReresearch?: string[];
+  };
 }
 
 /**

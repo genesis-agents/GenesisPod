@@ -1,0 +1,18 @@
+import { Controller, Get, UseGuards, Logger } from "@nestjs/common";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../common/guards/admin.guard";
+import { PermissionsService } from "./services/permissions.service";
+
+@Controller("admin")
+@UseGuards(JwtAuthGuard, AdminGuard)
+export class PermissionsAdminController {
+  private readonly logger = new Logger(PermissionsAdminController.name);
+
+  constructor(private permissionsService: PermissionsService) {}
+
+  @Get("permissions/overview")
+  async getPermissionsOverview() {
+    this.logger.log("Admin: Fetching permissions overview");
+    return this.permissionsService.getPermissionsOverview();
+  }
+}
