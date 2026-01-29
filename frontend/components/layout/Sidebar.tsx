@@ -147,131 +147,36 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         className={`flex flex-shrink-0 items-center overflow-hidden px-4 py-2.5 ${!showExpanded ? 'justify-center' : ''}`}
       >
         {!showExpanded ? (
-          /* Collapsed Logo - Raven flock (simplified for small size) */
+          /* Collapsed Logo - R monogram */
           <Link
             href="/"
-            className="group relative"
+            className="group relative flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 shadow-sm transition-all duration-300 group-hover:shadow-md"
             title="Raven - AI Teams Engine"
           >
-            <svg
-              className="h-9 w-9 transition-transform duration-300 group-hover:scale-105"
-              viewBox="0 0 32 32"
-              fill="none"
-            >
-              {/* Lead bird - bold */}
-              <path
-                d="M9 13 C12 7 13.5 5 16 4 C18.5 5 20 7 23 13"
-                stroke="#1E3A8A"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              {/* Second row */}
-              <path
-                d="M3 20 C5.5 15 7 13 9 12 C11 13 12.5 15 15 20"
-                stroke="#2563EB"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              <path
-                d="M17 19 C19.5 14 21 12 23 11 C25 12 26.5 14 29 19"
-                stroke="#2563EB"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              {/* Third row */}
-              <path
-                d="M6 27 C8 23.5 9 22 10.5 21.5 C12 22 13 23.5 15 27"
-                stroke="#3B82F6"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              <path
-                d="M17 27 C19 23.5 20 22 21.5 21.5 C23 22 24 23.5 26 27"
-                stroke="#3B82F6"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </svg>
+            <span className="text-[18px] font-black text-white">R</span>
           </Link>
         ) : (
-          /* Expanded Logo - Raven flock + Text */
+          /* Expanded Logo - R mark + Text */
           <Link
             href="/"
-            className="group relative flex items-center gap-3"
+            className="group relative flex items-center gap-2.5"
             title="Raven - AI Teams Engine"
           >
-            <svg
-              className="h-10 w-10 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
-              viewBox="0 0 32 32"
-              fill="none"
-            >
-              {/* Lead bird - bold */}
-              <path
-                d="M9 13 C12 7 13.5 5 16 4 C18.5 5 20 7 23 13"
-                stroke="#1E3A8A"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              {/* Second row */}
-              <path
-                d="M3 20 C5.5 15 7 13 9 12 C11 13 12.5 15 15 20"
-                stroke="#2563EB"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              <path
-                d="M17 19 C19.5 14 21 12 23 11 C25 12 26.5 14 29 19"
-                stroke="#2563EB"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              {/* Third row */}
-              <path
-                d="M6 27 C8 23.5 9 22 10.5 21.5 C12 22 13 23.5 15 27"
-                stroke="#3B82F6"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              <path
-                d="M17 27 C19 23.5 20 22 21.5 21.5 C23 22 24 23.5 26 27"
-                stroke="#3B82F6"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </svg>
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 shadow-sm transition-all duration-300 group-hover:shadow-md">
+              <span className="text-[18px] font-black text-white">R</span>
+            </div>
 
-            <div className="flex flex-col gap-0.5 leading-none">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[16px] font-extrabold italic tracking-wide">
-                  <span className="text-[#1E3A8A]">R</span>
-                  <span className="text-slate-800">AVEN</span>
+            <div className="flex flex-col leading-none">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-[15px] font-bold tracking-wide text-slate-800">
+                  RAVEN
                 </span>
-                <span className="rounded-sm bg-gradient-to-r from-blue-500 to-indigo-500 px-1 py-0.5 text-[7px] font-bold text-white">
-                  v{process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0'}
+                <span className="rounded bg-slate-100 px-1 py-0.5 text-[8px] font-medium text-slate-500">
+                  {process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0'}
                 </span>
               </div>
-              <span className="animate-shimmer bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-[length:200%_100%] bg-clip-text text-[10px] font-semibold italic tracking-[0.2em] text-transparent">
-                AI TEAMS ENGINE
+              <span className="animate-shimmer bg-gradient-to-r from-blue-500 via-violet-500 to-blue-500 bg-[length:200%_100%] bg-clip-text text-[10px] font-medium tracking-[0.12em] text-transparent">
+                AI Teams Engine
               </span>
             </div>
           </Link>

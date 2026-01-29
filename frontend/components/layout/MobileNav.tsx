@@ -418,54 +418,11 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       >
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <svg className="h-8 w-8" viewBox="0 0 32 32" fill="none">
-            {/* Lead bird */}
-            <path
-              d="M9 13 C12 7 13.5 5 16 4 C18.5 5 20 7 23 13"
-              stroke="#1E3A8A"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-            {/* Second row */}
-            <path
-              d="M3 20 C5.5 15 7 13 9 12 C11 13 12.5 15 15 20"
-              stroke="#2563EB"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-            <path
-              d="M17 19 C19.5 14 21 12 23 11 C25 12 26.5 14 29 19"
-              stroke="#2563EB"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-            {/* Third row */}
-            <path
-              d="M6 27 C8 23.5 9 22 10.5 21.5 C12 22 13 23.5 15 27"
-              stroke="#3B82F6"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-            <path
-              d="M17 27 C19 23.5 20 22 21.5 21.5 C23 22 24 23.5 26 27"
-              stroke="#3B82F6"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-          </svg>
-          <span className="text-lg font-extrabold italic tracking-wide">
-            <span className="text-[#1E3A8A]">R</span>
-            <span className="text-slate-800">AVEN</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700">
+            <span className="text-[16px] font-black text-white">R</span>
+          </div>
+          <span className="text-[15px] font-bold tracking-wide text-slate-800">
+            RAVEN
           </span>
         </Link>
 

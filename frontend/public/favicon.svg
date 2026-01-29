@@ -1,11 +1,10 @@
 <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Raven: AI Teams Engine Logo - Flock of birds -->
-  <!-- Lead bird -->
-  <path d="M9 13 C12 7 13.5 5 16 4 C18.5 5 20 7 23 13" stroke="#1E3A8A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-  <!-- Second row -->
-  <path d="M3 20 C5.5 15 7 13 9 12 C11 13 12.5 15 15 20" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-  <path d="M17 19 C19.5 14 21 12 23 11 C25 12 26.5 14 29 19" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-  <!-- Third row -->
-  <path d="M6 27 C8 23.5 9 22 10.5 21.5 C12 22 13 23.5 15 27" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-  <path d="M17 27 C19 23.5 20 22 21.5 21.5 C23 22 24 23.5 26 27" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#4338CA"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#bg)"/>
+  <text x="16" y="23" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="900" fill="white">R</text>
 </svg>
