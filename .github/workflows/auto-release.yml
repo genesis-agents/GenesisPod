@@ -1,21 +1,18 @@
 name: Auto Release
 
-# 仅在 main 分支 push 且 CI 通过后触发
+# 每次 push main 自动升版本号
 # 跳过 standard-version 自己生成的 "chore(release)" commit，避免死循环
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  push:
     branches: [main]
 
 jobs:
   release:
     name: Auto Version Bump
     runs-on: ubuntu-latest
-    # 仅在 CI 成功 且 触发者不是 bot（防止循环）时执行
+    # 跳过 release commit 防止循环
     if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      !contains(github.event.workflow_run.head_commit.message, 'chore(release)')
+      !contains(github.event.head_commit.message, 'chore(release)')
     permissions:
       contents: write
 
