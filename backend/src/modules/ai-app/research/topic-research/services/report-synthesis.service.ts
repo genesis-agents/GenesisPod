@@ -308,7 +308,19 @@ export class ReportSynthesisService {
     );
 
     // 8. ★ 合并图表：收集的图表 + AI 生成的图表
-    const allCharts = [...collectedCharts, ...(synthesisResult.charts || [])];
+    // 过滤掉仅有外部 imageUrl 的引用图表（AI 虚构的外部 URL 始终 404）
+    const allCharts = [
+      ...collectedCharts,
+      ...(synthesisResult.charts || []),
+    ].filter((chart) => {
+      if (chart.chartType === "reference" && chart.imageUrl && !chart.data) {
+        this.logger.warn(
+          `[synthesizeReport] Removing reference chart with external URL: ${chart.id}`,
+        );
+        return false;
+      }
+      return true;
+    });
 
     // 8.5 ★ 清理孤儿图表占位符（markdown 中引用但 charts 数组中不存在的）
     const chartIdSet = new Set(allCharts.map((c) => c.id));
