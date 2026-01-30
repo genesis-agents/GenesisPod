@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 /* Recharts sr-only tables overflow fix: prevent hidden accessibility tables from expanding scroll width */
-.recharts-wrapper table.sr-only {
+.prose table.sr-only {
   width: 1px !important;
   overflow: hidden !important;
 }
