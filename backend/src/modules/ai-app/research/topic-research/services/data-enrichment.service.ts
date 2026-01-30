@@ -261,9 +261,14 @@ export class DataEnrichmentService {
                 result.url,
                 htmlContent,
               );
-              if (extractedFigures.length > 0) {
+              // ★ 过滤掉没有有效 imageUrl 的图表
+              const beforeFilter = extractedFigures.length;
+              extractedFigures = extractedFigures.filter(
+                (f) => f.imageUrl && f.imageUrl.trim(),
+              );
+              if (beforeFilter > 0) {
                 this.logger.debug(
-                  `Extracted ${extractedFigures.length} figures from ${result.domain || result.url}`,
+                  `Extracted ${beforeFilter} figures from ${result.domain || result.url}, ${beforeFilter - extractedFigures.length} filtered (no URL), ${extractedFigures.length} valid`,
                 );
               }
             }

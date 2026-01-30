@@ -2063,18 +2063,16 @@ export function TopicDetailPage() {
     }
   }, [topicId, isConnected, joinTopicRoom, leaveTopicRoom]);
 
-  // Fallback polling for messages when WebSocket might not be connected
-  // This ensures messages are refreshed even if WebSocket fails
+  // Fallback polling for messages only when WebSocket is NOT connected
   useEffect(() => {
-    if (!topicId || !isAuthenticated) return;
+    if (!topicId || !isAuthenticated || isConnected) return;
 
-    // Poll for new messages every 10 seconds as a fallback
     const intervalId = setInterval(() => {
       fetchMessages(topicId);
-    }, 10000);
+    }, 30000); // 30s instead of 10s to reduce server load
 
     return () => clearInterval(intervalId);
-  }, [topicId, isAuthenticated, fetchMessages]);
+  }, [topicId, isAuthenticated, isConnected, fetchMessages]);
 
   // Fallback: Re-sync online status when WebSocket reconnects or periodically
   // This helps in proxy environments where WebSocket events might be lost
