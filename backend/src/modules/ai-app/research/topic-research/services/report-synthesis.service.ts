@@ -310,6 +310,19 @@ export class ReportSynthesisService {
     // 8. ★ 合并图表：收集的图表 + AI 生成的图表
     const allCharts = [...collectedCharts, ...(synthesisResult.charts || [])];
 
+    // 8.5 ★ 清理孤儿图表占位符（markdown 中引用但 charts 数组中不存在的）
+    const chartIdSet = new Set(allCharts.map((c) => c.id));
+    const cleanedReport = fullReportFromDimensions.replace(
+      /<!-- chart:([^\s]+?) -->/g,
+      (match, chartId) => {
+        if (chartIdSet.has(chartId)) return match;
+        this.logger.warn(
+          `[synthesizeReport] Removing orphan chart placeholder: ${chartId}`,
+        );
+        return ""; // strip orphaned placeholder
+      },
+    );
+
     // 9. 计算统计数据
     const totalSources = allEvidences.length;
 
@@ -320,8 +333,8 @@ export class ReportSynthesisService {
       where: { id: reportId },
       data: {
         executiveSummary: synthesisResult.executiveSummary,
-        // ★ 使用拼接版本的 fullReport（而非 AI 重写版本）
-        fullReport: fullReportFromDimensions,
+        // ★ 使用拼接版本的 fullReport（清理孤儿占位符后）
+        fullReport: cleanedReport,
         highlights:
           synthesisResult.highlights as unknown as Prisma.InputJsonValue,
         charts: allCharts as unknown as Prisma.InputJsonValue,
