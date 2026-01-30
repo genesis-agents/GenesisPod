@@ -2033,7 +2033,8 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "topicId", description: "专题ID" })
   @ApiParam({ name: "reportId", description: "报告ID" })
-  @ApiResponse({ status: 200, description: "返回更新后的报告" })
+  @ApiResponse({ status: 202, description: "已接受，后台处理中" })
+  @HttpCode(202)
   async regenerateReportContent(
     @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
@@ -2043,7 +2044,16 @@ export class TopicResearchController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    return this.topicResearchService.regenerateReportContent(userId, reportId);
+    // 异步执行，立即返回 202
+    this.topicResearchService
+      .regenerateReportContent(userId, reportId)
+      .catch((err) => {
+        this.logger.error(
+          `[regenerateReportContent] Background regeneration failed: ${err.message}`,
+          err.stack,
+        );
+      });
+    return { status: "processing", message: "报告正在重新生成中，请稍候" };
   }
 
   /**

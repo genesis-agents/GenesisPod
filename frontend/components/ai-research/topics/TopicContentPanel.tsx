@@ -32,6 +32,7 @@ import {
   aiEditReport,
   updateTopicVisibility,
   regenerateReportContent,
+  getReport,
   type ReportAnnotation as ApiReportAnnotation,
   type AIEditOperation as AIEditOperationType,
 } from '@/lib/api/topic-research';
@@ -433,22 +434,37 @@ export function TopicContentPanel({
   // ★ 重新生成报告状态
   const [isRegenerating, setIsRegenerating] = useState(false);
 
-  // ★ 重新生成报告处理函数
+  // ★ 重新生成报告处理函数（异步：后端立即返回 202，前端轮询等待完成）
   const handleRegenerateReport = useCallback(async () => {
     if (!topicId || !report?.id || isRegenerating) return;
 
     setIsRegenerating(true);
     try {
+      const beforeGeneratedAt = report.generatedAt;
       await regenerateReportContent(topicId, report.id);
-      // 刷新页面以获取新内容
+      setToast({ message: '报告正在重新生成中，请稍候...', type: 'success' });
+      // 轮询等待报告生成完成（generatedAt 变化表示完成）
+      const maxAttempts = 40; // 最多等待 ~2 分钟
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        try {
+          const updated = await getReport(topicId, report.id);
+          if (updated.generatedAt !== beforeGeneratedAt) {
+            window.location.reload();
+            return;
+          }
+        } catch {
+          // 忽略轮询错误，继续重试
+        }
+      }
+      // 超时后也刷新（可能已完成）
       window.location.reload();
     } catch (error) {
       logger.error('Failed to regenerate report:', error);
       setToast({ message: '重新生成报告失败，请稍后重试', type: 'error' });
-    } finally {
       setIsRegenerating(false);
     }
-  }, [topicId, report?.id, isRegenerating]);
+  }, [topicId, report?.id, report?.generatedAt, isRegenerating]);
 
   // ★ AI Edit Hook - 统一的 AI 编辑逻辑
   const aiEdit = useAIEdit({

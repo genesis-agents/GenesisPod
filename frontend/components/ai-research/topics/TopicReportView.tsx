@@ -14,6 +14,7 @@ import { useTranslation } from '@/lib/i18n';
 import {
   aiEditReport,
   regenerateReportContent,
+  getReport,
   type AIEditOperation as AIEditOperationType,
 } from '@/lib/api/topic-research';
 import { apiClient } from '@/lib/api/client';
@@ -149,22 +150,34 @@ export function TopicReportView({
     }
   }, []);
 
-  // Handle regenerate report content
+  // Handle regenerate report content（异步：后端 202，前端轮询）
   const handleRegenerateReport = useCallback(async () => {
     if (!topicId || !report?.id || isRegenerating) return;
 
     setIsRegenerating(true);
     try {
+      const beforeGeneratedAt = report.generatedAt;
       await regenerateReportContent(topicId, report.id);
-      // 刷新页面以获取新内容
+      const maxAttempts = 40;
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        try {
+          const updated = await getReport(topicId, report.id);
+          if (updated.generatedAt !== beforeGeneratedAt) {
+            window.location.reload();
+            return;
+          }
+        } catch {
+          // ignore polling errors
+        }
+      }
       window.location.reload();
     } catch (error) {
       logger.error('Failed to regenerate report:', error);
       alert('重新生成报告失败，请稍后重试');
-    } finally {
       setIsRegenerating(false);
     }
-  }, [topicId, report?.id, isRegenerating]);
+  }, [topicId, report?.id, report?.generatedAt, isRegenerating]);
 
   // Handle AI edit for report
   const handleAIEdit = useCallback(
