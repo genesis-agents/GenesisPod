@@ -83,7 +83,29 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
             const id = decodeURIComponent(href!.slice(1));
             const target = document.getElementById(id);
             if (target) {
-              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              // Find the nearest scrollable ancestor
+              let container: HTMLElement | null = target.parentElement;
+              while (container) {
+                const style = getComputedStyle(container);
+                if (
+                  (style.overflowY === 'auto' ||
+                    style.overflowY === 'scroll') &&
+                  container.scrollHeight > container.clientHeight
+                ) {
+                  break;
+                }
+                container = container.parentElement;
+              }
+              if (container) {
+                const containerRect = container.getBoundingClientRect();
+                const targetRect = target.getBoundingClientRect();
+                container.scrollTo({
+                  top: container.scrollTop + targetRect.top - containerRect.top,
+                  behavior: 'smooth',
+                });
+              } else {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
             }
           }
         : undefined;
