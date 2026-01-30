@@ -593,7 +593,15 @@ export class ReportSynthesisService {
       parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);
 
       // ★ 直接使用研究员生成的完整内容，但截断过长内容
-      let content = dim.detailedContent || dim.summary || "暂无详细内容";
+      let content = stripLeadingHeading(
+        dim.detailedContent || dim.summary || "暂无详细内容",
+      );
+      // ★ 降级维度内容中的标题层级：# → ###, ## → ###（维度章节本身是 ##）
+      content = content.replace(/^(#{1,2})\s+/gm, (match, hashes) => {
+        if (hashes === "#") return "### ";
+        if (hashes === "##") return "### ";
+        return match;
+      });
       if (content.length > MAX_DIMENSION_CHARS) {
         this.logger.warn(
           `[buildReport] Dimension "${dim.dimensionName}" content too long (${content.length} chars), truncating to ${MAX_DIMENSION_CHARS}`,
