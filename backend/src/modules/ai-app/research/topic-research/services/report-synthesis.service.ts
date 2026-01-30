@@ -355,6 +355,8 @@ export class ReportSynthesisService {
         totalDimensions: dimensionAnalyses.length,
         totalSources,
         generationTimeMs,
+        // ★ 更新生成时间，前端通过对比 generatedAt 检测再生成完成
+        generatedAt: new Date(),
       },
     });
 
