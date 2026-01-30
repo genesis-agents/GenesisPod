@@ -968,6 +968,10 @@ export class DimensionMissionService {
               generatedCharts: result.generatedCharts,
               figureReferences: result.figureReferences,
             },
+            sectionResults.map((r) => ({
+              title: r.title,
+              content: r.content,
+            })),
           );
 
           if (review.approved) {
