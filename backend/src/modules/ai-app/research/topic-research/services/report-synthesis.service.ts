@@ -5,6 +5,7 @@ import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils"
 import {
   sanitizeMarkdownContent,
   sanitizeAllStrings,
+  stripLeadingHeading,
 } from "@/common/utils/sanitize-content.utils";
 import { AIModelType, Prisma } from "@prisma/client";
 import type {
@@ -560,14 +561,14 @@ export class ReportSynthesisService {
     // 2. 前言（AI 生成）
     if (supplementaryContent.preface) {
       parts.push("## 前言\n");
-      parts.push(supplementaryContent.preface);
+      parts.push(stripLeadingHeading(supplementaryContent.preface));
       parts.push("\n");
     }
 
     // 3. 执行摘要（AI 生成）
     if (supplementaryContent.executiveSummary) {
       parts.push("## 执行摘要\n");
-      parts.push(supplementaryContent.executiveSummary);
+      parts.push(stripLeadingHeading(supplementaryContent.executiveSummary));
       parts.push("\n");
     }
 
@@ -586,12 +587,25 @@ export class ReportSynthesisService {
     parts.push(`${dimensionInputs.length + 3}. [战略建议](#战略建议)`);
     parts.push("\n---\n");
 
-    // 5. 各维度章节（直接使用 detailedContent）
+    // 5. 各维度章节（直接使用 detailedContent，但限制长度）
+    const MAX_DIMENSION_CHARS = 12000; // 约 4000 中文字（每字约 3 chars）
     dimensionInputs.forEach((dim, idx) => {
       parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);
 
-      // ★ 直接使用研究员生成的完整内容
+      // ★ 直接使用研究员生成的完整内容，但截断过长内容
       let content = dim.detailedContent || dim.summary || "暂无详细内容";
+      if (content.length > MAX_DIMENSION_CHARS) {
+        this.logger.warn(
+          `[buildReport] Dimension "${dim.dimensionName}" content too long (${content.length} chars), truncating to ${MAX_DIMENSION_CHARS}`,
+        );
+        // 在最近的段落边界截断
+        const truncated = content.substring(0, MAX_DIMENSION_CHARS);
+        const lastParagraph = truncated.lastIndexOf("\n\n");
+        content =
+          lastParagraph > MAX_DIMENSION_CHARS * 0.7
+            ? truncated.substring(0, lastParagraph)
+            : truncated;
+      }
 
       // ★ 转换 <!-- figure:N:M --> 占位符为 <!-- chart:chartId -->
       if (dim.figureReferences && dim.figureReferences.length > 0) {
@@ -626,28 +640,32 @@ export class ReportSynthesisService {
     // 6. 跨维度关联分析（AI 生成）
     if (supplementaryContent.crossDimensionAnalysis) {
       parts.push("## 跨维度关联分析\n");
-      parts.push(supplementaryContent.crossDimensionAnalysis);
+      parts.push(
+        stripLeadingHeading(supplementaryContent.crossDimensionAnalysis),
+      );
       parts.push("\n---\n");
     }
 
     // 7. 风险评估（AI 生成）
     if (supplementaryContent.riskAssessment) {
       parts.push("## 风险评估\n");
-      parts.push(supplementaryContent.riskAssessment);
+      parts.push(stripLeadingHeading(supplementaryContent.riskAssessment));
       parts.push("\n---\n");
     }
 
     // 8. 战略建议（AI 生成）
     if (supplementaryContent.strategicRecommendations) {
       parts.push("## 战略建议\n");
-      parts.push(supplementaryContent.strategicRecommendations);
+      parts.push(
+        stripLeadingHeading(supplementaryContent.strategicRecommendations),
+      );
       parts.push("\n---\n");
     }
 
     // 9. 结语（AI 生成）
     if (supplementaryContent.conclusion) {
       parts.push("## 结语\n");
-      parts.push(supplementaryContent.conclusion);
+      parts.push(stripLeadingHeading(supplementaryContent.conclusion));
       parts.push("\n");
     }
 
@@ -663,14 +681,21 @@ export class ReportSynthesisService {
     const charts: ReportChart[] = [];
     // ★ 跨维度去重：同一张图片只保留首次出现
     const seenImageUrls = new Set<string>();
+    // ★ 增强去重：生成图表按标题关键词去重（去除标点、空格后比较）
+    const seenTitleKeys = new Set<string>();
+
+    // ★ 限制每个维度最多收集的图表数量
+    const MAX_CHARTS_PER_DIMENSION = 5;
 
     dimensionInputs.forEach((dim, dimIndex) => {
       // ★ sectionId 对应章节编号（从1开始），用于章节视图匹配
       const sectionId = String(dimIndex + 1);
+      let dimChartCount = 0;
 
       // 收集引用图表（去重）
       if (dim.figureReferences && dim.figureReferences.length > 0) {
         dim.figureReferences.forEach((fig) => {
+          if (dimChartCount >= MAX_CHARTS_PER_DIMENSION) return;
           // ★ 按 imageUrl 去重，防止同一张图在不同维度重复出现
           if (fig.imageUrl && seenImageUrls.has(fig.imageUrl)) {
             return;
@@ -691,19 +716,24 @@ export class ReportSynthesisService {
             evidenceCitationIndex: fig.evidenceCitationIndex,
             source: fig.source || `来源：证据 [${fig.evidenceCitationIndex}]`,
           });
+          dimChartCount++;
         });
       }
 
       // 收集生成图表
       if (dim.generatedCharts && dim.generatedCharts.length > 0) {
         dim.generatedCharts.forEach((chart) => {
-          // ★ 按 title 去重，防止相似图表重复
-          const titleKey = chart.title?.trim().toLowerCase();
-          if (titleKey && seenImageUrls.has(`gen:${titleKey}`)) {
+          if (dimChartCount >= MAX_CHARTS_PER_DIMENSION) return;
+          // ★ 增强去重：规范化标题后比较（去除标点、空格、大小写）
+          const titleKey = chart.title
+            ?.trim()
+            .toLowerCase()
+            .replace(/[\s\-_:：，。、（）()【】\[\]]/g, "");
+          if (titleKey && seenTitleKeys.has(titleKey)) {
             return;
           }
           if (titleKey) {
-            seenImageUrls.add(`gen:${titleKey}`);
+            seenTitleKeys.add(titleKey);
           }
           charts.push({
             id: chart.id,
@@ -717,12 +747,13 @@ export class ReportSynthesisService {
             dimensionId: dim.dimensionId,
             dimensionName: dim.dimensionName,
           });
+          dimChartCount++;
         });
       }
     });
 
     this.logger.log(
-      `Collected ${charts.length} charts (${charts.filter((c) => c.chartType === "reference").length} references, ${charts.filter((c) => c.chartType === "generated").length} generated) [deduped by imageUrl]`,
+      `Collected ${charts.length} charts (${charts.filter((c) => c.chartType === "reference").length} references, ${charts.filter((c) => c.chartType === "generated").length} generated) [deduped by imageUrl+title, max ${MAX_CHARTS_PER_DIMENSION}/dim]`,
     );
 
     return charts;

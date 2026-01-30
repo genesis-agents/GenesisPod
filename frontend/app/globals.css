@@ -321,12 +321,26 @@ body {
   color: inherit;
 }
 
+/* Report prose container - prevent horizontal overflow */
+.prose {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
 /* Markdown Table Styles for prose class */
 .prose table {
   border-collapse: collapse;
   width: 100%;
   margin: 1em 0;
   font-size: 0.875em;
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 .prose table th,

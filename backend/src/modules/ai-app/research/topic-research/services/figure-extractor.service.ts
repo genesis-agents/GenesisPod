@@ -157,11 +157,15 @@ export class FigureExtractorService {
       this.isLikelyChart(fig.imageUrl, fig.caption, fig.alt),
     );
 
+    // 4. 限制每个 URL 最多提取的图表数量，避免低质量图片泛滥
+    const MAX_FIGURES_PER_URL = 3;
+    const limitedFigures = filteredFigures.slice(0, MAX_FIGURES_PER_URL);
+
     this.logger.debug(
-      `Extracted ${filteredFigures.length} figures from ${figures.length} images`,
+      `Extracted ${limitedFigures.length} figures from ${figures.length} images (filtered: ${filteredFigures.length}, max: ${MAX_FIGURES_PER_URL})`,
     );
 
-    return filteredFigures;
+    return limitedFigures;
   }
 
   /**

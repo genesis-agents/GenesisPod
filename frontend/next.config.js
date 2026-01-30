@@ -29,7 +29,16 @@ const packageJson = require('./package.json');
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['arxiv.org', 'github.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+      {
+        protocol: 'http',
+        hostname: '**',
+      },
+    ],
   },
   // ★ 关键配置：跳过静态生成，使用纯动态渲染
   // 这是一个需要用户认证和客户端状态的应用，静态生成无意义

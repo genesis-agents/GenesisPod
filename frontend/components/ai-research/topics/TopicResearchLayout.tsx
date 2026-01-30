@@ -272,7 +272,10 @@ export function TopicResearchLayout({
               <h1 className="text-lg font-bold text-gray-900">{topic.name}</h1>
               {topic.description && (
                 <p className="max-w-md truncate text-sm text-gray-500">
-                  {topic.description}
+                  {topic.description
+                    .replace(/#{1,6}\s|[*_~`>|]|\[([^\]]*)\]\([^)]*\)/g, '$1')
+                    .replace(/\s+/g, ' ')
+                    .trim()}
                 </p>
               )}
             </div>

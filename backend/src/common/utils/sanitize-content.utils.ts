@@ -95,6 +95,19 @@ export function sanitizeMarkdownContent(content: string): string {
 }
 
 /**
+ * 去除 AI 生成内容开头的重复标题
+ *
+ * AI 生成的"前言"、"执行摘要"等内容经常以标题开头（如 "## 前言\n" 或 "### 前言\n"），
+ * 但调用方已经添加了章节标题，导致出现双重标题。
+ * 此函数移除内容开头的 markdown 标题行（如果存在）。
+ */
+export function stripLeadingHeading(content: string): string {
+  if (!content) return content;
+  // 移除开头的空行 + 以 # 开头的标题行
+  return content.replace(/^\s*#{1,6}\s+[^\n]*\n?/, "").trimStart();
+}
+
+/**
  * 需要跳过清理的字段名（这些不是内容字段）
  */
 const SKIP_SANITIZE_FIELDS = new Set([
