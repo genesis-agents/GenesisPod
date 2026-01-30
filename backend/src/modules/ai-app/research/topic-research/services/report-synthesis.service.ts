@@ -608,6 +608,8 @@ export class ReportSynthesisService {
       }
 
       // ★ 转换 <!-- figure:N:M --> 占位符为 <!-- chart:chartId -->
+      // 使用维度前缀 "d{dimIndex}-" 确保全局唯一
+      const dimPrefix = `d${idx}-`;
       if (dim.figureReferences && dim.figureReferences.length > 0) {
         content = content.replace(
           /<!--\s*figure:(\d+):(\d+)\s*-->/g,
@@ -617,7 +619,7 @@ export class ReportSynthesisService {
                 r.evidenceCitationIndex === Number(evidenceIdx) &&
                 r.figureIndex === Number(figIdx),
             );
-            return ref ? `<!-- chart:${ref.id} -->` : _match;
+            return ref ? `<!-- chart:${dimPrefix}${ref.id} -->` : _match;
           },
         );
       }
@@ -627,7 +629,7 @@ export class ReportSynthesisService {
         content = this.injectChartPlaceholders(
           content,
           dim.generatedCharts.map((c) => ({
-            id: c.id,
+            id: `${dimPrefix}${c.id}`,
             position: c.position,
           })),
         );
@@ -690,6 +692,8 @@ export class ReportSynthesisService {
     dimensionInputs.forEach((dim, dimIndex) => {
       // ★ sectionId 对应章节编号（从1开始），用于章节视图匹配
       const sectionId = String(dimIndex + 1);
+      // ★ 维度前缀确保全局唯一 ID（与 buildFullReportFromDimensions 一致）
+      const dimPrefix = `d${dimIndex}-`;
       let dimChartCount = 0;
 
       // 收集引用图表（去重）
@@ -704,14 +708,13 @@ export class ReportSynthesisService {
             seenImageUrls.add(fig.imageUrl);
           }
           charts.push({
-            id: fig.id,
-            chartType: "reference", // 标记为引用图表
+            id: `${dimPrefix}${fig.id}`,
+            chartType: "reference",
             title: fig.caption,
             position: fig.position,
             sectionId,
             dimensionId: dim.dimensionId,
             dimensionName: dim.dimensionName,
-            // 引用图表特有字段
             imageUrl: fig.imageUrl,
             evidenceCitationIndex: fig.evidenceCitationIndex,
             source: fig.source || `来源：证据 [${fig.evidenceCitationIndex}]`,
@@ -736,8 +739,8 @@ export class ReportSynthesisService {
             seenTitleKeys.add(titleKey);
           }
           charts.push({
-            id: chart.id,
-            chartType: "generated", // 标记为生成图表
+            id: `${dimPrefix}${chart.id}`,
+            chartType: "generated",
             type: chart.type,
             title: chart.title,
             position: chart.position,

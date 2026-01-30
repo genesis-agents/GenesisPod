@@ -274,8 +274,11 @@ export function TopicResearchLayout({
                 <p className="max-w-md truncate text-sm text-gray-500">
                   {topic.description
                     .replace(/#{1,6}\s|[*_~`>|]|\[([^\]]*)\]\([^)]*\)/g, '$1')
+                    .replace(/^\s*[-\d.]+\s+/gm, '')
+                    .replace(/\n+/g, ' ')
                     .replace(/\s+/g, ' ')
-                    .trim()}
+                    .trim()
+                    .substring(0, 120)}
                 </p>
               )}
             </div>

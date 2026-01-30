@@ -325,6 +325,13 @@ body {
 .prose {
   overflow-wrap: break-word;
   word-break: break-word;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Chart containers inside prose - contain sr-only elements */
+.prose .rounded-xl {
+  overflow: hidden;
 }
 
 .prose img {
