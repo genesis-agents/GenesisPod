@@ -137,6 +137,8 @@ export function TopicReportView({
     useState<ReportViewMode>('continuous');
   const [sidePanelType, setSidePanelType] = useState<SidePanelType>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
+  const [regenerateFeedback, setRegenerateFeedback] = useState('');
 
   const reportContentRef = useRef<HTMLDivElement>(null);
 
@@ -151,33 +153,46 @@ export function TopicReportView({
   }, []);
 
   // Handle regenerate report content（异步：后端 202，前端轮询）
-  const handleRegenerateReport = useCallback(async () => {
-    if (!topicId || !report?.id || isRegenerating) return;
+  const doRegenerate = useCallback(
+    async (feedback?: string) => {
+      if (!topicId || !report?.id || isRegenerating) return;
 
-    setIsRegenerating(true);
-    try {
-      const beforeGeneratedAt = report.generatedAt;
-      await regenerateReportContent(topicId, report.id);
-      const maxAttempts = 40;
-      for (let i = 0; i < maxAttempts; i++) {
-        await new Promise((r) => setTimeout(r, 3000));
-        try {
-          const updated = await getReport(topicId, report.id);
-          if (updated.generatedAt !== beforeGeneratedAt) {
-            window.location.reload();
-            return;
+      setIsRegenerating(true);
+      setShowRegenerateDialog(false);
+      try {
+        const beforeGeneratedAt = report.generatedAt;
+        await regenerateReportContent(
+          topicId,
+          report.id,
+          feedback || undefined
+        );
+        const maxAttempts = 40;
+        for (let i = 0; i < maxAttempts; i++) {
+          await new Promise((r) => setTimeout(r, 3000));
+          try {
+            const updated = await getReport(topicId, report.id);
+            if (updated.generatedAt !== beforeGeneratedAt) {
+              window.location.reload();
+              return;
+            }
+          } catch {
+            // ignore polling errors
           }
-        } catch {
-          // ignore polling errors
         }
+        window.location.reload();
+      } catch (error) {
+        logger.error('Failed to regenerate report:', error);
+        alert('重新生成报告失败，请稍后重试');
+        setIsRegenerating(false);
       }
-      window.location.reload();
-    } catch (error) {
-      logger.error('Failed to regenerate report:', error);
-      alert('重新生成报告失败，请稍后重试');
-      setIsRegenerating(false);
-    }
-  }, [topicId, report?.id, report?.generatedAt, isRegenerating]);
+    },
+    [topicId, report?.id, report?.generatedAt, isRegenerating]
+  );
+
+  const handleRegenerateReport = useCallback(() => {
+    setRegenerateFeedback('');
+    setShowRegenerateDialog(true);
+  }, []);
 
   // Handle AI edit for report
   const handleAIEdit = useCallback(
@@ -501,6 +516,61 @@ export function TopicReportView({
           </div>
         )}
       </div>
+
+      {/* Regenerate feedback dialog */}
+      {showRegenerateDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowRegenerateDialog(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setShowRegenerateDialog(false);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-gray-900">
+              重新生成报告
+            </h3>
+            <div className="mt-3">
+              <label className="text-sm text-gray-600">
+                优化方向（可选）：
+              </label>
+              <textarea
+                autoFocus
+                value={regenerateFeedback}
+                onChange={(e) => setRegenerateFeedback(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    doRegenerate(regenerateFeedback.trim());
+                  }
+                }}
+                placeholder="例：减少重复内容、增加独立分析判断、精简产品推介..."
+                className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                rows={3}
+                maxLength={500}
+              />
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setShowRegenerateDialog(false)}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => doRegenerate(regenerateFeedback.trim())}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                重新生成
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

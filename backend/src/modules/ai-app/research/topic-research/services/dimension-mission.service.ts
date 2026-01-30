@@ -505,6 +505,12 @@ export class DimensionMissionService {
         );
       }
 
+      // ★ Fix B: 查询所有维度，传给 Leader 避免跨维度重复
+      const allDimensions = await this.prisma.topicDimension.findMany({
+        where: { topicId: topic.id },
+        select: { name: true, description: true },
+      });
+
       const outline = await this.leaderService.planDimensionOutline(
         { name: topic.name, type: topic.type, description: topic.description },
         {
@@ -514,6 +520,7 @@ export class DimensionMissionService {
         },
         evidenceSummary,
         figuresSummary || undefined,
+        allDimensions,
       );
 
       // ★ 校验并清理 Leader 分配的图表

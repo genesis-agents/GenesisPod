@@ -1184,11 +1184,15 @@ export async function regenerateCredibilityReport(
  */
 export async function regenerateReportContent(
   topicId: string,
-  reportId: string
+  reportId: string,
+  feedback?: string
 ): Promise<{ success: boolean; report: TopicReport }> {
   return fetchWithAuth(
     `${API_PREFIX}/topics/${topicId}/reports/${reportId}/regenerate`,
-    { method: 'POST' }
+    {
+      method: 'POST',
+      body: JSON.stringify(feedback ? { feedback } : {}),
+    }
   );
 }
 

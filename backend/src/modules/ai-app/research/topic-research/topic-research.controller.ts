@@ -2039,6 +2039,7 @@ export class TopicResearchController {
     @Request() req: RequestWithUser,
     @Param("topicId") _topicId: string,
     @Param("reportId") reportId: string,
+    @Body() body?: { feedback?: string }, // 可选的用户反馈，最长500字
   ) {
     const userId = req.user?.id;
     if (!userId) {
@@ -2046,7 +2047,7 @@ export class TopicResearchController {
     }
     // 异步执行，立即返回 202
     this.topicResearchService
-      .regenerateReportContent(userId, reportId)
+      .regenerateReportContent(userId, reportId, body?.feedback?.slice(0, 500))
       .catch((err) => {
         this.logger.error(
           `[regenerateReportContent] Background regeneration failed: ${err.message}`,

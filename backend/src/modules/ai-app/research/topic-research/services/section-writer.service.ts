@@ -128,7 +128,7 @@ export class SectionWriterService {
       // 只提供最近的 1-2 个章节摘要，避免上下文过长
       const recentSections = previousSections.slice(-2);
       previousContent = recentSections
-        .map((s) => `### ${s.title}\n${s.content.substring(0, 500)}...`)
+        .map((s) => `### ${s.title}\n${s.content.substring(0, 1500)}...`)
         .join("\n\n");
     }
 

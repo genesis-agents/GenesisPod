@@ -1056,7 +1056,11 @@ export class TopicResearchService {
    * ★ 重新合成报告内容
    * 用于修复已保存报告中的格式问题（如下划线等）
    */
-  async regenerateReportContent(userId: string, reportId: string) {
+  async regenerateReportContent(
+    userId: string,
+    reportId: string,
+    feedback?: string,
+  ) {
     // 验证报告所有权
     const report = await this.prisma.topicReport.findUnique({
       where: { id: reportId },
@@ -1071,6 +1075,7 @@ export class TopicResearchService {
     const updatedReport = await this.reportService.synthesizeReport(
       report.topic,
       reportId,
+      feedback,
     );
 
     this.logger.log(
