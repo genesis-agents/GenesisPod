@@ -2,6 +2,28 @@ import React from 'react';
 
 type ProcessTextFn = (text: string) => React.ReactNode;
 
+/** Generate GitHub-flavored heading slug (matches remark-slug / rehype-slug behavior) */
+function headingSlug(children: React.ReactNode): string {
+  // Extract plain text from children
+  function extractText(node: React.ReactNode): string {
+    if (typeof node === 'string') return node;
+    if (typeof node === 'number') return String(node);
+    if (Array.isArray(node)) return node.map(extractText).join('');
+    if (React.isValidElement(node) && node.props?.children) {
+      return extractText(node.props.children as React.ReactNode);
+    }
+    return '';
+  }
+  const text = extractText(children);
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[#*`~^|\\[\]{}<>&=+!@$%;"'?,]/g, '') // strip markdown/special ASCII symbols
+    .replace(/\./g, '-') // dots → dashes
+    .replace(/\s/g, '-') // spaces → dashes
+    .replace(/^-|-$/g, ''); // trim leading/trailing dashes
+}
+
 function processChildren(
   children: React.ReactNode,
   processText: ProcessTextFn
@@ -55,11 +77,22 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     ),
     a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
       const isHash = href?.startsWith('#');
+      const handleHashClick = isHash
+        ? (e: React.MouseEvent) => {
+            e.preventDefault();
+            const id = decodeURIComponent(href!.slice(1));
+            const target = document.getElementById(id);
+            if (target) {
+              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }
+        : undefined;
       return (
         <a
           href={href}
+          onClick={handleHashClick}
           {...(isHash ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
-          className="text-blue-600 hover:text-blue-800 hover:underline"
+          className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
         >
           {children}
         </a>
@@ -116,25 +149,41 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
       ...props
     }: React.HTMLAttributes<HTMLHeadingElement> & {
       children?: React.ReactNode;
-    }) => <h1 {...props}>{processChildrenSimple(children, processText)}</h1>,
+    }) => (
+      <h1 id={headingSlug(children)} {...props}>
+        {processChildrenSimple(children, processText)}
+      </h1>
+    ),
     h2: ({
       children,
       ...props
     }: React.HTMLAttributes<HTMLHeadingElement> & {
       children?: React.ReactNode;
-    }) => <h2 {...props}>{processChildrenSimple(children, processText)}</h2>,
+    }) => (
+      <h2 id={headingSlug(children)} {...props}>
+        {processChildrenSimple(children, processText)}
+      </h2>
+    ),
     h3: ({
       children,
       ...props
     }: React.HTMLAttributes<HTMLHeadingElement> & {
       children?: React.ReactNode;
-    }) => <h3 {...props}>{processChildrenSimple(children, processText)}</h3>,
+    }) => (
+      <h3 id={headingSlug(children)} {...props}>
+        {processChildrenSimple(children, processText)}
+      </h3>
+    ),
     h4: ({
       children,
       ...props
     }: React.HTMLAttributes<HTMLHeadingElement> & {
       children?: React.ReactNode;
-    }) => <h4 {...props}>{processChildrenSimple(children, processText)}</h4>,
+    }) => (
+      <h4 id={headingSlug(children)} {...props}>
+        {processChildrenSimple(children, processText)}
+      </h4>
+    ),
     blockquote: ({
       children,
       ...props
