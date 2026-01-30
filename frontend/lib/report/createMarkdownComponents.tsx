@@ -31,8 +31,28 @@ function processChildrenSimple(
   return children;
 }
 
+function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
+  const [error, setError] = React.useState(false);
+  if (error || !src) {
+    return null; // Hide broken images
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt || ''}
+      className="max-w-full rounded-lg"
+      loading="lazy"
+      onError={() => setError(true)}
+    />
+  );
+}
+
 export function createMarkdownComponents(processText: ProcessTextFn) {
   return {
+    img: ({ src, alt }: { src?: string; alt?: string }) => (
+      <MarkdownImage src={src} alt={alt} />
+    ),
     a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
       <a
         href={href}

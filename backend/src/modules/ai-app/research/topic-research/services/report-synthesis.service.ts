@@ -596,6 +596,8 @@ export class ReportSynthesisService {
       let content = stripLeadingHeading(
         dim.detailedContent || dim.summary || "暂无详细内容",
       );
+      // ★ 移除内联 markdown 图片（AI 生成的外部 URL 通常 404，图表已通过 <!-- chart --> 机制管理）
+      content = content.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
       // ★ 降级维度内容中的标题层级：# → ###, ## → ###（维度章节本身是 ##）
       content = content.replace(/^(#{1,2})\s+/gm, (match, hashes) => {
         if (hashes === "#") return "### ";
