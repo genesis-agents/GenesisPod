@@ -952,7 +952,10 @@ function ReportEditorInner({
       {/* Content area */}
       <div className="flex-1 overflow-hidden">
         {viewMode === 'preview' && (
-          <div ref={previewRef} className="relative h-full overflow-auto p-6">
+          <div
+            ref={previewRef}
+            className="relative h-full overflow-y-auto overflow-x-hidden p-6"
+          >
             {/* Mode indicator */}
             <div className="absolute right-6 top-6 z-10">
               <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700">

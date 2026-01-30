@@ -87,6 +87,16 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     }: React.HTMLAttributes<HTMLElement> & { children?: React.ReactNode }) => (
       <em {...props}>{processChildrenSimple(children, processText)}</em>
     ),
+    table: ({
+      children,
+      ...props
+    }: React.TableHTMLAttributes<HTMLTableElement> & {
+      children?: React.ReactNode;
+    }) => (
+      <div className="overflow-x-auto">
+        <table {...props}>{children}</table>
+      </div>
+    ),
     td: ({
       children,
       ...props
