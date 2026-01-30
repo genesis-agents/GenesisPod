@@ -602,27 +602,21 @@ export class ReportSynthesisService {
         if (hashes === "##") return "### ";
         return match;
       });
-      // ★ 去除连续重复的 ### 标题（AI 有时生成 "### N. Xxx\n\n### Xxx"）
-      content = content
-        .split("\n")
-        .filter((line, i, arr) => {
-          if (i === 0) return true;
-          const curMatch = line.match(/^###\s+(.+)/);
-          if (!curMatch) return true;
-          // Look back for the previous heading
-          for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
-            const prevMatch = arr[j].match(/^###\s+(.+)/);
-            if (prevMatch) {
-              const prev = prevMatch[1].replace(/^\d+\.\s*/, "").trim();
-              const cur = curMatch[1].replace(/^\d+\.\s*/, "").trim();
-              if (prev === cur) return false; // duplicate, remove
-              break;
-            }
-            if (arr[j].trim() !== "") break; // non-empty non-heading line
-          }
-          return true;
-        })
-        .join("\n");
+      // ★ 去除重复的 ### 标题（AI 有时生成 "### N. Xxx" 后又生成 "### Xxx"）
+      {
+        const lines = content.split("\n");
+        const seenH3 = new Set<string>();
+        content = lines
+          .filter((line) => {
+            const m = line.match(/^###\s+(.+)/);
+            if (!m) return true;
+            const normalized = m[1].replace(/^\d+\.\s*/, "").trim();
+            if (seenH3.has(normalized)) return false;
+            seenH3.add(normalized);
+            return true;
+          })
+          .join("\n");
+      }
       if (content.length > MAX_DIMENSION_CHARS) {
         this.logger.warn(
           `[buildReport] Dimension "${dim.dimensionName}" content too long (${content.length} chars), truncating to ${MAX_DIMENSION_CHARS}`,
