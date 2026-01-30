@@ -147,36 +147,187 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         className={`flex flex-shrink-0 items-center overflow-hidden px-4 py-2.5 ${!showExpanded ? 'justify-center' : ''}`}
       >
         {!showExpanded ? (
-          /* Collapsed Logo - R monogram */
-          <Link
-            href="/"
-            className="group relative flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 shadow-sm transition-all duration-300 group-hover:shadow-md"
-            title="Raven - AI Teams Engine"
-          >
-            <span className="text-[18px] font-black text-white">R</span>
+          /* Collapsed Logo - AI Teams: Circular collaboration */
+          <Link href="/" className="group relative" title="AI Teams Engine">
+            <svg
+              className="h-8 w-8 transition-transform duration-300 group-hover:scale-105"
+              viewBox="0 0 32 32"
+              fill="none"
+            >
+              <defs>
+                <linearGradient
+                  id="logoGradientCollapsed"
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="100%"
+                >
+                  <stop offset="0%" stopColor="#0F2A46" />
+                  <stop offset="40%" stopColor="#2BB7DA" />
+                  <stop offset="100%" stopColor="#7C5BFE" />
+                </linearGradient>
+                <radialGradient id="glowCollapsed" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#7C5BFE" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              {/* Central glow */}
+              <circle
+                cx="16"
+                cy="16"
+                r="14"
+                fill="url(#glowCollapsed)"
+                className="opacity-50 group-hover:opacity-80"
+              />
+              {/* Circular connection - holding hands ring */}
+              <circle
+                cx="16"
+                cy="16"
+                r="10"
+                stroke="url(#logoGradientCollapsed)"
+                strokeWidth="2"
+                fill="none"
+                className="group-hover:stroke-[#2BB7DA]"
+              />
+              {/* Four agent nodes around the circle */}
+              <circle
+                cx="16"
+                cy="6"
+                r="3"
+                fill="#0F2A46"
+                className="transition-colors group-hover:fill-[#2BB7DA]"
+              />
+              <circle
+                cx="26"
+                cy="16"
+                r="3"
+                fill="#2BB7DA"
+                className="transition-colors group-hover:fill-[#7C5BFE]"
+              />
+              <circle
+                cx="16"
+                cy="26"
+                r="3"
+                fill="#7C5BFE"
+                className="transition-colors group-hover:fill-[#0F2A46]"
+              />
+              <circle
+                cx="6"
+                cy="16"
+                r="3"
+                fill="#2BB7DA"
+                className="transition-colors group-hover:fill-[#7C5BFE]"
+              />
+              {/* Engine core at center */}
+              <circle
+                cx="16"
+                cy="16"
+                r="3"
+                fill="url(#logoGradientCollapsed)"
+                className="transition-transform group-hover:scale-110"
+              />
+            </svg>
           </Link>
         ) : (
-          /* Expanded Logo - R mark + Text */
+          /* Expanded Logo - AI Teams + Text */
           <Link
             href="/"
             className="group relative flex items-center gap-2.5"
-            title="Raven - AI Teams Engine"
+            title="AI Teams Engine"
           >
-            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 shadow-sm transition-all duration-300 group-hover:shadow-md">
-              <span className="text-[18px] font-black text-white">R</span>
-            </div>
+            <svg
+              className="h-8 w-8 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
+              viewBox="0 0 32 32"
+              fill="none"
+            >
+              <defs>
+                <linearGradient
+                  id="logoGradient"
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="100%"
+                >
+                  <stop offset="0%" stopColor="#0F2A46" />
+                  <stop offset="40%" stopColor="#2BB7DA" />
+                  <stop offset="100%" stopColor="#7C5BFE" />
+                </linearGradient>
+                <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#7C5BFE" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              {/* Central glow */}
+              <circle
+                cx="16"
+                cy="16"
+                r="14"
+                fill="url(#glow)"
+                className="opacity-50 group-hover:opacity-80"
+              />
+              {/* Circular connection - holding hands ring */}
+              <circle
+                cx="16"
+                cy="16"
+                r="10"
+                stroke="url(#logoGradient)"
+                strokeWidth="2"
+                fill="none"
+                className="group-hover:stroke-[#2BB7DA]"
+              />
+              {/* Four agent nodes around the circle */}
+              <circle
+                cx="16"
+                cy="6"
+                r="3"
+                fill="#0F2A46"
+                className="transition-colors group-hover:fill-[#2BB7DA]"
+              />
+              <circle
+                cx="26"
+                cy="16"
+                r="3"
+                fill="#2BB7DA"
+                className="transition-colors group-hover:fill-[#7C5BFE]"
+              />
+              <circle
+                cx="16"
+                cy="26"
+                r="3"
+                fill="#7C5BFE"
+                className="transition-colors group-hover:fill-[#0F2A46]"
+              />
+              <circle
+                cx="6"
+                cy="16"
+                r="3"
+                fill="#2BB7DA"
+                className="transition-colors group-hover:fill-[#7C5BFE]"
+              />
+              {/* Engine core at center */}
+              <circle
+                cx="16"
+                cy="16"
+                r="3"
+                fill="url(#logoGradient)"
+                className="transition-transform group-hover:scale-110"
+              />
+            </svg>
 
             <div className="flex flex-col leading-none">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-[15px] font-bold tracking-wide text-slate-800">
-                  RAVEN
+              <div className="flex items-center gap-1">
+                <span
+                  className="bg-gradient-to-r from-[#0F2A46] via-[#2BB7DA] to-[#7C5BFE] bg-clip-text text-[15px] font-bold tracking-tight text-transparent"
+                  style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+                >
+                  AI Teams
                 </span>
-                <span className="rounded bg-slate-100 px-1 py-0.5 text-[8px] font-medium text-slate-500">
-                  {process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0'}
+                <span className="rounded bg-gradient-to-r from-blue-500 to-indigo-500 px-1 py-0.5 text-[7px] font-bold text-white">
+                  v{process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0'}
                 </span>
               </div>
-              <span className="animate-shimmer bg-gradient-to-r from-blue-500 via-violet-500 to-blue-500 bg-[length:200%_100%] bg-clip-text text-[10px] font-medium tracking-[0.12em] text-transparent">
-                AI Teams Engine
+              <span className="text-[9px] font-medium tracking-[0.15em] text-[#0F2A46]/50">
+                ENGINE
               </span>
             </div>
           </Link>

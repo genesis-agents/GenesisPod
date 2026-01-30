@@ -418,11 +418,39 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       >
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700">
-            <span className="text-[16px] font-black text-white">R</span>
-          </div>
-          <span className="text-[15px] font-bold tracking-wide text-slate-800">
-            RAVEN
+          <svg className="h-7 w-7" viewBox="0 0 32 32" fill="none">
+            <defs>
+              <linearGradient
+                id="mobileLogoGradient"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="#0F2A46" />
+                <stop offset="40%" stopColor="#2BB7DA" />
+                <stop offset="100%" stopColor="#7C5BFE" />
+              </linearGradient>
+            </defs>
+            {/* Circular connection - holding hands ring */}
+            <circle
+              cx="16"
+              cy="16"
+              r="10"
+              stroke="url(#mobileLogoGradient)"
+              strokeWidth="2"
+              fill="none"
+            />
+            {/* Four agent nodes */}
+            <circle cx="16" cy="6" r="2.5" fill="#0F2A46" />
+            <circle cx="26" cy="16" r="2.5" fill="#2BB7DA" />
+            <circle cx="16" cy="26" r="2.5" fill="#7C5BFE" />
+            <circle cx="6" cy="16" r="2.5" fill="#2BB7DA" />
+            {/* Engine core */}
+            <circle cx="16" cy="16" r="2.5" fill="url(#mobileLogoGradient)" />
+          </svg>
+          <span className="bg-gradient-to-r from-[#0F2A46] via-[#2BB7DA] to-[#7C5BFE] bg-clip-text text-lg font-bold text-transparent">
+            AI Teams
           </span>
         </Link>
 
