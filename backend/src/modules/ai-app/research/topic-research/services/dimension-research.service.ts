@@ -401,7 +401,7 @@ export class DimensionResearchService {
       return [];
     }
     return refs.map((ref, idx) => ({
-      id: ref.id || `fig-${idx}`,
+      id: `fig-${idx + 1}`,
       evidenceCitationIndex: ref.evidenceCitationIndex || 0,
       figureIndex: ref.figureIndex || 0,
       imageUrl: ref.imageUrl,
@@ -422,7 +422,7 @@ export class DimensionResearchService {
       return [];
     }
     return charts.map((chart, idx) => ({
-      id: chart.id || `chart-${idx}`,
+      id: `chart-${idx + 1}`,
       type: chart.type || "bar",
       title: chart.title || `图表 ${idx + 1}`,
       position: chart.position || `after_paragraph_${idx + 1}`,

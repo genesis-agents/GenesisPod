@@ -681,6 +681,8 @@ export class ReportSynthesisService {
     dimensionInputs: DimensionAnalysisInput[],
   ): ReportChart[] {
     const charts: ReportChart[] = [];
+    // ★ ID 级去重：确保每个 chart ID 全局唯一
+    const seenIds = new Set<string>();
     // ★ 跨维度去重：同一张图片只保留首次出现
     const seenImageUrls = new Set<string>();
     // ★ 增强去重：生成图表按标题关键词去重（去除标点、空格后比较）
@@ -700,6 +702,9 @@ export class ReportSynthesisService {
       if (dim.figureReferences && dim.figureReferences.length > 0) {
         dim.figureReferences.forEach((fig) => {
           if (dimChartCount >= MAX_CHARTS_PER_DIMENSION) return;
+          const chartId = `${dimPrefix}${fig.id}`;
+          // ★ 按 ID 去重，防止同维度内重复 ID
+          if (seenIds.has(chartId)) return;
           // ★ 按 imageUrl 去重，防止同一张图在不同维度重复出现
           if (fig.imageUrl && seenImageUrls.has(fig.imageUrl)) {
             return;
@@ -707,8 +712,9 @@ export class ReportSynthesisService {
           if (fig.imageUrl) {
             seenImageUrls.add(fig.imageUrl);
           }
+          seenIds.add(chartId);
           charts.push({
-            id: `${dimPrefix}${fig.id}`,
+            id: chartId,
             chartType: "reference",
             title: fig.caption,
             position: fig.position,
@@ -727,6 +733,9 @@ export class ReportSynthesisService {
       if (dim.generatedCharts && dim.generatedCharts.length > 0) {
         dim.generatedCharts.forEach((chart) => {
           if (dimChartCount >= MAX_CHARTS_PER_DIMENSION) return;
+          const genChartId = `${dimPrefix}${chart.id}`;
+          // ★ 按 ID 去重
+          if (seenIds.has(genChartId)) return;
           // ★ 增强去重：规范化标题后比较（去除标点、空格、大小写）
           const titleKey = chart.title
             ?.trim()
@@ -738,8 +747,9 @@ export class ReportSynthesisService {
           if (titleKey) {
             seenTitleKeys.add(titleKey);
           }
+          seenIds.add(genChartId);
           charts.push({
-            id: `${dimPrefix}${chart.id}`,
+            id: genChartId,
             chartType: "generated",
             type: chart.type,
             title: chart.title,

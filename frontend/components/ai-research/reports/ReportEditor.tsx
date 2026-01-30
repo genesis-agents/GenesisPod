@@ -725,6 +725,8 @@ function ReportEditorInner({
 
     let lastIndex = 0;
     let match;
+    // ★ 防止同一 chart ID 被多次渲染
+    const seenChartIds = new Set<string>();
 
     while ((match = chartPattern.exec(markdownContent)) !== null) {
       // Add markdown segment before the chart
@@ -735,11 +737,15 @@ function ReportEditorInner({
         });
       }
 
-      // Add chart placeholder
-      segments.push({
-        type: 'chart',
-        content: match[1], // chart id
-      });
+      const chartId = match[1];
+      // ★ 同一 ID 只渲染第一次出现，后续跳过
+      if (!seenChartIds.has(chartId)) {
+        seenChartIds.add(chartId);
+        segments.push({
+          type: 'chart',
+          content: chartId,
+        });
+      }
 
       lastIndex = match.index + match[0].length;
     }
@@ -777,10 +783,15 @@ function ReportEditorInner({
     return ids;
   }, [contentSegments]);
 
-  // ★ 性能优化：memoize 未渲染的图表（未在正文中内联显示的）
+  // ★ 性能优化：memoize 未渲染的图表（未在正文中内联显示的），按 ID 去重
   const unrenderedCharts = useMemo(() => {
     if (!report?.charts) return [];
-    return report.charts.filter((chart) => !renderedChartIds.has(chart.id));
+    const seen = new Set<string>();
+    return report.charts.filter((chart) => {
+      if (renderedChartIds.has(chart.id) || seen.has(chart.id)) return false;
+      seen.add(chart.id);
+      return true;
+    });
   }, [report?.charts, renderedChartIds]);
 
   // ★ ReactMarkdown component for rendering markdown segments
