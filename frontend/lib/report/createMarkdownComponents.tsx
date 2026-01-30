@@ -53,16 +53,18 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
     img: ({ src, alt }: { src?: string; alt?: string }) => (
       <MarkdownImage src={src} alt={alt} />
     ),
-    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-blue-600 hover:text-blue-800 hover:underline"
-      >
-        {children}
-      </a>
-    ),
+    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+      const isHash = href?.startsWith('#');
+      return (
+        <a
+          href={href}
+          {...(isHash ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
+          className="text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          {children}
+        </a>
+      );
+    },
     p: ({
       children,
       ...props

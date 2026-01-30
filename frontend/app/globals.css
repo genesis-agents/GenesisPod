@@ -4,6 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Recharts sr-only tables overflow fix: prevent hidden accessibility tables from expanding scroll width */
+.recharts-wrapper table.sr-only {
+  width: 1px !important;
+  overflow: hidden !important;
+}
+
 :root {
   /* Colors */
   --foreground-rgb: 0, 0, 0;
