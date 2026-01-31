@@ -56,6 +56,7 @@ export interface SectionWriteResult {
   referencesUsed: string[];
   generatedCharts?: GeneratedChart[];
   figureReferences?: FigureReference[];
+  actualModelId?: string; // ★ 实际使用的模型（可能与分配的不同）
 }
 
 /**
@@ -233,6 +234,7 @@ export class SectionWriterService {
       referencesUsed,
       generatedCharts: charts.generatedCharts,
       figureReferences: finalFigureRefs,
+      actualModelId: response.model, // ★ 记录实际使用的模型
     };
   }
 
@@ -340,6 +342,7 @@ export class SectionWriterService {
       referencesUsed,
       generatedCharts: charts.generatedCharts,
       figureReferences: charts.figureReferences,
+      actualModelId: response.model, // ★ 记录实际使用的模型
     };
   }
 

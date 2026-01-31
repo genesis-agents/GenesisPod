@@ -963,6 +963,7 @@ export class ResearchMissionService {
     status: ResearchTaskStatus,
     result?: any,
     resultSummary?: string,
+    actualModelId?: string, // ★ 实际使用的模型
   ): Promise<ResearchTask> {
     const now = new Date();
     const updateData: any = { status };
@@ -982,6 +983,11 @@ export class ResearchMissionService {
 
     if (resultSummary !== undefined) {
       updateData.resultSummary = resultSummary;
+    }
+
+    // ★ 更新实际使用的模型ID（如果提供）
+    if (actualModelId) {
+      updateData.modelId = actualModelId;
     }
 
     const task = await this.prisma.researchTask.update({
@@ -2211,6 +2217,12 @@ export class ResearchMissionService {
             }
           }
 
+          // ★ 提取最后一个审核结果的实际模型ID
+          const lastReviewModel = dimensionReviews
+            .map((r) => r.actualModelId)
+            .filter(Boolean)
+            .pop();
+
           result = {
             reviewedTasks: completedTasks.length,
             dimensionReviews: dimensionReviews.map((r) => ({
@@ -2232,6 +2244,7 @@ export class ResearchMissionService {
             feedback:
               overallReview?.recommendations?.join("; ") ||
               `已审核 ${completedTasks.length} 个维度研究结果`,
+            actualModelId: lastReviewModel, // ★ 记录实际使用的模型
           };
           break;
         }
@@ -2380,11 +2393,21 @@ export class ResearchMissionService {
         summary = `研究完成`;
       }
 
+      // ★ 提取实际使用的模型（从维度研究结果或审核结果中）
+      const actualModelId = result?.actualModelId;
+
+      if (actualModelId && actualModelId !== assignedModelId) {
+        this.logger.warn(
+          `[executeTask] Model fallback occurred for task ${task.id}: assigned=${assignedModelId} → actual=${actualModelId}`,
+        );
+      }
+
       await this.updateTaskStatus(
         task.id,
         ResearchTaskStatus.COMPLETED,
         result,
         summary,
+        actualModelId,
       );
 
       this.logger.log(`[executeTask] Task completed: ${task.title}`);

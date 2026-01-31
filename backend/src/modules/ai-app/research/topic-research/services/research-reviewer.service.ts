@@ -35,6 +35,7 @@ export interface DimensionReviewResult {
   suggestions: string[];
   needsReresearch: boolean;
   reresearchFocus?: string[];
+  actualModelId?: string; // ★ 实际使用的模型
 }
 
 /**
@@ -202,6 +203,7 @@ export class ResearchReviewerService {
           reviewData.needsReresearch ||
           reviewData.overallScore < this.MIN_ACCEPTABLE_SCORE,
         reresearchFocus: reviewData.reresearchFocus,
+        actualModelId: response.model, // ★ 记录实际使用的模型
       };
 
       this.logger.log(

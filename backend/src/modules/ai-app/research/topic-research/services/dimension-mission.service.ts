@@ -69,6 +69,7 @@ export interface DimensionMissionResult {
   sectionResults?: SectionWriteResult[];
   integratedResult?: IntegratedDimensionResult;
   error?: string;
+  actualModelId?: string; // ★ 实际使用的模型
 }
 
 /**
@@ -972,6 +973,12 @@ export class DimensionMissionService {
 
       this.logger.log(`${logPrefix} Writing phase completed successfully`);
 
+      // ★ 提取最后一个章节的实际模型ID
+      const lastActualModel = sectionResults
+        .map((r) => r.actualModelId)
+        .filter(Boolean)
+        .pop();
+
       return {
         success: true,
         dimensionId: dimension.id,
@@ -980,6 +987,7 @@ export class DimensionMissionService {
         outline,
         sectionResults,
         integratedResult: finalIntegratedResult,
+        actualModelId: lastActualModel, // ★ 记录实际使用的模型
       };
     } catch (error) {
       const errorMessage =
