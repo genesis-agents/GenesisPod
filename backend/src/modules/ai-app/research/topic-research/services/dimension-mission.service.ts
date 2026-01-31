@@ -165,7 +165,7 @@ export class DimensionMissionService {
     });
 
     const researcherAgentId = `researcher_${dimId}`;
-    const researcherAgentName = `研究员 [${modelId || "default"}]`;
+    const researcherAgentName = "研究员";
     const effectiveMissionId = missionId || dimension.id;
 
     // Suppress unused variable warnings - these are used in the search phase
@@ -689,7 +689,7 @@ export class DimensionMissionService {
     const leaderAgentId = "leader-" + dimId;
     const leaderAgentName = "研究组长";
     const researcherAgentId = `researcher_${dimId}`;
-    const researcherAgentName = `研究员 [${modelId || "default"}]`;
+    const researcherAgentName = "研究员";
     const effectiveMissionId = missionId || dimension.id;
 
     try {
@@ -959,7 +959,7 @@ export class DimensionMissionService {
         topic.id,
         {
           agentId: `researcher_${dimId}`,
-          agentName: `研究员 [${modelId || "default"}]`,
+          agentName: "研究员",
           agentRole: "researcher",
           status: "completed",
           taskDescription: `维度「${dimension.name}」研究完成：${sectionResults.length} 个章节，共 ${researcherTotalWords} 字`,
@@ -1082,7 +1082,7 @@ export class DimensionMissionService {
         topicId,
         {
           agentId: researcherAgentId,
-          agentName: `研究员 [${modelId || "default"}]`,
+          agentName: "研究员",
           agentRole: "researcher",
           status: "working",
           taskDescription: `正在撰写章节：${groupSections.map((s) => s.title).join("、")}`,
@@ -1110,7 +1110,7 @@ export class DimensionMissionService {
           topicId,
           {
             agentId: researcherAgentId,
-            agentName: `研究员 [${modelId || "default"}]`,
+            agentName: "研究员",
             agentRole: "researcher",
             status: "working",
             taskDescription: `章节「${section.title}」撰写完成（${result.content?.length || 0} 字），等待审核`,
@@ -1174,7 +1174,7 @@ export class DimensionMissionService {
             topicId,
             {
               agentId: researcherAgentId,
-              agentName: `研究员 [${modelId || "default"}]`,
+              agentName: "研究员",
               agentRole: "researcher",
               status: "working",
               taskDescription: `正在修订章节「${section.title}」（第 ${revisionCount + 1} 次修订，评分: ${review.score}/100）`,

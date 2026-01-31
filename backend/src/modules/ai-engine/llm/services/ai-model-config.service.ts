@@ -542,7 +542,7 @@ export class AiModelConfigService {
         modelId: model.modelId,
         modelType: model.modelType,
         icon: model.icon,
-        iconUrl: this.getIconUrl(model.name),
+        iconUrl: this.getIconUrl(model.name, model.provider),
         color: model.color,
         description:
           model.description || `${model.provider} ${model.displayName}`,
@@ -558,25 +558,51 @@ export class AiModelConfigService {
   /**
    * 根据模型名称获取图标 URL
    */
-  private getIconUrl(name: string): string {
+  private getIconUrl(name: string, provider?: string): string {
     const lowerName = name.toLowerCase();
-    if (lowerName.includes("grok") || lowerName.includes("xai")) {
+    const lowerProvider = (provider || "").toLowerCase();
+
+    if (lowerName.includes("grok") || lowerProvider === "xai") {
       return "/icons/ai/grok.svg";
     }
     if (
       lowerName.includes("gpt") ||
-      lowerName.includes("openai") ||
-      lowerName.includes("chatgpt")
+      lowerName.includes("chatgpt") ||
+      lowerProvider === "openai"
     ) {
       return "/icons/ai/openai.svg";
     }
-    if (lowerName.includes("claude") || lowerName.includes("anthropic")) {
+    if (lowerName.includes("claude") || lowerProvider === "anthropic") {
       return "/icons/ai/claude.svg";
     }
-    if (lowerName.includes("gemini") || lowerName.includes("google")) {
+    if (lowerName.includes("gemini") || lowerProvider === "google") {
       return "/icons/ai/gemini.svg";
     }
-    return "/icons/ai/openai.svg";
+    if (
+      lowerName.includes("doubao") ||
+      lowerName.includes("豆包") ||
+      lowerProvider === "bytedance"
+    ) {
+      return "/icons/ai/doubao.svg";
+    }
+    if (lowerName.includes("deepseek") || lowerProvider === "deepseek") {
+      return "/icons/ai/deepseek.svg";
+    }
+    if (
+      lowerName.includes("qwen") ||
+      lowerName.includes("通义") ||
+      lowerProvider === "alibaba"
+    ) {
+      return "/icons/ai/qwen.svg";
+    }
+    if (lowerName.includes("kimi") || lowerProvider === "moonshot") {
+      return "/icons/ai/kimi.svg";
+    }
+    if (lowerName.includes("glm") || lowerProvider === "zhipu") {
+      return "/icons/ai/zhipu.svg";
+    }
+    // 无法识别时不返回错误图标，让前端 PROVIDER_ICONS fallback 处理
+    return "";
   }
 
   /**

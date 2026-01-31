@@ -2353,7 +2353,8 @@ export class ResearchMissionService {
         {
           dimensionId: task.dimensionId ?? undefined,
           dimensionName: task.dimensionName ?? undefined,
-        }, // ★ 传入维度信息
+          modelId: assignedModelId,
+        },
       );
 
       // ★ 在更新状态前检查任务和 Mission 是否已被取消
@@ -2428,6 +2429,34 @@ export class ResearchMissionService {
         resultSummary: summary,
         actualModelId,
       });
+
+      // ★ 当实际模型与分配模型不同时，更新该 agent 所有活动记录的 agentName
+      // 包括 emitAgentWorking（带旧模型标签）和 emitAgentCompleted（无标签）的记录
+      if (actualModelId && actualModelId !== assignedModelId) {
+        try {
+          const nameMap = await getModelDisplayNameMap(
+            this.prisma,
+            [actualModelId, assignedModelId].filter(Boolean) as string[],
+          );
+          const actualDisplayName = nameMap.get(actualModelId) || actualModelId;
+          const newAgentName = `${agentName} [${actualDisplayName}]`;
+
+          await this.prisma.researchAgentActivity.updateMany({
+            where: {
+              missionId,
+              agentId: task.assignedAgent,
+              ...(task.dimensionId ? { dimensionId: task.dimensionId } : {}),
+            },
+            data: {
+              agentName: newAgentName,
+            },
+          });
+        } catch (err) {
+          this.logger.debug(
+            `[executeTask] Failed to update activity model labels: ${err}`,
+          );
+        }
+      }
 
       this.logger.log(`[executeTask] Task completed: ${task.title}`);
     } catch (error) {

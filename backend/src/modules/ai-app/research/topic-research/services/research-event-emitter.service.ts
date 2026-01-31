@@ -9,6 +9,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { getModelDisplayNameMap } from "../utils/model-display-name";
 
 export type ResearchEmitHandler = (
   topicId: string,
@@ -420,11 +421,17 @@ export class ResearchEventEmitterService {
         }
 
         const activityType = this.mapAgentStatusToActivityType(data.status);
-        // ★ 在 Agent 名称后显示模型 ID（如果有）
-        // ★ 修复：检查 agentName 是否已包含 modelId，避免重复显示如 "研究员 [gpt-5.1] [gpt-5.1]"
+        // ★ 在 Agent 名称后显示模型展示名（如 "Doubao (豆包)" 而非 "ep-xxx"）
+        let modelLabel = data.modelId;
+        if (data.modelId) {
+          const nameMap = await getModelDisplayNameMap(this.prisma, [
+            data.modelId,
+          ]);
+          modelLabel = nameMap.get(data.modelId) || data.modelId;
+        }
         const agentDisplayName =
-          data.modelId && !data.agentName?.includes(`[${data.modelId}]`)
-            ? `${data.agentName} [${data.modelId}]`
+          modelLabel && !data.agentName?.includes(`[${modelLabel}]`)
+            ? `${data.agentName} [${modelLabel}]`
             : data.agentName;
         await this.prisma.researchAgentActivity.create({
           data: {
@@ -485,13 +492,29 @@ export class ResearchEventEmitterService {
     agentName: string,
     result?: string,
     missionId?: string,
-    options?: { dimensionId?: string; dimensionName?: string }, // ★ 新增维度信息
+    options?: {
+      dimensionId?: string;
+      dimensionName?: string;
+      modelId?: string;
+    },
   ): Promise<void> {
+    // ★ 解析模型展示名，与 emitAgentWorking 保持一致
+    let displayAgentName = agentName;
+    if (options?.modelId) {
+      const nameMap = await getModelDisplayNameMap(this.prisma, [
+        options.modelId,
+      ]);
+      const modelLabel = nameMap.get(options.modelId) || options.modelId;
+      if (!agentName.includes(`[${modelLabel}]`)) {
+        displayAgentName = `${agentName} [${modelLabel}]`;
+      }
+    }
+
     await this.emitToTopic(topicId, ResearchEventType.AGENT_COMPLETED, {
       agentId,
-      agentName,
+      agentName: displayAgentName,
       result,
-      message: `${agentName} 完成工作`,
+      message: `${displayAgentName} 完成工作`,
     });
 
     // ★ 保存到数据库
@@ -515,13 +538,13 @@ export class ResearchEventEmitterService {
             topicId,
             missionId,
             agentId,
-            agentName,
+            agentName: displayAgentName,
             agentRole: "researcher",
             activityType: "COMPLETED",
-            content: result || `${agentName} 完成工作`,
+            content: result || `${displayAgentName} 完成工作`,
             progress: 100,
-            dimensionId: options?.dimensionId, // ★ 保存维度ID
-            dimensionName: options?.dimensionName, // ★ 保存维度名称
+            dimensionId: options?.dimensionId,
+            dimensionName: options?.dimensionName,
           },
         });
       } catch (error) {
