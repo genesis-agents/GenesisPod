@@ -61,7 +61,8 @@ export interface ResearchSlice {
   startLeaderPlan: (
     topicId: string,
     userPrompt?: string,
-    mode?: 'fresh' | 'incremental'
+    mode?: 'fresh' | 'incremental',
+    researchDepth?: 'quick' | 'standard' | 'thorough'
   ) => Promise<void>;
   fetchMissionStatus: (topicId: string) => Promise<void>;
   fetchTeamInfo: (topicId: string) => Promise<void>;
@@ -294,10 +295,19 @@ export const createResearchSlice: StateCreator<
     set({ missionPollingInterval: interval });
   },
 
-  startLeaderPlan: async (topicId, userPrompt, mode = 'fresh') => {
+  startLeaderPlan: async (
+    topicId,
+    userPrompt,
+    mode = 'fresh',
+    researchDepth
+  ) => {
     set({ isRefreshing: true, isLoadingMission: true, error: null });
     try {
-      const mission = await api.leaderPlan(topicId, { userPrompt, mode });
+      const mission = await api.leaderPlan(topicId, {
+        userPrompt,
+        mode,
+        researchDepth,
+      });
       set({ currentMission: mission, isLoadingMission: false });
       get().fetchMissionStatus(topicId);
       get().startMissionPolling(topicId);

@@ -45,6 +45,17 @@ export class LeaderPlanDto {
   @IsOptional()
   @IsIn(["fresh", "incremental"])
   mode?: ResearchMode;
+
+  @ApiPropertyOptional({
+    description:
+      "研究深度：quick=快速搜索，standard=标准研究，thorough=深度研究（全部V5功能）",
+    example: "standard",
+    enum: ["quick", "standard", "thorough"],
+    default: "standard",
+  })
+  @IsOptional()
+  @IsIn(["quick", "standard", "thorough"])
+  researchDepth?: string;
 }
 
 /**

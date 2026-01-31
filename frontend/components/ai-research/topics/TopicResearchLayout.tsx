@@ -81,6 +81,9 @@ interface TopicResearchLayoutProps {
   onDeleteReport?: (reportId: string) => Promise<void>;
   /** ★ 初始视图（用于分享链接直接跳转到报告） */
   initialView?: string | null;
+  /** V5: 研究深度 */
+  researchDepth?: 'quick' | 'standard' | 'thorough';
+  onResearchDepthChange?: (depth: 'quick' | 'standard' | 'thorough') => void;
 }
 
 // Icons
@@ -186,6 +189,8 @@ export function TopicResearchLayout({
   error,
   onDeleteReport,
   initialView,
+  researchDepth,
+  onResearchDepthChange,
 }: TopicResearchLayoutProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -369,6 +374,8 @@ export function TopicResearchLayout({
                   error={error}
                   canEdit={canEdit}
                   teamInfo={teamInfo}
+                  researchDepth={researchDepth}
+                  onResearchDepthChange={onResearchDepthChange}
                 />
               </div>
             </div>

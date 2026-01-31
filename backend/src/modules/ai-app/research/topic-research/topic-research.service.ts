@@ -56,6 +56,7 @@ import {
 import { ExportOrchestratorService } from "../../../../common/export/services/export-orchestrator.service";
 import { BillingContext } from "../../../credits/billing-context";
 import { ExportFormat } from "@prisma/client";
+import type { ResearchDepth } from "./types";
 
 // 导入维度模板
 const MACRO_INSIGHT_DIMENSIONS = [
@@ -904,6 +905,7 @@ export class TopicResearchService {
           forceRefresh: dto.type === "FULL",
           dimensionIds: dto.dimensionIds,
           incremental: isIncremental,
+          researchDepth: dto.researchDepth as ResearchDepth,
         });
 
         return {

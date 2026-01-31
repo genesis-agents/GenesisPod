@@ -40,6 +40,8 @@ import { CollaboratorRole } from "../dto/collaborator.dto";
 import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
 import { ResearchReviewerService } from "./research-reviewer.service";
 import type { DimensionAnalysisResult } from "../types/research.types";
+import type { ResearchDepth } from "../types/v5-research.types";
+import { resolveResearchDepthConfig } from "../types/v5-research.types";
 import { getModelDisplayNameMap } from "../utils/model-display-name";
 
 // ==================== Constants ====================
@@ -65,6 +67,8 @@ export interface CreateMissionInput {
   userContext?: Record<string, any>;
   /** ★ 研究模式：fresh=全新开始，incremental=增量更新（保留已完成任务） */
   mode?: ResearchMode;
+  /** V5: 研究深度 */
+  researchDepth?: string;
 }
 
 export interface MissionStatus {
@@ -76,6 +80,7 @@ export interface MissionStatus {
   currentPhase: string;
   tasks: TaskStatus[];
   leaderPlan?: LeaderPlan;
+  researchDepth?: string;
 }
 
 export interface TaskStatus {
@@ -178,10 +183,16 @@ export class ResearchMissionService {
    * 调用 Leader 进行规划，创建任务列表
    */
   async createMission(input: CreateMissionInput): Promise<ResearchMission> {
-    const { topicId, userPrompt, userContext, mode = "fresh" } = input;
+    const {
+      topicId,
+      userPrompt,
+      userContext,
+      mode = "fresh",
+      researchDepth = "standard",
+    } = input;
     const isIncremental = mode === "incremental";
     this.logger.log(
-      `[createMission] Creating mission for topic ${topicId}, mode: ${mode}`,
+      `[createMission] Creating mission for topic ${topicId}, mode: ${mode}, depth: ${researchDepth}`,
     );
 
     // 1. 验证专题存在
@@ -351,6 +362,7 @@ export class ResearchMissionService {
         leaderModelName: leaderModel?.modelName,
         userPrompt,
         userContext: userContext ?? undefined,
+        researchDepth,
       },
     });
 
@@ -848,6 +860,7 @@ export class ResearchMissionService {
       currentPhase: this.getPhaseFromStatus(mission.status),
       tasks,
       leaderPlan: mission.leaderPlan as unknown as LeaderPlan | undefined,
+      researchDepth: mission.researchDepth ?? undefined,
     };
   }
 
@@ -1865,7 +1878,7 @@ export class ResearchMissionService {
       }),
       this.prisma.researchMission.findUnique({
         where: { id: missionId },
-        select: { status: true, leaderPlan: true },
+        select: { status: true, leaderPlan: true, researchDepth: true },
       }),
     ]);
 
@@ -2326,6 +2339,34 @@ export class ResearchMissionService {
             topic,
             reportId, // ★ 使用已有的 reportId
           );
+
+          // V5: 深度门控后处理（fact-check for thorough mode）
+          const missionDepth = (currentMission?.researchDepth ??
+            "standard") as ResearchDepth;
+          const depthConfig = resolveResearchDepthConfig(missionDepth);
+
+          if (depthConfig.factCheckEnabled) {
+            this.logger.log(`[V5] Running fact-check (depth=${missionDepth})`);
+            try {
+              const reportContent = (result as any)?.content || "";
+              const evidenceForFactCheck =
+                await this.prisma.topicEvidence.findMany({
+                  where: { reportId },
+                  select: { id: true, title: true, snippet: true },
+                  take: 50,
+                });
+              const factCheckResult =
+                await this.reviewerService.factCheckReport(
+                  reportContent,
+                  evidenceForFactCheck,
+                );
+              this.logger.log(
+                `[V5] Fact check: accuracy=${factCheckResult.accuracyScore}/100, issues=${factCheckResult.issues.length}`,
+              );
+            } catch (error) {
+              this.logger.warn(`[V5] Fact check failed (non-fatal): ${error}`);
+            }
+          }
 
           // ★ 发送报告撰写完成事件
           await this.researchEventEmitter.emitReportSynthesisCompleted(

@@ -17,6 +17,7 @@ import { ReportSynthesisService } from "../../services/report-synthesis.service"
 import { ResearchEventEmitterService } from "../../services/research-event-emitter.service";
 import { TopicCollaboratorService } from "../../services/topic-collaborator.service";
 import { AgentActivityService } from "../../services/agent-activity.service";
+import { ResearchReviewerService } from "../../services/research-reviewer.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
@@ -105,6 +106,16 @@ describe("ResearchMissionService", () => {
         },
         { provide: AgentActivityService, useValue: agentActivity },
         { provide: AIEngineFacade, useValue: createMockAiEngineFacade() },
+        {
+          provide: ResearchReviewerService,
+          useValue: {
+            factCheckReport: jest.fn().mockResolvedValue({
+              citations: [],
+              accuracyScore: 100,
+              issues: [],
+            }),
+          },
+        },
       ],
     }).compile();
 

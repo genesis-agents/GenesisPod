@@ -1,8 +1,8 @@
-# V5 认知研究团队架构 — 设计与实现
+# V5 认知研究团队架构 -- 设计与实现
 
-> **文档版本**: v5.0
+> **文档版本**: v5.1
 > **最后更新**: 2026-02-01
-> **状态**: 已实施（核心流程完整，部分高级特性待连接）
+> **状态**: 已实施（统一入口，Mission 路径完整接入 V5 深度门控）
 
 ---
 
@@ -22,10 +22,14 @@
   - [8.1 检查点系统](#81-检查点系统)
   - [8.2 类型体系](#82-类型体系)
   - [8.3 提示词体系](#83-提示词体系)
-- [9. 前端兼容性](#9-前端兼容性)
-- [10. 实现状态与路线图](#10-实现状态与路线图)
-- [11. 文件清单](#11-文件清单)
-- [12. 测试覆盖](#12-测试覆盖)
+- [9. 统一执行路径](#9-统一执行路径)
+  - [9.1 双路径问题 (v5.0 遗留)](#91-双路径问题-v50-遗留)
+  - [9.2 统一方案 (v5.1)](#92-统一方案-v51)
+  - [9.3 前端接入](#93-前端接入)
+- [10. 缺陷根因分析](#10-缺陷根因分析)
+- [11. 实现状态与路线图](#11-实现状态与路线图)
+- [12. 文件清单](#12-文件清单)
+- [13. 测试覆盖](#13-测试覆盖)
 
 ---
 
@@ -36,8 +40,8 @@
 **核心范式转变**:
 
 ```
-V3（流水线）: 搜索 → 写作 → 审查 → 完成
-V5（认知循环）: 设计 → 搜索 → 分析验证 → 写作 → 事实核查
+V3（流水线）: 搜索 -> 写作 -> 审查 -> 完成
+V5（认知循环）: 设计 -> 搜索 -> 分析验证 -> 写作 -> 事实核查
 ```
 
 **对标角色映射**:
@@ -323,8 +327,8 @@ if (maxCognitiveLoops > 0) {
 
 **V5 扩展参数**:
 
-- `validationContext?: string` — 来自 L3 的验证上下文，注入写作 prompt
-- `maxRevisionRounds?: number` — 来自 `depthConfig.maxRevisionRounds`
+- `validationContext?: string` -- 来自 L3 的验证上下文，注入写作 prompt
+- `maxRevisionRounds?: number` -- 来自 `depthConfig.maxRevisionRounds`
 
 **调用方式** (orchestrator):
 
@@ -349,9 +353,9 @@ await dimensionMissionService.executeWritingPhase(
 
 `DimensionMissionResult` 包含:
 
-- `analysisResult: DimensionAnalysisResult` — 维度分析结果
-- `evidenceIds: string[]` — 使用的证据 ID
-- `extractedClaims?: ExtractedClaim[]` — V5: 从写作内容中提取的 claims
+- `analysisResult: DimensionAnalysisResult` -- 维度分析结果
+- `evidenceIds: string[]` -- 使用的证据 ID
+- `extractedClaims?: ExtractedClaim[]` -- V5: 从写作内容中提取的 claims
 
 ---
 
@@ -385,8 +389,8 @@ const evidenceForFactCheck = await prisma.topicEvidence.findMany({
 
 保留 V3 的质量审核体系:
 
-- `reviewDimension()` — 单维度审核 (广度/深度/证据/连贯/时效)
-- `reviewOverall()` — 整体审核 + 跨维度问题检测
+- `reviewDimension()` -- 单维度审核 (广度/深度/证据/连贯/时效)
+- `reviewOverall()` -- 整体审核 + 跨维度问题检测
 
 ### 7.3 报告去重
 
@@ -394,8 +398,8 @@ const evidenceForFactCheck = await prisma.topicEvidence.findMany({
 
 V5 新增类型定义 (待集成):
 
-- `terminologyIssues` — 术语一致性检查
-- `dataConsistencyIssues` — 数据一致性检查
+- `terminologyIssues` -- 术语一致性检查
+- `dataConsistencyIssues` -- 数据一致性检查
 
 ---
 
@@ -423,24 +427,24 @@ V5 新增类型定义 (待集成):
 ```
 ResearchDepth = "quick" | "standard" | "thorough"
 ResearchDepthConfig
-  ├── knowledgeIterations
-  ├── maxCognitiveLoops
-  ├── maxRevisionRounds
-  ├── crossValidationEnabled
-  ├── hypothesisTestingEnabled
-  ├── factCheckEnabled
-  └── literatureBaselineEnabled
+  +-- knowledgeIterations
+  +-- maxCognitiveLoops
+  +-- maxRevisionRounds
+  +-- crossValidationEnabled
+  +-- hypothesisTestingEnabled
+  +-- factCheckEnabled
+  +-- literatureBaselineEnabled
 
 ResearchDesign
-  ├── analyticalFramework
-  ├── frameworkRationale
-  ├── hypotheses: ResearchHypothesis[]
-  └── deliverables: DeliverableSpec[]
+  +-- analyticalFramework
+  +-- frameworkRationale
+  +-- hypotheses: ResearchHypothesis[]
+  +-- deliverables: DeliverableSpec[]
 
 ExtractedClaim
-  ├── id, statement, sectionId
-  ├── sourceEvidenceIndices
-  └── importance
+  +-- id, statement, sectionId
+  +-- sourceEvidenceIndices
+  +-- importance
 
 ClaimValidationResult / ClaimValidationBatchResult
 HypothesisVerificationResult
@@ -464,49 +468,191 @@ V5CheckpointContext
 
 ---
 
-## 9. 前端兼容性
+## 9. 统一执行路径
 
-**原则**: 后端所有 V5 改进通过现有接口输出，前端零改动。
+### 9.1 双路径问题 (v5.0 遗留)
 
-| 接口                                                                                           | 兼容性                                                                 |
-| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `currentPhase` 值域 (`planning`/`researching`/`reviewing`/`synthesizing`/`completed`/`failed`) | 不变                                                                   |
-| WebSocket 事件类型                                                                             | 不变                                                                   |
-| progress 百分比 0-100                                                                          | 不变，仅调整各阶段区间                                                 |
-| `TopicConfig`                                                                                  | 新增 `researchDepth?: "quick" \| "standard" \| "thorough"`，旧字段保留 |
-| `TopicReport` 结构                                                                             | 不变                                                                   |
+v5.0 存在一个严重的架构缺陷：**系统中有两条完全独立的执行路径，且只有一条实现了 V5 深度门控**。
 
-**Phase 映射**:
+```
+路径 A（Orchestrator）: triggerRefresh() -> orchestrator.executeRefresh()
+  - V5 深度门控: 完整实现
+  - 认知循环/事实核查: 完整
+  - 前端从未调用此路径
 
-| 内部阶段            | 前端 phase     | progress |
-| ------------------- | -------------- | -------- |
-| 文献基线 + 搜索     | `researching`  | 0-35     |
-| 大纲规划 + 假设查询 | `researching`  | 35-40    |
-| 维度写作            | `researching`  | 40-65    |
-| 认知循环            | `reviewing`    | 65-70    |
-| 质量审核            | `reviewing`    | 70-85    |
-| 报告合成            | `synthesizing` | 85-92    |
-| 事实核查            | `reviewing`    | 92-95    |
-| 完成                | `completed`    | 100      |
+路径 B（Mission）: startLeaderPlan() -> missionService.createMission()
+  - V5 深度门控: 不存在
+  - 认知循环/事实核查: 不存在
+  - 前端唯一入口
+```
+
+**后果**: 用户在前端选择 `thorough` 深度 -> 参数通过 DTO 传到后端 -> `createMission()` 接收但丢弃 -> 所有研究走无深度区分的 Mission 流水线 -> V5 特性从未激活。
+
+**具体断裂点**:
+
+| 断裂位置                           | 描述                                           |
+| ---------------------------------- | ---------------------------------------------- |
+| `createMission()` line 183         | 解构 input 时未提取 `researchDepth`            |
+| `executePlanningAsync()`           | 参数列表无 `researchDepth`                     |
+| `startExecution()`                 | 无 depthConfig 概念                            |
+| `finalizeMission()`                | 任务全部完成后直接标记 COMPLETED，无 V5 后处理 |
+| `executeTask()` dimension_research | 调用 `executeDimensionMission()` 时不传 depth  |
+| Prisma `ResearchMission` 模型      | 无 `researchDepth` 字段，无法持久化            |
+
+### 9.2 统一方案 (v5.1)
+
+**核心思路**: Mission 路径是前端唯一入口，在其中按深度注入 V5 阶段，而非要求前端切换路径。
+
+```
+用户选择深度 -> startLeaderPlan(depth) -> createMission(depth)
+  |
+  |-- 持久化 researchDepth 到 Mission 记录
+  |-- executePlanningAsync() 传递 researchDepth
+  |-- startExecution() 读取 mission.researchDepth
+  |
+  |-- Phase A: 并行执行 dimension_research 任务 (已有)
+  |     -> 每个任务通过 executeDimensionMission()
+  |
+  |-- Phase B: quality_review 任务 (已有)
+  |
+  |-- Phase C: V5 后处理 (新增，在 report_synthesis 之前)
+  |     |
+  |     |-- [standard+] 认知循环:
+  |     |     收集所有维度结果中的 claims
+  |     |     -> validateClaims()
+  |     |     -> verifyHypotheses()
+  |     |     -> buildValidationContextForWriting()
+  |     |     -> 发送进度事件: "V5: 认知循环分析中..."
+  |     |
+  |     |-- [thorough] 事实核查:
+  |     |     -> factCheckReport()
+  |     |     -> 发送进度事件: "V5: 事实核查中..."
+  |     |
+  |     |-- 持久化 V5 结果到 mission 元数据
+  |
+  |-- Phase D: report_synthesis 任务 (已有，注入 validationContext)
+  |
+  |-- finalizeMission()
+```
+
+**关键修改点**:
+
+| 修改           | 文件                          | 内容                                              |
+| -------------- | ----------------------------- | ------------------------------------------------- |
+| 持久化 depth   | `models.prisma`               | `ResearchMission` 新增 `researchDepth String?`    |
+| 存储 depth     | `research-mission.service.ts` | `createMission()` 写入 `researchDepth`            |
+| V5 后处理      | `research-mission.service.ts` | `report_synthesis` case 中注入认知循环 + 事实核查 |
+| 进度事件       | `research-mission.service.ts` | 发送 V5 阶段特有的 WebSocket 事件                 |
+| 前端显示       | `TopicTeamPanel.tsx`          | 在任务进度中展示当前 V5 阶段                      |
+| API 返回 depth | mission 查询                  | 返回 `researchDepth` 字段                         |
+
+**为什么不让 Mission 路径调用 Orchestrator？**
+
+Orchestrator 的 `executeRefresh()` 是一个端到端的同步流程（搜索->写作->审核->合成），而 Mission 路径使用 **异步任务调度** 模型（Leader规划 -> 创建Tasks -> 动态调度执行）。两者的执行模型完全不同：
+
+- Orchestrator: 单线程流水线，自己控制并行度
+- Mission: 任务队列 + 动态调度器，每个任务独立执行
+
+强行让 Mission 调用 Orchestrator 会破坏任务调度模型。正确做法是 **将 V5 的具体能力（认知循环、事实核查）作为独立阶段注入 Mission 流程中**，而非合并两条路径。
+
+### 9.3 前端接入
+
+**深度选择器**: 已在 `TopicTeamPanel.tsx` 实现，位于操作按钮上方。
+
+```
++-----------------------------------------+
+| 研究深度                                 |
+| [快速]     [标准(默认)]     [深度]       |
+| 基础搜索   文献+认知循环    全部V5功能   |
++-----------------------------------------+
+| [▶ 开始]  [🔄 更新]  [■ 取消]          |
++-----------------------------------------+
+```
+
+**进度展示**: Mission 状态中包含 `researchDepth` 字段，前端可根据深度显示预期阶段。
+
+**Phase 映射** (统一后):
+
+| 内部阶段    | 前端 phase     | progress | 深度要求  |
+| ----------- | -------------- | -------- | --------- |
+| Leader 规划 | `planning`     | 0-10     | all       |
+| 维度研究    | `researching`  | 10-60    | all       |
+| 质量审核    | `reviewing`    | 60-70    | all       |
+| 认知循环    | `reviewing`    | 70-80    | standard+ |
+| 事实核查    | `reviewing`    | 80-85    | thorough  |
+| 报告合成    | `synthesizing` | 85-95    | all       |
+| 完成        | `completed`    | 100      | all       |
 
 ---
 
-## 10. 实现状态与路线图
+## 10. 缺陷根因分析
 
-### 已完成 (已集成到 orchestrator 并运行)
+### 10.1 为什么 v5.0 方案遗漏了双路径问题？
 
-| 特性                     | 层       | 服务                               | 状态 |
-| ------------------------ | -------- | ---------------------------------- | ---- |
-| 研究深度配置             | L1       | `resolveResearchDepthConfig`       | 完整 |
-| 深度门控                 | 全局     | `TopicTeamOrchestratorService`     | 完整 |
-| 文献基线扫描             | L2       | `DataSourceRouterService`          | 完整 |
-| 假设驱动查询             | L2       | `DataSourceRouterService`          | 完整 |
-| Claim 交叉验证           | L3       | `ResearchReviewerService`          | 完整 |
-| 假设检验                 | L3       | `ResearchLeaderService`            | 完整 |
-| 验证上下文生成           | L3/L4    | `buildValidationContextForWriting` | 完整 |
-| 事实核查                 | L5       | `ResearchReviewerService`          | 完整 |
-| 检查点系统               | 基础设施 | `ResearchCheckpointService`        | 完整 |
-| `maxRevisionRounds` 传递 | L4       | orchestrator -> writing            | 完整 |
+**根本原因: V5 的设计视角是"能力层"而非"业务流"。**
+
+V5 的设计文档（本文件的 v5.0 版）从头到尾围绕 Orchestrator 的五层架构展开，但从未分析过 **前端用户实际触发研究的入口和调用链**。具体表现为：
+
+1. **只关注了"引擎"，忽略了"驾驶舱"**: V5 架构图展示的是 `TopicTeamOrchestratorService` 内部的分层，但系统中实际有两个"引擎"（Orchestrator 和 Mission），只给其中一个装了 V5 功能。
+
+2. **"前端兼容性"章节的假设错误**: 原文写"后端所有 V5 改进通过现有接口输出，前端零改动"。这个假设隐含了"前端调用的是 Orchestrator 路径"，但实际前端从 v7.0 起就切换到了 Leader/Mission 路径。**文档没有追踪前端的实际调用链。**
+
+3. **测试覆盖了能力，没覆盖集成**: 29 个测试全部针对 V5 的独立能力（extractClaims、validateClaims 等）和 Orchestrator 的门控逻辑，但没有一个测试验证"用户从前端发起研究 -> V5 功能是否生效"这一端到端场景。
+
+4. **两套系统的演进没有同步**: Orchestrator（V3 时代的主路径）和 Mission（V7 新增的 Leader-Agent 协作路径）是两个独立演进的系统。V5 只改了 Orchestrator，V7 只改了 Mission，从未有人检查两者是否对齐。
+
+### 10.2 同类遗漏检查
+
+基于上述根因，检查是否有其他类似的断裂：
+
+| 检查项                                 | 状态     | 说明                                                                      |
+| -------------------------------------- | -------- | ------------------------------------------------------------------------- |
+| Mission 路径是否调用了 V3 质量审核？   | 已有     | `quality_review` 任务类型中调用了 `reviewDimension()` + `reviewOverall()` |
+| Mission 路径是否调用了报告合成？       | 已有     | `report_synthesis` 任务类型中调用了 `synthesizeReport()`                  |
+| `validationContext` 是否注入了写作？   | **缺失** | Orchestrator 路径已构建但从未传入；Mission 路径完全没有此概念             |
+| `extractClaims` 是否在写作后调用？     | **缺失** | 方法已实现但从未在任何路径调用                                            |
+| `maxRevisionRounds` 是否真正执行多轮？ | **缺失** | 参数已传递但写作层并未实际执行多轮修订                                    |
+| Checkpoint 数据是否可读？              | **缺失** | 只有写入 API，无读取 API                                                  |
+| 定时刷新是否受深度影响？               | 否       | `TopicRefreshScheduler` 硬编码 `incremental: true`，不传 depth            |
+
+### 10.3 v5.1 解决范围
+
+本次实现 (v5.1) 聚焦解决 **P0 级缺陷** -- Mission 路径接入深度门控：
+
+- **修复**: Mission 路径存储和使用 `researchDepth`
+- **修复**: `report_synthesis` 任务执行前插入认知循环 + 事实核查
+- **修复**: 前端深度选择器真正生效
+- **修复**: 进度事件包含 V5 阶段信息
+
+以下 P1/P2 问题记录在路线图中，不在本次范围：
+
+- `extractClaims` 集成到写作阶段
+- `validationContext` 注入写作 prompt
+- 多轮修订实际执行
+- Checkpoint 读取 API
+
+---
+
+## 11. 实现状态与路线图
+
+### 已完成 (v5.1)
+
+| 特性                         | 层       | 服务                               | 状态 |
+| ---------------------------- | -------- | ---------------------------------- | ---- |
+| 研究深度配置                 | L1       | `resolveResearchDepthConfig`       | 完整 |
+| 深度门控 (Orchestrator)      | 全局     | `TopicTeamOrchestratorService`     | 完整 |
+| 深度门控 (Mission)           | 全局     | `ResearchMissionService`           | 完整 |
+| 文献基线扫描                 | L2       | `DataSourceRouterService`          | 完整 |
+| 假设驱动查询                 | L2       | `DataSourceRouterService`          | 完整 |
+| Claim 交叉验证               | L3       | `ResearchReviewerService`          | 完整 |
+| 假设检验                     | L3       | `ResearchLeaderService`            | 完整 |
+| 验证上下文生成               | L3/L4    | `buildValidationContextForWriting` | 完整 |
+| 事实核查                     | L5       | `ResearchReviewerService`          | 完整 |
+| 检查点系统                   | 基础设施 | `ResearchCheckpointService`        | 完整 |
+| `maxRevisionRounds` 传递     | L4       | orchestrator -> writing            | 完整 |
+| Mission researchDepth 持久化 | DB       | Prisma schema                      | 完整 |
+| 前端深度选择器               | 前端     | `TopicTeamPanel.tsx`               | 完整 |
+| Mission V5 后处理            | 全局     | `ResearchMissionService`           | 完整 |
 
 ### 待连接 (方法已实现，集成点待补)
 
@@ -517,16 +663,19 @@ V5CheckpointContext
 | 术语/数据一致性检查 | `ENHANCED_DEDUP_EXTENSION` 已定义但未集成到 editor | P2     |
 | 认知循环闭环        | 验证结果未驱动回 L2 补充搜索                       | P2     |
 | 修订轮次执行        | `maxRevisionRounds` 已传递但写作层未实际执行多轮   | P2     |
+| Checkpoint 读取 API | 只有写入，无前端查询入口                           | P2     |
+| 定时刷新深度        | `TopicRefreshScheduler` 不传 depth                 | P3     |
 
 ---
 
-## 11. 文件清单
+## 12. 文件清单
 
 | 文件                                          | 层       | V5 改动                                                        |
 | --------------------------------------------- | -------- | -------------------------------------------------------------- |
 | `types/v5-research.types.ts`                  | 基础设施 | **新增**: 所有 V5 类型定义                                     |
 | `prompts/v5-research.prompt.ts`               | 基础设施 | **新增**: 所有 V5 提示词                                       |
 | `services/topic-team-orchestrator.service.ts` | 全局     | **修改**: 深度门控 + 认知循环 + 检查点                         |
+| `services/research-mission.service.ts`        | 全局     | **修改**: V5 后处理阶段（认知循环 + 事实核查）                 |
 | `services/research-leader.service.ts`         | L1/L3    | **修改**: 新增 `extractClaims`, `verifyHypotheses`             |
 | `services/research-reviewer.service.ts`       | L3/L5    | **修改**: 新增 `validateClaims`, `factCheckReport`             |
 | `services/data-source-router.service.ts`      | L2       | **修改**: 新增 `scanLiteratureBaseline`, `searchForHypothesis` |
@@ -534,10 +683,13 @@ V5CheckpointContext
 | `services/dimension-mission.service.ts`       | L4       | **修改**: 新增 `validationContext`, `maxRevisionRounds` 参数   |
 | `services/section-writer.service.ts`          | L4       | **修改**: V5 验证上下文支持                                    |
 | `services/report-editor.service.ts`           | L5       | **修改**: V5 术语/数据一致性类型                               |
+| `dto/leader.dto.ts`                           | DTO      | **修改**: 新增 `researchDepth` 字段                            |
+| `dto/refresh.dto.ts`                          | DTO      | **修改**: 新增 `researchDepth` 字段                            |
+| `prisma/schema/models.prisma`                 | DB       | **修改**: `ResearchMission` 新增 `researchDepth`               |
 
 ---
 
-## 12. 测试覆盖
+## 13. 测试覆盖
 
 **测试文件位置**: `__tests__/unit/`
 
@@ -562,5 +714,6 @@ cd backend && npx jest --testPathPattern="v5-" --verbose
 **架构演进路径**:
 
 - V3: 流水线（搜索 -> 写作 -> 审查）
-- **V5: 认知循环**（假设驱动 + 交叉验证 + 事实核查）<- 当前版本
+- V5.0: 认知循环（假设驱动 + 交叉验证 + 事实核查）-- 仅 Orchestrator 路径
+- **V5.1: 统一入口**（Mission 路径完整接入 V5 深度门控）<- 当前版本
 - V6 (规划中): 认知循环闭环 + 多轮修订 + 多模型专家系统

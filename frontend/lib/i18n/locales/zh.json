@@ -2951,6 +2951,15 @@
       "en": "英文"
     },
     "visibilityDesc": "设置专题的可见范围",
+    "researchDepth": {
+      "label": "研究深度",
+      "quick": "快速",
+      "standard": "标准",
+      "thorough": "深度",
+      "quickDesc": "基础搜索",
+      "standardDesc": "文献+认知循环",
+      "thoroughDesc": "全部V5功能"
+    },
     "tabs": {
       "all": "全部",
       "macro": "宏观洞察",

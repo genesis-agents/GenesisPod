@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsEmail,
   MaxLength,
+  IsIn,
 } from "class-validator";
 import { RefreshType, RefreshPriority } from "../types";
 
@@ -31,6 +32,10 @@ export class TriggerRefreshDto {
   @IsEmail()
   @MaxLength(255)
   notificationEmail?: string;
+
+  @IsOptional()
+  @IsIn(["quick", "standard", "thorough"])
+  researchDepth?: string;
 }
 
 export class CancelRefreshDto {

@@ -715,6 +715,7 @@ export async function leaderPlan(
     userPrompt?: string;
     userContext?: Record<string, unknown>;
     mode?: 'fresh' | 'incremental';
+    researchDepth?: 'quick' | 'standard' | 'thorough';
   }
 ): Promise<ResearchMission> {
   return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/leader/plan`, {
@@ -862,6 +863,7 @@ export interface MissionStatus {
   currentPhase: string;
   tasks: TaskStatus[];
   leaderPlan?: LeaderPlan;
+  researchDepth?: 'quick' | 'standard' | 'thorough';
 }
 
 export interface TaskStatus {

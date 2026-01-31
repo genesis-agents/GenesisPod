@@ -6614,6 +6614,9 @@ model ResearchMission {
   leaderModelId   String? @map("leader_model_id") // 使用的推理模型 ID
   leaderModelName String? @map("leader_model_name") // 模型名称（如 claude-opus-4）
 
+  // ========== 研究配置 ==========
+  researchDepth String? @map("research_depth") // quick | standard | thorough
+
   // ========== 状态 ==========
   status ResearchMissionStatus @default(PLANNING)
 

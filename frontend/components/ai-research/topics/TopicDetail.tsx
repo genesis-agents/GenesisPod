@@ -8,7 +8,7 @@
  * v7.1: 集成 WebSocket 实时事件推送
  */
 
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo, useState } from 'react';
 import type { ResearchTopic } from '@/types/topic-research';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
 import { useResearchWebSocket } from '@/hooks/useResearchWebSocket';
@@ -144,10 +144,21 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
     }
   }, [wsEvents, topic.id, fetchDimensions, fetchMissionStatus]);
 
+  // Research depth state — sync from active mission if available
+  const [researchDepth, setResearchDepth] = useState<
+    'quick' | 'standard' | 'thorough'
+  >('standard');
+
+  useEffect(() => {
+    if (missionStatus?.researchDepth) {
+      setResearchDepth(missionStatus.researchDepth);
+    }
+  }, [missionStatus?.researchDepth]);
+
   // Start Leader-driven research
   const handleStartResearch = useCallback(() => {
-    startLeaderPlan(topic.id);
-  }, [topic.id, startLeaderPlan]);
+    startLeaderPlan(topic.id, undefined, 'fresh', researchDepth);
+  }, [topic.id, startLeaderPlan, researchDepth]);
 
   const handleCancelRefresh = useCallback(async () => {
     try {
@@ -161,7 +172,7 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
   // 使用 incremental 模式：保留已完成的任务，只研究未完成的维度
   const handleContinueResearch = useCallback(async () => {
     try {
-      await startLeaderPlan(topic.id, undefined, 'incremental');
+      await startLeaderPlan(topic.id, undefined, 'incremental', researchDepth);
     } catch {
       // Error is already handled in store
     }
@@ -253,6 +264,8 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
       onStartRefresh={handleStartResearch}
       onContinueRefresh={handleContinueResearch}
       onCancelRefresh={handleCancelRefresh}
+      researchDepth={researchDepth}
+      onResearchDepthChange={setResearchDepth}
       onExportReport={handleExport}
       onBack={onBack}
       onSendLeaderInstruction={handleSendLeaderInstruction}

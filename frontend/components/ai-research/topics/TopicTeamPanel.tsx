@@ -53,6 +53,9 @@ interface TopicTeamPanelProps {
   canEdit?: boolean;
   /** ★ 团队信息（包含 Agent 使用的 AI 模型） */
   teamInfo?: TeamInfo | null;
+  /** V5: 研究深度 */
+  researchDepth?: 'quick' | 'standard' | 'thorough';
+  onResearchDepthChange?: (depth: 'quick' | 'standard' | 'thorough') => void;
 }
 
 // Agent 角色定义
@@ -195,6 +198,8 @@ export function TopicTeamPanel({
   error,
   canEdit = true,
   teamInfo,
+  researchDepth = 'standard',
+  onResearchDepthChange,
 }: TopicTeamPanelProps) {
   const { t } = useTranslation();
   const phaseDisplay = useMemo(() => getPhaseDisplay(t), [t]);
@@ -641,6 +646,67 @@ export function TopicTeamPanel({
                 ? error
                 : t('topicResearch.errors.startResearchFailed')}
             </p>
+          </div>
+        )}
+
+        {/* V5: Research Depth Badge (when mission is active) */}
+        {isMissionActive && researchDepth && (
+          <div className="mb-2 flex items-center gap-1.5 rounded-md bg-gray-50 px-2.5 py-1.5 text-xs text-gray-600">
+            <span className="font-medium text-gray-500">
+              {t('topicResearch.researchDepth.label')}:
+            </span>
+            <span
+              className={`rounded px-1.5 py-0.5 font-medium ${
+                researchDepth === 'thorough'
+                  ? 'bg-purple-100 text-purple-700'
+                  : researchDepth === 'quick'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-blue-100 text-blue-700'
+              }`}
+            >
+              {t(`topicResearch.researchDepth.${researchDepth}`)}
+            </span>
+          </div>
+        )}
+
+        {/* V5: Research Depth Selector */}
+        {!isMissionActive && canEdit && onResearchDepthChange && (
+          <div className="mb-2">
+            <div className="mb-1 text-xs font-medium text-gray-500">
+              {t('topicResearch.researchDepth.label')}
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              {(['quick', 'standard', 'thorough'] as const).map((depth) => {
+                const labels: Record<string, string> = {
+                  quick: t('topicResearch.researchDepth.quick'),
+                  standard: t('topicResearch.researchDepth.standard'),
+                  thorough: t('topicResearch.researchDepth.thorough'),
+                };
+                const descriptions: Record<string, string> = {
+                  quick: t('topicResearch.researchDepth.quickDesc'),
+                  standard: t('topicResearch.researchDepth.standardDesc'),
+                  thorough: t('topicResearch.researchDepth.thoroughDesc'),
+                };
+                const isSelected = researchDepth === depth;
+                return (
+                  <button
+                    key={depth}
+                    onClick={() => onResearchDepthChange(depth)}
+                    className={`rounded-md px-2 py-1.5 text-xs transition-all ${
+                      isSelected
+                        ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
+                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                    }`}
+                    title={descriptions[depth]}
+                  >
+                    <div className="font-medium">{labels[depth]}</div>
+                    <div className="mt-0.5 text-[10px] opacity-70">
+                      {descriptions[depth]}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 

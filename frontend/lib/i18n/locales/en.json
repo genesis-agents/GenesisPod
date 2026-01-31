@@ -2963,6 +2963,15 @@
       "en": "English"
     },
     "visibilityDesc": "Set topic visibility scope",
+    "researchDepth": {
+      "label": "Research Depth",
+      "quick": "Quick",
+      "standard": "Standard",
+      "thorough": "Thorough",
+      "quickDesc": "Basic search",
+      "standardDesc": "Literature + cognitive loop",
+      "thoroughDesc": "All V5 features"
+    },
     "tabs": {
       "all": "All",
       "macro": "Macro Insights",

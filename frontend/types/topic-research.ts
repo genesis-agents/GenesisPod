@@ -533,6 +533,7 @@ export interface TriggerRefreshDto {
   priority?: RefreshPriority;
   notify?: boolean;
   notificationEmail?: string;
+  researchDepth?: 'quick' | 'standard' | 'thorough';
 }
 
 /**
