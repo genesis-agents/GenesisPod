@@ -3695,9 +3695,9 @@ Generate an image that fulfills the current request while maintaining consistenc
 
   /**
    * Get Doubao models (ByteDance Volcano Engine)
-   * Note: Doubao uses Endpoint IDs (ep-xxx) instead of model names for API calls.
-   * Users must create endpoints in the Volcano Engine console first.
-   * Returns empty model list since endpoint IDs are account-specific.
+   * Note: Doubao API requires Endpoint IDs (ep-xxx) rather than model names.
+   * Users select a model here for reference, then create a corresponding endpoint
+   * in the Volcano Engine console and fill in the Endpoint ID as Model ID.
    * Last updated: 2026-01-31
    * Docs: https://www.volcengine.com/docs/82379
    */
@@ -3713,9 +3713,33 @@ Generate an image that fulfills the current request while maintaining consistenc
 
     return {
       success: true,
-      models: [],
-      error:
-        "Doubao uses Endpoint IDs (ep-xxx). Please create an endpoint in the Volcano Engine console and paste the Endpoint ID as the Model ID.",
+      models: [
+        {
+          id: "doubao-1.5-pro-256k",
+          name: "Doubao 1.5 Pro 256K",
+          description: "Latest flagship, 256K context",
+        },
+        {
+          id: "doubao-1.5-pro-32k",
+          name: "Doubao 1.5 Pro 32K",
+          description: "Flagship model, 32K context",
+        },
+        {
+          id: "doubao-1.5-lite-32k",
+          name: "Doubao 1.5 Lite 32K",
+          description: "Fast lightweight model",
+        },
+        {
+          id: "doubao-pro-32k",
+          name: "Doubao Pro 32K",
+          description: "General-purpose model",
+        },
+        {
+          id: "doubao-lite-32k",
+          name: "Doubao Lite 32K",
+          description: "Lightweight, low cost",
+        },
+      ],
     };
   }
 

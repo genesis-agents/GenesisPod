@@ -212,12 +212,11 @@ const STANDARD_MODEL_CONFIGS = [
     id: 'doubao',
     name: 'Doubao (豆包)',
     provider: 'ByteDance',
-    defaultModelId: '',
+    defaultModelId: 'doubao-1.5-pro-256k',
     defaultEndpoint:
       'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
     icon: '/icons/ai/doubao.svg',
     defaultType: 'CHAT',
-    modelIdPlaceholder: 'ep-xxxxxxxxxxxx-xxxxx (Endpoint ID)',
   },
   {
     id: 'zhipu',
