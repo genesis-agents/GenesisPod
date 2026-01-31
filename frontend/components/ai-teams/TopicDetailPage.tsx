@@ -19,6 +19,7 @@ import { useUrlDetection } from '@/hooks';
 import { LinkPreviewList } from '@/components/ai-teams/LinkPreviewCard';
 import type { ParsedUrl } from '@/lib/api/ai-teams';
 import { getProviderBrand } from '@/lib/ai-provider-logos';
+import { ModelBadge } from '@/components/ai-research/ModelBadge';
 
 // Helper to get short capability labels and colors
 const CAPABILITY_CONFIG: Record<
@@ -952,23 +953,9 @@ const MessageBubble = memo(function MessageBubble({
               timeOptions={{ hour: '2-digit', minute: '2-digit' }}
             />
           </span>
-          {isAI &&
-            message.modelUsed &&
-            (() => {
-              const brand = getProviderBrand(message.modelUsed);
-              return (
-                <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
-                  {brand.logo && (
-                    <img
-                      src={brand.logo}
-                      alt={brand.name}
-                      className="h-3 w-3"
-                    />
-                  )}
-                  {message.modelUsed}
-                </span>
-              );
-            })()}
+          {isAI && message.modelUsed && (
+            <ModelBadge modelId={message.modelUsed} variant="subtle" />
+          )}
         </div>
 
         {/* Reply To */}

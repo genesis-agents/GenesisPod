@@ -8,7 +8,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { getProviderBrand } from '@/lib/ai-provider-logos';
+import { ModelBadge } from '@/components/ai-research/ModelBadge';
 import {
   CheckCircle2,
   Circle,
@@ -580,25 +580,11 @@ export function ResearchTodoList({
                   {/* 模型 */}
                   <td className="px-2 py-2">
                     {modelId ? (
-                      (() => {
-                        const label = modelDisplayName || modelId;
-                        const brand = getProviderBrand(label);
-                        return (
-                          <span
-                            className="inline-flex max-w-full items-center gap-1 truncate rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] text-indigo-600"
-                            title={`${label} (${modelId})`}
-                          >
-                            {brand.logo && (
-                              <img
-                                src={brand.logo}
-                                alt={brand.name}
-                                className="h-3 w-3 flex-shrink-0"
-                              />
-                            )}
-                            <span className="truncate">{label}</span>
-                          </span>
-                        );
-                      })()
+                      <ModelBadge
+                        modelId={modelId}
+                        displayName={modelDisplayName || undefined}
+                        className="max-w-full"
+                      />
                     ) : (
                       <span className="text-xs text-gray-300">—</span>
                     )}

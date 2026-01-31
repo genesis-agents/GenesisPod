@@ -201,13 +201,20 @@ export class ResearchTodoService {
   /**
    * 获取单个 TODO 详情
    */
-  async getTodoById(todoId: string): Promise<ResearchTodo> {
+  async getTodoById(
+    todoId: string,
+  ): Promise<ResearchTodo & { modelDisplayName?: string }> {
     const todo = await this.prisma.researchTodo.findUnique({
       where: { id: todoId },
     });
 
     if (!todo) {
       throw new NotFoundException(`TODO ${todoId} not found`);
+    }
+
+    if (todo.modelId) {
+      const map = await getModelDisplayNameMap(this.prisma, [todo.modelId]);
+      return { ...todo, modelDisplayName: map.get(todo.modelId) };
     }
 
     return todo;

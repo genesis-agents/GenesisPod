@@ -982,10 +982,13 @@ export class ResearchMissionService {
   async updateTaskStatus(
     taskId: string,
     status: ResearchTaskStatus,
-    result?: any,
-    resultSummary?: string,
-    actualModelId?: string, // ★ 实际使用的模型
+    options?: {
+      result?: Prisma.InputJsonValue;
+      resultSummary?: string;
+      actualModelId?: string;
+    },
   ): Promise<ResearchTask> {
+    const { result, resultSummary, actualModelId } = options ?? {};
     const now = new Date();
     const updateData: Prisma.ResearchTaskUpdateInput = { status };
 
@@ -2420,13 +2423,11 @@ export class ResearchMissionService {
         );
       }
 
-      await this.updateTaskStatus(
-        task.id,
-        ResearchTaskStatus.COMPLETED,
+      await this.updateTaskStatus(task.id, ResearchTaskStatus.COMPLETED, {
         result,
-        summary,
+        resultSummary: summary,
         actualModelId,
-      );
+      });
 
       this.logger.log(`[executeTask] Task completed: ${task.title}`);
     } catch (error) {
@@ -2436,12 +2437,10 @@ export class ResearchMissionService {
       );
 
       // 更新任务状态为失败
-      await this.updateTaskStatus(
-        task.id,
-        ResearchTaskStatus.FAILED,
-        { error: errorMsg },
-        `执行失败: ${errorMsg}`,
-      );
+      await this.updateTaskStatus(task.id, ResearchTaskStatus.FAILED, {
+        result: { error: errorMsg },
+        resultSummary: `执行失败: ${errorMsg}`,
+      });
     }
   }
 

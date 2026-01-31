@@ -1047,12 +1047,13 @@ export class ResearchLeaderService {
     const uniqueModelsForPrompt = uniqueModels.map((m) => {
       let promptName = m.name !== m.id ? m.name : m.id;
 
-      // ★ 处理同名模型（如多个 Doubao 接入点），加序号区分
+      // ★ 处理同名模型（如多个 Doubao 接入点），用能力类型区分
       const nameKey = promptName.toLowerCase();
       const count = nameCountMap.get(nameKey) || 0;
       nameCountMap.set(nameKey, count + 1);
       if (count > 0) {
-        promptName = `${promptName} #${count + 1}`;
+        const suffix = m.isReasoning ? "reasoning" : `variant-${count + 1}`;
+        promptName = `${promptName} (${suffix})`;
       }
 
       modelNameToIdMap.set(promptName.toLowerCase(), m.id);

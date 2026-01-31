@@ -11,7 +11,7 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
-import { getProviderBrand } from '@/lib/ai-provider-logos';
+import { ModelBadge } from '@/components/ai-research/ModelBadge';
 import type {
   MissionStatus,
   TaskStatus,
@@ -1366,26 +1366,16 @@ function TeamCanvasView({
 
                         return (
                           <div className="flex flex-wrap gap-1">
-                            {models.map((model, idx: number) => {
-                              const label = model.displayName || model.id;
-                              const brand = getProviderBrand(label);
-                              return (
-                                <span
-                                  key={model.id}
-                                  className="font-mono inline-flex items-center gap-1 text-xs font-medium text-indigo-700"
-                                >
-                                  {brand.logo && (
-                                    <img
-                                      src={brand.logo}
-                                      alt={brand.name}
-                                      className="h-3.5 w-3.5"
-                                    />
-                                  )}
-                                  {label}
-                                  {idx < models.length - 1 && ', '}
-                                </span>
-                              );
-                            })}
+                            {models.map((model, idx: number) => (
+                              <span key={model.id}>
+                                <ModelBadge
+                                  modelId={model.id}
+                                  displayName={model.displayName}
+                                  variant="compact"
+                                />
+                                {idx < models.length - 1 && ', '}
+                              </span>
+                            ))}
                           </div>
                         );
                       })()
