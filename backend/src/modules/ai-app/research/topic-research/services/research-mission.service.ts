@@ -86,6 +86,8 @@ export interface TaskStatus {
   assignedAgent: string;
   /** ★ Agent 使用的 AI 模型 ID */
   modelId?: string;
+  /** ★ 模型展示名称（用于前端显示和图标匹配） */
+  modelDisplayName?: string;
   status: ResearchTaskStatus;
   reviewStatus?: string;
   progress?: number;
@@ -809,6 +811,11 @@ export class ResearchMissionService {
       throw new NotFoundException(`Mission ${missionId} not found`);
     }
 
+    // ★ 查询模型展示名称映射（modelId → displayName）
+    const modelDisplayNameMap = await this.getModelDisplayNameMap(
+      mission.tasks.map((t) => t.modelId).filter((id): id is string => !!id),
+    );
+
     const tasks: TaskStatus[] = mission.tasks.map((task) => ({
       id: task.id,
       title: task.title,
@@ -817,6 +824,9 @@ export class ResearchMissionService {
       dimensionName: task.dimensionName ?? undefined,
       assignedAgent: task.assignedAgent,
       modelId: task.modelId ?? undefined, // ★ 返回 Agent 使用的模型 ID
+      modelDisplayName: task.modelId
+        ? modelDisplayNameMap.get(task.modelId)
+        : undefined,
       status: task.status,
       progress: task.progress ?? 0, // ★ 返回任务进度
       reviewStatus: task.reviewStatus ?? undefined,
@@ -853,6 +863,11 @@ export class ResearchMissionService {
       return null;
     }
 
+    // ★ 查询模型展示名称映射
+    const modelDisplayNameMap = await this.getModelDisplayNameMap(
+      mission.tasks.map((t) => t.modelId).filter((id): id is string => !!id),
+    );
+
     const tasks: TaskStatus[] = mission.tasks.map((task) => ({
       id: task.id,
       title: task.title,
@@ -861,6 +876,9 @@ export class ResearchMissionService {
       dimensionName: task.dimensionName ?? undefined,
       assignedAgent: task.assignedAgent,
       modelId: task.modelId ?? undefined, // ★ 返回 Agent 使用的模型 ID
+      modelDisplayName: task.modelId
+        ? modelDisplayNameMap.get(task.modelId)
+        : undefined,
       status: task.status,
       progress: task.progress ?? 0, // ★ 返回任务进度
       reviewStatus: task.reviewStatus ?? undefined,
@@ -1661,6 +1679,27 @@ export class ResearchMissionService {
   /**
    * 获取阶段名称
    */
+  /**
+   * 批量查询 modelId → displayName 映射
+   */
+  private async getModelDisplayNameMap(
+    modelIds: string[],
+  ): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    if (modelIds.length === 0) return map;
+
+    const uniqueIds = [...new Set(modelIds)];
+    const models = await this.prisma.aIModel.findMany({
+      where: { modelId: { in: uniqueIds } },
+      select: { modelId: true, displayName: true },
+    });
+
+    for (const m of models) {
+      map.set(m.modelId, m.displayName);
+    }
+    return map;
+  }
+
   private getPhaseFromStatus(status: ResearchMissionStatus): string {
     switch (status) {
       case ResearchMissionStatus.PLANNING:

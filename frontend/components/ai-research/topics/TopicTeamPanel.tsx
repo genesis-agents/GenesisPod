@@ -11,6 +11,7 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
+import { getProviderBrand } from '@/lib/ai-provider-logos';
 import type {
   MissionStatus,
   TaskStatus,
@@ -1340,14 +1341,20 @@ function TeamCanvasView({
                           assignedTasks = synthesisTasks;
                         }
 
-                        // 收集唯一的模型 ID
-                        const models: string[] = [
-                          ...new Set(
-                            assignedTasks
-                              .map((t: TaskStatus) => t.modelId)
-                              .filter((m): m is string => Boolean(m))
-                          ),
-                        ];
+                        // 收集唯一的模型（displayName 优先，fallback 到 modelId）
+                        const modelEntries = new Map<
+                          string,
+                          { id: string; displayName?: string }
+                        >();
+                        for (const task of assignedTasks) {
+                          if (task.modelId && !modelEntries.has(task.modelId)) {
+                            modelEntries.set(task.modelId, {
+                              id: task.modelId,
+                              displayName: task.modelDisplayName,
+                            });
+                          }
+                        }
+                        const models = [...modelEntries.values()];
 
                         if (models.length === 0) {
                           return (
@@ -1359,15 +1366,26 @@ function TeamCanvasView({
 
                         return (
                           <div className="flex flex-wrap gap-1">
-                            {models.map((model: string, idx: number) => (
-                              <span
-                                key={idx}
-                                className="font-mono text-xs font-medium text-indigo-700"
-                              >
-                                {model}
-                                {idx < models.length - 1 && ', '}
-                              </span>
-                            ))}
+                            {models.map((model, idx: number) => {
+                              const label = model.displayName || model.id;
+                              const brand = getProviderBrand(label);
+                              return (
+                                <span
+                                  key={model.id}
+                                  className="font-mono inline-flex items-center gap-1 text-xs font-medium text-indigo-700"
+                                >
+                                  {brand.logo && (
+                                    <img
+                                      src={brand.logo}
+                                      alt={brand.name}
+                                      className="h-3.5 w-3.5"
+                                    />
+                                  )}
+                                  {label}
+                                  {idx < models.length - 1 && ', '}
+                                </span>
+                              );
+                            })}
                           </div>
                         );
                       })()

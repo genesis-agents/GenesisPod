@@ -1039,17 +1039,36 @@ export class ResearchLeaderService {
     const uniqueModels = availableModels.filter(
       (m, i, arr) => arr.findIndex((x) => x.id === m.id) === i,
     );
+
+    // ★ 构建模型名称到真实 modelId 的映射（供后处理还原）
+    // 当 displayName 与 modelId 不同时（如 ep-xxx 接入点），用 displayName 作为 prompt 展示名
+    const modelNameToIdMap = new Map<string, string>();
+    const nameCountMap = new Map<string, number>();
+    const uniqueModelsForPrompt = uniqueModels.map((m) => {
+      let promptName = m.name !== m.id ? m.name : m.id;
+
+      // ★ 处理同名模型（如多个 Doubao 接入点），加序号区分
+      const nameKey = promptName.toLowerCase();
+      const count = nameCountMap.get(nameKey) || 0;
+      nameCountMap.set(nameKey, count + 1);
+      if (count > 0) {
+        promptName = `${promptName} #${count + 1}`;
+      }
+
+      modelNameToIdMap.set(promptName.toLowerCase(), m.id);
+      // 同时映射原始 id，以兼容 AI 直接使用 id 的情况
+      modelNameToIdMap.set(m.id.toLowerCase(), m.id);
+      return { ...m, promptName };
+    });
+
     const availableModelsText =
-      uniqueModels.length > 0
-        ? uniqueModels
-            .map(
-              (m) =>
-                `- ${m.id}（${m.provider}${m.name !== m.id && !m.name.includes("#") ? `，${m.name}` : ""}）`,
-            )
+      uniqueModelsForPrompt.length > 0
+        ? uniqueModelsForPrompt
+            .map((m) => `- ${m.promptName}（${m.provider}）`)
             .join("\n")
         : "- 使用默认模型";
     this.logger.log(
-      `[planResearch] Available models for agents: ${uniqueModels.map((m) => m.id).join(", ")} (${availableModels.length} total, ${uniqueModels.length} unique)`,
+      `[planResearch] Available models for agents: ${uniqueModelsForPrompt.map((m) => m.promptName).join(", ")} (${availableModels.length} total, ${uniqueModels.length} unique)`,
     );
 
     // 4. 构建已有维度信息
@@ -1137,6 +1156,29 @@ export class ResearchLeaderService {
       let modelIndex = 0;
 
       for (const assignment of plan.agentAssignments) {
+        // 0. ★ 将 AI 填写的 displayName 还原为真实 modelId
+        if (assignment.modelId) {
+          const aiModelId = assignment.modelId.toLowerCase();
+          let realId = modelNameToIdMap.get(aiModelId);
+
+          // ★ 模糊匹配：AI 可能返回不完整的名称（如 "Doubao" 而非 "Doubao (豆包)"）
+          if (!realId) {
+            for (const [key, id] of modelNameToIdMap.entries()) {
+              if (key.startsWith(aiModelId) || aiModelId.startsWith(key)) {
+                realId = id;
+                break;
+              }
+            }
+          }
+
+          if (realId && realId !== assignment.modelId) {
+            this.logger.log(
+              `[planResearch] Resolved model name "${assignment.modelId}" → "${realId}" for ${assignment.agentName || assignment.agentId}`,
+            );
+            assignment.modelId = realId;
+          }
+        }
+
         // 1. 为缺少 modelId 的 Agent 自动轮询分配
         if (!assignment.modelId && availableModels.length > 0) {
           const model = availableModels[modelIndex % availableModels.length];
