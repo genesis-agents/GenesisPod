@@ -810,6 +810,11 @@ const PROVIDER_ICONS: Record<string, string> = {
   google: '/icons/ai/gemini.svg',
   anthropic: '/icons/ai/claude.svg',
   xai: '/icons/ai/grok.svg',
+  deepseek: '/icons/ai/deepseek.svg',
+  alibaba: '/icons/ai/qwen.svg',
+  bytedance: '/icons/ai/doubao.svg',
+  zhipu: '/icons/ai/zhipu.svg',
+  moonshot: '/icons/ai/kimi.svg',
 };
 
 // Helper: render model icon using local SVG files
