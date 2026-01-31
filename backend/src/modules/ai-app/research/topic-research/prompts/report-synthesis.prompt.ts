@@ -103,85 +103,38 @@ export const REPORT_SYNTHESIS_SYSTEM_PROMPT = `你是一位资深的战略研究
 
 ## 输出格式
 
-以 JSON 格式返回，包含以下字段：
+以 JSON 格式返回。**关键要求：每个 section 的 fullText 是必填字段，即使无法生成结构化子字段也必须生成 fullText 文本。**
+
 {
   "executiveSummary": {
-    "coreConclusions": [
-      "核心结论1（一句话）",
-      "核心结论2",
-      "核心结论3"
-    ],
-    "keyMetrics": [
-      { "metric": "指标名", "value": "数值", "source": "来源" }
-    ],
-    "riskAlerts": [
-      "风险提示1",
-      "风险提示2"
-    ],
-    "actionItems": [
-      "行动建议1",
-      "行动建议2"
-    ],
-    "fullText": "执行摘要完整文本（Markdown格式，400-600字）"
+    "fullText": "【必填】执行摘要完整文本（Markdown格式，400-600字）",
+    "coreConclusions": ["核心结论1", "核心结论2", "核心结论3"],
+    "keyMetrics": [{ "metric": "指标名", "value": "数值", "source": "来源" }],
+    "riskAlerts": ["风险提示1", "风险提示2"],
+    "actionItems": ["行动建议1", "行动建议2"]
   },
   "preface": "前言内容（Markdown格式，300-500字）",
-  "tableOfContents": "目录内容（Markdown格式，基于维度列表生成）",
+  "tableOfContents": "目录内容（Markdown格式）",
   "crossDimensionAnalysis": {
-    "title": "跨维度关联分析",
-    "causalChains": [
-      {
-        "chain": "因素A → 因素B → 因素C → 结果",
-        "explanation": "因果链说明",
-        "timeframe": "影响时间窗口"
-      }
-    ],
-    "keyLinkages": [
-      {
-        "dimensions": ["维度1", "维度2"],
-        "relationship": "关联关系说明",
-        "impact": "影响程度"
-      }
-    ],
-    "fullText": "跨维度分析完整内容（Markdown格式，500-800字）"
+    "fullText": "【必填】跨维度分析完整内容（Markdown格式，500-800字）",
+    "causalChains": [{ "chain": "因素A → 因素B → 结果", "explanation": "说明", "timeframe": "时间窗口" }],
+    "keyLinkages": [{ "dimensions": ["维度1", "维度2"], "relationship": "关联", "impact": "影响" }]
   },
   "riskAssessment": {
-    "title": "风险评估",
-    "riskMatrix": [
-      {
-        "riskType": "风险类型",
-        "probability": "高|中|低",
-        "impact": "高|中|低",
-        "timeframe": "短期|中期|长期",
-        "indicators": "预警指标",
-        "mitigation": "应对建议"
-      }
-    ],
-    "fullText": "风险评估完整内容（Markdown格式，400-600字）"
+    "fullText": "【必填】风险评估完整内容（Markdown格式，含风险矩阵表格，400-600字）",
+    "riskMatrix": [{ "riskType": "类型", "probability": "高|中|低", "impact": "高|中|低", "timeframe": "短期|中期|长期", "indicators": "预警指标", "mitigation": "应对建议" }]
   },
   "strategicRecommendations": {
-    "title": "战略建议",
-    "forEnterprise": {
-      "shortTerm": ["短期建议1", "短期建议2"],
-      "midTerm": ["中期建议1", "中期建议2"]
-    },
-    "forInvestors": {
-      "opportunities": ["机会1", "机会2"],
-      "risks": ["风险1", "风险2"]
-    },
-    "forPolicymakers": {
-      "keyObservations": ["观察点1", "观察点2"]
-    },
-    "fullText": "战略建议完整内容（Markdown格式，400-600字）"
+    "fullText": "【必填】战略建议完整内容（Markdown格式，分角色建议，400-600字）",
+    "forEnterprise": { "shortTerm": ["建议1"], "midTerm": ["建议1"] },
+    "forInvestors": { "opportunities": ["机会1"], "risks": ["风险1"] },
+    "forPolicymakers": { "keyObservations": ["观察点1"] }
   },
   "conclusion": "结束语（Markdown格式，800-1200字，包含核心判断提炼、未来展望、差异化行动建议）",
-  "appendices": [
-    {
-      "title": "附录标题",
-      "content": "附录内容（Markdown格式）"
-    }
-  ],
-  "dataSourceNotes": "数据来源说明"
-}`;
+  "appendices": [{ "title": "附录标题", "content": "附录内容" }]
+}
+
+⚠️ **最重要的提醒**：crossDimensionAnalysis.fullText、riskAssessment.fullText、strategicRecommendations.fullText 三个字段必须包含完整的 Markdown 文本内容。不要只返回结构化子字段而遗漏 fullText。`;
 
 /**
  * 报告合成用户提示词模板

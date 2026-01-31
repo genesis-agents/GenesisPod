@@ -566,6 +566,12 @@ const GLOBAL_OUTLINE_PROMPT = `你是资深的研究协调专家（Research Lead
 3. 最后一个章节可以是"总结与展望"
 4. 总字数目标：每个维度 5000-10000 字
 
+## 字数分配原则
+- **核心分析维度**：正常字数预算（5000-10000字）
+- **附录/辅助类维度**：字数上限为总预算的15%，即 800-1500 字
+- 判断标准：维度名包含"附录"、"方法论"、"参考文献"、"指标体系"、"术语"、"工具清单"等关键词时，视为辅助类维度，应大幅缩减字数
+- **维度间篇幅均衡**：核心维度之间的字数差异不应超过 50%，避免某个维度占据过大比例
+
 ## 跨维度协调原则
 - 共同背景：只在第一个涉及的维度中详述，其他维度简要提及即可
 - 重复数据：统一放在最相关的维度，其他维度引用
@@ -2956,10 +2962,15 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
               `[planGlobalOutline] Outline missing ${missing.length} dimensions: ${missing.join(", ")}. Adding stubs.`,
             );
             // Add stub outlines for missing dimensions
+            const APPENDIX_KEYWORDS =
+              /附录|方法论|参考文献|指标体系|术语|工具清单|glossary|appendix|methodology/i;
             for (const name of missing) {
               const inputDim = dimensionSearchResults.find(
                 (d) => d.dimensionName === name,
               );
+              // ★ B4: 附录类维度字数减半
+              const isAppendixLike = APPENDIX_KEYWORDS.test(name);
+              const stubWords = isAppendixLike ? 400 : 800;
               globalOutline.dimensions.push({
                 dimensionId: inputDim?.dimensionId || "",
                 dimensionName: name,
@@ -2968,7 +2979,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
                   intentUnderstanding: {
                     coreQuestion: name,
                     scope: { included: [name], excluded: [] },
-                    expectedDepth: "detailed",
+                    expectedDepth: isAppendixLike ? "overview" : "detailed",
                     targetAudience: "general",
                     keyFocusAreas: [name],
                   },
@@ -2978,13 +2989,13 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
                       title: name,
                       description: "综合分析",
                       keyPoints: ["综合分析"],
-                      targetWords: 800,
+                      targetWords: stubWords,
                       evidenceRequirements: { minReferences: 2 },
                     },
                   ],
                   executionPlan: {
                     parallelGroups: [[`stub-${name}`]],
-                    estimatedTotalWords: 800,
+                    estimatedTotalWords: stubWords,
                   },
                 },
               });

@@ -224,11 +224,55 @@ export interface InlineChart extends ReportChart {
 export interface AIReportSynthesisResponse {
   preface: string;
   tableOfContents: string;
-  executiveSummary: string;
+  executiveSummary: string | ExecutiveSummaryObject;
   sections: ReportSection[];
   conclusion: string;
   appendices: ReportAppendix[];
   charts?: ReportChart[];
+  /** v3.0: 跨维度关联分析 */
+  crossDimensionAnalysis?: {
+    title?: string;
+    causalChains?: Array<{
+      chain: string;
+      explanation: string;
+      timeframe: string;
+    }>;
+    keyLinkages?: Array<{
+      dimensions: string[];
+      relationship: string;
+      impact: string;
+    }>;
+    fullText?: string;
+  };
+  /** v3.0: 风险评估 */
+  riskAssessment?: {
+    title?: string;
+    riskMatrix?: Array<{
+      riskType: string;
+      probability: string;
+      impact: string;
+      timeframe: string;
+      indicators: string;
+      mitigation?: string;
+    }>;
+    fullText?: string;
+  };
+  /** v3.0: 战略建议 */
+  strategicRecommendations?: {
+    title?: string;
+    forEnterprise?: {
+      shortTerm: string[];
+      midTerm: string[];
+    };
+    forInvestors?: {
+      opportunities: string[];
+      risks: string[];
+    };
+    forPolicymakers?: {
+      keyObservations: string[];
+    };
+    fullText?: string;
+  };
   references: Array<{
     index: number;
     title: string;
@@ -242,6 +286,17 @@ export interface AIReportSynthesisResponse {
     researchPeriod: string;
     generatedAt: string;
   };
+}
+
+/**
+ * 执行摘要对象格式
+ */
+export interface ExecutiveSummaryObject {
+  coreConclusions?: string[];
+  keyMetrics?: Array<{ metric: string; value: string; source: string }>;
+  riskAlerts?: string[];
+  actionItems?: string[];
+  fullText?: string;
 }
 
 // ==================== Dimension Analysis Input ====================

@@ -639,17 +639,27 @@ export class ReportSynthesisService {
 
     // 4. 目录
     parts.push("## 目录\n");
+    let tocIndex = 0;
     dimensionInputs.forEach((dim, idx) => {
       const dimName = dim.dimensionName || `维度${idx + 1}`;
+      tocIndex = idx + 1;
       parts.push(
-        `${idx + 1}. [${dimName}](#${idx + 1}--${dimName.toLowerCase().replace(/\s+/g, "-")})`,
+        `${tocIndex}. [${dimName}](#${tocIndex}--${dimName.toLowerCase().replace(/\s+/g, "-")})`,
       );
     });
-    parts.push(
-      `${dimensionInputs.length + 1}. [跨维度关联分析](#跨维度关联分析)`,
-    );
-    parts.push(`${dimensionInputs.length + 2}. [风险评估](#风险评估)`);
-    parts.push(`${dimensionInputs.length + 3}. [战略建议](#战略建议)`);
+    // ★ 只在对应 supplementaryContent 非空时添加目录项
+    if (supplementaryContent.crossDimensionAnalysis) {
+      tocIndex++;
+      parts.push(`${tocIndex}. [跨维度关联分析](#跨维度关联分析)`);
+    }
+    if (supplementaryContent.riskAssessment) {
+      tocIndex++;
+      parts.push(`${tocIndex}. [风险评估](#风险评估)`);
+    }
+    if (supplementaryContent.strategicRecommendations) {
+      tocIndex++;
+      parts.push(`${tocIndex}. [战略建议](#战略建议)`);
+    }
     parts.push("\n---\n");
 
     // 5. 各维度章节（直接使用 detailedContent，但限制长度）
@@ -752,6 +762,58 @@ export class ReportSynthesisService {
       parts.push(content);
       parts.push("\n---\n");
     });
+
+    // ★ A4 Fallback: 如果三个 section 全为空，从维度数据自动拼接最简版
+    if (
+      !supplementaryContent.crossDimensionAnalysis &&
+      !supplementaryContent.riskAssessment &&
+      !supplementaryContent.strategicRecommendations
+    ) {
+      this.logger.warn(
+        "[buildFullReport] crossDimensionAnalysis, riskAssessment, strategicRecommendations are all empty. Generating fallback from dimension data.",
+      );
+      // 自动拼接跨维度关联分析
+      const fallbackCross = dimensionInputs
+        .filter((d) => d.keyFindings?.length > 0)
+        .map(
+          (d) =>
+            `**${d.dimensionName}**：${d.keyFindings
+              .slice(0, 2)
+              .map((f) => f.finding)
+              .join("；")}`,
+        )
+        .join("\n\n");
+      if (fallbackCross) {
+        parts.push("## 跨维度关联分析\n");
+        parts.push(fallbackCross);
+        parts.push("\n---\n");
+      }
+
+      // 自动拼接风险提示
+      const fallbackRisks = dimensionInputs
+        .flatMap(
+          (d) => d.challenges?.slice(0, 1).map((c) => `- ${c.challenge}`) || [],
+        )
+        .join("\n");
+      if (fallbackRisks) {
+        parts.push("## 风险评估\n");
+        parts.push(fallbackRisks);
+        parts.push("\n---\n");
+      }
+
+      // 自动拼接建议
+      const fallbackRecs = dimensionInputs
+        .flatMap(
+          (d) =>
+            d.opportunities?.slice(0, 1).map((o) => `- ${o.opportunity}`) || [],
+        )
+        .join("\n");
+      if (fallbackRecs) {
+        parts.push("## 战略建议\n");
+        parts.push(fallbackRecs);
+        parts.push("\n---\n");
+      }
+    }
 
     // 6. 跨维度关联分析（AI 生成）
     if (supplementaryContent.crossDimensionAnalysis) {
@@ -1083,29 +1145,43 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     );
 
     // ★ v3.0: 处理跨维度分析、风险评估、战略建议
-    // 这些内容将被添加到 conclusion 或作为额外 sections
-    let conclusion = parsed.conclusion || "";
+    // 这些内容将被添加到 conclusion，按正确顺序 append（跨维度→风险→战略→原结语）
+    const originalConclusion = parsed.conclusion || "";
+    const conclusionParts: string[] = [];
 
-    // 添加跨维度分析内容
-    const crossDimensionAnalysis = (parsed as any).crossDimensionAnalysis;
-    if (crossDimensionAnalysis?.fullText) {
-      conclusion =
-        `## 跨维度关联分析\n\n${crossDimensionAnalysis.fullText}\n\n` +
-        conclusion;
+    // 添加跨维度分析内容（类型安全访问）
+    const crossDimensionText = this.extractFullTextWithFallback(
+      parsed.crossDimensionAnalysis,
+      "crossDimensionAnalysis",
+    );
+    if (crossDimensionText) {
+      conclusionParts.push(`## 跨维度关联分析\n\n${crossDimensionText}`);
     }
 
     // 添加风险评估内容
-    const riskAssessment = (parsed as any).riskAssessment;
-    if (riskAssessment?.fullText) {
-      conclusion = `## 风险评估\n\n${riskAssessment.fullText}\n\n` + conclusion;
+    const riskText = this.extractFullTextWithFallback(
+      parsed.riskAssessment,
+      "riskAssessment",
+    );
+    if (riskText) {
+      conclusionParts.push(`## 风险评估\n\n${riskText}`);
     }
 
     // 添加战略建议内容
-    const strategicRecommendations = (parsed as any).strategicRecommendations;
-    if (strategicRecommendations?.fullText) {
-      conclusion =
-        `## 战略建议\n\n${strategicRecommendations.fullText}\n\n` + conclusion;
+    const stratText = this.extractFullTextWithFallback(
+      parsed.strategicRecommendations,
+      "strategicRecommendations",
+    );
+    if (stratText) {
+      conclusionParts.push(`## 战略建议\n\n${stratText}`);
     }
+
+    // 原始结语放在最后
+    if (originalConclusion) {
+      conclusionParts.push(originalConclusion);
+    }
+
+    const conclusion = conclusionParts.join("\n\n");
 
     return {
       preface: parsed.preface || "",
@@ -1207,14 +1283,24 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
   ): string {
     if (!conclusion) return "";
 
-    // 查找章节开始位置
-    const sectionPattern = new RegExp(
-      `## ${sectionTitle}\\n\\n([\\s\\S]*?)(?=## |$)`,
-      "i",
-    );
-    const match = conclusion.match(sectionPattern);
-    if (match && match[1]) {
-      return match[1].trim();
+    // 尝试多种匹配模式（从严格到宽松）
+    const patterns = [
+      // ## 标题\n\n内容
+      new RegExp(`## ${sectionTitle}\\n{1,3}([\\s\\S]*?)(?=\\n## |$)`, "i"),
+      // # 标题（单#）
+      new RegExp(`# ${sectionTitle}\\n{1,3}([\\s\\S]*?)(?=\\n#+ |$)`, "i"),
+      // 纯标题行（不带#）
+      new RegExp(
+        `(?:^|\\n)${sectionTitle}\\n{1,3}([\\s\\S]*?)(?=\\n## |\\n# |$)`,
+        "i",
+      ),
+    ];
+
+    for (const pattern of patterns) {
+      const match = conclusion.match(pattern);
+      if (match && match[1]?.trim()) {
+        return match[1].trim();
+      }
     }
     return "";
   }
@@ -1239,6 +1325,136 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     }
 
     return result.trim();
+  }
+
+  /**
+   * 从结构化字段中提取 fullText，如果为空则从结构化子字段拼接 markdown
+   * ★ v3.0: 解决 AI 省略 fullText 但返回了结构化数据的问题
+   */
+  private extractFullTextWithFallback(
+    section:
+      | {
+          fullText?: string;
+          causalChains?: Array<{
+            chain: string;
+            explanation: string;
+            timeframe: string;
+          }>;
+          keyLinkages?: Array<{
+            dimensions: string[];
+            relationship: string;
+            impact: string;
+          }>;
+          riskMatrix?: Array<{
+            riskType: string;
+            probability: string;
+            impact: string;
+            timeframe: string;
+            indicators: string;
+            mitigation?: string;
+          }>;
+          forEnterprise?: {
+            shortTerm: string[];
+            midTerm: string[];
+          };
+          forInvestors?: {
+            opportunities: string[];
+            risks: string[];
+          };
+          forPolicymakers?: {
+            keyObservations: string[];
+          };
+        }
+      | undefined,
+    fieldName: string,
+  ): string {
+    if (!section) return "";
+    if (section.fullText) return section.fullText;
+
+    // Fallback: 从结构化子字段拼接
+    this.logger.warn(
+      `[normalizeReportResponse] ${fieldName}.fullText is empty, generating from structured fields`,
+    );
+
+    if (fieldName === "crossDimensionAnalysis") {
+      const parts: string[] = [];
+      if (section.causalChains?.length) {
+        parts.push("### 因果链分析\n");
+        section.causalChains.forEach((c) => {
+          parts.push(
+            `**${c.chain}**\n\n${c.explanation}（时间窗口：${c.timeframe}）\n`,
+          );
+        });
+      }
+      if (section.keyLinkages?.length) {
+        parts.push("### 关键联动\n");
+        section.keyLinkages.forEach((l) => {
+          parts.push(
+            `- **${l.dimensions.join(" - ")}**：${l.relationship}（影响：${l.impact}）`,
+          );
+        });
+      }
+      return parts.join("\n") || "";
+    }
+
+    if (fieldName === "riskAssessment" && section.riskMatrix?.length) {
+      const header =
+        "| 风险类型 | 发生概率 | 影响程度 | 时间窗口 | 预警指标 | 应对建议 |\n|----------|----------|----------|----------|----------|----------|\n";
+      const rows = section.riskMatrix
+        .map(
+          (r) =>
+            `| ${r.riskType} | ${r.probability} | ${r.impact} | ${r.timeframe} | ${r.indicators} | ${r.mitigation || "-"} |`,
+        )
+        .join("\n");
+      return header + rows;
+    }
+
+    if (fieldName === "strategicRecommendations") {
+      const parts: string[] = [];
+      if (section.forEnterprise) {
+        parts.push("### 对企业决策者\n");
+        if (section.forEnterprise.shortTerm?.length) {
+          parts.push(
+            "**短期（6-12月）**\n" +
+              section.forEnterprise.shortTerm.map((s) => `- ${s}`).join("\n"),
+          );
+        }
+        if (section.forEnterprise.midTerm?.length) {
+          parts.push(
+            "\n**中期（1-3年）**\n" +
+              section.forEnterprise.midTerm.map((s) => `- ${s}`).join("\n"),
+          );
+        }
+      }
+      if (section.forInvestors) {
+        parts.push("\n### 对投资者\n");
+        if (section.forInvestors.opportunities?.length) {
+          parts.push(
+            "**看好方向**\n" +
+              section.forInvestors.opportunities
+                .map((s) => `- ${s}`)
+                .join("\n"),
+          );
+        }
+        if (section.forInvestors.risks?.length) {
+          parts.push(
+            "\n**警惕风险**\n" +
+              section.forInvestors.risks.map((s) => `- ${s}`).join("\n"),
+          );
+        }
+      }
+      if (section.forPolicymakers?.keyObservations?.length) {
+        parts.push(
+          "\n### 对政策研究者\n" +
+            section.forPolicymakers.keyObservations
+              .map((s) => `- ${s}`)
+              .join("\n"),
+        );
+      }
+      return parts.join("\n") || "";
+    }
+
+    return "";
   }
 
   /**
