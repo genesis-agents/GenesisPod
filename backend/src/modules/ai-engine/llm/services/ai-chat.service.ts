@@ -1471,6 +1471,36 @@ export class AiChatService {
           }
           break;
 
+        // Chinese providers (OpenAI-compatible format)
+        case "deepseek":
+        case "qwen":
+        case "alibaba":
+        case "doubao":
+        case "bytedance":
+        case "zhipu":
+        case "glm":
+        case "kimi":
+        case "moonshot":
+          response = await firstValueFrom(
+            this.httpService.post(
+              apiEndpoint,
+              {
+                model: modelId,
+                messages: testMessages,
+                max_tokens: 50,
+                temperature: 0,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                },
+                timeout: 30000,
+              },
+            ),
+          );
+          break;
+
         default:
           return {
             success: false,
