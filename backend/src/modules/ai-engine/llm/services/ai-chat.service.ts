@@ -3252,6 +3252,40 @@ Generate an image that fulfills the current request while maintaining consistenc
         case "gemini":
           return await this.fetchGeminiModels(apiKey, modelType);
 
+        case "deepseek":
+          return await this.fetchOpenAICompatibleModels(
+            "https://api.deepseek.com/models",
+            apiKey,
+            "DeepSeek",
+            modelType,
+          );
+
+        case "qwen":
+        case "alibaba":
+          return await this.fetchOpenAICompatibleModels(
+            "https://dashscope.aliyuncs.com/compatible-mode/v1/models",
+            apiKey,
+            "Qwen",
+            modelType,
+          );
+
+        case "doubao":
+        case "bytedance":
+          return this.getDoubaoModels(modelType);
+
+        case "zhipu":
+        case "glm":
+          return this.getZhipuModels(modelType);
+
+        case "kimi":
+        case "moonshot":
+          return await this.fetchOpenAICompatibleModels(
+            "https://api.moonshot.cn/v1/models",
+            apiKey,
+            "Moonshot",
+            modelType,
+          );
+
         case "cohere":
           return this.getCohereModels(modelType);
 
@@ -3580,6 +3614,143 @@ Generate an image that fulfills the current request while maintaining consistenc
         ],
       };
     }
+  }
+
+  /**
+   * Fetch models from OpenAI-compatible API (DeepSeek, Qwen, Moonshot, etc.)
+   * These providers follow the OpenAI /models endpoint format: { data: [{ id, ... }] }
+   */
+  private async fetchOpenAICompatibleModels(
+    endpoint: string,
+    apiKey: string,
+    providerName: string,
+    modelType?: string,
+  ) {
+    if (
+      modelType === "IMAGE_GENERATION" ||
+      modelType === "IMAGE_EDITING" ||
+      modelType === "RERANK"
+    ) {
+      return { success: true, models: [] };
+    }
+
+    const response = await firstValueFrom(
+      this.httpService.get<{
+        data?: Array<{ id: string; description?: string }>;
+      }>(endpoint, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+        timeout: 30000,
+      }),
+    );
+
+    let models = response.data?.data || [];
+
+    if (modelType === "EMBEDDING") {
+      models = models.filter(
+        (m) => m.id.includes("embed") || m.id.includes("embedding"),
+      );
+    }
+
+    return {
+      success: true,
+      models: models.map((m) => ({
+        id: m.id,
+        name: m.id,
+        description: m.description || `${providerName} ${m.id}`,
+      })),
+    };
+  }
+
+  /**
+   * Get Doubao models (ByteDance Volcano Engine)
+   * Note: Doubao uses Endpoint IDs (ep-xxx) instead of model names for API calls.
+   * Users must create endpoints in the Volcano Engine console first.
+   * Returns empty model list since endpoint IDs are account-specific.
+   * Last updated: 2026-01-31
+   * Docs: https://www.volcengine.com/docs/82379
+   */
+  private getDoubaoModels(modelType?: string) {
+    if (
+      modelType === "EMBEDDING" ||
+      modelType === "IMAGE_GENERATION" ||
+      modelType === "IMAGE_EDITING" ||
+      modelType === "RERANK"
+    ) {
+      return { success: true, models: [] };
+    }
+
+    return {
+      success: true,
+      models: [],
+      error:
+        "Doubao uses Endpoint IDs (ep-xxx). Please create an endpoint in the Volcano Engine console and paste the Endpoint ID as the Model ID.",
+    };
+  }
+
+  /**
+   * Get Zhipu GLM models (no public list API)
+   * Docs: https://open.bigmodel.cn/dev/api/normal-model/glm-4
+   * Last updated: 2026-01-31
+   */
+  private getZhipuModels(modelType?: string) {
+    if (
+      modelType === "IMAGE_GENERATION" ||
+      modelType === "IMAGE_EDITING" ||
+      modelType === "RERANK"
+    ) {
+      return { success: true, models: [] };
+    }
+
+    if (modelType === "EMBEDDING") {
+      return {
+        success: true,
+        models: [
+          {
+            id: "embedding-3",
+            name: "Embedding 3",
+            description: "Zhipu text embedding model (2048 dim)",
+          },
+          {
+            id: "embedding-2",
+            name: "Embedding 2",
+            description: "Zhipu text embedding model (1024 dim)",
+          },
+        ],
+      };
+    }
+
+    return {
+      success: true,
+      models: [
+        {
+          id: "glm-4-plus",
+          name: "GLM-4 Plus",
+          description: "Most capable GLM model",
+        },
+        {
+          id: "glm-4-long",
+          name: "GLM-4 Long",
+          description: "Long context GLM model (1M tokens)",
+        },
+        {
+          id: "glm-4-flash",
+          name: "GLM-4 Flash",
+          description: "Fast and free GLM model",
+        },
+        {
+          id: "glm-4-flashx",
+          name: "GLM-4 FlashX",
+          description: "Ultra-fast GLM model with lowest latency",
+        },
+        {
+          id: "glm-4",
+          name: "GLM-4",
+          description: "Standard GLM model",
+        },
+      ],
+    };
   }
 
   /**

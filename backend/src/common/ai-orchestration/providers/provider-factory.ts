@@ -146,6 +146,87 @@ export class AIProviderFactory {
       ],
     });
 
+    // DeepSeek
+    this.registerProvider({
+      providerId: "deepseek",
+      providerAliases: ["deepseek-chat", "deepseek-reasoner", "deepseek-v3"],
+      instance: new OpenAITextProvider(this.httpService),
+      supportedTaskTypes: [
+        AiTaskType.CHAT,
+        AiTaskType.COMPLETION,
+        AiTaskType.SUMMARIZATION,
+        AiTaskType.TRANSLATION,
+        AiTaskType.EXTRACTION,
+      ],
+    });
+
+    // Qwen (Alibaba)
+    this.registerProvider({
+      providerId: "qwen",
+      providerAliases: [
+        "alibaba",
+        "qwen-plus",
+        "qwen-turbo",
+        "qwen-max",
+        "tongyi",
+      ],
+      instance: new OpenAITextProvider(this.httpService),
+      supportedTaskTypes: [
+        AiTaskType.CHAT,
+        AiTaskType.COMPLETION,
+        AiTaskType.SUMMARIZATION,
+        AiTaskType.TRANSLATION,
+        AiTaskType.EXTRACTION,
+      ],
+    });
+
+    // Doubao (ByteDance)
+    this.registerProvider({
+      providerId: "doubao",
+      providerAliases: ["bytedance", "volcengine", "doubao-pro", "doubao-lite"],
+      instance: new OpenAITextProvider(this.httpService),
+      supportedTaskTypes: [
+        AiTaskType.CHAT,
+        AiTaskType.COMPLETION,
+        AiTaskType.SUMMARIZATION,
+        AiTaskType.TRANSLATION,
+        AiTaskType.EXTRACTION,
+      ],
+    });
+
+    // Zhipu GLM
+    this.registerProvider({
+      providerId: "zhipu",
+      providerAliases: ["glm", "glm-4", "glm-4-plus", "chatglm", "bigmodel"],
+      instance: new OpenAITextProvider(this.httpService),
+      supportedTaskTypes: [
+        AiTaskType.CHAT,
+        AiTaskType.COMPLETION,
+        AiTaskType.SUMMARIZATION,
+        AiTaskType.TRANSLATION,
+        AiTaskType.EXTRACTION,
+      ],
+    });
+
+    // Kimi (Moonshot)
+    this.registerProvider({
+      providerId: "kimi",
+      providerAliases: [
+        "moonshot",
+        "moonshot-v1",
+        "moonshot-v1-128k",
+        "moonshot-v1-32k",
+      ],
+      instance: new OpenAITextProvider(this.httpService),
+      supportedTaskTypes: [
+        AiTaskType.CHAT,
+        AiTaskType.COMPLETION,
+        AiTaskType.SUMMARIZATION,
+        AiTaskType.TRANSLATION,
+        AiTaskType.EXTRACTION,
+      ],
+    });
+
     // xAI Grok Image
     this.registerProvider({
       providerId: "xai-image",

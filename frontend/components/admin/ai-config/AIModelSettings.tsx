@@ -144,6 +144,11 @@ const MODEL_ICONS: Record<string, string> = {
   'gpt-4': '/icons/ai/openai.svg',
   claude: '/icons/ai/claude.svg',
   gemini: '/icons/ai/gemini.svg',
+  deepseek: '/icons/ai/deepseek.svg',
+  qwen: '/icons/ai/qwen.svg',
+  doubao: '/icons/ai/doubao.svg',
+  zhipu: '/icons/ai/zhipu.svg',
+  kimi: '/icons/ai/kimi.svg',
 };
 
 // Standard model configurations with defaults
@@ -185,6 +190,54 @@ const STANDARD_MODEL_CONFIGS = [
     defaultType: 'CHAT',
   },
   {
+    id: 'deepseek',
+    name: 'DeepSeek (深度求索)',
+    provider: 'DeepSeek',
+    defaultModelId: 'deepseek-chat',
+    defaultEndpoint: 'https://api.deepseek.com/chat/completions',
+    icon: '/icons/ai/deepseek.svg',
+    defaultType: 'CHAT',
+  },
+  {
+    id: 'qwen',
+    name: 'Qwen (通义千问)',
+    provider: 'Alibaba',
+    defaultModelId: 'qwen-plus',
+    defaultEndpoint:
+      'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    icon: '/icons/ai/qwen.svg',
+    defaultType: 'CHAT',
+  },
+  {
+    id: 'doubao',
+    name: 'Doubao (豆包)',
+    provider: 'ByteDance',
+    defaultModelId: '',
+    defaultEndpoint:
+      'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+    icon: '/icons/ai/doubao.svg',
+    defaultType: 'CHAT',
+    modelIdPlaceholder: 'ep-xxxxxxxxxxxx-xxxxx (Endpoint ID)',
+  },
+  {
+    id: 'zhipu',
+    name: 'GLM (智谱)',
+    provider: 'Zhipu',
+    defaultModelId: 'glm-4-plus',
+    defaultEndpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+    icon: '/icons/ai/zhipu.svg',
+    defaultType: 'CHAT',
+  },
+  {
+    id: 'kimi',
+    name: 'Kimi (月之暗面)',
+    provider: 'Moonshot',
+    defaultModelId: 'moonshot-v1-128k',
+    defaultEndpoint: 'https://api.moonshot.cn/v1/chat/completions',
+    icon: '/icons/ai/kimi.svg',
+    defaultType: 'CHAT',
+  },
+  {
     id: 'embedding',
     name: 'OpenAI Embedding',
     provider: 'OpenAI',
@@ -203,6 +256,14 @@ const STANDARD_MODEL_CONFIGS = [
     defaultType: 'RERANK',
   },
 ] as const;
+
+type ModelConfig = (typeof STANDARD_MODEL_CONFIGS)[number];
+
+function getModelIdPlaceholder(modelName: string): string | undefined {
+  const config = STANDARD_MODEL_CONFIGS.find((m) => m.id === modelName);
+  return (config as (ModelConfig & { modelIdPlaceholder?: string }) | undefined)
+    ?.modelIdPlaceholder;
+}
 
 function getModelIconUrl(modelName: string): string | null {
   const name = modelName.toLowerCase();
@@ -276,6 +337,7 @@ function ModelIdSelector({
   apiKey,
   secretKey,
   modelType,
+  placeholder,
 }: {
   value: string;
   onChange: (modelId: string) => void;
@@ -283,6 +345,7 @@ function ModelIdSelector({
   apiKey: string;
   secretKey?: string | null;
   modelType: AIModelType;
+  placeholder?: string;
 }) {
   const [availableModels, setAvailableModels] = useState<
     Array<{ id: string; name: string; description?: string }>
@@ -350,7 +413,7 @@ function ModelIdSelector({
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="gpt-4-turbo"
+          placeholder={placeholder || 'gpt-4-turbo'}
           className="font-mono flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
         <button
@@ -1626,6 +1689,7 @@ function EditModelModal({
                   keySourceMode === 'secret' ? formData.secretKey : null
                 }
                 modelType={formData.modelType}
+                placeholder={getModelIdPlaceholder(formData.name)}
               />
             </div>
           </div>
@@ -2305,6 +2369,7 @@ function AddModelModal({
                   keySourceMode === 'secret' ? formData.secretKey : null
                 }
                 modelType={formData.modelType}
+                placeholder={getModelIdPlaceholder(formData.name)}
               />
             </div>
           </div>

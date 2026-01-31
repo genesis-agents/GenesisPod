@@ -33,6 +33,14 @@ export class OpenAITextProvider extends BaseTextProvider {
     "gpt-3.5-turbo",
     "o1",
     "o3",
+    // Chinese providers (OpenAI-compatible API)
+    "deepseek",
+    "qwen",
+    "doubao",
+    "glm",
+    "chatglm",
+    "moonshot",
+    "kimi",
   ];
 
   constructor(httpService: HttpService) {
