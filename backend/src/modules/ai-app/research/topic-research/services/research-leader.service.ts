@@ -1035,10 +1035,18 @@ export class ResearchLeaderService {
 
     // 3. 获取可用的 CHAT 模型列表（供 Leader 为 Agent 分配）
     const availableModels = await this.aiFacade.getAvailableModelsExtended();
-    // ★ 对重复的 modelId 去重，避免 AI 看到 #2, #3 等后缀后构造无效的 modelId
-    const uniqueModels = availableModels.filter(
+    // ★ 过滤不可用模型（如 API key 过期、熔断器打开），并对重复 modelId 去重
+    const reachableModels = availableModels.filter(
+      (m) => m.isAvailable !== false,
+    );
+    const uniqueModels = reachableModels.filter(
       (m, i, arr) => arr.findIndex((x) => x.id === m.id) === i,
     );
+    if (reachableModels.length < availableModels.length) {
+      this.logger.warn(
+        `[planResearch] Filtered out ${availableModels.length - reachableModels.length} unavailable models`,
+      );
+    }
 
     // ★ 构建模型名称到真实 modelId 的映射（供后处理还原）
     // 当 displayName 与 modelId 不同时（如 ep-xxx 接入点），用 displayName 作为 prompt 展示名
@@ -2260,8 +2268,9 @@ ${teamMembersText}`;
       },
     });
 
-    // 2. 获取可用模型列表（优先用于对话的模型）
-    const availableModels = await this.aiFacade.getAvailableModelsExtended();
+    // 2. 获取可用模型列表（过滤不可用模型，优先用于对话的模型）
+    const allModelsRaw = await this.aiFacade.getAvailableModelsExtended();
+    const availableModels = allModelsRaw.filter((m) => m.isAvailable !== false);
     // 过滤掉推理模型（用于研究任务的应是普通对话模型）
     const chatModels = availableModels.filter((m) => !m.isReasoning);
 
