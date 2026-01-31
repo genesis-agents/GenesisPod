@@ -3301,7 +3301,12 @@ Generate an image that fulfills the current request while maintaining consistenc
 
         case "doubao":
         case "bytedance":
-          return this.getDoubaoModels(modelType);
+          return await this.fetchOpenAICompatibleModels(
+            "https://ark.cn-beijing.volces.com/api/v3/models",
+            apiKey,
+            "Doubao",
+            modelType,
+          );
 
         case "zhipu":
         case "glm":
@@ -3690,56 +3695,6 @@ Generate an image that fulfills the current request while maintaining consistenc
         name: m.id,
         description: m.description || `${providerName} ${m.id}`,
       })),
-    };
-  }
-
-  /**
-   * Get Doubao models (ByteDance Volcano Engine)
-   * Note: Doubao API requires Endpoint IDs (ep-xxx) rather than model names.
-   * Users select a model here for reference, then create a corresponding endpoint
-   * in the Volcano Engine console and fill in the Endpoint ID as Model ID.
-   * Last updated: 2026-01-31
-   * Docs: https://www.volcengine.com/docs/82379
-   */
-  private getDoubaoModels(modelType?: string) {
-    if (
-      modelType === "EMBEDDING" ||
-      modelType === "IMAGE_GENERATION" ||
-      modelType === "IMAGE_EDITING" ||
-      modelType === "RERANK"
-    ) {
-      return { success: true, models: [] };
-    }
-
-    return {
-      success: true,
-      models: [
-        {
-          id: "doubao-1.5-pro-256k",
-          name: "Doubao 1.5 Pro 256K",
-          description: "Latest flagship, 256K context",
-        },
-        {
-          id: "doubao-1.5-pro-32k",
-          name: "Doubao 1.5 Pro 32K",
-          description: "Flagship model, 32K context",
-        },
-        {
-          id: "doubao-1.5-lite-32k",
-          name: "Doubao 1.5 Lite 32K",
-          description: "Fast lightweight model",
-        },
-        {
-          id: "doubao-pro-32k",
-          name: "Doubao Pro 32K",
-          description: "General-purpose model",
-        },
-        {
-          id: "doubao-lite-32k",
-          name: "Doubao Lite 32K",
-          description: "Lightweight, low cost",
-        },
-      ],
     };
   }
 
