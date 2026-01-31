@@ -353,6 +353,9 @@ function ModelIdSelector({
   const [error, setError] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
+  const isDoubao =
+    provider.toLowerCase() === 'bytedance' ||
+    provider.toLowerCase() === 'doubao';
 
   const fetchModels = async () => {
     if (!apiKey && !secretKey) {
@@ -478,18 +481,23 @@ function ModelIdSelector({
       {hasFetched && availableModels.length > 0 && (
         <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
           <p className="mb-2 text-xs font-medium text-gray-600">
-            可用模型 ({availableModels.length}) - 点击选择:
+            {isDoubao
+              ? `可用模型 (${availableModels.length}) - 仅供参考，请在火山引擎控制台创建接入点后填入 ep-xxx:`
+              : `可用模型 (${availableModels.length}) - 点击选择:`}
           </p>
           <div className="flex flex-wrap gap-2">
             {availableModels.map((model) => (
               <button
                 key={model.id}
                 type="button"
-                onClick={() => onChange(model.id)}
+                onClick={() => !isDoubao && onChange(model.id)}
+                disabled={isDoubao}
                 className={`font-mono rounded-md border px-2 py-1 text-xs transition-colors ${
-                  value === model.id
-                    ? 'border-blue-500 bg-blue-100 text-blue-700'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
+                  isDoubao
+                    ? 'cursor-default border-gray-200 bg-gray-100 text-gray-500'
+                    : value === model.id
+                      ? 'border-blue-500 bg-blue-100 text-blue-700'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
                 }`}
                 title={model.description || model.name}
               >
