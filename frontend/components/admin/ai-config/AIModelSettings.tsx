@@ -212,7 +212,7 @@ const STANDARD_MODEL_CONFIGS = [
     id: 'doubao',
     name: 'Doubao (豆包)',
     provider: 'ByteDance',
-    defaultModelId: 'doubao-1.5-pro-256k',
+    defaultModelId: '',
     defaultEndpoint:
       'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
     icon: '/icons/ai/doubao.svg',
@@ -387,6 +387,13 @@ function ModelIdSelector({
           } else {
             setError(`该提供商没有可用的 ${modelType} 类型模型`);
           }
+        } else if (
+          provider.toLowerCase() === 'bytedance' ||
+          provider.toLowerCase() === 'doubao'
+        ) {
+          setHint(
+            '火山引擎需使用推理接入点 ID（ep-xxx）作为 Model ID，请在控制台创建接入点后填入'
+          );
         }
       } else if (data.models) {
         // Direct models array format
