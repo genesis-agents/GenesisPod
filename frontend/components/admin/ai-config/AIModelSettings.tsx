@@ -352,6 +352,7 @@ function ModelIdSelector({
   >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hint, setHint] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
 
   const fetchModels = async () => {
@@ -361,6 +362,7 @@ function ModelIdSelector({
     }
     setLoading(true);
     setError(null);
+    setHint(null);
     try {
       const response = await fetch(
         `${config.apiUrl}/admin/ai-models/fetch-available`,
@@ -380,7 +382,12 @@ function ModelIdSelector({
         setAvailableModels(data.models);
         setHasFetched(true);
         if (data.models.length === 0) {
-          setError(data.error || `该提供商没有可用的 ${modelType} 类型模型`);
+          // If success but empty, show error message as hint (not error)
+          if (data.error) {
+            setHint(data.error);
+          } else {
+            setError(`该提供商没有可用的 ${modelType} 类型模型`);
+          }
         }
       } else if (data.models) {
         // Direct models array format
@@ -401,6 +408,7 @@ function ModelIdSelector({
     setAvailableModels([]);
     setHasFetched(false);
     setError(null);
+    setHint(null);
   }, [modelType]);
 
   return (
@@ -458,6 +466,7 @@ function ModelIdSelector({
         </button>
       </div>
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {hint && !error && <p className="mt-1 text-xs text-amber-600">{hint}</p>}
 
       {/* Show all models in a grid - no dropdown, no scrollbar */}
       {hasFetched && availableModels.length > 0 && (
