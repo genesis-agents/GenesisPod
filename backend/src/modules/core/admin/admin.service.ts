@@ -342,7 +342,7 @@ export class AdminService {
     return models.map((model) => ({
       ...model,
       apiKey: model.apiKey ? this.maskApiKey(model.apiKey) : null,
-      hasApiKey: !!model.apiKey,
+      hasApiKey: !!model.apiKey || !!model.secretKey,
     }));
   }
 
@@ -368,7 +368,7 @@ export class AdminService {
           ? model.apiKey
           : this.maskApiKey(model.apiKey)
         : null,
-      hasApiKey: !!model.apiKey,
+      hasApiKey: !!model.apiKey || !!model.secretKey,
     };
   }
 
@@ -495,7 +495,7 @@ export class AdminService {
       return {
         ...updated,
         apiKey: updated.apiKey ? this.maskApiKey(updated.apiKey) : null,
-        hasApiKey: !!updated.apiKey,
+        hasApiKey: !!updated.apiKey || !!updated.secretKey,
         isUpdate: true, // 标记这是更新操作
       };
     }
@@ -540,7 +540,7 @@ export class AdminService {
     return {
       ...model,
       apiKey: model.apiKey ? this.maskApiKey(model.apiKey) : null,
-      hasApiKey: !!model.apiKey,
+      hasApiKey: !!model.apiKey || !!model.secretKey,
       isUpdate: false, // 标记这是创建操作
     };
   }
@@ -647,7 +647,7 @@ export class AdminService {
     return {
       ...updated,
       apiKey: updated.apiKey ? this.maskApiKey(updated.apiKey) : null,
-      hasApiKey: !!updated.apiKey,
+      hasApiKey: !!updated.apiKey || !!updated.secretKey,
     };
   }
 
@@ -679,7 +679,7 @@ export class AdminService {
     return {
       ...updated,
       apiKey: updated.apiKey ? this.maskApiKey(updated.apiKey) : null,
-      hasApiKey: !!updated.apiKey,
+      hasApiKey: !!updated.apiKey || !!updated.secretKey,
     };
   }
 
@@ -1941,7 +1941,7 @@ export class AdminService {
       apiEndpoint: model.apiEndpoint,
       isEnabled: model.isEnabled,
       isDefault: model.isDefault,
-      hasApiKey: !!model.apiKey,
+      hasApiKey: !!model.apiKey || !!model.secretKey,
       apiKeyLength: model.apiKey?.length || 0,
       apiKeyPrefix: model.apiKey ? model.apiKey.substring(0, 8) + "..." : null,
       maxTokens: model.maxTokens,
@@ -1967,7 +1967,7 @@ export class AdminService {
     return models.map((model) => ({
       ...model,
       apiKey: model.apiKey ? this.maskApiKey(model.apiKey) : null,
-      hasApiKey: !!model.apiKey,
+      hasApiKey: !!model.apiKey || !!model.secretKey,
     }));
   }
 
@@ -2003,7 +2003,7 @@ export class AdminService {
     return {
       ...model,
       apiKey: model.apiKey ? this.maskApiKey(model.apiKey) : null,
-      hasApiKey: !!model.apiKey,
+      hasApiKey: !!model.apiKey || !!model.secretKey,
     };
   }
 
@@ -2067,7 +2067,7 @@ export class AdminService {
     return {
       ...updated,
       apiKey: updated.apiKey ? this.maskApiKey(updated.apiKey) : null,
-      hasApiKey: !!updated.apiKey,
+      hasApiKey: !!updated.apiKey || !!updated.secretKey,
     };
   }
 
