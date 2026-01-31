@@ -40,6 +40,7 @@ import { CollaboratorRole } from "../dto/collaborator.dto";
 import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
 import { ResearchReviewerService } from "./research-reviewer.service";
 import type { DimensionAnalysisResult } from "../types/research.types";
+import { getModelDisplayNameMap } from "../utils/model-display-name";
 
 // ==================== Constants ====================
 
@@ -812,7 +813,8 @@ export class ResearchMissionService {
     }
 
     // ★ 查询模型展示名称映射（modelId → displayName）
-    const modelDisplayNameMap = await this.getModelDisplayNameMap(
+    const modelDisplayNameMap = await getModelDisplayNameMap(
+      this.prisma,
       mission.tasks.map((t) => t.modelId).filter((id): id is string => !!id),
     );
 
@@ -864,7 +866,8 @@ export class ResearchMissionService {
     }
 
     // ★ 查询模型展示名称映射
-    const modelDisplayNameMap = await this.getModelDisplayNameMap(
+    const modelDisplayNameMap = await getModelDisplayNameMap(
+      this.prisma,
       mission.tasks.map((t) => t.modelId).filter((id): id is string => !!id),
     );
 
@@ -984,7 +987,7 @@ export class ResearchMissionService {
     actualModelId?: string, // ★ 实际使用的模型
   ): Promise<ResearchTask> {
     const now = new Date();
-    const updateData: any = { status };
+    const updateData: Prisma.ResearchTaskUpdateInput = { status };
 
     if (status === ResearchTaskStatus.EXECUTING) {
       updateData.startedAt = now;
@@ -1674,30 +1677,6 @@ export class ResearchMissionService {
       default:
         return "研究员";
     }
-  }
-
-  /**
-   * 获取阶段名称
-   */
-  /**
-   * 批量查询 modelId → displayName 映射
-   */
-  private async getModelDisplayNameMap(
-    modelIds: string[],
-  ): Promise<Map<string, string>> {
-    const map = new Map<string, string>();
-    if (modelIds.length === 0) return map;
-
-    const uniqueIds = [...new Set(modelIds)];
-    const models = await this.prisma.aIModel.findMany({
-      where: { modelId: { in: uniqueIds } },
-      select: { modelId: true, displayName: true },
-    });
-
-    for (const m of models) {
-      map.set(m.modelId, m.displayName);
-    }
-    return map;
   }
 
   private getPhaseFromStatus(status: ResearchMissionStatus): string {

@@ -1162,11 +1162,16 @@ export class ResearchLeaderService {
           let realId = modelNameToIdMap.get(aiModelId);
 
           // ★ 模糊匹配：AI 可能返回不完整的名称（如 "Doubao" 而非 "Doubao (豆包)"）
+          // 选择最长前缀匹配，避免 "gpt" 误匹配到 "gpt-4o" 而非 "gpt-5.1"
           if (!realId) {
+            let bestMatchLen = 0;
             for (const [key, id] of modelNameToIdMap.entries()) {
               if (key.startsWith(aiModelId) || aiModelId.startsWith(key)) {
-                realId = id;
-                break;
+                const matchLen = Math.min(key.length, aiModelId.length);
+                if (matchLen > bestMatchLen) {
+                  bestMatchLen = matchLen;
+                  realId = id;
+                }
               }
             }
           }
