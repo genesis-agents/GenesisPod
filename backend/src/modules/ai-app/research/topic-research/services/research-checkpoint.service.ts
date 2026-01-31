@@ -32,10 +32,19 @@ export interface ResearchCheckpoint {
   currentTask: string | null;
   /** Current dimension ID being researched */
   currentDimensionId: string | null;
-  /** Execution context (any intermediate state) */
+  /** Execution context (any intermediate state, including V5 fields) */
   context: Record<string, unknown>;
   /** Timestamp when checkpoint was saved */
   savedAt: Date;
+  /** V5: Current phase for crash recovery */
+  currentPhase?:
+    | "L1_design"
+    | "L2_knowledge"
+    | "L3_analysis"
+    | "L4_writing"
+    | "L5_editing";
+  /** V5: Research depth for this mission */
+  researchDepth?: import("../types/v5-research.types").ResearchDepth;
 }
 
 /**

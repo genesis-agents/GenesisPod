@@ -70,6 +70,8 @@ export interface DimensionMissionResult {
   integratedResult?: IntegratedDimensionResult;
   error?: string;
   actualModelId?: string; // ★ 实际使用的模型
+  /** V5: 提取的事实断言（用于后续验证） */
+  extractedClaims?: import("../types/v5-research.types").ExtractedClaim[];
 }
 
 /**
@@ -106,6 +108,8 @@ export interface SearchPhaseResult {
   modelId?: string;
   assignedTools?: string[];
   assignedSkills?: string[];
+  /** V5: 验证上下文（注入到写作 prompt） */
+  validationContext?: string;
 }
 
 @Injectable()
@@ -678,6 +682,8 @@ export class DimensionMissionService {
     taskId?: string,
     _assignedTools?: string[], // Prefixed with _ to indicate intentionally unused
     _assignedSkills?: string[], // Prefixed with _ to indicate intentionally unused
+    validationContext?: string, // V5: 验证上下文
+    maxRevisionRounds?: number, // V5: 最大修订轮次（来自 depthConfig）
   ): Promise<DimensionMissionResult> {
     const dimId = dimension.id.slice(0, 8);
     const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
@@ -776,6 +782,8 @@ export class DimensionMissionService {
         modelId,
         searchPhaseResult.temporalContext,
         taskId,
+        validationContext, // V5
+        maxRevisionRounds, // V5
       );
 
       // 记录写作完成
@@ -802,6 +810,29 @@ export class DimensionMissionService {
           finalContent: `写作完成：${sectionResults.length} 个章节，共 ${totalWordCount} 字`,
         },
       );
+
+      // V5: Extract claims from all sections
+      const allSectionContents = sectionResults.map((r) => ({
+        sectionId: r.sectionId,
+        content: r.content,
+      }));
+
+      let extractedClaims: import("../types/v5-research.types").ExtractedClaim[] =
+        [];
+      try {
+        const claimPromises = allSectionContents.map((sc) =>
+          this.leaderService.extractClaims(sc.sectionId, sc.content),
+        );
+        const claimResults = await Promise.all(claimPromises);
+        extractedClaims = claimResults.flat();
+        this.logger.log(
+          `${logPrefix} V5: Extracted ${extractedClaims.length} claims from ${allSectionContents.length} sections`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `${logPrefix} V5: Claim extraction failed (non-fatal): ${error}`,
+        );
+      }
 
       // 3. Leader 整合结果
       this.emitProgress(
@@ -988,6 +1019,7 @@ export class DimensionMissionService {
         sectionResults,
         integratedResult: finalIntegratedResult,
         actualModelId: lastActualModel, // ★ 记录实际使用的模型
+        extractedClaims, // V5: 提取的事实断言
       };
     } catch (error) {
       const errorMessage =
@@ -1043,6 +1075,8 @@ export class DimensionMissionService {
     modelId?: string, // ★ Leader 分配的模型
     temporalContext?: TemporalContext, // ★ 时间上下文
     taskId?: string, // ★ 研究任务ID（用于前端精确匹配进度更新）
+    validationContext?: string, // V5: 验证上下文
+    maxRevisionRounds?: number, // V5: 最大修订轮次
   ): Promise<SectionWriteResult[]> {
     const sectionResults: SectionWriteResult[] = [];
     const sectionMap = new Map<string, SectionWriteResult>();
@@ -1074,6 +1108,7 @@ export class DimensionMissionService {
         modelId, // ★ 传递模型
         temporalContext, // ★ 传递时间上下文
         allocatedFigures: section.allocatedFigures, // ★ 传递 Leader 预分配的图表
+        validationContext, // V5: inject validation context
       }));
 
       // ★ 发送研究员开始写作事件
@@ -1122,9 +1157,10 @@ export class DimensionMissionService {
           missionId,
         );
 
-        // 审核循环
+        // 审核循环（V5: 修订轮次由 depthConfig 控制，默认 3）
+        const effectiveMaxRevisions = maxRevisionRounds ?? 3;
         let revisionCount = 0;
-        while (revisionCount < 3) {
+        while (revisionCount < effectiveMaxRevisions) {
           const review = await this.leaderService.reviewSectionOutput(
             section,
             result.content,

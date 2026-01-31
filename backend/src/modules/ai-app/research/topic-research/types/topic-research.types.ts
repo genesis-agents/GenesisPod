@@ -27,3 +27,7 @@ export {
   RefreshFrequency,
   DimensionStatus,
 } from "@prisma/client";
+
+// Re-export V5 research depth types
+export type { ResearchDepth, ResearchDepthConfig } from "./v5-research.types";
+export { resolveResearchDepthConfig } from "./v5-research.types";

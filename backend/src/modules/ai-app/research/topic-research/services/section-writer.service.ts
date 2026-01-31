@@ -72,6 +72,8 @@ export interface SectionWriteInput {
   temporalContext?: TemporalContext;
   /** ★ Leader 预分配的图表（避免写手重复选图） */
   allocatedFigures?: import("./research-leader.service").AllocatedFigure[];
+  /** V5: 验证结果上下文（注入到写作 prompt 中） */
+  validationContext?: string;
 }
 
 /**
@@ -164,13 +166,18 @@ export class SectionWriterService {
       promptVariables,
     );
 
+    // V5: Inject validation context if available
+    const finalUserPrompt = input.validationContext
+      ? `${userPrompt}\n\n${input.validationContext}`
+      : userPrompt;
+
     // 调用 AI 写作
     // ★ 支持指定模型实现 Agent 多元化
     const startTime = Date.now();
     const response = await this.aiFacade.chat({
       messages: [
         { role: "system", content: SECTION_WRITING_SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
+        { role: "user", content: finalUserPrompt },
       ],
       modelType: AIModelType.CHAT,
       model: modelId, // ★ 使用指定模型（如果提供）

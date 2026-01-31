@@ -12,6 +12,7 @@ import type {
   TopicReport,
 } from "@prisma/client";
 import { DimensionMissionService } from "./dimension-mission.service";
+import { DataSourceRouterService } from "./data-source-router.service";
 import { ReportSynthesisService } from "./report-synthesis.service";
 import {
   ResearchReviewerService,
@@ -22,7 +23,15 @@ import {
   ResearchLeaderService,
   type AgentAssignment,
 } from "./research-leader.service";
+import { ResearchCheckpointService } from "./research-checkpoint.service";
 import type { DimensionAnalysisResult } from "../types/research.types";
+import {
+  type ResearchDepth,
+  type ResearchDepthConfig,
+  type ResearchDesign,
+  resolveResearchDepthConfig,
+} from "../types/v5-research.types";
+import { buildValidationContextForWriting } from "../prompts/v5-research.prompt";
 
 /**
  * Refresh Progress Event
@@ -55,6 +64,8 @@ export interface RefreshOptions {
   dimensionIds?: string[];
   /** 是否增量刷新 */
   incremental?: boolean;
+  /** V5: 研究深度 */
+  researchDepth?: ResearchDepth;
 }
 
 /**
@@ -86,6 +97,8 @@ export class TopicTeamOrchestratorService {
     private readonly reportSynthesisService: ReportSynthesisService,
     private readonly researchReviewerService: ResearchReviewerService,
     private readonly researchLeaderService: ResearchLeaderService,
+    private readonly researchCheckpointService: ResearchCheckpointService,
+    private readonly dataSourceRouterService: DataSourceRouterService,
   ) {}
 
   /**
@@ -123,6 +136,13 @@ export class TopicTeamOrchestratorService {
       // 1. 创建草稿报告
       const report =
         await this.reportSynthesisService.createDraftReport(topicId);
+
+      // V5: Resolve research depth config
+      const researchDepth: ResearchDepth = options.researchDepth || "standard";
+      const depthConfig = resolveResearchDepthConfig(researchDepth);
+      this.logger.log(
+        `[executeRefresh] V5 depth: ${researchDepth} (cognitiveLoops=${depthConfig.maxCognitiveLoops}, revisions=${depthConfig.maxRevisionRounds})`,
+      );
 
       // 发送开始事件
       this.emitProgress({
@@ -212,18 +232,163 @@ export class TopicTeamOrchestratorService {
         message: `开始研究 ${dimensions.length} 个维度...`,
       });
 
+      // V5: Research design extracted from global outline (populated after Phase 2)
+      let researchDesign: ResearchDesign | undefined;
+      // V5: Validation context built from cognitive loop (used for future iterative rewriting)
+      let validationContext = "";
+
+      // V5: Literature baseline scan (standard/thorough only)
+      if (depthConfig.knowledgeIterations >= 2) {
+        this.logger.log(
+          `[V5] Running literature baseline scan for ${dimensions.length} dimensions`,
+        );
+        try {
+          await Promise.all(
+            dimensions
+              .slice(0, 3)
+              .map((dim) =>
+                this.dataSourceRouterService.scanLiteratureBaseline(topic, dim),
+              ),
+          );
+          this.logger.log(`[V5] Literature baseline scan complete`);
+        } catch (error) {
+          this.logger.warn(
+            `[V5] Literature baseline scan failed (non-fatal): ${error}`,
+          );
+        }
+      }
+
       // 3. 并行执行维度研究（传递 Agent 分配信息以使用正确的工具和技能）
-      const analysisResults = await this.researchDimensionsInParallel(
-        topic,
-        dimensions,
-        report.id,
-        abortController.signal,
-        agentAssignments,
-      );
+      const { results: analysisResults, researchDesign: extractedDesign } =
+        await this.researchDimensionsInParallel(
+          topic,
+          dimensions,
+          report.id,
+          abortController.signal,
+          agentAssignments,
+          depthConfig,
+        );
+      researchDesign = extractedDesign;
+
+      // V5: Checkpoint after Phase 2 (global outline + research design)
+      try {
+        await this.researchCheckpointService.saveCheckpoint(
+          topic.id, // Use topicId as a proxy since we don't have missionId here
+          { phase: "L2_knowledge", researchDesign, depthConfig },
+        );
+      } catch {
+        // non-fatal
+      }
+
+      // V5: Hypothesis-driven queries (if hypotheses available and standard/thorough)
+      if (
+        researchDesign?.hypotheses?.length &&
+        depthConfig.hypothesisTestingEnabled
+      ) {
+        this.logger.log(
+          `[V5] Running hypothesis-driven queries for ${researchDesign.hypotheses.length} hypotheses`,
+        );
+        try {
+          for (const hypothesis of researchDesign.hypotheses.slice(0, 3)) {
+            await this.dataSourceRouterService.searchForHypothesis(
+              hypothesis.statement,
+            );
+          }
+          this.logger.log(`[V5] Hypothesis-driven queries complete`);
+        } catch (error) {
+          this.logger.warn(
+            `[V5] Hypothesis-driven queries failed (non-fatal): ${error}`,
+          );
+        }
+      }
 
       // 检查是否被取消
       if (abortController.signal.aborted) {
         throw new Error("Refresh cancelled");
+      }
+
+      // ============ V5: Cognitive Loop (Claim Extraction → Validation → Hypothesis Verification) ============
+      if (depthConfig.maxCognitiveLoops > 0) {
+        this.emitProgress({
+          topicId,
+          reportId: report.id,
+          phase: "reviewing",
+          progress: 65,
+          completedDimensions: dimensions.length,
+          totalDimensions: dimensions.length,
+          message: "V5: 认知循环 - 提取断言并交叉验证...",
+        });
+
+        // Collect claims from successful results
+        const allClaims: import("../types/v5-research.types").ExtractedClaim[] =
+          [];
+        for (const result of analysisResults) {
+          if (result.status === "fulfilled") {
+            const val = result.value as any;
+            if (val.extractedClaims) {
+              allClaims.push(...val.extractedClaims);
+            }
+          }
+        }
+
+        if (allClaims.length > 0) {
+          // Build evidence summary from analysis results
+          const evidenceSummary = analysisResults
+            .filter((r) => r.status === "fulfilled")
+            .map((r) => {
+              const val = (r as PromiseFulfilledResult<any>).value;
+              return val.analysisResult?.summary || "";
+            })
+            .join("\n\n")
+            .substring(0, 8000);
+
+          const claimValidation =
+            await this.researchReviewerService.validateClaims(
+              allClaims,
+              evidenceSummary,
+            );
+
+          this.logger.log(
+            `[V5] Claim validation: ${claimValidation.stats.verified} verified, ${claimValidation.stats.disputed} disputed`,
+          );
+
+          // Verify hypotheses
+          if (
+            depthConfig.hypothesisTestingEnabled &&
+            researchDesign?.hypotheses?.length
+          ) {
+            const hypothesisResults =
+              await this.researchLeaderService.verifyHypotheses(
+                researchDesign.hypotheses,
+                evidenceSummary,
+              );
+            this.logger.log(
+              `[V5] Hypothesis verification: ${hypothesisResults.length} results`,
+            );
+
+            // Build validation context for potential rewriting
+            validationContext = buildValidationContextForWriting(
+              claimValidation.results,
+              hypothesisResults,
+            );
+            if (validationContext) {
+              this.logger.log(
+                `[V5] Built validation context (${validationContext.length} chars) for quality-aware synthesis`,
+              );
+            }
+          }
+        }
+
+        // V5: Checkpoint after cognitive loop
+        try {
+          await this.researchCheckpointService.saveCheckpoint(topic.id, {
+            phase: "L3_analysis",
+            claimsCount: allClaims.length,
+            validationContext,
+          });
+        } catch {
+          // non-fatal
+        }
       }
 
       // 4. 保存分析结果
@@ -302,7 +467,42 @@ export class TopicTeamOrchestratorService {
         report.id,
       );
 
-      // 6. 更新专题状态和统计数据
+      // V5: Fact check (thorough mode only)
+      if (depthConfig.factCheckEnabled) {
+        this.emitProgress({
+          topicId,
+          reportId: report.id,
+          phase: "reviewing",
+          progress: 92,
+          completedDimensions: dimensions.length,
+          totalDimensions: dimensions.length,
+          message: "V5: 事实核查中...",
+        });
+
+        try {
+          const reportContent = (finalReport as any).content || "";
+          // Collect evidence data from successful analysis results
+          const evidenceForFactCheck = await this.prisma.topicEvidence.findMany(
+            {
+              where: { reportId: report.id },
+              select: { id: true, title: true, snippet: true },
+              take: 50,
+            },
+          );
+          const factCheckResult =
+            await this.researchReviewerService.factCheckReport(
+              reportContent,
+              evidenceForFactCheck,
+            );
+          this.logger.log(
+            `[V5] Fact check: accuracy=${factCheckResult.accuracyScore}/100, issues=${factCheckResult.issues.length}`,
+          );
+        } catch (error) {
+          this.logger.warn(`[V5] Fact check failed (non-fatal): ${error}`);
+        }
+      }
+
+      // 7. 更新专题状态和统计数据
       await this.prisma.researchTopic.update({
         where: { id: topicId },
         data: {
@@ -313,7 +513,7 @@ export class TopicTeamOrchestratorService {
         },
       });
 
-      // 7. 更新刷新日志
+      // 8. 更新刷新日志
       await this.prisma.topicRefreshLog.update({
         where: { id: refreshLog.id },
         data: {
@@ -458,6 +658,7 @@ export class TopicTeamOrchestratorService {
    * Phase 3: 并行写作 - 各维度基于全局大纲写作
    *
    * @param agentAssignments Leader 分配的 Agent 信息（包含工具和技能）
+   * @param depthConfig V5 研究深度配置
    */
   private async researchDimensionsInParallel(
     topic: ResearchTopic,
@@ -465,13 +666,16 @@ export class TopicTeamOrchestratorService {
     reportId: string,
     signal: AbortSignal,
     agentAssignments: AgentAssignment[] = [],
-  ): Promise<
-    PromiseSettledResult<{
+    depthConfig?: ResearchDepthConfig,
+  ): Promise<{
+    results: PromiseSettledResult<{
       dimensionId: string;
       analysisResult: DimensionAnalysisResult;
       evidenceIds: string[];
-    }>[]
-  > {
+      extractedClaims?: import("../types/v5-research.types").ExtractedClaim[];
+    }>[];
+    researchDesign?: ResearchDesign;
+  }> {
     const totalCount = dimensions.length;
 
     // ============ Phase 1: 并行搜索 ============
@@ -563,6 +767,17 @@ export class TopicTeamOrchestratorService {
     this.logger.log(
       `[Phase 1] Search completed: ${successfulSearches.length}/${totalCount} dimensions`,
     );
+
+    // V5: Checkpoint after Phase 1 search completion
+    try {
+      await this.researchCheckpointService.saveCheckpoint(topic.id, {
+        phase: "L2_knowledge",
+        searchedDimensions: successfulSearches.length,
+        totalDimensions: totalCount,
+      });
+    } catch {
+      // non-fatal
+    }
 
     this.emitProgress({
       topicId: topic.id,
@@ -704,6 +919,8 @@ export class TopicTeamOrchestratorService {
             undefined, // taskId
             assignment?.tools,
             assignment?.skills,
+            undefined, // validationContext
+            depthConfig?.maxRevisionRounds, // V5: revision rounds from depth config
           );
 
         if (!missionResult.success) {
@@ -711,6 +928,18 @@ export class TopicTeamOrchestratorService {
         }
 
         completedCount++;
+
+        // V5: Checkpoint after each dimension writing completes
+        try {
+          await this.researchCheckpointService.saveCheckpoint(topic.id, {
+            phase: "L4_writing",
+            completedDimension: dimension.name,
+            completedCount,
+            totalCount,
+          });
+        } catch {
+          // non-fatal
+        }
 
         const progress = 40 + Math.round((completedCount / totalCount) * 40);
         this.emitProgress({
@@ -728,6 +957,7 @@ export class TopicTeamOrchestratorService {
           dimensionId: dimension.id,
           analysisResult: missionResult.analysisResult!,
           evidenceIds: missionResult.evidenceIds,
+          extractedClaims: missionResult.extractedClaims,
         };
       } catch (error) {
         this.logger.error(
@@ -747,7 +977,12 @@ export class TopicTeamOrchestratorService {
       }
     });
 
-    return Promise.allSettled(writingPromises);
+    const results = await Promise.allSettled(writingPromises);
+
+    // V5: Extract research design from global outline
+    const extractedDesign = globalOutline?.researchDesign;
+
+    return { results, researchDesign: extractedDesign };
   }
 
   /**
@@ -795,6 +1030,7 @@ export class TopicTeamOrchestratorService {
       dimensionId: string;
       analysisResult: DimensionAnalysisResult;
       evidenceIds: string[];
+      extractedClaims?: import("../types/v5-research.types").ExtractedClaim[];
     }>[],
   ): Promise<OverallReviewResult> {
     // 收集成功的分析结果

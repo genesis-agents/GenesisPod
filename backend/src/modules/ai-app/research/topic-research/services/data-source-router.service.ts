@@ -224,6 +224,128 @@ export class DataSourceRouterService {
   }
 
   /**
+   * V5 L2: 文献基线扫描
+   * 构造学术导向查询，复用现有搜索基础设施
+   * 仅 standard/thorough 模式启用
+   */
+  async scanLiteratureBaseline(
+    topic: ResearchTopic,
+    dimension: TopicDimension,
+  ): Promise<DataSourceResult[]> {
+    this.logger.log(
+      `[scanLiteratureBaseline] Scanning literature baseline for dimension: ${dimension.name}`,
+    );
+
+    // Construct academic-oriented queries
+    const academicQueries = this.buildAcademicQueries(
+      topic.name,
+      dimension.name,
+      dimension.description || "",
+    );
+
+    const allResults: DataSourceResult[] = [];
+
+    for (const query of academicQueries) {
+      try {
+        const results = await this.executeSearch(DataSourceType.WEB, query, 5);
+        allResults.push(...results);
+      } catch (error) {
+        this.logger.warn(
+          `[scanLiteratureBaseline] Query failed: "${query.substring(0, 50)}...": ${error}`,
+        );
+      }
+    }
+
+    // Deduplicate by URL
+    const seen = new Set<string>();
+    const deduped = allResults.filter((r) => {
+      if (seen.has(r.url)) return false;
+      seen.add(r.url);
+      return true;
+    });
+
+    this.logger.log(
+      `[scanLiteratureBaseline] Found ${deduped.length} unique academic sources`,
+    );
+
+    return deduped;
+  }
+
+  /**
+   * V5: 构造学术导向搜索查询
+   */
+  private buildAcademicQueries(
+    topicName: string,
+    dimensionName: string,
+    dimensionDescription: string,
+  ): string[] {
+    // Extract key terms from topic and dimension
+    const keywords = `${topicName} ${dimensionName}`.trim();
+
+    return [
+      `${keywords} research report 2024 2025 site:mckinsey.com OR site:bcg.com OR site:hbr.org`,
+      `${keywords} analysis whitepaper site:gartner.com OR site:forrester.com OR site:deloitte.com`,
+      `${keywords} ${dimensionDescription.split(/\s+/).slice(0, 5).join(" ")} academic paper`,
+    ];
+  }
+
+  /**
+   * V5: 基于假设生成正反方向搜索查询并执行搜索
+   * 用于假设驱动的知识构建
+   */
+  async searchForHypothesis(hypothesisStatement: string): Promise<{
+    supportResults: DataSourceResult[];
+    counterResults: DataSourceResult[];
+  }> {
+    this.logger.log(
+      `[searchForHypothesis] Generating queries for hypothesis: ${hypothesisStatement.substring(0, 80)}...`,
+    );
+
+    // Generate support and counter queries from hypothesis
+    const keywords = hypothesisStatement
+      .replace(/["""'']/g, "")
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+      .slice(0, 6)
+      .join(" ");
+
+    const supportQueries = [
+      `${keywords} evidence support`,
+      `${keywords} research findings`,
+    ];
+    const counterQueries = [
+      `${keywords} criticism challenges limitations`,
+      `${keywords} counter evidence against`,
+    ];
+
+    const executeQueries = async (
+      queries: string[],
+    ): Promise<DataSourceResult[]> => {
+      const results: DataSourceResult[] = [];
+      for (const query of queries) {
+        try {
+          const r = await this.executeSearch(DataSourceType.WEB, query, 3);
+          results.push(...r);
+        } catch (error) {
+          this.logger.warn(`[searchForHypothesis] Query failed: ${error}`);
+        }
+      }
+      return results;
+    };
+
+    const [supportResults, counterResults] = await Promise.all([
+      executeQueries(supportQueries),
+      executeQueries(counterQueries),
+    ]);
+
+    this.logger.log(
+      `[searchForHypothesis] Found ${supportResults.length} support, ${counterResults.length} counter results`,
+    );
+
+    return { supportResults, counterResults };
+  }
+
+  /**
    * 从维度配置中提取数据源列表
    */
   private getDataSourcesForDimension(

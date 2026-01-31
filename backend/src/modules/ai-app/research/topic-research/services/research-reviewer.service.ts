@@ -279,6 +279,173 @@ export class ResearchReviewerService {
   }
 
   /**
+   * V5 L3: 交叉验证 Claims
+   * 使用 LLM 语义匹配（非关键词），批量验证每 5 个 claims
+   */
+  async validateClaims(
+    claims: import("../types/v5-research.types").ExtractedClaim[],
+    evidenceSummary: string,
+  ): Promise<import("../types/v5-research.types").ClaimValidationBatchResult> {
+    if (claims.length === 0) {
+      return {
+        results: [],
+        stats: { verified: 0, unverified: 0, disputed: 0, total: 0 },
+      };
+    }
+
+    this.logger.log(
+      `[validateClaims] Validating ${claims.length} claims in batches of 5`,
+    );
+
+    const { CLAIM_VALIDATION_PROMPT } =
+      await import("../prompts/v5-research.prompt");
+    const allResults: import("../types/v5-research.types").ClaimValidationResult[] =
+      [];
+    const BATCH_SIZE = 5;
+
+    // Process in batches of 5
+    for (let i = 0; i < claims.length; i += BATCH_SIZE) {
+      const batch = claims.slice(i, i + BATCH_SIZE);
+      const prompt = CLAIM_VALIDATION_PROMPT.replace(
+        "{claimsJson}",
+        JSON.stringify(batch, null, 2),
+      ).replace("{evidenceSummary}", evidenceSummary.substring(0, 6000));
+
+      try {
+        const response = await this.aiFacade.chat({
+          messages: [
+            {
+              role: "system",
+              content: "你是严谨的事实核查专家。请输出 JSON 格式。",
+            },
+            { role: "user", content: prompt },
+          ],
+          modelType: AIModelType.CHAT_FAST,
+          taskProfile: {
+            creativity: "deterministic",
+            outputLength: "medium",
+          },
+        });
+
+        const result = extractJsonFromAIResponse<{
+          results: import("../types/v5-research.types").ClaimValidationResult[];
+        }>(response.content, { requiredKey: "results" });
+
+        if (result.success && result.data?.results) {
+          allResults.push(...result.data.results);
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[validateClaims] Batch ${Math.floor(i / BATCH_SIZE) + 1} failed: ${error}`,
+        );
+        // Mark batch claims as unverified on failure
+        for (const claim of batch) {
+          allResults.push({
+            claimId: claim.id,
+            status: "unverified",
+            supportingSourceIndices: [],
+            contradictingSourceIndices: [],
+            explanation: "验证过程出错",
+          });
+        }
+      }
+    }
+
+    const stats = {
+      verified: allResults.filter((r) => r.status === "verified").length,
+      unverified: allResults.filter((r) => r.status === "unverified").length,
+      disputed: allResults.filter((r) => r.status === "disputed").length,
+      total: allResults.length,
+    };
+
+    this.logger.log(
+      `[validateClaims] Validation complete: ${stats.verified} verified, ${stats.unverified} unverified, ${stats.disputed} disputed`,
+    );
+
+    return { results: allResults, stats };
+  }
+
+  /**
+   * V5 L5: 事实核查报告
+   * 提取报告中 [n] 引用及上下文，核对与原始证据是否一致
+   * 仅 thorough 模式启用
+   */
+  async factCheckReport(
+    reportContent: string,
+    evidenceData: Array<{ id: string; title: string; snippet: string | null }>,
+  ): Promise<import("../types/v5-research.types").FactCheckResult> {
+    this.logger.log(`[factCheckReport] Starting fact check`);
+
+    // Extract citations [n] with surrounding context
+    const citationPattern = /([^.]*?\[(\d+)\][^.]*\.)/g;
+    const citations: Array<{ mark: string; context: string }> = [];
+    let match: RegExpExecArray | null;
+
+    while ((match = citationPattern.exec(reportContent)) !== null) {
+      if (citations.length >= 30) break; // Limit to 30 citations
+      citations.push({
+        mark: `[${match[2]}]`,
+        context: match[1].trim().substring(0, 200),
+      });
+    }
+
+    if (citations.length === 0) {
+      this.logger.log(`[factCheckReport] No citations found, skipping`);
+      return { citations: [], accuracyScore: 100, issues: [] };
+    }
+
+    const citationsText = citations
+      .map((c) => `- ${c.mark}: "${c.context}"`)
+      .join("\n");
+
+    const evidenceText = evidenceData
+      .slice(0, 30)
+      .map(
+        (e, i) =>
+          `[${i + 1}] ${e.title}: ${(e.snippet || "").substring(0, 300)}`,
+      )
+      .join("\n");
+
+    const { FACT_CHECK_PROMPT } = await import("../prompts/v5-research.prompt");
+    const prompt = FACT_CHECK_PROMPT.replace(
+      "{citationsWithContext}",
+      citationsText,
+    ).replace("{originalEvidence}", evidenceText);
+
+    try {
+      const response = await this.aiFacade.chat({
+        messages: [
+          {
+            role: "system",
+            content: "你是严谨的事实核查编辑。请输出 JSON 格式。",
+          },
+          { role: "user", content: prompt },
+        ],
+        modelType: AIModelType.CHAT_FAST,
+        taskProfile: {
+          creativity: "deterministic",
+          outputLength: "medium",
+        },
+      });
+
+      const result = extractJsonFromAIResponse<
+        import("../types/v5-research.types").FactCheckResult
+      >(response.content, { requiredKey: "citations" });
+
+      if (result.success && result.data) {
+        this.logger.log(
+          `[factCheckReport] Fact check complete: accuracy ${result.data.accuracyScore}/100`,
+        );
+        return result.data;
+      }
+    } catch (error) {
+      this.logger.error(`[factCheckReport] Error: ${error}`);
+    }
+
+    return { citations: [], accuracyScore: 0, issues: ["事实核查过程出错"] };
+  }
+
+  /**
    * 构建维度审核系统提示词
    */
   private buildDimensionReviewSystemPrompt(): string {

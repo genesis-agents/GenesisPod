@@ -12,7 +12,11 @@ import {
   IntentDetectionService,
   UserIntent,
 } from "@/modules/ai-engine/orchestration/services";
-import { LeaderDecisionType, ResearchTaskStatus } from "@prisma/client";
+import {
+  LeaderDecisionType,
+  ResearchTaskStatus,
+  AIModelType,
+} from "@prisma/client";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
 import { sanitize } from "../utils/prompt-sanitizer";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
@@ -298,6 +302,8 @@ export interface GlobalOutline {
   globalThemes: string[];
   /** 去重规则（避免重复覆盖） */
   deduplicationRules: string[];
+  /** V5: 研究设计 */
+  researchDesign?: import("../types/v5-research.types").ResearchDesign;
 }
 
 // ==================== Prompts ====================
@@ -576,6 +582,36 @@ const GLOBAL_OUTLINE_PROMPT = `你是资深的研究协调专家（Research Lead
 - 共同背景：只在第一个涉及的维度中详述，其他维度简要提及即可
 - 重复数据：统一放在最相关的维度，其他维度引用
 - 交叉话题：明确由哪个维度负责主要分析，其他维度只给结论
+
+## 研究设计（V5 增强）
+
+除了大纲规划外，请在 JSON 输出中新增 "researchDesign" 字段：
+
+\`\`\`json
+{
+  "researchDesign": {
+    "analyticalFramework": "分析框架名称（如 PESTEL, Porter's Five Forces, SWOT 等）",
+    "frameworkRationale": "选择理由",
+    "hypotheses": [
+      {
+        "id": "H1",
+        "statement": "可验证的假设陈述",
+        "type": "causal|correlational|descriptive|predictive",
+        "evidenceNeeded": "需要什么证据来验证",
+        "counterQuery": "反方向搜索查询"
+      }
+    ],
+    "deliverables": [
+      {
+        "name": "交付物",
+        "qualityCriteria": ["标准1"]
+      }
+    ]
+  }
+}
+\`\`\`
+
+提出 3-5 个可验证的研究假设，每个假设包含正反搜索方向。
 `;
 
 const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Research Leader），负责规划维度分析的完整大纲。
@@ -1789,6 +1825,123 @@ export class ResearchLeaderService {
       response: finalResponse,
       actionResults,
     };
+  }
+
+  /**
+   * V5 L3: 从章节内容中提取事实断言
+   * 使用 CHAT_FAST 模型批量处理
+   */
+  async extractClaims(
+    sectionId: string,
+    sectionContent: string,
+  ): Promise<import("../types/v5-research.types").ExtractedClaim[]> {
+    this.logger.log(
+      `[extractClaims] Extracting claims from section ${sectionId}`,
+    );
+
+    const { CLAIM_EXTRACTION_PROMPT } =
+      await import("../prompts/v5-research.prompt");
+    const prompt = CLAIM_EXTRACTION_PROMPT.replace(
+      "{sectionContent}",
+      sectionContent.substring(0, 4000),
+    ).replace("{sectionId}", sectionId);
+
+    try {
+      const response = await this.aiFacade.chat({
+        messages: [
+          {
+            role: "system",
+            content:
+              "你是事实核查专家，精确提取可验证的事实断言。请输出 JSON 格式。",
+          },
+          { role: "user", content: prompt },
+        ],
+        modelType: AIModelType.CHAT_FAST,
+        taskProfile: {
+          creativity: "deterministic",
+          outputLength: "medium",
+        },
+      });
+
+      const result = extractJsonFromAIResponse<{
+        claims: import("../types/v5-research.types").ExtractedClaim[];
+      }>(response.content, { requiredKey: "claims" });
+
+      if (result.success && result.data?.claims) {
+        this.logger.log(
+          `[extractClaims] Extracted ${result.data.claims.length} claims from section ${sectionId}`,
+        );
+        return result.data.claims;
+      }
+
+      this.logger.warn(
+        `[extractClaims] Failed to parse claims for section ${sectionId}`,
+      );
+      return [];
+    } catch (error) {
+      this.logger.error(`[extractClaims] Error extracting claims: ${error}`);
+      return [];
+    }
+  }
+
+  /**
+   * V5 L3: 验证研究假设
+   * 根据收集到的证据验证 L1 阶段提出的假设
+   */
+  async verifyHypotheses(
+    hypotheses: import("../types/v5-research.types").ResearchHypothesis[],
+    evidenceSummary: string,
+  ): Promise<
+    import("../types/v5-research.types").HypothesisVerificationResult[]
+  > {
+    if (hypotheses.length === 0) return [];
+
+    this.logger.log(
+      `[verifyHypotheses] Verifying ${hypotheses.length} hypotheses`,
+    );
+
+    const { HYPOTHESIS_VERIFICATION_PROMPT } =
+      await import("../prompts/v5-research.prompt");
+    const prompt = HYPOTHESIS_VERIFICATION_PROMPT.replace(
+      "{hypothesesJson}",
+      JSON.stringify(hypotheses, null, 2),
+    ).replace("{evidenceSummary}", evidenceSummary.substring(0, 6000));
+
+    try {
+      const response = await this.aiFacade.chat({
+        messages: [
+          {
+            role: "system",
+            content: "你是研究方法论专家，严谨验证研究假设。请输出 JSON 格式。",
+          },
+          { role: "user", content: prompt },
+        ],
+        modelType: AIModelType.CHAT_FAST,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "medium",
+        },
+      });
+
+      const result = extractJsonFromAIResponse<{
+        results: import("../types/v5-research.types").HypothesisVerificationResult[];
+      }>(response.content, { requiredKey: "results" });
+
+      if (result.success && result.data?.results) {
+        this.logger.log(
+          `[verifyHypotheses] Verified ${result.data.results.length} hypotheses`,
+        );
+        return result.data.results;
+      }
+
+      this.logger.warn(
+        `[verifyHypotheses] Failed to parse hypothesis verification results`,
+      );
+      return [];
+    } catch (error) {
+      this.logger.error(`[verifyHypotheses] Error: ${error}`);
+      return [];
+    }
   }
 
   /**
