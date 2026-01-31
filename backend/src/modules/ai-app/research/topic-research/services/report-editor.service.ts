@@ -1,0 +1,283 @@
+/**
+ * Report Editor Service
+ *
+ * 跨维度编辑层：在报告合成前对各维度内容进行编辑处理
+ *
+ * 核心职责：
+ * 1. 跨维度语义去重 — 检测不同维度间重复的核心论点和数据
+ * 2. 过渡段落生成 — 在维度间添加衔接过渡
+ * 3. 全局一致性校验 — 确保数据引用在各维度间一致
+ */
+
+import { Injectable, Logger } from "@nestjs/common";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { AIModelType } from "@prisma/client";
+import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
+import type { DimensionAnalysisInput } from "../types/report.types";
+
+/**
+ * 编辑结果
+ */
+export interface EditedDimensionInputs {
+  /** 编辑后的维度输入 */
+  dimensions: DimensionAnalysisInput[];
+  /** 去重统计 */
+  deduplicationStats: {
+    /** 检测到的重复论点数 */
+    duplicateClaims: number;
+    /** 删除的重复段落数 */
+    removedParagraphs: number;
+    /** 受影响的维度名称 */
+    affectedDimensions: string[];
+  };
+  /** 添加的过渡说明 */
+  transitions: Array<{
+    fromDimension: string;
+    toDimension: string;
+    transitionText: string;
+  }>;
+}
+
+/**
+ * 跨维度去重检查结果
+ */
+interface DeduplicationCheckResult {
+  duplicates: Array<{
+    claim: string;
+    dimensions: string[];
+    keepIn: string;
+    removeFrom: string[];
+    paragraphHints: string[];
+  }>;
+  suggestions: string[];
+}
+
+const DEDUP_CHECK_PROMPT = `你是报告编辑专家，负责检查跨维度的内容重复。
+
+## 任务
+分析以下多个维度的研究内容，找出重复的核心论点、数据引用和段落。
+
+## 各维度内容摘要
+{dimensionSummaries}
+
+## 输出要求
+输出 JSON 格式：
+
+\`\`\`json
+{
+  "duplicates": [
+    {
+      "claim": "重复的论点或数据描述",
+      "dimensions": ["出现在哪些维度"],
+      "keepIn": "应保留在哪个维度（最相关的）",
+      "removeFrom": ["应从哪些维度删除"],
+      "paragraphHints": ["包含该重复内容的段落开头几个字（便于定位）"]
+    }
+  ],
+  "suggestions": ["编辑建议"]
+}
+\`\`\`
+
+## 检查规则
+1. 只标记实质性重复（相同数据点、相同结论），忽略通用术语
+2. 保留论点在最相关的维度中，从其他维度删除
+3. 如果同一数据被不同维度从不同角度引用，不算重复
+4. paragraphHints 取段落前 30 个字符，便于程序定位
+
+## 非重复示例（以下场景不应标记为重复）
+- 维度A: "全球市场规模达100亿美元" vs 维度B: "中国市场占比30%，约30亿美元" → 统计口径不同，保留两者
+- 维度A: "技术X在医疗领域的应用" vs 维度B: "技术X的核心算法原理" → 角度不同，保留两者
+- 维度A: "2025年用户增长50%" vs 维度B: "用户增长带来的运营挑战" → 前者是数据，后者是分析，保留两者`;
+
+@Injectable()
+export class ReportEditorService {
+  private readonly logger = new Logger(ReportEditorService.name);
+
+  constructor(private readonly aiFacade: AIEngineFacade) {}
+
+  /**
+   * 编辑维度内容：跨维度去重 + 过渡生成
+   *
+   * 在 ReportSynthesisService.synthesizeReport() 调用 buildFullReportFromDimensions() 之前调用
+   */
+  async editDimensionInputs(
+    dimensionInputs: DimensionAnalysisInput[],
+    topicName: string,
+  ): Promise<EditedDimensionInputs> {
+    if (dimensionInputs.length <= 1) {
+      return {
+        dimensions: dimensionInputs,
+        deduplicationStats: {
+          duplicateClaims: 0,
+          removedParagraphs: 0,
+          affectedDimensions: [],
+        },
+        transitions: [],
+      };
+    }
+
+    this.logger.log(
+      `[editDimensionInputs] Editing ${dimensionInputs.length} dimensions for topic: ${topicName}`,
+    );
+
+    // 1. 跨维度去重检查
+    const dedupResult =
+      await this.checkCrossDimensionDuplicates(dimensionInputs);
+
+    // 2. 应用去重
+    let removedParagraphs = 0;
+    const affectedDimensions = new Set<string>();
+    const editedDimensions = dimensionInputs.map((dim) => ({ ...dim }));
+
+    if (dedupResult && dedupResult.duplicates.length > 0) {
+      this.logger.log(
+        `[editDimensionInputs] Found ${dedupResult.duplicates.length} duplicate claims`,
+      );
+
+      for (const dup of dedupResult.duplicates) {
+        for (const removeDim of dup.removeFrom) {
+          const dimInput = editedDimensions.find(
+            (d) => d.dimensionName === removeDim,
+          );
+          if (!dimInput || !dimInput.detailedContent) continue;
+
+          // 使用段落提示定位并删除重复段落
+          // 先 split 一次，所有 hints 共用同一数组避免重复 split
+          let paragraphs = dimInput.detailedContent.split("\n\n");
+          for (const hint of dup.paragraphHints) {
+            if (!hint || hint.length < 10) continue;
+            // 归一化：去除首尾空白和多余空格
+            const hintNorm = hint.trim().replace(/\s+/g, " ");
+            paragraphs = paragraphs.filter((p) => {
+              const trimmed = p.trim();
+              // 跳过标题
+              if (trimmed.startsWith("#")) return true;
+              const pNorm = trimmed.replace(/\s+/g, " ");
+              // 检查段落是否以提示开头（归一化后比较）
+              if (pNorm.startsWith(hintNorm)) {
+                removedParagraphs++;
+                affectedDimensions.add(removeDim);
+                this.logger.debug(
+                  `[editDimensionInputs] Removed duplicate paragraph from "${removeDim}": "${hintNorm.substring(0, 40)}..."`,
+                );
+                return false;
+              }
+              return true;
+            });
+          }
+          dimInput.detailedContent = paragraphs.join("\n\n");
+        }
+      }
+    }
+
+    // 3. 生成维度间过渡
+    const transitions = this.generateTransitionHints(editedDimensions);
+
+    this.logger.log(
+      `[editDimensionInputs] Editing complete: removed ${removedParagraphs} paragraphs, ` +
+        `${affectedDimensions.size} dimensions affected, ${transitions.length} transitions suggested`,
+    );
+
+    return {
+      dimensions: editedDimensions,
+      deduplicationStats: {
+        duplicateClaims: dedupResult?.duplicates.length || 0,
+        removedParagraphs,
+        affectedDimensions: Array.from(affectedDimensions),
+      },
+      transitions,
+    };
+  }
+
+  /**
+   * 使用 AI 检查跨维度重复
+   */
+  private async checkCrossDimensionDuplicates(
+    dimensionInputs: DimensionAnalysisInput[],
+  ): Promise<DeduplicationCheckResult | null> {
+    // 构建维度摘要（限制长度避免 token 溢出）
+    const dimensionSummaries = dimensionInputs
+      .map((dim) => {
+        const contentPreview = (
+          dim.detailedContent ||
+          dim.summary ||
+          ""
+        ).substring(0, 1500);
+        const keyFindings = dim.keyFindings
+          ?.slice(0, 3)
+          .map((f) => f.finding)
+          .join("; ");
+        return `### ${dim.dimensionName}\n**关键发现**: ${keyFindings || "无"}\n**内容预览**: ${contentPreview}`;
+      })
+      .join("\n\n---\n\n");
+
+    try {
+      const response = await this.aiFacade.chat({
+        messages: [
+          {
+            role: "system",
+            content: "你是报告编辑专家，负责检查跨维度内容重复。",
+          },
+          {
+            role: "user",
+            content: DEDUP_CHECK_PROMPT.replace(
+              "{dimensionSummaries}",
+              dimensionSummaries,
+            ),
+          },
+        ],
+        modelType: AIModelType.CHAT,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "medium",
+        },
+      });
+
+      const result = extractJsonFromAIResponse<DeduplicationCheckResult>(
+        response.content,
+      );
+
+      if (result.success && result.data) {
+        return result.data;
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[checkCrossDimensionDuplicates] AI check failed (non-fatal): ${error}`,
+      );
+    }
+
+    return null;
+  }
+
+  /**
+   * 生成维度间过渡提示
+   * 基于相邻维度的内容关联性，生成简单的过渡说明
+   */
+  private generateTransitionHints(
+    dimensionInputs: DimensionAnalysisInput[],
+  ): Array<{
+    fromDimension: string;
+    toDimension: string;
+    transitionText: string;
+  }> {
+    const transitions: Array<{
+      fromDimension: string;
+      toDimension: string;
+      transitionText: string;
+    }> = [];
+
+    for (let i = 0; i < dimensionInputs.length - 1; i++) {
+      const current = dimensionInputs[i];
+      const next = dimensionInputs[i + 1];
+
+      // 简单的基于名称的过渡生成
+      transitions.push({
+        fromDimension: current.dimensionName,
+        toDimension: next.dimensionName,
+        transitionText: `在深入分析了${current.dimensionName}之后，接下来我们将视角转向${next.dimensionName}，进一步探讨其对整体研究主题的影响。`,
+      });
+    }
+
+    return transitions;
+  }
+}

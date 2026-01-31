@@ -1407,11 +1407,105 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
         this.calculateCredibilityScore(b) - this.calculateCredibilityScore(a),
     );
 
+    // ★ 域名多样性强制：任何单一域名不超过阈值（默认 30%，学术/官方类话题放宽到 50%）
+    const diverseResults = this.enforceDomainDiversity(sortedResults);
+
     return {
-      items: sortedResults,
-      totalCount: sortedResults.length,
+      items: diverseResults,
+      totalCount: diverseResults.length,
       sources: sources,
     };
+  }
+
+  /**
+   * ★ 域名多样性强制
+   *
+   * 确保搜索结果不被单一域名主导。
+   * 如果某域名占比超过阈值，截断多余结果，保留其他域名的结果在前面。
+   *
+   * @param results 已排序的搜索结果
+   * @param maxRatio 单一域名最大占比（默认 0.3 = 30%）
+   * @returns 经过多样性调整的结果
+   */
+  private enforceDomainDiversity(
+    results: DataSourceResult[],
+    maxRatio: number = 0.3,
+  ): DataSourceResult[] {
+    if (results.length <= 3) return results;
+
+    // 如果结果主要来自权威来源（.gov, .edu, arxiv, 官方文档），放宽阈值
+    const authoritativeDomains = [
+      ".gov",
+      ".edu",
+      "arxiv.org",
+      "nature.com",
+      "science.org",
+      "ieee.org",
+      "acm.org",
+    ];
+    const authoritativeCount = results.filter((r) => {
+      const domain = this.extractDomain(r.url);
+      return domain && authoritativeDomains.some((ad) => domain.endsWith(ad));
+    }).length;
+    if (authoritativeCount > results.length * 0.4) {
+      maxRatio = Math.max(maxRatio, 0.5);
+    }
+
+    // 统计域名分布
+    const domainCounts = new Map<string, number>();
+    for (const item of results) {
+      const domain = this.extractDomain(item.url);
+      if (domain) {
+        domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
+      }
+    }
+
+    const maxPerDomain = Math.max(
+      2, // 至少保留 2 条
+      Math.ceil(results.length * maxRatio),
+    );
+
+    // 检查是否有域名超标
+    const overRepresented = Array.from(domainCounts.entries()).filter(
+      ([, count]) => count > maxPerDomain,
+    );
+
+    if (overRepresented.length === 0) return results;
+
+    // 记录超标域名
+    for (const [domain, count] of overRepresented) {
+      this.logger.warn(
+        `[enforceDomainDiversity] Domain "${domain}" has ${count}/${results.length} results (${Math.round((count / results.length) * 100)}%), capping at ${maxPerDomain}`,
+      );
+    }
+
+    // 按域名计数过滤
+    const domainSeen = new Map<string, number>();
+    return results.filter((item) => {
+      const domain = this.extractDomain(item.url);
+      if (!domain) return true;
+      const seen = domainSeen.get(domain) || 0;
+      if (seen >= maxPerDomain) return false;
+      domainSeen.set(domain, seen + 1);
+      return true;
+    });
+  }
+
+  /**
+   * 从 URL 提取域名
+   */
+  private extractDomain(url: string): string | null {
+    try {
+      const parsed = new URL(url);
+      const hostname = parsed.hostname.replace(/^www\./, "");
+      // 排除 localhost 和 IP 地址，不参与域名多样性计算
+      if (hostname === "localhost" || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+        return null;
+      }
+      return hostname;
+    } catch {
+      return null;
+    }
   }
 
   /**

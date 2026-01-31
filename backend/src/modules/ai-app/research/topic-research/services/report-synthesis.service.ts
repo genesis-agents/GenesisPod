@@ -36,6 +36,7 @@ import {
   CONSISTENCY_CHECK_SYSTEM_PROMPT,
   CONSISTENCY_CHECK_USER_PROMPT,
 } from "../prompts/consistency-check.prompt";
+import { ReportEditorService } from "./report-editor.service";
 
 /**
  * Report Synthesis Service
@@ -54,6 +55,7 @@ export class ReportSynthesisService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
+    private readonly reportEditor: ReportEditorService,
   ) {}
 
   /**
@@ -281,12 +283,33 @@ export class ReportSynthesisService {
       userFeedback,
     );
 
+    // 6.5 ★ 跨维度编辑层：去重 + 过渡
+    const editResult = await this.reportEditor.editDimensionInputs(
+      dimensionInputs,
+      topic.name,
+    );
+    const editedDimensionInputs = editResult.dimensions;
+
+    if (editResult.deduplicationStats.removedParagraphs > 0) {
+      this.logger.log(
+        `[synthesizeReport] Editor removed ${editResult.deduplicationStats.removedParagraphs} duplicate paragraphs ` +
+          `across ${editResult.deduplicationStats.affectedDimensions.join(", ")}`,
+      );
+    } else if (
+      dimensionInputs.length > 1 &&
+      editResult.deduplicationStats.duplicateClaims === 0
+    ) {
+      this.logger.warn(
+        `[synthesizeReport] Editor found no duplicates across ${dimensionInputs.length} dimensions (AI check may have failed). Report may contain cross-dimension repetition.`,
+      );
+    }
+
     // 7. ★ 构建完整报告：直接使用 detailedContent 而非 AI 重写
     // 从 synthesisResult 中提取补充内容（前言、执行摘要、跨维度分析、风险评估、战略建议、结语）
     const structuredReport = synthesisResult.structuredReport;
     const fullReportFromDimensions = this.buildFullReportFromDimensions(
       topic,
-      dimensionInputs,
+      editedDimensionInputs,
       {
         preface: structuredReport?.preface || "",
         executiveSummary: synthesisResult.executiveSummary || "",
@@ -336,6 +359,19 @@ export class ReportSynthesisService {
         return ""; // strip orphaned placeholder
       },
     );
+
+    // 8.6 检测 charts 数组中未被报告引用的孤立图表
+    const referencedChartIds = new Set(
+      (cleanedReport.match(/<!-- chart:([^\s]+?) -->/g) || []).map(
+        (m) => m.match(/<!-- chart:([^\s]+?) -->/)?.[1],
+      ),
+    );
+    const orphanCharts = allCharts.filter((c) => !referencedChartIds.has(c.id));
+    if (orphanCharts.length > 0) {
+      this.logger.warn(
+        `[synthesizeReport] ${orphanCharts.length} chart(s) in array but never referenced in report: ${orphanCharts.map((c) => c.id).join(", ")}`,
+      );
+    }
 
     // 9. 计算统计数据
     const totalSources = allEvidences.length;

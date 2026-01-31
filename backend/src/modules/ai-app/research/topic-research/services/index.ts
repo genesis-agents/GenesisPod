@@ -32,6 +32,7 @@ export { ResearchReflectionService } from "./research-reflection.service";
 export { DataSourcePlannerService } from "./data-source-planner.service";
 export { FigureExtractorService } from "./figure-extractor.service";
 export { ReportValidationService } from "./report-validation.service";
+export { ReportEditorService } from "./report-editor.service";
 
 // Re-export types
 export type {

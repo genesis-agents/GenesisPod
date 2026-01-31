@@ -42,6 +42,7 @@ import {
   DataSourcePlannerService,
   FigureExtractorService,
   ReportValidationService,
+  ReportEditorService,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
 
@@ -75,6 +76,7 @@ const services = [
   DataSourcePlannerService,
   FigureExtractorService,
   ReportValidationService,
+  ReportEditorService,
 ];
 
 @Module({

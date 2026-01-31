@@ -88,6 +88,25 @@ export interface MissionProgress {
   message: string;
 }
 
+/**
+ * 搜索阶段结果（Phase 1）
+ */
+export interface SearchPhaseResult {
+  dimensionId: string;
+  dimensionName: string;
+  enrichedResults: import("../types/research.types").EnrichedResult[];
+  evidenceData: EnrichedEvidenceData[];
+  evidenceSummary: string;
+  searchResultsRecord: SearchResultsRecord;
+  temporalContext: TemporalContext;
+  figuresSummary: string;
+  leaderContextSummary: string;
+  /** Phase 1 使用的模型、工具、技能（便于 Phase 3 调试） */
+  modelId?: string;
+  assignedTools?: string[];
+  assignedSkills?: string[];
+}
+
 @Injectable()
 export class DimensionMissionService {
   private readonly logger = new Logger(DimensionMissionService.name);
@@ -103,6 +122,356 @@ export class DimensionMissionService {
     private readonly dataEnrichment: DataEnrichmentService,
     private readonly leaderTool: LeaderToolService,
   ) {}
+
+  /**
+   * 执行搜索阶段（Phase 1）
+   *
+   * 职责：
+   * 1. 执行搜索并收集资料
+   * 2. 数据增强和图表提取
+   * 3. 生成证据摘要和时间上下文
+   * 4. Leader 主动搜索补充上下文
+   *
+   * @param topic 研究专题
+   * @param dimension 研究维度
+   * @param missionId 任务ID（可选，用于持久化团队消息）
+   * @param modelId Leader 分配的模型 ID
+   * @param taskId 研究任务ID（可选，用于前端精确匹配进度更新）
+   * @param assignedTools Leader 分配的工具
+   * @param assignedSkills Leader 分配的技能
+   * @returns 搜索阶段结果
+   */
+  async executeSearchPhase(
+    topic: ResearchTopic,
+    dimension: TopicDimension,
+    missionId?: string,
+    modelId?: string,
+    taskId?: string,
+    assignedTools?: string[],
+    assignedSkills?: string[],
+  ): Promise<SearchPhaseResult> {
+    const dimId = dimension.id.slice(0, 8);
+    const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
+
+    this.logger.log(
+      `${logPrefix} Starting search phase (topicId=${topic.id.slice(0, 8)})${modelId ? `, model: ${modelId}` : ""}`,
+    );
+
+    // Update dimension status to RESEARCHING
+    await this.prisma.topicDimension.update({
+      where: { id: dimension.id },
+      data: { status: DimensionStatus.RESEARCHING },
+    });
+
+    const researcherAgentId = `researcher_${dimId}`;
+    const researcherAgentName = `研究员 [${modelId || "default"}]`;
+    const effectiveMissionId = missionId || dimension.id;
+
+    // Suppress unused variable warnings - these are used in the search phase
+    void researcherAgentId;
+    void researcherAgentName;
+
+    // 1. 获取搜索结果
+    this.emitProgress(
+      topic.id,
+      dimension.name,
+      {
+        stage: "planning",
+        sectionsTotal: 0,
+        sectionsCompleted: 0,
+        message: "正在收集资料...",
+      },
+      missionId,
+      5,
+      taskId,
+    );
+
+    await this.agentActivity.startThinkingPhase({
+      topicId: topic.id,
+      missionId: effectiveMissionId,
+      dimensionId: dimension.id,
+      dimensionName: dimension.name,
+      agentId: researcherAgentId,
+      agentName: researcherAgentName,
+      agentRole: "researcher",
+      activityType: AgentActivityType.RESEARCHING,
+      phase: "searching",
+      content: `正在为维度「${dimension.name}」收集资料...`,
+      progress: 0,
+      thinkingPhase: "searching" as ThinkingPhase,
+      thinkingContent: `搜索关键词: ${Array.isArray(dimension.searchQueries) ? dimension.searchQueries.join(", ") : dimension.name}`,
+    });
+
+    const searchResult = await this.dataSourceRouter.fetchDataForDimension(
+      dimension,
+      topic,
+      {
+        assignedTools,
+        assignedSkills,
+      },
+    );
+
+    this.logger.log(
+      `${logPrefix} Search completed: ${searchResult.items.length} sources found`,
+    );
+
+    // 2. 数据增强
+    const topicConfig = topic.topicConfig as Record<string, unknown> | null;
+    const enrichmentTopN = (topicConfig?.enrichmentTopN as number) || 5;
+    const enrichmentMaxLength =
+      (topicConfig?.enrichmentMaxLength as number) || 3000;
+    const enableFigures = topicConfig?.enableFigures !== false;
+
+    this.logger.log(
+      `${logPrefix} Enriching search results (topN=${enrichmentTopN}, enableFigures=${enableFigures})...`,
+    );
+    const enrichedResults = await this.dataEnrichment.enrichSearchResults(
+      searchResult.items,
+      {
+        topN: enrichmentTopN,
+        maxContentLength: enrichmentMaxLength,
+        enableFigures,
+      },
+    );
+
+    const enrichmentStats =
+      this.dataEnrichment.getEnrichmentStats(enrichedResults);
+    this.logger.log(
+      `${logPrefix} Enrichment: ${enrichmentStats.fetched}/${enrichmentStats.total} fetched, ` +
+        `${enrichmentStats.validUrls} valid URLs, avg ${enrichmentStats.avgContentLength} chars`,
+    );
+
+    if (enrichmentStats.invalidUrls > 0) {
+      this.logger.warn(
+        `${logPrefix} Found ${enrichmentStats.invalidUrls} invalid URLs (404/error pages)`,
+      );
+    }
+
+    await this.eventEmitter.emitAgentWorking(
+      topic.id,
+      {
+        agentId: researcherAgentId,
+        agentName: researcherAgentName,
+        agentRole: "researcher",
+        status: "working",
+        taskDescription: `维度「${dimension.name}」资料收集完成：找到 ${searchResult.items.length} 条结果，增强处理 ${enrichedResults.length} 条`,
+        dimensionId: dimension.id,
+        dimensionName: dimension.name,
+        progress: 15,
+        modelId,
+      },
+      effectiveMissionId,
+    );
+
+    // 3. 计算时效性信息
+    const publishedDates = enrichedResults
+      .map((item) => {
+        if (!item.publishedAt) return null;
+        const d =
+          item.publishedAt instanceof Date
+            ? item.publishedAt
+            : new Date(item.publishedAt);
+        return !isNaN(d.getTime()) ? d : null;
+      })
+      .filter((d): d is Date => d !== null)
+      .sort((a, b) => b.getTime() - a.getTime());
+
+    const freshnessInfo =
+      publishedDates.length > 0
+        ? {
+            newestDate: publishedDates[0]?.toISOString(),
+            oldestDate:
+              publishedDates[publishedDates.length - 1]?.toISOString(),
+            avgAgeInDays: Math.round(
+              publishedDates.reduce(
+                (sum, d) =>
+                  sum + (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24),
+                0,
+              ) / publishedDates.length,
+            ),
+          }
+        : undefined;
+
+    const usedSources = (searchResult.sources || [])
+      .map((s) => String(s))
+      .join(", ");
+
+    const knowledgeBaseResults = searchResult.items.filter(
+      (item) =>
+        String(item.sourceType).toLowerCase() === "local" ||
+        (item.metadata as Record<string, unknown>)?.knowledgeBaseSource,
+    );
+    const knowledgeBaseIds = (topicConfig?.knowledgeBaseIds as string[]) || [];
+    const knowledgeBaseInfo =
+      knowledgeBaseIds.length > 0
+        ? {
+            enabled: true,
+            knowledgeBaseIds,
+            matchedCount: knowledgeBaseResults.length,
+            avgSimilarity:
+              knowledgeBaseResults.length > 0
+                ? knowledgeBaseResults.reduce(
+                    (sum, item) =>
+                      sum +
+                      (((item.metadata as Record<string, unknown>)
+                        ?.similarity as number) || 0),
+                    0,
+                  ) / knowledgeBaseResults.length
+                : undefined,
+          }
+        : undefined;
+
+    if (knowledgeBaseInfo?.matchedCount && knowledgeBaseInfo.matchedCount > 0) {
+      this.logger.log(
+        `${logPrefix} ★ Knowledge base used! Matched ${knowledgeBaseInfo.matchedCount} results ` +
+          `from ${knowledgeBaseIds.length} knowledge bases. Avg similarity: ${knowledgeBaseInfo.avgSimilarity?.toFixed(2) || "N/A"}`,
+      );
+    }
+
+    const searchResultsRecord: SearchResultsRecord = {
+      total: searchResult.items.length,
+      filtered: enrichedResults.length,
+      searchTool: usedSources || "web",
+      query: searchResult.metadata?.searchQuery || dimension.name,
+      searchedAt: new Date().toISOString(),
+      freshnessInfo,
+      knowledgeBaseInfo,
+      sources: enrichedResults.slice(0, 20).map((item) => {
+        let publishedDate: string | undefined;
+        if (item.publishedAt) {
+          try {
+            const d =
+              item.publishedAt instanceof Date
+                ? item.publishedAt
+                : new Date(item.publishedAt);
+            if (!isNaN(d.getTime())) {
+              publishedDate = d.toISOString();
+            }
+          } catch {
+            // ignore
+          }
+        }
+        const metadata = item.metadata as Record<string, unknown> | undefined;
+        const isKnowledgeBase =
+          String(item.sourceType).toLowerCase() === "local" ||
+          metadata?.knowledgeBaseSource === true;
+        return {
+          title: item.title || "未知标题",
+          url: item.url || "",
+          domain: item.domain,
+          sourceType: String(item.sourceType),
+          publishedDate,
+          isKnowledgeBase,
+          similarity: isKnowledgeBase
+            ? (metadata?.similarity as number | undefined)
+            : undefined,
+          documentId: isKnowledgeBase
+            ? (metadata?.documentId as string | undefined)
+            : undefined,
+        };
+      }),
+    };
+
+    await this.agentActivity.endThinkingPhase(
+      topic.id,
+      researcherAgentId,
+      "searching" as ThinkingPhase,
+      {
+        searchResults: searchResultsRecord,
+        finalContent: `搜索完成，找到 ${searchResult.items.length} 条资料，${enrichmentStats.fetched} 条已增强完整内容`,
+      },
+    );
+
+    await this.eventEmitter.emitAgentWorking(
+      topic.id,
+      {
+        agentId: researcherAgentId,
+        agentName: researcherAgentName,
+        agentRole: "researcher",
+        status: "working",
+        taskDescription: `维度「${dimension.name}」搜索完成：${searchResultsRecord.searchTool || "网络"} 找到 ${searchResultsRecord.total} 条${searchResultsRecord.knowledgeBaseInfo?.matchedCount ? `，知识库匹配 ${searchResultsRecord.knowledgeBaseInfo.matchedCount} 条` : ""}`,
+        dimensionId: dimension.id,
+        dimensionName: dimension.name,
+        progress: 20,
+        modelId,
+        searchResults: searchResultsRecord,
+      },
+      effectiveMissionId,
+    );
+
+    // 4. 生成时间上下文
+    const searchTimeRange =
+      (topicConfig?.searchTimeRange as string) || undefined;
+    const temporalContext: TemporalContext = {
+      currentDate: getCurrentDateString(),
+      freshnessRequirement: getFreshnessRequirementDescription(searchTimeRange),
+    };
+
+    this.logger.log(
+      `${logPrefix} Temporal context: ${temporalContext.currentDate}, ${searchTimeRange || "default"}`,
+    );
+
+    // 5. Leader 主动搜索获取额外上下文
+    const leaderAgentId = "leader-" + dimId;
+    const leaderCapabilityContext: AICapabilityContext = {
+      agentId: leaderAgentId,
+      domain: "research",
+      roleId: "research-leader",
+      userId: topic.userId || undefined,
+    };
+
+    let leaderContextSummary = "";
+    try {
+      const leaderContext =
+        await this.leaderTool.generateEnhancedPlanningContext(
+          {
+            topicName: topic.name,
+            topicDescription: topic.description || undefined,
+            dimensionName: dimension.name,
+            searchTimeRange,
+          },
+          leaderCapabilityContext,
+        );
+      leaderContextSummary = leaderContext.contextSummary;
+      this.logger.log(
+        `${logPrefix} Leader gathered additional context: ${leaderContextSummary.length} chars`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `${logPrefix} Leader context gathering failed (non-fatal): ${error}`,
+      );
+    }
+
+    // 6. 准备证据数据
+    const evidenceData = this.prepareEnrichedEvidenceData(enrichedResults);
+    const evidenceSummary =
+      this.createEvidenceSummary(evidenceData) +
+      (leaderContextSummary ? `\n\n## 最新背景\n${leaderContextSummary}` : "");
+
+    const figuresSummary = this.buildFiguresSummary(
+      evidenceData as EnrichedEvidenceData[],
+    );
+    if (figuresSummary) {
+      this.logger.log(
+        `${logPrefix} Figures summary for Leader: ${figuresSummary.split("\n").length - 1} figures available`,
+      );
+    }
+
+    return {
+      dimensionId: dimension.id,
+      dimensionName: dimension.name,
+      enrichedResults,
+      evidenceData: evidenceData as EnrichedEvidenceData[],
+      evidenceSummary,
+      searchResultsRecord,
+      temporalContext,
+      figuresSummary,
+      leaderContextSummary,
+      modelId,
+      assignedTools,
+      assignedSkills,
+    };
+  }
 
   /**
    * 执行维度研究 Mission
@@ -145,318 +514,24 @@ export class DimensionMissionService {
       data: { status: DimensionStatus.RESEARCHING },
     });
 
-    // ★ Agent 信息定义
     const leaderAgentId = "leader-" + dimId;
     const leaderAgentName = "研究组长";
-    // ★ 研究员信息（搜索阶段使用，而非 Leader）
-    const researcherAgentId = `researcher_${dimId}`;
-    const researcherAgentName = `研究员 [${modelId || "default"}]`;
     const effectiveMissionId = missionId || dimension.id;
 
     try {
-      // 1. 获取搜索结果
-      this.emitProgress(
-        topic.id,
-        dimension.name,
-        {
-          stage: "planning",
-          sectionsTotal: 0,
-          sectionsCompleted: 0,
-          message: "正在收集资料...",
-        },
-        missionId,
-        5, // 阶段进度：5%
-        taskId, // ★ 传递 taskId
-      );
-
-      // ★ 记录搜索阶段开始（使用研究员身份，而非 Leader）
-      await this.agentActivity.startThinkingPhase({
-        topicId: topic.id,
-        missionId: effectiveMissionId,
-        dimensionId: dimension.id,
-        dimensionName: dimension.name,
-        agentId: researcherAgentId,
-        agentName: researcherAgentName,
-        agentRole: "researcher",
-        activityType: AgentActivityType.RESEARCHING,
-        phase: "searching",
-        content: `正在为维度「${dimension.name}」收集资料...`,
-        progress: 0,
-        thinkingPhase: "searching" as ThinkingPhase,
-        thinkingContent: `搜索关键词: ${Array.isArray(dimension.searchQueries) ? dimension.searchQueries.join(", ") : dimension.name}`,
-      });
-
-      const searchResult = await this.dataSourceRouter.fetchDataForDimension(
-        dimension,
+      // Phase 1: 执行搜索阶段
+      const searchPhaseResult = await this.executeSearchPhase(
         topic,
-        {
-          assignedTools, // ★ 传递 Leader 分配的工具
-          assignedSkills, // ★ 传递 Leader 分配的技能
-        },
+        dimension,
+        missionId,
+        modelId,
+        taskId,
+        assignedTools,
+        assignedSkills,
       );
 
-      this.logger.log(
-        `${logPrefix} Search completed: ${searchResult.items.length} sources found`,
-      );
-
-      // ★ 新增：数据增强 - 抓取 Top N 结果的完整网页内容
-      // 从 topicConfig 读取配置，支持自定义
-      const topicConfig = topic.topicConfig as Record<string, unknown> | null;
-      const enrichmentTopN = (topicConfig?.enrichmentTopN as number) || 5;
-      const enrichmentMaxLength =
-        (topicConfig?.enrichmentMaxLength as number) || 3000;
-      const enableFigures = topicConfig?.enableFigures !== false; // ★ 图表提取开关
-
-      this.logger.log(
-        `${logPrefix} Enriching search results (topN=${enrichmentTopN}, enableFigures=${enableFigures})...`,
-      );
-      const enrichedResults = await this.dataEnrichment.enrichSearchResults(
-        searchResult.items,
-        {
-          topN: enrichmentTopN,
-          maxContentLength: enrichmentMaxLength,
-          enableFigures, // ★ 传递图表提取开关
-        },
-      );
-
-      const enrichmentStats =
-        this.dataEnrichment.getEnrichmentStats(enrichedResults);
-      this.logger.log(
-        `${logPrefix} Enrichment: ${enrichmentStats.fetched}/${enrichmentStats.total} fetched, ` +
-          `${enrichmentStats.validUrls} valid URLs, avg ${enrichmentStats.avgContentLength} chars`,
-      );
-
-      // ★ 警告无效 URL
-      if (enrichmentStats.invalidUrls > 0) {
-        this.logger.warn(
-          `${logPrefix} Found ${enrichmentStats.invalidUrls} invalid URLs (404/error pages)`,
-        );
-      }
-
-      // ★ 发送研究员搜索完成事件（使用开头定义的 researcherAgentId/Name）
-      await this.eventEmitter.emitAgentWorking(
-        topic.id,
-        {
-          agentId: researcherAgentId,
-          agentName: researcherAgentName,
-          agentRole: "researcher",
-          status: "working",
-          taskDescription: `维度「${dimension.name}」资料收集完成：找到 ${searchResult.items.length} 条结果，增强处理 ${enrichedResults.length} 条`,
-          dimensionId: dimension.id,
-          dimensionName: dimension.name,
-          progress: 15,
-          modelId,
-        },
-        effectiveMissionId,
-      );
-
-      // ★ 记录搜索完成并保存搜索结果
-      // 计算时效性信息 - 安全解析日期
-      const publishedDates = enrichedResults
-        .map((item) => {
-          if (!item.publishedAt) return null;
-          // 处理 Date 对象或字符串
-          const d =
-            item.publishedAt instanceof Date
-              ? item.publishedAt
-              : new Date(item.publishedAt);
-          // 验证日期有效性
-          return !isNaN(d.getTime()) ? d : null;
-        })
-        .filter((d): d is Date => d !== null)
-        .sort((a, b) => b.getTime() - a.getTime());
-
-      const freshnessInfo =
-        publishedDates.length > 0
-          ? {
-              newestDate: publishedDates[0]?.toISOString(),
-              oldestDate:
-                publishedDates[publishedDates.length - 1]?.toISOString(),
-              avgAgeInDays: Math.round(
-                publishedDates.reduce(
-                  (sum, d) =>
-                    sum + (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24),
-                  0,
-                ) / publishedDates.length,
-              ),
-            }
-          : undefined;
-
-      // 获取使用的数据源类型（搜索工具）
-      const usedSources = (searchResult.sources || [])
-        .map((s) => String(s))
-        .join(", ");
-
-      // ★ 知识库搜索结果统计（用于溯源）
-      const knowledgeBaseResults = searchResult.items.filter(
-        (item) =>
-          String(item.sourceType).toLowerCase() === "local" ||
-          (item.metadata as Record<string, unknown>)?.knowledgeBaseSource,
-      );
-      const knowledgeBaseIds =
-        (topicConfig?.knowledgeBaseIds as string[]) || [];
-      const knowledgeBaseInfo =
-        knowledgeBaseIds.length > 0
-          ? {
-              enabled: true,
-              knowledgeBaseIds,
-              matchedCount: knowledgeBaseResults.length,
-              avgSimilarity:
-                knowledgeBaseResults.length > 0
-                  ? knowledgeBaseResults.reduce(
-                      (sum, item) =>
-                        sum +
-                        (((item.metadata as Record<string, unknown>)
-                          ?.similarity as number) || 0),
-                      0,
-                    ) / knowledgeBaseResults.length
-                  : undefined,
-            }
-          : undefined;
-
-      // ★ 记录知识库使用日志
-      if (
-        knowledgeBaseInfo?.matchedCount &&
-        knowledgeBaseInfo.matchedCount > 0
-      ) {
-        this.logger.log(
-          `${logPrefix} ★ Knowledge base used! Matched ${knowledgeBaseInfo.matchedCount} results ` +
-            `from ${knowledgeBaseIds.length} knowledge bases. Avg similarity: ${knowledgeBaseInfo.avgSimilarity?.toFixed(2) || "N/A"}`,
-        );
-      }
-
-      const searchResultsRecord: SearchResultsRecord = {
-        total: searchResult.items.length,
-        filtered: enrichedResults.length,
-        searchTool: usedSources || "web", // 使用的搜索工具
-        query: searchResult.metadata?.searchQuery || dimension.name, // 搜索查询
-        searchedAt: new Date().toISOString(), // 搜索时间
-        freshnessInfo, // 时效性信息
-        knowledgeBaseInfo, // ★ 知识库搜索信息
-        sources: enrichedResults.slice(0, 20).map((item) => {
-          // 安全解析发布日期
-          let publishedDate: string | undefined;
-          if (item.publishedAt) {
-            try {
-              const d =
-                item.publishedAt instanceof Date
-                  ? item.publishedAt
-                  : new Date(item.publishedAt);
-              if (!isNaN(d.getTime())) {
-                publishedDate = d.toISOString();
-              }
-            } catch {
-              // 忽略无效日期
-            }
-          }
-          // ★ 检查是否来自知识库
-          const metadata = item.metadata as Record<string, unknown> | undefined;
-          const isKnowledgeBase =
-            String(item.sourceType).toLowerCase() === "local" ||
-            metadata?.knowledgeBaseSource === true;
-          return {
-            title: item.title || "未知标题",
-            url: item.url || "",
-            domain: item.domain,
-            sourceType: String(item.sourceType),
-            publishedDate,
-            // ★ 知识库来源标记
-            isKnowledgeBase,
-            similarity: isKnowledgeBase
-              ? (metadata?.similarity as number | undefined)
-              : undefined,
-            documentId: isKnowledgeBase
-              ? (metadata?.documentId as string | undefined)
-              : undefined,
-          };
-        }),
-      };
-
-      // ★ 使用研究员身份结束搜索阶段（与 startThinkingPhase 匹配）
-      await this.agentActivity.endThinkingPhase(
-        topic.id,
-        researcherAgentId,
-        "searching" as ThinkingPhase,
-        {
-          searchResults: searchResultsRecord,
-          finalContent: `搜索完成，找到 ${searchResult.items.length} 条资料，${enrichmentStats.fetched} 条已增强完整内容`,
-        },
-      );
-
-      // ★ 发送搜索完成事件（包含完整搜索结果用于工具透明度显示）
-      await this.eventEmitter.emitAgentWorking(
-        topic.id,
-        {
-          agentId: researcherAgentId,
-          agentName: researcherAgentName,
-          agentRole: "researcher",
-          status: "working",
-          taskDescription: `维度「${dimension.name}」搜索完成：${searchResultsRecord.searchTool || "网络"} 找到 ${searchResultsRecord.total} 条${searchResultsRecord.knowledgeBaseInfo?.matchedCount ? `，知识库匹配 ${searchResultsRecord.knowledgeBaseInfo.matchedCount} 条` : ""}`,
-          dimensionId: dimension.id,
-          dimensionName: dimension.name,
-          progress: 20,
-          modelId,
-          searchResults: searchResultsRecord, // ★ 传递搜索结果用于前端展示
-        },
-        effectiveMissionId,
-      );
-
-      // ★ 新增：生成时间上下文（从 topic 配置获取时效性要求）
-      // 注：topicConfig 已在上方数据增强部分声明
-      const searchTimeRange =
-        (topicConfig?.searchTimeRange as string) || undefined;
-      const temporalContext: TemporalContext = {
-        currentDate: getCurrentDateString(),
-        freshnessRequirement:
-          getFreshnessRequirementDescription(searchTimeRange),
-      };
-
-      this.logger.log(
-        `${logPrefix} Temporal context: ${temporalContext.currentDate}, ${searchTimeRange || "default"}`,
-      );
-
-      // ★ 新增：Leader 主动搜索获取额外上下文（可选，用于补充搜索结果）
-      // ★ 集成 AICapabilityContext - 让 Leader 检查工具可用性
-      const leaderCapabilityContext: AICapabilityContext = {
-        agentId: leaderAgentId,
-        domain: "research",
-        roleId: "research-leader",
-        userId: topic.userId || undefined,
-      };
-
-      let leaderContextSummary = "";
-      try {
-        const leaderContext =
-          await this.leaderTool.generateEnhancedPlanningContext(
-            {
-              topicName: topic.name,
-              topicDescription: topic.description || undefined,
-              dimensionName: dimension.name,
-              searchTimeRange,
-            },
-            leaderCapabilityContext, // ★ 传递 capability context
-          );
-        leaderContextSummary = leaderContext.contextSummary;
-        this.logger.log(
-          `${logPrefix} Leader gathered additional context: ${leaderContextSummary.length} chars`,
-        );
-      } catch (error) {
-        this.logger.warn(
-          `${logPrefix} Leader context gathering failed (non-fatal): ${error}`,
-        );
-      }
-
-      // 2. 准备证据数据（使用增强后的结果）
-      const evidenceData = this.prepareEnrichedEvidenceData(enrichedResults);
-      const evidenceSummary =
-        this.createEvidenceSummary(evidenceData) +
-        (leaderContextSummary
-          ? `\n\n## 最新背景\n${leaderContextSummary}`
-          : "");
-
-      // 3. Leader 规划大纲
+      // Phase 2: Leader 本地规划大纲（非全局协调）
       // 发送 Leader 思考事件 - 理解阶段
-      // ★ 修复：使用正确的 missionId，而非 dimension.id
       await this.eventEmitter.emitLeaderThinking(topic.id, {
         missionId: missionId || dimension.id,
         phase: "understanding",
@@ -475,10 +550,9 @@ export class DimensionMissionService {
         },
         missionId,
         undefined,
-        taskId, // ★ 传递 taskId
+        taskId,
       );
 
-      // ★ 记录规划阶段开始
       await this.agentActivity.startThinkingPhase({
         topicId: topic.id,
         missionId: effectiveMissionId,
@@ -492,20 +566,10 @@ export class DimensionMissionService {
         content: `正在规划维度「${dimension.name}」的研究大纲...`,
         progress: 0,
         thinkingPhase: "understanding" as ThinkingPhase,
-        thinkingContent: `分析研究主题：${topic.name}\n维度：${dimension.name}\n参考资料数量：${evidenceSummary.split("\n").length} 条`,
+        thinkingContent: `分析研究主题：${topic.name}\n维度：${dimension.name}\n参考资料数量：${searchPhaseResult.evidenceSummary.split("\n").length} 条`,
       });
 
-      // ★ 构建图表摘要，传给 Leader 用于预分配
-      const figuresSummary = this.buildFiguresSummary(
-        evidenceData as EnrichedEvidenceData[],
-      );
-      if (figuresSummary) {
-        this.logger.log(
-          `${logPrefix} Figures summary for Leader: ${figuresSummary.split("\n").length - 1} figures available`,
-        );
-      }
-
-      // ★ Fix B: 查询所有维度，传给 Leader 避免跨维度重复
+      // 查询所有维度，传给 Leader 避免跨维度重复
       const allDimensions = await this.prisma.topicDimension.findMany({
         where: { topicId: topic.id },
         select: { name: true, description: true },
@@ -518,311 +582,30 @@ export class DimensionMissionService {
           description: dimension.description,
           searchQueries: dimension.searchQueries,
         },
-        evidenceSummary,
-        figuresSummary || undefined,
+        searchPhaseResult.evidenceSummary,
+        searchPhaseResult.figuresSummary || undefined,
         allDimensions,
       );
 
-      // ★ 校验并清理 Leader 分配的图表
-      this.validateAllocatedFigures(
-        outline,
-        evidenceData as EnrichedEvidenceData[],
-      );
-
       this.logger.log(
-        `${logPrefix} Outline planned: ${outline.sections.length} sections`,
+        `${logPrefix} Local outline planned: ${outline.sections.length} sections`,
       );
 
-      // ★ 记录规划完成
-      const understanding = outline.intentUnderstanding;
-      await this.agentActivity.endThinkingPhase(
-        topic.id,
-        leaderAgentId,
-        "understanding" as ThinkingPhase,
-        {
-          actionResult: {
-            sectionsCount: outline.sections.length,
-            coreQuestion: understanding.coreQuestion,
-            scope: understanding.scope.included,
-            expectedDepth: understanding.expectedDepth,
-            sections: outline.sections.map((s) => s.title),
-          },
-          finalContent: `规划完成：${outline.sections.length} 个章节\n核心问题: ${understanding.coreQuestion}\n研究范围: ${understanding.scope.included.join(", ")}`,
-        },
-      );
-
-      // 发送 Leader 规划完成事件
-      await this.eventEmitter.emitLeaderPlanReady(
-        topic.id,
-        dimension.id,
-        outline.sections.length,
-        outline.sections.length, // 每个章节一个 Agent
-      );
-
-      // 发送详细的 Leader 思考事件 - 包含理解内容
-      // ★ 修复：使用正确的 missionId
-      await this.eventEmitter.emitLeaderThinking(topic.id, {
-        missionId: missionId || dimension.id,
-        phase: "analyzing",
-        content: `核心问题: ${understanding.coreQuestion}\n研究范围: ${understanding.scope.included.join(", ")}\n期望深度: ${understanding.expectedDepth}`,
-        progress: 20,
-      });
-
-      // 4. Agent 写作各章节
-      this.emitProgress(
-        topic.id,
-        dimension.name,
-        {
-          stage: "writing",
-          sectionsTotal: outline.sections.length,
-          sectionsCompleted: 0,
-          message: "Agent 正在撰写章节...",
-        },
-        missionId,
-        undefined,
-        taskId, // ★ 传递 taskId
-      );
-
-      // ★ 记录写作阶段开始（使用研究员身份，因为写作是研究员的工作）
-      await this.agentActivity.startThinkingPhase({
-        topicId: topic.id,
-        missionId: effectiveMissionId,
-        dimensionId: dimension.id,
-        dimensionName: dimension.name,
-        agentId: researcherAgentId,
-        agentName: researcherAgentName,
-        agentRole: "researcher",
-        activityType: AgentActivityType.WRITING,
-        phase: "writing",
-        content: `开始撰写 ${outline.sections.length} 个章节...`,
-        progress: 0,
-        thinkingPhase: "writing" as ThinkingPhase,
-        thinkingContent: `章节列表：${outline.sections.map((s) => s.title).join("、")}`,
-      });
-
-      const sectionResults = await this.writeSectionsWithReview(
-        topic.id,
+      // Phase 3: 执行写作阶段
+      const writingResult = await this.executeWritingPhase(
+        topic,
         dimension,
+        searchPhaseResult,
         outline,
-        evidenceData,
+        reportId,
         missionId,
-        modelId, // ★ 传递 Leader 分配的模型
-        temporalContext, // ★ 传递时间上下文
-        taskId, // ★ 传递 taskId 用于进度匹配
+        modelId,
+        taskId,
+        assignedTools,
+        assignedSkills,
       );
 
-      // ★ 记录写作完成（使用研究员身份，与 startThinkingPhase 匹配）
-      const totalWordCount = sectionResults.reduce(
-        (sum, r) => sum + (r.content?.length || 0),
-        0,
-      );
-      await this.agentActivity.endThinkingPhase(
-        topic.id,
-        researcherAgentId,
-        "writing" as ThinkingPhase,
-        {
-          writingProgress: {
-            sections: sectionResults.map((r) => ({
-              id: r.sectionId,
-              title: r.title,
-              status: "completed" as const,
-              wordCount: r.content?.length || 0,
-            })),
-            totalWordCount,
-            completedSections: sectionResults.length,
-            totalSections: outline.sections.length,
-          },
-          finalContent: `写作完成：${sectionResults.length} 个章节，共 ${totalWordCount} 字`,
-        },
-      );
-
-      // 5. Leader 整合结果
-      this.emitProgress(
-        topic.id,
-        dimension.name,
-        {
-          stage: "integrating",
-          sectionsTotal: outline.sections.length,
-          sectionsCompleted: outline.sections.length,
-          message: "Leader 正在整合最终报告...",
-        },
-        missionId,
-        undefined,
-        taskId, // ★ 传递 taskId
-      );
-
-      // ★ 记录整合阶段开始
-      await this.agentActivity.startThinkingPhase({
-        topicId: topic.id,
-        missionId: effectiveMissionId,
-        dimensionId: dimension.id,
-        dimensionName: dimension.name,
-        agentId: leaderAgentId,
-        agentName: leaderAgentName,
-        agentRole: "leader",
-        activityType: AgentActivityType.REVIEWING,
-        phase: "integrating",
-        content: `正在整合 ${sectionResults.length} 个章节的研究结果...`,
-        progress: 0,
-        thinkingPhase: "integrating" as ThinkingPhase,
-        thinkingContent: `整合章节：${sectionResults.map((s) => s.title).join("、")}`,
-      });
-
-      const integratedResult =
-        await this.leaderService.integrateDimensionResults(
-          { name: dimension.name, description: dimension.description },
-          sectionResults.map((r) => ({ title: r.title, content: r.content })),
-        );
-
-      // ★ 记录整合完成
-      await this.agentActivity.endThinkingPhase(
-        topic.id,
-        leaderAgentId,
-        "integrating" as ThinkingPhase,
-        {
-          actionResult: {
-            summary: integratedResult.metadata?.summary?.substring(0, 200),
-            keyFindings: integratedResult.metadata?.keyFindings?.length || 0,
-            contentLength: integratedResult.content?.length || 0,
-          },
-          finalContent: `整合完成：摘要 ${integratedResult.metadata?.summary?.length || 0} 字，关键发现 ${integratedResult.metadata?.keyFindings?.length || 0} 条`,
-        },
-      );
-
-      // ★ 汇总所有章节的图表（去重）
-      // ★ 问题1修复：对 generatedCharts 按 title 去重（同名图表只保留第一个）
-      const allGeneratedChartsRaw = sectionResults.flatMap(
-        (r) => r.generatedCharts || [],
-      );
-      const seenChartTitles = new Set<string>();
-      const allGeneratedCharts = allGeneratedChartsRaw.filter((chart) => {
-        const key = chart.title?.trim().toLowerCase();
-        if (!key) return true;
-        if (seenChartTitles.has(key)) return false;
-        seenChartTitles.add(key);
-        return true;
-      });
-
-      const allFigureReferencesRaw = sectionResults.flatMap(
-        (r) => r.figureReferences || [],
-      );
-      // ★ 按 imageUrl 去重，避免同一张图在多个 section 中被重复引用
-      const seenImageUrls = new Set<string>();
-      const allFigureReferences = allFigureReferencesRaw.filter((fig) => {
-        // ★ 问题2修复：没有 imageUrl 的引用无效，过滤掉
-        if (!fig.imageUrl) return false;
-        if (seenImageUrls.has(fig.imageUrl)) return false;
-        seenImageUrls.add(fig.imageUrl);
-        return true;
-      });
-      this.logger.log(
-        `${logPrefix} Charts from sections: ${allFigureReferences.length} refs, ${allGeneratedCharts.length} generated`,
-      );
-
-      // 6. 保存证据到数据库并替换临时ID
-      let savedEvidenceIds: string[] = [];
-      let finalIntegratedResult = integratedResult;
-      this.logger.log(
-        `${logPrefix} Saving evidence: ${evidenceData.length} items, reportId=${reportId || "NONE"}`,
-      );
-      if (reportId) {
-        const { savedIds, indexMapping } = await this.saveEvidence(
-          evidenceData,
-          reportId,
-        );
-        savedEvidenceIds = savedIds;
-        this.logger.log(
-          `${logPrefix} Evidence saved: ${savedIds.length} items`,
-        );
-
-        // ★ 替换报告内容中的临时证据ID为数字引用 [n]
-        if (indexMapping.size > 0) {
-          finalIntegratedResult = {
-            ...integratedResult,
-            content: this.replaceEvidenceIds(
-              integratedResult.content,
-              indexMapping,
-            ),
-          };
-        }
-
-        // ★ 映射图表引用中的 evidenceCitationIndex
-        if (indexMapping.size > 0) {
-          for (const ref of allFigureReferences) {
-            const mapped = indexMapping.get(ref.evidenceCitationIndex);
-            if (mapped !== undefined) {
-              ref.evidenceCitationIndex = mapped;
-            }
-          }
-        }
-      }
-
-      // 7. 转换为标准结果格式
-      const analysisResult = this.convertToAnalysisResult(
-        dimension.id,
-        finalIntegratedResult,
-        savedEvidenceIds,
-        allFigureReferences,
-        allGeneratedCharts,
-      );
-
-      // 8. ★ 更新维度状态为 COMPLETED
-      await this.prisma.topicDimension.update({
-        where: { id: dimension.id },
-        data: {
-          status: DimensionStatus.COMPLETED,
-          lastResearchedAt: new Date(),
-        },
-      });
-      this.logger.log(`${logPrefix} Status updated to COMPLETED`);
-
-      // 9. 完成
-      this.emitProgress(
-        topic.id,
-        dimension.name,
-        {
-          stage: "completed",
-          sectionsTotal: outline.sections.length,
-          sectionsCompleted: outline.sections.length,
-          message: "维度研究完成",
-        },
-        missionId,
-        undefined,
-        taskId, // ★ 传递 taskId
-      );
-
-      // ★ 发送研究员完成事件
-      const researcherTotalWords = sectionResults.reduce(
-        (sum, r) => sum + (r.content?.length || 0),
-        0,
-      );
-      await this.eventEmitter.emitAgentWorking(
-        topic.id,
-        {
-          agentId: `researcher_${dimId}`,
-          agentName: `研究员 [${modelId || "default"}]`,
-          agentRole: "researcher",
-          status: "completed",
-          taskDescription: `维度「${dimension.name}」研究完成：${sectionResults.length} 个章节，共 ${researcherTotalWords} 字`,
-          dimensionId: dimension.id,
-          dimensionName: dimension.name,
-          progress: 100,
-          modelId,
-        },
-        effectiveMissionId,
-      );
-
-      this.logger.log(`${logPrefix} Mission completed successfully`);
-
-      return {
-        success: true,
-        dimensionId: dimension.id,
-        analysisResult,
-        evidenceIds: savedEvidenceIds,
-        outline,
-        sectionResults,
-        integratedResult: finalIntegratedResult,
-      };
+      return writingResult;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -850,6 +633,380 @@ export class DimensionMissionService {
         missionId,
         undefined,
         taskId, // ★ 传递 taskId
+      );
+
+      return {
+        success: false,
+        dimensionId: dimension.id,
+        evidenceIds: [],
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * 执行写作阶段（Phase 3）
+   *
+   * 职责：
+   * 1. 使用全局协调的 outline 进行写作（而非本地规划）
+   * 2. Agent 写作各章节
+   * 3. Leader 审核各章节
+   * 4. Leader 整合最终结果
+   * 5. 保存证据和生成分析结果
+   *
+   * @param topic 研究专题
+   * @param dimension 研究维度
+   * @param searchPhaseResult 搜索阶段结果
+   * @param outline 全局协调的维度大纲
+   * @param reportId 报告ID
+   * @param missionId 任务ID
+   * @param modelId Leader 分配的模型 ID
+   * @param taskId 研究任务ID
+   * @param assignedTools Leader 分配的工具
+   * @param assignedSkills Leader 分配的技能
+   * @returns Mission 执行结果
+   */
+  async executeWritingPhase(
+    topic: ResearchTopic,
+    dimension: TopicDimension,
+    searchPhaseResult: SearchPhaseResult,
+    outline: DimensionOutline,
+    reportId?: string,
+    missionId?: string,
+    modelId?: string,
+    taskId?: string,
+    _assignedTools?: string[], // Prefixed with _ to indicate intentionally unused
+    _assignedSkills?: string[], // Prefixed with _ to indicate intentionally unused
+  ): Promise<DimensionMissionResult> {
+    const dimId = dimension.id.slice(0, 8);
+    const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
+
+    this.logger.log(
+      `${logPrefix} Starting writing phase with global outline (${outline.sections.length} sections)`,
+    );
+
+    const leaderAgentId = "leader-" + dimId;
+    const leaderAgentName = "研究组长";
+    const researcherAgentId = `researcher_${dimId}`;
+    const researcherAgentName = `研究员 [${modelId || "default"}]`;
+    const effectiveMissionId = missionId || dimension.id;
+
+    try {
+      // 1. 校验并清理 Leader 分配的图表
+      this.validateAllocatedFigures(
+        outline,
+        searchPhaseResult.evidenceData as EnrichedEvidenceData[],
+      );
+
+      this.logger.log(
+        `${logPrefix} Outline validated: ${outline.sections.length} sections`,
+      );
+
+      // 记录规划完成
+      const understanding = outline.intentUnderstanding;
+      await this.agentActivity.endThinkingPhase(
+        topic.id,
+        leaderAgentId,
+        "understanding" as ThinkingPhase,
+        {
+          actionResult: {
+            sectionsCount: outline.sections.length,
+            coreQuestion: understanding.coreQuestion,
+            scope: understanding.scope.included,
+            expectedDepth: understanding.expectedDepth,
+            sections: outline.sections.map((s) => s.title),
+          },
+          finalContent: `规划完成：${outline.sections.length} 个章节\n核心问题: ${understanding.coreQuestion}\n研究范围: ${understanding.scope.included.join(", ")}`,
+        },
+      );
+
+      // 发送 Leader 规划完成事件
+      await this.eventEmitter.emitLeaderPlanReady(
+        topic.id,
+        dimension.id,
+        outline.sections.length,
+        outline.sections.length,
+      );
+
+      await this.eventEmitter.emitLeaderThinking(topic.id, {
+        missionId: missionId || dimension.id,
+        phase: "analyzing",
+        content: `核心问题: ${understanding.coreQuestion}\n研究范围: ${understanding.scope.included.join(", ")}\n期望深度: ${understanding.expectedDepth}`,
+        progress: 20,
+      });
+
+      // 2. Agent 写作各章节
+      this.emitProgress(
+        topic.id,
+        dimension.name,
+        {
+          stage: "writing",
+          sectionsTotal: outline.sections.length,
+          sectionsCompleted: 0,
+          message: "Agent 正在撰写章节...",
+        },
+        missionId,
+        undefined,
+        taskId,
+      );
+
+      await this.agentActivity.startThinkingPhase({
+        topicId: topic.id,
+        missionId: effectiveMissionId,
+        dimensionId: dimension.id,
+        dimensionName: dimension.name,
+        agentId: researcherAgentId,
+        agentName: researcherAgentName,
+        agentRole: "researcher",
+        activityType: AgentActivityType.WRITING,
+        phase: "writing",
+        content: `开始撰写 ${outline.sections.length} 个章节...`,
+        progress: 0,
+        thinkingPhase: "writing" as ThinkingPhase,
+        thinkingContent: `章节列表：${outline.sections.map((s) => s.title).join("、")}`,
+      });
+
+      const sectionResults = await this.writeSectionsWithReview(
+        topic.id,
+        dimension,
+        outline,
+        searchPhaseResult.evidenceData,
+        missionId,
+        modelId,
+        searchPhaseResult.temporalContext,
+        taskId,
+      );
+
+      // 记录写作完成
+      const totalWordCount = sectionResults.reduce(
+        (sum, r) => sum + (r.content?.length || 0),
+        0,
+      );
+      await this.agentActivity.endThinkingPhase(
+        topic.id,
+        researcherAgentId,
+        "writing" as ThinkingPhase,
+        {
+          writingProgress: {
+            sections: sectionResults.map((r) => ({
+              id: r.sectionId,
+              title: r.title,
+              status: "completed" as const,
+              wordCount: r.content?.length || 0,
+            })),
+            totalWordCount,
+            completedSections: sectionResults.length,
+            totalSections: outline.sections.length,
+          },
+          finalContent: `写作完成：${sectionResults.length} 个章节，共 ${totalWordCount} 字`,
+        },
+      );
+
+      // 3. Leader 整合结果
+      this.emitProgress(
+        topic.id,
+        dimension.name,
+        {
+          stage: "integrating",
+          sectionsTotal: outline.sections.length,
+          sectionsCompleted: outline.sections.length,
+          message: "Leader 正在整合最终报告...",
+        },
+        missionId,
+        undefined,
+        taskId,
+      );
+
+      await this.agentActivity.startThinkingPhase({
+        topicId: topic.id,
+        missionId: effectiveMissionId,
+        dimensionId: dimension.id,
+        dimensionName: dimension.name,
+        agentId: leaderAgentId,
+        agentName: leaderAgentName,
+        agentRole: "leader",
+        activityType: AgentActivityType.REVIEWING,
+        phase: "integrating",
+        content: `正在整合 ${sectionResults.length} 个章节的研究结果...`,
+        progress: 0,
+        thinkingPhase: "integrating" as ThinkingPhase,
+        thinkingContent: `整合章节：${sectionResults.map((s) => s.title).join("、")}`,
+      });
+
+      const integratedResult =
+        await this.leaderService.integrateDimensionResults(
+          { name: dimension.name, description: dimension.description },
+          sectionResults.map((r) => ({ title: r.title, content: r.content })),
+        );
+
+      await this.agentActivity.endThinkingPhase(
+        topic.id,
+        leaderAgentId,
+        "integrating" as ThinkingPhase,
+        {
+          actionResult: {
+            summary: integratedResult.metadata?.summary?.substring(0, 200),
+            keyFindings: integratedResult.metadata?.keyFindings?.length || 0,
+            contentLength: integratedResult.content?.length || 0,
+          },
+          finalContent: `整合完成：摘要 ${integratedResult.metadata?.summary?.length || 0} 字，关键发现 ${integratedResult.metadata?.keyFindings?.length || 0} 条`,
+        },
+      );
+
+      // 4. 汇总所有章节的图表（去重）
+      const allGeneratedChartsRaw = sectionResults.flatMap(
+        (r) => r.generatedCharts || [],
+      );
+      const seenChartTitles = new Set<string>();
+      const allGeneratedCharts = allGeneratedChartsRaw.filter((chart) => {
+        const key = chart.title?.trim().toLowerCase();
+        if (!key) return true;
+        if (seenChartTitles.has(key)) return false;
+        seenChartTitles.add(key);
+        return true;
+      });
+
+      const allFigureReferencesRaw = sectionResults.flatMap(
+        (r) => r.figureReferences || [],
+      );
+      const seenImageUrls = new Set<string>();
+      const allFigureReferences = allFigureReferencesRaw.filter((fig) => {
+        if (!fig.imageUrl) return false;
+        if (seenImageUrls.has(fig.imageUrl)) return false;
+        seenImageUrls.add(fig.imageUrl);
+        return true;
+      });
+      this.logger.log(
+        `${logPrefix} Charts from sections: ${allFigureReferences.length} refs, ${allGeneratedCharts.length} generated`,
+      );
+
+      // 5. 保存证据到数据库并替换临时ID
+      let savedEvidenceIds: string[] = [];
+      let finalIntegratedResult = integratedResult;
+      this.logger.log(
+        `${logPrefix} Saving evidence: ${searchPhaseResult.evidenceData.length} items, reportId=${reportId || "NONE"}`,
+      );
+      if (reportId) {
+        const { savedIds, indexMapping } = await this.saveEvidence(
+          searchPhaseResult.evidenceData,
+          reportId,
+        );
+        savedEvidenceIds = savedIds;
+        this.logger.log(
+          `${logPrefix} Evidence saved: ${savedIds.length} items`,
+        );
+
+        if (indexMapping.size > 0) {
+          finalIntegratedResult = {
+            ...integratedResult,
+            content: this.replaceEvidenceIds(
+              integratedResult.content,
+              indexMapping,
+            ),
+          };
+        }
+
+        if (indexMapping.size > 0) {
+          for (const ref of allFigureReferences) {
+            const mapped = indexMapping.get(ref.evidenceCitationIndex);
+            if (mapped !== undefined) {
+              ref.evidenceCitationIndex = mapped;
+            }
+          }
+        }
+      }
+
+      // 6. 转换为标准结果格式
+      const analysisResult = this.convertToAnalysisResult(
+        dimension.id,
+        finalIntegratedResult,
+        savedEvidenceIds,
+        allFigureReferences,
+        allGeneratedCharts,
+      );
+
+      // 7. 更新维度状态为 COMPLETED
+      await this.prisma.topicDimension.update({
+        where: { id: dimension.id },
+        data: {
+          status: DimensionStatus.COMPLETED,
+          lastResearchedAt: new Date(),
+        },
+      });
+      this.logger.log(`${logPrefix} Status updated to COMPLETED`);
+
+      // 8. 完成
+      this.emitProgress(
+        topic.id,
+        dimension.name,
+        {
+          stage: "completed",
+          sectionsTotal: outline.sections.length,
+          sectionsCompleted: outline.sections.length,
+          message: "维度研究完成",
+        },
+        missionId,
+        undefined,
+        taskId,
+      );
+
+      const researcherTotalWords = sectionResults.reduce(
+        (sum, r) => sum + (r.content?.length || 0),
+        0,
+      );
+      await this.eventEmitter.emitAgentWorking(
+        topic.id,
+        {
+          agentId: `researcher_${dimId}`,
+          agentName: `研究员 [${modelId || "default"}]`,
+          agentRole: "researcher",
+          status: "completed",
+          taskDescription: `维度「${dimension.name}」研究完成：${sectionResults.length} 个章节，共 ${researcherTotalWords} 字`,
+          dimensionId: dimension.id,
+          dimensionName: dimension.name,
+          progress: 100,
+          modelId,
+        },
+        effectiveMissionId,
+      );
+
+      this.logger.log(`${logPrefix} Writing phase completed successfully`);
+
+      return {
+        success: true,
+        dimensionId: dimension.id,
+        analysisResult,
+        evidenceIds: savedEvidenceIds,
+        outline,
+        sectionResults,
+        integratedResult: finalIntegratedResult,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      this.logger.error(
+        `${logPrefix} Writing phase FAILED: ${errorMessage}`,
+        error instanceof Error ? error.stack : error,
+      );
+
+      await this.prisma.topicDimension.update({
+        where: { id: dimension.id },
+        data: { status: DimensionStatus.FAILED },
+      });
+
+      this.emitProgress(
+        topic.id,
+        dimension.name,
+        {
+          stage: "failed",
+          sectionsTotal: 0,
+          sectionsCompleted: 0,
+          message: `研究失败: ${errorMessage}`,
+        },
+        missionId,
+        undefined,
+        taskId,
       );
 
       return {
@@ -1260,40 +1417,41 @@ export class DimensionMissionService {
       return { savedIds: [], idMapping: new Map(), indexMapping: new Map() };
     }
 
-    // ★ 获取当前报告的最大 citationIndex，以便从正确位置开始编号
-    const maxIndexResult = await this.prisma.topicEvidence.aggregate({
-      where: { reportId },
-      _max: { citationIndex: true },
-    });
-    const startIndex = (maxIndexResult._max.citationIndex || 0) + 1;
-
     // 评估可信度
-    const evidenceWithCredibility = evidenceData.map((e, index) => ({
+    const evidenceWithCredibility = evidenceData.map((e) => ({
       ...e,
       credibilityScore: this.assessCredibility(e),
-      citationIndex: startIndex + index, // ★ 设置引用编号
     }));
 
-    // 批量创建
-    const created = await this.prisma.$transaction(
-      evidenceWithCredibility.map((evidence) =>
-        this.prisma.topicEvidence.create({
+    // ★ 使用 interactive transaction 保证 citationIndex 原子递增（防止并行写作阶段的竞态）
+    const created = await this.prisma.$transaction(async (tx) => {
+      const maxIndexResult = await tx.topicEvidence.aggregate({
+        where: { reportId },
+        _max: { citationIndex: true },
+      });
+      const startIndex = (maxIndexResult._max.citationIndex || 0) + 1;
+
+      const results = [];
+      for (let i = 0; i < evidenceWithCredibility.length; i++) {
+        const evidence = evidenceWithCredibility[i];
+        const result = await tx.topicEvidence.create({
           data: {
             title: evidence.title,
             url: evidence.url,
             domain: evidence.domain,
             snippet: evidence.snippet,
             sourceType: evidence.sourceType,
-            // ★ 验证日期有效性，无效日期设为 null
             publishedAt: this.validateDate(evidence.publishedAt),
             credibilityScore: evidence.credibilityScore,
-            citationIndex: evidence.citationIndex, // ★ 保存引用编号
+            citationIndex: startIndex + i,
             reportId,
           },
           select: { id: true, citationIndex: true },
-        }),
-      ),
-    );
+        });
+        results.push(result);
+      }
+      return results;
+    });
 
     // 构建 tempId -> actualId 映射
     const idMapping = new Map<string, string>();
