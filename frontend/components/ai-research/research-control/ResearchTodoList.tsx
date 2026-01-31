@@ -450,9 +450,12 @@ export function ResearchTodoList({
               } = parseAgentInfo(todo);
               const isSelected = selectedTodoId === todo.id;
 
-              // 依赖关系：此任务依赖于哪些任务
+              // 依赖关系：此任务依赖于哪些任务（已完成的任务不再显示依赖提示）
               const hasDependencies =
-                todo.dependsOn && todo.dependsOn.length > 0;
+                todo.dependsOn &&
+                todo.dependsOn.length > 0 &&
+                todo.status !== ResearchTodoStatus.COMPLETED &&
+                todo.status !== ResearchTodoStatus.FAILED;
               // 计算哪些任务依赖于此任务（被阻塞）
               const blockingCount = sortedTodos.filter((t) =>
                 t.dependsOn?.includes(todo.id)

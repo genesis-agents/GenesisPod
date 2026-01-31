@@ -504,6 +504,7 @@ export class DimensionMissionService {
     taskId?: string,
     assignedTools?: string[], // ★ Leader 分配的工具
     assignedSkills?: string[], // ★ Leader 分配的技能
+    maxRevisionRounds?: number, // V5: 最大修订轮次（来自 depthConfig）
   ): Promise<DimensionMissionResult> {
     // ★ 统一日志前缀，便于区分不同维度的 Agent
     const dimId = dimension.id.slice(0, 8);
@@ -524,6 +525,23 @@ export class DimensionMissionService {
     const effectiveMissionId = missionId || dimension.id;
 
     try {
+      // V5: Literature baseline scan (standard/thorough only)
+      if (maxRevisionRounds !== undefined && maxRevisionRounds > 0) {
+        try {
+          this.logger.log(
+            `${logPrefix} [V5] Running literature baseline scan before search`,
+          );
+          await this.dataSourceRouter.scanLiteratureBaseline(topic, dimension);
+          this.logger.log(
+            `${logPrefix} [V5] Literature baseline scan complete`,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `${logPrefix} [V5] Literature baseline scan failed (non-fatal): ${error}`,
+          );
+        }
+      }
+
       // Phase 1: 执行搜索阶段
       const searchPhaseResult = await this.executeSearchPhase(
         topic,
@@ -608,6 +626,8 @@ export class DimensionMissionService {
         taskId,
         assignedTools,
         assignedSkills,
+        undefined, // validationContext
+        maxRevisionRounds, // V5: 最大修订轮次
       );
 
       return writingResult;
@@ -1707,12 +1727,19 @@ export class DimensionMissionService {
     return {
       dimensionId,
       summary: integratedResult.metadata.summary,
-      keyFindings: integratedResult.metadata.keyFindings.map((finding) => ({
-        finding,
-        significance: "medium" as const,
-        implication: "",
-        evidenceIds: [],
-      })),
+      keyFindings: integratedResult.metadata.keyFindings.map(
+        (finding, index) => ({
+          finding,
+          // V5: 根据位置和内容分配 significance，避免全部 "medium"
+          // 前2个发现通常最重要（AI 按重要性排序输出）
+          significance: (index < 2 ? "high" : index < 4 ? "medium" : "low") as
+            | "high"
+            | "medium"
+            | "low",
+          implication: "",
+          evidenceIds: [],
+        }),
+      ),
       trends: [],
       challenges: [],
       opportunities: [],

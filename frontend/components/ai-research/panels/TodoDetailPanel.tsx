@@ -687,25 +687,35 @@ export function TodoDetailPanel({
             >
               {STATUS_LABELS[todo.status]}
             </span>
-            {/* ★ 使用实时进度（优先）或todo.progress */}
-            {(realtimeProgress ?? todo.progress) > 0 &&
-              (realtimeProgress ?? todo.progress) < 100 && (
+            {/* ★ 使用实时进度（优先）或todo.progress；已完成任务固定100% */}
+            {(() => {
+              const effectiveProgress =
+                todo.status === 'COMPLETED'
+                  ? 100
+                  : (realtimeProgress ?? todo.progress);
+              return effectiveProgress > 0 && effectiveProgress < 100 ? (
                 <span className="text-xs text-muted-foreground">
-                  {realtimeProgress ?? todo.progress}%
+                  {effectiveProgress}%
                 </span>
-              )}
+              ) : null;
+            })()}
           </div>
 
-          {/* Progress bar - 使用实时进度 */}
-          {(realtimeProgress ?? todo.progress) > 0 &&
-            (realtimeProgress ?? todo.progress) < 100 && (
+          {/* Progress bar - 使用实时进度；已完成任务不显示 */}
+          {(() => {
+            const effectiveProgress =
+              todo.status === 'COMPLETED'
+                ? 100
+                : (realtimeProgress ?? todo.progress);
+            return effectiveProgress > 0 && effectiveProgress < 100 ? (
               <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
                 <div
                   className="h-full bg-blue-500 transition-all duration-300"
-                  style={{ width: `${realtimeProgress ?? todo.progress}%` }}
+                  style={{ width: `${effectiveProgress}%` }}
                 />
               </div>
-            )}
+            ) : null;
+          })()}
 
           {todo.statusMessage && todo.status !== 'FAILED' && (
             <p className="text-xs text-muted-foreground">

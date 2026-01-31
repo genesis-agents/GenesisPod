@@ -1784,6 +1784,18 @@ export class ResearchMissionService {
       include: { dimensions: true },
     });
 
+    // V5: 读取 mission 的 researchDepth 并解析深度配置
+    const mission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+      select: { researchDepth: true },
+    });
+    const researchDepth = (mission?.researchDepth ??
+      "standard") as ResearchDepth;
+    const depthConfig = resolveResearchDepthConfig(researchDepth);
+    this.logger.log(
+      `[startExecution] V5 depth: ${researchDepth} (cognitiveLoops=${depthConfig.maxCognitiveLoops}, revisions=${depthConfig.maxRevisionRounds}, literatureBaseline=${depthConfig.literatureBaselineEnabled})`,
+    );
+
     if (!topic) {
       throw new Error(`Topic ${topicId} not found`);
     }
@@ -1851,7 +1863,7 @@ export class ResearchMissionService {
     );
 
     await this.executeDynamicScheduler(missionId, maxConcurrentTasks, (task) =>
-      this.executeTask(task, topic, missionId, draftReport.id),
+      this.executeTask(task, topic, missionId, draftReport.id, depthConfig),
     );
 
     // 更新最终状态
@@ -1866,6 +1878,7 @@ export class ResearchMissionService {
     topic: any,
     missionId: string,
     reportId: string,
+    depthConfig?: import("../types/v5-research.types").ResearchDepthConfig,
   ): Promise<void> {
     this.logger.log(`[executeTask] Executing task: ${task.title} (${task.id})`);
 
@@ -2018,6 +2031,7 @@ export class ResearchMissionService {
                 task.id, // ★ 传入任务ID用于前端精确匹配进度
                 assignedTools, // ★ 传入 Leader 分配的工具
                 assignedSkills, // ★ 传入 Leader 分配的技能
+                depthConfig?.maxRevisionRounds, // V5: 修订轮次
               );
 
             if (!missionResult.success) {
@@ -2101,6 +2115,102 @@ export class ResearchMissionService {
               feedback: "没有已完成的维度研究任务需要审核",
             };
             break;
+          }
+
+          // ============ V5: 认知循环 (Claim Validation) ============
+          if (depthConfig && depthConfig.maxCognitiveLoops > 0) {
+            this.logger.log(
+              `[V5] Running cognitive loop before quality review (maxLoops=${depthConfig.maxCognitiveLoops})`,
+            );
+
+            await this.researchEventEmitter.emitAgentWorking(
+              topic.id,
+              {
+                agentId: task.assignedAgent,
+                agentName: "质量审核员",
+                agentRole: "reviewer",
+                status: "working",
+                taskDescription: "V5: 认知循环 - 提取断言并交叉验证...",
+                progress: 5,
+                modelId: assignedModelId,
+              },
+              missionId,
+            );
+
+            try {
+              // 收集所有维度研究的摘要作为证据
+              const evidenceSummary = completedTasks
+                .map((t) => {
+                  const taskResult = t.result as any;
+                  return (
+                    taskResult?.summary ||
+                    taskResult?.analysisResult?.summary ||
+                    ""
+                  );
+                })
+                .filter(Boolean)
+                .join("\n\n")
+                .substring(0, 8000);
+
+              // 从结果中提取 claims（key findings 作为 claims）
+              const allClaims: import("../types/v5-research.types").ExtractedClaim[] =
+                [];
+              for (const t of completedTasks) {
+                const taskResult = t.result as any;
+                const findings =
+                  taskResult?.keyFindings ||
+                  taskResult?.analysisResult?.keyFindings ||
+                  [];
+                for (let i = 0; i < findings.length; i++) {
+                  const f = findings[i];
+                  allClaims.push({
+                    id: `${t.id}-claim-${i}`,
+                    statement:
+                      typeof f === "string"
+                        ? f
+                        : f.finding || f.title || JSON.stringify(f),
+                    sectionId: t.dimensionId || t.id,
+                    sourceEvidenceIndices: [],
+                    importance:
+                      (typeof f === "object" && f.significance) || "medium",
+                  });
+                }
+              }
+
+              if (allClaims.length > 0 && evidenceSummary.length > 0) {
+                const claimValidation =
+                  await this.reviewerService.validateClaims(
+                    allClaims,
+                    evidenceSummary,
+                  );
+
+                this.logger.log(
+                  `[V5] Claim validation: ${claimValidation.stats.verified} verified, ${claimValidation.stats.disputed} disputed, ${claimValidation.stats.unverified} unverified`,
+                );
+
+                await this.researchEventEmitter.emitAgentWorking(
+                  topic.id,
+                  {
+                    agentId: task.assignedAgent,
+                    agentName: "质量审核员",
+                    agentRole: "reviewer",
+                    status: "working",
+                    taskDescription: `V5: 断言验证完成 - ${claimValidation.stats.verified}个已验证, ${claimValidation.stats.disputed}个有争议`,
+                    progress: 8,
+                    modelId: assignedModelId,
+                  },
+                  missionId,
+                );
+              } else {
+                this.logger.log(
+                  `[V5] No claims or evidence to validate, skipping cognitive loop`,
+                );
+              }
+            } catch (error) {
+              this.logger.warn(
+                `[V5] Cognitive loop failed (non-fatal): ${error}`,
+              );
+            }
           }
 
           // ★ 执行真正的 AI 质量审核
@@ -2374,6 +2484,28 @@ export class ResearchMissionService {
             result?.chapters?.length || 0,
             JSON.stringify(result).length,
           );
+
+          // ★ 将 TopicReport 转换为前端 TodoResult 兼容格式
+          const reportResult = result as Record<string, unknown>;
+          const fullReportText = (reportResult?.fullReport as string) || "";
+          result = {
+            summary: (reportResult?.executiveSummary as string) || "报告已生成",
+            wordCount: fullReportText.length,
+            sourcesFound: (reportResult?.totalSources as number) || 0,
+            keyFindings: Array.isArray(reportResult?.highlights)
+              ? (reportResult.highlights as Array<{ title?: string }>).map(
+                  (h, i) => ({
+                    finding: h.title || `亮点 ${i + 1}`,
+                    significance: (i < 2 ? "high" : "medium") as
+                      | "high"
+                      | "medium"
+                      | "low",
+                    evidenceIds: [],
+                  }),
+                )
+              : 0,
+            reportId,
+          };
           break;
         }
 
