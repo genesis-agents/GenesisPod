@@ -162,6 +162,11 @@ export function getProviderBrand(name: string): ProviderBrand {
     }
   }
 
+  // ★ 火山引擎接入点 ID（ep-xxx）映射到 Doubao
+  if (lowerName.startsWith('ep-')) {
+    return PROVIDER_BRANDS.doubao;
+  }
+
   return DEFAULT_BRAND;
 }
 

@@ -177,9 +177,21 @@ export class ResearchTodoService {
       orderBy: [{ status: "asc" }, { priority: "desc" }, { createdAt: "asc" }],
     });
 
+    // ★ 批量查询模型展示名称
+    const modelIds = todos
+      .map((t) => t.modelId)
+      .filter((id): id is string => !!id);
+    const modelDisplayNameMap = await this.getModelDisplayNameMap(modelIds);
+    const enrichedTodos = todos.map((todo) => ({
+      ...todo,
+      modelDisplayName: todo.modelId
+        ? modelDisplayNameMap.get(todo.modelId)
+        : undefined,
+    }));
+
     const summary = this.calculateSummary(todos);
 
-    return { todos, summary };
+    return { todos: enrichedTodos, summary };
   }
 
   /**
@@ -1532,6 +1544,27 @@ export class ResearchTodoService {
   /**
    * 计算 TODO 汇总
    */
+  /**
+   * 批量查询 modelId → displayName 映射
+   */
+  private async getModelDisplayNameMap(
+    modelIds: string[],
+  ): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    if (modelIds.length === 0) return map;
+
+    const uniqueIds = [...new Set(modelIds)];
+    const models = await this.prisma.aIModel.findMany({
+      where: { modelId: { in: uniqueIds } },
+      select: { modelId: true, displayName: true },
+    });
+
+    for (const m of models) {
+      map.set(m.modelId, m.displayName);
+    }
+    return map;
+  }
+
   private calculateSummary(todos: ResearchTodo[]): TodoSummary {
     const summary: TodoSummary = {
       total: todos.length,

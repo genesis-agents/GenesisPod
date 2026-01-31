@@ -952,11 +952,23 @@ const MessageBubble = memo(function MessageBubble({
               timeOptions={{ hour: '2-digit', minute: '2-digit' }}
             />
           </span>
-          {isAI && message.modelUsed && (
-            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
-              {message.modelUsed}
-            </span>
-          )}
+          {isAI &&
+            message.modelUsed &&
+            (() => {
+              const brand = getProviderBrand(message.modelUsed);
+              return (
+                <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
+                  {brand.logo && (
+                    <img
+                      src={brand.logo}
+                      alt={brand.name}
+                      className="h-3 w-3"
+                    />
+                  )}
+                  {message.modelUsed}
+                </span>
+              );
+            })()}
         </div>
 
         {/* Reply To */}

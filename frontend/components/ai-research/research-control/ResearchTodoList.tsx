@@ -8,6 +8,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { getProviderBrand } from '@/lib/ai-provider-logos';
 import {
   CheckCircle2,
   Circle,
@@ -125,12 +126,14 @@ const TYPE_ICONS: Record<ResearchTodoType, string> = {
 function parseAgentInfo(todo: ResearchTodo): {
   name: string;
   modelId: string | null;
+  modelDisplayName: string | null;
 } {
   // 优先使用直接的 modelId 字段
   if (todo.modelId) {
     return {
       name: todo.agentName || '待分配',
       modelId: todo.modelId,
+      modelDisplayName: todo.modelDisplayName || null,
     };
   }
 
@@ -142,12 +145,14 @@ function parseAgentInfo(todo: ResearchTodo): {
     return {
       name: modelMatch[1].trim(),
       modelId: modelMatch[2],
+      modelDisplayName: null,
     };
   }
 
   return {
     name: agentName,
     modelId: null,
+    modelDisplayName: null,
   };
 }
 
@@ -438,7 +443,11 @@ export function ResearchTodoList({
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
             {sortedTodos.map((todo, index) => {
-              const { name: agentName, modelId } = parseAgentInfo(todo);
+              const {
+                name: agentName,
+                modelId,
+                modelDisplayName,
+              } = parseAgentInfo(todo);
               const isSelected = selectedTodoId === todo.id;
 
               // 依赖关系：此任务依赖于哪些任务
@@ -571,12 +580,25 @@ export function ResearchTodoList({
                   {/* 模型 */}
                   <td className="px-2 py-2">
                     {modelId ? (
-                      <span
-                        className="font-mono inline-block max-w-full truncate rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] text-indigo-600"
-                        title={modelId}
-                      >
-                        {modelId}
-                      </span>
+                      (() => {
+                        const label = modelDisplayName || modelId;
+                        const brand = getProviderBrand(label);
+                        return (
+                          <span
+                            className="inline-flex max-w-full items-center gap-1 truncate rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] text-indigo-600"
+                            title={`${label} (${modelId})`}
+                          >
+                            {brand.logo && (
+                              <img
+                                src={brand.logo}
+                                alt={brand.name}
+                                className="h-3 w-3 flex-shrink-0"
+                              />
+                            )}
+                            <span className="truncate">{label}</span>
+                          </span>
+                        );
+                      })()
                     ) : (
                       <span className="text-xs text-gray-300">—</span>
                     )}
