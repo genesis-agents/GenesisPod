@@ -2871,6 +2871,8 @@ export class ResearchMissionService {
   ): Promise<void> {
     const executingTasks = new Map<string, Promise<void>>();
     const completedTaskIds = new Set<string>();
+    let consecutiveWaits = 0;
+    const MAX_CONSECUTIVE_WAITS = 30; // 30 × 2s = 60s deadlock timeout
 
     // ★ 主调度循环
     while (true) {
@@ -2901,6 +2903,10 @@ export class ResearchMissionService {
       // 2. 如果有空闲槽位，启动新任务
       const availableSlots = maxConcurrent - executingTasks.size;
       const tasksToStart = newTasks.slice(0, availableSlots);
+
+      if (tasksToStart.length > 0) {
+        consecutiveWaits = 0; // Reset deadlock counter when dispatching
+      }
 
       for (const task of tasksToStart) {
         this.logger.log(
@@ -2947,8 +2953,18 @@ export class ResearchMissionService {
         }
 
         // 还有待处理任务但依赖未满足，等待一下再检查
+        consecutiveWaits++;
+        if (
+          consecutiveWaits >= MAX_CONSECUTIVE_WAITS &&
+          executingTasks.size === 0
+        ) {
+          this.logger.error(
+            `[dynamicScheduler] Deadlock detected: ${remainingPending} tasks pending but no tasks executing after ${consecutiveWaits} waits`,
+          );
+          break;
+        }
         this.logger.log(
-          `[dynamicScheduler] Waiting for dependencies, ${remainingPending} tasks pending`,
+          `[dynamicScheduler] Waiting for dependencies, ${remainingPending} tasks pending (wait ${consecutiveWaits}/${MAX_CONSECUTIVE_WAITS})`,
         );
         await new Promise((resolve) => setTimeout(resolve, 2000));
         continue;

@@ -139,6 +139,9 @@ export class TopicTeamOrchestratorService {
       },
     });
 
+    // ★ Hoist missionId so it's accessible in catch block for cleanup
+    let missionId: string | undefined;
+
     try {
       // 1. 创建草稿报告
       const report =
@@ -241,7 +244,6 @@ export class TopicTeamOrchestratorService {
 
       // ★ 创建 Mission 和 TODOs 供前端展示任务列表
       const todoMap: Record<string, string> = {}; // dimensionId -> todoId
-      let missionId: string | undefined;
       let reportTodoId: string | undefined;
       let reviewTodoId: string | undefined;
       try {
@@ -492,9 +494,13 @@ export class TopicTeamOrchestratorService {
       }
       this.logger.log(`[executeRefresh] Dimension analyses saved successfully`);
 
-      // ★ 更新维度 TODOs 和 Tasks 为已完成
+      // ★ C1 fix: 使用索引遍历（analysisResults 和 dimensions 1:1 对应），避免 indexOf 错位
       try {
-        for (const result of analysisResults) {
+        for (let i = 0; i < analysisResults.length; i++) {
+          const result = analysisResults[i];
+          const dim = dimensions[i];
+          if (!dim) continue;
+
           if (result.status === "fulfilled") {
             const tid = todoMap[result.value.dimensionId];
             if (tid) {
@@ -503,13 +509,9 @@ export class TopicTeamOrchestratorService {
                   ?.length,
               });
             }
-            // Update corresponding ResearchTask
             if (missionId) {
               await this.prisma.researchTask.updateMany({
-                where: {
-                  missionId,
-                  dimensionId: result.value.dimensionId,
-                },
+                where: { missionId, dimensionId: result.value.dimensionId },
                 data: {
                   status: ResearchTaskStatus.COMPLETED,
                   progress: 100,
@@ -518,16 +520,14 @@ export class TopicTeamOrchestratorService {
               });
             }
           } else {
-            // Find the dimension this failed result corresponds to
-            const dimIndex = analysisResults.indexOf(result);
-            const dim = dimensions[dimIndex];
-            if (dim && todoMap[dim.id]) {
+            // C3 fix: 失败时同步标记 Todo 和 Task
+            if (todoMap[dim.id]) {
               await this.researchTodoService.failTodo(
                 todoMap[dim.id],
                 "研究失败",
               );
             }
-            if (dim && missionId) {
+            if (missionId) {
               await this.prisma.researchTask.updateMany({
                 where: { missionId, dimensionId: dim.id },
                 data: { status: ResearchTaskStatus.FAILED },
@@ -747,7 +747,8 @@ export class TopicTeamOrchestratorService {
         }
       }
 
-      // ★ 标记报告和审核 TODOs + Tasks 为已完成
+      // ★ C2 fix: 拆分 todo/task 更新和 mission 更新，确保 mission 始终到达 COMPLETED
+      // 1) Todo 更新（非致命）
       try {
         if (reportTodoId)
           await this.researchTodoService.completeTodo(reportTodoId, {
@@ -761,8 +762,15 @@ export class TopicTeamOrchestratorService {
           );
           await this.researchTodoService.completeTodo(reviewTodoId);
         }
-        if (missionId) {
-          // Update report_synthesis and quality_review tasks
+      } catch (todoErr) {
+        this.logger.warn(
+          `[executeRefresh] Todo update failed (non-fatal): ${todoErr}`,
+        );
+      }
+
+      // 2) Task 和 Mission 状态更新（独立 try-catch，确保 mission 完成）
+      if (missionId) {
+        try {
           await this.prisma.researchTask.updateMany({
             where: { missionId, taskType: "report_synthesis" },
             data: {
@@ -779,6 +787,13 @@ export class TopicTeamOrchestratorService {
               completedAt: new Date(),
             },
           });
+        } catch (taskErr) {
+          this.logger.warn(
+            `[executeRefresh] Task update failed (non-fatal): ${taskErr}`,
+          );
+        }
+
+        try {
           await this.prisma.researchMission.update({
             where: { id: missionId },
             data: {
@@ -788,11 +803,11 @@ export class TopicTeamOrchestratorService {
               progressPercent: 100,
             },
           });
+        } catch (missionErr) {
+          this.logger.error(
+            `[executeRefresh] CRITICAL: Failed to mark mission COMPLETED: ${missionErr}`,
+          );
         }
-      } catch (todoErr) {
-        this.logger.warn(
-          `[executeRefresh] Final todo update failed (non-fatal): ${todoErr}`,
-        );
       }
 
       // 7. 更新专题状态和统计数据
@@ -857,6 +872,46 @@ export class TopicTeamOrchestratorService {
         message: "研究失败",
         error: errorMessage,
       });
+
+      // ★ C4 fix: 中止/失败时清理所有未完成的 Todo、Task、Mission
+      if (missionId) {
+        try {
+          await this.prisma.researchTodo.updateMany({
+            where: {
+              missionId,
+              status: {
+                in: [
+                  ResearchTodoStatus.PENDING,
+                  ResearchTodoStatus.QUEUED,
+                  ResearchTodoStatus.IN_PROGRESS,
+                ],
+              },
+            },
+            data: { status: ResearchTodoStatus.FAILED },
+          });
+          await this.prisma.researchTask.updateMany({
+            where: {
+              missionId,
+              status: {
+                in: [
+                  ResearchTaskStatus.PENDING,
+                  ResearchTaskStatus.ASSIGNED,
+                  ResearchTaskStatus.EXECUTING,
+                ],
+              },
+            },
+            data: { status: ResearchTaskStatus.FAILED },
+          });
+          await this.prisma.researchMission.update({
+            where: { id: missionId },
+            data: { status: ResearchMissionStatus.FAILED },
+          });
+        } catch (cleanupErr) {
+          this.logger.warn(
+            `[executeRefresh] Cleanup on error failed: ${cleanupErr}`,
+          );
+        }
+      }
 
       this.logger.error(`Failed refresh for topic: ${topic.name}`, error);
       throw error;

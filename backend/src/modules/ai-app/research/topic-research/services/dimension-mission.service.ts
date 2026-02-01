@@ -1805,9 +1805,28 @@ export class DimensionMissionService {
   }
 
   /**
-   * 从 Markdown 中提取指定标题下的列表项
+   * H1 fix: 多策略从 Markdown 提取指定主题的列表项
+   * Strategy 1: ## 标题 + 列表项
+   * Strategy 2: **粗体关键词**: 内容
+   * Strategy 3: 段落中包含关键词的句子
    */
   private extractSectionItems(
+    content: string,
+    sectionKeywords: string[],
+  ): string[] {
+    // Strategy 1: Markdown header + bullet items
+    const fromHeaders = this.extractFromHeaders(content, sectionKeywords);
+    if (fromHeaders.length > 0) return fromHeaders;
+
+    // Strategy 2: **Bold keyword**: content pattern
+    const fromBold = this.extractFromBoldPatterns(content, sectionKeywords);
+    if (fromBold.length > 0) return fromBold;
+
+    // Strategy 3: Sentences containing keywords
+    return this.extractFromSentences(content, sectionKeywords);
+  }
+
+  private extractFromHeaders(
     content: string,
     sectionKeywords: string[],
   ): string[] {
@@ -1816,7 +1835,6 @@ export class DimensionMissionService {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      // Match ## or ### headers containing any keyword
       const isHeader = /^#{2,4}\s+/.test(line);
       if (!isHeader) continue;
 
@@ -1826,17 +1844,15 @@ export class DimensionMissionService {
       );
       if (!matched) continue;
 
-      // Collect bullet items under this header
       for (let j = i + 1; j < lines.length; j++) {
         const nextLine = lines[j].trim();
-        if (/^#{2,4}\s+/.test(nextLine)) break; // next header
+        if (/^#{2,4}\s+/.test(nextLine)) break;
         const bulletMatch = nextLine.match(/^[-*]\s+\*\*(.+?)\*\*/);
         if (bulletMatch) {
           items.push(bulletMatch[1].replace(/:$/, "").trim());
         } else {
           const simpleBullet = nextLine.match(/^[-*]\s+(.{15,})/);
           if (simpleBullet) {
-            // Take first sentence or up to 120 chars
             const text = simpleBullet[1].replace(/\*\*/g, "").trim();
             const sentence = text.split(/[。；;]/)[0];
             if (sentence.length >= 10) {
@@ -1850,10 +1866,55 @@ export class DimensionMissionService {
         }
         if (items.length >= 5) break;
       }
-      break; // only process first matching section
+      break;
     }
 
     return items;
+  }
+
+  private extractFromBoldPatterns(
+    content: string,
+    sectionKeywords: string[],
+  ): string[] {
+    const items: string[] = [];
+    const regex = /\*\*(.+?)\*\*[:：]\s*(.+)/g;
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+      const label = match[1].trim().toLowerCase();
+      const value = match[2].trim();
+      if (
+        sectionKeywords.some((kw) => label.includes(kw.toLowerCase())) &&
+        value.length >= 10
+      ) {
+        items.push(
+          value.length > 120 ? value.substring(0, 120) + "..." : value,
+        );
+        if (items.length >= 5) break;
+      }
+    }
+    return items;
+  }
+
+  private extractFromSentences(
+    content: string,
+    sectionKeywords: string[],
+  ): string[] {
+    const sentences = content.match(/[^。！？\n]+[。！？]/g) || [];
+    return sentences
+      .filter(
+        (s) =>
+          s.length >= 15 &&
+          sectionKeywords.some((kw) =>
+            s.toLowerCase().includes(kw.toLowerCase()),
+          ),
+      )
+      .slice(0, 5)
+      .map((s) => {
+        const trimmed = s.replace(/^[，、：:;\s]+/, "").trim();
+        return trimmed.length > 120
+          ? trimmed.substring(0, 120) + "..."
+          : trimmed;
+      });
   }
 
   /**

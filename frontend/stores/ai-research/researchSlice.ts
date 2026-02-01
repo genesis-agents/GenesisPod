@@ -403,7 +403,8 @@ export const createResearchSlice: StateCreator<
     set({ isRefreshing: true, error: null });
     try {
       await api.retryMission(topicId, taskIds);
-      get().fetchMissionStatus(topicId);
+      await get().fetchMissionStatus(topicId);
+      get().startMissionPolling(topicId);
     } catch (error) {
       set({
         isRefreshing: false,
@@ -425,7 +426,10 @@ export const createResearchSlice: StateCreator<
       });
       await get().fetchMissionStatus(topicId);
     } catch (error) {
+      get().stopMissionPolling();
       set({
+        isRefreshing: false,
+        refreshProgress: null,
         error:
           error instanceof Error ? error.message : 'Failed to cancel mission',
       });

@@ -205,7 +205,32 @@ export class DataSourceRouterService {
     const results = await Promise.allSettled(searchPromises);
 
     // 4. 聚合结果
-    const aggregated = this.aggregateResults(results, sources);
+    let aggregated = this.aggregateResults(results, sources);
+
+    // ★ H4: 所有数据源都失败或无结果时，兜底使用 WEB 源
+    if (aggregated.totalCount === 0 && !sources.includes(DataSourceType.WEB)) {
+      this.logger.warn(
+        `[fetchDataForDimension] All ${sources.length} sources returned 0 results, falling back to WEB`,
+      );
+      try {
+        const webResult = await this.searchSource(
+          DataSourceType.WEB,
+          searchQuery,
+          { maxResults: 25, since },
+        );
+        if (webResult.length > 0) {
+          aggregated = {
+            items: webResult,
+            totalCount: webResult.length,
+            sources: [DataSourceType.WEB],
+          };
+        }
+      } catch (webErr) {
+        this.logger.error(
+          `[fetchDataForDimension] WEB fallback also failed: ${(webErr as Error).message}`,
+        );
+      }
+    }
 
     const executionTime = Date.now() - startTime;
 

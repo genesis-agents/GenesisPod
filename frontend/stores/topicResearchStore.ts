@@ -723,8 +723,9 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
     set({ isRefreshing: true, error: null });
     try {
       await api.retryMission(topicId, taskIds);
-      // Refresh mission status
-      get().fetchMissionStatus(topicId);
+      // Refresh mission status and start polling
+      await get().fetchMissionStatus(topicId);
+      get().startMissionPolling(topicId);
     } catch (error) {
       set({
         isRefreshing: false,

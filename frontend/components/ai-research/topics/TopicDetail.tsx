@@ -101,17 +101,13 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
     }
   }, [topic.id, currentReport?.id, fetchEvidence]);
 
-  // Poll mission status when refreshing
+  // ★ H5: 轮询已由 store.startMissionPolling 统一管理（2s 间隔），
+  // 此处仅在 isRefreshing 变化时获取一次 teamInfo
   useEffect(() => {
-    if (!isRefreshing) return;
-
-    const interval = setInterval(() => {
-      fetchMissionStatus(topic.id);
+    if (isRefreshing) {
       fetchTeamInfo(topic.id);
-    }, 3000); // Poll every 3 seconds
-
-    return () => clearInterval(interval);
-  }, [topic.id, isRefreshing, fetchMissionStatus, fetchTeamInfo]);
+    }
+  }, [topic.id, isRefreshing, fetchTeamInfo]);
 
   // ★ 当任务完成时自动刷新报告和维度
   useEffect(() => {
