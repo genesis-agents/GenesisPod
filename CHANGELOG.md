@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.2.3](https://github.com/your-org/ai-teams-engine/compare/v3.2.2...v3.2.3) (2026-02-01)
+
+
+### Bug Fixes
+
+* **research:** save analyses before cognitive loop, make post-research steps non-fatal ([01c7799](https://github.com/your-org/ai-teams-engine/commit/01c7799851f54585b1b0be9cabfce1a6e4cf4629))
+
 ### [3.2.2](https://github.com/your-org/ai-teams-engine/compare/v3.2.1...v3.2.2) (2026-02-01)
 
 
