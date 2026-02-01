@@ -49,6 +49,9 @@ import type {
   EnrichedEvidenceData,
   GeneratedChart,
   FigureReference,
+  Trend,
+  Challenge,
+  Opportunity,
 } from "../types/research.types";
 import { AgentActivityType } from "@prisma/client";
 import {
@@ -1724,14 +1727,14 @@ export class DimensionMissionService {
     figureReferences: FigureReference[] = [],
     generatedCharts: GeneratedChart[] = [],
   ): DimensionAnalysisResult {
+    const content = integratedResult.content || "";
+
     return {
       dimensionId,
       summary: integratedResult.metadata.summary,
       keyFindings: integratedResult.metadata.keyFindings.map(
         (finding, index) => ({
           finding,
-          // V5: 根据位置和内容分配 significance，避免全部 "medium"
-          // 前2个发现通常最重要（AI 按重要性排序输出）
           significance: (index < 2 ? "high" : index < 4 ? "medium" : "low") as
             | "high"
             | "medium"
@@ -1740,15 +1743,117 @@ export class DimensionMissionService {
           evidenceIds: [],
         }),
       ),
-      trends: [],
-      challenges: [],
-      opportunities: [],
+      trends: this.extractTrendsFromContent(content),
+      challenges: this.extractChallengesFromContent(content),
+      opportunities: this.extractOpportunitiesFromContent(content),
       evidenceUsed: evidenceIds.length,
       confidenceLevel: integratedResult.metadata.confidenceLevel,
-      detailedContent: integratedResult.content,
+      detailedContent: content,
       figureReferences,
       generatedCharts,
     };
+  }
+
+  /**
+   * 从 Markdown 内容中提取趋势项
+   */
+  private extractTrendsFromContent(content: string): Trend[] {
+    return this.extractSectionItems(content, [
+      "趋势",
+      "trend",
+      "发展趋势",
+      "未来趋势",
+    ]).map((item) => ({
+      trend: item,
+      direction: "emerging" as const,
+      timeframe: "近期",
+      evidenceIds: [],
+    }));
+  }
+
+  /**
+   * 从 Markdown 内容中提取挑战项
+   */
+  private extractChallengesFromContent(content: string): Challenge[] {
+    return this.extractSectionItems(content, [
+      "挑战",
+      "challenge",
+      "风险",
+      "问题",
+      "障碍",
+    ]).map((item) => ({
+      challenge: item,
+      impact: "",
+      evidenceIds: [],
+    }));
+  }
+
+  /**
+   * 从 Markdown 内容中提取机遇项
+   */
+  private extractOpportunitiesFromContent(content: string): Opportunity[] {
+    return this.extractSectionItems(content, [
+      "机遇",
+      "机会",
+      "opportunity",
+      "发展机遇",
+    ]).map((item) => ({
+      opportunity: item,
+      potential: "",
+      evidenceIds: [],
+    }));
+  }
+
+  /**
+   * 从 Markdown 中提取指定标题下的列表项
+   */
+  private extractSectionItems(
+    content: string,
+    sectionKeywords: string[],
+  ): string[] {
+    const items: string[] = [];
+    const lines = content.split("\n");
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      // Match ## or ### headers containing any keyword
+      const isHeader = /^#{2,4}\s+/.test(line);
+      if (!isHeader) continue;
+
+      const headerText = line.replace(/^#{2,4}\s+/, "").toLowerCase();
+      const matched = sectionKeywords.some((kw) =>
+        headerText.includes(kw.toLowerCase()),
+      );
+      if (!matched) continue;
+
+      // Collect bullet items under this header
+      for (let j = i + 1; j < lines.length; j++) {
+        const nextLine = lines[j].trim();
+        if (/^#{2,4}\s+/.test(nextLine)) break; // next header
+        const bulletMatch = nextLine.match(/^[-*]\s+\*\*(.+?)\*\*/);
+        if (bulletMatch) {
+          items.push(bulletMatch[1].replace(/:$/, "").trim());
+        } else {
+          const simpleBullet = nextLine.match(/^[-*]\s+(.{15,})/);
+          if (simpleBullet) {
+            // Take first sentence or up to 120 chars
+            const text = simpleBullet[1].replace(/\*\*/g, "").trim();
+            const sentence = text.split(/[。；;]/)[0];
+            if (sentence.length >= 10) {
+              items.push(
+                sentence.length > 120
+                  ? sentence.substring(0, 120) + "..."
+                  : sentence,
+              );
+            }
+          }
+        }
+        if (items.length >= 5) break;
+      }
+      break; // only process first matching section
+    }
+
+    return items;
   }
 
   /**

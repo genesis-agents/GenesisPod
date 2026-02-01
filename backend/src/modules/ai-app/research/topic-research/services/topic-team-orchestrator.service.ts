@@ -5,6 +5,7 @@ import {
   DimensionStatus,
   RefreshLogStatus,
   ResearchMissionStatus,
+  ResearchTaskStatus,
   ResearchTopicStatus,
   ResearchTodoStatus,
   ResearchTodoType,
@@ -254,6 +255,62 @@ export class TopicTeamOrchestratorService {
         });
         missionId = mission.id;
 
+        // ★ 创建 ResearchTask 记录（前端 TopicTeamPanel 读取这些来展示 agent 列表）
+        // Leader task
+        await this.prisma.researchTask.create({
+          data: {
+            missionId: mission.id,
+            title: "研究协调与规划",
+            description: "协调各维度研究，制定研究策略",
+            taskType: "leader_planning",
+            assignedAgent: "Leader",
+            status: ResearchTaskStatus.COMPLETED,
+            progress: 100,
+            priority: 1000,
+          },
+        });
+        // Dimension research tasks
+        for (const dim of dimensions) {
+          await this.prisma.researchTask.create({
+            data: {
+              missionId: mission.id,
+              title: `研究：${dim.name}`,
+              description: dim.description || `深度研究 ${dim.name}`,
+              taskType: "dimension_research",
+              dimensionId: dim.id,
+              dimensionName: dim.name,
+              assignedAgent: `Researcher-${dim.name}`,
+              status: ResearchTaskStatus.EXECUTING,
+              progress: 0,
+              priority: 500,
+            },
+          });
+        }
+        // Report synthesis task
+        await this.prisma.researchTask.create({
+          data: {
+            missionId: mission.id,
+            title: "合成研究报告",
+            description: "整合所有维度分析，生成最终研究报告",
+            taskType: "report_synthesis",
+            assignedAgent: "Synthesizer",
+            status: ResearchTaskStatus.PENDING,
+            priority: 200,
+          },
+        });
+        // Quality review task
+        await this.prisma.researchTask.create({
+          data: {
+            missionId: mission.id,
+            title: "质量审核",
+            description: "审核研究质量，验证关键发现",
+            taskType: "quality_review",
+            assignedAgent: "Reviewer",
+            status: ResearchTaskStatus.PENDING,
+            priority: 100,
+          },
+        });
+
         // Leader 规划 TODO（已完成）
         const leaderTodo = await this.researchTodoService.createTodo({
           topicId,
@@ -435,7 +492,7 @@ export class TopicTeamOrchestratorService {
       }
       this.logger.log(`[executeRefresh] Dimension analyses saved successfully`);
 
-      // ★ 更新维度 TODOs 为已完成
+      // ★ 更新维度 TODOs 和 Tasks 为已完成
       try {
         for (const result of analysisResults) {
           if (result.status === "fulfilled") {
@@ -444,6 +501,20 @@ export class TopicTeamOrchestratorService {
               await this.researchTodoService.completeTodo(tid, {
                 wordCount: (result.value.analysisResult as any)?.content
                   ?.length,
+              });
+            }
+            // Update corresponding ResearchTask
+            if (missionId) {
+              await this.prisma.researchTask.updateMany({
+                where: {
+                  missionId,
+                  dimensionId: result.value.dimensionId,
+                },
+                data: {
+                  status: ResearchTaskStatus.COMPLETED,
+                  progress: 100,
+                  completedAt: new Date(),
+                },
               });
             }
           } else {
@@ -455,6 +526,12 @@ export class TopicTeamOrchestratorService {
                 todoMap[dim.id],
                 "研究失败",
               );
+            }
+            if (dim && missionId) {
+              await this.prisma.researchTask.updateMany({
+                where: { missionId, dimensionId: dim.id },
+                data: { status: ResearchTaskStatus.FAILED },
+              });
             }
           }
         }
@@ -604,7 +681,7 @@ export class TopicTeamOrchestratorService {
       });
 
       // 6. 合成最终报告
-      // ★ 更新报告 TODO 为进行中
+      // ★ 更新报告 TODO 和 Task 为进行中
       if (reportTodoId) {
         try {
           await this.researchTodoService.updateTodoStatus(
@@ -612,6 +689,20 @@ export class TopicTeamOrchestratorService {
             ResearchTodoStatus.IN_PROGRESS,
             "正在合成报告...",
           );
+        } catch {
+          /* non-fatal */
+        }
+      }
+      if (missionId) {
+        try {
+          await this.prisma.researchTask.updateMany({
+            where: { missionId, taskType: "report_synthesis" },
+            data: {
+              status: ResearchTaskStatus.EXECUTING,
+              progress: 0,
+              startedAt: new Date(),
+            },
+          });
         } catch {
           /* non-fatal */
         }
@@ -656,7 +747,7 @@ export class TopicTeamOrchestratorService {
         }
       }
 
-      // ★ 标记报告和审核 TODOs 为已完成
+      // ★ 标记报告和审核 TODOs + Tasks 为已完成
       try {
         if (reportTodoId)
           await this.researchTodoService.completeTodo(reportTodoId, {
@@ -671,6 +762,23 @@ export class TopicTeamOrchestratorService {
           await this.researchTodoService.completeTodo(reviewTodoId);
         }
         if (missionId) {
+          // Update report_synthesis and quality_review tasks
+          await this.prisma.researchTask.updateMany({
+            where: { missionId, taskType: "report_synthesis" },
+            data: {
+              status: ResearchTaskStatus.COMPLETED,
+              progress: 100,
+              completedAt: new Date(),
+            },
+          });
+          await this.prisma.researchTask.updateMany({
+            where: { missionId, taskType: "quality_review" },
+            data: {
+              status: ResearchTaskStatus.COMPLETED,
+              progress: 100,
+              completedAt: new Date(),
+            },
+          });
           await this.prisma.researchMission.update({
             where: { id: missionId },
             data: {
