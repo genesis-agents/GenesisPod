@@ -307,91 +307,10 @@ export class TopicTeamOrchestratorService {
         throw new Error("Refresh cancelled");
       }
 
-      // ============ V5: Cognitive Loop (Claim Extraction → Validation → Hypothesis Verification) ============
-      if (depthConfig.maxCognitiveLoops > 0) {
-        this.emitProgress({
-          topicId,
-          reportId: report.id,
-          phase: "reviewing",
-          progress: 65,
-          completedDimensions: dimensions.length,
-          totalDimensions: dimensions.length,
-          message: "V5: 认知循环 - 提取断言并交叉验证...",
-        });
-
-        // Collect claims from successful results
-        const allClaims: import("../types/v5-research.types").ExtractedClaim[] =
-          [];
-        for (const result of analysisResults) {
-          if (result.status === "fulfilled") {
-            const val = result.value as any;
-            if (val.extractedClaims) {
-              allClaims.push(...val.extractedClaims);
-            }
-          }
-        }
-
-        if (allClaims.length > 0) {
-          // Build evidence summary from analysis results
-          const evidenceSummary = analysisResults
-            .filter((r) => r.status === "fulfilled")
-            .map((r) => {
-              const val = (r as PromiseFulfilledResult<any>).value;
-              return val.analysisResult?.summary || "";
-            })
-            .join("\n\n")
-            .substring(0, 8000);
-
-          const claimValidation =
-            await this.researchReviewerService.validateClaims(
-              allClaims,
-              evidenceSummary,
-            );
-
-          this.logger.log(
-            `[V5] Claim validation: ${claimValidation.stats.verified} verified, ${claimValidation.stats.disputed} disputed`,
-          );
-
-          // Verify hypotheses
-          if (
-            depthConfig.hypothesisTestingEnabled &&
-            researchDesign?.hypotheses?.length
-          ) {
-            const hypothesisResults =
-              await this.researchLeaderService.verifyHypotheses(
-                researchDesign.hypotheses,
-                evidenceSummary,
-              );
-            this.logger.log(
-              `[V5] Hypothesis verification: ${hypothesisResults.length} results`,
-            );
-
-            // Build validation context for potential rewriting
-            validationContext = buildValidationContextForWriting(
-              claimValidation.results,
-              hypothesisResults,
-            );
-            if (validationContext) {
-              this.logger.log(
-                `[V5] Built validation context (${validationContext.length} chars) for quality-aware synthesis`,
-              );
-            }
-          }
-        }
-
-        // V5: Checkpoint after cognitive loop
-        try {
-          await this.researchCheckpointService.saveCheckpoint(topic.id, {
-            phase: "L3_analysis",
-            claimsCount: allClaims.length,
-            validationContext,
-          });
-        } catch {
-          // non-fatal
-        }
-      }
-
-      // 4. 保存分析结果
+      // 4. 保存分析结果（优先保存，确保即使后续步骤崩溃数据也不丢失）
+      this.logger.log(
+        `[executeRefresh] Saving ${analysisResults.filter((r) => r.status === "fulfilled").length} dimension analyses...`,
+      );
       for (const result of analysisResults) {
         if (result.status === "fulfilled") {
           const { dimensionId, analysisResult, evidenceIds } = result.value;
@@ -414,40 +333,134 @@ export class TopicTeamOrchestratorService {
           }
         }
       }
+      this.logger.log(`[executeRefresh] Dimension analyses saved successfully`);
 
-      // 5. 质量审核阶段
-      this.emitProgress({
-        topicId,
-        reportId: report.id,
-        phase: "reviewing",
-        progress: 70,
-        completedDimensions: dimensions.length,
-        totalDimensions: dimensions.length,
-        message: "质量审核员正在审核研究质量...",
-      });
+      // ============ V5: Cognitive Loop (Claim Extraction → Validation → Hypothesis Verification) ============
+      // Wrapped in try-catch: cognitive loop is non-fatal — analyses are already saved above
+      if (depthConfig.maxCognitiveLoops > 0) {
+        try {
+          this.emitProgress({
+            topicId,
+            reportId: report.id,
+            phase: "reviewing",
+            progress: 65,
+            completedDimensions: dimensions.length,
+            totalDimensions: dimensions.length,
+            message: "V5: 认知循环 - 提取断言并交叉验证...",
+          });
 
-      // 执行质量审核
-      const reviewResult = await this.reviewResearchQuality(
-        topic,
-        dimensions,
-        analysisResults,
-      );
+          // Collect claims from successful results
+          const allClaims: import("../types/v5-research.types").ExtractedClaim[] =
+            [];
+          for (const result of analysisResults) {
+            if (result.status === "fulfilled") {
+              const val = result.value as any;
+              if (val.extractedClaims) {
+                allClaims.push(...val.extractedClaims);
+              }
+            }
+          }
 
-      // 记录审核结果
-      this.logger.log(
-        `Review completed: ${reviewResult.qualityLevel} (${reviewResult.overallScore.toFixed(1)}/100)`,
-      );
+          if (allClaims.length > 0) {
+            // Build evidence summary from analysis results
+            const evidenceSummary = analysisResults
+              .filter((r) => r.status === "fulfilled")
+              .map((r) => {
+                const val = (r as PromiseFulfilledResult<any>).value;
+                return val.analysisResult?.summary || "";
+              })
+              .join("\n\n")
+              .substring(0, 8000);
 
-      // 检查是否需要重新研究（质量不达标）
-      if (
-        reviewResult.qualityLevel === ReviewQualityLevel.REJECTED ||
-        reviewResult.qualityLevel === ReviewQualityLevel.NEEDS_REVISION
-      ) {
-        this.logger.warn(
-          `Research quality below threshold: ${reviewResult.qualityLevel}. ` +
-            `Recommendations: ${reviewResult.recommendations.join("; ")}`,
+            const claimValidation =
+              await this.researchReviewerService.validateClaims(
+                allClaims,
+                evidenceSummary,
+              );
+
+            this.logger.log(
+              `[V5] Claim validation: ${claimValidation.stats.verified} verified, ${claimValidation.stats.disputed} disputed`,
+            );
+
+            // Verify hypotheses
+            if (
+              depthConfig.hypothesisTestingEnabled &&
+              researchDesign?.hypotheses?.length
+            ) {
+              const hypothesisResults =
+                await this.researchLeaderService.verifyHypotheses(
+                  researchDesign.hypotheses,
+                  evidenceSummary,
+                );
+              this.logger.log(
+                `[V5] Hypothesis verification: ${hypothesisResults.length} results`,
+              );
+
+              // Build validation context for potential rewriting
+              validationContext = buildValidationContextForWriting(
+                claimValidation.results,
+                hypothesisResults,
+              );
+              if (validationContext) {
+                this.logger.log(
+                  `[V5] Built validation context (${validationContext.length} chars) for quality-aware synthesis`,
+                );
+              }
+            }
+          }
+
+          // V5: Checkpoint after cognitive loop
+          try {
+            await this.researchCheckpointService.saveCheckpoint(topic.id, {
+              phase: "L3_analysis",
+              claimsCount: allClaims.length,
+              validationContext,
+            });
+          } catch {
+            // non-fatal
+          }
+        } catch (cognitiveError) {
+          this.logger.warn(
+            `[V5] Cognitive loop failed (non-fatal, analyses already saved): ${cognitiveError}`,
+          );
+        }
+      }
+
+      // 5. 质量审核阶段（non-fatal）
+      try {
+        this.emitProgress({
+          topicId,
+          reportId: report.id,
+          phase: "reviewing",
+          progress: 70,
+          completedDimensions: dimensions.length,
+          totalDimensions: dimensions.length,
+          message: "质量审核员正在审核研究质量...",
+        });
+
+        const reviewResult = await this.reviewResearchQuality(
+          topic,
+          dimensions,
+          analysisResults,
         );
-        // 目前仅记录警告，不中断流程；未来可以在这里触发重新研究
+
+        this.logger.log(
+          `Review completed: ${reviewResult.qualityLevel} (${reviewResult.overallScore.toFixed(1)}/100)`,
+        );
+
+        if (
+          reviewResult.qualityLevel === ReviewQualityLevel.REJECTED ||
+          reviewResult.qualityLevel === ReviewQualityLevel.NEEDS_REVISION
+        ) {
+          this.logger.warn(
+            `Research quality below threshold: ${reviewResult.qualityLevel}. ` +
+              `Recommendations: ${reviewResult.recommendations.join("; ")}`,
+          );
+        }
+      } catch (reviewError) {
+        this.logger.warn(
+          `[executeRefresh] Quality review failed (non-fatal): ${reviewError}`,
+        );
       }
 
       // 发送合成开始事件
