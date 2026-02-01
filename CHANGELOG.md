@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.2](https://github.com/your-org/ai-teams-engine/compare/v3.3.1...v3.3.2) (2026-02-01)
+
+
+### Bug Fixes
+
+* **frontend:** handle 401 in fetchWithAuth and stop polling on auth failure ([1eb68cd](https://github.com/your-org/ai-teams-engine/commit/1eb68cd1440c5a3d5b8ebacde6b9cf00c1635ae9))
+
 ### [3.3.1](https://github.com/your-org/ai-teams-engine/compare/v3.3.0...v3.3.1) (2026-02-01)
 
 
