@@ -56,6 +56,7 @@ prisma/migrations/**/migration.sql
 # 数据库数据（Docker volumes）
 data/
 !.claude/skills/data/
+!**/src/**/data/
 *.db
 *.sqlite
 

@@ -15,13 +15,13 @@ import {
   jest,
 } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
-import { ResearchLeaderService } from "../../services/research-leader.service";
+import { ResearchLeaderService } from "../../services/core/research-leader.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { IntentDetectionService } from "@/modules/ai-engine/orchestration/services";
-import { ResearchEventEmitterService } from "../../services/research-event-emitter.service";
-import { LeaderToolService } from "../../services/leader-tool.service";
-import { ResearchMissionService } from "../../services/research-mission.service";
+import { ResearchEventEmitterService } from "../../services/core/research-event-emitter.service";
+import { LeaderToolService } from "../../services/data/leader-tool.service";
+import { ResearchMissionService } from "../../services/core/research-mission.service";
 import { createMockPrisma, createMockAiEngineFacade } from "../mocks";
 
 describe("ResearchLeaderService - planGlobalOutline", () => {

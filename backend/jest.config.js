@@ -42,5 +42,8 @@ module.exports = {
   // 模块路径映射（支持@/路径别名）
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
+    // Mock ESM modules to avoid compatibility issues in tests
+    "^p-limit$": "<rootDir>/__mocks__/p-limit.js",
+    "^marked$": "<rootDir>/__mocks__/marked.js",
   },
 };

@@ -10,7 +10,14 @@ import { ExportModule } from "../../../../common/export/export.module";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源
 // import { CrawlersModule } from '../../ingestion/crawlers/crawlers.module';
 // Note: EventEmitterModule is globally configured in AppModule
-import { TopicResearchController } from "./topic-research.controller";
+import {
+  TopicController,
+  MissionController,
+  ReportController,
+  CollaborationController,
+  TodoController,
+  ReportReviewController,
+} from "./controllers";
 import { TopicResearchService } from "./topic-research.service";
 import { TopicResearchGateway } from "./topic-research.gateway";
 import {
@@ -43,6 +50,11 @@ import {
   FigureExtractorService,
   ReportValidationService,
   ReportEditorService,
+  // ★ Facade sub-services
+  TopicCrudService,
+  TopicDimensionService,
+  TopicExportService,
+  TopicScheduleService,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
 
@@ -77,6 +89,11 @@ const services = [
   FigureExtractorService,
   ReportValidationService,
   ReportEditorService,
+  // ★ Facade sub-services
+  TopicCrudService,
+  TopicDimensionService,
+  TopicExportService,
+  TopicScheduleService,
 ];
 
 @Module({
@@ -97,7 +114,14 @@ const services = [
     }),
     // EventEmitterModule is globally configured in AppModule
   ],
-  controllers: [TopicResearchController],
+  controllers: [
+    TopicController,
+    MissionController,
+    ReportController,
+    CollaborationController,
+    TodoController,
+    ReportReviewController,
+  ],
   providers: [...services, TopicResearchGateway, TopicAccessGuard],
   exports: [...services, TopicAccessGuard],
 })

@@ -1,111 +1,56 @@
 /**
  * Topic Research Services
  *
- * 导出所有研究相关的服务
+ * 导出所有研究相关的服务（通过子目录 barrel re-export）
  */
 
-export { DataSourceRouterService } from "./data-source-router.service";
-export { DimensionResearchService } from "./dimension-research.service";
-export { ReportSynthesisService } from "./report-synthesis.service";
-export { TopicTeamOrchestratorService } from "./topic-team-orchestrator.service";
-export { TopicRefreshScheduler } from "./topic-refresh.scheduler";
-export { EvidenceManagementService } from "./evidence-management.service";
-export { ResearchReviewerService } from "./research-reviewer.service";
-export { ResearchLeaderService } from "./research-leader.service";
-export { ResearchMissionService } from "./research-mission.service";
-export { TopicCollaboratorService } from "./topic-collaborator.service";
-export { ResearchEventEmitterService } from "./research-event-emitter.service";
-export { DimensionMissionService } from "./dimension-mission.service";
-export { SectionWriterService } from "./section-writer.service";
-export { ReportChangeService } from "./report-change.service";
-export { ReportAnnotationService } from "./report-annotation.service";
-export { AgentActivityService } from "./agent-activity.service";
-export { ResearchStrategyService } from "./research-strategy.service";
-export { CredibilityReportService } from "./credibility-report.service";
-export { ReviewWorkflowService } from "./review-workflow.service";
-export { ResearchTodoService } from "./research-todo.service";
-export { ResearchMissionHealthService } from "./research-mission-health.service";
-export { ResearchCheckpointService } from "./research-checkpoint.service";
-export { DataEnrichmentService } from "./data-enrichment.service";
-export { LeaderToolService } from "./leader-tool.service";
-export { ResearchReflectionService } from "./research-reflection.service";
-export { DataSourcePlannerService } from "./data-source-planner.service";
-export { FigureExtractorService } from "./figure-extractor.service";
-export { ReportValidationService } from "./report-validation.service";
-export { ReportEditorService } from "./report-editor.service";
+// ==================== Core ====================
+export { ResearchLeaderService } from "./core/research-leader.service";
+export { ResearchMissionService } from "./core/research-mission.service";
+export { TopicTeamOrchestratorService } from "./core/topic-team-orchestrator.service";
+export {
+  ResearchEventEmitterService,
+  RESEARCH_INTERNAL_EVENTS,
+  type ResumeMissionExecutionPayload,
+} from "./core/research-event-emitter.service";
+export { ResearchStrategyService } from "./core/research-strategy.service";
 
-// Re-export types
-export type {
-  RefreshProgressEvent,
-  RefreshOptions,
-} from "./topic-team-orchestrator.service";
-export type { EvidenceQueryOptions } from "./evidence-management.service";
-export type { DimensionResearchResult } from "./dimension-research.service";
-export {
-  ReviewQualityLevel,
-  type DimensionReviewResult,
-  type OverallReviewResult,
-  type ReviewIssue,
-} from "./research-reviewer.service";
-export {
-  ResearchStrategyType,
-  DimensionFreshnessLevel,
-  type DimensionFreshnessInfo,
-  type ResearchStrategyRecommendation,
-} from "./research-strategy.service";
-export type {
-  SearchResultsRecord,
-  WritingProgressRecord,
-  DimensionActivities,
-  AgentActivityWithTiming,
-} from "./agent-activity.service";
-export type {
-  SourceBreakdown,
-  TimeBreakdown,
-  DimensionCoverageDetail,
-  AIQualityMetrics,
-  CredibilityReportData,
-} from "./credibility-report.service";
-export type {
-  CreateReviewTaskInput,
-  AssignTaskInput,
-  CompleteTaskInput,
-  ReviewTaskStats,
-} from "./review-workflow.service";
-export {
-  TodoEventType,
-  type CreateTodoInput,
-  type UpdateTodoProgressInput,
-  type TodoFilter,
-  type TodoSummary,
-  type TodoResult,
-} from "./research-todo.service";
-export type {
-  HealthCheckResult,
-  MissionHealthDetail,
-  MissionHealthStatus,
-} from "./research-mission-health.service";
-export type {
-  ResearchCheckpoint,
-  ResumableMissionInfo,
-} from "./research-checkpoint.service";
-export type {
-  DataEnrichmentOptions,
-  UrlValidationResult,
-} from "./data-enrichment.service";
-export type {
-  LeaderSearchContext,
-  LeaderSearchResult,
-  EnhancedPlanningContext,
-} from "./leader-tool.service";
-export type { TemporalContext } from "./section-writer.service";
-export type {
-  ReflectionResult,
-  ReflectionContext,
-} from "./research-reflection.service";
-export type {
-  DataSourcePlanInput,
-  DataSourcePlan,
-  DataSourceCapability,
-} from "../types/data-source.types";
-export type { FetchDataOptions } from "./data-source-router.service";
+// ★ Facade sub-services
+export { TopicCrudService } from "./core/topic-crud.service";
+export { TopicDimensionService } from "./core/topic-dimension.service";
+export { TopicExportService } from "./core/topic-export.service";
+export { TopicScheduleService } from "./core/topic-schedule.service";
+
+// ==================== Dimension ====================
+export { DimensionMissionService } from "./dimension/dimension-mission.service";
+export { DimensionResearchService } from "./dimension/dimension-research.service";
+export { SectionWriterService } from "./dimension/section-writer.service";
+
+// ==================== Report ====================
+export { ReportSynthesisService } from "./report/report-synthesis.service";
+export { ReportEditorService } from "./report/report-editor.service";
+export { ReportValidationService } from "./report/report-validation.service";
+export { ReportChangeService } from "./report/report-change.service";
+export { ReportAnnotationService } from "./report/report-annotation.service";
+export { CredibilityReportService } from "./report/credibility-report.service";
+export { FigureExtractorService } from "./report/figure-extractor.service";
+
+// ==================== Data ====================
+export { DataSourceRouterService } from "./data/data-source-router.service";
+export { DataSourcePlannerService } from "./data/data-source-planner.service";
+export { DataEnrichmentService } from "./data/data-enrichment.service";
+export { EvidenceManagementService } from "./data/evidence-management.service";
+export { LeaderToolService } from "./data/leader-tool.service";
+
+// ==================== Collaboration ====================
+export { TopicCollaboratorService } from "./collaboration/topic-collaborator.service";
+export { ReviewWorkflowService } from "./collaboration/review-workflow.service";
+export { ResearchTodoService } from "./collaboration/research-todo.service";
+export { ResearchReviewerService } from "./collaboration/research-reviewer.service";
+export { ResearchReflectionService } from "./collaboration/research-reflection.service";
+
+// ==================== Monitoring ====================
+export { AgentActivityService } from "./monitoring/agent-activity.service";
+export { ResearchMissionHealthService } from "./monitoring/research-mission-health.service";
+export { ResearchCheckpointService } from "./monitoring/research-checkpoint.service";
+export { TopicRefreshScheduler } from "./monitoring/topic-refresh.scheduler";

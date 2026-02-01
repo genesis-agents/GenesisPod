@@ -12,7 +12,7 @@ import { ConfigService } from "@nestjs/config";
 import { ResearchMissionStatus } from "@prisma/client";
 
 import { TopicResearchGateway } from "../../topic-research.gateway";
-import { ResearchEventEmitterService } from "../../services/research-event-emitter.service";
+import { ResearchEventEmitterService } from "../../services/core/research-event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 import { createMockPrisma, createMockResearchEventEmitter } from "../mocks";

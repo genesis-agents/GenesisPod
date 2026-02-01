@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { describe, it, expect, beforeEach, jest } from "@jest/globals";
-import { DataSourceRouterService } from "../../services/data-source-router.service";
+import { DataSourceRouterService } from "../../services/data/data-source-router.service";
 
 describe("DataSourceRouterService - V5 Methods", () => {
   let service: DataSourceRouterService;

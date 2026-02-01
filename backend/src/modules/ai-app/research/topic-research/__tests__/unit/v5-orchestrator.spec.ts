@@ -7,7 +7,7 @@ import {
   afterEach,
   jest,
 } from "@jest/globals";
-import { TopicTeamOrchestratorService } from "../../services/topic-team-orchestrator.service";
+import { TopicTeamOrchestratorService } from "../../services/core/topic-team-orchestrator.service";
 
 function createMockServices() {
   const mockDimension = {

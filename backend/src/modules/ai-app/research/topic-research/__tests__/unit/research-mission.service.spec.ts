@@ -10,14 +10,14 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 
-import { ResearchMissionService } from "../../services/research-mission.service";
-import { ResearchLeaderService } from "../../services/research-leader.service";
-import { DimensionMissionService } from "../../services/dimension-mission.service";
-import { ReportSynthesisService } from "../../services/report-synthesis.service";
-import { ResearchEventEmitterService } from "../../services/research-event-emitter.service";
-import { TopicCollaboratorService } from "../../services/topic-collaborator.service";
-import { AgentActivityService } from "../../services/agent-activity.service";
-import { ResearchReviewerService } from "../../services/research-reviewer.service";
+import { ResearchMissionService } from "../../services/core/research-mission.service";
+import { ResearchLeaderService } from "../../services/core/research-leader.service";
+import { DimensionMissionService } from "../../services/dimension/dimension-mission.service";
+import { ReportSynthesisService } from "../../services/report/report-synthesis.service";
+import { ResearchEventEmitterService } from "../../services/core/research-event-emitter.service";
+import { TopicCollaboratorService } from "../../services/collaboration/topic-collaborator.service";
+import { AgentActivityService } from "../../services/monitoring/agent-activity.service";
+import { ResearchReviewerService } from "../../services/collaboration/research-reviewer.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 

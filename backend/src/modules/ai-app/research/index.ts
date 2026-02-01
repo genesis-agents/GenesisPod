@@ -14,7 +14,14 @@ export { ResearchModule } from "./research.module";
 // Topic Research - 使用命名空间避免冲突
 export { TopicResearchModule } from "./topic-research/topic-research.module";
 export { TopicResearchService } from "./topic-research/topic-research.service";
-export { TopicResearchController } from "./topic-research/topic-research.controller";
+export {
+  TopicController,
+  MissionController,
+  ReportController,
+  CollaborationController,
+  TodoController,
+  ReportReviewController,
+} from "./topic-research/controllers";
 export { TopicResearchGateway } from "./topic-research/topic-research.gateway";
 
 // Fast Research - 快速问答式研究 (★ P1 任务：待实现)

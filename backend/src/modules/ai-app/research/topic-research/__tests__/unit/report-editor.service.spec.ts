@@ -14,7 +14,7 @@ import {
   afterEach,
   jest,
 } from "@jest/globals";
-import { ReportEditorService } from "../../services/report-editor.service";
+import { ReportEditorService } from "../../services/report/report-editor.service";
 import { createMockAiEngineFacade } from "../mocks";
 
 describe("ReportEditorService", () => {

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { describe, it, expect, beforeEach, jest } from "@jest/globals";
-import { ResearchLeaderService } from "../../services/research-leader.service";
+import { ResearchLeaderService } from "../../services/core/research-leader.service";
 import { createMockAiEngineFacade } from "../mocks";
 
 describe("ResearchLeaderService - V5 Methods", () => {

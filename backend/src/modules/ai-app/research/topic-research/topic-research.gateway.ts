@@ -28,7 +28,7 @@ import { Logger, Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { ResearchMissionStatus } from "@prisma/client";
-import { ResearchEventEmitterService } from "./services/research-event-emitter.service";
+import { ResearchEventEmitterService } from "./services";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   createSecurityLogger,

@@ -9,8 +9,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 
-import { ResearchMissionHealthService } from "../../services/research-mission-health.service";
-import { ResearchEventEmitterService } from "../../services/research-event-emitter.service";
+import { ResearchMissionHealthService } from "../../services/monitoring/research-mission-health.service";
+import { ResearchEventEmitterService } from "../../services/core/research-event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 import {
