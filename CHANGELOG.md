@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+## [3.1.0](https://github.com/your-org/ai-teams-engine/compare/v3.0.3...v3.1.0) (2026-02-01)
+
+
+### Features
+
+* **ai-engine:** auto model fallback in AIEngineFacade.chat() ([eea1222](https://github.com/your-org/ai-teams-engine/commit/eea12229aae4d64ede6d6d98aaa515b40b3829f2))
+
 ### [3.0.3](https://github.com/your-org/ai-teams-engine/compare/v3.0.2...v3.0.3) (2026-02-01)
 
 
