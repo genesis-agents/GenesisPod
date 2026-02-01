@@ -1,10 +1,13 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   DimensionStatus,
   RefreshLogStatus,
+  ResearchMissionStatus,
   ResearchTopicStatus,
+  ResearchTodoStatus,
+  ResearchTodoType,
 } from "@prisma/client";
 import type {
   ResearchTopic,
@@ -24,6 +27,7 @@ import {
   type AgentAssignment,
 } from "./research-leader.service";
 import { ResearchCheckpointService } from "./research-checkpoint.service";
+import { ResearchTodoService } from "./research-todo.service";
 import type { DimensionAnalysisResult } from "../types/research.types";
 import {
   type ResearchDepth,
@@ -99,6 +103,8 @@ export class TopicTeamOrchestratorService {
     private readonly researchLeaderService: ResearchLeaderService,
     private readonly researchCheckpointService: ResearchCheckpointService,
     private readonly dataSourceRouterService: DataSourceRouterService,
+    @Inject(forwardRef(() => ResearchTodoService))
+    private readonly researchTodoService: ResearchTodoService,
   ) {}
 
   /**
@@ -232,6 +238,100 @@ export class TopicTeamOrchestratorService {
         message: `开始研究 ${dimensions.length} 个维度...`,
       });
 
+      // ★ 创建 Mission 和 TODOs 供前端展示任务列表
+      const todoMap: Record<string, string> = {}; // dimensionId -> todoId
+      let missionId: string | undefined;
+      let reportTodoId: string | undefined;
+      let reviewTodoId: string | undefined;
+      try {
+        const mission = await this.prisma.researchMission.create({
+          data: {
+            topicId,
+            status: ResearchMissionStatus.EXECUTING,
+            researchDepth: options.researchDepth || "standard",
+            totalTasks: dimensions.length + 2, // dimensions + report + review
+          },
+        });
+        missionId = mission.id;
+
+        // Leader 规划 TODO（已完成）
+        const leaderTodo = await this.researchTodoService.createTodo({
+          topicId,
+          missionId: mission.id,
+          type: ResearchTodoType.LEADER_PLANNING,
+          title: "Leader 任务理解与规划",
+          description: "Leader 分析研究主题，制定研究策略和任务分配",
+          agentId: "leader",
+          agentName: "研究协调员",
+          agentRole: "leader",
+          priority: 1000,
+          userCanPause: false,
+          userCanCancel: false,
+        });
+        await this.researchTodoService.completeTodo(leaderTodo.id);
+
+        // 每个维度的研究 TODO
+        for (const dim of dimensions) {
+          const todo = await this.researchTodoService.createTodo({
+            topicId,
+            missionId: mission.id,
+            type: ResearchTodoType.DIMENSION_RESEARCH,
+            title: `研究维度：${dim.name}`,
+            description: dim.description || `深度研究 ${dim.name} 维度`,
+            dimensionId: dim.id,
+            dimensionName: dim.name,
+            agentId: `researcher-${dim.id}`,
+            agentName: "研究员",
+            agentRole: "researcher",
+            priority: 500,
+          });
+          todoMap[dim.id] = todo.id;
+          await this.researchTodoService.updateTodoStatus(
+            todo.id,
+            ResearchTodoStatus.IN_PROGRESS,
+            "研究中...",
+          );
+        }
+
+        // 报告撰写 TODO
+        const rTodo = await this.researchTodoService.createTodo({
+          topicId,
+          missionId: mission.id,
+          type: ResearchTodoType.REPORT_WRITING,
+          title: "合成研究报告",
+          description: "整合所有维度分析，生成最终研究报告",
+          agentId: "synthesizer",
+          agentName: "报告合成师",
+          agentRole: "synthesizer",
+          priority: 200,
+          dependsOn: Object.values(todoMap),
+        });
+        reportTodoId = rTodo.id;
+
+        // 质量审核 TODO
+        const qTodo = await this.researchTodoService.createTodo({
+          topicId,
+          missionId: mission.id,
+          type: ResearchTodoType.QUALITY_REVIEW,
+          title: "质量审核",
+          description: "审核研究质量，验证关键发现的可信度",
+          agentId: "reviewer",
+          agentName: "质量审核员",
+          agentRole: "reviewer",
+          priority: 100,
+          dependsOn: [rTodo.id],
+        });
+        reviewTodoId = qTodo.id;
+
+        this.logger.log(
+          `[executeRefresh] Created mission ${mission.id} with ${Object.keys(todoMap).length + 3} todos`,
+        );
+      } catch (todoError) {
+        this.logger.warn(
+          `[executeRefresh] Failed to create todos (non-fatal): ${todoError}`,
+        );
+      }
+
       // V5: Research design extracted from global outline (populated after Phase 2)
       let researchDesign: ResearchDesign | undefined;
       // V5: Validation context built from cognitive loop (used for future iterative rewriting)
@@ -334,6 +434,35 @@ export class TopicTeamOrchestratorService {
         }
       }
       this.logger.log(`[executeRefresh] Dimension analyses saved successfully`);
+
+      // ★ 更新维度 TODOs 为已完成
+      try {
+        for (const result of analysisResults) {
+          if (result.status === "fulfilled") {
+            const tid = todoMap[result.value.dimensionId];
+            if (tid) {
+              await this.researchTodoService.completeTodo(tid, {
+                wordCount: (result.value.analysisResult as any)?.content
+                  ?.length,
+              });
+            }
+          } else {
+            // Find the dimension this failed result corresponds to
+            const dimIndex = analysisResults.indexOf(result);
+            const dim = dimensions[dimIndex];
+            if (dim && todoMap[dim.id]) {
+              await this.researchTodoService.failTodo(
+                todoMap[dim.id],
+                "研究失败",
+              );
+            }
+          }
+        }
+      } catch (todoErr) {
+        this.logger.warn(
+          `[executeRefresh] Todo update failed (non-fatal): ${todoErr}`,
+        );
+      }
 
       // ============ V5: Cognitive Loop (Claim Extraction → Validation → Hypothesis Verification) ============
       // Wrapped in try-catch: cognitive loop is non-fatal — analyses are already saved above
@@ -475,6 +604,18 @@ export class TopicTeamOrchestratorService {
       });
 
       // 6. 合成最终报告
+      // ★ 更新报告 TODO 为进行中
+      if (reportTodoId) {
+        try {
+          await this.researchTodoService.updateTodoStatus(
+            reportTodoId,
+            ResearchTodoStatus.IN_PROGRESS,
+            "正在合成报告...",
+          );
+        } catch {
+          /* non-fatal */
+        }
+      }
       const finalReport = await this.reportSynthesisService.synthesizeReport(
         topic,
         report.id,
@@ -513,6 +654,37 @@ export class TopicTeamOrchestratorService {
         } catch (error) {
           this.logger.warn(`[V5] Fact check failed (non-fatal): ${error}`);
         }
+      }
+
+      // ★ 标记报告和审核 TODOs 为已完成
+      try {
+        if (reportTodoId)
+          await this.researchTodoService.completeTodo(reportTodoId, {
+            wordCount: (finalReport as any).fullReport?.length,
+          });
+        if (reviewTodoId) {
+          await this.researchTodoService.updateTodoStatus(
+            reviewTodoId,
+            ResearchTodoStatus.IN_PROGRESS,
+            "审核中...",
+          );
+          await this.researchTodoService.completeTodo(reviewTodoId);
+        }
+        if (missionId) {
+          await this.prisma.researchMission.update({
+            where: { id: missionId },
+            data: {
+              status: ResearchMissionStatus.COMPLETED,
+              completedAt: new Date(),
+              completedTasks: dimensions.length + 2,
+              progressPercent: 100,
+            },
+          });
+        }
+      } catch (todoErr) {
+        this.logger.warn(
+          `[executeRefresh] Final todo update failed (non-fatal): ${todoErr}`,
+        );
       }
 
       // 7. 更新专题状态和统计数据
