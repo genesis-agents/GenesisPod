@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.0.3](https://github.com/your-org/ai-teams-engine/compare/v3.0.2...v3.0.3) (2026-02-01)
+
+
+### Bug Fixes
+
+* **research:** increase dimension content depth and maxTokens ([461fcfa](https://github.com/your-org/ai-teams-engine/commit/461fcfa3265229918eb8499ff753f728d6de1cf0))
+
 ### [3.0.2](https://github.com/your-org/ai-teams-engine/compare/v3.0.1...v3.0.2) (2026-02-01)
 
 
