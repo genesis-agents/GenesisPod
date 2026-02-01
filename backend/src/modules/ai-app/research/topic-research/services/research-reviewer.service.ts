@@ -206,6 +206,76 @@ export class ResearchReviewerService {
         actualModelId: response.model, // ★ 记录实际使用的模型
       };
 
+      // ★ 空内容/拒写检测：检查 detailedContent 是否过短或包含拒写关键词
+      const refusalKeywords = [
+        "I cannot",
+        "I'm unable",
+        "I apologize",
+        "I'm sorry",
+        "I am unable",
+        "I'm not able",
+        "cannot provide",
+        "cannot generate",
+        "I do not have",
+        "don't have access",
+        "beyond my capabilities",
+        "outside my scope",
+        "Unfortunately, I",
+        "I must decline",
+        "无法提供",
+        "无法生成",
+        "无法完成",
+        "无法回答",
+        "抱歉",
+        "我无法",
+        "超出范围",
+        "不在我的能力",
+        "As an AI",
+        "作为AI",
+        "I don't have access",
+      ];
+      const contentLength = analysis.detailedContent?.length || 0;
+      const hasRefusal = refusalKeywords.some((kw) =>
+        analysis.detailedContent?.toLowerCase().includes(kw.toLowerCase()),
+      );
+
+      // 只有当内容短且包含拒写关键词时才自动标记为 NEEDS_REVISION
+      // 如果只是短内容（< 100）但没有拒写，仅作为警告不强制重做
+      if (contentLength < 100 && hasRefusal) {
+        this.logger.warn(
+          `Dimension ${dimension.name}: empty/refused content detected (length=${contentLength}, hasRefusal=${hasRefusal})`,
+        );
+        result.needsReresearch = true;
+        result.qualityLevel = ReviewQualityLevel.NEEDS_REVISION;
+        result.issues.push({
+          type: "shallow_analysis",
+          severity: "critical",
+          description: `内容疑似拒写且严重不足（长度: ${contentLength} 字符，低于 100 字符最低要求）`,
+        });
+      } else if (contentLength < 100) {
+        // 仅短内容，警告但不强制重做
+        this.logger.warn(
+          `Dimension ${dimension.name}: short content (length=${contentLength})`,
+        );
+        result.issues.push({
+          type: "shallow_analysis",
+          severity: "major",
+          description: `内容较短（仅 ${contentLength} 字符，低于 100 字符建议值），但未检测到拒写`,
+        });
+      } else if (hasRefusal) {
+        // 有拒写但长度足够（可能是部分拒写），标记为需重做
+        this.logger.warn(
+          `Dimension ${dimension.name}: refusal detected (length=${contentLength})`,
+        );
+        result.needsReresearch = true;
+        result.qualityLevel = ReviewQualityLevel.NEEDS_REVISION;
+        result.issues.push({
+          type: "shallow_analysis",
+          severity: "critical",
+          description: `内容包含拒写关键词（长度: ${contentLength} 字符）`,
+        });
+      }
+
       this.logger.log(
         `Dimension ${dimension.name} review complete: ${result.qualityLevel} (${result.overallScore}/100)`,
       );
@@ -587,7 +657,7 @@ ${analysis.confidenceLevel}
 - 已使用证据: ${analysis.evidenceUsed}
 
 ### 详细内容
-${analysis.detailedContent.substring(0, 3000)}${analysis.detailedContent.length > 3000 ? "...(已截断)" : ""}
+${analysis.detailedContent.substring(0, 6000)}${analysis.detailedContent.length > 6000 ? "...(已截断)" : ""}
 
 ---
 

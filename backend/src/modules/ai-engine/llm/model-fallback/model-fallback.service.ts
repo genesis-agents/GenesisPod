@@ -90,7 +90,6 @@ const MODEL_SWITCH_ERROR_TYPES = new Set<AIErrorType>([
  */
 const UNRECOVERABLE_ERROR_TYPES = new Set<AIErrorType>([
   AIErrorType.INVALID_API_KEY,
-  AIErrorType.INVALID_MODEL,
 ]);
 
 /** 不可恢复错误的黑名单持续时间（10 分钟） */

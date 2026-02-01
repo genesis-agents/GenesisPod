@@ -268,8 +268,11 @@ export class CongressGovTool extends BaseTool<
       offset = 0,
     } = input;
 
+    // Default to current congress if not specified
+    const effectiveCongress = congress ?? this.getCurrentCongress();
+
     this.logger.log(
-      `[doExecute] Searching Congress.gov: query="${query}", congress=${congress}`,
+      `[doExecute] Searching Congress.gov: query="${query}", congress=${effectiveCongress}`,
     );
 
     try {
@@ -289,12 +292,12 @@ export class CongressGovTool extends BaseTool<
       let url = "https://api.congress.gov/v3";
 
       // 如果查询特定法案
-      if (billNumber && congress) {
+      if (billNumber && effectiveCongress) {
         const match = billNumber.match(/^([a-z]+)(\d+)$/i);
         if (match && match[1] && match[2]) {
           const type = match[1];
           const num = match[2];
-          url += `/bill/${congress}/${type.toLowerCase()}/${num}`;
+          url += `/bill/${effectiveCongress}/${type.toLowerCase()}/${num}`;
         } else {
           this.logger.warn(
             `[doExecute] Invalid bill number format: ${billNumber}`,
@@ -319,8 +322,8 @@ export class CongressGovTool extends BaseTool<
       };
 
       // 添加过滤条件
-      if (congress && !billNumber) {
-        url += `/${congress}`;
+      if (effectiveCongress && !billNumber) {
+        url += `/${effectiveCongress}`;
       }
 
       if (billType && !billNumber) {
@@ -332,7 +335,7 @@ export class CongressGovTool extends BaseTool<
 
       // 搜索关键词需要使用 search endpoint
       if (query) {
-        params.q = query;
+        params.q = this.sanitizeQuery(query);
       }
 
       if (subject) {
@@ -384,6 +387,28 @@ export class CongressGovTool extends BaseTool<
         error: `Congress.gov 搜索失败: ${errorMessage}`,
       };
     }
+  }
+
+  /**
+   * 计算当前国会届次
+   * 美国国会每 2 年一届，第 1 届始于 1789 年
+   */
+  private getCurrentCongress(): number {
+    const year = new Date().getFullYear();
+    return Math.floor((year - 1789) / 2) + 1;
+  }
+
+  /**
+   * 清理查询字符串：移除中文字符，保留英文和数字
+   * Congress.gov API 不支持中文查询
+   */
+  private sanitizeQuery(query: string): string {
+    // Remove Chinese characters (CJK Unified Ideographs range)
+    const sanitized = query
+      .replace(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return sanitized || ""; // return empty string if all chars removed
   }
 
   /**

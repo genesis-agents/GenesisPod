@@ -52,6 +52,7 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
     deleteReport,
     resetTopicData,
     setCurrentTopic,
+    updateTopic,
   } = useTopicResearchStore();
 
   // ★ 同步 topic 到 store，确保 ResearchSettingsModal 等组件能读取到 currentTopic
@@ -140,16 +141,43 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
     }
   }, [wsEvents, topic.id, fetchDimensions, fetchMissionStatus]);
 
-  // Research depth state — sync from active mission if available
+  // Research depth state — load from topicConfig, sync from active mission
   const [researchDepth, setResearchDepth] = useState<
     'quick' | 'standard' | 'thorough'
-  >('standard');
+  >(() => {
+    // ★ 从 topicConfig 中恢复上次选择的深度
+    const saved = (topic.topicConfig as Record<string, unknown> | undefined)
+      ?.researchDepth as string | undefined;
+    if (saved === 'quick' || saved === 'standard' || saved === 'thorough') {
+      return saved;
+    }
+    return 'standard';
+  });
 
   useEffect(() => {
     if (missionStatus?.researchDepth) {
       setResearchDepth(missionStatus.researchDepth);
     }
   }, [missionStatus?.researchDepth]);
+
+  // ★ 持久化深度选择到 topicConfig
+  const handleResearchDepthChange = useCallback(
+    (depth: 'quick' | 'standard' | 'thorough') => {
+      setResearchDepth(depth);
+      // 异步保存到后端，不阻塞 UI
+      // 使用当前最新的 topic.topicConfig（从闭包外获取，避免 stale closure）
+      const currentConfig = (topic.topicConfig || {}) as Record<
+        string,
+        unknown
+      >;
+      updateTopic(topic.id, {
+        topicConfig: { ...currentConfig, researchDepth: depth },
+      }).catch(() => {
+        // 保存失败不影响本地状态
+      });
+    },
+    [topic.id, topic.topicConfig, updateTopic]
+  );
 
   // Start Leader-driven research
   const handleStartResearch = useCallback(() => {
@@ -261,7 +289,7 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
       onContinueRefresh={handleContinueResearch}
       onCancelRefresh={handleCancelRefresh}
       researchDepth={researchDepth}
-      onResearchDepthChange={setResearchDepth}
+      onResearchDepthChange={handleResearchDepthChange}
       onExportReport={handleExport}
       onBack={onBack}
       onSendLeaderInstruction={handleSendLeaderInstruction}

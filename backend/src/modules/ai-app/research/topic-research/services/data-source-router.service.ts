@@ -180,9 +180,12 @@ export class DataSourceRouterService {
     }
 
     // 2. 构建搜索查询
-    const searchQuery = this.buildSearchQuery(topic, dimension);
+    const searchQueries = this.buildSearchQueries(topic, dimension);
+    const searchQuery = searchQueries[0]; // primary query for metadata
 
-    this.logger.debug(`Search query: "${searchQuery}"`);
+    this.logger.debug(
+      `Search queries: ${searchQueries.map((q) => `"${q}"`).join(", ")}`,
+    );
 
     // ★ 从 topicConfig 中获取时间范围，默认最近 6 个月
     const userConfiguredSince = this.getSearchTimeRange(topic);
@@ -195,17 +198,30 @@ export class DataSourceRouterService {
     );
 
     // 3. 并行调用所有数据源
-    const searchPromises = sources.map((source) =>
-      this.searchSource(source, searchQuery, {
-        maxResults: 25, // ★ 增加到 25 个结果，提升研究质量覆盖深度
-        since, // ★ 传递时间范围参数
-      }),
+    // ★ 对每个查询 × 每个数据源执行搜索，按查询分配配额
+    const maxResultsPerQuery = Math.max(
+      5,
+      Math.ceil(25 / searchQueries.length),
     );
+    const searchPromises: Promise<DataSourceResult[]>[] = [];
+    const searchSources: DataSourceType[] = [];
+
+    for (const source of sources) {
+      for (const query of searchQueries) {
+        searchPromises.push(
+          this.searchSource(source, query, {
+            maxResults: maxResultsPerQuery,
+            since,
+          }),
+        );
+        searchSources.push(source);
+      }
+    }
 
     const results = await Promise.allSettled(searchPromises);
 
     // 4. 聚合结果
-    let aggregated = this.aggregateResults(results, sources);
+    let aggregated = this.aggregateResults(results, searchSources);
 
     // ★ H4: 所有数据源都失败或无结果时，兜底使用 WEB 源
     if (aggregated.totalCount === 0 && !sources.includes(DataSourceType.WEB)) {
@@ -243,7 +259,7 @@ export class DataSourceRouterService {
       metadata: {
         searchQuery,
         executionTimeMs: executionTime,
-        sourceResults: this.countResultsBySource(results, sources),
+        sourceResults: this.countResultsBySource(results, searchSources),
       },
     };
   }
@@ -436,40 +452,45 @@ export class DataSourceRouterService {
   }
 
   /**
-   * 构建搜索查询
-   * ★ 增强：添加时间戳关键词确保搜索最新数据
+   * 构建搜索查询列表
+   * ★ 增强：使用所有 searchQueries（最多 3 个），而非仅第一个
    */
-  private buildSearchQuery(
+  private buildSearchQueries(
     topic: ResearchTopic,
     dimension: TopicDimension,
-  ): string {
+  ): string[] {
     const topicName = topic.name;
     const dimensionName = dimension.name;
 
-    // 从 dimension.searchQueries 获取额外的查询关键词
     const searchQueries = dimension.searchQueries as string[] | null;
 
-    let baseQuery: string;
+    const baseQueries: string[] = [];
     if (
       searchQueries &&
       Array.isArray(searchQueries) &&
       searchQueries.length > 0
     ) {
-      // 使用预定义的查询关键词
-      baseQuery = searchQueries[0];
-    } else {
-      // 默认查询: "主题名 + 维度名"
-      baseQuery = `${topicName} ${dimensionName}`;
+      // 使用所有预定义查询（最多 3 个）
+      baseQueries.push(...searchQueries.slice(0, 3));
     }
 
-    // ★ 时间戳增强：添加当前年份和时效性关键词
-    const enhancedQuery = this.enhanceQueryWithTimestamp(baseQuery, dimension);
+    // 始终添加默认查询作为兜底
+    const defaultQuery = `${topicName} ${dimensionName}`;
+    if (!baseQueries.some((q) => q === defaultQuery)) {
+      baseQueries.push(defaultQuery);
+    }
+
+    // 去重并增强时间戳
+    const enhanced = baseQueries
+      .filter((q, i, arr) => arr.indexOf(q) === i)
+      .slice(0, 3)
+      .map((q) => this.enhanceQueryWithTimestamp(q, dimension));
 
     this.logger.debug(
-      `[buildSearchQuery] Original: "${baseQuery}" -> Enhanced: "${enhancedQuery}"`,
+      `[buildSearchQueries] Generated ${enhanced.length} queries: ${enhanced.map((q) => `"${q}"`).join(", ")}`,
     );
 
-    return enhancedQuery;
+    return enhanced;
   }
 
   /**
@@ -1181,6 +1202,7 @@ export class DataSourceRouterService {
         {
           query,
           limit: maxResults,
+          congress: this.getCurrentCongress(),
         },
         this.createToolContext("congress-gov"),
       );
@@ -1995,6 +2017,14 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
       // 清除所有缓存
       this.planCache.clear();
     }
+  }
+
+  /**
+   * 计算当前国会届次
+   */
+  private getCurrentCongress(): number {
+    const year = new Date().getFullYear();
+    return Math.floor((year - 1789) / 2) + 1;
   }
 
   /**

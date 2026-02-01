@@ -125,14 +125,45 @@ export class SectionWriterService {
       .map((p, i) => `${i + 1}. ${p}`)
       .join("\n");
 
-    // 格式化前置章节
+    // 格式化前置章节：传入所有已写 section，但智能截断控制总量
     let previousContent = "无";
     if (previousSections && previousSections.length > 0) {
-      // 只提供最近的 1-2 个章节摘要，避免上下文过长
-      const recentSections = previousSections.slice(-2);
-      previousContent = recentSections
-        .map((s) => `### ${s.title}\n${s.content.substring(0, 1500)}...`)
-        .join("\n\n");
+      const MAX_PREVIOUS_TOTAL = 6000; // 总量上限
+      const parts: string[] = [];
+      let totalLength = 0;
+
+      // 从最近的开始，每个 section 摘要 800 字符
+      const reversed = [...previousSections].reverse();
+      for (const s of reversed) {
+        if (totalLength >= MAX_PREVIOUS_TOTAL) {
+          // 超出总量上限，停止添加更多章节
+          break;
+        }
+        // 智能截断：在句子结尾处截断，而非粗暴的 substring
+        let truncated = s.content.substring(0, 800);
+        if (s.content.length > 800) {
+          // 寻找最后一个句子结束符（中英文）
+          const lastSentenceEnd = Math.max(
+            truncated.lastIndexOf("。"),
+            truncated.lastIndexOf("."),
+            truncated.lastIndexOf("！"),
+            truncated.lastIndexOf("？"),
+            truncated.lastIndexOf("!"),
+            truncated.lastIndexOf("?"),
+          );
+          // 仅当找到的位置不太靠前（至少保留 600 字符）时才截断
+          if (lastSentenceEnd > 600) {
+            truncated = truncated.substring(0, lastSentenceEnd + 1);
+          }
+          truncated += "...";
+        }
+        const entry = `### ${s.title}\n${truncated}`;
+        parts.push(entry);
+        totalLength += entry.length;
+      }
+
+      // 恢复原始顺序
+      previousContent = parts.reverse().join("\n\n");
     }
 
     // 格式化 Agent 配置指导

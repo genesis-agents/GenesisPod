@@ -1122,7 +1122,7 @@ export class DimensionMissionService {
       // 并行写作
       const writeInputs = groupSections.map((section) => ({
         section,
-        evidenceData,
+        evidenceData: this.filterEvidenceForSection(section, evidenceData),
         previousSections: this.getPreviousSections(
           section,
           sectionMap,
@@ -1293,6 +1293,192 @@ export class DimensionMissionService {
     }
 
     return sectionResults;
+  }
+
+  /**
+   * 根据 section 标题/关键词过滤相关 evidence
+   * 使用简单关键词匹配，不需要 LLM 调用
+   */
+  private filterEvidenceForSection(
+    section: SectionPlan,
+    evidenceData: EvidenceData[],
+  ): EvidenceData[] {
+    if (evidenceData.length <= 5) {
+      return evidenceData; // 证据太少，全部保留
+    }
+
+    // 提取 section 关键词：标题分词 + keyPoints
+    const sectionKeywords = this.extractKeywords(
+      `${section.title} ${section.keyPoints.join(" ")} ${section.description || ""}`,
+    );
+
+    if (sectionKeywords.length === 0) {
+      return evidenceData; // 无法提取关键词，全部保留
+    }
+
+    // 对每条 evidence 计算相关度分数
+    const scored = evidenceData.map((e, index) => {
+      const evidenceText = `${e.title || ""} ${e.snippet || ""}`.toLowerCase();
+      let score = 0;
+      for (const kw of sectionKeywords) {
+        if (evidenceText.includes(kw)) {
+          score++;
+        }
+      }
+      return { evidence: e, score, originalIndex: index };
+    });
+
+    // 按相关度排序
+    scored.sort((a, b) => b.score - a.score);
+
+    // 保留相关度 > 0 的 evidence，但至少保留 5 条
+    const relevant = scored.filter((s) => s.score > 0);
+    if (relevant.length >= 5) {
+      return relevant.map((s) => s.evidence);
+    }
+
+    // 不足 5 条时，补充前 N 条（按原始顺序）
+    return scored.slice(0, Math.max(5, relevant.length)).map((s) => s.evidence);
+  }
+
+  /**
+   * 从文本中提取关键词（简单分词）
+   */
+  private extractKeywords(text: string): string[] {
+    // 移除常见停用词，按空格和标点分词
+    const stopWords = new Set([
+      "the",
+      "a",
+      "an",
+      "is",
+      "are",
+      "was",
+      "were",
+      "of",
+      "in",
+      "to",
+      "for",
+      "and",
+      "or",
+      "on",
+      "at",
+      "by",
+      "with",
+      "from",
+      "as",
+      "it",
+      "that",
+      "this",
+      "have",
+      "been",
+      "will",
+      "would",
+      "could",
+      "should",
+      "about",
+      "into",
+      "more",
+      "some",
+      "than",
+      "them",
+      "then",
+      "these",
+      "those",
+      "what",
+      "when",
+      "where",
+      "which",
+      "while",
+      "also",
+      "each",
+      "only",
+      "such",
+      "very",
+      "just",
+      "over",
+      "after",
+      "before",
+      "between",
+      "under",
+      "through",
+      "during",
+      "most",
+      "other",
+      "being",
+      "both",
+      "does",
+      "done",
+      "made",
+      "make",
+      "many",
+      "much",
+      "must",
+      "need",
+      "next",
+      "like",
+      "well",
+      "back",
+      "even",
+      "still",
+      "way",
+      "的",
+      "了",
+      "在",
+      "是",
+      "我",
+      "有",
+      "和",
+      "就",
+      "不",
+      "人",
+      "都",
+      "一",
+      "一个",
+      "上",
+      "也",
+      "很",
+      "到",
+      "说",
+      "要",
+      "去",
+      "你",
+      "会",
+      "着",
+      "没有",
+      "看",
+      "好",
+      "自己",
+      "这",
+      "他",
+      "她",
+      "它",
+      "们",
+      "那",
+      "对",
+      "与",
+      "及",
+      "其",
+      "或",
+      "但",
+      "而",
+      "如",
+      "中",
+      "以",
+      "为",
+      "等",
+      "所",
+      "被",
+      "把",
+      "从",
+      "并",
+    ]);
+
+    return text
+      .toLowerCase()
+      .replace(/[^\w\u4e00-\u9fff\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !stopWords.has(w))
+      .filter((w, i, arr) => arr.indexOf(w) === i); // deduplicate
   }
 
   /**
