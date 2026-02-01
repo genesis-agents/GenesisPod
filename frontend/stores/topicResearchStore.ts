@@ -558,6 +558,17 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
           }
         }
       } catch (error) {
+        // ★ 401 时停止轮询，避免日志刷屏
+        if (
+          error instanceof Error &&
+          (error.name === 'UnauthorizedError' ||
+            error.message.includes('401') ||
+            error.message.includes('Session expired'))
+        ) {
+          logger.warn('Mission polling stopped: session expired');
+          get().stopMissionPolling();
+          return;
+        }
         logger.error('Mission polling error:', error);
       }
     }, 2000);

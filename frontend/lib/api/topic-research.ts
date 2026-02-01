@@ -4,7 +4,7 @@
  * 专题研究模块的 API 调用
  */
 
-import { getAuthTokens } from '../utils/auth';
+import { getAuthTokens, refreshAccessToken, logout } from '../utils/auth';
 import { config } from '../utils/config';
 import type {
   ResearchTopic,
@@ -39,8 +39,19 @@ const API_BASE = config.apiBaseUrl;
 const API_PREFIX = '/api/v1/topic-research';
 
 /**
+ * 401 错误类，用于轮询中检测并停止
+ */
+export class UnauthorizedError extends Error {
+  status = 401;
+  constructor(message: string) {
+    super(message);
+    this.name = 'UnauthorizedError';
+  }
+}
+
+/**
  * 带认证的 fetch 封装
- * ★ 修复：正确处理空响应和非 JSON 响应
+ * ★ 处理 401：尝试刷新 token，失败则 logout
  */
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const tokens = getAuthTokens();
@@ -54,13 +65,26 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
       `Bearer ${tokens.accessToken}`;
   }
 
-  const response = await fetch(`${API_BASE}${url}`, {
+  let response = await fetch(`${API_BASE}${url}`, {
     ...options,
     headers,
   });
 
+  // ★ 401 处理：尝试刷新 token 并重试
+  if (response.status === 401) {
+    const newTokens = await refreshAccessToken();
+    if (newTokens) {
+      (headers as Record<string, string>)['Authorization'] =
+        `Bearer ${newTokens.accessToken}`;
+      response = await fetch(`${API_BASE}${url}`, { ...options, headers });
+    }
+    if (!newTokens || response.status === 401) {
+      logout();
+      throw new UnauthorizedError('Session expired');
+    }
+  }
+
   if (!response.ok) {
-    // ★ 尝试解析错误响应
     let errorMessage = `HTTP ${response.status}`;
     try {
       const contentType = response.headers.get('content-type');
