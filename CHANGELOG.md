@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.0.1](https://github.com/your-org/ai-teams-engine/compare/v3.0.0...v3.0.1) (2026-02-01)
+
+
+### Bug Fixes
+
+* **ai-engine:** integrate model blocklist into AIEngineFacade.selectModel ([077ee82](https://github.com/your-org/ai-teams-engine/commit/077ee8267a95741d8f150cc645d5b489aeb73f7b))
+
 ## [3.0.0](https://github.com/your-org/ai-teams-engine/compare/v2.0.0...v3.0.0) (2026-02-01)
 
 
