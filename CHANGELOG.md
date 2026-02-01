@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+## [3.3.0](https://github.com/your-org/ai-teams-engine/compare/v3.2.3...v3.3.0) (2026-02-01)
+
+
+### Features
+
+* **research:** create todos during refresh for task list visibility ([6e96cb7](https://github.com/your-org/ai-teams-engine/commit/6e96cb7f6331dde219d3fe431ca4f6b944d92405))
+
 ### [3.2.3](https://github.com/your-org/ai-teams-engine/compare/v3.2.2...v3.2.3) (2026-02-01)
 
 
