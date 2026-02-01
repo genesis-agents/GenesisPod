@@ -226,6 +226,128 @@ export class AIEngineFacade {
       `[chat] modelType=${request.modelType}, messages=${request.messages.length}`,
     );
 
+    // ★ 自动模型 fallback：使用 ModelFallbackService 自动切换失败模型
+    if (this.modelFallbackService) {
+      return this.chatWithFallback(request, modelId);
+    }
+
+    // Fallback 不可用时，使用单模型调用（保持向后兼容）
+    return this.chatSingleModel(request, modelId, entityId);
+  }
+
+  /**
+   * ★ 核心改进：通过 ModelFallbackService 自动切换模型
+   * 当模型返回 INVALID_API_KEY、QUOTA_EXCEEDED 等不可恢复错误时，自动尝试下一个可用模型
+   */
+  private async chatWithFallback(
+    request: ChatRequest,
+    preferredModelId: string,
+  ): Promise<ChatResponse> {
+    const startTime = Date.now();
+
+    const fallbackResult = await this.modelFallbackService!.executeWithFallback(
+      preferredModelId,
+      async (modelConfig) => {
+        // 使用 fallback 提供的 modelConfig 调用 chat
+        const result = await this.aiChatService.chat({
+          messages: request.messages,
+          systemPrompt: request.systemPrompt,
+          modelType: request.modelType || AIModelType.CHAT,
+          taskProfile: request.taskProfile,
+          model: modelConfig.modelId,
+          maxTokens: request.maxTokens,
+          temperature: request.temperature,
+          strictMode: true, // fallback 模式下使用严格模式，让错误冒泡给 fallback 处理
+        });
+
+        if (result.isError) {
+          throw new Error(result.content);
+        }
+
+        return result;
+      },
+      {
+        modelType: request.modelType || AIModelType.CHAT,
+        operation: "facade_chat",
+        maxRetries: 1,
+        maxModelSwitches: 3,
+      },
+    );
+
+    const duration = Date.now() - startTime;
+
+    if (fallbackResult.fallbackUsed) {
+      this.logger.warn(
+        `[chat] Model fallback used: ${fallbackResult.attemptedModels.join(" → ")} (${fallbackResult.attempts} attempts, ${duration}ms)`,
+      );
+    }
+
+    if (fallbackResult.success && fallbackResult.data) {
+      const result = fallbackResult.data;
+      const tokensUsed = result.usage?.totalTokens || 0;
+
+      // 熔断器记录成功
+      const entityId = `chat:${result.model}`;
+      this.orchestration?.circuitBreaker?.recordSuccess(entityId, duration);
+
+      // ★ 自动积分扣除
+      const billing = request.billing ?? this.resolveBillingFromContext();
+      if (billing && this.creditsService) {
+        try {
+          await this.creditsService.consumeCredits({
+            userId: billing.userId,
+            moduleType: billing.moduleType,
+            operationType: billing.operationType,
+            tokenCount: tokensUsed,
+            modelName: result.model,
+            referenceId: billing.referenceId,
+            description: billing.description,
+          });
+        } catch (creditError) {
+          this.logger.warn(
+            `[Billing] Failed to deduct credits: ${creditError}`,
+          );
+        }
+      }
+
+      this.logger.log(
+        `[chat] Completed in ${duration}ms, model=${result.model}, tokens=${tokensUsed}${fallbackResult.fallbackUsed ? " (fallback)" : ""}`,
+      );
+
+      return {
+        content: result.content,
+        model: result.model,
+        tokensUsed,
+        isError: false,
+      };
+    }
+
+    // 所有模型都失败
+    const errorMsg = fallbackResult.error?.message || "All models failed";
+    this.logger.error(
+      `[chat] All models failed after ${duration}ms (tried: ${fallbackResult.attemptedModels.join(", ")}): ${errorMsg}`,
+    );
+
+    if (request.strictMode) {
+      throw new Error(errorMsg);
+    }
+
+    return {
+      content: `Error: ${errorMsg}`,
+      model: fallbackResult.modelUsed || preferredModelId,
+      tokensUsed: 0,
+      isError: true,
+    };
+  }
+
+  /**
+   * 单模型调用（fallback 不可用时的后备路径）
+   */
+  private async chatSingleModel(
+    request: ChatRequest,
+    modelId: string,
+    entityId: string,
+  ): Promise<ChatResponse> {
     // 熔断器检查
     if (
       this.orchestration?.circuitBreaker &&
@@ -247,7 +369,6 @@ export class AIEngineFacade {
     const startTime = Date.now();
 
     try {
-      // 增加负载计数
       this.orchestration?.circuitBreaker?.incrementLoad(entityId);
 
       const result = await this.aiChatService.chat({
@@ -263,27 +384,18 @@ export class AIEngineFacade {
 
       const duration = Date.now() - startTime;
 
-      // 记录成功
       if (!result.isError) {
         this.orchestration?.circuitBreaker?.recordSuccess(entityId, duration);
-        this.logger.log(
-          `[chat] Completed in ${duration}ms, model=${result.model}, tokens=${result.usage?.totalTokens || 0}`,
-        );
       } else {
-        // API 返回错误内容（非严格模式）
         this.orchestration?.circuitBreaker?.recordFailure(
           entityId,
           TaskCompletionType.API_ERROR,
           result.content.slice(0, 100),
         );
-        this.logger.warn(
-          `[chat] API returned error after ${duration}ms: ${result.content.slice(0, 100)}`,
-        );
       }
 
       const tokensUsed = result.usage?.totalTokens || 0;
 
-      // ★ 自动积分扣除：显式 billing 优先，否则从 BillingContext 读取
       const billing = request.billing ?? this.resolveBillingFromContext();
       if (billing && this.creditsService && !result.isError) {
         try {
@@ -296,27 +408,11 @@ export class AIEngineFacade {
             referenceId: billing.referenceId,
             description: billing.description,
           });
-          this.logger.log(
-            `[Billing] Deducted credits: module=${billing.moduleType}, op=${billing.operationType}, tokens=${tokensUsed}, user=${billing.userId.slice(0, 8)}`,
-          );
         } catch (creditError) {
           this.logger.warn(
             `[Billing] Failed to deduct credits: ${creditError}`,
           );
-          // 积分扣除失败不阻止响应返回
         }
-      } else if (!billing) {
-        this.logger.warn(
-          `[Billing] No billing context found for chat call (model=${result.model}, tokens=${tokensUsed}). Credits NOT deducted.`,
-        );
-      } else if (billing && !this.creditsService) {
-        this.logger.error(
-          `[Billing] CreditsService NOT injected! Billing info present (module=${billing.moduleType}, op=${billing.operationType}) but cannot deduct credits. Check module imports.`,
-        );
-      } else if (billing && result.isError) {
-        this.logger.warn(
-          `[Billing] Skipped billing due to AI error response (module=${billing.moduleType}, op=${billing.operationType})`,
-        );
       }
 
       return {
@@ -329,7 +425,6 @@ export class AIEngineFacade {
       const duration = Date.now() - startTime;
       const errorMsg = error instanceof Error ? error.message : String(error);
 
-      // 解析错误类型并记录失败
       const errorType =
         this.orchestration?.circuitBreaker?.parseErrorType(errorMsg) ||
         TaskCompletionType.API_ERROR;
@@ -341,12 +436,10 @@ export class AIEngineFacade {
 
       this.logger.error(`[chat] Failed after ${duration}ms: ${errorMsg}`);
 
-      // 严格模式抛出异常
       if (request.strictMode) {
         throw error;
       }
 
-      // 非严格模式返回错误内容
       return {
         content: `Error: ${errorMsg}`,
         model: modelId,
@@ -354,7 +447,6 @@ export class AIEngineFacade {
         isError: true,
       };
     } finally {
-      // 减少负载计数
       this.orchestration?.circuitBreaker?.decrementLoad(entityId);
     }
   }
