@@ -759,6 +759,27 @@ export class ReportSynthesisService {
         );
       }
 
+      // ★ 去重图表占位符：同一 chartId 只保留首次出现
+      {
+        const seenChartIds = new Set<string>();
+        content = content.replace(
+          /<!-- chart:([^\s]+?) -->/g,
+          (match, chartId) => {
+            if (seenChartIds.has(chartId)) return "";
+            seenChartIds.add(chartId);
+            return match;
+          },
+        );
+      }
+
+      // ★ 清理 LLM 泄露的 meta-notes（字数统计、编辑指令等）
+      content = content
+        .replace(/（精简字数[^）]*）/g, "")
+        .replace(/（原\d+[^）]*）/g, "")
+        .replace(/（[约共]\d+字）/g, "")
+        .replace(/（\d+字）/g, "")
+        .replace(/\n{3,}/g, "\n\n");
+
       parts.push(content);
       parts.push("\n---\n");
     });
@@ -1745,26 +1766,54 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
   ): ReportHighlight[] {
     const highlights: ReportHighlight[] = [];
 
-    // 从各章节的核心观点中提取亮点
-    for (
-      let i = 0;
-      i < report.sections.length && i < dimensionInputs.length;
-      i++
-    ) {
-      const section = report.sections[i];
-      const dimension = dimensionInputs[i];
+    // ★ v3.0 兼容：sections 可能为空（章节内容由 dimension research 生成）
+    // 优先从 sections.coreViewpoints 提取，回退到 dimensionInputs.keyFindings
+    const hasSections =
+      report.sections &&
+      report.sections.length > 0 &&
+      report.sections.some(
+        (s) => s.coreViewpoints && s.coreViewpoints.length > 0,
+      );
 
-      if (section.coreViewpoints) {
-        section.coreViewpoints.slice(0, 2).forEach((vp) => {
-          // ★ 智能提取标题：从内容中提取关键信息
-          const title = this.extractTitleFromContent(vp, section.title);
-          highlights.push({
-            title,
-            content: vp,
-            category: this.categorizeViewpoint(vp),
-            dimensionName: dimension.dimensionName,
+    if (hasSections) {
+      for (
+        let i = 0;
+        i < report.sections.length && i < dimensionInputs.length;
+        i++
+      ) {
+        const section = report.sections[i];
+        const dimension = dimensionInputs[i];
+
+        if (section.coreViewpoints) {
+          section.coreViewpoints.slice(0, 2).forEach((vp) => {
+            const title = this.extractTitleFromContent(vp, section.title);
+            highlights.push({
+              title,
+              content: vp,
+              category: this.categorizeViewpoint(vp),
+              dimensionName: dimension.dimensionName,
+            });
           });
-        });
+        }
+      }
+    } else {
+      // ★ 回退：从 dimensionInputs.keyFindings 提取亮点
+      for (const dim of dimensionInputs) {
+        if (dim.keyFindings && dim.keyFindings.length > 0) {
+          dim.keyFindings.slice(0, 2).forEach((kf) => {
+            const finding = kf.finding || "";
+            const title = this.extractTitleFromContent(
+              finding,
+              dim.dimensionName,
+            );
+            highlights.push({
+              title,
+              content: finding,
+              category: this.categorizeViewpoint(finding),
+              dimensionName: dim.dimensionName,
+            });
+          });
+        }
       }
     }
 
