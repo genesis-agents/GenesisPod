@@ -663,7 +663,7 @@ export class ReportSynthesisService {
     parts.push("\n---\n");
 
     // 5. 各维度章节（直接使用 detailedContent，但限制长度）
-    const MAX_DIMENSION_CHARS = 12000; // 约 4000 中文字（每字约 3 chars）
+    const MAX_DIMENSION_CHARS = 24000; // 约 8000 中文字（每字约 3 chars）
     const globalSeenParagraphs = new Set<string>();
     dimensionInputs.forEach((dim, idx) => {
       parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);

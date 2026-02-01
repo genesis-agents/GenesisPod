@@ -271,16 +271,18 @@ export class DimensionResearchService {
     );
 
     // 调用 AI (通过 AIEngineFacade 统一入口)
+    // ★ 维度研究需要充足的输出空间（4000-8000字 ≈ 12000-24000 tokens）
     const response = await this.aiFacade.chat({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      modelType: AIModelType.CHAT, // 使用标准聊天模型
+      modelType: AIModelType.CHAT,
       taskProfile: {
-        creativity: "medium", // 需要一定创造性综合
-        outputLength: "extended", // 详细深度分析需要更多 tokens
+        creativity: "medium",
+        outputLength: "extended",
       },
+      maxTokens: 32000, // 覆盖 extended 默认的 16000，确保深度分析不被截断
     });
 
     // 解析 AI 响应
