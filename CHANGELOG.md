@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.2.2](https://github.com/your-org/ai-teams-engine/compare/v3.2.1...v3.2.2) (2026-02-01)
+
+
+### Bug Fixes
+
+* **research:** preserve full section content instead of AI compression ([#27](https://github.com/your-org/ai-teams-engine/issues/27)) ([f84eb60](https://github.com/your-org/ai-teams-engine/commit/f84eb602676f7d238aadfc0ff66b6979608607e0))
+
 ### [3.2.1](https://github.com/your-org/ai-teams-engine/compare/v3.2.0...v3.2.1) (2026-02-01)
 
 
