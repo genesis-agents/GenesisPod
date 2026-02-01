@@ -1,6 +1,6 @@
 {
   "name": "ai-teams-engine",
-  "version": "3.3.9",
+  "version": "3.3.10",
   "description": "AI驱动的知识发现引擎",
   "private": true,
   "workspaces": [

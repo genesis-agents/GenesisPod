@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.10](https://github.com/your-org/ai-teams-engine/compare/v3.3.9...v3.3.10) (2026-02-01)
+
+
+### Refactoring
+
+* **research:** restructure topic-research module ([2c4a083](https://github.com/your-org/ai-teams-engine/commit/2c4a083fac0063c50e5873964176e3fa6c0a74e3))
+
 ### [3.3.9](https://github.com/your-org/ai-teams-engine/compare/v3.3.8...v3.3.9) (2026-02-01)
 
 
