@@ -1354,9 +1354,35 @@ export class TopicResearchService {
     const dimensions = await this.prisma.topicDimension.findMany({
       where: { topicId },
       orderBy: { sortOrder: "asc" },
+      include: {
+        analyses: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
     });
 
-    return dimensions;
+    // 将最新 analysis 的数据扁平化到 dataPoints 字段
+    return dimensions.map((dim) => {
+      const latestAnalysis = dim.analyses?.[0];
+      return {
+        ...dim,
+        analyses: undefined,
+        dataPoints: latestAnalysis
+          ? {
+              summary: latestAnalysis.summary,
+              keyFindings: latestAnalysis.keyFindings,
+              dataPoints: latestAnalysis.dataPoints,
+              dimensionAnalysis: (
+                latestAnalysis.dataPoints as Record<string, unknown>
+              )?.dimensionAnalysis,
+              detailedContent: (
+                latestAnalysis.dataPoints as Record<string, unknown>
+              )?.detailedContent,
+            }
+          : null,
+      };
+    });
   }
 
   /**

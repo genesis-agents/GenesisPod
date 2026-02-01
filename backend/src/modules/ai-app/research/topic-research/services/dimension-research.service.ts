@@ -288,48 +288,252 @@ export class DimensionResearchService {
     // 解析 AI 响应
     let aiResult = this.parseAIResponse(response.content);
 
-    // ★ 内容长度校验 + 自动续写：如果 detailedContent 太短，请求模型继续扩写
-    const MIN_DETAILED_CONTENT_CHARS = 5000;
-    const contentLength = (aiResult.detailedContent || "").length;
-    if (contentLength < MIN_DETAILED_CONTENT_CHARS) {
+    // ★ 内容长度校验 + 多轮自动续写：循环请求直到达到最低标准
+    const MIN_DETAILED_CONTENT_CHARS = 8000;
+    const MAX_CONTINUATION_ROUNDS = 3;
+    for (let round = 0; round < MAX_CONTINUATION_ROUNDS; round++) {
+      const currentLength = (aiResult.detailedContent || "").length;
+      if (currentLength >= MIN_DETAILED_CONTENT_CHARS) break;
+
       this.logger.warn(
-        `[ContentCheck] detailedContent only ${contentLength} chars (min: ${MIN_DETAILED_CONTENT_CHARS}), requesting continuation for ${dimension.name}`,
+        `[ContentCheck] Round ${round + 1}: detailedContent only ${currentLength} chars (min: ${MIN_DETAILED_CONTENT_CHARS}), requesting continuation for ${dimension.name}`,
       );
       try {
         const continuationResponse = await this.aiFacade.chat({
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-            { role: "assistant", content: response.content },
             {
               role: "user",
-              content: `你的 detailedContent 只有约 ${contentLength} 字符，远低于要求的 6000 字（18000 字符）最低标准。请继续扩展 detailedContent 的内容，从你上次结束的地方继续写。只输出需要追加的 Markdown 内容，不需要 JSON 格式，直接输出纯文本/Markdown 段落。要求：
-1. 补充更多数据分析、案例引用、趋势推理
-2. 每个子章节都要有 3-5 段详细分析
-3. 至少再写 ${MIN_DETAILED_CONTENT_CHARS - contentLength} 字符的补充内容`,
+              content: `你正在为维度「${dimension.name}」撰写深度分析报告。以下是你已经写好的内容（${currentLength}字符），但远未达到 18000 字符的最低标准。
+
+已有内容末尾：
+${(aiResult.detailedContent || "").slice(-2000)}
+
+请从上面结束的地方继续扩写，只输出需要追加的 Markdown 内容（不需要 JSON）。要求：
+1. 补充深度数据分析、行业案例、专家观点引用
+2. 每个论点要有 2-3 段详细论述，包含具体数据支撑
+3. 至少再写 ${MIN_DETAILED_CONTENT_CHARS - currentLength} 字符
+4. 使用专业的分析报告语气，段落之间逻辑衔接自然`,
             },
           ],
           modelType: AIModelType.CHAT,
-          taskProfile: {
-            creativity: "medium",
-            outputLength: "extended",
-          },
+          taskProfile: { creativity: "medium", outputLength: "extended" },
           maxTokens: 32000,
         });
         const continuation = continuationResponse.content?.trim() || "";
-        if (continuation.length > 500) {
+        if (continuation.length > 300) {
           aiResult = {
             ...aiResult,
             detailedContent:
               (aiResult.detailedContent || "") + "\n\n" + continuation,
           };
           this.logger.log(
-            `[ContentCheck] Appended ${continuation.length} chars continuation. Total: ${aiResult.detailedContent.length} chars`,
+            `[ContentCheck] Round ${round + 1}: Appended ${continuation.length} chars. Total: ${aiResult.detailedContent.length} chars`,
+          );
+        } else {
+          this.logger.warn(
+            `[ContentCheck] Round ${round + 1}: continuation too short (${continuation.length}), stopping`,
+          );
+          break;
+        }
+      } catch (err) {
+        this.logger.warn(
+          `[ContentCheck] Round ${round + 1} failed: ${(err as Error).message}`,
+        );
+        break;
+      }
+    }
+
+    // ★ keyFindings 质量校验 + 补充请求 (#23)
+    const findings = aiResult.dimensionAnalysis.keyFindings || [];
+    const shortFindings = findings.filter(
+      (f) =>
+        (f.finding || "").length < 80 ||
+        !(f as Record<string, unknown>).implication,
+    );
+    if (shortFindings.length > 0 || findings.length < 5) {
+      this.logger.warn(
+        `[QualityCheck] keyFindings quality issue: ${findings.length} findings, ${shortFindings.length} too short/missing implication for ${dimension.name}`,
+      );
+      try {
+        const kfResponse = await this.aiFacade.chat({
+          messages: [
+            { role: "system", content: systemPrompt },
+            {
+              role: "user",
+              content: `基于以下维度研究内容，生成 5-8 个高质量关键发现。
+
+维度: ${dimension.name}
+研究内容摘要: ${(aiResult.detailedContent || "").substring(0, 8000)}
+
+要求严格按以下 JSON 数组格式输出：
+\`\`\`json
+[
+  {
+    "finding": "【100-200字】详细描述核心发现，必须包含具体数据、关键事实、趋势方向",
+    "significance": "high|medium|low",
+    "implication": "【50-100字】深层含义：对行业的影响、投资启示、未来演变",
+    "evidenceIds": ["evidence-1", "evidence-2"]
+  }
+]
+\`\`\`
+
+每个 finding 必须 100-200字，每个 implication 必须 50-100字。严禁输出简短片段。`,
+            },
+          ],
+          modelType: AIModelType.CHAT,
+          taskProfile: { creativity: "low", outputLength: "medium" },
+          maxTokens: 8000,
+        });
+        const kfExtracted = extractJsonFromAIResponse<
+          Array<{
+            finding: string;
+            significance: string;
+            implication: string;
+            evidenceIds: string[];
+          }>
+        >(kfResponse.content, {});
+        if (
+          kfExtracted.success &&
+          Array.isArray(kfExtracted.data) &&
+          kfExtracted.data.length >= 3
+        ) {
+          const validSignificance = ["high", "medium", "low"] as const;
+          aiResult = {
+            ...aiResult,
+            dimensionAnalysis: {
+              ...aiResult.dimensionAnalysis,
+              keyFindings: kfExtracted.data.map((f) => ({
+                finding: f.finding || "",
+                significance: (validSignificance.includes(
+                  f.significance as "high" | "medium" | "low",
+                )
+                  ? f.significance
+                  : "medium") as "high" | "medium" | "low",
+                implication: f.implication || "",
+                evidenceIds: f.evidenceIds || [],
+              })),
+            },
+          };
+          this.logger.log(
+            `[QualityCheck] Replaced keyFindings with ${kfExtracted.data.length} enhanced findings`,
           );
         }
       } catch (err) {
         this.logger.warn(
-          `[ContentCheck] Continuation request failed: ${(err as Error).message}`,
+          `[QualityCheck] keyFindings enhancement failed: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    // ★ trends/challenges/opportunities 空值补充 (#25)
+    const da = aiResult.dimensionAnalysis;
+    const missingFields: string[] = [];
+    if (!da.trends?.length) missingFields.push("trends");
+    if (!da.challenges?.length) missingFields.push("challenges");
+    if (!da.opportunities?.length) missingFields.push("opportunities");
+    if (missingFields.length > 0) {
+      this.logger.warn(
+        `[QualityCheck] Missing structured fields: ${missingFields.join(", ")} for ${dimension.name}`,
+      );
+      try {
+        const structResponse = await this.aiFacade.chat({
+          messages: [
+            { role: "system", content: systemPrompt },
+            {
+              role: "user",
+              content: `基于以下维度研究内容，提取结构化分析数据。
+
+维度: ${dimension.name}
+研究内容: ${(aiResult.detailedContent || "").substring(0, 6000)}
+
+严格按以下 JSON 格式输出：
+\`\`\`json
+{
+  "trends": [
+    {"trend": "趋势描述(50-100字)", "direction": "increasing|decreasing|stable|emerging", "timeframe": "时间范围", "evidenceIds": []}
+  ],
+  "challenges": [
+    {"challenge": "挑战描述(50-100字)", "impact": "影响描述", "evidenceIds": []}
+  ],
+  "opportunities": [
+    {"opportunity": "机会描述(50-100字)", "potential": "潜力描述", "evidenceIds": []}
+  ]
+}
+\`\`\`
+每个字段至少 3 项。`,
+            },
+          ],
+          modelType: AIModelType.CHAT,
+          taskProfile: { creativity: "low", outputLength: "short" },
+          maxTokens: 4000,
+        });
+        const structExtracted = extractJsonFromAIResponse<{
+          trends?: Array<{
+            trend: string;
+            direction: string;
+            timeframe: string;
+            evidenceIds: string[];
+          }>;
+          challenges?: Array<{
+            challenge: string;
+            impact: string;
+            evidenceIds: string[];
+          }>;
+          opportunities?: Array<{
+            opportunity: string;
+            potential: string;
+            evidenceIds: string[];
+          }>;
+        }>(structResponse.content, {});
+        if (structExtracted.success && structExtracted.data) {
+          const d = structExtracted.data;
+          const validDirections = [
+            "increasing",
+            "decreasing",
+            "stable",
+            "emerging",
+          ] as const;
+          type Direction = (typeof validDirections)[number];
+          aiResult = {
+            ...aiResult,
+            dimensionAnalysis: {
+              ...aiResult.dimensionAnalysis,
+              trends: d.trends?.length
+                ? d.trends.map((t) => ({
+                    trend: t.trend || "",
+                    direction: (validDirections.includes(
+                      t.direction as Direction,
+                    )
+                      ? t.direction
+                      : "emerging") as Direction,
+                    timeframe: t.timeframe || "",
+                    evidenceIds: t.evidenceIds || [],
+                  }))
+                : aiResult.dimensionAnalysis.trends,
+              challenges: d.challenges?.length
+                ? d.challenges.map((c) => ({
+                    challenge: c.challenge || "",
+                    impact: c.impact || "",
+                    evidenceIds: c.evidenceIds || [],
+                  }))
+                : aiResult.dimensionAnalysis.challenges,
+              opportunities: d.opportunities?.length
+                ? d.opportunities.map((o) => ({
+                    opportunity: o.opportunity || "",
+                    potential: o.potential || "",
+                    evidenceIds: o.evidenceIds || [],
+                  }))
+                : aiResult.dimensionAnalysis.opportunities,
+            },
+          };
+          this.logger.log(
+            `[QualityCheck] Filled structured fields: trends=${d.trends?.length || 0}, challenges=${d.challenges?.length || 0}, opportunities=${d.opportunities?.length || 0}`,
+          );
+        }
+      } catch (err) {
+        this.logger.warn(
+          `[QualityCheck] Structured fields fill failed: ${(err as Error).message}`,
         );
       }
     }
