@@ -332,6 +332,8 @@ export interface DimensionAnalysisInput {
   }>;
   detailedContent: string;
   sourcesUsed: number;
+  /** ★ 章节优先级（数字越小越靠前） */
+  priority?: number;
   /** ★ 引用的原始图表（来自证据） */
   figureReferences?: Array<{
     id: string;

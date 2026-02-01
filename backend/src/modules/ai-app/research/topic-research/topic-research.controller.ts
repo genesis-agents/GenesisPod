@@ -59,6 +59,8 @@ import {
   PrioritizeTodoDto,
   UpdateTodoProgressDto,
   CreateUserRequestTodoDto,
+  CreateAnnotationDto,
+  UpdateAnnotationDto,
 } from "./dto";
 import {
   AddCollaboratorDto,
@@ -983,7 +985,7 @@ export class TopicResearchController {
     @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
-    @Body() dto: any,
+    @Body() dto: CreateAnnotationDto,
   ) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException("User not authenticated");
@@ -1012,7 +1014,7 @@ export class TopicResearchController {
     @Param("topicId") topicId: string,
     @Param("reportId") reportId: string,
     @Param("annotationId") annotationId: string,
-    @Body() dto: any,
+    @Body() dto: UpdateAnnotationDto,
   ) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException("User not authenticated");

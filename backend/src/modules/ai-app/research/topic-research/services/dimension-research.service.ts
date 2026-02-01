@@ -178,7 +178,8 @@ export class DimensionResearchService {
     try {
       const parsed = new URL(url);
       return parsed.hostname;
-    } catch {
+    } catch (error) {
+      this.logger.debug(`[extractDomainFromUrl] Invalid URL: ${error}`);
       return null;
     }
   }

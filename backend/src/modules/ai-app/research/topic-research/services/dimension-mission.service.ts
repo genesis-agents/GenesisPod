@@ -355,8 +355,10 @@ export class DimensionMissionService {
             if (!isNaN(d.getTime())) {
               publishedDate = d.toISOString();
             }
-          } catch {
-            // ignore
+          } catch (error) {
+            this.logger.debug(
+              `[recordSearchActivity] Failed to parse publishedAt: ${error}`,
+            );
           }
         }
         const metadata = item.metadata as Record<string, unknown> | undefined;
@@ -1514,7 +1516,8 @@ export class DimensionMissionService {
     try {
       const parsed = new URL(url);
       return parsed.hostname;
-    } catch {
+    } catch (error) {
+      this.logger.debug(`[extractDomainFromUrl] Invalid URL: ${error}`);
       return null;
     }
   }
@@ -2150,8 +2153,10 @@ export class DimensionMissionService {
           where: { id: missionId },
           data: { updatedAt: new Date() },
         });
-      } catch {
-        // 忽略更新失败（mission 可能已被删除或取消）
+      } catch (error) {
+        this.logger.debug(
+          `[emitProgressUpdate] Non-fatal: Failed to update mission heartbeat: ${error}`,
+        );
       }
     }
   }

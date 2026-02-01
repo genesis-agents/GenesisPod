@@ -33,7 +33,7 @@ export class LeaderPlanDto {
   })
   @IsOptional()
   @IsObject()
-  userContext?: Record<string, any>;
+  userContext?: Record<string, unknown>;
 
   @ApiPropertyOptional({
     description:

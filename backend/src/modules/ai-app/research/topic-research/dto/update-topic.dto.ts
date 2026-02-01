@@ -25,7 +25,7 @@ export class UpdateTopicDto {
 
   @IsOptional()
   @IsObject()
-  topicConfig?: Record<string, any>;
+  topicConfig?: Record<string, unknown>;
 
   @IsOptional()
   @IsString()

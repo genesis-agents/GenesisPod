@@ -25,7 +25,13 @@ import {
   AIModelType,
   AgentActivityType,
 } from "@prisma/client";
-import type { ResearchMission, ResearchTask } from "@prisma/client";
+import type {
+  ResearchMission,
+  ResearchTask,
+  ResearchTopic,
+  TopicDimension,
+  ResearchAgentActivity,
+} from "@prisma/client";
 import {
   ResearchLeaderService,
   type LeaderPlan,
@@ -43,6 +49,7 @@ import type { DimensionAnalysisResult } from "../types/research.types";
 import type { ResearchDepth } from "../types/v5-research.types";
 import { resolveResearchDepthConfig } from "../types/v5-research.types";
 import { getModelDisplayNameMap } from "../utils/model-display-name";
+import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 
 // ==================== Constants ====================
 
@@ -61,10 +68,14 @@ export const TASK_PRIORITY = {
 
 // ==================== Types ====================
 
+type ResearchTopicWithDimensions = ResearchTopic & {
+  dimensions: TopicDimension[];
+};
+
 export interface CreateMissionInput {
   topicId: string;
   userPrompt?: string;
-  userContext?: Record<string, any>;
+  userContext?: Record<string, unknown>;
   /** ★ 研究模式：fresh=全新开始，incremental=增量更新（保留已完成任务） */
   mode?: ResearchMode;
   /** V5: 研究深度 */
@@ -100,7 +111,7 @@ export interface TaskStatus {
   reviewStatus?: string;
   progress?: number;
   /** 任务结果（包含成功数据或错误信息） */
-  result?: any;
+  result?: DimensionAnalysisResult | Prisma.JsonValue | null;
   /** 结果摘要 */
   resultSummary?: string;
   /** 开始时间 */
@@ -366,7 +377,7 @@ export class ResearchMissionService {
         leaderModelId: leaderModel?.modelId,
         leaderModelName: leaderModel?.modelName,
         userPrompt,
-        userContext: userContext ?? undefined,
+        userContext: userContext ? toPrismaJson(userContext) : undefined,
         researchDepth,
       },
     });
@@ -466,7 +477,7 @@ export class ResearchMissionService {
           missionId,
           type: LeaderDecisionType.PLAN,
           input: { topicId, userPrompt },
-          decision: leaderPlan as unknown as Prisma.InputJsonValue,
+          decision: toPrismaJson(leaderPlan),
           reasoning: `规划了 ${leaderPlan.dimensions.length} 个研究维度，分配了 ${leaderPlan.agentAssignments.length} 个 Agent`,
         },
       });
@@ -531,7 +542,7 @@ export class ResearchMissionService {
       await this.prisma.researchMission.update({
         where: { id: missionId },
         data: {
-          leaderPlan: leaderPlan as unknown as Prisma.InputJsonValue,
+          leaderPlan: toPrismaJson(leaderPlan),
           totalTasks: tasks.length,
           status: ResearchMissionStatus.EXECUTING,
           startedAt: new Date(),
@@ -932,7 +943,7 @@ export class ResearchMissionService {
    */
   async getTaskActivities(taskId: string): Promise<{
     task: ResearchTask;
-    activities: any[];
+    activities: ResearchAgentActivity[];
   }> {
     // 1. 获取任务信息
     const task = await this.prisma.researchTask.findUnique({
@@ -1889,7 +1900,7 @@ export class ResearchMissionService {
    */
   private async executeTask(
     task: ResearchTask,
-    topic: any,
+    topic: ResearchTopicWithDimensions,
     missionId: string,
     reportId: string,
     depthConfig?: import("../types/v5-research.types").ResearchDepthConfig,
@@ -2666,9 +2677,9 @@ export class ResearchMissionService {
    */
   private async executeGenericDimensionResearch(
     task: ResearchTask,
-    topic: any,
+    topic: ResearchTopicWithDimensions,
     reportId: string,
-  ): Promise<any> {
+  ): Promise<DimensionAnalysisResult> {
     const dimensionName = task.dimensionName || task.title;
 
     this.logger.log(
@@ -3311,7 +3322,7 @@ export class ResearchMissionService {
       await this.prisma.researchMission.update({
         where: { id: missionId },
         data: {
-          leaderPlan: leaderPlan as unknown as Prisma.InputJsonValue,
+          leaderPlan: toPrismaJson(leaderPlan),
         },
       });
     } catch (error) {

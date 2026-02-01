@@ -59,7 +59,7 @@ export interface DataSourceResult {
   snippet: string;
   publishedAt?: Date;
   domain?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**

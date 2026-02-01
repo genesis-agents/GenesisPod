@@ -1,6 +1,14 @@
 import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pLimit: (concurrency: number) => <T>(fn: () => Promise<T>) => Promise<T> =
+  // p-limit is ESM-only; handle both CJS interop shapes
+  (() => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("p-limit");
+    return mod.default || mod;
+  })();
 import {
   DimensionStatus,
   RefreshLogStatus,
@@ -169,6 +177,8 @@ export class TopicTeamOrchestratorService {
       let dimensions = await this.getDimensionsToResearch(topicId, options);
       // ★ 保存 Leader 的 Agent 分配信息（包含工具和技能）
       let agentAssignments: AgentAssignment[] = [];
+      // ★ 保存执行策略的并行度设置
+      let parallelism = 4; // Default parallelism
 
       // ★ v8.0: 如果没有维度，由 Leader AI 动态规划
       if (dimensions.length === 0) {
@@ -203,6 +213,14 @@ export class TopicTeamOrchestratorService {
         if (agentAssignments.length > 0) {
           this.logger.log(
             `[executeRefresh] Leader assigned ${agentAssignments.length} agents with tools: ${agentAssignments.map((a) => `${a.agentId}:[${(a.tools || []).join(",")}]`).join("; ")}`,
+          );
+        }
+
+        // ★ 提取并行度设置
+        if (leaderPlan.executionStrategy?.parallelism) {
+          parallelism = leaderPlan.executionStrategy.parallelism;
+          this.logger.log(
+            `[executeRefresh] Using leader plan parallelism: ${parallelism}`,
           );
         }
 
@@ -426,6 +444,7 @@ export class TopicTeamOrchestratorService {
           abortController.signal,
           agentAssignments,
           depthConfig,
+          parallelism,
         );
       researchDesign = extractedDesign;
 
@@ -1007,6 +1026,7 @@ export class TopicTeamOrchestratorService {
    *
    * @param agentAssignments Leader 分配的 Agent 信息（包含工具和技能）
    * @param depthConfig V5 研究深度配置
+   * @param parallelism 并行度限制（默认 4）
    */
   private async researchDimensionsInParallel(
     topic: ResearchTopic,
@@ -1015,6 +1035,7 @@ export class TopicTeamOrchestratorService {
     signal: AbortSignal,
     agentAssignments: AgentAssignment[] = [],
     depthConfig?: ResearchDepthConfig,
+    parallelism: number = 4,
   ): Promise<{
     results: PromiseSettledResult<{
       dimensionId: string;
@@ -1026,9 +1047,15 @@ export class TopicTeamOrchestratorService {
   }> {
     const totalCount = dimensions.length;
 
+    // Create concurrency limiter
+    const limit = pLimit(parallelism);
+    this.logger.log(
+      `[researchDimensionsInParallel] Using parallelism limit: ${parallelism}`,
+    );
+
     // ============ Phase 1: 并行搜索 ============
     this.logger.log(
-      `[researchDimensionsInParallel] Phase 1: Starting parallel search for ${totalCount} dimensions`,
+      `[researchDimensionsInParallel] Phase 1: Starting parallel search for ${totalCount} dimensions (concurrency: ${parallelism})`,
     );
 
     this.emitProgress({
@@ -1041,48 +1068,50 @@ export class TopicTeamOrchestratorService {
       message: "Phase 1: 所有维度并行搜索中...",
     });
 
-    const searchPromises = dimensions.map(async (dimension) => {
-      if (signal.aborted) {
-        throw new Error("Refresh cancelled");
-      }
-
-      const assignment = agentAssignments.find(
-        (a) =>
-          a.assignedDimensions?.includes(dimension.id) ||
-          a.assignedDimensions?.includes(dimension.name),
-      );
-
-      let assignedTools = assignment?.tools || [];
-      if (assignedTools.length === 0 && dimension.searchSources) {
-        const sources = dimension.searchSources as string[];
-        if (Array.isArray(sources) && sources.length > 0) {
-          assignedTools = sources;
+    const searchPromises = dimensions.map((dimension) =>
+      limit(async () => {
+        if (signal.aborted) {
+          throw new Error("Refresh cancelled");
         }
-      }
-      const assignedSkills = assignment?.skills || [];
-      const modelId = assignment?.modelId;
 
-      try {
-        const searchResult =
-          await this.dimensionMissionService.executeSearchPhase(
-            topic,
-            dimension,
-            undefined, // missionId
-            modelId,
-            undefined, // taskId
-            assignedTools,
-            assignedSkills,
-          );
-
-        return { dimension, assignment, searchResult };
-      } catch (error) {
-        this.logger.error(
-          `[Phase 1] Failed to search dimension: ${dimension.name}`,
-          error,
+        const assignment = agentAssignments.find(
+          (a) =>
+            a.assignedDimensions?.includes(dimension.id) ||
+            a.assignedDimensions?.includes(dimension.name),
         );
-        throw error;
-      }
-    });
+
+        let assignedTools = assignment?.tools || [];
+        if (assignedTools.length === 0 && dimension.searchSources) {
+          const sources = dimension.searchSources as string[];
+          if (Array.isArray(sources) && sources.length > 0) {
+            assignedTools = sources;
+          }
+        }
+        const assignedSkills = assignment?.skills || [];
+        const modelId = assignment?.modelId;
+
+        try {
+          const searchResult =
+            await this.dimensionMissionService.executeSearchPhase(
+              topic,
+              dimension,
+              undefined, // missionId
+              modelId,
+              undefined, // taskId
+              assignedTools,
+              assignedSkills,
+            );
+
+          return { dimension, assignment, searchResult };
+        } catch (error) {
+          this.logger.error(
+            `[Phase 1] Failed to search dimension: ${dimension.name}`,
+            error,
+          );
+          throw error;
+        }
+      }),
+    );
 
     const searchResults = await Promise.allSettled(searchPromises);
     const successfulSearches = searchResults.filter(
@@ -1198,132 +1227,134 @@ export class TopicTeamOrchestratorService {
 
     // ============ Phase 3: 并行写作 ============
     this.logger.log(
-      `[researchDimensionsInParallel] Phase 3: Starting parallel writing for ${successfulSearches.length} dimensions`,
+      `[researchDimensionsInParallel] Phase 3: Starting parallel writing for ${successfulSearches.length} dimensions (concurrency: ${parallelism})`,
     );
 
     let completedCount = 0;
 
-    const writingPromises = successfulSearches.map(async (searchSuccess) => {
-      const { dimension, assignment, searchResult } = searchSuccess.value;
+    const writingPromises = successfulSearches.map((searchSuccess) =>
+      limit(async () => {
+        const { dimension, assignment, searchResult } = searchSuccess.value;
 
-      if (signal.aborted) {
-        throw new Error("Refresh cancelled");
-      }
+        if (signal.aborted) {
+          throw new Error("Refresh cancelled");
+        }
 
-      try {
-        // 查找该维度的全局协调大纲
-        let outline:
-          | import("./research-leader.service").DimensionOutline
-          | null = null;
-        if (globalOutline) {
-          const coordinated = globalOutline.dimensions.find(
-            (d) =>
-              d.dimensionId === dimension.id ||
-              d.dimensionName === dimension.name,
-          );
-          if (coordinated) {
-            outline = coordinated.outline;
+        try {
+          // 查找该维度的全局协调大纲
+          let outline:
+            | import("./research-leader.service").DimensionOutline
+            | null = null;
+          if (globalOutline) {
+            const coordinated = globalOutline.dimensions.find(
+              (d) =>
+                d.dimensionId === dimension.id ||
+                d.dimensionName === dimension.name,
+            );
+            if (coordinated) {
+              outline = coordinated.outline;
+              this.logger.log(
+                `[Phase 3] Using global coordinated outline for dimension: ${dimension.name}`,
+              );
+            }
+          }
+
+          // Fallback: 如果全局规划失败，本地规划
+          if (!outline) {
             this.logger.log(
-              `[Phase 3] Using global coordinated outline for dimension: ${dimension.name}`,
+              `[Phase 3] Falling back to local outline planning for dimension: ${dimension.name}`,
+            );
+            const allDimensions = dimensions.map((d) => ({
+              name: d.name,
+              description: d.description,
+            }));
+            outline = await this.researchLeaderService.planDimensionOutline(
+              {
+                name: topic.name,
+                type: topic.type,
+                description: topic.description,
+              },
+              {
+                name: dimension.name,
+                description: dimension.description,
+                searchQueries: dimension.searchQueries,
+              },
+              searchResult.evidenceSummary,
+              searchResult.figuresSummary || undefined,
+              allDimensions,
             );
           }
-        }
 
-        // Fallback: 如果全局规划失败，本地规划
-        if (!outline) {
-          this.logger.log(
-            `[Phase 3] Falling back to local outline planning for dimension: ${dimension.name}`,
-          );
-          const allDimensions = dimensions.map((d) => ({
-            name: d.name,
-            description: d.description,
-          }));
-          outline = await this.researchLeaderService.planDimensionOutline(
-            {
-              name: topic.name,
-              type: topic.type,
-              description: topic.description,
-            },
-            {
-              name: dimension.name,
-              description: dimension.description,
-              searchQueries: dimension.searchQueries,
-            },
-            searchResult.evidenceSummary,
-            searchResult.figuresSummary || undefined,
-            allDimensions,
-          );
-        }
+          const missionResult =
+            await this.dimensionMissionService.executeWritingPhase(
+              topic,
+              dimension,
+              searchResult,
+              outline,
+              reportId,
+              undefined, // missionId
+              assignment?.modelId,
+              undefined, // taskId
+              assignment?.tools,
+              assignment?.skills,
+              undefined, // validationContext
+              depthConfig?.maxRevisionRounds, // V5: revision rounds from depth config
+            );
 
-        const missionResult =
-          await this.dimensionMissionService.executeWritingPhase(
-            topic,
-            dimension,
-            searchResult,
-            outline,
+          if (!missionResult.success) {
+            throw new Error(missionResult.error || "Dimension writing failed");
+          }
+
+          completedCount++;
+
+          // V5: Checkpoint after each dimension writing completes
+          try {
+            await this.researchCheckpointService.saveCheckpoint(topic.id, {
+              phase: "L4_writing",
+              completedDimension: dimension.name,
+              completedCount,
+              totalCount,
+            });
+          } catch {
+            // non-fatal
+          }
+
+          const progress = 40 + Math.round((completedCount / totalCount) * 40);
+          this.emitProgress({
+            topicId: topic.id,
             reportId,
-            undefined, // missionId
-            assignment?.modelId,
-            undefined, // taskId
-            assignment?.tools,
-            assignment?.skills,
-            undefined, // validationContext
-            depthConfig?.maxRevisionRounds, // V5: revision rounds from depth config
+            phase: "researching",
+            progress,
+            currentDimension: dimension.name,
+            completedDimensions: completedCount,
+            totalDimensions: totalCount,
+            message: `已完成 ${dimension.name} (${completedCount}/${totalCount})`,
+          });
+
+          return {
+            dimensionId: dimension.id,
+            analysisResult: missionResult.analysisResult!,
+            evidenceIds: missionResult.evidenceIds,
+            extractedClaims: missionResult.extractedClaims,
+          };
+        } catch (error) {
+          this.logger.error(
+            `[Phase 3] Failed to write dimension: ${dimension.name}`,
+            error,
           );
-
-        if (!missionResult.success) {
-          throw new Error(missionResult.error || "Dimension writing failed");
+          // Mark failed dimension as FAILED
+          try {
+            await this.prisma.topicDimension.update({
+              where: { id: dimension.id },
+              data: { status: "FAILED" },
+            });
+          } catch {
+            // non-fatal
+          }
+          throw error;
         }
-
-        completedCount++;
-
-        // V5: Checkpoint after each dimension writing completes
-        try {
-          await this.researchCheckpointService.saveCheckpoint(topic.id, {
-            phase: "L4_writing",
-            completedDimension: dimension.name,
-            completedCount,
-            totalCount,
-          });
-        } catch {
-          // non-fatal
-        }
-
-        const progress = 40 + Math.round((completedCount / totalCount) * 40);
-        this.emitProgress({
-          topicId: topic.id,
-          reportId,
-          phase: "researching",
-          progress,
-          currentDimension: dimension.name,
-          completedDimensions: completedCount,
-          totalDimensions: totalCount,
-          message: `已完成 ${dimension.name} (${completedCount}/${totalCount})`,
-        });
-
-        return {
-          dimensionId: dimension.id,
-          analysisResult: missionResult.analysisResult!,
-          evidenceIds: missionResult.evidenceIds,
-          extractedClaims: missionResult.extractedClaims,
-        };
-      } catch (error) {
-        this.logger.error(
-          `[Phase 3] Failed to write dimension: ${dimension.name}`,
-          error,
-        );
-        // Mark failed dimension as FAILED
-        try {
-          await this.prisma.topicDimension.update({
-            where: { id: dimension.id },
-            data: { status: "FAILED" },
-          });
-        } catch {
-          // non-fatal
-        }
-        throw error;
-      }
-    });
+      }),
+    );
 
     const results = await Promise.allSettled(writingPromises);
 

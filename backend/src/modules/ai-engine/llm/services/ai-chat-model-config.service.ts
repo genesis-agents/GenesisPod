@@ -105,7 +105,7 @@ export class AiChatModelConfigService {
 
       // ★ 模型能力配置 - 优先使用数据库值，否则根据 isReasoning 推断
       isReasoning,
-      apiFormat: modelAny.apiFormat ?? this.inferApiFormat(model.provider),
+      apiFormat: this.resolveApiFormat(modelAny.apiFormat, model.provider),
       supportsTemperature: modelAny.supportsTemperature ?? !isReasoning,
       supportsStreaming: modelAny.supportsStreaming ?? true,
       supportsFunctionCalling: modelAny.supportsFunctionCalling ?? true,
@@ -123,6 +123,22 @@ export class AiChatModelConfigService {
         : undefined,
       priority: modelAny.priority ?? 50,
     };
+  }
+
+  /**
+   * 解析 API 格式：如果 DB 值是 schema 默认值 "openai"，但 provider 暗示另一种格式，
+   * 则使用 provider 推断值（修复用户添加 Google/Anthropic 模型时忘记改 apiFormat 的问题）
+   */
+  private resolveApiFormat(
+    dbApiFormat: string | undefined | null,
+    provider: string,
+  ): string {
+    if (!provider) return dbApiFormat || "openai";
+    const inferred = this.inferApiFormat(provider);
+    // 如果 DB 显式设置了非默认值，尊重 DB 设置
+    if (dbApiFormat && dbApiFormat !== "openai") return dbApiFormat;
+    // 如果 DB 是默认值 "openai" 但 provider 暗示其他格式，使用推断值
+    return inferred;
   }
 
   /**
@@ -183,6 +199,7 @@ export class AiChatModelConfigService {
       modelLower.includes("gpt5") ||
       // Google/Gemini reasoning models
       modelLower.includes("gemini-2.0-flash-thinking") ||
+      modelLower.includes("gemini-2.5") ||
       modelLower.includes("gemini-3") ||
       modelLower.includes("gemini-exp") ||
       // DeepSeek reasoning models

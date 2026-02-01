@@ -1672,7 +1672,8 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
         return null;
       }
       return hostname;
-    } catch {
+    } catch (error) {
+      this.logger.debug(`[extractDomain] Invalid URL: ${error}`);
       return null;
     }
   }
@@ -1691,7 +1692,8 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
       parsed.searchParams.delete("ref");
       // 标准化协议和移除尾部斜杠
       return parsed.toString().replace(/\/$/, "").toLowerCase();
-    } catch {
+    } catch (error) {
+      this.logger.debug(`[normalizeUrl] Failed to normalize URL: ${error}`);
       return url.toLowerCase();
     }
   }

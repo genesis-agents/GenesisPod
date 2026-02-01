@@ -438,7 +438,7 @@ export class SectionWriterService {
     if (failedIndices.length > 0) {
       // 获取备用模型（使用 AI Engine 的智能选择，一次性获取）
       const fallbackModel = await this.aiFacade.selectModel({
-        modelType: "CHAT" as any,
+        modelType: AIModelType.CHAT,
       });
 
       if (fallbackModel) {

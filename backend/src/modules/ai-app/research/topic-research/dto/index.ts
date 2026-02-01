@@ -32,3 +32,6 @@ export * from "./review-workflow.dto";
 
 // TODO DTOs
 export * from "./todo.dto";
+
+// Report Editing DTOs
+export * from "./report-editing.dto";

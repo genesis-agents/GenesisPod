@@ -2,12 +2,13 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
+import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import {
   sanitizeMarkdownContent,
   sanitizeAllStrings,
   stripLeadingHeading,
 } from "@/common/utils/sanitize-content.utils";
-import { AIModelType, Prisma } from "@prisma/client";
+import { AIModelType } from "@prisma/client";
 import type {
   ResearchTopic,
   TopicDimension,
@@ -132,8 +133,8 @@ export class ReportSynthesisService {
         reportId,
         dimensionId,
         summary: result.summary,
-        keyFindings: result.keyFindings as unknown as Prisma.InputJsonValue,
-        dataPoints: {
+        keyFindings: toPrismaJson(result.keyFindings),
+        dataPoints: toPrismaJson({
           trends: result.trends,
           challenges: result.challenges,
           opportunities: result.opportunities,
@@ -142,7 +143,7 @@ export class ReportSynthesisService {
           // ★ 新增：保存图表引用和生成图表
           figureReferences: result.figureReferences || [],
           generatedCharts: result.generatedCharts || [],
-        } as unknown as Prisma.InputJsonValue,
+        }),
         sourcesUsed: result.evidenceUsed,
       },
     });
@@ -385,9 +386,8 @@ export class ReportSynthesisService {
         executiveSummary: synthesisResult.executiveSummary,
         // ★ 使用拼接版本的 fullReport（清理孤儿占位符后）
         fullReport: cleanedReport,
-        highlights:
-          synthesisResult.highlights as unknown as Prisma.InputJsonValue,
-        charts: allCharts as unknown as Prisma.InputJsonValue,
+        highlights: toPrismaJson(synthesisResult.highlights),
+        charts: toPrismaJson(allCharts),
         totalDimensions: dimensionAnalyses.length,
         totalSources,
         generationTimeMs,
@@ -619,6 +619,13 @@ export class ReportSynthesisService {
   ): string {
     const parts: string[] = [];
 
+    // Sort dimensions by priority (lower number = higher priority = earlier in report)
+    const sortedDimensions = [...dimensionInputs].sort((a, b) => {
+      const pa = a.priority ?? 999;
+      const pb = b.priority ?? 999;
+      return pa - pb;
+    });
+
     // 1. 报告标题
     parts.push(`# ${topic.name}`);
     parts.push(`\n> 生成时间：${new Date().toLocaleDateString("zh-CN")}\n`);
@@ -640,7 +647,7 @@ export class ReportSynthesisService {
     // 4. 目录
     parts.push("## 目录\n");
     let tocIndex = 0;
-    dimensionInputs.forEach((dim, idx) => {
+    sortedDimensions.forEach((dim, idx) => {
       const dimName = dim.dimensionName || `维度${idx + 1}`;
       tocIndex = idx + 1;
       parts.push(
@@ -665,7 +672,7 @@ export class ReportSynthesisService {
     // 5. 各维度章节（直接使用 detailedContent，但限制长度）
     const MAX_DIMENSION_CHARS = 24000; // 约 8000 中文字（每字约 3 chars）
     const globalSeenParagraphs = new Set<string>();
-    dimensionInputs.forEach((dim, idx) => {
+    sortedDimensions.forEach((dim, idx) => {
       parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);
 
       // ★ 直接使用研究员生成的完整内容，但截断过长内容
@@ -731,46 +738,13 @@ export class ReportSynthesisService {
             : truncated;
       }
 
-      // ★ 转换 <!-- figure:N:M --> 占位符为 <!-- chart:chartId -->
-      // 使用维度前缀 "d{dimIndex}-" 确保全局唯一
-      const dimPrefix = `d${idx}-`;
-      if (dim.figureReferences && dim.figureReferences.length > 0) {
-        content = content.replace(
-          /<!--\s*figure:(\d+):(\d+)\s*-->/g,
-          (_match, evidenceIdx, figIdx) => {
-            const ref = dim.figureReferences?.find(
-              (r) =>
-                r.evidenceCitationIndex === Number(evidenceIdx) &&
-                r.figureIndex === Number(figIdx),
-            );
-            return ref ? `<!-- chart:${dimPrefix}${ref.id} -->` : _match;
-          },
-        );
-      }
-
-      // ★ 注入 generatedCharts 占位符（基于 position）
-      if (dim.generatedCharts && dim.generatedCharts.length > 0) {
-        content = this.injectChartPlaceholders(
-          content,
-          dim.generatedCharts.map((c) => ({
-            id: `${dimPrefix}${c.id}`,
-            position: c.position,
-          })),
-        );
-      }
-
-      // ★ 去重图表占位符：同一 chartId 只保留首次出现
-      {
-        const seenChartIds = new Set<string>();
-        content = content.replace(
-          /<!-- chart:([^\s]+?) -->/g,
-          (match, chartId) => {
-            if (seenChartIds.has(chartId)) return "";
-            seenChartIds.add(chartId);
-            return match;
-          },
-        );
-      }
+      // ★ Resolve chart placeholders (figure→chart conversion, injection, dedup)
+      content = this.resolveChartPlaceholders(
+        content,
+        idx,
+        dim.figureReferences,
+        dim.generatedCharts,
+      );
 
       // ★ 清理 LLM 泄露的 meta-notes（字数统计、编辑指令等）
       content = content
@@ -802,7 +776,7 @@ export class ReportSynthesisService {
         "[buildFullReport] crossDimensionAnalysis, riskAssessment, strategicRecommendations are all empty. Generating fallback from dimension data.",
       );
       // 自动拼接跨维度关联分析
-      const fallbackCross = dimensionInputs
+      const fallbackCross = sortedDimensions
         .filter((d) => d.keyFindings?.length > 0)
         .map(
           (d) =>
@@ -819,7 +793,7 @@ export class ReportSynthesisService {
       }
 
       // 自动拼接风险提示
-      const fallbackRisks = dimensionInputs
+      const fallbackRisks = sortedDimensions
         .flatMap(
           (d) => d.challenges?.slice(0, 1).map((c) => `- ${c.challenge}`) || [],
         )
@@ -831,7 +805,7 @@ export class ReportSynthesisService {
       }
 
       // 自动拼接建议
-      const fallbackRecs = dimensionInputs
+      const fallbackRecs = sortedDimensions
         .flatMap(
           (d) =>
             d.opportunities?.slice(0, 1).map((o) => `- ${o.opportunity}`) || [],
@@ -1665,6 +1639,58 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
     // ★ 清理 AI 生成内容中的格式问题（如引用后的孤立下划线 [1]___）
     return sanitizeMarkdownContent(parts.join("\n"));
+  }
+
+  /**
+   * Resolves chart placeholders in dimension content:
+   * 1. Converts <!-- figure:N:M --> to <!-- chart:dX-id --> using figureReferences
+   * 2. Injects generated chart placeholders based on position
+   * 3. Deduplicates chart placeholders by chartId
+   */
+  private resolveChartPlaceholders(
+    content: string,
+    dimIndex: number,
+    figureReferences: FigureReference[] | undefined,
+    generatedCharts: GeneratedChart[] | undefined,
+  ): string {
+    let result = content;
+    const dimPrefix = `d${dimIndex}-`;
+
+    // 1. Convert <!-- figure:N:M --> placeholders to <!-- chart:chartId -->
+    if (figureReferences && figureReferences.length > 0) {
+      result = result.replace(
+        /<!--\s*figure:(\d+):(\d+)\s*-->/g,
+        (_match, evidenceIdx, figIdx) => {
+          const ref = figureReferences?.find(
+            (r) =>
+              r.evidenceCitationIndex === Number(evidenceIdx) &&
+              r.figureIndex === Number(figIdx),
+          );
+          return ref ? `<!-- chart:${dimPrefix}${ref.id} -->` : _match;
+        },
+      );
+    }
+
+    // 2. Inject generatedCharts placeholders (based on position)
+    if (generatedCharts && generatedCharts.length > 0) {
+      result = this.injectChartPlaceholders(
+        result,
+        generatedCharts.map((c) => ({
+          id: `${dimPrefix}${c.id}`,
+          position: c.position,
+        })),
+      );
+    }
+
+    // 3. Deduplicate chart placeholders: same chartId only appears once
+    const seenChartIds = new Set<string>();
+    result = result.replace(/<!-- chart:([^\s]+?) -->/g, (match, chartId) => {
+      if (seenChartIds.has(chartId)) return "";
+      seenChartIds.add(chartId);
+      return match;
+    });
+
+    return result;
   }
 
   /**

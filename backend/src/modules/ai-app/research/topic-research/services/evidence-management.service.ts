@@ -187,7 +187,8 @@ export class EvidenceManagementService {
     try {
       const parsed = new URL(url);
       return parsed.hostname;
-    } catch {
+    } catch (error) {
+      this.logger.debug(`[extractDomainFromUrl] Invalid URL: ${error}`);
       return null;
     }
   }
@@ -428,7 +429,8 @@ export class EvidenceManagementService {
       parsed.searchParams.delete("ref");
       // 移除尾部斜杠
       return parsed.toString().replace(/\/$/, "").toLowerCase();
-    } catch {
+    } catch (error) {
+      this.logger.debug(`[normalizeUrl] Failed to normalize URL: ${error}`);
       return url.toLowerCase();
     }
   }

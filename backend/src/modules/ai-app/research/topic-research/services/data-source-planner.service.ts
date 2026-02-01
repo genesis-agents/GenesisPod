@@ -264,7 +264,10 @@ export class DataSourcePlannerService {
         {},
       );
       return availableTools.includes(toolId);
-    } catch {
+    } catch (error) {
+      this.logger.debug(
+        `[isToolEnabled] Failed to check if tool ${toolId} is enabled: ${error}`,
+      );
       return false;
     }
   }

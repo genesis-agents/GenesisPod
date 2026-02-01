@@ -22,7 +22,7 @@ export class CreateFromTemplateDto {
 
   @IsOptional()
   @IsObject()
-  topicConfig?: Record<string, any>;
+  topicConfig?: Record<string, unknown>;
 
   @IsOptional()
   @IsObject()
