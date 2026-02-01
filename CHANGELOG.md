@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.1.2](https://github.com/your-org/ai-teams-engine/compare/v3.1.1...v3.1.2) (2026-02-01)
+
+
+### Bug Fixes
+
+* **research:** strengthen keyFindings prompt requirements ([1a6f12f](https://github.com/your-org/ai-teams-engine/commit/1a6f12fe1349295dc97896bfd3f7ea63f37856df))
+
 ### [3.1.1](https://github.com/your-org/ai-teams-engine/compare/v3.1.0...v3.1.1) (2026-02-01)
 
 
