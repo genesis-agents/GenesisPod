@@ -797,9 +797,12 @@ export class AIEngineFacade {
     return models.map((m) => {
       const isReasoning =
         m.isReasoning ?? this.aiChatService.isReasoningModel(m.modelId);
+      const isBlocked =
+        this.modelFallbackService?.isModelBlocked(m.modelId) ?? false;
       const isAvailable =
-        this.orchestration?.circuitBreaker?.canExecute(`chat:${m.modelId}`) ??
-        true;
+        !isBlocked &&
+        (this.orchestration?.circuitBreaker?.canExecute(`chat:${m.modelId}`) ??
+          true);
 
       return {
         id: m.modelId,
