@@ -28,6 +28,7 @@ import {
 } from "../teams/services/teams.service";
 import { TaskCompletionType } from "../orchestration/services/circuit-breaker.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
 import {
   AICapabilityResolver,
   AICapabilityContext,
@@ -150,6 +151,7 @@ export class AIEngineFacade {
     @Optional()
     @Inject(forwardRef(() => CreditsService))
     private readonly creditsService?: CreditsService,
+    @Optional() private readonly modelFallbackService?: ModelFallbackService,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -613,6 +615,28 @@ export class AIEngineFacade {
         candidates = preferred;
         this.logger.debug(
           `[selectModel] Provider filter: ${candidates.length} candidates for ${options.preferredProvider}`,
+        );
+      }
+    }
+
+    // 2.5 过滤模型黑名单（不可恢复错误如 Invalid API Key）
+    if (this.modelFallbackService) {
+      const unblocked = candidates.filter(
+        (m) => !this.modelFallbackService!.isModelBlocked(m.id),
+      );
+      if (unblocked.length > 0) {
+        if (unblocked.length < candidates.length) {
+          const blocked = candidates
+            .filter((m) => this.modelFallbackService!.isModelBlocked(m.id))
+            .map((m) => m.id);
+          this.logger.warn(
+            `[selectModel] Filtered blocked models: ${blocked.join(", ")}`,
+          );
+        }
+        candidates = unblocked;
+      } else {
+        this.logger.warn(
+          "[selectModel] All candidates blocked, keeping original list as fallback",
         );
       }
     }
