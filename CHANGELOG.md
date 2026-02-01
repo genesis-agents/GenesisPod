@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.9](https://github.com/your-org/ai-teams-engine/compare/v3.3.8...v3.3.9) (2026-02-01)
+
+
+### Refactoring
+
+* **research:** comprehensive code quality improvements across 11 tasks ([8650d46](https://github.com/your-org/ai-teams-engine/commit/8650d468220857cc59d0ffd57ec8705a327d5ee8))
+
 ### [3.3.8](https://github.com/your-org/ai-teams-engine/compare/v3.3.7...v3.3.8) (2026-02-01)
 
 
