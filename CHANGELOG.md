@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.1.3](https://github.com/your-org/ai-teams-engine/compare/v3.1.2...v3.1.3) (2026-02-01)
+
+
+### Bug Fixes
+
+* **research:** enforce minimum 6000-word detailedContent requirement ([6d1a924](https://github.com/your-org/ai-teams-engine/commit/6d1a924364f08afbda20a3a8735baed34f0977da))
+
 ### [3.1.2](https://github.com/your-org/ai-teams-engine/compare/v3.1.1...v3.1.2) (2026-02-01)
 
 
