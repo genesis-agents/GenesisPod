@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.5](https://github.com/your-org/ai-teams-engine/compare/v3.3.4...v3.3.5) (2026-02-01)
+
+
+### Bug Fixes
+
+* **research:** add fallback for Leader model display and diagnostic logging ([4ec3f72](https://github.com/your-org/ai-teams-engine/commit/4ec3f72d6b77108878f6e66148dcc7d35a887a28))
+
 ### [3.3.4](https://github.com/your-org/ai-teams-engine/compare/v3.3.3...v3.3.4) (2026-02-01)
 
 
