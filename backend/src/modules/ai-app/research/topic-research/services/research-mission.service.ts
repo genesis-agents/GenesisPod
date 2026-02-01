@@ -81,6 +81,8 @@ export interface MissionStatus {
   tasks: TaskStatus[];
   leaderPlan?: LeaderPlan;
   researchDepth?: string;
+  leaderModelId?: string;
+  leaderModelName?: string;
 }
 
 export interface TaskStatus {
@@ -919,6 +921,8 @@ export class ResearchMissionService {
       currentPhase: this.getPhaseFromStatus(mission.status),
       tasks,
       leaderPlan: mission.leaderPlan as unknown as LeaderPlan | undefined,
+      leaderModelId: mission.leaderModelId ?? undefined,
+      leaderModelName: mission.leaderModelName ?? undefined,
     };
   }
 

@@ -1371,6 +1371,8 @@ function TeamCanvasView({
                     {agent.role === 'leader' ? (
                       <span className="font-mono text-sm font-medium text-indigo-700">
                         {teamInfo?.leaderModel ||
+                          missionStatus?.leaderModelId ||
+                          missionStatus?.leaderModelName ||
                           t('topicResearch.common.notSpecified')}
                       </span>
                     ) : (

@@ -156,8 +156,12 @@ export function ResearchTeamPanel({
       description: leaderInfo.description,
       capabilities: leaderInfo.capabilities,
       note: leaderInfo.note,
-      // ★ Leader 的模型来自 teamInfo.leaderModel
-      model: teamInfo?.leaderModel || undefined,
+      // ★ Leader 的模型来自 teamInfo.leaderModel，如果不存在则从 missionStatus 获取
+      model:
+        teamInfo?.leaderModel ||
+        missionStatus?.leaderModelId ||
+        missionStatus?.leaderModelName ||
+        undefined,
     });
 
     // 从 teamInfo 获取 agents，或者使用默认配置

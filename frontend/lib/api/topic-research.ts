@@ -888,6 +888,8 @@ export interface MissionStatus {
   tasks: TaskStatus[];
   leaderPlan?: LeaderPlan;
   researchDepth?: 'quick' | 'standard' | 'thorough';
+  leaderModelId?: string;
+  leaderModelName?: string;
 }
 
 export interface TaskStatus {
