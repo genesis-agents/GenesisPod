@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.1](https://github.com/your-org/ai-teams-engine/compare/v3.3.0...v3.3.1) (2026-02-01)
+
+
+### Bug Fixes
+
+* **research:** extract trends/challenges/opportunities from content and create ResearchTask records ([8612dab](https://github.com/your-org/ai-teams-engine/commit/8612dabc51c4f3a8def8a91a1ad3052ce072a87a))
+
 ## [3.3.0](https://github.com/your-org/ai-teams-engine/compare/v3.2.3...v3.3.0) (2026-02-01)
 
 
