@@ -1377,36 +1377,25 @@ function TeamCanvasView({
                       </span>
                     ) : (
                       (() => {
-                        // 获取分配给该 Agent 的实际任务及其模型
+                        // ★ 直接通过 assignedAgent 匹配任务，获取该 Agent 使用的模型
                         const tasks = missionStatus?.tasks || [];
-                        const dimensionTasks = tasks.filter(
-                          (t: TaskStatus) => t.taskType === 'dimension_research'
-                        );
-                        const reviewTasks = tasks.filter(
-                          (t: TaskStatus) => t.taskType === 'quality_review'
-                        );
-                        const synthesisTasks = tasks.filter(
-                          (t: TaskStatus) => t.taskType === 'report_synthesis'
-                        );
-
-                        let assignedTasks: TaskStatus[] = [];
+                        let assignedTasks: TaskStatus[];
                         if (agent.role === 'researcher') {
-                          // 研究员按 round-robin 分配
-                          const researcherIndex = parseInt(
-                            agent.id.replace('researcher-', ''),
-                            10
-                          );
-                          const researcherCount = agents.filter(
-                            (a) => a.role === 'researcher'
-                          ).length;
-                          assignedTasks = dimensionTasks.filter(
-                            (_: TaskStatus, idx: number) =>
-                              idx % researcherCount === researcherIndex
+                          assignedTasks = tasks.filter(
+                            (t: TaskStatus) =>
+                              t.assignedAgent === agent.id &&
+                              t.taskType === 'dimension_research'
                           );
                         } else if (agent.role === 'reviewer') {
-                          assignedTasks = reviewTasks;
+                          assignedTasks = tasks.filter(
+                            (t: TaskStatus) => t.taskType === 'quality_review'
+                          );
                         } else if (agent.role === 'synthesizer') {
-                          assignedTasks = synthesisTasks;
+                          assignedTasks = tasks.filter(
+                            (t: TaskStatus) => t.taskType === 'report_synthesis'
+                          );
+                        } else {
+                          assignedTasks = [];
                         }
 
                         // 收集唯一的模型（displayName 优先，fallback 到 modelId）
