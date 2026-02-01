@@ -784,6 +784,14 @@ export class ReportSynthesisService {
       parts.push("\n---\n");
     });
 
+    // ★ 收集已有 H2 标题，用于后续去重守卫
+    const existingH2Titles = new Set(
+      parts
+        .join("\n")
+        .match(/^## .+$/gm)
+        ?.map((h) => h.replace(/^## /, "").trim()) || [],
+    );
+
     // ★ A4 Fallback: 如果三个 section 全为空，从维度数据自动拼接最简版
     if (
       !supplementaryContent.crossDimensionAnalysis &&
@@ -836,8 +844,11 @@ export class ReportSynthesisService {
       }
     }
 
-    // 6. 跨维度关联分析（AI 生成）
-    if (supplementaryContent.crossDimensionAnalysis) {
+    // 6. 跨维度关联分析（AI 生成） — 去重守卫：跳过已存在的同名章节
+    if (
+      supplementaryContent.crossDimensionAnalysis &&
+      !existingH2Titles.has("跨维度关联分析")
+    ) {
       parts.push("## 跨维度关联分析\n");
       parts.push(
         stripLeadingHeading(supplementaryContent.crossDimensionAnalysis),
@@ -846,14 +857,20 @@ export class ReportSynthesisService {
     }
 
     // 7. 风险评估（AI 生成）
-    if (supplementaryContent.riskAssessment) {
+    if (
+      supplementaryContent.riskAssessment &&
+      !existingH2Titles.has("风险评估")
+    ) {
       parts.push("## 风险评估\n");
       parts.push(stripLeadingHeading(supplementaryContent.riskAssessment));
       parts.push("\n---\n");
     }
 
     // 8. 战略建议（AI 生成）
-    if (supplementaryContent.strategicRecommendations) {
+    if (
+      supplementaryContent.strategicRecommendations &&
+      !existingH2Titles.has("战略建议")
+    ) {
       parts.push("## 战略建议\n");
       parts.push(
         stripLeadingHeading(supplementaryContent.strategicRecommendations),
