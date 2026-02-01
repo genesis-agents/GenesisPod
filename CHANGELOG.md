@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.0.2](https://github.com/your-org/ai-teams-engine/compare/v3.0.1...v3.0.2) (2026-02-01)
+
+
+### Bug Fixes
+
+* **research:** report quality - dedup charts, clean meta-notes, fix highlights ([4b53c6c](https://github.com/your-org/ai-teams-engine/commit/4b53c6c1e00a7f3245d84cc825fb25862a91b7b7))
+
 ### [3.0.1](https://github.com/your-org/ai-teams-engine/compare/v3.0.0...v3.0.1) (2026-02-01)
 
 
