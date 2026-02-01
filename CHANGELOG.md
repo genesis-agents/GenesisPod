@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+## [3.2.0](https://github.com/your-org/ai-teams-engine/compare/v3.1.3...v3.2.0) (2026-02-01)
+
+
+### Features
+
+* **research:** add content length validation with auto-continuation ([7805ac1](https://github.com/your-org/ai-teams-engine/commit/7805ac1db6a24d74ea968d7a48dd4a74073c6d26))
+
 ### [3.1.3](https://github.com/your-org/ai-teams-engine/compare/v3.1.2...v3.1.3) (2026-02-01)
 
 
