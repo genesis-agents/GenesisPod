@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.1.1](https://github.com/your-org/ai-teams-engine/compare/v3.1.0...v3.1.1) (2026-02-01)
+
+
+### Bug Fixes
+
+* **ai-engine:** integrate blocklist into getAvailableModelsExtended ([2cd33e9](https://github.com/your-org/ai-teams-engine/commit/2cd33e9a9543a4d9b664947bc0538693b6a82fec))
+
 ## [3.1.0](https://github.com/your-org/ai-teams-engine/compare/v3.0.3...v3.1.0) (2026-02-01)
 
 
