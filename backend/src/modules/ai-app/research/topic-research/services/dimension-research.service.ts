@@ -286,7 +286,53 @@ export class DimensionResearchService {
     });
 
     // 解析 AI 响应
-    const aiResult = this.parseAIResponse(response.content);
+    let aiResult = this.parseAIResponse(response.content);
+
+    // ★ 内容长度校验 + 自动续写：如果 detailedContent 太短，请求模型继续扩写
+    const MIN_DETAILED_CONTENT_CHARS = 5000;
+    const contentLength = (aiResult.detailedContent || "").length;
+    if (contentLength < MIN_DETAILED_CONTENT_CHARS) {
+      this.logger.warn(
+        `[ContentCheck] detailedContent only ${contentLength} chars (min: ${MIN_DETAILED_CONTENT_CHARS}), requesting continuation for ${dimension.name}`,
+      );
+      try {
+        const continuationResponse = await this.aiFacade.chat({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+            { role: "assistant", content: response.content },
+            {
+              role: "user",
+              content: `你的 detailedContent 只有约 ${contentLength} 字符，远低于要求的 6000 字（18000 字符）最低标准。请继续扩展 detailedContent 的内容，从你上次结束的地方继续写。只输出需要追加的 Markdown 内容，不需要 JSON 格式，直接输出纯文本/Markdown 段落。要求：
+1. 补充更多数据分析、案例引用、趋势推理
+2. 每个子章节都要有 3-5 段详细分析
+3. 至少再写 ${MIN_DETAILED_CONTENT_CHARS - contentLength} 字符的补充内容`,
+            },
+          ],
+          modelType: AIModelType.CHAT,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "extended",
+          },
+          maxTokens: 32000,
+        });
+        const continuation = continuationResponse.content?.trim() || "";
+        if (continuation.length > 500) {
+          aiResult = {
+            ...aiResult,
+            detailedContent:
+              (aiResult.detailedContent || "") + "\n\n" + continuation,
+          };
+          this.logger.log(
+            `[ContentCheck] Appended ${continuation.length} chars continuation. Total: ${aiResult.detailedContent.length} chars`,
+          );
+        }
+      } catch (err) {
+        this.logger.warn(
+          `[ContentCheck] Continuation request failed: ${(err as Error).message}`,
+        );
+      }
+    }
 
     // ★ 诊断日志：检查 AI 输出的图表数据
     const figRefsCount = aiResult.figureReferences?.length ?? 0;
