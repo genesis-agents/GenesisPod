@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.2.1](https://github.com/your-org/ai-teams-engine/compare/v3.2.0...v3.2.1) (2026-02-01)
+
+
+### Bug Fixes
+
+* **research:** comprehensive quality validation for dimensions ([#23](https://github.com/your-org/ai-teams-engine/issues/23)/[#24](https://github.com/your-org/ai-teams-engine/issues/24)/[#25](https://github.com/your-org/ai-teams-engine/issues/25)/[#26](https://github.com/your-org/ai-teams-engine/issues/26)) ([460dbf6](https://github.com/your-org/ai-teams-engine/commit/460dbf6e9f7c99be47852744dc935345a5ec4f15))
+
 ## [3.2.0](https://github.com/your-org/ai-teams-engine/compare/v3.1.3...v3.2.0) (2026-02-01)
 
 
