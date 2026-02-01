@@ -352,6 +352,9 @@ export class ResearchMissionService {
 
     // 3. 获取 Leader 模型信息
     const leaderModel = await this.leaderService.getReasoningModel();
+    this.logger.log(
+      `[createMission] Leader model: ${leaderModel?.modelId || "null"} / ${leaderModel?.modelName || "null"}`,
+    );
 
     // 4. 创建 Mission 记录（状态为 PLANNING）
     const mission = await this.prisma.researchMission.create({
@@ -1187,6 +1190,13 @@ export class ResearchMissionService {
       leaderModel = currentModel?.modelId || currentModel?.modelName || null;
       this.logger.log(
         `[getTeamInfo] Mission ${missionId} has no stored model, using current: ${leaderModel}`,
+      );
+    }
+    // ★ 最终 fallback：从 modelTypeMap 获取默认模型
+    if (!leaderModel) {
+      leaderModel = modelTypeMap.get(AIModelType.CHAT) || null;
+      this.logger.warn(
+        `[getTeamInfo] All model lookups failed for mission ${missionId}, using default: ${leaderModel}`,
       );
     }
 
