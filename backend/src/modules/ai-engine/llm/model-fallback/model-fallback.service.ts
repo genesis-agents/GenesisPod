@@ -85,6 +85,21 @@ const MODEL_SWITCH_ERROR_TYPES = new Set<AIErrorType>([
 ]);
 
 /**
+ * 不可恢复的错误类型 - 模型需要加入黑名单（带 TTL）
+ * 这些错误不会因为重试而自愈，需要人工干预（如更换 API Key）
+ */
+const UNRECOVERABLE_ERROR_TYPES = new Set<AIErrorType>([
+  AIErrorType.INVALID_API_KEY,
+  AIErrorType.INVALID_MODEL,
+]);
+
+/** 不可恢复错误的黑名单持续时间（10 分钟） */
+const UNRECOVERABLE_BLOCK_DURATION_MS = 10 * 60 * 1000;
+
+/** 配额/限速错误的黑名单持续时间（5 分钟） */
+const QUOTA_BLOCK_DURATION_MS = 5 * 60 * 1000;
+
+/**
  * 可重试的错误类型
  */
 const RETRYABLE_ERROR_TYPES = new Set<AIErrorType>([
@@ -137,6 +152,12 @@ export class ModelFallbackService {
   /** 模型优先级配置（可通过 setModelPriority 自定义） */
   private reasoningPriorityPatterns = DEFAULT_REASONING_MODEL_PRIORITY;
   private fastPriorityPatterns = DEFAULT_FAST_MODEL_PRIORITY;
+
+  /** 模型黑名单：modelId → 解除时间戳 */
+  private readonly modelBlocklist = new Map<
+    string,
+    { until: number; reason: string }
+  >();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -223,8 +244,20 @@ export class ModelFallbackService {
         );
       }
 
-      // 3. 转换为 AIModelConfig
-      const result = sortedModels.map((m) => this.toAIModelConfig(m));
+      // 3. 过滤被阻断的模型
+      const unblockedModels = sortedModels.filter((m) => {
+        if (this.isModelBlocked(m.modelId)) {
+          const entry = this.modelBlocklist.get(m.modelId);
+          this.logger.debug(
+            `[getModelFallbackChain] Skipping blocked model ${m.modelId} (${entry?.reason})`,
+          );
+          return false;
+        }
+        return true;
+      });
+
+      // 4. 转换为 AIModelConfig
+      const result = unblockedModels.map((m) => this.toAIModelConfig(m));
 
       this.logger.debug(
         `[getModelFallbackChain] Built fallback chain (${preferReasoning ? "reasoning" : "standard"}): ${result.map((m) => m.modelId).join(" → ")}`,
@@ -354,6 +387,13 @@ export class ModelFallbackService {
             this.logger.log(
               `[${operation}] Error type ${classifiedError.type} requires immediate model switch`,
             );
+            // 不可恢复错误（如 API Key 无效）加入黑名单，避免后续请求重复尝试
+            if (
+              UNRECOVERABLE_ERROR_TYPES.has(classifiedError.type) ||
+              classifiedError.type === AIErrorType.QUOTA_EXCEEDED
+            ) {
+              this.blockModel(currentModelId, classifiedError.type);
+            }
             attemptedModels.push(currentModelId);
             break;
           }
@@ -480,6 +520,38 @@ export class ModelFallbackService {
    */
   isRetryableError(error: AIError): boolean {
     return RETRYABLE_ERROR_TYPES.has(error.type);
+  }
+
+  // ==================== 模型黑名单 ====================
+
+  /**
+   * 检查模型是否被阻断
+   */
+  isModelBlocked(modelId: string): boolean {
+    const entry = this.modelBlocklist.get(modelId);
+    if (!entry) return false;
+    if (Date.now() >= entry.until) {
+      this.modelBlocklist.delete(modelId);
+      this.logger.log(
+        `[modelBlocklist] Model ${modelId} block expired, removed from blocklist`,
+      );
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * 将模型加入黑名单
+   */
+  private blockModel(modelId: string, errorType: AIErrorType): void {
+    const durationMs = UNRECOVERABLE_ERROR_TYPES.has(errorType)
+      ? UNRECOVERABLE_BLOCK_DURATION_MS
+      : QUOTA_BLOCK_DURATION_MS;
+    const until = Date.now() + durationMs;
+    this.modelBlocklist.set(modelId, { until, reason: errorType });
+    this.logger.warn(
+      `[modelBlocklist] Blocked model ${modelId} for ${durationMs / 1000}s due to ${errorType}`,
+    );
   }
 
   // ==================== 私有方法 ====================
