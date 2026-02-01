@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.8](https://github.com/your-org/ai-teams-engine/compare/v3.3.7...v3.3.8) (2026-02-01)
+
+
+### Bug Fixes
+
+* **research:** enhance Leader planning depth, report breadth, and tail dedup ([c9cff16](https://github.com/your-org/ai-teams-engine/commit/c9cff16a31fd3c5efd6484b4b58fd15bb179f0eb))
+
 ### [3.3.7](https://github.com/your-org/ai-teams-engine/compare/v3.3.6...v3.3.7) (2026-02-01)
 
 
