@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.3](https://github.com/your-org/ai-teams-engine/compare/v3.3.2...v3.3.3) (2026-02-01)
+
+
+### Bug Fixes
+
+* **research:** comprehensive business logic audit fixes (C1-C4, H1-H6, M2/M10) ([4d87e2a](https://github.com/your-org/ai-teams-engine/commit/4d87e2a59801ff1795a3ec4f9633f5ca872b77f0))
+
 ### [3.3.2](https://github.com/your-org/ai-teams-engine/compare/v3.3.1...v3.3.2) (2026-02-01)
 
 
