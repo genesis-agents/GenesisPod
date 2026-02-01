@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.7](https://github.com/your-org/ai-teams-engine/compare/v3.3.6...v3.3.7) (2026-02-01)
+
+
+### Bug Fixes
+
+* **research:** fix agent model display by matching tasks via assignedAgent ([ba73d83](https://github.com/your-org/ai-teams-engine/commit/ba73d83cacc9a77f43c548013af2c729e19cda28))
+
 ### [3.3.6](https://github.com/your-org/ai-teams-engine/compare/v3.3.5...v3.3.6) (2026-02-01)
 
 
