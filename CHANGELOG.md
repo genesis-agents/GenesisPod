@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.23](https://github.com/your-org/ai-teams-engine/compare/v3.3.22...v3.3.23) (2026-02-02)
+
+
+### Bug Fixes
+
+* **research:** robust JSON extraction with regex fullText fallback ([f58faf5](https://github.com/your-org/ai-teams-engine/commit/f58faf57fc6b9583ba32c01381d10510fa6a7ee7))
+
 ### [3.3.22](https://github.com/your-org/ai-teams-engine/compare/v3.3.21...v3.3.22) (2026-02-02)
 
 
