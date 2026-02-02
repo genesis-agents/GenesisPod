@@ -17,6 +17,7 @@
     { "filename": "backend/package.json", "type": "json" },
     { "filename": "frontend/package.json", "type": "json" }
   ],
+  "infile": "frontend/CHANGELOG.md",
   "tagPrefix": "v",
   "commitAll": true
 }
