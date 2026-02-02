@@ -688,6 +688,16 @@ export class ReportSynthesisService {
     // 5. 各维度章节（直接使用 detailedContent，但限制长度）
     const MAX_DIMENSION_CHARS = 24000; // 约 8000 中文字（每字约 3 chars）
     const globalSeenParagraphs = new Set<string>();
+
+    // ★ 诊断日志：记录每个维度的内容长度
+    const dimContentLengths = sortedDimensions.map(
+      (d) =>
+        `${d.dimensionName}:${(d.detailedContent || "").length}/${(d.summary || "").length}`,
+    );
+    this.logger.log(
+      `[buildFullReport] Dimension content lengths (detailed/summary): ${dimContentLengths.join(", ")}`,
+    );
+
     sortedDimensions.forEach((dim, idx) => {
       parts.push(`## ${idx + 1}. ${dim.dimensionName}\n`);
 
@@ -1146,8 +1156,27 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
     // 如果都失败，创建一个基础的报告结构
     this.logger.warn(
-      `Failed to parse AI report response: ${extractionResult.error}`,
+      `Failed to parse AI report response (content length: ${content.length}): ${extractionResult.error}`,
     );
+    // ★ 额外尝试：不要求 requiredKey，看能否提取任何 JSON
+    const relaxedResult =
+      extractJsonFromAIResponse<AIReportSynthesisResponse>(content);
+    if (relaxedResult.success && relaxedResult.data) {
+      this.logger.log(
+        `[parseAIReportWithCharts] Relaxed extraction succeeded (method: ${relaxedResult.method}), checking for useful fields`,
+      );
+      const data = relaxedResult.data;
+      if (
+        data.executiveSummary ||
+        data.crossDimensionAnalysis ||
+        data.conclusion
+      ) {
+        return {
+          structuredReport: this.normalizeReportResponse(data),
+          charts: data.charts || [],
+        };
+      }
+    }
     return {
       structuredReport: this.createFallbackReport(content),
       charts: [],
@@ -1492,17 +1521,38 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
   /**
    * 创建后备报告（当 AI 响应解析失败时）
-   * ★ 改进：尝试从原始内容中提取有意义的观点
+   * ★ 改进：尝试从截断的 JSON 中提取个别字段
    */
   private createFallbackReport(content: string): ComprehensiveReport {
-    // 尝试从内容中提取关键观点
+    // ★ 尝试从截断的 JSON 中提取各字段（即使完整 JSON 无法解析）
+    const extracted = this.extractFieldsFromTruncatedJson(content);
+
+    if (extracted) {
+      const hasExecSummary = !!extracted.executiveSummary;
+      const hasCrossDim = !!extracted.crossDimensionAnalysis;
+      const hasConclusion = !!extracted.conclusion;
+      this.logger.log(
+        `[createFallbackReport] Extracted fields from truncated JSON: ` +
+          `execSummary=${hasExecSummary}, crossDim=${hasCrossDim}, conclusion=${hasConclusion}`,
+      );
+      // Route through normalizeReportResponse for proper type handling
+      return this.normalizeReportResponse(
+        extracted as AIReportSynthesisResponse,
+      );
+    }
+
+    // 完全无法提取字段 — 使用纯文本 fallback
     const coreViewpoints = this.extractViewpointsFromContent(content);
 
-    // 尝试提取第一段作为摘要
-    const summaryMatch = content.match(/^[^。！？\n]+[。！？]/);
+    // 从纯文本中提取摘要（跳过 ```json 标记）
+    const plainText = content
+      .replace(/```json\s*/g, "")
+      .replace(/```\s*/g, "")
+      .trim();
+    const summaryMatch = plainText.match(/^[^。！？\n]+[。！？]/);
     const executiveSummary = summaryMatch
       ? summaryMatch[0]
-      : content.slice(0, 500);
+      : plainText.slice(0, 500);
 
     return {
       preface: "",
@@ -1512,8 +1562,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         {
           sectionNumber: "1",
           title: "研究内容",
-          coreViewpoints: coreViewpoints.length > 0 ? coreViewpoints : [], // 不再使用占位符
-          content: content,
+          coreViewpoints: coreViewpoints.length > 0 ? coreViewpoints : [],
+          content: plainText,
           keyData: [],
           figureReferences: [],
         },
@@ -1528,6 +1578,130 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         generatedAt: new Date().toISOString(),
       },
     };
+  }
+
+  /**
+   * 从截断的 JSON 中提取个别字段
+   * 当完整 JSON 解析失败（如 AI 输出被截断）时，尝试逐字段提取已完成的值
+   */
+  private extractFieldsFromTruncatedJson(
+    content: string,
+  ): Partial<AIReportSynthesisResponse> | null {
+    // 定位 JSON 内容（跳过 ```json 标记）
+    let jsonContent = content;
+    const jsonBlockStart = content.indexOf("```json");
+    if (jsonBlockStart !== -1) {
+      jsonContent = content.substring(jsonBlockStart + 7);
+    }
+    const bracePos = jsonContent.indexOf("{");
+    if (bracePos === -1) return null;
+    jsonContent = jsonContent.substring(bracePos);
+
+    // 尝试提取各个顶级字段
+    const result: Record<string, unknown> = {};
+    const fieldsToExtract = [
+      "executiveSummary",
+      "preface",
+      "crossDimensionAnalysis",
+      "riskAssessment",
+      "strategicRecommendations",
+      "conclusion",
+    ];
+
+    let extracted = false;
+    for (const field of fieldsToExtract) {
+      const value = this.extractJsonFieldValue(jsonContent, field);
+      if (value !== null) {
+        result[field] = value;
+        extracted = true;
+      }
+    }
+
+    return extracted ? (result as Partial<AIReportSynthesisResponse>) : null;
+  }
+
+  /**
+   * 从 JSON 字符串中提取特定字段的值
+   * 支持字符串值和对象值（使用 brace counting）
+   */
+  private extractJsonFieldValue(
+    json: string,
+    fieldName: string,
+  ): string | Record<string, unknown> | null {
+    const pattern = new RegExp(`"${fieldName}"\\s*:\\s*`);
+    const match = json.match(pattern);
+    if (!match || match.index === undefined) return null;
+
+    const valueStart = match.index + match[0].length;
+    const firstChar = json[valueStart];
+
+    if (firstChar === '"') {
+      // String value — extract until unescaped closing quote
+      let i = valueStart + 1;
+      let escaped = false;
+      while (i < json.length) {
+        if (escaped) {
+          escaped = false;
+          i++;
+          continue;
+        }
+        if (json[i] === "\\") {
+          escaped = true;
+          i++;
+          continue;
+        }
+        if (json[i] === '"') {
+          // Found closing quote
+          try {
+            return JSON.parse(json.substring(valueStart, i + 1)) as string;
+          } catch {
+            return null;
+          }
+        }
+        i++;
+      }
+      return null; // String was truncated
+    }
+
+    if (firstChar === "{") {
+      // Object value — use brace counting
+      let depth = 0;
+      let inStr = false;
+      let esc = false;
+      for (let i = valueStart; i < json.length; i++) {
+        const ch = json[i];
+        if (esc) {
+          esc = false;
+          continue;
+        }
+        if (ch === "\\") {
+          esc = true;
+          continue;
+        }
+        if (ch === '"') {
+          inStr = !inStr;
+          continue;
+        }
+        if (inStr) continue;
+        if (ch === "{") depth++;
+        else if (ch === "}") {
+          depth--;
+          if (depth === 0) {
+            try {
+              return JSON.parse(json.substring(valueStart, i + 1)) as Record<
+                string,
+                unknown
+              >;
+            } catch {
+              return null;
+            }
+          }
+        }
+      }
+      return null; // Object was truncated
+    }
+
+    return null;
   }
 
   /**
