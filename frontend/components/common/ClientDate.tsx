@@ -13,6 +13,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useI18n } from '@/lib/i18n';
 
 type DateFormat = 'date' | 'time' | 'datetime' | 'relative';
 
@@ -121,13 +122,15 @@ function parseDate(
 export function ClientDate({
   date,
   format = 'datetime',
-  locale = 'zh-CN',
+  locale: localeProp,
   fallback = '-',
   className,
   dateOptions,
   timeOptions,
 }: ClientDateProps) {
-  // 使用 useState 延迟渲染，避免 hydration 不匹配
+  const { locale: i18nLocale } = useI18n();
+  const locale = localeProp || (i18nLocale === 'en' ? 'en-US' : 'zh-CN');
+
   const [mounted, setMounted] = useState(false);
   const [formattedDate, setFormattedDate] = useState<string>(fallback);
 

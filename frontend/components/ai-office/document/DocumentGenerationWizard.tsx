@@ -14,6 +14,7 @@ import {
   type DocumentCategory,
   type DocumentTemplateConfig,
 } from '@/lib/templates/document-templates';
+import { useI18n } from '@/lib/i18n';
 
 interface DocumentGenerationWizardProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export default function DocumentGenerationWizard({
   onGenerate,
   selectedResourceCount,
 }: DocumentGenerationWizardProps) {
+  const { t } = useI18n();
   const [step, setStep] = useState(1);
   const [selectedCategory, setSelectedCategory] =
     useState<DocumentCategory | null>(null);
@@ -91,13 +93,13 @@ export default function DocumentGenerationWizard({
               <Sparkles className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">创建新文档</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                {t('office.documentWizard.createDocument')}
+              </h2>
               <p className="text-sm text-gray-600">
-                基于{' '}
-                <span className="font-semibold text-blue-600">
-                  {selectedResourceCount}
-                </span>{' '}
-                个已选资源
+                {t('office.documentWizard.basedOnResources', {
+                  count: selectedResourceCount,
+                })}
               </p>
             </div>
           </div>
@@ -113,9 +115,15 @@ export default function DocumentGenerationWizard({
         <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
           <div className="mx-auto flex max-w-2xl items-center justify-between">
             {[
-              { num: 1, label: '选择类型' },
-              { num: 2, label: '选择模板' },
-              { num: 3, label: '配置选项' },
+              { num: 1, label: t('office.documentWizard.steps.selectType') },
+              {
+                num: 2,
+                label: t('office.documentWizard.steps.selectTemplate'),
+              },
+              {
+                num: 3,
+                label: t('office.documentWizard.steps.configureOptions'),
+              },
             ].map((s, idx) => (
               <React.Fragment key={s.num}>
                 <div className="flex items-center space-x-2">
@@ -155,10 +163,10 @@ export default function DocumentGenerationWizard({
             <div className="space-y-4">
               <div className="mb-6 text-center">
                 <h3 className="mb-2 text-lg font-semibold text-gray-900">
-                  选择文档类型
+                  {t('office.documentWizard.selectDocumentType')}
                 </h3>
                 <p className="text-sm text-gray-600">
-                  不同类型的文档有不同的结构和风格
+                  {t('office.documentWizard.documentTypeDescription')}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -193,10 +201,10 @@ export default function DocumentGenerationWizard({
             <div className="space-y-4">
               <div className="mb-6 text-center">
                 <h3 className="mb-2 text-lg font-semibold text-gray-900">
-                  选择模板
+                  {t('office.documentWizard.selectTemplate')}
                 </h3>
                 <p className="text-sm text-gray-600">
-                  选择最适合您需求的文档模板
+                  {t('office.documentWizard.selectTemplateDescription')}
                 </p>
               </div>
               <div className="space-y-3">
@@ -218,13 +226,14 @@ export default function DocumentGenerationWizard({
                             {template.name}
                           </h4>
                           <p className="text-xs text-gray-500">
-                            预计生成时间：{template.estimatedTime}
+                            {t('office.documentWizard.estimatedTime')}:{' '}
+                            {template.estimatedTime}
                           </p>
                         </div>
                       </div>
                       {template.supportedExtensions && (
                         <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-700">
-                          支持智能扩展
+                          {t('office.documentWizard.smartExpansionSupported')}
                         </span>
                       )}
                     </div>
@@ -242,7 +251,9 @@ export default function DocumentGenerationWizard({
                       ))}
                       {template.sections.length > 4 && (
                         <span className="text-xs text-gray-500">
-                          +{template.sections.length - 4} 更多
+                          {t('office.documentWizard.moreCount', {
+                            count: template.sections.length - 4,
+                          })}
                         </span>
                       )}
                     </div>
@@ -257,17 +268,17 @@ export default function DocumentGenerationWizard({
             <div className="space-y-6">
               <div className="mb-6 text-center">
                 <h3 className="mb-2 text-lg font-semibold text-gray-900">
-                  配置生成选项
+                  {t('office.documentWizard.configureOptions')}
                 </h3>
                 <p className="text-sm text-gray-600">
-                  自定义文档的详细程度和风格
+                  {t('office.documentWizard.configureOptionsDescription')}
                 </p>
               </div>
 
               {/* 详细程度 */}
               <div>
                 <label className="mb-3 block text-sm font-medium text-gray-700">
-                  详细程度
+                  {t('office.documentWizard.detailLevel')}
                 </label>
                 <div className="grid grid-cols-3 gap-3">
                   {GENERATION_OPTIONS.detailLevel.map((option) => (
@@ -294,7 +305,7 @@ export default function DocumentGenerationWizard({
               {/* 语言风格 */}
               <div>
                 <label className="mb-3 block text-sm font-medium text-gray-700">
-                  语言风格
+                  {t('office.documentWizard.languageStyle')}
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   {GENERATION_OPTIONS.tone.map((option) => (
@@ -322,8 +333,10 @@ export default function DocumentGenerationWizard({
               {selectedTemplate.supportedExtensions && (
                 <div>
                   <label className="mb-3 block text-sm font-medium text-gray-700">
-                    智能资源扩展{' '}
-                    <span className="text-xs text-gray-500">(推荐)</span>
+                    {t('office.documentWizard.smartResourceExpansion')}{' '}
+                    <span className="text-xs text-gray-500">
+                      {t('office.documentWizard.recommended')}
+                    </span>
                   </label>
                   <div className="space-y-2">
                     {GENERATION_OPTIONS.extensionOptions.map((option) => (
@@ -361,16 +374,21 @@ export default function DocumentGenerationWizard({
             className="flex items-center space-x-2 rounded-lg px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200"
           >
             {step === 1 ? (
-              <>取消</>
+              <>{t('common.cancel')}</>
             ) : (
               <>
                 <ChevronLeft className="h-4 w-4" />
-                <span>上一步</span>
+                <span>{t('common.previous')}</span>
               </>
             )}
           </button>
 
-          <div className="text-sm text-gray-500">第 {step} / 3 步</div>
+          <div className="text-sm text-gray-500">
+            {t('office.documentWizard.stepProgress', {
+              current: step,
+              total: 3,
+            })}
+          </div>
 
           <button
             onClick={step === 3 ? handleGenerate : handleNext}
@@ -380,11 +398,11 @@ export default function DocumentGenerationWizard({
             {step === 3 ? (
               <>
                 <Sparkles className="h-4 w-4" />
-                <span>开始生成</span>
+                <span>{t('office.documentWizard.startGeneration')}</span>
               </>
             ) : (
               <>
-                <span>下一步</span>
+                <span>{t('common.next')}</span>
                 <ChevronRight className="h-4 w-4" />
               </>
             )}

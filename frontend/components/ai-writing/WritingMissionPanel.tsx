@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useI18n } from '@/lib/i18n';
 import {
   WritingMission,
   WritingTask,
@@ -36,13 +37,16 @@ export default function WritingMissionPanel({
   onRetry,
   onCancel,
 }: WritingMissionPanelProps) {
+  const { t } = useI18n();
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   if (!mission) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-4 text-center">
         <div className="mb-3 text-4xl">📋</div>
-        <p className="text-sm text-gray-500">选择或创建一个写作任务</p>
+        <p className="text-sm text-gray-500">
+          {t('aiWriting.missionPanel.selectOrCreate')}
+        </p>
       </div>
     );
   }
@@ -82,14 +86,16 @@ export default function WritingMissionPanel({
       {/* 头部 */}
       <div className="border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-800">任务进度</h3>
+          <h3 className="text-sm font-semibold text-gray-800">
+            {t('aiWriting.missionPanel.taskProgress')}
+          </h3>
           <div className="flex gap-2">
             {mission.status === 'FAILED' && onRetry && (
               <button
                 onClick={onRetry}
                 className="rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-600 hover:bg-blue-100"
               >
-                重试
+                {t('aiWriting.missionPanel.retry')}
               </button>
             )}
             {mission.status === 'IN_PROGRESS' && onCancel && (
@@ -97,7 +103,7 @@ export default function WritingMissionPanel({
                 onClick={onCancel}
                 className="rounded-md bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100"
               >
-                取消
+                {t('aiWriting.missionPanel.cancel')}
               </button>
             )}
           </div>
@@ -110,7 +116,9 @@ export default function WritingMissionPanel({
           {failedCount > 0 && (
             <span className="text-red-600">❌ {failedCount}</span>
           )}
-          <span className="text-gray-400">共 {totalCount} 个任务</span>
+          <span className="text-gray-400">
+            {t('aiWriting.missionPanel.totalTasks', { count: totalCount })}
+          </span>
         </div>
 
         {/* 总进度条 */}
@@ -130,7 +138,8 @@ export default function WritingMissionPanel({
           <div className="mt-1 flex justify-between text-xs text-gray-400">
             <span>
               {mission.wordCount.toLocaleString()} /{' '}
-              {mission.targetWordCount.toLocaleString()} 字
+              {mission.targetWordCount.toLocaleString()}{' '}
+              {t('aiWriting.missionPanel.words')}
             </span>
             <span>{Math.round(mission.progress)}%</span>
           </div>
@@ -196,13 +205,13 @@ export default function WritingMissionPanel({
       <div className="border-t border-gray-200 px-4 py-2">
         <div className="flex items-center justify-between text-xs">
           <span className="text-gray-500">
-            阶段:{' '}
+            {t('aiWriting.missionPanel.phaseLabel')}:{' '}
             {mission.phase === 'executing'
-              ? '执行中'
+              ? t('aiWriting.missionPanel.phase.executing')
               : mission.phase === 'reviewing'
-                ? '审核中'
+                ? t('aiWriting.missionPanel.phase.reviewing')
                 : mission.phase === 'completed'
-                  ? '已完成'
+                  ? t('aiWriting.missionPanel.phase.completed')
                   : mission.phase}
           </span>
           <span
@@ -215,11 +224,11 @@ export default function WritingMissionPanel({
             }`}
           >
             {mission.status === 'IN_PROGRESS'
-              ? '进行中'
+              ? t('aiWriting.missionPanel.statusLabels.inProgress')
               : mission.status === 'COMPLETED'
-                ? '已完成'
+                ? t('aiWriting.missionPanel.phase.completed')
                 : mission.status === 'FAILED'
-                  ? '失败'
+                  ? t('aiWriting.missionPanel.statusLabels.failed')
                   : mission.status}
           </span>
         </div>

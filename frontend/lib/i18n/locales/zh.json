@@ -1420,6 +1420,45 @@
       "targetAudience": "目标读者",
       "targetAudiencePlaceholder": "例如：青少年、普通读者",
       "create": "创建项目"
+    },
+    "canvas": {
+      "agents": {
+        "storyArchitect": "故事架构师",
+        "bibleKeeper": "设定守护者",
+        "writer": "作家",
+        "consistencyChecker": "检查员",
+        "editor": "编辑"
+      },
+      "status": {
+        "inProgress": "进行中",
+        "completed": "已完成",
+        "pending": "待开始"
+      },
+      "downloadPdfReport": "下载PDF报告",
+      "writingTask": "写作任务",
+      "chaptersCompleted": "章完成",
+      "createTask": "创建任务",
+      "continueTask": "继续任务",
+      "cancelTask": "取消任务",
+      "taskPanel": "任务面板"
+    },
+    "missionPanel": {
+      "selectOrCreate": "选择或创建一个写作任务",
+      "taskProgress": "任务进度",
+      "retry": "重试",
+      "cancel": "取消",
+      "totalTasks": "共 {{count}} 个任务",
+      "words": "字",
+      "phase": {
+        "executing": "执行中",
+        "reviewing": "审核中",
+        "completed": "已完成"
+      },
+      "phaseLabel": "阶段",
+      "statusLabels": {
+        "inProgress": "进行中",
+        "failed": "失败"
+      }
     }
   },
   "aiSimulation": {
@@ -1453,6 +1492,17 @@
     },
     "confirm": {
       "delete": "确认删除场景「{{name}}」？此操作不可恢复。"
+    },
+    "scenarioCard": {
+      "editScenario": "编辑场景配置",
+      "deleteScenario": "删除场景",
+      "statusRunning": "运行中",
+      "statusCompleted": "已完成",
+      "statusPaused": "已暂停",
+      "statusNotRunning": "未运行",
+      "companies": "公司",
+      "roles": "角色",
+      "round": "第 {{round}} 回合"
     }
   },
   "aiSocial": {
@@ -4831,6 +4881,57 @@
         "eitherWorks": "两者均可",
         "recommendation": "综合建议"
       }
+    }
+  },
+  "office": {
+    "slides": {
+      "agents": {
+        "leader": "让 Leader 分发任务给团队",
+        "analyst": "让分析师分析内容",
+        "writer": "让写手修改或重写内容",
+        "reviewer": "让审核员检查质量",
+        "team": "通知整个团队"
+      },
+      "me": "我",
+      "system": "系统",
+      "copyLogs": "复制日志",
+      "conversation": "对话",
+      "messages": "条",
+      "noConversations": "暂无对话",
+      "cancelGeneration": "取消生成",
+      "outline": "大纲",
+      "pages": "页",
+      "generating": "生成中...",
+      "completed": "已完成",
+      "inputPlaceholder": "输入 @ 选择Agent对话...",
+      "continue": "继续执行",
+      "sendMessage": "发送消息",
+      "dataPoints": "数据点",
+      "keyInsights": "关键洞察"
+    },
+    "documentWizard": {
+      "createDocument": "创建新文档",
+      "basedOnResources": "基于 {{count}} 个已选资源",
+      "steps": {
+        "selectType": "选择类型",
+        "selectTemplate": "选择模板",
+        "configureOptions": "配置选项"
+      },
+      "selectDocumentType": "选择文档类型",
+      "documentTypeDescription": "不同类型的文档有不同的结构和风格",
+      "selectTemplate": "选择模板",
+      "selectTemplateDescription": "选择最适合您需求的文档模板",
+      "estimatedTime": "预计生成时间",
+      "smartExpansionSupported": "支持智能扩展",
+      "moreCount": "+{{count}} 更多",
+      "configureOptions": "配置生成选项",
+      "configureOptionsDescription": "自定义文档的详细程度和风格",
+      "detailLevel": "详细程度",
+      "languageStyle": "语言风格",
+      "smartResourceExpansion": "智能资源扩展",
+      "recommended": "(推荐)",
+      "stepProgress": "第 {{current}} / {{total}} 步",
+      "startGeneration": "开始生成"
     }
   }
 }

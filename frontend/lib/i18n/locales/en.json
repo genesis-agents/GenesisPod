@@ -1416,6 +1416,45 @@
       "targetAudience": "Target Audience",
       "targetAudiencePlaceholder": "e.g., Young adults, general readers",
       "create": "Create Project"
+    },
+    "canvas": {
+      "agents": {
+        "storyArchitect": "Story Architect",
+        "bibleKeeper": "Setting Guardian",
+        "writer": "Writer",
+        "consistencyChecker": "Inspector",
+        "editor": "Editor"
+      },
+      "status": {
+        "inProgress": "In Progress",
+        "completed": "Completed",
+        "pending": "Pending"
+      },
+      "downloadPdfReport": "Download PDF Report",
+      "writingTask": "Writing Task",
+      "chaptersCompleted": "chapters completed",
+      "createTask": "Create Task",
+      "continueTask": "Continue Task",
+      "cancelTask": "Cancel Task",
+      "taskPanel": "Task Panel"
+    },
+    "missionPanel": {
+      "selectOrCreate": "Select or create a writing task",
+      "taskProgress": "Task Progress",
+      "retry": "Retry",
+      "cancel": "Cancel",
+      "totalTasks": "{{count}} tasks total",
+      "words": "words",
+      "phase": {
+        "executing": "Executing",
+        "reviewing": "Reviewing",
+        "completed": "Completed"
+      },
+      "phaseLabel": "Phase",
+      "statusLabels": {
+        "inProgress": "In Progress",
+        "failed": "Failed"
+      }
     }
   },
   "aiSimulation": {
@@ -1449,6 +1488,17 @@
     },
     "confirm": {
       "delete": "Are you sure you want to delete scenario \"{{name}}\"? This action cannot be undone."
+    },
+    "scenarioCard": {
+      "editScenario": "Edit scenario",
+      "deleteScenario": "Delete scenario",
+      "statusRunning": "Running",
+      "statusCompleted": "Completed",
+      "statusPaused": "Paused",
+      "statusNotRunning": "Not running",
+      "companies": "Companies",
+      "roles": "Roles",
+      "round": "Round {{round}}"
     }
   },
   "aiSocial": {
@@ -2858,7 +2908,36 @@
       "profile": "Profile",
       "settings": "Settings",
       "stats": "Statistics",
+      "apiKeys": "API Keys",
       "integrations": "Integrations"
+    },
+    "apiKeys": {
+      "infoBanner": "Configure your own API Key to use your quota (0 credits consumption), or donate your Key to the shared pool to earn credit rewards.",
+      "configured": "Configured",
+      "donated": "Donated",
+      "statusNotConfigured": "Not configured",
+      "statusPersonal": "Personal use",
+      "statusDonated": "Donated",
+      "manage": "Manage",
+      "configure": "Configure",
+      "usageMode": "Usage mode",
+      "modePersonal": "Personal",
+      "modePersonalDesc": "For your own use only, 0 credits consumption",
+      "modeDonated": "Donate to shared pool",
+      "modeDonatedDesc": "Contribute to all users, earn 5,000 credits + ongoing rewards",
+      "donationNote": "Your Key will be added to the shared pool for all users. In return, you will earn 5,000 credits, plus an additional 2 credits each time another user uses it. You can withdraw your donation at any time.",
+      "advancedSettings": "Advanced settings",
+      "customEndpoint": "Custom API endpoint",
+      "testConnection": "Test connection",
+      "save": "Save",
+      "delete": "Delete",
+      "withdrawDonation": "Withdraw donation",
+      "enterKey": "Enter your API Key...",
+      "enterNewKey": "Enter new key to update...",
+      "callsContributed": "Contributed {count} calls",
+      "saveFailed": "Failed to save API Key",
+      "deleteFailed": "Failed to delete API Key",
+      "withdrawFailed": "Failed to withdraw donation"
     },
     "profilePicture": "Profile Picture",
     "managedByGoogle": "Profile picture is managed by Google",
@@ -3303,12 +3382,6 @@
       "leaderPlanning": "Leader is planning research dimensions...",
       "leaderPlanReadyWithDimensions": "Leader planning complete: {{count}} research dimensions",
       "agentWorking": "{{agent}} working",
-      "taskLabel": "Task",
-      "startResearchingDot": "Starting research...",
-      "researchProgressPercent": "Research Progress {{progress}}%",
-      "writerAgent": "Writer",
-      "startWritingResearchReport": "Starting to write research report...",
-      "researchReportWritingComplete": "Research report writing completed",
       "teamCollaborationHint": "During the research process, the AI team's collaboration dynamics will be displayed here in real-time",
       "realTimeConnected": "Real-time connection established",
       "waitingForConnectionLabel": "Waiting for connection...",
@@ -4005,6 +4078,57 @@
       "unknownSource": "Unknown source",
       "viewFullSource": "View full source →",
       "openOriginal": "Open original ↗"
+    }
+  },
+  "office": {
+    "slides": {
+      "agents": {
+        "leader": "Have Leader distribute tasks to team",
+        "analyst": "Have analyst analyze content",
+        "writer": "Have writer modify or rewrite content",
+        "reviewer": "Have reviewer check quality",
+        "team": "Notify entire team"
+      },
+      "me": "Me",
+      "system": "System",
+      "copyLogs": "Copy Logs",
+      "conversation": "Conversation",
+      "messages": "messages",
+      "noConversations": "No conversations yet",
+      "cancelGeneration": "Cancel Generation",
+      "outline": "Outline",
+      "pages": "pages",
+      "generating": "Generating...",
+      "completed": "Completed",
+      "inputPlaceholder": "Type @ to select an agent...",
+      "continue": "Continue",
+      "sendMessage": "Send message",
+      "dataPoints": "Data Points",
+      "keyInsights": "Key Insights"
+    },
+    "documentWizard": {
+      "createDocument": "Create New Document",
+      "basedOnResources": "Based on {{count}} selected resources",
+      "steps": {
+        "selectType": "Select Type",
+        "selectTemplate": "Select Template",
+        "configureOptions": "Configure Options"
+      },
+      "selectDocumentType": "Select Document Type",
+      "documentTypeDescription": "Different document types have different structures and styles",
+      "selectTemplate": "Select Template",
+      "selectTemplateDescription": "Select the template that best fits your needs",
+      "estimatedTime": "Estimated time",
+      "smartExpansionSupported": "Smart expansion supported",
+      "moreCount": "+{{count}} more",
+      "configureOptions": "Configure Generation Options",
+      "configureOptionsDescription": "Customize document detail level and style",
+      "detailLevel": "Detail Level",
+      "languageStyle": "Language Style",
+      "smartResourceExpansion": "Smart Resource Expansion",
+      "recommended": "(Recommended)",
+      "stepProgress": "Step {{current}} / {{total}}",
+      "startGeneration": "Start Generating"
     }
   }
 }

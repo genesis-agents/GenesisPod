@@ -11,12 +11,13 @@
  */
 
 import { useMemo } from 'react';
+import { useI18n } from '@/lib/i18n';
 
 // Agent 配置 - 匹配 AI Teams Canvas 风格
-const WRITING_AGENTS = [
+const getWritingAgents = (t: (key: string) => string) => [
   {
     id: 'story-architect',
-    name: '故事架构师',
+    name: t('aiWriting.canvas.agents.storyArchitect'),
     role: 'leader',
     icon: '📐',
     bgColor: '#8B5CF6', // violet
@@ -24,7 +25,7 @@ const WRITING_AGENTS = [
   },
   {
     id: 'bible-keeper',
-    name: '设定守护者',
+    name: t('aiWriting.canvas.agents.bibleKeeper'),
     role: 'member',
     icon: '📚',
     bgColor: '#6366F1', // indigo
@@ -32,7 +33,7 @@ const WRITING_AGENTS = [
   },
   {
     id: 'writer',
-    name: '作家',
+    name: t('aiWriting.canvas.agents.writer'),
     role: 'member',
     icon: '✍️',
     bgColor: '#F59E0B', // amber
@@ -40,7 +41,7 @@ const WRITING_AGENTS = [
   },
   {
     id: 'consistency-checker',
-    name: '检查员',
+    name: t('aiWriting.canvas.agents.consistencyChecker'),
     role: 'member',
     icon: '🔍',
     bgColor: '#10B981', // green
@@ -48,7 +49,7 @@ const WRITING_AGENTS = [
   },
   {
     id: 'editor',
-    name: '编辑',
+    name: t('aiWriting.canvas.agents.editor'),
     role: 'member',
     icon: '📝',
     bgColor: '#EC4899', // pink
@@ -96,9 +97,11 @@ export default function WritingCanvas({
   onClose,
   embedded = false,
 }: WritingCanvasProps) {
+  const { t } = useI18n();
+
   // 计算各 Agent 状态
   const agentStatuses = useMemo(() => {
-    return WRITING_AGENTS.map((agent) => {
+    return getWritingAgents(t).map((agent) => {
       const isActive = activeAgentIds.includes(agent.id);
       const isCompleted = progress >= 100;
       return {
@@ -107,7 +110,7 @@ export default function WritingCanvas({
         isCompleted,
       };
     });
-  }, [activeAgentIds, progress]);
+  }, [activeAgentIds, progress, t]);
 
   // 统计信息
   const stats = useMemo(() => {
@@ -142,7 +145,11 @@ export default function WritingCanvas({
                   : 'bg-slate-100 text-slate-600'
             }`}
           >
-            {isRunning ? '进行中' : progress >= 100 ? '已完成' : '待开始'}
+            {isRunning
+              ? t('aiWriting.canvas.status.inProgress')
+              : progress >= 100
+                ? t('aiWriting.canvas.status.completed')
+                : t('aiWriting.canvas.status.pending')}
           </span>
         </div>
 
@@ -191,7 +198,7 @@ export default function WritingCanvas({
                 d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
               />
             </svg>
-            下载PDF报告
+            {t('aiWriting.canvas.downloadPdfReport')}
           </button>
 
           {!embedded && onClose && (
@@ -222,11 +229,12 @@ export default function WritingCanvas({
         {/* Mission Title */}
         <div className="mt-12 text-center">
           <h3 className="text-xl font-semibold text-slate-700">
-            {currentStep || '写作任务'}
+            {currentStep || t('aiWriting.canvas.writingTask')}
           </h3>
           <p className="mt-1 text-sm text-slate-400">
-            {stats.completedChapters}/{stats.totalChapters} 章完成 ·{' '}
-            {stats.totalWords.toLocaleString()} 字
+            {stats.completedChapters}/{stats.totalChapters}{' '}
+            {t('aiWriting.canvas.chaptersCompleted')} ·{' '}
+            {stats.totalWords.toLocaleString()} {t('aiWriting.unit.words')}
           </p>
         </div>
 
@@ -389,7 +397,7 @@ export default function WritingCanvas({
           className="flex items-center gap-2 rounded-lg bg-violet-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span>+</span>
-          创建任务
+          {t('aiWriting.canvas.createTask')}
         </button>
         <button
           disabled={!isRunning}
@@ -408,7 +416,7 @@ export default function WritingCanvas({
               d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
             />
           </svg>
-          继续任务
+          {t('aiWriting.canvas.continueTask')}
         </button>
         <button
           disabled={!isRunning}
@@ -427,7 +435,7 @@ export default function WritingCanvas({
               d="M6 18L18 6M6 6l12 12"
             />
           </svg>
-          取消任务
+          {t('aiWriting.canvas.cancelTask')}
         </button>
         <button className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
           <svg
@@ -443,7 +451,7 @@ export default function WritingCanvas({
               d="M4 6h16M4 10h16M4 14h16M4 18h16"
             />
           </svg>
-          任务面板
+          {t('aiWriting.canvas.taskPanel')}
         </button>
       </div>
     </div>

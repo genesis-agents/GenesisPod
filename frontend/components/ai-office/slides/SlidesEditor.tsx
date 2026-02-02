@@ -34,6 +34,7 @@ import {
 import { cn } from '@/lib/utils/common';
 import { useSlidesStore } from '@/stores';
 import { formatDateSafe } from '@/lib/utils/date';
+import { useI18n } from '@/lib/i18n';
 import type {
   PageOutline,
   GenerationProgress,
@@ -64,40 +65,35 @@ export interface ToolCallItem {
   timestamp: Date;
 }
 
-// ★ @ Mention 选项定义
-const MENTION_OPTIONS = [
+// ★ @ Mention 选项定义 (descriptions will be translated dynamically)
+const MENTION_OPTIONS_BASE = [
   {
     id: 'leader',
     label: '@leader',
-    description: '让 Leader 分发任务给团队',
     icon: Crown,
     color: 'text-amber-500',
   },
   {
     id: 'analyst',
     label: '@analyst',
-    description: '让分析师分析内容',
     icon: Search,
     color: 'text-blue-500',
   },
   {
     id: 'writer',
     label: '@writer',
-    description: '让写手修改或重写内容',
     icon: PenTool,
     color: 'text-green-500',
   },
   {
     id: 'reviewer',
     label: '@reviewer',
-    description: '让审核员检查质量',
     icon: CheckCircle,
     color: 'text-purple-500',
   },
   {
     id: 'team',
     label: '@team',
-    description: '通知整个团队',
     icon: Users,
     color: 'text-orange-500',
   },
@@ -126,6 +122,7 @@ export function ConversationPanel({
   outlinePlan,
   teamState,
 }: ConversationPanelProps) {
+  const { t } = useI18n();
   const [inputValue, setInputValue] = useState('');
   const [outlineExpanded, setOutlineExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -138,6 +135,16 @@ export function ConversationPanel({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { streamEvents, selectedPageIndex, setSelectedPageIndex } =
     useSlidesStore();
+
+  // ★ @ Mention options with translated descriptions
+  const MENTION_OPTIONS = React.useMemo(
+    () =>
+      MENTION_OPTIONS_BASE.map((option) => ({
+        ...option,
+        description: t(`office.slides.agents.${option.id}`),
+      })),
+    [t]
+  );
 
   // 提取对话消息
   const chatMessages = React.useMemo(() => {
@@ -161,7 +168,7 @@ export function ConversationPanel({
         items.push({
           id: `${event.type}-${timestamp.getTime()}-${index}`,
           role: 'user',
-          author: '我',
+          author: t('office.slides.me'),
           message: String(data.message),
           timestamp,
         });
@@ -173,7 +180,7 @@ export function ConversationPanel({
         items.push({
           id: `${event.type}-${timestamp.getTime()}-${index}`,
           role: 'system',
-          author: String(data.source || '系统'),
+          author: String(data.source || t('office.slides.system')),
           message: String(data.message),
           timestamp,
         });
@@ -363,7 +370,7 @@ export function ConversationPanel({
             'rounded p-1.5 text-slate-500 transition-colors hover:bg-slate-700 hover:text-slate-300',
             copied && 'text-green-400'
           )}
-          title="复制日志"
+          title={t('office.slides.copyLogs')}
         >
           {copied ? (
             <CheckCircle2 className="h-4 w-4" />
@@ -378,15 +385,17 @@ export function ConversationPanel({
         {/* 对话记录 */}
         <div className="border-b border-slate-200 bg-white p-3">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-600">对话</span>
+            <span className="text-xs font-medium text-slate-600">
+              {t('office.slides.conversation')}
+            </span>
             <span className="text-[10px] text-slate-400">
-              {chatMessages.length} 条
+              {chatMessages.length} {t('office.slides.messages')}
             </span>
           </div>
           <div className="space-y-2">
             {chatMessages.length === 0 ? (
               <div className="py-2 text-center text-xs text-slate-400">
-                暂无对话
+                {t('office.slides.noConversations')}
               </div>
             ) : (
               chatMessages.map((msg) => (
@@ -447,7 +456,7 @@ export function ConversationPanel({
                 className="flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
               >
                 <X className="h-3.5 w-3.5" />
-                取消生成
+                {t('office.slides.cancelGeneration')}
               </button>
             </div>
           )}
@@ -460,7 +469,8 @@ export function ConversationPanel({
                 className="flex w-full items-center gap-2 text-left text-xs font-medium text-slate-700"
               >
                 <FileText className="h-3.5 w-3.5 text-blue-500" />
-                大纲 ({outlinePlan.pages.length} 页)
+                {t('office.slides.outline')} ({outlinePlan.pages.length}{' '}
+                {t('office.slides.pages')})
                 <ChevronDown
                   className={cn(
                     'ml-auto h-3.5 w-3.5 transition-transform',
@@ -495,12 +505,12 @@ export function ConversationPanel({
                       {generating ? (
                         <div className="flex items-center justify-center gap-1.5 rounded bg-orange-100 py-1 text-xs font-medium text-orange-700">
                           <Loader2 className="h-3 w-3 animate-spin" />
-                          生成中...
+                          {t('office.slides.generating')}
                         </div>
                       ) : (
                         <div className="flex items-center justify-center gap-1.5 rounded bg-green-100 py-1 text-xs font-medium text-green-700">
                           <CheckCircle2 className="h-3 w-3" />
-                          已完成
+                          {t('office.slides.completed')}
                         </div>
                       )}
                     </div>
@@ -557,7 +567,7 @@ export function ConversationPanel({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入 @ 选择Agent对话..."
+            placeholder={t('office.slides.inputPlaceholder')}
             rows={2}
             className="max-h-32 min-h-[56px] flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
           />
@@ -566,7 +576,7 @@ export function ConversationPanel({
               if (inputValue.trim()) {
                 handleSend();
               } else {
-                onSendMessage('@leader 继续执行');
+                onSendMessage(`@leader ${t('office.slides.continue')}`);
               }
             }}
             className={cn(
@@ -575,7 +585,11 @@ export function ConversationPanel({
                 ? 'bg-orange-500 text-white hover:bg-orange-600'
                 : 'bg-green-500 text-white hover:bg-green-600'
             )}
-            title={inputValue.trim() ? '发送消息' : '继续执行'}
+            title={
+              inputValue.trim()
+                ? t('office.slides.sendMessage')
+                : t('office.slides.continue')
+            }
           >
             {inputValue.trim() ? (
               <Send className="h-5 w-5" />
@@ -594,6 +608,7 @@ export function ConversationPanel({
 // ============================================================================
 
 export function ToolCallCard({ call }: { call: ToolCallItem }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const hasDetails = call.content || call.details;
 
@@ -654,7 +669,7 @@ export function ToolCallCard({ call }: { call: ToolCallItem }) {
         {details.dataPoints && details.dataPoints.length > 0 && (
           <div>
             <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
-              数据点
+              {t('office.slides.dataPoints')}
             </div>
             <div className="space-y-1">
               {details.dataPoints.map((dp, i) => (
@@ -674,7 +689,7 @@ export function ToolCallCard({ call }: { call: ToolCallItem }) {
         {details.insights && details.insights.length > 0 && (
           <div>
             <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
-              关键洞察
+              {t('office.slides.keyInsights')}
             </div>
             <div className="space-y-1">
               {details.insights.map((insight, i) => (
