@@ -108,6 +108,9 @@ infra/oci/terraform/*.tfplan
 !.edgeone/project.json
 .tef_dist/*
   
+# Generated files
+frontend/lib/generated/
+
 # UI Patrol outputs (generated, not checked in)
 .ui-patrol/screenshots/
 .ui-patrol/reports/
