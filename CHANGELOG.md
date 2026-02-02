@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.30](https://github.com/your-org/ai-teams-engine/compare/v3.3.29...v3.3.30) (2026-02-02)
+
+
+### Bug Fixes
+
+* **research:** respect topic language setting in section writing ([3ae67b4](https://github.com/your-org/ai-teams-engine/commit/3ae67b4f8c9ef0c670e85cdefe04fc30dc8bda83))
+
 ### [3.3.29](https://github.com/your-org/ai-teams-engine/compare/v3.3.28...v3.3.29) (2026-02-02)
 
 
