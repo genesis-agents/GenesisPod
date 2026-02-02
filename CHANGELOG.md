@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.27](https://github.com/your-org/ai-teams-engine/compare/v3.3.26...v3.3.27) (2026-02-02)
+
+
+### Bug Fixes
+
+* **ui:** fix changelog page scrollbar overflow ([c471d0e](https://github.com/your-org/ai-teams-engine/commit/c471d0e36c6185d6a75ed78518ecb391a12a9b25))
+
 ### [3.3.26](https://github.com/your-org/ai-teams-engine/compare/v3.3.25...v3.3.26) (2026-02-02)
 
 
