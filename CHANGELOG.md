@@ -2,6 +2,14 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.25](https://github.com/your-org/ai-teams-engine/compare/v3.3.24...v3.3.25) (2026-02-02)
+
+
+### Bug Fixes
+
+* **research:** strip leaked CHARTS JSON from report + clickable chart citations ([851a50d](https://github.com/your-org/ai-teams-engine/commit/851a50de0f388c238a6705da5130aade1a2a0b01))
+* **ui:** show sidebar on changelog page ([8efa0eb](https://github.com/your-org/ai-teams-engine/commit/8efa0eb5fb7d0ffc79732fae8923a17e3742a3b7))
+
 ### [3.3.24](https://github.com/your-org/ai-teams-engine/compare/v3.3.23...v3.3.24) (2026-02-02)
 
 
