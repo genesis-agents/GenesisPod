@@ -47,6 +47,36 @@ import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
 import { ResearchReviewerService } from "../collaboration/research-reviewer.service";
 import type { DimensionAnalysisResult } from "../../types/research.types";
 import type { ResearchDepth } from "../../types/v5-research.types";
+
+/** Shape of ResearchTask.result (Prisma Json field) for dimension_research tasks */
+interface TaskResultJson {
+  summary?: string;
+  content?: string;
+  reportId?: string;
+  analysisResult?: {
+    summary?: string;
+    keyFindings?: Array<
+      string | { finding: string; title?: string; significance?: string }
+    >;
+  };
+  keyFindings?: Array<
+    | string
+    | {
+        finding: string;
+        title?: string;
+        significance?: string;
+        evidenceIds?: string[];
+      }
+  >;
+  trends?: DimensionAnalysisResult["trends"];
+  challenges?: DimensionAnalysisResult["challenges"];
+  opportunities?: DimensionAnalysisResult["opportunities"];
+  evidenceUsed?: number;
+  confidenceLevel?: string;
+  detailedContent?: string;
+  figureReferences?: DimensionAnalysisResult["figureReferences"];
+  generatedCharts?: DimensionAnalysisResult["generatedCharts"];
+}
 import { resolveResearchDepthConfig } from "../../types/v5-research.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
@@ -1888,6 +1918,7 @@ export class ResearchMissionService {
         missionId,
       );
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- result shape varies by taskType, stored as Prisma JSON
       let result: any;
 
       switch (task.taskType) {
@@ -1903,13 +1934,15 @@ export class ResearchMissionService {
 
           // ★ 优先使用 dimensionId 查找（更可靠）
           let dimension = task.dimensionId
-            ? topic.dimensions?.find((d: any) => d.id === task.dimensionId)
+            ? topic.dimensions?.find(
+                (d: TopicDimension) => d.id === task.dimensionId,
+              )
             : null;
 
           // 回退：按名称查找
           if (!dimension && task.dimensionName) {
             dimension = topic.dimensions?.find(
-              (d: any) => d.name === task.dimensionName,
+              (d: TopicDimension) => d.name === task.dimensionName,
             );
           }
 
@@ -2060,7 +2093,7 @@ export class ResearchMissionService {
               // 收集所有维度研究的摘要作为证据
               const evidenceSummary = completedTasks
                 .map((t) => {
-                  const taskResult = t.result as any;
+                  const taskResult = t.result as TaskResultJson;
                   return (
                     taskResult?.summary ||
                     taskResult?.analysisResult?.summary ||
@@ -2075,7 +2108,7 @@ export class ResearchMissionService {
               const allClaims: import("../../types/v5-research.types").ExtractedClaim[] =
                 [];
               for (const t of completedTasks) {
-                const taskResult = t.result as any;
+                const taskResult = t.result as TaskResultJson;
                 const findings =
                   taskResult?.keyFindings ||
                   taskResult?.analysisResult?.keyFindings ||
@@ -2090,8 +2123,10 @@ export class ResearchMissionService {
                         : f.finding || f.title || JSON.stringify(f),
                     sectionId: t.dimensionId || t.id,
                     sourceEvidenceIndices: [],
-                    importance:
-                      (typeof f === "object" && f.significance) || "medium",
+                    importance: (() => {
+                      const sig = typeof f === "object" && f.significance;
+                      return sig === "high" || sig === "low" ? sig : "medium";
+                    })(),
                   });
                 }
               }
@@ -2333,23 +2368,28 @@ export class ResearchMissionService {
 
           for (const dimTask of dimensionTasks) {
             if (dimTask.result && dimTask.dimensionId) {
-              const taskResult = dimTask.result as any;
+              const taskResult = dimTask.result as TaskResultJson;
               try {
                 await this.reportSynthesisService.saveDimensionAnalysis(
                   reportId, // ★ 使用已有的 reportId
                   dimTask.dimensionId,
                   {
                     summary: taskResult.summary || "无摘要",
-                    keyFindings: taskResult.keyFindings || [],
-                    trends: taskResult.trends || [],
-                    challenges: taskResult.challenges || [],
-                    opportunities: taskResult.opportunities || [],
+                    keyFindings: (taskResult.keyFindings ||
+                      []) as DimensionAnalysisResult["keyFindings"],
+                    trends: (taskResult.trends ||
+                      []) as DimensionAnalysisResult["trends"],
+                    challenges: (taskResult.challenges ||
+                      []) as DimensionAnalysisResult["challenges"],
+                    opportunities: (taskResult.opportunities ||
+                      []) as DimensionAnalysisResult["opportunities"],
                     evidenceUsed: taskResult.evidenceUsed || 0,
                     confidenceLevel: taskResult.confidenceLevel || "medium",
                     detailedContent: taskResult.detailedContent || "",
-                    // ★ 新增：保存图表引用和生成图表
-                    figureReferences: taskResult.figureReferences || [],
-                    generatedCharts: taskResult.generatedCharts || [],
+                    figureReferences: (taskResult.figureReferences ||
+                      []) as DimensionAnalysisResult["figureReferences"],
+                    generatedCharts: (taskResult.generatedCharts ||
+                      []) as DimensionAnalysisResult["generatedCharts"],
                   },
                 );
                 this.logger.log(
@@ -2377,7 +2417,7 @@ export class ResearchMissionService {
           if (depthConfig.factCheckEnabled) {
             this.logger.log(`[V5] Running fact-check (depth=${missionDepth})`);
             try {
-              const reportContent = (result as any)?.content || "";
+              const reportContent = (result as TaskResultJson)?.content || "";
               const evidenceForFactCheck =
                 await this.prisma.topicEvidence.findMany({
                   where: { reportId },

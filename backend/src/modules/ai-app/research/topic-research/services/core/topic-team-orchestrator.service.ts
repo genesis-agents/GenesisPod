@@ -298,7 +298,7 @@ export class TopicTeamOrchestratorService {
               dimensionId: dim.id,
               dimensionName: dim.name,
               assignedAgent: `Researcher-${dim.name}`,
-              status: ResearchTaskStatus.EXECUTING,
+              status: ResearchTaskStatus.PENDING,
               progress: 0,
               priority: 500,
             },

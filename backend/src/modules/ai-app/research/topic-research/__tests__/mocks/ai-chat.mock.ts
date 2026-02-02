@@ -156,6 +156,31 @@ export function createMockAiEngineFacade() {
       modelId: "gpt-4o-mini",
       modelName: "GPT-4o Mini",
     }),
+
+    getAvailableModels: jest.fn().mockResolvedValue([
+      {
+        id: "gpt-4o-mini",
+        name: "GPT-4o Mini",
+        provider: "openai",
+        isAvailable: true,
+      },
+    ]),
+
+    getAvailableModelsExtended: jest.fn().mockResolvedValue([
+      {
+        id: "gpt-4o-mini",
+        name: "GPT-4o Mini",
+        provider: "openai",
+        isAvailable: true,
+      },
+    ]),
+
+    getReasoningModel: jest.fn().mockResolvedValue({
+      id: "deepseek-r1",
+      name: "DeepSeek R1",
+      provider: "deepseek",
+      isReasoning: true,
+    }),
   };
 }
 

@@ -50,11 +50,27 @@ import {
   FigureExtractorService,
   ReportValidationService,
   ReportEditorService,
+  // ★ Leader sub-services
+  LeaderPlanningService,
+  LeaderReviewService,
+  LeaderChatService,
   // ★ Facade sub-services
   TopicCrudService,
   TopicDimensionService,
   TopicExportService,
   TopicScheduleService,
+  MissionQueryService,
+  MissionLifecycleService,
+  MissionExecutionService,
+  // ★ Data sub-services
+  DataSourceFetcherService,
+  DataSourceStrategyService,
+  // ★ Dimension sub-services
+  DimensionSearchService,
+  DimensionWritingService,
+  // ★ Report sub-services
+  ReportGeneratorService,
+  ReportDataService,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
 
@@ -69,6 +85,9 @@ const services = [
   EvidenceManagementService,
   ResearchLeaderService,
   ResearchMissionService,
+  MissionQueryService,
+  MissionLifecycleService,
+  MissionExecutionService,
   TopicCollaboratorService,
   ResearchEventEmitterService,
   DimensionMissionService,
@@ -89,11 +108,24 @@ const services = [
   FigureExtractorService,
   ReportValidationService,
   ReportEditorService,
+  // ★ Leader sub-services
+  LeaderPlanningService,
+  LeaderReviewService,
+  LeaderChatService,
   // ★ Facade sub-services
   TopicCrudService,
   TopicDimensionService,
   TopicExportService,
   TopicScheduleService,
+  // ★ Data sub-services
+  DataSourceFetcherService,
+  DataSourceStrategyService,
+  // ★ Dimension sub-services
+  DimensionSearchService,
+  DimensionWritingService,
+  // ★ Report sub-services
+  ReportGeneratorService,
+  ReportDataService,
 ];
 
 @Module({

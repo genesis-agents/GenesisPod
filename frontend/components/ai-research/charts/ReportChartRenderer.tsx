@@ -61,17 +61,32 @@ interface ReportChartRendererProps {
 }
 
 /**
+ * 从 chart metadata 提取单系列的有意义标签
+ */
+function getSingleSeriesLabel(chart: ReportChart): string {
+  if (chart.yAxis?.label) return chart.yAxis.label;
+  if (chart.title) {
+    // 去掉括号及其内容（如 "GDP增长率（%）" → "GDP增长率"）
+    return chart.title.replace(/[（(][^）)]*[）)]/g, '').trim();
+  }
+  return 'value';
+}
+
+/**
  * 转换数据为 Recharts 格式
  */
-function transformData(data: ChartDataPoint[]): Record<string, unknown>[] {
+function transformData(
+  data: ChartDataPoint[],
+  seriesLabel = 'value'
+): Record<string, unknown>[] {
   // 检查是否有多系列数据
   const hasSeries = data.some((d) => d.series);
 
   if (!hasSeries) {
-    // 单系列数据
+    // 单系列数据 - 使用动态 label 作为 key
     return data.map((d) => ({
       name: d.label,
-      value: d.value,
+      [seriesLabel]: d.value,
       ...d.extra,
     }));
   }
@@ -109,9 +124,11 @@ function getSeriesNames(data: ChartDataPoint[]): string[] {
 function LineChartComponent({
   chart,
   data,
+  seriesLabel,
 }: {
   chart: ReportChart;
   data: Record<string, unknown>[];
+  seriesLabel: string;
 }) {
   const chartData = chart.data || [];
   const seriesNames = getSeriesNames(chartData);
@@ -164,7 +181,7 @@ function LineChartComponent({
         ) : (
           <Line
             type="monotone"
-            dataKey="value"
+            dataKey={seriesLabel}
             stroke={CHART_COLORS[0]}
             strokeWidth={2}
             dot={{ r: 4 }}
@@ -182,9 +199,11 @@ function LineChartComponent({
 function BarChartComponent({
   chart,
   data,
+  seriesLabel,
 }: {
   chart: ReportChart;
   data: Record<string, unknown>[];
+  seriesLabel: string;
 }) {
   const chartData = chart.data || [];
   const seriesNames = getSeriesNames(chartData);
@@ -232,7 +251,11 @@ function BarChartComponent({
             />
           ))
         ) : (
-          <Bar dataKey="value" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
+          <Bar
+            dataKey={seriesLabel}
+            fill={CHART_COLORS[0]}
+            radius={[4, 4, 0, 0]}
+          />
         )}
       </BarChart>
     </ResponsiveContainer>
@@ -245,9 +268,11 @@ function BarChartComponent({
 function AreaChartComponent({
   chart,
   data,
+  seriesLabel,
 }: {
   chart: ReportChart;
   data: Record<string, unknown>[];
+  seriesLabel: string;
 }) {
   const chartData = chart.data || [];
   const seriesNames = getSeriesNames(chartData);
@@ -293,7 +318,7 @@ function AreaChartComponent({
         ) : (
           <Area
             type="monotone"
-            dataKey="value"
+            dataKey={seriesLabel}
             stroke={CHART_COLORS[0]}
             fill={CHART_COLORS[0]}
             fillOpacity={0.3}
@@ -309,16 +334,18 @@ function AreaChartComponent({
  */
 function PieChartComponent({
   data,
+  seriesLabel,
 }: {
   chart: ReportChart;
   data: Record<string, unknown>[];
+  seriesLabel: string;
 }) {
   return (
     <ResponsiveContainer width="100%" height={300}>
       <PieChart>
         <Pie
           data={data}
-          dataKey="value"
+          dataKey={seriesLabel}
           nameKey="name"
           cx="50%"
           cy="50%"
@@ -353,9 +380,11 @@ function PieChartComponent({
  */
 function RadarChartComponent({
   data,
+  seriesLabel,
 }: {
   chart: ReportChart;
   data: Record<string, unknown>[];
+  seriesLabel: string;
 }) {
   return (
     <ResponsiveContainer width="100%" height={300}>
@@ -364,7 +393,7 @@ function RadarChartComponent({
         <PolarAngleAxis dataKey="name" tick={{ fontSize: 12 }} />
         <PolarRadiusAxis tick={{ fontSize: 10 }} />
         <Radar
-          dataKey="value"
+          dataKey={seriesLabel}
           stroke={CHART_COLORS[0]}
           fill={CHART_COLORS[0]}
           fillOpacity={0.5}
@@ -519,7 +548,11 @@ export function ReportChartRenderer({
   const chartData = chart.data || [];
   const chartType = chart.type || 'bar';
 
-  const transformedData = useMemo(() => transformData(chartData), [chartData]);
+  const seriesLabel = useMemo(() => getSingleSeriesLabel(chart), [chart]);
+  const transformedData = useMemo(
+    () => transformData(chartData, seriesLabel),
+    [chartData, seriesLabel]
+  );
 
   // 生成唯一 ID 用于 aria 属性
   const chartId = useMemo(
@@ -565,32 +598,59 @@ export function ReportChartRenderer({
     switch (chartType) {
       case 'line':
         return (
-          <LineChartComponent chart={chartWithData} data={transformedData} />
+          <LineChartComponent
+            chart={chartWithData}
+            data={transformedData}
+            seriesLabel={seriesLabel}
+          />
         );
       case 'bar':
         return (
-          <BarChartComponent chart={chartWithData} data={transformedData} />
+          <BarChartComponent
+            chart={chartWithData}
+            data={transformedData}
+            seriesLabel={seriesLabel}
+          />
         );
       case 'area':
         return (
-          <AreaChartComponent chart={chartWithData} data={transformedData} />
+          <AreaChartComponent
+            chart={chartWithData}
+            data={transformedData}
+            seriesLabel={seriesLabel}
+          />
         );
       case 'pie':
         return (
-          <PieChartComponent chart={chartWithData} data={transformedData} />
+          <PieChartComponent
+            chart={chartWithData}
+            data={transformedData}
+            seriesLabel={seriesLabel}
+          />
         );
       case 'radar':
         return (
-          <RadarChartComponent chart={chartWithData} data={transformedData} />
+          <RadarChartComponent
+            chart={chartWithData}
+            data={transformedData}
+            seriesLabel={seriesLabel}
+          />
         );
       case 'composed':
-        // 组合图使用柱状图+折线图
         return (
-          <BarChartComponent chart={chartWithData} data={transformedData} />
+          <BarChartComponent
+            chart={chartWithData}
+            data={transformedData}
+            seriesLabel={seriesLabel}
+          />
         );
       default:
         return (
-          <BarChartComponent chart={chartWithData} data={transformedData} />
+          <BarChartComponent
+            chart={chartWithData}
+            data={transformedData}
+            seriesLabel={seriesLabel}
+          />
         );
     }
   };

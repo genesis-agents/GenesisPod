@@ -394,7 +394,7 @@ export class DataSourceRouterService {
   ): DataSourceType[] {
     // 从 dimension.searchSources 解析数据源
     // searchSources 是 JSON 数组,例如: ["web", "academic", "github"]
-    const searchSources = dimension.searchSources as any;
+    const searchSources = dimension.searchSources as string[] | null;
 
     if (!searchSources || !Array.isArray(searchSources)) {
       this.logger.warn(

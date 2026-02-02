@@ -29,7 +29,7 @@ import {
   UpdateScheduleDto,
   ListLogsDto,
 } from "./dto";
-import { AIModelType } from "@prisma/client";
+import { AIModelType, AnnotationStatus, AnnotationType } from "@prisma/client";
 import type { RefreshProgressEvent } from "./services/core/topic-team-orchestrator.service";
 import {
   TopicTeamOrchestratorService,
@@ -665,18 +665,18 @@ export class TopicResearchService {
    * 转换报告数据以适配前端接口
    * ★ 同时清理AI生成内容中的HTML标签和Markdown格式问题
    */
-  private transformReportForFrontend(report: any) {
+  private transformReportForFrontend(report: Record<string, unknown> | null) {
     if (!report) return report;
 
     // ★ 清理报告级别的内容字段（HTML标签 + 下划线等格式问题）
     if (report.executiveSummary) {
       report.executiveSummary = sanitizeMarkdownContent(
-        cleanHtmlTagsFromContent(report.executiveSummary) || "",
+        cleanHtmlTagsFromContent(report.executiveSummary as string) || "",
       );
     }
     if (report.fullReport) {
       report.fullReport = sanitizeMarkdownContent(
-        cleanHtmlTagsFromContent(report.fullReport) || "",
+        cleanHtmlTagsFromContent(report.fullReport as string) || "",
       );
     }
 
@@ -688,72 +688,92 @@ export class TopicResearchService {
         return sanitizeMarkdownContent(cleanHtmlTagsFromContent(content) || "");
       };
 
-      report.dimensionAnalyses = report.dimensionAnalyses.map(
-        (analysis: any) => {
-          const dataPoints = analysis.dataPoints as {
-            trends?: any[];
-            challenges?: any[];
-            opportunities?: any[];
-            confidenceLevel?: string;
-            detailedContent?: string;
-          } | null;
+      interface DataPointsShape {
+        trends?: Record<string, unknown>[];
+        challenges?: Record<string, unknown>[];
+        opportunities?: Record<string, unknown>[];
+        confidenceLevel?: string;
+        detailedContent?: string;
+      }
 
-          // ★ 清理维度分析中的文本内容（HTML标签 + 下划线等格式问题）
-          const cleanedAnalysis = cleanAndSanitize(analysis.analysis);
-          const cleanedSummary = cleanAndSanitize(analysis.summary);
-          const cleanedDetailedContent = cleanAndSanitize(
-            dataPoints?.detailedContent,
-          );
+      interface KeyFindingShape {
+        finding?: string;
+        implication?: string;
+        [key: string]: unknown;
+      }
 
-          // ★ 清理 keyFindings 中的文本
-          const cleanedKeyFindings =
-            analysis.keyFindings?.map((kf: any) => ({
-              ...kf,
-              finding: cleanAndSanitize(kf.finding),
-              implication: cleanAndSanitize(kf.implication),
-            })) || [];
+      interface AnalysisShape {
+        analysis?: string;
+        summary?: string;
+        dataPoints?: DataPointsShape | null;
+        keyFindings?: KeyFindingShape[];
+        [key: string]: unknown;
+      }
 
-          // ★ 清理趋势、挑战、机会中的文本
-          const cleanedTrends = (dataPoints?.trends || []).map((t: any) => ({
+      report.dimensionAnalyses = (
+        report.dimensionAnalyses as AnalysisShape[]
+      ).map((analysis: AnalysisShape) => {
+        const dataPoints = analysis.dataPoints as DataPointsShape | null;
+
+        // ★ 清理维度分析中的文本内容（HTML标签 + 下划线等格式问题）
+        const cleanedAnalysis = cleanAndSanitize(analysis.analysis);
+        const cleanedSummary = cleanAndSanitize(analysis.summary);
+        const cleanedDetailedContent = cleanAndSanitize(
+          dataPoints?.detailedContent,
+        );
+
+        // ★ 清理 keyFindings 中的文本
+        const cleanedKeyFindings =
+          analysis.keyFindings?.map((kf: KeyFindingShape) => ({
+            ...kf,
+            finding: cleanAndSanitize(kf.finding),
+            implication: cleanAndSanitize(kf.implication),
+          })) || [];
+
+        // ★ 清理趋势、挑战、机会中的文本
+        const cleanedTrends = (dataPoints?.trends || []).map(
+          (t: Record<string, unknown>) => ({
             ...t,
-            trend: cleanAndSanitize(t.trend),
-            drivers: cleanAndSanitize(t.drivers),
-            prediction: cleanAndSanitize(t.prediction),
-          }));
+            trend: cleanAndSanitize(t.trend as string),
+            drivers: cleanAndSanitize(t.drivers as string),
+            prediction: cleanAndSanitize(t.prediction as string),
+          }),
+        );
 
-          const cleanedChallenges = (dataPoints?.challenges || []).map(
-            (c: any) => ({
-              ...c,
-              challenge: cleanAndSanitize(c.challenge),
-              rootCause: cleanAndSanitize(c.rootCause),
-              impact: cleanAndSanitize(c.impact),
-              potentialSolutions: cleanAndSanitize(c.potentialSolutions),
-            }),
-          );
+        const cleanedChallenges = (dataPoints?.challenges || []).map(
+          (c: Record<string, unknown>) => ({
+            ...c,
+            challenge: cleanAndSanitize(c.challenge as string),
+            rootCause: cleanAndSanitize(c.rootCause as string),
+            impact: cleanAndSanitize(c.impact as string),
+            potentialSolutions: cleanAndSanitize(
+              c.potentialSolutions as string,
+            ),
+          }),
+        );
 
-          const cleanedOpportunities = (dataPoints?.opportunities || []).map(
-            (o: any) => ({
-              ...o,
-              opportunity: cleanAndSanitize(o.opportunity),
-              potential: cleanAndSanitize(o.potential),
-              requirements: cleanAndSanitize(o.requirements),
-            }),
-          );
+        const cleanedOpportunities = (dataPoints?.opportunities || []).map(
+          (o: Record<string, unknown>) => ({
+            ...o,
+            opportunity: cleanAndSanitize(o.opportunity as string),
+            potential: cleanAndSanitize(o.potential as string),
+            requirements: cleanAndSanitize(o.requirements as string),
+          }),
+        );
 
-          return {
-            ...analysis,
-            analysis: cleanedAnalysis,
-            summary: cleanedSummary,
-            keyFindings: cleanedKeyFindings,
-            // 从 dataPoints 提取到顶层（已清理）
-            trends: cleanedTrends,
-            challenges: cleanedChallenges,
-            opportunities: cleanedOpportunities,
-            confidenceLevel: dataPoints?.confidenceLevel || null,
-            detailedContent: cleanedDetailedContent,
-          };
-        },
-      );
+        return {
+          ...analysis,
+          analysis: cleanedAnalysis,
+          summary: cleanedSummary,
+          keyFindings: cleanedKeyFindings,
+          // 从 dataPoints 提取到顶层（已清理）
+          trends: cleanedTrends,
+          challenges: cleanedChallenges,
+          opportunities: cleanedOpportunities,
+          confidenceLevel: dataPoints?.confidenceLevel || null,
+          detailedContent: cleanedDetailedContent,
+        };
+      });
     }
 
     return report;
@@ -1237,14 +1257,26 @@ export class TopicResearchService {
       throw new NotFoundException("Report not found");
     }
 
-    return this.reportAnnotationService.getAnnotations(reportId, status as any);
+    return this.reportAnnotationService.getAnnotations(
+      reportId,
+      status as AnnotationStatus | undefined,
+    );
   }
 
   async createAnnotation(
     userId: string,
     topicId: string,
     reportId: string,
-    dto: any,
+    dto: {
+      content: string;
+      type: AnnotationType;
+      selectedText?: string;
+      startOffset: number;
+      endOffset: number;
+      selectorPrefix?: string;
+      selectorSuffix?: string;
+      color?: string;
+    },
   ) {
     // 验证专题读取权限（公开专题的所有登录用户都可以创建批注）
     await this.verifyTopicReadAccess(userId, topicId);
@@ -1263,7 +1295,7 @@ export class TopicResearchService {
     topicId: string,
     reportId: string,
     annotationId: string,
-    dto: any,
+    dto: { content?: string; status?: AnnotationStatus },
   ) {
     // 验证专题读取权限
     await this.verifyTopicReadAccess(userId, topicId);

@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
+  NotFoundException,
   Param,
   Post,
   Query,
@@ -43,6 +45,8 @@ import type { RequestWithUser } from "../../../../../common/types/express-reques
 @Controller("topic-research")
 @UseGuards(JwtAuthGuard)
 export class MissionController {
+  private readonly logger = new Logger(MissionController.name);
+
   constructor(
     private readonly topicResearchService: TopicResearchService,
     private readonly missionService: ResearchMissionService,
@@ -108,7 +112,7 @@ export class MissionController {
     // 获取当前 Mission
     const mission = await this.missionService.getMissionByTopicId(id);
     if (!mission) {
-      throw new Error("No active mission for this topic");
+      throw new NotFoundException("No active mission for this topic");
     }
     return this.leaderService.handleUserMessage(id, mission.id, dto.content);
   }
@@ -231,11 +235,13 @@ export class MissionController {
         // 任务将通过 Mission 的调度器统一处理
         // 异步调度新创建的 TODO（不阻塞响应）
         this.todoService.scheduleTodo(topicId, todo.id).catch((err: Error) => {
-          console.error(`[leaderChat] Schedule TODO failed: ${err.message}`);
+          this.logger.error(
+            `[leaderChat] Schedule TODO failed: ${err.message}`,
+          );
         });
       } catch (error) {
         // 继续返回响应，但标记 TODO 创建失败
-        console.error(`Failed to create TODO: ${error}`);
+        this.logger.error(`Failed to create TODO: ${error}`);
       }
     }
 
@@ -327,7 +333,7 @@ export class MissionController {
     // ★ 权限检查已由 TopicAccessGuard 完成
     const mission = await this.missionService.getMissionByTopicId(id);
     if (!mission) {
-      throw new Error("No mission found for this topic");
+      throw new NotFoundException("No mission found for this topic");
     }
     if (dto.taskIds?.length) {
       // 重试指定任务
@@ -504,7 +510,7 @@ export class MissionController {
     }
     const mission = await this.missionService.getMissionByTopicId(id);
     if (!mission) {
-      throw new Error("No active mission for this topic");
+      throw new NotFoundException("No active mission for this topic");
     }
     return this.missionService.adjustMission(userId, mission.id, dto);
   }
@@ -534,7 +540,7 @@ export class MissionController {
     }
     const mission = await this.missionService.getMissionByTopicId(id);
     if (!mission) {
-      throw new Error("No active mission for this topic");
+      throw new NotFoundException("No active mission for this topic");
     }
     return this.missionService.cancelMission(userId, mission.id);
   }

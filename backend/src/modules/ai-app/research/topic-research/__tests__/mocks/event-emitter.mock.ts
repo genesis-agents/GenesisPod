@@ -76,6 +76,11 @@ export function createMockResearchEventEmitter() {
 
     // Handler registration
     registerEmitHandler: jest.fn(),
+
+    // Message persistence
+    saveUserMessage: jest.fn().mockResolvedValue(undefined),
+    getTeamMessages: jest.fn().mockResolvedValue([]),
+    getAgentActivities: jest.fn().mockResolvedValue([]),
   };
 }
 
@@ -91,6 +96,8 @@ export function createMockAgentActivityService() {
     getActivitiesForMission: jest.fn().mockResolvedValue([]),
     getActivitiesForTopic: jest.fn().mockResolvedValue([]),
     getLatestActivityForAgent: jest.fn().mockResolvedValue(null),
+    recordDimensionReview: jest.fn().mockResolvedValue(undefined),
+    recordOverallReview: jest.fn().mockResolvedValue(undefined),
   };
 }
 

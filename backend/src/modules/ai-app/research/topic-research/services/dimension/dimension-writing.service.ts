@@ -1,19 +1,13 @@
 /**
- * Dimension Mission Service
+ * Dimension Writing Service
  *
- * 维度研究的 Mission 协调器
+ * 负责维度研究的写作和整合阶段（Phase 2 & 3）
  *
  * 核心职责：
- * 1. 调用 Leader 规划维度分析大纲
- * 2. 按照大纲创建章节任务
- * 3. 调用 Agent 写作各章节
- * 4. 调用 Leader 审核各章节（支持多轮修订）
- * 5. 调用 Leader 整合最终结果
- *
- * 解决的问题：
- * - 避免单次 LLM 调用生成超长内容导致截断
- * - 充分发挥 Leader-Agent 协作机制
- * - 支持多轮质量审核
+ * 1. Agent 写作各章节（按依赖关系并行执行）
+ * 2. Leader 审核各章节（多轮修订）
+ * 3. Leader 整合最终结果
+ * 4. 保存证据和生成分析结果
  */
 
 import { Injectable, Logger, forwardRef, Inject } from "@nestjs/common";
@@ -29,20 +23,14 @@ import {
   type SectionWriteResult,
   type TemporalContext,
 } from "./section-writer.service";
-import { DataSourceRouterService } from "../data/data-source-router.service";
 import { ResearchEventEmitterService } from "../core/research-event-emitter.service";
-import {
-  AgentActivityService,
-  type ThinkingPhase,
-} from "../monitoring/agent-activity.service";
+import { AgentActivityService } from "../monitoring/agent-activity.service";
+import type { ThinkingPhase } from "../monitoring/agent-activity.service";
 import {
   type DimensionOutline,
   type SectionPlan,
   type IntegratedDimensionResult,
 } from "../../types/leader.types";
-import { type SearchResultsRecord } from "../../types/monitoring.types";
-import { DataEnrichmentService } from "../data/data-enrichment.service";
-import { LeaderToolService } from "../data/leader-tool.service";
 import type {
   EvidenceData,
   DimensionAnalysisResult,
@@ -54,16 +42,12 @@ import type {
   Opportunity,
 } from "../../types/research.types";
 import { AgentActivityType } from "@prisma/client";
-import {
-  getCurrentDateString,
-  getFreshnessRequirementDescription,
-} from "../../prompts/dimension-research.prompt";
-import { AICapabilityContext } from "@/modules/ai-engine/capabilities/ai-capability-resolver.service";
+import type { SearchPhaseResult } from "./dimension-search.service";
 
 /**
- * 维度 Mission 执行结果
+ * 维度写作阶段执行结果
  */
-export interface DimensionMissionResult {
+export interface DimensionWritingResult {
   success: boolean;
   dimensionId: string;
   analysisResult?: DimensionAnalysisResult;
@@ -72,591 +56,22 @@ export interface DimensionMissionResult {
   sectionResults?: SectionWriteResult[];
   integratedResult?: IntegratedDimensionResult;
   error?: string;
-  actualModelId?: string; // ★ 实际使用的模型
-  /** V5: 提取的事实断言（用于后续验证） */
+  actualModelId?: string;
   extractedClaims?: import("../../types/v5-research.types").ExtractedClaim[];
 }
 
-/**
- * Mission 执行进度
- */
-export interface MissionProgress {
-  stage:
-    | "planning"
-    | "writing"
-    | "reviewing"
-    | "integrating"
-    | "completed"
-    | "failed";
-  sectionsTotal: number;
-  sectionsCompleted: number;
-  currentSection?: string;
-  message: string;
-}
-
-/**
- * 搜索阶段结果（Phase 1）
- */
-export interface SearchPhaseResult {
-  dimensionId: string;
-  dimensionName: string;
-  enrichedResults: import("../../types/research.types").EnrichedResult[];
-  evidenceData: EnrichedEvidenceData[];
-  evidenceSummary: string;
-  searchResultsRecord: SearchResultsRecord;
-  temporalContext: TemporalContext;
-  figuresSummary: string;
-  leaderContextSummary: string;
-  /** Phase 1 使用的模型、工具、技能（便于 Phase 3 调试） */
-  modelId?: string;
-  assignedTools?: string[];
-  assignedSkills?: string[];
-  /** V5: 验证上下文（注入到写作 prompt） */
-  validationContext?: string;
-}
-
 @Injectable()
-export class DimensionMissionService {
-  private readonly logger = new Logger(DimensionMissionService.name);
+export class DimensionWritingService {
+  private readonly logger = new Logger(DimensionWritingService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => ResearchLeaderService))
     private readonly leaderService: ResearchLeaderService,
     private readonly sectionWriter: SectionWriterService,
-    private readonly dataSourceRouter: DataSourceRouterService,
     private readonly eventEmitter: ResearchEventEmitterService,
     private readonly agentActivity: AgentActivityService,
-    private readonly dataEnrichment: DataEnrichmentService,
-    private readonly leaderTool: LeaderToolService,
   ) {}
-
-  /**
-   * 执行搜索阶段（Phase 1）
-   *
-   * 职责：
-   * 1. 执行搜索并收集资料
-   * 2. 数据增强和图表提取
-   * 3. 生成证据摘要和时间上下文
-   * 4. Leader 主动搜索补充上下文
-   *
-   * @param topic 研究专题
-   * @param dimension 研究维度
-   * @param missionId 任务ID（可选，用于持久化团队消息）
-   * @param modelId Leader 分配的模型 ID
-   * @param taskId 研究任务ID（可选，用于前端精确匹配进度更新）
-   * @param assignedTools Leader 分配的工具
-   * @param assignedSkills Leader 分配的技能
-   * @returns 搜索阶段结果
-   */
-  async executeSearchPhase(
-    topic: ResearchTopic,
-    dimension: TopicDimension,
-    missionId?: string,
-    modelId?: string,
-    taskId?: string,
-    assignedTools?: string[],
-    assignedSkills?: string[],
-  ): Promise<SearchPhaseResult> {
-    const dimId = dimension.id.slice(0, 8);
-    const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
-
-    this.logger.log(
-      `${logPrefix} Starting search phase (topicId=${topic.id.slice(0, 8)})${modelId ? `, model: ${modelId}` : ""}`,
-    );
-
-    // Update dimension status to RESEARCHING
-    await this.prisma.topicDimension.update({
-      where: { id: dimension.id },
-      data: { status: DimensionStatus.RESEARCHING },
-    });
-
-    const researcherAgentId = `researcher_${dimId}`;
-    const researcherAgentName = "研究员";
-    const effectiveMissionId = missionId || dimension.id;
-
-    // Suppress unused variable warnings - these are used in the search phase
-    void researcherAgentId;
-    void researcherAgentName;
-
-    // 1. 获取搜索结果
-    this.emitProgress(
-      topic.id,
-      dimension.name,
-      {
-        stage: "planning",
-        sectionsTotal: 0,
-        sectionsCompleted: 0,
-        message: "正在收集资料...",
-      },
-      missionId,
-      5,
-      taskId,
-    );
-
-    await this.agentActivity.startThinkingPhase({
-      topicId: topic.id,
-      missionId: effectiveMissionId,
-      dimensionId: dimension.id,
-      dimensionName: dimension.name,
-      agentId: researcherAgentId,
-      agentName: researcherAgentName,
-      agentRole: "researcher",
-      activityType: AgentActivityType.RESEARCHING,
-      phase: "searching",
-      content: `正在为维度「${dimension.name}」收集资料...`,
-      progress: 0,
-      thinkingPhase: "searching" as ThinkingPhase,
-      thinkingContent: `搜索关键词: ${Array.isArray(dimension.searchQueries) ? dimension.searchQueries.join(", ") : dimension.name}`,
-    });
-
-    const searchResult = await this.dataSourceRouter.fetchDataForDimension(
-      dimension,
-      topic,
-      {
-        assignedTools,
-        assignedSkills,
-      },
-    );
-
-    this.logger.log(
-      `${logPrefix} Search completed: ${searchResult.items.length} sources found`,
-    );
-
-    // 2. 数据增强
-    const topicConfig = topic.topicConfig as Record<string, unknown> | null;
-    const enrichmentTopN = (topicConfig?.enrichmentTopN as number) || 5;
-    const enrichmentMaxLength =
-      (topicConfig?.enrichmentMaxLength as number) || 3000;
-    const enableFigures = topicConfig?.enableFigures !== false;
-
-    this.logger.log(
-      `${logPrefix} Enriching search results (topN=${enrichmentTopN}, enableFigures=${enableFigures})...`,
-    );
-    const enrichedResults = await this.dataEnrichment.enrichSearchResults(
-      searchResult.items,
-      {
-        topN: enrichmentTopN,
-        maxContentLength: enrichmentMaxLength,
-        enableFigures,
-      },
-    );
-
-    const enrichmentStats =
-      this.dataEnrichment.getEnrichmentStats(enrichedResults);
-    this.logger.log(
-      `${logPrefix} Enrichment: ${enrichmentStats.fetched}/${enrichmentStats.total} fetched, ` +
-        `${enrichmentStats.validUrls} valid URLs, avg ${enrichmentStats.avgContentLength} chars`,
-    );
-
-    if (enrichmentStats.invalidUrls > 0) {
-      this.logger.warn(
-        `${logPrefix} Found ${enrichmentStats.invalidUrls} invalid URLs (404/error pages)`,
-      );
-    }
-
-    // 3. 计算时效性信息
-    const publishedDates = enrichedResults
-      .map((item) => {
-        if (!item.publishedAt) return null;
-        const d =
-          item.publishedAt instanceof Date
-            ? item.publishedAt
-            : new Date(item.publishedAt);
-        return !isNaN(d.getTime()) ? d : null;
-      })
-      .filter((d): d is Date => d !== null)
-      .sort((a, b) => b.getTime() - a.getTime());
-
-    const freshnessInfo =
-      publishedDates.length > 0
-        ? {
-            newestDate: publishedDates[0]?.toISOString(),
-            oldestDate:
-              publishedDates[publishedDates.length - 1]?.toISOString(),
-            avgAgeInDays: Math.round(
-              publishedDates.reduce(
-                (sum, d) =>
-                  sum + (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24),
-                0,
-              ) / publishedDates.length,
-            ),
-          }
-        : undefined;
-
-    const usedSources = [
-      ...new Set((searchResult.sources || []).map((s) => String(s))),
-    ].join(", ");
-
-    const knowledgeBaseResults = searchResult.items.filter(
-      (item) =>
-        String(item.sourceType).toLowerCase() === "local" ||
-        (item.metadata as Record<string, unknown>)?.knowledgeBaseSource,
-    );
-    const knowledgeBaseIds = (topicConfig?.knowledgeBaseIds as string[]) || [];
-    const knowledgeBaseInfo =
-      knowledgeBaseIds.length > 0
-        ? {
-            enabled: true,
-            knowledgeBaseIds,
-            matchedCount: knowledgeBaseResults.length,
-            avgSimilarity:
-              knowledgeBaseResults.length > 0
-                ? knowledgeBaseResults.reduce(
-                    (sum, item) =>
-                      sum +
-                      (((item.metadata as Record<string, unknown>)
-                        ?.similarity as number) || 0),
-                    0,
-                  ) / knowledgeBaseResults.length
-                : undefined,
-          }
-        : undefined;
-
-    if (knowledgeBaseInfo?.matchedCount && knowledgeBaseInfo.matchedCount > 0) {
-      this.logger.log(
-        `${logPrefix} ★ Knowledge base used! Matched ${knowledgeBaseInfo.matchedCount} results ` +
-          `from ${knowledgeBaseIds.length} knowledge bases. Avg similarity: ${knowledgeBaseInfo.avgSimilarity?.toFixed(2) || "N/A"}`,
-      );
-    }
-
-    const searchResultsRecord: SearchResultsRecord = {
-      total: searchResult.items.length,
-      filtered: enrichedResults.length,
-      searchTool: usedSources || "web",
-      query: searchResult.metadata?.searchQuery || dimension.name,
-      searchedAt: new Date().toISOString(),
-      freshnessInfo,
-      knowledgeBaseInfo,
-      sources: enrichedResults.slice(0, 20).map((item) => {
-        let publishedDate: string | undefined;
-        if (item.publishedAt) {
-          try {
-            const d =
-              item.publishedAt instanceof Date
-                ? item.publishedAt
-                : new Date(item.publishedAt);
-            if (!isNaN(d.getTime())) {
-              publishedDate = d.toISOString();
-            }
-          } catch (error) {
-            this.logger.debug(
-              `[recordSearchActivity] Failed to parse publishedAt: ${error}`,
-            );
-          }
-        }
-        const metadata = item.metadata as Record<string, unknown> | undefined;
-        const isKnowledgeBase =
-          String(item.sourceType).toLowerCase() === "local" ||
-          metadata?.knowledgeBaseSource === true;
-        return {
-          title: item.title || "未知标题",
-          url: item.url || "",
-          domain: item.domain,
-          sourceType: String(item.sourceType),
-          publishedDate,
-          isKnowledgeBase,
-          similarity: isKnowledgeBase
-            ? (metadata?.similarity as number | undefined)
-            : undefined,
-          documentId: isKnowledgeBase
-            ? (metadata?.documentId as string | undefined)
-            : undefined,
-        };
-      }),
-    };
-
-    await this.agentActivity.endThinkingPhase(
-      topic.id,
-      researcherAgentId,
-      "searching" as ThinkingPhase,
-      {
-        searchResults: searchResultsRecord,
-        finalContent: `搜索完成，找到 ${searchResult.items.length} 条资料，${enrichmentStats.fetched} 条已增强完整内容`,
-      },
-    );
-
-    await this.eventEmitter.emitAgentWorking(
-      topic.id,
-      {
-        agentId: researcherAgentId,
-        agentName: researcherAgentName,
-        agentRole: "researcher",
-        status: "working",
-        taskDescription: `维度「${dimension.name}」搜索完成：${searchResultsRecord.searchTool || "网络"} 找到 ${searchResultsRecord.total} 条${searchResultsRecord.knowledgeBaseInfo?.matchedCount ? `，知识库匹配 ${searchResultsRecord.knowledgeBaseInfo.matchedCount} 条` : ""}`,
-        dimensionId: dimension.id,
-        dimensionName: dimension.name,
-        progress: 20,
-        modelId,
-        searchResults: searchResultsRecord,
-      },
-      effectiveMissionId,
-    );
-
-    // 4. 生成时间上下文
-    const searchTimeRange =
-      (topicConfig?.searchTimeRange as string) || undefined;
-    const temporalContext: TemporalContext = {
-      currentDate: getCurrentDateString(),
-      freshnessRequirement: getFreshnessRequirementDescription(searchTimeRange),
-    };
-
-    this.logger.log(
-      `${logPrefix} Temporal context: ${temporalContext.currentDate}, ${searchTimeRange || "default"}`,
-    );
-
-    // 5. Leader 主动搜索获取额外上下文
-    const leaderAgentId = "leader-" + dimId;
-    const leaderCapabilityContext: AICapabilityContext = {
-      agentId: leaderAgentId,
-      domain: "research",
-      roleId: "research-leader",
-      userId: topic.userId || undefined,
-    };
-
-    let leaderContextSummary = "";
-    try {
-      const leaderContext =
-        await this.leaderTool.generateEnhancedPlanningContext(
-          {
-            topicName: topic.name,
-            topicDescription: topic.description || undefined,
-            dimensionName: dimension.name,
-            searchTimeRange,
-          },
-          leaderCapabilityContext,
-        );
-      leaderContextSummary = leaderContext.contextSummary;
-      this.logger.log(
-        `${logPrefix} Leader gathered additional context: ${leaderContextSummary.length} chars`,
-      );
-    } catch (error) {
-      this.logger.warn(
-        `${logPrefix} Leader context gathering failed (non-fatal): ${error}`,
-      );
-    }
-
-    // 6. 准备证据数据
-    const evidenceData = this.prepareEnrichedEvidenceData(enrichedResults);
-    const evidenceSummary =
-      this.createEvidenceSummary(evidenceData) +
-      (leaderContextSummary ? `\n\n## 最新背景\n${leaderContextSummary}` : "");
-
-    const figuresSummary = this.buildFiguresSummary(
-      evidenceData as EnrichedEvidenceData[],
-    );
-    if (figuresSummary) {
-      this.logger.log(
-        `${logPrefix} Figures summary for Leader: ${figuresSummary.split("\n").length - 1} figures available`,
-      );
-    }
-
-    return {
-      dimensionId: dimension.id,
-      dimensionName: dimension.name,
-      enrichedResults,
-      evidenceData: evidenceData as EnrichedEvidenceData[],
-      evidenceSummary,
-      searchResultsRecord,
-      temporalContext,
-      figuresSummary,
-      leaderContextSummary,
-      modelId,
-      assignedTools,
-      assignedSkills,
-    };
-  }
-
-  /**
-   * 执行维度研究 Mission
-   *
-   * 完整流程：
-   * 1. Leader 规划大纲
-   * 2. Agent 写作各章节（可并行）
-   * 3. Leader 审核各章节（多轮修订）
-   * 4. Leader 整合最终结果
-   *
-   * @param topic 研究专题
-   * @param dimension 研究维度
-   * @param reportId 报告ID（可选，用于关联证据）
-   * @param missionId 任务ID（可选，用于持久化团队消息）
-   * @param modelId ★ Leader 分配给此维度研究员的模型 ID（实现多元化）
-   * @param taskId ★ 研究任务ID（可选，用于前端精确匹配进度更新）
-   * @returns Mission 执行结果
-   */
-  async executeDimensionMission(
-    topic: ResearchTopic,
-    dimension: TopicDimension,
-    reportId?: string,
-    missionId?: string,
-    modelId?: string,
-    taskId?: string,
-    assignedTools?: string[], // ★ Leader 分配的工具
-    assignedSkills?: string[], // ★ Leader 分配的技能
-    maxRevisionRounds?: number, // V5: 最大修订轮次（来自 depthConfig）
-  ): Promise<DimensionMissionResult> {
-    // ★ 统一日志前缀，便于区分不同维度的 Agent
-    const dimId = dimension.id.slice(0, 8);
-    const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
-
-    this.logger.log(
-      `${logPrefix} Starting mission (topicId=${topic.id.slice(0, 8)}, reportId=${reportId || "NONE"})${modelId ? `, model: ${modelId}` : ""}`,
-    );
-
-    // ★ 更新维度状态为 RESEARCHING
-    await this.prisma.topicDimension.update({
-      where: { id: dimension.id },
-      data: { status: DimensionStatus.RESEARCHING },
-    });
-
-    const leaderAgentId = "leader-" + dimId;
-    const leaderAgentName = "研究组长";
-    const effectiveMissionId = missionId || dimension.id;
-
-    try {
-      // V5: Literature baseline scan (standard/thorough only)
-      if (maxRevisionRounds !== undefined && maxRevisionRounds > 0) {
-        try {
-          this.logger.log(
-            `${logPrefix} [V5] Running literature baseline scan before search`,
-          );
-          await this.dataSourceRouter.scanLiteratureBaseline(topic, dimension);
-          this.logger.log(
-            `${logPrefix} [V5] Literature baseline scan complete`,
-          );
-        } catch (error) {
-          this.logger.warn(
-            `${logPrefix} [V5] Literature baseline scan failed (non-fatal): ${error}`,
-          );
-        }
-      }
-
-      // Phase 1: 执行搜索阶段
-      const searchPhaseResult = await this.executeSearchPhase(
-        topic,
-        dimension,
-        missionId,
-        modelId,
-        taskId,
-        assignedTools,
-        assignedSkills,
-      );
-
-      // Phase 2: Leader 本地规划大纲（非全局协调）
-      // 发送 Leader 思考事件 - 理解阶段
-      await this.eventEmitter.emitLeaderThinking(topic.id, {
-        missionId: missionId || dimension.id,
-        phase: "understanding",
-        content: `正在理解研究主题「${topic.name}」的需求，分析维度「${dimension.name}」的研究范围...`,
-        progress: 10,
-      });
-
-      this.emitProgress(
-        topic.id,
-        dimension.name,
-        {
-          stage: "planning",
-          sectionsTotal: 0,
-          sectionsCompleted: 0,
-          message: "Leader 正在规划研究大纲...",
-        },
-        missionId,
-        undefined,
-        taskId,
-      );
-
-      await this.agentActivity.startThinkingPhase({
-        topicId: topic.id,
-        missionId: effectiveMissionId,
-        dimensionId: dimension.id,
-        dimensionName: dimension.name,
-        agentId: leaderAgentId,
-        agentName: leaderAgentName,
-        agentRole: "leader",
-        activityType: AgentActivityType.PLANNING,
-        phase: "planning",
-        content: `正在规划维度「${dimension.name}」的研究大纲...`,
-        progress: 0,
-        thinkingPhase: "understanding" as ThinkingPhase,
-        thinkingContent: `分析研究主题：${topic.name}\n维度：${dimension.name}\n参考资料数量：${searchPhaseResult.evidenceSummary.split("\n").length} 条`,
-      });
-
-      // 查询所有维度，传给 Leader 避免跨维度重复
-      const allDimensions = await this.prisma.topicDimension.findMany({
-        where: { topicId: topic.id },
-        select: { name: true, description: true },
-      });
-
-      const outline = await this.leaderService.planDimensionOutline(
-        { name: topic.name, type: topic.type, description: topic.description },
-        {
-          name: dimension.name,
-          description: dimension.description,
-          searchQueries: dimension.searchQueries,
-        },
-        searchPhaseResult.evidenceSummary,
-        searchPhaseResult.figuresSummary || undefined,
-        allDimensions,
-      );
-
-      this.logger.log(
-        `${logPrefix} Local outline planned: ${outline.sections.length} sections`,
-      );
-
-      // Phase 3: 执行写作阶段
-      const writingResult = await this.executeWritingPhase(
-        topic,
-        dimension,
-        searchPhaseResult,
-        outline,
-        reportId,
-        missionId,
-        modelId,
-        taskId,
-        assignedTools,
-        assignedSkills,
-        undefined, // validationContext
-        maxRevisionRounds, // V5: 最大修订轮次
-      );
-
-      return writingResult;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-
-      this.logger.error(
-        `${logPrefix} Mission FAILED: ${errorMessage}`,
-        error instanceof Error ? error.stack : error,
-      );
-
-      // ★ 更新维度状态为 FAILED
-      await this.prisma.topicDimension.update({
-        where: { id: dimension.id },
-        data: { status: DimensionStatus.FAILED },
-      });
-
-      this.emitProgress(
-        topic.id,
-        dimension.name,
-        {
-          stage: "failed",
-          sectionsTotal: 0,
-          sectionsCompleted: 0,
-          message: `研究失败: ${errorMessage}`,
-        },
-        missionId,
-        undefined,
-        taskId, // ★ 传递 taskId
-      );
-
-      return {
-        success: false,
-        dimensionId: dimension.id,
-        evidenceIds: [],
-        error: errorMessage,
-      };
-    }
-  }
 
   /**
    * 执行写作阶段（Phase 3）
@@ -678,6 +93,9 @@ export class DimensionMissionService {
    * @param taskId 研究任务ID
    * @param assignedTools Leader 分配的工具
    * @param assignedSkills Leader 分配的技能
+   * @param validationContext V5: 验证上下文
+   * @param maxRevisionRounds V5: 最大修订轮次
+   * @param emitProgressFn 进度发送函数（可选）
    * @returns Mission 执行结果
    */
   async executeWritingPhase(
@@ -689,11 +107,25 @@ export class DimensionMissionService {
     missionId?: string,
     modelId?: string,
     taskId?: string,
-    _assignedTools?: string[], // Prefixed with _ to indicate intentionally unused
-    _assignedSkills?: string[], // Prefixed with _ to indicate intentionally unused
-    validationContext?: string, // V5: 验证上下文
-    maxRevisionRounds?: number, // V5: 最大修订轮次（来自 depthConfig）
-  ): Promise<DimensionMissionResult> {
+    _assignedTools?: string[],
+    _assignedSkills?: string[],
+    validationContext?: string,
+    maxRevisionRounds?: number,
+    emitProgressFn?: (
+      topicId: string,
+      dimensionName: string,
+      progress: {
+        stage: string;
+        sectionsTotal: number;
+        sectionsCompleted: number;
+        currentSection?: string;
+        message: string;
+      },
+      missionId?: string,
+      stageProgress?: number,
+      taskId?: string,
+    ) => Promise<void>,
+  ): Promise<DimensionWritingResult> {
     const dimId = dimension.id.slice(0, 8);
     const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
 
@@ -752,19 +184,21 @@ export class DimensionMissionService {
       });
 
       // 2. Agent 写作各章节
-      this.emitProgress(
-        topic.id,
-        dimension.name,
-        {
-          stage: "writing",
-          sectionsTotal: outline.sections.length,
-          sectionsCompleted: 0,
-          message: "Agent 正在撰写章节...",
-        },
-        missionId,
-        undefined,
-        taskId,
-      );
+      if (emitProgressFn) {
+        await emitProgressFn(
+          topic.id,
+          dimension.name,
+          {
+            stage: "writing",
+            sectionsTotal: outline.sections.length,
+            sectionsCompleted: 0,
+            message: "Agent 正在撰写章节...",
+          },
+          missionId,
+          undefined,
+          taskId,
+        );
+      }
 
       await this.agentActivity.startThinkingPhase({
         topicId: topic.id,
@@ -791,8 +225,9 @@ export class DimensionMissionService {
         modelId,
         searchPhaseResult.temporalContext,
         taskId,
-        validationContext, // V5
-        maxRevisionRounds, // V5
+        validationContext,
+        maxRevisionRounds,
+        emitProgressFn,
       );
 
       // 记录写作完成
@@ -844,19 +279,21 @@ export class DimensionMissionService {
       }
 
       // 3. Leader 整合结果
-      this.emitProgress(
-        topic.id,
-        dimension.name,
-        {
-          stage: "integrating",
-          sectionsTotal: outline.sections.length,
-          sectionsCompleted: outline.sections.length,
-          message: "Leader 正在整合最终报告...",
-        },
-        missionId,
-        undefined,
-        taskId,
-      );
+      if (emitProgressFn) {
+        await emitProgressFn(
+          topic.id,
+          dimension.name,
+          {
+            stage: "integrating",
+            sectionsTotal: outline.sections.length,
+            sectionsCompleted: outline.sections.length,
+            message: "Leader 正在整合最终报告...",
+          },
+          missionId,
+          undefined,
+          taskId,
+        );
+      }
 
       await this.agentActivity.startThinkingPhase({
         topicId: topic.id,
@@ -977,19 +414,21 @@ export class DimensionMissionService {
       this.logger.log(`${logPrefix} Status updated to COMPLETED`);
 
       // 8. 完成
-      this.emitProgress(
-        topic.id,
-        dimension.name,
-        {
-          stage: "completed",
-          sectionsTotal: outline.sections.length,
-          sectionsCompleted: outline.sections.length,
-          message: "维度研究完成",
-        },
-        missionId,
-        undefined,
-        taskId,
-      );
+      if (emitProgressFn) {
+        await emitProgressFn(
+          topic.id,
+          dimension.name,
+          {
+            stage: "completed",
+            sectionsTotal: outline.sections.length,
+            sectionsCompleted: outline.sections.length,
+            message: "维度研究完成",
+          },
+          missionId,
+          undefined,
+          taskId,
+        );
+      }
 
       const researcherTotalWords = sectionResults.reduce(
         (sum, r) => sum + (r.content?.length || 0),
@@ -1027,8 +466,8 @@ export class DimensionMissionService {
         outline,
         sectionResults,
         integratedResult: finalIntegratedResult,
-        actualModelId: lastActualModel, // ★ 记录实际使用的模型
-        extractedClaims, // V5: 提取的事实断言
+        actualModelId: lastActualModel,
+        extractedClaims,
       };
     } catch (error) {
       const errorMessage =
@@ -1044,19 +483,21 @@ export class DimensionMissionService {
         data: { status: DimensionStatus.FAILED },
       });
 
-      this.emitProgress(
-        topic.id,
-        dimension.name,
-        {
-          stage: "failed",
-          sectionsTotal: 0,
-          sectionsCompleted: 0,
-          message: `研究失败: ${errorMessage}`,
-        },
-        missionId,
-        undefined,
-        taskId,
-      );
+      if (emitProgressFn) {
+        await emitProgressFn(
+          topic.id,
+          dimension.name,
+          {
+            stage: "failed",
+            sectionsTotal: 0,
+            sectionsCompleted: 0,
+            message: `研究失败: ${errorMessage}`,
+          },
+          missionId,
+          undefined,
+          taskId,
+        );
+      }
 
       return {
         success: false,
@@ -1081,16 +522,29 @@ export class DimensionMissionService {
     outline: DimensionOutline,
     evidenceData: EvidenceData[],
     missionId?: string,
-    modelId?: string, // ★ Leader 分配的模型
-    temporalContext?: TemporalContext, // ★ 时间上下文
-    taskId?: string, // ★ 研究任务ID（用于前端精确匹配进度更新）
-    validationContext?: string, // V5: 验证上下文
-    maxRevisionRounds?: number, // V5: 最大修订轮次
+    modelId?: string,
+    temporalContext?: TemporalContext,
+    taskId?: string,
+    validationContext?: string,
+    maxRevisionRounds?: number,
+    emitProgressFn?: (
+      topicId: string,
+      dimensionName: string,
+      progress: {
+        stage: string;
+        sectionsTotal: number;
+        sectionsCompleted: number;
+        currentSection?: string;
+        message: string;
+      },
+      missionId?: string,
+      stageProgress?: number,
+      taskId?: string,
+    ) => Promise<void>,
   ): Promise<SectionWriteResult[]> {
     const sectionResults: SectionWriteResult[] = [];
     const sectionMap = new Map<string, SectionWriteResult>();
 
-    // ★ 统一日志前缀
     const dimId = dimension.id.slice(0, 8);
     const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
 
@@ -1114,13 +568,13 @@ export class DimensionMissionService {
           sectionMap,
           outline,
         ),
-        modelId, // ★ 传递模型
-        temporalContext, // ★ 传递时间上下文
-        allocatedFigures: section.allocatedFigures, // ★ 传递 Leader 预分配的图表
-        validationContext, // V5: inject validation context
+        modelId,
+        temporalContext,
+        allocatedFigures: section.allocatedFigures,
+        validationContext,
       }));
 
-      // ★ 发送研究员开始写作事件
+      // 发送研究员开始写作事件
       const researcherAgentId = `researcher_${dimId}`;
       await this.eventEmitter.emitAgentWorking(
         topicId,
@@ -1146,7 +600,7 @@ export class DimensionMissionService {
         const section = groupSections[i];
         let result = groupResults[i];
 
-        // ★ 发送研究员章节完成事件
+        // 发送研究员章节完成事件
         const progressPercent =
           30 +
           Math.round((sectionResults.length / outline.sections.length) * 50);
@@ -1188,7 +642,7 @@ export class DimensionMissionService {
             this.logger.log(
               `${logPrefix} Section "${section.title}" approved (score: ${review.score})`,
             );
-            // ★ 记录审核通过到 Activity
+            // 记录审核通过到 Activity
             await this.agentActivity.recordReviewActivity(
               topicId,
               missionId || dimension.id,
@@ -1204,7 +658,7 @@ export class DimensionMissionService {
           this.logger.log(
             `${logPrefix} Section "${section.title}" revision needed (score: ${review.score})`,
           );
-          // ★ 记录审核不通过到 Activity
+          // 记录审核不通过到 Activity
           await this.agentActivity.recordReviewActivity(
             topicId,
             missionId || dimension.id,
@@ -1214,7 +668,7 @@ export class DimensionMissionService {
             false,
           );
 
-          // ★ 发送研究员修订事件
+          // 发送研究员修订事件
           await this.eventEmitter.emitAgentWorking(
             topicId,
             {
@@ -1231,7 +685,7 @@ export class DimensionMissionService {
             missionId,
           );
 
-          // ★ 修订时添加异常处理，失败时保持原内容并退出修订循环
+          // 修订时添加异常处理，失败时保持原内容并退出修订循环
           try {
             result = await this.sectionWriter.reviseSection({
               section,
@@ -1239,7 +693,7 @@ export class DimensionMissionService {
               reviewFeedback: review.feedback,
               revisionInstructions: review.revisionInstructions || "",
               evidenceData,
-              modelId, // ★ 修订时使用同一模型
+              modelId,
             });
           } catch (revisionError) {
             const errorMsg =
@@ -1261,20 +715,22 @@ export class DimensionMissionService {
         sectionResults.push(result);
 
         // 发送进度
-        this.emitProgress(
-          topicId,
-          dimension.name,
-          {
-            stage: "reviewing",
-            sectionsTotal: outline.sections.length,
-            sectionsCompleted: sectionResults.length,
-            currentSection: section.title,
-            message: `已完成章节: ${section.title}`,
-          },
-          missionId,
-          undefined,
-          taskId, // ★ 传递 taskId
-        );
+        if (emitProgressFn) {
+          await emitProgressFn(
+            topicId,
+            dimension.name,
+            {
+              stage: "reviewing",
+              sectionsTotal: outline.sections.length,
+              sectionsCompleted: sectionResults.length,
+              currentSection: section.title,
+              message: `已完成章节: ${section.title}`,
+            },
+            missionId,
+            undefined,
+            taskId,
+          );
+        }
       }
     }
 
@@ -1290,7 +746,7 @@ export class DimensionMissionService {
     evidenceData: EvidenceData[],
   ): EvidenceData[] {
     if (evidenceData.length <= 5) {
-      return evidenceData; // 证据太少，全部保留
+      return evidenceData;
     }
 
     // 提取 section 关键词：标题分词 + keyPoints
@@ -1299,7 +755,7 @@ export class DimensionMissionService {
     );
 
     if (sectionKeywords.length === 0) {
-      return evidenceData; // 无法提取关键词，全部保留
+      return evidenceData;
     }
 
     // 对每条 evidence 计算相关度分数
@@ -1331,7 +787,6 @@ export class DimensionMissionService {
    * 从文本中提取关键词（简单分词）
    */
   private extractKeywords(text: string): string[] {
-    // 移除常见停用词，按空格和标点分词
     const stopWords = new Set([
       "the",
       "a",
@@ -1464,7 +919,7 @@ export class DimensionMissionService {
       .replace(/[^\w\u4e00-\u9fff\s]/g, " ")
       .split(/\s+/)
       .filter((w) => w.length > 2 && !stopWords.has(w))
-      .filter((w, i, arr) => arr.indexOf(w) === i); // deduplicate
+      .filter((w, i, arr) => arr.indexOf(w) === i);
   }
 
   /**
@@ -1494,87 +949,6 @@ export class DimensionMissionService {
   }
 
   /**
-   * 从 URL 中提取域名
-   */
-  private extractDomainFromUrl(url: string): string | null {
-    try {
-      const parsed = new URL(url);
-      return parsed.hostname;
-    } catch (error) {
-      this.logger.debug(`[extractDomainFromUrl] Invalid URL: ${error}`);
-      return null;
-    }
-  }
-
-  /**
-   * 准备增强后的证据数据
-   * ★ 包含完整网页内容（fullContent）
-   */
-  private prepareEnrichedEvidenceData(
-    enrichedItems: import("../../types/research.types").EnrichedResult[],
-  ): EnrichedEvidenceData[] {
-    return enrichedItems.map((item, index) => ({
-      id: `temp-${index}-${Date.now()}`,
-      title: item.title,
-      url: item.url,
-      domain: item.domain || this.extractDomainFromUrl(item.url),
-      snippet: item.snippet || null,
-      sourceType: item.sourceType,
-      publishedAt: item.publishedAt || null,
-      credibilityScore: null,
-      // ★ 新增：完整内容和内容来源
-      fullContent: item.fullContent,
-      contentSource: item.contentSource,
-      extractedFigures: item.extractedFigures,
-    }));
-  }
-
-  /**
-   * 创建证据摘要（用于 Leader 规划大纲）
-   */
-  private createEvidenceSummary(evidenceData: EvidenceData[]): string {
-    const summary = evidenceData
-      .slice(0, 10) // 只取前10条，避免过长
-      .map(
-        (e, i) =>
-          `${i + 1}. [${e.sourceType || "web"}] ${e.title} (${e.domain || "未知来源"})`,
-      )
-      .join("\n");
-
-    return `共收集到 ${evidenceData.length} 条证据，摘要如下：\n${summary}\n${evidenceData.length > 10 ? `...还有 ${evidenceData.length - 10} 条` : ""}`;
-  }
-
-  /**
-   * 构建图表摘要（用于 Leader 规划时分配图表）
-   * 从证据数据中提取所有 extractedFigures，生成可读摘要
-   */
-  private buildFiguresSummary(evidenceData: EnrichedEvidenceData[]): string {
-    const entries: string[] = [];
-    for (let i = 0; i < evidenceData.length; i++) {
-      const evidence = evidenceData[i];
-      if (evidence.extractedFigures && evidence.extractedFigures.length > 0) {
-        for (let j = 0; j < evidence.extractedFigures.length; j++) {
-          const fig = evidence.extractedFigures[j];
-          entries.push(
-            `图表 [${i + 1}:${j}] - ${fig.type} - "${fig.caption || fig.alt || "无标题"}" (来源: 证据[${i + 1}] ${evidence.title}) URL: ${fig.imageUrl}`,
-          );
-        }
-      }
-    }
-    if (entries.length === 0) {
-      return "";
-    }
-    // ★ 限制最多 20 个图表，避免 prompt 膨胀挤占 Leader 思考空间
-    const MAX_FIGURES_FOR_LEADER = 20;
-    const displayEntries = entries.slice(0, MAX_FIGURES_FOR_LEADER);
-    const suffix =
-      entries.length > MAX_FIGURES_FOR_LEADER
-        ? `\n...还有 ${entries.length - MAX_FIGURES_FOR_LEADER} 个图表未列出`
-        : "";
-    return `共 ${entries.length} 个可用图表（展示前 ${displayEntries.length} 个）：\n${displayEntries.join("\n")}${suffix}`;
-  }
-
-  /**
    * 校验并清理 Leader 分配的 allocatedFigures
    * - 过滤 evidenceIndex 越界的条目
    * - 过滤 imageUrl 为空的条目
@@ -1585,7 +959,7 @@ export class DimensionMissionService {
     outline: DimensionOutline,
     evidenceData: EnrichedEvidenceData[],
   ): void {
-    const globalSeen = new Set<string>(); // "evidenceIndex:figureIndex"
+    const globalSeen = new Set<string>();
     let totalAllocated = 0;
 
     for (const section of outline.sections) {
@@ -1642,8 +1016,6 @@ export class DimensionMissionService {
   /**
    * 保存证据到数据库
    * ★ 返回 promptIndex -> actualCitationIndex 映射
-   * promptIndex 是 LLM 在 prompt 中看到的序号 (1, 2, 3...)
-   * actualCitationIndex 是证据在数据库中的实际引用编号
    */
   private async saveEvidence(
     evidenceData: EvidenceData[],
@@ -1651,7 +1023,7 @@ export class DimensionMissionService {
   ): Promise<{
     savedIds: string[];
     idMapping: Map<string, string>;
-    indexMapping: Map<number, number>; // ★ 改为 promptIndex -> actualCitationIndex
+    indexMapping: Map<number, number>;
   }> {
     if (evidenceData.length === 0) {
       return { savedIds: [], idMapping: new Map(), indexMapping: new Map() };
@@ -1663,7 +1035,7 @@ export class DimensionMissionService {
       credibilityScore: this.assessCredibility(e),
     }));
 
-    // ★ 使用 interactive transaction 保证 citationIndex 原子递增（防止并行写作阶段的竞态）
+    // 使用 interactive transaction 保证 citationIndex 原子递增
     const created = await this.prisma.$transaction(async (tx) => {
       const maxIndexResult = await tx.topicEvidence.aggregate({
         where: { reportId },
@@ -1693,16 +1065,11 @@ export class DimensionMissionService {
       return results;
     });
 
-    // 构建 tempId -> actualId 映射
+    // 构建映射
     const idMapping = new Map<string, string>();
-    // ★ 构建 promptIndex -> actualCitationIndex 映射
-    // promptIndex 是 LLM 看到的 [1], [2], [3]...
-    // actualCitationIndex 是数据库中的实际编号
     const indexMapping = new Map<number, number>();
     evidenceData.forEach((e, index) => {
       idMapping.set(e.id, created[index].id);
-      // promptIndex = index + 1 (从1开始)
-      // actualCitationIndex = created[index].citationIndex
       indexMapping.set(index + 1, created[index].citationIndex!);
     });
 
@@ -1711,20 +1078,16 @@ export class DimensionMissionService {
 
   /**
    * 替换内容中的 prompt 引用为实际的 citationIndex
-   * ★ LLM 输出 [1], [2], [3]... 需要替换为实际的数据库 citationIndex
-   * 例如：如果第一个维度有10条证据，第二个维度的 [1] 需要变成 [11]
    */
   private replaceEvidenceIds(
     content: string,
     indexMapping: Map<number, number>,
   ): string {
     let result = content;
-    // 从大到小替换，避免 [1] 被替换后影响 [10], [11] 等
     const sortedEntries = Array.from(indexMapping.entries()).sort(
       (a, b) => b[0] - a[0],
     );
     for (const [promptIndex, actualCitationIndex] of sortedEntries) {
-      // 只有当 promptIndex 和 actualCitationIndex 不同时才需要替换
       if (promptIndex !== actualCitationIndex) {
         const pattern = new RegExp(`\\[${promptIndex}\\]`, "g");
         result = result.replace(pattern, `[${actualCitationIndex}]`);
@@ -1735,15 +1098,12 @@ export class DimensionMissionService {
 
   /**
    * 验证日期有效性
-   * ★ 修复：避免 Invalid Date 导致 Prisma 验证错误
    */
   private validateDate(date: Date | string | null | undefined): Date | null {
     if (!date) {
       return null;
     }
-    // 检查是否为有效的 Date 对象
     const d = date instanceof Date ? date : new Date(date);
-    // isNaN(d.getTime()) 检测 Invalid Date
     if (isNaN(d.getTime())) {
       return null;
     }
@@ -1752,7 +1112,6 @@ export class DimensionMissionService {
 
   /**
    * 评估证据可信度
-   * ★ 改进版：更细致的评分系统，避免全部50%的问题
    */
   private assessCredibility(evidence: EvidenceData): number {
     let score = 0;
@@ -1761,7 +1120,6 @@ export class DimensionMissionService {
     if (evidence.domain) {
       const domain = evidence.domain.toLowerCase();
 
-      // 最高权威 (政府、教育、顶级学术)
       const topAuthority = [
         ".gov",
         ".edu",
@@ -1782,7 +1140,6 @@ export class DimensionMissionService {
         "oecd.org",
       ];
 
-      // 高权威 (知名媒体、智库)
       const highAuthority = [
         "reuters.com",
         "bloomberg.com",
@@ -1805,7 +1162,6 @@ export class DimensionMissionService {
         "statista.com",
       ];
 
-      // 中等权威 (行业媒体、知名博客)
       const mediumAuthority = [
         "techcrunch.com",
         "wired.com",
@@ -1828,11 +1184,10 @@ export class DimensionMissionService {
       } else if (mediumAuthority.some((auth) => domain.includes(auth))) {
         score += 20;
       } else {
-        // 普通网站基础分（提高以避免全部低可信）
         score += 20;
       }
     } else {
-      score += 15; // 无域名信息给基础分
+      score += 15;
     }
 
     // 2. 来源类型评分 (最高 30 分)
@@ -1851,14 +1206,14 @@ export class DimensionMissionService {
         score += 18;
         break;
       case "web":
-        score += 18; // 提高 web 类型分数
+        score += 18;
         break;
       default:
-        score += 15; // 默认给基础分
+        score += 15;
         break;
     }
 
-    // 3. 内容深度评分 (最高 15 分) - 基于 snippet 长度
+    // 3. 内容深度评分 (最高 15 分)
     const snippetLength = evidence.snippet?.length || 0;
     if (snippetLength > 500) {
       score += 15;
@@ -1875,18 +1230,16 @@ export class DimensionMissionService {
           (1000 * 60 * 60 * 24),
       );
       if (ageInDays <= 30) {
-        score += 15; // 近一个月
+        score += 15;
       } else if (ageInDays <= 180) {
-        score += 12; // 近半年
+        score += 12;
       } else if (ageInDays <= 365) {
-        score += 8; // 近一年
+        score += 8;
       } else if (ageInDays <= 730) {
-        score += 5; // 近两年
+        score += 5;
       }
-      // 超过两年不加分
     }
 
-    // 确保分数在合理范围内 (最低 15，最高 100)
     return Math.max(15, Math.min(100, score));
   }
 
@@ -1978,24 +1331,18 @@ export class DimensionMissionService {
   }
 
   /**
-   * H1 fix: 多策略从 Markdown 提取指定主题的列表项
-   * Strategy 1: ## 标题 + 列表项
-   * Strategy 2: **粗体关键词**: 内容
-   * Strategy 3: 段落中包含关键词的句子
+   * 多策略从 Markdown 提取指定主题的列表项
    */
   private extractSectionItems(
     content: string,
     sectionKeywords: string[],
   ): string[] {
-    // Strategy 1: Markdown header + bullet items
     const fromHeaders = this.extractFromHeaders(content, sectionKeywords);
     if (fromHeaders.length > 0) return fromHeaders;
 
-    // Strategy 2: **Bold keyword**: content pattern
     const fromBold = this.extractFromBoldPatterns(content, sectionKeywords);
     if (fromBold.length > 0) return fromBold;
 
-    // Strategy 3: Sentences containing keywords
     return this.extractFromSentences(content, sectionKeywords);
   }
 
@@ -2088,60 +1435,5 @@ export class DimensionMissionService {
           ? trimmed.substring(0, 120) + "..."
           : trimmed;
       });
-  }
-
-  /**
-   * 发送进度事件
-   * @param dimensionName - 维度名称（用于前端显示）
-   * @param stageProgress - 当前阶段的进度百分比（可选，如果提供则使用此值）
-   * @param taskId - 研究任务ID（可选，用于前端精确匹配进度更新）
-   *
-   * ★ v7.3: 同时更新 ResearchTask.progress，确保前端能正确显示实时进度
-   * ★ 同时更新 mission.updatedAt 作为心跳，防止被健康检测误判为卡死
-   */
-  private async emitProgress(
-    topicId: string,
-    dimensionName: string,
-    progress: MissionProgress,
-    missionId?: string,
-    stageProgress?: number,
-    taskId?: string,
-  ): Promise<void> {
-    // 计算进度：优先使用 stageProgress，否则根据 section 完成比例计算
-    let calculatedProgress: number;
-    if (stageProgress !== undefined) {
-      calculatedProgress = stageProgress;
-    } else if (progress.sectionsTotal > 0) {
-      // 写作阶段：30% - 80% 之间根据 section 完成比例
-      const sectionRatio = progress.sectionsCompleted / progress.sectionsTotal;
-      calculatedProgress = Math.round(30 + sectionRatio * 50);
-    } else {
-      // 规划阶段默认 10%
-      calculatedProgress = 10;
-    }
-
-    // 使用维度研究进度事件（前端通过 WebSocket 接收实时进度）
-    this.eventEmitter.emitDimensionResearchProgress(
-      topicId,
-      dimensionName,
-      calculatedProgress,
-      progress.message,
-      missionId,
-      taskId, // ★ 传递 taskId 用于前端精确匹配
-    );
-
-    // ★ 心跳更新：更新关联的 mission.updatedAt，防止被健康检测误判为卡死
-    if (missionId) {
-      try {
-        await this.prisma.researchMission.update({
-          where: { id: missionId },
-          data: { updatedAt: new Date() },
-        });
-      } catch (error) {
-        this.logger.debug(
-          `[emitProgressUpdate] Non-fatal: Failed to update mission heartbeat: ${error}`,
-        );
-      }
-    }
   }
 }
