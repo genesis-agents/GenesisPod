@@ -1657,9 +1657,10 @@ export class AiChatService {
 
         case "google":
         case "gemini":
-          const geminiEndpoint =
-            apiEndpoint ||
-            `https://generativelanguage.googleapis.com/v1beta/models/${modelId || "text-embedding-004"}:embedContent`;
+          const geminiBaseUrl = apiEndpoint
+            ? apiEndpoint.replace(/\/models\/?$/, "").replace(/\/+$/, "")
+            : "https://generativelanguage.googleapis.com/v1beta";
+          const geminiEndpoint = `${geminiBaseUrl}/models/${modelId || "text-embedding-004"}:embedContent`;
 
           response = await firstValueFrom(
             this.httpService.post(
