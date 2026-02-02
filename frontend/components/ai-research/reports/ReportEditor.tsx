@@ -398,15 +398,32 @@ function ReportEditorInner({
   const markdownContent = useMemo(() => {
     if (!report) return '';
 
-    // ★ Priority 1: Use fullReport ONLY if it contains chart placeholders (new format)
-    // This ensures backward compatibility with old reports that have different fullReport content
-    const hasChartPlaceholders = report.fullReport?.includes('<!-- chart:');
-    if (
-      hasChartPlaceholders &&
-      report.fullReport &&
-      report.fullReport.trim().length > 100
-    ) {
-      return report.fullReport;
+    // ★ Priority 0: If fullReport is a JSON string, extract markdown from it
+    let resolvedFullReport = report.fullReport;
+    if (resolvedFullReport && resolvedFullReport.trimStart().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(resolvedFullReport);
+        if (parsed.fullText && typeof parsed.fullText === 'string') {
+          resolvedFullReport = parsed.fullText;
+        } else if (
+          parsed.executiveSummary &&
+          typeof parsed.executiveSummary === 'string'
+        ) {
+          resolvedFullReport = parsed.executiveSummary;
+        }
+      } catch {
+        // Not JSON, use as-is
+      }
+    }
+
+    // ★ Priority 1: Use resolvedFullReport if it's valid markdown (has chart placeholders or is long enough)
+    if (resolvedFullReport && resolvedFullReport.trim().length > 100) {
+      const hasChartPlaceholders = resolvedFullReport.includes('<!-- chart:');
+      const looksLikeMarkdown =
+        resolvedFullReport.includes('#') || resolvedFullReport.includes('**');
+      if (hasChartPlaceholders || looksLikeMarkdown) {
+        return resolvedFullReport;
+      }
     }
 
     // ★ Priority 2: Build markdown from report structure (default for old reports)
