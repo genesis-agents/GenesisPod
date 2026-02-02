@@ -8,6 +8,15 @@ const path = require('path');
 const changelogPath = path.resolve(__dirname, '../../CHANGELOG.md');
 const outputPath = path.resolve(__dirname, '../lib/generated/changelog.json');
 
+if (!fs.existsSync(changelogPath)) {
+  console.log(
+    `CHANGELOG.md not found at ${changelogPath}, generating empty changelog.json`
+  );
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(outputPath, '[]');
+  process.exit(0);
+}
+
 const content = fs.readFileSync(changelogPath, 'utf-8');
 
 // Match version headers: ### [3.3.31](...) (2026-02-02) or ## [3.3.0](...) (2026-02-01)
