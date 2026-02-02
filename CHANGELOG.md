@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.17](https://github.com/your-org/ai-teams-engine/compare/v3.3.16...v3.3.17) (2026-02-02)
+
+
+### Bug Fixes
+
+* **frontend:** handle JSON-formatted fullReport in report renderer ([24cf0f6](https://github.com/your-org/ai-teams-engine/commit/24cf0f6f7bf0341b29104b489912eec7d67f7d81))
+
 ### [3.3.16](https://github.com/your-org/ai-teams-engine/compare/v3.3.15...v3.3.16) (2026-02-02)
 
 ### [3.3.15](https://github.com/your-org/ai-teams-engine/compare/v3.3.14...v3.3.15) (2026-02-02)
