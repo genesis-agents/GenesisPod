@@ -398,22 +398,71 @@ function ReportEditorInner({
   const markdownContent = useMemo(() => {
     if (!report) return '';
 
-    // ★ Priority 0: If fullReport is a JSON string, extract markdown from it
+    // ★ Priority 0: Clean fullReport - handle JSON embedded in markdown or pure JSON
     let resolvedFullReport = report.fullReport;
-    if (resolvedFullReport && resolvedFullReport.trimStart().startsWith('{')) {
-      try {
-        const parsed = JSON.parse(resolvedFullReport);
-        if (parsed.fullText && typeof parsed.fullText === 'string') {
-          resolvedFullReport = parsed.fullText;
-        } else if (
-          parsed.executiveSummary &&
-          typeof parsed.executiveSummary === 'string'
-        ) {
-          resolvedFullReport = parsed.executiveSummary;
+    if (resolvedFullReport) {
+      // Case A: Entire fullReport is JSON
+      if (resolvedFullReport.trimStart().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(resolvedFullReport);
+          const ft =
+            parsed.fullText ||
+            parsed.executiveSummary?.fullText ||
+            (typeof parsed.executiveSummary === 'string'
+              ? parsed.executiveSummary
+              : null);
+          if (ft && typeof ft === 'string') {
+            resolvedFullReport = ft;
+          }
+        } catch {
+          // Not pure JSON, use as-is
         }
-      } catch {
-        // Not JSON, use as-is
       }
+
+      // Case B: JSON block embedded inside markdown (e.g. after "## 执行摘要\n")
+      // Detect JSON objects that span multiple lines inside markdown content
+      resolvedFullReport = resolvedFullReport.replace(
+        /\n\{\s*\n\s*"executiveSummary"/g,
+        (match, offset) => {
+          // Find the end of this JSON block
+          const rest = resolvedFullReport!.slice(offset);
+          let braceCount = 0;
+          let endIdx = -1;
+          for (let i = rest.indexOf('{'); i < rest.length; i++) {
+            if (rest[i] === '{') braceCount++;
+            if (rest[i] === '}') braceCount--;
+            if (braceCount === 0) {
+              endIdx = i + 1;
+              break;
+            }
+          }
+          if (endIdx > 0) {
+            try {
+              const jsonBlock = rest.slice(rest.indexOf('{'), endIdx);
+              const parsed = JSON.parse(jsonBlock);
+              // Extract fullText from the JSON
+              const ft =
+                parsed.executiveSummary?.fullText ||
+                parsed.fullText ||
+                (typeof parsed.executiveSummary === 'string'
+                  ? parsed.executiveSummary
+                  : null);
+              if (ft && typeof ft === 'string') {
+                // Replace the JSON block with extracted markdown
+                resolvedFullReport =
+                  resolvedFullReport!.slice(0, offset) +
+                  '\n' +
+                  ft +
+                  resolvedFullReport!.slice(offset + endIdx);
+                return ''; // return value unused since we mutated resolvedFullReport
+              }
+            } catch {
+              // Parse failed, leave as-is
+            }
+          }
+          return match;
+        }
+      );
     }
 
     // ★ Priority 1: Use resolvedFullReport if it's valid markdown (has chart placeholders or is long enough)

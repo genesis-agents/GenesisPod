@@ -1272,9 +1272,19 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
           const esJsonParsed = JSON.parse(esStr);
           // 支持 { executiveSummary: {...} } 或直接 { coreConclusions: [...] } 格式
           const esData = esJsonParsed.executiveSummary || esJsonParsed;
-          if (esData && (esData.coreConclusions || esData.keyMetrics)) {
+          if (
+            esData &&
+            (esData.coreConclusions || esData.keyMetrics || esData.fullText)
+          ) {
             // 递归调用处理解析后的对象
             return this.normalizeExecutiveSummary(esData);
+          }
+          // Fallback: if parsed object has fullText at top level, use it
+          if (
+            esJsonParsed.fullText &&
+            typeof esJsonParsed.fullText === "string"
+          ) {
+            return esJsonParsed.fullText;
           }
           return esStr;
         } catch {
