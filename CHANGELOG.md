@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.29](https://github.com/your-org/ai-teams-engine/compare/v3.3.28...v3.3.29) (2026-02-02)
+
+
+### Bug Fixes
+
+* **research:** improve fallback when AI report JSON parsing fails ([58c4ad6](https://github.com/your-org/ai-teams-engine/commit/58c4ad6a3907554e1a9fceade7299e7992e30f2a))
+
 ### [3.3.28](https://github.com/your-org/ai-teams-engine/compare/v3.3.27...v3.3.28) (2026-02-02)
 
 
