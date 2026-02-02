@@ -25,6 +25,7 @@ import CharacterRelationshipGraph from '@/components/ai-writing/CharacterRelatio
 import ChapterEditPanel from '@/components/ai-writing/ChapterEditPanel';
 import ChapterImportModal from '@/components/ai-writing/ChapterImportModal';
 import { ClientDate } from '@/components/common/ClientDate';
+import { useI18n } from '@/lib/i18n';
 
 import { logger } from '@/lib/utils/logger';
 // Dynamic import for Canvas component
@@ -291,6 +292,7 @@ function ChapterContentStructured({
 }
 
 export function WritingDetailPage() {
+  const { t } = useI18n();
   const params = useParams();
   const router = useRouter();
   const projectId = params?.id as string;
@@ -1158,7 +1160,9 @@ export function WritingDetailPage() {
 
     if (!storyPrompt || storyPrompt.length < MIN_PROMPT_LENGTH) {
       setToast({
-        message: `请输入至少 ${MIN_PROMPT_LENGTH} 个字的故事创意，或在项目设置中添加描述`,
+        message: t('aiWriting.detailPage.promptMinLength', {
+          count: MIN_PROMPT_LENGTH,
+        }),
         type: 'error',
       });
       return;
@@ -1216,7 +1220,7 @@ export function WritingDetailPage() {
     // 如果已经达到目标字数，提示用户
     if (remainingWords <= 0) {
       setToast({
-        message: '已达到目标字数！如需继续创作，请增加目标字数。',
+        message: t('aiWriting.detailPage.targetWordsReached'),
         type: 'error',
       });
       return;
@@ -1228,7 +1232,9 @@ export function WritingDetailPage() {
 
       if (!continuePrompt || continuePrompt.length < MIN_PROMPT_LENGTH) {
         setToast({
-          message: `请输入至少 ${MIN_PROMPT_LENGTH} 个字的续写指令，或确保项目有描述`,
+          message: t('aiWriting.detailPage.promptMinLengthContinue', {
+            count: MIN_PROMPT_LENGTH,
+          }),
           type: 'error',
         });
         return;
@@ -1245,7 +1251,9 @@ export function WritingDetailPage() {
         prompt: continuePrompt,
         missionType: 'full_story',
         targetWordCount: currentProject.targetWords,
-        additionalInstructions: `当前已有 ${currentProject.currentWords.toLocaleString()} 字，请继续创作直到达到目标。保持与已有内容的风格和主题一致。`,
+        additionalInstructions: t('aiWriting.detailPage.continueInstruction', {
+          current: currentProject.currentWords.toLocaleString(),
+        }),
       });
       setUserInput('');
     } catch {
@@ -1682,7 +1690,10 @@ export function WritingDetailPage() {
     // 在新窗口打开打印友好版本
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      setToast({ message: '请允许弹出窗口以导出 PDF', type: 'error' });
+      setToast({
+        message: t('aiWriting.detailPage.allowPopups'),
+        type: 'error',
+      });
       return;
     }
 
@@ -1778,7 +1789,10 @@ export function WritingDetailPage() {
     const shareUrl = `${window.location.origin}/share/writing/${projectId}`;
     try {
       await navigator.clipboard.writeText(shareUrl);
-      setToast({ message: '分享链接已复制到剪贴板', type: 'success' });
+      setToast({
+        message: t('aiWriting.detailPage.shareLinkCopied'),
+        type: 'success',
+      });
     } catch {
       // 降级方案
       const input = document.createElement('input');
@@ -1787,7 +1801,10 @@ export function WritingDetailPage() {
       input.select();
       document.execCommand('copy');
       document.body.removeChild(input);
-      setToast({ message: '分享链接已复制到剪贴板', type: 'success' });
+      setToast({
+        message: t('aiWriting.detailPage.shareLinkCopied'),
+        type: 'success',
+      });
     }
     setShowExportMenu(false);
   };
@@ -1834,13 +1851,13 @@ export function WritingDetailPage() {
         <main className="flex flex-1 flex-col items-center justify-center p-8">
           <span className="mb-4 text-5xl">📖</span>
           <h2 className="mb-2 text-xl font-semibold text-gray-800">
-            项目不存在
+            {t('aiWriting.detailPage.projectNotFound')}
           </h2>
           <button
             onClick={() => router.push('/ai-writing')}
             className="text-amber-600 hover:underline"
           >
-            返回项目列表
+            {t('aiWriting.detailPage.backToList')}
           </button>
         </main>
       </AppShell>
@@ -1906,7 +1923,7 @@ export function WritingDetailPage() {
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
                   />
                 </svg>
-                导入
+                {t('aiWriting.detailPage.import')}
               </button>
               {/* Export Dropdown */}
               <div className="relative" ref={exportMenuRef}>
@@ -1927,7 +1944,7 @@ export function WritingDetailPage() {
                       d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                     />
                   </svg>
-                  导出
+                  {t('aiWriting.detailPage.export')}
                   <svg
                     className="h-3 w-3"
                     fill="none"
@@ -1956,21 +1973,21 @@ export function WritingDetailPage() {
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
                       <span className="text-base">📄</span>
-                      纯文本 (.txt)
+                      {t('aiWriting.detailPage.exportText')}
                     </button>
                     <button
                       onClick={handleExportHtml}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
                       <span className="text-base">🌐</span>
-                      网页 (.html)
+                      {t('aiWriting.detailPage.exportHtml')}
                     </button>
                     <button
                       onClick={handleExportPdf}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
                       <span className="text-base">📑</span>
-                      打印 / PDF
+                      {t('aiWriting.detailPage.exportPdf')}
                     </button>
                     <div className="border-t border-gray-100" />
                     <button
@@ -1978,7 +1995,7 @@ export function WritingDetailPage() {
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
                       <span className="text-base">🔗</span>
-                      复制分享链接
+                      {t('aiWriting.detailPage.copyShareLink')}
                     </button>
                   </div>
                 )}
@@ -2035,7 +2052,7 @@ export function WritingDetailPage() {
             <div className="flex items-center justify-between border-b border-gray-100/80 bg-white/60 px-4 py-3">
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-semibold text-gray-800">
-                  AI 写作团队
+                  {t('aiWriting.detailPage.aiTeam')}
                 </h2>
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
@@ -2047,10 +2064,10 @@ export function WritingDetailPage() {
                   }`}
                 >
                   {isMissionRunning
-                    ? '进行中'
+                    ? t('aiWriting.detailPage.status.inProgress')
                     : missionCompleted
-                      ? '已完成'
-                      : '待开始'}
+                      ? t('aiWriting.detailPage.status.completed')
+                      : t('aiWriting.detailPage.status.pending')}
                 </span>
               </div>
             </div>
@@ -2060,7 +2077,7 @@ export function WritingDetailPage() {
               {/* Status Message */}
               <div className="mb-4 text-center">
                 <p className="line-clamp-1 text-xs text-slate-500">
-                  {missionMessage || '等待任务开始...'}
+                  {missionMessage || t('aiWriting.detailPage.waitingForTask')}
                 </p>
               </div>
 
@@ -2155,7 +2172,7 @@ export function WritingDetailPage() {
                         <div
                           className={`mt-1 text-xs font-medium ${isActive ? 'text-violet-600' : 'text-slate-700'}`}
                         >
-                          架构师
+                          {t('aiWriting.detailPage.architect')}
                         </div>
                       </div>
                     );
@@ -2168,7 +2185,7 @@ export function WritingDetailPage() {
                     {
                       id: 'keeper',
                       icon: '📚',
-                      name: '守护者',
+                      name: t('aiWriting.detailPage.keeper'),
                       bg: 'bg-indigo-500',
                       gradient: 'from-indigo-400 to-indigo-600',
                       text: 'text-indigo-600',
@@ -2178,7 +2195,7 @@ export function WritingDetailPage() {
                     {
                       id: 'writer-1',
                       icon: '✍️',
-                      name: '作家①',
+                      name: t('aiWriting.detailPage.writer1'),
                       bg: 'bg-amber-500',
                       gradient: 'from-amber-400 to-amber-600',
                       text: 'text-amber-600',
@@ -2188,7 +2205,7 @@ export function WritingDetailPage() {
                     {
                       id: 'writer-2',
                       icon: '✍️',
-                      name: '作家②',
+                      name: t('aiWriting.detailPage.writer2'),
                       bg: 'bg-orange-500',
                       gradient: 'from-orange-400 to-orange-600',
                       text: 'text-orange-600',
@@ -2198,7 +2215,7 @@ export function WritingDetailPage() {
                     {
                       id: 'writer-3',
                       icon: '✍️',
-                      name: '作家③',
+                      name: t('aiWriting.detailPage.writer3'),
                       bg: 'bg-yellow-500',
                       gradient: 'from-yellow-400 to-yellow-600',
                       text: 'text-yellow-600',
@@ -2258,7 +2275,7 @@ export function WritingDetailPage() {
                     {
                       id: 'checker-1',
                       icon: '🔍',
-                      name: '检查①',
+                      name: t('aiWriting.detailPage.checker1'),
                       bg: 'bg-green-500',
                       gradient: 'from-green-400 to-green-600',
                       text: 'text-green-600',
@@ -2268,7 +2285,7 @@ export function WritingDetailPage() {
                     {
                       id: 'checker-2',
                       icon: '🔍',
-                      name: '检查②',
+                      name: t('aiWriting.detailPage.checker2'),
                       bg: 'bg-emerald-500',
                       gradient: 'from-emerald-400 to-emerald-600',
                       text: 'text-emerald-600',
@@ -2278,7 +2295,7 @@ export function WritingDetailPage() {
                     {
                       id: 'editor',
                       icon: '📝',
-                      name: '编辑',
+                      name: t('aiWriting.detailPage.editor'),
                       bg: 'bg-pink-500',
                       gradient: 'from-pink-400 to-pink-600',
                       text: 'text-pink-600',
@@ -2472,7 +2489,9 @@ export function WritingDetailPage() {
                 className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-4 py-2 text-xs font-medium text-white hover:bg-violet-600"
               >
                 <span>{(allChapters?.length || 0) === 0 ? '✨' : '📝'}</span>
-                {(allChapters?.length || 0) === 0 ? '开始创作' : '继续创作'}
+                {(allChapters?.length || 0) === 0
+                  ? t('aiWriting.detailPage.startWriting')
+                  : t('aiWriting.detailPage.continueWriting')}
               </button>
 
               {/* 取消按钮：始终显示，方便用户取消卡住的任务 */}
@@ -2481,7 +2500,7 @@ export function WritingDetailPage() {
                 className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-4 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
               >
                 <span>⏹</span>
-                取消任务
+                {t('aiWriting.detailPage.cancelTask')}
               </button>
             </div>
           </div>
@@ -2501,7 +2520,7 @@ export function WritingDetailPage() {
                         : 'text-gray-500 hover:bg-gray-100'
                     }`}
                   >
-                    📖 章节列表
+                    {t('aiWriting.detailPage.tabs.chapters')}
                     <span className="ml-1 text-xs">({allChapters.length})</span>
                   </button>
                   <button
@@ -2512,7 +2531,7 @@ export function WritingDetailPage() {
                         : 'text-gray-500 hover:bg-gray-100'
                     }`}
                   >
-                    🌍 世界观
+                    {t('aiWriting.detailPage.tabs.worldview')}
                     {storyBible?.premise && (
                       <span className="ml-1 text-xs text-green-500">✓</span>
                     )}
@@ -2525,7 +2544,7 @@ export function WritingDetailPage() {
                         : 'text-gray-500 hover:bg-gray-100'
                     }`}
                   >
-                    📚 故事圣经
+                    {t('aiWriting.detailPage.tabs.storyBible')}
                     {storyBible?.characters &&
                       storyBible.characters.length > 0 && (
                         <span className="ml-1 text-xs text-emerald-500">
@@ -2541,7 +2560,7 @@ export function WritingDetailPage() {
                         : 'text-gray-500 hover:bg-gray-100'
                     }`}
                   >
-                    🔗 角色关系
+                    {t('aiWriting.detailPage.tabs.relationships')}
                   </button>
                   <button
                     onClick={() => setActiveTab('taskDetails')}
@@ -2551,7 +2570,7 @@ export function WritingDetailPage() {
                         : 'text-gray-500 hover:bg-gray-100'
                     }`}
                   >
-                    💬 Team交互区
+                    {t('aiWriting.detailPage.tabs.taskDetails')}
                     {taskMessages.length > 0 && (
                       <span className="ml-1 text-xs">
                         ({taskMessages.length})

@@ -49,6 +49,8 @@ import { ViewPerspective } from '@/components/ai-simulation/PerspectiveSelector'
 import { isContentVisible } from '@/lib/ai-simulation/perspectiveFilter';
 
 import { logger } from '@/lib/utils/logger';
+import { useI18n } from '@/lib/i18n';
+
 // 类型定义
 interface Agent {
   id?: string;
@@ -338,6 +340,7 @@ export default function SandboxView({
   onPerspectiveChange,
   userRole,
 }: SandboxViewProps) {
+  const { t } = useI18n();
   const [activeView, setActiveView] = useState<ViewType>('sandtable');
   const [selectedRound, setSelectedRound] = useState<number>(run.currentRound);
   const [showBlackSwan, setShowBlackSwan] = useState(true);

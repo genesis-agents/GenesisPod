@@ -1456,6 +1456,246 @@
         "inProgress": "In Progress",
         "failed": "Failed"
       }
+    },
+    "detailPage": {
+      "backToList": "Back to Project List",
+      "projectNotFound": "Project Not Found",
+      "import": "Import",
+      "export": "Export",
+      "exportMarkdown": "Markdown (.md)",
+      "exportText": "Plain Text (.txt)",
+      "exportHtml": "Web Page (.html)",
+      "exportPdf": "Print / PDF",
+      "copyShareLink": "Copy Share Link",
+      "targetWords": "Target Word Count",
+      "currentWords": "Current Word Count",
+      "mainText": "Main Text",
+      "storySettings": "Story Settings",
+      "premise": "Premise",
+      "theme": "Theme",
+      "tone": "Tone",
+      "worldType": "World Type",
+      "characterSettings": "Character Settings",
+      "role": "Role",
+      "description": "Description",
+      "personality": "Personality",
+      "background": "Background",
+      "worldviewSettings": "Worldview Settings",
+      "other": "Other",
+      "wordCount": "Word Count",
+      "tableOfContents": "Table of Contents",
+      "printPdf": "Print / Export PDF",
+      "allowPopups": "Please allow popups to export PDF",
+      "shareLinkCopied": "Share link copied to clipboard",
+      "settings": "Settings",
+      "events": "Events",
+      "relations": "Relations",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "viewDetails": "View Details",
+      "aiTeam": "AI Writing Team",
+      "status": {
+        "inProgress": "In Progress",
+        "completed": "Completed",
+        "pending": "Pending"
+      },
+      "waitingForTask": "Waiting for task to start...",
+      "architect": "Architect",
+      "keeper": "Keeper",
+      "writer": "Writer",
+      "writer1": "Writer ①",
+      "writer2": "Writer ②",
+      "writer3": "Writer ③",
+      "checker1": "Checker ①",
+      "checker2": "Checker ②",
+      "editor": "Editor",
+      "mission": {
+        "started": "Task started, AI team is collaborating...",
+        "progress": "Progress {{progress}}%: {{step}}",
+        "aiTeam": "AI Team",
+        "startWorking": "Started working",
+        "completedWorking": "Completed working",
+        "failedWorking": "Failed working",
+        "startChapter": "Started writing Chapter {{number}}: {{title}}",
+        "chapterContent": "Chapter {{number}} \"{{title}}\" content being generated ({{count}} words)",
+        "chapterCompleted": "Chapter {{number}} completed{{wordCount}}",
+        "consistencyCheckStarted": "Starting consistency check for Chapter {{number}}...",
+        "consistencyCheckAll": "Starting consistency check...",
+        "issuesFound": "Found {{count}} issues in Chapter {{number}}, click to expand for details",
+        "fixCompleted": "Chapter {{number}} fix completed, resolved {{count}} issues",
+        "worldBuildingStarted": "Starting worldview construction...",
+        "worldBuildingCompleted": "Worldview construction completed, click to expand to view",
+        "extractingContext": "Extracting relevant context for Chapter {{number}}...",
+        "contextReady": "Chapter {{number}} context ready ({{summary}})",
+        "contextCharacters": "Characters: {{count}}",
+        "contextLocations": "Locations: {{count}}",
+        "contextEvents": "Events: {{count}}",
+        "contextWarnings": "{{count}} warnings",
+        "relatedCharacters": "Related Characters: {{list}}",
+        "relatedLocations": "Related Locations: {{list}}",
+        "previousEvents": "Previous Events: {{list}}",
+        "warnings": "Warnings: {{list}}",
+        "updatingBible": "Updating story bible based on Chapter {{number}}...",
+        "bibleUpdated": "Story bible updated (Chapter {{number}} added {{count}} records)",
+        "newFacts": "New Facts: {{list}}",
+        "characterUpdates": "Character Updates: {{list}}",
+        "timelineEvents": "Timeline: {{list}}",
+        "missionCompleted": "Task completed!{{chapters}}{{words}}",
+        "missionFailed": "Task failed: {{error}}",
+        "unknownError": "Unknown error",
+        "leaderResponse": "Story Architect (Leader)"
+      },
+      "taskRunning": "Task running, AI team is collaborating...",
+      "taskCompleted": "Task completed!",
+      "overallProgress": "Overall Progress",
+      "taskStuck": "Task is stuck",
+      "taskStuckDesc": "Background task status is abnormal, please force cancel and restart.",
+      "forceCancelTask": "Force Cancel Task",
+      "startWriting": "Start Writing",
+      "continueWriting": "Continue Writing",
+      "cancelTask": "Cancel Task",
+      "tabs": {
+        "chapters": "Chapter List",
+        "worldview": "Worldview",
+        "storyBible": "Story Bible",
+        "relationships": "Character Relationships",
+        "taskDetails": "Team Interaction Zone"
+      },
+      "chapter": {
+        "chapter": "Chapter {{number}}",
+        "words": "{{count}} words",
+        "continueNext": "+ Continue to next chapter",
+        "creating": "AI team is writing, chapter content will be displayed here in real-time...",
+        "creationCompleted": "Creation task completed",
+        "refresh": "Refresh content",
+        "startCreating": "Start Creating",
+        "startCreatingDesc": "Click \"Start Writing\" on the left, AI team will automatically complete story creation",
+        "editChapter": "Edit Chapter",
+        "download": "Download",
+        "close": "Close",
+        "noContent": "No content yet",
+        "notGenerated": "This chapter has not been generated yet"
+      },
+      "worldview": {
+        "building": "AI Keeper is building worldview settings...",
+        "coreConcept": "Core Concept",
+        "theme": "Theme",
+        "worldType": "World Type",
+        "toneStyle": "Tone & Style",
+        "worldSettings": "World Settings",
+        "timelineEvents": "Timeline Events",
+        "events": "{{count}} events",
+        "important": "Important",
+        "factions": "Factions & Organizations",
+        "factionsCount": "{{count}} factions",
+        "territory": "Territory: {{territory}}",
+        "terminologies": "Terminologies & Terms",
+        "terminologiesCount": "{{count}} terms",
+        "aliases": "Aliases: {{aliases}}",
+        "constructing": "Worldview Under Construction",
+        "constructingDesc": "AI Keeper is analyzing and building the story's worldview settings...",
+        "noSettings": "No Worldview Settings",
+        "noSettingsDesc": "After you start writing, AI Keeper will automatically build the story's worldview"
+      },
+      "storyBible": {
+        "updating": "AI team is updating story bible...",
+        "characterSettings": "Character Settings",
+        "charactersCount": "{{count}} characters",
+        "personality": "Personality:",
+        "arc": "Character Arc:",
+        "motivation": "Motivation:",
+        "relationships": "Relationships:",
+        "firstAppearance": "First Appearance:",
+        "chapterNumber": "Chapter {{number}}",
+        "background": "Background:",
+        "noCharacters": "No character settings",
+        "worldSummary": "World Settings Summary",
+        "coreConcept": "Core Concept",
+        "theme": "Theme",
+        "worldType": "World Type",
+        "toneStyle": "Tone & Style",
+        "detailedSettings": "Detailed Settings",
+        "settings": "Settings",
+        "chapterPlotRecords": "Chapter Plot Records",
+        "chapters": "Chapters",
+        "detailsWillBeFilled": "Detailed settings will be gradually completed during story generation...",
+        "constructing": "Story Bible Under Construction",
+        "constructingDesc": "AI team is building character and worldview settings...",
+        "noBible": "No Story Bible",
+        "noBibleDesc": "After you start writing, AI team will automatically build a complete story bible"
+      },
+      "taskInteraction": {
+        "noRecords": "No interaction records",
+        "noRecordsDesc": "After you start writing, AI team's collaboration details will be displayed here",
+        "you": "You",
+        "system": "System",
+        "taskProgress": "Task Progress",
+        "expandDetails": "Expand details",
+        "collapseDetails": "Collapse",
+        "contentPreview": "Content Preview:",
+        "issuesFound": "Issues Found:",
+        "severity": {
+          "high": "High",
+          "medium": "Medium",
+          "low": "Low"
+        },
+        "suggestion": "Suggestion: {{suggestion}}",
+        "worldSettings": {
+          "storyCore": "Story Core",
+          "premise": "Story Core",
+          "worldBackground": "World Background",
+          "worldSettings": "World Settings",
+          "mainCharacters": "Main Characters",
+          "characters": "Character Settings",
+          "factions": "Factions",
+          "factionsAlt": "Factions",
+          "terminology": "Terminology",
+          "locations": "Important Locations",
+          "locationsAlt": "Important Locations",
+          "timeline": "Timeline"
+        },
+        "settingFields": {
+          "summary": "Summary",
+          "genre": "Genre",
+          "theme": "Theme",
+          "type": "Type",
+          "era": "Era",
+          "geography": "Geography",
+          "society": "Society",
+          "rules": "Rules",
+          "name": "Name",
+          "role": "Role",
+          "appearance": "Appearance",
+          "personality": "Personality",
+          "background": "Background",
+          "motivation": "Motivation",
+          "arc": "Character Arc",
+          "description": "Description",
+          "relations": "Relationships",
+          "term": "Term",
+          "definition": "Definition"
+        }
+      },
+      "input": {
+        "mentionLeader": "Mention Leader",
+        "leaderDesc": "Story Architect · Edit and adjust content",
+        "placeholder": "Enter @Leader to have the architect edit and adjust content...",
+        "mentionLeaderHint": "@ Mention Leader"
+      },
+      "agentSkills": "Skills",
+      "agentTools": "Tools",
+      "consistencyCheck": {
+        "title": "Consistency Check",
+        "issues": "{{count}} issues",
+        "chapter": "Chapter {{number}}",
+        "passed": "Passed",
+        "moreIssues": "{{count}} more issues..."
+      },
+      "promptMinLength": "Please enter at least {{count}} characters for story idea, or add description in project settings",
+      "targetWordsReached": "Target word count reached! To continue writing, please increase target word count.",
+      "promptMinLengthContinue": "Please enter at least {{count}} characters for continuation instruction, or ensure project has a description",
+      "continueInstruction": "Current word count: {{current}}, please continue writing until target is reached. Keep consistent with existing content style and theme.",
+      "chapter_": "Chapter {{number}}"
     }
   },
   "aiSimulation": {
@@ -1504,6 +1744,254 @@
     "templateCard": {
       "companies": "Companies",
       "roles": "Roles"
+    },
+    "editor": {
+      "titleEdit": "Edit Simulation Scenario",
+      "titleNew": "New Simulation Scenario",
+      "subtitle": "Step-by-step configuration of scenario info, companies, agents, and parameters",
+      "tabs": {
+        "basic": {
+          "label": "Basic Info",
+          "desc": "Scenario name, industry, goals"
+        },
+        "companies": {
+          "label": "Companies",
+          "desc": "Participating companies and quantitative metrics"
+        },
+        "agents": {
+          "label": "Agents",
+          "desc": "AI Agent and Persona configuration"
+        },
+        "params": {
+          "label": "Parameters",
+          "desc": "Battle mechanisms, randomness, human intervention"
+        }
+      },
+      "basic": {
+        "sectionTitle": "Scenario Information",
+        "scenarioName": "Scenario Name",
+        "scenarioNamePlaceholder": "e.g., AI Computing Infrastructure Wargame",
+        "industry": "Industry",
+        "industryPlaceholder": "Select industry...",
+        "industryCustom": "Custom...",
+        "industryCustomPlaceholder": "Enter custom industry",
+        "region": "Region/Market",
+        "required": "Required",
+        "industries": {
+          "aiCompute": "AI Computing Infrastructure",
+          "cloud": "Cloud Services",
+          "semiconductor": "Semiconductor",
+          "ev": "Electric Vehicles",
+          "fintech": "Fintech",
+          "ecommerce": "E-commerce",
+          "saas": "SaaS",
+          "gaming": "Gaming",
+          "healthcare": "Healthcare"
+        },
+        "regions": {
+          "global": "Global",
+          "china": "China",
+          "us": "United States",
+          "europe": "Europe",
+          "asiaPacific": "Asia Pacific",
+          "southeastAsia": "Southeast Asia"
+        }
+      },
+      "ai": {
+        "title": "AI Smart Analysis",
+        "subtitle": "AI will automatically analyze competitive landscape, recommend competitors, and suggest agent configuration based on industry and region",
+        "buttonAnalyze": "Start AI Analysis",
+        "buttonAnalyzing": "Analyzing...",
+        "insightsTitle": "Industry Insights",
+        "suggestionsTitle": "AI Recommendations",
+        "adoptCompanies": "Adopt Companies",
+        "adoptAgents": "Adopt Agents",
+        "adoptGoals": "Adopt Goals",
+        "adoptParams": "Adopt Parameters",
+        "messages": {
+          "fillIndustry": "Please fill in industry information first",
+          "analyzed": "AI has analyzed the competitive landscape, please review and adopt suggestions",
+          "analysisFailed": "AI analysis failed, please try again later",
+          "adoptedCompanies": "Adopted {{count}} AI-recommended companies",
+          "adoptedAgents": "Adopted {{count}} AI-recommended agents",
+          "adoptedGoals": "Adopted AI-recommended simulation goals",
+          "needBlueAgent": "Please configure at least one Blue team agent first",
+          "fillIndustryForAgents": "Please fill in industry in basic info first",
+          "suggestedAgents": "AI recommended {{count}} opponent agents, please review and adopt",
+          "suggestFailed": "AI recommendation failed, please try again later",
+          "adoptedAgentCount": "Adopted {{count}} AI-recommended agents",
+          "fillIndustryForParams": "Please fill in industry in basic info first",
+          "paramsAnalyzed": "AI analyzed industry characteristics and recommended optimal parameters, click 'Adopt Parameters' to apply",
+          "adoptedParams": "Adopted AI-recommended simulation parameters"
+        }
+      },
+      "companies": {
+        "addCompany": "Add Company",
+        "companyName": "Company Name",
+        "companyType": "Company Type",
+        "market": "Market",
+        "metrics": "Metrics",
+        "remove": "Remove",
+        "injectFromMarket": "Inject from Market Data",
+        "aiSmartFill": "AI Smart Fill",
+        "types": {
+          "benchmark": "Benchmark (Your Company)",
+          "regional": "Regional Player",
+          "competitor": "Competitor",
+          "challenger": "Challenger",
+          "startup": "Startup",
+          "customer": "Customer",
+          "supplier": "Supplier"
+        },
+        "messages": {
+          "injected": "Filled companies with external market data, please confirm types/metrics",
+          "providerNotConfigured": "External market data source not configured. Please configure a 'market' type data provider in system settings, or use AI smart analysis",
+          "providerDisabled": "External market data source is disabled. Please enable the data provider or use AI smart analysis",
+          "fetchFailed": "External data fetch failed: {{error}}. Will use AI analysis as fallback",
+          "fillIndustryForAi": "Please fill in industry in basic info first, AI will analyze competitive landscape based on industry",
+          "aiAnalyzing": "Using AI to analyze competitive landscape...",
+          "aiAnalyzedMetrics": "AI analyzed and recommended {{count}} companies (with quantitative metrics), please confirm types/metrics",
+          "aiNoData": "AI analysis returned no company data, please manually add companies or retry"
+        }
+      },
+      "agents": {
+        "addAgent": "Add Agent",
+        "role": "Role",
+        "team": "Team",
+        "company": "Company",
+        "selectCompany": "Select company...",
+        "noCompany": "No company (regulatory/independent)",
+        "persona": "Persona (JSON/Text)",
+        "personaPlaceholder": "Personality traits, decision-making style, historical behavior...",
+        "memoryPublic": "Public Memory (JSON/Text)",
+        "memoryPrivate": "Private Memory (JSON/Text)",
+        "remove": "Remove",
+        "reset": "Reset Agents",
+        "cleanup": "Cleanup Duplicates",
+        "aiRecommend": "AI Recommend Agents",
+        "teams": {
+          "blue": "Blue Team (Your Company)",
+          "red": "Red Team (Competitors)",
+          "green": "Green Team (Market/Customers)",
+          "white": "White Team (Regulators)",
+          "chaos": "Chaos (Black Swan)"
+        },
+        "messages": {
+          "reset": "Agent configuration has been reset",
+          "cleaned": "Cleaned up duplicate and invalid agents"
+        }
+      },
+      "params": {
+        "title": "Simulation Parameters",
+        "blindMove": "Blind Move",
+        "blindMoveDesc": "Agents cannot see others' actions in the same round",
+        "cot": "Chain of Thought",
+        "cotDesc": "Enable multi-step reasoning for agents",
+        "chaosProb": "Chaos Probability",
+        "chaosProbDesc": "Black swan event probability (0-1)",
+        "irrationalProb": "Irrational Probability",
+        "irrationalProbDesc": "Agent irrational decision probability (0-1)",
+        "humanBreakEvery": "Human Intervention Interval",
+        "humanBreakEveryDesc": "Pause for human intervention every N rounds (0 = disabled)",
+        "aiRecommendParams": "AI Recommend Parameters"
+      },
+      "actions": {
+        "previous": "Previous",
+        "next": "Next",
+        "save": "Save",
+        "saveAndStart": "Save & Start Simulation",
+        "saving": "Saving..."
+      },
+      "messages": {
+        "scenarioUpdated": "Scenario updated",
+        "scenarioSaved": "Scenario saved",
+        "saveFailed": "Save failed",
+        "saveFirst": "Please save scenario first",
+        "simulationStarting": "Simulation starting, redirecting...",
+        "startFailed": "Start failed"
+      }
+    },
+    "sandbox": {
+      "sandbox": "Strategic Sandbox",
+      "round": "Round {{current}}/{{total}}",
+      "status": {
+        "running": "Running",
+        "paused": "Paused",
+        "completed": "Completed",
+        "pending": "Pending",
+        "failed": "Failed"
+      },
+      "perspective": {
+        "god": "God View",
+        "godDesc": "View all teams' complete information",
+        "godTooltip": "God View: View all teams' complete information (click to switch)",
+        "teamTooltip": "{{team}} View: View {{team}}'s complete information, other teams show public actions only (click to switch)",
+        "teamLabel": "{{team}} View"
+      },
+      "views": {
+        "sandtable": "Sandtable",
+        "network": "Network",
+        "competition": "Competition",
+        "timeline": "Timeline",
+        "agents": "Agents"
+      },
+      "controls": {
+        "pause": "Pause",
+        "resume": "Resume",
+        "fullscreen": "Fullscreen",
+        "exitFullscreen": "Exit Fullscreen"
+      },
+      "teams": {
+        "blue": "Blue Team",
+        "blueDesc": "Your Company / Protagonist",
+        "red": "Red Team",
+        "redDesc": "Competitors / Challengers",
+        "green": "Green Team",
+        "greenDesc": "Market / Customers / Suppliers",
+        "white": "White Team",
+        "whiteDesc": "Regulators / Arbitrators",
+        "chaos": "Chaos",
+        "chaosDesc": "Black Swan Events"
+      },
+      "agentCard": {
+        "clickToExpand": "Click to expand",
+        "clickToCollapse": "Click to collapse",
+        "publicAction": "Public Action",
+        "noPublicAction": "No public action",
+        "hiddenContent": "Has hidden content",
+        "noActions": "No actions yet"
+      },
+      "teamDisplay": {
+        "roles": "{{count}} Agents",
+        "actions": "{{count}} Actions",
+        "noActions": "No actions yet"
+      },
+      "sandtable": {
+        "currentRound": "Current Round",
+        "roundSummary": "Round Summary",
+        "roundStats": "Round Statistics",
+        "activeAgents": "Active Agents",
+        "allRoundsCompleted": "All rounds completed",
+        "noDataYet": "No data for this round yet",
+        "blackSwanEvent": "Black Swan Event",
+        "viewDetails": "View Details"
+      },
+      "background": {
+        "generating": "Generating industry background...",
+        "failed": "Background generation failed",
+        "networkError": "Network error"
+      },
+      "timeline": {
+        "year": "Year {{year}}",
+        "drag": "Drag timeline to navigate rounds"
+      },
+      "stats": {
+        "marketShare": "Market Share",
+        "revenue": "Revenue",
+        "cashFlow": "Cash Flow",
+        "actions": "Actions",
+        "conflicts": "Conflicts"
+      }
     }
   },
   "aiSocial": {

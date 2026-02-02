@@ -23,6 +23,8 @@ import { AgentCard } from './AgentCard';
 import { CompanyCard } from './CompanyCard';
 
 import { logger } from '@/lib/utils/logger';
+import { useI18n } from '@/lib/i18n';
+
 interface EditorModalProps {
   scenario: ScenarioCard | null;
   seed?: ScenarioTemplate | null;
@@ -37,6 +39,7 @@ export function EditorModal({
   onSaved,
 }: EditorModalProps) {
   const router = useRouter();
+  const { t } = useI18n();
 
   // 本地场景状态 - 用于跟踪保存后获取的ID（新建场景时）
   const [localScenario, setLocalScenario] = useState<ScenarioCard | null>(
@@ -99,7 +102,7 @@ export function EditorModal({
     return [
       { role: 'CEO', team: 'BLUE', companyName: '' },
       { role: 'CEO', team: 'RED', companyName: '' },
-      { role: '监管官员', team: 'WHITE' },
+      { role: 'Regulator', team: 'WHITE' },
     ];
   };
 
@@ -232,7 +235,7 @@ export function EditorModal({
   // AI辅助：根据行业自动获取竞争对手和市场信息
   const aiAssistAnalyze = async () => {
     if (!form.industry) {
-      setMessage('请先填写行业信息');
+      setMessage(t('aiSimulation.editor.ai.messages.fillIndustry'));
       return;
     }
     setAiAssisting(true);
@@ -255,9 +258,11 @@ export function EditorModal({
       const data = result?.data ?? result;
       if (res.ok) {
         setAiSuggestions(data);
-        setMessage('AI已分析行业竞争格局，请查看建议并选择采纳');
+        setMessage(t('aiSimulation.editor.ai.messages.analyzed'));
       } else {
-        setMessage(data?.message || 'AI分析失败，请稍后重试');
+        setMessage(
+          data?.message || t('aiSimulation.editor.ai.messages.analysisFailed')
+        );
       }
     } catch (err: unknown) {
       setMessage(
@@ -754,7 +759,7 @@ export function EditorModal({
     setAgents([
       { role: 'CEO', team: 'BLUE', companyName: '' },
       { role: 'CEO', team: 'RED', companyName: '' },
-      { role: '监管官员', team: 'WHITE' },
+      { role: 'Regulator', team: 'WHITE' },
     ]);
     setAiAgentSuggestions(null);
     setMessage('角色配置已重置');
@@ -787,7 +792,7 @@ export function EditorModal({
         return [
           { role: 'CEO', team: 'BLUE', companyName: '' },
           { role: 'CEO', team: 'RED', companyName: '' },
-          { role: '监管官员', team: 'WHITE' },
+          { role: 'Regulator', team: 'WHITE' },
         ];
       }
 
