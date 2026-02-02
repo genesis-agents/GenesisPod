@@ -322,31 +322,34 @@ const aiEditButtons: readonly {
  * - Entire string is JSON: parse and extract fullText
  * - JSON block embedded within markdown: find it, extract fullText, replace inline
  */
-function tryExtractFromJson(jsonStr: string): string | null {
-  try {
-    const parsed = JSON.parse(jsonStr);
-    return (
-      parsed.fullText ||
-      parsed.executiveSummary?.fullText ||
-      (typeof parsed.executiveSummary === 'string'
-        ? parsed.executiveSummary
-        : null)
-    );
-  } catch {
-    return null;
-  }
-}
-
+/**
+ * Extract markdown from a JSON report embedded in content.
+ *
+ * Strategy:
+ * 1. Try JSON.parse on the whole content if it starts with {
+ * 2. Find embedded JSON by regex, try JSON.parse
+ * 3. Fallback: regex-extract "fullText" value directly (handles invalid JSON)
+ * 4. Last resort: strip the JSON-like block entirely
+ */
 function extractMarkdownFromJsonReport(content: string): string {
   // Case A: Entire content is JSON
   const trimmed = content.trimStart();
   if (trimmed.startsWith('{')) {
-    const ft = tryExtractFromJson(trimmed);
-    if (ft) return ft;
+    try {
+      const parsed = JSON.parse(trimmed);
+      const ft =
+        parsed.fullText ||
+        parsed.executiveSummary?.fullText ||
+        (typeof parsed.executiveSummary === 'string'
+          ? parsed.executiveSummary
+          : null);
+      if (ft && typeof ft === 'string') return ft;
+    } catch {
+      // Not valid JSON as a whole
+    }
   }
 
-  // Case B: JSON block embedded in markdown
-  // Find { that starts a JSON object with known report keys
+  // Case B: Find embedded JSON block
   const jsonStartPattern =
     /[\r\n]\s*\{[\s\r\n]*"(?:executiveSummary|fullText|preface|tableOfContents)"/;
   const match = jsonStartPattern.exec(content);
@@ -355,19 +358,83 @@ function extractMarkdownFromJsonReport(content: string): string {
   const bracePos = content.indexOf('{', match.index);
   if (bracePos === -1) return content;
 
-  // Try progressively larger substrings ending with } to find valid JSON
-  // Search from the end of content backwards to find the last } that makes valid JSON
-  const remaining = content.slice(bracePos);
-  let lastBrace = remaining.lastIndexOf('}');
-  while (lastBrace > 0) {
-    const candidate = remaining.slice(0, lastBrace + 1);
-    const ft = tryExtractFromJson(candidate);
-    if (ft) {
-      const endIdx = bracePos + lastBrace + 1;
-      return content.slice(0, bracePos) + ft + content.slice(endIdx);
+  // Find where the JSON block ends: look for the next markdown heading
+  // after the JSON start (## something), which marks the end of the JSON block
+  const afterBrace = content.slice(bracePos);
+
+  // Strategy 1: Try JSON.parse with brace matching (handles well-formed JSON)
+  try {
+    // Find the JSON block boundary by looking for \n## after the opening {
+    // The next markdown section header signals end of JSON
+    const nextSectionMatch = afterBrace.match(/\n#{1,3}\s+\S/);
+    if (nextSectionMatch && nextSectionMatch.index) {
+      // Find the last } before the next section
+      const jsonRegion = afterBrace.slice(0, nextSectionMatch.index);
+      const lastBrace = jsonRegion.lastIndexOf('}');
+      if (lastBrace > 0) {
+        const jsonCandidate = jsonRegion.slice(0, lastBrace + 1);
+        const parsed = JSON.parse(jsonCandidate);
+        const ft =
+          parsed.executiveSummary?.fullText ||
+          parsed.fullText ||
+          (typeof parsed.executiveSummary === 'string'
+            ? parsed.executiveSummary
+            : null);
+        if (ft && typeof ft === 'string') {
+          const endIdx = bracePos + lastBrace + 1;
+          return content.slice(0, bracePos) + ft + content.slice(endIdx);
+        }
+      }
     }
-    // Try next } backwards
-    lastBrace = remaining.lastIndexOf('}', lastBrace - 1);
+  } catch {
+    // JSON.parse failed, try regex extraction
+  }
+
+  // Strategy 2: Regex-extract "fullText" value directly (handles malformed JSON)
+  // Match "fullText": "..." where the value may contain escaped characters
+  const fullTextMatch = afterBrace.match(/"fullText"\s*:\s*"/);
+  if (fullTextMatch && fullTextMatch.index !== undefined) {
+    const valueStart = fullTextMatch.index + fullTextMatch[0].length;
+    // Walk forward to find the unescaped closing quote
+    let i = valueStart;
+    while (i < afterBrace.length) {
+      if (afterBrace[i] === '\\') {
+        i += 2; // skip escaped character
+        continue;
+      }
+      if (afterBrace[i] === '"') {
+        // Found closing quote
+        const rawValue = afterBrace.slice(valueStart, i);
+        // Unescape JSON string escapes
+        const unescaped = rawValue
+          .replace(/\\n/g, '\n')
+          .replace(/\\t/g, '\t')
+          .replace(/\\r/g, '\r')
+          .replace(/\\"/g, '"')
+          .replace(/\\\\/g, '\\');
+
+        if (unescaped.length > 50) {
+          // Find end of the entire JSON block for replacement
+          const nextSection = afterBrace.match(/\n#{1,3}\s+\S/);
+          const jsonEndPos = nextSection?.index
+            ? bracePos + nextSection.index
+            : bracePos + afterBrace.indexOf('}', i) + 1;
+          return (
+            content.slice(0, bracePos) + unescaped + content.slice(jsonEndPos)
+          );
+        }
+        break;
+      }
+      i++;
+    }
+  }
+
+  // Strategy 3: Strip the JSON-looking block entirely (last resort)
+  const nextSection = afterBrace.match(/\n#{1,3}\s+\S/);
+  if (nextSection?.index) {
+    return (
+      content.slice(0, bracePos) + content.slice(bracePos + nextSection.index)
+    );
   }
 
   return content;
