@@ -34,17 +34,8 @@ import {
   type CompletedTaskData,
 } from "../../types/mission.types";
 import { AgentActivityType } from "@prisma/client";
-
-// Import query service with forward ref to avoid circular dependency
-type MissionQueryService = {
-  emitProgress(event: unknown): void;
-  updateMissionProgress(missionId: string): Promise<void>;
-};
-
-// Import execution service with forward ref
-type MissionExecutionService = {
-  startExecution(missionId: string, topicId: string): Promise<void>;
-};
+import { MissionQueryService } from "./mission-query.service";
+import { MissionExecutionService } from "./mission-execution.service";
 
 @Injectable()
 export class MissionLifecycleService {
@@ -57,9 +48,9 @@ export class MissionLifecycleService {
     private readonly researchEventEmitter: ResearchEventEmitterService,
     private readonly collaboratorService: TopicCollaboratorService,
     private readonly agentActivity: AgentActivityService,
-    @Inject(forwardRef(() => "MissionQueryService"))
+    @Inject(forwardRef(() => MissionQueryService))
     private readonly queryService: MissionQueryService,
-    @Inject(forwardRef(() => "MissionExecutionService"))
+    @Inject(forwardRef(() => MissionExecutionService))
     private readonly executionService: MissionExecutionService,
   ) {}
 

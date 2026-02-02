@@ -26,6 +26,7 @@ import {
 } from "./research-event-emitter.service";
 
 import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
+import { ResearchLeaderService } from "./research-leader.service";
 import type { LeaderPlan } from "../../types/leader.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";
 import type {
@@ -36,10 +37,6 @@ import type {
   AgentInfo,
 } from "../../types/mission.types";
 
-type ResearchLeaderService = {
-  getReasoningModel(): Promise<{ modelId: string; modelName: string } | null>;
-};
-
 @Injectable()
 export class MissionQueryService {
   private readonly logger = new Logger(MissionQueryService.name);
@@ -49,7 +46,7 @@ export class MissionQueryService {
     private readonly eventEmitter: EventEmitter2,
     private readonly researchEventEmitter: ResearchEventEmitterService,
     private readonly aiFacade: AIEngineFacade,
-    @Inject(forwardRef(() => "ResearchLeaderService"))
+    @Inject(forwardRef(() => ResearchLeaderService))
     private readonly leaderService: ResearchLeaderService,
   ) {}
 
