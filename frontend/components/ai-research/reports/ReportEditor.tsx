@@ -316,6 +316,70 @@ const aiEditButtons: readonly {
   { key: 'style', label: '风格', icon: '🎨', description: '调整写作风格' },
 ] as const;
 
+/**
+ * Extract markdown from a fullReport field that may contain embedded JSON.
+ * Handles two cases:
+ * - Entire string is JSON: parse and extract fullText
+ * - JSON block embedded within markdown: find it, extract fullText, replace inline
+ */
+function extractMarkdownFromJsonReport(content: string): string {
+  // Case A: Entire content is JSON
+  const trimmed = content.trimStart();
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      const ft =
+        parsed.fullText ||
+        parsed.executiveSummary?.fullText ||
+        (typeof parsed.executiveSummary === 'string'
+          ? parsed.executiveSummary
+          : null);
+      if (ft && typeof ft === 'string') return ft;
+    } catch {
+      // Not valid JSON as a whole, may have JSON embedded
+    }
+  }
+
+  // Case B: JSON block embedded in markdown
+  // Look for a line starting with { followed by "executiveSummary" or "fullText"
+  const jsonStartPattern = /\n(\{)\s*\n\s*"(?:executiveSummary|fullText)"/;
+  const match = jsonStartPattern.exec(content);
+  if (!match || match.index === undefined) return content;
+
+  const startIdx = match.index + 1; // skip the \n, point to {
+  // Find matching closing brace
+  let braceCount = 0;
+  let endIdx = -1;
+  for (let i = startIdx; i < content.length; i++) {
+    if (content[i] === '{') braceCount++;
+    if (content[i] === '}') braceCount--;
+    if (braceCount === 0) {
+      endIdx = i + 1;
+      break;
+    }
+  }
+  if (endIdx <= startIdx) return content;
+
+  const jsonBlock = content.slice(startIdx, endIdx);
+  try {
+    const parsed = JSON.parse(jsonBlock);
+    const ft =
+      parsed.executiveSummary?.fullText ||
+      parsed.fullText ||
+      (typeof parsed.executiveSummary === 'string'
+        ? parsed.executiveSummary
+        : null);
+    if (ft && typeof ft === 'string') {
+      // Replace the JSON block with the extracted markdown
+      return content.slice(0, startIdx) + ft + content.slice(endIdx);
+    }
+  } catch {
+    // JSON parse failed
+  }
+
+  return content;
+}
+
 function ReportEditorInner({
   report,
   evidence: evidenceProp,
@@ -398,71 +462,10 @@ function ReportEditorInner({
   const markdownContent = useMemo(() => {
     if (!report) return '';
 
-    // ★ Priority 0: Clean fullReport - handle JSON embedded in markdown or pure JSON
+    // ★ Priority 0: Clean fullReport - extract markdown from JSON (pure or embedded)
     let resolvedFullReport = report.fullReport;
     if (resolvedFullReport) {
-      // Case A: Entire fullReport is JSON
-      if (resolvedFullReport.trimStart().startsWith('{')) {
-        try {
-          const parsed = JSON.parse(resolvedFullReport);
-          const ft =
-            parsed.fullText ||
-            parsed.executiveSummary?.fullText ||
-            (typeof parsed.executiveSummary === 'string'
-              ? parsed.executiveSummary
-              : null);
-          if (ft && typeof ft === 'string') {
-            resolvedFullReport = ft;
-          }
-        } catch {
-          // Not pure JSON, use as-is
-        }
-      }
-
-      // Case B: JSON block embedded inside markdown (e.g. after "## 执行摘要\n")
-      // Detect JSON objects that span multiple lines inside markdown content
-      resolvedFullReport = resolvedFullReport.replace(
-        /\n\{\s*\n\s*"executiveSummary"/g,
-        (match, offset) => {
-          // Find the end of this JSON block
-          const rest = resolvedFullReport!.slice(offset);
-          let braceCount = 0;
-          let endIdx = -1;
-          for (let i = rest.indexOf('{'); i < rest.length; i++) {
-            if (rest[i] === '{') braceCount++;
-            if (rest[i] === '}') braceCount--;
-            if (braceCount === 0) {
-              endIdx = i + 1;
-              break;
-            }
-          }
-          if (endIdx > 0) {
-            try {
-              const jsonBlock = rest.slice(rest.indexOf('{'), endIdx);
-              const parsed = JSON.parse(jsonBlock);
-              // Extract fullText from the JSON
-              const ft =
-                parsed.executiveSummary?.fullText ||
-                parsed.fullText ||
-                (typeof parsed.executiveSummary === 'string'
-                  ? parsed.executiveSummary
-                  : null);
-              if (ft && typeof ft === 'string') {
-                // Replace the JSON block with extracted markdown
-                resolvedFullReport =
-                  resolvedFullReport!.slice(0, offset) +
-                  '\n' +
-                  ft +
-                  resolvedFullReport!.slice(offset + endIdx);
-                return ''; // return value unused since we mutated resolvedFullReport
-              }
-            } catch {
-              // Parse failed, leave as-is
-            }
-          }
-          return match;
-        }
-      );
+      resolvedFullReport = extractMarkdownFromJsonReport(resolvedFullReport);
     }
 
     // ★ Priority 1: Use resolvedFullReport if it's valid markdown (has chart placeholders or is long enough)
