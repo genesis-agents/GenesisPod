@@ -341,8 +341,8 @@ function extractMarkdownFromJsonReport(content: string): string {
   }
 
   // Case B: JSON block embedded in markdown
-  // Look for a line starting with { followed by "executiveSummary" or "fullText"
-  const jsonStartPattern = /\n(\{)\s*\n\s*"(?:executiveSummary|fullText)"/;
+  // Match { on its own line (multiline or single-line JSON with "executiveSummary"/"fullText")
+  const jsonStartPattern = /\n\{[\s\n]*"(?:executiveSummary|fullText)"/;
   const match = jsonStartPattern.exec(content);
   if (!match || match.index === undefined) return content;
 
