@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.5.1](https://github.com/your-org/ai-teams-engine/compare/v3.5.0...v3.5.1) (2026-02-02)
+
+
+### Bug Fixes
+
+* **changelog:** move CHANGELOG.md to frontend, fix script path and release config ([72bd902](https://github.com/your-org/ai-teams-engine/commit/72bd9028d28fc4bc7b6aab4c78d8524a6f9cb085))
+
 ## [3.4.0](https://github.com/your-org/ai-teams-engine/compare/v3.3.31...v3.4.0) (2026-02-02)
 
 ### Features
