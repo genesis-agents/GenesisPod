@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.31](https://github.com/your-org/ai-teams-engine/compare/v3.3.30...v3.3.31) (2026-02-02)
+
+
+### Bug Fixes
+
+* **research:** comprehensive i18n support and citation link fix ([666e009](https://github.com/your-org/ai-teams-engine/commit/666e0099fc90020edc8d2d61ec8907454443780c))
+
 ### [3.3.30](https://github.com/your-org/ai-teams-engine/compare/v3.3.29...v3.3.30) (2026-02-02)
 
 
