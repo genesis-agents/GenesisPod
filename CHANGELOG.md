@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.24](https://github.com/your-org/ai-teams-engine/compare/v3.3.23...v3.3.24) (2026-02-02)
+
+
+### Bug Fixes
+
+* **research:** add backend safety net to strip raw JSON from report content ([f3c2ea2](https://github.com/your-org/ai-teams-engine/commit/f3c2ea2eb05aac9510c8bf63010cf25911ebac40))
+
 ### [3.3.23](https://github.com/your-org/ai-teams-engine/compare/v3.3.22...v3.3.23) (2026-02-02)
 
 
