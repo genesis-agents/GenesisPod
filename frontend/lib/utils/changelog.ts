@@ -12,150 +12,125 @@ export interface ChangelogEntry {
   }[];
 }
 
-export const CURRENT_VERSION = '1.0.0';
+export const CURRENT_VERSION = '3.3.14';
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '1.0.0',
-    date: '2025-12-13',
+    version: '3.3.14',
+    date: '2026-02-02',
     changes: [
       {
-        type: 'feature',
+        type: 'fix',
         description:
-          'AI Office - Create professional documents, presentations, and reports with AI assistance',
-      },
-      {
-        type: 'feature',
-        description:
-          'AI Teams - Collaborate with AI agents on research topics and analysis',
-      },
-      {
-        type: 'feature',
-        description:
-          'AI Simulation - Run strategic simulations with multiple AI perspectives',
-      },
-      {
-        type: 'feature',
-        description:
-          'Labs - Toggle AI features on/off to customize your experience',
-      },
-      {
-        type: 'feature',
-        description:
-          'Feedback System - Submit bug reports and feature requests directly',
-      },
-      {
-        type: 'improvement',
-        description:
-          'Admin Console - Reorganized tabs following best practices',
-      },
-      {
-        type: 'improvement',
-        description:
-          'Notifications - Persistent notification system with filtering',
-      },
-    ],
-  },
-  {
-    version: '0.9.0',
-    date: '2025-12-10',
-    changes: [
-      {
-        type: 'feature',
-        description:
-          'AI Studio - Build custom AI workflows and automation pipelines',
-      },
-      {
-        type: 'feature',
-        description: 'AI Store - Discover and install AI agents and extensions',
-      },
-      {
-        type: 'improvement',
-        description: 'Explore - Enhanced search with filters and sorting',
+          'Agent activity records now consistently display model labels',
       },
       {
         type: 'fix',
-        description: 'Fixed resource detail page loading issues',
+        description:
+          'Auto-set API format from provider selection, preventing model configuration errors',
+      },
+      {
+        type: 'fix',
+        description:
+          'Fixed NestJS dependency injection in refactored research services',
       },
     ],
   },
   {
-    version: '0.8.0',
-    date: '2025-12-01',
+    version: '3.3.10',
+    date: '2026-02-01',
     changes: [
-      {
-        type: 'feature',
-        description:
-          'Multi-Agent Mode - Use multiple AI agents for complex document generation',
-      },
-      {
-        type: 'feature',
-        description: 'PPT Templates - 10+ professional presentation templates',
-      },
       {
         type: 'improvement',
         description:
-          'Export System - Support for Word, PPT, PDF, Markdown formats',
-      },
-    ],
-  },
-  {
-    version: '0.5.0',
-    date: '2025-11-15',
-    changes: [
-      {
-        type: 'feature',
-        description: 'Ask AI - Chat with AI about any research topic',
-      },
-      {
-        type: 'feature',
-        description: 'Library - Organize and manage your bookmarked resources',
-      },
-      {
-        type: 'feature',
-        description: 'AI Summary - Automatically generate summaries for papers',
-      },
-      {
-        type: 'feature',
-        description: 'AI Translation - Translate content between languages',
-      },
-    ],
-  },
-  {
-    version: '0.3.0',
-    date: '2025-10-20',
-    changes: [
-      {
-        type: 'feature',
-        description:
-          'Profile - Edit your profile, research interests, and preferences',
-      },
-      {
-        type: 'feature',
-        description: 'Google OAuth - Sign in with your Google account',
+          'Major restructuring of topic-research module for better maintainability',
       },
       {
         type: 'improvement',
-        description: 'UI - Modern sidebar navigation with collapsible design',
+        description: 'Comprehensive code quality improvements across 11 tasks',
+      },
+      {
+        type: 'fix',
+        description: 'Enhanced Leader planning depth and report breadth',
       },
     ],
   },
   {
-    version: '0.1.0',
-    date: '2025-10-01',
+    version: '3.3.4',
+    date: '2026-02-01',
+    changes: [
+      {
+        type: 'fix',
+        description: 'Report quality improvements and code review hardening',
+      },
+      {
+        type: 'fix',
+        description: 'Business logic audit fixes for research pipeline',
+      },
+      {
+        type: 'fix',
+        description: 'Handle 401 auth failures gracefully in frontend polling',
+      },
+    ],
+  },
+  {
+    version: '3.3.0',
+    date: '2026-02-01',
     changes: [
       {
         type: 'feature',
-        description: 'Explore - Browse AI papers, projects, and news',
+        description: 'Research task todos now visible during refresh',
+      },
+      {
+        type: 'fix',
+        description: 'Preserve full section content instead of AI compression',
+      },
+      {
+        type: 'fix',
+        description: 'Save analyses before cognitive loop for data safety',
+      },
+    ],
+  },
+  {
+    version: '3.2.0',
+    date: '2026-01-31',
+    changes: [
+      {
+        type: 'feature',
+        description: 'AI Research deep dive with multi-agent collaboration',
       },
       {
         type: 'feature',
-        description: 'Bookmark - Save resources to your library',
+        description: 'Mission system with checkpoints and resume',
       },
+      {
+        type: 'feature',
+        description: 'Structured research reports with citations and charts',
+      },
+    ],
+  },
+  {
+    version: '3.0.0',
+    date: '2026-01-15',
+    changes: [
       {
         type: 'feature',
         description:
-          'Data Collection - Aggregate content from multiple sources',
+          'AI Coding multi-agent pipeline (PM → Architect → Engineer → QA)',
+      },
+      {
+        type: 'feature',
+        description: 'AI Writing with chapter management and version control',
+      },
+      {
+        type: 'feature',
+        description: 'AI Social content generation for multiple platforms',
+      },
+      { type: 'feature', description: 'Credits billing system' },
+      {
+        type: 'breaking',
+        description:
+          'Unified PostgreSQL architecture, removed MongoDB/Neo4j/Qdrant',
       },
     ],
   },
