@@ -330,6 +330,57 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    * 2. 只由 AI 生成补充内容（执行摘要、前言、跨维度分析、风险评估、战略建议、结语）
    * 3. 保持报告的完整性和一致性
    */
+  /**
+   * If a string looks like raw JSON (starts with {), try to extract fullText from it.
+   * This is a safety net for when normalizeExecutiveSummary fails to parse AI output.
+   */
+  private extractMarkdownFromJsonString(text: string): string {
+    const trimmed = text.trim();
+    if (!trimmed.startsWith("{")) return text;
+
+    // Try JSON.parse first
+    try {
+      const parsed = JSON.parse(trimmed);
+      const ft =
+        parsed.fullText ||
+        parsed.executiveSummary?.fullText ||
+        (typeof parsed.executiveSummary === "string"
+          ? parsed.executiveSummary
+          : null);
+      if (ft && typeof ft === "string") return ft;
+    } catch {
+      // JSON.parse failed — try regex extraction of "fullText": "..."
+    }
+
+    // Regex fallback: extract first "fullText": "..." value
+    const match = trimmed.match(/"fullText"\s*:\s*"/);
+    if (match && match.index !== undefined) {
+      const valueStart = match.index + match[0].length;
+      let i = valueStart;
+      while (i < trimmed.length) {
+        if (trimmed[i] === "\\") {
+          i += 2;
+          continue;
+        }
+        if (trimmed[i] === '"') {
+          const raw = trimmed.slice(valueStart, i);
+          const unescaped = raw
+            .replace(/\\n/g, "\n")
+            .replace(/\\t/g, "\t")
+            .replace(/\\r/g, "\r")
+            .replace(/\\"/g, '"')
+            .replace(/\\\\/g, "\\");
+          if (unescaped.length > 50) return unescaped;
+          break;
+        }
+        i++;
+      }
+    }
+
+    // If nothing worked, return as-is (shouldn't happen in practice)
+    return text;
+  }
+
   buildFullReportFromDimensions(
     topic: ResearchTopic,
     dimensionInputs: DimensionAnalysisInput[],
@@ -342,6 +393,36 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       conclusion?: string;
     },
   ): string {
+    // ★ Safety net: sanitize all supplementary content to ensure no raw JSON in report
+    const sanitized = {
+      preface: supplementaryContent.preface
+        ? this.extractMarkdownFromJsonString(supplementaryContent.preface)
+        : supplementaryContent.preface,
+      executiveSummary: supplementaryContent.executiveSummary
+        ? this.extractMarkdownFromJsonString(
+            supplementaryContent.executiveSummary,
+          )
+        : supplementaryContent.executiveSummary,
+      crossDimensionAnalysis: supplementaryContent.crossDimensionAnalysis
+        ? this.extractMarkdownFromJsonString(
+            supplementaryContent.crossDimensionAnalysis,
+          )
+        : supplementaryContent.crossDimensionAnalysis,
+      riskAssessment: supplementaryContent.riskAssessment
+        ? this.extractMarkdownFromJsonString(
+            supplementaryContent.riskAssessment,
+          )
+        : supplementaryContent.riskAssessment,
+      strategicRecommendations: supplementaryContent.strategicRecommendations
+        ? this.extractMarkdownFromJsonString(
+            supplementaryContent.strategicRecommendations,
+          )
+        : supplementaryContent.strategicRecommendations,
+      conclusion: supplementaryContent.conclusion
+        ? this.extractMarkdownFromJsonString(supplementaryContent.conclusion)
+        : supplementaryContent.conclusion,
+    };
+
     const parts: string[] = [];
 
     // Sort dimensions by priority (lower number = higher priority = earlier in report)
@@ -356,16 +437,16 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     parts.push(`\n> 生成时间：${new Date().toLocaleDateString("zh-CN")}\n`);
 
     // 2. 前言（AI 生成）
-    if (supplementaryContent.preface) {
+    if (sanitized.preface) {
       parts.push("## 前言\n");
-      parts.push(stripLeadingHeading(supplementaryContent.preface));
+      parts.push(stripLeadingHeading(sanitized.preface));
       parts.push("\n");
     }
 
     // 3. 执行摘要（AI 生成）
-    if (supplementaryContent.executiveSummary) {
+    if (sanitized.executiveSummary) {
       parts.push("## 执行摘要\n");
-      parts.push(stripLeadingHeading(supplementaryContent.executiveSummary));
+      parts.push(stripLeadingHeading(sanitized.executiveSummary));
       parts.push("\n");
     }
 
@@ -379,16 +460,16 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         `${tocIndex}. [${dimName}](#${tocIndex}--${dimName.toLowerCase().replace(/\s+/g, "-")})`,
       );
     });
-    // ★ 只在对应 supplementaryContent 非空时添加目录项
-    if (supplementaryContent.crossDimensionAnalysis) {
+    // ★ 只在对应 sanitized 非空时添加目录项
+    if (sanitized.crossDimensionAnalysis) {
       tocIndex++;
       parts.push(`${tocIndex}. [跨维度关联分析](#跨维度关联分析)`);
     }
-    if (supplementaryContent.riskAssessment) {
+    if (sanitized.riskAssessment) {
       tocIndex++;
       parts.push(`${tocIndex}. [风险评估](#风险评估)`);
     }
-    if (supplementaryContent.strategicRecommendations) {
+    if (sanitized.strategicRecommendations) {
       tocIndex++;
       parts.push(`${tocIndex}. [战略建议](#战略建议)`);
     }
@@ -493,9 +574,9 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
     // ★ A4 Fallback: 如果三个 section 全为空，从维度数据自动拼接最简版
     if (
-      !supplementaryContent.crossDimensionAnalysis &&
-      !supplementaryContent.riskAssessment &&
-      !supplementaryContent.strategicRecommendations
+      !sanitized.crossDimensionAnalysis &&
+      !sanitized.riskAssessment &&
+      !sanitized.strategicRecommendations
     ) {
       this.logger.warn(
         "[buildFullReport] crossDimensionAnalysis, riskAssessment, strategicRecommendations are all empty. Generating fallback from dimension data.",
@@ -545,42 +626,35 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
     // 6. 跨维度关联分析（AI 生成） — 去重守卫：跳过已存在的同名章节
     if (
-      supplementaryContent.crossDimensionAnalysis &&
+      sanitized.crossDimensionAnalysis &&
       !existingH2Titles.has("跨维度关联分析")
     ) {
       parts.push("## 跨维度关联分析\n");
-      parts.push(
-        stripLeadingHeading(supplementaryContent.crossDimensionAnalysis),
-      );
+      parts.push(stripLeadingHeading(sanitized.crossDimensionAnalysis));
       parts.push("\n---\n");
     }
 
     // 7. 风险评估（AI 生成）
-    if (
-      supplementaryContent.riskAssessment &&
-      !existingH2Titles.has("风险评估")
-    ) {
+    if (sanitized.riskAssessment && !existingH2Titles.has("风险评估")) {
       parts.push("## 风险评估\n");
-      parts.push(stripLeadingHeading(supplementaryContent.riskAssessment));
+      parts.push(stripLeadingHeading(sanitized.riskAssessment));
       parts.push("\n---\n");
     }
 
     // 8. 战略建议（AI 生成）
     if (
-      supplementaryContent.strategicRecommendations &&
+      sanitized.strategicRecommendations &&
       !existingH2Titles.has("战略建议")
     ) {
       parts.push("## 战略建议\n");
-      parts.push(
-        stripLeadingHeading(supplementaryContent.strategicRecommendations),
-      );
+      parts.push(stripLeadingHeading(sanitized.strategicRecommendations));
       parts.push("\n---\n");
     }
 
     // 9. 结语（AI 生成）
-    if (supplementaryContent.conclusion) {
+    if (sanitized.conclusion) {
       parts.push("## 结语\n");
-      parts.push(stripLeadingHeading(supplementaryContent.conclusion));
+      parts.push(stripLeadingHeading(sanitized.conclusion));
       parts.push("\n");
     }
 

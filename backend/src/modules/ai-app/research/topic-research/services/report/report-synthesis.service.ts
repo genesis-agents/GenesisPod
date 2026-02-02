@@ -609,6 +609,53 @@ export class ReportSynthesisService {
    * 2. 只由 AI 生成补充内容（执行摘要、前言、跨维度分析、风险评估、战略建议、结语）
    * 3. 保持报告的完整性和一致性
    */
+  /**
+   * If a string looks like raw JSON, try to extract fullText from it.
+   */
+  private extractMarkdownFromJsonString(text: string): string {
+    const trimmed = text.trim();
+    if (!trimmed.startsWith("{")) return text;
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      const ft =
+        parsed.fullText ||
+        parsed.executiveSummary?.fullText ||
+        (typeof parsed.executiveSummary === "string"
+          ? parsed.executiveSummary
+          : null);
+      if (ft && typeof ft === "string") return ft;
+    } catch {
+      // Try regex fallback
+    }
+
+    const match = trimmed.match(/"fullText"\s*:\s*"/);
+    if (match && match.index !== undefined) {
+      const valueStart = match.index + match[0].length;
+      let i = valueStart;
+      while (i < trimmed.length) {
+        if (trimmed[i] === "\\") {
+          i += 2;
+          continue;
+        }
+        if (trimmed[i] === '"') {
+          const raw = trimmed.slice(valueStart, i);
+          const unescaped = raw
+            .replace(/\\n/g, "\n")
+            .replace(/\\t/g, "\t")
+            .replace(/\\r/g, "\r")
+            .replace(/\\"/g, '"')
+            .replace(/\\\\/g, "\\");
+          if (unescaped.length > 50) return unescaped;
+          break;
+        }
+        i++;
+      }
+    }
+
+    return text;
+  }
+
   private buildFullReportFromDimensions(
     topic: ResearchTopic,
     dimensionInputs: DimensionAnalysisInput[],
@@ -621,6 +668,14 @@ export class ReportSynthesisService {
       conclusion?: string;
     },
   ): string {
+    // ★ Safety net: sanitize all supplementary content
+    const sc = Object.fromEntries(
+      Object.entries(supplementaryContent).map(([k, v]) => [
+        k,
+        v ? this.extractMarkdownFromJsonString(v) : v,
+      ]),
+    ) as typeof supplementaryContent;
+
     const parts: string[] = [];
 
     // Sort dimensions by priority (lower number = higher priority = earlier in report)
@@ -635,16 +690,16 @@ export class ReportSynthesisService {
     parts.push(`\n> 生成时间：${new Date().toLocaleDateString("zh-CN")}\n`);
 
     // 2. 前言（AI 生成）
-    if (supplementaryContent.preface) {
+    if (sc.preface) {
       parts.push("## 前言\n");
-      parts.push(stripLeadingHeading(supplementaryContent.preface));
+      parts.push(stripLeadingHeading(sc.preface));
       parts.push("\n");
     }
 
     // 3. 执行摘要（AI 生成）
-    if (supplementaryContent.executiveSummary) {
+    if (sc.executiveSummary) {
       parts.push("## 执行摘要\n");
-      parts.push(stripLeadingHeading(supplementaryContent.executiveSummary));
+      parts.push(stripLeadingHeading(sc.executiveSummary));
       parts.push("\n");
     }
 
@@ -659,15 +714,15 @@ export class ReportSynthesisService {
       );
     });
     // ★ 只在对应 supplementaryContent 非空时添加目录项
-    if (supplementaryContent.crossDimensionAnalysis) {
+    if (sc.crossDimensionAnalysis) {
       tocIndex++;
       parts.push(`${tocIndex}. [跨维度关联分析](#跨维度关联分析)`);
     }
-    if (supplementaryContent.riskAssessment) {
+    if (sc.riskAssessment) {
       tocIndex++;
       parts.push(`${tocIndex}. [风险评估](#风险评估)`);
     }
-    if (supplementaryContent.strategicRecommendations) {
+    if (sc.strategicRecommendations) {
       tocIndex++;
       parts.push(`${tocIndex}. [战略建议](#战略建议)`);
     }
@@ -772,9 +827,9 @@ export class ReportSynthesisService {
 
     // ★ A4 Fallback: 如果三个 section 全为空，从维度数据自动拼接最简版
     if (
-      !supplementaryContent.crossDimensionAnalysis &&
-      !supplementaryContent.riskAssessment &&
-      !supplementaryContent.strategicRecommendations
+      !sc.crossDimensionAnalysis &&
+      !sc.riskAssessment &&
+      !sc.strategicRecommendations
     ) {
       this.logger.warn(
         "[buildFullReport] crossDimensionAnalysis, riskAssessment, strategicRecommendations are all empty. Generating fallback from dimension data.",
@@ -823,43 +878,30 @@ export class ReportSynthesisService {
     }
 
     // 6. 跨维度关联分析（AI 生成） — 去重守卫：跳过已存在的同名章节
-    if (
-      supplementaryContent.crossDimensionAnalysis &&
-      !existingH2Titles.has("跨维度关联分析")
-    ) {
+    if (sc.crossDimensionAnalysis && !existingH2Titles.has("跨维度关联分析")) {
       parts.push("## 跨维度关联分析\n");
-      parts.push(
-        stripLeadingHeading(supplementaryContent.crossDimensionAnalysis),
-      );
+      parts.push(stripLeadingHeading(sc.crossDimensionAnalysis));
       parts.push("\n---\n");
     }
 
     // 7. 风险评估（AI 生成）
-    if (
-      supplementaryContent.riskAssessment &&
-      !existingH2Titles.has("风险评估")
-    ) {
+    if (sc.riskAssessment && !existingH2Titles.has("风险评估")) {
       parts.push("## 风险评估\n");
-      parts.push(stripLeadingHeading(supplementaryContent.riskAssessment));
+      parts.push(stripLeadingHeading(sc.riskAssessment));
       parts.push("\n---\n");
     }
 
     // 8. 战略建议（AI 生成）
-    if (
-      supplementaryContent.strategicRecommendations &&
-      !existingH2Titles.has("战略建议")
-    ) {
+    if (sc.strategicRecommendations && !existingH2Titles.has("战略建议")) {
       parts.push("## 战略建议\n");
-      parts.push(
-        stripLeadingHeading(supplementaryContent.strategicRecommendations),
-      );
+      parts.push(stripLeadingHeading(sc.strategicRecommendations));
       parts.push("\n---\n");
     }
 
     // 9. 结语（AI 生成）
-    if (supplementaryContent.conclusion) {
+    if (sc.conclusion) {
       parts.push("## 结语\n");
-      parts.push(stripLeadingHeading(supplementaryContent.conclusion));
+      parts.push(stripLeadingHeading(sc.conclusion));
       parts.push("\n");
     }
 
