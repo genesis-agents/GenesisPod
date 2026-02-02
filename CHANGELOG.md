@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.19](https://github.com/your-org/ai-teams-engine/compare/v3.3.18...v3.3.19) (2026-02-02)
+
+
+### Bug Fixes
+
+* **research:** properly extract markdown from JSON embedded in fullReport ([f76bcc6](https://github.com/your-org/ai-teams-engine/commit/f76bcc66406a81bfad0dd2e2b62406b8cdeea12d))
+
 ### [3.3.18](https://github.com/your-org/ai-teams-engine/compare/v3.3.17...v3.3.18) (2026-02-02)
 
 
