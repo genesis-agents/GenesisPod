@@ -322,65 +322,52 @@ const aiEditButtons: readonly {
  * - Entire string is JSON: parse and extract fullText
  * - JSON block embedded within markdown: find it, extract fullText, replace inline
  */
+function tryExtractFromJson(jsonStr: string): string | null {
+  try {
+    const parsed = JSON.parse(jsonStr);
+    return (
+      parsed.fullText ||
+      parsed.executiveSummary?.fullText ||
+      (typeof parsed.executiveSummary === 'string'
+        ? parsed.executiveSummary
+        : null)
+    );
+  } catch {
+    return null;
+  }
+}
+
 function extractMarkdownFromJsonReport(content: string): string {
   // Case A: Entire content is JSON
   const trimmed = content.trimStart();
   if (trimmed.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      const ft =
-        parsed.fullText ||
-        parsed.executiveSummary?.fullText ||
-        (typeof parsed.executiveSummary === 'string'
-          ? parsed.executiveSummary
-          : null);
-      if (ft && typeof ft === 'string') return ft;
-    } catch {
-      // Not valid JSON as a whole, may have JSON embedded
-    }
+    const ft = tryExtractFromJson(trimmed);
+    if (ft) return ft;
   }
 
   // Case B: JSON block embedded in markdown
-  // Find the first { that starts a JSON object with known keys
-  // Use a broad search: find any line starting with { followed by "executiveSummary" or "fullText"
+  // Find { that starts a JSON object with known report keys
   const jsonStartPattern =
     /[\r\n]\s*\{[\s\r\n]*"(?:executiveSummary|fullText|preface|tableOfContents)"/;
   const match = jsonStartPattern.exec(content);
   if (!match || match.index === undefined) return content;
 
-  // Find the actual { position
   const bracePos = content.indexOf('{', match.index);
   if (bracePos === -1) return content;
 
-  // Find matching closing brace
-  let braceCount = 0;
-  let endIdx = -1;
-  for (let i = bracePos; i < content.length; i++) {
-    if (content[i] === '{') braceCount++;
-    if (content[i] === '}') braceCount--;
-    if (braceCount === 0) {
-      endIdx = i + 1;
-      break;
-    }
-  }
-  if (endIdx <= bracePos) return content;
-
-  const jsonBlock = content.slice(bracePos, endIdx);
-  try {
-    const parsed = JSON.parse(jsonBlock);
-    // Extract meaningful text from the JSON
-    const ft =
-      parsed.executiveSummary?.fullText ||
-      parsed.fullText ||
-      (typeof parsed.executiveSummary === 'string'
-        ? parsed.executiveSummary
-        : null);
-    if (ft && typeof ft === 'string') {
-      // Replace the JSON block with the extracted markdown
+  // Try progressively larger substrings ending with } to find valid JSON
+  // Search from the end of content backwards to find the last } that makes valid JSON
+  const remaining = content.slice(bracePos);
+  let lastBrace = remaining.lastIndexOf('}');
+  while (lastBrace > 0) {
+    const candidate = remaining.slice(0, lastBrace + 1);
+    const ft = tryExtractFromJson(candidate);
+    if (ft) {
+      const endIdx = bracePos + lastBrace + 1;
       return content.slice(0, bracePos) + ft + content.slice(endIdx);
     }
-  } catch {
-    // JSON parse failed - try to strip the entire JSON block
+    // Try next } backwards
+    lastBrace = remaining.lastIndexOf('}', lastBrace - 1);
   }
 
   return content;
