@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.20](https://github.com/your-org/ai-teams-engine/compare/v3.3.19...v3.3.20) (2026-02-02)
+
+
+### Bug Fixes
+
+* **research:** broaden JSON detection regex for embedded executiveSummary ([c87d8f9](https://github.com/your-org/ai-teams-engine/commit/c87d8f9fde1e231f89a7f58cbd8fec834a95837e))
+
 ### [3.3.19](https://github.com/your-org/ai-teams-engine/compare/v3.3.18...v3.3.19) (2026-02-02)
 
 
