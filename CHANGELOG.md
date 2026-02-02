@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.22](https://github.com/your-org/ai-teams-engine/compare/v3.3.21...v3.3.22) (2026-02-02)
+
+
+### Bug Fixes
+
+* **research:** use JSON.parse instead of brace counting for embedded JSON extraction ([49068d9](https://github.com/your-org/ai-teams-engine/commit/49068d9b43bebbf0e89591983efb332db92378a8))
+
 ### [3.3.21](https://github.com/your-org/ai-teams-engine/compare/v3.3.20...v3.3.21) (2026-02-02)
 
 
