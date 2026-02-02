@@ -2,6 +2,12 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.14](https://github.com/your-org/ai-teams-engine/compare/v3.3.13...v3.3.14) (2026-02-02)
+
+### Bug Fixes
+
+- **research:** add modelId to agent activity records for consistent model label display
+
 ### [3.3.13](https://github.com/your-org/ai-teams-engine/compare/v3.3.12...v3.3.13) (2026-02-02)
 
 ### Bug Fixes

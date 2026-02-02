@@ -13,6 +13,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AgentActivityType } from "@prisma/client";
+import { getModelDisplayNameMap } from "../../utils/model-display-name";
 import type {
   SearchResultsRecord,
   WritingProgressRecord,
@@ -45,6 +46,7 @@ export interface CreateAgentActivityInput {
   phase?: string;
   content: string;
   progress?: number;
+  modelId?: string; // ★ 模型 ID，用于在 agentName 后显示 [model]
 
   // 思考链增强字段
   thinkingPhase?: ThinkingPhase;
@@ -65,10 +67,34 @@ export class AgentActivityService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * 根据 modelId 解析带模型标签的 agentName
+   */
+  private async resolveAgentDisplayName(
+    agentName: string,
+    modelId?: string,
+  ): Promise<string> {
+    if (!modelId) return agentName;
+    try {
+      const nameMap = await getModelDisplayNameMap(this.prisma, [modelId]);
+      const modelLabel = nameMap.get(modelId) || modelId;
+      if (modelLabel && !agentName.includes(`[${modelLabel}]`)) {
+        return `${agentName} [${modelLabel}]`;
+      }
+    } catch {
+      // non-fatal
+    }
+    return agentName;
+  }
+
+  /**
    * 记录 Agent 活动
    */
   async recordActivity(input: CreateAgentActivityInput): Promise<string> {
     try {
+      const agentDisplayName = await this.resolveAgentDisplayName(
+        input.agentName,
+        input.modelId,
+      );
       const activity = await this.prisma.researchAgentActivity.create({
         data: {
           topicId: input.topicId,
@@ -76,7 +102,7 @@ export class AgentActivityService {
           dimensionId: input.dimensionId,
           dimensionName: input.dimensionName,
           agentId: input.agentId,
-          agentName: input.agentName,
+          agentName: agentDisplayName,
           agentRole: input.agentRole,
           activityType: input.activityType,
           phase: input.phase,
@@ -113,6 +139,10 @@ export class AgentActivityService {
     const phaseKey = `${input.topicId}:${input.agentId}:${input.thinkingPhase}`;
 
     try {
+      const agentDisplayName = await this.resolveAgentDisplayName(
+        input.agentName,
+        input.modelId,
+      );
       const activity = await this.prisma.researchAgentActivity.create({
         data: {
           topicId: input.topicId,
@@ -120,7 +150,7 @@ export class AgentActivityService {
           dimensionId: input.dimensionId,
           dimensionName: input.dimensionName,
           agentId: input.agentId,
-          agentName: input.agentName,
+          agentName: agentDisplayName,
           agentRole: input.agentRole,
           activityType: input.activityType,
           phase: input.phase,

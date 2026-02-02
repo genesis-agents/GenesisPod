@@ -208,6 +208,7 @@ export class DimensionMissionService {
       progress: 0,
       thinkingPhase: "searching" as ThinkingPhase,
       thinkingContent: `搜索关键词: ${Array.isArray(dimension.searchQueries) ? dimension.searchQueries.join(", ") : dimension.name}`,
+      modelId,
     });
 
     const searchResult = await this.dataSourceRouter.fetchDataForDimension(
@@ -780,6 +781,7 @@ export class DimensionMissionService {
         progress: 0,
         thinkingPhase: "writing" as ThinkingPhase,
         thinkingContent: `章节列表：${outline.sections.map((s) => s.title).join("、")}`,
+        modelId,
       });
 
       const sectionResults = await this.writeSectionsWithReview(
