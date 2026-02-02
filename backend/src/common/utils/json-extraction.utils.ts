@@ -55,45 +55,52 @@ export function extractJsonFromAIResponse<T = unknown>(
     // Continue to next method
   }
 
-  // Method 2: Extract from ```json code block (with closing ```)
-  const jsonBlockMatch = content.match(/```json\s*([\s\S]+?)\s*```/);
-  if (jsonBlockMatch) {
-    try {
-      const parsed = JSON.parse(jsonBlockMatch[1]) as T;
-      if (!requiredKey || hasKey(parsed, requiredKey)) {
-        return { success: true, data: parsed, method: "jsonBlock" };
-      }
-    } catch {
-      // Continue to next method
-    }
-  }
-
-  // Method 2.5: Extract from ```json code block (without closing ``` - truncated response)
-  // ★ 新增：处理被截断的 JSON 响应（没有结束的 ```）
-  const unclosedJsonBlockMatch = content.match(/```json\s*([\s\S]+)$/);
-  if (unclosedJsonBlockMatch && !jsonBlockMatch) {
-    const jsonContent = unclosedJsonBlockMatch[1].trim();
-    // 先尝试直接解析（可能是完整的 JSON 只是没有 ```）
-    try {
-      const parsed = JSON.parse(jsonContent) as T;
-      if (!requiredKey || hasKey(parsed, requiredKey)) {
-        return { success: true, data: parsed, method: "unclosedJsonBlock" };
-      }
-    } catch {
-      // 尝试修复截断的 JSON
-      const repaired = tryRepairTruncatedJson(jsonContent);
-      if (repaired) {
+  // Method 2: Extract from ```json code block using brace counting
+  // ★ Non-greedy regex fails when fullText contains ``` (markdown code blocks in JSON string values)
+  // Instead, find the ```json marker, locate the first {, then use brace counting
+  const jsonBlockStart = content.indexOf("```json");
+  if (jsonBlockStart !== -1) {
+    const afterMarker = content.substring(jsonBlockStart + 7); // skip "```json"
+    const bracePos = afterMarker.indexOf("{");
+    if (bracePos !== -1) {
+      const jsonObj = extractJsonByBraceCounting(
+        afterMarker.substring(bracePos),
+      );
+      if (jsonObj) {
         try {
-          const parsed = JSON.parse(repaired) as T;
+          const parsed = JSON.parse(jsonObj) as T;
           if (!requiredKey || hasKey(parsed, requiredKey)) {
-            return {
-              success: true,
-              data: parsed,
-              method: "unclosedJsonBlockRepaired",
-            };
+            return { success: true, data: parsed, method: "jsonBlock" };
           }
         } catch {
           // Continue to next method
+        }
+      }
+      // Fallback: try the unclosed/truncated content after ```json
+      const jsonContent = afterMarker.trim();
+      // Try direct parse first (complete JSON without closing ```)
+      try {
+        const trimmed = jsonContent.replace(/\s*```\s*$/, "").trim();
+        const parsed = JSON.parse(trimmed) as T;
+        if (!requiredKey || hasKey(parsed, requiredKey)) {
+          return { success: true, data: parsed, method: "unclosedJsonBlock" };
+        }
+      } catch {
+        // Try repair
+        const repaired = tryRepairTruncatedJson(jsonContent);
+        if (repaired) {
+          try {
+            const parsed = JSON.parse(repaired) as T;
+            if (!requiredKey || hasKey(parsed, requiredKey)) {
+              return {
+                success: true,
+                data: parsed,
+                method: "unclosedJsonBlockRepaired",
+              };
+            }
+          } catch {
+            // Continue to next method
+          }
         }
       }
     }
@@ -319,4 +326,43 @@ function tryRepairTruncatedJson(content: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * Extract a complete JSON object from a string using brace counting.
+ * Correctly handles nested braces inside JSON string values (e.g. markdown with ```)
+ * Returns the complete JSON substring, or null if no balanced object found.
+ */
+function extractJsonByBraceCounting(content: string): string | null {
+  if (!content.startsWith("{")) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < content.length; i++) {
+    const ch = content[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        return content.substring(0, i + 1);
+      }
+    }
+  }
+
+  return null; // Unbalanced — truncated JSON
 }
