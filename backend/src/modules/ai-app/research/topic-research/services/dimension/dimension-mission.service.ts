@@ -886,6 +886,7 @@ export class DimensionMissionService {
         await this.leaderService.integrateDimensionResults(
           { name: dimension.name, description: dimension.description },
           sectionResults.map((r) => ({ title: r.title, content: r.content })),
+          topic.language,
         );
 
       await this.agentActivity.endThinkingPhase(
@@ -1127,6 +1128,7 @@ export class DimensionMissionService {
         temporalContext, // ★ 传递时间上下文
         allocatedFigures: section.allocatedFigures, // ★ 传递 Leader 预分配的图表
         validationContext, // V5: inject validation context
+        topicLanguage, // ★ 传递语言设置
       }));
 
       // ★ 发送研究员开始写作事件
@@ -1250,6 +1252,7 @@ export class DimensionMissionService {
               revisionInstructions: review.revisionInstructions || "",
               evidenceData,
               modelId, // ★ 修订时使用同一模型
+              topicLanguage, // ★ 传递语言设置
             });
           } catch (revisionError) {
             const errorMsg =

@@ -20,6 +20,7 @@ import {
   SECTION_REVISION_USER_PROMPT_TEMPLATE,
   formatEvidenceForPrompt,
   renderPromptTemplate,
+  getLanguageInstruction,
 } from "../../prompts/dimension-research.prompt";
 import type {
   EvidenceData,
@@ -74,6 +75,8 @@ export interface SectionWriteInput {
   allocatedFigures?: import("../core/research-leader.service").AllocatedFigure[];
   /** V5: 验证结果上下文（注入到写作 prompt 中） */
   validationContext?: string;
+  /** 研究语言设置 (zh/en) */
+  topicLanguage?: string | null;
 }
 
 /**
@@ -87,6 +90,8 @@ export interface SectionRevisionInput {
   evidenceData: EvidenceData[];
   /** ★ 指定使用的模型ID（用于实现 Agent 多元化） */
   modelId?: string;
+  /** 研究语言设置 (zh/en) */
+  topicLanguage?: string | null;
 }
 
 @Injectable()
@@ -204,10 +209,17 @@ export class SectionWriterService {
 
     // 调用 AI 写作
     // ★ 支持指定模型实现 Agent 多元化
+    const languageInstruction = getLanguageInstruction(
+      input.topicLanguage || "zh",
+    );
+    const systemPrompt = renderPromptTemplate(SECTION_WRITING_SYSTEM_PROMPT, {
+      languageInstruction,
+    });
+
     const startTime = Date.now();
     const response = await this.aiFacade.chat({
       messages: [
-        { role: "system", content: SECTION_WRITING_SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: finalUserPrompt },
       ],
       modelType: AIModelType.CHAT,
@@ -320,10 +332,18 @@ export class SectionWriterService {
 
     // 调用 AI 修订
     // ★ 支持指定模型实现 Agent 多元化
+    const revisionLanguageInstruction = getLanguageInstruction(
+      input.topicLanguage || "zh",
+    );
+    const revisionSystemPrompt = renderPromptTemplate(
+      SECTION_WRITING_SYSTEM_PROMPT,
+      { languageInstruction: revisionLanguageInstruction },
+    );
+
     const startTime = Date.now();
     const response = await this.aiFacade.chat({
       messages: [
-        { role: "system", content: SECTION_WRITING_SYSTEM_PROMPT },
+        { role: "system", content: revisionSystemPrompt },
         { role: "user", content: userPrompt },
       ],
       modelType: AIModelType.CHAT,

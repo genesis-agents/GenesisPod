@@ -2470,6 +2470,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
   async integrateDimensionResults(
     dimension: { name: string; description?: string | null },
     sectionResults: Array<{ title: string; content: string }>,
+    topicLanguage?: string | null,
   ): Promise<IntegratedDimensionResult> {
     this.logger.log(
       `[integrateDimensionResults] Integrating ${sectionResults.length} sections for ${dimension.name}`,
@@ -2523,7 +2524,25 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
     let keyFindings = this.extractKeyFindingsFromContent(fullContent);
 
     try {
-      const metaPrompt = `请阅读以下研究内容，输出JSON格式的摘要和关键发现：
+      const isEnglish = topicLanguage === "en";
+      const metaPrompt = isEnglish
+        ? `Read the following research content and output a JSON summary with key findings:
+
+Dimension: ${dimension.name}
+${dimension.description || ""}
+
+Content (first 8000 chars):
+${fullContent.substring(0, 8000)}
+
+Output format:
+\`\`\`json
+{
+  "summary": "200-300 word dimension summary",
+  "keyFindings": ["Key finding 1 (50-100 words)", "Key finding 2", ...]
+}
+\`\`\`
+Requirements: summary 200-300 words, keyFindings 5-8 items, each 50-100 words.`
+        : `请阅读以下研究内容，输出JSON格式的摘要和关键发现：
 
 维度：${dimension.name}
 ${dimension.description || ""}
@@ -2542,7 +2561,12 @@ ${fullContent.substring(0, 8000)}
 
       const metaResponse = await this.aiFacade.chat({
         messages: [
-          { role: "system", content: "你是研究报告整合专家，请输出JSON。" },
+          {
+            role: "system",
+            content: isEnglish
+              ? "You are a research report integration expert. Output JSON."
+              : "你是研究报告整合专家，请输出JSON。",
+          },
           { role: "user", content: metaPrompt },
         ],
         model: leaderModel.modelId,

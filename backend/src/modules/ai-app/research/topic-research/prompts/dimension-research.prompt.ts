@@ -498,6 +498,8 @@ export function renderPromptTemplate(
  */
 export const SECTION_WRITING_SYSTEM_PROMPT = `你是一位专业的研究分析师，负责撰写研究报告的特定章节。
 
+{{languageInstruction}}
+
 ## 核心要求
 
 1. **聚焦性**：只写被分配的章节，不要越界
