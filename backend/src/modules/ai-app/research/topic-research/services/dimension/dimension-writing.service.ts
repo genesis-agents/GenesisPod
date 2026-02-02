@@ -548,6 +548,12 @@ export class DimensionWritingService {
     const dimId = dimension.id.slice(0, 8);
     const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
 
+    // Fetch topic for language setting
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: topicId },
+      select: { language: true },
+    });
+
     // 按并行组执行
     for (const group of outline.executionPlan.parallelGroups) {
       this.logger.log(
@@ -636,6 +642,7 @@ export class DimensionWritingService {
               title: r.title,
               content: r.content,
             })),
+            topic?.language,
           );
 
           if (review.approved) {

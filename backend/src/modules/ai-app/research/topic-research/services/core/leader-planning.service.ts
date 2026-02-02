@@ -16,6 +16,7 @@ import {
   LEADER_PLAN_PROMPT,
   GLOBAL_OUTLINE_PROMPT,
   DIMENSION_OUTLINE_PROMPT,
+  getLanguageInstruction,
 } from "../../prompts";
 import type {
   LeaderPlan,
@@ -172,7 +173,11 @@ export class LeaderPlanningService {
       .replace("{availableModels}", availableModelsText)
       .replace("{existingDimensions}", existingDimensionsText)
       .replace(/{currentDate}/g, currentDate)
-      .replace(/{currentYear}/g, currentYear);
+      .replace(/{currentYear}/g, currentYear)
+      .replace(
+        "{languageInstruction}",
+        getLanguageInstruction(topic.language || "zh"),
+      );
 
     // 6. 调用 AI 获取规划
     const startTime = Date.now();
@@ -337,7 +342,12 @@ export class LeaderPlanningService {
    * @returns 全局协调的大纲
    */
   async planGlobalOutline(
-    topic: { name: string; type: string; description?: string | null },
+    topic: {
+      name: string;
+      type: string;
+      description?: string | null;
+      language?: string | null;
+    },
     dimensionSearchResults: Array<{
       dimensionId: string;
       dimensionName: string;
@@ -384,7 +394,11 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
     const prompt = GLOBAL_OUTLINE_PROMPT.replace("{topicName}", topic.name)
       .replace("{topicType}", topic.type)
       .replace("{topicDescription}", topic.description || "无")
-      .replace("{dimensionSearchResults}", dimensionSearchResultsText);
+      .replace("{dimensionSearchResults}", dimensionSearchResultsText)
+      .replace(
+        "{languageInstruction}",
+        getLanguageInstruction(topic.language || "zh"),
+      );
 
     // 重试机制
     const MAX_RETRIES = 3;
@@ -554,7 +568,12 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
    * 3. 确保广度和覆盖度
    */
   async planDimensionOutline(
-    topic: { name: string; type: string; description?: string | null },
+    topic: {
+      name: string;
+      type: string;
+      description?: string | null;
+      language?: string | null;
+    },
     dimension: {
       name: string;
       description?: string | null;
@@ -590,7 +609,11 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
       .replace("{dimensionDescription}", dimension.description || "无")
       .replace("{focusAreas}", focusAreas)
       .replace("{evidenceSummary}", evidenceSummary)
-      .replace("{otherDimensionsInfo}", otherDimensionsInfo);
+      .replace("{otherDimensionsInfo}", otherDimensionsInfo)
+      .replace(
+        "{languageInstruction}",
+        getLanguageInstruction(topic.language || "zh"),
+      );
 
     // ★ 注入图表分配信息
     const figuresSection = figuresSummary

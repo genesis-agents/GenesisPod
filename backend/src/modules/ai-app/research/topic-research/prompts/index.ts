@@ -9,6 +9,7 @@ export {
   DIMENSION_RESEARCH_USER_PROMPT_TEMPLATE,
   formatEvidenceForPrompt,
   renderPromptTemplate,
+  getLanguageInstruction,
 } from "./dimension-research.prompt";
 
 export {

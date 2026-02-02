@@ -15,7 +15,11 @@ import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { AIModelType, LeaderDecisionType } from "@prisma/client";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
-import { LEADER_REVIEW_PROMPT, SECTION_REVIEW_PROMPT } from "../../prompts";
+import {
+  LEADER_REVIEW_PROMPT,
+  SECTION_REVIEW_PROMPT,
+  getLanguageInstruction,
+} from "../../prompts";
 import type {
   ReviewDecision,
   SectionPlan,
@@ -179,6 +183,7 @@ export class LeaderReviewService {
       figureReferences?: FigureReference[];
     },
     previousSections?: Array<{ title: string; content: string }>,
+    topicLanguage?: string | null,
   ): Promise<SectionReviewDecision> {
     this.logger.log(
       `[reviewSectionOutput] Reviewing section: ${section.title} (revision ${revisionCount})`,
@@ -211,7 +216,11 @@ export class LeaderReviewService {
         String(section.evidenceRequirements.minReferences),
       )
       .replace("{sectionContent}", content)
-      .replace("{previousSectionsSummary}", previousSummary);
+      .replace("{previousSectionsSummary}", previousSummary)
+      .replace(
+        "{languageInstruction}",
+        getLanguageInstruction(topicLanguage || "zh"),
+      );
 
     // ★ 注入图表数据供审核
     if (charts?.generatedCharts?.length || charts?.figureReferences?.length) {

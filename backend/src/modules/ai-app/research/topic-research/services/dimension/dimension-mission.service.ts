@@ -589,7 +589,12 @@ export class DimensionMissionService {
       });
 
       const outline = await this.leaderService.planDimensionOutline(
-        { name: topic.name, type: topic.type, description: topic.description },
+        {
+          name: topic.name,
+          type: topic.type,
+          description: topic.description,
+          language: topic.language,
+        },
         {
           name: dimension.name,
           description: dimension.description,
@@ -795,6 +800,7 @@ export class DimensionMissionService {
         taskId,
         validationContext, // V5
         maxRevisionRounds, // V5
+        topic.language, // Language setting
       );
 
       // 记录写作完成
@@ -1088,6 +1094,7 @@ export class DimensionMissionService {
     taskId?: string, // ★ 研究任务ID（用于前端精确匹配进度更新）
     validationContext?: string, // V5: 验证上下文
     maxRevisionRounds?: number, // V5: 最大修订轮次
+    topicLanguage?: string | null, // Language setting for review
   ): Promise<SectionWriteResult[]> {
     const sectionResults: SectionWriteResult[] = [];
     const sectionMap = new Map<string, SectionWriteResult>();
@@ -1184,6 +1191,7 @@ export class DimensionMissionService {
               title: r.title,
               content: r.content,
             })),
+            topicLanguage,
           );
 
           if (review.approved) {

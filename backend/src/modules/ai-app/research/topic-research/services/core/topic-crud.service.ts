@@ -66,6 +66,7 @@ export class TopicCrudService {
           color: dto.color,
           refreshFrequency: dto.refreshFrequency || RefreshFrequency.MANUAL,
           visibility: dto.visibility || "PRIVATE", // ★ 默认私有
+          language: dto.language || "zh",
           status: ResearchTopicStatus.DRAFT,
         },
       });
@@ -336,6 +337,7 @@ export class TopicCrudService {
         icon: dto.icon,
         color: dto.color,
         refreshFrequency: dto.refreshFrequency,
+        language: dto.language,
       },
       include: {
         dimensions: {

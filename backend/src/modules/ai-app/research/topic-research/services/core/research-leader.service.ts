@@ -39,6 +39,7 @@ import {
   SECTION_REVIEW_PROMPT,
   LEADER_DECODE_PROMPT,
   LEADER_INTERVENE_PROMPT,
+  getLanguageInstruction,
 } from "../../prompts";
 import {
   ANALYSIS_SKILL_DEFINITIONS,
@@ -230,7 +231,11 @@ export class ResearchLeaderService {
       .replace("{availableModels}", availableModelsText)
       .replace("{existingDimensions}", existingDimensionsText)
       .replace(/{currentDate}/g, currentDate)
-      .replace(/{currentYear}/g, currentYear);
+      .replace(/{currentYear}/g, currentYear)
+      .replace(
+        "{languageInstruction}",
+        getLanguageInstruction(topic.language || "zh"),
+      );
 
     // 6. 调用 AI 获取规划
     const startTime = Date.now();
@@ -1940,7 +1945,12 @@ ${teamMembersText}`;
    * 3. 确保广度和覆盖度
    */
   async planDimensionOutline(
-    topic: { name: string; type: string; description?: string | null },
+    topic: {
+      name: string;
+      type: string;
+      description?: string | null;
+      language?: string | null;
+    },
     dimension: {
       name: string;
       description?: string | null;
@@ -1976,7 +1986,11 @@ ${teamMembersText}`;
       .replace("{dimensionDescription}", dimension.description || "无")
       .replace("{focusAreas}", focusAreas)
       .replace("{evidenceSummary}", evidenceSummary)
-      .replace("{otherDimensionsInfo}", otherDimensionsInfo);
+      .replace("{otherDimensionsInfo}", otherDimensionsInfo)
+      .replace(
+        "{languageInstruction}",
+        getLanguageInstruction(topic.language || "zh"),
+      );
 
     // ★ 注入图表分配信息
     const figuresSection = figuresSummary
@@ -2113,7 +2127,12 @@ ${teamMembersText}`;
    * @returns 全局协调的大纲
    */
   async planGlobalOutline(
-    topic: { name: string; type: string; description?: string | null },
+    topic: {
+      name: string;
+      type: string;
+      description?: string | null;
+      language?: string | null;
+    },
     dimensionSearchResults: Array<{
       dimensionId: string;
       dimensionName: string;
@@ -2160,7 +2179,11 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
     const prompt = GLOBAL_OUTLINE_PROMPT.replace("{topicName}", topic.name)
       .replace("{topicType}", topic.type)
       .replace("{topicDescription}", topic.description || "无")
-      .replace("{dimensionSearchResults}", dimensionSearchResultsText);
+      .replace("{dimensionSearchResults}", dimensionSearchResultsText)
+      .replace(
+        "{languageInstruction}",
+        getLanguageInstruction(topic.language || "zh"),
+      );
 
     // 重试机制
     const MAX_RETRIES = 3;
@@ -2338,6 +2361,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
       figureReferences?: FigureReference[];
     },
     previousSections?: Array<{ title: string; content: string }>,
+    topicLanguage?: string | null,
   ): Promise<SectionReviewDecision> {
     this.logger.log(
       `[reviewSectionOutput] Reviewing section: ${section.title} (revision ${revisionCount})`,
@@ -2370,7 +2394,11 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         String(section.evidenceRequirements.minReferences),
       )
       .replace("{sectionContent}", content)
-      .replace("{previousSectionsSummary}", previousSummary);
+      .replace("{previousSectionsSummary}", previousSummary)
+      .replace(
+        "{languageInstruction}",
+        getLanguageInstruction(topicLanguage || "zh"),
+      );
 
     // ★ 注入图表数据供审核
     if (charts?.generatedCharts?.length || charts?.figureReferences?.length) {

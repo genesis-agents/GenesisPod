@@ -1198,6 +1198,7 @@ export class TopicTeamOrchestratorService {
           name: topic.name,
           type: topic.type,
           description: topic.description,
+          language: topic.language,
         },
         dimensionSearchSummaries,
       );
@@ -1271,6 +1272,7 @@ export class TopicTeamOrchestratorService {
                 name: topic.name,
                 type: topic.type,
                 description: topic.description,
+                language: topic.language,
               },
               {
                 name: dimension.name,

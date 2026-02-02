@@ -36,6 +36,7 @@ import {
   formatEvidenceList,
   renderReportSynthesisPrompt,
 } from "../../prompts/report-synthesis.prompt";
+import { getLanguageInstruction } from "../../prompts";
 import {
   CONSISTENCY_CHECK_SYSTEM_PROMPT,
   CONSISTENCY_CHECK_USER_PROMPT,
@@ -1063,10 +1064,16 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       `[generateStructuredReport] Requesting ${estimatedTokens} tokens for ${dimensionCount} dimensions`,
     );
 
+    // 替换语言指令占位符
+    const systemPrompt = REPORT_SYNTHESIS_SYSTEM_PROMPT.replace(
+      "{{languageInstruction}}",
+      getLanguageInstruction(topic.language || "zh"),
+    );
+
     // 调用 AI 生成报告
     const response = await this.aiFacade.chat({
       messages: [
-        { role: "system", content: REPORT_SYNTHESIS_SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       modelType: AIModelType.CHAT, // 使用标准聊天模型进行深度分析

@@ -341,16 +341,21 @@ function extractMarkdownFromJsonReport(content: string): string {
   }
 
   // Case B: JSON block embedded in markdown
-  // Match { on its own line (multiline or single-line JSON with "executiveSummary"/"fullText")
-  const jsonStartPattern = /\n\{[\s\n]*"(?:executiveSummary|fullText)"/;
+  // Find the first { that starts a JSON object with known keys
+  // Use a broad search: find any line starting with { followed by "executiveSummary" or "fullText"
+  const jsonStartPattern =
+    /[\r\n]\s*\{[\s\r\n]*"(?:executiveSummary|fullText|preface|tableOfContents)"/;
   const match = jsonStartPattern.exec(content);
   if (!match || match.index === undefined) return content;
 
-  const startIdx = match.index + 1; // skip the \n, point to {
+  // Find the actual { position
+  const bracePos = content.indexOf('{', match.index);
+  if (bracePos === -1) return content;
+
   // Find matching closing brace
   let braceCount = 0;
   let endIdx = -1;
-  for (let i = startIdx; i < content.length; i++) {
+  for (let i = bracePos; i < content.length; i++) {
     if (content[i] === '{') braceCount++;
     if (content[i] === '}') braceCount--;
     if (braceCount === 0) {
@@ -358,11 +363,12 @@ function extractMarkdownFromJsonReport(content: string): string {
       break;
     }
   }
-  if (endIdx <= startIdx) return content;
+  if (endIdx <= bracePos) return content;
 
-  const jsonBlock = content.slice(startIdx, endIdx);
+  const jsonBlock = content.slice(bracePos, endIdx);
   try {
     const parsed = JSON.parse(jsonBlock);
+    // Extract meaningful text from the JSON
     const ft =
       parsed.executiveSummary?.fullText ||
       parsed.fullText ||
@@ -371,10 +377,10 @@ function extractMarkdownFromJsonReport(content: string): string {
         : null);
     if (ft && typeof ft === 'string') {
       // Replace the JSON block with the extracted markdown
-      return content.slice(0, startIdx) + ft + content.slice(endIdx);
+      return content.slice(0, bracePos) + ft + content.slice(endIdx);
     }
   } catch {
-    // JSON parse failed
+    // JSON parse failed - try to strip the entire JSON block
   }
 
   return content;

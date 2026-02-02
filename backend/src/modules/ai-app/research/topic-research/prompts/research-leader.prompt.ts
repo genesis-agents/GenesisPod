@@ -172,7 +172,9 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
 4. 数据源选择要与维度内容匹配
 5. **Agent ID 必须唯一**：使用 "researcher_维度关键词" 格式
 6. **Agent Name 必须有区分度**：每个研究员的名称要体现其负责的维度
-7. ⚠️ **动态选择**：modelId、skills、tools 必须从上面列出的可用选项中选择，且要根据具体任务需求选择最合适的`;
+7. ⚠️ **动态选择**：modelId、skills、tools 必须从上面列出的可用选项中选择，且要根据具体任务需求选择最合适的
+
+{languageInstruction}`;
 
 /**
  * Leader 审核 Prompt
@@ -337,6 +339,8 @@ export const GLOBAL_OUTLINE_PROMPT = `你是资深的研究协调专家（Resear
 \`\`\`
 
 提出 3-5 个可验证的研究假设，每个假设包含正反搜索方向。
+
+{languageInstruction}
 `;
 
 /**
@@ -459,7 +463,9 @@ export const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Res
 - "analytical": 分析型 - 逻辑严谨，数据支撑
 - "narrative": 叙事型 - 故事性强，易于理解
 - "concise": 简洁型 - 精炼要点，去除冗余
-- "detailed": 详细型 - 面面俱到，深入展开`;
+- "detailed": 详细型 - 面面俱到，深入展开
+
+{languageInstruction}`;
 
 /**
  * 章节审核 Prompt
@@ -521,7 +527,9 @@ export const SECTION_REVIEW_PROMPT = `你是研究质量审核专家，负责审
 ## 审核原则
 - 核心底线：章节必须包含独立分析判断，纯证据拼接不通过
 - 明确指导：如果不通过，给出具体的修改建议，尤其指出哪些段落需要加入分析
-- 不要吹毛求疵：格式、用词等小问题可以忽略，重点关注分析深度和内容质量`;
+- 不要吹毛求疵：格式、用词等小问题可以忽略，重点关注分析深度和内容质量
+
+{languageInstruction}`;
 
 /**
  * Leader 解码用户输入 Prompt

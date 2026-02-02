@@ -31,6 +31,7 @@ import {
   CONSISTENCY_CHECK_SYSTEM_PROMPT,
   CONSISTENCY_CHECK_USER_PROMPT,
 } from "../../prompts/consistency-check.prompt";
+import { getLanguageInstruction } from "../../prompts";
 
 /**
  * Report Generator Service
@@ -261,10 +262,16 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       `[generateStructuredReport] Requesting ${estimatedTokens} tokens for ${dimensionCount} dimensions`,
     );
 
+    // 替换语言指令占位符
+    const systemPrompt = REPORT_SYNTHESIS_SYSTEM_PROMPT.replace(
+      "{{languageInstruction}}",
+      getLanguageInstruction(topic.language || "zh"),
+    );
+
     // 调用 AI 生成报告
     const response = await this.aiFacade.chat({
       messages: [
-        { role: "system", content: REPORT_SYNTHESIS_SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       modelType: AIModelType.CHAT, // 使用标准聊天模型进行深度分析
@@ -751,9 +758,19 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
           const esJsonParsed = JSON.parse(esStr);
           // 支持 { executiveSummary: {...} } 或直接 { coreConclusions: [...] } 格式
           const esData = esJsonParsed.executiveSummary || esJsonParsed;
-          if (esData && (esData.coreConclusions || esData.keyMetrics)) {
+          if (
+            esData &&
+            (esData.coreConclusions || esData.keyMetrics || esData.fullText)
+          ) {
             // 递归调用处理解析后的对象
             return this.normalizeExecutiveSummary(esData);
+          }
+          // fallback: 如果顶层有 fullText 字符串，直接返回
+          if (
+            esJsonParsed.fullText &&
+            typeof esJsonParsed.fullText === "string"
+          ) {
+            return esJsonParsed.fullText;
           }
           return esStr;
         } catch {
