@@ -34,6 +34,7 @@ import {
   Reflection,
   ThinkingStepType,
 } from '@/hooks';
+import { useI18n } from '@/lib/i18n';
 
 interface ThinkingChainPanelProps {
   state: DeepResearchState;
@@ -53,16 +54,7 @@ const stepIcons: Record<ThinkingStepType, React.ElementType> = {
   formatting: Sparkles,
 };
 
-// 步骤类型标签映射
-const stepLabels: Record<ThinkingStepType, string> = {
-  analyzing_query: '分析查询',
-  planning_research: '规划研究',
-  executing_search: '执行搜索',
-  evaluating_results: '评估结果',
-  reflecting: '反思决策',
-  synthesizing: '合成报告',
-  formatting: '格式化输出',
-};
+// stepLabels moved to component to use i18n
 
 // 阶段颜色映射
 const phaseColors: Record<string, string> = {
@@ -81,8 +73,29 @@ export function ThinkingChainPanel({
   collapsed = false,
   onToggleCollapse,
 }: ThinkingChainPanelProps) {
+  const { t } = useI18n();
   const [showPlan, setShowPlan] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const stepLabels: Record<ThinkingStepType, string> = {
+    analyzing_query: t(
+      'topicResearch.deepResearch.thinkingChain.steps.analyzingQuery'
+    ),
+    planning_research: t(
+      'topicResearch.deepResearch.thinkingChain.steps.planningResearch'
+    ),
+    executing_search: t(
+      'topicResearch.deepResearch.thinkingChain.steps.executingSearch'
+    ),
+    evaluating_results: t(
+      'topicResearch.deepResearch.thinkingChain.steps.evaluatingResults'
+    ),
+    reflecting: t('topicResearch.deepResearch.thinkingChain.steps.reflecting'),
+    synthesizing: t(
+      'topicResearch.deepResearch.thinkingChain.steps.synthesizing'
+    ),
+    formatting: t('topicResearch.deepResearch.thinkingChain.steps.formatting'),
+  };
 
   // 自动滚动到最新步骤
   useEffect(() => {
@@ -122,16 +135,27 @@ export function ThinkingChainPanel({
             )}
           </div>
           <div>
-            <h3 className="text-sm font-medium text-gray-900">AI 思考过程</h3>
+            <h3 className="text-sm font-medium text-gray-900">
+              {t('topicResearch.deepResearch.thinkingChain.title')}
+            </h3>
             <p className="text-xs text-gray-500">
-              {state.phase === 'idle' && '等待开始'}
-              {state.phase === 'planning' && '正在规划研究策略...'}
+              {state.phase === 'idle' &&
+                t('topicResearch.deepResearch.thinkingChain.idle')}
+              {state.phase === 'planning' &&
+                t('topicResearch.deepResearch.thinkingChain.planning')}
               {state.phase === 'searching' &&
-                `搜索中 (${state.searchProgress?.currentRound || 0}/${state.searchProgress?.totalRounds || '?'})`}
-              {state.phase === 'reflecting' && '正在反思评估...'}
-              {state.phase === 'synthesizing' && '正在生成报告...'}
-              {state.phase === 'completed' && '研究完成'}
-              {state.phase === 'error' && '发生错误'}
+                t('topicResearch.deepResearch.thinkingChain.searching', {
+                  current: state.searchProgress?.currentRound || 0,
+                  total: state.searchProgress?.totalRounds || '?',
+                })}
+              {state.phase === 'reflecting' &&
+                t('topicResearch.deepResearch.thinkingChain.reflecting')}
+              {state.phase === 'synthesizing' &&
+                t('topicResearch.deepResearch.thinkingChain.synthesizing')}
+              {state.phase === 'completed' &&
+                t('topicResearch.deepResearch.thinkingChain.completed')}
+              {state.phase === 'error' &&
+                t('topicResearch.deepResearch.thinkingChain.error')}
             </p>
           </div>
         </div>
@@ -162,7 +186,7 @@ export function ThinkingChainPanel({
                 >
                   <span className="flex items-center gap-2 text-sm font-medium text-gray-700">
                     <Target className="h-4 w-4 text-blue-500" />
-                    研究计划
+                    {t('topicResearch.deepResearch.thinkingChain.researchPlan')}
                   </span>
                   {showPlan ? (
                     <ChevronUp className="h-4 w-4 text-gray-400" />
@@ -259,12 +283,15 @@ function SearchProgressView({
     message: string;
   };
 }) {
+  const { t } = useI18n();
   const percentage = (progress.currentRound / progress.totalRounds) * 100;
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-gray-600">搜索进度</span>
+        <span className="text-gray-600">
+          {t('topicResearch.deepResearch.thinkingChain.searchProgress')}
+        </span>
         <span className="font-medium text-gray-900">
           {progress.currentRound}/{progress.totalRounds}
         </span>
@@ -284,11 +311,35 @@ function SearchProgressView({
 
 // 思考步骤视图
 function ThinkingStepsView({ steps }: { steps: ThinkingStep[] }) {
+  const { t } = useI18n();
+
+  const stepLabels: Record<ThinkingStepType, string> = {
+    analyzing_query: t(
+      'topicResearch.deepResearch.thinkingChain.steps.analyzingQuery'
+    ),
+    planning_research: t(
+      'topicResearch.deepResearch.thinkingChain.steps.planningResearch'
+    ),
+    executing_search: t(
+      'topicResearch.deepResearch.thinkingChain.steps.executingSearch'
+    ),
+    evaluating_results: t(
+      'topicResearch.deepResearch.thinkingChain.steps.evaluatingResults'
+    ),
+    reflecting: t('topicResearch.deepResearch.thinkingChain.steps.reflecting'),
+    synthesizing: t(
+      'topicResearch.deepResearch.thinkingChain.steps.synthesizing'
+    ),
+    formatting: t('topicResearch.deepResearch.thinkingChain.steps.formatting'),
+  };
+
   if (steps.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-gray-400">
         <Brain className="mb-2 h-8 w-8" />
-        <p className="text-sm">等待 AI 开始思考...</p>
+        <p className="text-sm">
+          {t('topicResearch.deepResearch.thinkingChain.waitingToThink')}
+        </p>
       </div>
     );
   }
@@ -322,13 +373,16 @@ function ThinkingStepsView({ steps }: { steps: ThinkingStep[] }) {
 
 // 反思记录视图
 function ReflectionsView({ reflections }: { reflections: Reflection[] }) {
+  const { t } = useI18n();
   const latestReflection = reflections[reflections.length - 1];
 
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <RefreshCw className="h-4 w-4 text-purple-500" />
-        <span className="text-xs font-medium text-gray-700">最新反思</span>
+        <span className="text-xs font-medium text-gray-700">
+          {t('topicResearch.deepResearch.thinkingChain.latestReflection')}
+        </span>
       </div>
       <div className="rounded bg-purple-50 p-2">
         <p className="text-xs text-purple-700">{latestReflection.assessment}</p>
@@ -344,9 +398,12 @@ function ReflectionsView({ reflections }: { reflections: Reflection[] }) {
                 'bg-green-100 text-green-700'
             )}
           >
-            {latestReflection.decision === 'continue' && '继续搜索'}
-            {latestReflection.decision === 'pivot' && '调整方向'}
-            {latestReflection.decision === 'complete' && '信息充足'}
+            {latestReflection.decision === 'continue' &&
+              t('topicResearch.deepResearch.thinkingChain.decisions.continue')}
+            {latestReflection.decision === 'pivot' &&
+              t('topicResearch.deepResearch.thinkingChain.decisions.pivot')}
+            {latestReflection.decision === 'complete' &&
+              t('topicResearch.deepResearch.thinkingChain.decisions.complete')}
           </span>
         </div>
       </div>

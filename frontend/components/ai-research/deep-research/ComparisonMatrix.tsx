@@ -18,6 +18,7 @@ import {
   Lightbulb,
   ArrowRight,
 } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 export interface TechScore {
   name: string;
@@ -43,16 +44,7 @@ interface ComparisonMatrixProps {
   onTechClick?: (techName: string) => void;
 }
 
-const DIMENSION_LABELS: Record<string, string> = {
-  performance: '性能',
-  scalability: '可扩展性',
-  ease_of_use: '易用性',
-  community_support: '社区支持',
-  documentation: '文档质量',
-  maturity: '成熟度',
-  cost: '成本',
-  ecosystem: '生态系统',
-};
+// Dimension labels are now handled via i18n in the component
 
 const DIMENSION_ICONS: Record<string, React.ReactNode> = {
   performance: <TrendingUp className="h-4 w-4" />,
@@ -78,10 +70,12 @@ function ScoreBar({ score, color }: { score: number; color: string }) {
 
 function ComparisonRow({
   dimension,
+  dimensionLabel,
   scoreA,
   scoreB,
 }: {
   dimension: string;
+  dimensionLabel: string;
   scoreA: number;
   scoreB: number;
 }) {
@@ -113,7 +107,7 @@ function ComparisonRow({
           {DIMENSION_ICONS[dimension]}
         </div>
         <span className="text-xs font-medium text-gray-700">
-          {DIMENSION_LABELS[dimension] || dimension}
+          {dimensionLabel}
         </span>
         {winner !== 'tie' && diff >= 10 && (
           <span
@@ -204,12 +198,25 @@ export default function ComparisonMatrix({
   comparison,
   onTechClick,
 }: ComparisonMatrixProps) {
+  const { t } = useI18n();
   const { techA, techB, recommendation, useCases } = comparison;
 
   // Calculate overall winner
   const totalA = Object.values(techA.scores).reduce((a, b) => a + b, 0);
   const totalB = Object.values(techB.scores).reduce((a, b) => a + b, 0);
   const overallWinner = totalA > totalB ? 'A' : totalB > totalA ? 'B' : 'tie';
+
+  // Get dimension labels from i18n
+  const getDimensionLabel = (dimension: string): string => {
+    const key =
+      `topicResearch.deepResearch.comparison.dimensions.${dimension}` as const;
+    // Try to get translation, fallback to dimension key if not found
+    try {
+      return t(key);
+    } catch {
+      return dimension;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -227,10 +234,14 @@ export default function ComparisonMatrix({
           <h3 className="text-lg font-bold text-gray-900">{techA.name}</h3>
           <div className="mt-1 flex items-center gap-2">
             <span className="text-2xl font-bold text-blue-600">{totalA}</span>
-            <span className="text-sm text-gray-500">总分</span>
+            <span className="text-sm text-gray-500">
+              {t('topicResearch.deepResearch.comparison.totalScore')}
+            </span>
           </div>
           <div className="mt-1 text-sm text-gray-500">
-            {techA.mentionCount} 次提及
+            {t('topicResearch.deepResearch.comparison.mentions', {
+              count: techA.mentionCount,
+            })}
           </div>
         </div>
 
@@ -253,10 +264,14 @@ export default function ComparisonMatrix({
           <h3 className="text-lg font-bold text-gray-900">{techB.name}</h3>
           <div className="mt-1 flex items-center gap-2">
             <span className="text-2xl font-bold text-green-600">{totalB}</span>
-            <span className="text-sm text-gray-500">总分</span>
+            <span className="text-sm text-gray-500">
+              {t('topicResearch.deepResearch.comparison.totalScore')}
+            </span>
           </div>
           <div className="mt-1 text-sm text-gray-500">
-            {techB.mentionCount} 次提及
+            {t('topicResearch.deepResearch.comparison.mentions', {
+              count: techB.mentionCount,
+            })}
           </div>
         </div>
       </div>
@@ -264,13 +279,14 @@ export default function ComparisonMatrix({
       {/* Comparison Matrix */}
       <div className="rounded-xl border border-gray-200 bg-white p-6">
         <h4 className="mb-4 text-center text-sm font-medium uppercase text-gray-500">
-          维度对比
+          {t('topicResearch.deepResearch.comparison.dimensionComparison')}
         </h4>
         <div className="divide-y divide-gray-100">
-          {Object.keys(DIMENSION_LABELS).map((dimension) => (
+          {Object.keys(techA.scores).map((dimension) => (
             <ComparisonRow
               key={dimension}
               dimension={dimension}
+              dimensionLabel={getDimensionLabel(dimension)}
               scoreA={techA.scores[dimension] || 50}
               scoreB={techB.scores[dimension] || 50}
             />
@@ -286,7 +302,7 @@ export default function ComparisonMatrix({
           {techA.strengths.length > 0 && (
             <div className="mb-3">
               <h5 className="mb-2 text-xs font-medium uppercase text-gray-500">
-                优势
+                {t('topicResearch.deepResearch.comparison.strengths')}
               </h5>
               <StrengthsList items={techA.strengths} type="strength" />
             </div>
@@ -294,7 +310,7 @@ export default function ComparisonMatrix({
           {techA.weaknesses.length > 0 && (
             <div>
               <h5 className="mb-2 text-xs font-medium uppercase text-gray-500">
-                劣势
+                {t('topicResearch.deepResearch.comparison.weaknesses')}
               </h5>
               <StrengthsList items={techA.weaknesses} type="weakness" />
             </div>
@@ -307,7 +323,7 @@ export default function ComparisonMatrix({
           {techB.strengths.length > 0 && (
             <div className="mb-3">
               <h5 className="mb-2 text-xs font-medium uppercase text-gray-500">
-                优势
+                {t('topicResearch.deepResearch.comparison.strengths')}
               </h5>
               <StrengthsList items={techB.strengths} type="strength" />
             </div>
@@ -315,7 +331,7 @@ export default function ComparisonMatrix({
           {techB.weaknesses.length > 0 && (
             <div>
               <h5 className="mb-2 text-xs font-medium uppercase text-gray-500">
-                劣势
+                {t('topicResearch.deepResearch.comparison.weaknesses')}
               </h5>
               <StrengthsList items={techB.weaknesses} type="weakness" />
             </div>
@@ -325,14 +341,18 @@ export default function ComparisonMatrix({
 
       {/* Use Cases */}
       <div className="rounded-xl border border-gray-200 bg-white p-6">
-        <h4 className="mb-4 font-medium text-gray-900">使用场景建议</h4>
+        <h4 className="mb-4 font-medium text-gray-900">
+          {t('topicResearch.deepResearch.comparison.useCases')}
+        </h4>
 
         <div className="space-y-4">
           {useCases.preferA.length > 0 && (
             <div>
               <h5 className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-600">
                 <ArrowRight className="h-4 w-4" />
-                推荐 {techA.name}
+                {t('topicResearch.deepResearch.comparison.recommend', {
+                  tech: techA.name,
+                })}
               </h5>
               <div className="flex flex-wrap gap-2">
                 {useCases.preferA.map((useCase) => (
@@ -346,7 +366,9 @@ export default function ComparisonMatrix({
             <div>
               <h5 className="mb-2 flex items-center gap-2 text-sm font-medium text-green-600">
                 <ArrowRight className="h-4 w-4" />
-                推荐 {techB.name}
+                {t('topicResearch.deepResearch.comparison.recommend', {
+                  tech: techB.name,
+                })}
               </h5>
               <div className="flex flex-wrap gap-2">
                 {useCases.preferB.map((useCase) => (
@@ -360,7 +382,7 @@ export default function ComparisonMatrix({
             <div>
               <h5 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-600">
                 <Minus className="h-4 w-4" />
-                两者均可
+                {t('topicResearch.deepResearch.comparison.eitherWorks')}
               </h5>
               <div className="flex flex-wrap gap-2">
                 {useCases.either.map((useCase) => (
@@ -377,7 +399,9 @@ export default function ComparisonMatrix({
         <div className="flex items-start gap-3">
           <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600" />
           <div>
-            <h4 className="font-medium text-yellow-800">综合建议</h4>
+            <h4 className="font-medium text-yellow-800">
+              {t('topicResearch.deepResearch.comparison.recommendation')}
+            </h4>
             <p className="mt-1 text-sm text-yellow-700">{recommendation}</p>
           </div>
         </div>

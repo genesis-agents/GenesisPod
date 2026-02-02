@@ -451,7 +451,7 @@ export function CreateTopicDialog({
         err instanceof Error
           ? err.message
           : isEditMode
-            ? '更新失败，请重试'
+            ? t('topicResearch.createDialog.updateFailed')
             : t('topicResearch.createDialog.createFailed')
       );
     } finally {
@@ -468,14 +468,14 @@ export function CreateTopicDialog({
         <div className="border-b border-gray-200 px-6 py-4">
           <h2 className="text-xl font-semibold text-gray-900">
             {isEditMode
-              ? '编辑专题'
+              ? t('topicResearch.createDialog.editTopic')
               : step === 'type'
                 ? t('topicResearch.createDialog.selectType')
                 : t('topicResearch.createDialog.configTopic')}
           </h2>
           <p className="mt-1 text-sm text-gray-500">
             {isEditMode
-              ? '修改专题的基本信息和设置'
+              ? t('topicResearch.createDialog.editTopicHint')
               : step === 'type'
                 ? t('topicResearch.createDialog.selectTypeHint')
                 : t('topicResearch.createDialog.configHint')}
@@ -711,10 +711,10 @@ export function CreateTopicDialog({
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      报告图表
+                      {t('topicResearch.createDialog.reportFigures')}
                     </label>
                     <p className="text-xs text-gray-400">
-                      在研究报告中自动提取和展示相关图表
+                      {t('topicResearch.createDialog.reportFiguresDesc')}
                     </p>
                   </div>
                   <button
@@ -755,7 +755,9 @@ export function CreateTopicDialog({
 
               {error && (
                 <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-                  {typeof error === 'string' ? error : '操作失败，请重试'}
+                  {typeof error === 'string'
+                    ? error
+                    : t('topicResearch.createDialog.operationFailed')}
                 </div>
               )}
             </form>
@@ -791,7 +793,9 @@ export function CreateTopicDialog({
                 className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 {loading && <LoaderIcon className="h-4 w-4 animate-spin" />}
-                {isEditMode ? '保存修改' : t('topicResearch.createTopic')}
+                {isEditMode
+                  ? t('topicResearch.createDialog.saveChanges')
+                  : t('topicResearch.createTopic')}
               </button>
             )}
           </div>

@@ -9,6 +9,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTopicContent } from './TopicContentContext';
 import { ClientDate } from '@/components/common/ClientDate';
+import { useI18n } from '@/lib/i18n';
 
 // Icons
 const SpinnerIcon = ({ className }: { className?: string }) => (
@@ -54,6 +55,7 @@ export function TopicReferencesPanel({
   autoExpandId,
   onAutoExpandHandled,
 }: TopicReferencesPanelProps) {
+  const { t } = useI18n();
   const { report, dimensions, evidence, isLoadingEvidence } = useTopicContent();
 
   const safeEvidence = Array.isArray(evidence) ? evidence : [];
@@ -111,7 +113,9 @@ export function TopicReferencesPanel({
 
     // Iterate through dimension analyses and find citations
     report.dimensionAnalyses.forEach((analysis) => {
-      const dimName = dimensionNameMap.get(analysis.dimensionId) || '未知维度';
+      const dimName =
+        dimensionNameMap.get(analysis.dimensionId) ||
+        t('topicResearch.topics.referencesPanel.unknownDimension');
       const content =
         (analysis.detailedContent || '') + (analysis.summary || '');
 
@@ -205,7 +209,9 @@ export function TopicReferencesPanel({
       <div className="flex h-full items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <SpinnerIcon className="h-8 w-8 animate-spin text-blue-600" />
-          <p className="text-sm text-gray-500">加载证据来源...</p>
+          <p className="text-sm text-gray-500">
+            {t('topicResearch.topics.referencesPanel.loadingEvidence')}
+          </p>
         </div>
       </div>
     );
@@ -217,9 +223,11 @@ export function TopicReferencesPanel({
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
           <LinkIcon className="h-10 w-10 text-gray-400" />
         </div>
-        <h3 className="mt-4 text-lg font-medium text-gray-900">暂无证据来源</h3>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">
+          {t('topicResearch.topics.referencesPanel.noEvidence')}
+        </h3>
         <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
-          刷新专题后将显示所有引用的证据来源及其可信度评分
+          {t('topicResearch.topics.referencesPanel.noEvidenceHint')}
         </p>
       </div>
     );
@@ -231,20 +239,28 @@ export function TopicReferencesPanel({
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-600">
-            共 <strong>{stats.total}</strong> 个来源
+            {t('topicResearch.topics.referencesPanel.totalSources', {
+              total: stats.total,
+            })}
           </span>
           <div className="flex items-center gap-2 text-xs">
             <span className="flex items-center gap-1 text-green-600">
               <span className="h-2 w-2 rounded-full bg-green-500"></span>
-              高可信 {stats.high}
+              {t('topicResearch.topics.referencesPanel.highCredibility', {
+                count: stats.high,
+              })}
             </span>
             <span className="flex items-center gap-1 text-yellow-600">
               <span className="h-2 w-2 rounded-full bg-yellow-500"></span>
-              中可信 {stats.medium}
+              {t('topicResearch.topics.referencesPanel.mediumCredibility', {
+                count: stats.medium,
+              })}
             </span>
             <span className="flex items-center gap-1 text-red-600">
               <span className="h-2 w-2 rounded-full bg-red-500"></span>
-              低可信 {stats.low}
+              {t('topicResearch.topics.referencesPanel.lowCredibility', {
+                count: stats.low,
+              })}
             </span>
           </div>
         </div>
@@ -255,18 +271,30 @@ export function TopicReferencesPanel({
             onChange={(e) => setFilter(e.target.value as typeof filter)}
             className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
           >
-            <option value="all">全部</option>
-            <option value="high">高可信</option>
-            <option value="medium">中可信</option>
-            <option value="low">低可信</option>
+            <option value="all">
+              {t('topicResearch.topics.referencesPanel.filterAll')}
+            </option>
+            <option value="high">
+              {t('topicResearch.topics.referencesPanel.filterHigh')}
+            </option>
+            <option value="medium">
+              {t('topicResearch.topics.referencesPanel.filterMedium')}
+            </option>
+            <option value="low">
+              {t('topicResearch.topics.referencesPanel.filterLow')}
+            </option>
           </select>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
             className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
           >
-            <option value="credibility">按可信度</option>
-            <option value="date">按日期</option>
+            <option value="credibility">
+              {t('topicResearch.topics.referencesPanel.sortByCredibility')}
+            </option>
+            <option value="date">
+              {t('topicResearch.topics.referencesPanel.sortByDate')}
+            </option>
           </select>
         </div>
       </div>
@@ -356,13 +384,19 @@ export function TopicReferencesPanel({
                       citationLocations.get(item.id)!.length > 0 && (
                         <div className="flex flex-wrap items-center gap-1.5 border-t border-gray-100 px-4 py-3">
                           <span className="text-xs text-gray-500">
-                            被引用于:
+                            {t('topicResearch.topics.referencesPanel.citedIn')}
                           </span>
                           {citationLocations.get(item.id)!.map((loc, idx) => (
                             <span
                               key={idx}
                               className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600"
-                              title={`在"${loc.dimensionName}"中被引用${loc.count}次`}
+                              title={t(
+                                'topicResearch.topics.referencesPanel.citedInDimension',
+                                {
+                                  dimension: loc.dimensionName,
+                                  count: loc.count,
+                                }
+                              )}
                             >
                               {loc.dimensionName}
                               {loc.count > 1 && (
@@ -379,7 +413,8 @@ export function TopicReferencesPanel({
                     <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
                       <div className="flex items-center gap-3 text-xs text-gray-400">
                         <span className="rounded bg-gray-100 px-1.5 py-0.5">
-                          {item.sourceType || '网页'}
+                          {item.sourceType ||
+                            t('topicResearch.topics.referencesPanel.webpage')}
                         </span>
                         {item.publishedAt && (
                           <ClientDate date={item.publishedAt} format="date" />
@@ -393,7 +428,10 @@ export function TopicReferencesPanel({
                           className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          打开原文 ↗
+                          {t(
+                            'topicResearch.topics.referencesPanel.openOriginal'
+                          )}{' '}
+                          ↗
                         </a>
                       )}
                     </div>
@@ -405,12 +443,16 @@ export function TopicReferencesPanel({
                   <div className="flex items-center justify-between border-t border-gray-100 px-4 py-2">
                     <div className="flex items-center gap-2 text-xs text-gray-400">
                       <span className="rounded bg-gray-100 px-1.5 py-0.5">
-                        {item.sourceType || '网页'}
+                        {item.sourceType ||
+                          t('topicResearch.topics.referencesPanel.webpage')}
                       </span>
                       {citationLocations.get(item.id) &&
                         citationLocations.get(item.id)!.length > 0 && (
                           <span className="text-blue-500">
-                            被引用 {citationLocations.get(item.id)!.length} 处
+                            {t(
+                              'topicResearch.topics.referencesPanel.citedTimes',
+                              { count: citationLocations.get(item.id)!.length }
+                            )}
                           </span>
                         )}
                     </div>
@@ -422,7 +464,7 @@ export function TopicReferencesPanel({
                         className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        原文 ↗
+                        {t('topicResearch.topics.referencesPanel.original')} ↗
                       </a>
                     )}
                   </div>

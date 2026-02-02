@@ -195,7 +195,9 @@ export function TopicResearchTab({
         <div className="mb-6 rounded-lg bg-red-50 p-4">
           <div className="flex items-center justify-between">
             <p className="text-red-600">
-              {typeof error === 'string' ? error : '操作失败，请重试'}
+              {typeof error === 'string'
+                ? error
+                : t('topicResearch.createDialog.operationFailed')}
             </p>
             <button
               onClick={clearError}

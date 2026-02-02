@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import { useI18n } from '@/lib/i18n';
 import {
   TrendingUp,
   TrendingDown,
@@ -51,34 +52,46 @@ interface TrendReportProps {
   onViewHypeCycle?: () => void;
 }
 
-const DIRECTION_CONFIG = {
+const getDirectionConfig = (t: (key: string) => string) => ({
   rising: {
     icon: <TrendingUp className="h-4 w-4" />,
     color: 'text-green-600',
     bg: 'bg-green-50',
-    label: '上升',
+    label: t('topicResearch.deepResearch.trendReport.direction.rising'),
   },
   stable: {
     icon: <Minus className="h-4 w-4" />,
     color: 'text-yellow-600',
     bg: 'bg-yellow-50',
-    label: '稳定',
+    label: t('topicResearch.deepResearch.trendReport.direction.stable'),
   },
   declining: {
     icon: <TrendingDown className="h-4 w-4" />,
     color: 'text-red-600',
     bg: 'bg-red-50',
-    label: '下降',
+    label: t('topicResearch.deepResearch.trendReport.direction.declining'),
   },
-};
+});
 
-const MATURITY_LABELS: Record<string, string> = {
-  innovation_trigger: '创新触发期',
-  peak_of_expectations: '期望膨胀期',
-  trough_of_disillusionment: '泡沫破裂期',
-  slope_of_enlightenment: '稳步爬升期',
-  plateau_of_productivity: '生产成熟期',
-};
+const getMaturityLabels = (
+  t: (key: string) => string
+): Record<string, string> => ({
+  innovation_trigger: t(
+    'topicResearch.deepResearch.trendReport.maturity.innovationTrigger'
+  ),
+  peak_of_expectations: t(
+    'topicResearch.deepResearch.trendReport.maturity.peakOfExpectations'
+  ),
+  trough_of_disillusionment: t(
+    'topicResearch.deepResearch.trendReport.maturity.troughOfDisillusionment'
+  ),
+  slope_of_enlightenment: t(
+    'topicResearch.deepResearch.trendReport.maturity.slopeOfEnlightenment'
+  ),
+  plateau_of_productivity: t(
+    'topicResearch.deepResearch.trendReport.maturity.plateauOfProductivity'
+  ),
+});
 
 function TrendCard({
   trend,
@@ -89,8 +102,11 @@ function TrendCard({
   index: number;
   onClick?: () => void;
 }) {
+  const { t } = useI18n();
   const [isExpanded, setIsExpanded] = useState(false);
-  const dirConfig = DIRECTION_CONFIG[trend.direction];
+  const directionConfig = getDirectionConfig(t);
+  const maturityLabels = getMaturityLabels(t);
+  const dirConfig = directionConfig[trend.direction];
 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-md">
@@ -121,7 +137,7 @@ function TrendCard({
                 {dirConfig.label}
               </span>
               <span className="text-xs text-gray-500">
-                {MATURITY_LABELS[trend.maturityStage] || trend.maturityStage}
+                {maturityLabels[trend.maturityStage] || trend.maturityStage}
               </span>
             </div>
           </div>
@@ -133,7 +149,9 @@ function TrendCard({
             <div className="text-sm font-medium text-gray-900">
               {Math.round(trend.momentumScore)}
             </div>
-            <div className="text-xs text-gray-500">动量</div>
+            <div className="text-xs text-gray-500">
+              {t('topicResearch.deepResearch.trendReport.momentum')}
+            </div>
           </div>
 
           {/* Adoption Rate */}
@@ -141,7 +159,9 @@ function TrendCard({
             <div className="text-sm font-medium text-gray-900">
               {Math.round(trend.adoptionRate)}%
             </div>
-            <div className="text-xs text-gray-500">采用率</div>
+            <div className="text-xs text-gray-500">
+              {t('topicResearch.deepResearch.trendReport.adoptionRate')}
+            </div>
           </div>
 
           {isExpanded ? (
@@ -161,7 +181,7 @@ function TrendCard({
           {trend.relatedTechs.length > 0 && (
             <div className="mb-3">
               <h4 className="mb-1 text-xs font-medium uppercase text-gray-500">
-                相关技术
+                {t('topicResearch.deepResearch.trendReport.relatedTech')}
               </h4>
               <div className="flex flex-wrap gap-1">
                 {trend.relatedTechs.map((tech) => (
@@ -181,7 +201,7 @@ function TrendCard({
           {trend.keyPlayers.length > 0 && (
             <div>
               <h4 className="mb-1 text-xs font-medium uppercase text-gray-500">
-                主要参与者
+                {t('topicResearch.deepResearch.trendReport.keyPlayers')}
               </h4>
               <div className="flex flex-wrap gap-1">
                 {trend.keyPlayers.map((player) => (
@@ -206,6 +226,7 @@ export default function TrendReport({
   onTechClick,
   onViewHypeCycle,
 }: TrendReportProps) {
+  const { t } = useI18n();
   const confidencePercent = Math.round(report.confidenceScore * 100);
 
   return (
@@ -226,7 +247,9 @@ export default function TrendReport({
               </span>
               <span className="flex items-center gap-1">
                 <Database className="h-4 w-4" />
-                {report.dataSourcesCount} 数据源
+                {t('topicResearch.deepResearch.trendReport.dataSources', {
+                  count: report.dataSourcesCount,
+                })}
               </span>
             </div>
           </div>
@@ -242,7 +265,9 @@ export default function TrendReport({
                     : 'bg-red-100 text-red-700'
               }`}
             >
-              置信度 {confidencePercent}%
+              {t('topicResearch.deepResearch.trendReport.confidence', {
+                percent: confidencePercent,
+              })}
             </div>
           </div>
         </div>
@@ -251,7 +276,7 @@ export default function TrendReport({
         <div className="rounded-lg bg-blue-50 p-4">
           <h3 className="mb-2 flex items-center gap-2 font-medium text-blue-900">
             <Target className="h-4 w-4" />
-            执行摘要
+            {t('topicResearch.deepResearch.trendReport.executiveSummary')}
           </h3>
           <p className="text-sm leading-relaxed text-blue-800">
             {report.executiveSummary}
@@ -268,7 +293,9 @@ export default function TrendReport({
               {report.emergingTechs.length}
             </span>
           </div>
-          <p className="mt-1 text-sm text-gray-500">新兴技术</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {t('topicResearch.deepResearch.trendReport.emergingTech')}
+          </p>
           <div className="mt-2 flex flex-wrap gap-1">
             {report.emergingTechs.slice(0, 3).map((tech) => (
               <span
@@ -288,7 +315,9 @@ export default function TrendReport({
               {report.topTrends.length}
             </span>
           </div>
-          <p className="mt-1 text-sm text-gray-500">热门趋势</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {t('topicResearch.deepResearch.trendReport.hotTrends')}
+          </p>
           <div className="mt-2 flex flex-wrap gap-1">
             {report.topTrends.slice(0, 3).map((trend) => (
               <span
@@ -308,7 +337,9 @@ export default function TrendReport({
               {report.decliningTechs.length}
             </span>
           </div>
-          <p className="mt-1 text-sm text-gray-500">下降趋势</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {t('topicResearch.deepResearch.trendReport.decliningTrends')}
+          </p>
           <div className="mt-2 flex flex-wrap gap-1">
             {report.decliningTechs.slice(0, 3).map((tech) => (
               <span
@@ -329,14 +360,18 @@ export default function TrendReport({
           className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white p-4 text-gray-700 transition-colors hover:bg-gray-50"
         >
           <BarChart3 className="h-5 w-5" />
-          <span className="font-medium">查看 Hype Cycle 图表</span>
+          <span className="font-medium">
+            {t('topicResearch.deepResearch.trendReport.viewHypeCycle')}
+          </span>
           <ExternalLink className="h-4 w-4" />
         </button>
       )}
 
       {/* Top Trends */}
       <div>
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">热门趋势</h3>
+        <h3 className="mb-4 text-lg font-semibold text-gray-900">
+          {t('topicResearch.deepResearch.trendReport.hotTrends')}
+        </h3>
         <div className="space-y-3">
           {report.topTrends.map((trend, index) => (
             <TrendCard

@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { ClientDate } from '@/components/common/ClientDate';
+import { useI18n } from '@/lib/i18n';
 import {
   ReviewResultCard,
   DimensionReviewResult,
@@ -106,83 +107,69 @@ export interface AgentThinkingTimelineProps {
 
 // ==================== Constants ====================
 
-const phaseConfig: Record<
-  ThinkingPhase,
-  {
-    icon: React.ElementType;
-    label: string;
-    color: string;
-    bgColor: string;
-  }
-> = {
+const getPhaseConfig = (t: (key: string) => string) => ({
   understanding: {
     icon: Brain,
-    label: '理解阶段',
+    label: t('topicResearch.collaboration.phases.understanding'),
     color: 'text-purple-600 dark:text-purple-400',
     bgColor: 'bg-purple-100 dark:bg-purple-900/30',
   },
   searching: {
     icon: Search,
-    label: '搜索阶段',
+    label: t('topicResearch.collaboration.phases.searching'),
     color: 'text-blue-600 dark:text-blue-400',
     bgColor: 'bg-blue-100 dark:bg-blue-900/30',
   },
   writing: {
     icon: FileText,
-    label: '撰写阶段',
+    label: t('topicResearch.collaboration.phases.writing'),
     color: 'text-green-600 dark:text-green-400',
     bgColor: 'bg-green-100 dark:bg-green-900/30',
   },
   reviewing: {
     icon: CheckCircle,
-    label: '审核阶段',
+    label: t('topicResearch.collaboration.phases.reviewing'),
     color: 'text-yellow-600 dark:text-yellow-400',
     bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
   },
   integrating: {
     icon: Layers,
-    label: '整合阶段',
+    label: t('topicResearch.collaboration.phases.integrating'),
     color: 'text-indigo-600 dark:text-indigo-400',
     bgColor: 'bg-indigo-100 dark:bg-indigo-900/30',
   },
-};
+});
 
-const roleConfig: Record<
-  AgentRole,
-  {
-    icon: React.ElementType;
-    label: string;
-    color: string;
-  }
-> = {
+const getRoleConfig = (t: (key: string) => string) => ({
   leader: {
     icon: Target,
-    label: '研究协调员',
+    label: t('topicResearch.collaboration.agentRoles.leader'),
     color: 'text-orange-600 dark:text-orange-400',
   },
   researcher: {
     icon: BookOpen,
-    label: '研究员',
+    label: t('topicResearch.collaboration.agentRoles.researcher'),
     color: 'text-blue-600 dark:text-blue-400',
   },
   reviewer: {
     icon: CheckCircle,
-    label: '审核员',
+    label: t('topicResearch.collaboration.agentRoles.reviewer'),
     color: 'text-green-600 dark:text-green-400',
   },
   synthesizer: {
     icon: Layers,
-    label: '整合员',
+    label: t('topicResearch.collaboration.agentRoles.synthesizer'),
     color: 'text-purple-600 dark:text-purple-400',
   },
-};
+});
 
 // ==================== Helper Functions ====================
 
-function formatDuration(ms: number): string {
+function formatDuration(ms: number, t: (key: string) => string): string {
   if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}秒`;
-  return `${Math.floor(ms / 60000)}分${Math.floor((ms % 60000) / 1000)}秒`;
+  if (ms < 60000)
+    return `${(ms / 1000).toFixed(1)}${t('topicResearch.collaboration.duration.seconds')}`;
+  return `${Math.floor(ms / 60000)}${t('topicResearch.collaboration.duration.minutes')}${Math.floor((ms % 60000) / 1000)}${t('topicResearch.collaboration.duration.seconds')}`;
 }
 
 function formatTime(dateStr: string): React.ReactNode {
@@ -201,21 +188,18 @@ function formatTime(dateStr: string): React.ReactNode {
 
 // ==================== Sub Components ====================
 
-// ★ 默认 phase 配置
-const defaultPhaseConfig = {
-  icon: Brain,
-  label: '处理中',
-  color: 'text-gray-600 dark:text-gray-400',
-  bgColor: 'bg-gray-100 dark:bg-gray-900/30',
-};
-
 // ★ 安全获取 phase 配置
-function getPhaseConfig(phase: string) {
+function getSafePhaseConfig(phase: string, t: (key: string) => string) {
+  const configs = getPhaseConfig(t);
   const key = phase.toLowerCase();
   return (
-    phaseConfig[key as ThinkingPhase] ||
-    phaseConfig[phase as ThinkingPhase] ||
-    defaultPhaseConfig
+    configs[key as ThinkingPhase] ||
+    configs[phase as ThinkingPhase] || {
+      icon: Brain,
+      label: t('topicResearch.collaboration.phases.processing'),
+      color: 'text-gray-600 dark:text-gray-400',
+      bgColor: 'bg-gray-100 dark:bg-gray-900/30',
+    }
   );
 }
 
@@ -223,10 +207,11 @@ function getPhaseConfig(phase: string) {
  * 思考阶段详情
  */
 function PhaseDetail({ activity }: { activity: AgentActivity }) {
+  const { t } = useI18n();
   const phase = activity.thinkingPhase;
   if (!phase) return null;
 
-  const config = getPhaseConfig(phase);
+  const config = getSafePhaseConfig(phase, t);
   const Icon = config.icon;
 
   return (
@@ -238,7 +223,8 @@ function PhaseDetail({ activity }: { activity: AgentActivity }) {
         </span>
         {activity.durationMs && (
           <span className="ml-auto text-xs text-gray-500">
-            耗时: {formatDuration(activity.durationMs)}
+            {t('topicResearch.collaboration.duration.label')}:{' '}
+            {formatDuration(activity.durationMs, t)}
           </span>
         )}
       </div>
@@ -254,8 +240,12 @@ function PhaseDetail({ activity }: { activity: AgentActivity }) {
       {phase === 'searching' && activity.searchResults && (
         <div className="space-y-1">
           <div className="text-xs text-gray-500">
-            检索到 {activity.searchResults.total} 条结果，筛选{' '}
-            {activity.searchResults.filtered} 条
+            {t('topicResearch.collaboration.searchResults.found', {
+              count: activity.searchResults.total,
+            })}{' '}
+            {t('topicResearch.collaboration.searchResults.filtered', {
+              count: activity.searchResults.filtered,
+            })}
           </div>
           {activity.searchResults.sources.length > 0 && (
             <div className="flex flex-wrap gap-1">
@@ -294,7 +284,11 @@ function PhaseDetail({ activity }: { activity: AgentActivity }) {
               </span>
               {section.revisions > 0 && (
                 <span className="text-gray-400">
-                  (修订 {section.revisions} 次)
+                  (
+                  {t('topicResearch.collaboration.writingProgress.revisions', {
+                    count: section.revisions,
+                  })}
+                  )
                 </span>
               )}
               {section.status === 'completed' && (
@@ -308,7 +302,10 @@ function PhaseDetail({ activity }: { activity: AgentActivity }) {
       {/* 行动结果 */}
       {activity.actionTaken && (
         <div className="mt-2 text-xs text-gray-500">
-          <span className="font-medium">行动：</span> {activity.actionTaken}
+          <span className="font-medium">
+            {t('topicResearch.collaboration.action')}:
+          </span>{' '}
+          {activity.actionTaken}
         </div>
       )}
 
@@ -354,7 +351,9 @@ function ActivityCard({
   onToggle: () => void;
   onClick?: () => void;
 }) {
-  const roleInfo = roleConfig[activity.agentRole] || roleConfig.researcher;
+  const { t } = useI18n();
+  const roleConfigs = getRoleConfig(t);
+  const roleInfo = roleConfigs[activity.agentRole] || roleConfigs.researcher;
   const RoleIcon = roleInfo.icon;
 
   const isCompleted = activity.activityType === 'COMPLETED';
@@ -438,7 +437,7 @@ function ActivityCard({
           {activity.progress > 0 && (
             <div className="mt-3">
               <div className="mb-1 flex justify-between text-xs text-gray-500">
-                <span>进度</span>
+                <span>{t('topicResearch.collaboration.progress')}</span>
                 <span>{activity.progress}%</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
@@ -469,7 +468,7 @@ function ActivityCard({
               }}
               className="mt-3 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
             >
-              查看完整详情 →
+              {t('topicResearch.collaboration.viewDetails')} →
             </button>
           )}
         </div>
@@ -494,6 +493,7 @@ function DimensionGroup({
   onToggle: (id: string) => void;
   onActivityClick?: (activity: AgentActivity) => void;
 }) {
+  const { t } = useI18n();
   const [isGroupExpanded, setIsGroupExpanded] = useState(true);
 
   const completedCount = activities.filter(
@@ -530,10 +530,13 @@ function DimensionGroup({
         </div>
         <div className="flex-1">
           <div className="font-medium text-gray-900 dark:text-white">
-            {dimensionName || '未分类'}
+            {dimensionName || t('topicResearch.collaboration.uncategorized')}
           </div>
           <div className="text-xs text-gray-500">
-            {completedCount}/{activities.length} 个活动已完成
+            {t('topicResearch.collaboration.activitiesCompleted', {
+              completed: completedCount,
+              total: activities.length,
+            })}
           </div>
         </div>
         {isGroupExpanded ? (
@@ -573,6 +576,7 @@ export function AgentThinkingTimeline({
   showCompleted = true,
   onActivityClick,
 }: AgentThinkingTimelineProps) {
+  const { t } = useI18n();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   // ★ 安全处理：确保 activities 是数组
@@ -594,12 +598,14 @@ export function AgentThinkingTimeline({
   const groupedByDimension = useMemo(() => {
     const groups = new Map<string, AgentActivity[]>();
     filteredActivities.forEach((activity) => {
-      const key = activity.dimensionName || '其他活动';
+      const key =
+        activity.dimensionName ||
+        t('topicResearch.collaboration.otherActivities');
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(activity);
     });
     return groups;
-  }, [filteredActivities]);
+  }, [filteredActivities, t]);
 
   // 切换展开
   const toggleExpand = (id: string) => {
@@ -617,7 +623,9 @@ export function AgentThinkingTimeline({
       <div className="flex h-64 items-center justify-center">
         <div className="text-center">
           <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-blue-500" />
-          <div className="text-sm text-gray-500">加载Agent活动...</div>
+          <div className="text-sm text-gray-500">
+            {t('topicResearch.collaboration.loadingActivities')}
+          </div>
         </div>
       </div>
     );
@@ -629,10 +637,10 @@ export function AgentThinkingTimeline({
       <div className="flex h-64 flex-col items-center justify-center text-center">
         <Brain className="mb-3 h-12 w-12 text-gray-300" />
         <div className="mb-1 text-lg font-medium text-gray-900 dark:text-white">
-          暂无Agent活动
+          {t('topicResearch.collaboration.noActivities')}
         </div>
         <div className="text-sm text-gray-500">
-          开始研究后，Agent的思考过程将显示在这里
+          {t('topicResearch.collaboration.noActivitiesHint')}
         </div>
       </div>
     );
@@ -642,13 +650,17 @@ export function AgentThinkingTimeline({
     <div className="space-y-4">
       {/* 统计信息 */}
       <div className="flex items-center justify-between text-sm text-gray-500">
-        <span>共 {filteredActivities.length} 个活动</span>
         <span>
-          {
-            filteredActivities.filter((a) => a.activityType === 'COMPLETED')
-              .length
-          }{' '}
-          个已完成
+          {t('topicResearch.collaboration.totalActivities', {
+            count: filteredActivities.length,
+          })}
+        </span>
+        <span>
+          {t('topicResearch.collaboration.completedActivities', {
+            count: filteredActivities.filter(
+              (a) => a.activityType === 'COMPLETED'
+            ).length,
+          })}
         </span>
       </div>
 

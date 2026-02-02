@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import type { UIMessage } from '../shared/types';
 import { safeString } from '@/lib/utils/common';
+import { useI18n } from '@/lib/i18n';
 
 interface ResearchCompleteCardProps {
   msg: UIMessage;
 }
 
 export function ResearchCompleteCard({ msg }: ResearchCompleteCardProps) {
+  const { t } = useI18n();
   const [showMore, setShowMore] = useState(false);
   const dimData =
     msg.detail?.type === 'dimension_content'
@@ -20,7 +22,7 @@ export function ResearchCompleteCard({ msg }: ResearchCompleteCardProps) {
   const keyFindings = dimData?.keyFindings || [];
   const summary = dimData?.summary || '';
   const dimName =
-    (msg.agent || '').replace('研究员', '').trim() ||
+    (msg.agent || '').replace('研究员', '').replace('Researcher', '').trim() ||
     dimData?.dimensionName ||
     '';
 
@@ -30,7 +32,11 @@ export function ResearchCompleteCard({ msg }: ResearchCompleteCardProps) {
         <div className="flex items-center gap-2">
           <span className="text-lg">✅</span>
           <span className="font-medium text-green-800">
-            {dimName ? `${dimName} 研究完成` : '研究完成'}
+            {dimName
+              ? t('topicResearch.messageCards.complete.dimensionCompleted', {
+                  dimension: dimName,
+                })
+              : t('topicResearch.messageCards.complete.completed')}
           </span>
         </div>
         <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-600">
@@ -42,7 +48,9 @@ export function ResearchCompleteCard({ msg }: ResearchCompleteCardProps) {
         <div className="mt-3">
           <div className="mb-2 flex items-center gap-1.5">
             <span className="text-sm">💡</span>
-            <span className="text-xs font-medium text-gray-600">关键发现</span>
+            <span className="text-xs font-medium text-gray-600">
+              {t('topicResearch.messageCards.complete.keyFindings')}
+            </span>
           </div>
           <ul className="space-y-1.5">
             {keyFindings
@@ -66,7 +74,11 @@ export function ResearchCompleteCard({ msg }: ResearchCompleteCardProps) {
               onClick={() => setShowMore(!showMore)}
               className="mt-2 text-xs text-green-600 hover:text-green-700"
             >
-              {showMore ? '收起' : `展开全部 ${keyFindings.length} 条`}
+              {showMore
+                ? t('topicResearch.messageCards.complete.collapse')
+                : t('topicResearch.messageCards.complete.expandAll', {
+                    count: keyFindings.length,
+                  })}
             </button>
           )}
         </div>

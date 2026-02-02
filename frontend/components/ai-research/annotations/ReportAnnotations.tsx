@@ -12,6 +12,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { safeString } from '@/lib/utils/common';
 import ClientDate from '@/components/common/ClientDate';
+import { useI18n } from '@/lib/i18n';
 
 // Annotation types
 interface ReportAnnotation {
@@ -214,6 +215,7 @@ export function ReportAnnotations({
   onNavigate,
   onSubmitFeedback,
 }: ReportAnnotationsProps) {
+  const { t } = useI18n();
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [expandedAnnotations, setExpandedAnnotations] = useState<Set<string>>(
     new Set()
@@ -289,7 +291,9 @@ export function ReportAnnotations({
       <div className="flex h-full items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
-          <p className="text-sm text-gray-500">加载批注...</p>
+          <p className="text-sm text-gray-500">
+            {t('topicResearch.annotations.loading')}
+          </p>
         </div>
       </div>
     );
@@ -299,8 +303,12 @@ export function ReportAnnotations({
     return (
       <div className="flex h-full flex-col items-center justify-center p-6 text-center">
         <AnnotationIcon className="h-12 w-12 text-gray-300" />
-        <p className="mt-3 text-gray-500">暂无批注</p>
-        <p className="mt-1 text-sm text-gray-400">选择报告中的文字可添加批注</p>
+        <p className="mt-3 text-gray-500">
+          {t('topicResearch.annotations.empty')}
+        </p>
+        <p className="mt-1 text-sm text-gray-400">
+          {t('topicResearch.annotations.emptyHint')}
+        </p>
       </div>
     );
   }
@@ -311,9 +319,14 @@ export function ReportAnnotations({
       <div className="border-b border-gray-200 bg-white px-4 py-3">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-gray-700">批注</h3>
+            <h3 className="text-sm font-semibold text-gray-700">
+              {t('topicResearch.annotations.title')}
+            </h3>
             <p className="mt-0.5 text-xs text-gray-400">
-              {stats.active} 个待处理，{stats.resolved} 个已解决
+              {t('topicResearch.annotations.stats', {
+                active: stats.active,
+                resolved: stats.resolved,
+              })}
             </p>
           </div>
         </div>
@@ -321,9 +334,24 @@ export function ReportAnnotations({
         {/* Filter tabs */}
         <div className="mt-3 flex gap-1">
           {[
-            { key: 'all', label: `全部 (${stats.total})` },
-            { key: 'active', label: `待处理 (${stats.active})` },
-            { key: 'resolved', label: `已解决 (${stats.resolved})` },
+            {
+              key: 'all',
+              label: t('topicResearch.annotations.filters.all', {
+                count: stats.total,
+              }),
+            },
+            {
+              key: 'active',
+              label: t('topicResearch.annotations.filters.active', {
+                count: stats.active,
+              }),
+            },
+            {
+              key: 'resolved',
+              label: t('topicResearch.annotations.filters.resolved', {
+                count: stats.resolved,
+              }),
+            },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -382,7 +410,7 @@ export function ReportAnnotations({
                       <div className="flex items-center gap-1">
                         {annotation.status === 'resolved' && (
                           <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700">
-                            已解决
+                            {t('topicResearch.annotations.status.resolved')}
                           </span>
                         )}
                         <ClientDate
@@ -416,13 +444,13 @@ export function ReportAnnotations({
                             onClick={() => handleEdit(annotation.id)}
                             className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
                           >
-                            保存
+                            {t('topicResearch.annotations.edit.save')}
                           </button>
                           <button
                             onClick={() => setEditingId(null)}
                             className="rounded bg-gray-200 px-3 py-1 text-xs text-gray-600 hover:bg-gray-300"
                           >
-                            取消
+                            {t('topicResearch.annotations.edit.cancel')}
                           </button>
                         </div>
                       </div>
@@ -439,7 +467,9 @@ export function ReportAnnotations({
                         <button
                           onClick={() => onNavigate(annotation.id)}
                           className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                          title="跳转到原文"
+                          title={t(
+                            'topicResearch.annotations.actions.jumpToText'
+                          )}
                         >
                           <NavigateIcon className="h-4 w-4" />
                         </button>
@@ -450,7 +480,7 @@ export function ReportAnnotations({
                         <button
                           onClick={() => setReplyingTo(annotation.id)}
                           className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                          title="回复"
+                          title={t('topicResearch.annotations.actions.reply')}
                         >
                           <ReplyIcon className="h-4 w-4" />
                         </button>
@@ -461,7 +491,7 @@ export function ReportAnnotations({
                         <button
                           onClick={() => onResolve(annotation.id)}
                           className="rounded p-1.5 text-green-400 transition-colors hover:bg-green-50 hover:text-green-600"
-                          title="标记为已解决"
+                          title={t('topicResearch.annotations.actions.resolve')}
                         >
                           <CheckIcon className="h-4 w-4" />
                         </button>
@@ -472,7 +502,7 @@ export function ReportAnnotations({
                         <button
                           onClick={() => startEditing(annotation)}
                           className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                          title="编辑"
+                          title={t('topicResearch.annotations.actions.edit')}
                         >
                           <EditIcon className="h-4 w-4" />
                         </button>
@@ -483,7 +513,7 @@ export function ReportAnnotations({
                         <button
                           onClick={() => onDelete(annotation.id)}
                           className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                          title="删除"
+                          title={t('topicResearch.annotations.actions.delete')}
                         >
                           <TrashIcon className="h-4 w-4" />
                         </button>
@@ -494,7 +524,9 @@ export function ReportAnnotations({
                         (annotation.feedbackSubmitted ? (
                           <span
                             className="rounded p-1.5 text-green-500"
-                            title="已提交反馈"
+                            title={t(
+                              'topicResearch.annotations.actions.feedbackSubmitted'
+                            )}
                           >
                             <CheckIcon className="h-4 w-4" />
                           </span>
@@ -502,7 +534,9 @@ export function ReportAnnotations({
                           <button
                             onClick={() => onSubmitFeedback(annotation.id)}
                             className="rounded p-1.5 text-blue-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-                            title="提交反馈"
+                            title={t(
+                              'topicResearch.annotations.actions.submitFeedback'
+                            )}
                           >
                             <FeedbackIcon className="h-4 w-4" />
                           </button>
@@ -515,8 +549,10 @@ export function ReportAnnotations({
                           className="ml-auto rounded px-2 py-1 text-xs text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                         >
                           {isExpanded
-                            ? '收起'
-                            : `${annotation.replies.length} 条回复`}
+                            ? t('topicResearch.annotations.replies.collapse')
+                            : t('topicResearch.annotations.replies.count', {
+                                count: annotation.replies.length,
+                              })}
                         </button>
                       )}
                     </div>
@@ -571,7 +607,9 @@ export function ReportAnnotations({
                     <textarea
                       value={replyContent}
                       onChange={(e) => setReplyContent(e.target.value)}
-                      placeholder="输入回复..."
+                      placeholder={t(
+                        'topicResearch.annotations.replies.placeholder'
+                      )}
                       className="w-full rounded border border-gray-200 p-2 text-sm focus:border-blue-400 focus:outline-none"
                       rows={2}
                     />
@@ -581,7 +619,7 @@ export function ReportAnnotations({
                         disabled={!replyContent.trim()}
                         className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700 disabled:bg-gray-300"
                       >
-                        发送
+                        {t('topicResearch.annotations.replies.send')}
                       </button>
                       <button
                         onClick={() => {
@@ -590,7 +628,7 @@ export function ReportAnnotations({
                         }}
                         className="rounded bg-gray-200 px-3 py-1 text-xs text-gray-600 hover:bg-gray-300"
                       >
-                        取消
+                        {t('topicResearch.annotations.replies.cancel')}
                       </button>
                     </div>
                   </div>

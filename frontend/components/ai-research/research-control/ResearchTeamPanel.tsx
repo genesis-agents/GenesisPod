@@ -15,6 +15,7 @@
  */
 
 import { useMemo, useState, useCallback } from 'react';
+import { useI18n } from '@/lib/i18n';
 import type {
   AgentInfo,
   TeamInfo,
@@ -79,39 +80,6 @@ const agentIcons = {
   report_writer: '📊',
 };
 
-// Agent 角色信息映射
-// ★ v8.0: 能力由 Leader 根据任务动态分配
-const agentRoleInfo: Record<
-  string,
-  { name: string; description: string; capabilities: string[]; note: string }
-> = {
-  leader: {
-    name: '研究协调员',
-    description:
-      '负责规划研究大纲、分配任务给研究员、审核研究质量、整合最终结果',
-    capabilities: ['智能规划', '任务协调', '质量把控', '结果整合'],
-    note: '使用推理模型进行高级决策',
-  },
-  dimension_researcher: {
-    name: '维度研究员',
-    description: '负责深入研究特定维度，收集证据，撰写分析内容',
-    capabilities: ['信息检索', '内容分析', '报告撰写'],
-    note: 'Leader 根据任务分配模型和工具',
-  },
-  quality_reviewer: {
-    name: '质量审核员',
-    description: '负责审核研究内容的准确性、完整性和一致性',
-    capabilities: ['质量审核', '一致性检查', '准确性验证'],
-    note: 'Leader 根据任务分配模型和工具',
-  },
-  report_writer: {
-    name: '报告撰写员',
-    description: '负责整合各维度研究结果，撰写最终综合报告',
-    capabilities: ['内容整合', '报告生成', '格式优化'],
-    note: 'Leader 根据任务分配模型和工具',
-  },
-};
-
 // 状态样式
 const statusStyles = {
   idle: { stroke: '#D1D5DB', fill: '#F9FAFB' },
@@ -125,6 +93,64 @@ export function ResearchTeamPanel({
   missionStatus,
   isRefreshing,
 }: ResearchTeamPanelProps) {
+  const { t } = useI18n();
+
+  // Agent 角色信息映射
+  // ★ v8.0: 能力由 Leader 根据任务动态分配
+  const agentRoleInfo = useMemo(
+    () => ({
+      leader: {
+        name: t(
+          'topicResearch.researchControl.teamPanel.agentRoles.leader.name'
+        ),
+        description: t(
+          'topicResearch.researchControl.teamPanel.agentRoles.leader.description'
+        ),
+        capabilities: ['智能规划', '任务协调', '质量把控', '结果整合'],
+        note: t(
+          'topicResearch.researchControl.teamPanel.agentRoles.leader.note'
+        ),
+      },
+      dimension_researcher: {
+        name: t(
+          'topicResearch.researchControl.teamPanel.agentRoles.dimensionResearcher.name'
+        ),
+        description: t(
+          'topicResearch.researchControl.teamPanel.agentRoles.dimensionResearcher.description'
+        ),
+        capabilities: ['信息检索', '内容分析', '报告撰写'],
+        note: t(
+          'topicResearch.researchControl.teamPanel.agentRoles.dimensionResearcher.note'
+        ),
+      },
+      quality_reviewer: {
+        name: t(
+          'topicResearch.researchControl.teamPanel.agentRoles.qualityReviewer.name'
+        ),
+        description: t(
+          'topicResearch.researchControl.teamPanel.agentRoles.qualityReviewer.description'
+        ),
+        capabilities: ['质量审核', '一致性检查', '准确性验证'],
+        note: t(
+          'topicResearch.researchControl.teamPanel.agentRoles.qualityReviewer.note'
+        ),
+      },
+      report_writer: {
+        name: t(
+          'topicResearch.researchControl.teamPanel.agentRoles.reportWriter.name'
+        ),
+        description: t(
+          'topicResearch.researchControl.teamPanel.agentRoles.reportWriter.description'
+        ),
+        capabilities: ['内容整合', '报告生成', '格式优化'],
+        note: t(
+          'topicResearch.researchControl.teamPanel.agentRoles.reportWriter.note'
+        ),
+      },
+    }),
+    [t]
+  );
+
   // 选中的 Agent（用于显示详情弹窗）
   const [selectedAgent, setSelectedAgent] = useState<AgentNodeInfo | null>(
     null
@@ -196,7 +222,10 @@ export function ResearchTeamPanel({
         icon: agentIcons.dimension_researcher,
         color: agentColors.dimension_researcher,
         description: dimensionName
-          ? `负责研究「${dimensionName}」维度`
+          ? t(
+              'topicResearch.researchControl.teamPanel.agentRoles.dimensionResearcher.assignedTo',
+              { dimension: dimensionName }
+            )
           : researcherInfo.description,
         capabilities: researcherInfo.capabilities,
         note: researcherInfo.note,
@@ -256,7 +285,7 @@ export function ResearchTeamPanel({
     });
 
     return { nodes, canvasWidth, canvasHeight, centerX, centerY };
-  }, [teamInfo, isRefreshing]);
+  }, [teamInfo, isRefreshing, agentRoleInfo, t]);
 
   const { nodes, canvasWidth, canvasHeight, centerX, centerY } = nodeLayout;
 
@@ -311,11 +340,13 @@ export function ResearchTeamPanel({
       {/* Team Title */}
       <div className="border-b border-gray-100 px-3 py-2">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-          研究团队
+          {t('topicResearch.researchControl.teamPanel.title')}
         </h4>
         {teamInfo?.leaderModel && (
           <p className="mt-0.5 text-xs text-gray-400">
-            Leader: {teamInfo.leaderModel}
+            {t('topicResearch.researchControl.teamPanel.leaderModel', {
+              model: teamInfo.leaderModel,
+            })}
           </p>
         )}
       </div>
@@ -401,15 +432,21 @@ export function ResearchTeamPanel({
         <div className="flex items-center justify-center gap-3 text-xs text-gray-400">
           <div className="flex items-center gap-1">
             <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-            <span>进行中</span>
+            <span>
+              {t('topicResearch.researchControl.teamPanel.legend.inProgress')}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-full bg-green-500" />
-            <span>完成</span>
+            <span>
+              {t('topicResearch.researchControl.teamPanel.legend.completed')}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-full bg-gray-300" />
-            <span>待开始</span>
+            <span>
+              {t('topicResearch.researchControl.teamPanel.legend.idle')}
+            </span>
           </div>
         </div>
       </div>
@@ -583,6 +620,7 @@ function AgentTooltip({
   canvasWidth: number;
   canvasHeight: number;
 }) {
+  const { t } = useI18n();
   const tooltipX = (agent.x / canvasWidth) * 100;
   const tooltipY = (agent.y / canvasHeight) * 100;
   const showAbove = tooltipY > 50;
@@ -606,10 +644,15 @@ function AgentTooltip({
         <div className="mt-0.5 text-gray-500">{agent.role}</div>
         {agent.currentTask && (
           <div className="mt-1 truncate text-blue-600">
-            当前: {agent.currentTask}
+            {t(
+              'topicResearch.researchControl.teamPanel.agentDetail.currentTask'
+            )}{' '}
+            {agent.currentTask}
           </div>
         )}
-        <div className="mt-1 text-gray-400">点击查看详情</div>
+        <div className="mt-1 text-gray-400">
+          {t('topicResearch.researchControl.teamPanel.agentDetail.clickToView')}
+        </div>
       </div>
     </div>
   );
@@ -623,11 +666,19 @@ function AgentDetailModal({
   agent: AgentNodeInfo;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
+
   const statusText = {
-    idle: '待命中',
-    working: '工作中',
-    completed: '已完成',
-    failed: '失败',
+    idle: t('topicResearch.researchControl.teamPanel.agentDetail.statusIdle'),
+    working: t(
+      'topicResearch.researchControl.teamPanel.agentDetail.statusWorking'
+    ),
+    completed: t(
+      'topicResearch.researchControl.teamPanel.agentDetail.statusCompleted'
+    ),
+    failed: t(
+      'topicResearch.researchControl.teamPanel.agentDetail.statusFailed'
+    ),
   };
 
   const statusColor = {
@@ -681,7 +732,9 @@ function AgentDetailModal({
         <div className="p-4">
           {/* 状态 */}
           <div className="mb-3 flex items-center gap-2">
-            <span className="text-xs text-gray-500">状态:</span>
+            <span className="text-xs text-gray-500">
+              {t('topicResearch.researchControl.teamPanel.agentDetail.status')}
+            </span>
             <span
               className={`rounded-full px-2 py-0.5 text-xs ${statusColor[agent.status]}`}
             >
@@ -692,7 +745,11 @@ function AgentDetailModal({
           {/* 描述 */}
           {agent.description && (
             <div className="mb-3">
-              <p className="text-xs text-gray-500">职责:</p>
+              <p className="text-xs text-gray-500">
+                {t(
+                  'topicResearch.researchControl.teamPanel.agentDetail.responsibilities'
+                )}
+              </p>
               <p className="mt-1 text-sm text-gray-700">{agent.description}</p>
             </div>
           )}
@@ -713,7 +770,13 @@ function AgentDetailModal({
                 {/* 技能 */}
                 <div className="mb-3">
                   <p className="text-xs text-gray-500">
-                    {hasRealData ? '🎯 分配的技能:' : '能力范围:'}
+                    {hasRealData
+                      ? t(
+                          'topicResearch.researchControl.teamPanel.agentDetail.assignedSkills'
+                        )
+                      : t(
+                          'topicResearch.researchControl.teamPanel.agentDetail.capabilities'
+                        )}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {realSkills ? (
@@ -736,7 +799,9 @@ function AgentDetailModal({
                       ))
                     ) : (
                       <span className="italic text-gray-400">
-                        待 Leader 分配
+                        {t(
+                          'topicResearch.researchControl.teamPanel.agentDetail.pendingAssignment'
+                        )}
                       </span>
                     )}
                   </div>
@@ -745,7 +810,11 @@ function AgentDetailModal({
                 {/* 工具 - 仅当有真实数据时显示 */}
                 {realTools && (
                   <div className="mb-3">
-                    <p className="text-xs text-gray-500">🔧 分配的工具:</p>
+                    <p className="text-xs text-gray-500">
+                      {t(
+                        'topicResearch.researchControl.teamPanel.agentDetail.assignedTools'
+                      )}
+                    </p>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {realTools.map((tool, i) => (
                         <span
@@ -762,7 +831,11 @@ function AgentDetailModal({
                 {/* 配置说明 - 仅当没有真实数据时显示 */}
                 {!hasRealData && agent.note && (
                   <div className="mb-3">
-                    <p className="text-xs text-gray-500">配置方式:</p>
+                    <p className="text-xs text-gray-500">
+                      {t(
+                        'topicResearch.researchControl.teamPanel.agentDetail.configMethod'
+                      )}
+                    </p>
                     <p className="mt-1 text-xs italic text-gray-600">
                       {agent.note}
                     </p>
@@ -774,9 +847,14 @@ function AgentDetailModal({
 
           {/* ★ AI 模型 - 始终显示，帮助用户了解使用哪个模型 */}
           <div className="mb-3">
-            <p className="text-xs text-gray-500">🤖 AI 模型</p>
+            <p className="text-xs text-gray-500">
+              {t('topicResearch.researchControl.teamPanel.agentDetail.aiModel')}
+            </p>
             <p className="mt-1 text-sm font-medium text-purple-600">
-              {agent.model || '未指定'}
+              {agent.model ||
+                t(
+                  'topicResearch.researchControl.teamPanel.agentDetail.modelNotSpecified'
+                )}
             </p>
           </div>
 
@@ -784,7 +862,10 @@ function AgentDetailModal({
           {agent.currentTask && (
             <div className="rounded-lg bg-blue-50 p-2">
               <p className="text-xs text-blue-600">
-                当前任务: {agent.currentTask}
+                {t(
+                  'topicResearch.researchControl.teamPanel.agentDetail.currentTask'
+                )}{' '}
+                {agent.currentTask}
               </p>
             </div>
           )}

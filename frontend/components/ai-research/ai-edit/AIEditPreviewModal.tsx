@@ -10,6 +10,7 @@
  */
 
 import { Loader2, RefreshCw, Check, X, AlertCircle } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/common';
@@ -49,6 +50,8 @@ export function AIEditPreviewModal({
   onClearError,
   instruction,
 }: AIEditPreviewModalProps) {
+  const { t } = useI18n();
+
   // Handle close - only allow if not loading
   const handleClose = () => {
     if (!isLoading) {
@@ -65,10 +68,10 @@ export function AIEditPreviewModal({
     <Modal
       open={isOpen}
       onClose={handleClose}
-      title="编辑预览"
+      title={t('topicResearch.aiEdit.editPreview')}
       subtitle={
         instruction
-          ? `指令: ${instruction.slice(0, 50)}${instruction.length > 50 ? '...' : ''}`
+          ? `${t('topicResearch.aiEdit.customInstruction')}: ${instruction.slice(0, 50)}${instruction.length > 50 ? '...' : ''}`
           : undefined
       }
       size="xl"
@@ -78,18 +81,18 @@ export function AIEditPreviewModal({
       footer={
         isLoading ? (
           <Button variant="outline" onClick={handleClose} disabled>
-            取消
+            {t('topicResearch.aiEdit.cancel')}
           </Button>
         ) : hasError ? (
           // Error state footer
           <>
             <Button variant="outline" onClick={handleClose}>
               <X className="mr-2 h-4 w-4" />
-              取消
+              {t('topicResearch.aiEdit.cancel')}
             </Button>
             <Button onClick={onRegenerate}>
               <RefreshCw className="mr-2 h-4 w-4" />
-              重试
+              {t('topicResearch.aiEdit.retry')}
             </Button>
           </>
         ) : (
@@ -97,15 +100,15 @@ export function AIEditPreviewModal({
           <>
             <Button variant="outline" onClick={handleClose}>
               <X className="mr-2 h-4 w-4" />
-              取消
+              {t('topicResearch.aiEdit.cancel')}
             </Button>
             <Button variant="outline" onClick={onRegenerate}>
               <RefreshCw className="mr-2 h-4 w-4" />
-              重新生成
+              {t('topicResearch.aiEdit.regenerate')}
             </Button>
             <Button onClick={onApply} disabled={!editedText}>
               <Check className="mr-2 h-4 w-4" />
-              应用修改
+              {t('topicResearch.aiEdit.applyChanges')}
             </Button>
           </>
         )
@@ -115,8 +118,10 @@ export function AIEditPreviewModal({
         // Loading state
         <div className="flex flex-col items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-          <p className="mt-4 text-sm text-gray-500">AI 正在编辑...</p>
-          <p className="mt-1 text-xs text-gray-400">这可能需要几秒钟时间</p>
+          <p className="mt-4 text-sm text-gray-500">
+            {t('topicResearch.aiEdit.aiEditing')}
+          </p>
+          <p className="mt-1 text-xs text-gray-400">{t('common.pleaseWait')}</p>
         </div>
       ) : hasError ? (
         // Error state
@@ -124,15 +129,15 @@ export function AIEditPreviewModal({
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
             <AlertCircle className="h-8 w-8 text-red-500" />
           </div>
-          <p className="mt-4 text-sm font-medium text-gray-900">编辑失败</p>
+          <p className="mt-4 text-sm font-medium text-gray-900">
+            {t('topicResearch.aiEdit.editFailed')}
+          </p>
           <p className="mt-2 max-w-md text-center text-sm text-gray-500">
-            {error?.message || '发生未知错误，请重试'}
+            {error?.message || t('common.unknownError')}
           </p>
           <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <p className="text-xs text-gray-500">
-              您可以点击"重试"重新生成，或点击"取消"返回编辑。
-              <br />
-              如果问题持续存在，请稍后再试。
+            <p className="whitespace-pre-line text-xs text-gray-500">
+              {t('topicResearch.aiEdit.retryHint')}
             </p>
           </div>
         </div>
@@ -142,9 +147,11 @@ export function AIEditPreviewModal({
           {/* Original text */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <h4 className="text-sm font-medium text-gray-700">原文</h4>
+              <h4 className="text-sm font-medium text-gray-700">
+                {t('topicResearch.aiEdit.original')}
+              </h4>
               <span className="text-xs text-gray-400">
-                {originalText.length} 字
+                {originalText.length} {t('topicResearch.aiEdit.chars')}
               </span>
             </div>
             <div
@@ -162,9 +169,11 @@ export function AIEditPreviewModal({
           {/* Edited text */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <h4 className="text-sm font-medium text-gray-700">编辑后</h4>
+              <h4 className="text-sm font-medium text-gray-700">
+                {t('topicResearch.aiEdit.edited')}
+              </h4>
               <span className="text-xs text-gray-400">
-                {editedText.length} 字
+                {editedText.length} {t('topicResearch.aiEdit.chars')}
                 {editedText.length !== originalText.length && (
                   <span
                     className={cn(
@@ -199,11 +208,15 @@ export function AIEditPreviewModal({
         <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
           <p className="text-xs text-blue-600">
             {editedText.length === originalText.length
-              ? '字数保持不变'
+              ? t('topicResearch.aiEdit.lengthUnchanged')
               : editedText.length > originalText.length
-                ? `扩展了 ${editedText.length - originalText.length} 字`
-                : `精简了 ${originalText.length - editedText.length} 字`}
-            。点击"应用修改"将替换选中的文本。
+                ? t('topicResearch.aiEdit.expanded', {
+                    count: editedText.length - originalText.length,
+                  })
+                : t('topicResearch.aiEdit.condensed', {
+                    count: originalText.length - editedText.length,
+                  })}
+            {t('topicResearch.aiEdit.applyHint')}
           </p>
         </div>
       )}

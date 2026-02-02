@@ -16,6 +16,7 @@ import type {
   LeaderDecision,
 } from '@/lib/api/topic-research';
 import ClientDate from '@/components/common/ClientDate';
+import { useI18n } from '@/lib/i18n';
 
 interface AgentThinkingGraphProps {
   missionStatus: MissionStatus | null;
@@ -122,6 +123,7 @@ export function AgentThinkingGraph({
   leaderDecisions = [],
   isLoading = false,
 }: AgentThinkingGraphProps) {
+  const { t } = useI18n();
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(
     new Set(['leader'])
   );
@@ -182,7 +184,9 @@ export function AgentThinkingGraph({
       <div className="flex h-full items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-purple-600" />
-          <p className="text-sm text-gray-500">加载思考架构...</p>
+          <p className="text-sm text-gray-500">
+            {t('topicResearch.collaboration.loadingThinking')}
+          </p>
         </div>
       </div>
     );
@@ -192,9 +196,11 @@ export function AgentThinkingGraph({
     return (
       <div className="flex h-full flex-col items-center justify-center p-6 text-center">
         <BrainIcon className="h-12 w-12 text-gray-300" />
-        <p className="mt-3 text-gray-500">暂无 Agent 思考数据</p>
+        <p className="mt-3 text-gray-500">
+          {t('topicResearch.collaboration.noThinkingData')}
+        </p>
         <p className="mt-1 text-sm text-gray-400">
-          开始研究后将在此显示思考过程
+          {t('topicResearch.collaboration.noThinkingDataHint')}
         </p>
       </div>
     );
@@ -228,12 +234,18 @@ export function AgentThinkingGraph({
                   <div className="flex items-center gap-2">
                     <span className={`font-medium ${colors.text}`}>
                       {group.type === 'leader'
-                        ? 'Leader (研究协调员)'
+                        ? t('topicResearch.collaboration.agentTypes.leader')
                         : group.type === 'dimension_researcher'
-                          ? '维度研究员'
+                          ? t(
+                              'topicResearch.collaboration.agentTypes.dimensionResearcher'
+                            )
                           : group.type === 'quality_reviewer'
-                            ? '质量审核'
-                            : '报告撰写'}
+                            ? t(
+                                'topicResearch.collaboration.agentTypes.qualityReviewer'
+                              )
+                            : t(
+                                'topicResearch.collaboration.agentTypes.reportWriter'
+                              )}
                     </span>
                     {totalTasks > 0 && (
                       <span className="text-xs text-gray-500">
@@ -285,6 +297,7 @@ function LeaderThinkingSection({
   missionStatus,
   decisions,
 }: LeaderThinkingSectionProps) {
+  const { t } = useI18n();
   const plan = missionStatus.leaderPlan;
 
   return (
@@ -292,17 +305,23 @@ function LeaderThinkingSection({
       {/* Task Understanding */}
       {plan?.taskUnderstanding && (
         <div>
-          <h4 className="mb-2 text-sm font-medium text-gray-700">任务理解</h4>
+          <h4 className="mb-2 text-sm font-medium text-gray-700">
+            {t('topicResearch.collaboration.taskUnderstanding')}
+          </h4>
           <div className="rounded-md bg-purple-50 p-3 text-sm">
             <p className="text-gray-700">
-              <strong>主题:</strong> {plan.taskUnderstanding.topic}
+              <strong>{t('topicResearch.collaboration.topic')}:</strong>{' '}
+              {plan.taskUnderstanding.topic}
             </p>
             <p className="mt-1 text-gray-700">
-              <strong>范围:</strong> {plan.taskUnderstanding.scope}
+              <strong>{t('topicResearch.collaboration.scope')}:</strong>{' '}
+              {plan.taskUnderstanding.scope}
             </p>
             {plan.taskUnderstanding.objectives && (
               <div className="mt-2">
-                <strong className="text-gray-700">目标:</strong>
+                <strong className="text-gray-700">
+                  {t('topicResearch.collaboration.objectives')}:
+                </strong>
                 <ul className="ml-4 mt-1 list-disc text-gray-600">
                   {plan.taskUnderstanding.objectives.map((obj, idx) => (
                     <li key={idx}>{obj}</li>
@@ -317,7 +336,9 @@ function LeaderThinkingSection({
       {/* Planned Dimensions */}
       {plan?.dimensions && plan.dimensions.length > 0 && (
         <div>
-          <h4 className="mb-2 text-sm font-medium text-gray-700">规划维度</h4>
+          <h4 className="mb-2 text-sm font-medium text-gray-700">
+            {t('topicResearch.collaboration.plannedDimensions')}
+          </h4>
           <div className="space-y-2">
             {plan.dimensions.map((dim, idx) => (
               <div
@@ -342,7 +363,9 @@ function LeaderThinkingSection({
       {/* Decisions */}
       {decisions.length > 0 && (
         <div>
-          <h4 className="mb-2 text-sm font-medium text-gray-700">决策历史</h4>
+          <h4 className="mb-2 text-sm font-medium text-gray-700">
+            {t('topicResearch.collaboration.decisionHistory')}
+          </h4>
           <div className="space-y-2">
             {decisions.slice(0, 5).map((decision) => (
               <div
@@ -352,12 +375,16 @@ function LeaderThinkingSection({
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-gray-700">
                     {decision.type === 'PLAN'
-                      ? '规划'
+                      ? t('topicResearch.collaboration.decisionTypes.plan')
                       : decision.type === 'REVIEW'
-                        ? '审核'
+                        ? t('topicResearch.collaboration.decisionTypes.review')
                         : decision.type === 'ADJUST'
-                          ? '调整'
-                          : '干预'}
+                          ? t(
+                              'topicResearch.collaboration.decisionTypes.adjust'
+                            )
+                          : t(
+                              'topicResearch.collaboration.decisionTypes.intervene'
+                            )}
                   </span>
                   <ClientDate
                     date={decision.createdAt}
@@ -383,8 +410,13 @@ interface AgentTasksSectionProps {
 }
 
 function AgentTasksSection({ tasks }: AgentTasksSectionProps) {
+  const { t } = useI18n();
   if (tasks.length === 0) {
-    return <p className="text-sm text-gray-500">暂无任务</p>;
+    return (
+      <p className="text-sm text-gray-500">
+        {t('topicResearch.collaboration.noTasks')}
+      </p>
+    );
   }
 
   return (
@@ -413,22 +445,25 @@ function AgentTasksSection({ tasks }: AgentTasksSectionProps) {
               </div>
               {task.dimensionName && (
                 <p className="mt-1 text-xs text-gray-500">
-                  维度: {task.dimensionName}
+                  {t('topicResearch.collaboration.dimension')}:{' '}
+                  {task.dimensionName}
                 </p>
               )}
             </div>
             <span className={`text-xs ${statusColors[task.status]}`}>
               {task.status === 'PENDING'
-                ? '待执行'
+                ? t('topicResearch.collaboration.taskStatus.pending')
                 : task.status === 'ASSIGNED'
-                  ? '已分配'
+                  ? t('topicResearch.collaboration.taskStatus.assigned')
                   : task.status === 'EXECUTING'
-                    ? '执行中'
+                    ? t('topicResearch.collaboration.taskStatus.executing')
                     : task.status === 'COMPLETED'
-                      ? '已完成'
+                      ? t('topicResearch.collaboration.taskStatus.completed')
                       : task.status === 'NEEDS_REVISION'
-                        ? '需修订'
-                        : '失败'}
+                        ? t(
+                            'topicResearch.collaboration.taskStatus.needsRevision'
+                          )
+                        : t('topicResearch.collaboration.taskStatus.failed')}
             </span>
           </div>
           {task.progress !== undefined &&

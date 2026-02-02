@@ -13,6 +13,7 @@ import React, {
   useRef,
 } from 'react';
 import { logger } from '@/lib/utils/logger';
+import { useI18n } from '@/lib/i18n';
 import {
   Search,
   TrendingUp,
@@ -48,11 +49,16 @@ interface CommandPaletteProps {
   customCommands?: CommandItem[];
 }
 
-const DEFAULT_COMMANDS: Omit<CommandItem, 'action'>[] = [
+// Command definitions with i18n keys
+const getCommandDefinitions = (
+  t: (key: string) => string
+): Omit<CommandItem, 'action'>[] => [
   {
     id: 'trend',
-    title: '/trend 趋势报告',
-    description: '生成科技趋势分析报告',
+    title: t('topicResearch.deepResearch.commandPalette.trend.title'),
+    description: t(
+      'topicResearch.deepResearch.commandPalette.trend.description'
+    ),
     icon: <TrendingUp className="h-4 w-4" />,
     category: 'action',
     shortcut: '/trend',
@@ -60,8 +66,10 @@ const DEFAULT_COMMANDS: Omit<CommandItem, 'action'>[] = [
   },
   {
     id: 'compare',
-    title: '/compare 技术对比',
-    description: '对比两个技术方案 (如: /compare React vs Vue)',
+    title: t('topicResearch.deepResearch.commandPalette.compare.title'),
+    description: t(
+      'topicResearch.deepResearch.commandPalette.compare.description'
+    ),
     icon: <GitCompare className="h-4 w-4" />,
     category: 'action',
     shortcut: '/compare',
@@ -69,8 +77,10 @@ const DEFAULT_COMMANDS: Omit<CommandItem, 'action'>[] = [
   },
   {
     id: 'summary',
-    title: '/summary 生成摘要',
-    description: '为选中资源生成结构化摘要',
+    title: t('topicResearch.deepResearch.commandPalette.summary.title'),
+    description: t(
+      'topicResearch.deepResearch.commandPalette.summary.description'
+    ),
     icon: <FileText className="h-4 w-4" />,
     category: 'action',
     shortcut: '/summary',
@@ -78,8 +88,8 @@ const DEFAULT_COMMANDS: Omit<CommandItem, 'action'>[] = [
   },
   {
     id: 'ppt',
-    title: '/ppt 生成演示',
-    description: '基于资源生成 PPT 演示文稿',
+    title: t('topicResearch.deepResearch.commandPalette.ppt.title'),
+    description: t('topicResearch.deepResearch.commandPalette.ppt.description'),
     icon: <Presentation className="h-4 w-4" />,
     category: 'action',
     shortcut: '/ppt',
@@ -87,8 +97,10 @@ const DEFAULT_COMMANDS: Omit<CommandItem, 'action'>[] = [
   },
   {
     id: 'graph',
-    title: '/graph 知识图谱',
-    description: '可视化主题知识图谱',
+    title: t('topicResearch.deepResearch.commandPalette.graph.title'),
+    description: t(
+      'topicResearch.deepResearch.commandPalette.graph.description'
+    ),
     icon: <Network className="h-4 w-4" />,
     category: 'action',
     shortcut: '/graph',
@@ -96,8 +108,10 @@ const DEFAULT_COMMANDS: Omit<CommandItem, 'action'>[] = [
   },
   {
     id: 'insights',
-    title: '/insights 深度洞察',
-    description: '提取关键洞察和发现',
+    title: t('topicResearch.deepResearch.commandPalette.insights.title'),
+    description: t(
+      'topicResearch.deepResearch.commandPalette.insights.description'
+    ),
     icon: <Lightbulb className="h-4 w-4" />,
     category: 'action',
     shortcut: '/insights',
@@ -105,36 +119,46 @@ const DEFAULT_COMMANDS: Omit<CommandItem, 'action'>[] = [
   },
   {
     id: 'hype-cycle',
-    title: 'Hype Cycle 图表',
-    description: '查看技术成熟度曲线',
+    title: t('topicResearch.deepResearch.commandPalette.hypeCycle.title'),
+    description: t(
+      'topicResearch.deepResearch.commandPalette.hypeCycle.description'
+    ),
     icon: <BarChart3 className="h-4 w-4" />,
     category: 'navigation',
     keywords: ['hype', 'cycle', 'maturity', 'gartner'],
   },
   {
     id: 'research-plan',
-    title: '研究计划',
-    description: '查看和管理研究计划进度',
+    title: t('topicResearch.deepResearch.commandPalette.researchPlan.title'),
+    description: t(
+      'topicResearch.deepResearch.commandPalette.researchPlan.description'
+    ),
     icon: <BookOpen className="h-4 w-4" />,
     category: 'navigation',
     keywords: ['research', 'plan', 'progress', '研究', '计划'],
   },
   {
     id: 'quick-insights',
-    title: '快速洞察',
-    description: '一键获取当前主题的核心洞察',
+    title: t('topicResearch.deepResearch.commandPalette.quickInsights.title'),
+    description: t(
+      'topicResearch.deepResearch.commandPalette.quickInsights.description'
+    ),
     icon: <Zap className="h-4 w-4" />,
     category: 'action',
     keywords: ['quick', 'fast', '快速'],
   },
 ];
 
-const CATEGORY_LABELS: Record<string, string> = {
-  action: '操作',
-  navigation: '导航',
-  search: '搜索',
-  recent: '最近使用',
-};
+const getCategoryLabels = (
+  t: (key: string) => string
+): Record<string, string> => ({
+  action: t('topicResearch.deepResearch.commandPalette.categories.action'),
+  navigation: t(
+    'topicResearch.deepResearch.commandPalette.categories.navigation'
+  ),
+  search: t('topicResearch.deepResearch.commandPalette.categories.search'),
+  recent: t('topicResearch.deepResearch.commandPalette.categories.recent'),
+});
 
 const CATEGORY_ORDER = ['recent', 'action', 'navigation', 'search'];
 
@@ -144,6 +168,7 @@ export default function CommandPalette({
   onExecuteCommand,
   customCommands = [],
 }: CommandPaletteProps) {
+  const { t } = useI18n();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [recentCommands, setRecentCommands] = useState<string[]>([]);
@@ -176,7 +201,8 @@ export default function CommandPalette({
 
   // 合并默认命令和自定义命令
   const allCommands = useMemo(() => {
-    const defaultWithActions = DEFAULT_COMMANDS.map((cmd) => ({
+    const defaultCommands = getCommandDefinitions(t);
+    const defaultWithActions = defaultCommands.map((cmd) => ({
       ...cmd,
       action: () => {
         logger.debug(`Execute command: ${cmd.id}`);
@@ -187,7 +213,7 @@ export default function CommandPalette({
       },
     }));
     return [...defaultWithActions, ...customCommands];
-  }, [customCommands, onExecuteCommand]);
+  }, [customCommands, onExecuteCommand, t]);
 
   // 过滤和排序命令
   const filteredCommands = useMemo(() => {
@@ -307,6 +333,7 @@ export default function CommandPalette({
   if (!isOpen) return null;
 
   let flatIndex = -1;
+  const categoryLabels = getCategoryLabels(t);
 
   return (
     <>
@@ -327,7 +354,9 @@ export default function CommandPalette({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="输入命令或搜索..."
+              placeholder={t(
+                'topicResearch.deepResearch.commandPalette.inputPlaceholder'
+              )}
               className="flex-1 border-0 bg-transparent px-3 py-4 text-gray-900 placeholder-gray-400 outline-none"
             />
             <kbd className="hidden rounded bg-gray-100 px-2 py-1 text-xs text-gray-500 sm:inline">
@@ -340,8 +369,12 @@ export default function CommandPalette({
             {filteredCommands.length === 0 ? (
               <div className="px-4 py-8 text-center text-gray-500">
                 <Sparkles className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                <p>没有找到匹配的命令</p>
-                <p className="mt-1 text-sm">尝试输入 /trend, /compare 等</p>
+                <p>
+                  {t('topicResearch.deepResearch.commandPalette.noResults')}
+                </p>
+                <p className="mt-1 text-sm">
+                  {t('topicResearch.deepResearch.commandPalette.tryCommands')}
+                </p>
               </div>
             ) : (
               CATEGORY_ORDER.map((category) => {
@@ -351,7 +384,7 @@ export default function CommandPalette({
                 return (
                   <div key={category} className="mb-2">
                     <div className="px-2 py-1 text-xs font-medium uppercase text-gray-500">
-                      {CATEGORY_LABELS[category]}
+                      {categoryLabels[category]}
                     </div>
                     {commands.map((command) => {
                       flatIndex++;
@@ -412,16 +445,22 @@ export default function CommandPalette({
               <span className="flex items-center gap-1">
                 <kbd className="rounded bg-gray-200 px-1.5 py-0.5">↑</kbd>
                 <kbd className="rounded bg-gray-200 px-1.5 py-0.5">↓</kbd>
-                <span>导航</span>
+                <span>
+                  {t('topicResearch.deepResearch.commandPalette.navigate')}
+                </span>
               </span>
               <span className="flex items-center gap-1">
                 <kbd className="rounded bg-gray-200 px-1.5 py-0.5">Enter</kbd>
-                <span>选择</span>
+                <span>
+                  {t('topicResearch.deepResearch.commandPalette.select')}
+                </span>
               </span>
             </div>
             <div className="flex items-center gap-1 text-xs text-gray-400">
               <Command className="h-3 w-3" />
-              <span>K 打开</span>
+              <span>
+                {t('topicResearch.deepResearch.commandPalette.openCommand')}
+              </span>
             </div>
           </div>
         </div>

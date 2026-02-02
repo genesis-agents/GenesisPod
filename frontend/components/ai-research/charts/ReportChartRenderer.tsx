@@ -40,6 +40,7 @@ import type {
   TopicEvidence,
 } from '@/types/topic-research';
 import { triggerCitationClick } from '../citationNavigation';
+import { useI18n } from '@/lib/i18n';
 
 // 图表配色方案
 const CHART_COLORS = [
@@ -97,7 +98,7 @@ function ChartSourceWithCitations({
             triggerCitationClick(evidence.id);
           }}
           className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
-          title={evidence.title || `引用 [${citationNum}]`}
+          title={evidence.title || `Citation [${citationNum}]`}
         >
           [{citationNum}]
         </sup>
@@ -469,6 +470,7 @@ function RadarChartComponent({
  * 风险矩阵图（散点图）
  */
 function RiskMatrixComponent({ chart }: { chart: ReportChart }) {
+  const { t } = useI18n();
   const chartData = chart.data || [];
   const data = chartData.map((d) => ({
     name: d.label,
@@ -492,18 +494,26 @@ function RiskMatrixComponent({ chart }: { chart: ReportChart }) {
         <XAxis
           type="number"
           dataKey="probability"
-          name="发生概率"
+          name={t('topicResearch.charts.probability')}
           domain={[0, 100]}
           tick={{ fontSize: 12 }}
-          label={{ value: '发生概率 (%)', position: 'bottom', offset: 0 }}
+          label={{
+            value: t('topicResearch.charts.probabilityAxis'),
+            position: 'bottom',
+            offset: 0,
+          }}
         />
         <YAxis
           type="number"
           dataKey="impact"
-          name="影响程度"
+          name={t('topicResearch.charts.impact')}
           domain={[0, 100]}
           tick={{ fontSize: 12 }}
-          label={{ value: '影响程度 (%)', angle: -90, position: 'insideLeft' }}
+          label={{
+            value: t('topicResearch.charts.impactAxis'),
+            angle: -90,
+            position: 'insideLeft',
+          }}
         />
         <ZAxis range={[100, 400]} />
         <Tooltip
@@ -515,9 +525,12 @@ function RiskMatrixComponent({ chart }: { chart: ReportChart }) {
               <div className="rounded-lg border bg-white p-3 shadow-lg">
                 <p className="font-medium">{item.risk}</p>
                 <p className="text-sm text-gray-600">
-                  概率: {item.probability}%
+                  {t('topicResearch.charts.probabilityLabel')}{' '}
+                  {item.probability}%
                 </p>
-                <p className="text-sm text-gray-600">影响: {item.impact}%</p>
+                <p className="text-sm text-gray-600">
+                  {t('topicResearch.charts.impactLabel')} {item.impact}%
+                </p>
               </div>
             );
           }}
@@ -544,18 +557,16 @@ function RiskMatrixComponent({ chart }: { chart: ReportChart }) {
 }
 
 /**
- * 生成图表类型的中文名称
+ * 生成图表类型的名称
  */
-function getChartTypeName(type: string): string {
-  const typeNames: Record<string, string> = {
-    line: '折线图',
-    bar: '柱状图',
-    area: '面积图',
-    pie: '饼图',
-    radar: '雷达图',
-    composed: '组合图',
-  };
-  return typeNames[type] || '图表';
+function getChartTypeName(type: string, t: (key: string) => string): string {
+  const typeKey = `topicResearch.charts.types.${type}` as const;
+  // Try to get the specific type translation, fallback to generic "chart"
+  try {
+    return t(typeKey);
+  } catch {
+    return t('topicResearch.charts.types.chart');
+  }
 }
 
 /**
@@ -563,13 +574,18 @@ function getChartTypeName(type: string): string {
  */
 function generateChartSummary(
   chart: ReportChart,
-  data: ChartDataPoint[]
+  data: ChartDataPoint[],
+  t: (key: string, params?: Record<string, string | number>) => string
 ): string {
-  const typeName = getChartTypeName(chart.type || 'bar');
+  const typeName = getChartTypeName(chart.type || 'bar', t);
   const dataCount = data.length;
+  const title = chart.title || t('topicResearch.charts.types.chart');
 
   if (dataCount === 0) {
-    return `${chart.title || '图表'}，${typeName}，暂无数据`;
+    return t('topicResearch.charts.chartSummaryNoData', {
+      title,
+      type: typeName,
+    });
   }
 
   // 计算基本统计信息
@@ -579,10 +595,20 @@ function generateChartSummary(
   const min = Math.min(...values);
   const max = Math.max(...values);
 
-  let summary = `${chart.title || '图表'}，${typeName}，包含${dataCount}个数据点`;
+  let summary = t('topicResearch.charts.chartSummary', {
+    title,
+    type: typeName,
+    count: dataCount,
+  });
 
   if (values.length > 0) {
-    summary += `，数值范围从${min.toFixed(1)}到${max.toFixed(1)}`;
+    summary = t('topicResearch.charts.chartSummaryRange', {
+      title,
+      type: typeName,
+      count: dataCount,
+      min: min.toFixed(1),
+      max: max.toFixed(1),
+    });
   }
 
   if (chart.description) {
@@ -600,6 +626,8 @@ export function ReportChartRenderer({
   className = '',
   evidences,
 }: ReportChartRendererProps) {
+  const { t } = useI18n();
+
   // ★ 处理 data 为空的情况
   const chartData = chart.data || [];
   const chartType = chart.type || 'bar';
@@ -620,8 +648,8 @@ export function ReportChartRenderer({
 
   // 生成屏幕阅读器摘要
   const chartSummary = useMemo(
-    () => generateChartSummary(chart, chartData),
-    [chart, chartData]
+    () => generateChartSummary(chart, chartData, t),
+    [chart, chartData, t]
   );
 
   // ★ 如果没有数据，显示空状态
@@ -630,7 +658,7 @@ export function ReportChartRenderer({
       <div
         className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm ${className}`}
         role="figure"
-        aria-label={`${chart.title || '图表'}：暂无数据`}
+        aria-label={`${chart.title || t('topicResearch.charts.types.chart')}：${t('topicResearch.charts.noChartData')}`}
       >
         <div className="mb-4">
           <h4 className="text-base font-semibold text-gray-900">
@@ -641,7 +669,7 @@ export function ReportChartRenderer({
           )}
         </div>
         <div className="flex min-h-[200px] items-center justify-center text-sm text-gray-400">
-          暂无图表数据
+          {t('topicResearch.charts.noChartData')}
         </div>
       </div>
     );
@@ -744,13 +772,15 @@ export function ReportChartRenderer({
       <table
         id={tableId}
         className="sr-only"
-        aria-label={`${chart.title || '图表'}数据表`}
+        aria-label={`${chart.title || t('topicResearch.charts.types.chart')} ${t('topicResearch.charts.dataTable')}`}
       >
-        <caption>{chart.title} - 数据详情</caption>
+        <caption>
+          {chart.title} - {t('topicResearch.charts.dataDetails')}
+        </caption>
         <thead>
           <tr>
-            <th scope="col">项目</th>
-            <th scope="col">数值</th>
+            <th scope="col">{t('topicResearch.charts.item')}</th>
+            <th scope="col">{t('topicResearch.charts.value')}</th>
           </tr>
         </thead>
         <tbody>
@@ -767,7 +797,7 @@ export function ReportChartRenderer({
       {chart.source && (
         <div className="mt-3 border-t border-gray-100 pt-3">
           <p className="text-xs text-gray-400">
-            数据来源:{' '}
+            {t('topicResearch.charts.dataSource')}{' '}
             <ChartSourceWithCitations
               source={chart.source}
               evidences={evidences}
@@ -786,6 +816,7 @@ export function RiskMatrixRenderer({
   chart,
   className = '',
 }: ReportChartRendererProps) {
+  const { t } = useI18n();
   const chartData = chart.data || [];
   // ★ 使用 useMemo 避免 hydration 错误（Math.random 在 SSR/CSR 产生不同值）
   const chartId = useMemo(
@@ -796,9 +827,9 @@ export function RiskMatrixRenderer({
   // 计算风险等级
   const getRiskLevel = (probability: number, impact: number): string => {
     const score = (probability + impact) / 2;
-    if (score >= 70) return '高风险';
-    if (score >= 40) return '中风险';
-    return '低风险';
+    if (score >= 70) return t('topicResearch.charts.riskLevels.high');
+    if (score >= 40) return t('topicResearch.charts.riskLevels.medium');
+    return t('topicResearch.charts.riskLevels.low');
   };
 
   return (
@@ -818,8 +849,7 @@ export function RiskMatrixRenderer({
 
       {/* 屏幕阅读器摘要 */}
       <div className="sr-only">
-        风险矩阵图，显示{chartData.length}个风险项的概率和影响程度分布。
-        横轴为发生概率（0-100%），纵轴为影响程度（0-100%）。
+        {t('topicResearch.charts.riskMatrixDesc', { count: chartData.length })}
       </div>
 
       <div aria-hidden="true">
@@ -827,14 +857,19 @@ export function RiskMatrixRenderer({
       </div>
 
       {/* 数据表格（屏幕阅读器可访问） */}
-      <table className="sr-only" aria-label="风险矩阵数据">
-        <caption>{chart.title} - 风险详情</caption>
+      <table
+        className="sr-only"
+        aria-label={t('topicResearch.charts.riskMatrix')}
+      >
+        <caption>
+          {chart.title} - {t('topicResearch.charts.dataDetails')}
+        </caption>
         <thead>
           <tr>
-            <th scope="col">风险项</th>
-            <th scope="col">发生概率</th>
-            <th scope="col">影响程度</th>
-            <th scope="col">风险等级</th>
+            <th scope="col">{t('topicResearch.charts.riskItem')}</th>
+            <th scope="col">{t('topicResearch.charts.probability')}</th>
+            <th scope="col">{t('topicResearch.charts.impact')}</th>
+            <th scope="col">{t('topicResearch.charts.riskLevel')}</th>
           </tr>
         </thead>
         <tbody>
@@ -856,7 +891,7 @@ export function RiskMatrixRenderer({
       <div
         className="mt-4 flex items-center justify-center gap-6"
         role="list"
-        aria-label="风险等级图例"
+        aria-label={t('topicResearch.charts.riskLegend')}
       >
         <div className="flex items-center gap-2" role="listitem">
           <span
@@ -864,7 +899,9 @@ export function RiskMatrixRenderer({
             style={{ backgroundColor: RISK_COLORS.low }}
             aria-hidden="true"
           />
-          <span className="text-sm text-gray-600">低风险</span>
+          <span className="text-sm text-gray-600">
+            {t('topicResearch.charts.riskLevels.low')}
+          </span>
         </div>
         <div className="flex items-center gap-2" role="listitem">
           <span
@@ -872,7 +909,9 @@ export function RiskMatrixRenderer({
             style={{ backgroundColor: RISK_COLORS.medium }}
             aria-hidden="true"
           />
-          <span className="text-sm text-gray-600">中风险</span>
+          <span className="text-sm text-gray-600">
+            {t('topicResearch.charts.riskLevels.medium')}
+          </span>
         </div>
         <div className="flex items-center gap-2" role="listitem">
           <span
@@ -880,7 +919,9 @@ export function RiskMatrixRenderer({
             style={{ backgroundColor: RISK_COLORS.high }}
             aria-hidden="true"
           />
-          <span className="text-sm text-gray-600">高风险</span>
+          <span className="text-sm text-gray-600">
+            {t('topicResearch.charts.riskLevels.high')}
+          </span>
         </div>
       </div>
     </div>

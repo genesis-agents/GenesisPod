@@ -1,11 +1,13 @@
 import type { UIMessage } from '../shared/types';
 import { safeString } from '@/lib/utils/common';
+import { useI18n } from '@/lib/i18n';
 
 interface LeaderPlanCardProps {
   msg: UIMessage;
 }
 
 export function LeaderPlanCard({ msg }: LeaderPlanCardProps) {
+  const { t } = useI18n();
   const planData =
     msg.detail?.type === 'leader_plan'
       ? (msg.detail.data as Record<string, unknown>)
@@ -18,7 +20,9 @@ export function LeaderPlanCard({ msg }: LeaderPlanCardProps) {
     <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
       <div className="mb-3 flex items-center gap-2">
         <span className="text-lg">📋</span>
-        <span className="font-medium text-purple-800">研究规划完成</span>
+        <span className="font-medium text-purple-800">
+          {t('topicResearch.messageCards.leaderPlan.completed')}
+        </span>
       </div>
 
       {msg.content && !safeString(msg.content).includes('规划完成') && (
@@ -30,7 +34,7 @@ export function LeaderPlanCard({ msg }: LeaderPlanCardProps) {
       {dimensions.length > 0 && (
         <div className="space-y-2">
           <span className="text-xs font-medium text-purple-600">
-            研究维度：
+            {t('topicResearch.messageCards.leaderPlan.dimensions')}
           </span>
           <div className="flex flex-wrap gap-2">
             {dimensions.slice(0, 6).map((dim, idx) => (
@@ -44,7 +48,9 @@ export function LeaderPlanCard({ msg }: LeaderPlanCardProps) {
             ))}
             {dimensions.length > 6 && (
               <span className="text-xs text-purple-500">
-                +{dimensions.length - 6} 更多
+                {t('topicResearch.messageCards.leaderPlan.more', {
+                  count: dimensions.length - 6,
+                })}
               </span>
             )}
           </div>

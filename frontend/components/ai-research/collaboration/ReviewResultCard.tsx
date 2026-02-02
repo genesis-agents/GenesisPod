@@ -26,6 +26,7 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { useI18n } from '@/lib/i18n';
 
 // ==================== Types ====================
 
@@ -90,78 +91,79 @@ export interface ReviewResultCardProps {
 
 // ==================== Constants ====================
 
-const qualityLevelConfig: Record<
-  QualityLevel,
-  {
-    label: string;
-    color: string;
-    bgColor: string;
-    icon: React.ElementType;
-  }
-> = {
+const getQualityLevelConfig = (t: (key: string) => string) => ({
   excellent: {
-    label: '优秀',
+    label: t('topicResearch.collaboration.qualityLevel.excellent'),
     color: 'text-emerald-600 dark:text-emerald-400',
     bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
     icon: CheckCircle,
   },
   good: {
-    label: '良好',
+    label: t('topicResearch.collaboration.qualityLevel.good'),
     color: 'text-blue-600 dark:text-blue-400',
     bgColor: 'bg-blue-100 dark:bg-blue-900/30',
     icon: TrendingUp,
   },
   acceptable: {
-    label: '可接受',
+    label: t('topicResearch.collaboration.qualityLevel.acceptable'),
     color: 'text-yellow-600 dark:text-yellow-400',
     bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
     icon: Minus,
   },
   needs_revision: {
-    label: '需修订',
+    label: t('topicResearch.collaboration.qualityLevel.needsRevision'),
     color: 'text-orange-600 dark:text-orange-400',
     bgColor: 'bg-orange-100 dark:bg-orange-900/30',
     icon: AlertTriangle,
   },
   rejected: {
-    label: '拒绝',
+    label: t('topicResearch.collaboration.qualityLevel.rejected'),
     color: 'text-red-600 dark:text-red-400',
     bgColor: 'bg-red-100 dark:bg-red-900/30',
     icon: XCircle,
   },
-};
+});
 
-const scoreLabels: Record<
-  keyof ReviewScores,
-  { label: string; icon: React.ElementType }
-> = {
-  breadth: { label: '广度', icon: Target },
-  depth: { label: '深度', icon: TrendingDown },
-  evidence: { label: '证据', icon: BookOpen },
-  coherence: { label: '连贯', icon: Link2 },
-  currency: { label: '时效', icon: Clock },
-};
+const getScoreLabels = (t: (key: string) => string) => ({
+  breadth: {
+    label: t('topicResearch.collaboration.reviewDimensions.breadth'),
+    icon: Target,
+  },
+  depth: {
+    label: t('topicResearch.collaboration.reviewDimensions.depth'),
+    icon: TrendingDown,
+  },
+  evidence: {
+    label: t('topicResearch.collaboration.reviewDimensions.evidence'),
+    icon: BookOpen,
+  },
+  coherence: {
+    label: t('topicResearch.collaboration.reviewDimensions.coherence'),
+    icon: Link2,
+  },
+  currency: {
+    label: t('topicResearch.collaboration.reviewDimensions.currency'),
+    icon: Clock,
+  },
+});
 
-const severityConfig: Record<
-  ReviewIssue['severity'],
-  { label: string; color: string; bgColor: string }
-> = {
+const getSeverityConfig = (t: (key: string) => string) => ({
   critical: {
-    label: '严重',
+    label: t('topicResearch.collaboration.severity.critical'),
     color: 'text-red-600 dark:text-red-400',
     bgColor: 'bg-red-100 dark:bg-red-900/30',
   },
   major: {
-    label: '重要',
+    label: t('topicResearch.collaboration.severity.major'),
     color: 'text-orange-600 dark:text-orange-400',
     bgColor: 'bg-orange-100 dark:bg-orange-900/30',
   },
   minor: {
-    label: '次要',
+    label: t('topicResearch.collaboration.severity.minor'),
     color: 'text-yellow-600 dark:text-yellow-400',
     bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
   },
-};
+});
 
 // ==================== Helper Functions ====================
 
@@ -185,7 +187,9 @@ function getScoreBarColor(score: number): string {
  * 质量等级徽章
  */
 function QualityBadge({ level }: { level: QualityLevel }) {
-  const config = qualityLevelConfig[level] || qualityLevelConfig.acceptable;
+  const { t } = useI18n();
+  const configs = getQualityLevelConfig(t);
+  const config = configs[level] || configs.acceptable;
   const Icon = config.icon;
 
   return (
@@ -247,18 +251,20 @@ function IssuesList({
   issues: ReviewIssue[];
   compact?: boolean;
 }) {
+  const { t } = useI18n();
   if (issues.length === 0) return null;
 
   const displayIssues = compact ? issues.slice(0, 3) : issues;
+  const severityConfigs = getSeverityConfig(t);
 
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400">
-        问题 ({issues.length})
+        {t('topicResearch.collaboration.issues')} ({issues.length})
       </h4>
       <div className="space-y-1.5">
         {displayIssues.map((issue, idx) => {
-          const severityConf = severityConfig[issue.severity];
+          const severityConf = severityConfigs[issue.severity];
           return (
             <div
               key={idx}
@@ -278,7 +284,9 @@ function IssuesList({
         })}
         {compact && issues.length > 3 && (
           <div className="text-xs text-gray-500">
-            还有 {issues.length - 3} 个问题...
+            {t('topicResearch.collaboration.moreIssues', {
+              count: issues.length - 3,
+            })}
           </div>
         )}
       </div>
@@ -296,6 +304,7 @@ function SuggestionsList({
   suggestions: string[];
   compact?: boolean;
 }) {
+  const { t } = useI18n();
   if (suggestions.length === 0) return null;
 
   const displaySuggestions = compact ? suggestions.slice(0, 2) : suggestions;
@@ -303,7 +312,7 @@ function SuggestionsList({
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400">
-        改进建议 ({suggestions.length})
+        {t('topicResearch.collaboration.suggestions')} ({suggestions.length})
       </h4>
       <div className="space-y-1">
         {displaySuggestions.map((suggestion, idx) => (
@@ -317,7 +326,9 @@ function SuggestionsList({
         ))}
         {compact && suggestions.length > 2 && (
           <div className="text-xs text-gray-500">
-            还有 {suggestions.length - 2} 条建议...
+            {t('topicResearch.collaboration.moreSuggestions', {
+              count: suggestions.length - 2,
+            })}
           </div>
         )}
       </div>
@@ -336,6 +347,9 @@ export function ReviewResultCard({
   dimensionName,
   compact = false,
 }: ReviewResultCardProps) {
+  const { t } = useI18n();
+  const qualityConfigs = getQualityLevelConfig(t);
+  const scoreLabels = getScoreLabels(t);
   const isDimensionReview = type === 'dimension';
   const dimResult = reviewResult as DimensionReviewResult;
   const overallResult = reviewResult as OverallReviewResult;
@@ -385,7 +399,7 @@ export function ReviewResultCard({
       {!isDimensionReview && overallResult.dimensionReviews && (
         <div className="mb-4 space-y-1">
           <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400">
-            维度评分
+            {t('topicResearch.collaboration.dimensionScores')}
           </h4>
           <div className="flex flex-wrap gap-2">
             {overallResult.dimensionReviews.map((dim) => (
@@ -393,8 +407,8 @@ export function ReviewResultCard({
                 key={dim.dimensionId}
                 className={cn(
                   'rounded-md px-2 py-1 text-xs',
-                  qualityLevelConfig[dim.qualityLevel as QualityLevel]
-                    ?.bgColor || 'bg-gray-100 dark:bg-gray-700'
+                  qualityConfigs[dim.qualityLevel as QualityLevel]?.bgColor ||
+                    'bg-gray-100 dark:bg-gray-700'
                 )}
               >
                 <span className="text-gray-700 dark:text-gray-300">
@@ -448,7 +462,7 @@ export function ReviewResultCard({
         <div className="mt-3 flex items-center gap-2 rounded-md bg-orange-100 px-3 py-2 dark:bg-orange-900/30">
           <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           <span className="text-xs text-orange-700 dark:text-orange-300">
-            需要重新研究
+            {t('topicResearch.collaboration.needsReresearch')}
             {isDimensionReview &&
               dimResult.reresearchFocus &&
               dimResult.reresearchFocus.length > 0 && (
@@ -458,7 +472,10 @@ export function ReviewResultCard({
               overallResult.dimensionsToReresearch &&
               overallResult.dimensionsToReresearch.length > 0 && (
                 <span>
-                  : {overallResult.dimensionsToReresearch.length} 个维度
+                  :{' '}
+                  {t('topicResearch.collaboration.dimensionsToReresearch', {
+                    count: overallResult.dimensionsToReresearch.length,
+                  })}
                 </span>
               )}
           </span>

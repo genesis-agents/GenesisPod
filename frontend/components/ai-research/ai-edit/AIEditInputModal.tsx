@@ -19,6 +19,7 @@ import {
   Loader2,
   AlertTriangle,
 } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/common';
@@ -28,38 +29,17 @@ import type { AIEditOperation } from '../types';
 const MAX_SELECTION_LENGTH = 2000;
 const MAX_INSTRUCTION_LENGTH = 500;
 
-// Preset operation configurations
-const PRESET_OPERATIONS: Array<{
-  id: AIEditOperation;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-}> = [
-  {
-    id: 'rewrite',
-    label: '重写',
-    icon: RefreshCw,
-    description: '用不同的表达方式重新撰写',
-  },
-  {
-    id: 'polish',
-    label: '润色',
-    icon: Sparkles,
-    description: '改善文字流畅度和表达',
-  },
-  {
-    id: 'expand',
-    label: '扩展',
-    icon: Expand,
-    description: '添加更多细节和论述',
-  },
-  {
-    id: 'compress',
-    label: '精简',
-    icon: Minimize2,
-    description: '保留核心内容，去除冗余',
-  },
-];
+// Preset operation icon mapping
+const OPERATION_ICONS: Record<
+  AIEditOperation,
+  React.ComponentType<{ className?: string }>
+> = {
+  rewrite: RefreshCw,
+  polish: Sparkles,
+  expand: Expand,
+  compress: Minimize2,
+  style: Sparkles,
+};
 
 export interface EditContext {
   sectionTitle?: string;
@@ -91,10 +71,44 @@ export function AIEditInputModal({
   isLoading = false,
   context,
 }: AIEditInputModalProps) {
+  const { t } = useI18n();
   const [selectedOperations, setSelectedOperations] = useState<
     AIEditOperation[]
   >([]);
   const [customInstruction, setCustomInstruction] = useState('');
+
+  // Preset operations with i18n
+  const presetOperations: Array<{
+    id: AIEditOperation;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    description: string;
+  }> = [
+    {
+      id: 'rewrite',
+      label: t('topicResearch.aiEdit.rewrite'),
+      icon: OPERATION_ICONS.rewrite,
+      description: t('topicResearch.aiEdit.rewriteDesc'),
+    },
+    {
+      id: 'polish',
+      label: t('topicResearch.aiEdit.polish'),
+      icon: OPERATION_ICONS.polish,
+      description: t('topicResearch.aiEdit.polishDesc'),
+    },
+    {
+      id: 'expand',
+      label: t('topicResearch.aiEdit.expand'),
+      icon: OPERATION_ICONS.expand,
+      description: t('topicResearch.aiEdit.expandDesc'),
+    },
+    {
+      id: 'compress',
+      label: t('topicResearch.aiEdit.compress'),
+      icon: OPERATION_ICONS.compress,
+      description: t('topicResearch.aiEdit.compressDesc'),
+    },
+  ];
 
   // Toggle operation selection
   const toggleOperation = useCallback((operation: AIEditOperation) => {
@@ -113,18 +127,26 @@ export function AIEditInputModal({
     // Check selection length
     if (selectedText.length > MAX_SELECTION_LENGTH) {
       errors.push(
-        `选中文本过长（${selectedText.length} 字），最多支持 ${MAX_SELECTION_LENGTH} 字`
+        t('topicResearch.aiEdit.textTooLong', {
+          length: selectedText.length,
+          maxLength: MAX_SELECTION_LENGTH,
+        })
       );
     } else if (selectedText.length > MAX_SELECTION_LENGTH * 0.8) {
       warnings.push(
-        `选中文本较长（${selectedText.length} 字），可能影响编辑效果`
+        t('topicResearch.aiEdit.textLengthWarning', {
+          length: selectedText.length,
+        })
       );
     }
 
     // Check instruction length
     if (customInstruction.length > MAX_INSTRUCTION_LENGTH) {
       errors.push(
-        `编辑指令过长（${customInstruction.length} 字），最多支持 ${MAX_INSTRUCTION_LENGTH} 字`
+        t('topicResearch.aiEdit.instructionTooLong', {
+          length: customInstruction.length,
+          maxLength: MAX_INSTRUCTION_LENGTH,
+        })
       );
     }
 
@@ -133,7 +155,7 @@ export function AIEditInputModal({
       warnings,
       isValid: errors.length === 0,
     };
-  }, [selectedText.length, customInstruction.length]);
+  }, [selectedText.length, customInstruction.length, t]);
 
   // Handle submit
   const handleSubmit = useCallback(() => {
@@ -148,7 +170,7 @@ export function AIEditInputModal({
     // Add selected operations
     if (selectedOperations.length > 0) {
       const opLabels = selectedOperations
-        .map((op) => PRESET_OPERATIONS.find((p) => p.id === op)?.label)
+        .map((op) => presetOperations.find((p) => p.id === op)?.label)
         .filter(Boolean)
         .join('、');
       parts.push(opLabels);
@@ -193,7 +215,7 @@ export function AIEditInputModal({
     <Modal
       open={isOpen}
       onClose={handleClose}
-      title="AI 编辑"
+      title={t('topicResearch.contentPanel.aiEdit')}
       subtitle={context?.sectionTitle || context?.dimensionName}
       size="md"
       closeButtonDisabled={isLoading}
@@ -202,16 +224,16 @@ export function AIEditInputModal({
       footer={
         <>
           <Button variant="outline" onClick={handleClose} disabled={isLoading}>
-            取消
+            {t('topicResearch.aiEdit.cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={!canSubmit || isLoading}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                AI 正在编辑...
+                {t('topicResearch.aiEdit.aiEditing')}
               </>
             ) : (
-              '开始编辑'
+              t('topicResearch.aiEdit.startEditing')
             )}
           </Button>
         </>
@@ -252,12 +274,14 @@ export function AIEditInputModal({
       {/* Selected text preview */}
       <div className="mb-6">
         <label className="mb-2 block text-sm font-medium text-gray-700">
-          选中文本
+          {t('topicResearch.aiEdit.selectedText')}
         </label>
         <div
           className={cn(
             'max-h-32 overflow-y-auto rounded-lg border p-3',
-            validation.errors.some((e) => e.includes('选中文本'))
+            validation.errors.some((e) =>
+              e.includes(t('topicResearch.aiEdit.selectedText'))
+            )
               ? 'border-red-300 bg-red-50'
               : 'border-gray-200 bg-gray-50'
           )}
@@ -278,20 +302,24 @@ export function AIEditInputModal({
                 : 'text-gray-400'
           )}
         >
-          共 {textLength} 字
+          {t('topicResearch.aiEdit.totalChars', { count: textLength })}
           {textLength > MAX_SELECTION_LENGTH &&
-            ` (超出 ${textLength - MAX_SELECTION_LENGTH} 字)`}
+            t('topicResearch.aiEdit.exceedsBy', {
+              count: textLength - MAX_SELECTION_LENGTH,
+            })}
         </p>
       </div>
 
       {/* Quick operations */}
       <div className="mb-6">
         <label className="mb-2 block text-sm font-medium text-gray-700">
-          快捷操作
-          <span className="ml-1 font-normal text-gray-400">（可多选）</span>
+          {t('topicResearch.aiEdit.quickOperations')}
+          <span className="ml-1 font-normal text-gray-400">
+            {t('topicResearch.aiEdit.quickOperationsMulti')}
+          </span>
         </label>
         <div className="flex flex-wrap gap-2">
-          {PRESET_OPERATIONS.map((op) => {
+          {presetOperations.map((op) => {
             const Icon = op.icon;
             const isSelected = selectedOperations.includes(op.id);
             return (
@@ -324,14 +352,14 @@ export function AIEditInputModal({
           htmlFor="custom-instruction"
           className="mb-2 block text-sm font-medium text-gray-700"
         >
-          编辑要求
+          {t('topicResearch.aiEdit.editRequirements')}
         </label>
         <textarea
           id="custom-instruction"
           value={customInstruction}
           onChange={(e) => setCustomInstruction(e.target.value)}
           disabled={isLoading}
-          placeholder="请输入您的编辑要求...&#10;例如：让语气更正式、添加数据支撑、改成问答形式"
+          placeholder={t('topicResearch.aiEdit.editRequirementsPlaceholder')}
           rows={3}
           maxLength={MAX_INSTRUCTION_LENGTH + 50} // Allow slight overflow to show warning
           className={cn(
@@ -362,14 +390,12 @@ export function AIEditInputModal({
       {context && (context.topicName || context.dimensionName) && (
         <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
           <p className="text-xs text-blue-600">
-            AI 将根据研究主题
-            {context.topicName && <strong>「{context.topicName}」</strong>}
-            {context.dimensionName && (
-              <>
-                和当前维度<strong>「{context.dimensionName}」</strong>
-              </>
-            )}
-            的上下文进行编辑，确保内容连贯性。
+            {t('topicResearch.aiEdit.contextHint', {
+              topicName: context.topicName ? `「${context.topicName}」` : '',
+              dimensionName: context.dimensionName
+                ? `「${context.dimensionName}」`
+                : '',
+            })}
           </p>
         </div>
       )}

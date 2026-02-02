@@ -9,6 +9,7 @@
  * - 预计剩余时间
  */
 
+import { useI18n } from '@/lib/i18n';
 import type { MissionStatus } from '@/lib/api/topic-research';
 
 interface ResearchProgressBarProps {
@@ -17,22 +18,44 @@ interface ResearchProgressBarProps {
   startTime?: Date | null;
 }
 
-// 阶段显示映射
-const phaseDisplay: Record<string, { label: string; color: string }> = {
-  planning: { label: 'Leader 规划中', color: 'text-purple-600 bg-purple-50' },
-  researching: { label: '维度研究中', color: 'text-blue-600 bg-blue-50' },
-  reviewing: { label: '质量审核中', color: 'text-green-600 bg-green-50' },
-  synthesizing: { label: '生成报告中', color: 'text-orange-600 bg-orange-50' },
-  completed: { label: '研究完成', color: 'text-emerald-600 bg-emerald-50' },
-  failed: { label: '研究失败', color: 'text-red-600 bg-red-50' },
-  idle: { label: '待开始', color: 'text-gray-500 bg-gray-50' },
-};
-
 export function ResearchProgressBar({
   missionStatus,
   isRefreshing,
   startTime,
 }: ResearchProgressBarProps) {
+  const { t } = useI18n();
+
+  // 阶段显示映射
+  const phaseDisplay: Record<string, { label: string; color: string }> = {
+    planning: {
+      label: t('topicResearch.researchControl.progressBar.phases.planning'),
+      color: 'text-purple-600 bg-purple-50',
+    },
+    researching: {
+      label: t('topicResearch.researchControl.progressBar.phases.researching'),
+      color: 'text-blue-600 bg-blue-50',
+    },
+    reviewing: {
+      label: t('topicResearch.researchControl.progressBar.phases.reviewing'),
+      color: 'text-green-600 bg-green-50',
+    },
+    synthesizing: {
+      label: t('topicResearch.researchControl.progressBar.phases.synthesizing'),
+      color: 'text-orange-600 bg-orange-50',
+    },
+    completed: {
+      label: t('topicResearch.researchControl.progressBar.phases.completed'),
+      color: 'text-emerald-600 bg-emerald-50',
+    },
+    failed: {
+      label: t('topicResearch.researchControl.progressBar.phases.failed'),
+      color: 'text-red-600 bg-red-50',
+    },
+    idle: {
+      label: t('topicResearch.researchControl.progressBar.phases.idle'),
+      color: 'text-gray-500 bg-gray-50',
+    },
+  };
   // 计算进度
   const progress = missionStatus?.progress ?? 0;
   const completedTasks = missionStatus?.completedTasks ?? 0;
@@ -105,18 +128,25 @@ export function ResearchProgressBar({
       <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
         <span>
           {totalTasks > 0
-            ? `${completedTasks} / ${totalTasks} 任务`
-            : '准备中...'}
+            ? t('topicResearch.researchControl.progressBar.tasksLabel', {
+                completed: completedTasks,
+                total: totalTasks,
+              })
+            : t('topicResearch.researchControl.progressBar.preparing')}
         </span>
         <span className="font-medium text-gray-700">
-          {Math.round(progress)}%
+          {t('topicResearch.researchControl.progressBar.progress', {
+            percent: Math.round(progress),
+          })}
         </span>
       </div>
 
       {/* 当前任务信息 */}
       {missionStatus?.tasks && missionStatus.tasks.length > 0 && (
         <div className="mt-2 border-t border-gray-100 pt-2">
-          <p className="mb-1 text-xs text-gray-400">当前任务:</p>
+          <p className="mb-1 text-xs text-gray-400">
+            {t('topicResearch.researchControl.progressBar.currentTask')}
+          </p>
           <div className="space-y-1">
             {missionStatus.tasks
               .filter((t) => t.status === 'EXECUTING')

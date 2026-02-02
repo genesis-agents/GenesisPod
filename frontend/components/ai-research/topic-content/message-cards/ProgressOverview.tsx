@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { UIMessage } from '../shared/types';
 import type { MissionStatus } from '@/lib/api/topic-research';
 import { safeString } from '@/lib/utils/common';
+import { useI18n } from '@/lib/i18n';
 
 interface ProgressOverviewProps {
   messages: UIMessage[];
@@ -12,6 +13,7 @@ export function ProgressOverview({
   messages,
   missionStatus,
 }: ProgressOverviewProps) {
+  const { t } = useI18n();
   const [dimensionsCollapsed, setDimensionsCollapsed] = useState(true);
 
   const dimensionStatus = useMemo(() => {
@@ -86,9 +88,12 @@ export function ProgressOverview({
   return (
     <div className="rounded-lg border border-white/50 bg-white/60 p-3">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-700">研究进度</span>
+        <span className="text-sm font-medium text-gray-700">
+          {t('topicResearch.messageCards.overview.title')}
+        </span>
         <span className="text-sm text-gray-500">
-          {completedCount}/{totalCount} 维度完成
+          {completedCount}/{totalCount}{' '}
+          {t('topicResearch.messageCards.overview.dimensionsCompleted')}
         </span>
       </div>
 
@@ -105,7 +110,9 @@ export function ProgressOverview({
           onClick={() => setDimensionsCollapsed(!dimensionsCollapsed)}
         >
           <div className="mb-1 flex items-center gap-1 text-xs text-gray-500">
-            <span>维度详情</span>
+            <span>
+              {t('topicResearch.messageCards.overview.dimensionDetails')}
+            </span>
             <svg
               className={`h-3 w-3 transition-transform ${dimensionsCollapsed ? '' : 'rotate-180'}`}
               fill="none"

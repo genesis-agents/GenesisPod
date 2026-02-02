@@ -303,7 +303,7 @@ function ActionButtons({
             handleAction('retry');
           }}
           className="rounded p-1 text-blue-500 hover:bg-blue-50"
-          title="重试"
+          title={t('topicResearch.researchControl.todoList.retry')}
         >
           <RotateCcw className="h-3.5 w-3.5" />
         </button>
@@ -373,7 +373,9 @@ export function ResearchTodoList({
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-        <span className="ml-2 text-gray-500">加载中...</span>
+        <span className="ml-2 text-gray-500">
+          {t('topicResearch.researchControl.todoList.loading')}
+        </span>
       </div>
     );
   }
@@ -382,7 +384,7 @@ export function ResearchTodoList({
     return (
       <div className="py-8 text-center text-gray-500">
         <Circle className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-        <p>暂无任务</p>
+        <p>{t('topicResearch.researchControl.todoList.noTasks')}</p>
       </div>
     );
   }
@@ -393,7 +395,7 @@ export function ResearchTodoList({
       <div className="flex items-center justify-between border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-4 py-3">
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-gray-800">
-            📋 任务列表
+            📋 {t('topicResearch.researchControl.todoList.taskList')}
           </span>
           <span className="rounded-full bg-blue-500 px-2.5 py-0.5 text-xs font-medium text-white shadow-sm">
             {summary?.completed || 0}/{summary?.total || todos.length}
@@ -404,12 +406,14 @@ export function ResearchTodoList({
             {summary.inProgress > 0 && (
               <span className="flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-blue-600">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                进行中 {summary.inProgress}
+                {t('topicResearch.researchControl.todoList.inProgress')}{' '}
+                {summary.inProgress}
               </span>
             )}
             {summary.failed > 0 && (
               <span className="rounded-full bg-red-50 px-2.5 py-1 text-red-600">
-                失败 {summary.failed}
+                {t('topicResearch.researchControl.todoList.failed')}{' '}
+                {summary.failed}
               </span>
             )}
           </div>
@@ -422,22 +426,22 @@ export function ResearchTodoList({
           <thead className="border-b border-gray-200 bg-gray-50/80">
             <tr>
               <th className="w-8 whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
-                #
+                {t('topicResearch.researchControl.todoList.columnNumber')}
               </th>
               <th className="w-[32%] whitespace-nowrap px-3 py-2.5 text-center text-xs font-semibold text-gray-600">
-                任务名称
+                {t('topicResearch.researchControl.todoList.columnTask')}
               </th>
               <th className="w-[22%] whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
-                负责人
+                {t('topicResearch.researchControl.todoList.columnAssignee')}
               </th>
               <th className="w-[18%] whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
-                模型
+                {t('topicResearch.researchControl.todoList.columnModel')}
               </th>
               <th className="w-[15%] whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
-                状态
+                {t('topicResearch.researchControl.todoList.columnStatus')}
               </th>
               <th className="w-12 whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
-                操作
+                {t('topicResearch.researchControl.todoList.columnActions')}
               </th>
             </tr>
           </thead>
@@ -524,7 +528,7 @@ export function ResearchTodoList({
                             className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-600"
                             title={
                               todo.dependsOn!.length > 2
-                                ? `等待: ${todo
+                                ? `${t('topicResearch.researchControl.todoList.waiting')}: ${todo
                                     .dependsOn!.map((depId) => {
                                       const depTodo = sortedTodos.find(
                                         (t) => t.id === depId
@@ -540,10 +544,18 @@ export function ResearchTodoList({
                             <Clock className="h-2.5 w-2.5" />
                             <span>
                               {todo.dependsOn!.length > 2 ? (
-                                <>⏳ 等待 {todo.dependsOn!.length} 个任务</>
+                                <>
+                                  ⏳{' '}
+                                  {t(
+                                    'topicResearch.researchControl.todoList.waitingTasks',
+                                    { count: todo.dependsOn!.length }
+                                  )}
+                                </>
                               ) : (
                                 <>
-                                  等待{' '}
+                                  {t(
+                                    'topicResearch.researchControl.todoList.waiting'
+                                  )}{' '}
                                   {todo
                                     .dependsOn!.map((depId) => {
                                       const depTodo = sortedTodos.find(
@@ -564,7 +576,10 @@ export function ResearchTodoList({
                       {blockingCount > 0 && (
                         <span
                           className="flex-shrink-0 text-orange-500"
-                          title={`阻塞 ${blockingCount} 个任务`}
+                          title={t(
+                            'topicResearch.researchControl.todoList.blockingTasks',
+                            { count: blockingCount }
+                          )}
                         >
                           <Link2 className="h-3 w-3" />
                         </span>

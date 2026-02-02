@@ -31,6 +31,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { useI18n } from '@/lib/i18n';
 import {
   getReviewTasks,
   createReviewTasks,
@@ -113,6 +114,7 @@ function CollaboratorList({
 }: {
   collaborators: Collaborator[];
 }) {
+  const { t } = useI18n();
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'OWNER':
@@ -146,7 +148,7 @@ function CollaboratorList({
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
         <Users className="h-4 w-4" />
-        当前协作者
+        {t('topicResearch.collaboration.currentCollaborators')}
       </div>
       <div className="space-y-1.5">
         {collaborators.map((c) => (
@@ -208,6 +210,7 @@ function ReviewTaskList({
   onAssign?: (taskId: string, assigneeId: string) => void;
   onComplete?: (taskId: string, approved: boolean) => void;
 }) {
+  const { t } = useI18n();
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
 
   const getStatusIcon = (task: ReviewTask) => {
@@ -230,19 +233,23 @@ function ReviewTaskList({
   const getStatusText = (task: ReviewTask) => {
     switch (task.status) {
       case 'COMPLETED':
-        return task.approved ? '已通过' : '未通过';
+        return task.approved
+          ? t('topicResearch.collaboration.reviewStatus.approved')
+          : t('topicResearch.collaboration.reviewStatus.rejected');
       case 'IN_PROGRESS':
-        return '审核中';
+        return t('topicResearch.collaboration.reviewStatus.inProgress');
       case 'SKIPPED':
-        return '已跳过';
+        return t('topicResearch.collaboration.reviewStatus.skipped');
       default:
-        return '待审核';
+        return t('topicResearch.collaboration.reviewStatus.pending');
     }
   };
 
   return (
     <div className="space-y-2">
-      <div className="text-sm font-medium text-gray-700">审核任务分配</div>
+      <div className="text-sm font-medium text-gray-700">
+        {t('topicResearch.collaboration.reviewTaskAssignment')}
+      </div>
       <div className="divide-y rounded-lg border">
         {tasks.map((task) => (
           <div
@@ -262,10 +269,12 @@ function ReviewTaskList({
                   {task.sectionName}
                 </div>
                 <div className="text-xs text-gray-500">
-                  {task.assigneeName || '待分配'}
+                  {task.assigneeName ||
+                    t('topicResearch.collaboration.unassigned')}
                   {task.dueAt && (
                     <>
-                      {' · 截止 '}
+                      {' · '}
+                      {t('topicResearch.collaboration.dueAt')}{' '}
                       <ClientDate date={task.dueAt} format="date" />
                     </>
                   )}
@@ -296,7 +305,7 @@ function ReviewTaskList({
                 )}
                 {task.score !== undefined && (
                   <p className="text-sm text-gray-600">
-                    评分: {task.score}/100
+                    {t('topicResearch.collaboration.score')}: {task.score}/100
                   </p>
                 )}
 
@@ -308,7 +317,9 @@ function ReviewTaskList({
                       onChange={(e) => onAssign?.(task.id, e.target.value)}
                       value=""
                     >
-                      <option value="">分配给...</option>
+                      <option value="">
+                        {t('topicResearch.collaboration.assignTo')}
+                      </option>
                       {collaborators
                         .filter((c) => c.role !== 'VIEWER')
                         .map((c) => (
@@ -328,7 +339,7 @@ function ReviewTaskList({
                             onComplete?.(task.id, true);
                           }}
                         >
-                          通过
+                          {t('topicResearch.collaboration.approve')}
                         </button>
                         <button
                           className="rounded bg-red-500 px-3 py-1 text-xs text-white hover:bg-red-600"
@@ -337,7 +348,7 @@ function ReviewTaskList({
                             onComplete?.(task.id, false);
                           }}
                         >
-                          不通过
+                          {t('topicResearch.collaboration.reject')}
                         </button>
                       </>
                     )}
@@ -363,6 +374,7 @@ function ReviewCommentList({
   onAccept?: (id: string) => void;
   onDismiss?: (id: string) => void;
 }) {
+  const { t } = useI18n();
   if (comments.length === 0) {
     return null;
   }
@@ -372,25 +384,25 @@ function ReviewCommentList({
       case 'ACCEPTED':
         return (
           <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700">
-            已采纳
+            {t('topicResearch.collaboration.commentStatus.accepted')}
           </span>
         );
       case 'DISCUSSED':
         return (
           <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">
-            讨论中
+            {t('topicResearch.collaboration.commentStatus.discussed')}
           </span>
         );
       case 'DISMISSED':
         return (
           <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">
-            已忽略
+            {t('topicResearch.collaboration.commentStatus.dismissed')}
           </span>
         );
       default:
         return (
           <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
-            待处理
+            {t('topicResearch.collaboration.commentStatus.pending')}
           </span>
         );
     }
@@ -400,7 +412,7 @@ function ReviewCommentList({
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
         <MessageSquare className="h-4 w-4" />
-        审核意见汇总
+        {t('topicResearch.collaboration.reviewComments')}
       </div>
       <div className="space-y-3">
         {comments.map((comment) => (
@@ -434,13 +446,13 @@ function ReviewCommentList({
                       className="text-xs text-green-600 hover:underline"
                       onClick={() => onAccept?.(comment.id)}
                     >
-                      接受
+                      {t('topicResearch.collaboration.accept')}
                     </button>
                     <button
                       className="text-xs text-gray-500 hover:underline"
                       onClick={() => onDismiss?.(comment.id)}
                     >
-                      忽略
+                      {t('topicResearch.collaboration.dismiss')}
                     </button>
                   </div>
                 )}
@@ -463,6 +475,7 @@ function PublishStatusPanel({
   tasks: ReviewTask[];
   onPublish?: () => void;
 }) {
+  const { t } = useI18n();
   const total = tasks.length;
   const completed = tasks.filter((t) => t.status === 'COMPLETED').length;
   const approved = tasks.filter((t) => t.approved === true).length;
@@ -473,14 +486,16 @@ function PublishStatusPanel({
 
   return (
     <div className="space-y-3 rounded-lg bg-gray-50 p-4">
-      <div className="text-sm font-medium text-gray-700">版本发布状态</div>
+      <div className="text-sm font-medium text-gray-700">
+        {t('topicResearch.collaboration.publishStatus')}
+      </div>
 
       {/* 进度条 */}
       <div className="space-y-1">
         <div className="flex justify-between text-xs text-gray-500">
-          <span>审核进度</span>
+          <span>{t('topicResearch.collaboration.reviewProgress')}</span>
           <span>
-            {completed}/{total} 完成
+            {t('topicResearch.collaboration.completedOf', { completed, total })}
           </span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-gray-200">
@@ -495,18 +510,21 @@ function PublishStatusPanel({
       {pending > 0 && (
         <div className="flex items-center gap-2 text-sm text-amber-600">
           <AlertCircle className="h-4 w-4" />
-          还有 {pending} 个章节待审核
+          {t('topicResearch.collaboration.pendingSections', { count: pending })}
         </div>
       )}
       {rejected > 0 && (
         <div className="flex items-center gap-2 text-sm text-red-600">
-          <AlertCircle className="h-4 w-4" />有 {rejected} 个章节未通过审核
+          <AlertCircle className="h-4 w-4" />
+          {t('topicResearch.collaboration.rejectedSections', {
+            count: rejected,
+          })}
         </div>
       )}
       {canPublish && (
         <div className="flex items-center gap-2 text-sm text-green-600">
           <CheckCircle2 className="h-4 w-4" />
-          所有章节已通过审核，可以发布
+          {t('topicResearch.collaboration.readyToPublish')}
         </div>
       )}
 
@@ -521,7 +539,9 @@ function PublishStatusPanel({
         disabled={!canPublish}
         onClick={onPublish}
       >
-        {canPublish ? '发布版本' : '完成审核后可发布'}
+        {canPublish
+          ? t('topicResearch.collaboration.publish')
+          : t('topicResearch.collaboration.completeReviewToPublish')}
       </button>
     </div>
   );
@@ -543,6 +563,7 @@ export function CollaborationPanel({
   onDismissComment,
   onRefresh,
 }: CollaborationPanelProps) {
+  const { t } = useI18n();
   // 内部状态：用于自动获取模式
   const [fetchedTasks, setFetchedTasks] = useState<ReviewTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -585,7 +606,11 @@ export function CollaborationPanel({
       const tasks = await getReviewTasks(topicId, reportId);
       setFetchedTasks(tasks.map(convertApiTask));
     } catch (err) {
-      setError(err instanceof Error ? err.message : '获取审核任务失败');
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('topicResearch.collaboration.fetchTasksFailed')
+      );
     } finally {
       setIsLoading(false);
     }
@@ -647,7 +672,9 @@ export function CollaborationPanel({
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-blue-500" />
-          <p className="text-sm text-gray-500">加载审核任务...</p>
+          <p className="text-sm text-gray-500">
+            {t('topicResearch.collaboration.loadingTasks')}
+          </p>
         </div>
       </div>
     );
@@ -660,13 +687,15 @@ export function CollaborationPanel({
         <div className="text-center">
           <AlertCircle className="mx-auto mb-2 h-8 w-8 text-red-500" />
           <p className="mb-2 text-sm text-red-600">
-            {typeof error === 'string' ? error : '加载失败'}
+            {typeof error === 'string'
+              ? error
+              : t('topicResearch.collaboration.loadFailed')}
           </p>
           <button
             onClick={handleRefresh}
             className="text-sm text-blue-600 hover:underline"
           >
-            重试
+            {t('topicResearch.collaboration.retry')}
           </button>
         </div>
       </div>
@@ -677,7 +706,9 @@ export function CollaborationPanel({
     <div className="flex h-full flex-col bg-white">
       {/* Header */}
       <div className="flex items-center justify-between border-b p-4">
-        <h3 className="font-medium text-gray-900">协作审核</h3>
+        <h3 className="font-medium text-gray-900">
+          {t('topicResearch.collaboration.title')}
+        </h3>
         <button
           className="rounded p-1.5 transition-colors hover:bg-gray-100"
           onClick={handleRefresh}

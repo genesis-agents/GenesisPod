@@ -10,6 +10,7 @@
  */
 
 import { useMemo, useCallback } from 'react';
+import { useI18n } from '@/lib/i18n';
 import type { TopicReport } from '@/types/topic-research';
 
 interface OutlineItem {
@@ -74,6 +75,8 @@ export function ReportOutlineNav({
   onNavigate,
   activeSection,
 }: ReportOutlineNavProps) {
+  const { t } = useI18n();
+
   // Build outline from report
   const outline = useMemo<OutlineItem[]>(() => {
     if (!report) return [];
@@ -84,7 +87,7 @@ export function ReportOutlineNav({
     if (report.summary) {
       items.push({
         id: 'summary',
-        title: '摘要',
+        title: t('topicResearch.reportPanels.outline.summary'),
         level: 1,
         wordCount: countWords(report.summary),
       });
@@ -103,7 +106,7 @@ export function ReportOutlineNav({
 
       items.push({
         id: 'highlights',
-        title: '关键洞察',
+        title: t('topicResearch.reportPanels.outline.keyInsights'),
         level: 1,
         wordCount: highlightChildren.reduce((sum, c) => sum + c.wordCount, 0),
         children: highlightChildren,
@@ -113,14 +116,16 @@ export function ReportOutlineNav({
     // Add dimension analyses
     if (report.dimensionAnalyses && report.dimensionAnalyses.length > 0) {
       report.dimensionAnalyses.forEach((analysis) => {
-        const dimName = analysis.dimension?.name || '维度分析';
+        const dimName =
+          analysis.dimension?.name ||
+          t('topicResearch.reportPanels.outline.dimensionAnalysis');
         const children: OutlineItem[] = [];
 
         // Key findings
         if (analysis.keyFindings && analysis.keyFindings.length > 0) {
           children.push({
             id: `${analysis.id}-findings`,
-            title: '关键发现',
+            title: t('topicResearch.reportPanels.outline.keyFindings'),
             level: 2,
             wordCount: analysis.keyFindings.reduce(
               (sum, f) => sum + countWords(f.finding),
@@ -133,7 +138,7 @@ export function ReportOutlineNav({
         if (analysis.trends && analysis.trends.length > 0) {
           children.push({
             id: `${analysis.id}-trends`,
-            title: '趋势分析',
+            title: t('topicResearch.reportPanels.outline.trendAnalysis'),
             level: 2,
             wordCount: analysis.trends.reduce(
               (sum, t) => sum + countWords(t.trend || ''),
@@ -146,7 +151,7 @@ export function ReportOutlineNav({
         if (analysis.detailedContent) {
           children.push({
             id: `${analysis.id}-detail`,
-            title: '详细内容',
+            title: t('topicResearch.reportPanels.outline.detailedContent'),
             level: 2,
             wordCount: countWords(analysis.detailedContent),
           });
@@ -167,7 +172,7 @@ export function ReportOutlineNav({
     }
 
     return items;
-  }, [report]);
+  }, [report, t]);
 
   // Total word count
   const totalWordCount = useMemo(() => {
@@ -194,7 +199,9 @@ export function ReportOutlineNav({
     return (
       <div className="flex h-full flex-col items-center justify-center p-4 text-center">
         <DocumentTextIcon className="h-8 w-8 text-gray-300" />
-        <p className="mt-2 text-sm text-gray-500">暂无大纲</p>
+        <p className="mt-2 text-sm text-gray-500">
+          {t('topicResearch.reportPanels.outline.noOutline')}
+        </p>
       </div>
     );
   }
@@ -203,8 +210,14 @@ export function ReportOutlineNav({
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="border-b border-gray-100 px-4 py-3">
-        <h3 className="text-sm font-semibold text-gray-700">报告大纲</h3>
-        <p className="mt-1 text-xs text-gray-400">共 {totalWordCount} 字</p>
+        <h3 className="text-sm font-semibold text-gray-700">
+          {t('topicResearch.reportPanels.outline.title')}
+        </h3>
+        <p className="mt-1 text-xs text-gray-400">
+          {t('topicResearch.reportPanels.outline.totalWords', {
+            count: totalWordCount,
+          })}
+        </p>
       </div>
 
       {/* Outline tree */}
@@ -238,6 +251,7 @@ function OutlineItemComponent({
   onNavigate,
   depth = 0,
 }: OutlineItemComponentProps) {
+  const { t } = useI18n();
   const isActive = activeSection === item.id;
   const hasChildren = item.children && item.children.length > 0;
 
@@ -262,7 +276,8 @@ function OutlineItemComponent({
         </span>
 
         <span className="flex-shrink-0 text-xs text-gray-400 opacity-0 transition-opacity group-hover:opacity-100">
-          {item.wordCount}字
+          {item.wordCount}
+          {t('topicResearch.reportPanels.outline.wordsUnit')}
         </span>
       </button>
 

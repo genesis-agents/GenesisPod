@@ -19,6 +19,7 @@ import { TodoDetailPanel } from '../panels/TodoDetailPanel';
 import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
 import { ClientDate } from '@/components/common/ClientDate';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
+import { useI18n } from '@/lib/i18n';
 import {
   Loader2,
   User,
@@ -203,33 +204,35 @@ function calculateSummary(todos: ResearchTodo[]): TodoSummary {
 }
 
 /**
- * 决策类型的显示配置
+ * 决策类型的显示配置工厂函数
  */
-const DECISION_TYPE_CONFIG: Record<
+const getDecisionTypeConfig = (
+  t: (key: string) => string
+): Record<
   LeaderDecisionType,
   { label: string; icon: React.ElementType; colorClass: string }
-> = {
+> => ({
   DIRECT_ANSWER: {
-    label: '直接回答',
+    label: t('topicResearch.collaboration.panel.decisionTypes.directAnswer'),
     icon: MessageCircle,
     colorClass: 'text-green-600 bg-green-50 border-green-200',
   },
   CREATE_TODO: {
-    label: '创建任务',
+    label: t('topicResearch.collaboration.panel.decisionTypes.createTodo'),
     icon: CheckCircle2,
     colorClass: 'text-blue-600 bg-blue-50 border-blue-200',
   },
   CLARIFY: {
-    label: '需要澄清',
+    label: t('topicResearch.collaboration.panel.decisionTypes.clarify'),
     icon: HelpCircle,
     colorClass: 'text-amber-600 bg-amber-50 border-amber-200',
   },
   ACKNOWLEDGE: {
-    label: '已了解',
+    label: t('topicResearch.collaboration.panel.decisionTypes.acknowledge'),
     icon: MessageSquare,
     colorClass: 'text-gray-600 bg-gray-50 border-gray-200',
   },
-};
+});
 
 /**
  * 对话消息显示组件
@@ -238,10 +241,17 @@ function ConversationMessageItem({
   message,
   onClarifyOptionClick,
   onTodoClick,
+  t,
+  decisionTypeConfig,
 }: {
   message: ConversationMessage;
   onClarifyOptionClick?: (option: string) => void;
   onTodoClick?: (todoId: string) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  decisionTypeConfig: Record<
+    LeaderDecisionType,
+    { label: string; icon: React.ElementType; colorClass: string }
+  >;
 }) {
   if (message.type === 'user') {
     return (
@@ -251,7 +261,9 @@ function ConversationMessageItem({
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">你</span>
+            <span className="text-sm font-medium text-gray-700">
+              {t('topicResearch.collaboration.panel.you')}
+            </span>
             <span className="text-xs text-gray-400">
               <ClientDate
                 date={message.timestamp}
@@ -270,7 +282,7 @@ function ConversationMessageItem({
 
   // Leader 消息
   const config = message.decisionType
-    ? DECISION_TYPE_CONFIG[message.decisionType]
+    ? decisionTypeConfig[message.decisionType]
     : null;
   const DecisionIcon = config?.icon || Brain;
 
@@ -281,7 +293,9 @@ function ConversationMessageItem({
       </div>
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700">Leader</span>
+          <span className="text-sm font-medium text-gray-700">
+            {t('topicResearch.collaboration.panel.leader')}
+          </span>
           {config && (
             <span
               className={cn(
@@ -325,14 +339,17 @@ function ConversationMessageItem({
           >
             <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
             <span className="text-blue-700">
-              已创建任务: {safeString(message.todoCreated.title)}
+              {t('topicResearch.collaboration.panel.taskCreated')}{' '}
+              {safeString(message.todoCreated.title)}
               {message.todoCreated.assignedAgent && (
                 <span className="ml-1 text-blue-500">
                   → {message.todoCreated.assignedAgent}
                 </span>
               )}
             </span>
-            <span className="text-blue-500">查看 →</span>
+            <span className="text-blue-500">
+              {t('topicResearch.collaboration.panel.viewTask')}
+            </span>
           </button>
         )}
 
@@ -362,6 +379,7 @@ export function ResearchCollaborationPanel({
   wsEvents = [],
   className,
 }: ResearchCollaborationPanelProps) {
+  const { t } = useI18n();
   const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null);
   const [conversationMessages, setConversationMessages] = useState<
     ConversationMessage[]
@@ -610,7 +628,7 @@ export function ResearchCollaborationPanel({
         logger.warn(
           '[handleInstructionSubmit] No active mission to add instruction to'
         );
-        alert('请先启动研究任务');
+        alert(t('topicResearch.collaboration.panel.pleaseStartResearch'));
         return;
       }
 
@@ -660,7 +678,12 @@ export function ResearchCollaborationPanel({
         const errorMessage: ConversationMessage = {
           id: `leader-error-${Date.now()}`,
           type: 'leader',
-          content: `抱歉，处理您的请求时遇到问题: ${error instanceof Error ? error.message : '未知错误'}`,
+          content: t('topicResearch.collaboration.panel.errorProcessing', {
+            error:
+              error instanceof Error
+                ? error.message
+                : t('topicResearch.collaboration.panel.unknownError'),
+          }),
           timestamp: new Date(),
         };
         setConversationMessages((prev) => [...prev, errorMessage]);
@@ -698,6 +721,9 @@ export function ResearchCollaborationPanel({
     if (!selectedTodoId) return undefined;
     return todos.find((t) => t.id === selectedTodoId);
   }, [selectedTodoId, todos]);
+
+  // 获取决策类型配置
+  const decisionTypeConfig = useMemo(() => getDecisionTypeConfig(t), [t]);
 
   // ★ 根据折叠状态计算任务区的 flex 样式
   const getTasksFlexStyle = () => {
@@ -745,7 +771,9 @@ export function ResearchCollaborationPanel({
             onClick={() => setIsTasksCollapsed(!isTasksCollapsed)}
           >
             <ListTodo className="h-4 w-4 text-blue-600" />
-            <span className="text-sm font-medium">任务列表</span>
+            <span className="text-sm font-medium">
+              {t('topicResearch.collaboration.panel.taskList')}
+            </span>
             {todos.length > 0 && (
               <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
                 {todosSummary.completed}/{todos.length}
@@ -769,12 +797,19 @@ export function ResearchCollaborationPanel({
                 />
               </div>
               <span className="shrink-0 text-xs text-gray-500">
-                {todosSummary.overallProgress}%
+                {t('topicResearch.collaboration.panel.progressBar.percent', {
+                  percent: todosSummary.overallProgress,
+                })}
               </span>
               {todosSummary.inProgress > 0 && (
                 <span className="flex shrink-0 items-center gap-1 text-xs text-blue-500">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  进行中 {todosSummary.inProgress}
+                  {t(
+                    'topicResearch.collaboration.panel.progressBar.inProgress',
+                    {
+                      count: todosSummary.inProgress,
+                    }
+                  )}
                 </span>
               )}
             </div>
@@ -786,7 +821,7 @@ export function ResearchCollaborationPanel({
                 </div>
               ) : todos.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  暂无任务
+                  {t('topicResearch.collaboration.panel.noTasks')}
                 </div>
               ) : (
                 <ResearchTodoList
@@ -819,7 +854,9 @@ export function ResearchCollaborationPanel({
             onClick={() => setIsConversationCollapsed(!isConversationCollapsed)}
           >
             <MessageSquare className="h-4 w-4 text-purple-600" />
-            <span className="text-sm font-medium">与 Leader 对话</span>
+            <span className="text-sm font-medium">
+              {t('topicResearch.collaboration.panel.conversation')}
+            </span>
             {conversationMessages.length > 0 && (
               <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
                 {conversationMessages.length}
@@ -837,13 +874,13 @@ export function ResearchCollaborationPanel({
           {isConversationCollapsed ? (
             <div className="flex h-10 shrink-0 items-center gap-2 px-4 text-sm text-gray-500">
               <Brain className="h-4 w-4 text-purple-400" />
-              <span>输入研究指令与 Leader 对话...</span>
+              <span>{t('topicResearch.collaboration.panel.inputPrompt')}</span>
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto p-4">
               {conversationMessages.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  暂无对话
+                  {t('topicResearch.collaboration.panel.noConversation')}
                 </div>
               ) : (
                 <div className="divide-y">
@@ -853,13 +890,17 @@ export function ResearchCollaborationPanel({
                       message={msg}
                       onClarifyOptionClick={handleClarifyOptionClick}
                       onTodoClick={handleTodoClick}
+                      t={t}
+                      decisionTypeConfig={decisionTypeConfig}
                     />
                   ))}
                   {/* 正在处理指示器 */}
                   {isProcessingInput && (
                     <div className="flex items-center gap-2 py-3 text-gray-500">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">Leader 正在思考...</span>
+                      <span className="text-sm">
+                        {t('topicResearch.collaboration.panel.thinking')}
+                      </span>
                     </div>
                   )}
                   <div ref={conversationEndRef} />
@@ -878,8 +919,8 @@ export function ResearchCollaborationPanel({
             disabled={!activeMissionId || isProcessingInput}
             placeholder={
               activeMissionId
-                ? '输入研究指令，如：深入研究政策环境...'
-                : '请先启动研究任务'
+                ? t('topicResearch.collaboration.panel.inputPlaceholder')
+                : t('topicResearch.collaboration.panel.pleaseStartResearch')
             }
           />
         </div>

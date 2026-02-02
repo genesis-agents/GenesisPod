@@ -5,6 +5,7 @@ import { ExternalLink, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Citation } from './types';
 import { useCitationOptional } from './CitationContext';
 import { triggerCitationClick } from '../../citationNavigation';
+import { useI18n } from '@/lib/i18n';
 
 interface CitationLinkProps {
   citation: Citation;
@@ -22,6 +23,7 @@ export function CitationLink({
   className = '',
   showPreview = false,
 }: CitationLinkProps) {
+  const { t } = useI18n();
   const citationContext = useCitationOptional();
   const [showTooltip, setShowTooltip] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -159,7 +161,9 @@ export function CitationLink({
           }
           ${className}
         `}
-        title={`跳转到引用 [${citation.sourceIndex}]`}
+        title={t('topicResearch.deepResearch.citations.jumpToSource', {
+          index: citation.sourceIndex,
+        })}
       >
         [{citation.sourceIndex}]
       </sup>
@@ -213,7 +217,7 @@ export function CitationLink({
             className="flex w-full cursor-pointer items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-2 transition-colors hover:bg-purple-50"
           >
             <span className="text-xs font-medium text-purple-600">
-              点击查看完整来源
+              {t('topicResearch.deepResearch.citations.viewFullSource')}
             </span>
             <ExternalLink className="h-3.5 w-3.5 text-purple-600" />
           </button>

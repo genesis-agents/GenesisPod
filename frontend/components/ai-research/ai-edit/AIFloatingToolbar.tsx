@@ -14,6 +14,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useI18n } from '@/lib/i18n';
 import type { AIEditOperation } from '../types';
 
 // Text selection info with DOMRect for positioning
@@ -42,47 +43,14 @@ interface AIFloatingToolbarProps {
   className?: string;
 }
 
-// Operation button configs
-const OPERATION_BUTTONS: {
-  operation: AIEditOperation;
-  icon: string;
-  label: string;
-  description: string;
-}[] = [
-  {
-    operation: 'rewrite',
-    icon: '🔄',
-    label: '重写',
-    description: '完全重新生成内容',
-  },
-  {
-    operation: 'polish',
-    icon: '✨',
-    label: '润色',
-    description: '优化语言表达',
-  },
-  {
-    operation: 'expand',
-    icon: '📈',
-    label: '扩展',
-    description: '增加细节和例子',
-  },
-  { operation: 'compress', icon: '📉', label: '压缩', description: '精简内容' },
-  {
-    operation: 'style',
-    icon: '🎨',
-    label: '风格',
-    description: '调整写作风格',
-  },
-];
-
-// Style options
-const STYLE_OPTIONS: { type: StyleType; label: string }[] = [
-  { type: 'academic', label: '学术风格' },
-  { type: 'business', label: '商业风格' },
-  { type: 'casual', label: '通俗风格' },
-  { type: 'technical', label: '技术风格' },
-];
+// Operation button icon mapping
+const OPERATION_ICONS: Record<AIEditOperation, string> = {
+  rewrite: '🔄',
+  polish: '✨',
+  expand: '📈',
+  compress: '📉',
+  style: '🎨',
+};
 
 export function AIFloatingToolbar({
   selection,
@@ -91,6 +59,7 @@ export function AIFloatingToolbar({
   containerRef,
   className = '',
 }: AIFloatingToolbarProps) {
+  const { t } = useI18n();
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customInstruction, setCustomInstruction] = useState('');
@@ -98,6 +67,53 @@ export function AIFloatingToolbar({
   const [placement, setPlacement] = useState<'top' | 'bottom'>('top');
 
   const toolbarRef = useRef<HTMLDivElement>(null);
+
+  // Operation buttons with i18n
+  const operationButtons: {
+    operation: AIEditOperation;
+    icon: string;
+    label: string;
+    description: string;
+  }[] = [
+    {
+      operation: 'rewrite',
+      icon: OPERATION_ICONS.rewrite,
+      label: t('topicResearch.aiEdit.rewrite'),
+      description: t('topicResearch.aiEdit.rewriteDesc'),
+    },
+    {
+      operation: 'polish',
+      icon: OPERATION_ICONS.polish,
+      label: t('topicResearch.aiEdit.polish'),
+      description: t('topicResearch.aiEdit.polishDesc'),
+    },
+    {
+      operation: 'expand',
+      icon: OPERATION_ICONS.expand,
+      label: t('topicResearch.aiEdit.expand'),
+      description: t('topicResearch.aiEdit.expandDesc'),
+    },
+    {
+      operation: 'compress',
+      icon: OPERATION_ICONS.compress,
+      label: t('topicResearch.aiEdit.compress'),
+      description: t('topicResearch.aiEdit.compressDesc'),
+    },
+    {
+      operation: 'style',
+      icon: OPERATION_ICONS.style,
+      label: t('topicResearch.aiEdit.style'),
+      description: t('topicResearch.aiEdit.styleDesc'),
+    },
+  ];
+
+  // Style options with i18n
+  const styleOptions: { type: StyleType; label: string }[] = [
+    { type: 'academic', label: t('topicResearch.aiEdit.styles.academic') },
+    { type: 'business', label: t('topicResearch.aiEdit.styles.business') },
+    { type: 'casual', label: t('topicResearch.aiEdit.styles.casual') },
+    { type: 'technical', label: t('topicResearch.aiEdit.styles.technical') },
+  ];
 
   // Extract primitive values from selection for stable dependencies
   const hasSelection = selection !== null;
@@ -284,7 +300,7 @@ export function AIFloatingToolbar({
         {!showCustomInput ? (
           <div className="flex items-center gap-1 p-2">
             {/* Operation buttons */}
-            {OPERATION_BUTTONS.map((btn) => (
+            {operationButtons.map((btn) => (
               <div key={btn.operation} className="relative">
                 <button
                   onClick={() => handleOperationClick(btn.operation)}
@@ -322,7 +338,7 @@ export function AIFloatingToolbar({
                 {/* Style dropdown menu */}
                 {btn.operation === 'style' && showStyleMenu && (
                   <div className="absolute left-0 top-full z-10 mt-1 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                    {STYLE_OPTIONS.map((option) => (
+                    {styleOptions.map((option) => (
                       <button
                         key={option.type}
                         onClick={() => handleStyleSelect(option.type)}
@@ -343,7 +359,7 @@ export function AIFloatingToolbar({
             <button
               onClick={() => setShowCustomInput(true)}
               disabled={isLoading}
-              title="自定义指令"
+              title={t('topicResearch.aiEdit.customInstruction')}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
                 isLoading
                   ? 'cursor-not-allowed opacity-50'
@@ -351,7 +367,7 @@ export function AIFloatingToolbar({
               } text-gray-700`}
             >
               <span>💬</span>
-              <span>自定义</span>
+              <span>{t('topicResearch.aiEdit.custom')}</span>
             </button>
 
             {/* Loading indicator */}
@@ -360,7 +376,9 @@ export function AIFloatingToolbar({
                 <div className="mx-1 h-6 w-px bg-gray-200" />
                 <div className="flex items-center gap-2 px-2">
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
-                  <span className="text-xs text-purple-600">AI 处理中...</span>
+                  <span className="text-xs text-purple-600">
+                    {t('topicResearch.aiEdit.aiProcessing')}
+                  </span>
                 </div>
               </>
             )}
@@ -370,7 +388,7 @@ export function AIFloatingToolbar({
           <div className="w-80 p-3">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">
-                自定义 AI 指令
+                {t('topicResearch.aiEdit.customInstruction')}
               </span>
               <button
                 onClick={() => {
@@ -398,7 +416,7 @@ export function AIFloatingToolbar({
             <textarea
               value={customInstruction}
               onChange={(e) => setCustomInstruction(e.target.value)}
-              placeholder="描述你希望 AI 如何处理选中的文本..."
+              placeholder={t('topicResearch.aiEdit.inputPlaceholder')}
               className="mb-2 w-full rounded-lg border border-gray-200 p-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
               rows={3}
               autoFocus
@@ -412,7 +430,7 @@ export function AIFloatingToolbar({
                 }}
                 className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
               >
-                取消
+                {t('topicResearch.aiEdit.cancel')}
               </button>
               <button
                 onClick={handleCustomSubmit}
@@ -432,7 +450,7 @@ export function AIFloatingToolbar({
                     d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
                   />
                 </svg>
-                执行
+                {t('topicResearch.aiEdit.execute')}
               </button>
             </div>
           </div>

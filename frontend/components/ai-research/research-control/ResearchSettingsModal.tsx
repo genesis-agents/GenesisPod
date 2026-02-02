@@ -14,6 +14,7 @@ import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import { logger } from '@/lib/utils/logger';
 import { updateTopic } from '@/lib/api/topic-research';
 import { toast } from '@/stores';
+import { useI18n } from '@/lib/i18n';
 import {
   Users,
   BookOpen,
@@ -48,6 +49,7 @@ export function ResearchSettingsModal({
   onClose,
   topicId,
 }: ResearchSettingsModalProps) {
+  const { t } = useI18n();
   const { currentTopic } = useTopicResearchStore();
   const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<
     string[]
@@ -116,12 +118,17 @@ export function ResearchSettingsModal({
         teamMembers: selectedMembers,
       });
 
-      toast.success('保存成功', '研究设置已更新');
+      toast.success(
+        t('topicResearch.researchControl.settings.saveSuccess'),
+        t('topicResearch.researchControl.settings.saveSuccessMsg')
+      );
     } catch (error) {
       logger.error('Failed to save settings:', error);
       toast.error(
-        '保存失败',
-        error instanceof Error ? error.message : '无法保存设置'
+        t('topicResearch.researchControl.settings.saveFailed'),
+        error instanceof Error
+          ? error.message
+          : t('topicResearch.researchControl.settings.saveFailedMsg')
       );
     } finally {
       setIsSavingSettings(false);
@@ -188,17 +195,28 @@ export function ResearchSettingsModal({
     description: string;
     icon: typeof Lock;
   }[] = [
-    { value: 'private', label: '私有', description: '仅自己可见', icon: Lock },
+    {
+      value: 'private',
+      label: t('topicResearch.researchControl.settings.visibility.private'),
+      description: t(
+        'topicResearch.researchControl.settings.visibility.privateDesc'
+      ),
+      icon: Lock,
+    },
     {
       value: 'team',
-      label: '团队',
-      description: '团队成员可见',
+      label: t('topicResearch.researchControl.settings.visibility.team'),
+      description: t(
+        'topicResearch.researchControl.settings.visibility.teamDesc'
+      ),
       icon: Users,
     },
     {
       value: 'public',
-      label: '公开',
-      description: '所有人可见',
+      label: t('topicResearch.researchControl.settings.visibility.public'),
+      description: t(
+        'topicResearch.researchControl.settings.visibility.publicDesc'
+      ),
       icon: Globe,
     },
   ];
@@ -207,24 +225,24 @@ export function ResearchSettingsModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="研究设置"
-      subtitle="配置研究专题的各项参数"
+      title={t('topicResearch.researchControl.settings.title')}
+      subtitle={t('topicResearch.researchControl.settings.subtitle')}
       size="lg"
       footer={
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose}>
-            关闭
+            {t('topicResearch.researchControl.settings.close')}
           </Button>
           <Button onClick={handleSaveSettings} disabled={isSavingSettings}>
             {isSavingSettings ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                保存中...
+                {t('topicResearch.researchControl.settings.saving')}
               </>
             ) : (
               <>
                 <Save className="mr-2 h-4 w-4" />
-                保存设置
+                {t('topicResearch.researchControl.settings.save')}
               </>
             )}
           </Button>
@@ -237,9 +255,15 @@ export function ResearchSettingsModal({
           <div className="mb-3 flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-indigo-600" />
             <div>
-              <h4 className="font-medium text-gray-900">关联知识库</h4>
+              <h4 className="font-medium text-gray-900">
+                {t(
+                  'topicResearch.researchControl.settings.knowledgeBase.title'
+                )}
+              </h4>
               <p className="text-sm text-gray-500">
-                选择研究时优先使用的知识库
+                {t(
+                  'topicResearch.researchControl.settings.knowledgeBase.description'
+                )}
               </p>
             </div>
           </div>
@@ -248,7 +272,9 @@ export function ResearchSettingsModal({
             onSelectionChange={setSelectedKnowledgeBases}
             multiple={true}
             maxSelections={5}
-            placeholder="选择关联的知识库 (可选)"
+            placeholder={t(
+              'topicResearch.researchControl.settings.knowledgeBase.placeholder'
+            )}
           />
         </div>
 
@@ -257,8 +283,14 @@ export function ResearchSettingsModal({
           <div className="mb-3 flex items-center gap-2">
             <Eye className="h-4 w-4 text-cyan-600" />
             <div>
-              <h4 className="font-medium text-gray-900">可见性设置</h4>
-              <p className="text-sm text-gray-500">控制谁可以访问此研究专题</p>
+              <h4 className="font-medium text-gray-900">
+                {t('topicResearch.researchControl.settings.visibility.title')}
+              </h4>
+              <p className="text-sm text-gray-500">
+                {t(
+                  'topicResearch.researchControl.settings.visibility.description'
+                )}
+              </p>
             </div>
           </div>
           <div className="space-y-2">
@@ -307,7 +339,9 @@ export function ResearchSettingsModal({
               <div className="mb-3 flex items-center gap-2">
                 <UserPlus className="h-4 w-4 text-purple-600" />
                 <span className="text-sm font-medium text-purple-900">
-                  选择团队成员
+                  {t(
+                    'topicResearch.researchControl.settings.visibility.selectMembers'
+                  )}
                 </span>
               </div>
 
@@ -340,7 +374,9 @@ export function ResearchSettingsModal({
                     type="text"
                     value={memberSearchQuery}
                     onChange={(e) => handleMemberSearch(e.target.value)}
-                    placeholder="搜索用户名或邮箱..."
+                    placeholder={t(
+                      'topicResearch.researchControl.settings.visibility.searchPlaceholder'
+                    )}
                     className="w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                     onFocus={() => {
                       if (memberSearchQuery) setShowMemberDropdown(true);
@@ -383,15 +419,22 @@ export function ResearchSettingsModal({
                   !isSearchingMembers &&
                   searchResults.length === 0 && (
                     <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border border-gray-200 bg-white p-3 text-center text-sm text-gray-500 shadow-lg">
-                      未找到匹配的用户
+                      {t(
+                        'topicResearch.researchControl.settings.visibility.noResults'
+                      )}
                     </div>
                   )}
               </div>
 
               <p className="mt-2 text-xs text-purple-600">
                 {selectedMembers.length > 0
-                  ? `已选择 ${selectedMembers.length} 名成员`
-                  : '添加可以访问此研究专题的团队成员'}
+                  ? t(
+                      'topicResearch.researchControl.settings.visibility.selectedCount',
+                      { count: selectedMembers.length }
+                    )
+                  : t(
+                      'topicResearch.researchControl.settings.visibility.addMembersHint'
+                    )}
               </p>
             </div>
           )}

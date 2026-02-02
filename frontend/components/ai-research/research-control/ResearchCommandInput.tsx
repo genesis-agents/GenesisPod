@@ -10,6 +10,7 @@
  */
 
 import { useState, useRef, useCallback } from 'react';
+import { useI18n } from '@/lib/i18n';
 
 interface ResearchCommandInputProps {
   onSendInstruction: (instruction: string) => void;
@@ -22,6 +23,7 @@ export function ResearchCommandInput({
   disabled = false,
   isLoading = false,
 }: ResearchCommandInputProps) {
+  const { t } = useI18n();
   const [userInput, setUserInput] = useState('');
   const [showLeaderMenu, setShowLeaderMenu] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -101,7 +103,7 @@ export function ResearchCommandInput({
       {showLeaderMenu && (
         <div className="absolute bottom-full left-3 right-3 z-50 mb-2 rounded-lg border border-gray-200 bg-white py-2 shadow-lg">
           <div className="px-3 py-1 text-xs font-medium text-gray-400">
-            提及 Leader
+            {t('topicResearch.researchControl.commandInput.mentionLeader')}
           </div>
           <button
             onClick={handleSelectLeader}
@@ -113,7 +115,7 @@ export function ResearchCommandInput({
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium text-gray-800">@Leader</div>
               <div className="text-xs text-gray-400">
-                研究协调员 · 调整研究方向、补充提示
+                {t('topicResearch.researchControl.commandInput.leaderRole')}
               </div>
             </div>
           </button>
@@ -131,7 +133,9 @@ export function ResearchCommandInput({
             onBlur={() => {
               setTimeout(() => setShowLeaderMenu(false), 200);
             }}
-            placeholder="输入 @Leader 给协调员发送指令..."
+            placeholder={t(
+              'topicResearch.researchControl.commandInput.placeholder'
+            )}
             rows={2}
             className="w-full resize-none rounded-lg border border-gray-200 bg-white p-3 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100 disabled:bg-gray-50 disabled:text-gray-400"
             disabled={disabled || isLoading}
@@ -139,7 +143,9 @@ export function ResearchCommandInput({
 
           {/* 字符计数 */}
           <span className="absolute bottom-2 right-2 text-xs text-gray-300">
-            {userInput.length}/2000
+            {t('topicResearch.researchControl.commandInput.characterCount', {
+              count: userInput.length,
+            })}
           </span>
         </div>
 
@@ -188,7 +194,7 @@ export function ResearchCommandInput({
 
       {/* Help text */}
       <p className="mt-2 text-xs text-gray-400">
-        输入 @ 可提及 Leader，Enter 发送，Shift+Enter 换行
+        {t('topicResearch.researchControl.commandInput.helpText')}
       </p>
     </div>
   );

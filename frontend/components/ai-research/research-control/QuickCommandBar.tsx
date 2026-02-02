@@ -10,6 +10,7 @@ import { useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Send, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { useI18n } from '@/lib/i18n';
 
 import { logger } from '@/lib/utils/logger';
 interface QuickCommandBarProps {
@@ -26,12 +27,17 @@ export function QuickCommandBar({
   missionId: _missionId,
   onSubmit,
   disabled = false,
-  placeholder = '输入研究指令，与 Leader 对话...',
+  placeholder,
   className,
 }: QuickCommandBarProps) {
+  const { t } = useI18n();
   const [input, setInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const defaultPlaceholder =
+    placeholder ||
+    t('topicResearch.researchControl.quickCommandBar.placeholder');
 
   const handleSubmit = useCallback(async () => {
     if (!input.trim() || isSubmitting || disabled) {
@@ -80,7 +86,7 @@ export function QuickCommandBar({
         value={input}
         onChange={handleInput}
         onKeyDown={handleKeyDown}
-        placeholder={placeholder}
+        placeholder={defaultPlaceholder}
         disabled={disabled || isSubmitting}
         rows={2}
         className={cn(
@@ -103,7 +109,9 @@ export function QuickCommandBar({
         ) : (
           <Send className="h-4 w-4" />
         )}
-        <span className="ml-2">发送</span>
+        <span className="ml-2">
+          {t('topicResearch.researchControl.quickCommandBar.send')}
+        </span>
       </Button>
     </div>
   );

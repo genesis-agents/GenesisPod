@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { cn, safeString } from '@/lib/utils/common';
 import { logger } from '@/lib/utils/logger';
+import { useI18n } from '@/lib/i18n';
 import {
   getCredibilityReport,
   regenerateCredibilityReport,

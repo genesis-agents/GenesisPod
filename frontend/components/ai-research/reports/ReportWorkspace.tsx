@@ -2,10 +2,12 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useI18n } from '@/lib/i18n';
 import { useReportWorkspace } from '@/hooks';
 import { config } from '@/lib/utils/config';
 
 export default function ReportWorkspace() {
+  const { t } = useI18n();
   const router = useRouter();
   const { resources, removeResource, clearAll, maxResources } =
     useReportWorkspace();
@@ -41,12 +43,14 @@ export default function ReportWorkspace() {
               </div>
               <div>
                 <div className="font-semibold">
-                  已选择 {resources.length} 个资源
+                  {t('topicResearch.reportPanels.workspace.selectedResources', {
+                    count: resources.length,
+                  })}
                 </div>
                 <div className="text-xs text-white text-opacity-90">
                   {resources.length >= 2
-                    ? '可以开始AI对话和生成报告'
-                    : '再选择至少1个资源即可生成报告'}
+                    ? t('topicResearch.reportPanels.workspace.readyToStart')
+                    : t('topicResearch.reportPanels.workspace.selectMore')}
                 </div>
               </div>
             </div>
@@ -56,13 +60,13 @@ export default function ReportWorkspace() {
                 onClick={() => router.push('/workspace')}
                 className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-red-600 transition-all hover:bg-gray-100"
               >
-                进入工作区
+                {t('topicResearch.reportPanels.workspace.enterWorkspace')}
               </button>
               <button
                 onClick={clearAll}
                 className="rounded-lg px-3 py-2 text-sm text-white transition-colors hover:bg-white hover:bg-opacity-20"
               >
-                清空
+                {t('topicResearch.reportPanels.workspace.clearAll')}
               </button>
             </div>
           </div>

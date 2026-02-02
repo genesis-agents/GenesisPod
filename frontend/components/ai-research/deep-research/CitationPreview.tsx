@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import { useI18n } from '@/lib/i18n';
 import {
   CheckCircle2,
   AlertCircle,
@@ -81,24 +82,26 @@ const CONFIDENCE_COLORS = {
   },
 };
 
-const CONFIDENCE_LABELS = {
-  high: '高可信度',
-  medium: '中等可信度',
-  low: '低可信度',
-};
+const getConfidenceLabels = (t: (key: string) => string) => ({
+  high: t('topicResearch.deepResearch.citations.confidence.high'),
+  medium: t('topicResearch.deepResearch.citations.confidence.medium'),
+  low: t('topicResearch.deepResearch.citations.confidence.low'),
+});
 
 export function CitationBadge({
   number,
   confidence,
   onClick,
 }: CitationBadgeProps) {
+  const { t } = useI18n();
+  const confidenceLabels = getConfidenceLabels(t);
   const colors = CONFIDENCE_COLORS[confidence];
 
   return (
     <button
       onClick={onClick}
       className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-xs font-medium transition-colors hover:opacity-80 ${colors.badge}`}
-      title={CONFIDENCE_LABELS[confidence]}
+      title={confidenceLabels[confidence]}
     >
       [{number}]
     </button>
@@ -111,7 +114,9 @@ export function CitationPreview({
   onClick,
   compact = false,
 }: CitationPreviewProps) {
+  const { t } = useI18n();
   const [isExpanded, setIsExpanded] = useState(false);
+  const confidenceLabels = getConfidenceLabels(t);
   const colors = CONFIDENCE_COLORS[citation.confidence];
 
   if (compact) {
@@ -160,12 +165,12 @@ export function CitationPreview({
             </h4>
             <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
               <span className={`rounded px-1.5 py-0.5 ${colors.badge}`}>
-                {CONFIDENCE_LABELS[citation.confidence]}
+                {confidenceLabels[citation.confidence]}
               </span>
               {citation.verifiable && (
                 <span className="flex items-center gap-1 text-green-600">
                   <CheckCircle2 className="h-3 w-3" />
-                  已验证
+                  {t('topicResearch.deepResearch.citations.verified')}
                 </span>
               )}
             </div>
@@ -198,7 +203,9 @@ export function CitationPreview({
             {citation.exactQuote}
           </p>
           <div className="mt-2 text-xs text-gray-400">
-            段落 #{citation.paragraphIndex + 1}
+            {t('topicResearch.deepResearch.citations.paragraph', {
+              index: citation.paragraphIndex + 1,
+            })}
           </div>
         </div>
       )}
@@ -207,17 +214,21 @@ export function CitationPreview({
 }
 
 export function CitationMetricsBar({ metrics }: { metrics: CitationMetrics }) {
+  const { t } = useI18n();
+  const confidenceLabels = getConfidenceLabels(t);
   const colors = CONFIDENCE_COLORS[metrics.overallConfidence];
   const groundedPercent = Math.round(metrics.groundedRatio * 100);
 
   return (
     <div className={`rounded-lg border p-3 ${colors.bg} ${colors.border}`}>
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-700">引用质量</span>
+        <span className="text-sm font-medium text-gray-700">
+          {t('topicResearch.deepResearch.citations.quality')}
+        </span>
         <span
           className={`rounded px-2 py-0.5 text-xs font-medium ${colors.badge}`}
         >
-          {CONFIDENCE_LABELS[metrics.overallConfidence]}
+          {confidenceLabels[metrics.overallConfidence]}
         </span>
       </div>
 
@@ -237,9 +248,16 @@ export function CitationMetricsBar({ metrics }: { metrics: CitationMetrics }) {
 
       {/* Stats */}
       <div className="flex justify-between text-xs text-gray-600">
-        <span>{groundedPercent}% 有据可查</span>
         <span>
-          {metrics.verifiedCount}/{metrics.sourceCount} 来源已验证
+          {t('topicResearch.deepResearch.citations.groundedPercent', {
+            percent: groundedPercent,
+          })}
+        </span>
+        <span>
+          {t('topicResearch.deepResearch.citations.verifiedSources', {
+            verified: metrics.verifiedCount,
+            total: metrics.sourceCount,
+          })}
         </span>
       </div>
     </div>
@@ -252,11 +270,15 @@ export default function CitationList({
   activeCitationId,
   onCitationClick,
 }: CitationListProps) {
+  const { t } = useI18n();
+
   if (citations.length === 0) {
     return (
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center">
         <AlertCircle className="mx-auto mb-2 h-8 w-8 text-gray-400" />
-        <p className="text-sm text-gray-500">暂无引用信息</p>
+        <p className="text-sm text-gray-500">
+          {t('topicResearch.deepResearch.citations.noCitations')}
+        </p>
       </div>
     );
   }
@@ -291,6 +313,7 @@ export function InlineCitation({
   citation: Citation;
   onClick?: () => void;
 }) {
+  const { t } = useI18n();
   const [showTooltip, setShowTooltip] = useState(false);
   const colors = CONFIDENCE_COLORS[citation.confidence];
 
@@ -325,7 +348,7 @@ export function InlineCitation({
                 rel="noopener noreferrer"
                 className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:underline"
               >
-                查看来源
+                {t('topicResearch.deepResearch.citations.viewSource')}
                 <ExternalLink className="h-3 w-3" />
               </a>
             )}

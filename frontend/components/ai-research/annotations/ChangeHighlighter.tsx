@@ -15,6 +15,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useI18n } from '@/lib/i18n';
 
 // Change type
 export type ChangeType = 'ADDED' | 'MODIFIED' | 'DELETED';
@@ -66,6 +67,7 @@ export function ChangeHighlighter({
   onCheckin,
   showChanges = true,
 }: ChangeHighlighterProps) {
+  const { t } = useI18n();
   const [hoveredChangeId, setHoveredChangeId] = useState<string | null>(null);
 
   // ★ 安全处理：确保 changes 是数组
@@ -217,7 +219,7 @@ export function ChangeHighlighter({
               <button
                 onClick={() => handleCheckin(change.id)}
                 className="checkin-btn absolute right-2 top-2 flex items-center gap-1 rounded bg-white px-2 py-1 text-xs font-medium text-gray-700 shadow-md transition-all hover:bg-gray-50"
-                title="确认此变更"
+                title={t('topicResearch.annotations.changes.confirmChange')}
               >
                 <CheckIcon className="h-3 w-3" />
                 <span>Checkin</span>

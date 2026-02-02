@@ -10,6 +10,7 @@
 import { useMemo } from 'react';
 import { CheckCircle2, Clock, Loader2, AlertCircle, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { useI18n } from '@/lib/i18n';
 import type { TodoSummary, ResearchTodo } from '@/types/topic-research';
 import { ResearchTodoStatus } from '@/types/topic-research';
 
@@ -188,6 +189,8 @@ export function ResearchProgressSummary({
   showDetails = true,
   compact = false,
 }: ResearchProgressSummaryProps) {
+  const { t } = useI18n();
+
   // 计算统计数据
   const stats = useMemo(() => {
     if (summary) return summary;
@@ -198,7 +201,7 @@ export function ResearchProgressSummary({
   if (!stats || stats.total === 0) {
     return (
       <div className={cn('py-4 text-center text-sm text-gray-500', className)}>
-        暂无研究任务
+        {t('topicResearch.researchControl.progressSummary.noTasks')}
       </div>
     );
   }
@@ -253,9 +256,16 @@ export function ResearchProgressSummary({
           </span>
         </div>
         <div>
-          <h4 className="font-semibold text-gray-900">研究进度</h4>
+          <h4 className="font-semibold text-gray-900">
+            {t(
+              'topicResearch.researchControl.progressSummary.researchProgress'
+            )}
+          </h4>
           <p className="text-sm text-gray-500">
-            已完成 {stats.completed} / {stats.total} 个任务
+            {t('topicResearch.researchControl.progressSummary.completedTasks', {
+              completed: stats.completed,
+              total: stats.total,
+            })}
           </p>
         </div>
       </div>
@@ -299,14 +309,16 @@ export function ResearchProgressSummary({
         <div className="flex flex-wrap gap-2">
           <StatusBadge
             count={stats.completed}
-            label="已完成"
+            label={t('topicResearch.researchControl.progressSummary.completed')}
             icon={CheckCircle2}
             color="text-green-600"
             bgColor="bg-green-100"
           />
           <StatusBadge
             count={stats.inProgress}
-            label="进行中"
+            label={t(
+              'topicResearch.researchControl.progressSummary.inProgress'
+            )}
             icon={Loader2}
             color="text-blue-600"
             bgColor="bg-blue-100"
@@ -314,21 +326,21 @@ export function ResearchProgressSummary({
           />
           <StatusBadge
             count={stats.pending}
-            label="待处理"
+            label={t('topicResearch.researchControl.progressSummary.pending')}
             icon={Clock}
             color="text-gray-500"
             bgColor="bg-gray-100"
           />
           <StatusBadge
             count={stats.paused}
-            label="已暂停"
+            label={t('topicResearch.researchControl.progressSummary.paused')}
             icon={Pause}
             color="text-orange-500"
             bgColor="bg-orange-100"
           />
           <StatusBadge
             count={stats.failed}
-            label="失败"
+            label={t('topicResearch.researchControl.progressSummary.failed')}
             icon={AlertCircle}
             color="text-red-600"
             bgColor="bg-red-100"

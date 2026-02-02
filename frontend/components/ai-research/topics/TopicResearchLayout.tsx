@@ -20,6 +20,7 @@ import type {
 import type { MissionStatus, TeamInfo } from '@/lib/api/topic-research';
 import { checkEditPermission } from '@/lib/api/topic-research';
 import { useAuth } from '@/contexts/AuthContext';
+import { useI18n } from '@/lib/i18n';
 import { TopicTeamPanel } from './TopicTeamPanel';
 import { TopicContentPanel } from './TopicContentPanel';
 import { ResearchSettingsModal } from '../research-control/ResearchSettingsModal';
@@ -192,6 +193,7 @@ export function TopicResearchLayout({
   researchDepth,
   onResearchDepthChange,
 }: TopicResearchLayoutProps) {
+  const { t } = useI18n();
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
@@ -250,7 +252,7 @@ export function TopicResearchLayout({
           <button
             onClick={onBack}
             className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-            title="返回列表"
+            title={t('topicResearch.layout.backToList')}
           >
             <ArrowLeftIcon className="h-5 w-5" />
           </button>
@@ -296,7 +298,8 @@ export function TopicResearchLayout({
             <div className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5">
               <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500"></span>
               <span className="text-sm font-medium text-blue-700">
-                {refreshProgress?.message || '研究中...'}
+                {refreshProgress?.message ||
+                  t('topicResearch.layout.researching')}
               </span>
             </div>
           )}
@@ -305,7 +308,7 @@ export function TopicResearchLayout({
           <button
             onClick={() => setShowSettings(true)}
             className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-            title="设置"
+            title={t('topicResearch.layout.settings')}
           >
             <SettingsIcon className="h-5 w-5" />
           </button>
@@ -326,7 +329,7 @@ export function TopicResearchLayout({
               <button
                 onClick={() => setLeftPanelCollapsed(false)}
                 className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                title="展开团队面板"
+                title={t('topicResearch.layout.expandTeamPanel')}
               >
                 <ExpandIcon className="h-5 w-5" />
               </button>
@@ -340,7 +343,7 @@ export function TopicResearchLayout({
                   className="writing-mode-vertical text-xs text-gray-500"
                   style={{ writingMode: 'vertical-rl' }}
                 >
-                  研究团队
+                  {t('topicResearch.layout.researchTeam')}
                 </span>
               </div>
             </div>
@@ -350,12 +353,12 @@ export function TopicResearchLayout({
               {/* 面板头部 */}
               <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  研究团队
+                  {t('topicResearch.layout.researchTeam')}
                 </span>
                 <button
                   onClick={() => setLeftPanelCollapsed(true)}
                   className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  title="收起面板"
+                  title={t('topicResearch.layout.collapsePanel')}
                 >
                   <CollapseIcon className="h-4 w-4" />
                 </button>

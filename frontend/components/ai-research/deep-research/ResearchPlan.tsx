@@ -21,6 +21,7 @@ import {
   BookOpen,
   Network,
 } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 export type StepStatus = 'pending' | 'in_progress' | 'completed' | 'error';
 
@@ -97,11 +98,7 @@ function StatusIcon({ status }: { status: StepStatus }) {
   }
 }
 
-function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}秒`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)}分钟`;
-  return `${Math.round(seconds / 3600)}小时`;
-}
+// formatDuration moved to component to use i18n
 
 function ProgressBar({ progress }: { progress: number }) {
   return (
@@ -119,6 +116,25 @@ export default function ResearchPlan({
   compact = false,
   onStepClick,
 }: ResearchPlanProps) {
+  const { t } = useI18n();
+
+  const formatDuration = (seconds: number): string => {
+    if (seconds < 60)
+      return t('topicResearch.deepResearch.researchPlan.seconds', {
+        count: Math.round(seconds),
+      });
+    if (seconds < 3600)
+      return t('topicResearch.deepResearch.researchPlan.minutes', {
+        count: Math.round(seconds / 60),
+      });
+    const hours = Math.round(seconds / 3600);
+    const min = Math.round((seconds % 3600) / 60);
+    return t('topicResearch.deepResearch.researchPlan.hours', {
+      count: hours,
+      min,
+    });
+  };
+
   const overallProgress = useMemo(() => {
     const completed = plan.steps.filter((s) => s.status === 'completed').length;
     return (completed / plan.steps.length) * 100;
@@ -135,7 +151,9 @@ export default function ResearchPlan({
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-blue-500" />
-            <span className="font-medium text-gray-900">研究进度</span>
+            <span className="font-medium text-gray-900">
+              {t('topicResearch.deepResearch.researchPlan.progress')}
+            </span>
           </div>
           <span className="text-sm text-gray-500">
             {Math.round(overallProgress)}%
@@ -181,14 +199,19 @@ export default function ResearchPlan({
       <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">研究计划</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {t('topicResearch.deepResearch.researchPlan.title')}
+            </h3>
             <p className="mt-1 text-sm text-gray-500">{plan.query}</p>
           </div>
           <div className="flex items-center gap-3">
             {plan.estimatedTime && (
               <div className="flex items-center gap-1 text-sm text-gray-500">
                 <Clock className="h-4 w-4" />
-                <span>预计 {formatDuration(plan.estimatedTime)}</span>
+                <span>
+                  {t('topicResearch.deepResearch.researchPlan.estimated')}{' '}
+                  {formatDuration(plan.estimatedTime)}
+                </span>
               </div>
             )}
             <div
@@ -203,12 +226,16 @@ export default function ResearchPlan({
               }`}
             >
               {plan.status === 'running'
-                ? '进行中'
+                ? t('topicResearch.deepResearch.researchPlan.status.running')
                 : plan.status === 'completed'
-                  ? '已完成'
+                  ? t(
+                      'topicResearch.deepResearch.researchPlan.status.completed'
+                    )
                   : plan.status === 'error'
-                    ? '出错'
-                    : '等待中'}
+                    ? t('topicResearch.deepResearch.researchPlan.status.error')
+                    : t(
+                        'topicResearch.deepResearch.researchPlan.status.waiting'
+                      )}
             </div>
           </div>
         </div>
@@ -216,7 +243,9 @@ export default function ResearchPlan({
         {/* Overall Progress */}
         <div className="mt-4">
           <div className="mb-1 flex items-center justify-between text-sm">
-            <span className="text-gray-600">总进度</span>
+            <span className="text-gray-600">
+              {t('topicResearch.deepResearch.researchPlan.overallProgress')}
+            </span>
             <span className="font-medium text-gray-900">
               {Math.round(overallProgress)}%
             </span>
@@ -288,8 +317,17 @@ export default function ResearchPlan({
                     step.progress !== undefined && (
                       <div className="mt-3">
                         <div className="mb-1 flex justify-between text-xs text-gray-500">
-                          <span>进度</span>
-                          <span>{step.progress}%</span>
+                          <span>
+                            {t(
+                              'topicResearch.deepResearch.researchPlan.progress_label'
+                            )}
+                          </span>
+                          <span>
+                            {t(
+                              'topicResearch.deepResearch.researchPlan.percent',
+                              { progress: step.progress }
+                            )}
+                          </span>
                         </div>
                         <ProgressBar progress={step.progress} />
                       </div>
@@ -329,7 +367,10 @@ export default function ResearchPlan({
                     <div className="mt-3 rounded-md bg-white/80 p-2 text-sm">
                       {step.result.count !== undefined && (
                         <span className="font-medium text-green-700">
-                          找到 {step.result.count} 个结果
+                          {t(
+                            'topicResearch.deepResearch.researchPlan.foundResults',
+                            { count: step.result.count }
+                          )}
                         </span>
                       )}
                       {step.result.summary && (
@@ -343,7 +384,11 @@ export default function ResearchPlan({
                   {/* Error */}
                   {step.status === 'error' && step.error && (
                     <div className="mt-3 rounded-md bg-red-50 p-2 text-sm text-red-700">
-                      {typeof step.error === 'string' ? step.error : '执行失败'}
+                      {typeof step.error === 'string'
+                        ? step.error
+                        : t(
+                            'topicResearch.deepResearch.researchPlan.executionFailed'
+                          )}
                     </div>
                   )}
                 </div>
@@ -357,7 +402,14 @@ export default function ResearchPlan({
 }
 
 // Default research plan template
-export function createDefaultResearchPlan(query: string): ResearchPlanData {
+// Note: This function cannot use i18n directly as it's a pure function.
+// Titles/descriptions should be provided from the calling component using t()
+export function createDefaultResearchPlan(
+  query: string,
+  t?: (key: string) => string
+): ResearchPlanData {
+  const translate = t || ((key: string) => key);
+
   return {
     id: `plan-${Date.now()}`,
     query,
@@ -367,48 +419,106 @@ export function createDefaultResearchPlan(query: string): ResearchPlanData {
     steps: [
       {
         id: 'search',
-        title: '资料搜集',
-        description: '从多个数据源搜索相关资料',
+        title: translate(
+          'topicResearch.deepResearch.researchPlan.steps.search'
+        ),
+        description: translate(
+          'topicResearch.deepResearch.researchPlan.steps.searchDesc'
+        ),
         status: 'pending',
         substeps: [
-          { id: 'arxiv', title: 'arXiv 论文', status: 'pending' },
-          { id: 'github', title: 'GitHub 项目', status: 'pending' },
-          { id: 'news', title: '科技新闻', status: 'pending' },
+          {
+            id: 'arxiv',
+            title: translate(
+              'topicResearch.deepResearch.researchPlan.steps.substeps.arxiv'
+            ),
+            status: 'pending',
+          },
+          {
+            id: 'github',
+            title: translate(
+              'topicResearch.deepResearch.researchPlan.steps.substeps.github'
+            ),
+            status: 'pending',
+          },
+          {
+            id: 'news',
+            title: translate(
+              'topicResearch.deepResearch.researchPlan.steps.substeps.news'
+            ),
+            status: 'pending',
+          },
         ],
       },
       {
         id: 'collect',
-        title: '内容提取',
-        description: '提取和解析文档内容',
+        title: translate(
+          'topicResearch.deepResearch.researchPlan.steps.collect'
+        ),
+        description: translate(
+          'topicResearch.deepResearch.researchPlan.steps.collectDesc'
+        ),
         status: 'pending',
       },
       {
         id: 'analyze',
-        title: '深度分析',
-        description: 'AI 分析内容，提取关键信息',
+        title: translate(
+          'topicResearch.deepResearch.researchPlan.steps.analyze'
+        ),
+        description: translate(
+          'topicResearch.deepResearch.researchPlan.steps.analyzeDesc'
+        ),
         status: 'pending',
         substeps: [
-          { id: 'entities', title: '实体识别', status: 'pending' },
-          { id: 'relations', title: '关系抽取', status: 'pending' },
-          { id: 'sentiment', title: '情感分析', status: 'pending' },
+          {
+            id: 'entities',
+            title: translate(
+              'topicResearch.deepResearch.researchPlan.steps.substeps.entities'
+            ),
+            status: 'pending',
+          },
+          {
+            id: 'relations',
+            title: translate(
+              'topicResearch.deepResearch.researchPlan.steps.substeps.relations'
+            ),
+            status: 'pending',
+          },
+          {
+            id: 'sentiment',
+            title: translate(
+              'topicResearch.deepResearch.researchPlan.steps.substeps.sentiment'
+            ),
+            status: 'pending',
+          },
         ],
       },
       {
         id: 'trend',
-        title: '趋势分析',
-        description: '识别技术趋势和发展方向',
+        title: translate('topicResearch.deepResearch.researchPlan.steps.trend'),
+        description: translate(
+          'topicResearch.deepResearch.researchPlan.steps.trendDesc'
+        ),
         status: 'pending',
       },
       {
         id: 'synthesize',
-        title: '洞察生成',
-        description: '综合分析生成深度洞察',
+        title: translate(
+          'topicResearch.deepResearch.researchPlan.steps.synthesize'
+        ),
+        description: translate(
+          'topicResearch.deepResearch.researchPlan.steps.synthesizeDesc'
+        ),
         status: 'pending',
       },
       {
         id: 'report',
-        title: '报告输出',
-        description: '生成结构化研究报告',
+        title: translate(
+          'topicResearch.deepResearch.researchPlan.steps.report'
+        ),
+        description: translate(
+          'topicResearch.deepResearch.researchPlan.steps.reportDesc'
+        ),
         status: 'pending',
       },
     ],

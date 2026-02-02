@@ -15,7 +15,7 @@ import ReactMarkdown from 'react-markdown';
 import { Shield, Maximize2, X, RefreshCw } from 'lucide-react';
 import { ClientDate } from '@/components/common/ClientDate';
 import { formatDateSafe } from '@/lib/utils/date';
-import { useTranslation } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import type {
   TopicReport,
@@ -398,7 +398,7 @@ export function TopicContentPanel({
   initialView,
   canEdit = false,
 }: TopicContentPanelProps) {
-  const { t } = useTranslation();
+  const { t } = useI18n();
   const { user } = useAuth();
 
   // Get persisted team data from store
@@ -450,7 +450,10 @@ export function TopicContentPanel({
           report.id,
           feedback || undefined
         );
-        setToast({ message: '报告正在重新生成中，请稍候...', type: 'success' });
+        setToast({
+          message: t('topicResearch.contentPanel.toast.regenerating'),
+          type: 'success',
+        });
         // 轮询等待报告生成完成（generatedAt 变化表示完成）
         const maxAttempts = 40; // 最多等待 ~2 分钟
         for (let i = 0; i < maxAttempts; i++) {
@@ -469,7 +472,10 @@ export function TopicContentPanel({
         window.location.reload();
       } catch (error) {
         logger.error('Failed to regenerate report:', error);
-        setToast({ message: '重新生成报告失败，请稍后重试', type: 'error' });
+        setToast({
+          message: t('topicResearch.contentPanel.toast.regenerateFailed'),
+          type: 'error',
+        });
         setIsRegenerating(false);
       }
     },
@@ -486,7 +492,10 @@ export function TopicContentPanel({
     topicId: topicId || '',
     reportId: report?.id || '',
     onSuccess: (editedText) => {
-      setToast({ message: 'AI 编辑已应用', type: 'success' });
+      setToast({
+        message: t('topicResearch.contentPanel.toast.aiEditApplied'),
+        type: 'success',
+      });
       // TODO: 刷新报告内容
     },
     onError: (error) => {
@@ -508,18 +517,22 @@ export function TopicContentPanel({
         parts.push(`# ${report.title}\n\n`);
       }
 
-      // 摘要
+      // Summary
       if (report.summary) {
-        parts.push(`## 摘要\n\n${report.summary}\n\n`);
+        parts.push(
+          `## ${t('topicResearch.contentPanel.export.summary')}\n\n${report.summary}\n\n`
+        );
       }
 
-      // 核心发现
+      // Key Findings
       if (report.highlights && report.highlights.length > 0) {
         const validHighlights = report.highlights.filter(
           (h) => h.content && h.content.trim().length > 20
         );
         if (validHighlights.length > 0) {
-          parts.push(`## 核心发现\n\n`);
+          parts.push(
+            `## ${t('topicResearch.contentPanel.export.keyFindings')}\n\n`
+          );
           validHighlights.forEach((h, idx) => {
             if (h.title) {
               parts.push(`### ${idx + 1}. ${h.title}\n\n${h.content}\n\n`);
@@ -530,23 +543,27 @@ export function TopicContentPanel({
         }
       }
 
-      // 维度分析
+      // Dimension Analysis
       if (report.dimensionAnalyses && report.dimensionAnalyses.length > 0) {
         report.dimensionAnalyses.forEach((analysis) => {
           const content = analysis.detailedContent || analysis.summary;
           if (content && content.trim().length > 20) {
             const title =
-              analysis.dimension?.name || `维度 ${analysis.dimensionId}`;
+              analysis.dimension?.name ||
+              `${t('topicResearch.contentPanel.dimension')} ${analysis.dimensionId}`;
             parts.push(`## ${title}\n\n${content}\n\n`);
           }
         });
       }
 
-      // 参考文献
+      // References
       if (includeReferences && evidence && evidence.length > 0) {
-        parts.push(`## 参考文献\n\n`);
+        parts.push(
+          `## ${t('topicResearch.contentPanel.export.references')}\n\n`
+        );
         evidence.forEach((ev, idx) => {
-          const title = ev.title || '未命名来源';
+          const title =
+            ev.title || t('topicResearch.contentPanel.export.untitledSource');
           const url = ev.url || '';
           if (url) {
             parts.push(`${idx + 1}. [${title}](${url})\n`);
@@ -570,11 +587,14 @@ export function TopicContentPanel({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${report.title || '研究报告'}.md`;
+    a.download = `${report.title || t('topicResearch.contentPanel.export.researchReport')}.md`;
     a.click();
     URL.revokeObjectURL(url);
     setExportMenuOpen(false);
-    setToast({ message: '已导出 Markdown 文件', type: 'success' });
+    setToast({
+      message: t('topicResearch.contentPanel.toast.exportedMarkdown'),
+      type: 'success',
+    });
   }, [report, getReportTextContent]);
 
   // 导出为纯文本
@@ -592,11 +612,14 @@ export function TopicContentPanel({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${report.title || '研究报告'}.txt`;
+    a.download = `${report.title || t('topicResearch.contentPanel.export.researchReport')}.txt`;
     a.click();
     URL.revokeObjectURL(url);
     setExportMenuOpen(false);
-    setToast({ message: '已导出纯文本文件', type: 'success' });
+    setToast({
+      message: t('topicResearch.contentPanel.toast.exportedText'),
+      type: 'success',
+    });
   }, [report, getReportTextContent]);
 
   // 导出为 HTML（支持点击链接跳转）
@@ -632,7 +655,7 @@ export function TopicContentPanel({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${report.title || '研究报告'}</title>
+  <title>${report.title || t('topicResearch.contentPanel.export.researchReport')}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 40px 20px; line-height: 1.8; color: #333; }
     h1 { color: #1a1a1a; border-bottom: 2px solid #3b82f6; padding-bottom: 0.3em; }
@@ -651,10 +674,10 @@ export function TopicContentPanel({
   </style>
 </head>
 <body>
-  <h1>${report.title || '研究报告'}</h1>
+  <h1>${report.title || t('topicResearch.contentPanel.export.researchReport')}</h1>
   ${htmlContent}
   <div class="footer">
-    <p>由 AI Research 生成 · DeepDive Engine · ${formatDateSafe(new Date(), 'date')}</p>
+    <p>${t('topicResearch.contentPanel.export.generatedBy')} · DeepDive Engine · ${formatDateSafe(new Date(), 'date')}</p>
   </div>
 </body>
 </html>`;
@@ -663,11 +686,14 @@ export function TopicContentPanel({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${report.title || '研究报告'}.html`;
+    a.download = `${report.title || t('topicResearch.contentPanel.export.researchReport')}.html`;
     a.click();
     URL.revokeObjectURL(url);
     setExportMenuOpen(false);
-    setToast({ message: '已导出 HTML 文件', type: 'success' });
+    setToast({
+      message: t('topicResearch.contentPanel.toast.exportedHtml'),
+      type: 'success',
+    });
   }, [report, getReportTextContent]);
 
   // 打印/导出 PDF
@@ -696,7 +722,10 @@ export function TopicContentPanel({
     // 在新窗口打开打印预览
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      setToast({ message: '请允许弹出窗口以导出 PDF', type: 'error' });
+      setToast({
+        message: t('topicResearch.contentPanel.toast.allowPopup'),
+        type: 'error',
+      });
       return;
     }
 
@@ -704,7 +733,7 @@ export function TopicContentPanel({
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>${report.title || '研究报告'} - 打印预览</title>
+  <title>${report.title || t('topicResearch.contentPanel.export.researchReport')} - ${t('topicResearch.contentPanel.export.printPreview')}</title>
   <style>
     body { font-family: "SimSun", "Songti SC", serif; max-width: 210mm; margin: 0 auto; padding: 20mm; line-height: 1.8; color: #000; }
     h1 { font-size: 24pt; text-align: center; margin-bottom: 1em; }
@@ -721,8 +750,8 @@ export function TopicContentPanel({
   </style>
 </head>
 <body>
-  <button class="print-btn" onclick="window.print()">🖨️ 打印 / 导出 PDF</button>
-  <h1>${report.title || '研究报告'}</h1>
+  <button class="print-btn" onclick="window.print()">🖨️ ${t('topicResearch.contentPanel.export.printPdf')}</button>
+  <h1>${report.title || t('topicResearch.contentPanel.export.researchReport')}</h1>
   ${htmlContent}
 </body>
 </html>`);
@@ -735,7 +764,10 @@ export function TopicContentPanel({
   // ★ 会自动将专题设置为公开，使分享链接可访问
   const handleShareLink = useCallback(async () => {
     if (!report || !topicId) {
-      setToast({ message: '无法生成分享链接', type: 'error' });
+      setToast({
+        message: t('topicResearch.contentPanel.toast.cannotGenerateShareLink'),
+        type: 'error',
+      });
       return;
     }
 
@@ -748,7 +780,7 @@ export function TopicContentPanel({
       try {
         await navigator.clipboard.writeText(shareUrl);
         setToast({
-          message: '分享链接已复制（专题已设为公开）',
+          message: t('topicResearch.contentPanel.toast.shareLinkCopied'),
           type: 'success',
         });
       } catch {
@@ -760,13 +792,16 @@ export function TopicContentPanel({
         document.execCommand('copy');
         document.body.removeChild(input);
         setToast({
-          message: '分享链接已复制（专题已设为公开）',
+          message: t('topicResearch.contentPanel.toast.shareLinkCopied'),
           type: 'success',
         });
       }
     } catch (err) {
       logger.error('Failed to set topic public:', err);
-      setToast({ message: '设置公开失败，请重试', type: 'error' });
+      setToast({
+        message: t('topicResearch.contentPanel.toast.setPublicFailed'),
+        type: 'error',
+      });
     }
     setExportMenuOpen(false);
   }, [report, topicId]);
@@ -951,7 +986,9 @@ export function TopicContentPanel({
             reportId: ann.reportId,
             userId: ann.createdById,
             userName:
-              ann.createdBy?.fullName || ann.createdBy?.username || '用户',
+              ann.createdBy?.fullName ||
+              ann.createdBy?.username ||
+              t('topicResearch.contentPanel.user'),
             userAvatar: ann.createdBy?.avatarUrl,
             selectedText: ann.selectedText || '',
             content: ann.content,
@@ -1067,7 +1104,7 @@ export function TopicContentPanel({
           userName:
             created.createdBy?.fullName ||
             created.createdBy?.username ||
-            '用户',
+            t('topicResearch.contentPanel.user'),
           userAvatar: created.createdBy?.avatarUrl,
           selectedText: created.selectedText || '',
           content: created.content,
@@ -1171,7 +1208,10 @@ export function TopicContentPanel({
                   {
                     id: `reply-${Date.now()}`,
                     userId: user?.id || 'anonymous',
-                    userName: user?.username || user?.email || '匿名用户',
+                    userName:
+                      user?.username ||
+                      user?.email ||
+                      t('topicResearch.contentPanel.anonymousUser'),
                     content,
                     createdAt: new Date().toISOString(),
                   },
@@ -1201,10 +1241,16 @@ export function TopicContentPanel({
             : ann
         )
       );
-      setToast({ message: '反馈已提交', type: 'success' });
+      setToast({
+        message: t('topicResearch.contentPanel.toast.feedbackSubmitted'),
+        type: 'success',
+      });
     } catch (error) {
       logger.error('Failed to submit annotation as feedback:', error);
-      setToast({ message: '提交反馈失败，请稍后重试', type: 'error' });
+      setToast({
+        message: t('topicResearch.contentPanel.toast.submitFeedbackFailed'),
+        type: 'error',
+      });
     }
   }, []);
 
@@ -1397,7 +1443,11 @@ export function TopicContentPanel({
                       revisions={revisions}
                       annotations={annotations}
                       currentUserId={user?.id}
-                      currentUserName={user?.username || user?.email || '用户'}
+                      currentUserName={
+                        user?.username ||
+                        user?.email ||
+                        t('topicResearch.contentPanel.user')
+                      }
                       isLoading={isLoadingReport}
                       hideToolbar={true}
                       disableSidePanel={true}
@@ -1464,7 +1514,10 @@ export function TopicContentPanel({
                         handleAnnotationAdd({
                           reportId: report?.id || '',
                           userId: user?.id || 'anonymous',
-                          userName: user?.username || user?.email || '匿名用户',
+                          userName:
+                            user?.username ||
+                            user?.email ||
+                            t('topicResearch.contentPanel.anonymousUser'),
                           selectedText: data.selectedText,
                           content: '',
                           startOffset: data.startOffset,
@@ -1735,21 +1788,21 @@ export function TopicContentPanel({
                           className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                         >
                           <span className="text-base">📄</span>
-                          纯文本 (.txt)
+                          {t('topicResearch.contentPanel.plainTextExport')}
                         </button>
                         <button
                           onClick={handleExportHtml}
                           className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                         >
                           <span className="text-base">🌐</span>
-                          网页 (.html)
+                          {t('topicResearch.contentPanel.webPageExport')}
                         </button>
                         <button
                           onClick={handleExportPdf}
                           className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                         >
                           <span className="text-base">📑</span>
-                          打印 / PDF
+                          {t('topicResearch.contentPanel.printPdfExport')}
                         </button>
                         <div className="border-t border-gray-100" />
                         <button
@@ -1757,7 +1810,7 @@ export function TopicContentPanel({
                           className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                         >
                           <span className="text-base">🔗</span>
-                          复制分享链接
+                          {t('topicResearch.contentPanel.copyShareLinkExport')}
                         </button>
                         {/* Delete option with divider */}
                         {onDeleteReport && (
@@ -1771,7 +1824,9 @@ export function TopicContentPanel({
                               className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
                             >
                               <TrashIcon className="h-4 w-4" />
-                              删除报告
+                              {t(
+                                'topicResearch.contentPanel.deleteReportButton'
+                              )}
                             </button>
                           </>
                         )}
@@ -1793,11 +1848,11 @@ export function TopicContentPanel({
                   <TrashIcon className="h-5 w-5 text-red-600" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  确认删除报告
+                  {t('topicResearch.contentPanel.confirmDeleteTitle')}
                 </h3>
               </div>
               <p className="mb-6 text-sm text-gray-600">
-                您确定要删除此报告吗？此操作将删除报告及其所有关联数据（维度分析、修订历史、批注等），且无法撤销。
+                {t('topicResearch.contentPanel.deleteConfirmMessage')}
               </p>
               <div className="flex justify-end gap-3">
                 <button
@@ -1805,7 +1860,7 @@ export function TopicContentPanel({
                   disabled={isDeleting}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
-                  取消
+                  {t('topicResearch.contentPanel.cancelButton')}
                 </button>
                 <button
                   onClick={handleDeleteReport}
@@ -1815,10 +1870,10 @@ export function TopicContentPanel({
                   {isDeleting ? (
                     <>
                       <SpinnerIcon className="h-4 w-4 animate-spin" />
-                      删除中...
+                      {t('topicResearch.contentPanel.deletingButton')}
                     </>
                   ) : (
-                    '确认删除'
+                    t('topicResearch.contentPanel.confirmDeleteButtonText')
                   )}
                 </button>
               </div>
@@ -1835,7 +1890,11 @@ export function TopicContentPanel({
               revisions={revisions}
               annotations={annotations}
               currentUserId={user?.id || 'anonymous'}
-              currentUserName={user?.username || user?.email || '匿名用户'}
+              currentUserName={
+                user?.username ||
+                user?.email ||
+                t('topicResearch.contentPanel.anonymousUser')
+              }
               isLoading={isLoadingReport}
               hideToolbar={true}
               sidePanelType={sidePanelType}
@@ -1919,7 +1978,10 @@ export function TopicContentPanel({
                       handleAnnotationAdd({
                         reportId: report?.id || '',
                         userId: user?.id || 'anonymous',
-                        userName: user?.username || user?.email || '匿名用户',
+                        userName:
+                          user?.username ||
+                          user?.email ||
+                          t('topicResearch.contentPanel.anonymousUser'),
                         selectedText: data.selectedText,
                         content: '',
                         startOffset: data.startOffset,
@@ -2034,7 +2096,7 @@ export function TopicContentPanel({
               <div className="border-t border-gray-200 bg-white px-4 py-1.5">
                 <div className="flex items-center justify-between text-xs text-gray-400">
                   <span>v{report?.version || 0}</span>
-                  <span>Ctrl+H 历史</span>
+                  <span>{t('topicResearch.contentPanel.ctrlHHistory')}</span>
                 </div>
               </div>
             </div>
@@ -2067,10 +2129,10 @@ export function TopicContentPanel({
                 <div className="flex h-64 flex-col items-center justify-center text-center">
                   <Shield className="mb-3 h-12 w-12 text-gray-300" />
                   <div className="mb-1 text-lg font-medium text-gray-900">
-                    暂无可信度报告
+                    {t('topicResearch.contentPanel.noCredibilityReport')}
                   </div>
                   <div className="text-sm text-gray-500">
-                    研究完成后将自动生成可信度评估报告
+                    {t('topicResearch.contentPanel.credibilityReportHint')}
                   </div>
                 </div>
               )}
@@ -2156,11 +2218,11 @@ export function TopicContentPanel({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-semibold text-gray-900">
-              重新生成报告
+              {t('topicResearch.contentPanel.regenerateReportTitle')}
             </h3>
             <div className="mt-3">
               <label className="text-sm text-gray-600">
-                优化方向（可选）：
+                {t('topicResearch.contentPanel.optimizationDirectionLabel')}
               </label>
               <textarea
                 autoFocus
@@ -2171,7 +2233,9 @@ export function TopicContentPanel({
                     doRegenerate(regenerateFeedback.trim());
                   }
                 }}
-                placeholder="例：减少重复内容、增加独立分析判断、精简产品推介..."
+                placeholder={t(
+                  'topicResearch.contentPanel.optimizationPlaceholder'
+                )}
                 className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
                 rows={3}
                 maxLength={500}
@@ -2182,13 +2246,13 @@ export function TopicContentPanel({
                 onClick={() => setShowRegenerateDialog(false)}
                 className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
               >
-                取消
+                {t('topicResearch.contentPanel.cancelButton')}
               </button>
               <button
                 onClick={() => doRegenerate(regenerateFeedback.trim())}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               >
-                重新生成
+                {t('topicResearch.contentPanel.regenerateButton')}
               </button>
             </div>
           </div>
@@ -2209,6 +2273,7 @@ interface CitationTooltipProps {
 }
 
 function CitationTooltip({ citationIndex, evidence }: CitationTooltipProps) {
+  const { t } = useI18n();
   const [isHovered, setIsHovered] = useState(false);
 
   // ★ 点击引用标记，跳转到参考文献面板
@@ -2230,7 +2295,7 @@ function CitationTooltip({ citationIndex, evidence }: CitationTooltipProps) {
       <sup
         onClick={handleClick}
         className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
-        title="点击跳转到参考文献"
+        title={t('topicResearch.contentPanel.clickToJumpToReferences')}
       >
         [{citationIndex}]
       </sup>
@@ -2249,7 +2314,8 @@ function CitationTooltip({ citationIndex, evidence }: CitationTooltipProps) {
             </span>
             <div className="min-w-0 flex-1">
               <h4 className="line-clamp-2 text-sm font-medium text-gray-900">
-                {evidence.title || '未知来源'}
+                {evidence.title ||
+                  t('topicResearch.contentPanel.unknownSource')}
               </h4>
               {evidence.domain && (
                 <span className="mt-0.5 inline-block text-xs text-gray-400">
@@ -2274,7 +2340,7 @@ function CitationTooltip({ citationIndex, evidence }: CitationTooltipProps) {
               onClick={handleClick}
               className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
             >
-              查看完整来源 →
+              {t('topicResearch.contentPanel.viewFullSource')}
             </button>
             {evidence.url && (
               <a
@@ -2284,7 +2350,7 @@ function CitationTooltip({ citationIndex, evidence }: CitationTooltipProps) {
                 className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
                 onClick={(e) => e.stopPropagation()}
               >
-                打开原文 ↗
+                {t('topicResearch.contentPanel.openOriginal')}
               </a>
             )}
           </div>
@@ -2437,6 +2503,7 @@ function ReportTabContent({
   evidence: TopicEvidence[];
   isLoading: boolean;
 }) {
+  const { t } = useI18n();
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -2451,7 +2518,7 @@ function ReportTabContent({
       result.push({
         id: 'summary',
         type: 'summary',
-        title: '核心摘要',
+        title: t('topicResearch.contentPanel.coreSummary'),
         summary:
           report.summary.slice(0, 100) +
           (report.summary.length > 100 ? '...' : ''),
@@ -2465,7 +2532,7 @@ function ReportTabContent({
     if (report.highlights && report.highlights.length > 0) {
       // 过滤掉占位符内容
       const validHighlights = report.highlights.filter(
-        (h) => h.content && !h.content.includes('请查看详细内容')
+        (h) => h.content && h.content.trim().length > 20
       );
       if (validHighlights.length > 0) {
         const highlightsContent = validHighlights
@@ -2474,8 +2541,8 @@ function ReportTabContent({
         result.push({
           id: 'highlights',
           type: 'highlights',
-          title: '关键发现',
-          summary: `${validHighlights.length} 个关键洞察`,
+          title: t('topicResearch.contentPanel.export.keyFindings'),
+          summary: `${validHighlights.length} ${t('topicResearch.contentPanel.keyInsights')}`,
           isCompleted: true,
           wordCount: countWords(highlightsContent),
           content: highlightsContent,
@@ -2486,19 +2553,21 @@ function ReportTabContent({
     // Dimension analysis sections
     if (report.dimensionAnalyses && report.dimensionAnalyses.length > 0) {
       report.dimensionAnalyses.forEach((analysis, idx) => {
-        const dimName = analysis.dimension?.name || `维度 ${idx + 1}`;
+        const dimName =
+          analysis.dimension?.name ||
+          t('topicResearch.contentPanel.dimensionNumber', { number: idx + 1 });
         let content = analysis.summary || '';
 
         if (analysis.keyFindings && analysis.keyFindings.length > 0) {
           content +=
-            '\n\n**关键发现:**\n' +
+            `\n\n**${t('topicResearch.contentPanel.export.keyFindings')}:**\n` +
             analysis.keyFindings
               .map((f, fIdx) => `${fIdx + 1}. ${f.finding}`)
               .join('\n');
         }
         if (analysis.trends && analysis.trends.length > 0) {
           content +=
-            '\n\n**趋势:**\n' +
+            `\n\n**${t('topicResearch.contentPanel.trends')}:**\n` +
             analysis.trends.map((t) => `- ${t.trend}`).join('\n');
         }
         if (analysis.detailedContent) {
@@ -2509,7 +2578,9 @@ function ReportTabContent({
           id: `dim-${idx}`,
           type: 'dimension',
           title: dimName,
-          summary: analysis.summary?.slice(0, 80) || '正在分析...',
+          summary:
+            analysis.summary?.slice(0, 80) ||
+            t('topicResearch.contentPanel.analyzing'),
           isCompleted: !!analysis.summary,
           wordCount: countWords(content),
           content,
@@ -2518,7 +2589,7 @@ function ReportTabContent({
     }
 
     return result;
-  }, [report]);
+  }, [report, t]);
 
   // Get selected section content
   const selectedContent = useMemo(() => {
@@ -2531,7 +2602,9 @@ function ReportTabContent({
       <div className="flex h-full items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <SpinnerIcon className="h-8 w-8 animate-spin text-blue-600" />
-          <p className="text-sm text-gray-500">加载报告中...</p>
+          <p className="text-sm text-gray-500">
+            {t('topicResearch.contentPanel.reportLoading')}
+          </p>
         </div>
       </div>
     );
@@ -2543,9 +2616,11 @@ function ReportTabContent({
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
           <DocumentIcon className="h-10 w-10 text-gray-400" />
         </div>
-        <h3 className="mt-4 text-lg font-medium text-gray-900">暂无研究报告</h3>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">
+          {t('topicResearch.contentPanel.noReportYet')}
+        </h3>
         <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
-          点击左侧"开始研究"按钮，AI 团队将自动收集资料、分析数据并生成专业报告
+          {t('topicResearch.contentPanel.clickToStartResearch')}
         </p>
       </div>
     );
@@ -2580,7 +2655,9 @@ function ReportTabContent({
               {selectedContent.title}
             </h3>
             <p className="text-xs text-gray-500">
-              {selectedContent.wordCount} 字
+              {t('topicResearch.contentPanel.wordCount', {
+                count: selectedContent.wordCount,
+              })}
             </p>
           </div>
         </div>
@@ -2645,11 +2722,15 @@ function ReportTabContent({
         <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
           <span className="flex items-center gap-1">
             <DocumentIcon className="h-4 w-4" />
-            {sections.length} 个章节
+            {t('topicResearch.contentPanel.sectionsCount', {
+              count: sections.length,
+            })}
           </span>
           <span className="flex items-center gap-1">
             <LinkIcon className="h-4 w-4" />
-            {report.totalSources || 0} 个来源
+            {t('topicResearch.contentPanel.sourcesCount', {
+              count: report.totalSources || 0,
+            })}
           </span>
           <ClientDate
             date={report.generatedAt}
@@ -2713,17 +2794,19 @@ function ReportTabContent({
                     }`}
                   >
                     {section.type === 'summary'
-                      ? '摘要'
+                      ? t('topicResearch.contentPanel.summaryLabel')
                       : section.type === 'highlights'
-                        ? '洞察'
-                        : '维度'}
+                        ? t('topicResearch.contentPanel.insightLabel')
+                        : t('topicResearch.contentPanel.dimension')}
                   </span>
                 </div>
                 <p className="mt-1 line-clamp-2 text-sm text-gray-500">
                   {section.summary}
                 </p>
                 <div className="mt-2 text-xs text-gray-400">
-                  {section.wordCount} 字
+                  {t('topicResearch.contentPanel.wordCount', {
+                    count: section.wordCount,
+                  })}
                 </div>
               </div>
 
@@ -2762,7 +2845,7 @@ function ReportTabContent({
                   d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                 />
               </svg>
-              数据可视化
+              {t('topicResearch.contentPanel.dataVisualization')}
             </h3>
             <div className="grid gap-4">
               {report.charts.map((chart, idx) => (
@@ -2810,79 +2893,96 @@ interface AgentDetailInfo {
 }
 
 // 研究团队 Agent 详情配置
-const RESEARCH_AGENT_DETAILS: Record<string, AgentDetailInfo> = {
-  leader: {
-    name: 'Research Leader',
-    role: '研究协调员',
-    description:
-      '负责理解研究任务、规划研究维度、分配研究员任务、协调团队协作。Leader 会分析专题需求，制定研究策略，并根据进度动态调整研究方向。',
-    skills: ['任务理解', '研究规划', '团队协调', '质量把控', '报告审核'],
-    tools: ['任务分解器', '研究规划器', '质量评估器'],
-    icon: '👑',
-    color: 'text-purple-700',
-    bgColor: 'bg-purple-100',
-    gradient: 'from-purple-400 to-purple-600',
-  },
-  researcher: {
-    name: 'Research Agent',
-    role: '研究员',
-    description:
-      '负责执行具体维度的研究任务，包括信息检索、数据分析、关键发现提取。研究员会使用多种数据源获取信息，并进行深度分析。',
-    skills: ['信息检索', '数据分析', '关键发现', '趋势识别', '证据收集'],
-    tools: ['网络搜索', '学术搜索', '数据分析器', 'PDF解析器'],
-    icon: '🔍',
-    color: 'text-blue-700',
-    bgColor: 'bg-blue-100',
-    gradient: 'from-blue-400 to-blue-600',
-  },
-  reviewer: {
-    name: 'Quality Reviewer',
-    role: '审核员',
-    description:
-      '负责审核研究结果的质量、准确性和一致性。审核员会检查数据来源可信度、论据逻辑性，并提出改进建议。',
-    skills: ['质量评估', '一致性检查', '准确性验证', '逻辑审核', '改进建议'],
-    tools: ['质量评估器', '事实核查器', '一致性分析器'],
-    icon: '✅',
-    color: 'text-green-700',
-    bgColor: 'bg-green-100',
-    gradient: 'from-green-400 to-green-600',
-  },
-  synthesizer: {
-    name: 'Report Synthesizer',
-    role: '撰写员',
-    description:
-      '负责整合各维度研究结果，撰写专业的研究报告。撰写员会组织内容结构、提炼核心观点、生成可读性强的研究报告。',
-    skills: ['内容整合', '报告撰写', '观点提炼', '结构组织', '可视化呈现'],
-    tools: ['报告生成器', '摘要提取器', '可视化工具'],
-    icon: '📊',
-    color: 'text-orange-700',
-    bgColor: 'bg-orange-100',
-    gradient: 'from-orange-400 to-orange-600',
-  },
-};
+function getResearchAgentDetails(
+  t: (key: string) => string
+): Record<string, AgentDetailInfo> {
+  return {
+    leader: {
+      name: 'Research Leader',
+      role: t('topicResearch.contentPanel.agents.leader.role'),
+      description: t('topicResearch.contentPanel.agents.leader.description'),
+      skills: t('topicResearch.contentPanel.agents.leader.skills').split(', '),
+      tools: t('topicResearch.contentPanel.agents.leader.tools').split(', '),
+      icon: '👑',
+      color: 'text-purple-700',
+      bgColor: 'bg-purple-100',
+      gradient: 'from-purple-400 to-purple-600',
+    },
+    researcher: {
+      name: 'Research Agent',
+      role: t('topicResearch.contentPanel.agents.researcher.role'),
+      description: t(
+        'topicResearch.contentPanel.agents.researcher.description'
+      ),
+      skills: t('topicResearch.contentPanel.agents.researcher.skills').split(
+        ', '
+      ),
+      tools: t('topicResearch.contentPanel.agents.researcher.tools').split(
+        ', '
+      ),
+      icon: '🔍',
+      color: 'text-blue-700',
+      bgColor: 'bg-blue-100',
+      gradient: 'from-blue-400 to-blue-600',
+    },
+    reviewer: {
+      name: 'Quality Reviewer',
+      role: t('topicResearch.contentPanel.agents.reviewer.role'),
+      description: t('topicResearch.contentPanel.agents.reviewer.description'),
+      skills: t('topicResearch.contentPanel.agents.reviewer.skills').split(
+        ', '
+      ),
+      tools: t('topicResearch.contentPanel.agents.reviewer.tools').split(', '),
+      icon: '✅',
+      color: 'text-green-700',
+      bgColor: 'bg-green-100',
+      gradient: 'from-green-400 to-green-600',
+    },
+    synthesizer: {
+      name: 'Report Synthesizer',
+      role: t('topicResearch.contentPanel.agents.synthesizer.role'),
+      description: t(
+        'topicResearch.contentPanel.agents.synthesizer.description'
+      ),
+      skills: t('topicResearch.contentPanel.agents.synthesizer.skills').split(
+        ', '
+      ),
+      tools: t('topicResearch.contentPanel.agents.synthesizer.tools').split(
+        ', '
+      ),
+      icon: '📊',
+      color: 'text-orange-700',
+      bgColor: 'bg-orange-100',
+      gradient: 'from-orange-400 to-orange-600',
+    },
+  };
+}
 
 // ★ 默认 Agent 详情（用于未知类型）
-const DEFAULT_AGENT_DETAILS: AgentDetailInfo = {
-  name: 'Agent',
-  role: '助手',
-  description: 'AI 研究助手',
-  skills: ['研究', '分析'],
-  tools: ['通用工具'],
-  icon: '🤖',
-  color: 'text-gray-700',
-  bgColor: 'bg-gray-100',
-  gradient: 'from-gray-400 to-gray-600',
-};
+function getDefaultAgentDetails(t: (key: string) => string): AgentDetailInfo {
+  return {
+    name: 'Agent',
+    role: t('topicResearch.contentPanel.agents.default.role'),
+    description: t('topicResearch.contentPanel.agents.default.description'),
+    skills: t('topicResearch.contentPanel.agents.default.skills').split(', '),
+    tools: t('topicResearch.contentPanel.agents.default.tools').split(', '),
+    icon: '🤖',
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-100',
+    gradient: 'from-gray-400 to-gray-600',
+  };
+}
 
 // ★ 安全获取 Agent 详情（大小写不敏感）
-function getAgentDetails(agentType: string): AgentDetailInfo {
-  if (!agentType) return DEFAULT_AGENT_DETAILS;
+function getAgentDetails(
+  agentType: string,
+  t: (key: string) => string
+): AgentDetailInfo {
+  const agentDetails = getResearchAgentDetails(t);
+  const defaultDetails = getDefaultAgentDetails(t);
+  if (!agentType) return defaultDetails;
   const key = agentType.toLowerCase();
-  return (
-    RESEARCH_AGENT_DETAILS[key] ||
-    RESEARCH_AGENT_DETAILS[agentType] ||
-    DEFAULT_AGENT_DETAILS
-  );
+  return agentDetails[key] || agentDetails[agentType] || defaultDetails;
 }
 
 /**
@@ -2903,6 +3003,7 @@ function ProgressOverview({
   messages: UIMessage[];
   missionStatus?: MissionStatus | null;
 }) {
+  const { t } = useI18n();
   // 维度标签折叠状态 - 默认折叠
   const [dimensionsCollapsed, setDimensionsCollapsed] = useState(true);
 
@@ -2979,9 +3080,14 @@ function ProgressOverview({
     <div className="rounded-lg border border-white/50 bg-white/60 p-3">
       {/* 标题行 + 进度条 */}
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-700">研究进度</span>
+        <span className="text-sm font-medium text-gray-700">
+          {t('topicResearch.contentPanel.researchProgressTitle')}
+        </span>
         <span className="text-sm text-gray-500">
-          {completedCount}/{totalCount} 维度完成
+          {t('topicResearch.contentPanel.dimensionsCompletedCount', {
+            completed: completedCount,
+            total: totalCount,
+          })}
         </span>
       </div>
 
@@ -3000,7 +3106,7 @@ function ProgressOverview({
           onClick={() => setDimensionsCollapsed(!dimensionsCollapsed)}
         >
           <div className="mb-1 flex items-center gap-1 text-xs text-gray-500">
-            <span>维度详情</span>
+            <span>{t('topicResearch.contentPanel.dimensionDetailsTitle')}</span>
             <svg
               className={`h-3 w-3 transition-transform ${dimensionsCollapsed ? '' : 'rotate-180'}`}
               fill="none"
@@ -3048,6 +3154,7 @@ function ProgressOverview({
 
 // Leader 规划卡片
 function LeaderPlanCard({ msg }: { msg: UIMessage }) {
+  const { t } = useI18n();
   const planData =
     msg.detail?.type === 'leader_plan'
       ? (msg.detail.data as Record<string, unknown>)
@@ -3060,7 +3167,9 @@ function LeaderPlanCard({ msg }: { msg: UIMessage }) {
     <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
       <div className="mb-3 flex items-center gap-2">
         <span className="text-lg">📋</span>
-        <span className="font-medium text-purple-800">研究规划完成</span>
+        <span className="font-medium text-purple-800">
+          {t('topicResearch.contentPanel.researchPlanComplete')}
+        </span>
       </div>
 
       {msg.content && !safeString(msg.content).includes('规划完成') && (
@@ -3072,7 +3181,7 @@ function LeaderPlanCard({ msg }: { msg: UIMessage }) {
       {dimensions.length > 0 && (
         <div className="space-y-2">
           <span className="text-xs font-medium text-purple-600">
-            研究维度：
+            {t('topicResearch.contentPanel.researchDimensions')}
           </span>
           <div className="flex flex-wrap gap-2">
             {dimensions.slice(0, 6).map((dim, idx) => (
@@ -3086,7 +3195,9 @@ function LeaderPlanCard({ msg }: { msg: UIMessage }) {
             ))}
             {dimensions.length > 6 && (
               <span className="text-xs text-purple-500">
-                +{dimensions.length - 6} 更多
+                {t('topicResearch.contentPanel.dimensionsMore', {
+                  count: dimensions.length - 6,
+                })}
               </span>
             )}
           </div>
@@ -3098,6 +3209,7 @@ function LeaderPlanCard({ msg }: { msg: UIMessage }) {
 
 // 研究完成卡片（带关键发现）
 function ResearchCompleteCard({ msg }: { msg: UIMessage }) {
+  const { t } = useI18n();
   const [showMore, setShowMore] = useState(false);
   const dimData =
     msg.detail?.type === 'dimension_content'
@@ -3111,7 +3223,9 @@ function ResearchCompleteCard({ msg }: { msg: UIMessage }) {
   const keyFindings = dimData?.keyFindings || [];
   const summary = dimData?.summary || '';
   const dimName =
-    (msg.agent || '').replace('研究员', '').trim() ||
+    (msg.agent || '')
+      .replace(t('topicResearch.contentPanel.researcherLabel'), '')
+      .trim() ||
     dimData?.dimensionName ||
     '';
 
@@ -3121,7 +3235,11 @@ function ResearchCompleteCard({ msg }: { msg: UIMessage }) {
         <div className="flex items-center gap-2">
           <span className="text-lg">✅</span>
           <span className="font-medium text-green-800">
-            {dimName ? `${dimName} 研究完成` : '研究完成'}
+            {dimName
+              ? t('topicResearch.contentPanel.researchCompletedFor', {
+                  dimension: dimName,
+                })
+              : t('topicResearch.contentPanel.researchCompletedDefault')}
           </span>
         </div>
         <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-600">
@@ -3134,7 +3252,9 @@ function ResearchCompleteCard({ msg }: { msg: UIMessage }) {
         <div className="mt-3">
           <div className="mb-2 flex items-center gap-1.5">
             <span className="text-sm">💡</span>
-            <span className="text-xs font-medium text-gray-600">关键发现</span>
+            <span className="text-xs font-medium text-gray-600">
+              {t('topicResearch.contentPanel.keyFindingsTitle')}
+            </span>
           </div>
           <ul className="space-y-1.5">
             {keyFindings
@@ -3158,7 +3278,11 @@ function ResearchCompleteCard({ msg }: { msg: UIMessage }) {
               onClick={() => setShowMore(!showMore)}
               className="mt-2 text-xs text-green-600 hover:text-green-700"
             >
-              {showMore ? '收起' : `展开全部 ${keyFindings.length} 条`}
+              {showMore
+                ? t('topicResearch.contentPanel.collapseAll')
+                : t('topicResearch.contentPanel.expandAllCount', {
+                    count: keyFindings.length,
+                  })}
             </button>
           )}
         </div>
@@ -3174,8 +3298,11 @@ function ResearchCompleteCard({ msg }: { msg: UIMessage }) {
 
 // 研究进行中卡片
 function ResearchProgressCard({ msg }: { msg: UIMessage }) {
+  const { t } = useI18n();
   const progress = msg.progress || 0;
-  const dimName = (msg.agent || '').replace('研究员', '').trim();
+  const dimName = (msg.agent || '')
+    .replace(t('topicResearch.contentPanel.researcherLabel'), '')
+    .trim();
 
   return (
     <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
@@ -3183,7 +3310,11 @@ function ResearchProgressCard({ msg }: { msg: UIMessage }) {
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
           <span className="text-sm text-blue-700">
-            {dimName ? `${dimName} 研究中...` : safeString(msg.content)}
+            {dimName
+              ? t('topicResearch.contentPanel.researchingDimension', {
+                  dimension: dimName,
+                })
+              : safeString(msg.content)}
           </span>
         </div>
         {progress > 0 && (
@@ -3204,6 +3335,7 @@ function ResearchProgressCard({ msg }: { msg: UIMessage }) {
 
 // 审核结果卡片
 function ReviewCard({ msg }: { msg: UIMessage }) {
+  const { t } = useI18n();
   // ★ 安全处理：确保 content 是字符串
   const safeContent = safeString(msg.content);
   const isPassed =
@@ -3222,7 +3354,10 @@ function ReviewCard({ msg }: { msg: UIMessage }) {
         <span
           className={`font-medium ${isPassed ? 'text-green-800' : 'text-yellow-800'}`}
         >
-          质量审核{isPassed ? '通过' : '需修订'}
+          {t('topicResearch.contentPanel.qualityReview')}
+          {isPassed
+            ? t('topicResearch.contentPanel.qualityReviewPassedLabel')
+            : t('topicResearch.contentPanel.needsRevisionLabel')}
         </span>
       </div>
       <p className="mt-2 text-sm text-gray-600">{safeContent}</p>
@@ -3232,6 +3367,7 @@ function ReviewCard({ msg }: { msg: UIMessage }) {
 
 // 报告完成卡片
 function ReportCard({ msg }: { msg: UIMessage }) {
+  const { t } = useI18n();
   const reportData =
     msg.detail?.type === 'report_preview'
       ? (msg.detail.data as { title?: string; summary?: string })
@@ -3241,7 +3377,9 @@ function ReportCard({ msg }: { msg: UIMessage }) {
     <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
       <div className="mb-2 flex items-center gap-2">
         <span className="text-lg">📊</span>
-        <span className="font-medium text-orange-800">研究报告撰写完成</span>
+        <span className="font-medium text-orange-800">
+          {t('topicResearch.contentPanel.reportWritingCompleted')}
+        </span>
       </div>
       {reportData?.title && (
         <p className="text-sm font-medium text-gray-800">{reportData.title}</p>
@@ -3252,7 +3390,7 @@ function ReportCard({ msg }: { msg: UIMessage }) {
         </p>
       )}
       <button className="mt-3 text-xs text-orange-600 hover:text-orange-700">
-        查看完整报告 →
+        {t('topicResearch.contentPanel.viewFullReport')}
       </button>
     </div>
   );
@@ -3260,6 +3398,7 @@ function ReportCard({ msg }: { msg: UIMessage }) {
 
 // 通用消息卡片
 function GenericMessageCard({ msg }: { msg: UIMessage }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   // ★ 安全处理：确保 content 是字符串
   const safeContent = safeString(msg.content);
@@ -3285,7 +3424,9 @@ function GenericMessageCard({ msg }: { msg: UIMessage }) {
           onClick={() => setExpanded(!expanded)}
           className="mt-2 text-xs text-gray-500 hover:text-gray-700"
         >
-          {expanded ? '收起' : '展开'}
+          {expanded
+            ? t('topicResearch.contentPanel.collapseAll')
+            : t('topicResearch.contentPanel.expandDetail')}
         </button>
       )}
     </div>
@@ -3330,6 +3471,7 @@ function TeamInteractionTabContent({
   }>;
   missionStatus?: MissionStatus | null;
 }) {
+  const { t } = useI18n();
   // ★ 使用 Array.isArray 确保是数组
   const safeEvents = Array.isArray(events) ? events : [];
   const safeWsEvents = Array.isArray(wsEvents) ? wsEvents : [];
@@ -3455,7 +3597,7 @@ function TeamInteractionTabContent({
       const eventType = wsEvent.type;
       const msgId = `ws-${idx}-${wsEvent.timestamp}`;
 
-      let agent = 'AI 团队';
+      let agent = t('topicResearch.contentPanel.aiTeam');
       let agentIcon = '📋';
       let agentColor = 'text-blue-700';
       let agentBgColor = 'bg-blue-100';
@@ -3487,10 +3629,15 @@ function TeamInteractionTabContent({
             detail = { type: 'text', data: thinking };
           }
         } else if (eventType === 'leader:planning') {
-          content = safeString(data.message) || 'Leader 正在规划研究维度...';
+          content =
+            safeString(data.message) ||
+            t('topicResearch.contentPanel.leaderPlanning');
         } else if (eventType === 'leader:plan_ready') {
           const plan = data.plan as Record<string, unknown>;
-          content = `Leader 规划完成：${(plan?.dimensions as unknown[])?.length || 0} 个研究维度`;
+          content = t(
+            'topicResearch.contentPanel.leaderPlanReadyWithDimensions',
+            { count: (plan?.dimensions as unknown[])?.length || 0 }
+          );
           // ★ 添加规划详情
           if (plan) {
             detail = { type: 'leader_plan', data: plan };
@@ -3531,30 +3678,38 @@ function TeamInteractionTabContent({
         content =
           safeString(data.message) ||
           safeString(data.status) ||
-          `${agent} 工作中`;
+          t('topicResearch.contentPanel.agentWorking', { agent });
       } else if (eventType.startsWith('task:')) {
         agentIcon = '📋';
         agentBgColor = 'bg-gray-100';
         agentColor = 'text-gray-700';
         msgType = 'progress';
         progress = (data.progress as number) || 0;
-        content = safeString(data.message) || `任务 ${eventType.split(':')[1]}`;
+        content =
+          safeString(data.message) ||
+          t('topicResearch.contentPanel.taskLabel') +
+            ' ' +
+            eventType.split(':')[1];
       } else if (eventType.startsWith('dimension:')) {
         const dimName = (data.dimensionName as string) || '';
         // 使用维度名称作为研究员标识，避免所有研究员都显示相同名称
-        agent = dimName ? `${dimName}研究员` : '研究员';
+        agent = dimName
+          ? `${dimName}${t('topicResearch.contentPanel.researcherLabel')}`
+          : t('topicResearch.contentPanel.researcherLabel');
         agentIcon = '🔍';
         agentColor = 'text-blue-700';
         agentBgColor = 'bg-blue-100';
         agentType = 'researcher';
         msgType = 'agent';
         if (eventType === 'dimension:research_started') {
-          content = `开始研究...`;
+          content = t('topicResearch.contentPanel.startResearchingDot');
         } else if (eventType === 'dimension:research_progress') {
           progress = (data.progress as number) || 0;
-          content = `研究进度 ${progress}%`;
+          content = t('topicResearch.contentPanel.researchProgressPercent', {
+            progress,
+          });
         } else if (eventType === 'dimension:research_completed') {
-          content = `研究完成`;
+          content = t('topicResearch.contentPanel.researchCompletedDefault');
           // ★ 添加研究结果预览
           const summary = (data.summary as string) || '';
           const keyFindings = (data.keyFindings as string[]) || [];
@@ -3568,7 +3723,7 @@ function TeamInteractionTabContent({
           content = safeString(data.message) || eventType;
         }
       } else if (eventType.startsWith('report:')) {
-        agent = '撰写员';
+        agent = t('topicResearch.contentPanel.writerAgent');
         agentIcon = '📊';
         agentColor = 'text-orange-700';
         agentBgColor = 'bg-orange-100';
@@ -3576,9 +3731,11 @@ function TeamInteractionTabContent({
         msgType = 'agent';
 
         if (eventType === 'report:synthesis_started') {
-          content = '开始撰写研究报告...';
+          content = t('topicResearch.contentPanel.startWritingResearchReport');
         } else if (eventType === 'report:synthesis_completed') {
-          content = '研究报告撰写完成';
+          content = t(
+            'topicResearch.contentPanel.researchReportWritingComplete'
+          );
           // ★ 添加报告预览
           const reportTitle = safeString(data.title) || '';
           const summary = safeString(data.summary) || '';
@@ -3599,7 +3756,11 @@ function TeamInteractionTabContent({
         agentType = 'leader';
         msgType = 'system';
         progress = data.progress as number;
-        content = safeString(data.message) || `任务 ${eventType.split(':')[1]}`;
+        content =
+          safeString(data.message) ||
+          t('topicResearch.contentPanel.taskLabel') +
+            ' ' +
+            eventType.split(':')[1];
       } else {
         content =
           safeString(data.message) ||
@@ -3783,19 +3944,19 @@ function TeamInteractionTabContent({
     },
     researcher: {
       icon: '🔍',
-      label: '研究员',
+      label: t('topicResearch.contentPanel.agentLabels.researcher'),
       color: 'text-blue-700',
       bgColor: 'bg-blue-100',
     },
     reviewer: {
       icon: '✅',
-      label: '审核员',
+      label: t('topicResearch.contentPanel.agentLabels.reviewer'),
       color: 'text-green-700',
       bgColor: 'bg-green-100',
     },
     synthesizer: {
       icon: '📊',
-      label: '撰写员',
+      label: t('topicResearch.contentPanel.agentLabels.synthesizer'),
       color: 'text-orange-700',
       bgColor: 'bg-orange-100',
     },
@@ -3820,11 +3981,31 @@ function TeamInteractionTabContent({
     ResearchEvent['eventType'],
     { icon: string; label: string; color: string }
   > = {
-    start: { icon: '▶️', label: '开始', color: 'text-blue-600' },
-    progress: { icon: '⏳', label: '进行中', color: 'text-gray-600' },
-    complete: { icon: '✅', label: '完成', color: 'text-green-600' },
-    error: { icon: '❌', label: '错误', color: 'text-red-600' },
-    decision: { icon: '🎯', label: '决策', color: 'text-purple-600' },
+    start: {
+      icon: '▶️',
+      label: t('topicResearch.contentPanel.status.start'),
+      color: 'text-blue-600',
+    },
+    progress: {
+      icon: '⏳',
+      label: t('common.inProgress'),
+      color: 'text-gray-600',
+    },
+    complete: {
+      icon: '✅',
+      label: t('common.completed'),
+      color: 'text-green-600',
+    },
+    error: {
+      icon: '❌',
+      label: t('common.error'),
+      color: 'text-red-600',
+    },
+    decision: {
+      icon: '🎯',
+      label: t('topicResearch.contentPanel.decision'),
+      color: 'text-purple-600',
+    },
   };
 
   // Render Leader plan section if available
@@ -3838,17 +4019,23 @@ function TeamInteractionTabContent({
           <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
             <div className="mb-2 flex items-center gap-2">
               <span className="text-lg">👑</span>
-              <h4 className="font-medium text-purple-800">Leader 任务理解</h4>
+              <h4 className="font-medium text-purple-800">
+                {t('topicResearch.contentPanel.taskUnderstanding')}
+              </h4>
             </div>
             <div className="space-y-2 text-sm">
               <div>
-                <span className="font-medium text-purple-700">研究主题：</span>
+                <span className="font-medium text-purple-700">
+                  {t('topicResearch.contentPanel.topic')}
+                </span>
                 <span className="text-purple-600">
                   {leaderPlan.taskUnderstanding.topic}
                 </span>
               </div>
               <div>
-                <span className="font-medium text-purple-700">研究范围：</span>
+                <span className="font-medium text-purple-700">
+                  {t('topicResearch.contentPanel.scope')}
+                </span>
                 <span className="text-purple-600">
                   {leaderPlan.taskUnderstanding.scope}
                 </span>
@@ -3857,7 +4044,7 @@ function TeamInteractionTabContent({
                 leaderPlan.taskUnderstanding.objectives.length > 0 && (
                   <div>
                     <span className="font-medium text-purple-700">
-                      研究目标：
+                      {t('topicResearch.contentPanel.objectives')}
                     </span>
                     <ul className="ml-4 mt-1 list-disc text-purple-600">
                       {leaderPlan.taskUnderstanding.objectives.map(
@@ -3877,7 +4064,9 @@ function TeamInteractionTabContent({
           <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
             <div className="mb-2 flex items-center gap-2">
               <span className="text-lg">🎯</span>
-              <h4 className="font-medium text-indigo-800">研究策略</h4>
+              <h4 className="font-medium text-indigo-800">
+                {t('topicResearch.contentPanel.executionStrategy')}
+              </h4>
             </div>
             <p className="text-sm text-indigo-600">
               {leaderPlan.researchStrategy}
@@ -3891,7 +4080,9 @@ function TeamInteractionTabContent({
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
               <div className="mb-3 flex items-center gap-2">
                 <span className="text-lg">📋</span>
-                <h4 className="font-medium text-blue-800">Agent 任务分配</h4>
+                <h4 className="font-medium text-blue-800">
+                  {t('topicResearch.contentPanel.agentAssignment')}
+                </h4>
               </div>
               <div className="space-y-2">
                 {leaderPlan.agentAssignments.map((assignment, idx) => (
@@ -3937,9 +4128,11 @@ function TeamInteractionTabContent({
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100">
           <TeamIcon className="h-10 w-10 text-blue-500" />
         </div>
-        <h3 className="mt-4 text-lg font-medium text-gray-900">等待研究开始</h3>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">
+          {t('topicResearch.contentPanel.waitForResearchStart')}
+        </h3>
         <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
-          研究过程中，AI 团队的协作动态将实时展示在此处
+          {t('topicResearch.contentPanel.teamCollaborationHint')}
         </p>
         {/* Connection status */}
         <div className="mt-4 flex items-center gap-2">
@@ -3947,7 +4140,9 @@ function TeamInteractionTabContent({
             className={`h-2 w-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-gray-300'}`}
           />
           <span className="text-xs text-gray-400">
-            {wsConnected ? '实时连接已建立' : '等待连接...'}
+            {wsConnected
+              ? t('topicResearch.contentPanel.realTimeConnected')
+              : t('topicResearch.contentPanel.waitingForConnectionLabel')}
           </span>
         </div>
         <div className="mt-6 w-full max-w-md space-y-3">
@@ -3955,9 +4150,11 @@ function TeamInteractionTabContent({
             <div className="flex items-center gap-3">
               <span className="text-2xl">👑</span>
               <div>
-                <div className="font-medium text-gray-900">Leader 协调</div>
+                <div className="font-medium text-gray-900">
+                  {t('topicResearch.contentPanel.leaderCoordination')}
+                </div>
                 <p className="text-xs text-gray-500">
-                  分析任务、规划维度、分配研究员
+                  {t('topicResearch.contentPanel.analyzeTasksAndPlan')}
                 </p>
               </div>
             </div>
@@ -3966,9 +4163,11 @@ function TeamInteractionTabContent({
             <div className="flex items-center gap-3">
               <span className="text-2xl">🔍</span>
               <div>
-                <div className="font-medium text-gray-900">研究员执行</div>
+                <div className="font-medium text-gray-900">
+                  {t('topicResearch.contentPanel.researchersExecute')}
+                </div>
                 <p className="text-xs text-gray-500">
-                  搜索资料、分析数据、整理发现
+                  {t('topicResearch.contentPanel.searchAndAnalyze')}
                 </p>
               </div>
             </div>
@@ -3977,9 +4176,13 @@ function TeamInteractionTabContent({
             <div className="flex items-center gap-3">
               <span className="text-2xl">✅</span>
               <div>
-                <div className="font-medium text-gray-900">审核与撰写</div>
+                <div className="font-medium text-gray-900">
+                  {t('topicResearch.contentPanel.reviewAndWrite')}
+                </div>
                 <p className="text-xs text-gray-500">
-                  质量审核、报告撰写、最终交付
+                  {t(
+                    'topicResearch.contentPanel.qualityReviewReportingAndDelivery'
+                  )}
                 </p>
               </div>
             </div>
@@ -4001,12 +4204,16 @@ function TeamInteractionTabContent({
                 className={`h-2 w-2 rounded-full ${wsConnected ? 'animate-pulse bg-green-500' : 'bg-gray-300'}`}
               />
               <span className="text-xs text-gray-600">
-                {wsConnected ? '实时更新中' : '未连接'}
+                {wsConnected
+                  ? t('topicResearch.contentPanel.realTimeUpdateActive')
+                  : t('topicResearch.contentPanel.notConnected')}
               </span>
             </div>
             {uiMessages.length > 0 && (
               <span className="text-xs text-gray-500">
-                {uiMessages.length} 条消息
+                {t('topicResearch.contentPanel.messagesCount', {
+                  count: uiMessages.length,
+                })}
               </span>
             )}
           </div>
@@ -4015,7 +4222,7 @@ function TeamInteractionTabContent({
               onClick={onClearEvents}
               className="text-xs text-gray-400 hover:text-gray-600"
             >
-              清除消息
+              {t('topicResearch.contentPanel.clearMessages')}
             </button>
           )}
         </div>
@@ -4024,7 +4231,7 @@ function TeamInteractionTabContent({
         <div className="relative mb-2">
           <input
             type="text"
-            placeholder="搜索消息内容..."
+            placeholder={t('topicResearch.contentPanel.searchMessageContent')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-4 text-sm text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -4079,14 +4286,14 @@ function TeamInteractionTabContent({
               }`}
             >
               {f === 'all'
-                ? '全部'
+                ? t('topicResearch.contentPanel.all')
                 : f === 'leader'
                   ? 'Leader'
                   : f === 'researcher'
-                    ? '研究员'
+                    ? t('topicResearch.contentPanel.researcherLabel')
                     : f === 'reviewer'
-                      ? '审核员'
-                      : '撰写员'}
+                      ? t('topicResearch.contentPanel.reviewerLabel')
+                      : t('topicResearch.contentPanel.writerAgent')}
             </button>
           ))}
           {availableDimensions.length > 0 && (
@@ -4097,7 +4304,9 @@ function TeamInteractionTabContent({
                 onChange={(e) => setDimensionFilter(e.target.value)}
                 className="rounded-lg border border-gray-200 bg-white px-2 py-0.5 text-xs text-gray-700 focus:border-blue-500 focus:outline-none"
               >
-                <option value="all">全部维度</option>
+                <option value="all">
+                  {t('topicResearch.contentPanel.allDimensions')}
+                </option>
                 {availableDimensions.map((dim) => (
                   <option key={dim} value={dim}>
                     {dim}
@@ -4112,11 +4321,15 @@ function TeamInteractionTabContent({
         {(searchQuery || filter !== 'all' || dimensionFilter !== 'all') && (
           <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
             <span>
-              找到 {filteredMessages.length} 条
+              {t('topicResearch.contentPanel.foundCount', {
+                count: filteredMessages.length,
+              })}
               {uiMessages.length !== filteredMessages.length && (
                 <span className="text-gray-400">
                   {' '}
-                  (共 {uiMessages.length} 条)
+                  {t('topicResearch.contentPanel.totalCount', {
+                    count: uiMessages.length,
+                  })}
                 </span>
               )}
             </span>
@@ -4128,7 +4341,7 @@ function TeamInteractionTabContent({
               }}
               className="text-blue-500 hover:text-blue-700"
             >
-              清除
+              {t('topicResearch.contentPanel.clear')}
             </button>
           </div>
         )}
@@ -4147,7 +4360,9 @@ function TeamInteractionTabContent({
           onClick={() => setMessagesCollapsed(!messagesCollapsed)}
         >
           <span className="text-sm font-medium text-gray-600">
-            协作消息 ({filteredMessages.length})
+            {t('topicResearch.contentPanel.collaborationMessages', {
+              count: filteredMessages.length,
+            })}
           </span>
           <svg
             className={`h-4 w-4 text-gray-500 transition-transform ${messagesCollapsed ? '' : 'rotate-180'}`}
@@ -4204,11 +4419,11 @@ function TeamInteractionTabContent({
                       className={`absolute left-[13px] top-1 h-3.5 w-3.5 rounded-full border-2 border-white shadow-sm ${getNodeColor()}`}
                       title={
                         msg.status === 'error'
-                          ? '失败'
+                          ? t('common.failed')
                           : msg.status === 'success'
-                            ? '成功'
+                            ? t('common.success')
                             : msg.status === 'in_progress'
-                              ? '进行中'
+                              ? t('common.inProgress')
                               : ''
                       }
                     />
@@ -4235,7 +4450,7 @@ function TeamInteractionTabContent({
                           {/* ★ 失败状态标签 */}
                           {msg.status === 'error' && (
                             <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                              失败
+                              {t('common.failed')}
                             </span>
                           )}
                         </div>
@@ -4278,7 +4493,7 @@ function TeamInteractionTabContent({
                     <button
                       onClick={() => setSelectedAgent(event.agentType)}
                       className={`absolute left-1 flex h-7 w-7 items-center justify-center rounded-full text-sm ${agent.bgColor} cursor-pointer transition-transform hover:scale-110`}
-                      title="点击查看详情"
+                      title={t('topicResearch.contentPanel.clickToViewDetails')}
                     >
                       {agent.icon}
                     </button>
@@ -4301,7 +4516,9 @@ function TeamInteractionTabContent({
                           <button
                             onClick={() => setSelectedAgent(event.agentType)}
                             className={`rounded px-1.5 py-0.5 text-xs font-medium ${agent.bgColor} ${agent.color} hover:opacity-80`}
-                            title="点击查看详情"
+                            title={t(
+                              'topicResearch.contentPanel.clickToViewDetails'
+                            )}
                           >
                             {event.agentName || agent.label}
                           </button>
@@ -4338,7 +4555,7 @@ function TeamInteractionTabContent({
       {/* Agent Details Modal - ★ 使用安全访问器 */}
       {selectedAgent &&
         (() => {
-          const details = getAgentDetails(selectedAgent);
+          const details = getAgentDetails(selectedAgent, t);
           return (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -4470,6 +4687,7 @@ function AgentThinkingTabContent({
   const [collapsedAgents, setCollapsedAgents] = useState<Set<string>>(
     new Set()
   );
+  const { t } = useI18n();
   // 展开状态：单条记录详情
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   // ★ 使用 Array.isArray 确保是数组
@@ -4554,7 +4772,9 @@ function AgentThinkingTabContent({
           agentType: 'leader',
           eventType: 'planning',
           phase: 'planning',
-          content: safeString(data.message) || '正在规划研究任务...',
+          content:
+            safeString(data.message) ||
+            t('topicResearch.contentPanel.ws.planning'),
           progress: data.progress as number,
           timestamp: new Date(e.timestamp),
         });
@@ -4566,7 +4786,11 @@ function AgentThinkingTabContent({
           agentType: 'researcher',
           eventType: 'start',
           phase: 'researching',
-          content: `开始研究: ${safeString(data.dimensionName) || '维度研究'}`,
+          content: t('topicResearch.contentPanel.ws.startResearch', {
+            dimension:
+              safeString(data.dimensionName) ||
+              t('topicResearch.contentPanel.ws.dimensionResearch'),
+          }),
           dimensionName: safeString(data.dimensionName),
           agentName: safeString(data.agentName),
           timestamp: new Date(e.timestamp),
@@ -4577,7 +4801,9 @@ function AgentThinkingTabContent({
           agentType: 'researcher',
           eventType: 'progress',
           phase: safeString(data.phase) || 'researching',
-          content: safeString(data.message) || '研究进行中...',
+          content:
+            safeString(data.message) ||
+            t('topicResearch.contentPanel.ws.researching'),
           progress: data.progress as number,
           dimensionName: safeString(data.dimensionName),
           agentName: safeString(data.agentName),
@@ -4589,7 +4815,11 @@ function AgentThinkingTabContent({
           agentType: 'researcher',
           eventType: 'complete',
           phase: 'completed',
-          content: `完成研究: ${safeString(data.dimensionName) || '维度研究'}`,
+          content: t('topicResearch.contentPanel.ws.completeResearch', {
+            dimension:
+              safeString(data.dimensionName) ||
+              t('topicResearch.contentPanel.ws.dimensionResearch'),
+          }),
           dimensionName: safeString(data.dimensionName),
           agentName: safeString(data.agentName),
           timestamp: new Date(e.timestamp),
@@ -4620,7 +4850,7 @@ function AgentThinkingTabContent({
           agentType: 'synthesizer',
           eventType: 'start',
           phase: 'synthesizing',
-          content: '开始撰写研究报告...',
+          content: t('topicResearch.contentPanel.ws.startReport'),
           timestamp: new Date(e.timestamp),
         });
       } else if (e.type === 'report:synthesis_progress') {
@@ -4629,7 +4859,9 @@ function AgentThinkingTabContent({
           agentType: 'synthesizer',
           eventType: 'progress',
           phase: safeString(data.phase) || 'synthesizing',
-          content: safeString(data.message) || '报告撰写中...',
+          content:
+            safeString(data.message) ||
+            t('topicResearch.contentPanel.ws.writingReport'),
           progress: data.progress as number,
           timestamp: new Date(e.timestamp),
         });
@@ -4639,7 +4871,7 @@ function AgentThinkingTabContent({
           agentType: 'synthesizer',
           eventType: 'complete',
           phase: 'completed',
-          content: '研究报告撰写完成',
+          content: t('topicResearch.contentPanel.ws.reportComplete'),
           timestamp: new Date(e.timestamp),
         });
       }
@@ -4656,7 +4888,9 @@ function AgentThinkingTabContent({
           eventType: 'progress',
           phase: safeString(data.status) || 'executing',
           content:
-            safeString(data.message) || safeString(data.title) || '任务执行中',
+            safeString(data.message) ||
+            safeString(data.title) ||
+            t('topicResearch.contentPanel.ws.taskRunning'),
           progress: data.progress as number,
           dimensionName: safeString(data.dimensionName),
           timestamp: new Date(e.timestamp),
@@ -4684,7 +4918,7 @@ function AgentThinkingTabContent({
     activities.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
     return activities;
-  }, [safeWsEvents, safePersistedActivities]);
+  }, [safeWsEvents, safePersistedActivities, t]);
 
   // 按 Agent 类型分组活动（★ 大小写不敏感）
   const activitiesByAgent = useMemo(() => {
@@ -4714,7 +4948,9 @@ function AgentThinkingTabContent({
     const grouped: Record<string, typeof agentActivities> = {};
 
     activitiesByAgent.researcher.forEach((activity) => {
-      const dimKey = activity.dimensionName || '未知维度';
+      const dimKey =
+        activity.dimensionName ||
+        t('topicResearch.contentPanel.unknownDimension');
       if (!grouped[dimKey]) {
         grouped[dimKey] = [];
       }
@@ -4723,7 +4959,7 @@ function AgentThinkingTabContent({
 
     // 按维度名称排序
     return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b));
-  }, [activitiesByAgent.researcher]);
+  }, [activitiesByAgent.researcher, t]);
 
   // Agent 类型配置
   const agentConfig: Record<
@@ -4736,40 +4972,43 @@ function AgentThinkingTabContent({
       borderColor: string;
       headerBg: string;
     }
-  > = {
-    leader: {
-      icon: '👑',
-      label: 'Leader 决策',
-      color: 'text-purple-700',
-      bgColor: 'bg-purple-50',
-      borderColor: 'border-purple-200',
-      headerBg: 'bg-purple-100',
-    },
-    researcher: {
-      icon: '🔍',
-      label: '研究员',
-      color: 'text-blue-700',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
-      headerBg: 'bg-blue-100',
-    },
-    reviewer: {
-      icon: '✅',
-      label: '审核员',
-      color: 'text-green-700',
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-200',
-      headerBg: 'bg-green-100',
-    },
-    synthesizer: {
-      icon: '📝',
-      label: '撰写员',
-      color: 'text-orange-700',
-      bgColor: 'bg-orange-50',
-      borderColor: 'border-orange-200',
-      headerBg: 'bg-orange-100',
-    },
-  };
+  > = useMemo(
+    () => ({
+      leader: {
+        icon: '👑',
+        label: 'Leader 决策',
+        color: 'text-purple-700',
+        bgColor: 'bg-purple-50',
+        borderColor: 'border-purple-200',
+        headerBg: 'bg-purple-100',
+      },
+      researcher: {
+        icon: '🔍',
+        label: t('topicResearch.contentPanel.agentLabels.researcher'),
+        color: 'text-blue-700',
+        bgColor: 'bg-blue-50',
+        borderColor: 'border-blue-200',
+        headerBg: 'bg-blue-100',
+      },
+      reviewer: {
+        icon: '✅',
+        label: t('topicResearch.contentPanel.agentLabels.reviewer'),
+        color: 'text-green-700',
+        bgColor: 'bg-green-50',
+        borderColor: 'border-green-200',
+        headerBg: 'bg-green-100',
+      },
+      synthesizer: {
+        icon: '📝',
+        label: t('topicResearch.contentPanel.agentLabels.synthesizer'),
+        color: 'text-orange-700',
+        bgColor: 'bg-orange-50',
+        borderColor: 'border-orange-200',
+        headerBg: 'bg-orange-100',
+      },
+    }),
+    [t]
+  );
 
   // ★ 默认 Agent 配置（用于 ThinkingTabContent）
   const defaultThinkingAgentConfig = {
@@ -5024,7 +5263,9 @@ function AgentThinkingTabContent({
           const variant = colorVariants[dimIndex % colorVariants.length];
           const dimConfig = {
             icon: '🔍',
-            label: `研究员 · ${dimensionName}`,
+            label: t('topicResearch.contentPanel.researcherDimension', {
+              dimension: dimensionName,
+            }),
             ...variant,
           };
 
@@ -5242,6 +5483,7 @@ function ActivityItem({
     };
   };
 }) {
+  const { t } = useI18n();
   const eventTypeColors: Record<string, string> = {
     start: 'bg-green-100 text-green-700',
     progress: 'bg-blue-100 text-blue-700',
@@ -5278,15 +5520,15 @@ function ActivityItem({
                   }`}
                 >
                   {activity.reviewResult.qualityLevel === 'excellent'
-                    ? '优秀'
+                    ? t('topicResearch.contentPanel.excellent')
                     : activity.reviewResult.qualityLevel === 'good'
-                      ? '良好'
+                      ? t('topicResearch.contentPanel.good')
                       : activity.reviewResult.qualityLevel === 'acceptable'
-                        ? '合格'
+                        ? t('topicResearch.contentPanel.qualified')
                         : activity.reviewResult.qualityLevel ===
                             'needs_revision'
-                          ? '需修订'
-                          : '不通过'}
+                          ? t('topicResearch.contentPanel.needsRevision')
+                          : t('topicResearch.contentPanel.fail')}
                 </span>
                 <span className="text-xs font-semibold text-gray-700">
                   {activity.reviewResult.overallScore}分
@@ -5299,15 +5541,15 @@ function ActivityItem({
                   ([key, val]) => (
                     <span key={key}>
                       {key === 'breadth'
-                        ? '广度'
+                        ? t('topicResearch.contentPanel.breadth')
                         : key === 'depth'
-                          ? '深度'
+                          ? t('topicResearch.contentPanel.depth')
                           : key === 'evidence'
-                            ? '证据'
+                            ? t('topicResearch.contentPanel.evidence')
                             : key === 'coherence'
-                              ? '连贯'
+                              ? t('topicResearch.contentPanel.coherence')
                               : key === 'currency'
-                                ? '时效'
+                                ? t('topicResearch.contentPanel.timeliness')
                                 : key}
                       : {val as number}
                     </span>
@@ -5381,6 +5623,7 @@ function EvidenceTabContent({
   autoExpandId?: string | null;
   onAutoExpandHandled?: () => void;
 }) {
+  const { t } = useI18n();
   // ★ 使用 Array.isArray 确保是数组
   const safeEvidence = Array.isArray(evidence) ? evidence : [];
   const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>(
@@ -5438,7 +5681,9 @@ function EvidenceTabContent({
 
     // 遍历每个维度分析，查找引用
     report.dimensionAnalyses.forEach((analysis) => {
-      const dimName = dimensionNameMap.get(analysis.dimensionId) || '未知维度';
+      const dimName =
+        dimensionNameMap.get(analysis.dimensionId) ||
+        t('topicResearch.contentPanel.unknownDimension');
       const content =
         (analysis.detailedContent || '') + (analysis.summary || '');
 
@@ -5690,13 +5935,19 @@ function EvidenceTabContent({
                       citationLocations.get(item.id)!.length > 0 && (
                         <div className="flex flex-wrap items-center gap-1.5 border-t border-gray-100 px-4 py-3">
                           <span className="text-xs text-gray-500">
-                            被引用于:
+                            {t('topicResearch.contentPanel.citedIn')}
                           </span>
                           {citationLocations.get(item.id)!.map((loc, idx) => (
                             <span
                               key={idx}
                               className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600"
-                              title={`在"${loc.dimensionName}"中被引用${loc.count}次`}
+                              title={t(
+                                'topicResearch.contentPanel.citedInDimension',
+                                {
+                                  dimension: loc.dimensionName,
+                                  count: loc.count,
+                                }
+                              )}
                             >
                               {loc.dimensionName}
                               {loc.count > 1 && (
@@ -5713,7 +5964,8 @@ function EvidenceTabContent({
                     <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
                       <div className="flex items-center gap-3 text-xs text-gray-400">
                         <span className="rounded bg-gray-100 px-1.5 py-0.5">
-                          {item.sourceType || '网页'}
+                          {item.sourceType ||
+                            t('topicResearch.contentPanel.webpage')}
                         </span>
                         {item.publishedAt && (
                           <ClientDate date={item.publishedAt} format="date" />
@@ -5739,7 +5991,8 @@ function EvidenceTabContent({
                   <div className="flex items-center justify-between border-t border-gray-100 px-4 py-2">
                     <div className="flex items-center gap-2 text-xs text-gray-400">
                       <span className="rounded bg-gray-100 px-1.5 py-0.5">
-                        {item.sourceType || '网页'}
+                        {item.sourceType ||
+                          t('topicResearch.contentPanel.webpage')}
                       </span>
                       {citationLocations.get(item.id) &&
                         citationLocations.get(item.id)!.length > 0 && (

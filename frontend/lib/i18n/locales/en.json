@@ -702,6 +702,153 @@
       "copy": {
         "copied": "Copied",
         "copy": "Copy"
+      },
+      "commandPalette": {
+        "trend": {
+          "title": "/trend Trend Report",
+          "description": "Generate technology trend analysis report"
+        },
+        "compare": {
+          "title": "/compare Tech Comparison",
+          "description": "Compare two tech solutions (e.g., /compare React vs Vue)"
+        },
+        "summary": {
+          "title": "/summary Generate Summary",
+          "description": "Generate structured summary for selected resources"
+        },
+        "ppt": {
+          "title": "/ppt Generate Presentation",
+          "description": "Generate PPT based on resources"
+        },
+        "graph": {
+          "title": "/graph Knowledge Graph",
+          "description": "Visualize topic knowledge graph"
+        },
+        "insights": {
+          "title": "/insights Deep Insights",
+          "description": "Extract key insights and findings"
+        },
+        "hypeCycle": {
+          "title": "Hype Cycle Chart",
+          "description": "View technology maturity curve"
+        },
+        "researchPlan": {
+          "title": "Research Plan",
+          "description": "View and manage research plan progress"
+        },
+        "quickInsights": {
+          "title": "Quick Insights",
+          "description": "Get core insights of current topic with one click"
+        },
+        "categories": {
+          "action": "Actions",
+          "navigation": "Navigation",
+          "search": "Search",
+          "recent": "Recent"
+        },
+        "inputPlaceholder": "Type command or search...",
+        "noResults": "No matching commands found",
+        "tryCommands": "Try typing /trend, /compare, etc.",
+        "navigate": "Navigate",
+        "select": "Select",
+        "openCommand": "K to open"
+      },
+      "researchPlan": {
+        "title": "Research Plan",
+        "progress": "Research Progress",
+        "estimated": "Estimated",
+        "seconds": "{{count}}s",
+        "minutes": "{{count}}m",
+        "hours": "{{count}}h {{min}}m",
+        "status": {
+          "waiting": "Waiting",
+          "running": "Running",
+          "completed": "Completed",
+          "error": "Error"
+        },
+        "overallProgress": "Overall Progress",
+        "progress_label": "Progress",
+        "percent": "{{progress}}%",
+        "foundResults": "Found {{count}} results",
+        "executionFailed": "Execution failed",
+        "steps": {
+          "search": "Data Collection",
+          "searchDesc": "Search related materials from multiple data sources",
+          "collect": "Content Extraction",
+          "collectDesc": "Extract and parse document content",
+          "analyze": "Deep Analysis",
+          "analyzeDesc": "AI analyzes content and extracts key information",
+          "trend": "Trend Analysis",
+          "trendDesc": "Identify technology trends and development directions",
+          "synthesize": "Insight Generation",
+          "synthesizeDesc": "Comprehensive analysis to generate deep insights",
+          "report": "Report Output",
+          "reportDesc": "Generate structured research report",
+          "substeps": {
+            "arxiv": "arXiv Papers",
+            "github": "GitHub Projects",
+            "news": "Tech News",
+            "entities": "Entity Recognition",
+            "relations": "Relation Extraction",
+            "sentiment": "Sentiment Analysis"
+          }
+        }
+      },
+      "trendReport": {
+        "direction": {
+          "rising": "Rising",
+          "stable": "Stable",
+          "declining": "Declining"
+        },
+        "maturity": {
+          "innovationTrigger": "Innovation Trigger",
+          "peakOfExpectations": "Peak of Expectations",
+          "troughOfDisillusionment": "Trough of Disillusionment",
+          "slopeOfEnlightenment": "Slope of Enlightenment",
+          "plateauOfProductivity": "Plateau of Productivity"
+        },
+        "momentum": "Momentum",
+        "adoptionRate": "Adoption",
+        "relatedTech": "Related Technologies",
+        "keyPlayers": "Key Players",
+        "dataSources": "{{count}} data sources",
+        "confidence": "Confidence {{percent}}%",
+        "executiveSummary": "Executive Summary",
+        "emergingTech": "Emerging Technologies",
+        "hotTrends": "Hot Trends",
+        "decliningTrends": "Declining Trends",
+        "viewHypeCycle": "View Hype Cycle Chart"
+      },
+      "citations": {
+        "jumpToSource": "Jump to citation [{{index}}]",
+        "viewFullSource": "Click to view full source",
+        "preview": "Preview",
+        "source": "Source {{index}}",
+        "confidence": {
+          "high": "High Confidence",
+          "medium": "Medium Confidence",
+          "low": "Low Confidence"
+        },
+        "verified": "Verified",
+        "quality": "Citation Quality",
+        "groundedPercent": "{{percent}}% grounded",
+        "verifiedSources": "{{verified}}/{{total}} sources verified",
+        "noCitations": "No citations available",
+        "paragraph": "Paragraph #{{index}}",
+        "viewSource": "View Source"
+      },
+      "comparison": {
+        "totalScore": "Total Score",
+        "mentions": "{{count}} mentions"
+      },
+      "knowledgeGraph": {
+        "searchNodes": "Search nodes...",
+        "allTypes": "All types"
+      },
+      "hypeCycle": {
+        "zoom": "Zoom",
+        "legend": "Legend",
+        "expectedMaturity": "Expected maturity"
       }
     }
   },
@@ -3094,7 +3241,88 @@
         "loading": "Loading revision history...",
         "noHistory": "No revision history",
         "noHistoryHint": "Version records will appear here after report changes"
-      }
+      },
+      "coreSummary": "Core Summary",
+      "keyInsights": "key insights",
+      "dimensionNumber": "Dimension {{number}}",
+      "analyzing": "Analyzing...",
+      "clickToStartResearch": "Click the 'Start Research' button on the left, and the AI team will automatically collect materials, analyze data, and generate professional reports",
+      "summaryLabel": "Summary",
+      "insightLabel": "Insight",
+      "researcherLabel": "Researcher",
+      "researchCompleted": "Research Completed",
+      "researchCompletedDimension": "{{dimension}} Research Completed",
+      "collapseButton": "Collapse",
+      "expandAllButton": "Expand All {{count}} Items",
+      "researchingDot": "Researching...",
+      "researchingDimensionDot": "{{dimension}} Researching...",
+      "qualityReviewLabel": "Quality Review",
+      "passed": "Passed",
+      "needsRevisionShort": "Needs Revision",
+      "taskLabel": "Task",
+      "startResearchingDot": "Starting research...",
+      "researchProgressPercent": "Research Progress {{progress}}%",
+      "writerAgent": "Writer",
+      "startWritingResearchReport": "Starting to write research report...",
+      "researchReportWritingComplete": "Research report writing completed",
+      "dimensionResearcher": "{{dimension}} Researcher",
+      "researcher": "Researcher",
+      "techTrendResearcher": "Tech Trend Researcher",
+      "planningComplete": "Planning Complete",
+      "researchInProgressDot": "Researching",
+      "progressLabel": "Progress",
+      "reviewLabel": "Review",
+      "writerLabel": "Writer",
+      "allLabel": "All",
+      "reviewerLabel": "Reviewer",
+      "failedLabel": "Failed",
+      "successLabel": "Success",
+      "inProgressLabel": "In Progress",
+      "waitingLabel": "Waiting",
+      "clickToViewDetail": "Click to view details",
+      "planningResearchTasks": "Planning research tasks...",
+      "startResearchDimension": "Start research: {{dimension}}",
+      "dimensionResearch": "Dimension Research",
+      "researchInProgress": "Research in progress...",
+      "completeResearchDimension": "Complete research: {{dimension}}",
+      "reportWritingInProgress": "Report writing in progress...",
+      "taskInProgress": "Task in progress",
+      "unknownDimensionLabel": "Unknown Dimension",
+      "excellentLabel": "Excellent",
+      "goodLabel": "Good",
+      "qualifiedLabel": "Qualified",
+      "failLabel": "Failed",
+      "breadthLabel": "Breadth",
+      "depthLabel": "Depth",
+      "evidenceLabel": "Evidence",
+      "coherenceLabel": "Coherence",
+      "timelinessLabel": "Timeliness",
+      "citedInDimensionCount": "Cited {{count}} times in \"{{dimensionName}}\"",
+      "dataVisualization": "Data Visualization",
+      "aiTeam": "AI Team",
+      "leaderPlanning": "Leader is planning research dimensions...",
+      "leaderPlanReadyWithDimensions": "Leader planning complete: {{count}} research dimensions",
+      "agentWorking": "{{agent}} working",
+      "taskLabel": "Task",
+      "startResearchingDot": "Starting research...",
+      "researchProgressPercent": "Research Progress {{progress}}%",
+      "writerAgent": "Writer",
+      "startWritingResearchReport": "Starting to write research report...",
+      "researchReportWritingComplete": "Research report writing completed",
+      "teamCollaborationHint": "During the research process, the AI team's collaboration dynamics will be displayed here in real-time",
+      "realTimeConnected": "Real-time connection established",
+      "waitingForConnectionLabel": "Waiting for connection...",
+      "leaderCoordination": "Leader Coordination",
+      "analyzeTasksAndPlan": "Analyze tasks, plan dimensions, assign researchers",
+      "researchersExecute": "Researchers Execute",
+      "searchAndAnalyze": "Search materials, analyze data, organize findings",
+      "reviewAndWrite": "Review and Write",
+      "qualityReviewReportingAndDelivery": "Quality review, report writing, final delivery",
+      "realTimeUpdateActive": "Real-time updates active",
+      "notConnected": "Not connected",
+      "messagesCount": "{{count}} messages",
+      "clearMessages": "Clear messages",
+      "searchMessageContent": "Search message content..."
     },
     "credibility": {
       "title": "Source Credibility Analysis",
@@ -3118,6 +3346,62 @@
       "researcher": "Researcher",
       "reviewer": "Reviewer",
       "synthesizer": "Synthesizer"
+    },
+    "contentPanel": {
+      "agents": {
+        "leader": {
+          "role": "Research Coordinator",
+          "description": "Responsible for understanding research tasks, planning research dimensions, assigning tasks to researchers, and coordinating team collaboration. The Leader analyzes topic requirements, develops research strategies, and dynamically adjusts research directions based on progress.",
+          "skills": "Task Understanding, Research Planning, Team Coordination, Quality Control, Report Review",
+          "tools": "Task Decomposer, Research Planner, Quality Assessor"
+        },
+        "researcher": {
+          "role": "Researcher",
+          "description": "Responsible for executing specific dimension research tasks, including information retrieval, data analysis, and key findings extraction. Researchers use multiple data sources to gather information and conduct in-depth analysis.",
+          "skills": "Information Retrieval, Data Analysis, Key Findings, Trend Identification, Evidence Collection",
+          "tools": "Web Search, Academic Search, Data Analyzer, PDF Parser"
+        },
+        "reviewer": {
+          "role": "Reviewer",
+          "description": "Responsible for reviewing the quality, accuracy, and consistency of research results. Reviewers check the credibility of data sources, logical validity of arguments, and provide improvement suggestions.",
+          "skills": "Quality Assessment, Consistency Check, Accuracy Verification, Logic Review, Improvement Suggestions",
+          "tools": "Quality Assessor, Fact Checker, Consistency Analyzer"
+        },
+        "synthesizer": {
+          "role": "Writer",
+          "description": "Responsible for integrating research results from all dimensions and writing professional research reports. Writers organize content structure, refine core perspectives, and generate highly readable research reports.",
+          "skills": "Content Integration, Report Writing, Perspective Refinement, Structure Organization, Visualization",
+          "tools": "Report Generator, Summary Extractor, Visualization Tool"
+        },
+        "default": {
+          "role": "Assistant",
+          "description": "AI Research Assistant",
+          "skills": "Research, Analysis",
+          "tools": "General Tools"
+        }
+      },
+      "agentLabels": {
+        "researcher": "Researcher",
+        "reviewer": "Reviewer",
+        "synthesizer": "Writer"
+      },
+      "status": {
+        "start": "Start"
+      },
+      "ws": {
+        "planning": "Planning research tasks...",
+        "startResearch": "Start research: {{dimension}}",
+        "researching": "Research in progress...",
+        "completeResearch": "Complete research: {{dimension}}",
+        "startReport": "Starting to write research report...",
+        "writingReport": "Report writing in progress...",
+        "reportComplete": "Research report writing completed",
+        "taskRunning": "Task in progress",
+        "dimensionResearch": "Dimension Research"
+      },
+      "researcherDimension": "Researcher · {{dimension}}",
+      "citedInDimension": "Cited {{count}} times in \"{{dimension}}\"",
+      "webpage": "Web Page"
     },
     "phases": {
       "understanding": "Understanding Phase",
@@ -3143,7 +3427,119 @@
       "allDimensions": "All Tasks",
       "noMessages": "No collaboration messages",
       "uncategorized": "Uncategorized",
-      "otherActivities": "Other Activities"
+      "otherActivities": "Other Activities",
+      "panel": {
+        "taskList": "Task List",
+        "conversation": "Conversation with Leader",
+        "noTasks": "No tasks yet",
+        "noConversation": "No conversation yet",
+        "inputPrompt": "Enter research instructions to chat with Leader...",
+        "inputPlaceholder": "Enter research instructions, e.g., research policy environment in depth...",
+        "pleaseStartResearch": "Please start research first",
+        "thinking": "Leader is thinking...",
+        "you": "You",
+        "leader": "Leader",
+        "taskCreated": "Task created:",
+        "viewTask": "View →",
+        "errorProcessing": "Sorry, encountered a problem processing your request: {{error}}",
+        "unknownError": "Unknown error",
+        "decisionTypes": {
+          "directAnswer": "Direct Answer",
+          "createTodo": "Create Task",
+          "clarify": "Need Clarification",
+          "acknowledge": "Acknowledged"
+        },
+        "progressBar": {
+          "percent": "{{percent}}%",
+          "inProgress": "In progress {{count}}"
+        }
+      },
+      "timeline": {
+        "title": "Research History Timeline",
+        "filterAll": "All",
+        "filterCurrent": "Current",
+        "filterPrevious": "History",
+        "totalResearch": "{{count}} researches total",
+        "successCount": "{{count}} succeeded",
+        "researchSession": "Research Session {{number}}",
+        "status": {
+          "completed": "Completed",
+          "failed": "Failed",
+          "cancelled": "Cancelled",
+          "inProgress": "In Progress",
+          "unknown": "Unknown"
+        },
+        "duration": "Duration: {{duration}}",
+        "reportVersion": "Report Version: v{{version}}",
+        "versionChange": "v{{from}} → v{{to}}",
+        "dimensionsUpdated": "Updated {{count}} dimensions",
+        "newSources": "{{count}} new sources",
+        "interactions": "{{count}} interactions",
+        "leaderPlan": "Leader Research Plan",
+        "researchGoal": "Research Goal",
+        "researchStrategy": "Research Strategy",
+        "dimensionProgress": "Dimension Research Progress",
+        "dimensionsUpdatedCount": "({{count}} dimensions updated)",
+        "teamInteraction": "Team Interaction",
+        "messages": "{{count}} messages",
+        "outcome": "Research Outcome",
+        "updatedDimensions": "Updated Dimensions",
+        "keptDimensions": "Kept Dimensions",
+        "wordChange": "Word Change",
+        "newSourcesCount": "New Sources",
+        "viewDetails": "View Details",
+        "collapseDetails": "Collapse Details",
+        "viewReport": "View Report v{{version}}",
+        "compareVersions": "Compare Versions",
+        "loading": "Loading research history...",
+        "noHistory": "No research history",
+        "noHistoryHint": "History will appear here after research starts",
+        "phaseLabels": {
+          "understanding": "Understanding",
+          "searching": "Searching",
+          "writing": "Writing",
+          "reviewing": "Reviewing",
+          "integrating": "Integrating"
+        },
+        "thinkingPhases": {
+          "title": "Detailed Research Process:",
+          "noProcess": "No detailed research process recorded"
+        },
+        "searchResults": {
+          "found": "Found {{total}} results",
+          "filtered": ", filtered {{filtered}} results",
+          "query": "Query: \"{{query}}\"",
+          "avgAge": "Average {{days}} days ago",
+          "newest": "Newest:",
+          "moreSources": "...{{count}} more sources"
+        },
+        "writingProgress": {
+          "sections": "Wrote {{count}} sections",
+          "revisions": "(revised {{count}} times)"
+        },
+        "summary": {
+          "keyInsight": "Key Insight",
+          "sourcesFound": "Found {{count}} sources",
+          "filtered": ", filtered {{filtered}}",
+          "avgFreshness": "Average {{days}} days ago",
+          "citations": "{{count}} citations",
+          "sectionsWritten": "Wrote {{count}} sections"
+        },
+        "dimensionResult": {
+          "completed": "Completed",
+          "keyFindings": "{{count}} key findings",
+          "sources": "{{count}} sources",
+          "summary": "Summary:",
+          "findingsTitle": "Key Findings:",
+          "moreFindings": "...{{count}} more findings",
+          "unknownFinding": "Unknown finding"
+        },
+        "formatDuration": {
+          "seconds": "{{count}}s",
+          "minutes": "{{count}}m",
+          "hours": "{{count}}h{{min}}m"
+        }
+      }
     },
     "maximize": "Fullscreen",
     "exitMaximize": "Exit Fullscreen",

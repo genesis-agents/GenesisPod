@@ -13,6 +13,7 @@
  */
 
 import { useMemo } from 'react';
+import { useI18n } from '@/lib/i18n';
 import type { ReportChange } from '../annotations/ChangeHighlighter';
 
 interface ChangeSummaryPanelProps {
@@ -112,6 +113,8 @@ export function ChangeSummaryPanel({
   onCheckinAll,
   onJumpTo,
 }: ChangeSummaryPanelProps) {
+  const { t } = useI18n();
+
   // ★ 安全处理：确保 changes 是数组
   const safeChanges = Array.isArray(changes) ? changes : [];
 
@@ -154,11 +157,11 @@ export function ChangeSummaryPanel({
   const getChangeLabel = (changeType: 'ADDED' | 'MODIFIED' | 'DELETED') => {
     switch (changeType) {
       case 'ADDED':
-        return '新增内容';
+        return t('topicResearch.reportPanels.changeSummary.added');
       case 'MODIFIED':
-        return '修改内容';
+        return t('topicResearch.reportPanels.changeSummary.modified');
       case 'DELETED':
-        return '删除内容';
+        return t('topicResearch.reportPanels.changeSummary.deleted');
     }
   };
 
@@ -167,7 +170,7 @@ export function ChangeSummaryPanel({
       <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <CheckAllIcon className="h-5 w-5" />
-          <span>没有待确认的变更</span>
+          <span>{t('topicResearch.reportPanels.changeSummary.noChanges')}</span>
         </div>
       </div>
     );
@@ -179,14 +182,18 @@ export function ChangeSummaryPanel({
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="text-lg">📊</span>
-          <h3 className="text-sm font-semibold text-gray-900">本次更新摘要</h3>
+          <h3 className="text-sm font-semibold text-gray-900">
+            {t('topicResearch.reportPanels.changeSummary.title')}
+          </h3>
         </div>
         <button
           onClick={onCheckinAll}
           className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
         >
           <CheckAllIcon className="h-4 w-4" />
-          <span>全部 Checkin</span>
+          <span>
+            {t('topicResearch.reportPanels.changeSummary.checkinAll')}
+          </span>
         </button>
       </div>
 
@@ -194,13 +201,19 @@ export function ChangeSummaryPanel({
       <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
         <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-1.5">
-            <span className="font-medium text-gray-700">总变更:</span>
+            <span className="font-medium text-gray-700">
+              {t('topicResearch.reportPanels.changeSummary.totalChanges')}:
+            </span>
             <span className="font-semibold text-gray-900">
-              {activeChanges.length} 处
+              {t('topicResearch.reportPanels.changeSummary.changesCount', {
+                count: activeChanges.length,
+              })}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="font-medium text-gray-700">字数变化:</span>
+            <span className="font-medium text-gray-700">
+              {t('topicResearch.reportPanels.changeSummary.wordsDiff')}:
+            </span>
             <span
               className={`font-semibold ${
                 totalWordsDiff > 0
@@ -250,7 +263,9 @@ export function ChangeSummaryPanel({
                     onClick={() => onJumpTo(change.id)}
                     className="ml-auto flex items-center gap-1 rounded bg-white px-2 py-1 text-xs font-medium text-green-600 opacity-0 shadow-sm transition-all hover:bg-green-50 group-hover:opacity-100"
                   >
-                    <span>跳转</span>
+                    <span>
+                      {t('topicResearch.reportPanels.changeSummary.jumpTo')}
+                    </span>
                     <ArrowRightIcon className="h-3 w-3" />
                   </button>
                 </li>
@@ -290,7 +305,9 @@ export function ChangeSummaryPanel({
                     onClick={() => onJumpTo(change.id)}
                     className="ml-auto flex items-center gap-1 rounded bg-white px-2 py-1 text-xs font-medium text-yellow-600 opacity-0 shadow-sm transition-all hover:bg-yellow-50 group-hover:opacity-100"
                   >
-                    <span>跳转</span>
+                    <span>
+                      {t('topicResearch.reportPanels.changeSummary.jumpTo')}
+                    </span>
                     <ArrowRightIcon className="h-3 w-3" />
                   </button>
                 </li>
@@ -330,7 +347,9 @@ export function ChangeSummaryPanel({
                     onClick={() => onJumpTo(change.id)}
                     className="ml-auto flex items-center gap-1 rounded bg-white px-2 py-1 text-xs font-medium text-red-600 opacity-0 shadow-sm transition-all hover:bg-red-50 group-hover:opacity-100"
                   >
-                    <span>跳转</span>
+                    <span>
+                      {t('topicResearch.reportPanels.changeSummary.jumpTo')}
+                    </span>
                     <ArrowRightIcon className="h-3 w-3" />
                   </button>
                 </li>

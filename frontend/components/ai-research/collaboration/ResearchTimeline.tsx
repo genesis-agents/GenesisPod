@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { ClientDate } from '@/components/common/ClientDate';
+import { useI18n } from '@/lib/i18n';
 
 import { logger } from '@/lib/utils/logger';
 // ==================== Types ====================
@@ -135,96 +136,11 @@ function getExtendedActivity(activity: AgentActivity): ExtendedAgentActivity {
   };
 }
 
-// formatDate removed - use ClientDate component directly for i18n support
+// formatDuration: moved to component level to use i18n
 
-function formatDuration(ms: number): string {
-  if (ms < 60000) return `${Math.round(ms / 1000)}秒`;
-  if (ms < 3600000) return `${Math.floor(ms / 60000)}分钟`;
-  return `${Math.floor(ms / 3600000)}小时${Math.floor((ms % 3600000) / 60000)}分钟`;
-}
+// Status config: moved to component level to use i18n for labels
 
-const statusConfig: Record<
-  ResearchStatus,
-  {
-    icon: React.ElementType;
-    label: string;
-    color: string;
-    borderColor: string;
-  }
-> = {
-  COMPLETED: {
-    icon: CheckCircle,
-    label: '已完成',
-    color: 'text-green-600 dark:text-green-400',
-    borderColor: 'border-green-300 dark:border-green-700',
-  },
-  FAILED: {
-    icon: XCircle,
-    label: '失败',
-    color: 'text-red-600 dark:text-red-400',
-    borderColor: 'border-red-300 dark:border-red-700',
-  },
-  CANCELLED: {
-    icon: AlertTriangle,
-    label: '已取消',
-    color: 'text-yellow-600 dark:text-yellow-400',
-    borderColor: 'border-yellow-300 dark:border-yellow-700',
-  },
-  IN_PROGRESS: {
-    icon: Clock,
-    label: '进行中',
-    color: 'text-blue-600 dark:text-blue-400',
-    borderColor: 'border-blue-300 dark:border-blue-700 shadow-md',
-  },
-};
-
-// ★ 默认状态配置
-const defaultStatusConfig = {
-  icon: AlertTriangle,
-  label: '未知',
-  color: 'text-gray-600 dark:text-gray-400',
-  borderColor: 'border-gray-300 dark:border-gray-700',
-};
-
-// ★ 安全获取状态配置
-function getStatusConfig(status: string) {
-  return statusConfig[status as ResearchStatus] || defaultStatusConfig;
-}
-
-const phaseConfig: Record<
-  ThinkingPhase,
-  {
-    icon: React.ElementType;
-    label: string;
-    color: string;
-  }
-> = {
-  understanding: {
-    icon: Brain,
-    label: '理解',
-    color: 'text-purple-600 dark:text-purple-400',
-  },
-  searching: {
-    icon: Search,
-    label: '搜索',
-    color: 'text-blue-600 dark:text-blue-400',
-  },
-  writing: {
-    icon: FileText,
-    label: '撰写',
-    color: 'text-green-600 dark:text-green-400',
-  },
-  reviewing: {
-    icon: CheckCircle,
-    label: '审核',
-    color: 'text-yellow-600 dark:text-yellow-400',
-  },
-  integrating: {
-    icon: Layers,
-    label: '整合',
-    color: 'text-indigo-600 dark:text-indigo-400',
-  },
-};
+// Phase config: moved to component level to use i18n for labels
 
 // ==================== Sub Components ====================
 
@@ -256,15 +172,26 @@ function hasMeaningfulContent(activity: ExtendedAgentActivity): boolean {
  */
 function ThinkingPhasesTimeline({
   activities,
+  t,
+  formatDuration,
+  phaseConfig,
 }: {
   activities: ExtendedAgentActivity[];
+  t: (key: string, params?: Record<string, any>) => string;
+  formatDuration: (ms: number) => string;
+  phaseConfig: Record<
+    ThinkingPhase,
+    { icon: React.ElementType; label: string; color: string }
+  >;
 }) {
   // ★ 过滤出有有意义内容的活动
   const meaningfulActivities = activities.filter(hasMeaningfulContent);
 
   if (meaningfulActivities.length === 0) {
     return (
-      <div className="text-xs italic text-gray-400">暂无详细研究过程记录</div>
+      <div className="text-xs italic text-gray-400">
+        {t('topicResearch.collaboration.timeline.thinkingPhases.noProcess')}
+      </div>
     );
   }
 
@@ -295,7 +222,10 @@ function ThinkingPhasesTimeline({
                 <div className="flex items-center gap-1">
                   <Icon className={cn('h-3 w-3', phaseInfo?.color)} />
                   <span className="font-medium text-gray-900 dark:text-white">
-                    {phaseInfo?.label || '研究'}
+                    {phaseInfo?.label ||
+                      t(
+                        'topicResearch.collaboration.timeline.phaseLabels.searching'
+                      )}
                   </span>
                 </div>
                 {activity.durationMs && (
@@ -319,11 +249,21 @@ function ThinkingPhasesTimeline({
                   <div className="flex flex-wrap items-center gap-2 text-gray-500">
                     <Database className="h-3 w-3" />
                     <span>
-                      检索 {activity.searchResults.total} 条
+                      {t(
+                        'topicResearch.collaboration.timeline.searchResults.found',
+                        {
+                          total: activity.searchResults.total,
+                        }
+                      )}
                       {activity.searchResults.filtered > 0 &&
                         activity.searchResults.filtered <
                           activity.searchResults.total &&
-                        `，筛选 ${activity.searchResults.filtered} 条`}
+                        t(
+                          'topicResearch.collaboration.timeline.searchResults.filtered',
+                          {
+                            filtered: activity.searchResults.filtered,
+                          }
+                        )}
                     </span>
                     {activity.searchResults.searchTool && (
                       <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300">
@@ -335,7 +275,12 @@ function ThinkingPhasesTimeline({
                   {/* 搜索查询 */}
                   {activity.searchResults.query && (
                     <div className="truncate text-xs italic text-gray-400">
-                      查询: &quot;{activity.searchResults.query}&quot;
+                      {t(
+                        'topicResearch.collaboration.timeline.searchResults.query',
+                        {
+                          query: activity.searchResults.query,
+                        }
+                      )}
                     </div>
                   )}
 
@@ -346,9 +291,13 @@ function ThinkingPhasesTimeline({
                       {activity.searchResults.freshnessInfo.avgAgeInDays !==
                         undefined && (
                         <span>
-                          平均
-                          {activity.searchResults.freshnessInfo.avgAgeInDays}
-                          天前
+                          {t(
+                            'topicResearch.collaboration.timeline.searchResults.avgAge',
+                            {
+                              days: activity.searchResults.freshnessInfo
+                                .avgAgeInDays,
+                            }
+                          )}
                         </span>
                       )}
                       {activity.searchResults.freshnessInfo.newestDate &&
@@ -360,7 +309,10 @@ function ThinkingPhasesTimeline({
                             if (!isNaN(d.getTime())) {
                               return (
                                 <span className="text-green-600 dark:text-green-400">
-                                  最新: <ClientDate date={d} format="date" />
+                                  {t(
+                                    'topicResearch.collaboration.timeline.searchResults.newest'
+                                  )}{' '}
+                                  <ClientDate date={d} format="date" />
                                 </span>
                               );
                             }
@@ -394,8 +346,13 @@ function ThinkingPhasesTimeline({
                           ))}
                         {activity.searchResults.sources.length > 3 && (
                           <div className="text-xs text-gray-400">
-                            ...还有 {activity.searchResults.sources.length - 3}{' '}
-                            条来源
+                            {t(
+                              'topicResearch.collaboration.timeline.searchResults.moreSources',
+                              {
+                                count:
+                                  activity.searchResults.sources.length - 3,
+                              }
+                            )}
                           </div>
                         )}
                       </div>
@@ -426,7 +383,12 @@ function ThinkingPhasesTimeline({
                         <span>{section.title}</span>
                         {section.revisions > 0 && (
                           <span className="text-gray-400">
-                            (修订{section.revisions}次)
+                            {t(
+                              'topicResearch.collaboration.timeline.writingProgress.revisions',
+                              {
+                                count: section.revisions,
+                              }
+                            )}
                           </span>
                         )}
                       </div>
@@ -526,10 +488,19 @@ function ResearcherCard({
   dimensionName,
   activities,
   citations,
+  t,
+  formatDuration,
+  phaseConfig,
 }: {
   dimensionName: string;
   activities: ExtendedAgentActivity[];
   citations: number;
+  t: (key: string, params?: Record<string, any>) => string;
+  formatDuration: (ms: number) => string;
+  phaseConfig: Record<
+    ThinkingPhase,
+    { icon: React.ElementType; label: string; color: string }
+  >;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -599,10 +570,12 @@ function ResearcherCard({
               )}
             >
               {status === 'completed'
-                ? '已完成'
+                ? t(
+                    'topicResearch.collaboration.timeline.dimensionResult.completed'
+                  )
                 : status === 'failed'
-                  ? '失败'
-                  : '研究中'}
+                  ? t('topicResearch.collaboration.timeline.status.failed')
+                  : t('topicResearch.collaboration.timeline.status.inProgress')}
             </span>
           </div>
 
@@ -611,11 +584,21 @@ function ResearcherCard({
             {summary.sourcesFound > 0 && (
               <span className="flex items-center gap-0.5">
                 <Database className="h-3 w-3" />
-                找到 {summary.sourcesFound} 条资料
+                {t(
+                  'topicResearch.collaboration.timeline.summary.sourcesFound',
+                  {
+                    count: summary.sourcesFound,
+                  }
+                )}
                 {summary.sourcesFiltered > 0 &&
                   summary.sourcesFiltered < summary.sourcesFound && (
                     <span className="text-gray-400">
-                      ，筛选 {summary.sourcesFiltered} 条
+                      {t(
+                        'topicResearch.collaboration.timeline.summary.filtered',
+                        {
+                          filtered: summary.sourcesFiltered,
+                        }
+                      )}
                     </span>
                   )}
               </span>
@@ -640,19 +623,31 @@ function ResearcherCard({
                 )}
               >
                 <Clock className="h-3 w-3" />
-                平均 {summary.avgFreshness} 天前
+                {t(
+                  'topicResearch.collaboration.timeline.summary.avgFreshness',
+                  {
+                    days: summary.avgFreshness,
+                  }
+                )}
               </span>
             )}
             {citations > 0 && (
               <span className="flex items-center gap-0.5">
                 <Award className="h-3 w-3" />
-                {citations} 条引用
+                {t('topicResearch.collaboration.timeline.summary.citations', {
+                  count: citations,
+                })}
               </span>
             )}
             {summary.sectionsWritten > 0 && (
               <span className="flex items-center gap-0.5">
                 <FileText className="h-3 w-3" />
-                撰写 {summary.sectionsWritten} 个章节
+                {t(
+                  'topicResearch.collaboration.timeline.summary.sectionsWritten',
+                  {
+                    count: summary.sectionsWritten,
+                  }
+                )}
               </span>
             )}
             {totalDuration > 0 && (
@@ -685,8 +680,15 @@ function ResearcherCard({
       {/* 展开：详细过程（默认隐藏，仅供需要查看技术细节的用户） */}
       {isExpanded && activities.length > 0 && (
         <div className="border-t border-gray-100 p-2.5 dark:border-gray-700">
-          <div className="mb-2 text-xs text-gray-400">详细研究过程：</div>
-          <ThinkingPhasesTimeline activities={activities} />
+          <div className="mb-2 text-xs text-gray-400">
+            {t('topicResearch.collaboration.timeline.thinkingPhases.title')}
+          </div>
+          <ThinkingPhasesTimeline
+            activities={activities}
+            t={t}
+            formatDuration={formatDuration}
+            phaseConfig={phaseConfig}
+          />
         </div>
       )}
     </div>
@@ -699,9 +701,11 @@ function ResearcherCard({
 function LeaderPlanSection({
   goal,
   strategy,
+  t,
 }: {
   goal?: string;
   strategy?: string;
+  t: (key: string, params?: Record<string, any>) => string;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -715,7 +719,7 @@ function LeaderPlanSection({
       >
         <Target className="h-4 w-4 text-orange-600 dark:text-orange-400" />
         <span className="font-medium text-orange-900 dark:text-orange-200">
-          Leader 研究规划
+          {t('topicResearch.collaboration.timeline.leaderPlan')}
         </span>
         {isExpanded ? (
           <ChevronDown className="ml-auto h-4 w-4 text-orange-600" />
@@ -729,7 +733,7 @@ function LeaderPlanSection({
           {goal && (
             <div>
               <div className="mb-1 text-xs font-medium text-orange-700 dark:text-orange-400">
-                研究目标
+                {t('topicResearch.collaboration.timeline.researchGoal')}
               </div>
               <div className="text-gray-700 dark:text-gray-300">{goal}</div>
             </div>
@@ -737,7 +741,7 @@ function LeaderPlanSection({
           {strategy && (
             <div>
               <div className="mb-1 text-xs font-medium text-orange-700 dark:text-orange-400">
-                研究策略
+                {t('topicResearch.collaboration.timeline.researchStrategy')}
               </div>
               <div className="text-gray-700 dark:text-gray-300">{strategy}</div>
             </div>
@@ -751,7 +755,13 @@ function LeaderPlanSection({
 /**
  * 维度研究结果卡片 - 显示关键发现和摘要
  */
-function DimensionResultCard({ result }: { result: DimensionResult }) {
+function DimensionResultCard({
+  result,
+  t,
+}: {
+  result: DimensionResult;
+  t: (key: string, params?: Record<string, any>) => string;
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { dimensionName, result: dimResult, resultSummary } = result;
 
@@ -775,7 +785,9 @@ function DimensionResultCard({ result }: { result: DimensionResult }) {
               {dimensionName}
             </span>
             <span className="flex-shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-300">
-              已完成
+              {t(
+                'topicResearch.collaboration.timeline.dimensionResult.completed'
+              )}
             </span>
           </div>
           {/* 简要信息 */}
@@ -783,13 +795,23 @@ function DimensionResultCard({ result }: { result: DimensionResult }) {
             {keyFindings.length > 0 && (
               <span className="flex items-center gap-0.5">
                 <Lightbulb className="h-3 w-3 text-yellow-500" />
-                {keyFindings.length} 个关键发现
+                {t(
+                  'topicResearch.collaboration.timeline.dimensionResult.keyFindings',
+                  {
+                    count: keyFindings.length,
+                  }
+                )}
               </span>
             )}
             {sourcesFound !== undefined && sourcesFound > 0 && (
               <span className="flex items-center gap-0.5">
                 <Database className="h-3 w-3" />
-                {sourcesFound} 条来源
+                {t(
+                  'topicResearch.collaboration.timeline.dimensionResult.sources',
+                  {
+                    count: sourcesFound,
+                  }
+                )}
               </span>
             )}
           </div>
@@ -811,7 +833,9 @@ function DimensionResultCard({ result }: { result: DimensionResult }) {
           {summary && (
             <div className="text-xs text-gray-600 dark:text-gray-400">
               <span className="font-medium text-gray-700 dark:text-gray-300">
-                摘要：
+                {t(
+                  'topicResearch.collaboration.timeline.dimensionResult.summary'
+                )}
               </span>
               {summary}
             </div>
@@ -821,7 +845,9 @@ function DimensionResultCard({ result }: { result: DimensionResult }) {
           {keyFindings.length > 0 && (
             <div className="space-y-1">
               <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                关键发现：
+                {t(
+                  'topicResearch.collaboration.timeline.dimensionResult.findingsTitle'
+                )}
               </div>
               <ul className="space-y-1">
                 {keyFindings.slice(0, 5).map((finding, idx) => (
@@ -833,13 +859,21 @@ function DimensionResultCard({ result }: { result: DimensionResult }) {
                     <span>
                       {typeof finding === 'string'
                         ? finding
-                        : finding.finding || '未知发现'}
+                        : finding.finding ||
+                          t(
+                            'topicResearch.collaboration.timeline.dimensionResult.unknownFinding'
+                          )}
                     </span>
                   </li>
                 ))}
                 {keyFindings.length > 5 && (
                   <li className="text-xs text-gray-400">
-                    ...还有 {keyFindings.length - 5} 个发现
+                    {t(
+                      'topicResearch.collaboration.timeline.dimensionResult.moreFindings',
+                      {
+                        count: keyFindings.length - 5,
+                      }
+                    )}
                   </li>
                 )}
               </ul>
@@ -859,10 +893,19 @@ function DimensionProgressSection({
   dimensionActivities,
   dimensionsUpdated,
   dimensionResults,
+  t,
+  formatDuration,
+  phaseConfig,
 }: {
   dimensionActivities: Map<string, ExtendedAgentActivity[]>;
   dimensionsUpdated: string[];
   dimensionResults?: DimensionResult[];
+  t: (key: string, params?: Record<string, any>) => string;
+  formatDuration: (ms: number) => string;
+  phaseConfig: Record<
+    ThinkingPhase,
+    { icon: React.ElementType; label: string; color: string }
+  >;
 }) {
   // 如果没有任何数据可显示，不渲染
   const hasDimensionActivities = dimensionActivities.size > 0;
@@ -889,9 +932,13 @@ function DimensionProgressSection({
     <div className="space-y-2">
       <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
         <Layers className="h-4 w-4" />
-        <span>维度研究进展</span>
+        <span>
+          {t('topicResearch.collaboration.timeline.dimensionProgress')}
+        </span>
         <span className="text-xs text-gray-500">
-          ({displayCount} 个维度更新)
+          {t('topicResearch.collaboration.timeline.dimensionsUpdatedCount', {
+            count: displayCount,
+          })}
         </span>
       </div>
 
@@ -905,6 +952,9 @@ function DimensionProgressSection({
                 dimensionName={dimensionName}
                 activities={activities}
                 citations={0}
+                t={t}
+                formatDuration={formatDuration}
+                phaseConfig={phaseConfig}
               />
             )
           )}
@@ -913,7 +963,7 @@ function DimensionProgressSection({
         // ★ 有研究结果时，显示带关键发现的卡片
         <div className="space-y-1.5">
           {dimensionResults.map((result, idx) => (
-            <DimensionResultCard key={idx} result={result} />
+            <DimensionResultCard key={idx} result={result} t={t} />
           ))}
         </div>
       ) : (
@@ -929,7 +979,9 @@ function DimensionProgressSection({
                 {dimName}
               </span>
               <span className="ml-auto rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-300">
-                已完成
+                {t(
+                  'topicResearch.collaboration.timeline.dimensionResult.completed'
+                )}
               </span>
             </div>
           ))}
@@ -942,7 +994,13 @@ function DimensionProgressSection({
 /**
  * 团队互动部分
  */
-function TeamInteractionSection({ messages }: { messages: TeamMessage[] }) {
+function TeamInteractionSection({
+  messages,
+  t,
+}: {
+  messages: TeamMessage[];
+  t: (key: string, params?: Record<string, any>) => string;
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (messages.length === 0) return null;
@@ -955,10 +1013,12 @@ function TeamInteractionSection({ messages }: { messages: TeamMessage[] }) {
       >
         <MessageSquare className="h-4 w-4 text-purple-600 dark:text-purple-400" />
         <span className="font-medium text-purple-900 dark:text-purple-200">
-          团队互动
+          {t('topicResearch.collaboration.timeline.teamInteraction')}
         </span>
         <span className="ml-auto text-xs text-purple-600">
-          {messages.length} 条消息
+          {t('topicResearch.collaboration.timeline.messages', {
+            count: messages.length,
+          })}
         </span>
         {isExpanded ? (
           <ChevronDown className="h-4 w-4 text-purple-600" />
@@ -997,7 +1057,13 @@ function TeamInteractionSection({ messages }: { messages: TeamMessage[] }) {
 /**
  * 研究成果部分
  */
-function OutcomeSection({ history }: { history: ResearchHistoryItem }) {
+function OutcomeSection({
+  history,
+  t,
+}: {
+  history: ResearchHistoryItem;
+  t: (key: string, params?: Record<string, any>) => string;
+}) {
   const netChange = (history.wordsAdded || 0) - (history.wordsRemoved || 0);
   const dimensionsUpdated = Array.isArray(history.dimensionsUpdated)
     ? history.dimensionsUpdated
@@ -1010,12 +1076,12 @@ function OutcomeSection({ history }: { history: ResearchHistoryItem }) {
     <div className="rounded-lg border border-gray-200 bg-gray-50 p-2.5 dark:border-gray-700 dark:bg-gray-800/50">
       <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
         <TrendingUp className="h-4 w-4" />
-        <span>研究成果</span>
+        <span>{t('topicResearch.collaboration.timeline.outcome')}</span>
       </div>
       <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
         <div className="rounded bg-blue-100 p-1.5 dark:bg-blue-900/30">
           <div className="mb-0.5 text-blue-600 dark:text-blue-400">
-            更新维度
+            {t('topicResearch.collaboration.timeline.updatedDimensions')}
           </div>
           <div className="text-lg font-semibold text-blue-700 dark:text-blue-300">
             {dimensionsUpdated.length}
@@ -1024,7 +1090,7 @@ function OutcomeSection({ history }: { history: ResearchHistoryItem }) {
 
         <div className="rounded bg-gray-100 p-1.5 dark:bg-gray-900/30">
           <div className="mb-0.5 text-gray-600 dark:text-gray-400">
-            保留维度
+            {t('topicResearch.collaboration.timeline.keptDimensions')}
           </div>
           <div className="text-lg font-semibold text-gray-700 dark:text-gray-300">
             {dimensionsKept.length}
@@ -1048,7 +1114,7 @@ function OutcomeSection({ history }: { history: ResearchHistoryItem }) {
                   : 'text-red-600 dark:text-red-400'
               )}
             >
-              字数变化
+              {t('topicResearch.collaboration.timeline.wordChange')}
             </div>
             <div
               className={cn(
@@ -1067,7 +1133,7 @@ function OutcomeSection({ history }: { history: ResearchHistoryItem }) {
         {history.newSourcesCount > 0 && (
           <div className="rounded bg-purple-100 p-1.5 dark:bg-purple-900/30">
             <div className="mb-0.5 text-purple-600 dark:text-purple-400">
-              新增来源
+              {t('topicResearch.collaboration.timeline.newSourcesCount')}
             </div>
             <div className="text-lg font-semibold text-purple-700 dark:text-purple-300">
               {history.newSourcesCount}
@@ -1090,6 +1156,10 @@ function SessionCard({
   onSelect,
   onCompare,
   onViewReport,
+  t,
+  formatDuration,
+  phaseConfig,
+  getStatusConfig,
 }: {
   history: ResearchHistoryItem;
   dimensionActivities: Map<string, ExtendedAgentActivity[]>;
@@ -1098,6 +1168,18 @@ function SessionCard({
   onSelect?: () => void;
   onCompare?: () => void;
   onViewReport?: (version: number) => void;
+  t: (key: string, params?: Record<string, any>) => string;
+  formatDuration: (ms: number) => string;
+  phaseConfig: Record<
+    ThinkingPhase,
+    { icon: React.ElementType; label: string; color: string }
+  >;
+  getStatusConfig: (status: string) => {
+    icon: React.ElementType;
+    label: string;
+    color: string;
+    borderColor: string;
+  };
 }) {
   const [isExpanded, setIsExpanded] = useState(isCurrent);
   // ★ 使用安全访问器
@@ -1118,7 +1200,9 @@ function SessionCard({
         >
           <StatusIcon className={cn('h-4 w-4', status.color)} />
           <span className="text-gray-900 dark:text-white">
-            第 {history.researchNumber} 次研究
+            {t('topicResearch.collaboration.timeline.researchSession', {
+              number: history.researchNumber,
+            })}
           </span>
           <ClientDate
             date={history.startedAt}
@@ -1127,7 +1211,9 @@ function SessionCard({
           />
           {history.totalDurationMs && (
             <span className="text-xs text-gray-500">
-              耗时 {formatDuration(history.totalDurationMs)}
+              {t('topicResearch.collaboration.timeline.duration', {
+                duration: formatDuration(history.totalDurationMs),
+              })}
             </span>
           )}
         </div>
@@ -1153,36 +1239,43 @@ function SessionCard({
               </span>
               {history.reportVersionAfter && (
                 <span className="text-gray-500">
-                  报告版本: v
-                  {history.reportVersionBefore && (
+                  {history.reportVersionBefore ? (
                     <>
-                      {history.reportVersionBefore}
-                      <ArrowRight className="mx-0.5 inline h-3 w-3" />
+                      v{history.reportVersionBefore}
+                      <ArrowRight className="mx-0.5 inline h-3 w-3" />v
+                      {history.reportVersionAfter}
                     </>
+                  ) : (
+                    t('topicResearch.collaboration.timeline.reportVersion', {
+                      version: history.reportVersionAfter,
+                    })
                   )}
-                  {history.reportVersionAfter}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-3 text-xs text-gray-500">
               <span className="flex items-center gap-1">
                 <Layers className="h-3 w-3" />
-                更新{' '}
-                {Array.isArray(history.dimensionsUpdated)
-                  ? history.dimensionsUpdated.length
-                  : 0}{' '}
-                个维度
+                {t('topicResearch.collaboration.timeline.dimensionsUpdated', {
+                  count: Array.isArray(history.dimensionsUpdated)
+                    ? history.dimensionsUpdated.length
+                    : 0,
+                })}
               </span>
               {history.newSourcesCount > 0 && (
                 <span className="flex items-center gap-1">
                   <Database className="h-3 w-3" />
-                  新增 {history.newSourcesCount} 条来源
+                  {t('topicResearch.collaboration.timeline.newSources', {
+                    count: history.newSourcesCount,
+                  })}
                 </span>
               )}
               {sessionMessages.length > 0 && (
                 <span className="flex items-center gap-1">
                   <MessageSquare className="h-3 w-3" />
-                  {sessionMessages.length} 条互动
+                  {t('topicResearch.collaboration.timeline.interactions', {
+                    count: sessionMessages.length,
+                  })}
                 </span>
               )}
             </div>
@@ -1202,6 +1295,7 @@ function SessionCard({
             <LeaderPlanSection
               goal={history.researchGoal}
               strategy={history.researchStrategy}
+              t={t}
             />
 
             {/* 维度研究进展 */}
@@ -1213,13 +1307,16 @@ function SessionCard({
                   : []
               }
               dimensionResults={history.dimensionResults}
+              t={t}
+              formatDuration={formatDuration}
+              phaseConfig={phaseConfig}
             />
 
             {/* 团队互动 */}
-            <TeamInteractionSection messages={sessionMessages} />
+            <TeamInteractionSection messages={sessionMessages} t={t} />
 
             {/* 研究成果 */}
-            <OutcomeSection history={history} />
+            <OutcomeSection history={history} t={t} />
 
             {/* 操作按钮 */}
             <div className="flex flex-wrap items-center gap-2">
@@ -1233,7 +1330,9 @@ function SessionCard({
                 className="flex items-center gap-1 rounded-lg bg-blue-500 px-2.5 py-1.5 text-xs text-white transition-colors hover:bg-blue-600"
               >
                 <Target className="h-3.5 w-3.5" />
-                {isExpanded ? '收起详情' : '查看详情'}
+                {isExpanded
+                  ? t('topicResearch.collaboration.timeline.collapseDetails')
+                  : t('topicResearch.collaboration.timeline.viewDetails')}
               </button>
 
               {onViewReport && history.reportVersionAfter && (
@@ -1245,7 +1344,9 @@ function SessionCard({
                   className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   <FileText className="h-3.5 w-3.5" />
-                  查看报告 v{history.reportVersionAfter}
+                  {t('topicResearch.collaboration.timeline.viewReport', {
+                    version: history.reportVersionAfter,
+                  })}
                 </button>
               )}
 
@@ -1260,7 +1361,7 @@ function SessionCard({
                     className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                   >
                     <TrendingUp className="h-3.5 w-3.5" />
-                    对比版本
+                    {t('topicResearch.collaboration.timeline.compareVersions')}
                   </button>
                 )}
             </div>
@@ -1284,7 +1385,111 @@ export function ResearchTimeline({
   onCompareVersions,
   onViewReport,
 }: ResearchTimelineProps) {
+  const { t } = useI18n();
   const [filter, setFilter] = useState<'all' | 'current' | 'previous'>('all');
+
+  // Helper function for formatting duration with i18n
+  const formatDuration = (ms: number): string => {
+    if (ms < 60000) {
+      return t('topicResearch.collaboration.timeline.formatDuration.seconds', {
+        count: Math.round(ms / 1000),
+      });
+    }
+    if (ms < 3600000) {
+      return t('topicResearch.collaboration.timeline.formatDuration.minutes', {
+        count: Math.floor(ms / 60000),
+      });
+    }
+    return t('topicResearch.collaboration.timeline.formatDuration.hours', {
+      count: Math.floor(ms / 3600000),
+      min: Math.floor((ms % 3600000) / 60000),
+    });
+  };
+
+  // Status config with i18n
+  const statusConfig: Record<
+    ResearchStatus,
+    {
+      icon: React.ElementType;
+      label: string;
+      color: string;
+      borderColor: string;
+    }
+  > = {
+    COMPLETED: {
+      icon: CheckCircle,
+      label: t('topicResearch.collaboration.timeline.status.completed'),
+      color: 'text-green-600 dark:text-green-400',
+      borderColor: 'border-green-300 dark:border-green-700',
+    },
+    FAILED: {
+      icon: XCircle,
+      label: t('topicResearch.collaboration.timeline.status.failed'),
+      color: 'text-red-600 dark:text-red-400',
+      borderColor: 'border-red-300 dark:border-red-700',
+    },
+    CANCELLED: {
+      icon: AlertTriangle,
+      label: t('topicResearch.collaboration.timeline.status.cancelled'),
+      color: 'text-yellow-600 dark:text-yellow-400',
+      borderColor: 'border-yellow-300 dark:border-yellow-700',
+    },
+    IN_PROGRESS: {
+      icon: Clock,
+      label: t('topicResearch.collaboration.timeline.status.inProgress'),
+      color: 'text-blue-600 dark:text-blue-400',
+      borderColor: 'border-blue-300 dark:border-blue-700 shadow-md',
+    },
+  };
+
+  const defaultStatusConfig = {
+    icon: AlertTriangle,
+    label: t('topicResearch.collaboration.timeline.status.unknown'),
+    color: 'text-gray-600 dark:text-gray-400',
+    borderColor: 'border-gray-300 dark:border-gray-700',
+  };
+
+  const getStatusConfig = (status: string) => {
+    return statusConfig[status as ResearchStatus] || defaultStatusConfig;
+  };
+
+  // Phase config with i18n
+  const phaseConfig: Record<
+    ThinkingPhase,
+    {
+      icon: React.ElementType;
+      label: string;
+      color: string;
+    }
+  > = {
+    understanding: {
+      icon: Brain,
+      label: t(
+        'topicResearch.collaboration.timeline.phaseLabels.understanding'
+      ),
+      color: 'text-purple-600 dark:text-purple-400',
+    },
+    searching: {
+      icon: Search,
+      label: t('topicResearch.collaboration.timeline.phaseLabels.searching'),
+      color: 'text-blue-600 dark:text-blue-400',
+    },
+    writing: {
+      icon: FileText,
+      label: t('topicResearch.collaboration.timeline.phaseLabels.writing'),
+      color: 'text-green-600 dark:text-green-400',
+    },
+    reviewing: {
+      icon: CheckCircle,
+      label: t('topicResearch.collaboration.timeline.phaseLabels.reviewing'),
+      color: 'text-yellow-600 dark:text-yellow-400',
+    },
+    integrating: {
+      icon: Layers,
+      label: t('topicResearch.collaboration.timeline.phaseLabels.integrating'),
+      color: 'text-indigo-600 dark:text-indigo-400',
+    },
+  };
 
   // 自动获取数据（如果提供了 topicId）
   const [fetchedHistories, setFetchedHistories] = useState<
@@ -1393,7 +1598,9 @@ export function ResearchTimeline({
       // 按维度分组活动（转换为扩展类型）
       const dimensionActivities = new Map<string, ExtendedAgentActivity[]>();
       sessionActivities.forEach((activity) => {
-        const key = activity.dimensionName || '其他活动';
+        const key =
+          activity.dimensionName ||
+          t('topicResearch.collaboration.otherActivities');
         if (!dimensionActivities.has(key)) {
           dimensionActivities.set(key, []);
         }
@@ -1420,7 +1627,9 @@ export function ResearchTimeline({
       <div className="flex h-64 items-center justify-center">
         <div className="text-center">
           <Clock className="mx-auto mb-2 h-8 w-8 animate-pulse text-blue-500" />
-          <div className="text-sm text-gray-500">加载研究历史...</div>
+          <div className="text-sm text-gray-500">
+            {t('topicResearch.collaboration.timeline.loading')}
+          </div>
         </div>
       </div>
     );
@@ -1432,10 +1641,10 @@ export function ResearchTimeline({
       <div className="flex h-64 flex-col items-center justify-center text-center">
         <Calendar className="mb-3 h-12 w-12 text-gray-300" />
         <div className="mb-1 text-lg font-medium text-gray-900 dark:text-white">
-          暂无研究历史
+          {t('topicResearch.collaboration.timeline.noHistory')}
         </div>
         <div className="text-sm text-gray-500">
-          开始研究后，历史记录将显示在这里
+          {t('topicResearch.collaboration.timeline.noHistoryHint')}
         </div>
       </div>
     );
@@ -1446,7 +1655,7 @@ export function ResearchTimeline({
       {/* 标题和筛选 */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          研究历史时间线
+          {t('topicResearch.collaboration.timeline.title')}
         </h2>
         <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
           {(['all', 'current', 'previous'] as const).map((f) => (
@@ -1460,7 +1669,11 @@ export function ResearchTimeline({
                   : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
               )}
             >
-              {f === 'all' ? '全部' : f === 'current' ? '本次' : '历史'}
+              {f === 'all'
+                ? t('topicResearch.collaboration.timeline.filterAll')
+                : f === 'current'
+                  ? t('topicResearch.collaboration.timeline.filterCurrent')
+                  : t('topicResearch.collaboration.timeline.filterPrevious')}
             </button>
           ))}
         </div>
@@ -1468,9 +1681,15 @@ export function ResearchTimeline({
 
       {/* 统计 */}
       <div className="flex items-center gap-4 text-sm text-gray-500">
-        <span>共 {histories.length} 次研究</span>
         <span>
-          {histories.filter((h) => h.status === 'COMPLETED').length} 次成功
+          {t('topicResearch.collaboration.timeline.totalResearch', {
+            count: histories.length,
+          })}
+        </span>
+        <span>
+          {t('topicResearch.collaboration.timeline.successCount', {
+            count: histories.filter((h) => h.status === 'COMPLETED').length,
+          })}
         </span>
       </div>
 
@@ -1499,6 +1718,10 @@ export function ResearchTimeline({
                   : undefined
               }
               onViewReport={onViewReport}
+              t={t}
+              formatDuration={formatDuration}
+              phaseConfig={phaseConfig}
+              getStatusConfig={getStatusConfig}
             />
           )
         )}

@@ -15,6 +15,7 @@ import {
   Filter,
   Download,
 } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 export interface GraphNode {
   id: string;
@@ -55,13 +56,7 @@ const NODE_COLORS: Record<GraphNode['type'], string> = {
   paper: '#EC4899',
 };
 
-const NODE_TYPE_LABELS: Record<GraphNode['type'], string> = {
-  technology: '技术',
-  concept: '概念',
-  company: '公司',
-  person: '人物',
-  paper: '论文',
-};
+// NODE_TYPE_LABELS moved to component to use i18n
 
 const EDGE_COLORS: Record<GraphEdge['type'], string> = {
   related: '#9CA3AF',
@@ -93,6 +88,7 @@ export default function KnowledgeGraph({
   height = 600,
   highlightedNodeId,
 }: KnowledgeGraphProps) {
+  const { t } = useI18n();
   const svgRef = useRef<SVGSVGElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<GraphNode['type'] | 'all'>(
@@ -104,6 +100,16 @@ export default function KnowledgeGraph({
   const [edges, setEdges] = useState<SimulationEdge[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [dragNode, setDragNode] = useState<SimulationNode | null>(null);
+
+  const NODE_TYPE_LABELS: Record<GraphNode['type'], string> = {
+    technology: t(
+      'topicResearch.deepResearch.knowledgeGraph.nodeTypes.technology'
+    ),
+    concept: t('topicResearch.deepResearch.knowledgeGraph.nodeTypes.concept'),
+    company: t('topicResearch.deepResearch.knowledgeGraph.nodeTypes.company'),
+    person: t('topicResearch.deepResearch.knowledgeGraph.nodeTypes.person'),
+    paper: t('topicResearch.deepResearch.knowledgeGraph.nodeTypes.paper'),
+  };
 
   // Filter nodes based on search and type
   const filteredNodes = data.nodes.filter((node) => {
@@ -292,7 +298,9 @@ export default function KnowledgeGraph({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索节点..."
+            placeholder={t(
+              'topicResearch.deepResearch.knowledgeGraph.searchNodes'
+            )}
             className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none"
           />
         </div>
@@ -307,7 +315,9 @@ export default function KnowledgeGraph({
             }
             className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none"
           >
-            <option value="all">全部类型</option>
+            <option value="all">
+              {t('topicResearch.deepResearch.knowledgeGraph.allTypes')}
+            </option>
             {Object.entries(NODE_TYPE_LABELS).map(([type, label]) => (
               <option key={type} value={type}>
                 {label}
@@ -321,21 +331,21 @@ export default function KnowledgeGraph({
           <button
             onClick={handleZoomIn}
             className="rounded p-1 hover:bg-gray-100"
-            title="放大"
+            title={t('topicResearch.deepResearch.knowledgeGraph.zoomIn')}
           >
             <ZoomIn className="h-4 w-4" />
           </button>
           <button
             onClick={handleZoomOut}
             className="rounded p-1 hover:bg-gray-100"
-            title="缩小"
+            title={t('topicResearch.deepResearch.knowledgeGraph.zoomOut')}
           >
             <ZoomOut className="h-4 w-4" />
           </button>
           <button
             onClick={handleReset}
             className="rounded p-1 hover:bg-gray-100"
-            title="重置"
+            title={t('topicResearch.deepResearch.knowledgeGraph.reset')}
           >
             <RefreshCw className="h-4 w-4" />
           </button>
@@ -431,7 +441,7 @@ export default function KnowledgeGraph({
       {/* Legend */}
       <div className="absolute bottom-4 left-4 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
         <h4 className="mb-2 text-xs font-medium uppercase text-gray-500">
-          图例
+          {t('topicResearch.deepResearch.knowledgeGraph.legend')}
         </h4>
         <div className="space-y-1">
           {Object.entries(NODE_TYPE_LABELS).map(([type, label]) => (
@@ -468,7 +478,10 @@ export default function KnowledgeGraph({
                     {NODE_TYPE_LABELS[node.type]}
                   </span>
                   <span className="text-xs text-gray-500">
-                    {connectedEdges.length} 个连接
+                    {t(
+                      'topicResearch.deepResearch.knowledgeGraph.connections',
+                      { count: connectedEdges.length }
+                    )}
                   </span>
                 </div>
               </>
@@ -479,7 +492,10 @@ export default function KnowledgeGraph({
 
       {/* Stats */}
       <div className="absolute right-4 top-16 text-xs text-gray-500">
-        {filteredNodes.length} 节点 · {filteredEdges.length} 边
+        {t('topicResearch.deepResearch.knowledgeGraph.stats', {
+          nodes: filteredNodes.length,
+          edges: filteredEdges.length,
+        })}
       </div>
     </div>
   );

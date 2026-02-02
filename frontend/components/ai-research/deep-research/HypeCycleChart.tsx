@@ -7,6 +7,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Info, ZoomIn, ZoomOut } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 export interface HypeCyclePosition {
   techName: string;
@@ -23,13 +24,7 @@ interface HypeCycleChartProps {
   height?: number;
 }
 
-const STAGE_LABELS = [
-  { x: 10, label: '创新触发期' },
-  { x: 30, label: '期望膨胀期' },
-  { x: 50, label: '泡沫破裂期' },
-  { x: 70, label: '稳步爬升期' },
-  { x: 90, label: '生产成熟期' },
-];
+// STAGE_LABELS moved to component to use i18n
 
 const STAGE_COLORS: Record<string, string> = {
   innovation_trigger: '#3B82F6',
@@ -155,6 +150,7 @@ export default function HypeCycleChart({
   width = 800,
   height = 400,
 }: HypeCycleChartProps) {
+  const { t } = useI18n();
   const [hoveredTech, setHoveredTech] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
 
@@ -166,6 +162,37 @@ export default function HypeCycleChart({
 
   const hoveredPosition = positions.find((p) => p.techName === hoveredTech);
 
+  const STAGE_LABELS = [
+    {
+      x: 10,
+      label: t('topicResearch.deepResearch.hypeCycle.phases.innovationTrigger'),
+    },
+    {
+      x: 30,
+      label: t(
+        'topicResearch.deepResearch.hypeCycle.phases.peakOfExpectations'
+      ),
+    },
+    {
+      x: 50,
+      label: t(
+        'topicResearch.deepResearch.hypeCycle.phases.troughOfDisillusionment'
+      ),
+    },
+    {
+      x: 70,
+      label: t(
+        'topicResearch.deepResearch.hypeCycle.phases.slopeOfEnlightenment'
+      ),
+    },
+    {
+      x: 90,
+      label: t(
+        'topicResearch.deepResearch.hypeCycle.phases.plateauOfProductivity'
+      ),
+    },
+  ];
+
   return (
     <div className="relative">
       {/* Controls */}
@@ -173,14 +200,14 @@ export default function HypeCycleChart({
         <button
           onClick={() => setScale((s) => Math.min(2, s + 0.2))}
           className="rounded-lg bg-white p-2 shadow-md hover:bg-gray-50"
-          title="放大"
+          title={t('topicResearch.deepResearch.hypeCycle.zoomIn')}
         >
           <ZoomIn className="h-4 w-4" />
         </button>
         <button
           onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}
           className="rounded-lg bg-white p-2 shadow-md hover:bg-gray-50"
-          title="缩小"
+          title={t('topicResearch.deepResearch.hypeCycle.zoomOut')}
         >
           <ZoomOut className="h-4 w-4" />
         </button>
@@ -245,7 +272,7 @@ export default function HypeCycleChart({
             textAnchor="end"
             className="fill-gray-500 text-xs"
           >
-            高期望
+            {t('topicResearch.deepResearch.hypeCycle.yAxis.highExpectation')}
           </text>
           <text
             x={padding - 10}
@@ -253,7 +280,7 @@ export default function HypeCycleChart({
             textAnchor="end"
             className="fill-gray-500 text-xs"
           >
-            低期望
+            {t('topicResearch.deepResearch.hypeCycle.yAxis.lowExpectation')}
           </text>
 
           {/* X-axis stage labels */}
@@ -323,7 +350,10 @@ export default function HypeCycleChart({
                 )?.label || hoveredPosition.stage}
               </span>
             </div>
-            <div>预计成熟: {hoveredPosition.yearsToMainstream}</div>
+            <div>
+              {t('topicResearch.deepResearch.hypeCycle.expectedMaturity')}:{' '}
+              {hoveredPosition.yearsToMainstream}
+            </div>
           </div>
         </div>
       )}
@@ -331,12 +361,12 @@ export default function HypeCycleChart({
       {/* Legend */}
       <div className="mt-4 flex flex-wrap justify-center gap-4">
         {Object.entries(STAGE_COLORS).map(([stage, color]) => {
-          const label = {
-            innovation_trigger: '创新触发期',
-            peak_of_expectations: '期望膨胀期',
-            trough_of_disillusionment: '泡沫破裂期',
-            slope_of_enlightenment: '稳步爬升期',
-            plateau_of_productivity: '生产成熟期',
+          const labelKey = {
+            innovation_trigger: 'innovationTrigger',
+            peak_of_expectations: 'peakOfExpectations',
+            trough_of_disillusionment: 'troughOfDisillusionment',
+            slope_of_enlightenment: 'slopeOfEnlightenment',
+            plateau_of_productivity: 'plateauOfProductivity',
           }[stage];
 
           return (
@@ -345,7 +375,10 @@ export default function HypeCycleChart({
                 className="h-3 w-3 rounded-full"
                 style={{ backgroundColor: color }}
               />
-              <span className="text-xs text-gray-600">{label}</span>
+              <span className="text-xs text-gray-600">
+                {labelKey &&
+                  t(`topicResearch.deepResearch.hypeCycle.phases.${labelKey}`)}
+              </span>
             </div>
           );
         })}
@@ -354,11 +387,7 @@ export default function HypeCycleChart({
       {/* Info */}
       <div className="mt-4 flex items-start gap-2 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
         <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
-        <p>
-          Hype Cycle（技术成熟度曲线）由 Gartner
-          提出，用于描述新技术从诞生到成熟的发展阶段。
-          点击技术点可查看详细信息。
-        </p>
+        <p>{t('topicResearch.deepResearch.hypeCycle.info')}</p>
       </div>
     </div>
   );
