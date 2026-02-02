@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.12](https://github.com/your-org/ai-teams-engine/compare/v3.3.11...v3.3.12) (2026-02-02)
+
+
+### Bug Fixes
+
+* **research:** use class references instead of string tokens in forwardRef ([50b632d](https://github.com/your-org/ai-teams-engine/commit/50b632d32fc621655193d63e149e9caba0f4a554))
+
 ### [3.3.11](https://github.com/your-org/ai-teams-engine/compare/v3.3.10...v3.3.11) (2026-02-02)
 
 
