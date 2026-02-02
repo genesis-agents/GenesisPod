@@ -53,7 +53,7 @@ import type {
 } from '@/types/slides-team';
 import type { PageState, GenerationProgress } from '@/types/slides';
 import { sanitizeSlideHtml } from '@/lib/utils/sanitize';
-
+import { useI18n } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
 // ============================================
 // Agent 图标映射
@@ -89,10 +89,12 @@ function AgentCard({
   role,
   state,
   isActive,
+  t,
 }: {
   role: SlidesAgentRole;
   state: AgentState;
   isActive: boolean;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const statusColors = {
     idle: 'bg-gray-100 border-gray-200 text-gray-500',
@@ -135,7 +137,7 @@ function AgentCard({
       </div>
       {state.lastScore !== undefined && (
         <div className="text-xs font-medium">
-          {Math.round(state.lastScore)}分
+          {t('office.slides.score', { score: Math.round(state.lastScore) })}
         </div>
       )}
     </div>
@@ -218,6 +220,8 @@ function SlidePreview({
 // 主页面组件
 // ============================================
 export default function SlidesPage() {
+  const { t } = useI18n();
+
   // Store 状态
   const {
     pages,
@@ -340,8 +344,10 @@ export default function SlidesPage() {
                 <ArrowLeft className="h-5 w-5" />
               </Link>
               <div>
-                <h1 className="font-semibold">AI Slides</h1>
-                <p className="text-xs text-gray-500">AI 团队协作生成 PPT</p>
+                <h1 className="font-semibold">{t('office.slides.title')}</h1>
+                <p className="text-xs text-gray-500">
+                  {t('office.slides.subtitle')}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -351,7 +357,7 @@ export default function SlidesPage() {
                   className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
                 >
                   <RotateCcw className="h-4 w-4" />
-                  <span>重置</span>
+                  <span>{t('office.slides.reset')}</span>
                 </button>
               )}
               <button
@@ -375,33 +381,26 @@ export default function SlidesPage() {
               <div className="flex flex-1 flex-col p-4">
                 <div className="mb-4">
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    演示标题
+                    {t('office.slides.presentationTitle')}
                   </label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="输入演示文稿标题..."
+                    placeholder={t('office.slides.titlePlaceholder')}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
 
                 <div className="flex flex-1 flex-col">
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    源内容
+                    {t('office.slides.sourceContent')}
                   </label>
                   <textarea
                     ref={inputRef}
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    placeholder="粘贴或输入要生成 PPT 的内容...
-
-支持：
-- 研究报告
-- 会议纪要
-- 项目方案
-- 产品文档
-- 任何需要可视化展示的文本"
+                    placeholder={t('office.slides.contentPlaceholder')}
                     className="w-full flex-1 resize-none rounded-lg border border-gray-300 p-3 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
@@ -413,7 +412,7 @@ export default function SlidesPage() {
                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                   >
                     <Sparkles className="h-5 w-5" />
-                    <span>开始生成</span>
+                    <span>{t('office.slides.startGeneration')}</span>
                   </button>
                 </div>
               </div>
@@ -434,7 +433,7 @@ export default function SlidesPage() {
                       <span className="font-medium">
                         {generating
                           ? getPhaseName(progress?.phase || teamState?.phase)
-                          : '生成完成'}
+                          : t('office.slides.generationComplete')}
                       </span>
                     </div>
                     {generating && (
@@ -443,7 +442,7 @@ export default function SlidesPage() {
                         className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700"
                       >
                         <StopCircle className="h-4 w-4" />
-                        <span>停止</span>
+                        <span>{t('office.slides.stop')}</span>
                       </button>
                     )}
                   </div>
@@ -460,7 +459,10 @@ export default function SlidesPage() {
                   {/* 页面进度 */}
                   {pages.length > 0 && (
                     <div className="mt-2 text-xs text-gray-500">
-                      已完成 {completedPages.length} / {pages.length} 页
+                      {t('office.slides.completedCount', {
+                        completed: completedPages.length,
+                        total: pages.length,
+                      })}
                     </div>
                   )}
                 </div>
@@ -471,7 +473,7 @@ export default function SlidesPage() {
                     <div className="mb-3 flex items-center gap-2">
                       <Users className="h-4 w-4 text-gray-500" />
                       <span className="text-sm font-medium text-gray-700">
-                        AI 团队
+                        {t('office.slides.aiTeam')}
                       </span>
                     </div>
                     <div className="space-y-2">
@@ -482,6 +484,7 @@ export default function SlidesPage() {
                             role={role}
                             state={teamState.agents[role]}
                             isActive={teamState.currentAgent === role}
+                            t={t}
                           />
                         )
                       )}
@@ -494,7 +497,7 @@ export default function SlidesPage() {
                   <div className="mb-3 flex items-center gap-2">
                     <FileText className="h-4 w-4 text-gray-500" />
                     <span className="text-sm font-medium text-gray-700">
-                      页面列表
+                      {t('office.slides.pageList')}
                     </span>
                   </div>
                   <div className="space-y-2">
@@ -529,14 +532,17 @@ export default function SlidesPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-gray-900">
-                            {page.outline?.title || `第 ${page.pageNumber} 页`}
+                            {page.outline?.title ||
+                              t('office.slides.page', {
+                                number: page.pageNumber,
+                              })}
                           </p>
                           <p className="text-xs text-gray-500">
                             {page.status === 'completed'
-                              ? '已完成'
+                              ? t('office.slides.completed')
                               : page.status === 'generating'
-                                ? '生成中...'
-                                : '等待中'}
+                                ? t('office.slides.generating')
+                                : t('office.slides.waiting')}
                           </p>
                         </div>
                       </button>
@@ -551,7 +557,7 @@ export default function SlidesPage() {
                       <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
                       <div>
                         <p className="text-sm font-medium text-red-800">
-                          生成出错
+                          {t('office.slides.generationError')}
                         </p>
                         <p className="mt-0.5 text-xs text-red-600">{error}</p>
                       </div>
@@ -580,12 +586,14 @@ export default function SlidesPage() {
               <span className="text-lg">📊</span>
               <div>
                 <h2 className="font-medium text-gray-900">
-                  {title || '演示文稿预览'}
+                  {title || t('office.slides.presentationPreview')}
                 </h2>
                 <p className="text-xs text-gray-500">
                   {completedPages.length > 0
-                    ? `${completedPages.length} 页幻灯片`
-                    : '等待生成...'}
+                    ? t('office.slides.noSlides', {
+                        count: completedPages.length,
+                      })
+                    : t('office.slides.waitingGeneration')}
                 </p>
               </div>
             </div>
@@ -601,7 +609,7 @@ export default function SlidesPage() {
                     ) : (
                       <ChevronDown className="h-4 w-4" />
                     )}
-                    <span>缩略图</span>
+                    <span>{t('office.slides.thumbnails')}</span>
                   </button>
                   <button
                     onClick={() => setIsFullscreen(!isFullscreen)}
@@ -615,7 +623,7 @@ export default function SlidesPage() {
                   </button>
                   <button className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
                     <Download className="h-4 w-4" />
-                    <span>导出</span>
+                    <span>{t('office.slides.export')}</span>
                   </button>
                 </>
               )}
@@ -647,7 +655,9 @@ export default function SlidesPage() {
                               pageNumber={page.pageNumber}
                               title={
                                 page.outline?.title ||
-                                `第 ${page.pageNumber} 页`
+                                t('office.slides.page', {
+                                  number: page.pageNumber,
+                                })
                               }
                               isSelected={selectedPageIndex === index}
                               onClick={() => setSelectedPageIndex(index)}
@@ -710,12 +720,14 @@ export default function SlidesPage() {
                 <div className="text-center">
                   <div className="mb-4 text-6xl">📊</div>
                   <p className="mb-2 text-lg font-medium text-gray-700">
-                    {generating ? '正在生成...' : '准备生成 PPT'}
+                    {generating
+                      ? t('office.slides.generatingInProgress')
+                      : t('office.slides.preparingPPT')}
                   </p>
                   <p className="text-sm text-gray-500">
                     {generating
-                      ? 'AI 团队正在协作生成您的演示文稿'
-                      : '在左侧输入内容开始生成'}
+                      ? t('office.slides.teamCollaborating')
+                      : t('office.slides.enterContentLeft')}
                   </p>
                 </div>
               )}

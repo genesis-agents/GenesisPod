@@ -1311,7 +1311,8 @@
       "writingStyle": "Writing style",
       "autoRecommend": "Auto recommend (based on genre)",
       "cancel": "Cancel",
-      "creating": "Creating..."
+      "creating": "Creating...",
+      "startCreating": "Start Writing"
     },
     "editDialog": {
       "title": "Edit Work",
@@ -1499,6 +1500,10 @@
       "companies": "Companies",
       "roles": "Roles",
       "round": "Round {{round}}"
+    },
+    "templateCard": {
+      "companies": "Companies",
+      "roles": "Roles"
     }
   },
   "aiSocial": {
@@ -4104,7 +4109,37 @@
       "continue": "Continue",
       "sendMessage": "Send message",
       "dataPoints": "Data Points",
-      "keyInsights": "Key Insights"
+      "keyInsights": "Key Insights",
+      "title": "AI Slides",
+      "subtitle": "AI team collaboration for PPT generation",
+      "new": "New",
+      "aiAssist": "AI Assist",
+      "history": "History",
+      "createCheckpoint": "Create Checkpoint",
+      "export": "Export",
+      "reset": "Reset",
+      "presentationTitle": "Presentation Title",
+      "sourceContent": "Source Content",
+      "titlePlaceholder": "Enter presentation title...",
+      "contentPlaceholder": "Paste or enter content to generate PPT...\n\nSupports:\n- Research reports\n- Meeting minutes\n- Project proposals\n- Product documentation\n- Any text that needs visualization",
+      "startGeneration": "Start Generation",
+      "generationComplete": "Generation Complete",
+      "aiTeam": "AI Team",
+      "pageList": "Page List",
+      "page": "Page {{number}}",
+      "completedCount": "Completed {{completed}} / {{total}} pages",
+      "waiting": "Waiting",
+      "generationError": "Generation Error",
+      "presentationPreview": "Presentation Preview",
+      "waitingGeneration": "Waiting for generation...",
+      "noSlides": "{{count}} slides",
+      "thumbnails": "Thumbnails",
+      "generatingInProgress": "Generating...",
+      "preparingPPT": "Preparing PPT",
+      "teamCollaborating": "AI team is collaborating to generate your presentation",
+      "enterContentLeft": "Enter content on the left to start generating",
+      "stop": "Stop",
+      "score": "{{score}} pts"
     },
     "documentWizard": {
       "createDocument": "Create New Document",

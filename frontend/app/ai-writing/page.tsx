@@ -21,35 +21,29 @@ const AI_TEAM_PREVIEW = Object.values(WRITING_AGENT_REGISTRY)
     color: agent.gradient,
   }));
 
-// Genre options
-const GENRES = [
-  { value: 'NOVEL', label: '长篇小说' },
-  { value: 'SHORT_STORY', label: '短篇小说' },
-  { value: 'FANTASY', label: '奇幻' },
-  { value: 'SCIFI', label: '科幻' },
-  { value: 'ROMANCE', label: '言情' },
-  { value: 'MYSTERY', label: '悬疑' },
-  { value: 'OTHER', label: '其他' },
-];
+// Genre options - will be translated dynamically
+const GENRE_KEYS = [
+  'NOVEL',
+  'SHORT_STORY',
+  'FANTASY',
+  'SCIFI',
+  'ROMANCE',
+  'MYSTERY',
+  'OTHER',
+] as const;
 
-// Word count options
-const WORD_COUNTS = [
-  { value: 10000, label: '1万字' },
-  { value: 30000, label: '3万字' },
-  { value: 50000, label: '5万字' },
-  { value: 100000, label: '10万字' },
-  { value: 200000, label: '20万字' },
-  { value: 500000, label: '50万字+' },
-  { value: 1000000, label: '100万字+' },
-];
+// Word count options - will be translated dynamically
+const WORD_COUNT_VALUES = [
+  10000, 30000, 50000, 100000, 200000, 500000, 1000000,
+] as const;
 
-// Style category labels
-const STYLE_CATEGORY_LABELS: Record<string, string> = {
-  chinese_martial_arts: '中国武侠名家',
-  chinese_web_novel: '中国网文流派',
-  foreign: '外国经典风格',
-  custom: '其他风格',
-};
+// Style category keys - will be translated dynamically
+const STYLE_CATEGORY_KEYS = [
+  'chinese_martial_arts',
+  'chinese_web_novel',
+  'foreign',
+  'custom',
+] as const;
 
 // Vibrant gradient color schemes for project cards
 const PROJECT_GRADIENTS = [
@@ -243,20 +237,26 @@ export default function AIWritingPage() {
   };
 
   const getGenreLabel = (genre: string) => {
-    return GENRES.find((g) => g.value === genre)?.label || genre;
+    const genreKey = genre.toLowerCase().replace('_', '');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return t(`aiWriting.genres.${genreKey}` as any) || genre;
   };
 
   const getStatusBadge = (status: string) => {
-    const config: Record<string, { label: string; color: string }> = {
-      PLANNING: { label: '规划中', color: 'bg-purple-100 text-purple-700' },
-      OUTLINING: { label: '大纲设计', color: 'bg-blue-100 text-blue-700' },
-      WRITING: { label: '写作中', color: 'bg-amber-100 text-amber-700' },
-      REVISING: { label: '修订中', color: 'bg-orange-100 text-orange-700' },
-      COMPLETED: { label: '已完成', color: 'bg-green-100 text-green-700' },
+    const statusKey = status.toLowerCase();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const label = t(`aiWriting.status.${statusKey}` as any);
+    const colorConfig: Record<string, string> = {
+      PLANNING: 'bg-purple-100 text-purple-700',
+      OUTLINING: 'bg-blue-100 text-blue-700',
+      WRITING: 'bg-amber-100 text-amber-700',
+      REVISING: 'bg-orange-100 text-orange-700',
+      COMPLETED: 'bg-green-100 text-green-700',
     };
-    return (
-      config[status] || { label: status, color: 'bg-gray-100 text-gray-600' }
-    );
+    return {
+      label,
+      color: colorConfig[status] || 'bg-gray-100 text-gray-600',
+    };
   };
 
   // Removed formatTime function - using ClientDate component instead
@@ -355,7 +355,7 @@ export default function AIWritingPage() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-                开始创作
+                {t('aiWriting.createDialog.startCreating')}
               </button>
             </div>
 
@@ -419,7 +419,7 @@ export default function AIWritingPage() {
                 onClick={() => setShowCreateDialog(true)}
                 className="mt-4 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
               >
-                开始创作
+                {t('aiWriting.createDialog.startCreating')}
               </button>
             </div>
           ) : filteredProjects.length === 0 && searchQuery ? (
@@ -691,7 +691,7 @@ export default function AIWritingPage() {
               {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  你想写什么？ *
+                  {t('aiWriting.createDialog.whatToWrite')}
                 </label>
                 <textarea
                   value={createForm.description}
@@ -701,7 +701,7 @@ export default function AIWritingPage() {
                       description: e.target.value,
                     })
                   }
-                  placeholder="描述你的故事想法...&#10;&#10;例如：一个程序员穿越到三国时代，用现代知识改变历史的故事"
+                  placeholder={t('aiWriting.createDialog.placeholder')}
                   rows={5}
                   className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                   autoFocus
@@ -727,7 +727,7 @@ export default function AIWritingPage() {
                     d="M19 9l-7 7-7-7"
                   />
                 </svg>
-                可选设置
+                {t('aiWriting.createDialog.optionalSettings')}
               </button>
 
               {/* Options */}
@@ -737,7 +737,7 @@ export default function AIWritingPage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                        类型
+                        {t('aiWriting.createDialog.genre')}
                       </label>
                       <select
                         value={createForm.genre}
@@ -749,16 +749,19 @@ export default function AIWritingPage() {
                         }
                         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                       >
-                        {GENRES.map((g) => (
-                          <option key={g.value} value={g.value}>
-                            {g.label}
+                        {GENRE_KEYS.map((key) => (
+                          <option key={key} value={key}>
+                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                            {t(
+                              `aiWriting.genres.${key.toLowerCase().replace('_', '')}` as any
+                            )}
                           </option>
                         ))}
                       </select>
                     </div>
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                        预计字数
+                        {t('aiWriting.createDialog.estimatedWords')}
                       </label>
                       <select
                         value={createForm.targetWords}
@@ -770,11 +773,27 @@ export default function AIWritingPage() {
                         }
                         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                       >
-                        {WORD_COUNTS.map((w) => (
-                          <option key={w.value} value={w.value}>
-                            {w.label}
-                          </option>
-                        ))}
+                        {WORD_COUNT_VALUES.map((value) => {
+                          const key =
+                            value >= 1000000
+                              ? '1000k'
+                              : value >= 500000
+                                ? '500k'
+                                : value >= 200000
+                                  ? '200k'
+                                  : value >= 100000
+                                    ? '100k'
+                                    : value >= 50000
+                                      ? '50k'
+                                      : value >= 30000
+                                        ? '30k'
+                                        : '10k';
+                          return (
+                            <option key={value} value={value}>
+                              {t(`aiWriting.wordCounts.${key}`)}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                   </div>
@@ -782,7 +801,7 @@ export default function AIWritingPage() {
                   {/* Row 2: Writing Style (full width) */}
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                      写作风格
+                      {t('aiWriting.createDialog.writingStyle')}
                     </label>
                     <select
                       value={createForm.writingStyle}
@@ -795,25 +814,37 @@ export default function AIWritingPage() {
                       className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                       disabled={isLoadingStyles}
                     >
-                      <option value="">自动推荐（根据类型）</option>
+                      <option value="">
+                        {t('aiWriting.createDialog.autoRecommend')}
+                      </option>
                       {/* Group by category */}
-                      {Object.entries(STYLE_CATEGORY_LABELS).map(
-                        ([category, label]) => {
-                          const presetsInCategory = stylePresets.filter(
-                            (p) => p.category === category
-                          );
-                          if (presetsInCategory.length === 0) return null;
-                          return (
-                            <optgroup key={category} label={label}>
-                              {presetsInCategory.map((preset) => (
-                                <option key={preset.id} value={preset.id}>
-                                  {preset.name} - {preset.description}
-                                </option>
-                              ))}
-                            </optgroup>
-                          );
-                        }
-                      )}
+                      {STYLE_CATEGORY_KEYS.map((category) => {
+                        const presetsInCategory = stylePresets.filter(
+                          (p) => p.category === category
+                        );
+                        if (presetsInCategory.length === 0) return null;
+                        const categoryKey =
+                          category === 'chinese_martial_arts'
+                            ? 'chineseMartialArts'
+                            : category === 'chinese_web_novel'
+                              ? 'chineseWebNovel'
+                              : category;
+                        return (
+                          /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+                          <optgroup
+                            key={category}
+                            label={t(
+                              `aiWriting.styleCategories.${categoryKey}` as any
+                            )}
+                          >
+                            {presetsInCategory.map((preset) => (
+                              <option key={preset.id} value={preset.id}>
+                                {preset.name} - {preset.description}
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      })}
                     </select>
                     {createForm.writingStyle && (
                       <p className="mt-1.5 text-xs text-gray-500">
@@ -831,7 +862,7 @@ export default function AIWritingPage() {
               {/* AI Team Preview */}
               <div className="rounded-xl bg-amber-50 p-4">
                 <p className="mb-3 text-xs font-medium text-amber-700">
-                  AI 写作团队
+                  {t('aiWriting.team.title')}
                 </p>
                 <div className="flex items-center gap-3">
                   {AI_TEAM_PREVIEW.map((agent) => (
@@ -856,14 +887,16 @@ export default function AIWritingPage() {
                 onClick={() => setShowCreateDialog(false)}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                取消
+                {t('aiWriting.createDialog.cancel')}
               </button>
               <button
                 onClick={handleCreate}
                 disabled={!createForm.description.trim() || isCreating}
                 className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isCreating ? '创建中...' : '开始创作'}
+                {isCreating
+                  ? t('aiWriting.createDialog.creating')
+                  : t('aiWriting.createDialog.startCreating')}
               </button>
             </div>
           </div>
@@ -876,7 +909,9 @@ export default function AIWritingPage() {
           <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
             {/* Header */}
             <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">编辑作品</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {t('aiWriting.editDialog.title')}
+              </h2>
               <button
                 onClick={() => setEditingProject(null)}
                 className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -902,7 +937,7 @@ export default function AIWritingPage() {
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  作品名称 *
+                  {t('aiWriting.editDialog.workName')}
                 </label>
                 <input
                   type="text"
@@ -917,7 +952,7 @@ export default function AIWritingPage() {
               {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  作品简介
+                  {t('aiWriting.editDialog.workDescription')}
                 </label>
                 <textarea
                   value={editForm.description}
@@ -934,7 +969,7 @@ export default function AIWritingPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                      类型
+                      {t('aiWriting.createDialog.genre')}
                     </label>
                     <select
                       value={editForm.genre}
@@ -943,16 +978,19 @@ export default function AIWritingPage() {
                       }
                       className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                     >
-                      {GENRES.map((g) => (
-                        <option key={g.value} value={g.value}>
-                          {g.label}
+                      {GENRE_KEYS.map((key) => (
+                        <option key={key} value={key}>
+                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                          {t(
+                            `aiWriting.genres.${key.toLowerCase().replace('_', '')}` as any
+                          )}
                         </option>
                       ))}
                     </select>
                   </div>
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                      目标字数
+                      {t('aiWriting.editDialog.targetWords')}
                     </label>
                     <select
                       value={editForm.targetWords}
@@ -964,11 +1002,27 @@ export default function AIWritingPage() {
                       }
                       className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                     >
-                      {WORD_COUNTS.map((w) => (
-                        <option key={w.value} value={w.value}>
-                          {w.label}
-                        </option>
-                      ))}
+                      {WORD_COUNT_VALUES.map((value) => {
+                        const key =
+                          value >= 1000000
+                            ? '1000k'
+                            : value >= 500000
+                              ? '500k'
+                              : value >= 200000
+                                ? '200k'
+                                : value >= 100000
+                                  ? '100k'
+                                  : value >= 50000
+                                    ? '50k'
+                                    : value >= 30000
+                                      ? '30k'
+                                      : '10k';
+                        return (
+                          <option key={value} value={value}>
+                            {t(`aiWriting.wordCounts.${key}`)}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                 </div>
@@ -976,7 +1030,7 @@ export default function AIWritingPage() {
                 {/* Writing Style */}
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                    写作风格
+                    {t('aiWriting.createDialog.writingStyle')}
                   </label>
                   <select
                     value={editForm.writingStyle}
@@ -986,24 +1040,36 @@ export default function AIWritingPage() {
                     className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                     disabled={isLoadingStyles}
                   >
-                    <option value="">自动推荐（根据类型）</option>
-                    {Object.entries(STYLE_CATEGORY_LABELS).map(
-                      ([category, label]) => {
-                        const presetsInCategory = stylePresets.filter(
-                          (p) => p.category === category
-                        );
-                        if (presetsInCategory.length === 0) return null;
-                        return (
-                          <optgroup key={category} label={label}>
-                            {presetsInCategory.map((preset) => (
-                              <option key={preset.id} value={preset.id}>
-                                {preset.name} - {preset.description}
-                              </option>
-                            ))}
-                          </optgroup>
-                        );
-                      }
-                    )}
+                    <option value="">
+                      {t('aiWriting.createDialog.autoRecommend')}
+                    </option>
+                    {STYLE_CATEGORY_KEYS.map((category) => {
+                      const presetsInCategory = stylePresets.filter(
+                        (p) => p.category === category
+                      );
+                      if (presetsInCategory.length === 0) return null;
+                      const categoryKey =
+                        category === 'chinese_martial_arts'
+                          ? 'chineseMartialArts'
+                          : category === 'chinese_web_novel'
+                            ? 'chineseWebNovel'
+                            : category;
+                      return (
+                        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+                        <optgroup
+                          key={category}
+                          label={t(
+                            `aiWriting.styleCategories.${categoryKey}` as any
+                          )}
+                        >
+                          {presetsInCategory.map((preset) => (
+                            <option key={preset.id} value={preset.id}>
+                              {preset.name} - {preset.description}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
                   </select>
                   {editForm.writingStyle && (
                     <p className="mt-1.5 text-xs text-gray-500">
@@ -1023,14 +1089,16 @@ export default function AIWritingPage() {
                 onClick={() => setEditingProject(null)}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                取消
+                {t('aiWriting.createDialog.cancel')}
               </button>
               <button
                 onClick={handleSaveEdit}
                 disabled={!editForm.name.trim() || isEditing}
                 className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isEditing ? '保存中...' : '保存'}
+                {isEditing
+                  ? t('aiWriting.editDialog.saving')
+                  : t('aiWriting.editDialog.save')}
               </button>
             </div>
           </div>

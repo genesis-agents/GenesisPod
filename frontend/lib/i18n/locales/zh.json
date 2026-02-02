@@ -1315,7 +1315,8 @@
       "writingStyle": "写作风格",
       "autoRecommend": "自动推荐（根据类型）",
       "cancel": "取消",
-      "creating": "创建中..."
+      "creating": "创建中...",
+      "startCreating": "开始创作"
     },
     "editDialog": {
       "title": "编辑作品",
@@ -1503,6 +1504,10 @@
       "companies": "公司",
       "roles": "角色",
       "round": "第 {{round}} 回合"
+    },
+    "templateCard": {
+      "companies": "公司",
+      "roles": "角色"
     }
   },
   "aiSocial": {
@@ -4907,7 +4912,37 @@
       "continue": "继续执行",
       "sendMessage": "发送消息",
       "dataPoints": "数据点",
-      "keyInsights": "关键洞察"
+      "keyInsights": "关键洞察",
+      "title": "AI 演示文稿",
+      "subtitle": "AI 团队协作生成 PPT",
+      "new": "新建",
+      "aiAssist": "AI 辅助",
+      "history": "历史记录",
+      "createCheckpoint": "创建保存点",
+      "export": "导出",
+      "reset": "重置",
+      "presentationTitle": "演示标题",
+      "sourceContent": "源内容",
+      "titlePlaceholder": "输入演示文稿标题...",
+      "contentPlaceholder": "粘贴或输入要生成 PPT 的内容...\n\n支持：\n- 研究报告\n- 会议纪要\n- 项目方案\n- 产品文档\n- 任何需要可视化展示的文本",
+      "startGeneration": "开始生成",
+      "generationComplete": "生成完成",
+      "aiTeam": "AI 团队",
+      "pageList": "页面列表",
+      "page": "第 {{number}} 页",
+      "completedCount": "已完成 {{completed}} / {{total}} 页",
+      "waiting": "等待中",
+      "generationError": "生成出错",
+      "presentationPreview": "演示文稿预览",
+      "waitingGeneration": "等待生成...",
+      "noSlides": "{{count}} 页幻灯片",
+      "thumbnails": "缩略图",
+      "generatingInProgress": "正在生成...",
+      "preparingPPT": "准备生成 PPT",
+      "teamCollaborating": "AI 团队正在协作生成您的演示文稿",
+      "enterContentLeft": "在左侧输入内容开始生成",
+      "stop": "停止",
+      "score": "{{score}}分"
     },
     "documentWizard": {
       "createDocument": "创建新文档",
