@@ -4212,6 +4212,48 @@
         "sufficient": "充分",
         "moderate": "一般",
         "insufficient": "不足"
+      },
+      "panel": {
+        "reportTitle": "研究可信度报告",
+        "overallCredibility": "整体可信度",
+        "authority": "权威性",
+        "diversity": "多样性",
+        "timeliness": "时效性",
+        "coverage": "覆盖度",
+        "sourceAssessment": "数据来源评估",
+        "timelinessAssessment": "时效性评估",
+        "coverageAssessment": "覆盖度评估",
+        "aiQuality": "AI分析质量",
+        "limitations": "局限性声明",
+        "planningRounds": "规划轮次",
+        "avgRevisions": "平均修订次数",
+        "approvalRate": "审核通过率",
+        "agentActivities": "Agent活动数",
+        "recalculate": "重算证据",
+        "recalculating": "计算中...",
+        "reanalyze": "重新分析",
+        "recalculateTooltip": "重新计算所有证据的可信度评分",
+        "recalculateResult": "已更新 {{updated}} 条证据的可信度，平均分: {{avg}}%",
+        "loadFailed": "加载失败",
+        "analyzing": "分析可信度...",
+        "noReport": "暂无可信度报告",
+        "noReportHint": "完成研究后将自动生成可信度评估",
+        "noTimelinessData": "暂无时效性数据",
+        "allDatesUnknown": "所有来源的发布日期未知，无法评估时效性",
+        "dateUnknown": "日期未知",
+        "timePeriods": {
+          "within1Month": "1个月内",
+          "within3Months": "1-3个月",
+          "within6Months": "3-6个月",
+          "within1Year": "6-12个月",
+          "older": "1年以上"
+        },
+        "coverageStatus": {
+          "sufficient": "充分",
+          "moderate": "一般",
+          "insufficient": "不足",
+          "unknown": "未知"
+        }
       }
     },
     "agents": {

@@ -1654,7 +1654,8 @@ export function ResearchTimeline({
     <div className="space-y-4">
       {/* 标题和筛选 */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
+          <Calendar className="h-5 w-5" />
           {t('topicResearch.collaboration.timeline.title')}
         </h2>
         <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">

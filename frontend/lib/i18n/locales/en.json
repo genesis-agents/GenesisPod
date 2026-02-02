@@ -3975,6 +3975,48 @@
         "sufficient": "Sufficient",
         "moderate": "Moderate",
         "insufficient": "Insufficient"
+      },
+      "panel": {
+        "reportTitle": "Credibility Report",
+        "overallCredibility": "Overall",
+        "authority": "Authority",
+        "diversity": "Diversity",
+        "timeliness": "Timeliness",
+        "coverage": "Coverage",
+        "sourceAssessment": "Source Assessment",
+        "timelinessAssessment": "Timeliness Assessment",
+        "coverageAssessment": "Coverage Assessment",
+        "aiQuality": "AI Analysis Quality",
+        "limitations": "Limitations",
+        "planningRounds": "Planning Rounds",
+        "avgRevisions": "Avg Revisions",
+        "approvalRate": "Approval Rate",
+        "agentActivities": "Agent Activities",
+        "recalculate": "Recalculate",
+        "recalculating": "Recalculating...",
+        "reanalyze": "Re-analyze",
+        "recalculateTooltip": "Recalculate credibility scores for all evidence",
+        "recalculateResult": "Updated {{updated}} evidence scores, average: {{avg}}%",
+        "loadFailed": "Failed to load",
+        "analyzing": "Analyzing credibility...",
+        "noReport": "No Credibility Report",
+        "noReportHint": "A credibility assessment will be generated after research completes",
+        "noTimelinessData": "No timeliness data available",
+        "allDatesUnknown": "All source publication dates are unknown, cannot assess timeliness",
+        "dateUnknown": "Date unknown",
+        "timePeriods": {
+          "within1Month": "Within 1 month",
+          "within3Months": "1-3 months",
+          "within6Months": "3-6 months",
+          "within1Year": "6-12 months",
+          "older": "Over 1 year"
+        },
+        "coverageStatus": {
+          "sufficient": "Sufficient",
+          "moderate": "Moderate",
+          "insufficient": "Insufficient",
+          "unknown": "Unknown"
+        }
       }
     },
     "agents": {

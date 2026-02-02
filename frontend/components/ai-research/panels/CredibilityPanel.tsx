@@ -220,7 +220,13 @@ function ScoreIndicator({
 /**
  * 来源分布条
  */
-function SourceDistributionBar({ breakdown }: { breakdown: SourceBreakdown }) {
+function SourceDistributionBar({
+  breakdown,
+  t,
+}: {
+  breakdown: SourceBreakdown;
+  t: (key: string) => string;
+}) {
   const total = breakdown.total || 1;
   // 处理 API 返回的 news 字段和内部的 newsMajor/newsOther 字段
   const newsCount =
@@ -228,35 +234,35 @@ function SourceDistributionBar({ breakdown }: { breakdown: SourceBreakdown }) {
   const sources = [
     {
       key: 'government',
-      label: '政府/官方',
+      label: t('topicResearch.credibility.categories.government'),
       count: breakdown.government || 0,
       color: 'bg-red-500',
       icon: Building,
     },
     {
       key: 'academic',
-      label: '学术研究',
+      label: t('topicResearch.credibility.categories.academic'),
       count: breakdown.academic || 0,
       color: 'bg-blue-500',
       icon: GraduationCap,
     },
     {
       key: 'industry',
-      label: '行业报告',
+      label: t('topicResearch.credibility.categories.industry'),
       count: breakdown.industry || 0,
       color: 'bg-purple-500',
       icon: FileText,
     },
     {
       key: 'news',
-      label: '新闻媒体',
+      label: t('topicResearch.credibility.categories.news'),
       count: newsCount,
       color: 'bg-green-500',
       icon: Newspaper,
     },
     {
       key: 'blog',
-      label: '博客/其他',
+      label: t('topicResearch.credibility.categories.blog'),
       count: (breakdown.blog || 0) + (breakdown.other || 0),
       color: 'bg-gray-400',
       icon: BookOpen,
@@ -301,7 +307,13 @@ function SourceDistributionBar({ breakdown }: { breakdown: SourceBreakdown }) {
  * 时效性分布
  * ★ 显示所有时间段，包括 unknown（日期未知）
  */
-function TimelinessDistribution({ breakdown }: { breakdown: TimeBreakdown }) {
+function TimelinessDistribution({
+  breakdown,
+  t,
+}: {
+  breakdown: TimeBreakdown;
+  t: (key: string) => string;
+}) {
   const total = breakdown.total || 1;
 
   // ★ 计算 unknown 数量（如果后端没传，根据 total 推算）
@@ -321,37 +333,37 @@ function TimelinessDistribution({ breakdown }: { breakdown: TimeBreakdown }) {
   const allPeriods = [
     {
       key: '1m',
-      label: '1个月内',
+      label: t('topicResearch.credibility.panel.timePeriods.within1Month'),
       count: breakdown.within1Month || 0,
       color: 'bg-green-500',
     },
     {
       key: '3m',
-      label: '1-3个月',
+      label: t('topicResearch.credibility.panel.timePeriods.within3Months'),
       count: breakdown.within3Months || 0,
       color: 'bg-blue-500',
     },
     {
       key: '6m',
-      label: '3-6个月',
+      label: t('topicResearch.credibility.panel.timePeriods.within6Months'),
       count: breakdown.within6Months || 0,
       color: 'bg-yellow-500',
     },
     {
       key: '1y',
-      label: '6-12个月',
+      label: t('topicResearch.credibility.panel.timePeriods.within1Year'),
       count: breakdown.within1Year || 0,
       color: 'bg-orange-400',
     },
     {
       key: 'older',
-      label: '1年以上',
+      label: t('topicResearch.credibility.panel.timePeriods.older'),
       count: breakdown.older || 0,
       color: 'bg-gray-400',
     },
     {
       key: 'unknown',
-      label: '日期未知',
+      label: t('topicResearch.credibility.panel.dateUnknown'),
       count: unknownCount,
       color: 'bg-gray-300',
     },
@@ -364,7 +376,7 @@ function TimelinessDistribution({ breakdown }: { breakdown: TimeBreakdown }) {
   if (periods.length === 0) {
     return (
       <div className="py-4 text-center text-sm text-gray-500">
-        暂无时效性数据
+        {t('topicResearch.credibility.panel.noTimelinessData')}
       </div>
     );
   }
@@ -375,10 +387,12 @@ function TimelinessDistribution({ breakdown }: { breakdown: TimeBreakdown }) {
       <div className="space-y-2">
         <div className="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
           <AlertTriangle className="mr-1.5 inline h-4 w-4" />
-          所有来源的发布日期未知，无法评估时效性
+          {t('topicResearch.credibility.panel.allDatesUnknown')}
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-20 text-xs text-gray-500">日期未知</div>
+          <div className="w-20 text-xs text-gray-500">
+            {t('topicResearch.credibility.panel.dateUnknown')}
+          </div>
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
             <div className="h-full w-full bg-gray-300" />
           </div>
@@ -413,7 +427,13 @@ function TimelinessDistribution({ breakdown }: { breakdown: TimeBreakdown }) {
 /**
  * 覆盖度列表
  */
-function CoverageList({ details }: { details: CoverageDetail[] }) {
+function CoverageList({
+  details,
+  t,
+}: {
+  details: CoverageDetail[];
+  t: (key: string) => string;
+}) {
   // 将 API 返回的 status 映射到内部 status
   const normalizeStatus = (
     status: CoverageDetail['status']
@@ -426,18 +446,30 @@ function CoverageList({ details }: { details: CoverageDetail[] }) {
 
   const statusConfig: Record<
     string,
-    { icon: typeof CheckCircle; color: string; label: string }
+    { icon: typeof CheckCircle; color: string; labelKey: string }
   > = {
-    sufficient: { icon: CheckCircle, color: 'text-green-500', label: '充分' },
-    moderate: { icon: AlertCircle, color: 'text-yellow-500', label: '一般' },
-    insufficient: { icon: XCircle, color: 'text-red-500', label: '不足' },
+    sufficient: {
+      icon: CheckCircle,
+      color: 'text-green-500',
+      labelKey: 'topicResearch.credibility.panel.coverageStatus.sufficient',
+    },
+    moderate: {
+      icon: AlertCircle,
+      color: 'text-yellow-500',
+      labelKey: 'topicResearch.credibility.panel.coverageStatus.moderate',
+    },
+    insufficient: {
+      icon: XCircle,
+      color: 'text-red-500',
+      labelKey: 'topicResearch.credibility.panel.coverageStatus.insufficient',
+    },
   };
 
   // ★ 默认状态配置
   const defaultStatusInfo = {
     icon: AlertCircle,
     color: 'text-gray-500',
-    label: '未知',
+    labelKey: 'topicResearch.credibility.panel.coverageStatus.unknown',
   };
 
   return (
@@ -539,6 +571,8 @@ export function CredibilityPanel({
   isLoading: propIsLoading = false,
   onRefresh: propOnRefresh,
 }: CredibilityPanelProps) {
+  const { t } = useI18n();
+
   // 内部状态：用于 reportId 模式
   const [fetchedCredibility, setFetchedCredibility] =
     useState<CredibilityReportData | null>(null);
@@ -596,7 +630,11 @@ export function CredibilityPanel({
         })),
       } as unknown as CredibilityReportData);
     } catch (err) {
-      setFetchError(err instanceof Error ? err.message : '获取可信度报告失败');
+      setFetchError(
+        err instanceof Error
+          ? err.message
+          : t('topicResearch.credibility.panel.loadFailed')
+      );
     } finally {
       setIsFetching(false);
     }
@@ -612,7 +650,9 @@ export function CredibilityPanel({
         setFetchedCredibility(data as unknown as CredibilityReportData);
       } catch (err) {
         setFetchError(
-          err instanceof Error ? err.message : '重新生成可信度报告失败'
+          err instanceof Error
+            ? err.message
+            : t('topicResearch.credibility.panel.loadFailed')
         );
       } finally {
         setIsFetching(false);
@@ -656,7 +696,7 @@ export function CredibilityPanel({
       <div className="flex h-64 flex-col items-center justify-center text-center">
         <AlertTriangle className="mb-3 h-12 w-12 text-red-300" />
         <div className="mb-1 text-lg font-medium text-gray-900 dark:text-white">
-          加载失败
+          {t('topicResearch.credibility.panel.loadFailed')}
         </div>
         <div className="mb-3 text-sm text-gray-500">
           {safeString(fetchError)}
@@ -665,7 +705,7 @@ export function CredibilityPanel({
           onClick={fetchData}
           className="rounded-lg bg-blue-500 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-600"
         >
-          重试
+          {t('common.retry')}
         </button>
       </div>
     );
@@ -677,7 +717,9 @@ export function CredibilityPanel({
       <div className="flex h-64 items-center justify-center">
         <div className="text-center">
           <Shield className="mx-auto mb-2 h-8 w-8 animate-pulse text-blue-500" />
-          <div className="text-sm text-gray-500">分析可信度...</div>
+          <div className="text-sm text-gray-500">
+            {t('topicResearch.credibility.panel.analyzing')}
+          </div>
         </div>
       </div>
     );
@@ -689,17 +731,17 @@ export function CredibilityPanel({
       <div className="flex h-64 flex-col items-center justify-center text-center">
         <Shield className="mb-3 h-12 w-12 text-gray-300" />
         <div className="mb-1 text-lg font-medium text-gray-900 dark:text-white">
-          暂无可信度报告
+          {t('topicResearch.credibility.panel.noReport')}
         </div>
         <div className="mb-3 text-sm text-gray-500">
-          完成研究后将自动生成可信度评估
+          {t('topicResearch.credibility.panel.noReportHint')}
         </div>
         {onRefresh && (
           <button
             onClick={onRefresh}
             className="rounded-lg bg-blue-500 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-600"
           >
-            重新分析
+            {t('topicResearch.credibility.panel.reanalyze')}
           </button>
         )}
       </div>
@@ -712,7 +754,7 @@ export function CredibilityPanel({
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
           <Shield className="h-5 w-5" />
-          研究可信度报告
+          {t('topicResearch.credibility.panel.reportTitle')}
         </h2>
         <div className="flex items-center gap-3">
           {/* ★ 重新计算证据可信度按钮 */}
@@ -721,7 +763,7 @@ export function CredibilityPanel({
               onClick={handleRecalculateEvidence}
               disabled={isRecalculatingEvidence}
               className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-600 transition-colors hover:border-orange-400 hover:text-orange-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-              title="重新计算所有证据的可信度评分"
+              title={t('topicResearch.credibility.panel.recalculateTooltip')}
             >
               <RefreshCw
                 className={cn(
@@ -729,7 +771,9 @@ export function CredibilityPanel({
                   isRecalculatingEvidence && 'animate-spin'
                 )}
               />
-              {isRecalculatingEvidence ? '计算中...' : '重算证据'}
+              {isRecalculatingEvidence
+                ? t('topicResearch.credibility.panel.recalculating')
+                : t('topicResearch.credibility.panel.recalculate')}
             </button>
           )}
           {onRefresh && (
@@ -737,7 +781,7 @@ export function CredibilityPanel({
               onClick={onRefresh}
               className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
             >
-              重新分析
+              {t('topicResearch.credibility.panel.reanalyze')}
             </button>
           )}
         </div>
@@ -747,8 +791,10 @@ export function CredibilityPanel({
       {recalculateResult && (
         <div className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-300">
           <CheckCircle className="mr-1.5 inline h-4 w-4" />
-          已更新 {recalculateResult.updated} 条证据的可信度，平均分:{' '}
-          {recalculateResult.avgScore}%
+          {t('topicResearch.credibility.panel.recalculateResult', {
+            updated: recalculateResult.updated,
+            avg: recalculateResult.avgScore,
+          })}
         </div>
       )}
 
@@ -757,68 +803,100 @@ export function CredibilityPanel({
         <div className="flex flex-wrap items-center justify-center gap-8">
           <ScoreIndicator
             score={credibility.overallScore}
-            label="整体可信度"
+            label={t('topicResearch.credibility.panel.overallCredibility')}
             size="large"
           />
           <div className="grid grid-cols-2 gap-6">
-            <ScoreIndicator score={credibility.authorityScore} label="权威性" />
-            <ScoreIndicator score={credibility.diversityScore} label="多样性" />
+            <ScoreIndicator
+              score={credibility.authorityScore}
+              label={t('topicResearch.credibility.panel.authority')}
+            />
+            <ScoreIndicator
+              score={credibility.diversityScore}
+              label={t('topicResearch.credibility.panel.diversity')}
+            />
             <ScoreIndicator
               score={credibility.timelinessScore}
-              label="时效性"
+              label={t('topicResearch.credibility.panel.timeliness')}
             />
-            <ScoreIndicator score={credibility.coverageScore} label="覆盖度" />
+            <ScoreIndicator
+              score={credibility.coverageScore}
+              label={t('topicResearch.credibility.panel.coverage')}
+            />
           </div>
         </div>
       </div>
 
       {/* 数据来源评估 */}
-      <CollapsibleSection title="数据来源评估" icon={BookOpen}>
+      <CollapsibleSection
+        title={t('topicResearch.credibility.panel.sourceAssessment')}
+        icon={BookOpen}
+      >
         <div className="pt-3">
-          <SourceDistributionBar breakdown={credibility.sourceBreakdown} />
+          <SourceDistributionBar
+            breakdown={credibility.sourceBreakdown}
+            t={t}
+          />
         </div>
       </CollapsibleSection>
 
       {/* 时效性评估 */}
-      <CollapsibleSection title="时效性评估" icon={Clock}>
+      <CollapsibleSection
+        title={t('topicResearch.credibility.panel.timelinessAssessment')}
+        icon={Clock}
+      >
         <div className="pt-3">
-          <TimelinessDistribution breakdown={credibility.timeBreakdown} />
+          <TimelinessDistribution breakdown={credibility.timeBreakdown} t={t} />
         </div>
       </CollapsibleSection>
 
       {/* 覆盖度评估 */}
-      <CollapsibleSection title="覆盖度评估" icon={Layers}>
+      <CollapsibleSection
+        title={t('topicResearch.credibility.panel.coverageAssessment')}
+        icon={Layers}
+      >
         <div className="pt-3">
-          <CoverageList details={credibility.coverageDetails} />
+          <CoverageList details={credibility.coverageDetails} t={t} />
         </div>
       </CollapsibleSection>
 
       {/* AI分析质量 */}
-      <CollapsibleSection title="AI分析质量" icon={Brain}>
+      <CollapsibleSection
+        title={t('topicResearch.credibility.panel.aiQuality')}
+        icon={Brain}
+      >
         <div className="grid grid-cols-2 gap-4 pt-3 md:grid-cols-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
               {credibility.aiQualityMetrics.planningRounds}
             </div>
-            <div className="text-xs text-gray-500">规划轮次</div>
+            <div className="text-xs text-gray-500">
+              {t('topicResearch.credibility.panel.planningRounds')}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-green-600 dark:text-green-400">
               {credibility.aiQualityMetrics.revisionAverage.toFixed(1)}
             </div>
-            <div className="text-xs text-gray-500">平均修订次数</div>
+            <div className="text-xs text-gray-500">
+              {t('topicResearch.credibility.panel.avgRevisions')}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
               {Math.round(credibility.aiQualityMetrics.approvalRate)}%
             </div>
-            <div className="text-xs text-gray-500">审核通过率</div>
+            <div className="text-xs text-gray-500">
+              {t('topicResearch.credibility.panel.approvalRate')}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
               {credibility.aiQualityMetrics.totalAgentActivities}
             </div>
-            <div className="text-xs text-gray-500">Agent活动数</div>
+            <div className="text-xs text-gray-500">
+              {t('topicResearch.credibility.panel.agentActivities')}
+            </div>
           </div>
         </div>
       </CollapsibleSection>
@@ -826,7 +904,7 @@ export function CredibilityPanel({
       {/* 局限性声明 */}
       {credibility.limitations.length > 0 && (
         <CollapsibleSection
-          title="局限性声明"
+          title={t('topicResearch.credibility.panel.limitations')}
           icon={AlertTriangle}
           defaultExpanded={false}
         >

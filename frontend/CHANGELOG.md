@@ -4,133 +4,115 @@ DeepDive Engine 版本变更记录。
 
 ## [3.4.0](https://github.com/your-org/ai-teams-engine/compare/v3.3.31...v3.4.0) (2026-02-02)
 
-
 ### Features
 
-* **byok:** add user API keys migration and PRD ([10c08cf](https://github.com/your-org/ai-teams-engine/commit/10c08cfef94e502b297f9474081ce9dd2de4c9f9))
-* **core:** implement BYOK user API key system with shared donation pool ([7f68184](https://github.com/your-org/ai-teams-engine/commit/7f6818489f2340a6f4f1777dd7bab720bcdf75b2))
-* **i18n:** comprehensive internationalization for ai-research components ([0405ae2](https://github.com/your-org/ai-teams-engine/commit/0405ae2bafa8c2a8d5552fa119477ee623cbad5c))
-* **ui-patrol:** add automated UI inspection and regression system ([2c7ffbe](https://github.com/your-org/ai-teams-engine/commit/2c7ffbed76cb25bb123fc85090638fde416ee2c4))
-
+- **byok:** add user API keys migration and PRD ([10c08cf](https://github.com/your-org/ai-teams-engine/commit/10c08cfef94e502b297f9474081ce9dd2de4c9f9))
+- **core:** implement BYOK user API key system with shared donation pool ([7f68184](https://github.com/your-org/ai-teams-engine/commit/7f6818489f2340a6f4f1777dd7bab720bcdf75b2))
+- **i18n:** comprehensive internationalization for ai-research components ([0405ae2](https://github.com/your-org/ai-teams-engine/commit/0405ae2bafa8c2a8d5552fa119477ee623cbad5c))
+- **ui-patrol:** add automated UI inspection and regression system ([2c7ffbe](https://github.com/your-org/ai-teams-engine/commit/2c7ffbed76cb25bb123fc85090638fde416ee2c4))
 
 ### Bug Fixes
 
-* **i18n:** comprehensive English mode i18n coverage for multiple modules ([70fbccc](https://github.com/your-org/ai-teams-engine/commit/70fbccc74f4c2080227024c0bc578c6621ac0b4e))
-* **i18n:** merge duplicate contentPanel key in en.json ([23c2ce6](https://github.com/your-org/ai-teams-engine/commit/23c2ce6935d67f0c214a7fee8b29d8d077d1c1e6))
-* **i18n:** translate AI Writing list, Office slides list, Simulation cards ([ecfa586](https://github.com/your-org/ai-teams-engine/commit/ecfa586ef77316c96ac85e96ed4a1425c6a6773a))
-* **i18n:** translate evidence panel labels, fix Research Depth layout ([5e320f9](https://github.com/your-org/ai-teams-engine/commit/5e320f95c513cb411f4371470abefa413d3581e9))
-* **i18n:** translate WritingDetailPage, EditorModal, SandboxView ([28ed8eb](https://github.com/your-org/ai-teams-engine/commit/28ed8eb1876d6295b13aadd753cfc408a48bbb76))
-
+- **i18n:** comprehensive English mode i18n coverage for multiple modules ([70fbccc](https://github.com/your-org/ai-teams-engine/commit/70fbccc74f4c2080227024c0bc578c6621ac0b4e))
+- **i18n:** merge duplicate contentPanel key in en.json ([23c2ce6](https://github.com/your-org/ai-teams-engine/commit/23c2ce6935d67f0c214a7fee8b29d8d077d1c1e6))
+- **i18n:** translate AI Writing list, Office slides list, Simulation cards ([ecfa586](https://github.com/your-org/ai-teams-engine/commit/ecfa586ef77316c96ac85e96ed4a1425c6a6773a))
+- **i18n:** translate evidence panel labels, fix Research Depth layout ([5e320f9](https://github.com/your-org/ai-teams-engine/commit/5e320f95c513cb411f4371470abefa413d3581e9))
+- **i18n:** translate WritingDetailPage, EditorModal, SandboxView ([28ed8eb](https://github.com/your-org/ai-teams-engine/commit/28ed8eb1876d6295b13aadd753cfc408a48bbb76))
 
 ### Refactoring
 
-* **changelog:** auto-generate from CHANGELOG.md instead of hardcoding ([b428ea2](https://github.com/your-org/ai-teams-engine/commit/b428ea2eff3ac4d3e9ec8fbde407966f17f141d5))
+- **changelog:** auto-generate from CHANGELOG.md instead of hardcoding ([b428ea2](https://github.com/your-org/ai-teams-engine/commit/b428ea2eff3ac4d3e9ec8fbde407966f17f141d5))
 
 ### [3.3.31](https://github.com/your-org/ai-teams-engine/compare/v3.3.30...v3.3.31) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **research:** comprehensive i18n support and citation link fix ([666e009](https://github.com/your-org/ai-teams-engine/commit/666e0099fc90020edc8d2d61ec8907454443780c))
+- **research:** comprehensive i18n support and citation link fix ([666e009](https://github.com/your-org/ai-teams-engine/commit/666e0099fc90020edc8d2d61ec8907454443780c))
 
 ### [3.3.30](https://github.com/your-org/ai-teams-engine/compare/v3.3.29...v3.3.30) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **research:** respect topic language setting in section writing ([3ae67b4](https://github.com/your-org/ai-teams-engine/commit/3ae67b4f8c9ef0c670e85cdefe04fc30dc8bda83))
+- **research:** respect topic language setting in section writing ([3ae67b4](https://github.com/your-org/ai-teams-engine/commit/3ae67b4f8c9ef0c670e85cdefe04fc30dc8bda83))
 
 ### [3.3.29](https://github.com/your-org/ai-teams-engine/compare/v3.3.28...v3.3.29) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **research:** improve fallback when AI report JSON parsing fails ([58c4ad6](https://github.com/your-org/ai-teams-engine/commit/58c4ad6a3907554e1a9fceade7299e7992e30f2a))
+- **research:** improve fallback when AI report JSON parsing fails ([58c4ad6](https://github.com/your-org/ai-teams-engine/commit/58c4ad6a3907554e1a9fceade7299e7992e30f2a))
 
 ### [3.3.28](https://github.com/your-org/ai-teams-engine/compare/v3.3.27...v3.3.28) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **research:** use brace counting for JSON extraction from code blocks ([51f1090](https://github.com/your-org/ai-teams-engine/commit/51f10906cbf453c0cf8d1316afa0c0dbf853382c))
+- **research:** use brace counting for JSON extraction from code blocks ([51f1090](https://github.com/your-org/ai-teams-engine/commit/51f10906cbf453c0cf8d1316afa0c0dbf853382c))
 
 ### [3.3.27](https://github.com/your-org/ai-teams-engine/compare/v3.3.26...v3.3.27) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **ui:** fix changelog page scrollbar overflow ([c471d0e](https://github.com/your-org/ai-teams-engine/commit/c471d0e36c6185d6a75ed78518ecb391a12a9b25))
+- **ui:** fix changelog page scrollbar overflow ([c471d0e](https://github.com/your-org/ai-teams-engine/commit/c471d0e36c6185d6a75ed78518ecb391a12a9b25))
 
 ### [3.3.26](https://github.com/your-org/ai-teams-engine/compare/v3.3.25...v3.3.26) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **ai-engine:** fix Gemini embedding model test URL construction ([cff15f7](https://github.com/your-org/ai-teams-engine/commit/cff15f799d64c986f74fcdebe40411d9888c9fc1))
+- **ai-engine:** fix Gemini embedding model test URL construction ([cff15f7](https://github.com/your-org/ai-teams-engine/commit/cff15f799d64c986f74fcdebe40411d9888c9fc1))
 
 ### [3.3.25](https://github.com/your-org/ai-teams-engine/compare/v3.3.24...v3.3.25) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **research:** strip leaked CHARTS JSON from report + clickable chart citations ([851a50d](https://github.com/your-org/ai-teams-engine/commit/851a50de0f388c238a6705da5130aade1a2a0b01))
-* **ui:** show sidebar on changelog page ([8efa0eb](https://github.com/your-org/ai-teams-engine/commit/8efa0eb5fb7d0ffc79732fae8923a17e3742a3b7))
+- **research:** strip leaked CHARTS JSON from report + clickable chart citations ([851a50d](https://github.com/your-org/ai-teams-engine/commit/851a50de0f388c238a6705da5130aade1a2a0b01))
+- **ui:** show sidebar on changelog page ([8efa0eb](https://github.com/your-org/ai-teams-engine/commit/8efa0eb5fb7d0ffc79732fae8923a17e3742a3b7))
 
 ### [3.3.24](https://github.com/your-org/ai-teams-engine/compare/v3.3.23...v3.3.24) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **research:** add backend safety net to strip raw JSON from report content ([f3c2ea2](https://github.com/your-org/ai-teams-engine/commit/f3c2ea2eb05aac9510c8bf63010cf25911ebac40))
+- **research:** add backend safety net to strip raw JSON from report content ([f3c2ea2](https://github.com/your-org/ai-teams-engine/commit/f3c2ea2eb05aac9510c8bf63010cf25911ebac40))
 
 ### [3.3.23](https://github.com/your-org/ai-teams-engine/compare/v3.3.22...v3.3.23) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **research:** robust JSON extraction with regex fullText fallback ([f58faf5](https://github.com/your-org/ai-teams-engine/commit/f58faf57fc6b9583ba32c01381d10510fa6a7ee7))
+- **research:** robust JSON extraction with regex fullText fallback ([f58faf5](https://github.com/your-org/ai-teams-engine/commit/f58faf57fc6b9583ba32c01381d10510fa6a7ee7))
 
 ### [3.3.22](https://github.com/your-org/ai-teams-engine/compare/v3.3.21...v3.3.22) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **research:** use JSON.parse instead of brace counting for embedded JSON extraction ([49068d9](https://github.com/your-org/ai-teams-engine/commit/49068d9b43bebbf0e89591983efb332db92378a8))
+- **research:** use JSON.parse instead of brace counting for embedded JSON extraction ([49068d9](https://github.com/your-org/ai-teams-engine/commit/49068d9b43bebbf0e89591983efb332db92378a8))
 
 ### [3.3.21](https://github.com/your-org/ai-teams-engine/compare/v3.3.20...v3.3.21) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **research:** persist language setting and apply to all prompts ([5e00a20](https://github.com/your-org/ai-teams-engine/commit/5e00a20dfda8547d0b3801cb9c9d1abf0eade0c2))
+- **research:** persist language setting and apply to all prompts ([5e00a20](https://github.com/your-org/ai-teams-engine/commit/5e00a20dfda8547d0b3801cb9c9d1abf0eade0c2))
 
 ### [3.3.20](https://github.com/your-org/ai-teams-engine/compare/v3.3.19...v3.3.20) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **research:** broaden JSON detection regex for embedded executiveSummary ([c87d8f9](https://github.com/your-org/ai-teams-engine/commit/c87d8f9fde1e231f89a7f58cbd8fec834a95837e))
+- **research:** broaden JSON detection regex for embedded executiveSummary ([c87d8f9](https://github.com/your-org/ai-teams-engine/commit/c87d8f9fde1e231f89a7f58cbd8fec834a95837e))
 
 ### [3.3.19](https://github.com/your-org/ai-teams-engine/compare/v3.3.18...v3.3.19) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **research:** properly extract markdown from JSON embedded in fullReport ([f76bcc6](https://github.com/your-org/ai-teams-engine/commit/f76bcc66406a81bfad0dd2e2b62406b8cdeea12d))
+- **research:** properly extract markdown from JSON embedded in fullReport ([f76bcc6](https://github.com/your-org/ai-teams-engine/commit/f76bcc66406a81bfad0dd2e2b62406b8cdeea12d))
 
 ### [3.3.18](https://github.com/your-org/ai-teams-engine/compare/v3.3.17...v3.3.18) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **research:** handle executiveSummary with fullText-only JSON format ([e71e617](https://github.com/your-org/ai-teams-engine/commit/e71e617e748c0077699a93644223deee5346913b))
+- **research:** handle executiveSummary with fullText-only JSON format ([e71e617](https://github.com/your-org/ai-teams-engine/commit/e71e617e748c0077699a93644223deee5346913b))
 
 ### [3.3.17](https://github.com/your-org/ai-teams-engine/compare/v3.3.16...v3.3.17) (2026-02-02)
 
-
 ### Bug Fixes
 
-* **frontend:** handle JSON-formatted fullReport in report renderer ([24cf0f6](https://github.com/your-org/ai-teams-engine/commit/24cf0f6f7bf0341b29104b489912eec7d67f7d81))
+- **frontend:** handle JSON-formatted fullReport in report renderer ([24cf0f6](https://github.com/your-org/ai-teams-engine/commit/24cf0f6f7bf0341b29104b489912eec7d67f7d81))
 
 ### [3.3.16](https://github.com/your-org/ai-teams-engine/compare/v3.3.15...v3.3.16) (2026-02-02)
 
