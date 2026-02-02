@@ -1,0 +1,27 @@
+route: /ai-research
+tier: critical
+auth: demo
+
+expected_structure:
+  header:
+    - heading: "AI Studio|AI Research"
+    - button: "variant: primary"
+  main:
+    - tab_navigation: true
+    - content: "grid|list"
+
+data_states:
+  with_data:
+    assertions:
+      - "Page contains at least 1 topic card"
+      - "Each card has: title, status label, date"
+  empty:
+    assertions:
+      - "Shows EmptyState component"
+      - "Has create button"
+
+forbidden:
+  - "[object Object]"
+  - "undefined"
+  - "NaN"
+  - "console error in console output"

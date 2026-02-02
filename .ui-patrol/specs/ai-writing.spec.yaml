@@ -1,0 +1,21 @@
+route: /ai-writing
+tier: important
+auth: demo
+
+expected_structure:
+  main:
+    - project_list: true
+
+data_states:
+  with_data:
+    assertions:
+      - "Page contains at least 1 writing project"
+      - "Each project has: name, genre, word count, status"
+  empty:
+    assertions:
+      - "Shows empty state or create prompt"
+
+forbidden:
+  - "[object Object]"
+  - "undefined"
+  - "NaN"

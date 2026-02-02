@@ -1,0 +1,19 @@
+route: /ai-ask
+tier: important
+auth: demo
+
+expected_structure:
+  main:
+    - chat_input: true
+    - model_selector: true
+
+data_states:
+  initial:
+    assertions:
+      - "Chat input is visible and enabled"
+      - "Model selector is visible"
+
+forbidden:
+  - "[object Object]"
+  - "undefined"
+  - "NaN"

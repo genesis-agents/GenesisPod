@@ -108,6 +108,13 @@ infra/oci/terraform/*.tfplan
 !.edgeone/project.json
 .tef_dist/*
   
+# UI Patrol outputs (generated, not checked in)
+.ui-patrol/screenshots/
+.ui-patrol/reports/
+.ui-patrol/evaluations/
+.ui-patrol/baselines/
+.ui-patrol/diffs/
+
 .aider*
 .claude/settings.local.json
 .claude/CLAUDE.local.md

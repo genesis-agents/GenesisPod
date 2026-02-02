@@ -1,0 +1,22 @@
+route: /ai-teams
+tier: critical
+auth: demo
+
+expected_structure:
+  main:
+    - topic_list: true
+
+data_states:
+  with_data:
+    assertions:
+      - "Page contains at least 1 topic item"
+      - "Each item has: name, member count or description"
+  empty:
+    assertions:
+      - "Shows empty state"
+      - "Has create button"
+
+forbidden:
+  - "[object Object]"
+  - "undefined"
+  - "NaN"

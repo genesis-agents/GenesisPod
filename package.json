@@ -59,7 +59,15 @@
     "release:first": "standard-version --first-release --release-as 2.2.0",
     "release:push": "git push --follow-tags origin main",
     "release:gh-sync": "tsx scripts/devops/sync-github-releases.ts",
-    "release:gh-sync:dry": "tsx scripts/devops/sync-github-releases.ts --dry-run"
+    "release:gh-sync:dry": "tsx scripts/devops/sync-github-releases.ts --dry-run",
+    "ui-patrol": "tsx scripts/ui-iteration/index.ts",
+    "ui-patrol:critical": "tsx scripts/ui-iteration/index.ts --tier critical",
+    "ui-patrol:changed": "tsx scripts/ui-iteration/index.ts --changed",
+    "db:seed:ui-patrol": "cd backend && tsx prisma/seed-ui-patrol.ts",
+    "db:clean:ui-patrol": "cd backend && tsx prisma/clean-ui-patrol.ts",
+    "ui-patrol:journeys": "tsx scripts/ui-iteration/journey-cli.ts",
+    "e2e": "cd e2e && npx playwright test",
+    "e2e:ui": "cd e2e && npx playwright test --ui"
   },
   "devDependencies": {
     "@commitlint/cli": "^18.4.3",
