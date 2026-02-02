@@ -3322,32 +3322,7 @@
       "notConnected": "Not connected",
       "messagesCount": "{{count}} messages",
       "clearMessages": "Clear messages",
-      "searchMessageContent": "Search message content..."
-    },
-    "credibility": {
-      "title": "Source Credibility Analysis",
-      "overallScore": "Overall Credibility",
-      "sourceDistribution": "Source Distribution",
-      "categories": {
-        "government": "Government/Official",
-        "academic": "Academic Research",
-        "industry": "Industry Reports",
-        "news": "News Media",
-        "blog": "Blog/Other"
-      },
-      "coverage": {
-        "sufficient": "Sufficient",
-        "moderate": "Moderate",
-        "insufficient": "Insufficient"
-      }
-    },
-    "agents": {
-      "leader": "Research Coordinator",
-      "researcher": "Researcher",
-      "reviewer": "Reviewer",
-      "synthesizer": "Synthesizer"
-    },
-    "contentPanel": {
+      "searchMessageContent": "Search message content...",
       "agents": {
         "leader": {
           "role": "Research Coordinator",
@@ -3402,6 +3377,29 @@
       "researcherDimension": "Researcher · {{dimension}}",
       "citedInDimension": "Cited {{count}} times in \"{{dimension}}\"",
       "webpage": "Web Page"
+    },
+    "credibility": {
+      "title": "Source Credibility Analysis",
+      "overallScore": "Overall Credibility",
+      "sourceDistribution": "Source Distribution",
+      "categories": {
+        "government": "Government/Official",
+        "academic": "Academic Research",
+        "industry": "Industry Reports",
+        "news": "News Media",
+        "blog": "Blog/Other"
+      },
+      "coverage": {
+        "sufficient": "Sufficient",
+        "moderate": "Moderate",
+        "insufficient": "Insufficient"
+      }
+    },
+    "agents": {
+      "leader": "Research Coordinator",
+      "researcher": "Researcher",
+      "reviewer": "Reviewer",
+      "synthesizer": "Synthesizer"
     },
     "phases": {
       "understanding": "Understanding Phase",
