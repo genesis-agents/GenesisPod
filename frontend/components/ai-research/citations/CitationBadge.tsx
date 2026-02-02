@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useI18n } from '@/lib/i18n';
 import { triggerCitationClick } from '../citationNavigation';
 
 export interface CitationBadgeProps {
@@ -15,6 +16,7 @@ export interface CitationBadgeProps {
 }
 
 export function CitationBadge({ index, evidence }: CitationBadgeProps) {
+  const { t } = useI18n();
   const [isHovered, setIsHovered] = useState(false);
 
   const handleClick = (e: React.MouseEvent) => {
@@ -34,7 +36,7 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
       <sup
         onClick={handleClick}
         className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
-        title="点击跳转到参考文献"
+        title={t('topicResearch.citation.jumpToReference')}
       >
         [{index}]
       </sup>
@@ -51,7 +53,7 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
             </span>
             <div className="min-w-0 flex-1">
               <h4 className="line-clamp-2 text-sm font-medium text-gray-900">
-                {evidence.title || '未知来源'}
+                {evidence.title || t('topicResearch.citation.unknownSource')}
               </h4>
               {evidence.domain && (
                 <span className="mt-0.5 inline-block text-xs text-gray-400">
@@ -74,7 +76,7 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
               onClick={handleClick}
               className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
             >
-              查看完整来源 →
+              {t('topicResearch.citation.viewFullSource')}
             </button>
             {evidence.url && (
               <a
@@ -84,7 +86,7 @@ export function CitationBadge({ index, evidence }: CitationBadgeProps) {
                 className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
                 onClick={(e) => e.stopPropagation()}
               >
-                打开原文 ↗
+                {t('topicResearch.citation.openOriginal')}
               </a>
             )}
           </div>

@@ -3496,6 +3496,121 @@
       "sources": "{{count}} sources",
       "dimensionProgress": "Dimension Progress",
       "lastRefresh": "Last refresh"
+    },
+    "todoDetail": {
+      "executor": "Executor:",
+      "startTime": "Start Time:",
+      "endTime": "End Time:",
+      "results": "Results",
+      "wordUnit": "words",
+      "summary": "Summary",
+      "keyFindings": "Key Findings",
+      "keyFindingsCount": "{{count}} Key Findings",
+      "trendAnalysis": "Trend Analysis",
+      "agentThinking": "Agent Thinking Process",
+      "significance": {
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "unknownFinding": "Unknown finding",
+      "moreFindings": "...{{count}} more findings",
+      "executionError": "Execution error",
+      "taskStatus": {
+        "pending": "Pending",
+        "queued": "Queued",
+        "inProgress": "In Progress",
+        "reviewing": "Reviewing",
+        "paused": "Paused",
+        "completed": "Completed",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "taskTypes": {
+        "research": "Research",
+        "qualityReview": "Quality Review",
+        "reportWriting": "Report Writing"
+      },
+      "blocks": "Blocks {{count}} task(s)",
+      "taskList": "Task List",
+      "leaderChat": "Chat with Leader",
+      "leaderChatPlaceholder": "Enter research instructions...",
+      "send": "Send",
+      "researchTeam": "Research Team",
+      "collapsePanel": "Collapse Panel",
+      "phase": "Phase",
+      "settings": "Settings"
+    },
+    "reportEditor": {
+      "placeholder": "Start editing report...",
+      "viewDetails": "View details",
+      "detailsPending": "Details pending",
+      "summary": "Summary",
+      "keyFindings": "Key Findings",
+      "dimension": "Dimension",
+      "trends": "Trends",
+      "directions": {
+        "increasing": "📈 Rising",
+        "decreasing": "📉 Falling",
+        "stable": "➡️ Stable",
+        "emerging": "🌱 Emerging"
+      },
+      "challenges": "Challenges",
+      "opportunities": "Opportunities",
+      "references": "References",
+      "source": "Source",
+      "noReportContent": "No report content",
+      "chartNotFound": "Chart not found",
+      "loadingReport": "Loading report...",
+      "noReport": "No report",
+      "noReportHint": "Report will appear here after research starts",
+      "noReportHintChapter": "Chapters will appear here after research starts",
+      "preview": "Preview",
+      "edit": "Edit",
+      "words": "words",
+      "aiEdit": "AI Edit",
+      "aiProcessing": "AI processing...",
+      "saving": "Saving...",
+      "save": "Save",
+      "cancel": "Cancel",
+      "previewMode": "Preview mode",
+      "noContent": "No content",
+      "backToChapterList": "Back to chapter list",
+      "chapter": "Chapter",
+      "total": "Total",
+      "chapters": "chapters",
+      "completed": "completed",
+      "trendAnalysis": "Trend Analysis",
+      "dataVisualization": "Data Visualization",
+      "editMode": "Edit mode",
+      "aiEditLabel": "AI Edit:",
+      "chapterListSummary": "Total {{total}} chapters · {{completed}} completed · {{words}} words",
+      "aiEditOperations": {
+        "rewrite": "Rewrite",
+        "rewriteDesc": "Completely rewrite selected content",
+        "polish": "Polish",
+        "polishDesc": "Improve language expression",
+        "expand": "Expand",
+        "expandDesc": "Add more details",
+        "compress": "Compress",
+        "compressDesc": "Simplify content",
+        "style": "Style",
+        "styleDesc": "Adjust writing style"
+      }
+    },
+    "reportView": {
+      "regenerateFailed": "Failed to regenerate report, please try again later",
+      "regenerateDialog": {
+        "title": "Regenerate Report",
+        "feedbackLabel": "Optimization direction (optional):",
+        "feedbackPlaceholder": "e.g.: Reduce repetition, add independent analysis, simplify product recommendations..."
+      }
+    },
+    "citation": {
+      "jumpToReference": "Click to jump to reference",
+      "unknownSource": "Unknown source",
+      "viewFullSource": "View full source →",
+      "openOriginal": "Open original ↗"
     }
   }
 }

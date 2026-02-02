@@ -10,7 +10,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { X, RefreshCw } from 'lucide-react';
-import { useTranslation } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n';
 import {
   aiEditReport,
   regenerateReportContent,
@@ -112,7 +112,7 @@ export function TopicReportView({
   onOpenAIEdit,
   onAIEdit,
 }: TopicReportViewProps) {
-  const { t } = useTranslation();
+  const { t } = useI18n();
   const {
     topicId,
     report,
@@ -182,7 +182,7 @@ export function TopicReportView({
         window.location.reload();
       } catch (error) {
         logger.error('Failed to regenerate report:', error);
-        alert('重新生成报告失败，请稍后重试');
+        alert(t('topicResearch.reportView.regenerateFailed'));
         setIsRegenerating(false);
       }
     },
@@ -276,10 +276,10 @@ export function TopicReportView({
                   ? 'bg-blue-50 text-blue-700'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
-              title="连续视图"
+              title={t('topicResearch.contentPanel.toolbar.continuousView')}
             >
               <ListIcon className="h-3.5 w-3.5" />
-              <span>连续</span>
+              <span>{t('topicResearch.contentPanel.toolbar.continuous')}</span>
             </button>
             <button
               onClick={() => setReportViewMode('chapter')}
@@ -288,15 +288,16 @@ export function TopicReportView({
                   ? 'bg-blue-50 text-blue-700'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
-              title="章节视图"
+              title={t('topicResearch.contentPanel.toolbar.chapterView')}
             >
               <DocumentIcon className="h-3.5 w-3.5" />
-              <span>章节</span>
+              <span>{t('topicResearch.contentPanel.toolbar.chapter')}</span>
             </button>
           </div>
           {report && (
             <span className="text-xs text-gray-400">
-              v{report.version} · {report.totalSources}源
+              v{report.version} · {report.totalSources}
+              {t('topicResearch.contentPanel.toolbar.sources')}
             </span>
           )}
         </div>
@@ -304,7 +305,8 @@ export function TopicReportView({
         {/* Center: Report title */}
         <div className="flex-1 text-center">
           <h3 className="text-sm font-semibold text-gray-800">
-            {report?.title || '洞察报告'}
+            {report?.title ||
+              t('topicResearch.contentPanel.toolbar.insightsReport')}
           </h3>
         </div>
 
@@ -315,12 +317,16 @@ export function TopicReportView({
             onClick={handleRegenerateReport}
             disabled={isRegenerating}
             className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            title="重新生成报告内容"
+            title={t('topicResearch.contentPanel.toolbar.regenerateTooltip')}
           >
             <RefreshCw
               className={`h-3.5 w-3.5 ${isRegenerating ? 'animate-spin' : ''}`}
             />
-            <span>{isRegenerating ? '生成中...' : '重新生成'}</span>
+            <span>
+              {isRegenerating
+                ? t('topicResearch.contentPanel.toolbar.regenerating')
+                : t('topicResearch.contentPanel.toolbar.regenerate')}
+            </span>
           </button>
 
           {/* History button */}
@@ -333,10 +339,10 @@ export function TopicReportView({
                 ? 'bg-blue-100 text-blue-700'
                 : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
             }`}
-            title="版本历史"
+            title={t('topicResearch.contentPanel.toolbar.historyTooltip')}
           >
             <HistoryIcon className="h-3.5 w-3.5" />
-            <span>历史</span>
+            <span>{t('topicResearch.contentPanel.toolbar.history')}</span>
             {revisions.length > 0 && (
               <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs">
                 {revisions.length}
@@ -356,10 +362,10 @@ export function TopicReportView({
                 ? 'bg-purple-100 text-purple-700'
                 : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
             }`}
-            title="批注"
+            title={t('topicResearch.contentPanel.toolbar.annotationsTooltip')}
           >
             <AnnotationIcon className="h-3.5 w-3.5" />
-            <span>批注</span>
+            <span>{t('topicResearch.contentPanel.toolbar.annotations')}</span>
             {annotations.length > 0 && (
               <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs">
                 {annotations.length}
@@ -441,7 +447,7 @@ export function TopicReportView({
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
                 <h3 className="text-sm font-semibold text-gray-700">
-                  版本历史
+                  {t('topicResearch.contentPanel.revisionHistory.title')}
                 </h3>
                 <button
                   onClick={() => setSidePanelType(null)}
@@ -486,7 +492,9 @@ export function TopicReportView({
           <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-                <h3 className="text-sm font-semibold text-gray-700">批注</h3>
+                <h3 className="text-sm font-semibold text-gray-700">
+                  {t('topicResearch.contentPanel.toolbar.annotations')}
+                </h3>
                 <button
                   onClick={() => setSidePanelType(null)}
                   className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -533,11 +541,11 @@ export function TopicReportView({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-semibold text-gray-900">
-              重新生成报告
+              {t('topicResearch.reportView.regenerateDialog.title')}
             </h3>
             <div className="mt-3">
               <label className="text-sm text-gray-600">
-                优化方向（可选）：
+                {t('topicResearch.reportView.regenerateDialog.feedbackLabel')}
               </label>
               <textarea
                 autoFocus
@@ -548,7 +556,9 @@ export function TopicReportView({
                     doRegenerate(regenerateFeedback.trim());
                   }
                 }}
-                placeholder="例：减少重复内容、增加独立分析判断、精简产品推介..."
+                placeholder={t(
+                  'topicResearch.reportView.regenerateDialog.feedbackPlaceholder'
+                )}
                 className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
                 rows={3}
                 maxLength={500}
@@ -559,13 +569,13 @@ export function TopicReportView({
                 onClick={() => setShowRegenerateDialog(false)}
                 className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
               >
-                取消
+                {t('topicResearch.cancel')}
               </button>
               <button
                 onClick={() => doRegenerate(regenerateFeedback.trim())}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               >
-                重新生成
+                {t('topicResearch.contentPanel.toolbar.regenerate')}
               </button>
             </div>
           </div>

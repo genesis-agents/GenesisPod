@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { getTodoDetails, getTaskActivities } from '@/lib/api/topic-research';
 import { ClientDate } from '@/components/common/ClientDate';
 import { ReviewResultCard } from '../collaboration/ReviewResultCard';
+import { useI18n } from '@/lib/i18n';
 import type {
   DimensionReviewResult,
   OverallReviewResult,
@@ -395,15 +396,15 @@ function SearchResultsDisplay({ sr }: { sr: SearchResultsMetadata }) {
   );
 }
 
-const STATUS_LABELS: Record<ResearchTodoStatus, string> = {
-  PENDING: '待处理',
-  QUEUED: '排队中',
-  IN_PROGRESS: '进行中',
-  REVIEWING: '审核中',
-  PAUSED: '已暂停',
-  COMPLETED: '已完成',
-  FAILED: '失败',
-  CANCELLED: '已取消',
+const STATUS_KEYS: Record<ResearchTodoStatus, string> = {
+  PENDING: 'pending',
+  QUEUED: 'queued',
+  IN_PROGRESS: 'inProgress',
+  REVIEWING: 'reviewing',
+  PAUSED: 'paused',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+  CANCELLED: 'cancelled',
 };
 
 const STATUS_COLORS: Record<ResearchTodoStatus, string> = {
@@ -425,6 +426,7 @@ export function TodoDetailPanel({
   className,
   wsEvents,
 }: TodoDetailPanelProps) {
+  const { t } = useI18n();
   const [todo, setTodo] = useState<ResearchTodo | null>(initialTodo || null);
   const [activities, setActivities] = useState<AgentActivity[]>([]);
   const [isLoading, setIsLoading] = useState(!initialTodo);
@@ -685,7 +687,9 @@ export function TodoDetailPanel({
             <span
               className={cn('text-sm font-medium', STATUS_COLORS[todo.status])}
             >
-              {STATUS_LABELS[todo.status]}
+              {t(
+                `topicResearch.todoDetail.taskStatus.${STATUS_KEYS[todo.status]}`
+              )}
             </span>
             {/* ★ 使用实时进度（优先）或todo.progress；已完成任务固定100% */}
             {(() => {
@@ -754,7 +758,9 @@ export function TodoDetailPanel({
         {todo.agentName && (
           <div className="flex items-center gap-2 text-sm">
             <User className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground">执行者:</span>
+            <span className="text-muted-foreground">
+              {t('topicResearch.todoDetail.executor')}
+            </span>
             <span className="font-medium text-gray-900">{todo.agentName}</span>
             {todo.agentRole && (
               <span className="text-xs text-muted-foreground">
@@ -769,14 +775,18 @@ export function TodoDetailPanel({
           {todo.startedAt && (
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">开始时间:</span>
+              <span className="text-muted-foreground">
+                {t('topicResearch.todoDetail.startTime')}
+              </span>
               <span>{formatTimestamp(todo.startedAt)}</span>
             </div>
           )}
           {todo.completedAt && (
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <span className="text-muted-foreground">完成时间:</span>
+              <span className="text-muted-foreground">
+                {t('topicResearch.todoDetail.endTime')}
+              </span>
               <span>{formatTimestamp(todo.completedAt)}</span>
             </div>
           )}
@@ -809,7 +819,8 @@ export function TodoDetailPanel({
               {todo.result.wordCount !== undefined && (
                 <div className="rounded-md bg-green-50 px-2 py-1">
                   <span className="text-green-600">
-                    {safeString(todo.result.wordCount)} 字
+                    {safeString(todo.result.wordCount)}{' '}
+                    {t('topicResearch.todoDetail.wordUnit')}
                   </span>
                 </div>
               )}
@@ -817,14 +828,18 @@ export function TodoDetailPanel({
               {Array.isArray(todo.result.keyFindings) && (
                 <div className="rounded-md bg-purple-50 px-2 py-1">
                   <span className="text-purple-600">
-                    {todo.result.keyFindings.length} 个关键发现
+                    {t('topicResearch.todoDetail.keyFindingsCount', {
+                      count: todo.result.keyFindings.length,
+                    })}
                   </span>
                 </div>
               )}
               {typeof todo.result.keyFindings === 'number' && (
                 <div className="rounded-md bg-purple-50 px-2 py-1">
                   <span className="text-purple-600">
-                    {todo.result.keyFindings} 个关键发现
+                    {t('topicResearch.todoDetail.keyFindingsCount', {
+                      count: todo.result.keyFindings,
+                    })}
                   </span>
                 </div>
               )}
@@ -833,7 +848,9 @@ export function TodoDetailPanel({
             {/* Summary */}
             {todo.result.summary && typeof todo.result.summary === 'string' && (
               <div className="space-y-1">
-                <div className="text-xs font-medium text-gray-500">摘要</div>
+                <div className="text-xs font-medium text-gray-500">
+                  {t('topicResearch.todoDetail.summary')}
+                </div>
                 <p className="text-sm text-gray-700">{todo.result.summary}</p>
               </div>
             )}
@@ -843,7 +860,7 @@ export function TodoDetailPanel({
               todo.result.keyFindings.length > 0 && (
                 <div className="space-y-2">
                   <div className="text-xs font-medium text-gray-500">
-                    关键发现
+                    {t('topicResearch.todoDetail.keyFindings')}
                   </div>
                   <ul className="space-y-1">
                     {todo.result.keyFindings.slice(0, 5).map(
@@ -869,20 +886,25 @@ export function TodoDetailPanel({
                             )}
                           >
                             {finding.significance === 'high'
-                              ? '高'
+                              ? t('topicResearch.todoDetail.significance.high')
                               : finding.significance === 'low'
-                                ? '低'
-                                : '中'}
+                                ? t('topicResearch.todoDetail.significance.low')
+                                : t(
+                                    'topicResearch.todoDetail.significance.medium'
+                                  )}
                           </span>
                           <span className="text-gray-700">
-                            {finding.finding || '未知发现'}
+                            {finding.finding ||
+                              t('topicResearch.todoDetail.unknownFinding')}
                           </span>
                         </li>
                       )
                     )}
                     {todo.result.keyFindings.length > 5 && (
                       <li className="text-xs text-muted-foreground">
-                        ...还有 {todo.result.keyFindings.length - 5} 个发现
+                        {t('topicResearch.todoDetail.moreFindings', {
+                          count: todo.result.keyFindings.length - 5,
+                        })}
                       </li>
                     )}
                   </ul>
@@ -894,7 +916,7 @@ export function TodoDetailPanel({
               todo.result.trends.length > 0 && (
                 <div className="space-y-2">
                   <div className="text-xs font-medium text-gray-500">
-                    趋势分析
+                    {t('topicResearch.todoDetail.trendAnalysis')}
                   </div>
                   <ul className="space-y-1">
                     {todo.result.trends.slice(0, 3).map(
@@ -926,7 +948,7 @@ export function TodoDetailPanel({
               <p className="text-sm text-red-600">
                 {typeof todo.result.error === 'string'
                   ? todo.result.error
-                  : '执行出错'}
+                  : t('topicResearch.todoDetail.executionError')}
               </p>
             )}
           </div>
@@ -937,7 +959,7 @@ export function TodoDetailPanel({
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Brain className="h-4 w-4" />
-              Agent 思考过程
+              {t('topicResearch.todoDetail.agentThinking')}
             </div>
 
             <div className="space-y-2">

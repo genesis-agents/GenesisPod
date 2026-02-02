@@ -290,10 +290,14 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     // 解析 AI 响应
     const { structuredReport, charts } = this.parseAIReportWithCharts(
       response.content,
+      topic.language || "zh",
     );
 
     // 构建完整的 Markdown 报告
-    const fullReport = this.buildFullReport(structuredReport);
+    const fullReport = this.buildFullReport(
+      structuredReport,
+      topic.language || "zh",
+    );
 
     // 提取亮点
     const highlights = this.extractHighlights(
@@ -346,6 +350,21 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       conclusion?: string;
     },
   ): string {
+    // ★ Language-aware labels
+    const isEn = topic.language === "en";
+    const labels = {
+      generatedAt: isEn ? "Generated" : "生成时间",
+      preface: isEn ? "Preface" : "前言",
+      executiveSummary: isEn ? "Executive Summary" : "执行摘要",
+      toc: isEn ? "Table of Contents" : "目录",
+      dimension: isEn ? "Dimension" : "维度",
+      crossDimension: isEn ? "Cross-Dimension Analysis" : "跨维度关联分析",
+      riskAssessment: isEn ? "Risk Assessment" : "风险评估",
+      strategicRec: isEn ? "Strategic Recommendations" : "战略建议",
+      conclusion: isEn ? "Conclusion" : "结语",
+    };
+    const locale = isEn ? "en-US" : "zh-CN";
+
     // ★ Safety net: sanitize all supplementary content to ensure no raw JSON in report
     const sanitized = {
       preface: supplementaryContent.preface
@@ -383,27 +402,29 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
     // 1. 报告标题
     parts.push(`# ${topic.name}`);
-    parts.push(`\n> 生成时间：${new Date().toLocaleDateString("zh-CN")}\n`);
+    parts.push(
+      `\n> ${labels.generatedAt}：${new Date().toLocaleDateString(locale)}\n`,
+    );
 
     // 2. 前言（AI 生成）
     if (sanitized.preface) {
-      parts.push("## 前言\n");
+      parts.push(`## ${labels.preface}\n`);
       parts.push(stripLeadingHeading(sanitized.preface));
       parts.push("\n");
     }
 
     // 3. 执行摘要（AI 生成）
     if (sanitized.executiveSummary) {
-      parts.push("## 执行摘要\n");
+      parts.push(`## ${labels.executiveSummary}\n`);
       parts.push(stripLeadingHeading(sanitized.executiveSummary));
       parts.push("\n");
     }
 
     // 4. 目录
-    parts.push("## 目录\n");
+    parts.push(`## ${labels.toc}\n`);
     let tocIndex = 0;
     sortedDimensions.forEach((dim, idx) => {
-      const dimName = dim.dimensionName || `维度${idx + 1}`;
+      const dimName = dim.dimensionName || `${labels.dimension}${idx + 1}`;
       tocIndex = idx + 1;
       parts.push(
         `${tocIndex}. [${dimName}](#${tocIndex}--${dimName.toLowerCase().replace(/\s+/g, "-")})`,
@@ -412,15 +433,21 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     // ★ 只在对应 sanitized 非空时添加目录项
     if (sanitized.crossDimensionAnalysis) {
       tocIndex++;
-      parts.push(`${tocIndex}. [跨维度关联分析](#跨维度关联分析)`);
+      parts.push(
+        `${tocIndex}. [${labels.crossDimension}](#${labels.crossDimension.toLowerCase().replace(/\s+/g, "-")})`,
+      );
     }
     if (sanitized.riskAssessment) {
       tocIndex++;
-      parts.push(`${tocIndex}. [风险评估](#风险评估)`);
+      parts.push(
+        `${tocIndex}. [${labels.riskAssessment}](#${labels.riskAssessment.toLowerCase().replace(/\s+/g, "-")})`,
+      );
     }
     if (sanitized.strategicRecommendations) {
       tocIndex++;
-      parts.push(`${tocIndex}. [战略建议](#战略建议)`);
+      parts.push(
+        `${tocIndex}. [${labels.strategicRec}](#${labels.strategicRec.toLowerCase().replace(/\s+/g, "-")})`,
+      );
     }
     parts.push("\n---\n");
 
@@ -544,7 +571,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         )
         .join("\n\n");
       if (fallbackCross) {
-        parts.push("## 跨维度关联分析\n");
+        parts.push(`## ${labels.crossDimension}\n`);
         parts.push(fallbackCross);
         parts.push("\n---\n");
       }
@@ -556,7 +583,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         )
         .join("\n");
       if (fallbackRisks) {
-        parts.push("## 风险评估\n");
+        parts.push(`## ${labels.riskAssessment}\n`);
         parts.push(fallbackRisks);
         parts.push("\n---\n");
       }
@@ -569,7 +596,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         )
         .join("\n");
       if (fallbackRecs) {
-        parts.push("## 战略建议\n");
+        parts.push(`## ${labels.strategicRec}\n`);
         parts.push(fallbackRecs);
         parts.push("\n---\n");
       }
@@ -578,16 +605,19 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     // 6. 跨维度关联分析（AI 生成） — 去重守卫：跳过已存在的同名章节
     if (
       sanitized.crossDimensionAnalysis &&
-      !existingH2Titles.has("跨维度关联分析")
+      !existingH2Titles.has(labels.crossDimension)
     ) {
-      parts.push("## 跨维度关联分析\n");
+      parts.push(`## ${labels.crossDimension}\n`);
       parts.push(stripLeadingHeading(sanitized.crossDimensionAnalysis));
       parts.push("\n---\n");
     }
 
     // 7. 风险评估（AI 生成）
-    if (sanitized.riskAssessment && !existingH2Titles.has("风险评估")) {
-      parts.push("## 风险评估\n");
+    if (
+      sanitized.riskAssessment &&
+      !existingH2Titles.has(labels.riskAssessment)
+    ) {
+      parts.push(`## ${labels.riskAssessment}\n`);
       parts.push(stripLeadingHeading(sanitized.riskAssessment));
       parts.push("\n---\n");
     }
@@ -595,16 +625,16 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     // 8. 战略建议（AI 生成）
     if (
       sanitized.strategicRecommendations &&
-      !existingH2Titles.has("战略建议")
+      !existingH2Titles.has(labels.strategicRec)
     ) {
-      parts.push("## 战略建议\n");
+      parts.push(`## ${labels.strategicRec}\n`);
       parts.push(stripLeadingHeading(sanitized.strategicRecommendations));
       parts.push("\n---\n");
     }
 
     // 9. 结语（AI 生成）
     if (sanitized.conclusion) {
-      parts.push("## 结语\n");
+      parts.push(`## ${labels.conclusion}\n`);
       parts.push(stripLeadingHeading(sanitized.conclusion));
       parts.push("\n");
     }
@@ -617,7 +647,10 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    * ★ v3.0: 新格式只返回补充内容（executiveSummary, crossDimensionAnalysis 等）
    * ★ 不再返回 sections（章节内容由 dimension research 生成）
    */
-  private parseAIReportWithCharts(content: string): {
+  private parseAIReportWithCharts(
+    content: string,
+    language: string = "zh",
+  ): {
     structuredReport: ComprehensiveReport;
     charts: ReportChart[];
   } {
@@ -642,7 +675,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       );
 
       return {
-        structuredReport: this.normalizeReportResponse(data),
+        structuredReport: this.normalizeReportResponse(data, language),
         charts,
       };
     }
@@ -652,7 +685,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       `Failed to parse AI report response: ${extractionResult.error}`,
     );
     return {
-      structuredReport: this.createFallbackReport(content),
+      structuredReport: this.createFallbackReport(content, language),
       charts: [],
     };
   }
@@ -664,7 +697,16 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    */
   private normalizeReportResponse(
     parsed: AIReportSynthesisResponse,
+    language: string = "zh",
   ): ComprehensiveReport {
+    // ★ Language-aware labels
+    const isEn = language === "en";
+    const labels = {
+      crossDimension: isEn ? "Cross-Dimension Analysis" : "跨维度关联分析",
+      riskAssessment: isEn ? "Risk Assessment" : "风险评估",
+      strategicRec: isEn ? "Strategic Recommendations" : "战略建议",
+    };
+
     // ★ 处理 executiveSummary（支持对象或字符串格式）
     const executiveSummary = this.normalizeExecutiveSummary(
       parsed.executiveSummary,
@@ -679,27 +721,32 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     const crossDimensionText = this.extractFullTextWithFallback(
       parsed.crossDimensionAnalysis,
       "crossDimensionAnalysis",
+      language,
     );
     if (crossDimensionText) {
-      conclusionParts.push(`## 跨维度关联分析\n\n${crossDimensionText}`);
+      conclusionParts.push(
+        `## ${labels.crossDimension}\n\n${crossDimensionText}`,
+      );
     }
 
     // 添加风险评估内容
     const riskText = this.extractFullTextWithFallback(
       parsed.riskAssessment,
       "riskAssessment",
+      language,
     );
     if (riskText) {
-      conclusionParts.push(`## 风险评估\n\n${riskText}`);
+      conclusionParts.push(`## ${labels.riskAssessment}\n\n${riskText}`);
     }
 
     // 添加战略建议内容
     const stratText = this.extractFullTextWithFallback(
       parsed.strategicRecommendations,
       "strategicRecommendations",
+      language,
     );
     if (stratText) {
-      conclusionParts.push(`## 战略建议\n\n${stratText}`);
+      conclusionParts.push(`## ${labels.strategicRec}\n\n${stratText}`);
     }
 
     // 原始结语放在最后
@@ -849,6 +896,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         }
       | undefined,
     fieldName: string,
+    language: string = "zh",
   ): string {
     if (!section) return "";
     if (section.fullText) return section.fullText;
@@ -858,21 +906,23 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       `[normalizeReportResponse] ${fieldName}.fullText is empty, generating from structured fields`,
     );
 
+    const isEn = language === "en";
+
     if (fieldName === "crossDimensionAnalysis") {
       const parts: string[] = [];
       if (section.causalChains?.length) {
-        parts.push("### 因果链分析\n");
+        parts.push(`### ${isEn ? "Causal Chain Analysis" : "因果链分析"}\n`);
         section.causalChains.forEach((c) => {
           parts.push(
-            `**${c.chain}**\n\n${c.explanation}（时间窗口：${c.timeframe}）\n`,
+            `**${c.chain}**\n\n${c.explanation}${isEn ? ` (Timeframe: ${c.timeframe})` : `（时间窗口：${c.timeframe}）`}\n`,
           );
         });
       }
       if (section.keyLinkages?.length) {
-        parts.push("### 关键联动\n");
+        parts.push(`### ${isEn ? "Key Linkages" : "关键联动"}\n`);
         section.keyLinkages.forEach((l) => {
           parts.push(
-            `- **${l.dimensions.join(" - ")}**：${l.relationship}（影响：${l.impact}）`,
+            `- **${l.dimensions.join(" - ")}**${isEn ? `: ${l.relationship} (Impact: ${l.impact})` : `：${l.relationship}（影响：${l.impact}）`}`,
           );
         });
       }
@@ -880,8 +930,9 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     }
 
     if (fieldName === "riskAssessment" && section.riskMatrix?.length) {
-      const header =
-        "| 风险类型 | 发生概率 | 影响程度 | 时间窗口 | 预警指标 | 应对建议 |\n|----------|----------|----------|----------|----------|----------|\n";
+      const header = isEn
+        ? "| Risk Type | Probability | Impact | Timeframe | Indicators | Mitigation |\n|-----------|-------------|--------|-----------|------------|------------|\n"
+        : "| 风险类型 | 发生概率 | 影响程度 | 时间窗口 | 预警指标 | 应对建议 |\n|----------|----------|----------|----------|----------|----------|\n";
       const rows = section.riskMatrix
         .map(
           (r) =>
@@ -894,25 +945,27 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     if (fieldName === "strategicRecommendations") {
       const parts: string[] = [];
       if (section.forEnterprise) {
-        parts.push("### 对企业决策者\n");
+        parts.push(
+          `### ${isEn ? "For Enterprise Decision Makers" : "对企业决策者"}\n`,
+        );
         if (section.forEnterprise.shortTerm?.length) {
           parts.push(
-            "**短期（6-12月）**\n" +
+            `**${isEn ? "Short-term (6-12 months)" : "短期（6-12月）"}**\n` +
               section.forEnterprise.shortTerm.map((s) => `- ${s}`).join("\n"),
           );
         }
         if (section.forEnterprise.midTerm?.length) {
           parts.push(
-            "\n**中期（1-3年）**\n" +
+            `\n**${isEn ? "Mid-term (1-3 years)" : "中期（1-3年）"}**\n` +
               section.forEnterprise.midTerm.map((s) => `- ${s}`).join("\n"),
           );
         }
       }
       if (section.forInvestors) {
-        parts.push("\n### 对投资者\n");
+        parts.push(`\n### ${isEn ? "For Investors" : "对投资者"}\n`);
         if (section.forInvestors.opportunities?.length) {
           parts.push(
-            "**看好方向**\n" +
+            `**${isEn ? "Opportunities" : "看好方向"}**\n` +
               section.forInvestors.opportunities
                 .map((s) => `- ${s}`)
                 .join("\n"),
@@ -920,14 +973,14 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         }
         if (section.forInvestors.risks?.length) {
           parts.push(
-            "\n**警惕风险**\n" +
+            `\n**${isEn ? "Risks to Watch" : "警惕风险"}**\n` +
               section.forInvestors.risks.map((s) => `- ${s}`).join("\n"),
           );
         }
       }
       if (section.forPolicymakers?.keyObservations?.length) {
         parts.push(
-          "\n### 对政策研究者\n" +
+          `\n### ${isEn ? "For Policy Researchers" : "对政策研究者"}\n` +
             section.forPolicymakers.keyObservations
               .map((s) => `- ${s}`)
               .join("\n"),
@@ -943,7 +996,12 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    * 创建后备报告（当 AI 响应解析失败时）
    * ★ 改进：尝试从原始内容中提取有意义的观点
    */
-  private createFallbackReport(content: string): ComprehensiveReport {
+  private createFallbackReport(
+    content: string,
+    language: string = "zh",
+  ): ComprehensiveReport {
+    const isEn = language === "en";
+
     // 尝试从内容中提取关键观点
     const coreViewpoints = this.extractViewpointsFromContent(content);
 
@@ -960,7 +1018,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       sections: [
         {
           sectionNumber: "1",
-          title: "研究内容",
+          title: isEn ? "Research Content" : "研究内容",
           coreViewpoints: coreViewpoints.length > 0 ? coreViewpoints : [], // 不再使用占位符
           content: content,
           keyData: [],
@@ -1017,17 +1075,34 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    * 构建完整的 Markdown 报告
    * ★ v3.0: 支持根据 inlineCharts 的 position 插入图表占位符
    */
-  private buildFullReport(report: ComprehensiveReport): string {
+  private buildFullReport(
+    report: ComprehensiveReport,
+    language: string = "zh",
+  ): string {
+    const isEn = language === "en";
+    const labels = {
+      preface: isEn ? "Preface" : "前言",
+      toc: isEn ? "Table of Contents" : "目录",
+      coreViewpoints: isEn ? "Core Viewpoints" : "核心观点",
+      keyData: isEn ? "Key Data" : "关键数据",
+      source: isEn ? "Source" : "来源",
+      conclusion: isEn ? "Conclusion" : "结束语",
+      appendices: isEn ? "Appendices" : "附录",
+      appendix: isEn ? "Appendix" : "附录",
+      references: isEn ? "References" : "参考文献",
+      accessDate: isEn ? "Access Date" : "访问日期",
+    };
+
     const parts: string[] = [];
 
     // 1. 前言
     if (report.preface) {
-      parts.push("# 前言\n\n" + report.preface);
+      parts.push(`# ${labels.preface}\n\n` + report.preface);
     }
 
     // 2. 目录
     if (report.tableOfContents) {
-      parts.push("# 目录\n\n" + report.tableOfContents);
+      parts.push(`# ${labels.toc}\n\n` + report.tableOfContents);
     }
 
     // 3. 各章节
@@ -1036,7 +1111,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
       // 核心观点
       if (section.coreViewpoints && section.coreViewpoints.length > 0) {
-        parts.push("\n🎯 **核心观点：**\n");
+        parts.push(`\n🎯 **${labels.coreViewpoints}：**\n`);
         section.coreViewpoints.forEach((vp) => {
           parts.push(`- ${vp}`);
         });
@@ -1054,9 +1129,9 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
       // 关键数据
       if (section.keyData && section.keyData.length > 0) {
-        parts.push("\n**关键数据：**\n");
+        parts.push(`\n**${labels.keyData}：**\n`);
         section.keyData.forEach((kd) => {
-          parts.push(`- ${kd.data} (来源: ${kd.source})`);
+          parts.push(`- ${kd.data} (${labels.source}: ${kd.source})`);
         });
         parts.push("");
       }
@@ -1085,24 +1160,24 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
 
     // 4. 结束语
     if (report.conclusion) {
-      parts.push("# 结束语\n\n" + report.conclusion);
+      parts.push(`# ${labels.conclusion}\n\n` + report.conclusion);
     }
 
     // 5. 附录
     if (report.appendices && report.appendices.length > 0) {
-      parts.push("\n# 附录\n");
+      parts.push(`\n# ${labels.appendices}\n`);
       report.appendices.forEach((appendix, i) => {
-        parts.push(`\n## 附录${i + 1}：${appendix.title}\n`);
+        parts.push(`\n## ${labels.appendix}${i + 1}：${appendix.title}\n`);
         parts.push(appendix.content);
       });
     }
 
     // 6. 参考文献
     if (report.references && report.references.length > 0) {
-      parts.push("\n# 参考文献\n");
+      parts.push(`\n# ${labels.references}\n`);
       report.references.forEach((ref) => {
         parts.push(
-          `[${ref.index}] ${ref.title}. ${ref.domain || ""}. ${ref.url}. 访问日期: ${ref.accessDate}`,
+          `[${ref.index}] ${ref.title}. ${ref.domain || ""}. ${ref.url}. ${labels.accessDate}: ${ref.accessDate}`,
         );
       });
     }
@@ -1448,12 +1523,21 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    * 从合并的 conclusion 中提取最终结语
    * ★ v3.0: 移除已提取的跨维度分析等章节，保留原始结语
    */
-  extractFinalConclusion(conclusion: string): string {
+  extractFinalConclusion(conclusion: string, language: string = "zh"): string {
     if (!conclusion) return "";
+
+    // ★ Language-aware section titles
+    const isEn = language === "en";
+    const sectionsToRemove = isEn
+      ? [
+          "Cross-Dimension Analysis",
+          "Risk Assessment",
+          "Strategic Recommendations",
+        ]
+      : ["跨维度关联分析", "风险评估", "战略建议"];
 
     // 移除跨维度分析、风险评估、战略建议章节
     let result = conclusion;
-    const sectionsToRemove = ["跨维度关联分析", "风险评估", "战略建议"];
 
     for (const section of sectionsToRemove) {
       const pattern = new RegExp(

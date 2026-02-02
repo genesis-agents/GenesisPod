@@ -12,6 +12,7 @@ interface EvidenceItem {
   url?: string | null;
   snippet?: string | null;
   domain?: string | null;
+  citationIndex?: number | null;
 }
 
 interface UseReportTextProcessorOptions {
@@ -32,8 +33,16 @@ export function useReportTextProcessor({
       if (!text || !evidence?.length) return text;
 
       const evidenceIdMap = new Map<string, number>();
+      // ★ Build citationIndex → array-position map for numeric citation lookup
+      // Evidence items have a citationIndex field (global, possibly non-contiguous)
+      // Report text uses these global citationIndex values like [142]
+      const citationIndexMap = new Map<number, number>();
       evidence.forEach((ev, idx) => {
         evidenceIdMap.set(ev.id, idx + 1);
+        const ci = ev.citationIndex;
+        if (ci != null) {
+          citationIndexMap.set(ci, idx);
+        }
       });
 
       const citationPattern =
@@ -52,7 +61,10 @@ export function useReportTextProcessor({
         if (match[1]) {
           const indices = match[1].split(/\s*,\s*/).map((s) => parseInt(s, 10));
           indices.forEach((idx, i) => {
-            const evidenceItem = evidence[idx - 1];
+            // ★ First try citationIndex map (global indices), then fall back to array position
+            const mappedPos = citationIndexMap.get(idx);
+            const evidenceItem =
+              mappedPos != null ? evidence[mappedPos] : evidence[idx - 1];
             if (evidenceItem) {
               parts.push(
                 React.createElement(CitationBadge, {

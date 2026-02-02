@@ -40,6 +40,7 @@ import { useReportTextProcessor } from '@/lib/report/useReportTextProcessor';
 import { createMarkdownComponents } from '@/lib/report/createMarkdownComponents';
 import { TipTapToolbar } from '../editor/TipTapToolbar';
 import { ViewModeToggle } from '../editor/ViewModeToggle';
+import { useI18n } from '@/lib/i18n';
 
 // Annotation type for highlighting
 interface ReportAnnotation {
@@ -364,6 +365,7 @@ function ChapterizedReportViewInner({
   highlightedAnnotationId,
   showAnnotationHighlights = true,
 }: ChapterizedReportViewProps) {
+  const { t } = useI18n();
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const [editContent, setEditContent] = useState('');
@@ -393,7 +395,7 @@ function ChapterizedReportViewInner({
     extensions: [
       StarterKit,
       Placeholder.configure({
-        placeholder: '开始编辑章节内容...',
+        placeholder: t('topicResearch.reportEditor.placeholder'),
       }),
       Typography,
     ],
@@ -481,7 +483,9 @@ function ChapterizedReportViewInner({
     // Add dimension chapters
     if (report.dimensionAnalyses && report.dimensionAnalyses.length > 0) {
       report.dimensionAnalyses.forEach((analysis) => {
-        const dimName = analysis.dimension?.name || `维度 ${chapterNum}`;
+        const dimName =
+          analysis.dimension?.name ||
+          `${t('topicResearch.reportEditor.dimension')} ${chapterNum}`;
         const dimId = analysis.dimension?.id || `dim-${chapterNum}`;
         const sectionNumber = String(chapterNum);
 
@@ -507,7 +511,9 @@ function ChapterizedReportViewInner({
             (f) => f.finding && f.finding.trim().length > 3
           );
           if (validFindings.length > 0) {
-            parts.push('\n### 关键发现\n');
+            parts.push(
+              `\n### ${t('topicResearch.reportEditor.keyFindings')}\n`
+            );
             validFindings.forEach((f, fIdx) => {
               parts.push(`${fIdx + 1}. **${f.finding}**`);
             });
@@ -516,24 +522,27 @@ function ChapterizedReportViewInner({
 
         // Trends
         if (analysis.trends && analysis.trends.length > 0) {
-          parts.push('\n### 趋势分析\n');
-          analysis.trends.forEach((t, tIdx) => {
+          parts.push(
+            `\n### ${t('topicResearch.reportEditor.trendAnalysis')}\n`
+          );
+          analysis.trends.forEach((trend, tIdx) => {
             const directionMap: Record<string, string> = {
-              increasing: '📈 上升',
-              decreasing: '📉 下降',
-              stable: '➡️ 稳定',
-              emerging: '🌱 新兴',
+              increasing: t('topicResearch.reportEditor.directions.increasing'),
+              decreasing: t('topicResearch.reportEditor.directions.decreasing'),
+              stable: t('topicResearch.reportEditor.directions.stable'),
+              emerging: t('topicResearch.reportEditor.directions.emerging'),
             };
-            const direction = directionMap[t.direction] || t.direction;
+            const directionText =
+              directionMap[trend.direction] || trend.direction;
             parts.push(
-              `${tIdx + 1}. **${direction}**: ${t.trend} (${t.timeframe})`
+              `${tIdx + 1}. **${directionText}**: ${trend.trend} (${trend.timeframe})`
             );
           });
         }
 
         // Challenges
         if (analysis.challenges && analysis.challenges.length > 0) {
-          parts.push('\n### 挑战\n');
+          parts.push(`\n### ${t('topicResearch.reportEditor.challenges')}\n`);
           analysis.challenges.forEach((c, cIdx) => {
             parts.push(`${cIdx + 1}. **${c.challenge}** - ${c.impact}`);
           });
@@ -541,7 +550,9 @@ function ChapterizedReportViewInner({
 
         // Opportunities
         if (analysis.opportunities && analysis.opportunities.length > 0) {
-          parts.push('\n### 机遇\n');
+          parts.push(
+            `\n### ${t('topicResearch.reportEditor.opportunities')}\n`
+          );
           analysis.opportunities.forEach((o, oIdx) => {
             parts.push(`${oIdx + 1}. **${o.opportunity}** - ${o.potential}`);
           });
@@ -670,7 +681,9 @@ function ChapterizedReportViewInner({
       <div className="flex h-full items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
-          <p className="text-sm text-gray-500">加载报告中...</p>
+          <p className="text-sm text-gray-500">
+            {t('topicResearch.reportEditor.loadingReport')}
+          </p>
         </div>
       </div>
     );
@@ -681,8 +694,12 @@ function ChapterizedReportViewInner({
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <span className="mb-4 text-4xl">📝</span>
-          <p className="mt-2 text-gray-500">暂无报告内容</p>
-          <p className="mt-1 text-sm text-gray-400">开始研究后将在此显示章节</p>
+          <p className="mt-2 text-gray-500">
+            {t('topicResearch.reportEditor.noReportContent')}
+          </p>
+          <p className="mt-1 text-sm text-gray-400">
+            {t('topicResearch.reportEditor.noReportHintChapter')}
+          </p>
         </div>
       </div>
     );
@@ -697,7 +714,7 @@ function ChapterizedReportViewInner({
           <button
             onClick={closeChapter}
             className="shrink-0 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-            title="返回章节列表"
+            title={t('topicResearch.reportEditor.backToChapterList')}
           >
             <BackIcon className="h-5 w-5" />
           </button>
@@ -715,10 +732,11 @@ function ChapterizedReportViewInner({
             )}
           </span>
           <h3 className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900">
-            第{selectedChapter.chapterNumber}章 {selectedChapter.title}
+            {t('topicResearch.reportEditor.chapter')}{' '}
+            {selectedChapter.chapterNumber}: {selectedChapter.title}
           </h3>
           <span className="shrink-0 text-xs text-gray-400">
-            {selectedChapter.wordCount} 字
+            {selectedChapter.wordCount} {t('topicResearch.reportEditor.words')}
           </span>
         </div>
 
@@ -728,12 +746,12 @@ function ChapterizedReportViewInner({
             modes={[
               {
                 key: 'preview',
-                label: '预览',
+                label: t('topicResearch.reportEditor.preview'),
                 icon: <EyeIcon className="h-4 w-4" />,
               },
               {
                 key: 'edit',
-                label: '编辑',
+                label: t('topicResearch.reportEditor.edit'),
                 icon: <EditIcon className="h-4 w-4" />,
               },
             ]}
@@ -748,13 +766,13 @@ function ChapterizedReportViewInner({
                   onClick={cancelEdit}
                   className="rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
                 >
-                  取消
+                  {t('topicResearch.reportEditor.cancel')}
                 </button>
                 <button
                   onClick={saveEdit}
                   className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700"
                 >
-                  保存
+                  {t('topicResearch.reportEditor.save')}
                 </button>
               </>
             )}
@@ -792,7 +810,8 @@ function ChapterizedReportViewInner({
                   remarkPlugins={[remarkGfm]}
                   components={createMarkdownComponents(processText)}
                 >
-                  {selectedChapter.content || '暂无内容'}
+                  {selectedChapter.content ||
+                    t('topicResearch.reportEditor.noContent')}
                 </ReactMarkdown>
               </article>
 
@@ -826,7 +845,11 @@ function ChapterizedReportViewInner({
       {/* Stats Header */}
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4">
         <div className="text-base text-gray-600">
-          共 {stats.total} 章 · {stats.completed} 已完成 · {stats.totalWords} 字
+          {t('topicResearch.reportEditor.chapterListSummary', {
+            total: stats.total,
+            completed: stats.completed,
+            words: stats.totalWords,
+          })}
         </div>
       </div>
 
@@ -860,7 +883,8 @@ function ChapterizedReportViewInner({
                 {/* Chapter Info */}
                 <div className="min-w-0 flex-1">
                   <div className="text-base font-medium text-gray-800">
-                    第{chapter.chapterNumber}章 {chapter.title}
+                    {t('topicResearch.reportEditor.chapter')}{' '}
+                    {chapter.chapterNumber}: {chapter.title}
                   </div>
 
                   {/* Outline/Summary */}
@@ -882,7 +906,7 @@ function ChapterizedReportViewInner({
                 {/* Word Count Badge */}
                 {chapter.wordCount > 0 && (
                   <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                    {chapter.wordCount} 字
+                    {chapter.wordCount} {t('topicResearch.reportEditor.words')}
                   </span>
                 )}
               </div>

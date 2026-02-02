@@ -3486,6 +3486,121 @@
       "sources": "{{count}} 个来源",
       "dimensionProgress": "维度完成度",
       "lastRefresh": "上次刷新"
+    },
+    "todoDetail": {
+      "executor": "执行者:",
+      "startTime": "开始时间:",
+      "endTime": "完成时间:",
+      "results": "结果",
+      "wordUnit": "字",
+      "summary": "摘要",
+      "keyFindings": "关键发现",
+      "keyFindingsCount": "{{count}} 个关键发现",
+      "trendAnalysis": "趋势分析",
+      "agentThinking": "Agent 思考过程",
+      "significance": {
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+      },
+      "unknownFinding": "未知发现",
+      "moreFindings": "...还有 {{count}} 个发现",
+      "executionError": "执行出错",
+      "taskStatus": {
+        "pending": "待处理",
+        "queued": "排队中",
+        "inProgress": "进行中",
+        "reviewing": "审核中",
+        "paused": "已暂停",
+        "completed": "已完成",
+        "failed": "失败",
+        "cancelled": "已取消"
+      },
+      "taskTypes": {
+        "research": "研究",
+        "qualityReview": "质量审核",
+        "reportWriting": "报告撰写"
+      },
+      "blocks": "阻塞 {{count}} 个任务",
+      "taskList": "任务列表",
+      "leaderChat": "与 Leader 对话",
+      "leaderChatPlaceholder": "输入研究指令与 Leader 对话...",
+      "send": "发送",
+      "researchTeam": "研究团队",
+      "collapsePanel": "收起面板",
+      "phase": "阶段",
+      "settings": "设置"
+    },
+    "reportEditor": {
+      "placeholder": "开始编辑报告...",
+      "viewDetails": "请查看详细内容",
+      "detailsPending": "详细内容待生成",
+      "summary": "摘要",
+      "keyFindings": "关键发现",
+      "dimension": "维度",
+      "trends": "趋势",
+      "directions": {
+        "increasing": "📈 上升",
+        "decreasing": "📉 下降",
+        "stable": "➡️ 稳定",
+        "emerging": "🌱 新兴"
+      },
+      "challenges": "挑战",
+      "opportunities": "机遇",
+      "references": "参考文献",
+      "source": "来源",
+      "noReportContent": "暂无报告内容",
+      "chartNotFound": "图表未找到",
+      "loadingReport": "加载报告中...",
+      "noReport": "暂无报告",
+      "noReportHint": "开始研究后将在此显示报告",
+      "noReportHintChapter": "开始研究后将在此显示章节",
+      "preview": "预览",
+      "edit": "编辑",
+      "words": "字",
+      "aiEdit": "AI 编辑",
+      "aiProcessing": "AI 处理中...",
+      "saving": "保存中...",
+      "save": "保存",
+      "cancel": "取消",
+      "previewMode": "预览模式",
+      "noContent": "暂无内容",
+      "backToChapterList": "返回章节列表",
+      "chapter": "章",
+      "total": "共",
+      "chapters": "章",
+      "completed": "已完成",
+      "trendAnalysis": "趋势分析",
+      "dataVisualization": "数据可视化",
+      "editMode": "编辑模式",
+      "aiEditLabel": "AI 编辑:",
+      "chapterListSummary": "共 {{total}} 章 · {{completed}} 已完成 · {{words}} 字",
+      "aiEditOperations": {
+        "rewrite": "重写",
+        "rewriteDesc": "完全重写选中内容",
+        "polish": "润色",
+        "polishDesc": "优化语言表达",
+        "expand": "扩写",
+        "expandDesc": "补充更多细节",
+        "compress": "缩写",
+        "compressDesc": "精简内容",
+        "style": "风格",
+        "styleDesc": "调整写作风格"
+      }
+    },
+    "reportView": {
+      "regenerateFailed": "重新生成报告失败，请稍后重试",
+      "regenerateDialog": {
+        "title": "重新生成报告",
+        "feedbackLabel": "优化方向（可选）：",
+        "feedbackPlaceholder": "例：减少重复内容、增加独立分析判断、精简产品推介..."
+      }
+    },
+    "citation": {
+      "jumpToReference": "点击跳转到参考文献",
+      "unknownSource": "未知来源",
+      "viewFullSource": "查看完整来源 →",
+      "openOriginal": "打开原文 ↗"
     }
   }
 }

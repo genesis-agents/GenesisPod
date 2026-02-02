@@ -325,18 +325,21 @@ export class ReportSynthesisService {
         // ★ v3.0: 从 conclusion 中提取跨维度分析等内容（已在 normalizeReportResponse 中合并）
         crossDimensionAnalysis: this.extractSectionFromConclusion(
           structuredReport?.conclusion || "",
-          "跨维度关联分析",
+          topic.language === "en"
+            ? "Cross-Dimension Analysis"
+            : "跨维度关联分析",
         ),
         riskAssessment: this.extractSectionFromConclusion(
           structuredReport?.conclusion || "",
-          "风险评估",
+          topic.language === "en" ? "Risk Assessment" : "风险评估",
         ),
         strategicRecommendations: this.extractSectionFromConclusion(
           structuredReport?.conclusion || "",
-          "战略建议",
+          topic.language === "en" ? "Strategic Recommendations" : "战略建议",
         ),
         conclusion: this.extractFinalConclusion(
           structuredReport?.conclusion || "",
+          topic.language || "zh",
         ),
       },
     );
@@ -625,6 +628,21 @@ export class ReportSynthesisService {
       conclusion?: string;
     },
   ): string {
+    // ★ Language-aware labels
+    const isEn = topic.language === "en";
+    const labels = {
+      generatedAt: isEn ? "Generated" : "生成时间",
+      preface: isEn ? "Preface" : "前言",
+      executiveSummary: isEn ? "Executive Summary" : "执行摘要",
+      toc: isEn ? "Table of Contents" : "目录",
+      dimension: isEn ? "Dimension" : "维度",
+      crossDimension: isEn ? "Cross-Dimension Analysis" : "跨维度关联分析",
+      riskAssessment: isEn ? "Risk Assessment" : "风险评估",
+      strategicRec: isEn ? "Strategic Recommendations" : "战略建议",
+      conclusion: isEn ? "Conclusion" : "结语",
+    };
+    const locale = isEn ? "en-US" : "zh-CN";
+
     // ★ Safety net: sanitize all supplementary content
     const sc = Object.fromEntries(
       Object.entries(supplementaryContent).map(([k, v]) => [
@@ -644,27 +662,29 @@ export class ReportSynthesisService {
 
     // 1. 报告标题
     parts.push(`# ${topic.name}`);
-    parts.push(`\n> 生成时间：${new Date().toLocaleDateString("zh-CN")}\n`);
+    parts.push(
+      `\n> ${labels.generatedAt}：${new Date().toLocaleDateString(locale)}\n`,
+    );
 
     // 2. 前言（AI 生成）
     if (sc.preface) {
-      parts.push("## 前言\n");
+      parts.push(`## ${labels.preface}\n`);
       parts.push(stripLeadingHeading(sc.preface));
       parts.push("\n");
     }
 
     // 3. 执行摘要（AI 生成）
     if (sc.executiveSummary) {
-      parts.push("## 执行摘要\n");
+      parts.push(`## ${labels.executiveSummary}\n`);
       parts.push(stripLeadingHeading(sc.executiveSummary));
       parts.push("\n");
     }
 
     // 4. 目录
-    parts.push("## 目录\n");
+    parts.push(`## ${labels.toc}\n`);
     let tocIndex = 0;
     sortedDimensions.forEach((dim, idx) => {
-      const dimName = dim.dimensionName || `维度${idx + 1}`;
+      const dimName = dim.dimensionName || `${labels.dimension}${idx + 1}`;
       tocIndex = idx + 1;
       parts.push(
         `${tocIndex}. [${dimName}](#${tocIndex}--${dimName.toLowerCase().replace(/\s+/g, "-")})`,
@@ -673,15 +693,21 @@ export class ReportSynthesisService {
     // ★ 只在对应 supplementaryContent 非空时添加目录项
     if (sc.crossDimensionAnalysis) {
       tocIndex++;
-      parts.push(`${tocIndex}. [跨维度关联分析](#跨维度关联分析)`);
+      parts.push(
+        `${tocIndex}. [${labels.crossDimension}](#${labels.crossDimension.toLowerCase().replace(/\s+/g, "-")})`,
+      );
     }
     if (sc.riskAssessment) {
       tocIndex++;
-      parts.push(`${tocIndex}. [风险评估](#风险评估)`);
+      parts.push(
+        `${tocIndex}. [${labels.riskAssessment}](#${labels.riskAssessment.toLowerCase().replace(/\s+/g, "-")})`,
+      );
     }
     if (sc.strategicRecommendations) {
       tocIndex++;
-      parts.push(`${tocIndex}. [战略建议](#战略建议)`);
+      parts.push(
+        `${tocIndex}. [${labels.strategicRec}](#${labels.strategicRec.toLowerCase().replace(/\s+/g, "-")})`,
+      );
     }
     parts.push("\n---\n");
 
@@ -815,7 +841,7 @@ export class ReportSynthesisService {
         )
         .join("\n\n");
       if (fallbackCross) {
-        parts.push("## 跨维度关联分析\n");
+        parts.push(`## ${labels.crossDimension}\n`);
         parts.push(fallbackCross);
         parts.push("\n---\n");
       }
@@ -827,7 +853,7 @@ export class ReportSynthesisService {
         )
         .join("\n");
       if (fallbackRisks) {
-        parts.push("## 风险评估\n");
+        parts.push(`## ${labels.riskAssessment}\n`);
         parts.push(fallbackRisks);
         parts.push("\n---\n");
       }
@@ -840,36 +866,42 @@ export class ReportSynthesisService {
         )
         .join("\n");
       if (fallbackRecs) {
-        parts.push("## 战略建议\n");
+        parts.push(`## ${labels.strategicRec}\n`);
         parts.push(fallbackRecs);
         parts.push("\n---\n");
       }
     }
 
     // 6. 跨维度关联分析（AI 生成） — 去重守卫：跳过已存在的同名章节
-    if (sc.crossDimensionAnalysis && !existingH2Titles.has("跨维度关联分析")) {
-      parts.push("## 跨维度关联分析\n");
+    if (
+      sc.crossDimensionAnalysis &&
+      !existingH2Titles.has(labels.crossDimension)
+    ) {
+      parts.push(`## ${labels.crossDimension}\n`);
       parts.push(stripLeadingHeading(sc.crossDimensionAnalysis));
       parts.push("\n---\n");
     }
 
     // 7. 风险评估（AI 生成）
-    if (sc.riskAssessment && !existingH2Titles.has("风险评估")) {
-      parts.push("## 风险评估\n");
+    if (sc.riskAssessment && !existingH2Titles.has(labels.riskAssessment)) {
+      parts.push(`## ${labels.riskAssessment}\n`);
       parts.push(stripLeadingHeading(sc.riskAssessment));
       parts.push("\n---\n");
     }
 
     // 8. 战略建议（AI 生成）
-    if (sc.strategicRecommendations && !existingH2Titles.has("战略建议")) {
-      parts.push("## 战略建议\n");
+    if (
+      sc.strategicRecommendations &&
+      !existingH2Titles.has(labels.strategicRec)
+    ) {
+      parts.push(`## ${labels.strategicRec}\n`);
       parts.push(stripLeadingHeading(sc.strategicRecommendations));
       parts.push("\n---\n");
     }
 
     // 9. 结语（AI 生成）
     if (sc.conclusion) {
-      parts.push("## 结语\n");
+      parts.push(`## ${labels.conclusion}\n`);
       parts.push(stripLeadingHeading(sc.conclusion));
       parts.push("\n");
     }
@@ -1099,6 +1131,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     // 解析 AI 响应
     const { structuredReport, charts } = this.parseAIReportWithCharts(
       response.content,
+      topic.language || "zh",
     );
 
     // 构建完整的 Markdown 报告
@@ -1124,7 +1157,10 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    * ★ v3.0: 新格式只返回补充内容（executiveSummary, crossDimensionAnalysis 等）
    * ★ 不再返回 sections（章节内容由 dimension research 生成）
    */
-  private parseAIReportWithCharts(content: string): {
+  private parseAIReportWithCharts(
+    content: string,
+    language: string = "zh",
+  ): {
     structuredReport: ComprehensiveReport;
     charts: ReportChart[];
   } {
@@ -1149,7 +1185,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       );
 
       return {
-        structuredReport: this.normalizeReportResponse(data),
+        structuredReport: this.normalizeReportResponse(data, language),
         charts,
       };
     }
@@ -1172,13 +1208,13 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         data.conclusion
       ) {
         return {
-          structuredReport: this.normalizeReportResponse(data),
+          structuredReport: this.normalizeReportResponse(data, language),
           charts: data.charts || [],
         };
       }
     }
     return {
-      structuredReport: this.createFallbackReport(content),
+      structuredReport: this.createFallbackReport(content, language),
       charts: [],
     };
   }
@@ -1190,6 +1226,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    */
   private normalizeReportResponse(
     parsed: AIReportSynthesisResponse,
+    language: string = "zh",
   ): ComprehensiveReport {
     // ★ 处理 executiveSummary（支持对象或字符串格式）
     const executiveSummary = this.normalizeExecutiveSummary(
@@ -1206,8 +1243,17 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       parsed.crossDimensionAnalysis,
       "crossDimensionAnalysis",
     );
+    const isEn = language === "en";
+    const sectionLabels = {
+      crossDimension: isEn ? "Cross-Dimension Analysis" : "跨维度关联分析",
+      riskAssessment: isEn ? "Risk Assessment" : "风险评估",
+      strategicRec: isEn ? "Strategic Recommendations" : "战略建议",
+    };
+
     if (crossDimensionText) {
-      conclusionParts.push(`## 跨维度关联分析\n\n${crossDimensionText}`);
+      conclusionParts.push(
+        `## ${sectionLabels.crossDimension}\n\n${crossDimensionText}`,
+      );
     }
 
     // 添加风险评估内容
@@ -1216,7 +1262,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       "riskAssessment",
     );
     if (riskText) {
-      conclusionParts.push(`## 风险评估\n\n${riskText}`);
+      conclusionParts.push(`## ${sectionLabels.riskAssessment}\n\n${riskText}`);
     }
 
     // 添加战略建议内容
@@ -1225,7 +1271,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       "strategicRecommendations",
     );
     if (stratText) {
-      conclusionParts.push(`## 战略建议\n\n${stratText}`);
+      conclusionParts.push(`## ${sectionLabels.strategicRec}\n\n${stratText}`);
     }
 
     // 原始结语放在最后
@@ -1371,12 +1417,22 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    * 从合并的 conclusion 中提取最终结语
    * ★ v3.0: 移除已提取的跨维度分析等章节，保留原始结语
    */
-  private extractFinalConclusion(conclusion: string): string {
+  private extractFinalConclusion(
+    conclusion: string,
+    language: string = "zh",
+  ): string {
     if (!conclusion) return "";
 
     // 移除跨维度分析、风险评估、战略建议章节
     let result = conclusion;
-    const sectionsToRemove = ["跨维度关联分析", "风险评估", "战略建议"];
+    const isEn = language === "en";
+    const sectionsToRemove = isEn
+      ? [
+          "Cross-Dimension Analysis",
+          "Risk Assessment",
+          "Strategic Recommendations",
+        ]
+      : ["跨维度关联分析", "风险评估", "战略建议"];
 
     for (const section of sectionsToRemove) {
       const pattern = new RegExp(
@@ -1523,7 +1579,10 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    * 创建后备报告（当 AI 响应解析失败时）
    * ★ 改进：尝试从截断的 JSON 中提取个别字段
    */
-  private createFallbackReport(content: string): ComprehensiveReport {
+  private createFallbackReport(
+    content: string,
+    language: string = "zh",
+  ): ComprehensiveReport {
     // ★ 尝试从截断的 JSON 中提取各字段（即使完整 JSON 无法解析）
     const extracted = this.extractFieldsFromTruncatedJson(content);
 
@@ -1538,6 +1597,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       // Route through normalizeReportResponse for proper type handling
       return this.normalizeReportResponse(
         extracted as AIReportSynthesisResponse,
+        language,
       );
     }
 

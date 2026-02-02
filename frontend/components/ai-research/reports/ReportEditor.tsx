@@ -48,6 +48,7 @@ import {
 import { formatDateSafe } from '@/lib/utils/date';
 
 import { logger } from '@/lib/utils/logger';
+import { useI18n } from '@/lib/i18n';
 // View modes: preview, edit (WYSIWYG)
 type ViewMode = 'preview' | 'edit';
 
@@ -297,25 +298,6 @@ const AIIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// AI Edit buttons config
-const aiEditButtons: readonly {
-  readonly key: AIEditOperation;
-  readonly label: string;
-  readonly icon: string;
-  readonly description: string;
-}[] = [
-  {
-    key: 'rewrite',
-    label: '重写',
-    icon: '🔄',
-    description: '完全重写选中内容',
-  },
-  { key: 'polish', label: '润色', icon: '✨', description: '优化语言表达' },
-  { key: 'expand', label: '扩写', icon: '📈', description: '补充更多细节' },
-  { key: 'compress', label: '缩写', icon: '📉', description: '精简内容' },
-  { key: 'style', label: '风格', icon: '🎨', description: '调整写作风格' },
-] as const;
-
 /**
  * Extract markdown from a fullReport field that may contain embedded JSON.
  * Handles two cases:
@@ -525,6 +507,7 @@ function ReportEditorInner({
   highlightedAnnotationId,
   showAnnotationHighlights = true,
 }: ReportEditorProps) {
+  const { t } = useI18n();
   // Use passed evidence or fall back to report.evidence
   const evidence = evidenceProp || report?.evidence || [];
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
@@ -536,12 +519,48 @@ function ReportEditorInner({
   const previewRef = useRef<HTMLDivElement>(null);
   const richTextRef = useRef<HTMLDivElement>(null);
 
+  // AI Edit buttons config with i18n
+  const aiEditButtons = [
+    {
+      key: 'rewrite' as AIEditOperation,
+      label: t('topicResearch.reportEditor.aiEditOperations.rewrite'),
+      icon: '🔄',
+      description: t('topicResearch.reportEditor.aiEditOperations.rewriteDesc'),
+    },
+    {
+      key: 'polish' as AIEditOperation,
+      label: t('topicResearch.reportEditor.aiEditOperations.polish'),
+      icon: '✨',
+      description: t('topicResearch.reportEditor.aiEditOperations.polishDesc'),
+    },
+    {
+      key: 'expand' as AIEditOperation,
+      label: t('topicResearch.reportEditor.aiEditOperations.expand'),
+      icon: '📈',
+      description: t('topicResearch.reportEditor.aiEditOperations.expandDesc'),
+    },
+    {
+      key: 'compress' as AIEditOperation,
+      label: t('topicResearch.reportEditor.aiEditOperations.compress'),
+      icon: '📉',
+      description: t(
+        'topicResearch.reportEditor.aiEditOperations.compressDesc'
+      ),
+    },
+    {
+      key: 'style' as AIEditOperation,
+      label: t('topicResearch.reportEditor.aiEditOperations.style'),
+      icon: '🎨',
+      description: t('topicResearch.reportEditor.aiEditOperations.styleDesc'),
+    },
+  ];
+
   // TipTap editor for rich text mode
   const tiptapEditor = useEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({
-        placeholder: '开始编辑报告...',
+        placeholder: t('topicResearch.reportEditor.placeholder'),
       }),
       Typography,
       Highlight.configure({
@@ -626,8 +645,8 @@ function ReportEditorInner({
       const trimmed = text.trim();
       // Only filter if content is EXACTLY a placeholder or very short
       return (
-        trimmed === '请查看详细内容' ||
-        trimmed === '详细内容待生成' ||
+        trimmed === t('topicResearch.reportEditor.viewDetails') ||
+        trimmed === t('topicResearch.reportEditor.detailsPending') ||
         trimmed === '...' ||
         trimmed.length < 5
       );
@@ -635,7 +654,9 @@ function ReportEditorInner({
 
     // Summary - filter placeholder
     if (report.summary && !isPlaceholder(report.summary)) {
-      parts.push(`## 摘要\n\n${report.summary}\n`);
+      parts.push(
+        `## ${t('topicResearch.reportEditor.summary')}\n\n${report.summary}\n`
+      );
     }
 
     // Highlights - filter placeholders (关键发现/核心洞察)
@@ -644,7 +665,7 @@ function ReportEditorInner({
         (h) => h.content && !isPlaceholder(h.content)
       );
       if (validHighlights.length > 0) {
-        parts.push(`## 关键发现\n\n`);
+        parts.push(`## ${t('topicResearch.reportEditor.keyFindings')}\n\n`);
         validHighlights.forEach((h, idx) => {
           // 使用带序号的列表项，突出显示
           parts.push(`**${idx + 1}. ${h.title}**\n\n${h.content}\n\n`);
@@ -655,7 +676,9 @@ function ReportEditorInner({
     // Dimension analyses - filter placeholders
     if (report.dimensionAnalyses && report.dimensionAnalyses.length > 0) {
       report.dimensionAnalyses.forEach((analysis, idx) => {
-        const dimName = analysis.dimension?.name || `维度 ${idx + 1}`;
+        const dimName =
+          analysis.dimension?.name ||
+          `${t('topicResearch.reportEditor.dimension')} ${idx + 1}`;
         parts.push(`## ${dimName}\n`);
 
         if (analysis.summary && !isPlaceholder(analysis.summary)) {
@@ -667,7 +690,9 @@ function ReportEditorInner({
             (f) => f.finding && !isPlaceholder(f.finding)
           );
           if (validFindings.length > 0) {
-            parts.push(`### 关键发现\n\n`);
+            parts.push(
+              `### ${t('topicResearch.reportEditor.keyFindings')}\n\n`
+            );
             validFindings.forEach((f, fIdx) => {
               const citations = formatCitations(f.evidenceIds);
               // 使用有序列表格式，确保正确渲染
@@ -678,25 +703,25 @@ function ReportEditorInner({
 
         // Add trends with citations
         if (analysis.trends && analysis.trends.length > 0) {
-          parts.push(`### 趋势\n`);
-          analysis.trends.forEach((t, tIdx) => {
-            const citations = formatCitations(t.evidenceIds);
+          parts.push(`### ${t('topicResearch.reportEditor.trends')}\n`);
+          analysis.trends.forEach((trend, tIdx) => {
+            const citations = formatCitations(trend.evidenceIds);
             const directionMap: Record<string, string> = {
-              increasing: '📈 上升',
-              decreasing: '📉 下降',
-              stable: '➡️ 稳定',
-              emerging: '🌱 新兴',
+              increasing: t('topicResearch.reportEditor.directions.increasing'),
+              decreasing: t('topicResearch.reportEditor.directions.decreasing'),
+              stable: t('topicResearch.reportEditor.directions.stable'),
+              emerging: t('topicResearch.reportEditor.directions.emerging'),
             };
-            const direction = directionMap[t.direction] || t.direction;
+            const direction = directionMap[trend.direction] || trend.direction;
             parts.push(
-              `${tIdx + 1}. **${direction}**: ${t.trend} (${t.timeframe})${citations}\n`
+              `${tIdx + 1}. **${direction}**: ${trend.trend} (${trend.timeframe})${citations}\n`
             );
           });
         }
 
         // Add challenges with citations
         if (analysis.challenges && analysis.challenges.length > 0) {
-          parts.push(`### 挑战\n`);
+          parts.push(`### ${t('topicResearch.reportEditor.challenges')}\n`);
           analysis.challenges.forEach((c, cIdx) => {
             const citations = formatCitations(c.evidenceIds);
             parts.push(
@@ -707,7 +732,7 @@ function ReportEditorInner({
 
         // Add opportunities with citations
         if (analysis.opportunities && analysis.opportunities.length > 0) {
-          parts.push(`### 机遇\n`);
+          parts.push(`### ${t('topicResearch.reportEditor.opportunities')}\n`);
           analysis.opportunities.forEach((o, oIdx) => {
             const citations = formatCitations(o.evidenceIds);
             parts.push(
@@ -727,14 +752,16 @@ function ReportEditorInner({
 
     // Add References section with rich information
     if (report.evidence && report.evidence.length > 0) {
-      parts.push(`\n---\n\n## 参考文献\n\n`);
+      parts.push(
+        `\n---\n\n## ${t('topicResearch.reportEditor.references')}\n\n`
+      );
       report.evidence.forEach((ev, idx) => {
         let domain = ev.domain;
         if (!domain) {
           try {
             domain = new URL(ev.url).hostname;
           } catch {
-            domain = '来源';
+            domain = t('topicResearch.reportEditor.source');
           }
         }
         const date = ev.publishedAt
@@ -757,8 +784,8 @@ function ReportEditorInner({
       });
     }
 
-    return parts.join('\n') || '暂无报告内容';
-  }, [report, formatCitations]);
+    return parts.join('\n') || t('topicResearch.reportEditor.noReportContent');
+  }, [report, formatCitations, t]);
 
   // Initialize edit content when report changes
   useEffect(() => {
@@ -1036,7 +1063,8 @@ function ReportEditorInner({
                 key={`chart-missing-${index}`}
                 className="my-6 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500"
               >
-                图表未找到: {segment.content}
+                {t('topicResearch.reportEditor.chartNotFound')}:{' '}
+                {segment.content}
               </div>
             );
           }
@@ -1051,7 +1079,9 @@ function ReportEditorInner({
       <div className="flex h-full items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
-          <p className="text-sm text-gray-500">加载报告中...</p>
+          <p className="text-sm text-gray-500">
+            {t('topicResearch.reportEditor.loadingReport')}
+          </p>
         </div>
       </div>
     );
@@ -1061,8 +1091,12 @@ function ReportEditorInner({
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-500">暂无报告</p>
-          <p className="mt-1 text-sm text-gray-400">开始研究后将在此显示报告</p>
+          <p className="text-gray-500">
+            {t('topicResearch.reportEditor.noReport')}
+          </p>
+          <p className="mt-1 text-sm text-gray-400">
+            {t('topicResearch.reportEditor.noReportHint')}
+          </p>
         </div>
       </div>
     );
@@ -1077,12 +1111,12 @@ function ReportEditorInner({
           modes={[
             {
               key: 'preview',
-              label: '预览',
+              label: t('topicResearch.reportEditor.preview'),
               icon: <PreviewIcon className="h-4 w-4" />,
             },
             {
               key: 'edit',
-              label: '编辑',
+              label: t('topicResearch.reportEditor.edit'),
               icon: <RichTextIcon className="h-4 w-4" />,
             },
           ]}
@@ -1098,14 +1132,16 @@ function ReportEditorInner({
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">{wordCount} 字</span>
+          <span className="text-xs text-gray-400">
+            {wordCount} {t('topicResearch.reportEditor.words')}
+          </span>
 
           {isEditing && (
             <>
               <button
                 onClick={() => setShowPreviewModal(true)}
                 className="rounded-lg p-1.5 text-gray-600 transition-colors hover:bg-gray-100"
-                title="预览"
+                title={t('topicResearch.reportEditor.preview')}
               >
                 <PreviewIcon className="h-4 w-4" />
               </button>
@@ -1117,7 +1153,7 @@ function ReportEditorInner({
                     ? 'bg-purple-100 text-purple-700'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
-                title="AI 编辑"
+                title={t('topicResearch.reportEditor.aiEdit')}
               >
                 <AIIcon className="h-4 w-4" />
               </button>
@@ -1126,7 +1162,11 @@ function ReportEditorInner({
                 onClick={handleSave}
                 disabled={isSaving}
                 className="rounded-lg bg-blue-600 p-1.5 text-white transition-colors hover:bg-blue-700 disabled:bg-blue-400"
-                title={isSaving ? '保存中...' : '保存'}
+                title={
+                  isSaving
+                    ? t('topicResearch.reportEditor.saving')
+                    : t('topicResearch.reportEditor.save')
+                }
               >
                 <svg
                   className="h-4 w-4"
@@ -1163,7 +1203,7 @@ function ReportEditorInner({
             <div className="absolute right-6 top-6 z-10">
               <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700">
                 <PreviewIcon className="h-3 w-3" />
-                预览模式
+                {t('topicResearch.reportEditor.previewMode')}
               </span>
             </div>
 
@@ -1187,7 +1227,7 @@ function ReportEditorInner({
                       d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                     />
                   </svg>
-                  数据可视化
+                  {t('topicResearch.reportEditor.dataVisualization')}
                 </h3>
                 <FigureGallery charts={unrenderedCharts} columns={2} />
               </div>
@@ -1213,7 +1253,7 @@ function ReportEditorInner({
             <div className="absolute right-6 top-6 z-10">
               <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700">
                 <RichTextIcon className="h-3 w-3" />
-                编辑模式
+                {t('topicResearch.reportEditor.editMode')}
               </span>
             </div>
 
@@ -1239,7 +1279,9 @@ function ReportEditorInner({
       {showAIPanel && isEditing && (
         <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500">AI 编辑:</span>
+            <span className="text-xs font-medium text-gray-500">
+              {t('topicResearch.reportEditor.aiEditLabel')}
+            </span>
             {aiEditButtons.map((btn) => (
               <button
                 key={btn.key}
@@ -1255,7 +1297,7 @@ function ReportEditorInner({
             {isAIProcessing && (
               <span className="ml-2 flex items-center gap-1 text-xs text-purple-600">
                 <div className="h-3 w-3 animate-spin rounded-full border border-purple-600 border-t-transparent" />
-                AI 处理中...
+                {t('topicResearch.reportEditor.aiProcessing')}
               </span>
             )}
           </div>
@@ -1271,7 +1313,9 @@ function ReportEditorInner({
           />
           <div className="fixed right-4 top-20 z-50 max-h-[80vh] w-[500px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2">
-              <span className="text-sm font-medium text-gray-700">预览</span>
+              <span className="text-sm font-medium text-gray-700">
+                {t('topicResearch.reportEditor.preview')}
+              </span>
               <button
                 onClick={() => setShowPreviewModal(false)}
                 className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
