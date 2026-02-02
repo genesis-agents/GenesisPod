@@ -1,6 +1,6 @@
 {
   "name": "deepdive-backend",
-  "version": "3.3.25",
+  "version": "3.3.26",
   "description": "DeepDive Engine Backend API",
   "private": true,
   "scripts": {

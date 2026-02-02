@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.26](https://github.com/your-org/ai-teams-engine/compare/v3.3.25...v3.3.26) (2026-02-02)
+
+
+### Bug Fixes
+
+* **ai-engine:** fix Gemini embedding model test URL construction ([cff15f7](https://github.com/your-org/ai-teams-engine/commit/cff15f799d64c986f74fcdebe40411d9888c9fc1))
+
 ### [3.3.25](https://github.com/your-org/ai-teams-engine/compare/v3.3.24...v3.3.25) (2026-02-02)
 
 
