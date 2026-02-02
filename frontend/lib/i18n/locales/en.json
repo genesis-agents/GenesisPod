@@ -3688,8 +3688,8 @@
       "standard": "Standard",
       "thorough": "Thorough",
       "quickDesc": "Basic search",
-      "standardDesc": "Literature + cognitive loop",
-      "thoroughDesc": "All V5 features"
+      "standardDesc": "Lit + cognitive",
+      "thoroughDesc": "All features"
     },
     "tabs": {
       "all": "All",
@@ -3942,7 +3942,23 @@
       },
       "researcherDimension": "Researcher · {{dimension}}",
       "citedInDimension": "Cited {{count}} times in \"{{dimension}}\"",
-      "webpage": "Web Page"
+      "webpage": "Web Page",
+      "totalSources": "{{total}} sources",
+      "highCredibility": "High",
+      "mediumCredibility": "Medium",
+      "lowCredibility": "Low",
+      "filterAll": "All",
+      "filterHigh": "High",
+      "filterMedium": "Medium",
+      "filterLow": "Low",
+      "sortByCredibility": "By credibility",
+      "sortByDate": "By date",
+      "openOriginal": "Source",
+      "citedCount": "Cited {{count}}",
+      "notEvaluated": "N/A",
+      "filterByDimension": "By dimension",
+      "filterBySource": "By source",
+      "filterByTime": "By time"
     },
     "credibility": {
       "title": "Source Credibility Analysis",

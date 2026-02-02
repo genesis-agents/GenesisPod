@@ -13,6 +13,7 @@ import { useState, useMemo, useCallback } from 'react';
 import type { TopicEvidence, TopicDimension } from '@/types/topic-research';
 import { recalculateCredibilityScores } from '@/lib/api/topic-research';
 import { ClientDate } from '@/components/common/ClientDate';
+import { useI18n } from '@/lib/i18n';
 
 import { logger } from '@/lib/utils/logger';
 type FilterType = 'all' | 'dimension' | 'source' | 'time';
@@ -124,27 +125,38 @@ const RefreshIcon = ({ className }: { className?: string }) => (
 
 // Credibility level display
 // ★ 修复：后端存储 0-100 的百分比，不是 0-1 的小数
-function getCredibilityDisplay(score: number | null): {
+function getCredibilityDisplay(
+  score: number | null,
+  t: (key: string, params?: Record<string, string | number>) => string
+): {
   label: string;
   color: string;
   percentage: string;
 } {
   if (score === null || score === undefined)
-    return { label: '未评估', color: 'text-gray-400', percentage: '' };
+    return {
+      label: t('topicResearch.contentPanel.notEvaluated'),
+      color: 'text-gray-400',
+      percentage: '',
+    };
   // 后端使用 0-100 scale (70+高可信, 40-70中可信, <40低可信)
   if (score >= 70)
     return {
-      label: '高可信',
+      label: t('topicResearch.contentPanel.highCredibility'),
       color: 'text-green-600',
       percentage: `${score}%`,
     };
   if (score >= 40)
     return {
-      label: '中可信',
+      label: t('topicResearch.contentPanel.mediumCredibility'),
       color: 'text-yellow-600',
       percentage: `${score}%`,
     };
-  return { label: '低可信', color: 'text-red-600', percentage: `${score}%` };
+  return {
+    label: t('topicResearch.contentPanel.lowCredibility'),
+    color: 'text-red-600',
+    percentage: `${score}%`,
+  };
 }
 
 export function ReferencePanel({
@@ -156,6 +168,7 @@ export function ReferencePanel({
   reportId,
   onRecalculateComplete,
 }: ReferencePanelProps) {
+  const { t } = useI18n();
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [filterValue, setFilterValue] = useState<string>('');
   const [sortBy, setSortBy] = useState<SortType>('time');
@@ -322,10 +335,18 @@ export function ReferencePanel({
               }}
               className="rounded border border-gray-200 bg-white py-1 pl-2 pr-6 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
             >
-              <option value="all">全部</option>
-              <option value="dimension">按维度</option>
-              <option value="source">按来源</option>
-              <option value="time">按时间</option>
+              <option value="all">
+                {t('topicResearch.contentPanel.filterAll')}
+              </option>
+              <option value="dimension">
+                {t('topicResearch.contentPanel.filterByDimension')}
+              </option>
+              <option value="source">
+                {t('topicResearch.contentPanel.filterBySource')}
+              </option>
+              <option value="time">
+                {t('topicResearch.contentPanel.filterByTime')}
+              </option>
             </select>
 
             {filterType === 'dimension' && dimensions.length > 0 && (
@@ -423,7 +444,7 @@ export function ReferencePanel({
       <div className="flex-1 overflow-auto p-4">
         <div className="space-y-3">
           {filteredEvidence.map((item) => {
-            const credibility = getCredibilityDisplay(item.credibilityScore);
+            const credibility = getCredibilityDisplay(item.credibilityScore, t);
 
             return (
               <div
@@ -470,7 +491,7 @@ export function ReferencePanel({
                         target="_blank"
                         rel="noopener noreferrer"
                         className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                        title="打开原文"
+                        title={t('topicResearch.contentPanel.openOriginal')}
                       >
                         <ExternalLinkIcon className="h-4 w-4" />
                       </a>

@@ -700,7 +700,7 @@ export function TopicTeamPanel({
                     title={descriptions[depth]}
                   >
                     <div className="font-medium">{labels[depth]}</div>
-                    <div className="mt-0.5 text-[10px] opacity-70">
+                    <div className="mt-0.5 whitespace-nowrap text-[10px] opacity-70">
                       {descriptions[depth]}
                     </div>
                   </button>

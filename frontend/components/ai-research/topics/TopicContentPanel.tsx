@@ -5805,20 +5805,22 @@ function EvidenceTabContent({
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-600">
-            共 <strong>{stats.total}</strong> 个来源
+            {t('topicResearch.contentPanel.totalSources', {
+              total: stats.total,
+            })}
           </span>
           <div className="flex items-center gap-2 text-xs">
             <span className="flex items-center gap-1 text-green-600">
               <span className="h-2 w-2 rounded-full bg-green-500"></span>
-              高可信 {stats.high}
+              {t('topicResearch.contentPanel.highCredibility')} {stats.high}
             </span>
             <span className="flex items-center gap-1 text-yellow-600">
               <span className="h-2 w-2 rounded-full bg-yellow-500"></span>
-              中可信 {stats.medium}
+              {t('topicResearch.contentPanel.mediumCredibility')} {stats.medium}
             </span>
             <span className="flex items-center gap-1 text-red-600">
               <span className="h-2 w-2 rounded-full bg-red-500"></span>
-              低可信 {stats.low}
+              {t('topicResearch.contentPanel.lowCredibility')} {stats.low}
             </span>
           </div>
         </div>
@@ -5829,18 +5831,30 @@ function EvidenceTabContent({
             onChange={(e) => setFilter(e.target.value as typeof filter)}
             className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
           >
-            <option value="all">全部</option>
-            <option value="high">高可信</option>
-            <option value="medium">中可信</option>
-            <option value="low">低可信</option>
+            <option value="all">
+              {t('topicResearch.contentPanel.filterAll')}
+            </option>
+            <option value="high">
+              {t('topicResearch.contentPanel.filterHigh')}
+            </option>
+            <option value="medium">
+              {t('topicResearch.contentPanel.filterMedium')}
+            </option>
+            <option value="low">
+              {t('topicResearch.contentPanel.filterLow')}
+            </option>
           </select>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
             className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
           >
-            <option value="credibility">按可信度</option>
-            <option value="date">按日期</option>
+            <option value="credibility">
+              {t('topicResearch.contentPanel.sortByCredibility')}
+            </option>
+            <option value="date">
+              {t('topicResearch.contentPanel.sortByDate')}
+            </option>
           </select>
         </div>
       </div>
@@ -5979,7 +5993,7 @@ function EvidenceTabContent({
                           className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          打开原文 ↗
+                          {t('topicResearch.contentPanel.openOriginal')} ↗
                         </a>
                       )}
                     </div>
@@ -5997,7 +6011,9 @@ function EvidenceTabContent({
                       {citationLocations.get(item.id) &&
                         citationLocations.get(item.id)!.length > 0 && (
                           <span className="text-blue-500">
-                            被引用 {citationLocations.get(item.id)!.length} 处
+                            {t('topicResearch.contentPanel.citedCount', {
+                              count: citationLocations.get(item.id)!.length,
+                            })}
                           </span>
                         )}
                     </div>
@@ -6009,7 +6025,7 @@ function EvidenceTabContent({
                         className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        原文 ↗
+                        {t('topicResearch.contentPanel.openOriginal')} ↗
                       </a>
                     )}
                   </div>
