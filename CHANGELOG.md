@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.18](https://github.com/your-org/ai-teams-engine/compare/v3.3.17...v3.3.18) (2026-02-02)
+
+
+### Bug Fixes
+
+* **research:** handle executiveSummary with fullText-only JSON format ([e71e617](https://github.com/your-org/ai-teams-engine/commit/e71e617e748c0077699a93644223deee5346913b))
+
 ### [3.3.17](https://github.com/your-org/ai-teams-engine/compare/v3.3.16...v3.3.17) (2026-02-02)
 
 
