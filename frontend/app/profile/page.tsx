@@ -23,6 +23,7 @@ import { WechatWorkBindingCard } from '@/components/library/integrations/wechat/
 import ClientDate from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
+import { UserApiKeysTab } from '@/components/profile/UserApiKeysTab';
 interface UserStats {
   userId: string;
   memberSince: string;
@@ -54,9 +55,10 @@ function ProfileContent() {
       | 'profile'
       | 'settings'
       | 'stats'
+      | 'api-keys'
       | 'integrations') || 'profile';
   const [activeTab, setActiveTab] = useState<
-    'profile' | 'settings' | 'stats' | 'integrations'
+    'profile' | 'settings' | 'api-keys' | 'stats' | 'integrations'
   >(initialTab);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
@@ -334,6 +336,16 @@ function ProfileContent() {
                 }`}
               >
                 {t('profile.tabs.stats')}
+              </button>
+              <button
+                onClick={() => setActiveTab('api-keys')}
+                className={`px-4 py-2 font-medium transition-colors ${
+                  activeTab === 'api-keys'
+                    ? 'border-b-2 border-red-600 text-red-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {t('profile.tabs.apiKeys')}
               </button>
               <button
                 onClick={() => setActiveTab('integrations')}
@@ -1017,6 +1029,9 @@ function ProfileContent() {
                 )}
               </div>
             )}
+
+            {/* API Keys Tab */}
+            {activeTab === 'api-keys' && <UserApiKeysTab />}
 
             {/* Integrations Tab */}
             {activeTab === 'integrations' && (

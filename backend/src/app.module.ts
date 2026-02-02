@@ -30,6 +30,7 @@ import { SettingsModule } from "./modules/core/settings/settings.module";
 import { StorageModule } from "./modules/core/storage/storage.module";
 import { TableManagementModule } from "./modules/core/table-management/table-management.module";
 import { CreditsModule } from "./modules/credits/credits.module";
+import { UserApiKeysModule } from "./modules/core/user-api-keys/user-api-keys.module";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
 import { AiAskModule } from "./modules/ai-app/ask/ai-ask.module";
@@ -128,6 +129,7 @@ import { WebhooksModule } from "./modules/webhooks";
     StorageModule,
     TableManagementModule,
     CreditsModule,
+    UserApiKeysModule,
 
     // AI modules (ai-* prefix)
     AiEngineModule,

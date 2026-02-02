@@ -258,6 +258,7 @@ export class AIEngineFacade {
           maxTokens: request.maxTokens,
           temperature: request.temperature,
           strictMode: true, // fallback 模式下使用严格模式，让错误冒泡给 fallback 处理
+          userId: request.billing?.userId, // ★ BYOK: 传递 userId 用于 Key 优先级解析
         });
 
         if (result.isError) {
@@ -290,25 +291,13 @@ export class AIEngineFacade {
       const entityId = `chat:${result.model}`;
       this.orchestration?.circuitBreaker?.recordSuccess(entityId, duration);
 
-      // ★ 自动积分扣除
-      const billing = request.billing ?? this.resolveBillingFromContext();
-      if (billing && this.creditsService) {
-        try {
-          await this.creditsService.consumeCredits({
-            userId: billing.userId,
-            moduleType: billing.moduleType,
-            operationType: billing.operationType,
-            tokenCount: tokensUsed,
-            modelName: result.model,
-            referenceId: billing.referenceId,
-            description: billing.description,
-          });
-        } catch (creditError) {
-          this.logger.warn(
-            `[Billing] Failed to deduct credits: ${creditError}`,
-          );
-        }
-      }
+      // ★ 自动积分扣除（BYOK: 用户自用 Key 不扣积分）
+      await this.handleBilling(
+        request,
+        result.apiKeySource,
+        tokensUsed,
+        result.model,
+      );
 
       this.logger.log(
         `[chat] Completed in ${duration}ms, model=${result.model}, tokens=${tokensUsed}${fallbackResult.fallbackUsed ? " (fallback)" : ""}`,
@@ -380,6 +369,7 @@ export class AIEngineFacade {
         maxTokens: request.maxTokens,
         temperature: request.temperature,
         strictMode: request.strictMode,
+        userId: request.billing?.userId, // ★ BYOK: 传递 userId
       });
 
       const duration = Date.now() - startTime;
@@ -396,23 +386,14 @@ export class AIEngineFacade {
 
       const tokensUsed = result.usage?.totalTokens || 0;
 
-      const billing = request.billing ?? this.resolveBillingFromContext();
-      if (billing && this.creditsService && !result.isError) {
-        try {
-          await this.creditsService.consumeCredits({
-            userId: billing.userId,
-            moduleType: billing.moduleType,
-            operationType: billing.operationType,
-            tokenCount: tokensUsed,
-            modelName: result.model,
-            referenceId: billing.referenceId,
-            description: billing.description,
-          });
-        } catch (creditError) {
-          this.logger.warn(
-            `[Billing] Failed to deduct credits: ${creditError}`,
-          );
-        }
+      // ★ BYOK: 用户自用 Key 不扣积分
+      if (!result.isError) {
+        await this.handleBilling(
+          request,
+          result.apiKeySource,
+          tokensUsed,
+          result.model,
+        );
       }
 
       return {
@@ -461,6 +442,37 @@ export class AIEngineFacade {
       referenceId: ctx.referenceId,
       description: ctx.description,
     };
+  }
+
+  /**
+   * ★ BYOK: 统一积分扣除逻辑
+   * 用户自用 Key (personal) 不扣积分
+   */
+  private async handleBilling(
+    request: ChatRequest,
+    apiKeySource: string | undefined,
+    tokensUsed: number,
+    modelName: string,
+  ): Promise<void> {
+    if (apiKeySource === "personal") {
+      this.logger.debug(`[Billing] Skipped: user is using personal API key`);
+      return;
+    }
+    const billing = request.billing ?? this.resolveBillingFromContext();
+    if (!billing || !this.creditsService) return;
+    try {
+      await this.creditsService.consumeCredits({
+        userId: billing.userId,
+        moduleType: billing.moduleType,
+        operationType: billing.operationType,
+        tokenCount: tokensUsed,
+        modelName,
+        referenceId: billing.referenceId,
+        description: billing.description,
+      });
+    } catch (creditError) {
+      this.logger.warn(`[Billing] Failed to deduct credits: ${creditError}`);
+    }
   }
 
   /**
@@ -608,6 +620,7 @@ export class AIEngineFacade {
       this.orchestration?.circuitBreaker?.incrementLoad(entityId);
 
       // 使用 AiChatService 的真正流式输出
+      let streamApiKeySource: string | undefined;
       for await (const chunk of this.aiChatService.chatStream({
         messages: request.messages.map((m) => ({
           role: m.role,
@@ -619,8 +632,13 @@ export class AIEngineFacade {
         systemPrompt: request.systemPrompt,
         maxTokens: request.maxTokens,
         temperature: request.temperature,
+        userId: request.billing?.userId, // ★ BYOK: 传递 userId
       })) {
-        yield chunk;
+        // 捕获 apiKeySource（在最终 chunk 中携带）
+        if (chunk.apiKeySource) {
+          streamApiKeySource = chunk.apiKeySource;
+        }
+        yield { content: chunk.content, done: chunk.done, error: chunk.error };
 
         // 如果有错误，记录失败
         if (chunk.error) {
@@ -634,6 +652,14 @@ export class AIEngineFacade {
 
       // 流式完成，记录成功
       this.orchestration?.circuitBreaker?.recordSuccess(entityId, 0);
+
+      // ★ BYOK: 流式完成后积分扣除
+      await this.handleBilling(
+        request,
+        streamApiKeySource,
+        0,
+        request.model || "unknown",
+      );
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.orchestration?.circuitBreaker?.recordFailure(

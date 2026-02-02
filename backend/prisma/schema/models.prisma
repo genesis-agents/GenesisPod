@@ -158,6 +158,9 @@ model User {
   // 登录历史
   loginHistory LoginHistory[]
 
+  // BYOK: 用户自有 API Key
+  apiKeys UserApiKey[]
+
   @@map("users")
 }
 
@@ -4087,6 +4090,8 @@ enum CreditTransactionType {
   REFERRAL_BONUS // 推荐奖励
   ADMIN_GRANT // 管理员发放
   COMPENSATION // 异常补偿
+  DONATION_REWARD // API Key 捐赠奖励
+  DONATION_USAGE_REWARD // API Key 捐赠使用奖励（持续）
   // 消耗类型
   AI_ASK // AI 问答消耗
   AI_TEAMS // AI 团队消耗
@@ -7169,6 +7174,44 @@ model ResearchTodo {
   @@map("research_todos")
 }
 
+// ============ 用户 API Key (BYOK) ============
+
+/// API Key 使用模式
+enum UserApiKeyMode {
+  PERSONAL // 自用模式
+  DONATED  // 捐赠到共享池
+}
+
+/// 用户自有 API Key
+/// 支持自用模式和捐赠到共享池模式
+model UserApiKey {
+  id               String    @id @default(cuid())
+  userId           String    @map("user_id")
+  provider         String    @db.VarChar(50) // openai, anthropic, deepseek, google 等
+  encryptedValue   String    @map("encrypted_value") @db.Text
+  iv               String    @db.VarChar(32)
+  keyHint          String?   @map("key_hint") @db.VarChar(20) // 脱敏提示如 "sk-...3f8a"
+  keyVersion       Int       @default(1) @map("key_version")
+  mode             UserApiKeyMode @default(PERSONAL)
+  apiEndpoint      String?   @map("api_endpoint") @db.Text
+  preferredModelId String?   @map("preferred_model_id") @db.VarChar(200)
+  donatedSecretId  String?   @map("donated_secret_id") // 关联 Secret Manager 的 ID
+  isActive         Boolean   @default(true) @map("is_active")
+  lastTestedAt     DateTime? @map("last_tested_at")
+  testStatus       String?   @map("test_status") @db.VarChar(20) // success | failed
+  usageCount       Int       @default(0) @map("usage_count") // 调用次数统计（捐赠模式）
+  donationRewardedAt DateTime? @map("donation_rewarded_at") // 首次捐赠奖励发放时间（防重复）
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([provider, mode, isActive])
+  @@index([mode, isActive])
+  @@map("user_api_keys")
+}
+
 // ============ Secret Manager 密钥管理 ============
 
 /// Secret 分类
@@ -7182,6 +7225,7 @@ enum SecretCategory {
   POLICY // 政策研究 API (Congress.gov)
   DEV_TOOLS // 开发工具 API (GitHub, GitLab)
   MCP // MCP 服务器 API (Slack, Google Drive)
+  USER_DONATED // 用户捐赠的 API Key
   OTHER // 其他
 }
 

@@ -12,6 +12,7 @@
 import { Module } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { SecretsModule } from "../core/secrets/secrets.module";
+import { UserApiKeysModule } from "../core/user-api-keys/user-api-keys.module";
 import * as http from "http";
 import * as https from "https";
 
@@ -55,6 +56,7 @@ import { ModelFallbackService } from "./llm/model-fallback/model-fallback.servic
       maxBodyLength: 10 * 1024 * 1024, // 10MB
     }),
     SecretsModule,
+    UserApiKeysModule,
   ],
   providers: [
     // LLM Factory & Adapters

@@ -27,6 +27,8 @@ export interface ChatCompletionOptions {
   taskProfile?: TaskProfile;
   /** 严格模式：API失败时抛出异常而不是返回错误内容 */
   strictMode?: boolean;
+  /** 用户 ID（用于 BYOK Key 优先级解析） */
+  userId?: string;
 }
 
 export interface ChatCompletionResult {
@@ -35,6 +37,8 @@ export interface ChatCompletionResult {
   tokensUsed: number;
   /** 标识此响应是否为错误消息（仅在非严格模式下有值） */
   isError?: boolean;
+  /** BYOK: API Key 来源（personal=用户自用, donated=共享池, system=系统） */
+  apiKeySource?: "personal" | "donated" | "system";
 }
 
 // TaskProfile 已迁移到 ../types/task-profile.ts
@@ -887,6 +891,7 @@ export class AiChatService {
       maxTokens = 2048,
       temperature,
       strictMode: optionStrictMode,
+      userId,
     } = options;
 
     this.logger.debug(`Generating chat completion with model: ${model}`);
@@ -912,6 +917,7 @@ export class AiChatService {
         maxTokens,
         temperature,
         optionStrictMode,
+        userId,
       );
     }
 
@@ -972,11 +978,19 @@ export class AiChatService {
     maxTokens: number,
     temperature?: number,
     optionStrictMode?: boolean,
+    userId?: string,
   ): Promise<ChatCompletionResult> {
     const { modelId, apiEndpoint, provider } = config;
 
-    // ★ 关键修复：使用 getApiKeyForModel 获取 API Key，支持 Secret Manager
-    const apiKey = await this.getApiKeyForModel(config);
+    // ★ BYOK: 使用优先级解析 API Key（用户自用 → 共享池 → 系统）
+    const resolved = await this.modelConfigService.resolveApiKey(
+      config,
+      userId,
+    );
+    const apiKey = resolved?.apiKey || null;
+    const apiKeySource = resolved?.source;
+    // 如果用户有自定义 endpoint，优先使用
+    const effectiveEndpoint = resolved?.apiEndpoint || apiEndpoint;
 
     // ★ 完全使用数据库配置，无需硬编码
     const apiFormat = config.apiFormat || "openai";
@@ -1027,7 +1041,7 @@ export class AiChatService {
         switch (apiFormat) {
           case "openai":
             return await this.apiCallerService.callOpenAICompatibleAPI(
-              apiEndpoint,
+              effectiveEndpoint,
               apiKey,
               modelId,
               messages,
@@ -1039,7 +1053,7 @@ export class AiChatService {
 
           case "anthropic":
             return await this.apiCallerService.callAnthropicAPI(
-              apiEndpoint,
+              effectiveEndpoint,
               apiKey,
               modelId,
               messages,
@@ -1050,7 +1064,7 @@ export class AiChatService {
 
           case "google":
             return await this.apiCallerService.callGoogleAPI(
-              apiEndpoint,
+              effectiveEndpoint,
               apiKey,
               modelId,
               messages,
@@ -1061,7 +1075,7 @@ export class AiChatService {
 
           case "xai":
             return await this.apiCallerService.callXAIAPI(
-              apiEndpoint,
+              effectiveEndpoint,
               apiKey,
               modelId,
               messages,
@@ -1074,7 +1088,7 @@ export class AiChatService {
           default:
             // 默认使用 OpenAI 兼容格式
             return await this.apiCallerService.callOpenAICompatibleAPI(
-              apiEndpoint,
+              effectiveEndpoint,
               apiKey,
               modelId,
               messages,
@@ -1086,11 +1100,14 @@ export class AiChatService {
         }
       };
 
-      return await this.withRetry(
+      const result = await this.withRetry(
         apiCall,
         `callAPIWithConfig [${modelId}]`,
         provider,
       );
+      // ★ BYOK: 附加 API Key 来源信息
+      result.apiKeySource = apiKeySource;
+      return result;
     } catch (error: any) {
       // ★ 详细错误日志：捕获 API 响应中的错误信息
       let errorMsg = error instanceof Error ? error.message : String(error);
@@ -1111,7 +1128,7 @@ export class AiChatService {
 
       // ★ 调试日志：输出请求参数（不包含敏感信息）
       this.logger.debug(
-        `[callAPIWithConfig] Failed request params - model: ${modelId}, endpoint: ${apiEndpoint?.substring(0, 50)}...`,
+        `[callAPIWithConfig] Failed request params - model: ${modelId}, endpoint: ${effectiveEndpoint?.substring(0, 50)}..., keySource: ${apiKeySource}`,
       );
 
       if (useStrictMode) {
@@ -3803,12 +3820,16 @@ Generate an image that fulfills the current request while maintaining consistenc
     capabilities?: string[];
     /** 是否启用 Google Search grounding（默认 true） */
     enableSearch?: boolean;
+    /** 用户 ID（用于 BYOK Key 优先级解析） */
+    userId?: string;
   }): Promise<{
     content: string;
     usage?: { totalTokens: number };
     model: string;
     /** 标识此响应是否为错误消息 */
     isError?: boolean;
+    /** BYOK: API Key 来源 */
+    apiKeySource?: "personal" | "donated" | "system";
   }> {
     const {
       messages,
@@ -3826,6 +3847,7 @@ Generate an image that fulfills the current request while maintaining consistenc
       displayName,
       capabilities,
       enableSearch,
+      userId,
     } = options;
 
     // ★ 路径分叉：如果提供了 apiKey，使用直接 API 调用路径
@@ -3958,6 +3980,7 @@ Generate an image that fulfills the current request while maintaining consistenc
         maxTokens: effectiveMaxTokens,
         temperature: effectiveTemperature,
         strictMode,
+        userId,
       });
 
       // 如果成功（没有错误），直接返回
@@ -3972,6 +3995,7 @@ Generate an image that fulfills the current request while maintaining consistenc
           usage: { totalTokens: result.tokensUsed },
           model: result.model,
           isError: false,
+          apiKeySource: result.apiKeySource,
         };
       }
 
@@ -4035,7 +4059,16 @@ Generate an image that fulfills the current request while maintaining consistenc
     systemPrompt?: string;
     maxTokens?: number;
     temperature?: number;
-  }): AsyncGenerator<{ content: string; done: boolean; error?: string }, void> {
+    userId?: string;
+  }): AsyncGenerator<
+    {
+      content: string;
+      done: boolean;
+      error?: string;
+      apiKeySource?: "personal" | "donated" | "system";
+    },
+    void
+  > {
     const {
       messages,
       systemPrompt,
@@ -4066,8 +4099,16 @@ Generate an image that fulfills the current request while maintaining consistenc
       return;
     }
 
-    // ★ 关键修复：使用 getApiKeyForModel 获取 API Key，支持 Secret Manager
-    const apiKey = await this.getApiKeyForModel(modelConfig);
+    // ★ BYOK: 使用优先级解析 API Key
+    const resolved = await this.modelConfigService.resolveApiKey(
+      modelConfig,
+      options.userId,
+    );
+    const apiKey = resolved?.apiKey || null;
+    const streamApiKeySource = resolved?.source;
+    // 如果用户有自定义 endpoint，优先使用
+    const effectiveStreamEndpoint =
+      resolved?.apiEndpoint || modelConfig.apiEndpoint;
     if (!apiKey) {
       yield {
         content: `模型 ${model} 的 API Key 未配置（直接输入或 Secret Manager 均未找到）`,
@@ -4105,13 +4146,12 @@ Generate an image that fulfills the current request while maintaining consistenc
 
     try {
       if (apiFormat === "openai") {
-        // ★ 使用数据库配置的 tokenParamName
         const tokenParamName =
           modelConfig.tokenParamName ||
           (modelConfig.isReasoning ? "max_completion_tokens" : "max_tokens");
         yield* this.streamHandlerService.streamOpenAICompatible(
-          modelConfig.apiEndpoint,
-          apiKey, // ★ 使用已解析的 apiKey（支持 Secret Manager）
+          effectiveStreamEndpoint,
+          apiKey,
           modelConfig.modelId,
           fullMessages,
           effectiveMaxTokens,
@@ -4120,8 +4160,8 @@ Generate an image that fulfills the current request while maintaining consistenc
         );
       } else if (apiFormat === "anthropic") {
         yield* this.streamHandlerService.streamAnthropic(
-          modelConfig.apiEndpoint,
-          apiKey, // ★ 使用已解析的 apiKey（支持 Secret Manager）
+          effectiveStreamEndpoint,
+          apiKey,
           modelConfig.modelId,
           fullMessages,
           effectiveMaxTokens,
@@ -4136,9 +4176,17 @@ Generate an image that fulfills the current request while maintaining consistenc
           systemPrompt,
           maxTokens: effectiveMaxTokens,
           temperature: effectiveTemperature,
+          userId: options.userId,
         });
-        yield { content: result.content, done: true };
+        yield {
+          content: result.content,
+          done: true,
+          apiKeySource: result.apiKeySource,
+        };
+        return;
       }
+      // ★ 流式完成后，发出一个带 apiKeySource 的终止信号
+      yield { content: "", done: true, apiKeySource: streamApiKeySource };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`[chatStream] Stream error: ${errorMsg}`);

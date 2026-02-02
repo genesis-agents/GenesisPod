@@ -1,0 +1,154 @@
+import { useCallback, useState } from 'react';
+import { useApiGet } from '@/hooks/core';
+import { apiClient } from '@/lib/api/client';
+import { toast } from '@/stores';
+
+export interface UserApiKeyInfo {
+  id: string;
+  provider: string;
+  mode: 'personal' | 'donated';
+  apiEndpoint: string | null;
+  preferredModelId: string | null;
+  isActive: boolean;
+  lastTestedAt: string | null;
+  testStatus: string | null;
+  usageCount: number;
+  createdAt: string;
+  updatedAt: string;
+  keyHint: string;
+}
+
+export interface ProviderInfo {
+  id: string;
+  name: string;
+  endpoint: string;
+}
+
+interface UserApiKeysResponse {
+  keys: UserApiKeyInfo[];
+  providers: ProviderInfo[];
+}
+
+interface TestResult {
+  success: boolean;
+  message: string;
+}
+
+export function useUserApiKeys() {
+  const {
+    data,
+    loading,
+    error,
+    execute: refresh,
+  } = useApiGet<UserApiKeysResponse>('/user/api-keys', { immediate: true });
+
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  const keys = data?.keys || [];
+  const providers = data?.providers || [];
+
+  const saveKey = useCallback(
+    async (
+      provider: string,
+      apiKey: string,
+      mode: 'personal' | 'donated',
+      preferredModelId?: string,
+      apiEndpoint?: string
+    ): Promise<boolean> => {
+      setSaving(true);
+      try {
+        await apiClient.put(`/user/api-keys/${provider}`, {
+          apiKey,
+          mode,
+          preferredModelId,
+          apiEndpoint,
+        });
+        await refresh();
+        return true;
+      } catch (err) {
+        toast.error((err as Error).message || 'Failed to save API key');
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [refresh]
+  );
+
+  const deleteKey = useCallback(
+    async (provider: string): Promise<boolean> => {
+      setSaving(true);
+      try {
+        await apiClient.delete(`/user/api-keys/${provider}`);
+        await refresh();
+        return true;
+      } catch (err) {
+        toast.error((err as Error).message || 'Failed to delete API key');
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [refresh]
+  );
+
+  const testKey = useCallback(
+    async (
+      provider: string,
+      apiKey: string,
+      apiEndpoint?: string
+    ): Promise<TestResult> => {
+      setTesting(true);
+      try {
+        const result = await apiClient.post<TestResult>(
+          `/user/api-keys/${provider}/test`,
+          { apiKey, apiEndpoint }
+        );
+        return result || { success: false, message: 'Unknown error' };
+      } catch {
+        return { success: false, message: 'Connection failed' };
+      } finally {
+        setTesting(false);
+      }
+    },
+    []
+  );
+
+  const withdrawDonation = useCallback(
+    async (provider: string): Promise<boolean> => {
+      setSaving(true);
+      try {
+        await apiClient.delete(`/user/api-keys/${provider}/donate`);
+        await refresh();
+        return true;
+      } catch (err) {
+        toast.error((err as Error).message || 'Failed to withdraw donation');
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [refresh]
+  );
+
+  const getKeyForProvider = useCallback(
+    (provider: string) => keys.find((k) => k.provider === provider),
+    [keys]
+  );
+
+  return {
+    keys,
+    providers,
+    loading,
+    error,
+    saving,
+    testing,
+    refresh,
+    saveKey,
+    deleteKey,
+    testKey,
+    withdrawDonation,
+    getKeyForProvider,
+  };
+}

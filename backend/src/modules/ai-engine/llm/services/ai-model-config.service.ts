@@ -1,7 +1,22 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SecretsService } from "../../../core/secrets/secrets.service";
+import { UserApiKeysService } from "../../../core/user-api-keys/user-api-keys.service";
 import { AIModelType } from "@prisma/client";
+
+/**
+ * API Key 来源标识
+ * personal: 用户自用 Key（不扣积分）
+ * donated: 共享池捐赠 Key（扣积分）
+ * system: 系统管理员配置 Key（扣积分）
+ */
+export type ApiKeySource = "personal" | "donated" | "system";
+
+export interface ResolvedApiKey {
+  apiKey: string;
+  source: ApiKeySource;
+  apiEndpoint?: string | null;
+}
 
 /**
  * 数据库中的 AI 模型配置
@@ -52,6 +67,7 @@ export class AiModelConfigService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly secretsService: SecretsService,
+    private readonly userApiKeysService: UserApiKeysService,
   ) {
     // 初始化时异步加载模型配置
     this.refreshModelConfigCache().catch((err) =>
@@ -60,25 +76,80 @@ export class AiModelConfigService {
   }
 
   /**
-   * 获取模型的 API Key
-   * 优先从 Secret Manager 获取（如果 secretKey 已配置），否则使用直接存储的 apiKey
-   * ★ 对返回值做 trim 处理，避免空格导致 API 调用失败
+   * 获取模型的 API Key（原有方法，保持向后兼容）
+   * 不含用户 Key 优先级逻辑，仅使用系统 Key
    */
   async getApiKeyForModel(model: AIModelConfig): Promise<string | null> {
-    // 优先使用 secretKey 从 Secret Manager 获取
+    const resolved = await this.resolveApiKey(model);
+    return resolved?.apiKey || null;
+  }
+
+  /**
+   * 获取模型的 API Key（含用户 Key 优先级）
+   * 优先级: 用户自用 Key → 共享池捐赠 Key → 系统 Key
+   */
+  async resolveApiKey(
+    model: AIModelConfig,
+    userId?: string,
+  ): Promise<ResolvedApiKey | null> {
+    // Priority 1: 用户自用 Key
+    if (userId) {
+      try {
+        const personalKey = await this.userApiKeysService.getPersonalKey(
+          userId,
+          model.provider,
+        );
+        if (personalKey) {
+          return {
+            apiKey: personalKey.apiKey,
+            source: "personal",
+            apiEndpoint: personalKey.apiEndpoint,
+          };
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to get personal key for user ${userId}, provider ${model.provider}: ${error}`,
+        );
+      }
+    }
+
+    // Priority 2: 共享池（用户捐赠）
+    try {
+      const donatedKey = await this.userApiKeysService.getDonatedKey(
+        model.provider,
+      );
+      if (donatedKey) {
+        return {
+          apiKey: donatedKey.apiKey,
+          source: "donated",
+          apiEndpoint: donatedKey.apiEndpoint,
+        };
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to get donated key for provider ${model.provider}: ${error}`,
+      );
+    }
+
+    // Priority 3: Secret Manager 系统 Key
     if (model.secretKey) {
       const secretValue = await this.secretsService.getValueInternal(
         model.secretKey,
       );
       if (secretValue) {
-        return secretValue.trim();
+        return { apiKey: secretValue.trim(), source: "system" };
       }
       this.logger.warn(
         `Secret '${model.secretKey}' not found for model ${model.name}, falling back to apiKey`,
       );
     }
-    // 回退到直接存储的 apiKey
-    return model.apiKey?.trim() || null;
+
+    // Priority 4: Legacy apiKey
+    if (model.apiKey?.trim()) {
+      return { apiKey: model.apiKey.trim(), source: "system" };
+    }
+
+    return null;
   }
 
   /**
