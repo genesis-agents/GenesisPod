@@ -2,6 +2,30 @@
 
 DeepDive Engine 版本变更记录。
 
+## [3.4.0](https://github.com/your-org/ai-teams-engine/compare/v3.3.31...v3.4.0) (2026-02-02)
+
+
+### Features
+
+* **byok:** add user API keys migration and PRD ([10c08cf](https://github.com/your-org/ai-teams-engine/commit/10c08cfef94e502b297f9474081ce9dd2de4c9f9))
+* **core:** implement BYOK user API key system with shared donation pool ([7f68184](https://github.com/your-org/ai-teams-engine/commit/7f6818489f2340a6f4f1777dd7bab720bcdf75b2))
+* **i18n:** comprehensive internationalization for ai-research components ([0405ae2](https://github.com/your-org/ai-teams-engine/commit/0405ae2bafa8c2a8d5552fa119477ee623cbad5c))
+* **ui-patrol:** add automated UI inspection and regression system ([2c7ffbe](https://github.com/your-org/ai-teams-engine/commit/2c7ffbed76cb25bb123fc85090638fde416ee2c4))
+
+
+### Bug Fixes
+
+* **i18n:** comprehensive English mode i18n coverage for multiple modules ([70fbccc](https://github.com/your-org/ai-teams-engine/commit/70fbccc74f4c2080227024c0bc578c6621ac0b4e))
+* **i18n:** merge duplicate contentPanel key in en.json ([23c2ce6](https://github.com/your-org/ai-teams-engine/commit/23c2ce6935d67f0c214a7fee8b29d8d077d1c1e6))
+* **i18n:** translate AI Writing list, Office slides list, Simulation cards ([ecfa586](https://github.com/your-org/ai-teams-engine/commit/ecfa586ef77316c96ac85e96ed4a1425c6a6773a))
+* **i18n:** translate evidence panel labels, fix Research Depth layout ([5e320f9](https://github.com/your-org/ai-teams-engine/commit/5e320f95c513cb411f4371470abefa413d3581e9))
+* **i18n:** translate WritingDetailPage, EditorModal, SandboxView ([28ed8eb](https://github.com/your-org/ai-teams-engine/commit/28ed8eb1876d6295b13aadd753cfc408a48bbb76))
+
+
+### Refactoring
+
+* **changelog:** auto-generate from CHANGELOG.md instead of hardcoding ([b428ea2](https://github.com/your-org/ai-teams-engine/commit/b428ea2eff3ac4d3e9ec8fbde407966f17f141d5))
+
 ### [3.3.31](https://github.com/your-org/ai-teams-engine/compare/v3.3.30...v3.3.31) (2026-02-02)
 
 
