@@ -440,6 +440,79 @@ function extractMarkdownFromJsonReport(content: string): string {
   return content;
 }
 
+/**
+ * Strip raw chart JSON blocks (CHARTS--- {...} or bare {"generatedCharts":...})
+ * that leaked into report body due to parseChartOutput separator mismatch.
+ * ★ Requires at least one side to have dashes (prevents false positives)
+ */
+function stripChartJsonFromReport(content: string): string {
+  const separatorPattern = /(?:-+\s*CHARTS\s*-*|CHARTS\s*-+)/gi;
+  let match: RegExpExecArray | null;
+  let result = content;
+
+  const matches: { index: number; length: number }[] = [];
+  while ((match = separatorPattern.exec(content)) !== null) {
+    matches.push({ index: match.index, length: match[0].length });
+  }
+
+  // Process from last to first to preserve indices
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const sep = matches[i];
+    const afterSep = result.substring(sep.index + sep.length);
+    const braceStart = afterSep.search(/\{/);
+    if (braceStart === -1) continue;
+
+    const jsonStart = sep.index + sep.length + braceStart;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let jsonEnd = -1;
+
+    for (let j = jsonStart; j < result.length; j++) {
+      const ch = result[j];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          jsonEnd = j + 1;
+          break;
+        }
+      }
+    }
+
+    let stripStart = sep.index;
+    while (stripStart > 0 && '\n\r \t'.includes(result[stripStart - 1])) {
+      stripStart--;
+    }
+    const stripEnd = jsonEnd > 0 ? jsonEnd : result.length;
+    result = result.substring(0, stripStart) + result.substring(stripEnd);
+  }
+
+  // Fallback: bare JSON block with generatedCharts at end
+  const bareJsonPattern =
+    /\n\s*\{\s*"(?:generatedCharts|figureReferences)"[\s\S]*$/;
+  const m2 = result.match(bareJsonPattern);
+  if (m2 && m2.index !== undefined) {
+    const before = result.substring(0, m2.index).trim();
+    if (before.length > 100) result = before;
+  }
+
+  return result.trim();
+}
+
 function ReportEditorInner({
   report,
   evidence: evidenceProp,
@@ -526,6 +599,7 @@ function ReportEditorInner({
     let resolvedFullReport = report.fullReport;
     if (resolvedFullReport) {
       resolvedFullReport = extractMarkdownFromJsonReport(resolvedFullReport);
+      resolvedFullReport = stripChartJsonFromReport(resolvedFullReport);
     }
 
     // ★ Priority 1: Use resolvedFullReport if it's valid markdown (has chart placeholders or is long enough)

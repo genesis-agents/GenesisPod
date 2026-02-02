@@ -32,6 +32,10 @@ import {
   CONSISTENCY_CHECK_USER_PROMPT,
 } from "../../prompts/consistency-check.prompt";
 import { getLanguageInstruction } from "../../prompts";
+import {
+  stripChartJsonFromContent,
+  extractMarkdownFromJsonString,
+} from "../../utils/strip-chart-json.utils";
 
 /**
  * Report Generator Service
@@ -330,57 +334,6 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
    * 2. 只由 AI 生成补充内容（执行摘要、前言、跨维度分析、风险评估、战略建议、结语）
    * 3. 保持报告的完整性和一致性
    */
-  /**
-   * If a string looks like raw JSON (starts with {), try to extract fullText from it.
-   * This is a safety net for when normalizeExecutiveSummary fails to parse AI output.
-   */
-  private extractMarkdownFromJsonString(text: string): string {
-    const trimmed = text.trim();
-    if (!trimmed.startsWith("{")) return text;
-
-    // Try JSON.parse first
-    try {
-      const parsed = JSON.parse(trimmed);
-      const ft =
-        parsed.fullText ||
-        parsed.executiveSummary?.fullText ||
-        (typeof parsed.executiveSummary === "string"
-          ? parsed.executiveSummary
-          : null);
-      if (ft && typeof ft === "string") return ft;
-    } catch {
-      // JSON.parse failed — try regex extraction of "fullText": "..."
-    }
-
-    // Regex fallback: extract first "fullText": "..." value
-    const match = trimmed.match(/"fullText"\s*:\s*"/);
-    if (match && match.index !== undefined) {
-      const valueStart = match.index + match[0].length;
-      let i = valueStart;
-      while (i < trimmed.length) {
-        if (trimmed[i] === "\\") {
-          i += 2;
-          continue;
-        }
-        if (trimmed[i] === '"') {
-          const raw = trimmed.slice(valueStart, i);
-          const unescaped = raw
-            .replace(/\\n/g, "\n")
-            .replace(/\\t/g, "\t")
-            .replace(/\\r/g, "\r")
-            .replace(/\\"/g, '"')
-            .replace(/\\\\/g, "\\");
-          if (unescaped.length > 50) return unescaped;
-          break;
-        }
-        i++;
-      }
-    }
-
-    // If nothing worked, return as-is (shouldn't happen in practice)
-    return text;
-  }
-
   buildFullReportFromDimensions(
     topic: ResearchTopic,
     dimensionInputs: DimensionAnalysisInput[],
@@ -396,30 +349,26 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     // ★ Safety net: sanitize all supplementary content to ensure no raw JSON in report
     const sanitized = {
       preface: supplementaryContent.preface
-        ? this.extractMarkdownFromJsonString(supplementaryContent.preface)
+        ? extractMarkdownFromJsonString(supplementaryContent.preface)
         : supplementaryContent.preface,
       executiveSummary: supplementaryContent.executiveSummary
-        ? this.extractMarkdownFromJsonString(
-            supplementaryContent.executiveSummary,
-          )
+        ? extractMarkdownFromJsonString(supplementaryContent.executiveSummary)
         : supplementaryContent.executiveSummary,
       crossDimensionAnalysis: supplementaryContent.crossDimensionAnalysis
-        ? this.extractMarkdownFromJsonString(
+        ? extractMarkdownFromJsonString(
             supplementaryContent.crossDimensionAnalysis,
           )
         : supplementaryContent.crossDimensionAnalysis,
       riskAssessment: supplementaryContent.riskAssessment
-        ? this.extractMarkdownFromJsonString(
-            supplementaryContent.riskAssessment,
-          )
+        ? extractMarkdownFromJsonString(supplementaryContent.riskAssessment)
         : supplementaryContent.riskAssessment,
       strategicRecommendations: supplementaryContent.strategicRecommendations
-        ? this.extractMarkdownFromJsonString(
+        ? extractMarkdownFromJsonString(
             supplementaryContent.strategicRecommendations,
           )
         : supplementaryContent.strategicRecommendations,
       conclusion: supplementaryContent.conclusion
-        ? this.extractMarkdownFromJsonString(supplementaryContent.conclusion)
+        ? extractMarkdownFromJsonString(supplementaryContent.conclusion)
         : supplementaryContent.conclusion,
     };
 
@@ -485,6 +434,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       let content = stripLeadingHeading(
         dim.detailedContent || dim.summary || "暂无详细内容",
       );
+      // ★ Safety net: 移除未被 parseChartOutput 正确分离的图表 JSON 残留
+      content = stripChartJsonFromContent(content);
       // ★ 移除内联 markdown 图片（AI 生成的外部 URL 通常 404，图表已通过 <!-- chart --> 机制管理）
       content = content.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
       // ★ 降级维度内容中的标题层级：# → ###, ## → ###（维度章节本身是 ##）

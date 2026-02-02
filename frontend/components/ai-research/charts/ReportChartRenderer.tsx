@@ -34,7 +34,12 @@ import {
   Scatter,
   ZAxis,
 } from 'recharts';
-import type { ReportChart, ChartDataPoint } from '@/types/topic-research';
+import type {
+  ReportChart,
+  ChartDataPoint,
+  TopicEvidence,
+} from '@/types/topic-research';
+import { triggerCitationClick } from '../citationNavigation';
 
 // 图表配色方案
 const CHART_COLORS = [
@@ -58,6 +63,56 @@ const RISK_COLORS = {
 interface ReportChartRendererProps {
   chart: ReportChart;
   className?: string;
+  evidences?: TopicEvidence[];
+}
+
+/**
+ * Render chart source text with clickable [N] citation links.
+ */
+function ChartSourceWithCitations({
+  source,
+  evidences,
+}: {
+  source: string;
+  evidences?: TopicEvidence[];
+}) {
+  const parts: (string | React.ReactElement)[] = [];
+  const pattern = /\[(\d+)\]/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(source)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(source.slice(lastIndex, match.index));
+    }
+    const citationNum = parseInt(match[1], 10);
+    const evidence = evidences?.find((e) => e.citationIndex === citationNum);
+    if (evidence) {
+      parts.push(
+        <sup
+          key={`cite-${match.index}`}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            triggerCitationClick(evidence.id);
+          }}
+          className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
+          title={evidence.title || `引用 [${citationNum}]`}
+        >
+          [{citationNum}]
+        </sup>
+      );
+    } else {
+      parts.push(match[0]);
+    }
+    lastIndex = pattern.lastIndex;
+  }
+
+  if (lastIndex < source.length) {
+    parts.push(source.slice(lastIndex));
+  }
+
+  return <>{parts}</>;
 }
 
 /**
@@ -543,6 +598,7 @@ function generateChartSummary(
 export function ReportChartRenderer({
   chart,
   className = '',
+  evidences,
 }: ReportChartRendererProps) {
   // ★ 处理 data 为空的情况
   const chartData = chart.data || [];
@@ -710,7 +766,13 @@ export function ReportChartRenderer({
       {/* 数据来源 */}
       {chart.source && (
         <div className="mt-3 border-t border-gray-100 pt-3">
-          <p className="text-xs text-gray-400">数据来源: {chart.source}</p>
+          <p className="text-xs text-gray-400">
+            数据来源:{' '}
+            <ChartSourceWithCitations
+              source={chart.source}
+              evidences={evidences}
+            />
+          </p>
         </div>
       )}
     </div>

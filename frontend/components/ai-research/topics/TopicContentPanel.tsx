@@ -2766,7 +2766,11 @@ function ReportTabContent({
             </h3>
             <div className="grid gap-4">
               {report.charts.map((chart, idx) => (
-                <ReportChartRenderer key={chart.id || idx} chart={chart} />
+                <ReportChartRenderer
+                  key={chart.id || idx}
+                  chart={chart}
+                  evidences={evidence}
+                />
               ))}
             </div>
           </div>

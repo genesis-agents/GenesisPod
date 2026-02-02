@@ -123,6 +123,62 @@ interface Chapter {
 }
 
 /**
+ * Strip leaked CHARTS--- JSON blocks from dimension content.
+ * Uses brace counting to handle JSON with nested braces in string values.
+ */
+function stripChartJsonBlock(content: string): string {
+  const separatorPattern = /(?:-+\s*CHARTS\s*-*|CHARTS\s*-+)/gi;
+  let match: RegExpExecArray | null;
+  let result = content;
+  const matches: { index: number; length: number }[] = [];
+  while ((match = separatorPattern.exec(content)) !== null) {
+    matches.push({ index: match.index, length: match[0].length });
+  }
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const sep = matches[i];
+    const afterSep = result.substring(sep.index + sep.length);
+    const braceStart = afterSep.search(/\{/);
+    if (braceStart === -1) continue;
+    const jsonStart = sep.index + sep.length + braceStart;
+    let depth = 0,
+      inStr = false,
+      esc = false,
+      jsonEnd = -1;
+    for (let j = jsonStart; j < result.length; j++) {
+      const ch = result[j];
+      if (esc) {
+        esc = false;
+        continue;
+      }
+      if (ch === '\\') {
+        esc = true;
+        continue;
+      }
+      if (ch === '"') {
+        inStr = !inStr;
+        continue;
+      }
+      if (inStr) continue;
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          jsonEnd = j + 1;
+          break;
+        }
+      }
+    }
+    let stripStart = sep.index;
+    while (stripStart > 0 && '\n\r \t'.includes(result[stripStart - 1]))
+      stripStart--;
+    result =
+      result.substring(0, stripStart) +
+      result.substring(jsonEnd > 0 ? jsonEnd : result.length);
+  }
+  return result;
+}
+
+/**
  * Calculate word count for mixed Chinese/English content
  * Counts Chinese characters individually and English words as units
  */
@@ -491,12 +547,12 @@ function ChapterizedReportViewInner({
           });
         }
 
-        // Detailed content
+        // Detailed content (strip any leaked chart JSON blocks)
         if (
           analysis.detailedContent &&
           analysis.detailedContent.trim().length > 5
         ) {
-          parts.push('\n' + analysis.detailedContent);
+          parts.push('\n' + stripChartJsonBlock(analysis.detailedContent));
         }
 
         const content = parts.join('\n');

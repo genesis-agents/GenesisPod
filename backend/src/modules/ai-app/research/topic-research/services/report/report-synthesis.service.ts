@@ -42,6 +42,10 @@ import {
   CONSISTENCY_CHECK_USER_PROMPT,
 } from "../../prompts/consistency-check.prompt";
 import { ReportEditorService } from "./report-editor.service";
+import {
+  stripChartJsonFromContent,
+  extractMarkdownFromJsonString,
+} from "../../utils/strip-chart-json.utils";
 
 /**
  * Report Synthesis Service
@@ -609,53 +613,6 @@ export class ReportSynthesisService {
    * 2. 只由 AI 生成补充内容（执行摘要、前言、跨维度分析、风险评估、战略建议、结语）
    * 3. 保持报告的完整性和一致性
    */
-  /**
-   * If a string looks like raw JSON, try to extract fullText from it.
-   */
-  private extractMarkdownFromJsonString(text: string): string {
-    const trimmed = text.trim();
-    if (!trimmed.startsWith("{")) return text;
-
-    try {
-      const parsed = JSON.parse(trimmed);
-      const ft =
-        parsed.fullText ||
-        parsed.executiveSummary?.fullText ||
-        (typeof parsed.executiveSummary === "string"
-          ? parsed.executiveSummary
-          : null);
-      if (ft && typeof ft === "string") return ft;
-    } catch {
-      // Try regex fallback
-    }
-
-    const match = trimmed.match(/"fullText"\s*:\s*"/);
-    if (match && match.index !== undefined) {
-      const valueStart = match.index + match[0].length;
-      let i = valueStart;
-      while (i < trimmed.length) {
-        if (trimmed[i] === "\\") {
-          i += 2;
-          continue;
-        }
-        if (trimmed[i] === '"') {
-          const raw = trimmed.slice(valueStart, i);
-          const unescaped = raw
-            .replace(/\\n/g, "\n")
-            .replace(/\\t/g, "\t")
-            .replace(/\\r/g, "\r")
-            .replace(/\\"/g, '"')
-            .replace(/\\\\/g, "\\");
-          if (unescaped.length > 50) return unescaped;
-          break;
-        }
-        i++;
-      }
-    }
-
-    return text;
-  }
-
   private buildFullReportFromDimensions(
     topic: ResearchTopic,
     dimensionInputs: DimensionAnalysisInput[],
@@ -672,7 +629,7 @@ export class ReportSynthesisService {
     const sc = Object.fromEntries(
       Object.entries(supplementaryContent).map(([k, v]) => [
         k,
-        v ? this.extractMarkdownFromJsonString(v) : v,
+        v ? extractMarkdownFromJsonString(v) : v,
       ]),
     ) as typeof supplementaryContent;
 
@@ -738,6 +695,8 @@ export class ReportSynthesisService {
       let content = stripLeadingHeading(
         dim.detailedContent || dim.summary || "暂无详细内容",
       );
+      // ★ Safety net: 移除未被 parseChartOutput 正确分离的图表 JSON 残留
+      content = stripChartJsonFromContent(content);
       // ★ 移除内联 markdown 图片（AI 生成的外部 URL 通常 404，图表已通过 <!-- chart --> 机制管理）
       content = content.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
       // ★ 降级维度内容中的标题层级：# → ###, ## → ###（维度章节本身是 ##）

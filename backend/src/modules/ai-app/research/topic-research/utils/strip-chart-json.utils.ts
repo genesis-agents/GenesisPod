@@ -1,0 +1,137 @@
+/**
+ * Chart JSON Stripping Utilities
+ *
+ * Shared functions for removing chart JSON blocks that were not properly
+ * separated by parseChartOutput from dimension/report content.
+ *
+ * Used by:
+ * - report-synthesis.service.ts (buildFullReportFromDimensions)
+ * - report-generator.service.ts (buildFullReportFromDimensions)
+ */
+
+/**
+ * Strip chart JSON blocks that were not properly separated by parseChartOutput.
+ * Handles patterns like: ---CHARTS--- {...}, CHARTS--- {...}, or ---CHARTS {...}
+ * ★ Requires at least one side to have dashes (prevents false positives)
+ */
+export function stripChartJsonFromContent(content: string): string {
+  // Find all CHARTS separator occurrences - require at least one side to have dash
+  const separatorPattern = /(?:-+\s*CHARTS\s*-*|CHARTS\s*-+)/gi;
+  let match: RegExpExecArray | null;
+  let result = content;
+
+  // Process from last occurrence to first (to preserve indices)
+  const matches: { index: number; length: number }[] = [];
+  while ((match = separatorPattern.exec(content)) !== null) {
+    matches.push({ index: match.index, length: match[0].length });
+  }
+
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const sep = matches[i];
+    // Find the opening { after the separator
+    const afterSep = result.substring(sep.index + sep.length);
+    const braceStart = afterSep.search(/\{/);
+    if (braceStart === -1) continue;
+
+    // Use brace counting to find matching closing }
+    const jsonStart = sep.index + sep.length + braceStart;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let jsonEnd = -1;
+
+    for (let j = jsonStart; j < result.length; j++) {
+      const ch = result[j];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+      if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          jsonEnd = j + 1;
+          break;
+        }
+      }
+    }
+
+    // Strip from separator start to end of JSON block (or end of content)
+    // Also strip leading whitespace/newlines before the separator
+    let stripStart = sep.index;
+    while (stripStart > 0 && "\n\r \t".includes(result[stripStart - 1])) {
+      stripStart--;
+    }
+    const stripEnd = jsonEnd > 0 ? jsonEnd : result.length;
+    result = result.substring(0, stripStart) + result.substring(stripEnd);
+  }
+
+  // Fallback: bare JSON block with generatedCharts at end of content
+  const bareJsonPattern =
+    /\n\s*\{\s*"(?:generatedCharts|figureReferences)"[\s\S]*$/;
+  const m2 = result.match(bareJsonPattern);
+  if (m2 && m2.index !== undefined) {
+    const before = result.substring(0, m2.index).trim();
+    if (before.length > 100) {
+      result = before;
+    }
+  }
+
+  return result.trim();
+}
+
+/**
+ * If a string looks like raw JSON, try to extract fullText from it.
+ */
+export function extractMarkdownFromJsonString(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("{")) return text;
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    const ft =
+      parsed.fullText ||
+      parsed.executiveSummary?.fullText ||
+      (typeof parsed.executiveSummary === "string"
+        ? parsed.executiveSummary
+        : null);
+    if (ft && typeof ft === "string") return ft;
+  } catch {
+    // Try regex fallback
+  }
+
+  const match = trimmed.match(/"fullText"\s*:\s*"/);
+  if (match && match.index !== undefined) {
+    const valueStart = match.index + match[0].length;
+    let i = valueStart;
+    while (i < trimmed.length) {
+      if (trimmed[i] === "\\") {
+        i += 2;
+        continue;
+      }
+      if (trimmed[i] === '"') {
+        const raw = trimmed.slice(valueStart, i);
+        const unescaped = raw
+          .replace(/\\n/g, "\n")
+          .replace(/\\t/g, "\t")
+          .replace(/\\r/g, "\r")
+          .replace(/\\"/g, '"')
+          .replace(/\\\\/g, "\\");
+        if (unescaped.length > 50) return unescaped;
+        break;
+      }
+      i++;
+    }
+  }
+
+  return text;
+}

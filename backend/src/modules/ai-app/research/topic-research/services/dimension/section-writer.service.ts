@@ -679,16 +679,30 @@ export class SectionWriterService {
       figureReferences: FigureReference[];
     };
   } {
-    const separator = "---CHARTS---";
-    const idx = raw.indexOf(separator);
-    if (idx === -1) {
+    // ★ 支持多种 AI 输出变体：---CHARTS---、CHARTS---、---CHARTS 等
+    // ★ 要求至少一侧有 dash（防止误匹配）
+    const separatorPattern = /\n*(?:-+\s*CHARTS\s*-*|CHARTS\s*-+)\n*/i;
+    const separatorMatch = raw.match(separatorPattern);
+
+    // 也检测直接嵌入的 {"generatedCharts": 或 { "generatedCharts": 模式
+    const inlineJsonPattern =
+      /\n\s*\{[\s\n]*"(?:generatedCharts|figureReferences)"/;
+    const inlineMatch = !separatorMatch ? raw.match(inlineJsonPattern) : null;
+
+    if (!separatorMatch && !inlineMatch) {
       return {
         markdown: raw,
         charts: { generatedCharts: [], figureReferences: [] },
       };
     }
-    const markdown = raw.substring(0, idx).trim();
-    const jsonPart = raw.substring(idx + separator.length).trim();
+
+    const splitIdx = separatorMatch
+      ? separatorMatch.index!
+      : inlineMatch!.index!;
+    const markdown = raw.substring(0, splitIdx).trim();
+    const jsonPart = separatorMatch
+      ? raw.substring(splitIdx + separatorMatch[0].length).trim()
+      : raw.substring(inlineMatch!.index!).trim();
     try {
       const parsed = JSON.parse(this.extractJsonBlock(jsonPart));
       if (typeof parsed !== "object" || parsed === null) {
