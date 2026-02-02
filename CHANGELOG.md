@@ -2,6 +2,8 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.3.16](https://github.com/your-org/ai-teams-engine/compare/v3.3.15...v3.3.16) (2026-02-02)
+
 ### [3.3.15](https://github.com/your-org/ai-teams-engine/compare/v3.3.14...v3.3.15) (2026-02-02)
 
 ### [3.3.14](https://github.com/your-org/ai-teams-engine/compare/v3.3.13...v3.3.14) (2026-02-02)
