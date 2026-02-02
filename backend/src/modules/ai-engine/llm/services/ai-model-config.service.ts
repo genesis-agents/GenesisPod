@@ -93,6 +93,33 @@ export class AiModelConfigService {
   }
 
   /**
+   * 解析 apiFormat：优先用数据库值，但当 provider 与 apiFormat 明显矛盾时以 provider 为准
+   * 例如 provider=Google + apiFormat=openai 是配置错误，应自动修正为 google
+   */
+  private resolveApiFormat(
+    dbApiFormat: string | null | undefined,
+    provider: string,
+    modelId: string,
+  ): string {
+    const inferred = this.inferApiFormat(provider);
+    if (!dbApiFormat) return inferred;
+
+    // 如果 DB 值与 provider 推断一致，直接返回
+    if (dbApiFormat === inferred) return dbApiFormat;
+
+    // 检测矛盾：非 openai provider 存了 openai format（常见配置错误）
+    if (dbApiFormat === "openai" && inferred !== "openai") {
+      this.logger.warn(
+        `[resolveApiFormat] Model ${modelId}: apiFormat="${dbApiFormat}" conflicts with provider="${provider}", using inferred "${inferred}"`,
+      );
+      return inferred;
+    }
+
+    // 其他情况信任数据库值（如用户有意配置 OpenAI 兼容代理）
+    return dbApiFormat;
+  }
+
+  /**
    * 根据模型名称推断是否为推理模型
    * 当数据库中没有 isReasoning 字段时使用
    */
@@ -145,7 +172,11 @@ export class AiModelConfigService {
 
       // ★ 模型能力配置 - 优先使用数据库值，否则根据 isReasoning 推断
       isReasoning,
-      apiFormat: modelAny.apiFormat ?? this.inferApiFormat(model.provider),
+      apiFormat: this.resolveApiFormat(
+        modelAny.apiFormat,
+        model.provider,
+        model.modelId,
+      ),
       supportsTemperature: modelAny.supportsTemperature ?? !isReasoning,
       supportsStreaming: modelAny.supportsStreaming ?? true,
       supportsFunctionCalling: modelAny.supportsFunctionCalling ?? true,

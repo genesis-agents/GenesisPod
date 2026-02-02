@@ -1499,7 +1499,23 @@ function EditModelModal({
   onClose: () => void;
   saving: boolean;
 }) {
-  const [formData, setFormData] = useState(model);
+  const inferApiFormatFromProvider = (provider: string): string => {
+    const lower = provider.toLowerCase();
+    if (lower === 'anthropic' || lower === 'claude') return 'anthropic';
+    if (lower === 'google' || lower === 'gemini') return 'google';
+    if (lower === 'xai' || lower === 'grok') return 'xai';
+    return 'openai';
+  };
+  // Auto-correct apiFormat if it contradicts provider
+  const correctedApiFormat =
+    model.apiFormat === 'openai' &&
+    inferApiFormatFromProvider(model.provider) !== 'openai'
+      ? inferApiFormatFromProvider(model.provider)
+      : model.apiFormat;
+  const [formData, setFormData] = useState({
+    ...model,
+    apiFormat: correctedApiFormat,
+  });
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [isApiKeyModified, setIsApiKeyModified] = useState(false);
@@ -2253,6 +2269,11 @@ function AddModelModal({
                   (m) => m.id === e.target.value
                 );
                 if (selected) {
+                  const providerApiFormatMap: Record<string, string> = {
+                    Anthropic: 'anthropic',
+                    Google: 'google',
+                    xAI: 'xai',
+                  };
                   setFormData({
                     ...formData,
                     name: selected.id,
@@ -2262,6 +2283,8 @@ function AddModelModal({
                     apiEndpoint: selected.defaultEndpoint,
                     icon: selected.icon,
                     modelType: (selected.defaultType || 'CHAT') as AIModelType,
+                    apiFormat:
+                      providerApiFormatMap[selected.provider] || 'openai',
                   });
                 }
               }}
