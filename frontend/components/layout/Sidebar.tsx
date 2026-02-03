@@ -224,7 +224,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
               />
             </svg>
             {/* Hover: Show Toggle icon */}
-            <span className="absolute opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:opacity-100">
+            <span className="absolute text-red-500 opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:opacity-100">
               <SidebarToggleIcon state={sidebarState} />
             </span>
           </button>
@@ -336,7 +336,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         {showExpanded && (
           <button
             onClick={handleToggle}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition-colors hover:bg-red-50 hover:text-red-600"
             title={
               sidebarState === 'pinned' ? 'Unpin sidebar' : 'Collapse sidebar'
             }
