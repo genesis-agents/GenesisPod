@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+## [3.8.0](https://github.com/your-org/ai-teams-engine/compare/v3.7.2...v3.8.0) (2026-02-03)
+
+
+### Features
+
+* **changelog:** add change type statistics cards to What's New page ([d582b0c](https://github.com/your-org/ai-teams-engine/commit/d582b0c9320b392d5de817224289e0164220ef57))
+
 ### [3.7.2](https://github.com/your-org/ai-teams-engine/compare/v3.7.1...v3.7.2) (2026-02-03)
 
 
