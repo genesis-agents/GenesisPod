@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { PanelLeft, PanelLeftClose } from 'lucide-react';
 import UserProfileButton from './UserProfileButton';
 import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { useAuth } from '@/contexts/AuthContext';
@@ -125,17 +126,11 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             : 'Collapse sidebar'
         }
       >
-        <svg
-          className="h-4 w-4 text-gray-500 transition-colors group-hover:text-gray-700"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          strokeWidth={1.5}
-        >
-          {/* Sidebar panel icon */}
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <line x1="9" y1="3" x2="9" y2="21" />
-        </svg>
+        {isCollapsed ? (
+          <PanelLeft className="h-4 w-4 text-gray-500 transition-colors group-hover:text-gray-700" />
+        ) : (
+          <PanelLeftClose className="h-4 w-4 text-gray-500 transition-colors group-hover:text-gray-700" />
+        )}
       </button>
 
       {/* Header */}
