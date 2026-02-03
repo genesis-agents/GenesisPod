@@ -9,7 +9,8 @@ export interface ViewportConfig {
 }
 
 export const VIEWPORTS: ViewportConfig[] = [
-  { name: "desktop", width: 1440, height: 900 },
+  { name: "desktop", width: 1920, height: 1080 },
+  { name: "tablet", width: 768, height: 1024 },
   { name: "mobile", width: 375, height: 812 },
 ];
 

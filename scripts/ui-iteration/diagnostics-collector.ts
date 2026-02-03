@@ -3,6 +3,9 @@
  */
 
 import type { Page, ConsoleMessage, Response } from "playwright-core";
+import type { PageSpec } from "./spec-loader";
+import { detectUntranslatedChinese, type UntranslatedText } from "./i18n-checker";
+import { collectPerfMetrics, type PerfMetrics } from "./perf-collector";
 
 export interface ConsoleDiagnostic {
   type: "error" | "warning" | "log";
@@ -52,6 +55,23 @@ export interface A11yDiagnostic {
   headingIssues: string[];
 }
 
+export interface SpecValidation {
+  structureResults: Array<{
+    description: string;
+    found: boolean;
+    selector?: string;
+  }>;
+  forbiddenResults: Array<{
+    pattern: string;
+    found: boolean;
+    context?: string;
+  }>;
+  i18nResults: Array<{
+    expected: string;
+    found: boolean;
+  }>;
+}
+
 export interface PageDiagnostics {
   url: string;
   viewport: string;
@@ -63,6 +83,9 @@ export interface PageDiagnostics {
   styles: StyleDiagnostic;
   a11y: A11yDiagnostic;
   screenshotPath?: string;
+  specValidation?: SpecValidation;
+  i18nIssues?: UntranslatedText[];
+  performance?: PerfMetrics;
 }
 
 /**
@@ -73,6 +96,8 @@ export async function collectDiagnostics(
   url: string,
   viewportName: string,
   loadingWaitTime: number = 2000,
+  spec?: PageSpec,
+  allowChineseSelectors?: string[],
 ): Promise<PageDiagnostics> {
   const startTime = Date.now();
   const consoleMessages: ConsoleDiagnostic[] = [];
@@ -160,6 +185,35 @@ export async function collectDiagnostics(
       });
     }
 
+    // Collect spec validation if spec provided
+    let specValidation: SpecValidation | undefined;
+    if (spec) {
+      try {
+        specValidation = await collectSpecDiagnostics(page, spec, dom.visibleText);
+      } catch {
+        // Non-critical
+      }
+    }
+
+    // Collect i18n issues
+    let i18nIssues: UntranslatedText[] | undefined;
+    try {
+      const results = await detectUntranslatedChinese(page, allowChineseSelectors);
+      if (results.length > 0) {
+        i18nIssues = results;
+      }
+    } catch {
+      // Non-critical
+    }
+
+    // Collect performance metrics
+    let perfMetrics: PerfMetrics | undefined;
+    try {
+      perfMetrics = await collectPerfMetrics(page);
+    } catch {
+      // Non-critical
+    }
+
     return {
       url,
       viewport: viewportName,
@@ -170,6 +224,9 @@ export async function collectDiagnostics(
       dom,
       styles,
       a11y,
+      specValidation,
+      i18nIssues,
+      performance: perfMetrics,
     };
   } finally {
     // Clean up listeners to prevent accumulation
@@ -247,6 +304,60 @@ async function collectStyleDiagnostics(page: Page): Promise<StyleDiagnostic> {
 
     return { overflowIssues, zIndexIssues };
   });
+}
+
+async function collectSpecDiagnostics(
+  page: Page,
+  spec: PageSpec,
+  visibleText: string,
+): Promise<SpecValidation> {
+  const structureResults: SpecValidation["structureResults"] = [];
+  const forbiddenResults: SpecValidation["forbiddenResults"] = [];
+  const i18nResults: SpecValidation["i18nResults"] = [];
+
+  // Check expected_structure
+  for (const expected of spec.expected_structure || []) {
+    if (expected.selector) {
+      const found = await page
+        .locator(expected.selector)
+        .first()
+        .isVisible()
+        .catch(() => false);
+      structureResults.push({
+        description: expected.description,
+        found,
+        selector: expected.selector,
+      });
+    } else if (expected.text) {
+      const found = visibleText.includes(expected.text);
+      structureResults.push({ description: expected.description, found });
+    } else {
+      structureResults.push({ description: expected.description, found: false });
+    }
+  }
+
+  // Check forbidden patterns from spec
+  for (const pattern of spec.forbidden || []) {
+    const found = visibleText.includes(pattern);
+    forbiddenResults.push({
+      pattern,
+      found,
+      context: found
+        ? visibleText.substring(
+            Math.max(0, visibleText.indexOf(pattern) - 50),
+            visibleText.indexOf(pattern) + pattern.length + 50,
+          )
+        : undefined,
+    });
+  }
+
+  // Check i18n assertions
+  for (const expected of spec.i18n_assertions || []) {
+    const found = visibleText.includes(expected);
+    i18nResults.push({ expected, found });
+  }
+
+  return { structureResults, forbiddenResults, i18nResults };
 }
 
 async function collectA11yDiagnostics(page: Page): Promise<A11yDiagnostic> {

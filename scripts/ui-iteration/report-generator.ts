@@ -7,6 +7,11 @@ import * as path from "path";
 import type { PageDiagnostics } from "./diagnostics-collector";
 import type { DetectionThresholds } from "./config";
 import { DEFAULT_THRESHOLDS } from "./config";
+import {
+  evaluatePerfMetrics,
+  DEFAULT_PERF_THRESHOLDS,
+} from "./perf-collector";
+import type { DiffResult } from "./visual-diff";
 
 export type IssueSeverity = "critical" | "major" | "minor" | "info";
 export type IssueCategory =
@@ -17,7 +22,11 @@ export type IssueCategory =
   | "RAW_DATA_DISPLAY"
   | "FORBIDDEN_PATTERN"
   | "A11Y"
-  | "PERFORMANCE";
+  | "PERFORMANCE"
+  | "SPEC_STRUCTURE"
+  | "SPEC_I18N"
+  | "I18N_UNTRANSLATED"
+  | "VISUAL_REGRESSION";
 
 export interface PatrolIssue {
   id: string;
@@ -30,6 +39,13 @@ export interface PatrolIssue {
   evidence: string;
   /** Estimated code location if determinable */
   codeHint?: string;
+}
+
+export interface TrendData {
+  previousTimestamp: string;
+  issuesDelta: number;
+  scoreDelta: number;
+  summary: string;
 }
 
 export interface PatrolReport {
@@ -47,6 +63,7 @@ export interface PatrolReport {
     byCategory: Record<string, number>;
     passedPages: number;
     failedPages: number;
+    score: number;
   };
   issues: PatrolIssue[];
   pages: Array<{
@@ -57,6 +74,7 @@ export interface PatrolReport {
     issueCount: number;
     screenshotPath?: string;
   }>;
+  trend?: TrendData;
 }
 
 let issueCounter = 0;
@@ -185,7 +203,7 @@ export function analyzePageDiagnostics(
     });
   }
 
-  // Check performance
+  // Check performance (basic load time)
   if (diagnostics.loadTime > 10000) {
     issues.push({
       id: nextIssueId(),
@@ -199,7 +217,115 @@ export function analyzePageDiagnostics(
     });
   }
 
+  // Check Web Vitals performance metrics
+  if (diagnostics.performance) {
+    const violations = evaluatePerfMetrics(
+      diagnostics.performance,
+      DEFAULT_PERF_THRESHOLDS,
+    );
+    for (const violation of violations) {
+      issues.push({
+        id: nextIssueId(),
+        url,
+        viewport,
+        category: "PERFORMANCE",
+        severity: "minor",
+        title: "Web Vitals threshold exceeded",
+        description: violation,
+        evidence: JSON.stringify(diagnostics.performance),
+      });
+    }
+  }
+
+  // Check spec validation results
+  if (diagnostics.specValidation) {
+    const sv = diagnostics.specValidation;
+    for (const result of sv.structureResults) {
+      if (!result.found) {
+        issues.push({
+          id: nextIssueId(),
+          url,
+          viewport,
+          category: "SPEC_STRUCTURE",
+          severity: "major",
+          title: `Missing expected structure: ${result.description}`,
+          description: `Spec expects "${result.description}" but it was not found`,
+          evidence: result.selector || "text match",
+        });
+      }
+    }
+    for (const result of sv.forbiddenResults) {
+      if (result.found) {
+        issues.push({
+          id: nextIssueId(),
+          url,
+          viewport,
+          category: "FORBIDDEN_PATTERN",
+          severity: "major",
+          title: `Spec-forbidden text found: "${result.pattern}"`,
+          description: `Spec forbids "${result.pattern}" but it appears on page`,
+          evidence: result.context || result.pattern,
+        });
+      }
+    }
+    for (const result of sv.i18nResults) {
+      if (!result.found) {
+        issues.push({
+          id: nextIssueId(),
+          url,
+          viewport,
+          category: "SPEC_I18N",
+          severity: "minor",
+          title: `Expected i18n string missing: "${result.expected}"`,
+          description: `Spec expects "${result.expected}" to appear on page`,
+          evidence: result.expected,
+        });
+      }
+    }
+  }
+
+  // Check i18n untranslated text
+  if (diagnostics.i18nIssues && diagnostics.i18nIssues.length > 0) {
+    issues.push({
+      id: nextIssueId(),
+      url,
+      viewport,
+      category: "I18N_UNTRANSLATED",
+      severity: "minor",
+      title: `${diagnostics.i18nIssues.length} untranslated Chinese text fragments`,
+      description: diagnostics.i18nIssues
+        .slice(0, 5)
+        .map((i) => `"${i.text.substring(0, 50)}" at ${i.selector}`)
+        .join("; "),
+      evidence: `Total: ${diagnostics.i18nIssues.length} fragments`,
+    });
+  }
+
   return issues;
+}
+
+/**
+ * Create issues from visual regression diff results
+ */
+export function analyzeVisualDiff(
+  diffResult: DiffResult,
+  url: string,
+): PatrolIssue | undefined {
+  if (diffResult.classification === "identical") return undefined;
+
+  const severity: IssueSeverity =
+    diffResult.classification === "major" ? "major" : "minor";
+
+  return {
+    id: nextIssueId(),
+    url,
+    viewport: diffResult.viewport,
+    category: "VISUAL_REGRESSION",
+    severity,
+    title: `Visual regression: ${diffResult.diffPercentage.toFixed(1)}% diff`,
+    description: `Screenshot differs from baseline by ${diffResult.diffPercentage.toFixed(2)}%`,
+    evidence: diffResult.diffImagePath || "no diff image",
+  };
 }
 
 function getContextAround(text: string, index: number, radius: number): string {
@@ -215,7 +341,7 @@ export function generateReport(
   allDiagnostics: PageDiagnostics[],
   allIssues: PatrolIssue[],
   startTime: number,
-  config: { baseUrl: string; viewports: string[]; totalRoutes: number },
+  config: { baseUrl: string; viewports: string[]; totalRoutes: number; reportDir?: string },
 ): PatrolReport {
   const bySeverity: Record<IssueSeverity, number> = {
     critical: 0,
@@ -244,7 +370,16 @@ export function generateReport(
     };
   });
 
-  return {
+  // Calculate score: 100 - weighted deductions
+  const score = Math.max(
+    0,
+    100 -
+      bySeverity.critical * 15 -
+      bySeverity.major * 5 -
+      bySeverity.minor * 1,
+  );
+
+  const report: PatrolReport = {
     timestamp: new Date().toISOString(),
     duration: Date.now() - startTime,
     config,
@@ -255,10 +390,86 @@ export function generateReport(
       byCategory,
       passedPages: pages.filter((p) => p.status === "pass").length,
       failedPages: pages.filter((p) => p.status === "fail").length,
+      score,
     },
     issues: allIssues,
     pages,
   };
+
+  // Compute trend from previous report
+  const trend = computeTrend(report, config.reportDir || ".ui-patrol/reports");
+  if (trend) {
+    report.trend = trend;
+  }
+
+  return report;
+}
+
+/**
+ * Compute trend by comparing with the most recent previous report
+ */
+function computeTrend(
+  current: PatrolReport,
+  reportDir: string,
+): TrendData | undefined {
+  try {
+    if (!fs.existsSync(reportDir)) return undefined;
+
+    const files = fs
+      .readdirSync(reportDir)
+      .filter((f) => f.endsWith(".json"))
+      .sort()
+      .reverse();
+
+    // Skip the current report if already saved
+    for (const file of files) {
+      const prevPath = path.join(reportDir, file);
+      const prevContent = fs.readFileSync(prevPath, "utf-8");
+      const prev = JSON.parse(prevContent) as PatrolReport;
+
+      // Skip if same timestamp (current report)
+      if (prev.timestamp === current.timestamp) continue;
+
+      const issuesDelta =
+        current.summary.totalIssues - prev.summary.totalIssues;
+      const prevScore = prev.summary.score ?? 0;
+      const scoreDelta = current.summary.score - prevScore;
+
+      const issueArrow = issuesDelta <= 0 ? `\u2193${Math.abs(issuesDelta)}` : `\u2191${issuesDelta}`;
+      const scoreArrow = scoreDelta >= 0 ? `\u2191${Math.abs(scoreDelta)}` : `\u2193${Math.abs(scoreDelta)}`;
+
+      return {
+        previousTimestamp: prev.timestamp,
+        issuesDelta,
+        scoreDelta,
+        summary: `Issues: ${current.summary.totalIssues} (${issueArrow}), Score: ${current.summary.score}/100 (${scoreArrow})`,
+      };
+    }
+  } catch {
+    // Trend computation is non-critical
+  }
+  return undefined;
+}
+
+/**
+ * Remove old reports, keeping only the most recent N
+ */
+export function cleanupOldReports(reportDir: string, keep: number = 10): number {
+  if (!fs.existsSync(reportDir)) return 0;
+
+  const files = fs
+    .readdirSync(reportDir)
+    .filter((f) => f.endsWith(".json"))
+    .sort()
+    .reverse();
+
+  let removed = 0;
+  for (const file of files.slice(keep)) {
+    fs.unlinkSync(path.join(reportDir, file));
+    removed++;
+  }
+
+  return removed;
 }
 
 /**

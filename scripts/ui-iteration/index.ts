@@ -8,7 +8,8 @@
  */
 
 import { runPatrol, type PatrolOptions } from "./patrol-runner";
-import { VIEWPORTS } from "./config";
+import { VIEWPORTS, DEFAULT_CONFIG } from "./config";
+import { updateBaselines } from "./visual-diff";
 
 function parseArgs(): PatrolOptions {
   const args = process.argv.slice(2);
@@ -43,10 +44,11 @@ function parseArgs(): PatrolOptions {
         }
         break;
       case "--changed":
-        console.warn(
-          "Warning: --changed flag is not yet implemented, running full patrol instead",
-        );
         options.changed = true;
+        break;
+      case "--update-baselines":
+        updateBaselines(DEFAULT_CONFIG.screenshotDir);
+        process.exit(0);
         break;
       case "--base-url":
         if (next) {
@@ -90,11 +92,13 @@ Arguments:
   <url>               Target URL (default: http://localhost:3000)
 
 Options:
-  --tier <tier>       Only patrol: critical | important | standard
-  --routes <paths>    Comma-separated routes: "/ai-research,/library"
-  --no-auth           Skip auth injection (for public pages)
-  --viewport <name>   Only use viewport: desktop | mobile
-  --help              Show this help
+  --tier <tier>           Only patrol: critical | important | standard
+  --routes <paths>        Comma-separated routes: "/ai-research,/library"
+  --changed               Only patrol routes affected by recent git changes
+  --no-auth               Skip auth injection (for public pages)
+  --viewport <name>       Only use viewport: desktop | tablet | mobile
+  --update-baselines      Save current screenshots as visual regression baselines
+  --help                  Show this help
 
 Examples:
   npm run ui-patrol                                          # local dev

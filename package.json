@@ -63,6 +63,7 @@
     "ui-patrol": "tsx scripts/ui-iteration/index.ts",
     "ui-patrol:critical": "tsx scripts/ui-iteration/index.ts --tier critical",
     "ui-patrol:changed": "tsx scripts/ui-iteration/index.ts --changed",
+    "ui-patrol:update-baselines": "tsx scripts/ui-iteration/index.ts --update-baselines",
     "db:seed:ui-patrol": "cd backend && tsx prisma/seed-ui-patrol.ts",
     "db:clean:ui-patrol": "cd backend && tsx prisma/clean-ui-patrol.ts",
     "ui-patrol:journeys": "tsx scripts/ui-iteration/journey-cli.ts",
