@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.6.1](https://github.com/your-org/ai-teams-engine/compare/v3.6.0...v3.6.1) (2026-02-03)
+
+
+### Bug Fixes
+
+* **i18n:** remove duplicate keys in zh.json ([227faa1](https://github.com/your-org/ai-teams-engine/commit/227faa19b469e4259cb2bd4b7f26f8f7cb5c1c14))
+
 ## [3.6.0](https://github.com/your-org/ai-teams-engine/compare/v3.5.1...v3.6.0) (2026-02-03)
 
 
