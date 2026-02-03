@@ -5,7 +5,8 @@
  * 提供实时事件广播能力
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { WritingRealtimeAdapter } from "./writing-realtime.adapter";
 
 export type WritingEmitHandler = (
   projectId: string,
@@ -95,6 +96,16 @@ export class WritingEventEmitterService {
   private readonly logger = new Logger(WritingEventEmitterService.name);
   private emitHandler?: WritingEmitHandler;
 
+  constructor(
+    @Optional() private readonly realtimeAdapter?: WritingRealtimeAdapter,
+  ) {
+    if (this.realtimeAdapter) {
+      this.logger.log(
+        "WritingEventEmitterService initialized with RealtimeAdapter integration",
+      );
+    }
+  }
+
   /**
    * 注册事件发射处理器（由 Gateway 调用）
    */
@@ -105,29 +116,50 @@ export class WritingEventEmitterService {
 
   /**
    * 发射事件到项目
+   * ★ 优先使用 RealtimeAdapter（如果可用），同时保持原有 handler 兼容
    */
   async emitToProject(
     projectId: string,
     event: WritingEventType | string,
     data: unknown,
   ): Promise<void> {
-    if (!this.emitHandler) {
-      this.logger.debug(`No emit handler registered, skipping event: ${event}`);
-      return;
+    const normalizedData = {
+      timestamp: new Date().toISOString(),
+      ...this.normalizeEventData(data),
+    };
+
+    // ★ 使用 RealtimeAdapter 发射事件（如果可用）
+    if (this.realtimeAdapter) {
+      try {
+        this.realtimeAdapter.emitToProject(projectId, event, normalizedData);
+      } catch (error) {
+        this.logger.error(
+          `[RealtimeAdapter] Failed to emit event ${event}:`,
+          error,
+        );
+      }
     }
 
-    try {
-      await this.emitHandler(projectId, event, {
-        timestamp: new Date().toISOString(),
-        ...this.normalizeEventData(data),
-      });
-    } catch (error) {
-      this.logger.error(`Failed to emit event ${event}:`, error);
+    // ★ 保持原有 handler 兼容（Gateway 注册的处理器）
+    if (this.emitHandler) {
+      try {
+        await this.emitHandler(projectId, event, normalizedData);
+      } catch (error) {
+        this.logger.error(
+          `[EmitHandler] Failed to emit event ${event}:`,
+          error,
+        );
+      }
+    }
+
+    if (!this.realtimeAdapter && !this.emitHandler) {
+      this.logger.debug(`No emit handler registered, skipping event: ${event}`);
     }
   }
 
   /**
    * 发送任务开始事件
+   * ★ 同时启动进度追踪（如果 RealtimeAdapter 可用）
    */
   async emitMissionStarted(
     projectId: string,
@@ -135,6 +167,12 @@ export class WritingEventEmitterService {
     missionType: string,
     targetWordCount: number,
   ): Promise<void> {
+    // ★ 启动进度追踪
+    if (this.realtimeAdapter) {
+      this.realtimeAdapter.startMissionTracking(projectId, missionId);
+      this.realtimeAdapter.startPhase(missionId, "preparation", "准备写作任务");
+    }
+
     await this.emitToProject(projectId, WritingEventType.MISSION_STARTED, {
       missionId,
       missionType,
@@ -162,6 +200,7 @@ export class WritingEventEmitterService {
 
   /**
    * 发送任务完成事件
+   * ★ 同时完成进度追踪（先完成 writing 阶段，再完成整体任务）
    */
   async emitMissionCompleted(
     projectId: string,
@@ -170,11 +209,38 @@ export class WritingEventEmitterService {
     totalChapters: number,
     totalVolumes: number,
   ): Promise<void> {
+    // ★ 先完成 writing 阶段，确保进度平滑过渡
+    if (this.realtimeAdapter) {
+      this.realtimeAdapter.completePhase(missionId, "writing", "章节写作完成");
+      // 注：checking 和 editing 阶段当前业务中未单独使用，直接完成任务
+      this.realtimeAdapter.completeMissionTracking(missionId, "写作完成");
+    }
+
     await this.emitToProject(projectId, WritingEventType.MISSION_COMPLETED, {
       missionId,
       totalWords,
       totalChapters,
       totalVolumes,
+    });
+  }
+
+  /**
+   * 发送任务失败事件
+   * ★ 同时标记进度追踪失败
+   */
+  async emitMissionFailed(
+    projectId: string,
+    missionId: string,
+    error: string,
+  ): Promise<void> {
+    // ★ 标记进度追踪失败
+    if (this.realtimeAdapter) {
+      this.realtimeAdapter.failMissionTracking(missionId, error);
+    }
+
+    await this.emitToProject(projectId, WritingEventType.MISSION_FAILED, {
+      missionId,
+      error,
     });
   }
 
@@ -190,14 +256,23 @@ export class WritingEventEmitterService {
 
   /**
    * 发送章节开始事件
+   * ★ 第一章开始时完成 planning 阶段，开始 writing 阶段
    */
   async emitChapterStarted(
     projectId: string,
     chapterNumber: number,
     title: string,
     volumeIndex: number,
+    missionId?: string,
   ): Promise<void> {
+    // ★ 第一章开始时进行阶段转换：planning → writing
+    if (chapterNumber === 1 && this.realtimeAdapter && missionId) {
+      this.realtimeAdapter.completePhase(missionId, "planning", "大纲规划完成");
+      this.realtimeAdapter.startPhase(missionId, "writing", "开始章节写作");
+    }
+
     await this.emitToProject(projectId, WritingEventType.CHAPTER_STARTED, {
+      missionId,
       chapterNumber,
       title,
       volumeIndex,
@@ -262,17 +337,29 @@ export class WritingEventEmitterService {
 
   /**
    * 发送世界观建设事件
+   * ★ 在 completed 时完成 preparation 阶段，开始 planning 阶段
    */
   async emitWorldBuilding(
     projectId: string,
     status: "started" | "completed",
     settings?: Record<string, unknown>,
+    missionId?: string,
   ): Promise<void> {
+    // ★ 阶段转换：preparation → planning
+    if (status === "completed" && this.realtimeAdapter && missionId) {
+      this.realtimeAdapter.completePhase(
+        missionId,
+        "preparation",
+        "世界观建设完成",
+      );
+      this.realtimeAdapter.startPhase(missionId, "planning", "开始大纲规划");
+    }
+
     const event =
       status === "started"
         ? WritingEventType.WORLD_BUILDING_STARTED
         : WritingEventType.WORLD_BUILDING_COMPLETED;
-    await this.emitToProject(projectId, event, { settings });
+    await this.emitToProject(projectId, event, { missionId, settings });
   }
 
   /**

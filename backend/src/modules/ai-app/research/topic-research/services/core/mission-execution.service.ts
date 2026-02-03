@@ -717,8 +717,11 @@ export class MissionExecutionService {
         }
 
         case "report_synthesis": {
-          // ★ 发送报告撰写开始事件
-          await this.researchEventEmitter.emitReportSynthesisStarted(topic.id);
+          // ★ 发送报告撰写开始事件（同时触发阶段转换）
+          await this.researchEventEmitter.emitReportSynthesisStarted(
+            topic.id,
+            missionId,
+          );
 
           // ★ 复用 startExecution 中创建的草稿报告，避免重复创建
           // reportId 已在 startExecution 中创建并传递到此处
@@ -806,11 +809,12 @@ export class MissionExecutionService {
             }
           }
 
-          // ★ 发送报告撰写完成事件
+          // ★ 发送报告撰写完成事件（同时触发阶段完成）
           await this.researchEventEmitter.emitReportSynthesisCompleted(
             topic.id,
             result?.chapters?.length || 0,
             JSON.stringify(result).length,
+            missionId,
           );
 
           // ★ 将 TopicReport 转换为前端 TodoResult 兼容格式

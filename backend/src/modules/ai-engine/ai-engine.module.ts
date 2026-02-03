@@ -34,6 +34,12 @@ import { AiEngineSkillsModule } from "./ai-engine-skills.module";
 import { AiEngineOrchestrationModule } from "./ai-engine-orchestration.module";
 import { AiEngineMemoryModule } from "./ai-engine-memory.module";
 import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
+// ★ P2 能力下沉：新增子模块导入
+import { DataModule } from "./data/data.module";
+import { EvidenceModule } from "./evidence/evidence.module";
+import { QualityModule } from "./quality/quality.module";
+import { CollaborationModule } from "./collaboration/collaboration.module";
+import { RealtimeModule } from "./realtime/realtime.module";
 
 // Registries (从子模块重新导出，用于初始化)
 import { ToolRegistry } from "./tools/registry/tool-registry";
@@ -113,6 +119,12 @@ const handoffCoordinatorFactory = {
     AiEngineOrchestrationModule,
     AiEngineMemoryModule,
     AiEngineConstraintModule,
+    // ★ P2 能力下沉：新增子模块
+    DataModule,
+    EvidenceModule,
+    QualityModule,
+    CollaborationModule,
+    RealtimeModule,
 
     // Other Modules
     ImageModule,
@@ -155,6 +167,12 @@ const handoffCoordinatorFactory = {
     AiEngineOrchestrationModule,
     AiEngineMemoryModule,
     AiEngineConstraintModule,
+    // ★ P2 能力下沉：新增子模块导出
+    DataModule,
+    EvidenceModule,
+    QualityModule,
+    CollaborationModule,
+    RealtimeModule,
 
     // Other Modules
     ImageModule,

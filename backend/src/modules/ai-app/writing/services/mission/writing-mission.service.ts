@@ -1025,13 +1025,21 @@ export class WritingMissionService {
 
       // 根据任务类型决定生成策略
       if (input.missionType === "full_story") {
-        // 完整故事：一次性生成多章节内容
+        // 完整故事：一次性生成多章节内容（内部有完整的进度追踪）
         generatedContent = await this.generateFullStory(
           input,
           modelToUse,
           missionId,
         );
       } else {
+        // ★ 非 full_story 任务：发送简化的任务开始事件
+        await this.eventEmitter.emitMissionStarted(
+          input.projectId,
+          missionId,
+          input.missionType,
+          input.targetWordCount || 0,
+        );
+
         // 单章节或大纲：直接调用 LLM 生成内容
         generatedContent = await this.generateContentDirectly(
           input,
@@ -1127,6 +1135,18 @@ export class WritingMissionService {
           },
         });
 
+        // ★ 非 full_story 任务：发送任务完成事件
+        // （full_story 在 generateFullStory 内部已发送）
+        if (input.missionType !== "full_story") {
+          await this.eventEmitter.emitMissionCompleted(
+            input.projectId,
+            missionId,
+            totalWordCount,
+            1, // 非 full_story 通常只涉及单个输出
+            1,
+          );
+        }
+
         this.logger.log(`Mission ${missionId} completed successfully`);
       } else {
         throw new Error("未能生成内容");
@@ -1134,6 +1154,13 @@ export class WritingMissionService {
     } catch (error) {
       this.logger.error(
         `Mission ${missionId} failed: ${(error as Error).message}`,
+      );
+
+      // ★ 发送任务失败事件
+      await this.eventEmitter.emitMissionFailed(
+        input.projectId,
+        missionId,
+        (error as Error).message,
       );
 
       // 更新数据库为失败状态
@@ -1470,6 +1497,7 @@ ${storyCreativitySection}
       input.projectId,
       "completed",
       worldSettings,
+      missionId,
     );
 
     // ★ 保存世界观到数据库 StoryBible（在 Phase 1 就保存，确保世界观优先）
@@ -2082,12 +2110,13 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
         `[${missionId}] Generating chapter ${chapterNumber}/${outline.chapters.length}...`,
       );
 
-      // 发送章节开始事件
+      // 发送章节开始事件（第一章时触发阶段转换）
       await this.eventEmitter.emitChapterStarted(
         input.projectId,
         chapterNumber,
         chapterInfo.title,
         chapterInfo.volumeIndex,
+        missionId,
       );
 
       // ★ 守护者提取章节相关上下文（写作前）
@@ -6882,6 +6911,24 @@ ${instruction}
       "full_story",
       targetWordCount,
     );
+
+    // ★★★ 继续创作场景：快速完成 preparation 和 planning 阶段 ★★★
+    // 因为世界观和大纲已存在，直接跳转到 writing 阶段
+    await this.eventEmitter.emitWorldBuilding(
+      input.projectId,
+      "completed",
+      { skipCreation: true, reason: "continuation_mode" },
+      missionId,
+    );
+    // 模拟第一章开始以触发 planning → writing 阶段转换
+    await this.eventEmitter.emitChapterStarted(
+      input.projectId,
+      1, // 使用章节号 1 触发阶段转换
+      "继续创作",
+      0,
+      missionId,
+    );
+
     await this.saveMissionLog(
       missionId,
       "mission:started",
@@ -7036,12 +7083,13 @@ ${instruction}
         `[${missionId}] Writing chapter ${chapter.chapterNumber}: ${chapter.title}`,
       );
 
-      // 发送章节开始事件
+      // 发送章节开始事件（第一章时触发阶段转换）
       await this.eventEmitter.emitChapterStarted(
         input.projectId,
         chapter.chapterNumber,
         chapter.title,
         0,
+        missionId,
       );
 
       // 获取前文摘要
@@ -7350,6 +7398,15 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
       missionId,
       "mission:completed",
       `🎉 创作完成！共完成 ${chaptersToWrite.length} 章，当前总字数 ${currentWordCount.toLocaleString()} 字`,
+    );
+
+    // ★ 发送任务完成事件（触发进度追踪完成）
+    await this.eventEmitter.emitMissionCompleted(
+      input.projectId,
+      missionId,
+      currentWordCount,
+      chaptersToWrite.length,
+      1, // 继续创作通常在同一卷内
     );
 
     // 返回带有 [CONTINUATION_COMPLETE] 标记的内容

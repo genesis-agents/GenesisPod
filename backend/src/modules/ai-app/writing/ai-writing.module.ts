@@ -14,6 +14,7 @@ import { LongContentModule } from "../../ai-engine/long-content/long-content.mod
 // WebSocket Gateway and Event Emitter
 import { AiWritingGateway } from "./ai-writing.gateway";
 import { WritingEventEmitterService } from "./services/events/writing-event-emitter.service";
+import { WritingRealtimeAdapter } from "./services/events/writing-realtime.adapter";
 
 // Bible services
 import { StoryBibleService } from "./services/bible/story-bible.service";
@@ -109,6 +110,7 @@ import {
     // WebSocket Gateway and Event Emitter
     AiWritingGateway,
     WritingEventEmitterService,
+    WritingRealtimeAdapter, // ★ Engine Realtime 集成
     // Bible services
     StoryBibleService,
     CharacterService,
@@ -181,6 +183,7 @@ import {
 
     AiWritingService,
     WritingEventEmitterService,
+    WritingRealtimeAdapter, // ★ Engine Realtime 集成
     StoryBibleService,
     CharacterService,
     ProjectService,

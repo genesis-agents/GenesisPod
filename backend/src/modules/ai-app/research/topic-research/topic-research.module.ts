@@ -71,6 +71,9 @@ import {
   // ★ Report sub-services
   ReportGeneratorService,
   ReportDataService,
+  // ★ Engine Adapters (P2 能力下沉集成)
+  ResearchRealtimeAdapter,
+  ResearchEvidenceAdapter,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
 
@@ -126,6 +129,9 @@ const services = [
   // ★ Report sub-services
   ReportGeneratorService,
   ReportDataService,
+  // ★ Engine Adapters (P2 能力下沉集成)
+  ResearchRealtimeAdapter,
+  ResearchEvidenceAdapter,
 ];
 
 @Module({

@@ -48,7 +48,58 @@ import {
   TOOL_FEATURE,
   ORCHESTRATION_FEATURE,
   SKILL_FEATURE,
+  // ★ P2 能力下沉：新增 Feature 导入
+  DataFeature,
+  EvidenceFeature,
+  QualityFeature,
+  ReviewFeature,
+  RealtimeFeature,
+  DATA_FEATURE,
+  EVIDENCE_FEATURE,
+  QUALITY_FEATURE,
+  REVIEW_FEATURE,
+  REALTIME_FEATURE,
 } from "./facade.providers";
+// ★ P2 能力下沉：类型导入
+import type {
+  DataFetchRequest,
+  DataFetchResult,
+  DataItem,
+} from "../data/abstractions/data-source.interface";
+import type {
+  EnrichmentOptions,
+  EnrichedDataItem,
+} from "../data/abstractions/data-enricher.interface";
+import type {
+  Evidence,
+  SaveEvidenceRequest,
+  RetrieveEvidenceRequest,
+  CitationStyle,
+} from "../evidence/abstractions/evidence.interface";
+import type {
+  QualityCheckContext,
+  QualityGateResult,
+  QualityGateConfig,
+} from "../quality/abstractions/quality-gate.interface";
+import type {
+  ReviewRequest,
+  Review,
+  ReviewFeedback,
+} from "../collaboration/review/review.interface";
+import type {
+  CreateTodoRequest,
+  Todo,
+  TodoQuery,
+  TodoStats,
+} from "../collaboration/todo/todo.interface";
+import type {
+  RoomConfig,
+  ProgressEvent,
+} from "../realtime/abstractions/event-emitter.interface";
+import type {
+  CreateTrackedTaskRequest,
+  TrackedTask,
+} from "../realtime/abstractions/progress-tracker.interface";
 import { CapabilitySummary } from "../capabilities/types";
 import type {
   ChatWithSkillsRequest,
@@ -145,6 +196,27 @@ export class AIEngineFacade {
     @Inject(SKILL_FEATURE)
     private readonly skills?: SkillFeature,
 
+    // ==================== P2 能力下沉：新增特性模块 ====================
+    @Optional()
+    @Inject(DATA_FEATURE)
+    private readonly data?: DataFeature,
+
+    @Optional()
+    @Inject(EVIDENCE_FEATURE)
+    private readonly evidence?: EvidenceFeature,
+
+    @Optional()
+    @Inject(QUALITY_FEATURE)
+    private readonly quality?: QualityFeature,
+
+    @Optional()
+    @Inject(REVIEW_FEATURE)
+    private readonly review?: ReviewFeature,
+
+    @Optional()
+    @Inject(REALTIME_FEATURE)
+    private readonly realtime?: RealtimeFeature,
+
     // ==================== 独立服务（可选）====================
     @Optional() private readonly prisma?: PrismaService,
     @Optional() private readonly teamsService?: TeamsService,
@@ -167,6 +239,12 @@ export class AIEngineFacade {
       tools: !!this.tools,
       orchestration: !!this.orchestration,
       skills: !!this.skills,
+      // ★ P2 能力下沉：新增特性可用性检查
+      data: !!this.data,
+      evidence: !!this.evidence,
+      quality: !!this.quality,
+      review: !!this.review,
+      realtime: !!this.realtime,
       database: !!this.prisma,
       teams: !!this.teamsService,
       capabilities: !!this.capabilityResolver,
@@ -2215,5 +2293,435 @@ export class AIEngineFacade {
       apiEndpoint,
       modelType,
     );
+  }
+
+  // ============================================================================
+  // ★ P2 能力下沉：数据获取与富化能力
+  // ============================================================================
+
+  /**
+   * 获取数据（智能路由数据源）
+   *
+   * 根据查询类型自动选择最佳数据源（web-search, news, academic 等）
+   */
+  async fetchData(request: DataFetchRequest): Promise<DataFetchResult> {
+    if (!this.data?.router) {
+      this.logger.warn("[fetchData] DataSourceRouter not available");
+      return {
+        items: [],
+        metadata: {
+          totalCount: 0,
+          sources: [],
+          fetchedAt: new Date(),
+          queryTime: 0,
+        },
+      };
+    }
+
+    this.logger.debug(
+      `[fetchData] query="${request.query}", sources=${request.sources?.join(",") || "auto"}`,
+    );
+    return this.data.router.fetch(request);
+  }
+
+  /**
+   * 富化数据（内容提取、元数据增强）
+   *
+   * 批量处理数据项，添加全文、图片、关键信息等
+   */
+  async enrichData(
+    items: DataItem[],
+    options: EnrichmentOptions,
+  ): Promise<EnrichedDataItem[]> {
+    if (!this.data?.enrichment) {
+      this.logger.warn("[enrichData] DataEnrichmentService not available");
+      return items.map((item) => ({
+        ...item,
+        enrichments: {},
+        enrichedAt: new Date(),
+      }));
+    }
+
+    this.logger.debug(`[enrichData] items=${items.length}`);
+    return this.data.enrichment.enrich(items, options);
+  }
+
+  // ============================================================================
+  // ★ P2 能力下沉：证据管理能力
+  // ============================================================================
+
+  /**
+   * 保存证据
+   *
+   * 将引用来源保存为可追踪的证据记录
+   */
+  async saveEvidence(request: SaveEvidenceRequest): Promise<Evidence> {
+    if (!this.evidence?.manager) {
+      this.logger.warn("[saveEvidence] EvidenceManager not available");
+      throw new Error("EvidenceManager not available");
+    }
+
+    this.logger.debug(
+      `[saveEvidence] entityType=${request.associations.entityType}, entityId=${request.associations.entityId}`,
+    );
+    return this.evidence.manager.save(request);
+  }
+
+  /**
+   * 查询证据
+   */
+  async queryEvidence(query: RetrieveEvidenceRequest): Promise<Evidence[]> {
+    if (!this.evidence?.manager) {
+      this.logger.warn("[queryEvidence] EvidenceManager not available");
+      return [];
+    }
+
+    return this.evidence.manager.retrieve(query);
+  }
+
+  /**
+   * 生成引用文本
+   *
+   * 根据指定样式（APA, MLA, Chicago 等）生成格式化引用
+   */
+  async formatCitation(
+    evidenceId: string,
+    style: CitationStyle,
+  ): Promise<string> {
+    if (!this.evidence?.manager) {
+      this.logger.warn("[formatCitation] EvidenceManager not available");
+      return "";
+    }
+
+    // 需要先获取证据记录
+    const evidence = await this.evidence.manager.getById(evidenceId);
+    if (!evidence) {
+      this.logger.warn(`[formatCitation] Evidence ${evidenceId} not found`);
+      return "";
+    }
+
+    return this.evidence.manager.formatCitation(evidence, style);
+  }
+
+  /**
+   * 生成参考文献列表
+   */
+  async generateBibliography(
+    entityType: string,
+    entityId: string,
+    style: CitationStyle,
+  ): Promise<string> {
+    if (!this.evidence?.manager) {
+      this.logger.warn("[generateBibliography] EvidenceManager not available");
+      return "";
+    }
+
+    return this.evidence.manager.generateBibliography(
+      entityType,
+      entityId,
+      style,
+    );
+  }
+
+  // ============================================================================
+  // ★ P2 能力下沉：质量门控能力
+  // ============================================================================
+
+  /**
+   * 执行质量检查
+   *
+   * 对内容进行多维度质量评估（多样性、一致性、准确性、连贯性）
+   */
+  async checkQuality(
+    content: string,
+    context?: QualityCheckContext,
+    config?: Partial<QualityGateConfig>,
+  ): Promise<QualityGateResult> {
+    if (!this.quality?.gate) {
+      this.logger.warn("[checkQuality] QualityGate not available");
+      return {
+        passed: true,
+        overallScore: 0,
+        results: [],
+        summary: {
+          passedCount: 0,
+          failedCount: 0,
+          totalIssues: 0,
+          criticalIssues: 0,
+        },
+        recommendation: "approve",
+        evaluationDuration: 0,
+      };
+    }
+
+    this.logger.debug(`[checkQuality] contentLength=${content.length}`);
+    const defaultConfig = this.quality.gate.getDefaultConfig();
+    const mergedConfig: QualityGateConfig = {
+      ...defaultConfig,
+      ...config,
+    };
+    return this.quality.gate.evaluate(content, mergedConfig, context);
+  }
+
+  /**
+   * 检查质量是否通过阈值
+   */
+  async isQualityPassed(
+    content: string,
+    threshold?: number,
+    context?: QualityCheckContext,
+  ): Promise<boolean> {
+    if (!this.quality?.gate) {
+      return true;
+    }
+
+    const config = this.quality.gate.getDefaultConfig();
+    const result = await this.quality.gate.evaluate(content, config, context);
+    return result.overallScore >= (threshold ?? 60);
+  }
+
+  // ============================================================================
+  // ★ P2 能力下沉：审查工作流能力
+  // ============================================================================
+
+  /**
+   * 创建审查请求
+   *
+   * 发起对内容的人工审查流程
+   */
+  async createReview(request: ReviewRequest): Promise<Review> {
+    if (!this.review?.workflow) {
+      this.logger.warn("[createReview] ReviewWorkflow not available");
+      throw new Error("ReviewWorkflow not available");
+    }
+
+    this.logger.debug(
+      `[createReview] entityType=${request.entityType}, entityId=${request.entityId}`,
+    );
+    return this.review.workflow.createReview(request);
+  }
+
+  /**
+   * 提交审查反馈
+   */
+  async submitReviewFeedback(
+    reviewId: string,
+    feedback: ReviewFeedback,
+    reviewerId: string,
+  ): Promise<Review> {
+    if (!this.review?.workflow) {
+      this.logger.warn("[submitReviewFeedback] ReviewWorkflow not available");
+      throw new Error("ReviewWorkflow not available");
+    }
+
+    return this.review.workflow.submitFeedback(reviewId, feedback, reviewerId);
+  }
+
+  /**
+   * 获取审查状态
+   */
+  async getReviewStatus(reviewId: string): Promise<Review | null> {
+    if (!this.review?.workflow) {
+      return null;
+    }
+
+    return this.review.workflow.getReview(reviewId);
+  }
+
+  /**
+   * 创建待办任务
+   */
+  async createTodo(request: CreateTodoRequest): Promise<Todo> {
+    if (!this.review?.todo) {
+      this.logger.warn("[createTodo] TodoService not available");
+      throw new Error("TodoService not available");
+    }
+
+    this.logger.debug(`[createTodo] title=${request.title}`);
+    return this.review.todo.create(request);
+  }
+
+  /**
+   * 查询待办任务
+   */
+  async queryTodos(query: TodoQuery): Promise<Todo[]> {
+    if (!this.review?.todo) {
+      return [];
+    }
+
+    return this.review.todo.query(query);
+  }
+
+  /**
+   * 完成待办任务
+   */
+  async completeTodo(todoId: string, completedBy: string): Promise<Todo> {
+    if (!this.review?.todo) {
+      throw new Error("TodoService not available");
+    }
+
+    return this.review.todo.complete(todoId, completedBy);
+  }
+
+  /**
+   * 获取待办统计
+   */
+  async getTodoStats(filters?: {
+    entityType?: string;
+    entityId?: string;
+    assigneeId?: string;
+  }): Promise<TodoStats> {
+    if (!this.review?.todo) {
+      return {
+        total: 0,
+        byStatus: {
+          pending: 0,
+          in_progress: 0,
+          completed: 0,
+          cancelled: 0,
+          blocked: 0,
+        },
+        byPriority: { low: 0, medium: 0, high: 0, urgent: 0 },
+        overdue: 0,
+        completedThisWeek: 0,
+      };
+    }
+
+    return this.review.todo.getStats(filters);
+  }
+
+  // ============================================================================
+  // ★ P2 能力下沉：实时推送能力
+  // ============================================================================
+
+  /**
+   * 创建进度追踪任务
+   *
+   * 用于长时间运行的任务进度跟踪
+   */
+  createProgressTask(request: CreateTrackedTaskRequest): TrackedTask {
+    if (!this.realtime?.progressTracker) {
+      this.logger.warn("[createProgressTask] ProgressTracker not available");
+      throw new Error("ProgressTracker not available");
+    }
+
+    this.logger.debug(
+      `[createProgressTask] id=${request.id}, name=${request.name}`,
+    );
+    return this.realtime.progressTracker.create(request);
+  }
+
+  /**
+   * 开始进度追踪任务
+   */
+  startProgressTask(taskId: string): void {
+    this.realtime?.progressTracker?.start(taskId);
+  }
+
+  /**
+   * 更新进度阶段
+   */
+  updateProgressPhase(
+    taskId: string,
+    phaseId: string,
+    progress: number,
+    message?: string,
+  ): void {
+    this.realtime?.progressTracker?.updatePhaseProgress(
+      taskId,
+      phaseId,
+      progress,
+      message,
+    );
+  }
+
+  /**
+   * 完成进度阶段
+   */
+  completeProgressPhase(
+    taskId: string,
+    phaseId: string,
+    message?: string,
+  ): void {
+    this.realtime?.progressTracker?.completePhase(taskId, phaseId, message);
+  }
+
+  /**
+   * 完成进度追踪任务
+   */
+  completeProgressTask(taskId: string, message?: string): void {
+    this.realtime?.progressTracker?.complete(taskId, message);
+  }
+
+  /**
+   * 标记进度任务失败
+   */
+  failProgressTask(taskId: string, error: string): void {
+    this.realtime?.progressTracker?.fail(taskId, error);
+  }
+
+  /**
+   * 获取当前进度
+   */
+  getProgress(taskId: string): ProgressEvent | null {
+    return this.realtime?.progressTracker?.getProgress(taskId) ?? null;
+  }
+
+  /**
+   * 发射实时事件到指定房间
+   *
+   * 通过 WebSocket 推送事件给订阅的客户端
+   */
+  emitToRoom<T>(roomConfig: RoomConfig, eventType: string, payload: T): void {
+    if (!this.realtime?.eventEmitter) {
+      this.logger.warn("[emitToRoom] EventEmitter not available");
+      return;
+    }
+
+    this.realtime.eventEmitter.emitToRoom(roomConfig, {
+      type: eventType,
+      payload,
+      metadata: {
+        timestamp: new Date(),
+        source: "facade",
+      },
+    });
+  }
+
+  /**
+   * 发射进度事件
+   */
+  emitProgress(roomConfig: RoomConfig, progress: ProgressEvent): void {
+    this.realtime?.eventEmitter?.emitProgress(roomConfig, progress);
+  }
+
+  /**
+   * 订阅事件
+   */
+  subscribeEvent<T>(
+    eventType: string,
+    handler: (event: { type: string; payload: T }) => void,
+  ): () => void {
+    if (!this.realtime?.eventEmitter) {
+      return () => {};
+    }
+
+    return this.realtime.eventEmitter.subscribe(eventType, handler);
+  }
+
+  /**
+   * 设置 WebSocket 服务器（由 Gateway 调用）
+   */
+  setWebSocketServer(server: unknown): void {
+    if (
+      this.realtime?.eventEmitter &&
+      typeof (
+        this.realtime.eventEmitter as { setServer?: (s: unknown) => void }
+      ).setServer === "function"
+    ) {
+      (
+        this.realtime.eventEmitter as { setServer: (s: unknown) => void }
+      ).setServer(server);
+    }
   }
 }

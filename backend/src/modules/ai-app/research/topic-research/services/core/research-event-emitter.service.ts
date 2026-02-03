@@ -7,9 +7,10 @@
  * ★ 新增：同时持久化关键事件到数据库（团队消息、Agent活动）
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { ResearchRealtimeAdapter } from "./research-realtime.adapter";
 
 /**
  * 内部事件常量（用于 NestJS EventEmitter2 解耦循环依赖）
@@ -175,7 +176,14 @@ export class ResearchEventEmitterService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly nestEventEmitter: EventEmitter2,
-  ) {}
+    @Optional() private readonly realtimeAdapter?: ResearchRealtimeAdapter,
+  ) {
+    if (this.realtimeAdapter) {
+      this.logger.log(
+        "ResearchEventEmitterService initialized with RealtimeAdapter integration",
+      );
+    }
+  }
 
   /**
    * 发射 Mission 恢复执行事件（替代 forwardRef 循环依赖）
@@ -197,24 +205,44 @@ export class ResearchEventEmitterService {
 
   /**
    * 发射事件到专题
+   * ★ 优先使用 RealtimeAdapter（如果可用），同时保持原有 handler 兼容
    */
   async emitToTopic(
     topicId: string,
     event: ResearchEventType | string,
     data: unknown,
   ): Promise<void> {
-    if (!this.emitHandler) {
-      this.logger.debug(`No emit handler registered, skipping event: ${event}`);
-      return;
+    const normalizedData = {
+      timestamp: new Date().toISOString(),
+      ...this.normalizeEventData(data),
+    };
+
+    // ★ 使用 RealtimeAdapter 发射事件（如果可用）
+    if (this.realtimeAdapter) {
+      try {
+        this.realtimeAdapter.emitToTopic(topicId, event, normalizedData);
+      } catch (error) {
+        this.logger.error(
+          `[RealtimeAdapter] Failed to emit event ${event}:`,
+          error,
+        );
+      }
     }
 
-    try {
-      await this.emitHandler(topicId, event, {
-        timestamp: new Date().toISOString(),
-        ...this.normalizeEventData(data),
-      });
-    } catch (error) {
-      this.logger.error(`Failed to emit event ${event}:`, error);
+    // ★ 保持原有 handler 兼容（Gateway 注册的处理器）
+    if (this.emitHandler) {
+      try {
+        await this.emitHandler(topicId, event, normalizedData);
+      } catch (error) {
+        this.logger.error(
+          `[EmitHandler] Failed to emit event ${event}:`,
+          error,
+        );
+      }
+    }
+
+    if (!this.realtimeAdapter && !this.emitHandler) {
+      this.logger.debug(`No emit handler registered, skipping event: ${event}`);
     }
   }
 
@@ -222,12 +250,24 @@ export class ResearchEventEmitterService {
 
   /**
    * 发送任务开始事件
+   * ★ 同时启动进度追踪（如果 RealtimeAdapter 可用）
    */
   async emitMissionStarted(
     topicId: string,
     missionId: string,
     leaderModel?: string,
+    isQuickMode: boolean = false,
   ): Promise<void> {
+    // ★ 启动进度追踪
+    if (this.realtimeAdapter) {
+      this.realtimeAdapter.startMissionTracking(
+        topicId,
+        missionId,
+        isQuickMode,
+      );
+      this.realtimeAdapter.startPhase(missionId, "planning", "Leader 开始规划");
+    }
+
     await this.emitToTopic(topicId, ResearchEventType.MISSION_STARTED, {
       missionId,
       leaderModel,
@@ -247,6 +287,7 @@ export class ResearchEventEmitterService {
 
   /**
    * 发送任务完成事件
+   * ★ 同时完成进度追踪
    */
   async emitMissionCompleted(
     topicId: string,
@@ -254,6 +295,11 @@ export class ResearchEventEmitterService {
     completedTasks: number,
     totalTasks: number,
   ): Promise<void> {
+    // ★ 完成进度追踪
+    if (this.realtimeAdapter) {
+      this.realtimeAdapter.completeMissionTracking(missionId, "研究完成");
+    }
+
     await this.emitToTopic(topicId, ResearchEventType.MISSION_COMPLETED, {
       missionId,
       completedTasks,
@@ -264,12 +310,18 @@ export class ResearchEventEmitterService {
 
   /**
    * 发送任务失败事件
+   * ★ 同时标记进度追踪失败
    */
   async emitMissionFailed(
     topicId: string,
     missionId: string,
     error: string,
   ): Promise<void> {
+    // ★ 标记进度追踪失败
+    if (this.realtimeAdapter) {
+      this.realtimeAdapter.failMissionTracking(missionId, error);
+    }
+
     await this.emitToTopic(topicId, ResearchEventType.MISSION_FAILED, {
       missionId,
       error,
@@ -347,6 +399,7 @@ export class ResearchEventEmitterService {
 
   /**
    * 发送 Leader 规划完成事件
+   * ★ 同时完成 planning 阶段，开始 researching 阶段
    */
   async emitLeaderPlanReady(
     topicId: string,
@@ -354,6 +407,12 @@ export class ResearchEventEmitterService {
     dimensionCount: number,
     agentCount: number,
   ): Promise<void> {
+    // ★ 阶段转换：planning → researching
+    if (this.realtimeAdapter) {
+      this.realtimeAdapter.completePhase(missionId, "planning", "规划完成");
+      this.realtimeAdapter.startPhase(missionId, "researching", "开始维度研究");
+    }
+
     await this.emitToTopic(topicId, ResearchEventType.LEADER_PLAN_READY, {
       missionId,
       dimensionCount,
@@ -701,6 +760,18 @@ export class ResearchEventEmitterService {
     taskId?: string,
   ): Promise<void> {
     const message = `「${dimensionName}」研究进度 ${progress}%`;
+
+    // ★ 更新 researching 阶段进度（如果 RealtimeAdapter 可用）
+    let overallProgress: number | undefined;
+    if (this.realtimeAdapter && missionId) {
+      overallProgress = this.realtimeAdapter.updatePhaseProgress(
+        missionId,
+        "researching",
+        progress,
+        currentStep,
+      );
+    }
+
     await this.emitToTopic(
       topicId,
       ResearchEventType.DIMENSION_RESEARCH_PROGRESS,
@@ -710,6 +781,7 @@ export class ResearchEventEmitterService {
         currentStep,
         message,
         taskId, // ★ 添加 taskId 用于前端精确匹配
+        overallProgress, // ★ 添加整体进度
       },
     );
 
@@ -781,12 +853,32 @@ export class ResearchEventEmitterService {
 
   /**
    * 发送报告撰写开始事件
+   * ★ 同时完成 researching 阶段，开始 synthesizing 阶段
    */
-  async emitReportSynthesisStarted(topicId: string): Promise<void> {
+  async emitReportSynthesisStarted(
+    topicId: string,
+    missionId?: string,
+  ): Promise<void> {
+    // ★ 阶段转换：researching → synthesizing
+    // 注意：标准模式有 reviewing 阶段，但目前业务流程中直接跳到 synthesizing
+    if (this.realtimeAdapter && missionId) {
+      this.realtimeAdapter.completePhase(
+        missionId,
+        "researching",
+        "维度研究完成",
+      );
+      this.realtimeAdapter.startPhase(
+        missionId,
+        "synthesizing",
+        "开始报告撰写",
+      );
+    }
+
     await this.emitToTopic(
       topicId,
       ResearchEventType.REPORT_SYNTHESIS_STARTED,
       {
+        missionId,
         message: "📊 开始整合研究结果，撰写洞察报告...",
       },
     );
@@ -794,16 +886,28 @@ export class ResearchEventEmitterService {
 
   /**
    * 发送报告撰写完成事件
+   * ★ 同时完成 synthesizing 阶段
    */
   async emitReportSynthesisCompleted(
     topicId: string,
     chapterCount: number,
     totalWordCount: number,
+    missionId?: string,
   ): Promise<void> {
+    // ★ 完成 synthesizing 阶段（如果 RealtimeAdapter 可用）
+    if (this.realtimeAdapter && missionId) {
+      this.realtimeAdapter.completePhase(
+        missionId,
+        "synthesizing",
+        "报告撰写完成",
+      );
+    }
+
     await this.emitToTopic(
       topicId,
       ResearchEventType.REPORT_SYNTHESIS_COMPLETED,
       {
+        missionId,
         chapterCount,
         totalWordCount,
         message: `📊 报告撰写完成，共 ${chapterCount} 个章节，${totalWordCount} 字`,

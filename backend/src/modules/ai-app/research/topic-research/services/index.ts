@@ -16,6 +16,7 @@ export {
   RESEARCH_INTERNAL_EVENTS,
   type ResumeMissionExecutionPayload,
 } from "./core/research-event-emitter.service";
+export { ResearchRealtimeAdapter } from "./core/research-realtime.adapter";
 export { ResearchStrategyService } from "./core/research-strategy.service";
 
 // ★ Leader sub-services
@@ -56,6 +57,7 @@ export { EvidenceManagementService } from "./data/evidence-management.service";
 export { LeaderToolService } from "./data/leader-tool.service";
 export { DataSourceFetcherService } from "./data/data-source-fetcher.service";
 export { DataSourceStrategyService } from "./data/data-source-strategy.service";
+export { ResearchEvidenceAdapter } from "./data/research-evidence.adapter";
 
 // ==================== Collaboration ====================
 export { TopicCollaboratorService } from "./collaboration/topic-collaborator.service";
