@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.9.6](https://github.com/your-org/ai-teams-engine/compare/v3.9.5...v3.9.6) (2026-02-03)
+
+
+### Bug Fixes
+
+* **byok:** prioritize user's own API key as default model ([fb22001](https://github.com/your-org/ai-teams-engine/commit/fb22001b52f059b8b6a263b4d6203930230ed692))
+
 ### [3.9.5](https://github.com/your-org/ai-teams-engine/compare/v3.9.4...v3.9.5) (2026-02-03)
 
 
