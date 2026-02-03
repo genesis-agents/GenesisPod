@@ -10,6 +10,7 @@ import {
   ChevronDown,
   RefreshCw,
 } from 'lucide-react';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 // RAG服务状态类型
 export interface RAGServiceStatus {
@@ -39,6 +40,7 @@ export default function RAGStatusIndicator({
   status,
   onRefresh,
 }: RAGStatusIndicatorProps) {
+  const { t } = useI18n();
   const [showDetails, setShowDetails] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -84,19 +86,25 @@ export default function RAGStatusIndicator({
         {overallStatus === 'ok' && (
           <>
             <span className="h-2 w-2 rounded-full bg-green-500" />
-            <span className="hidden sm:inline">RAG 正常</span>
+            <span className="hidden sm:inline">
+              {t('library.rag.status.ok')}
+            </span>
           </>
         )}
         {overallStatus === 'error' && (
           <>
             <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-            <span className="hidden sm:inline">服务异常</span>
+            <span className="hidden sm:inline">
+              {t('library.rag.status.error')}
+            </span>
           </>
         )}
         {overallStatus === 'loading' && (
           <>
             <Loader2 className="h-3 w-3 animate-spin" />
-            <span className="hidden sm:inline">检查中</span>
+            <span className="hidden sm:inline">
+              {t('library.rag.status.checking')}
+            </span>
           </>
         )}
         <ChevronDown
@@ -109,7 +117,9 @@ export default function RAGStatusIndicator({
         <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-gray-200 bg-white p-4 shadow-xl">
           {/* 标题 */}
           <div className="mb-4 flex items-center justify-between">
-            <h4 className="font-semibold text-gray-900">RAG 服务状态</h4>
+            <h4 className="font-semibold text-gray-900">
+              {t('library.rag.status.title')}
+            </h4>
             {onRefresh && (
               <button
                 onClick={(e) => {
@@ -117,7 +127,7 @@ export default function RAGStatusIndicator({
                   onRefresh();
                 }}
                 className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100"
-                title="刷新状态"
+                title={t('library.rag.status.refresh')}
               >
                 <RefreshCw className="h-4 w-4" />
               </button>
@@ -141,7 +151,7 @@ export default function RAGStatusIndicator({
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    向量嵌入服务
+                    {t('library.rag.status.embeddingService')}
                   </p>
                   {status.embedding.status === 'ok' &&
                     status.embedding.modelId && (
@@ -184,7 +194,7 @@ export default function RAGStatusIndicator({
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    向量数据库
+                    {t('library.rag.status.vectorDatabase')}
                   </p>
                   {status.database.status === 'ok' && (
                     <p className="text-xs text-gray-500">
@@ -211,9 +221,7 @@ export default function RAGStatusIndicator({
           {/* 提示信息 */}
           {overallStatus === 'error' && (
             <p className="mt-3 text-xs text-gray-500">
-              服务异常可能影响知识库的向量化和检索功能。
-              <br />
-              如持续异常，请联系管理员。
+              {t('library.rag.status.errorHint')}
             </p>
           )}
         </div>

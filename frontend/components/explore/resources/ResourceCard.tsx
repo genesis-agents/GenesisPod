@@ -155,7 +155,7 @@ export function ResourceCard({
           <div className="flex-1"></div>
 
           {/* Bottom Actions */}
-          <div className="flex flex-shrink-0 items-center gap-6 border-t border-gray-100 pt-2">
+          <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-t border-gray-100 pt-2 sm:gap-6">
             {/* Bookmark Button */}
             <button
               onClick={(e) => onToggleBookmark(resource.id, e)}

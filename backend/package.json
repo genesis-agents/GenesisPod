@@ -1,7 +1,7 @@
 {
-  "name": "deepdive-backend",
+  "name": "raven-backend",
   "version": "3.9.6",
-  "description": "DeepDive Engine Backend API",
+  "description": "Raven AI Engine Backend API",
   "private": true,
   "scripts": {
     "build": "prisma generate --schema=prisma/schema && nest build",

@@ -6,9 +6,9 @@ import Providers from './providers';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'AI Teams Engine - AI-Powered Multi-Agent Collaboration Platform',
+  title: 'Raven AI Engine - AI-Powered Research Platform',
   description:
-    'Multi-agent collaboration for intelligent complex task completion',
+    'AI-powered research platform for intelligent knowledge discovery',
   icons: {
     icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
     apple: '/favicon.svg',

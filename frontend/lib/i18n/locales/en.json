@@ -198,7 +198,19 @@
       "documents": "Documents",
       "other": "Other Resources"
     },
-    "loadingGraph": "Loading knowledge graph..."
+    "loadingGraph": "Loading knowledge graph...",
+    "rag": {
+      "status": {
+        "title": "RAG Service Status",
+        "ok": "RAG OK",
+        "error": "Service Error",
+        "checking": "Checking",
+        "refresh": "Refresh Status",
+        "embeddingService": "Embedding Service",
+        "vectorDatabase": "Vector Database",
+        "errorHint": "Service errors may affect knowledge base vectorization and retrieval. If the issue persists, please contact an administrator."
+      }
+    }
   },
   "knowledgeBase": {
     "title": "Knowledge Base",
@@ -490,6 +502,9 @@
       "noPdfOrHtml": "No PDF or HTML preview available for this resource"
     },
     "youtube": {
+      "emptyState": {
+        "noVideo": "Enter a video URL and fetch subtitles to view here"
+      },
       "keyMoments": {
         "title": "Key Moments",
         "points": "points",

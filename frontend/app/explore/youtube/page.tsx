@@ -30,6 +30,7 @@ import {
   uploadTranscriptToCache,
 } from '@/lib/explore/youtube-transcript';
 import ClientDate from '@/components/common/ClientDate';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 interface TranscriptSegment {
   text: string;
@@ -192,6 +193,7 @@ function YouTubeTLDWContent() {
 
   // Auth context for API calls
   const { accessToken } = useAuth();
+  const { t } = useI18n();
 
   // 动态获取 AI 模型列表，显示 CHAT/CHAT_FAST/MULTIMODAL 类型的模型
   const { models: allAiModels } = useAIModels();
@@ -936,7 +938,7 @@ function YouTubeTLDWContent() {
         <main className="flex flex-1 items-center justify-center">
           <div className="text-center">
             <p className="text-lg text-gray-600">
-              输入视频 URL 并获取字幕后即可在此
+              {t('youtube.emptyState.noVideo')}
             </p>
           </div>
         </main>

@@ -148,7 +148,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       >
         {!showExpanded ? (
           /* Collapsed Logo - AI Teams: Circular collaboration */
-          <Link href="/" className="group relative" title="AI Teams Engine">
+          <Link href="/" className="group relative" title="Raven AI Engine">
             <svg
               className="h-8 w-8 transition-transform duration-300 group-hover:scale-105"
               viewBox="0 0 32 32"
@@ -233,7 +233,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           <Link
             href="/"
             className="group relative flex items-center gap-2.5"
-            title="AI Teams Engine"
+            title="Raven AI Engine"
           >
             <svg
               className="h-8 w-8 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
@@ -320,14 +320,14 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                   className="bg-gradient-to-r from-[#0F2A46] via-[#2BB7DA] to-[#7C5BFE] bg-clip-text text-[15px] font-bold tracking-tight text-transparent"
                   style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
                 >
-                  AI Teams
+                  Raven
                 </span>
                 <span className="rounded bg-gradient-to-r from-blue-500 to-indigo-500 px-1 py-0.5 text-[7px] font-bold text-white">
                   v{process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0'}
                 </span>
               </div>
               <span className="text-[9px] font-medium tracking-[0.15em] text-[#0F2A46]/50">
-                ENGINE
+                AI ENGINE
               </span>
             </div>
           </Link>

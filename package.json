@@ -1,7 +1,7 @@
 {
-  "name": "ai-teams-engine",
+  "name": "raven-ai-engine",
   "version": "3.9.6",
-  "description": "AI驱动的知识发现引擎",
+  "description": "Raven AI Engine - AI驱动的智能研究平台",
   "private": true,
   "workspaces": [
     "frontend",
@@ -100,7 +100,7 @@
     "learning",
     "research"
   ],
-  "author": "DeepDive Team",
+  "author": "Raven Team",
   "license": "MIT",
   "dependencies": {
     "js-yaml": "^4.1.1"

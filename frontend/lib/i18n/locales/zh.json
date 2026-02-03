@@ -202,7 +202,19 @@
       "documents": "文档",
       "other": "其他资源"
     },
-    "loadingGraph": "加载知识图谱中..."
+    "loadingGraph": "加载知识图谱中...",
+    "rag": {
+      "status": {
+        "title": "RAG 服务状态",
+        "ok": "RAG 正常",
+        "error": "服务异常",
+        "checking": "检查中",
+        "refresh": "刷新状态",
+        "embeddingService": "向量嵌入服务",
+        "vectorDatabase": "向量数据库",
+        "errorHint": "服务异常可能影响知识库的向量化和检索功能。如持续异常，请联系管理员。"
+      }
+    }
   },
   "knowledgeBase": {
     "title": "知识库",
@@ -494,6 +506,9 @@
       "noPdfOrHtml": "该资源暂无可用的 PDF 或 HTML 预览"
     },
     "youtube": {
+      "emptyState": {
+        "noVideo": "输入视频 URL 并获取字幕后即可在此查看"
+      },
       "keyMoments": {
         "title": "关键时刻",
         "points": "个重点",
