@@ -17,6 +17,7 @@ import { AdvancedExtractorService } from "./advanced-extractor.service";
 import { NewsExtractorService } from "./news-extractor.service";
 import { PuppeteerFetcherService } from "./puppeteer-fetcher.service";
 import { FlareSolverrService } from "./flaresolverr.service";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 /**
  * 代理控制器 - 用于代理外部资源（如 PDF），绕过 CORS 和 X-Frame-Options 限制
@@ -61,7 +62,7 @@ export class ProxyController {
         timeout: 30000,
         headers: {
           Accept: "text/plain",
-          "User-Agent": "DeepDive/1.0",
+          "User-Agent": APP_CONFIG.brand.userAgent,
         },
       });
 

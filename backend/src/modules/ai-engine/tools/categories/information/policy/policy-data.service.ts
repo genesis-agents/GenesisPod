@@ -8,6 +8,7 @@ import { HttpService } from "@nestjs/axios";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/core/secrets/secrets.service";
 import { firstValueFrom } from "rxjs";
+import { APP_CONFIG } from "@/common/config/app.config";
 
 @Injectable()
 export class PolicyDataService {
@@ -81,7 +82,7 @@ export class PolicyDataService {
         this.httpService.get<T>(url, {
           params: cleanParams,
           headers: {
-            "User-Agent": "DeepDive-Engine/1.0",
+            "User-Agent": APP_CONFIG.brand.userAgent,
             ...headers,
           },
           timeout: 30000,
@@ -109,7 +110,7 @@ export class PolicyDataService {
       const response = await firstValueFrom(
         this.httpService.post<T>(url, data, {
           headers: {
-            "User-Agent": "DeepDive-Engine/1.0",
+            "User-Agent": APP_CONFIG.brand.userAgent,
             "Content-Type": "application/json",
             ...headers,
           },

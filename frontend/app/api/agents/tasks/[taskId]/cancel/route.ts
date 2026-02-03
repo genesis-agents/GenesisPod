@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 import { logger } from '@/lib/utils/logger';
+import { config } from '@/lib/utils/config';
 
 // ★ 使用 cookies() 必须标记为动态
 export const dynamic = 'force-dynamic';
-const BACKEND_API_URL =
-  process.env.BACKEND_API_URL ||
-  'https://deepdive-engine.up.railway.app/api/v1';
+const API_BASE_URL = config.getBackendUrl() + '/api/v1';
 
 /**
  * POST /api/agents/tasks/[taskId]/cancel
@@ -25,7 +24,7 @@ export async function POST(
     logger.debug('[Agents Cancel] Canceling task:', taskId);
 
     const response = await fetch(
-      `${BACKEND_API_URL}/agents/tasks/${taskId}/cancel`,
+      `${API_BASE_URL}/agents/tasks/${taskId}/cancel`,
       {
         method: 'POST',
         headers: {

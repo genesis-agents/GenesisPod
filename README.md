@@ -1,4 +1,4 @@
-# DeepDive Engine
+# Raven AI Engine
 
 > 企业级 AI 深度研究和内容管理平台 — 从信息到洞察，重构知识探索之旅
 
@@ -9,7 +9,7 @@
 
 ## 项目简介
 
-DeepDive Engine 是一个企业级 AI 深度研究和内容管理平台，集成了多 Agent 协作研究、智能办公、知识管理等功能。
+Raven AI Engine 是一个企业级 AI 深度研究和内容管理平台，集成了多 Agent 协作研究、智能办公、知识管理等功能。
 
 ### 技术栈
 

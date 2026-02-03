@@ -15,6 +15,7 @@ import {
 import PptxGenJS from 'pptxgenjs';
 import TurndownService from 'turndown';
 import { PPTTemplate, getTemplateById } from '../ai-office/ppt-templates';
+import { config } from './config';
 
 interface ExportOptions {
   title: string;
@@ -91,7 +92,7 @@ class DocumentExportService {
 
     // 设置文档属性
     pptx.author = 'AI Reports';
-    pptx.company = 'DeepDive Engine';
+    pptx.company = config.brand.fullName;
     pptx.title = title;
 
     // 获取完整模板配置
@@ -438,7 +439,7 @@ class DocumentExportService {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="generator" content="AI Office - DeepDive Engine">
+  <meta name="generator" content="AI Office - ${config.brand.fullName}">
   <title>${this.escapeHTML(title)}</title>
   <style>
     /* 基础样式 - 学术风格 */
@@ -610,7 +611,7 @@ class DocumentExportService {
   <h1>${this.escapeHTML(title)}</h1>
   ${htmlContent}
   <div class="footer">
-    <p>由 AI Office 生成 · DeepDive Engine · ${new Date().toLocaleDateString('zh-CN')}</p>
+    <p>由 AI Office 生成 · ${config.brand.fullName} · ${new Date().toLocaleDateString('zh-CN')}</p>
   </div>
 </body>
 </html>`;

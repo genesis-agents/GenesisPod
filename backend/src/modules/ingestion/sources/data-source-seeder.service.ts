@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 /**
  * 数据源预置服务 - 应用启动时自动添加预置数据源
@@ -31,8 +32,7 @@ export class DataSourceSeederService implements OnModuleInit {
       const response = await fetch(url, {
         method: "GET",
         headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; DeepDive/1.0; +https://deepdive.app)",
+          "User-Agent": APP_CONFIG.brand.userAgent,
           Accept:
             "application/rss+xml, application/xml, application/atom+xml, text/xml, */*",
         },

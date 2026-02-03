@@ -13,6 +13,7 @@ import { Logger, Inject, forwardRef } from "@nestjs/common";
 import { AiTeamsService } from "./ai-teams.service";
 import { SendMessageDto } from "./dto";
 import { TopicEventEmitterService } from "./services/events";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -25,8 +26,8 @@ interface AuthenticatedSocket extends Socket {
     origin: [
       "http://localhost:3000",
       "http://localhost:3001",
-      "https://deepdive-engine.up.railway.app",
-      "https://deepdive-frontend.up.railway.app",
+      APP_CONFIG.railway.frontendUrl,
+      APP_CONFIG.railway.backendUrl,
       ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
     ].filter(Boolean),
     credentials: true,

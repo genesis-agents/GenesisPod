@@ -9,6 +9,7 @@ import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ConfigService } from "@nestjs/config";
 import * as crypto from "crypto";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 export interface SettingValue {
   key: string;
@@ -239,7 +240,7 @@ export class SettingsService implements OnModuleInit {
         )) === "true",
       from:
         (await this.getWithEnvFallback("email_from", "EMAIL_FROM")) ||
-        "DeepDive <noreply@deepdive.ai>",
+        APP_CONFIG.brand.emailFrom,
       adminEmail: await this.getWithEnvFallback("admin_email", "ADMIN_EMAIL"),
       // SMTP settings
       host: await this.getWithEnvFallback("smtp_host", "SMTP_HOST"),
@@ -331,7 +332,7 @@ export class SettingsService implements OnModuleInit {
       pass: await this.getWithEnvFallback("smtp_pass", "SMTP_PASS"),
       from:
         (await this.getWithEnvFallback("smtp_from", "SMTP_FROM")) ||
-        "DeepDive <noreply@deepdive.ai>",
+        APP_CONFIG.brand.emailFrom,
       enabled:
         (await this.getWithEnvFallback(
           "email_enabled",
@@ -428,7 +429,9 @@ export class SettingsService implements OnModuleInit {
 
   async getSiteSettings(): Promise<SiteSettings> {
     return {
-      siteName: (await this.get("site_name", "DeepDive")) || "DeepDive",
+      siteName:
+        (await this.get("site_name", APP_CONFIG.brand.siteName)) ||
+        APP_CONFIG.brand.siteName,
       siteDescription:
         (await this.get(
           "site_description",

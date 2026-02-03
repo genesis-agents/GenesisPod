@@ -1,13 +1,13 @@
-# DeepDive Engine 项目结构
+# Raven AI Engine 项目结构
 
 > 最后更新: 2026-01-23 | 维护者: Claude Code | 版本: 3.0
 
 ## 项目概览
 
-DeepDive Engine 是一个企业级 AI 深度研究和内容管理平台，采用 monorepo 结构，包含前端、后端、AI 服务和文档。
+Raven AI Engine 是一个企业级 AI 深度研究和内容管理平台，采用 monorepo 结构，包含前端、后端、AI 服务和文档。
 
 ```
-deepdive-engine/
+raven-ai-engine/
 ├── frontend/           # Next.js 14 前端应用
 ├── backend/            # NestJS 后端服务
 ├── ai-service/         # Python FastAPI 微服务
@@ -842,6 +842,7 @@ Core (core/)
 - **FlareSolverr**: Cloudflare 绕过代理服务
 
 **架构优势**:
+
 - 单点数据管理，备份简化
 - JSONB GIN 索引，查询性能优异
 - 递归 CTE 实现图关系，无需 Neo4j

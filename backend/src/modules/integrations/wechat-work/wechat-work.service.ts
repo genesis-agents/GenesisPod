@@ -8,6 +8,7 @@ import { TaskProfile } from "../../ai-engine/llm/types/task-profile";
 import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import { WechatDataSourceService } from "./wechat-data-source.service";
 import { UrlFetchService } from "../../ai-app/rag/services/url-fetch.service";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 /**
  * 企业微信消息类型
@@ -48,8 +49,8 @@ export class WechatWorkService {
     "@AI",
     "@ai",
     "@助手",
-    "@DeepDive",
-    "@deepdive",
+    `@${APP_CONFIG.brand.name}`,
+    `@${APP_CONFIG.brand.name.toLowerCase()}`,
     "/ai",
     "/分析",
     "/总结",
@@ -174,7 +175,7 @@ export class WechatWorkService {
       if (!platformUserId) {
         await this.sendTextMessage(
           fromUser,
-          `无法识别您的用户身份。\n\n请在 DeepDive 平台的"个人设置 → 集成"中绑定企业微信。\n\n您需要绑定的企业微信 UserID 是：\n**${fromUser}**\n\n请复制此 ID 并粘贴到绑定界面中。`,
+          `无法识别您的用户身份。\n\n请在 ${APP_CONFIG.brand.name} 平台的"个人设置 → 集成"中绑定企业微信。\n\n您需要绑定的企业微信 UserID 是：\n**${fromUser}**\n\n请复制此 ID 并粘贴到绑定界面中。`,
         );
         return;
       }
@@ -231,7 +232,7 @@ export class WechatWorkService {
         `✅ **已同步到数据源**\n\n` +
           `📄 **标题**: ${item.title}\n` +
           `🔗 **类型**: ${typeLabel}\n\n` +
-          `您可以在 DeepDive 的"数据源 → 微信"中查看和管理同步的内容。`,
+          `您可以在 ${APP_CONFIG.brand.name} 的"数据源 → 微信"中查看和管理同步的内容。`,
       );
     } catch (error) {
       this.logger.error(`Failed to import URL: ${error}`);
@@ -308,7 +309,7 @@ export class WechatWorkService {
           `✅ **已同步到数据源**\n\n` +
             `**${item.title}**\n` +
             `类型: ${typeLabel}\n\n` +
-            `您可以在 DeepDive 的"数据源 → 微信"中查看和管理同步的内容。`,
+            `您可以在 ${APP_CONFIG.brand.name} 的"数据源 → 微信"中查看和管理同步的内容。`,
         );
       } else {
         // 用户未绑定，仅进行 AI 分析
@@ -317,7 +318,7 @@ export class WechatWorkService {
         );
         await this.sendTextMessage(
           fromUser,
-          `提示: 您尚未绑定平台账号，内容暂未同步。\n\n请在 DeepDive "个人设置 → 集成" 中绑定企业微信 UserID：\n**${fromUser}**\n\n正在进行 AI 分析...`,
+          `提示: 您尚未绑定平台账号，内容暂未同步。\n\n请在 ${APP_CONFIG.brand.name} "个人设置 → 集成" 中绑定企业微信 UserID：\n**${fromUser}**\n\n正在进行 AI 分析...`,
         );
 
         // Fallback to AI analysis
@@ -407,7 +408,7 @@ export class WechatWorkService {
         // 用户关注或进入应用
         await this.sendTextMessage(
           fromUser,
-          `欢迎使用 DeepDive AI 助手！\n\n${this.getHelpMessage()}`,
+          `欢迎使用 ${APP_CONFIG.brand.name} AI 助手！\n\n${this.getHelpMessage()}`,
         );
         break;
       case "click":
@@ -454,7 +455,7 @@ export class WechatWorkService {
     );
 
     // 构建系统提示词
-    const systemPrompt = `你是 DeepDive AI 助手，一个智能知识分析助手。
+    const systemPrompt = `你是 ${APP_CONFIG.brand.name} AI 助手，一个智能知识分析助手。
 你的任务是帮助用户分析内容、回答问题、提取关键信息。
 
 回复要求：
@@ -608,11 +609,11 @@ export class WechatWorkService {
    * 获取帮助信息
    */
   private getHelpMessage(): string {
-    return `DeepDive AI 助手使用指南
+    return `${APP_CONFIG.brand.name} AI 助手使用指南
 
 **内容同步功能**
 直接转发公众号文章、视频号视频或网页链接，将自动同步到您的数据源。
-您可以在 DeepDive 的"数据源 → 微信"中查看和管理同步的内容。
+您可以在 ${APP_CONFIG.brand.name} 的"数据源 → 微信"中查看和管理同步的内容。
 
 **AI 分析功能**
 - @AI + 问题：AI 将回答你的问题

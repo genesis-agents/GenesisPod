@@ -11,6 +11,7 @@ import { Prisma } from "@prisma/client";
 import { SourceWhitelistService } from "../../ingestion/config/services/source-whitelist.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { ResourcesRepository } from "./resources.repository";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 /**
  * 资源管理服务
@@ -753,7 +754,7 @@ export class ResourcesService {
             {
               headers: {
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "DeepDive-Engine",
+                "User-Agent": APP_CONFIG.brand.userAgent,
               },
             },
           );

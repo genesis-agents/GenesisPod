@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
 
 import { logger } from '@/lib/utils/logger';
+import { config } from '@/lib/utils/config';
+
 // 后端 API URL
-const BACKEND_API_URL =
-  process.env.BACKEND_API_URL ||
-  'https://deepdive-engine.up.railway.app/api/v1';
+const API_BASE_URL = config.getBackendUrl() + '/api/v1';
 
 // 设置更长的超时时间以支持长时间的 Slides 生成
 // Railway Pro plan 支持最多 300 秒
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   // 构建后端 URL
   const backendUrl = new URL(
-    `${BACKEND_API_URL}/ai-office/slides/generate/stream`
+    `${API_BASE_URL}/ai-office/slides/generate/stream`
   );
 
   // 转发所有查询参数

@@ -13,6 +13,7 @@ import { ConfigService } from "@nestjs/config";
 import * as nodemailer from "nodemailer";
 import { Resend } from "resend";
 import { SettingsService } from "../settings/settings.service";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 export type EmailProvider = "smtp" | "resend";
 
@@ -38,7 +39,7 @@ export class EmailService implements OnModuleInit {
   private resendClient: Resend | null = null;
   private provider: EmailProvider = "smtp";
   private isConfigured = false;
-  private emailFrom = "DeepDive <noreply@deepdive.ai>";
+  private emailFrom: string = APP_CONFIG.brand.emailFrom;
   private adminEmail = ""; // Will be loaded from settings/env
 
   constructor(
@@ -338,11 +339,11 @@ export class EmailService implements OnModuleInit {
       const result = await this.resendClient.emails.send({
         from: this.emailFrom,
         to: this.adminEmail,
-        subject: "DeepDive Email Test (Resend)",
-        text: "This is a test email from DeepDive using Resend. If you received this, your email configuration is working!",
+        subject: "${APP_CONFIG.brand.name} Email Test (Resend)",
+        text: "This is a test email from ${APP_CONFIG.brand.name} using Resend. If you received this, your email configuration is working!",
         html: `
           <div style="font-family: sans-serif; padding: 20px;">
-            <h2>DeepDive Email Test</h2>
+            <h2>${APP_CONFIG.brand.name} Email Test</h2>
             <p>This is a test email sent via <strong>Resend</strong>.</p>
             <p>If you received this, your email configuration is working correctly!</p>
             <hr>
@@ -388,11 +389,11 @@ export class EmailService implements OnModuleInit {
       await this.smtpTransporter.sendMail({
         from: this.emailFrom,
         to: this.adminEmail,
-        subject: "DeepDive Email Test (SMTP)",
-        text: "This is a test email from DeepDive using SMTP. If you received this, your email configuration is working!",
+        subject: "${APP_CONFIG.brand.name} Email Test (SMTP)",
+        text: "This is a test email from ${APP_CONFIG.brand.name} using SMTP. If you received this, your email configuration is working!",
         html: `
           <div style="font-family: sans-serif; padding: 20px;">
-            <h2>DeepDive Email Test</h2>
+            <h2>${APP_CONFIG.brand.name} Email Test</h2>
             <p>This is a test email sent via <strong>SMTP</strong>.</p>
             <p>If you received this, your email configuration is working correctly!</p>
             <hr>
@@ -524,7 +525,7 @@ export class EmailService implements OnModuleInit {
         </div>
 
         <div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;">
-          <p style="margin: 0;">This is an automated notification from DeepDive</p>
+          <p style="margin: 0;">This is an automated notification from ${APP_CONFIG.brand.name}</p>
         </div>
       </body>
       </html>
@@ -545,12 +546,12 @@ ${feedback.pageUrl ? `Page URL: ${feedback.pageUrl}` : ""}
 ${feedback.attachments?.length ? `Attachments: ${feedback.attachments.length} file(s)` : ""}
 
 ---
-DeepDive Feedback Notification
+${APP_CONFIG.brand.name} Feedback Notification
     `;
 
     return this.sendEmail({
       to: this.adminEmail,
-      subject: `[DeepDive] New ${typeLabels[feedback.type] || "Feedback"}: ${feedback.title}`,
+      subject: `[${APP_CONFIG.brand.name}] New ${typeLabels[feedback.type] || "Feedback"}: ${feedback.title}`,
       html,
       text,
       replyTo: feedback.userEmail,
@@ -625,8 +626,8 @@ DeepDive Feedback Notification
         </div>
 
         <div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;">
-          <p style="margin: 0;">此邮件由 DeepDive AI Teams 自动发送</p>
-          <p style="margin: 5px 0 0 0;"><a href="${appUrl}" style="color: #94a3b8;">DeepDive Engine</a></p>
+          <p style="margin: 0;">此邮件由 ${APP_CONFIG.brand.name} AI Teams 自动发送</p>
+          <p style="margin: 5px 0 0 0;"><a href="${appUrl}" style="color: #94a3b8;">${APP_CONFIG.brand.fullName}</a></p>
         </div>
       </body>
       </html>
@@ -641,12 +642,12 @@ ${options.summary ? `\n摘要:\n${options.summary.slice(0, 500)}${options.summar
 查看完整报告: ${options.reportUrl}
 
 ---
-此邮件由 DeepDive AI Teams 自动发送
+此邮件由 ${APP_CONFIG.brand.name} AI Teams 自动发送
     `;
 
     return this.sendEmail({
       to: options.to,
-      subject: `[DeepDive] 任务完成: ${options.missionTitle}`,
+      subject: `[${APP_CONFIG.brand.name}] 任务完成: ${options.missionTitle}`,
       html,
       text,
     });
@@ -745,7 +746,7 @@ ${options.summary ? `\n摘要:\n${options.summary.slice(0, 500)}${options.summar
         </div>
 
         <div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;">
-          <p style="margin: 0;">Thank you for helping us improve DeepDive!</p>
+          <p style="margin: 0;">Thank you for helping us improve ${APP_CONFIG.brand.name}!</p>
         </div>
       </body>
       </html>
@@ -764,12 +765,12 @@ ${feedback.adminNotes ? `\nResponse from our team:\n${feedback.adminNotes}` : ""
 View your feedback history at: ${this.configService.get("APP_URL", "http://localhost:3000")}/feedback/history
 
 ---
-Thank you for helping us improve DeepDive!
+Thank you for helping us improve ${APP_CONFIG.brand.name}!
     `;
 
     return this.sendEmail({
       to: feedback.userEmail,
-      subject: `[DeepDive] Your feedback is now ${statusLabels[feedback.newStatus] || feedback.newStatus}`,
+      subject: `[${APP_CONFIG.brand.name}] Your feedback is now ${statusLabels[feedback.newStatus] || feedback.newStatus}`,
       html,
       text,
     });

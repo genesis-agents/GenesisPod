@@ -16,6 +16,7 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 import { firstValueFrom } from "rxjs";
+import { APP_CONFIG } from "@/common/config/app.config";
 
 // ============================================================================
 // Types
@@ -219,7 +220,7 @@ export class HackerNewsSearchTool extends BaseTool<
         this.httpService.get<HackerNewsApiResponse>(baseUrl, {
           params,
           headers: {
-            "User-Agent": "DeepDive-Engine/1.0",
+            "User-Agent": APP_CONFIG.brand.userAgent,
           },
           timeout: 30000,
         }),

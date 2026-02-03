@@ -5,6 +5,7 @@ import { MongoDBService } from "../../../common/mongodb/mongodb.service.postgres
 import { DeduplicationService } from "./deduplication.service";
 import { getErrorStack } from "../../../common/utils/error.utils";
 import axios from "axios";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 /**
  * GitHub 项目采集器
@@ -573,8 +574,7 @@ export class GithubService {
   private getHeaders(): any {
     const headers: any = {
       Accept: "application/vnd.github.v3+json",
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 DeepDive-Engine/1.0",
+      "User-Agent": APP_CONFIG.brand.userAgent,
     };
 
     if (this.githubToken && !this.githubToken.startsWith("your_")) {

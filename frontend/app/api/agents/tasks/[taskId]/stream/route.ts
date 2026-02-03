@@ -2,15 +2,14 @@ import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 
 import { logger } from '@/lib/utils/logger';
+import { config } from '@/lib/utils/config';
 
 // ★ 使用 cookies() 必须标记为动态
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 export const runtime = 'nodejs';
 
-const BACKEND_API_URL =
-  process.env.BACKEND_API_URL ||
-  'https://deepdive-engine.up.railway.app/api/v1';
+const API_BASE_URL = config.getBackendUrl() + '/api/v1';
 
 /**
  * GET /api/agents/tasks/[taskId]/stream
@@ -28,7 +27,7 @@ export async function GET(
     logger.debug('[Agents Stream] Connecting to task:', taskId);
 
     const response = await fetch(
-      `${BACKEND_API_URL}/agents/tasks/${taskId}/stream`,
+      `${API_BASE_URL}/agents/tasks/${taskId}/stream`,
       {
         headers: {
           Accept: 'text/event-stream',

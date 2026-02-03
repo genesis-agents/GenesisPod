@@ -16,6 +16,7 @@ import {
 } from "../types/skill-md.types";
 import { parseSkillMd } from "../loader/skill-parser";
 import { SkillCacheService } from "../loader/skill-cache.service";
+import { APP_CONFIG } from "@/common/config/app.config";
 
 /**
  * SkillsMP API 配置
@@ -396,7 +397,7 @@ export class SkillsMPClientService {
 
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
-          "User-Agent": "DeepDive-Engine/1.0",
+          "User-Agent": APP_CONFIG.brand.userAgent,
         };
 
         if (this.config.apiKey) {

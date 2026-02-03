@@ -18,6 +18,7 @@ import { AdminGuard } from "../../../common/guards/admin.guard";
 import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import { AIModelType } from "@prisma/client";
 import { SecretsService } from "../secrets/secrets.service";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 /**
  * 管理员控制器
@@ -1392,7 +1393,7 @@ export class AdminController {
               headers: {
                 Authorization: `Bearer ${apiKey}`,
                 "Content-Type": "application/json",
-                "User-Agent": "DeepDive-Engine/1.0",
+                "User-Agent": APP_CONFIG.brand.userAgent,
               },
             },
           );

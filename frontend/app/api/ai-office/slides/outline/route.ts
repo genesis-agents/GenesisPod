@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { logger } from '@/lib/utils/logger';
+import { config } from '@/lib/utils/config';
+
 // 后端 API URL
-const BACKEND_API_URL =
-  process.env.BACKEND_API_URL ||
-  'https://deepdive-engine.up.railway.app/api/v1';
+const API_BASE_URL = config.getBackendUrl() + '/api/v1';
 
 // Vercel Serverless Function 配置
 // Pro plan 支持最多 300 秒，设置为 180 秒以支持长时间 AI 生成
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     logger.debug('[Slides Outline] prompt:', body.prompt?.slice(0, 100));
     logger.debug('[Slides Outline] slideCount:', body.slideCount);
 
-    const backendUrl = `${BACKEND_API_URL}/ai-office/slides/outline`;
+    const backendUrl = `${API_BASE_URL}/ai-office/slides/outline`;
 
     // 创建 AbortController 用于超时控制（2 分钟）
     const controller = new AbortController();

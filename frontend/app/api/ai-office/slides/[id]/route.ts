@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { logger } from '@/lib/utils/logger';
+import { config } from '@/lib/utils/config';
+
 // 后端 API URL
-const BACKEND_API_URL =
-  process.env.BACKEND_API_URL ||
-  'https://deepdive-engine.up.railway.app/api/v1';
+const API_BASE_URL = config.getBackendUrl() + '/api/v1';
 
 /**
  * 获取 Slides 文档
@@ -16,7 +16,7 @@ export async function GET(
   const { id } = params;
 
   try {
-    const response = await fetch(`${BACKEND_API_URL}/ai-office/slides/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/ai-office/slides/${id}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -51,7 +51,7 @@ export async function DELETE(
   const { id } = params;
 
   try {
-    const response = await fetch(`${BACKEND_API_URL}/ai-office/slides/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/ai-office/slides/${id}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

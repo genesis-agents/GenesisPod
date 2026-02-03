@@ -391,8 +391,8 @@ export default function NotionTabContent() {
           Connect your Notion workspace
         </h3>
         <p className="mt-1 max-w-md text-center text-gray-500">
-          Sync your Notion pages and databases to DeepDive. Your notes will
-          appear here after connecting.
+          Sync your Notion pages and databases to Raven. Your notes will appear
+          here after connecting.
         </p>
         <button
           onClick={handleConnect}

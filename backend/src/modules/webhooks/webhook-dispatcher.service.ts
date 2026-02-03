@@ -6,6 +6,7 @@
 
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma/prisma.service";
+import { APP_CONFIG } from "../../common/config/app.config";
 import {
   WebhookEventType,
   WebhookDeliveryStatus,
@@ -210,7 +211,7 @@ export class WebhookDispatcherService implements OnModuleInit {
           "X-Webhook-Signature": signature,
           "X-Webhook-Event": payload.eventType,
           "X-Webhook-Delivery": payload.eventId,
-          "User-Agent": "DeepDive-Webhook/1.0",
+          "User-Agent": APP_CONFIG.brand.webhookUserAgent,
         },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(subscription.timeoutMs),

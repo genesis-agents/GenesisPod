@@ -14,6 +14,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Octokit } from "@octokit/rest";
 import type { TriageDecision } from "../triage/triage-decision.types";
+import { APP_CONFIG } from "../../../../common/config/app.config";
 
 interface CreateIssueResult {
   success: boolean;
@@ -22,9 +23,9 @@ interface CreateIssueResult {
   error?: string;
 }
 
-// 默认值（从 git remote origin 解析: https://github.com/JUNJIE-DUAN/deepdive-engine.git）
-const DEFAULT_GITHUB_OWNER = "JUNJIE-DUAN";
-const DEFAULT_GITHUB_REPO = "deepdive-engine";
+// 默认值从 APP_CONFIG 获取
+const DEFAULT_GITHUB_OWNER = APP_CONFIG.github.owner;
+const DEFAULT_GITHUB_REPO = APP_CONFIG.github.repo;
 
 @Injectable()
 export class GitHubIssueService {

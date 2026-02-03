@@ -13,6 +13,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import { NotificationService } from "../notifications/notification.service";
 import { NotificationTypeDto } from "../notifications/dto/notification.dto";
+import { APP_CONFIG } from "../../../common/config/app.config";
 import {
   GitCommit,
   GitChangeStats,
@@ -160,7 +161,7 @@ export class ReleaseService {
     }
 
     // 构建 AI prompt
-    const prompt = `你是一个技术产品经理，需要为 DeepDive Engine 生成面向用户的发布说明。
+    const prompt = `你是一个技术产品经理，需要为 ${APP_CONFIG.brand.fullName} 生成面向用户的发布说明。
 
 ## 版本信息
 - 从版本: ${releaseInfo.fromVersion}
@@ -323,7 +324,7 @@ ${Object.entries(commitsByType)
       const result = await this.notificationService.batchCreateNotifications({
         userIds,
         type: NotificationTypeDto.UPDATE,
-        title: `DeepDive ${releaseNotes.version} 发布`,
+        title: `${APP_CONFIG.brand.name} ${releaseNotes.version} 发布`,
         message: releaseNotes.summary,
         actionUrl: "/changelog",
         actionLabel: "查看更新",

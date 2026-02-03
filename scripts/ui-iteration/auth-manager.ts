@@ -10,18 +10,18 @@ export interface AuthConfig {
 // The frontend proxies API calls, so we need to call the backend directly
 const BACKEND_API_URL =
   process.env.UI_PATROL_BACKEND_URL ||
-  "https://deepdive-engine-backend.up.railway.app";
+  "https://raven-ai-engine-backend.up.railway.app";
 
 function getAuthProfiles(): Record<string, AuthConfig> {
   return {
     demo: {
       baseUrl: BACKEND_API_URL,
-      email: process.env.UI_PATROL_DEMO_EMAIL || "demo@deepdive.ai",
+      email: process.env.UI_PATROL_DEMO_EMAIL || "demo@raven.ai",
       password: process.env.UI_PATROL_DEMO_PASSWORD || "demo123456",
     },
     admin: {
       baseUrl: BACKEND_API_URL,
-      email: process.env.UI_PATROL_ADMIN_EMAIL || "admin@deepdive.ai",
+      email: process.env.UI_PATROL_ADMIN_EMAIL || "admin@raven.ai",
       password: process.env.UI_PATROL_ADMIN_PASSWORD || "admin123456",
     },
   };
@@ -112,7 +112,7 @@ export async function injectAuth(
   // Navigate to the target domain first to access its localStorage
   const domain = targetUrl
     ? new URL(targetUrl).origin
-    : "https://deepdive-engine.up.railway.app";
+    : "https://raven-ai-engine.up.railway.app";
 
   await page.goto(domain, { waitUntil: "domcontentloaded" });
 
@@ -120,8 +120,8 @@ export async function injectAuth(
   // Frontend requires BOTH to recognize logged-in state (see AuthContext.tsx line 43)
   await page.evaluate(
     (data: { tokens: AuthTokens; user: Record<string, unknown> }) => {
-      localStorage.setItem("deepdive_auth_tokens", JSON.stringify(data.tokens));
-      localStorage.setItem("deepdive_user", JSON.stringify(data.user));
+      localStorage.setItem("raven_auth_tokens", JSON.stringify(data.tokens));
+      localStorage.setItem("raven_user", JSON.stringify(data.user));
     },
     {
       tokens: {

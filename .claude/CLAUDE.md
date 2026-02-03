@@ -1,23 +1,23 @@
-# DeepDive Engine - Claude Code 配置
+# Raven AI Engine - Claude Code 配置
 
 > AI 助手行为配置，指导 Claude Code 在本项目中的决策和行为。
 
 ## 项目概述
 
-**DeepDive Engine** - 企业级 AI 深度研究和内容管理平台。
+**Raven AI Engine** - 企业级 AI 深度研究和内容管理平台。
 
 ### 核心模块
 
-| 模块          | 描述                       | 路径                                          |
-| ------------- | -------------------------- | --------------------------------------------- |
-| AI Research   | 深度研究，多步骤规划和报告 | `backend/src/modules/ai-app/research/`        |
-| AI Teams      | 多 Agent 协作，辩论碰撞    | `backend/src/modules/ai-app/teams/`           |
-| AI Office     | 文档/PPT/设计生成          | `backend/src/modules/ai-app/office/`          |
-| AI Ask        | 智能问答，多模型切换       | `backend/src/modules/ai-app/ask/`             |
-| AI Coding     | AI 编程助手，代码生成      | `backend/src/modules/ai-app/coding/`          |
-| AI Writing    | AI 写作助手，长文本创作    | `backend/src/modules/ai-app/writing/`         |
-| AI Social     | AI 社交内容生成            | `backend/src/modules/ai-app/social/`          |
-| Library       | 资源库，内容管理           | `backend/src/modules/content/resources/`      |
+| 模块        | 描述                       | 路径                                     |
+| ----------- | -------------------------- | ---------------------------------------- |
+| AI Research | 深度研究，多步骤规划和报告 | `backend/src/modules/ai-app/research/`   |
+| AI Teams    | 多 Agent 协作，辩论碰撞    | `backend/src/modules/ai-app/teams/`      |
+| AI Office   | 文档/PPT/设计生成          | `backend/src/modules/ai-app/office/`     |
+| AI Ask      | 智能问答，多模型切换       | `backend/src/modules/ai-app/ask/`        |
+| AI Coding   | AI 编程助手，代码生成      | `backend/src/modules/ai-app/coding/`     |
+| AI Writing  | AI 写作助手，长文本创作    | `backend/src/modules/ai-app/writing/`    |
+| AI Social   | AI 社交内容生成            | `backend/src/modules/ai-app/social/`     |
+| Library     | 资源库，内容管理           | `backend/src/modules/content/resources/` |
 
 ### 技术栈
 

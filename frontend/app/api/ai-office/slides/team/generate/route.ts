@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 
 import { logger } from '@/lib/utils/logger';
+import { config } from '@/lib/utils/config';
+
 /**
  * Slides Team 生成 API 代理
  *
@@ -9,9 +11,7 @@ import { logger } from '@/lib/utils/logger';
  */
 
 // 后端 API URL
-const BACKEND_API_URL =
-  process.env.BACKEND_API_URL ||
-  'https://deepdive-engine.up.railway.app/api/v1';
+const API_BASE_URL = config.getBackendUrl() + '/api/v1';
 
 // 设置更长的超时时间以支持长时间的 Slides 生成
 // Railway Pro plan 支持最多 300 秒
@@ -20,7 +20,7 @@ export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   // 构建后端 URL - no longer need userId in query params
-  const backendUrl = `${BACKEND_API_URL}/ai-office/slides/team/generate`;
+  const backendUrl = `${API_BASE_URL}/ai-office/slides/team/generate`;
 
   logger.debug('[Slides Team Generate] Proxying to:', backendUrl);
 

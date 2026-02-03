@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { GoogleDriveFileService } from "./google-drive-file.service";
 import { ExportResourcesDto, ExportFormat } from "../dto/google-drive.dto";
+import { APP_CONFIG } from "../../../../common/config/app.config";
 
 // Google Drive sync status and action
 const GoogleDriveSyncAction = {
@@ -64,7 +65,7 @@ export class GoogleDriveExportService {
         const folder = await this.fileService.createFolder(
           userId,
           undefined,
-          "DeepDive Exports",
+          `${APP_CONFIG.brand.name} Exports`,
         );
         targetFolderId = folder.id;
         this.logger.log(`Created export folder: ${folder.id}`);

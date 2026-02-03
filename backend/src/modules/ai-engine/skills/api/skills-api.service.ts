@@ -7,6 +7,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { APP_CONFIG } from "../../../../common/config/app.config";
 
 export interface SkillItem {
   id: string;
@@ -329,7 +330,7 @@ export class SkillsApiService {
                 headers: {
                   Authorization: `Bearer ${apiKey}`,
                   "Content-Type": "application/json",
-                  "User-Agent": "DeepDive-Engine/1.0",
+                  "User-Agent": APP_CONFIG.brand.userAgent,
                   Accept: "application/json",
                 },
               });

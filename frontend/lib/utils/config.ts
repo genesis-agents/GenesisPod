@@ -1,11 +1,16 @@
 /**
  * 应用配置
- * 统一管理环境变量和配置
+ * ★ 统一管理环境变量、品牌名称、URL 等配置
  */
 
-// Railway 生产环境后端 URL (仅用于服务端渲染时调用)
-// 浏览器端请求通过 Next.js rewrites 代理，使用相对 URL
-const RAILWAY_BACKEND_URL = 'https://deepdive-engine-backend.up.railway.app';
+// ==================== 核心品牌配置（唯一定义处）====================
+const BRAND_NAME = 'Raven';
+const BRAND_FULL_NAME = 'Raven AI Engine';
+const RAILWAY_DOMAIN = 'raven-ai-engine';
+
+// ==================== Railway URL 配置 ====================
+const RAILWAY_FRONTEND_URL = `https://${RAILWAY_DOMAIN}.up.railway.app`;
+const RAILWAY_BACKEND_URL = `https://${RAILWAY_DOMAIN}-backend.up.railway.app`;
 
 // 检测是否在浏览器环境
 const isBrowser = () => typeof window !== 'undefined';
@@ -42,6 +47,27 @@ const getApiBaseUrl = () => {
 };
 
 export const config = {
+  // ==================== 品牌信息 ====================
+  brand: {
+    /** 品牌简称 */
+    name: BRAND_NAME,
+    /** 品牌全称 */
+    fullName: BRAND_FULL_NAME,
+    /** HTTP User-Agent */
+    userAgent: `${BRAND_NAME}-AI-Engine/1.0`,
+  },
+
+  // ==================== Railway URL 配置 ====================
+  railway: {
+    /** Railway 域名前缀 */
+    domain: RAILWAY_DOMAIN,
+    /** 前端 Railway URL */
+    frontendUrl: RAILWAY_FRONTEND_URL,
+    /** 后端 Railway URL */
+    backendUrl: RAILWAY_BACKEND_URL,
+  },
+
+  // ==================== API 配置 ====================
   /**
    * API版本
    */
@@ -63,6 +89,22 @@ export const config = {
     return `${this.apiBaseUrl}/api/${this.apiVersion}`;
   },
 
+  /**
+   * 获取后端 API URL（用于服务端调用）
+   * 优先使用环境变量，否则使用 Railway 默认值
+   */
+  getBackendUrl(): string {
+    return process.env.NEXT_PUBLIC_API_URL || RAILWAY_BACKEND_URL;
+  },
+
+  /**
+   * 获取完整 API 路径
+   */
+  getApiPath(path: string): string {
+    return `${this.getBackendUrl()}/api/v1${path}`;
+  },
+
+  // ==================== 环境配置 ====================
   /**
    * Workspace AI v2 开启状态
    */
@@ -94,6 +136,14 @@ export const config = {
   },
 
   /**
+   * 是否 Railway 环境
+   */
+  get isRailway() {
+    return isRailwayProduction();
+  },
+
+  // ==================== 构建信息 ====================
+  /**
    * Git commit hash (构建时注入)
    */
   gitCommitHash: process.env.NEXT_PUBLIC_GIT_COMMIT_HASH || 'dev',
@@ -108,3 +158,7 @@ export const config = {
    */
   buildTime: process.env.NEXT_PUBLIC_BUILD_TIME || new Date().toISOString(),
 } as const;
+
+// 导出便捷常量
+export const BRAND = config.brand;
+export const RAILWAY_URLS = config.railway;

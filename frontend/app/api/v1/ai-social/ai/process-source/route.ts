@@ -9,12 +9,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { logger } from '@/lib/utils/logger';
+import { config } from '@/lib/utils/config';
+
 // Extend Next.js serverless function timeout (Vercel/Railway)
 export const maxDuration = 120; // 2 minutes
 
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  'https://deepdive-engine-backend.up.railway.app';
+const BACKEND_URL = config.getBackendUrl();
 
 export async function POST(request: NextRequest) {
   try {

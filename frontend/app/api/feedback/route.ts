@@ -1,27 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { logger } from '@/lib/utils/logger';
+import { config } from '@/lib/utils/config';
+
 const GITHUB_ISSUES_URL =
   'https://github.com/JUNJIE-DUAN/deepdive-engine/issues';
-
-// Get backend URL - same logic as config.ts
-const getBackendUrl = () => {
-  // 1. Use environment variable if set
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
-  // 2. Railway production uses hardcoded URL
-  if (process.env.RAILWAY_ENVIRONMENT === 'production') {
-    return 'https://deepdive-engine-backend.up.railway.app';
-  }
-  // 3. Development default
-  return 'http://localhost:4000';
-};
 
 export async function POST(request: NextRequest) {
   try {
     const contentType = request.headers.get('content-type') || '';
-    const backendUrl = getBackendUrl();
+    const backendUrl = config.getBackendUrl();
 
     // Handle multipart form data (with file uploads)
     if (contentType.includes('multipart/form-data')) {

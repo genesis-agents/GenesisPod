@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 
 import { logger } from '@/lib/utils/logger';
+import { config } from '@/lib/utils/config';
+
 // 后端 API URL
-const BACKEND_API_URL =
-  process.env.BACKEND_API_URL ||
-  'https://deepdive-engine.up.railway.app/api/v1';
+const API_BASE_URL = config.getBackendUrl() + '/api/v1';
 
 /**
  * 获取可用主题列表
@@ -12,7 +12,7 @@ const BACKEND_API_URL =
 export async function GET() {
   try {
     const response = await fetch(
-      `${BACKEND_API_URL}/ai-office/slides/themes/list`,
+      `${API_BASE_URL}/ai-office/slides/themes/list`,
       {
         method: 'GET',
         headers: {

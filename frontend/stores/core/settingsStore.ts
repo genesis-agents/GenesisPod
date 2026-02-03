@@ -73,9 +73,9 @@ const DEFAULT_AI_FEATURES: AIFeatureSettings = {
 const INITIAL_NOTIFICATIONS: Omit<Notification, 'id' | 'timestamp'>[] = [
   {
     type: 'update',
-    title: 'DeepDive v1.0 Released',
+    title: 'Raven v1.0 Released',
     message:
-      'Welcome to DeepDive! Explore AI-powered research tools including AI Office, AI Teams, and more.',
+      'Welcome to Raven! Explore AI-powered research tools including AI Office, AI Teams, and more.',
     read: false,
     actionUrl: '/',
     persistent: true,

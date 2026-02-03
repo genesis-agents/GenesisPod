@@ -15,6 +15,7 @@ import { ConfigService } from "@nestjs/config";
 import { SimilarityMatcherService } from "./similarity-matcher.service";
 import { ScreenshotAnalyzerService } from "../analyzer/screenshot-analyzer.service";
 import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { APP_CONFIG } from "../../../../common/config/app.config";
 import {
   TriageInput,
   TriageDecision,
@@ -33,11 +34,11 @@ import {
 // Prompts
 // ============================================
 
-const TRIAGE_SYSTEM_PROMPT = `你是 DeepDive Engine 的反馈分诊专家（Triage Agent）。
+const TRIAGE_SYSTEM_PROMPT = `你是 ${APP_CONFIG.brand.fullName} 的反馈分诊专家（Triage Agent）。
 
 你的职责是分析用户提交的反馈，判断其合理性，并决定最佳处理方式。
 
-## DeepDive Engine 模块说明
+## ${APP_CONFIG.brand.fullName} 模块说明
 - ai-office/ppt: PPT 生成和编辑
 - ai-office/doc: 文档生成
 - ai-ask: 智能问答

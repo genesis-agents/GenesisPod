@@ -11,6 +11,7 @@ import {
   ResourceManagementService,
   StatisticsService,
 } from "./services";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 type ExternalProvider = {
   id: string;
@@ -2344,9 +2345,9 @@ export class AdminService {
         await transporter.sendMail({
           from: from || user,
           to: adminEmail,
-          subject: "DeepDive SMTP Test",
-          text: "This is a test email from DeepDive. SMTP is configured correctly!",
-          html: "<p>This is a test email from DeepDive. <strong>SMTP is configured correctly!</strong></p>",
+          subject: "${APP_CONFIG.brand.name} SMTP Test",
+          text: "This is a test email from ${APP_CONFIG.brand.name}. SMTP is configured correctly!",
+          html: "<p>This is a test email from ${APP_CONFIG.brand.name}. <strong>SMTP is configured correctly!</strong></p>",
         });
         return {
           success: true,
@@ -2403,7 +2404,7 @@ export class AdminService {
     return {
       provider: provider || process.env.EMAIL_PROVIDER || "smtp",
       enabled: enabled === "true" || enabled === true || envEnabled,
-      from: from || process.env.EMAIL_FROM || "DeepDive <noreply@deepdive.ai>",
+      from: from || process.env.EMAIL_FROM || "${APP_CONFIG.brand.emailFrom}",
       adminEmail: adminEmail || envAdminEmail || null,
       host: host || process.env.SMTP_HOST || null,
       port: parseInt(port || process.env.SMTP_PORT || "587"),
@@ -2534,7 +2535,7 @@ export class AdminService {
     const from =
       (await this.getSetting("email_from")) ||
       process.env.EMAIL_FROM ||
-      "DeepDive <noreply@deepdive.ai>";
+      "${APP_CONFIG.brand.emailFrom}";
 
     if (!adminEmail) {
       return {
@@ -2563,8 +2564,8 @@ export class AdminService {
         await resend.emails.send({
           from: from,
           to: adminEmail,
-          subject: "DeepDive Email Test",
-          html: "<p>This is a test email from DeepDive. <strong>Resend is configured correctly!</strong></p>",
+          subject: "${APP_CONFIG.brand.name} Email Test",
+          html: "<p>This is a test email from ${APP_CONFIG.brand.name}. <strong>Resend is configured correctly!</strong></p>",
         });
 
         return {
@@ -2611,8 +2612,8 @@ export class AdminService {
         await transporter.sendMail({
           from: from,
           to: adminEmail,
-          subject: "DeepDive Email Test",
-          html: "<p>This is a test email from DeepDive. <strong>SMTP is configured correctly!</strong></p>",
+          subject: "${APP_CONFIG.brand.name} Email Test",
+          html: "<p>This is a test email from ${APP_CONFIG.brand.name}. <strong>SMTP is configured correctly!</strong></p>",
         });
 
         return {
@@ -2650,7 +2651,7 @@ export class AdminService {
     ]);
 
     return {
-      siteName: siteName || "DeepDive",
+      siteName: siteName || APP_CONFIG.brand.siteName,
       siteDescription: siteDescription || "AI-powered research platform",
       maintenanceMode: maintenanceMode === true,
       maintenanceMessage: maintenanceMessage || "System is under maintenance",

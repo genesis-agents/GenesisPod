@@ -1,6 +1,6 @@
 # UI Patrol Configuration
 # Base URL for all patrol routes
-baseUrl: https://deepdive-engine.up.railway.app
+baseUrl: https://raven-ai-engine.up.railway.app
 
 # Authentication
 auth:
