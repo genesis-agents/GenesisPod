@@ -24,6 +24,26 @@ i18n_assertions:
   - "My Teams"
   - "Create"
 
+quality:
+  completeness:
+    - "Team cards show name and member info"
+    - "Empty state has create prompt"
+  accuracy:
+    - "Member counts are non-negative integers"
+  aesthetics:
+    - "Cards uniform height in grid"
+    - "Dark mode supported"
+  interaction:
+    - "Create button opens team creation flow"
+    - "Cards clickable to team detail"
+    - "Loading state during fetch"
+  accessibility:
+    - "Cards keyboard navigable"
+  responsive:
+    - "Grid stacks on mobile"
+  performance:
+    - "List renders without layout shift"
+
 forbidden:
   - "[object Object]"
   - "undefined"

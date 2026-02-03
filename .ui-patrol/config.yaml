@@ -27,6 +27,94 @@ forbidden:
   - "Cannot read properties"
   - "is not a function"
 
+# ============================================================
+# Content Quality Assessment (7 Levels)
+# ============================================================
+quality:
+  # Level 1 - 内容完整性
+  completeness:
+    enabled: true
+    checks:
+      - no_empty_pages: "页面不能为空白或仅有骨架屏"
+      - no_broken_images: "图片不能 broken (src 404 / alt 文字裸露)"
+      - data_rendered: "列表/卡片/表格有实际数据渲染，非仅占位符"
+      - empty_state_friendly: "空数据时显示友好空状态提示，非空白"
+
+  # Level 2 - 内容准确性
+  accuracy:
+    enabled: true
+    checks:
+      - timestamp_format: "时间戳格式正确 (非 Invalid Date / NaN / Unix 毫秒原始值)"
+      - numbers_reasonable: "数字合理显示 (非 NaN / Infinity / -1 / 异常大数)"
+      - status_labels_match: "状态标签与实际状态匹配 (active/completed/failed)"
+      - links_valid: "内部链接可点击且不指向 404"
+
+  # Level 3 - 视觉/美学质量
+  aesthetics:
+    enabled: true
+    checks:
+      - alignment_consistent: "元素对齐一致，无明显错位"
+      - spacing_uniform: "间距均匀，无拥挤或过度留白"
+      - color_scheme: "颜色符合设计规范，无刺眼配色"
+      - dark_mode: "暗色模式下文字可读、背景正确、无白色闪烁"
+      - icon_text_align: "图标与文字垂直居中对齐"
+      - card_height_consistent: "同一行卡片高度一致"
+      - font_consistency: "字体大小/粗细层级合理 (h1 > h2 > body)"
+      - no_text_overflow: "文字不溢出容器、不被截断（除非有 tooltip）"
+      - no_horizontal_scroll: "页面无意外水平滚动条"
+
+  # Level 4 - 交互体验
+  interaction:
+    enabled: true
+    checks:
+      - loading_state: "异步操作有 loading 状态 (spinner / skeleton / progress)"
+      - empty_state: "空数据有引导性空状态 (图标 + 文案 + 操作按钮)"
+      - error_state: "错误有友好提示，非原始错误堆栈"
+      - button_feedback: "按钮点击后有视觉反馈 (disabled / loading / 颜色变化)"
+      - form_validation: "表单校验有即时提示，错误字段高亮"
+      - toast_notification: "操作成功/失败有 toast 通知"
+      - confirm_destructive: "删除等破坏性操作有确认弹窗"
+      - keyboard_shortcuts: "常用操作支持键盘快捷键（如 Esc 关闭弹窗）"
+
+  # Level 5 - 可访问性 (a11y)
+  accessibility:
+    enabled: true
+    checks:
+      - color_contrast: "文字与背景对比度 >= 4.5:1 (WCAG AA)"
+      - keyboard_navigation: "所有交互元素可通过 Tab 键到达"
+      - focus_visible: "键盘聚焦元素有可见焦点环"
+      - aria_labels: "图标按钮、图片有 aria-label 或 alt 文本"
+      - semantic_html: "使用语义化标签 (nav/main/section/button 非 div click)"
+      - screen_reader: "关键内容对屏幕阅读器友好"
+
+  # Level 6 - 响应式 & 兼容性
+  responsive:
+    enabled: true
+    viewports:
+      - { name: mobile, width: 375, height: 812 }
+      - { name: tablet, width: 768, height: 1024 }
+      - { name: desktop, width: 1920, height: 1080 }
+    checks:
+      - layout_adapts: "布局在不同分辨率下合理适配，无重叠"
+      - touch_targets: "移动端点击目标 >= 44x44px"
+      - no_overflow: "内容不超出视口，无意外滚动"
+      - navigation_accessible: "移动端导航可达 (hamburger menu / bottom nav)"
+      - images_responsive: "图片自适应容器，不变形不溢出"
+
+  # Level 7 - 性能体验
+  performance:
+    enabled: true
+    thresholds:
+      first_contentful_paint: 2000 # ms
+      largest_contentful_paint: 4000 # ms
+      cumulative_layout_shift: 0.1
+      time_to_interactive: 5000 # ms
+    checks:
+      - no_layout_shift: "页面加载无明显布局抖动 (CLS < 0.1)"
+      - scroll_smooth: "长列表滚动流畅，无卡顿 (60fps)"
+      - lazy_load: "图片/长列表支持懒加载，非一次性全量渲染"
+      - no_memory_leak: "重复操作无明显内存增长"
+
 # i18n patrol: check for untranslated Chinese when in English mode
 i18n:
   enabled: true

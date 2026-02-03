@@ -21,6 +21,27 @@ i18n_assertions:
   - "Create"
   - "pages"
 
+quality:
+  completeness:
+    - "Document/slide list renders with titles and dates"
+    - "Each item has page count and actions"
+  accuracy:
+    - "Page counts are positive integers"
+    - "Dates formatted correctly"
+  aesthetics:
+    - "List items have consistent layout"
+    - "Dark mode supported"
+  interaction:
+    - "Create button opens creation flow"
+    - "Items clickable to detail view"
+    - "Loading skeleton on fetch"
+  accessibility:
+    - "List items keyboard navigable"
+  responsive:
+    - "List adapts to mobile width"
+  performance:
+    - "Document thumbnails lazy-loaded"
+
 forbidden:
   - "[object Object]"
   - "undefined"

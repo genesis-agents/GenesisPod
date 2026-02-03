@@ -17,6 +17,24 @@ sub_routes:
       main:
         - image_display: "shared image view"
 
+quality:
+  completeness:
+    - "Shared content renders (not blank or error)"
+    - "No login prompt shown (public pages)"
+  accuracy:
+    - "Content matches the shared item"
+  aesthetics:
+    - "Clean read-only layout without editing controls"
+    - "Dark mode supported"
+  interaction:
+    - "Invalid share ID shows friendly 404 (not raw error)"
+  accessibility:
+    - "Content readable with proper heading hierarchy"
+  responsive:
+    - "Content adapts to mobile"
+  performance:
+    - "Page loads without auth delay"
+
 forbidden:
   - "[object Object]"
   - "undefined"

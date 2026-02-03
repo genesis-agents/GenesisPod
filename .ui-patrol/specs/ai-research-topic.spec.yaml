@@ -134,13 +134,70 @@ i18n_assertions:
     - "Completed"
     - "Idle"
 
-# Aesthetic checks
-aesthetic:
-  - "Score labels should not wrap to multiple lines"
-  - "Research Depth buttons should fit on one line without wrapping"
-  - "Tab names should be fully visible without truncation"
-  - "Source distribution bar legend should wrap gracefully"
-  - "Star ratings should align horizontally"
+# ============================================================
+# Quality Assessment (all 7 levels)
+# ============================================================
+quality:
+  # L1 - 内容完整性
+  completeness:
+    - "6 tabs all render content (not blank)"
+    - "Score circle displays a number (not empty/NaN)"
+    - "Task table has rows with data"
+    - "Reference list shows actual sources"
+    - "History has session cards with dates"
+    - "Agent visualization nodes are rendered"
+
+  # L2 - 内容准确性
+  accuracy:
+    - "Session dates are valid (not Invalid Date)"
+    - "Progress percentage is 0-100"
+    - "Credibility scores are 0-100"
+    - "Task status matches badge color (green=completed, yellow=running)"
+    - "Source count matches sum of High+Medium+Low"
+
+  # L3 - 视觉/美学
+  aesthetics:
+    - "Score labels should not wrap to multiple lines"
+    - "Research Depth buttons should fit on one line without wrapping"
+    - "Tab names should be fully visible without truncation"
+    - "Source distribution bar legend should wrap gracefully"
+    - "Star ratings should align horizontally"
+    - "Left and right panels have balanced width ratio"
+    - "Dark mode: all text readable, no white flash on load"
+    - "Card shadows and borders consistent across sections"
+    - "Icons vertically aligned with adjacent text"
+
+  # L4 - 交互体验
+  interaction:
+    - "Clicking tab switches content with smooth transition"
+    - "Start/Update/Cancel buttons show loading state during API call"
+    - "Recalculate shows progress indicator"
+    - "Collapsible sections animate open/close"
+    - "Empty task list shows friendly empty state"
+    - "Error loading data shows retry option"
+    - "Input box supports Enter to send, Shift+Enter for newline"
+
+  # L5 - 可访问性
+  accessibility:
+    - "All tabs reachable via keyboard"
+    - "Score circle has aria-label with numeric value"
+    - "Action buttons have descriptive aria-labels"
+    - "Color is not the only indicator of status (icons/text supplement)"
+    - "Focus ring visible on interactive elements"
+
+  # L6 - 响应式
+  responsive:
+    - "At 768px: left panel collapses or stacks above right panel"
+    - "At 375px: tabs become scrollable, not truncated"
+    - "Score panel adapts to narrow width without overflow"
+    - "Task table becomes card layout on mobile"
+
+  # L7 - 性能
+  performance:
+    - "Tab switching < 300ms perceived"
+    - "Initial page load shows skeleton within 1s"
+    - "Large reference lists paginated or virtualized"
+    - "No layout shift when scores load asynchronously"
 
 forbidden:
   - "[object Object]"

@@ -21,6 +21,27 @@ i18n_assertions:
   - "Submit"
   - "History"
 
+quality:
+  completeness:
+    - "Form textarea, category selector, submit button all present"
+    - "History page shows past feedback or empty state"
+  accuracy:
+    - "Category options match valid types"
+    - "History dates formatted correctly"
+  aesthetics:
+    - "Form layout centered and balanced"
+    - "Dark mode supported"
+  interaction:
+    - "Submit shows loading and success toast"
+    - "Form validation on empty submission"
+  accessibility:
+    - "Form fields have labels"
+    - "Submit button not disabled without reason"
+  responsive:
+    - "Form adapts to mobile width"
+  performance:
+    - "Form submission responsive"
+
 forbidden:
   - "[object Object]"
   - "undefined"
