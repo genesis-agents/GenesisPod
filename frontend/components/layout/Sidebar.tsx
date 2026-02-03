@@ -15,7 +15,7 @@ function SidebarToggleIcon({
   state: 'expanded' | 'collapsed' | 'pinned';
 }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
       {/* Outer frame */}
       <rect
         x="3"
