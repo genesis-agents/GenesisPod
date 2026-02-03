@@ -8,14 +8,18 @@ import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 
-// Sidebar Panel Toggle Icon - ChatGPT style (left narrow, right wide)
+// Sidebar Panel Toggle Icon - left narrow, right wide
+// Fill shows current visible state: expanded = right filled, collapsed = left filled
 function SidebarToggleIcon({
   state,
 }: {
   state: 'expanded' | 'collapsed' | 'pinned';
 }) {
+  // When expanded/pinned: right (content area) is visible, so fill right
+  // When collapsed: left (sidebar) is minimized, so fill left
+  const isExpanded = state === 'expanded' || state === 'pinned';
   return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-7">
       {/* Outer frame */}
       <rect
         x="3"
@@ -27,29 +31,28 @@ function SidebarToggleIcon({
         strokeWidth="1.5"
         fill="none"
       />
-      {/* Left narrow panel */}
+      {/* Left narrow panel - fill when collapsed */}
       <rect
         x="3"
         y="3"
         width="6"
         height="18"
         rx="2"
-        fill={state === 'collapsed' ? 'currentColor' : 'none'}
+        fill={!isExpanded ? '#6b7280' : 'none'}
         stroke="currentColor"
         strokeWidth="1.5"
       />
-      {/* Right wide panel - only fill when pinned */}
-      {state === 'pinned' && (
-        <rect
-          x="9"
-          y="3"
-          width="12"
-          height="18"
-          rx="2"
-          fill="currentColor"
-          fillOpacity="0.3"
-        />
-      )}
+      {/* Right wide panel - fill when expanded */}
+      <rect
+        x="9"
+        y="3"
+        width="12"
+        height="18"
+        rx="2"
+        fill={isExpanded ? '#9ca3af' : 'none'}
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }
@@ -224,7 +227,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
               />
             </svg>
             {/* Hover: Show Toggle icon */}
-            <span className="absolute text-red-500 opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:opacity-100">
+            <span className="absolute text-gray-600 opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:opacity-100">
               <SidebarToggleIcon state={sidebarState} />
             </span>
           </button>
@@ -336,7 +339,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         {showExpanded && (
           <button
             onClick={handleToggle}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition-colors hover:bg-red-50 hover:text-red-600"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
             title={
               sidebarState === 'pinned' ? 'Unpin sidebar' : 'Collapse sidebar'
             }

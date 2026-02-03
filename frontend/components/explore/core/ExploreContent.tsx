@@ -72,14 +72,18 @@ import { useI18n } from '@/lib/i18n/i18n-context';
 
 import { logger } from '@/lib/utils/logger';
 
-// Right Panel Toggle Icon - ChatGPT style (left wide, right narrow for right panel)
+// Right Panel Toggle Icon - left wide, right narrow
+// Fill shows current visible state: expanded = left filled, collapsed = right filled
 function RightPanelToggleIcon({
   state,
 }: {
   state: 'expanded' | 'collapsed' | 'pinned';
 }) {
+  // When expanded/pinned: left (content area) is visible, so fill left
+  // When collapsed: right (AI panel) is minimized, so fill right
+  const isExpanded = state === 'expanded' || state === 'pinned';
   return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-7">
       {/* Outer frame */}
       <rect
         x="3"
@@ -91,29 +95,28 @@ function RightPanelToggleIcon({
         strokeWidth="1.5"
         fill="none"
       />
-      {/* Right narrow panel */}
+      {/* Left wide panel - fill when expanded */}
+      <rect
+        x="3"
+        y="3"
+        width="12"
+        height="18"
+        rx="2"
+        fill={isExpanded ? '#9ca3af' : 'none'}
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      {/* Right narrow panel - fill when collapsed */}
       <rect
         x="15"
         y="3"
         width="6"
         height="18"
         rx="2"
-        fill={state === 'collapsed' ? 'currentColor' : 'none'}
+        fill={!isExpanded ? '#6b7280' : 'none'}
         stroke="currentColor"
         strokeWidth="1.5"
       />
-      {/* Left wide panel - only fill when pinned */}
-      {state === 'pinned' && (
-        <rect
-          x="3"
-          y="3"
-          width="12"
-          height="18"
-          rx="2"
-          fill="currentColor"
-          fillOpacity="0.3"
-        />
-      )}
     </svg>
   );
 }
@@ -207,8 +210,8 @@ function HomeContent() {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizingPanel) return;
       const newWidth = window.innerWidth - e.clientX;
-      // Constrain between 320px and 600px
-      setAiPanelWidth(Math.min(600, Math.max(320, newWidth)));
+      // Constrain between 320px and 900px (allows wider AI panel)
+      setAiPanelWidth(Math.min(900, Math.max(320, newWidth)));
     };
 
     const handleMouseUp = () => {
@@ -2638,7 +2641,7 @@ function HomeContent() {
               <button
                 type="button"
                 onClick={handleAiPanelToggle}
-                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 hover:shadow-sm"
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 hover:shadow-sm"
                 aria-label={
                   aiPanelState === 'expanded'
                     ? '收起 AI 助手面板'
@@ -3536,11 +3539,11 @@ function HomeContent() {
           <button
             type="button"
             onClick={() => setAiPanelState('expanded')}
-            className="flex h-full w-12 flex-col items-center border-l border-red-100 bg-gradient-to-b from-red-50 to-white pt-3 text-red-500 transition-all duration-200 hover:w-14 hover:border-red-200 hover:from-red-100 hover:text-red-600 hover:shadow-lg"
+            className="flex h-full w-12 flex-col items-center border-l border-gray-200 bg-gradient-to-b from-gray-50 to-white pt-3 text-gray-500 transition-all duration-200 hover:w-14 hover:border-gray-300 hover:from-gray-100 hover:text-gray-700 hover:shadow-lg"
             aria-label="展开 AI 助手面板"
           >
             {/* Toggle icon */}
-            <div className="mb-3 rounded-lg bg-white p-1.5 shadow-sm ring-1 ring-red-100 transition-all group-hover:bg-red-50 group-hover:ring-red-200">
+            <div className="mb-3 rounded-lg bg-white p-1.5 shadow-sm ring-1 ring-gray-200 transition-all group-hover:bg-gray-50 group-hover:ring-gray-300">
               <RightPanelToggleIcon state="collapsed" />
             </div>
             {/* Vertical text */}
@@ -3549,9 +3552,9 @@ function HomeContent() {
             </span>
             {/* Subtle indicator dots */}
             <div className="mb-4 mt-auto flex flex-col gap-1.5">
-              <div className="h-1.5 w-1.5 rounded-full bg-red-400 transition-colors group-hover:bg-red-500" />
-              <div className="h-1.5 w-1.5 rounded-full bg-red-300 transition-colors group-hover:bg-red-400" />
-              <div className="h-1.5 w-1.5 rounded-full bg-red-200 transition-colors group-hover:bg-red-300" />
+              <div className="h-1.5 w-1.5 rounded-full bg-gray-400 transition-colors group-hover:bg-gray-500" />
+              <div className="h-1.5 w-1.5 rounded-full bg-gray-300 transition-colors group-hover:bg-gray-400" />
+              <div className="h-1.5 w-1.5 rounded-full bg-gray-200 transition-colors group-hover:bg-gray-300" />
             </div>
           </button>
         </div>
