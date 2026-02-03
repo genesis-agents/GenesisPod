@@ -19,5 +19,8 @@
   ],
   "infile": "frontend/CHANGELOG.md",
   "tagPrefix": "v",
-  "commitAll": true
+  "commitAll": true,
+  "scripts": {
+    "postchangelog": "node frontend/scripts/generate-changelog.js && git add frontend/lib/generated/changelog.json"
+  }
 }
