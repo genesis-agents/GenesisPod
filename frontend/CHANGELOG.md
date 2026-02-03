@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+## [3.9.0](https://github.com/your-org/ai-teams-engine/compare/v3.8.2...v3.9.0) (2026-02-03)
+
+
+### Features
+
+* **ui-patrol:** add spec checks, i18n, perf, visual regression, trends ([47cb395](https://github.com/your-org/ai-teams-engine/commit/47cb395beab53b2ccc3cadaf594c68193cc0697f))
+
 ### [3.8.2](https://github.com/your-org/ai-teams-engine/compare/v3.8.1...v3.8.2) (2026-02-03)
 
 
