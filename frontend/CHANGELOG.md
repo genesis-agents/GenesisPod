@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.8.1](https://github.com/your-org/ai-teams-engine/compare/v3.8.0...v3.8.1) (2026-02-03)
+
+
+### Bug Fixes
+
+* **byok:** invalidate model cache on auth state change and add debug logging ([334be15](https://github.com/your-org/ai-teams-engine/commit/334be15bd566fbe6d1f42bc417bf997fc0b2bfd2))
+
 ## [3.8.0](https://github.com/your-org/ai-teams-engine/compare/v3.7.2...v3.8.0) (2026-02-03)
 
 
