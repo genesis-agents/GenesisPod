@@ -86,6 +86,16 @@ export function stripChartJsonFromContent(content: string): string {
     }
   }
 
+  // ★ 移除 AI 错误输出的 "图表数据" 章节标题
+  // 匹配模式：前后可能有分隔线(---) + "图表数据" 标题（可能是 ###、##、或纯文本）
+  // 示例: ---\n### 图表数据\n--- 或 \n图表数据\n
+  result = result.replace(
+    /\n*-{3,}\s*\n*#{0,3}\s*图表数据\s*\n*-{3,}\s*\n*/g,
+    "\n\n",
+  );
+  // 单独的 "图表数据" 标题行（无分隔线）
+  result = result.replace(/\n#{1,3}\s*图表数据\s*\n/g, "\n");
+
   return result.trim();
 }
 
