@@ -1174,7 +1174,7 @@ export class MissionExecutionService {
       statusMessage = `研究失败，${failedTasks.length} 个任务全部失败`;
     }
 
-    // 发送完成事件
+    // 发送进度事件
     this.queryService.emitProgress({
       missionId,
       topicId,
@@ -1185,6 +1185,18 @@ export class MissionExecutionService {
       completedTasks: completedTasks.length,
       totalTasks: tasks.length,
     });
+
+    // ★ 关键修复：发送完成事件通知前端状态变化
+    // 之前只发送了 emitProgress，没有发送 emitMissionCompleted
+    // 导致前端需要手动刷新才能看到状态从"研究中"变为"已完成"
+    if (finalStatus === ResearchMissionStatus.COMPLETED) {
+      await this.researchEventEmitter.emitMissionCompleted(
+        topicId,
+        missionId,
+        completedTasks.length,
+        tasks.length,
+      );
+    }
 
     this.logger.log(
       `[finalizeMission] Mission ${missionId} finalized: ${statusMessage}`,

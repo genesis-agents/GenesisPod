@@ -234,6 +234,60 @@ export class LeaderPlanningService {
     if (plan.agentAssignments) {
       let modelIndex = 0;
 
+      // ★ 创建模型 ID 到完整信息的映射，用于生成有意义的 modelReason
+      const modelInfoMap = new Map(uniqueModels.map((m) => [m.id, m]));
+
+      // ★ 辅助函数：根据模型特点生成有意义的理由
+      const getModelReasonText = (
+        modelId: string,
+        taskType: "research" | "review" | "write",
+      ): string => {
+        const model = modelInfoMap.get(modelId);
+        if (!model) {
+          return `使用 ${modelId} 模型处理此任务`;
+        }
+
+        const { name, provider, isReasoning } = model;
+        const modelName = name || modelId;
+
+        // 根据模型特点和任务类型生成描述
+        if (isReasoning) {
+          if (taskType === "research") {
+            return `选择 ${modelName}（${provider}）推理模型，其深度思考能力适合复杂信息分析和逻辑推理`;
+          } else if (taskType === "review") {
+            return `选择 ${modelName}（${provider}）推理模型，其严谨的逻辑推理能力适合质量审核`;
+          } else {
+            return `选择 ${modelName}（${provider}）推理模型，其结构化思维能力适合报告撰写`;
+          }
+        }
+
+        // 根据 provider 生成描述
+        const providerLower = provider.toLowerCase();
+        if (providerLower.includes("openai") || modelId.includes("gpt")) {
+          return `选择 ${modelName}（${provider}），其在${taskType === "research" ? "信息理解和内容生成" : taskType === "review" ? "文本分析和一致性检查" : "长文本生成和结构组织"}方面表现出色`;
+        } else if (
+          providerLower.includes("anthropic") ||
+          modelId.includes("claude")
+        ) {
+          return `选择 ${modelName}（${provider}），其在${taskType === "research" ? "深度阅读和信息提取" : taskType === "review" ? "细节审查和逻辑验证" : "专业写作和内容整合"}方面表现优异`;
+        } else if (
+          providerLower.includes("google") ||
+          modelId.includes("gemini")
+        ) {
+          return `选择 ${modelName}（${provider}），其在${taskType === "research" ? "多模态理解和知识整合" : taskType === "review" ? "事实核查和一致性检验" : "内容生成和格式优化"}方面具有优势`;
+        } else if (
+          providerLower.includes("deepseek") ||
+          modelId.includes("deepseek")
+        ) {
+          return `选择 ${modelName}（${provider}），其在${taskType === "research" ? "中文理解和专业分析" : taskType === "review" ? "逻辑推理和质量评估" : "技术写作和内容组织"}方面表现突出`;
+        } else if (providerLower.includes("xai") || modelId.includes("grok")) {
+          return `选择 ${modelName}（${provider}），其在${taskType === "research" ? "实时信息获取和趋势分析" : taskType === "review" ? "批判性思维和验证" : "创意写作和观点整合"}方面有独特优势`;
+        }
+
+        // 默认描述
+        return `选择 ${modelName}（${provider}），其综合能力适合处理${taskType === "research" ? "研究分析" : taskType === "review" ? "质量审核" : "报告撰写"}任务`;
+      };
+
       for (const assignment of plan.agentAssignments) {
         // 0. ★ 将 AI 填写的 displayName 还原为真实 modelId
         if (assignment.modelId) {
@@ -303,7 +357,7 @@ export class LeaderPlanningService {
             assignment.assignmentReason = {
               agentReason: `${assignment.agentName || "研究员"}专注于「${dimensionNames}」领域的深度调研，具备该领域的信息收集和分析能力`,
               modelReason: assignment.modelId
-                ? `选择 ${assignment.modelId} 模型，因为其具备出色的信息检索、内容分析和逻辑推理能力`
+                ? getModelReasonText(assignment.modelId, "research")
                 : "使用擅长信息检索和内容分析的模型",
             };
             this.logger.debug(
@@ -322,7 +376,7 @@ export class LeaderPlanningService {
             assignment.assignmentReason = {
               agentReason: `${assignment.agentName || "质量审核员"}负责全面审核研究成果，确保内容准确性、逻辑一致性和完整性`,
               modelReason: assignment.modelId
-                ? `选择 ${assignment.modelId} 模型，因为其擅长一致性检查、事实核验和质量评估`
+                ? getModelReasonText(assignment.modelId, "review")
                 : "使用擅长一致性检查和质量评估的模型",
             };
           }
@@ -338,7 +392,7 @@ export class LeaderPlanningService {
             assignment.assignmentReason = {
               agentReason: `${assignment.agentName || "报告撰写员"}负责整合多维度研究成果，生成结构清晰、逻辑连贯的专业报告`,
               modelReason: assignment.modelId
-                ? `选择 ${assignment.modelId} 模型，因为其具备强大的语言生成、内容整合和篇章组织能力`
+                ? getModelReasonText(assignment.modelId, "write")
                 : "使用具有强大语言生成和内容整合能力的模型",
             };
           }
