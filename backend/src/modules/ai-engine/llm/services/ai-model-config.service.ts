@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SecretsService } from "../../../core/secrets/secrets.service";
 import { UserApiKeysService } from "../../../core/user-api-keys/user-api-keys.service";
+import { RequestContext } from "../../../../common/context/request-context";
 import { AIModelType } from "@prisma/client";
 
 /**
@@ -393,6 +394,13 @@ export class AiModelConfigService {
     } catch (error) {
       this.logger.warn(`[getModelConfig] Database query failed: ${error}`);
     }
+
+    // 4. ★ BYOK: 查找 disabled 模型（用户有对应 provider 的 Key 时可用）
+    const disabledConfig = await this.findDisabledModelForUser(
+      normalizedModelId,
+      ["CHAT", "CHAT_FAST"],
+    );
+    if (disabledConfig) return disabledConfig;
 
     return null;
   }
@@ -815,7 +823,58 @@ export class AiModelConfigService {
       this.logger.warn(`[getModelById] Direct modelId query failed: ${error}`);
     }
 
+    // 4. ★ BYOK: 查找 disabled 模型（用户有对应 provider 的 Key 时可用）
+    const disabledConfig = await this.findDisabledModelForUser(idOrModelId);
+    if (disabledConfig) return disabledConfig;
+
     return null;
+  }
+
+  /**
+   * ★ BYOK: 查找 disabled 模型，验证用户有对应 provider 的 active key
+   * 不污染公共缓存，disabled 模型走独立查询
+   */
+  private async findDisabledModelForUser(
+    idOrModelId: string,
+    modelTypes?: string[],
+  ): Promise<AIModelConfig | null> {
+    const userId = RequestContext.getUserId();
+    if (!userId) return null;
+
+    try {
+      const where: any = {
+        OR: [
+          { modelId: { equals: idOrModelId, mode: "insensitive" } },
+          { name: { equals: idOrModelId, mode: "insensitive" } },
+        ],
+        isEnabled: false,
+      };
+      // Also try UUID match
+      if (idOrModelId.length > 30) {
+        where.OR.push({ id: idOrModelId });
+      }
+      if (modelTypes) {
+        where.modelType = { in: modelTypes };
+      }
+
+      const model = await this.prisma.aIModel.findFirst({ where });
+      if (!model) return null;
+
+      // Verify user has an active key for this provider
+      const hasKey = await this.userApiKeysService.getPersonalKey(
+        userId,
+        model.provider.toLowerCase(),
+      );
+      if (!hasKey) return null;
+
+      this.logger.log(
+        `[BYOK] Found disabled model ${model.modelId} for user ${userId} (has ${model.provider} key)`,
+      );
+      return this.buildModelConfig(model);
+    } catch (error) {
+      this.logger.warn(`[findDisabledModelForUser] Failed: ${error}`);
+      return null;
+    }
   }
 
   /**

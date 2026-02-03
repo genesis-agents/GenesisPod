@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
@@ -69,6 +69,8 @@ import { AiFileOrganizerModule } from "./modules/integrations/ai-file-organizer/
 import { ExportModule } from "./common/export";
 // Webhooks module
 import { WebhooksModule } from "./modules/webhooks";
+// Request context middleware
+import { RequestContextMiddleware } from "./common/context/request-context.middleware";
 
 @Module({
   imports: [
@@ -190,4 +192,8 @@ import { WebhooksModule } from "./modules/webhooks";
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestContextMiddleware).forRoutes("*");
+  }
+}

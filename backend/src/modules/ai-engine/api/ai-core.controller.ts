@@ -428,6 +428,7 @@ export class AiCoreController {
    * POST /api/v1/ai/simple-chat
    */
   @Post("simple-chat")
+  @UseGuards(OptionalJwtAuthGuard)
   async simpleChat(@Body() body: SimpleChatRequest, @Res() res: Response) {
     const {
       message,
@@ -731,6 +732,7 @@ ${webSearchContext}
    * POST /api/v1/ai/quick-action
    */
   @Post("quick-action")
+  @UseGuards(OptionalJwtAuthGuard)
   async quickAction(@Body() body: QuickActionRequest) {
     const { content, action, model = "gemini" } = body;
 
@@ -842,6 +844,7 @@ JSON output:`;
    * 使用 CHAT_FAST tier 进行快速摘要生成
    */
   @Post("summary")
+  @UseGuards(OptionalJwtAuthGuard)
   async summary(@Body() body: SummaryRequest) {
     const { content, language = "zh" } = body;
 
@@ -901,6 +904,7 @@ JSON output:`;
    * 使用 CHAT_FAST tier 进行结构化信息提取
    */
   @Post("insights")
+  @UseGuards(OptionalJwtAuthGuard)
   async insights(@Body() body: InsightsRequest) {
     const { content, language = "zh" } = body;
 
@@ -969,6 +973,7 @@ JSON output:`;
    * POST /api/v1/ai/translate
    */
   @Post("translate")
+  @UseGuards(OptionalJwtAuthGuard)
   async translate(
     @Body()
     body: {
@@ -1075,6 +1080,7 @@ Translation:`;
   }
 
   @Post("translate-single")
+  @UseGuards(OptionalJwtAuthGuard)
   async translateSingle(@Body() body: TranslateSingleRequest) {
     this.logger.log(
       `Received translation request for text: ${body.text?.substring(0, 50)}...`,

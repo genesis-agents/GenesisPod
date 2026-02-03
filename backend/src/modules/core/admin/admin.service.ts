@@ -417,6 +417,8 @@ export class AdminService {
   }) {
     // Trim apiKey to remove any whitespace from copy-paste
     const apiKey = data.apiKey?.trim() || null;
+    // ★ BYOK: 标准化 provider 为小写，与 user_api_keys 保持一致
+    const provider = data.provider.toLowerCase();
 
     this.logger.log(
       `createAIModel called: name=${data.name}, modelId=${data.modelId}, apiKeyProvided=${!!apiKey}, apiKeyLength=${apiKey?.length || 0}`,
@@ -441,7 +443,7 @@ export class AdminService {
       const updateData: any = {
         name: data.name,
         displayName: data.displayName,
-        provider: data.provider,
+        provider,
         modelType: data.modelType ?? existingByModelId.modelType,
         icon: data.icon,
         color: data.color,
@@ -505,7 +507,7 @@ export class AdminService {
       data: {
         name: data.name,
         displayName: data.displayName,
-        provider: data.provider,
+        provider,
         modelId: data.modelId,
         modelType: data.modelType ?? "CHAT",
         icon: data.icon,
@@ -613,7 +615,7 @@ export class AdminService {
       where: { id },
       data: {
         displayName: data.displayName,
-        provider: data.provider,
+        provider: data.provider?.toLowerCase(),
         modelId: data.modelId,
         modelType: data.modelType,
         icon: data.icon,

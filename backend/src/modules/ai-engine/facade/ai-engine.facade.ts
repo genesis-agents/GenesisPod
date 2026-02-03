@@ -35,6 +35,7 @@ import {
 } from "../capabilities/ai-capability-resolver.service";
 import { CreditsService } from "../../credits/credits.service";
 import { BillingContext } from "../../credits/billing-context";
+import { RequestContext } from "../../../common/context/request-context";
 import type { CreditBillingInfo } from "./types/facade.types";
 
 // ★ P1 重构：使用分组的 Feature Providers
@@ -258,7 +259,7 @@ export class AIEngineFacade {
           maxTokens: request.maxTokens,
           temperature: request.temperature,
           strictMode: true, // fallback 模式下使用严格模式，让错误冒泡给 fallback 处理
-          userId: request.billing?.userId, // ★ BYOK: 传递 userId 用于 Key 优先级解析
+          userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId 用于 Key 优先级解析
         });
 
         if (result.isError) {
@@ -369,7 +370,7 @@ export class AIEngineFacade {
         maxTokens: request.maxTokens,
         temperature: request.temperature,
         strictMode: request.strictMode,
-        userId: request.billing?.userId, // ★ BYOK: 传递 userId
+        userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId
       });
 
       const duration = Date.now() - startTime;
@@ -434,13 +435,23 @@ export class AIEngineFacade {
 
   private resolveBillingFromContext(): CreditBillingInfo | undefined {
     const ctx = BillingContext.get();
-    if (!ctx) return undefined;
+    if (ctx) {
+      return {
+        userId: ctx.userId,
+        moduleType: ctx.moduleType,
+        operationType: ctx.operationType,
+        referenceId: ctx.referenceId,
+        description: ctx.description,
+      };
+    }
+
+    // ★ BYOK: BillingContext 为空时（公共端点），从 RequestContext 获取 userId
+    const userId = RequestContext.getUserId();
+    if (!userId) return undefined;
     return {
-      userId: ctx.userId,
-      moduleType: ctx.moduleType,
-      operationType: ctx.operationType,
-      referenceId: ctx.referenceId,
-      description: ctx.description,
+      userId,
+      moduleType: "ai-engine",
+      operationType: "chat",
     };
   }
 
@@ -632,7 +643,7 @@ export class AIEngineFacade {
         systemPrompt: request.systemPrompt,
         maxTokens: request.maxTokens,
         temperature: request.temperature,
-        userId: request.billing?.userId, // ★ BYOK: 传递 userId
+        userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId
       })) {
         // 捕获 apiKeySource（在最终 chunk 中携带）
         if (chunk.apiKeySource) {
