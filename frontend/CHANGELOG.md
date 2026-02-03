@@ -2,6 +2,19 @@
 
 DeepDive Engine 版本变更记录。
 
+## [3.7.0](https://github.com/your-org/ai-teams-engine/compare/v3.6.2...v3.7.0) (2026-02-03)
+
+
+### Features
+
+* **byok:** complete BYOK system - RequestContext, model routing, provider normalization ([e0e57d9](https://github.com/your-org/ai-teams-engine/commit/e0e57d9438e2f0d5f36933b8676ed6203d48c861))
+* **i18n:** comprehensive English mode i18n fixes across all pages ([5b9a13a](https://github.com/your-org/ai-teams-engine/commit/5b9a13af2b4e79840f7ce43612dac3ff93ea0374))
+
+
+### Bug Fixes
+
+* **ai-models:** clear model cache when user saves or deletes API key ([f21332f](https://github.com/your-org/ai-teams-engine/commit/f21332f148eb6d2cf2a97cb008e1b3e0e2395789))
+
 ### [3.6.2](https://github.com/your-org/ai-teams-engine/compare/v3.6.1...v3.6.2) (2026-02-03)
 
 ### [3.6.1](https://github.com/your-org/ai-teams-engine/compare/v3.6.0...v3.6.1) (2026-02-03)
