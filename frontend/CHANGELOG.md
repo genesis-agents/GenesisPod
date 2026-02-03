@@ -2,12 +2,15 @@
 
 DeepDive Engine 版本变更记录。
 
-### [3.5.1](https://github.com/your-org/ai-teams-engine/compare/v3.5.0...v3.5.1) (2026-02-02)
+## [3.5.0](https://github.com/your-org/ai-teams-engine/compare/v3.4.0...v3.5.0) (2026-02-02)
 
+### Features
+
+- **i18n:** internationalize Credibility panel and History tab icon ([f82fae1](https://github.com/your-org/ai-teams-engine/commit/f82fae180e2efecf2e8de6d6d9bd8a4f9f08221e))
 
 ### Bug Fixes
 
-* **changelog:** move CHANGELOG.md to frontend, fix script path and release config ([72bd902](https://github.com/your-org/ai-teams-engine/commit/72bd9028d28fc4bc7b6aab4c78d8524a6f9cb085))
+- **changelog:** handle missing CHANGELOG.md in Docker builds ([4ddc82e](https://github.com/your-org/ai-teams-engine/commit/4ddc82edd80bd2f351cdb93fa40091fceba89ea6))
 
 ## [3.4.0](https://github.com/your-org/ai-teams-engine/compare/v3.3.31...v3.4.0) (2026-02-02)
 
