@@ -4096,7 +4096,12 @@
       "notEvaluated": "N/A",
       "filterByDimension": "By dimension",
       "filterBySource": "By source",
-      "filterByTime": "By time"
+      "filterByTime": "By time",
+      "plainTextExport": "Plain Text (.txt)",
+      "webPageExport": "Web Page (.html)",
+      "printPdfExport": "Print / PDF",
+      "copyShareLinkExport": "Copy Share Link",
+      "deleteReportButton": "Delete Report"
     },
     "credibility": {
       "title": "Source Credibility Analysis",
