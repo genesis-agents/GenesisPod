@@ -1,120 +1,104 @@
 # Changelog
 
-DeepDive Engine 版本变更记录。
+Raven AI Engine 版本变更记录。
 
 ### [3.9.6](https://github.com/your-org/ai-teams-engine/compare/v3.9.5...v3.9.6) (2026-02-03)
 
-
 ### Bug Fixes
 
-* **byok:** prioritize user's own API key as default model ([fb22001](https://github.com/your-org/ai-teams-engine/commit/fb22001b52f059b8b6a263b4d6203930230ed692))
+- **byok:** prioritize user's own API key as default model ([fb22001](https://github.com/your-org/ai-teams-engine/commit/fb22001b52f059b8b6a263b4d6203930230ed692))
 
 ### [3.9.5](https://github.com/your-org/ai-teams-engine/compare/v3.9.4...v3.9.5) (2026-02-03)
 
-
 ### Bug Fixes
 
-* **byok:** forward Authorization header through all AI routes ([0e4b532](https://github.com/your-org/ai-teams-engine/commit/0e4b532db6136da77b10740bcc208da993ce93fe))
+- **byok:** forward Authorization header through all AI routes ([0e4b532](https://github.com/your-org/ai-teams-engine/commit/0e4b532db6136da77b10740bcc208da993ce93fe))
 
 ### [3.9.4](https://github.com/your-org/ai-teams-engine/compare/v3.9.3...v3.9.4) (2026-02-03)
 
-
 ### Bug Fixes
 
-* **byok:** add dynamic model generation for user API keys ([ff327b0](https://github.com/your-org/ai-teams-engine/commit/ff327b0b8195efaef1e811844e33db332bf60cb5))
+- **byok:** add dynamic model generation for user API keys ([ff327b0](https://github.com/your-org/ai-teams-engine/commit/ff327b0b8195efaef1e811844e33db332bf60cb5))
 
 ### [3.9.3](https://github.com/your-org/ai-teams-engine/compare/v3.9.2...v3.9.3) (2026-02-03)
 
-
 ### Bug Fixes
 
-* **changelog:** remove Back button from What's New page ([dc20f06](https://github.com/your-org/ai-teams-engine/commit/dc20f06c0e688046749ec362b742e74e72853e77))
+- **changelog:** remove Back button from What's New page ([dc20f06](https://github.com/your-org/ai-teams-engine/commit/dc20f06c0e688046749ec362b742e74e72853e77))
 
 ### [3.9.2](https://github.com/your-org/ai-teams-engine/compare/v3.9.1...v3.9.2) (2026-02-03)
 
 ### [3.9.1](https://github.com/your-org/ai-teams-engine/compare/v3.9.0...v3.9.1) (2026-02-03)
 
-
 ### Bug Fixes
 
-* **byok:** add My Key badge to correct file (app/ai-ask/page.tsx) ([ea643c6](https://github.com/your-org/ai-teams-engine/commit/ea643c67b7d603d0b2b6e1e89dad3a3c3030f71b))
+- **byok:** add My Key badge to correct file (app/ai-ask/page.tsx) ([ea643c6](https://github.com/your-org/ai-teams-engine/commit/ea643c67b7d603d0b2b6e1e89dad3a3c3030f71b))
 
 ## [3.9.0](https://github.com/your-org/ai-teams-engine/compare/v3.8.2...v3.9.0) (2026-02-03)
 
-
 ### Features
 
-* **ui-patrol:** add spec checks, i18n, perf, visual regression, trends ([47cb395](https://github.com/your-org/ai-teams-engine/commit/47cb395beab53b2ccc3cadaf594c68193cc0697f))
+- **ui-patrol:** add spec checks, i18n, perf, visual regression, trends ([47cb395](https://github.com/your-org/ai-teams-engine/commit/47cb395beab53b2ccc3cadaf594c68193cc0697f))
 
 ### [3.8.2](https://github.com/your-org/ai-teams-engine/compare/v3.8.1...v3.8.2) (2026-02-03)
 
-
 ### Bug Fixes
 
-* **byok:** fix My Key badge removed by compiler dead-code elimination ([4cee2c7](https://github.com/your-org/ai-teams-engine/commit/4cee2c729a6f75f9661d948942dcfc33cd29f98c))
+- **byok:** fix My Key badge removed by compiler dead-code elimination ([4cee2c7](https://github.com/your-org/ai-teams-engine/commit/4cee2c729a6f75f9661d948942dcfc33cd29f98c))
 
 ### [3.8.1](https://github.com/your-org/ai-teams-engine/compare/v3.8.0...v3.8.1) (2026-02-03)
 
-
 ### Bug Fixes
 
-* **byok:** invalidate model cache on auth state change and add debug logging ([334be15](https://github.com/your-org/ai-teams-engine/commit/334be15bd566fbe6d1f42bc417bf997fc0b2bfd2))
+- **byok:** invalidate model cache on auth state change and add debug logging ([334be15](https://github.com/your-org/ai-teams-engine/commit/334be15bd566fbe6d1f42bc417bf997fc0b2bfd2))
 
 ## [3.8.0](https://github.com/your-org/ai-teams-engine/compare/v3.7.2...v3.8.0) (2026-02-03)
 
-
 ### Features
 
-* **changelog:** add change type statistics cards to What's New page ([d582b0c](https://github.com/your-org/ai-teams-engine/commit/d582b0c9320b392d5de817224289e0164220ef57))
+- **changelog:** add change type statistics cards to What's New page ([d582b0c](https://github.com/your-org/ai-teams-engine/commit/d582b0c9320b392d5de817224289e0164220ef57))
 
 ### [3.7.2](https://github.com/your-org/ai-teams-engine/compare/v3.7.1...v3.7.2) (2026-02-03)
 
-
 ### Bug Fixes
 
-* **byok:** auto-refresh model list when user saves/deletes API key ([6578c1d](https://github.com/your-org/ai-teams-engine/commit/6578c1d7ca972334405f071fd58ed24b6a2614a9))
-* **i18n:** fix simulation cards and quote card using wrong source files ([47f4f76](https://github.com/your-org/ai-teams-engine/commit/47f4f765b87adf5ea77a6ff8e53fa0fb9b99f64f))
+- **byok:** auto-refresh model list when user saves/deletes API key ([6578c1d](https://github.com/your-org/ai-teams-engine/commit/6578c1d7ca972334405f071fd58ed24b6a2614a9))
+- **i18n:** fix simulation cards and quote card using wrong source files ([47f4f76](https://github.com/your-org/ai-teams-engine/commit/47f4f765b87adf5ea77a6ff8e53fa0fb9b99f64f))
 
 ### [3.7.1](https://github.com/your-org/ai-teams-engine/compare/v3.7.0...v3.7.1) (2026-02-03)
 
-
 ### Bug Fixes
 
-* **changelog:** skip versions with no user-facing changes ([5ddd863](https://github.com/your-org/ai-teams-engine/commit/5ddd86364740a3250dcecfd847de636bec817d5c))
+- **changelog:** skip versions with no user-facing changes ([5ddd863](https://github.com/your-org/ai-teams-engine/commit/5ddd86364740a3250dcecfd847de636bec817d5c))
 
 ## [3.7.0](https://github.com/your-org/ai-teams-engine/compare/v3.6.2...v3.7.0) (2026-02-03)
 
-
 ### Features
 
-* **byok:** complete BYOK system - RequestContext, model routing, provider normalization ([e0e57d9](https://github.com/your-org/ai-teams-engine/commit/e0e57d9438e2f0d5f36933b8676ed6203d48c861))
-* **i18n:** comprehensive English mode i18n fixes across all pages ([5b9a13a](https://github.com/your-org/ai-teams-engine/commit/5b9a13af2b4e79840f7ce43612dac3ff93ea0374))
-
+- **byok:** complete BYOK system - RequestContext, model routing, provider normalization ([e0e57d9](https://github.com/your-org/ai-teams-engine/commit/e0e57d9438e2f0d5f36933b8676ed6203d48c861))
+- **i18n:** comprehensive English mode i18n fixes across all pages ([5b9a13a](https://github.com/your-org/ai-teams-engine/commit/5b9a13af2b4e79840f7ce43612dac3ff93ea0374))
 
 ### Bug Fixes
 
-* **ai-models:** clear model cache when user saves or deletes API key ([f21332f](https://github.com/your-org/ai-teams-engine/commit/f21332f148eb6d2cf2a97cb008e1b3e0e2395789))
+- **ai-models:** clear model cache when user saves or deletes API key ([f21332f](https://github.com/your-org/ai-teams-engine/commit/f21332f148eb6d2cf2a97cb008e1b3e0e2395789))
 
 ### [3.6.2](https://github.com/your-org/ai-teams-engine/compare/v3.6.1...v3.6.2) (2026-02-03)
 
 ### [3.6.1](https://github.com/your-org/ai-teams-engine/compare/v3.6.0...v3.6.1) (2026-02-03)
 
-
 ### Bug Fixes
 
-* **i18n:** remove duplicate keys in zh.json ([227faa1](https://github.com/your-org/ai-teams-engine/commit/227faa19b469e4259cb2bd4b7f26f8f7cb5c1c14))
+- **i18n:** remove duplicate keys in zh.json ([227faa1](https://github.com/your-org/ai-teams-engine/commit/227faa19b469e4259cb2bd4b7f26f8f7cb5c1c14))
 
 ## [3.6.0](https://github.com/your-org/ai-teams-engine/compare/v3.5.1...v3.6.0) (2026-02-03)
 
-
 ### Features
 
-* **ai-models:** show user API key models in model selector ([8688b3f](https://github.com/your-org/ai-teams-engine/commit/8688b3f75a9311d27ab14be8aac2558bc8e93ccc))
-
+- **ai-models:** show user API key models in model selector ([8688b3f](https://github.com/your-org/ai-teams-engine/commit/8688b3f75a9311d27ab14be8aac2558bc8e93ccc))
 
 ### Bug Fixes
 
-* **changelog:** merge v3.5.0 into frontend CHANGELOG, ignore root copy ([db45656](https://github.com/your-org/ai-teams-engine/commit/db45656892335763b57329567dee586f0e35780a))
+- **changelog:** merge v3.5.0 into frontend CHANGELOG, ignore root copy ([db45656](https://github.com/your-org/ai-teams-engine/commit/db45656892335763b57329567dee586f0e35780a))
 
 ## [3.5.0](https://github.com/your-org/ai-teams-engine/compare/v3.4.0...v3.5.0) (2026-02-02)
 
