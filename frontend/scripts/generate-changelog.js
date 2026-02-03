@@ -75,6 +75,8 @@ for (let i = 0; i < matches.length; i++) {
     }
   }
 
+  // Skip versions with no user-facing changes
+  if (changes.length === 0) continue;
   entries.push({ version, date, changes });
 }
 
