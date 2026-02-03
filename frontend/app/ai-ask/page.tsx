@@ -1063,10 +1063,23 @@ export default function AskPage() {
   );
 
   // Set default model when models load
+  // Priority: User's own key (BYOK) > System default > First available
   useEffect(() => {
     if (chatModels.length > 0 && !selectedModel) {
-      const defaultModel = chatModels.find((m) => m.isDefault) || chatModels[0];
-      setSelectedModel(defaultModel.id);
+      // Priority 1: User's own key models (BYOK)
+      const userKeyModel = chatModels.find((m) => m.isUserKey);
+      if (userKeyModel) {
+        setSelectedModel(userKeyModel.id);
+        return;
+      }
+      // Priority 2: System default model
+      const defaultModel = chatModels.find((m) => m.isDefault);
+      if (defaultModel) {
+        setSelectedModel(defaultModel.id);
+        return;
+      }
+      // Priority 3: First available model
+      setSelectedModel(chatModels[0].id);
     }
   }, [chatModels, selectedModel]);
 
