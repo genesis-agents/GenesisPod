@@ -3862,7 +3862,16 @@
       "knowledgeBaseHint": "Optional, prioritize content from knowledge base",
       "knowledgeBasePlaceholder": "Select linked knowledge bases (optional)",
       "backToType": "← Back to type selection",
-      "createFailed": "Failed to create topic"
+      "createFailed": "Failed to create topic",
+      "updateFailed": "Update failed, please try again",
+      "editTopic": "Edit Topic",
+      "editTopicHint": "Modify topic settings and configuration",
+      "reportFigures": "Report Figures",
+      "reportFiguresDesc": "Automatically extract and display relevant charts in research reports",
+      "operationFailed": "Operation failed, please try again",
+      "saveChanges": "Save Changes",
+      "aiPlanningTitle": "AI Auto-Plans Research Dimensions",
+      "aiPlanningDesc": "After starting research, the Leader AI will automatically plan the most relevant research dimensions based on your topic name, ensuring precise and focused research content."
     },
     "frequency": {
       "daily": "Daily",
