@@ -12,11 +12,13 @@ import { TopicDetail } from '@/components/ai-research';
 import type { ResearchTopic } from '@/types/topic-research';
 import * as api from '@/lib/api/topic-research';
 import { logger } from '@/lib/utils/logger';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 export default function TopicDetailPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useI18n();
   const topicId = params?.topicId as string;
 
   const viewParam = searchParams?.get('view');
@@ -43,7 +45,7 @@ export default function TopicDetailPage() {
       setTopic(data);
     } catch (err) {
       logger.error('Failed to load topic:', err);
-      setError(err instanceof Error ? err.message : '加载专题失败');
+      setError(err instanceof Error ? err.message : t('common.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -62,7 +64,7 @@ export default function TopicDetailPage() {
       <div className="flex h-screen items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-300 border-t-violet-600" />
-          <p className="text-sm text-gray-500">加载中...</p>
+          <p className="text-sm text-gray-500">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -74,16 +76,16 @@ export default function TopicDetailPage() {
         <div className="rounded-xl bg-white p-8 text-center shadow-lg">
           <div className="mb-4 text-5xl">😕</div>
           <h2 className="mb-2 text-lg font-semibold text-gray-900">
-            {error || '未找到该专题'}
+            {error || t('common.notFound')}
           </h2>
           <p className="mb-6 text-sm text-gray-500">
-            专题可能已被删除或您没有访问权限
+            {t('common.noAccessHint')}
           </p>
           <button
             onClick={handleBack}
             className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-700"
           >
-            返回专题列表
+            {t('common.back')}
           </button>
         </div>
       </div>

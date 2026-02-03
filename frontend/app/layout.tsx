@@ -6,8 +6,9 @@ import Providers from './providers';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'AI Teams Engine - AI驱动的多智能体协作平台',
-  description: '多Agent协作，智能完成复杂任务',
+  title: 'AI Teams Engine - AI-Powered Multi-Agent Collaboration Platform',
+  description:
+    'Multi-agent collaboration for intelligent complex task completion',
   icons: {
     icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
     apple: '/favicon.svg',

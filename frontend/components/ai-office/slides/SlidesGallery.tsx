@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils/common';
 import type { SessionWithCheckpoint } from '@/hooks/features/slides';
 import type { SlidesHistoryItem } from '@/stores';
 import { formatRelativeTime } from '@/stores';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 // ============================================================================
 // SessionsGallery 主组件
@@ -54,6 +55,7 @@ export function SessionsGallery({
   onUpdateSession,
   onDeleteSession,
 }: SessionsGalleryProps) {
+  const { t } = useI18n();
   // 优先使用后端会话，如果没有则使用本地历史
   const hasBackendSessions = backendSessions.length > 0;
   const localSessions = localHistory.filter(
@@ -65,7 +67,9 @@ export function SessionsGallery({
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center bg-gray-50 p-8">
         <div className="text-center">
           <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-orange-500" />
-          <p className="text-sm text-gray-500">加载历史记录...</p>
+          <p className="text-sm text-gray-500">
+            {t('office.slides.loadingHistory')}
+          </p>
         </div>
       </main>
     );
@@ -77,17 +81,17 @@ export function SessionsGallery({
         <div className="text-center">
           <FolderOpen className="mx-auto mb-4 h-16 w-16 text-gray-300" />
           <h2 className="mb-2 text-lg font-medium text-gray-900">
-            还没有演示文稿
+            {t('office.slides.noPresentation')}
           </h2>
           <p className="mb-6 text-sm text-gray-500">
-            点击新建按钮创建您的第一个 AI 演示文稿
+            {t('office.slides.noPresentationDesc')}
           </p>
           <button
             onClick={onNewClick}
             className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-6 py-3 text-sm font-medium text-white hover:bg-orange-600"
           >
             <Plus className="h-4 w-4" />
-            新建演示文稿
+            {t('office.slides.newPresentation')}
           </button>
         </div>
       </main>
@@ -102,7 +106,7 @@ export function SessionsGallery({
           <div className="text-center">
             <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-orange-500" />
             <p className="text-sm font-medium text-gray-600">
-              正在恢复演示文稿...
+              {t('office.slides.restoringPresentation')}
             </p>
           </div>
         </div>
@@ -175,6 +179,7 @@ function BackendSessionCard({
   onUpdate,
   onDelete,
 }: BackendSessionCardProps) {
+  const { t } = useI18n();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(session.title);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -270,12 +275,16 @@ function BackendSessionCard({
           </div>
         ) : (
           <h3 className="mb-2 truncate text-sm font-medium text-gray-900">
-            {session.title || '未命名演示'}
+            {session.title || t('office.slides.unnamed')}
           </h3>
         )}
 
         <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>{session.latestCheckpoint?.pagesCount || 0} 页</span>
+          <span>
+            {t('office.slides.pageCount', {
+              count: session.latestCheckpoint?.pagesCount || 0,
+            })}
+          </span>
           <span>{formatRelativeTime(new Date(session.createdAt))}</span>
         </div>
       </div>
@@ -303,7 +312,7 @@ function BackendSessionCard({
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
               >
                 <Pencil className="h-3.5 w-3.5" />
-                重命名
+                {t('office.slides.rename')}
               </button>
               <button
                 onClick={(e) => {
@@ -313,7 +322,7 @@ function BackendSessionCard({
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                删除
+                {t('common.delete')}
               </button>
             </div>
           )}
@@ -346,6 +355,7 @@ function BackendSessionListItem({
   onUpdate,
   onDelete,
 }: BackendSessionListItemProps) {
+  const { t } = useI18n();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(session.title);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -428,10 +438,14 @@ function BackendSessionListItem({
         ) : (
           <>
             <h3 className="truncate text-sm font-medium text-gray-900">
-              {session.title || '未命名演示'}
+              {session.title || t('office.slides.unnamed')}
             </h3>
             <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
-              <span>{session.latestCheckpoint?.pagesCount || 0} 页</span>
+              <span>
+                {t('office.slides.pageCount', {
+                  count: session.latestCheckpoint?.pagesCount || 0,
+                })}
+              </span>
               <span>{formatRelativeTime(new Date(session.createdAt))}</span>
             </div>
           </>
@@ -460,7 +474,7 @@ function BackendSessionListItem({
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
               >
                 <Pencil className="h-3.5 w-3.5" />
-                重命名
+                {t('office.slides.rename')}
               </button>
               <button
                 onClick={(e) => {
@@ -470,7 +484,7 @@ function BackendSessionListItem({
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                删除
+                {t('common.delete')}
               </button>
             </div>
           )}
@@ -509,7 +523,7 @@ function SessionGridCard({ item, onClick }: SessionGridCardProps) {
           {item.title}
         </h3>
         <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>{item.targetPages} 页</span>
+          <span>{item.targetPages}</span>
           <span>{formatRelativeTime(item.timestamp)}</span>
         </div>
       </div>
@@ -537,7 +551,7 @@ function SessionListItem({ item, onClick }: SessionListItemProps) {
           {item.title}
         </h3>
         <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
-          <span>{item.targetPages} 页</span>
+          <span>{item.targetPages}</span>
           <span>{formatRelativeTime(item.timestamp)}</span>
           {item.status === 'success' ? (
             <CheckCircle2 className="h-3 w-3 text-green-500" />

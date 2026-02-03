@@ -33,6 +33,7 @@ import { SavePointSelector } from './SavePointSelector';
 import { PreviewToolbar } from './PreviewToolbar';
 import { PageNavigator } from './PageNavigator';
 import { config } from '@/lib/utils/config';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 type ViewMode = 'preview' | 'code' | 'thinking';
 
@@ -50,7 +51,7 @@ interface RightPanelProps {
 }
 
 export function RightPanel({
-  title = 'AI 演示文稿',
+  title,
   sessionId,
   onCheckpointRestore,
   onCreateCheckpoint,
@@ -59,6 +60,7 @@ export function RightPanel({
   onAdvanced,
   className,
 }: RightPanelProps) {
+  const { t } = useI18n();
   const { pages, selectedPageIndex, setSelectedPageIndex, session } =
     useSlidesStore();
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
@@ -75,7 +77,7 @@ export function RightPanel({
     async (format: 'pptx' | 'pdf') => {
       const currentSessionId = sessionId || session?.id;
       if (!currentSessionId) {
-        toast.warning('请先生成幻灯片');
+        toast.warning(t('office.slides.pleaseGenerateFirst'));
         return;
       }
 
@@ -93,7 +95,7 @@ export function RightPanel({
         );
 
         if (!response.ok) {
-          throw new Error('导出失败');
+          throw new Error(t('office.slides.exportError'));
         }
 
         const blob = await response.blob();
@@ -106,15 +108,17 @@ export function RightPanel({
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
 
-        toast.success(`${format.toUpperCase()} 导出成功`);
+        toast.success(
+          t('office.slides.exportSuccess', { format: format.toUpperCase() })
+        );
       } catch (error) {
         logger.error('[RightPanel] Export failed:', error);
-        toast.error('导出失败，请重试');
+        toast.error(t('office.slides.exportError'));
       } finally {
         setExporting(null);
       }
     },
-    [sessionId, session?.id]
+    [sessionId, session?.id, t]
   );
 
   // Measure container for scaling
@@ -169,7 +173,9 @@ export function RightPanel({
       {/* Top Toolbar */}
       <div className="flex-shrink-0 border-b border-slate-200 bg-white px-4 py-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+          <h2 className="text-sm font-semibold text-slate-800">
+            {title || t('office.slides.title')}
+          </h2>
 
           <div className="flex items-center gap-2">
             {/* Save Point Selector */}
@@ -196,7 +202,7 @@ export function RightPanel({
                 ) : (
                   <Download className="h-4 w-4" />
                 )}
-                <span>Export</span>
+                <span>{t('common.export')}</span>
                 <ChevronDown className="h-3 w-3" />
               </button>
 
@@ -212,14 +218,14 @@ export function RightPanel({
                       className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                     >
                       <Download className="h-4 w-4" />
-                      Download PPTX
+                      {t('office.slides.downloadPPTX')}
                     </button>
                     <button
                       onClick={() => handleExport('pdf')}
                       className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                     >
                       <FileText className="h-4 w-4" />
-                      Download PDF
+                      {t('office.slides.downloadPDF')}
                     </button>
                   </div>
                 </>
@@ -262,7 +268,9 @@ export function RightPanel({
                 <div>
                   <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-orange-400" />
                   <p className="text-sm text-slate-500">
-                    正在生成第 {currentPage.pageNumber} 页...
+                    {t('office.slides.generatingPage', {
+                      number: currentPage.pageNumber,
+                    })}
                   </p>
                 </div>
               ) : (
@@ -271,7 +279,9 @@ export function RightPanel({
                     <Eye className="h-8 w-8 text-slate-400" />
                   </div>
                   <p className="text-sm text-slate-500">
-                    {hasPages ? '选择页面查看预览' : '开始生成演示文稿'}
+                    {hasPages
+                      ? t('office.slides.selectPageToPreview')
+                      : t('office.slides.startGenerating')}
                   </p>
                 </div>
               )}
@@ -305,7 +315,7 @@ export function RightPanel({
             )}
           >
             <Eye className="h-4 w-4" />
-            Preview
+            {t('office.slides.preview')}
           </button>
           <button
             onClick={() => setViewMode('code')}
@@ -317,7 +327,7 @@ export function RightPanel({
             )}
           >
             <Terminal className="h-4 w-4" />
-            Code
+            {t('office.slides.code')}
           </button>
           <button
             onClick={() => setViewMode('thinking')}
@@ -329,7 +339,7 @@ export function RightPanel({
             )}
           >
             <Brain className="h-4 w-4" />
-            Thinking
+            {t('office.slides.thinking')}
           </button>
         </div>
 

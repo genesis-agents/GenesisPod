@@ -34,6 +34,7 @@ import { AIAssistMenu } from './AIAssistMenu';
 import { AIEditDropdown } from './AIEditDropdown';
 
 import { logger } from '@/lib/utils/logger';
+import { useI18n } from '@/lib/i18n/i18n-context';
 // ============================================================================
 // Header 组件
 // ============================================================================
@@ -76,6 +77,7 @@ export function Header({
   selectedPageIndex,
   onAIEditComplete,
 }: HeaderProps) {
+  const { t } = useI18n();
   const [showExportMenu, setShowExportMenu] = useState(false);
 
   return (
@@ -87,7 +89,7 @@ export function Header({
             <button
               onClick={onBackToGallery}
               className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-              title="返回历史记录"
+              title={t('office.slides.backToHistory')}
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
@@ -96,8 +98,12 @@ export function Header({
             <Sparkles className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h1 className="text-sm font-semibold">{title || 'AI 演示文稿'}</h1>
-            <p className="text-xs text-gray-500">智能PPT生成</p>
+            <h1 className="text-sm font-semibold">
+              {title || t('office.slides.title')}
+            </h1>
+            <p className="text-xs text-gray-500">
+              {t('office.slides.smartPPTGeneration')}
+            </p>
           </div>
         </div>
 
@@ -109,7 +115,7 @@ export function Header({
               className="flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-sm font-medium text-white hover:bg-orange-600"
             >
               <Plus className="h-4 w-4" />
-              新建
+              {t('office.slides.new')}
             </button>
           )}
 
@@ -129,7 +135,7 @@ export function Header({
                     ? 'bg-orange-100 text-orange-600'
                     : 'text-gray-400 hover:text-gray-600'
                 )}
-                title="网格视图"
+                title={t('office.slides.gridView')}
               >
                 <LayoutGrid className="h-4 w-4" />
               </button>
@@ -141,7 +147,7 @@ export function Header({
                     ? 'bg-orange-100 text-orange-600'
                     : 'text-gray-400 hover:text-gray-600'
                 )}
-                title="列表视图"
+                title={t('office.slides.listView')}
               >
                 <List className="h-4 w-4" />
               </button>
@@ -160,7 +166,7 @@ export function Header({
               )}
             >
               <History className="h-4 w-4" />
-              历史记录
+              {t('office.slides.history')}
             </button>
           )}
 
@@ -170,7 +176,7 @@ export function Header({
             className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
           >
             <Save className="h-4 w-4" />
-            创建保存点
+            {t('office.slides.createCheckpoint')}
           </button>
 
           {/* AI 辅助菜单 */}
@@ -194,7 +200,7 @@ export function Header({
               className="flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-sm text-white hover:bg-orange-600"
             >
               <Play className="h-4 w-4" />
-              播放
+              {t('office.slides.play')}
             </button>
           )}
 
@@ -205,7 +211,7 @@ export function Header({
               className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
             >
               <Download className="h-4 w-4" />
-              导出
+              {t('office.slides.export')}
               <ChevronDown className="h-3 w-3" />
             </button>
             {showExportMenu && (
@@ -237,6 +243,7 @@ export function HistoryPanel({
   onClear,
   onRestore,
 }: HistoryPanelProps) {
+  const { t } = useI18n();
   return (
     <AnimatePresence>
       {show && (
@@ -248,20 +255,22 @@ export function HistoryPanel({
         >
           <div className="max-h-[280px] overflow-y-auto p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-700">生成历史</h3>
+              <h3 className="text-sm font-medium text-gray-700">
+                {t('office.slides.generationHistory')}
+              </h3>
               {history.length > 0 && (
                 <button
                   onClick={onClear}
                   className="text-xs text-red-500 hover:text-red-600"
                 >
-                  清空
+                  {t('office.slides.clear')}
                 </button>
               )}
             </div>
 
             {history.length === 0 ? (
               <p className="py-4 text-center text-xs text-gray-400">
-                暂无历史记录
+                {t('office.slides.noHistory')}
               </p>
             ) : (
               <div className="space-y-2">
@@ -285,7 +294,9 @@ export function HistoryPanel({
                           {formatRelativeTime(item.timestamp)}
                         </span>
                         <span className="rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-600">
-                          {item.targetPages} 页
+                          {t('office.slides.pageCount', {
+                            count: item.targetPages || 0,
+                          })}
                         </span>
                         {item.status === 'success' ? (
                           <CheckCircle2 className="h-3 w-3 text-green-500" />
@@ -296,7 +307,7 @@ export function HistoryPanel({
                         )}
                         {item.sessionId && (
                           <span className="text-xs text-orange-500">
-                            点击恢复
+                            {t('office.slides.clickToRestore')}
                           </span>
                         )}
                       </div>
@@ -308,7 +319,7 @@ export function HistoryPanel({
                           onRemove(item.id);
                         }}
                         className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-500"
-                        title="删除"
+                        title={t('common.delete')}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -333,6 +344,7 @@ interface ExportDropdownProps {
 }
 
 export function ExportDropdown({ onClose }: ExportDropdownProps) {
+  const { t } = useI18n();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { session } = useSlidesStore();
   const [exporting, setExporting] = useState<'pptx' | 'pdf' | null>(null);
@@ -353,7 +365,7 @@ export function ExportDropdown({ onClose }: ExportDropdownProps) {
   const handleExport = useCallback(
     async (format: 'pptx' | 'pdf') => {
       if (!session?.id) {
-        alert('请先生成幻灯片');
+        alert(t('office.slides.pleaseGenerateFirst'));
         return;
       }
 
@@ -375,7 +387,10 @@ export function ExportDropdown({ onClose }: ExportDropdownProps) {
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `导出失败: ${response.status}`);
+          throw new Error(
+            errorData.message ||
+              t('office.slides.exportFailed', { message: response.status })
+          );
         }
 
         // 获取文件名
@@ -402,12 +417,16 @@ export function ExportDropdown({ onClose }: ExportDropdownProps) {
         onClose();
       } catch (error: unknown) {
         logger.error('Export failed:', error);
-        alert(error instanceof Error ? error.message : '导出失败，请重试');
+        alert(
+          error instanceof Error
+            ? error.message
+            : t('office.slides.exportError')
+        );
       } finally {
         setExporting(null);
       }
     },
-    [session?.id, onClose]
+    [session?.id, onClose, t]
   );
 
   return (
@@ -425,7 +444,7 @@ export function ExportDropdown({ onClose }: ExportDropdownProps) {
         ) : (
           <FileText className="h-4 w-4" />
         )}
-        导出 PPTX
+        {t('office.slides.exportPPTX')}
       </button>
       <button
         onClick={() => handleExport('pdf')}
@@ -437,7 +456,7 @@ export function ExportDropdown({ onClose }: ExportDropdownProps) {
         ) : (
           <FileText className="h-4 w-4" />
         )}
-        导出 PDF
+        {t('office.slides.exportPDF')}
       </button>
     </div>
   );
@@ -448,6 +467,7 @@ export function ExportDropdown({ onClose }: ExportDropdownProps) {
 // ============================================================================
 
 export function ProgressBar() {
+  const { t } = useI18n();
   const overallProgress = useSlidesStore(selectOverallProgress);
   const { progress, pages, generating } = useSlidesStore();
   const { checkpoints } = useCheckpoints();
@@ -477,14 +497,18 @@ export function ProgressBar() {
         </div>
 
         <span className="text-sm text-gray-500">
-          {completedPages} / {pages.length} 页
+          {t('office.slides.pageCount', {
+            count: `${completedPages} / ${pages.length}`,
+          })}
         </span>
       </div>
 
       {latestCheckpoint && (
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Save className="h-4 w-4" />
-          <span>检查点: {latestCheckpoint.name}</span>
+          <span>
+            {t('office.slides.checkpoint', { name: latestCheckpoint.name })}
+          </span>
         </div>
       )}
     </div>

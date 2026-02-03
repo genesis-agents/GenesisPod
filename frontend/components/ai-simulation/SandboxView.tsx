@@ -602,10 +602,15 @@ export default function SandboxView({
               <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
             </span>
           )}
-          {run.status === 'RUNNING' ? '推演中' : run.status}
+          {run.status === 'RUNNING'
+            ? t('aiSimulation.sandbox.status.simulating')
+            : run.status}
         </div>
         <div className="text-sm text-gray-500">
-          回合 {run.currentRound}/{run.rounds}
+          {t('aiSimulation.sandbox.round', {
+            current: run.currentRound,
+            total: run.rounds,
+          })}
         </div>
 
         {/* 视角选择器 - 可点击切换 */}
@@ -631,14 +636,18 @@ export default function SandboxView({
             }`}
             title={
               perspective === 'GOD'
-                ? '上帝视角：可查看所有阵营的完整信息（点击切换）'
-                : `${TEAM_COLORS[perspective]?.label}视角：可查看${TEAM_COLORS[perspective]?.label}的完整信息，其他阵营仅显示公开行动（点击切换）`
+                ? t('aiSimulation.sandbox.perspective.godTooltip')
+                : t('aiSimulation.sandbox.perspective.teamTooltip', {
+                    team: TEAM_COLORS[perspective]?.label,
+                  })
             }
           >
             <Eye className="h-3 w-3" />
             {perspective === 'GOD'
-              ? '上帝视角'
-              : `${TEAM_COLORS[perspective]?.label}视角`}
+              ? t('aiSimulation.sandbox.perspective.god')
+              : t('aiSimulation.sandbox.perspective.teamLabel', {
+                  team: TEAM_COLORS[perspective]?.label,
+                })}
           </button>
         ) : (
           <div
@@ -649,14 +658,18 @@ export default function SandboxView({
             }`}
             title={
               perspective === 'GOD'
-                ? '上帝视角：可查看所有阵营的完整信息'
-                : `${TEAM_COLORS[perspective]?.label}视角：可查看${TEAM_COLORS[perspective]?.label}的完整信息，其他阵营仅显示公开行动`
+                ? t('aiSimulation.sandbox.perspective.godDesc')
+                : t('aiSimulation.sandbox.perspective.teamTooltip', {
+                    team: TEAM_COLORS[perspective]?.label,
+                  })
             }
           >
             <Eye className="h-3 w-3" />
             {perspective === 'GOD'
-              ? '上帝视角'
-              : `${TEAM_COLORS[perspective]?.label}视角`}
+              ? t('aiSimulation.sandbox.perspective.god')
+              : t('aiSimulation.sandbox.perspective.teamLabel', {
+                  team: TEAM_COLORS[perspective]?.label,
+                })}
           </div>
         )}
       </div>
@@ -834,7 +847,9 @@ export default function SandboxView({
                 className="text-[10px] text-gray-500"
                 title={teamRoles.join(', ')}
               >
-                {teamRoles.length} 角色
+                {t('aiSimulation.sandbox.agentCount', {
+                  count: teamRoles.length,
+                })}
               </span>
             )}
           </div>
@@ -872,7 +887,7 @@ export default function SandboxView({
                       {(submission.role || '?')[0]}
                     </div>
                     <span className="truncate text-xs font-medium text-white">
-                      {submission.role || '未知角色'}
+                      {submission.role || t('aiSimulation.sandbox.unknownRole')}
                     </span>
                     {/* 点击提示 */}
                     <span className="ml-auto text-[9px] text-gray-500">
@@ -932,7 +947,9 @@ export default function SandboxView({
               {teamConfig.label}
             </span>
             <span className="text-[10px] text-gray-500">
-              {teamAgents.length} 角色
+              {t('aiSimulation.sandbox.agentCount', {
+                count: teamAgents.length,
+              })}
             </span>
           </div>
           <div className="truncate text-[10px] text-gray-400">
@@ -1043,7 +1060,9 @@ export default function SandboxView({
                       </span>
                     </div>
                     <span className="text-[10px] text-gray-500">
-                      {teamAgentsList.length} 角色
+                      {t('aiSimulation.sandbox.agentCount', {
+                        count: teamAgentsList.length,
+                      })}
                     </span>
                   </div>
                   {/* 显示公司/机构名称 */}
@@ -1068,7 +1087,9 @@ export default function SandboxView({
           {/* 回合摘要 */}
           {currentTurn?.adjudication?.summary && (
             <div className="rounded-lg border border-white/10 bg-black/50 p-3 backdrop-blur-sm">
-              <div className="mb-2 text-[10px] text-gray-500">回合摘要</div>
+              <div className="mb-2 text-[10px] text-gray-500">
+                {t('aiSimulation.sandbox.roundSummaryTitle')}
+              </div>
               <div className="text-[11px] leading-relaxed text-gray-300">
                 {currentTurn.adjudication.summary.length > 150
                   ? `${currentTurn.adjudication.summary.slice(0, 150)}...`
@@ -1079,13 +1100,17 @@ export default function SandboxView({
 
           {/* 回合统计 */}
           <div className="rounded-lg border border-white/10 bg-black/50 p-3 backdrop-blur-sm">
-            <div className="mb-2 text-[10px] text-gray-500">回合统计</div>
+            <div className="mb-2 text-[10px] text-gray-500">
+              {t('aiSimulation.sandbox.roundStatsTitle')}
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded bg-blue-500/20 p-2 text-center">
                 <div className="text-lg font-bold text-blue-400">
                   R{selectedRound}
                 </div>
-                <div className="text-[9px] text-gray-500">当前回合</div>
+                <div className="text-[9px] text-gray-500">
+                  {t('aiSimulation.sandbox.currentRoundLabel')}
+                </div>
               </div>
               <div className="rounded bg-purple-500/20 p-2 text-center">
                 <div className="text-lg font-bold text-purple-400">
@@ -1133,7 +1158,9 @@ export default function SandboxView({
           {/* 关键角色 */}
           {allSubmissions.length > 0 && (
             <div className="rounded-lg border border-white/10 bg-black/50 p-3 backdrop-blur-sm">
-              <div className="mb-2 text-[10px] text-gray-500">活跃角色</div>
+              <div className="mb-2 text-[10px] text-gray-500">
+                {t('aiSimulation.sandbox.activeAgentsTitle')}
+              </div>
               <div className="flex flex-wrap gap-1">
                 {[...new Set(allSubmissions.map((s) => s.role))]
                   .slice(0, 6)
@@ -1258,7 +1285,10 @@ export default function SandboxView({
                   </div>
                   <div className="flex items-center gap-2 text-sm text-purple-300">
                     <span className="rounded bg-purple-500/30 px-2 py-0.5 text-xs">
-                      回合 {selectedRound}
+                      {t('aiSimulation.sandbox.round', {
+                        current: selectedRound,
+                        total: run.rounds,
+                      })}
                     </span>
                     <span className="text-purple-400">突发事件</span>
                   </div>
@@ -1469,7 +1499,8 @@ export default function SandboxView({
                     </div>
                     <div>
                       <div className="text-lg font-semibold text-white">
-                        {submission.role || '未知角色'}
+                        {submission.role ||
+                          t('aiSimulation.sandbox.unknownRole')}
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-400">
                         <span
@@ -1518,7 +1549,9 @@ export default function SandboxView({
                               内心独白已隐藏
                             </div>
                             <div className="text-xs text-gray-500">
-                              切换到{teamConfig.label}或上帝视角查看完整信息
+                              {t('aiSimulation.sandbox.switchToTeamView', {
+                                team: teamConfig.label,
+                              })}
                             </div>
                           </div>
                         </div>
@@ -1579,7 +1612,7 @@ export default function SandboxView({
                 onClick={() => setSelectedRound(Math.max(1, selectedRound - 1))}
                 disabled={selectedRound <= 1}
                 className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
-                title="上一回合"
+                title={t('aiSimulation.sandbox.previousRound')}
               >
                 <Play className="h-3 w-3 rotate-180" />
               </button>
@@ -1609,7 +1642,7 @@ export default function SandboxView({
                     : run.currentRound)
                 }
                 className="rounded p-1 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
-                title="下一回合"
+                title={t('aiSimulation.sandbox.nextRound')}
               >
                 <Play className="h-3 w-3" />
               </button>
@@ -1663,7 +1696,7 @@ export default function SandboxView({
                   setIsPlaying(false);
                   handleTimelineDrag(e);
                 }}
-                title="拖动时间轴查看不同回合"
+                title={t('aiSimulation.sandbox.dragToViewRounds')}
               >
                 <div
                   className="absolute left-0 top-0 h-full rounded-full"
@@ -1694,8 +1727,15 @@ export default function SandboxView({
                       style={{ left: `${position}%` }}
                       title={
                         perspective === 'GOD'
-                          ? `回合 ${turn.roundNumber}: ${totalActions} 个行动`
-                          : `回合 ${turn.roundNumber}: ${visibleActions} 个完整可见, ${hiddenActions} 个仅公开信息`
+                          ? t('aiSimulation.sandbox.timelineTooltipFull', {
+                              n: turn.roundNumber,
+                              count: totalActions,
+                            })
+                          : t('aiSimulation.sandbox.timelineTooltipPartial', {
+                              n: turn.roundNumber,
+                              visible: visibleActions,
+                              hidden: hiddenActions,
+                            })
                       }
                     >
                       <div
@@ -2026,7 +2066,10 @@ export default function SandboxView({
                   return null;
                 }}
               />
-              <Scatter name="公司" data={competitionData}>
+              <Scatter
+                name={t('aiSimulation.sandbox.scatterCompanies')}
+                data={competitionData}
+              >
                 {competitionData.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
@@ -2127,7 +2170,9 @@ export default function SandboxView({
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-900">
-                        回合 {turn.roundNumber}
+                        {t('aiSimulation.sandbox.roundNumber', {
+                          n: turn.roundNumber,
+                        })}
                       </span>
                       {hasBlackSwan && showBlackSwan && (
                         <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-700">
@@ -2178,8 +2223,10 @@ export default function SandboxView({
         <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-4 py-2">
           <div className="flex items-center gap-4 text-xs text-gray-500">
             <span>
-              {run.scenario?.agents?.length || 0} 个角色 | {companies.length}{' '}
-              家公司
+              {t('aiSimulation.sandbox.agentsAndCompanies', {
+                agents: run.scenario?.agents?.length || 0,
+                companies: companies.length,
+              })}
             </span>
             {currentTurn?.adjudication?.blackSwanEvent && (
               <span className="flex items-center gap-1 text-purple-600">

@@ -1,8 +1,12 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ScenarioFormAgent, ScenarioFormCompany } from '@/app/ai-simulation/types';
+import {
+  ScenarioFormAgent,
+  ScenarioFormCompany,
+} from '@/app/ai-simulation/types';
 import { safeJson } from '@/app/ai-simulation/utils';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 interface AgentPersona {
   traits?: string;
@@ -31,6 +35,7 @@ export function AgentCard({
   onUpdate,
   onRemove,
 }: AgentCardProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
 
   // 解析persona JSON - 使用useMemo确保响应式更新
@@ -48,31 +53,31 @@ export function AgentCard({
     { label: string; color: string; bgColor: string; icon: string }
   > = {
     BLUE: {
-      label: '蓝军',
+      label: t('aiSimulation.editor.agents.teams.blue'),
       color: 'text-blue-700',
       bgColor: 'bg-blue-100',
       icon: '🔵',
     },
     RED: {
-      label: '红军',
+      label: t('aiSimulation.editor.agents.teams.red'),
       color: 'text-red-700',
       bgColor: 'bg-red-100',
       icon: '🔴',
     },
     GREEN: {
-      label: '绿军',
+      label: t('aiSimulation.editor.agents.teams.green'),
       color: 'text-green-700',
       bgColor: 'bg-green-100',
       icon: '🟢',
     },
     WHITE: {
-      label: '白方',
+      label: t('aiSimulation.editor.agents.teams.white'),
       color: 'text-gray-700',
       bgColor: 'bg-gray-100',
       icon: '⚪',
     },
     CHAOS: {
-      label: 'Chaos',
+      label: t('aiSimulation.editor.agents.teams.chaos'),
       color: 'text-purple-700',
       bgColor: 'bg-purple-100',
       icon: '🟣',
@@ -115,16 +120,24 @@ export function AgentCard({
               }
               className={`rounded-lg border-none px-2 py-1 text-xs font-semibold ${currentTeam.bgColor} ${currentTeam.color} focus:outline-none focus:ring-1 focus:ring-indigo-500`}
             >
-              <option value="BLUE">🔵 蓝军</option>
-              <option value="RED">🔴 红军</option>
-              <option value="GREEN">🟢 绿军</option>
-              <option value="WHITE">⚪ 白方</option>
+              <option value="BLUE">
+                {t('aiSimulation.editor.agents.teamsShort.blue')}
+              </option>
+              <option value="RED">
+                {t('aiSimulation.editor.agents.teamsShort.red')}
+              </option>
+              <option value="GREEN">
+                {t('aiSimulation.editor.agents.teamsShort.green')}
+              </option>
+              <option value="WHITE">
+                {t('aiSimulation.editor.agents.teamsShort.white')}
+              </option>
               <option value="CHAOS">🟣 Chaos</option>
             </select>
             <input
               value={agent.role}
               onChange={(e) => onUpdate({ ...agent, role: e.target.value })}
-              placeholder="角色名称 (如 CEO、CFO、监管官)"
+              placeholder={t('aiSimulation.editor.agents.rolePlaceholder')}
               className="flex-1 border-none bg-transparent text-sm font-semibold text-gray-900 placeholder-gray-400 focus:outline-none"
             />
           </div>
@@ -136,7 +149,9 @@ export function AgentCard({
               }
               className="rounded border-none bg-gray-100 px-2 py-0.5 text-xs text-gray-600 focus:outline-none"
             >
-              <option value="">无所属公司</option>
+              <option value="">
+                {t('aiSimulation.editor.agents.noCompany')}
+              </option>
               {companies.map((c) => (
                 <option key={c.name} value={c.name}>
                   {c.name}
@@ -153,7 +168,8 @@ export function AgentCard({
                       : 'bg-green-100 text-green-700'
                 }`}
               >
-                风险偏好: {persona.riskTolerance}%
+                {t('aiSimulation.editor.agents.personaFields.riskAppetite')}{' '}
+                {persona.riskTolerance}%
               </span>
             )}
           </div>
@@ -167,7 +183,9 @@ export function AgentCard({
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            {expanded ? '收起' : '展开Persona'}
+            {expanded
+              ? t('aiSimulation.editor.agents.collapse')
+              : t('aiSimulation.editor.agents.expandPersona')}
             <svg
               className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`}
               fill="none"
@@ -206,7 +224,7 @@ export function AgentCard({
       {/* Expanded - Persona详情 */}
       {expanded && (
         <div className="border-t border-gray-100 bg-gray-50/50 p-4">
-          {/* 性格与偏见 */}
+          {/* {t("aiSimulation.editor.agents.personaSections.traits")} */}
           <div className="mb-4">
             <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
               <span className="flex h-5 w-5 items-center justify-center rounded bg-indigo-100 text-indigo-600">
@@ -217,49 +235,55 @@ export function AgentCard({
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  性格特征
+                  {t('aiSimulation.editor.agents.personaFields.traits')}
                 </label>
                 <input
                   type="text"
                   value={persona.traits || ''}
                   onChange={(e) => updatePersona('traits', e.target.value)}
-                  placeholder="如：激进派、保守稳健、机会主义者"
+                  placeholder={t(
+                    'aiSimulation.editor.agents.personaPlaceholders.traits'
+                  )}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  偏见/倾向
+                  {t('aiSimulation.editor.agents.personaFields.biases')}
                 </label>
                 <input
                   type="text"
                   value={persona.biases || ''}
                   onChange={(e) => updatePersona('biases', e.target.value)}
-                  placeholder="如：偏好短期收益、风险规避、市场份额优先"
+                  placeholder={t(
+                    'aiSimulation.editor.agents.personaPlaceholders.biases'
+                  )}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 />
               </div>
             </div>
           </div>
 
-          {/* 压力与时间偏好 */}
+          {/* 压力与{t("aiSimulation.editor.agents.personaFields.timePref")} */}
           <div className="mb-4">
             <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
               <span className="flex h-5 w-5 items-center justify-center rounded bg-orange-100 text-orange-600">
                 ⏱️
               </span>
-              压力源与时间偏好
+              {t('aiSimulation.editor.agents.personaSections.pressure')}
             </h4>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  压力源
+                  {t('aiSimulation.editor.agents.personaFields.pressure')}
                 </label>
                 <input
                   type="text"
                   value={persona.pressure || ''}
                   onChange={(e) => updatePersona('pressure', e.target.value)}
-                  placeholder="如：财报压力、融资需求、竞争对手威胁"
+                  placeholder={t(
+                    'aiSimulation.editor.agents.personaPlaceholders.pressure'
+                  )}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 />
               </div>
@@ -272,10 +296,20 @@ export function AgentCard({
                   onChange={(e) => updatePersona('timePref', e.target.value)}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 >
-                  <option value="">选择时间偏好...</option>
-                  <option value="短期">短期 (0-6个月)</option>
-                  <option value="中期">中期 (6-18个月)</option>
-                  <option value="长期">长期 (18个月以上)</option>
+                  <option value="">
+                    {t(
+                      'aiSimulation.editor.agents.personaPlaceholders.selectTime'
+                    )}
+                  </option>
+                  <option value="短期">
+                    {t('aiSimulation.editor.agents.timePreferences.short')}
+                  </option>
+                  <option value="中期">
+                    {t('aiSimulation.editor.agents.timePreferences.medium')}
+                  </option>
+                  <option value="长期">
+                    {t('aiSimulation.editor.agents.timePreferences.long')}
+                  </option>
                 </select>
               </div>
             </div>
@@ -287,12 +321,16 @@ export function AgentCard({
               <span className="flex h-5 w-5 items-center justify-center rounded bg-red-100 text-red-600">
                 ⚠️
               </span>
-              风险容忍度与合规度
+              {t('aiSimulation.editor.agents.personaSections.risk')}
             </h4>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <label className="text-xs text-gray-500">风险容忍度</label>
+                  <label className="text-xs text-gray-500">
+                    {t(
+                      'aiSimulation.editor.agents.personaFields.riskTolerance'
+                    )}
+                  </label>
                   <span
                     className={`rounded px-2 py-0.5 text-xs font-medium ${
                       (persona.riskTolerance || 50) > 70
@@ -317,13 +355,19 @@ export function AgentCard({
                   className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 accent-red-600"
                 />
                 <div className="mt-1 flex justify-between text-xs text-gray-400">
-                  <span>保守</span>
-                  <span>激进</span>
+                  <span>
+                    {t('aiSimulation.editor.agents.riskLabels.conservative')}
+                  </span>
+                  <span>
+                    {t('aiSimulation.editor.agents.riskLabels.aggressive')}
+                  </span>
                 </div>
               </div>
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <label className="text-xs text-gray-500">合规度</label>
+                  <label className="text-xs text-gray-500">
+                    {t('aiSimulation.editor.agents.personaFields.compliance')}
+                  </label>
                   <span
                     className={`rounded px-2 py-0.5 text-xs font-medium ${
                       (persona.compliance || 50) > 70
@@ -348,20 +392,24 @@ export function AgentCard({
                   className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 accent-green-600"
                 />
                 <div className="mt-1 flex justify-between text-xs text-gray-400">
-                  <span>灵活</span>
-                  <span>严格</span>
+                  <span>
+                    {t('aiSimulation.editor.agents.riskLabels.flexible')}
+                  </span>
+                  <span>
+                    {t('aiSimulation.editor.agents.riskLabels.strict')}
+                  </span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 私有记忆 */}
+          {/* {t("aiSimulation.editor.agents.personaSections.privateMemory")} */}
           <div>
             <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
               <span className="flex h-5 w-5 items-center justify-center rounded bg-gray-100 text-gray-600">
                 🔒
               </span>
-              私有记忆（仅该角色可见）
+              {t('aiSimulation.editor.agents.memoryPrivate')}
             </h4>
             <textarea
               value={
@@ -372,7 +420,9 @@ export function AgentCard({
               onChange={(e) =>
                 onUpdate({ ...agent, memoryPrivate: e.target.value })
               }
-              placeholder="该角色独有的隐藏信息，如：资金链紧张、内部矛盾、即将离职..."
+              placeholder={t(
+                'aiSimulation.editor.agents.memoryPrivatePlaceholder'
+              )}
               rows={2}
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             />
@@ -393,9 +443,7 @@ export function AgentCard({
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span>
-              Persona配置影响AI的决策风格。风险容忍度高+合规度低的角色更可能做出激进决策
-            </span>
+            <span>{t('aiSimulation.editor.agents.personaTooltip')}</span>
           </div>
         </div>
       )}

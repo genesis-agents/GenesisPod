@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ScenarioFormCompany } from '@/app/ai-simulation/types';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 import { logger } from '@/lib/utils/logger';
 interface CompanyCardProps {
@@ -21,6 +22,7 @@ export function CompanyCard({
   onUpdate,
   onRemove,
 }: CompanyCardProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<{
@@ -43,7 +45,7 @@ export function CompanyCard({
   // AI辅助生成指标
   const handleAiAssist = async () => {
     if (!company.name || !company.type) {
-      alert('请先填写公司名称和类型');
+      alert(t('aiSimulation.editor.companies.fillNameAndType'));
       return;
     }
 
@@ -66,7 +68,8 @@ export function CompanyCard({
         }
       );
 
-      if (!res.ok) throw new Error('AI生成失败');
+      if (!res.ok)
+        throw new Error(t('aiSimulation.editor.companies.aiGenerateFailed'));
 
       const result = await res.json();
       // Handle wrapped API response { success: true, data: T }
@@ -75,7 +78,7 @@ export function CompanyCard({
       setShowConfirmDialog(true);
     } catch (err) {
       logger.error('AI assist error:', err);
-      alert('AI生成失败，请重试');
+      alert(t('aiSimulation.editor.companies.aiGenerateRetry'));
     } finally {
       setAiLoading(false);
     }
@@ -97,42 +100,42 @@ export function CompanyCard({
   const companyTypes = [
     {
       value: 'benchmark',
-      label: '行业标杆',
+      label: t('aiSimulation.editor.companies.types.benchmark'),
       color: 'bg-blue-100 text-blue-700',
     },
     {
       value: 'startup',
-      label: '初创公司',
+      label: t('aiSimulation.editor.companies.types.startup'),
       color: 'bg-green-100 text-green-700',
     },
     {
       value: 'regional',
-      label: '区域龙头',
+      label: t('aiSimulation.editor.companies.types.regional'),
       color: 'bg-purple-100 text-purple-700',
     },
     {
       value: 'challenger',
-      label: '挑战者',
+      label: t('aiSimulation.editor.companies.types.challenger'),
       color: 'bg-orange-100 text-orange-700',
     },
     {
       value: 'competitor',
-      label: '竞争对手',
+      label: t('aiSimulation.editor.companies.types.competitor'),
       color: 'bg-red-100 text-red-700',
     },
     {
       value: 'customer',
-      label: '客户/市场',
+      label: t('aiSimulation.editor.companies.types.customer'),
       color: 'bg-cyan-100 text-cyan-700',
     },
     {
       value: 'supplier',
-      label: '供应商',
+      label: t('aiSimulation.editor.companies.types.supplier'),
       color: 'bg-teal-100 text-teal-700',
     },
     {
       value: 'regulatory',
-      label: '监管机构',
+      label: t('aiSimulation.editor.companies.types.regulatory'),
       color: 'bg-gray-100 text-gray-700',
     },
   ];
@@ -148,7 +151,7 @@ export function CompanyCard({
           <input
             value={company.name}
             onChange={(e) => onUpdate({ ...company, name: e.target.value })}
-            placeholder="公司名称"
+            placeholder={t('aiSimulation.editor.companies.namePlaceholder')}
             className="w-full border-none bg-transparent text-base font-semibold text-gray-900 placeholder-gray-400 focus:outline-none"
           />
           <div className="mt-1 flex items-center gap-2">
@@ -157,7 +160,9 @@ export function CompanyCard({
               onChange={(e) => onUpdate({ ...company, type: e.target.value })}
               className="rounded border-none bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
-              <option value="">选择类型...</option>
+              <option value="">
+                {t('aiSimulation.editor.companies.selectType')}
+              </option>
               {companyTypes.map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
@@ -168,7 +173,7 @@ export function CompanyCard({
             <input
               value={company.market}
               onChange={(e) => onUpdate({ ...company, market: e.target.value })}
-              placeholder="市场区域"
+              placeholder={t('aiSimulation.editor.companies.marketPlaceholder')}
               className="w-24 border-none bg-transparent text-xs text-gray-500 placeholder-gray-400 focus:outline-none"
             />
           </div>
@@ -183,7 +188,7 @@ export function CompanyCard({
                 ? 'cursor-wait bg-purple-100 text-purple-400'
                 : 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600'
             }`}
-            title="AI辅助生成量化指标"
+            title={t('aiSimulation.editor.companies.aiAssistTitle')}
           >
             {aiLoading ? (
               <>
@@ -206,7 +211,7 @@ export function CompanyCard({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                生成中...
+                {t('aiSimulation.editor.companies.generating')}
               </>
             ) : (
               <>
@@ -223,7 +228,7 @@ export function CompanyCard({
                     d="M13 10V3L4 14h7v7l9-11h-7z"
                   />
                 </svg>
-                AI生成
+                {t('aiSimulation.editor.companies.aiGenerate')}
               </>
             )}
           </button>
@@ -235,7 +240,9 @@ export function CompanyCard({
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            {expanded ? '收起' : '展开量化指标'}
+            {expanded
+              ? t('aiSimulation.editor.companies.collapse')
+              : t('aiSimulation.editor.companies.expandMetrics')}
             <svg
               className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`}
               fill="none"
@@ -293,7 +300,7 @@ export function CompanyCard({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-gray-900">
-                  AI生成的指标建议
+                  {t('aiSimulation.editor.companies.aiGeneratedSuggestion')}
                 </h3>
                 <p className="text-sm text-gray-500">{company.name}</p>
               </div>
@@ -318,7 +325,9 @@ export function CompanyCard({
 
             {/* AI推理说明 */}
             <div className="mb-4 rounded-lg bg-indigo-50 p-3 text-sm text-indigo-700">
-              <span className="font-medium">AI分析：</span>{' '}
+              <span className="font-medium">
+                {t('aiSimulation.editor.companies.aiAnalysis')}
+              </span>{' '}
               {aiSuggestion.reasoning}
             </div>
 
@@ -326,61 +335,83 @@ export function CompanyCard({
             <div className="mb-4 space-y-3">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">现金储备</span>
+                  <span className="text-gray-500">
+                    {t('aiSimulation.editor.companies.metrics.cash')}
+                  </span>
                   <p className="font-semibold text-gray-900">
-                    ${aiSuggestion.metrics.cash?.toLocaleString()}万
+                    ${aiSuggestion.metrics.cash?.toLocaleString()}
+                    {t('aiSimulation.editor.companies.units.tenThousandUSD')}
                   </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">市场份额</span>
+                  <span className="text-gray-500">
+                    {t('aiSimulation.editor.companies.metrics.share')}
+                  </span>
                   <p className="font-semibold text-gray-900">
                     {aiSuggestion.metrics.share}%
                   </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">毛利率</span>
+                  <span className="text-gray-500">
+                    {t('aiSimulation.editor.companies.metrics.margin')}
+                  </span>
                   <p className="font-semibold text-gray-900">
                     {aiSuggestion.metrics.margin}%
                   </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">负债</span>
+                  <span className="text-gray-500">
+                    {t('aiSimulation.editor.companies.metrics.debt')}
+                  </span>
                   <p className="font-semibold text-gray-900">
-                    ${aiSuggestion.metrics.debt?.toLocaleString()}万
+                    ${aiSuggestion.metrics.debt?.toLocaleString()}
+                    {t('aiSimulation.editor.companies.units.tenThousandUSD')}
                   </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">产能</span>
+                  <span className="text-gray-500">
+                    {t('aiSimulation.editor.companies.metrics.capacity')}
+                  </span>
                   <p className="font-semibold text-gray-900">
                     {aiSuggestion.metrics.capacity?.toLocaleString()}
                   </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">库存</span>
+                  <span className="text-gray-500">
+                    {t('aiSimulation.editor.companies.metrics.inventory')}
+                  </span>
                   <p className="font-semibold text-gray-900">
                     {aiSuggestion.metrics.inventory?.toLocaleString()}
                   </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">价格定位</span>
+                  <span className="text-gray-500">
+                    {t('aiSimulation.editor.companies.metrics.priceRange')}
+                  </span>
                   <p className="font-semibold text-gray-900">
                     {aiSuggestion.metrics.priceBand}
                   </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">交付周期</span>
+                  <span className="text-gray-500">
+                    {t('aiSimulation.editor.companies.metrics.deliveryTime')}
+                  </span>
                   <p className="font-semibold text-gray-900">
                     {aiSuggestion.metrics.delivery}
                   </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">专利数量</span>
+                  <span className="text-gray-500">
+                    {t('aiSimulation.editor.companies.metrics.patents')}
+                  </span>
                   <p className="font-semibold text-gray-900">
                     {aiSuggestion.metrics.patents?.toLocaleString()}
                   </p>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-2">
-                  <span className="text-gray-500">渠道</span>
+                  <span className="text-gray-500">
+                    {t('aiSimulation.editor.companies.metrics.channels')}
+                  </span>
                   <p className="font-semibold text-gray-900">
                     {aiSuggestion.metrics.channels}
                   </p>
@@ -397,13 +428,13 @@ export function CompanyCard({
                 }}
                 className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
               >
-                取消
+                {t('aiSimulation.editor.companies.cancel')}
               </button>
               <button
                 onClick={applyAiSuggestion}
                 className="flex-1 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:from-purple-600 hover:to-indigo-700"
               >
-                应用建议
+                {t('aiSimulation.editor.companies.applySuggestion')}
               </button>
             </div>
           </div>
@@ -413,7 +444,7 @@ export function CompanyCard({
       {/* Expanded - 量化指标详情 */}
       {expanded && (
         <div className="border-t border-gray-100 bg-gray-50/50 p-4">
-          {/* 核心财务指标 */}
+          {/* {t("aiSimulation.editor.companies.sections.core")} */}
           <div className="mb-4">
             <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
               <span className="flex h-5 w-5 items-center justify-center rounded bg-green-100 text-green-600">
@@ -424,7 +455,8 @@ export function CompanyCard({
             <div className="grid gap-3 sm:grid-cols-4">
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  现金 (万美元)
+                  {t('aiSimulation.editor.companies.metrics.cash')}{' '}
+                  {t('aiSimulation.editor.companies.units.tenThousandUSD')}
                 </label>
                 <input
                   type="number"
@@ -438,7 +470,8 @@ export function CompanyCard({
               </div>
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  市场份额 (%)
+                  {t('aiSimulation.editor.companies.metrics.share')}{' '}
+                  {t('aiSimulation.editor.companies.units.percent')}
                 </label>
                 <input
                   type="number"
@@ -452,7 +485,8 @@ export function CompanyCard({
               </div>
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  毛利率 (%)
+                  {t('aiSimulation.editor.companies.metrics.margin')}{' '}
+                  {t('aiSimulation.editor.companies.units.percent')}
                 </label>
                 <input
                   type="number"
@@ -466,7 +500,8 @@ export function CompanyCard({
               </div>
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  负债 (万美元)
+                  {t('aiSimulation.editor.companies.metrics.debt')}{' '}
+                  {t('aiSimulation.editor.companies.units.tenThousandUSD')}
                 </label>
                 <input
                   type="number"
@@ -481,7 +516,7 @@ export function CompanyCard({
             </div>
           </div>
 
-          {/* 运营指标 */}
+          {/* {t("aiSimulation.editor.companies.sections.operations")} */}
           <div className="mb-4">
             <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
               <span className="flex h-5 w-5 items-center justify-center rounded bg-blue-100 text-blue-600">
@@ -492,7 +527,8 @@ export function CompanyCard({
             <div className="grid gap-3 sm:grid-cols-4">
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  产能 (单位)
+                  {t('aiSimulation.editor.companies.metrics.capacity')}{' '}
+                  {t('aiSimulation.editor.companies.units.units')}
                 </label>
                 <input
                   type="number"
@@ -506,7 +542,8 @@ export function CompanyCard({
               </div>
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  库存 (单位)
+                  {t('aiSimulation.editor.companies.metrics.inventory')}{' '}
+                  {t('aiSimulation.editor.companies.units.units')}
                 </label>
                 <input
                   type="number"
@@ -520,32 +557,36 @@ export function CompanyCard({
               </div>
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  价格带
+                  {t('aiSimulation.editor.companies.metrics.priceRange')}
                 </label>
                 <input
                   type="text"
                   value={metrics.priceBand || ''}
                   onChange={(e) => updateMetrics('priceBand', e.target.value)}
-                  placeholder="高端/中端/低端"
+                  placeholder={t(
+                    'aiSimulation.editor.companies.placeholders.priceRange'
+                  )}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  交付周期
+                  {t('aiSimulation.editor.companies.metrics.deliveryTime')}
                 </label>
                 <input
                   type="text"
                   value={metrics.delivery || ''}
                   onChange={(e) => updateMetrics('delivery', e.target.value)}
-                  placeholder="2-4周"
+                  placeholder={t(
+                    'aiSimulation.editor.companies.placeholders.deliveryTime'
+                  )}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 />
               </div>
             </div>
           </div>
 
-          {/* 护城河指标 */}
+          {/* {t("aiSimulation.editor.companies.sections.moat")}指标 */}
           <div>
             <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
               <span className="flex h-5 w-5 items-center justify-center rounded bg-purple-100 text-purple-600">
@@ -556,7 +597,7 @@ export function CompanyCard({
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  专利数量
+                  {t('aiSimulation.editor.companies.metrics.patents')}
                 </label>
                 <input
                   type="number"
@@ -570,31 +611,47 @@ export function CompanyCard({
               </div>
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  渠道优势
+                  {t('aiSimulation.editor.companies.metrics.channels')}
                 </label>
                 <input
                   type="text"
                   value={metrics.channels || ''}
                   onChange={(e) => updateMetrics('channels', e.target.value)}
-                  placeholder="直销/代理/电商"
+                  placeholder={t(
+                    'aiSimulation.editor.companies.placeholders.channels'
+                  )}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label className="mb-1 block text-xs text-gray-500">
-                  品牌影响力
+                  {t('aiSimulation.editor.companies.metrics.brand')}
                 </label>
                 <select
                   value={metrics.brand || ''}
                   onChange={(e) => updateMetrics('brand', e.target.value)}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 >
-                  <option value="">选择...</option>
-                  <option value="global_leader">全球领导者</option>
-                  <option value="strong">强势品牌</option>
-                  <option value="growing">成长中</option>
-                  <option value="niche">细分市场</option>
-                  <option value="emerging">新兴品牌</option>
+                  <option value="">
+                    {t('aiSimulation.editor.companies.brandOptions.select')}
+                  </option>
+                  <option value="global_leader">
+                    {t(
+                      'aiSimulation.editor.companies.brandOptions.globalLeader'
+                    )}
+                  </option>
+                  <option value="strong">
+                    {t('aiSimulation.editor.companies.brandOptions.strong')}
+                  </option>
+                  <option value="growing">
+                    {t('aiSimulation.editor.companies.brandOptions.growing')}
+                  </option>
+                  <option value="niche">
+                    {t('aiSimulation.editor.companies.brandOptions.niche')}
+                  </option>
+                  <option value="emerging">
+                    {t('aiSimulation.editor.companies.brandOptions.emerging')}
+                  </option>
                 </select>
               </div>
             </div>
@@ -615,7 +672,7 @@ export function CompanyCard({
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span>提示：不确定的数据可留空，AI裁判将基于外部数据源补充</span>
+            <span>{t('aiSimulation.editor.companies.aiHint')}</span>
           </div>
         </div>
       )}

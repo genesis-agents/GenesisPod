@@ -20,12 +20,14 @@ import { SourceImportModal } from './SourceImportModal';
 import type { SlidesSourceData } from '@/hooks/features/slides';
 import { logger } from '@/lib/utils/logger';
 import { formatDateSafe } from '@/lib/utils/date';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 interface SlidesWorkspaceProps {
   className?: string;
 }
 
 export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
+  const { t } = useI18n();
   const [showImportModal, setShowImportModal] = useState(false);
   // Local state for pending generation input
   const [pendingSourceText, setPendingSourceText] = useState<string>('');
@@ -88,8 +90,10 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
 
   // Handle create checkpoint
   const handleCreateCheckpoint = useCallback(() => {
-    createCheckpoint(`保存点 ${formatDateSafe(new Date(), 'time')}`);
-  }, [createCheckpoint]);
+    createCheckpoint(
+      t('office.slides.savePoint', { time: formatDateSafe(new Date(), 'time') })
+    );
+  }, [createCheckpoint, t]);
 
   // Handle fact check
   const handleFactCheck = useCallback(async () => {
@@ -127,7 +131,7 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
 
       {/* Right Panel */}
       <RightPanel
-        title={session?.title || 'AI 演示文稿'}
+        title={session?.title || t('office.slides.title')}
         sessionId={session?.id}
         onCheckpointRestore={handleCheckpointRestore}
         onCreateCheckpoint={handleCreateCheckpoint}

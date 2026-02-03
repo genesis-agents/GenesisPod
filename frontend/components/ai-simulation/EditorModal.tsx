@@ -266,7 +266,8 @@ export function EditorModal({
       }
     } catch (err: unknown) {
       setMessage(
-        (err instanceof Error ? err.message : String(err)) || 'AI分析失败'
+        (err instanceof Error ? err.message : String(err)) ||
+          t('aiSimulation.editor.ai.messages.analysisFallback')
       );
     } finally {
       setAiAssisting(false);
@@ -315,7 +316,11 @@ export function EditorModal({
       return [...updatedCompanies, ...companiesToAdd];
     });
 
-    setMessage(`已采纳 ${suggestedCompanies.length} 家AI推荐的公司`);
+    setMessage(
+      t('aiSimulation.editor.ai.messages.adoptedCompanies', {
+        count: suggestedCompanies.length,
+      })
+    );
   };
 
   // 采纳AI建议的角色
@@ -388,7 +393,11 @@ export function EditorModal({
       return [...updatedAgents, ...agentsToAdd];
     });
 
-    setMessage(`已采纳 ${suggestedAgents.length} 个AI推荐的角色`);
+    setMessage(
+      t('aiSimulation.editor.ai.messages.adoptedAgents', {
+        count: suggestedAgents.length,
+      })
+    );
   };
 
   // 采纳AI建议的目标
@@ -398,7 +407,7 @@ export function EditorModal({
       ...prev,
       goals: { ...prev.goals, ...aiSuggestions.goals },
     }));
-    setMessage('已采纳AI推荐的推演目标');
+    setMessage(t('aiSimulation.editor.ai.messages.adoptedGoals'));
   };
 
   // AI辅助：根据已有蓝军角色，智能推荐红军/绿军/Chaos角色
@@ -415,11 +424,11 @@ export function EditorModal({
     // 检查是否已有蓝军角色
     const blueAgents = agents.filter((a) => a.team === 'BLUE');
     if (blueAgents.length === 0) {
-      setMessage('请先配置至少一个蓝军角色');
+      setMessage(t('aiSimulation.editor.ai.messages.needBlueAgent'));
       return;
     }
     if (!form.industry) {
-      setMessage('请先在基本信息中填写行业');
+      setMessage(t('aiSimulation.editor.ai.messages.fillIndustryForAgents'));
       return;
     }
 
@@ -451,14 +460,19 @@ export function EditorModal({
       if (res.ok && data.agents) {
         setAiAgentSuggestions(data.agents);
         setMessage(
-          `AI已推荐 ${data.agents.length} 个对手角色，请查看并选择采纳`
+          t('aiSimulation.editor.ai.messages.suggestedAgents', {
+            count: data.agents.length,
+          })
         );
       } else {
-        setMessage(data?.message || 'AI推荐失败，请稍后重试');
+        setMessage(
+          data?.message || t('aiSimulation.editor.ai.messages.suggestRetry')
+        );
       }
     } catch (err: unknown) {
       setMessage(
-        (err instanceof Error ? err.message : String(err)) || 'AI推荐失败'
+        (err instanceof Error ? err.message : String(err)) ||
+          t('aiSimulation.editor.ai.messages.recommendFallback')
       );
     } finally {
       setAiAgentAssisting(false);
@@ -540,7 +554,11 @@ export function EditorModal({
 
     const totalCount = suggestedAgents.length;
     setAiAgentSuggestions(null);
-    setMessage(`已采纳 ${totalCount} 个AI推荐的角色`);
+    setMessage(
+      t('aiSimulation.editor.ai.messages.adoptedAgentCount', {
+        count: totalCount,
+      })
+    );
   };
 
   // AI辅助：推荐推演参数
@@ -558,7 +576,7 @@ export function EditorModal({
 
   const aiAssistParams = async () => {
     if (!form.industry) {
-      setMessage('请先在基本信息中填写行业');
+      setMessage(t('aiSimulation.editor.ai.messages.fillIndustryForAgents'));
       return;
     }
 
@@ -587,13 +605,16 @@ export function EditorModal({
       const data = result?.data ?? result;
       if (res.ok) {
         setAiParamsSuggestions(data);
-        setMessage('AI已分析行业特征并推荐最优参数配置，点击"采纳建议"应用');
+        setMessage(t('aiSimulation.editor.ai.messages.paramsAnalyzedDetail'));
       } else {
-        setMessage(data?.message || 'AI推荐失败，请稍后重试');
+        setMessage(
+          data?.message || t('aiSimulation.editor.ai.messages.suggestRetry')
+        );
       }
     } catch (err: unknown) {
       setMessage(
-        (err instanceof Error ? err.message : String(err)) || 'AI推荐失败'
+        (err instanceof Error ? err.message : String(err)) ||
+          t('aiSimulation.editor.ai.messages.recommendFallback')
       );
     } finally {
       setAiParamsAssisting(false);
@@ -615,7 +636,7 @@ export function EditorModal({
       },
     }));
     setAiParamsSuggestions(null);
-    setMessage('已采纳AI推荐的推演参数配置');
+    setMessage(t('aiSimulation.editor.ai.messages.adoptedParams'));
   };
 
   const saveScenario = async () => {
@@ -675,17 +696,24 @@ export function EditorModal({
       logger.debug('[saveScenario] Response data:', data);
 
       if (res.ok) {
-        setMessage(isEditing ? '场景已更新' : '场景已保存');
+        setMessage(
+          isEditing
+            ? t('aiSimulation.editor.messages.scenarioUpdated')
+            : t('aiSimulation.editor.messages.scenarioSaved')
+        );
         // 更新本地场景状态（新建场景时获取ID，后续保存变为PATCH）
         setLocalScenario(data as ScenarioCard);
         // 通知父组件刷新列表（不传递数据，避免覆盖本地状态）
         onSaved();
       } else {
-        setMessage(data?.message || '保存失败');
+        setMessage(
+          data?.message || t('aiSimulation.editor.messages.saveFailed')
+        );
       }
     } catch (err: unknown) {
       setMessage(
-        (err instanceof Error ? err.message : String(err)) || '保存失败'
+        (err instanceof Error ? err.message : String(err)) ||
+          t('aiSimulation.editor.messages.saveFailed')
       );
     } finally {
       setSaving(false);
@@ -694,7 +722,7 @@ export function EditorModal({
 
   const startRun = async () => {
     if (!localScenario?.id) {
-      setMessage('请先保存场景');
+      setMessage(t('aiSimulation.editor.messages.saveFirst'));
       return;
     }
     setSaving(true);
@@ -716,15 +744,18 @@ export function EditorModal({
       const data = result?.data ?? result;
       if (res.ok) {
         setRunId(data.id);
-        setMessage('推演已启动，正在跳转...');
+        setMessage(t('aiSimulation.editor.messages.runStarting'));
         // 导航到推演页面
         router.push(`/ai-simulation/run/${data.id}`);
       } else {
-        setMessage(data?.message || '启动失败');
+        setMessage(
+          data?.message || t('aiSimulation.editor.messages.runFailed')
+        );
       }
     } catch (err: unknown) {
       setMessage(
-        (err instanceof Error ? err.message : String(err)) || '启动失败'
+        (err instanceof Error ? err.message : String(err)) ||
+          t('aiSimulation.editor.messages.runFailed')
       );
     } finally {
       setSaving(false);
@@ -762,7 +793,7 @@ export function EditorModal({
       { role: 'Regulator', team: 'WHITE' },
     ]);
     setAiAgentSuggestions(null);
-    setMessage('角色配置已重置');
+    setMessage(t('aiSimulation.editor.agents.messages.reset'));
   };
 
   // 清理重复和无效角色
@@ -798,7 +829,7 @@ export function EditorModal({
 
       return cleaned;
     });
-    setMessage('已清理重复和无效角色');
+    setMessage(t('aiSimulation.editor.agents.messages.cleaned'));
   };
 
   const fetchExternal = async () => {
@@ -813,9 +844,11 @@ export function EditorModal({
       const data = result?.data ?? result;
       if (res.ok) {
         setExternal(data);
-        setMessage('已同步外部数据，建议复核字段并人工调整');
+        setMessage(t('aiSimulation.editor.ai.messages.externalDataSynced'));
       } else {
-        setMessage(data?.message || '同步外部数据失败');
+        setMessage(
+          data?.message || t('aiSimulation.editor.ai.messages.syncFailed')
+        );
       }
     } catch (err: unknown) {
       setMessage(
@@ -889,7 +922,7 @@ export function EditorModal({
           metrics: item.metrics || item,
         }));
       setCompanies((prev) => mergeCompanies(prev, newCompanies));
-      setMessage('已用外部市场数据填充公司，请确认类型/指标');
+      setMessage(t('aiSimulation.editor.ai.messages.marketDataFilled'));
       return;
     }
 
@@ -901,13 +934,15 @@ export function EditorModal({
     ) {
       const errorMsg = (external.snapshot.market as { error?: string }).error;
       if (errorMsg === 'provider_not_configured') {
-        setMessage(
-          '外部市场数据源未配置。请在系统设置中配置 market 类型的数据提供商，或使用AI智能分析'
-        );
+        setMessage(t('aiSimulation.editor.externalData.notConfigured'));
       } else if (errorMsg === 'provider_disabled') {
-        setMessage('外部市场数据源已禁用。请启用数据提供商或使用AI智能分析');
+        setMessage(t('aiSimulation.editor.externalData.disabled'));
       } else {
-        setMessage(`外部数据获取失败: ${errorMsg}。将使用AI分析作为替代`);
+        setMessage(
+          t('aiSimulation.editor.externalData.fetchFailed', {
+            error: errorMsg || 'Unknown error',
+          })
+        );
       }
       // 不直接返回，继续使用AI分析
     }
@@ -920,7 +955,7 @@ export function EditorModal({
 
     // 调用AI辅助分析
     setAiAssisting(true);
-    setMessage('正在使用AI分析行业竞争格局...');
+    setMessage(t('aiSimulation.editor.ai.messages.analyzing'));
     try {
       const res = await fetch(`${config.apiUrl}/simulation/ai-assist/analyze`, {
         method: 'POST',
@@ -983,17 +1018,19 @@ export function EditorModal({
         setCompanies((prev) => mergeCompanies(prev, companiesWithMetrics));
         setAiSuggestions(data);
         setMessage(
-          `AI已分析并推荐 ${companiesWithMetrics.length} 家公司（含量化指标），请确认类型/指标`
+          t('aiSimulation.editor.ai.messages.analyzedWithMetrics', {
+            count: companiesWithMetrics.length,
+          })
         );
       } else {
         setMessage(
-          data?.message || 'AI分析未返回公司数据，请手动添加公司或重试'
+          data?.message || t('aiSimulation.editor.ai.messages.noCompanyData')
         );
       }
     } catch (err: unknown) {
       setMessage(
         (err instanceof Error ? err.message : String(err)) ||
-          'AI分析失败，请手动添加公司'
+          t('aiSimulation.editor.ai.messages.analysisFailedManual')
       );
     } finally {
       setAiAssisting(false);
@@ -1010,30 +1047,30 @@ export function EditorModal({
   }> = [
     {
       id: 'basic',
-      label: '基本信息',
+      label: t('aiSimulation.editor.tabs.basic.label'),
       icon: '📋',
-      desc: '场景名称、行业、目标',
+      desc: t('aiSimulation.editor.tabs.basic.desc'),
       required: ['name', 'industry'],
     },
     {
       id: 'companies',
-      label: '公司配置',
+      label: t('aiSimulation.editor.tabs.companies.label'),
       icon: '🏢',
       count: companies.length,
-      desc: '参与推演的公司及量化指标',
+      desc: t('aiSimulation.editor.tabs.companies.desc'),
     },
     {
       id: 'agents',
-      label: '角色配置',
+      label: t('aiSimulation.editor.tabs.agents.label'),
       icon: '👥',
       count: agents.length,
-      desc: 'AI Agent与Persona配置',
+      desc: t('aiSimulation.editor.tabs.agents.desc'),
     },
     {
       id: 'params',
-      label: '推演参数',
+      label: t('aiSimulation.editor.tabs.params.label'),
       icon: '⚙️',
-      desc: '对战机制、随机性、人类干预',
+      desc: t('aiSimulation.editor.tabs.params.desc'),
     },
   ];
 

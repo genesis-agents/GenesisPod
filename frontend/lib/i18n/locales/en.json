@@ -43,6 +43,9 @@
     "viewAll": "View All",
     "seeMore": "See More",
     "showLess": "Show Less",
+    "notFound": "Content not found",
+    "noAccessHint": "The content may have been deleted or you don't have access",
+    "loadFailed": "Load failed",
     "noResults": "No results found",
     "tryAgain": "Try Again",
     "learnMore": "Learn More",
@@ -1822,7 +1825,18 @@
           "adoptedAgentCount": "Adopted {{count}} AI-recommended agents",
           "fillIndustryForParams": "Please fill in industry in basic info first",
           "paramsAnalyzed": "AI analyzed industry characteristics and recommended optimal parameters, click 'Adopt Parameters' to apply",
-          "adoptedParams": "Adopted AI-recommended simulation parameters"
+          "adoptedParams": "Adopted AI-recommended simulation parameters",
+          "analysisFallback": "AI analysis failed",
+          "recommendFallback": "AI recommendation failed",
+          "suggestRetry": "AI recommendation failed, please try again later",
+          "marketDataFilled": "Filled companies with external market data, please confirm types/metrics",
+          "externalDataSynced": "External data synced, recommend reviewing and manually adjusting fields",
+          "syncFailed": "Failed to sync external data",
+          "analyzing": "Using AI to analyze industry competitive landscape...",
+          "analyzedWithMetrics": "AI analyzed and recommended {{count}} companies (with metrics), please confirm types/metrics",
+          "noCompanyData": "AI analysis returned no company data, please add manually or retry",
+          "analysisFailedManual": "AI analysis failed, please add companies manually",
+          "paramsAnalyzedDetail": "AI analyzed industry characteristics and recommended optimal parameters, click \"Adopt Suggestion\" to apply"
         }
       },
       "companies": {
@@ -1841,7 +1855,8 @@
           "challenger": "Challenger",
           "startup": "Startup",
           "customer": "Customer",
-          "supplier": "Supplier"
+          "supplier": "Supplier",
+          "regulatory": "Regulatory Agency"
         },
         "messages": {
           "injected": "Filled companies with external market data, please confirm types/metrics",
@@ -1852,7 +1867,47 @@
           "aiAnalyzing": "Using AI to analyze competitive landscape...",
           "aiAnalyzedMetrics": "AI analyzed and recommended {{count}} companies (with quantitative metrics), please confirm types/metrics",
           "aiNoData": "AI analysis returned no company data, please manually add companies or retry"
-        }
+        },
+        "namePlaceholder": "Company Name",
+        "selectType": "Select type...",
+        "marketPlaceholder": "Market Region",
+        "fillNameAndType": "Please fill in company name and type first",
+        "aiGenerateFailed": "AI generation failed",
+        "aiGenerateRetry": "AI generation failed, please retry",
+        "aiAssistTitle": "AI-assisted quantitative metrics generation",
+        "generating": "Generating...",
+        "aiGenerate": "AI Generate",
+        "collapse": "Collapse",
+        "expandMetrics": "Expand Metrics",
+        "aiGeneratedSuggestion": "AI Generated Metrics",
+        "aiAnalysis": "AI Analysis:",
+        "cancel": "Cancel",
+        "applySuggestion": "Apply Suggestion",
+        "sections": {
+          "core": "Core Financial Metrics",
+          "operations": "Operations Metrics",
+          "moat": "Moat"
+        },
+        "units": {
+          "tenThousandUSD": "(10k USD)",
+          "percent": "(%)",
+          "units": "(units)",
+          "weeks": "weeks"
+        },
+        "placeholders": {
+          "priceRange": "High-end/Mid-range/Budget",
+          "deliveryTime": "2-4 weeks",
+          "channels": "Direct/Agent/E-commerce"
+        },
+        "brandOptions": {
+          "select": "Select...",
+          "globalLeader": "Global Leader",
+          "strong": "Strong Brand",
+          "growing": "Growing",
+          "niche": "Niche Market",
+          "emerging": "Emerging Brand"
+        },
+        "aiHint": "Tip: Uncertain data can be left blank, AI referee will supplement based on external data sources"
       },
       "agents": {
         "addAgent": "Add Agent",
@@ -1879,7 +1934,52 @@
         "messages": {
           "reset": "Agent configuration has been reset",
           "cleaned": "Cleaned up duplicate and invalid agents"
-        }
+        },
+        "rolePlaceholder": "Role name (e.g., CEO, CFO, Regulator)",
+        "memoryPrivatePlaceholder": "Private information unique to this agent, e.g.: tight cash flow, internal conflicts, upcoming resignation...",
+        "personaTooltip": "Persona configuration affects AI decision-making style. High risk tolerance + low compliance agents are more likely to make aggressive decisions",
+        "collapse": "Collapse",
+        "expandPersona": "Expand Persona",
+        "teamsShort": {
+          "blue": "🔵 Blue Team",
+          "red": "🔴 Red Team",
+          "green": "🟢 Green Team",
+          "white": "⚪ White Team",
+          "chaos": "🟣 Chaos"
+        },
+        "personaSections": {
+          "traits": "Personality & Biases",
+          "pressure": "Pressure & Time Preference",
+          "risk": "Risk Tolerance & Compliance",
+          "privateMemory": "Private Memory"
+        },
+        "personaFields": {
+          "traits": "Personality Traits",
+          "biases": "Biases/Preferences",
+          "pressure": "Pressure Source",
+          "timePref": "Time Preference",
+          "riskTolerance": "Risk Tolerance",
+          "compliance": "Compliance Level",
+          "riskAppetite": "Risk Appetite:"
+        },
+        "personaPlaceholders": {
+          "traits": "e.g., aggressive, conservative, opportunistic",
+          "biases": "e.g., short-term profit focus, risk-averse, market share priority",
+          "pressure": "e.g., earnings pressure, funding needs, competitor threats",
+          "selectTime": "Select time preference..."
+        },
+        "timePreferences": {
+          "short": "Short-term (0-6 months)",
+          "medium": "Medium-term (6-18 months)",
+          "long": "Long-term (18+ months)"
+        },
+        "riskLabels": {
+          "conservative": "Conservative",
+          "aggressive": "Aggressive",
+          "flexible": "Flexible",
+          "strict": "Strict"
+        },
+        "aiHint": "AI Tip"
       },
       "params": {
         "title": "Simulation Parameters",
@@ -1903,12 +2003,17 @@
         "saving": "Saving..."
       },
       "messages": {
-        "scenarioUpdated": "Scenario updated",
         "scenarioSaved": "Scenario saved",
+        "scenarioUpdated": "Scenario updated",
         "saveFailed": "Save failed",
         "saveFirst": "Please save scenario first",
-        "simulationStarting": "Simulation starting, redirecting...",
-        "startFailed": "Start failed"
+        "runStarting": "Simulation starting, redirecting...",
+        "runFailed": "Start failed"
+      },
+      "externalData": {
+        "notConfigured": "External market data source not configured. Please configure market type data provider in system settings, or use AI smart analysis",
+        "disabled": "External market data source disabled. Please enable data provider or use AI smart analysis",
+        "fetchFailed": "External data fetch failed: {{error}}. Will use AI analysis as alternative"
       }
     },
     "sandbox": {
@@ -1919,7 +2024,8 @@
         "paused": "Paused",
         "completed": "Completed",
         "pending": "Pending",
-        "failed": "Failed"
+        "failed": "Failed",
+        "simulating": "Simulating"
       },
       "perspective": {
         "god": "God View",
@@ -1991,7 +2097,24 @@
         "cashFlow": "Cash Flow",
         "actions": "Actions",
         "conflicts": "Conflicts"
-      }
+      },
+      "roundSummaryTitle": "Round Summary",
+      "roundStatsTitle": "Round Statistics",
+      "currentRoundLabel": "Current Round",
+      "activeAgentsTitle": "Active Agents",
+      "previousRound": "Previous Round",
+      "nextRound": "Next Round",
+      "dragToViewRounds": "Drag timeline to view different rounds",
+      "unknownRole": "Unknown Role",
+      "switchToTeamView": "Switch to {{team}} or God View to see full information",
+      "hasHiddenContent": "Has hidden content",
+      "roundNumber": "Round {{n}}",
+      "timelineTooltipFull": "Round {{n}}: {{count}} actions",
+      "timelineTooltipPartial": "Round {{n}}: {{visible}} fully visible, {{hidden}} public info only",
+      "agentCount": "{{count}} agents",
+      "companyCount": "{{count}} companies",
+      "agentsAndCompanies": "{{agents}} agents | {{companies}} companies",
+      "scatterCompanies": "Companies"
     }
   },
   "aiSocial": {
@@ -4685,7 +4808,51 @@
       "teamCollaborating": "AI team is collaborating to generate your presentation",
       "enterContentLeft": "Enter content on the left to start generating",
       "stop": "Stop",
-      "score": "{{score}} pts"
+      "score": "{{score}} pts",
+      "smartPPTGeneration": "Smart PPT Generation",
+      "gridView": "Grid View",
+      "listView": "List View",
+      "backToHistory": "Back to history",
+      "presentation": "Presentation",
+      "play": "Play",
+      "generationHistory": "Generation History",
+      "clear": "Clear",
+      "noHistory": "No history yet",
+      "clickToRestore": "Click to restore",
+      "exportPPTX": "Export PPTX",
+      "exportPDF": "Export PDF",
+      "pleaseGenerateFirst": "Please generate slides first",
+      "exportFailed": "Export failed: {{message}}",
+      "exporting": "Exporting...",
+      "checkpoint": "Checkpoint: {{name}}",
+      "generatingPage": "Generating page {{number}}...",
+      "selectPageToPreview": "Select a page to preview",
+      "startGenerating": "Start generating presentation",
+      "preview": "Preview",
+      "code": "Code",
+      "thinking": "Thinking",
+      "downloadPPTX": "Download PPTX",
+      "downloadPDF": "Download PDF",
+      "exportSuccess": "{{format}} exported successfully",
+      "exportError": "Export failed, please try again",
+      "pageCount": "{{count}} pages",
+      "savePoint": "Save Point {{time}}",
+      "rename": "Rename",
+      "unnamed": "Untitled",
+      "loadingHistory": "Loading history...",
+      "noPresentation": "No presentations yet",
+      "noPresentationDesc": "Click the New button to create your first AI presentation",
+      "newPresentation": "New Presentation",
+      "restoringPresentation": "Restoring presentation...",
+      "createNewPresentation": "Create New Presentation",
+      "cancel": "Cancel",
+      "targetPages": "Target pages: {{count}} pages",
+      "themeStyle": "Theme Style",
+      "materialContent": "Material Content",
+      "importFromPlatform": "Import from platform",
+      "contentPlaceholderLong": "Paste text content to convert to slides, or click the button above to import from other platform modules...",
+      "beginGeneration": "Start Generation",
+      "pageCountWithN": "{{count}} pages"
     },
     "documentWizard": {
       "createDocument": "Create New Document",

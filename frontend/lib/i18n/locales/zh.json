@@ -43,6 +43,9 @@
     "viewAll": "查看全部",
     "seeMore": "查看更多",
     "showLess": "收起",
+    "notFound": "未找到该内容",
+    "noAccessHint": "内容可能已被删除或您没有访问权限",
+    "loadFailed": "加载失败",
     "noResults": "未找到结果",
     "tryAgain": "重试",
     "learnMore": "了解更多",
@@ -1826,7 +1829,18 @@
           "adoptedAgentCount": "已采纳 {{count}} 个AI推荐的角色",
           "fillIndustryForParams": "请先在基本信息中填写行业",
           "paramsAnalyzed": "AI已分析行业特征并推荐最优参数配置，点击\"采纳建议\"应用",
-          "adoptedParams": "已采纳AI推荐的推演参数配置"
+          "adoptedParams": "已采纳AI推荐的推演参数配置",
+          "analysisFallback": "AI分析失败",
+          "recommendFallback": "AI推荐失败",
+          "suggestRetry": "AI推荐失败，请稍后重试",
+          "marketDataFilled": "已用外部市场数据填充公司，请确认类型/指标",
+          "externalDataSynced": "已同步外部数据，建议复核字段并人工调整",
+          "syncFailed": "同步外部数据失败",
+          "analyzing": "正在使用AI分析行业竞争格局...",
+          "analyzedWithMetrics": "AI已分析并推荐 {{count}} 家公司（含量化指标），请确认类型/指标",
+          "noCompanyData": "AI分析未返回公司数据，请手动添加公司或重试",
+          "analysisFailedManual": "AI分析失败，请手动添加公司",
+          "paramsAnalyzedDetail": "AI已分析行业特征并推荐最优参数配置，点击采纳建议应用"
         }
       },
       "companies": {
@@ -1834,7 +1848,19 @@
         "companyName": "公司名称",
         "companyType": "公司类型",
         "market": "市场",
-        "metrics": "指标",
+        "metrics": {
+          "cash": "现金储备",
+          "share": "市场份额",
+          "margin": "毛利率",
+          "debt": "负债",
+          "capacity": "产能",
+          "inventory": "库存",
+          "priceRange": "价格带",
+          "deliveryTime": "交付周期",
+          "patents": "专利数量",
+          "channels": "渠道优势",
+          "brand": "品牌影响力"
+        },
         "remove": "移除",
         "injectFromMarket": "从市场数据注入",
         "aiSmartFill": "AI智能填充",
@@ -1845,7 +1871,8 @@
           "challenger": "挑战者",
           "startup": "初创公司",
           "customer": "客户",
-          "supplier": "供应商"
+          "supplier": "供应商",
+          "regulatory": "监管机构"
         },
         "messages": {
           "injected": "已用外部市场数据填充公司，请确认类型/指标",
@@ -1856,7 +1883,47 @@
           "aiAnalyzing": "正在使用AI分析行业竞争格局...",
           "aiAnalyzedMetrics": "AI已分析并推荐 {{count}} 家公司（含量化指标），请确认类型/指标",
           "aiNoData": "AI分析未返回公司数据，请手动添加公司或重试"
-        }
+        },
+        "namePlaceholder": "公司名称",
+        "selectType": "选择类型...",
+        "marketPlaceholder": "市场区域",
+        "fillNameAndType": "请先填写公司名称和类型",
+        "aiGenerateFailed": "AI生成失败",
+        "aiGenerateRetry": "AI生成失败，请重试",
+        "aiAssistTitle": "AI辅助生成量化指标",
+        "generating": "生成中...",
+        "aiGenerate": "AI生成",
+        "collapse": "收起",
+        "expandMetrics": "展开量化指标",
+        "aiGeneratedSuggestion": "AI生成的指标建议",
+        "aiAnalysis": "AI分析：",
+        "cancel": "取消",
+        "applySuggestion": "应用建议",
+        "sections": {
+          "core": "核心财务指标",
+          "operations": "运营指标",
+          "moat": "护城河"
+        },
+        "units": {
+          "tenThousandUSD": "(万美元)",
+          "percent": "(%)",
+          "units": "(单位)",
+          "weeks": "周"
+        },
+        "placeholders": {
+          "priceRange": "高端/中端/低端",
+          "deliveryTime": "2-4周",
+          "channels": "直销/代理/电商"
+        },
+        "brandOptions": {
+          "select": "选择...",
+          "globalLeader": "全球领导者",
+          "strong": "强势品牌",
+          "growing": "成长中",
+          "niche": "细分市场",
+          "emerging": "新兴品牌"
+        },
+        "aiHint": "提示：不确定的数据可留空，AI裁判将基于外部数据源补充"
       },
       "agents": {
         "addAgent": "添加角色",
@@ -1883,7 +1950,52 @@
         "messages": {
           "reset": "角色配置已重置",
           "cleaned": "已清理重复和无效角色"
-        }
+        },
+        "rolePlaceholder": "角色名称 (如 CEO、CFO、监管官)",
+        "memoryPrivatePlaceholder": "该角色独有的隐藏信息，如：资金链紧张、内部矛盾、即将离职...",
+        "personaTooltip": "Persona配置影响AI的决策风格。风险容忍度高+合规度低的角色更可能做出激进决策",
+        "collapse": "收起",
+        "expandPersona": "展开Persona",
+        "teamsShort": {
+          "blue": "🔵 蓝军",
+          "red": "🔴 红军",
+          "green": "🟢 绿军",
+          "white": "⚪ 白方",
+          "chaos": "🟣 Chaos"
+        },
+        "personaSections": {
+          "traits": "性格与偏见",
+          "pressure": "压力源与时间偏好",
+          "risk": "风险容忍度与合规度",
+          "privateMemory": "私有记忆"
+        },
+        "personaFields": {
+          "traits": "性格特征",
+          "biases": "偏见/倾向",
+          "pressure": "压力源",
+          "timePref": "时间偏好",
+          "riskTolerance": "风险容忍度",
+          "compliance": "合规度",
+          "riskAppetite": "风险偏好:"
+        },
+        "personaPlaceholders": {
+          "traits": "如：激进派、保守稳健、机会主义者",
+          "biases": "如：偏好短期收益、风险规避、市场份额优先",
+          "pressure": "如：财报压力、融资需求、竞争对手威胁",
+          "selectTime": "选择时间偏好..."
+        },
+        "timePreferences": {
+          "short": "短期 (0-6个月)",
+          "medium": "中期 (6-18个月)",
+          "long": "长期 (18个月以上)"
+        },
+        "riskLabels": {
+          "conservative": "保守",
+          "aggressive": "激进",
+          "flexible": "灵活",
+          "strict": "严格"
+        },
+        "aiHint": "AI提示"
       },
       "params": {
         "title": "推演参数",
@@ -1907,12 +2019,17 @@
         "saving": "保存中..."
       },
       "messages": {
-        "scenarioUpdated": "场景已更新",
         "scenarioSaved": "场景已保存",
+        "scenarioUpdated": "场景已更新",
         "saveFailed": "保存失败",
         "saveFirst": "请先保存场景",
-        "simulationStarting": "推演已启动，正在跳转...",
-        "startFailed": "启动失败"
+        "runStarting": "推演已启动，正在跳转...",
+        "runFailed": "启动失败"
+      },
+      "externalData": {
+        "notConfigured": "外部市场数据源未配置。请在系统设置中配置 market 类型的数据提供商，或使用AI智能分析",
+        "disabled": "外部市场数据源已禁用。请启用数据提供商或使用AI智能分析",
+        "fetchFailed": "外部数据获取失败: {{error}}。将使用AI分析作为替代"
       }
     },
     "sandbox": {
@@ -1923,7 +2040,8 @@
         "paused": "已暂停",
         "completed": "已完成",
         "pending": "待开始",
-        "failed": "失败"
+        "failed": "失败",
+        "simulating": "推演中"
       },
       "perspective": {
         "god": "上帝视角",
@@ -1995,7 +2113,24 @@
         "cashFlow": "现金流",
         "actions": "行动数",
         "conflicts": "冲突数"
-      }
+      },
+      "roundSummaryTitle": "回合摘要",
+      "roundStatsTitle": "回合统计",
+      "currentRoundLabel": "当前回合",
+      "activeAgentsTitle": "活跃角色",
+      "previousRound": "上一回合",
+      "nextRound": "下一回合",
+      "dragToViewRounds": "拖动时间轴查看不同回合",
+      "unknownRole": "未知角色",
+      "switchToTeamView": "切换到{{team}}或上帝视角查看完整信息",
+      "hasHiddenContent": "有隐藏内容",
+      "roundNumber": "回合 {{n}}",
+      "timelineTooltipFull": "回合 {{n}}: {{count}} 个行动",
+      "timelineTooltipPartial": "回合 {{n}}: {{visible}} 个完整可见, {{hidden}} 个仅公开信息",
+      "agentCount": "{{count}} 角色",
+      "companyCount": "{{count}} 家公司",
+      "agentsAndCompanies": "{{agents}} 个角色 | {{companies}} 家公司",
+      "scatterCompanies": "公司"
     }
   },
   "aiSocial": {
@@ -5428,7 +5563,51 @@
       "teamCollaborating": "AI 团队正在协作生成您的演示文稿",
       "enterContentLeft": "在左侧输入内容开始生成",
       "stop": "停止",
-      "score": "{{score}}分"
+      "score": "{{score}}分",
+      "smartPPTGeneration": "智能PPT生成",
+      "gridView": "网格视图",
+      "listView": "列表视图",
+      "backToHistory": "返回历史记录",
+      "presentation": "演示",
+      "play": "播放",
+      "generationHistory": "生成历史",
+      "clear": "清空",
+      "noHistory": "暂无历史记录",
+      "clickToRestore": "点击恢复",
+      "exportPPTX": "导出 PPTX",
+      "exportPDF": "导出 PDF",
+      "pleaseGenerateFirst": "请先生成幻灯片",
+      "exportFailed": "导出失败: {{message}}",
+      "exporting": "导出中...",
+      "checkpoint": "检查点: {{name}}",
+      "generatingPage": "正在生成第 {{number}} 页...",
+      "selectPageToPreview": "选择页面查看预览",
+      "startGenerating": "开始生成演示文稿",
+      "preview": "Preview",
+      "code": "Code",
+      "thinking": "Thinking",
+      "downloadPPTX": "Download PPTX",
+      "downloadPDF": "Download PDF",
+      "exportSuccess": "{{format}} 导出成功",
+      "exportError": "导出失败，请重试",
+      "pageCount": "{{count}} 页",
+      "savePoint": "保存点 {{time}}",
+      "rename": "重命名",
+      "unnamed": "未命名演示",
+      "loadingHistory": "加载历史记录...",
+      "noPresentation": "还没有演示文稿",
+      "noPresentationDesc": "点击新建按钮创建您的第一个 AI 演示文稿",
+      "newPresentation": "新建演示文稿",
+      "restoringPresentation": "正在恢复演示文稿...",
+      "createNewPresentation": "创建新的演示文稿",
+      "cancel": "取消",
+      "targetPages": "目标页数: {{count}} 页",
+      "themeStyle": "主题风格",
+      "materialContent": "素材内容",
+      "importFromPlatform": "从平台导入",
+      "contentPlaceholderLong": "粘贴要转换为幻灯片的文本内容，或点击上方按钮从平台其他模块导入...",
+      "beginGeneration": "开始生成",
+      "pageCountWithN": "{{count}} 页"
     },
     "documentWizard": {
       "createDocument": "创建新文档",

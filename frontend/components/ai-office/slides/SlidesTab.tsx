@@ -100,6 +100,7 @@ import type { SlidesSourceData } from '@/hooks/features/slides';
 import { SlidesWorkspace } from './SlidesWorkspace';
 
 import { logger } from '@/lib/utils/logger';
+import { useI18n } from '@/lib/i18n/i18n-context';
 // ============================================================================
 // 类型定义
 // ============================================================================
@@ -110,6 +111,7 @@ import { logger } from '@/lib/utils/logger';
 // ============================================================================
 
 export function SlidesTab() {
+  const { t } = useI18n();
   const { session, pages, generating, streamEvents, progress, outlinePlan } =
     useSlidesStore();
   const { generateWithTeam, cancel, teamState, teamEvents } =
@@ -987,7 +989,7 @@ export function SlidesTab() {
               <Sparkles className="h-3.5 w-3.5 text-white" />
             </div>
             <span className="text-sm font-medium text-slate-800">
-              {session?.title || 'AI 演示文稿'}
+              {session?.title || t('office.slides.title')}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -997,7 +999,7 @@ export function SlidesTab() {
                 className="flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-600"
               >
                 <Play className="h-4 w-4" />
-                演示
+                {t('office.slides.presentation')}
               </button>
             )}
           </div>
@@ -1029,6 +1031,7 @@ function InitialInputForm({
   onGenerate: (request: GenerateRequest) => void;
   onCancel?: () => void;
 }) {
+  const { t } = useI18n();
   const [title, setTitle] = useState('');
   const [sourceText, setSourceText] = useState('');
   const [targetPages, setTargetPages] = useState(10);
@@ -1070,14 +1073,14 @@ function InitialInputForm({
           <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900">
-                创建新的演示文稿
+                {t('office.slides.createNewPresentation')}
               </h2>
               {onCancel && (
                 <button
                   onClick={onCancel}
                   className="text-sm text-gray-500 hover:text-gray-700"
                 >
-                  取消
+                  {t('office.slides.cancel')}
                 </button>
               )}
             </div>
@@ -1085,13 +1088,13 @@ function InitialInputForm({
             <div className="space-y-6">
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  标题
+                  {t('office.slides.presentationTitle')}
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="输入演示文稿标题..."
+                  placeholder={t('office.slides.titlePlaceholder')}
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
               </div>
@@ -1099,7 +1102,7 @@ function InitialInputForm({
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <label className="text-sm font-medium text-gray-700">
-                    素材内容
+                    {t('office.slides.materialContent')}
                   </label>
                   <button
                     type="button"
@@ -1107,13 +1110,13 @@ function InitialInputForm({
                     className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800"
                   >
                     <FolderOpen className="h-4 w-4" />
-                    从平台导入
+                    {t('office.slides.importFromPlatform')}
                   </button>
                 </div>
                 <textarea
                   value={sourceText}
                   onChange={(e) => setSourceText(e.target.value)}
-                  placeholder="粘贴要转换为幻灯片的文本内容，或点击上方按钮从平台其他模块导入..."
+                  placeholder={t('office.slides.contentPlaceholderLong')}
                   rows={8}
                   className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
@@ -1121,7 +1124,7 @@ function InitialInputForm({
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  目标页数: {targetPages} 页
+                  {t('office.slides.targetPages', { count: targetPages })}
                 </label>
                 <input
                   type="range"
@@ -1132,15 +1135,17 @@ function InitialInputForm({
                   className="w-full accent-orange-500"
                 />
                 <div className="mt-1 flex justify-between text-xs text-gray-500">
-                  <span>5 页</span>
-                  <span>30 页</span>
+                  <span>{t('office.slides.pageCountWithN', { count: 5 })}</span>
+                  <span>
+                    {t('office.slides.pageCountWithN', { count: 30 })}
+                  </span>
                 </div>
               </div>
 
               {/* 主题选择 */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  主题风格
+                  {t('office.slides.themeStyle')}
                 </label>
                 <ThemeSelector
                   value={themeId}
@@ -1169,12 +1174,12 @@ function InitialInputForm({
             {generating ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                生成中...
+                {t('office.slides.generating')}
               </>
             ) : (
               <>
                 <Layers className="h-5 w-5" />
-                开始生成
+                {t('office.slides.beginGeneration')}
               </>
             )}
           </button>
