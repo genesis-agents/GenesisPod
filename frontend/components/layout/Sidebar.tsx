@@ -329,7 +329,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                   v{process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0'}
                 </span>
               </div>
-              <span className="text-[9px] font-medium tracking-[0.15em] text-[#0F2A46]/50">
+              <span className="logo-shimmer text-[9px] font-medium tracking-[0.15em]">
                 AI ENGINE
               </span>
             </div>
