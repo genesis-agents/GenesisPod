@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.9.1](https://github.com/your-org/ai-teams-engine/compare/v3.9.0...v3.9.1) (2026-02-03)
+
+
+### Bug Fixes
+
+* **byok:** add My Key badge to correct file (app/ai-ask/page.tsx) ([ea643c6](https://github.com/your-org/ai-teams-engine/commit/ea643c67b7d603d0b2b6e1e89dad3a3c3030f71b))
+
 ## [3.9.0](https://github.com/your-org/ai-teams-engine/compare/v3.8.2...v3.9.0) (2026-02-03)
 
 
