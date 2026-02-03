@@ -40,12 +40,16 @@ export async function POST(request: NextRequest) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 300000); // 5分钟超时
 
+    // BYOK: Forward Authorization header so backend can use user's personal API key
+    const authHeader = request.headers.get('authorization');
+
     try {
       // Try NestJS backend first (translate-segments endpoint)
       let response = await fetch(`${API_URL}/api/v1/ai/translate-segments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(authHeader ? { Authorization: authHeader } : {}),
         },
         body: JSON.stringify({
           segments,
@@ -65,6 +69,7 @@ export async function POST(request: NextRequest) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              ...(authHeader ? { Authorization: authHeader } : {}),
             },
             body: JSON.stringify({
               segments,

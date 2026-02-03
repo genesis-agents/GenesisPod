@@ -23,6 +23,7 @@ import KeyMomentsPanel, {
 import { SubtitleExportButton } from '@/components/explore/youtube';
 import { useAIModels } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
+import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import {
   fetchTranscriptSmart,
@@ -775,9 +776,10 @@ function YouTubeTLDWContent() {
         });
       }
 
+      // BYOK: Include auth header so backend can use user's personal API key
       const res = await fetch('/api/ai-service/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({
           message: currentInput,
           context: context,
@@ -884,9 +886,10 @@ function YouTubeTLDWContent() {
 
       setTranslationLoading(true);
       try {
+        // BYOK: Include auth header so backend can use user's personal API key
         const res = await fetch('/api/ai-service/ai/translate-single', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify({
             text: currentMerged.text,
             targetLanguage: 'zh-CN',

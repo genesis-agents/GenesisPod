@@ -3,6 +3,7 @@
  */
 
 import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import type { Resource, AIInsight } from './types';
 
 import { logger } from '@/lib/utils/logger';
@@ -55,9 +56,10 @@ export async function generateSummary(
     const content = articleTextContent || resource.abstract || resource.title;
     logger.debug('Generating summary with content length:', content.length);
 
+    // BYOK: Include auth header so backend can use user's personal API key
     const res = await fetch('/api/ai-service/ai/summary', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       body: JSON.stringify({
         content: content,
         max_length: 200,
@@ -124,9 +126,10 @@ export async function generateInsights(
     const content = articleTextContent || resource.abstract || resource.title;
     logger.debug('Generating insights with content length:', content.length);
 
+    // BYOK: Include auth header so backend can use user's personal API key
     const res = await fetch('/api/ai-service/ai/insights', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       body: JSON.stringify({
         content: content,
         language: 'zh',

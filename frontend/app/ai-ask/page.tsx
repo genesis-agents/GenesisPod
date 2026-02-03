@@ -1293,6 +1293,8 @@ export default function AskPage() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        // BYOK: Pass auth token so backend can use user's personal API key
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(requestBody),
       signal,

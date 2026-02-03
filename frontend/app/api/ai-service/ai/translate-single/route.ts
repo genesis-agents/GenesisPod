@@ -10,10 +10,13 @@ export async function POST(request: NextRequest) {
     const { text, targetLanguage = 'zh-CN' } = body;
 
     // Forward request to NestJS backend
+    // BYOK: Forward Authorization header so backend can use user's personal API key
+    const authHeader = request.headers.get('authorization');
     const response = await fetch(`${API_URL}/api/v1/ai/translate-single`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
       },
       body: JSON.stringify({
         text,

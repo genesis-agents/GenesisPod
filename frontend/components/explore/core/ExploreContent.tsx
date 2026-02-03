@@ -1095,9 +1095,10 @@ function HomeContent() {
           '\nNote: The user has uploaded these files for comparison or reference. Please acknowledge them in your response.';
       }
 
+      // BYOK: Include auth header so backend can use user's personal API key
       const res = await fetch('/api/ai-service/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({
           message: currentInput,
           context: context,
@@ -1217,9 +1218,10 @@ function HomeContent() {
           : mainContent;
       const content = `Title: ${selectedResource.title}\n\nContent:\n${truncatedContent}`;
 
+      // BYOK: Include auth header so backend can use user's personal API key
       const res = await fetch('/api/ai-service/ai/quick-action', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({
           content: content,
           action: action,

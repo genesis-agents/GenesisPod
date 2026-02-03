@@ -25,10 +25,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Forward to backend AI service
+    // BYOK: Forward Authorization header so backend can use user's personal API key
+    const authHeader = request.headers.get('authorization');
     const response = await fetch(`${AI_SERVICE_URL}/api/v1/ai/simple-chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
       },
       body: JSON.stringify({
         ...body,

@@ -1320,9 +1320,10 @@ function HomeContent() {
       const content = articleTextContent || resource.abstract || resource.title;
       logger.debug('Generating summary with content length:', content.length);
 
+      // BYOK: Include auth header so backend can use user's personal API key
       const res = await fetch('/api/ai-service/ai/summary', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({
           content: content,
           max_length: 200,
@@ -1382,9 +1383,10 @@ function HomeContent() {
       const content = articleTextContent || resource.abstract || resource.title;
       logger.debug('Generating insights with content length:', content.length);
 
+      // BYOK: Include auth header so backend can use user's personal API key
       const res = await fetch('/api/ai-service/ai/insights', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({
           content: content,
           language: 'zh',
@@ -1644,9 +1646,10 @@ function HomeContent() {
           '\nNote: The user has uploaded these files for comparison or reference. Please acknowledge them in your response.';
       }
 
+      // BYOK: Include auth header so backend can use user's personal API key
       const res = await fetch('/api/ai-service/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({
           message: currentInput,
           context: context,
@@ -1734,9 +1737,10 @@ function HomeContent() {
           : mainContent;
       const content = `Title: ${selectedResource.title}\n\nContent:\n${truncatedContent}`;
 
+      // BYOK: Include auth header so backend can use user's personal API key
       const res = await fetch('/api/ai-service/ai/quick-action', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({
           content: content,
           action: action,

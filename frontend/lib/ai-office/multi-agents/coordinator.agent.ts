@@ -6,6 +6,7 @@
  */
 
 import { logger } from '@/lib/utils/logger';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 export interface AgentPlan {
   // 是否需要深度资源分析
@@ -52,10 +53,12 @@ export class CoordinatorAgent {
     try {
       const prompt = this.buildPrompt(input);
 
+      // BYOK: Include auth header so backend can use user's personal API key
       const response = await fetch('/api/ai/grok', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeader(),
         },
         body: JSON.stringify({
           model: 'grok-2',

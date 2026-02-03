@@ -8,6 +8,7 @@
 import type { Resource } from '@/types/ai-office';
 
 import { logger } from '@/lib/utils/logger';
+import { getAuthHeader } from '@/lib/utils/auth';
 export interface ResourceAnalysis {
   // 核心洞察
   insights: string[];
@@ -64,10 +65,12 @@ export class ResourceAnalysisAgent {
         input.analysisDepth
       );
 
+      // BYOK: Include auth header so backend can use user's personal API key
       const response = await fetch('/api/ai/grok', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeader(),
         },
         body: JSON.stringify({
           model: 'grok-2',

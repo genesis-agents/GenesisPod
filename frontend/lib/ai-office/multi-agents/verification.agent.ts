@@ -8,6 +8,7 @@
 import type { Resource } from '@/types/ai-office';
 
 import { logger } from '@/lib/utils/logger';
+import { getAuthHeader } from '@/lib/utils/auth';
 export type VerificationStatus =
   | 'verified'
   | 'uncertain'
@@ -70,10 +71,12 @@ export class VerificationAgent {
         input.documentType
       );
 
+      // BYOK: Include auth header so backend can use user's personal API key
       const response = await fetch('/api/ai/grok', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeader(),
         },
         body: JSON.stringify({
           model: 'grok-2',
