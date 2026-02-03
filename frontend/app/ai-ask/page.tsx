@@ -615,6 +615,8 @@ const INSPIRATIONAL_QUOTES: Quote[] = [
 
 // Quote Card Component - Redesigned with background image and bilingual support
 function QuoteCard({ quote }: { quote: Quote }) {
+  const { locale } = useI18n();
+  const isEn = locale === 'en';
   return (
     <div className="mx-4 mb-4">
       <div
@@ -638,18 +640,20 @@ function QuoteCard({ quote }: { quote: Quote }) {
           {/* Quote text - bilingual */}
           <div className="space-y-2 pl-6 pr-4">
             <p className="text-lg font-medium leading-relaxed text-white md:text-xl">
-              {quote.textZh}
+              {isEn ? quote.textEn : quote.textZh}
             </p>
             <p className="text-sm italic leading-relaxed text-white/70">
-              {quote.textEn}
+              {isEn ? quote.textZh : quote.textEn}
             </p>
           </div>
 
           {/* Author info - right aligned */}
           <div className="mt-4 text-right">
             <p className="text-sm font-medium text-white/90">
-              —— {quote.authorZh}
-              <span className="ml-2 text-white/60">{quote.authorEn}</span>
+              —— {isEn ? quote.authorEn : quote.authorZh}
+              <span className="ml-2 text-white/60">
+                {isEn ? quote.authorZh : quote.authorEn}
+              </span>
             </p>
             {quote.source && (
               <p className="mt-0.5 text-xs text-white/50">{quote.source}</p>

@@ -1,6 +1,7 @@
 'use client';
 
 import { ScenarioCard, ScenarioRun } from '../types';
+import { useI18n } from '@/lib/i18n';
 
 interface ScenarioCardItemProps {
   scenario: ScenarioCard;
@@ -17,6 +18,7 @@ export function ScenarioCardItem({
   onEdit,
   onDelete,
 }: ScenarioCardItemProps) {
+  const { t } = useI18n();
   return (
     <div
       className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md"
@@ -27,7 +29,7 @@ export function ScenarioCardItem({
         <button
           onClick={onEdit}
           className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-blue-50 hover:shadow-md"
-          title="编辑场景配置"
+          title={t('aiSimulation.scenarioCard.editScenario')}
         >
           <svg
             className="h-4 w-4 text-blue-600"
@@ -46,7 +48,7 @@ export function ScenarioCardItem({
         <button
           onClick={onDelete}
           className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-red-50 hover:shadow-md"
-          title="删除场景"
+          title={t('aiSimulation.scenarioCard.deleteScenario')}
         >
           <svg
             className="h-4 w-4 text-red-600"
@@ -82,16 +84,16 @@ export function ScenarioCardItem({
             }`}
           >
             {latestRun.status === 'RUNNING'
-              ? '运行中'
+              ? t('aiSimulation.scenarioCard.statusRunning')
               : latestRun.status === 'COMPLETED'
-                ? '已完成'
+                ? t('aiSimulation.scenarioCard.statusCompleted')
                 : latestRun.status === 'PAUSED'
-                  ? '已暂停'
+                  ? t('aiSimulation.scenarioCard.statusPaused')
                   : latestRun.status}
           </span>
         ) : (
           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-            未运行
+            {t('aiSimulation.scenarioCard.statusNotRunning')}
           </span>
         )}
       </div>
@@ -107,14 +109,17 @@ export function ScenarioCardItem({
       {/* Stats */}
       <div className="mt-4 flex flex-wrap gap-2">
         <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
-          公司 {scenario.companies?.length || 0}
+          {t('aiSimulation.scenarioCard.companies')}{' '}
+          {scenario.companies?.length || 0}
         </span>
         <span className="rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-600">
-          角色 {scenario.agents?.length || 0}
+          {t('aiSimulation.scenarioCard.roles')} {scenario.agents?.length || 0}
         </span>
         {latestRun && latestRun.currentRound && (
           <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-600">
-            第 {latestRun.currentRound} 回合
+            {t('aiSimulation.scenarioCard.round', {
+              round: latestRun.currentRound,
+            })}
           </span>
         )}
       </div>

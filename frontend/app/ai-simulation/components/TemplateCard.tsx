@@ -1,6 +1,7 @@
 'use client';
 
 import { ScenarioTemplate } from '../types';
+import { useI18n } from '@/lib/i18n';
 
 interface TemplateCardProps {
   template: ScenarioTemplate;
@@ -8,6 +9,7 @@ interface TemplateCardProps {
 }
 
 export function TemplateCard({ template, onClick }: TemplateCardProps) {
+  const { t } = useI18n();
   return (
     <div
       className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md"
@@ -39,10 +41,11 @@ export function TemplateCard({ template, onClick }: TemplateCardProps) {
       {/* Stats */}
       <div className="mt-4 flex flex-wrap gap-2">
         <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
-          公司 {template.companies?.length || 0}
+          {t('aiSimulation.templateCard.companies')}{' '}
+          {template.companies?.length || 0}
         </span>
         <span className="rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-600">
-          角色 {template.agents?.length || 0}
+          {t('aiSimulation.templateCard.roles')} {template.agents?.length || 0}
         </span>
       </div>
     </div>
