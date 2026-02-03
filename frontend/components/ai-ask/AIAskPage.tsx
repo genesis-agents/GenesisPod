@@ -1771,18 +1771,18 @@ export function AIAskPage() {
                                           <span className="truncate text-sm font-medium text-gray-900">
                                             {model.name}
                                           </span>
-                                          {'isMixture' in model &&
-                                            model.isMixture && (
-                                              <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
-                                                Multi
-                                              </span>
-                                            )}
-                                          {'isUserKey' in model &&
-                                            model.isUserKey && (
-                                              <span className="shrink-0 rounded bg-gradient-to-r from-emerald-500 to-teal-500 px-1 py-0.5 text-[10px] text-white">
-                                                My Key
-                                              </span>
-                                            )}
+                                          {(model as any).isMixture ===
+                                            true && (
+                                            <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
+                                              Multi
+                                            </span>
+                                          )}
+                                          {(model as any).isUserKey ===
+                                            true && (
+                                            <span className="shrink-0 rounded bg-gradient-to-r from-emerald-500 to-teal-500 px-1 py-0.5 text-[10px] text-white">
+                                              My Key
+                                            </span>
+                                          )}
                                         </div>
                                         <span className="text-[11px] text-gray-500">
                                           {model.provider}
@@ -2455,12 +2455,16 @@ export function AIAskPage() {
                                       <span className="truncate text-sm font-medium text-gray-900">
                                         {model.name}
                                       </span>
-                                      {'isMixture' in model &&
-                                        model.isMixture && (
-                                          <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
-                                            Multi
-                                          </span>
-                                        )}
+                                      {(model as any).isMixture === true && (
+                                        <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
+                                          Multi
+                                        </span>
+                                      )}
+                                      {(model as any).isUserKey === true && (
+                                        <span className="shrink-0 rounded bg-gradient-to-r from-emerald-500 to-teal-500 px-1 py-0.5 text-[10px] text-white">
+                                          My Key
+                                        </span>
+                                      )}
                                     </div>
                                     <span className="text-[11px] text-gray-500">
                                       {model.provider}
