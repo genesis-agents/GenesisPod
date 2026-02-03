@@ -2,6 +2,14 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.7.2](https://github.com/your-org/ai-teams-engine/compare/v3.7.1...v3.7.2) (2026-02-03)
+
+
+### Bug Fixes
+
+* **byok:** auto-refresh model list when user saves/deletes API key ([6578c1d](https://github.com/your-org/ai-teams-engine/commit/6578c1d7ca972334405f071fd58ed24b6a2614a9))
+* **i18n:** fix simulation cards and quote card using wrong source files ([47f4f76](https://github.com/your-org/ai-teams-engine/commit/47f4f765b87adf5ea77a6ff8e53fa0fb9b99f64f))
+
 ### [3.7.1](https://github.com/your-org/ai-teams-engine/compare/v3.7.0...v3.7.1) (2026-02-03)
 
 
