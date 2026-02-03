@@ -3,7 +3,7 @@
  * 数据缓存服务 - 缓存数据获取和增强结果
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
 import { createHash } from "crypto";
 import {
   DataFetchRequest,
@@ -46,6 +46,8 @@ const DEFAULT_CONFIG: DataCacheConfig = {
 /**
  * 数据缓存服务
  */
+export const DATA_CACHE_CONFIG = "DATA_CACHE_CONFIG";
+
 @Injectable()
 export class DataCacheService {
   private readonly logger = new Logger(DataCacheService.name);
@@ -57,8 +59,10 @@ export class DataCacheService {
   private readonly config: DataCacheConfig;
   private cleanupTimer?: NodeJS.Timeout;
 
-  constructor(config?: Partial<DataCacheConfig>) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+  constructor(
+    @Optional() @Inject(DATA_CACHE_CONFIG) config?: Partial<DataCacheConfig>,
+  ) {
+    this.config = { ...DEFAULT_CONFIG, ...(config || {}) };
 
     if (this.config.enabled) {
       this.startCleanupTimer();

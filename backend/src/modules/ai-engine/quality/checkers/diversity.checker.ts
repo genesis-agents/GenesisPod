@@ -3,7 +3,7 @@
  * 多样性检查器 - 检查词汇、句式多样性
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional, Inject } from "@nestjs/common";
 import {
   BaseQualityChecker,
   CheckerConfig,
@@ -14,6 +14,8 @@ import {
   QualityCheckContext,
 } from "../abstractions/quality-gate.interface";
 
+export const DIVERSITY_CHECKER_CONFIG = "DIVERSITY_CHECKER_CONFIG";
+
 /**
  * 多样性检查器
  */
@@ -23,7 +25,11 @@ export class DiversityChecker extends BaseQualityChecker {
   readonly name = "Diversity Checker";
   readonly description = "检查内容的词汇和句式多样性";
 
-  constructor(config?: Partial<CheckerConfig>) {
+  constructor(
+    @Optional()
+    @Inject(DIVERSITY_CHECKER_CONFIG)
+    config?: Partial<CheckerConfig>,
+  ) {
     super(config);
   }
 

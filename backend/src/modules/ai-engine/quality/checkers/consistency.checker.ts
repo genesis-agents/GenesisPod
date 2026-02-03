@@ -3,7 +3,7 @@
  * 一致性检查器 - 检查内容一致性
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional, Inject } from "@nestjs/common";
 import {
   BaseQualityChecker,
   CheckerConfig,
@@ -14,6 +14,8 @@ import {
   QualityCheckContext,
 } from "../abstractions/quality-gate.interface";
 
+export const CONSISTENCY_CHECKER_CONFIG = "CONSISTENCY_CHECKER_CONFIG";
+
 /**
  * 一致性检查器
  */
@@ -23,7 +25,11 @@ export class ConsistencyChecker extends BaseQualityChecker {
   readonly name = "Consistency Checker";
   readonly description = "检查内容的风格和事实一致性";
 
-  constructor(config?: Partial<CheckerConfig>) {
+  constructor(
+    @Optional()
+    @Inject(CONSISTENCY_CHECKER_CONFIG)
+    config?: Partial<CheckerConfig>,
+  ) {
     super(config);
   }
 

@@ -3,7 +3,7 @@
  * 事实检查器 - 检查内容的事实准确性
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional, Inject } from "@nestjs/common";
 import {
   BaseQualityChecker,
   CheckerConfig,
@@ -17,13 +17,17 @@ import {
 /**
  * 事实检查器
  */
+export const FACTUAL_CHECKER_CONFIG = "FACTUAL_CHECKER_CONFIG";
+
 @Injectable()
 export class FactualChecker extends BaseQualityChecker {
   readonly dimension: QualityDimension = "factual";
   readonly name = "Factual Checker";
   readonly description = "检查内容的事实准确性和逻辑合理性";
 
-  constructor(config?: Partial<CheckerConfig>) {
+  constructor(
+    @Optional() @Inject(FACTUAL_CHECKER_CONFIG) config?: Partial<CheckerConfig>,
+  ) {
     super(config);
   }
 

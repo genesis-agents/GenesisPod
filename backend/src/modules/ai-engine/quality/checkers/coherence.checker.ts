@@ -3,7 +3,7 @@
  * 连贯性检查器 - 检查内容的逻辑连贯性
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional, Inject } from "@nestjs/common";
 import {
   BaseQualityChecker,
   CheckerConfig,
@@ -14,6 +14,8 @@ import {
   QualityCheckContext,
 } from "../abstractions/quality-gate.interface";
 
+export const COHERENCE_CHECKER_CONFIG = "COHERENCE_CHECKER_CONFIG";
+
 /**
  * 连贯性检查器
  */
@@ -23,7 +25,11 @@ export class CoherenceChecker extends BaseQualityChecker {
   readonly name = "Coherence Checker";
   readonly description = "检查内容的逻辑连贯性和段落衔接";
 
-  constructor(config?: Partial<CheckerConfig>) {
+  constructor(
+    @Optional()
+    @Inject(COHERENCE_CHECKER_CONFIG)
+    config?: Partial<CheckerConfig>,
+  ) {
     super(config);
   }
 
