@@ -2,6 +2,18 @@
 
 DeepDive Engine 版本变更记录。
 
+## [3.6.0](https://github.com/your-org/ai-teams-engine/compare/v3.5.1...v3.6.0) (2026-02-03)
+
+
+### Features
+
+* **ai-models:** show user API key models in model selector ([8688b3f](https://github.com/your-org/ai-teams-engine/commit/8688b3f75a9311d27ab14be8aac2558bc8e93ccc))
+
+
+### Bug Fixes
+
+* **changelog:** merge v3.5.0 into frontend CHANGELOG, ignore root copy ([db45656](https://github.com/your-org/ai-teams-engine/commit/db45656892335763b57329567dee586f0e35780a))
+
 ## [3.5.0](https://github.com/your-org/ai-teams-engine/compare/v3.4.0...v3.5.0) (2026-02-02)
 
 ### Features
