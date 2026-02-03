@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.8.2](https://github.com/your-org/ai-teams-engine/compare/v3.8.1...v3.8.2) (2026-02-03)
+
+
+### Bug Fixes
+
+* **byok:** fix My Key badge removed by compiler dead-code elimination ([4cee2c7](https://github.com/your-org/ai-teams-engine/commit/4cee2c729a6f75f9661d948942dcfc33cd29f98c))
+
 ### [3.8.1](https://github.com/your-org/ai-teams-engine/compare/v3.8.0...v3.8.1) (2026-02-03)
 
 
