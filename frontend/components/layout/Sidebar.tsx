@@ -112,15 +112,23 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       onMouseLeave={handleMouseLeave}
       className={`${showExpanded ? 'w-52' : 'w-16'} relative z-40 hidden h-full flex-col overflow-hidden border-r border-gray-200 bg-white transition-all duration-300 md:flex ${className}`}
     >
-      {/* Header with Logo and Collapse Button */}
+      {/* Header - ChatGPT style */}
       <div
-        className={`flex flex-shrink-0 items-center overflow-hidden px-4 py-2.5 ${!showExpanded ? 'justify-center' : 'justify-between'}`}
+        className={`flex flex-shrink-0 items-center overflow-hidden px-3 py-2.5 ${showExpanded ? 'justify-between' : 'justify-center'}`}
       >
         {!showExpanded ? (
-          /* Collapsed Logo - AI Teams: Circular collaboration */
-          <Link href="/" className="group relative" title="Raven AI Engine">
+          /* Collapsed state: Logo with hover -> Panel button */
+          <button
+            onClick={() => {
+              setIsCollapsed(false);
+              setIsHovered(true);
+            }}
+            className="group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all hover:bg-gray-100"
+            title="Open sidebar"
+          >
+            {/* Default: Show Logo */}
             <svg
-              className="h-8 w-8 transition-transform duration-300 group-hover:scale-105"
+              className="h-8 w-8 transition-all duration-200 group-hover:scale-75 group-hover:opacity-0"
               viewBox="0 0 32 32"
               fill="none"
             >
@@ -136,20 +144,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                   <stop offset="40%" stopColor="#2BB7DA" />
                   <stop offset="100%" stopColor="#7C5BFE" />
                 </linearGradient>
-                <radialGradient id="glowCollapsed" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.3" />
-                  <stop offset="100%" stopColor="#7C5BFE" stopOpacity="0" />
-                </radialGradient>
               </defs>
-              {/* Central glow */}
-              <circle
-                cx="16"
-                cy="16"
-                r="14"
-                fill="url(#glowCollapsed)"
-                className="opacity-50 group-hover:opacity-80"
-              />
-              {/* Circular connection - holding hands ring */}
               <circle
                 cx="16"
                 cy="16"
@@ -157,49 +152,23 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 stroke="url(#logoGradientCollapsed)"
                 strokeWidth="2"
                 fill="none"
-                className="group-hover:stroke-[#2BB7DA]"
               />
-              {/* Four agent nodes around the circle */}
-              <circle
-                cx="16"
-                cy="6"
-                r="3"
-                fill="#0F2A46"
-                className="transition-colors group-hover:fill-[#2BB7DA]"
-              />
-              <circle
-                cx="26"
-                cy="16"
-                r="3"
-                fill="#2BB7DA"
-                className="transition-colors group-hover:fill-[#7C5BFE]"
-              />
-              <circle
-                cx="16"
-                cy="26"
-                r="3"
-                fill="#7C5BFE"
-                className="transition-colors group-hover:fill-[#0F2A46]"
-              />
-              <circle
-                cx="6"
-                cy="16"
-                r="3"
-                fill="#2BB7DA"
-                className="transition-colors group-hover:fill-[#7C5BFE]"
-              />
-              {/* Engine core at center */}
+              <circle cx="16" cy="6" r="3" fill="#0F2A46" />
+              <circle cx="26" cy="16" r="3" fill="#2BB7DA" />
+              <circle cx="16" cy="26" r="3" fill="#7C5BFE" />
+              <circle cx="6" cy="16" r="3" fill="#2BB7DA" />
               <circle
                 cx="16"
                 cy="16"
                 r="3"
                 fill="url(#logoGradientCollapsed)"
-                className="transition-transform group-hover:scale-110"
               />
             </svg>
-          </Link>
+            {/* Hover: Show Panel button */}
+            <PanelLeft className="absolute h-5 w-5 text-gray-600 opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:opacity-100" />
+          </button>
         ) : (
-          /* Expanded Logo - AI Teams + Text */
+          /* Expanded state: Logo + Text on left */
           <Link
             href="/"
             className="group relative flex items-center gap-2.5"
@@ -302,22 +271,19 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             </div>
           </Link>
         )}
-        {/* Collapse/Expand Button - In header area */}
-        <button
-          onClick={() => {
-            const next = !isCollapsed;
-            setIsCollapsed(next);
-            setIsHovered(!next ? false : true);
-          }}
-          className={`flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 ${!showExpanded ? 'mx-auto mt-2' : ''}`}
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {isCollapsed ? (
-            <PanelLeft className="h-4 w-4" />
-          ) : (
+        {/* Panel button - only in expanded state */}
+        {showExpanded && (
+          <button
+            onClick={() => {
+              setIsCollapsed(true);
+              setIsHovered(false);
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            title="Close sidebar"
+          >
             <PanelLeftClose className="h-4 w-4" />
-          )}
-        </button>
+          </button>
+        )}
       </div>
 
       {/* Main Navigation */}
