@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { config } from '@/lib/utils/config';
-
+import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 // AI模型类型 - 与后端 Prisma schema 保持一致
 export type AIModelType =
@@ -25,6 +25,7 @@ export interface AIModel {
   color: string; // Tailwind 颜色类
   description: string; // 描述
   isDefault: boolean; // 是否默认
+  isUserKey?: boolean; // 是否来自用户自己的 API Key
 }
 
 // 缓存模型列表（避免重复请求）
@@ -100,7 +101,9 @@ export function useAIModels() {
 
       try {
         setLoading(true);
-        const response = await fetch(`${config.apiUrl}/ai/models`);
+        const response = await fetch(`${config.apiUrl}/ai/models`, {
+          headers: getAuthHeader(),
+        });
         if (response.ok) {
           const result = await response.json();
           // API returns { success: true, data: [...] } format

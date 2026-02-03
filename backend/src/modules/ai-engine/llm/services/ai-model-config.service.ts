@@ -588,7 +588,10 @@ export class AiModelConfigService {
    * 获取所有启用的模型列表（用于前端下拉列表）
    * ★ 不包含 API Key，安全返回给前端
    */
-  async getEnabledModelsForFrontend(modelType?: AIModelType): Promise<
+  async getEnabledModelsForFrontend(
+    modelType?: AIModelType,
+    userId?: string,
+  ): Promise<
     {
       id: string;
       dbId: string;
@@ -602,6 +605,7 @@ export class AiModelConfigService {
       color: string | null;
       description: string;
       isDefault: boolean;
+      isUserKey?: boolean;
     }[]
   > {
     try {
@@ -610,21 +614,23 @@ export class AiModelConfigService {
         where.modelType = modelType;
       }
 
+      const modelSelect = {
+        id: true,
+        name: true,
+        displayName: true,
+        provider: true,
+        modelId: true,
+        modelType: true,
+        icon: true,
+        color: true,
+        description: true,
+        isDefault: true,
+      };
+
       const models = await this.prisma.aIModel.findMany({
         where,
         orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-        select: {
-          id: true,
-          name: true,
-          displayName: true,
-          provider: true,
-          modelId: true,
-          modelType: true,
-          icon: true,
-          color: true,
-          description: true,
-          isDefault: true,
-        },
+        select: modelSelect,
       });
 
       // Ensure models is always an array
@@ -635,7 +641,50 @@ export class AiModelConfigService {
         return [];
       }
 
-      return models.map((model) => ({
+      // Check user API keys if userId is provided
+      let userProviders = new Set<string>();
+      if (userId) {
+        try {
+          const userKeys = await this.prisma.userApiKey.findMany({
+            where: { userId, isActive: true },
+            select: { provider: true },
+          });
+          userProviders = new Set(
+            userKeys.map((k) => k.provider.toLowerCase()),
+          );
+        } catch (error) {
+          this.logger.warn(
+            `[getEnabledModelsForFrontend] Failed to fetch user API keys: ${error}`,
+          );
+        }
+      }
+
+      // Find additional models from user's API key providers that are not already enabled
+      let userExtraModels: typeof models = [];
+      if (userProviders.size > 0) {
+        const enabledProviders = new Set(
+          models.map((m) => m.provider.toLowerCase()),
+        );
+        const extraProviders = [...userProviders].filter(
+          (p) => !enabledProviders.has(p),
+        );
+        if (extraProviders.length > 0) {
+          const extraWhere: any = {
+            isEnabled: false,
+            provider: { in: extraProviders, mode: "insensitive" as const },
+          };
+          if (modelType) {
+            extraWhere.modelType = modelType;
+          }
+          userExtraModels = await this.prisma.aIModel.findMany({
+            where: extraWhere,
+            orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+            select: modelSelect,
+          });
+        }
+      }
+
+      const mapModel = (model: (typeof models)[0], isUserKey: boolean) => ({
         id: model.id,
         dbId: model.id,
         name: model.displayName,
@@ -649,7 +698,15 @@ export class AiModelConfigService {
         description:
           model.description || `${model.provider} ${model.displayName}`,
         isDefault: model.isDefault,
-      }));
+        ...(isUserKey ? { isUserKey: true } : {}),
+      });
+
+      return [
+        ...models.map((m) =>
+          mapModel(m, userProviders.has(m.provider.toLowerCase())),
+        ),
+        ...userExtraModels.map((m) => mapModel(m, true)),
+      ];
     } catch (error) {
       this.logger.error(`[getEnabledModelsForFrontend] Failed: ${error}`);
       // Always return an empty array, never null/undefined

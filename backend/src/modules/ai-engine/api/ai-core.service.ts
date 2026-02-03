@@ -23,8 +23,11 @@ export class AiCoreService {
    * 获取已启用的 AI 模型列表（公共 API）
    * ★ 委托给 AiModelConfigService
    */
-  async getEnabledModels() {
-    return this.modelConfigService.getEnabledModelsForFrontend();
+  async getEnabledModels(userId?: string) {
+    return this.modelConfigService.getEnabledModelsForFrontend(
+      undefined,
+      userId,
+    );
   }
 
   /**

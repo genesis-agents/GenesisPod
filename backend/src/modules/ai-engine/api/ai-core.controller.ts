@@ -5,14 +5,16 @@ import {
   Body,
   Res,
   Param,
+  Req,
   BadRequestException,
   HttpException,
   Logger,
   Optional,
   Inject,
   NotFoundException,
+  UseGuards,
 } from "@nestjs/common";
-import { Response } from "express";
+import { Response, Request } from "express";
 import { AiCoreService } from "./ai-core.service";
 import { AIEngineFacade } from "../facade/ai-engine.facade";
 import {
@@ -21,6 +23,7 @@ import {
 } from "../interfaces/rag.interface";
 import { SecretsService } from "../../core/secrets/secrets.service";
 import { SearchService } from "../search/search.service";
+import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
 
 interface TranslateSingleRequest {
   text: string;
@@ -74,9 +77,13 @@ export class AiCoreController {
    * GET /api/v1/ai/models
    */
   @Get("models")
-  async getEnabledModels() {
-    this.logger.log("Fetching enabled AI models");
-    return this.aiCoreService.getEnabledModels();
+  @UseGuards(OptionalJwtAuthGuard)
+  async getEnabledModels(@Req() req: Request) {
+    const userId = (req as any).user?.id;
+    this.logger.log(
+      `Fetching enabled AI models${userId ? ` for user ${userId}` : ""}`,
+    );
+    return this.aiCoreService.getEnabledModels(userId);
   }
 
   /**

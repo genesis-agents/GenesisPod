@@ -1773,6 +1773,12 @@ export function AIAskPage() {
                                                 Multi
                                               </span>
                                             )}
+                                          {'isUserKey' in model &&
+                                            model.isUserKey && (
+                                              <span className="shrink-0 rounded bg-gradient-to-r from-emerald-500 to-teal-500 px-1 py-0.5 text-[10px] text-white">
+                                                My Key
+                                              </span>
+                                            )}
                                         </div>
                                         <span className="text-[11px] text-gray-500">
                                           {model.provider}
