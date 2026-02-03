@@ -39,6 +39,8 @@ import {
   Star,
   ChevronDown,
   FlaskConical,
+  PanelRight,
+  PanelRightClose,
 } from 'lucide-react';
 import { useAIModels } from '@/hooks';
 import { ClientDate } from '@/components/common/ClientDate';
@@ -2573,23 +2575,10 @@ function HomeContent() {
           <button
             type="button"
             onClick={() => setIsAiPanelCollapsed(true)}
-            className="group absolute -left-4 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg bg-gradient-to-br from-red-50 to-pink-50 shadow-md ring-1 ring-red-200/50 transition-all duration-200 hover:shadow-lg hover:ring-red-300/60"
+            className="group absolute -left-4 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-gray-200 transition-all duration-200 hover:bg-gray-50 hover:shadow-md hover:ring-gray-300"
             aria-label="收起 AI 助手面板"
           >
-            <svg
-              className="h-4 w-4 text-gray-600 transition-all duration-200 group-hover:text-red-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.5}
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-red-400/0 to-pink-400/0 opacity-0 transition-opacity duration-200 group-hover:from-red-400/10 group-hover:to-pink-400/10 group-hover:opacity-100" />
+            <PanelRightClose className="h-4 w-4 text-gray-500 transition-colors group-hover:text-gray-700" />
           </button>
 
           {/* Top Tab Navigation - Icon + Text Style */}
@@ -3480,25 +3469,12 @@ function HomeContent() {
           type="button"
           onClick={() => setIsAiPanelCollapsed(false)}
           aria-label="展开 AI 助手面板"
-          className="group absolute right-0 top-1/2 z-20 flex -translate-y-1/2 items-center gap-2 rounded-l-lg bg-gradient-to-br from-red-50 to-pink-50 px-4 py-3 text-sm font-medium text-gray-700 shadow-lg ring-1 ring-red-200/50 transition-all duration-200 hover:shadow-xl hover:ring-red-300/60"
+          className="group absolute right-0 top-1/2 z-20 flex h-8 -translate-y-1/2 items-center gap-2 rounded-l-lg bg-white px-3 text-sm font-medium text-gray-600 shadow-md ring-1 ring-gray-200 transition-all duration-200 hover:bg-gray-50 hover:shadow-lg hover:ring-gray-300"
         >
-          <svg
-            className="h-4 w-4 text-gray-600 transition-all duration-200 group-hover:text-red-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2.5}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-          <span className="transition-colors duration-200 group-hover:text-red-600">
-            AI助手
+          <PanelRight className="h-4 w-4 text-gray-500 transition-colors group-hover:text-gray-700" />
+          <span className="transition-colors duration-200 group-hover:text-gray-900">
+            AI
           </span>
-          <div className="absolute inset-0 rounded-l-lg bg-gradient-to-br from-red-400/0 to-pink-400/0 opacity-0 transition-opacity duration-200 group-hover:from-red-400/10 group-hover:to-pink-400/10 group-hover:opacity-100" />
         </button>
       )}
 

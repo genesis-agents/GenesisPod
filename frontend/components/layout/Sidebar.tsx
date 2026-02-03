@@ -112,30 +112,9 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       onMouseLeave={handleMouseLeave}
       className={`${showExpanded ? 'w-52' : 'w-16'} relative z-40 hidden h-full flex-col overflow-hidden border-r border-gray-200 bg-white transition-all duration-300 md:flex ${className}`}
     >
-      {/* Collapse/Expand Button - Vertically Centered */}
-      <button
-        onClick={() => {
-          const next = !isCollapsed;
-          setIsCollapsed(next);
-          setIsHovered(!next ? false : true);
-        }}
-        className="group absolute -right-4 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-gray-200 transition-all duration-200 hover:bg-gray-50 hover:shadow-md hover:ring-gray-300"
-        title={
-          isCollapsed
-            ? 'Expand sidebar (click to keep open)'
-            : 'Collapse sidebar'
-        }
-      >
-        {isCollapsed ? (
-          <PanelLeft className="h-4 w-4 text-gray-500 transition-colors group-hover:text-gray-700" />
-        ) : (
-          <PanelLeftClose className="h-4 w-4 text-gray-500 transition-colors group-hover:text-gray-700" />
-        )}
-      </button>
-
-      {/* Header */}
+      {/* Header with Logo and Collapse Button */}
       <div
-        className={`flex flex-shrink-0 items-center overflow-hidden px-4 py-2.5 ${!showExpanded ? 'justify-center' : ''}`}
+        className={`flex flex-shrink-0 items-center overflow-hidden px-4 py-2.5 ${!showExpanded ? 'justify-center' : 'justify-between'}`}
       >
         {!showExpanded ? (
           /* Collapsed Logo - AI Teams: Circular collaboration */
@@ -323,6 +302,22 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             </div>
           </Link>
         )}
+        {/* Collapse/Expand Button - In header area */}
+        <button
+          onClick={() => {
+            const next = !isCollapsed;
+            setIsCollapsed(next);
+            setIsHovered(!next ? false : true);
+          }}
+          className={`flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 ${!showExpanded ? 'mx-auto mt-2' : ''}`}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? (
+            <PanelLeft className="h-4 w-4" />
+          ) : (
+            <PanelLeftClose className="h-4 w-4" />
+          )}
+        </button>
       </div>
 
       {/* Main Navigation */}
