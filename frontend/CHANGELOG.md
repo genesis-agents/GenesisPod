@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.9.5](https://github.com/your-org/ai-teams-engine/compare/v3.9.4...v3.9.5) (2026-02-03)
+
+
+### Bug Fixes
+
+* **byok:** forward Authorization header through all AI routes ([0e4b532](https://github.com/your-org/ai-teams-engine/commit/0e4b532db6136da77b10740bcc208da993ce93fe))
+
 ### [3.9.4](https://github.com/your-org/ai-teams-engine/compare/v3.9.3...v3.9.4) (2026-02-03)
 
 
