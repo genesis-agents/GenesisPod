@@ -116,10 +116,9 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         onClick={() => {
           const next = !isCollapsed;
           setIsCollapsed(next);
-          // 确保点击后立即展开视图（避免 hover 依赖）
           setIsHovered(!next ? false : true);
         }}
-        className="group absolute -right-4 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg bg-gradient-to-br from-blue-50 to-purple-50 shadow-sm ring-1 ring-gray-200/50 transition-all duration-200 hover:shadow-md hover:ring-blue-300/50"
+        className="group absolute -right-4 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-gray-200 transition-all duration-200 hover:bg-gray-50 hover:shadow-md hover:ring-gray-300"
         title={
           isCollapsed
             ? 'Expand sidebar (click to keep open)'
@@ -127,19 +126,16 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         }
       >
         <svg
-          className={`h-4 w-4 text-gray-600 transition-all duration-200 group-hover:text-blue-600 ${isCollapsed ? 'rotate-180' : ''}`}
+          className="h-4 w-4 text-gray-500 transition-colors group-hover:text-gray-700"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          strokeWidth={1.5}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2.5}
-            d="M15 19l-7-7 7-7"
-          />
+          {/* Sidebar panel icon */}
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="9" y1="3" x2="9" y2="21" />
         </svg>
-        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-blue-400/0 to-purple-400/0 opacity-0 transition-opacity duration-200 group-hover:from-blue-400/10 group-hover:to-purple-400/10 group-hover:opacity-100" />
       </button>
 
       {/* Header */}
