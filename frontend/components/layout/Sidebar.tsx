@@ -109,7 +109,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       ref={sidebarRef}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`${showExpanded ? 'w-52' : 'w-16'} relative z-40 hidden h-full flex-col border-r border-gray-200 bg-white transition-all duration-300 md:flex ${className}`}
+      className={`${showExpanded ? 'w-52' : 'w-16'} relative z-40 hidden h-full flex-col overflow-hidden border-r border-gray-200 bg-white transition-all duration-300 md:flex ${className}`}
     >
       {/* Collapse/Expand Button - Vertically Centered */}
       <button

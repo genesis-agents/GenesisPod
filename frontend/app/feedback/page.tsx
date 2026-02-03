@@ -172,7 +172,8 @@ export default function Feedback() {
       // Handle wrapped response { success: true, data: {...} }
       const data = result?.data ?? result;
 
-      if (data.success) {
+      // Check wrapper success (result.success) or response ok
+      if (result.success !== false && response.ok) {
         setSubmitted(true);
         setFeedbackId(data?.feedbackId || null);
         // Clean up file previews

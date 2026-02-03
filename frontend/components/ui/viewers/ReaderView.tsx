@@ -329,7 +329,8 @@ export default function ReaderView({
         // Handle wrapped response { success: true, data: {...} }
         const data: Article = result?.data ?? result;
 
-        if (!data.success || !data.content) {
+        // Check wrapper success (result.success) and article content (data.content)
+        if (result.success === false || !data.content) {
           throw new Error('Failed to extract readable content from this page');
         }
 
