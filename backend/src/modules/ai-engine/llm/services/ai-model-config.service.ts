@@ -617,6 +617,10 @@ export class AiModelConfigService {
     }[]
   > {
     try {
+      this.logger.debug(
+        `[getEnabledModelsForFrontend] Called with userId=${userId || "NONE"}, modelType=${modelType || "ALL"}`,
+      );
+
       const where: any = { isEnabled: true };
       if (modelType) {
         where.modelType = modelType;
@@ -659,6 +663,9 @@ export class AiModelConfigService {
           });
           userProviders = new Set(
             userKeys.map((k) => k.provider.toLowerCase()),
+          );
+          this.logger.debug(
+            `[getEnabledModelsForFrontend] User ${userId} has keys for providers: [${[...userProviders].join(", ")}]`,
           );
         } catch (error) {
           this.logger.warn(
@@ -709,12 +716,21 @@ export class AiModelConfigService {
         ...(isUserKey ? { isUserKey: true } : {}),
       });
 
-      return [
+      const result = [
         ...models.map((m) =>
           mapModel(m, userProviders.has(m.provider.toLowerCase())),
         ),
         ...userExtraModels.map((m) => mapModel(m, true)),
       ];
+
+      if (userId) {
+        const userKeyModels = result.filter((m) => m.isUserKey);
+        this.logger.debug(
+          `[getEnabledModelsForFrontend] Returning ${result.length} models, ${userKeyModels.length} with isUserKey: [${userKeyModels.map((m) => m.name).join(", ")}]`,
+        );
+      }
+
+      return result;
     } catch (error) {
       this.logger.error(`[getEnabledModelsForFrontend] Failed: ${error}`);
       // Always return an empty array, never null/undefined

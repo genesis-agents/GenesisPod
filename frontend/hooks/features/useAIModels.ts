@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { config } from '@/lib/utils/config';
-import { getAuthHeader } from '@/lib/utils/auth';
+import { getAuthHeader, isAuthenticated } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 // AI模型类型 - 与后端 Prisma schema 保持一致
 export type AIModelType =
@@ -31,6 +31,7 @@ export interface AIModel {
 // 缓存模型列表（避免重复请求）
 let cachedModels: AIModel[] | null = null;
 let cacheTimestamp: number = 0;
+let cachedAuthState: boolean = false; // 缓存时的认证状态
 const CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
 
 // ★ BYOK: 全局 revision counter，清除缓存时递增，触发所有 useAIModels 实例重新获取
@@ -98,10 +99,13 @@ export function useAIModels() {
       const now = Date.now();
 
       // 验证缓存数据是否包含 modelType 字段（兼容性检查）
+      // 认证状态变化时也要刷新缓存（BYOK: 登录后需要获取 isUserKey 标记）
+      const currentAuth = isAuthenticated();
       const isCacheValid =
         cachedModels &&
         now - cacheTimestamp < CACHE_DURATION &&
-        cachedModels.every((m) => m.modelType !== undefined);
+        cachedModels.every((m) => m.modelType !== undefined) &&
+        cachedAuthState === currentAuth;
 
       if (isCacheValid) {
         setModels(cachedModels!);
@@ -140,6 +144,7 @@ export function useAIModels() {
           }
           cachedModels = modelsArray;
           cacheTimestamp = now;
+          cachedAuthState = currentAuth;
           setModels(modelsArray);
           setError(null);
         } else {
@@ -171,6 +176,7 @@ export function useAIModels() {
 export function clearAIModelsCache() {
   cachedModels = null;
   cacheTimestamp = 0;
+  cachedAuthState = false;
   notifyCacheCleared();
 }
 
