@@ -6,15 +6,21 @@ export interface AuthConfig {
   password: string;
 }
 
+// Backend API URL for authentication
+// The frontend proxies API calls, so we need to call the backend directly
+const BACKEND_API_URL =
+  process.env.UI_PATROL_BACKEND_URL ||
+  "https://deepdive-engine-backend.up.railway.app";
+
 function getAuthProfiles(): Record<string, AuthConfig> {
   return {
     demo: {
-      baseUrl: process.env.UI_PATROL_BASE_URL || "http://localhost:3000",
+      baseUrl: BACKEND_API_URL,
       email: process.env.UI_PATROL_DEMO_EMAIL || "demo@deepdive.ai",
       password: process.env.UI_PATROL_DEMO_PASSWORD || "demo123456",
     },
     admin: {
-      baseUrl: process.env.UI_PATROL_BASE_URL || "http://localhost:3000",
+      baseUrl: BACKEND_API_URL,
       email: process.env.UI_PATROL_ADMIN_EMAIL || "admin@deepdive.ai",
       password: process.env.UI_PATROL_ADMIN_PASSWORD || "admin123456",
     },
@@ -24,6 +30,7 @@ function getAuthProfiles(): Record<string, AuthConfig> {
 interface AuthTokens {
   accessToken: string;
   refreshToken: string;
+  user: Record<string, unknown>;
 }
 
 let cachedTokens: Record<string, AuthTokens> = {};
@@ -62,7 +69,14 @@ export async function getAuthTokens(
       throw new Error(`Auth failed for ${profile}: ${response.status} ${text}`);
     }
 
-    const data = (await response.json()) as Record<string, unknown>;
+    const responseData = (await response.json()) as Record<string, unknown>;
+
+    // Handle wrapped response format: { success: true, data: { accessToken, refreshToken } }
+    const data =
+      responseData.success && responseData.data
+        ? (responseData.data as Record<string, unknown>)
+        : responseData;
+
     if (
       typeof data.accessToken !== "string" ||
       typeof data.refreshToken !== "string"
@@ -71,8 +85,13 @@ export async function getAuthTokens(
     }
 
     const tokens: AuthTokens = {
-      accessToken: data.accessToken as string,
-      refreshToken: data.refreshToken as string,
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      user: (data.user as Record<string, unknown>) || {
+        id: "unknown",
+        email: config.email,
+        username: config.email.split("@")[0],
+      },
     };
 
     cachedTokens[profile] = tokens;
@@ -86,14 +105,35 @@ export async function injectAuth(
   page: Page,
   profile: string = "demo",
   baseUrl?: string,
+  targetUrl?: string,
 ): Promise<void> {
-  const tokens = await getAuthTokens(profile, baseUrl);
+  const authData = await getAuthTokens(profile, baseUrl);
 
-  // Inject tokens into localStorage before any navigation
-  await page.addInitScript((tokensArg: AuthTokens) => {
-    localStorage.setItem("access_token", tokensArg.accessToken);
-    localStorage.setItem("refresh_token", tokensArg.refreshToken);
-  }, tokens);
+  // Navigate to the target domain first to access its localStorage
+  const domain = targetUrl
+    ? new URL(targetUrl).origin
+    : "https://deepdive-engine.up.railway.app";
+
+  await page.goto(domain, { waitUntil: "domcontentloaded" });
+
+  // Inject both tokens AND user info into localStorage
+  // Frontend requires BOTH to recognize logged-in state (see AuthContext.tsx line 43)
+  await page.evaluate(
+    (data: { tokens: AuthTokens; user: Record<string, unknown> }) => {
+      localStorage.setItem("deepdive_auth_tokens", JSON.stringify(data.tokens));
+      localStorage.setItem("deepdive_user", JSON.stringify(data.user));
+    },
+    {
+      tokens: {
+        accessToken: authData.accessToken,
+        refreshToken: authData.refreshToken,
+      },
+      user: authData.user,
+    },
+  );
+
+  // Reload to apply the auth state
+  await page.reload({ waitUntil: "domcontentloaded" });
 }
 
 export function clearCachedTokens(): void {

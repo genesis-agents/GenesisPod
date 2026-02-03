@@ -135,7 +135,7 @@ export async function runPatrol(
 
         // Inject auth for authenticated routes (skip for remote/public)
         if (!config.skipAuth) {
-          await injectAuth(page, config.authProfile, config.baseUrl);
+          await injectAuth(page, config.authProfile, undefined, config.baseUrl);
         }
 
         for (const urlInfo of concreteUrls) {

@@ -14,6 +14,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wand2, Tags, ChevronDown, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 interface AIAssistMenuProps {
   onSmartTags?: () => Promise<void>;
@@ -30,22 +31,25 @@ interface MenuItem {
   action: 'smartTags';
 }
 
-const MENU_ITEMS: MenuItem[] = [
-  {
-    id: 'smart-tags',
-    icon: Tags,
-    label: '智能标签',
-    description: '自动生成分类标签',
-    color: 'text-blue-600',
-    action: 'smartTags',
-  },
-];
+function getMenuItems(t: (key: string) => string): MenuItem[] {
+  return [
+    {
+      id: 'smart-tags',
+      icon: Tags,
+      label: t('office.slides.smartTags'),
+      description: t('office.slides.smartTagsDesc'),
+      color: 'text-blue-600',
+      action: 'smartTags',
+    },
+  ];
+}
 
 export function AIAssistMenu({
   onSmartTags,
   disabled = false,
   className,
 }: AIAssistMenuProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -95,7 +99,7 @@ export function AIAssistMenu({
         )}
       >
         <Wand2 className="h-4 w-4" />
-        <span>AI 辅助</span>
+        <span>{t('office.slides.aiAssist')}</span>
         <ChevronDown
           className={cn(
             'h-3.5 w-3.5 transition-transform',
@@ -125,7 +129,7 @@ export function AIAssistMenu({
                     <Wand2 className="h-4 w-4 text-purple-600" />
                   </div>
                   <span className="text-sm font-semibold text-gray-800">
-                    AI 辅助功能
+                    {t('office.slides.aiAssistTitle')}
                   </span>
                 </div>
                 <button
@@ -136,13 +140,13 @@ export function AIAssistMenu({
                 </button>
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                使用 AI 帮助您管理和优化 PPT
+                {t('office.slides.aiAssistDesc')}
               </p>
             </div>
 
             {/* 菜单项 */}
             <div className="p-2">
-              {MENU_ITEMS.map((item) => {
+              {getMenuItems(t).map((item) => {
                 const Icon = item.icon;
                 const isLoading = loading === item.id;
                 const isDisabled =

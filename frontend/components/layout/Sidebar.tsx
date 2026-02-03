@@ -314,10 +314,10 @@ export default function Sidebar({ className = '' }: SidebarProps) {
               />
             </svg>
 
-            <div className="flex flex-col leading-none">
+            <div className="flex flex-col gap-0.5">
               <div className="flex items-center gap-1">
                 <span
-                  className="bg-gradient-to-r from-[#0F2A46] via-[#2BB7DA] to-[#7C5BFE] bg-clip-text text-[15px] font-bold tracking-tight text-transparent"
+                  className="logo-shimmer text-[15px] font-bold tracking-tight"
                   style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
                 >
                   Raven
