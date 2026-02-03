@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useApiGet } from '@/hooks/core';
 import { apiClient } from '@/lib/api/client';
 import { toast } from '@/stores';
+import { clearAIModelsCache } from '@/hooks/features/useAIModels';
 
 export interface UserApiKeyInfo {
   id: string;
@@ -64,6 +65,7 @@ export function useUserApiKeys() {
           preferredModelId,
           apiEndpoint,
         });
+        clearAIModelsCache();
         await refresh();
         return true;
       } catch (err) {
@@ -81,6 +83,7 @@ export function useUserApiKeys() {
       setSaving(true);
       try {
         await apiClient.delete(`/user/api-keys/${provider}`);
+        clearAIModelsCache();
         await refresh();
         return true;
       } catch (err) {
