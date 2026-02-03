@@ -2,6 +2,13 @@
 
 DeepDive Engine 版本变更记录。
 
+### [3.9.4](https://github.com/your-org/ai-teams-engine/compare/v3.9.3...v3.9.4) (2026-02-03)
+
+
+### Bug Fixes
+
+* **byok:** add dynamic model generation for user API keys ([ff327b0](https://github.com/your-org/ai-teams-engine/commit/ff327b0b8195efaef1e811844e33db332bf60cb5))
+
 ### [3.9.3](https://github.com/your-org/ai-teams-engine/compare/v3.9.2...v3.9.3) (2026-02-03)
 
 
