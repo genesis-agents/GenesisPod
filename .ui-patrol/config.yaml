@@ -1,0 +1,168 @@
+# UI Patrol Configuration
+# Base URL for all patrol routes
+baseUrl: https://deepdive-engine.up.railway.app
+
+# Authentication
+auth:
+  type: session
+  # The patrol uses the browser's existing session (login manually first)
+
+# Global settings
+settings:
+  language: en
+  screenshotDir: .ui-patrol/screenshots
+  reportDir: .ui-patrol/reports
+  timeout: 15000
+  waitAfterNavigation: 3000
+  viewport:
+    width: 1920
+    height: 1080
+
+# Global forbidden patterns (applied to all pages)
+forbidden:
+  - "[object Object]"
+  - "undefined"
+  - "NaN"
+  - "Error:"
+  - "Cannot read properties"
+  - "is not a function"
+
+# i18n patrol: check for untranslated Chinese when in English mode
+i18n:
+  enabled: true
+  sourceLocale: zh
+  targetLocale: en
+  # Elements that may contain Chinese from database (not i18n issues)
+  allowChinese:
+    - "[data-user-content]" # User-generated content
+    - ".topic-title" # Research topic names (from DB)
+    - ".dimension-name" # Dimension names (from DB)
+    - ".task-name" # Task names (from DB)
+    - ".agent-name" # Agent names
+    - "td" # Table cells may contain DB data
+    - ".chat-message" # Chat messages
+
+# Page groups for organized patrol runs
+# Total: 73 routes across 7 groups
+groups:
+  # ============ Homepage ============
+  homepage:
+    description: "Landing page"
+    routes:
+      - /
+
+  # ============ Core AI Apps (list pages) ============
+  core:
+    description: "Core AI application list pages"
+    routes:
+      - /ai-ask
+      - /ai-research
+      - /ai-writing
+      - /ai-image
+      - /ai-simulation
+      - /ai-office
+      - /ai-office/slides
+      - /ai-social
+      - /ai-skills
+
+  # ============ Core AI Apps (detail/sub pages) ============
+  core-detail:
+    description: "AI application detail and action pages (need sample IDs)"
+    routes:
+      # Research
+      - /ai-research/topic/:topicId # sample: 475fea3c-bd61-4c99-9498-4e09edc11eed
+      - /ai-research/:projectId
+      - /ai-research/topic-research
+      # Writing
+      - /ai-writing/:id
+      - /ai-writing/report/:missionId
+      # Simulation
+      - /ai-simulation/:id
+      - /ai-simulation/edit/:id
+      - /ai-simulation/run/:id
+      # Image
+      - /ai-image/create
+      # Social
+      - /ai-social/create
+      - /ai-social/edit/:id
+
+  # ============ Teams & Store ============
+  teams:
+    description: "AI Teams and collaboration"
+    routes:
+      - /ai-teams
+      - /ai-teams/:topicId
+      - /ai-store
+
+  # ============ Content & Library ============
+  content:
+    description: "Content, library, and exploration"
+    routes:
+      - /library
+      - /library/rag
+      - /library/knowledge-graph
+      - /explore
+      - /explore/youtube
+      - /explore/report/:id
+      - /explore/resource/:id
+      - /knowledge-graph
+      - /rag
+
+  # ============ User Account ============
+  user:
+    description: "User account and settings pages"
+    routes:
+      - /profile
+      - /credits
+      - /notifications
+      - /changelog
+      - /feedback
+      - /feedback/history
+
+  # ============ Public / Share ============
+  share:
+    description: "Public sharing pages (no auth required)"
+    routes:
+      - /share/topic/:id
+      - /share/writing/:id
+      - /share/image/:id
+      - /report/:missionId
+      - /notion/:pageId
+
+  # ============ Admin ============
+  admin:
+    description: "Admin dashboard and management (22 sub-pages)"
+    routes:
+      # Overview
+      - /admin
+      - /admin/overview
+      - /admin/workspace
+      # System
+      - /admin/system
+      - /admin/system/monitoring
+      - /admin/system/logs
+      - /admin/system/email
+      - /admin/system/notifications
+      - /admin/system/site
+      - /admin/system/storage
+      # AI
+      - /admin/ai/models
+      - /admin/ai/tools
+      - /admin/ai/skills
+      - /admin/ai/teams
+      # Access
+      - /admin/access/users
+      - /admin/access/permissions
+      - /admin/access/security
+      - /admin/access/billing
+      - /admin/access/credits
+      - /admin/access/secrets
+      # Data
+      - /admin/data/collection
+      - /admin/data/quality
+      - /admin/data/whitelists
+      - /admin/data-management
+      # Other
+      - /admin/secrets
+      - /admin/feedback
+      - /admin/thumbnails

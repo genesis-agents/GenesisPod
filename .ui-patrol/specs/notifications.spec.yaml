@@ -1,0 +1,19 @@
+# Notifications Page Spec
+route: /notifications
+tier: normal
+auth: session
+
+expected_structure:
+  main:
+    - notification_list: "list of notifications"
+    - each_item: "title, message, timestamp, read/unread indicator"
+    - mark_all_read: "button to mark all as read"
+
+i18n_assertions:
+  - "Notifications"
+  - "Mark all as read"
+
+forbidden:
+  - "[object Object]"
+  - "undefined"
+  - "NaN"

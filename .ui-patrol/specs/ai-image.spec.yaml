@@ -1,0 +1,22 @@
+# AI Image Page Spec
+route: /ai-image
+tier: important
+auth: session
+
+expected_structure:
+  header:
+    - heading: "AI Image"
+    - create_button: true
+  main:
+    - image_grid: "gallery of generated images"
+    - each_card: "thumbnail, prompt text, date, actions"
+
+i18n_assertions:
+  - "AI Image"
+  - "Create"
+  - "No images yet"
+
+forbidden:
+  - "[object Object]"
+  - "undefined"
+  - "NaN"

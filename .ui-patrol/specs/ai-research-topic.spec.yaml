@@ -1,0 +1,150 @@
+# AI Research Topic Detail Page - Comprehensive Spec
+route: /ai-research/topic/:topicId
+tier: critical
+auth: session
+sampleUrl: /ai-research/topic/475fea3c-bd61-4c99-9498-4e09edc11eed
+
+expected_structure:
+  header:
+    - back_button: true
+    - topic_icon: true
+    - topic_title: "heading level 1"
+    - settings_button: true
+  left_panel:
+    - topic_summary:
+        - title: "heading level 3"
+        - status_badge: "Completed|In Progress|Failed"
+        - task_count: "N tasks total"
+        - progress_bar: "Overall Progress N%"
+    - team_visualization:
+        - agent_nodes: "Leader, Researcher, Reviewer, Synthesizer"
+        - legend: "Leader, Working, Completed, Idle"
+    - dimension_list:
+        - each_item: "checkbox + name + status"
+    - control_panel:
+        - phase_status: true
+        - research_depth: "Quick|Standard|Thorough"
+        - action_buttons: "Start, Update, Cancel"
+  right_panel:
+    tabs:
+      - name: Tasks
+        content:
+          - task_list_header: "Task List N/N"
+          - task_table: "columns: #, task, agent, model, status"
+          - conversation_panel: "Conversation with Leader"
+          - input_box: "textbox for research instructions"
+      - name: Activities
+        content:
+          - activity_log: true
+      - name: "Insights Report"
+        content:
+          - report_content: "markdown rendered report"
+          - export_buttons: "Export PDF, Export Word"
+      - name: History
+        content:
+          - title_with_icon: "Calendar icon + Research History Timeline"
+          - stats: "N researches total, N succeeded"
+          - filter_buttons: "All|Current|History"
+          - session_cards: "Research Session N, date, status"
+      - name: Credibility
+        content:
+          - title_with_icon: "Shield icon + Credibility Report"
+          - action_buttons: "Recalculate, Re-analyze"
+          - score_panel:
+              - overall_score: "large circle with number"
+              - sub_scores: "Authority, Diversity, Timeliness, Coverage"
+              - star_ratings: true
+          - collapsible_sections:
+              - "Source Assessment"
+              - "Timeliness Assessment"
+              - "Coverage Assessment"
+              - "AI Analysis Quality"
+              - "Limitations"
+      - name: References
+        content:
+          - stats: "N sources, High N, Medium N, Low N"
+          - filter_dropdown: "All|By credibility|By dimension|By source|By time"
+          - reference_list: "each with title, domain, credibility score"
+
+# i18n checks: these labels MUST be in English when locale=en
+i18n_assertions:
+  Tasks_tab:
+    - "Task List"
+    - "Conversation with Leader"
+    - "Completed"
+  History_tab:
+    - "Research History Timeline"
+    - "researches total"
+    - "succeeded"
+    - "All"
+    - "Current"
+    - "History"
+    - "Completed"
+    - "Updated"
+    - "dimensions"
+    - "new sources"
+    - "interactions"
+  Credibility_tab:
+    - "Credibility Report"
+    - "Overall"
+    - "Authority"
+    - "Diversity"
+    - "Timeliness"
+    - "Coverage"
+    - "Source Assessment"
+    - "Timeliness Assessment"
+    - "Coverage Assessment"
+    - "AI Analysis Quality"
+    - "Limitations"
+    - "Recalculate"
+    - "Re-analyze"
+    - "Government/Official"
+    - "Academic Research"
+    - "Industry Reports"
+    - "News Media"
+    - "Blog/Other"
+    - "Planning Rounds"
+    - "Avg Revisions"
+    - "Approval Rate"
+    - "Agent Activities"
+  References_tab:
+    - "sources"
+    - "High"
+    - "Medium"
+    - "Low"
+    - "By credibility"
+    - "Open original"
+    - "Cited"
+  left_panel:
+    - "Overall Progress"
+    - "tasks total"
+    - "Phase:"
+    - "Research Depth"
+    - "Quick"
+    - "Standard"
+    - "Thorough"
+    - "Start"
+    - "Update"
+    - "Cancel"
+    - "Leader"
+    - "Researcher"
+    - "Reviewer"
+    - "Synthesizer"
+    - "Working"
+    - "Completed"
+    - "Idle"
+
+# Aesthetic checks
+aesthetic:
+  - "Score labels should not wrap to multiple lines"
+  - "Research Depth buttons should fit on one line without wrapping"
+  - "Tab names should be fully visible without truncation"
+  - "Source distribution bar legend should wrap gracefully"
+  - "Star ratings should align horizontally"
+
+forbidden:
+  - "[object Object]"
+  - "undefined"
+  - "NaN"
+  - "加载失败"
+  - "获取.*失败"

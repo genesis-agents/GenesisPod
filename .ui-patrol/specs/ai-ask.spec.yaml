@@ -1,11 +1,13 @@
+# AI Ask Page Spec
 route: /ai-ask
-tier: important
-auth: demo
+tier: critical
+auth: session
 
 expected_structure:
   main:
-    - chat_input: true
-    - model_selector: true
+    - chat_input: "textarea for questions"
+    - model_selector: "dropdown or buttons for model selection"
+    - conversation_area: "message list"
 
 data_states:
   initial:
@@ -13,7 +15,11 @@ data_states:
       - "Chat input is visible and enabled"
       - "Model selector is visible"
 
+i18n_assertions:
+  - "AI Ask"
+
 forbidden:
   - "[object Object]"
   - "undefined"
   - "NaN"
+  - "Error"

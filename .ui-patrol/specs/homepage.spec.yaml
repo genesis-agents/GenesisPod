@@ -1,0 +1,16 @@
+# Homepage Spec
+route: /
+tier: critical
+auth: session
+
+expected_structure:
+  main:
+    - dashboard_or_landing: "overview of recent activity or app entry points"
+
+i18n_assertions:
+  - "AI Teams"
+
+forbidden:
+  - "[object Object]"
+  - "undefined"
+  - "NaN"

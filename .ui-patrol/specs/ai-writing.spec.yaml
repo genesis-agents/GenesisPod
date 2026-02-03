@@ -1,8 +1,12 @@
+# AI Writing Page Spec
 route: /ai-writing
 tier: important
-auth: demo
+auth: session
 
 expected_structure:
+  header:
+    - heading: "AI Writing"
+    - create_button: true
   main:
     - project_list: true
 
@@ -15,7 +19,26 @@ data_states:
     assertions:
       - "Shows empty state or create prompt"
 
+sub_routes:
+  - route: /ai-writing/:id
+    expected_structure:
+      main:
+        - editor: "rich text editor area"
+        - sidebar: "chapter list, outline, settings"
+        - toolbar: "formatting options"
+
+i18n_assertions:
+  - "AI Writing"
+  - "Create"
+  - "Start Writing"
+  - "words"
+  - "Draft"
+  - "Revising"
+  - "Completed"
+
 forbidden:
   - "[object Object]"
   - "undefined"
   - "NaN"
+  - "开始创作"
+  - "修订中"

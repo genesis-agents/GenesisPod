@@ -1,0 +1,27 @@
+# AI Office (Reports) Page Spec
+route: /ai-office
+tier: important
+auth: session
+
+expected_structure:
+  header:
+    - heading: "AI Reports|AI Office"
+  main:
+    - content_list: "slides/documents"
+
+sub_routes:
+  - route: /ai-office/slides
+    expected_structure:
+      main:
+        - slides_list: "grid or list of slide decks"
+        - each_item: "title, page count, date, actions"
+
+i18n_assertions:
+  - "AI Reports"
+  - "Create"
+  - "pages"
+
+forbidden:
+  - "[object Object]"
+  - "undefined"
+  - "NaN"

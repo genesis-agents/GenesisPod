@@ -1,0 +1,25 @@
+# Share Pages Spec (public, no auth required)
+route: /share/*
+tier: normal
+auth: none
+
+sub_routes:
+  - route: /share/topic/:id
+    expected_structure:
+      main:
+        - topic_content: "shared research topic view"
+  - route: /share/writing/:id
+    expected_structure:
+      main:
+        - writing_content: "shared writing document view"
+  - route: /share/image/:id
+    expected_structure:
+      main:
+        - image_display: "shared image view"
+
+forbidden:
+  - "[object Object]"
+  - "undefined"
+  - "NaN"
+  - "403"
+  - "Not Found"

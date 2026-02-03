@@ -1,0 +1,30 @@
+# Profile Page Spec
+route: /profile
+tier: important
+auth: session
+
+expected_structure:
+  main:
+    - user_info: "avatar, name, email"
+    - tabs: "Profile|API Keys|Preferences"
+
+sub_tabs:
+  - name: "API Keys"
+    content:
+      - heading: "API Keys|User API Keys"
+      - key_list_or_empty: true
+      - add_button: "Add Key|New Key"
+    i18n_assertions:
+      - "API Keys"
+      - "Add"
+      - "Key Name"
+      - "Provider"
+      - "Status"
+      - "Active"
+      - "Delete"
+      - "No API keys"
+
+forbidden:
+  - "[object Object]"
+  - "undefined"
+  - "NaN"
