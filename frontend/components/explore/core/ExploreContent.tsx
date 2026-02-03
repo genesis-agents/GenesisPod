@@ -39,8 +39,6 @@ import {
   Star,
   ChevronDown,
   FlaskConical,
-  PanelRight,
-  PanelRightClose,
 } from 'lucide-react';
 import { useAIModels } from '@/hooks';
 import { ClientDate } from '@/components/common/ClientDate';
@@ -73,6 +71,53 @@ import { usePDFText } from '../hooks/usePDFText';
 import { useI18n } from '@/lib/i18n/i18n-context';
 
 import { logger } from '@/lib/utils/logger';
+
+// Right Panel Toggle Icon - ChatGPT style (left wide, right narrow for right panel)
+function RightPanelToggleIcon({
+  state,
+}: {
+  state: 'expanded' | 'collapsed' | 'pinned';
+}) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+      {/* Outer frame */}
+      <rect
+        x="3"
+        y="3"
+        width="18"
+        height="18"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+      />
+      {/* Right narrow panel */}
+      <rect
+        x="15"
+        y="3"
+        width="6"
+        height="18"
+        rx="2"
+        fill={state === 'collapsed' ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      {/* Left wide panel - only fill when pinned */}
+      {state === 'pinned' && (
+        <rect
+          x="3"
+          y="3"
+          width="12"
+          height="18"
+          rx="2"
+          fill="currentColor"
+          fillOpacity="0.3"
+        />
+      )}
+    </svg>
+  );
+}
+
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -109,8 +154,22 @@ function HomeContent() {
   const [aiRightTab, setAiRightTab] = useState<
     'assistant' | 'notes' | 'comments' | 'similar'
   >('assistant');
-  const [isAiPanelCollapsed, setIsAiPanelCollapsed] = useState(false);
+  // 三状态: expanded(默认展开), collapsed(收起), pinned(固定)
+  const [aiPanelState, setAiPanelState] = useState<
+    'expanded' | 'collapsed' | 'pinned'
+  >('expanded');
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(true);
+
+  // 右侧面板切换: expanded → collapsed → pinned → expanded
+  const handleAiPanelToggle = () => {
+    if (aiPanelState === 'expanded') {
+      setAiPanelState('collapsed');
+    } else if (aiPanelState === 'collapsed') {
+      setAiPanelState('pinned');
+    } else {
+      setAiPanelState('expanded');
+    }
+  };
 
   // Resizable AI panel width
   const [aiPanelWidth, setAiPanelWidth] = useState(420); // Default 420px (larger than before)
@@ -2429,7 +2488,7 @@ function HomeContent() {
                     }}
                     onAskAI={(text) => {
                       // Switch to AI panel and set the question
-                      setIsAiPanelCollapsed(false);
+                      setAiPanelState('expanded');
                       setAiInput(`Explain this: ${text}`);
                     }}
                     showClipboardFAB={true}
@@ -2493,7 +2552,7 @@ function HomeContent() {
                         logger.debug('Added to notes from Reader:', text);
                       }}
                       onAskAI={(text) => {
-                        setIsAiPanelCollapsed(false);
+                        setAiPanelState('expanded');
                         setAiInput(`Explain this: ${text}`);
                       }}
                       className="h-full w-full flex-1"
@@ -2514,7 +2573,7 @@ function HomeContent() {
                         logger.debug('Added to notes from HTML:', text);
                       }}
                       onAskAI={(text) => {
-                        setIsAiPanelCollapsed(false);
+                        setAiPanelState('expanded');
                         setAiInput(`Explain this: ${text}`);
                       }}
                       className="h-full w-full flex-1"
@@ -2558,7 +2617,7 @@ function HomeContent() {
       </main>
 
       {/* Right AI Interaction Panel - Only show in detail view */}
-      {!isAiPanelCollapsed && viewMode === 'detail' && (
+      {aiPanelState !== 'collapsed' && viewMode === 'detail' && (
         <aside
           className="relative hidden flex-shrink-0 flex-col border-l border-gray-200 bg-white lg:flex"
           style={{ width: aiPanelWidth }}
@@ -2575,14 +2634,18 @@ function HomeContent() {
           {/* Top Tab Navigation - Icon + Text Style */}
           <div className="border-b border-gray-100 bg-gray-50 px-2 py-2">
             <div className="flex items-center gap-1">
-              {/* Collapse button at left of tab bar */}
+              {/* Toggle button at left of tab bar - three states: expanded → collapsed → pinned */}
               <button
                 type="button"
-                onClick={() => setIsAiPanelCollapsed(true)}
+                onClick={handleAiPanelToggle}
                 className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-white hover:text-gray-600 hover:shadow-sm"
-                aria-label="收起 AI 助手面板"
+                aria-label={
+                  aiPanelState === 'expanded'
+                    ? '收起 AI 助手面板'
+                    : '展开 AI 助手面板'
+                }
               >
-                <PanelRightClose className="h-4 w-4" />
+                <RightPanelToggleIcon state={aiPanelState} />
               </button>
               {/* Tab buttons */}
               <div className="grid flex-1 grid-cols-4 gap-1">
@@ -3465,22 +3528,6 @@ function HomeContent() {
             </div>
           </div>
         </aside>
-      )}
-
-      {isAiPanelCollapsed && viewMode === 'detail' && (
-        <button
-          type="button"
-          onClick={() => setIsAiPanelCollapsed(false)}
-          aria-label="展开 AI 助手面板"
-          className="group absolute right-0 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-l-xl bg-white text-sm font-medium shadow-md ring-1 ring-gray-200 transition-all duration-200 hover:bg-gray-50 hover:shadow-lg hover:ring-gray-300"
-        >
-          {/* Default: Show AI text */}
-          <span className="text-xs font-semibold text-gray-500 transition-all duration-200 group-hover:scale-75 group-hover:opacity-0">
-            AI
-          </span>
-          {/* Hover: Show Panel button */}
-          <PanelRight className="absolute h-4 w-4 text-gray-500 opacity-0 transition-all duration-200 group-hover:opacity-100" />
-        </button>
       )}
 
       {/* Import URL Dialog */}

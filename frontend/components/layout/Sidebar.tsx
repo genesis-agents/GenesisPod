@@ -3,19 +3,66 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { PanelLeft, PanelLeftClose } from 'lucide-react';
 import UserProfileButton from './UserProfileButton';
 import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
+
+// Sidebar Panel Toggle Icon - ChatGPT style (left narrow, right wide)
+function SidebarToggleIcon({
+  state,
+}: {
+  state: 'expanded' | 'collapsed' | 'pinned';
+}) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+      {/* Outer frame */}
+      <rect
+        x="3"
+        y="3"
+        width="18"
+        height="18"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+      />
+      {/* Left narrow panel */}
+      <rect
+        x="3"
+        y="3"
+        width="6"
+        height="18"
+        rx="2"
+        fill={state === 'collapsed' ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      {/* Right wide panel - only fill when pinned */}
+      {state === 'pinned' && (
+        <rect
+          x="9"
+          y="3"
+          width="12"
+          height="18"
+          rx="2"
+          fill="currentColor"
+          fillOpacity="0.3"
+        />
+      )}
+    </svg>
+  );
+}
 
 interface SidebarProps {
   className?: string;
 }
 
 export default function Sidebar({ className = '' }: SidebarProps) {
-  // 折叠状态（始终默认展开）
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  // 三种状态: expanded(默认展开), collapsed(收起), pinned(固定)
+  const [sidebarState, setSidebarState] = useState<
+    'expanded' | 'collapsed' | 'pinned'
+  >('expanded');
 
   // 悬停展开
   const [isHovered, setIsHovered] = useState(false);
@@ -25,8 +72,23 @@ export default function Sidebar({ className = '' }: SidebarProps) {
   const { isAdmin } = useAuth();
   const { t } = useTranslation();
 
-  // 锁定时始终展开，否则悬停时展开
-  const showExpanded = !isCollapsed || isHovered;
+  // 展开逻辑：pinned时始终展开，collapsed时hover展开，expanded时展开
+  const showExpanded =
+    sidebarState === 'pinned' ||
+    sidebarState === 'expanded' ||
+    (sidebarState === 'collapsed' && isHovered);
+
+  // 点击切换状态: expanded → collapsed → pinned → expanded
+  const handleToggle = () => {
+    if (sidebarState === 'expanded') {
+      setSidebarState('collapsed');
+      setIsHovered(false);
+    } else if (sidebarState === 'collapsed') {
+      setSidebarState('pinned');
+    } else {
+      setSidebarState('expanded');
+    }
+  };
 
   // 检查鼠标是否在侧边栏内
   const checkMouseInSidebar = useCallback(() => {
@@ -117,12 +179,9 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         className={`flex flex-shrink-0 items-center overflow-hidden px-3 py-2.5 ${showExpanded ? 'justify-between' : 'justify-center'}`}
       >
         {!showExpanded ? (
-          /* Collapsed state: Logo with hover -> Panel button */
+          /* Collapsed state: Logo with hover -> Toggle button */
           <button
-            onClick={() => {
-              setIsCollapsed(false);
-              setIsHovered(true);
-            }}
+            onClick={handleToggle}
             className="group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all hover:bg-gray-100"
             title="Open sidebar"
           >
@@ -164,8 +223,10 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 fill="url(#logoGradientCollapsed)"
               />
             </svg>
-            {/* Hover: Show Panel button */}
-            <PanelLeft className="absolute h-5 w-5 text-gray-600 opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:opacity-100" />
+            {/* Hover: Show Toggle icon */}
+            <span className="absolute opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:opacity-100">
+              <SidebarToggleIcon state={sidebarState} />
+            </span>
           </button>
         ) : (
           /* Expanded state: Logo + Text on left */
@@ -271,17 +332,16 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             </div>
           </Link>
         )}
-        {/* Panel button - only in expanded state */}
+        {/* Toggle button - only in expanded state */}
         {showExpanded && (
           <button
-            onClick={() => {
-              setIsCollapsed(true);
-              setIsHovered(false);
-            }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-            title="Close sidebar"
+            onClick={handleToggle}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            title={
+              sidebarState === 'pinned' ? 'Unpin sidebar' : 'Collapse sidebar'
+            }
           >
-            <PanelLeftClose className="h-4 w-4" />
+            <SidebarToggleIcon state={sidebarState} />
           </button>
         )}
       </div>
