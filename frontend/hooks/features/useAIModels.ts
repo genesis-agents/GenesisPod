@@ -33,6 +33,22 @@ let cachedModels: AIModel[] | null = null;
 let cacheTimestamp: number = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
 
+// ★ BYOK: 全局 revision counter，清除缓存时递增，触发所有 useAIModels 实例重新获取
+let cacheRevision = 0;
+const cacheListeners = new Set<() => void>();
+
+function subscribeCacheRevision(listener: () => void) {
+  cacheListeners.add(listener);
+  return () => {
+    cacheListeners.delete(listener);
+  };
+}
+
+function notifyCacheCleared() {
+  cacheRevision++;
+  cacheListeners.forEach((fn) => fn());
+}
+
 /**
  * 去重模型列表 - 按 modelId 去重，每个实际模型只保留一个
  * 优先保留标记为默认的模型
@@ -69,6 +85,12 @@ export function useAIModels() {
   const [models, setModels] = useState<AIModel[]>(cachedModels || []);
   const [loading, setLoading] = useState(!cachedModels);
   const [error, setError] = useState<string | null>(null);
+  // ★ BYOK: 监听缓存清除事件，触发重新获取
+  const [revision, setRevision] = useState(cacheRevision);
+
+  useEffect(() => {
+    return subscribeCacheRevision(() => setRevision((r) => r + 1));
+  }, []);
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -134,7 +156,8 @@ export function useAIModels() {
     };
 
     fetchModels();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revision]);
 
   // 对模型列表进行去重，避免显示重复的模型配置
   const uniqueModels = useMemo(() => deduplicateModels(models), [models]);
@@ -148,6 +171,7 @@ export function useAIModels() {
 export function clearAIModelsCache() {
   cachedModels = null;
   cacheTimestamp = 0;
+  notifyCacheCleared();
 }
 
 /**
