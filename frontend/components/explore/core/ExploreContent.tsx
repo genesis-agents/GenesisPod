@@ -3530,6 +3530,33 @@ function HomeContent() {
         </aside>
       )}
 
+      {/* Collapsed AI Panel - elegant vertical tab */}
+      {aiPanelState === 'collapsed' && viewMode === 'detail' && (
+        <div className="group relative hidden flex-shrink-0 lg:flex">
+          <button
+            type="button"
+            onClick={() => setAiPanelState('expanded')}
+            className="flex h-full w-12 flex-col items-center border-l border-gray-200 bg-gradient-to-b from-gray-50 to-white pt-3 text-gray-400 transition-all duration-200 hover:w-14 hover:border-red-200 hover:from-red-50 hover:to-white hover:text-red-500 hover:shadow-lg"
+            aria-label="展开 AI 助手面板"
+          >
+            {/* Toggle icon */}
+            <div className="mb-3 rounded-lg bg-white p-1.5 shadow-sm ring-1 ring-gray-100 transition-all group-hover:bg-red-50 group-hover:ring-red-200">
+              <RightPanelToggleIcon state="collapsed" />
+            </div>
+            {/* Vertical text */}
+            <span className="text-xs font-semibold tracking-widest [writing-mode:vertical-rl]">
+              AI Chat
+            </span>
+            {/* Subtle indicator dots */}
+            <div className="mb-4 mt-auto flex flex-col gap-1.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-gray-300 transition-colors group-hover:bg-red-400" />
+              <div className="h-1.5 w-1.5 rounded-full bg-gray-200 transition-colors group-hover:bg-red-300" />
+              <div className="h-1.5 w-1.5 rounded-full bg-gray-100 transition-colors group-hover:bg-red-200" />
+            </div>
+          </button>
+        </div>
+      )}
+
       {/* Import URL Dialog */}
       <ImportUrlDialog
         isOpen={showImportUrlDialog}
