@@ -48,6 +48,11 @@ export interface AgentAssignment {
   skills?: string[];
   /** ★ v8.0: Leader 分配给此 Agent 的工具（用于 UI 展示） */
   tools?: string[];
+  /** ★ v8.1: Leader 分配此 Agent 和模型的理由 */
+  assignmentReason?: {
+    agentReason?: string;
+    modelReason?: string;
+  };
 }
 
 export interface ReviewDecision {

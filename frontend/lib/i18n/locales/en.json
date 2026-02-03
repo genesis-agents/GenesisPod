@@ -4633,6 +4633,44 @@
       "startResearchFailed": "Failed to start research",
       "pleaseStartResearchFirst": "Please start a research task first"
     },
+    "researchControl": {
+      "todoList": {
+        "loading": "Loading...",
+        "noTasks": "No tasks",
+        "taskList": "Task List",
+        "inProgress": "In Progress",
+        "failed": "Failed",
+        "columnNumber": "#",
+        "columnTask": "Task",
+        "columnAssignee": "Assignee",
+        "columnModel": "Model",
+        "columnStatus": "Status",
+        "columnActions": "Actions",
+        "retry": "Retry",
+        "waitingTasks": "Waiting for {{count}} tasks",
+        "waiting": "Waiting for",
+        "blockingTasks": "Blocking {{count}} tasks",
+        "viewAssignmentReason": "View assignment reason",
+        "assignmentReasonTitle": "Why was this agent and model selected?",
+        "whyThisAgent": "Agent Selection Reason",
+        "whyThisModel": "Model Selection Reason"
+      }
+    },
+    "assignmentReason": {
+      "leaderPlanning": "Leader Agent handles high-level planning and task decomposition",
+      "dimensionResearch": "Researcher Agent specializes in in-depth information gathering and analysis",
+      "reportWriting": "Synthesizer Agent excels at integrating findings into coherent reports",
+      "qualityReview": "Reviewer Agent focuses on quality assurance and consistency checking",
+      "userRequest": "Assigned to the most suitable agent based on request type",
+      "defaultAgent": "Assigned based on availability and task requirements",
+      "reasoningModel": "Reasoning models excel at complex planning and logical decomposition",
+      "researchModel": "Models optimized for information retrieval and content analysis",
+      "writingModel": "Models with strong language generation and summarization capabilities",
+      "reviewModel": "Models designed for consistency checking and quality evaluation",
+      "flexibleModel": "Model selected based on the specific request requirements",
+      "defaultModel": "Standard model optimized for general tasks",
+      "forDimension": " for dimension: {{dimension}}"
+    },
     "chart": {
       "dataIncomplete": "Chart data incomplete",
       "missingChartType": "Missing chart type",

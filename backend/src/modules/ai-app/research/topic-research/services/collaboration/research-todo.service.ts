@@ -76,6 +76,7 @@ export class ResearchTodoService {
         agentName: input.agentName,
         agentRole: input.agentRole,
         modelId: input.modelId, // ★ 保存 Agent 使用的模型 ID
+        assignmentReason: input.assignmentReason, // ★ 保存 Leader 分配理由
         priority: input.priority ?? 0,
         dependsOn: input.dependsOn ?? [],
         estimatedMs: input.estimatedMs,
@@ -612,6 +613,11 @@ export class ResearchTodoService {
       agentId: "leader",
       agentName: "研究协调员",
       agentRole: "leader",
+      assignmentReason: {
+        agentReason:
+          "Leader 负责全局规划和任务协调，具备任务分解和策略制定能力",
+        modelReason: "使用推理模型进行复杂的任务理解和规划决策",
+      },
       priority: 1000,
       userCanPause: false,
       userCanCancel: false,
@@ -651,6 +657,10 @@ export class ResearchTodoService {
         agentName: assignment?.agentName || `研究员 ${i + 1}`,
         agentRole: "researcher",
         modelId: assignment?.modelId, // ★ 保存分配的模型 ID
+        assignmentReason: assignment?.assignmentReason || {
+          agentReason: `研究员专注于「${dim.name || dim.dimensionName}」领域的深度信息收集和分析`,
+          modelReason: "使用擅长信息检索和内容分析的模型",
+        },
         priority: 500 - i,
         dependsOn: [leaderTodo.id],
         estimatedMs: 120000, // 预估 2 分钟
@@ -669,6 +679,10 @@ export class ResearchTodoService {
       agentId: "synthesizer",
       agentName: "报告撰写员",
       agentRole: "synthesizer",
+      assignmentReason: {
+        agentReason: "综合撰写员擅长整合多维度研究成果，生成结构化的专业报告",
+        modelReason: "使用具有强大语言生成和总结能力的模型",
+      },
       priority: 100,
       dependsOn: dimensionTodoIds,
       estimatedMs: 180000, // 预估 3 分钟
@@ -685,6 +699,10 @@ export class ResearchTodoService {
       agentId: "reviewer",
       agentName: "质量审核员",
       agentRole: "reviewer",
+      assignmentReason: {
+        agentReason: "质量审核员专注于内容准确性、逻辑一致性和完整性检查",
+        modelReason: "使用擅长一致性检查和质量评估的模型",
+      },
       priority: 50,
       dependsOn: [reportTodo.id],
       estimatedMs: 60000, // 预估 1 分钟
@@ -1602,6 +1620,7 @@ export class ResearchTodoService {
       agentId: todo.agentId,
       agentName: todo.agentName,
       agentRole: todo.agentRole,
+      assignmentReason: todo.assignmentReason, // ★ Leader 分配理由
       status: todo.status,
       progress: todo.progress,
       statusMessage: todo.statusMessage,

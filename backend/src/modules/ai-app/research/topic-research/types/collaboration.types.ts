@@ -25,6 +25,11 @@ export interface CreateTodoInput {
   agentRole?: string;
   /** ★ Agent 使用的 AI 模型 ID */
   modelId?: string;
+  /** ★ Leader Agent 分配此任务的理由 */
+  assignmentReason?: {
+    agentReason?: string;
+    modelReason?: string;
+  };
   priority?: number;
   dependsOn?: string[];
   estimatedMs?: number;

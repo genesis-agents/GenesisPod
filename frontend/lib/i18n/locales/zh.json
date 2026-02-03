@@ -4975,6 +4975,21 @@
       "startResearchFailed": "研究启动失败",
       "pleaseStartResearchFirst": "请先启动研究任务"
     },
+    "assignmentReason": {
+      "leaderPlanning": "Leader Agent 负责高层次规划和任务分解",
+      "dimensionResearch": "研究员 Agent 专注于深度信息收集和分析",
+      "reportWriting": "综合 Agent 擅长整合研究发现并撰写连贯报告",
+      "qualityReview": "审核 Agent 专注于质量保证和一致性检查",
+      "userRequest": "根据请求类型分配给最合适的 Agent",
+      "defaultAgent": "根据可用性和任务需求分配",
+      "reasoningModel": "推理模型擅长复杂规划和逻辑分解",
+      "researchModel": "该模型针对信息检索和内容分析进行了优化",
+      "writingModel": "该模型具有强大的语言生成和总结能力",
+      "reviewModel": "该模型专为一致性检查和质量评估设计",
+      "flexibleModel": "根据具体请求需求选择的模型",
+      "defaultModel": "针对一般任务优化的标准模型",
+      "forDimension": "，针对维度：{{dimension}}"
+    },
     "chart": {
       "dataIncomplete": "图表数据不完整",
       "missingChartType": "缺少图表类型",
@@ -5228,7 +5243,11 @@
         "retry": "重试",
         "waitingTasks": "等待 {{count}} 个任务",
         "waiting": "等待",
-        "blockingTasks": "阻塞 {{count}} 个任务"
+        "blockingTasks": "阻塞 {{count}} 个任务",
+        "viewAssignmentReason": "查看分配原因",
+        "assignmentReasonTitle": "为什么选择这个 Agent 和模型？",
+        "whyThisAgent": "Agent 选择原因",
+        "whyThisModel": "模型选择原因"
       },
       "commandInput": {
         "mentionLeader": "提及 Leader",

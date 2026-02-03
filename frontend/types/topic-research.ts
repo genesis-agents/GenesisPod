@@ -758,6 +758,11 @@ export interface ResearchTodo {
   modelId?: string;
   /** ★ 模型展示名称（用于前端显示和图标匹配） */
   modelDisplayName?: string;
+  /** ★ Leader Agent 分配此任务的理由（后端提供） */
+  assignmentReason?: {
+    agentReason?: string;
+    modelReason?: string;
+  };
   status: ResearchTodoStatus;
   progress: number;
   statusMessage?: string;

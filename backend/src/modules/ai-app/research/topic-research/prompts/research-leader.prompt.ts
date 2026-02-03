@@ -128,7 +128,11 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
       "role": "负责xxx维度的深度研究",
       "modelId": "从可用模型列表中选择",
       "skills": ["从可用技能列表中根据任务选择2-4个"],
-      "tools": ["从可用工具列表中根据任务选择1-3个"]
+      "tools": ["从可用工具列表中根据任务选择1-3个"],
+      "assignmentReason": {
+        "agentReason": "说明为什么选择这个Agent来负责这个维度（基于Agent的专长和任务需求的匹配）",
+        "modelReason": "说明为什么选择这个模型（基于模型的能力特点和任务对能力的要求）"
+      }
     },
     {
       "agentId": "reviewer_quality",
@@ -137,7 +141,11 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
       "role": "负责审核所有研究结果的质量",
       "modelId": "从可用模型列表中选择",
       "skills": ["critical_thinking", "synthesis"],
-      "tools": ["web-search"]
+      "tools": ["web-search"],
+      "assignmentReason": {
+        "agentReason": "质量审核需要严谨的逻辑思维和全面的视角",
+        "modelReason": "选择该模型因为其擅长一致性检查和逻辑验证"
+      }
     },
     {
       "agentId": "writer_report",
@@ -146,7 +154,11 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
       "role": "负责整合研究结果并撰写最终报告",
       "modelId": "从可用模型列表中选择",
       "skills": ["synthesis"],
-      "tools": []
+      "tools": [],
+      "assignmentReason": {
+        "agentReason": "报告撰写需要出色的综合能力和表达能力",
+        "modelReason": "选择该模型因为其具有强大的语言生成和内容整合能力"
+      }
     }
   ]
 }
@@ -173,6 +185,7 @@ export const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Res
 5. **Agent ID 必须唯一**：使用 "researcher_维度关键词" 格式
 6. **Agent Name 必须有区分度**：每个研究员的名称要体现其负责的维度
 7. ⚠️ **动态选择**：modelId、skills、tools 必须从上面列出的可用选项中选择，且要根据具体任务需求选择最合适的
+8. ⚠️ **分配理由必须具体**：assignmentReason 中的 agentReason 要说明"为什么这个Agent适合这个任务"，modelReason 要说明"这个模型有什么特点使其适合这类任务"。避免空泛的描述。
 
 {languageInstruction}`;
 

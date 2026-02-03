@@ -126,10 +126,10 @@ model User {
   writingStyleTemplates WritingStyleTemplate[] @relation("WritingStyleTemplateOwner")
 
   // Topic Research 专题研究
-  researchTopics      ResearchTopic[]     @relation("UserResearchTopics")
-  topicCollaborators  TopicCollaborator[] @relation("TopicCollaborators")
-  topicInvitations    TopicCollaborator[] @relation("TopicInvitations")
-  topicReviewedApps   TopicCollaborator[] @relation("TopicReviewer") // 审核的协作申请
+  researchTopics     ResearchTopic[]     @relation("UserResearchTopics")
+  topicCollaborators TopicCollaborator[] @relation("TopicCollaborators")
+  topicInvitations   TopicCollaborator[] @relation("TopicInvitations")
+  topicReviewedApps  TopicCollaborator[] @relation("TopicReviewer") // 审核的协作申请
 
   // 报告编辑相关
   reportChangesCheckedIn    ReportChange[]     @relation("ReportChangeCheckedInBy")
@@ -171,10 +171,10 @@ model LoginHistory {
   loginAt   DateTime @default(now()) @map("login_at")
   ipAddress String?  @map("ip_address")
   userAgent String?  @map("user_agent") @db.Text
-  device    String?  // desktop, mobile, tablet
-  browser   String?  // Chrome, Firefox, Safari, etc.
-  os        String?  // Windows, macOS, Linux, iOS, Android
-  location  String?  // 城市/国家（可选，基于 IP）
+  device    String? // desktop, mobile, tablet
+  browser   String? // Chrome, Firefox, Safari, etc.
+  os        String? // Windows, macOS, Linux, iOS, Android
+  location  String? // 城市/国家（可选，基于 IP）
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -3517,8 +3517,8 @@ model ExportJob {
   sourceData Json?            @map("source_data") // 原始内容 (如果是RAW类型)
 
   // 导出配置
-  format     ExportFormat     @map("format")
-  templateId String?          @map("template_id")
+  format     ExportFormat @map("format")
+  templateId String?      @map("template_id")
   options    Json         @default("{}") // 导出选项
 
   // 状态
@@ -4929,11 +4929,11 @@ model SlidesFactCheck {
   source    String @db.Text // 原始出处
 
   // 核查结果
-  status        FactCheckStatus
-  confidence    Float? // 置信度 0-1
-  explanation   String?         @db.Text // 解释
-  suggestion    String?         @db.Text // 修改建议
-  references    String[]        @default([]) // 参考来源
+  status      FactCheckStatus
+  confidence  Float? // 置信度 0-1
+  explanation String?         @db.Text // 解释
+  suggestion  String?         @db.Text // 修改建议
+  references  String[]        @default([]) // 参考来源
 
   // 时间戳
   createdAt DateTime @default(now()) @map("created_at")
@@ -4954,10 +4954,10 @@ model SlidesNarration {
   pageIndex Int @map("page_index")
 
   // 旁白内容
-  script    String  @db.Text // 旁白文本
-  audioUrl  String? @map("audio_url") @db.VarChar(500) // 音频文件URL
-  voiceId   String? @map("voice_id") @db.VarChar(100) // 使用的声音ID
-  duration  Int? // 音频时长（秒）
+  script   String  @db.Text // 旁白文本
+  audioUrl String? @map("audio_url") @db.VarChar(500) // 音频文件URL
+  voiceId  String? @map("voice_id") @db.VarChar(100) // 使用的声音ID
+  duration Int? // 音频时长（秒）
 
   // 时间戳
   createdAt DateTime @default(now()) @map("created_at")
@@ -6671,10 +6671,10 @@ model ResearchTask {
   dimensionName String? @map("dimension_name") // Leader 定义的维度名称
 
   // ========== Agent 分配 ==========
-  assignedAgent     String  @map("assigned_agent") // 分配的 Agent ID/名称
-  assignedAgentType String? @map("assigned_agent_type") // Agent 类型
-  modelId           String? @map("model_id") @db.VarChar(100) // ★ Agent 使用的 AI 模型 ID
-  priority          Int     @default(0)
+  assignedAgent     String   @map("assigned_agent") // 分配的 Agent ID/名称
+  assignedAgentType String?  @map("assigned_agent_type") // Agent 类型
+  modelId           String?  @map("model_id") @db.VarChar(100) // ★ Agent 使用的 AI 模型 ID
+  priority          Int      @default(0)
   skills            String[] @default([]) // Leader 分配的技能
   tools             String[] @default([]) // Leader 分配的工具
 
@@ -7136,6 +7136,9 @@ model ResearchTodo {
   agentRole     String? @map("agent_role") // leader, researcher, reviewer, synthesizer
   modelId       String? @map("model_id") @db.VarChar(100) // ★ Agent 使用的 AI 模型 ID
 
+  // ========== 分配理由（Leader Agent 决策依据）==========
+  assignmentReason Json? @map("assignment_reason") // { agentReason?: string, modelReason?: string }
+
   // ========== 状态与进度 ==========
   status        ResearchTodoStatus @default(PENDING)
   progress      Int                @default(0) // 0-100
@@ -7179,30 +7182,30 @@ model ResearchTodo {
 /// API Key 使用模式
 enum UserApiKeyMode {
   PERSONAL // 自用模式
-  DONATED  // 捐赠到共享池
+  DONATED // 捐赠到共享池
 }
 
 /// 用户自有 API Key
 /// 支持自用模式和捐赠到共享池模式
 model UserApiKey {
-  id               String    @id @default(cuid())
-  userId           String    @map("user_id")
-  provider         String    @db.VarChar(50) // openai, anthropic, deepseek, google 等
-  encryptedValue   String    @map("encrypted_value") @db.Text
-  iv               String    @db.VarChar(32)
-  keyHint          String?   @map("key_hint") @db.VarChar(20) // 脱敏提示如 "sk-...3f8a"
-  keyVersion       Int       @default(1) @map("key_version")
-  mode             UserApiKeyMode @default(PERSONAL)
-  apiEndpoint      String?   @map("api_endpoint") @db.Text
-  preferredModelId String?   @map("preferred_model_id") @db.VarChar(200)
-  donatedSecretId  String?   @map("donated_secret_id") // 关联 Secret Manager 的 ID
-  isActive         Boolean   @default(true) @map("is_active")
-  lastTestedAt     DateTime? @map("last_tested_at")
-  testStatus       String?   @map("test_status") @db.VarChar(20) // success | failed
-  usageCount       Int       @default(0) @map("usage_count") // 调用次数统计（捐赠模式）
-  donationRewardedAt DateTime? @map("donation_rewarded_at") // 首次捐赠奖励发放时间（防重复）
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  id                 String         @id @default(cuid())
+  userId             String         @map("user_id")
+  provider           String         @db.VarChar(50) // openai, anthropic, deepseek, google 等
+  encryptedValue     String         @map("encrypted_value") @db.Text
+  iv                 String         @db.VarChar(32)
+  keyHint            String?        @map("key_hint") @db.VarChar(20) // 脱敏提示如 "sk-...3f8a"
+  keyVersion         Int            @default(1) @map("key_version")
+  mode               UserApiKeyMode @default(PERSONAL)
+  apiEndpoint        String?        @map("api_endpoint") @db.Text
+  preferredModelId   String?        @map("preferred_model_id") @db.VarChar(200)
+  donatedSecretId    String?        @map("donated_secret_id") // 关联 Secret Manager 的 ID
+  isActive           Boolean        @default(true) @map("is_active")
+  lastTestedAt       DateTime?      @map("last_tested_at")
+  testStatus         String?        @map("test_status") @db.VarChar(20) // success | failed
+  usageCount         Int            @default(0) @map("usage_count") // 调用次数统计（捐赠模式）
+  donationRewardedAt DateTime?      @map("donation_rewarded_at") // 首次捐赠奖励发放时间（防重复）
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -7277,8 +7280,8 @@ model Secret {
   currentVersion Int       @default(1) @map("current_version") // 当前激活版本号
 
   // 关联
-  versions       SecretVersion[]
-  accessLogs     SecretAccessLog[]
+  versions   SecretVersion[]
+  accessLogs SecretAccessLog[]
 
   // 索引
   @@index([category])
@@ -7296,32 +7299,31 @@ model Secret {
 
 // 密钥版本历史
 model SecretVersion {
-  id             String   @id @default(cuid())
-  secretId       String   @map("secret_id")
-  version        Int      // 版本号: 1, 2, 3...
-  
+  id       String @id @default(cuid())
+  secretId String @map("secret_id")
+  version  Int // 版本号: 1, 2, 3...
+
   // 加密存储
-  encryptedValue String   @map("encrypted_value") @db.Text
-  iv             String   @db.VarChar(32)
-  keyVersion     Int      @default(1) @map("key_version")
-  checksum       String   @db.VarChar(64) // SHA-256 用于完整性校验
-  
+  encryptedValue String @map("encrypted_value") @db.Text
+  iv             String @db.VarChar(32)
+  keyVersion     Int    @default(1) @map("key_version")
+  checksum       String @db.VarChar(64) // SHA-256 用于完整性校验
+
   // 审计字段
-  createdBy      String?  @map("created_by") @db.VarChar(100)
-  createdAt      DateTime @default(now()) @map("created_at")
-  
+  createdBy String?  @map("created_by") @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+
   // 版本说明
-  changeNote     String?  @map("change_note") @db.Text
-  
+  changeNote String? @map("change_note") @db.Text
+
   // 关系
-  secret         Secret   @relation(fields: [secretId], references: [id], onDelete: Cascade)
-  
+  secret Secret @relation(fields: [secretId], references: [id], onDelete: Cascade)
+
   @@unique([secretId, version])
   @@index([secretId])
   @@index([createdAt])
   @@map("secret_versions")
 }
-
 
 /// Secret 访问日志
 /// 记录密钥的访问和修改历史，用于安全审计
@@ -7666,7 +7668,7 @@ model SocialContent {
   // 小红书专用
   images   String[] @default([]) // 图片 URL 数组
   tags     String[] @default([]) // 话题标签数组
-  location String? @db.VarChar(100)
+  location String?  @db.VarChar(100)
 
   // AI Engine 处理记录
   aiProcessLog  Json? @map("ai_process_log") // Leader 处理日志
@@ -7700,24 +7702,24 @@ model SocialContent {
   user       User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   connection SocialPlatformConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
 
-  @@index([userId, status])
-  @@index([status, scheduledAt])
-  @@index([contentType])
-  @@index([reviewStatus])
-  @@map("social_contents")
-
   // 发布日志
   publishLogs SocialPublishLog[]
 
   // 平台适配版本
   versions SocialContentVersion[]
+
+  @@index([userId, status])
+  @@index([status, scheduledAt])
+  @@index([contentType])
+  @@index([reviewStatus])
+  @@map("social_contents")
 }
 
 // 社交媒体内容平台适配版本
 // 同一内容针对不同平台的适配版本（微信公众号、小红书等有不同的字数限制）
 model SocialContentVersion {
-  id        String             @id @default(uuid())
-  contentId String             @map("content_id")
+  id           String             @id @default(uuid())
+  contentId    String             @map("content_id")
   platformType SocialPlatformType @map("platform_type")
 
   // 适配后的内容
@@ -7753,7 +7755,7 @@ model SocialPublishLog {
   status String @db.VarChar(20) // SUCCESS, FAILED, PENDING
 
   // 详情
-  details      Json?   // 详细信息
+  details      Json? // 详细信息
   errorMessage String? @map("error_message") @db.Text
 
   // 截图 (调试用)
@@ -7818,7 +7820,7 @@ model PromptTemplate {
   name        String   @db.VarChar(200)
   version     Int      @default(1)
   template    String   @db.Text
-  variables   Json?    // 支持的变量列表，例如: ["userInput", "context", "language"]
+  variables   Json? // 支持的变量列表，例如: ["userInput", "context", "language"]
   isActive    Boolean  @default(false) @map("is_active")
   description String?  @db.Text
   createdBy   String?  @map("created_by") @db.VarChar(100)
@@ -7831,3 +7833,198 @@ model PromptTemplate {
   @@map("prompt_templates")
 }
 
+// ============================================================================
+// AI Engine - 能力下沉模块数据模型
+// Evidence（证据管理）、Review（审查工作流）、EngineTodo（待办管理）
+// ============================================================================
+
+/// 证据类型枚举
+enum EvidenceType {
+  CITATION // 引用
+  REFERENCE // 参考
+  INSPIRATION // 灵感来源
+  FACT // 事实
+  QUOTE // 引述
+}
+
+/// 证据管理
+/// 用于存储和管理研究证据、引用来源
+model Evidence {
+  id   String       @id @default(cuid())
+  type EvidenceType
+
+  // ========== 来源信息 ==========
+  sourceUrl         String?   @map("source_url") @db.Text
+  sourceTitle       String    @map("source_title") @db.VarChar(500)
+  sourceAuthor      String?   @map("source_author") @db.VarChar(200)
+  sourcePublishedAt DateTime? @map("source_published_at")
+  sourceDomain      String?   @map("source_domain") @db.VarChar(200)
+  sourcePublisher   String?   @map("source_publisher") @db.VarChar(200)
+
+  // ========== 内容信息 ==========
+  contentOriginal    String  @map("content_original") @db.Text
+  contentSnippet     String? @map("content_snippet") @db.Text
+  contentUsedPortion String? @map("content_used_portion") @db.Text
+
+  // ========== 关联信息 ==========
+  entityType String  @map("entity_type") @db.VarChar(50) // research_topic, writing_project, etc.
+  entityId   String  @map("entity_id")
+  location   String? @db.VarChar(200) // 在文档中的位置
+  context    String? @db.Text // 使用上下文
+
+  // ========== 质量评分 ==========
+  relevanceScore   Float  @default(0.5) @map("relevance_score")
+  credibilityScore Float? @map("credibility_score")
+  citationCount    Int    @default(0) @map("citation_count")
+
+  // ========== 元数据 ==========
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ========== 索引 ==========
+  @@index([entityType, entityId])
+  @@index([sourceUrl])
+  @@index([type])
+  @@index([createdAt(sort: Desc)])
+  @@map("engine_evidences")
+}
+
+/// 审查状态枚举
+enum ReviewStatus {
+  PENDING // 待审查
+  IN_PROGRESS // 审查中
+  APPROVED // 已通过
+  REJECTED // 已拒绝
+  REVISION_REQUIRED // 需修订
+}
+
+/// 审查优先级枚举
+enum ReviewPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+/// 审查工作流
+/// 用于管理内容审查流程
+model Review {
+  id String @id @default(cuid())
+
+  // ========== 审查目标 ==========
+  entityType  String  @map("entity_type") @db.VarChar(50)
+  entityId    String  @map("entity_id")
+  title       String? @db.VarChar(200)
+  description String? @db.Text
+
+  // ========== 请求信息 ==========
+  requesterId String @map("requester_id")
+  criteria    Json // 审查标准
+
+  // ========== 审查者 ==========
+  reviewerId   String? @map("reviewer_id")
+  reviewerName String? @map("reviewer_name") @db.VarChar(100)
+  reviewerRole String? @map("reviewer_role") @db.VarChar(50)
+
+  // ========== 状态 ==========
+  status   ReviewStatus   @default(PENDING)
+  priority ReviewPriority @default(MEDIUM)
+  deadline DateTime?
+
+  // ========== 反馈 ==========
+  feedback Json? // 审查反馈
+
+  // ========== 时间线 ==========
+  timeline Json @default("[]") // 审查事件时间线
+
+  // ========== 版本控制（乐观锁） ==========
+  version Int @default(1)
+
+  // ========== 元数据 ==========
+  metadata    Json?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at")
+
+  // ========== 索引 ==========
+  @@index([entityType, entityId])
+  @@index([reviewerId, status])
+  @@index([status, priority])
+  @@index([createdAt(sort: Desc)])
+  @@map("engine_reviews")
+}
+
+/// 待办状态枚举
+enum TodoStatus {
+  PENDING // 待处理
+  IN_PROGRESS // 进行中
+  COMPLETED // 已完成
+  CANCELLED // 已取消
+  BLOCKED // 被阻塞
+}
+
+/// 待办优先级枚举
+enum TodoPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+/// 待办类型枚举
+enum TodoType {
+  TASK // 任务
+  REVIEW // 审查
+  RESEARCH // 研究
+  WRITING // 写作
+  VERIFICATION // 验证
+  FOLLOW_UP // 跟进
+}
+
+/// 引擎待办管理
+/// 用于管理任务和待办事项
+model EngineTodo {
+  id String @id @default(cuid())
+
+  // ========== 基本信息 ==========
+  type        TodoType
+  title       String   @db.VarChar(200)
+  description String?  @db.Text
+
+  // ========== 关联 ==========
+  entityType String  @map("entity_type") @db.VarChar(50)
+  entityId   String  @map("entity_id")
+  parentId   String? @map("parent_id") // 父任务 ID
+
+  // ========== 分配 ==========
+  assigneeId String? @map("assignee_id")
+  createdBy  String  @map("created_by")
+
+  // ========== 状态 ==========
+  status   TodoStatus   @default(PENDING)
+  priority TodoPriority @default(MEDIUM)
+  progress Int          @default(0) // 0-100
+
+  // ========== 标签和阻塞 ==========
+  labels    Json @default("[]") // 标签数组
+  blockedBy Json @default("[]") // 被阻塞的任务 ID 数组
+
+  // ========== 时间 ==========
+  dueDate     DateTime? @map("due_date")
+  completedAt DateTime? @map("completed_at")
+
+  // ========== 元数据 ==========
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ========== 索引 ==========
+  @@index([entityType, entityId])
+  @@index([assigneeId, status])
+  @@index([status, priority])
+  @@index([parentId])
+  @@index([dueDate])
+  @@index([createdAt(sort: Desc)])
+  @@map("engine_todos")
+}

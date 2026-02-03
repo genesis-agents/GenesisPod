@@ -19,6 +19,9 @@ import {
   X,
   RotateCcw,
   Link2,
+  ChevronDown,
+  ChevronRight,
+  Lightbulb,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useTranslation } from '@/lib/i18n';
@@ -153,6 +156,71 @@ function parseAgentInfo(todo: ResearchTodo): {
     name: agentName,
     modelId: null,
     modelDisplayName: null,
+  };
+}
+
+/**
+ * 根据任务类型获取分配说明
+ * 基于任务类型和 Agent 角色生成说明，不硬编码模型
+ */
+function getTaskTypeDescription(
+  todo: ResearchTodo,
+  t: (key: string, params?: Record<string, string | number>) => string
+): { agentReason: string; modelReason: string } {
+  // 如果后端提供了分配理由，直接使用
+  if (todo.assignmentReason) {
+    return {
+      agentReason:
+        todo.assignmentReason.agentReason ||
+        t('topicResearch.assignmentReason.defaultAgent'),
+      modelReason:
+        todo.assignmentReason.modelReason ||
+        t('topicResearch.assignmentReason.defaultModel'),
+    };
+  }
+
+  // 根据任务类型生成说明
+  const taskTypeReasons: Record<
+    ResearchTodoType,
+    { agentKey: string; modelKey: string }
+  > = {
+    [ResearchTodoType.LEADER_PLANNING]: {
+      agentKey: 'topicResearch.assignmentReason.leaderPlanning',
+      modelKey: 'topicResearch.assignmentReason.reasoningModel',
+    },
+    [ResearchTodoType.DIMENSION_RESEARCH]: {
+      agentKey: 'topicResearch.assignmentReason.dimensionResearch',
+      modelKey: 'topicResearch.assignmentReason.researchModel',
+    },
+    [ResearchTodoType.REPORT_WRITING]: {
+      agentKey: 'topicResearch.assignmentReason.reportWriting',
+      modelKey: 'topicResearch.assignmentReason.writingModel',
+    },
+    [ResearchTodoType.QUALITY_REVIEW]: {
+      agentKey: 'topicResearch.assignmentReason.qualityReview',
+      modelKey: 'topicResearch.assignmentReason.reviewModel',
+    },
+    [ResearchTodoType.USER_REQUEST]: {
+      agentKey: 'topicResearch.assignmentReason.userRequest',
+      modelKey: 'topicResearch.assignmentReason.flexibleModel',
+    },
+  };
+
+  const reasons = taskTypeReasons[todo.type] || {
+    agentKey: 'topicResearch.assignmentReason.defaultAgent',
+    modelKey: 'topicResearch.assignmentReason.defaultModel',
+  };
+
+  // 如果有维度名称，附加到理由中
+  const dimensionSuffix = todo.dimensionName
+    ? t('topicResearch.assignmentReason.forDimension', {
+        dimension: todo.dimensionName,
+      })
+    : '';
+
+  return {
+    agentReason: t(reasons.agentKey) + dimensionSuffix,
+    modelReason: t(reasons.modelKey),
   };
 }
 
@@ -357,6 +425,7 @@ export function ResearchTodoList({
 }: ResearchTodoListProps) {
   const { t } = useTranslation();
   const STATUS_CONFIG = useMemo(() => getStatusConfig(t), [t]);
+  const [expandedTodoId, setExpandedTodoId] = useState<string | null>(null);
 
   // 按状态优先级排序
   const sortedTodos = useMemo(() => {
@@ -486,145 +555,203 @@ export function ResearchTodoList({
                 }
               })();
 
-              return (
-                <tr
-                  key={todo.id}
-                  onClick={() => onTodoSelect?.(todo.id)}
-                  className={cn(
-                    'cursor-pointer transition-all duration-150',
-                    rowStyles
-                  )}
-                >
-                  {/* 序号 */}
-                  <td className="px-2 py-2 text-center text-xs text-gray-400">
-                    {index + 1}
-                  </td>
+              const isExpanded = expandedTodoId === todo.id;
+              const { agentReason, modelReason } = getTaskTypeDescription(
+                todo,
+                t
+              );
 
-                  {/* 任务名称 */}
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className="flex-shrink-0 text-sm">
-                        {TYPE_ICONS[todo.type]}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div
-                          className="truncate text-sm font-medium text-gray-900"
-                          title={todo.title}
-                        >
-                          {todo.title}
-                        </div>
-                        {todo.dimensionName &&
-                          todo.dimensionName !== todo.title && (
+              return (
+                <React.Fragment key={todo.id}>
+                  <tr
+                    onClick={() => onTodoSelect?.(todo.id)}
+                    className={cn(
+                      'cursor-pointer transition-all duration-150',
+                      rowStyles
+                    )}
+                  >
+                    {/* 序号 + 展开按钮 */}
+                    <td className="px-2 py-2 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedTodoId(isExpanded ? null : todo.id);
+                        }}
+                        className="flex items-center justify-center gap-0.5 text-xs text-gray-400 hover:text-gray-600"
+                        title={t(
+                          'topicResearch.researchControl.todoList.viewAssignmentReason'
+                        )}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-3 w-3" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3" />
+                        )}
+                        <span>{index + 1}</span>
+                      </button>
+                    </td>
+
+                    {/* 任务名称 */}
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="flex-shrink-0 text-sm">
+                          {TYPE_ICONS[todo.type]}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className="truncate text-sm font-medium text-gray-900"
+                            title={todo.title}
+                          >
+                            {todo.title}
+                          </div>
+                          {todo.dimensionName &&
+                            todo.dimensionName !== todo.title && (
+                              <div
+                                className="truncate text-xs text-gray-400"
+                                title={todo.dimensionName}
+                              >
+                                {todo.dimensionName}
+                              </div>
+                            )}
+                          {/* ★ 依赖关系提示 - 超过 2 个时只显示数量，悬停显示详情 */}
+                          {hasDependencies && (
                             <div
-                              className="truncate text-xs text-gray-400"
-                              title={todo.dimensionName}
+                              className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-600"
+                              title={
+                                todo.dependsOn!.length > 2
+                                  ? `${t('topicResearch.researchControl.todoList.waiting')}: ${todo
+                                      .dependsOn!.map((depId) => {
+                                        const depTodo = sortedTodos.find(
+                                          (t) => t.id === depId
+                                        );
+                                        return (
+                                          depTodo?.title || depId.slice(0, 6)
+                                        );
+                                      })
+                                      .join('\n')}`
+                                  : undefined
+                              }
                             >
-                              {todo.dimensionName}
+                              <Clock className="h-2.5 w-2.5" />
+                              <span>
+                                {todo.dependsOn!.length > 2 ? (
+                                  <>
+                                    ⏳{' '}
+                                    {t(
+                                      'topicResearch.researchControl.todoList.waitingTasks',
+                                      { count: todo.dependsOn!.length }
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    {t(
+                                      'topicResearch.researchControl.todoList.waiting'
+                                    )}{' '}
+                                    {todo
+                                      .dependsOn!.map((depId) => {
+                                        const depTodo = sortedTodos.find(
+                                          (t) => t.id === depId
+                                        );
+                                        return (
+                                          depTodo?.title || depId.slice(0, 6)
+                                        );
+                                      })
+                                      .join('、')}
+                                  </>
+                                )}
+                              </span>
                             </div>
                           )}
-                        {/* ★ 依赖关系提示 - 超过 2 个时只显示数量，悬停显示详情 */}
-                        {hasDependencies && (
-                          <div
-                            className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-600"
-                            title={
-                              todo.dependsOn!.length > 2
-                                ? `${t('topicResearch.researchControl.todoList.waiting')}: ${todo
-                                    .dependsOn!.map((depId) => {
-                                      const depTodo = sortedTodos.find(
-                                        (t) => t.id === depId
-                                      );
-                                      return (
-                                        depTodo?.title || depId.slice(0, 6)
-                                      );
-                                    })
-                                    .join('\n')}`
-                                : undefined
-                            }
+                        </div>
+                        {/* ★ 被依赖指示器（此任务阻塞其他任务） */}
+                        {blockingCount > 0 && (
+                          <span
+                            className="flex-shrink-0 text-orange-500"
+                            title={t(
+                              'topicResearch.researchControl.todoList.blockingTasks',
+                              { count: blockingCount }
+                            )}
                           >
-                            <Clock className="h-2.5 w-2.5" />
-                            <span>
-                              {todo.dependsOn!.length > 2 ? (
-                                <>
-                                  ⏳{' '}
-                                  {t(
-                                    'topicResearch.researchControl.todoList.waitingTasks',
-                                    { count: todo.dependsOn!.length }
-                                  )}
-                                </>
-                              ) : (
-                                <>
-                                  {t(
-                                    'topicResearch.researchControl.todoList.waiting'
-                                  )}{' '}
-                                  {todo
-                                    .dependsOn!.map((depId) => {
-                                      const depTodo = sortedTodos.find(
-                                        (t) => t.id === depId
-                                      );
-                                      return (
-                                        depTodo?.title || depId.slice(0, 6)
-                                      );
-                                    })
-                                    .join('、')}
-                                </>
-                              )}
-                            </span>
-                          </div>
+                            <Link2 className="h-3 w-3" />
+                          </span>
                         )}
                       </div>
-                      {/* ★ 被依赖指示器（此任务阻塞其他任务） */}
-                      {blockingCount > 0 && (
-                        <span
-                          className="flex-shrink-0 text-orange-500"
-                          title={t(
-                            'topicResearch.researchControl.todoList.blockingTasks',
-                            { count: blockingCount }
-                          )}
-                        >
-                          <Link2 className="h-3 w-3" />
-                        </span>
+                    </td>
+
+                    {/* 负责人 */}
+                    <td
+                      className="truncate px-2 py-2 text-xs text-gray-600"
+                      title={agentName}
+                    >
+                      {agentName}
+                    </td>
+
+                    {/* 模型 */}
+                    <td className="px-2 py-2">
+                      {modelId ? (
+                        <ModelBadge
+                          modelId={modelId}
+                          displayName={modelDisplayName || undefined}
+                          className="max-w-full"
+                        />
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
                       )}
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* 负责人 */}
-                  <td
-                    className="truncate px-2 py-2 text-xs text-gray-600"
-                    title={agentName}
-                  >
-                    {agentName}
-                  </td>
-
-                  {/* 模型 */}
-                  <td className="px-2 py-2">
-                    {modelId ? (
-                      <ModelBadge
-                        modelId={modelId}
-                        displayName={modelDisplayName || undefined}
-                        className="max-w-full"
+                    {/* 状态 */}
+                    <td className="px-2 py-2">
+                      <StatusBadge
+                        status={todo.status}
+                        progress={todo.progress}
                       />
-                    ) : (
-                      <span className="text-xs text-gray-300">—</span>
-                    )}
-                  </td>
+                    </td>
 
-                  {/* 状态 */}
-                  <td className="px-2 py-2">
-                    <StatusBadge
-                      status={todo.status}
-                      progress={todo.progress}
-                    />
-                  </td>
-
-                  {/* 操作 */}
-                  <td className="px-2 py-2 text-center">
-                    <ActionButtons
-                      todo={todo}
-                      topicId={topicId}
-                      onUpdated={onTodoUpdated}
-                    />
-                  </td>
-                </tr>
+                    {/* 操作 */}
+                    <td className="px-2 py-2 text-center">
+                      <ActionButtons
+                        todo={todo}
+                        topicId={topicId}
+                        onUpdated={onTodoUpdated}
+                      />
+                    </td>
+                  </tr>
+                  {/* 展开的分配理由行 */}
+                  {isExpanded && (
+                    <tr className="bg-amber-50/50">
+                      <td colSpan={6} className="px-4 py-3">
+                        <div className="flex items-start gap-3 text-sm">
+                          <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
+                          <div className="flex-1 space-y-2">
+                            <div className="font-medium text-gray-700">
+                              {t(
+                                'topicResearch.researchControl.todoList.assignmentReasonTitle'
+                              )}
+                            </div>
+                            <div className="grid gap-2 text-xs text-gray-600 sm:grid-cols-2">
+                              <div className="rounded-lg bg-white/60 p-2">
+                                <div className="mb-1 font-medium text-gray-500">
+                                  {t(
+                                    'topicResearch.researchControl.todoList.whyThisAgent'
+                                  )}
+                                </div>
+                                <div>{agentReason}</div>
+                              </div>
+                              <div className="rounded-lg bg-white/60 p-2">
+                                <div className="mb-1 font-medium text-gray-500">
+                                  {t(
+                                    'topicResearch.researchControl.todoList.whyThisModel'
+                                  )}
+                                </div>
+                                <div>{modelReason}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               );
             })}
           </tbody>
