@@ -95,6 +95,7 @@ export interface CompletedTaskData {
   description: string;
   assignedAgent: string;
   assignedAgentType: string | null;
+  modelId: string | null; // ★ 保存使用的模型 ID
   priority: number;
   result: Prisma.JsonValue | null;
   resultSummary: string | null;

@@ -171,6 +171,7 @@ export class ResearchMissionService {
             description: t.description,
             assignedAgent: t.assignedAgent,
             assignedAgentType: t.assignedAgentType,
+            modelId: t.modelId, // ★ 保存使用的模型 ID
             priority: t.priority,
             result: t.result,
             resultSummary: t.resultSummary,
@@ -220,6 +221,7 @@ export class ResearchMissionService {
             description: t.description,
             assignedAgent: t.assignedAgent,
             assignedAgentType: t.assignedAgentType,
+            modelId: t.modelId, // ★ 保存使用的模型 ID
             priority: t.priority,
             result: t.result,
             resultSummary: t.resultSummary,

@@ -110,6 +110,7 @@ export class MissionLifecycleService {
             description: t.description,
             assignedAgent: t.assignedAgent,
             assignedAgentType: t.assignedAgentType,
+            modelId: t.modelId, // ★ 保存使用的模型 ID
             priority: t.priority,
             result: t.result,
             resultSummary: t.resultSummary,
@@ -159,6 +160,7 @@ export class MissionLifecycleService {
             description: t.description,
             assignedAgent: t.assignedAgent,
             assignedAgentType: t.assignedAgentType,
+            modelId: t.modelId, // ★ 保存使用的模型 ID
             priority: t.priority,
             result: t.result,
             resultSummary: t.resultSummary,
@@ -603,6 +605,7 @@ export class MissionLifecycleService {
           completedTask.dimensionId,
         assignedAgent: completedTask.assignedAgent,
         assignedAgentType: completedTask.assignedAgentType,
+        modelId: completedTask.modelId, // ★ 保存使用的模型 ID
         priority: completedTask.priority,
         status: ResearchTaskStatus.COMPLETED, // ★ 标记为已完成
         result: completedTask.result ?? undefined,
