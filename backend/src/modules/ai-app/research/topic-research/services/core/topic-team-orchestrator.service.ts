@@ -347,6 +347,13 @@ export class TopicTeamOrchestratorService {
 
         // 每个维度的研究 TODO
         for (const dim of dimensions) {
+          // ★ 查找此维度对应的 Agent 分配，获取 modelId 和 assignmentReason
+          const assignment = agentAssignments.find(
+            (a) =>
+              a.agentType === "dimension_researcher" &&
+              a.assignedDimensions?.includes(dim.id),
+          );
+
           const todo = await this.researchTodoService.createTodo({
             topicId,
             missionId: mission.id,
@@ -355,9 +362,16 @@ export class TopicTeamOrchestratorService {
             description: dim.description || `深度研究 ${dim.name} 维度`,
             dimensionId: dim.id,
             dimensionName: dim.name,
-            agentId: `researcher-${dim.id}`,
-            agentName: "研究员",
+            agentId: assignment?.agentId || `researcher-${dim.id}`,
+            agentName: assignment?.agentName || "研究员",
             agentRole: "researcher",
+            modelId: assignment?.modelId,
+            assignmentReason: assignment?.assignmentReason || {
+              agentReason: `研究员专注于「${dim.name}」领域的深度信息收集和分析`,
+              modelReason: assignment?.modelId
+                ? `选择 ${assignment.modelId} 模型进行研究任务`
+                : "使用擅长信息检索和内容分析的模型",
+            },
             priority: 500,
           });
           todoMap[dim.id] = todo.id;
@@ -368,6 +382,10 @@ export class TopicTeamOrchestratorService {
           );
         }
 
+        // ★ 查找报告撰写员分配
+        const writerAssignment = agentAssignments.find(
+          (a) => a.agentType === "report_writer",
+        );
         // 报告撰写 TODO
         const rTodo = await this.researchTodoService.createTodo({
           topicId,
@@ -375,14 +393,26 @@ export class TopicTeamOrchestratorService {
           type: ResearchTodoType.REPORT_WRITING,
           title: "合成研究报告",
           description: "整合所有维度分析，生成最终研究报告",
-          agentId: "synthesizer",
-          agentName: "报告合成师",
+          agentId: writerAssignment?.agentId || "synthesizer",
+          agentName: writerAssignment?.agentName || "报告合成师",
           agentRole: "synthesizer",
+          modelId: writerAssignment?.modelId,
+          assignmentReason: writerAssignment?.assignmentReason || {
+            agentReason:
+              "综合撰写员擅长整合多维度研究成果，生成结构化的专业报告",
+            modelReason: writerAssignment?.modelId
+              ? `选择 ${writerAssignment.modelId} 模型进行报告撰写`
+              : "使用具有强大语言生成和总结能力的模型",
+          },
           priority: 200,
           dependsOn: Object.values(todoMap),
         });
         reportTodoId = rTodo.id;
 
+        // ★ 查找质量审核员分配
+        const reviewerAssignment = agentAssignments.find(
+          (a) => a.agentType === "quality_reviewer",
+        );
         // 质量审核 TODO
         const qTodo = await this.researchTodoService.createTodo({
           topicId,
@@ -390,9 +420,16 @@ export class TopicTeamOrchestratorService {
           type: ResearchTodoType.QUALITY_REVIEW,
           title: "质量审核",
           description: "审核研究质量，验证关键发现的可信度",
-          agentId: "reviewer",
-          agentName: "质量审核员",
+          agentId: reviewerAssignment?.agentId || "reviewer",
+          agentName: reviewerAssignment?.agentName || "质量审核员",
           agentRole: "reviewer",
+          modelId: reviewerAssignment?.modelId,
+          assignmentReason: reviewerAssignment?.assignmentReason || {
+            agentReason: "质量审核员专注于内容准确性、逻辑一致性和完整性检查",
+            modelReason: reviewerAssignment?.modelId
+              ? `选择 ${reviewerAssignment.modelId} 模型进行质量审核`
+              : "使用擅长一致性检查和质量评估的模型",
+          },
           priority: 100,
           dependsOn: [rTodo.id],
         });
