@@ -1071,16 +1071,41 @@ export class AiWritingController {
     // 验证项目权限
     await this.projectService.findOne(projectId, req.user.id);
 
-    const entries = await this.sharedScratchpadService.getEntries(projectId, {
-      type: type as any,
-      limit: limit ? parseInt(limit, 10) : 50,
-    });
+    try {
+      // 查找项目最近的活跃任务
+      const recentMission = await this.writingMissionService.getLatestMission(
+        projectId,
+      );
 
-    return {
-      projectId,
-      entries,
-      totalEntries: entries.length,
-    };
+      if (!recentMission) {
+        return {
+          projectId,
+          entries: [],
+          totalEntries: 0,
+        };
+      }
+
+      const entries = await this.sharedScratchpadService.getEntries(
+        recentMission.id,
+        {
+          type: type as any,
+          limit: limit ? parseInt(limit, 10) : 50,
+        },
+      );
+
+      return {
+        projectId,
+        entries,
+        totalEntries: entries.length,
+      };
+    } catch (error) {
+      this.logger.warn(`Failed to get scratchpad: ${error}`);
+      return {
+        projectId,
+        entries: [],
+        totalEntries: 0,
+      };
+    }
   }
 
   /**
@@ -1095,13 +1120,26 @@ export class AiWritingController {
     // 验证项目权限
     const project = await this.projectService.findOne(projectId, req.user.id);
 
-    // 并行获取所有分析数据
-    const [completionAnalysis, conflictResult, scratchpadEntries] =
-      await Promise.all([
-        this.storyCompletionDetector.analyzeCompletion(projectId),
-        this.temporalConflictAnalyzer.analyzeProject(projectId),
-        this.sharedScratchpadService.getEntries(projectId, { limit: 10 }),
-      ]);
+    // 获取最近的任务用于 scratchpad
+    let scratchpadEntries: any[] = [];
+    try {
+      const recentMission =
+        await this.writingMissionService.getLatestMission(projectId);
+      if (recentMission) {
+        scratchpadEntries = await this.sharedScratchpadService.getEntries(
+          recentMission.id,
+          { limit: 10 },
+        );
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to get scratchpad entries: ${error}`);
+    }
+
+    // 并行获取完成度和冲突分析数据
+    const [completionAnalysis, conflictResult] = await Promise.all([
+      this.storyCompletionDetector.analyzeCompletion(projectId),
+      this.temporalConflictAnalyzer.analyzeProject(projectId),
+    ]);
 
     // Transform conflicts to frontend format
     const transformedConflicts = conflictResult.conflicts.map((c) => ({

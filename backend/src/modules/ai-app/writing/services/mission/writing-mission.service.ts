@@ -7965,6 +7965,22 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
   }
 
   /**
+   * 获取项目最新的任务（用于读取 scratchpad 等）
+   */
+  async getLatestMission(projectId: string) {
+    return this.prisma.writingMission.findFirst({
+      where: { projectId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        status: true,
+        missionType: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  /**
    * 强制清理项目的卡住任务
    * 当任务状态不一致时使用（例如：任务失败但状态仍为 IN_PROGRESS）
    */
