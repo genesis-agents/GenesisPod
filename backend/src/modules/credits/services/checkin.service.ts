@@ -53,11 +53,40 @@ export interface CheckinStatus {
 export class CheckinService {
   private readonly logger = new Logger(CheckinService.name);
 
+  // ★ 签到状态缓存：避免每次请求都查数据库
+  private statusCache = new Map<
+    string,
+    { status: CheckinStatus; cachedAt: number }
+  >();
+  private readonly STATUS_CACHE_TTL_MS = 30 * 1000; // 30秒缓存
+
   constructor(
     private prisma: PrismaService,
     @Inject(forwardRef(() => CreditsService))
     private creditsService: CreditsService,
-  ) {}
+  ) {
+    // 定期清理过期缓存
+    setInterval(() => this.cleanupCache(), 60 * 1000);
+  }
+
+  /**
+   * 清理过期缓存
+   */
+  private cleanupCache() {
+    const now = Date.now();
+    for (const [key, value] of this.statusCache.entries()) {
+      if (now - value.cachedAt > this.STATUS_CACHE_TTL_MS) {
+        this.statusCache.delete(key);
+      }
+    }
+  }
+
+  /**
+   * 清除用户缓存（签到后调用）
+   */
+  clearUserCache(userId: string) {
+    this.statusCache.delete(userId);
+  }
 
   /**
    * 获取签到状态
@@ -74,6 +103,12 @@ export class CheckinService {
         nextReward: CHECKIN_REWARDS.base,
         message: "User not authenticated",
       };
+    }
+
+    // ★ 检查缓存
+    const cached = this.statusCache.get(userId);
+    if (cached && Date.now() - cached.cachedAt < this.STATUS_CACHE_TTL_MS) {
+      return cached.status;
     }
 
     let account = await this.prisma.creditAccount.findUnique({
@@ -137,26 +172,32 @@ export class CheckinService {
     const lastCheckin = account.checkins[0];
 
     if (!lastCheckin) {
-      return {
+      const status: CheckinStatus = {
         canCheckin: true,
         hasCheckedInToday: false,
         streakDays: 0,
         lastCheckinDate: null,
         nextReward: CHECKIN_REWARDS.base,
       };
+      // ★ 存入缓存
+      this.statusCache.set(userId, { status, cachedAt: Date.now() });
+      return status;
     }
 
     const lastCheckinDate = new Date(lastCheckin.checkinDate);
     const isToday = this.isSameDay(lastCheckinDate, today);
 
     if (isToday) {
-      return {
+      const status: CheckinStatus = {
         canCheckin: false,
         hasCheckedInToday: true,
         streakDays: lastCheckin.streakDays,
         lastCheckinDate: lastCheckinDate,
         nextReward: this.calculateNextReward(lastCheckin.streakDays),
       };
+      // ★ 存入缓存
+      this.statusCache.set(userId, { status, cachedAt: Date.now() });
+      return status;
     }
 
     // 检查是否连续
@@ -166,13 +207,16 @@ export class CheckinService {
 
     const currentStreak = isYesterday ? lastCheckin.streakDays : 0;
 
-    return {
+    const status: CheckinStatus = {
       canCheckin: true,
       hasCheckedInToday: false,
       streakDays: currentStreak,
       lastCheckinDate: lastCheckinDate,
       nextReward: this.calculateNextReward(currentStreak),
     };
+    // ★ 存入缓存
+    this.statusCache.set(userId, { status, cachedAt: Date.now() });
+    return status;
   }
 
   /**
@@ -297,6 +341,9 @@ export class CheckinService {
     this.logger.log(
       `User ${userId} checked in, day ${newStreakDays}, earned ${credits} credits`,
     );
+
+    // ★ 清除缓存，确保下次获取最新状态
+    this.clearUserCache(userId);
 
     return {
       success: true,

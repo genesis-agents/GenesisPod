@@ -12,7 +12,38 @@ import { CreateTopicDto, UpdateTopicDto } from "../../dto";
 export class TopicCrudService {
   private readonly logger = new Logger(TopicCrudService.name);
 
-  constructor(private prisma: PrismaService) {}
+  // ★ 用户 Topics 列表缓存：避免频繁查询
+  private topicsCache = new Map<string, { topics: any[]; cachedAt: number }>();
+  private readonly TOPICS_CACHE_TTL_MS = 10 * 1000; // 10秒缓存
+
+  constructor(private prisma: PrismaService) {
+    // 定期清理过期缓存
+    setInterval(() => this.cleanupTopicsCache(), 60 * 1000);
+  }
+
+  /**
+   * 清理过期缓存
+   */
+  private cleanupTopicsCache() {
+    const now = Date.now();
+    for (const [key, value] of this.topicsCache.entries()) {
+      if (now - value.cachedAt > this.TOPICS_CACHE_TTL_MS) {
+        this.topicsCache.delete(key);
+      }
+    }
+  }
+
+  /**
+   * 清除用户缓存（创建/更新/删除 topic 后调用）
+   */
+  clearUserTopicsCache(userId: string) {
+    // 清除该用户的所有缓存键
+    for (const key of this.topicsCache.keys()) {
+      if (key.startsWith(userId)) {
+        this.topicsCache.delete(key);
+      }
+    }
+  }
 
   async createTopic(userId: string, dto: CreateTopicDto) {
     const { memberIds, aiMembers, ...topicData } = dto;
@@ -68,6 +99,8 @@ export class TopicCrudService {
       });
 
       this.logger.log(`Transaction committed, fetching topic ${topicId}`);
+      // ★ 清除缓存
+      this.clearUserTopicsCache(userId);
       return this.getTopicById(topicId, userId);
     } catch (error) {
       this.logger.error(`Failed to create topic: ${error}`);
@@ -79,6 +112,17 @@ export class TopicCrudService {
     userId: string,
     options?: { type?: TopicType; search?: string },
   ) {
+    // ★ 构建缓存键
+    const cacheKey = `${userId}:${options?.type || "all"}:${options?.search || ""}`;
+
+    // ★ 检查缓存（仅对无搜索条件的请求使用缓存）
+    if (!options?.search) {
+      const cached = this.topicsCache.get(cacheKey);
+      if (cached && Date.now() - cached.cachedAt < this.TOPICS_CACHE_TTL_MS) {
+        return cached.topics;
+      }
+    }
+
     const where: Prisma.TopicWhereInput = {
       members: {
         some: { userId },
@@ -175,6 +219,15 @@ export class TopicCrudService {
       };
     });
 
+    // ★ 存入缓存（仅对无搜索条件的请求缓存）
+    if (!options?.search) {
+      const cacheKey = `${userId}:${options?.type || "all"}:`;
+      this.topicsCache.set(cacheKey, {
+        topics: topicsWithUnread,
+        cachedAt: Date.now(),
+      });
+    }
+
     return topicsWithUnread;
   }
 
@@ -248,19 +301,23 @@ export class TopicCrudService {
   async archiveTopic(topicId: string, userId: string) {
     await this.checkTopicPermission(topicId, userId, [TopicRole.OWNER]);
 
-    return this.prisma.topic.update({
+    const result = await this.prisma.topic.update({
       where: { id: topicId },
       data: {
         type: TopicType.ARCHIVED,
         archivedAt: new Date(),
       },
     });
+
+    // ★ 清除缓存
+    this.clearUserTopicsCache(userId);
+    return result;
   }
 
   async deleteTopic(topicId: string, userId: string) {
     await this.checkTopicPermission(topicId, userId, [TopicRole.OWNER]);
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.missionLog.deleteMany({
         where: { mission: { topicId } },
       });
@@ -325,6 +382,10 @@ export class TopicCrudService {
         where: { id: topicId },
       });
     });
+
+    // ★ 清除缓存
+    this.clearUserTopicsCache(userId);
+    return result;
   }
 
   async checkTopicPermission(
