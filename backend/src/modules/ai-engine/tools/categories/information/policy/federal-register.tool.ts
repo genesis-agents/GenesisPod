@@ -257,15 +257,21 @@ export class FederalRegisterTool extends BaseTool<
         params["conditions[term]"] = query;
       }
 
+      // 文档类型 - 每个类型需要单独的参数
       if (documentType) {
         const types = Array.isArray(documentType)
           ? documentType
           : [documentType];
-        params["conditions[type][]"] = types.join(",");
+        // Federal Register API 要求数组参数使用多个同名参数
+        // 例如: conditions[type][]=RULE&conditions[type][]=PRESDOC
+        types.forEach((type, index) => {
+          params[`conditions[type][${index}]`] = type;
+        });
       }
 
+      // 机构 - 同样需要数组格式
       if (agency) {
-        params["conditions[agencies][]"] = agency;
+        params["conditions[agencies][0]"] = agency;
       }
 
       if (startDate) {

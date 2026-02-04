@@ -345,15 +345,16 @@ export class LeaderPlanningService {
               `[planResearch] Auto-assigned default tools to ${assignment.agentName || assignment.agentId}`,
             );
           }
-          // ★ 为研究员确保有 assignmentReason
+          // ★ 为研究员确保有 assignmentReason（包括 modelReason）
+          const dimensionNames =
+            assignment.assignedDimensions
+              ?.map((dimId) => {
+                const dim = plan.dimensions.find((d) => d.id === dimId);
+                return dim?.name || dimId;
+              })
+              .join("、") || "相关领域";
+
           if (!assignment.assignmentReason) {
-            const dimensionNames =
-              assignment.assignedDimensions
-                ?.map((dimId) => {
-                  const dim = plan.dimensions.find((d) => d.id === dimId);
-                  return dim?.name || dimId;
-                })
-                .join("、") || "相关领域";
             assignment.assignmentReason = {
               agentReason: `${assignment.agentName || "研究员"}专注于「${dimensionNames}」领域的深度调研，具备该领域的信息收集和分析能力`,
               modelReason: assignment.modelId
@@ -363,6 +364,24 @@ export class LeaderPlanningService {
             this.logger.debug(
               `[planResearch] Auto-assigned default assignmentReason to ${assignment.agentName || assignment.agentId}`,
             );
+          } else {
+            // ★ 即使有 assignmentReason，也要确保 modelReason 不为空
+            if (
+              !assignment.assignmentReason.modelReason &&
+              assignment.modelId
+            ) {
+              assignment.assignmentReason.modelReason = getModelReasonText(
+                assignment.modelId,
+                "research",
+              );
+              this.logger.debug(
+                `[planResearch] Auto-filled modelReason for ${assignment.agentName || assignment.agentId}`,
+              );
+            }
+            // ★ 确保 agentReason 不为空
+            if (!assignment.assignmentReason.agentReason) {
+              assignment.assignmentReason.agentReason = `${assignment.agentName || "研究员"}专注于「${dimensionNames}」领域的深度调研`;
+            }
           }
         }
 
@@ -371,7 +390,7 @@ export class LeaderPlanningService {
           if (!assignment.skills || assignment.skills.length === 0) {
             assignment.skills = ["critical_thinking", "synthesis"];
           }
-          // ★ 为审核员确保有 assignmentReason
+          // ★ 为审核员确保有 assignmentReason（包括 modelReason）
           if (!assignment.assignmentReason) {
             assignment.assignmentReason = {
               agentReason: `${assignment.agentName || "质量审核员"}负责全面审核研究成果，确保内容准确性、逻辑一致性和完整性`,
@@ -379,6 +398,21 @@ export class LeaderPlanningService {
                 ? getModelReasonText(assignment.modelId, "review")
                 : "使用擅长一致性检查和质量评估的模型",
             };
+          } else {
+            // ★ 即使有 assignmentReason，也要确保 modelReason 不为空
+            if (
+              !assignment.assignmentReason.modelReason &&
+              assignment.modelId
+            ) {
+              assignment.assignmentReason.modelReason = getModelReasonText(
+                assignment.modelId,
+                "review",
+              );
+            }
+            // ★ 确保 agentReason 不为空
+            if (!assignment.assignmentReason.agentReason) {
+              assignment.assignmentReason.agentReason = `${assignment.agentName || "质量审核员"}负责全面审核研究成果，确保内容准确性、逻辑一致性和完整性`;
+            }
           }
         }
 
@@ -387,7 +421,7 @@ export class LeaderPlanningService {
           if (!assignment.skills || assignment.skills.length === 0) {
             assignment.skills = ["synthesis"];
           }
-          // ★ 为撰写员确保有 assignmentReason
+          // ★ 为撰写员确保有 assignmentReason（包括 modelReason）
           if (!assignment.assignmentReason) {
             assignment.assignmentReason = {
               agentReason: `${assignment.agentName || "报告撰写员"}负责整合多维度研究成果，生成结构清晰、逻辑连贯的专业报告`,
@@ -395,6 +429,21 @@ export class LeaderPlanningService {
                 ? getModelReasonText(assignment.modelId, "write")
                 : "使用具有强大语言生成和内容整合能力的模型",
             };
+          } else {
+            // ★ 即使有 assignmentReason，也要确保 modelReason 不为空
+            if (
+              !assignment.assignmentReason.modelReason &&
+              assignment.modelId
+            ) {
+              assignment.assignmentReason.modelReason = getModelReasonText(
+                assignment.modelId,
+                "write",
+              );
+            }
+            // ★ 确保 agentReason 不为空
+            if (!assignment.assignmentReason.agentReason) {
+              assignment.assignmentReason.agentReason = `${assignment.agentName || "报告撰写员"}负责整合多维度研究成果，生成结构清晰、逻辑连贯的专业报告`;
+            }
           }
         }
       }
