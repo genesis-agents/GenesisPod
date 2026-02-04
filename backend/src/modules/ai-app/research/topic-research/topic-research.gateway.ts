@@ -130,6 +130,10 @@ export class TopicResearchGateway
   private readonly securityLogger = createSecurityLogger("WebSocketGateway");
   private readonly jwtSecret: string;
 
+  // ★ 修复：限制每个用户的 WebSocket 连接数
+  private readonly userConnections = new Map<string, Set<string>>(); // userId -> Set<socketId>
+  private readonly MAX_CONNECTIONS_PER_USER = 5;
+
   constructor(
     private readonly eventEmitter: ResearchEventEmitterService,
     private readonly prisma: PrismaService,
@@ -227,8 +231,32 @@ export class TopicResearchGateway
       client.data.user = user;
       client.data.authenticatedAt = new Date();
 
+      // ★ 修复：检查并限制用户连接数
+      if (!this.userConnections.has(user.id)) {
+        this.userConnections.set(user.id, new Set());
+      }
+      const userSockets = this.userConnections.get(user.id)!;
+
+      if (userSockets.size >= this.MAX_CONNECTIONS_PER_USER) {
+        // 断开最旧的连接
+        const oldestSocketId = Array.from(userSockets)[0];
+        const oldestSocket = this.server.sockets.sockets.get(oldestSocketId);
+        if (oldestSocket) {
+          this.logger.warn(
+            `User ${user.id} exceeded max connections (${this.MAX_CONNECTIONS_PER_USER}), disconnecting oldest: ${oldestSocketId}`,
+          );
+          oldestSocket.emit("connection:replaced", {
+            message: "Connection replaced by new session",
+          });
+          oldestSocket.disconnect(true);
+        }
+        userSockets.delete(oldestSocketId);
+      }
+
+      userSockets.add(client.id);
+
       this.logger.log(
-        `Client ${client.id} authenticated as ${user.username} (${user.id})`,
+        `Client ${client.id} authenticated as ${user.username} (${user.id}), connections: ${userSockets.size}/${this.MAX_CONNECTIONS_PER_USER}`,
       );
 
       // ★ Security: 记录认证成功
@@ -270,6 +298,18 @@ export class TopicResearchGateway
   }
 
   handleDisconnect(client: Socket) {
+    // ★ 修复：清理用户连接计数
+    const authClient = client as AuthenticatedSocket;
+    const userId = authClient.data?.user?.id;
+    if (userId) {
+      const userSockets = this.userConnections.get(userId);
+      if (userSockets) {
+        userSockets.delete(client.id);
+        if (userSockets.size === 0) {
+          this.userConnections.delete(userId);
+        }
+      }
+    }
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 

@@ -260,16 +260,42 @@ export class MissionLifecycleService {
     // ★ 关键修复：立即返回 mission，异步执行规划
     // 原因：AI 推理可能需要 2-5 分钟，而 Next.js rewrite 代理默认 30 秒超时
     // 前端会通过轮询 getMission 和 WebSocket 获取规划进度
-    this.executePlanningAsync(
-      mission.id,
-      topicId,
-      topic.name,
-      userPrompt,
-      completedTasks, // ★ 增量模式：传递已完成的任务（完整数据）
-    ).catch((err) => {
+    const PLANNING_TIMEOUT_MS = 10 * 60 * 1000; // 10 分钟超时
+
+    // ★ 修复：添加超时控制，防止 AI 调用无限挂起
+    Promise.race([
+      this.executePlanningAsync(
+        mission.id,
+        topicId,
+        topic.name,
+        userPrompt,
+        completedTasks, // ★ 增量模式：传递已完成的任务（完整数据）
+      ),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Planning timeout after 10 minutes")),
+          PLANNING_TIMEOUT_MS,
+        ),
+      ),
+    ]).catch(async (err) => {
+      const errorMessage = err instanceof Error ? err.message : String(err);
       this.logger.error(
-        `[createMission] Async planning failed: ${err instanceof Error ? err.message : err}`,
+        `[createMission] Async planning failed: ${errorMessage}`,
       );
+
+      // ★ 更新 Mission 状态为失败
+      try {
+        await this.prisma.researchMission.update({
+          where: { id: mission.id },
+          data: {
+            status: ResearchMissionStatus.FAILED,
+          },
+        });
+      } catch (updateErr) {
+        this.logger.error(
+          `[createMission] Failed to update mission status: ${updateErr}`,
+        );
+      }
     });
 
     this.logger.log(

@@ -229,6 +229,24 @@ export class MissionExecutionService {
       return;
     }
 
+    // ★ 修复竞态条件：使用原子 CAS 操作更新任务状态
+    // 只有当任务状态为 PENDING 时才更新为 EXECUTING
+    const updateResult = await this.prisma.researchTask.updateMany({
+      where: {
+        id: task.id,
+        status: ResearchTaskStatus.PENDING,
+      },
+      data: { status: ResearchTaskStatus.EXECUTING },
+    });
+
+    if (updateResult.count === 0) {
+      // 任务状态已改变（可能被取消或已在执行中）
+      this.logger.log(
+        `[executeTask] Task ${task.id} state changed (CAS failed), skipping execution`,
+      );
+      return;
+    }
+
     // 确定 Agent 角色
     const agentRole = this.queryService.getAgentRoleFromTaskType(task.taskType);
     const agentName = this.queryService.getAgentNameFromTaskType(task.taskType);
@@ -253,11 +271,7 @@ export class MissionExecutionService {
         : agentAssignment?.tools || [];
 
     try {
-      // 更新任务状态为执行中
-      await this.queryService.updateTaskStatus(
-        task.id,
-        ResearchTaskStatus.EXECUTING,
-      );
+      // ★ 任务状态已在上面通过 CAS 操作更新为 EXECUTING
 
       // ★ 发送任务开始事件
       await this.researchEventEmitter.emitTaskStarted(topic.id, {
@@ -1055,8 +1069,11 @@ export class MissionExecutionService {
    * - 最大 10 并发（避免过度占用资源）
    */
   async calculateDynamicConcurrency(): Promise<number> {
-    const MIN_CONCURRENCY = 5;
-    const MAX_CONCURRENCY = 10;
+    const MIN_CONCURRENCY = 4;
+    // ★ 修复：降低最大并发数以避免数据库连接池耗尽
+    // Prisma 默认连接池约 10 个连接，每个任务可能使用 2 个连接
+    // 设置最大并发 8，保留部分连接给其他操作
+    const MAX_CONCURRENCY = 8;
 
     try {
       // 获取所有启用的 CHAT 模型
@@ -1067,7 +1084,7 @@ export class MissionExecutionService {
       const providerCount = uniqueProviders.size;
 
       // 根据 Provider 数量计算并发度
-      // 公式：基础 5 + 每多一个 Provider 增加 2，上限 10
+      // 公式：基础 4 + 每多一个 Provider 增加 2，上限 8
       const concurrency = Math.min(
         MAX_CONCURRENCY,
         Math.max(MIN_CONCURRENCY, MIN_CONCURRENCY + (providerCount - 1) * 2),

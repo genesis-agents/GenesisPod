@@ -210,15 +210,19 @@ export class ReportSynthesisService {
       orderBy: { accessedAt: "asc" },
     });
 
-    // 重新分配 citation index
-    await this.prisma.$transaction(
-      evidences.map((evidence, index) =>
-        this.prisma.topicEvidence.update({
-          where: { id: evidence.id },
-          data: { citationIndex: index + 1 },
-        }),
-      ),
-    );
+    // ★ 修复：分批事务更新 citation index（避免大事务超时）
+    const BATCH_SIZE = 20;
+    for (let i = 0; i < evidences.length; i += BATCH_SIZE) {
+      const batch = evidences.slice(i, i + BATCH_SIZE);
+      await this.prisma.$transaction(
+        batch.map((evidence, batchIndex) =>
+          this.prisma.topicEvidence.update({
+            where: { id: evidence.id },
+            data: { citationIndex: i + batchIndex + 1 },
+          }),
+        ),
+      );
+    }
 
     this.logger.log(
       `Linked ${evidenceIds.length} evidences to report ${reportId}`,

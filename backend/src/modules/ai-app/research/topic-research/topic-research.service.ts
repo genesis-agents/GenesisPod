@@ -505,6 +505,7 @@ export class TopicResearchService {
 
   /**
    * 监听刷新进度 (SSE)
+   * ★ 修复内存泄漏：添加超时自动清理机制
    */
   streamRefreshProgress(
     _userId: string,
@@ -520,6 +521,14 @@ export class TopicResearchService {
       }
     };
 
+    // ★ 清理函数
+    const cleanup = () => {
+      this.eventEmitter.off(
+        RESEARCH_INTERNAL_EVENTS.TOPIC_RESEARCH_PROGRESS,
+        listener,
+      );
+    };
+
     this.eventEmitter.on(
       RESEARCH_INTERNAL_EVENTS.TOPIC_RESEARCH_PROGRESS,
       listener,
@@ -527,12 +536,21 @@ export class TopicResearchService {
 
     // 当客户端断开连接时清理
     subject.subscribe({
-      complete: () => {
-        this.eventEmitter.off(
-          RESEARCH_INTERNAL_EVENTS.TOPIC_RESEARCH_PROGRESS,
-          listener,
-        );
-      },
+      complete: cleanup,
+      error: cleanup,
+    });
+
+    // ★ 修复内存泄漏：5分钟超时自动清理（防止客户端异常断开未触发 complete）
+    const SSE_TIMEOUT_MS = 5 * 60 * 1000;
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      subject.complete();
+    }, SSE_TIMEOUT_MS);
+
+    // 正常完成时清除超时定时器
+    subject.subscribe({
+      complete: () => clearTimeout(timeoutId),
+      error: () => clearTimeout(timeoutId),
     });
 
     // 转换为 MessageEvent
