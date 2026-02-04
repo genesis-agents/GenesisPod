@@ -21,6 +21,6 @@
   "tagPrefix": "v",
   "commitAll": true,
   "scripts": {
-    "postchangelog": "node frontend/scripts/generate-changelog.js && git add frontend/lib/generated/changelog.json"
+    "postchangelog": "node frontend/scripts/generate-changelog.js && git add -f frontend/lib/generated/changelog.json"
   }
 }
