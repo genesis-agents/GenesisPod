@@ -1,5 +1,91 @@
 [
   {
+    "version": "3.10.0",
+    "date": "2026-02-04",
+    "changes": [
+      {
+        "type": "feature",
+        "description": "add pagination to user management & improve user display"
+      },
+      {
+        "type": "fix",
+        "description": "redirect /admin/secrets to /admin/access/secrets"
+      },
+      {
+        "type": "fix",
+        "description": "comprehensive P2 capability sinking fixes and tests"
+      },
+      {
+        "type": "fix",
+        "description": "increase transaction timeout to prevent research failures"
+      },
+      {
+        "type": "fix",
+        "description": "rename service to Raven AI Engine & fix report version conflict"
+      },
+      {
+        "type": "fix",
+        "description": "add team data polling for real-time Activities panel"
+      },
+      {
+        "type": "fix",
+        "description": "address critical issues from code review"
+      },
+      {
+        "type": "fix",
+        "description": "build references section from database evidences"
+      },
+      {
+        "type": "fix",
+        "description": "ensure modelReason is filled even when assignmentReason exists"
+      },
+      {
+        "type": "fix",
+        "description": "fix evidence save race condition & cleanup dead code"
+      },
+      {
+        "type": "fix",
+        "description": "force overwrite generic modelReason with specific model info"
+      },
+      {
+        "type": "fix",
+        "description": "preserve modelId in completed task history"
+      },
+      {
+        "type": "fix",
+        "description": "prevent token overflow in report synthesis prompt"
+      },
+      {
+        "type": "fix",
+        "description": "restore evidence default limit to 500 for citation links"
+      },
+      {
+        "type": "fix",
+        "description": "use createMany for bulk evidence insert to prevent timeout"
+      },
+      {
+        "type": "improvement",
+        "description": "move team configs from AI Engine to AI Apps layer"
+      },
+      {
+        "type": "improvement",
+        "description": "add in-memory cache for checkin status and topics list"
+      },
+      {
+        "type": "improvement",
+        "description": "add user cache to JWT strategy to reduce db queries"
+      },
+      {
+        "type": "improvement",
+        "description": "optimize JWT strategy - no database queries"
+      },
+      {
+        "type": "improvement",
+        "description": "add missing indexes for research_topics"
+      }
+    ]
+  },
+  {
     "version": "3.9.7",
     "date": "2026-02-04",
     "changes": [

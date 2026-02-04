@@ -2,6 +2,40 @@
 
 Raven AI Engine 版本变更记录。
 
+## [3.10.0](https://github.com/your-org/ai-teams-engine/compare/v3.9.7...v3.10.0) (2026-02-04)
+
+### Features
+
+- **admin:** add pagination to user management & improve user display ([3c1a8fc](https://github.com/your-org/ai-teams-engine/commit/3c1a8fccb1ab89b002f71b6005394730f440ac69))
+
+### Bug Fixes
+
+- **admin:** redirect /admin/secrets to /admin/access/secrets ([db7914c](https://github.com/your-org/ai-teams-engine/commit/db7914cf61260bf72e52ac1920474fb4173935db))
+- **evidence:** comprehensive P2 capability sinking fixes and tests ([c316313](https://github.com/your-org/ai-teams-engine/commit/c316313c33aa6608e0d68f3c4dc6563172e7a162))
+- **prisma:** increase transaction timeout to prevent research failures ([c6da6e8](https://github.com/your-org/ai-teams-engine/commit/c6da6e8523842be1d85a6cd6e2111ebe09e47662))
+- rename service to Raven AI Engine & fix report version conflict ([0341402](https://github.com/your-org/ai-teams-engine/commit/0341402742e580f329abcd97e3bc1fb4519473b3))
+- **research:** add team data polling for real-time Activities panel ([67da81a](https://github.com/your-org/ai-teams-engine/commit/67da81a8a628243046511e44eb94ba6b1580b48e))
+- **research:** address critical issues from code review ([98076ec](https://github.com/your-org/ai-teams-engine/commit/98076ec230654ef5b2bd51e29aa8bd663b92b27e))
+- **research:** build references section from database evidences ([05610df](https://github.com/your-org/ai-teams-engine/commit/05610df30be84d302c1d04c37082996d6fc09a0c))
+- **research:** ensure modelReason is filled even when assignmentReason exists ([016d4af](https://github.com/your-org/ai-teams-engine/commit/016d4af819f3ec4df500f5a1039f893092eaae94))
+- **research:** fix evidence save race condition & cleanup dead code ([d76bb43](https://github.com/your-org/ai-teams-engine/commit/d76bb43b1bfffc957c37346f450a49e24b70a6b0))
+- **research:** force overwrite generic modelReason with specific model info ([f70fb04](https://github.com/your-org/ai-teams-engine/commit/f70fb04fded33ba32638db28cf3d27ceafcbef66))
+- **research:** preserve modelId in completed task history ([15936f6](https://github.com/your-org/ai-teams-engine/commit/15936f6307e3ad86a80add26b49f417adf68f950))
+- **research:** prevent token overflow in report synthesis prompt ([d9576e1](https://github.com/your-org/ai-teams-engine/commit/d9576e1998c8ab60c53123595477385a3b897233))
+- **research:** restore evidence default limit to 500 for citation links ([90ae301](https://github.com/your-org/ai-teams-engine/commit/90ae301089dee742ec6a459a0d78379a9ebc2f10))
+- **research:** use createMany for bulk evidence insert to prevent timeout ([fa6e06b](https://github.com/your-org/ai-teams-engine/commit/fa6e06bd06524c90d24763f988ffce3acd5bb170))
+
+### Refactoring
+
+- **arch:** move team configs from AI Engine to AI Apps layer ([b9cec0b](https://github.com/your-org/ai-teams-engine/commit/b9cec0bfa79a37d4b5e69baa57f29e79c3ae1217))
+
+### Performance
+
+- add in-memory cache for checkin status and topics list ([0eb7940](https://github.com/your-org/ai-teams-engine/commit/0eb7940f4dc9d11934372ddafb440a4ccf6faded))
+- **auth:** add user cache to JWT strategy to reduce db queries ([2dd9e38](https://github.com/your-org/ai-teams-engine/commit/2dd9e38a897035f83ad7ea005def4bc2adf62f8f))
+- **auth:** optimize JWT strategy - no database queries ([1b64bd9](https://github.com/your-org/ai-teams-engine/commit/1b64bd912a7fb84e13ac9fb8df6461f5e9fb5d91))
+- **db:** add missing indexes for research_topics ([1a2711f](https://github.com/your-org/ai-teams-engine/commit/1a2711fc31bcb603389a00fb4e1e6b74d4499bba))
+
 ### [3.9.7](https://github.com/your-org/ai-teams-engine/compare/v3.9.6...v3.9.7) (2026-02-04)
 
 ### Features
