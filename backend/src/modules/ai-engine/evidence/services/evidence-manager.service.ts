@@ -5,12 +5,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-
-// TODO: Phase 2.3 - 需要创建 Evidence Prisma 模型
-// 临时使用 any 类型以允许编译，待数据库迁移后移除
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getPrismaEvidence = (prisma: PrismaService): any =>
-  (prisma as any).evidence;
+import { Prisma, Evidence as PrismaEvidence } from "@prisma/client";
 import {
   IEvidenceManager,
   Evidence,
@@ -42,7 +37,7 @@ export class EvidenceManagerService implements IEvidenceManager {
       `Saving evidence of type ${request.type} for ${request.associations.entityType}:${request.associations.entityId}`,
     );
 
-    const evidence = await getPrismaEvidence(this.prisma).create({
+    const evidence = await this.prisma.evidence.create({
       data: {
         type: request.type,
         sourceUrl: request.source.url,
@@ -84,11 +79,10 @@ export class EvidenceManagerService implements IEvidenceManager {
 
       try {
         // ★ 使用回调函数形式的事务以支持 timeout 选项
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const evidences = await this.prisma.$transaction(
-          async (tx: any) => {
+          async (tx: Prisma.TransactionClient) => {
             const createPromises = batch.map((request) =>
-              getPrismaEvidence(tx).create({
+              tx.evidence.create({
                 data: {
                   type: request.type,
                   sourceUrl: request.source.url,
@@ -117,7 +111,7 @@ export class EvidenceManagerService implements IEvidenceManager {
         ); // ★ 30 秒超时
 
         results.push(
-          ...evidences.map((e: Record<string, unknown>) =>
+          ...evidences.map((e: PrismaEvidence) =>
             this.mapToEvidence(e),
           ),
         );
@@ -165,21 +159,21 @@ export class EvidenceManagerService implements IEvidenceManager {
       orderBy.createdAt = "desc";
     }
 
-    const evidences = await getPrismaEvidence(this.prisma).findMany({
+    const evidences = await this.prisma.evidence.findMany({
       where,
       orderBy,
       take: request.limit ?? 50,
       skip: request.offset ?? 0,
     });
 
-    return evidences.map((e: Record<string, unknown>) => this.mapToEvidence(e));
+    return evidences.map((e: PrismaEvidence) => this.mapToEvidence(e));
   }
 
   /**
    * 获取单条证据
    */
   async getById(id: string): Promise<Evidence | null> {
-    const evidence = await getPrismaEvidence(this.prisma).findUnique({
+    const evidence = await this.prisma.evidence.findUnique({
       where: { id },
     });
 
@@ -212,7 +206,7 @@ export class EvidenceManagerService implements IEvidenceManager {
       data.credibilityScore = updates.metadata.credibilityScore;
     }
 
-    const evidence = await getPrismaEvidence(this.prisma).update({
+    const evidence = await this.prisma.evidence.update({
       where: { id },
       data,
     });
@@ -224,7 +218,7 @@ export class EvidenceManagerService implements IEvidenceManager {
    * 删除证据
    */
   async delete(id: string): Promise<void> {
-    await getPrismaEvidence(this.prisma).delete({
+    await this.prisma.evidence.delete({
       where: { id },
     });
     this.logger.debug(`Deleted evidence ${id}`);
@@ -234,7 +228,7 @@ export class EvidenceManagerService implements IEvidenceManager {
    * 增加引用计数
    */
   async incrementCitationCount(id: string): Promise<void> {
-    await getPrismaEvidence(this.prisma).update({
+    await this.prisma.evidence.update({
       where: { id },
       data: {
         citationCount: { increment: 1 },
@@ -246,7 +240,7 @@ export class EvidenceManagerService implements IEvidenceManager {
    * 获取实体的证据统计
    */
   async getStats(entityType: string, entityId: string): Promise<EvidenceStats> {
-    const evidences = await getPrismaEvidence(this.prisma).findMany({
+    const evidences = await this.prisma.evidence.findMany({
       where: { entityType, entityId },
       select: {
         type: true,
@@ -256,11 +250,11 @@ export class EvidenceManagerService implements IEvidenceManager {
     });
 
     const byType: Record<EvidenceType, number> = {
-      citation: 0,
-      reference: 0,
-      inspiration: 0,
-      fact: 0,
-      quote: 0,
+      CITATION: 0,
+      REFERENCE: 0,
+      INSPIRATION: 0,
+      FACT: 0,
+      QUOTE: 0,
     };
 
     let totalRelevance = 0;
@@ -305,7 +299,7 @@ export class EvidenceManagerService implements IEvidenceManager {
     const evidences = await this.retrieve({
       entityType,
       entityId,
-      types: ["citation", "reference"],
+      types: ["CITATION", "REFERENCE"],
       sortBy: "createdAt",
       sortOrder: "asc",
     });
@@ -321,36 +315,36 @@ export class EvidenceManagerService implements IEvidenceManager {
   /**
    * 映射数据库记录到 Evidence 类型
    */
-  private mapToEvidence(record: Record<string, unknown>): Evidence {
+  private mapToEvidence(record: PrismaEvidence): Evidence {
     return {
-      id: record.id as string,
+      id: record.id,
       type: record.type as EvidenceType,
       source: {
-        url: record.sourceUrl as string | undefined,
-        title: record.sourceTitle as string,
-        author: record.sourceAuthor as string | undefined,
-        publishedAt: record.sourcePublishedAt as Date | undefined,
-        domain: record.sourceDomain as string | undefined,
-        publisher: record.sourcePublisher as string | undefined,
+        url: record.sourceUrl ?? undefined,
+        title: record.sourceTitle,
+        author: record.sourceAuthor ?? undefined,
+        publishedAt: record.sourcePublishedAt ?? undefined,
+        domain: record.sourceDomain ?? undefined,
+        publisher: record.sourcePublisher ?? undefined,
       },
       content: {
-        original: record.contentOriginal as string,
-        snippet: record.contentSnippet as string | undefined,
-        usedPortion: record.contentUsedPortion as string | undefined,
+        original: record.contentOriginal,
+        snippet: record.contentSnippet ?? undefined,
+        usedPortion: record.contentUsedPortion ?? undefined,
       },
       associations: {
-        entityType: record.entityType as string,
-        entityId: record.entityId as string,
-        location: record.location as string | undefined,
-        context: record.context as string | undefined,
+        entityType: record.entityType,
+        entityId: record.entityId,
+        location: record.location ?? undefined,
+        context: record.context ?? undefined,
       },
       metadata: {
-        relevanceScore: record.relevanceScore as number,
-        credibilityScore: record.credibilityScore as number | undefined,
-        citationCount: record.citationCount as number,
-        createdAt: record.createdAt as Date,
-        updatedAt: record.updatedAt as Date,
-        createdBy: record.createdBy as string | undefined,
+        relevanceScore: record.relevanceScore,
+        credibilityScore: record.credibilityScore ?? undefined,
+        citationCount: record.citationCount,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+        createdBy: record.createdBy ?? undefined,
       },
     };
   }

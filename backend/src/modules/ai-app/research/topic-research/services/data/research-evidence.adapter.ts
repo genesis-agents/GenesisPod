@@ -10,7 +10,7 @@
  * - 引用格式化使用 Engine Evidence（新能力）
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EvidenceManagerService } from "@/modules/ai-engine/evidence/services/evidence-manager.service";
 import { CitationFormatterService } from "@/modules/ai-engine/evidence/services/citation-formatter.service";
@@ -18,7 +18,10 @@ import {
   EvidenceType,
   CitationStyle,
   Evidence,
+  SaveEvidenceRequest,
 } from "@/modules/ai-engine/evidence/abstractions/evidence.interface";
+import { GlobalDeduplicationService } from "@/common/deduplication/deduplication.service";
+import { EvidenceSyncCompensationService } from "./evidence-sync-compensation.service";
 import type { TopicEvidence } from "@prisma/client";
 
 /**
@@ -52,6 +55,10 @@ export class ResearchEvidenceAdapter {
     private readonly prisma: PrismaService,
     private readonly engineEvidence: EvidenceManagerService,
     private readonly citationFormatter: CitationFormatterService,
+    @Optional()
+    private readonly deduplicationService?: GlobalDeduplicationService,
+    @Optional()
+    private readonly compensationService?: EvidenceSyncCompensationService,
   ) {}
 
   // ==================== 证据保存 ====================
@@ -59,6 +66,7 @@ export class ResearchEvidenceAdapter {
   /**
    * 保存研究证据（双写模式）
    * 同时写入 TopicEvidence 和 engine_evidences
+   * ★ 优雅降级：如果 Engine Evidence 写入失败，不影响核心功能
    */
   async saveResearchEvidence(
     input: ResearchEvidenceInput,
@@ -72,7 +80,7 @@ export class ResearchEvidenceAdapter {
     });
     const nextCitationIndex = (maxCitation._max.citationIndex ?? 0) + 1;
 
-    // 2. 写入 TopicEvidence（向后兼容）
+    // 2. 写入 TopicEvidence（向后兼容，必须成功）
     const topicEvidence = await this.prisma.topicEvidence.create({
       data: {
         reportId: input.reportId,
@@ -88,8 +96,9 @@ export class ResearchEvidenceAdapter {
       },
     });
 
-    // 3. 写入 Engine Evidence（统一管理）
-    const engineEvidence = await this.engineEvidence.save({
+    // 3. 写入 Engine Evidence（统一管理，可选 - 失败时优雅降级 + 补偿）
+    let engineEvidenceId: string | null = null;
+    const engineRequest: SaveEvidenceRequest = {
       type: this.mapSourceTypeToEvidenceType(input.sourceType),
       source: {
         url: input.url,
@@ -104,39 +113,173 @@ export class ResearchEvidenceAdapter {
       associations: {
         entityType: "research_report",
         entityId: input.reportId,
-        location: input.analysisId ? `analysis:${input.analysisId}` : undefined,
+        location: input.analysisId
+          ? `analysis:${input.analysisId}`
+          : undefined,
         context: `citation:${nextCitationIndex}`,
       },
       relevanceScore: 0.5,
       credibilityScore: input.credibilityScore
         ? input.credibilityScore / 100
         : undefined,
-    });
+    };
+
+    try {
+      const engineEvidence = await this.engineEvidence.save(engineRequest);
+      engineEvidenceId = engineEvidence.id;
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : String(error);
+
+      // ★ 优雅降级：Engine Evidence 写入失败不影响核心功能
+      this.logger.warn(
+        `Engine evidence save failed (degraded mode): ${errorMsg}`,
+      );
+
+      // ★ 加入补偿队列，稍后重试
+      if (this.compensationService) {
+        this.compensationService.queueForRetry(
+          topicEvidence.id,
+          engineRequest,
+          errorMsg,
+        );
+      }
+    }
 
     return {
       topicEvidenceId: topicEvidence.id,
-      engineEvidenceId: engineEvidence.id,
+      engineEvidenceId: engineEvidenceId ?? "skipped",
     };
   }
 
   /**
    * 批量保存研究证据
+   * ★ 使用事务 + createMany 保证批量操作原子性
    */
   async saveResearchEvidenceBatch(
     inputs: ResearchEvidenceInput[],
   ): Promise<EvidenceSaveResult[]> {
+    if (inputs.length === 0) return [];
+
     this.logger.debug(`Batch saving ${inputs.length} research evidences`);
 
     const results: EvidenceSaveResult[] = [];
-
-    // 分组处理，每批 50 条
     const BATCH_SIZE = 50;
-    for (let i = 0; i < inputs.length; i += BATCH_SIZE) {
-      const batch = inputs.slice(i, i + BATCH_SIZE);
-      const batchResults = await Promise.all(
-        batch.map((input) => this.saveResearchEvidence(input)),
-      );
-      results.push(...batchResults);
+
+    // 按 reportId 分组，确保同一报告的证据在同一事务中处理
+    const groupedByReport = new Map<string, ResearchEvidenceInput[]>();
+    for (const input of inputs) {
+      const group = groupedByReport.get(input.reportId) || [];
+      group.push(input);
+      groupedByReport.set(input.reportId, group);
+    }
+
+    // 逐组处理
+    for (const [reportId, reportInputs] of groupedByReport) {
+      // 分批处理每个报告的证据
+      for (let i = 0; i < reportInputs.length; i += BATCH_SIZE) {
+        const batch = reportInputs.slice(i, i + BATCH_SIZE);
+
+        try {
+          const batchResults = await this.prisma.$transaction(
+            async (tx) => {
+              // 1. 获取当前报告的最大引用索引
+              const maxResult = await tx.topicEvidence.aggregate({
+                where: { reportId },
+                _max: { citationIndex: true },
+              });
+              let nextIndex = (maxResult._max.citationIndex ?? 0) + 1;
+
+              // 2. 准备批量创建的数据
+              const createData = batch.map((input) => ({
+                reportId: input.reportId,
+                analysisId: input.analysisId,
+                url: input.url,
+                title: input.title,
+                snippet: input.snippet,
+                sourceType: input.sourceType,
+                domain: input.domain,
+                publishedAt: input.publishedAt,
+                credibilityScore: input.credibilityScore,
+                citationIndex: nextIndex++,
+              }));
+
+              // 3. 批量创建 TopicEvidence（原子操作）
+              await tx.topicEvidence.createMany({ data: createData });
+
+              // 4. 查询刚创建的记录获取 ID
+              const createdEvidences = await tx.topicEvidence.findMany({
+                where: {
+                  reportId,
+                  citationIndex: {
+                    gte: (maxResult._max.citationIndex ?? 0) + 1,
+                    lte: nextIndex - 1,
+                  },
+                },
+                orderBy: { citationIndex: "asc" },
+              });
+
+              // 5. 尝试批量写入 Engine Evidence（降级不影响事务）
+              const engineResults = await Promise.allSettled(
+                batch.map((input, idx) =>
+                  this.engineEvidence.save({
+                    type: this.mapSourceTypeToEvidenceType(input.sourceType),
+                    source: {
+                      url: input.url,
+                      title: input.title,
+                      domain: input.domain,
+                      publishedAt: input.publishedAt,
+                    },
+                    content: {
+                      original: input.snippet,
+                      snippet: input.snippet.slice(0, 500),
+                    },
+                    associations: {
+                      entityType: "research_report",
+                      entityId: input.reportId,
+                      location: input.analysisId
+                        ? `analysis:${input.analysisId}`
+                        : undefined,
+                      context: `citation:${createdEvidences[idx]?.citationIndex}`,
+                    },
+                    relevanceScore: 0.5,
+                    credibilityScore: input.credibilityScore
+                      ? input.credibilityScore / 100
+                      : undefined,
+                  }),
+                ),
+              );
+
+              // 6. 构建返回结果
+              return createdEvidences.map((evidence, idx) => {
+                const engineResult = engineResults[idx];
+                let engineEvidenceId = "skipped";
+
+                if (engineResult.status === "fulfilled") {
+                  engineEvidenceId = engineResult.value.id;
+                } else {
+                  this.logger.warn(
+                    `Engine evidence save failed for ${evidence.id}: ${engineResult.reason}`,
+                  );
+                }
+
+                return {
+                  topicEvidenceId: evidence.id,
+                  engineEvidenceId,
+                };
+              });
+            },
+            { timeout: 30000 }, // 30 秒超时
+          );
+
+          results.push(...batchResults);
+        } catch (error) {
+          this.logger.error(
+            `Batch ${i}-${i + batch.length} for report ${reportId} failed: ${error}`,
+          );
+          throw error;
+        }
+      }
     }
 
     return results;
@@ -278,6 +421,7 @@ export class ResearchEvidenceAdapter {
 
   /**
    * 将来源类型映射到证据类型
+   * ★ 使用 Prisma 枚举大写值
    */
   private mapSourceTypeToEvidenceType(sourceType: string): EvidenceType {
     const lowerType = sourceType.toLowerCase();
@@ -286,30 +430,31 @@ export class ResearchEvidenceAdapter {
       case "academic":
       case "journal":
       case "paper":
-        return "citation";
+        return "CITATION";
 
       case "news":
       case "report":
       case "official":
       case "government":
-        return "reference";
+        return "REFERENCE";
 
       case "quote":
-        return "quote";
+        return "QUOTE";
 
       case "inspiration":
       case "idea":
-        return "inspiration";
+        return "INSPIRATION";
 
       case "web":
       case "blog":
       default:
-        return "fact";
+        return "FACT";
     }
   }
 
   /**
    * 检查 URL 是否已存在（去重）
+   * ★ 使用统一的 URL 标准化服务
    */
   async isDuplicateUrl(reportId: string, url: string): Promise<boolean> {
     const normalizedUrl = this.normalizeUrl(url);
@@ -324,16 +469,32 @@ export class ResearchEvidenceAdapter {
 
   /**
    * URL 标准化
+   * ★ 优先使用 GlobalDeduplicationService（更完善的标准化规则）
+   * ★ 降级：如果服务不可用，使用本地简化实现
    */
   private normalizeUrl(url: string): string {
     if (!url) return "";
+
+    // 优先使用统一的去重服务
+    if (this.deduplicationService) {
+      return this.deduplicationService.normalizeUrl(url);
+    }
+
+    // 降级：本地简化实现
     try {
       const parsed = new URL(url);
       // 移除 tracking 参数
-      parsed.searchParams.delete("utm_source");
-      parsed.searchParams.delete("utm_medium");
-      parsed.searchParams.delete("utm_campaign");
-      parsed.searchParams.delete("ref");
+      const trackingParams = [
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_content",
+        "utm_term",
+        "fbclid",
+        "gclid",
+        "ref",
+      ];
+      trackingParams.forEach((param) => parsed.searchParams.delete(param));
       // 移除尾部斜杠
       return parsed.toString().replace(/\/$/, "").toLowerCase();
     } catch {

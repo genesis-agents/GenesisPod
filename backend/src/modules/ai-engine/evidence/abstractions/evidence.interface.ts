@@ -3,15 +3,13 @@
  * 证据管理抽象接口
  */
 
+import { EvidenceType as PrismaEvidenceType } from "@prisma/client";
+
 /**
- * 证据类型
+ * 证据类型 - 使用 Prisma 生成的枚举
+ * 值：CITATION, REFERENCE, INSPIRATION, FACT, QUOTE
  */
-export type EvidenceType =
-  | "citation" // 引用
-  | "reference" // 参考
-  | "inspiration" // 灵感来源
-  | "fact" // 事实依据
-  | "quote"; // 引述
+export type EvidenceType = PrismaEvidenceType;
 
 /**
  * 引用格式

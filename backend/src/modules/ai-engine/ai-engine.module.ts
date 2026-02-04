@@ -74,33 +74,12 @@ import { DocumentChunker } from "./rag/chunking";
 import { AIEngineFacade } from "./facade";
 import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
 
-// Collaboration (not in sub-modules yet)
-import { VotingManager } from "./collaboration/patterns/voting-pattern";
-import { HandoffCoordinator } from "./collaboration/patterns/handoff-pattern";
+// ★ VotingManager 和 HandoffCoordinator 已迁移到 CollaborationModule
+// (不再需要在此导入，通过 CollaborationModule 导出)
 
 // Tools Token
 import { ALL_TOOLS_TOKEN, TOTAL_TOOL_COUNT } from "./tools/tools.provider";
 import { ITool } from "./tools/abstractions/tool.interface";
-
-/**
- * Voting Manager Factory
- */
-const votingManagerFactory = {
-  provide: VotingManager,
-  useFactory: () => {
-    return new VotingManager();
-  },
-};
-
-/**
- * Handoff Coordinator Factory
- */
-const handoffCoordinatorFactory = {
-  provide: HandoffCoordinator,
-  useFactory: () => {
-    return new HandoffCoordinator();
-  },
-};
 
 /**
  * AI Engine 核心模块
@@ -139,9 +118,7 @@ const handoffCoordinatorFactory = {
     // === API Service ===
     AiCoreService,
 
-    // === Collaboration (TODO: move to sub-module) ===
-    votingManagerFactory,
-    handoffCoordinatorFactory,
+    // ★ VotingManager 和 HandoffCoordinator 已迁移到 CollaborationModule
 
     // === MCP ===
     MCPManager,
@@ -177,9 +154,7 @@ const handoffCoordinatorFactory = {
     LongContentModule,
     PromptsModule,
 
-    // === Collaboration ===
-    VotingManager,
-    HandoffCoordinator,
+    // ★ VotingManager 和 HandoffCoordinator 通过 CollaborationModule 导出
 
     // === MCP ===
     MCPManager,

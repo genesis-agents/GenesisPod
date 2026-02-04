@@ -58,6 +58,7 @@ export { LeaderToolService } from "./data/leader-tool.service";
 export { DataSourceFetcherService } from "./data/data-source-fetcher.service";
 export { DataSourceStrategyService } from "./data/data-source-strategy.service";
 export { ResearchEvidenceAdapter } from "./data/research-evidence.adapter";
+export { EvidenceSyncCompensationService } from "./data/evidence-sync-compensation.service";
 
 // ==================== Collaboration ====================
 export { TopicCollaboratorService } from "./collaboration/topic-collaborator.service";

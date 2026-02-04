@@ -74,6 +74,7 @@ import {
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
   ResearchEvidenceAdapter,
+  EvidenceSyncCompensationService,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
 
@@ -132,6 +133,7 @@ const services = [
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
   ResearchEvidenceAdapter,
+  EvidenceSyncCompensationService,
 ];
 
 @Module({
