@@ -460,7 +460,7 @@ export class NotionSyncService {
 
     while (hasMore) {
       const searchResponse = await client.search({
-        filter: { property: "object", value: "database" } as any,
+        filter: { property: "object", value: "data_source" },
         start_cursor: startCursor,
         page_size: 100,
       });
