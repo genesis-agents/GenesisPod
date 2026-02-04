@@ -1,5 +1,15 @@
 [
   {
+    "version": "3.10.1",
+    "date": "2026-02-04",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "update auto-release to sync package-lock.json"
+      }
+    ]
+  },
+  {
     "version": "3.10.0",
     "date": "2026-02-04",
     "changes": [
