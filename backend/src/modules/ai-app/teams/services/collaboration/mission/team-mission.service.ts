@@ -1618,6 +1618,13 @@ export class TeamMissionService implements OnModuleInit {
         ),
       ]);
 
+      // ★ 修复：发送任务状态更新事件，确保前端连线颜色正确
+      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+        missionId: mission.id,
+        taskId: task.id,
+        status: AgentTaskStatus.IN_PROGRESS,
+      });
+
       // 广播 Agent 工作状态（WebSocket 本身是非阻塞的）
       this.topicEventEmitter.emitToTopic(
         mission.topicId,
@@ -2084,6 +2091,14 @@ export class TeamMissionService implements OnModuleInit {
         messageId: resultMessage?.id,
       });
 
+      // ★ 修复：发送任务状态更新事件，确保前端连线颜色正确更新
+      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+        missionId: mission.id,
+        taskId: task.id,
+        status: AgentTaskStatus.AWAITING_REVIEW,
+        result: finalContent,
+      });
+
       // 广播任务完成
       this.topicEventEmitter.emitToTopic(mission.topicId, "task:completed", {
         missionId: mission.id,
@@ -2111,6 +2126,24 @@ export class TeamMissionService implements OnModuleInit {
         where: { id: task.id },
         data: { status: AgentTaskStatus.BLOCKED },
       });
+
+      // ★ 修复：任务失败时也要发送状态更新事件，确保前端同步
+      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+        missionId: mission.id,
+        taskId: task.id,
+        status: AgentTaskStatus.BLOCKED,
+      });
+
+      // ★ 修复：任务失败时清除 Agent 工作状态，避免节点永远闪烁
+      this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:agent_done",
+        {
+          missionId: mission.id,
+          taskId: task.id,
+          agentId: assignedTo.id,
+        },
+      );
 
       await this.sendMessageToTopic(
         mission.topicId,
@@ -2597,6 +2630,14 @@ export class TeamMissionService implements OnModuleInit {
           },
         });
 
+        // ★ 修复：发送任务状态更新事件，确保前端连线颜色正确
+        this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+          missionId: mission.id,
+          taskId: task.id,
+          status: AgentTaskStatus.COMPLETED,
+          leaderFeedback: aiResponse.content,
+        });
+
         // 更新任务进度
         await this.updateMissionProgress(mission.id);
 
@@ -2632,6 +2673,13 @@ export class TeamMissionService implements OnModuleInit {
               },
             });
 
+            // ★ 修复：发送任务状态更新事件
+            this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+              missionId: mission.id,
+              taskId: task.id,
+              status: AgentTaskStatus.COMPLETED,
+            });
+
             // 发送提示消息
             await this.sendMessageToTopic(
               mission.topicId,
@@ -2653,6 +2701,13 @@ export class TeamMissionService implements OnModuleInit {
                   aiResponse.content +
                   `\n\n❌ 【系统提示】已达最大修改次数(${currentRevisions}/${task.maxRevisions})，但内容质量不足，任务已阻塞。`,
               },
+            });
+
+            // ★ 修复：发送任务状态更新事件
+            this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+              missionId: mission.id,
+              taskId: task.id,
+              status: AgentTaskStatus.BLOCKED,
             });
 
             // 记录到 Circuit Breaker
@@ -2686,6 +2741,14 @@ export class TeamMissionService implements OnModuleInit {
             },
           });
 
+          // ★ 修复：发送任务状态更新事件
+          this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+            missionId: mission.id,
+            taskId: task.id,
+            status: AgentTaskStatus.REVISION_NEEDED,
+            leaderFeedback: aiResponse.content,
+          });
+
           // 触发修改
           await this.executeTaskRevision(mission, task, aiResponse.content);
         }
@@ -2700,6 +2763,13 @@ export class TeamMissionService implements OnModuleInit {
           status: AgentTaskStatus.COMPLETED,
           completedAt: new Date(),
         },
+      });
+
+      // ★ 修复：发送任务状态更新事件
+      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+        missionId: mission.id,
+        taskId: task.id,
+        status: AgentTaskStatus.COMPLETED,
       });
 
       await this.updateMissionProgress(mission.id);

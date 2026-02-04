@@ -722,6 +722,26 @@ export class MissionReviewService {
         return;
       }
 
+      // ★ 修复：发送任务状态更新事件
+      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+        missionId: mission.id,
+        taskId: task.id,
+        status: AgentTaskStatus.IN_PROGRESS,
+      });
+
+      // ★ 修复：广播 Agent 开始修订工作
+      this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:agent_working",
+        {
+          missionId: mission.id,
+          taskId: task.id,
+          agentId: assignedTo.id,
+          agentName: assignedTo.agentName || assignedTo.displayName,
+          status: "revising",
+        },
+      );
+
       await callbacks.sendMessageToTopic(
         mission.topicId,
         assignedTo.id,
@@ -785,6 +805,24 @@ export class MissionReviewService {
           data: { status: AgentTaskStatus.REVISION_NEEDED },
         });
 
+        // ★ 修复：发送任务状态更新事件
+        this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+          missionId: mission.id,
+          taskId: task.id,
+          status: AgentTaskStatus.REVISION_NEEDED,
+        });
+
+        // ★ 修复：清除 Agent 工作状态
+        this.topicEventEmitter.emitToTopic(
+          mission.topicId,
+          "mission:agent_done",
+          {
+            missionId: mission.id,
+            taskId: task.id,
+            agentId: assignedTo.id,
+          },
+        );
+
         await callbacks.createLog(mission.id, {
           type: MissionLogType.TASK_FAILED,
           agentId: assignedTo.id,
@@ -820,6 +858,24 @@ export class MissionReviewService {
           data: { status: AgentTaskStatus.REVISION_NEEDED },
         });
 
+        // ★ 修复：发送任务状态更新事件
+        this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+          missionId: mission.id,
+          taskId: task.id,
+          status: AgentTaskStatus.REVISION_NEEDED,
+        });
+
+        // ★ 修复：清除 Agent 工作状态
+        this.topicEventEmitter.emitToTopic(
+          mission.topicId,
+          "mission:agent_done",
+          {
+            missionId: mission.id,
+            taskId: task.id,
+            agentId: assignedTo.id,
+          },
+        );
+
         await callbacks.createLog(mission.id, {
           type: MissionLogType.TASK_FAILED,
           agentId: assignedTo.id,
@@ -850,6 +906,25 @@ export class MissionReviewService {
           needsRevision: false,
         },
       });
+
+      // ★ 修复：发送任务状态更新事件
+      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+        missionId: mission.id,
+        taskId: task.id,
+        status: AgentTaskStatus.AWAITING_REVIEW,
+        result: aiResponse.content,
+      });
+
+      // ★ 修复：清除 Agent 工作状态（修订完成，等待 Leader 审核）
+      this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:agent_done",
+        {
+          missionId: mission.id,
+          taskId: task.id,
+          agentId: assignedTo.id,
+        },
+      );
 
       await callbacks.createLog(mission.id, {
         type: MissionLogType.TASK_REVISION,
@@ -892,6 +967,24 @@ export class MissionReviewService {
         where: { id: task.id },
         data: { status: AgentTaskStatus.BLOCKED },
       });
+
+      // ★ 修复：发送任务状态更新事件
+      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+        missionId: mission.id,
+        taskId: task.id,
+        status: AgentTaskStatus.BLOCKED,
+      });
+
+      // ★ 修复：清除 Agent 工作状态
+      this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:agent_done",
+        {
+          missionId: mission.id,
+          taskId: task.id,
+          agentId: assignedTo.id,
+        },
+      );
 
       const errorType = this.circuitBreaker.parseErrorType(errorMsg);
       this.circuitBreaker.recordFailure(assignedTo.id, errorType, errorMsg);

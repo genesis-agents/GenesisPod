@@ -30,6 +30,39 @@ import { logger } from '@/lib/utils/logger';
 // Older messages will be discarded when this limit is exceeded
 const MAX_MESSAGES_IN_MEMORY = 200;
 
+// ★ 修复：typingAIs 超时保护机制
+// 防止因 mission:agent_done 事件丢失导致 agent 永远闪烁
+const TYPING_AI_TIMEOUT_MS = 5 * 60 * 1000; // 5 分钟超时
+const typingAITimeouts = new Map<string, NodeJS.Timeout>();
+
+/**
+ * 清除 agent 的 typing 状态超时定时器
+ */
+function clearTypingAITimeout(agentId: string): void {
+  const existingTimeout = typingAITimeouts.get(agentId);
+  if (existingTimeout) {
+    clearTimeout(existingTimeout);
+    typingAITimeouts.delete(agentId);
+  }
+}
+
+/**
+ * 设置 agent 的 typing 状态超时定时器
+ * 如果超时未收到 done 事件，自动移除 typing 状态
+ */
+function setTypingAITimeout(
+  agentId: string,
+  removeCallback: () => void
+): void {
+  clearTypingAITimeout(agentId);
+  const timeout = setTimeout(() => {
+    logger.warn(`[typingAI] Auto-removing agent ${agentId} from typingAIs due to timeout`);
+    typingAITimeouts.delete(agentId);
+    removeCallback();
+  }, TYPING_AI_TIMEOUT_MS);
+  typingAITimeouts.set(agentId, timeout);
+}
+
 interface AiGroupState {
   // Topics
   topics: Topic[];
@@ -920,6 +953,15 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
           newSet.add(agentId);
           return { typingAIs: newSet };
         });
+
+        // ★ 修复：设置超时保护，防止 agent 永远闪烁
+        setTypingAITimeout(agentId, () => {
+          set((state) => {
+            const newSet = new Set(state.typingAIs);
+            newSet.delete(agentId);
+            return { typingAIs: newSet };
+          });
+        });
       }
     );
 
@@ -940,6 +982,10 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
           agentId,
           taskId,
         });
+
+        // ★ 修复：清除超时定时器
+        clearTypingAITimeout(agentId);
+
         set((state) => {
           const newSet = new Set(state.typingAIs);
           newSet.delete(agentId);
@@ -1047,6 +1093,94 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
                 : state.currentMission,
           };
         });
+      }
+    );
+
+    // ★ 修复：添加 mission:cancelled 事件监听（多用户场景）
+    newSocket.on(
+      'mission:cancelled',
+      ({ missionId }: { missionId: string }) => {
+        logger.debug('[WS] Mission cancelled:', { missionId });
+        set((state) => {
+          // 清除所有参与者的 typing 状态
+          const mission = state.missions.find((m) => m.id === missionId);
+          const participantAIs = new Set<string>();
+          if (mission?.tasks) {
+            mission.tasks.forEach((task) => {
+              if (task.assignedToId) {
+                participantAIs.add(task.assignedToId);
+              }
+            });
+          }
+          const newTypingAIs = new Set(state.typingAIs);
+          participantAIs.forEach((aiId) => newTypingAIs.delete(aiId));
+
+          return {
+            typingAIs: newTypingAIs,
+            missions: state.missions.map((m) =>
+              m.id === missionId
+                ? { ...m, status: 'CANCELLED' as MissionStatus }
+                : m
+            ),
+            currentMission:
+              state.currentMission?.id === missionId
+                ? { ...state.currentMission, status: 'CANCELLED' as MissionStatus }
+                : state.currentMission,
+          };
+        });
+      }
+    );
+
+    // ★ 修复：添加 mission:paused 事件监听（多用户场景）
+    newSocket.on(
+      'mission:paused',
+      ({ missionId }: { missionId: string; previousStatus: string }) => {
+        logger.debug('[WS] Mission paused:', { missionId });
+        set((state) => ({
+          missions: state.missions.map((m) =>
+            m.id === missionId
+              ? { ...m, status: 'PAUSED' as MissionStatus }
+              : m
+          ),
+          currentMission:
+            state.currentMission?.id === missionId
+              ? { ...state.currentMission, status: 'PAUSED' as MissionStatus }
+              : state.currentMission,
+        }));
+      }
+    );
+
+    // ★ 修复：添加 mission:resumed 事件监听（多用户场景）
+    newSocket.on(
+      'mission:resumed',
+      ({ missionId, status }: { missionId: string; status: MissionStatus }) => {
+        logger.debug('[WS] Mission resumed:', { missionId, status });
+        set((state) => ({
+          missions: state.missions.map((m) =>
+            m.id === missionId
+              ? { ...m, status: status || ('IN_PROGRESS' as MissionStatus) }
+              : m
+          ),
+          currentMission:
+            state.currentMission?.id === missionId
+              ? { ...state.currentMission, status: status || ('IN_PROGRESS' as MissionStatus) }
+              : state.currentMission,
+        }));
+      }
+    );
+
+    // ★ 修复：添加 mission:deleted 事件监听（多用户场景）
+    newSocket.on(
+      'mission:deleted',
+      ({ missionId }: { missionId: string }) => {
+        logger.debug('[WS] Mission deleted:', { missionId });
+        set((state) => ({
+          missions: state.missions.filter((m) => m.id !== missionId),
+          currentMission:
+            state.currentMission?.id === missionId
+              ? null
+              : state.currentMission,
+        }));
       }
     );
 

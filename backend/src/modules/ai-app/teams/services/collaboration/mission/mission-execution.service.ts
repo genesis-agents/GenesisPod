@@ -1154,6 +1154,24 @@ export class MissionExecutionService {
         data: { status: AgentTaskStatus.BLOCKED },
       });
 
+      // ★ 修复：任务失败时发送状态更新事件
+      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+        missionId: mission.id,
+        taskId: task.id,
+        status: AgentTaskStatus.BLOCKED,
+      });
+
+      // ★ 修复：任务失败时清除 Agent 工作状态
+      this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:agent_done",
+        {
+          missionId: mission.id,
+          taskId: task.id,
+          agentId: assignedTo.id,
+        },
+      );
+
       await callbacks.sendMessageToTopic(
         mission.topicId,
         assignedTo.id,
@@ -1218,6 +1236,13 @@ export class MissionExecutionService {
         await this.prisma.agentTask.update({
           where: { id: task.id },
           data: { status: AgentTaskStatus.BLOCKED },
+        });
+
+        // ★ 修复：任务被阻塞时发送状态更新事件
+        this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+          missionId: mission.id,
+          taskId: task.id,
+          status: AgentTaskStatus.BLOCKED,
         });
 
         return null;
