@@ -369,17 +369,14 @@ export class ResearchLeaderService {
               `[planResearch] Auto-assigned default assignmentReason to ${assignment.agentName || assignment.agentId}`,
             );
           } else {
-            // ★ 即使有 assignmentReason，也要确保 modelReason 不为空
-            if (
-              !assignment.assignmentReason.modelReason &&
-              assignment.modelId
-            ) {
-              assignment.assignmentReason.modelReason = `选择 ${assignment.modelId} 模型，因为其具备出色的信息检索、内容分析和逻辑推理能力`;
-            }
             // ★ 确保 agentReason 不为空
             if (!assignment.assignmentReason.agentReason) {
               assignment.assignmentReason.agentReason = `${assignment.agentName || "研究员"}专注于「${dimensionNames}」领域的深度调研`;
             }
+          }
+          // ★ 强制用具体模型信息覆盖 AI 返回的通用 modelReason
+          if (assignment.modelId) {
+            assignment.assignmentReason.modelReason = `选择 ${assignment.modelId} 模型，因为其具备出色的信息检索、内容分析和逻辑推理能力`;
           }
         }
 
@@ -388,26 +385,18 @@ export class ResearchLeaderService {
           if (!assignment.skills || assignment.skills.length === 0) {
             assignment.skills = ["critical_thinking", "synthesis"];
           }
-          // ★ 为审核员确保有 assignmentReason（包括 modelReason）
+          // ★ 为审核员确保有 assignmentReason
           if (!assignment.assignmentReason) {
             assignment.assignmentReason = {
               agentReason: `${assignment.agentName || "质量审核员"}负责全面审核研究成果，确保内容准确性、逻辑一致性和完整性`,
-              modelReason: assignment.modelId
-                ? `选择 ${assignment.modelId} 模型，因为其擅长一致性检查、事实核验和质量评估`
-                : "使用擅长一致性检查和质量评估的模型",
+              modelReason: "使用擅长一致性检查和质量评估的模型",
             };
-          } else {
-            // ★ 即使有 assignmentReason，也要确保 modelReason 不为空
-            if (
-              !assignment.assignmentReason.modelReason &&
-              assignment.modelId
-            ) {
-              assignment.assignmentReason.modelReason = `选择 ${assignment.modelId} 模型，因为其擅长一致性检查、事实核验和质量评估`;
-            }
-            // ★ 确保 agentReason 不为空
-            if (!assignment.assignmentReason.agentReason) {
-              assignment.assignmentReason.agentReason = `${assignment.agentName || "质量审核员"}负责全面审核研究成果，确保内容准确性、逻辑一致性和完整性`;
-            }
+          } else if (!assignment.assignmentReason.agentReason) {
+            assignment.assignmentReason.agentReason = `${assignment.agentName || "质量审核员"}负责全面审核研究成果，确保内容准确性、逻辑一致性和完整性`;
+          }
+          // ★ 强制用具体模型信息覆盖 AI 返回的通用 modelReason
+          if (assignment.modelId) {
+            assignment.assignmentReason.modelReason = `选择 ${assignment.modelId} 模型，因为其擅长一致性检查、事实核验和质量评估`;
           }
         }
 
@@ -416,26 +405,18 @@ export class ResearchLeaderService {
           if (!assignment.skills || assignment.skills.length === 0) {
             assignment.skills = ["synthesis"];
           }
-          // ★ 为撰写员确保有 assignmentReason（包括 modelReason）
+          // ★ 为撰写员确保有 assignmentReason
           if (!assignment.assignmentReason) {
             assignment.assignmentReason = {
               agentReason: `${assignment.agentName || "报告撰写员"}负责整合多维度研究成果，生成结构清晰、逻辑连贯的专业报告`,
-              modelReason: assignment.modelId
-                ? `选择 ${assignment.modelId} 模型，因为其具备强大的语言生成、内容整合和篇章组织能力`
-                : "使用具有强大语言生成和内容整合能力的模型",
+              modelReason: "使用具有强大语言生成和内容整合能力的模型",
             };
-          } else {
-            // ★ 即使有 assignmentReason，也要确保 modelReason 不为空
-            if (
-              !assignment.assignmentReason.modelReason &&
-              assignment.modelId
-            ) {
-              assignment.assignmentReason.modelReason = `选择 ${assignment.modelId} 模型，因为其具备强大的语言生成、内容整合和篇章组织能力`;
-            }
-            // ★ 确保 agentReason 不为空
-            if (!assignment.assignmentReason.agentReason) {
-              assignment.assignmentReason.agentReason = `${assignment.agentName || "报告撰写员"}负责整合多维度研究成果，生成结构清晰、逻辑连贯的专业报告`;
-            }
+          } else if (!assignment.assignmentReason.agentReason) {
+            assignment.assignmentReason.agentReason = `${assignment.agentName || "报告撰写员"}负责整合多维度研究成果，生成结构清晰、逻辑连贯的专业报告`;
+          }
+          // ★ 强制用具体模型信息覆盖 AI 返回的通用 modelReason
+          if (assignment.modelId) {
+            assignment.assignmentReason.modelReason = `选择 ${assignment.modelId} 模型，因为其具备强大的语言生成、内容整合和篇章组织能力`;
           }
         }
       }
