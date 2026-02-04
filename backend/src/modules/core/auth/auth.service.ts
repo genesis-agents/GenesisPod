@@ -239,7 +239,7 @@ export class AuthService {
     }
 
     // 生成 tokens
-    const tokens = this.generateTokens(user.id, user.email);
+    const tokens = this.generateTokens(user.id, user.email, user.username);
 
     this.logger.log(`New user registered: ${user.username}`);
 
@@ -272,7 +272,7 @@ export class AuthService {
     }
 
     // 生成 tokens
-    const tokens = this.generateTokens(user.id, user.email);
+    const tokens = this.generateTokens(user.id, user.email, user.username);
 
     // 更新最后登录时间
     await this.prisma.user.update({
@@ -308,6 +308,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        username: true,
       },
     });
 
@@ -319,14 +320,25 @@ export class AuthService {
       throw new UnauthorizedException("User email is required");
     }
 
-    return this.generateTokens(user.id, user.email);
+    return this.generateTokens(user.id, user.email, user.username);
   }
 
   /**
    * 生成 access token 和 refresh token
+   *
+   * @note JWT payload 包含 sub(userId), email, username
+   *       JwtStrategy.validate() 直接返回这些信息，不查数据库
    */
-  private generateTokens(userId: string, email: string) {
-    const payload = { sub: userId, email };
+  private generateTokens(
+    userId: string,
+    email: string,
+    username: string | null,
+  ) {
+    const payload = {
+      sub: userId,
+      email,
+      username: username || email.split("@")[0],
+    };
 
     const accessToken = this.jwtService.sign(payload);
     const refreshToken = this.jwtService.sign(payload, { expiresIn: "30d" });
@@ -438,7 +450,7 @@ export class AuthService {
       throw new UnauthorizedException("User email is required");
     }
 
-    const tokens = this.generateTokens(user.id, user.email);
+    const tokens = this.generateTokens(user.id, user.email, user.username);
 
     return {
       user: {

@@ -206,20 +206,20 @@ export function TopicReferencesPanel({
 
   if (isLoadingEvidence) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <SpinnerIcon className="h-8 w-8 animate-spin text-blue-600" />
-          <p className="text-sm text-gray-500">
-            {t('topicResearch.topics.referencesPanel.loadingEvidence')}
-          </p>
+      <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-8">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
+          <SpinnerIcon className="h-10 w-10 animate-spin text-blue-600" />
         </div>
+        <p className="mt-4 text-sm text-gray-500">
+          {t('topicResearch.topics.referencesPanel.loadingEvidence')}
+        </p>
       </div>
     );
   }
 
   if (safeEvidence.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-8">
+      <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-8">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
           <LinkIcon className="h-10 w-10 text-gray-400" />
         </div>

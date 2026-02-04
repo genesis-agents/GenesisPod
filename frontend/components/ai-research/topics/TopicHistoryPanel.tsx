@@ -25,7 +25,7 @@ export function TopicHistoryPanel({
   onViewReport,
 }: TopicHistoryPanelProps) {
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto p-4">
       <ResearchTimeline
         topicId={topicId}
         onSelectResearch={(history) => {

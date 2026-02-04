@@ -3910,6 +3910,9 @@
       },
       "noReport": "No report yet",
       "noReportHint": "Click 'Refresh Now' to start research",
+      "loadingEvidence": "Loading evidence sources...",
+      "noEvidence": "No evidence sources",
+      "noEvidenceHint": "After refreshing the topic, all cited evidence sources and their credibility scores will be displayed",
       "noContent": "No content",
       "viewMode": {
         "continuous": "Continuous Reading",

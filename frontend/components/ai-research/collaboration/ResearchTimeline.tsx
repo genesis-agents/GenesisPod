@@ -1624,13 +1624,13 @@ export function ResearchTimeline({
   // 加载状态
   if (isLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="text-center">
-          <Clock className="mx-auto mb-2 h-8 w-8 animate-pulse text-blue-500" />
-          <div className="text-sm text-gray-500">
-            {t('topicResearch.collaboration.timeline.loading')}
-          </div>
+      <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-8">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
+          <Clock className="h-10 w-10 animate-pulse text-blue-500" />
         </div>
+        <p className="mt-4 text-sm text-gray-500">
+          {t('topicResearch.collaboration.timeline.loading')}
+        </p>
       </div>
     );
   }
@@ -1638,14 +1638,16 @@ export function ResearchTimeline({
   // 无历史
   if (!histories || histories.length === 0) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center text-center">
-        <Calendar className="mb-3 h-12 w-12 text-gray-300" />
-        <div className="mb-1 text-lg font-medium text-gray-900 dark:text-white">
+      <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-8">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
+          <Calendar className="h-10 w-10 text-gray-400" />
+        </div>
+        <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
           {t('topicResearch.collaboration.timeline.noHistory')}
-        </div>
-        <div className="text-sm text-gray-500">
+        </h3>
+        <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
           {t('topicResearch.collaboration.timeline.noHistoryHint')}
-        </div>
+        </p>
       </div>
     );
   }

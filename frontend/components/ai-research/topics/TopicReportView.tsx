@@ -9,7 +9,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { X, RefreshCw } from 'lucide-react';
+import { X, RefreshCw, FileText } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import {
   aiEditReport,
@@ -435,8 +435,16 @@ export function TopicReportView({
           )}
 
           {!report && (
-            <div className="flex h-full items-center justify-center py-20 text-gray-500">
-              {t('topicResearch.noReport')}
+            <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-8">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
+                <FileText className="h-10 w-10 text-gray-400" />
+              </div>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">
+                {t('topicResearch.noReport')}
+              </h3>
+              <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
+                {t('topicResearch.noReportHint')}
+              </p>
             </div>
           )}
         </div>

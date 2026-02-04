@@ -2126,20 +2126,22 @@ export function TopicContentPanel({
               {report ? (
                 <CredibilityPanel topicId={topicId} reportId={report.id} />
               ) : (
-                <div className="flex h-64 flex-col items-center justify-center text-center">
-                  <Shield className="mb-3 h-12 w-12 text-gray-300" />
-                  <div className="mb-1 text-lg font-medium text-gray-900">
+                <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-8">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
+                    <Shield className="h-10 w-10 text-gray-400" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-medium text-gray-900">
                     {t('topicResearch.contentPanel.noCredibilityReport')}
-                  </div>
-                  <div className="text-sm text-gray-500">
+                  </h3>
+                  <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
                     {t('topicResearch.contentPanel.credibilityReportHint')}
-                  </div>
+                  </p>
                 </div>
               )}
             </div>
           )}
           {activeTab === 'history' && topicId && (
-            <div className="h-full overflow-y-auto">
+            <div className="h-full overflow-y-auto p-4">
               <ResearchTimeline
                 topicId={topicId}
                 onSelectResearch={(history) => {
@@ -5776,24 +5778,28 @@ function EvidenceTabContent({
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <SpinnerIcon className="h-8 w-8 animate-spin text-blue-600" />
-          <p className="text-sm text-gray-500">加载证据来源...</p>
+      <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-8">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
+          <SpinnerIcon className="h-10 w-10 animate-spin text-blue-600" />
         </div>
+        <p className="mt-4 text-sm text-gray-500">
+          {t('topicResearch.contentPanel.loadingEvidence')}
+        </p>
       </div>
     );
   }
 
   if (safeEvidence.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-8">
+      <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-8">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
           <LinkIcon className="h-10 w-10 text-gray-400" />
         </div>
-        <h3 className="mt-4 text-lg font-medium text-gray-900">暂无证据来源</h3>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">
+          {t('topicResearch.contentPanel.noEvidence')}
+        </h3>
         <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
-          刷新专题后将显示所有引用的证据来源及其可信度评分
+          {t('topicResearch.contentPanel.noEvidenceHint')}
         </p>
       </div>
     );

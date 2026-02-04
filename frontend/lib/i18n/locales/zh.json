@@ -3914,6 +3914,9 @@
       },
       "noReport": "暂无报告",
       "noReportHint": "点击「立即刷新」开始研究",
+      "loadingEvidence": "加载证据来源...",
+      "noEvidence": "暂无证据来源",
+      "noEvidenceHint": "刷新专题后将显示所有引用的证据来源及其可信度评分",
       "noContent": "暂无内容",
       "viewMode": {
         "continuous": "连续阅读",

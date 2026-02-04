@@ -17,14 +17,16 @@ export function TopicCredibilityPanel() {
 
   if (!report) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center text-center">
-        <Shield className="mb-3 h-12 w-12 text-gray-300" />
-        <div className="mb-1 text-lg font-medium text-gray-900">
+      <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-8">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
+          <Shield className="h-10 w-10 text-gray-400" />
+        </div>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">
           {t('topicResearch.topics.credibilityPanel.noReport')}
-        </div>
-        <div className="text-sm text-gray-500">
+        </h3>
+        <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
           {t('topicResearch.topics.credibilityPanel.noReportHint')}
-        </div>
+        </p>
       </div>
     );
   }
