@@ -25,7 +25,7 @@ export class WorldSettingService {
   async findAll(bibleId: string) {
     return this.prisma.worldSetting.findMany({
       where: { bibleId },
-      orderBy: { category: "asc" },
+      orderBy: { createdAt: "asc" },
     });
   }
 

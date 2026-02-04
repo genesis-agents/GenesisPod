@@ -19,6 +19,7 @@
  * - PacingControlService: 节奏控制服务 - 叙事节奏张弛有度 (v3)
  * - ChapterQualityEvaluatorService: 章节质量评估服务 - 多维度评估 (v3)
  * - NarrativeCraftService: 叙事工艺服务 - 禁止说教/总结式结尾/NPC对话 (v3)
+ * - StoryCompletionDetectorService: 智能故事完结检测服务 - 多维度完结分析 (v4-DOME)
  */
 
 export * from "./expression-memory.service";
@@ -48,3 +49,11 @@ export type {
   QualityIssueSeverity,
   QualityIssueType,
 } from "./writing-quality-checker.service";
+
+// Story Completion Detector (DOME-inspired)
+export { StoryCompletionDetectorService } from "./story-completion-detector.service";
+export type {
+  CompletionSignal,
+  CompletionAnalysis,
+  CompletionSignalType,
+} from "./story-completion-detector.service";

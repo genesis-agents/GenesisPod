@@ -1020,3 +1020,231 @@ export async function cancelImport(
     }
   );
 }
+
+// ==================== DOME/SCORE Enhanced Features API ====================
+
+// Story Completion Analysis Types
+export interface CompletionSignal {
+  type: string;
+  confidence: number;
+  evidence: string;
+  source: string;
+}
+
+export interface CompletionAnalysis {
+  isComplete: boolean;
+  confidence: number;
+  signals: CompletionSignal[];
+  recommendation: string;
+}
+
+export interface CompletionAnalysisResponse {
+  projectId: string;
+  analysis: CompletionAnalysis;
+  analyzedAt: string;
+}
+
+// Timeline Conflict Types
+export type ConflictSeverity = 'HIGH' | 'MEDIUM' | 'LOW';
+
+export interface TimelineConflict {
+  id: string;
+  type: string;
+  severity: ConflictSeverity;
+  description: string;
+  sourceChapter: number;
+  targetChapter?: number;
+  subject: string;
+  conflictingStatements: string[];
+  suggestedResolution?: string;
+}
+
+export interface TimelineConflictsResponse {
+  projectId: string;
+  conflicts: TimelineConflict[];
+  totalConflicts: number;
+  analyzedAt: string;
+}
+
+// Hierarchical Summary Types
+export interface SceneSummary {
+  sceneNumber: number;
+  summary: string;
+  location?: string;
+  characters: string[];
+  keyAction?: string;
+}
+
+export interface ChapterSummary {
+  chapterNumber: number;
+  title: string;
+  summary: string;
+  keyEvents: string[];
+  emotionalTone: string;
+  characterChanges: Record<string, string>;
+  scenes?: SceneSummary[];
+}
+
+export interface HierarchicalContext {
+  recentChapters: ChapterSummary[];
+  mediumChapters: ChapterSummary[];
+  distantContext: string;
+  estimatedTokens: number;
+}
+
+export interface HierarchicalSummariesResponse {
+  projectId: string;
+  context: HierarchicalContext;
+  formattedContext: string;
+}
+
+// Scratchpad Types
+export type ScratchpadEntryType =
+  | 'QUESTION'
+  | 'ANSWER'
+  | 'FACT'
+  | 'DECISION'
+  | 'TODO'
+  | 'WARNING';
+
+export interface ScratchpadEntry {
+  id: string;
+  type: ScratchpadEntryType;
+  content: string;
+  source: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ScratchpadResponse {
+  projectId: string;
+  entries: ScratchpadEntry[];
+  totalEntries: number;
+}
+
+// Analysis Dashboard Types
+export interface AnalysisDashboard {
+  projectId: string;
+  projectName: string;
+  completion: {
+    isComplete: boolean;
+    confidence: number;
+    signals: CompletionSignal[];
+    recommendation: string;
+  };
+  conflicts: {
+    total: number;
+    highSeverity: number;
+    mediumSeverity: number;
+    lowSeverity: number;
+    recentConflicts: TimelineConflict[];
+  };
+  agentActivity: {
+    recentEntries: ScratchpadEntry[];
+    totalEntries: number;
+  };
+  analyzedAt: string;
+}
+
+/**
+ * 获取故事完成度分析
+ */
+export async function getCompletionAnalysis(
+  projectId: string
+): Promise<CompletionAnalysisResponse> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/completion-analysis`
+  );
+}
+
+/**
+ * 获取项目时间线冲突
+ */
+export async function getTimelineConflicts(
+  projectId: string
+): Promise<TimelineConflictsResponse> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/timeline-conflicts`
+  );
+}
+
+/**
+ * 获取章节时间线冲突
+ */
+export async function getChapterTimelineConflicts(
+  chapterId: string
+): Promise<{
+  chapterId: string;
+  conflicts: TimelineConflict[];
+  totalConflicts: number;
+  analyzedAt: string;
+}> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/chapters/${chapterId}/timeline-conflicts`
+  );
+}
+
+/**
+ * 获取层次摘要上下文
+ */
+export async function getHierarchicalSummaries(
+  projectId: string,
+  options?: { currentChapter?: number; targetTokens?: number }
+): Promise<HierarchicalSummariesResponse> {
+  const params = new URLSearchParams();
+  if (options?.currentChapter) {
+    params.set('currentChapter', options.currentChapter.toString());
+  }
+  if (options?.targetTokens) {
+    params.set('targetTokens', options.targetTokens.toString());
+  }
+  const query = params.toString();
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/hierarchical-summaries${query ? `?${query}` : ''}`
+  );
+}
+
+/**
+ * 批量生成章节摘要
+ */
+export async function generateSummaries(
+  projectId: string
+): Promise<{ projectId: string; updatedCount: number; message: string }> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/generate-summaries`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+/**
+ * 获取共享便签板内容
+ */
+export async function getScratchpad(
+  projectId: string,
+  options?: { type?: ScratchpadEntryType; limit?: number }
+): Promise<ScratchpadResponse> {
+  const params = new URLSearchParams();
+  if (options?.type) {
+    params.set('type', options.type);
+  }
+  if (options?.limit) {
+    params.set('limit', options.limit.toString());
+  }
+  const query = params.toString();
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/scratchpad${query ? `?${query}` : ''}`
+  );
+}
+
+/**
+ * 获取项目分析仪表板
+ */
+export async function getAnalysisDashboard(
+  projectId: string
+): Promise<AnalysisDashboard> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/analysis-dashboard`
+  );
+}

@@ -202,6 +202,18 @@ export class OutlineService {
 
     // 2. 创建章节
     for (const chapter of outline.chapters) {
+      // 构建更丰富的纲要内容
+      const outlineContent = [
+        chapter.plot,
+        chapter.keyPoint ? `【关键转折】${chapter.keyPoint}` : null,
+        chapter.characters?.length
+          ? `【涉及角色】${chapter.characters.join("、")}`
+          : null,
+        chapter.location ? `【场景】${chapter.location}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
       await this.prisma.writingChapter.upsert({
         where: {
           volumeId_chapterNumber: {
@@ -213,12 +225,12 @@ export class OutlineService {
           volumeId: volume.id,
           chapterNumber: chapter.chapterNumber,
           title: chapter.title,
-          outline: `${chapter.plot}${chapter.keyPoint ? `\n关键转折：${chapter.keyPoint}` : ""}`,
+          outline: outlineContent,
           status: "OUTLINING",
         },
         update: {
           title: chapter.title,
-          outline: `${chapter.plot}${chapter.keyPoint ? `\n关键转折：${chapter.keyPoint}` : ""}`,
+          outline: outlineContent,
         },
       });
     }

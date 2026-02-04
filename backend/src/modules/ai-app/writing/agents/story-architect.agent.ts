@@ -274,6 +274,7 @@ ${this.formatCharactersForPrompt(contextPackage.extensions.storyBible.characters
 2. 标注涉及的主要角色
 3. 标注关键事件
 4. 分析章节依赖关系，标注可以并行写作的章节
+5. **重要：如果故事已有明确结局标记（如"全书完"、"大结局"、"（完）"等），不要继续规划新章节**
 
 请以 JSON 格式输出章节分解结果。
 `;

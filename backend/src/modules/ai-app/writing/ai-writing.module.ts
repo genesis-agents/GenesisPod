@@ -32,6 +32,9 @@ import { ChapterAnnotationService } from "./services/writing/chapter-annotation.
 import { ChapterImportService } from "./services/writing/chapter-import.service";
 import { ContextBuilderService } from "./services/writing/context-builder.service";
 import { OutlineService } from "./services/writing/outline.service";
+// v4-DOME: 新增层次摘要和动态大纲服务
+import { HierarchicalSummaryService } from "./services/writing/hierarchical-summary.service";
+import { DynamicOutlineService } from "./services/writing/dynamic-outline.service";
 
 // Mission services
 import { WritingMissionService } from "./services/mission/writing-mission.service";
@@ -45,6 +48,8 @@ import { WritingModelManager } from "./services/mission/writing-model-manager.se
 import { WritingPersistence } from "./services/mission/writing-persistence.service";
 import { WritingExecutionService } from "./services/mission/writing-execution.service";
 import { WritingContentGeneratorService } from "./services/mission/writing-content-generator.service";
+// v4-DOME: Agent 共享便签板
+import { SharedScratchpadService } from "./services/mission/shared-scratchpad.service";
 
 // Consistency services
 import { ConsistencyEngineService } from "./services/consistency/consistency-engine.service";
@@ -53,6 +58,8 @@ import { PostWriteValidationService } from "./services/consistency/post-write-va
 import { ConflictResolutionService } from "./services/consistency/conflict-resolution.service";
 import { FactExtractorService } from "./services/consistency/fact-extractor.service";
 import { ChapterCoherenceService } from "./services/consistency/chapter-coherence.service";
+// v4-DOME: 时序冲突检测矩阵
+import { TemporalConflictAnalyzerService } from "./services/consistency/temporal-conflict-analyzer.service";
 
 // Parallel services
 import { ParallelOrchestratorService } from "./services/parallel/parallel-orchestrator.service";
@@ -79,6 +86,7 @@ import {
   ChapterQualityEvaluatorService,
   NarrativeCraftService,
   WritingQualityCheckerService,
+  StoryCompletionDetectorService,
 } from "./services/quality";
 
 // Style services (Three-layer style configuration system)
@@ -126,6 +134,9 @@ import {
     ChapterImportService,
     ContextBuilderService,
     OutlineService,
+    // v4-DOME: 层次摘要和动态大纲
+    HierarchicalSummaryService,
+    DynamicOutlineService,
     // Mission services (integrates AI Teams mechanism)
     WritingMissionService,
     WritingMissionHealthCheckService,
@@ -138,6 +149,8 @@ import {
     WritingPersistence,
     WritingExecutionService,
     WritingContentGeneratorService,
+    // v4-DOME: Agent 共享便签板
+    SharedScratchpadService,
     // Consistency services
     ConsistencyEngineService,
     PreWriteInjectionService,
@@ -145,6 +158,8 @@ import {
     ConflictResolutionService,
     FactExtractorService,
     ChapterCoherenceService,
+    // v4-DOME: 时序冲突检测矩阵
+    TemporalConflictAnalyzerService,
     // Parallel services
     ParallelOrchestratorService,
     ChapterDependencyService,
@@ -168,6 +183,8 @@ import {
     ChapterQualityEvaluatorService,
     NarrativeCraftService,
     WritingQualityCheckerService,
+    // v4-DOME: 智能故事完结检测
+    StoryCompletionDetectorService,
     // Style services (Three-layer style configuration)
     StyleTemplateService,
     // Writing Agents (from BaseAgent)
@@ -209,6 +226,12 @@ import {
     PacingControlService,
     ChapterQualityEvaluatorService,
     NarrativeCraftService,
+    // v4-DOME: 新增服务导出
+    StoryCompletionDetectorService,
+    TemporalConflictAnalyzerService,
+    HierarchicalSummaryService,
+    DynamicOutlineService,
+    SharedScratchpadService,
     // Style services
     StyleTemplateService,
     // Export agents for external use
@@ -229,7 +252,7 @@ export class AiWritingModule implements OnModuleInit {
     // They don't need to be registered with the global AgentRegistry
     // because they use a different interface (BaseAgent/IAgent vs IPlanBasedAgent)
     this.logger.log(
-      "AI Writing Module initialized successfully (v2-teams-fix)",
+      "AI Writing Module initialized successfully (v4-DOME-enhanced)",
     );
     this.logger.log("  Available Writing Agents (5):");
     this.logger.log("    - Story Architect (Leader)");

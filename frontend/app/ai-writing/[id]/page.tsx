@@ -25,6 +25,10 @@ import CharacterRelationshipGraph from '@/components/ai-writing/CharacterRelatio
 import ChapterEditPanel from '@/components/ai-writing/ChapterEditPanel';
 import ChapterImportModal from '@/components/ai-writing/ChapterImportModal';
 import ClientDate from '@/components/common/ClientDate';
+// DOME/SCORE Enhanced Components
+import StoryAnalysisDashboard from '@/components/ai-writing/StoryAnalysisDashboard';
+import HierarchicalSummaryTab from '@/components/ai-writing/HierarchicalSummaryTab';
+import { FileText, BarChart3 } from 'lucide-react';
 
 import { logger } from '@/lib/utils/logger';
 // Dynamic import for Canvas component
@@ -332,7 +336,7 @@ export default function WritingProjectPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showLeaderMenu, setShowLeaderMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    'chapters' | 'worldview' | 'storyBible' | 'relationships' | 'taskDetails'
+    'chapters' | 'worldview' | 'storyBible' | 'relationships' | 'taskDetails' | 'analysis' | 'summaries'
   >('chapters');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
@@ -2558,6 +2562,28 @@ export default function WritingProjectPage() {
                       </span>
                     )}
                   </button>
+                  <button
+                    onClick={() => setActiveTab('summaries')}
+                    className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                      activeTab === 'summaries'
+                        ? 'bg-teal-100 text-teal-700'
+                        : 'text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    <FileText className="h-4 w-4" />
+                    层次摘要
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('analysis')}
+                    className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                      activeTab === 'analysis'
+                        ? 'bg-orange-100 text-orange-700'
+                        : 'text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    分析
+                  </button>
                 </div>
               </div>
 
@@ -3357,10 +3383,29 @@ export default function WritingProjectPage() {
                             <div className="space-y-3">
                               {/* 分离章节设定和通用设定 */}
                               {(() => {
-                                const chapterSettings =
-                                  storyBible.worldSettings.filter((s) =>
+                                // 提取章节号用于排序
+                                const extractChapterNumber = (
+                                  text: string
+                                ): number => {
+                                  const match = text.match(/第(\d+)章/);
+                                  return match
+                                    ? parseInt(match[1], 10)
+                                    : Infinity;
+                                };
+
+                                const chapterSettings = storyBible.worldSettings
+                                  .filter((s) =>
                                     /^第\d+章/.test(s.category || s.name || '')
-                                  );
+                                  )
+                                  .sort((a, b) => {
+                                    const numA = extractChapterNumber(
+                                      a.category || a.name || ''
+                                    );
+                                    const numB = extractChapterNumber(
+                                      b.category || b.name || ''
+                                    );
+                                    return numA - numB;
+                                  });
                                 const generalSettings =
                                   storyBible.worldSettings.filter(
                                     (s) =>
@@ -3937,6 +3982,37 @@ export default function WritingProjectPage() {
                         <div ref={taskMessagesEndRef} />
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Summaries Tab - Hierarchical Summaries */}
+                {activeTab === 'summaries' && (
+                  <div className="h-full">
+                    <HierarchicalSummaryTab
+                      projectId={projectId}
+                      currentChapter={selectedChapter?.chapterNumber}
+                    />
+                  </div>
+                )}
+
+                {/* Analysis Tab - Story Analysis Dashboard */}
+                {activeTab === 'analysis' && (
+                  <div className="h-full overflow-auto">
+                    <StoryAnalysisDashboard
+                      projectId={projectId}
+                      onConflictClick={(conflict) => {
+                        // Jump to the chapter with the conflict
+                        if (conflict.sourceChapter) {
+                          const chapter = allChapters.find(
+                            (c) => c.chapterNumber === conflict.sourceChapter
+                          );
+                          if (chapter) {
+                            setSelectedChapter(chapter);
+                            setActiveTab('chapters');
+                          }
+                        }
+                      }}
+                    />
                   </div>
                 )}
               </div>

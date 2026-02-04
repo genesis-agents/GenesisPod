@@ -26,10 +26,16 @@ export class StoryBibleService {
     return this.prisma.storyBible.findUnique({
       where: { projectId },
       include: {
-        characters: true,
-        worldSettings: true,
+        characters: {
+          orderBy: { createdAt: "asc" },
+        },
+        worldSettings: {
+          orderBy: { createdAt: "asc" },
+        },
         terminologies: true,
-        timelineEvents: true,
+        timelineEvents: {
+          orderBy: { storyTime: "asc" },
+        },
         factions: true,
       },
     });
@@ -61,10 +67,16 @@ export class StoryBibleService {
     const bible = await this.prisma.storyBible.findUnique({
       where: { projectId },
       include: {
-        characters: true,
-        worldSettings: true,
+        characters: {
+          orderBy: { createdAt: "asc" },
+        },
+        worldSettings: {
+          orderBy: { createdAt: "asc" },
+        },
         terminologies: true,
-        timelineEvents: true,
+        timelineEvents: {
+          orderBy: { storyTime: "asc" },
+        },
         factions: true,
       },
     });

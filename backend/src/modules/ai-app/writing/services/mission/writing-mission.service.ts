@@ -6982,6 +6982,52 @@ ${instruction}
         return `[ALL_CHAPTERS_COMPLETED] 所有 ${existingContent.totalChapters} 章节已完成，共 ${currentWordCount.toLocaleString()} 字。`;
       }
 
+      // 检测故事是否已完结（通过内容标记判断）
+      const lastWrittenChapter = await this.prisma.writingChapter.findFirst({
+        where: {
+          volume: { projectId: input.projectId },
+          content: { not: "" },
+        },
+        orderBy: { chapterNumber: "desc" },
+        select: { content: true, title: true, outline: true, chapterNumber: true },
+      });
+
+      const STORY_COMPLETION_MARKERS = [
+        "全书完",
+        "大结局",
+        "（完）",
+        "【完】",
+        "（全文完）",
+        "——END——",
+        "全剧终",
+        "故事结束",
+        "THE END",
+        "大同之世",
+        "（终章）",
+        "【终章】",
+      ];
+
+      const isStoryComplete =
+        lastWrittenChapter &&
+        STORY_COMPLETION_MARKERS.some(
+          (marker) =>
+            lastWrittenChapter.content?.includes(marker) ||
+            lastWrittenChapter.title?.includes(marker) ||
+            lastWrittenChapter.outline?.includes(marker),
+        );
+
+      if (isStoryComplete) {
+        this.logger.log(
+          `[${missionId}] Story completion detected in chapter ${lastWrittenChapter.chapterNumber}, stopping chapter creation`,
+        );
+        await this.saveMissionLog(
+          missionId,
+          "mission:complete",
+          `✅ 检测到故事已完结！共 ${existingContent.totalChapters} 章，${currentWordCount.toLocaleString()} 字。`,
+        );
+        return `[STORY_COMPLETE] 故事已完结，共 ${existingContent.totalChapters} 章，${currentWordCount.toLocaleString()} 字。`;
+      }
+
       // 目标未达成，需要创建新章节继续写作
       this.logger.log(
         `[${missionId}] All chapters written but target not reached (${currentWordCount}/${targetWordCount}), creating new chapters`,

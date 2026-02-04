@@ -25,6 +25,11 @@ import { ChapterImportService } from "./services/writing/chapter-import.service"
 import { ConsistencyEngineService } from "./services/consistency/consistency-engine.service";
 import { ParallelOrchestratorService } from "./services/parallel/parallel-orchestrator.service";
 import { WritingMissionService } from "./services/mission/writing-mission.service";
+// DOME/SCORE Enhanced Services
+import { StoryCompletionDetectorService } from "./services/quality/story-completion-detector.service";
+import { TemporalConflictAnalyzerService } from "./services/consistency/temporal-conflict-analyzer.service";
+import { HierarchicalSummaryService } from "./services/writing/hierarchical-summary.service";
+import { SharedScratchpadService } from "./services/mission/shared-scratchpad.service";
 import {
   CreateProjectDto,
   UpdateProjectDto,
@@ -55,6 +60,11 @@ export class AiWritingController {
     private readonly consistencyEngine: ConsistencyEngineService,
     private readonly parallelOrchestrator: ParallelOrchestratorService,
     private readonly writingMissionService: WritingMissionService,
+    // DOME/SCORE Enhanced Services
+    private readonly storyCompletionDetector: StoryCompletionDetectorService,
+    private readonly temporalConflictAnalyzer: TemporalConflictAnalyzerService,
+    private readonly hierarchicalSummaryService: HierarchicalSummaryService,
+    private readonly sharedScratchpadService: SharedScratchpadService,
   ) {
     void this.logger;
     void this.aiWritingService;
@@ -858,5 +868,279 @@ export class AiWritingController {
       importId,
       req.user.id,
     );
+  }
+
+  // ==================== DOME/SCORE Enhanced Features ====================
+
+  /**
+   * 获取故事完成度分析
+   * 分析故事是否已经有自然结局
+   */
+  @Get("projects/:projectId/completion-analysis")
+  async getCompletionAnalysis(
+    @Request() req: RequestWithUser,
+    @Param("projectId") projectId: string,
+  ) {
+    // 验证项目权限
+    await this.projectService.findOne(projectId, req.user.id);
+
+    const analysis =
+      await this.storyCompletionDetector.analyzeCompletion(projectId);
+
+    return {
+      projectId,
+      analysis,
+      analyzedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * 获取时间线冲突分析
+   * 检测章节内容中的时间线矛盾
+   */
+  @Get("projects/:projectId/timeline-conflicts")
+  async getTimelineConflicts(
+    @Request() req: RequestWithUser,
+    @Param("projectId") projectId: string,
+  ) {
+    // 验证项目权限
+    await this.projectService.findOne(projectId, req.user.id);
+
+    const result =
+      await this.temporalConflictAnalyzer.analyzeProject(projectId);
+
+    // Transform conflicts to frontend format
+    const conflicts = result.conflicts.map((c) => ({
+      id: `${c.chapter1}-${c.chapter2}-${c.entity}`,
+      type: c.type,
+      severity: this.mapConflictSeverity(c.severity),
+      description: c.description,
+      sourceChapter: c.chapter1,
+      targetChapter: c.chapter2,
+      subject: c.entity,
+      conflictingStatements: [c.expected, c.found],
+      suggestedResolution: c.suggestion,
+    }));
+
+    return {
+      projectId,
+      conflicts,
+      totalConflicts: conflicts.length,
+      analyzedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * 获取章节的时间线冲突
+   * 注意：需要提供项目ID和章节内容来分析
+   */
+  @Get("chapters/:chapterId/timeline-conflicts")
+  async getChapterTimelineConflicts(
+    @Request() req: RequestWithUser,
+    @Param("chapterId") chapterId: string,
+  ) {
+    // 获取章节信息（同时验证权限）- getChapter 已包含 volume.project
+    const chapter = await this.chapterWritingService.getChapter(
+      chapterId,
+      req.user.id,
+    ) as {
+      id: string;
+      content: string | null;
+      chapterNumber: number;
+      volumeId: string;
+      volume: { project: { id: string } };
+    };
+
+    if (!chapter.content) {
+      return {
+        chapterId,
+        conflicts: [],
+        totalConflicts: 0,
+        analyzedAt: new Date().toISOString(),
+      };
+    }
+
+    const projectId = chapter.volume.project.id;
+
+    const result = await this.temporalConflictAnalyzer.analyzeChapter(
+      projectId,
+      chapter.chapterNumber,
+      chapter.content,
+    );
+
+    // Transform conflicts to frontend format
+    const conflicts = result.conflicts.map((c) => ({
+      id: `${c.chapter1}-${c.chapter2}-${c.entity}`,
+      type: c.type,
+      severity: this.mapConflictSeverity(c.severity),
+      description: c.description,
+      sourceChapter: c.chapter1,
+      targetChapter: c.chapter2,
+      subject: c.entity,
+      conflictingStatements: [c.expected, c.found],
+      suggestedResolution: c.suggestion,
+    }));
+
+    return {
+      chapterId,
+      conflicts,
+      totalConflicts: conflicts.length,
+      analyzedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Map internal severity to frontend severity
+   */
+  private mapConflictSeverity(
+    severity: "CRITICAL" | "WARNING" | "INFO",
+  ): "HIGH" | "MEDIUM" | "LOW" {
+    switch (severity) {
+      case "CRITICAL":
+        return "HIGH";
+      case "WARNING":
+        return "MEDIUM";
+      case "INFO":
+      default:
+        return "LOW";
+    }
+  }
+
+  /**
+   * 获取层次摘要上下文
+   * 用于展示故事的多层次摘要
+   */
+  @Get("projects/:projectId/hierarchical-summaries")
+  async getHierarchicalSummaries(
+    @Request() req: RequestWithUser,
+    @Param("projectId") projectId: string,
+    @Query("currentChapter") currentChapter?: string,
+    @Query("targetTokens") targetTokens?: string,
+  ) {
+    // 验证项目权限
+    await this.projectService.findOne(projectId, req.user.id);
+
+    const context = await this.hierarchicalSummaryService.getHierarchicalContext(
+      projectId,
+      {
+        currentChapter: currentChapter ? parseInt(currentChapter, 10) : 999,
+        targetTokens: targetTokens ? parseInt(targetTokens, 10) : 4000,
+      },
+    );
+
+    return {
+      projectId,
+      context,
+      formattedContext:
+        this.hierarchicalSummaryService.formatContextForPrompt(context),
+    };
+  }
+
+  /**
+   * 批量生成章节摘要
+   */
+  @Post("projects/:projectId/generate-summaries")
+  async generateSummaries(
+    @Request() req: RequestWithUser,
+    @Param("projectId") projectId: string,
+  ) {
+    // 验证项目权限
+    await this.projectService.findOne(projectId, req.user.id);
+
+    const updatedCount =
+      await this.hierarchicalSummaryService.batchUpdateSummaries(projectId);
+
+    return {
+      projectId,
+      updatedCount,
+      message: `成功生成 ${updatedCount} 个章节的摘要`,
+    };
+  }
+
+  /**
+   * 获取共享便签板内容
+   * 展示 Agent 间的通信记录
+   */
+  @Get("projects/:projectId/scratchpad")
+  async getScratchpad(
+    @Request() req: RequestWithUser,
+    @Param("projectId") projectId: string,
+    @Query("type") type?: string,
+    @Query("limit") limit?: string,
+  ) {
+    // 验证项目权限
+    await this.projectService.findOne(projectId, req.user.id);
+
+    const entries = await this.sharedScratchpadService.getEntries(projectId, {
+      type: type as any,
+      limit: limit ? parseInt(limit, 10) : 50,
+    });
+
+    return {
+      projectId,
+      entries,
+      totalEntries: entries.length,
+    };
+  }
+
+  /**
+   * 获取项目分析仪表板数据
+   * 汇总完成度、冲突、摘要等信息
+   */
+  @Get("projects/:projectId/analysis-dashboard")
+  async getAnalysisDashboard(
+    @Request() req: RequestWithUser,
+    @Param("projectId") projectId: string,
+  ) {
+    // 验证项目权限
+    const project = await this.projectService.findOne(projectId, req.user.id);
+
+    // 并行获取所有分析数据
+    const [completionAnalysis, conflictResult, scratchpadEntries] =
+      await Promise.all([
+        this.storyCompletionDetector.analyzeCompletion(projectId),
+        this.temporalConflictAnalyzer.analyzeProject(projectId),
+        this.sharedScratchpadService.getEntries(projectId, { limit: 10 }),
+      ]);
+
+    // Transform conflicts to frontend format
+    const transformedConflicts = conflictResult.conflicts.map((c) => ({
+      id: `${c.chapter1}-${c.chapter2}-${c.entity}`,
+      type: c.type,
+      severity: this.mapConflictSeverity(c.severity),
+      description: c.description,
+      sourceChapter: c.chapter1,
+      targetChapter: c.chapter2,
+      subject: c.entity,
+      conflictingStatements: [c.expected, c.found],
+      suggestedResolution: c.suggestion,
+    }));
+
+    return {
+      projectId,
+      projectName: project.name,
+      completion: {
+        isComplete: completionAnalysis.isComplete,
+        confidence: completionAnalysis.confidence,
+        signals: completionAnalysis.signals,
+        recommendation: completionAnalysis.recommendation,
+      },
+      conflicts: {
+        total: transformedConflicts.length,
+        highSeverity: transformedConflicts.filter((c) => c.severity === "HIGH")
+          .length,
+        mediumSeverity: transformedConflicts.filter(
+          (c) => c.severity === "MEDIUM",
+        ).length,
+        lowSeverity: transformedConflicts.filter((c) => c.severity === "LOW")
+          .length,
+        recentConflicts: transformedConflicts.slice(0, 5),
+      },
+      agentActivity: {
+        recentEntries: scratchpadEntries,
+        totalEntries: scratchpadEntries.length,
+      },
+      analyzedAt: new Date().toISOString(),
+    };
   }
 }
