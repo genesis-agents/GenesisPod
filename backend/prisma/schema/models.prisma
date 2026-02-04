@@ -6288,6 +6288,8 @@ model ResearchTopic {
 
   // ========== 索引 ==========
   @@index([userId, status]) // 按用户和状态查询
+  @@index([userId, createdAt(sort: Desc)]) // 用户专题列表查询优化
+  @@index([visibility]) // 公开专题查询
   @@index([type]) // 按类型过滤
   @@index([nextRefreshAt]) // 定时任务查询
   @@index([createdAt(sort: Desc)]) // 按创建时间排序
