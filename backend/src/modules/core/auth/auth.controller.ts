@@ -65,7 +65,10 @@ export class AuthController {
   @Post("register")
   @HttpCode(201)
   @Throttle(AUTH_RATE_LIMIT)
-  @ApiOperation({ summary: "用户注册", description: "使用邮箱、用户名和密码注册新账户" })
+  @ApiOperation({
+    summary: "用户注册",
+    description: "使用邮箱、用户名和密码注册新账户",
+  })
   @ApiBody({ type: RegisterDto })
   @ApiResponse({
     status: 201,
@@ -130,7 +133,10 @@ export class AuthController {
   @Throttle(REFRESH_RATE_LIMIT)
   @UseGuards(AuthGuard("jwt"))
   @ApiBearerAuth()
-  @ApiOperation({ summary: "刷新访问令牌", description: "使用当前令牌刷新生成新的访问令牌" })
+  @ApiOperation({
+    summary: "刷新访问令牌",
+    description: "使用当前令牌刷新生成新的访问令牌",
+  })
   @ApiResponse({
     status: 200,
     description: "令牌刷新成功",
@@ -149,15 +155,22 @@ export class AuthController {
   @Get("me")
   @UseGuards(AuthGuard("jwt"))
   @ApiBearerAuth()
-  @ApiOperation({ summary: "获取当前用户信息", description: "获取当前登录用户的个人信息" })
+  @ApiOperation({
+    summary: "获取当前用户信息",
+    description: "获取当前登录用户的个人信息",
+  })
   @ApiResponse({
     status: 200,
     description: "成功获取用户信息",
     type: UserDto,
   })
   @ApiResponse({ status: 401, description: "未授权或令牌无效" })
-  getProfile(@Request() req: { user: { email?: string; role?: string } }) {
-    const user = req.user;
+  async getProfile(@Request() req: { user: { id: string } }) {
+    // 从数据库获取完整用户信息（包括 fullName、avatarUrl 等）
+    const user = await this.authService.getFullProfile(req.user.id);
+    if (!user) {
+      return req.user;
+    }
     // 使用 AdminAuthService 统一检查管理员权限
     const isAdmin = this.adminAuthService.isAdmin(user);
     return { ...user, isAdmin };
@@ -169,7 +182,10 @@ export class AuthController {
    */
   @Get("google")
   @UseGuards(AuthGuard("google"))
-  @ApiOperation({ summary: "Google OAuth 登录", description: "重定向到 Google 进行 OAuth 认证" })
+  @ApiOperation({
+    summary: "Google OAuth 登录",
+    description: "重定向到 Google 进行 OAuth 认证",
+  })
   @ApiResponse({ status: 302, description: "重定向到 Google 登录页面" })
   async googleAuth() {
     // Guard redirects to Google
@@ -181,7 +197,10 @@ export class AuthController {
    */
   @Get("google/callback")
   @UseGuards(AuthGuard("google"))
-  @ApiOperation({ summary: "Google OAuth 回调", description: "Google OAuth 认证成功后的回调地址" })
+  @ApiOperation({
+    summary: "Google OAuth 回调",
+    description: "Google OAuth 认证成功后的回调地址",
+  })
   @ApiResponse({ status: 302, description: "重定向到前端，携带授权码" })
   @ApiResponse({ status: 401, description: "OAuth 认证失败" })
   async googleAuthCallback(
@@ -215,7 +234,10 @@ export class AuthController {
   @Post("exchange")
   @HttpCode(200)
   @Throttle(AUTH_RATE_LIMIT)
-  @ApiOperation({ summary: "授权码换取令牌", description: "使用 OAuth 授权码交换访问令牌和刷新令牌" })
+  @ApiOperation({
+    summary: "授权码换取令牌",
+    description: "使用 OAuth 授权码交换访问令牌和刷新令牌",
+  })
   @ApiBody({ type: ExchangeCodeDto })
   @ApiResponse({
     status: 200,
@@ -239,7 +261,10 @@ export class AuthController {
   @Patch("profile")
   @UseGuards(AuthGuard("jwt"))
   @ApiBearerAuth()
-  @ApiOperation({ summary: "更新个人信息", description: "更新当前用户的个人资料" })
+  @ApiOperation({
+    summary: "更新个人信息",
+    description: "更新当前用户的个人资料",
+  })
   @ApiBody({ type: UpdateProfileDto })
   @ApiResponse({
     status: 200,
@@ -263,7 +288,10 @@ export class AuthController {
   @Get("stats")
   @UseGuards(AuthGuard("jwt"))
   @ApiBearerAuth()
-  @ApiOperation({ summary: "获取用户统计", description: "获取当前用户的统计数据（资源、研究、团队等）" })
+  @ApiOperation({
+    summary: "获取用户统计",
+    description: "获取当前用户的统计数据（资源、研究、团队等）",
+  })
   @ApiResponse({
     status: 200,
     description: "成功获取统计数据",

@@ -9,6 +9,7 @@ export interface User {
   id: string;
   email: string;
   username: string;
+  fullName?: string; // 用户全名，优先显示
   avatarUrl?: string;
   bio?: string;
   interests?: string[];

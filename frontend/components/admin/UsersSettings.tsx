@@ -20,6 +20,8 @@ import {
   UserCheck,
   UserCog,
   TrendingUp,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import {
   useAdminUsers,
@@ -597,6 +599,11 @@ export default function UsersSettings({
     toggleCreditFreeze,
     isCreditsLoading,
     fetchLoginHistory,
+    pagination,
+    page,
+    goToPage,
+    nextPage,
+    prevPage,
   } = useAdminUsers();
 
   const [grantModalUser, setGrantModalUser] = useState<{
@@ -936,6 +943,62 @@ export default function UsersSettings({
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <div className="text-sm text-gray-500">
+            {t('common.showing')} {(page - 1) * pagination.limit + 1}-
+            {Math.min(page * pagination.limit, pagination.total)}{' '}
+            {t('common.of')} {pagination.total}{' '}
+            {t('admin.users.title').toLowerCase()}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={prevPage}
+              disabled={page === 1}
+              className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              {t('common.previous')}
+            </button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+                .filter(
+                  (p) =>
+                    p === 1 ||
+                    p === pagination.totalPages ||
+                    Math.abs(p - page) <= 1
+                )
+                .map((p, idx, arr) => (
+                  <span key={p} className="flex items-center">
+                    {idx > 0 && arr[idx - 1] !== p - 1 && (
+                      <span className="px-1 text-gray-400">...</span>
+                    )}
+                    <button
+                      onClick={() => goToPage(p)}
+                      className={`min-w-[32px] rounded-lg px-2 py-1 text-sm font-medium transition-colors ${
+                        p === page
+                          ? 'bg-violet-600 text-white'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  </span>
+                ))}
+            </div>
+            <button
+              onClick={nextPage}
+              disabled={page === pagination.totalPages}
+              className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t('common.next')}
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Role Permissions Info */}
       <div className="mt-6 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">

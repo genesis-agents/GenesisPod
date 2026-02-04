@@ -30,6 +30,7 @@ export class UserManagementService {
           OR: [
             { email: { contains: search, mode: "insensitive" as const } },
             { username: { contains: search, mode: "insensitive" as const } },
+            { fullName: { contains: search, mode: "insensitive" as const } },
           ],
         }
       : {};
@@ -44,6 +45,7 @@ export class UserManagementService {
           id: true,
           email: true,
           username: true,
+          fullName: true,
           role: true,
           avatarUrl: true,
           isActive: true,
@@ -79,6 +81,7 @@ export class UserManagementService {
         role: string;
         id: string;
         username: string | null;
+        fullName: string | null;
         avatarUrl: string | null;
         isActive: boolean;
         isVerified: boolean;
@@ -95,8 +98,8 @@ export class UserManagementService {
         _count: { notes: number; comments: number; collections: number };
       }) => ({
         ...user,
-        // Map username to name for frontend compatibility
-        name: user.username,
+        // Map fullName/username to name for frontend compatibility (prefer fullName)
+        name: user.fullName || user.username,
         // Map isActive boolean to status string for frontend compatibility
         status: user.isActive ? "active" : "inactive",
         isAdmin: user.role === "ADMIN" || this.adminEmails.includes(user.email),
@@ -500,7 +503,9 @@ export class UserManagementService {
     }
 
     if (!user.creditAccount) {
-      throw new NotFoundException(`User ${userId} does not have a credit account`);
+      throw new NotFoundException(
+        `User ${userId} does not have a credit account`,
+      );
     }
 
     const updatedAccount = await this.prisma.creditAccount.update({

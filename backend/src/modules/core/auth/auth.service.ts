@@ -367,6 +367,38 @@ export class AuthService {
   }
 
   /**
+   * 获取完整用户信息（用于 /auth/me）
+   * 从数据库获取最新信息，包括 fullName、avatarUrl 等
+   */
+  async getFullProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        fullName: true,
+        avatarUrl: true,
+        bio: true,
+        role: true,
+        createdAt: true,
+        interests: {
+          select: { tag: true },
+        },
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      ...user,
+      interests: user.interests.map((i) => i.tag),
+    };
+  }
+
+  /**
    * Google OAuth - 查找或创建用户
    */
   async findOrCreateGoogleUser(
@@ -389,6 +421,7 @@ export class AuthService {
         data: {
           email: profile.email,
           username: profile.displayName || profile.email.split("@")[0],
+          fullName: profile.displayName || null, // 保存用户全名用于显示
           oauthProvider: "google",
           oauthId: profile.id,
           avatarUrl: profile.picture,
@@ -457,6 +490,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         username: user.username,
+        fullName: user.fullName,
         avatarUrl: user.avatarUrl,
         createdAt: user.createdAt,
       },

@@ -51,18 +51,31 @@ export interface CreateUserData {
   password?: string;
 }
 
-export function useAdminUsers() {
+export interface PaginationInfo {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export function useAdminUsers(initialPage = 1, initialLimit = 20) {
   const [creditsLoading, setCreditsLoading] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
+  const [page, setPage] = useState(initialPage);
+  const [limit] = useState(initialLimit);
 
   const {
     data,
     loading: listLoading,
     error: listError,
     execute: refreshUsers,
-  } = useApiGet<{ users: User[]; total: number }>('/admin/users', {
-    immediate: true,
-  });
+  } = useApiGet<{ users: User[]; pagination: PaginationInfo }>(
+    `/admin/users?page=${page}&limit=${limit}`,
+    {
+      immediate: true,
+      deps: [page, limit],
+    }
+  );
 
   const [updateLoading, setUpdateLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -201,9 +214,39 @@ export function useAdminUsers() {
     []
   );
 
+  const pagination = data?.pagination ?? {
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+  };
+
+  const goToPage = useCallback(
+    (newPage: number) => {
+      if (newPage >= 1 && newPage <= pagination.totalPages) {
+        setPage(newPage);
+      }
+    },
+    [pagination.totalPages]
+  );
+
+  const nextPage = useCallback(() => {
+    if (page < pagination.totalPages) {
+      setPage((p) => p + 1);
+    }
+  }, [page, pagination.totalPages]);
+
+  const prevPage = useCallback(() => {
+    if (page > 1) {
+      setPage((p) => p - 1);
+    }
+  }, [page]);
+
   return {
     users: data?.users ?? [],
-    total: data?.total ?? 0,
+    total: pagination.total,
+    pagination,
+    page,
     loading:
       listLoading ||
       updateLoading ||
@@ -220,6 +263,9 @@ export function useAdminUsers() {
     grantCredits,
     toggleCreditFreeze,
     fetchLoginHistory,
+    goToPage,
+    nextPage,
+    prevPage,
     isCreating: createLoading,
     isUpdating: updateLoading,
     isDeleting: deleteLoading,
