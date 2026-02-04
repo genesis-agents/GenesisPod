@@ -439,52 +439,72 @@ export class DataSourceSeederService implements OnModuleInit {
     let skipped = 0;
     const invalidSources: string[] = [];
 
-    // Seed YouTube (YouTube feeds are always valid if channel ID is correct)
-    for (const channel of this.YOUTUBE_CHANNELS) {
-      const result = await this.seedYouTubeChannel(channel);
-      if (result === "created") created++;
-      else if (result === "skipped") skipped++;
-      else invalidSources.push(channel.name);
-    }
+    // 收集所有数据源进行批量处理
+    const allSources = [
+      ...this.YOUTUBE_CHANNELS.map((s) => ({ ...s, type: "youtube" as const })),
+      ...this.TECH_BLOGS.map((s) => ({ ...s, type: "blog" as const })),
+      ...this.REPORT_SOURCES.map((s) => ({ ...s, type: "report" as const })),
+      ...this.PAPER_SOURCES.map((s) => ({ ...s, type: "paper" as const })),
+      ...this.NEWS_SOURCES.map((s) => ({ ...s, type: "news" as const })),
+      ...this.POLICY_SOURCES.map((s) => ({ ...s, type: "policy" as const })),
+    ];
 
-    // Seed Blogs with validation
-    for (const blog of this.TECH_BLOGS) {
-      const result = await this.seedBlog(blog);
-      if (result === "created") created++;
-      else if (result === "skipped") skipped++;
-      else invalidSources.push(blog.name);
-    }
+    // 批量检查哪些源已存在（单次数据库查询）
+    const existingNames = new Set(
+      (
+        await this.prisma.dataSource.findMany({
+          where: {
+            name: { in: allSources.map((s) => s.name) },
+          },
+          select: { name: true },
+        })
+      ).map((s) => s.name),
+    );
 
-    // Seed Reports with validation
-    for (const report of this.REPORT_SOURCES) {
-      const result = await this.seedReport(report);
-      if (result === "created") created++;
-      else if (result === "skipped") skipped++;
-      else invalidSources.push(report.name);
-    }
+    // 过滤出需要创建的源
+    const sourcesToCreate = allSources.filter(
+      (s) => !existingNames.has(s.name),
+    );
+    skipped = existingNames.size;
 
-    // Seed Papers with validation
-    for (const paper of this.PAPER_SOURCES) {
-      const result = await this.seedPaper(paper);
-      if (result === "created") created++;
-      else if (result === "skipped") skipped++;
-      else invalidSources.push(paper.name);
-    }
+    // 并发验证和创建新源（限制并发数避免网络压力）
+    const CONCURRENCY = 5;
+    for (let i = 0; i < sourcesToCreate.length; i += CONCURRENCY) {
+      const batch = sourcesToCreate.slice(i, i + CONCURRENCY);
+      const results = await Promise.all(
+        batch.map(async (source) => {
+          let result: "created" | "skipped" | "invalid";
+          switch (source.type) {
+            case "youtube":
+              result = await this.seedYouTubeChannel(source as any);
+              break;
+            case "blog":
+              result = await this.seedBlog(source as any);
+              break;
+            case "report":
+              result = await this.seedReport(source as any);
+              break;
+            case "paper":
+              result = await this.seedPaper(source as any);
+              break;
+            case "news":
+              result = await this.seedNews(source as any);
+              break;
+            case "policy":
+              result = await this.seedPolicy(source as any);
+              break;
+            default:
+              result = "invalid";
+          }
+          return { name: source.name, result };
+        }),
+      );
 
-    // Seed News with validation
-    for (const news of this.NEWS_SOURCES) {
-      const result = await this.seedNews(news);
-      if (result === "created") created++;
-      else if (result === "skipped") skipped++;
-      else invalidSources.push(news.name);
-    }
-
-    // Seed Policy with validation
-    for (const policy of this.POLICY_SOURCES) {
-      const result = await this.seedPolicy(policy);
-      if (result === "created") created++;
-      else if (result === "skipped") skipped++;
-      else invalidSources.push(policy.name);
+      for (const { name, result } of results) {
+        if (result === "created") created++;
+        else if (result === "invalid") invalidSources.push(name);
+        // skipped 已经在上面计算过了
+      }
     }
 
     // 汇总输出结果

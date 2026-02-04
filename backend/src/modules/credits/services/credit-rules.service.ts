@@ -373,24 +373,37 @@ export class CreditRulesService implements OnModuleInit {
 
   /**
    * 初始化默认规则
+   * 使用并发执行提升启动性能
    */
   private async initializeDefaultRules() {
     try {
-      for (const rule of DEFAULT_RULES) {
-        await this.prisma.creditRule.upsert({
-          where: {
-            moduleType_operationType: {
-              moduleType: rule.moduleType,
-              operationType: rule.operationType,
-            },
-          },
-          update: {},
-          create: {
-            ...rule,
-            tokenMultiplier: 2.0, // Token 消耗 × 2 计算积分
-            modelMultipliers: {},
-          },
-        });
+      // 并发执行所有 upsert 操作，而不是顺序执行
+      const BATCH_SIZE = 10; // 每批 10 个，避免数据库连接池压力
+      const batches: (typeof DEFAULT_RULES)[] = [];
+
+      for (let i = 0; i < DEFAULT_RULES.length; i += BATCH_SIZE) {
+        batches.push(DEFAULT_RULES.slice(i, i + BATCH_SIZE));
+      }
+
+      for (const batch of batches) {
+        await Promise.all(
+          batch.map((rule) =>
+            this.prisma.creditRule.upsert({
+              where: {
+                moduleType_operationType: {
+                  moduleType: rule.moduleType,
+                  operationType: rule.operationType,
+                },
+              },
+              update: {},
+              create: {
+                ...rule,
+                tokenMultiplier: 2.0, // Token 消耗 × 2 计算积分
+                modelMultipliers: {},
+              },
+            }),
+          ),
+        );
       }
       this.logger.log("Default credit rules initialized");
     } catch (error) {
