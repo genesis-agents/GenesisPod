@@ -334,8 +334,15 @@ ${j + 1}. **${o.opportunity}**
     .join("\n") || "暂无机会分析"
 }
 
-### 详细分析内容
-${da.detailedContent || "详细内容请见各子章节"}
+### 详细分析内容摘要
+${
+  da.detailedContent
+    ? da.detailedContent.substring(0, 800) +
+      (da.detailedContent.length > 800
+        ? "...(已截断，完整内容已由研究 Agent 生成)"
+        : "")
+    : "详细内容请见各子章节"
+}
 `,
     )
     .join("\n\n");
@@ -359,16 +366,22 @@ export function formatEvidenceList(
     return "暂无证据";
   }
 
-  return evidences
+  // ★ 限制证据数量，避免 token 溢出
+  // 报告合成只需要知道有哪些证据可引用，不需要完整详情
+  const MAX_EVIDENCES_IN_PROMPT = 50;
+  const truncated = evidences.length > MAX_EVIDENCES_IN_PROMPT;
+  const displayedEvidences = evidences.slice(0, MAX_EVIDENCES_IN_PROMPT);
+
+  const list = displayedEvidences
     .map(
-      (e) => `
-[${e.citationIndex}] **${e.title}**
-    - 来源: ${e.domain || "未知"} (${e.sourceType || "未知类型"})
-    - 可信度: ${e.credibilityScore !== null ? `${e.credibilityScore}/100` : "未评分"}
-    - 日期: ${e.publishedAt ? e.publishedAt.toISOString().split("T")[0] : "未知"}
-    - URL: ${e.url}`,
+      (e) =>
+        `[${e.citationIndex}] ${e.title} (${e.domain || "未知"}, ${e.credibilityScore !== null ? `${e.credibilityScore}分` : "未评"})`,
     )
     .join("\n");
+
+  return truncated
+    ? `${list}\n\n... 还有 ${evidences.length - MAX_EVIDENCES_IN_PROMPT} 条证据（完整列表见报告附录）`
+    : list;
 }
 
 /**
