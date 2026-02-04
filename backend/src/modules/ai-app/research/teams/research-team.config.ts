@@ -1,15 +1,19 @@
 /**
- * AI Engine - Research Team Template
- * 深度研究团队模板
+ * AI App - Research Team Configuration
+ * 深度研究团队配置
  *
- * 对应产品愿景中的 AI Studio（深度研究）
+ * 从 AI Engine 迁移到 AI Apps 层
+ * 遵循架构原则：业务配置属于 Apps 层，框架属于 Engine 层
  */
 
-import { TeamConfig, BUILTIN_TEAMS } from "../abstractions/team.interface";
-import { BUILTIN_ROLES } from "../abstractions/role.interface";
-import { WorkflowConfig } from "../abstractions/workflow.interface";
-import { createConstraintProfile } from "../constraints/constraint-profile";
-import { BUILTIN_TOOLS } from "../../core/types/agent.types";
+import {
+  TeamConfig,
+  BUILTIN_TEAMS,
+} from "../../../ai-engine/teams/abstractions/team.interface";
+import { BUILTIN_ROLES } from "../../../ai-engine/teams/abstractions/role.interface";
+import { WorkflowConfig } from "../../../ai-engine/teams/abstractions/workflow.interface";
+import { createConstraintProfile } from "../../../ai-engine/teams/constraints/constraint-profile";
+import { BUILTIN_TOOLS } from "../../../ai-engine/core/types/agent.types";
 
 /**
  * 研究团队工作流配置
@@ -109,7 +113,7 @@ export const RESEARCH_TEAM_CONFIG: TeamConfig = {
   name: "深度研究",
   description: "专业级深度研究，输出高质量调研报告",
   type: "predefined",
-  icon: "🔬",
+  icon: "search",
   color: "#EC4899",
   leaderRoleId: BUILTIN_ROLES.RESEARCH_LEAD,
   memberRoles: [

@@ -11,6 +11,7 @@ Tests for `ResearchEvidenceAdapter` service - handles dual-write strategy for re
 #### Test Coverage
 
 **Core Functionality:**
+
 - `saveResearchEvidence()` - Dual write to TopicEvidence + Engine Evidence
   - Successful dual-write to both databases
   - Citation index auto-increment
@@ -21,6 +22,7 @@ Tests for `ResearchEvidenceAdapter` service - handles dual-write strategy for re
   - Snippet truncation to 500 chars
 
 **Batch Operations:**
+
 - `saveResearchEvidenceBatch()` - Transaction-based batch processing
   - Empty input handling
   - Transaction atomicity
@@ -29,6 +31,7 @@ Tests for `ResearchEvidenceAdapter` service - handles dual-write strategy for re
   - Batch size chunking (50 items per batch)
 
 **Type Mapping:**
+
 - `mapSourceTypeToEvidenceType()` - Source type to evidence type conversion
   - Academic/Journal/Paper → CITATION
   - News/Report/Official/Government → REFERENCE
@@ -38,6 +41,7 @@ Tests for `ResearchEvidenceAdapter` service - handles dual-write strategy for re
   - Case-insensitive mapping
 
 **URL Normalization:**
+
 - `normalizeUrl()` - URL standardization with fallback
   - GlobalDeduplicationService integration
   - Fallback to local normalization
@@ -46,11 +50,13 @@ Tests for `ResearchEvidenceAdapter` service - handles dual-write strategy for re
   - Non-duplicate URL check
 
 **Citation Formatting:**
+
 - `formatCitation()` - Single citation formatting
 - `generateBibliography()` - Complete reference list
 - `generateNumberedBibliography()` - Numbered reference list
 
 **Evidence Retrieval:**
+
 - `getEvidenceStats()` - Statistics aggregation
 - `getHighCredibilityEvidence()` - Credibility-based filtering
 - `getEvidenceBySourceType()` - Source type filtering
@@ -64,6 +70,7 @@ Tests for `EvidenceSyncCompensationService` - handles retry logic for failed Eng
 #### Test Coverage
 
 **Queue Management:**
+
 - `queueForRetry()` - Add failed writes to retry queue
   - Entry addition to pending queue
   - Unique ID generation
@@ -72,6 +79,7 @@ Tests for `EvidenceSyncCompensationService` - handles retry logic for failed Eng
   - Timestamp tracking
 
 **Retry Logic:**
+
 - `processRetryQueue()` - Process pending retries
   - Empty queue handling
   - Successful retry and removal
@@ -83,6 +91,7 @@ Tests for `EvidenceSyncCompensationService` - handles retry logic for failed Eng
   - lastRetryAt timestamp updates
 
 **Statistics:**
+
 - `getStats()` - Compensation statistics
   - Initial stats (all zeros)
   - Pending count tracking
@@ -92,21 +101,25 @@ Tests for `EvidenceSyncCompensationService` - handles retry logic for failed Eng
   - Cumulative statistics
 
 **Queue Inspection:**
+
 - `getPendingEntries()` - Get pending queue items
 - `getPermanentlyFailedEntries()` - Get permanent failures
 
 **Manual Operations:**
+
 - `triggerRetry()` - Manual retry trigger
 - `clearPermanentlyFailed()` - Clear permanent failures
   - Clear all permanently failed entries
   - Does not affect pending entries
 
 **Lifecycle:**
+
 - `onModuleDestroy()` - Cleanup on module destruction
   - Interval clearance
   - Multiple destroy calls handling
 
 **Integration Scenarios:**
+
 - Retry success after temporary network issues
 - Permanent failure after max retries exhausted
 - Queue capacity overflow management
@@ -116,12 +129,14 @@ Tests for `EvidenceSyncCompensationService` - handles retry logic for failed Eng
 ## Running Tests
 
 ### Run All Tests
+
 ```bash
 cd backend
 npm test -- "__tests__"
 ```
 
 ### Run Specific Test Suite
+
 ```bash
 # ResearchEvidenceAdapter tests
 npm test -- research-evidence.adapter.spec.ts
@@ -131,11 +146,13 @@ npm test -- evidence-sync-compensation.service.spec.ts
 ```
 
 ### Run Both Test Suites
+
 ```bash
 npm test -- "research-evidence.adapter.spec.ts|evidence-sync-compensation.service.spec.ts"
 ```
 
 ### Watch Mode
+
 ```bash
 npm run test:watch -- research-evidence.adapter.spec.ts
 ```
@@ -153,17 +170,19 @@ Time:        ~1.1s
 
 ### Coverage by Module
 
-| Module                              | Tests | Key Features Tested                                 |
-|-------------------------------------|-------|-----------------------------------------------------|
-| ResearchEvidenceAdapter             | 40    | Dual-write, batch ops, type mapping, URL dedup      |
-| EvidenceSyncCompensationService     | 30    | Retry logic, queue management, statistics           |
+| Module                          | Tests | Key Features Tested                            |
+| ------------------------------- | ----- | ---------------------------------------------- |
+| ResearchEvidenceAdapter         | 40    | Dual-write, batch ops, type mapping, URL dedup |
+| EvidenceSyncCompensationService | 30    | Retry logic, queue management, statistics      |
 
 ---
 
 ## Test Patterns
 
 ### 1. Arrange-Act-Assert (AAA)
+
 All tests follow the AAA pattern for clarity:
+
 ```typescript
 it('should do something', async () => {
   // Arrange
@@ -179,17 +198,20 @@ it('should do something', async () => {
 ```
 
 ### 2. Mocking Strategy
+
 - All external dependencies are mocked (PrismaService, EvidenceManagerService, etc.)
 - Jest mocks are used consistently
 - Mock implementations are cleared between tests
 
 ### 3. Error Handling Tests
+
 - Success paths
 - Failure paths
 - Graceful degradation
 - Non-Error exceptions
 
 ### 4. Integration Scenarios
+
 - Real-world use cases
 - Multiple operations chained
 - State verification across operations

@@ -104,7 +104,10 @@ describe("ResearchEvidenceAdapter", () => {
       providers: [
         ResearchEvidenceAdapter,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: EvidenceManagerService, useValue: mockEngineEvidenceService },
+        {
+          provide: EvidenceManagerService,
+          useValue: mockEngineEvidenceService,
+        },
         {
           provide: CitationFormatterService,
           useValue: mockCitationFormatterService,
@@ -491,9 +494,11 @@ describe("ResearchEvidenceAdapter", () => {
                 _max: { citationIndex: 0 },
               }),
               createMany: jest.fn().mockResolvedValue({ count: 1 }),
-              findMany: jest.fn().mockResolvedValue([
-                { ...mockTopicEvidence, citationIndex: 1 },
-              ]),
+              findMany: jest
+                .fn()
+                .mockResolvedValue([
+                  { ...mockTopicEvidence, citationIndex: 1 },
+                ]),
             },
           };
           return callback(tx);
@@ -645,34 +650,31 @@ describe("ResearchEvidenceAdapter", () => {
 
     it("should fallback to local normalization when deduplication service unavailable", async () => {
       // Arrange - create adapter without deduplication service
-      const moduleWithoutDedup: TestingModule = await Test.createTestingModule(
-        {
-          providers: [
-            ResearchEvidenceAdapter,
-            { provide: PrismaService, useValue: prismaService },
-            {
-              provide: EvidenceManagerService,
-              useValue: engineEvidenceService,
-            },
-            {
-              provide: CitationFormatterService,
-              useValue: citationFormatterService,
-            },
-            {
-              provide: EvidenceSyncCompensationService,
-              useValue: compensationService,
-            },
-          ],
-        },
-      ).compile();
+      const moduleWithoutDedup: TestingModule = await Test.createTestingModule({
+        providers: [
+          ResearchEvidenceAdapter,
+          { provide: PrismaService, useValue: prismaService },
+          {
+            provide: EvidenceManagerService,
+            useValue: engineEvidenceService,
+          },
+          {
+            provide: CitationFormatterService,
+            useValue: citationFormatterService,
+          },
+          {
+            provide: EvidenceSyncCompensationService,
+            useValue: compensationService,
+          },
+        ],
+      }).compile();
 
       const adapterWithoutDedup =
         moduleWithoutDedup.get<ResearchEvidenceAdapter>(
           ResearchEvidenceAdapter,
         );
 
-      const testUrl =
-        "https://example.com/article?utm_source=test&fbclid=123/";
+      const testUrl = "https://example.com/article?utm_source=test&fbclid=123/";
       (prismaService.topicEvidence.findFirst as jest.Mock).mockResolvedValue(
         null,
       );
@@ -693,26 +695,24 @@ describe("ResearchEvidenceAdapter", () => {
 
     it("should handle invalid URLs in fallback normalization", async () => {
       // Arrange - create adapter without deduplication service
-      const moduleWithoutDedup: TestingModule = await Test.createTestingModule(
-        {
-          providers: [
-            ResearchEvidenceAdapter,
-            { provide: PrismaService, useValue: prismaService },
-            {
-              provide: EvidenceManagerService,
-              useValue: engineEvidenceService,
-            },
-            {
-              provide: CitationFormatterService,
-              useValue: citationFormatterService,
-            },
-            {
-              provide: EvidenceSyncCompensationService,
-              useValue: compensationService,
-            },
-          ],
-        },
-      ).compile();
+      const moduleWithoutDedup: TestingModule = await Test.createTestingModule({
+        providers: [
+          ResearchEvidenceAdapter,
+          { provide: PrismaService, useValue: prismaService },
+          {
+            provide: EvidenceManagerService,
+            useValue: engineEvidenceService,
+          },
+          {
+            provide: CitationFormatterService,
+            useValue: citationFormatterService,
+          },
+          {
+            provide: EvidenceSyncCompensationService,
+            useValue: compensationService,
+          },
+        ],
+      }).compile();
 
       const adapterWithoutDedup =
         moduleWithoutDedup.get<ResearchEvidenceAdapter>(
@@ -774,7 +774,8 @@ describe("ResearchEvidenceAdapter", () => {
   describe("formatCitation", () => {
     it("should format citation using CitationFormatterService", () => {
       // Arrange
-      const expectedCitation = "Test Article. (2025). Retrieved from https://example.com/article";
+      const expectedCitation =
+        "Test Article. (2025). Retrieved from https://example.com/article";
       (citationFormatterService.format as jest.Mock).mockReturnValue(
         expectedCitation,
       );
@@ -803,7 +804,9 @@ describe("ResearchEvidenceAdapter", () => {
 
     it("should use default APA style if not specified", () => {
       // Arrange
-      (citationFormatterService.format as jest.Mock).mockReturnValue("citation");
+      (citationFormatterService.format as jest.Mock).mockReturnValue(
+        "citation",
+      );
 
       // Act
       adapter.formatCitation(mockTopicEvidence);
@@ -831,7 +834,9 @@ describe("ResearchEvidenceAdapter", () => {
       (citationFormatterService.format as jest.Mock).mockReturnValue(
         "formatted citation",
       );
-      (citationFormatterService.formatBibliography as jest.Mock).mockReturnValue(
+      (
+        citationFormatterService.formatBibliography as jest.Mock
+      ).mockReturnValue(
         "Bibliography\n\nformatted citation\n\nformatted citation",
       );
 

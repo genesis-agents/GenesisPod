@@ -1,15 +1,19 @@
 /**
- * AI Engine - Report Team Template
- * 报告撰写团队模板
+ * AI App - Report Team Configuration
+ * 报告撰写团队配置
  *
- * 对应产品愿景中的 AI Office（报告撰写）
+ * 从 AI Engine 迁移到 AI Apps 层
+ * 遵循架构原则：业务配置属于 Apps 层，框架属于 Engine 层
  */
 
-import { TeamConfig, BUILTIN_TEAMS } from "../abstractions/team.interface";
-import { BUILTIN_ROLES } from "../abstractions/role.interface";
-import { WorkflowConfig } from "../abstractions/workflow.interface";
-import { createConstraintProfile } from "../constraints/constraint-profile";
-import { BUILTIN_TOOLS } from "../../core/types/agent.types";
+import {
+  TeamConfig,
+  BUILTIN_TEAMS,
+} from "../../../ai-engine/teams/abstractions/team.interface";
+import { BUILTIN_ROLES } from "../../../ai-engine/teams/abstractions/role.interface";
+import { WorkflowConfig } from "../../../ai-engine/teams/abstractions/workflow.interface";
+import { createConstraintProfile } from "../../../ai-engine/teams/constraints/constraint-profile";
+import { BUILTIN_TOOLS } from "../../../ai-engine/core/types/agent.types";
 
 /**
  * 报告团队工作流配置
@@ -96,7 +100,7 @@ export const REPORT_TEAM_CONFIG: TeamConfig = {
   name: "报告撰写",
   description: "高效生成各类商业报告和文档",
   type: "predefined",
-  icon: "📄",
+  icon: "file-text",
   color: "#10B981",
   leaderRoleId: BUILTIN_ROLES.CONTENT_LEAD,
   memberRoles: [

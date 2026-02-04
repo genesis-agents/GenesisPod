@@ -75,22 +75,26 @@ EvidenceManagerService
 ## Key Test Scenarios
 
 ### 1. Batch Processing
+
 - Tests batch splitting (100 items per batch)
 - Tests transaction timeout (30 seconds)
 - Tests error handling and rollback
 
 ### 2. Null Handling
+
 - Verifies null values converted to undefined
 - Tests optional field handling
 - Tests credibilityScore averaging (excludes nulls)
 
 ### 3. Default Values
+
 - relevanceScore defaults to 0.5
 - limit defaults to 50
 - offset defaults to 0
 - sort defaults to createdAt desc
 
 ### 4. Error Scenarios
+
 - Database operation failures
 - Batch processing errors
 - Missing data validation
@@ -121,14 +125,14 @@ const mockCitationFormatterService = {
 
 ## Business Rules Tested
 
-| Rule | Verified |
-|------|----------|
-| Default relevanceScore = 0.5 | ✅ |
-| Batch size = 100 items | ✅ |
-| Transaction timeout = 30s | ✅ |
-| Stop on batch error | ✅ |
-| Exclude null from avg | ✅ |
-| CITATION + REFERENCE in bibliography | ✅ |
+| Rule                                 | Verified |
+| ------------------------------------ | -------- |
+| Default relevanceScore = 0.5         | ✅       |
+| Batch size = 100 items               | ✅       |
+| Transaction timeout = 30s            | ✅       |
+| Stop on batch error                  | ✅       |
+| Exclude null from avg                | ✅       |
+| CITATION + REFERENCE in bibliography | ✅       |
 
 ## Adding New Tests
 
@@ -166,16 +170,19 @@ describe("newMethod", () => {
 ## Debugging Failed Tests
 
 ### View Test Output
+
 ```bash
 npm test -- evidence-manager.service.spec.ts --verbose
 ```
 
 ### Run Single Test
+
 ```bash
 npm test -- evidence-manager.service.spec.ts -t "should create and return"
 ```
 
 ### Check Mock Calls
+
 ```typescript
 // In test
 console.log(prisma.evidence.create.mock.calls);

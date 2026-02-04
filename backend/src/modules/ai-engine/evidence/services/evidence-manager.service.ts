@@ -111,9 +111,7 @@ export class EvidenceManagerService implements IEvidenceManager {
         ); // ★ 30 秒超时
 
         results.push(
-          ...evidences.map((e: PrismaEvidence) =>
-            this.mapToEvidence(e),
-          ),
+          ...evidences.map((e: PrismaEvidence) => this.mapToEvidence(e)),
         );
       } catch (error) {
         this.logger.error(`Batch ${i}-${i + batch.length} failed: ${error}`);

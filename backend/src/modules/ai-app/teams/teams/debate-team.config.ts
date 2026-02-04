@@ -1,15 +1,19 @@
 /**
- * AI Engine - Debate Team Template
- * 辩论推演团队模板
+ * AI App - Debate Team Configuration
+ * 辩论推演团队配置
  *
- * 对应产品愿景中的 AI Simulation（辩论推演）
+ * 从 AI Engine 迁移到 AI Apps 层
+ * 遵循架构原则：业务配置属于 Apps 层，框架属于 Engine 层
  */
 
-import { TeamConfig, BUILTIN_TEAMS } from "../abstractions/team.interface";
-import { BUILTIN_ROLES } from "../abstractions/role.interface";
-import { WorkflowConfig } from "../abstractions/workflow.interface";
-import { createConstraintProfile } from "../constraints/constraint-profile";
-import { BUILTIN_TOOLS } from "../../core/types/agent.types";
+import {
+  TeamConfig,
+  BUILTIN_TEAMS,
+} from "../../../ai-engine/teams/abstractions/team.interface";
+import { BUILTIN_ROLES } from "../../../ai-engine/teams/abstractions/role.interface";
+import { WorkflowConfig } from "../../../ai-engine/teams/abstractions/workflow.interface";
+import { createConstraintProfile } from "../../../ai-engine/teams/constraints/constraint-profile";
+import { BUILTIN_TOOLS } from "../../../ai-engine/core/types/agent.types";
 
 /**
  * 辩论团队工作流配置
@@ -94,7 +98,7 @@ export const DEBATE_TEAM_CONFIG: TeamConfig = {
   name: "辩论推演",
   description: "多视角论证，支持决策分析",
   type: "predefined",
-  icon: "🎯",
+  icon: "scale",
   color: "#EF4444",
   leaderRoleId: BUILTIN_ROLES.MODERATOR,
   memberRoles: [

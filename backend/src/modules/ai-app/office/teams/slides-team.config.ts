@@ -1,8 +1,11 @@
 /**
- * AI Engine - Slides Team Template
- * PPT 生成团队模板
+ * AI App - Slides Team Configuration
+ * PPT 生成团队配置
  *
- * 对应 ai-office/slides 模块的 5-Agent 团队：
+ * 从 AI Engine 迁移到 AI Apps 层
+ * 遵循架构原则：业务配置属于 Apps 层，框架属于 Engine 层
+ *
+ * 5-Agent 团队：
  * - Architect (Leader): 任务分解、大纲规划
  * - Writer: 内容填充、文本润色
  * - Renderer: 模板渲染、HTML 生成
@@ -10,11 +13,14 @@
  * - Reviewer: 质量审核、一致性检查
  */
 
-import { TeamConfig, BUILTIN_TEAMS } from "../abstractions/team.interface";
-import { BUILTIN_ROLES } from "../abstractions/role.interface";
-import { WorkflowConfig } from "../abstractions/workflow.interface";
-import { createConstraintProfile } from "../constraints/constraint-profile";
-import { BUILTIN_TOOLS } from "../../core/types/agent.types";
+import {
+  TeamConfig,
+  BUILTIN_TEAMS,
+} from "../../../ai-engine/teams/abstractions/team.interface";
+import { BUILTIN_ROLES } from "../../../ai-engine/teams/abstractions/role.interface";
+import { WorkflowConfig } from "../../../ai-engine/teams/abstractions/workflow.interface";
+import { createConstraintProfile } from "../../../ai-engine/teams/constraints/constraint-profile";
+import { BUILTIN_TOOLS } from "../../../ai-engine/core/types/agent.types";
 
 /**
  * Slides 团队工作流配置
@@ -140,7 +146,7 @@ export const SLIDES_TEAM_CONFIG: TeamConfig = {
   description:
     "AI 驱动的专业 PPT 生成团队，5 个专业 Agent 协作完成高质量演示文稿",
   type: "predefined",
-  icon: "📊",
+  icon: "presentation",
   color: "#6366F1", // Indigo
   leaderRoleId: BUILTIN_ROLES.SLIDES_LEAD,
   memberRoles: [

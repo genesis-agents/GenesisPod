@@ -4829,6 +4829,83 @@
       "unknownSource": "Unknown source",
       "viewFullSource": "View full source →",
       "openOriginal": "Open original ↗"
+    },
+    "teamPanel": {
+      "title": "Research Team",
+      "leaderModel": "Leader: {{model}}",
+      "legend": {
+        "inProgress": "In Progress",
+        "completed": "Completed",
+        "idle": "Idle"
+      },
+      "agentRoles": {
+        "leader": {
+          "name": "Research Coordinator",
+          "description": "Responsible for planning research outlines, assigning tasks to researchers, reviewing research quality, and integrating final results",
+          "note": "Uses reasoning models for advanced decision-making"
+        },
+        "dimensionResearcher": {
+          "name": "Dimension Researcher",
+          "description": "Responsible for in-depth research on specific dimensions, collecting evidence, and writing analysis content",
+          "note": "Leader assigns models and tools based on task",
+          "assignedTo": "Assigned to research \"{{dimension}}\" dimension"
+        },
+        "qualityReviewer": {
+          "name": "Quality Reviewer",
+          "description": "Responsible for reviewing research content for accuracy, completeness, and consistency",
+          "note": "Leader assigns models and tools based on task"
+        },
+        "reportWriter": {
+          "name": "Report Writer",
+          "description": "Responsible for integrating research results from all dimensions and writing the final comprehensive report",
+          "note": "Leader assigns models and tools based on task"
+        }
+      },
+      "agentDetail": {
+        "clickToView": "Click to view details",
+        "status": "Status:",
+        "statusIdle": "Idle",
+        "statusWorking": "Working",
+        "statusCompleted": "Completed",
+        "statusFailed": "Failed",
+        "responsibilities": "Responsibilities:",
+        "capabilities": "Capabilities:",
+        "assignedSkills": "Assigned Skills:",
+        "assignedTools": "Assigned Tools:",
+        "configMethod": "Configuration:",
+        "aiModel": "AI Model",
+        "modelNotSpecified": "Not specified",
+        "currentTask": "Current Task:",
+        "pendingAssignment": "Pending Leader assignment"
+      }
+    },
+    "topics": {
+      "credibilityPanel": {
+        "noReport": "No Credibility Report",
+        "noReportHint": "A credibility assessment report will be automatically generated after research completes"
+      },
+      "referencesPanel": {
+        "unknownDimension": "Unknown dimension",
+        "loadingEvidence": "Loading evidence sources...",
+        "noEvidence": "No evidence sources",
+        "noEvidenceHint": "After refreshing the topic, all cited evidence sources and their credibility scores will be displayed",
+        "totalSources": "Total <strong>{{total}}</strong> sources",
+        "highCredibility": "High {{count}}",
+        "mediumCredibility": "Medium {{count}}",
+        "lowCredibility": "Low {{count}}",
+        "filterAll": "All",
+        "filterHigh": "High",
+        "filterMedium": "Medium",
+        "filterLow": "Low",
+        "sortByCredibility": "By Credibility",
+        "sortByDate": "By Date",
+        "citedIn": "Cited in:",
+        "citedInDimension": "Cited {{count}} time(s) in \"{{dimension}}\"",
+        "webpage": "Webpage",
+        "openOriginal": "Open Original",
+        "citedTimes": "Cited {{count}} time(s)",
+        "original": "Original"
+      }
     }
   },
   "office": {

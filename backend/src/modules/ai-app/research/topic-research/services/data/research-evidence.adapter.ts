@@ -113,9 +113,7 @@ export class ResearchEvidenceAdapter {
       associations: {
         entityType: "research_report",
         entityId: input.reportId,
-        location: input.analysisId
-          ? `analysis:${input.analysisId}`
-          : undefined,
+        location: input.analysisId ? `analysis:${input.analysisId}` : undefined,
         context: `citation:${nextCitationIndex}`,
       },
       relevanceScore: 0.5,
@@ -128,8 +126,7 @@ export class ResearchEvidenceAdapter {
       const engineEvidence = await this.engineEvidence.save(engineRequest);
       engineEvidenceId = engineEvidence.id;
     } catch (error) {
-      const errorMsg =
-        error instanceof Error ? error.message : String(error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
 
       // ★ 优雅降级：Engine Evidence 写入失败不影响核心功能
       this.logger.warn(

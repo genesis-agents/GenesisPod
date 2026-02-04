@@ -260,10 +260,9 @@ describe("EvidenceManagerService", () => {
       expect(results[0].type).toBe("CITATION");
       expect(results[1].type).toBe("REFERENCE");
       expect(results[2].type).toBe("QUOTE");
-      expect(prisma.$transaction).toHaveBeenCalledWith(
-        expect.any(Function),
-        { timeout: 30000 },
-      );
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+        timeout: 30000,
+      });
     });
 
     it("should handle batch size of exactly 100 items", async () => {

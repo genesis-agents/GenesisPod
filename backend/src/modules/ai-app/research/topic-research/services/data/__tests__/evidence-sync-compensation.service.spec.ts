@@ -58,7 +58,10 @@ describe("EvidenceSyncCompensationService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EvidenceSyncCompensationService,
-        { provide: EvidenceManagerService, useValue: mockEngineEvidenceService },
+        {
+          provide: EvidenceManagerService,
+          useValue: mockEngineEvidenceService,
+        },
       ],
     }).compile();
 
@@ -81,11 +84,7 @@ describe("EvidenceSyncCompensationService", () => {
   describe("queueForRetry", () => {
     it("should add entry to pending queue", () => {
       // Act
-      service.queueForRetry(
-        mockTopicEvidenceId,
-        mockSaveRequest,
-        "Test error",
-      );
+      service.queueForRetry(mockTopicEvidenceId, mockSaveRequest, "Test error");
 
       // Assert
       const stats = service.getStats();
@@ -101,20 +100,12 @@ describe("EvidenceSyncCompensationService", () => {
 
     it("should generate unique ID for each entry", async () => {
       // Act - use different topicEvidenceIds and small delay to ensure unique IDs
-      service.queueForRetry(
-        "topic-evidence-1",
-        mockSaveRequest,
-        "Error 1",
-      );
+      service.queueForRetry("topic-evidence-1", mockSaveRequest, "Error 1");
 
       // Small delay to ensure different timestamp
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      service.queueForRetry(
-        "topic-evidence-2",
-        mockSaveRequest,
-        "Error 2",
-      );
+      service.queueForRetry("topic-evidence-2", mockSaveRequest, "Error 2");
 
       // Assert
       const pendingEntries = service.getPendingEntries();
@@ -125,28 +116,22 @@ describe("EvidenceSyncCompensationService", () => {
     it("should drop oldest entry when queue is full", () => {
       // Arrange - fill queue to capacity (1000)
       for (let i = 0; i < 1000; i++) {
-        service.queueForRetry(
-          `evidence-${i}`,
-          mockSaveRequest,
-          `Error ${i}`,
-        );
+        service.queueForRetry(`evidence-${i}`, mockSaveRequest, `Error ${i}`);
       }
 
       const firstEntry = service.getPendingEntries()[0];
 
       // Act - add one more to exceed capacity
-      service.queueForRetry(
-        "evidence-1000",
-        mockSaveRequest,
-        "Error 1000",
-      );
+      service.queueForRetry("evidence-1000", mockSaveRequest, "Error 1000");
 
       // Assert
       const stats = service.getStats();
       expect(stats.pendingCount).toBe(1000); // Should remain at max
 
       const pendingEntries = service.getPendingEntries();
-      expect(pendingEntries.find((e) => e.id === firstEntry.id)).toBeUndefined(); // First entry removed
+      expect(
+        pendingEntries.find((e) => e.id === firstEntry.id),
+      ).toBeUndefined(); // First entry removed
       expect(pendingEntries[pendingEntries.length - 1].topicEvidenceId).toBe(
         "evidence-1000",
       ); // New entry added
@@ -157,11 +142,7 @@ describe("EvidenceSyncCompensationService", () => {
       const beforeTime = new Date();
 
       // Act
-      service.queueForRetry(
-        mockTopicEvidenceId,
-        mockSaveRequest,
-        "Test error",
-      );
+      service.queueForRetry(mockTopicEvidenceId, mockSaveRequest, "Test error");
 
       // Assert
       const afterTime = new Date();
@@ -169,7 +150,9 @@ describe("EvidenceSyncCompensationService", () => {
       expect(entry.createdAt.getTime()).toBeGreaterThanOrEqual(
         beforeTime.getTime(),
       );
-      expect(entry.createdAt.getTime()).toBeLessThanOrEqual(afterTime.getTime());
+      expect(entry.createdAt.getTime()).toBeLessThanOrEqual(
+        afterTime.getTime(),
+      );
     });
   });
 
@@ -595,7 +578,9 @@ describe("EvidenceSyncCompensationService", () => {
       const stats = service.getStats();
       expect(stats.pendingCount).toBe(1); // new-pending still there
       expect(stats.permanentlyFailedCount).toBe(0); // cleared
-      expect(service.getPendingEntries()[0].topicEvidenceId).toBe("new-pending");
+      expect(service.getPendingEntries()[0].topicEvidenceId).toBe(
+        "new-pending",
+      );
     });
   });
 
@@ -690,11 +675,7 @@ describe("EvidenceSyncCompensationService", () => {
     it("should handle queue overflow gracefully", () => {
       // Arrange - add entries up to max capacity
       for (let i = 0; i < 1001; i++) {
-        service.queueForRetry(
-          `evidence-${i}`,
-          mockSaveRequest,
-          `Error ${i}`,
-        );
+        service.queueForRetry(`evidence-${i}`, mockSaveRequest, `Error ${i}`);
       }
 
       // Act
@@ -704,9 +685,9 @@ describe("EvidenceSyncCompensationService", () => {
       // Assert
       expect(stats.pendingCount).toBe(1000); // Max capacity
       expect(pendingEntries[0].topicEvidenceId).toBe("evidence-1"); // First was dropped
-      expect(
-        pendingEntries[pendingEntries.length - 1].topicEvidenceId,
-      ).toBe("evidence-1000");
+      expect(pendingEntries[pendingEntries.length - 1].topicEvidenceId).toBe(
+        "evidence-1000",
+      );
     });
   });
 });

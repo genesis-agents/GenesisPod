@@ -90,9 +90,12 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
    * 启动定期清理过期订阅的任务
    */
   private startCleanupTask(): void {
-    this.cleanupIntervalId = setInterval(() => {
-      this.cleanupStaleSubscriptions();
-    }, 10 * 60 * 1000); // 每 10 分钟
+    this.cleanupIntervalId = setInterval(
+      () => {
+        this.cleanupStaleSubscriptions();
+      },
+      10 * 60 * 1000,
+    ); // 每 10 分钟
   }
 
   /**
