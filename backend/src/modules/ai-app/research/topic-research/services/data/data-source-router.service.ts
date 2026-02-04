@@ -32,6 +32,10 @@ import {
 import { ResearchTopic, TopicDimension } from "@prisma/client";
 import { AICapabilityResolver } from "@/modules/ai-engine/capabilities/ai-capability-resolver.service";
 import { DataSourcePlannerService } from "./data-source-planner.service";
+import {
+  dataSourceToToolId,
+  convertToolsToDataSources,
+} from "../../config/data-source-mapping.config";
 
 /**
  * 数据获取选项
@@ -1881,68 +1885,17 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
   // ==================== Tool Capability Integration ====================
 
   /**
-   * 将 DataSourceType 映射到 Tool ID
-   * 某些数据源对应特定的工具，需要检查 Admin 配置
+   * 将 DataSourceType 映射到 Tool ID（委托到集中配置）
    */
   private dataSourceToToolId(source: DataSourceType): string | null {
-    const mapping: Partial<Record<DataSourceType, string>> = {
-      [DataSourceType.WEB]: "web-search",
-      [DataSourceType.ACADEMIC]: "arxiv-search",
-      [DataSourceType.GITHUB]: "github-search",
-      [DataSourceType.HACKERNEWS]: "hackernews-search",
-      [DataSourceType.FEDERAL_REGISTER]: "federal-register",
-      [DataSourceType.CONGRESS]: "congress-gov",
-      [DataSourceType.WHITEHOUSE]: "whitehouse-news",
-      [DataSourceType.SOCIAL_X]: "social-x", // ★ 社媒数据源
-      // RSS, LOCAL 暂时不映射，因为它们需要依赖 RSS/RAG 系统
-    };
-
-    return mapping[source] || null;
+    return dataSourceToToolId(source);
   }
 
   /**
-   * ★ 将 Tool ID 映射回 DataSourceType
-   * Leader 分配的工具需要转换为数据源类型
-   */
-  private toolIdToDataSource(toolId: string): DataSourceType | null {
-    const mapping: Record<string, DataSourceType> = {
-      "web-search": DataSourceType.WEB,
-      "arxiv-search": DataSourceType.ACADEMIC,
-      "academic-search": DataSourceType.ACADEMIC,
-      "github-search": DataSourceType.GITHUB,
-      "hackernews-search": DataSourceType.HACKERNEWS,
-      "federal-register": DataSourceType.FEDERAL_REGISTER,
-      "congress-gov": DataSourceType.CONGRESS,
-      "whitehouse-news": DataSourceType.WHITEHOUSE,
-      // ★ 社媒数据源别名
-      "social-x": DataSourceType.SOCIAL_X,
-      "social-media": DataSourceType.SOCIAL_X,
-      "x-twitter": DataSourceType.SOCIAL_X,
-      twitter: DataSourceType.SOCIAL_X,
-      // 支持更多常见的别名
-      web: DataSourceType.WEB,
-      academic: DataSourceType.ACADEMIC,
-      github: DataSourceType.GITHUB,
-      hackernews: DataSourceType.HACKERNEWS,
-      hn: DataSourceType.HACKERNEWS,
-    };
-
-    if (!toolId) return null;
-    return mapping[toolId.toLowerCase()] || null;
-  }
-
-  /**
-   * ★ 将 Leader 分配的工具列表转换为数据源类型列表
+   * 将 Leader 分配的工具列表转换为数据源类型列表（委托到集中配置）
    */
   private convertToolsToDataSources(tools: string[]): DataSourceType[] {
-    const sources: DataSourceType[] = [];
-    for (const tool of tools) {
-      const source = this.toolIdToDataSource(tool);
-      if (source && !sources.includes(source)) {
-        sources.push(source);
-      }
-    }
-    return sources;
+    return convertToolsToDataSources(tools);
   }
 
   /**

@@ -35,7 +35,6 @@ import { AiEngineOrchestrationModule } from "./ai-engine-orchestration.module";
 import { AiEngineMemoryModule } from "./ai-engine-memory.module";
 import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 // ★ P2 能力下沉：新增子模块导入
-import { DataModule } from "./data/data.module";
 import { EvidenceModule } from "./evidence/evidence.module";
 import { QualityModule } from "./quality/quality.module";
 import { CollaborationModule } from "./collaboration/collaboration.module";
@@ -120,7 +119,6 @@ const handoffCoordinatorFactory = {
     AiEngineMemoryModule,
     AiEngineConstraintModule,
     // ★ P2 能力下沉：新增子模块
-    DataModule,
     EvidenceModule,
     QualityModule,
     CollaborationModule,
@@ -168,7 +166,6 @@ const handoffCoordinatorFactory = {
     AiEngineMemoryModule,
     AiEngineConstraintModule,
     // ★ P2 能力下沉：新增子模块导出
-    DataModule,
     EvidenceModule,
     QualityModule,
     CollaborationModule,

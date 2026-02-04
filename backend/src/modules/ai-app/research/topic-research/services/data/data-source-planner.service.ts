@@ -8,6 +8,7 @@ import {
   DataSourceCapability,
 } from "../../types/data-source.types";
 import { AICapabilityResolver } from "@/modules/ai-engine/capabilities/ai-capability-resolver.service";
+import { dataSourceToToolId } from "../../config/data-source-mapping.config";
 
 /**
  * DataSourcePlannerService
@@ -239,20 +240,10 @@ export class DataSourcePlannerService {
   }
 
   /**
-   * 数据源类型到工具 ID 的映射
+   * 数据源类型到工具 ID 的映射（委托到集中配置）
    */
   private dataSourceToToolId(source: DataSourceType): string | null {
-    const mapping: Partial<Record<DataSourceType, string>> = {
-      [DataSourceType.WEB]: "web-search",
-      [DataSourceType.ACADEMIC]: "arxiv-search",
-      [DataSourceType.GITHUB]: "github-search",
-      [DataSourceType.HACKERNEWS]: "hackernews-search",
-      [DataSourceType.FEDERAL_REGISTER]: "federal-register",
-      [DataSourceType.CONGRESS]: "congress-gov",
-      [DataSourceType.WHITEHOUSE]: "whitehouse-news",
-      [DataSourceType.SOCIAL_X]: "social-x", // X/Twitter 社媒热点
-    };
-    return mapping[source] || null;
+    return dataSourceToToolId(source);
   }
 
   /**

@@ -4,6 +4,11 @@ import {
   DataSourceResult,
   AggregatedSearchResult,
 } from "../../types/data-source.types";
+import {
+  dataSourceToToolId,
+  toolIdToDataSource,
+  convertToolsToDataSources,
+} from "../../config/data-source-mapping.config";
 
 /**
  * Data Source Strategy Service
@@ -19,67 +24,28 @@ export class DataSourceStrategyService {
   private readonly logger = new Logger(DataSourceStrategyService.name);
 
   // ============================================================================
-  // Data Source Mapping
+  // Data Source Mapping (委托到集中配置)
   // ============================================================================
 
   /**
    * 将 DataSourceType 映射到 Tool ID
    */
   dataSourceToToolId(source: DataSourceType): string | null {
-    const mapping: Partial<Record<DataSourceType, string>> = {
-      [DataSourceType.WEB]: "web-search",
-      [DataSourceType.ACADEMIC]: "arxiv-search",
-      [DataSourceType.GITHUB]: "github-search",
-      [DataSourceType.HACKERNEWS]: "hackernews-search",
-      [DataSourceType.FEDERAL_REGISTER]: "federal-register",
-      [DataSourceType.CONGRESS]: "congress-gov",
-      [DataSourceType.WHITEHOUSE]: "whitehouse-news",
-      [DataSourceType.SOCIAL_X]: "social-x",
-    };
-
-    return mapping[source] || null;
+    return dataSourceToToolId(source);
   }
 
   /**
    * 将 Tool ID 映射回 DataSourceType
    */
   toolIdToDataSource(toolId: string): DataSourceType | null {
-    const mapping: Record<string, DataSourceType> = {
-      "web-search": DataSourceType.WEB,
-      "arxiv-search": DataSourceType.ACADEMIC,
-      "academic-search": DataSourceType.ACADEMIC,
-      "github-search": DataSourceType.GITHUB,
-      "hackernews-search": DataSourceType.HACKERNEWS,
-      "federal-register": DataSourceType.FEDERAL_REGISTER,
-      "congress-gov": DataSourceType.CONGRESS,
-      "whitehouse-news": DataSourceType.WHITEHOUSE,
-      "social-x": DataSourceType.SOCIAL_X,
-      "social-media": DataSourceType.SOCIAL_X,
-      "x-twitter": DataSourceType.SOCIAL_X,
-      twitter: DataSourceType.SOCIAL_X,
-      web: DataSourceType.WEB,
-      academic: DataSourceType.ACADEMIC,
-      github: DataSourceType.GITHUB,
-      hackernews: DataSourceType.HACKERNEWS,
-      hn: DataSourceType.HACKERNEWS,
-    };
-
-    if (!toolId) return null;
-    return mapping[toolId.toLowerCase()] || null;
+    return toolIdToDataSource(toolId);
   }
 
   /**
    * 将 Leader 分配的工具列表转换为数据源类型列表
    */
   convertToolsToDataSources(tools: string[]): DataSourceType[] {
-    const sources: DataSourceType[] = [];
-    for (const tool of tools) {
-      const source = this.toolIdToDataSource(tool);
-      if (source && !sources.includes(source)) {
-        sources.push(source);
-      }
-    }
-    return sources;
+    return convertToolsToDataSources(tools);
   }
 
   // ============================================================================
