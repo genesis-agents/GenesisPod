@@ -506,8 +506,13 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
     // Stop any existing polling first
     get().stopMissionPolling();
 
+    // ★ Counter for team data polling (every 3rd poll = every 6 seconds)
+    let pollCount = 0;
+
     // Start polling every 2 seconds
     const interval = setInterval(async () => {
+      pollCount++;
+
       try {
         const status = await api.getMission(topicId);
         set({ missionStatus: status });
@@ -528,6 +533,26 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
                 }
               : null,
           });
+
+          // ★ Poll team data every 6 seconds (every 3rd poll) during active mission
+          // This ensures Activities panel shows real-time team collaboration
+          if (isActive && pollCount % 3 === 0) {
+            try {
+              const [messages, activities] = await Promise.all([
+                api.getTeamMessages(topicId, {
+                  limit: 100,
+                  missionId: status.id,
+                }),
+                api.getAgentActivities(topicId, {
+                  limit: 200,
+                  missionId: status.id,
+                }),
+              ]);
+              set({ teamMessages: messages, agentActivities: activities });
+            } catch (teamError) {
+              logger.debug('Team data polling error:', teamError);
+            }
+          }
 
           // ★ Health check: detect stuck missions
           if (isActive) {
@@ -550,6 +575,17 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
           // Stop polling if mission is done
           if (!isActive) {
             get().stopMissionPolling();
+
+            // ★ Final fetch of team data on mission completion
+            try {
+              const [messages, activities] = await Promise.all([
+                api.getTeamMessages(topicId, { limit: 100 }),
+                api.getAgentActivities(topicId, { limit: 200 }),
+              ]);
+              set({ teamMessages: messages, agentActivities: activities });
+            } catch (teamError) {
+              logger.debug('Final team data fetch error:', teamError);
+            }
 
             // If completed, fetch the latest report
             if (status.status === 'COMPLETED') {
