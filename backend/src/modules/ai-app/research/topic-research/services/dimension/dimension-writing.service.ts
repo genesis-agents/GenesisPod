@@ -1023,7 +1023,8 @@ export class DimensionWritingService {
   /**
    * 保存证据到数据库
    * ★ 返回 promptIndex -> actualCitationIndex 映射
-   * ★ 性能优化：使用 createMany 批量插入，避免顺序插入导致的事务超时
+   * ★ 使用事务保证原子性：aggregate + createMany + findMany 在同一事务内
+   *   防止并发写入时 citationIndex 冲突
    */
   private async saveEvidence(
     evidenceData: EvidenceData[],
@@ -1043,37 +1044,44 @@ export class DimensionWritingService {
       credibilityScore: this.assessCredibility(e),
     }));
 
-    // ★ 优化：使用短查询获取 startIndex，然后批量插入
-    // 步骤1：获取当前最大 citationIndex
-    const maxIndexResult = await this.prisma.topicEvidence.aggregate({
-      where: { reportId },
-      _max: { citationIndex: true },
-    });
-    const startIndex = (maxIndexResult._max.citationIndex || 0) + 1;
+    // ★ 使用 interactive transaction 保证原子性
+    // 所有操作在同一事务内，防止并发竞态
+    const created = await this.prisma.$transaction(async (tx) => {
+      // 步骤1：获取当前最大 citationIndex
+      const maxIndexResult = await tx.topicEvidence.aggregate({
+        where: { reportId },
+        _max: { citationIndex: true },
+      });
+      const startIndex = (maxIndexResult._max.citationIndex || 0) + 1;
 
-    // 步骤2：使用 createMany 批量插入（单条 SQL，极快）
-    await this.prisma.topicEvidence.createMany({
-      data: evidenceWithCredibility.map((evidence, i) => ({
-        title: evidence.title,
-        url: evidence.url,
-        domain: evidence.domain,
-        snippet: evidence.snippet,
-        sourceType: evidence.sourceType,
-        publishedAt: this.validateDate(evidence.publishedAt),
-        credibilityScore: evidence.credibilityScore,
-        citationIndex: startIndex + i,
-        reportId,
-      })),
-    });
+      // 步骤2：批量插入（createMany 比循环插入快得多）
+      await tx.topicEvidence.createMany({
+        data: evidenceWithCredibility.map((evidence, i) => ({
+          title: evidence.title,
+          url: evidence.url,
+          domain: evidence.domain,
+          snippet: evidence.snippet,
+          sourceType: evidence.sourceType,
+          publishedAt: this.validateDate(evidence.publishedAt),
+          credibilityScore: evidence.credibilityScore,
+          citationIndex: startIndex + i,
+          reportId,
+        })),
+      });
 
-    // 步骤3：查询刚插入的记录以获取 ID
-    const created = await this.prisma.topicEvidence.findMany({
-      where: {
-        reportId,
-        citationIndex: { gte: startIndex },
-      },
-      orderBy: { citationIndex: "asc" },
-      select: { id: true, citationIndex: true },
+      // 步骤3：查询刚插入的记录以获取 ID
+      // 因为在同一事务内，citationIndex 范围是确定的
+      return await tx.topicEvidence.findMany({
+        where: {
+          reportId,
+          citationIndex: {
+            gte: startIndex,
+            lt: startIndex + evidenceWithCredibility.length,
+          },
+        },
+        orderBy: { citationIndex: "asc" },
+        select: { id: true, citationIndex: true },
+      });
     });
 
     // 构建映射

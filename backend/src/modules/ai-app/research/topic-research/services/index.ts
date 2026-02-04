@@ -32,7 +32,6 @@ export { TopicScheduleService } from "./core/topic-schedule.service";
 
 // ==================== Dimension ====================
 export { DimensionMissionService } from "./dimension/dimension-mission.service";
-export { DimensionResearchService } from "./dimension/dimension-research.service";
 export { SectionWriterService } from "./dimension/section-writer.service";
 export { DimensionSearchService } from "./dimension/dimension-search.service";
 export { DimensionWritingService } from "./dimension/dimension-writing.service";
@@ -57,7 +56,6 @@ export { EvidenceManagementService } from "./data/evidence-management.service";
 export { LeaderToolService } from "./data/leader-tool.service";
 export { DataSourceFetcherService } from "./data/data-source-fetcher.service";
 export { DataSourceStrategyService } from "./data/data-source-strategy.service";
-export { ResearchEvidenceAdapter } from "./data/research-evidence.adapter";
 export { EvidenceSyncCompensationService } from "./data/evidence-sync-compensation.service";
 
 // ==================== Collaboration ====================

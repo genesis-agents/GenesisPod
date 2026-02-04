@@ -964,6 +964,14 @@ export class DimensionMissionService {
             }
           }
         }
+      } else {
+        // ★ 警告：没有 reportId，证据不会被保存到数据库
+        // 这会导致参考文献标签为空！
+        this.logger.warn(
+          `${logPrefix} ⚠️ reportId is undefined! ${searchPhaseResult.evidenceData.length} evidences will NOT be saved. ` +
+            `This will result in empty References tab. ` +
+            `Ensure executeDimensionMission is called with reportId.`,
+        );
       }
 
       // 6. 转换为标准结果格式
@@ -1658,7 +1666,8 @@ export class DimensionMissionService {
    * promptIndex 是 LLM 在 prompt 中看到的序号 (1, 2, 3...)
    * actualCitationIndex 是证据在数据库中的实际引用编号
    *
-   * ★ 性能优化：使用 createMany 批量插入，避免顺序插入导致的事务超时
+   * ★ 使用事务保证原子性：aggregate + createMany + findMany 在同一事务内
+   *   防止并发写入时 citationIndex 冲突
    */
   private async saveEvidence(
     evidenceData: EvidenceData[],
@@ -1678,38 +1687,44 @@ export class DimensionMissionService {
       credibilityScore: this.assessCredibility(e),
     }));
 
-    // ★ 优化：使用短事务获取 startIndex，然后批量插入
-    // 步骤1：获取当前最大 citationIndex（短事务，快速完成）
-    const maxIndexResult = await this.prisma.topicEvidence.aggregate({
-      where: { reportId },
-      _max: { citationIndex: true },
-    });
-    const startIndex = (maxIndexResult._max.citationIndex || 0) + 1;
+    // ★ 使用 interactive transaction 保证原子性
+    // 所有操作在同一事务内，防止并发竞态
+    const created = await this.prisma.$transaction(async (tx) => {
+      // 步骤1：获取当前最大 citationIndex
+      const maxIndexResult = await tx.topicEvidence.aggregate({
+        where: { reportId },
+        _max: { citationIndex: true },
+      });
+      const startIndex = (maxIndexResult._max.citationIndex || 0) + 1;
 
-    // 步骤2：使用 createMany 批量插入（单条 SQL，极快）
-    // 注意：createMany 不返回创建的记录，所以需要后续查询
-    await this.prisma.topicEvidence.createMany({
-      data: evidenceWithCredibility.map((evidence, i) => ({
-        title: evidence.title,
-        url: evidence.url,
-        domain: evidence.domain,
-        snippet: evidence.snippet,
-        sourceType: evidence.sourceType,
-        publishedAt: this.validateDate(evidence.publishedAt),
-        credibilityScore: evidence.credibilityScore,
-        citationIndex: startIndex + i,
-        reportId,
-      })),
-    });
+      // 步骤2：批量插入（createMany 比循环插入快得多）
+      await tx.topicEvidence.createMany({
+        data: evidenceWithCredibility.map((evidence, i) => ({
+          title: evidence.title,
+          url: evidence.url,
+          domain: evidence.domain,
+          snippet: evidence.snippet,
+          sourceType: evidence.sourceType,
+          publishedAt: this.validateDate(evidence.publishedAt),
+          credibilityScore: evidence.credibilityScore,
+          citationIndex: startIndex + i,
+          reportId,
+        })),
+      });
 
-    // 步骤3：查询刚插入的记录以获取 ID
-    const created = await this.prisma.topicEvidence.findMany({
-      where: {
-        reportId,
-        citationIndex: { gte: startIndex },
-      },
-      orderBy: { citationIndex: "asc" },
-      select: { id: true, citationIndex: true },
+      // 步骤3：查询刚插入的记录以获取 ID
+      // 因为在同一事务内，citationIndex 范围是确定的
+      return await tx.topicEvidence.findMany({
+        where: {
+          reportId,
+          citationIndex: {
+            gte: startIndex,
+            lt: startIndex + evidenceWithCredibility.length,
+          },
+        },
+        orderBy: { citationIndex: "asc" },
+        select: { id: true, citationIndex: true },
+      });
     });
 
     // 构建 tempId -> actualId 映射

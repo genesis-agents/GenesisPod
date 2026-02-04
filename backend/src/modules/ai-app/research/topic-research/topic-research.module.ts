@@ -22,7 +22,6 @@ import { TopicResearchService } from "./topic-research.service";
 import { TopicResearchGateway } from "./topic-research.gateway";
 import {
   DataSourceRouterService,
-  DimensionResearchService,
   ReportSynthesisService,
   TopicTeamOrchestratorService,
   TopicRefreshScheduler,
@@ -73,7 +72,6 @@ import {
   ReportDataService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
-  ResearchEvidenceAdapter,
   EvidenceSyncCompensationService,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
@@ -81,7 +79,6 @@ import { TopicAccessGuard } from "./guards";
 const services = [
   TopicResearchService,
   DataSourceRouterService,
-  DimensionResearchService,
   ReportSynthesisService,
   ResearchReviewerService,
   TopicTeamOrchestratorService,
@@ -132,7 +129,6 @@ const services = [
   ReportDataService,
   // ★ Engine Adapters (P2 能力下沉集成)
   ResearchRealtimeAdapter,
-  ResearchEvidenceAdapter,
   EvidenceSyncCompensationService,
 ];
 
