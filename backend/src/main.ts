@@ -159,7 +159,7 @@ async function bootstrap() {
     res.json({
       status: "ok",
       timestamp: new Date().toISOString(),
-      service: "DeepDive Backend",
+      service: "Raven AI Engine Backend",
       version: "1.0.0",
     });
   });
@@ -193,9 +193,11 @@ async function bootstrap() {
 
   // 生产环境精简启动日志，开发环境详细输出
   if (isProduction) {
-    console.log(`🚀 DeepDive Backend started | ${baseUrl} | Port: ${port}`);
+    console.log(
+      `🚀 Raven AI Engine Backend started | ${baseUrl} | Port: ${port}`,
+    );
   } else {
-    console.log(`🚀 DeepDive Backend running on ${baseUrl}`);
+    console.log(`🚀 Raven AI Engine Backend running on ${baseUrl}`);
     console.log(`📚 API Docs: ${baseUrl}/api/docs`);
     console.log(`🧩 Workspace AI v2 enabled: ${isWorkspaceAiV2Enabled()}`);
     console.log(`📋 Log level: all (development)`);

@@ -38,34 +38,61 @@ export class ReportDataService {
 
   /**
    * 创建新报告（草稿状态）
+   * ★ 使用重试机制处理并发版本冲突
    */
-  async createDraftReport(topicId: string): Promise<TopicReport> {
-    // 获取下一个版本号
-    const latestReport = await this.prisma.topicReport.findFirst({
-      where: { topicId },
-      orderBy: { version: "desc" },
-      select: { version: true },
-    });
+  async createDraftReport(
+    topicId: string,
+    maxRetries = 3,
+  ): Promise<TopicReport> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // 获取下一个版本号
+        const latestReport = await this.prisma.topicReport.findFirst({
+          where: { topicId },
+          orderBy: { version: "desc" },
+          select: { version: true },
+        });
 
-    const nextVersion = (latestReport?.version || 0) + 1;
-    const versionLabel = this.generateVersionLabel(nextVersion);
+        const nextVersion = (latestReport?.version || 0) + 1;
+        const versionLabel = this.generateVersionLabel(nextVersion);
 
-    const report = await this.prisma.topicReport.create({
-      data: {
-        topicId,
-        version: nextVersion,
-        versionLabel,
-        executiveSummary: "",
-        fullReport: "",
-        highlights: [],
-        totalDimensions: 0,
-        totalSources: 0,
-        totalTokens: 0,
-        isIncremental: false,
-      },
-    });
+        const report = await this.prisma.topicReport.create({
+          data: {
+            topicId,
+            version: nextVersion,
+            versionLabel,
+            executiveSummary: "",
+            fullReport: "",
+            highlights: [],
+            totalDimensions: 0,
+            totalSources: 0,
+            totalTokens: 0,
+            isIncremental: false,
+          },
+        });
 
-    return report;
+        return report;
+      } catch (error: any) {
+        // 检查是否是唯一约束冲突（并发创建导致）
+        const isUniqueConstraintError =
+          error?.code === "P2002" ||
+          error?.message?.includes("Unique constraint");
+
+        if (isUniqueConstraintError && attempt < maxRetries) {
+          this.logger.warn(
+            `[createDraftReport] Version conflict for topic ${topicId}, retry ${attempt}/${maxRetries}`,
+          );
+          // 短暂延迟后重试
+          await new Promise((r) => setTimeout(r, 100 * attempt));
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw new Error(
+      `Failed to create draft report after ${maxRetries} retries`,
+    );
   }
 
   /**

@@ -15,7 +15,7 @@ export class AppController {
     return {
       status: "ok",
       timestamp: new Date().toISOString(),
-      service: "DeepDive Backend",
+      service: "Raven AI Engine Backend",
       version: "1.0.0",
     };
   }
