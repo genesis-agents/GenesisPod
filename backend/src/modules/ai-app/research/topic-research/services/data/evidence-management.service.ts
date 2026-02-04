@@ -34,7 +34,8 @@ export class EvidenceManagementService {
     reportId: string,
     options: EvidenceQueryOptions = {},
   ): Promise<{ evidences: TopicEvidence[]; total: number }> {
-    const { skip = 0, take = 50, sourceType, minCredibility } = options;
+    // ★ 默认 500 条，确保报告引用能完整显示
+    const { skip = 0, take = 500, sourceType, minCredibility } = options;
 
     const where: any = { reportId };
 
