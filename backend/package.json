@@ -1,6 +1,6 @@
 {
   "name": "raven-backend",
-  "version": "3.9.6",
+  "version": "3.9.7",
   "description": "Raven AI Engine Backend API",
   "private": true,
   "scripts": {

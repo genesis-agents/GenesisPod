@@ -2,6 +2,46 @@
 
 Raven AI Engine 版本变更记录。
 
+### [3.9.7](https://github.com/your-org/ai-teams-engine/compare/v3.9.6...v3.9.7) (2026-02-04)
+
+### Features
+
+- **ai-engine:** implement capability sink with RealtimeAdapter integration ([12363ad](https://github.com/your-org/ai-teams-engine/commit/12363ad20189e0fbc12d98b248df72e43c176ce4))
+- **research:** add Leader Agent assignment reasoning to task list ([62d2f73](https://github.com/your-org/ai-teams-engine/commit/62d2f733232c9694430c2b34beb18b1255a9405b))
+- **research:** improve assignment reason with model-specific descriptions ([baf37e1](https://github.com/your-org/ai-teams-engine/commit/baf37e198cca8361d5342953ecd6882aee5cea94))
+- **ui:** implement three-state sidebar toggle with custom panel icons ([ead841f](https://github.com/your-org/ai-teams-engine/commit/ead841fe544647d912f8c45badf5025a632c36cd))
+
+### Bug Fixes
+
+- **ai-engine:** add @Optional() decorator for optional constructor params ([fcc2876](https://github.com/your-org/ai-teams-engine/commit/fcc2876907a5ab9e899ad5282b7b4cb33f181dc8))
+- **deploy:** increase healthcheck timeout to 600s ([5f57959](https://github.com/your-org/ai-teams-engine/commit/5f57959388b820f62b82f0b79e0cd2247f1016bc))
+- **i18n:** add missing English translations for export menu ([0b22048](https://github.com/your-org/ai-teams-engine/commit/0b22048dad28a78c7a4aff983091d66ba39ef13d))
+- **i18n:** add missing English translations for topic creation dialog ([7a08891](https://github.com/your-org/ai-teams-engine/commit/7a08891971366dabeb69534ed6da4bcc03bcaab4))
+- **i18n:** sync contentPanel.export structure between zh/en ([1f00945](https://github.com/your-org/ai-teams-engine/commit/1f009451904c888879c2bc32b3bd8c72b4ea91dd))
+- **notion:** update search filter from "database" to "data_source" ([7c13350](https://github.com/your-org/ai-teams-engine/commit/7c133508996abd25e1856902db629790ca25003c))
+- **release:** auto-generate changelog.json after version bump ([dda4951](https://github.com/your-org/ai-teams-engine/commit/dda49519d34b248ac58a15c2ef40220c3624e424))
+- **release:** use git add -f for ignored changelog.json ([eadd5bb](https://github.com/your-org/ai-teams-engine/commit/eadd5bbe3f9b95c1bd182f9295dbdb6483e7d111))
+- **research:** add default assignmentReason generation for agents ([4708c61](https://github.com/your-org/ai-teams-engine/commit/4708c61903053af5f7668f13afe48ba9a92b222f))
+- **research:** remove "图表数据" placeholder from report output ([9517afb](https://github.com/your-org/ai-teams-engine/commit/9517afba869ad44c8b7fa3932f1b3331f9fa194f))
+- **ui:** add elegant collapsed state for right AI panel ([3be35cf](https://github.com/your-org/ai-teams-engine/commit/3be35cfd8739aa11ad058d5e05de9d21da66e971))
+- **ui:** chatgpt-style sidebar toggle design ([f01ebaa](https://github.com/your-org/ai-teams-engine/commit/f01ebaaf8855a0127f945016ff3f3b87b83f8f1d))
+- **ui:** i18n fixes, logo shimmer, and UI Patrol auth ([48338d2](https://github.com/your-org/ai-teams-engine/commit/48338d2e174c6036dac0896f3dc433f071f9f84b))
+- **ui:** improve toggle icons and panel resize ([f261846](https://github.com/your-org/ai-teams-engine/commit/f261846ac07a18e5f88928de9ca8ad84172a651a))
+- **ui:** move sidebar toggle to header, unify panel icons ([8aea5e6](https://github.com/your-org/ai-teams-engine/commit/8aea5e6c4e4ff3ca4635563ffb83ffe031c16937))
+- **ui:** replace sidebar toggle chevron with panel icon ([852d7cf](https://github.com/your-org/ai-teams-engine/commit/852d7cf149967b42c0bc259d855454115c0d773c))
+- **ui:** use Lucide PanelLeft icons for sidebar toggle ([bb09f2b](https://github.com/your-org/ai-teams-engine/commit/bb09f2b5cf233a2cc226a178e42fae7df5290a80))
+- update AI Service brand name to Raven ([4414126](https://github.com/your-org/ai-teams-engine/commit/44141264fa804390fce5c1d3e1095067ad88bb03))
+
+### Refactoring
+
+- **ai-engine:** remove unused Data module and consolidate data source mappings ([daef83e](https://github.com/your-org/ai-teams-engine/commit/daef83ece88b94113d4529bf15a1e5c797378434))
+- rebrand DeepDive Engine to Raven AI Engine ([2a6291a](https://github.com/your-org/ai-teams-engine/commit/2a6291a788dabcf7ce871554995b2acfc56af4dc))
+- **ui:** simplify language switcher to toggle button ([ffb4ddb](https://github.com/your-org/ai-teams-engine/commit/ffb4ddba2e245cc6f17a835ba9e6c617e0082b42))
+
+### Performance
+
+- **startup:** optimize CreditRulesService and DataSourceSeederService ([df9219c](https://github.com/your-org/ai-teams-engine/commit/df9219c0f9e84120dde09673f806bffb6cc7141a))
+
 ### [3.9.6](https://github.com/your-org/ai-teams-engine/compare/v3.9.5...v3.9.6) (2026-02-03)
 
 ### Bug Fixes
