@@ -1,0 +1,441 @@
+/**
+ * RAG-Fusion Service
+ *
+ * P0 优化：多查询融合检索服务
+ * 参考：RAG-Fusion (Raudaschl, 2023)
+ *
+ * 功能：
+ * 1. 自动生成多个查询变体
+ * 2. 并行执行变体查询
+ * 3. 使用 Reciprocal Rank Fusion 融合结果
+ */
+
+import { Injectable, Logger } from "@nestjs/common";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
+import {
+  QueryVariant,
+  QueryVariantType,
+  RAGFusionConfig,
+  DEFAULT_RAG_FUSION_CONFIG,
+  VariantSearchResult,
+  FusedSearchResultItem,
+  FusedSearchResult,
+  QueryVariantGenerationRequest,
+  QueryVariantGenerationResult,
+} from "../../types/rag-fusion.types";
+import { DataSourceResult } from "../../types/data-source.types";
+
+/**
+ * ★ Critical Fix: 并发控制常量
+ * 限制同时执行的搜索请求数量，防止资源耗尽
+ */
+const CONCURRENT_SEARCH_LIMIT = 3;
+
+@Injectable()
+export class RAGFusionService {
+  private readonly logger = new Logger(RAGFusionService.name);
+
+  constructor(private readonly aiFacade: AIEngineFacade) {}
+
+  /**
+   * 生成查询变体
+   */
+  async generateQueryVariants(
+    request: QueryVariantGenerationRequest,
+  ): Promise<QueryVariantGenerationResult> {
+    const startTime = Date.now();
+    const config = { ...DEFAULT_RAG_FUSION_CONFIG, ...request.config };
+
+    this.logger.log(
+      `[generateQueryVariants] Generating variants for: ${request.originalQuery.substring(0, 50)}...`,
+    );
+
+    // 构建提示词
+    const enabledTypes = config.enabledVariantTypes.filter(
+      (t) => t !== QueryVariantType.ORIGINAL,
+    );
+
+    const typeDescriptions = this.getVariantTypeDescriptions(enabledTypes);
+
+    const prompt = `你是一个专业的信息检索专家。请为以下搜索查询生成多个变体，以提高检索的全面性和召回率。
+
+## 原始查询
+${request.originalQuery}
+
+## 上下文
+- 研究主题：${request.context.topicName}
+- 研究维度：${request.context.dimensionName}
+- 目标受众：${request.context.targetAudience || "通用"}
+${request.context.researchFocus ? `- 研究重点：${request.context.researchFocus.join("、")}` : ""}
+
+## 任务
+生成 ${Math.min(config.maxVariants - 1, 5)} 个查询变体，类型包括：
+
+${typeDescriptions}
+
+## 输出格式（JSON）
+{
+  "variants": [
+    {
+      "query": "变体查询文本",
+      "type": "paraphrased|decomposed|expanded|contrastive|temporal|domain_specific|aspect_focused",
+      "weight": 0.8,
+      "rationale": "为什么这个变体有用",
+      "targetAspect": "针对的特定方面（可选）"
+    }
+  ],
+  "overallRationale": "整体变体策略说明"
+}
+
+## 要求
+- 每个变体应该有明确不同的检索意图
+- 权重范围 0.5-1.0，越重要的变体权重越高
+- 对比查询（寻找反面证据）的权重适中（0.6-0.7）
+- 确保变体覆盖不同的搜索角度
+
+只输出 JSON。`;
+
+    try {
+      const response = await this.aiFacade.chat({
+        messages: [{ role: "user", content: prompt }],
+        taskProfile: { creativity: "medium", outputLength: "medium" },
+      });
+
+      const result = extractJsonFromAIResponse<{
+        variants: Array<{
+          query: string;
+          type: string;
+          weight?: number;
+          rationale?: string;
+          targetAspect?: string;
+        }>;
+        overallRationale: string;
+      }>(response.content);
+
+      // 始终包含原始查询
+      const variants: QueryVariant[] = [
+        {
+          id: "variant-original",
+          query: request.originalQuery,
+          type: QueryVariantType.ORIGINAL,
+          weight: 1.0,
+          rationale: "原始用户查询",
+        },
+      ];
+
+      if (result.success && result.data?.variants) {
+        for (let i = 0; i < result.data.variants.length; i++) {
+          const v = result.data.variants[i];
+          variants.push({
+            id: `variant-${i + 1}`,
+            query: v.query,
+            type: this.parseVariantType(v.type),
+            weight: Math.max(0.5, Math.min(1.0, v.weight || 0.8)),
+            rationale: v.rationale,
+            targetAspect: v.targetAspect,
+          });
+        }
+      }
+
+      this.logger.log(
+        `[generateQueryVariants] Generated ${variants.length} variants in ${Date.now() - startTime}ms`,
+      );
+
+      return {
+        variants,
+        generationTimeMs: Date.now() - startTime,
+        rationale: result.data?.overallRationale || "自动生成的查询变体",
+      };
+    } catch (error) {
+      this.logger.error(`[generateQueryVariants] Error: ${error}`);
+
+      // 回退：只返回原始查询
+      return {
+        variants: [
+          {
+            id: "variant-original",
+            query: request.originalQuery,
+            type: QueryVariantType.ORIGINAL,
+            weight: 1.0,
+            rationale: "原始用户查询",
+          },
+        ],
+        generationTimeMs: Date.now() - startTime,
+        rationale: "变体生成失败，使用原始查询",
+      };
+    }
+  }
+
+  /**
+   * 获取变体类型描述
+   */
+  private getVariantTypeDescriptions(types: QueryVariantType[]): string {
+    const descriptions: Record<QueryVariantType, string> = {
+      [QueryVariantType.ORIGINAL]: "",
+      [QueryVariantType.PARAPHRASED]:
+        "**同义改写** (paraphrased): 用不同的词汇表达相同的意思，扩大词汇覆盖",
+      [QueryVariantType.DECOMPOSED]:
+        "**子问题分解** (decomposed): 将复杂查询分解为更具体的子问题",
+      [QueryVariantType.EXPANDED]:
+        "**上下文扩展** (expanded): 添加相关的上下文词汇和背景信息",
+      [QueryVariantType.CONTRASTIVE]:
+        "**对比查询** (contrastive): 寻找反面观点或反驳证据，平衡视角",
+      [QueryVariantType.TEMPORAL]:
+        '**时间限定** (temporal): 添加时间范围限定（如"2024年"、"最新"）',
+      [QueryVariantType.DOMAIN_SPECIFIC]:
+        "**领域术语** (domain_specific): 使用专业术语或行业术语",
+      [QueryVariantType.ASPECT_FOCUSED]:
+        "**方面聚焦** (aspect_focused): 针对特定方面或角度的查询",
+    };
+
+    return types
+      .filter((t) => descriptions[t])
+      .map((t) => `- ${descriptions[t]}`)
+      .join("\n");
+  }
+
+  /**
+   * 解析变体类型
+   */
+  private parseVariantType(type: string): QueryVariantType {
+    const mapping: Record<string, QueryVariantType> = {
+      original: QueryVariantType.ORIGINAL,
+      paraphrased: QueryVariantType.PARAPHRASED,
+      decomposed: QueryVariantType.DECOMPOSED,
+      expanded: QueryVariantType.EXPANDED,
+      contrastive: QueryVariantType.CONTRASTIVE,
+      temporal: QueryVariantType.TEMPORAL,
+      domain_specific: QueryVariantType.DOMAIN_SPECIFIC,
+      aspect_focused: QueryVariantType.ASPECT_FOCUSED,
+    };
+    return mapping[type?.toLowerCase()] || QueryVariantType.EXPANDED;
+  }
+
+  /**
+   * Reciprocal Rank Fusion 算法
+   *
+   * 公式：RRF(d) = Σ weight(q) / (k + rank(d, q))
+   * 其中 k 是平滑常数（默认 60）
+   */
+  fuseResults(
+    variantResults: VariantSearchResult[],
+    config: Partial<RAGFusionConfig> = {},
+  ): FusedSearchResult {
+    const startTime = Date.now();
+    const mergedConfig = { ...DEFAULT_RAG_FUSION_CONFIG, ...config };
+    const k = mergedConfig.rrfK;
+
+    this.logger.log(
+      `[fuseResults] Fusing results from ${variantResults.length} variants`,
+    );
+
+    // URL -> 融合结果的映射
+    const fusionMap = new Map<string, FusedSearchResultItem>();
+
+    // 统计每个变体的贡献
+    const variantStats: FusedSearchResult["variantStats"] = [];
+
+    for (const variantResult of variantResults) {
+      if (!variantResult.success) continue;
+
+      const variant = variantResult.variant;
+      let uniqueContributions = 0;
+
+      variantResult.results.forEach((item, rank) => {
+        const url = this.normalizeUrl(item.url);
+
+        if (!fusionMap.has(url)) {
+          fusionMap.set(url, {
+            item,
+            fusionScore: 0,
+            contributingVariants: [],
+            coverageCount: 0,
+            isContrastiveResult: false,
+          });
+          uniqueContributions++;
+        }
+
+        const fusedResult = fusionMap.get(url)!;
+
+        // 计算分数
+        let score: number;
+        if (mergedConfig.fusionMethod === "reciprocal_rank") {
+          score = variant.weight / (k + rank + 1);
+        } else if (mergedConfig.fusionMethod === "weighted_sum") {
+          score = variant.weight * (1 - rank / variantResult.results.length);
+        } else {
+          // ensemble: 简单计数
+          score = variant.weight;
+        }
+
+        fusedResult.fusionScore += score;
+        fusedResult.contributingVariants.push({
+          variantId: variant.id,
+          variantType: variant.type,
+          rank: rank + 1,
+          score,
+        });
+        fusedResult.coverageCount++;
+
+        // 标记对比查询结果
+        if (variant.type === QueryVariantType.CONTRASTIVE) {
+          fusedResult.isContrastiveResult = true;
+        }
+      });
+
+      variantStats.push({
+        variantId: variant.id,
+        variantType: variant.type,
+        resultCount: variantResult.results.length,
+        uniqueContributions,
+      });
+    }
+
+    // 应用覆盖度加成
+    for (const result of fusionMap.values()) {
+      if (result.coverageCount >= 3) {
+        result.fusionScore *= mergedConfig.coverageBonus.threshold3;
+      } else if (result.coverageCount >= 2) {
+        result.fusionScore *= mergedConfig.coverageBonus.threshold2;
+      }
+    }
+
+    // 按融合分数排序
+    const sortedResults = Array.from(fusionMap.values()).sort(
+      (a, b) => b.fusionScore - a.fusionScore,
+    );
+
+    // 计算平均覆盖度
+    const averageCoverage =
+      sortedResults.length > 0
+        ? sortedResults.reduce((sum, r) => sum + r.coverageCount, 0) /
+          sortedResults.length
+        : 0;
+
+    const result: FusedSearchResult = {
+      items: sortedResults,
+      originalQuery: variantResults[0]?.variant.query || "",
+      variants: variantResults.map((vr) => vr.variant),
+      variantStats,
+      metadata: {
+        totalVariants: variantResults.length,
+        successfulVariants: variantResults.filter((vr) => vr.success).length,
+        totalUniqueResults: sortedResults.length,
+        averageCoverage,
+        fusionMethod: mergedConfig.fusionMethod,
+        executionTimeMs: Date.now() - startTime,
+      },
+    };
+
+    this.logger.log(
+      `[fuseResults] Fused ${result.metadata.totalUniqueResults} unique results, ` +
+        `avg coverage: ${averageCoverage.toFixed(2)}`,
+    );
+
+    return result;
+  }
+
+  /**
+   * URL 规范化
+   */
+  private normalizeUrl(url: string): string {
+    try {
+      const parsed = new URL(url);
+      // 移除 trailing slash 和 fragment
+      return `${parsed.protocol}//${parsed.host}${parsed.pathname.replace(/\/$/, "")}${parsed.search}`;
+    } catch {
+      return url.toLowerCase().replace(/\/$/, "");
+    }
+  }
+
+  /**
+   * 完整的 RAG-Fusion 搜索流程
+   */
+  async fusionSearch(
+    request: QueryVariantGenerationRequest,
+    searchFn: (query: string) => Promise<DataSourceResult[]>,
+    config: Partial<RAGFusionConfig> = {},
+  ): Promise<FusedSearchResult> {
+    const mergedConfig = { ...DEFAULT_RAG_FUSION_CONFIG, ...config };
+    const startTime = Date.now();
+
+    this.logger.log(
+      `[fusionSearch] Starting fusion search for: ${request.originalQuery.substring(0, 50)}...`,
+    );
+
+    // 1. 生成查询变体
+    const { variants } = await this.generateQueryVariants({
+      ...request,
+      config: mergedConfig,
+    });
+
+    // 2. ★ Critical Fix: 批量执行变体查询，限制并发数量
+    const executeVariant = async (
+      variant: QueryVariant,
+    ): Promise<VariantSearchResult> => {
+      const variantStartTime = Date.now();
+      try {
+        const results = await searchFn(variant.query);
+        return {
+          variant,
+          results,
+          executionTimeMs: Date.now() - variantStartTime,
+          success: true,
+        };
+      } catch (error) {
+        this.logger.warn(
+          `[fusionSearch] Variant "${variant.type}" failed: ${error}`,
+        );
+        return {
+          variant,
+          results: [],
+          executionTimeMs: Date.now() - variantStartTime,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    };
+
+    // 使用批次执行，每批最多 CONCURRENT_SEARCH_LIMIT 个并发
+    const variantResults: VariantSearchResult[] = [];
+    for (let i = 0; i < variants.length; i += CONCURRENT_SEARCH_LIMIT) {
+      const batch = variants.slice(i, i + CONCURRENT_SEARCH_LIMIT);
+      const batchResults = await Promise.all(batch.map(executeVariant));
+      variantResults.push(...batchResults);
+    }
+
+    // 3. 融合结果
+    const fusedResult = this.fuseResults(variantResults, mergedConfig);
+
+    // 更新总执行时间
+    fusedResult.metadata.executionTimeMs = Date.now() - startTime;
+
+    this.logger.log(
+      `[fusionSearch] Completed in ${fusedResult.metadata.executionTimeMs}ms: ` +
+        `${fusedResult.metadata.totalUniqueResults} unique results from ${fusedResult.metadata.successfulVariants}/${fusedResult.metadata.totalVariants} variants`,
+    );
+
+    return fusedResult;
+  }
+
+  /**
+   * 将融合结果转换为标准数据源结果格式
+   */
+  convertToDataSourceResults(
+    fusedResult: FusedSearchResult,
+  ): DataSourceResult[] {
+    return fusedResult.items.map((item) => ({
+      ...item.item,
+      metadata: {
+        ...item.item.metadata,
+        fusionScore: item.fusionScore,
+        coverageCount: item.coverageCount,
+        isContrastiveResult: item.isContrastiveResult,
+        contributingVariants: item.contributingVariants.map(
+          (v) => v.variantType,
+        ),
+      },
+    }));
+  }
+}

@@ -93,11 +93,14 @@ export class DataSourceRouterService {
     private readonly aiFacade: AIEngineFacade,
   ) {}
 
-  /** 当前搜索的 topic（用于 LOCAL 数据源获取 knowledgeBaseIds） */
-  private currentTopic: ResearchTopic | null = null;
-
-  /** 缓存 AI 规划结果，避免同一维度重复规划 */
+  /**
+   * ★ Major Fix: 使用 LRU-style 缓存，防止内存泄漏
+   * 缓存 AI 规划结果，避免同一维度重复规划
+   * 最多缓存 100 条，超出时删除最早的条目
+   */
+  private static readonly PLAN_CACHE_MAX_SIZE = 100;
   private planCache = new Map<string, DataSourcePlan>();
+  private planCacheOrder: string[] = [];
 
   /**
    * 为指定维度获取数据
@@ -121,9 +124,6 @@ export class DataSourceRouterService {
     this.logger.log(
       `Fetching data for dimension: ${dimension.name} (topic: ${topic.name}, AI planning: ${useAIPlanning}, assignedTools: [${assignedTools.join(", ")}])`,
     );
-
-    // ★ 保存当前 topic，用于 LOCAL 数据源获取 knowledgeBaseIds
-    this.currentTopic = topic;
 
     // 1. 确定要使用的数据源
     let sources: DataSourceType[];
@@ -213,10 +213,15 @@ export class DataSourceRouterService {
     for (const source of sources) {
       for (const query of searchQueries) {
         searchPromises.push(
-          this.searchSource(source, query, {
-            maxResults: maxResultsPerQuery,
-            since,
-          }),
+          this.searchSource(
+            source,
+            query,
+            {
+              maxResults: maxResultsPerQuery,
+              since,
+            },
+            topic,
+          ),
         );
         searchSources.push(source);
       }
@@ -574,11 +579,13 @@ export class DataSourceRouterService {
 
   /**
    * 搜索指定数据源
+   * ★ Critical Fix: topic 作为参数传递，避免实例变量的并发竞态
    */
   private async searchSource(
     source: DataSourceType,
     query: string,
     options: SearchOptions,
+    topic?: ResearchTopic,
   ): Promise<DataSourceResult[]> {
     const timeout = options.timeout || 30000; // 默认30秒超时
     const maxResults = options.maxResults || 10;
@@ -592,6 +599,7 @@ export class DataSourceRouterService {
         query,
         maxResults,
         options.since,
+        topic,
       );
       const timeoutPromise = new Promise<DataSourceResult[]>((_, reject) =>
         setTimeout(
@@ -616,12 +624,14 @@ export class DataSourceRouterService {
   /**
    * 执行具体的搜索操作
    * ★ 增强：在调用工具前检查 Admin 是否启用该工具
+   * ★ Critical Fix: topic 作为参数传递，避免实例变量的并发竞态
    */
   private async executeSearch(
     source: DataSourceType,
     query: string,
     maxResults: number,
     since?: Date,
+    topic?: ResearchTopic,
   ): Promise<DataSourceResult[]> {
     // ★ 检查特殊工具是否被 Admin 启用
     const toolId = this.dataSourceToToolId(source);
@@ -654,7 +664,7 @@ export class DataSourceRouterService {
         return [];
 
       case DataSourceType.LOCAL:
-        return this.searchLocal(query, maxResults);
+        return this.searchLocal(query, maxResults, topic);
 
       // ★ 政策研究数据源
       case DataSourceType.FEDERAL_REGISTER:
@@ -1026,20 +1036,21 @@ export class DataSourceRouterService {
    * 本地知识库搜索 (使用 RAG 向量检索)
    * 搜索用户配置的知识库中的相关内容
    *
+   * ★ Critical Fix: topic 作为参数传递，避免实例变量的并发竞态
+   *
    * @param query 搜索查询
    * @param maxResults 最大结果数
+   * @param topic 研究主题（用于获取 knowledgeBaseIds）
    * @returns 数据源结果数组
    */
   private async searchLocal(
     query: string,
     maxResults: number,
+    topic?: ResearchTopic,
   ): Promise<DataSourceResult[]> {
     try {
-      // 1. 从当前 topic 配置获取知识库 ID 列表
-      const topicConfig = this.currentTopic?.topicConfig as Record<
-        string,
-        unknown
-      > | null;
+      // 1. 从 topic 配置获取知识库 ID 列表
+      const topicConfig = topic?.topicConfig as Record<string, unknown> | null;
       const knowledgeBaseIds = topicConfig?.knowledgeBaseIds as
         | string[]
         | undefined;
@@ -1076,7 +1087,7 @@ export class DataSourceRouterService {
       // ★ 记录知识库匹配日志（用于溯源）
       if (searchResults.length > 0) {
         this.logger.log(
-          `[searchLocal] ★ Knowledge base matched! Topic: ${this.currentTopic?.name}, ` +
+          `[searchLocal] ★ Knowledge base matched! Topic: ${topic?.name}, ` +
             `Query: "${query}", Results: ${searchResults.length}, ` +
             `KBs: [${knowledgeBaseIds.join(", ")}]`,
         );
@@ -1921,7 +1932,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
 
   /**
    * 获取维度的 AI 数据源规划
-   * 使用缓存避免重复规划
+   * ★ Major Fix: 使用 LRU-style 缓存避免重复规划，防止内存泄漏
    */
   private async getAIPlanForDimension(
     dimension: TopicDimension,
@@ -1934,6 +1945,12 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
       this.logger.debug(
         `[getAIPlanForDimension] Using cached plan for ${cacheKey}`,
       );
+      // LRU: 移动到队列末尾
+      const idx = this.planCacheOrder.indexOf(cacheKey);
+      if (idx > -1) {
+        this.planCacheOrder.splice(idx, 1);
+        this.planCacheOrder.push(cacheKey);
+      }
       return this.planCache.get(cacheKey)!;
     }
 
@@ -1950,8 +1967,20 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
       availableDataSources,
     });
 
+    // ★ LRU 缓存: 超出容量时删除最早的条目
+    if (this.planCache.size >= DataSourceRouterService.PLAN_CACHE_MAX_SIZE) {
+      const oldestKey = this.planCacheOrder.shift();
+      if (oldestKey) {
+        this.planCache.delete(oldestKey);
+        this.logger.debug(
+          `[getAIPlanForDimension] Cache evicted: ${oldestKey}`,
+        );
+      }
+    }
+
     // 缓存结果
     this.planCache.set(cacheKey, plan);
+    this.planCacheOrder.push(cacheKey);
 
     return plan;
   }
