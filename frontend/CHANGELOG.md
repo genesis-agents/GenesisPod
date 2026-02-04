@@ -2,6 +2,14 @@
 
 Raven AI Engine 版本变更记录。
 
+### [3.10.2](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.10.2) (2026-02-04)
+
+
+### Bug Fixes
+
+* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
+* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
+
 ### [3.10.1](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.10.1) (2026-02-04)
 
 
