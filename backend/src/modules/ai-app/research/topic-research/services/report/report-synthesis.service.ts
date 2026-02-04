@@ -419,15 +419,43 @@ export class ReportSynthesisService {
     // 9. 计算统计数据
     const totalSources = allEvidences.length;
 
+    // 9.5 ★ 构建参考文献部分（从数据库证据构建，而非依赖 AI 返回）
+    const isEn = topic.language === "en";
+    const referencesLabel = isEn ? "References" : "参考文献";
+    const accessDateLabel = isEn ? "Accessed" : "访问日期";
+    let referencesSection = "";
+    if (allEvidences.length > 0) {
+      const refLines = allEvidences
+        .filter((e) => e.citationIndex) // 只包含有 citationIndex 的证据
+        .sort((a, b) => (a.citationIndex || 0) - (b.citationIndex || 0))
+        .map((e) => {
+          const accessDate = e.accessedAt
+            ? new Date(e.accessedAt).toLocaleDateString(
+                isEn ? "en-US" : "zh-CN",
+              )
+            : new Date().toLocaleDateString(isEn ? "en-US" : "zh-CN");
+          return `[${e.citationIndex}] ${e.title}. ${e.domain || ""}. ${e.url}. ${accessDateLabel}: ${accessDate}`;
+        });
+      if (refLines.length > 0) {
+        referencesSection = `\n\n---\n\n# ${referencesLabel}\n\n${refLines.join("\n\n")}`;
+        this.logger.log(
+          `[synthesizeReport] Built references section with ${refLines.length} citations`,
+        );
+      }
+    }
+
     // 10. 更新报告
     const generationTimeMs = Date.now() - startTime;
+
+    // ★ 将参考文献追加到报告末尾
+    const finalReport = cleanedReport + referencesSection;
 
     const updatedReport = await this.prisma.topicReport.update({
       where: { id: reportId },
       data: {
         executiveSummary: synthesisResult.executiveSummary,
-        // ★ 使用拼接版本的 fullReport（清理孤儿占位符后）
-        fullReport: cleanedReport,
+        // ★ 使用拼接版本的 fullReport（包含参考文献）
+        fullReport: finalReport,
         highlights: toPrismaJson(synthesisResult.highlights),
         charts: toPrismaJson(allCharts),
         totalDimensions: dimensionAnalyses.length,
