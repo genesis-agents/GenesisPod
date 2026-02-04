@@ -13,6 +13,16 @@ export class PrismaService
 {
   private readonly logger = new Logger(PrismaService.name);
 
+  constructor() {
+    super({
+      // ★ 配置事务超时时间，避免长时间研究任务失败
+      transactionOptions: {
+        maxWait: 10000, // 等待获取事务的最大时间 (10秒)
+        timeout: 120000, // 事务执行的最大时间 (2分钟)
+      },
+    });
+  }
+
   async onModuleInit() {
     await this.$connect();
     this.logger.log("[Prisma] Prisma connected to database");
