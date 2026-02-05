@@ -157,6 +157,7 @@ interface TopicResearchState {
     topicId: string,
     instruction: string
   ) => Promise<void>;
+  approveMissionPlan: (topicId: string) => Promise<void>;
   retryMission: (topicId: string, taskIds?: string[]) => Promise<void>;
   cancelMission: (topicId: string) => Promise<void>;
   stopMissionPolling: () => void;
@@ -518,9 +519,12 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
         set({ missionStatus: status });
 
         if (status) {
-          const isActive = ['PLANNING', 'EXECUTING', 'REVIEWING'].includes(
-            status.status
-          );
+          const isActive = [
+            'PLANNING',
+            'PLAN_READY',
+            'EXECUTING',
+            'REVIEWING',
+          ].includes(status.status);
           set({
             isRefreshing: isActive,
             refreshProgress: isActive
@@ -688,9 +692,12 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
 
       // Update refresh state based on mission status
       if (status) {
-        const isActive = ['PLANNING', 'EXECUTING', 'REVIEWING'].includes(
-          status.status
-        );
+        const isActive = [
+          'PLANNING',
+          'PLAN_READY',
+          'EXECUTING',
+          'REVIEWING',
+        ].includes(status.status);
         set({
           isRefreshing: isActive,
           refreshProgress: isActive
@@ -757,6 +764,22 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
           error instanceof Error
             ? error.message
             : 'Failed to send leader instruction',
+      });
+      throw error;
+    }
+  },
+
+  approveMissionPlan: async (topicId) => {
+    try {
+      await api.approveMissionPlan(topicId);
+      // Refresh mission status - it should now be EXECUTING
+      await get().fetchMissionStatus(topicId);
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to approve mission plan',
       });
       throw error;
     }

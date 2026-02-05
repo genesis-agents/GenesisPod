@@ -782,6 +782,17 @@ export async function getMission(
 }
 
 /**
+ * 审批研究规划，从 PLAN_READY 转为 EXECUTING
+ */
+export async function approveMissionPlan(
+  topicId: string
+): Promise<{ success: boolean; message: string }> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/mission/approve-plan`, {
+    method: 'POST',
+  });
+}
+
+/**
  * 重试失败的任务
  */
 export async function retryMission(
