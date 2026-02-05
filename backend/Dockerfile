@@ -57,7 +57,7 @@ RUN find node_modules -name "*.d.ts" -delete 2>/dev/null; \
       -o -name "Gulpfile*" -o -name ".travis.yml" -o -name "appveyor.yml" \
       -o -name ".DS_Store" -o -name "*.tsbuildinfo" \) -delete 2>/dev/null; \
     find node_modules -type d \( -name "test" -o -name "tests" -o -name "__tests__" \
-      -o -name "__mocks__" -o -name "docs" -o -name "doc" -o -name "example" \
+      -o -name "__mocks__" -o -name "docs" -o -name "example" \
       -o -name "examples" -o -name ".github" -o -name "coverage" \
       -o -name "benchmark" -o -name "benchmarks" \) -exec rm -rf {} + 2>/dev/null; \
     true
