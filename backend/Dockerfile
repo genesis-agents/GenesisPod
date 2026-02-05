@@ -44,6 +44,24 @@ RUN npm run build
 # Remove devDependencies for smaller production image
 RUN npm prune --production --legacy-peer-deps
 
+# Strip non-essential files from node_modules (~30-40% smaller)
+RUN find node_modules -name "*.d.ts" -delete 2>/dev/null; \
+    find node_modules -name "*.d.ts.map" -delete 2>/dev/null; \
+    find node_modules -name "*.js.map" -delete 2>/dev/null; \
+    find node_modules -name "*.ts" ! -name "*.d.ts" -path "*/src/*" -delete 2>/dev/null; \
+    find node_modules \( -name "README*" -o -name "CHANGELOG*" -o -name "HISTORY*" \
+      -o -name "CONTRIBUTING*" -o -name "SECURITY*" -o -name "AUTHORS*" \
+      -o -name ".eslintrc*" -o -name ".prettierrc*" -o -name ".babelrc*" \
+      -o -name "tsconfig*" -o -name ".npmignore" -o -name ".gitignore" \
+      -o -name ".editorconfig" -o -name "Makefile" -o -name "Gruntfile*" \
+      -o -name "Gulpfile*" -o -name ".travis.yml" -o -name "appveyor.yml" \
+      -o -name ".DS_Store" -o -name "*.tsbuildinfo" \) -delete 2>/dev/null; \
+    find node_modules -type d \( -name "test" -o -name "tests" -o -name "__tests__" \
+      -o -name "__mocks__" -o -name "docs" -o -name "doc" -o -name "example" \
+      -o -name "examples" -o -name ".github" -o -name "coverage" \
+      -o -name "benchmark" -o -name "benchmarks" \) -exec rm -rf {} + 2>/dev/null; \
+    true
+
 # Production stage
 FROM node:20-slim AS runner
 
