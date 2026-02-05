@@ -122,7 +122,7 @@ export class AdaptivePlanningService implements OnModuleDestroy {
     }
 
     // Set new lock
-    let releaseLock: () => void;
+    let releaseLock: () => void = () => {};
     const lockPromise = new Promise<void>((resolve) => {
       releaseLock = resolve;
     });

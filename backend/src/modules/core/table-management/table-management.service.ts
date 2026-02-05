@@ -530,6 +530,7 @@ export class TableManagementService {
    * Get detailed info for a single table
    */
   async getTableDetail(tableName: string): Promise<TableDetailDto> {
+    this.validateTableName(tableName);
     try {
       // Get basic table info
       const tableInfo = await this.prisma.$queryRawUnsafe<
@@ -921,6 +922,7 @@ export class TableManagementService {
    */
   async cleanupTable(tableName: string): Promise<CleanupResultDto> {
     const startTime = Date.now();
+    this.validateTableName(tableName);
     const policy = CLEANUP_POLICIES[tableName];
 
     if (!policy) {
