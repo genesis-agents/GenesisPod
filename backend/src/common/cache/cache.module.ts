@@ -14,8 +14,9 @@ import { CacheService } from "./cache.service";
  * 通过 REDIS_URL 环境变量自动切换模式
  *
  * Railway 注意事项：
- * - Railway 私有网络使用 IPv6，需设置 family: 6
- * - 优先使用 REDIS_URL（内网），降级到 REDIS_PUBLIC_URL（公网）
+ * - Railway .railway.internal IPv6 DNS 解析异常（返回 ::1）
+ * - 使用 family: 4 强制 IPv4 内网连接
+ * - 降级链：REDIS_URL (IPv4) → REDIS_PUBLIC_URL → 内存缓存
  */
 @Global()
 @Module({
@@ -30,43 +31,36 @@ import { CacheService } from "./cache.service";
 
         if (!redisUrl && !redisPublicUrl) {
           logger.log("REDIS_URL not set, using in-memory cache");
-          return {
-            ttl: 300 * 1000, // 5 分钟
-            max: 1000, // 最多 1000 条
-          };
+          return { ttl: 300 * 1000, max: 1000 };
         }
 
-        // 尝试连接 Redis（优先内网，降级公网）
-        const urlsToTry = [
+        // 内网优先，公网降级
+        const urlCandidates = [
           ...(redisUrl ? [{ url: redisUrl, label: "internal" }] : []),
           ...(redisPublicUrl && redisPublicUrl !== redisUrl
             ? [{ url: redisPublicUrl, label: "public" }]
             : []),
         ];
 
-        for (const { url, label } of urlsToTry) {
+        for (const { url, label } of urlCandidates) {
           const maskedUrl = url.replace(/\/\/.*@/, "//***@");
           logger.log(`Trying Redis (${label}): ${maskedUrl}`);
 
           try {
-            // Railway 私有网络使用 IPv6
-            const isRailwayInternal = url.includes(".railway.internal");
-
             const store = await redisStore({
               url,
               ttl: 300 * 1000,
-              // Railway 私有网络需要 IPv6
-              ...(isRailwayInternal ? { family: 6 } : {}),
-              // 连接选项：限制重试，防止无限刷屏
+              // 强制 IPv4，绕过 Railway IPv6 DNS 解析异常
+              family: 4,
               maxRetriesPerRequest: 3,
               enableOfflineQueue: false,
               connectTimeout: 5000,
               retryStrategy(times: number) {
                 if (times > 5) {
                   logger.warn(
-                    `Redis connection failed after ${times} attempts. Stopping retries.`,
+                    `Redis retry limit reached (${times}). Stopping.`,
                   );
-                  return null; // 停止重试
+                  return null;
                 }
                 const delay = Math.min(times * 500, 3000);
                 logger.warn(
@@ -84,29 +78,19 @@ import { CacheService } from "./cache.service";
               });
             }
 
-            logger.log(
-              `Redis cache connected successfully (${label})${isRailwayInternal ? " [IPv6]" : ""}`,
-            );
-
-            return {
-              store,
-              ttl: 300 * 1000,
-            };
+            logger.log(`Redis cache connected successfully (${label})`);
+            return { store, ttl: 300 * 1000 };
           } catch (error) {
             logger.error(
-              `Failed to connect Redis (${label}): ${error instanceof Error ? error.message : error}`,
+              `Failed to create Redis store (${label}): ${error instanceof Error ? error.message : error}`,
             );
           }
         }
 
-        // 所有 Redis URL 都失败，回退到内存缓存
         logger.warn(
           "All Redis connections failed. Falling back to memory cache.",
         );
-        return {
-          ttl: 300 * 1000,
-          max: 1000,
-        };
+        return { ttl: 300 * 1000, max: 1000 };
       },
     }),
   ],
