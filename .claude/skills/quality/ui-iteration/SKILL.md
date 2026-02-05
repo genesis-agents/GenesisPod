@@ -1,44 +1,101 @@
 # UI Iteration Skill
 
-Automated UI quality inspection and iterative improvement for DeepDive Engine.
+Fully automated end-to-end UI testing with iterative fix loop for DeepDive Engine.
 
 ## What This Skill Does
 
-1. **Patrol**: Visits all frontend pages, captures screenshots, collects console errors, network failures, DOM snapshots, CSS issues, and accessibility problems
-2. **Review**: Compares captured data against component specs (`.ui-patrol/specs/`) to identify real issues vs false positives
-3. **Fix**: For high-confidence issues, generates and applies code fixes with validation
-4. **Evaluate**: Tracks precision/recall metrics to improve detection accuracy over time
+Executes a complete **autonomous test-fix-retest cycle**:
 
-## Commands
-
-```bash
-npm run ui-patrol              # Full patrol
-npm run ui-patrol:critical     # Critical pages only
-npm run ui-patrol -- --routes "/ai-research"  # Specific routes
-npm run db:seed:ui-patrol      # Seed test data
-npm run db:clean:ui-patrol     # Clean test data
+```
+┌─────────────────────────────────────────────┐
+│  Phase A: Generate Test Plan                │
+│  - Read reference test cases                │
+│  - Scan codebase for new features           │
+│  - Output dated test document               │
+├─────────────────────────────────────────────┤
+│  Phase B: Execute Tests                     │
+│  - Navigate pages via browser automation    │
+│  - Verify UI, console, network              │
+│  - Record PASS/FAIL with evidence           │
+├─────────────────────────────────────────────┤
+│  Phase C: Triage & Fix                      │
+│  - Analyze root cause in source code        │
+│  - Apply fixes + type check + unit tests    │
+│  - Record fix details                       │
+├─────────────────────────────────────────────┤
+│  Phase D: Regression & Refresh              │
+│  - Re-test failed cases                     │
+│  - Check for regressions                    │
+│  - Loop back to C if new failures found     │
+├─────────────────────────────────────────────┤
+│  Phase E: Final Report                      │
+│  - Executive summary                        │
+│  - Full test log with timestamps            │
+│  - Issues found/fixed                       │
+│  - Code changes summary                     │
+└─────────────────────────────────────────────┘
 ```
 
-## Workflow
+## Usage
 
-1. Ensure dev server is running: `npm run dev`
-2. Seed test data: `npm run db:seed:ui-patrol`
-3. Run patrol: `npm run ui-patrol`
-4. Review report in `.ui-patrol/reports/`
-5. Use `/ui-iteration` command for AI-assisted review and fix
+Invoke via Claude Code slash command:
 
-## Fix Strategies
+```
+/ui-iteration
+```
 
-| Strategy | Use Case |
-|----------|----------|
-| null-check | Data undefined/null causing crash |
-| empty-state | Missing empty state component |
-| css-overflow | Text/content overflow |
-| api-path | Wrong API endpoint (404) |
-| loading-state | Missing loading indicator |
+The skill runs **fully autonomously** - no human input needed during execution.
 
-## Quality Metrics
+## Key Files
 
-- Precision >= 70% (issues found are real)
-- Recall >= 50% (real issues are found)
-- Fix success rate >= 60%
+| File                                                                          | Purpose                                  |
+| ----------------------------------------------------------------------------- | ---------------------------------------- |
+| `.claude/commands/ui-iteration.md`                                            | Slash command prompt (full instructions) |
+| `docs/guides/testing/test-cases/comprehensive-combination-test-2026-01-25.md` | Reference test plan                      |
+| `docs/guides/testing/test-results/ui-iteration-{date}.md`                     | Output test reports                      |
+
+## Test Environment
+
+- **Local URL**: http://localhost:3000
+- **Production URL**: https://raven-ai-engine.up.railway.app
+- **Browser**: Playwright MCP or Chrome DevTools MCP
+- **Fallback**: Code-level analysis + API testing via curl
+
+## Test Scope
+
+### P0 - Blocking (Must Pass)
+
+- Page loading (no white screens, no console errors)
+- AI Ask: send/receive messages, model switching, Mixture mode
+- Knowledge base integration (RAG queries)
+- AI Teams, Research, Writing page loads
+
+### P1 - Important
+
+- Web search, file upload, session management
+- Cross-module navigation, error recovery
+- Responsive design
+
+### P2 - Nice to Have
+
+- Boundary conditions, performance, accessibility
+
+## Automation Principles
+
+1. **Zero human intervention** - runs start-to-finish autonomously
+2. **Fix immediately** - don't just report issues, fix them in code
+3. **Iterate until clean** - loop until regression passes
+4. **Record everything** - every action, observation, decision logged
+5. **Parallel execution** - use Task tool for independent test groups
+6. **Commit at the end** - only after all iterations pass
+
+## Output Format
+
+The test report (`docs/guides/testing/test-results/ui-iteration-{date}.md`) contains:
+
+1. **Header**: Date, environment, commit hash, execution time
+2. **Summary Table**: Tests executed, passed, failed, fixed
+3. **Detailed Results**: Per-test evidence and status
+4. **Issues Log**: Every bug found with root cause and fix
+5. **Code Changes**: Files modified with descriptions
+6. **Conclusion**: Quality assessment and remaining gaps
