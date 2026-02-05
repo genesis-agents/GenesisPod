@@ -2,6 +2,27 @@
 
 Raven AI Engine 版本变更记录。
 
+## [3.16.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.16.0) (2026-02-05)
+
+
+### Features
+
+* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
+* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
+* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
+
+
+### Bug Fixes
+
+* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
+* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
+* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
+* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
+* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
+* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
+* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
+* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
+
 ## [3.15.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.15.0) (2026-02-05)
 
 
