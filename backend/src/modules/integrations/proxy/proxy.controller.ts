@@ -545,6 +545,7 @@ export class ProxyController {
               `All fallback methods failed for ${urlObj.hostname}, returning graceful degradation`,
             );
             return {
+              success: false,
               requiresCaptcha: true,
               title: this.extractTitleFromUrl(url),
               content: "",
@@ -787,6 +788,7 @@ export class ProxyController {
               `All fallback methods failed for ${urlObj.hostname}, returning graceful degradation`,
             );
             return {
+              success: false,
               requiresCaptcha: true,
               title: this.extractTitleFromUrl(url),
               content: "",
