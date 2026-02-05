@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { AIErrorClassifier } from "../../../../common/ai-orchestration/error-classifier";
@@ -10,6 +10,7 @@ import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
 import { AiApiCallerService } from "./ai-api-caller.service";
 import { AiStreamHandlerService } from "./ai-stream-handler.service";
+import { AIMetricsService } from "../../../core/monitoring";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -65,6 +66,7 @@ export class AiChatService {
     private readonly modelConfigService: AiModelConfigService,
     private readonly apiCallerService: AiApiCallerService,
     private readonly streamHandlerService: AiStreamHandlerService,
+    @Optional() private readonly aiMetricsService?: AIMetricsService,
   ) {}
 
   // ==================== 模型配置委托方法 ====================
@@ -113,6 +115,48 @@ export class AiChatService {
    */
   isReasoningModel(modelId: string): boolean {
     return this.modelConfigService.isReasoningModel(modelId);
+  }
+
+  /**
+   * 记录 LLM 调用指标（非阻塞）
+   * 将指标异步写入数据库，不影响主请求流程
+   */
+  private recordLLMMetrics(params: {
+    modelId: string;
+    providerId?: string;
+    userId?: string;
+    duration: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    success: boolean;
+    errorCode?: string;
+    errorMsg?: string;
+    operationId?: string;
+  }): void {
+    if (!this.aiMetricsService) {
+      return; // 服务未注入时静默跳过
+    }
+
+    // 非阻塞写入指标
+    this.aiMetricsService
+      .recordMetric({
+        metricType: "llm_call",
+        operationId: params.operationId,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        userId: params.userId,
+        duration: params.duration,
+        inputTokens: params.inputTokens,
+        outputTokens: params.outputTokens,
+        success: params.success,
+        errorCode: params.errorCode,
+        errorMsg: params.errorMsg,
+      })
+      .catch((err) => {
+        // 静默处理，不影响主流程
+        this.logger.warn(`[AIMetrics] Failed to record metric: ${err.message}`);
+      });
   }
 
   /**
@@ -3973,6 +4017,7 @@ Generate an image that fulfills the current request while maintaining consistenc
         `[chat] Attempt ${attempt + 1}/${maxFallbackAttempts}: trying model ${currentModel}`,
       );
 
+      const startTime = Date.now();
       const result = await this.generateChatCompletion({
         model: currentModel,
         systemPrompt,
@@ -3981,6 +4026,19 @@ Generate an image that fulfills the current request while maintaining consistenc
         temperature: effectiveTemperature,
         strictMode,
         userId,
+      });
+      const duration = Date.now() - startTime;
+
+      // 记录 AI 指标（非阻塞）
+      this.recordLLMMetrics({
+        modelId: currentModel,
+        providerId: currentModelConfig?.provider,
+        userId,
+        duration,
+        totalTokens: result.tokensUsed,
+        success: !result.isError,
+        errorCode: result.isError ? "LLM_CALL_FAILED" : undefined,
+        errorMsg: result.isError ? result.content.substring(0, 500) : undefined,
       });
 
       // 如果成功（没有错误），直接返回

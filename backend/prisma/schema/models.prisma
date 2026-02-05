@@ -6186,6 +6186,89 @@ model AIUsageLog {
   @@map("ai_usage_logs")
 }
 
+// ============ System Monitoring 系统监控 ============
+
+/// 系统错误日志 - 替代 Sentry 的错误跟踪
+model SystemErrorLog {
+  id String @id @default(uuid())
+
+  // 错误分类
+  errorCode    String  @map("error_code") // 错误码: INTERNAL_ERROR, DATABASE_ERROR 等
+  errorType    String  @map("error_type") // 错误类型: exception, rejection, timeout
+  severity     String  @default("error") // 严重级别: error, warning, critical
+  component    String? // 组件: ai-engine, api, database
+
+  // 错误详情
+  message     String  @db.Text
+  stackTrace  String? @map("stack_trace") @db.Text
+  fingerprint String? // 错误指纹，用于聚合相同错误
+
+  // 请求上下文
+  path       String? // API 路径
+  method     String? // HTTP 方法
+  statusCode Int?    @map("status_code")
+  userId     String? @map("user_id")
+  requestId  String? @map("request_id")
+
+  // 附加数据
+  metadata Json? @default("{}")
+
+  // 是否已处理
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime? @map("resolved_at")
+  resolvedBy String?   @map("resolved_by")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([errorCode, createdAt(sort: Desc)])
+  @@index([severity, createdAt(sort: Desc)])
+  @@index([component, createdAt(sort: Desc)])
+  @@index([fingerprint])
+  @@index([resolved, createdAt(sort: Desc)])
+  @@map("system_error_logs")
+}
+
+/// AI 引擎指标日志 - LLM 调用、Token 使用等
+model AIEngineMetric {
+  id String @id @default(uuid())
+
+  // 指标类型
+  metricType String @map("metric_type") // llm_call, tool_execution, agent_execution, mission_execution
+
+  // 标识
+  operationId   String? @map("operation_id") // 操作名称
+  modelId       String? @map("model_id") // 模型 ID
+  providerId    String? @map("provider_id") // 提供商
+  agentId       String? @map("agent_id")
+  missionId     String? @map("mission_id")
+  userId        String? @map("user_id")
+
+  // 性能指标
+  duration     Int?     @db.Integer // 耗时 ms
+  inputTokens  Int?     @map("input_tokens")
+  outputTokens Int?     @map("output_tokens")
+  totalTokens  Int?     @map("total_tokens")
+  estimatedCost Decimal? @map("estimated_cost") @db.Decimal(10, 6) // 估算成本 USD
+
+  // 结果
+  success   Boolean
+  errorCode String? @map("error_code")
+  errorMsg  String? @map("error_msg") @db.Text
+
+  // 附加数据
+  metadata Json? @default("{}")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([metricType, createdAt(sort: Desc)])
+  @@index([modelId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([success, createdAt(sort: Desc)])
+  @@map("ai_engine_metrics")
+}
+
 // ============ Topic Research 专题研究 ============
 
 // ==================== Enums ====================

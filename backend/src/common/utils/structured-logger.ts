@@ -1,4 +1,5 @@
 import { Injectable, LoggerService } from "@nestjs/common";
+import { RequestContext } from "../context/request-context";
 
 /**
  * 日志级别
@@ -19,6 +20,7 @@ export interface LogEntry {
   message: string;
   context?: string;
   requestId?: string;
+  traceId?: string;
   userId?: string;
   duration?: number;
   metadata?: Record<string, unknown>;
@@ -76,8 +78,14 @@ export class StructuredLogger implements LoggerService {
       entry.context = this.context;
     }
 
+    // 自动从 RequestContext 获取追踪信息
+    const reqContext = RequestContext.getLogContext();
+    if (reqContext.requestId) entry.requestId = reqContext.requestId;
+    if (reqContext.traceId) entry.traceId = reqContext.traceId;
+    if (reqContext.userId) entry.userId = reqContext.userId;
+
     if (metadata) {
-      // 提取特殊字段
+      // 提取特殊字段（覆盖自动获取的值）
       const { requestId, userId, duration, error, ...rest } = metadata;
 
       if (requestId) entry.requestId = String(requestId);

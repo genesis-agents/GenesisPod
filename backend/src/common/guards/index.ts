@@ -5,3 +5,4 @@
  */
 
 export * from "./rate-limit.guard";
+export * from "./distributed-rate-limit.guard";

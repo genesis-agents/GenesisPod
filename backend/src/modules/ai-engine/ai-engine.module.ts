@@ -70,6 +70,9 @@ import { EmbeddingService } from "./rag/embedding";
 import { VectorService } from "./rag/vector";
 import { DocumentChunker } from "./rag/chunking";
 
+// Observability
+import { AiEngineTracingService } from "./observability";
+
 // Facade (统一入口)
 import { AIEngineFacade } from "./facade";
 import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
@@ -131,6 +134,9 @@ import { ITool } from "./tools/abstractions/tool.interface";
     VectorService,
     DocumentChunker,
 
+    // === Observability ===
+    AiEngineTracingService,
+
     // === Facade (统一入口) ===
     AIEngineFacade,
   ],
@@ -166,6 +172,9 @@ import { ITool } from "./tools/abstractions/tool.interface";
     EmbeddingService,
     VectorService,
     DocumentChunker,
+
+    // === Observability ===
+    AiEngineTracingService,
 
     // === Facade (统一入口) ===
     AIEngineFacade,

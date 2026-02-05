@@ -12,6 +12,8 @@ import { LogsAdminController } from "./logs-admin.controller";
 import { PermissionsAdminController } from "./permissions-admin.controller";
 import { BillingAdminController } from "./billing-admin.controller";
 import { NotificationsAdminController } from "./notifications-admin.controller";
+import { MonitoringAdminController } from "./monitoring-admin.controller";
+import { CacheAdminController } from "./cache-admin.controller";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { SecretsModule } from "../secrets/secrets.module";
@@ -28,6 +30,9 @@ import {
   NotificationsAdminService,
 } from "./services";
 
+// Monitoring services (from shared MonitoringModule, globally available)
+// ErrorTrackingService and AIMetricsService are provided by MonitoringModule
+
 @Module({
   imports: [PrismaModule, AiEngineModule, SecretsModule, QuotaModule],
   controllers: [
@@ -39,6 +44,8 @@ import {
     PermissionsAdminController, // /admin/permissions/* routes
     BillingAdminController, // /admin/billing/* routes
     NotificationsAdminController, // /admin/notifications/* routes
+    MonitoringAdminController, // /admin/monitoring/* routes for error tracking & AI metrics
+    CacheAdminController, // /admin/cache/* routes for cache management
   ],
   providers: [
     AdminService,
@@ -52,6 +59,7 @@ import {
     PermissionsService,
     BillingService,
     NotificationsAdminService,
+    // Note: ErrorTrackingService and AIMetricsService are provided globally by MonitoringModule
   ],
   exports: [
     AdminService,
@@ -64,6 +72,7 @@ import {
     PermissionsService,
     BillingService,
     NotificationsAdminService,
+    // Note: ErrorTrackingService and AIMetricsService are exported globally by MonitoringModule
   ],
 })
 export class AdminModule {}

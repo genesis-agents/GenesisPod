@@ -19,9 +19,11 @@ import { ContentProcessingModule } from "./common/content-processing";
 import { ObservabilityModule } from "./common/observability";
 import { AuditModule } from "./common/audit";
 import { EventsModule } from "./common/events";
+import { CacheModule } from "./common/cache";
 // Core modules
 import { AuthModule } from "./modules/core/auth/auth.module";
 import { AdminModule } from "./modules/core/admin/admin.module";
+import { MonitoringModule } from "./modules/core/monitoring";
 import { EmailModule } from "./modules/core/email/email.module";
 import { FeedbackModule } from "./modules/core/feedback/feedback.module";
 import { NotificationModule } from "./modules/core/notifications/notification.module";
@@ -113,6 +115,7 @@ import { RequestContextMiddleware } from "./common/context/request-context.middl
     Neo4jModule,
 
     // 公共服务模块
+    CacheModule, // Redis/内存缓存（全局）
     AiOrchestrationModule,
     StreamingModule,
     ContentProcessingModule,
@@ -121,6 +124,7 @@ import { RequestContextMiddleware } from "./common/context/request-context.middl
     EventsModule,
 
     // Core modules
+    MonitoringModule, // Global module for AI metrics and error tracking
     AuthModule,
     AdminModule,
     EmailModule,

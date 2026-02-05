@@ -3,11 +3,13 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { SecretsService, AuditContext } from "../secrets/secrets.service";
 import { CreditsService } from "../../credits/credits.service";
+import { CacheService, CachePrefix, CacheTTL } from "../../../common/cache";
 import {
   SecretCategory,
   CreditTransactionType,
@@ -82,6 +84,7 @@ export class UserApiKeysService {
     private readonly configService: ConfigService,
     private readonly secretsService: SecretsService,
     private readonly creditsService: CreditsService,
+    @Optional() private readonly cacheService?: CacheService,
   ) {
     const key = this.configService.get<string>("SETTINGS_ENCRYPTION_KEY");
     if (!key) {
@@ -306,6 +309,9 @@ export class UserApiKeysService {
       }
     }
 
+    // Step 4: 使缓存失效
+    await this.invalidateUserKeyCache(userId);
+
     return { success: true, mode };
   }
 
@@ -329,6 +335,10 @@ export class UserApiKeysService {
     }
 
     await this.prisma.userApiKey.delete({ where: { id: existing.id } });
+
+    // 使缓存失效
+    await this.invalidateUserKeyCache(userId);
+
     return { success: true };
   }
 
@@ -353,6 +363,9 @@ export class UserApiKeysService {
       where: { id: existing.id },
       data: { mode: UserApiKeyMode.PERSONAL, donatedSecretId: null },
     });
+
+    // 使缓存失效
+    await this.invalidateUserKeyCache(userId);
 
     return { success: true };
   }
@@ -403,26 +416,64 @@ export class UserApiKeysService {
 
   /**
    * 获取用户的个人 Key（用于 AI 调用优先级判断）
+   * 结果缓存 5 分钟以减少数据库查询
    */
   async getPersonalKey(
     userId: string,
     provider: string,
   ): Promise<{ apiKey: string; apiEndpoint?: string | null } | null> {
+    const normalizedProvider = provider.toLowerCase();
+    const cacheKey = `${CachePrefix.USER_API_KEY}${userId}:${normalizedProvider}`;
+
+    // 尝试从缓存获取
+    if (this.cacheService) {
+      const cached = await this.cacheService.get<{
+        apiKey: string;
+        apiEndpoint?: string | null;
+      }>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
     const key = await this.prisma.userApiKey.findFirst({
       where: {
         userId,
-        provider: provider.toLowerCase(),
+        provider: normalizedProvider,
         mode: UserApiKeyMode.PERSONAL,
         isActive: true,
       },
     });
 
-    if (!key) return null;
+    if (!key) {
+      // 缓存空结果以避免重复查询（较短 TTL）
+      if (this.cacheService) {
+        await this.cacheService.set(cacheKey, null, CacheTTL.SHORT);
+      }
+      return null;
+    }
 
     const decrypted = this.decrypt(key.encryptedValue, key.iv);
     if (!decrypted) return null;
 
-    return { apiKey: decrypted, apiEndpoint: key.apiEndpoint };
+    const result = { apiKey: decrypted, apiEndpoint: key.apiEndpoint };
+
+    // 缓存结果
+    if (this.cacheService) {
+      await this.cacheService.set(cacheKey, result, CacheTTL.DEFAULT);
+    }
+
+    return result;
+  }
+
+  /**
+   * 使用户 API Key 缓存失效
+   * 当用户更新、删除 Key 时调用
+   */
+  async invalidateUserKeyCache(userId: string): Promise<void> {
+    if (this.cacheService) {
+      await this.cacheService.invalidateUserCache(userId);
+    }
   }
 
   /**

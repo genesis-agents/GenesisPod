@@ -5,9 +5,13 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  Inject,
+  Optional,
 } from "@nestjs/common";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { Request, Response } from "express";
+import { RequestContext } from "../context/request-context";
+import { ErrorTrackingService } from "../../modules/core/monitoring";
 
 /**
  * 全局异常过滤器
@@ -26,6 +30,12 @@ import { Request, Response } from "express";
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
+
+  constructor(
+    @Optional()
+    @Inject(ErrorTrackingService)
+    private readonly errorTrackingService?: ErrorTrackingService,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -80,6 +90,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       this.logger.error("Uncaught exception", exception.stack);
     }
 
+    // 获取请求追踪 ID
+    const requestId = RequestContext.getRequestId();
+    const traceId = RequestContext.getTraceId();
+
     return {
       statusCode: status,
       timestamp: new Date().toISOString(),
@@ -87,6 +101,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       method: request.method,
       message,
       code,
+      // 追踪 ID（便于日志关联）
+      ...(requestId && { requestId }),
+      ...(traceId && { traceId }),
       ...(details && { details }),
       // 仅在开发环境返回stack trace
       ...(process.env.NODE_ENV === "development" &&
@@ -216,24 +233,42 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   /**
    * 发送错误到监控系统
+   * 通过 ErrorTrackingService 持久化错误记录
    */
-  private reportToMonitoring(errorResponse: any, _exception: unknown) {
-    // TODO: 集成Sentry或其他监控服务
-    // 示例:
-    // if (process.env.SENTRY_DSN) {
-    //   Sentry.captureException(_exception, {
-    //     tags: {
-    //       code: errorResponse.code,
-    //       statusCode: errorResponse.statusCode,
-    //     },
-    //     extra: errorResponse,
-    //   });
-    // }
-
-    // 临时方案：记录到日志
+  private reportToMonitoring(errorResponse: any, exception: unknown) {
+    // 记录到本地日志
     this.logger.error(
       `[MONITORING] Critical error: ${errorResponse.code}`,
       JSON.stringify(errorResponse),
     );
+
+    // 通过 ErrorTrackingService 持久化（如果可用）
+    if (this.errorTrackingService) {
+      const severity = errorResponse.statusCode >= 500 ? "error" : "warning";
+
+      this.errorTrackingService
+        .logError({
+          errorCode: errorResponse.code,
+          errorType: "http_exception",
+          message: errorResponse.message,
+          severity,
+          component: "http",
+          stackTrace: exception instanceof Error ? exception.stack : undefined,
+          path: errorResponse.path,
+          method: errorResponse.method,
+          statusCode: errorResponse.statusCode,
+          userId: RequestContext.getUserId(),
+          requestId: errorResponse.requestId,
+          metadata: {
+            traceId: errorResponse.traceId,
+            details: errorResponse.details,
+          },
+        })
+        .catch((err: Error) => {
+          this.logger.warn(
+            `[MONITORING] Failed to track error: ${err.message}`,
+          );
+        });
+    }
   }
 }

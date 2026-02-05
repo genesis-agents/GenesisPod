@@ -5,3 +5,5 @@ export * from "./logs.service";
 export * from "./permissions.service";
 export * from "./billing.service";
 export * from "./notifications-admin.service";
+// Re-export monitoring services from shared module
+export * from "../../monitoring";

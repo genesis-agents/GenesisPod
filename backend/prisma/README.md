@@ -4,13 +4,13 @@
 
 ## 脚本列表
 
-| 脚本                      | 用途                                           | 使用场景             |
-| ------------------------- | ---------------------------------------------- | -------------------- |
-| `schema/`                 | 数据库 schema 定义（模块化拆分）               | 核心文件             |
-| `seed.ts`                 | 主种子数据脚本                                 | 初始化数据库         |
-| `seed-data-sources.ts`    | 数据源种子数据（YouTube/Blog/Policy）          | 添加数据源           |
-| `deploy-migrations.ts`    | 部署迁移脚本（统一处理所有迁移场景）           | 生产环境部署         |
-| `diagnose-db.ts`          | 数据库诊断工具                                 | 排查数据库问题       |
+| 脚本                   | 用途                                  | 使用场景       |
+| ---------------------- | ------------------------------------- | -------------- |
+| `schema/`              | 数据库 schema 定义（模块化拆分）      | 核心文件       |
+| `seed.ts`              | 主种子数据脚本                        | 初始化数据库   |
+| `seed-data-sources.ts` | 数据源种子数据（YouTube/Blog/Policy） | 添加数据源     |
+| `deploy-migrations.ts` | 部署迁移脚本（统一处理所有迁移场景）  | 生产环境部署   |
+| `diagnose-db.ts`       | 数据库诊断工具                        | 排查数据库问题 |
 
 ## 使用说明
 
@@ -48,6 +48,7 @@ npm run seed
 ```
 
 > **注意**: `deploy-migrations.ts` 已统一处理以下场景：
+>
 > - 失败迁移的解决
 > - 回滚迁移的清理
 > - 枚举值添加（事务外）
@@ -88,18 +89,21 @@ YYYYMMDD_description
 所有复杂迁移场景统一在 `deploy-migrations.ts` 中处理：
 
 **Step 3.5**: 关键表结构检查（fallback for failed migrations）
+
 ```typescript
 // 检查并创建缺失的表/列
 // 例如: secrets.current_version, secret_versions, login_history
 ```
 
 **Step 4.5**: 枚举值添加（事务外执行）
+
 ```typescript
 // PostgreSQL ALTER TYPE ADD VALUE 必须在事务外执行
 // 自动检查并添加缺失的枚举值
 ```
 
 **Step 4.6**: 数据修复（已知问题）
+
 ```typescript
 // MCP 包名修复: @anthropics → @modelcontextprotocol
 // Secret 分类修复: GitHub 相关 secrets → DEV_TOOLS
@@ -112,6 +116,7 @@ YYYYMMDD_description
 ### 主种子脚本 (seed.ts)
 
 包含基础数据：
+
 - 用户数据
 - 基础配置
 - 系统设置
@@ -143,6 +148,7 @@ npx tsx prisma/diagnose-db.ts
 ```
 
 诊断内容：
+
 - 数据库连接状态
 - 表结构完整性
 - 数据类型一致性
@@ -179,8 +185,16 @@ npx tsx prisma/diagnose-db.ts
 
 - `fix-enum-values.ts` → 整合到 `deploy-migrations.ts` Step 4.5
 - `fix-all-missing-structures.sql` → 整合到 `deploy-migrations.ts` Step 3.5
+- `add_research_type.sql` → 已应用的历史迁移
 
 详见: `backend/scripts/_archive/prisma-fixes/README.md`
+
+## 工具脚本
+
+数据库相关工具脚本位于 `backend/scripts/db/`：
+
+- `clean-ui-patrol.ts` - 清理 UI Patrol 测试数据
+- `seed-ui-patrol.ts` - 初始化 UI Patrol 数据
 
 ## 相关文档
 
