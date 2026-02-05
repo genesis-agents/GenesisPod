@@ -14,15 +14,16 @@ ENV NEXT_PUBLIC_AI_URL=$NEXT_PUBLIC_AI_URL
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json* ./
+RUN npm ci
 
 COPY . .
 RUN npm run build
 
+# ── Runtime stage (standalone mode) ──────────────────────────────
 FROM node:20-alpine
 
-# 设置 UTF-8 编码环境
+ENV NODE_ENV=production
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
@@ -30,18 +31,17 @@ WORKDIR /app
 
 RUN apk add --no-cache dumb-init
 
-COPY package.json ./
-RUN npm install --omit=dev
-
-COPY --from=builder /app/.next ./.next
+# standalone 模式只需复制三个目录，无需 npm install
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.js ./next.config.js
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+RUN chown -R nextjs:nodejs /app
 USER nextjs
 
+# Railway 会动态设置 PORT，不硬编码
 EXPOSE 3000
-ENV PORT=3000
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

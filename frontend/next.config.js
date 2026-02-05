@@ -27,6 +27,7 @@ const gitInfo = getGitCommitHash();
 const packageJson = require('./package.json');
 
 const nextConfig = {
+  output: 'standalone',
   reactStrictMode: true,
   images: {
     remotePatterns: [

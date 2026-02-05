@@ -4,7 +4,7 @@ dockerfilePath = "Dockerfile"
 useMetal = false
 
 [deploy]
-healthcheckPath = "/"
-healthcheckTimeout = 100
+healthcheckPath = "/api/health"
+healthcheckTimeout = 120
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
+restartPolicyMaxRetries = 5
