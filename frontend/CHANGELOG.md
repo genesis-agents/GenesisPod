@@ -2,6 +2,55 @@
 
 Raven AI Engine 版本变更记录。
 
+## [3.34.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.34.0) (2026-02-05)
+
+
+### Features
+
+* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
+* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
+* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
+* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
+
+
+### Bug Fixes
+
+* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
+* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
+* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
+* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
+* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
+* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
+* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
+* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
+* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
+* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
+* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
+* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
+* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
+* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
+* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
+* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
+* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
+* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
+* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
+* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
+* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
+* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
+* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
+* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
+
+
+### Refactoring
+
+* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
+
+
+### Performance
+
+* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
+* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
+
 ## [3.33.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.33.0) (2026-02-05)
 
 
