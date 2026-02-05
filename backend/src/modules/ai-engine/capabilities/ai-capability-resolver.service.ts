@@ -110,7 +110,7 @@ export class AICapabilityResolver {
     // 如果有角色限制，只保留角色允许的工具
     if (roleAllowedTools !== null && roleAllowedTools.length > 0) {
       allTools = new Set(
-        Array.from(allTools).filter((t) => roleAllowedTools!.includes(t)),
+        Array.from(allTools).filter((t) => roleAllowedTools.includes(t)),
       );
     }
 
@@ -484,7 +484,7 @@ export class AICapabilityResolver {
       const teamMetadata = await this.getTeamMetadataCached(context.teamId);
       if (teamMetadata && typeof teamMetadata.skillTokenBudget === "number") {
         return Math.min(
-          teamMetadata.skillTokenBudget as number,
+          teamMetadata.skillTokenBudget,
           this.defaultTokenBudget.skillPromptMax,
         );
       }

@@ -171,7 +171,7 @@ export class CharacterService {
       }
       // 也检查别名
       for (const alias of char.aliases || []) {
-        namesToCheck.push((alias as string).toLowerCase());
+        namesToCheck.push(alias.toLowerCase());
       }
 
       // 检查是否已有相似名称的角色
@@ -236,7 +236,7 @@ export class CharacterService {
         nameToId.set(aliasMatch[2].toLowerCase(), char.id);
       }
       for (const alias of char.aliases || []) {
-        nameToId.set((alias as string).toLowerCase(), char.id);
+        nameToId.set(alias.toLowerCase(), char.id);
       }
       // ★ 增强：添加名字的各种变体（去掉常见后缀/前缀）
       const nameParts = char.name

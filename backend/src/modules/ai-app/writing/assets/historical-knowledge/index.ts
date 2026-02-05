@@ -34,6 +34,8 @@ function loadJsonFile<T>(filename: string): T | null {
       return JSON.parse(content) as T;
     }
   } catch (error) {
+    // Using console.error here is acceptable for a utility function loading static data
+    // eslint-disable-next-line no-console
     console.error(`[HistoricalKnowledge] Failed to load ${filename}:`, error);
   }
   return null;

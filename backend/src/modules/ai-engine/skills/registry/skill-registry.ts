@@ -9,6 +9,7 @@ import {
   ISkill,
   SkillLayer,
   SkillDefinition,
+  TriggerRule,
 } from "../abstractions/skill.interface";
 
 /**
@@ -159,6 +160,72 @@ export class SkillRegistry
       byLayer,
       byDomain,
     };
+  }
+
+  /**
+   * 比较版本号（semver）
+   * 返回：1（a > b）, -1（a < b）, 0（相等）
+   */
+  compareVersions(versionA: string, versionB: string): number {
+    const partsA = versionA.split(".").map(Number);
+    const partsB = versionB.split(".").map(Number);
+    const len = Math.max(partsA.length, partsB.length);
+
+    for (let i = 0; i < len; i++) {
+      const a = partsA[i] || 0;
+      const b = partsB[i] || 0;
+      if (a > b) return 1;
+      if (a < b) return -1;
+    }
+
+    return 0;
+  }
+
+  /**
+   * 检查技能版本是否兼容（major 版本一致）
+   */
+  isVersionCompatible(skillId: string, requiredVersion: string): boolean {
+    const skill = this.tryGet(skillId);
+    if (!skill?.version) return true; // 无版本信息视为兼容
+
+    const currentMajor = parseInt(skill.version.split(".")[0], 10);
+    const requiredMajor = parseInt(requiredVersion.split(".")[0], 10);
+
+    return currentMajor === requiredMajor;
+  }
+
+  /**
+   * 根据触发条件匹配技能
+   */
+  matchByTrigger(triggerType: TriggerRule["type"], value: string): ISkill[] {
+    const matched: Array<{ skill: ISkill; priority: number }> = [];
+
+    for (const skill of this.getAll()) {
+      if (!skill.triggers) continue;
+
+      for (const trigger of skill.triggers) {
+        if (trigger.type !== triggerType) continue;
+
+        let isMatch = false;
+        if (triggerType === "keyword") {
+          isMatch = value
+            .toLowerCase()
+            .includes(trigger.condition.toLowerCase());
+        } else if (triggerType === "intent") {
+          isMatch = value === trigger.condition;
+        } else if (triggerType === "context" || triggerType === "event") {
+          isMatch = new RegExp(trigger.condition, "i").test(value);
+        }
+
+        if (isMatch) {
+          matched.push({ skill, priority: trigger.priority ?? 0 });
+          break; // 同一技能只匹配一次
+        }
+      }
+    }
+
+    // 按优先级降序排列
+    return matched.sort((a, b) => b.priority - a.priority).map((m) => m.skill);
   }
 
   /**

@@ -501,12 +501,10 @@ export class ReportDataService {
     const r1 = report1 as ReportWithAnalyses;
     const r2 = report2 as ReportWithAnalyses;
     const report1Dimensions = new Set<string>(
-      (r1.dimensionAnalyses?.map((da) => da.dimension?.name as string) ||
-        []) as string[],
+      r1.dimensionAnalyses?.map((da) => da.dimension?.name as string) || [],
     );
     const report2Dimensions = new Set<string>(
-      (r2.dimensionAnalyses?.map((da) => da.dimension?.name as string) ||
-        []) as string[],
+      r2.dimensionAnalyses?.map((da) => da.dimension?.name as string) || [],
     );
 
     const changedDimensions: string[] = [];

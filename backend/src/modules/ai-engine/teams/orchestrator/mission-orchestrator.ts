@@ -595,9 +595,45 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     const missionId = plan.missionId;
     const state = this.states.get(missionId) || this.initializeState(missionId);
     const completedSteps = new Set<string>();
+    const iterationStartTime = Date.now();
 
     // 按拓扑顺序执行步骤
     while (completedSteps.size < plan.steps.length) {
+      // ★ Constraint Profile: Budget checks at iteration boundaries
+      const elapsed = Date.now() - iterationStartTime;
+      const timeLimit = constraints.efficiency?.maxDuration || Infinity;
+
+      if (elapsed > timeLimit * 0.8) {
+        this.logger.warn(
+          `[executePlan] Approaching time limit: ${elapsed}ms / ${timeLimit}ms (${Math.round((elapsed / timeLimit) * 100)}%)`,
+        );
+      }
+
+      if (elapsed > timeLimit) {
+        this.logger.error(
+          `[executePlan] Time limit exceeded (${elapsed}ms > ${timeLimit}ms), stopping execution`,
+        );
+        throw new Error(
+          `Mission execution time limit exceeded: ${elapsed}ms > ${timeLimit}ms`,
+        );
+      }
+
+      // Check cost budget if available
+      const costBudget = constraints.cost?.budget || Infinity;
+      if (state.resourceUsage.costUsed > costBudget * 0.8) {
+        this.logger.warn(
+          `[executePlan] Approaching cost budget: ${state.resourceUsage.costUsed} / ${costBudget}`,
+        );
+      }
+
+      if (state.resourceUsage.costUsed > costBudget) {
+        this.logger.error(
+          `[executePlan] Cost budget exceeded, stopping execution`,
+        );
+        throw new Error(
+          `Mission cost budget exceeded: ${state.resourceUsage.costUsed} > ${costBudget}`,
+        );
+      }
       // 找出可执行的步骤（依赖已完成）
       const executableSteps = plan.steps.filter((step) => {
         if (completedSteps.has(step.id)) return false;
@@ -660,7 +696,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
 
             // ★ 关键修复：同时以技能 ID 为键存储技能结果
             // 技能的 normalizeInput 需要通过 skillId 查找前置技能的输出
-            const stepResult = result.value as StepExecutionResult;
+            const stepResult = result.value;
             if (stepResult.skillResults) {
               for (const {
                 skillId,

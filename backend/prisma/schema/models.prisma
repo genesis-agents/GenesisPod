@@ -997,6 +997,7 @@ model ImportTask {
   @@index([resourceId])
   @@index([createdAt(sort: Desc)])
   @@index([completedAt])
+  @@index([status, createdAt]) // 导入队列处理优化
   @@map("import_tasks")
 }
 
@@ -5356,6 +5357,7 @@ model StoryBibleAuditLog {
   @@index([bibleId, version])
   @@index([bibleId, entityType, entityId])
   @@index([bibleId, createdAt(sort: Desc)])
+  @@index([changedBy, changeType, createdAt]) // 审计日志查询优化
   @@map("story_bible_audit_logs")
 }
 
@@ -6669,6 +6671,7 @@ model TopicRefreshLog {
 /// 研究任务状态
 enum ResearchMissionStatus {
   PLANNING // Leader 规划中
+  PLAN_READY // 规划完成，等待用户审批
   EXECUTING // 执行中
   REVIEWING // Leader 审核中
   COMPLETED // 完成
@@ -6792,7 +6795,40 @@ model ResearchTask {
   @@index([missionId, status])
   @@index([assignedAgent])
   @@index([dimensionId])
+  @@index([missionId, status, taskType]) // 任务查询优化
   @@map("research_tasks")
+}
+
+/// 研究记忆
+/// 跨研究积累的关键发现，用于后续研究参考
+model ResearchMemory {
+  id        String @id @default(cuid())
+  topicId   String @map("topic_id")
+  missionId String @map("mission_id")
+
+  // ========== 内容 ==========
+  entity     String // 关键实体/概念
+  finding    String @db.Text // 发现/洞察
+  category   String // 类别：fact, trend, relationship, contradiction
+  confidence Float  @default(0.8) // 置信度 0-1
+
+  // ========== 来源追踪 ==========
+  sourceDimension String?  @map("source_dimension") // 来源维度名称
+  sourceUrls      String[] @map("source_urls") // 参考 URL 列表
+
+  // ========== 元数据 ==========
+  tags String[] // 标签
+
+  // ========== 时间戳 ==========
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ========== 索引 ==========
+  @@index([topicId])
+  @@index([entity])
+  @@index([category])
+  @@index([tags])
+  @@map("research_memories")
 }
 
 /// Leader 决策记录
@@ -7972,6 +8008,7 @@ model Evidence {
   @@index([sourceUrl])
   @@index([type])
   @@index([createdAt(sort: Desc)])
+  @@index([entityId, credibilityScore]) // 证据排序优化
   @@map("engine_evidences")
 }
 

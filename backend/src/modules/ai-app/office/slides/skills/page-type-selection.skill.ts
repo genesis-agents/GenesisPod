@@ -230,9 +230,10 @@ const TEMPLATE_RULES: TemplateRule[] = [
 ];
 
 @Injectable()
-export class PageTypeSelectionSkill
-  implements ISkill<PageOutline[], Map<number, PageTemplateType>>
-{
+export class PageTypeSelectionSkill implements ISkill<
+  PageOutline[],
+  Map<number, PageTemplateType>
+> {
   private readonly logger = new Logger(PageTypeSelectionSkill.name);
 
   // ISkill Implementation - Required Properties
@@ -256,7 +257,7 @@ export class PageTypeSelectionSkill
     }
 
     // 尝试从 orchestrator 格式提取
-    const orchestratorInput = input as PageTypeSelectionOrchestratorInput;
+    const orchestratorInput = input;
     const contextInput = orchestratorInput.context?.input;
 
     if (

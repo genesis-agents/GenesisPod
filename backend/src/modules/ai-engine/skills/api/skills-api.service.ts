@@ -58,7 +58,7 @@ export class SkillsApiService {
     const setting = await this.prisma.systemSetting.findUnique({
       where: { key },
     });
-    if (!setting || !setting.value) return null;
+    if (!setting?.value) return null;
     try {
       return JSON.parse(setting.value);
     } catch {
@@ -214,7 +214,7 @@ export class SkillsApiService {
    * 获取精选 Skills
    */
   async getFeaturedSkills(limit: number = 20): Promise<SkillItem[]> {
-    let skills = (await this.getSetting("skillsmp.syncedSkills")) ?? [];
+    const skills = (await this.getSetting("skillsmp.syncedSkills")) ?? [];
 
     if (!Array.isArray(skills)) {
       return [];
@@ -232,7 +232,7 @@ export class SkillsApiService {
   async getCategories(): Promise<
     Array<{ id: string; name: string; count: number }>
   > {
-    let skills = (await this.getSetting("skillsmp.syncedSkills")) ?? [];
+    const skills = (await this.getSetting("skillsmp.syncedSkills")) ?? [];
 
     if (!Array.isArray(skills)) {
       return [];

@@ -15,7 +15,7 @@ import { ConfigService } from "@nestjs/config";
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  private readonly logger = new Logger(JwtStrategy.name);
+  private readonly logger: Logger;
 
   // ★ 被禁用/删除用户黑名单（O(1) 查询）
   private readonly blockedUsers = new Set<string>();
@@ -32,19 +32,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new Error(errorMessage);
     }
 
-    // Warn if secret is too short (should be at least 32 characters)
-    if (jwtSecret.length < 32) {
-      console.warn(
-        "⚠️ WARNING: JWT_SECRET is less than 32 characters. " +
-          "For production security, use a longer secret (64+ characters recommended).",
-      );
-    }
-
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: jwtSecret,
     });
+
+    // Initialize logger after super()
+    this.logger = new Logger(JwtStrategy.name);
+
+    // Warn if secret is too short (should be at least 32 characters)
+    if (jwtSecret.length < 32) {
+      this.logger.warn(
+        "⚠️ WARNING: JWT_SECRET is less than 32 characters. " +
+          "For production security, use a longer secret (64+ characters recommended).",
+      );
+    }
   }
 
   /**

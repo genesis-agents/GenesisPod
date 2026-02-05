@@ -701,6 +701,27 @@ export class TableManagementService {
   }
 
   /**
+   * Validate table name to prevent SQL injection
+   */
+  private validateTableName(tableName: string): void {
+    // Validate format: must be alphanumeric with underscores, starting with letter or underscore
+    const tableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+    if (!tableNameRegex.test(tableName)) {
+      throw new Error(
+        `Invalid table name format: ${tableName}. Only alphanumeric characters and underscores are allowed.`,
+      );
+    }
+
+    // Additional validation: check against known Prisma model names
+    const knownTables = Object.keys(TABLE_CATEGORIES);
+    if (!knownTables.includes(tableName)) {
+      throw new Error(
+        `Unknown table: ${tableName}. Table must be a valid Prisma model.`,
+      );
+    }
+  }
+
+  /**
    * Get sample data from a table
    */
   async getTableSample(
@@ -709,6 +730,8 @@ export class TableManagementService {
   ): Promise<Record<string, unknown>[]> {
     try {
       // Validate table name to prevent SQL injection
+      this.validateTableName(tableName);
+
       const validTables = await this.prisma.$queryRawUnsafe<
         Array<{ relname: string }>
       >(

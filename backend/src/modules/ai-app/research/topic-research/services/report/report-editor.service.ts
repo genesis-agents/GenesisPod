@@ -215,7 +215,7 @@ export class ReportEditorService {
           const dimInput = editedDimensions.find(
             (d) => d.dimensionName === removeDim,
           );
-          if (!dimInput || !dimInput.detailedContent) continue;
+          if (!dimInput?.detailedContent) continue;
 
           // 使用段落提示定位并删除重复段落
           // 先 split 一次，所有 hints 共用同一数组避免重复 split

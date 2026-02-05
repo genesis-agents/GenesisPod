@@ -268,7 +268,7 @@ export class MCPClientService
    */
   async stopServer(serverId: string): Promise<void> {
     const state = this.servers.get(serverId);
-    if (!state || !state.process) {
+    if (!state?.process) {
       return;
     }
 
@@ -356,7 +356,7 @@ export class MCPClientService
     params?: unknown,
   ): Promise<unknown> {
     const state = this.servers.get(serverId);
-    if (!state || !state.process) {
+    if (!state?.process) {
       throw new Error(`Server ${serverId} not running`);
     }
 

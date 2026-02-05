@@ -362,7 +362,7 @@ export interface MCPServerConfig {
 /**
  * MCP 传输类型
  */
-export type MCPTransportType = "stdio" | "http" | "websocket";
+export type MCPTransportType = "stdio" | "http" | "sse" | "websocket";
 
 /**
  * MCP 事件类型

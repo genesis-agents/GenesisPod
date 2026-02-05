@@ -1,5 +1,5 @@
 import { NestFactory } from "@nestjs/core";
-import { ValidationPipe, LogLevel } from "@nestjs/common";
+import { ValidationPipe, LogLevel, Logger } from "@nestjs/common";
 import helmet from "helmet";
 import { Request, Response, NextFunction } from "express";
 import * as express from "express";
@@ -14,6 +14,7 @@ import { setupSwagger } from "./common/config/swagger.config";
  * 启动时检查，缺失则拒绝启动
  */
 function validateEnvConfig(): void {
+  const logger = new Logger("EnvConfig");
   const required: string[] = ["DATABASE_URL", "JWT_SECRET"];
   const recommended: string[] = [
     "ADMIN_EMAILS",
@@ -25,18 +26,18 @@ function validateEnvConfig(): void {
   const missingRecommended = recommended.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {
-    console.error("❌ Missing required environment variables:");
-    missing.forEach((key) => console.error(`   - ${key}`));
-    console.error(
+    logger.error("❌ Missing required environment variables:");
+    missing.forEach((key) => logger.error(`   - ${key}`));
+    logger.error(
       "\nPlease set these variables before starting the application.",
     );
     process.exit(1);
   }
 
   if (missingRecommended.length > 0) {
-    console.warn("⚠️  Missing recommended environment variables:");
-    missingRecommended.forEach((key) => console.warn(`   - ${key}`));
-    console.warn("   These should be set in production.\n");
+    logger.warn("⚠️  Missing recommended environment variables:");
+    missingRecommended.forEach((key) => logger.warn(`   - ${key}`));
+    logger.warn("   These should be set in production.\n");
   }
 
   // JWT_SECRET 指纹验证 (帮助调试跨部署的一致性问题)
@@ -46,12 +47,12 @@ function validateEnvConfig(): void {
     .update(jwtSecret)
     .digest("hex")
     .substring(0, 8);
-  console.log(`🔐 JWT_SECRET fingerprint: ${secretFingerprint}`);
-  console.log(
+  logger.log(`🔐 JWT_SECRET fingerprint: ${secretFingerprint}`);
+  logger.log(
     `🌐 FRONTEND_URL: ${process.env.FRONTEND_URL || "(not set - using default)"}`,
   );
 
-  console.log("✅ Environment configuration validated");
+  logger.log("✅ Environment configuration validated");
 }
 
 async function bootstrap() {
@@ -109,7 +110,10 @@ async function bootstrap() {
   });
 
   // 启用CORS - 支持开发和生产环境
-  const allowedOrigins = process.env.CORS_ORIGINS?.split(",") || [];
+  const corsOriginsEnv =
+    process.env.CORS_ORIGINS?.split(",").map((o) => o.trim()) || [];
+  const allowedOrigins = new Set<string>(corsOriginsEnv);
+
   app.enableCors({
     origin: (origin, callback) => {
       // 允许所有localhost端口（开发环境）
@@ -119,18 +123,14 @@ async function bootstrap() {
         origin.match(/^http:\/\/127\.0\.0\.1:\d+$/) ||
         origin.match(/^http:\/\/\[::1\]:\d+$/);
 
-      // 允许Railway域名（生产环境）
-      const isRailway = origin?.includes(".railway.app");
+      // 生产环境：精确匹配配置的域名（包括 Railway 域名）
+      const isAllowed = origin ? allowedOrigins.has(origin) : false;
 
-      // 允许配置的域名
-      const isAllowed = allowedOrigins.some((allowed) =>
-        origin?.includes(allowed),
-      );
-
-      if (isLocalhost || isRailway || isAllowed) {
+      if (isLocalhost || isAllowed) {
         callback(null, true);
       } else {
-        console.error("CORS rejected origin:", origin);
+        const logger = new Logger("CORS");
+        logger.warn(`CORS rejected origin: ${origin}`);
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -193,15 +193,16 @@ async function bootstrap() {
     : `http://localhost:${port}`;
 
   // 生产环境精简启动日志，开发环境详细输出
+  const logger = new Logger("Bootstrap");
   if (isProduction) {
-    console.log(
+    logger.log(
       `🚀 Raven AI Engine Backend started | ${baseUrl} | Port: ${port}`,
     );
   } else {
-    console.log(`🚀 Raven AI Engine Backend running on ${baseUrl}`);
-    console.log(`📚 API Docs: ${baseUrl}/api/docs`);
-    console.log(`🧩 Workspace AI v2 enabled: ${isWorkspaceAiV2Enabled()}`);
-    console.log(`📋 Log level: all (development)`);
+    logger.log(`🚀 Raven AI Engine Backend running on ${baseUrl}`);
+    logger.log(`📚 API Docs: ${baseUrl}/api/docs`);
+    logger.log(`🧩 Workspace AI v2 enabled: ${isWorkspaceAiV2Enabled()}`);
+    logger.log(`📋 Log level: all (development)`);
   }
 }
 

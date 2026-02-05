@@ -1104,11 +1104,7 @@ export class ReportSynthesisService {
 
     // ★ 准备数据冲突提示（如果有）
     let conflictNotice = "";
-    if (
-      consistencyCheck &&
-      consistencyCheck.conflicts &&
-      consistencyCheck.conflicts.length > 0
-    ) {
+    if (consistencyCheck?.conflicts && consistencyCheck.conflicts.length > 0) {
       const criticalConflicts = consistencyCheck.conflicts.filter(
         (c) => c.severity === "critical",
       );
@@ -1749,7 +1745,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
   ): string | Record<string, unknown> | null {
     const pattern = new RegExp(`"${fieldName}"\\s*:\\s*`);
     const match = json.match(pattern);
-    if (!match || match.index === undefined) return null;
+    if (match?.index === undefined) return null;
 
     const valueStart = match.index + match[0].length;
     const firstChar = json[valueStart];
@@ -2315,12 +2311,10 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     const r1 = report1 as ReportWithAnalyses;
     const r2 = report2 as ReportWithAnalyses;
     const report1Dimensions = new Set<string>(
-      (r1.dimensionAnalyses?.map((da) => da.dimension?.name as string) ||
-        []) as string[],
+      r1.dimensionAnalyses?.map((da) => da.dimension?.name as string) || [],
     );
     const report2Dimensions = new Set<string>(
-      (r2.dimensionAnalyses?.map((da) => da.dimension?.name as string) ||
-        []) as string[],
+      r2.dimensionAnalyses?.map((da) => da.dimension?.name as string) || [],
     );
 
     const changedDimensions: string[] = [];

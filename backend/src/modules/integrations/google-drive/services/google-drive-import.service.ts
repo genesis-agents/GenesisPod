@@ -141,7 +141,7 @@ export class GoogleDriveImportService {
 
     // 提取文本内容（如果启用）
     let extractedContent: string | null = null;
-    let summary: string | null = null;
+    const summary: string | null = null;
 
     if (dto.extractContent) {
       try {

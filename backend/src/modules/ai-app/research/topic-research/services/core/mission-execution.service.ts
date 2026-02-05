@@ -4,7 +4,7 @@
  * 负责 Mission 的任务执行和调度
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
@@ -33,6 +33,7 @@ import { resolveResearchDepthConfig } from "../../types/v5-research.types";
 import type { LeaderPlan } from "../../types/leader.types";
 import { getModelDisplayNameMap } from "../../utils/model-display-name";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
+import { ResearchMemoryService } from "./research-memory.service";
 
 /** Shape of ResearchTask.result (Prisma Json field) for dimension_research tasks */
 interface TaskResultJson {
@@ -82,6 +83,8 @@ export class MissionExecutionService {
     private readonly agentActivity: AgentActivityService,
     private readonly aiFacade: AIEngineFacade,
     private readonly reviewerService: ResearchReviewerService,
+    @Inject(forwardRef(() => ResearchMemoryService))
+    private readonly researchMemory: ResearchMemoryService,
   ) {}
 
   /**
@@ -763,12 +766,9 @@ export class MissionExecutionService {
                     summary: taskResult.summary || "无摘要",
                     keyFindings: (taskResult.keyFindings ||
                       []) as DimensionAnalysisResult["keyFindings"],
-                    trends: (taskResult.trends ||
-                      []) as DimensionAnalysisResult["trends"],
-                    challenges: (taskResult.challenges ||
-                      []) as DimensionAnalysisResult["challenges"],
-                    opportunities: (taskResult.opportunities ||
-                      []) as DimensionAnalysisResult["opportunities"],
+                    trends: taskResult.trends || [],
+                    challenges: taskResult.challenges || [],
+                    opportunities: taskResult.opportunities || [],
                     evidenceUsed: taskResult.evidenceUsed || 0,
                     confidenceLevel: taskResult.confidenceLevel || "medium",
                     detailedContent: taskResult.detailedContent || "",
@@ -1213,11 +1213,44 @@ export class MissionExecutionService {
         completedTasks.length,
         tasks.length,
       );
+
+      // ★ 提取并存储研究发现（异步，不阻塞完成流程）
+      this.extractResearchMemories(missionId, topicId).catch((error) => {
+        this.logger.error(
+          `[finalizeMission] Failed to extract research memories: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+      });
     }
 
     this.logger.log(
       `[finalizeMission] Mission ${missionId} finalized: ${statusMessage}`,
     );
+  }
+
+  /**
+   * 提取并存储研究记忆（异步后台任务）
+   */
+  private async extractResearchMemories(
+    missionId: string,
+    topicId: string,
+  ): Promise<void> {
+    this.logger.log(
+      `[extractResearchMemories] Starting memory extraction for mission ${missionId}`,
+    );
+
+    try {
+      const storedCount = await this.researchMemory.extractAndStoreFindings(
+        missionId,
+        topicId,
+      );
+      this.logger.log(
+        `[extractResearchMemories] Successfully stored ${storedCount} findings from mission ${missionId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[extractResearchMemories] Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
   }
 
   /**

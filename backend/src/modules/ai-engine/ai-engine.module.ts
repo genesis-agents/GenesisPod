@@ -71,7 +71,7 @@ import { VectorService } from "./rag/vector";
 import { DocumentChunker } from "./rag/chunking";
 
 // Observability
-import { AiEngineTracingService } from "./observability";
+import { AiEngineTracingService, TraceCollectorService } from "./observability";
 
 // Facade (统一入口)
 import { AIEngineFacade } from "./facade";
@@ -136,6 +136,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // === Observability ===
     AiEngineTracingService,
+    TraceCollectorService,
 
     // === Facade (统一入口) ===
     AIEngineFacade,
@@ -175,6 +176,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // === Observability ===
     AiEngineTracingService,
+    TraceCollectorService,
 
     // === Facade (统一入口) ===
     AIEngineFacade,

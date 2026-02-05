@@ -314,7 +314,7 @@ export class ReportsService {
         });
       }
     } catch (error) {
-      console.error("Export error:", error);
+      this.logger.error("Export error:", error);
       return res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
@@ -378,7 +378,7 @@ export class ReportsService {
 
       aiReport = response.data;
     } catch (error) {
-      console.error("AI service error:", error);
+      this.logger.error("AI service error:", error);
       throw new BadRequestException(
         "Failed to generate report. Please try again.",
       );

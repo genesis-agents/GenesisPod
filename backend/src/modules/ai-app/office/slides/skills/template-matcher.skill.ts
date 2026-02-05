@@ -226,9 +226,10 @@ const KEYWORD_TO_TEMPLATE: Record<string, PageTemplateType[]> = {
 };
 
 @Injectable()
-export class TemplateMatcherSkill
-  implements ISkill<TemplateMatchingContext, TemplateMatchResult>
-{
+export class TemplateMatcherSkill implements ISkill<
+  TemplateMatchingContext,
+  TemplateMatchResult
+> {
   private readonly logger = new Logger(TemplateMatcherSkill.name);
 
   /**
@@ -254,11 +255,11 @@ export class TemplateMatcherSkill
       "positionInStory" in input &&
       "usedTemplates" in input
     ) {
-      return input as TemplateMatchingContext;
+      return input;
     }
 
     // 尝试从 orchestrator 格式提取
-    const orchestratorInput = input as TemplateMatcherOrchestratorInput;
+    const orchestratorInput = input;
     const contextInput = orchestratorInput.context?.input;
 
     if (

@@ -141,10 +141,7 @@ export class DimensionWritingService {
 
     try {
       // 1. 校验并清理 Leader 分配的图表
-      this.validateAllocatedFigures(
-        outline,
-        searchPhaseResult.evidenceData as EnrichedEvidenceData[],
-      );
+      this.validateAllocatedFigures(outline, searchPhaseResult.evidenceData);
 
       this.logger.log(
         `${logPrefix} Outline validated: ${outline.sections.length} sections`,

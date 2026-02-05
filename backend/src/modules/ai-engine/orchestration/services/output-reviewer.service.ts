@@ -396,7 +396,7 @@ ${request.constraints.map((c) => `- ${c.type}: ${c.description}`).join("\n")}`;
    * 构建 Leader 系统提示词
    */
   private buildLeaderSystemPrompt(leader: ReviewRequest["leader"]): string {
-    let prompt = `你是团队的 Leader，负责审核团队成员的工作产出。
+    const prompt = `你是团队的 Leader，负责审核团队成员的工作产出。
 ${leader.persona ? `\n${leader.persona}` : ""}
 ${leader.systemPrompt ? `\n${leader.systemPrompt}` : ""}
 

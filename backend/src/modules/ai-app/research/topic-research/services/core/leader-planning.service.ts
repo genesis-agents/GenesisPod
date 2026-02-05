@@ -7,7 +7,7 @@
  * - 维度大纲规划（planDimensionOutline）
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
@@ -24,6 +24,7 @@ import type {
   DimensionOutline,
   GlobalOutline,
 } from "../../types/leader.types";
+import { ResearchMemoryService } from "./research-memory.service";
 
 @Injectable()
 export class LeaderPlanningService {
@@ -32,6 +33,8 @@ export class LeaderPlanningService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
+    @Inject(forwardRef(() => ResearchMemoryService))
+    private readonly researchMemory: ResearchMemoryService,
   ) {}
 
   /**
@@ -157,27 +160,48 @@ export class LeaderPlanningService {
         .join("\n");
     }
 
+    // ★ 4.5. 获取先前研究记忆（轻量集成）
+    let priorFindingsText = "";
+    try {
+      const sanitizedQuery = sanitize(userPrompt || topic.name);
+      const memories = await this.researchMemory.getRelevantMemories(
+        sanitizedQuery,
+        topicId,
+        5,
+      );
+      if (memories.length > 0) {
+        priorFindingsText = `\n\n## 先前研究发现\n\n以下是相关的先前研究发现，可作为参考：\n\n${memories.map((m) => `- **${m.entity}**: ${m.finding} (${m.category}, 置信度: ${m.confidence})`).join("\n")}`;
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[planResearch] Failed to retrieve prior findings: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+
     // 5. 构建 prompt
     // ★ 获取当前日期和年份，确保搜索词使用正确的年份
     const now = new Date();
     const currentYear = now.getFullYear().toString();
     const currentDate = now.toISOString().split("T")[0]; // YYYY-MM-DD 格式
 
-    // ★ Security: 对用户输入进行消毒，防止 Prompt Injection
+    // ★ Security: 对所有用户输入进行消毒，防止 Prompt Injection
+    const sanitizedTopicName = sanitize(topic.name);
+    const sanitizedDescription = sanitize(topic.description || "无");
     const sanitizedUserPrompt = sanitize(userPrompt || "请进行全面研究");
 
-    const prompt = LEADER_PLAN_PROMPT.replace("{topic}", topic.name)
-      .replace("{topicType}", topic.type)
-      .replace("{description}", topic.description || "无")
-      .replace("{userPrompt}", sanitizedUserPrompt)
-      .replace("{availableModels}", availableModelsText)
-      .replace("{existingDimensions}", existingDimensionsText)
-      .replace(/{currentDate}/g, currentDate)
-      .replace(/{currentYear}/g, currentYear)
-      .replace(
-        "{languageInstruction}",
-        getLanguageInstruction(topic.language || "zh"),
-      );
+    const prompt =
+      LEADER_PLAN_PROMPT.replace("{topic}", sanitizedTopicName)
+        .replace("{topicType}", topic.type)
+        .replace("{description}", sanitizedDescription)
+        .replace("{userPrompt}", sanitizedUserPrompt)
+        .replace("{availableModels}", availableModelsText)
+        .replace("{existingDimensions}", existingDimensionsText)
+        .replace(/{currentDate}/g, currentDate)
+        .replace(/{currentYear}/g, currentYear)
+        .replace(
+          "{languageInstruction}",
+          getLanguageInstruction(topic.language || "zh"),
+        ) + priorFindingsText;
 
     // 6. 调用 AI 获取规划
     const startTime = Date.now();
@@ -208,7 +232,7 @@ export class LeaderPlanningService {
     const latencyMs = Date.now() - startTime;
 
     // 6. 验证响应
-    if (!response || !response.content) {
+    if (!response?.content) {
       this.logger.error("[planResearch] AI returned empty response");
       throw new Error("AI 返回空响应，请稍后重试");
     }
@@ -588,8 +612,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         );
 
         if (
-          !globalOutline ||
-          !globalOutline.dimensions ||
+          !globalOutline?.dimensions ||
           globalOutline.dimensions.length === 0
         ) {
           this.logger.warn(
@@ -813,7 +836,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
           "sections", // requiredKey for validation
         );
 
-        if (!outline || !outline.sections || outline.sections.length === 0) {
+        if (!outline?.sections || outline.sections.length === 0) {
           this.logger.warn(
             `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: Failed to parse JSON, retrying...`,
           );

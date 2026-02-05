@@ -1,0 +1,184 @@
+/**
+ * Agent Card Registry
+ * 构建和提供 Raven AI Engine 的 A2A Agent Card
+ */
+
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { A2AAgentCard, A2ASkill } from "../abstractions/a2a.interface";
+
+@Injectable()
+export class AgentCardRegistry {
+  constructor(private readonly configService: ConfigService) {}
+
+  /**
+   * 获取 Raven AI Engine 的 Agent Card
+   */
+  getAgentCard(): A2AAgentCard {
+    const baseUrl = this.getBaseUrl();
+
+    return {
+      name: "Raven AI Engine",
+      description:
+        "Enterprise-grade AI research and content management platform with multi-agent collaboration, deep research, intelligent Q&A, document generation, and AI writing capabilities.",
+      url: `${baseUrl}/a2a/tasks`,
+      provider: {
+        organization: "Raven AI",
+        url: baseUrl,
+      },
+      version: "1.0.0",
+      capabilities: {
+        streaming: false, // 暂不支持流式响应
+        pushNotifications: true, // 支持 Webhook 通知
+        stateTransitionHistory: true, // 支持状态历史
+      },
+      authentication: {
+        schemes: ["Bearer", "X-API-Key"],
+        credentials:
+          "API key required. Use Bearer token or X-API-Key header for authentication.",
+      },
+      defaultInputModes: ["text", "text/plain"],
+      defaultOutputModes: ["text", "text/plain", "text/markdown"],
+      skills: this.buildSkills(),
+    };
+  }
+
+  /**
+   * 构建技能列表
+   */
+  private buildSkills(): A2ASkill[] {
+    return [
+      {
+        id: "deep-research",
+        name: "Deep Research",
+        description:
+          "Conduct comprehensive AI-powered research with multi-step investigation, web search, and structured report generation. Ideal for in-depth analysis on complex topics.",
+        tags: ["research", "analysis", "web-search", "report-generation", "ai"],
+        examples: [
+          "Research the latest developments in quantum computing",
+          "Analyze the impact of AI on healthcare industry",
+          "Investigate sustainable energy solutions for urban environments",
+        ],
+        inputModes: ["text", "text/plain"],
+        outputModes: ["text/markdown", "text/plain"],
+      },
+      {
+        id: "ai-ask",
+        name: "AI Ask",
+        description:
+          "Intelligent question answering with web search integration, multi-model support (GPT-4, Claude, Grok), and context-aware responses. Perfect for quick information retrieval.",
+        tags: ["qa", "search", "ai", "gpt-4", "claude", "grok"],
+        examples: [
+          "What are the key differences between TypeScript and JavaScript?",
+          "Explain blockchain technology in simple terms",
+          "How does photosynthesis work?",
+        ],
+        inputModes: ["text", "text/plain"],
+        outputModes: ["text/markdown", "text/plain"],
+      },
+      {
+        id: "team-debate",
+        name: "Team Debate",
+        description:
+          "Multi-agent structured debate system where AI agents with different perspectives collaborate, challenge ideas, and synthesize insights. Best for exploring complex topics from multiple angles.",
+        tags: [
+          "debate",
+          "collaboration",
+          "multi-agent",
+          "perspective",
+          "synthesis",
+        ],
+        examples: [
+          "Debate the pros and cons of remote work vs office work",
+          "Discuss ethical implications of AI in education",
+          "Analyze different approaches to climate change mitigation",
+        ],
+        inputModes: ["text", "text/plain"],
+        outputModes: ["text/markdown", "text/plain"],
+      },
+      {
+        id: "document-generation",
+        name: "Document Generation",
+        description:
+          "AI-powered office document creation including Word documents, PowerPoint presentations, and design assets. Automate content creation workflows.",
+        tags: [
+          "document",
+          "office",
+          "word",
+          "powerpoint",
+          "design",
+          "automation",
+        ],
+        examples: [
+          "Generate a business proposal document",
+          "Create a presentation on market trends",
+          "Design a product launch slide deck",
+        ],
+        inputModes: ["text", "text/plain"],
+        outputModes: ["application/vnd.openxmlformats-officedocument"],
+      },
+      {
+        id: "ai-writing",
+        name: "AI Writing",
+        description:
+          "Long-form content creation with AI assistance. Generate blog posts, articles, essays, and creative writing with style customization and iterative refinement.",
+        tags: [
+          "writing",
+          "content-creation",
+          "blog",
+          "article",
+          "creative-writing",
+        ],
+        examples: [
+          "Write a comprehensive guide on machine learning basics",
+          "Create a blog post about sustainable living tips",
+          "Draft an article on the future of work",
+        ],
+        inputModes: ["text", "text/plain"],
+        outputModes: ["text/markdown", "text/plain"],
+      },
+    ];
+  }
+
+  /**
+   * 获取技能列表
+   */
+  getSkills(): A2ASkill[] {
+    return this.buildSkills();
+  }
+
+  /**
+   * 根据ID获取技能
+   */
+  getSkillById(skillId: string): A2ASkill | undefined {
+    return this.buildSkills().find((skill) => skill.id === skillId);
+  }
+
+  /**
+   * 验证技能是否存在
+   */
+  isValidSkill(skillId: string): boolean {
+    return this.buildSkills().some((skill) => skill.id === skillId);
+  }
+
+  /**
+   * 获取基础 URL
+   */
+  private getBaseUrl(): string {
+    // 优先使用环境变量配置的 URL
+    const configuredUrl = this.configService.get<string>("AGENT_BASE_URL");
+    if (configuredUrl) {
+      return configuredUrl;
+    }
+
+    // Fallback: 从 API URL 推断
+    const apiUrl = this.configService.get<string>("API_URL");
+    if (apiUrl) {
+      return apiUrl;
+    }
+
+    // 默认值
+    const port = this.configService.get<number>("PORT", 3001);
+    return `http://localhost:${port}`;
+  }
+}

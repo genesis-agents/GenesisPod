@@ -374,7 +374,7 @@ export class TeamMissionService implements OnModuleInit {
       }
 
       // 过滤：排除已失败的 Agent 和 Leader（优先）
-      let candidates = allMembers.filter(
+      const candidates = allMembers.filter(
         (m: TeamMemberBase) => !failedAgentIds.includes(m.id) && !m.isLeader,
       );
 
@@ -2190,7 +2190,7 @@ export class TeamMissionService implements OnModuleInit {
       }
 
       // 过滤：排除已失败的 Agent、Leader、和正在冷却中的 Agent
-      let candidates = allMembers.filter((m: TeamMemberBase) => {
+      const candidates = allMembers.filter((m: TeamMemberBase) => {
         // 排除已失败的
         if (failedAgentIds.includes(m.id)) return false;
 
@@ -4578,12 +4578,10 @@ ${chapters.join("\n\n---\n\n")}`;
     }
     const taskMeta: TaskMeta[] = completedTasks.map(
       (t: AgentTaskWithAssignee) => ({
-        title: t.title as string,
-        agent: (t.assignedTo?.agentName ||
-          t.assignedTo?.displayName ||
-          "未知") as string,
-        wordCount: ((t.result || "") as string).length,
-        preview: ((t.result || "") as string).substring(0, 200) + "...",
+        title: t.title,
+        agent: t.assignedTo?.agentName || t.assignedTo?.displayName || "未知",
+        wordCount: (t.result || "").length,
+        preview: (t.result || "").substring(0, 200) + "...",
       }),
     );
 

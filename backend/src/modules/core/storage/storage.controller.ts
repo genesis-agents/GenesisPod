@@ -15,6 +15,7 @@ import {
   NodeMemoryStats,
   SystemMemoryStats,
 } from "./storage.service";
+import { safeCompare } from "../../../common/utils/crypto.utils";
 
 @Controller("storage")
 export class StorageController {
@@ -31,10 +32,10 @@ export class StorageController {
   }
 
   /**
-   * Validate admin key
+   * Validate admin key using constant-time comparison
    */
   private validateKey(key: string): void {
-    if (key !== this.adminKey) {
+    if (!safeCompare(key, this.adminKey)) {
       throw new BadRequestException("Invalid admin key");
     }
   }

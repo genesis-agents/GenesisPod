@@ -9,10 +9,12 @@
  * - LLM Factory & Adapters
  */
 
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { SecretsModule } from "../core/secrets/secrets.module";
 import { UserApiKeysModule } from "../core/user-api-keys/user-api-keys.module";
+import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
+import { AiEngineOrchestrationModule } from "./ai-engine-orchestration.module";
 import * as http from "http";
 import * as https from "https";
 
@@ -57,6 +59,8 @@ import { ModelFallbackService } from "./llm/model-fallback/model-fallback.servic
     }),
     SecretsModule,
     UserApiKeysModule,
+    AiEngineConstraintModule,
+    forwardRef(() => AiEngineOrchestrationModule),
   ],
   providers: [
     // LLM Factory & Adapters

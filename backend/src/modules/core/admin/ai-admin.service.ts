@@ -7,6 +7,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { EXTERNAL_TOOL_SECRET_MAPPING } from "../secrets/secret-name-mapping";
+import { DEFAULT_PAGE_SIZE } from "../../../common/constants/pagination.constants";
 
 /**
  * MCP Tool 类型定义
@@ -1597,7 +1598,7 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
           layer: dbConfig.layer || "application",
           domain: dbConfig.domain || "common",
           enabled: dbConfig.enabled,
-          tags: (dbConfig.tags as string[]) || [],
+          tags: dbConfig.tags || [],
           requiredTools: [],
           requiredSkills: [],
           implemented: false, // Marketplace skills may not have local implementation
@@ -2147,7 +2148,7 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
       this.prisma.aIUsageLog.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        take: 100,
+        take: DEFAULT_PAGE_SIZE * 2, // Return more recent usages for analytics
       }),
     ]);
 

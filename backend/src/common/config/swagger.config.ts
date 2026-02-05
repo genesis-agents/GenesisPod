@@ -1,4 +1,4 @@
-import { INestApplication } from "@nestjs/common";
+import { INestApplication, Logger } from "@nestjs/common";
 
 /**
  * Swagger API 文档配置
@@ -10,6 +10,7 @@ import { INestApplication } from "@nestjs/common";
  * 访问地址: /api/docs
  */
 export async function setupSwagger(app: INestApplication): Promise<void> {
+  const logger = new Logger("Swagger");
   try {
     // 动态导入 Swagger 模块（如果未安装则跳过）
     const { DocumentBuilder, SwaggerModule } = await import("@nestjs/swagger");
@@ -101,10 +102,10 @@ Authorization: Bearer <access_token>
       res.json(document);
     });
 
-    console.log("📚 Swagger API docs available at /api/docs");
-    console.log("📄 OpenAPI JSON available at /api/openapi.json");
+    logger.log("📚 Swagger API docs available at /api/docs");
+    logger.log("📄 OpenAPI JSON available at /api/openapi.json");
   } catch {
-    console.log(
+    logger.log(
       "⚠️  Swagger not available (install: npm install @nestjs/swagger swagger-ui-express)",
     );
   }

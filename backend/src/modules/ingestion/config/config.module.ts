@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from "@nestjs/common";
+import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
@@ -63,6 +63,8 @@ import { AiUrlClassifierService } from "./services/ai-url-classifier.service";
   ],
 })
 export class IngestionConfigModule implements OnModuleInit {
+  private readonly logger = new Logger(IngestionConfigModule.name);
+
   constructor(
     private sourceWhitelistService: SourceWhitelistService,
     private collectionRuleService: CollectionRuleService,
@@ -73,7 +75,10 @@ export class IngestionConfigModule implements OnModuleInit {
       await this.sourceWhitelistService.initializeDefaultWhitelists();
       await this.collectionRuleService.initializeDefaultRules();
     } catch (error) {
-      console.warn("Failed to initialize ingestion config defaults:", error);
+      this.logger.warn(
+        "Failed to initialize ingestion config defaults:",
+        error,
+      );
     }
   }
 }

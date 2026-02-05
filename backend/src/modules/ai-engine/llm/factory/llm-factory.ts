@@ -155,8 +155,8 @@ export class LLMFactory {
 
     // 尝试从已注册的适配器获取默认模型
     const adapter = this.getAdapter();
-    if (adapter && adapter.defaultModel) {
-      return adapter.defaultModel as LLMModel;
+    if (adapter?.defaultModel) {
+      return adapter.defaultModel;
     }
 
     // 严禁硬编码！如果没有配置模型，抛出错误

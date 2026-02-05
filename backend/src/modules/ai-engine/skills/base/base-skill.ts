@@ -15,6 +15,10 @@ import {
   SkillResult,
   SkillLayer,
   PreconditionResult,
+  JsonSchema,
+  TriggerRule,
+  SkillExample,
+  SkillPermissions,
 } from "../abstractions/skill.interface";
 
 /**
@@ -42,9 +46,10 @@ export interface ILLMAdapter {
 /**
  * 基础技能抽象类
  */
-export abstract class BaseSkill<TInput = unknown, TOutput = unknown>
-  implements ISkill<TInput, TOutput>
-{
+export abstract class BaseSkill<
+  TInput = unknown,
+  TOutput = unknown,
+> implements ISkill<TInput, TOutput> {
   /**
    * 技能 ID
    */
@@ -89,6 +94,16 @@ export abstract class BaseSkill<TInput = unknown, TOutput = unknown>
    * 版本
    */
   readonly version: string = "1.0.0";
+
+  // --- Enhanced Manifest Fields (optional) ---
+
+  readonly author?: string;
+  readonly license?: string;
+  readonly inputSchema?: JsonSchema;
+  readonly outputSchema?: JsonSchema;
+  readonly triggers?: TriggerRule[];
+  readonly examples?: SkillExample[];
+  readonly permissions?: SkillPermissions;
 
   /**
    * 日志记录器
@@ -339,6 +354,68 @@ export abstract class BaseSkill<TInput = unknown, TOutput = unknown>
     } catch (error) {
       throw SkillError.llmCallFailed(this.id, error as Error);
     }
+  }
+
+  /**
+   * 验证数据是否符合 JSON Schema（轻量级）
+   * 仅检查 required fields 和 top-level type
+   */
+  protected validateSchema(
+    data: unknown,
+    schema: JsonSchema,
+  ): ValidationResult {
+    if (!schema || !data) {
+      return { valid: true };
+    }
+
+    const errors: Array<{ path: string; message: string; type: string }> = [];
+
+    // 类型检查
+    if (schema.type === "object" && typeof data !== "object") {
+      errors.push({
+        path: "$",
+        message: `Expected object, got ${typeof data}`,
+        type: "type",
+      });
+    } else if (schema.type === "string" && typeof data !== "string") {
+      errors.push({
+        path: "$",
+        message: `Expected string, got ${typeof data}`,
+        type: "type",
+      });
+    } else if (schema.type === "number" && typeof data !== "number") {
+      errors.push({
+        path: "$",
+        message: `Expected number, got ${typeof data}`,
+        type: "type",
+      });
+    } else if (schema.type === "array" && !Array.isArray(data)) {
+      errors.push({
+        path: "$",
+        message: `Expected array, got ${typeof data}`,
+        type: "type",
+      });
+    }
+
+    // required fields 检查
+    if (
+      schema.type === "object" &&
+      schema.required &&
+      typeof data === "object" &&
+      data !== null
+    ) {
+      for (const field of schema.required) {
+        if (!(field in data)) {
+          errors.push({
+            path: `$.${field}`,
+            message: `Missing required field: ${field}`,
+            type: "required",
+          });
+        }
+      }
+    }
+
+    return errors.length > 0 ? { valid: false, errors } : { valid: true };
   }
 
   /**

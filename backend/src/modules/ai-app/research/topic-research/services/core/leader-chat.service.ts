@@ -332,8 +332,7 @@ export class LeaderChatService {
                     });
 
                   if (qualityReviewTask) {
-                    const currentDeps =
-                      (qualityReviewTask.dependencies as string[]) || [];
+                    const currentDeps = qualityReviewTask.dependencies || [];
                     if (!currentDeps.includes(task.id)) {
                       await this.prisma.researchTask.update({
                         where: { id: qualityReviewTask.id },

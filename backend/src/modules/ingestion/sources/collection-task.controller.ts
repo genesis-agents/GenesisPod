@@ -9,6 +9,7 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  Logger,
 } from "@nestjs/common";
 import { SkipThrottle } from "@nestjs/throttler";
 import {
@@ -20,6 +21,8 @@ import { CollectionTaskStatus, CollectionTaskType } from "@prisma/client";
 
 @Controller("data-collection/tasks")
 export class CollectionTaskController {
+  private readonly logger = new Logger(CollectionTaskController.name);
+
   constructor(private readonly taskService: CollectionTaskService) {}
 
   /**
@@ -130,7 +133,7 @@ export class CollectionTaskController {
     // 使用 setImmediate 确保响应先返回
     setImmediate(() => {
       this.taskService.execute(id).catch((error) => {
-        console.error(`Task ${id} execution failed:`, error);
+        this.logger.error(`Task ${id} execution failed:`, error);
       });
     });
 

@@ -95,7 +95,7 @@ export class PostWriteValidationService {
       // Check if character name is mentioned
       if (content.includes(character.name)) {
         // Check appearance descriptions
-        const appearance = character.appearance as any;
+        const appearance = character.appearance;
         if (appearance) {
           // Check for conflicting descriptions
           // This is a simplified check - could be enhanced with NLP

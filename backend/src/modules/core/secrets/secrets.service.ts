@@ -431,7 +431,7 @@ export class SecretsService {
         const dbSetting = await this.prisma.systemSetting.findUnique({
           where: { key: setting.key },
         });
-        if (!dbSetting || !dbSetting.value) continue;
+        if (!dbSetting?.value) continue;
 
         const exists = await this.prisma.secret.findUnique({
           where: { name: setting.name },

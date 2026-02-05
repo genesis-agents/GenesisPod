@@ -282,6 +282,14 @@ export class EvidenceManagementService {
         "worldbank.org",
         "imf.org",
         "oecd.org",
+        // Chinese academic/institutional domains
+        "cnki.net",
+        "wanfangdata.com.cn",
+        "cas.cn",
+        ".edu.cn",
+        "gov.cn",
+        "csdb.cn",
+        "nsfc.gov.cn",
       ];
 
       // 高权威 (知名媒体、智库)

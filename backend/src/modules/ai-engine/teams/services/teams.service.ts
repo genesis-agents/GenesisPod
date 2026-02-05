@@ -28,6 +28,7 @@ import {
 import { ConstraintEngine } from "../constraints/constraint-engine";
 import { ITeam, TeamConfig, TeamId } from "../abstractions/team.interface";
 import { ConstraintProfile } from "../constraints/constraint-profile";
+import { LruMap } from "@/common/utils/lru-map";
 
 // ==================== DTOs ====================
 
@@ -108,17 +109,17 @@ export class TeamsService {
   private readonly logger = new Logger(TeamsService.name);
 
   /** 正在执行的任务 */
-  private readonly runningMissions = new Map<
+  private readonly runningMissions = new LruMap<
     string,
     {
       status: MissionStatus;
       abortController: AbortController;
       resultPromise: Promise<MissionResult>;
     }
-  >();
+  >(500);
 
   /** 已完成的任务结果缓存 */
-  private readonly completedMissions = new Map<string, MissionResult>();
+  private readonly completedMissions = new LruMap<string, MissionResult>(1000);
 
   constructor(
     private readonly teamFactory: TeamFactory,

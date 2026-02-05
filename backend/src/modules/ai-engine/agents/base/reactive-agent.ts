@@ -100,7 +100,7 @@ export abstract class ReactiveAgent<
   ): Promise<TOutput> {
     const toolResults: ToolCallRecord[] = [];
     let iterationCount = 0;
-    let messages = this.buildInitialMessages(input, context);
+    const messages = this.buildInitialMessages(input, context);
 
     while (iterationCount < (this.config.maxIterations || 10)) {
       iterationCount++;
@@ -161,7 +161,7 @@ export abstract class ReactiveAgent<
     const executionId = context.executionId || "";
     const toolResults: ToolCallRecord[] = [];
     let iterationCount = 0;
-    let messages = this.buildInitialMessages(input, context);
+    const messages = this.buildInitialMessages(input, context);
 
     // 发送开始事件
     yield {

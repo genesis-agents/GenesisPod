@@ -36,6 +36,7 @@ import {
   ReportChangeService,
   ReportAnnotationService,
   ResearchStrategyService,
+  ResearchMemoryService,
   AgentActivityService,
   CredibilityReportService,
   ReviewWorkflowService,
@@ -53,6 +54,7 @@ import {
   LeaderPlanningService,
   LeaderReviewService,
   LeaderChatService,
+  AdaptivePlanningService,
   // ★ Facade sub-services
   TopicCrudService,
   TopicDimensionService,
@@ -96,6 +98,7 @@ const services = [
   ReportChangeService,
   ReportAnnotationService,
   ResearchStrategyService,
+  ResearchMemoryService,
   AgentActivityService,
   CredibilityReportService,
   ReviewWorkflowService,
@@ -113,6 +116,7 @@ const services = [
   LeaderPlanningService,
   LeaderReviewService,
   LeaderChatService,
+  AdaptivePlanningService,
   // ★ Facade sub-services
   TopicCrudService,
   TopicDimensionService,

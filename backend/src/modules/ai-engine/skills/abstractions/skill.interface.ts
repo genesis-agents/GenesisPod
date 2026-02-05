@@ -6,6 +6,65 @@
 import { ValidationResult, JsonObject } from "../../core";
 
 /**
+ * JSON Schema 类型（简化版）
+ */
+export interface JsonSchema {
+  type: string;
+  properties?: Record<string, JsonSchema>;
+  required?: string[];
+  items?: JsonSchema;
+  description?: string;
+  enum?: unknown[];
+  default?: unknown;
+  [key: string]: unknown;
+}
+
+/**
+ * 触发规则 - 定义技能何时自动激活
+ */
+export interface TriggerRule {
+  /** 触发类型 */
+  type: "keyword" | "intent" | "context" | "event";
+
+  /** 匹配条件 */
+  condition: string;
+
+  /** 优先级（越高越优先，默认 0） */
+  priority?: number;
+}
+
+/**
+ * 技能使用示例
+ */
+export interface SkillExample {
+  /** 示例标题 */
+  title: string;
+
+  /** 输入描述或数据 */
+  input: string;
+
+  /** 期望输出描述 */
+  output: string;
+}
+
+/**
+ * 技能权限声明
+ */
+export interface SkillPermissions {
+  /** 需要网络访问 */
+  network?: boolean;
+
+  /** 需要文件系统访问 */
+  filesystem?: boolean;
+
+  /** 需要的外部 API */
+  externalApis?: string[];
+
+  /** 需要的数据范围 */
+  dataScopes?: string[];
+}
+
+/**
  * 技能层次
  */
 export type SkillLayer =
@@ -228,6 +287,43 @@ export interface ISkill<TInput = unknown, TOutput = unknown> {
    */
   readonly outputKey?: string;
 
+  // --- Enhanced Manifest Fields (all optional, backward compatible) ---
+
+  /**
+   * 作者
+   */
+  readonly author?: string;
+
+  /**
+   * 许可证
+   */
+  readonly license?: string;
+
+  /**
+   * 输入 Schema（JSON Schema 格式）
+   */
+  readonly inputSchema?: JsonSchema;
+
+  /**
+   * 输出 Schema（JSON Schema 格式）
+   */
+  readonly outputSchema?: JsonSchema;
+
+  /**
+   * 触发规则（何时自动激活此技能）
+   */
+  readonly triggers?: TriggerRule[];
+
+  /**
+   * 使用示例
+   */
+  readonly examples?: SkillExample[];
+
+  /**
+   * 权限声明
+   */
+  readonly permissions?: SkillPermissions;
+
   /**
    * 执行技能
    */
@@ -267,6 +363,13 @@ export interface SkillDefinition<TInput = unknown, TOutput = unknown> {
    * 如果未指定，默认使用规范化后的 id
    */
   outputKey?: string;
+  author?: string;
+  license?: string;
+  inputSchema?: JsonSchema;
+  outputSchema?: JsonSchema;
+  triggers?: TriggerRule[];
+  examples?: SkillExample[];
+  permissions?: SkillPermissions;
   factory?: () => ISkill<TInput, TOutput>;
 }
 

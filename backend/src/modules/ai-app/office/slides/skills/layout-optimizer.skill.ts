@@ -164,9 +164,10 @@ interface OrchestratorInput {
 // ============================================================================
 
 @Injectable()
-export class LayoutOptimizerSkill
-  implements ISkill<PageContent, LayoutDecision>
-{
+export class LayoutOptimizerSkill implements ISkill<
+  PageContent,
+  LayoutDecision
+> {
   private readonly logger = new Logger(LayoutOptimizerSkill.name);
 
   // ============================================================================
@@ -224,7 +225,7 @@ export class LayoutOptimizerSkill
 
     // 处理 Orchestrator 输入格式
     const content = this.normalizeInput(input);
-    if (!content || !content.title) {
+    if (!content?.title) {
       return {
         success: false,
         error: {
@@ -1022,7 +1023,7 @@ export class LayoutOptimizerSkill
   ): PageContent | null {
     // 检查是否是直接调用格式（有 title 属性）
     if ("title" in input && typeof input.title === "string") {
-      return input as PageContent;
+      return input;
     }
 
     // 处理 Orchestrator 格式

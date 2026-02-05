@@ -11,6 +11,8 @@ import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
 import { AiApiCallerService } from "./ai-api-caller.service";
 import { AiStreamHandlerService } from "./ai-stream-handler.service";
 import { AIMetricsService } from "../../../core/monitoring";
+import { GuardrailsPipelineService } from "../../guardrails/guardrails-pipeline.service";
+import { CircuitBreakerService } from "../../orchestration/services/circuit-breaker.service";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -67,6 +69,8 @@ export class AiChatService {
     private readonly apiCallerService: AiApiCallerService,
     private readonly streamHandlerService: AiStreamHandlerService,
     @Optional() private readonly aiMetricsService?: AIMetricsService,
+    @Optional() private readonly guardrailsPipeline?: GuardrailsPipelineService,
+    @Optional() private readonly circuitBreaker?: CircuitBreakerService,
   ) {}
 
   // ==================== 模型配置委托方法 ====================
@@ -308,7 +312,7 @@ export class AiChatService {
   async getReasoningModelConfig(): Promise<AIModelConfig | null> {
     try {
       // 1. 优先查找用户显式设置 isReasoning=true 的模型
-      let model = await this.prisma.aIModel.findFirst({
+      const model = await this.prisma.aIModel.findFirst({
         where: {
           modelType: AIModelType.CHAT,
           isEnabled: true,
@@ -531,7 +535,7 @@ export class AiChatService {
       ) {
         throw new AiServiceUnavailableError(
           `AI服务响应异常: ${testResult.content.slice(0, 100)}`,
-          targetModel!,
+          targetModel,
         );
       }
     } catch (error) {
@@ -540,7 +544,7 @@ export class AiChatService {
       }
       throw new AiServiceUnavailableError(
         `AI服务连接测试失败: ${error instanceof Error ? error.message : String(error)}`,
-        targetModel!,
+        targetModel,
       );
     }
   }
@@ -1641,7 +1645,7 @@ export class AiChatService {
           let openaiEmbeddingsUrl = "https://api.openai.com/v1/embeddings";
           if (apiEndpoint) {
             // Remove trailing slash and /embeddings if present
-            let baseUrl = apiEndpoint.replace(/\/+$/, "");
+            const baseUrl = apiEndpoint.replace(/\/+$/, "");
             if (baseUrl.endsWith("/embeddings")) {
               openaiEmbeddingsUrl = baseUrl;
             } else {
@@ -1680,7 +1684,7 @@ export class AiChatService {
           // Construct full embed URL from base endpoint
           let cohereEmbedUrl = "https://api.cohere.ai/v1/embed";
           if (apiEndpoint) {
-            let baseUrl = apiEndpoint.replace(/\/+$/, "");
+            const baseUrl = apiEndpoint.replace(/\/+$/, "");
             if (baseUrl.endsWith("/embed")) {
               cohereEmbedUrl = baseUrl;
             } else {
@@ -4001,6 +4005,36 @@ Generate an image that fulfills the current request while maintaining consistenc
         `temperature=${effectiveTemperature}, isReasoning=${modelConfig?.isReasoning ?? false}`,
     );
 
+    // ★ Guardrails: Input validation
+    if (this.guardrailsPipeline && process.env.GUARDRAILS_ENABLED === "true") {
+      const userContent = messages
+        .filter((m) => m.role === "user")
+        .map((m) => m.content)
+        .join("\n");
+      try {
+        const inputResult = await this.guardrailsPipeline.processInput({
+          content: userContent,
+          context: { modelType, model },
+        });
+        if (!inputResult.passed) {
+          this.logger.warn(
+            `[chat] Input blocked by guardrail: ${inputResult.blockedBy}`,
+          );
+          return {
+            content: `Request blocked by content safety guardrail: ${inputResult.blockedBy}`,
+            model,
+            usage: { totalTokens: 0 },
+            isError: true,
+          };
+        }
+      } catch (error) {
+        this.logger.error(
+          `[chat] Guardrail input check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+        // Continue execution on guardrail error
+      }
+    }
+
     // ★ Fallback 机制：如果首选模型失败，自动尝试其他同类型模型
     const triedModelIds: string[] = [];
     let lastError: string | null = null;
@@ -4041,8 +4075,42 @@ Generate an image that fulfills the current request while maintaining consistenc
         errorMsg: result.isError ? result.content.substring(0, 500) : undefined,
       });
 
-      // 如果成功（没有错误），直接返回
+      // 如果成功（没有错误），进行输出guardrails检查和circuit breaker记录
       if (!result.isError) {
+        // ★ Circuit Breaker: Record success
+        if (this.circuitBreaker) {
+          this.circuitBreaker.recordSuccess(currentModel, duration);
+        }
+
+        // ★ Guardrails: Output validation
+        if (
+          this.guardrailsPipeline &&
+          process.env.GUARDRAILS_ENABLED === "true"
+        ) {
+          try {
+            const outputResult = await this.guardrailsPipeline.processOutput({
+              content: result.content,
+              modelId: result.model,
+            });
+            if (!outputResult.passed) {
+              this.logger.warn(
+                `[chat] Output blocked by guardrail: ${outputResult.blockedBy}`,
+              );
+              return {
+                content: "Response filtered by content safety guardrail",
+                usage: { totalTokens: result.tokensUsed },
+                model: result.model,
+                isError: true,
+              };
+            }
+          } catch (error) {
+            this.logger.error(
+              `[chat] Guardrail output check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+            );
+            // Continue with original result on guardrail error
+          }
+        }
+
         if (attempt > 0) {
           this.logger.log(
             `[chat] ✓ Fallback successful: ${currentModel} (after ${attempt} failed attempts)`,
@@ -4062,6 +4130,16 @@ Generate an image that fulfills the current request while maintaining consistenc
       this.logger.warn(
         `[chat] Model ${currentModel} failed: ${result.content.slice(0, 100)}...`,
       );
+
+      // ★ Circuit Breaker: Record failure
+      if (this.circuitBreaker) {
+        const errorType = this.circuitBreaker.parseErrorType(result.content);
+        this.circuitBreaker.recordFailure(
+          currentModel,
+          errorType,
+          result.content,
+        );
+      }
 
       // 获取其他可用的同类型模型（排除已尝试的）
       if (modelType) {

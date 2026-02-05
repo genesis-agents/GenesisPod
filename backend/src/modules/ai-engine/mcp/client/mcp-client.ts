@@ -15,6 +15,10 @@ import {
   MCPPrompt,
   MCPPromptMessage,
 } from "../abstractions/mcp.interface";
+import {
+  sanitizeForLog,
+  sanitizeError,
+} from "../../../../common/utils/log-sanitizer.utils";
 
 /**
  * MCP 请求
@@ -86,7 +90,10 @@ export abstract class BaseMCPClient implements IMCPClient {
       this._connected = true;
       this.logger.log(`Connected to MCP server: ${this.config.name}`);
     } catch (error) {
-      this.logger.error(`Failed to connect: ${(error as Error).message}`);
+      this.logger.error(
+        `Failed to connect: ${sanitizeError(error)}`,
+        sanitizeForLog({ config: this.config }),
+      );
       throw error;
     }
   }
@@ -100,12 +107,18 @@ export abstract class BaseMCPClient implements IMCPClient {
     }
 
     try {
+      // Reject all pending requests
+      for (const [, pending] of this.pendingRequests) {
+        pending.reject(new Error("Client disconnected"));
+      }
+      this.pendingRequests.clear();
+
       await this.doDisconnect();
       this._connected = false;
       this._serverInfo = undefined;
       this.logger.log(`Disconnected from MCP server: ${this.config.name}`);
     } catch (error) {
-      this.logger.error(`Failed to disconnect: ${(error as Error).message}`);
+      this.logger.error(`Failed to disconnect: ${sanitizeError(error)}`);
       throw error;
     }
   }
@@ -203,6 +216,11 @@ export abstract class BaseMCPClient implements IMCPClient {
     method: string,
     params?: unknown,
   ): Promise<unknown> {
+    // Check max pending requests limit
+    if (this.pendingRequests.size >= 100) {
+      throw new Error("Too many pending MCP requests (max 100)");
+    }
+
     const id = ++this.requestId;
     const request: MCPRequest = {
       jsonrpc: "2.0",
@@ -378,22 +396,5 @@ export class StdioMCPClient extends BaseMCPClient {
         this.logger.warn(`Failed to parse message: ${line}`);
       }
     }
-  }
-}
-
-/**
- * 创建 MCP 客户端
- */
-export function createMCPClient(config: MCPServerConfig): IMCPClient {
-  switch (config.transport) {
-    case "stdio":
-      return new StdioMCPClient(config);
-
-    case "http":
-    case "websocket":
-      throw new Error(`Transport ${config.transport} not yet implemented`);
-
-    default:
-      throw new Error(`Unknown transport: ${config.transport}`);
   }
 }

@@ -3,6 +3,7 @@
  * 有向无环图执行器实现
  */
 
+import { OnModuleDestroy } from "@nestjs/common";
 import {
   Workflow,
   WorkflowStep,
@@ -26,7 +27,7 @@ interface DAGNode {
  * DAG 执行器
  * 基于依赖关系执行工作流
  */
-export class DAGExecutor extends BaseExecutor {
+export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
   readonly id = "dag-executor";
   readonly supportedModes = ["dag"];
 
@@ -35,6 +36,14 @@ export class DAGExecutor extends BaseExecutor {
   constructor(maxConcurrency = 10) {
     super();
     this.maxConcurrency = maxConcurrency;
+  }
+
+  /**
+   * 清理资源
+   */
+  onModuleDestroy(): void {
+    // DAGExecutor 不持有长期资源，无需清理
+    // 所有执行状态都在 executeDAG 的局部 running Map 中
   }
 
   async *execute(
@@ -189,6 +198,8 @@ export class DAGExecutor extends BaseExecutor {
     onEvent: (event: ExecutionEvent) => void,
   ): Promise<void> {
     const running = new Map<string, Promise<void>>();
+    const nodeStartTimes = new Map<string, number>();
+    const WATCHDOG_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
     while (true) {
       // 检查取消信号
@@ -199,6 +210,24 @@ export class DAGExecutor extends BaseExecutor {
           }
         }
         break;
+      }
+
+      // 检查超时的节点（watchdog）
+      for (const [nodeId, startTime] of nodeStartTimes) {
+        if (Date.now() - startTime > WATCHDOG_TIMEOUT) {
+          const stuckNode = dag.get(nodeId);
+          if (stuckNode && stuckNode.status === "running") {
+            stuckNode.status = "failed";
+            nodeStartTimes.delete(nodeId);
+            running.delete(nodeId);
+            this.skipDependents(nodeId, dag);
+            onEvent(
+              this.createEvent("step_failed", context, nodeId, {
+                error: `Node timed out after ${WATCHDOG_TIMEOUT / 1000}s`,
+              }),
+            );
+          }
+        }
       }
 
       // 获取所有就绪的节点
@@ -218,8 +247,12 @@ export class DAGExecutor extends BaseExecutor {
         }
 
         node.status = "running";
+        nodeStartTimes.set(node.step.id, Date.now());
         const promise = this.executeNode(node, dag, context, onEvent).finally(
-          () => running.delete(node.step.id),
+          () => {
+            running.delete(node.step.id);
+            nodeStartTimes.delete(node.step.id);
+          },
         );
         running.set(node.step.id, promise);
       }

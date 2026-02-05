@@ -255,7 +255,7 @@ export class GithubSearchTool extends BaseTool<
       );
 
       // 检查是否触发限速
-      if (!response || !response.items) {
+      if (!response?.items) {
         throw new Error("Invalid response from GitHub API");
       }
 

@@ -176,7 +176,7 @@ export class ContentFetcherService {
       );
       const transcript = await this.youtubeService.getTranscript(videoId);
 
-      if (!transcript || !transcript.transcript?.length) {
+      if (!transcript?.transcript?.length) {
         throw new Error("无法获取视频字幕");
       }
 
@@ -320,7 +320,7 @@ export class ContentFetcherService {
       resource.content || resource.aiSummary || resource.abstract || "";
     let originalContent: string | undefined;
     let translatedContent: string | undefined;
-    let isBilingual = false;
+    const isBilingual = false;
 
     // 如果是普通网页且内容不足，尝试从 URL 获取
     if (

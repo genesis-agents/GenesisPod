@@ -204,11 +204,7 @@ export class ReportGeneratorService {
 
     // ★ 准备数据冲突提示（如果有）
     let conflictNotice = "";
-    if (
-      consistencyCheck &&
-      consistencyCheck.conflicts &&
-      consistencyCheck.conflicts.length > 0
-    ) {
+    if (consistencyCheck?.conflicts && consistencyCheck.conflicts.length > 0) {
       const criticalConflicts = consistencyCheck.conflicts.filter(
         (c) => c.severity === "critical",
       );

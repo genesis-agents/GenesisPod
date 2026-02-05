@@ -112,9 +112,10 @@ interface OrchestratorInput {
 }
 
 @Injectable()
-export class PagePipelineSkill
-  implements ISkill<OrchestratorInput, PagePipelineOutput>
-{
+export class PagePipelineSkill implements ISkill<
+  OrchestratorInput,
+  PagePipelineOutput
+> {
   private readonly logger = new Logger(PagePipelineSkill.name);
 
   readonly id = "slides-page-pipeline";
@@ -165,7 +166,7 @@ export class PagePipelineSkill
     // 1. 提取必要数据
     const { outlinePlan, sourceText, themeId } = this.extractInputData(input);
 
-    if (!outlinePlan || !outlinePlan.pages || outlinePlan.pages.length === 0) {
+    if (!outlinePlan?.pages || outlinePlan.pages.length === 0) {
       this.logger.error("[execute] No outline plan or pages found");
       return {
         success: false,

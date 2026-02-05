@@ -112,9 +112,10 @@ const DATA_EXTRACTION_PROMPT = `你是一位数据提取专家，擅长从搜索
 4. 保持数据的时效性标注（如"2024年"）`;
 
 @Injectable()
-export class DataSupplementSkill
-  implements ISkill<DataSupplementInput, DataSupplementResult>
-{
+export class DataSupplementSkill implements ISkill<
+  DataSupplementInput,
+  DataSupplementResult
+> {
   private readonly logger = new Logger(DataSupplementSkill.name);
 
   // ISkill properties
@@ -152,11 +153,11 @@ export class DataSupplementSkill
   ): DataSupplementInput | null {
     // 如果已经是直接格式，直接返回
     if ("pageContent" in input && "topic" in input) {
-      return input as DataSupplementInput;
+      return input;
     }
 
     // 尝试从 orchestrator 格式提取
-    const orchestratorInput = input as DataSupplementOrchestratorInput;
+    const orchestratorInput = input;
     const contextInput = orchestratorInput.context?.input;
 
     if (!contextInput?.pageContent || !contextInput?.topic) {
@@ -348,7 +349,7 @@ export class DataSupplementSkill
     // 检查 sections
     pageContent.sections?.forEach((section, index) => {
       if (section.type === "stat" && this.isStatContent(section.content)) {
-        const stat = section.content as StatContent;
+        const stat = section.content;
         if (this.isMissing(stat.value)) {
           missing.push({
             path: `sections[${index}].content.value`,

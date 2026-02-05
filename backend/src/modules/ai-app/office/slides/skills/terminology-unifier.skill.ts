@@ -155,9 +155,10 @@ const TERMINOLOGY_SYSTEM_PROMPT = `你是一位专业的术语一致性检查专
 4. 优先使用行业标准术语`;
 
 @Injectable()
-export class TerminologyUnifierSkill
-  implements ISkill<TerminologyUnifierInput, TerminologyUnifierResult>
-{
+export class TerminologyUnifierSkill implements ISkill<
+  TerminologyUnifierInput,
+  TerminologyUnifierResult
+> {
   readonly id = "slides-terminology-unifier";
   readonly name = "术语统一";
   readonly description = "统一幻灯片中的术语表达";
@@ -566,7 +567,7 @@ ${ruleBasedVariations.map((v) => `- ${v.preferred}: ${v.alternatives.join(", ")}
   ): TerminologyUnifierInput {
     // 检查是否是直接调用格式（有 pages 属性）
     if ("pages" in input && Array.isArray(input.pages)) {
-      return input as TerminologyUnifierInput;
+      return input;
     }
 
     // 处理 Orchestrator 格式

@@ -272,11 +272,7 @@ ${role.responsibilities.map((r) => `- ${r}`).join("\n")}
     }
 
     // 检查工作流
-    if (
-      !config.workflow ||
-      !config.workflow.steps ||
-      config.workflow.steps.length === 0
-    ) {
+    if (!config.workflow?.steps || config.workflow.steps.length === 0) {
       errors.push("Workflow must have at least one step");
     }
 

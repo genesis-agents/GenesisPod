@@ -137,7 +137,7 @@ export class SpecializedAgentCoordinatorService {
     );
 
     const rounds: DebateRound[] = [];
-    let currentProposition = request.proposition;
+    const currentProposition = request.proposition;
 
     for (let roundNum = 1; roundNum <= config.debateRounds; roundNum++) {
       this.logger.log(`[runDebate] Round ${roundNum}/${config.debateRounds}`);

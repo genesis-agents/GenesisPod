@@ -15,6 +15,18 @@ export interface SkillConfig {
   requiredTools: string[];
   requiredSkills: string[];
   config?: Record<string, unknown>;
+  // Enhanced manifest fields (optional)
+  author?: string;
+  version?: string;
+  license?: string;
+  triggers?: Array<{ type: string; condition: string; priority?: number }>;
+  examples?: Array<{ title: string; input: string; output: string }>;
+  permissions?: {
+    network?: boolean;
+    filesystem?: boolean;
+    externalApis?: string[];
+    dataScopes?: string[];
+  };
 }
 
 export interface MarketplaceSkill {

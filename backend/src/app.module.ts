@@ -71,6 +71,10 @@ import { AiFileOrganizerModule } from "./modules/integrations/ai-file-organizer/
 import { ExportModule } from "./common/export";
 // Webhooks module
 import { WebhooksModule } from "./modules/webhooks";
+// MCP Server module
+import { MCPServerModule } from "./modules/mcp-server";
+// A2A Server module
+import { A2AModule } from "./modules/ai-engine/a2a";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
 
@@ -179,6 +183,12 @@ import { RequestContextMiddleware } from "./common/context/request-context.middl
 
     // Webhooks module
     WebhooksModule,
+
+    // MCP Server module
+    MCPServerModule,
+
+    // A2A Server module
+    A2AModule,
   ],
   controllers: [AppController],
   providers: [

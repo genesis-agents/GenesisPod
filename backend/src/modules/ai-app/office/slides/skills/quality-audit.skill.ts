@@ -229,9 +229,10 @@ export interface QualityAuditOutput {
 }
 
 @Injectable()
-export class QualityAuditSkill
-  implements ISkill<QualityAuditInput, QualityAuditOutput>
-{
+export class QualityAuditSkill implements ISkill<
+  QualityAuditInput,
+  QualityAuditOutput
+> {
   private readonly logger = new Logger(QualityAuditSkill.name);
 
   // ISkill interface 属性
@@ -380,7 +381,7 @@ export class QualityAuditSkill
       "templateType" in input.pageOutline &&
       "html" in input
     ) {
-      return input as QualityAuditInput;
+      return input;
     }
 
     // 处理 Orchestrator 格式
@@ -389,9 +390,9 @@ export class QualityAuditSkill
     const context = orchestratorInput.context || {};
 
     // 尝试从 context 获取
-    let pageOutline = context.pageOutline as PageOutline | undefined;
-    let pageContent = context.pageContent as PageContent | undefined;
-    let html = context.html as string | undefined;
+    const pageOutline = context.pageOutline;
+    const pageContent = context.pageContent;
+    let html = context.html;
     const auditOnly = context.auditOnly;
 
     // 如果 context 中没有 html，尝试从 previousOutputs 的渲染结果获取
@@ -1192,7 +1193,7 @@ export class QualityAuditSkill
       const obj = section.content as unknown as Record<string, unknown>;
       return Object.values(obj)
         .filter((v) => typeof v === "string")
-        .map((v) => v as string);
+        .map((v) => v);
     }
     return [];
   }

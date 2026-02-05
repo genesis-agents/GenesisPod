@@ -201,9 +201,10 @@ const TRANSITION_CHECK_SYSTEM_PROMPT = `你是一位专业的演示文稿叙事�
 \`\`\``;
 
 @Injectable()
-export class TransitionCheckerSkill
-  implements ISkill<TransitionCheckerInput, TransitionCheckerResult>
-{
+export class TransitionCheckerSkill implements ISkill<
+  TransitionCheckerInput,
+  TransitionCheckerResult
+> {
   private readonly logger = new Logger(TransitionCheckerSkill.name);
 
   // ISkill 接口必需属性
@@ -695,7 +696,7 @@ ${ruleBasedTransitions.map((t) => `- 第${t.fromPage}→${t.toPage}页: ${t.qual
   ): TransitionCheckerInput {
     // 检查是否是直接调用格式（有 pages 属性）
     if ("pages" in input && Array.isArray(input.pages)) {
-      return input as TransitionCheckerInput;
+      return input;
     }
 
     // 处理 Orchestrator 格式

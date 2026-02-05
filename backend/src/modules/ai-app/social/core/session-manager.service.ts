@@ -39,7 +39,7 @@ export class SessionManagerService {
       },
     });
 
-    if (!connection || !connection.sessionData) {
+    if (!connection?.sessionData) {
       return null;
     }
 

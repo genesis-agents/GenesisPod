@@ -114,7 +114,7 @@ export class AgentsController {
   async getTemplates(
     @Param("type") type: string,
   ): Promise<TemplatesResponseDto> {
-    const agentId = type.toLowerCase() as AgentId;
+    const agentId = type.toLowerCase();
     if (!Object.values(BUILTIN_AGENTS).includes(agentId as BuiltinAgentId)) {
       throw new HttpException("Invalid agent type", HttpStatus.BAD_REQUEST);
     }

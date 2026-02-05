@@ -186,9 +186,10 @@ export interface ContentAnalysisResult {
 // ============================================================================
 
 @Injectable()
-export class ContentAnalyzerSkill
-  implements ISkill<PageContent, ContentAnalysisResult>
-{
+export class ContentAnalyzerSkill implements ISkill<
+  PageContent,
+  ContentAnalysisResult
+> {
   private readonly logger = new Logger(ContentAnalyzerSkill.name);
   private readonly ANALYSIS_VERSION = "4.0.0";
 
@@ -233,7 +234,7 @@ export class ContentAnalyzerSkill
 
     // 处理 Orchestrator 输入格式
     const content = this.normalizeInput(input);
-    if (!content || !content.title) {
+    if (!content?.title) {
       return {
         success: false,
         error: {
@@ -311,16 +312,16 @@ export class ContentAnalyzerSkill
   private normalizeInput(input: PageContent | OrchestratorInput): PageContent {
     // 检查是否是直接调用格式（PageContent 有 title 和 sections）
     if ("title" in input && "sections" in input) {
-      return input as PageContent;
+      return input;
     }
 
     // 处理 Orchestrator 格式
-    const orchestratorInput = input as OrchestratorInput;
+    const orchestratorInput = input;
     const context = orchestratorInput.context || {};
 
     // 尝试从 context 获取 pageContent
     if (context.pageContent) {
-      return context.pageContent as PageContent;
+      return context.pageContent;
     }
 
     // 返回空的 PageContent，让调用者处理错误
@@ -476,7 +477,7 @@ export class ContentAnalyzerSkill
     if (typeof section.content === "object" && section.content !== null) {
       // StatContent
       if ("value" in section.content && "label" in section.content) {
-        const stat = section.content as StatContent;
+        const stat = section.content;
         return (stat.value || "").length + (stat.label || "").length;
       }
       // ChartContent
@@ -598,7 +599,7 @@ export class ContentAnalyzerSkill
     const listSections = sections.filter((s) => s.type === "list");
     for (const listSection of listSections) {
       if (Array.isArray(listSection.content)) {
-        const items = listSection.content as string[];
+        const items = listSection.content;
         // 检查是否有编号模式
         const hasNumbering = items.some((item) => /^[\d①②③④⑤⑥⑦⑧⑨⑩]/.test(item));
         if (hasNumbering && items.length >= 3) {
@@ -739,7 +740,7 @@ export class ContentAnalyzerSkill
       ) {
         // StatContent
         if ("value" in section.content) {
-          const stat = section.content as StatContent;
+          const stat = section.content;
           parts.push(stat.value || "");
           parts.push(stat.label || "");
         }

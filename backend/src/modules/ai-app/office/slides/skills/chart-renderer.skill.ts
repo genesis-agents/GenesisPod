@@ -86,9 +86,10 @@ export interface ChartRendererOutput {
 }
 
 @Injectable()
-export class ChartRendererSkill
-  implements ISkill<ChartRendererInput, ChartRendererOutput>
-{
+export class ChartRendererSkill implements ISkill<
+  ChartRendererInput,
+  ChartRendererOutput
+> {
   readonly id = "slides-chart-renderer";
   readonly name = "图表渲染";
   readonly description = "根据数据生成 ECharts 图表配置";
@@ -135,7 +136,7 @@ export class ChartRendererSkill
       const { data, options = {} } = actualInput;
 
       // 验证输入
-      if (!data || !data.type) {
+      if (!data?.type) {
         throw new Error("Invalid chart data: missing type");
       }
 
@@ -676,7 +677,7 @@ export class ChartRendererSkill
   ): ChartRendererInput {
     // 检查是否是直接调用格式（有 data 属性）
     if ("data" in input && input.data && typeof input.data === "object") {
-      return input as ChartRendererInput;
+      return input;
     }
 
     // 处理 Orchestrator 格式

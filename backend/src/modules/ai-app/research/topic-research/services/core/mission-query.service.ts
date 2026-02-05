@@ -143,7 +143,7 @@ export class MissionQueryService {
       startedAt: task.startedAt ?? undefined,
       completedAt: task.completedAt ?? undefined,
       // ★ 返回依赖关系用于可视化
-      dependencies: (task.dependencies as string[]) ?? [],
+      dependencies: task.dependencies ?? [],
     }));
 
     return {
@@ -268,6 +268,46 @@ export class MissionQueryService {
       updateData.modelId = actualModelId;
     }
 
+    // ★ For terminal status transitions, use conditional update to prevent race conditions
+    if (
+      status === ResearchTaskStatus.COMPLETED ||
+      status === ResearchTaskStatus.FAILED
+    ) {
+      const result = await this.prisma.researchTask.updateMany({
+        where: {
+          id: taskId,
+          status: {
+            notIn: [ResearchTaskStatus.FAILED, ResearchTaskStatus.COMPLETED],
+          },
+        },
+        data: updateData,
+      });
+
+      if (result.count === 0) {
+        this.logger.warn(
+          `[updateTaskStatus] Task ${taskId} already in terminal state, skipping update to ${status}`,
+        );
+      }
+
+      // Still return the current task state
+      const task = await this.prisma.researchTask.findUnique({
+        where: { id: taskId },
+        include: { mission: true },
+      });
+
+      if (!task) {
+        throw new NotFoundException(
+          `Task ${taskId} not found after conditional update`,
+        );
+      }
+
+      // Update Mission progress
+      await this.updateMissionProgress(task.missionId);
+
+      return task;
+    }
+
+    // For non-terminal statuses, use regular update
     const task = await this.prisma.researchTask.update({
       where: { id: taskId },
       data: updateData,
@@ -409,10 +449,10 @@ export class MissionQueryService {
             // 空数组 [] 或无效数据都转为 undefined
             agentAssignmentsMap.set(agentId, {
               skills: isNonEmptyStringArray(assignment.skills)
-                ? (assignment.skills as string[])
+                ? assignment.skills
                 : undefined,
               tools: isNonEmptyStringArray(assignment.tools)
-                ? (assignment.tools as string[])
+                ? assignment.tools
                 : undefined,
               modelId:
                 typeof assignment.modelId === "string" &&

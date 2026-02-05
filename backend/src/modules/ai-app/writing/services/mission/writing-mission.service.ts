@@ -1231,7 +1231,7 @@ export class WritingMissionService {
     );
 
     // ★★★ 安全的 prompt 获取（使用局部变量，不修改原始参数）
-    let effectiveUserPrompt =
+    const effectiveUserPrompt =
       input.userPrompt?.trim() || project.description?.trim() || project.name;
 
     if (
@@ -1935,7 +1935,7 @@ ${Array.from(
       throw new Error("故事架构规划失败：无法生成有效的章节大纲");
     }
     // ★ 如果大纲没有 core，使用世界观的 core
-    if (!outline.core || !outline.core.theme) {
+    if (!outline.core?.theme) {
       outline.core = {
         summary: worldCore?.summary || effectiveUserPrompt.slice(0, 100),
         genre: worldCore?.genre || "通用",
@@ -3311,7 +3311,7 @@ ${narrativeConstraints}`;
 
     try {
       // 1. 先移除 markdown 代码块包装 (```json ... ``` 或 ``` ... ```)
-      let cleanContent = content
+      const cleanContent = content
         .replace(/```json\s*/gi, "")
         .replace(/```\s*/g, "")
         .trim();
@@ -3478,7 +3478,7 @@ ${narrativeConstraints}`;
   private parseWorldSettings(content: string): Record<string, unknown> {
     try {
       // 1. 先移除 markdown 代码块包装
-      let cleanContent = content
+      const cleanContent = content
         .replace(/```json\s*/gi, "")
         .replace(/```\s*/g, "")
         .trim();
@@ -4354,10 +4354,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
                   // 检查现有角色的别名
                   const existingAliases = existing.aliases || [];
                   for (const alias of existingAliases) {
-                    if (
-                      alias === newChar.name ||
-                      parsedNames.includes(alias as string)
-                    )
+                    if (alias === newChar.name || parsedNames.includes(alias))
                       return true;
                   }
                   // 检查现有角色名是否在新角色的名字中（处理 "王昭儿（王美人）" 包含 "王昭儿" 的情况）
@@ -6989,7 +6986,12 @@ ${instruction}
           content: { not: "" },
         },
         orderBy: { chapterNumber: "desc" },
-        select: { content: true, title: true, outline: true, chapterNumber: true },
+        select: {
+          content: true,
+          title: true,
+          outline: true,
+          chapterNumber: true,
+        },
       });
 
       const STORY_COMPLETION_MARKERS = [

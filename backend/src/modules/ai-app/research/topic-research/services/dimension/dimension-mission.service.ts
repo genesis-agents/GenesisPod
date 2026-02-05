@@ -346,7 +346,7 @@ export class DimensionMissionService {
             );
           }
         }
-        const metadata = item.metadata as Record<string, unknown> | undefined;
+        const metadata = item.metadata;
         const isKnowledgeBase =
           String(item.sourceType).toLowerCase() === "local" ||
           metadata?.knowledgeBaseSource === true;
@@ -443,9 +443,7 @@ export class DimensionMissionService {
       this.createEvidenceSummary(evidenceData) +
       (leaderContextSummary ? `\n\n## 最新背景\n${leaderContextSummary}` : "");
 
-    const figuresSummary = this.buildFiguresSummary(
-      evidenceData as EnrichedEvidenceData[],
-    );
+    const figuresSummary = this.buildFiguresSummary(evidenceData);
     if (figuresSummary) {
       this.logger.log(
         `${logPrefix} Figures summary for Leader: ${figuresSummary.split("\n").length - 1} figures available`,
@@ -456,7 +454,7 @@ export class DimensionMissionService {
       dimensionId: dimension.id,
       dimensionName: dimension.name,
       enrichedResults,
-      evidenceData: evidenceData as EnrichedEvidenceData[],
+      evidenceData: evidenceData,
       evidenceSummary,
       searchResultsRecord,
       temporalContext,
@@ -715,10 +713,7 @@ export class DimensionMissionService {
 
     try {
       // 1. 校验并清理 Leader 分配的图表
-      this.validateAllocatedFigures(
-        outline,
-        searchPhaseResult.evidenceData as EnrichedEvidenceData[],
-      );
+      this.validateAllocatedFigures(outline, searchPhaseResult.evidenceData);
 
       this.logger.log(
         `${logPrefix} Outline validated: ${outline.sections.length} sections`,

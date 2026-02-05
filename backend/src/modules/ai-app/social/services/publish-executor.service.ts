@@ -60,9 +60,7 @@ export class PublishExecutorService {
 
     // 如果没有关联连接，或者连接的会话数据无效，尝试找用户的活跃连接
     const needsFallback =
-      !connection ||
-      !connection.sessionData ||
-      !this.hasValidSession(connection);
+      !connection?.sessionData || !this.hasValidSession(connection);
 
     if (needsFallback) {
       this.logger.warn(

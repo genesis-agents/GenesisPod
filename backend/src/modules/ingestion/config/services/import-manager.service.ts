@@ -315,11 +315,23 @@ export class ImportManagerService {
         where.resourceType = resourceType;
       }
 
-      const metrics = await this.prisma.dataQualityMetric.findMany({
-        where,
-      });
+      // Use aggregation for stats instead of loading all records
+      const [totalItems, duplicates, avgQualityResult, needsReview] =
+        await Promise.all([
+          this.prisma.dataQualityMetric.count({ where }),
+          this.prisma.dataQualityMetric.count({
+            where: { ...where, isDuplicate: true },
+          }),
+          this.prisma.dataQualityMetric.aggregate({
+            where,
+            _avg: { qualityScore: true },
+          }),
+          this.prisma.dataQualityMetric.count({
+            where: { ...where, reviewStatus: "NEEDS_REVIEW" },
+          }),
+        ]);
 
-      if (metrics.length === 0) {
+      if (totalItems === 0) {
         return {
           totalItems: 0,
           duplicates: 0,
@@ -328,15 +340,10 @@ export class ImportManagerService {
         };
       }
 
-      const duplicates = metrics.filter((m) => m.isDuplicate).length;
-      const avgQuality =
-        metrics.reduce((sum, m) => sum + m.qualityScore, 0) / metrics.length;
-      const needsReview = metrics.filter(
-        (m) => m.reviewStatus === "NEEDS_REVIEW",
-      ).length;
+      const avgQuality = avgQualityResult._avg.qualityScore || 0;
 
       return {
-        totalItems: metrics.length,
+        totalItems,
         duplicates,
         avgQuality: Math.round(avgQuality * 100) / 100,
         needsReview,

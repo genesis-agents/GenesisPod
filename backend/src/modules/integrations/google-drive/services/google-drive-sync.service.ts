@@ -119,7 +119,7 @@ export class GoogleDriveSyncService {
 
       let localChanges = 0;
       let remoteChanges = 0;
-      let conflicts = 0;
+      const conflicts = 0;
 
       // Check for local changes
       for (const imported of importedFiles) {

@@ -87,6 +87,7 @@ interface SyncResponse {
 type ResearchPhase =
   | "idle"
   | "planning"
+  | "plan_ready"
   | "researching"
   | "analyzing"
   | "synthesizing"
@@ -208,7 +209,7 @@ export class TopicResearchGateway
         select: { id: true, email: true, username: true },
       });
 
-      if (!dbUser || !dbUser.email) {
+      if (!dbUser?.email) {
         this.logger.warn(`Client ${client.id} token user not found`);
         this.securityLogger.logAuthEvent({
           eventType: SecurityEventType.AUTH_FAILURE,
@@ -548,6 +549,8 @@ export class TopicResearchGateway
     switch (status) {
       case ResearchMissionStatus.PLANNING:
         return "planning";
+      case ResearchMissionStatus.PLAN_READY:
+        return "plan_ready";
       case ResearchMissionStatus.EXECUTING:
         return "researching";
       case ResearchMissionStatus.REVIEWING:

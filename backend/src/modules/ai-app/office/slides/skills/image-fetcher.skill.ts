@@ -239,9 +239,10 @@ const KEYWORD_CATEGORY_MAP: Record<string, string> = {
 };
 
 @Injectable()
-export class ImageFetcherSkill
-  implements ISkill<ImageSearchOptions, ImageResult[]>
-{
+export class ImageFetcherSkill implements ISkill<
+  ImageSearchOptions,
+  ImageResult[]
+> {
   private readonly logger = new Logger(ImageFetcherSkill.name);
   private readonly unsplashAccessKey: string | undefined;
   private readonly sizeMap = {
@@ -567,7 +568,7 @@ export class ImageFetcherSkill
   ): ImageSearchOptions {
     // 检查是否是直接调用格式（有 keywords 属性）
     if ("keywords" in input && Array.isArray(input.keywords)) {
-      return input as ImageSearchOptions;
+      return input;
     }
 
     // 处理 Orchestrator 格式

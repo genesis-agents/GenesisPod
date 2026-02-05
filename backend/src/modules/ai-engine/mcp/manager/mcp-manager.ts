@@ -13,7 +13,8 @@ import {
   MCPEvent,
   MCPEventType,
 } from "../abstractions/mcp.interface";
-import { createMCPClient } from "../client/mcp-client";
+import { createMCPClient } from "../client/mcp-client-factory";
+import { LruMap } from "@/common/utils/lru-map";
 
 /**
  * MCP 管理器
@@ -23,7 +24,7 @@ import { createMCPClient } from "../client/mcp-client";
 export class MCPManager implements IMCPManager {
   private readonly logger = new Logger(MCPManager.name);
   private readonly configs = new Map<string, MCPServerConfig>();
-  private readonly clients = new Map<string, IMCPClient>();
+  private readonly clients = new LruMap<string, IMCPClient>(50);
   private readonly eventHandlers = new Set<(event: MCPEvent) => void>();
 
   /**

@@ -106,7 +106,7 @@ export class PlatformImportService {
       .map((r) => ({
         id: r.id,
         title: r.title || "Untitled",
-        url: r.sourceUrl!,
+        url: r.sourceUrl,
         type: r.type,
         savedAt: r.createdAt,
         tags: Array.isArray(r.categories)

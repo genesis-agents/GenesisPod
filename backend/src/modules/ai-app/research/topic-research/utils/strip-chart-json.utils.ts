@@ -79,7 +79,7 @@ export function stripChartJsonFromContent(content: string): string {
   const bareJsonPattern =
     /\n\s*\{\s*"(?:generatedCharts|figureReferences)"[\s\S]*$/;
   const m2 = result.match(bareJsonPattern);
-  if (m2 && m2.index !== undefined) {
+  if (m2?.index !== undefined) {
     const before = result.substring(0, m2.index).trim();
     if (before.length > 100) {
       result = before;
@@ -120,7 +120,7 @@ export function extractMarkdownFromJsonString(text: string): string {
   }
 
   const match = trimmed.match(/"fullText"\s*:\s*"/);
-  if (match && match.index !== undefined) {
+  if (match?.index !== undefined) {
     const valueStart = match.index + match[0].length;
     let i = valueStart;
     while (i < trimmed.length) {

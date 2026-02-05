@@ -676,7 +676,7 @@ export function getRandomTechniques(
   count: number = 3,
 ): Array<{ name: string; description: string; example?: string }> {
   const preset = WRITING_STYLE_PRESETS[styleId];
-  if (!preset || !preset.signatureTechniques) return [];
+  if (!preset?.signatureTechniques) return [];
 
   const techniques = [...preset.signatureTechniques];
   // Fisher-Yates shuffle

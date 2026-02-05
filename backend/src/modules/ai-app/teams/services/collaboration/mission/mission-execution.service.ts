@@ -237,7 +237,7 @@ export class MissionExecutionService {
 
     // ★ 优先使用直接传入的 taskProfile，否则从 legacy 参数映射
     const taskProfile: TaskProfile = options?.taskProfile
-      ? (options.taskProfile as TaskProfile)
+      ? options.taskProfile
       : {
           creativity: this.mapTemperatureToCreativity(options?.temperature),
           outputLength: this.mapMaxTokensToOutputLength(options?.maxTokens),
@@ -484,7 +484,7 @@ export class MissionExecutionService {
         return null;
       }
 
-      let candidates = allMembers.filter(
+      const candidates = allMembers.filter(
         (m: TeamMemberBase) => !failedAgentIds.includes(m.id) && !m.isLeader,
       );
 
@@ -834,7 +834,7 @@ export class MissionExecutionService {
     if (blockedTasks.length > 0) {
       const retriedCount = await this.autoRetryBlockedTasks(
         mission,
-        blockedTasks as AgentTaskWithAssignee[],
+        blockedTasks,
         now,
         STUCK_TIMEOUT_MS,
       );

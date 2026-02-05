@@ -121,10 +121,9 @@ export class CheckpointService {
       );
     } catch (error) {
       this.logger.error(
-        `Failed to save checkpoint for mission ${missionId}:`,
-        error,
+        `Failed to save checkpoint for mission ${missionId}: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
-      throw error;
+      // Don't rethrow - checkpoint save failure should not stop the mission
     }
   }
 
@@ -299,51 +298,58 @@ export class CheckpointService {
    * @returns 检查点数据或 null
    */
   private extractCheckpoint(result: unknown): MissionCheckpoint | null {
-    if (typeof result !== "object" || result === null) {
+    try {
+      if (typeof result !== "object" || result === null) {
+        return null;
+      }
+
+      const resultObj = result as Record<string, unknown>;
+
+      if (!resultObj.checkpoint || typeof resultObj.checkpoint !== "object") {
+        return null;
+      }
+
+      const checkpoint = resultObj.checkpoint as Record<string, unknown>;
+
+      // 验证必需字段
+      if (
+        typeof checkpoint.missionId !== "string" ||
+        typeof checkpoint.projectId !== "string" ||
+        !Array.isArray(checkpoint.completedSteps) ||
+        !Array.isArray(checkpoint.completedChapters) ||
+        typeof checkpoint.currentStep !== "string"
+      ) {
+        this.logger.warn("Invalid checkpoint format, missing required fields");
+        return null;
+      }
+
+      return {
+        missionId: checkpoint.missionId,
+        projectId: checkpoint.projectId,
+        completedSteps: checkpoint.completedSteps,
+        completedChapters: checkpoint.completedChapters,
+        currentStep: checkpoint.currentStep,
+        currentChapterId:
+          typeof checkpoint.currentChapterId === "string"
+            ? checkpoint.currentChapterId
+            : undefined,
+        context:
+          typeof checkpoint.context === "object" && checkpoint.context !== null
+            ? (checkpoint.context as Record<string, unknown>)
+            : {},
+        savedAt:
+          checkpoint.savedAt instanceof Date
+            ? checkpoint.savedAt
+            : typeof checkpoint.savedAt === "string"
+              ? new Date(checkpoint.savedAt)
+              : new Date(),
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Corrupted checkpoint data, returning null: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
       return null;
     }
-
-    const resultObj = result as Record<string, unknown>;
-
-    if (!resultObj.checkpoint || typeof resultObj.checkpoint !== "object") {
-      return null;
-    }
-
-    const checkpoint = resultObj.checkpoint as Record<string, unknown>;
-
-    // 验证必需字段
-    if (
-      typeof checkpoint.missionId !== "string" ||
-      typeof checkpoint.projectId !== "string" ||
-      !Array.isArray(checkpoint.completedSteps) ||
-      !Array.isArray(checkpoint.completedChapters) ||
-      typeof checkpoint.currentStep !== "string"
-    ) {
-      this.logger.warn("Invalid checkpoint format, missing required fields");
-      return null;
-    }
-
-    return {
-      missionId: checkpoint.missionId,
-      projectId: checkpoint.projectId,
-      completedSteps: checkpoint.completedSteps,
-      completedChapters: checkpoint.completedChapters,
-      currentStep: checkpoint.currentStep,
-      currentChapterId:
-        typeof checkpoint.currentChapterId === "string"
-          ? checkpoint.currentChapterId
-          : undefined,
-      context:
-        typeof checkpoint.context === "object" && checkpoint.context !== null
-          ? (checkpoint.context as Record<string, unknown>)
-          : {},
-      savedAt:
-        checkpoint.savedAt instanceof Date
-          ? checkpoint.savedAt
-          : typeof checkpoint.savedAt === "string"
-            ? new Date(checkpoint.savedAt)
-            : new Date(),
-    };
   }
 
   /**

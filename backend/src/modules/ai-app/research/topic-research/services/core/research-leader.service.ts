@@ -266,7 +266,7 @@ export class ResearchLeaderService {
     const latencyMs = Date.now() - startTime;
 
     // 6. 验证响应
-    if (!response || !response.content) {
+    if (!response?.content) {
       this.logger.error("[planResearch] AI returned empty response");
       throw new Error("AI 返回空响应，请稍后重试");
     }
@@ -775,8 +775,7 @@ export class ResearchLeaderService {
                     });
 
                   if (qualityReviewTask) {
-                    const currentDeps =
-                      (qualityReviewTask.dependencies as string[]) || [];
+                    const currentDeps = qualityReviewTask.dependencies || [];
                     if (!currentDeps.includes(task.id)) {
                       await this.prisma.researchTask.update({
                         where: { id: qualityReviewTask.id },
@@ -2127,7 +2126,7 @@ ${teamMembersText}`;
           "sections", // requiredKey for validation
         );
 
-        if (!outline || !outline.sections || outline.sections.length === 0) {
+        if (!outline?.sections || outline.sections.length === 0) {
           this.logger.warn(
             `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: Failed to parse JSON, retrying...`,
           );
@@ -2310,8 +2309,7 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         );
 
         if (
-          !globalOutline ||
-          !globalOutline.dimensions ||
+          !globalOutline?.dimensions ||
           globalOutline.dimensions.length === 0
         ) {
           this.logger.warn(

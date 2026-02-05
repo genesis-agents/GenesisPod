@@ -202,7 +202,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
    */
   getCooldownRemaining(entityId: string): number {
     const breaker = this.breakers.get(entityId);
-    if (!breaker || !breaker.cooldownUntil) {
+    if (!breaker?.cooldownUntil) {
       return 0;
     }
     return Math.max(0, breaker.cooldownUntil.getTime() - Date.now());

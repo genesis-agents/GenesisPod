@@ -14,9 +14,7 @@ import {
   generateStylePrompt,
   recommendStyleByGenre,
 } from "../../constants/writing-style-presets";
-import type {
-  WritingMissionInput,
-} from "./writing-mission.service";
+import type { WritingMissionInput } from "./writing-mission.service";
 
 /**
  * 最小 prompt 长度常量（与前端保持一致）
@@ -317,7 +315,7 @@ ${avoidancePrompt ? `【表达约束 - 禁止使用以下表达】\n${avoidanceP
     );
 
     // ★★★ 安全的 prompt 获取（使用局部变量，不修改原始参数）
-    let effectiveUserPrompt =
+    const effectiveUserPrompt =
       input.userPrompt?.trim() || project.description?.trim() || project.name;
 
     if (

@@ -660,7 +660,7 @@ export class SlidesExportService {
 
     // 如果没有 body 标签，尝试提取 style 和 body 内容
     // 移除 html, head, doctype 等标签
-    let content = html
+    const content = html
       .replace(/<!DOCTYPE[^>]*>/gi, "")
       .replace(/<html[^>]*>/gi, "")
       .replace(/<\/html>/gi, "")

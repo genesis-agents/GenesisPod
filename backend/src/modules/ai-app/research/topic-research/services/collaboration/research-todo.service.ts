@@ -175,7 +175,7 @@ export class ResearchTodoService {
     }
 
     // 其他类型的 TODO：根据维度或代理过滤
-    let whereCondition: Prisma.ResearchAgentActivityWhereInput = {
+    const whereCondition: Prisma.ResearchAgentActivityWhereInput = {
       topicId: todo.topicId,
       missionId: todo.missionId,
     };
@@ -1336,7 +1336,7 @@ export class ResearchTodoService {
       });
 
       if (qualityReviewTask) {
-        const currentDeps = (qualityReviewTask.dependencies as string[]) || [];
+        const currentDeps = qualityReviewTask.dependencies || [];
         if (!currentDeps.includes(task.id)) {
           await this.prisma.researchTask.update({
             where: { id: qualityReviewTask.id },

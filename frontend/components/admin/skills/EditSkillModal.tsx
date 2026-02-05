@@ -134,6 +134,44 @@ export function EditSkillModal({
               />
             </div>
 
+            {/* Author & Version */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Author
+                </label>
+                <input
+                  type="text"
+                  value={editedSkill.author || ''}
+                  onChange={(e) =>
+                    setEditedSkill({
+                      ...editedSkill,
+                      author: e.target.value || undefined,
+                    })
+                  }
+                  placeholder="e.g. deepdive-engine"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Version
+                </label>
+                <input
+                  type="text"
+                  value={editedSkill.version || ''}
+                  onChange={(e) =>
+                    setEditedSkill({
+                      ...editedSkill,
+                      version: e.target.value || undefined,
+                    })
+                  }
+                  placeholder="e.g. 1.0.0"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+            </div>
+
             {/* Layer & Domain */}
             <div className="grid grid-cols-2 gap-4">
               <div>

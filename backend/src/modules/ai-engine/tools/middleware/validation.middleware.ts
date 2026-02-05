@@ -3,6 +3,7 @@
  * 验证中间件
  */
 
+import { Logger } from "@nestjs/common";
 import { ValidationError } from "../../core/errors";
 import {
   ITool,
@@ -134,9 +135,9 @@ export class ValidationMiddleware implements IToolMiddleware {
     );
     if (!schemaResult.valid) {
       // 输出验证失败时，记录警告但不阻止
-      console.warn(
-        `Output validation warning for tool '${tool.id}':`,
-        schemaResult.errors,
+      Logger.warn(
+        `Output validation warning for tool '${tool.id}': ${JSON.stringify(schemaResult.errors)}`,
+        "ValidationMiddleware",
       );
     }
 

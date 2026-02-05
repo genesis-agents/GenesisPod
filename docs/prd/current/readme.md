@@ -19,6 +19,23 @@ prd/
 
 ---
 
+## Platform Evolution (平台演进)
+
+> **说明**: 跨模块平台级演进计划，包括 MCP 生态深化、A2A 协议、Skills Marketplace 等。
+
+| 文件                                                                                          | 版本 | 状态     | 说明           |
+| --------------------------------------------------------------------------------------------- | ---- | -------- | -------------- |
+| [platform-evolution-roadmap-v1.0.md](./platform-evolution/platform-evolution-roadmap-v1.0.md) | v1.0 | **当前** | 平台演进路线图 |
+
+**相关文档**:
+
+- [Architecture Design](../../architecture/platform-evolution/architecture-design.md) - 架构设计
+- [ADR-001: MCP Transport Extension](../../decisions/001-mcp-transport-extension.md)
+- [ADR-002: Raven as MCP Server](../../decisions/002-raven-as-mcp-server.md)
+- [ADR-003: A2A Protocol Adoption](../../decisions/003-a2a-protocol-adoption.md)
+
+---
+
 ## AI Apps (AI 应用层)
 
 ### AI Studio (AI 研究工作台)
@@ -199,18 +216,19 @@ prd/
 
 ## 模块状态总览
 
-| 模块            | PRD 版本 | 开发状态 | 文档完整度 |
-| --------------- | -------- | -------- | ---------- |
-| AI Studio       | v4.0     | 开发中   | 90%        |
-| AI Office       | v2.0     | 已完成   | 95%        |
-| AI Slides       | v3.1     | 待开发   | 95%        |
-| AI Teams        | v2.0     | 开发中   | 90%        |
-| Topic Research  | v1.0     | 开发中   | 95%        |
-| AI Coding       | v1.0     | 开发中   | 95%        |
-| AI Ask          | v1.0     | 开发中   | 80%        |
-| AI Writing      | v2.0     | 待重构   | 60%        |
-| Knowledge Base  | v1.0     | 开发中   | 85%        |
-| Library         | v2.0     | 已完成   | 80%        |
-| Integrations    | v2.0     | 开发中   | 90%        |
-| Data Collection | v3.0     | 已修复   | 90%        |
-| Core            | v2.0     | 规划中   | 95%        |
+| 模块               | PRD 版本 | 开发状态 | 文档完整度 |
+| ------------------ | -------- | -------- | ---------- |
+| AI Studio          | v4.0     | 开发中   | 90%        |
+| AI Office          | v2.0     | 已完成   | 95%        |
+| AI Slides          | v3.1     | 待开发   | 95%        |
+| AI Teams           | v2.0     | 开发中   | 90%        |
+| Topic Research     | v1.0     | 开发中   | 95%        |
+| AI Coding          | v1.0     | 开发中   | 95%        |
+| AI Ask             | v1.0     | 开发中   | 80%        |
+| AI Writing         | v2.0     | 待重构   | 60%        |
+| Knowledge Base     | v1.0     | 开发中   | 85%        |
+| Library            | v2.0     | 已完成   | 80%        |
+| Integrations       | v2.0     | 开发中   | 90%        |
+| Data Collection    | v3.0     | 已修复   | 90%        |
+| Core               | v2.0     | 规划中   | 95%        |
+| Platform Evolution | v1.0     | 规划中   | 100%       |

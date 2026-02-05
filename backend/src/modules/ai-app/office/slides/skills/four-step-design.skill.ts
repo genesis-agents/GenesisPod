@@ -719,9 +719,10 @@ type StatContent = {
 记住：**每一页都必须信息密实、布局饱满、视觉专业。所有内容必须来自 pageContent.sections，禁止空白区域！**`;
 
 @Injectable()
-export class FourStepDesignSkill
-  implements ISkill<FourStepDesignInput, FourStepDesignResult>
-{
+export class FourStepDesignSkill implements ISkill<
+  FourStepDesignInput,
+  FourStepDesignResult
+> {
   readonly id = "slides-four-step-design";
   readonly name = "四步设计";
   readonly description = "执行四步设计流程生成幻灯片内容";
@@ -746,11 +747,11 @@ export class FourStepDesignSkill
       "pageContent" in input &&
       "globalStyles" in input
     ) {
-      return input as FourStepDesignInput;
+      return input;
     }
 
     // 尝试从 orchestrator 格式提取
-    const orchestratorInput = input as FourStepDesignOrchestratorInput;
+    const orchestratorInput = input;
     const contextInput = orchestratorInput.context?.input;
 
     if (
@@ -1901,7 +1902,7 @@ ${this.getTemplateReference(pageOutline.templateType)}
       match.replace(/#/g, "___HASH___"),
     );
     // 移除文本中的颜色代码
-    let cleaned = styleProtected.replace(
+    const cleaned = styleProtected.replace(
       /#[0-9A-Fa-f]{3,6}(?![0-9A-Fa-f])/g,
       "",
     );
@@ -2070,7 +2071,7 @@ ${this.getTemplateReference(pageOutline.templateType)}
     const pillarCardPattern =
       /<div[^>]*style="[^"]*flex:\s*1[^"]*border-top:\s*\d+px\s+solid[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
 
-    let pillarMatches = result.match(pillarCardPattern);
+    const pillarMatches = result.match(pillarCardPattern);
     if (pillarMatches) {
       pillarMatches.forEach((match) => {
         // 检查卡片内部是否有实质内容（至少需要有标题文字）

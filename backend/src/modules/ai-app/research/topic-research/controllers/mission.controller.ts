@@ -88,6 +88,60 @@ export class MissionController {
   }
 
   /**
+   * 获取研究规划
+   * 返回当前 Mission 的 LeaderPlan（用于规划透明度展示）
+   */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
+  @Get("topics/:id/mission/plan")
+  @ApiOperation({
+    summary: "获取研究规划",
+    description:
+      "获取当前 Mission 的 Leader 规划详情，包含维度、Agent 分配和执行策略",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回规划详情" })
+  async getMissionPlan(@Param("id") id: string) {
+    const mission = await this.missionService.getMissionByTopicId(id);
+    if (!mission) {
+      throw new NotFoundException("No active mission for this topic");
+    }
+    return {
+      missionId: mission.id,
+      status: mission.status,
+      leaderPlan: mission.leaderPlan,
+    };
+  }
+
+  /**
+   * 审批研究规划
+   * 用户确认规划后，启动研究执行
+   */
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.EDITOR)
+  @Post("topics/:id/mission/approve-plan")
+  @ApiOperation({
+    summary: "审批研究规划",
+    description: "确认 Leader 规划，从 PLAN_READY 状态转为 EXECUTING",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "规划已审批，执行已启动" })
+  async approveMissionPlan(@Param("id") id: string) {
+    const mission = await this.missionService.getMissionByTopicId(id);
+    if (!mission) {
+      throw new NotFoundException("No active mission for this topic");
+    }
+    if (mission.status !== "PLAN_READY") {
+      throw new NotFoundException(
+        `Mission is in ${mission.status} status, expected PLAN_READY`,
+      );
+    }
+    await this.missionService.approvePlanAndExecute(mission.id, id);
+    return { success: true, message: "Plan approved, execution started" };
+  }
+
+  /**
    * 处理 @Leader 用户消息
    * ★ Security: 速率限制 20次/分钟，AI 对话操作
    */

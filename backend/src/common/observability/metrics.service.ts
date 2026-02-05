@@ -310,7 +310,7 @@ export class MetricsService implements OnModuleDestroy {
           });
         }
       } else if (metric.type === "histogram") {
-        const histogramMetric = metric as HistogramMetric;
+        const histogramMetric = metric;
         for (const [key, data] of histogramMetric.values) {
           const buckets: Record<string, number> = {};
           let cumulative = 0;
@@ -354,7 +354,7 @@ export class MetricsService implements OnModuleDestroy {
           lines.push(`${name}${labels} ${value}`);
         }
       } else if (metric.type === "histogram") {
-        const histogramMetric = metric as HistogramMetric;
+        const histogramMetric = metric;
         for (const [key, data] of histogramMetric.values) {
           const baseLabels = this.keyToLabels(key);
           let cumulative = 0;
@@ -499,7 +499,7 @@ export class MetricsService implements OnModuleDestroy {
     if (metric?.type !== "counter") {
       throw new Error(`Metric ${name} is not a counter`);
     }
-    return metric as CounterMetric;
+    return metric;
   }
 
   /**
@@ -518,7 +518,7 @@ export class MetricsService implements OnModuleDestroy {
     if (metric?.type !== "histogram") {
       throw new Error(`Metric ${name} is not a histogram`);
     }
-    return metric as HistogramMetric;
+    return metric;
   }
 
   /**
@@ -533,7 +533,7 @@ export class MetricsService implements OnModuleDestroy {
     if (metric?.type !== "gauge") {
       throw new Error(`Metric ${name} is not a gauge`);
     }
-    return metric as GaugeMetric;
+    return metric;
   }
 
   /**

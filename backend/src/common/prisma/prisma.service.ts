@@ -15,6 +15,52 @@ const SLOW_QUERY_THRESHOLD = parseInt(
 // 是否启用查询日志
 const ENABLE_QUERY_LOG = process.env.ENABLE_QUERY_LOG === "true";
 
+// 数据库连接池配置
+const DB_POOL_SIZE = parseInt(process.env.DB_POOL_SIZE || "10", 10);
+const DB_POOL_TIMEOUT = parseInt(process.env.DB_POOL_TIMEOUT || "10", 10);
+
+// 事务超时配置 (毫秒) - 降至 30 秒以避免长事务阻塞
+const PRISMA_TRANSACTION_TIMEOUT = parseInt(
+  process.env.PRISMA_TRANSACTION_TIMEOUT || "30000",
+  10,
+);
+
+/**
+ * 构建数据库 URL 并添加连接池参数
+ * Prisma 使用 URL 中的 connection_limit 和 pool_timeout 参数控制连接池
+ *
+ * 推荐配置：
+ * - DB_POOL_SIZE: 10 (默认) - 每个 Prisma 实例的最大连接数
+ * - DB_POOL_TIMEOUT: 10 (默认) - 获取连接的超时时间（秒）
+ *
+ * PostgreSQL 连接池限制：
+ * - Railway: max_connections = 100 (默认)
+ * - 建议每个实例使用 10 个连接，支持最多 10 个并发实例
+ */
+function buildDatabaseUrl(): string | undefined {
+  const baseUrl = process.env.DATABASE_URL;
+  if (!baseUrl) return undefined;
+
+  try {
+    const url = new URL(baseUrl);
+
+    // 检查是否已有 connection_limit 参数
+    if (!url.searchParams.has("connection_limit")) {
+      url.searchParams.set("connection_limit", DB_POOL_SIZE.toString());
+    }
+
+    // 检查是否已有 pool_timeout 参数
+    if (!url.searchParams.has("pool_timeout")) {
+      url.searchParams.set("pool_timeout", DB_POOL_TIMEOUT.toString());
+    }
+
+    return url.toString();
+  } catch {
+    // 如果 URL 解析失败，返回原始值
+    return baseUrl;
+  }
+}
+
 /**
  * 获取日志配置（静态函数，在 super() 之前调用）
  */
@@ -38,10 +84,16 @@ export class PrismaService
 
   constructor() {
     super({
-      // ★ 配置事务超时时间，避免长时间研究任务失败
+      // ★ 数据库 URL（包含连接池配置）
+      datasources: {
+        db: {
+          url: buildDatabaseUrl(),
+        },
+      },
+      // ★ 配置事务超时时间（可通过环境变量配置）
       transactionOptions: {
         maxWait: 10000, // 等待获取事务的最大时间 (10秒)
-        timeout: 120000, // 事务执行的最大时间 (2分钟)
+        timeout: PRISMA_TRANSACTION_TIMEOUT, // 事务执行的最大时间（默认 30 秒）
       },
       // ★ 启用查询日志（开发环境或明确启用时）
       log: getLogConfig(),

@@ -75,9 +75,10 @@ export interface TemplateRenderingResult {
 }
 
 @Injectable()
-export class TemplateRenderingSkill
-  implements ISkill<TemplateRenderingInput, TemplateRenderingResult>
-{
+export class TemplateRenderingSkill implements ISkill<
+  TemplateRenderingInput,
+  TemplateRenderingResult
+> {
   private readonly logger = new Logger(TemplateRenderingSkill.name);
 
   // ISkill interface implementation
@@ -190,7 +191,7 @@ export class TemplateRenderingSkill
       typeof input.pageOutline === "object" &&
       "templateType" in input.pageOutline
     ) {
-      return input as TemplateRenderingInput;
+      return input;
     }
 
     // 处理 Orchestrator 格式
@@ -199,8 +200,8 @@ export class TemplateRenderingSkill
     const context = orchestratorInput.context || {};
 
     // 尝试从多个位置获取 pageOutline 和 pageContent
-    let pageOutline = context.pageOutline as PageOutline | undefined;
-    let pageContent = context.pageContent as PageContent | undefined;
+    let pageOutline = context.pageOutline;
+    let pageContent = context.pageContent;
 
     // 如果 context 中没有，尝试从 previousOutputs 获取
     if (!pageOutline && previousOutputs["slides-outline-planning"]) {
@@ -856,7 +857,7 @@ ${overflowProtectionStyles}
 
       if (section) {
         if (section.type === "stat" && this.isStatContent(section.content)) {
-          const statContent = section.content as StatContent;
+          const statContent = section.content;
           title = statContent.label || "";
           desc = this.getDescriptionFromSections(sections, i);
           stat = statContent.value || "";
@@ -930,7 +931,7 @@ ${overflowProtectionStyles}
       const statSection = statSections[i];
 
       if (statSection && this.isStatContent(statSection.content)) {
-        const stat = statSection.content as StatContent;
+        const stat = statSection.content;
         vars[`KPI${kpiNum}_VALUE`] = stat.value || "";
         vars[`KPI${kpiNum}_LABEL`] = stat.label || "";
         vars[`KPI${kpiNum}_CHANGE`] = stat.change || "";
@@ -992,7 +993,7 @@ ${overflowProtectionStyles}
 
       if (section) {
         if (section.type === "stat" && this.isStatContent(section.content)) {
-          const stat = section.content as StatContent;
+          const stat = section.content;
           date = stat.value || "";
           title = stat.label || "";
           desc = stat.change || ""; // 使用 change 字段作为描述
@@ -1082,7 +1083,7 @@ ${overflowProtectionStyles}
           section.type === "stat" &&
           this.isStatContent(section.content)
         ) {
-          const stat = section.content as StatContent;
+          const stat = section.content;
           title = stat.label || "";
           desc = stat.value || "";
         }
@@ -1599,7 +1600,7 @@ ${overflowProtectionStyles}
 
     sections.forEach((section) => {
       if (section.type === "stat" && this.isStatContent(section.content)) {
-        const stat = section.content as StatContent;
+        const stat = section.content;
         contentHtml += `
           <div style="${CARD_STYLE} margin-bottom: 16px;">
             <div style="font-size: 48px; font-weight: 900; color: ${theme.colors.accent.primary};">${stat.value}</div>
@@ -1677,7 +1678,7 @@ ${overflowProtectionStyles}
 
     // 对于 stat 类型，使用 label
     if (section.type === "stat" && this.isStatContent(section.content)) {
-      const statContent = section.content as StatContent;
+      const statContent = section.content;
       return statContent.label || MISSING_PLACEHOLDER;
     }
 
@@ -1723,7 +1724,7 @@ ${overflowProtectionStyles}
           section.type === "stat" &&
           this.isStatContent(section.content)
         ) {
-          const statContent = section.content as StatContent;
+          const statContent = section.content;
           title = statContent.label || "";
           desc = statContent.change || "";
           stat = statContent.value || "";
@@ -1833,7 +1834,7 @@ ${overflowProtectionStyles}
           section.type === "stat" &&
           this.isStatContent(section.content)
         ) {
-          const stat = section.content as StatContent;
+          const stat = section.content;
           title = stat.label || "";
           desc = stat.value || "";
         }
@@ -1859,11 +1860,11 @@ ${overflowProtectionStyles}
     );
     vars["CURRENT_LEVEL"] =
       statSections[0] && this.isStatContent(statSections[0].content)
-        ? (statSections[0].content as StatContent).value || "?"
+        ? statSections[0].content.value || "?"
         : "?";
     vars["TARGET_LEVEL"] =
       statSections[1] && this.isStatContent(statSections[1].content)
-        ? (statSections[1].content as StatContent).value || "?"
+        ? statSections[1].content.value || "?"
         : "?";
 
     return vars;
@@ -1914,7 +1915,7 @@ ${overflowProtectionStyles}
     for (let i = 0; i < 3; i++) {
       const stat = statSections[i];
       if (stat && this.isStatContent(stat.content)) {
-        const s = stat.content as StatContent;
+        const s = stat.content;
         vars[`STAT${i + 1}_VALUE`] = s.value || MISSING_NUMBER_PLACEHOLDER;
         vars[`STAT${i + 1}_LABEL`] = s.label || "";
       } else {
@@ -1952,7 +1953,7 @@ ${overflowProtectionStyles}
     );
 
     if (statSection && this.isStatContent(statSection.content)) {
-      const stat = statSection.content as StatContent;
+      const stat = statSection.content;
       vars["NUMBER"] = stat.value || MISSING_NUMBER_PLACEHOLDER;
       vars["LABEL"] = stat.label || "";
       vars["CHANGE"] = stat.change || "";
@@ -2031,7 +2032,7 @@ ${overflowProtectionStyles}
     // 提取 Option A 的内容
     const optionAContent =
       listSections[0] && Array.isArray(listSections[0].content)
-        ? (listSections[0].content as string[])
+        ? listSections[0].content
         : [];
 
     const aTitle = optionAContent[0] || "";
@@ -2049,7 +2050,7 @@ ${overflowProtectionStyles}
     // 提取 Option B 的内容
     const optionBContent =
       listSections[1] && Array.isArray(listSections[1].content)
-        ? (listSections[1].content as string[])
+        ? listSections[1].content
         : [];
 
     const bTitle = optionBContent[0] || "";
@@ -2126,7 +2127,7 @@ ${overflowProtectionStyles}
       let col3 = "";
 
       if (section && Array.isArray(section.content)) {
-        const items = section.content as string[];
+        const items = section.content;
         label = items[0] || "";
         col1 = items[1] || "";
         col2 = items[2] || "";
@@ -2177,12 +2178,12 @@ ${overflowProtectionStyles}
       let value = "";
 
       if (listSection && Array.isArray(listSection.content)) {
-        const items = listSection.content as string[];
+        const items = listSection.content;
         name = items[0] || "";
         desc = items[1] || "";
         value = items[2] || "";
       } else if (statSection && this.isStatContent(statSection.content)) {
-        const stat = statSection.content as StatContent;
+        const stat = statSection.content;
         name = stat.label || "";
         value = stat.value || "";
       }

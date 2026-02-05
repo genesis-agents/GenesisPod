@@ -218,9 +218,10 @@ const TASK_DECOMPOSITION_SYSTEM_PROMPT = `你是一位专业的 PPT 架构师，
 - 绝不能生成与源文本主题无关的通用商务内容`;
 
 @Injectable()
-export class TaskDecompositionSkill
-  implements ISkill<TaskDecompositionInput, TaskDecomposition>
-{
+export class TaskDecompositionSkill implements ISkill<
+  TaskDecompositionInput,
+  TaskDecomposition
+> {
   private readonly logger = new Logger(TaskDecompositionSkill.name);
 
   // ISkill 接口必需属性
@@ -496,7 +497,7 @@ export class TaskDecompositionSkill
   ): TaskDecompositionInput {
     // 检查是否是直接调用格式（有 sourceText 属性）
     if ("sourceText" in input && typeof input.sourceText === "string") {
-      return input as TaskDecompositionInput;
+      return input;
     }
 
     // 处理 Orchestrator 格式

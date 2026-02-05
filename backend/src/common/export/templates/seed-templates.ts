@@ -4,12 +4,13 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { Logger } from "@nestjs/common";
 import { BUILTIN_TEMPLATES } from "./builtin-templates";
 
 const prisma = new PrismaClient();
 
 async function seedTemplates() {
-  console.log("Seeding export templates...");
+  Logger.log("Seeding export templates...", "SeedTemplates");
 
   for (const template of BUILTIN_TEMPLATES) {
     const existing = await prisma.exportTemplate.findFirst({
@@ -34,7 +35,7 @@ async function seedTemplates() {
           version: { increment: 1 },
         },
       });
-      console.log(`Updated template: ${template.name}`);
+      Logger.log(`Updated template: ${template.name}`, "SeedTemplates");
     } else {
       // 创建新模板
       await prisma.exportTemplate.create({
@@ -51,18 +52,18 @@ async function seedTemplates() {
           isPublic: true,
         },
       });
-      console.log(`Created template: ${template.name}`);
+      Logger.log(`Created template: ${template.name}`, "SeedTemplates");
     }
   }
 
-  console.log("Export templates seeded successfully!");
+  Logger.log("Export templates seeded successfully!", "SeedTemplates");
 }
 
 // 如果直接运行此脚本
 if (require.main === module) {
   seedTemplates()
     .catch((error) => {
-      console.error("Failed to seed templates:", error);
+      Logger.error("Failed to seed templates:", error, "SeedTemplates");
       process.exit(1);
     })
     .finally(async () => {

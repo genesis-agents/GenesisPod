@@ -182,7 +182,11 @@ export class GoogleDriveRAGService {
 
               if (fileModified > docProcessed) {
                 // File was modified, update it
-                await this.updateDocumentFromFile(existingDocId, file, driveClient);
+                await this.updateDocumentFromFile(
+                  existingDocId,
+                  file,
+                  driveClient,
+                );
                 result.updated++;
               }
             }
@@ -544,7 +548,7 @@ export class GoogleDriveRAGService {
       });
 
       const file = response.data;
-      if (!file || !file.id || !file.name || !file.mimeType) {
+      if (!file?.id || !file.name || !file.mimeType) {
         return null;
       }
 

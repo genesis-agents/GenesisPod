@@ -463,7 +463,7 @@ export class SlidesEngineService {
           continue;
         }
 
-        const event = result.value as SlidesMissionEvent;
+        const event = result.value;
         eventCount++;
         this.logger.log(
           `[generateSlides] Received event #${eventCount}: ${event.type}`,
@@ -1233,7 +1233,7 @@ ${feedback}
             `[transformSlidesMissionEvent] ★ PAGE-PIPELINE DETECTED! Extracting pages...`,
           );
           this.logger.log(
-            `[transformSlidesMissionEvent] taskResult type: ${typeof taskResult}, isNull: ${taskResult === null}, keys: ${taskResult && typeof taskResult === "object" ? Object.keys(taskResult as object).join(",") : "N/A"}`,
+            `[transformSlidesMissionEvent] taskResult type: ${typeof taskResult}, isNull: ${taskResult === null}, keys: ${taskResult && typeof taskResult === "object" ? Object.keys(taskResult).join(",") : "N/A"}`,
           );
           const beforeCount = events.length;
           this.extractPagesFromTaskResult(taskResult, sessionId, events);
@@ -1605,7 +1605,7 @@ ${feedback}
         this.createEvent("slide:generated", sessionId, {
           pageNumber,
           title: (resultObj.title as string) || `第 ${pageNumber} 页`,
-          contentLength: (resultObj.html as string).length,
+          contentLength: resultObj.html.length,
           html: resultObj.html,
         }),
       );

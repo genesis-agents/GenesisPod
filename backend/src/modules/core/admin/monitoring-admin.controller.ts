@@ -17,6 +17,7 @@ import { AdminGuard } from "../../../common/guards/admin.guard";
 import { ErrorTrackingService, AIMetricsService } from "../monitoring";
 import { AIAdminService } from "./ai-admin.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { TraceCollectorService } from "../../ai-engine/observability";
 import {
   RateLimitGuard,
   DistributedRateLimitGuard,
@@ -44,6 +45,7 @@ export class MonitoringAdminController {
     private readonly aiMetricsService: AIMetricsService,
     private readonly aiAdminService: AIAdminService,
     private readonly prismaService: PrismaService,
+    private readonly traceCollectorService: TraceCollectorService,
     @Optional() private readonly rateLimitGuard?: RateLimitGuard,
     @Optional()
     private readonly distributedRateLimitGuard?: DistributedRateLimitGuard,
@@ -530,6 +532,48 @@ export class MonitoringAdminController {
         ? this.distributedRateLimitGuard.getStats()
         : null,
     };
+  }
+
+  // ==================== Trace Visualization ====================
+
+  @Get("traces")
+  @ApiOperation({ summary: "获取最近的执行 trace 列表" })
+  @ApiQuery({ name: "type", required: false, type: String })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiResponse({ status: 200, description: "返回 trace 摘要列表" })
+  async listTraces(
+    @Query("type") type?: string,
+    @Query("limit") limit?: string,
+  ) {
+    this.logger.log("Admin: Fetching trace list");
+    return this.traceCollectorService.listTraces({
+      type: type as any,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
+  }
+
+  @Get("traces/stats")
+  @ApiOperation({ summary: "获取 trace 统计信息" })
+  @ApiResponse({ status: 200, description: "返回 trace 统计信息" })
+  async getTraceStats() {
+    this.logger.log("Admin: Fetching trace stats");
+    return this.traceCollectorService.getStats();
+  }
+
+  @Get("traces/:id")
+  @ApiOperation({ summary: "获取 trace 详情（用于可视化）" })
+  @ApiResponse({ status: 200, description: "返回 trace 完整数据" })
+  @ApiResponse({ status: 404, description: "Trace 不存在" })
+  async getTraceDetail(@Param("id") id: string) {
+    this.logger.log(`Admin: Fetching trace detail: ${id}`);
+    const trace = this.traceCollectorService.getTrace(id);
+    if (!trace) {
+      return {
+        statusCode: 404,
+        message: "Trace not found",
+      };
+    }
+    return trace;
   }
 
   // ==================== Private Methods ====================

@@ -121,7 +121,7 @@ export class ChapterCoherenceService {
       (c) => c.chapterNumber === chapter.chapterNumber - 1,
     );
 
-    if (!previousChapter || !previousChapter.content || !chapter.content) {
+    if (!previousChapter?.content || !chapter.content) {
       return {
         status: "COHERENT",
         score: 100,

@@ -192,6 +192,7 @@ export class ResearchMissionService {
         status: {
           in: [
             ResearchMissionStatus.PLANNING,
+            ResearchMissionStatus.PLAN_READY,
             ResearchMissionStatus.EXECUTING,
             ResearchMissionStatus.REVIEWING,
           ],
@@ -456,15 +457,6 @@ export class ResearchMissionService {
         progress: 50,
       });
 
-      // 将 Leader 规划的维度同步到数据库，并创建任务
-      // ★ 增量模式：先复制已完成的任务，再创建新任务
-      const tasks = await this.createTasksFromPlan(
-        missionId,
-        topicId,
-        leaderPlan,
-        completedTasks,
-      );
-
       // ★ 发送 Leader 规划完成事件
       await this.researchEventEmitter.emitLeaderPlanReady(
         topicId,
@@ -473,37 +465,35 @@ export class ResearchMissionService {
         leaderPlan.agentAssignments.length,
       );
 
-      // 更新 Mission
+      // ★ 保存规划到 Mission，设置为 PLAN_READY 状态
+      // 用户可以在前端查看、修改规划，然后审批执行
       await this.prisma.researchMission.update({
         where: { id: missionId },
         data: {
           leaderPlan: toPrismaJson(leaderPlan),
-          totalTasks: tasks.length,
-          status: ResearchMissionStatus.EXECUTING,
-          startedAt: new Date(),
+          status: ResearchMissionStatus.PLAN_READY,
         },
       });
 
-      // 发送进度事件
+      // 发送进度事件：规划完成，等待审批
       this.emitProgress({
         missionId,
         topicId,
-        status: ResearchMissionStatus.EXECUTING,
-        progress: 10,
-        phase: "executing",
-        message: `规划完成，开始执行 ${tasks.length} 个任务`,
+        status: ResearchMissionStatus.PLAN_READY,
+        progress: 50,
+        phase: "plan_ready",
+        message: `规划完成（${leaderPlan.dimensions.length} 个维度），等待确认后执行`,
         completedTasks: 0,
-        totalTasks: tasks.length,
+        totalTasks: 0,
       });
 
       this.logger.log(
-        `[executePlanningAsync] Mission ${missionId} planning completed with ${tasks.length} tasks`,
+        `[executePlanningAsync] Mission ${missionId} plan ready, awaiting approval`,
       );
 
-      // ★ 启动异步任务执行
-      this.startExecution(missionId, topicId).catch((err) => {
-        this.logger.error(`[executePlanningAsync] Execution failed: ${err}`);
-      });
+      // ★ 自动审批：当前版本默认自动审批，无需用户手动确认
+      // 未来可通过 topic 配置或用户设置控制是否需要手动审批
+      await this.approvePlanAndExecute(missionId, topicId, completedTasks);
     } catch (error) {
       const errorMsg =
         error instanceof Error ? error.message : "规划失败：未知错误";
@@ -545,6 +535,69 @@ export class ResearchMissionService {
 
       this.logger.error(`[executePlanningAsync] Planning failed: ${errorMsg}`);
     }
+  }
+
+  /**
+   * 审批规划并启动执行
+   * ★ 从 PLAN_READY 状态转换到 EXECUTING 状态
+   * 可由自动审批（当前默认）或用户手动审批触发
+   * @param completedTasks 增量模式下已完成的任务
+   */
+  async approvePlanAndExecute(
+    missionId: string,
+    topicId: string,
+    completedTasks: CompletedTaskData[] = [],
+  ): Promise<void> {
+    const mission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+    });
+
+    if (!mission || !mission.leaderPlan) {
+      throw new NotFoundException(
+        `Mission ${missionId} not found or has no plan`,
+      );
+    }
+
+    const leaderPlan = mission.leaderPlan as unknown as LeaderPlan;
+
+    // 创建任务
+    const tasks = await this.createTasksFromPlan(
+      missionId,
+      topicId,
+      leaderPlan,
+      completedTasks,
+    );
+
+    // 更新 Mission 到执行状态
+    await this.prisma.researchMission.update({
+      where: { id: missionId },
+      data: {
+        totalTasks: tasks.length,
+        status: ResearchMissionStatus.EXECUTING,
+        startedAt: new Date(),
+      },
+    });
+
+    // 发送进度事件
+    this.emitProgress({
+      missionId,
+      topicId,
+      status: ResearchMissionStatus.EXECUTING,
+      progress: 10,
+      phase: "executing",
+      message: `规划已确认，开始执行 ${tasks.length} 个任务`,
+      completedTasks: 0,
+      totalTasks: tasks.length,
+    });
+
+    this.logger.log(
+      `[approvePlanAndExecute] Mission ${missionId} approved, starting execution with ${tasks.length} tasks`,
+    );
+
+    // 启动异步任务执行
+    this.startExecution(missionId, topicId).catch((err) => {
+      this.logger.error(`[approvePlanAndExecute] Execution failed: ${err}`);
+    });
   }
 
   /**
@@ -855,7 +908,7 @@ export class ResearchMissionService {
       startedAt: task.startedAt ?? undefined,
       completedAt: task.completedAt ?? undefined,
       // ★ 返回依赖关系用于可视化
-      dependencies: (task.dependencies as string[]) ?? [],
+      dependencies: task.dependencies ?? [],
     }));
 
     return {
@@ -1194,10 +1247,10 @@ export class ResearchMissionService {
             // 空数组 [] 或无效数据都转为 undefined
             agentAssignmentsMap.set(agentId, {
               skills: isNonEmptyStringArray(assignment.skills)
-                ? (assignment.skills as string[])
+                ? assignment.skills
                 : undefined,
               tools: isNonEmptyStringArray(assignment.tools)
-                ? (assignment.tools as string[])
+                ? assignment.tools
                 : undefined,
               modelId:
                 typeof assignment.modelId === "string" &&
@@ -2391,12 +2444,9 @@ export class ResearchMissionService {
                     summary: taskResult.summary || "无摘要",
                     keyFindings: (taskResult.keyFindings ||
                       []) as DimensionAnalysisResult["keyFindings"],
-                    trends: (taskResult.trends ||
-                      []) as DimensionAnalysisResult["trends"],
-                    challenges: (taskResult.challenges ||
-                      []) as DimensionAnalysisResult["challenges"],
-                    opportunities: (taskResult.opportunities ||
-                      []) as DimensionAnalysisResult["opportunities"],
+                    trends: taskResult.trends || [],
+                    challenges: taskResult.challenges || [],
+                    opportunities: taskResult.opportunities || [],
                     evidenceUsed: taskResult.evidenceUsed || 0,
                     confidenceLevel: taskResult.confidenceLevel || "medium",
                     detailedContent: taskResult.detailedContent || "",

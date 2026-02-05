@@ -46,7 +46,8 @@ function parseRedisUrl(redisUrl: string) {
 
         if (!redisUrl && !redisPublicUrl) {
           logger.log("REDIS_URL not set, using in-memory cache");
-          return { ttl: 300 * 1000, max: 1000 };
+          const maxItems = parseInt(process.env.CACHE_MAX_ITEMS || "5000", 10);
+          return { ttl: 300 * 1000, max: maxItems };
         }
 
         // 内网优先，公网降级
@@ -112,7 +113,8 @@ function parseRedisUrl(redisUrl: string) {
         logger.warn(
           "All Redis connections failed. Falling back to memory cache.",
         );
-        return { ttl: 300 * 1000, max: 1000 };
+        const maxItems = parseInt(process.env.CACHE_MAX_ITEMS || "5000", 10);
+        return { ttl: 300 * 1000, max: maxItems };
       },
     }),
   ],
