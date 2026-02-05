@@ -134,7 +134,12 @@ export class CacheService {
       if (store?.keys) {
         const keys = await store.keys(`${prefix}*`);
         if (keys && keys.length > 0) {
-          await Promise.all(keys.map((key: string) => this.del(key)));
+          // Batch delete in chunks to avoid memory spikes
+          const BATCH_SIZE = 100;
+          for (let i = 0; i < keys.length; i += BATCH_SIZE) {
+            const batch = keys.slice(i, i + BATCH_SIZE);
+            await Promise.all(batch.map((key: string) => this.del(key)));
+          }
           this.logger.debug(
             `Deleted ${keys.length} keys with prefix ${prefix}`,
           );

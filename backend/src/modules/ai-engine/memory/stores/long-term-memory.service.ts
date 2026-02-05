@@ -5,6 +5,7 @@
 
 import { Injectable } from "@nestjs/common";
 import { v4 as uuid } from "uuid";
+import { LruMap } from "@/common/utils/lru-map";
 
 /**
  * 长期记忆条目
@@ -64,7 +65,7 @@ interface SetOptions {
  */
 @Injectable()
 export class LongTermMemoryService {
-  private readonly entries = new Map<string, LongTermMemoryEntry>();
+  private readonly entries = new LruMap<string, LongTermMemoryEntry>(5000);
 
   /**
    * 生成组合键

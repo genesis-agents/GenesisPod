@@ -9,6 +9,7 @@ import {
   Checkpoint,
   ExecutionContext,
 } from "../abstractions/orchestrator.interface";
+import { LruMap } from "@/common/utils/lru-map";
 
 /**
  * 检查点存储接口
@@ -26,7 +27,7 @@ export interface ICheckpointStore {
  * 内存检查点存储
  */
 export class InMemoryCheckpointStore implements ICheckpointStore {
-  private readonly checkpoints = new Map<string, Checkpoint>();
+  private readonly checkpoints = new LruMap<string, Checkpoint>(500);
 
   async save(checkpoint: Checkpoint): Promise<void> {
     this.checkpoints.set(checkpoint.id, checkpoint);

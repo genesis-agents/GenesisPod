@@ -33,7 +33,7 @@ export class TraceCollectorService {
   private readonly traces = new LruMap<string, TraceData>(1000);
 
   /** Span 存储（用于快速查找） */
-  private readonly spans = new Map<string, SpanData>();
+  private readonly spans = new LruMap<string, SpanData>(5000);
 
   /** Trace 按时间排序的 ID 列表（用于 FIFO 淘汰） */
   private traceIdsByTime: string[] = [];

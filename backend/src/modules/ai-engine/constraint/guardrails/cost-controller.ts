@@ -4,6 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { LruMap } from "@/common/utils/lru-map";
 
 /**
  * 成本记录
@@ -143,8 +144,8 @@ export interface ModelPricing {
 export class CostController {
   private readonly logger = new Logger(CostController.name);
   private readonly records: CostRecord[] = [];
-  private readonly budgets = new Map<string, CostBudget>();
-  private readonly pricing = new Map<string, ModelPricing>();
+  private readonly budgets = new LruMap<string, CostBudget>(1000);
+  private readonly pricing = new LruMap<string, ModelPricing>(200);
 
   /**
    * 默认定价（USD per million tokens）

@@ -44,12 +44,20 @@ const MODEL_COSTS: Record<ModelPreference, { input: number; output: number }> =
   };
 
 /**
- * 模型映射
+ * 模型层级映射
+ *
+ * 注意：这里返回的是语义化的层级标签，而非具体的模型 ID。
+ * 实际的模型选择由 LLMFactory/AiModelConfigService 根据以下规则动态解析：
+ * - "fast": 解析为最便宜的启用模型（通常是 gpt-4o-mini 或同类）
+ * - "default": 解析为默认模型（由系统配置决定，通常是 gpt-4o）
+ * - "premium": 解析为最高能力模型（通常是 claude-3-5-sonnet 或同类）
+ *
+ * 这种设计确保约束引擎不依赖具体模型 ID，符合分层架构原则。
  */
 const MODEL_MAPPING: Record<ModelPreference, string> = {
-  cheap: "gpt-4o-mini",
-  balanced: "gpt-4o",
-  premium: "claude-3-5-sonnet",
+  cheap: "fast", // 快速/廉价层级
+  balanced: "default", // 平衡/默认层级
+  premium: "premium", // 高级/能力层级
 };
 
 /**

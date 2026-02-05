@@ -240,7 +240,9 @@ export interface ILLMAdapter {
   /**
    * 获取模型配置
    */
-  getModelConfig(model: string): LLMModelConfig | undefined;
+  getModelConfig(
+    model: string,
+  ): LLMModelConfig | undefined | Promise<LLMModelConfig | undefined>;
 }
 
 /**

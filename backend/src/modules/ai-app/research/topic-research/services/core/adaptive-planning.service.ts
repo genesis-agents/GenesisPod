@@ -178,7 +178,7 @@ export class AdaptivePlanningService implements OnModuleDestroy {
         `[handleTaskCompleted] Adaptive planning failed (non-fatal): ${error}`,
       );
     } finally {
-      releaseLock!();
+      releaseLock();
       this.missionLocks.delete(missionId);
     }
   }

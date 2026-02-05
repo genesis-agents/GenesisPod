@@ -83,6 +83,9 @@ export class SkillRegistry
       }
     }
 
+    // Clean up factory
+    this.factories.delete(id);
+
     return super.unregister(id);
   }
 

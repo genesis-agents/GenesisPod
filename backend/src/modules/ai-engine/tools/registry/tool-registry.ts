@@ -3,7 +3,7 @@
  * 工具注册表实现
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { BaseRegistry, IRegistry, RegistryStats } from "../../core/interfaces";
 import {
   ITool,
@@ -22,6 +22,7 @@ export class ToolRegistry
   extends BaseRegistry<ITool>
   implements IRegistry<ITool>
 {
+  private readonly logger = new Logger(ToolRegistry.name);
   private readonly byCategory = new Map<string, Set<string>>();
   private readonly byTag = new Map<string, Set<string>>();
   private readonly factories = new Map<string, () => ITool>();
@@ -30,6 +31,11 @@ export class ToolRegistry
    * 注册工具
    */
   override register(tool: ITool): void {
+    // Warn on ID collision
+    if (this.has(tool.id)) {
+      this.logger.warn(`[register] Overwriting existing tool: ${tool.id}`);
+    }
+
     super.register(tool);
 
     // 索引分类

@@ -31,6 +31,14 @@ export class MCPManager implements IMCPManager {
    * 注册服务器
    */
   registerServer(config: MCPServerConfig): void {
+    // Validate required fields
+    if (!config.id || !config.name || !config.transport) {
+      this.logger.warn(
+        `[registerServer] Invalid config: missing required fields (id=${config.id}, name=${config.name}, transport=${config.transport})`,
+      );
+      return;
+    }
+
     if (this.configs.has(config.id)) {
       throw new Error(`Server ${config.id} already registered`);
     }

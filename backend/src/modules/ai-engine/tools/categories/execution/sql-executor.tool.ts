@@ -121,11 +121,12 @@ export class SQLExecutorTool extends BaseTool<
     properties: {
       query: {
         type: "string",
-        description: "SQL 查询语句。使用 $1, $2 等占位符进行参数化查询。",
+        description:
+          "SQL 查询语句。使用 :paramName 命名参数或 $1, $2 位置参数。",
       },
       parameters: {
         type: "object",
-        description: "查询参数，用于替换占位符",
+        description: "查询参数，键对应命名参数名称，值将被安全地传递给数据库",
       },
       options: {
         type: "object",
@@ -249,14 +250,14 @@ export class SQLExecutorTool extends BaseTool<
         );
       }
 
-      // 处理参数化查询
-      const processedQuery = this.processParameterizedQuery(
+      // 构建参数化查询
+      const { sql, values } = this.buildParameterizedQuery(
         query,
         parameters || {},
       );
 
       // 执行查询
-      const result = await this.executeQuery(processedQuery, maxRows);
+      const result = await this.executeQuery(sql, values, maxRows);
       const executionTime = Date.now() - startTime;
 
       this.logger.log(
@@ -296,14 +297,16 @@ export class SQLExecutorTool extends BaseTool<
    */
   private async executeQuery(
     query: string,
+    values: unknown[],
     maxRows: number,
   ): Promise<Partial<SQLExecutorOutput>> {
     try {
-      // 使用 Prisma 的 $queryRawUnsafe 执行原始 SQL
-      // 注意：这里使用 unsafe 是因为我们已经在 validateInput 中进行了安全检查
-      const rows = (await this.prisma.$queryRawUnsafe(query)) as Array<
-        Record<string, unknown>
-      >;
+      // 使用 Prisma 的 $queryRawUnsafe 执行参数化 SQL
+      // 参数值作为独立参数传递，确保不会被解释为 SQL 代码
+      const rows = (await this.prisma.$queryRawUnsafe(
+        query,
+        ...values,
+      )) as Record<string, unknown>[];
 
       // 限制返回行数
       const limitedRows = rows.slice(0, maxRows);
@@ -397,55 +400,57 @@ export class SQLExecutorTool extends BaseTool<
   }
 
   /**
-   * 处理参数化查询
-   * 将命名参数转换为实际值
+   * 构建参数化查询
+   * 将命名参数 (:paramName) 转换为 PostgreSQL 位置参数 ($1, $2, ...)
+   * 并返回对应的值数组
    */
-  private processParameterizedQuery(
+  private buildParameterizedQuery(
     query: string,
     parameters: Record<string, unknown>,
-  ): string {
-    let processedQuery = query;
+  ): { sql: string; values: unknown[] } {
+    const values: unknown[] = [];
+    let sql = query;
 
-    // 替换命名参数 :paramName
-    Object.entries(parameters).forEach(([key, value]) => {
-      const placeholder = new RegExp(`:${key}\\b`, "g");
-      const escapedValue = this.escapeValue(value);
-      processedQuery = processedQuery.replace(placeholder, escapedValue);
+    // 处理命名参数 :paramName
+    const namedParamRegex = /:(\w+)\b/g;
+    const matches = [...query.matchAll(namedParamRegex)];
+
+    // 按照出现顺序替换命名参数为位置参数
+    matches.forEach((match) => {
+      const paramName = match[1];
+      if (paramName in parameters) {
+        values.push(parameters[paramName]);
+        const positionalParam = `$${values.length}`;
+        // 替换第一个匹配项（因为我们按顺序处理）
+        sql = sql.replace(`:${paramName}`, positionalParam);
+      }
     });
 
-    // 替换位置参数 $1, $2, ...
-    const positionalParams = Object.values(parameters);
-    positionalParams.forEach((value, index) => {
-      const placeholder = new RegExp(`\\$${index + 1}\\b`, "g");
-      const escapedValue = this.escapeValue(value);
-      processedQuery = processedQuery.replace(placeholder, escapedValue);
-    });
+    // 如果查询已经包含位置参数 $1, $2，且没有提供命名参数
+    // 则直接使用 parameters 对象的值（按键的数字顺序）
+    if (values.length === 0 && sql.includes("$")) {
+      const positionalRegex = /\$(\d+)\b/g;
+      const positionalMatches = [...sql.matchAll(positionalRegex)];
+      const maxIndex = Math.max(
+        ...positionalMatches.map((m) => parseInt(m[1], 10)),
+        0,
+      );
 
-    return processedQuery;
-  }
-
-  /**
-   * 转义 SQL 值
-   */
-  private escapeValue(value: unknown): string {
-    if (value === null || value === undefined) {
-      return "NULL";
+      // 按位置索引收集参数值
+      for (let i = 1; i <= maxIndex; i++) {
+        const key = String(i);
+        if (key in parameters) {
+          values.push(parameters[key]);
+        } else {
+          // 如果没有对应的位置参数，尝试从 Object.values 获取
+          const paramValues = Object.values(parameters);
+          if (i - 1 < paramValues.length) {
+            values.push(paramValues[i - 1]);
+          }
+        }
+      }
     }
 
-    if (typeof value === "number" || typeof value === "boolean") {
-      return String(value);
-    }
-
-    if (typeof value === "string") {
-      // 转义单引号
-      return `'${value.replace(/'/g, "''")}'`;
-    }
-
-    if (value instanceof Date) {
-      return `'${value.toISOString()}'`;
-    }
-
-    // 其他类型转换为 JSON 字符串
-    return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+    return { sql, values };
   }
 }

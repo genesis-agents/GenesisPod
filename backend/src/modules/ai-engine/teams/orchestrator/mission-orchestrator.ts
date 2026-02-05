@@ -69,6 +69,7 @@ import {
   ISimpleLLMAdapter,
 } from "../../llm/adapters/ai-chat-llm-adapter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { LruMap } from "@/common/utils/lru-map";
 
 /**
  * 步骤执行结果（内部使用）
@@ -106,10 +107,12 @@ export class MissionOrchestrator implements IMissionOrchestrator {
   private readonly handoffCoordinator: HandoffCoordinator;
 
   // 消息队列（模拟协作通信）
-  private readonly messageQueues = new Map<string, CollaborationMessage[]>();
+  private readonly messageQueues = new LruMap<string, CollaborationMessage[]>(
+    500,
+  );
 
   // ★ 存储原始输入，不依赖 Memory 服务（修复数据丢失问题）
-  private readonly originalInputs = new Map<string, MissionInput>();
+  private readonly originalInputs = new LruMap<string, MissionInput>(500);
 
   // ★ LLM 适配器（用于 Skills 调用 LLM）
   private readonly llmAdapter?: ISimpleLLMAdapter;

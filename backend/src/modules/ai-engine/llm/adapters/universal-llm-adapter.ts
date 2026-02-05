@@ -42,17 +42,23 @@ export class UniversalLLMAdapter implements ILLMAdapter {
   private _modelConfigs: Map<string, LLMModelConfig> = new Map();
   private _cacheTime: number = 0;
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟缓存
+  private refreshPromise: Promise<void> | null = null; // 防止并发刷新
 
   // ILLMAdapter 接口要求的只读属性（通过 getter 实现动态读取）
   get supportedModels(): string[] {
-    // 返回缓存的模型列表，异步刷新
-    this.refreshModelsIfNeeded();
+    // 触发异步刷新（不等待），返回当前缓存
+    // 注意：getter 不能是 async，但在实际调用点（如 chat()）会等待刷新
+    void this.refreshModelsIfNeeded().catch((err) =>
+      this.logger.warn(`Failed to refresh models in getter: ${err}`),
+    );
     return this._supportedModels.length > 0 ? this._supportedModels : ["*"]; // 返回 "*" 表示支持所有模型
   }
 
   get defaultModel(): string {
-    // 返回缓存的默认模型，异步刷新
-    this.refreshModelsIfNeeded();
+    // 触发异步刷新（不等待），返回当前缓存
+    void this.refreshModelsIfNeeded().catch((err) =>
+      this.logger.warn(`Failed to refresh models in getter: ${err}`),
+    );
     return this._defaultModel; // 完全从数据库读取，不硬编码任何回退值
   }
 
@@ -128,15 +134,23 @@ export class UniversalLLMAdapter implements ILLMAdapter {
   }
 
   /**
-   * 如果缓存过期则刷新模型列表
+   * 如果缓存过期则刷新模型列表（同步等待，防止返回过期数据）
    */
-  private refreshModelsIfNeeded(): void {
+  private async refreshModelsIfNeeded(): Promise<void> {
     const now = Date.now();
     if (now - this._cacheTime > this.CACHE_TTL_MS) {
-      // 异步刷新，不阻塞当前调用
-      this.loadModelsFromDatabase().catch((err) =>
-        this.logger.warn(`Failed to refresh models: ${err}`),
-      );
+      // 如果已有刷新任务在进行，等待其完成
+      if (this.refreshPromise) {
+        await this.refreshPromise;
+        return;
+      }
+
+      // 启动刷新任务并等待完成
+      this.refreshPromise = this.loadModelsFromDatabase().finally(() => {
+        this.refreshPromise = null;
+      });
+
+      await this.refreshPromise;
     }
   }
 
@@ -149,6 +163,9 @@ export class UniversalLLMAdapter implements ILLMAdapter {
    * - 完整的参数解析优先级链
    */
   async chat(options: LLMRequestOptions): Promise<LLMResponse> {
+    // 确保缓存是最新的（同步等待刷新完成）
+    await this.refreshModelsIfNeeded();
+
     const model = options.model || (await this.getDefaultModelFromDb());
 
     this.logger.debug(
@@ -245,9 +262,9 @@ export class UniversalLLMAdapter implements ILLMAdapter {
    * 获取模型配置（从缓存读取，缓存由 loadModelsFromDatabase 定期刷新）
    * 严禁硬编码模型配置！所有配置都从数据库动态加载
    */
-  getModelConfig(model: string): LLMModelConfig | undefined {
-    // 触发异步刷新（如果需要）
-    this.refreshModelsIfNeeded();
+  async getModelConfig(model: string): Promise<LLMModelConfig | undefined> {
+    // 确保缓存是最新的（同步等待刷新完成）
+    await this.refreshModelsIfNeeded();
 
     // 从缓存读取
     const config = this._modelConfigs.get(model);

@@ -61,7 +61,6 @@ import { CapabilitySummary } from "../capabilities/types";
 import type {
   ChatWithSkillsRequest,
   ChatWithSkillsResponse,
-  SkillDomain,
 } from "../skills/types/skill-md.types";
 import type {
   ChatRequest,
@@ -220,8 +219,7 @@ export class AIEngineFacade {
         maxTokens: request.maxTokens,
         temperature: request.temperature,
         strictMode: request.strictMode,
-        domain: (request.domain ||
-          "common") as import("../skills/types/skill-md.types").SkillDomain,
+        domain: request.domain || "common",
         taskType: request.taskType || "general",
         additionalSkills: request.additionalSkills,
         skillContext: request.skillContext,
@@ -546,7 +544,7 @@ export class AIEngineFacade {
     this.logger.log(`[Skills] Step 1: Loading skills for task...`);
     const skills = await this.skills?.loader.getSkillsForTask({
       taskType: request.taskType,
-      domain: request.domain as SkillDomain,
+      domain: request.domain,
       additionalSkillIds: request.additionalSkills,
       maxTokenBudget: 4000, // 默认 Skills Token 预算
     });
@@ -1357,7 +1355,7 @@ export class AIEngineFacade {
       review: "review-team",
       report: "report-team",
     };
-    return (mapping[teamType] || teamType) as TeamId;
+    return mapping[teamType] || teamType;
   }
 
   // ==================== 上下文能力 ====================
@@ -1988,7 +1986,7 @@ export class AIEngineFacade {
       return [];
     }
 
-    let tools = category
+    const tools = category
       ? this.tools?.registry.getByCategory(category)
       : this.tools?.registry.getEnabled();
 

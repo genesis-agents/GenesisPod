@@ -231,23 +231,39 @@ export abstract class BaseMCPClient implements IMCPClient {
 
     return new Promise((resolve, reject) => {
       const timeout = this.config.timeout || 30000;
+      let settled = false;
+
       const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
         this.pendingRequests.delete(id);
         reject(new Error(`Request timeout: ${method}`));
       }, timeout);
 
       this.pendingRequests.set(id, {
         resolve: (value) => {
+          if (settled) return;
+          settled = true;
           clearTimeout(timer);
+          this.pendingRequests.delete(id);
           resolve(value);
         },
         reject: (error) => {
+          if (settled) return;
+          settled = true;
           clearTimeout(timer);
+          this.pendingRequests.delete(id);
           reject(error);
         },
       });
 
-      this.doSend(request).catch(reject);
+      this.doSend(request).catch((error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        this.pendingRequests.delete(id);
+        reject(error);
+      });
     });
   }
 
@@ -276,8 +292,7 @@ export abstract class BaseMCPClient implements IMCPClient {
       return;
     }
 
-    this.pendingRequests.delete(response.id);
-
+    // Note: deletion is handled by the wrapped resolve/reject to prevent race conditions
     if (response.error) {
       pending.reject(new Error(response.error.message));
     } else {

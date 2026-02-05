@@ -4,6 +4,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
+import { LruMap } from "@/common/utils/lru-map";
 
 /**
  * 内存条目
@@ -22,7 +23,7 @@ interface MemoryItem {
  */
 @Injectable()
 export class ShortTermMemoryService {
-  private readonly sessions = new Map<string, Map<string, MemoryItem>>();
+  private readonly sessions = new LruMap<string, Map<string, MemoryItem>>(1000);
 
   /**
    * 获取会话存储
