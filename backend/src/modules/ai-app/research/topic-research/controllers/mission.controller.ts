@@ -599,6 +599,71 @@ export class MissionController {
     return this.missionService.cancelMission(userId, mission.id);
   }
 
+  // ==================== Mission Detail Routes ====================
+
+  /**
+   * 获取指定 Mission 详情
+   */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
+  @Get("topics/:topicId/missions/:missionId")
+  @ApiOperation({
+    summary: "获取 Mission 详情",
+    description: "获取指定 Mission 的状态和详细信息",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "missionId", description: "Mission ID" })
+  @ApiResponse({ status: 200, description: "返回 Mission 详情" })
+  @ApiResponse({ status: 403, description: "无权限" })
+  async getMissionDetail(
+    @Param("topicId") _topicId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    return this.missionService.getMissionStatus(missionId);
+  }
+
+  /**
+   * 获取指定 Mission 的团队消息
+   */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
+  @Get("topics/:topicId/missions/:missionId/messages")
+  @ApiOperation({
+    summary: "获取 Mission 团队消息",
+    description: "获取指定 Mission 的团队互动消息",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "missionId", description: "Mission ID" })
+  @ApiResponse({ status: 200, description: "返回团队消息列表" })
+  @ApiResponse({ status: 403, description: "无权限" })
+  async getMissionMessages(
+    @Param("topicId") topicId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    return this.eventEmitterService.getTeamMessages(topicId, { missionId });
+  }
+
+  /**
+   * 获取指定 Mission 的 Agent 活动
+   */
+  @UseGuards(TopicAccessGuard)
+  @RequireTopicAccess(CollaboratorRole.VIEWER)
+  @Get("topics/:topicId/missions/:missionId/activities")
+  @ApiOperation({
+    summary: "获取 Mission Agent 活动",
+    description: "获取指定 Mission 的 Agent 活动记录",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "missionId", description: "Mission ID" })
+  @ApiResponse({ status: 200, description: "返回 Agent 活动列表" })
+  @ApiResponse({ status: 403, description: "无权限" })
+  async getMissionActivities(
+    @Param("topicId") topicId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    return this.eventEmitterService.getAgentActivities(topicId, { missionId });
+  }
+
   // ==================== Health Check & Recovery ====================
 
   /**

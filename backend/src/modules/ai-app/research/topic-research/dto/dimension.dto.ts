@@ -4,13 +4,17 @@ import {
   IsArray,
   IsBoolean,
   IsInt,
+  IsNotEmpty,
   MaxLength,
   Min,
   Max,
 } from "class-validator";
+import { Transform } from "class-transformer";
 
 export class AddDimensionDto {
   @IsString()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  @IsNotEmpty()
   @MaxLength(200)
   name!: string;
 
@@ -44,6 +48,8 @@ export class AddDimensionDto {
 export class UpdateDimensionDto {
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  @IsNotEmpty()
   @MaxLength(200)
   name?: string;
 
