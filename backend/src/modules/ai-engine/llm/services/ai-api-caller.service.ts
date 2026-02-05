@@ -16,6 +16,12 @@ export interface ChatCompletionResult {
   isError?: boolean;
 }
 
+export interface EmbeddingApiResult {
+  embeddings: number[][];
+  totalTokens: number;
+  model: string;
+}
+
 /**
  * AI API 调用服务
  * 负责：调用各个 provider 的 API（OpenAI、Anthropic、Google、XAI）
@@ -371,6 +377,157 @@ export class AiApiCallerService {
       content: data.choices?.[0]?.message?.content || "",
       model: modelId,
       tokensUsed: data.usage?.total_tokens || 0,
+    };
+  }
+
+  // ==================== Embedding API Methods ====================
+
+  /**
+   * 调用 OpenAI 兼容格式的 Embedding API（OpenAI, xAI, DeepSeek 等）
+   * POST {endpoint}/embeddings, Bearer auth
+   */
+  async callOpenAICompatibleEmbeddingAPI(
+    apiEndpoint: string,
+    apiKey: string,
+    modelId: string,
+    inputs: string[],
+    timeout: number = 60000,
+  ): Promise<EmbeddingApiResult> {
+    let embeddingsUrl = apiEndpoint?.trim() || "https://api.openai.com/v1";
+    // Ensure URL ends with /embeddings
+    embeddingsUrl = embeddingsUrl.replace(/\/+$/, "");
+    if (!embeddingsUrl.endsWith("/embeddings")) {
+      embeddingsUrl = `${embeddingsUrl}/embeddings`;
+    }
+
+    this.logger.debug(
+      `[callOpenAICompatibleEmbeddingAPI] model=${modelId}, inputs=${inputs.length}, endpoint=${embeddingsUrl.substring(0, 60)}...`,
+    );
+
+    const response = await firstValueFrom(
+      this.httpService.post(
+        embeddingsUrl,
+        { model: modelId, input: inputs },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          timeout,
+        },
+      ),
+    );
+
+    const data = response.data;
+    const embeddings = (data.data || []).map(
+      (item: { embedding: number[] }) => item.embedding,
+    );
+    return {
+      embeddings,
+      totalTokens: data.usage?.total_tokens || 0,
+      model: modelId,
+    };
+  }
+
+  /**
+   * 调用 Google 原生 Embedding API
+   * POST {baseUrl}/models/{model}:batchEmbedContents, x-goog-api-key header
+   */
+  async callGoogleEmbeddingAPI(
+    apiEndpoint: string,
+    apiKey: string,
+    modelId: string,
+    inputs: string[],
+    timeout: number = 60000,
+  ): Promise<EmbeddingApiResult> {
+    // Normalize base URL: strip trailing /models, /models/, or trailing slashes
+    const baseUrl = (
+      apiEndpoint?.trim() ||
+      "https://generativelanguage.googleapis.com/v1beta"
+    ).replace(/\/models\/?$/, "").replace(/\/+$/, "");
+
+    const apiUrl = `${baseUrl}/models/${modelId}:batchEmbedContents`;
+
+    this.logger.debug(
+      `[callGoogleEmbeddingAPI] model=${modelId}, inputs=${inputs.length} (google format)`,
+    );
+
+    const requests = inputs.map((text) => ({
+      model: `models/${modelId}`,
+      content: { parts: [{ text }] },
+    }));
+
+    const response = await firstValueFrom(
+      this.httpService.post(
+        apiUrl,
+        { requests },
+        {
+          headers: {
+            "x-goog-api-key": apiKey,
+            "Content-Type": "application/json",
+          },
+          timeout,
+        },
+      ),
+    );
+
+    const data = response.data;
+    const embeddings = (data.embeddings || []).map(
+      (item: { values: number[] }) => item.values,
+    );
+    return {
+      embeddings,
+      totalTokens: 0, // Google does not return token counts for embeddings
+      model: modelId,
+    };
+  }
+
+  /**
+   * 调用 Cohere Embedding API
+   * POST {endpoint}/embed, Bearer auth, input_type: "search_document"
+   */
+  async callCohereEmbeddingAPI(
+    apiEndpoint: string,
+    apiKey: string,
+    modelId: string,
+    inputs: string[],
+    inputType: string = "search_document",
+    timeout: number = 60000,
+  ): Promise<EmbeddingApiResult> {
+    let embedUrl = apiEndpoint?.trim() || "https://api.cohere.com/v1";
+    embedUrl = embedUrl.replace(/\/+$/, "");
+    if (!embedUrl.endsWith("/embed")) {
+      embedUrl = `${embedUrl}/embed`;
+    }
+
+    this.logger.debug(
+      `[callCohereEmbeddingAPI] model=${modelId}, inputs=${inputs.length} (cohere format)`,
+    );
+
+    const response = await firstValueFrom(
+      this.httpService.post(
+        embedUrl,
+        {
+          model: modelId,
+          texts: inputs,
+          input_type: inputType,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          timeout,
+        },
+      ),
+    );
+
+    const data = response.data;
+    const embeddings: number[][] = data.embeddings || [];
+    return {
+      embeddings,
+      totalTokens: data.meta?.billed_units?.input_tokens || 0,
+      model: modelId,
     };
   }
 }

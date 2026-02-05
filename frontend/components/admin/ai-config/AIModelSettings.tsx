@@ -246,6 +246,16 @@ const STANDARD_MODEL_CONFIGS = [
     defaultType: 'EMBEDDING',
   },
   {
+    id: 'google-embedding',
+    name: 'Google Embedding',
+    provider: 'Google',
+    defaultModelId: 'text-embedding-004',
+    defaultEndpoint:
+      'https://generativelanguage.googleapis.com/v1beta',
+    icon: '/icons/ai/gemini.svg',
+    defaultType: 'EMBEDDING',
+  },
+  {
     id: 'rerank',
     name: 'Cohere Rerank',
     provider: 'Cohere',
@@ -312,7 +322,12 @@ function getEndpointForModelType(
     return 'https://api.anthropic.com/v1/messages';
   }
   if (provider === 'Google') {
-    return 'https://generativelanguage.googleapis.com/v1beta/models';
+    switch (modelType) {
+      case 'EMBEDDING':
+        return 'https://generativelanguage.googleapis.com/v1beta';
+      default:
+        return 'https://generativelanguage.googleapis.com/v1beta/models';
+    }
   }
   if (provider === 'Cohere') {
     switch (modelType) {

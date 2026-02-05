@@ -3,7 +3,8 @@
  * 通用向量嵌入生成服务
  *
  * 提供:
- * - 多 Provider 支持 (OpenAI, etc.)
+ * - 多 Provider 支持 (OpenAI, Google, Cohere, xAI 等)
+ * - 基于 apiFormat 的数据驱动路由
  * - 批量嵌入生成
  * - 动态模型配置
  */
@@ -11,12 +12,14 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/core/secrets/secrets.service";
-import OpenAI from "openai";
+import { AiApiCallerService } from "../../llm/services/ai-api-caller.service";
 
 // Default fallback values
 const DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small";
 const DEFAULT_EMBEDDING_DIMENSIONS = 1536;
 const MAX_BATCH_SIZE = 100;
+// Cohere embed API limits: 96 texts per request
+const COHERE_MAX_BATCH_SIZE = 96;
 
 /**
  * Embedding 模型配置
@@ -27,6 +30,7 @@ export interface EmbeddingModelConfig {
   apiKey: string;
   apiEndpoint?: string;
   provider: string;
+  apiFormat: string;
   maxInputTokens?: number;
 }
 
@@ -51,7 +55,6 @@ export interface EmbeddingBatch {
 @Injectable()
 export class EmbeddingService {
   private readonly logger = new Logger(EmbeddingService.name);
-  private openai: OpenAI | null = null;
   private cachedConfig: EmbeddingModelConfig | null = null;
   private configCacheTime: number = 0;
   private readonly CONFIG_CACHE_TTL = 60000; // 1 minute cache
@@ -59,7 +62,35 @@ export class EmbeddingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly secretsService: SecretsService,
+    private readonly aiApiCallerService: AiApiCallerService,
   ) {}
+
+  /**
+   * 根据 provider 推断 API 格式（与 AiModelConfigService.inferApiFormat 一致）
+   */
+  private resolveApiFormat(
+    dbApiFormat: string | null | undefined,
+    provider: string,
+  ): string {
+    const inferred = this.inferApiFormat(provider);
+    if (!dbApiFormat) return inferred;
+    if (dbApiFormat === inferred) return dbApiFormat;
+    // 非 openai provider 存了 openai format 视为配置错误
+    if (dbApiFormat === "openai" && inferred !== "openai") {
+      this.logger.warn(
+        `[resolveApiFormat] apiFormat="${dbApiFormat}" conflicts with provider="${provider}", using inferred "${inferred}"`,
+      );
+      return inferred;
+    }
+    return dbApiFormat;
+  }
+
+  private inferApiFormat(provider: string): string {
+    const lower = provider.toLowerCase();
+    if (lower === "google" || lower === "gemini") return "google";
+    if (lower === "cohere") return "cohere";
+    return "openai"; // OpenAI, xAI, DeepSeek 等都走 OpenAI 兼容格式
+  }
 
   /**
    * 从数据库加载 Embedding 模型配置
@@ -106,17 +137,23 @@ export class EmbeddingService {
       }
 
       if (apiKey) {
+        const modelAny = model as any;
+        const apiFormat = this.resolveApiFormat(
+          modelAny.apiFormat,
+          model.provider,
+        );
         this.cachedConfig = {
           modelId: model.modelId,
           dimensions: model.embeddingDimensions || DEFAULT_EMBEDDING_DIMENSIONS,
           apiKey,
           apiEndpoint: model.apiEndpoint || undefined,
           provider: model.provider,
+          apiFormat,
           maxInputTokens: model.maxInputTokens || undefined,
         };
         this.configCacheTime = Date.now();
         this.logger.log(
-          `Loaded embedding config from database: ${model.modelId} (${this.cachedConfig.dimensions}D)`,
+          `Loaded embedding config from database: ${model.modelId} (${this.cachedConfig.dimensions}D, format=${apiFormat})`,
         );
         return this.cachedConfig;
       }
@@ -135,6 +172,7 @@ export class EmbeddingService {
       dimensions: DEFAULT_EMBEDDING_DIMENSIONS,
       apiKey,
       provider: "openai",
+      apiFormat: "openai",
     };
     this.configCacheTime = Date.now();
     this.logger.log(
@@ -149,45 +187,7 @@ export class EmbeddingService {
   clearConfigCache(): void {
     this.cachedConfig = null;
     this.configCacheTime = 0;
-    this.openai = null;
     this.logger.log("Embedding config cache cleared");
-  }
-
-  /**
-   * 获取或初始化 OpenAI 客户端
-   */
-  private async getOpenAIClient(): Promise<OpenAI> {
-    const config = await this.getEmbeddingConfig();
-
-    // Reset client if config changed
-    if (this.openai && this.cachedConfig?.apiKey !== config.apiKey) {
-      this.openai = null;
-    }
-
-    if (this.openai) {
-      return this.openai;
-    }
-
-    // Initialize OpenAI client with configuration
-    const clientConfig: { apiKey: string; baseURL?: string } = {
-      apiKey: config.apiKey,
-    };
-
-    if (config.apiEndpoint) {
-      // Sanitize the base URL
-      let baseURL = config.apiEndpoint;
-      if (baseURL.endsWith("/embeddings")) {
-        baseURL = baseURL.slice(0, -"/embeddings".length);
-        this.logger.warn(
-          `Sanitized embedding endpoint: removed trailing /embeddings from ${config.apiEndpoint}`,
-        );
-      }
-      baseURL = baseURL.replace(/\/+$/, "");
-      clientConfig.baseURL = baseURL;
-    }
-
-    this.openai = new OpenAI(clientConfig);
-    return this.openai;
   }
 
   /**
@@ -204,6 +204,7 @@ export class EmbeddingService {
 
   /**
    * 批量生成嵌入
+   * ★ 通过 apiFormat 路由到 AiApiCallerService 对应方法
    */
   async generateEmbeddings(texts: string[]): Promise<EmbeddingBatch> {
     if (texts.length === 0) {
@@ -211,32 +212,28 @@ export class EmbeddingService {
     }
 
     const config = await this.getEmbeddingConfig();
-    const openai = await this.getOpenAIClient();
     const allEmbeddings: number[][] = [];
     let totalTokens = 0;
 
+    // Cohere has a lower batch limit (96) than OpenAI/Google (100)
+    const batchSize =
+      config.apiFormat === "cohere" ? COHERE_MAX_BATCH_SIZE : MAX_BATCH_SIZE;
+
     // Process in batches
-    for (let i = 0; i < texts.length; i += MAX_BATCH_SIZE) {
-      const batch = texts.slice(i, i + MAX_BATCH_SIZE);
+    for (let i = 0; i < texts.length; i += batchSize) {
+      const batch = texts.slice(i, i + batchSize);
 
       try {
-        const response = await openai.embeddings.create({
-          model: config.modelId,
-          input: batch,
-        });
-
-        for (const item of response.data) {
-          allEmbeddings.push(item.embedding);
-        }
-
-        totalTokens += response.usage?.total_tokens || 0;
+        const result = await this.callEmbeddingAPI(config, batch);
+        allEmbeddings.push(...result.embeddings);
+        totalTokens += result.totalTokens;
 
         this.logger.debug(
-          `Generated embeddings for batch ${Math.floor(i / MAX_BATCH_SIZE) + 1} using ${config.modelId}`,
+          `Generated embeddings for batch ${Math.floor(i / batchSize) + 1} using ${config.modelId} (${config.apiFormat} format)`,
         );
       } catch (error) {
         this.logger.error(
-          `Failed to generate embeddings with ${config.modelId}: ${error}`,
+          `Failed to generate embeddings with ${config.modelId} (${config.apiFormat}): ${error}`,
         );
         throw error;
       }
@@ -247,6 +244,39 @@ export class EmbeddingService {
       embeddings: allEmbeddings,
       totalTokens,
     };
+  }
+
+  /**
+   * 根据 apiFormat 路由到对应的 embedding API
+   */
+  private async callEmbeddingAPI(
+    config: EmbeddingModelConfig,
+    inputs: string[],
+  ) {
+    switch (config.apiFormat) {
+      case "google":
+        return this.aiApiCallerService.callGoogleEmbeddingAPI(
+          config.apiEndpoint || "",
+          config.apiKey,
+          config.modelId,
+          inputs,
+        );
+      case "cohere":
+        return this.aiApiCallerService.callCohereEmbeddingAPI(
+          config.apiEndpoint || "",
+          config.apiKey,
+          config.modelId,
+          inputs,
+        );
+      default:
+        // openai, xai, deepseek 等都走 OpenAI 兼容格式
+        return this.aiApiCallerService.callOpenAICompatibleEmbeddingAPI(
+          config.apiEndpoint || "",
+          config.apiKey,
+          config.modelId,
+          inputs,
+        );
+    }
   }
 
   /**
@@ -272,6 +302,7 @@ export class EmbeddingService {
     modelId: string;
     dimensions: number;
     provider: string;
+    apiFormat: string;
     hasApiKey: boolean;
     maxInputTokens?: number;
   }> {
@@ -280,6 +311,7 @@ export class EmbeddingService {
       modelId: config.modelId,
       dimensions: config.dimensions,
       provider: config.provider,
+      apiFormat: config.apiFormat,
       hasApiKey: !!config.apiKey,
       maxInputTokens: config.maxInputTokens,
     };

@@ -85,7 +85,7 @@ export class AiChatModelConfigService {
    * ★ 统一处理所有字段，兼容新旧数据库
    */
   private buildModelConfig(model: any): AIModelConfig {
-    const modelAny = model as any;
+    const modelAny = model;
     const isReasoning =
       modelAny.isReasoning ?? this.inferIsReasoning(model.modelId);
 
@@ -149,6 +149,7 @@ export class AiChatModelConfigService {
     if (lower === "anthropic" || lower === "claude") return "anthropic";
     if (lower === "google" || lower === "gemini") return "google";
     if (lower === "xai" || lower === "grok") return "xai";
+    if (lower === "cohere") return "cohere";
     return "openai"; // 默认使用 OpenAI 兼容格式
   }
 
