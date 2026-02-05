@@ -1,5 +1,39 @@
 [
   {
+    "version": "3.13.0",
+    "date": "2026-02-05",
+    "changes": [
+      {
+        "type": "feature",
+        "description": "implement DOME/SCORE enhanced analysis services"
+      },
+      {
+        "type": "feature",
+        "description": "add monitoring, cache, observability and security infrastructure"
+      },
+      {
+        "type": "feature",
+        "description": "implement P0-P1 quality enhancements with critical fixes"
+      },
+      {
+        "type": "fix",
+        "description": "fix scratchpad service parameter mismatch in DOME/SCORE endpoints"
+      },
+      {
+        "type": "fix",
+        "description": "update auto-release to sync package-lock.json"
+      },
+      {
+        "type": "fix",
+        "description": "pass modelId and assignmentReason from Leader plan to todos"
+      },
+      {
+        "type": "fix",
+        "description": "add WebSocket event sync for task status and agent state"
+      }
+    ]
+  },
+  {
     "version": "3.12.0",
     "date": "2026-02-04",
     "changes": [
