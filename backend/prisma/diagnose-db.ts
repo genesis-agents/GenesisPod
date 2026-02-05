@@ -4,6 +4,8 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import * as dns from "dns";
+import * as net from "net";
 
 async function diagnose() {
   console.log("🔍 Starting database connection diagnostics...\n");
@@ -33,7 +35,59 @@ async function diagnose() {
     process.exit(1);
   }
 
-  console.log("\n🔌 Attempting to connect to database...");
+  // 2. DNS resolution test
+  const hostname = new URL(dbUrl).hostname;
+  const port = parseInt(new URL(dbUrl).port || "5432", 10);
+  console.log(`\n🌐 DNS Resolution for ${hostname}:`);
+  try {
+    const addresses = await dns.promises.resolve(hostname);
+    console.log(`  IPv4 (A records): ${JSON.stringify(addresses)}`);
+  } catch (e: unknown) {
+    console.log(
+      `  IPv4 (A records): FAILED - ${e instanceof Error ? e.message : e}`,
+    );
+  }
+  try {
+    const addresses6 = await dns.promises.resolve6(hostname);
+    console.log(`  IPv6 (AAAA records): ${JSON.stringify(addresses6)}`);
+  } catch (e: unknown) {
+    console.log(
+      `  IPv6 (AAAA records): FAILED - ${e instanceof Error ? e.message : e}`,
+    );
+  }
+  try {
+    const all = await dns.promises.lookup(hostname, { all: true });
+    console.log(`  dns.lookup (all): ${JSON.stringify(all)}`);
+  } catch (e: unknown) {
+    console.log(`  dns.lookup: FAILED - ${e instanceof Error ? e.message : e}`);
+  }
+
+  // 3. Raw TCP connection test
+  console.log(`\n🔗 TCP Connection test to ${hostname}:${port}:`);
+  await new Promise<void>((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(5000);
+    socket.on("connect", () => {
+      console.log(
+        `  TCP connect: SUCCESS (${socket.remoteAddress}:${socket.remotePort}, family: ${socket.remoteFamily})`,
+      );
+      socket.destroy();
+      resolve();
+    });
+    socket.on("timeout", () => {
+      console.log(`  TCP connect: TIMEOUT after 5s`);
+      socket.destroy();
+      resolve();
+    });
+    socket.on("error", (err) => {
+      console.log(`  TCP connect: FAILED - ${err.message}`);
+      socket.destroy();
+      resolve();
+    });
+    socket.connect(port, hostname);
+  });
+
+  console.log("\n🔌 Attempting Prisma connect...");
 
   const prisma = new PrismaClient({
     log: ["query", "info", "warn", "error"],
