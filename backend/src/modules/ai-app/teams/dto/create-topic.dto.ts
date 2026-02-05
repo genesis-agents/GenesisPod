@@ -5,6 +5,7 @@ import {
   MaxLength,
   IsArray,
   ValidateNested,
+  ArrayMaxSize,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { TopicType } from "@prisma/client";
@@ -52,7 +53,8 @@ export class CreateTopicDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(10)
   @ValidateNested({ each: true })
   @Type(() => InitialAIMemberDto)
-  aiMembers?: InitialAIMemberDto[]; // 初始添加的AI成员
+  aiMembers?: InitialAIMemberDto[]; // 初始添加的AI成员（最多10个）
 }

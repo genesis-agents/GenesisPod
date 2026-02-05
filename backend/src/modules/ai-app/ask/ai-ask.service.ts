@@ -501,12 +501,21 @@ export class AiAskService {
         } catch (error) {
           this.logger.error(`Failed to get AI response: ${error}`);
 
+          // Sanitize error message - avoid exposing internal details
+          const safeErrorMsg =
+            error instanceof Error &&
+            (error.message.includes("timeout") ||
+              error.message.includes("rate limit") ||
+              error.message.includes("credits"))
+              ? error.message
+              : "Failed to get response. Please try again.";
+
           // 保存错误消息
           const errorMessage = await this.prisma.askMessage.create({
             data: {
               sessionId,
               role: "assistant",
-              content: `Error: ${error instanceof Error ? error.message : "Failed to get response"}`,
+              content: `Error: ${safeErrorMsg}`,
               modelId: modelConfig.id,
               modelName: modelConfig.name,
             },

@@ -16,6 +16,7 @@ import * as aiGroupApi from '@/lib/api/ai-teams';
 import { JoinRequest } from '@/lib/api/ai-teams';
 
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 import ClientDate from '@/components/common/ClientDate';
 // User search result type
 interface SearchedUser {
@@ -74,7 +75,7 @@ export default function TopicSettingsDialog({
       // Refresh topic to update member count
       await fetchTopic(topic.id);
     } catch (error) {
-      alert(
+      toast.error(
         error instanceof Error ? error.message : 'Failed to process request'
       );
     }

@@ -972,8 +972,14 @@ export default function AskPage() {
   }, []);
 
   // Create preview URLs for image files
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
   const addFilesWithPreviews = useCallback((files: File[]) => {
-    const filesWithPreviews = files.map((file) => {
+    const oversized = files.filter((f) => f.size > MAX_FILE_SIZE);
+    const validSized = files.filter((f) => f.size <= MAX_FILE_SIZE);
+    if (oversized.length > 0) {
+      setToastMessage(`${oversized.length} 个文件超过 10MB 限制，已跳过`);
+    }
+    const filesWithPreviews = validSized.map((file) => {
       if (file.type.startsWith('image/')) {
         return { file, preview: URL.createObjectURL(file) };
       }
@@ -1000,6 +1006,17 @@ export default function AskPage() {
       setIsDragging(false);
 
       const files = Array.from(e.dataTransfer.files);
+      const codeExtensions = [
+        '.py',
+        '.js',
+        '.ts',
+        '.tsx',
+        '.jsx',
+        '.csv',
+        '.xml',
+        '.yaml',
+        '.yml',
+      ];
       const validFiles = files.filter((file) => {
         const validTypes = [
           'image/',
@@ -1007,7 +1024,11 @@ export default function AskPage() {
           'text/',
           'application/json',
         ];
-        return validTypes.some((type) => file.type.startsWith(type));
+        const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || '');
+        return (
+          validTypes.some((type) => file.type.startsWith(type)) ||
+          codeExtensions.includes(ext)
+        );
       });
 
       if (validFiles.length > 0) {
@@ -1349,12 +1370,16 @@ export default function AskPage() {
     // Read file contents and append to message
     if (currentFiles.length > 0) {
       const fileDescriptions: string[] = [];
+      // Sanitize filename to prevent markdown injection
+      const sanitizeFileName = (name: string) =>
+        name.replace(/[[\](){}*_~`#>!|\\]/g, '');
       for (const item of currentFiles) {
+        const safeName = sanitizeFileName(item.file.name);
         try {
           const content = await readFileContent(item.file);
           if (item.file.type.startsWith('image/')) {
             // For images, include base64 data
-            fileDescriptions.push(`[图片: ${item.file.name}]\n${content}`);
+            fileDescriptions.push(`[图片: ${safeName}]\n${content}`);
           } else {
             // For text files, include content
             const truncatedContent =
@@ -1362,12 +1387,12 @@ export default function AskPage() {
                 ? content.substring(0, 5000) + '...(内容已截断)'
                 : content;
             fileDescriptions.push(
-              `[文件: ${item.file.name}]\n\`\`\`\n${truncatedContent}\n\`\`\``
+              `[文件: ${safeName}]\n\`\`\`\n${truncatedContent}\n\`\`\``
             );
           }
         } catch (err) {
           logger.error(`Failed to read file ${item.file.name}:`, err);
-          fileDescriptions.push(`[文件: ${item.file.name}] (读取失败)`);
+          fileDescriptions.push(`[文件: ${safeName}] (读取失败)`);
         }
       }
 
@@ -1416,6 +1441,11 @@ export default function AskPage() {
     try {
       if (isMixtureMode) {
         // Mixture mode: call multiple models in parallel (legacy behavior)
+        if (chatModels.length === 0) {
+          setToastMessage('No models available for Mixture mode');
+          return;
+        }
+
         const userMessage: Message = {
           id: Date.now().toString(),
           role: 'user',
@@ -2393,6 +2423,7 @@ export default function AskPage() {
                       value={input}
                       onChange={handleInputChange}
                       onKeyDown={handleKeyDown}
+                      maxLength={10000}
                       placeholder={
                         attachedFiles.length > 0
                           ? '添加消息描述这些文件...'
@@ -2408,7 +2439,7 @@ export default function AskPage() {
                       ref={fileInputRef}
                       type="file"
                       multiple
-                      accept="image/*,.pdf,.txt,.json,.md"
+                      accept="image/*,.pdf,.txt,.json,.md,.py,.js,.ts,.tsx,.jsx,.csv,.xml,.yaml,.yml"
                       onChange={(e) => {
                         const files = Array.from(e.target.files || []);
                         if (files.length > 0) {

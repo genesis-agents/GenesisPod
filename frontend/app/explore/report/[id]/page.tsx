@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import { config } from '@/lib/utils/config';
 import ClientDate from '@/components/common/ClientDate';
 import { formatDateSafe } from '@/lib/utils/date';
+import { toast } from '@/stores';
 
 interface ReportSection {
   title: string;
@@ -112,7 +113,7 @@ export default function ReportPage() {
   const handleRegenerate = async () => {
     if (!confirm('确定要重新生成报告吗？这将花费一些时间。')) return;
 
-    alert('重新生成功能暂未实现');
+    toast.info('Regeneration feature is not yet available');
   };
 
   if (loading) {

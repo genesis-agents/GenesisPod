@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { I18nProvider } from '@/lib/i18n';
 import { ChunkErrorHandler } from '@/components/common/ChunkErrorHandler';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { ToastContainer } from '@/components/ui/Toast';
 import { toast } from '@/stores';
 import { CheckinModal, InsufficientCreditsModal } from '@/components/credits';
@@ -49,7 +50,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
         <ChunkErrorHandler />
-        <AuthProvider>{children}</AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>{children}</AuthProvider>
+        </ErrorBoundary>
         <ToastContainer />
         {isHydrated && (
           <>

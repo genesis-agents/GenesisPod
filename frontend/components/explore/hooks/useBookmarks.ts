@@ -8,6 +8,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import { config } from '@/lib/utils/config';
 
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 export function useBookmarks() {
   const { user } = useAuth();
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
@@ -102,12 +103,12 @@ export function useBookmarks() {
     }
 
     if (!user) {
-      alert('请先登录');
+      toast.warning('Please log in first');
       return;
     }
 
     if (!defaultCollectionId) {
-      alert('未找到默认收藏集');
+      toast.warning('Default collection not found');
       return;
     }
 
@@ -130,6 +131,8 @@ export function useBookmarks() {
             newSet.delete(resourceId);
             return newSet;
           });
+        } else {
+          toast.error('Failed to remove bookmark');
         }
       } else {
         // Add to collection
@@ -147,10 +150,13 @@ export function useBookmarks() {
 
         if (response.ok) {
           setBookmarks((prev) => new Set([...prev, resourceId]));
+        } else {
+          toast.error('Failed to add bookmark');
         }
       }
     } catch (err) {
       logger.error('Failed to toggle bookmark:', err);
+      toast.error('Bookmark operation failed');
     }
   };
 

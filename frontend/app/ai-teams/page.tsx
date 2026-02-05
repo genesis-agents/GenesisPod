@@ -17,6 +17,7 @@ import * as api from '@/lib/api/ai-teams';
 import { PublicTopic, JoinRequest } from '@/lib/api/ai-teams';
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 import ClientDate from '@/components/common/ClientDate';
 
 type TabType = 'my-teams' | 'discover';
@@ -114,9 +115,9 @@ export default function AIGroupPage() {
       setMyJoinRequests(requests);
       setShowJoinDialog(null);
       setJoinRequestMessage('');
-      alert(t('aiTeams.joinRequest.sentAlert', { name: topic.name }));
+      toast.success(t('aiTeams.joinRequest.sentAlert', { name: topic.name }));
     } catch (error) {
-      alert(
+      toast.error(
         error instanceof Error
           ? error.message
           : t('aiTeams.joinRequest.sendFailed')
@@ -134,7 +135,7 @@ export default function AIGroupPage() {
       const requests = await api.getMyJoinRequests();
       setMyJoinRequests(requests);
     } catch (error) {
-      alert(
+      toast.error(
         error instanceof Error
           ? error.message
           : t('aiTeams.pendingRequests.cancelFailed')

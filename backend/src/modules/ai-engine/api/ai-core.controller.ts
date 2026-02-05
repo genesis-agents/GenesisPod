@@ -460,6 +460,12 @@ export class AiCoreController {
       throw new BadRequestException("Message is required");
     }
 
+    if (message.length > 50000) {
+      throw new BadRequestException(
+        "Message exceeds maximum length (50000 characters)",
+      );
+    }
+
     try {
       // RAG: Query knowledge bases if IDs are provided
       let ragContext = "";
@@ -696,7 +702,11 @@ ${webSearchContext}
           res.end();
         } catch (error) {
           this.logger.error(`Stream chat error: ${error}`);
-          res.write(`data: ${JSON.stringify({ error: String(error) })}\n\n`);
+          const safeMsg =
+            error instanceof Error && error.message.includes("timeout")
+              ? "Request timed out"
+              : "Failed to generate response";
+          res.write(`data: ${JSON.stringify({ error: safeMsg })}\n\n`);
           res.end();
         }
       } else {
@@ -727,10 +737,14 @@ ${webSearchContext}
       if (error instanceof HttpException) {
         throw error;
       }
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      this.logger.error(`Simple chat error: ${errorMessage}`);
-      throw new BadRequestException(`Chat failed: ${errorMessage}`);
+      const rawMsg = error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(`Simple chat error: ${rawMsg}`);
+      // Avoid exposing internal error details to the client
+      const safeMsg =
+        rawMsg.includes("timeout") || rawMsg.includes("rate limit")
+          ? rawMsg
+          : "Chat request failed. Please try again.";
+      throw new BadRequestException(safeMsg);
     }
   }
 

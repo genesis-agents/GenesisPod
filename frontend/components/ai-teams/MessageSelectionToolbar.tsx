@@ -6,6 +6,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 import { formatDateSafe } from '@/lib/utils/date';
 interface MessageSelectionToolbarProps {
   selectedMessages: Set<string>;
@@ -60,7 +61,7 @@ export default function MessageSelectionToolbar({
       .join('\n\n---\n\n');
 
     await navigator.clipboard.writeText(content);
-    alert('Messages copied to clipboard');
+    toast.success('Messages copied to clipboard');
   };
 
   const handleExport = async () => {
@@ -160,7 +161,7 @@ export default function MessageSelectionToolbar({
     }
 
     if (forwardTargetType === 'TOPIC' && !targetTopicId) {
-      alert('Please select a target topic');
+      toast.warning('Please select a target topic');
       return;
     }
 
@@ -191,11 +192,11 @@ export default function MessageSelectionToolbar({
         onForwardSuccess();
       } else {
         const error = await response.json();
-        alert(`Forward failed: ${error.message || 'Unknown error'}`);
+        toast.error(`Forward failed: ${error.message || 'Unknown error'}`);
       }
     } catch (err) {
       logger.error('Forward error:', err);
-      alert('Forward failed');
+      toast.error('Forward failed');
     } finally {
       setIsForwarding(false);
     }
@@ -217,11 +218,11 @@ export default function MessageSelectionToolbar({
           }
         );
       }
-      alert(`${selectedCount} messages bookmarked`);
+      toast.success(`${selectedCount} messages bookmarked`);
       onClearSelection();
     } catch (err) {
       logger.error('Bookmark error:', err);
-      alert('Bookmark failed');
+      toast.error('Bookmark failed');
     }
   };
 

@@ -60,8 +60,11 @@ export class AiAskController {
     @Query("page") page?: string,
     @Query("limit") limit?: string,
   ) {
-    const pageNum = parseInt(page || "1", 10);
-    const limitNum = parseInt(limit || "50", 10);
+    const pageNum = Math.max(1, parseInt(page || "1", 10) || 1);
+    const limitNum = Math.min(
+      200,
+      Math.max(1, parseInt(limit || "50", 10) || 50),
+    );
     return this.aiAskService.getSessions(req.user.id, pageNum, limitNum);
   }
 
@@ -123,8 +126,24 @@ export class AiAskController {
     @Param("sessionId") sessionId: string,
     @Body() dto: SendMessageDto,
   ) {
-    if (!dto.content || dto.content.trim().length === 0) {
+    if (!dto.content || typeof dto.content !== "string") {
       throw new BadRequestException("Message content is required");
+    }
+    if (dto.content.trim().length === 0) {
+      throw new BadRequestException("Message content cannot be empty");
+    }
+    if (dto.content.length > 50000) {
+      throw new BadRequestException(
+        "Message content exceeds maximum length (50000 characters)",
+      );
+    }
+    if (
+      dto.knowledgeBaseIds &&
+      (!Array.isArray(dto.knowledgeBaseIds) || dto.knowledgeBaseIds.length > 10)
+    ) {
+      throw new BadRequestException(
+        "Invalid knowledgeBaseIds: must be an array of at most 10 IDs",
+      );
     }
     return this.aiAskService.sendMessage(sessionId, req.user.id, dto);
   }
