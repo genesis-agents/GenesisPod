@@ -544,6 +544,14 @@ async function deploy(): Promise<void> {
       "ResearchMessageType.DIMENSION_COMPLETED",
     );
 
+    // ResearchMissionStatus enum values
+    await addEnumIfNotExists(
+      prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'PLAN_READY' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'ResearchMissionStatus')) as exists`,
+      () =>
+        prisma.$executeRaw`ALTER TYPE "ResearchMissionStatus" ADD VALUE IF NOT EXISTS 'PLAN_READY'`,
+      "ResearchMissionStatus.PLAN_READY",
+    );
+
     // SecretCategory enum values
     await addEnumIfNotExists(
       prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'POLICY' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'SecretCategory')) as exists`,
