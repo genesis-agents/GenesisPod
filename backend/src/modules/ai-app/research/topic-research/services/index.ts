@@ -18,13 +18,11 @@ export {
 } from "./core/research-event-emitter.service";
 export { ResearchRealtimeAdapter } from "./core/research-realtime.adapter";
 export { ResearchStrategyService } from "./core/research-strategy.service";
-export { ResearchMemoryService } from "./core/research-memory.service";
 
 // ★ Leader sub-services
 export { LeaderPlanningService } from "./core/leader-planning.service";
 export { LeaderReviewService } from "./core/leader-review.service";
 export { LeaderChatService } from "./core/leader-chat.service";
-export { AdaptivePlanningService } from "./core/adaptive-planning.service";
 
 // ★ Facade sub-services
 export { TopicCrudService } from "./core/topic-crud.service";
