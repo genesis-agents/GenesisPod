@@ -36,10 +36,25 @@ async function deploy(): Promise<void> {
   console.log("========================================\n");
 
   try {
-    // Step 1: Verify database connection
+    // Step 1: Verify database connection (with retry for Railway private networking)
     console.log("1. Connecting to database...");
-    await prisma.$connect();
-    console.log("   Connected successfully\n");
+    const MAX_RETRIES = 10;
+    const RETRY_DELAY_MS = 3000;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await prisma.$connect();
+        console.log(`   Connected successfully (attempt ${attempt})\n`);
+        break;
+      } catch (err) {
+        if (attempt === MAX_RETRIES) {
+          throw err;
+        }
+        console.log(
+          `   Connection attempt ${attempt}/${MAX_RETRIES} failed, retrying in ${RETRY_DELAY_MS / 1000}s...`,
+        );
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      }
+    }
 
     // Step 2: Resolve any failed migrations
     console.log("2. Checking for failed migrations...");
