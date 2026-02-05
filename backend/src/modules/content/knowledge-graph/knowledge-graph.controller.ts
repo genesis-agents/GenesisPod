@@ -12,10 +12,12 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { KnowledgeGraphService } from "./knowledge-graph.service.postgres";
+import { Public } from "../../../common/decorators/public.decorator";
 
 /**
  * 知识图谱控制器
  */
+@Public()
 @Controller("knowledge-graph")
 export class KnowledgeGraphController {
   private readonly logger = new Logger(KnowledgeGraphController.name);

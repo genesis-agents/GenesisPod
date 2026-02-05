@@ -99,12 +99,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-wqy-zenhei \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Puppeteer and Playwright to use system Chromium
+# Set Puppeteer and Playwright to use system Chromium with --no-sandbox for non-root
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
+ENV CHROMIUM_FLAGS="--no-sandbox --disable-setuid-sandbox"
 # 生产环境标识 - 控制日志级别为 error/warn
 ENV NODE_ENV=production
+
+# Create non-root user for security
+RUN groupadd --gid 1001 raven && \
+    useradd --uid 1001 --gid raven --shell /bin/bash --create-home raven
 
 # Copy built application
 COPY --from=builder /app/dist ./dist
@@ -113,11 +118,12 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
 
-# Make entrypoint executable
-RUN chmod +x ./scripts/devops/docker-entrypoint.sh
+# Make entrypoint executable and set ownership
+RUN chmod +x ./scripts/devops/docker-entrypoint.sh && \
+    chown -R raven:raven /app
 
-# Note: Running as root for Chromium compatibility in containers
-# Chromium requires certain permissions that non-root users may not have
+# Switch to non-root user
+USER raven
 
 # Expose port
 EXPOSE 4000

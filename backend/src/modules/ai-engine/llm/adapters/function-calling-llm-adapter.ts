@@ -6,6 +6,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   ILLMAdapter as FunctionCallingILLMAdapter,
   LLMMessage,
@@ -70,6 +71,7 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
     private readonly aiChatService: AiChatService,
     private readonly prisma: PrismaService,
     private readonly secretsService: SecretsService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -510,16 +512,16 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
     const lower = provider.toLowerCase();
 
     if (lower.includes("xai") || lower.includes("grok")) {
-      return process.env.XAI_API_KEY || null;
+      return this.configService.get<string>("XAI_API_KEY") || null;
     }
     if (lower.includes("openai") || lower.includes("gpt")) {
-      return process.env.OPENAI_API_KEY || null;
+      return this.configService.get<string>("OPENAI_API_KEY") || null;
     }
     if (lower.includes("anthropic") || lower.includes("claude")) {
-      return process.env.ANTHROPIC_API_KEY || null;
+      return this.configService.get<string>("ANTHROPIC_API_KEY") || null;
     }
     if (lower.includes("google") || lower.includes("gemini")) {
-      return process.env.GOOGLE_AI_API_KEY || null;
+      return this.configService.get<string>("GOOGLE_AI_API_KEY") || null;
     }
 
     return null;

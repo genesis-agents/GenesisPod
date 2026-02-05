@@ -10,6 +10,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/core/secrets/secrets.service";
 import { AiApiCallerService } from "../../llm/services/ai-api-caller.service";
@@ -63,6 +64,7 @@ export class EmbeddingService {
     private readonly prisma: PrismaService,
     private readonly secretsService: SecretsService,
     private readonly aiApiCallerService: AiApiCallerService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -160,7 +162,7 @@ export class EmbeddingService {
     }
 
     // Fallback to environment variable (不推荐，应该在 Admin 中配置)
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    const apiKey = this.configService.get<string>("OPENAI_API_KEY")?.trim();
     if (!apiKey) {
       throw new Error(
         "No embedding model configured. Please add an EMBEDDING type model in Admin > AI Models, or set OPENAI_API_KEY.",

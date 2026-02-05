@@ -8,10 +8,12 @@ import {
   DefaultValuePipe,
 } from "@nestjs/common";
 import { FeedService } from "./feed.service";
+import { Public } from "../../../common/decorators/public.decorator";
 
 /**
  * Feed 流控制器
  */
+@Public()
 @Controller("feed")
 export class FeedController {
   private readonly logger = new Logger(FeedController.name);

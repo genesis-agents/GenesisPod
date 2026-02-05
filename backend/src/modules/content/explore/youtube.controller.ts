@@ -16,6 +16,7 @@ import {
   PdfGeneratorService,
   SubtitleExportOptions,
 } from "./pdf-generator.service";
+import { Public } from "../../../common/decorators/public.decorator";
 
 interface SubtitlesRequestDto {
   videoId: string;
@@ -49,6 +50,7 @@ interface ExportPdfRequestDto {
   options: SubtitleExportOptions;
 }
 
+@Public()
 @Controller("youtube")
 export class YoutubeController {
   private readonly logger = new Logger(YoutubeController.name);

@@ -71,6 +71,7 @@ export class A2AController {
    * 需要 API Key 认证
    * 限流: 30 请求/分钟
    */
+  @Public()
   @Post("a2a/tasks")
   @UseGuards(A2AApiKeyGuard)
   @Throttle({ default: { limit: 30, ttl: 60000 } })
@@ -143,6 +144,7 @@ export class A2AController {
    * 需要 API Key 认证
    * 限流: 60 请求/分钟
    */
+  @Public()
   @Get("a2a/tasks/:taskId")
   @UseGuards(A2AApiKeyGuard)
   @Throttle({ default: { limit: 60, ttl: 60000 } })

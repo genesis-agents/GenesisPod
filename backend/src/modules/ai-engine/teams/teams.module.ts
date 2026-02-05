@@ -12,6 +12,7 @@
  */
 
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { RoleRegistry } from "./registry/role-registry";
 import { TeamRegistry } from "./registry/team-registry";
 import { ConstraintEngine } from "./constraints/constraint-engine";
@@ -19,7 +20,6 @@ import { MissionOrchestrator } from "./orchestrator/mission-orchestrator";
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";
 import { TeamsController } from "./controllers/teams.controller";
-import { PREDEFINED_TEAM_CONFIGS } from "./templates";
 
 // AI Engine 核心依赖
 import { ToolRegistry } from "../tools/registry/tool-registry";
@@ -70,6 +70,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
       provide: MissionOrchestrator,
       useFactory: (
         constraintEngine: ConstraintEngine,
+        configService: ConfigService,
         toolRegistry: ToolRegistry,
         skillRegistry: SkillRegistry,
         llmFactory: LLMFactory,
@@ -80,6 +81,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
       ) => {
         return new MissionOrchestrator(
           constraintEngine,
+          configService,
           toolRegistry,
           skillRegistry,
           llmFactory,
@@ -91,6 +93,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
       },
       inject: [
         ConstraintEngine,
+        ConfigService,
         ToolRegistry,
         SkillRegistry,
         LLMFactory,
@@ -146,28 +149,9 @@ export class TeamsModule implements OnModuleInit {
 
   /**
    * 模块初始化
+   * 团队配置由各 AI App 模块在其 onModuleInit 中注册
    */
   onModuleInit() {
-    this.registerPredefinedTeams();
-    this.logModuleStatus();
-  }
-
-  /**
-   * 注册预定义团队
-   */
-  private registerPredefinedTeams() {
-    for (const config of Object.values(PREDEFINED_TEAM_CONFIGS)) {
-      this.teamRegistry.registerConfig(config);
-    }
-    this.logger.log(
-      `Registered ${Object.keys(PREDEFINED_TEAM_CONFIGS).length} predefined teams`,
-    );
-  }
-
-  /**
-   * 记录模块状态
-   */
-  private logModuleStatus() {
     this.logger.log(`TeamsModule initialized:`);
     this.logger.log(`  - Roles: ${this.roleRegistry.size()}`);
     this.logger.log(`  - Teams: ${this.teamRegistry.size()}`);

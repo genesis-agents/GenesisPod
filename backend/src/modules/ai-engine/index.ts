@@ -147,8 +147,6 @@ export {
   // Constraint types
   ConstraintProfile,
   createConstraintProfile,
-  // Predefined teams
-  PREDEFINED_TEAM_CONFIGS,
 } from "./teams";
 
 // NestJS 模块导出

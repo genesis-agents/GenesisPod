@@ -30,6 +30,7 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "../../../common/prisma/prisma.service";
@@ -124,6 +125,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     private readonly httpService: HttpService,
     private readonly prisma: PrismaService,
     private readonly secretsService: SecretsService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -562,13 +564,17 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
    */
   private async getSearchConfig(): Promise<SearchConfig> {
     // 环境变量作为备用 (支持逗号分隔多个 Key)
-    const tavilyEnvKeys = process.env.TAVILY_API_KEY
-      ? process.env.TAVILY_API_KEY.split(",")
+    const tavilyEnvKey = this.configService.get<string>("TAVILY_API_KEY");
+    const tavilyEnvKeys = tavilyEnvKey
+      ? tavilyEnvKey
+          .split(",")
           .map((k) => k.trim())
           .filter(Boolean)
       : [];
-    const serperEnvKeys = process.env.SERPER_API_KEY
-      ? process.env.SERPER_API_KEY.split(",")
+    const serperEnvKey = this.configService.get<string>("SERPER_API_KEY");
+    const serperEnvKeys = serperEnvKey
+      ? serperEnvKey
+          .split(",")
           .map((k) => k.trim())
           .filter(Boolean)
       : [];

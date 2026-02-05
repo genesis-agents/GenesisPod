@@ -5,6 +5,7 @@ import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ResponseTransformInterceptor } from "./common/interceptors/response-transform.interceptor";
+import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { join } from "path";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
@@ -193,6 +194,11 @@ import { RequestContextMiddleware } from "./common/context/request-context.middl
   controllers: [AppController],
   providers: [
     AppService,
+    // 全局 JWT 认证守卫（@Public() 装饰器跳过）
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
     // 全局启用限流守卫
     {
       provide: APP_GUARD,

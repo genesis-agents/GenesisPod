@@ -8,10 +8,12 @@ import {
   DefaultValuePipe,
 } from "@nestjs/common";
 import { RecommendationsService } from "./recommendations.service.postgres";
+import { Public } from "../../../common/decorators/public.decorator";
 
 /**
  * 推荐系统控制器
  */
+@Public()
 @Controller("recommendations")
 export class RecommendationsController {
   private readonly logger = new Logger(RecommendationsController.name);

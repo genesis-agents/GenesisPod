@@ -9,6 +9,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { AiChatService } from "../services/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
@@ -52,6 +53,7 @@ export class AiChatLLMAdapter implements ISimpleLLMAdapter {
 
   constructor(
     private readonly aiChatService: AiChatService,
+    private readonly configService: ConfigService,
     @Optional() private readonly prisma?: PrismaService,
   ) {
     this.initializeDefaultModel();
@@ -143,7 +145,7 @@ export class AiChatLLMAdapter implements ISimpleLLMAdapter {
    * 获取 fallback 模型（环境变量或硬编码）
    */
   private getFallbackModel(): string {
-    return process.env.DEFAULT_AI_MODEL || "gemini";
+    return this.configService.get<string>("DEFAULT_AI_MODEL", "gemini");
   }
 
   /**

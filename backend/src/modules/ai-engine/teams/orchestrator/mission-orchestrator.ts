@@ -15,6 +15,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { v4 as uuidv4 } from "uuid";
 import { ITeam } from "../abstractions/team.interface";
 import { RoleId } from "../abstractions/role.interface";
@@ -115,6 +116,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
 
   constructor(
     private readonly constraintEngine: ConstraintEngine,
+    private readonly configService: ConfigService,
     private readonly toolRegistry?: ToolRegistry,
     private readonly skillRegistry?: SkillRegistry,
     private readonly llmFactory?: LLMFactory,
@@ -137,10 +139,11 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     if (this.aiChatService) {
       this.llmAdapter = new AiChatLLMAdapter(
         this.aiChatService,
+        this.configService,
         this.prismaService,
       );
       this.logger.log(
-        "LLM adapter initialized with AiChatService and PrismaService",
+        "LLM adapter initialized with AiChatService, ConfigService and PrismaService",
       );
     }
   }

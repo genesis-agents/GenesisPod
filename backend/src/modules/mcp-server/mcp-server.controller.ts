@@ -21,7 +21,9 @@ import { Response } from "express";
 import { MCPApiKeyGuard } from "./guards/mcp-api-key.guard";
 import { MCPServerService } from "./mcp-server.service";
 import { MCPRequestContext } from "./abstractions/mcp-server.interface";
+import { Public } from "../../common/decorators/public.decorator";
 
+@Public()
 @ApiTags("MCP Server")
 @Controller("mcp")
 @UseGuards(MCPApiKeyGuard)

@@ -13,6 +13,7 @@ import {
 import { Response } from "express";
 import { WechatWorkService } from "./wechat-work.service";
 import { WechatWorkCryptoService } from "./wechat-work-crypto.service";
+import { Public } from "../../../common/decorators/public.decorator";
 
 /**
  * 企业微信机器人回调控制器
@@ -23,6 +24,7 @@ import { WechatWorkCryptoService } from "./wechat-work-crypto.service";
  * 3. 配置 Token 和 EncodingAESKey
  * 4. 将应用添加到可信 IP 列表
  */
+@Public()
 @Controller("wechat-work")
 export class WechatWorkController {
   private readonly logger = new Logger(WechatWorkController.name);

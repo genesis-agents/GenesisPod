@@ -14,6 +14,7 @@ import {
   NotFoundException,
   UseGuards,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { Response, Request } from "express";
 import { AiCoreService } from "./ai-core.service";
 import { AIEngineFacade } from "../facade/ai-engine.facade";
@@ -65,6 +66,7 @@ export class AiCoreController {
   constructor(
     private readonly aiCoreService: AiCoreService,
     private readonly aiFacade: AIEngineFacade,
+    private readonly configService: ConfigService,
     @Optional()
     @Inject(RAG_PIPELINE_SERVICE_TOKEN)
     private readonly ragPipelineService?: IRAGPipelineService,
@@ -99,10 +101,10 @@ export class AiCoreController {
 
     // Check environment variables
     const envVars = {
-      GOOGLE_AI_API_KEY: !!process.env.GOOGLE_AI_API_KEY,
-      OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
-      ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
-      DEEPSEEK_API_KEY: !!process.env.DEEPSEEK_API_KEY,
+      GOOGLE_AI_API_KEY: !!this.configService.get<string>("GOOGLE_AI_API_KEY"),
+      OPENAI_API_KEY: !!this.configService.get<string>("OPENAI_API_KEY"),
+      ANTHROPIC_API_KEY: !!this.configService.get<string>("ANTHROPIC_API_KEY"),
+      DEEPSEEK_API_KEY: !!this.configService.get<string>("DEEPSEEK_API_KEY"),
     };
 
     // Build diagnosis report
@@ -167,7 +169,10 @@ export class AiCoreController {
       }
       // 回退到直接存储的 apiKey 或环境变量
       if (!apiKey) {
-        apiKey = model.apiKey?.trim() || process.env.GOOGLE_AI_API_KEY || null;
+        apiKey =
+          model.apiKey?.trim() ||
+          this.configService.get<string>("GOOGLE_AI_API_KEY") ||
+          null;
       }
 
       if (!apiKey) {
@@ -281,7 +286,9 @@ export class AiCoreController {
     // 回退到直接存储的 apiKey 或环境变量
     if (!apiKey) {
       apiKey =
-        googleModel?.apiKey?.trim() || process.env.GOOGLE_AI_API_KEY || null;
+        googleModel?.apiKey?.trim() ||
+        this.configService.get<string>("GOOGLE_AI_API_KEY") ||
+        null;
     }
 
     if (!apiKey) {

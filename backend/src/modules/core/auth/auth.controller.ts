@@ -36,6 +36,7 @@ import {
   UserStatsDto,
 } from "./dto/auth-response.dto";
 import { AdminAuthService } from "../../../common/services";
+import { Public } from "../../../common/decorators/public.decorator";
 
 /**
  * Auth rate limit configuration
@@ -46,6 +47,9 @@ const REFRESH_RATE_LIMIT = { default: { limit: 10, ttl: 60000 } }; // 10 request
 
 /**
  * 认证控制器
+ *
+ * 公开端点(register, login, exchange, google OAuth) 标记 @Public()
+ * 受保护端点(refresh, me, profile, stats) 由全局 JwtAuthGuard 保护
  */
 @ApiTags("Auth")
 @Controller("auth")
@@ -62,6 +66,7 @@ export class AuthController {
    * POST /api/v1/auth/register
    * Rate limited: 5 requests per minute to prevent abuse
    */
+  @Public()
   @Post("register")
   @HttpCode(201)
   @Throttle(AUTH_RATE_LIMIT)
@@ -92,6 +97,7 @@ export class AuthController {
    * POST /api/v1/auth/login
    * Rate limited: 5 requests per minute to prevent brute force attacks
    */
+  @Public()
   @Post("login")
   @HttpCode(200)
   @Throttle(AUTH_RATE_LIMIT)
@@ -180,6 +186,7 @@ export class AuthController {
    * Google OAuth 登录
    * GET /api/v1/auth/google
    */
+  @Public()
   @Get("google")
   @UseGuards(AuthGuard("google"))
   @ApiOperation({
@@ -195,6 +202,7 @@ export class AuthController {
    * Google OAuth 回调
    * GET /api/v1/auth/google/callback
    */
+  @Public()
   @Get("google/callback")
   @UseGuards(AuthGuard("google"))
   @ApiOperation({
@@ -231,6 +239,7 @@ export class AuthController {
    * POST /api/v1/auth/exchange
    * Rate limited: 5 requests per minute
    */
+  @Public()
   @Post("exchange")
   @HttpCode(200)
   @Throttle(AUTH_RATE_LIMIT)

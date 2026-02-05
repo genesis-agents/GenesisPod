@@ -13,6 +13,7 @@ import { YoutubeVideosService } from "./youtube-videos.service";
 import { SaveVideoDto } from "./dto/save-video.dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
+import { Public } from "../../../common/decorators/public.decorator";
 
 /**
  * YouTube视频管理控制器
@@ -31,6 +32,7 @@ export class YoutubeVideosController {
     return this.youtubeVideosService.saveVideo(userId, saveVideoDto);
   }
 
+  @Public()
   @Get()
   @UseGuards(OptionalJwtAuthGuard)
   async getUserVideos(@Request() req: any) {

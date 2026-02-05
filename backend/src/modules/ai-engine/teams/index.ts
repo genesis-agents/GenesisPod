@@ -18,8 +18,8 @@ export * from "./registry";
 // Orchestrator
 export * from "./orchestrator";
 
-// Templates
-export * from "./templates";
+// Templates: team configs now registered by AI App modules at runtime
+// See: ai-app/research, ai-app/office, ai-app/teams
 
 // Services (exclude MissionStatus to avoid conflict with abstractions)
 export { TeamsService, CreateMissionDto, TeamInfo } from "./services";

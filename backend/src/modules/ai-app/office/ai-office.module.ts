@@ -1,4 +1,4 @@
-import { Module, forwardRef } from "@nestjs/common";
+import { Module, forwardRef, OnModuleInit, Logger } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { ConfigModule } from "@nestjs/config";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
@@ -50,6 +50,12 @@ import { AgentsController } from "./agents";
 
 // Common (共享服务) - services are provided by AIOfficeCommonModule
 import { AIOfficeCommonModule } from "./common";
+import { TeamRegistry } from "../../ai-engine/teams/registry/team-registry";
+import {
+  REPORT_TEAM_CONFIG,
+  SLIDES_TEAM_CONFIG,
+  VISUAL_DESIGN_TEAM_CONFIG,
+} from "./teams";
 
 @Module({
   imports: [
@@ -108,4 +114,15 @@ import { AIOfficeCommonModule } from "./common";
     AIOfficeCommonModule,
   ],
 })
-export class AiOfficeModule {}
+export class AiOfficeModule implements OnModuleInit {
+  private readonly logger = new Logger(AiOfficeModule.name);
+
+  constructor(private readonly teamRegistry: TeamRegistry) {}
+
+  onModuleInit() {
+    this.teamRegistry.registerConfig(REPORT_TEAM_CONFIG);
+    this.teamRegistry.registerConfig(SLIDES_TEAM_CONFIG);
+    this.teamRegistry.registerConfig(VISUAL_DESIGN_TEAM_CONFIG);
+    this.logger.log("Registered REPORT, SLIDES, VISUAL_DESIGN team configs");
+  }
+}

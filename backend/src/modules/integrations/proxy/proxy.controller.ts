@@ -18,6 +18,7 @@ import { NewsExtractorService } from "./news-extractor.service";
 import { PuppeteerFetcherService } from "./puppeteer-fetcher.service";
 import { FlareSolverrService } from "./flaresolverr.service";
 import { APP_CONFIG } from "../../../common/config/app.config";
+import { Public } from "../../../common/decorators/public.decorator";
 
 /**
  * 代理控制器 - 用于代理外部资源（如 PDF），绕过 CORS 和 X-Frame-Options 限制
@@ -29,6 +30,7 @@ import { APP_CONFIG } from "../../../common/config/app.config";
  * 4. Puppeteer 无头浏览器（最后手段）
  * 5. 优雅降级（提示用户手动访问）
  */
+@Public()
 @Controller("proxy")
 export class ProxyController {
   private readonly logger = new Logger(ProxyController.name);

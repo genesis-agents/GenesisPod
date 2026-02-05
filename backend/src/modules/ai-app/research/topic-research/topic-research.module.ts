@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
@@ -77,6 +77,8 @@ import {
   EvidenceSyncCompensationService,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
+import { TeamRegistry } from "../../../ai-engine/teams/registry/team-registry";
+import { RESEARCH_TEAM_CONFIG } from "../teams";
 
 const services = [
   TopicResearchService,
@@ -165,4 +167,13 @@ const services = [
   providers: [...services, TopicResearchGateway, TopicAccessGuard],
   exports: [...services, TopicAccessGuard],
 })
-export class TopicResearchModule {}
+export class TopicResearchModule implements OnModuleInit {
+  private readonly logger = new Logger(TopicResearchModule.name);
+
+  constructor(private readonly teamRegistry: TeamRegistry) {}
+
+  onModuleInit() {
+    this.teamRegistry.registerConfig(RESEARCH_TEAM_CONFIG);
+    this.logger.log("Registered RESEARCH team config");
+  }
+}

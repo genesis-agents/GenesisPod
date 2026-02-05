@@ -1,4 +1,5 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { AIErrorClassifier } from "../../../../common/ai-orchestration/error-classifier";
@@ -62,6 +63,7 @@ export class AiChatService {
   private strictMode = false;
 
   constructor(
+    private readonly configService: ConfigService,
     private readonly httpService: HttpService,
     private readonly prisma: PrismaService,
     private readonly taskProfileMapper: TaskProfileMapperService,
@@ -507,10 +509,12 @@ export class AiChatService {
 
     // 2. 如果没有数据库配置，回退检查环境变量
     if (!hasDbConfig) {
-      targetModel = targetModel || process.env.DEFAULT_AI_MODEL || "gemini";
+      targetModel =
+        targetModel ||
+        this.configService.get<string>("DEFAULT_AI_MODEL", "gemini");
       const requiredEnvKey = this.getRequiredApiKeyName(targetModel);
 
-      if (!process.env[requiredEnvKey]) {
+      if (!this.configService.get<string>(requiredEnvKey)) {
         throw new AiServiceUnavailableError(
           `AI服务不可用: 模型 "${targetModel}" 未在数据库中配置，且环境变量 ${requiredEnvKey} 也未设置`,
           targetModel,
@@ -562,7 +566,7 @@ export class AiChatService {
 
     // 2. 回退检查环境变量
     const requiredEnvKey = this.getRequiredApiKeyName(model);
-    return !!process.env[requiredEnvKey];
+    return !!this.configService.get<string>(requiredEnvKey);
   }
 
   /**
@@ -571,7 +575,7 @@ export class AiChatService {
    */
   isApiKeyConfigured(model: string): boolean {
     const requiredEnvKey = this.getRequiredApiKeyName(model);
-    return !!process.env[requiredEnvKey];
+    return !!this.configService.get<string>(requiredEnvKey);
   }
 
   /**
@@ -605,10 +609,12 @@ export class AiChatService {
    */
   getAvailableModels(): string[] {
     const models: string[] = [];
-    if (process.env.XAI_API_KEY) models.push("grok");
-    if (process.env.OPENAI_API_KEY) models.push("gpt-4");
-    if (process.env.ANTHROPIC_API_KEY) models.push("claude");
-    if (process.env.GOOGLE_AI_API_KEY) models.push("gemini");
+    if (this.configService.get<string>("XAI_API_KEY")) models.push("grok");
+    if (this.configService.get<string>("OPENAI_API_KEY")) models.push("gpt-4");
+    if (this.configService.get<string>("ANTHROPIC_API_KEY"))
+      models.push("claude");
+    if (this.configService.get<string>("GOOGLE_AI_API_KEY"))
+      models.push("gemini");
     return models;
   }
 
@@ -2914,7 +2920,7 @@ Generate an image that fulfills the current request while maintaining consistenc
       }
 
       // If Imagen also failed, check if we have OpenAI API key for DALL-E 3 fallback
-      const openaiKey = process.env.OPENAI_API_KEY;
+      const openaiKey = this.configService.get<string>("OPENAI_API_KEY");
       if (openaiKey) {
         this.logger.log(
           `[DALL-E 3 Fallback] Imagen failed, trying DALL-E 3 with OpenAI API key`,
@@ -3944,14 +3950,14 @@ Generate an image that fulfills the current request while maintaining consistenc
         );
       } else {
         // 找不到该类型模型，使用环境变量默认
-        model = process.env.DEFAULT_AI_MODEL || "gemini";
+        model = this.configService.get<string>("DEFAULT_AI_MODEL", "gemini");
         this.logger.warn(
           `[chat] No ${modelType} model found, falling back to ${model}`,
         );
       }
     } else {
       // 3. 都没指定，使用环境变量默认
-      model = process.env.DEFAULT_AI_MODEL || "gemini";
+      model = this.configService.get<string>("DEFAULT_AI_MODEL", "gemini");
       modelConfig = await this.getModelConfig(model);
     }
 
@@ -4006,7 +4012,10 @@ Generate an image that fulfills the current request while maintaining consistenc
     );
 
     // ★ Guardrails: Input validation
-    if (this.guardrailsPipeline && process.env.GUARDRAILS_ENABLED === "true") {
+    if (
+      this.guardrailsPipeline &&
+      this.configService.get<string>("GUARDRAILS_ENABLED") === "true"
+    ) {
       const userContent = messages
         .filter((m) => m.role === "user")
         .map((m) => m.content)
@@ -4085,7 +4094,7 @@ Generate an image that fulfills the current request while maintaining consistenc
         // ★ Guardrails: Output validation
         if (
           this.guardrailsPipeline &&
-          process.env.GUARDRAILS_ENABLED === "true"
+          this.configService.get<string>("GUARDRAILS_ENABLED") === "true"
         ) {
           try {
             const outputResult = await this.guardrailsPipeline.processOutput({

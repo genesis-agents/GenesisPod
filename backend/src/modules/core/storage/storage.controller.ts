@@ -16,7 +16,9 @@ import {
   SystemMemoryStats,
 } from "./storage.service";
 import { safeCompare } from "../../../common/utils/crypto.utils";
+import { Public } from "../../../common/decorators/public.decorator";
 
+@Public()
 @Controller("storage")
 export class StorageController {
   private readonly logger = new Logger(StorageController.name);

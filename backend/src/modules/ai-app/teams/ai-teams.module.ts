@@ -16,7 +16,7 @@
  * - LLMFactory: LLM 调用
  */
 
-import { Module } from "@nestjs/common";
+import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import {
   AiTeamsController,
   UsersController,
@@ -70,6 +70,8 @@ import {
 } from "./services";
 // 注意：UrlParserService 和 WebContentExtractionService 由 @Global() ContentProcessingModule 提供
 import { TeamMemberAgent } from "./agents";
+import { TeamRegistry } from "../../ai-engine/teams/registry/team-registry";
+import { DEBATE_TEAM_CONFIG } from "./teams";
 
 @Module({
   imports: [PrismaModule, AiEngineModule, CreditsModule],
@@ -162,4 +164,13 @@ import { TeamMemberAgent } from "./agents";
     // 注意：UrlParserService 和 WebContentExtractionService 由 @Global() ContentProcessingModule 提供
   ],
 })
-export class AiTeamsModule {}
+export class AiTeamsModule implements OnModuleInit {
+  private readonly logger = new Logger(AiTeamsModule.name);
+
+  constructor(private readonly teamRegistry: TeamRegistry) {}
+
+  onModuleInit() {
+    this.teamRegistry.registerConfig(DEBATE_TEAM_CONFIG);
+    this.logger.log("Registered DEBATE team config");
+  }
+}
