@@ -1,5 +1,115 @@
 [
   {
+    "version": "3.31.0",
+    "date": "2026-02-05",
+    "changes": [
+      {
+        "type": "feature",
+        "description": "implement DOME/SCORE enhanced analysis services"
+      },
+      {
+        "type": "feature",
+        "description": "add monitoring, cache, observability and security infrastructure"
+      },
+      {
+        "type": "feature",
+        "description": "add dimension name validation and mission detail routes"
+      },
+      {
+        "type": "feature",
+        "description": "implement P0-P1 quality enhancements with critical fixes"
+      },
+      {
+        "type": "fix",
+        "description": "fix scratchpad service parameter mismatch in DOME/SCORE endpoints"
+      },
+      {
+        "type": "fix",
+        "description": "add dns pre-check and connection probe for Railway Redis"
+      },
+      {
+        "type": "fix",
+        "description": "fix Railway Redis ECONNREFUSED with IPv6 and fallback"
+      },
+      {
+        "type": "fix",
+        "description": "force IPv4 for Railway Redis internal network connection"
+      },
+      {
+        "type": "fix",
+        "description": "improve redis error handler to log error code"
+      },
+      {
+        "type": "fix",
+        "description": "parse Redis URL into host/port/password for ioredis"
+      },
+      {
+        "type": "fix",
+        "description": "update auto-release to sync package-lock.json"
+      },
+      {
+        "type": "fix",
+        "description": "add PLAN_READY enum to deploy-migrations Step 4.5"
+      },
+      {
+        "type": "fix",
+        "description": "add PLAN_READY to ResearchMissionStatus enum"
+      },
+      {
+        "type": "fix",
+        "description": "add DNS/TCP diagnostics to identify private network failure"
+      },
+      {
+        "type": "fix",
+        "description": "add retry logic for database connection on Railway"
+      },
+      {
+        "type": "fix",
+        "description": "fix TipTap SSR hydration warning and auto-poll on page load"
+      },
+      {
+        "type": "fix",
+        "description": "pin remotion to 4.0.417, avoid broken 4.0.418 tarball"
+      },
+      {
+        "type": "fix",
+        "description": "revert npm ci to npm install for monorepo compatibility"
+      },
+      {
+        "type": "fix",
+        "description": "switch to standalone mode, fix 502 zombie container issue"
+      },
+      {
+        "type": "fix",
+        "description": "fix polling stop on PLAN_READY and add approveMissionPlan"
+      },
+      {
+        "type": "fix",
+        "description": "pass modelId and assignmentReason from Leader plan to todos"
+      },
+      {
+        "type": "fix",
+        "description": "p0-p2 audit fixes — 35 items across 6 batches"
+      },
+      {
+        "type": "fix",
+        "description": "patch sql injection in cleanupTable/getTableDetail, fix mutex safety"
+      },
+      {
+        "type": "fix",
+        "description": "add WebSocket event sync for task status and agent state"
+      },
+      {
+        "type": "improvement",
+        "description": "abstract EmbeddingService off OpenAI SDK, route by apiFormat"
+      },
+      {
+        "type": "improvement",
+        "description": "strip non-essential files from backend node_modules"
+      }
+    ]
+  },
+  {
     "version": "3.30.0",
     "date": "2026-02-05",
     "changes": [
