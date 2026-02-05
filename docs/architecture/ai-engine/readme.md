@@ -1,7 +1,7 @@
 # AI Engine 架构文档
 
-> **版本**: 2.0
-> **最后更新**: 2026-01-15
+> **版本**: 2.1
+> **最后更新**: 2026-02-05
 > **维护者**: 技术架构团队
 
 ---
@@ -54,6 +54,16 @@ AI Engine 层（核心能力）
 | [RAG 系统](./rag-system.md)        | 向量检索和文档分块     | ✅ 已更新 |
 | [图像生成](./image-generation.md)  | 多 Provider 图像生成   | ✅ 已更新 |
 | [长内容处理](./long-content.md)    | 长文本处理引擎         | ✅ 已更新 |
+
+### P2 能力模块 (2026-02 新增)
+
+| 模块                           | 说明                   | 状态    |
+| ------------------------------ | ---------------------- | ------- |
+| [可观测性](./observability.md) | 监控、追踪、日志       | 🆕 新增 |
+| [证据管理](./evidence.md)      | 引用溯源、证据链       | 🆕 新增 |
+| [质量检测](./quality.md)       | 输出质量评估、改进建议 | 🆕 新增 |
+| [协作框架](./collaboration.md) | 投票、待办、审核工作流 | 🆕 新增 |
+| [实时通信](./realtime.md)      | WebSocket 实时推送     | 🆕 新增 |
 
 ### 技术决策记录
 
@@ -176,7 +186,19 @@ backend/src/modules/ai-engine/
 ├── long-content/            # 长内容处理
 ├── mcp/                     # MCP 协议
 ├── skills/                  # 技能系统
-└── collaboration/           # 协作框架
+├── collaboration/           # 协作框架 (P2)
+│   ├── voting-pattern.ts    # 投票机制
+│   ├── todo/                # 待办事项
+│   └── review/              # 审核工作流
+├── evidence/                # 证据管理 (P2)
+├── quality/                 # 质量检测 (P2)
+│   └── services/
+│       └── quality-gate.service.ts
+├── realtime/                # 实时通信 (P2)
+├── observability/           # 可观测性 (P2)
+│   ├── tracing/             # 分布式追踪
+│   └── metrics/             # 指标采集
+└── prompts/                 # 提示词管理
 ```
 
 ### 模块统计
@@ -195,7 +217,12 @@ backend/src/modules/ai-engine/
 | **rag**           | 7      | Embedding, Vector, Chunker   | ✅ 已实现 |
 | **image**         | 12     | ImageFactory, 4 providers    | ✅ 已实现 |
 | **long-content**  | 16     | LongContentEngine            | ✅ 已实现 |
-| **总计**          | 290+   | -                            | -         |
+| **collaboration** | 8      | VotingManager, TodoService   | ✅ P2     |
+| **evidence**      | 5      | EvidenceTracker              | ✅ P2     |
+| **quality**       | 6      | QualityGateService           | ✅ P2     |
+| **realtime**      | 4      | RealtimeService              | ✅ P2     |
+| **observability** | 6      | TracingService, Metrics      | ✅ P2     |
+| **总计**          | 320+   | -                            | -         |
 
 ---
 

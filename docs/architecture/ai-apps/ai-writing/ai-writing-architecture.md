@@ -88,6 +88,27 @@ AI Writing 是企业级长篇内容创作平台，提供 5-Agent 协作写作系
 | `OutlineService`           | 故事大纲生成       | `services/writing/outline.service.ts`            |
 | `ContextBuilderService`    | 写作上下文构建     | `services/writing/context-builder.service.ts`    |
 
+#### 2.3 DOME/SCORE 增强服务 (v4 新增)
+
+| 服务                         | 职责                     | 文件                                                         |
+| ---------------------------- | ------------------------ | ------------------------------------------------------------ |
+| `HierarchicalSummaryService` | 分层摘要（DOME 核心）    | `services/writing/hierarchical-summary.service.ts`           |
+| `DynamicOutlineService`      | 动态大纲调整（DOME）     | `services/writing/dynamic-outline.service.ts`                |
+| `SharedScratchpadService`    | Agent 共享草稿板（DOME） | `services/mission/shared-scratchpad.service.ts`              |
+| `TemporalConflictAnalyzer`   | 时序冲突分析（SCORE）    | `services/consistency/temporal-conflict-analyzer.service.ts` |
+
+**DOME (Dynamic Outline Management Engine)**:
+
+- 支持写作过程中动态调整大纲
+- 分层摘要确保长篇一致性
+- Agent 间共享上下文草稿板
+
+**SCORE (Semantic Coherence Review Engine)**:
+
+- 时序冲突自动检测
+- 语义一致性评估
+- 跨章节连贯性验证
+
 #### 2.3 Story Bible 服务（5+）
 
 | 服务                           | 职责                              | 文件                                                |
@@ -1054,6 +1075,6 @@ npm run test backend/src/modules/ai-app/writing
 
 ---
 
-**最后更新**: 2025-02-01
+**最后更新**: 2026-02-05
 **维护者**: AI Writing Team
-**版本**: v2.0 (teams-fix)
+**版本**: v2.1 (DOME/SCORE)
