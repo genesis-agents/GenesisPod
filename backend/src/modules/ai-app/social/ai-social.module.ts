@@ -13,6 +13,7 @@ import { PlaywrightService } from "./services/playwright.service";
 import { SessionHealthCheckScheduler } from "./services/session-health-check.scheduler";
 import { WechatAdapter } from "./adapters/wechat.adapter";
 import { XiaohongshuAdapter } from "./adapters/xiaohongshu.adapter";
+import { MCPClientService } from "./core/mcp-client.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { ExploreModule } from "../../content/explore/explore.module";
@@ -42,6 +43,8 @@ import { CreditsModule } from "../../credits/credits.module";
     SessionHealthCheckScheduler,
     WechatAdapter,
     XiaohongshuAdapter,
+    // ★ MCP Client Service (refactored to use MCPManager)
+    MCPClientService,
   ],
   exports: [AiSocialService],
 })

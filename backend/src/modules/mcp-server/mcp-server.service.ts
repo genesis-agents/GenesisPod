@@ -3,7 +3,8 @@
  * 处理 JSON-RPC 2.0 请求路由和 MCP 协议逻辑
  */
 
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit, Optional } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   JsonRpcRequest,
   JsonRpcResponse,
@@ -12,15 +13,28 @@ import {
   MCPRequestContext,
   JSON_RPC_ERRORS,
 } from "./abstractions/mcp-server.interface";
+import { GuardrailsPipelineService } from "../ai-engine/guardrails/guardrails-pipeline.service";
 
 @Injectable()
 export class MCPServerService implements OnModuleInit {
   private readonly logger = new Logger(MCPServerService.name);
+  private readonly guardrailsEnabled: boolean;
   private readonly toolHandlers = new Map<string, IMCPToolHandler>();
   private readonly sessions = new Map<
     string,
     { clientInfo?: { name: string; version: string }; createdAt: Date }
   >();
+
+  constructor(
+    @Optional() private readonly guardrailsPipeline?: GuardrailsPipelineService,
+    @Optional() private readonly configService?: ConfigService,
+  ) {
+    this.guardrailsEnabled =
+      this.configService?.get<string>("GUARDRAILS_ENABLED") === "true";
+    if (this.guardrailsEnabled && this.guardrailsPipeline) {
+      this.logger.log("MCP Server guardrails enabled");
+    }
+  }
 
   onModuleInit() {
     this.logger.log(
@@ -173,8 +187,70 @@ export class MCPServerService implements OnModuleInit {
 
     const args = (params.arguments as Record<string, unknown>) || {};
 
+    // Input validation with guardrails
+    if (this.guardrailsEnabled && this.guardrailsPipeline) {
+      try {
+        const inputCheck = await this.guardrailsPipeline.processInput({
+          content: JSON.stringify(args),
+          context: { toolName: params.name, sessionId: context.sessionId },
+        });
+
+        if (!inputCheck.passed) {
+          this.logger.warn(
+            `MCP tool call blocked by input guardrails: ${params.name}`,
+          );
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Input blocked by guardrails: ${inputCheck.blockedBy || "validation failed"}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+      } catch (guardrailError) {
+        // Non-blocking: log warning and continue
+        this.logger.warn(
+          `MCP input guardrail check failed: ${(guardrailError as Error).message}`,
+        );
+      }
+    }
+
     try {
-      return await handler.execute(args, context);
+      const result = await handler.execute(args, context);
+
+      // Output validation with guardrails
+      if (this.guardrailsEnabled && this.guardrailsPipeline) {
+        try {
+          const outputCheck = await this.guardrailsPipeline.processOutput({
+            content: JSON.stringify(result),
+            context: { toolName: params.name, sessionId: context.sessionId },
+          });
+
+          if (!outputCheck.passed) {
+            this.logger.warn(
+              `MCP tool output blocked by guardrails: ${params.name}`,
+            );
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Output blocked by guardrails: ${outputCheck.blockedBy || "validation failed"}`,
+                },
+              ],
+              isError: true,
+            };
+          }
+        } catch (guardrailError) {
+          // Non-blocking: log warning but return result
+          this.logger.warn(
+            `MCP output guardrail check failed: ${(guardrailError as Error).message}`,
+          );
+        }
+      }
+
+      return result;
     } catch (error) {
       this.logger.error(
         `Tool ${params.name} failed: ${(error as Error).message}`,

@@ -23,6 +23,7 @@ import {
   DEEPDIVE_ENGINE_CONTEXT,
   isProjectRelatedQuery,
 } from "./constants/project-context";
+import { ShortTermMemoryService } from "../../ai-engine/memory/stores/short-term-memory.service";
 
 interface CreateSessionDto {
   title?: string;
@@ -62,6 +63,9 @@ const AI_ASK_TOOLS: BuiltinToolId[] = [
 export class AiAskService {
   private readonly logger = new Logger(AiAskService.name);
   private readonly DEFAULT_CONTEXT_MESSAGES = 20;
+  private readonly MEMORY_KEY = "ask-conversation-history";
+  private readonly MEMORY_TTL = 3600; // 1 hour
+  private readonly MAX_MEMORY_MESSAGES = 20;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -73,6 +77,7 @@ export class AiAskService {
     @Optional() private readonly toolRegistry: ToolRegistry,
     @Optional() private readonly ragPipelineService: RAGPipelineService,
     @Optional() private readonly creditsService: CreditsService,
+    @Optional() private readonly shortTermMemory: ShortTermMemoryService,
   ) {}
 
   /**
@@ -215,6 +220,18 @@ export class AiAskService {
     await this.prisma.askSession.delete({
       where: { id: sessionId },
     });
+
+    // 清理 ShortTermMemory 中的对话历史
+    if (this.shortTermMemory) {
+      try {
+        await this.shortTermMemory.clearSession(sessionId);
+        this.logger.debug(
+          `[deleteSession] Cleared memory for session ${sessionId}`,
+        );
+      } catch (error) {
+        this.logger.warn(`[deleteSession] Failed to clear memory: ${error}`);
+      }
+    }
 
     return { success: true };
   }
@@ -470,6 +487,16 @@ export class AiAskService {
               tokens: tokensUsed,
             },
           });
+
+          // 更新 ShortTermMemory 中的对话历史
+          await this.updateConversationMemory(
+            sessionId,
+            { role: "user", content: this.sanitizeMessageContent(dto.content) },
+            {
+              role: "assistant",
+              content: this.sanitizeMessageContent(aiResponseContent),
+            },
+          );
 
           // 更新会话时间戳
           await this.prisma.askSession.update({
@@ -775,25 +802,52 @@ export class AiAskService {
   /**
    * 构建上下文消息
    * 清理 base64 图片数据以避免 token 超限
+   * 优先使用 ShortTermMemory 缓存，以加速连续对话
    */
   private async buildContext(
     sessionId: string,
     maxMessages = this.DEFAULT_CONTEXT_MESSAGES,
   ): Promise<MessageWithContext[]> {
-    const messages = await this.prisma.askMessage.findMany({
-      where: { sessionId },
-      orderBy: { createdAt: "desc" },
-      take: maxMessages,
-    });
+    // 尝试从 ShortTermMemory 获取缓存的对话历史
+    let contextMessages: MessageWithContext[] = [];
 
-    // 反转以保持时间顺序
-    const orderedMessages = messages.reverse();
+    if (this.shortTermMemory) {
+      try {
+        const cachedHistory = await this.shortTermMemory.getWithSession(
+          sessionId,
+          this.MEMORY_KEY,
+        );
 
-    // 转换为上下文格式，同时清理 base64 图片数据
-    const contextMessages = orderedMessages.map((m) => ({
-      role: m.role as "user" | "assistant" | "system",
-      content: this.sanitizeMessageContent(m.content),
-    }));
+        if (cachedHistory && Array.isArray(cachedHistory)) {
+          this.logger.debug(
+            `[buildContext] Using cached conversation history: ${cachedHistory.length} messages`,
+          );
+          contextMessages = cachedHistory as MessageWithContext[];
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[buildContext] Failed to get cached history: ${error}`,
+        );
+      }
+    }
+
+    // 如果缓存未命中，从数据库加载
+    if (contextMessages.length === 0) {
+      const messages = await this.prisma.askMessage.findMany({
+        where: { sessionId },
+        orderBy: { createdAt: "desc" },
+        take: maxMessages,
+      });
+
+      // 反转以保持时间顺序
+      const orderedMessages = messages.reverse();
+
+      // 转换为上下文格式，同时清理 base64 图片数据
+      contextMessages = orderedMessages.map((m) => ({
+        role: m.role as "user" | "assistant" | "system",
+        content: this.sanitizeMessageContent(m.content),
+      }));
+    }
 
     // 计算总字符长度，如果超过限制则截断旧消息
     const MAX_TOTAL_CHARS = 100000; // 约 25000 tokens
@@ -829,6 +883,63 @@ export class AiAskService {
     }
 
     return truncatedMessages;
+  }
+
+  /**
+   * 更新 ShortTermMemory 中的对话历史
+   * 在收到 AI 响应后调用，保持缓存同步
+   */
+  private async updateConversationMemory(
+    sessionId: string,
+    userMessage: MessageWithContext,
+    assistantMessage: MessageWithContext,
+  ): Promise<void> {
+    if (!this.shortTermMemory) {
+      return;
+    }
+
+    try {
+      // 获取当前缓存的历史
+      const cachedHistory = await this.shortTermMemory.getWithSession(
+        sessionId,
+        this.MEMORY_KEY,
+      );
+
+      let updatedHistory: MessageWithContext[];
+
+      if (cachedHistory && Array.isArray(cachedHistory)) {
+        // 追加新消息到现有历史
+        updatedHistory = [
+          ...(cachedHistory as MessageWithContext[]),
+          userMessage,
+          assistantMessage,
+        ];
+      } else {
+        // 创建新历史
+        updatedHistory = [userMessage, assistantMessage];
+      }
+
+      // 限制历史长度，保留最近的 N 条消息
+      if (updatedHistory.length > this.MAX_MEMORY_MESSAGES) {
+        updatedHistory = updatedHistory.slice(-this.MAX_MEMORY_MESSAGES);
+      }
+
+      // 更新缓存
+      await this.shortTermMemory.setWithSession(
+        sessionId,
+        this.MEMORY_KEY,
+        updatedHistory,
+        this.MEMORY_TTL,
+      );
+
+      this.logger.debug(
+        `[updateConversationMemory] Updated memory: ${updatedHistory.length} messages`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `[updateConversationMemory] Failed to update memory: ${error}`,
+      );
+    }
   }
 
   /**

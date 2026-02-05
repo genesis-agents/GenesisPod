@@ -14,6 +14,7 @@ import { Module, forwardRef } from "@nestjs/common";
 // Registries (from other modules)
 import { AiEngineToolsModule } from "./ai-engine-tools.module";
 import { AiEngineSkillsModule } from "./ai-engine-skills.module";
+import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 import { ToolRegistry } from "./tools/registry/tool-registry";
 import { SkillRegistry } from "./skills/registry/skill-registry";
 import { AgentRegistry } from "./agents/registry";
@@ -113,6 +114,7 @@ const checkpointManagerFactory = {
   imports: [
     forwardRef(() => AiEngineToolsModule),
     forwardRef(() => AiEngineSkillsModule),
+    forwardRef(() => AiEngineConstraintModule),
   ],
   controllers: [AgentsController],
   providers: [

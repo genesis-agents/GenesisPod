@@ -70,6 +70,9 @@ import {
 } from "../../llm/adapters/ai-chat-llm-adapter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
+import { TraceCollectorService } from "../../observability/trace-collector.service";
+import { CheckpointManager } from "../../orchestration/checkpoints/checkpoint-manager";
+import { ExecutionContext } from "../../orchestration/abstractions/orchestrator.interface";
 
 /**
  * 步骤执行结果（内部使用）
@@ -117,6 +120,12 @@ export class MissionOrchestrator implements IMissionOrchestrator {
   // ★ LLM 适配器（用于 Skills 调用 LLM）
   private readonly llmAdapter?: ISimpleLLMAdapter;
 
+  // ★ Trace 收集器（可选，用于执行链路可视化）
+  private readonly traceCollector?: TraceCollectorService;
+
+  // ★ Checkpoint 管理器（可选，用于自动保存检查点）
+  private readonly checkpointManager?: CheckpointManager;
+
   constructor(
     private readonly constraintEngine: ConstraintEngine,
     private readonly configService: ConfigService,
@@ -127,6 +136,8 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     private readonly mcpManager?: MCPManager,
     private readonly aiChatService?: AiChatService,
     private readonly prismaService?: PrismaService,
+    traceCollector?: TraceCollectorService,
+    checkpointManager?: CheckpointManager,
     config?: Partial<OrchestratorConfig>,
   ) {
     this.config = { ...DEFAULT_ORCHESTRATOR_CONFIG, ...config };
@@ -148,6 +159,20 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       this.logger.log(
         "LLM adapter initialized with AiChatService, ConfigService and PrismaService",
       );
+    }
+
+    // ★ 存储 TraceCollector 引用（可选依赖）
+    this.traceCollector = traceCollector;
+    if (this.traceCollector) {
+      this.logger.log(
+        "TraceCollector initialized for execution instrumentation",
+      );
+    }
+
+    // ★ 存储 CheckpointManager 引用（可选依赖）
+    this.checkpointManager = checkpointManager;
+    if (this.checkpointManager) {
+      this.logger.log("CheckpointManager initialized for auto-checkpoint");
     }
   }
 
@@ -178,6 +203,19 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     // 存储上下文到 Memory（可选，用于持久化）
     await this.storeContext(missionId, "input", input);
 
+    // ★ 开始 Trace（用于执行链路可视化）
+    const traceId = this.traceCollector?.startTrace({
+      name: `Mission: ${input.prompt.slice(0, 50)}...`,
+      type: "team_execution",
+      metadata: {
+        missionId,
+        teamId: team.id,
+        teamName: team.name,
+        prompt: input.prompt,
+        constraintProfile: constraints,
+      },
+    });
+
     try {
       // 发送开始事件
       yield this.createEvent("mission_started", missionId, { input });
@@ -185,22 +223,80 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       // Phase 1: Parse - 解析意图
       yield this.createEvent("parsing_started", missionId);
       state.phase = "parsing";
+
+      // ★ 开始 Parse span
+      const parseSpanId = this.traceCollector?.addSpan(traceId!, {
+        name: "Parse Intent",
+        type: "planning",
+        metadata: { phase: "parsing" },
+      });
+
       const intent = await this.parse(input);
       // ★ 关键修复：确保 intent.missionId 与当前 missionId 一致
       // parse() 返回的 intent.missionId 可能是空字符串，需要覆盖
       intent.missionId = missionId;
       await this.storeContext(missionId, "intent", intent);
+
+      // ★ 结束 Parse span
+      this.traceCollector?.endSpan(parseSpanId!, {
+        status: "success",
+        output: {
+          taskType: intent.taskType,
+          complexity: intent.complexity.overall,
+        },
+      });
+
+      // ★ 保存 checkpoint：解析完成
+      await this.saveCheckpoint(missionId, team.workflow.id, "parse_complete", {
+        taskType: intent.taskType,
+        complexity: intent.complexity.overall,
+        primaryGoal: intent.primaryGoal,
+      });
+
       yield this.createEvent("parsing_completed", missionId, { intent });
 
       // Phase 2: Plan - 生成执行计划
       yield this.createEvent("planning_started", missionId);
       state.phase = "planning";
+
+      // ★ 开始 Planning span
+      const planSpanId = this.traceCollector?.addSpan(traceId!, {
+        name: "Generate Execution Plan",
+        type: "planning",
+        metadata: { phase: "planning", teamWorkflow: team.workflow.type },
+      });
+
       const plan = await this.plan(intent, team, constraints);
       await this.storeContext(missionId, "plan", plan);
+
+      // ★ 结束 Planning span
+      this.traceCollector?.endSpan(planSpanId!, {
+        status: "success",
+        output: {
+          stepCount: plan.steps.length,
+          estimatedDuration: plan.estimatedDuration,
+        },
+      });
+
+      // ★ 保存 checkpoint：计划生成完成
+      await this.saveCheckpoint(missionId, team.workflow.id, "plan_complete", {
+        stepCount: plan.steps.length,
+        estimatedDuration: plan.estimatedDuration,
+        estimatedCost: plan.estimatedCost,
+      });
+
       yield this.createEvent("planning_completed", missionId, { plan });
 
       // Phase 3: Execute - 执行计划（含委派和协作）
       state.phase = "executing";
+
+      // ★ 开始 Execution span
+      const execSpanId = this.traceCollector?.addSpan(traceId!, {
+        name: "Execute Plan",
+        type: "synthesis",
+        metadata: { phase: "execution", taskCount: plan.steps.length },
+      });
+
       for await (const event of this.executePlan(plan, team, constraints)) {
         yield event;
 
@@ -239,10 +335,29 @@ export class MissionOrchestrator implements IMissionOrchestrator {
         }
       }
 
+      // ★ 结束 Execution span
+      this.traceCollector?.endSpan(execSpanId!, {
+        status: "success",
+        output: {
+          completedSteps: state.completedSteps.length,
+          failedSteps: state.failedSteps.length,
+        },
+      });
+
       // Phase 4: Review - 审核（含返工循环）
       if (constraints.quality.reviewRequired) {
         yield this.createEvent("review_started", missionId);
         state.phase = "reviewing";
+
+        // ★ 开始 Review span
+        const reviewSpanId = this.traceCollector?.addSpan(traceId!, {
+          name: "Review & Rework",
+          type: "review",
+          metadata: {
+            phase: "reviewing",
+            stepsToReview: state.intermediateOutputs.size,
+          },
+        });
 
         for (const [stepId, output] of state.intermediateOutputs) {
           // 跳过 delivery 步骤的审核
@@ -311,13 +426,48 @@ export class MissionOrchestrator implements IMissionOrchestrator {
             attempt < constraints.quality.maxReworks
           );
         }
+
+        // ★ 结束 Review span
+        this.traceCollector?.endSpan(reviewSpanId!, {
+          status: "success",
+          output: {
+            reviewCount: state.reviewResults.length,
+            reworkCount: state.resourceUsage.reworkCount,
+          },
+        });
+
+        // ★ 保存 checkpoint：审核完成
+        await this.saveCheckpoint(
+          missionId,
+          team.workflow.id,
+          "review_complete",
+          {
+            reviewCount: state.reviewResults.length,
+            passedCount: state.reviewResults.filter((r) => r.passed).length,
+            reworkCount: state.resourceUsage.reworkCount,
+          },
+        );
       }
 
       // Phase 5: Deliver - 生成交付物（使用导出工具）
       yield this.createEvent("delivering_started", missionId);
       state.phase = "delivering";
+
+      // ★ 开始 Delivery span
+      const deliverSpanId = this.traceCollector?.addSpan(traceId!, {
+        name: "Generate Deliverables",
+        type: "synthesis",
+        metadata: { phase: "delivering" },
+      });
+
       const deliverables = await this.deliver(state, team);
       state.deliverables = deliverables;
+
+      // ★ 结束 Delivery span
+      this.traceCollector?.endSpan(deliverSpanId!, {
+        status: "success",
+        output: { deliverableCount: deliverables.length },
+      });
 
       for (const deliverable of deliverables) {
         yield this.createEvent("deliverable_ready", missionId, { deliverable });
@@ -326,6 +476,12 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       // 完成
       state.phase = "completed";
       const result = this.createResult(state, startTime, true);
+
+      // ★ 结束 Trace（成功）
+      this.traceCollector?.endTrace(traceId!, {
+        status: "success",
+      });
+
       yield this.createEvent("mission_completed", missionId, { result });
 
       // ★ 清理原始输入，防止内存泄漏
@@ -335,6 +491,11 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     } catch (error) {
       state.phase = "failed";
       const errorMessage = (error as Error).message;
+
+      // ★ 结束 Trace（失败）
+      this.traceCollector?.endTrace(traceId!, {
+        status: "error",
+      });
 
       yield this.createEvent("mission_failed", missionId, {
         error: errorMessage,
@@ -721,6 +882,22 @@ export class MissionOrchestrator implements IMissionOrchestrator {
               stepId: step.id,
               output: result.value,
             });
+
+            // ★ 保存 checkpoint：步骤完成
+            const context = await this.getContext(missionId);
+            const plan = context.plan as MissionExecutionPlan;
+            await this.saveCheckpoint(
+              missionId,
+              team.workflow.id,
+              `step_${step.id}_complete`,
+              {
+                stepId: step.id,
+                stepName: step.name,
+                completedSteps: state.completedSteps.length,
+                totalSteps: plan.steps.length,
+                progress: state.completedSteps.length / plan.steps.length,
+              },
+            );
           } else {
             state.failedSteps.push(step.id);
             yield this.createEvent("step_failed", missionId, {
@@ -785,6 +962,22 @@ export class MissionOrchestrator implements IMissionOrchestrator {
             stepId: step.id,
             output,
           });
+
+          // ★ 保存 checkpoint：步骤完成（顺序执行）
+          const context = await this.getContext(missionId);
+          const plan = context.plan as MissionExecutionPlan;
+          await this.saveCheckpoint(
+            missionId,
+            team.workflow.id,
+            `step_${step.id}_complete`,
+            {
+              stepId: step.id,
+              stepName: step.name,
+              completedSteps: state.completedSteps.length,
+              totalSteps: plan.steps.length,
+              progress: state.completedSteps.length / plan.steps.length,
+            },
+          );
         } catch (error) {
           state.failedSteps.push(step.id);
           state.currentSteps = state.currentSteps.filter(
@@ -1887,5 +2080,43 @@ export class MissionOrchestrator implements IMissionOrchestrator {
 
   private calculateTotalDuration(steps: ExecutionStep[]): number {
     return steps.reduce((sum, s) => sum + s.estimatedDuration, 0);
+  }
+
+  /**
+   * ★ 保存检查点（非阻塞，失败时记录警告）
+   */
+  private async saveCheckpoint(
+    executionId: string,
+    workflowId: string,
+    phase: string,
+    data: Record<string, unknown>,
+  ): Promise<void> {
+    if (!this.checkpointManager) return;
+
+    try {
+      // 构建 ExecutionContext（只包含必要字段）
+      // 使用 JSON.parse(JSON.stringify()) 确保类型安全
+      const context: ExecutionContext = {
+        executionId,
+        workflowId,
+        input: JSON.parse(JSON.stringify(data)),
+        state: {},
+        stepResults: new Map(),
+        startTime: new Date(),
+      };
+
+      await this.checkpointManager.createCheckpoint(
+        executionId,
+        workflowId,
+        phase,
+        context,
+      );
+      this.logger.debug(`[${executionId}] Checkpoint saved: ${phase}`);
+    } catch (error) {
+      this.logger.warn(
+        `[${executionId}] Failed to save checkpoint at ${phase}: ${(error as Error).message}`,
+      );
+      // 非阻塞：不影响主流程
+    }
   }
 }

@@ -12,9 +12,10 @@ import { ResearchToolHandler } from "./tools/research-tool-handler";
 import { AskToolHandler } from "./tools/ask-tool-handler";
 import { TeamsDebateToolHandler } from "./tools/teams-tool-handler";
 import { SecretsModule } from "../core/secrets/secrets.module";
+import { AiEngineConstraintModule } from "../ai-engine/ai-engine-constraint.module";
 
 @Module({
-  imports: [SecretsModule],
+  imports: [SecretsModule, AiEngineConstraintModule],
   controllers: [MCPServerController],
   providers: [
     MCPServerService,

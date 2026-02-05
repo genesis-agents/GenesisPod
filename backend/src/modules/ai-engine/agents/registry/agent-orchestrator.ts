@@ -3,9 +3,11 @@
  * Agent 编排器 - 协调 Agent 执行
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { AgentId, AgentInput, AgentEvent } from "../../core/types/agent.types";
 import { AgentRegistry } from "./agent-registry";
+import { GuardrailsPipelineService } from "../../guardrails/guardrails-pipeline.service";
 
 /**
  * 状态报告项
@@ -25,8 +27,19 @@ export interface AgentStatusReport {
 @Injectable()
 export class AgentOrchestrator {
   private readonly logger = new Logger(AgentOrchestrator.name);
+  private readonly guardrailsEnabled: boolean;
 
-  constructor(private readonly registry: AgentRegistry) {}
+  constructor(
+    private readonly registry: AgentRegistry,
+    @Optional() private readonly guardrailsPipeline?: GuardrailsPipelineService,
+    private readonly configService?: ConfigService,
+  ) {
+    this.guardrailsEnabled =
+      this.configService?.get<string>("GUARDRAILS_ENABLED") === "true";
+    if (this.guardrailsEnabled && this.guardrailsPipeline) {
+      this.logger.log("Agent Orchestrator guardrails enabled");
+    }
+  }
 
   /**
    * 执行 Agent 任务
@@ -37,6 +50,33 @@ export class AgentOrchestrator {
     agentId?: AgentId,
     _userId?: string,
   ): AsyncGenerator<AgentEvent> {
+    // Input validation with guardrails
+    if (this.guardrailsEnabled && this.guardrailsPipeline) {
+      try {
+        const inputCheck = await this.guardrailsPipeline.processInput({
+          content: input.prompt || "",
+          userId: _userId,
+          context: { agentId, inputType: "agent_execution" },
+        });
+
+        if (!inputCheck.passed) {
+          this.logger.warn(
+            `Agent execution blocked by input guardrails: ${inputCheck.blockedBy}`,
+          );
+          yield {
+            type: "error",
+            error: `Input blocked by guardrails: ${inputCheck.blockedBy || "validation failed"}`,
+          };
+          return;
+        }
+      } catch (guardrailError) {
+        // Non-blocking: log warning and continue
+        this.logger.warn(
+          `Agent input guardrail check failed: ${(guardrailError as Error).message}`,
+        );
+      }
+    }
+
     // 选择 Agent
     const selectedAgentId = agentId || (await this.selectAgent(input));
 
@@ -68,6 +108,37 @@ export class AgentOrchestrator {
 
       // 执行计划
       for await (const event of agent.execute(plan)) {
+        // Output validation with guardrails (only for complete events)
+        if (
+          event.type === "complete" &&
+          this.guardrailsEnabled &&
+          this.guardrailsPipeline
+        ) {
+          try {
+            const outputCheck = await this.guardrailsPipeline.processOutput({
+              content: JSON.stringify(event.result),
+              context: { agentId: selectedAgentId, outputType: "agent_result" },
+            });
+
+            if (!outputCheck.passed) {
+              this.logger.warn(
+                `Agent output blocked by guardrails: ${outputCheck.blockedBy}`,
+              );
+              yield {
+                type: "error",
+                error: `Output blocked by guardrails: ${outputCheck.blockedBy || "validation failed"}`,
+              };
+              this.registry.recordExecution(selectedAgentId, false);
+              return;
+            }
+          } catch (guardrailError) {
+            // Non-blocking: log warning but continue
+            this.logger.warn(
+              `Agent output guardrail check failed: ${(guardrailError as Error).message}`,
+            );
+          }
+        }
+
         yield event;
 
         // 记录完成或错误

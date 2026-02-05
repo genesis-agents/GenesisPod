@@ -306,7 +306,7 @@ export class SQLExecutorTool extends BaseTool<
       const rows = (await this.prisma.$queryRawUnsafe(
         query,
         ...values,
-      )) as Record<string, unknown>[];
+      )) as Array<Record<string, unknown>>;
 
       // 限制返回行数
       const limitedRows = rows.slice(0, maxRows);

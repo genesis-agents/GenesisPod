@@ -30,6 +30,8 @@ import { ShortTermMemoryService } from "../memory/stores/short-term-memory.servi
 import { MCPManager } from "../mcp/manager/mcp-manager";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { TraceCollectorService } from "../observability/trace-collector.service";
+import { CheckpointManager } from "../orchestration/checkpoints/checkpoint-manager";
 
 /**
  * Teams 模块
@@ -65,6 +67,13 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
       },
       inject: [RoleRegistry, TeamRegistry, LLMFactory],
     },
+    // CheckpointManager (可选依赖，用于自动保存检查点)
+    {
+      provide: CheckpointManager,
+      useFactory: () => {
+        return new CheckpointManager();
+      },
+    },
     // MissionOrchestrator 集成所有核心服务
     {
       provide: MissionOrchestrator,
@@ -78,6 +87,8 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
         mcpManager: MCPManager,
         aiChatService: AiChatService,
         prismaService: PrismaService,
+        traceCollector: TraceCollectorService,
+        checkpointManager: CheckpointManager,
       ) => {
         return new MissionOrchestrator(
           constraintEngine,
@@ -89,6 +100,8 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
           mcpManager,
           aiChatService, // ★ 用于创建 LLM 适配器给 Skills 使用
           prismaService, // ★ 用于从数据库获取默认 AI 模型配置
+          traceCollector, // ★ 用于执行链路可视化
+          checkpointManager, // ★ 用于自动保存检查点
         );
       },
       inject: [
@@ -101,6 +114,8 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
         MCPManager,
         AiChatService,
         PrismaService,
+        TraceCollectorService,
+        CheckpointManager,
       ],
     },
     // TeamsService 依赖所有上层服务
@@ -137,6 +152,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
     TeamFactory,
     MissionOrchestrator,
     TeamsService,
+    CheckpointManager,
   ],
 })
 export class TeamsModule implements OnModuleInit {

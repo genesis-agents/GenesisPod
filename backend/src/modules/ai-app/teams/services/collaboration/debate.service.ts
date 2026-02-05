@@ -13,10 +13,16 @@
  * 4. 可选的Judge角色进行总结和裁决
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AIEngineFacade, ChatMessage } from "../../../../ai-engine/facade";
 import { DebateStatus, DebateRole, DebateAgent, Prisma } from "@prisma/client";
+import { VotingManager } from "../../../../ai-engine/collaboration/patterns/voting-pattern";
 
 // 辩论消息类型（用于Agent的conversationHistory）
 interface DebateHistoryMessage {
@@ -51,7 +57,14 @@ export class DebateService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
-  ) {}
+    @Optional() private readonly votingManager?: VotingManager,
+  ) {
+    if (!votingManager) {
+      this.logger.warn(
+        "[Debate] VotingManager not available - debates will run without voting-based consensus",
+      );
+    }
+  }
 
   /**
    * 创建新的辩论会话
@@ -369,6 +382,7 @@ export class DebateService {
   /**
    * 运行完整的辩论流程
    * 参考MAD架构：Red -> Blue -> Red -> Blue -> ... -> Judge
+   * 新增：每轮结束后进行投票，收集团队共识
    */
   async runDebate(sessionId: string): Promise<void> {
     const session = await this.prisma.debateSession.findUnique({
@@ -399,6 +413,7 @@ export class DebateService {
 
     let lastRedMessage = "";
     let lastBlueMessage = "";
+    let consensusPosition: string | undefined;
 
     for (let round = 1; round <= session.maxRounds; round++) {
       this.logger.log(`[Debate] === Round ${round} ===`);
@@ -424,6 +439,31 @@ export class DebateService {
         lastRedMessage,
       );
       lastBlueMessage = blueResponse.content;
+
+      // ★ 每轮结束后进行投票（如果 VotingManager 可用）
+      const votingResult = await this.conductRoundVoting(
+        sessionId,
+        round,
+        {
+          id: redAgent.id,
+          displayName: redAgent.displayName,
+          position: lastRedMessage,
+        },
+        {
+          id: blueAgent.id,
+          displayName: blueAgent.displayName,
+          position: lastBlueMessage,
+        },
+      );
+
+      if (votingResult?.consensus) {
+        consensusPosition = votingResult.winner;
+        this.logger.log(
+          `[Debate] Consensus reached in round ${round}: ${votingResult.winner}`,
+        );
+        // 可选：如果达成共识，提前结束辩论
+        // break;
+      }
     }
 
     // 辩论结束
@@ -432,10 +472,156 @@ export class DebateService {
       data: {
         status: DebateStatus.COMPLETED,
         completedAt: new Date(),
+        // 可选：将共识信息存储到 session 的元数据中
       },
     });
 
     this.logger.log(`[Debate] Debate completed: ${sessionId}`);
+    if (consensusPosition) {
+      this.logger.log(
+        `[Debate] Final consensus position: ${consensusPosition}`,
+      );
+    }
+  }
+
+  /**
+   * 在每轮辩论后进行投票
+   * 基于参与者对各方论点的评估进行投票
+   */
+  private async conductRoundVoting(
+    sessionId: string,
+    round: number,
+    redPosition: { id: string; displayName: string; position: string },
+    bluePosition: { id: string; displayName: string; position: string },
+  ): Promise<{ winner?: string; consensus: boolean } | null> {
+    if (!this.votingManager) {
+      return null;
+    }
+
+    const voteId = `debate-${sessionId}-round-${round}`;
+
+    try {
+      // 创建投票会话
+      this.votingManager.createVote({
+        topic: `第 ${round} 轮辩论投票`,
+        options: [
+          {
+            id: redPosition.id,
+            label: `${redPosition.displayName} (正方)`,
+            description: redPosition.position.substring(0, 200), // 截取前200字符作为描述
+          },
+          {
+            id: bluePosition.id,
+            label: `${bluePosition.displayName} (反方)`,
+            description: bluePosition.position.substring(0, 200),
+          },
+        ],
+        strategy: "majority", // 简单多数决
+        deadline: new Date(Date.now() + 60000), // 1分钟超时（实际上是同步投票）
+        initiator: "debate-system", // 系统发起的投票
+      });
+
+      this.logger.log(
+        `[Debate] Created voting session ${voteId} for round ${round}`,
+      );
+
+      // 在实际场景中，这里应该由参与者（可能是其他团队成员或裁判）投票
+      // 现在我们模拟一个简单的评分机制：基于消息长度和结构作为代理指标
+      // 注意：在真实实现中，应该有真实的评审机制或用户投票
+
+      // 模拟投票：这里简化为基于论证复杂度的自动投票
+      // 在实际应用中，应该由裁判或其他团队成员提供真实投票
+      const redScore = this.evaluateArgumentStrength(redPosition.position);
+      const blueScore = this.evaluateArgumentStrength(bluePosition.position);
+
+      // 为演示目的，我们创建2个虚拟投票者
+      const voters = ["voter-1", "voter-2"];
+
+      for (const voterId of voters) {
+        // 基于评分投票
+        const preferredOption =
+          redScore > blueScore ? redPosition.id : bluePosition.id;
+        this.votingManager.castVote(voteId, voterId, preferredOption);
+      }
+
+      // 关闭投票并获取结果
+      const result = this.votingManager.closeVote(voteId, voters.length);
+
+      if (result) {
+        this.logger.log(
+          `[Debate] Round ${round} voting result: winner=${result.winner}, consensus=${result.consensus}`,
+        );
+        this.logger.debug(
+          `[Debate] Voting tally: ${JSON.stringify(result.tally)}`,
+        );
+
+        return {
+          winner: result.winner,
+          consensus: result.consensus,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.error(
+        `[Debate] Failed to conduct voting for round ${round}: ${error instanceof Error ? error.message : error}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * 评估论证强度（简化版）
+   * 在实际应用中，应该使用 AI 评估或人工评审
+   */
+  private evaluateArgumentStrength(argument: string): number {
+    // 简单评分指标：
+    // 1. 长度（更详细的论证）
+    // 2. 是否包含证据关键词
+    // 3. 是否包含逻辑连接词
+    let score = 0;
+
+    // 长度分（最多30分）
+    score += Math.min(argument.length / 50, 30);
+
+    // 证据关键词（每个5分，最多20分）
+    const evidenceKeywords = [
+      "数据",
+      "研究",
+      "证据",
+      "统计",
+      "报告",
+      "调查",
+      "实验",
+      "案例",
+    ];
+    const evidenceCount = evidenceKeywords.filter((kw) =>
+      argument.includes(kw),
+    ).length;
+    score += Math.min(evidenceCount * 5, 20);
+
+    // 逻辑连接词（每个3分，最多15分）
+    const logicKeywords = [
+      "因为",
+      "所以",
+      "因此",
+      "然而",
+      "但是",
+      "此外",
+      "而且",
+      "综上",
+    ];
+    const logicCount = logicKeywords.filter((kw) =>
+      argument.includes(kw),
+    ).length;
+    score += Math.min(logicCount * 3, 15);
+
+    // 结构化标记（如果包含格式化内容，加10分）
+    if (argument.includes("**") || argument.includes("###")) {
+      score += 10;
+    }
+
+    return score;
   }
 
   /**
