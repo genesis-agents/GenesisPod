@@ -69,6 +69,7 @@ WORKDIR /app
 
 # Install curl for healthcheck, OpenSSL for Prisma, runtime libs for canvas,
 # Chromium for Puppeteer, and Chinese fonts for infographics
+# Note: chromium pulls in most X11/GTK deps automatically
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     openssl \
@@ -79,24 +80,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgif7 \
     librsvg2-2 \
     libpixman-1-0 \
-    # Chromium and dependencies for Puppeteer
     chromium \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcups2 \
-    libdrm2 \
-    libgbm1 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxkbcommon0 \
-    libxrandr2 \
-    # Chinese fonts for infographic text rendering
     fonts-noto-cjk \
-    fonts-wqy-zenhei \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Puppeteer and Playwright to use system Chromium with --no-sandbox for non-root
@@ -111,16 +96,15 @@ ENV NODE_ENV=production
 RUN groupadd --gid 1001 raven && \
     useradd --uid 1001 --gid raven --shell /bin/bash --create-home raven
 
-# Copy built application
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/scripts ./scripts
+# Copy built application (--chown avoids extra layer from RUN chown -R)
+COPY --chown=raven:raven --from=builder /app/dist ./dist
+COPY --chown=raven:raven --from=builder /app/node_modules ./node_modules
+COPY --chown=raven:raven --from=builder /app/package*.json ./
+COPY --chown=raven:raven --from=builder /app/prisma ./prisma
+COPY --chown=raven:raven --from=builder /app/scripts ./scripts
 
-# Make entrypoint executable and set ownership
-RUN chmod +x ./scripts/devops/docker-entrypoint.sh && \
-    chown -R raven:raven /app
+# Make entrypoint executable
+RUN chmod +x ./scripts/devops/docker-entrypoint.sh
 
 # Switch to non-root user
 USER raven
