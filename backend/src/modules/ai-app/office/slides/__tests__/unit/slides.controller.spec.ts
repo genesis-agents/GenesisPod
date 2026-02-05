@@ -15,6 +15,8 @@ import { SlidesEngineService } from "../../services/slides-engine.service";
 import { SlidesDataImportService } from "../../services/data-import.service";
 import { AIEditService } from "../../services/ai-edit.service";
 import { CheckpointService } from "../../checkpoint/checkpoint.service";
+import { VoiceNarrationSkill } from "../../skills/voice-narration.skill";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import {
   RateLimitGuard,
@@ -73,6 +75,10 @@ describe("SlidesController", () => {
       factCheck: jest.fn(),
     };
 
+    const mockVoiceNarrationSkill = {};
+
+    const mockPrismaService = {};
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SlidesController],
       providers: [
@@ -80,6 +86,8 @@ describe("SlidesController", () => {
         { provide: CheckpointService, useValue: mockCheckpointService },
         { provide: SlidesDataImportService, useValue: mockDataImportService },
         { provide: AIEditService, useValue: mockAiEditService },
+        { provide: VoiceNarrationSkill, useValue: mockVoiceNarrationSkill },
+        { provide: PrismaService, useValue: mockPrismaService },
         { provide: Reflector, useValue: new Reflector() },
       ],
     })

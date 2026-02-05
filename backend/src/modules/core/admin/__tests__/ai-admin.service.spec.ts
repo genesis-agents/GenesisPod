@@ -6,6 +6,7 @@ import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry
 import { SkillLoaderService } from "../../../ai-engine/skills/loader/skill-loader.service";
 import { MCPManager } from "../../../ai-engine/mcp/manager/mcp-manager";
 import { SecretsService } from "../../secrets/secrets.service";
+import { SearchService } from "../../../ai-engine/search/search.service";
 
 describe("AIAdminService", () => {
   let service: AIAdminService;
@@ -64,6 +65,8 @@ describe("AIAdminService", () => {
     getValue: jest.fn(),
   };
 
+  const mockSearchService = {};
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -76,6 +79,7 @@ describe("AIAdminService", () => {
         { provide: SkillLoaderService, useValue: mockSkillLoaderService },
         { provide: MCPManager, useValue: mockMCPManager },
         { provide: SecretsService, useValue: mockSecretsService },
+        { provide: SearchService, useValue: mockSearchService },
       ],
     }).compile();
 

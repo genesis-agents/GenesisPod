@@ -8,6 +8,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { LeaderPlanningService } from "../../services/core/leader-planning.service";
+import { ResearchMemoryService } from "../../services/core/research-memory.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
@@ -27,11 +28,14 @@ describe("LeaderPlanningService", () => {
     prisma = createMockPrisma();
     aiFacade = createMockAiEngineFacade();
 
+    const mockResearchMemoryService = {};
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LeaderPlanningService,
         { provide: PrismaService, useValue: prisma },
         { provide: AIEngineFacade, useValue: aiFacade },
+        { provide: ResearchMemoryService, useValue: mockResearchMemoryService },
       ],
     }).compile();
 

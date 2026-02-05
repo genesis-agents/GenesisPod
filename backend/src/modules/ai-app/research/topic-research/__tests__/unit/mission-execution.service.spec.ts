@@ -10,6 +10,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { MissionExecutionService } from "../../services/core/mission-execution.service";
 import { ResearchEventEmitterService } from "../../services/core/research-event-emitter.service";
 import { MissionQueryService } from "../../services/core/mission-query.service";
+import { ResearchMemoryService } from "../../services/core/research-memory.service";
 import { DimensionMissionService } from "../../services/dimension/dimension-mission.service";
 import { ReportSynthesisService } from "../../services/report/report-synthesis.service";
 import { AgentActivityService } from "../../services/monitoring/agent-activity.service";
@@ -112,6 +113,10 @@ describe("MissionExecutionService", () => {
       }),
     };
 
+    const mockResearchMemoryService = {
+      extractAndStoreFindings: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MissionExecutionService,
@@ -121,6 +126,7 @@ describe("MissionExecutionService", () => {
           useValue: researchEventEmitter,
         },
         { provide: MissionQueryService, useValue: queryService },
+        { provide: ResearchMemoryService, useValue: mockResearchMemoryService },
         { provide: DimensionMissionService, useValue: dimensionMissionService },
         { provide: ReportSynthesisService, useValue: reportSynthesisService },
         { provide: AgentActivityService, useValue: agentActivity },
@@ -263,7 +269,7 @@ describe("MissionExecutionService", () => {
       const concurrency = await service.calculateDynamicConcurrency();
 
       // Assert
-      expect(concurrency).toBe(5);
+      expect(concurrency).toBe(4); // MIN_CONCURRENCY = 4
     });
 
     it("should return higher concurrency for multiple providers", async () => {
@@ -277,7 +283,7 @@ describe("MissionExecutionService", () => {
       const concurrency = await service.calculateDynamicConcurrency();
 
       // Assert
-      expect(concurrency).toBe(7); // Base 5 + (2-1)*2
+      expect(concurrency).toBe(6); // Base 4 + (2-1)*2 = 6
     });
 
     it("should cap concurrency at maximum limit", async () => {
@@ -294,7 +300,7 @@ describe("MissionExecutionService", () => {
       const concurrency = await service.calculateDynamicConcurrency();
 
       // Assert
-      expect(concurrency).toBe(10); // Max concurrency
+      expect(concurrency).toBe(8); // MAX_CONCURRENCY = 8
     });
 
     it("should return minimum concurrency on error", async () => {
@@ -305,7 +311,7 @@ describe("MissionExecutionService", () => {
       const concurrency = await service.calculateDynamicConcurrency();
 
       // Assert
-      expect(concurrency).toBe(5); // Fallback to minimum
+      expect(concurrency).toBe(4); // Fallback to MIN_CONCURRENCY = 4
     });
   });
 
@@ -490,6 +496,7 @@ describe("MissionExecutionService", () => {
         ],
       };
 
+      prisma.researchTask.updateMany.mockResolvedValue({ count: 1 });
       prisma.researchTask.findUnique
         .mockResolvedValueOnce({
           status: ResearchTaskStatus.PENDING,
@@ -528,13 +535,18 @@ describe("MissionExecutionService", () => {
       );
 
       // Assert
-      expect(queryService.updateTaskStatus).toHaveBeenCalledWith(
-        task.id,
-        ResearchTaskStatus.EXECUTING,
-      );
+      // Status update to EXECUTING is done via updateMany (atomic CAS), not updateTaskStatus
+      expect(prisma.researchTask.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: task.id,
+          status: ResearchTaskStatus.PENDING,
+        },
+        data: { status: ResearchTaskStatus.EXECUTING },
+      });
       expect(
         dimensionMissionService.executeDimensionMission,
       ).toHaveBeenCalled();
+      // Only COMPLETED status update goes through updateTaskStatus
       expect(queryService.updateTaskStatus).toHaveBeenCalledWith(
         task.id,
         ResearchTaskStatus.COMPLETED,
@@ -599,6 +611,7 @@ describe("MissionExecutionService", () => {
         ],
       };
 
+      prisma.researchTask.updateMany.mockResolvedValue({ count: 1 });
       prisma.researchTask.findUnique.mockResolvedValue({
         status: ResearchTaskStatus.PENDING,
         modelId: "gpt-4o-mini",

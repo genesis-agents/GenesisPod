@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { AiModelConfigService } from "../ai-model-config.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { SecretsService } from "../../../../core/secrets/secrets.service";
+import { UserApiKeysService } from "../../../../core/user-api-keys/user-api-keys.service";
 import { AIModelType } from "@prisma/client";
 
 describe("AiModelConfigService", () => {
@@ -118,11 +119,14 @@ describe("AiModelConfigService", () => {
       getValueInternal: jest.fn(),
     };
 
+    const mockUserApiKeysService = {};
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiModelConfigService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: SecretsService, useValue: mockSecretsService },
+        { provide: UserApiKeysService, useValue: mockUserApiKeysService },
       ],
     }).compile();
 
@@ -276,9 +280,8 @@ describe("AiModelConfigService", () => {
 
       // Force cache refresh by calling refreshModelConfigCache
       await service.refreshModelConfigCache();
-      const firstCallCount = (
-        prismaService.aIModel.findMany as jest.Mock
-      ).mock.calls.length;
+      const firstCallCount = (prismaService.aIModel.findMany as jest.Mock).mock
+        .calls.length;
 
       // Fast-forward time by 6 minutes (cache TTL is 5 minutes)
       jest.spyOn(Date, "now").mockReturnValue(Date.now() + 6 * 60 * 1000);
