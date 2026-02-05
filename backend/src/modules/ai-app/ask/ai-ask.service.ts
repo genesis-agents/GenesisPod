@@ -814,9 +814,30 @@ export class AiAskService {
       if (this.shortTermMemory) {
         try {
           await this.shortTermMemory.clearSession(sessionId);
+          // Rebuild cache from DB to prevent stale reads
+          const freshMessages = await this.prisma.askMessage.findMany({
+            where: { sessionId },
+            orderBy: { createdAt: "desc" },
+            take: this.MAX_MEMORY_MESSAGES,
+          });
+          if (freshMessages.length > 0) {
+            const orderedMessages = freshMessages.reverse();
+            const updatedHistory: MessageWithContext[] = orderedMessages.map(
+              (m) => ({
+                role: m.role as "user" | "assistant" | "system",
+                content: this.sanitizeMessageContent(m.content),
+              }),
+            );
+            await this.shortTermMemory.setWithSession(
+              sessionId,
+              this.MEMORY_KEY,
+              updatedHistory,
+              this.MEMORY_TTL,
+            );
+          }
         } catch (error) {
           this.logger.warn(
-            `Failed to clear cache after regeneration: ${(error as Error).message}`,
+            `Failed to rebuild cache after regeneration: ${(error as Error).message}`,
           );
         }
       }

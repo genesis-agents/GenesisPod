@@ -138,17 +138,10 @@ export class A2AController {
       );
     }
 
-    // P0 #7: Sanitize metadata - strip dangerous keys
-    const sanitizedMetadata: Record<string, unknown> = {};
-    if (request.metadata) {
-      const BLOCKED_KEYS = ["__proto__", "constructor", "prototype"];
-      for (const [key, value] of Object.entries(request.metadata)) {
-        if (BLOCKED_KEYS.includes(key)) continue;
-        if (typeof key !== "string" || key.length > 100) continue;
-        if (typeof value === "string" && value.length > 10_000) continue;
-        sanitizedMetadata[key] = value;
-      }
-    }
+    // P0 #7: Sanitize metadata - strip dangerous keys (recursive)
+    const sanitizedMetadata = request.metadata
+      ? this.sanitizeMetadata(request.metadata)
+      : {};
 
     // P1 #12: Validate webhook URL if provided
     let webhookUrl: string | undefined;
@@ -164,14 +157,34 @@ export class A2AController {
         if (
           hostname === "localhost" ||
           hostname === "127.0.0.1" ||
+          hostname === "0.0.0.0" ||
           hostname === "::1" ||
           hostname.endsWith(".local") ||
           hostname.startsWith("10.") ||
           hostname.startsWith("192.168.") ||
-          hostname.startsWith("172.")
+          /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) || // 172.16-31.x
+          hostname.startsWith("169.254.") || // Link-local, cloud metadata
+          hostname.startsWith("fe80:") || // IPv6 link-local
+          hostname.startsWith("fc") || // IPv6 unique local
+          hostname.startsWith("fd") // IPv6 unique local
         ) {
           throw new BadRequestException(
             "Webhook URL must not point to private networks",
+          );
+        }
+        // Block dangerous ports
+        const BLOCKED_PORTS = [
+          "22",
+          "25",
+          "3306",
+          "5432",
+          "6379",
+          "9200",
+          "27017",
+        ];
+        if (url.port && BLOCKED_PORTS.includes(url.port)) {
+          throw new BadRequestException(
+            "Webhook URL must not use internal service ports",
           );
         }
         webhookUrl = request.config.webhookUrl;
@@ -418,6 +431,41 @@ export class A2AController {
   }
 
   /**
+   * Recursively sanitize metadata to prevent prototype pollution
+   */
+  private sanitizeMetadata(obj: unknown, depth = 0): Record<string, unknown> {
+    const MAX_DEPTH = 5;
+    if (depth > MAX_DEPTH || typeof obj !== "object" || obj === null) return {};
+
+    const BLOCKED_KEYS = ["__proto__", "constructor", "prototype"];
+    const result: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      if (BLOCKED_KEYS.includes(key)) continue;
+      if (typeof key !== "string" || key.length > 100) continue;
+
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value)
+      ) {
+        result[key] = this.sanitizeMetadata(value, depth + 1);
+      } else if (typeof value === "string") {
+        result[key] = value.length > 10_000 ? value.slice(0, 10_000) : value;
+      } else if (
+        typeof value === "number" ||
+        typeof value === "boolean" ||
+        value === null
+      ) {
+        result[key] = value;
+      } else if (Array.isArray(value)) {
+        result[key] = value.slice(0, 100);
+      }
+    }
+    return result;
+  }
+
+  /**
    * P1 #17: Per-API-key rate limiting
    */
   private checkRateLimit(apiKeyId: string): void {
@@ -432,11 +480,11 @@ export class A2AController {
       return;
     }
 
-    if (entry.count >= this.RATE_LIMIT) {
+    entry.count++;
+
+    if (entry.count > this.RATE_LIMIT) {
       throw new HttpException("Rate limit exceeded", 429);
     }
-
-    entry.count++;
   }
 
   /**

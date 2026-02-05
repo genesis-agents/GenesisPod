@@ -489,7 +489,7 @@ export class DebateService {
    * 基于参与者对各方论点的评估进行投票
    */
   private async conductRoundVoting(
-    _sessionId: string,
+    sessionId: string,
     round: number,
     redPosition: { id: string; displayName: string; position: string },
     bluePosition: { id: string; displayName: string; position: string },
@@ -532,8 +532,11 @@ export class DebateService {
       const redScore = this.evaluateArgumentStrength(redPosition.position);
       const blueScore = this.evaluateArgumentStrength(bluePosition.position);
 
-      // 使用辩论双方的 agent ID 作为投票者（模拟交叉评审）
-      const voters = [redPosition.id, bluePosition.id];
+      // Use AI evaluation judges instead of self-voting debaters
+      const voters = [
+        `judge-${sessionId}-round-${round}`,
+        `judge-${sessionId}-review`,
+      ];
 
       for (const voterId of voters) {
         // 基于评分投票

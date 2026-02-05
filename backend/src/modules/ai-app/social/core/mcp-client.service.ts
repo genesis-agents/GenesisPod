@@ -173,10 +173,16 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
         }
         // Re-fetch after start
         client = this.mcpManager.getClient(serverId);
+        if (!client) {
+          return {
+            success: false,
+            error: `Server ${serverId} started but client not available`,
+          };
+        }
       }
 
       // 如果未连接，尝试连接
-      if (!client?.connected) {
+      if (!client.connected) {
         await this.mcpManager.connect(serverId);
       }
 
@@ -199,13 +205,17 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
    */
   async listTools(serverId: string): Promise<unknown[]> {
     try {
-      const client = this.mcpManager.getClient(serverId);
+      let client = this.mcpManager.getClient(serverId);
       if (!client) {
         throw new Error(`Server ${serverId} not found`);
       }
 
       if (!client.connected) {
         await this.mcpManager.connect(serverId);
+        client = this.mcpManager.getClient(serverId);
+        if (!client) {
+          throw new Error(`Failed to reconnect to ${serverId}`);
+        }
       }
 
       const tools = await client.listTools();

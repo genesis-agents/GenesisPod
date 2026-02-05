@@ -415,16 +415,24 @@ export class SQLExecutorTool extends BaseTool<
     const namedParamRegex = /:(\w+)\b/g;
     const matches = [...query.matchAll(namedParamRegex)];
 
-    // 按照出现顺序替换命名参数为位置参数
+    // 使用 Map 追踪唯一参数名 → 位置索引，避免重复参数
+    const paramIndexMap = new Map<string, number>();
+
     matches.forEach((match) => {
       const paramName = match[1];
       if (paramName in parameters) {
-        values.push(parameters[paramName]);
-        const positionalParam = `$${values.length}`;
-        // 替换第一个匹配项（因为我们按顺序处理）
-        sql = sql.replace(`:${paramName}`, positionalParam);
+        if (!paramIndexMap.has(paramName)) {
+          values.push(parameters[paramName]);
+          paramIndexMap.set(paramName, values.length);
+        }
       }
     });
+
+    // 使用全局正则替换所有出现的命名参数
+    for (const [paramName, index] of paramIndexMap.entries()) {
+      const paramRegex = new RegExp(`:${paramName}\\b`, "g");
+      sql = sql.replace(paramRegex, `$${index}`);
+    }
 
     // 如果查询已经包含位置参数 $1, $2，且没有提供命名参数
     // 则直接使用 parameters 对象的值（按键的数字顺序）

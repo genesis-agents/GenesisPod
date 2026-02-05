@@ -15,6 +15,7 @@ import {
   JSON_RPC_ERRORS,
 } from "./abstractions/mcp-server.interface";
 import { GuardrailsPipelineService } from "../ai-engine/guardrails/guardrails-pipeline.service";
+import { LruMap } from "@/common/utils/lru-map";
 
 @Injectable()
 export class MCPServerService implements OnModuleInit {
@@ -22,10 +23,10 @@ export class MCPServerService implements OnModuleInit {
   private readonly guardrailsEnabled: boolean;
   private readonly guardrailsFailClosed: boolean;
   private readonly toolHandlers = new Map<string, IMCPToolHandler>();
-  private readonly sessions = new Map<
+  private readonly sessions = new LruMap<
     string,
     { clientInfo?: { name: string; version: string }; createdAt: Date }
-  >();
+  >(1000);
 
   constructor(
     @Optional() private readonly guardrailsPipeline?: GuardrailsPipelineService,
