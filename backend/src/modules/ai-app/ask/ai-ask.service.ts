@@ -177,6 +177,25 @@ export class AiAskService {
       orderBy: { createdAt: "asc" },
     });
 
+    if (this.shortTermMemory && messages.length > 0) {
+      try {
+        const contextMessages = messages
+          .slice(-this.MAX_MEMORY_MESSAGES)
+          .map((m) => ({
+            role: m.role as "user" | "assistant" | "system",
+            content: this.sanitizeMessageContent(m.content),
+          }));
+        await this.shortTermMemory.setWithSession(
+          sessionId,
+          this.MEMORY_KEY,
+          contextMessages,
+          this.MEMORY_TTL,
+        );
+      } catch (error) {
+        this.logger.warn(`Failed to warm cache: ${(error as Error).message}`);
+      }
+    }
+
     return {
       session,
       messages,
@@ -488,6 +507,12 @@ export class AiAskService {
             },
           });
 
+          // 更新会话时间戳
+          await this.prisma.askSession.update({
+            where: { id: sessionId },
+            data: { updatedAt: new Date() },
+          });
+
           // 更新 ShortTermMemory 中的对话历史
           await this.updateConversationMemory(
             sessionId,
@@ -497,12 +522,6 @@ export class AiAskService {
               content: this.sanitizeMessageContent(aiResponseContent),
             },
           );
-
-          // 更新会话时间戳
-          await this.prisma.askSession.update({
-            where: { id: sessionId },
-            data: { updatedAt: new Date() },
-          });
 
           // 如果是第一条消息，自动生成标题
           const messageCount = await this.prisma.askMessage.count({
@@ -792,6 +811,16 @@ export class AiAskService {
         },
       });
 
+      if (this.shortTermMemory) {
+        try {
+          await this.shortTermMemory.clearSession(sessionId);
+        } catch (error) {
+          this.logger.warn(
+            `Failed to clear cache after regeneration: ${(error as Error).message}`,
+          );
+        }
+      }
+
       return updatedMessage;
     } catch (error) {
       this.logger.error(`Failed to regenerate message: ${error}`);
@@ -891,40 +920,27 @@ export class AiAskService {
    */
   private async updateConversationMemory(
     sessionId: string,
-    userMessage: MessageWithContext,
-    assistantMessage: MessageWithContext,
+    _userMessage: MessageWithContext,
+    _assistantMessage: MessageWithContext,
   ): Promise<void> {
     if (!this.shortTermMemory) {
       return;
     }
 
     try {
-      // 获取当前缓存的历史
-      const cachedHistory = await this.shortTermMemory.getWithSession(
-        sessionId,
-        this.MEMORY_KEY,
-      );
+      const messages = await this.prisma.askMessage.findMany({
+        where: { sessionId },
+        orderBy: { createdAt: "desc" },
+        take: this.MAX_MEMORY_MESSAGES,
+      });
 
-      let updatedHistory: MessageWithContext[];
+      const orderedMessages = messages.reverse();
 
-      if (cachedHistory && Array.isArray(cachedHistory)) {
-        // 追加新消息到现有历史
-        updatedHistory = [
-          ...(cachedHistory as MessageWithContext[]),
-          userMessage,
-          assistantMessage,
-        ];
-      } else {
-        // 创建新历史
-        updatedHistory = [userMessage, assistantMessage];
-      }
+      const updatedHistory: MessageWithContext[] = orderedMessages.map((m) => ({
+        role: m.role as "user" | "assistant" | "system",
+        content: this.sanitizeMessageContent(m.content),
+      }));
 
-      // 限制历史长度，保留最近的 N 条消息
-      if (updatedHistory.length > this.MAX_MEMORY_MESSAGES) {
-        updatedHistory = updatedHistory.slice(-this.MAX_MEMORY_MESSAGES);
-      }
-
-      // 更新缓存
       await this.shortTermMemory.setWithSession(
         sessionId,
         this.MEMORY_KEY,

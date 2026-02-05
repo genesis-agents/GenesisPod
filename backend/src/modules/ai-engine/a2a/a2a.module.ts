@@ -10,11 +10,16 @@ import { AgentCardRegistry } from "./agent-card/agent-card.registry";
 import { A2AApiKeyGuard } from "./guards/a2a-api-key.guard";
 import { SecretsModule } from "../../core/secrets/secrets.module";
 import { TeamsModule } from "../teams/teams.module";
+import { TraceCollectorService } from "../observability/trace-collector.service";
 
 @Module({
   imports: [SecretsModule, TeamsModule],
   controllers: [A2AController],
-  providers: [AgentCardRegistry, A2AApiKeyGuard],
+  providers: [
+    AgentCardRegistry,
+    A2AApiKeyGuard,
+    TraceCollectorService, // P1 #21: Add observability support
+  ],
   exports: [AgentCardRegistry],
 })
 export class A2AModule {}

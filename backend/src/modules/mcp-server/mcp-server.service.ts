@@ -5,6 +5,7 @@
 
 import { Injectable, Logger, OnModuleInit, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { randomBytes } from "crypto";
 import {
   JsonRpcRequest,
   JsonRpcResponse,
@@ -19,6 +20,7 @@ import { GuardrailsPipelineService } from "../ai-engine/guardrails/guardrails-pi
 export class MCPServerService implements OnModuleInit {
   private readonly logger = new Logger(MCPServerService.name);
   private readonly guardrailsEnabled: boolean;
+  private readonly guardrailsFailClosed: boolean;
   private readonly toolHandlers = new Map<string, IMCPToolHandler>();
   private readonly sessions = new Map<
     string,
@@ -31,6 +33,8 @@ export class MCPServerService implements OnModuleInit {
   ) {
     this.guardrailsEnabled =
       this.configService?.get<string>("GUARDRAILS_ENABLED") === "true";
+    this.guardrailsFailClosed =
+      this.configService?.get<string>("GUARDRAILS_FAIL_CLOSED") === "true";
     if (this.guardrailsEnabled && this.guardrailsPipeline) {
       this.logger.log("MCP Server guardrails enabled");
     }
@@ -197,23 +201,30 @@ export class MCPServerService implements OnModuleInit {
 
         if (!inputCheck.passed) {
           this.logger.warn(
-            `MCP tool call blocked by input guardrails: ${params.name}`,
+            `MCP tool call blocked by input guardrail: ${inputCheck.blockedBy}`,
           );
           return {
             content: [
               {
                 type: "text",
-                text: `Input blocked by guardrails: ${inputCheck.blockedBy || "validation failed"}`,
+                text: "Request blocked by security policy",
               },
             ],
             isError: true,
           };
         }
       } catch (guardrailError) {
-        // Non-blocking: log warning and continue
-        this.logger.warn(
-          `MCP input guardrail check failed: ${(guardrailError as Error).message}`,
+        this.logger.error(
+          `MCP input guardrail execution error: ${(guardrailError as Error).message}`,
         );
+        if (this.guardrailsFailClosed) {
+          return {
+            content: [
+              { type: "text", text: "Security validation unavailable" },
+            ],
+            isError: true,
+          };
+        }
       }
     }
 
@@ -230,23 +241,30 @@ export class MCPServerService implements OnModuleInit {
 
           if (!outputCheck.passed) {
             this.logger.warn(
-              `MCP tool output blocked by guardrails: ${params.name}`,
+              `MCP tool output blocked by guardrail: ${outputCheck.blockedBy}`,
             );
             return {
               content: [
                 {
                   type: "text",
-                  text: `Output blocked by guardrails: ${outputCheck.blockedBy || "validation failed"}`,
+                  text: "Request blocked by security policy",
                 },
               ],
               isError: true,
             };
           }
         } catch (guardrailError) {
-          // Non-blocking: log warning but return result
-          this.logger.warn(
-            `MCP output guardrail check failed: ${(guardrailError as Error).message}`,
+          this.logger.error(
+            `MCP output guardrail execution error: ${(guardrailError as Error).message}`,
           );
+          if (this.guardrailsFailClosed) {
+            return {
+              content: [
+                { type: "text", text: "Security validation unavailable" },
+              ],
+              isError: true,
+            };
+          }
         }
       }
 
@@ -274,7 +292,7 @@ export class MCPServerService implements OnModuleInit {
   }
 
   private generateSessionId(): string {
-    return `mcp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    return `mcp-${randomBytes(16).toString("hex")}`;
   }
 
   /**

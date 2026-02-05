@@ -107,10 +107,17 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  onModuleDestroy(): void {
+  async onModuleDestroy(): Promise<void> {
     this.logger.log("Shutting down Social MCP Client");
-    // MCPManager 会在其自己的生命周期中处理断开连接
-    // 这里不需要手动断开，避免重复操作
+    for (const config of MCP_SERVER_CONFIGS) {
+      try {
+        await this.mcpManager.disconnect(config.id);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to disconnect ${config.id}: ${(error as Error).message}`,
+        );
+      }
+    }
   }
 
   /**
@@ -154,7 +161,7 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
   ): Promise<MCPToolResult> {
     try {
       // 检查客户端是否存在
-      const client = this.mcpManager.getClient(serverId);
+      let client = this.mcpManager.getClient(serverId);
       if (!client) {
         // 尝试启动服务器
         const started = await this.startServer(serverId);
@@ -164,6 +171,8 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
             error: `Server ${serverId} not found or failed to start`,
           };
         }
+        // Re-fetch after start
+        client = this.mcpManager.getClient(serverId);
       }
 
       // 如果未连接，尝试连接

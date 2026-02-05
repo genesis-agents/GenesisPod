@@ -28,6 +28,7 @@ export interface AgentStatusReport {
 export class AgentOrchestrator {
   private readonly logger = new Logger(AgentOrchestrator.name);
   private readonly guardrailsEnabled: boolean;
+  private readonly guardrailsFailClosed: boolean;
 
   constructor(
     private readonly registry: AgentRegistry,
@@ -36,6 +37,8 @@ export class AgentOrchestrator {
   ) {
     this.guardrailsEnabled =
       this.configService?.get<string>("GUARDRAILS_ENABLED") === "true";
+    this.guardrailsFailClosed =
+      this.configService?.get<string>("GUARDRAILS_FAIL_CLOSED") === "true";
     if (this.guardrailsEnabled && this.guardrailsPipeline) {
       this.logger.log("Agent Orchestrator guardrails enabled");
     }
@@ -61,19 +64,25 @@ export class AgentOrchestrator {
 
         if (!inputCheck.passed) {
           this.logger.warn(
-            `Agent execution blocked by input guardrails: ${inputCheck.blockedBy}`,
+            `Agent execution blocked by input guardrail: ${inputCheck.blockedBy}`,
           );
           yield {
             type: "error",
-            error: `Input blocked by guardrails: ${inputCheck.blockedBy || "validation failed"}`,
+            error: "Request blocked by security policy",
           };
           return;
         }
       } catch (guardrailError) {
-        // Non-blocking: log warning and continue
-        this.logger.warn(
-          `Agent input guardrail check failed: ${(guardrailError as Error).message}`,
+        this.logger.error(
+          `Agent input guardrail execution error: ${(guardrailError as Error).message}`,
         );
+        if (this.guardrailsFailClosed) {
+          yield {
+            type: "error",
+            error: "Security validation unavailable",
+          };
+          return;
+        }
       }
     }
 
@@ -122,20 +131,27 @@ export class AgentOrchestrator {
 
             if (!outputCheck.passed) {
               this.logger.warn(
-                `Agent output blocked by guardrails: ${outputCheck.blockedBy}`,
+                `Agent output blocked by guardrail: ${outputCheck.blockedBy}`,
               );
               yield {
                 type: "error",
-                error: `Output blocked by guardrails: ${outputCheck.blockedBy || "validation failed"}`,
+                error: "Request blocked by security policy",
               };
               this.registry.recordExecution(selectedAgentId, false);
               return;
             }
           } catch (guardrailError) {
-            // Non-blocking: log warning but continue
-            this.logger.warn(
-              `Agent output guardrail check failed: ${(guardrailError as Error).message}`,
+            this.logger.error(
+              `Agent output guardrail execution error: ${(guardrailError as Error).message}`,
             );
+            if (this.guardrailsFailClosed) {
+              yield {
+                type: "error",
+                error: "Security validation unavailable",
+              };
+              this.registry.recordExecution(selectedAgentId, false);
+              return;
+            }
           }
         }
 

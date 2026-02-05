@@ -489,7 +489,7 @@ export class DebateService {
    * 基于参与者对各方论点的评估进行投票
    */
   private async conductRoundVoting(
-    sessionId: string,
+    _sessionId: string,
     round: number,
     redPosition: { id: string; displayName: string; position: string },
     bluePosition: { id: string; displayName: string; position: string },
@@ -498,11 +498,9 @@ export class DebateService {
       return null;
     }
 
-    const voteId = `debate-${sessionId}-round-${round}`;
-
     try {
       // 创建投票会话
-      this.votingManager.createVote({
+      const session = this.votingManager.createVote({
         topic: `第 ${round} 轮辩论投票`,
         options: [
           {
@@ -522,7 +520,7 @@ export class DebateService {
       });
 
       this.logger.log(
-        `[Debate] Created voting session ${voteId} for round ${round}`,
+        `[Debate] Created voting session ${session.id} for round ${round}`,
       );
 
       // 在实际场景中，这里应该由参与者（可能是其他团队成员或裁判）投票
@@ -534,18 +532,18 @@ export class DebateService {
       const redScore = this.evaluateArgumentStrength(redPosition.position);
       const blueScore = this.evaluateArgumentStrength(bluePosition.position);
 
-      // 为演示目的，我们创建2个虚拟投票者
-      const voters = ["voter-1", "voter-2"];
+      // 使用辩论双方的 agent ID 作为投票者（模拟交叉评审）
+      const voters = [redPosition.id, bluePosition.id];
 
       for (const voterId of voters) {
         // 基于评分投票
         const preferredOption =
           redScore > blueScore ? redPosition.id : bluePosition.id;
-        this.votingManager.castVote(voteId, voterId, preferredOption);
+        this.votingManager.castVote(session.id, voterId, preferredOption);
       }
 
       // 关闭投票并获取结果
-      const result = this.votingManager.closeVote(voteId, voters.length);
+      const result = this.votingManager.closeVote(session.id, voters.length);
 
       if (result) {
         this.logger.log(

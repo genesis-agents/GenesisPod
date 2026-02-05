@@ -303,10 +303,10 @@ export class SQLExecutorTool extends BaseTool<
     try {
       // 使用 Prisma 的 $queryRawUnsafe 执行参数化 SQL
       // 参数值作为独立参数传递，确保不会被解释为 SQL 代码
-      const rows = (await this.prisma.$queryRawUnsafe(
-        query,
-        ...values,
-      )) as Array<Record<string, unknown>>;
+      const result = await this.prisma.$queryRawUnsafe(query, ...values);
+      const rows: Array<Record<string, unknown>> = Array.isArray(result)
+        ? result
+        : [];
 
       // 限制返回行数
       const limitedRows = rows.slice(0, maxRows);

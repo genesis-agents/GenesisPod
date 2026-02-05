@@ -15,6 +15,8 @@ import {
   HttpStatus,
   NotFoundException,
   BadRequestException,
+  HttpException,
+  Optional,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -36,15 +38,24 @@ import {
 } from "./abstractions/a2a.interface";
 import { TeamsService } from "../teams/services/teams.service";
 import { TeamId } from "../teams/abstractions/team.interface";
+import { LruMap } from "@/common/utils/lru-map";
+import { TraceCollectorService } from "../observability/trace-collector.service";
 
 @ApiTags("A2A Protocol")
 @Controller()
 export class A2AController {
   private readonly logger = new Logger(A2AController.name);
+  private readonly rateLimiter = new LruMap<
+    string,
+    { count: number; resetAt: number }
+  >(1000);
+  private readonly RATE_LIMIT = 30;
+  private readonly RATE_WINDOW = 60_000; // 1 minute
 
   constructor(
     private readonly agentCardRegistry: AgentCardRegistry,
     private readonly teamsService: TeamsService,
+    @Optional() private readonly traceCollector?: TraceCollectorService,
   ) {}
 
   /**
@@ -110,6 +121,66 @@ export class A2AController {
   async createTask(@Body() request: A2ATaskRequest): Promise<A2ATaskResponse> {
     this.logger.log(`Create task request for skill: ${request.skillId}`);
 
+    // P1 #17: Rate limit per API key (from guard-injected metadata)
+    const apiKeyId = (request as any).a2aApiKeyId || "unknown";
+    this.checkRateLimit(apiKeyId);
+
+    // P0 #7: Validate input content
+    const MAX_CONTENT_LENGTH = 100_000; // 100KB
+    if (!request.input?.content || typeof request.input.content !== "string") {
+      throw new BadRequestException(
+        "Invalid input: content must be a non-empty string",
+      );
+    }
+    if (request.input.content.length > MAX_CONTENT_LENGTH) {
+      throw new BadRequestException(
+        `Input content exceeds maximum length of ${MAX_CONTENT_LENGTH} characters`,
+      );
+    }
+
+    // P0 #7: Sanitize metadata - strip dangerous keys
+    const sanitizedMetadata: Record<string, unknown> = {};
+    if (request.metadata) {
+      const BLOCKED_KEYS = ["__proto__", "constructor", "prototype"];
+      for (const [key, value] of Object.entries(request.metadata)) {
+        if (BLOCKED_KEYS.includes(key)) continue;
+        if (typeof key !== "string" || key.length > 100) continue;
+        if (typeof value === "string" && value.length > 10_000) continue;
+        sanitizedMetadata[key] = value;
+      }
+    }
+
+    // P1 #12: Validate webhook URL if provided
+    let webhookUrl: string | undefined;
+    if (request.config?.webhookUrl) {
+      try {
+        const url = new URL(request.config.webhookUrl);
+        // Only allow https
+        if (url.protocol !== "https:") {
+          throw new BadRequestException("Webhook URL must use HTTPS");
+        }
+        // Block private/internal IPs
+        const hostname = url.hostname.toLowerCase();
+        if (
+          hostname === "localhost" ||
+          hostname === "127.0.0.1" ||
+          hostname === "::1" ||
+          hostname.endsWith(".local") ||
+          hostname.startsWith("10.") ||
+          hostname.startsWith("192.168.") ||
+          hostname.startsWith("172.")
+        ) {
+          throw new BadRequestException(
+            "Webhook URL must not point to private networks",
+          );
+        }
+        webhookUrl = request.config.webhookUrl;
+      } catch (error) {
+        if (error instanceof BadRequestException) throw error;
+        throw new BadRequestException("Invalid webhook URL");
+      }
+    }
+
     // 验证技能是否存在
     const skill = this.agentCardRegistry.getSkillById(request.skillId);
     if (!skill) {
@@ -147,6 +218,13 @@ export class A2AController {
       };
     }
 
+    // P1 #21: Start trace for observability
+    const traceId = this.traceCollector?.startTrace({
+      type: "a2a_task",
+      name: `A2A Task: ${request.skillId}`,
+      metadata: { skillId: request.skillId, apiKeyId },
+    });
+
     try {
       // 创建任务通过 TeamsService
       const missionId = await this.teamsService.executeMission({
@@ -157,15 +235,22 @@ export class A2AController {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         constraints: request.config?.constraints,
         metadata: {
-          ...(request.metadata ?? {}),
+          ...sanitizedMetadata,
           a2aSkillId: request.skillId,
-          webhookUrl: request.config?.webhookUrl,
+          webhookUrl,
         },
       });
 
       this.logger.log(
         `A2A task created: ${missionId} for skill: ${request.skillId}`,
       );
+
+      // P1 #21: End trace on success
+      if (traceId) {
+        this.traceCollector?.endTrace(traceId, {
+          status: "success",
+        });
+      }
 
       return {
         taskId: missionId,
@@ -177,6 +262,13 @@ export class A2AController {
       this.logger.error(
         `Failed to create A2A task for skill ${request.skillId}: ${error instanceof Error ? error.message : String(error)}`,
       );
+
+      // P1 #21: End trace on failure
+      if (traceId) {
+        this.traceCollector?.endTrace(traceId, {
+          status: "error",
+        });
+      }
 
       return {
         taskId: this.generateTaskId(),
@@ -323,6 +415,28 @@ export class A2AController {
         `Failed to retrieve task status: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
+  }
+
+  /**
+   * P1 #17: Per-API-key rate limiting
+   */
+  private checkRateLimit(apiKeyId: string): void {
+    const now = Date.now();
+    const entry = this.rateLimiter.get(apiKeyId);
+
+    if (!entry || now > entry.resetAt) {
+      this.rateLimiter.set(apiKeyId, {
+        count: 1,
+        resetAt: now + this.RATE_WINDOW,
+      });
+      return;
+    }
+
+    if (entry.count >= this.RATE_LIMIT) {
+      throw new HttpException("Rate limit exceeded", 429);
+    }
+
+    entry.count++;
   }
 
   /**
