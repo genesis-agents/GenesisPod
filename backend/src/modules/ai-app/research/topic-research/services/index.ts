@@ -18,6 +18,7 @@ export {
 } from "./core/research-event-emitter.service";
 export { ResearchRealtimeAdapter } from "./core/research-realtime.adapter";
 export { ResearchStrategyService } from "./core/research-strategy.service";
+export { ResearchMemoryService } from "./core/research-memory.service";
 
 // ★ Leader sub-services
 export { LeaderPlanningService } from "./core/leader-planning.service";
