@@ -2,8 +2,6 @@ import { Module, Global, Logger } from "@nestjs/common";
 import { CacheModule as NestCacheModule } from "@nestjs/cache-manager";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { redisStore } from "cache-manager-ioredis-yet";
-import Redis from "ioredis";
-import { promises as dns } from "dns";
 import { CacheService } from "./cache.service";
 
 /**
@@ -15,75 +13,24 @@ import { CacheService } from "./cache.service";
  *
  * 通过 REDIS_URL 环境变量自动切换模式
  *
- * Railway 注意事项：
- * - Railway .railway.internal DNS 可能解析到 ::1（IPv6 回环），Redis 不监听此地址
- * - DNS 预检：解析到 ::1 时立即跳过，零延迟降级
- * - 连接探测：用独立 ioredis 客户端 PING 验证，确保 store 可用
- * - 降级链：REDIS_URL（内网）→ REDIS_PUBLIC_URL（TCP Proxy）→ 内存缓存
+ * 重要：cache-manager-ioredis-yet 的 redisStore() 直接把 options 传给
+ * new Redis(options)，而 ioredis 不识别 options.url — 只有第一个字符串
+ * 参数才会被解析为 URL。因此必须手动解析 URL，传 host/port/password。
+ * 降级链：REDIS_URL（内网优先）→ REDIS_PUBLIC_URL（TCP Proxy）→ 内存缓存
  */
 
-/** DNS 预检：检测 Railway 内网 DNS 是否解析到回环地址 */
-async function isInternalDnsValid(
-  redisUrl: string,
-  logger: Logger,
-): Promise<boolean> {
-  try {
-    const hostname = new URL(redisUrl).hostname;
-    if (!hostname.endsWith(".railway.internal")) return true;
-
-    const addresses = await dns.resolve6(hostname);
-    if (addresses.every((a) => a === "::1")) {
-      logger.warn(
-        `Railway DNS: ${hostname} → ::1 (loopback). Internal networking unavailable.`,
-      );
-      return false;
-    }
-    logger.log(`Railway DNS: ${hostname} → ${addresses[0]} (OK)`);
-    return true;
-  } catch (err) {
-    logger.warn(
-      `DNS resolution failed: ${err instanceof Error ? err.message : err}`,
-    );
-    return false;
-  }
-}
-
-/** 连接探测：用独立客户端 PING 验证 Redis 可达性 */
-async function probeRedisConnection(
-  url: string,
-  logger: Logger,
-  label: string,
-): Promise<boolean> {
-  return new Promise((resolve) => {
-    const client = new Redis(url, {
-      connectTimeout: 3000,
-      maxRetriesPerRequest: 0,
-      enableOfflineQueue: false,
-      lazyConnect: true,
-      retryStrategy: () => null,
-    });
-    client.on("error", () => {});
-    const timer = setTimeout(() => {
-      client.disconnect();
-      logger.warn(`Redis probe timeout (${label})`);
-      resolve(false);
-    }, 4000);
-    client
-      .connect()
-      .then(() => client.ping())
-      .then(() => {
-        clearTimeout(timer);
-        client.disconnect();
-        logger.log(`Redis probe OK (${label}): PONG`);
-        resolve(true);
-      })
-      .catch((err) => {
-        clearTimeout(timer);
-        client.disconnect();
-        logger.warn(`Redis probe failed (${label}): ${err.message}`);
-        resolve(false);
-      });
-  });
+function parseRedisUrl(redisUrl: string) {
+  const parsed = new URL(redisUrl);
+  return {
+    host: parsed.hostname,
+    port: parseInt(parsed.port) || 6379,
+    password: parsed.password || undefined,
+    username:
+      parsed.username && parsed.username !== "default"
+        ? parsed.username
+        : undefined,
+    db: parsed.pathname ? parseInt(parsed.pathname.slice(1)) || 0 : 0,
+  };
 }
 
 @Global()
@@ -104,9 +51,9 @@ async function probeRedisConnection(
 
         // 内网优先，公网降级
         const urlCandidates = [
-          ...(redisUrl ? [{ url: redisUrl, label: "internal" as const }] : []),
+          ...(redisUrl ? [{ url: redisUrl, label: "internal" }] : []),
           ...(redisPublicUrl && redisPublicUrl !== redisUrl
-            ? [{ url: redisPublicUrl, label: "public" as const }]
+            ? [{ url: redisPublicUrl, label: "public" }]
             : []),
         ];
 
@@ -114,26 +61,15 @@ async function probeRedisConnection(
           const maskedUrl = url.replace(/\/\/.*@/, "//***@");
           logger.log(`Trying Redis (${label}): ${maskedUrl}`);
 
-          // 1) 内网 DNS 预检：::1 则立即跳过
-          if (label === "internal") {
-            const dnsOk = await isInternalDnsValid(url, logger);
-            if (!dnsOk) {
-              logger.log("Skipping internal URL, trying next candidate...");
-              continue;
-            }
-          }
-
-          // 2) 连接探测：PING 验证可达性
-          const reachable = await probeRedisConnection(url, logger, label);
-          if (!reachable) {
-            logger.warn(`Redis (${label}) unreachable, trying next...`);
-            continue;
-          }
-
-          // 3) 创建 cache store
           try {
+            const { host, port, password, username, db } = parseRedisUrl(url);
+
             const store = await redisStore({
-              url,
+              host,
+              port,
+              password,
+              username,
+              db,
               ttl: 300 * 1000,
               maxRetriesPerRequest: 3,
               enableOfflineQueue: false,
@@ -153,14 +89,17 @@ async function probeRedisConnection(
               },
             });
 
+            // 绑定 error 事件处理器，防止 "Unhandled error event" 刷屏
             const client = (store as any).client;
             if (client?.on) {
               client.on("error", (err: Error) => {
-                logger.warn(`Redis error: ${err.message}`);
+                logger.warn(`Redis error (${label}): ${err.message}`);
               });
             }
 
-            logger.log(`Redis cache connected successfully (${label})`);
+            logger.log(
+              `Redis cache connected successfully (${label}) → ${host}:${port}`,
+            );
             return { store, ttl: 300 * 1000 };
           } catch (error) {
             logger.error(
