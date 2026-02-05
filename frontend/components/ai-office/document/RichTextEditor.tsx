@@ -40,6 +40,7 @@ export default function RichTextEditor({
   editable = true,
 }: RichTextEditorProps) {
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       Placeholder.configure({

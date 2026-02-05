@@ -557,6 +557,7 @@ function ReportEditorInner({
 
   // TipTap editor for rich text mode
   const tiptapEditor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       Placeholder.configure({

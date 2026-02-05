@@ -704,6 +704,13 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
             : null,
         });
 
+        // ★ Auto-start polling if mission is active (e.g., page load with running research)
+        // Without this, navigating to a topic with an already-running mission
+        // would show a stale status because polling only started from startLeaderPlan()
+        if (isActive && !get().missionPollingInterval) {
+          get().startMissionPolling(topicId);
+        }
+
         // If completed, fetch the latest report
         if (status.status === 'COMPLETED') {
           get().fetchLatestReport(topicId);
