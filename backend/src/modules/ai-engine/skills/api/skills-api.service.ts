@@ -526,7 +526,6 @@ export class SkillsApiService {
       tools: "tools",
       dev: "development",
       development: "development",
-      coding: "development",
       test: "testing",
       testing: "testing",
       docs: "documentation",

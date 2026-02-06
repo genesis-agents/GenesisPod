@@ -354,33 +354,6 @@ export class RoleRegistry implements OnModuleInit {
 请确保内容清晰、结构合理、语言流畅。`,
     });
 
-    // Developer
-    this.registerFromConfig({
-      id: BUILTIN_ROLES.DEVELOPER,
-      name: "开发者",
-      description: ROLE_DESCRIPTIONS[BUILTIN_ROLES.DEVELOPER],
-      type: "member",
-      icon: "💻",
-      coreSkills: ["code-generation", "architecture-design", "debugging"],
-      coreTools: [
-        BUILTIN_TOOLS.CODE_GENERATION,
-        BUILTIN_TOOLS.PYTHON_EXECUTOR,
-        BUILTIN_TOOLS.JAVASCRIPT_EXECUTOR,
-      ],
-      responsibilities: [
-        "编写高质量代码",
-        "设计系统架构",
-        "调试和修复问题",
-        "编写技术文档",
-      ],
-      systemPromptTemplate: `你是{{role_name}}，{{role_description}}
-
-你的职责：
-{{responsibilities}}
-
-请遵循最佳实践，确保代码质量和可维护性。`,
-    });
-
     // Designer
     this.registerFromConfig({
       id: BUILTIN_ROLES.DESIGNER,

@@ -157,7 +157,6 @@ function TeamFormModal({ team, onClose, onSave }: TeamFormModalProps) {
               >
                 <option value="writing">Writing</option>
                 <option value="research">Research</option>
-                <option value="coding">Coding</option>
                 <option value="design">Design</option>
               </select>
             </div>

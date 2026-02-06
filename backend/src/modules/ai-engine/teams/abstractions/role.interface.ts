@@ -23,7 +23,6 @@ export const BUILTIN_ROLES = {
   RESEARCHER: "researcher",
   ANALYST: "analyst",
   WRITER: "writer",
-  DEVELOPER: "developer",
   DESIGNER: "designer",
   RENDERER: "renderer",
   REVIEWER: "reviewer",
@@ -164,8 +163,6 @@ export const ROLE_DESCRIPTIONS: Record<BuiltinRoleId, string> = {
   [BUILTIN_ROLES.ANALYST]: "分析师，负责数据分析、趋势洞察、逻辑推理、综合判断",
   [BUILTIN_ROLES.WRITER]:
     "写作者，负责内容创作、结构组织、语言润色、多风格写作",
-  [BUILTIN_ROLES.DEVELOPER]:
-    "开发者，负责代码生成、架构设计、问题调试、技术实现",
   [BUILTIN_ROLES.DESIGNER]:
     "设计师，负责视觉设计、创意构思、用户体验、排版美化",
   [BUILTIN_ROLES.RENDERER]:

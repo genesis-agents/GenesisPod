@@ -3085,7 +3085,6 @@ enum OfficeAgentType {
   SLIDES
   DOCS
   DESIGNER
-  DEVELOPER
 }
 
 enum OfficeTaskStatus {

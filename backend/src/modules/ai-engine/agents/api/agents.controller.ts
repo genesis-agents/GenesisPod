@@ -99,7 +99,7 @@ export class AgentsController {
   @ApiParam({
     name: "type",
     description: "Agent 类型（小写）",
-    enum: ["slides", "docs", "designer", "developer"],
+    enum: ["slides", "docs", "designer"],
     example: "slides",
   })
   @ApiResponse({

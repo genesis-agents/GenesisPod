@@ -27,6 +27,8 @@ import { SecretsService } from "../../core/secrets/secrets.service";
 import { SearchService } from "../search/search.service";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
 import { Public } from "../../../common/decorators/public.decorator";
+import { BillingContext } from "../../credits/billing-context";
+import { RequestContext } from "../../../common/context/request-context";
 
 interface TranslateSingleRequest {
   text: string;
@@ -439,7 +441,11 @@ export class AiCoreController {
    */
   @Post("simple-chat")
   @UseGuards(OptionalJwtAuthGuard)
-  async simpleChat(@Body() body: SimpleChatRequest, @Res() res: Response) {
+  async simpleChat(
+    @Body() body: SimpleChatRequest,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
     const {
       message,
       messages: contextMessages,
@@ -469,158 +475,165 @@ export class AiCoreController {
       );
     }
 
-    try {
-      // RAG: Query knowledge bases if IDs are provided
-      let ragContext = "";
-      let ragSources: Array<{
-        documentTitle: string;
-        excerpt: string;
-        score: number;
-      }> = [];
+    // Wrap in BillingContext for correct credit tracking
+    const userId = (req as any).user?.id || RequestContext.getUserId();
+    const operationType = knowledgeBaseIds?.length ? "rag-chat" : "chat";
 
-      // Check why RAG might not run
-      if (knowledgeBaseIds && knowledgeBaseIds.length > 0) {
-        if (!this.ragPipelineService) {
+    const executeChat = async () => {
+      try {
+        // RAG: Query knowledge bases if IDs are provided
+        let ragContext = "";
+        let ragSources: Array<{
+          documentTitle: string;
+          excerpt: string;
+          score: number;
+        }> = [];
+
+        // Check why RAG might not run
+        if (knowledgeBaseIds && knowledgeBaseIds.length > 0) {
+          if (!this.ragPipelineService) {
+            this.logger.warn(
+              `[simple-chat] RAG pipeline service not available! KB IDs were provided but RAG won't run.`,
+            );
+          }
+        }
+
+        if (
+          knowledgeBaseIds &&
+          knowledgeBaseIds.length > 0 &&
+          this.ragPipelineService
+        ) {
+          try {
+            this.logger.log(
+              `[simple-chat] Performing RAG query for KBs: ${knowledgeBaseIds.join(", ")}`,
+            );
+            const ragResponse = await this.ragPipelineService.query({
+              query: message,
+              knowledgeBaseIds,
+              options: {
+                topK: 5,
+                useHyde: false,
+                useRerank: false,
+                // When useRerank=false, scores are RRF scores (max ~0.016)
+                // So we need a much lower threshold than when using rerank scores (0-1)
+                minScore: 0.001,
+              },
+            });
+
+            // Debug: Log full RAG response
+            this.logger.log(
+              `[simple-chat] RAG response: hasContext=${!!ragResponse.context}, sourcesCount=${ragResponse.context?.sources?.length || 0}, contextTextLength=${ragResponse.context?.text?.length || 0}`,
+            );
+
+            if (ragResponse.context && ragResponse.context.sources.length > 0) {
+              ragContext = ragResponse.context.text;
+              ragSources = ragResponse.context.sources.map((s) => ({
+                documentTitle: s.documentTitle,
+                excerpt: s.excerpt,
+                score: s.score,
+              }));
+              this.logger.log(
+                `[simple-chat] RAG context added (${ragResponse.context.sources.length} sources): ${ragSources.map((s) => s.documentTitle).join(", ")}`,
+              );
+            } else {
+              this.logger.log(
+                `[simple-chat] RAG query returned no results above threshold`,
+              );
+            }
+          } catch (ragError) {
+            this.logger.warn(`[simple-chat] RAG query failed: ${ragError}`);
+            // RAG failure should not block the normal response
+          }
+        }
+
+        // Web Search: Search for real-time information if enabled
+        let webSearchContext = "";
+        let webSearchSources: Array<{ title: string; url: string }> = [];
+
+        if (webSearch && this.searchService) {
+          try {
+            this.logger.log(
+              `[simple-chat] Performing web search for: "${message.substring(0, 100)}..."`,
+            );
+            const searchResponse = await this.searchService.search(message, 5);
+
+            if (searchResponse.success && searchResponse.results.length > 0) {
+              webSearchContext = this.searchService.formatResultsForContext(
+                searchResponse.results,
+              );
+              webSearchSources = searchResponse.results.map((r) => ({
+                title: r.title,
+                url: r.url,
+              }));
+              this.logger.log(
+                `[simple-chat] Web search returned ${searchResponse.results.length} results (provider: ${searchResponse.provider})`,
+              );
+            } else {
+              this.logger.log(`[simple-chat] Web search returned no results`);
+            }
+          } catch (searchError) {
+            this.logger.warn(`[simple-chat] Web search failed: ${searchError}`);
+            // Web search failure should not block the normal response
+          }
+        } else if (webSearch && !this.searchService) {
           this.logger.warn(
-            `[simple-chat] RAG pipeline service not available! KB IDs were provided but RAG won't run.`,
+            `[simple-chat] Web search requested but SearchService not available`,
           );
         }
-      }
 
-      if (
-        knowledgeBaseIds &&
-        knowledgeBaseIds.length > 0 &&
-        this.ragPipelineService
-      ) {
-        try {
-          this.logger.log(
-            `[simple-chat] Performing RAG query for KBs: ${knowledgeBaseIds.join(", ")}`,
+        // ★ 使用 AIEngineFacade 统一获取模型（与 AI Ask 一致）
+        let targetModelId = model;
+        const facadeModel = await this.aiFacade.getModelById(model);
+
+        if (!facadeModel) {
+          // Fallback to default CHAT model
+          const defaultModel = await this.aiFacade.getDefaultTextModel();
+          if (!defaultModel) {
+            this.logger.warn(
+              `Model ${model} not found and no default available`,
+            );
+            throw new BadRequestException(`Model ${model} is not available`);
+          }
+          this.logger.warn(
+            `[simple-chat] Model "${model}" not found, using default: ${defaultModel.modelId}`,
           );
-          const ragResponse = await this.ragPipelineService.query({
-            query: message,
-            knowledgeBaseIds,
-            options: {
-              topK: 5,
-              useHyde: false,
-              useRerank: false,
-              // When useRerank=false, scores are RRF scores (max ~0.016)
-              // So we need a much lower threshold than when using rerank scores (0-1)
-              minScore: 0.001,
+          targetModelId = defaultModel.modelId;
+        } else {
+          targetModelId = facadeModel.modelId;
+        }
+
+        this.logger.log(
+          `[simple-chat] Using model: ${targetModelId} (provider: ${facadeModel?.provider || "default"})`,
+        );
+
+        // Build messages array - support multi-turn context
+        let chatMessages: {
+          role: "user" | "assistant" | "system";
+          content: string;
+        }[];
+
+        if (contextMessages && contextMessages.length > 0) {
+          // Use provided messages array (already includes current message)
+          chatMessages = contextMessages;
+        } else if (context) {
+          // Legacy context string support
+          chatMessages = [
+            {
+              role: "user",
+              content: `Context:\n${context}\n\nUser Question:\n${message}`,
             },
-          });
-
-          // Debug: Log full RAG response
-          this.logger.log(
-            `[simple-chat] RAG response: hasContext=${!!ragResponse.context}, sourcesCount=${ragResponse.context?.sources?.length || 0}, contextTextLength=${ragResponse.context?.text?.length || 0}`,
-          );
-
-          if (ragResponse.context && ragResponse.context.sources.length > 0) {
-            ragContext = ragResponse.context.text;
-            ragSources = ragResponse.context.sources.map((s) => ({
-              documentTitle: s.documentTitle,
-              excerpt: s.excerpt,
-              score: s.score,
-            }));
-            this.logger.log(
-              `[simple-chat] RAG context added (${ragResponse.context.sources.length} sources): ${ragSources.map((s) => s.documentTitle).join(", ")}`,
-            );
-          } else {
-            this.logger.log(
-              `[simple-chat] RAG query returned no results above threshold`,
-            );
-          }
-        } catch (ragError) {
-          this.logger.warn(`[simple-chat] RAG query failed: ${ragError}`);
-          // RAG failure should not block the normal response
+          ];
+        } else {
+          // Single message
+          chatMessages = [{ role: "user", content: message }];
         }
-      }
 
-      // Web Search: Search for real-time information if enabled
-      let webSearchContext = "";
-      let webSearchSources: Array<{ title: string; url: string }> = [];
-
-      if (webSearch && this.searchService) {
-        try {
-          this.logger.log(
-            `[simple-chat] Performing web search for: "${message.substring(0, 100)}..."`,
-          );
-          const searchResponse = await this.searchService.search(message, 5);
-
-          if (searchResponse.success && searchResponse.results.length > 0) {
-            webSearchContext = this.searchService.formatResultsForContext(
-              searchResponse.results,
-            );
-            webSearchSources = searchResponse.results.map((r) => ({
-              title: r.title,
-              url: r.url,
-            }));
-            this.logger.log(
-              `[simple-chat] Web search returned ${searchResponse.results.length} results (provider: ${searchResponse.provider})`,
-            );
-          } else {
-            this.logger.log(`[simple-chat] Web search returned no results`);
-          }
-        } catch (searchError) {
-          this.logger.warn(`[simple-chat] Web search failed: ${searchError}`);
-          // Web search failure should not block the normal response
-        }
-      } else if (webSearch && !this.searchService) {
-        this.logger.warn(
-          `[simple-chat] Web search requested but SearchService not available`,
-        );
-      }
-
-      // ★ 使用 AIEngineFacade 统一获取模型（与 AI Ask 一致）
-      let targetModelId = model;
-      const facadeModel = await this.aiFacade.getModelById(model);
-
-      if (!facadeModel) {
-        // Fallback to default CHAT model
-        const defaultModel = await this.aiFacade.getDefaultTextModel();
-        if (!defaultModel) {
-          this.logger.warn(`Model ${model} not found and no default available`);
-          throw new BadRequestException(`Model ${model} is not available`);
-        }
-        this.logger.warn(
-          `[simple-chat] Model "${model}" not found, using default: ${defaultModel.modelId}`,
-        );
-        targetModelId = defaultModel.modelId;
-      } else {
-        targetModelId = facadeModel.modelId;
-      }
-
-      this.logger.log(
-        `[simple-chat] Using model: ${targetModelId} (provider: ${facadeModel?.provider || "default"})`,
-      );
-
-      // Build messages array - support multi-turn context
-      let chatMessages: {
-        role: "user" | "assistant" | "system";
-        content: string;
-      }[];
-
-      if (contextMessages && contextMessages.length > 0) {
-        // Use provided messages array (already includes current message)
-        chatMessages = contextMessages;
-      } else if (context) {
-        // Legacy context string support
-        chatMessages = [
-          {
-            role: "user",
-            content: `Context:\n${context}\n\nUser Question:\n${message}`,
-          },
-        ];
-      } else {
-        // Single message
-        chatMessages = [{ role: "user", content: message }];
-      }
-
-      // Add RAG context as system message if available
-      if (ragContext && ragSources.length > 0) {
-        chatMessages = [
-          {
-            role: "system",
-            content: `你是一个基于知识库回答问题的助手。以下是从用户知识库中检索到的相关内容。
+        // Add RAG context as system message if available
+        if (ragContext && ragSources.length > 0) {
+          chatMessages = [
+            {
+              role: "system",
+              content: `你是一个基于知识库回答问题的助手。以下是从用户知识库中检索到的相关内容。
 
 ## 知识库参考内容
 ${ragContext}
@@ -630,23 +643,23 @@ ${ragContext}
 2. 如果使用了知识库内容，请在回答中明确提及来源（如"根据文档XXX..."）
 3. 如果知识库内容不足以回答问题，可以结合通用知识补充，但要说明
 4. 保持回答准确、专业、有帮助`,
-          },
-          ...chatMessages,
-        ];
-      }
+            },
+            ...chatMessages,
+          ];
+        }
 
-      // Add Web Search context as system message if available
-      if (webSearchContext && webSearchSources.length > 0) {
-        const currentDate = new Date().toLocaleDateString("zh-CN", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          weekday: "long",
-        });
-        chatMessages = [
-          {
-            role: "system",
-            content: `你是一个能够访问最新网络信息的AI助手。
+        // Add Web Search context as system message if available
+        if (webSearchContext && webSearchSources.length > 0) {
+          const currentDate = new Date().toLocaleDateString("zh-CN", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            weekday: "long",
+          });
+          chatMessages = [
+            {
+              role: "system",
+              content: `你是一个能够访问最新网络信息的AI助手。
 
 ## 重要提示
 今天的日期是：${currentDate}
@@ -659,20 +672,63 @@ ${webSearchContext}
 2. 如果引用了搜索结果，请说明信息来源
 3. 对于时间敏感的问题（如"今天是几号"），请使用上面提供的当前日期
 4. 保持回答准确、及时、有帮助`,
-          },
-          ...chatMessages,
-        ];
-      }
+            },
+            ...chatMessages,
+          ];
+        }
 
-      if (stream) {
-        // Set up SSE headers
-        res.setHeader("Content-Type", "text/event-stream");
-        res.setHeader("Cache-Control", "no-cache");
-        res.setHeader("Connection", "keep-alive");
-        res.flushHeaders();
+        if (stream) {
+          // Set up SSE headers
+          res.setHeader("Content-Type", "text/event-stream");
+          res.setHeader("Cache-Control", "no-cache");
+          res.setHeader("Connection", "keep-alive");
+          res.flushHeaders();
 
-        // ★ 使用 AIEngineFacade.chat()，它会自动处理模型查找和 API Key
-        try {
+          // ★ 使用 AIEngineFacade.chat()，它会自动处理模型查找和 API Key
+          try {
+            const result = await this.aiFacade.chat({
+              messages: chatMessages,
+              model: targetModelId,
+              taskProfile: {
+                creativity: "medium",
+                outputLength: "medium",
+              },
+            });
+
+            // Send as SSE chunks
+            const chunkSize = 50;
+            const content = result.content;
+            for (let i = 0; i < content.length; i += chunkSize) {
+              const chunk = content.slice(i, i + chunkSize);
+              res.write(
+                `data: ${JSON.stringify({ content: chunk, model: result.model })}\n\n`,
+              );
+            }
+            // Send RAG sources if available
+            if (ragSources.length > 0) {
+              res.write(
+                `data: ${JSON.stringify({ ragSources, usedKnowledgeBase: true })}\n\n`,
+              );
+            }
+            // Send web search sources if available
+            if (webSearchSources.length > 0) {
+              res.write(
+                `data: ${JSON.stringify({ webSearchSources, usedWebSearch: true })}\n\n`,
+              );
+            }
+            res.write("data: [DONE]\n\n");
+            res.end();
+          } catch (error) {
+            this.logger.error(`Stream chat error: ${error}`);
+            const safeMsg =
+              error instanceof Error && error.message.includes("timeout")
+                ? "Request timed out"
+                : "Failed to generate response";
+            res.write(`data: ${JSON.stringify({ error: safeMsg })}\n\n`);
+            res.end();
+          }
+        } else {
+          // ★ 使用 AIEngineFacade.chat()，它会自动处理模型查找和 API Key
           const result = await this.aiFacade.chat({
             messages: chatMessages,
             model: targetModelId,
@@ -682,77 +738,43 @@ ${webSearchContext}
             },
           });
 
-          // Send as SSE chunks
-          const chunkSize = 50;
-          const content = result.content;
-          for (let i = 0; i < content.length; i += chunkSize) {
-            const chunk = content.slice(i, i + chunkSize);
-            res.write(
-              `data: ${JSON.stringify({ content: chunk, model: result.model })}\n\n`,
-            );
-          }
-          // Send RAG sources if available
-          if (ragSources.length > 0) {
-            res.write(
-              `data: ${JSON.stringify({ ragSources, usedKnowledgeBase: true })}\n\n`,
-            );
-          }
-          // Send web search sources if available
-          if (webSearchSources.length > 0) {
-            res.write(
-              `data: ${JSON.stringify({ webSearchSources, usedWebSearch: true })}\n\n`,
-            );
-          }
-          res.write("data: [DONE]\n\n");
-          res.end();
-        } catch (error) {
-          this.logger.error(`Stream chat error: ${error}`);
-          const safeMsg =
-            error instanceof Error && error.message.includes("timeout")
-              ? "Request timed out"
-              : "Failed to generate response";
-          res.write(`data: ${JSON.stringify({ error: safeMsg })}\n\n`);
-          res.end();
+          res.json({
+            content: result.content,
+            model: result.model,
+            // Include RAG sources if knowledge bases were used
+            ...(ragSources.length > 0 && {
+              usedKnowledgeBase: true,
+              ragSources,
+            }),
+            // Include web search sources if web search was used
+            ...(webSearchSources.length > 0 && {
+              usedWebSearch: true,
+              webSearchSources,
+            }),
+          });
         }
-      } else {
-        // ★ 使用 AIEngineFacade.chat()，它会自动处理模型查找和 API Key
-        const result = await this.aiFacade.chat({
-          messages: chatMessages,
-          model: targetModelId,
-          taskProfile: {
-            creativity: "medium",
-            outputLength: "medium",
-          },
-        });
+      } catch (error) {
+        if (error instanceof HttpException) {
+          throw error;
+        }
+        const rawMsg = error instanceof Error ? error.message : "Unknown error";
+        this.logger.error(`Simple chat error: ${rawMsg}`);
+        // Avoid exposing internal error details to the client
+        const safeMsg =
+          rawMsg.includes("timeout") || rawMsg.includes("rate limit")
+            ? rawMsg
+            : "Chat request failed. Please try again.";
+        throw new BadRequestException(safeMsg);
+      }
+    }; // end executeChat
 
-        res.json({
-          content: result.content,
-          model: result.model,
-          // Include RAG sources if knowledge bases were used
-          ...(ragSources.length > 0 && {
-            usedKnowledgeBase: true,
-            ragSources,
-          }),
-          // Include web search sources if web search was used
-          ...(webSearchSources.length > 0 && {
-            usedWebSearch: true,
-            webSearchSources,
-          }),
-        });
-      }
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      const rawMsg = error instanceof Error ? error.message : "Unknown error";
-      this.logger.error(`Simple chat error: ${rawMsg}`);
-      // Avoid exposing internal error details to the client
-      const safeMsg =
-        rawMsg.includes("timeout") || rawMsg.includes("rate limit")
-          ? rawMsg
-          : "Chat request failed. Please try again.";
-      throw new BadRequestException(safeMsg);
+    if (userId) {
+      return BillingContext.run(
+        { userId, moduleType: "ai-ask", operationType },
+        executeChat,
+      );
     }
+    return executeChat();
   }
 
   /**
@@ -761,7 +783,7 @@ ${webSearchContext}
    */
   @Post("quick-action")
   @UseGuards(OptionalJwtAuthGuard)
-  async quickAction(@Body() body: QuickActionRequest) {
+  async quickAction(@Body() body: QuickActionRequest, @Req() req: Request) {
     const { content, action, model = "gemini" } = body;
 
     this.logger.log(`Quick action: ${action}, model=${model}`);
@@ -770,28 +792,31 @@ ${webSearchContext}
       throw new BadRequestException("Content is required");
     }
 
-    try {
-      // ★ 使用 AIEngineFacade 统一获取模型（与 AI Ask 一致）
-      let targetModelId = model;
-      const facadeModel = await this.aiFacade.getModelById(model);
+    const userId = (req as any).user?.id || RequestContext.getUserId();
 
-      if (!facadeModel) {
-        const defaultModel = await this.aiFacade.getDefaultTextModel();
-        if (!defaultModel) {
-          throw new BadRequestException(`Model ${model} is not available`);
+    const executeQuickAction = async () => {
+      try {
+        // ★ 使用 AIEngineFacade 统一获取模型（与 AI Ask 一致）
+        let targetModelId = model;
+        const facadeModel = await this.aiFacade.getModelById(model);
+
+        if (!facadeModel) {
+          const defaultModel = await this.aiFacade.getDefaultTextModel();
+          if (!defaultModel) {
+            throw new BadRequestException(`Model ${model} is not available`);
+          }
+          this.logger.warn(
+            `[quick-action] Model "${model}" not found, using default: ${defaultModel.modelId}`,
+          );
+          targetModelId = defaultModel.modelId;
+        } else {
+          targetModelId = facadeModel.modelId;
         }
-        this.logger.warn(
-          `[quick-action] Model "${model}" not found, using default: ${defaultModel.modelId}`,
-        );
-        targetModelId = defaultModel.modelId;
-      } else {
-        targetModelId = facadeModel.modelId;
-      }
 
-      let prompt: string;
+        let prompt: string;
 
-      if (action === "methodology") {
-        prompt = `You are a JSON-only API. Analyze the research methodology or technical methods in the following content.
+        if (action === "methodology") {
+          prompt = `You are a JSON-only API. Analyze the research methodology or technical methods in the following content.
 
 Content:
 ${content}
@@ -807,8 +832,8 @@ Output format:
 [{"title":"方法名称","description":"方法的关键步骤与核心要点","importance":"high"}]
 
 JSON output:`;
-      } else if (action === "summary") {
-        prompt = `请为以下内容生成一个结构化的摘要：
+        } else if (action === "summary") {
+          prompt = `请为以下内容生成一个结构化的摘要：
 
 ${content}
 
@@ -817,9 +842,9 @@ ${content}
 - 主要发现或结论
 - 实际应用价值
 - 使用清晰的标题和列表格式`;
-      } else {
-        // insights
-        prompt = `You are a JSON-only API. Extract key insights from the following content.
+        } else {
+          // insights
+          prompt = `You are a JSON-only API. Extract key insights from the following content.
 
 Content:
 ${content}
@@ -834,38 +859,47 @@ Output format:
 [{"title":"Core Finding","description":"Research reveals significant breakthrough","importance":"high"}]
 
 JSON output:`;
-      }
+        }
 
-      // ★ 使用 AIEngineFacade.chat()，它会自动处理模型查找和 API Key
-      const result = await this.aiFacade.chat({
-        messages: [{ role: "user", content: prompt }],
-        model: targetModelId,
-        taskProfile: {
-          creativity: "medium",
-          outputLength: "short",
-        },
-      });
+        // ★ 使用 AIEngineFacade.chat()，它会自动处理模型查找和 API Key
+        const result = await this.aiFacade.chat({
+          messages: [{ role: "user", content: prompt }],
+          model: targetModelId,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "short",
+          },
+        });
 
-      // Try to parse JSON for methodology and insights
-      let finalContent: string | any[] = result.content;
-      if (action === "methodology" || action === "insights") {
-        finalContent = this.extractJsonArray(result.content);
-      }
+        // Try to parse JSON for methodology and insights
+        let finalContent: string | any[] = result.content;
+        if (action === "methodology" || action === "insights") {
+          finalContent = this.extractJsonArray(result.content);
+        }
 
-      return {
-        content: finalContent,
-        action,
-        model: result.model,
-      };
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
+        return {
+          content: finalContent,
+          action,
+          model: result.model,
+        };
+      } catch (error) {
+        if (error instanceof HttpException) {
+          throw error;
+        }
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        this.logger.error(`Quick action error: ${errorMessage}`);
+        throw new BadRequestException(`Quick action failed: ${errorMessage}`);
       }
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      this.logger.error(`Quick action error: ${errorMessage}`);
-      throw new BadRequestException(`Quick action failed: ${errorMessage}`);
+    }; // end executeQuickAction
+
+    if (userId) {
+      return BillingContext.run(
+        { userId, moduleType: "ai-ask", operationType: "chat" },
+        executeQuickAction,
+      );
     }
+    return executeQuickAction();
   }
 
   /**
@@ -875,59 +909,71 @@ JSON output:`;
    */
   @Post("summary")
   @UseGuards(OptionalJwtAuthGuard)
-  async summary(@Body() body: SummaryRequest) {
+  async summary(@Body() body: SummaryRequest, @Req() req: Request) {
     const { content, language = "zh" } = body;
 
     if (!content || content.trim().length === 0) {
       throw new BadRequestException("Content is required");
     }
 
-    try {
-      // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
-      const fastModel = await this.aiFacade.getDefaultModelByType(
-        AIModelType.CHAT_FAST,
-      );
-      // 如果没有 CHAT_FAST，fallback 到默认 CHAT
-      const modelConfig =
-        fastModel || (await this.aiFacade.getDefaultTextModel());
-      if (!modelConfig) {
-        throw new BadRequestException("No AI model available for summary");
+    const userId = (req as any).user?.id || RequestContext.getUserId();
+
+    const executeSummary = async () => {
+      try {
+        // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
+        const fastModel = await this.aiFacade.getDefaultModelByType(
+          AIModelType.CHAT_FAST,
+        );
+        // 如果没有 CHAT_FAST，fallback 到默认 CHAT
+        const modelConfig =
+          fastModel || (await this.aiFacade.getDefaultTextModel());
+        if (!modelConfig) {
+          throw new BadRequestException("No AI model available for summary");
+        }
+
+        this.logger.log(
+          `[Summary] Using model: ${modelConfig.displayName} (${modelConfig.modelId}) - Tier: CHAT_FAST`,
+        );
+
+        const prompt =
+          language === "zh"
+            ? `请为以下内容生成简洁的摘要：\n\n${content}\n\n要求：简明扼要，突出重点。`
+            : `Please generate a concise summary of the following content:\n\n${content}`;
+
+        // ★ 使用 AIEngineFacade.chat()
+        const result = await this.aiFacade.chat({
+          messages: [{ role: "user", content: prompt }],
+          model: modelConfig.modelId,
+          taskProfile: {
+            creativity: "low",
+            outputLength: "short",
+          },
+        });
+
+        return {
+          summary: result.content,
+          model: result.model,
+          model_used: modelConfig.modelId,
+          tier: "CHAT_FAST",
+        };
+      } catch (error) {
+        if (error instanceof HttpException) {
+          throw error;
+        }
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        this.logger.error(`Summary error: ${errorMessage}`);
+        throw new BadRequestException(`Summary failed: ${errorMessage}`);
       }
+    }; // end executeSummary
 
-      this.logger.log(
-        `[Summary] Using model: ${modelConfig.displayName} (${modelConfig.modelId}) - Tier: CHAT_FAST`,
+    if (userId) {
+      return BillingContext.run(
+        { userId, moduleType: "ai-engine", operationType: "summary" },
+        executeSummary,
       );
-
-      const prompt =
-        language === "zh"
-          ? `请为以下内容生成简洁的摘要：\n\n${content}\n\n要求：简明扼要，突出重点。`
-          : `Please generate a concise summary of the following content:\n\n${content}`;
-
-      // ★ 使用 AIEngineFacade.chat()
-      const result = await this.aiFacade.chat({
-        messages: [{ role: "user", content: prompt }],
-        model: modelConfig.modelId,
-        taskProfile: {
-          creativity: "low",
-          outputLength: "short",
-        },
-      });
-
-      return {
-        summary: result.content,
-        model: result.model,
-        model_used: modelConfig.modelId,
-        tier: "CHAT_FAST",
-      };
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      this.logger.error(`Summary error: ${errorMessage}`);
-      throw new BadRequestException(`Summary failed: ${errorMessage}`);
     }
+    return executeSummary();
   }
 
   /**
@@ -937,29 +983,32 @@ JSON output:`;
    */
   @Post("insights")
   @UseGuards(OptionalJwtAuthGuard)
-  async insights(@Body() body: InsightsRequest) {
+  async insights(@Body() body: InsightsRequest, @Req() req: Request) {
     const { content, language = "zh" } = body;
 
     if (!content || content.trim().length === 0) {
       throw new BadRequestException("Content is required");
     }
 
-    try {
-      // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
-      const fastModel = await this.aiFacade.getDefaultModelByType(
-        AIModelType.CHAT_FAST,
-      );
-      const modelConfig =
-        fastModel || (await this.aiFacade.getDefaultTextModel());
-      if (!modelConfig) {
-        throw new BadRequestException("No AI model available for insights");
-      }
+    const userId = (req as any).user?.id || RequestContext.getUserId();
 
-      this.logger.log(
-        `[Insights] Using model: ${modelConfig.displayName} (${modelConfig.modelId}) - Tier: CHAT_FAST`,
-      );
+    const executeInsights = async () => {
+      try {
+        // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
+        const fastModel = await this.aiFacade.getDefaultModelByType(
+          AIModelType.CHAT_FAST,
+        );
+        const modelConfig =
+          fastModel || (await this.aiFacade.getDefaultTextModel());
+        if (!modelConfig) {
+          throw new BadRequestException("No AI model available for insights");
+        }
 
-      const prompt = `You are a JSON-only API. Extract key insights from the following content.
+        this.logger.log(
+          `[Insights] Using model: ${modelConfig.displayName} (${modelConfig.modelId}) - Tier: CHAT_FAST`,
+        );
+
+        const prompt = `You are a JSON-only API. Extract key insights from the following content.
 
 Content:
 ${content}
@@ -973,33 +1022,42 @@ Requirements:
 
 JSON output:`;
 
-      // ★ 使用 AIEngineFacade.chat()
-      const result = await this.aiFacade.chat({
-        messages: [{ role: "user", content: prompt }],
-        model: modelConfig.modelId,
-        taskProfile: {
-          creativity: "deterministic",
-          outputLength: "short",
-        },
-      });
+        // ★ 使用 AIEngineFacade.chat()
+        const result = await this.aiFacade.chat({
+          messages: [{ role: "user", content: prompt }],
+          model: modelConfig.modelId,
+          taskProfile: {
+            creativity: "deterministic",
+            outputLength: "short",
+          },
+        });
 
-      const jsonContent = this.extractJsonArray(result.content);
+        const jsonContent = this.extractJsonArray(result.content);
 
-      return {
-        insights: jsonContent,
-        model: result.model,
-        model_used: modelConfig.modelId,
-        tier: "CHAT_FAST",
-      };
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
+        return {
+          insights: jsonContent,
+          model: result.model,
+          model_used: modelConfig.modelId,
+          tier: "CHAT_FAST",
+        };
+      } catch (error) {
+        if (error instanceof HttpException) {
+          throw error;
+        }
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        this.logger.error(`Insights error: ${errorMessage}`);
+        throw new BadRequestException(`Insights failed: ${errorMessage}`);
       }
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      this.logger.error(`Insights error: ${errorMessage}`);
-      throw new BadRequestException(`Insights failed: ${errorMessage}`);
+    }; // end executeInsights
+
+    if (userId) {
+      return BillingContext.run(
+        { userId, moduleType: "ai-engine", operationType: "insights" },
+        executeInsights,
+      );
     }
+    return executeInsights();
   }
 
   /**
@@ -1015,6 +1073,7 @@ JSON output:`;
       targetLanguage: string;
       sourceLanguage?: string;
     },
+    @Req() req: Request,
   ) {
     this.logger.log(
       `Translation request: ${body.text?.substring(0, 50)}... -> ${body.targetLanguage}`,
@@ -1050,22 +1109,27 @@ JSON output:`;
       ? languageNames[body.sourceLanguage] || body.sourceLanguage
       : "auto-detect";
 
-    try {
-      // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
-      const fastModel = await this.aiFacade.getDefaultModelByType(
-        AIModelType.CHAT_FAST,
-      );
-      const modelConfig =
-        fastModel || (await this.aiFacade.getDefaultTextModel());
-      if (!modelConfig) {
-        throw new BadRequestException("No AI model available for translation");
-      }
+    const userId = (req as any).user?.id || RequestContext.getUserId();
 
-      this.logger.log(
-        `[Translate] Using model: ${modelConfig.displayName} (${modelConfig.modelId})`,
-      );
+    const executeTranslate = async () => {
+      try {
+        // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
+        const fastModel = await this.aiFacade.getDefaultModelByType(
+          AIModelType.CHAT_FAST,
+        );
+        const modelConfig =
+          fastModel || (await this.aiFacade.getDefaultTextModel());
+        if (!modelConfig) {
+          throw new BadRequestException(
+            "No AI model available for translation",
+          );
+        }
 
-      const prompt = `You are a professional translator. Translate the following text to ${targetLangName}.
+        this.logger.log(
+          `[Translate] Using model: ${modelConfig.displayName} (${modelConfig.modelId})`,
+        );
+
+        const prompt = `You are a professional translator. Translate the following text to ${targetLangName}.
 ${sourceLangName !== "auto-detect" ? `The source language is ${sourceLangName}.` : ""}
 
 Important rules:
@@ -1079,46 +1143,58 @@ ${body.text}
 
 Translation:`;
 
-      // Calculate dynamic maxTokens based on input length
-      const estimatedTokens = Math.ceil(body.text.length / 3);
-      const dynamicMaxTokens = Math.max(2000, estimatedTokens * 2);
+        // Calculate dynamic maxTokens based on input length
+        const estimatedTokens = Math.ceil(body.text.length / 3);
+        const dynamicMaxTokens = Math.max(2000, estimatedTokens * 2);
 
-      this.logger.log(
-        `[Translate] Text length: ${body.text.length}, using maxTokens: ${dynamicMaxTokens}`,
-      );
+        this.logger.log(
+          `[Translate] Text length: ${body.text.length}, using maxTokens: ${dynamicMaxTokens}`,
+        );
 
-      // ★ 使用 AIEngineFacade.chat()
-      const result = await this.aiFacade.chat({
-        messages: [{ role: "user", content: prompt }],
-        model: modelConfig.modelId,
-        maxTokens: dynamicMaxTokens, // Keep: dynamically calculated based on input length
-        taskProfile: {
-          creativity: "low",
-          outputLength: "medium",
-        },
-      });
+        // ★ 使用 AIEngineFacade.chat()
+        const result = await this.aiFacade.chat({
+          messages: [{ role: "user", content: prompt }],
+          model: modelConfig.modelId,
+          maxTokens: dynamicMaxTokens, // Keep: dynamically calculated based on input length
+          taskProfile: {
+            creativity: "low",
+            outputLength: "medium",
+          },
+        });
 
-      return {
-        translation: result.content.trim(),
-        translatedText: result.content.trim(), // Alias for compatibility
-        sourceLanguage: body.sourceLanguage || "auto",
-        targetLanguage: body.targetLanguage,
-        model: result.model,
-      };
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
+        return {
+          translation: result.content.trim(),
+          translatedText: result.content.trim(), // Alias for compatibility
+          sourceLanguage: body.sourceLanguage || "auto",
+          targetLanguage: body.targetLanguage,
+          model: result.model,
+        };
+      } catch (error) {
+        if (error instanceof HttpException) {
+          throw error;
+        }
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        this.logger.error(`Translation error: ${errorMessage}`);
+        throw new BadRequestException(`Translation failed: ${errorMessage}`);
       }
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      this.logger.error(`Translation error: ${errorMessage}`);
-      throw new BadRequestException(`Translation failed: ${errorMessage}`);
+    }; // end executeTranslate
+
+    if (userId) {
+      return BillingContext.run(
+        { userId, moduleType: "ai-engine", operationType: "translate" },
+        executeTranslate,
+      );
     }
+    return executeTranslate();
   }
 
   @Post("translate-single")
   @UseGuards(OptionalJwtAuthGuard)
-  async translateSingle(@Body() body: TranslateSingleRequest) {
+  async translateSingle(
+    @Body() body: TranslateSingleRequest,
+    @Req() req: Request,
+  ) {
     this.logger.log(
       `Received translation request for text: ${body.text?.substring(0, 50)}...`,
     );
@@ -1129,33 +1205,44 @@ Translation:`;
 
     const targetLang = body.targetLang || "zh-CN";
     const sourceLang = body.sourceLang || "en";
+    const userId = (req as any).user?.id || RequestContext.getUserId();
 
-    try {
-      const translation = await this.aiCoreService.translateText(
-        body.text,
-        sourceLang,
-        targetLang,
-      );
+    const executeTranslateSingle = async () => {
+      try {
+        const translation = await this.aiCoreService.translateText(
+          body.text,
+          sourceLang,
+          targetLang,
+        );
 
-      return {
-        original: body.text,
-        translation,
-        sourceLang,
-        targetLang,
-      };
-    } catch (error) {
-      // 保留原始HTTP异常的状态码
-      if (error instanceof HttpException) {
-        this.logger.error(`Translation failed: ${error.message}`);
-        throw error; // 直接抛出，保留状态码（429, 503等）
+        return {
+          original: body.text,
+          translation,
+          sourceLang,
+          targetLang,
+        };
+      } catch (error) {
+        // 保留原始HTTP异常的状态码
+        if (error instanceof HttpException) {
+          this.logger.error(`Translation failed: ${error.message}`);
+          throw error; // 直接抛出，保留状态码（429, 503等）
+        }
+
+        // 其他未知错误作为500处理
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        this.logger.error(`Unexpected translation error: ${errorMessage}`);
+        throw new BadRequestException(`Translation failed: ${errorMessage}`);
       }
+    }; // end executeTranslateSingle
 
-      // 其他未知错误作为500处理
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      this.logger.error(`Unexpected translation error: ${errorMessage}`);
-      throw new BadRequestException(`Translation failed: ${errorMessage}`);
+    if (userId) {
+      return BillingContext.run(
+        { userId, moduleType: "ai-engine", operationType: "translate" },
+        executeTranslateSingle,
+      );
     }
+    return executeTranslateSingle();
   }
 
   /**

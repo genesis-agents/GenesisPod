@@ -21,7 +21,6 @@ export const BUILTIN_TEAMS = {
   RESEARCH: "research",
   REPORT: "report",
   DEBATE: "debate",
-  CODING: "coding",
   DESIGN: "design",
   SLIDES: "slides",
 } as const;

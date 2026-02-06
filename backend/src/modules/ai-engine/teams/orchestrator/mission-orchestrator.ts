@@ -597,7 +597,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       const systemPrompt = `你是一个任务分析专家。分析用户输入，提取：
 1. 主要目标
 2. 次要目标
-3. 任务类型（research/analysis/creation/coding/design/debate/review/mixed）
+3. 任务类型（research/analysis/creation/design/debate/review/mixed）
 4. 复杂度评估
 5. 建议的执行策略
 
@@ -2038,7 +2038,6 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       research: ["研究", "调研", "分析", "报告"],
       analysis: ["分析", "评估", "对比", "趋势"],
       creation: ["写", "创作", "生成", "撰写"],
-      coding: ["代码", "开发", "实现", "编程"],
       design: ["设计", "UI", "界面", "视觉"],
       debate: ["辩论", "讨论", "对抗", "观点"],
       review: ["审核", "检查", "验证", "评审"],

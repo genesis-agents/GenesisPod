@@ -29,7 +29,6 @@ export const BUILTIN_AGENTS = {
   SLIDES: "slides",
   DOCS: "docs",
   DESIGNER: "designer",
-  DEVELOPER: "developer",
   RESEARCHER: "researcher",
   SIMULATOR: "simulator",
   IMAGE_DESIGNER: "image-designer",
@@ -388,15 +387,6 @@ export const AGENT_CONFIGS: Record<BuiltinAgentId, AgentConfig> = {
     icon: "🎨",
     color: "#F59E0B",
     capabilities: ["海报设计", "Logo 设计", "Banner 生成", "多风格变体"],
-    templates: [],
-  },
-  [BUILTIN_AGENTS.DEVELOPER]: {
-    id: BUILTIN_AGENTS.DEVELOPER,
-    name: "AI Developer",
-    description: "智能代码助手，生成高质量代码",
-    icon: "💻",
-    color: "#8B5CF6",
-    capabilities: ["代码生成", "代码解释", "代码重构", "单元测试"],
     templates: [],
   },
   [BUILTIN_AGENTS.RESEARCHER]: {

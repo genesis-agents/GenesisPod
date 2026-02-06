@@ -26,6 +26,8 @@ export default function UserProfileButton({
   const { user, loginWithGoogle, logout, isLoading } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ bottom: 0, left: 0 });
   const { t } = useTranslation();
   const {
     account,
@@ -92,7 +94,17 @@ export default function UserProfileButton({
   return (
     <div className="relative" ref={menuRef}>
       <button
-        onClick={() => setShowMenu(!showMenu)}
+        ref={buttonRef}
+        onClick={() => {
+          if (!showMenu && buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            setMenuPosition({
+              bottom: window.innerHeight - rect.top + 8,
+              left: rect.left,
+            });
+          }
+          setShowMenu(!showMenu);
+        }}
         className={`flex w-full items-center ${isCollapsed ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium transition-colors hover:bg-gray-50`}
         title={user.username || user.email}
       >
@@ -119,7 +131,13 @@ export default function UserProfileButton({
 
       {/* Dropdown Menu */}
       {showMenu && (
-        <div className="absolute bottom-full left-0 z-50 mb-2 w-56 rounded-lg border border-gray-200 bg-white shadow-lg">
+        <div
+          className="fixed z-50 w-56 rounded-lg border border-gray-200 bg-white shadow-lg"
+          style={{
+            bottom: `${menuPosition.bottom}px`,
+            left: `${menuPosition.left}px`,
+          }}
+        >
           <div className="border-b border-gray-200 p-3">
             <div className="font-medium text-gray-900">
               {user.fullName || user.username || 'User'}

@@ -184,7 +184,6 @@ export type TaskType =
   | "research" // 研究调研
   | "analysis" // 分析评估
   | "creation" // 内容创作
-  | "coding" // 代码开发
   | "design" // 设计创意
   | "debate" // 辩论推演
   | "review" // 审核检查

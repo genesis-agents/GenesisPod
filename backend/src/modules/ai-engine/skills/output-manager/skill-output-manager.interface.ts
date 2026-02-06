@@ -151,6 +151,6 @@ export interface SkillOutputManagerConfig {
  * 默认配置
  */
 export const DEFAULT_SKILL_OUTPUT_CONFIG: Required<SkillOutputManagerConfig> = {
-  knownPrefixes: ["slides-", "teams-", "office-", "studio-", "coding-"],
+  knownPrefixes: ["slides-", "teams-", "office-", "studio-"],
   debug: false,
 };

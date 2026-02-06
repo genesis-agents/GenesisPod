@@ -52,8 +52,6 @@ function toOfficeAgentType(agentId?: AgentId): OfficeAgentType {
       return OfficeAgentType.DOCS;
     case BUILTIN_AGENTS.DESIGNER:
       return OfficeAgentType.DESIGNER;
-    case BUILTIN_AGENTS.DEVELOPER:
-      return OfficeAgentType.DEVELOPER;
     default:
       return OfficeAgentType.DOCS; // 默认
   }
