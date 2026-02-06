@@ -25,4 +25,4 @@ echo "🔧 Step 2.5: Regenerating Prisma Client..."
 npx prisma generate --schema=./prisma/schema.prisma
 
 echo "🚀 Step 3: Starting application..."
-exec node dist/main
+exec node --max-old-space-size=512 dist/main

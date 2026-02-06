@@ -21,6 +21,8 @@ export class PuppeteerFetcherService {
   // 浏览器实例池（可复用）
   private browser: puppeteer.Browser | null = null;
   private browserLaunchPromise: Promise<puppeteer.Browser> | null = null;
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly IDLE_TIMEOUT = 5 * 60 * 1000; // 5 分钟无活动关闭浏览器
 
   /**
    * 获取或创建浏览器实例
@@ -48,6 +50,13 @@ export class PuppeteerFetcherService {
         "--window-size=1920,1080",
         // 增加反检测能力
         "--disable-blink-features=AutomationControlled",
+        // 内存优化: 限制 renderer 进程内存
+        "--js-flags=--max-old-space-size=128",
+        "--disable-extensions",
+        "--disable-background-networking",
+        "--disable-default-apps",
+        "--disable-translate",
+        "--single-process",
       ],
     });
 
@@ -57,8 +66,10 @@ export class PuppeteerFetcherService {
     // 监听断开事件
     this.browser.on("disconnected", () => {
       this.browser = null;
+      this.clearIdleTimer();
     });
 
+    this.resetIdleTimer();
     return this.browser;
   }
 
@@ -217,6 +228,8 @@ export class PuppeteerFetcherService {
       if (page) {
         await page.close().catch(() => {});
       }
+      // 重置空闲关闭定时器
+      this.resetIdleTimer();
     }
   }
 
@@ -286,6 +299,29 @@ export class PuppeteerFetcherService {
   }
 
   /**
+   * 重置空闲关闭定时器
+   */
+  private resetIdleTimer(): void {
+    this.clearIdleTimer();
+    this.idleTimer = setTimeout(async () => {
+      if (this.browser && this.browser.connected) {
+        this.logger.log("Closing idle Puppeteer browser to free memory");
+        await this.closeBrowser();
+      }
+    }, this.IDLE_TIMEOUT);
+  }
+
+  /**
+   * 清除空闲定时器
+   */
+  private clearIdleTimer(): void {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
+  }
+
+  /**
    * 关闭浏览器（用于清理）
    */
   async closeBrowser(): Promise<void> {
@@ -299,6 +335,7 @@ export class PuppeteerFetcherService {
    * 服务销毁时清理资源
    */
   async onModuleDestroy(): Promise<void> {
+    this.clearIdleTimer();
     await this.closeBrowser();
   }
 }
