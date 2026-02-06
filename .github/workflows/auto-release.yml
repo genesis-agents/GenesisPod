@@ -51,6 +51,6 @@ jobs:
           git tag "v$VERSION"
 
       - name: Push version bump and tag
-        run: git push --follow-tags origin main
+        run: git push origin main && git push origin "v$VERSION"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

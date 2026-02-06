@@ -2,1726 +2,259 @@
 
 Raven AI Engine 版本变更记录。
 
-## [3.50.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.50.0) (2026-02-06)
+# [3.50.0](https://github.com/your-org/ai-teams-engine/compare/v3.49.0...v3.50.0) (2026-02-06)
 
+### Bug Fixes
+
+- **auth:** resolve 401 on /ai/models and double auth code exchange ([52c0a6b](https://github.com/your-org/ai-teams-engine/commit/52c0a6b5c9335f5631b1a207e30c08f84d40cd28))
+
+# [3.49.0](https://github.com/your-org/ai-teams-engine/compare/v3.48.0...v3.49.0) (2026-02-06)
+
+### Bug Fixes
+
+- **ui:** increase AI assistant panel width in Explore page ([9d9783f](https://github.com/your-org/ai-teams-engine/commit/9d9783fcb48b3bc96f8340116d61390f4802a435))
+
+# [3.48.0](https://github.com/your-org/ai-teams-engine/compare/v3.47.0...v3.48.0) (2026-02-06)
+
+### Bug Fixes
+
+- **explore:** expand AI assistant message width to full panel ([82fc379](https://github.com/your-org/ai-teams-engine/commit/82fc3798b8475e75384c70bb98879c528261eb70))
+
+# [3.47.0](https://github.com/your-org/ai-teams-engine/compare/v3.46.0...v3.47.0) (2026-02-06)
+
+# [3.46.0](https://github.com/your-org/ai-teams-engine/compare/v3.45.0...v3.46.0) (2026-02-06)
+
+### Bug Fixes
+
+- **docker:** create writable directories for exports and thumbnails in Dockerfile ([0f3a7bc](https://github.com/your-org/ai-teams-engine/commit/0f3a7bcb3a07bffd6ebe988b70250f9035584b2e))
+
+# [3.45.0](https://github.com/your-org/ai-teams-engine/compare/v3.44.0...v3.45.0) (2026-02-06)
+
+### Bug Fixes
+
+- **mcp:** skip MCP server registration when command binary is not found ([6284375](https://github.com/your-org/ai-teams-engine/commit/6284375491fbec823eede84a502c13ddfde487c7))
+
+# [3.44.0](https://github.com/your-org/ai-teams-engine/compare/v3.43.0...v3.44.0) (2026-02-06)
+
+### Bug Fixes
+
+- **resources:** make read-only resource endpoints public ([6f84af1](https://github.com/your-org/ai-teams-engine/commit/6f84af19de363f2440a3d43ffb9e62efd8c0db69))
+
+# [3.43.0](https://github.com/your-org/ai-teams-engine/compare/v3.42.0...v3.43.0) (2026-02-06)
+
+### Bug Fixes
+
+- **ci:** add --schema=prisma/schema to prisma generate/migrate in CI ([e4177a4](https://github.com/your-org/ai-teams-engine/commit/e4177a4e836e42375c3e58baaf3d40b23337d185))
+- **ci:** fix schema path in deploy-protection and smoke test auth check ([2f48b1a](https://github.com/your-org/ai-teams-engine/commit/2f48b1a66b5bec094ba509394fbf77d8cdcd6b02))
+- **home:** add missing auth headers to all fetch calls in home page ([0aca71c](https://github.com/your-org/ai-teams-engine/commit/0aca71cfe980dac0cb7d06c48028b2bc6eb2b0f6))
+
+# [3.42.0](https://github.com/your-org/ai-teams-engine/compare/v3.41.0...v3.42.0) (2026-02-06)
+
+### Bug Fixes
+
+- **explore:** add missing Authorization header to /resources fetch calls ([2e5fff5](https://github.com/your-org/ai-teams-engine/commit/2e5fff5050ac972a679d8b8488575227dda3ac94))
+
+# [3.41.0](https://github.com/your-org/ai-teams-engine/compare/v3.40.0...v3.41.0) (2026-02-06)
+
+### Bug Fixes
+
+- **auth:** use Redis cache for OAuth auth codes instead of in-memory Map ([1eb8557](https://github.com/your-org/ai-teams-engine/commit/1eb85574cbba67bbed77de4b8b018141209e495d))
+
+# [3.40.0](https://github.com/your-org/ai-teams-engine/compare/v3.39.0...v3.40.0) (2026-02-05)
+
+### Bug Fixes
+
+- **proxy:** add missing success field to graceful degradation responses ([ebf719b](https://github.com/your-org/ai-teams-engine/commit/ebf719b9efdf81fa949be4a58e834575854aa5cf))
+- **research:** register ResearchMemoryService in TopicResearchModule ([e78d1fc](https://github.com/your-org/ai-teams-engine/commit/e78d1fc18c3df0aa1393349f98bd57ccff875744))
+
+# [3.39.0](https://github.com/your-org/ai-teams-engine/compare/v3.38.0...v3.39.0) (2026-02-05)
+
+### Bug Fixes
+
+- **security:** round-2 review fixes — 2 P0 + 6 P1 across 6 files ([7afc23a](https://github.com/your-org/ai-teams-engine/commit/7afc23aff5f52d8ffe53dcf0b87a469b1dd69720))
+
+# [3.38.0](https://github.com/your-org/ai-teams-engine/compare/v3.37.0...v3.38.0) (2026-02-05)
+
+### Bug Fixes
+
+- **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
+- **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
+
+# [3.37.0](https://github.com/your-org/ai-teams-engine/compare/v3.36.0...v3.37.0) (2026-02-05)
 
 ### Features
 
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
+- **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
 
+# [3.36.0](https://github.com/your-org/ai-teams-engine/compare/v3.35.0...v3.36.0) (2026-02-05)
+
+# [3.35.0](https://github.com/your-org/ai-teams-engine/compare/v3.34.0...v3.35.0) (2026-02-05)
 
 ### Bug Fixes
 
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **auth:** resolve 401 on /ai/models and double auth code exchange ([52c0a6b](https://github.com/your-org/ai-teams-engine/commit/52c0a6b5c9335f5631b1a207e30c08f84d40cd28))
-* **auth:** use Redis cache for OAuth auth codes instead of in-memory Map ([1eb8557](https://github.com/your-org/ai-teams-engine/commit/1eb85574cbba67bbed77de4b8b018141209e495d))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** add --schema=prisma/schema to prisma generate/migrate in CI ([e4177a4](https://github.com/your-org/ai-teams-engine/commit/e4177a4e836e42375c3e58baaf3d40b23337d185))
-* **ci:** fix schema path in deploy-protection and smoke test auth check ([2f48b1a](https://github.com/your-org/ai-teams-engine/commit/2f48b1a66b5bec094ba509394fbf77d8cdcd6b02))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** create writable directories for exports and thumbnails in Dockerfile ([0f3a7bc](https://github.com/your-org/ai-teams-engine/commit/0f3a7bcb3a07bffd6ebe988b70250f9035584b2e))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **explore:** add missing Authorization header to /resources fetch calls ([2e5fff5](https://github.com/your-org/ai-teams-engine/commit/2e5fff5050ac972a679d8b8488575227dda3ac94))
-* **explore:** expand AI assistant message width to full panel ([82fc379](https://github.com/your-org/ai-teams-engine/commit/82fc3798b8475e75384c70bb98879c528261eb70))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **home:** add missing auth headers to all fetch calls in home page ([0aca71c](https://github.com/your-org/ai-teams-engine/commit/0aca71cfe980dac0cb7d06c48028b2bc6eb2b0f6))
-* **mcp:** skip MCP server registration when command binary is not found ([6284375](https://github.com/your-org/ai-teams-engine/commit/6284375491fbec823eede84a502c13ddfde487c7))
-* **proxy:** add missing success field to graceful degradation responses ([ebf719b](https://github.com/your-org/ai-teams-engine/commit/ebf719b9efdf81fa949be4a58e834575854aa5cf))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **research:** register ResearchMemoryService in TopicResearchModule ([e78d1fc](https://github.com/your-org/ai-teams-engine/commit/e78d1fc18c3df0aa1393349f98bd57ccff875744))
-* **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
-* **resources:** make read-only resource endpoints public ([6f84af1](https://github.com/your-org/ai-teams-engine/commit/6f84af19de363f2440a3d43ffb9e62efd8c0db69))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **security:** round-2 review fixes — 2 P0 + 6 P1 across 6 files ([7afc23a](https://github.com/your-org/ai-teams-engine/commit/7afc23aff5f52d8ffe53dcf0b87a469b1dd69720))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-* **ui:** increase AI assistant panel width in Explore page ([9d9783f](https://github.com/your-org/ai-teams-engine/commit/9d9783fcb48b3bc96f8340116d61390f4802a435))
+- **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
 
+# [3.34.0](https://github.com/your-org/ai-teams-engine/compare/v3.33.0...v3.34.0) (2026-02-05)
 
-### Refactoring
+### Bug Fixes
 
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
+- **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
 
+# [3.33.0](https://github.com/your-org/ai-teams-engine/compare/v3.32.0...v3.33.0) (2026-02-05)
 
-### Performance
+### Performance Improvements
 
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
+- **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
 
-## [3.49.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.49.0) (2026-02-06)
+# [3.32.0](https://github.com/your-org/ai-teams-engine/compare/v3.31.0...v3.32.0) (2026-02-05)
 
+### Bug Fixes
+
+- **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
+- **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
+- **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
+
+# [3.31.0](https://github.com/your-org/ai-teams-engine/compare/v3.30.0...v3.31.0) (2026-02-05)
+
+### Bug Fixes
+
+- **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
+
+# [3.30.0](https://github.com/your-org/ai-teams-engine/compare/v3.29.0...v3.30.0) (2026-02-05)
+
+### Bug Fixes
+
+- **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
+
+# [3.29.0](https://github.com/your-org/ai-teams-engine/compare/v3.28.0...v3.29.0) (2026-02-05)
 
 ### Features
 
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
+- **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
 
+# [3.28.0](https://github.com/your-org/ai-teams-engine/compare/v3.27.0...v3.28.0) (2026-02-05)
+
+### Performance Improvements
+
+- **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
+
+# [3.27.0](https://github.com/your-org/ai-teams-engine/compare/v3.26.0...v3.27.0) (2026-02-05)
 
 ### Bug Fixes
 
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **auth:** use Redis cache for OAuth auth codes instead of in-memory Map ([1eb8557](https://github.com/your-org/ai-teams-engine/commit/1eb85574cbba67bbed77de4b8b018141209e495d))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** add --schema=prisma/schema to prisma generate/migrate in CI ([e4177a4](https://github.com/your-org/ai-teams-engine/commit/e4177a4e836e42375c3e58baaf3d40b23337d185))
-* **ci:** fix schema path in deploy-protection and smoke test auth check ([2f48b1a](https://github.com/your-org/ai-teams-engine/commit/2f48b1a66b5bec094ba509394fbf77d8cdcd6b02))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** create writable directories for exports and thumbnails in Dockerfile ([0f3a7bc](https://github.com/your-org/ai-teams-engine/commit/0f3a7bcb3a07bffd6ebe988b70250f9035584b2e))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **explore:** add missing Authorization header to /resources fetch calls ([2e5fff5](https://github.com/your-org/ai-teams-engine/commit/2e5fff5050ac972a679d8b8488575227dda3ac94))
-* **explore:** expand AI assistant message width to full panel ([82fc379](https://github.com/your-org/ai-teams-engine/commit/82fc3798b8475e75384c70bb98879c528261eb70))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **home:** add missing auth headers to all fetch calls in home page ([0aca71c](https://github.com/your-org/ai-teams-engine/commit/0aca71cfe980dac0cb7d06c48028b2bc6eb2b0f6))
-* **mcp:** skip MCP server registration when command binary is not found ([6284375](https://github.com/your-org/ai-teams-engine/commit/6284375491fbec823eede84a502c13ddfde487c7))
-* **proxy:** add missing success field to graceful degradation responses ([ebf719b](https://github.com/your-org/ai-teams-engine/commit/ebf719b9efdf81fa949be4a58e834575854aa5cf))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **research:** register ResearchMemoryService in TopicResearchModule ([e78d1fc](https://github.com/your-org/ai-teams-engine/commit/e78d1fc18c3df0aa1393349f98bd57ccff875744))
-* **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
-* **resources:** make read-only resource endpoints public ([6f84af1](https://github.com/your-org/ai-teams-engine/commit/6f84af19de363f2440a3d43ffb9e62efd8c0db69))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **security:** round-2 review fixes — 2 P0 + 6 P1 across 6 files ([7afc23a](https://github.com/your-org/ai-teams-engine/commit/7afc23aff5f52d8ffe53dcf0b87a469b1dd69720))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-* **ui:** increase AI assistant panel width in Explore page ([9d9783f](https://github.com/your-org/ai-teams-engine/commit/9d9783fcb48b3bc96f8340116d61390f4802a435))
+- **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
 
+# [3.26.0](https://github.com/your-org/ai-teams-engine/compare/v3.25.0...v3.26.0) (2026-02-05)
 
-### Refactoring
+### Bug Fixes
 
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
+- **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
 
+# [3.25.0](https://github.com/your-org/ai-teams-engine/compare/v3.24.0...v3.25.0) (2026-02-05)
 
-### Performance
+### Bug Fixes
 
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
+- **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
 
-## [3.48.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.48.0) (2026-02-06)
+# [3.24.0](https://github.com/your-org/ai-teams-engine/compare/v3.23.0...v3.24.0) (2026-02-05)
 
+### Bug Fixes
+
+- **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
+
+# [3.23.0](https://github.com/your-org/ai-teams-engine/compare/v3.22.0...v3.23.0) (2026-02-05)
+
+### Bug Fixes
+
+- **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
+
+# [3.22.0](https://github.com/your-org/ai-teams-engine/compare/v3.21.0...v3.22.0) (2026-02-05)
+
+### Bug Fixes
+
+- **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
+
+# [3.21.0](https://github.com/your-org/ai-teams-engine/compare/v3.20.0...v3.21.0) (2026-02-05)
+
+### Bug Fixes
+
+- **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
+
+# [3.20.0](https://github.com/your-org/ai-teams-engine/compare/v3.19.0...v3.20.0) (2026-02-05)
+
+### Bug Fixes
+
+- **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
+
+# [3.19.0](https://github.com/your-org/ai-teams-engine/compare/v3.18.0...v3.19.0) (2026-02-05)
+
+### Bug Fixes
+
+- **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
+
+# [3.18.0](https://github.com/your-org/ai-teams-engine/compare/v3.17.0...v3.18.0) (2026-02-05)
+
+# [3.17.0](https://github.com/your-org/ai-teams-engine/compare/v3.16.0...v3.17.0) (2026-02-05)
+
+### Bug Fixes
+
+- **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
+
+# [3.16.0](https://github.com/your-org/ai-teams-engine/compare/v3.15.0...v3.16.0) (2026-02-05)
+
+### Bug Fixes
+
+- **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
+
+# [3.15.0](https://github.com/your-org/ai-teams-engine/compare/v3.14.0...v3.15.0) (2026-02-05)
+
+### Bug Fixes
+
+- **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
+
+# [3.14.0](https://github.com/your-org/ai-teams-engine/compare/v3.13.0...v3.14.0) (2026-02-05)
+
+### Bug Fixes
+
+- **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
+- **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
+
+# [3.13.0](https://github.com/your-org/ai-teams-engine/compare/v3.12.0...v3.13.0) (2026-02-05)
 
 ### Features
 
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
+- **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
 
+# [3.12.0](https://github.com/your-org/ai-teams-engine/compare/v3.11.0...v3.12.0) (2026-02-04)
 
 ### Bug Fixes
 
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **auth:** use Redis cache for OAuth auth codes instead of in-memory Map ([1eb8557](https://github.com/your-org/ai-teams-engine/commit/1eb85574cbba67bbed77de4b8b018141209e495d))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** add --schema=prisma/schema to prisma generate/migrate in CI ([e4177a4](https://github.com/your-org/ai-teams-engine/commit/e4177a4e836e42375c3e58baaf3d40b23337d185))
-* **ci:** fix schema path in deploy-protection and smoke test auth check ([2f48b1a](https://github.com/your-org/ai-teams-engine/commit/2f48b1a66b5bec094ba509394fbf77d8cdcd6b02))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** create writable directories for exports and thumbnails in Dockerfile ([0f3a7bc](https://github.com/your-org/ai-teams-engine/commit/0f3a7bcb3a07bffd6ebe988b70250f9035584b2e))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **explore:** add missing Authorization header to /resources fetch calls ([2e5fff5](https://github.com/your-org/ai-teams-engine/commit/2e5fff5050ac972a679d8b8488575227dda3ac94))
-* **explore:** expand AI assistant message width to full panel ([82fc379](https://github.com/your-org/ai-teams-engine/commit/82fc3798b8475e75384c70bb98879c528261eb70))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **home:** add missing auth headers to all fetch calls in home page ([0aca71c](https://github.com/your-org/ai-teams-engine/commit/0aca71cfe980dac0cb7d06c48028b2bc6eb2b0f6))
-* **mcp:** skip MCP server registration when command binary is not found ([6284375](https://github.com/your-org/ai-teams-engine/commit/6284375491fbec823eede84a502c13ddfde487c7))
-* **proxy:** add missing success field to graceful degradation responses ([ebf719b](https://github.com/your-org/ai-teams-engine/commit/ebf719b9efdf81fa949be4a58e834575854aa5cf))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **research:** register ResearchMemoryService in TopicResearchModule ([e78d1fc](https://github.com/your-org/ai-teams-engine/commit/e78d1fc18c3df0aa1393349f98bd57ccff875744))
-* **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
-* **resources:** make read-only resource endpoints public ([6f84af1](https://github.com/your-org/ai-teams-engine/commit/6f84af19de363f2440a3d43ffb9e62efd8c0db69))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **security:** round-2 review fixes — 2 P0 + 6 P1 across 6 files ([7afc23a](https://github.com/your-org/ai-teams-engine/commit/7afc23aff5f52d8ffe53dcf0b87a469b1dd69720))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
+- **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
 
+# [3.11.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.2...v3.11.0) (2026-02-04)
 
-### Refactoring
+### Bug Fixes
 
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.47.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.47.0) (2026-02-06)
-
+- **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
 
 ### Features
 
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
+- **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
+- **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
 
+## [3.10.2](https://github.com/your-org/ai-teams-engine/compare/v3.10.1...v3.10.2) (2026-02-04)
 
 ### Bug Fixes
 
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **auth:** use Redis cache for OAuth auth codes instead of in-memory Map ([1eb8557](https://github.com/your-org/ai-teams-engine/commit/1eb85574cbba67bbed77de4b8b018141209e495d))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** add --schema=prisma/schema to prisma generate/migrate in CI ([e4177a4](https://github.com/your-org/ai-teams-engine/commit/e4177a4e836e42375c3e58baaf3d40b23337d185))
-* **ci:** fix schema path in deploy-protection and smoke test auth check ([2f48b1a](https://github.com/your-org/ai-teams-engine/commit/2f48b1a66b5bec094ba509394fbf77d8cdcd6b02))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** create writable directories for exports and thumbnails in Dockerfile ([0f3a7bc](https://github.com/your-org/ai-teams-engine/commit/0f3a7bcb3a07bffd6ebe988b70250f9035584b2e))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **explore:** add missing Authorization header to /resources fetch calls ([2e5fff5](https://github.com/your-org/ai-teams-engine/commit/2e5fff5050ac972a679d8b8488575227dda3ac94))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **home:** add missing auth headers to all fetch calls in home page ([0aca71c](https://github.com/your-org/ai-teams-engine/commit/0aca71cfe980dac0cb7d06c48028b2bc6eb2b0f6))
-* **mcp:** skip MCP server registration when command binary is not found ([6284375](https://github.com/your-org/ai-teams-engine/commit/6284375491fbec823eede84a502c13ddfde487c7))
-* **proxy:** add missing success field to graceful degradation responses ([ebf719b](https://github.com/your-org/ai-teams-engine/commit/ebf719b9efdf81fa949be4a58e834575854aa5cf))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **research:** register ResearchMemoryService in TopicResearchModule ([e78d1fc](https://github.com/your-org/ai-teams-engine/commit/e78d1fc18c3df0aa1393349f98bd57ccff875744))
-* **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
-* **resources:** make read-only resource endpoints public ([6f84af1](https://github.com/your-org/ai-teams-engine/commit/6f84af19de363f2440a3d43ffb9e62efd8c0db69))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **security:** round-2 review fixes — 2 P0 + 6 P1 across 6 files ([7afc23a](https://github.com/your-org/ai-teams-engine/commit/7afc23aff5f52d8ffe53dcf0b87a469b1dd69720))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
+- **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
 
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.46.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.46.0) (2026-02-06)
-
-
-### Features
-
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
+## [3.10.1](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.10.1) (2026-02-04)
 
 ### Bug Fixes
 
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **auth:** use Redis cache for OAuth auth codes instead of in-memory Map ([1eb8557](https://github.com/your-org/ai-teams-engine/commit/1eb85574cbba67bbed77de4b8b018141209e495d))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** add --schema=prisma/schema to prisma generate/migrate in CI ([e4177a4](https://github.com/your-org/ai-teams-engine/commit/e4177a4e836e42375c3e58baaf3d40b23337d185))
-* **ci:** fix schema path in deploy-protection and smoke test auth check ([2f48b1a](https://github.com/your-org/ai-teams-engine/commit/2f48b1a66b5bec094ba509394fbf77d8cdcd6b02))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** create writable directories for exports and thumbnails in Dockerfile ([0f3a7bc](https://github.com/your-org/ai-teams-engine/commit/0f3a7bcb3a07bffd6ebe988b70250f9035584b2e))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **explore:** add missing Authorization header to /resources fetch calls ([2e5fff5](https://github.com/your-org/ai-teams-engine/commit/2e5fff5050ac972a679d8b8488575227dda3ac94))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **home:** add missing auth headers to all fetch calls in home page ([0aca71c](https://github.com/your-org/ai-teams-engine/commit/0aca71cfe980dac0cb7d06c48028b2bc6eb2b0f6))
-* **mcp:** skip MCP server registration when command binary is not found ([6284375](https://github.com/your-org/ai-teams-engine/commit/6284375491fbec823eede84a502c13ddfde487c7))
-* **proxy:** add missing success field to graceful degradation responses ([ebf719b](https://github.com/your-org/ai-teams-engine/commit/ebf719b9efdf81fa949be4a58e834575854aa5cf))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **research:** register ResearchMemoryService in TopicResearchModule ([e78d1fc](https://github.com/your-org/ai-teams-engine/commit/e78d1fc18c3df0aa1393349f98bd57ccff875744))
-* **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
-* **resources:** make read-only resource endpoints public ([6f84af1](https://github.com/your-org/ai-teams-engine/commit/6f84af19de363f2440a3d43ffb9e62efd8c0db69))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **security:** round-2 review fixes — 2 P0 + 6 P1 across 6 files ([7afc23a](https://github.com/your-org/ai-teams-engine/commit/7afc23aff5f52d8ffe53dcf0b87a469b1dd69720))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
+- **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
 
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.45.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.45.0) (2026-02-06)
-
-
-### Features
-
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **auth:** use Redis cache for OAuth auth codes instead of in-memory Map ([1eb8557](https://github.com/your-org/ai-teams-engine/commit/1eb85574cbba67bbed77de4b8b018141209e495d))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** add --schema=prisma/schema to prisma generate/migrate in CI ([e4177a4](https://github.com/your-org/ai-teams-engine/commit/e4177a4e836e42375c3e58baaf3d40b23337d185))
-* **ci:** fix schema path in deploy-protection and smoke test auth check ([2f48b1a](https://github.com/your-org/ai-teams-engine/commit/2f48b1a66b5bec094ba509394fbf77d8cdcd6b02))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **explore:** add missing Authorization header to /resources fetch calls ([2e5fff5](https://github.com/your-org/ai-teams-engine/commit/2e5fff5050ac972a679d8b8488575227dda3ac94))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **home:** add missing auth headers to all fetch calls in home page ([0aca71c](https://github.com/your-org/ai-teams-engine/commit/0aca71cfe980dac0cb7d06c48028b2bc6eb2b0f6))
-* **mcp:** skip MCP server registration when command binary is not found ([6284375](https://github.com/your-org/ai-teams-engine/commit/6284375491fbec823eede84a502c13ddfde487c7))
-* **proxy:** add missing success field to graceful degradation responses ([ebf719b](https://github.com/your-org/ai-teams-engine/commit/ebf719b9efdf81fa949be4a58e834575854aa5cf))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **research:** register ResearchMemoryService in TopicResearchModule ([e78d1fc](https://github.com/your-org/ai-teams-engine/commit/e78d1fc18c3df0aa1393349f98bd57ccff875744))
-* **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
-* **resources:** make read-only resource endpoints public ([6f84af1](https://github.com/your-org/ai-teams-engine/commit/6f84af19de363f2440a3d43ffb9e62efd8c0db69))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **security:** round-2 review fixes — 2 P0 + 6 P1 across 6 files ([7afc23a](https://github.com/your-org/ai-teams-engine/commit/7afc23aff5f52d8ffe53dcf0b87a469b1dd69720))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.44.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.44.0) (2026-02-06)
-
-
-### Features
-
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **auth:** use Redis cache for OAuth auth codes instead of in-memory Map ([1eb8557](https://github.com/your-org/ai-teams-engine/commit/1eb85574cbba67bbed77de4b8b018141209e495d))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** add --schema=prisma/schema to prisma generate/migrate in CI ([e4177a4](https://github.com/your-org/ai-teams-engine/commit/e4177a4e836e42375c3e58baaf3d40b23337d185))
-* **ci:** fix schema path in deploy-protection and smoke test auth check ([2f48b1a](https://github.com/your-org/ai-teams-engine/commit/2f48b1a66b5bec094ba509394fbf77d8cdcd6b02))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **explore:** add missing Authorization header to /resources fetch calls ([2e5fff5](https://github.com/your-org/ai-teams-engine/commit/2e5fff5050ac972a679d8b8488575227dda3ac94))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **home:** add missing auth headers to all fetch calls in home page ([0aca71c](https://github.com/your-org/ai-teams-engine/commit/0aca71cfe980dac0cb7d06c48028b2bc6eb2b0f6))
-* **proxy:** add missing success field to graceful degradation responses ([ebf719b](https://github.com/your-org/ai-teams-engine/commit/ebf719b9efdf81fa949be4a58e834575854aa5cf))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **research:** register ResearchMemoryService in TopicResearchModule ([e78d1fc](https://github.com/your-org/ai-teams-engine/commit/e78d1fc18c3df0aa1393349f98bd57ccff875744))
-* **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
-* **resources:** make read-only resource endpoints public ([6f84af1](https://github.com/your-org/ai-teams-engine/commit/6f84af19de363f2440a3d43ffb9e62efd8c0db69))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **security:** round-2 review fixes — 2 P0 + 6 P1 across 6 files ([7afc23a](https://github.com/your-org/ai-teams-engine/commit/7afc23aff5f52d8ffe53dcf0b87a469b1dd69720))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.43.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.43.0) (2026-02-06)
-
-
-### Features
-
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **auth:** use Redis cache for OAuth auth codes instead of in-memory Map ([1eb8557](https://github.com/your-org/ai-teams-engine/commit/1eb85574cbba67bbed77de4b8b018141209e495d))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** add --schema=prisma/schema to prisma generate/migrate in CI ([e4177a4](https://github.com/your-org/ai-teams-engine/commit/e4177a4e836e42375c3e58baaf3d40b23337d185))
-* **ci:** fix schema path in deploy-protection and smoke test auth check ([2f48b1a](https://github.com/your-org/ai-teams-engine/commit/2f48b1a66b5bec094ba509394fbf77d8cdcd6b02))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **explore:** add missing Authorization header to /resources fetch calls ([2e5fff5](https://github.com/your-org/ai-teams-engine/commit/2e5fff5050ac972a679d8b8488575227dda3ac94))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **home:** add missing auth headers to all fetch calls in home page ([0aca71c](https://github.com/your-org/ai-teams-engine/commit/0aca71cfe980dac0cb7d06c48028b2bc6eb2b0f6))
-* **proxy:** add missing success field to graceful degradation responses ([ebf719b](https://github.com/your-org/ai-teams-engine/commit/ebf719b9efdf81fa949be4a58e834575854aa5cf))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **research:** register ResearchMemoryService in TopicResearchModule ([e78d1fc](https://github.com/your-org/ai-teams-engine/commit/e78d1fc18c3df0aa1393349f98bd57ccff875744))
-* **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **security:** round-2 review fixes — 2 P0 + 6 P1 across 6 files ([7afc23a](https://github.com/your-org/ai-teams-engine/commit/7afc23aff5f52d8ffe53dcf0b87a469b1dd69720))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.42.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.42.0) (2026-02-06)
-
-
-### Features
-
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **auth:** use Redis cache for OAuth auth codes instead of in-memory Map ([1eb8557](https://github.com/your-org/ai-teams-engine/commit/1eb85574cbba67bbed77de4b8b018141209e495d))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **explore:** add missing Authorization header to /resources fetch calls ([2e5fff5](https://github.com/your-org/ai-teams-engine/commit/2e5fff5050ac972a679d8b8488575227dda3ac94))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **proxy:** add missing success field to graceful degradation responses ([ebf719b](https://github.com/your-org/ai-teams-engine/commit/ebf719b9efdf81fa949be4a58e834575854aa5cf))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **research:** register ResearchMemoryService in TopicResearchModule ([e78d1fc](https://github.com/your-org/ai-teams-engine/commit/e78d1fc18c3df0aa1393349f98bd57ccff875744))
-* **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **security:** round-2 review fixes — 2 P0 + 6 P1 across 6 files ([7afc23a](https://github.com/your-org/ai-teams-engine/commit/7afc23aff5f52d8ffe53dcf0b87a469b1dd69720))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.41.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.41.0) (2026-02-06)
-
-
-### Features
-
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **auth:** use Redis cache for OAuth auth codes instead of in-memory Map ([1eb8557](https://github.com/your-org/ai-teams-engine/commit/1eb85574cbba67bbed77de4b8b018141209e495d))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **proxy:** add missing success field to graceful degradation responses ([ebf719b](https://github.com/your-org/ai-teams-engine/commit/ebf719b9efdf81fa949be4a58e834575854aa5cf))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **research:** register ResearchMemoryService in TopicResearchModule ([e78d1fc](https://github.com/your-org/ai-teams-engine/commit/e78d1fc18c3df0aa1393349f98bd57ccff875744))
-* **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **security:** round-2 review fixes — 2 P0 + 6 P1 across 6 files ([7afc23a](https://github.com/your-org/ai-teams-engine/commit/7afc23aff5f52d8ffe53dcf0b87a469b1dd69720))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.40.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.40.0) (2026-02-05)
-
-
-### Features
-
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **proxy:** add missing success field to graceful degradation responses ([ebf719b](https://github.com/your-org/ai-teams-engine/commit/ebf719b9efdf81fa949be4a58e834575854aa5cf))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **research:** register ResearchMemoryService in TopicResearchModule ([e78d1fc](https://github.com/your-org/ai-teams-engine/commit/e78d1fc18c3df0aa1393349f98bd57ccff875744))
-* **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **security:** round-2 review fixes — 2 P0 + 6 P1 across 6 files ([7afc23a](https://github.com/your-org/ai-teams-engine/commit/7afc23aff5f52d8ffe53dcf0b87a469b1dd69720))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.39.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.39.0) (2026-02-05)
-
-
-### Features
-
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **security:** round-2 review fixes — 2 P0 + 6 P1 across 6 files ([7afc23a](https://github.com/your-org/ai-teams-engine/commit/7afc23aff5f52d8ffe53dcf0b87a469b1dd69720))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.38.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.38.0) (2026-02-05)
-
-
-### Features
-
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-engine:** code review fixes — 10 P0 + 12 P1 across 9 files ([5229214](https://github.com/your-org/ai-teams-engine/commit/5229214f3a251fbbbeeb577c9e2fcea7edcc1280))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **research:** resolve merge conflicts with upstream evidence refactoring ([87cff40](https://github.com/your-org/ai-teams-engine/commit/87cff4004dc4a6369f1fd5cb8f07d0179e9b18d3))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.37.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.37.0) (2026-02-05)
-
-
-### Features
-
-* **ai-engine:** wire 7 dormant infrastructure capabilities into consumers ([c1af0ad](https://github.com/your-org/ai-teams-engine/commit/c1af0adf81198e790d511319de83a171c7cb720c))
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.36.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.36.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.35.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.35.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security+ux:** comprehensive test verification fixes — 11 files ([a1164b0](https://github.com/your-org/ai-teams-engine/commit/a1164b0a2787051c159ca0f3dfaa1af4b17bfcf8))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.34.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.34.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-engine:** architecture audit fixes — 18 files, P0-P3 ([23ecdd5](https://github.com/your-org/ai-teams-engine/commit/23ecdd596e04a10dd19c81e07c8873015e6d116f))
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.33.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.33.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** reduce image size ~200MB ([2b78b0f](https://github.com/your-org/ai-teams-engine/commit/2b78b0f49534859fdc440679d2d67d7f6ad118e1))
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.32.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.32.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **docker:** stop deleting "doc" dirs that contain source code ([7178876](https://github.com/your-org/ai-teams-engine/commit/71788767c86d60aafe08c04a0f91617090ba1d54))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+arch:** p1-p2 audit fixes — global auth, layer violation, env cleanup, health, docker ([2c023db](https://github.com/your-org/ai-teams-engine/commit/2c023dbc4dfa76e221ae372f3f429ab702e89bc7))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-* **test:** update test mocks and assertions to match implementations ([951a3b8](https://github.com/your-org/ai-teams-engine/commit/951a3b8e18d31777884e825027a408fc820dd0a4))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.31.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.31.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** fix polling stop on PLAN_READY and add approveMissionPlan ([4a5cf16](https://github.com/your-org/ai-teams-engine/commit/4a5cf16e05b7c48512b68e51b702910a0bb4d557))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.30.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.30.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **frontend:** fix TipTap SSR hydration warning and auto-poll on page load ([28a0bfb](https://github.com/your-org/ai-teams-engine/commit/28a0bfb065e65d0fde45172a7ecf5d02b58bc511))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.29.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.29.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** add dimension name validation and mission detail routes ([3f7c06d](https://github.com/your-org/ai-teams-engine/commit/3f7c06d7a2a9529d84bdcaddbb914d6516171268))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.28.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.28.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-
-### Performance
-
-* **docker:** strip non-essential files from backend node_modules ([4f4f0db](https://github.com/your-org/ai-teams-engine/commit/4f4f0db0c0068542b31f413f0deec13fd676eabc))
-
-## [3.27.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.27.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add DNS/TCP diagnostics to identify private network failure ([98329d4](https://github.com/your-org/ai-teams-engine/commit/98329d426180644d5d122a63081df62f5078555e))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-## [3.26.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.26.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **deploy:** add retry logic for database connection on Railway ([559696b](https://github.com/your-org/ai-teams-engine/commit/559696b59824a056577a93c7f040671883131807))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-## [3.25.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.25.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY enum to deploy-migrations Step 4.5 ([d0bcf62](https://github.com/your-org/ai-teams-engine/commit/d0bcf6259247ebd56de1e9cb112be3dd54a0abd4))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-## [3.24.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.24.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **db:** add PLAN_READY to ResearchMissionStatus enum ([8d89a99](https://github.com/your-org/ai-teams-engine/commit/8d89a99eb44112b760e885061eae129a996e26a6))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-## [3.23.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.23.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **frontend:** pin remotion to 4.0.417, avoid broken 4.0.418 tarball ([f4fc96d](https://github.com/your-org/ai-teams-engine/commit/f4fc96df6666add443f1e1e6559798fd9318302a))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-## [3.22.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.22.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **frontend:** revert npm ci to npm install for monorepo compatibility ([18d37a6](https://github.com/your-org/ai-teams-engine/commit/18d37a624279dedec7054a939e058205446c3c47))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-## [3.21.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.21.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **frontend:** switch to standalone mode, fix 502 zombie container issue ([b42aaf5](https://github.com/your-org/ai-teams-engine/commit/b42aaf528e960e5d811ffc02d737861919f67566))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-## [3.20.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.20.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **security:** patch sql injection in cleanupTable/getTableDetail, fix mutex safety ([58f5ae5](https://github.com/your-org/ai-teams-engine/commit/58f5ae500a18a4f3a5f3580c42883cdbdb70d6b8))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-## [3.19.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.19.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **security+perf:** p0-p2 audit fixes — 35 items across 6 batches ([6a2017e](https://github.com/your-org/ai-teams-engine/commit/6a2017e77b224ba8d761efd2804daa0e6e230be2))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-## [3.18.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.18.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-
-### Refactoring
-
-* **embedding:** abstract EmbeddingService off OpenAI SDK, route by apiFormat ([fc7d5f2](https://github.com/your-org/ai-teams-engine/commit/fc7d5f25a74346274c31401caa46fa5e2470953a))
-
-## [3.17.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.17.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** improve redis error handler to log error code ([f9b1bd1](https://github.com/your-org/ai-teams-engine/commit/f9b1bd19da628ce169bba8993d1c0abb32797c05))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-## [3.16.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.16.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **cache:** parse Redis URL into host/port/password for ioredis ([216f44d](https://github.com/your-org/ai-teams-engine/commit/216f44df6af61994924b6ac97d05a0f806f4d469))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-## [3.15.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.15.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** add dns pre-check and connection probe for Railway Redis ([491b578](https://github.com/your-org/ai-teams-engine/commit/491b57828956daddbc3c392fce46b4b75fac8a7f))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-## [3.14.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.14.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **cache:** fix Railway Redis ECONNREFUSED with IPv6 and fallback ([027a4ea](https://github.com/your-org/ai-teams-engine/commit/027a4ea0b983552aa914b80a754e6acb2c69c6e3))
-* **cache:** force IPv4 for Railway Redis internal network connection ([ccda081](https://github.com/your-org/ai-teams-engine/commit/ccda0816ec6a043d6cdf20393419d9616ac6bd26))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-## [3.13.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.13.0) (2026-02-05)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **infra:** add monitoring, cache, observability and security infrastructure ([61c5fa8](https://github.com/your-org/ai-teams-engine/commit/61c5fa850cb22a3229845b898cebd9ac5aaf0a12))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-## [3.12.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.12.0) (2026-02-04)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ai-writing:** fix scratchpad service parameter mismatch in DOME/SCORE endpoints ([eb65f3d](https://github.com/your-org/ai-teams-engine/commit/eb65f3dc0af41999255eeaccdb3bbbadfb3a0c1b))
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-## [3.11.0](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.11.0) (2026-02-04)
-
-
-### Features
-
-* **ai-writing:** implement DOME/SCORE enhanced analysis services ([9158d97](https://github.com/your-org/ai-teams-engine/commit/9158d97e0918b1d1f8fe87ccfd14d49c63468a07))
-* **research:** implement P0-P1 quality enhancements with critical fixes ([e5d8958](https://github.com/your-org/ai-teams-engine/commit/e5d895860d9a6f8c961d945d55ede6fe62ae1ff1))
-
-
-### Bug Fixes
-
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-* **teams:** add WebSocket event sync for task status and agent state ([9a8fa9c](https://github.com/your-org/ai-teams-engine/commit/9a8fa9c895c9a306299cc543e7d6532b1fc1f513))
-
-### [3.10.2](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.10.2) (2026-02-04)
-
-
-### Bug Fixes
-
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-* **research:** pass modelId and assignmentReason from Leader plan to todos ([8b5aff7](https://github.com/your-org/ai-teams-engine/commit/8b5aff7d70c060e14d6ca1e2152cd9153b1a13bd))
-
-### [3.10.1](https://github.com/your-org/ai-teams-engine/compare/v3.10.0...v3.10.1) (2026-02-04)
-
-
-### Bug Fixes
-
-* **ci:** update auto-release to sync package-lock.json ([1490b1d](https://github.com/your-org/ai-teams-engine/commit/1490b1dc4e2bcbd6414adcf1623c7133a9d9eeb7))
-
-## [3.10.0](https://github.com/your-org/ai-teams-engine/compare/v3.9.7...v3.10.0) (2026-02-04)
-
-### Features
-
-- **admin:** add pagination to user management & improve user display ([3c1a8fc](https://github.com/your-org/ai-teams-engine/commit/3c1a8fccb1ab89b002f71b6005394730f440ac69))
+# [3.10.0](https://github.com/your-org/ai-teams-engine/compare/v3.9.7...v3.10.0) (2026-02-04)
 
 ### Bug Fixes
 
@@ -1740,25 +273,18 @@ Raven AI Engine 版本变更记录。
 - **research:** restore evidence default limit to 500 for citation links ([90ae301](https://github.com/your-org/ai-teams-engine/commit/90ae301089dee742ec6a459a0d78379a9ebc2f10))
 - **research:** use createMany for bulk evidence insert to prevent timeout ([fa6e06b](https://github.com/your-org/ai-teams-engine/commit/fa6e06bd06524c90d24763f988ffce3acd5bb170))
 
-### Refactoring
+### Features
 
-- **arch:** move team configs from AI Engine to AI Apps layer ([b9cec0b](https://github.com/your-org/ai-teams-engine/commit/b9cec0bfa79a37d4b5e69baa57f29e79c3ae1217))
+- **admin:** add pagination to user management & improve user display ([3c1a8fc](https://github.com/your-org/ai-teams-engine/commit/3c1a8fccb1ab89b002f71b6005394730f440ac69))
 
-### Performance
+### Performance Improvements
 
 - add in-memory cache for checkin status and topics list ([0eb7940](https://github.com/your-org/ai-teams-engine/commit/0eb7940f4dc9d11934372ddafb440a4ccf6faded))
 - **auth:** add user cache to JWT strategy to reduce db queries ([2dd9e38](https://github.com/your-org/ai-teams-engine/commit/2dd9e38a897035f83ad7ea005def4bc2adf62f8f))
 - **auth:** optimize JWT strategy - no database queries ([1b64bd9](https://github.com/your-org/ai-teams-engine/commit/1b64bd912a7fb84e13ac9fb8df6461f5e9fb5d91))
 - **db:** add missing indexes for research_topics ([1a2711f](https://github.com/your-org/ai-teams-engine/commit/1a2711fc31bcb603389a00fb4e1e6b74d4499bba))
 
-### [3.9.7](https://github.com/your-org/ai-teams-engine/compare/v3.9.6...v3.9.7) (2026-02-04)
-
-### Features
-
-- **ai-engine:** implement capability sink with RealtimeAdapter integration ([12363ad](https://github.com/your-org/ai-teams-engine/commit/12363ad20189e0fbc12d98b248df72e43c176ce4))
-- **research:** add Leader Agent assignment reasoning to task list ([62d2f73](https://github.com/your-org/ai-teams-engine/commit/62d2f733232c9694430c2b34beb18b1255a9405b))
-- **research:** improve assignment reason with model-specific descriptions ([baf37e1](https://github.com/your-org/ai-teams-engine/commit/baf37e198cca8361d5342953ecd6882aee5cea94))
-- **ui:** implement three-state sidebar toggle with custom panel icons ([ead841f](https://github.com/your-org/ai-teams-engine/commit/ead841fe544647d912f8c45badf5025a632c36cd))
+## [3.9.7](https://github.com/your-org/ai-teams-engine/compare/v3.9.6...v3.9.7) (2026-02-04)
 
 ### Bug Fixes
 
@@ -1781,132 +307,132 @@ Raven AI Engine 版本变更记录。
 - **ui:** use Lucide PanelLeft icons for sidebar toggle ([bb09f2b](https://github.com/your-org/ai-teams-engine/commit/bb09f2b5cf233a2cc226a178e42fae7df5290a80))
 - update AI Service brand name to Raven ([4414126](https://github.com/your-org/ai-teams-engine/commit/44141264fa804390fce5c1d3e1095067ad88bb03))
 
-### Refactoring
+### Features
 
-- **ai-engine:** remove unused Data module and consolidate data source mappings ([daef83e](https://github.com/your-org/ai-teams-engine/commit/daef83ece88b94113d4529bf15a1e5c797378434))
-- rebrand DeepDive Engine to Raven AI Engine ([2a6291a](https://github.com/your-org/ai-teams-engine/commit/2a6291a788dabcf7ce871554995b2acfc56af4dc))
-- **ui:** simplify language switcher to toggle button ([ffb4ddb](https://github.com/your-org/ai-teams-engine/commit/ffb4ddba2e245cc6f17a835ba9e6c617e0082b42))
+- **ai-engine:** implement capability sink with RealtimeAdapter integration ([12363ad](https://github.com/your-org/ai-teams-engine/commit/12363ad20189e0fbc12d98b248df72e43c176ce4))
+- **research:** add Leader Agent assignment reasoning to task list ([62d2f73](https://github.com/your-org/ai-teams-engine/commit/62d2f733232c9694430c2b34beb18b1255a9405b))
+- **research:** improve assignment reason with model-specific descriptions ([baf37e1](https://github.com/your-org/ai-teams-engine/commit/baf37e198cca8361d5342953ecd6882aee5cea94))
+- **ui:** implement three-state sidebar toggle with custom panel icons ([ead841f](https://github.com/your-org/ai-teams-engine/commit/ead841fe544647d912f8c45badf5025a632c36cd))
 
-### Performance
+### Performance Improvements
 
 - **startup:** optimize CreditRulesService and DataSourceSeederService ([df9219c](https://github.com/your-org/ai-teams-engine/commit/df9219c0f9e84120dde09673f806bffb6cc7141a))
 
-### [3.9.6](https://github.com/your-org/ai-teams-engine/compare/v3.9.5...v3.9.6) (2026-02-03)
+## [3.9.6](https://github.com/your-org/ai-teams-engine/compare/v3.9.5...v3.9.6) (2026-02-03)
 
 ### Bug Fixes
 
 - **byok:** prioritize user's own API key as default model ([fb22001](https://github.com/your-org/ai-teams-engine/commit/fb22001b52f059b8b6a263b4d6203930230ed692))
 
-### [3.9.5](https://github.com/your-org/ai-teams-engine/compare/v3.9.4...v3.9.5) (2026-02-03)
+## [3.9.5](https://github.com/your-org/ai-teams-engine/compare/v3.9.4...v3.9.5) (2026-02-03)
 
 ### Bug Fixes
 
 - **byok:** forward Authorization header through all AI routes ([0e4b532](https://github.com/your-org/ai-teams-engine/commit/0e4b532db6136da77b10740bcc208da993ce93fe))
 
-### [3.9.4](https://github.com/your-org/ai-teams-engine/compare/v3.9.3...v3.9.4) (2026-02-03)
+## [3.9.4](https://github.com/your-org/ai-teams-engine/compare/v3.9.3...v3.9.4) (2026-02-03)
 
 ### Bug Fixes
 
 - **byok:** add dynamic model generation for user API keys ([ff327b0](https://github.com/your-org/ai-teams-engine/commit/ff327b0b8195efaef1e811844e33db332bf60cb5))
 
-### [3.9.3](https://github.com/your-org/ai-teams-engine/compare/v3.9.2...v3.9.3) (2026-02-03)
+## [3.9.3](https://github.com/your-org/ai-teams-engine/compare/v3.9.2...v3.9.3) (2026-02-03)
 
 ### Bug Fixes
 
 - **changelog:** remove Back button from What's New page ([dc20f06](https://github.com/your-org/ai-teams-engine/commit/dc20f06c0e688046749ec362b742e74e72853e77))
 
-### [3.9.2](https://github.com/your-org/ai-teams-engine/compare/v3.9.1...v3.9.2) (2026-02-03)
+## [3.9.2](https://github.com/your-org/ai-teams-engine/compare/v3.9.1...v3.9.2) (2026-02-03)
 
-### [3.9.1](https://github.com/your-org/ai-teams-engine/compare/v3.9.0...v3.9.1) (2026-02-03)
+## [3.9.1](https://github.com/your-org/ai-teams-engine/compare/v3.9.0...v3.9.1) (2026-02-03)
 
 ### Bug Fixes
 
 - **byok:** add My Key badge to correct file (app/ai-ask/page.tsx) ([ea643c6](https://github.com/your-org/ai-teams-engine/commit/ea643c67b7d603d0b2b6e1e89dad3a3c3030f71b))
 
-## [3.9.0](https://github.com/your-org/ai-teams-engine/compare/v3.8.2...v3.9.0) (2026-02-03)
+# [3.9.0](https://github.com/your-org/ai-teams-engine/compare/v3.8.2...v3.9.0) (2026-02-03)
 
 ### Features
 
 - **ui-patrol:** add spec checks, i18n, perf, visual regression, trends ([47cb395](https://github.com/your-org/ai-teams-engine/commit/47cb395beab53b2ccc3cadaf594c68193cc0697f))
 
-### [3.8.2](https://github.com/your-org/ai-teams-engine/compare/v3.8.1...v3.8.2) (2026-02-03)
+## [3.8.2](https://github.com/your-org/ai-teams-engine/compare/v3.8.1...v3.8.2) (2026-02-03)
 
 ### Bug Fixes
 
 - **byok:** fix My Key badge removed by compiler dead-code elimination ([4cee2c7](https://github.com/your-org/ai-teams-engine/commit/4cee2c729a6f75f9661d948942dcfc33cd29f98c))
 
-### [3.8.1](https://github.com/your-org/ai-teams-engine/compare/v3.8.0...v3.8.1) (2026-02-03)
+## [3.8.1](https://github.com/your-org/ai-teams-engine/compare/v3.8.0...v3.8.1) (2026-02-03)
 
 ### Bug Fixes
 
 - **byok:** invalidate model cache on auth state change and add debug logging ([334be15](https://github.com/your-org/ai-teams-engine/commit/334be15bd566fbe6d1f42bc417bf997fc0b2bfd2))
 
-## [3.8.0](https://github.com/your-org/ai-teams-engine/compare/v3.7.2...v3.8.0) (2026-02-03)
+# [3.8.0](https://github.com/your-org/ai-teams-engine/compare/v3.7.2...v3.8.0) (2026-02-03)
 
 ### Features
 
 - **changelog:** add change type statistics cards to What's New page ([d582b0c](https://github.com/your-org/ai-teams-engine/commit/d582b0c9320b392d5de817224289e0164220ef57))
 
-### [3.7.2](https://github.com/your-org/ai-teams-engine/compare/v3.7.1...v3.7.2) (2026-02-03)
+## [3.7.2](https://github.com/your-org/ai-teams-engine/compare/v3.7.1...v3.7.2) (2026-02-03)
 
 ### Bug Fixes
 
 - **byok:** auto-refresh model list when user saves/deletes API key ([6578c1d](https://github.com/your-org/ai-teams-engine/commit/6578c1d7ca972334405f071fd58ed24b6a2614a9))
 - **i18n:** fix simulation cards and quote card using wrong source files ([47f4f76](https://github.com/your-org/ai-teams-engine/commit/47f4f765b87adf5ea77a6ff8e53fa0fb9b99f64f))
 
-### [3.7.1](https://github.com/your-org/ai-teams-engine/compare/v3.7.0...v3.7.1) (2026-02-03)
+## [3.7.1](https://github.com/your-org/ai-teams-engine/compare/v3.7.0...v3.7.1) (2026-02-03)
 
 ### Bug Fixes
 
 - **changelog:** skip versions with no user-facing changes ([5ddd863](https://github.com/your-org/ai-teams-engine/commit/5ddd86364740a3250dcecfd847de636bec817d5c))
 
-## [3.7.0](https://github.com/your-org/ai-teams-engine/compare/v3.6.2...v3.7.0) (2026-02-03)
+# [3.7.0](https://github.com/your-org/ai-teams-engine/compare/v3.6.2...v3.7.0) (2026-02-03)
+
+### Bug Fixes
+
+- **ai-models:** clear model cache when user saves or deletes API key ([f21332f](https://github.com/your-org/ai-teams-engine/commit/f21332f148eb6d2cf2a97cb008e1b3e0e2395789))
 
 ### Features
 
 - **byok:** complete BYOK system - RequestContext, model routing, provider normalization ([e0e57d9](https://github.com/your-org/ai-teams-engine/commit/e0e57d9438e2f0d5f36933b8676ed6203d48c861))
 - **i18n:** comprehensive English mode i18n fixes across all pages ([5b9a13a](https://github.com/your-org/ai-teams-engine/commit/5b9a13af2b4e79840f7ce43612dac3ff93ea0374))
 
-### Bug Fixes
+## [3.6.2](https://github.com/your-org/ai-teams-engine/compare/v3.6.1...v3.6.2) (2026-02-03)
 
-- **ai-models:** clear model cache when user saves or deletes API key ([f21332f](https://github.com/your-org/ai-teams-engine/commit/f21332f148eb6d2cf2a97cb008e1b3e0e2395789))
-
-### [3.6.2](https://github.com/your-org/ai-teams-engine/compare/v3.6.1...v3.6.2) (2026-02-03)
-
-### [3.6.1](https://github.com/your-org/ai-teams-engine/compare/v3.6.0...v3.6.1) (2026-02-03)
+## [3.6.1](https://github.com/your-org/ai-teams-engine/compare/v3.6.0...v3.6.1) (2026-02-03)
 
 ### Bug Fixes
 
 - **i18n:** remove duplicate keys in zh.json ([227faa1](https://github.com/your-org/ai-teams-engine/commit/227faa19b469e4259cb2bd4b7f26f8f7cb5c1c14))
 
-## [3.6.0](https://github.com/your-org/ai-teams-engine/compare/v3.5.1...v3.6.0) (2026-02-03)
-
-### Features
-
-- **ai-models:** show user API key models in model selector ([8688b3f](https://github.com/your-org/ai-teams-engine/commit/8688b3f75a9311d27ab14be8aac2558bc8e93ccc))
+# [3.6.0](https://github.com/your-org/ai-teams-engine/compare/v3.5.1...v3.6.0) (2026-02-03)
 
 ### Bug Fixes
 
 - **changelog:** merge v3.5.0 into frontend CHANGELOG, ignore root copy ([db45656](https://github.com/your-org/ai-teams-engine/commit/db45656892335763b57329567dee586f0e35780a))
 
-## [3.5.0](https://github.com/your-org/ai-teams-engine/compare/v3.4.0...v3.5.0) (2026-02-02)
-
 ### Features
 
-- **i18n:** internationalize Credibility panel and History tab icon ([f82fae1](https://github.com/your-org/ai-teams-engine/commit/f82fae180e2efecf2e8de6d6d9bd8a4f9f08221e))
+- **ai-models:** show user API key models in model selector ([8688b3f](https://github.com/your-org/ai-teams-engine/commit/8688b3f75a9311d27ab14be8aac2558bc8e93ccc))
+
+## [3.5.1](https://github.com/your-org/ai-teams-engine/compare/v3.5.0...v3.5.1) (2026-02-02)
+
+### Bug Fixes
+
+- **changelog:** move CHANGELOG.md to frontend, fix script path and release config ([72bd902](https://github.com/your-org/ai-teams-engine/commit/72bd9028d28fc4bc7b6aab4c78d8524a6f9cb085))
+
+# [3.5.0](https://github.com/your-org/ai-teams-engine/compare/v3.4.0...v3.5.0) (2026-02-02)
 
 ### Bug Fixes
 
 - **changelog:** handle missing CHANGELOG.md in Docker builds ([4ddc82e](https://github.com/your-org/ai-teams-engine/commit/4ddc82edd80bd2f351cdb93fa40091fceba89ea6))
 
-## [3.4.0](https://github.com/your-org/ai-teams-engine/compare/v3.3.31...v3.4.0) (2026-02-02)
-
 ### Features
 
-- **byok:** add user API keys migration and PRD ([10c08cf](https://github.com/your-org/ai-teams-engine/commit/10c08cfef94e502b297f9474081ce9dd2de4c9f9))
-- **core:** implement BYOK user API key system with shared donation pool ([7f68184](https://github.com/your-org/ai-teams-engine/commit/7f6818489f2340a6f4f1777dd7bab720bcdf75b2))
-- **i18n:** comprehensive internationalization for ai-research components ([0405ae2](https://github.com/your-org/ai-teams-engine/commit/0405ae2bafa8c2a8d5552fa119477ee623cbad5c))
-- **ui-patrol:** add automated UI inspection and regression system ([2c7ffbe](https://github.com/your-org/ai-teams-engine/commit/2c7ffbed76cb25bb123fc85090638fde416ee2c4))
+- **i18n:** internationalize Credibility panel and History tab icon ([f82fae1](https://github.com/your-org/ai-teams-engine/commit/f82fae180e2efecf2e8de6d6d9bd8a4f9f08221e))
+
+# [3.4.0](https://github.com/your-org/ai-teams-engine/compare/v3.3.31...v3.4.0) (2026-02-02)
 
 ### Bug Fixes
 
@@ -1916,1100 +442,248 @@ Raven AI Engine 版本变更记录。
 - **i18n:** translate evidence panel labels, fix Research Depth layout ([5e320f9](https://github.com/your-org/ai-teams-engine/commit/5e320f95c513cb411f4371470abefa413d3581e9))
 - **i18n:** translate WritingDetailPage, EditorModal, SandboxView ([28ed8eb](https://github.com/your-org/ai-teams-engine/commit/28ed8eb1876d6295b13aadd753cfc408a48bbb76))
 
-### Refactoring
+### Features
 
-- **changelog:** auto-generate from CHANGELOG.md instead of hardcoding ([b428ea2](https://github.com/your-org/ai-teams-engine/commit/b428ea2eff3ac4d3e9ec8fbde407966f17f141d5))
+- **byok:** add user API keys migration and PRD ([10c08cf](https://github.com/your-org/ai-teams-engine/commit/10c08cfef94e502b297f9474081ce9dd2de4c9f9))
+- **core:** implement BYOK user API key system with shared donation pool ([7f68184](https://github.com/your-org/ai-teams-engine/commit/7f6818489f2340a6f4f1777dd7bab720bcdf75b2))
+- **i18n:** comprehensive internationalization for ai-research components ([0405ae2](https://github.com/your-org/ai-teams-engine/commit/0405ae2bafa8c2a8d5552fa119477ee623cbad5c))
+- **ui-patrol:** add automated UI inspection and regression system ([2c7ffbe](https://github.com/your-org/ai-teams-engine/commit/2c7ffbed76cb25bb123fc85090638fde416ee2c4))
 
-### [3.3.31](https://github.com/your-org/ai-teams-engine/compare/v3.3.30...v3.3.31) (2026-02-02)
+## [3.3.31](https://github.com/your-org/ai-teams-engine/compare/v3.3.30...v3.3.31) (2026-02-02)
 
 ### Bug Fixes
 
 - **research:** comprehensive i18n support and citation link fix ([666e009](https://github.com/your-org/ai-teams-engine/commit/666e0099fc90020edc8d2d61ec8907454443780c))
 
-### [3.3.30](https://github.com/your-org/ai-teams-engine/compare/v3.3.29...v3.3.30) (2026-02-02)
+## [3.3.30](https://github.com/your-org/ai-teams-engine/compare/v3.3.29...v3.3.30) (2026-02-02)
 
 ### Bug Fixes
 
 - **research:** respect topic language setting in section writing ([3ae67b4](https://github.com/your-org/ai-teams-engine/commit/3ae67b4f8c9ef0c670e85cdefe04fc30dc8bda83))
 
-### [3.3.29](https://github.com/your-org/ai-teams-engine/compare/v3.3.28...v3.3.29) (2026-02-02)
+## [3.3.29](https://github.com/your-org/ai-teams-engine/compare/v3.3.28...v3.3.29) (2026-02-02)
 
 ### Bug Fixes
 
 - **research:** improve fallback when AI report JSON parsing fails ([58c4ad6](https://github.com/your-org/ai-teams-engine/commit/58c4ad6a3907554e1a9fceade7299e7992e30f2a))
 
-### [3.3.28](https://github.com/your-org/ai-teams-engine/compare/v3.3.27...v3.3.28) (2026-02-02)
+## [3.3.28](https://github.com/your-org/ai-teams-engine/compare/v3.3.27...v3.3.28) (2026-02-02)
 
 ### Bug Fixes
 
 - **research:** use brace counting for JSON extraction from code blocks ([51f1090](https://github.com/your-org/ai-teams-engine/commit/51f10906cbf453c0cf8d1316afa0c0dbf853382c))
 
-### [3.3.27](https://github.com/your-org/ai-teams-engine/compare/v3.3.26...v3.3.27) (2026-02-02)
+## [3.3.27](https://github.com/your-org/ai-teams-engine/compare/v3.3.26...v3.3.27) (2026-02-02)
 
 ### Bug Fixes
 
 - **ui:** fix changelog page scrollbar overflow ([c471d0e](https://github.com/your-org/ai-teams-engine/commit/c471d0e36c6185d6a75ed78518ecb391a12a9b25))
 
-### [3.3.26](https://github.com/your-org/ai-teams-engine/compare/v3.3.25...v3.3.26) (2026-02-02)
+## [3.3.26](https://github.com/your-org/ai-teams-engine/compare/v3.3.25...v3.3.26) (2026-02-02)
 
 ### Bug Fixes
 
 - **ai-engine:** fix Gemini embedding model test URL construction ([cff15f7](https://github.com/your-org/ai-teams-engine/commit/cff15f799d64c986f74fcdebe40411d9888c9fc1))
 
-### [3.3.25](https://github.com/your-org/ai-teams-engine/compare/v3.3.24...v3.3.25) (2026-02-02)
+## [3.3.25](https://github.com/your-org/ai-teams-engine/compare/v3.3.24...v3.3.25) (2026-02-02)
 
 ### Bug Fixes
 
 - **research:** strip leaked CHARTS JSON from report + clickable chart citations ([851a50d](https://github.com/your-org/ai-teams-engine/commit/851a50de0f388c238a6705da5130aade1a2a0b01))
 - **ui:** show sidebar on changelog page ([8efa0eb](https://github.com/your-org/ai-teams-engine/commit/8efa0eb5fb7d0ffc79732fae8923a17e3742a3b7))
 
-### [3.3.24](https://github.com/your-org/ai-teams-engine/compare/v3.3.23...v3.3.24) (2026-02-02)
+## [3.3.24](https://github.com/your-org/ai-teams-engine/compare/v3.3.23...v3.3.24) (2026-02-02)
 
 ### Bug Fixes
 
 - **research:** add backend safety net to strip raw JSON from report content ([f3c2ea2](https://github.com/your-org/ai-teams-engine/commit/f3c2ea2eb05aac9510c8bf63010cf25911ebac40))
 
-### [3.3.23](https://github.com/your-org/ai-teams-engine/compare/v3.3.22...v3.3.23) (2026-02-02)
+## [3.3.23](https://github.com/your-org/ai-teams-engine/compare/v3.3.22...v3.3.23) (2026-02-02)
 
 ### Bug Fixes
 
 - **research:** robust JSON extraction with regex fullText fallback ([f58faf5](https://github.com/your-org/ai-teams-engine/commit/f58faf57fc6b9583ba32c01381d10510fa6a7ee7))
 
-### [3.3.22](https://github.com/your-org/ai-teams-engine/compare/v3.3.21...v3.3.22) (2026-02-02)
+## [3.3.22](https://github.com/your-org/ai-teams-engine/compare/v3.3.21...v3.3.22) (2026-02-02)
 
 ### Bug Fixes
 
 - **research:** use JSON.parse instead of brace counting for embedded JSON extraction ([49068d9](https://github.com/your-org/ai-teams-engine/commit/49068d9b43bebbf0e89591983efb332db92378a8))
 
-### [3.3.21](https://github.com/your-org/ai-teams-engine/compare/v3.3.20...v3.3.21) (2026-02-02)
+## [3.3.21](https://github.com/your-org/ai-teams-engine/compare/v3.3.20...v3.3.21) (2026-02-02)
 
 ### Bug Fixes
 
 - **research:** persist language setting and apply to all prompts ([5e00a20](https://github.com/your-org/ai-teams-engine/commit/5e00a20dfda8547d0b3801cb9c9d1abf0eade0c2))
 
-### [3.3.20](https://github.com/your-org/ai-teams-engine/compare/v3.3.19...v3.3.20) (2026-02-02)
+## [3.3.20](https://github.com/your-org/ai-teams-engine/compare/v3.3.19...v3.3.20) (2026-02-02)
 
 ### Bug Fixes
 
 - **research:** broaden JSON detection regex for embedded executiveSummary ([c87d8f9](https://github.com/your-org/ai-teams-engine/commit/c87d8f9fde1e231f89a7f58cbd8fec834a95837e))
 
-### [3.3.19](https://github.com/your-org/ai-teams-engine/compare/v3.3.18...v3.3.19) (2026-02-02)
+## [3.3.19](https://github.com/your-org/ai-teams-engine/compare/v3.3.18...v3.3.19) (2026-02-02)
 
 ### Bug Fixes
 
 - **research:** properly extract markdown from JSON embedded in fullReport ([f76bcc6](https://github.com/your-org/ai-teams-engine/commit/f76bcc66406a81bfad0dd2e2b62406b8cdeea12d))
 
-### [3.3.18](https://github.com/your-org/ai-teams-engine/compare/v3.3.17...v3.3.18) (2026-02-02)
+## [3.3.18](https://github.com/your-org/ai-teams-engine/compare/v3.3.17...v3.3.18) (2026-02-02)
 
 ### Bug Fixes
 
 - **research:** handle executiveSummary with fullText-only JSON format ([e71e617](https://github.com/your-org/ai-teams-engine/commit/e71e617e748c0077699a93644223deee5346913b))
 
-### [3.3.17](https://github.com/your-org/ai-teams-engine/compare/v3.3.16...v3.3.17) (2026-02-02)
+## [3.3.17](https://github.com/your-org/ai-teams-engine/compare/v3.3.16...v3.3.17) (2026-02-02)
 
 ### Bug Fixes
 
 - **frontend:** handle JSON-formatted fullReport in report renderer ([24cf0f6](https://github.com/your-org/ai-teams-engine/commit/24cf0f6f7bf0341b29104b489912eec7d67f7d81))
 
-### [3.3.16](https://github.com/your-org/ai-teams-engine/compare/v3.3.15...v3.3.16) (2026-02-02)
+## [3.3.16](https://github.com/your-org/ai-teams-engine/compare/v3.3.15...v3.3.16) (2026-02-02)
 
-### [3.3.15](https://github.com/your-org/ai-teams-engine/compare/v3.3.14...v3.3.15) (2026-02-02)
+## [3.3.15](https://github.com/your-org/ai-teams-engine/compare/v3.3.14...v3.3.15) (2026-02-02)
 
-### [3.3.14](https://github.com/your-org/ai-teams-engine/compare/v3.3.13...v3.3.14) (2026-02-02)
-
-### Bug Fixes
-
-- **research:** add modelId to agent activity records for consistent model label display
-
-### [3.3.13](https://github.com/your-org/ai-teams-engine/compare/v3.3.12...v3.3.13) (2026-02-02)
+## [3.3.14](https://github.com/your-org/ai-teams-engine/compare/v3.3.13...v3.3.14) (2026-02-02)
 
 ### Bug Fixes
 
-- **ai-engine:** auto-set apiFormat from provider, validate on load ([bfa118a](https://github.com/your-org/ai-teams-engine/commit/bfa118a6))
-- **research:** use class references instead of string tokens in forwardRef ([50b632d](https://github.com/your-org/ai-teams-engine/commit/50b632d3))
+- **research:** add modelId to agent activity for consistent model labels ([f6ceacf](https://github.com/your-org/ai-teams-engine/commit/f6ceacfc9e9ef5e2b828f9a8e25adbb36212ee97))
 
-### [3.3.11](https://github.com/your-org/ai-teams-engine/compare/v3.3.10...v3.3.11) (2026-02-02)
+## [3.3.13](https://github.com/your-org/ai-teams-engine/compare/v3.3.11...v3.3.13) (2026-02-02)
 
-### Refactoring
+### Bug Fixes
 
-- **research:** p0+p1 bug fixes, type safety, and god service splitting ([3604aea](https://github.com/your-org/ai-teams-engine/commit/3604aea1f1519d50180cbd22e5b5e5eb1c0546c4))
+- **ai-engine:** auto-set apiFormat from provider, validate on load ([bfa118a](https://github.com/your-org/ai-teams-engine/commit/bfa118a635392e8879b3886291addff373cad5b8))
+- **research:** use class references instead of string tokens in forwardRef ([50b632d](https://github.com/your-org/ai-teams-engine/commit/50b632d32fc621655193d63e149e9caba0f4a554))
 
-### [3.3.10](https://github.com/your-org/ai-teams-engine/compare/v3.3.9...v3.3.10) (2026-02-01)
+## [3.3.11](https://github.com/your-org/ai-teams-engine/compare/v3.3.10...v3.3.11) (2026-02-02)
 
-### Refactoring
+## [3.3.10](https://github.com/your-org/ai-teams-engine/compare/v3.3.9...v3.3.10) (2026-02-01)
 
-- **research:** restructure topic-research module ([2c4a083](https://github.com/your-org/ai-teams-engine/commit/2c4a083fac0063c50e5873964176e3fa6c0a74e3))
+## [3.3.9](https://github.com/your-org/ai-teams-engine/compare/v3.3.8...v3.3.9) (2026-02-01)
 
-### [3.3.9](https://github.com/your-org/ai-teams-engine/compare/v3.3.8...v3.3.9) (2026-02-01)
-
-### Refactoring
-
-- **research:** comprehensive code quality improvements across 11 tasks ([8650d46](https://github.com/your-org/ai-teams-engine/commit/8650d468220857cc59d0ffd57ec8705a327d5ee8))
-
-### [3.3.8](https://github.com/your-org/ai-teams-engine/compare/v3.3.7...v3.3.8) (2026-02-01)
+## [3.3.8](https://github.com/your-org/ai-teams-engine/compare/v3.3.7...v3.3.8) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** enhance Leader planning depth, report breadth, and tail dedup ([c9cff16](https://github.com/your-org/ai-teams-engine/commit/c9cff16a31fd3c5efd6484b4b58fd15bb179f0eb))
 
-### [3.3.7](https://github.com/your-org/ai-teams-engine/compare/v3.3.6...v3.3.7) (2026-02-01)
+## [3.3.7](https://github.com/your-org/ai-teams-engine/compare/v3.3.6...v3.3.7) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** fix agent model display by matching tasks via assignedAgent ([ba73d83](https://github.com/your-org/ai-teams-engine/commit/ba73d83cacc9a77f43c548013af2c729e19cda28))
 
-### [3.3.6](https://github.com/your-org/ai-teams-engine/compare/v3.3.5...v3.3.6) (2026-02-01)
+## [3.3.6](https://github.com/your-org/ai-teams-engine/compare/v3.3.5...v3.3.6) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** expose leaderModelId in mission status for reliable model display ([73ff637](https://github.com/your-org/ai-teams-engine/commit/73ff637307a780428796fad696cd775c206123f5))
 
-### [3.3.5](https://github.com/your-org/ai-teams-engine/compare/v3.3.4...v3.3.5) (2026-02-01)
+## [3.3.5](https://github.com/your-org/ai-teams-engine/compare/v3.3.4...v3.3.5) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** add fallback for Leader model display and diagnostic logging ([4ec3f72](https://github.com/your-org/ai-teams-engine/commit/4ec3f72d6b77108878f6e66148dcc7d35a887a28))
 
-### [3.3.4](https://github.com/your-org/ai-teams-engine/compare/v3.3.3...v3.3.4) (2026-02-01)
+## [3.3.4](https://github.com/your-org/ai-teams-engine/compare/v3.3.3...v3.3.4) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** report quality root cause fixes and code review hardening ([131e4f6](https://github.com/your-org/ai-teams-engine/commit/131e4f69cee4e026cad940ea26dc24a8efc910ff))
 
-### [3.3.3](https://github.com/your-org/ai-teams-engine/compare/v3.3.2...v3.3.3) (2026-02-01)
+## [3.3.3](https://github.com/your-org/ai-teams-engine/compare/v3.3.2...v3.3.3) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** comprehensive business logic audit fixes (C1-C4, H1-H6, M2/M10) ([4d87e2a](https://github.com/your-org/ai-teams-engine/commit/4d87e2a59801ff1795a3ec4f9633f5ca872b77f0))
 
-### [3.3.2](https://github.com/your-org/ai-teams-engine/compare/v3.3.1...v3.3.2) (2026-02-01)
+## [3.3.2](https://github.com/your-org/ai-teams-engine/compare/v3.3.1...v3.3.2) (2026-02-01)
 
 ### Bug Fixes
 
 - **frontend:** handle 401 in fetchWithAuth and stop polling on auth failure ([1eb68cd](https://github.com/your-org/ai-teams-engine/commit/1eb68cd1440c5a3d5b8ebacde6b9cf00c1635ae9))
 
-### [3.3.1](https://github.com/your-org/ai-teams-engine/compare/v3.3.0...v3.3.1) (2026-02-01)
+## [3.3.1](https://github.com/your-org/ai-teams-engine/compare/v3.3.0...v3.3.1) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** extract trends/challenges/opportunities from content and create ResearchTask records ([8612dab](https://github.com/your-org/ai-teams-engine/commit/8612dabc51c4f3a8def8a91a1ad3052ce072a87a))
 
-## [3.3.0](https://github.com/your-org/ai-teams-engine/compare/v3.2.3...v3.3.0) (2026-02-01)
+# [3.3.0](https://github.com/your-org/ai-teams-engine/compare/v3.2.3...v3.3.0) (2026-02-01)
 
 ### Features
 
 - **research:** create todos during refresh for task list visibility ([6e96cb7](https://github.com/your-org/ai-teams-engine/commit/6e96cb7f6331dde219d3fe431ca4f6b944d92405))
 
-### [3.2.3](https://github.com/your-org/ai-teams-engine/compare/v3.2.2...v3.2.3) (2026-02-01)
+## [3.2.3](https://github.com/your-org/ai-teams-engine/compare/v3.2.2...v3.2.3) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** save analyses before cognitive loop, make post-research steps non-fatal ([01c7799](https://github.com/your-org/ai-teams-engine/commit/01c7799851f54585b1b0be9cabfce1a6e4cf4629))
 
-### [3.2.2](https://github.com/your-org/ai-teams-engine/compare/v3.2.1...v3.2.2) (2026-02-01)
+## [3.2.2](https://github.com/your-org/ai-teams-engine/compare/v3.2.1...v3.2.2) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** preserve full section content instead of AI compression ([#27](https://github.com/your-org/ai-teams-engine/issues/27)) ([f84eb60](https://github.com/your-org/ai-teams-engine/commit/f84eb602676f7d238aadfc0ff66b6979608607e0))
 
-### [3.2.1](https://github.com/your-org/ai-teams-engine/compare/v3.2.0...v3.2.1) (2026-02-01)
+## [3.2.1](https://github.com/your-org/ai-teams-engine/compare/v3.2.0...v3.2.1) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** comprehensive quality validation for dimensions ([#23](https://github.com/your-org/ai-teams-engine/issues/23)/[#24](https://github.com/your-org/ai-teams-engine/issues/24)/[#25](https://github.com/your-org/ai-teams-engine/issues/25)/[#26](https://github.com/your-org/ai-teams-engine/issues/26)) ([460dbf6](https://github.com/your-org/ai-teams-engine/commit/460dbf6e9f7c99be47852744dc935345a5ec4f15))
 
-## [3.2.0](https://github.com/your-org/ai-teams-engine/compare/v3.1.3...v3.2.0) (2026-02-01)
+# [3.2.0](https://github.com/your-org/ai-teams-engine/compare/v3.1.3...v3.2.0) (2026-02-01)
 
 ### Features
 
 - **research:** add content length validation with auto-continuation ([7805ac1](https://github.com/your-org/ai-teams-engine/commit/7805ac1db6a24d74ea968d7a48dd4a74073c6d26))
 
-### [3.1.3](https://github.com/your-org/ai-teams-engine/compare/v3.1.2...v3.1.3) (2026-02-01)
+## [3.1.3](https://github.com/your-org/ai-teams-engine/compare/v3.1.2...v3.1.3) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** enforce minimum 6000-word detailedContent requirement ([6d1a924](https://github.com/your-org/ai-teams-engine/commit/6d1a924364f08afbda20a3a8735baed34f0977da))
 
-### [3.1.2](https://github.com/your-org/ai-teams-engine/compare/v3.1.1...v3.1.2) (2026-02-01)
+## [3.1.2](https://github.com/your-org/ai-teams-engine/compare/v3.1.1...v3.1.2) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** strengthen keyFindings prompt requirements ([1a6f12f](https://github.com/your-org/ai-teams-engine/commit/1a6f12fe1349295dc97896bfd3f7ea63f37856df))
 
-### [3.1.1](https://github.com/your-org/ai-teams-engine/compare/v3.1.0...v3.1.1) (2026-02-01)
+## [3.1.1](https://github.com/your-org/ai-teams-engine/compare/v3.1.0...v3.1.1) (2026-02-01)
 
 ### Bug Fixes
 
 - **ai-engine:** integrate blocklist into getAvailableModelsExtended ([2cd33e9](https://github.com/your-org/ai-teams-engine/commit/2cd33e9a9543a4d9b664947bc0538693b6a82fec))
 
-## [3.1.0](https://github.com/your-org/ai-teams-engine/compare/v3.0.3...v3.1.0) (2026-02-01)
+# [3.1.0](https://github.com/your-org/ai-teams-engine/compare/v3.0.3...v3.1.0) (2026-02-01)
 
 ### Features
 
 - **ai-engine:** auto model fallback in AIEngineFacade.chat() ([eea1222](https://github.com/your-org/ai-teams-engine/commit/eea12229aae4d64ede6d6d98aaa515b40b3829f2))
 
-### [3.0.3](https://github.com/your-org/ai-teams-engine/compare/v3.0.2...v3.0.3) (2026-02-01)
+## [3.0.3](https://github.com/your-org/ai-teams-engine/compare/v3.0.2...v3.0.3) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** increase dimension content depth and maxTokens ([461fcfa](https://github.com/your-org/ai-teams-engine/commit/461fcfa3265229918eb8499ff753f728d6de1cf0))
 
-### [3.0.2](https://github.com/your-org/ai-teams-engine/compare/v3.0.1...v3.0.2) (2026-02-01)
+## [3.0.2](https://github.com/your-org/ai-teams-engine/compare/v3.0.1...v3.0.2) (2026-02-01)
 
 ### Bug Fixes
 
 - **research:** report quality - dedup charts, clean meta-notes, fix highlights ([4b53c6c](https://github.com/your-org/ai-teams-engine/commit/4b53c6c1e00a7f3245d84cc825fb25862a91b7b7))
 
-### [3.0.1](https://github.com/your-org/ai-teams-engine/compare/v3.0.0...v3.0.1) (2026-02-01)
+## [3.0.1](https://github.com/your-org/ai-teams-engine/compare/v3.0.0...v3.0.1) (2026-02-01)
 
 ### Bug Fixes
 
 - **ai-engine:** integrate model blocklist into AIEngineFacade.selectModel ([077ee82](https://github.com/your-org/ai-teams-engine/commit/077ee8267a95741d8f150cc645d5b489aeb73f7b))
 
-## [3.0.0](https://github.com/your-org/ai-teams-engine/compare/v2.0.0...v3.0.0) (2026-02-01)
-
-### ⚠ BREAKING CHANGES
-
-- **ai-writing:** AI writing flow now creates world settings before
-  planning chapter structure. This ensures chapters comply with world rules.
-
-Changes:
-
-- Phase 1: Bible Keeper builds world settings independently
-- Phase 2: Story Architect plans chapters based on world settings
-- Updated prompts to enforce world rule compliance
-- Updated frontend progress steps order
-- Added world-building step to phase mapping
-
-This architectural improvement ensures story consistency by establishing
-"game rules" (world settings) before planning the narrative structure.
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-
-### Features
-
-- add 4 new infographic templates and fix cards spacing ([fac79ea](https://github.com/your-org/ai-teams-engine/commit/fac79eacc1b4a2a7684b42924034572cf226d5fc))
-- add admin delete-all endpoint to remove all images ([eb1b0e7](https://github.com/your-org/ai-teams-engine/commit/eb1b0e75dd47a61cfa43462c9c836d50e3eee2f0))
-- add admin endpoint to cleanup all users old images ([b325461](https://github.com/your-org/ai-teams-engine/commit/b325461bb57c9364fd67dd6f5e9b7fc35814442f))
-- add admin management system with user role control ([f628df4](https://github.com/your-org/ai-teams-engine/commit/f628df44580bd9d7a5c5994e20a7506d140c61a3))
-- add admin settings and thumbnails management pages ([1011ca5](https://github.com/your-org/ai-teams-engine/commit/1011ca500a6b2481830ce41e1dee541ec2316fb7))
-- add AI Office document system with Railway migration support ([ffb17ee](https://github.com/your-org/ai-teams-engine/commit/ffb17ee1b03287440470026fff671493d139340d))
-- add AI service Docker configuration ([e6ff8df](https://github.com/your-org/ai-teams-engine/commit/e6ff8df4806864e2e86f1bc0b2d38c4aeefbeda4))
-- add AI Store with categories, search, and tool cards ([626ce6c](https://github.com/your-org/ai-teams-engine/commit/626ce6c42c52e5a4f78f475c6ffe0355b1325c02))
-- add all missing template layouts to frontend UI ([04b75cf](https://github.com/your-org/ai-teams-engine/commit/04b75cf756332269ebdd036b23b6415f5c774e54))
-- add ASK AI session management with chat history ([745fda1](https://github.com/your-org/ai-teams-engine/commit/745fda1044a7de9befe2e7729ae877d1427db5c0))
-- add automatic web search capability for all AI models ([b4fd4e0](https://github.com/your-org/ai-teams-engine/commit/b4fd4e04ce7cfdf94ddb5d7448c48e74df1d0f30))
-- add Backblaze B2 support for image storage ([c6de20f](https://github.com/your-org/ai-teams-engine/commit/c6de20fe8655ca8e4d84732865bf6e71b725d844))
-- add bookmark functionality to notes with English labels ([5e3c2e1](https://github.com/your-org/ai-teams-engine/commit/5e3c2e1ee4e847aca425622365354a475bc4a1d1))
-- add bulk data source import functionality ([b55311a](https://github.com/your-org/ai-teams-engine/commit/b55311ad83fdc9bb3044670c637ade0697754d93))
-- add chaos/black swan adjudication in simulation ([0937113](https://github.com/your-org/ai-teams-engine/commit/0937113134f35778a985e7d4debb9c0efa9a535f))
-- add Chromium and Chinese fonts for HTML infographic rendering ([ec3f010](https://github.com/your-org/ai-teams-engine/commit/ec3f010b99c397365de663303c638ad080be40c6))
-- add code splitting, Swagger docs, and structured logging ([57ad3b4](https://github.com/your-org/ai-teams-engine/commit/57ad3b43908e93678ded6953c06f779e71d01186))
-- add debrief summary and monologue log for simulations ([6af79c1](https://github.com/your-org/ai-teams-engine/commit/6af79c13d0c5030f744e5921021c44edcc7dc2c3))
-- add deep content structure analysis for intelligent template selection ([d872aa4](https://github.com/your-org/ai-teams-engine/commit/d872aa444082eca185cc2a82389aecc1ce0ee8e0))
-- add force migration cleanup script ([862ec2a](https://github.com/your-org/ai-teams-engine/commit/862ec2ac0d4b3dbcbd85893da9dfb5073e2e8338))
-- add frontend API proxy routes for PPT 3.0 ([3dbead2](https://github.com/your-org/ai-teams-engine/commit/3dbead253678181f0e044a32401605baa13b9e64))
-- add Genspark-style glassmorphism to infographic templates ([44107ce](https://github.com/your-org/ai-teams-engine/commit/44107ce086b31777c837220776f06869d8a5570e)), closes [#0A2B4](https://github.com/your-org/ai-teams-engine/issues/0A2B4) [#0F172](https://github.com/your-org/ai-teams-engine/issues/0F172)
-- add heading IDs and in-page scroll for TOC links ([c84e99f](https://github.com/your-org/ai-teams-engine/commit/c84e99f8b63f9a2bbcbb37a31290459a313c9b5c))
-- add helpful hints for empty state panels ([3e90058](https://github.com/your-org/ai-teams-engine/commit/3e90058efabc17f99f72759a4e1517843b479695))
-- add icon-only tabs with Image tab to main page ([6d5fa23](https://github.com/your-org/ai-teams-engine/commit/6d5fa23251c0d92575334f3bb7211ce732a19f16))
-- add image stats endpoint for debugging ([c675e31](https://github.com/your-org/ai-teams-engine/commit/c675e31901cb1f58ab10769b13ac4913c0167309))
-- add LiteLLM proxy for multi-LLM support ([1ab2c84](https://github.com/your-org/ai-teams-engine/commit/1ab2c8446670af174a32ae19345bc8337f2b49a0))
-- add manual cleanup API endpoint for old images ([14e0335](https://github.com/your-org/ai-teams-engine/commit/14e033518659c6306d6f07d51709433333e28892))
-- add message collapse/expand for long messages ([1fb17ef](https://github.com/your-org/ai-teams-engine/commit/1fb17ef6a16dafb1f28df722bdf88ed515e6091b))
-- add multiple template layouts and user data isolation for SPARKLE ([a4da1bc](https://github.com/your-org/ai-teams-engine/commit/a4da1bc00a48f497b145322d2cca3f3043d03a7f))
-- add MVP badge to logo ([6cc9275](https://github.com/your-org/ai-teams-engine/commit/6cc9275d774e4fab779a877ca714bb58ee170fa4))
-- add OCI infrastructure and deployment configuration ([2271e39](https://github.com/your-org/ai-teams-engine/commit/2271e39018c1e825dde0fee1be23bc78b6fa36f7))
-- add per-agent irrationality to avoid overly rational outcomes ([681869c](https://github.com/your-org/ai-teams-engine/commit/681869c612cc18f69f8de4f6c43d99b0d11a5ccb))
-- add Railway deployment configuration ([74fb631](https://github.com/your-org/ai-teams-engine/commit/74fb63172f053878b8117d96f10229399ed37f26))
-- add real PostgreSQL database analysis to Storage page ([1945b02](https://github.com/your-org/ai-teams-engine/commit/1945b02b093276c84e0977b20397d0e8d6160028))
-- add rich text editor to chapter view for consistency ([1b23d3c](https://github.com/your-org/ai-teams-engine/commit/1b23d3cda8f48615082391c225712075fabe8095))
-- add sidebar to AI Store and prompt fields for YouTube/URL inputs ([e57f3a0](https://github.com/your-org/ai-teams-engine/commit/e57f3a08ea0a5e2530d1e7d340fc42b8c4015a55))
-- add simulation scaffolding and external data flow ([bed2c51](https://github.com/your-org/ai-teams-engine/commit/bed2c51215da4c1d6b92a87157af08e2a2fa1450))
-- add simulation template cards ([1b48fc9](https://github.com/your-org/ai-teams-engine/commit/1b48fc9422aab55395f47d08abb15bc57ebff09a))
-- add simulation template cards ([65d9e67](https://github.com/your-org/ai-teams-engine/commit/65d9e6767f71d0965231c6d50f36cac2a1f049e3))
-- add SSE streaming for real-time image generation progress ([99b4e67](https://github.com/your-org/ai-teams-engine/commit/99b4e67f5406ba8bf0a1a8fc0b518dc079f3ab9e))
-- add stop generation, dropdown fix, storage tables, user stats ([929d76a](https://github.com/your-org/ai-teams-engine/commit/929d76a768e60b633b9b4577300181277cdc99c2))
-- add storage management page and fix sidebar collapse behavior ([e5d9a16](https://github.com/your-org/ai-teams-engine/commit/e5d9a161caab98474a5107f0476e050c95e6c385))
-- add support check for temperature parameter in AI chat service ([2b7c0ca](https://github.com/your-org/ai-teams-engine/commit/2b7c0caeb04d5bf59d7357944ee2e6f49993b3d4))
-- add temperature parameter validation for AI model support ([52b47f5](https://github.com/your-org/ai-teams-engine/commit/52b47f5577782156b783c5382dfff3a79d4ced95))
-- add template layout selector with user override ([a0c39dc](https://github.com/your-org/ai-teams-engine/commit/a0c39dced2752d27a4586ad094ba685772872d21))
-- add TOAST analysis and disk usage breakdown endpoint ([7a452f4](https://github.com/your-org/ai-teams-engine/commit/7a452f40504e25301a94c0ec57c70a09064fb378))
-- Add toast notifications and enhance AI image service logging ([d26c26a](https://github.com/your-org/ai-teams-engine/commit/d26c26a82f660121a2307b6a41ab3ad51b5c55b0))
-- add VACUUM FULL endpoint to reclaim space to OS ([b73f36e](https://github.com/your-org/ai-teams-engine/commit/b73f36e3d3dd07fa07af06f135ca0d1efd821571))
-- add WAL cleanup endpoint with CHECKPOINT ([4882d0c](https://github.com/your-org/ai-teams-engine/commit/4882d0c6b97385359aa707a882c51e03450d16e0))
-- add YouTube video comments tab ([b22461d](https://github.com/your-org/ai-teams-engine/commit/b22461d47ba87733fe38be10ccc89a44ac15d9af))
-- **admin:** add academic & hackernews tools, fix secret name mapping ([de31141](https://github.com/your-org/ai-teams-engine/commit/de3114174dd1a921f1a5870b3ba8a2797de09c35))
-- **admin:** add AI Assistant to Data Collection System Management ([390ad70](https://github.com/your-org/ai-teams-engine/commit/390ad70f036ca84c51164f8f65b119d1c087b66f))
-- **admin:** add AI Assistant to System Settings for all TABs ([94a474a](https://github.com/your-org/ai-teams-engine/commit/94a474ae9b5fd04763e60e5fd54732372ec1f5ec))
-- **admin:** add AI model diagnostic feature ([80961c1](https://github.com/your-org/ai-teams-engine/commit/80961c13a4b807165f394c87d38b632fb27ebab4))
-- **admin:** add AI model management with API key config and connection test ([8daec93](https://github.com/your-org/ai-teams-engine/commit/8daec93a103d0b85a74eaa29b2a12e72bb33c46b))
-- **admin:** add AI Models tab to System Management ([1580060](https://github.com/your-org/ai-teams-engine/commit/1580060eeeb85c5ec3eca03ee5b5a3a431f3bf01))
-- **admin:** add AI team template configuration system ([bc7ba5a](https://github.com/your-org/ai-teams-engine/commit/bc7ba5a72e18145dd3fb2d74b6f86d82a09caa5a))
-- **admin:** add AI-powered team config and member skills ([835b391](https://github.com/your-org/ai-teams-engine/commit/835b391d43c11d6a3eef6fc0b957935a8f8c3614))
-- **admin:** add API quota monitoring dashboard ([a9ac684](https://github.com/your-org/ai-teams-engine/commit/a9ac684a1f680dbd233f139c68384d43b8d64886))
-- **admin:** add batch Worker creation for AI model scaling ([d14acb0](https://github.com/your-org/ai-teams-engine/commit/d14acb0edf876ef6cd95d313569c237d0413e4ca)), closes [#1](https://github.com/your-org/ai-teams-engine/issues/1) [#2](https://github.com/your-org/ai-teams-engine/issues/2)
-- **admin:** add content extraction API configuration with balance check ([920fa67](https://github.com/your-org/ai-teams-engine/commit/920fa679e30b87b39cea16f3131b6b58e71abc79))
-- **admin:** add delete button for tool configurations and improve sidebar spacing ([0b51143](https://github.com/your-org/ai-teams-engine/commit/0b51143fa6ec4262155d9058153ef32a0f4b09de))
-- **admin:** add External API tab in AI Models settings ([dd33102](https://github.com/your-org/ai-teams-engine/commit/dd331020b195d2e5639bcc283130d69e46a87b79))
-- **admin:** add fetch available models API and improved form ([286c8a8](https://github.com/your-org/ai-teams-engine/commit/286c8a86ce388c7c47ded307979a0efa1df0cdc5))
-- **admin:** add Imagen model testing support ([aef01a1](https://github.com/your-org/ai-teams-engine/commit/aef01a1c4f1132382d6383d2db2d03b6dc7bd4f9))
-- **admin:** add logs management and system monitoring pages ([85c97e7](https://github.com/your-org/ai-teams-engine/commit/85c97e71d692f9da9019e5df10146b0522b314e4))
-- **admin:** add MCP server env config and fix POLICY category ([fa03d7a](https://github.com/your-org/ai-teams-engine/commit/fa03d7afc3fdb620570ccbea0fcd1ad0419530be))
-- **admin:** add multi API key configuration with health monitoring ([f6d0362](https://github.com/your-org/ai-teams-engine/commit/f6d03624f81a9c6cd882dc116044bf225bcc2856))
-- **admin:** add multi-key health monitoring in Secret Management ([dd053c5](https://github.com/your-org/ai-teams-engine/commit/dd053c58a319590b4059a66d5c8d0cfa98bf9952))
-- **admin:** add multi-key input support in Secret Management page ([344e7cd](https://github.com/your-org/ai-teams-engine/commit/344e7cd87bf702a35f47feda3d58e52c0d314348))
-- **admin:** add POLICY category for policy research tool secrets ([31f3118](https://github.com/your-org/ai-teams-engine/commit/31f31187586055a13bccd87e9bd2974970b79bd3))
-- **admin:** add preset MCP servers and Skills marketplace data ([35f2c81](https://github.com/your-org/ai-teams-engine/commit/35f2c810f13ce81119c887f8f70ce98ae6f24a23))
-- **admin:** add search API configuration in admin panel ([db5b081](https://github.com/your-org/ai-teams-engine/commit/db5b081cfb78c9669865822e8fd384edc8a30f8f))
-- **admin:** add Secret Manager for centralized API key management ([0342c0a](https://github.com/your-org/ai-teams-engine/commit/0342c0ae53e1ec97c84096c8ee156d6a2ad979eb))
-- **admin:** add Secret Manager integration to Tools and compact Overview layout ([35f3fa7](https://github.com/your-org/ai-teams-engine/commit/35f3fa7386807b1f37faf810bfe3ebc55143bc4c))
-- **admin:** add storage provider configuration API ([ea10895](https://github.com/your-org/ai-teams-engine/commit/ea1089556478f750e04c30d990504e755af1910c))
-- **admin:** add system settings management ([6c75a84](https://github.com/your-org/ai-teams-engine/commit/6c75a84023b47da01e7ca7af48143b98ecbce2de))
-- **admin:** add ToolsManagement and SkillsManagement components with i18n ([b5ac8b8](https://github.com/your-org/ai-teams-engine/commit/b5ac8b8abc3bf871a79df4bb555816d188121ea1))
-- **admin:** add TTS configuration interface ([f188d1a](https://github.com/your-org/ai-teams-engine/commit/f188d1a972b176904f043dd376bb63a2e982c7ac))
-- **admin:** add unified email settings UI and API ([1bc5525](https://github.com/your-org/ai-teams-engine/commit/1bc55255848aee3664f76789e82b05d53f6798d2))
-- **admin:** add YouTube Transcript API configuration in Settings ([9eb838d](https://github.com/your-org/ai-teams-engine/commit/9eb838d63a8bf90a2214838e9c041ef8222dd0ee))
-- **admin:** auto-update AI model if name exists (upsert) ([52e3d6c](https://github.com/your-org/ai-teams-engine/commit/52e3d6c361df4027d4beb1a5eea9cd4f61d36b3b))
-- **admin:** comprehensive admin refactoring with card layouts ([ed50ec7](https://github.com/your-org/ai-teams-engine/commit/ed50ec7ff6e15254b9035752d8c4fa061ed5ca66))
-- **admin:** enhance AI capabilities UI with editable cards ([cd97029](https://github.com/your-org/ai-teams-engine/commit/cd970291f8cc630dd5516d3a60e5a5c1cb37af7d))
-- **admin:** enhance storage page with memory monitoring and AI actions ([3946a78](https://github.com/your-org/ai-teams-engine/commit/3946a78fb885f75c272947b61d931647937ea68f))
-- **admin:** extend multi-key support to EXTRACTION/YOUTUBE/TTS categories ([be3c19f](https://github.com/your-org/ai-teams-engine/commit/be3c19f241cab5adcfcc20f97a9a2fb754a3bd47))
-- **admin:** implement 4-layer architecture diagram navigation ([c609a4f](https://github.com/your-org/ai-teams-engine/commit/c609a4f479fc37e59e0500f9ecee51d4e7e3e312))
-- **admin:** implement AI capabilities management system ([5a1fc7b](https://github.com/your-org/ai-teams-engine/commit/5a1fc7b9dfeac660807718d8bfd9cf9fb31d104c))
-- **admin:** implement comprehensive table management system ([19cb6e2](https://github.com/your-org/ai-teams-engine/commit/19cb6e2dafffd1e9a4ed501c0f5fea82d695af25))
-- **admin:** implement credits management and enhance feedback management ([9c17519](https://github.com/your-org/ai-teams-engine/commit/9c17519856e9ed53d6890783b588e05def05ccec))
-- **admin:** implement Skills & Tools tabs architecture with POLICY migration ([30affb2](https://github.com/your-org/ai-teams-engine/commit/30affb21c7b1bc39018a3a06d16090155f50014c))
-- **admin:** improve Skills Management UI with dropdown filter ([f613a6b](https://github.com/your-org/ai-teams-engine/commit/f613a6bd613c30e59ce487be1613f7b6107bc125))
-- **admin:** merge AI Tools tabs and unify capability display ([1b5159a](https://github.com/your-org/ai-teams-engine/commit/1b5159ad5673d98d8136491a3d2a6cb0448b3f30))
-- **admin:** redesign admin module with sidebar navigation and domain-based routing ([e0b1365](https://github.com/your-org/ai-teams-engine/commit/e0b13652f494cc7cb7c29dd2529390e175a4cb56))
-- **admin:** redesign architecture diagram with premium visuals ([0dc62d1](https://github.com/your-org/ai-teams-engine/commit/0dc62d1db03a990605a466744dde1cb4ac25dc77))
-- **admin:** redesign External API page with card-based layout ([1a71f80](https://github.com/your-org/ai-teams-engine/commit/1a71f80d5ee6bdc593f350b451fffbeec8c85960))
-- **admin:** show full API key in edit mode ([e6b682d](https://github.com/your-org/ai-teams-engine/commit/e6b682d5f3c5ebdd17e3a5c1303314205d70c872))
-- **admin:** show masked API key in edit modal ([4e928dd](https://github.com/your-org/ai-teams-engine/commit/4e928ddad5471d73313a68f781af8783ee8f5860))
-- **admin:** unified capability view for tools management ([b477ff2](https://github.com/your-org/ai-teams-engine/commit/b477ff29e1fd5ba18eb110a346709eb5d24964ef))
-- **admin:** unify Edit and Add AI model modal UI ([a35c1d6](https://github.com/your-org/ai-teams-engine/commit/a35c1d687cf9ffc9505cf85b9ba5269d3b23ab5a))
-- **admin:** update AI model icons to official logos ([14f548c](https://github.com/your-org/ai-teams-engine/commit/14f548c04d67c9dde687364b1b5ad376e7ff2741)), closes [#10A37](https://github.com/your-org/ai-teams-engine/issues/10A37)
-- agent personas, memories, and external snapshot in simulation ([3d3a5ca](https://github.com/your-org/ai-teams-engine/commit/3d3a5cab282db3fbabbc89a8682eae1d6edf4be6))
-- **agents:** implement AI Designer Agent (Phase 4) ([e8e561d](https://github.com/your-org/ai-teams-engine/commit/e8e561da626ff820400c2fd4eb340ce519e7a487))
-- **agents:** implement AI Developer Agent (Phase 5) ([e21730b](https://github.com/your-org/ai-teams-engine/commit/e21730b7b0ff4a14db69d1107b4f26deca6d78c8))
-- **agents:** implement AI Docs Agent (Phase 3) ([b14d46b](https://github.com/your-org/ai-teams-engine/commit/b14d46bba44eedbcceff6defbd841e26b02d7246))
-- **agents:** implement AI Slides Agent (Phase 2) ([fab7d2f](https://github.com/your-org/ai-teams-engine/commit/fab7d2f3a89eb12a28b26031bfe99860fcad5f83))
-- **ai-agents:** enhance tool system with MCP transports and validation ([6dabdb1](https://github.com/your-org/ai-teams-engine/commit/6dabdb1e2e94865eb7c2e20e4a43ca139207cdc2))
-- **ai-agents:** implement complete tool system enhancement ([316b0cc](https://github.com/your-org/ai-teams-engine/commit/316b0ccd58a00ae9bbcf8c7fc6d73fed59b0f17d))
-- **ai-agents:** implement complete tool system enhancement ([423d037](https://github.com/your-org/ai-teams-engine/commit/423d0372b489e00bcb41727a327bb0c89e84303a))
-- **ai-agents:** implement complete tool system with Function Calling support ([e62b016](https://github.com/your-org/ai-teams-engine/commit/e62b016b1f0c8ffdb070692a2f3458f837565ba9))
-- **ai-agents:** integrate ai-teams and other modules with specialized agents ([1127195](https://github.com/your-org/ai-teams-engine/commit/11271956e65a49685442a0f9298c57b0325cf8fd))
-- **ai-ask:** add inspirational quote display on welcome screen ([54ea5ee](https://github.com/your-org/ai-teams-engine/commit/54ea5ee47a7bd792d3011d40894ed7cc2ccd7a86))
-- **ai-ask:** expand to 57 quotes with theme-matched backgrounds ([f76023d](https://github.com/your-org/ai-teams-engine/commit/f76023decff9bd9a5e740eedaa825ffa9a200d31))
-- **ai-ask:** integrate ai-agents tool capabilities ([8e29d8c](https://github.com/your-org/ai-teams-engine/commit/8e29d8c6766a6109c77e5b2ff79bb7b849a6d81b))
-- **ai-ask:** integrate RAG knowledge base query ([b878ed6](https://github.com/your-org/ai-teams-engine/commit/b878ed698255a3fa4cde5be08842b98744fec31b))
-- **ai-coding:** add AI Coding multi-agent collaboration feature ([6fee394](https://github.com/your-org/ai-teams-engine/commit/6fee394835c3a30cc6153dcdb10181effa90c948))
-- **ai-coding:** add backend project preview support ([a3c5b06](https://github.com/your-org/ai-teams-engine/commit/a3c5b06c588f7e65166fd2066526a1d6c2305c06))
-- **ai-coding:** add clickable output items to view generated content ([ae0d182](https://github.com/your-org/ai-teams-engine/commit/ae0d1822b54958dcd75a6a1b40aa009f547605d0))
-- **ai-coding:** add complete backend module with multi-agent system ([3ae2548](https://github.com/your-org/ai-teams-engine/commit/3ae25488047445b458c84cd7c170d3a8e6f10a3b))
-- **ai-coding:** add comprehensive software engineering enhancements ([0950946](https://github.com/your-org/ai-teams-engine/commit/09509466e633a5db12f6f84f6da809d28cd636c7))
-- **ai-coding:** add enhanced development visualization ([f34ec63](https://github.com/your-org/ai-teams-engine/commit/f34ec63e87bf9f3ef1e2c7c1a01b0cb0a10056aa))
-- **ai-coding:** add multi-agent collaboration system and fix settings ([9b9887f](https://github.com/your-org/ai-teams-engine/commit/9b9887f396e5f4a0f7170f2edd82ec8147508cb3))
-- **ai-coding:** add navigation from agent cards to outputs ([82a4977](https://github.com/your-org/ai-teams-engine/commit/82a49775b2d1e27d6c4771116a8180d30496d3db))
-- **ai-coding:** add project detail page with documents and code viewer ([af16c45](https://github.com/your-org/ai-teams-engine/commit/af16c454d8eb941d26a56bb03850a7ee73b63d3d))
-- **ai-coding:** add WebSocket, Kanban board, and task persistence ([869816e](https://github.com/your-org/ai-teams-engine/commit/869816ef403087b7a3272851ce03cf6af0be67a4))
-- **ai-coding:** connect frontend to real backend API ([776afdb](https://github.com/your-org/ai-teams-engine/commit/776afdbb8ba525bbb787228d7641105778528c0e))
-- **ai-coding:** display real agent outputs in team chat ([559d34f](https://github.com/your-org/ai-teams-engine/commit/559d34fc1f77089929d502efae9f195e33216c74))
-- **ai-coding:** enhance development process visualization ([73555a2](https://github.com/your-org/ai-teams-engine/commit/73555a2ee5f0ff61ff7ec442f5c1551234cad38e))
-- **ai-coding:** fix download/GitHub push and improve UI ([7a7a3c4](https://github.com/your-org/ai-teams-engine/commit/7a7a3c47da2e90afb8e2dc6006dd437a7777ffe2))
-- **ai-developer:** optimize UI layout and add history ([9542b7a](https://github.com/your-org/ai-teams-engine/commit/9542b7a426524abb8949e5dd12bda00151113ec9))
-- **ai-engine:** add ContextEvolutionService for cross-task consistency ([dca9a7d](https://github.com/your-org/ai-teams-engine/commit/dca9a7d8d63cd5eb4f5e38230b6f33d9a9a2d273))
-- **ai-engine:** add database-driven model capabilities configuration ([93844f1](https://github.com/your-org/ai-teams-engine/commit/93844f1235399399ed245c4bd2c4377bbc7a01b6))
-- **ai-engine:** add isReasoning field for reasoning model configuration ([1fd9823](https://github.com/your-org/ai-teams-engine/commit/1fd9823b70f3417fd58d347c258851316d463cde))
-- **ai-engine:** add orchestration services for capability sinking ([27b16a8](https://github.com/your-org/ai-teams-engine/commit/27b16a84a10535f1db345815d5db0f78fc71bf76))
-- **ai-engine:** add robust timeout/retry mechanism to OutputReviewerService ([f524ffe](https://github.com/your-org/ai-teams-engine/commit/f524ffe2d313af1ea0d10625373c760ef9258deb))
-- **ai-engine:** add TaskProfile abstraction for semantic parameter mapping ([862bde1](https://github.com/your-org/ai-teams-engine/commit/862bde1c2c03497d9a57000e6a1bcdc0be000899))
-- **ai-engine:** complete TaskProfile migration across all modules (Phase 2-4) ([dad9f00](https://github.com/your-org/ai-teams-engine/commit/dad9f005f9c48be3c159948b9d0bda485fe60fd0))
-- **ai-engine:** enhance skill system with SKILL.md format support ([2ab7c09](https://github.com/your-org/ai-teams-engine/commit/2ab7c09e447f4d6a588163e8f20b684521b4dbf9))
-- **ai-engine:** implement automatic model fallback mechanism ([981f537](https://github.com/your-org/ai-teams-engine/commit/981f537b660bff7088baee316bfd5cf113386b54))
-- **ai-engine:** implement Tools & Skills integration across all AI modules ([e396c99](https://github.com/your-org/ai-teams-engine/commit/e396c99cd571ce11e93ac9460647c9e21ea8a98a))
-- **ai-engine:** increase timeout for reasoning models (o1, o3, gpt-5) ([1e75c7b](https://github.com/your-org/ai-teams-engine/commit/1e75c7b33806602d03a808b7483e2a6157a86421))
-- **ai-engine:** integrate policy research tools into topic research ([07e913a](https://github.com/your-org/ai-teams-engine/commit/07e913a95e3c77164eed894cbeeae95fd425a640))
-- **ai-engine:** 创建 AiEngineModule 并集成到 AI Teams 和 AI Slides ([aea9b8f](https://github.com/your-org/ai-teams-engine/commit/aea9b8f91cae094f81fcf113e66b95e3b50a2d48))
-- **ai-engine:** 完成 ai-engine 架构重构 ([97b9481](https://github.com/your-org/ai-teams-engine/commit/97b9481d9b90bc8c548157852510444921392323))
-- **ai-engine:** 实现 LongContentEngine 长内容处理引擎 ([8f99937](https://github.com/your-org/ai-teams-engine/commit/8f9993734bd7caaeb331dd2e0a010915cf744145))
-- **ai-engine:** 添加 SkillOutputManager 统一规范 Skill 输出 Key 管理 ([90d3f6b](https://github.com/your-org/ai-teams-engine/commit/90d3f6b01ff41f42497725418b6e03a89f67ac49))
-- **ai-engine:** 添加中国 AI 模型供应商支持 — DeepSeek/Qwen/Doubao/Zhipu/Kimi ([27470b5](https://github.com/your-org/ai-teams-engine/commit/27470b51e0bb78bf10420d3bb3aa9aead384d72b))
-- **ai-group:** add AI capability labels and collaboration indicator ([d532769](https://github.com/your-org/ai-teams-engine/commit/d532769e220c21f77a0378aa1e8ae6806e36c9f4))
-- **ai-group:** add AI model icons and replace sidebar component ([ea0575c](https://github.com/your-org/ai-teams-engine/commit/ea0575c5c33a1f075e993927254c27969525ba8d))
-- **ai-group:** add gemini-image model for image generation ([e21d47c](https://github.com/your-org/ai-teams-engine/commit/e21d47ca7fb33aa7481b1077dbd0259a3ab17ab4))
-- **ai-group:** add member invitation and real AI model support ([a52d8d7](https://github.com/your-org/ai-teams-engine/commit/a52d8d76d591b3d5b57b62915b709335d9520e12))
-- **ai-group:** add member management UI ([2a228bb](https://github.com/your-org/ai-teams-engine/commit/2a228bbdaeef98198e85c1a97d93bc5a92b67aae))
-- **ai-group:** add URL parsing and content understanding ([58de83f](https://github.com/your-org/ai-teams-engine/commit/58de83fd46180ce10340be0b46793e7359147221))
-- **ai-group:** auto-detect debate mode when [@mentioning](https://github.com/mentioning) two AIs ([43b00b0](https://github.com/your-org/ai-teams-engine/commit/43b00b040014761d817ca47f4d07df50c6d547ee))
-- **ai-group:** enhance content extraction and fix task closure ([809a652](https://github.com/your-org/ai-teams-engine/commit/809a6527dd5662624fbb753eb54ecfa9c9edbe0d))
-- **ai-group:** fix AI-AI collaboration and add debate setup API ([8beb8de](https://github.com/your-org/ai-teams-engine/commit/8beb8de47ab0eed63e38c8cd116f3b344464615d))
-- **ai-group:** implement AI Agent team collaboration feature ([4e880b2](https://github.com/your-org/ai-teams-engine/commit/4e880b2492d92e96e52076ce1c72c7e98c57950e))
-- **ai-group:** implement AI Group multi-user multi-AI collaboration community ([338d182](https://github.com/your-org/ai-teams-engine/commit/338d1823e55b164293ac29f63a873aae4a948411))
-- **ai-group:** implement AI-AI collaboration feature ([c94249d](https://github.com/your-org/ai-teams-engine/commit/c94249d60094a51c8c8ca7b53d3d80dbc2484bdf))
-- **ai-group:** implement complete WebSocket real-time messaging ([45f1847](https://github.com/your-org/ai-teams-engine/commit/45f18474f18f6116f245a18f3c26d89fa64db0ef))
-- **ai-group:** implement intelligent context router based on best practices ([c7239f7](https://github.com/your-org/ai-teams-engine/commit/c7239f7a50ed2a47c0bb92c45905d9a833b7aad2))
-- **ai-group:** implement isolated debate system based on industry best practices ([e1f35ee](https://github.com/your-org/ai-teams-engine/commit/e1f35ee72eec62bafc7b20e14e77ec5b5b256f7a))
-- **ai-group:** integrate message selection and forward in Topic page ([6945c2f](https://github.com/your-org/ai-teams-engine/commit/6945c2fc23d06b843955b9172fbfb96c9a7b8e2a))
-- **ai-group:** major enhancement to AI Group interaction system ([bbce540](https://github.com/your-org/ai-teams-engine/commit/bbce54072d9270ffbf73b9a27f71799e1bd9ea7f))
-- **ai-group:** redesign Mission Progress Panel for better UX ([cdfcda1](https://github.com/your-org/ai-teams-engine/commit/cdfcda16843947b9a0053d32be5f177e7e7bb8a8))
-- **ai-group:** render AI messages as formatted Markdown ([754a11d](https://github.com/your-org/ai-teams-engine/commit/754a11dd458883ba6e3ff5bd59aba014e4897b3b))
-- **ai-image,ai-writing:** add visibility toggle and social share ([07b5aec](https://github.com/your-org/ai-teams-engine/commit/07b5aec8946e4102d245ba7634479709b991b428))
-- **ai-image:** add aspect ratio selector for all input modes ([20f6b12](https://github.com/your-org/ai-teams-engine/commit/20f6b1280c6660cdccde597471c13e25e5ba6113))
-- **ai-image:** add bullet points to center_visual orbit cards ([a5b2d23](https://github.com/your-org/ai-teams-engine/commit/a5b2d236a55008eed444df9f0c93c7908a5dc08a))
-- **ai-image:** add context menu, files prompt, and history loading ([454a9ac](https://github.com/your-org/ai-teams-engine/commit/454a9ac576c20c0c6316074ae93833ffa67f969e))
-- **ai-image:** add delete, bookmark APIs and persist user preferences ([8250767](https://github.com/your-org/ai-teams-engine/commit/82507675f8e52e3545f7a8861553980743e68178))
-- **ai-image:** add Gemini image generation support ([0bdc4d2](https://github.com/your-org/ai-teams-engine/commit/0bdc4d23f65137e40e6703187591430e1e7d1acb))
-- **ai-image:** add Imagen 4 model support ([06bca33](https://github.com/your-org/ai-teams-engine/commit/06bca33e05cc9a8eefbb8e01f1b3e80285638898))
-- **ai-image:** add InputArea component for refactoring preparation ([2cfc4c1](https://github.com/your-org/ai-teams-engine/commit/2cfc4c19f94af74b9a58d33d35ecb835b17efa54))
-- **ai-image:** add mouse wheel scroll navigation in image gallery ([ee271cb](https://github.com/your-org/ai-teams-engine/commit/ee271cbeb7104c15fb0e1fc3aacd7f01f496e087))
-- **ai-image:** add multi-source content extraction and file upload ([cf7b884](https://github.com/your-org/ai-teams-engine/commit/cf7b884babd12fe9d0bdd4449103818fd8a47157))
-- **ai-image:** add ranking template and improve data capacity ([4215613](https://github.com/your-org/ai-teams-engine/commit/42156131a7d7d85b7be1f22cf82b1b3791dcbc99))
-- **ai-image:** add Refine Image feature for image iteration ([90e2a5e](https://github.com/your-org/ai-teams-engine/commit/90e2a5ee44655f2f1caf07f33bdf20652ea8047e))
-- **ai-image:** add two-stage image generation with dual model selection ([0957066](https://github.com/your-org/ai-teams-engine/commit/09570666804bd368bed6f370a1d7601d0d13dc42))
-- **ai-image:** add YouTube tab and processing steps panel ([0f01f03](https://github.com/your-org/ai-teams-engine/commit/0f01f03840d82c36b2833436c7d0a4f47c20eb11))
-- **ai-image:** integrate Visual Design Team 4-Agent collaboration for Imagen 4 ([700805c](https://github.com/your-org/ai-teams-engine/commit/700805cb23cb9740871a49d1d2f95c6d56443746))
-- **ai-image:** redesign homepage with consistent style ([b29436d](https://github.com/your-org/ai-teams-engine/commit/b29436ddcab0c1eb5c938e9bb87bbfb448da02ef))
-- **ai-image:** support URL + description format in URLs input mode ([7df185e](https://github.com/your-org/ai-teams-engine/commit/7df185edcc568d3f3aa9b46b2cc0833d9ca094f2))
-- **ai-models,library:** dynamic model fetching and inline KB detail view ([a1f1a66](https://github.com/your-org/ai-teams-engine/commit/a1f1a6613f4a9b157d9ccdbecc5340368e40c32d))
-- **ai-models:** add Secret Manager selector UI for API key configuration ([aa9df5a](https://github.com/your-org/ai-teams-engine/commit/aa9df5af799ce89fdfa28318bf0a3ce56530b4a1))
-- **ai-models:** implement model type classification system ([d8ba389](https://github.com/your-org/ai-teams-engine/commit/d8ba38984f175f938ceedcf053c5ce3132f5444f))
-- **ai-office:** add AI Slides/Docs/Designer navigation and Create Image style workflow ([7c3ed74](https://github.com/your-org/ai-teams-engine/commit/7c3ed74f4c0de7091b5f0e4bdc90c4edc005e8a6))
-- **ai-office:** add code execution feature for AI Developer ([c31038d](https://github.com/your-org/ai-teams-engine/commit/c31038d4d30934a85670e222cbb8c268dbd30223))
-- **ai-office:** add enhanced PPTX export service ([4fd9b25](https://github.com/your-org/ai-teams-engine/commit/4fd9b25e6231c3daf5a5afb2e124dd865ff127d2))
-- **ai-office:** add history support and fix bugs for AI agents ([48eb724](https://github.com/your-org/ai-teams-engine/commit/48eb7241da7d84c1d5cfda303804d8ae45c1453c))
-- **ai-office:** add inline editing for slides and global sidebar for all pages ([02b7866](https://github.com/your-org/ai-teams-engine/commit/02b78660b72892bb1a173852f2ecc40f4d55e499))
-- **ai-office:** add natural language editing service for PPT ([bca071a](https://github.com/your-org/ai-teams-engine/commit/bca071a6fb3cc0e72edad17d06848b201a5355ca))
-- **ai-office:** add PPT version management service ([8d1753c](https://github.com/your-org/ai-teams-engine/commit/8d1753c7f6891c86c5fdeae343a737c851a94e0c))
-- **ai-office:** add thinking process display and history restoration ([4f94a68](https://github.com/your-org/ai-teams-engine/commit/4f94a68ffe6b92c89efb8642fc4792201263cdb8))
-- **ai-office:** implement AI Docs and AI Designer generation services ([cb70434](https://github.com/your-org/ai-teams-engine/commit/cb70434ac03b92c8b60c4e39e4acd234e68bd21f))
-- **ai-office:** implement embedded tab content components ([dd41e10](https://github.com/your-org/ai-teams-engine/commit/dd41e10d12ff065bcd482e993c451f0010682fa4))
-- **ai-office:** implement natural language intent parsing ([35237df](https://github.com/your-org/ai-teams-engine/commit/35237df0763b55bf0fcb5e192b6d68ac7bbc4fe9))
-- **ai-office:** implement persistent structured AI summary generation ([347052d](https://github.com/your-org/ai-teams-engine/commit/347052d09d157c3652934ede9c9320f193b817c1))
-- **ai-office:** integrate AI Developer into main workspace ([a2bb62d](https://github.com/your-org/ai-teams-engine/commit/a2bb62d065e8a216d025cb9b3207ab543c729822))
-- **ai-office:** integrate full PPT API with image generation ([977ea25](https://github.com/your-org/ai-teams-engine/commit/977ea2536482835c0a6f8cf2d8dc770bc7706add))
-- **ai-office:** redesign AI Slides page with split-panel layout ([e0cd689](https://github.com/your-org/ai-teams-engine/commit/e0cd6898c703433da475e3d9ec40767a63226904))
-- **ai-office:** redesign SlidesTabV3 UI per v3.0 design doc ([de35c2f](https://github.com/your-org/ai-teams-engine/commit/de35c2f84853373d86a30c9719f2661af17e9cb0))
-- **ai-office:** 全面增强PPT视觉系统 ([e2dfaa7](https://github.com/your-org/ai-teams-engine/commit/e2dfaa714a7090aeaf600f035f91424d3072c67a))
-- **ai-research:** add Agent model diversity and enhanced activity tracking ([934ef6c](https://github.com/your-org/ai-teams-engine/commit/934ef6c4179942188e951e7b618601ff52f1e1f6))
-- **ai-research:** add annotation highlights and improve UX ([8db256c](https://github.com/your-org/ai-teams-engine/commit/8db256cedc168e5b11dc90ac77f2b4a273ad9c3e))
-- **ai-research:** add collapsible panels for tasks and conversation ([5aa1973](https://github.com/your-org/ai-teams-engine/commit/5aa1973230a8f45efda4ccd812ea579e1b94965a))
-- **ai-research:** add direct URL route for topic share link ([085d6ef](https://github.com/your-org/ai-teams-engine/commit/085d6ef1dc3a17b222ac101fa7933b1fbe24de6a))
-- **ai-research:** add export, fix credibility scoring and annotation features ([0edc299](https://github.com/your-org/ai-teams-engine/commit/0edc2999554068c73df1abf23dc940f5e1aee1f1))
-- **ai-research:** add fullscreen mode for insight report ([2072aaa](https://github.com/your-org/ai-teams-engine/commit/2072aaa5e4cc82b9b77c534ef7f74200762a18f5))
-- **ai-research:** add health check and recovery system for missions ([cc05f98](https://github.com/your-org/ai-teams-engine/commit/cc05f98e97519e168a8fbf428d3524c60c54038d))
-- **ai-research:** add incremental update mode and modelId display ([b504586](https://github.com/your-org/ai-teams-engine/commit/b5045863e3dda6a70c3e4991b27d6a8984fad9ff))
-- **ai-research:** add modelId to ResearchTask for displaying model in task list ([a9286a5](https://github.com/your-org/ai-teams-engine/commit/a9286a51cc01e8073daa35d55bc9de9a11fee945))
-- **ai-research:** add recalculate evidence credibility UI buttons ([b7b19fd](https://github.com/your-org/ai-teams-engine/commit/b7b19fd0a95becb8c1ba1e5d8667f3376cc1bbaa))
-- **ai-research:** add report reading page with TOC sidebar ([ca7dce2](https://github.com/your-org/ai-teams-engine/commit/ca7dce2f314517a169579a019ce637a1060e628b))
-- **ai-research:** add search time range filter and i18n support ([12f9db6](https://github.com/your-org/ai-teams-engine/commit/12f9db61f9f2b6e1bc5c9b5d7c3676fc1bf836ab))
-- **ai-research:** add three task buttons and fix multiple UI issues ([d26a1af](https://github.com/your-org/ai-teams-engine/commit/d26a1aff3361635f93eda2e7edcc4492799ebeb2))
-- **ai-research:** add visible logging for skills/tools assignments ([4684fc8](https://github.com/your-org/ai-teams-engine/commit/4684fc83641823e2f11748b5b6b5b692c4845ebe))
-- **ai-research:** display AI model ID in Agent popup ([7e531e6](https://github.com/your-org/ai-teams-engine/commit/7e531e615cc1cd5e17ff47a5afe6b7a4cd1ff910))
-- **ai-research:** display AI model in Agent info popup ([e44cbe6](https://github.com/your-org/ai-teams-engine/commit/e44cbe69e4d85342e6a672f031b1ef100182b0d0))
-- **ai-research:** improve share page and fix multiple issues ([9bb55f9](https://github.com/your-org/ai-teams-engine/commit/9bb55f9e72a2b713b6eb9440ff42b543356ab898))
-- **ai-research:** improve UX with timeline, filters and collaboration panel ([fc1e8a6](https://github.com/your-org/ai-teams-engine/commit/fc1e8a6b098e037372dd6e289b7f69c6aedae9a0))
-- **ai-research:** increase parallel researchers to 5 ([0e6630a](https://github.com/your-org/ai-teams-engine/commit/0e6630a72b302c90b0162edb8037a0622541c9a8))
-- **ai-research:** increase team visualization to support 6 researchers ([3ef1671](https://github.com/your-org/ai-teams-engine/commit/3ef1671e7c5459a2423b037143a31d32d89b4018))
-- **ai-research:** redesign task list as flat table with model column ([36df977](https://github.com/your-org/ai-teams-engine/commit/36df977ba84ebf64ccc362c665148194f905ab7a))
-- **ai-research:** refactor task list to table format with status indicators ([839f168](https://github.com/your-org/ai-teams-engine/commit/839f168ab3e01b5a7f732e3f995d76f5819e0443))
-- **ai-simulation:** add external data providers seed script ([064e5a4](https://github.com/your-org/ai-teams-engine/commit/064e5a49c2f0d3a420f19064ca8d5778fa1cdb3f))
-- **ai-simulation:** add SSE real-time updates and report API ([b59e99f](https://github.com/your-org/ai-teams-engine/commit/b59e99f1e9ea5a9ab2de453abb6d3357b4668701))
-- **ai-simulation:** complete wizard-style EditorModal refactoring ([18102fd](https://github.com/your-org/ai-teams-engine/commit/18102fd6cf225f99d0ae14141ed0b71f7e066f39))
-- **ai-simulation:** unify layout with system style and improve UX ([9e80086](https://github.com/your-org/ai-teams-engine/commit/9e8008624541b1c51f149b489787aed7a400434e))
-- **ai-skills:** integrate real SkillsMP API data ([cc45fb7](https://github.com/your-org/ai-teams-engine/commit/cc45fb76a36208431fdf1c40ec47f10292eff1a4))
-- **ai-slides:** add Genspark-style UI improvements ([31e9a7a](https://github.com/your-org/ai-teams-engine/commit/31e9a7a0427da32e2f7a5ab7c30b2a6e626c907c))
-- **ai-slides:** add premium themes and enhanced decoration system ([43f7e53](https://github.com/your-org/ai-teams-engine/commit/43f7e53a23e929ced17f485d7a7bb06644f6c2b6))
-- **ai-slides:** add professional HTML template library ([60f84f4](https://github.com/your-org/ai-teams-engine/commit/60f84f48c42e43ed91decab10a325ff649a3f10c))
-- **ai-slides:** enhance data extraction and add ECharts generator with theme support ([5e88f3d](https://github.com/your-org/ai-teams-engine/commit/5e88f3d717b69f0c297b1ef669f27873f2a0bd92))
-- **ai-slides:** optimize content generation prompts and fix preview scaling ([b57fbe8](https://github.com/your-org/ai-teams-engine/commit/b57fbe8708e4598060f187b7a0d33d90dca28ec1))
-- **ai-social:** add AI Social module for social media publishing ([c2fef1c](https://github.com/your-org/ai-teams-engine/commit/c2fef1c8f6dbaca86be0786fc0049c46416e96a9))
-- **ai-social:** add AI-generated cover image support ([f299afd](https://github.com/your-org/ai-teams-engine/commit/f299afd6b03b42c1969e149cbc0356f1ab624ecf))
-- **ai-social:** add entry point logging for 500 error debugging ([258cbd1](https://github.com/your-org/ai-teams-engine/commit/258cbd1ac664f6b504d7ab9a1345d6f0fe50ef49))
-- **ai-social:** add friendly progress indicator and extend timeout ([ee4fc61](https://github.com/your-org/ai-teams-engine/commit/ee4fc61a162242ea7b1cd997bcd1cda35c913cb6))
-- **ai-social:** add publish logs and improve content management ([b2ef504](https://github.com/your-org/ai-teams-engine/commit/b2ef504cf3ee3ab991ee66754e4583e950e5b4ce))
-- **ai-social:** add session health check scheduler with expiry notifications ([02ae48b](https://github.com/your-org/ai-teams-engine/commit/02ae48b4061dfc8d09f7c49ffd53d586ba544789))
-- **ai-social:** implement content creation flow ([b575541](https://github.com/your-org/ai-teams-engine/commit/b57554193d73f3e9576fa0f414cd669fcb8e81d8))
-- **ai-social:** improve content fetching and add bilingual output support ([7222052](https://github.com/your-org/ai-teams-engine/commit/72220521e71ead92d3c218a5b11582acac2eacd6))
-- **ai-social:** integrate real API hooks and complete module implementation ([efd0186](https://github.com/your-org/ai-teams-engine/commit/efd018671eb780701d7b1aec30e0c39354898280))
-- **ai-social:** redesign create flow with 3-step wizard UX ([49dfabc](https://github.com/your-org/ai-teams-engine/commit/49dfabc4527e288dd4932a8b1f5560c51dbde857))
-- **ai-studio:** add AI model selector dropdown in Chat panel ([a639899](https://github.com/your-org/ai-teams-engine/commit/a639899da0c467fc40bb39bbb237812aaff89a89))
-- **ai-studio:** add batch delete functionality for sources ([bee6526](https://github.com/your-org/ai-teams-engine/commit/bee6526049b7d4342e3e3be06c6d750c2ccb69dc))
-- **ai-studio:** add bulk import and markdown rendering ([8f4bbc1](https://github.com/your-org/ai-teams-engine/commit/8f4bbc1fa00c743a53003d315a34a97a5636926b))
-- **ai-studio:** add edit/delete functionality for artifacts ([4f1ceec](https://github.com/your-org/ai-teams-engine/commit/4f1ceec6d1564d8a3bc4136ca95834bc790de44d))
-- **ai-studio:** add Flashcards, Quiz, and Mind Map output types ([5ed1267](https://github.com/your-org/ai-teams-engine/commit/5ed1267898fd3aceb378b8293bfbfda82f2e2b83))
-- **ai-studio:** implement Deep Research with streaming and thinking chain ([043a041](https://github.com/your-org/ai-teams-engine/commit/043a041746e4e40f04451360fcb7c5984ae33219))
-- **ai-studio:** implement file upload and output viewer ([a7b6c5f](https://github.com/your-org/ai-teams-engine/commit/a7b6c5f76ffd3b8f382938c0dc05a5ba6b629b90))
-- **ai-studio:** implement NotebookLM-style citation system ([1dc3e2a](https://github.com/your-org/ai-teams-engine/commit/1dc3e2a200d29ab6d0892492070bd3aff8aff04b))
-- **ai-studio:** implement NotebookLM-style research project management ([58d14ff](https://github.com/your-org/ai-teams-engine/commit/58d14ff55ae0cc8ba5ca6801db4a72e8fa4b9ca5))
-- **ai-studio:** implement Quick Search and Deep Research modes ([9eff76d](https://github.com/your-org/ai-teams-engine/commit/9eff76db70b96476a804f8cd78638e79d6a92be3))
-- **ai-studio:** implement real AI chat with source context ([61c4338](https://github.com/your-org/ai-teams-engine/commit/61c433894305a7fbaa94bfa3e116b0bba8395d39))
-- **ai-studio:** improve Artifacts sidebar with resize and collapse ([6a23888](https://github.com/your-org/ai-teams-engine/commit/6a23888aadd08a348330b3ee34afed186aac3731))
-- **ai-studio:** integrate Deep Research panel with mode toggle ([0473699](https://github.com/your-org/ai-teams-engine/commit/04736994778b485d0031eafef340d3e49883386b))
-- **ai-studio:** integrate multi-source internet search ([b7eeb48](https://github.com/your-org/ai-teams-engine/commit/b7eeb4815ede57b50b97d580216d243260de48e7))
-- **ai-studio:** refactor Research with Tab navigation and immersive UI ([b795d2d](https://github.com/your-org/ai-teams-engine/commit/b795d2d2fbd551732898c55ce1a4b1f0d6faf3bf))
-- **ai-studio:** replace all demo data with real backend API calls ([bdc361d](https://github.com/your-org/ai-teams-engine/commit/bdc361d65767fb601fe4d4711300a26ce5c60605))
-- **ai-studio:** use global Sidebar and add search source toggle ([06f5b2e](https://github.com/your-org/ai-teams-engine/commit/06f5b2e5533348abaf9cdf89403dedaf90ba49ab))
-- **ai-teams:** add Canvas view for Agent collaboration visualization ([13823cf](https://github.com/your-org/ai-teams-engine/commit/13823cf861c6f46404251bbc0c68548528b06842))
-- **ai-teams:** add collapsible left sidebar panel ([e476a0c](https://github.com/your-org/ai-teams-engine/commit/e476a0c26050d893362e974f184ac29f69fe12a4))
-- **ai-teams:** add collapsible sidebar sections and improve PDF report ([c514849](https://github.com/your-org/ai-teams-engine/commit/c514849749eb495d1e0ad4f96aa065180f2d6e0d))
-- **ai-teams:** add continue/cancel actions and canvas focus ([1a9f2c9](https://github.com/your-org/ai-teams-engine/commit/1a9f2c9cebfe8f8d8e50c51408fc91ed0a4d4c66))
-- **ai-teams:** add embedded Canvas view in main content area ([d09e62f](https://github.com/your-org/ai-teams-engine/commit/d09e62f00d41622f52c8cc94db87bd0cd32ee5f8))
-- **ai-teams:** add fullscreen Canvas view with interactive visualization ([fdde963](https://github.com/your-org/ai-teams-engine/commit/fdde963d45b558506dc769c92b21d827f23a414e))
-- **ai-teams:** add LeaderModelService for retry and model switching ([497728e](https://github.com/your-org/ai-teams-engine/commit/497728e2725ad9d3c044b70380700ff09b8d11ee))
-- **ai-teams:** add mission pause/resume functionality ([77dc6bb](https://github.com/your-org/ai-teams-engine/commit/77dc6bba2a4c76de9ec5cd2f163a10dfb67031c7))
-- **ai-teams:** add mission retry and @Leader command trigger ([88b19c7](https://github.com/your-org/ai-teams-engine/commit/88b19c7db79820c54147638c2adb6ec63898c171))
-- **ai-teams:** add popover UI for Canvas node and connection details ([71f4bc6](https://github.com/your-org/ai-teams-engine/commit/71f4bc63edc6bd946e6440ea723b08508400fe4b))
-- **ai-teams:** add professional PDF report generation for missions ([08297e5](https://github.com/your-org/ai-teams-engine/commit/08297e5a4d0e04d67e9af0b28e758ba3080410eb))
-- **ai-teams:** add public team discovery and join request system ([5e719d4](https://github.com/your-org/ai-teams-engine/commit/5e719d42c3b9dc47443e34ab6a8a13da4b3fefd2))
-- **ai-teams:** complete ai-agents integration with tool capabilities ([2e6a110](https://github.com/your-org/ai-teams-engine/commit/2e6a110c9ad0bdc6d8e6f1323dbc09b6978d3af5))
-- **ai-teams:** display agent short name inside circle instead of initial ([a6b17c0](https://github.com/your-org/ai-teams-engine/commit/a6b17c0ca10e24106f82848649b733d8e2e701d8))
-- **ai-teams:** enable canvas panning with left-click on empty area ([e688964](https://github.com/your-org/ai-teams-engine/commit/e6889644237095016ded1c7898e3f80c2f079dc7))
-- **ai-teams:** enhance Canvas node display and layout ([556ce9b](https://github.com/your-org/ai-teams-engine/commit/556ce9bb8508efc627b1aa935add50739769fd81))
-- **ai-teams:** improve mission report PDF structure and content ([51489fd](https://github.com/your-org/ai-teams-engine/commit/51489fdbfd567e74d066219bd433016c369f4be0))
-- **ai-teams:** integrate web search for real-time data in task execution ([511f59a](https://github.com/your-org/ai-teams-engine/commit/511f59ae860ba72e3e892abd0b78b039137d1eec))
-- **ai-teams:** professional brand-based Canvas node design ([bb0262a](https://github.com/your-org/ai-teams-engine/commit/bb0262af656bdee2b8255d866fa0b346de37c493))
-- **ai-teams:** replace AI icons with real company logos ([4e23e5b](https://github.com/your-org/ai-teams-engine/commit/4e23e5b971241b54f5f68e7978e060d48ec0d8bd))
-- **ai-teams:** replace Canvas input with action buttons ([96453fe](https://github.com/your-org/ai-teams-engine/commit/96453fe755887a370ed2db7e2e0689d80b68bccf))
-- **ai-teams:** show input in Canvas mode and set Canvas as default ([f48a1ce](https://github.com/your-org/ai-teams-engine/commit/f48a1ce5b0582b579d7c012209cad2a69ecdba74))
-- **ai-teams:** 优化团队卡片视觉效果，添加公开/私有切换功能 ([eb15182](https://github.com/your-org/ai-teams-engine/commit/eb151821efb6ce2c16926eb734be1ddb834fb11c))
-- **ai-teams:** 增强约束提取支持人设描述模式 ([d5796df](https://github.com/your-org/ai-teams-engine/commit/d5796df52a27fd19ec62a11bba2acad17029470a))
-- **ai-teams:** 完善任务管理功能和UI优化 ([75b90e5](https://github.com/your-org/ai-teams-engine/commit/75b90e58a500b92136d0d59961c294fdac3baba3))
-- **ai-teams:** 实现任务自动重试和 Agent 智能切换机制 ([8064d0f](https://github.com/your-org/ai-teams-engine/commit/8064d0ffa07ffabfcd67b12df708455400378ea5))
-- **ai-teams:** 实现大上下文处理方案，保证长文本数据完整性 ([81c6895](https://github.com/your-org/ai-teams-engine/commit/81c68950ceaf036d23458bf87dc7bd868357e3e5))
-- **ai-teams:** 架构系统性完善 - 可观测性、安全性、持久化 ([058810f](https://github.com/your-org/ai-teams-engine/commit/058810fd30f8480546bea6774dc9205c12dbcae2))
-- **ai-teams:** 添加历史任务管理功能 ([5c32184](https://github.com/your-org/ai-teams-engine/commit/5c321841836fce1961c5691eb31605106a963af9))
-- **ai-teams:** 添加心跳机制并优化任务执行效率 ([3a5d6a1](https://github.com/your-org/ai-teams-engine/commit/3a5d6a14401d87416d96d6fdab21902da3a698f2))
-- **ai-teams:** 添加聊天记录导出功能 ([c193e5f](https://github.com/your-org/ai-teams-engine/commit/c193e5fb34f08060b9926c5ad19992fdb5bbb742))
-- **ai-teams:** 长文上下文管理方案 - Phase 1&2 完整实现 ([15b6838](https://github.com/your-org/ai-teams-engine/commit/15b68381652f3ac3abfed2da08a062f532f7d26c))
-- **ai-teams:** 集成 LongContentEngine 到 TeamMissionService ([6668b4d](https://github.com/your-org/ai-teams-engine/commit/6668b4d2b2fbdfedfb441c54778a1024be69dd86))
-- **ai-writing,ai-image:** add quality system and expand style options ([750a8d9](https://github.com/your-org/ai-teams-engine/commit/750a8d9d8d6654f55ca5db7fd56f16ddb25b782a))
-- **ai-writing:** add @Leader mention support for content editing ([0821564](https://github.com/your-org/ai-teams-engine/commit/0821564788d3ecd556645d8b24d9d44ea0f6f320))
-- **ai-writing:** add admin API to reset corrupted chapter content ([bd3efdb](https://github.com/your-org/ai-teams-engine/commit/bd3efdba695fdb911563778be25b3fbc00e23363))
-- **ai-writing:** add AI Writing module for long-form novel creation ([38a9ed4](https://github.com/your-org/ai-teams-engine/commit/38a9ed4622bd37f39ace8a5178337c42cbde9fbd))
-- **ai-writing:** add chapter 1 opening quality validation and auto-rewrite ([99d2fa4](https://github.com/your-org/ai-teams-engine/commit/99d2fa480f1d5b01c83d571fabf4ba629c8ea35b))
-- **ai-writing:** add chapter editing, revision history, annotations, and import UI ([260b4a2](https://github.com/your-org/ai-teams-engine/commit/260b4a2d09a15f95aa88cd3bdea00f0908d5c161))
-- **ai-writing:** add chapter modal and task card edit/delete ([c916836](https://github.com/your-org/ai-teams-engine/commit/c916836699dda0748a230b9845078f66faf3c414))
-- **ai-writing:** add chapter review/import feature + fix quality gate loop ([10b59ce](https://github.com/your-org/ai-teams-engine/commit/10b59ceab1d8544d75f6b13182644876a9cbc0ad))
-- **ai-writing:** add Chinese history knowledge base for world building ([fe78889](https://github.com/your-org/ai-teams-engine/commit/fe7888937a401eb2491300dbc4cc9fcfc44203c1))
-- **ai-writing:** add comprehensive Chinese historical knowledge database ([38bbe7c](https://github.com/your-org/ai-teams-engine/commit/38bbe7c6eea3ab6046b4e35843ad5ccec0c28de8))
-- **ai-writing:** add dynamic model selection and content saving ([fc33876](https://github.com/your-org/ai-teams-engine/commit/fc33876d1445ffabe0402926cfb03bf632b4b787))
-- **ai-writing:** add export dropdown with multiple formats and fix UI flickering ([69004b7](https://github.com/your-org/ai-teams-engine/commit/69004b7500baa0e8d9ffb32d7d9eaadbe342c807))
-- **ai-writing:** add floating menu to public reader & fix chapter completion detection ([3e05339](https://github.com/your-org/ai-teams-engine/commit/3e053396e1bbde23db4e71435decc57f8f0a6762))
-- **ai-writing:** add health check service for stuck missions ([722fe07](https://github.com/your-org/ai-teams-engine/commit/722fe073e7bdebd3340fb8e87c9bef3461c8561d))
-- **ai-writing:** add multi-round agent fix loop and chapter quality evaluator ([0a19a5d](https://github.com/your-org/ai-teams-engine/commit/0a19a5de92081eab082bdc89054f3b20f97262ee))
-- **ai-writing:** add NarrativeCraftService to prevent AI writing patterns ([4b48419](https://github.com/your-org/ai-teams-engine/commit/4b48419ccc1c6e200a8c6538c036d1273ef5af78))
-- **ai-writing:** add new project creation page ([481603f](https://github.com/your-org/ai-teams-engine/commit/481603f6ad2d862eb79c2b4f19cd413ca6c68e6e))
-- **ai-writing:** add one-click AI writing feature ([ac387c9](https://github.com/your-org/ai-teams-engine/commit/ac387c91e70dfef6970b7a930791b1ab2559c04e))
-- **ai-writing:** add pagination support for mission logs ([0ecd988](https://github.com/your-org/ai-teams-engine/commit/0ecd9888fab781662f25e90d49ab1edc3b14bed2))
-- **ai-writing:** add project detail page ([d7da696](https://github.com/your-org/ai-teams-engine/commit/d7da696d5b9020f4c84b0c267faf1472b4993cb0))
-- **ai-writing:** add public share page, PDF export fix, and continue task button ([05e2ab2](https://github.com/your-org/ai-teams-engine/commit/05e2ab297303120ee7ed0c4e72973fa6d0e0cc67))
-- **ai-writing:** add Railway database migration script for v2 improvements ([4fbf28d](https://github.com/your-org/ai-teams-engine/commit/4fbf28d3826a2a8a5fa8dfc7856ba10d92202ca1))
-- **ai-writing:** add relationship graph, consistency check, multi-turn dialogue ([c864596](https://github.com/your-org/ai-teams-engine/commit/c864596e2edf51049fcfd3bf5211e79af5030c3b))
-- **ai-writing:** add Task Details tab for mission conversation history ([c6c6a38](https://github.com/your-org/ai-teams-engine/commit/c6c6a38f65444f416a5f1c2bbec432c80863c8a9))
-- **ai-writing:** add WebSocket real-time updates and Canvas visualization ([bdb69a1](https://github.com/your-org/ai-teams-engine/commit/bdb69a170019b3bd6e65f9e3b2c0b21ca7e93a6c))
-- **ai-writing:** add worldview tab and fix chapter display ([59cebd2](https://github.com/your-org/ai-teams-engine/commit/59cebd299bb02e252e1f46b121cffb278e4ae55a))
-- **ai-writing:** add Writing Agents and Mission system integration ([d56437e](https://github.com/your-org/ai-teams-engine/commit/d56437e4a5117a0fec366d36b2d71e1e4dc9d5d0))
-- **ai-writing:** add writing style presets and improve content quality ([1b21fad](https://github.com/your-org/ai-teams-engine/commit/1b21fadb211d7f9143ecf697790a9a141649b398))
-- **ai-writing:** add writing style selection UI for users ([085fff3](https://github.com/your-org/ai-teams-engine/commit/085fff35f400507f1b3102013ea95276168fccdd))
-- **ai-writing:** auto-generate book title from user prompt ([da608e4](https://github.com/your-org/ai-teams-engine/commit/da608e41426d02a44a733af9250ebb266b37862a))
-- **ai-writing:** complete rewrite with AI Teams pattern ([ee11396](https://github.com/your-org/ai-teams-engine/commit/ee1139699ec3a41563ec78454d86c5dceb97231c))
-- **ai-writing:** comprehensive quality enhancement system ([f5ba299](https://github.com/your-org/ai-teams-engine/commit/f5ba299f98f569e8a22db6a6271c4145689ca312))
-- **ai-writing:** comprehensive quality optimization for AI novel generation ([bf2e9af](https://github.com/your-org/ai-teams-engine/commit/bf2e9af7e3480ba746a965cbad10ce2302a46c99))
-- **ai-writing:** comprehensive system improvements based on failure analysis ([6825695](https://github.com/your-org/ai-teams-engine/commit/682569549f897157eed759b2453be8f6eb640a46))
-- **ai-writing:** enhance agents with quality services integration ([fc86e9c](https://github.com/your-org/ai-teams-engine/commit/fc86e9ca3251891ed507cd0f74ed91b45dd6a9e9))
-- **ai-writing:** enhance ending quality constraints and detection ([fddef77](https://github.com/your-org/ai-teams-engine/commit/fddef77ea29cd855390a3074189a0b79af084f7e))
-- **ai-writing:** enhance Keeper agent + add mission logs sync ([1a8161d](https://github.com/your-org/ai-teams-engine/commit/1a8161d462de145ecc928fdb1a179a5dc8bfdb37))
-- **ai-writing:** enhance professional voice system with more templates ([f2cba47](https://github.com/your-org/ai-teams-engine/commit/f2cba47fc76262250a08c9704b5758ac6ae43a1a))
-- **ai-writing:** enhance quality system with semantic consistency and expression alternatives ([b5661af](https://github.com/your-org/ai-teams-engine/commit/b5661af3f1029d69d605634727183b2c50d10d4a))
-- **ai-writing:** enhance Story Bible to extract ALL named characters ([3c1f805](https://github.com/your-org/ai-teams-engine/commit/3c1f805df0bb6693fb254817057bde20565aa3d7))
-- **ai-writing:** enhance Story Bible with unified agent config and Qing dynasty knowledge ([495ad5f](https://github.com/your-org/ai-teams-engine/commit/495ad5ffd1bc9b2a60832a0fd8874330190a19bd))
-- **ai-writing:** enhance Team交互区 with detailed WebSocket events ([fa5011a](https://github.com/your-org/ai-teams-engine/commit/fa5011a565edb7a1ce565ba0f1ac6e1341fc9305))
-- **ai-writing:** expand sensory immersion with 6 new scene templates ([d5979e5](https://github.com/your-org/ai-teams-engine/commit/d5979e53cd8db7e85f618a63255041f36c737340))
-- **ai-writing:** expand to 8 agents with parallel execution support ([e3bd3aa](https://github.com/your-org/ai-teams-engine/commit/e3bd3aa4d6d6b1e36a9c0e687e452e9e0b526544))
-- **ai-writing:** implement 3-layer quality enforcement for narrative craft ([3d4b2bf](https://github.com/your-org/ai-teams-engine/commit/3d4b2bfe2d05a6bd1b03ff912ca03dac2fcc55b5))
-- **ai-writing:** implement intelligent @Leader task dispatch ([3ce125f](https://github.com/your-org/ai-teams-engine/commit/3ce125f4384d0f130250d67c3beb2e39d8547dfd))
-- **ai-writing:** implement three-layer style configuration system ([a93eb4c](https://github.com/your-org/ai-teams-engine/commit/a93eb4c84806933376f456d9462614cb530aa0e0))
-- **ai-writing:** improve chapter display and UI layout ([f5f0d67](https://github.com/your-org/ai-teams-engine/commit/f5f0d67b26ff71979c20e8b570f0309b73f6a74a))
-- **ai-writing:** improve chapter title generation and rename nav items ([4b71a72](https://github.com/your-org/ai-teams-engine/commit/4b71a729fa8c452ec30378c66f0488e5572aea43))
-- **ai-writing:** improve relationship graph layout with zone-based algorithm ([6a7261f](https://github.com/your-org/ai-teams-engine/commit/6a7261fb7c70b188f890f915522dbc71e2566972))
-- **ai-writing:** integrate foreshadowing and pacing control services ([ad3c31e](https://github.com/your-org/ai-teams-engine/commit/ad3c31e55e6bea09819c5bd3e68e0d43bd70b42b))
-- **ai-writing:** integrate pacing control service into quality constraints ([b209be5](https://github.com/your-org/ai-teams-engine/commit/b209be544765f00650cb35dccdb96197bcf83148))
-- **ai-writing:** show detailed info in Team交互区 instead of just statistics ([fe16023](https://github.com/your-org/ai-teams-engine/commit/fe1602343ccc9e491b6c0989f5399f1831ae2f3e))
-- **ai-writing:** show full 8-agent team with two-row layout ([74c2ae3](https://github.com/your-org/ai-teams-engine/commit/74c2ae31d69f695774586da31bfb2de3e9fbb051))
-- **ai-writing:** user-first redesign with 5-agent visualization ([84e307a](https://github.com/your-org/ai-teams-engine/commit/84e307abd23239d8548d514e5e01fc1ad0703b89))
-- **ai:** add CHAT_FAST tier for low-cost operations ([ffd2c03](https://github.com/your-org/ai-teams-engine/commit/ffd2c033ebfc89b4c271e810fb10e9d35c58ac32))
-- **ai:** add check-topic-ai endpoint to diagnose AI member configuration ([848cc73](https://github.com/your-org/ai-teams-engine/commit/848cc737ad730a967676ed187050ecff6e3c560d))
-- **ai:** add DALL-E 3 image generation for GPT-4 ([2ee6d74](https://github.com/your-org/ai-teams-engine/commit/2ee6d743c8cac9d3740aadf1734573f160bd8ee4))
-- **ai:** add detailed logging for OpenAI and Gemini API calls ([83d97c1](https://github.com/your-org/ai-teams-engine/commit/83d97c1baaf02a65d1ba71532e47d75c598d3dcd))
-- **ai:** add diagnostic endpoints for AI model configuration ([0aa8201](https://github.com/your-org/ai-teams-engine/commit/0aa8201ef5884c42dee31feaf4ca03bcac4848ed))
-- **ai:** add dynamic AI model list from database ([9bc320e](https://github.com/your-org/ai-teams-engine/commit/9bc320e9d0ab99c2456c7f6ae5001aace587a4fc))
-- **ai:** add Gemini image generation support ([f6a874f](https://github.com/your-org/ai-teams-engine/commit/f6a874f39b16b7619d6135f0d67ba21838a0e7c4))
-- **ai:** add Google Imagen API support for image generation ([4c217ac](https://github.com/your-org/ai-teams-engine/commit/4c217acbe501acb9a949e02b63cb31b6f3e43a32))
-- **ai:** add model usage logging for tier visibility ([e7ab5b6](https://github.com/your-org/ai-teams-engine/commit/e7ab5b624a54e6df922d86084f13684f426037d6))
-- **ai:** add real-time search and Topic resource context injection ([6c2600a](https://github.com/your-org/ai-teams-engine/commit/6c2600aa5945f423fc7e688f2022d488264a7083))
-- **ai:** add URL content fetching and reorganize admin tabs ([f91c266](https://github.com/your-org/ai-teams-engine/commit/f91c26604fea8fb7cc06460791aee75e5c4c30d8))
-- **ai:** cache AI analysis in database to save resources ([600995c](https://github.com/your-org/ai-teams-engine/commit/600995c4cf139d3c457dbf99510e8e7e95cfed4c))
-- **ai:** integrate AI endpoints into NestJS backend ([1220981](https://github.com/your-org/ai-teams-engine/commit/12209817263f18042bc7b585551c18ba90c45c99))
-- **ai:** upgrade Gemini API to 2.0 Flash model ([9c76d3c](https://github.com/your-org/ai-teams-engine/commit/9c76d3c2f07e8356d99d937b7e196a837689fcb2))
-- **ai:** use Imagen 3 for image models to improve quality ([5c2dd5c](https://github.com/your-org/ai-teams-engine/commit/5c2dd5c3de225b6022f60256fe264c3383c51533))
-- **ai:** wire tier-based fast/strong models and external storage ([543dcf2](https://github.com/your-org/ai-teams-engine/commit/543dcf27d7b8308a7e52dee5733f0e579f7797ef))
-- **api:** add frontend API routes for AI Agents ([ba0e9bf](https://github.com/your-org/ai-teams-engine/commit/ba0e9bf60c04f3130e7147b528296d3c455755af))
-- arbiter can reject actions with insufficient funds ([091028d](https://github.com/your-org/ai-teams-engine/commit/091028d8842659f1b4189ac24c4417ea005e7417))
-- **arch:** add unified AI orchestration and streaming modules ([8bbcf00](https://github.com/your-org/ai-teams-engine/commit/8bbcf0040dd8e6bc55af47e13937e33a6e308904))
-- **ask:** add Web Search toggle (default enabled) ([db1b29d](https://github.com/your-org/ai-teams-engine/commit/db1b29d13a81c13cbc49426593a0b87904d50f82))
-- **auth:** implement login history recording ([2a8bb21](https://github.com/your-org/ai-teams-engine/commit/2a8bb21f39108f7cc1bd0dcffe4dd436d2213c26))
-- auto cleanup old images, keep max 20 per user ([1d37805](https://github.com/your-org/ai-teams-engine/commit/1d378053d77e2376ac03d97b5501ce1172fdd866))
-- auto-detect WeChat URLs in text messages and sync to RAG ([c747b72](https://github.com/your-org/ai-teams-engine/commit/c747b72f91d8f0a1626644350bfd8237f518190c))
-- **backend:** add P1 improvements for performance and code quality ([2682073](https://github.com/your-org/ai-teams-engine/commit/2682073f542ab45318c4e4567b60f4e37fc87ae8))
-- **backend:** implement web search in simple-chat API ([1889898](https://github.com/your-org/ai-teams-engine/commit/188989836188b500e67324b868dbab243fbc3fe8))
-- **backend:** migrate MongoDB to PostgreSQL JSONB - save \$15/month ([328d14e](https://github.com/your-org/ai-teams-engine/commit/328d14e9a2ef9e8eca082b6d15d21feeb5e2c1d4))
-- **backend:** migrate Neo4j to PostgreSQL for cost optimization ([1e29ab1](https://github.com/your-org/ai-teams-engine/commit/1e29ab180b4499ca0df6460f99e65410f535ab8c))
-- **branding:** rebrand to Raven with flock logo and shimmer effect ([1c20d63](https://github.com/your-org/ai-teams-engine/commit/1c20d633250f391ba782a09485f482ec0b122c89))
-- **branding:** redesign logo to circular collaboration style ([d9c697e](https://github.com/your-org/ai-teams-engine/commit/d9c697e4e905bf3aa3b72508a26d1d46fad0dbde))
-- change logo badge from MVP to Beta ([f11d91c](https://github.com/your-org/ai-teams-engine/commit/f11d91cb3e6c0e14a53e4b99df7e75322b509b58))
-- chaos agent random actions and irrational bias toggle ([7142d47](https://github.com/your-org/ai-teams-engine/commit/7142d47378e485ba27013f16e12ac3a1aa2471ef))
-- **citations:** implement NotebookLM-style quote highlighting ([3eb3377](https://github.com/your-org/ai-teams-engine/commit/3eb33777bfc0404ba0086a01140f1d800edd0151))
-- **claude:** add comprehensive Claude Code skills for development ([ab3be7c](https://github.com/your-org/ai-teams-engine/commit/ab3be7c6f5ece61109e2060fb47451c1b8af1c80))
-- **collection:** add YouTube video duration filter ([8aac0de](https://github.com/your-org/ai-teams-engine/commit/8aac0de8c84cf0861672a9eac2a264090e9a938b))
-- complete AI Simulation feature implementation with industry best practices ([db793a6](https://github.com/your-org/ai-teams-engine/commit/db793a6b650e9de2fc375cbbecb4070b5de988df))
-- complete P0 priority improvements ([c4f2d9d](https://github.com/your-org/ai-teams-engine/commit/c4f2d9d7ab160f04d4637a04b14a63ceac24e90d))
-- complete Reports TAB implementation with full blog collection documentation ([12c19b8](https://github.com/your-org/ai-teams-engine/commit/12c19b86cd2d962a8720814035b32465ea179a5f))
-- comprehensive product design improvements for data collection module ([0f48359](https://github.com/your-org/ai-teams-engine/commit/0f48359965a7eddcbaa862aa573568a51de3f4ca))
-- comprehensive storage management system ([f6168a6](https://github.com/your-org/ai-teams-engine/commit/f6168a664478914f670967e8047030a4f55943ad))
-- comprehensive system hardening and security improvements ([5f047c8](https://github.com/your-org/ai-teams-engine/commit/5f047c870406badafcb7b3c6f91e36bd6abda019))
-- **content-processing:** integrate MinerU for deep PDF parsing ([a671ae4](https://github.com/your-org/ai-teams-engine/commit/a671ae4c9058a4191ae60c8bf35734a3e4b5dd45))
-- **crawler:** add URL accessibility check before saving HN stories ([04c05db](https://github.com/your-org/ai-teams-engine/commit/04c05db1d6ea2590910f49f1975f52691bbfb8cb))
-- **credits:** add admin credit management and auto-account creation ([2d57c47](https://github.com/your-org/ai-teams-engine/commit/2d57c477b1f757528f2851b2a7b8dddd2d2947a5))
-- **credits:** add credit consumption to remaining AI modules ([48f10de](https://github.com/your-org/ai-teams-engine/commit/48f10de4419ccef7daadf3009b3ca8ec437a55a2))
-- **credits:** implement complete credits system ([7d7b802](https://github.com/your-org/ai-teams-engine/commit/7d7b802d5aae370ee8d16f76a96b470d744fe5dd))
-- **credits:** implement complete credits system with configurable rules ([f3b8303](https://github.com/your-org/ai-teams-engine/commit/f3b830365b1650e9c78f6c8183f442826d435c6f))
-- **credits:** integrate automatic billing into AIEngineFacade ([8b85ea3](https://github.com/your-org/ai-teams-engine/commit/8b85ea32e0b92ba860fcd623d124e117541a7c45))
-- **credits:** overhaul billing system with complete transaction types ([a7195c4](https://github.com/your-org/ai-teams-engine/commit/a7195c4780b94801e67b4f875ca35a4e02f45703))
-- **data-collection:** add auto-seeder with RSS validation ([3908c1a](https://github.com/your-org/ai-teams-engine/commit/3908c1a1ce6657a286281ddfa2cc00313f6fa427))
-- **data-collection:** add deduplication check and new sources ([ff64bbd](https://github.com/your-org/ai-teams-engine/commit/ff64bbd99abc4bc036f8a2118ce548ffb7dfea73))
-- **data-collection:** expand data sources from 18 to 52 ([5214b33](https://github.com/your-org/ai-teams-engine/commit/5214b3355c6d4716ce529fe6a02bebb4f7c9fbf2))
-- **db:** add AI team templates migration ([4fbf91b](https://github.com/your-org/ai-teams-engine/commit/4fbf91b00bc4590ac0774828220273b90191eda4))
-- **db:** add data collection tables migration ([915429f](https://github.com/your-org/ai-teams-engine/commit/915429fdefe2ce33348078f5e873ed02c03cc31f))
-- **db:** add deep_research_sessions migration ([0861b00](https://github.com/your-org/ai-teams-engine/commit/0861b0004f4b385a75a11dd828f1104f22f58e45))
-- **db:** add Google Drive integration migration ([9f04922](https://github.com/your-org/ai-teams-engine/commit/9f04922de139dfc589a7316cf547575a35ff2680))
-- **db:** add IMAGE_GENERATION models migration for PPT ([e3ada47](https://github.com/your-org/ai-teams-engine/commit/e3ada470ee0f8fbfa419d81eaa8cbf9fdd4b20e9))
-- **db:** add migration for GeneratedImage table ([0469a0a](https://github.com/your-org/ai-teams-engine/commit/0469a0a0d8e279b12e5285e07ad84be1a1a9b8e5))
-- **db:** add migration scripts for cleanup and join requests ([b5c036c](https://github.com/your-org/ai-teams-engine/commit/b5c036cd5c6d237afbf422de3f2f362901f66575))
-- **db:** add missing migrations for writing quality features ([aec1b55](https://github.com/your-org/ai-teams-engine/commit/aec1b554346255d5c3666686f15125e1fe4c5c52))
-- **db:** add Notion integration migration ([7806e65](https://github.com/your-org/ai-teams-engine/commit/7806e65b44c0d9a2312c369059cd7240ae5c5c3e))
-- **db:** allow duplicate modelId for horizontal scaling ([2c22c42](https://github.com/your-org/ai-teams-engine/commit/2c22c4292e4cca625cc725b738bfdf624debad2c))
-- **deep-research:** add delete functionality for research sessions ([145db43](https://github.com/your-org/ai-teams-engine/commit/145db43f69cedba55008135a9226b19b3f917860))
-- **deep-research:** add NotebookLM-style citation tooltips ([ce39bfe](https://github.com/your-org/ai-teams-engine/commit/ce39bfe560f554fe0f3a252d5d7bfe31b68449b9))
-- **deep-research:** sync citation rendering with Fast Research ([35e8834](https://github.com/your-org/ai-teams-engine/commit/35e88344fd8d86b89a20d9a9d2ab594adf3c6e7b))
-- **deploy:** add new migrations to auto-deployment list ([653ca2d](https://github.com/your-org/ai-teams-engine/commit/653ca2d87ece0da590f7efe007f5e55edd14de9e))
-- **deploy:** automate data source seeding in Railway deployment ([6153366](https://github.com/your-org/ai-teams-engine/commit/6153366d86fcf0f5ba46e42a3054759d5dfe973a))
-- **deploy:** restore Dockerfile for Railway deployment ([23c46ce](https://github.com/your-org/ai-teams-engine/commit/23c46ce781626266a20d66f5f7bf7ebc10828cb9))
-- **email:** integrate Resend as email provider ([9178cd5](https://github.com/your-org/ai-teams-engine/commit/9178cd5f0b017e4cc28c410b8918c4ea2a2e5b94))
-- enable Grok live X/Twitter search ([c3303ce](https://github.com/your-org/ai-teams-engine/commit/c3303cef27d2282db689626117c6a8cfa87378c2))
-- enable URL access for all AI models ([3b30ac3](https://github.com/your-org/ai-teams-engine/commit/3b30ac3c5d5bf4833cec4437864ebccff78b41af))
-- enable youtube notes management ([4ff6449](https://github.com/your-org/ai-teams-engine/commit/4ff64498446511aad1448c781f5d28b15a5d1dfb))
-- enhance infographic with adaptive styles and fix 16:9 layout ([a0267dd](https://github.com/your-org/ai-teams-engine/commit/a0267dd883dd67198d3df4a9af39937d3285e823))
-- enhance PPT generation progress UI with better design ([5535ad5](https://github.com/your-org/ai-teams-engine/commit/5535ad522cdbdbb948a4d22be395e5aefd1d739c))
-- **events:** add centralized event bus module ([b86b9f4](https://github.com/your-org/ai-teams-engine/commit/b86b9f41847e93b0a8a86bfb1c2c00fe97cd5636))
-- **explore:** add i18n support for Explore page ([403ee70](https://github.com/your-org/ai-teams-engine/commit/403ee70b94a0de402b5d549fd380a0b106ac2686))
-- **explore:** add pagination and fix quote display ([a5dbbcc](https://github.com/your-org/ai-teams-engine/commit/a5dbbcc91063f8be18cdb84b1640bbb163d8f673))
-- **explore:** add thumbnail display for resource cards ([8ea17b3](https://github.com/your-org/ai-teams-engine/commit/8ea17b3256c14ac5ffe665754732f4ad34d53d15))
-- **explore:** hide right AI panel in list view ([047a1c0](https://github.com/your-org/ai-teams-engine/commit/047a1c0a4ec5f2487c5e0bca25929edc9a8c1a95))
-- **explore:** implement dynamic thumbnail extraction for all resource types ([8620476](https://github.com/your-org/ai-teams-engine/commit/86204769cfd8a2c0b2f6e4e13fa9c50791a97c75))
-- **explore:** implement dynamic thumbnail extraction for resource cards ([250aa86](https://github.com/your-org/ai-teams-engine/commit/250aa86011f8cf16ce362909447216b44a4e8957))
-- **explore:** remove Add to AI feature and add i18n support ([66b63b9](https://github.com/your-org/ai-teams-engine/commit/66b63b9e6a898c65f7ceab970eb41872d264b180))
-- **explore:** replace load more button with infinite scroll ([f039f9c](https://github.com/your-org/ai-teams-engine/commit/f039f9c473c485ae1c84491bf4bcff2d07f26bc2))
-- **explore:** support single-click add and double-click remove for Image button ([8a93f33](https://github.com/your-org/ai-teams-engine/commit/8a93f33d7cdf9b200066702bb51b748d1c9432bc))
-- **export:** implement unified export system with multi-format support ([2fdd18e](https://github.com/your-org/ai-teams-engine/commit/2fdd18eca2151023e42ee1c3de5dba308b439686))
-- **export:** 优化导出系统 - AI Teams归一 + YouTube中文化 ([bab38e6](https://github.com/your-org/ai-teams-engine/commit/bab38e6d613df85a8c58fa93d430116f6e8ababb))
-- **feedback:** add attachment support and email notifications ([a5ccfa2](https://github.com/your-org/ai-teams-engine/commit/a5ccfa23a065666cddae909d7d03921ef83ef51f))
-- **feedback:** add complete feedback management system ([9b25e87](https://github.com/your-org/ai-teams-engine/commit/9b25e87e0323d56264b9679416c17f220b289324))
-- **feedback:** connect annotations to feedback loop system ([1547311](https://github.com/your-org/ai-teams-engine/commit/1547311acb578ff760178206fd1891069f68c538))
-- **feedback:** expand feedback system with global feedback button ([005292e](https://github.com/your-org/ai-teams-engine/commit/005292eddbdf8f656ceb464d2afe7977e212ecf6))
-- **feedback:** implement database-backed feedback system ([c07cc4f](https://github.com/your-org/ai-teams-engine/commit/c07cc4f7262775036b377975aa0a934f80000355))
-- **filter:** add data source filter to filter panel ([4c29a37](https://github.com/your-org/ai-teams-engine/commit/4c29a37ae5a36fde3ebac99827d6f1dbd7c1b0ff))
-- **frontend:** add file import and fix multiple UX issues ([546ca3c](https://github.com/your-org/ai-teams-engine/commit/546ca3c0c39523875e99fc624446e4c5d39b6f31))
-- **frontend:** add git commit hash tracking and improve UX ([8431130](https://github.com/your-org/ai-teams-engine/commit/84311302d81a97659d288a7fe40d2b050376e81c))
-- **frontend:** add notification email input to CreateMissionDialog ([5707fca](https://github.com/your-org/ai-teams-engine/commit/5707fca5f297d619287bfad4a991f1f96cd1a73f))
-- **frontend:** add tags support for AI Group Topics ([86e955f](https://github.com/your-org/ai-teams-engine/commit/86e955fb6a64eaef768432b067e1825d45a42fc6))
-- **frontend:** enhance MissionProgressPanel with detailed task cards ([bb6075c](https://github.com/your-org/ai-teams-engine/commit/bb6075cae709c98d45d539f6192a86dceb6ddfab))
-- **frontend:** enhance right panel icon buttons size for better UX ([defbac7](https://github.com/your-org/ai-teams-engine/commit/defbac73563e66332185ffa4274c4ddb43c6ecb7))
-- **frontend:** enhance UX with improved bookmark flow and PDF upload support ([e307186](https://github.com/your-org/ai-teams-engine/commit/e30718680c2fcaca6010eb30580c7b1391283f0f))
-- **frontend:** improve AI chat interface UI/UX ([bb191ba](https://github.com/your-org/ai-teams-engine/commit/bb191bae0a6790058ddc121d0d0699ca30f75452))
-- **frontend:** improve UI and add admin resource management ([da22d71](https://github.com/your-org/ai-teams-engine/commit/da22d71130604bc00b095d3951e37f9795027512))
-- **frontend:** optimize right panel icon buttons for better visual balance ([8e3f9d0](https://github.com/your-org/ai-teams-engine/commit/8e3f9d051f78dbee790ee27f9fce9cffec3f4a9e))
-- **frontend:** redesign Mission performance summary with quantitative metrics ([7cca0ed](https://github.com/your-org/ai-teams-engine/commit/7cca0edcefa36abf29ebb7e4543bdd55fed3e14a))
-- generate consulting-style imagen prompts with structured content ([2533544](https://github.com/your-org/ai-teams-engine/commit/2533544edd9f8030ac594d4dd9e794bb4319332f))
-- **google-drive:** support individual file selection in KB creation ([eb2a19e](https://github.com/your-org/ai-teams-engine/commit/eb2a19e7e9ccdc4a1e2ce7b7a91f528b1c4f830e))
-- **i18n:** add AI Image page translations ([f7b8285](https://github.com/your-org/ai-teams-engine/commit/f7b828550cd5fab4fe1d13075a9fc4369e9b1a24))
-- **i18n:** add AI Writing page translations ([03fd3d4](https://github.com/your-org/ai-teams-engine/commit/03fd3d406317afb2d02822546ee50124ba0dec62))
-- **i18n:** add bilingual support for AI Coding, AI Simulation, AI Store, and Labs pages ([e8a0f26](https://github.com/your-org/ai-teams-engine/commit/e8a0f262f9453f8bc3651bf2c385c53b2ad510b2))
-- **i18n:** add bilingual support infrastructure (English/Chinese) ([6d85603](https://github.com/your-org/ai-teams-engine/commit/6d8560324ef946d2f34526cf1e5a05b274f48f53))
-- **i18n:** add bilingual support to AI Office page ([eb347e5](https://github.com/your-org/ai-teams-engine/commit/eb347e5dfac1b661e97531002daac96318b0ac94))
-- **i18n:** add bilingual support to AI Studio page ([4f5e512](https://github.com/your-org/ai-teams-engine/commit/4f5e5124d9d396c60e560529931bd542100e2daa))
-- **i18n:** add bilingual support to AI Teams page ([dfd5d44](https://github.com/your-org/ai-teams-engine/commit/dfd5d448d8e4ab5d0c7a06cb7277ecb76ddbbfce))
-- **i18n:** add bilingual support to core components ([70a25cd](https://github.com/your-org/ai-teams-engine/commit/70a25cd4dc21ff8b4eb376c72b26630d09e3525b))
-- **i18n:** add bilingual support to Profile page ([5d6ca1b](https://github.com/your-org/ai-teams-engine/commit/5d6ca1b60ae9ef7c5769d93ae7cd24cb911fac93))
-- **i18n:** add bilingual support to ResearchTab component ([f670f74](https://github.com/your-org/ai-teams-engine/commit/f670f74a090b38bfaef4d333e5f702bfab25c2fe))
-- **i18n:** add comprehensive translations for ResearchTab and AI Teams ([42996cd](https://github.com/your-org/ai-teams-engine/commit/42996cd02385f0a560832804d17ced4c1b23ed98))
-- **i18n:** add full internationalization for revision history ([e5fc07e](https://github.com/your-org/ai-teams-engine/commit/e5fc07ee4bf73cd82db07319ae4b0626c13d2687))
-- implement AI Office 3.0 PPT generation with dual-model architecture ([4a70995](https://github.com/your-org/ai-teams-engine/commit/4a7099572989d6fbfec57c6643c325f3732a6d25))
-- implement blog collection backend services ([bb46d76](https://github.com/your-org/ai-teams-engine/commit/bb46d76a3226ba27f650374f0651f1b6fb6d2f5e))
-- implement comparison template with left-right layout ([7037a31](https://github.com/your-org/ai-teams-engine/commit/7037a31649457922681d0efed69c75b4e42e415a))
-- implement comprehensive Reports TAB with structured AI summaries ([4782f23](https://github.com/your-org/ai-teams-engine/commit/4782f231fc8dc4abb2b17a8f9a40f68fa85db49b))
-- implement Data Management module frontend UI with Tailwind CSS ([2ffadaf](https://github.com/your-org/ai-teams-engine/commit/2ffadafaafba0e719fb0d6b1693178cfd4c9b988))
-- implement Data Management module with source whitelist and collection rules ([703c19e](https://github.com/your-org/ai-teams-engine/commit/703c19ee5f41c7488c82feb3f4e7cf3cd14140a5))
-- implement DeepDive Engine v2.1 unified rendering architecture ([ee8f5e5](https://github.com/your-org/ai-teams-engine/commit/ee8f5e58dcc0cd86f2f22b20eac675b26c30405d))
-- implement DeepDive user comments for YouTube videos ([e4a937e](https://github.com/your-org/ai-teams-engine/commit/e4a937e3d042513c4f7a593e5beb6eb285f6f612))
-- implement feedback priority system and fix credits page layout ([a24db85](https://github.com/your-org/ai-teams-engine/commit/a24db857fff884d51d158ae5d440ce1adb35b894))
-- implement hybrid infographic rendering with smart layout detection ([a754c23](https://github.com/your-org/ai-teams-engine/commit/a754c231a65f4f2678319c78fe645793a5981e60))
-- implement ImportTaskProcessorService to convert PENDING ImportTasks to Resources ([7ae0b15](https://github.com/your-org/ai-teams-engine/commit/7ae0b15728080ea27e886156588faad1b2a0c4ac))
-- implement real Notifications, Labs, Feedback and update changelog ([0f06d1b](https://github.com/your-org/ai-teams-engine/commit/0f06d1bd1c264e5ce9d4356895aac08f0ef5f311))
-- implement resource-to-image generation ([bb2ef16](https://github.com/your-org/ai-teams-engine/commit/bb2ef16ea3b6a8038473c4733857c8881022567e))
-- implement responsive navigation and UI optimization (Phase 1) ([01906cb](https://github.com/your-org/ai-teams-engine/commit/01906cbf4370845b444cca91e17e6810ae2f57c5))
-- **import:** add rule-based URL classification fallback ([6818449](https://github.com/your-org/ai-teams-engine/commit/6818449d4d4e5e9e0252133a865de35e37f778a5))
-- **import:** replace whitelist validation with AI-powered URL classification ([cdd7683](https://github.com/your-org/ai-teams-engine/commit/cdd768358188b1a0e50ad4d3666be1d68d7ee0b5))
-- improve AI assistant panel UI/UX ([66604d9](https://github.com/your-org/ai-teams-engine/commit/66604d91570b3eb6836c258fde3d1049085072e0))
-- improve comic/illustration detection for ai_image mode ([49e6343](https://github.com/your-org/ai-teams-engine/commit/49e6343b08237d33262bdefa7cabaa6e7b5c5565))
-- improve infographic quality with consulting-style prompts ([5e883d3](https://github.com/your-org/ai-teams-engine/commit/5e883d387258aa1c1b7569ac94528dda10b22ce1))
-- improve PPT generation progress UI ([780b81a](https://github.com/your-org/ai-teams-engine/commit/780b81a0295dabce1da3c8d5f5fb5590bab240d6))
-- **infra:** add EdgeOne Pages deployment support ([a0704c4](https://github.com/your-org/ai-teams-engine/commit/a0704c41a7a08cc4787f2bb128d46805d3339bc5))
-- **ingestion:** add universal data collection scheduler ([af4f906](https://github.com/your-org/ai-teams-engine/commit/af4f906607e6b57c1c1564126f438d0d75709f20))
-- inject opposing-interest system prompt and irrational bias ([0b7e316](https://github.com/your-org/ai-teams-engine/commit/0b7e3165b972282512c68d134c41914bcc8ea70c))
-- integrate BlogCollectionManager into Reports TAB ([6786444](https://github.com/your-org/ai-teams-engine/commit/6786444e2c23ebcad3344bfe9c3c4d049db6e262))
-- integrate Cloudflare R2 for image storage ([ecd2d44](https://github.com/your-org/ai-teams-engine/commit/ecd2d44178464c526482ade35d7f0e827634bcff))
-- integrate Data Management module into sidebar navigation ([b10c31e](https://github.com/your-org/ai-teams-engine/commit/b10c31e315f0da5bc117e8cb1dc2b850c8bd3b77))
-- integrate DataFetchingService with database config and add Perplexity API support ([6bf3b37](https://github.com/your-org/ai-teams-engine/commit/6bf3b37437888e8aa945184f69a36c65200be588))
-- integrate new Data Management Dashboard and improve import dialog ([24a15f2](https://github.com/your-org/ai-teams-engine/commit/24a15f2f1f0cd59c55b9437aa9f9895c5dc07144))
-- integrate PPT 3.0 Generator into AI Office page ([c039d4d](https://github.com/your-org/ai-teams-engine/commit/c039d4d43d9f3b4927a4f0651c5c5eb26b6d6512))
-- integrate structured AI summary for all resource types ([8d3deb2](https://github.com/your-org/ai-teams-engine/commit/8d3deb2c39c7ee18ac642607d2e10dde52f1e82a))
-- **integrations:** add bidirectional sync and AI file organization ([f19c214](https://github.com/your-org/ai-teams-engine/commit/f19c2146182a830eaabf515ada078fe438805031))
-- **integrations:** add Google Drive integration with OAuth, import/export ([af01b50](https://github.com/your-org/ai-teams-engine/commit/af01b50fcea94f17d38e1153cf03926f06806abc))
-- **kb:** add knowledge base editing dialog with multi-source support ([4c1abdc](https://github.com/your-org/ai-teams-engine/commit/4c1abdc1400353f820095e3919acf44adaade8b4))
-- **kb:** improve document list UX and fix Google Drive auto-sync ([aa1adc4](https://github.com/your-org/ai-teams-engine/commit/aa1adc421e47caed24d435f06620e3a9baf98d82))
-- **kb:** show files in Google Drive folder picker ([4b51fa9](https://github.com/your-org/ai-teams-engine/commit/4b51fa95d45c9ccf54636cb0f5e892322b142b97))
-- **kb:** support multiple data source types for knowledge bases ([37d3f30](https://github.com/your-org/ai-teams-engine/commit/37d3f305a516b8096ca608c97cdec6d8db8f4bf5))
-- **knowledge-graph:** add standalone Knowledge Graph page and navigation ([cd4cc5d](https://github.com/your-org/ai-teams-engine/commit/cd4cc5d6e413a18be1e1d0e5a469b7222d255f01))
-- **knowledge-graph:** improve edge visualization with curves and dynamic thickness ([97c0883](https://github.com/your-org/ai-teams-engine/commit/97c088382e6246c2e96394ed02fb5ac03c2b0e54))
-- **knowledge-graph:** integrate Library data for personalized knowledge graph ([aa0d896](https://github.com/your-org/ai-teams-engine/commit/aa0d896a062823e7febdfd24f4a648effa9719cb))
-- **knowledge:** implement comprehensive knowledge base system ([02979b5](https://github.com/your-org/ai-teams-engine/commit/02979b514a28628e05f022c5326afdad2ed6addf))
-- **library:** add AI Office integration buttons to Images and Bookmarks ([71d1588](https://github.com/your-org/ai-teams-engine/commit/71d1588e53158fa1dadfce0d337475d3d61e0260))
-- **library:** add AI Office integration to Notes tab ([1c2788e](https://github.com/your-org/ai-teams-engine/commit/1c2788e9a5e3c4975c58a2a22ab32041c2d8a333))
-- **library:** add AI Organize Panel with batch tagging, classification, and theme discovery ([d926deb](https://github.com/your-org/ai-teams-engine/commit/d926deb799f1737ae50b6ffb158438cf614c7b70))
-- **library:** add collection sub-navigation for My Library ([1f8c8ed](https://github.com/your-org/ai-teams-engine/commit/1f8c8edbcc7f5dd174d0d5ad02e3154290699585))
-- **library:** add Knowledge Base tab to Library page ([b7cbf55](https://github.com/your-org/ai-teams-engine/commit/b7cbf5573977d69e458a042520f3687f269ce011))
-- **library:** add Notion import to AddDocumentsDialog ([4e0a8a1](https://github.com/your-org/ai-teams-engine/commit/4e0a8a14aea398ea5d7b9d661cb4fe8e318d0d5e))
-- **library:** add results display for Notes and Images AI operations ([18b3d96](https://github.com/your-org/ai-teams-engine/commit/18b3d96c702d71bfc6a9ec891a2581a87784a077))
-- **library:** add view, edit, and delete actions for bookmarked resources ([808e71e](https://github.com/your-org/ai-teams-engine/commit/808e71ea3b6da542e2b4cbf83f1f04d630be7603))
-- **library:** display bookmarked AI images in Bookmarks tab ([0d83078](https://github.com/your-org/ai-teams-engine/commit/0d83078accab35d6f539ad59102b357034c148c0))
-- **library:** enhance KB dialogs UI and add Google Drive import ([b7fe62f](https://github.com/your-org/ai-teams-engine/commit/b7fe62f61b5d7dddcfacbff1e61a9f143e661732))
-- **library:** enhance knowledge base management with RAG status display ([7c671ee](https://github.com/your-org/ai-teams-engine/commit/7c671ee1a21a014e2393c4cb18b59f1a74bde5b0))
-- **library:** enhance knowledge base UX and add team member management ([e5f012f](https://github.com/your-org/ai-teams-engine/commit/e5f012fcc48f2e861fb99e18057c00ed5a4d9e35))
-- **library:** extend AI Organize Panel to Notes and Images tabs ([e26324c](https://github.com/your-org/ai-teams-engine/commit/e26324c467e57b889d86343ad4d23341b0bb8a14))
-- **library:** implement AI Organize Panel functionality for Notes and Images ([8984715](https://github.com/your-org/ai-teams-engine/commit/89847153977d6ff17b70fc47b06621b65a89b708))
-- **library:** implement Phase 2 - tags, batch operations, reading status, pagination ([24b4100](https://github.com/your-org/ai-teams-engine/commit/24b4100e6b779ca6d11a792a4d0097d7b9d317e5))
-- **library:** integrate Knowledge Graph as tab view instead of separate page ([35ff6a9](https://github.com/your-org/ai-teams-engine/commit/35ff6a9e6f132ec27f95122747f17b7438ee93f6))
-- **library:** modernize data sources UI with enhanced visual design ([53ee503](https://github.com/your-org/ai-teams-engine/commit/53ee5034b9bc8664416e2342bb3a4fae1ab84c3e))
-- **library:** redesign KB cards and add resource type filters ([a7a9174](https://github.com/your-org/ai-teams-engine/commit/a7a9174ffee43ca1f12512df5dbc126daad5c329))
-- **mcp:** add auto-reconnect with health check for MCP servers ([ed51dc3](https://github.com/your-org/ai-teams-engine/commit/ed51dc3b05bca1254a89842a0a6b15fe9b21285e))
-- **mcp:** enhance MCP server config update and env resolution ([925b948](https://github.com/your-org/ai-teams-engine/commit/925b948c684e60eb91260ea9f3f549c5be4355ff))
-- **mobile:** add mobile-responsive navigation with AppShell pattern ([6d721c8](https://github.com/your-org/ai-teams-engine/commit/6d721c86474baeca878f2f9045c78756dbdf1954))
-- multiple improvements and bug fixes ([682df31](https://github.com/your-org/ai-teams-engine/commit/682df31604ae48b384b3012c65303ffd0d659fea))
-- multiple improvements and new features ([2549c5d](https://github.com/your-org/ai-teams-engine/commit/2549c5dc27dcce35dde9ee8143253efad712ff08))
-- **nav:** add AI Image menu, remove AI Labs, rename AI Store to AI Tools ([9adabbe](https://github.com/your-org/ai-teams-engine/commit/9adabbe944c7f418c171d33b105d8be270fb033a))
-- **nav:** merge AI Tools and AI Skills into AI Marketplace ([33c3d95](https://github.com/your-org/ai-teams-engine/commit/33c3d9501e4f6e51a520483e90244721e269fa72))
-- **nav:** rename AI Office to AI Reports ([dd88d3d](https://github.com/your-org/ai-teams-engine/commit/dd88d3ddb85d349eec2e4d0ff48823c19755e815))
-- **notes:** add edit and delete functionality to NotesList ([e8f263d](https://github.com/your-org/ai-teams-engine/commit/e8f263d6e766bb3f067e55d534795481227e82a5))
-- **notion:** add BlockNote editor for Notion-like editing experience ([bfe474c](https://github.com/your-org/ai-teams-engine/commit/bfe474c0485ee6a4819965abe5e2cf46135fb5fe))
-- **notion:** add Notion integration with OAuth sync and BlockNote editor ([64930e6](https://github.com/your-org/ai-teams-engine/commit/64930e6be3eac3614930f811571d6f4739889853))
-- **notion:** optimize UI design for professional look ([3ebbf3f](https://github.com/your-org/ai-teams-engine/commit/3ebbf3f35bc23233732acc38d77a16856ece99ff))
-- pause every N rounds for human-in-loop and chaos agent injection ([f1fb56d](https://github.com/your-org/ai-teams-engine/commit/f1fb56da8f71efe24c230e175721b302ee9bfc21))
-- **pdf:** add Markdown to HTML conversion for report content ([0ad64fb](https://github.com/your-org/ai-teams-engine/commit/0ad64fbc9de3876a14a93ccaffcca20a28ed8741))
-- **pdf:** complete rewrite with pure inline styles ([3defb9e](https://github.com/your-org/ai-teams-engine/commit/3defb9e38fa1be8438cd24384d5f327a58a30760))
-- **ppt:** add automatic retry for 5xx errors in outline generation ([840ab6f](https://github.com/your-org/ai-teams-engine/commit/840ab6fc87d2f34f6aa62a8d7954035d32b6ffaf))
-- **ppt:** enhance PPT generation quality to match Gamma/Genspark standards ([829aa2a](https://github.com/your-org/ai-teams-engine/commit/829aa2a0bd5937159e83c8cb43500ec6edb7df1c))
-- **ppt:** implement professional PPT design system with enhanced AI prompts ([801797f](https://github.com/your-org/ai-teams-engine/commit/801797f9f7781135b0e8131c5cdf7bb50e5ff2ce))
-- **ppt:** redesign progress UI for better readability ([15318c6](https://github.com/your-org/ai-teams-engine/commit/15318c682979c423d98ad18d3c2f792874918ac7))
-- **prd:** design resource-to-image generation feature ([958efa9](https://github.com/your-org/ai-teams-engine/commit/958efa985cba9b77225e8c2049f1202715a0893e))
-- **proxy:** add government and policy domains to whitelist ([dd273a6](https://github.com/your-org/ai-teams-engine/commit/dd273a63adb9d6f357d454f6868493ec42a554ca))
-- **proxy:** add image proxy endpoint for Cloudflare-protected images ([e367edf](https://github.com/your-org/ai-teams-engine/commit/e367edf25bb182f2bb1ad698b038be81e3a0d1b4))
-- **proxy:** add Puppeteer fallback for Cloudflare-protected sites ([c7706d5](https://github.com/your-org/ai-teams-engine/commit/c7706d50a06e733e95e52b15120e98a478b3a5c6))
-- **proxy:** integrate FlareSolverr for Cloudflare bypass ([1a0901c](https://github.com/your-org/ai-teams-engine/commit/1a0901cb01cc5f6d3bea0981e216c5957509c17a))
-- **rag:** add knowledge base edit functionality ([3381ac5](https://github.com/your-org/ai-teams-engine/commit/3381ac56a002524174b4ae7abd77d20488cb42dd))
-- **rag:** add Knowledge Base management UI ([b1b2efa](https://github.com/your-org/ai-teams-engine/commit/b1b2efa5d1862d07f18a3e14d529bddcb91aec83))
-- **rag:** add RAG knowledge base module with pgvector ([74b9fed](https://github.com/your-org/ai-teams-engine/commit/74b9fedaff8d728188a1fd8febbafc9127d67584))
-- **rag:** enhance ASK AI knowledge base integration with source display ([ee75b62](https://github.com/your-org/ai-teams-engine/commit/ee75b627be5a4ff5569268a091f415b6a7c3ca55))
-- **rag:** extend supported MIME types for Google Drive sync ([7f5cab8](https://github.com/your-org/ai-teams-engine/commit/7f5cab8006cb64f9c63c98ef3d3c13e0bd9c8593))
-- **rag:** implement Google Drive folder picker for knowledge base ([2a97d03](https://github.com/your-org/ai-teams-engine/commit/2a97d03e026bf2aaa3ac42960017fdb94b65b62f))
-- **rag:** implement JSONB vector storage replacing pgvector ([a835a05](https://github.com/your-org/ai-teams-engine/commit/a835a05f7355beaed91ca51b0a85a08bbe363e5b))
-- **reader:** add Table of Contents navigation for reading mode ([2e1ccd9](https://github.com/your-org/ai-teams-engine/commit/2e1ccd936423ae47d3dcc5f8a9bb60f51c6ff6e7))
-- **reader:** enhance reading experience with themes and controls ([1eface9](https://github.com/your-org/ai-teams-engine/commit/1eface9df5a604d1bf3bb23c52f734b850635ea1))
-- **reader:** major typography and layout improvements ([2fe2a53](https://github.com/your-org/ai-teams-engine/commit/2fe2a5348ba4fdc87afb6831137a44682c8416c6))
-- rebrand from DeepDive Engine to AI Teams Engine ([33a3307](https://github.com/your-org/ai-teams-engine/commit/33a33074b040d31f01dad36afd99a8c34201214e))
-- **recommendations:** implement multi-strategy similar content algorithm ([4a9159a](https://github.com/your-org/ai-teams-engine/commit/4a9159aac7401673c9bde4e55a1b294455f57883))
-- redesign admin UI with card-based layout for whitelists and collections ([3990936](https://github.com/your-org/ai-teams-engine/commit/3990936744f772efc816d03979c4c334c1c2690d))
-- redesign AI Simulation landing to cards and add scenario listing ([6b4fe96](https://github.com/your-org/ai-teams-engine/commit/6b4fe96467453c03cc0b600978ed385b35982d22))
-- redesign cards template with main cards + summary card layout ([b67101b](https://github.com/your-org/ai-teams-engine/commit/b67101b901c1d6a09bb4a2be289babe14aed1159))
-- redesign logo and complete AI Office Quick Generate feature ([ce927fe](https://github.com/your-org/ai-teams-engine/commit/ce927fe91d99518397a0d1afb837292fbe09edee)), closes [#1e40](https://github.com/your-org/ai-teams-engine/issues/1e40)
-- redesign logo with S-curve dive & rise concept ([194db76](https://github.com/your-org/ai-teams-engine/commit/194db76552624b1bf5e3f1046a41648ba36f4af7)), closes [#0F2A46](https://github.com/your-org/ai-teams-engine/issues/0F2A46) [#2BB7](https://github.com/your-org/ai-teams-engine/issues/2BB7) [#7C5](https://github.com/your-org/ai-teams-engine/issues/7C5)
-- redesign Notes component with PM-level tag filtering and grid layout ([d19e2dc](https://github.com/your-org/ai-teams-engine/commit/d19e2dcde784e512a32c8e6221b7c5565014ca26))
-- redesign resource detail tabs with icon-only interface ([59f3cbf](https://github.com/your-org/ai-teams-engine/commit/59f3cbf533ff53e0386aeb2f93f657e8864afccf))
-- redirect homepage to Ask AI page by default ([835a4cd](https://github.com/your-org/ai-teams-engine/commit/835a4cdc2102a7adebf2e209734e230da424b6c9))
-- refactor ImageGenerator with three-column layout ([bcb0fe8](https://github.com/your-org/ai-teams-engine/commit/bcb0fe8534ec0e7323db30f45384a83fd01d4caf))
-- **release:** add automated release notification system ([26c76ca](https://github.com/your-org/ai-teams-engine/commit/26c76cad5370b2a07cde85e95edb94512376a602))
-- **report-editor:** 富文本编辑器和参考文献引用 ([83650d2](https://github.com/your-org/ai-teams-engine/commit/83650d2dbd7992d88007951bec5adf7d76afb5a4))
-- require login to access AI Office ([6d7358b](https://github.com/your-org/ai-teams-engine/commit/6d7358bc338d65bbde7ebf3c14c09cd639470031))
-- **research:** add Agent click-to-view-details and Leader thinking events ([b2308df](https://github.com/your-org/ai-teams-engine/commit/b2308df57dbd5b39a0730756c15c728353333eb3))
-- **research:** add cancel button to task operations ([4d60c50](https://github.com/your-org/ai-teams-engine/commit/4d60c50a77d3a248be6dccbd6a366df0b1ea7d18))
-- **research:** add chart generation and fix review result display ([985a03b](https://github.com/your-org/ai-teams-engine/commit/985a03b7db49756314b771c809b743e72caa0d81))
-- **research:** add citation backlinks and fix multiple issues ([af44f74](https://github.com/your-org/ai-teams-engine/commit/af44f748315d2f40d9c10b57ffa869ca977b3650))
-- **research:** add citation click-to-scroll and UUID format support ([fb9d8ed](https://github.com/your-org/ai-teams-engine/commit/fb9d8eda8e9cb01855a663ca6b999b4e7ffc4acd))
-- **research:** add comprehensive security enhancements for topic-research module ([6895ae9](https://github.com/your-org/ai-teams-engine/commit/6895ae987a282c30f5626bb4bee8a38529c66c25))
-- **research:** add edit and delete functionality for USER_REQUEST TODOs ([1f3f139](https://github.com/your-org/ai-teams-engine/commit/1f3f13976257e8f0a505d848fe17055596ac2efc))
-- **research:** add Leader chat interaction for user input decoding ([6f92391](https://github.com/your-org/ai-teams-engine/commit/6f9239137f5ad31b4cb7e4bd5b13601ec72ce6e9))
-- **research:** add real analysis skills and fix search attribution ([d51acfb](https://github.com/your-org/ai-teams-engine/commit/d51acfbffc0bca5befdb086606da688564deb3cb))
-- **research:** add regenerate report content button ([357372d](https://github.com/your-org/ai-teams-engine/commit/357372da42d170b7a1f450e85a683323c4e7dacf))
-- **research:** add report charts and improve Leader dimension management ([4228a9e](https://github.com/your-org/ai-teams-engine/commit/4228a9e24c73540cdaeed0a5b93c866e2831f4f7))
-- **research:** add report deletion and fix chapter history panel ([9f0b141](https://github.com/your-org/ai-teams-engine/commit/9f0b1413304b3d0d159810517991d9e6a0b2f115))
-- **research:** add researcher agent logging and debug traces ([47dfe57](https://github.com/your-org/ai-teams-engine/commit/47dfe57a12a7cbe873be9a55fe5ef2a315fc859a))
-- **research:** add search results display in TodoDetailPanel ([5a77228](https://github.com/your-org/ai-teams-engine/commit/5a772282ca6df7e4a1d00692a2549b07850ebd91))
-- **research:** add settings modal and fix clear messages ([db84948](https://github.com/your-org/ai-teams-engine/commit/db849489a73b9ed71afd179779366219ad574871))
-- **research:** add skills/tools persistence, review display, and language config ([b7f39f1](https://github.com/your-org/ai-teams-engine/commit/b7f39f1bdafaace1746d14e07434a8cc1ff08da0))
-- **research:** add Social X data source, fix tool assignment, and add Leader multi-turn context ([1b9be78](https://github.com/your-org/ai-teams-engine/commit/1b9be785ef6e698467ecdde951421d7a79c8e2fc))
-- **research:** add task progress tracking, dynamic concurrency, and consistency check ([0ca9e12](https://github.com/your-org/ai-teams-engine/commit/0ca9e126ec690fa85658450ddd677e5ea3b2b0db))
-- **research:** add TODO execution, fix activity filtering, improve citation popup ([bb69ea3](https://github.com/your-org/ai-teams-engine/commit/bb69ea32756fe41bcefcb6a2274c28ca8683fa56))
-- **research:** add v3.0 inline chart support for report sections ([f7e9dc5](https://github.com/your-org/ai-teams-engine/commit/f7e9dc5909de84814991de3dee0e0c2d19eec409))
-- **research:** add v5 research quality optimization with tests ([d8bf367](https://github.com/your-org/ai-teams-engine/commit/d8bf3679e33e5f1b0f15ad03f59b686b4703b2d6))
-- **research:** add visibility support to topic creation and card ([ea8754f](https://github.com/your-org/ai-teams-engine/commit/ea8754fd66cc17718f4e50366aeae6542c8bc077))
-- **research:** enhance activity panel with search tool and freshness info ([c87fc48](https://github.com/your-org/ai-teams-engine/commit/c87fc4858497277315b5dc41e58eccb9cb5e533f))
-- **research:** enhance agent tool transparency and leader project awareness ([334dc9a](https://github.com/your-org/ai-teams-engine/commit/334dc9a24aca54e031032f6fa3c8e31953c8142e))
-- **research:** enhance citation tooltip and evidence panel UX ([ac30874](https://github.com/your-org/ai-teams-engine/commit/ac30874ad157ed462fc99f838e4825b3e9584179))
-- **research:** enhance TODO execution to trigger actual AI research ([63dcd82](https://github.com/your-org/ai-teams-engine/commit/63dcd823edd85731d3de932db03b028b13ed65b4))
-- **research:** implement comprehensive chart system with error handling and validation ([50de9c2](https://github.com/your-org/ai-teams-engine/commit/50de9c26049f74003178381c1e19fc63b9c1ef60))
-- **research:** implement data source tools and AI planning mode ([5a15d02](https://github.com/your-org/ai-teams-engine/commit/5a15d0215acf58fdce23805fbd2cae6edf578c48))
-- **research:** implement feedback loop system for research reports ([b5d4409](https://github.com/your-org/ai-teams-engine/commit/b5d44091d0f9d81089ce9e03842f18a34618ed4b))
-- **research:** implement knowledge base RAG search and usage tracking ([1199212](https://github.com/your-org/ai-teams-engine/commit/11992121122e3936f7b5736ad10dee70a4f5d806))
-- **research:** implement report v2.0 with chart visualization ([e68fdd0](https://github.com/your-org/ai-teams-engine/commit/e68fdd066e3a74cb4c60056d5057d95d4fe9dde3))
-- **research:** implement Tab system restructure and add research_todos migration ([39c5c16](https://github.com/your-org/ai-teams-engine/commit/39c5c16f204a4338202daaac91825c78553bfbc6))
-- **research:** implement TODO UX enhancement and fix token conflict ([1d93acd](https://github.com/your-org/ai-teams-engine/commit/1d93acd2f1540e3ef157a01430aa194b15290e14))
-- **research:** implement topic research optimization plan (Phase 1-3) ([400a1cc](https://github.com/your-org/ai-teams-engine/commit/400a1cc4407bf13293576ae8d57b30f06398394b))
-- **research:** implement tree-like structure for collaboration dynamics tab ([b1faaa9](https://github.com/your-org/ai-teams-engine/commit/b1faaa9c3ee209a50209c622886f8d6b43a407ed))
-- **research:** improve i18n coverage for AI Research module ([71c3c7b](https://github.com/your-org/ai-teams-engine/commit/71c3c7b802bc55c410252a668fb7536e28bcd0ee))
-- **research:** improve report UI and add team data persistence ([fb3bd1a](https://github.com/your-org/ai-teams-engine/commit/fb3bd1a60523782b832a3d4cc06b07e0bb672055))
-- **research:** improve topic card edit and visibility controls ([2d72605](https://github.com/your-org/ai-teams-engine/commit/2d72605e1584c226799d8e2b739d7239606567ad))
-- **research:** inline chart rendering in report sections ([a11c00d](https://github.com/your-org/ai-teams-engine/commit/a11c00d63dc5402c1a3e89495c9e615e81c14358))
-- **research:** leader pre-allocate figures to sections, prefer original charts ([dfce6e7](https://github.com/your-org/ai-teams-engine/commit/dfce6e7e1a3068930df5669935689ad4356a6f3c))
-- **research:** topic card inline buttons and apply-to-join ([cac5811](https://github.com/your-org/ai-teams-engine/commit/cac5811932fa9ae23cd81edbc92346d5d75c297b))
-- **research:** wire V5 researchDepth end-to-end through mission path ([1bf262b](https://github.com/your-org/ai-teams-engine/commit/1bf262b1507d1a2996c0047450aba418f8720321))
-- **research:** 完善卡片操作和Leader对话任务技能分配 ([8c77ea5](https://github.com/your-org/ai-teams-engine/commit/8c77ea534924bf1126fcac5a65d137dfbffb63cf))
-- **research:** 实现专题协作申请/审核机制 ([890629c](https://github.com/your-org/ai-teams-engine/commit/890629c741f57ccf9112d88d5ff57f3e2b6a3537))
-- **research:** 实现动态任务调度和优化依赖显示 ([e046a3b](https://github.com/your-org/ai-teams-engine/commit/e046a3bae66e5849332c5acfc38be1592e7ea2fb))
-- **research:** 报告质量全链路提升 — 反馈入口+去重+审核强化 ([b76aca8](https://github.com/your-org/ai-teams-engine/commit/b76aca8867a319ca7dd232b14183aa44f4d6d13c))
-- **research:** 报告质量架构级改进 — 三阶段管线+全局协调+编辑层 ([39a6453](https://github.com/your-org/ai-teams-engine/commit/39a6453b6be754b69b166b6de1af629152c904be))
-- **resources:** add translation persistence and fix foreign key issue ([3c36aa9](https://github.com/your-org/ai-teams-engine/commit/3c36aa9eb5a1dbbbfca1dda31161c5187cdf25d7))
-- responsive design + right-click context menu ([4793906](https://github.com/your-org/ai-teams-engine/commit/47939064df695d304e21c61ea27660eec87aa976))
-- **run-page:** add structured content parser for better readability ([aaab3d1](https://github.com/your-org/ai-teams-engine/commit/aaab3d18127dadb1b5654143b21e0aa9001ebc06))
-- **run-page:** improve waiting state with animated loading UI ([7fbfd83](https://github.com/your-org/ai-teams-engine/commit/7fbfd834101b99319e6828ed816860b62ae3e161))
-- **sandbox:** add hover tooltip for action cards ([ba3fb98](https://github.com/your-org/ai-teams-engine/commit/ba3fb987d18ae99cbb90837f0de8558cc96a2a15))
-- **sandbox:** add more info panels to left sidebar ([74a9eb7](https://github.com/your-org/ai-teams-engine/commit/74a9eb7d0a20176e316a1e08e80e148cdf8c9a7b))
-- **sandbox:** implement battlefield situation map layout ([7d63620](https://github.com/your-org/ai-teams-engine/commit/7d636208c86039d564db072c71ee196ee9b244b1))
-- **sandbox:** improve UX with click-to-expand detail modal ([cca32a3](https://github.com/your-org/ai-teams-engine/commit/cca32a3157d20aaa4b625b2d52d947e0a1d011a5))
-- **sandbox:** redesign sandbox view with quadrant layout and event relations ([55a8805](https://github.com/your-org/ai-teams-engine/commit/55a8805b548c6251555b2eb2a94d6fcfd6bbd701))
-- **sandbox:** show company/organization names in camp headers ([00ce968](https://github.com/your-org/ai-teams-engine/commit/00ce968132155c90cbc2f5e21de86831a5d1ed23))
-- **search:** add Blogs, Reports, Policy search sources ([a812d17](https://github.com/your-org/ai-teams-engine/commit/a812d1786ae73314837d810daa98cfd0e487be99))
-- **search:** add multi-API key support with automatic rotation ([649ebef](https://github.com/your-org/ai-teams-engine/commit/649ebef0fafdf9d99e0294781ed381e65f7c3046))
-- **search:** add News and Scholar search sources ([0cc070e](https://github.com/your-org/ai-teams-engine/commit/0cc070e480b5d1ff14b5a6df4dfb7f88fdd84443))
-- **search:** implement automatic failover for search providers ([405830b](https://github.com/your-org/ai-teams-engine/commit/405830b81e07ac90c9ab7bc27247a6b43cb64eca))
-- **search:** implement comprehensive ranking algorithm ([5ab2d23](https://github.com/your-org/ai-teams-engine/commit/5ab2d231eec976d0c8b35572d65e4f2f520ac8d6))
-- **secrets:** add DEV_TOOLS and MCP categories for Secret Manager ([273b52f](https://github.com/your-org/ai-teams-engine/commit/273b52f97cc29ab17f8ced056e5e8e40318ee78e))
-- **secrets:** add secretKey integration for AI models ([3455a99](https://github.com/your-org/ai-teams-engine/commit/3455a998c16895bc0351928b83bc895f7d116619))
-- **secrets:** add security hardening, version management, and value modal ([1dd59b5](https://github.com/your-org/ai-teams-engine/commit/1dd59b55d552d7d85eb3486860095dd4097f9ad8))
-- **secrets:** implement centralized secrets management module ([47b9bde](https://github.com/your-org/ai-teams-engine/commit/47b9bde849acccfdab997c9e122a3dffd315deba))
-- **simulation:** add AI assist for params and enhance detail page display ([8293703](https://github.com/your-org/ai-teams-engine/commit/8293703be298db0b54a5e3cda05e8365abc2fc59))
-- **simulation:** add debrief report display on completion ([faa662e](https://github.com/your-org/ai-teams-engine/commit/faa662eeacace7195918f057907ba5e8a68ab956))
-- **simulation:** add delete button for run history records ([632fd37](https://github.com/your-org/ai-teams-engine/commit/632fd37aebfe9c58540f7cbf781deba8c2da1a7d))
-- **simulation:** add graphical sandbox visualization with view switching ([53eae86](https://github.com/your-org/ai-teams-engine/commit/53eae86ad7c6a7eb7ef2a45afa1607f87aa8fe29))
-- **simulation:** add mode selection and improve UI ([02eb145](https://github.com/your-org/ai-teams-engine/commit/02eb145e456f7f424c2d73bd4a2bfc215d0d620d))
-- **simulation:** add perspective system and fix AI adopt logic ([2c03fd9](https://github.com/your-org/ai-teams-engine/commit/2c03fd9af7fb94ad191312d2c31463cc0a865837))
-- **simulation:** add provider test button and scenario deletion ([1f3f590](https://github.com/your-org/ai-teams-engine/commit/1f3f5909c064b7c94a2e23f405208a0dc3016230))
-- **simulation:** add WHITE team support to text view ([5669083](https://github.com/your-org/ai-teams-engine/commit/56690830bdf4a5a4fc07e92135ceb7abddb84637))
-- **simulation:** enhance AI assist with context awareness and data sources ([80db873](https://github.com/your-org/ai-teams-engine/commit/80db873578575d8cebd5ec6a460ffae926328162))
-- **simulation:** enhance AI-powered company metrics and agent configuration ([b04a5fa](https://github.com/your-org/ai-teams-engine/commit/b04a5fa5a23e325a74ee38dc6cda0ce3dec0e04f))
-- **simulation:** enhance sandbox visualization with WHITE team and dynamic backgrounds ([47a753a](https://github.com/your-org/ai-teams-engine/commit/47a753ac13d1a5302a2dc04fbc2c0e42e52bfdc4))
-- **simulation:** improve timeline display and intervention tracking ([2e3dd35](https://github.com/your-org/ai-teams-engine/commit/2e3dd35d625ea0fb8d1a0876296d7b757c5ac7ac))
-- **simulation:** improve UX and fix reasoning model token issues ([1a80945](https://github.com/your-org/ai-teams-engine/commit/1a80945f8cb8a013c77fb217fa0802a5e1e2b1a5))
-- **simulation:** major UX and AI decision overhaul ([7f59b71](https://github.com/your-org/ai-teams-engine/commit/7f59b711f9330e1768ef8c1c10d60f1f9cc543a1))
-- **simulation:** use LLM for dynamic industry analysis ([a0d6d58](https://github.com/your-org/ai-teams-engine/commit/a0d6d582225179393c1d894aeba8da7c03151227))
-- **skills:** add 8 new specialized skills for Claude agents ([c427881](https://github.com/your-org/ai-teams-engine/commit/c4278817cd09b08c7106b11ad6ab8616c58d204e))
-- **skills:** add frontend-ui-debugger skill ([e7ecdd1](https://github.com/your-org/ai-teams-engine/commit/e7ecdd1a309c7ce57c31237c140eaf8e7747e7b5))
-- **skills:** add SkillsMP connection status and sync functionality ([601657c](https://github.com/your-org/ai-teams-engine/commit/601657c458b7bde6eed1a8d6bbb0cadf75152d9c))
-- **skills:** auto-warmup installed Marketplace Skills on startup ([1285ea0](https://github.com/your-org/ai-teams-engine/commit/1285ea042a7bf6e1496b083184bd8c929f08218f))
-- **skills:** expand SkillsMP sync with more search terms and track platform total ([a757fe6](https://github.com/your-org/ai-teams-engine/commit/a757fe653d9fb647f5a4057fcfc4a4f52286689d))
-- **slides-ui:** add expandable agent cards with scroll and scoring display ([3544afa](https://github.com/your-org/ai-teams-engine/commit/3544afabb7c82a7b0ca531bff62b0de221400ef0))
-- **slides-v3:** add comprehensive keyword mappings for template selection ([b5bfc5f](https://github.com/your-org/ai-teams-engine/commit/b5bfc5f8ac74d7100679e844037d239d8366813a))
-- **slides-v3:** add detailed logging for image generation debugging ([3380689](https://github.com/your-org/ai-teams-engine/commit/3380689226fcd3a01d60a88f80c756b22c073f58))
-- **slides-v3:** add edit and delete functionality for sessions ([207a2f3](https://github.com/your-org/ai-teams-engine/commit/207a2f30a3890d013963b8135922e0d06260494b))
-- **slides-v3:** add history restore and sessions gallery ([305ead4](https://github.com/your-org/ai-teams-engine/commit/305ead45523e4a729dd9ec52d3a537c43beb2712))
-- **slides-v3:** add presentation mode and fix image generation ([24d6ad5](https://github.com/your-org/ai-teams-engine/commit/24d6ad58d2d9a9cd052150913083969fe2a596b5))
-- **slides-v3:** add Preview/Code/Thinking tabs per page like Genspark ([e250c2d](https://github.com/your-org/ai-teams-engine/commit/e250c2d10f5683951bc0b1a082e481e68919ed62))
-- **slides-v3:** add Unsplash fallback for background images ([b9dc065](https://github.com/your-org/ai-teams-engine/commit/b9dc065fcb9dd4916690319c154c7b5b0880efdb))
-- **slides-v3:** complete visual upgrade with theme system and chart rendering ([51e860d](https://github.com/your-org/ai-teams-engine/commit/51e860d66acd5973da30eaa505c158e48905c3e5))
-- **slides-v3:** deterministic template rendering architecture ([c265953](https://github.com/your-org/ai-teams-engine/commit/c2659536336fbfb8d7e9892dfadc5d16a1f5fcad))
-- **slides-v3:** implement background images for all page types ([9c88969](https://github.com/your-org/ai-teams-engine/commit/9c889690d1548221481e66acdab551aed5496c8e))
-- **slides-v3:** implement complete 5-layer architecture with 32+ templates ([5c3102b](https://github.com/your-org/ai-teams-engine/commit/5c3102b0b34e7c8d0b06004c13dec0141573812d))
-- **slides-v3:** implement export functionality ([d0d0eb5](https://github.com/your-org/ai-teams-engine/commit/d0d0eb516089280cb3e300910fd12ec70c16cba0))
-- **slides-v3:** implement Slides Team architecture ([fe6ddf1](https://github.com/your-org/ai-teams-engine/commit/fe6ddf17720159419c0b2adbc48392fd18e2cb8d))
-- **slides-v3:** improve UI/UX for slide generation ([a6ae0f1](https://github.com/your-org/ai-teams-engine/commit/a6ae0f1da81d72a32b09a6211b3e47fd0647a6a4))
-- **slides:** add /themes/list endpoint ([8b8b7f4](https://github.com/your-org/ai-teams-engine/commit/8b8b7f4889452a38c48bc4ea96d036b0ff36afc6))
-- **slides:** add comprehensive frontend diagnostic logging ([8482629](https://github.com/your-org/ai-teams-engine/commit/84826296449c58224c24aa953af46bc1c7d38678))
-- **slides:** add narration API endpoints and hook ([ad1ab51](https://github.com/your-org/ai-teams-engine/commit/ad1ab5145731b8d8adfcf1a0158462f75924f506))
-- **slides:** add production readiness for AI Slides v5 ([e22abea](https://github.com/your-org/ai-teams-engine/commit/e22abeaf3c7bc038a739f6c2c2c13941bb6353d7))
-- **slides:** add quantifiable scoring and agent switching mechanism ([047c666](https://github.com/your-org/ai-teams-engine/commit/047c66658f3be717704f99e1713ed8307dd34f18))
-- **slides:** add retry mechanism for Leader review ([9e60fd8](https://github.com/your-org/ai-teams-engine/commit/9e60fd8d7b53d102f30190e5044d715adf20e561))
-- **slides:** implement PRD Section 12 UI layout ([7d87de2](https://github.com/your-org/ai-teams-engine/commit/7d87de22f998033399ed02719a287809af5c0e69))
-- **slides:** implement Slides Engine v3.0 with multi-model architecture ([2599144](https://github.com/your-org/ai-teams-engine/commit/259914476944e23a55e370d1176b373f110e19d1)), closes [#0F172](https://github.com/your-org/ai-teams-engine/issues/0F172)
-- **slides:** implement v4.0 content-driven architecture ([7df9177](https://github.com/your-org/ai-teams-engine/commit/7df917759d2c610549fd79e49ce9d9f42d9f5eaa))
-- **slides:** integrate AI Edit dropdown into toolbar ([30ec869](https://github.com/your-org/ai-teams-engine/commit/30ec86913cd2a844c172676d32dc9d97cd4be50f))
-- **slides:** integrate Team SSE for AI agent collaboration ([5c60d41](https://github.com/your-org/ai-teams-engine/commit/5c60d412c1fa9367b4d9b1eafda602d9a7e752cd))
-- **slides:** integrate V5 components and fix template escaping ([c1386cc](https://github.com/your-org/ai-teams-engine/commit/c1386ccd0cd2e7d753e376b1836c5366312628be))
-- **slides:** v3.4 Token统计与积分消耗集成 ([657baf9](https://github.com/your-org/ai-teams-engine/commit/657baf9d82b0d9a1a00b343e73e920442034139e))
-- **slides:** v3.6 数据补全功能 - Writer 主动查找缺失数据 ([49fffbf](https://github.com/your-org/ai-teams-engine/commit/49fffbf906239b6901aa57fa17cebdcdc7dfd488))
-- **slides:** 全面优化 PPT 生成质量和可编辑性 ([367f6c2](https://github.com/your-org/ai-teams-engine/commit/367f6c2672632193fb91a42291d7faeb3b4f1ae4))
-- **slides:** 增强 AI Slides v5.0 持久化与错误处理 ([854bbec](https://github.com/your-org/ai-teams-engine/commit/854bbec43a73665a6057d8134ef6e759856dc5ce))
-- **slides:** 增强HTML模板视觉系统 v3.1 ([bc74500](https://github.com/your-org/ai-teams-engine/commit/bc7450044d593ff9bf845c5d47619ab616a5cdf2))
-- **slides:** 增强状态栏显示详细的 Agent 工作信息 ([9f37596](https://github.com/your-org/ai-teams-engine/commit/9f375966470aafb99145a51cec48c29b3d387e6e))
-- **slides:** 增强状态栏显示详细的生成过程 ([112e15c](https://github.com/your-org/ai-teams-engine/commit/112e15c84ea44b0cc7882897fc832193489c1314))
-- **slides:** 增强质量审核自动修复与诊断功能 v3.2 ([d0ea45d](https://github.com/your-org/ai-teams-engine/commit/d0ea45d3e34d167a1d7bbbde09a9b90e6d09ba77))
-- **slides:** 完善AI Slides对话功能和历史恢复 ([744060c](https://github.com/your-org/ai-teams-engine/commit/744060c39436d39432c92e13eea5159d0e03999a))
-- **slides:** 实现 AI Teams Leader 协调模式重构 (v5.0) ([2b1145b](https://github.com/your-org/ai-teams-engine/commit/2b1145b516cce738e5a00221e4b6745af21f8804))
-- **slides:** 实现智能标签功能 + 修复对话内容显示 ([d78a0b3](https://github.com/your-org/ai-teams-engine/commit/d78a0b3a0c08544eed9615f9a5b5f13b6a9eda4b))
-- **slides:** 实现每页设计思考数据同步到 Thinking TAB ([d4872de](https://github.com/your-org/ai-teams-engine/commit/d4872dead47b02cc5603275cadc41bd50417361c))
-- **slides:** 实现真正有效的反馈驱动重试机制 ([79c1c77](https://github.com/your-org/ai-teams-engine/commit/79c1c77359a728d1bd50f47353dcd7a474115959))
-- **slides:** 实现逐页流式输出，完成一页立即推送到前端 ([16a41c1](https://github.com/your-org/ai-teams-engine/commit/16a41c19b4efe0b473db972052d438028718dd04))
-- **slides:** 模板系统视觉差异化重构 ([06e6a7d](https://github.com/your-org/ai-teams-engine/commit/06e6a7de0f40aaafc38662427b5aa3f9dcb3a8c9))
-- **slides:** 添加产品级质量审核系统 ([80cd176](https://github.com/your-org/ai-teams-engine/commit/80cd176999b23a3f420a8dc4a7b9f9ed8b243e69))
-- **slides:** 添加继续任务按钮，发送消息继续执行 ([c26e291](https://github.com/your-org/ai-teams-engine/commit/c26e29197af5db6af56966da8b8ace38d5a51157))
-- **slides:** 累积显示每页生成的思考过程历史 ([fd06d64](https://github.com/your-org/ai-teams-engine/commit/fd06d648536d0491582f47a09cb9cb141a909331))
-- **social:** add platform connection login flow and content preview ([f33ce36](https://github.com/your-org/ai-teams-engine/commit/f33ce360902490a78da03585eb843dae2c0ec2b8))
-- **social:** add real session validation for platform connections ([a9dda2a](https://github.com/your-org/ai-teams-engine/commit/a9dda2a508e889a46b4c3df059350b588dfff58f))
-- **social:** add social_content_versions database migration ([add0a59](https://github.com/your-org/ai-teams-engine/commit/add0a59e741ae001221af46ffa8f491eee20276d))
-- **social:** 安全加固和代码质量优化 ([290da7c](https://github.com/your-org/ai-teams-engine/commit/290da7c1387b1ed3768a182fdcf8333205b5c434))
-- **social:** 实现多版本内容架构，支持一次创作多平台分发 ([0991910](https://github.com/your-org/ai-teams-engine/commit/0991910484069265eeac0bb30c2a9b23fe6c4595))
-- **social:** 添加 SocialContentVersion 数据库迁移 ([fff9e1b](https://github.com/your-org/ai-teams-engine/commit/fff9e1bb0040372ff2229b5a61db42b60a173794))
-- **social:** 编辑页面支持 FAILED 状态重新发布 ([8ee5814](https://github.com/your-org/ai-teams-engine/commit/8ee58140b00eae88246aee4b18add5302aff61bd))
-- **sparkle:** add AI image generation tab ([c08ba4a](https://github.com/your-org/ai-teams-engine/commit/c08ba4a998a54a22b357d6dcf52a84031478d062))
-- **sparkle:** categorize bookmarks by type and fix image navigation ([50b2d91](https://github.com/your-org/ai-teams-engine/commit/50b2d917024453eede5f2650e7afd242b756dc30))
-- **sparkle:** navigate to specific bookmarked image in Images tab ([0137d04](https://github.com/your-org/ai-teams-engine/commit/0137d048f942988f9a8454862a5dd932478e12fa))
-- **storage:** add ai diagnosis feature and fix toc issues ([8c73e38](https://github.com/your-org/ai-teams-engine/commit/8c73e385240eca4584c7b0f03cabc873bb8514c8))
-- **storage:** add PPT document cleanup functionality ([b083914](https://github.com/your-org/ai-teams-engine/commit/b0839141404bd4eecf91c823795aaff3c5d15a2a))
-- **storage:** add slides cleanup and delete all functionality ([23fcad6](https://github.com/your-org/ai-teams-engine/commit/23fcad68629d59fd79d6043ce112d7066b7e463f))
-- **storage:** add VACUUM FULL ALL deep clean functionality ([9e68304](https://github.com/your-org/ai-teams-engine/commit/9e68304d4240d669e2181edf3ecf07c3933b519a))
-- **storage:** 为每个数据表添加清理按钮 ([d34919e](https://github.com/your-org/ai-teams-engine/commit/d34919e8342ac03d60f060ae5445b272f37a93fd))
-- **studio:** add Create Image tab with ImageGenerator ([70925f1](https://github.com/your-org/ai-teams-engine/commit/70925f12b5907ed34e801dec383e42f821154fcc))
-- **studio:** add Gallery tab to AI Studio for AI-generated images ([0f139c9](https://github.com/your-org/ai-teams-engine/commit/0f139c91a16e4ab902bb7176bc8758ab76793aa0))
-- **studio:** add interactive AI Studio demo page ([a071f95](https://github.com/your-org/ai-teams-engine/commit/a071f95802d77820bf200fe3c50019d1ebaf0bc3))
-- **studio:** add prominent deep research input box per PRD v3.1 ([b5c7b18](https://github.com/your-org/ai-teams-engine/commit/b5c7b187427613a637ea8d86f1d67548ce48cf9c))
-- **studio:** make AI response citations clickable links ([1517360](https://github.com/your-org/ai-teams-engine/commit/15173606ab6d24caeed9f9ea408db50ccd0f5484))
-- **teams:** add API to regenerate final report for completed missions ([9b79791](https://github.com/your-org/ai-teams-engine/commit/9b7979178f72574b7e4169fc283b23de08ad1df0))
-- **teams:** add email notification for mission completion ([ec2f927](https://github.com/your-org/ai-teams-engine/commit/ec2f927e1258a59eb9eb6cb7b2446a93eea36dbb))
-- **teams:** add pagination, share link, and download for final report ([9a51b97](https://github.com/your-org/ai-teams-engine/commit/9a51b97a861803b08d831f723b96242aadebad6f))
-- **teams:** add refresh report button in report modal ([d03960b](https://github.com/your-org/ai-teams-engine/commit/d03960bde25a5e2ad54e5bc543dc3b8ed9e6e14c))
-- **teams:** improve AI Teams efficiency and add token tracking ([1239e1c](https://github.com/your-org/ai-teams-engine/commit/1239e1c47dcfa9a70db4c51901ce40af430497cb))
-- **teams:** 实现 AI Team 长内容端到端处理方案 ([d5c9cef](https://github.com/your-org/ai-teams-engine/commit/d5c9cef265e5a3a0e7a67a8bc4770788aaa02321))
-- **teams:** 实现 Mission Context Protocol 解决任务分配和上下文传递问题 ([d789800](https://github.com/your-org/ai-teams-engine/commit/d7898006f2a8f782aab3b3d94a186b0c6e3bacbf)), closes [#10](https://github.com/your-org/ai-teams-engine/issues/10)
-- **teams:** 添加任务分配诊断日志 ([2084e1a](https://github.com/your-org/ai-teams-engine/commit/2084e1ae47796ad855ee0fba4bbfe0ad48dc7fb0))
-- **teams:** 集成约束提取服务到任务执行流程 ([3698be9](https://github.com/your-org/ai-teams-engine/commit/3698be9b853f3f7bb165c8cea03b1333f366bd6b))
-- template-driven sim UI with external data sync ([68cd609](https://github.com/your-org/ai-teams-engine/commit/68cd60946934cdfcb4d59cc6b116d0b15b6b4789))
-- Temporarily simplify vitest config and fix ResearchPageRenderer.tsx typing ([bf0daa8](https://github.com/your-org/ai-teams-engine/commit/bf0daa834e3d348bc07bb5d1d55694fe228337c8))
-- **thumbnail:** add FlareSolverr support for og:image extraction ([8920839](https://github.com/your-org/ai-teams-engine/commit/89208394c1e5fb0e7a3253c58c080bd31005af85))
-- **thumbnails:** add PDF preview endpoint and fix centering ([feddfa4](https://github.com/your-org/ai-teams-engine/commit/feddfa40046cffc71e436a468537faefd5bfee06))
-- **thumbnails:** use alphaXiv CDN for arXiv papers ([2b2b6a2](https://github.com/your-org/ai-teams-engine/commit/2b2b6a266fdfd9d1715848fa78a508fa68ebdc0b))
-- **thumbnails:** use client-side PDF rendering ([fc86a28](https://github.com/your-org/ai-teams-engine/commit/fc86a282deaf18cea01a7621f641929c960ef60c))
-- **thumbnails:** use thumbnail.ws API for arXiv papers ([986744d](https://github.com/your-org/ai-teams-engine/commit/986744dbfbef74994d750cd7088fa3f330bf4e16))
-- **topic-research:** add @Leader input for team instructions ([9b6392b](https://github.com/your-org/ai-teams-engine/commit/9b6392b4e5f212ea8c227ae36c1645aca4e93537))
-- **topic-research:** add AI Writing style content preview and expand ([70d8e34](https://github.com/your-org/ai-teams-engine/commit/70d8e3421408f0e23975ee9bdb7a544ba93076b2))
-- **topic-research:** add annotation highlighting in TipTap edit mode ([2237c46](https://github.com/your-org/ai-teams-engine/commit/2237c461dbbcacea4fcf7f09c31edb239fe2d862))
-- **topic-research:** add chapterized report view for collaborative editing ([e3c184c](https://github.com/your-org/ai-teams-engine/commit/e3c184cfdf099d90fa81f514d6aa4f3a1114837b))
-- **topic-research:** add complete Topic Research module ([bb6c855](https://github.com/your-org/ai-teams-engine/commit/bb6c855a5148ca9e71ab55c7c5153dce3fcfcfae))
-- **topic-research:** add inline citation tooltips like Fast Research ([b24c102](https://github.com/your-org/ai-teams-engine/commit/b24c102fc86c01e87a612117b84773cb53b04b3e))
-- **topic-research:** add member sharing and visibility settings ([fa7af35](https://github.com/your-org/ai-teams-engine/commit/fa7af35655e0fae8e12dea91f164faf4a4724bc6))
-- **topic-research:** add quality reviewer agent and team canvas visualization ([39b2db2](https://github.com/your-org/ai-teams-engine/commit/39b2db27d0556dd58d10e9392983a0b832f1d031))
-- **topic-research:** add WebSocket real-time updates and Agent details modal ([c58e70c](https://github.com/your-org/ai-teams-engine/commit/c58e70c9aa94f1f0a445f665bf8ad1f00ef0da3e))
-- **topic-research:** enhance active agent glow animation with multi-layer pulse effect ([244b094](https://github.com/your-org/ai-teams-engine/commit/244b0947204fa182755481a3128fb7b26deccae9))
-- **topic-research:** enhance UI with SVG team visualization and fix multiple issues ([32e8e2f](https://github.com/your-org/ai-teams-engine/commit/32e8e2f0cff0d5edd4a1c3c2bd16a4b60af115f7))
-- **topic-research:** extend permission check to support EDITOR/ADMIN collaborators ([64348cd](https://github.com/your-org/ai-teams-engine/commit/64348cd9bdfa53ade147ac18ab002fa7e363e1e4))
-- **topic-research:** implement AI edit optimization with user input modal ([41b84c0](https://github.com/your-org/ai-teams-engine/commit/41b84c07615d39ddbdbc1bd930a33ea167c5e15c))
-- **topic-research:** implement comprehensive report editing features ([15bda32](https://github.com/your-org/ai-teams-engine/commit/15bda32aabaae4fd404eacca56bd851e9519c893))
-- **topic-research:** implement data capability optimization Phase 1-3 ([2efef3f](https://github.com/your-org/ai-teams-engine/commit/2efef3f6404ef4f33cbe11098ff8ea5349a2565b))
-- **topic-research:** implement v7.0 Leader-driven research architecture ([05bc4ce](https://github.com/your-org/ai-teams-engine/commit/05bc4cea038c47f01a456c12af311a579ab20b53))
-- **topic-research:** implement visibility-based access control ([935929d](https://github.com/your-org/ai-teams-engine/commit/935929df5619018c42f97fb1cbe0565ecb3c5bf5))
-- **topic-research:** integrate AI Edit modal into report views ([4cd365d](https://github.com/your-org/ai-teams-engine/commit/4cd365d68a5e2da96f08da42e3639d3182976d23))
-- **topic-research:** major report generation restructure for comprehensive reports ([4be19bb](https://github.com/your-org/ai-teams-engine/commit/4be19bbfe0386e096fd3b66584aa96bf4c8f5f67))
-- **topic-research:** redesign UI with minimalist business style ([2675f53](https://github.com/your-org/ai-teams-engine/commit/2675f53a3154ed8650f777de460d36d18a2eff7e))
-- **topic-research:** redesign UI with professional left-right layout ([d512e9a](https://github.com/your-org/ai-teams-engine/commit/d512e9ac03924989077cfb7741df55a2c03d9f23))
-- **ui:** add Ask main entry and rename Sparkle to Library ([8a89cbf](https://github.com/your-org/ai-teams-engine/commit/8a89cbf80dc467983ca6fa49d75f22d90134cd27))
-- **ui:** add back button to DocumentListDialog ([10f61dd](https://github.com/your-org/ai-teams-engine/commit/10f61dd27d06942c91249f7b787ce7741844e936))
-- **ui:** add chat message appearance settings to profile ([05ca392](https://github.com/your-org/ai-teams-engine/commit/05ca3923767378324433d9720c9391a2ce9b78e4))
-- **ui:** add collapsible RAG sources, Web Worker Mermaid, i18n improvements ([f3e0ea9](https://github.com/your-org/ai-teams-engine/commit/f3e0ea96716f9fc0fde29231944fe4307aa6e14f))
-- **ui:** add CollapsibleMessage for long AI responses ([5241083](https://github.com/your-org/ai-teams-engine/commit/52410839789c6d4be9603b5654b35d73dc2ec2a2))
-- **ui:** add expand/collapse for NotesList component ([a52a53f](https://github.com/your-org/ai-teams-engine/commit/a52a53ffddcbd7bbae3e2cab25d97f395bf91f14))
-- **ui:** add expand/collapse for YouTube notes cards ([2beb4ea](https://github.com/your-org/ai-teams-engine/commit/2beb4ead261afe9b2f05e7ab746e7b26ff13de5b))
-- **ui:** add image lightbox for fullscreen preview ([f0888a2](https://github.com/your-org/ai-teams-engine/commit/f0888a2ecedd8e165ffb686d279561a230abe926))
-- **ui:** add list view toggle for Google Drive and Notion ([c70d259](https://github.com/your-org/ai-teams-engine/commit/c70d2591cd26dc470969815ed0b7b4698445442d))
-- **ui:** add Markdown rendering for task content in Canvas modal ([5110e11](https://github.com/your-org/ai-teams-engine/commit/5110e11d5a00924b0f2439f899abedb5065e2a3e))
-- **ui:** add real company logos using Clearbit Logo API ([0afdd9b](https://github.com/your-org/ai-teams-engine/commit/0afdd9ba459a864d6fa5f0edc5582b2f170f5818))
-- **ui:** add Share button to TopicCard (same as AI Image) ([af9af5a](https://github.com/your-org/ai-teams-engine/commit/af9af5a2b50a6e9a97da92b660da4ec0f88f9143))
-- **ui:** add source label badge to Explore page resource list ([f1e5243](https://github.com/your-org/ai-teams-engine/commit/f1e5243fee1e52011f0e79ac70a00e7a0d88c0de))
-- **ui:** add source label badge to resource cards ([7e6603e](https://github.com/your-org/ai-teams-engine/commit/7e6603e768cbbe89f7c8fcb08bf3240745f58165))
-- **ui:** add TextSelectionToolbar for content interaction ([52fa7ae](https://github.com/your-org/ai-teams-engine/commit/52fa7aed1a87698f02a6ed7ea96bd1595ada7c9a))
-- **ui:** change default view mode to list for file browsers ([e3141cc](https://github.com/your-org/ai-teams-engine/commit/e3141cc7d39b0a580fa361d3ee348f66c4272be2))
-- **ui:** comprehensive UI improvements for Library and Explore ([f1b2c51](https://github.com/your-org/ai-teams-engine/commit/f1b2c51b33df58d1c5e95172769961a8e7f040b0))
-- **ui:** create reusable Modal component and refactor collection page ([5f0153f](https://github.com/your-org/ai-teams-engine/commit/5f0153f96f911b288d73808b60a9be00e8ac1d70))
-- **ui:** enhance knowledge base UI with smart status and search test ([74dcbe0](https://github.com/your-org/ai-teams-engine/commit/74dcbe090e128826146bdf5aff978f8835c8ff73))
-- **ui:** enhance right sidebar panel design ([13b678e](https://github.com/your-org/ai-teams-engine/commit/13b678e9613fbb24c8786f67d9cb08d8623ac22f))
-- **ui:** enhance Sparkle Images empty states with premium design ([d69e42f](https://github.com/your-org/ai-teams-engine/commit/d69e42f4d20f1eb8b40475629599917487d7091d))
-- **ui:** enhance TableOfContents to support more heading formats ([3fde11e](https://github.com/your-org/ai-teams-engine/commit/3fde11e7a3c03812044428112548fd425661ec87))
-- **ui:** improve Explore/Library/Profile UX ([119638c](https://github.com/your-org/ai-teams-engine/commit/119638c3f39245f1cfc9f1e549b66ea65e43a033))
-- **ui:** improve ReaderView typography and reading experience ([96a7df0](https://github.com/your-org/ai-teams-engine/commit/96a7df057ac7cc0dfb131357c88b11c7f5140688))
-- **ui:** improve ReaderView with blog-style formatting ([33183fc](https://github.com/your-org/ai-teams-engine/commit/33183fc54b66deabde3629ce89d092d8c37db5e1))
-- **ui:** increase Canvas popover size for better readability ([1e8c285](https://github.com/your-org/ai-teams-engine/commit/1e8c285b969d25ef55b09a68cf05a23c8b1aa2d5))
-- **ui:** integrate TextSelectionToolbar into explore page ([fea5013](https://github.com/your-org/ai-teams-engine/commit/fea5013544876db6fea6b3af2d7722a8ac208324))
-- **ui:** make AI panel resizable with larger default width ([267a3fc](https://github.com/your-org/ai-teams-engine/commit/267a3fcbb6c079c6ef8586b2c9df8f4459eccb74))
-- **ui:** merge report toolbar and redesign research timeline ([70eb1ad](https://github.com/your-org/ai-teams-engine/commit/70eb1ad2236ea0a4d1674070ab24d52ae795b566))
-- **ui:** optimize AI message rendering for better readability ([b35ff01](https://github.com/your-org/ai-teams-engine/commit/b35ff013ce862d4e2b5304d7579b713b47e28ec9))
-- **ui:** optimize quote display and unify team icons ([8766d90](https://github.com/your-org/ai-teams-engine/commit/8766d907480090f4f6f42ba5bf835d0daaf3b37c))
-- **ui:** redesign resource detail header with modern toolbar ([221cc2d](https://github.com/your-org/ai-teams-engine/commit/221cc2d517a5988f0ddf9d1d7782e9ad530be530))
-- **ui:** remove VersionUpdateBanner from pages ([e7b4b45](https://github.com/your-org/ai-teams-engine/commit/e7b4b4520960c1c35bcf3ffc73f337d63a84b23f))
-- unify page headers to match AI Store style ([0911f0f](https://github.com/your-org/ai-teams-engine/commit/0911f0f1f247d10b5a379ddd062425cf149b97bb))
-- update Dockerfiles and add AI service configs ([bee4b37](https://github.com/your-org/ai-teams-engine/commit/bee4b3784871d1d616bf19bb6999dbcd85c08077))
-- upgrade content extractor with pdfjs-dist and readability for better content parsing ([4a4896b](https://github.com/your-org/ai-teams-engine/commit/4a4896b402e727476e73cd4a86ac1459a4c838c7))
-- Upgrade Prompt Enhancement System to Elite Designer Level ([70836af](https://github.com/your-org/ai-teams-engine/commit/70836afe880ac9bb23a7acb182477219c05ae03b))
-- **upvote:** implement persistent resource upvote feature ([df99092](https://github.com/your-org/ai-teams-engine/commit/df99092f033c34e4f53aa332508d8c62d29feb01))
-- **webhooks:** add webhooks module and ai-teams enhancements ([768d6e2](https://github.com/your-org/ai-teams-engine/commit/768d6e2dd356954d1362fa73fc116231bb30dc73))
-- **wechat:** add user self-service WeChat Work binding ([fb1b637](https://github.com/your-org/ai-teams-engine/commit/fb1b637db707fd840740f5d3f08ea54a52811ca3))
-- **wechat:** implement WeChat as a proper data source ([71468ac](https://github.com/your-org/ai-teams-engine/commit/71468acceb88fe0ebf6881cf660ad2e2f5c93409))
-- **youtube:** add global transcript caching to database ([f69b541](https://github.com/your-org/ai-teams-engine/commit/f69b541b9639adb6a61797b9d4919a086cb8c65f))
-- **youtube:** add global translation caching for subtitles ([4632632](https://github.com/your-org/ai-teams-engine/commit/463263254e757f3bf0a5cc1e6e21cf7d0c39b702))
-- **youtube:** add right-click context menu for AI chat messages ([096729e](https://github.com/your-org/ai-teams-engine/commit/096729e1ff2a85651e7e27e173ea4e1d64a5fbaf))
-- **youtube:** add smart transcript fetching with client fallback ([51218dc](https://github.com/your-org/ai-teams-engine/commit/51218dc8d2b5c2e7ac2bce5f97a95df173319997))
-- **youtube:** add stop button for AI chat streaming ([5d0ea15](https://github.com/your-org/ai-teams-engine/commit/5d0ea15de69eab5901d0d6ab931de9f0e0c9dbe2))
-- **youtube:** add Supadata API as primary transcript provider ([b9765eb](https://github.com/your-org/ai-teams-engine/commit/b9765eba9f7b0894dfdf0fd40773817334894860))
-- **youtube:** merge transcript by sentence with semantic colors ([7d33b31](https://github.com/your-org/ai-teams-engine/commit/7d33b318c78675f98ed498a2cd7dce657d096a7f))
-- 公开报告页面使用左侧悬浮章节菜单 ([cb0c881](https://github.com/your-org/ai-teams-engine/commit/cb0c88191d608c72b2c31ce28690e973c96d3325))
-- 前端Google OAuth认证集成 ([9c27a1d](https://github.com/your-org/ai-teams-engine/commit/9c27a1d70092ff47f5c9563cda9370b083fe90a7))
-- 实现完整的Profile个人信息编辑功能 ([0491403](https://github.com/your-org/ai-teams-engine/commit/049140395f0b22f0ccc25e2ea6c2fe4aa0a61e99))
-- 将Policy标签移至主页面顶部导航 ([391eb1b](https://github.com/your-org/ai-teams-engine/commit/391eb1bbb2ca3d258e099395502e23b78a0ed9fa))
-- 添加Google OAuth认证支持 ([d0f140f](https://github.com/your-org/ai-teams-engine/commit/d0f140f3166a48620a764f75fabf35c8d9b53dd6))
-- 添加Policy（美国科技政策）页面 ([1bb0a1d](https://github.com/your-org/ai-teams-engine/commit/1bb0a1dcf1dded3bce16f02ae2cd639d2b325625))
-- 添加Policy到Settings的白名单和Collection配置 ([ecfaed2](https://github.com/your-org/ai-teams-engine/commit/ecfaed21830e3321836656c319f9fa1dc6dcf136))
-- 添加Profile菜单项并修复My Library认证问题 ([438be91](https://github.com/your-org/ai-teams-engine/commit/438be917a38637a7e948aa1dd4aac521b87630a0))
-- 添加公开报告页面，分享链接直接显示报告内容 ([822d7e6](https://github.com/your-org/ai-teams-engine/commit/822d7e6788ab4efd45a6d47cda95a91a86ca120e))
-- 添加版本更新日志功能 ([5fe49dc](https://github.com/your-org/ai-teams-engine/commit/5fe49dc9b9caf799f7bd92f0c345f4932cda5838))
-- 移动Login按钮到侧边栏并添加登录提示 ([77e341d](https://github.com/your-org/ai-teams-engine/commit/77e341dfa8edeb2dfe2a251a754018d0cedbba08))
+# [3.0.0](https://github.com/your-org/ai-teams-engine/compare/v2.0.0...v3.0.0) (2026-02-01)
 
 ### Bug Fixes
 
@@ -3018,7 +692,6 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - add AWS SDK dependencies for B2 storage ([6aec66d](https://github.com/your-org/ai-teams-engine/commit/6aec66d57d8393ac3e231e80d1b9a96de423158b))
 - add backward compatibility for history images without userId ([0cc2c02](https://github.com/your-org/ai-teams-engine/commit/0cc2c023d507ae296004bd8e6119e6b7fd696cee))
 - add comprehensive database connection diagnostics for Railway ([ea19b69](https://github.com/your-org/ai-teams-engine/commit/ea19b6944310f3cbe91b754efa111a9c1aa81523))
-- add database connection retry logic for Railway deployment ([f35488f](https://github.com/your-org/ai-teams-engine/commit/f35488fb3d581a99ff3be9f2ccce005cc08cc554))
 - add debug logging and fallback image for troubleshooting ([9ed359e](https://github.com/your-org/ai-teams-engine/commit/9ed359e875ea90b135a6aa2f02f590dafc31f929))
 - add debug logging for image extraction issue ([2c61a36](https://github.com/your-org/ai-teams-engine/commit/2c61a36ab899d7e359188909c086a9dfd34021a3))
 - add detailed logging to migration cleanup ([38c38d5](https://github.com/your-org/ai-teams-engine/commit/38c38d50b8444f08f39d4f23500b3fefa2d4c84e))
@@ -3061,7 +734,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **admin:** enforce standard AI model IDs with dropdown selection ([9be7169](https://github.com/your-org/ai-teams-engine/commit/9be71690b156896b5093f472e2c36245db54f356))
 - **admin:** enhance data management with AI diagnosis and auto-optimization ([ce36d50](https://github.com/your-org/ai-teams-engine/commit/ce36d50d92ca52bc6b902a00d7ad2985fd681300))
 - **admin:** fix AI model connection test using wrong API key ([f283f56](https://github.com/your-org/ai-teams-engine/commit/f283f564ebe3631fcd7739d1a0a2cc999fed670c))
-- **admin:** fix AI model icon display for worker instances ([d8c9b37](https://github.com/your-org/ai-teams-engine/commit/d8c9b37a5f715fdffc92caff773450662afbf161)), closes [#1](https://github.com/your-org/ai-teams-engine/issues/1)
+- **admin:** fix AI model icon display for worker instances ([d8c9b37](https://github.com/your-org/ai-teams-engine/commit/d8c9b37a5f715fdffc92caff773450662afbf161))
 - **admin:** fix fetch models using wrong API key when Secret Manager selected ([c279383](https://github.com/your-org/ai-teams-engine/commit/c2793832c60439dc2289c1a0b566a41c3012d339))
 - **admin:** fix Gemini image model connection test ([eb652b2](https://github.com/your-org/ai-teams-engine/commit/eb652b290c0f62ee8b6907b679e56886be53ba1a))
 - **admin:** fix secretKey save not working for external tools ([bdf617f](https://github.com/your-org/ai-teams-engine/commit/bdf617f18b759f24f12c7cd54ad002f2c98a3428))
@@ -3157,7 +830,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **ai-engine:** add empty content detection to callOpenAICompatibleAPI ([fdb60e2](https://github.com/your-org/ai-teams-engine/commit/fdb60e26cda62774192038aace0a2e0896bb25bd))
 - **ai-engine:** add model blocklist to prevent repeated failed model attempts ([464fbaa](https://github.com/your-org/ai-teams-engine/commit/464fbaac675585c4b1873c63ac4092d61c00cea5))
 - **ai-engine:** apply dynamic timeout to all API call methods ([eeffece](https://github.com/your-org/ai-teams-engine/commit/eeffece1f0e3af07675e0671c220bfa78540ceda))
-- **ai-engine:** code review fixes and production hotfix ([3a4c1b0](https://github.com/your-org/ai-teams-engine/commit/3a4c1b04de1bc4827d176d276291849df4fd655c)), closes [#1](https://github.com/your-org/ai-teams-engine/issues/1) [#2](https://github.com/your-org/ai-teams-engine/issues/2)
+- **ai-engine:** code review fixes and production hotfix ([3a4c1b0](https://github.com/your-org/ai-teams-engine/commit/3a4c1b04de1bc4827d176d276291849df4fd655c))
 - **ai-engine:** comprehensive AI capability system fixes ([ff5ce05](https://github.com/your-org/ai-teams-engine/commit/ff5ce0524db6dd46729474fd34423dc73cd4a9c7))
 - **ai-engine:** disable temperature for reasoning models (gpt-5, o1, o3) ([bbf14e8](https://github.com/your-org/ai-teams-engine/commit/bbf14e830a4678bca1950f05f12feac3900a39f4))
 - **ai-engine:** doubao 改用 API 动态查询模型列表 ([8c0b9f4](https://github.com/your-org/ai-teams-engine/commit/8c0b9f4b993cd31a37d800cc0c90df663f88f3c5))
@@ -3328,7 +1001,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **ai-research:** correct collapse direction icons for panels ([c884ac1](https://github.com/your-org/ai-teams-engine/commit/c884ac105bb8aa8ffdb841091fb9d5ecae84ce17))
 - **ai-research:** dynamic token allocation for large reports & SkillsMP endpoint fallback ([99748a5](https://github.com/your-org/ai-teams-engine/commit/99748a5241072451a4e935255ff34bef4e59165b))
 - **ai-research:** ensure Leader assigns modelId to all researchers ([6c509fc](https://github.com/your-org/ai-teams-engine/commit/6c509fc4e8b15aadb3703e4028bc16900cd14ac8))
-- **ai-research:** fix 6 critical issues in topic research module ([bdd46d2](https://github.com/your-org/ai-teams-engine/commit/bdd46d213ab5c2f417d6ee4503336bab85588e17)), closes [#31](https://github.com/your-org/ai-teams-engine/issues/31)
+- **ai-research:** fix 6 critical issues in topic research module ([bdd46d2](https://github.com/your-org/ai-teams-engine/commit/bdd46d213ab5c2f417d6ee4503336bab85588e17))
 - **ai-research:** fix Activities message persistence and display issues ([86881d7](https://github.com/your-org/ai-teams-engine/commit/86881d7d5399254db9bb4c782ba72300c7d4cdab))
 - **ai-research:** fix Agent model display when no default model set ([4965c91](https://github.com/your-org/ai-teams-engine/commit/4965c91a37e04745a789a04be33944e349f28b4e))
 - **ai-research:** fix annotation and AI edit critical issues ([a8178ce](https://github.com/your-org/ai-teams-engine/commit/a8178ce661e2f62a5545b46883eb79a2d9efe8b3))
@@ -3387,7 +1060,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **ai-social:** add missing columns to social_contents table ([bb948a0](https://github.com/your-org/ai-teams-engine/commit/bb948a0d0063d8c539bce6daf21812d30536f3a7))
 - **ai-social:** add new article button click and fix login detection ([6ce43ef](https://github.com/your-org/ai-teams-engine/commit/6ce43efc0d99406f14148ce1919276c2ea20d293))
 - **ai-social:** add proper save validation in WeChat adapter ([2dd2085](https://github.com/your-org/ai-teams-engine/commit/2dd2085de3ea5ba847f373cb7ae3990915f7c535))
-- **ai-social:** add timeout handling for digest fill to prevent publish failure ([6de7d12](https://github.com/your-org/ai-teams-engine/commit/6de7d12b4f9933c7736b9b14f77532881d195519))
+- **ai-social:** add timeout handling for digest fill to prevent publish failure ([6de7d12](https://github.com/your-org/ai-teams-engine/commit/6de7d12b4f9933c7736b9b14f77532881d195519)), closes [#js_description](https://github.com/your-org/ai-teams-engine/issues/js_description)
 - **ai-social:** add token wait loop and use correct home URL params ([f9d5e22](https://github.com/your-org/ai-teams-engine/commit/f9d5e22b31ee9ad1bc4744131bbd6678ba28cc15))
 - **ai-social:** align migration with Prisma schema ([29cffbd](https://github.com/your-org/ai-teams-engine/commit/29cffbd70a3df8de4685dbe81e6e1f97ad8342a6))
 - **ai-social:** click Photo button instead of direct URL navigation ([c7f1faa](https://github.com/your-org/ai-teams-engine/commit/c7f1faa864d7dd00fda72d575da70bd140fd6d61))
@@ -3417,7 +1090,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **ai-social:** use innerHTML for content filling instead of clipboard ([42c7956](https://github.com/your-org/ai-teams-engine/commit/42c795677de6633ee77271cb99d045e4ec55e5df))
 - **ai-social:** use Playwright getByRole API based on 1:1 testing ([0884087](https://github.com/your-org/ai-teams-engine/commit/088408750628df004615001b1cbf74903add1cf5))
 - **ai-social:** use Playwright locator API and improve token extraction ([2ce9c64](https://github.com/your-org/ai-teams-engine/commit/2ce9c64a3b54321389d48aebbec113141f31c596))
-- **ai-social:** use precise selectors from Playwright analysis ([b75d851](https://github.com/your-org/ai-teams-engine/commit/b75d851f18a12e207f1f962ac65eceb9afc82b6c))
+- **ai-social:** use precise selectors from Playwright analysis ([b75d851](https://github.com/your-org/ai-teams-engine/commit/b75d851f18a12e207f1f962ac65eceb9afc82b6c)), closes [#title](https://github.com/your-org/ai-teams-engine/issues/title) [#title](https://github.com/your-org/ai-teams-engine/issues/title)
 - **ai-social:** use Prisma enums to fix PostgreSQL 08P01 protocol error ([0b90d1a](https://github.com/your-org/ai-teams-engine/commit/0b90d1a602b663d9cb4a384d1b5aa3361394e12e))
 - **ai-social:** use raw SQL insert to bypass Prisma ORM 08P01 error ([e70b26f](https://github.com/your-org/ai-teams-engine/commit/e70b26f51db0013ef8f66a3341345625a5cc8b70))
 - **ai-social:** validate connection exists before publish ([f008ae0](https://github.com/your-org/ai-teams-engine/commit/f008ae09c81eecd703dc7ab69b3dc40eebd7352b))
@@ -3460,7 +1133,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **ai-teams:** rollback AI Engine delegation to restore functionality ([37bd8d4](https://github.com/your-org/ai-teams-engine/commit/37bd8d43a142486adab2670e108bd9a1b8e9b173))
 - **ai-teams:** simplify canvas node rendering to remove visual artifacts ([62f9fe9](https://github.com/your-org/ai-teams-engine/commit/62f9fe9c42461e5f00b29850e6b3c82f6f09a61b))
 - **ai-teams:** truncate long content in prompts to prevent Gemini context overflow ([39daadf](https://github.com/your-org/ai-teams-engine/commit/39daadf9b29de61202c9f1822db4d8bf205cdebd))
-- **ai-teams:** use browser print for high-quality PDF export ([50b9421](https://github.com/your-org/ai-teams-engine/commit/50b94218586767903ac0105c914ba7f4d6f053c5))
+- **ai-teams:** use browser print for high-quality PDF export ([50b9421](https://github.com/your-org/ai-teams-engine/commit/50b94218586767903ac0105c914ba7f4d6f053c5)), closes [hi#quality](https://github.com/hi/issues/quality)
 - **ai-teams:** use fixed 10% increments for smoother canvas zoom ([bcba070](https://github.com/your-org/ai-teams-engine/commit/bcba07075bc2343821d07f75b0ca3b7bac1c21b0))
 - **ai-teams:** use forwardRef for AiTeamsService in gateway ([968caa3](https://github.com/your-org/ai-teams-engine/commit/968caa33be0e8f83a213ee556c0999dda5eb8602))
 - **ai-teams:** 修复 CANCELLED 依赖任务不触发依赖松弛的问题 ([b2fbe57](https://github.com/your-org/ai-teams-engine/commit/b2fbe57898b787aa2a71e46a47d085d30f5f12c9))
@@ -3502,14 +1175,14 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **ai-writing:** add force-cleanup API for stuck missions ([ac5211e](https://github.com/your-org/ai-teams-engine/commit/ac5211e0833be1b84bb15f4c75f13a7e446a9ae4))
 - **ai-writing:** add FULL_STORY mission type to schema ([7b34f5b](https://github.com/your-org/ai-teams-engine/commit/7b34f5bc35aa8e88df5b4f29df26dd853019dc6f))
 - **ai-writing:** add heartbeat logging to diagnose stuck AI tasks ([16cb1c0](https://github.com/your-org/ai-teams-engine/commit/16cb1c0e28d8fd720baaaf199f32d1f46afa08f0))
-- **ai-writing:** add missing expression patterns to cooling system ([2b6f132](https://github.com/your-org/ai-teams-engine/commit/2b6f132af4fa5ca65e8b25e06e18891b5214d112))
+- **ai-writing:** add missing expression patterns to cooling system ([2b6f132](https://github.com/your-org/ai-teams-engine/commit/2b6f132af4fa5ca65e8b25e06e18891b5214d112)), closes [hi#frequency](https://github.com/hi/issues/frequency)
 - **ai-writing:** add missing writing_quality_scores table + robust JSON parsing ([4510fe1](https://github.com/your-org/ai-teams-engine/commit/4510fe115c32197b4d8bf8611c3d4c0f0f21705c))
-- **ai-writing:** add more missing expression patterns to cooling system ([d291228](https://github.com/your-org/ai-teams-engine/commit/d2912280bbf926e21b5737c9e683cf914712fa5d))
+- **ai-writing:** add more missing expression patterns to cooling system ([d291228](https://github.com/your-org/ai-teams-engine/commit/d2912280bbf926e21b5737c9e683cf914712fa5d)), closes [hi#frequency](https://github.com/hi/issues/frequency)
 - **ai-writing:** add quality constraints to continueExistingStory and verify fixes ([c334e4b](https://github.com/your-org/ai-teams-engine/commit/c334e4ba5bbf37eb864f934ca98fa8b63f4ec206))
 - **ai-writing:** add retry and validation for world/outline generation ([dd54f68](https://github.com/your-org/ai-teams-engine/commit/dd54f68507b98a629ea7702b5a013dbe0a5aa682))
 - **ai-writing:** add TeamsModule import for dependency injection ([ff3dd3a](https://github.com/your-org/ai-teams-engine/commit/ff3dd3ada05cc9c009948196891c9fa495c20f34))
 - **ai-writing:** address edge cases from Dry Run 3 ([96156d9](https://github.com/your-org/ai-teams-engine/commit/96156d9366f1ec0d43f8da6003930923d8348260))
-- **ai-writing:** address root causes of repetitive content quality issues ([3a39338](https://github.com/your-org/ai-teams-engine/commit/3a39338bc03e8a31e342f25c5f6673f6f9103b0f)), closes [#1](https://github.com/your-org/ai-teams-engine/issues/1) [#2](https://github.com/your-org/ai-teams-engine/issues/2) [#3](https://github.com/your-org/ai-teams-engine/issues/3)
+- **ai-writing:** address root causes of repetitive content quality issues ([3a39338](https://github.com/your-org/ai-teams-engine/commit/3a39338bc03e8a31e342f25c5f6673f6f9103b0f))
 - **ai-writing:** allow AI edit operations on full content without selection ([44071b0](https://github.com/your-org/ai-teams-engine/commit/44071b0f0939d4973911845d6aba3cabecd68a2c))
 - **ai-writing:** allow continue button to restart when mission is stuck ([2a8cb6f](https://github.com/your-org/ai-teams-engine/commit/2a8cb6f16e65bfaea806b3fb15f34d29792d9ce0))
 - **ai-writing:** always show action buttons for cancel/continue ([e81bca0](https://github.com/your-org/ai-teams-engine/commit/e81bca0f1e95d727968af9a4234bcf0a025f5327))
@@ -3581,7 +1254,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **ai-writing:** make cancelMission force cancel all stuck tasks ([c398735](https://github.com/your-org/ai-teams-engine/commit/c398735aa2cc63b6eca8b7914e1d76352dfdbe38))
 - **ai-writing:** optimize left sidebar layout ([3c1fe25](https://github.com/your-org/ai-teams-engine/commit/3c1fe25f3f5b2f3b4146a63a6d6df2fbf1b6df9f))
 - **ai-writing:** optimize left sidebar layout to reduce whitespace ([17f6d44](https://github.com/your-org/ai-teams-engine/commit/17f6d44efc767f69bba97cec563610c0d3a1fa14))
-- **ai-writing:** persist AI-generated chapter summaries for better context ([702b1f6](https://github.com/your-org/ai-teams-engine/commit/702b1f64283d2199fc10bff4ede50dab011bac81))
+- **ai-writing:** persist AI-generated chapter summaries for better context ([702b1f6](https://github.com/your-org/ai-teams-engine/commit/702b1f64283d2199fc10bff4ede50dab011bac81)), closes [hi#quality](https://github.com/hi/issues/quality)
 - **ai-writing:** prevent chapter content override during continuation ([40c4a5e](https://github.com/your-org/ai-teams-engine/commit/40c4a5e215ab1bcd903a61a2d0a5d6082a001541))
 - **ai-writing:** prevent concurrent missions causing mixed progress messages ([8c1272a](https://github.com/your-org/ai-teams-engine/commit/8c1272a5a53a4439f910e104001fefa97c0195be))
 - **ai-writing:** prevent data mixing when switching between projects ([a285f50](https://github.com/your-org/ai-teams-engine/commit/a285f507c509ad6718e14e04799bc46144c75319))
@@ -3623,7 +1296,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **ai-writing:** use registerFromConfig to create proper IRole objects ([4ce9f20](https://github.com/your-org/ai-teams-engine/commit/4ce9f20e8b2bbe41a3ac72a16c671169fd58e5d4))
 - **ai-writing:** use relative URLs to avoid CORS issues ([76f289c](https://github.com/your-org/ai-teams-engine/commit/76f289c376021555bca5696132289d3beda75cdc))
 - **ai-writing:** use relative URLs to leverage Next.js proxy (avoids CORS) ([bb0a616](https://github.com/your-org/ai-teams-engine/commit/bb0a6166d21490088b74413549dd2ceafc420b7d))
-- **ai-writing:** white background + zoom for graph, fix empty rewrite response ([4aa79ab](https://github.com/your-org/ai-teams-engine/commit/4aa79ab93c1026e25a935adb1ac0cc1a3cb98b03))
+- **ai-writing:** white background + zoom for graph, fix empty rewrite response ([4aa79ab](https://github.com/your-org/ai-teams-engine/commit/4aa79ab93c1026e25a935adb1ac0cc1a3cb98b03)), closes [#ffffff](https://github.com/your-org/ai-teams-engine/issues/ffffff)
 - **ai:** add case-insensitive model lookup and debug logging ([1c66eba](https://github.com/your-org/ai-teams-engine/commit/1c66eba521adbe26f7c5f67b4bb95efb06a39502))
 - **ai:** add Imagen API fallback when Gemini fails to generate images ([2f97376](https://github.com/your-org/ai-teams-engine/commit/2f97376ff4129133e2247ac33dfa5943748ea037))
 - **ai:** add network error retry mechanism for AI API calls ([ebf7d8b](https://github.com/your-org/ai-teams-engine/commit/ebf7d8b10bad4dc8867a2114f10931b3de881eeb))
@@ -3638,7 +1311,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **ai:** fix Gemini API URL construction with custom endpoint ([86caae2](https://github.com/your-org/ai-teams-engine/commit/86caae27f15df725a3bc3e9f4865b3045cebca92))
 - **ai:** fix image prompt not containing user's actual request ([fe0bcab](https://github.com/your-org/ai-teams-engine/commit/fe0bcab788c997e77fbf8d4bd4283b74170496c6))
 - **ai:** improve Gemini image prompt for professional business style ([18a0886](https://github.com/your-org/ai-teams-engine/commit/18a088697367c791cf7707d80e981d196585be4f))
-- **ai:** improve icon URL matching for custom model names ([88decb2](https://github.com/your-org/ai-teams-engine/commit/88decb2daa7a5f2a9781bc3000f6c4a53d4f62b3)), closes [#1](https://github.com/your-org/ai-teams-engine/issues/1)
+- **ai:** improve icon URL matching for custom model names ([88decb2](https://github.com/your-org/ai-teams-engine/commit/88decb2daa7a5f2a9781bc3000f6c4a53d4f62b3))
 - **ai:** improve image generation quality with Nano Banana ([c340fff](https://github.com/your-org/ai-teams-engine/commit/c340fffa28bb1b31218b36608b0cc5390949cdfd))
 - **ai:** include conversation context in image generation prompts ([82bd771](https://github.com/your-org/ai-teams-engine/commit/82bd7711bd5805571ff384743889327c3043b3bb))
 - **ai:** include full conversation history in image generation prompt ([1191f94](https://github.com/your-org/ai-teams-engine/commit/1191f94bc2e946038670444b06d1667a679945df))
@@ -3735,7 +1408,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **backend:** correct PostgreSQL array types in data sources migration ([6a4b447](https://github.com/your-org/ai-teams-engine/commit/6a4b447bff9faec12b78ab145013333d47130980))
 - **backend:** directly delete failed migration records before deploy ([4e438e3](https://github.com/your-org/ai-teams-engine/commit/4e438e352d2fa06aa4f370f0402594742ddd6720))
 - **backend:** disable Dockerfile to force Railway use Nixpacks ([257d568](https://github.com/your-org/ai-teams-engine/commit/257d5688b0d2f4ffedfabb84af5f2e1534bc1080))
-- **backend:** disable request logger to reduce log noise ([d4c838b](https://github.com/your-org/ai-teams-engine/commit/d4c838bc42e3dbd62da92839a0dd4d200214693d))
+- **backend:** disable request logger to reduce log noise ([d4c838b](https://github.com/your-org/ai-teams-engine/commit/d4c838bc42e3dbd62da92839a0dd4d200214693d)), closes [hi#frequency](https://github.com/hi/issues/frequency)
 - **backend:** fix docker-entrypoint.sh line endings and add .gitattributes ([4012974](https://github.com/your-org/ai-teams-engine/commit/4012974d00f49a0c9e18cf8568620fc0c8c5066c))
 - **backend:** fix error message and regex escaping issues ([7fb0ece](https://github.com/your-org/ai-teams-engine/commit/7fb0ecef34264931989af49baf344bc78203490b))
 - **backend:** fix import_tasks cleanup query column name error ([bad5b2a](https://github.com/your-org/ai-teams-engine/commit/bad5b2acbc4bab30abb6c6104f6ae9d8c3cc56f3))
@@ -4013,7 +1686,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **frontend:** comprehensive null checks for all array operations ([c2a2175](https://github.com/your-org/ai-teams-engine/commit/c2a2175f5db07585932d442b82633d2aa7287b8e))
 - **frontend:** comprehensive null checks for all array operations ([d587359](https://github.com/your-org/ai-teams-engine/commit/d587359d480cce3c39bff51052dcead04f4fe410))
 - **frontend:** correct setTeamLeader API endpoint ([3b5555d](https://github.com/your-org/ai-teams-engine/commit/3b5555d3d727e2168ae14521acf7136e17c2af69))
-- **frontend:** disable SSR for research components to eliminate hydration errors ([52b4428](https://github.com/your-org/ai-teams-engine/commit/52b44287a7ec7beb03d6cea2fdbc16526a12bf39)), closes [#425](https://github.com/your-org/ai-teams-engine/issues/425) [#418](https://github.com/your-org/ai-teams-engine/issues/418) [#423](https://github.com/your-org/ai-teams-engine/issues/423)
+- **frontend:** disable SSR for research components to eliminate hydration errors ([52b4428](https://github.com/your-org/ai-teams-engine/commit/52b44287a7ec7beb03d6cea2fdbc16526a12bf39)), closes [#425](https://github.com/your-org/ai-teams-engine/issues/425) [#418](https://github.com/your-org/ai-teams-engine/issues/418)
 - **frontend:** extract data array from API response wrapper ([5859289](https://github.com/your-org/ai-teams-engine/commit/58592897a772091cf95a9f1f6bc63ca8c1275947))
 - **frontend:** extract data from API response wrapper ([223851b](https://github.com/your-org/ai-teams-engine/commit/223851bd50f21fb3de6bb67d6745d42be240bead))
 - **frontend:** fix AI Group messaging without WebSocket ([ccb430c](https://github.com/your-org/ai-teams-engine/commit/ccb430c9b5849535b1af7c64896367d05c6a83a7))
@@ -4029,7 +1702,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **frontend:** fix hydration errors in ai-research page ([7b32382](https://github.com/your-org/ai-teams-engine/commit/7b32382ac0dd7204c2a02a3454fd12517fd8bd9d))
 - **frontend:** fix hydration errors in date formatting components ([2a6fb7d](https://github.com/your-org/ai-teams-engine/commit/2a6fb7dbc51c3c03ea2bb6b1e1ed34b3c35afd92))
 - **frontend:** fix hydration errors in ProjectDetailPage ([343dd31](https://github.com/your-org/ai-teams-engine/commit/343dd318c66d8871c5431faa85f067b50fc6b048))
-- **frontend:** fix hydration root cause in i18n and clean up band-aid patches ([39874f8](https://github.com/your-org/ai-teams-engine/commit/39874f80d39be41dfe5660b774c44cc291dd1e01)), closes [#425](https://github.com/your-org/ai-teams-engine/issues/425) [#418](https://github.com/your-org/ai-teams-engine/issues/418) [#423](https://github.com/your-org/ai-teams-engine/issues/423)
+- **frontend:** fix hydration root cause in i18n and clean up band-aid patches ([39874f8](https://github.com/your-org/ai-teams-engine/commit/39874f80d39be41dfe5660b774c44cc291dd1e01)), closes [418/#423](https://github.com/your-org/ai-teams-engine/issues/423)
 - **frontend:** fix Library page navigation and YouTube video display ([3e28a36](https://github.com/your-org/ai-teams-engine/commit/3e28a367f3029916c8beeb513d5c86927fa21a7e))
 - **frontend:** fix revision history, annotation feedback button, and settings initialization ([138669d](https://github.com/your-org/ai-teams-engine/commit/138669d26515513f7c13a61416e20faf7c1fbc48))
 - **frontend:** fix teamMembers data structure mismatch ([045b7e1](https://github.com/your-org/ai-teams-engine/commit/045b7e148eb23f75b2842bd1ad61f27627127d18))
@@ -4167,7 +1840,6 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **llm-factory:** 修复 getAdapter() 无法找到 UniversalLLMAdapter 的问题 ([52a92b7](https://github.com/your-org/ai-teams-engine/commit/52a92b7f2f26af0a09e8846ae9d9c0bbeb2bc6ae))
 - load youtubei log module from public api ([ff415f2](https://github.com/your-org/ai-teams-engine/commit/ff415f26033f360ec0881654978c65c1fc292464))
 - **logging:** reduce log output in production to prevent Railway rate limit ([e5a2223](https://github.com/your-org/ai-teams-engine/commit/e5a2223734f14c8b157c91ac95035e1e71aac993))
-- **logging:** reduce noise from expected 401/403/404 errors ([7a3de3b](https://github.com/your-org/ai-teams-engine/commit/7a3de3b7674e67c932c7ad14875541f1ae3420d2))
 - **logging:** standardize backend logging and fix production log levels ([3e95554](https://github.com/your-org/ai-teams-engine/commit/3e9555495be3dfc67c5fa1f8336c846a72186e6e))
 - make Ask page input float at bottom like Gemini ([50d2546](https://github.com/your-org/ai-teams-engine/commit/50d2546cc56b65a7568771c9572ed89cfa30e924))
 - make sidebar toggle persistent and clickable ([61c6e53](https://github.com/your-org/ai-teams-engine/commit/61c6e53cf1ccbeedb12e2d132caea85799663233))
@@ -4221,7 +1893,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **pdf:** add overlay AFTER html2canvas starts cloning ([00f2b4a](https://github.com/your-org/ai-teams-engine/commit/00f2b4a5be9ed306cffbd40930f3f9dd3ee2ab45))
 - **pdf:** hide browser native toolbar in PDF viewer ([6c6f4ed](https://github.com/your-org/ai-teams-engine/commit/6c6f4ed007ca4780f82af58cc605698b743841c1))
 - **pdf:** improve html2canvas capture with overlay and fallback ([bf826c0](https://github.com/your-org/ai-teams-engine/commit/bf826c018ba6eb8b835564ce690ecfac78e08d91))
-- **pdf:** improve layout with solid colors for html2canvas compatibility ([62987f3](https://github.com/your-org/ai-teams-engine/commit/62987f3abfc80c62a7bc4f0b072674fcaf5cd92d)), closes [#7c3](https://github.com/your-org/ai-teams-engine/issues/7c3)
+- **pdf:** improve layout with solid colors for html2canvas compatibility ([62987f3](https://github.com/your-org/ai-teams-engine/commit/62987f3abfc80c62a7bc4f0b072674fcaf5cd92d)), closes [#7c3aed](https://github.com/your-org/ai-teams-engine/issues/7c3aed)
 - **pdf:** increase pixelRatio to 4 for better image clarity ([1810ed8](https://github.com/your-org/ai-teams-engine/commit/1810ed82186ea8893757335e9b3d59d3e1fa2873))
 - **pdf:** render directly in main document for proper styling ([f8044b4](https://github.com/your-org/ai-teams-engine/commit/f8044b42ffd91d96f263e5c86e9ec45d97ac5063))
 - **pdf:** replace html2canvas with html-to-image for better compatibility ([c31d224](https://github.com/your-org/ai-teams-engine/commit/c31d224ef96ad8496582802bbb387d1c0c2ae6de))
@@ -4365,7 +2037,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **research:** comprehensive fix for unsafe config/array access patterns ([03cd018](https://github.com/your-org/ai-teams-engine/commit/03cd018d3c2d61dd0d26d954bcf94049d123cb91))
 - **research:** comprehensive hydration error fixes ([d258602](https://github.com/your-org/ai-teams-engine/commit/d258602c9b86b8c761147fa7afcbbeaf4fd48320))
 - **research:** comprehensive null safety audit for string methods ([d0e6017](https://github.com/your-org/ai-teams-engine/commit/d0e60172fe6a119a04c5c31d1070bc0470352f0b))
-- **research:** comprehensive research monitoring fixes ([95b7562](https://github.com/your-org/ai-teams-engine/commit/95b7562ce893eb29928362b5a538af84406bc10c)), closes [#2](https://github.com/your-org/ai-teams-engine/issues/2) [#3](https://github.com/your-org/ai-teams-engine/issues/3) [#4](https://github.com/your-org/ai-teams-engine/issues/4) [#6](https://github.com/your-org/ai-teams-engine/issues/6) [#10](https://github.com/your-org/ai-teams-engine/issues/10) [#11](https://github.com/your-org/ai-teams-engine/issues/11) [#12](https://github.com/your-org/ai-teams-engine/issues/12) [#13](https://github.com/your-org/ai-teams-engine/issues/13) [#14](https://github.com/your-org/ai-teams-engine/issues/14)
+- **research:** comprehensive research monitoring fixes ([95b7562](https://github.com/your-org/ai-teams-engine/commit/95b7562ce893eb29928362b5a538af84406bc10c))
 - **research:** correct i18n path for toolbar translations ([c7e506a](https://github.com/your-org/ai-teams-engine/commit/c7e506a0b5d407811f805d9f2202e1ed243ebf07))
 - **research:** deduplicate tasks when adding new dimension via Leader chat ([31ce41c](https://github.com/your-org/ai-teams-engine/commit/31ce41ca33c282589b654a606b12534d2a8772ee))
 - **research:** disable pause/cancel/prioritize for converted ResearchTasks ([e9910ea](https://github.com/your-org/ai-teams-engine/commit/e9910ea4347175faa3a388491fc276eff01d3e52))
@@ -4421,7 +2093,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **research:** use fullReport for inline chart placeholders ([e664277](https://github.com/your-org/ai-teams-engine/commit/e664277066806346a03ff58af902463a40571710))
 - **research:** use useMemo instead of IIFE for revision list ([f1cbb81](https://github.com/your-org/ai-teams-engine/commit/f1cbb81faa8cc1823916a08a213cff915827625a))
 - **research:** user request todo should not show other tasks activities ([e12c82a](https://github.com/your-org/ai-teams-engine/commit/e12c82a36bad18c2c2519abc6639a6c4cb7e116a))
-- **research:** 为 Reviewer 注入前置章节上下文以支持重复检查 ([ce86b2a](https://github.com/your-org/ai-teams-engine/commit/ce86b2a386765a561350767c4339fb871f14f42c)), closes [#7](https://github.com/your-org/ai-teams-engine/issues/7)
+- **research:** 为 Reviewer 注入前置章节上下文以支持重复检查 ([ce86b2a](https://github.com/your-org/ai-teams-engine/commit/ce86b2a386765a561350767c4339fb871f14f42c))
 - **research:** 优化关键发现标题提取，避免机械化的'核心观点 N' ([5609fe8](https://github.com/your-org/ai-teams-engine/commit/5609fe83963030f3e6482b8594c2dcefa7827461))
 - **research:** 修复 Agent 图标状态和任务分配显示 ([2f1572d](https://github.com/your-org/ai-teams-engine/commit/2f1572d483abec33ab574ca404d2250dbc7a7703))
 - **research:** 修复Agent显示和时间线数据提取问题 ([222d93f](https://github.com/your-org/ai-teams-engine/commit/222d93fb5dd655d6a89ead8ded05bb650e55c9ef))
@@ -4538,7 +2210,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **slides-ui:** 大幅简化时间线显示，避免与 Agent 面板重复 ([e8ba550](https://github.com/your-org/ai-teams-engine/commit/e8ba55033d14411b4674dd98d4e868ef6506291c))
 - **slides-v3:** add explicit data mapping in user message for templates ([8d69702](https://github.com/your-org/ai-teams-engine/commit/8d697026032b1c5aeafdb8a12da098bce44dcfb6))
 - **slides-v3:** add functionality to outline confirm button ([cf9502a](https://github.com/your-org/ai-teams-engine/commit/cf9502aac156b23a5cb956a0aaccd2433d3afa0c))
-- **slides-v3:** add HTML post-processing to fix layout issues ([1f12aa3](https://github.com/your-org/ai-teams-engine/commit/1f12aa3e519b6d86aaf5190f9501caa282084a34)), closes [#0F172](https://github.com/your-org/ai-teams-engine/issues/0F172) [#D4AF37](https://github.com/your-org/ai-teams-engine/issues/D4AF37)
+- **slides-v3:** add HTML post-processing to fix layout issues ([1f12aa3](https://github.com/your-org/ai-teams-engine/commit/1f12aa3e519b6d86aaf5190f9501caa282084a34)), closes [#0F172A](https://github.com/your-org/ai-teams-engine/issues/0F172A) [#D4AF37](https://github.com/your-org/ai-teams-engine/issues/D4AF37)
 - **slides-v3:** add layout specs for pillars/multiColumn/framework pages ([0f67405](https://github.com/your-org/ai-teams-engine/commit/0f674053f66a830e392f05aa38fa4ea2228c37a5))
 - **slides-v3:** add missing template variable extraction methods ([5fb4734](https://github.com/your-org/ai-teams-engine/commit/5fb47343b6de9f02c8dde2d3d2ed34054edcedc2))
 - **slides-v3:** add SSE debug logging and fix hook dependencies ([e0c9b63](https://github.com/your-org/ai-teams-engine/commit/e0c9b63116f59f50cdb72761a66fdcb4933b23ae))
@@ -4550,7 +2222,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **slides-v3:** complete session restoration and user input handling ([a8544b1](https://github.com/your-org/ai-teams-engine/commit/a8544b173880787be1bf684c2aafe1f4347b5490))
 - **slides-v3:** comprehensive layout quality improvements ([aae7b4b](https://github.com/your-org/ai-teams-engine/commit/aae7b4bc9a3a46b66d61955ccfa6396541c33354))
 - **slides-v3:** comprehensive QA fixes for content and layout issues ([bd45ead](https://github.com/your-org/ai-teams-engine/commit/bd45ead75b53a865c45d845628b6625ee7c96392))
-- **slides-v3:** comprehensive QA fixes for rendering issues ([bc4a3d4](https://github.com/your-org/ai-teams-engine/commit/bc4a3d45aa9f7a3b897845ff3118156257ab008c)), closes [#0F172](https://github.com/your-org/ai-teams-engine/issues/0F172) [#051](https://github.com/your-org/ai-teams-engine/issues/051)
+- **slides-v3:** comprehensive QA fixes for rendering issues ([bc4a3d4](https://github.com/your-org/ai-teams-engine/commit/bc4a3d45aa9f7a3b897845ff3118156257ab008c)), closes [#0F172A](https://github.com/your-org/ai-teams-engine/issues/0F172A) [#051](https://github.com/your-org/ai-teams-engine/issues/051)
 - **slides-v3:** comprehensive template system fixes ([aa68149](https://github.com/your-org/ai-teams-engine/commit/aa68149c331b24c8e8b62883fed6401d7c4575ad))
 - **slides-v3:** comprehensive template variable extraction fixes ([dcafb1e](https://github.com/your-org/ai-teams-engine/commit/dcafb1ec9368fccc27d7885c4d65ae70398e5b1a))
 - **slides-v3:** correctly parse phase_completed event data ([4747573](https://github.com/your-org/ai-teams-engine/commit/47475735b7c416f8d3c0a0958b60d4c53b0c4c12))
@@ -4725,7 +2397,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **teams:** 修复 SkillContext.sessionId 使用 missionId 而非实际 sessionId 的问题 ([57d8b62](https://github.com/your-org/ai-teams-engine/commit/57d8b62fda0f768f3a281594114b396b3b4edbc1))
 - **teams:** 修复Leader任务分解使用别名导致任务创建失败的问题 ([44fcac6](https://github.com/your-org/ai-teams-engine/commit/44fcac612c7930ba7ed28f19b981212df616104c))
 - **teams:** 修复成员名称匹配 - 不移除 AI- 前缀 ([65ed90d](https://github.com/your-org/ai-teams-engine/commit/65ed90d2db6bc1c8b41d5ffee50ae59b1635408d))
-- **teams:** 修复成员名称匹配逻辑，保留 #N 编号 ([897e2b5](https://github.com/your-org/ai-teams-engine/commit/897e2b5d935609623b0719005eecf6798dcfa980)), closes [#10](https://github.com/your-org/ai-teams-engine/issues/10)
+- **teams:** 修复成员名称匹配逻辑，保留 #N 编号 ([897e2b5](https://github.com/your-org/ai-teams-engine/commit/897e2b5d935609623b0719005eecf6798dcfa980)), closes [#N](https://github.com/your-org/ai-teams-engine/issues/N) [#N](https://github.com/your-org/ai-teams-engine/issues/N) [#N](https://github.com/your-org/ai-teams-engine/issues/N)
 - **teams:** 强化Leader任务分配均衡约束 ([0a956bd](https://github.com/your-org/ai-teams-engine/commit/0a956bda683a7b2b32fe769bc0d65b67da3688fe))
 - **teams:** 注册 MissionContextService 到 AiTeamsModule ([09728bf](https://github.com/your-org/ai-teams-engine/commit/09728bf0c3f7b5b4420ab250a2ab2a3f2921f36b))
 - **teams:** 确保 mission description 传递给执行 Agent ([6d6e369](https://github.com/your-org/ai-teams-engine/commit/6d6e369c182bcfc109e2a72f4fe852e76444dccf))
@@ -4917,7 +2589,833 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - 移除错误消息中的 localhost URL ([93fffdb](https://github.com/your-org/ai-teams-engine/commit/93fffdb32606a15af523e2249dfc3de7cbce536e))
 - 统一导航按钮间距，将Sort按钮移入ResponsiveNav组件 ([c76dd25](https://github.com/your-org/ai-teams-engine/commit/c76dd25bfb925525babf35f23334d7a0b20938b7))
 
-### Performance
+### Code Refactoring
+
+- **ai-writing:** reorder phases - world building before story structure ([42815f7](https://github.com/your-org/ai-teams-engine/commit/42815f7f668e8ab72a4ac41bda6b4f5321cdcc45))
+
+### Features
+
+- add 4 new infographic templates and fix cards spacing ([fac79ea](https://github.com/your-org/ai-teams-engine/commit/fac79eacc1b4a2a7684b42924034572cf226d5fc))
+- add admin delete-all endpoint to remove all images ([eb1b0e7](https://github.com/your-org/ai-teams-engine/commit/eb1b0e75dd47a61cfa43462c9c836d50e3eee2f0))
+- add admin endpoint to cleanup all users old images ([b325461](https://github.com/your-org/ai-teams-engine/commit/b325461bb57c9364fd67dd6f5e9b7fc35814442f))
+- add admin management system with user role control ([f628df4](https://github.com/your-org/ai-teams-engine/commit/f628df44580bd9d7a5c5994e20a7506d140c61a3))
+- add admin settings and thumbnails management pages ([1011ca5](https://github.com/your-org/ai-teams-engine/commit/1011ca500a6b2481830ce41e1dee541ec2316fb7))
+- add AI Office document system with Railway migration support ([ffb17ee](https://github.com/your-org/ai-teams-engine/commit/ffb17ee1b03287440470026fff671493d139340d))
+- add AI service Docker configuration ([e6ff8df](https://github.com/your-org/ai-teams-engine/commit/e6ff8df4806864e2e86f1bc0b2d38c4aeefbeda4))
+- add AI Store with categories, search, and tool cards ([626ce6c](https://github.com/your-org/ai-teams-engine/commit/626ce6c42c52e5a4f78f475c6ffe0355b1325c02))
+- add all missing template layouts to frontend UI ([04b75cf](https://github.com/your-org/ai-teams-engine/commit/04b75cf756332269ebdd036b23b6415f5c774e54))
+- add ASK AI session management with chat history ([745fda1](https://github.com/your-org/ai-teams-engine/commit/745fda1044a7de9befe2e7729ae877d1427db5c0))
+- add automatic web search capability for all AI models ([b4fd4e0](https://github.com/your-org/ai-teams-engine/commit/b4fd4e04ce7cfdf94ddb5d7448c48e74df1d0f30))
+- add Backblaze B2 support for image storage ([c6de20f](https://github.com/your-org/ai-teams-engine/commit/c6de20fe8655ca8e4d84732865bf6e71b725d844))
+- add bookmark functionality to notes with English labels ([5e3c2e1](https://github.com/your-org/ai-teams-engine/commit/5e3c2e1ee4e847aca425622365354a475bc4a1d1))
+- add bulk data source import functionality ([b55311a](https://github.com/your-org/ai-teams-engine/commit/b55311ad83fdc9bb3044670c637ade0697754d93))
+- add chaos/black swan adjudication in simulation ([0937113](https://github.com/your-org/ai-teams-engine/commit/0937113134f35778a985e7d4debb9c0efa9a535f))
+- add Chromium and Chinese fonts for HTML infographic rendering ([ec3f010](https://github.com/your-org/ai-teams-engine/commit/ec3f010b99c397365de663303c638ad080be40c6))
+- add code splitting, Swagger docs, and structured logging ([57ad3b4](https://github.com/your-org/ai-teams-engine/commit/57ad3b43908e93678ded6953c06f779e71d01186))
+- add debrief summary and monologue log for simulations ([6af79c1](https://github.com/your-org/ai-teams-engine/commit/6af79c13d0c5030f744e5921021c44edcc7dc2c3))
+- add deep content structure analysis for intelligent template selection ([d872aa4](https://github.com/your-org/ai-teams-engine/commit/d872aa444082eca185cc2a82389aecc1ce0ee8e0))
+- add force migration cleanup script ([862ec2a](https://github.com/your-org/ai-teams-engine/commit/862ec2ac0d4b3dbcbd85893da9dfb5073e2e8338))
+- add frontend API proxy routes for PPT 3.0 ([3dbead2](https://github.com/your-org/ai-teams-engine/commit/3dbead253678181f0e044a32401605baa13b9e64))
+- add Genspark-style glassmorphism to infographic templates ([44107ce](https://github.com/your-org/ai-teams-engine/commit/44107ce086b31777c837220776f06869d8a5570e)), closes [#0A2B4E](https://github.com/your-org/ai-teams-engine/issues/0A2B4E) [#0F172A](https://github.com/your-org/ai-teams-engine/issues/0F172A)
+- add heading IDs and in-page scroll for TOC links ([c84e99f](https://github.com/your-org/ai-teams-engine/commit/c84e99f8b63f9a2bbcbb37a31290459a313c9b5c))
+- add helpful hints for empty state panels ([3e90058](https://github.com/your-org/ai-teams-engine/commit/3e90058efabc17f99f72759a4e1517843b479695))
+- add icon-only tabs with Image tab to main page ([6d5fa23](https://github.com/your-org/ai-teams-engine/commit/6d5fa23251c0d92575334f3bb7211ce732a19f16))
+- add image stats endpoint for debugging ([c675e31](https://github.com/your-org/ai-teams-engine/commit/c675e31901cb1f58ab10769b13ac4913c0167309))
+- add LiteLLM proxy for multi-LLM support ([1ab2c84](https://github.com/your-org/ai-teams-engine/commit/1ab2c8446670af174a32ae19345bc8337f2b49a0))
+- add manual cleanup API endpoint for old images ([14e0335](https://github.com/your-org/ai-teams-engine/commit/14e033518659c6306d6f07d51709433333e28892))
+- add message collapse/expand for long messages ([1fb17ef](https://github.com/your-org/ai-teams-engine/commit/1fb17ef6a16dafb1f28df722bdf88ed515e6091b))
+- add multiple template layouts and user data isolation for SPARKLE ([a4da1bc](https://github.com/your-org/ai-teams-engine/commit/a4da1bc00a48f497b145322d2cca3f3043d03a7f))
+- add MVP badge to logo ([6cc9275](https://github.com/your-org/ai-teams-engine/commit/6cc9275d774e4fab779a877ca714bb58ee170fa4))
+- add OCI infrastructure and deployment configuration ([2271e39](https://github.com/your-org/ai-teams-engine/commit/2271e39018c1e825dde0fee1be23bc78b6fa36f7))
+- add per-agent irrationality to avoid overly rational outcomes ([681869c](https://github.com/your-org/ai-teams-engine/commit/681869c612cc18f69f8de4f6c43d99b0d11a5ccb))
+- add Railway deployment configuration ([74fb631](https://github.com/your-org/ai-teams-engine/commit/74fb63172f053878b8117d96f10229399ed37f26))
+- add real PostgreSQL database analysis to Storage page ([1945b02](https://github.com/your-org/ai-teams-engine/commit/1945b02b093276c84e0977b20397d0e8d6160028))
+- add rich text editor to chapter view for consistency ([1b23d3c](https://github.com/your-org/ai-teams-engine/commit/1b23d3cda8f48615082391c225712075fabe8095))
+- add sidebar to AI Store and prompt fields for YouTube/URL inputs ([e57f3a0](https://github.com/your-org/ai-teams-engine/commit/e57f3a08ea0a5e2530d1e7d340fc42b8c4015a55))
+- add simulation scaffolding and external data flow ([bed2c51](https://github.com/your-org/ai-teams-engine/commit/bed2c51215da4c1d6b92a87157af08e2a2fa1450))
+- add simulation template cards ([1b48fc9](https://github.com/your-org/ai-teams-engine/commit/1b48fc9422aab55395f47d08abb15bc57ebff09a))
+- add simulation template cards ([65d9e67](https://github.com/your-org/ai-teams-engine/commit/65d9e6767f71d0965231c6d50f36cac2a1f049e3))
+- add SSE streaming for real-time image generation progress ([99b4e67](https://github.com/your-org/ai-teams-engine/commit/99b4e67f5406ba8bf0a1a8fc0b518dc079f3ab9e))
+- add stop generation, dropdown fix, storage tables, user stats ([929d76a](https://github.com/your-org/ai-teams-engine/commit/929d76a768e60b633b9b4577300181277cdc99c2))
+- add storage management page and fix sidebar collapse behavior ([e5d9a16](https://github.com/your-org/ai-teams-engine/commit/e5d9a161caab98474a5107f0476e050c95e6c385))
+- add support check for temperature parameter in AI chat service ([2b7c0ca](https://github.com/your-org/ai-teams-engine/commit/2b7c0caeb04d5bf59d7357944ee2e6f49993b3d4))
+- add temperature parameter validation for AI model support ([52b47f5](https://github.com/your-org/ai-teams-engine/commit/52b47f5577782156b783c5382dfff3a79d4ced95))
+- add template layout selector with user override ([a0c39dc](https://github.com/your-org/ai-teams-engine/commit/a0c39dced2752d27a4586ad094ba685772872d21))
+- add TOAST analysis and disk usage breakdown endpoint ([7a452f4](https://github.com/your-org/ai-teams-engine/commit/7a452f40504e25301a94c0ec57c70a09064fb378))
+- Add toast notifications and enhance AI image service logging ([d26c26a](https://github.com/your-org/ai-teams-engine/commit/d26c26a82f660121a2307b6a41ab3ad51b5c55b0))
+- add VACUUM FULL endpoint to reclaim space to OS ([b73f36e](https://github.com/your-org/ai-teams-engine/commit/b73f36e3d3dd07fa07af06f135ca0d1efd821571))
+- add WAL cleanup endpoint with CHECKPOINT ([4882d0c](https://github.com/your-org/ai-teams-engine/commit/4882d0c6b97385359aa707a882c51e03450d16e0))
+- add YouTube video comments tab ([b22461d](https://github.com/your-org/ai-teams-engine/commit/b22461d47ba87733fe38be10ccc89a44ac15d9af))
+- **admin:** add academic & hackernews tools, fix secret name mapping ([de31141](https://github.com/your-org/ai-teams-engine/commit/de3114174dd1a921f1a5870b3ba8a2797de09c35))
+- **admin:** add AI Assistant to Data Collection System Management ([390ad70](https://github.com/your-org/ai-teams-engine/commit/390ad70f036ca84c51164f8f65b119d1c087b66f))
+- **admin:** add AI Assistant to System Settings for all TABs ([94a474a](https://github.com/your-org/ai-teams-engine/commit/94a474ae9b5fd04763e60e5fd54732372ec1f5ec))
+- **admin:** add AI model diagnostic feature ([80961c1](https://github.com/your-org/ai-teams-engine/commit/80961c13a4b807165f394c87d38b632fb27ebab4))
+- **admin:** add AI model management with API key config and connection test ([8daec93](https://github.com/your-org/ai-teams-engine/commit/8daec93a103d0b85a74eaa29b2a12e72bb33c46b))
+- **admin:** add AI Models tab to System Management ([1580060](https://github.com/your-org/ai-teams-engine/commit/1580060eeeb85c5ec3eca03ee5b5a3a431f3bf01))
+- **admin:** add AI team template configuration system ([bc7ba5a](https://github.com/your-org/ai-teams-engine/commit/bc7ba5a72e18145dd3fb2d74b6f86d82a09caa5a))
+- **admin:** add AI-powered team config and member skills ([835b391](https://github.com/your-org/ai-teams-engine/commit/835b391d43c11d6a3eef6fc0b957935a8f8c3614))
+- **admin:** add API quota monitoring dashboard ([a9ac684](https://github.com/your-org/ai-teams-engine/commit/a9ac684a1f680dbd233f139c68384d43b8d64886))
+- **admin:** add batch Worker creation for AI model scaling ([d14acb0](https://github.com/your-org/ai-teams-engine/commit/d14acb0edf876ef6cd95d313569c237d0413e4ca)), closes [#1](https://github.com/your-org/ai-teams-engine/issues/1) [#2](https://github.com/your-org/ai-teams-engine/issues/2)
+- **admin:** add content extraction API configuration with balance check ([920fa67](https://github.com/your-org/ai-teams-engine/commit/920fa679e30b87b39cea16f3131b6b58e71abc79))
+- **admin:** add delete button for tool configurations and improve sidebar spacing ([0b51143](https://github.com/your-org/ai-teams-engine/commit/0b51143fa6ec4262155d9058153ef32a0f4b09de))
+- **admin:** add External API tab in AI Models settings ([dd33102](https://github.com/your-org/ai-teams-engine/commit/dd331020b195d2e5639bcc283130d69e46a87b79))
+- **admin:** add fetch available models API and improved form ([286c8a8](https://github.com/your-org/ai-teams-engine/commit/286c8a86ce388c7c47ded307979a0efa1df0cdc5))
+- **admin:** add Imagen model testing support ([aef01a1](https://github.com/your-org/ai-teams-engine/commit/aef01a1c4f1132382d6383d2db2d03b6dc7bd4f9))
+- **admin:** add logs management and system monitoring pages ([85c97e7](https://github.com/your-org/ai-teams-engine/commit/85c97e71d692f9da9019e5df10146b0522b314e4))
+- **admin:** add MCP server env config and fix POLICY category ([fa03d7a](https://github.com/your-org/ai-teams-engine/commit/fa03d7afc3fdb620570ccbea0fcd1ad0419530be))
+- **admin:** add multi-key health monitoring in Secret Management ([dd053c5](https://github.com/your-org/ai-teams-engine/commit/dd053c58a319590b4059a66d5c8d0cfa98bf9952))
+- **admin:** add multi-key input support in Secret Management page ([344e7cd](https://github.com/your-org/ai-teams-engine/commit/344e7cd87bf702a35f47feda3d58e52c0d314348))
+- **admin:** add POLICY category for policy research tool secrets ([31f3118](https://github.com/your-org/ai-teams-engine/commit/31f31187586055a13bccd87e9bd2974970b79bd3))
+- **admin:** add preset MCP servers and Skills marketplace data ([35f2c81](https://github.com/your-org/ai-teams-engine/commit/35f2c810f13ce81119c887f8f70ce98ae6f24a23))
+- **admin:** add search API configuration in admin panel ([db5b081](https://github.com/your-org/ai-teams-engine/commit/db5b081cfb78c9669865822e8fd384edc8a30f8f))
+- **admin:** add Secret Manager for centralized API key management ([0342c0a](https://github.com/your-org/ai-teams-engine/commit/0342c0ae53e1ec97c84096c8ee156d6a2ad979eb))
+- **admin:** add Secret Manager integration to Tools and compact Overview layout ([35f3fa7](https://github.com/your-org/ai-teams-engine/commit/35f3fa7386807b1f37faf810bfe3ebc55143bc4c))
+- **admin:** add storage provider configuration API ([ea10895](https://github.com/your-org/ai-teams-engine/commit/ea1089556478f750e04c30d990504e755af1910c))
+- **admin:** add system settings management ([6c75a84](https://github.com/your-org/ai-teams-engine/commit/6c75a84023b47da01e7ca7af48143b98ecbce2de))
+- **admin:** add ToolsManagement and SkillsManagement components with i18n ([b5ac8b8](https://github.com/your-org/ai-teams-engine/commit/b5ac8b8abc3bf871a79df4bb555816d188121ea1))
+- **admin:** add TTS configuration interface ([f188d1a](https://github.com/your-org/ai-teams-engine/commit/f188d1a972b176904f043dd376bb63a2e982c7ac))
+- **admin:** add unified email settings UI and API ([1bc5525](https://github.com/your-org/ai-teams-engine/commit/1bc55255848aee3664f76789e82b05d53f6798d2))
+- **admin:** add YouTube Transcript API configuration in Settings ([9eb838d](https://github.com/your-org/ai-teams-engine/commit/9eb838d63a8bf90a2214838e9c041ef8222dd0ee))
+- **admin:** auto-update AI model if name exists (upsert) ([52e3d6c](https://github.com/your-org/ai-teams-engine/commit/52e3d6c361df4027d4beb1a5eea9cd4f61d36b3b))
+- **admin:** comprehensive admin refactoring with card layouts ([ed50ec7](https://github.com/your-org/ai-teams-engine/commit/ed50ec7ff6e15254b9035752d8c4fa061ed5ca66))
+- **admin:** enhance AI capabilities UI with editable cards ([cd97029](https://github.com/your-org/ai-teams-engine/commit/cd970291f8cc630dd5516d3a60e5a5c1cb37af7d))
+- **admin:** enhance storage page with memory monitoring and AI actions ([3946a78](https://github.com/your-org/ai-teams-engine/commit/3946a78fb885f75c272947b61d931647937ea68f))
+- **admin:** extend multi-key support to EXTRACTION/YOUTUBE/TTS categories ([be3c19f](https://github.com/your-org/ai-teams-engine/commit/be3c19f241cab5adcfcc20f97a9a2fb754a3bd47))
+- **admin:** implement 4-layer architecture diagram navigation ([c609a4f](https://github.com/your-org/ai-teams-engine/commit/c609a4f479fc37e59e0500f9ecee51d4e7e3e312))
+- **admin:** implement AI capabilities management system ([5a1fc7b](https://github.com/your-org/ai-teams-engine/commit/5a1fc7b9dfeac660807718d8bfd9cf9fb31d104c))
+- **admin:** implement comprehensive table management system ([19cb6e2](https://github.com/your-org/ai-teams-engine/commit/19cb6e2dafffd1e9a4ed501c0f5fea82d695af25))
+- **admin:** implement credits management and enhance feedback management ([9c17519](https://github.com/your-org/ai-teams-engine/commit/9c17519856e9ed53d6890783b588e05def05ccec))
+- **admin:** implement Skills & Tools tabs architecture with POLICY migration ([30affb2](https://github.com/your-org/ai-teams-engine/commit/30affb21c7b1bc39018a3a06d16090155f50014c))
+- **admin:** improve Skills Management UI with dropdown filter ([f613a6b](https://github.com/your-org/ai-teams-engine/commit/f613a6bd613c30e59ce487be1613f7b6107bc125))
+- **admin:** merge AI Tools tabs and unify capability display ([1b5159a](https://github.com/your-org/ai-teams-engine/commit/1b5159ad5673d98d8136491a3d2a6cb0448b3f30))
+- **admin:** redesign admin module with sidebar navigation and domain-based routing ([e0b1365](https://github.com/your-org/ai-teams-engine/commit/e0b13652f494cc7cb7c29dd2529390e175a4cb56))
+- **admin:** redesign architecture diagram with premium visuals ([0dc62d1](https://github.com/your-org/ai-teams-engine/commit/0dc62d1db03a990605a466744dde1cb4ac25dc77))
+- **admin:** redesign External API page with card-based layout ([1a71f80](https://github.com/your-org/ai-teams-engine/commit/1a71f80d5ee6bdc593f350b451fffbeec8c85960))
+- **admin:** show full API key in edit mode ([e6b682d](https://github.com/your-org/ai-teams-engine/commit/e6b682d5f3c5ebdd17e3a5c1303314205d70c872))
+- **admin:** show masked API key in edit modal ([4e928dd](https://github.com/your-org/ai-teams-engine/commit/4e928ddad5471d73313a68f781af8783ee8f5860))
+- **admin:** unified capability view for tools management ([b477ff2](https://github.com/your-org/ai-teams-engine/commit/b477ff29e1fd5ba18eb110a346709eb5d24964ef))
+- **admin:** unify Edit and Add AI model modal UI ([a35c1d6](https://github.com/your-org/ai-teams-engine/commit/a35c1d687cf9ffc9505cf85b9ba5269d3b23ab5a))
+- **admin:** update AI model icons to official logos ([14f548c](https://github.com/your-org/ai-teams-engine/commit/14f548c04d67c9dde687364b1b5ad376e7ff2741)), closes [#10A37F](https://github.com/your-org/ai-teams-engine/issues/10A37F)
+- agent personas, memories, and external snapshot in simulation ([3d3a5ca](https://github.com/your-org/ai-teams-engine/commit/3d3a5cab282db3fbabbc89a8682eae1d6edf4be6))
+- **agents:** implement AI Designer Agent (Phase 4) ([e8e561d](https://github.com/your-org/ai-teams-engine/commit/e8e561da626ff820400c2fd4eb340ce519e7a487))
+- **agents:** implement AI Developer Agent (Phase 5) ([e21730b](https://github.com/your-org/ai-teams-engine/commit/e21730b7b0ff4a14db69d1107b4f26deca6d78c8))
+- **agents:** implement AI Docs Agent (Phase 3) ([b14d46b](https://github.com/your-org/ai-teams-engine/commit/b14d46bba44eedbcceff6defbd841e26b02d7246))
+- **agents:** implement AI Slides Agent (Phase 2) ([fab7d2f](https://github.com/your-org/ai-teams-engine/commit/fab7d2f3a89eb12a28b26031bfe99860fcad5f83))
+- **ai-agents:** enhance tool system with MCP transports and validation ([6dabdb1](https://github.com/your-org/ai-teams-engine/commit/6dabdb1e2e94865eb7c2e20e4a43ca139207cdc2))
+- **ai-agents:** implement complete tool system enhancement ([316b0cc](https://github.com/your-org/ai-teams-engine/commit/316b0ccd58a00ae9bbcf8c7fc6d73fed59b0f17d))
+- **ai-agents:** implement complete tool system enhancement ([423d037](https://github.com/your-org/ai-teams-engine/commit/423d0372b489e00bcb41727a327bb0c89e84303a))
+- **ai-agents:** implement complete tool system with Function Calling support ([e62b016](https://github.com/your-org/ai-teams-engine/commit/e62b016b1f0c8ffdb070692a2f3458f837565ba9))
+- **ai-agents:** integrate ai-teams and other modules with specialized agents ([1127195](https://github.com/your-org/ai-teams-engine/commit/11271956e65a49685442a0f9298c57b0325cf8fd))
+- **ai-ask:** add inspirational quote display on welcome screen ([54ea5ee](https://github.com/your-org/ai-teams-engine/commit/54ea5ee47a7bd792d3011d40894ed7cc2ccd7a86))
+- **ai-ask:** expand to 57 quotes with theme-matched backgrounds ([f76023d](https://github.com/your-org/ai-teams-engine/commit/f76023decff9bd9a5e740eedaa825ffa9a200d31))
+- **ai-ask:** integrate ai-agents tool capabilities ([8e29d8c](https://github.com/your-org/ai-teams-engine/commit/8e29d8c6766a6109c77e5b2ff79bb7b849a6d81b))
+- **ai-ask:** integrate RAG knowledge base query ([b878ed6](https://github.com/your-org/ai-teams-engine/commit/b878ed698255a3fa4cde5be08842b98744fec31b))
+- **ai-coding:** add AI Coding multi-agent collaboration feature ([6fee394](https://github.com/your-org/ai-teams-engine/commit/6fee394835c3a30cc6153dcdb10181effa90c948))
+- **ai-coding:** add backend project preview support ([a3c5b06](https://github.com/your-org/ai-teams-engine/commit/a3c5b06c588f7e65166fd2066526a1d6c2305c06))
+- **ai-coding:** add clickable output items to view generated content ([ae0d182](https://github.com/your-org/ai-teams-engine/commit/ae0d1822b54958dcd75a6a1b40aa009f547605d0))
+- **ai-coding:** add complete backend module with multi-agent system ([3ae2548](https://github.com/your-org/ai-teams-engine/commit/3ae25488047445b458c84cd7c170d3a8e6f10a3b))
+- **ai-coding:** add comprehensive software engineering enhancements ([0950946](https://github.com/your-org/ai-teams-engine/commit/09509466e633a5db12f6f84f6da809d28cd636c7))
+- **ai-coding:** add enhanced development visualization ([f34ec63](https://github.com/your-org/ai-teams-engine/commit/f34ec63e87bf9f3ef1e2c7c1a01b0cb0a10056aa))
+- **ai-coding:** add multi-agent collaboration system and fix settings ([9b9887f](https://github.com/your-org/ai-teams-engine/commit/9b9887f396e5f4a0f7170f2edd82ec8147508cb3))
+- **ai-coding:** add navigation from agent cards to outputs ([82a4977](https://github.com/your-org/ai-teams-engine/commit/82a49775b2d1e27d6c4771116a8180d30496d3db))
+- **ai-coding:** add project detail page with documents and code viewer ([af16c45](https://github.com/your-org/ai-teams-engine/commit/af16c454d8eb941d26a56bb03850a7ee73b63d3d))
+- **ai-coding:** add WebSocket, Kanban board, and task persistence ([869816e](https://github.com/your-org/ai-teams-engine/commit/869816ef403087b7a3272851ce03cf6af0be67a4))
+- **ai-coding:** connect frontend to real backend API ([776afdb](https://github.com/your-org/ai-teams-engine/commit/776afdbb8ba525bbb787228d7641105778528c0e))
+- **ai-coding:** display real agent outputs in team chat ([559d34f](https://github.com/your-org/ai-teams-engine/commit/559d34fc1f77089929d502efae9f195e33216c74))
+- **ai-coding:** enhance development process visualization ([73555a2](https://github.com/your-org/ai-teams-engine/commit/73555a2ee5f0ff61ff7ec442f5c1551234cad38e))
+- **ai-coding:** fix download/GitHub push and improve UI ([7a7a3c4](https://github.com/your-org/ai-teams-engine/commit/7a7a3c47da2e90afb8e2dc6006dd437a7777ffe2))
+- **ai-developer:** optimize UI layout and add history ([9542b7a](https://github.com/your-org/ai-teams-engine/commit/9542b7a426524abb8949e5dd12bda00151113ec9))
+- **ai-engine:** add ContextEvolutionService for cross-task consistency ([dca9a7d](https://github.com/your-org/ai-teams-engine/commit/dca9a7d8d63cd5eb4f5e38230b6f33d9a9a2d273))
+- **ai-engine:** add database-driven model capabilities configuration ([93844f1](https://github.com/your-org/ai-teams-engine/commit/93844f1235399399ed245c4bd2c4377bbc7a01b6))
+- **ai-engine:** add isReasoning field for reasoning model configuration ([1fd9823](https://github.com/your-org/ai-teams-engine/commit/1fd9823b70f3417fd58d347c258851316d463cde))
+- **ai-engine:** add orchestration services for capability sinking ([27b16a8](https://github.com/your-org/ai-teams-engine/commit/27b16a84a10535f1db345815d5db0f78fc71bf76))
+- **ai-engine:** add robust timeout/retry mechanism to OutputReviewerService ([f524ffe](https://github.com/your-org/ai-teams-engine/commit/f524ffe2d313af1ea0d10625373c760ef9258deb))
+- **ai-engine:** add TaskProfile abstraction for semantic parameter mapping ([862bde1](https://github.com/your-org/ai-teams-engine/commit/862bde1c2c03497d9a57000e6a1bcdc0be000899))
+- **ai-engine:** complete TaskProfile migration across all modules (Phase 2-4) ([dad9f00](https://github.com/your-org/ai-teams-engine/commit/dad9f005f9c48be3c159948b9d0bda485fe60fd0))
+- **ai-engine:** enhance skill system with SKILL.md format support ([2ab7c09](https://github.com/your-org/ai-teams-engine/commit/2ab7c09e447f4d6a588163e8f20b684521b4dbf9))
+- **ai-engine:** implement automatic model fallback mechanism ([981f537](https://github.com/your-org/ai-teams-engine/commit/981f537b660bff7088baee316bfd5cf113386b54))
+- **ai-engine:** implement Tools & Skills integration across all AI modules ([e396c99](https://github.com/your-org/ai-teams-engine/commit/e396c99cd571ce11e93ac9460647c9e21ea8a98a))
+- **ai-engine:** increase timeout for reasoning models (o1, o3, gpt-5) ([1e75c7b](https://github.com/your-org/ai-teams-engine/commit/1e75c7b33806602d03a808b7483e2a6157a86421))
+- **ai-engine:** integrate policy research tools into topic research ([07e913a](https://github.com/your-org/ai-teams-engine/commit/07e913a95e3c77164eed894cbeeae95fd425a640))
+- **ai-engine:** 创建 AiEngineModule 并集成到 AI Teams 和 AI Slides ([aea9b8f](https://github.com/your-org/ai-teams-engine/commit/aea9b8f91cae094f81fcf113e66b95e3b50a2d48))
+- **ai-engine:** 完成 ai-engine 架构重构 ([97b9481](https://github.com/your-org/ai-teams-engine/commit/97b9481d9b90bc8c548157852510444921392323))
+- **ai-engine:** 实现 LongContentEngine 长内容处理引擎 ([8f99937](https://github.com/your-org/ai-teams-engine/commit/8f9993734bd7caaeb331dd2e0a010915cf744145))
+- **ai-engine:** 添加 SkillOutputManager 统一规范 Skill 输出 Key 管理 ([90d3f6b](https://github.com/your-org/ai-teams-engine/commit/90d3f6b01ff41f42497725418b6e03a89f67ac49))
+- **ai-engine:** 添加中国 AI 模型供应商支持 — DeepSeek/Qwen/Doubao/Zhipu/Kimi ([27470b5](https://github.com/your-org/ai-teams-engine/commit/27470b51e0bb78bf10420d3bb3aa9aead384d72b))
+- **ai-group:** add AI capability labels and collaboration indicator ([d532769](https://github.com/your-org/ai-teams-engine/commit/d532769e220c21f77a0378aa1e8ae6806e36c9f4))
+- **ai-group:** add AI model icons and replace sidebar component ([ea0575c](https://github.com/your-org/ai-teams-engine/commit/ea0575c5c33a1f075e993927254c27969525ba8d))
+- **ai-group:** add gemini-image model for image generation ([e21d47c](https://github.com/your-org/ai-teams-engine/commit/e21d47ca7fb33aa7481b1077dbd0259a3ab17ab4))
+- **ai-group:** add member invitation and real AI model support ([a52d8d7](https://github.com/your-org/ai-teams-engine/commit/a52d8d76d591b3d5b57b62915b709335d9520e12))
+- **ai-group:** add member management UI ([2a228bb](https://github.com/your-org/ai-teams-engine/commit/2a228bbdaeef98198e85c1a97d93bc5a92b67aae))
+- **ai-group:** add URL parsing and content understanding ([58de83f](https://github.com/your-org/ai-teams-engine/commit/58de83fd46180ce10340be0b46793e7359147221))
+- **ai-group:** auto-detect debate mode when [@mentioning](https://github.com/mentioning) two AIs ([43b00b0](https://github.com/your-org/ai-teams-engine/commit/43b00b040014761d817ca47f4d07df50c6d547ee))
+- **ai-group:** enhance content extraction and fix task closure ([809a652](https://github.com/your-org/ai-teams-engine/commit/809a6527dd5662624fbb753eb54ecfa9c9edbe0d)), closes [hi#quality](https://github.com/hi/issues/quality)
+- **ai-group:** fix AI-AI collaboration and add debate setup API ([8beb8de](https://github.com/your-org/ai-teams-engine/commit/8beb8de47ab0eed63e38c8cd116f3b344464615d))
+- **ai-group:** implement AI Agent team collaboration feature ([4e880b2](https://github.com/your-org/ai-teams-engine/commit/4e880b2492d92e96e52076ce1c72c7e98c57950e))
+- **ai-group:** implement AI Group multi-user multi-AI collaboration community ([338d182](https://github.com/your-org/ai-teams-engine/commit/338d1823e55b164293ac29f63a873aae4a948411))
+- **ai-group:** implement AI-AI collaboration feature ([c94249d](https://github.com/your-org/ai-teams-engine/commit/c94249d60094a51c8c8ca7b53d3d80dbc2484bdf))
+- **ai-group:** implement complete WebSocket real-time messaging ([45f1847](https://github.com/your-org/ai-teams-engine/commit/45f18474f18f6116f245a18f3c26d89fa64db0ef))
+- **ai-group:** implement intelligent context router based on best practices ([c7239f7](https://github.com/your-org/ai-teams-engine/commit/c7239f7a50ed2a47c0bb92c45905d9a833b7aad2))
+- **ai-group:** implement isolated debate system based on industry best practices ([e1f35ee](https://github.com/your-org/ai-teams-engine/commit/e1f35ee72eec62bafc7b20e14e77ec5b5b256f7a))
+- **ai-group:** integrate message selection and forward in Topic page ([6945c2f](https://github.com/your-org/ai-teams-engine/commit/6945c2fc23d06b843955b9172fbfb96c9a7b8e2a))
+- **ai-group:** major enhancement to AI Group interaction system ([bbce540](https://github.com/your-org/ai-teams-engine/commit/bbce54072d9270ffbf73b9a27f71799e1bd9ea7f))
+- **ai-group:** redesign Mission Progress Panel for better UX ([cdfcda1](https://github.com/your-org/ai-teams-engine/commit/cdfcda16843947b9a0053d32be5f177e7e7bb8a8))
+- **ai-group:** render AI messages as formatted Markdown ([754a11d](https://github.com/your-org/ai-teams-engine/commit/754a11dd458883ba6e3ff5bd59aba014e4897b3b))
+- **ai-image,ai-writing:** add visibility toggle and social share ([07b5aec](https://github.com/your-org/ai-teams-engine/commit/07b5aec8946e4102d245ba7634479709b991b428))
+- **ai-image:** add aspect ratio selector for all input modes ([20f6b12](https://github.com/your-org/ai-teams-engine/commit/20f6b1280c6660cdccde597471c13e25e5ba6113))
+- **ai-image:** add bullet points to center_visual orbit cards ([a5b2d23](https://github.com/your-org/ai-teams-engine/commit/a5b2d236a55008eed444df9f0c93c7908a5dc08a))
+- **ai-image:** add context menu, files prompt, and history loading ([454a9ac](https://github.com/your-org/ai-teams-engine/commit/454a9ac576c20c0c6316074ae93833ffa67f969e))
+- **ai-image:** add delete, bookmark APIs and persist user preferences ([8250767](https://github.com/your-org/ai-teams-engine/commit/82507675f8e52e3545f7a8861553980743e68178))
+- **ai-image:** add Gemini image generation support ([0bdc4d2](https://github.com/your-org/ai-teams-engine/commit/0bdc4d23f65137e40e6703187591430e1e7d1acb))
+- **ai-image:** add Imagen 4 model support ([06bca33](https://github.com/your-org/ai-teams-engine/commit/06bca33e05cc9a8eefbb8e01f1b3e80285638898))
+- **ai-image:** add InputArea component for refactoring preparation ([2cfc4c1](https://github.com/your-org/ai-teams-engine/commit/2cfc4c19f94af74b9a58d33d35ecb835b17efa54))
+- **ai-image:** add mouse wheel scroll navigation in image gallery ([ee271cb](https://github.com/your-org/ai-teams-engine/commit/ee271cbeb7104c15fb0e1fc3aacd7f01f496e087))
+- **ai-image:** add multi-source content extraction and file upload ([cf7b884](https://github.com/your-org/ai-teams-engine/commit/cf7b884babd12fe9d0bdd4449103818fd8a47157))
+- **ai-image:** add ranking template and improve data capacity ([4215613](https://github.com/your-org/ai-teams-engine/commit/42156131a7d7d85b7be1f22cf82b1b3791dcbc99))
+- **ai-image:** add Refine Image feature for image iteration ([90e2a5e](https://github.com/your-org/ai-teams-engine/commit/90e2a5ee44655f2f1caf07f33bdf20652ea8047e))
+- **ai-image:** add two-stage image generation with dual model selection ([0957066](https://github.com/your-org/ai-teams-engine/commit/09570666804bd368bed6f370a1d7601d0d13dc42))
+- **ai-image:** add YouTube tab and processing steps panel ([0f01f03](https://github.com/your-org/ai-teams-engine/commit/0f01f03840d82c36b2833436c7d0a4f47c20eb11))
+- **ai-image:** integrate Visual Design Team 4-Agent collaboration for Imagen 4 ([700805c](https://github.com/your-org/ai-teams-engine/commit/700805cb23cb9740871a49d1d2f95c6d56443746))
+- **ai-image:** redesign homepage with consistent style ([b29436d](https://github.com/your-org/ai-teams-engine/commit/b29436ddcab0c1eb5c938e9bb87bbfb448da02ef))
+- **ai-image:** support URL + description format in URLs input mode ([7df185e](https://github.com/your-org/ai-teams-engine/commit/7df185edcc568d3f3aa9b46b2cc0833d9ca094f2))
+- **ai-models,library:** dynamic model fetching and inline KB detail view ([a1f1a66](https://github.com/your-org/ai-teams-engine/commit/a1f1a6613f4a9b157d9ccdbecc5340368e40c32d))
+- **ai-models:** add Secret Manager selector UI for API key configuration ([aa9df5a](https://github.com/your-org/ai-teams-engine/commit/aa9df5af799ce89fdfa28318bf0a3ce56530b4a1))
+- **ai-models:** implement model type classification system ([d8ba389](https://github.com/your-org/ai-teams-engine/commit/d8ba38984f175f938ceedcf053c5ce3132f5444f))
+- **ai-office:** add AI Slides/Docs/Designer navigation and Create Image style workflow ([7c3ed74](https://github.com/your-org/ai-teams-engine/commit/7c3ed74f4c0de7091b5f0e4bdc90c4edc005e8a6))
+- **ai-office:** add code execution feature for AI Developer ([c31038d](https://github.com/your-org/ai-teams-engine/commit/c31038d4d30934a85670e222cbb8c268dbd30223))
+- **ai-office:** add enhanced PPTX export service ([4fd9b25](https://github.com/your-org/ai-teams-engine/commit/4fd9b25e6231c3daf5a5afb2e124dd865ff127d2))
+- **ai-office:** add history support and fix bugs for AI agents ([48eb724](https://github.com/your-org/ai-teams-engine/commit/48eb7241da7d84c1d5cfda303804d8ae45c1453c))
+- **ai-office:** add inline editing for slides and global sidebar for all pages ([02b7866](https://github.com/your-org/ai-teams-engine/commit/02b78660b72892bb1a173852f2ecc40f4d55e499))
+- **ai-office:** add natural language editing service for PPT ([bca071a](https://github.com/your-org/ai-teams-engine/commit/bca071a6fb3cc0e72edad17d06848b201a5355ca))
+- **ai-office:** add PPT version management service ([8d1753c](https://github.com/your-org/ai-teams-engine/commit/8d1753c7f6891c86c5fdeae343a737c851a94e0c))
+- **ai-office:** add thinking process display and history restoration ([4f94a68](https://github.com/your-org/ai-teams-engine/commit/4f94a68ffe6b92c89efb8642fc4792201263cdb8))
+- **ai-office:** implement AI Docs and AI Designer generation services ([cb70434](https://github.com/your-org/ai-teams-engine/commit/cb70434ac03b92c8b60c4e39e4acd234e68bd21f))
+- **ai-office:** implement embedded tab content components ([dd41e10](https://github.com/your-org/ai-teams-engine/commit/dd41e10d12ff065bcd482e993c451f0010682fa4))
+- **ai-office:** implement natural language intent parsing ([35237df](https://github.com/your-org/ai-teams-engine/commit/35237df0763b55bf0fcb5e192b6d68ac7bbc4fe9))
+- **ai-office:** implement persistent structured AI summary generation ([347052d](https://github.com/your-org/ai-teams-engine/commit/347052d09d157c3652934ede9c9320f193b817c1))
+- **ai-office:** integrate AI Developer into main workspace ([a2bb62d](https://github.com/your-org/ai-teams-engine/commit/a2bb62d065e8a216d025cb9b3207ab543c729822))
+- **ai-office:** integrate full PPT API with image generation ([977ea25](https://github.com/your-org/ai-teams-engine/commit/977ea2536482835c0a6f8cf2d8dc770bc7706add))
+- **ai-office:** redesign AI Slides page with split-panel layout ([e0cd689](https://github.com/your-org/ai-teams-engine/commit/e0cd6898c703433da475e3d9ec40767a63226904))
+- **ai-office:** redesign SlidesTabV3 UI per v3.0 design doc ([de35c2f](https://github.com/your-org/ai-teams-engine/commit/de35c2f84853373d86a30c9719f2661af17e9cb0))
+- **ai-office:** 全面增强PPT视觉系统 ([e2dfaa7](https://github.com/your-org/ai-teams-engine/commit/e2dfaa714a7090aeaf600f035f91424d3072c67a))
+- **ai-research:** add Agent model diversity and enhanced activity tracking ([934ef6c](https://github.com/your-org/ai-teams-engine/commit/934ef6c4179942188e951e7b618601ff52f1e1f6))
+- **ai-research:** add annotation highlights and improve UX ([8db256c](https://github.com/your-org/ai-teams-engine/commit/8db256cedc168e5b11dc90ac77f2b4a273ad9c3e))
+- **ai-research:** add collapsible panels for tasks and conversation ([5aa1973](https://github.com/your-org/ai-teams-engine/commit/5aa1973230a8f45efda4ccd812ea579e1b94965a))
+- **ai-research:** add direct URL route for topic share link ([085d6ef](https://github.com/your-org/ai-teams-engine/commit/085d6ef1dc3a17b222ac101fa7933b1fbe24de6a))
+- **ai-research:** add export, fix credibility scoring and annotation features ([0edc299](https://github.com/your-org/ai-teams-engine/commit/0edc2999554068c73df1abf23dc940f5e1aee1f1))
+- **ai-research:** add fullscreen mode for insight report ([2072aaa](https://github.com/your-org/ai-teams-engine/commit/2072aaa5e4cc82b9b77c534ef7f74200762a18f5))
+- **ai-research:** add health check and recovery system for missions ([cc05f98](https://github.com/your-org/ai-teams-engine/commit/cc05f98e97519e168a8fbf428d3524c60c54038d))
+- **ai-research:** add incremental update mode and modelId display ([b504586](https://github.com/your-org/ai-teams-engine/commit/b5045863e3dda6a70c3e4991b27d6a8984fad9ff))
+- **ai-research:** add modelId to ResearchTask for displaying model in task list ([a9286a5](https://github.com/your-org/ai-teams-engine/commit/a9286a51cc01e8073daa35d55bc9de9a11fee945))
+- **ai-research:** add recalculate evidence credibility UI buttons ([b7b19fd](https://github.com/your-org/ai-teams-engine/commit/b7b19fd0a95becb8c1ba1e5d8667f3376cc1bbaa))
+- **ai-research:** add report reading page with TOC sidebar ([ca7dce2](https://github.com/your-org/ai-teams-engine/commit/ca7dce2f314517a169579a019ce637a1060e628b))
+- **ai-research:** add search time range filter and i18n support ([12f9db6](https://github.com/your-org/ai-teams-engine/commit/12f9db61f9f2b6e1bc5c9b5d7c3676fc1bf836ab))
+- **ai-research:** add three task buttons and fix multiple UI issues ([d26a1af](https://github.com/your-org/ai-teams-engine/commit/d26a1aff3361635f93eda2e7edcc4492799ebeb2))
+- **ai-research:** add visible logging for skills/tools assignments ([4684fc8](https://github.com/your-org/ai-teams-engine/commit/4684fc83641823e2f11748b5b6b5b692c4845ebe))
+- **ai-research:** display AI model ID in Agent popup ([7e531e6](https://github.com/your-org/ai-teams-engine/commit/7e531e615cc1cd5e17ff47a5afe6b7a4cd1ff910))
+- **ai-research:** display AI model in Agent info popup ([e44cbe6](https://github.com/your-org/ai-teams-engine/commit/e44cbe69e4d85342e6a672f031b1ef100182b0d0))
+- **ai-research:** improve share page and fix multiple issues ([9bb55f9](https://github.com/your-org/ai-teams-engine/commit/9bb55f9e72a2b713b6eb9440ff42b543356ab898)), closes [#N](https://github.com/your-org/ai-teams-engine/issues/N)
+- **ai-research:** improve UX with timeline, filters and collaboration panel ([fc1e8a6](https://github.com/your-org/ai-teams-engine/commit/fc1e8a6b098e037372dd6e289b7f69c6aedae9a0))
+- **ai-research:** increase parallel researchers to 5 ([0e6630a](https://github.com/your-org/ai-teams-engine/commit/0e6630a72b302c90b0162edb8037a0622541c9a8))
+- **ai-research:** increase team visualization to support 6 researchers ([3ef1671](https://github.com/your-org/ai-teams-engine/commit/3ef1671e7c5459a2423b037143a31d32d89b4018))
+- **ai-research:** redesign task list as flat table with model column ([36df977](https://github.com/your-org/ai-teams-engine/commit/36df977ba84ebf64ccc362c665148194f905ab7a))
+- **ai-research:** refactor task list to table format with status indicators ([839f168](https://github.com/your-org/ai-teams-engine/commit/839f168ab3e01b5a7f732e3f995d76f5819e0443))
+- **ai-simulation:** add external data providers seed script ([064e5a4](https://github.com/your-org/ai-teams-engine/commit/064e5a49c2f0d3a420f19064ca8d5778fa1cdb3f))
+- **ai-simulation:** add SSE real-time updates and report API ([b59e99f](https://github.com/your-org/ai-teams-engine/commit/b59e99f1e9ea5a9ab2de453abb6d3357b4668701))
+- **ai-simulation:** complete wizard-style EditorModal refactoring ([18102fd](https://github.com/your-org/ai-teams-engine/commit/18102fd6cf225f99d0ae14141ed0b71f7e066f39))
+- **ai-simulation:** unify layout with system style and improve UX ([9e80086](https://github.com/your-org/ai-teams-engine/commit/9e8008624541b1c51f149b489787aed7a400434e))
+- **ai-skills:** integrate real SkillsMP API data ([cc45fb7](https://github.com/your-org/ai-teams-engine/commit/cc45fb76a36208431fdf1c40ec47f10292eff1a4))
+- **ai-slides:** add Genspark-style UI improvements ([31e9a7a](https://github.com/your-org/ai-teams-engine/commit/31e9a7a0427da32e2f7a5ab7c30b2a6e626c907c))
+- **ai-slides:** add premium themes and enhanced decoration system ([43f7e53](https://github.com/your-org/ai-teams-engine/commit/43f7e53a23e929ced17f485d7a7bb06644f6c2b6))
+- **ai-slides:** add professional HTML template library ([60f84f4](https://github.com/your-org/ai-teams-engine/commit/60f84f48c42e43ed91decab10a325ff649a3f10c))
+- **ai-slides:** enhance data extraction and add ECharts generator with theme support ([5e88f3d](https://github.com/your-org/ai-teams-engine/commit/5e88f3d717b69f0c297b1ef669f27873f2a0bd92))
+- **ai-slides:** optimize content generation prompts and fix preview scaling ([b57fbe8](https://github.com/your-org/ai-teams-engine/commit/b57fbe8708e4598060f187b7a0d33d90dca28ec1))
+- **ai-social:** add AI Social module for social media publishing ([c2fef1c](https://github.com/your-org/ai-teams-engine/commit/c2fef1c8f6dbaca86be0786fc0049c46416e96a9))
+- **ai-social:** add AI-generated cover image support ([f299afd](https://github.com/your-org/ai-teams-engine/commit/f299afd6b03b42c1969e149cbc0356f1ab624ecf))
+- **ai-social:** add entry point logging for 500 error debugging ([258cbd1](https://github.com/your-org/ai-teams-engine/commit/258cbd1ac664f6b504d7ab9a1345d6f0fe50ef49))
+- **ai-social:** add friendly progress indicator and extend timeout ([ee4fc61](https://github.com/your-org/ai-teams-engine/commit/ee4fc61a162242ea7b1cd997bcd1cda35c913cb6))
+- **ai-social:** add publish logs and improve content management ([b2ef504](https://github.com/your-org/ai-teams-engine/commit/b2ef504cf3ee3ab991ee66754e4583e950e5b4ce))
+- **ai-social:** add session health check scheduler with expiry notifications ([02ae48b](https://github.com/your-org/ai-teams-engine/commit/02ae48b4061dfc8d09f7c49ffd53d586ba544789))
+- **ai-social:** implement content creation flow ([b575541](https://github.com/your-org/ai-teams-engine/commit/b57554193d73f3e9576fa0f414cd669fcb8e81d8))
+- **ai-social:** improve content fetching and add bilingual output support ([7222052](https://github.com/your-org/ai-teams-engine/commit/72220521e71ead92d3c218a5b11582acac2eacd6))
+- **ai-social:** integrate real API hooks and complete module implementation ([efd0186](https://github.com/your-org/ai-teams-engine/commit/efd018671eb780701d7b1aec30e0c39354898280))
+- **ai-social:** redesign create flow with 3-step wizard UX ([49dfabc](https://github.com/your-org/ai-teams-engine/commit/49dfabc4527e288dd4932a8b1f5560c51dbde857))
+- **ai-studio:** add AI model selector dropdown in Chat panel ([a639899](https://github.com/your-org/ai-teams-engine/commit/a639899da0c467fc40bb39bbb237812aaff89a89))
+- **ai-studio:** add batch delete functionality for sources ([bee6526](https://github.com/your-org/ai-teams-engine/commit/bee6526049b7d4342e3e3be06c6d750c2ccb69dc))
+- **ai-studio:** add bulk import and markdown rendering ([8f4bbc1](https://github.com/your-org/ai-teams-engine/commit/8f4bbc1fa00c743a53003d315a34a97a5636926b))
+- **ai-studio:** add edit/delete functionality for artifacts ([4f1ceec](https://github.com/your-org/ai-teams-engine/commit/4f1ceec6d1564d8a3bc4136ca95834bc790de44d))
+- **ai-studio:** add Flashcards, Quiz, and Mind Map output types ([5ed1267](https://github.com/your-org/ai-teams-engine/commit/5ed1267898fd3aceb378b8293bfbfda82f2e2b83))
+- **ai-studio:** implement Deep Research with streaming and thinking chain ([043a041](https://github.com/your-org/ai-teams-engine/commit/043a041746e4e40f04451360fcb7c5984ae33219))
+- **ai-studio:** implement file upload and output viewer ([a7b6c5f](https://github.com/your-org/ai-teams-engine/commit/a7b6c5f76ffd3b8f382938c0dc05a5ba6b629b90))
+- **ai-studio:** implement NotebookLM-style citation system ([1dc3e2a](https://github.com/your-org/ai-teams-engine/commit/1dc3e2a200d29ab6d0892492070bd3aff8aff04b))
+- **ai-studio:** implement NotebookLM-style research project management ([58d14ff](https://github.com/your-org/ai-teams-engine/commit/58d14ff55ae0cc8ba5ca6801db4a72e8fa4b9ca5))
+- **ai-studio:** implement Quick Search and Deep Research modes ([9eff76d](https://github.com/your-org/ai-teams-engine/commit/9eff76db70b96476a804f8cd78638e79d6a92be3))
+- **ai-studio:** implement real AI chat with source context ([61c4338](https://github.com/your-org/ai-teams-engine/commit/61c433894305a7fbaa94bfa3e116b0bba8395d39))
+- **ai-studio:** improve Artifacts sidebar with resize and collapse ([6a23888](https://github.com/your-org/ai-teams-engine/commit/6a23888aadd08a348330b3ee34afed186aac3731))
+- **ai-studio:** integrate Deep Research panel with mode toggle ([0473699](https://github.com/your-org/ai-teams-engine/commit/04736994778b485d0031eafef340d3e49883386b))
+- **ai-studio:** integrate multi-source internet search ([b7eeb48](https://github.com/your-org/ai-teams-engine/commit/b7eeb4815ede57b50b97d580216d243260de48e7))
+- **ai-studio:** refactor Research with Tab navigation and immersive UI ([b795d2d](https://github.com/your-org/ai-teams-engine/commit/b795d2d2fbd551732898c55ce1a4b1f0d6faf3bf))
+- **ai-studio:** replace all demo data with real backend API calls ([bdc361d](https://github.com/your-org/ai-teams-engine/commit/bdc361d65767fb601fe4d4711300a26ce5c60605))
+- **ai-studio:** use global Sidebar and add search source toggle ([06f5b2e](https://github.com/your-org/ai-teams-engine/commit/06f5b2e5533348abaf9cdf89403dedaf90ba49ab))
+- **ai-teams:** add Canvas view for Agent collaboration visualization ([13823cf](https://github.com/your-org/ai-teams-engine/commit/13823cf861c6f46404251bbc0c68548528b06842))
+- **ai-teams:** add collapsible left sidebar panel ([e476a0c](https://github.com/your-org/ai-teams-engine/commit/e476a0c26050d893362e974f184ac29f69fe12a4))
+- **ai-teams:** add collapsible sidebar sections and improve PDF report ([c514849](https://github.com/your-org/ai-teams-engine/commit/c514849749eb495d1e0ad4f96aa065180f2d6e0d))
+- **ai-teams:** add continue/cancel actions and canvas focus ([1a9f2c9](https://github.com/your-org/ai-teams-engine/commit/1a9f2c9cebfe8f8d8e50c51408fc91ed0a4d4c66))
+- **ai-teams:** add embedded Canvas view in main content area ([d09e62f](https://github.com/your-org/ai-teams-engine/commit/d09e62f00d41622f52c8cc94db87bd0cd32ee5f8))
+- **ai-teams:** add fullscreen Canvas view with interactive visualization ([fdde963](https://github.com/your-org/ai-teams-engine/commit/fdde963d45b558506dc769c92b21d827f23a414e))
+- **ai-teams:** add LeaderModelService for retry and model switching ([497728e](https://github.com/your-org/ai-teams-engine/commit/497728e2725ad9d3c044b70380700ff09b8d11ee))
+- **ai-teams:** add mission pause/resume functionality ([77dc6bb](https://github.com/your-org/ai-teams-engine/commit/77dc6bba2a4c76de9ec5cd2f163a10dfb67031c7))
+- **ai-teams:** add mission retry and @Leader command trigger ([88b19c7](https://github.com/your-org/ai-teams-engine/commit/88b19c7db79820c54147638c2adb6ec63898c171))
+- **ai-teams:** add popover UI for Canvas node and connection details ([71f4bc6](https://github.com/your-org/ai-teams-engine/commit/71f4bc63edc6bd946e6440ea723b08508400fe4b))
+- **ai-teams:** add professional PDF report generation for missions ([08297e5](https://github.com/your-org/ai-teams-engine/commit/08297e5a4d0e04d67e9af0b28e758ba3080410eb))
+- **ai-teams:** add public team discovery and join request system ([5e719d4](https://github.com/your-org/ai-teams-engine/commit/5e719d42c3b9dc47443e34ab6a8a13da4b3fefd2))
+- **ai-teams:** complete ai-agents integration with tool capabilities ([2e6a110](https://github.com/your-org/ai-teams-engine/commit/2e6a110c9ad0bdc6d8e6f1323dbc09b6978d3af5))
+- **ai-teams:** display agent short name inside circle instead of initial ([a6b17c0](https://github.com/your-org/ai-teams-engine/commit/a6b17c0ca10e24106f82848649b733d8e2e701d8))
+- **ai-teams:** enable canvas panning with left-click on empty area ([e688964](https://github.com/your-org/ai-teams-engine/commit/e6889644237095016ded1c7898e3f80c2f079dc7))
+- **ai-teams:** enhance Canvas node display and layout ([556ce9b](https://github.com/your-org/ai-teams-engine/commit/556ce9bb8508efc627b1aa935add50739769fd81))
+- **ai-teams:** improve mission report PDF structure and content ([51489fd](https://github.com/your-org/ai-teams-engine/commit/51489fdbfd567e74d066219bd433016c369f4be0))
+- **ai-teams:** integrate web search for real-time data in task execution ([511f59a](https://github.com/your-org/ai-teams-engine/commit/511f59ae860ba72e3e892abd0b78b039137d1eec))
+- **ai-teams:** professional brand-based Canvas node design ([bb0262a](https://github.com/your-org/ai-teams-engine/commit/bb0262af656bdee2b8255d866fa0b346de37c493))
+- **ai-teams:** replace AI icons with real company logos ([4e23e5b](https://github.com/your-org/ai-teams-engine/commit/4e23e5b971241b54f5f68e7978e060d48ec0d8bd))
+- **ai-teams:** replace Canvas input with action buttons ([96453fe](https://github.com/your-org/ai-teams-engine/commit/96453fe755887a370ed2db7e2e0689d80b68bccf))
+- **ai-teams:** show input in Canvas mode and set Canvas as default ([f48a1ce](https://github.com/your-org/ai-teams-engine/commit/f48a1ce5b0582b579d7c012209cad2a69ecdba74))
+- **ai-teams:** 优化团队卡片视觉效果，添加公开/私有切换功能 ([eb15182](https://github.com/your-org/ai-teams-engine/commit/eb151821efb6ce2c16926eb734be1ddb834fb11c))
+- **ai-teams:** 增强约束提取支持人设描述模式 ([d5796df](https://github.com/your-org/ai-teams-engine/commit/d5796df52a27fd19ec62a11bba2acad17029470a))
+- **ai-teams:** 完善任务管理功能和UI优化 ([75b90e5](https://github.com/your-org/ai-teams-engine/commit/75b90e58a500b92136d0d59961c294fdac3baba3))
+- **ai-teams:** 实现任务自动重试和 Agent 智能切换机制 ([8064d0f](https://github.com/your-org/ai-teams-engine/commit/8064d0ffa07ffabfcd67b12df708455400378ea5))
+- **ai-teams:** 实现大上下文处理方案，保证长文本数据完整性 ([81c6895](https://github.com/your-org/ai-teams-engine/commit/81c68950ceaf036d23458bf87dc7bd868357e3e5))
+- **ai-teams:** 架构系统性完善 - 可观测性、安全性、持久化 ([058810f](https://github.com/your-org/ai-teams-engine/commit/058810fd30f8480546bea6774dc9205c12dbcae2))
+- **ai-teams:** 添加历史任务管理功能 ([5c32184](https://github.com/your-org/ai-teams-engine/commit/5c321841836fce1961c5691eb31605106a963af9))
+- **ai-teams:** 添加心跳机制并优化任务执行效率 ([3a5d6a1](https://github.com/your-org/ai-teams-engine/commit/3a5d6a14401d87416d96d6fdab21902da3a698f2))
+- **ai-teams:** 添加聊天记录导出功能 ([c193e5f](https://github.com/your-org/ai-teams-engine/commit/c193e5fb34f08060b9926c5ad19992fdb5bbb742))
+- **ai-teams:** 长文上下文管理方案 - Phase 1&2 完整实现 ([15b6838](https://github.com/your-org/ai-teams-engine/commit/15b68381652f3ac3abfed2da08a062f532f7d26c))
+- **ai-teams:** 集成 LongContentEngine 到 TeamMissionService ([6668b4d](https://github.com/your-org/ai-teams-engine/commit/6668b4d2b2fbdfedfb441c54778a1024be69dd86))
+- **ai-writing,ai-image:** add quality system and expand style options ([750a8d9](https://github.com/your-org/ai-teams-engine/commit/750a8d9d8d6654f55ca5db7fd56f16ddb25b782a))
+- **ai-writing:** add @Leader mention support for content editing ([0821564](https://github.com/your-org/ai-teams-engine/commit/0821564788d3ecd556645d8b24d9d44ea0f6f320))
+- **ai-writing:** add admin API to reset corrupted chapter content ([bd3efdb](https://github.com/your-org/ai-teams-engine/commit/bd3efdba695fdb911563778be25b3fbc00e23363))
+- **ai-writing:** add AI Writing module for long-form novel creation ([38a9ed4](https://github.com/your-org/ai-teams-engine/commit/38a9ed4622bd37f39ace8a5178337c42cbde9fbd))
+- **ai-writing:** add chapter 1 opening quality validation and auto-rewrite ([99d2fa4](https://github.com/your-org/ai-teams-engine/commit/99d2fa480f1d5b01c83d571fabf4ba629c8ea35b))
+- **ai-writing:** add chapter editing, revision history, annotations, and import UI ([260b4a2](https://github.com/your-org/ai-teams-engine/commit/260b4a2d09a15f95aa88cd3bdea00f0908d5c161))
+- **ai-writing:** add chapter modal and task card edit/delete ([c916836](https://github.com/your-org/ai-teams-engine/commit/c916836699dda0748a230b9845078f66faf3c414))
+- **ai-writing:** add chapter review/import feature + fix quality gate loop ([10b59ce](https://github.com/your-org/ai-teams-engine/commit/10b59ceab1d8544d75f6b13182644876a9cbc0ad))
+- **ai-writing:** add Chinese history knowledge base for world building ([fe78889](https://github.com/your-org/ai-teams-engine/commit/fe7888937a401eb2491300dbc4cc9fcfc44203c1))
+- **ai-writing:** add comprehensive Chinese historical knowledge database ([38bbe7c](https://github.com/your-org/ai-teams-engine/commit/38bbe7c6eea3ab6046b4e35843ad5ccec0c28de8))
+- **ai-writing:** add dynamic model selection and content saving ([fc33876](https://github.com/your-org/ai-teams-engine/commit/fc33876d1445ffabe0402926cfb03bf632b4b787))
+- **ai-writing:** add export dropdown with multiple formats and fix UI flickering ([69004b7](https://github.com/your-org/ai-teams-engine/commit/69004b7500baa0e8d9ffb32d7d9eaadbe342c807))
+- **ai-writing:** add floating menu to public reader & fix chapter completion detection ([3e05339](https://github.com/your-org/ai-teams-engine/commit/3e053396e1bbde23db4e71435decc57f8f0a6762))
+- **ai-writing:** add health check service for stuck missions ([722fe07](https://github.com/your-org/ai-teams-engine/commit/722fe073e7bdebd3340fb8e87c9bef3461c8561d))
+- **ai-writing:** add multi-round agent fix loop and chapter quality evaluator ([0a19a5d](https://github.com/your-org/ai-teams-engine/commit/0a19a5de92081eab082bdc89054f3b20f97262ee))
+- **ai-writing:** add NarrativeCraftService to prevent AI writing patterns ([4b48419](https://github.com/your-org/ai-teams-engine/commit/4b48419ccc1c6e200a8c6538c036d1273ef5af78))
+- **ai-writing:** add new project creation page ([481603f](https://github.com/your-org/ai-teams-engine/commit/481603f6ad2d862eb79c2b4f19cd413ca6c68e6e))
+- **ai-writing:** add one-click AI writing feature ([ac387c9](https://github.com/your-org/ai-teams-engine/commit/ac387c91e70dfef6970b7a930791b1ab2559c04e))
+- **ai-writing:** add pagination support for mission logs ([0ecd988](https://github.com/your-org/ai-teams-engine/commit/0ecd9888fab781662f25e90d49ab1edc3b14bed2))
+- **ai-writing:** add project detail page ([d7da696](https://github.com/your-org/ai-teams-engine/commit/d7da696d5b9020f4c84b0c267faf1472b4993cb0))
+- **ai-writing:** add public share page, PDF export fix, and continue task button ([05e2ab2](https://github.com/your-org/ai-teams-engine/commit/05e2ab297303120ee7ed0c4e72973fa6d0e0cc67))
+- **ai-writing:** add Railway database migration script for v2 improvements ([4fbf28d](https://github.com/your-org/ai-teams-engine/commit/4fbf28d3826a2a8a5fa8dfc7856ba10d92202ca1))
+- **ai-writing:** add relationship graph, consistency check, multi-turn dialogue ([c864596](https://github.com/your-org/ai-teams-engine/commit/c864596e2edf51049fcfd3bf5211e79af5030c3b))
+- **ai-writing:** add Task Details tab for mission conversation history ([c6c6a38](https://github.com/your-org/ai-teams-engine/commit/c6c6a38f65444f416a5f1c2bbec432c80863c8a9))
+- **ai-writing:** add WebSocket real-time updates and Canvas visualization ([bdb69a1](https://github.com/your-org/ai-teams-engine/commit/bdb69a170019b3bd6e65f9e3b2c0b21ca7e93a6c))
+- **ai-writing:** add worldview tab and fix chapter display ([59cebd2](https://github.com/your-org/ai-teams-engine/commit/59cebd299bb02e252e1f46b121cffb278e4ae55a))
+- **ai-writing:** add Writing Agents and Mission system integration ([d56437e](https://github.com/your-org/ai-teams-engine/commit/d56437e4a5117a0fec366d36b2d71e1e4dc9d5d0))
+- **ai-writing:** add writing style presets and improve content quality ([1b21fad](https://github.com/your-org/ai-teams-engine/commit/1b21fadb211d7f9143ecf697790a9a141649b398))
+- **ai-writing:** add writing style selection UI for users ([085fff3](https://github.com/your-org/ai-teams-engine/commit/085fff35f400507f1b3102013ea95276168fccdd))
+- **ai-writing:** auto-generate book title from user prompt ([da608e4](https://github.com/your-org/ai-teams-engine/commit/da608e41426d02a44a733af9250ebb266b37862a))
+- **ai-writing:** complete rewrite with AI Teams pattern ([ee11396](https://github.com/your-org/ai-teams-engine/commit/ee1139699ec3a41563ec78454d86c5dceb97231c))
+- **ai-writing:** comprehensive quality enhancement system ([f5ba299](https://github.com/your-org/ai-teams-engine/commit/f5ba299f98f569e8a22db6a6271c4145689ca312))
+- **ai-writing:** comprehensive quality optimization for AI novel generation ([bf2e9af](https://github.com/your-org/ai-teams-engine/commit/bf2e9af7e3480ba746a965cbad10ce2302a46c99))
+- **ai-writing:** comprehensive system improvements based on failure analysis ([6825695](https://github.com/your-org/ai-teams-engine/commit/682569549f897157eed759b2453be8f6eb640a46))
+- **ai-writing:** enhance agents with quality services integration ([fc86e9c](https://github.com/your-org/ai-teams-engine/commit/fc86e9ca3251891ed507cd0f74ed91b45dd6a9e9))
+- **ai-writing:** enhance ending quality constraints and detection ([fddef77](https://github.com/your-org/ai-teams-engine/commit/fddef77ea29cd855390a3074189a0b79af084f7e))
+- **ai-writing:** enhance Keeper agent + add mission logs sync ([1a8161d](https://github.com/your-org/ai-teams-engine/commit/1a8161d462de145ecc928fdb1a179a5dc8bfdb37))
+- **ai-writing:** enhance professional voice system with more templates ([f2cba47](https://github.com/your-org/ai-teams-engine/commit/f2cba47fc76262250a08c9704b5758ac6ae43a1a))
+- **ai-writing:** enhance quality system with semantic consistency and expression alternatives ([b5661af](https://github.com/your-org/ai-teams-engine/commit/b5661af3f1029d69d605634727183b2c50d10d4a))
+- **ai-writing:** enhance Story Bible to extract ALL named characters ([3c1f805](https://github.com/your-org/ai-teams-engine/commit/3c1f805df0bb6693fb254817057bde20565aa3d7))
+- **ai-writing:** enhance Story Bible with unified agent config and Qing dynasty knowledge ([495ad5f](https://github.com/your-org/ai-teams-engine/commit/495ad5ffd1bc9b2a60832a0fd8874330190a19bd))
+- **ai-writing:** enhance Team交互区 with detailed WebSocket events ([fa5011a](https://github.com/your-org/ai-teams-engine/commit/fa5011a565edb7a1ce565ba0f1ac6e1341fc9305))
+- **ai-writing:** expand sensory immersion with 6 new scene templates ([d5979e5](https://github.com/your-org/ai-teams-engine/commit/d5979e53cd8db7e85f618a63255041f36c737340))
+- **ai-writing:** expand to 8 agents with parallel execution support ([e3bd3aa](https://github.com/your-org/ai-teams-engine/commit/e3bd3aa4d6d6b1e36a9c0e687e452e9e0b526544))
+- **ai-writing:** implement 3-layer quality enforcement for narrative craft ([3d4b2bf](https://github.com/your-org/ai-teams-engine/commit/3d4b2bfe2d05a6bd1b03ff912ca03dac2fcc55b5))
+- **ai-writing:** implement intelligent @Leader task dispatch ([3ce125f](https://github.com/your-org/ai-teams-engine/commit/3ce125f4384d0f130250d67c3beb2e39d8547dfd))
+- **ai-writing:** implement three-layer style configuration system ([a93eb4c](https://github.com/your-org/ai-teams-engine/commit/a93eb4c84806933376f456d9462614cb530aa0e0))
+- **ai-writing:** improve chapter display and UI layout ([f5f0d67](https://github.com/your-org/ai-teams-engine/commit/f5f0d67b26ff71979c20e8b570f0309b73f6a74a))
+- **ai-writing:** improve chapter title generation and rename nav items ([4b71a72](https://github.com/your-org/ai-teams-engine/commit/4b71a729fa8c452ec30378c66f0488e5572aea43))
+- **ai-writing:** improve relationship graph layout with zone-based algorithm ([6a7261f](https://github.com/your-org/ai-teams-engine/commit/6a7261fb7c70b188f890f915522dbc71e2566972))
+- **ai-writing:** integrate foreshadowing and pacing control services ([ad3c31e](https://github.com/your-org/ai-teams-engine/commit/ad3c31e55e6bea09819c5bd3e68e0d43bd70b42b))
+- **ai-writing:** integrate pacing control service into quality constraints ([b209be5](https://github.com/your-org/ai-teams-engine/commit/b209be544765f00650cb35dccdb96197bcf83148))
+- **ai-writing:** show detailed info in Team交互区 instead of just statistics ([fe16023](https://github.com/your-org/ai-teams-engine/commit/fe1602343ccc9e491b6c0989f5399f1831ae2f3e))
+- **ai-writing:** show full 8-agent team with two-row layout ([74c2ae3](https://github.com/your-org/ai-teams-engine/commit/74c2ae31d69f695774586da31bfb2de3e9fbb051))
+- **ai-writing:** user-first redesign with 5-agent visualization ([84e307a](https://github.com/your-org/ai-teams-engine/commit/84e307abd23239d8548d514e5e01fc1ad0703b89))
+- **ai:** add CHAT_FAST tier for low-cost operations ([ffd2c03](https://github.com/your-org/ai-teams-engine/commit/ffd2c033ebfc89b4c271e810fb10e9d35c58ac32))
+- **ai:** add check-topic-ai endpoint to diagnose AI member configuration ([848cc73](https://github.com/your-org/ai-teams-engine/commit/848cc737ad730a967676ed187050ecff6e3c560d))
+- **ai:** add DALL-E 3 image generation for GPT-4 ([2ee6d74](https://github.com/your-org/ai-teams-engine/commit/2ee6d743c8cac9d3740aadf1734573f160bd8ee4))
+- **ai:** add detailed logging for OpenAI and Gemini API calls ([83d97c1](https://github.com/your-org/ai-teams-engine/commit/83d97c1baaf02a65d1ba71532e47d75c598d3dcd))
+- **ai:** add diagnostic endpoints for AI model configuration ([0aa8201](https://github.com/your-org/ai-teams-engine/commit/0aa8201ef5884c42dee31feaf4ca03bcac4848ed))
+- **ai:** add dynamic AI model list from database ([9bc320e](https://github.com/your-org/ai-teams-engine/commit/9bc320e9d0ab99c2456c7f6ae5001aace587a4fc))
+- **ai:** add Gemini image generation support ([f6a874f](https://github.com/your-org/ai-teams-engine/commit/f6a874f39b16b7619d6135f0d67ba21838a0e7c4))
+- **ai:** add Google Imagen API support for image generation ([4c217ac](https://github.com/your-org/ai-teams-engine/commit/4c217acbe501acb9a949e02b63cb31b6f3e43a32))
+- **ai:** add model usage logging for tier visibility ([e7ab5b6](https://github.com/your-org/ai-teams-engine/commit/e7ab5b624a54e6df922d86084f13684f426037d6))
+- **ai:** add real-time search and Topic resource context injection ([6c2600a](https://github.com/your-org/ai-teams-engine/commit/6c2600aa5945f423fc7e688f2022d488264a7083))
+- **ai:** add URL content fetching and reorganize admin tabs ([f91c266](https://github.com/your-org/ai-teams-engine/commit/f91c26604fea8fb7cc06460791aee75e5c4c30d8))
+- **ai:** cache AI analysis in database to save resources ([600995c](https://github.com/your-org/ai-teams-engine/commit/600995c4cf139d3c457dbf99510e8e7e95cfed4c))
+- **ai:** integrate AI endpoints into NestJS backend ([1220981](https://github.com/your-org/ai-teams-engine/commit/12209817263f18042bc7b585551c18ba90c45c99))
+- **ai:** upgrade Gemini API to 2.0 Flash model ([9c76d3c](https://github.com/your-org/ai-teams-engine/commit/9c76d3c2f07e8356d99d937b7e196a837689fcb2))
+- **ai:** use Imagen 3 for image models to improve quality ([5c2dd5c](https://github.com/your-org/ai-teams-engine/commit/5c2dd5c3de225b6022f60256fe264c3383c51533))
+- **ai:** wire tier-based fast/strong models and external storage ([543dcf2](https://github.com/your-org/ai-teams-engine/commit/543dcf27d7b8308a7e52dee5733f0e579f7797ef))
+- **api:** add frontend API routes for AI Agents ([ba0e9bf](https://github.com/your-org/ai-teams-engine/commit/ba0e9bf60c04f3130e7147b528296d3c455755af))
+- arbiter can reject actions with insufficient funds ([091028d](https://github.com/your-org/ai-teams-engine/commit/091028d8842659f1b4189ac24c4417ea005e7417))
+- **arch:** add unified AI orchestration and streaming modules ([8bbcf00](https://github.com/your-org/ai-teams-engine/commit/8bbcf0040dd8e6bc55af47e13937e33a6e308904))
+- **ask:** add Web Search toggle (default enabled) ([db1b29d](https://github.com/your-org/ai-teams-engine/commit/db1b29d13a81c13cbc49426593a0b87904d50f82))
+- **auth:** implement login history recording ([2a8bb21](https://github.com/your-org/ai-teams-engine/commit/2a8bb21f39108f7cc1bd0dcffe4dd436d2213c26))
+- auto cleanup old images, keep max 20 per user ([1d37805](https://github.com/your-org/ai-teams-engine/commit/1d378053d77e2376ac03d97b5501ce1172fdd866))
+- auto-detect WeChat URLs in text messages and sync to RAG ([c747b72](https://github.com/your-org/ai-teams-engine/commit/c747b72f91d8f0a1626644350bfd8237f518190c))
+- **backend:** add P1 improvements for performance and code quality ([2682073](https://github.com/your-org/ai-teams-engine/commit/2682073f542ab45318c4e4567b60f4e37fc87ae8))
+- **backend:** implement web search in simple-chat API ([1889898](https://github.com/your-org/ai-teams-engine/commit/188989836188b500e67324b868dbab243fbc3fe8))
+- **backend:** migrate MongoDB to PostgreSQL JSONB - save \$15/month ([328d14e](https://github.com/your-org/ai-teams-engine/commit/328d14e9a2ef9e8eca082b6d15d21feeb5e2c1d4))
+- **backend:** migrate Neo4j to PostgreSQL for cost optimization ([1e29ab1](https://github.com/your-org/ai-teams-engine/commit/1e29ab180b4499ca0df6460f99e65410f535ab8c))
+- **branding:** rebrand to Raven with flock logo and shimmer effect ([1c20d63](https://github.com/your-org/ai-teams-engine/commit/1c20d633250f391ba782a09485f482ec0b122c89))
+- **branding:** redesign logo to circular collaboration style ([d9c697e](https://github.com/your-org/ai-teams-engine/commit/d9c697e4e905bf3aa3b72508a26d1d46fad0dbde))
+- change logo badge from MVP to Beta ([f11d91c](https://github.com/your-org/ai-teams-engine/commit/f11d91cb3e6c0e14a53e4b99df7e75322b509b58))
+- chaos agent random actions and irrational bias toggle ([7142d47](https://github.com/your-org/ai-teams-engine/commit/7142d47378e485ba27013f16e12ac3a1aa2471ef))
+- **citations:** implement NotebookLM-style quote highlighting ([3eb3377](https://github.com/your-org/ai-teams-engine/commit/3eb33777bfc0404ba0086a01140f1d800edd0151))
+- **claude:** add comprehensive Claude Code skills for development ([ab3be7c](https://github.com/your-org/ai-teams-engine/commit/ab3be7c6f5ece61109e2060fb47451c1b8af1c80))
+- **collection:** add YouTube video duration filter ([8aac0de](https://github.com/your-org/ai-teams-engine/commit/8aac0de8c84cf0861672a9eac2a264090e9a938b))
+- complete AI Simulation feature implementation with industry best practices ([db793a6](https://github.com/your-org/ai-teams-engine/commit/db793a6b650e9de2fc375cbbecb4070b5de988df))
+- complete P0 priority improvements ([c4f2d9d](https://github.com/your-org/ai-teams-engine/commit/c4f2d9d7ab160f04d4637a04b14a63ceac24e90d))
+- complete Reports TAB implementation with full blog collection documentation ([12c19b8](https://github.com/your-org/ai-teams-engine/commit/12c19b86cd2d962a8720814035b32465ea179a5f))
+- comprehensive product design improvements for data collection module ([0f48359](https://github.com/your-org/ai-teams-engine/commit/0f48359965a7eddcbaa862aa573568a51de3f4ca))
+- comprehensive storage management system ([f6168a6](https://github.com/your-org/ai-teams-engine/commit/f6168a664478914f670967e8047030a4f55943ad))
+- comprehensive system hardening and security improvements ([5f047c8](https://github.com/your-org/ai-teams-engine/commit/5f047c870406badafcb7b3c6f91e36bd6abda019))
+- **content-processing:** integrate MinerU for deep PDF parsing ([a671ae4](https://github.com/your-org/ai-teams-engine/commit/a671ae4c9058a4191ae60c8bf35734a3e4b5dd45))
+- **crawler:** add URL accessibility check before saving HN stories ([04c05db](https://github.com/your-org/ai-teams-engine/commit/04c05db1d6ea2590910f49f1975f52691bbfb8cb))
+- **credits:** add admin credit management and auto-account creation ([2d57c47](https://github.com/your-org/ai-teams-engine/commit/2d57c477b1f757528f2851b2a7b8dddd2d2947a5))
+- **credits:** add credit consumption to remaining AI modules ([48f10de](https://github.com/your-org/ai-teams-engine/commit/48f10de4419ccef7daadf3009b3ca8ec437a55a2))
+- **credits:** implement complete credits system ([7d7b802](https://github.com/your-org/ai-teams-engine/commit/7d7b802d5aae370ee8d16f76a96b470d744fe5dd))
+- **credits:** implement complete credits system with configurable rules ([f3b8303](https://github.com/your-org/ai-teams-engine/commit/f3b830365b1650e9c78f6c8183f442826d435c6f))
+- **credits:** integrate automatic billing into AIEngineFacade ([8b85ea3](https://github.com/your-org/ai-teams-engine/commit/8b85ea32e0b92ba860fcd623d124e117541a7c45))
+- **credits:** overhaul billing system with complete transaction types ([a7195c4](https://github.com/your-org/ai-teams-engine/commit/a7195c4780b94801e67b4f875ca35a4e02f45703))
+- **data-collection:** add auto-seeder with RSS validation ([3908c1a](https://github.com/your-org/ai-teams-engine/commit/3908c1a1ce6657a286281ddfa2cc00313f6fa427))
+- **data-collection:** add deduplication check and new sources ([ff64bbd](https://github.com/your-org/ai-teams-engine/commit/ff64bbd99abc4bc036f8a2118ce548ffb7dfea73)), closes [Hi#Quality](https://github.com/Hi/issues/Quality)
+- **data-collection:** expand data sources from 18 to 52 ([5214b33](https://github.com/your-org/ai-teams-engine/commit/5214b3355c6d4716ce529fe6a02bebb4f7c9fbf2))
+- **db:** add AI team templates migration ([4fbf91b](https://github.com/your-org/ai-teams-engine/commit/4fbf91b00bc4590ac0774828220273b90191eda4))
+- **db:** add data collection tables migration ([915429f](https://github.com/your-org/ai-teams-engine/commit/915429fdefe2ce33348078f5e873ed02c03cc31f))
+- **db:** add deep_research_sessions migration ([0861b00](https://github.com/your-org/ai-teams-engine/commit/0861b0004f4b385a75a11dd828f1104f22f58e45))
+- **db:** add Google Drive integration migration ([9f04922](https://github.com/your-org/ai-teams-engine/commit/9f04922de139dfc589a7316cf547575a35ff2680))
+- **db:** add IMAGE_GENERATION models migration for PPT ([e3ada47](https://github.com/your-org/ai-teams-engine/commit/e3ada470ee0f8fbfa419d81eaa8cbf9fdd4b20e9))
+- **db:** add migration for GeneratedImage table ([0469a0a](https://github.com/your-org/ai-teams-engine/commit/0469a0a0d8e279b12e5285e07ad84be1a1a9b8e5))
+- **db:** add migration scripts for cleanup and join requests ([b5c036c](https://github.com/your-org/ai-teams-engine/commit/b5c036cd5c6d237afbf422de3f2f362901f66575))
+- **db:** add missing migrations for writing quality features ([aec1b55](https://github.com/your-org/ai-teams-engine/commit/aec1b554346255d5c3666686f15125e1fe4c5c52))
+- **db:** add Notion integration migration ([7806e65](https://github.com/your-org/ai-teams-engine/commit/7806e65b44c0d9a2312c369059cd7240ae5c5c3e))
+- **db:** allow duplicate modelId for horizontal scaling ([2c22c42](https://github.com/your-org/ai-teams-engine/commit/2c22c4292e4cca625cc725b738bfdf624debad2c))
+- **deep-research:** add delete functionality for research sessions ([145db43](https://github.com/your-org/ai-teams-engine/commit/145db43f69cedba55008135a9226b19b3f917860))
+- **deep-research:** add NotebookLM-style citation tooltips ([ce39bfe](https://github.com/your-org/ai-teams-engine/commit/ce39bfe560f554fe0f3a252d5d7bfe31b68449b9))
+- **deep-research:** sync citation rendering with Fast Research ([35e8834](https://github.com/your-org/ai-teams-engine/commit/35e88344fd8d86b89a20d9a9d2ab594adf3c6e7b))
+- **deploy:** add new migrations to auto-deployment list ([653ca2d](https://github.com/your-org/ai-teams-engine/commit/653ca2d87ece0da590f7efe007f5e55edd14de9e))
+- **deploy:** automate data source seeding in Railway deployment ([6153366](https://github.com/your-org/ai-teams-engine/commit/6153366d86fcf0f5ba46e42a3054759d5dfe973a))
+- **deploy:** restore Dockerfile for Railway deployment ([23c46ce](https://github.com/your-org/ai-teams-engine/commit/23c46ce781626266a20d66f5f7bf7ebc10828cb9))
+- **email:** integrate Resend as email provider ([9178cd5](https://github.com/your-org/ai-teams-engine/commit/9178cd5f0b017e4cc28c410b8918c4ea2a2e5b94))
+- enable Grok live X/Twitter search ([c3303ce](https://github.com/your-org/ai-teams-engine/commit/c3303cef27d2282db689626117c6a8cfa87378c2))
+- enable URL access for all AI models ([3b30ac3](https://github.com/your-org/ai-teams-engine/commit/3b30ac3c5d5bf4833cec4437864ebccff78b41af))
+- enable youtube notes management ([4ff6449](https://github.com/your-org/ai-teams-engine/commit/4ff64498446511aad1448c781f5d28b15a5d1dfb))
+- enhance infographic with adaptive styles and fix 16:9 layout ([a0267dd](https://github.com/your-org/ai-teams-engine/commit/a0267dd883dd67198d3df4a9af39937d3285e823))
+- enhance PPT generation progress UI with better design ([5535ad5](https://github.com/your-org/ai-teams-engine/commit/5535ad522cdbdbb948a4d22be395e5aefd1d739c))
+- **events:** add centralized event bus module ([b86b9f4](https://github.com/your-org/ai-teams-engine/commit/b86b9f41847e93b0a8a86bfb1c2c00fe97cd5636))
+- **explore:** add i18n support for Explore page ([403ee70](https://github.com/your-org/ai-teams-engine/commit/403ee70b94a0de402b5d549fd380a0b106ac2686))
+- **explore:** add pagination and fix quote display ([a5dbbcc](https://github.com/your-org/ai-teams-engine/commit/a5dbbcc91063f8be18cdb84b1640bbb163d8f673))
+- **explore:** add thumbnail display for resource cards ([8ea17b3](https://github.com/your-org/ai-teams-engine/commit/8ea17b3256c14ac5ffe665754732f4ad34d53d15))
+- **explore:** hide right AI panel in list view ([047a1c0](https://github.com/your-org/ai-teams-engine/commit/047a1c0a4ec5f2487c5e0bca25929edc9a8c1a95))
+- **explore:** implement dynamic thumbnail extraction for all resource types ([8620476](https://github.com/your-org/ai-teams-engine/commit/86204769cfd8a2c0b2f6e4e13fa9c50791a97c75))
+- **explore:** implement dynamic thumbnail extraction for resource cards ([250aa86](https://github.com/your-org/ai-teams-engine/commit/250aa86011f8cf16ce362909447216b44a4e8957))
+- **explore:** remove Add to AI feature and add i18n support ([66b63b9](https://github.com/your-org/ai-teams-engine/commit/66b63b9e6a898c65f7ceab970eb41872d264b180))
+- **explore:** replace load more button with infinite scroll ([f039f9c](https://github.com/your-org/ai-teams-engine/commit/f039f9c473c485ae1c84491bf4bcff2d07f26bc2))
+- **explore:** support single-click add and double-click remove for Image button ([8a93f33](https://github.com/your-org/ai-teams-engine/commit/8a93f33d7cdf9b200066702bb51b748d1c9432bc))
+- **export:** implement unified export system with multi-format support ([2fdd18e](https://github.com/your-org/ai-teams-engine/commit/2fdd18eca2151023e42ee1c3de5dba308b439686))
+- **export:** 优化导出系统 - AI Teams归一 + YouTube中文化 ([bab38e6](https://github.com/your-org/ai-teams-engine/commit/bab38e6d613df85a8c58fa93d430116f6e8ababb))
+- **feedback:** add attachment support and email notifications ([a5ccfa2](https://github.com/your-org/ai-teams-engine/commit/a5ccfa23a065666cddae909d7d03921ef83ef51f))
+- **feedback:** add complete feedback management system ([9b25e87](https://github.com/your-org/ai-teams-engine/commit/9b25e87e0323d56264b9679416c17f220b289324))
+- **feedback:** connect annotations to feedback loop system ([1547311](https://github.com/your-org/ai-teams-engine/commit/1547311acb578ff760178206fd1891069f68c538))
+- **feedback:** expand feedback system with global feedback button ([005292e](https://github.com/your-org/ai-teams-engine/commit/005292eddbdf8f656ceb464d2afe7977e212ecf6))
+- **feedback:** implement database-backed feedback system ([c07cc4f](https://github.com/your-org/ai-teams-engine/commit/c07cc4f7262775036b377975aa0a934f80000355))
+- **filter:** add data source filter to filter panel ([4c29a37](https://github.com/your-org/ai-teams-engine/commit/4c29a37ae5a36fde3ebac99827d6f1dbd7c1b0ff))
+- **frontend:** add file import and fix multiple UX issues ([546ca3c](https://github.com/your-org/ai-teams-engine/commit/546ca3c0c39523875e99fc624446e4c5d39b6f31))
+- **frontend:** add git commit hash tracking and improve UX ([8431130](https://github.com/your-org/ai-teams-engine/commit/84311302d81a97659d288a7fe40d2b050376e81c))
+- **frontend:** add notification email input to CreateMissionDialog ([5707fca](https://github.com/your-org/ai-teams-engine/commit/5707fca5f297d619287bfad4a991f1f96cd1a73f))
+- **frontend:** add tags support for AI Group Topics ([86e955f](https://github.com/your-org/ai-teams-engine/commit/86e955fb6a64eaef768432b067e1825d45a42fc6))
+- **frontend:** enhance MissionProgressPanel with detailed task cards ([bb6075c](https://github.com/your-org/ai-teams-engine/commit/bb6075cae709c98d45d539f6192a86dceb6ddfab))
+- **frontend:** enhance right panel icon buttons size for better UX ([defbac7](https://github.com/your-org/ai-teams-engine/commit/defbac73563e66332185ffa4274c4ddb43c6ecb7))
+- **frontend:** enhance UX with improved bookmark flow and PDF upload support ([e307186](https://github.com/your-org/ai-teams-engine/commit/e30718680c2fcaca6010eb30580c7b1391283f0f))
+- **frontend:** improve AI chat interface UI/UX ([bb191ba](https://github.com/your-org/ai-teams-engine/commit/bb191bae0a6790058ddc121d0d0699ca30f75452))
+- **frontend:** improve UI and add admin resource management ([da22d71](https://github.com/your-org/ai-teams-engine/commit/da22d71130604bc00b095d3951e37f9795027512))
+- **frontend:** optimize right panel icon buttons for better visual balance ([8e3f9d0](https://github.com/your-org/ai-teams-engine/commit/8e3f9d051f78dbee790ee27f9fce9cffec3f4a9e))
+- **frontend:** redesign Mission performance summary with quantitative metrics ([7cca0ed](https://github.com/your-org/ai-teams-engine/commit/7cca0edcefa36abf29ebb7e4543bdd55fed3e14a))
+- generate consulting-style imagen prompts with structured content ([2533544](https://github.com/your-org/ai-teams-engine/commit/2533544edd9f8030ac594d4dd9e794bb4319332f))
+- **google-drive:** support individual file selection in KB creation ([eb2a19e](https://github.com/your-org/ai-teams-engine/commit/eb2a19e7e9ccdc4a1e2ce7b7a91f528b1c4f830e))
+- **i18n:** add AI Image page translations ([f7b8285](https://github.com/your-org/ai-teams-engine/commit/f7b828550cd5fab4fe1d13075a9fc4369e9b1a24))
+- **i18n:** add AI Writing page translations ([03fd3d4](https://github.com/your-org/ai-teams-engine/commit/03fd3d406317afb2d02822546ee50124ba0dec62))
+- **i18n:** add bilingual support for AI Coding, AI Simulation, AI Store, and Labs pages ([e8a0f26](https://github.com/your-org/ai-teams-engine/commit/e8a0f262f9453f8bc3651bf2c385c53b2ad510b2))
+- **i18n:** add bilingual support infrastructure (English/Chinese) ([6d85603](https://github.com/your-org/ai-teams-engine/commit/6d8560324ef946d2f34526cf1e5a05b274f48f53))
+- **i18n:** add bilingual support to AI Office page ([eb347e5](https://github.com/your-org/ai-teams-engine/commit/eb347e5dfac1b661e97531002daac96318b0ac94))
+- **i18n:** add bilingual support to AI Studio page ([4f5e512](https://github.com/your-org/ai-teams-engine/commit/4f5e5124d9d396c60e560529931bd542100e2daa))
+- **i18n:** add bilingual support to AI Teams page ([dfd5d44](https://github.com/your-org/ai-teams-engine/commit/dfd5d448d8e4ab5d0c7a06cb7277ecb76ddbbfce))
+- **i18n:** add bilingual support to core components ([70a25cd](https://github.com/your-org/ai-teams-engine/commit/70a25cd4dc21ff8b4eb376c72b26630d09e3525b))
+- **i18n:** add bilingual support to Profile page ([5d6ca1b](https://github.com/your-org/ai-teams-engine/commit/5d6ca1b60ae9ef7c5769d93ae7cd24cb911fac93))
+- **i18n:** add bilingual support to ResearchTab component ([f670f74](https://github.com/your-org/ai-teams-engine/commit/f670f74a090b38bfaef4d333e5f702bfab25c2fe))
+- **i18n:** add comprehensive translations for ResearchTab and AI Teams ([42996cd](https://github.com/your-org/ai-teams-engine/commit/42996cd02385f0a560832804d17ced4c1b23ed98))
+- **i18n:** add full internationalization for revision history ([e5fc07e](https://github.com/your-org/ai-teams-engine/commit/e5fc07ee4bf73cd82db07319ae4b0626c13d2687))
+- implement AI Office 3.0 PPT generation with dual-model architecture ([4a70995](https://github.com/your-org/ai-teams-engine/commit/4a7099572989d6fbfec57c6643c325f3732a6d25))
+- implement blog collection backend services ([bb46d76](https://github.com/your-org/ai-teams-engine/commit/bb46d76a3226ba27f650374f0651f1b6fb6d2f5e))
+- implement comparison template with left-right layout ([7037a31](https://github.com/your-org/ai-teams-engine/commit/7037a31649457922681d0efed69c75b4e42e415a))
+- implement comprehensive Reports TAB with structured AI summaries ([4782f23](https://github.com/your-org/ai-teams-engine/commit/4782f231fc8dc4abb2b17a8f9a40f68fa85db49b))
+- implement Data Management module frontend UI with Tailwind CSS ([2ffadaf](https://github.com/your-org/ai-teams-engine/commit/2ffadafaafba0e719fb0d6b1693178cfd4c9b988))
+- implement Data Management module with source whitelist and collection rules ([703c19e](https://github.com/your-org/ai-teams-engine/commit/703c19ee5f41c7488c82feb3f4e7cf3cd14140a5))
+- implement DeepDive Engine v2.1 unified rendering architecture ([ee8f5e5](https://github.com/your-org/ai-teams-engine/commit/ee8f5e58dcc0cd86f2f22b20eac675b26c30405d))
+- implement DeepDive user comments for YouTube videos ([e4a937e](https://github.com/your-org/ai-teams-engine/commit/e4a937e3d042513c4f7a593e5beb6eb285f6f612))
+- implement feedback priority system and fix credits page layout ([a24db85](https://github.com/your-org/ai-teams-engine/commit/a24db857fff884d51d158ae5d440ce1adb35b894))
+- implement hybrid infographic rendering with smart layout detection ([a754c23](https://github.com/your-org/ai-teams-engine/commit/a754c231a65f4f2678319c78fe645793a5981e60))
+- implement ImportTaskProcessorService to convert PENDING ImportTasks to Resources ([7ae0b15](https://github.com/your-org/ai-teams-engine/commit/7ae0b15728080ea27e886156588faad1b2a0c4ac))
+- implement real Notifications, Labs, Feedback and update changelog ([0f06d1b](https://github.com/your-org/ai-teams-engine/commit/0f06d1bd1c264e5ce9d4356895aac08f0ef5f311))
+- implement resource-to-image generation ([bb2ef16](https://github.com/your-org/ai-teams-engine/commit/bb2ef16ea3b6a8038473c4733857c8881022567e))
+- implement responsive navigation and UI optimization (Phase 1) ([01906cb](https://github.com/your-org/ai-teams-engine/commit/01906cbf4370845b444cca91e17e6810ae2f57c5))
+- **import:** add rule-based URL classification fallback ([6818449](https://github.com/your-org/ai-teams-engine/commit/6818449d4d4e5e9e0252133a865de35e37f778a5))
+- **import:** replace whitelist validation with AI-powered URL classification ([cdd7683](https://github.com/your-org/ai-teams-engine/commit/cdd768358188b1a0e50ad4d3666be1d68d7ee0b5))
+- improve AI assistant panel UI/UX ([66604d9](https://github.com/your-org/ai-teams-engine/commit/66604d91570b3eb6836c258fde3d1049085072e0))
+- improve comic/illustration detection for ai_image mode ([49e6343](https://github.com/your-org/ai-teams-engine/commit/49e6343b08237d33262bdefa7cabaa6e7b5c5565))
+- improve infographic quality with consulting-style prompts ([5e883d3](https://github.com/your-org/ai-teams-engine/commit/5e883d387258aa1c1b7569ac94528dda10b22ce1))
+- improve PPT generation progress UI ([780b81a](https://github.com/your-org/ai-teams-engine/commit/780b81a0295dabce1da3c8d5f5fb5590bab240d6))
+- **infra:** add EdgeOne Pages deployment support ([a0704c4](https://github.com/your-org/ai-teams-engine/commit/a0704c41a7a08cc4787f2bb128d46805d3339bc5))
+- **ingestion:** add universal data collection scheduler ([af4f906](https://github.com/your-org/ai-teams-engine/commit/af4f906607e6b57c1c1564126f438d0d75709f20))
+- inject opposing-interest system prompt and irrational bias ([0b7e316](https://github.com/your-org/ai-teams-engine/commit/0b7e3165b972282512c68d134c41914bcc8ea70c))
+- integrate BlogCollectionManager into Reports TAB ([6786444](https://github.com/your-org/ai-teams-engine/commit/6786444e2c23ebcad3344bfe9c3c4d049db6e262))
+- integrate Cloudflare R2 for image storage ([ecd2d44](https://github.com/your-org/ai-teams-engine/commit/ecd2d44178464c526482ade35d7f0e827634bcff))
+- integrate Data Management module into sidebar navigation ([b10c31e](https://github.com/your-org/ai-teams-engine/commit/b10c31e315f0da5bc117e8cb1dc2b850c8bd3b77))
+- integrate DataFetchingService with database config and add Perplexity API support ([6bf3b37](https://github.com/your-org/ai-teams-engine/commit/6bf3b37437888e8aa945184f69a36c65200be588))
+- integrate new Data Management Dashboard and improve import dialog ([24a15f2](https://github.com/your-org/ai-teams-engine/commit/24a15f2f1f0cd59c55b9437aa9f9895c5dc07144))
+- integrate PPT 3.0 Generator into AI Office page ([c039d4d](https://github.com/your-org/ai-teams-engine/commit/c039d4d43d9f3b4927a4f0651c5c5eb26b6d6512))
+- integrate structured AI summary for all resource types ([8d3deb2](https://github.com/your-org/ai-teams-engine/commit/8d3deb2c39c7ee18ac642607d2e10dde52f1e82a))
+- **integrations:** add bidirectional sync and AI file organization ([f19c214](https://github.com/your-org/ai-teams-engine/commit/f19c2146182a830eaabf515ada078fe438805031))
+- **integrations:** add Google Drive integration with OAuth, import/export ([af01b50](https://github.com/your-org/ai-teams-engine/commit/af01b50fcea94f17d38e1153cf03926f06806abc))
+- **kb:** add knowledge base editing dialog with multi-source support ([4c1abdc](https://github.com/your-org/ai-teams-engine/commit/4c1abdc1400353f820095e3919acf44adaade8b4))
+- **kb:** improve document list UX and fix Google Drive auto-sync ([aa1adc4](https://github.com/your-org/ai-teams-engine/commit/aa1adc421e47caed24d435f06620e3a9baf98d82))
+- **kb:** show files in Google Drive folder picker ([4b51fa9](https://github.com/your-org/ai-teams-engine/commit/4b51fa95d45c9ccf54636cb0f5e892322b142b97))
+- **kb:** support multiple data source types for knowledge bases ([37d3f30](https://github.com/your-org/ai-teams-engine/commit/37d3f305a516b8096ca608c97cdec6d8db8f4bf5))
+- **knowledge-graph:** add standalone Knowledge Graph page and navigation ([cd4cc5d](https://github.com/your-org/ai-teams-engine/commit/cd4cc5d6e413a18be1e1d0e5a469b7222d255f01))
+- **knowledge-graph:** improve edge visualization with curves and dynamic thickness ([97c0883](https://github.com/your-org/ai-teams-engine/commit/97c088382e6246c2e96394ed02fb5ac03c2b0e54))
+- **knowledge-graph:** integrate Library data for personalized knowledge graph ([aa0d896](https://github.com/your-org/ai-teams-engine/commit/aa0d896a062823e7febdfd24f4a648effa9719cb))
+- **knowledge:** implement comprehensive knowledge base system ([02979b5](https://github.com/your-org/ai-teams-engine/commit/02979b514a28628e05f022c5326afdad2ed6addf))
+- **library:** add AI Office integration buttons to Images and Bookmarks ([71d1588](https://github.com/your-org/ai-teams-engine/commit/71d1588e53158fa1dadfce0d337475d3d61e0260))
+- **library:** add AI Office integration to Notes tab ([1c2788e](https://github.com/your-org/ai-teams-engine/commit/1c2788e9a5e3c4975c58a2a22ab32041c2d8a333))
+- **library:** add AI Organize Panel with batch tagging, classification, and theme discovery ([d926deb](https://github.com/your-org/ai-teams-engine/commit/d926deb799f1737ae50b6ffb158438cf614c7b70))
+- **library:** add collection sub-navigation for My Library ([1f8c8ed](https://github.com/your-org/ai-teams-engine/commit/1f8c8edbcc7f5dd174d0d5ad02e3154290699585))
+- **library:** add Knowledge Base tab to Library page ([b7cbf55](https://github.com/your-org/ai-teams-engine/commit/b7cbf5573977d69e458a042520f3687f269ce011))
+- **library:** add Notion import to AddDocumentsDialog ([4e0a8a1](https://github.com/your-org/ai-teams-engine/commit/4e0a8a14aea398ea5d7b9d661cb4fe8e318d0d5e))
+- **library:** add results display for Notes and Images AI operations ([18b3d96](https://github.com/your-org/ai-teams-engine/commit/18b3d96c702d71bfc6a9ec891a2581a87784a077))
+- **library:** add view, edit, and delete actions for bookmarked resources ([808e71e](https://github.com/your-org/ai-teams-engine/commit/808e71ea3b6da542e2b4cbf83f1f04d630be7603))
+- **library:** display bookmarked AI images in Bookmarks tab ([0d83078](https://github.com/your-org/ai-teams-engine/commit/0d83078accab35d6f539ad59102b357034c148c0))
+- **library:** enhance KB dialogs UI and add Google Drive import ([b7fe62f](https://github.com/your-org/ai-teams-engine/commit/b7fe62f61b5d7dddcfacbff1e61a9f143e661732))
+- **library:** enhance knowledge base management with RAG status display ([7c671ee](https://github.com/your-org/ai-teams-engine/commit/7c671ee1a21a014e2393c4cb18b59f1a74bde5b0))
+- **library:** enhance knowledge base UX and add team member management ([e5f012f](https://github.com/your-org/ai-teams-engine/commit/e5f012fcc48f2e861fb99e18057c00ed5a4d9e35))
+- **library:** extend AI Organize Panel to Notes and Images tabs ([e26324c](https://github.com/your-org/ai-teams-engine/commit/e26324c467e57b889d86343ad4d23341b0bb8a14))
+- **library:** implement AI Organize Panel functionality for Notes and Images ([8984715](https://github.com/your-org/ai-teams-engine/commit/89847153977d6ff17b70fc47b06621b65a89b708))
+- **library:** implement Phase 2 - tags, batch operations, reading status, pagination ([24b4100](https://github.com/your-org/ai-teams-engine/commit/24b4100e6b779ca6d11a792a4d0097d7b9d317e5))
+- **library:** integrate Knowledge Graph as tab view instead of separate page ([35ff6a9](https://github.com/your-org/ai-teams-engine/commit/35ff6a9e6f132ec27f95122747f17b7438ee93f6))
+- **library:** modernize data sources UI with enhanced visual design ([53ee503](https://github.com/your-org/ai-teams-engine/commit/53ee5034b9bc8664416e2342bb3a4fae1ab84c3e))
+- **library:** redesign KB cards and add resource type filters ([a7a9174](https://github.com/your-org/ai-teams-engine/commit/a7a9174ffee43ca1f12512df5dbc126daad5c329))
+- **mcp:** add auto-reconnect with health check for MCP servers ([ed51dc3](https://github.com/your-org/ai-teams-engine/commit/ed51dc3b05bca1254a89842a0a6b15fe9b21285e))
+- **mcp:** enhance MCP server config update and env resolution ([925b948](https://github.com/your-org/ai-teams-engine/commit/925b948c684e60eb91260ea9f3f549c5be4355ff))
+- **mobile:** add mobile-responsive navigation with AppShell pattern ([6d721c8](https://github.com/your-org/ai-teams-engine/commit/6d721c86474baeca878f2f9045c78756dbdf1954))
+- multiple improvements and bug fixes ([682df31](https://github.com/your-org/ai-teams-engine/commit/682df31604ae48b384b3012c65303ffd0d659fea))
+- multiple improvements and new features ([2549c5d](https://github.com/your-org/ai-teams-engine/commit/2549c5dc27dcce35dde9ee8143253efad712ff08))
+- **nav:** add AI Image menu, remove AI Labs, rename AI Store to AI Tools ([9adabbe](https://github.com/your-org/ai-teams-engine/commit/9adabbe944c7f418c171d33b105d8be270fb033a))
+- **nav:** merge AI Tools and AI Skills into AI Marketplace ([33c3d95](https://github.com/your-org/ai-teams-engine/commit/33c3d9501e4f6e51a520483e90244721e269fa72))
+- **nav:** rename AI Office to AI Reports ([dd88d3d](https://github.com/your-org/ai-teams-engine/commit/dd88d3ddb85d349eec2e4d0ff48823c19755e815))
+- **notes:** add edit and delete functionality to NotesList ([e8f263d](https://github.com/your-org/ai-teams-engine/commit/e8f263d6e766bb3f067e55d534795481227e82a5))
+- **notion:** add BlockNote editor for Notion-like editing experience ([bfe474c](https://github.com/your-org/ai-teams-engine/commit/bfe474c0485ee6a4819965abe5e2cf46135fb5fe))
+- **notion:** add Notion integration with OAuth sync and BlockNote editor ([64930e6](https://github.com/your-org/ai-teams-engine/commit/64930e6be3eac3614930f811571d6f4739889853))
+- **notion:** optimize UI design for professional look ([3ebbf3f](https://github.com/your-org/ai-teams-engine/commit/3ebbf3f35bc23233732acc38d77a16856ece99ff))
+- pause every N rounds for human-in-loop and chaos agent injection ([f1fb56d](https://github.com/your-org/ai-teams-engine/commit/f1fb56da8f71efe24c230e175721b302ee9bfc21))
+- **pdf:** add Markdown to HTML conversion for report content ([0ad64fb](https://github.com/your-org/ai-teams-engine/commit/0ad64fbc9de3876a14a93ccaffcca20a28ed8741))
+- **pdf:** complete rewrite with pure inline styles ([3defb9e](https://github.com/your-org/ai-teams-engine/commit/3defb9e38fa1be8438cd24384d5f327a58a30760))
+- **ppt:** add automatic retry for 5xx errors in outline generation ([840ab6f](https://github.com/your-org/ai-teams-engine/commit/840ab6fc87d2f34f6aa62a8d7954035d32b6ffaf))
+- **ppt:** enhance PPT generation quality to match Gamma/Genspark standards ([829aa2a](https://github.com/your-org/ai-teams-engine/commit/829aa2a0bd5937159e83c8cb43500ec6edb7df1c))
+- **ppt:** implement professional PPT design system with enhanced AI prompts ([801797f](https://github.com/your-org/ai-teams-engine/commit/801797f9f7781135b0e8131c5cdf7bb50e5ff2ce))
+- **ppt:** redesign progress UI for better readability ([15318c6](https://github.com/your-org/ai-teams-engine/commit/15318c682979c423d98ad18d3c2f792874918ac7))
+- **prd:** design resource-to-image generation feature ([958efa9](https://github.com/your-org/ai-teams-engine/commit/958efa985cba9b77225e8c2049f1202715a0893e))
+- **proxy:** add government and policy domains to whitelist ([dd273a6](https://github.com/your-org/ai-teams-engine/commit/dd273a63adb9d6f357d454f6868493ec42a554ca))
+- **proxy:** add image proxy endpoint for Cloudflare-protected images ([e367edf](https://github.com/your-org/ai-teams-engine/commit/e367edf25bb182f2bb1ad698b038be81e3a0d1b4))
+- **proxy:** add Puppeteer fallback for Cloudflare-protected sites ([c7706d5](https://github.com/your-org/ai-teams-engine/commit/c7706d50a06e733e95e52b15120e98a478b3a5c6))
+- **proxy:** integrate FlareSolverr for Cloudflare bypass ([1a0901c](https://github.com/your-org/ai-teams-engine/commit/1a0901cb01cc5f6d3bea0981e216c5957509c17a))
+- **rag:** add knowledge base edit functionality ([3381ac5](https://github.com/your-org/ai-teams-engine/commit/3381ac56a002524174b4ae7abd77d20488cb42dd))
+- **rag:** add Knowledge Base management UI ([b1b2efa](https://github.com/your-org/ai-teams-engine/commit/b1b2efa5d1862d07f18a3e14d529bddcb91aec83))
+- **rag:** add RAG knowledge base module with pgvector ([74b9fed](https://github.com/your-org/ai-teams-engine/commit/74b9fedaff8d728188a1fd8febbafc9127d67584))
+- **rag:** enhance ASK AI knowledge base integration with source display ([ee75b62](https://github.com/your-org/ai-teams-engine/commit/ee75b627be5a4ff5569268a091f415b6a7c3ca55))
+- **rag:** extend supported MIME types for Google Drive sync ([7f5cab8](https://github.com/your-org/ai-teams-engine/commit/7f5cab8006cb64f9c63c98ef3d3c13e0bd9c8593))
+- **rag:** implement Google Drive folder picker for knowledge base ([2a97d03](https://github.com/your-org/ai-teams-engine/commit/2a97d03e026bf2aaa3ac42960017fdb94b65b62f))
+- **rag:** implement JSONB vector storage replacing pgvector ([a835a05](https://github.com/your-org/ai-teams-engine/commit/a835a05f7355beaed91ca51b0a85a08bbe363e5b))
+- **reader:** add Table of Contents navigation for reading mode ([2e1ccd9](https://github.com/your-org/ai-teams-engine/commit/2e1ccd936423ae47d3dcc5f8a9bb60f51c6ff6e7))
+- **reader:** enhance reading experience with themes and controls ([1eface9](https://github.com/your-org/ai-teams-engine/commit/1eface9df5a604d1bf3bb23c52f734b850635ea1))
+- **reader:** major typography and layout improvements ([2fe2a53](https://github.com/your-org/ai-teams-engine/commit/2fe2a5348ba4fdc87afb6831137a44682c8416c6))
+- rebrand from DeepDive Engine to AI Teams Engine ([33a3307](https://github.com/your-org/ai-teams-engine/commit/33a33074b040d31f01dad36afd99a8c34201214e))
+- **recommendations:** implement multi-strategy similar content algorithm ([4a9159a](https://github.com/your-org/ai-teams-engine/commit/4a9159aac7401673c9bde4e55a1b294455f57883))
+- redesign admin UI with card-based layout for whitelists and collections ([3990936](https://github.com/your-org/ai-teams-engine/commit/3990936744f772efc816d03979c4c334c1c2690d))
+- redesign AI Simulation landing to cards and add scenario listing ([6b4fe96](https://github.com/your-org/ai-teams-engine/commit/6b4fe96467453c03cc0b600978ed385b35982d22))
+- redesign cards template with main cards + summary card layout ([b67101b](https://github.com/your-org/ai-teams-engine/commit/b67101b901c1d6a09bb4a2be289babe14aed1159))
+- redesign logo and complete AI Office Quick Generate feature ([ce927fe](https://github.com/your-org/ai-teams-engine/commit/ce927fe91d99518397a0d1afb837292fbe09edee)), closes [#1e40af](https://github.com/your-org/ai-teams-engine/issues/1e40af)
+- redesign logo with S-curve dive & rise concept ([194db76](https://github.com/your-org/ai-teams-engine/commit/194db76552624b1bf5e3f1046a41648ba36f4af7)), closes [#0F2A46](https://github.com/your-org/ai-teams-engine/issues/0F2A46) [#2BB7DA](https://github.com/your-org/ai-teams-engine/issues/2BB7DA) [#7C5BFE](https://github.com/your-org/ai-teams-engine/issues/7C5BFE)
+- redesign Notes component with PM-level tag filtering and grid layout ([d19e2dc](https://github.com/your-org/ai-teams-engine/commit/d19e2dcde784e512a32c8e6221b7c5565014ca26))
+- redesign resource detail tabs with icon-only interface ([59f3cbf](https://github.com/your-org/ai-teams-engine/commit/59f3cbf533ff53e0386aeb2f93f657e8864afccf))
+- redirect homepage to Ask AI page by default ([835a4cd](https://github.com/your-org/ai-teams-engine/commit/835a4cdc2102a7adebf2e209734e230da424b6c9))
+- refactor ImageGenerator with three-column layout ([bcb0fe8](https://github.com/your-org/ai-teams-engine/commit/bcb0fe8534ec0e7323db30f45384a83fd01d4caf))
+- **release:** add automated release notification system ([26c76ca](https://github.com/your-org/ai-teams-engine/commit/26c76cad5370b2a07cde85e95edb94512376a602))
+- **report-editor:** 富文本编辑器和参考文献引用 ([83650d2](https://github.com/your-org/ai-teams-engine/commit/83650d2dbd7992d88007951bec5adf7d76afb5a4))
+- require login to access AI Office ([6d7358b](https://github.com/your-org/ai-teams-engine/commit/6d7358bc338d65bbde7ebf3c14c09cd639470031))
+- **research:** add Agent click-to-view-details and Leader thinking events ([b2308df](https://github.com/your-org/ai-teams-engine/commit/b2308df57dbd5b39a0730756c15c728353333eb3))
+- **research:** add cancel button to task operations ([4d60c50](https://github.com/your-org/ai-teams-engine/commit/4d60c50a77d3a248be6dccbd6a366df0b1ea7d18))
+- **research:** add chart generation and fix review result display ([985a03b](https://github.com/your-org/ai-teams-engine/commit/985a03b7db49756314b771c809b743e72caa0d81))
+- **research:** add citation backlinks and fix multiple issues ([af44f74](https://github.com/your-org/ai-teams-engine/commit/af44f748315d2f40d9c10b57ffa869ca977b3650))
+- **research:** add citation click-to-scroll and UUID format support ([fb9d8ed](https://github.com/your-org/ai-teams-engine/commit/fb9d8eda8e9cb01855a663ca6b999b4e7ffc4acd))
+- **research:** add comprehensive security enhancements for topic-research module ([6895ae9](https://github.com/your-org/ai-teams-engine/commit/6895ae987a282c30f5626bb4bee8a38529c66c25))
+- **research:** add edit and delete functionality for USER_REQUEST TODOs ([1f3f139](https://github.com/your-org/ai-teams-engine/commit/1f3f13976257e8f0a505d848fe17055596ac2efc))
+- **research:** add Leader chat interaction for user input decoding ([6f92391](https://github.com/your-org/ai-teams-engine/commit/6f9239137f5ad31b4cb7e4bd5b13601ec72ce6e9))
+- **research:** add real analysis skills and fix search attribution ([d51acfb](https://github.com/your-org/ai-teams-engine/commit/d51acfbffc0bca5befdb086606da688564deb3cb))
+- **research:** add regenerate report content button ([357372d](https://github.com/your-org/ai-teams-engine/commit/357372da42d170b7a1f450e85a683323c4e7dacf))
+- **research:** add report charts and improve Leader dimension management ([4228a9e](https://github.com/your-org/ai-teams-engine/commit/4228a9e24c73540cdaeed0a5b93c866e2831f4f7))
+- **research:** add report deletion and fix chapter history panel ([9f0b141](https://github.com/your-org/ai-teams-engine/commit/9f0b1413304b3d0d159810517991d9e6a0b2f115))
+- **research:** add researcher agent logging and debug traces ([47dfe57](https://github.com/your-org/ai-teams-engine/commit/47dfe57a12a7cbe873be9a55fe5ef2a315fc859a))
+- **research:** add search results display in TodoDetailPanel ([5a77228](https://github.com/your-org/ai-teams-engine/commit/5a772282ca6df7e4a1d00692a2549b07850ebd91))
+- **research:** add settings modal and fix clear messages ([db84948](https://github.com/your-org/ai-teams-engine/commit/db849489a73b9ed71afd179779366219ad574871))
+- **research:** add skills/tools persistence, review display, and language config ([b7f39f1](https://github.com/your-org/ai-teams-engine/commit/b7f39f1bdafaace1746d14e07434a8cc1ff08da0))
+- **research:** add Social X data source, fix tool assignment, and add Leader multi-turn context ([1b9be78](https://github.com/your-org/ai-teams-engine/commit/1b9be785ef6e698467ecdde951421d7a79c8e2fc))
+- **research:** add task progress tracking, dynamic concurrency, and consistency check ([0ca9e12](https://github.com/your-org/ai-teams-engine/commit/0ca9e126ec690fa85658450ddd677e5ea3b2b0db))
+- **research:** add TODO execution, fix activity filtering, improve citation popup ([bb69ea3](https://github.com/your-org/ai-teams-engine/commit/bb69ea32756fe41bcefcb6a2274c28ca8683fa56))
+- **research:** add v3.0 inline chart support for report sections ([f7e9dc5](https://github.com/your-org/ai-teams-engine/commit/f7e9dc5909de84814991de3dee0e0c2d19eec409))
+- **research:** add v5 research quality optimization with tests ([d8bf367](https://github.com/your-org/ai-teams-engine/commit/d8bf3679e33e5f1b0f15ad03f59b686b4703b2d6))
+- **research:** add visibility support to topic creation and card ([ea8754f](https://github.com/your-org/ai-teams-engine/commit/ea8754fd66cc17718f4e50366aeae6542c8bc077))
+- **research:** enhance activity panel with search tool and freshness info ([c87fc48](https://github.com/your-org/ai-teams-engine/commit/c87fc4858497277315b5dc41e58eccb9cb5e533f))
+- **research:** enhance agent tool transparency and leader project awareness ([334dc9a](https://github.com/your-org/ai-teams-engine/commit/334dc9a24aca54e031032f6fa3c8e31953c8142e))
+- **research:** enhance citation tooltip and evidence panel UX ([ac30874](https://github.com/your-org/ai-teams-engine/commit/ac30874ad157ed462fc99f838e4825b3e9584179))
+- **research:** enhance TODO execution to trigger actual AI research ([63dcd82](https://github.com/your-org/ai-teams-engine/commit/63dcd823edd85731d3de932db03b028b13ed65b4))
+- **research:** implement comprehensive chart system with error handling and validation ([50de9c2](https://github.com/your-org/ai-teams-engine/commit/50de9c26049f74003178381c1e19fc63b9c1ef60))
+- **research:** implement data source tools and AI planning mode ([5a15d02](https://github.com/your-org/ai-teams-engine/commit/5a15d0215acf58fdce23805fbd2cae6edf578c48))
+- **research:** implement feedback loop system for research reports ([b5d4409](https://github.com/your-org/ai-teams-engine/commit/b5d44091d0f9d81089ce9e03842f18a34618ed4b))
+- **research:** implement knowledge base RAG search and usage tracking ([1199212](https://github.com/your-org/ai-teams-engine/commit/11992121122e3936f7b5736ad10dee70a4f5d806))
+- **research:** implement report v2.0 with chart visualization ([e68fdd0](https://github.com/your-org/ai-teams-engine/commit/e68fdd066e3a74cb4c60056d5057d95d4fe9dde3))
+- **research:** implement Tab system restructure and add research_todos migration ([39c5c16](https://github.com/your-org/ai-teams-engine/commit/39c5c16f204a4338202daaac91825c78553bfbc6))
+- **research:** implement TODO UX enhancement and fix token conflict ([1d93acd](https://github.com/your-org/ai-teams-engine/commit/1d93acd2f1540e3ef157a01430aa194b15290e14))
+- **research:** implement topic research optimization plan (Phase 1-3) ([400a1cc](https://github.com/your-org/ai-teams-engine/commit/400a1cc4407bf13293576ae8d57b30f06398394b))
+- **research:** implement tree-like structure for collaboration dynamics tab ([b1faaa9](https://github.com/your-org/ai-teams-engine/commit/b1faaa9c3ee209a50209c622886f8d6b43a407ed))
+- **research:** improve i18n coverage for AI Research module ([71c3c7b](https://github.com/your-org/ai-teams-engine/commit/71c3c7b802bc55c410252a668fb7536e28bcd0ee))
+- **research:** improve report UI and add team data persistence ([fb3bd1a](https://github.com/your-org/ai-teams-engine/commit/fb3bd1a60523782b832a3d4cc06b07e0bb672055))
+- **research:** improve topic card edit and visibility controls ([2d72605](https://github.com/your-org/ai-teams-engine/commit/2d72605e1584c226799d8e2b739d7239606567ad))
+- **research:** inline chart rendering in report sections ([a11c00d](https://github.com/your-org/ai-teams-engine/commit/a11c00d63dc5402c1a3e89495c9e615e81c14358))
+- **research:** leader pre-allocate figures to sections, prefer original charts ([dfce6e7](https://github.com/your-org/ai-teams-engine/commit/dfce6e7e1a3068930df5669935689ad4356a6f3c))
+- **research:** topic card inline buttons and apply-to-join ([cac5811](https://github.com/your-org/ai-teams-engine/commit/cac5811932fa9ae23cd81edbc92346d5d75c297b))
+- **research:** wire V5 researchDepth end-to-end through mission path ([1bf262b](https://github.com/your-org/ai-teams-engine/commit/1bf262b1507d1a2996c0047450aba418f8720321))
+- **research:** 完善卡片操作和Leader对话任务技能分配 ([8c77ea5](https://github.com/your-org/ai-teams-engine/commit/8c77ea534924bf1126fcac5a65d137dfbffb63cf))
+- **research:** 实现专题协作申请/审核机制 ([890629c](https://github.com/your-org/ai-teams-engine/commit/890629c741f57ccf9112d88d5ff57f3e2b6a3537))
+- **research:** 实现动态任务调度和优化依赖显示 ([e046a3b](https://github.com/your-org/ai-teams-engine/commit/e046a3bae66e5849332c5acfc38be1592e7ea2fb))
+- **research:** 报告质量全链路提升 — 反馈入口+去重+审核强化 ([b76aca8](https://github.com/your-org/ai-teams-engine/commit/b76aca8867a319ca7dd232b14183aa44f4d6d13c))
+- **research:** 报告质量架构级改进 — 三阶段管线+全局协调+编辑层 ([39a6453](https://github.com/your-org/ai-teams-engine/commit/39a6453b6be754b69b166b6de1af629152c904be))
+- **resources:** add translation persistence and fix foreign key issue ([3c36aa9](https://github.com/your-org/ai-teams-engine/commit/3c36aa9eb5a1dbbbfca1dda31161c5187cdf25d7))
+- responsive design + right-click context menu ([4793906](https://github.com/your-org/ai-teams-engine/commit/47939064df695d304e21c61ea27660eec87aa976))
+- **run-page:** add structured content parser for better readability ([aaab3d1](https://github.com/your-org/ai-teams-engine/commit/aaab3d18127dadb1b5654143b21e0aa9001ebc06))
+- **run-page:** improve waiting state with animated loading UI ([7fbfd83](https://github.com/your-org/ai-teams-engine/commit/7fbfd834101b99319e6828ed816860b62ae3e161))
+- **sandbox:** add hover tooltip for action cards ([ba3fb98](https://github.com/your-org/ai-teams-engine/commit/ba3fb987d18ae99cbb90837f0de8558cc96a2a15))
+- **sandbox:** add more info panels to left sidebar ([74a9eb7](https://github.com/your-org/ai-teams-engine/commit/74a9eb7d0a20176e316a1e08e80e148cdf8c9a7b))
+- **sandbox:** implement battlefield situation map layout ([7d63620](https://github.com/your-org/ai-teams-engine/commit/7d636208c86039d564db072c71ee196ee9b244b1))
+- **sandbox:** improve UX with click-to-expand detail modal ([cca32a3](https://github.com/your-org/ai-teams-engine/commit/cca32a3157d20aaa4b625b2d52d947e0a1d011a5))
+- **sandbox:** redesign sandbox view with quadrant layout and event relations ([55a8805](https://github.com/your-org/ai-teams-engine/commit/55a8805b548c6251555b2eb2a94d6fcfd6bbd701))
+- **sandbox:** show company/organization names in camp headers ([00ce968](https://github.com/your-org/ai-teams-engine/commit/00ce968132155c90cbc2f5e21de86831a5d1ed23))
+- **search:** add Blogs, Reports, Policy search sources ([a812d17](https://github.com/your-org/ai-teams-engine/commit/a812d1786ae73314837d810daa98cfd0e487be99))
+- **search:** add multi-API key support with automatic rotation ([649ebef](https://github.com/your-org/ai-teams-engine/commit/649ebef0fafdf9d99e0294781ed381e65f7c3046))
+- **search:** add News and Scholar search sources ([0cc070e](https://github.com/your-org/ai-teams-engine/commit/0cc070e480b5d1ff14b5a6df4dfb7f88fdd84443))
+- **search:** implement automatic failover for search providers ([405830b](https://github.com/your-org/ai-teams-engine/commit/405830b81e07ac90c9ab7bc27247a6b43cb64eca))
+- **search:** implement comprehensive ranking algorithm ([5ab2d23](https://github.com/your-org/ai-teams-engine/commit/5ab2d231eec976d0c8b35572d65e4f2f520ac8d6)), closes [hi#quality](https://github.com/hi/issues/quality)
+- **secrets:** add DEV_TOOLS and MCP categories for Secret Manager ([273b52f](https://github.com/your-org/ai-teams-engine/commit/273b52f97cc29ab17f8ced056e5e8e40318ee78e))
+- **secrets:** add secretKey integration for AI models ([3455a99](https://github.com/your-org/ai-teams-engine/commit/3455a998c16895bc0351928b83bc895f7d116619))
+- **secrets:** add security hardening, version management, and value modal ([1dd59b5](https://github.com/your-org/ai-teams-engine/commit/1dd59b55d552d7d85eb3486860095dd4097f9ad8))
+- **secrets:** implement centralized secrets management module ([47b9bde](https://github.com/your-org/ai-teams-engine/commit/47b9bde849acccfdab997c9e122a3dffd315deba))
+- **simulation:** add AI assist for params and enhance detail page display ([8293703](https://github.com/your-org/ai-teams-engine/commit/8293703be298db0b54a5e3cda05e8365abc2fc59))
+- **simulation:** add debrief report display on completion ([faa662e](https://github.com/your-org/ai-teams-engine/commit/faa662eeacace7195918f057907ba5e8a68ab956))
+- **simulation:** add delete button for run history records ([632fd37](https://github.com/your-org/ai-teams-engine/commit/632fd37aebfe9c58540f7cbf781deba8c2da1a7d))
+- **simulation:** add graphical sandbox visualization with view switching ([53eae86](https://github.com/your-org/ai-teams-engine/commit/53eae86ad7c6a7eb7ef2a45afa1607f87aa8fe29))
+- **simulation:** add mode selection and improve UI ([02eb145](https://github.com/your-org/ai-teams-engine/commit/02eb145e456f7f424c2d73bd4a2bfc215d0d620d))
+- **simulation:** add perspective system and fix AI adopt logic ([2c03fd9](https://github.com/your-org/ai-teams-engine/commit/2c03fd9af7fb94ad191312d2c31463cc0a865837))
+- **simulation:** add provider test button and scenario deletion ([1f3f590](https://github.com/your-org/ai-teams-engine/commit/1f3f5909c064b7c94a2e23f405208a0dc3016230))
+- **simulation:** add WHITE team support to text view ([5669083](https://github.com/your-org/ai-teams-engine/commit/56690830bdf4a5a4fc07e92135ceb7abddb84637))
+- **simulation:** enhance AI assist with context awareness and data sources ([80db873](https://github.com/your-org/ai-teams-engine/commit/80db873578575d8cebd5ec6a460ffae926328162))
+- **simulation:** enhance AI-powered company metrics and agent configuration ([b04a5fa](https://github.com/your-org/ai-teams-engine/commit/b04a5fa5a23e325a74ee38dc6cda0ce3dec0e04f))
+- **simulation:** enhance sandbox visualization with WHITE team and dynamic backgrounds ([47a753a](https://github.com/your-org/ai-teams-engine/commit/47a753ac13d1a5302a2dc04fbc2c0e42e52bfdc4))
+- **simulation:** improve timeline display and intervention tracking ([2e3dd35](https://github.com/your-org/ai-teams-engine/commit/2e3dd35d625ea0fb8d1a0876296d7b757c5ac7ac))
+- **simulation:** improve UX and fix reasoning model token issues ([1a80945](https://github.com/your-org/ai-teams-engine/commit/1a80945f8cb8a013c77fb217fa0802a5e1e2b1a5))
+- **simulation:** major UX and AI decision overhaul ([7f59b71](https://github.com/your-org/ai-teams-engine/commit/7f59b711f9330e1768ef8c1c10d60f1f9cc543a1))
+- **simulation:** use LLM for dynamic industry analysis ([a0d6d58](https://github.com/your-org/ai-teams-engine/commit/a0d6d582225179393c1d894aeba8da7c03151227))
+- **skills:** add 8 new specialized skills for Claude agents ([c427881](https://github.com/your-org/ai-teams-engine/commit/c4278817cd09b08c7106b11ad6ab8616c58d204e))
+- **skills:** add frontend-ui-debugger skill ([e7ecdd1](https://github.com/your-org/ai-teams-engine/commit/e7ecdd1a309c7ce57c31237c140eaf8e7747e7b5))
+- **skills:** add SkillsMP connection status and sync functionality ([601657c](https://github.com/your-org/ai-teams-engine/commit/601657c458b7bde6eed1a8d6bbb0cadf75152d9c))
+- **skills:** auto-warmup installed Marketplace Skills on startup ([1285ea0](https://github.com/your-org/ai-teams-engine/commit/1285ea042a7bf6e1496b083184bd8c929f08218f))
+- **skills:** expand SkillsMP sync with more search terms and track platform total ([a757fe6](https://github.com/your-org/ai-teams-engine/commit/a757fe653d9fb647f5a4057fcfc4a4f52286689d))
+- **slides-ui:** add expandable agent cards with scroll and scoring display ([3544afa](https://github.com/your-org/ai-teams-engine/commit/3544afabb7c82a7b0ca531bff62b0de221400ef0))
+- **slides-v3:** add comprehensive keyword mappings for template selection ([b5bfc5f](https://github.com/your-org/ai-teams-engine/commit/b5bfc5f8ac74d7100679e844037d239d8366813a))
+- **slides-v3:** add detailed logging for image generation debugging ([3380689](https://github.com/your-org/ai-teams-engine/commit/3380689226fcd3a01d60a88f80c756b22c073f58))
+- **slides-v3:** add edit and delete functionality for sessions ([207a2f3](https://github.com/your-org/ai-teams-engine/commit/207a2f30a3890d013963b8135922e0d06260494b))
+- **slides-v3:** add history restore and sessions gallery ([305ead4](https://github.com/your-org/ai-teams-engine/commit/305ead45523e4a729dd9ec52d3a537c43beb2712))
+- **slides-v3:** add presentation mode and fix image generation ([24d6ad5](https://github.com/your-org/ai-teams-engine/commit/24d6ad58d2d9a9cd052150913083969fe2a596b5))
+- **slides-v3:** add Preview/Code/Thinking tabs per page like Genspark ([e250c2d](https://github.com/your-org/ai-teams-engine/commit/e250c2d10f5683951bc0b1a082e481e68919ed62))
+- **slides-v3:** add Unsplash fallback for background images ([b9dc065](https://github.com/your-org/ai-teams-engine/commit/b9dc065fcb9dd4916690319c154c7b5b0880efdb))
+- **slides-v3:** complete visual upgrade with theme system and chart rendering ([51e860d](https://github.com/your-org/ai-teams-engine/commit/51e860d66acd5973da30eaa505c158e48905c3e5))
+- **slides-v3:** deterministic template rendering architecture ([c265953](https://github.com/your-org/ai-teams-engine/commit/c2659536336fbfb8d7e9892dfadc5d16a1f5fcad))
+- **slides-v3:** implement background images for all page types ([9c88969](https://github.com/your-org/ai-teams-engine/commit/9c889690d1548221481e66acdab551aed5496c8e))
+- **slides-v3:** implement complete 5-layer architecture with 32+ templates ([5c3102b](https://github.com/your-org/ai-teams-engine/commit/5c3102b0b34e7c8d0b06004c13dec0141573812d))
+- **slides-v3:** implement export functionality ([d0d0eb5](https://github.com/your-org/ai-teams-engine/commit/d0d0eb516089280cb3e300910fd12ec70c16cba0))
+- **slides-v3:** implement Slides Team architecture ([fe6ddf1](https://github.com/your-org/ai-teams-engine/commit/fe6ddf17720159419c0b2adbc48392fd18e2cb8d))
+- **slides-v3:** improve UI/UX for slide generation ([a6ae0f1](https://github.com/your-org/ai-teams-engine/commit/a6ae0f1da81d72a32b09a6211b3e47fd0647a6a4))
+- **slides:** add /themes/list endpoint ([8b8b7f4](https://github.com/your-org/ai-teams-engine/commit/8b8b7f4889452a38c48bc4ea96d036b0ff36afc6))
+- **slides:** add comprehensive frontend diagnostic logging ([8482629](https://github.com/your-org/ai-teams-engine/commit/84826296449c58224c24aa953af46bc1c7d38678))
+- **slides:** add narration API endpoints and hook ([ad1ab51](https://github.com/your-org/ai-teams-engine/commit/ad1ab5145731b8d8adfcf1a0158462f75924f506))
+- **slides:** add production readiness for AI Slides v5 ([e22abea](https://github.com/your-org/ai-teams-engine/commit/e22abeaf3c7bc038a739f6c2c2c13941bb6353d7))
+- **slides:** add quantifiable scoring and agent switching mechanism ([047c666](https://github.com/your-org/ai-teams-engine/commit/047c66658f3be717704f99e1713ed8307dd34f18))
+- **slides:** add retry mechanism for Leader review ([9e60fd8](https://github.com/your-org/ai-teams-engine/commit/9e60fd8d7b53d102f30190e5044d715adf20e561))
+- **slides:** implement PRD Section 12 UI layout ([7d87de2](https://github.com/your-org/ai-teams-engine/commit/7d87de22f998033399ed02719a287809af5c0e69))
+- **slides:** implement Slides Engine v3.0 with multi-model architecture ([2599144](https://github.com/your-org/ai-teams-engine/commit/259914476944e23a55e370d1176b373f110e19d1)), closes [#0F172A](https://github.com/your-org/ai-teams-engine/issues/0F172A)
+- **slides:** implement v4.0 content-driven architecture ([7df9177](https://github.com/your-org/ai-teams-engine/commit/7df917759d2c610549fd79e49ce9d9f42d9f5eaa))
+- **slides:** integrate AI Edit dropdown into toolbar ([30ec869](https://github.com/your-org/ai-teams-engine/commit/30ec86913cd2a844c172676d32dc9d97cd4be50f))
+- **slides:** integrate Team SSE for AI agent collaboration ([5c60d41](https://github.com/your-org/ai-teams-engine/commit/5c60d412c1fa9367b4d9b1eafda602d9a7e752cd))
+- **slides:** integrate V5 components and fix template escaping ([c1386cc](https://github.com/your-org/ai-teams-engine/commit/c1386ccd0cd2e7d753e376b1836c5366312628be))
+- **slides:** v3.4 Token统计与积分消耗集成 ([657baf9](https://github.com/your-org/ai-teams-engine/commit/657baf9d82b0d9a1a00b343e73e920442034139e))
+- **slides:** v3.6 数据补全功能 - Writer 主动查找缺失数据 ([49fffbf](https://github.com/your-org/ai-teams-engine/commit/49fffbf906239b6901aa57fa17cebdcdc7dfd488))
+- **slides:** 全面优化 PPT 生成质量和可编辑性 ([367f6c2](https://github.com/your-org/ai-teams-engine/commit/367f6c2672632193fb91a42291d7faeb3b4f1ae4))
+- **slides:** 增强 AI Slides v5.0 持久化与错误处理 ([854bbec](https://github.com/your-org/ai-teams-engine/commit/854bbec43a73665a6057d8134ef6e759856dc5ce))
+- **slides:** 增强HTML模板视觉系统 v3.1 ([bc74500](https://github.com/your-org/ai-teams-engine/commit/bc7450044d593ff9bf845c5d47619ab616a5cdf2))
+- **slides:** 增强状态栏显示详细的 Agent 工作信息 ([9f37596](https://github.com/your-org/ai-teams-engine/commit/9f375966470aafb99145a51cec48c29b3d387e6e))
+- **slides:** 增强状态栏显示详细的生成过程 ([112e15c](https://github.com/your-org/ai-teams-engine/commit/112e15c84ea44b0cc7882897fc832193489c1314))
+- **slides:** 增强质量审核自动修复与诊断功能 v3.2 ([d0ea45d](https://github.com/your-org/ai-teams-engine/commit/d0ea45d3e34d167a1d7bbbde09a9b90e6d09ba77))
+- **slides:** 完善AI Slides对话功能和历史恢复 ([744060c](https://github.com/your-org/ai-teams-engine/commit/744060c39436d39432c92e13eea5159d0e03999a))
+- **slides:** 实现 AI Teams Leader 协调模式重构 (v5.0) ([2b1145b](https://github.com/your-org/ai-teams-engine/commit/2b1145b516cce738e5a00221e4b6745af21f8804))
+- **slides:** 实现智能标签功能 + 修复对话内容显示 ([d78a0b3](https://github.com/your-org/ai-teams-engine/commit/d78a0b3a0c08544eed9615f9a5b5f13b6a9eda4b))
+- **slides:** 实现每页设计思考数据同步到 Thinking TAB ([d4872de](https://github.com/your-org/ai-teams-engine/commit/d4872dead47b02cc5603275cadc41bd50417361c))
+- **slides:** 实现真正有效的反馈驱动重试机制 ([79c1c77](https://github.com/your-org/ai-teams-engine/commit/79c1c77359a728d1bd50f47353dcd7a474115959))
+- **slides:** 实现逐页流式输出，完成一页立即推送到前端 ([16a41c1](https://github.com/your-org/ai-teams-engine/commit/16a41c19b4efe0b473db972052d438028718dd04))
+- **slides:** 模板系统视觉差异化重构 ([06e6a7d](https://github.com/your-org/ai-teams-engine/commit/06e6a7de0f40aaafc38662427b5aa3f9dcb3a8c9))
+- **slides:** 添加产品级质量审核系统 ([80cd176](https://github.com/your-org/ai-teams-engine/commit/80cd176999b23a3f420a8dc4a7b9f9ed8b243e69))
+- **slides:** 添加继续任务按钮，发送消息继续执行 ([c26e291](https://github.com/your-org/ai-teams-engine/commit/c26e29197af5db6af56966da8b8ace38d5a51157))
+- **slides:** 累积显示每页生成的思考过程历史 ([fd06d64](https://github.com/your-org/ai-teams-engine/commit/fd06d648536d0491582f47a09cb9cb141a909331))
+- **social:** add platform connection login flow and content preview ([f33ce36](https://github.com/your-org/ai-teams-engine/commit/f33ce360902490a78da03585eb843dae2c0ec2b8))
+- **social:** add real session validation for platform connections ([a9dda2a](https://github.com/your-org/ai-teams-engine/commit/a9dda2a508e889a46b4c3df059350b588dfff58f))
+- **social:** add social_content_versions database migration ([add0a59](https://github.com/your-org/ai-teams-engine/commit/add0a59e741ae001221af46ffa8f491eee20276d))
+- **social:** 安全加固和代码质量优化 ([290da7c](https://github.com/your-org/ai-teams-engine/commit/290da7c1387b1ed3768a182fdcf8333205b5c434))
+- **social:** 实现多版本内容架构，支持一次创作多平台分发 ([0991910](https://github.com/your-org/ai-teams-engine/commit/0991910484069265eeac0bb30c2a9b23fe6c4595))
+- **social:** 添加 SocialContentVersion 数据库迁移 ([fff9e1b](https://github.com/your-org/ai-teams-engine/commit/fff9e1bb0040372ff2229b5a61db42b60a173794))
+- **social:** 编辑页面支持 FAILED 状态重新发布 ([8ee5814](https://github.com/your-org/ai-teams-engine/commit/8ee58140b00eae88246aee4b18add5302aff61bd))
+- **sparkle:** add AI image generation tab ([c08ba4a](https://github.com/your-org/ai-teams-engine/commit/c08ba4a998a54a22b357d6dcf52a84031478d062))
+- **sparkle:** categorize bookmarks by type and fix image navigation ([50b2d91](https://github.com/your-org/ai-teams-engine/commit/50b2d917024453eede5f2650e7afd242b756dc30))
+- **sparkle:** navigate to specific bookmarked image in Images tab ([0137d04](https://github.com/your-org/ai-teams-engine/commit/0137d048f942988f9a8454862a5dd932478e12fa))
+- **storage:** add ai diagnosis feature and fix toc issues ([8c73e38](https://github.com/your-org/ai-teams-engine/commit/8c73e385240eca4584c7b0f03cabc873bb8514c8))
+- **storage:** add PPT document cleanup functionality ([b083914](https://github.com/your-org/ai-teams-engine/commit/b0839141404bd4eecf91c823795aaff3c5d15a2a))
+- **storage:** add slides cleanup and delete all functionality ([23fcad6](https://github.com/your-org/ai-teams-engine/commit/23fcad68629d59fd79d6043ce112d7066b7e463f))
+- **storage:** add VACUUM FULL ALL deep clean functionality ([9e68304](https://github.com/your-org/ai-teams-engine/commit/9e68304d4240d669e2181edf3ecf07c3933b519a))
+- **storage:** 为每个数据表添加清理按钮 ([d34919e](https://github.com/your-org/ai-teams-engine/commit/d34919e8342ac03d60f060ae5445b272f37a93fd))
+- **studio:** add Create Image tab with ImageGenerator ([70925f1](https://github.com/your-org/ai-teams-engine/commit/70925f12b5907ed34e801dec383e42f821154fcc))
+- **studio:** add Gallery tab to AI Studio for AI-generated images ([0f139c9](https://github.com/your-org/ai-teams-engine/commit/0f139c91a16e4ab902bb7176bc8758ab76793aa0))
+- **studio:** add interactive AI Studio demo page ([a071f95](https://github.com/your-org/ai-teams-engine/commit/a071f95802d77820bf200fe3c50019d1ebaf0bc3))
+- **studio:** add prominent deep research input box per PRD v3.1 ([b5c7b18](https://github.com/your-org/ai-teams-engine/commit/b5c7b187427613a637ea8d86f1d67548ce48cf9c))
+- **studio:** make AI response citations clickable links ([1517360](https://github.com/your-org/ai-teams-engine/commit/15173606ab6d24caeed9f9ea408db50ccd0f5484))
+- **teams:** add API to regenerate final report for completed missions ([9b79791](https://github.com/your-org/ai-teams-engine/commit/9b7979178f72574b7e4169fc283b23de08ad1df0))
+- **teams:** add email notification for mission completion ([ec2f927](https://github.com/your-org/ai-teams-engine/commit/ec2f927e1258a59eb9eb6cb7b2446a93eea36dbb))
+- **teams:** add pagination, share link, and download for final report ([9a51b97](https://github.com/your-org/ai-teams-engine/commit/9a51b97a861803b08d831f723b96242aadebad6f))
+- **teams:** add refresh report button in report modal ([d03960b](https://github.com/your-org/ai-teams-engine/commit/d03960bde25a5e2ad54e5bc543dc3b8ed9e6e14c))
+- **teams:** improve AI Teams efficiency and add token tracking ([1239e1c](https://github.com/your-org/ai-teams-engine/commit/1239e1c47dcfa9a70db4c51901ce40af430497cb))
+- **teams:** 实现 AI Team 长内容端到端处理方案 ([d5c9cef](https://github.com/your-org/ai-teams-engine/commit/d5c9cef265e5a3a0e7a67a8bc4770788aaa02321))
+- **teams:** 实现 Mission Context Protocol 解决任务分配和上下文传递问题 ([d789800](https://github.com/your-org/ai-teams-engine/commit/d7898006f2a8f782aab3b3d94a186b0c6e3bacbf)), closes [#10](https://github.com/your-org/ai-teams-engine/issues/10)
+- **teams:** 添加任务分配诊断日志 ([2084e1a](https://github.com/your-org/ai-teams-engine/commit/2084e1ae47796ad855ee0fba4bbfe0ad48dc7fb0))
+- **teams:** 集成约束提取服务到任务执行流程 ([3698be9](https://github.com/your-org/ai-teams-engine/commit/3698be9b853f3f7bb165c8cea03b1333f366bd6b))
+- template-driven sim UI with external data sync ([68cd609](https://github.com/your-org/ai-teams-engine/commit/68cd60946934cdfcb4d59cc6b116d0b15b6b4789))
+- Temporarily simplify vitest config and fix ResearchPageRenderer.tsx typing ([bf0daa8](https://github.com/your-org/ai-teams-engine/commit/bf0daa834e3d348bc07bb5d1d55694fe228337c8))
+- **thumbnail:** add FlareSolverr support for og:image extraction ([8920839](https://github.com/your-org/ai-teams-engine/commit/89208394c1e5fb0e7a3253c58c080bd31005af85))
+- **thumbnails:** add PDF preview endpoint and fix centering ([feddfa4](https://github.com/your-org/ai-teams-engine/commit/feddfa40046cffc71e436a468537faefd5bfee06))
+- **thumbnails:** use alphaXiv CDN for arXiv papers ([2b2b6a2](https://github.com/your-org/ai-teams-engine/commit/2b2b6a266fdfd9d1715848fa78a508fa68ebdc0b))
+- **thumbnails:** use client-side PDF rendering ([fc86a28](https://github.com/your-org/ai-teams-engine/commit/fc86a282deaf18cea01a7621f641929c960ef60c))
+- **thumbnails:** use thumbnail.ws API for arXiv papers ([986744d](https://github.com/your-org/ai-teams-engine/commit/986744dbfbef74994d750cd7088fa3f330bf4e16))
+- **topic-research:** add @Leader input for team instructions ([9b6392b](https://github.com/your-org/ai-teams-engine/commit/9b6392b4e5f212ea8c227ae36c1645aca4e93537))
+- **topic-research:** add AI Writing style content preview and expand ([70d8e34](https://github.com/your-org/ai-teams-engine/commit/70d8e3421408f0e23975ee9bdb7a544ba93076b2))
+- **topic-research:** add annotation highlighting in TipTap edit mode ([2237c46](https://github.com/your-org/ai-teams-engine/commit/2237c461dbbcacea4fcf7f09c31edb239fe2d862))
+- **topic-research:** add chapterized report view for collaborative editing ([e3c184c](https://github.com/your-org/ai-teams-engine/commit/e3c184cfdf099d90fa81f514d6aa4f3a1114837b))
+- **topic-research:** add complete Topic Research module ([bb6c855](https://github.com/your-org/ai-teams-engine/commit/bb6c855a5148ca9e71ab55c7c5153dce3fcfcfae))
+- **topic-research:** add inline citation tooltips like Fast Research ([b24c102](https://github.com/your-org/ai-teams-engine/commit/b24c102fc86c01e87a612117b84773cb53b04b3e))
+- **topic-research:** add member sharing and visibility settings ([fa7af35](https://github.com/your-org/ai-teams-engine/commit/fa7af35655e0fae8e12dea91f164faf4a4724bc6))
+- **topic-research:** add quality reviewer agent and team canvas visualization ([39b2db2](https://github.com/your-org/ai-teams-engine/commit/39b2db27d0556dd58d10e9392983a0b832f1d031)), closes [hi#quality](https://github.com/hi/issues/quality)
+- **topic-research:** add WebSocket real-time updates and Agent details modal ([c58e70c](https://github.com/your-org/ai-teams-engine/commit/c58e70c9aa94f1f0a445f665bf8ad1f00ef0da3e))
+- **topic-research:** enhance active agent glow animation with multi-layer pulse effect ([244b094](https://github.com/your-org/ai-teams-engine/commit/244b0947204fa182755481a3128fb7b26deccae9))
+- **topic-research:** enhance UI with SVG team visualization and fix multiple issues ([32e8e2f](https://github.com/your-org/ai-teams-engine/commit/32e8e2f0cff0d5edd4a1c3c2bd16a4b60af115f7))
+- **topic-research:** extend permission check to support EDITOR/ADMIN collaborators ([64348cd](https://github.com/your-org/ai-teams-engine/commit/64348cd9bdfa53ade147ac18ab002fa7e363e1e4))
+- **topic-research:** implement AI edit optimization with user input modal ([41b84c0](https://github.com/your-org/ai-teams-engine/commit/41b84c07615d39ddbdbc1bd930a33ea167c5e15c))
+- **topic-research:** implement comprehensive report editing features ([15bda32](https://github.com/your-org/ai-teams-engine/commit/15bda32aabaae4fd404eacca56bd851e9519c893))
+- **topic-research:** implement data capability optimization Phase 1-3 ([2efef3f](https://github.com/your-org/ai-teams-engine/commit/2efef3f6404ef4f33cbe11098ff8ea5349a2565b))
+- **topic-research:** implement v7.0 Leader-driven research architecture ([05bc4ce](https://github.com/your-org/ai-teams-engine/commit/05bc4cea038c47f01a456c12af311a579ab20b53))
+- **topic-research:** implement visibility-based access control ([935929d](https://github.com/your-org/ai-teams-engine/commit/935929df5619018c42f97fb1cbe0565ecb3c5bf5))
+- **topic-research:** integrate AI Edit modal into report views ([4cd365d](https://github.com/your-org/ai-teams-engine/commit/4cd365d68a5e2da96f08da42e3639d3182976d23))
+- **topic-research:** major report generation restructure for comprehensive reports ([4be19bb](https://github.com/your-org/ai-teams-engine/commit/4be19bbfe0386e096fd3b66584aa96bf4c8f5f67))
+- **topic-research:** redesign UI with minimalist business style ([2675f53](https://github.com/your-org/ai-teams-engine/commit/2675f53a3154ed8650f777de460d36d18a2eff7e))
+- **topic-research:** redesign UI with professional left-right layout ([d512e9a](https://github.com/your-org/ai-teams-engine/commit/d512e9ac03924989077cfb7741df55a2c03d9f23))
+- **ui:** add Ask main entry and rename Sparkle to Library ([8a89cbf](https://github.com/your-org/ai-teams-engine/commit/8a89cbf80dc467983ca6fa49d75f22d90134cd27))
+- **ui:** add back button to DocumentListDialog ([10f61dd](https://github.com/your-org/ai-teams-engine/commit/10f61dd27d06942c91249f7b787ce7741844e936))
+- **ui:** add chat message appearance settings to profile ([05ca392](https://github.com/your-org/ai-teams-engine/commit/05ca3923767378324433d9720c9391a2ce9b78e4))
+- **ui:** add collapsible RAG sources, Web Worker Mermaid, i18n improvements ([f3e0ea9](https://github.com/your-org/ai-teams-engine/commit/f3e0ea96716f9fc0fde29231944fe4307aa6e14f))
+- **ui:** add CollapsibleMessage for long AI responses ([5241083](https://github.com/your-org/ai-teams-engine/commit/52410839789c6d4be9603b5654b35d73dc2ec2a2))
+- **ui:** add expand/collapse for NotesList component ([a52a53f](https://github.com/your-org/ai-teams-engine/commit/a52a53ffddcbd7bbae3e2cab25d97f395bf91f14))
+- **ui:** add expand/collapse for YouTube notes cards ([2beb4ea](https://github.com/your-org/ai-teams-engine/commit/2beb4ead261afe9b2f05e7ab746e7b26ff13de5b))
+- **ui:** add image lightbox for fullscreen preview ([f0888a2](https://github.com/your-org/ai-teams-engine/commit/f0888a2ecedd8e165ffb686d279561a230abe926))
+- **ui:** add list view toggle for Google Drive and Notion ([c70d259](https://github.com/your-org/ai-teams-engine/commit/c70d2591cd26dc470969815ed0b7b4698445442d))
+- **ui:** add Markdown rendering for task content in Canvas modal ([5110e11](https://github.com/your-org/ai-teams-engine/commit/5110e11d5a00924b0f2439f899abedb5065e2a3e))
+- **ui:** add real company logos using Clearbit Logo API ([0afdd9b](https://github.com/your-org/ai-teams-engine/commit/0afdd9ba459a864d6fa5f0edc5582b2f170f5818)), closes [hi#quality](https://github.com/hi/issues/quality)
+- **ui:** add Share button to TopicCard (same as AI Image) ([af9af5a](https://github.com/your-org/ai-teams-engine/commit/af9af5a2b50a6e9a97da92b660da4ec0f88f9143))
+- **ui:** add source label badge to Explore page resource list ([f1e5243](https://github.com/your-org/ai-teams-engine/commit/f1e5243fee1e52011f0e79ac70a00e7a0d88c0de))
+- **ui:** add source label badge to resource cards ([7e6603e](https://github.com/your-org/ai-teams-engine/commit/7e6603e768cbbe89f7c8fcb08bf3240745f58165))
+- **ui:** add TextSelectionToolbar for content interaction ([52fa7ae](https://github.com/your-org/ai-teams-engine/commit/52fa7aed1a87698f02a6ed7ea96bd1595ada7c9a))
+- **ui:** change default view mode to list for file browsers ([e3141cc](https://github.com/your-org/ai-teams-engine/commit/e3141cc7d39b0a580fa361d3ee348f66c4272be2))
+- **ui:** comprehensive UI improvements for Library and Explore ([f1b2c51](https://github.com/your-org/ai-teams-engine/commit/f1b2c51b33df58d1c5e95172769961a8e7f040b0))
+- **ui:** create reusable Modal component and refactor collection page ([5f0153f](https://github.com/your-org/ai-teams-engine/commit/5f0153f96f911b288d73808b60a9be00e8ac1d70)), closes [hi#quality](https://github.com/hi/issues/quality)
+- **ui:** enhance knowledge base UI with smart status and search test ([74dcbe0](https://github.com/your-org/ai-teams-engine/commit/74dcbe090e128826146bdf5aff978f8835c8ff73))
+- **ui:** enhance right sidebar panel design ([13b678e](https://github.com/your-org/ai-teams-engine/commit/13b678e9613fbb24c8786f67d9cb08d8623ac22f))
+- **ui:** enhance Sparkle Images empty states with premium design ([d69e42f](https://github.com/your-org/ai-teams-engine/commit/d69e42f4d20f1eb8b40475629599917487d7091d))
+- **ui:** enhance TableOfContents to support more heading formats ([3fde11e](https://github.com/your-org/ai-teams-engine/commit/3fde11e7a3c03812044428112548fd425661ec87))
+- **ui:** improve Explore/Library/Profile UX ([119638c](https://github.com/your-org/ai-teams-engine/commit/119638c3f39245f1cfc9f1e549b66ea65e43a033))
+- **ui:** improve ReaderView typography and reading experience ([96a7df0](https://github.com/your-org/ai-teams-engine/commit/96a7df057ac7cc0dfb131357c88b11c7f5140688))
+- **ui:** improve ReaderView with blog-style formatting ([33183fc](https://github.com/your-org/ai-teams-engine/commit/33183fc54b66deabde3629ce89d092d8c37db5e1))
+- **ui:** increase Canvas popover size for better readability ([1e8c285](https://github.com/your-org/ai-teams-engine/commit/1e8c285b969d25ef55b09a68cf05a23c8b1aa2d5))
+- **ui:** integrate TextSelectionToolbar into explore page ([fea5013](https://github.com/your-org/ai-teams-engine/commit/fea5013544876db6fea6b3af2d7722a8ac208324))
+- **ui:** make AI panel resizable with larger default width ([267a3fc](https://github.com/your-org/ai-teams-engine/commit/267a3fcbb6c079c6ef8586b2c9df8f4459eccb74))
+- **ui:** merge report toolbar and redesign research timeline ([70eb1ad](https://github.com/your-org/ai-teams-engine/commit/70eb1ad2236ea0a4d1674070ab24d52ae795b566))
+- **ui:** optimize AI message rendering for better readability ([b35ff01](https://github.com/your-org/ai-teams-engine/commit/b35ff013ce862d4e2b5304d7579b713b47e28ec9))
+- **ui:** optimize quote display and unify team icons ([8766d90](https://github.com/your-org/ai-teams-engine/commit/8766d907480090f4f6f42ba5bf835d0daaf3b37c))
+- **ui:** redesign resource detail header with modern toolbar ([221cc2d](https://github.com/your-org/ai-teams-engine/commit/221cc2d517a5988f0ddf9d1d7782e9ad530be530))
+- **ui:** remove VersionUpdateBanner from pages ([e7b4b45](https://github.com/your-org/ai-teams-engine/commit/e7b4b4520960c1c35bcf3ffc73f337d63a84b23f))
+- unify page headers to match AI Store style ([0911f0f](https://github.com/your-org/ai-teams-engine/commit/0911f0f1f247d10b5a379ddd062425cf149b97bb))
+- update Dockerfiles and add AI service configs ([bee4b37](https://github.com/your-org/ai-teams-engine/commit/bee4b3784871d1d616bf19bb6999dbcd85c08077))
+- upgrade content extractor with pdfjs-dist and readability for better content parsing ([4a4896b](https://github.com/your-org/ai-teams-engine/commit/4a4896b402e727476e73cd4a86ac1459a4c838c7))
+- Upgrade Prompt Enhancement System to Elite Designer Level ([70836af](https://github.com/your-org/ai-teams-engine/commit/70836afe880ac9bb23a7acb182477219c05ae03b)), closes [hi#quality](https://github.com/hi/issues/quality)
+- **upvote:** implement persistent resource upvote feature ([df99092](https://github.com/your-org/ai-teams-engine/commit/df99092f033c34e4f53aa332508d8c62d29feb01))
+- **webhooks:** add webhooks module and ai-teams enhancements ([768d6e2](https://github.com/your-org/ai-teams-engine/commit/768d6e2dd356954d1362fa73fc116231bb30dc73))
+- **wechat:** add user self-service WeChat Work binding ([fb1b637](https://github.com/your-org/ai-teams-engine/commit/fb1b637db707fd840740f5d3f08ea54a52811ca3))
+- **wechat:** implement WeChat as a proper data source ([71468ac](https://github.com/your-org/ai-teams-engine/commit/71468acceb88fe0ebf6881cf660ad2e2f5c93409))
+- **youtube:** add global transcript caching to database ([f69b541](https://github.com/your-org/ai-teams-engine/commit/f69b541b9639adb6a61797b9d4919a086cb8c65f))
+- **youtube:** add global translation caching for subtitles ([4632632](https://github.com/your-org/ai-teams-engine/commit/463263254e757f3bf0a5cc1e6e21cf7d0c39b702))
+- **youtube:** add right-click context menu for AI chat messages ([096729e](https://github.com/your-org/ai-teams-engine/commit/096729e1ff2a85651e7e27e173ea4e1d64a5fbaf))
+- **youtube:** add smart transcript fetching with client fallback ([51218dc](https://github.com/your-org/ai-teams-engine/commit/51218dc8d2b5c2e7ac2bce5f97a95df173319997))
+- **youtube:** add stop button for AI chat streaming ([5d0ea15](https://github.com/your-org/ai-teams-engine/commit/5d0ea15de69eab5901d0d6ab931de9f0e0c9dbe2))
+- **youtube:** add Supadata API as primary transcript provider ([b9765eb](https://github.com/your-org/ai-teams-engine/commit/b9765eba9f7b0894dfdf0fd40773817334894860))
+- **youtube:** merge transcript by sentence with semantic colors ([7d33b31](https://github.com/your-org/ai-teams-engine/commit/7d33b318c78675f98ed498a2cd7dce657d096a7f))
+- 公开报告页面使用左侧悬浮章节菜单 ([cb0c881](https://github.com/your-org/ai-teams-engine/commit/cb0c88191d608c72b2c31ce28690e973c96d3325))
+- 前端Google OAuth认证集成 ([9c27a1d](https://github.com/your-org/ai-teams-engine/commit/9c27a1d70092ff47f5c9563cda9370b083fe90a7))
+- 实现完整的Profile个人信息编辑功能 ([0491403](https://github.com/your-org/ai-teams-engine/commit/049140395f0b22f0ccc25e2ea6c2fe4aa0a61e99))
+- 将Policy标签移至主页面顶部导航 ([391eb1b](https://github.com/your-org/ai-teams-engine/commit/391eb1bbb2ca3d258e099395502e23b78a0ed9fa))
+- 添加Google OAuth认证支持 ([d0f140f](https://github.com/your-org/ai-teams-engine/commit/d0f140f3166a48620a764f75fabf35c8d9b53dd6))
+- 添加Policy（美国科技政策）页面 ([1bb0a1d](https://github.com/your-org/ai-teams-engine/commit/1bb0a1dcf1dded3bce16f02ae2cd639d2b325625))
+- 添加Policy到Settings的白名单和Collection配置 ([ecfaed2](https://github.com/your-org/ai-teams-engine/commit/ecfaed21830e3321836656c319f9fa1dc6dcf136))
+- 添加Profile菜单项并修复My Library认证问题 ([438be91](https://github.com/your-org/ai-teams-engine/commit/438be917a38637a7e948aa1dd4aac521b87630a0))
+- 添加公开报告页面，分享链接直接显示报告内容 ([822d7e6](https://github.com/your-org/ai-teams-engine/commit/822d7e6788ab4efd45a6d47cda95a91a86ca120e))
+- 添加版本更新日志功能 ([5fe49dc](https://github.com/your-org/ai-teams-engine/commit/5fe49dc9b9caf799f7bd92f0c345f4932cda5838))
+- 移动Login按钮到侧边栏并添加登录提示 ([77e341d](https://github.com/your-org/ai-teams-engine/commit/77e341dfa8edeb2dfe2a251a754018d0cedbba08))
+
+### Performance Improvements
 
 - **ai-teams:** add timeout for mission synthesis to prevent long waits ([9665de3](https://github.com/your-org/ai-teams-engine/commit/9665de32dc07332414d615d43fe525c0fdc550f0))
 - implement message virtualization and memory limits ([13230f8](https://github.com/your-org/ai-teams-engine/commit/13230f880e83d0324d2c9c921672926785af3cf7))
@@ -4928,149 +3426,120 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **test:** optimize pre-push hook with quick test mode ([031b953](https://github.com/your-org/ai-teams-engine/commit/031b953e8e17875f1bcbcbb01855fc85c81a8bc0))
 - **youtube:** prioritize free transcript methods over paid Supadata API ([dd41f24](https://github.com/your-org/ai-teams-engine/commit/dd41f24f81b0b9a37bd85a139c738bd5c5a8de37))
 
-### Refactoring
+### Reverts
 
-- **admin:** ai tools & skills management system refactoring ([53326b2](https://github.com/your-org/ai-teams-engine/commit/53326b218938f0cecfe977c28234c7a970d66acc))
-- **admin:** code review improvements for AI Tools ([3b0fd73](https://github.com/your-org/ai-teams-engine/commit/3b0fd7321d88a5507988c060e790f4b1a6866121))
-- **admin:** remove unused tabs and reorder by best practices ([c25ef93](https://github.com/your-org/ai-teams-engine/commit/c25ef93f885082506c2b49a84954369b5b64ace0))
-- **admin:** replace sidebar with top tab navigation ([5d7404c](https://github.com/your-org/ai-teams-engine/commit/5d7404ca67f5c8b44d122fea1239f3eb6b887989))
-- **admin:** replace system memory with Railway DB quota display ([0f81d6f](https://github.com/your-org/ai-teams-engine/commit/0f81d6f8f9a8a1e65dab45012622609294a22395))
-- **admin:** restructure admin panel to 3-layer architecture with Linear style ([7475e1f](https://github.com/your-org/ai-teams-engine/commit/7475e1fd31ff0a9c0c8025ef1fb493fbf9aa10c2))
-- **admin:** restructure Admin to use /admin as root with unified navigation ([48c0437](https://github.com/your-org/ai-teams-engine/commit/48c043711f347352eaabb2c8718af18fe87cdc9b))
-- **admin:** unify admin page layout with AI Writing style header ([b6844cf](https://github.com/your-org/ai-teams-engine/commit/b6844cfbce797d33fa92759bfb57527eda5da8b3))
-- **ai-agents:** reorganize core directory structure ([ed63440](https://github.com/your-org/ai-teams-engine/commit/ed634408e874f9ba3bc3d3e528b233501ded9630))
-- **ai-agents:** reorganize module structure and add DTOs with Swagger ([5a01b9f](https://github.com/your-org/ai-teams-engine/commit/5a01b9f3a94bab843bee960e1334d3db7356a18d))
-- **ai-architecture:** migrate all AI calls to AIEngineFacade ([05f88dd](https://github.com/your-org/ai-teams-engine/commit/05f88ddda7b87f4ab30cae69eeebc31e21d1e5b3))
-- **ai-ask:** remove Tools menu and improve input box UX ([160bfa1](https://github.com/your-org/ai-teams-engine/commit/160bfa15019297926330e15f7f0c7527a6aef43c))
-- **ai-ask:** 使用 AI Engine 的 FunctionCallingLLMAdapter 替换本地适配器 ([600ec79](https://github.com/your-org/ai-teams-engine/commit/600ec79810977b40e1c9057d9726dd95b61cad31))
-- **ai-engine:** add getFullModelConfig to AIEngineFacade ([5a31a7c](https://github.com/your-org/ai-teams-engine/commit/5a31a7cebda940657be4e6f07a92e2e5e084bf10))
-- **ai-engine:** centralize reasoning model selection in AI Engine ([5e0d10e](https://github.com/your-org/ai-teams-engine/commit/5e0d10ebed4c45566747fe607a1e26b9eb698cd3))
-- **ai-engine:** implement capability sinking with aiCaller injection ([5285aad](https://github.com/your-org/ai-teams-engine/commit/5285aadabc77b397d4e477aa5fb5546343218e60))
-- **ai-engine:** make temperature/token params adaptive based on isReasoning ([2252c22](https://github.com/your-org/ai-teams-engine/commit/2252c22dcfe6fe7636fbb0c35bf4bfa447c1eefa))
-- **ai-engine:** migrate domain-agnostic services from AI Teams ([a424eb7](https://github.com/your-org/ai-teams-engine/commit/a424eb7e497cf8a41404c0974ad5a3d4ad40484b))
-- **ai-engine:** sink core capabilities from AI Teams to AI Engine ([63a6543](https://github.com/your-org/ai-teams-engine/commit/63a654364f24fc1f95dccfed4c7555fed11caab4))
-- **ai-engine:** unify LLM calling patterns through chat() entry point ([eac59fd](https://github.com/your-org/ai-teams-engine/commit/eac59fd6af5b8231e87c50c3227450aa4a70edf7))
-- **ai-engine:** unify model management architecture ([daf472c](https://github.com/your-org/ai-teams-engine/commit/daf472c0b7569ebf0716b341964e9d8371d0d9ac))
-- **ai-engine:** use database config for reasoning model detection ([55e4792](https://github.com/your-org/ai-teams-engine/commit/55e47922cbfa07129cea85c5d54d27978be8162c))
-- **ai-engine:** 完成架构重构，删除 ai-agents，清理冗余文件 ([13feb46](https://github.com/your-org/ai-teams-engine/commit/13feb46d861a94bd887206efbe0e79997dd5478b))
-- **ai-engine:** 将 RAG 核心能力迁移到 AI Engine ([50f5e56](https://github.com/your-org/ai-teams-engine/commit/50f5e56fc6e6d45b3a4e9e075def1863bff2bd44))
-- **ai-image:** change Bookmark to Library and adjust layout ([be2551e](https://github.com/your-org/ai-teams-engine/commit/be2551eeaa84ddfab48e836138271e41bdc2d38b))
-- **ai-image:** improve UI design and simplify user experience ([317c81b](https://github.com/your-org/ai-teams-engine/commit/317c81bfff5fd9c90cedc10af08a9903b655877e))
-- **ai-image:** integrate InputArea component into ImageGenerator ([e294f58](https://github.com/your-org/ai-teams-engine/commit/e294f588e1b76edf2bc407b726dc78cebdfae44a))
-- **ai-image:** remove Content tab from image generator ([08eba6e](https://github.com/your-org/ai-teams-engine/commit/08eba6e9c44ee7b321a6834ac5a1ecf6d3186d45))
-- **ai-image:** remove unused methods to pass type-check ([7b96ec4](https://github.com/your-org/ai-teams-engine/commit/7b96ec4d6c97559ee9c97693e31c08bb46e37493))
-- **ai-image:** restructure module with domain-based directories ([952e7df](https://github.com/your-org/ai-teams-engine/commit/952e7df1f49e5245d690811e247499288ced3d9e))
-- **ai-image:** reuse YoutubeService for subtitle extraction ([bd12223](https://github.com/your-org/ai-teams-engine/commit/bd12223e8d0ddaff27af3de9852a3e2e93bed615))
-- **ai-image:** use system AIModel config and redesign UI ([8d84a2d](https://github.com/your-org/ai-teams-engine/commit/8d84a2dbdab714cfc848cbcc8a62e59bb29c8c87))
-- **ai-office:** remove AI Developer tab ([aece568](https://github.com/your-org/ai-teams-engine/commit/aece568613959aae8b3df11e817c4c828e76f14d))
-- **ai-office:** remove classic mode, keep only specialized tabs ([1391025](https://github.com/your-org/ai-teams-engine/commit/13910259381d04ed8b11f49ef14d640dbe3266a9))
-- **ai-office:** remove sidebar submenu and use internal tabs ([2500fb6](https://github.com/your-org/ai-teams-engine/commit/2500fb61f5f89e4e01509be83492f30a51d15386))
-- **ai-office:** reorganize directory structure and fix unused variables ([3b38273](https://github.com/your-org/ai-teams-engine/commit/3b38273c5c519a35e3eb073ab36141c14f82df21))
-- **ai-office:** restructure module with domain-based subdirectories ([cff7055](https://github.com/your-org/ai-teams-engine/commit/cff70555d26131e503a509f66b65d536ffa20e19))
-- **ai-office:** 清理未使用的 Docs/Designer 模块和服务 ([268825b](https://github.com/your-org/ai-teams-engine/commit/268825b87a031f2198e3bdac01daaba122c18aaf))
-- **ai-research:** extract safeString utility and optimize components ([ff781ff](https://github.com/your-org/ai-teams-engine/commit/ff781ff2f79bc4377a416a44e918c17314f8016c))
-- **ai-research:** implement DOM-based annotation highlighting system ([4e70855](https://github.com/your-org/ai-teams-engine/commit/4e70855d13da127f21ab551519cff0affc0a451a))
-- **ai-research:** redesign collapsible panels with proper flex layout ([ebe6c82](https://github.com/your-org/ai-teams-engine/commit/ebe6c821e8f26daf19e6948bdadf7ee386bfd03a))
-- **ai-research:** restructure AI Research with Fast/Deep Research tabs ([6161dd1](https://github.com/your-org/ai-teams-engine/commit/6161dd1907fb1d78a7d263d9a618b3c9f36a769e))
-- **ai-social:** optimize edit page layout with tab-based UI ([3c9e88f](https://github.com/your-org/ai-teams-engine/commit/3c9e88f0040009be284183dedd28f7bea4a6b376))
-- **ai-studio:** move Artifacts from tab to sidebar ([77a99ce](https://github.com/your-org/ai-teams-engine/commit/77a99ce3f90108143cf7049a3bba6abf7ee4da14))
-- **ai-studio:** rebrand Outputs tab to Artifacts ([92799c4](https://github.com/your-org/ai-teams-engine/commit/92799c43dca86f1faf5fbc0d73ebed10ff7faceb))
-- **ai-studio:** reorganize tabs to Fast Research and Deep Research ([e8e2bbd](https://github.com/your-org/ai-teams-engine/commit/e8e2bbdeb1d913a5edb9f48133d2e803fd8fab45))
-- **ai-studio:** simplify Deep Research UI design ([90ff981](https://github.com/your-org/ai-teams-engine/commit/90ff981fa68f86c3b5ed6f4cb1d5753937ddd396))
-- **ai-teams:** simplify Canvas hover interaction UX ([9765cc9](https://github.com/your-org/ai-teams-engine/commit/9765cc99532c3dca67f5de734f810f8596c457fe))
-- **ai-teams:** 大规模代码重构和问题修复 ([0176e89](https://github.com/your-org/ai-teams-engine/commit/0176e89a594aaa7e6d873918f313ccc20a3aac53))
-- **ai-teams:** 重构目录结构，迁移通用服务到 common 模块 ([cbe0246](https://github.com/your-org/ai-teams-engine/commit/cbe0246fee73cbf0b283a3486b676b4508857a71))
-- **ai-writing:** consolidate API files ([2cef295](https://github.com/your-org/ai-teams-engine/commit/2cef295ba13f5d02ea111ea5558008e5dd8bb4c8))
-- **ai-writing:** improve UI layout and add orchestrator state update ([410dc72](https://github.com/your-org/ai-teams-engine/commit/410dc728565edfeb7e7ac80f0e00122d08ac5df3))
-- **ai-writing:** professional redesign of left sidebar layout ([2fc320c](https://github.com/your-org/ai-teams-engine/commit/2fc320cfcd77ccf3fd8051cfdd98d7b1e79ebecc))
-- **ai-writing:** redesign UI following AI Teams pattern ([191444f](https://github.com/your-org/ai-teams-engine/commit/191444f56c7daf9441d0a9bed62582a5ae11ed63))
-- **ai-writing:** redesign UI to match AI Teams pattern ([76c492d](https://github.com/your-org/ai-teams-engine/commit/76c492db807c8e5bb138997e24318f9f92beba4d))
-- **ai-writing:** reorder phases - world building before story structure ([42815f7](https://github.com/your-org/ai-teams-engine/commit/42815f7f668e8ab72a4ac41bda6b4f5321cdcc45))
-- **annotation:** migrate to React Controlled Highlighting ([fcb67e8](https://github.com/your-org/ai-teams-engine/commit/fcb67e85fbba20850515257d7fc3dd966104238e)), closes [#310](https://github.com/your-org/ai-teams-engine/issues/310)
-- **arch:** apply dependency inversion to resolve circular dependencies ([762eacf](https://github.com/your-org/ai-teams-engine/commit/762eacfdddc6d57754315be846ae6d5896b78e37))
-- **arch:** deep architecture improvements for modularity ([35f9b40](https://github.com/your-org/ai-teams-engine/commit/35f9b40aceedae048723e04179c3d2c176c1bb46))
-- **arch:** implement industry best practices for AI orchestration ([e4eb161](https://github.com/your-org/ai-teams-engine/commit/e4eb161621410dfbde268e774fdf66df5a6d9e5b))
-- **architecture:** comprehensive architecture improvements ([5bf4ea1](https://github.com/your-org/ai-teams-engine/commit/5bf4ea1771b316a3a78ec1bcf48bad8bed22522a))
-- **backend:** unified billing via BillingContext + AsyncLocalStorage ([d455e05](https://github.com/your-org/ai-teams-engine/commit/d455e050d197c58eda7d61d7b20d6f30262d7f00))
-- **backend:** 更新模块导出和依赖引用 ([cc8cb5a](https://github.com/your-org/ai-teams-engine/commit/cc8cb5a55052de57c30156bccb48c9eb40fd9564))
-- **backend:** 重构 data-services 为 ingestion 模块 ([e2b9032](https://github.com/your-org/ai-teams-engine/commit/e2b9032fa1165dbb5194c4621b895a2476dfd21e))
-- **backend:** 重构目录结构，优化架构分层 ([38bac10](https://github.com/your-org/ai-teams-engine/commit/38bac107637302d36b09e490060c07db8926d4a8))
-- comprehensive directory structure cleanup ([ae190bc](https://github.com/your-org/ai-teams-engine/commit/ae190bccc02dfb9fd4892fc2ed1c52fffa1ac699))
-- consolidate monitoring files into scripts/monitoring/ ([eae1c27](https://github.com/your-org/ai-teams-engine/commit/eae1c27877995890eb1da643f9ff0d2423139f1f))
-- consolidate research modules and AI Engine migration ([8e9de41](https://github.com/your-org/ai-teams-engine/commit/8e9de4197ae350d0365973e44ba56c39f0614778))
-- **docs:** move plan files to architecture directory ([2707501](https://github.com/your-org/ai-teams-engine/commit/27075019bdea2b1793b9d8e100b4583ec547fad4))
-- **docs:** rename files to lowercase and reorganize structure ([31beab6](https://github.com/your-org/ai-teams-engine/commit/31beab640c65dd5e5b8f3754f25010a5bd7d4511))
-- **docs:** 重组 PRD 文档目录结构 ([66c2225](https://github.com/your-org/ai-teams-engine/commit/66c2225483268f6b0059cc906d09e5dc2a1de1ba))
-- **explore:** simplify YouTube video ID extraction using shared function ([f89d084](https://github.com/your-org/ai-teams-engine/commit/f89d084ad38194a29237707936f73a57a2d83e95))
-- **feedback:** migrate screenshot-analyzer to use AIEngineFacade ([e849560](https://github.com/your-org/ai-teams-engine/commit/e849560964323cef99331c890dfe8b152d67b44c))
-- **feedback:** remove tab from Topic, add source filter to Admin ([5e4bc4e](https://github.com/your-org/ai-teams-engine/commit/5e4bc4ed397af130c3e66e61d90e6437aaa29e8f))
-- **frontend:** enhance right panel icon usability and alignment ([e3887b9](https://github.com/your-org/ai-teams-engine/commit/e3887b98009cfa92d62b6a486fa121f1f21d9505))
-- **frontend:** extract ~950 lines of duplicated code into shared modules ([50a59ff](https://github.com/your-org/ai-teams-engine/commit/50a59ff0d7193adc70f3e8a332b452f8f17f02b1))
-- **frontend:** optimize Mission performance report for narrow panel ([01b37e7](https://github.com/your-org/ai-teams-engine/commit/01b37e7fd1e99e27847bc3a08732648445163610))
-- **frontend:** optimize right panel icon layout and alignment ([0e7e9da](https://github.com/your-org/ai-teams-engine/commit/0e7e9da282d64dd953fa1f49e70485571c598592))
-- **frontend:** optimize System Management tabs structure ([63934d3](https://github.com/your-org/ai-teams-engine/commit/63934d330a648027ff0094bbe4b9477c6031297c))
-- **frontend:** organize UI components into categorized subdirectories ([4ec4c5a](https://github.com/your-org/ai-teams-engine/commit/4ec4c5a1b2ed2849d6f015da6bc1355536271906))
-- **frontend:** redesign right panel icon buttons with modern minimalist style ([a4d9771](https://github.com/your-org/ai-teams-engine/commit/a4d977108132964c31ed77eb5f5894dba8f814a4))
-- **frontend:** replace bird flock logo with clean R monogram ([03e2894](https://github.com/your-org/ai-teams-engine/commit/03e2894ca60f0c14371297ec892c83cc472cd3cd))
-- **frontend:** restructure directory layout for consistency ([b566084](https://github.com/your-org/ai-teams-engine/commit/b56608493ccb60ebe45e3223d4aa355117408ddd))
-- **frontend:** unify chapter view rendering with continuous view ([a7f17d1](https://github.com/your-org/ai-teams-engine/commit/a7f17d1590dd270cb1770f440b2bd3659734eb90))
-- **frontend:** unify share routes and cleanup unused pages ([01f37b5](https://github.com/your-org/ai-teams-engine/commit/01f37b541b752773b1ff9a3cdc9e160b642dabaa))
-- **frontend:** use independent routes for detail pages ([bd993c7](https://github.com/your-org/ai-teams-engine/commit/bd993c7c3306deb5c8da68164012c80b7626326d))
-- **frontend:** 简化AI Research页面只显示Topic Research ([61e7a87](https://github.com/your-org/ai-teams-engine/commit/61e7a871486c09a819a8952cad120ef4fbe1b8a1))
-- **i18n:** rename sidebar section from Materials & Knowledge to Knowledge Base ([1909ad1](https://github.com/your-org/ai-teams-engine/commit/1909ad1664e96dc6194a26b4443b13a4cf5617b8))
-- implement professional data management interface with global sidebar integration ([51cc45f](https://github.com/your-org/ai-teams-engine/commit/51cc45f1fc69773a298715ce5ebac0381da8b85f))
-- implement unified search scope across all library tabs ([401aeab](https://github.com/your-org/ai-teams-engine/commit/401aeab44ee04e9c5e56e9dddfaa55cdb8cb2749))
-- **library:** change Images tab to show bookmarked images gallery ([5fd2699](https://github.com/your-org/ai-teams-engine/commit/5fd269902f6058fedf593772131f21ddf36ae551))
-- **library:** optimize KB page UI and simplify creation flow ([04b7d31](https://github.com/your-org/ai-teams-engine/commit/04b7d313a5468e935748cd160026cf18c9778b8f))
-- **library:** redesign AddDocumentsDialog with extensible architecture ([a3b7566](https://github.com/your-org/ai-teams-engine/commit/a3b756615542137d7472222dfa5df9417010ccf6))
-- **library:** redesign KB edit to manage documents ([e170c4d](https://github.com/your-org/ai-teams-engine/commit/e170c4d84fe01feb06c862b9ae0fdf122d3b2d4b))
-- **library:** remove All Content and Videos tabs from Sparkle page ([8908b52](https://github.com/your-org/ai-teams-engine/commit/8908b5228739fe1d59a30d2a3a13759262c2165b))
-- **library:** rename AI Picks to Inspiration and simplify layout ([2b9ac9b](https://github.com/your-org/ai-teams-engine/commit/2b9ac9b49baa82cd6c415f2d03a3abe79fd76b56))
-- **library:** reorder tabs - Data Sources first ([9aa69ba](https://github.com/your-org/ai-teams-engine/commit/9aa69ba599c18934df2667cbb2180524913f37b1))
-- **library:** simplify ResourceSelectPanel with search-based discovery ([3357fce](https://github.com/your-org/ai-teams-engine/commit/3357fce7e4b096e1d91475758481d8482eeff6b2))
-- **library:** simplify TAB structure to 4 main tabs ([d561a22](https://github.com/your-org/ai-teams-engine/commit/d561a2204e7a5c4eab8ae2a9c393ef5e40033c38))
-- **library:** unify team KB to use dialog instead of inline expansion ([e789a24](https://github.com/your-org/ai-teams-engine/commit/e789a2431203822e43752971dcec0ed8b69c30a1))
-- major architecture reorganization and cleanup ([2e3d313](https://github.com/your-org/ai-teams-engine/commit/2e3d313d8168929ccc9f1b1e5e067694d7f83058))
-- merge Dashboard, Monitor, History into unified Dashboard ([407f8ed](https://github.com/your-org/ai-teams-engine/commit/407f8ed2db4189d72d65a40eecd59bce2dbc840a))
-- optimize search box design and remove duplicate search from Notes ([175ec1a](https://github.com/your-org/ai-teams-engine/commit/175ec1a37c14a2f72a55b9c411b941ea7cec04fa))
-- polish Google Drive and PPT services integration ([4d47ca5](https://github.com/your-org/ai-teams-engine/commit/4d47ca55c4ee6030fa438f5c51bfb8e69f757731))
-- **rag:** 清理重复的 RAG 服务，使用 AI Engine 核心能力 ([1cf0a32](https://github.com/your-org/ai-teams-engine/commit/1cf0a32896021507b326010d2b0e2bf5b75126eb))
-- redesign My Library page with English UI and Explore-style layout ([33afbd2](https://github.com/your-org/ai-teams-engine/commit/33afbd205e9e36f4f9bdac46379f0707e0c88dac))
-- remove BlogCollectionManager from Reports TAB ([f62c14d](https://github.com/your-org/ai-teams-engine/commit/f62c14def05f2b15fd90acc3ae15b91626b6aabe))
-- remove deprecated AI Coding module and fix remaining TypeScript errors ([9238144](https://github.com/your-org/ai-teams-engine/commit/92381446e1394b0ba7958e378616719cc5e6b905))
-- remove duplicate services from ai-image module ([1f83f01](https://github.com/your-org/ai-teams-engine/commit/1f83f014645323c0bfcd9f4b6c242799d71312dd))
-- remove unused tests dir and enhance CI smoke tests ([d811c62](https://github.com/your-org/ai-teams-engine/commit/d811c627ae8fa26d1225b07aa3407d227bdb3ca7))
-- rename components/ask to components/ai-ask for consistency ([fe13187](https://github.com/your-org/ai-teams-engine/commit/fe13187f2b97f5ccbb82ed5f3685219567557d32))
-- reorganize backend modules into domain groups and update frontend lib structure ([33163be](https://github.com/your-org/ai-teams-engine/commit/33163be5c77139433e2aaa62c017d6b3d4f28d42))
-- reorganize frontend hooks and add backend capabilities system ([6a441ba](https://github.com/your-org/ai-teams-engine/commit/6a441ba0487d9c1f4bdddfe0c66103416a858ba8))
-- reorganize project structure and tooling ([50eb03b](https://github.com/your-org/ai-teams-engine/commit/50eb03b7a082eb85f2717b4be2deed18daa161f4))
-- **research:** extract shared utility, fix review findings ([5050008](https://github.com/your-org/ai-teams-engine/commit/50500085a76c895d252791529ebcec651478ad23))
-- **research:** redesign collaboration timeline from folded tree to time-ordered flow ([51d0817](https://github.com/your-org/ai-teams-engine/commit/51d0817b733b4725f84537c92240f2333d67fe92))
-- **research:** resolve all remaining review findings ([4b051ed](https://github.com/your-org/ai-teams-engine/commit/4b051ed5670bd653c4a8782623eb58ee5d7d7c86))
-- **research:** visual upgrade ResearchSettingsModal, add railway db skill ([ea44157](https://github.com/your-org/ai-teams-engine/commit/ea441578fb44c921907a51a16dd22a9467514e38))
-- restructure data collection module according to PRD requirements ([c60cd40](https://github.com/your-org/ai-teams-engine/commit/c60cd4087785650875d2e0c86d1d36c3e07809fb))
-- **routes:** unify AI feature naming conventions ([58b9b76](https://github.com/your-org/ai-teams-engine/commit/58b9b769deff3c6928626a84d7fcc799cef1962b))
-- **sandbox:** improve left sidebar panels with better stats ([f7386ff](https://github.com/your-org/ai-teams-engine/commit/f7386ffbd500df92089cca34a66a374a60ddf49b))
-- simplify KnowledgeBaseSelector to fix rendering issue ([d4ba9eb](https://github.com/your-org/ai-teams-engine/commit/d4ba9eb36e7c55d8e682ee4b4c9d57460aa672f4))
-- **simulation:** redesign company-agent assignment logic ([8759b07](https://github.com/your-org/ai-teams-engine/commit/8759b0730cd76ee3b98139a36dee38103234c232))
-- **simulation:** simplify agent configuration UI ([3bd58aa](https://github.com/your-org/ai-teams-engine/commit/3bd58aa5467594707771b34a12f94755bbd29606))
-- **skills:** reorganize and optimize skill library ([388c57a](https://github.com/your-org/ai-teams-engine/commit/388c57a89d1d91f7f4249f2528d342b81547037c))
-- **slides-v3:** use ImageGenerationService for image generation ([ba6be1b](https://github.com/your-org/ai-teams-engine/commit/ba6be1bad1e3ac6457998959565aeadb4b7d6587))
-- **slides:** eliminate V3 naming and unify slides architecture ([e1ecd4a](https://github.com/your-org/ai-teams-engine/commit/e1ecd4ae7181c2d0b68fcd95cbfc57cc1dbc0951))
-- **slides:** migrate V3 to root and remove legacy code ([9957f46](https://github.com/your-org/ai-teams-engine/commit/9957f466f49f186fb13aa4a9f6f250b266cf4da2))
-- **slides:** 切换 SlidesEngineService 使用 SlidesTeamOrchestrator ([b5eb8b8](https://github.com/your-org/ai-teams-engine/commit/b5eb8b805c2730e6b9e185d25516234f33eb009e))
-- **slides:** 合并为单一按钮，空输入显示继续，有输入显示发送 ([ffc00b9](https://github.com/your-org/ai-teams-engine/commit/ffc00b9c0a72541ef3daaf77f47331722057d649))
-- **slides:** 彻底重构前端，对齐后端 Team 协作架构 ([d54e145](https://github.com/your-org/ai-teams-engine/commit/d54e1457f09761389b04cfa4ec507077d97c466a))
-- **slides:** 重新设计对话面板UI更专业 ([31fdb19](https://github.com/your-org/ai-teams-engine/commit/31fdb19c38c2eb053eaf88671759980eb77b6d7a))
-- split large god-class files into modular components ([6bba115](https://github.com/your-org/ai-teams-engine/commit/6bba115f7a2cd8801dc2b4bc9207d64c8dc23926))
-- **studio:** remove Gallery tab and expand Create Image area ([52a2a4d](https://github.com/your-org/ai-teams-engine/commit/52a2a4dc6f67b2ca9e7aaffb3700a6c37ca938e8))
-- switch all services from Nixpacks to Dockerfile ([a219976](https://github.com/your-org/ai-teams-engine/commit/a219976fdea6dc434d312dd1d10d8d214551bc8d))
-- **teams:** 简化成员名称匹配，直接用真实名字 ([eda86f9](https://github.com/your-org/ai-teams-engine/commit/eda86f996ad9b85f4c73dfd9c68d78646a092967)), closes [#10](https://github.com/your-org/ai-teams-engine/issues/10) [#10](https://github.com/your-org/ai-teams-engine/issues/10)
-- **topic-research:** implement Leader-Agent collaborative mechanism ([17674a9](https://github.com/your-org/ai-teams-engine/commit/17674a9a82ec54868da0d2a8b2f2bfeae1b78976))
-- **topic-research:** redesign left panel following AI Writing pattern ([ffc50b9](https://github.com/your-org/ai-teams-engine/commit/ffc50b91f673bfca345786570c0a40e406bcfbbf))
-- **ui:** remove refresh button from TopicCard ([b8a84b6](https://github.com/your-org/ai-teams-engine/commit/b8a84b6b75a13610fc41ff3061e6bfa26fe09823))
-- **ui:** reorder sidebar menu - AI Studio before AI Office ([0acefc6](https://github.com/your-org/ai-teams-engine/commit/0acefc653d3ea155cfc690533c8c12be542852d9))
-- **ui:** unify team KB tab with detail dialog ([e929a2d](https://github.com/your-org/ai-teams-engine/commit/e929a2d031bf8b1c60b8ad252600ebac912f2637))
-- unify feedback system, remove research feedback module ([a0a5bfc](https://github.com/your-org/ai-teams-engine/commit/a0a5bfc6275df5cb84bf87e98b5c8bbc727ceea3))
-- **writing:** remove redundant temperature/maxTokens when taskProfile is used ([0177f46](https://github.com/your-org/ai-teams-engine/commit/0177f4687088ce1c2f5f9786f0affbc3b3ba0d73))
-- 优化左侧菜单结构，按产品架构分组 ([646ac01](https://github.com/your-org/ai-teams-engine/commit/646ac01b95873310ce88515e40958cee6737f3d9))
+- **ai-teams:** remove synthesis timeout, keep full detailed report ([d21bd53](https://github.com/your-org/ai-teams-engine/commit/d21bd535027e262c0e3f49dc26437cc86fd71e83))
+- **backend:** restore original railway.toml nixpacks config ([93874a5](https://github.com/your-org/ai-teams-engine/commit/93874a5a875b89640e98303f88221388d72908be))
+- **branding:** restore original logo design ([24d726b](https://github.com/your-org/ai-teams-engine/commit/24d726b9bb0a310f318f80f3b4e355d76cff5b1a))
+- remove unnecessary IMAGE_GENERATION migration ([bb0c6ab](https://github.com/your-org/ai-teams-engine/commit/bb0c6abdaacff7a69fe491692d90013481b135a1))
+- restore STORAGE_ADMIN_KEY to recommended env vars ([42e720a](https://github.com/your-org/ai-teams-engine/commit/42e720ac308863f764536abcb60b2b6defbfe318))
+- restore to last working state c1e1995 ([33e8ebf](https://github.com/your-org/ai-teams-engine/commit/33e8ebf0fe683a2656531c284243d11a83101a65))
+- Revert ai-image.service.ts to fix errors ([6bf1195](https://github.com/your-org/ai-teams-engine/commit/6bf1195bb9893fd2309577d5a3f5cb573b3482a6))
+- rollback AI Engine delegation - causing execution to hang ([905aa74](https://github.com/your-org/ai-teams-engine/commit/905aa748e9a9eb9b91571e12899e3175678a3862))
+- use PAPER icon for arXiv papers temporarily ([9258e5d](https://github.com/your-org/ai-teams-engine/commit/9258e5d8b7dcf68c2874ddeedbf8a9d4b32c693a))
+
+### BREAKING CHANGES
+
+- **ai-writing:** AI writing flow now creates world settings before
+  planning chapter structure. This ensures chapters comply with world rules.
+
+Changes:
+
+- Phase 1: Bible Keeper builds world settings independently
+- Phase 2: Story Architect plans chapters based on world settings
+- Updated prompts to enforce world rule compliance
+- Updated frontend progress steps order
+- Added world-building step to phase mapping
+
+This architectural improvement ensures story consistency by establishing
+"game rules" (world settings) before planning the narrative structure.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+# [2.0.0](https://github.com/your-org/ai-teams-engine/compare/v1.0.0-phase1...v2.0.0) (2025-11-18)
+
+### Bug Fixes
+
+- improve subtitle export icon design and resolve request entity too large error ([f40befc](https://github.com/your-org/ai-teams-engine/commit/f40befc565ab6fbc2c6416ec07f51d12d240f796))
+- resolve YouTube subtitle export API endpoint and upgrade icon design ([c064278](https://github.com/your-org/ai-teams-engine/commit/c064278901bf03cdcf72852b49da499af533fdbd))
+- resolve YouTube subtitle PDF export critical issues ([7767b46](https://github.com/your-org/ai-teams-engine/commit/7767b4628a02b678b2b12ae95bb33f34a7a5eedb))
+
+### Features
+
+- add Phase 1 staging deployment with monitoring and smoke tests ([7a87be1](https://github.com/your-org/ai-teams-engine/commit/7a87be1d1845c34334e504d85b94fb4e0ffd74d2))
+- Implement comprehensive AI summary restructuring with resource-type-specific UI ([4f4f577](https://github.com/your-org/ai-teams-engine/commit/4f4f57730325c38903b0ac4486dc3cab4837d135))
+- implement YouTube subtitle export with PDF generation ([045068f](https://github.com/your-org/ai-teams-engine/commit/045068f040ddafb47e2f36711f3c38b6505009a7))
+- integrate subtitle export button into YouTube transcript interface ([af98737](https://github.com/your-org/ai-teams-engine/commit/af98737783b7d5b68cfef0e1638bba4cd45b4ff9))
+
+# [1.0.0-phase1](https://github.com/your-org/ai-teams-engine/compare/v2.1.0...v1.0.0-phase1) (2025-11-17)
+
+### Bug Fixes
+
+- correct ai model validation error causing stuck responses ([ffdfbc0](https://github.com/your-org/ai-teams-engine/commit/ffdfbc0fad96cf217fa8d4e821ce534c46a3ddd7))
+- correct AI service API endpoint paths ([8e83eae](https://github.com/your-org/ai-teams-engine/commit/8e83eae6688db5686c067e67c98834e1f510e8c8))
+- create missing AI API routes and fix chat endpoint path ([7acdc87](https://github.com/your-org/ai-teams-engine/commit/7acdc877c83e3349e99f64b080a04fd43b90454d))
+- display YouTube icon for YOUTUBE_VIDEO resource type ([d009220](https://github.com/your-org/ai-teams-engine/commit/d0092206796667557bed9d54d5d9c2f4426c82ad))
+- enable ai assistant to read actual pdf content as context ([0f70edd](https://github.com/your-org/ai-teams-engine/commit/0f70eddde3577fa128c70ea9a6ba8c3fddd44b0e))
+- enable AI assistant to use full PDF content as context ([8ccfb8a](https://github.com/your-org/ai-teams-engine/commit/8ccfb8a9478251a615dcd0532b2ffdc00f24853b))
+- fetch real YouTube video titles using oEmbed API ([9297369](https://github.com/your-org/ai-teams-engine/commit/9297369d1ef70a9a2d3de44411a70a9190fbd268))
+- fetch YouTube videos from both sources in YouTube tab ([a4a6275](https://github.com/your-org/ai-teams-engine/commit/a4a6275efdd30e810f1c6fa6e65a88b96817183e))
+- handle YOUTUBE_VIDEO type clicks and extract videoId from URL ([68d0d3e](https://github.com/your-org/ai-teams-engine/commit/68d0d3edb0cce6d99214ccbf9549162fcf45dbe8))
+- implement robust PDF URL extraction for arXiv and manual imports ([69d6d73](https://github.com/your-org/ai-teams-engine/commit/69d6d738bc88ec9123d76127585fa8140cb9bd6d))
+- TypeScript null safety fixes for ChatPanel ([fd707de](https://github.com/your-org/ai-teams-engine/commit/fd707ded13b84ebb8ec623dc64b0b348a3cfcc4f))
+- use dynamic pdf.js import to resolve ssr compatibility ([1ce8a19](https://github.com/your-org/ai-teams-engine/commit/1ce8a19e5c4ac94c4bf900d786bd71942b9e81b6))
+
+### Features
+
+- add advanced filter infrastructure and badge indicator ([9787a03](https://github.com/your-org/ai-teams-engine/commit/9787a031bf7dff80b29559cbabaec47157fa7864))
+- add AI service integration and import URL functionality ([ea0612f](https://github.com/your-org/ai-teams-engine/commit/ea0612f2c0efed3d5533b9f4c3b3d7931afc8db9))
+- add force navigation and file upload support ([0752a47](https://github.com/your-org/ai-teams-engine/commit/0752a47365081a8881485568c531039d26ea0eee))
+- add inline loading indicator in AI chat messages ([a8252c2](https://github.com/your-org/ai-teams-engine/commit/a8252c2c26b4debc34f132c5ffaf6706a271ec94))
+- add intelligent multi-language translation for YouTube videos ([539ec7b](https://github.com/your-org/ai-teams-engine/commit/539ec7be0d19271111e31d5210a2acd4585425f6))
+- add PDF URL migration script to fix existing papers ([f976e21](https://github.com/your-org/ai-teams-engine/commit/f976e217a98b577ee48c471c3d244aaf8d0fe044))
+- add YouTube URL import support ([4db88db](https://github.com/your-org/ai-teams-engine/commit/4db88dbe7643813a524e30d3d6dfcfc231f68631))
+- baseline 5.0 - ai office core features implementation ([10e1e83](https://github.com/your-org/ai-teams-engine/commit/10e1e83586b3ced0d5d7b42d0c8e439aad83d793))
+- comprehensive project improvements and standardization ([5249f94](https://github.com/your-org/ai-teams-engine/commit/5249f94d4541cff63826972fbe34a68e62f0f1d1))
+- enhance AI Office with partial page updates, logo redesign, and version history ([598143b](https://github.com/your-org/ai-teams-engine/commit/598143b7fafae14182a638ee8aaa1320ce5dc4ca))
+- enhance YouTube transcript retrieval with multi-language support ([e399857](https://github.com/your-org/ai-teams-engine/commit/e3998571f5af69f9efb74a3967eca667c6082341))
+- enhance YouTube video page with AI chat and collapsible panels ([0683cc4](https://github.com/your-org/ai-teams-engine/commit/0683cc433f53e2bb3cadde80f7186b92570d9a00))
+- enrich ai context with comprehensive paper metadata ([f37ac6c](https://github.com/your-org/ai-teams-engine/commit/f37ac6c747f5e30caf834e1ea2d523f5a6ffa6fe))
+- fix raw_data-resource bidirectional reference synchronization ([7a57693](https://github.com/your-org/ai-teams-engine/commit/7a5769379fc3bcbe5f680c64f54a5c62c5620f7f))
+- implement advanced 4-layer content extraction service with fallback mechanism ([6bb4563](https://github.com/your-org/ai-teams-engine/commit/6bb4563518e9f5b4a0e4b6be7fe75beaa911abf8))
+- implement aicontextbuilder for unified multi-resource ai context ([14620f4](https://github.com/your-org/ai-teams-engine/commit/14620f4977e57e6760358f9c9a88986122ba8601))
+- implement comprehensive testing and validation suite (Task 7) ([a7a4557](https://github.com/your-org/ai-teams-engine/commit/a7a4557f1ee1dab5375cb1b63fea648d41ce2aa8))
+- implement global deduplication mechanism with URL normalization and content hashing ([97b9dd3](https://github.com/your-org/ai-teams-engine/commit/97b9dd3e436956a902503f2ba788b1c20423b3a6)), closes [hi#quality](https://github.com/hi/issues/quality)
+- implement partial slide update and genspark-style visualizations ([ecc7e4c](https://github.com/your-org/ai-teams-engine/commit/ecc7e4c01bc30e0a8b9e198eed13d67ad7a8deb3))
+- integrate news extractor service with specialized API endpoint ([68b4e42](https://github.com/your-org/ai-teams-engine/commit/68b4e421f809c02196913d2cf3cc0bf4d1304a45))
+- optimize PDF/HTML viewer UI and fix arXiv import ([b1cb2ae](https://github.com/your-org/ai-teams-engine/commit/b1cb2ae2b061015f87c849f1bc5e4af537637491))
+- pass PDF context from ResourceDetailPanel to AIAssistant ([9ab0620](https://github.com/your-org/ai-teams-engine/commit/9ab0620f649cded55be4237e4bd74dc906603f59))
+- redesign resource type icons with vibrant colors ([666f1d2](https://github.com/your-org/ai-teams-engine/commit/666f1d2742a316ec9848c06ede74b929b6d20c3e))
+- support resource replacement and real titles for Papers/Projects/News ([6558334](https://github.com/your-org/ai-teams-engine/commit/65583341900cead33c4917a19a781cb607937141))
+
+# [2.1.0](https://github.com/your-org/ai-teams-engine/compare/8793daf38c60f3d863cb47fc2618ec36e1b64c20...v2.1.0) (2025-11-14)
+
+### Bug Fixes
+
+- add YouTube report generation endpoint and improve button layout ([371b8f0](https://github.com/your-org/ai-teams-engine/commit/371b8f09825173d0098d38e33d4255e0b20e6c70))
+- **ai-service:** strip whitespace from GCP Secret Manager secrets ([bf80748](https://github.com/your-org/ai-teams-engine/commit/bf8074831067d29e9b0452c408f4e577a2ba5630))
+- resolve YouTube page Chinese character encoding issues and add Windows service scripts ([0a5d537](https://github.com/your-org/ai-teams-engine/commit/0a5d537ee8271e013eee7284e81ba463b59a1ea6))
+
+### Features
+
+- add Chinese translation and PDF export for YouTube transcripts ([e83a3c6](https://github.com/your-org/ai-teams-engine/commit/e83a3c608c0943e40f1dd2bd394ff337c049c8c3)), closes [hi#quality](https://github.com/hi/issues/quality)
+- add multi-resource report generation test page ([2be2642](https://github.com/your-org/ai-teams-engine/commit/2be26424ae7805d5bb0b3013e0c6aa3df79ce286))
+- add workspace AI reporting support ([cce0c76](https://github.com/your-org/ai-teams-engine/commit/cce0c762542457dddd1c9ab76f1398493360e4f0))
+- add YouTube transcript extraction and AI report generation ([7bf057a](https://github.com/your-org/ai-teams-engine/commit/7bf057a17903304fe9fc43d41642644904b9e725))
+- baseline 1.0 - add access guide ([8fe8868](https://github.com/your-org/ai-teams-engine/commit/8fe88687907ad3295ec5883eeabec161b157e9e1))
+- baseline 1.1 - 完善notes/comments功能和AI服务优化 ([52d650e](https://github.com/your-org/ai-teams-engine/commit/52d650e52cef60a7214501942bfdc1d752ce4bcd))
+- baseline 2.0 - workspace AI chat with multi-resource support ([35a68ba](https://github.com/your-org/ai-teams-engine/commit/35a68ba4c721ada14c54b954d982fe925575f764))
+- enhance UI and fix AI service integration ([89ca49f](https://github.com/your-org/ai-teams-engine/commit/89ca49ff7d4f6d080244181570da7fdbc94e36b4))
+- expand proxy whitelist for media and tech domains ([edcab9a](https://github.com/your-org/ai-teams-engine/commit/edcab9a5dcf4598b5b0edc8ad355efbdb1e1c5a3))
+- implement bilingual transcript display for YouTube feature ([bb7e069](https://github.com/your-org/ai-teams-engine/commit/bb7e0699cbb74105e186a86cc7d145419a1dedf4))
+- implement client-side PDF thumbnail generation and fix AI service ([532037a](https://github.com/your-org/ai-teams-engine/commit/532037a5886d0a2cdcd9b6ecc32a668ce8bac445))
+- implement multi-resource AI report generation (MVP-2.5) ([08ba86e](https://github.com/your-org/ai-teams-engine/commit/08ba86eb66704f37cd781d82239fb3e9e3c955e0))
+- implement unified sidebar architecture across all pages ([af5f8eb](https://github.com/your-org/ai-teams-engine/commit/af5f8eb3f793afcf2ff01d03a16ec956515bc0a0))
+- improve sidebar and AI panel collapse buttons UI design ([b87fa97](https://github.com/your-org/ai-teams-engine/commit/b87fa97398e77bf013ffbb9498d5b730ca185f42))
+- initial commit - DeepDive Engine core features ([8793daf](https://github.com/your-org/ai-teams-engine/commit/8793daf38c60f3d863cb47fc2618ec36e1b64c20))
+- ui refactoring - remove thumbnails and optimize layout ([8ccb81a](https://github.com/your-org/ai-teams-engine/commit/8ccb81a84063edbb994286bb2fdb6f26d1ccd8e3))
