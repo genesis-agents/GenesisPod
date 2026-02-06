@@ -47,10 +47,10 @@ export default function AIChatMessages({
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[80%] rounded-lg px-3 py-2 ${
+              className={`rounded-lg px-3 py-2 ${
                 msg.role === 'user'
-                  ? 'bg-gradient-to-br from-red-500 to-red-600 text-white'
-                  : 'cursor-text select-text bg-gray-100 text-gray-800'
+                  ? 'max-w-[80%] bg-gradient-to-br from-red-500 to-red-600 text-white'
+                  : 'w-full cursor-text select-text bg-gray-100 text-gray-800'
               }`}
             >
               <div className="prose-xs prose max-w-none text-xs leading-relaxed [&>*]:my-1 [&>ol]:my-1 [&>p]:my-1 [&>ul]:my-1">
@@ -84,7 +84,7 @@ export default function AIChatMessages({
         {/* Inline Loading Message */}
         {isStreaming && (
           <div className="flex justify-start">
-            <div className="max-w-[80%] rounded-lg bg-gray-100 px-3 py-2 text-gray-900">
+            <div className="w-full rounded-lg bg-gray-100 px-3 py-2 text-gray-900">
               <div className="flex items-center gap-2">
                 <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-red-600"></div>
                 <p className="text-xs">
