@@ -74,7 +74,11 @@ export function useResources({
         }));
 
         const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=${PAGE_SIZE}&skip=${currentPage * PAGE_SIZE}`;
-        const resourcesRes = await fetch(resourcesUrl);
+        const resourcesRes = await fetch(resourcesUrl, {
+          headers: accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : {},
+        });
         const resourcesData = await resourcesRes.json();
         // API returns { success, data: { data: [...], pagination } } format
         const resResponseData = resourcesData?.data ?? resourcesData;
@@ -164,7 +168,11 @@ export function useResources({
       }
 
       const url = `${config.apiUrl}/resources?${params.toString()}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: accessToken
+          ? { Authorization: `Bearer ${accessToken}` }
+          : {},
+      });
       const data = await res.json();
       // API returns { success, data: { data: [...], pagination } } format
       const responseData = data?.data ?? data;
