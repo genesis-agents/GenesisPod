@@ -8,6 +8,10 @@ import {
   getPlatformLimits,
   PlatformLimits,
 } from "../config/platform-limits.config";
+import {
+  WECHAT_ADAPTATION_SYSTEM_PROMPT,
+  XIAOHONGSHU_ADAPTATION_SYSTEM_PROMPT,
+} from "../prompts/social-version.prompt";
 
 // Prisma client accessor for models not yet migrated
 type PrismaAny = any;
@@ -491,15 +495,10 @@ ${content.content}
    */
   private getAdaptationSystemPrompt(platformType: SocialPlatformType): string {
     if (platformType === "WECHAT_MP") {
-      return `你是一位专业的内容编辑，擅长将长文章精简为简洁有力的微信公众号内容。
-保持文章的核心观点和价值，但要在字数限制内呈现。
-如果内容包含 HTML 标签，保留标签结构但精简内容。`;
+      return WECHAT_ADAPTATION_SYSTEM_PROMPT;
     }
 
-    return `你是一位专业的小红书内容创作者，擅长将内容改写为适合小红书的笔记格式。
-保持内容的核心信息，但要口语化、简洁有力。
-移除所有 HTML 标签，转换为纯文本格式。
-可以适当使用表情符号增加可读性。`;
+    return XIAOHONGSHU_ADAPTATION_SYSTEM_PROMPT;
   }
 
   /**

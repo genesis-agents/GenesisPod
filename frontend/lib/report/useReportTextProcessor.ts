@@ -94,7 +94,7 @@ export function useReportTextProcessor({
             const evidenceItem = evidence[idx - 1];
             parts.push(
               React.createElement(CitationBadge, {
-                key: `cite-${match!.index}-${evidenceId}`,
+                key: `cite-${match.index}-${evidenceId}`,
                 index: idx,
                 evidence: evidenceItem,
               })
@@ -104,7 +104,7 @@ export function useReportTextProcessor({
               React.createElement(
                 'sup',
                 {
-                  key: `cite-unknown-${match!.index}`,
+                  key: `cite-unknown-${match.index}`,
                   className:
                     'rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-500',
                   title: evidenceId,

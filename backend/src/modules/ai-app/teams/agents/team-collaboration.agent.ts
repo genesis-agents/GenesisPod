@@ -17,10 +17,13 @@ import {
   AgentEvent,
   AgentTemplate,
   ToolId,
-} from "../../base/plan-based-agent";
-import { BUILTIN_TOOLS, PlanStep } from "../../../core/types/agent.types";
-import { VotingManager } from "../../../collaboration/patterns/voting-pattern";
-import { HandoffCoordinator } from "../../../collaboration/patterns/handoff-pattern";
+} from "../../../ai-engine/agents/base/plan-based-agent";
+import {
+  BUILTIN_TOOLS,
+  PlanStep,
+} from "../../../ai-engine/core/types/agent.types";
+import { VotingManager } from "../../../ai-engine/collaboration/patterns/voting-pattern";
+import { HandoffCoordinator } from "../../../ai-engine/collaboration/patterns/handoff-pattern";
 
 /**
  * 团队协作任务类型
@@ -136,6 +139,26 @@ export class TeamCollaborationAgent extends PlanBasedAgent {
         language: "zh-CN",
       },
     },
+  ];
+
+  protected selectionKeywords: string[] = [
+    "团队",
+    "协作",
+    "头脑风暴",
+    "brainstorm",
+    "投票",
+    "表决",
+    "vote",
+    "共识",
+    "辩论",
+    "debate",
+    "红蓝",
+    "分配",
+    "委派",
+    "assign",
+    "delegate",
+    "team",
+    "collaboration",
   ];
 
   constructor(

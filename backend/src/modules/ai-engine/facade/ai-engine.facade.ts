@@ -51,6 +51,9 @@ import {
   // ★ P2 能力下沉：Realtime Feature
   RealtimeFeature,
   REALTIME_FEATURE,
+  // Constraint Feature
+  ConstraintFeature,
+  CONSTRAINT_FEATURE,
 } from "./facade.providers";
 // ★ P2 能力下沉：Realtime 类型导入
 import type {
@@ -157,6 +160,11 @@ export class AIEngineFacade {
     @Inject(REALTIME_FEATURE)
     private readonly realtime?: RealtimeFeature,
 
+    // ==================== Constraint 特性模块 ====================
+    @Optional()
+    @Inject(CONSTRAINT_FEATURE)
+    private readonly constraint?: ConstraintFeature,
+
     // ==================== 独立服务（可选）====================
     @Optional() private readonly prisma?: PrismaService,
     @Optional() private readonly teamsService?: TeamsService,
@@ -180,6 +188,7 @@ export class AIEngineFacade {
       orchestration: !!this.orchestration,
       skills: !!this.skills,
       realtime: !!this.realtime,
+      constraint: !!this.constraint,
       database: !!this.prisma,
       teams: !!this.teamsService,
       capabilities: !!this.capabilityResolver,
@@ -197,10 +206,26 @@ export class AIEngineFacade {
   // ==================== LLM 能力 ====================
 
   /**
-   * 统一对话入口（带熔断器保护）
+   * Unified chat entry point with circuit breaker protection and model fallback.
    *
-   * ★ P0 增强：内置熔断器，自动处理模型故障和限速
-   * ★ K3 Fix: 支持自动注入 Skills（当 domain/taskType 参数存在时）
+   * Routes through ModelFallbackService when available for automatic model switching
+   * on failures. Falls back to single-model call when fallback service is unavailable.
+   * Automatically delegates to chatWithSkills when domain/taskType is provided.
+   *
+   * @param request - Chat request configuration
+   * @param request.messages - Conversation messages
+   * @param request.modelType - AI model type (CHAT, IMAGE_GENERATION, etc.)
+   * @param request.taskProfile - Semantic task configuration
+   * @param request.domain - Optional domain for automatic skill injection
+   * @param request.taskType - Optional task type for automatic skill injection
+   * @returns Chat response with content, model used, and token count
+   *
+   * @example
+   * const result = await facade.chat({
+   *   messages: [{ role: "user", content: "Hello" }],
+   *   modelType: AIModelType.CHAT,
+   *   taskProfile: { creativity: "medium", outputLength: "standard" },
+   * });
    */
   async chat(request: ChatRequest): Promise<ChatResponse> {
     // K3 Fix: 如果提供了 domain 或 taskType，自动委托给 chatWithSkills
@@ -238,6 +263,39 @@ export class AIEngineFacade {
     this.logger.debug(
       `[chat] modelType=${request.modelType}, messages=${request.messages.length}`,
     );
+
+    // ★ Constraint: Rate limit check
+    if (this.constraint?.rateLimiter) {
+      const rateLimitKey = request.billing?.userId || "global";
+      const rateLimitResult = this.constraint.rateLimiter.check(rateLimitKey);
+      if (!rateLimitResult.allowed) {
+        this.logger.warn(
+          `[chat] Rate limited for key=${rateLimitKey}, retryAfter=${rateLimitResult.retryAfter}ms`,
+        );
+        return {
+          content: `Rate limit exceeded. Please try again in ${Math.ceil((rateLimitResult.retryAfter || 0) / 1000)} seconds.`,
+          model: modelId,
+          tokensUsed: 0,
+          isError: true,
+        };
+      }
+      // Consume a request token
+      this.constraint.rateLimiter.consume(rateLimitKey);
+    }
+
+    // ★ Constraint: Budget check
+    if (this.constraint?.costController) {
+      const budgetCheck = this.constraint.costController.checkBudget(0.01); // estimated minimum cost
+      if (!budgetCheck.allowed) {
+        this.logger.warn(`[chat] Budget exceeded: ${budgetCheck.reason}`);
+        return {
+          content: `Budget limit exceeded: ${budgetCheck.reason}`,
+          model: modelId,
+          tokensUsed: 0,
+          isError: true,
+        };
+      }
+    }
 
     // ★ 自动模型 fallback：使用 ModelFallbackService 自动切换失败模型
     if (this.modelFallbackService) {
@@ -499,10 +557,29 @@ export class AIEngineFacade {
   }
 
   /**
-   * ★ 新增：带 Skills 的对话
+   * Chat with automatic skill injection based on task type and domain.
    *
-   * 根据任务类型自动加载对应的 SKILL.md 文件，组装 System Prompt
-   * 实现 Token 优化（按需加载，节省 60-70% System Prompt Token）
+   * Loads relevant SKILL.md files and injects them into the system prompt,
+   * optimizing token usage by loading only relevant skills (saves 60-70% tokens).
+   *
+   * @param request - Chat request with skill configuration
+   * @param request.messages - Conversation messages
+   * @param request.modelType - AI model type
+   * @param request.taskProfile - Semantic task configuration
+   * @param request.domain - Skill domain (e.g., "research", "writing")
+   * @param request.taskType - Task type (e.g., "analysis", "summary")
+   * @param request.additionalSkills - Additional skill IDs to load
+   * @param request.skillContext - Context variables for skill templates
+   * @returns Chat response with used skills information
+   *
+   * @example
+   * const result = await facade.chatWithSkills({
+   *   messages: [{ role: "user", content: "Analyze this topic" }],
+   *   modelType: AIModelType.CHAT,
+   *   taskProfile: { creativity: "low", outputLength: "medium" },
+   *   domain: "research",
+   *   taskType: "analysis",
+   * });
    */
   async chatWithSkills(
     request: ChatWithSkillsRequest,
@@ -601,10 +678,25 @@ export class AIEngineFacade {
   }
 
   /**
-   * 流式对话
-   * ★ P2.1.1：实现真正的 SSE 流式输出
+   * Streaming chat with Server-Sent Events (SSE) support.
    *
-   * 支持 OpenAI 兼容格式和 Anthropic Claude 的流式响应
+   * Supports both OpenAI-compatible and Anthropic Claude streaming formats.
+   * Yields chunks as they arrive from the LLM provider.
+   *
+   * @param request - Chat request configuration
+   * @param request.messages - Conversation messages
+   * @param request.modelType - AI model type
+   * @param request.taskProfile - Semantic task configuration
+   * @yields Streaming chunks with content, done flag, and optional error
+   *
+   * @example
+   * for await (const chunk of facade.chatStream({
+   *   messages: [{ role: "user", content: "Write a story" }],
+   *   modelType: AIModelType.CHAT,
+   * })) {
+   *   console.log(chunk.content);
+   *   if (chunk.done) break;
+   * }
    */
   async *chatStream(
     request: ChatRequest,
@@ -700,12 +792,24 @@ export class AIEngineFacade {
   }
 
   /**
-   * ★ P0 新增：智能模型选择
+   * Intelligently selects the best available model based on criteria.
    *
-   * 根据条件选择最佳模型：
-   * - 考虑熔断器状态（排除不可用模型）
-   * - 考虑负载均衡（优先选择低负载模型）
-   * - 考虑推理需求（自动选择推理模型）
+   * Selection considers circuit breaker state, load balancing, reasoning requirements,
+   * model blocklist, and provider preferences. Filters out unavailable models automatically.
+   *
+   * @param options - Selection criteria
+   * @param options.modelType - Model type to filter (default: CHAT)
+   * @param options.requireReasoning - Only select reasoning models (o1, o3, deepseek-r1, etc.)
+   * @param options.preferredProvider - Prefer models from specific provider
+   * @param options.minMaxTokens - Minimum max tokens required
+   * @returns Selected model info or null if none available
+   *
+   * @example
+   * const model = await facade.selectModel({
+   *   modelType: AIModelType.CHAT,
+   *   requireReasoning: true,
+   *   minMaxTokens: 8000,
+   * });
    */
   async selectModel(
     options: ModelSelectionOptions = {},
@@ -817,16 +921,28 @@ export class AIEngineFacade {
   }
 
   /**
-   * ★ P0 新增：获取推理模型
+   * Gets the best available reasoning model.
    *
-   * 快捷方法，获取可用的推理模型（o1, o3, deepseek-r1 等）
+   * Shortcut method for selecting reasoning models (o1, o3, deepseek-r1, etc.).
+   * Equivalent to calling selectModel with requireReasoning: true.
+   *
+   * @returns Reasoning model info or null if none available
+   *
+   * @example
+   * const model = await facade.getReasoningModel();
    */
   async getReasoningModel(): Promise<ModelInfo | null> {
     return this.selectModel({ requireReasoning: true });
   }
 
   /**
-   * ★ P0 新增：获取扩展的模型信息
+   * Gets extended model information including availability and reasoning capabilities.
+   *
+   * Returns detailed model info with circuit breaker state, blocklist status,
+   * and reasoning capabilities. Used internally for intelligent model selection.
+   *
+   * @param modelType - Model type to filter (default: CHAT)
+   * @returns Array of extended model information
    */
   async getAvailableModelsExtended(
     modelType: AIModelType = AIModelType.CHAT,
@@ -868,9 +984,17 @@ export class AIEngineFacade {
   }
 
   /**
-   * 获取可用模型列表
+   * Gets simplified list of available models for UI display.
    *
-   * 返回简化的模型信息，包含 UI 显示所需的字段
+   * Returns basic model information suitable for dropdown menus and model selectors.
+   * Does not include internal state like circuit breaker status.
+   *
+   * @param modelType - Model type to filter (default: CHAT)
+   * @returns Array of simplified model information for frontend
+   *
+   * @example
+   * const models = await facade.getAvailableModels(AIModelType.CHAT);
+   * // Use in UI: <select>{models.map(m => <option value={m.id}>{m.name}</option>)}</select>
    */
   async getAvailableModels(modelType: AIModelType = AIModelType.CHAT): Promise<
     Array<{
@@ -901,10 +1025,16 @@ export class AIEngineFacade {
   // ==================== 模型配置获取（供 AI Apps 使用）====================
 
   /**
-   * ★ 获取默认文本模型配置
+   * Gets the default text chat model configuration.
    *
-   * 供 AI Apps 获取默认 CHAT 模型，无需直接访问 prisma.aIModel
-   * 内部已处理 Secret Manager 支持
+   * Returns the default CHAT model configuration without requiring direct database access.
+   * API keys are managed internally via Secret Manager.
+   *
+   * @returns Default CHAT model config or null if none configured
+   *
+   * @example
+   * const model = await facade.getDefaultTextModel();
+   * console.log(`Using ${model.displayName}`);
    */
   async getDefaultTextModel(): Promise<{
     id: string;
@@ -927,9 +1057,16 @@ export class AIEngineFacade {
   }
 
   /**
-   * ★ 获取默认图像生成模型配置
+   * Gets the default image generation model configuration.
    *
-   * 供 AI Apps 获取默认 IMAGE_GENERATION 模型
+   * Returns the default IMAGE_GENERATION model configuration.
+   * Used by AI Apps that need image generation capabilities.
+   *
+   * @returns Default IMAGE_GENERATION model config or null if none configured
+   *
+   * @example
+   * const model = await facade.getDefaultImageModel();
+   * // Use for image generation requests
    */
   async getDefaultImageModel(): Promise<{
     id: string;
@@ -952,12 +1089,19 @@ export class AIEngineFacade {
   }
 
   /**
-   * ★ 根据模型 ID 获取模型配置
+   * Gets model configuration by model ID or database ID.
    *
-   * 供 AI Apps 根据 modelId 获取完整配置，无需直接访问数据库
-   * API Key 由 aiChatService.chat() 内部处理，不对外暴露
+   * Returns model configuration including reasoning capability flag and basic metadata.
+   * API keys are managed internally and not exposed through this method.
    *
-   * ★ 返回 isReasoning 字段，用于判断是否为推理模型（o1/o3/gpt-5 等）
+   * @param idOrModelId - Model ID (e.g., "gpt-4o") or database ID (UUID)
+   * @returns Model configuration or null if not found
+   *
+   * @example
+   * const model = await facade.getModelById("gpt-4o");
+   * if (model?.isReasoning) {
+   *   console.log("This is a reasoning model");
+   * }
    */
   async getModelById(idOrModelId: string): Promise<{
     id: string;
@@ -992,10 +1136,19 @@ export class AIEngineFacade {
   }
 
   /**
-   * ★ 获取完整模型配置（包含 apiKey 和 secretKey）
+   * Gets full model configuration including sensitive API keys.
    *
-   * 用于需要访问 API 密钥的场景（如图片生成服务）
-   * 注意：此方法返回敏感信息，仅供后端服务内部使用
+   * Returns complete model configuration with API keys and secrets.
+   * Used by internal services (e.g., ImageGenerationService) that need direct API access.
+   *
+   * @param modelId - Model ID or database ID
+   * @returns Full model configuration with sensitive fields or null if not found
+   *
+   * @throws Never throws, returns null for invalid IDs
+   *
+   * @example
+   * const config = await facade.getFullModelConfig("dall-e-3");
+   * // Internal use only - contains apiKey and secretKey
    */
   async getFullModelConfig(modelId: string): Promise<{
     id: string;
@@ -1058,9 +1211,16 @@ export class AIEngineFacade {
   }
 
   /**
-   * ★ 根据模型类型获取默认模型配置
+   * Gets the default model configuration for a specific type.
    *
-   * 支持 CHAT, IMAGE_GENERATION, EMBEDDING 等类型
+   * Supports all model types: CHAT, IMAGE_GENERATION, EMBEDDING, etc.
+   * Returns the model marked as default for the given type.
+   *
+   * @param modelType - Model type (CHAT, IMAGE_GENERATION, EMBEDDING, etc.)
+   * @returns Default model config for the type or null if none configured
+   *
+   * @example
+   * const embeddingModel = await facade.getDefaultModelByType(AIModelType.EMBEDDING);
    */
   async getDefaultModelByType(modelType: AIModelType): Promise<{
     id: string;
@@ -1095,31 +1255,22 @@ export class AIEngineFacade {
   }
 
   /**
-   * 智能搜索
+   * Performs intelligent web search via ToolRegistry.
    *
-   * ============================================================================
-   * ARCHITECTURE NOTE
-   * ============================================================================
-   * 本方法是 AI Apps 调用搜索的统一入口。
+   * Unified search entry point for AI Apps. Routes through the web-search tool
+   * which internally uses SearchService. Returns structured search results with
+   * relevance scores and metadata.
    *
-   * 实现方式：
-   * - 通过 ToolRegistry 调用 web-search Tool
-   * - web-search Tool 内部使用 SearchService
+   * @param request - Search request configuration
+   * @param request.query - Search query string
+   * @param request.maxResults - Maximum number of results (default: 5)
+   * @returns Search response with results array and success status
    *
-   * 分层设计：
-   *   AI Apps (Research, Ask, etc.)
-   *         ↓
-   *   AIEngineFacade.search()  ← 你在这里
-   *         ↓
-   *   web-search Tool (ToolRegistry)
-   *         ↓
-   *   SearchService (底层实现)
-   *
-   * 为什么保留 SearchService？
-   * - 底层服务（如 DeepResearchAgent）需要直接访问搜索能力
-   * - SearchService 提供更多底层配置选项
-   * - 遵循分层架构：Facade → Tool → Service
-   * ============================================================================
+   * @example
+   * const results = await facade.search({
+   *   query: "latest AI research papers",
+   *   maxResults: 10,
+   * });
    */
   async search(request: SearchRequest): Promise<SearchResponse> {
     this.logger.debug(
@@ -1182,7 +1333,17 @@ export class AIEngineFacade {
   }
 
   /**
-   * 格式化搜索结果为上下文
+   * Formats search results into LLM-friendly context string.
+   *
+   * Converts search result array into markdown-formatted text suitable for
+   * injection into LLM prompts. Includes titles, content snippets, and sources.
+   *
+   * @param results - Array of search result items
+   * @returns Formatted markdown string with numbered results
+   *
+   * @example
+   * const formatted = facade.formatSearchResultsForContext(results);
+   * // Use in prompt: `Context:\n${formatted}`
    */
   formatSearchResultsForContext(results: SearchResultItem[]): string {
     return results
@@ -1195,7 +1356,26 @@ export class AIEngineFacade {
   // ==================== 团队协作能力 ====================
 
   /**
-   * 启动团队任务
+   * Starts a collaborative team mission with multiple AI agents.
+   *
+   * Executes a team-based task with specialized agents working together.
+   * Supports research, debate, review, and report generation teams.
+   * Polls for completion and returns final result.
+   *
+   * @param request - Team mission configuration
+   * @param request.teamType - Type of team ("research", "debate", "review", "report")
+   * @param request.missionInput - Mission goal and context
+   * @param request.progressCallback - Optional callback for progress updates
+   * @returns Mission result with output and execution metadata
+   *
+   * @example
+   * const result = await facade.startTeamMission({
+   *   teamType: "research",
+   *   missionInput: {
+   *     goal: "Analyze market trends",
+   *     context: { domain: "tech" },
+   *   },
+   * });
    */
   async startTeamMission(request: {
     teamType: TeamType | string;
@@ -1322,7 +1502,16 @@ export class AIEngineFacade {
   }
 
   /**
-   * 取消团队任务
+   * Cancels a running team mission.
+   *
+   * Attempts to cancel an in-progress mission. Returns success status.
+   * Cancelled missions will have status "cancelled" and cannot be resumed.
+   *
+   * @param missionId - Unique mission identifier
+   * @returns True if cancellation succeeded, false otherwise
+   *
+   * @example
+   * const cancelled = facade.cancelMission("mission-123");
    */
   cancelMission(missionId: string): boolean {
     if (!this.teamsService) {
@@ -1335,7 +1524,17 @@ export class AIEngineFacade {
   }
 
   /**
-   * 获取任务状态
+   * Gets the current status of a team mission.
+   *
+   * Returns mission progress, phase, and completion status.
+   * Useful for polling or displaying progress UI.
+   *
+   * @param missionId - Unique mission identifier
+   * @returns Mission status with progress and phase info, or null if not found
+   *
+   * @example
+   * const status = facade.getMissionStatus("mission-123");
+   * console.log(`Phase: ${status.currentPhase}, Progress: ${status.progress}%`);
    */
   getMissionStatus(missionId: string): MissionStatus | null {
     if (!this.teamsService) {
@@ -1361,7 +1560,26 @@ export class AIEngineFacade {
   // ==================== 上下文能力 ====================
 
   /**
-   * 构建上下文
+   * Builds rich context from multiple sources for LLM prompts.
+   *
+   * Aggregates context from memory, search results, topics, resources, and custom content.
+   * Supports token limiting and automatic compression. Returns formatted context string.
+   *
+   * @param request - Context build configuration
+   * @param request.sources - Array of context sources (memory, search, topic, resource, custom)
+   * @param request.maxTokens - Optional token limit
+   * @param request.compress - Whether to compress if exceeds maxTokens
+   * @returns Formatted context string ready for LLM injection
+   *
+   * @example
+   * const context = await facade.buildContext({
+   *   sources: [
+   *     { type: "search", content: "AI trends" },
+   *     { type: "memory", id: "session-123" },
+   *   ],
+   *   maxTokens: 4000,
+   *   compress: true,
+   * });
    */
   async buildContext(request: BuildContextRequest): Promise<string> {
     this.logger.debug(
@@ -1508,7 +1726,22 @@ export class AIEngineFacade {
   // ==================== 约束能力 ====================
 
   /**
-   * 检查约束
+   * Validates content against constraints (token limits, filters, schemas).
+   *
+   * Checks content for token limits, sensitive information, and JSON schema compliance.
+   * Returns validation result with violations and optionally adjusted content.
+   *
+   * @param request - Constraint check configuration
+   * @param request.content - Content to validate
+   * @param request.constraints - Constraint rules (maxTokens, contentFilter, jsonSchema)
+   * @returns Validation result with passed flag, violations, and adjusted content
+   *
+   * @example
+   * const result = facade.checkConstraints({
+   *   content: longText,
+   *   constraints: { maxTokens: 4000, contentFilter: { enabled: true } },
+   * });
+   * if (!result.passed) console.log(result.violations);
    */
   checkConstraints(request: {
     content: string;
@@ -1635,7 +1868,23 @@ export class AIEngineFacade {
   // ==================== 记忆能力 ====================
 
   /**
-   * 存储记忆
+   * Stores content in short-term or long-term memory.
+   *
+   * Saves memory associated with a session (short-term) or user (long-term).
+   * Memory can be retrieved later for context building.
+   *
+   * @param request - Memory storage configuration
+   * @param request.sessionId - Session or user ID
+   * @param request.type - Memory type ("short" or "long")
+   * @param request.content - Content to store
+   * @returns Promise that resolves when storage completes
+   *
+   * @example
+   * await facade.storeMemory({
+   *   sessionId: "session-123",
+   *   type: "short",
+   *   content: "User prefers technical explanations",
+   * });
    */
   async storeMemory(request: StoreMemoryRequest): Promise<void> {
     this.logger.debug(
@@ -1662,7 +1911,23 @@ export class AIEngineFacade {
   }
 
   /**
-   * 检索记忆
+   * Retrieves memory items from short-term and long-term storage.
+   *
+   * Searches memory by session/user ID and optional query.
+   * Returns ranked memory items with relevance scores.
+   *
+   * @param request - Memory retrieval configuration
+   * @param request.sessionId - Session or user ID
+   * @param request.query - Optional search query for long-term memory
+   * @param request.topK - Maximum number of items to return
+   * @returns Array of memory items with content and scores
+   *
+   * @example
+   * const memories = await facade.retrieveMemory({
+   *   sessionId: "session-123",
+   *   query: "user preferences",
+   *   topK: 5,
+   * });
    */
   async retrieveMemory(request: RetrieveMemoryRequest): Promise<MemoryItem[]> {
     this.logger.debug(
@@ -1711,7 +1976,16 @@ export class AIEngineFacade {
   }
 
   /**
-   * 清除记忆
+   * Clears all short-term memory for a session.
+   *
+   * Deletes all memory associated with the given session ID.
+   * Long-term memory is not affected.
+   *
+   * @param sessionId - Session ID to clear
+   * @returns Promise that resolves when clearing completes
+   *
+   * @example
+   * await facade.clearMemory("session-123");
    */
   async clearMemory(sessionId: string): Promise<void> {
     this.logger.debug(`[clearMemory] sessionId=${sessionId}`);
@@ -1724,12 +1998,26 @@ export class AIEngineFacade {
   // ==================== Agent 执行能力 ====================
 
   /**
-   * ★ P1 新增：执行 Agent 任务
+   * Executes a single agent task with retry and circuit breaker protection.
    *
-   * 统一的 Agent 执行入口，支持：
-   * - 自动重试和熔断器保护
-   * - 搜索增强
-   * - 任务画像配置
+   * Runs an agent with configurable parameters including search augmentation,
+   * retry behavior, and semantic task profiles. Automatically maps taskProfile
+   * to temperature and maxTokens if not specified.
+   *
+   * @param request - Agent execution configuration
+   * @param request.agentType - Type of agent to execute
+   * @param request.task - Task description/prompt
+   * @param request.taskProfile - Optional semantic task configuration
+   * @param request.config - Execution config (retries, timeout, search)
+   * @returns Execution result with content, tokens used, and duration
+   *
+   * @example
+   * const result = await facade.executeAgent({
+   *   agentType: "analyst",
+   *   task: "Summarize market trends",
+   *   taskProfile: { creativity: "low", outputLength: "short" },
+   *   config: { enableSearch: true, maxRetries: 3 },
+   * });
    */
   async executeAgent(
     request: AgentExecutionRequest,
@@ -1846,7 +2134,18 @@ export class AIEngineFacade {
   }
 
   /**
-   * 检查 Agent 是否可用
+   * Checks if an agent is available for execution.
+   *
+   * Validates that the agent exists and is ready to accept tasks.
+   * Returns false if AgentExecutorService is not available.
+   *
+   * @param agentId - Agent identifier
+   * @returns True if agent is available, false otherwise
+   *
+   * @example
+   * if (facade.isAgentAvailable("analyst")) {
+   *   // Execute agent task
+   * }
    */
   isAgentAvailable(agentId: string): boolean {
     if (!this.orchestration?.agentExecutor) {
@@ -1858,12 +2157,25 @@ export class AIEngineFacade {
   // ==================== Tool 执行能力 ====================
 
   /**
-   * ★ P1 新增：执行工具
+   * Executes a registered tool with input validation and timeout control.
    *
-   * 统一的工具执行入口，支持：
-   * - 工具注册表查找
-   * - 输入验证
-   * - 超时控制
+   * Looks up tool in ToolRegistry, validates it's enabled, executes with provided
+   * input, and returns structured result. Supports generic return type.
+   *
+   * @param request - Tool execution configuration
+   * @param request.toolId - Tool identifier from registry
+   * @param request.input - Tool-specific input parameters
+   * @param request.timeout - Optional execution timeout in milliseconds
+   * @param request.context - Optional execution context (userId, sessionId, etc.)
+   * @returns Execution result with typed data, error info, and metadata
+   *
+   * @example
+   * const result = await facade.executeTool<{ answer: string }>({
+   *   toolId: "calculator",
+   *   input: { expression: "2 + 2" },
+   *   timeout: 5000,
+   * });
+   * console.log(result.data?.answer);
    */
   async executeTool<T = unknown>(
     request: ToolExecutionRequest,
@@ -1979,7 +2291,17 @@ export class AIEngineFacade {
   }
 
   /**
-   * 获取可用工具列表
+   * Gets list of available tools, optionally filtered by category.
+   *
+   * Returns metadata for all enabled tools. Useful for displaying
+   * available capabilities to users or LLMs.
+   *
+   * @param category - Optional category filter ("search", "data", "communication", etc.)
+   * @returns Array of tool metadata (id, name, description, category)
+   *
+   * @example
+   * const searchTools = facade.getAvailableTools("search");
+   * console.log(searchTools.map(t => t.name));
    */
   getAvailableTools(category?: ToolCategory): ToolInfo[] {
     if (!this.tools?.registry) {
@@ -2001,7 +2323,18 @@ export class AIEngineFacade {
   }
 
   /**
-   * 检查工具是否可用
+   * Checks if a specific tool is available and enabled.
+   *
+   * Validates that the tool exists in the registry and is enabled for use.
+   * Returns false if ToolRegistry is not available.
+   *
+   * @param toolId - Tool identifier
+   * @returns True if tool is available and enabled, false otherwise
+   *
+   * @example
+   * if (facade.isToolAvailable("web-search")) {
+   *   // Use the search tool
+   * }
    */
   isToolAvailable(toolId: string): boolean {
     if (!this.tools?.registry) {
@@ -2011,7 +2344,17 @@ export class AIEngineFacade {
   }
 
   /**
-   * 获取工具的 Function Definition（用于 LLM Function Calling）
+   * Gets OpenAI-compatible function definitions for tools.
+   *
+   * Returns function schemas suitable for LLM function calling.
+   * If toolIds not provided, returns definitions for all enabled tools.
+   *
+   * @param toolIds - Optional array of tool IDs to get definitions for
+   * @returns Array of function definitions with name, description, and parameters schema
+   *
+   * @example
+   * const definitions = facade.getToolFunctionDefinitions(["web-search", "calculator"]);
+   * // Use with LLM: { messages, functions: definitions }
    */
   getToolFunctionDefinitions(toolIds?: string[]): Array<{
     name: string;
@@ -2032,9 +2375,20 @@ export class AIEngineFacade {
   // ==================== ★ NEW: AI Capability 能力 ====================
 
   /**
-   * ★ NEW: 获取可用的能力（Tools、Skills、MCP Tools）
+   * Gets all available AI capabilities based on context.
    *
-   * 根据上下文（用户、团队、角色）获取所有可用的 AI 能力
+   * Resolves available tools, skills, and MCP tools based on user, team, and role.
+   * Returns comprehensive capability summary for building AI-powered features.
+   *
+   * @param context - Context for capability resolution (userId, teamId, roleId, etc.)
+   * @returns Summary of available tools, skills, and MCP tools with metadata
+   *
+   * @example
+   * const capabilities = await facade.getAvailableCapabilities({
+   *   userId: "user-123",
+   *   teamId: "team-456",
+   * });
+   * console.log(`Available: ${capabilities.tools.length} tools, ${capabilities.skills.length} skills`);
    */
   async getAvailableCapabilities(
     context: AICapabilityContext,
@@ -2103,11 +2457,27 @@ export class AIEngineFacade {
   }
 
   /**
-   * ★ NEW: 使用 Function Calling 的聊天
+   * Chat with automatic tool calling based on available capabilities.
    *
-   * 自动解析可用工具并让 LLM 自主调用
+   * Automatically resolves available tools based on context and enables LLM
+   * to call them autonomously. Handles multi-turn tool execution.
    *
-   * 注意：此方法需要实现 LLMAdapter，当前返回占位符响应
+   * Note: Full implementation requires LLMAdapter. Currently degrades to plain chat.
+   *
+   * @param request - Chat request with tool context
+   * @param request.messages - Conversation messages
+   * @param request.context - Context for capability resolution
+   * @param request.modelType - Optional model type
+   * @param request.taskProfile - Optional semantic task configuration
+   * @param request.maxIterations - Max tool calling rounds (default: 5)
+   * @param request.maxToolCalls - Max total tool calls (default: 10)
+   * @returns Chat response with tool call history
+   *
+   * @example
+   * const result = await facade.chatWithTools({
+   *   messages: [{ role: "user", content: "Search for AI news" }],
+   *   context: { userId: "user-123" },
+   * });
    */
   async chatWithTools(request: {
     messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
@@ -2180,9 +2550,24 @@ export class AIEngineFacade {
   // ==================== 管理功能 ====================
 
   /**
-   * ★ 管理功能：获取提供商可用的模型列表
+   * Fetches available models from a provider (admin only).
    *
-   * 供管理后台使用，用于配置新模型时获取可用模型列表
+   * Queries provider API to get list of available models for configuration.
+   * Used by admin UI when adding new models to the system.
+   *
+   * @param provider - Provider name ("openai", "anthropic", etc.)
+   * @param apiKey - API key for authentication
+   * @param apiEndpoint - Optional custom API endpoint
+   * @param modelType - Optional model type filter
+   * @returns Success status and array of available models
+   *
+   * @example
+   * const result = await facade.fetchAvailableModels(
+   *   "openai",
+   *   "sk-...",
+   *   undefined,
+   *   "CHAT"
+   * );
    */
   async fetchAvailableModels(
     provider: string,
@@ -2206,9 +2591,26 @@ export class AIEngineFacade {
   }
 
   /**
-   * ★ 管理功能：测试模型连接
+   * Tests model connection with provided credentials (admin only).
    *
-   * 供管理后台使用，验证模型配置是否正确
+   * Validates that the model configuration works by sending a test request.
+   * Returns success status and latency measurement.
+   *
+   * @param provider - Provider name
+   * @param modelId - Model identifier
+   * @param apiKey - API key for authentication
+   * @param apiEndpoint - API endpoint URL
+   * @param modelType - Optional model type
+   * @returns Test result with success status, message, and latency
+   *
+   * @example
+   * const result = await facade.testModelConnectionWithKey(
+   *   "openai",
+   *   "gpt-4o",
+   *   "sk-...",
+   *   "https://api.openai.com/v1"
+   * );
+   * console.log(`Latency: ${result.latency}ms`);
    */
   async testModelConnectionWithKey(
     provider: string,
@@ -2234,16 +2636,38 @@ export class AIEngineFacade {
   // ============================================================================
 
   /**
-   * 获取当前进度
+   * Gets the current progress of a running task.
+   *
+   * Retrieves real-time progress information tracked by the progress tracker.
+   * Returns null if task not found or progress tracking unavailable.
+   *
+   * @param taskId - Unique task identifier
+   * @returns Progress event with percentage, phase, and status, or null if not found
+   *
+   * @example
+   * const progress = facade.getProgress("task-123");
+   * console.log(`${progress.percentage}% - ${progress.phase}`);
    */
   getProgress(taskId: string): ProgressEvent | null {
     return this.realtime?.progressTracker?.getProgress(taskId) ?? null;
   }
 
   /**
-   * 发射实时事件到指定房间
+   * Emits real-time event to a WebSocket room.
    *
-   * 通过 WebSocket 推送事件给订阅的客户端
+   * Broadcasts event to all clients subscribed to the specified room.
+   * Used for real-time updates during long-running operations.
+   *
+   * @param roomConfig - Room configuration (roomId, userId filters, etc.)
+   * @param eventType - Event type identifier
+   * @param payload - Event payload data
+   *
+   * @example
+   * facade.emitToRoom(
+   *   { roomId: "research-123", userId: "user-456" },
+   *   "analysis-update",
+   *   { status: "analyzing", data: results }
+   * );
    */
   emitToRoom<T>(roomConfig: RoomConfig, eventType: string, payload: T): void {
     if (!this.realtime?.eventEmitter) {
@@ -2262,14 +2686,35 @@ export class AIEngineFacade {
   }
 
   /**
-   * 发射进度事件
+   * Emits progress update to a WebSocket room.
+   *
+   * Convenience method for broadcasting progress events with standardized format.
+   * Automatically includes timestamp and source metadata.
+   *
+   * @param roomConfig - Room configuration
+   * @param progress - Progress event with percentage, phase, and status
+   *
+   * @example
+   * facade.emitProgress(
+   *   { roomId: "task-123" },
+   *   { taskId: "task-123", percentage: 50, phase: "analyzing", status: "in-progress" }
+   * );
    */
   emitProgress(roomConfig: RoomConfig, progress: ProgressEvent): void {
     this.realtime?.eventEmitter?.emitProgress(roomConfig, progress);
   }
 
   /**
-   * 设置 WebSocket 服务器（由 Gateway 调用）
+   * Sets the WebSocket server instance (called by Gateway on initialization).
+   *
+   * Injects the WebSocket server into the event emitter for real-time communication.
+   * Should be called once during application bootstrap.
+   *
+   * @param server - WebSocket server instance (Socket.IO Server)
+   *
+   * @example
+   * // In gateway setup:
+   * facade.setWebSocketServer(io);
    */
   setWebSocketServer(server: unknown): void {
     if (

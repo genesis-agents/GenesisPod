@@ -33,7 +33,7 @@ export class MCPServerService implements OnModuleInit {
     @Optional() private readonly configService?: ConfigService,
   ) {
     this.guardrailsEnabled =
-      this.configService?.get<string>("GUARDRAILS_ENABLED") === "true";
+      this.configService?.get<string>("GUARDRAILS_ENABLED") !== "false";
     this.guardrailsFailClosed =
       this.configService?.get<string>("GUARDRAILS_FAIL_CLOSED") === "true";
     if (this.guardrailsEnabled && this.guardrailsPipeline) {

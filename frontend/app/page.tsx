@@ -721,7 +721,7 @@ function HomeContent() {
           // Load bookmarked resource IDs
           const bookmarkedIds = new Set<string>(
             (defaultCollection.items || []).map(
-              (item: { resourceId: string }) => item.resourceId as string
+              (item: { resourceId: string }) => item.resourceId
             )
           );
           setBookmarks(bookmarkedIds);

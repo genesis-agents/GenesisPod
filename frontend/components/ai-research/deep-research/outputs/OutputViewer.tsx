@@ -636,7 +636,7 @@ function ComparisonContent({ data }: { data: ComparisonData }) {
   if (!data.dimensions || !data.subjects) return <p>No comparison data</p>;
 
   // Type assertion safe here because we checked above
-  const subjects = data.subjects as string[];
+  const subjects = data.subjects;
 
   return (
     <div className="space-y-6">
@@ -736,22 +736,29 @@ function AudioOverviewContent({
   if (!data.script?.segments) return <p>No audio script data</p>;
 
   // Transform data to match AudioPlayer's expected type
-  const audioScript: AudioOverviewScript | undefined = data.title && data.script ? {
-    title: data.title,
-    script: {
-      segments: data.script.segments.map(seg => ({
-        speaker: seg.speaker,
-        text: seg.text,
-        emotion: seg.emotion,
-      })),
-      estimatedDuration: '0:00', // Default duration
-    },
-  } : undefined;
+  const audioScript: AudioOverviewScript | undefined =
+    data.title && data.script
+      ? {
+          title: data.title,
+          script: {
+            segments: data.script.segments.map((seg) => ({
+              speaker: seg.speaker,
+              text: seg.text,
+              emotion: seg.emotion,
+            })),
+            estimatedDuration: '0:00', // Default duration
+          },
+        }
+      : undefined;
 
   return (
     <div className="space-y-4">
       {/* Audio Player */}
-      <AudioPlayer outputId={outputId} projectId={projectId} script={audioScript} />
+      <AudioPlayer
+        outputId={outputId}
+        projectId={projectId}
+        script={audioScript}
+      />
 
       {/* Script Transcript */}
       <div className="mt-6">
@@ -1343,7 +1350,11 @@ function MindMapContent({ data }: { data: MindMapData }) {
     setExpandedBranches(new Set(['all']));
   };
 
-  const renderNode = (node: MindMapNode, depth: number = 0, parentColor?: string) => {
+  const renderNode = (
+    node: MindMapNode,
+    depth: number = 0,
+    parentColor?: string
+  ) => {
     const isExpanded = expandedBranches.has(node.id);
     const hasChildren = node.children && node.children.length > 0;
     const color = node.color || parentColor || '#7C3AED';
@@ -1409,9 +1420,7 @@ function MindMapContent({ data }: { data: MindMapData }) {
                 opacity: 0.3,
               }}
             />
-            {node.children.map((child) =>
-              renderNode(child, depth + 1, color)
-            )}
+            {node.children.map((child) => renderNode(child, depth + 1, color))}
           </div>
         )}
       </div>

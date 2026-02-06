@@ -69,8 +69,9 @@ import {
   AiTeamsIntegrationService,
 } from "./services";
 // 注意：UrlParserService 和 WebContentExtractionService 由 @Global() ContentProcessingModule 提供
-import { TeamMemberAgent } from "./agents";
+import { TeamMemberAgent, TeamCollaborationAgent } from "./agents";
 import { TeamRegistry } from "../../ai-engine/teams/registry/team-registry";
+import { AgentRegistry } from "../../ai-engine/agents/registry";
 import { DEBATE_TEAM_CONFIG } from "./teams";
 
 @Module({
@@ -97,6 +98,7 @@ import { DEBATE_TEAM_CONFIG } from "./teams";
     TeamsLongContentService,
     LeaderModelService,
     TeamMemberAgent,
+    TeamCollaborationAgent,
 
     // 协作服务
     DebateService,
@@ -167,10 +169,15 @@ import { DEBATE_TEAM_CONFIG } from "./teams";
 export class AiTeamsModule implements OnModuleInit {
   private readonly logger = new Logger(AiTeamsModule.name);
 
-  constructor(private readonly teamRegistry: TeamRegistry) {}
+  constructor(
+    private readonly teamRegistry: TeamRegistry,
+    private readonly agentRegistry: AgentRegistry,
+    private readonly teamCollaborationAgent: TeamCollaborationAgent,
+  ) {}
 
   onModuleInit() {
     this.teamRegistry.registerConfig(DEBATE_TEAM_CONFIG);
-    this.logger.log("Registered DEBATE team config");
+    this.agentRegistry.register(this.teamCollaborationAgent);
+    this.logger.log("Registered DEBATE team config and TeamCollaborationAgent");
   }
 }

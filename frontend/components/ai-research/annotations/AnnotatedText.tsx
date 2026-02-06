@@ -167,7 +167,7 @@ export function useScrollToAnnotation() {
     const searchContainer = container || document;
     const mark = searchContainer.querySelector(
       `[${ANNOTATION_ATTR}="${annotationId}"]`
-    ) as HTMLElement | null;
+    );
 
     if (mark) {
       mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -191,7 +191,7 @@ export function findAnnotationMark(
   const searchContainer = container || document;
   return searchContainer.querySelector(
     `[${ANNOTATION_ATTR}="${annotationId}"]`
-  ) as HTMLElement | null;
+  );
 }
 
 /**

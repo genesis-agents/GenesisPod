@@ -15,12 +15,15 @@ import {
   AgentEvent,
   AgentTemplate,
   ToolId,
-} from "../../base/plan-based-agent";
-import { BUILTIN_TOOLS, PlanStep } from "../../../core/types/agent.types";
+} from "../../../ai-engine/agents/base/plan-based-agent";
+import {
+  BUILTIN_TOOLS,
+  PlanStep,
+} from "../../../ai-engine/core/types/agent.types";
 import {
   ISimulationService,
   SIMULATION_SERVICE_TOKEN,
-} from "../../../interfaces/simulation.interface";
+} from "../../../ai-engine/interfaces/simulation.interface";
 
 /**
  * 推演任务类型
@@ -130,6 +133,15 @@ export class SimulatorAgent extends PlanBasedAgent {
         taskType: SimulationTaskType.STRATEGY_ADVICE,
       },
     },
+  ];
+
+  protected selectionKeywords: string[] = [
+    "推演",
+    "模拟",
+    "博弈",
+    "simulation",
+    "simulator",
+    "scenario",
   ];
 
   constructor(

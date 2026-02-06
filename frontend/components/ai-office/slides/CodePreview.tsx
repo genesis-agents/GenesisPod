@@ -43,8 +43,8 @@ function highlightHtml(code: string): React.ReactNode[] {
 
   return lines.map((line, lineIndex) => {
     const parts: React.ReactNode[] = [];
-    let remaining = line;
-    let partIndex = 0;
+    const remaining = line;
+    const partIndex = 0;
 
     // Match patterns in order
     const patterns = [

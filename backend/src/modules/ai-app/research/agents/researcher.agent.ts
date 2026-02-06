@@ -2,7 +2,7 @@
  * Researcher Agent
  * AI 研究助手 Agent
  *
- * 使用依赖反转原则，通过接口与 AI Apps 层解耦
+ * 使用依赖反转原则,通过接口与 AI Apps 层解耦
  * - IResearchService: 研究服务抽象接口
  */
 
@@ -15,12 +15,15 @@ import {
   AgentEvent,
   AgentTemplate,
   ToolId,
-} from "../../base/plan-based-agent";
-import { BUILTIN_TOOLS, PlanStep } from "../../../core/types/agent.types";
+} from "../../../ai-engine/agents/base/plan-based-agent";
+import {
+  BUILTIN_TOOLS,
+  PlanStep,
+} from "../../../ai-engine/core/types/agent.types";
 import {
   IResearchService,
   RESEARCH_SERVICE_TOKEN,
-} from "../../../interfaces/research.interface";
+} from "../../../ai-engine/interfaces/research.interface";
 
 /**
  * 研究任务类型
@@ -39,7 +42,7 @@ export class ResearcherAgent extends PlanBasedAgent {
 
   readonly id = BUILTIN_AGENTS.RESEARCHER;
   readonly name = "AI Researcher";
-  readonly description = "智能研究助手，帮助用户进行资料调研和知识整理";
+  readonly description = "智能研究助手,帮助用户进行资料调研和知识整理";
   readonly capabilities = [
     "自动调研资料",
     "知识图谱构建",
@@ -126,17 +129,27 @@ export class ResearcherAgent extends PlanBasedAgent {
     },
   ];
 
+  protected selectionKeywords: string[] = [
+    "研究",
+    "调研",
+    "分析",
+    "research",
+    "文献",
+    "综述",
+    "知识",
+  ];
+
   constructor(
     @Optional()
     @Inject(RESEARCH_SERVICE_TOKEN)
     private readonly researchService?: IResearchService,
   ) {
     super();
-    // 服务是可选的，如果未提供则 Agent 功能会降级
+    // 服务是可选的,如果未提供则 Agent 功能会降级
   }
 
   /**
-   * 分析用户输入，生成执行计划
+   * 分析用户输入,生成执行计划
    */
   async plan(input: AgentInput): Promise<AgentPlan> {
     this.logger.log(
@@ -151,7 +164,7 @@ export class ResearcherAgent extends PlanBasedAgent {
     steps.push({
       id: this.generateStepId(),
       name: "需求分析",
-      description: "分析研究需求，确定研究范围和目标",
+      description: "分析研究需求,确定研究范围和目标",
       toolId: BUILTIN_TOOLS.TEXT_GENERATION,
       dependencies: [],
       estimatedDuration: 3000,
@@ -179,7 +192,7 @@ export class ResearcherAgent extends PlanBasedAgent {
       });
     }
 
-    // Step 4: 数据分析（如果是数据分析任务）
+    // Step 4: 数据分析(如果是数据分析任务)
     if (taskType === ResearchTaskType.DATA_ANALYSIS) {
       steps.push({
         id: this.generateStepId(),
@@ -191,7 +204,7 @@ export class ResearcherAgent extends PlanBasedAgent {
       });
     }
 
-    // Step 5: 知识图谱构建（如果需要）
+    // Step 5: 知识图谱构建(如果需要)
     if (input.options?.buildKnowledgeGraph) {
       steps.push({
         id: this.generateStepId(),
@@ -207,7 +220,7 @@ export class ResearcherAgent extends PlanBasedAgent {
     steps.push({
       id: this.generateStepId(),
       name: "内容整合",
-      description: "整合分析结果，生成研究内容",
+      description: "整合分析结果,生成研究内容",
       toolId: BUILTIN_TOOLS.TEXT_GENERATION,
       dependencies: [steps[steps.length - 1].id],
       estimatedDuration: 20000,
@@ -255,7 +268,7 @@ export class ResearcherAgent extends PlanBasedAgent {
   }
 
   /**
-   * 执行计划，流式返回进度和结果
+   * 执行计划,流式返回进度和结果
    */
   async *execute(plan: AgentPlan): AsyncGenerator<AgentEvent> {
     this.logger.log(`[execute] Starting research for task: ${plan.taskId}`);
@@ -353,7 +366,7 @@ export class ResearcherAgent extends PlanBasedAgent {
               },
             },
           ],
-          summary: `研究完成，共引用 ${sources.length} 个来源`,
+          summary: `研究完成,共引用 ${sources.length} 个来源`,
           tokensUsed: 0,
           duration,
         },
@@ -396,7 +409,7 @@ export class ResearcherAgent extends PlanBasedAgent {
         };
 
       case BUILTIN_TOOLS.RAG_SEARCH:
-        // 如果有项目 ID，从项目资源中搜索
+        // 如果有项目 ID,从项目资源中搜索
         if (projectId) {
           // 实际应调用 sourceService.searchSources
           return {
@@ -415,7 +428,7 @@ export class ResearcherAgent extends PlanBasedAgent {
         return { content };
 
       case BUILTIN_TOOLS.KNOWLEDGE_GRAPH:
-        // 构建知识图谱（简化实现）
+        // 构建知识图谱(简化实现)
         return {
           content: context.previousContent + "\n\n## 知识图谱\n[知识图谱数据]",
         };
@@ -444,7 +457,7 @@ export class ResearcherAgent extends PlanBasedAgent {
     previousContent: string,
     sources: any[],
   ): Promise<string> {
-    // 简化实现：生成研究报告结构
+    // 简化实现:生成研究报告结构
     const report = `
 # 研究报告
 
@@ -452,7 +465,7 @@ export class ResearcherAgent extends PlanBasedAgent {
 ${prompt}
 
 ## 摘要
-基于对相关资料的分析，本报告对 "${prompt}" 进行了深入研究。
+基于对相关资料的分析,本报告对 "${prompt}" 进行了深入研究。
 
 ## 主要发现
 ${previousContent || "1. 待补充具体发现..."}
@@ -461,7 +474,7 @@ ${previousContent || "1. 待补充具体发现..."}
 ${sources.map((s, i) => `${i + 1}. ${s.title || s.url}`).join("\n") || "- 待补充数据来源"}
 
 ## 结论
-综合以上分析，得出以下结论...
+综合以上分析,得出以下结论...
 
 ## 参考文献
 ${sources.map((s, i) => `[${i + 1}] ${s.title || s.url}`).join("\n") || "- 待补充参考文献"}

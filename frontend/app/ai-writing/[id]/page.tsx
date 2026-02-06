@@ -336,7 +336,13 @@ export default function WritingProjectPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showLeaderMenu, setShowLeaderMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    'chapters' | 'worldview' | 'storyBible' | 'relationships' | 'taskDetails' | 'analysis' | 'summaries'
+    | 'chapters'
+    | 'worldview'
+    | 'storyBible'
+    | 'relationships'
+    | 'taskDetails'
+    | 'analysis'
+    | 'summaries'
   >('chapters');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
@@ -829,7 +835,7 @@ export default function WritingProjectPage() {
       }
 
       if (message) {
-        setTaskMessages((prev) => [...prev, message!]);
+        setTaskMessages((prev) => [...prev, message]);
         // Auto scroll to bottom
         setTimeout(() => {
           taskMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

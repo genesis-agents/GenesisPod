@@ -27,14 +27,14 @@ Raven AI Engine 是一个**企业级 AI 应用平台**，采用三层架构（En
 
 ### 核心数据
 
-| 指标 | 数据 |
-|------|------|
-| AI Engine 核心层文件数 | 200+ TypeScript 文件 |
-| AI Apps 应用模块数 | 9 个（Ask, Research, Office, Writing, Social, Teams, Image, RAG, Simulation） |
-| 核心服务代码量 | ai-chat.service.ts 4,341 行；ai-engine.facade.ts 2,286 行 |
-| 支持 LLM 提供商 | 5+（OpenAI, Anthropic, Google, xAI, DeepSeek） |
-| 架构模式 | Facade, Factory, Adapter, Registry, Circuit Breaker, Pipeline 等 12+ 设计模式 |
-| 子模块 | 29 个 AI Engine 子目录 |
+| 指标                   | 数据                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| AI Engine 核心层文件数 | 200+ TypeScript 文件                                                          |
+| AI Apps 应用模块数     | 9 个（Ask, Research, Office, Writing, Social, Teams, Image, RAG, Simulation） |
+| 核心服务代码量         | ai-chat.service.ts ~1,100 行（已拆分）；ai-engine.facade.ts 2,286 行          |
+| 支持 LLM 提供商        | 5+（OpenAI, Anthropic, Google, xAI, DeepSeek）                                |
+| 架构模式               | Facade, Factory, Adapter, Registry, Circuit Breaker, Pipeline 等 12+ 设计模式 |
+| 子模块                 | 29 个 AI Engine 子目录                                                        |
 
 ### 总体评级：B+ / A-
 
@@ -62,12 +62,12 @@ AI Apps（应用层）→ Research / Office / Writing / Social / Ask / ...
 
 **对标分析：**
 
-| 项目 | 架构方式 | Raven 对比 |
-|------|----------|-----------|
-| LangChain | 链式组合，扁平结构 | Raven 分层更清晰 |
-| CrewAI | Agent + Task 两层 | Raven 多一层基础能力抽象 |
-| AutoGen | 会话驱动，扁平 Agent 通信 | Raven 有更强的编排能力 |
-| Dify | 低代码平台，工作流驱动 | Raven 代码级灵活性更高 |
+| 项目      | 架构方式                  | Raven 对比               |
+| --------- | ------------------------- | ------------------------ |
+| LangChain | 链式组合，扁平结构        | Raven 分层更清晰         |
+| CrewAI    | Agent + Task 两层         | Raven 多一层基础能力抽象 |
+| AutoGen   | 会话驱动，扁平 Agent 通信 | Raven 有更强的编排能力   |
+| Dify      | 低代码平台，工作流驱动    | Raven 代码级灵活性更高   |
 
 ### 2.2 LLM 抽象层 — 评分：A
 
@@ -107,13 +107,13 @@ ILLMAdapter（接口）
 
 #### 协作模式丰富度
 
-| 协作模式 | 实现方式 | 成熟度 |
-|----------|----------|--------|
-| **辩论式** | Red/Blue 对抗 + Judge 裁决 | 成熟 |
-| **投票式** | MAJORITY / SUPERMAJORITY / UNANIMOUS | 成熟 |
-| **委派式** | Agent A → Agent B 任务传递 | 成熟 |
-| **Mission 编排** | 任务分解 → 并行执行 → Leader 审核 | 成熟 |
-| **工作流式** | DAG / Sequential / Parallel 执行器 | 成熟 |
+| 协作模式         | 实现方式                             | 成熟度 |
+| ---------------- | ------------------------------------ | ------ |
+| **辩论式**       | Red/Blue 对抗 + Judge 裁决           | 成熟   |
+| **投票式**       | MAJORITY / SUPERMAJORITY / UNANIMOUS | 成熟   |
+| **委派式**       | Agent A → Agent B 任务传递           | 成熟   |
+| **Mission 编排** | 任务分解 → 并行执行 → Leader 审核    | 成熟   |
+| **工作流式**     | DAG / Sequential / Parallel 执行器   | 成熟   |
 
 #### Agent 能力模型
 
@@ -129,26 +129,26 @@ ToolRegistry (注册、发现、调用)
 
 **WorkStyle 驱动的执行策略**是一个差异化设计：
 
-| WorkStyle | 并发数 | 重试 | 超时 |
-|-----------|--------|------|------|
-| AUTONOMOUS | 5 | 有 | 60s |
-| COLLABORATIVE | 3 | 有 | 45s |
-| ANALYTICAL | 1（串行） | 有 | 90s |
-| CREATIVE | 4 | 无 | 60s |
+| WorkStyle     | 并发数    | 重试 | 超时 |
+| ------------- | --------- | ---- | ---- |
+| AUTONOMOUS    | 5         | 有   | 60s  |
+| COLLABORATIVE | 3         | 有   | 45s  |
+| ANALYTICAL    | 1（串行） | 有   | 90s  |
+| CREATIVE      | 4         | 无   | 60s  |
 
 这种将 Agent 工作风格转化为执行参数的设计，在 CrewAI、AutoGen、LangGraph 中均未见到。
 
 ### 2.4 应用模块能力矩阵 — 评分：B+
 
-| 能力 | Ask | Research | Office | Writing | Social | Teams | Image | RAG |
-|------|-----|----------|--------|---------|--------|-------|-------|-----|
-| 实时流式 | ✓ | ✓ | ✓ | ✓ | - | - | ✓ | - |
-| 多 Agent | - | ✓ | ✓ | ✓ | ~ | ✓ | ~ | - |
-| 质量门禁 | - | ✓ | ✓ | ✓ | ✓ | - | - | - |
-| RAG 集成 | ✓ | ✓ | ~ | ~ | - | - | - | ✓ |
-| 工具调用 | ✓ | ✓ | - | - | - | - | - | ✓ |
-| 断点续传 | - | ✓ | ✓ | ✓ | - | - | ✓ | - |
-| 并行执行 | - | ✓ | ✓ | ✓ | - | ✓ | ~ | - |
+| 能力     | Ask | Research | Office | Writing | Social | Teams | Image | RAG |
+| -------- | --- | -------- | ------ | ------- | ------ | ----- | ----- | --- |
+| 实时流式 | ✓   | ✓        | ✓      | ✓       | -      | -     | ✓     | -   |
+| 多 Agent | -   | ✓        | ✓      | ✓       | ~      | ✓     | ~     | -   |
+| 质量门禁 | -   | ✓        | ✓      | ✓       | ✓      | -     | -     | -   |
+| RAG 集成 | ✓   | ✓        | ~      | ~       | -      | -     | -     | ✓   |
+| 工具调用 | ✓   | ✓        | -      | -       | -      | -     | -     | ✓   |
+| 断点续传 | -   | ✓        | ✓      | ✓       | -      | -     | ✓     | -   |
+| 并行执行 | -   | ✓        | ✓      | ✓       | -      | ✓     | ~     | -   |
 
 **Research 模块**是最复杂、最完善的应用模块：
 
@@ -170,18 +170,18 @@ ToolRegistry (注册、发现、调用)
 
 #### 已实现的横切关注点
 
-| 关注点 | 实现 | 评价 |
-|--------|------|------|
-| **错误处理** | AIError 分类 + 可重试判断 + 指数退避 | 优秀 |
-| **熔断器** | 三状态（CLOSED/OPEN/HALF_OPEN）+ 冷却时间 | 优秀 |
-| **模型降级** | 错误分类驱动的自动切换 + 黑名单 TTL | 优秀 |
-| **限流** | 滑动窗口 + 令牌桶（内存实现） | 良好 |
-| **成本控制** | 多维度预算（小时/日/周/月） + 告警阈值 | 良好 |
-| **安全护栏** | 输入注入检测 + 内容安全过滤 + 输出合规检查 | 良好 |
-| **可观测性** | 追踪服务 + 指标记录（非阻塞） | 良好 |
-| **内存管理** | 短期（会话内）+ 长期（跨会话） | 良好 |
-| **Token 管理** | 用量追踪 + 预算控制 | 良好 |
-| **BYOK** | 三级密钥优先级 + 来源追踪 | 良好 |
+| 关注点         | 实现                                       | 评价 |
+| -------------- | ------------------------------------------ | ---- |
+| **错误处理**   | AIError 分类 + 可重试判断 + 指数退避       | 优秀 |
+| **熔断器**     | 三状态（CLOSED/OPEN/HALF_OPEN）+ 冷却时间  | 优秀 |
+| **模型降级**   | 错误分类驱动的自动切换 + 黑名单 TTL        | 优秀 |
+| **限流**       | 滑动窗口 + 令牌桶（内存实现）              | 良好 |
+| **成本控制**   | 多维度预算（小时/日/周/月） + 告警阈值     | 良好 |
+| **安全护栏**   | 输入注入检测 + 内容安全过滤 + 输出合规检查 | 良好 |
+| **可观测性**   | 追踪服务 + 指标记录（非阻塞）              | 良好 |
+| **内存管理**   | 短期（会话内）+ 长期（跨会话）             | 良好 |
+| **Token 管理** | 用量追踪 + 预算控制                        | 良好 |
+| **BYOK**       | 三级密钥优先级 + 来源追踪                  | 良好 |
 
 ---
 
@@ -194,7 +194,7 @@ ToolRegistry (注册、发现、调用)
 - NestJS 模块系统使用得当，每个子系统有独立的 Module 定义
 - 清晰的 barrel exports（index.ts）
 - 接口与实现分离（abstractions/ 目录）
-- 测试文件与源码共存（__tests__/ 目录）
+- 测试文件与源码共存（**tests**/ 目录）
 
 **问题：**
 
@@ -219,20 +219,20 @@ ToolRegistry (注册、发现、调用)
 
 ### 3.3 设计模式运用 — 评分：A
 
-| 模式 | 应用位置 | 效果 |
-|------|----------|------|
-| **Facade** | AIEngineFacade | 简化了上层对 100+ 服务的访问 |
-| **Factory** | LLMFactory, TeamFactory | 按需创建适配器和团队 |
-| **Adapter** | ILLMAdapter 的 4 个实现 | 屏蔽了提供商差异 |
-| **Registry** | ToolRegistry, SkillRegistry, RoleRegistry, TeamRegistry | 统一了注册/发现/查询 |
-| **Circuit Breaker** | CircuitBreakerService | 防止级联故障 |
-| **Pipeline** | GuardrailsPipeline | 可扩展的过滤链 |
-| **Strategy** | ModelSelectionStrategy, WorkStyle | 策略可替换 |
-| **Observer** | EventEmitter2 + WebSocket Gateway | 实时事件传播 |
-| **State Machine** | ExecutionStateManager（CLOSED/OPEN/HALF_OPEN） | 状态管理可控 |
-| **Chain of Responsibility** | Retry + Fallback 链 | 错误逐级处理 |
-| **Middleware** | Tool Execution Middleware | 工具执行拦截 |
-| **Template Method** | BaseLLMAdapter | 统一流程，差异化实现 |
+| 模式                        | 应用位置                                                | 效果                         |
+| --------------------------- | ------------------------------------------------------- | ---------------------------- |
+| **Facade**                  | AIEngineFacade                                          | 简化了上层对 100+ 服务的访问 |
+| **Factory**                 | LLMFactory, TeamFactory                                 | 按需创建适配器和团队         |
+| **Adapter**                 | ILLMAdapter 的 4 个实现                                 | 屏蔽了提供商差异             |
+| **Registry**                | ToolRegistry, SkillRegistry, RoleRegistry, TeamRegistry | 统一了注册/发现/查询         |
+| **Circuit Breaker**         | CircuitBreakerService                                   | 防止级联故障                 |
+| **Pipeline**                | GuardrailsPipeline                                      | 可扩展的过滤链               |
+| **Strategy**                | ModelSelectionStrategy, WorkStyle                       | 策略可替换                   |
+| **Observer**                | EventEmitter2 + WebSocket Gateway                       | 实时事件传播                 |
+| **State Machine**           | ExecutionStateManager（CLOSED/OPEN/HALF_OPEN）          | 状态管理可控                 |
+| **Chain of Responsibility** | Retry + Fallback 链                                     | 错误逐级处理                 |
+| **Middleware**              | Tool Execution Middleware                               | 工具执行拦截                 |
+| **Template Method**         | BaseLLMAdapter                                          | 统一流程，差异化实现         |
 
 设计模式的选择和应用总体上是**准确且适度**的，没有出现为用模式而用模式的过度设计。
 
@@ -272,21 +272,21 @@ ToolRegistry (注册、发现、调用)
 
 ### 4.1 技术趋势适配
 
-| 趋势 | 当前支持 | 评价 |
-|------|----------|------|
-| **多模态（Vision + Audio）** | 部分（Image 模块） | 缺少统一的多模态 Pipeline |
-| **推理模型（o1、R1）** | ✓ 自动检测与参数调整 | 业界领先 |
-| **Function Calling / Tool Use** | ✓ FunctionCallingExecutor | 成熟 |
-| **结构化输出（JSON Schema）** | 部分（JSON temperature 控制） | 缺少 OpenAI JSON Schema mode 的完整支持 |
-| **流式处理（SSE/WebSocket）** | ✓ 多模块支持 | 成熟 |
-| **MCP（Model Context Protocol）** | ✓ 有 MCP 模块 | 前瞻性设计 |
-| **RAG** | ✓ 完整的 Pipeline | 成熟 |
-| **长上下文窗口（128K+）** | 部分 | 缺少主动的上下文窗口优化策略 |
-| **Agent 记忆** | ✓ 短期 + 长期 | 良好，但缺少向量化语义记忆 |
-| **实时语音交互** | 未支持 | 行业趋势明确，需要规划 |
-| **本地/边缘模型** | 未支持 | Ollama/vLLM 集成缺失 |
-| **多模型路由（Cost/Quality/Speed）** | ✓ 数据库配置 + 排名系统 | 良好 |
-| **Prompt Caching** | 未支持 | Anthropic/OpenAI 已支持，可显著降低成本 |
+| 趋势                                 | 当前支持                      | 评价                                    |
+| ------------------------------------ | ----------------------------- | --------------------------------------- |
+| **多模态（Vision + Audio）**         | 部分（Image 模块）            | 缺少统一的多模态 Pipeline               |
+| **推理模型（o1、R1）**               | ✓ 自动检测与参数调整          | 业界领先                                |
+| **Function Calling / Tool Use**      | ✓ FunctionCallingExecutor     | 成熟                                    |
+| **结构化输出（JSON Schema）**        | 部分（JSON temperature 控制） | 缺少 OpenAI JSON Schema mode 的完整支持 |
+| **流式处理（SSE/WebSocket）**        | ✓ 多模块支持                  | 成熟                                    |
+| **MCP（Model Context Protocol）**    | ✓ 有 MCP 模块                 | 前瞻性设计                              |
+| **RAG**                              | ✓ 完整的 Pipeline             | 成熟                                    |
+| **长上下文窗口（128K+）**            | 部分                          | 缺少主动的上下文窗口优化策略            |
+| **Agent 记忆**                       | ✓ 短期 + 长期                 | 良好，但缺少向量化语义记忆              |
+| **实时语音交互**                     | 未支持                        | 行业趋势明确，需要规划                  |
+| **本地/边缘模型**                    | 未支持                        | Ollama/vLLM 集成缺失                    |
+| **多模型路由（Cost/Quality/Speed）** | ✓ 数据库配置 + 排名系统       | 良好                                    |
+| **Prompt Caching**                   | 未支持                        | Anthropic/OpenAI 已支持，可显著降低成本 |
 
 ### 4.2 可演进性分析
 
@@ -306,14 +306,14 @@ ToolRegistry (注册、发现、调用)
 
 ### 4.3 技术债务评估
 
-| 债务类型 | 严重度 | 描述 |
-|----------|--------|------|
-| God Service | 中 | ai-chat.service.ts 4,341 行，职责过多 |
-| 内存状态 | 中 | 限流和状态管理依赖内存，不支持水平扩展 |
-| Prompt 碎片化 | 低-中 | 各模块自行管理 prompt，缺少统一管理 |
-| Agent 接口不统一 | 低-中 | 三层各有自己的 Agent 概念 |
-| 测试覆盖 | 中 | 核心服务的测试覆盖不充分 |
-| 文档与代码同步 | 低 | 部分文档可能落后于实现 |
+| 债务类型         | 严重度 | 描述                                   |
+| ---------------- | ------ | -------------------------------------- |
+| God Service      | 中     | ai-chat.service.ts 4,341 行，职责过多  |
+| 内存状态         | 中     | 限流和状态管理依赖内存，不支持水平扩展 |
+| Prompt 碎片化    | 低-中  | 各模块自行管理 prompt，缺少统一管理    |
+| Agent 接口不统一 | 低-中  | 三层各有自己的 Agent 概念              |
+| 测试覆盖         | 中     | 核心服务的测试覆盖不充分               |
+| 文档与代码同步   | 低     | 部分文档可能落后于实现                 |
 
 ---
 
@@ -321,17 +321,17 @@ ToolRegistry (注册、发现、调用)
 
 ### 5.1 对标竞品矩阵
 
-| 能力维度 | Raven AI Engine | LangChain/LangGraph | CrewAI | AutoGen | Dify | Coze |
-|----------|----------------|---------------------|--------|---------|------|------|
-| **LLM 抽象** | A（TaskProfile 语义化） | B+（直接参数） | B（直接参数） | B（直接参数） | B+（UI 配置） | B（预设） |
-| **多 Agent** | A-（辩论/投票/Mission） | B+（LangGraph） | A-（Crew/Task） | A（多 Agent 会话） | B（工作流节点） | B（Bot 组合） |
-| **工具生态** | B+（Registry + MCP） | A（丰富生态） | B+（Tool 注册） | B（函数工具） | A-（插件市场） | A（插件丰富） |
-| **RAG** | A-（完整 Pipeline） | A（生态丰富） | B（基础集成） | B（手动集成） | A（内置 KB） | B+（知识库） |
-| **可观测性** | B+（追踪 + 指标） | A-（LangSmith） | B（日志） | B（日志） | B+（运行日志） | B（基础） |
-| **安全护栏** | A-（Pipeline + 分类） | B（NeMo 集成） | C（无） | C（无） | B（基础） | B（内容审核） |
-| **成本控制** | A-（预算 + 告警） | C（手动） | C（手动） | C（手动） | B（额度） | B+（积分） |
-| **生产就绪** | A-（熔断/降级/重试） | B+（部分） | B（基础重试） | B（基础） | A-（托管） | A（托管） |
-| **企业特性** | A（BYOK/多租户/计费） | C（框架） | C（框架） | C（框架） | B+（SaaS） | A-（SaaS） |
+| 能力维度     | Raven AI Engine         | LangChain/LangGraph | CrewAI          | AutoGen            | Dify            | Coze          |
+| ------------ | ----------------------- | ------------------- | --------------- | ------------------ | --------------- | ------------- |
+| **LLM 抽象** | A（TaskProfile 语义化） | B+（直接参数）      | B（直接参数）   | B（直接参数）      | B+（UI 配置）   | B（预设）     |
+| **多 Agent** | A-（辩论/投票/Mission） | B+（LangGraph）     | A-（Crew/Task） | A（多 Agent 会话） | B（工作流节点） | B（Bot 组合） |
+| **工具生态** | B+（Registry + MCP）    | A（丰富生态）       | B+（Tool 注册） | B（函数工具）      | A-（插件市场）  | A（插件丰富） |
+| **RAG**      | A-（完整 Pipeline）     | A（生态丰富）       | B（基础集成）   | B（手动集成）      | A（内置 KB）    | B+（知识库）  |
+| **可观测性** | B+（追踪 + 指标）       | A-（LangSmith）     | B（日志）       | B（日志）          | B+（运行日志）  | B（基础）     |
+| **安全护栏** | A-（Pipeline + 分类）   | B（NeMo 集成）      | C（无）         | C（无）            | B（基础）       | B（内容审核） |
+| **成本控制** | A-（预算 + 告警）       | C（手动）           | C（手动）       | C（手动）          | B（额度）       | B+（积分）    |
+| **生产就绪** | A-（熔断/降级/重试）    | B+（部分）          | B（基础重试）   | B（基础）          | A-（托管）      | A（托管）     |
+| **企业特性** | A（BYOK/多租户/计费）   | C（框架）           | C（框架）       | C（框架）          | B+（SaaS）      | A-（SaaS）    |
 
 ### 5.2 差异化优势
 
@@ -375,11 +375,19 @@ ToolRegistry (注册、发现、调用)
 
 ### 6.1 架构风险
 
-#### 风险 1：单体服务膨胀（严重度：中-高）
+#### 风险 1：单体服务膨胀（严重度：~~中-高~~ → 已修复 ✅）
 
-`ai-chat.service.ts` 4,341 行，承担了参数解析、模型选择、API 调用、重试、指标记录、BYOK 等多项职责。随着功能增长，这个文件将成为变更冲突的热点和理解的障碍。
+~~`ai-chat.service.ts` 4,341 行~~ → **已拆分为 ~1,100 行的 thin coordinator + 7 个聚焦的子服务**：
 
-**建议**：进一步拆分为 `ModelResolverService`、`ParameterResolverService`、`ApiGatewayService` 等更小的服务。
+- `AiConnectionTestService` — 连接测试
+- `AiModelDiscoveryService` — 模型发现/列表
+- `AiDirectKeyService` — BYOK 直连 API 调用
+- `AiImageGenerationService` — 图片生成
+- `AiChatPromptService` — Prompt 构建、URL/搜索增强（已有，已接入）
+- `AiChatRetryService` — 重试策略、错误分类（已有，已接入）
+- `AiModelConfigService` — 模型配置查询（已有，增加 excludeModelIds 参数）
+
+**新增 166 个单元测试**覆盖 AiChatService、AiConnectionTestService、ModelFallbackService、CircuitBreakerService。
 
 #### 风险 2：内存状态不可水平扩展（严重度：中）
 
@@ -391,19 +399,19 @@ ToolRegistry (注册、发现、调用)
 
 Engine 层的 `AgentExecutorService`、Teams 层的 `TeamMemberAgent`、Research 层的维度 Agent 是三套不同的概念。虽然通过 Facade 解耦，但缺少统一的 `IAgent` 接口意味着跨层的 Agent 互操作性受限。
 
-#### 风险 4：Prompt 无版本管理（严重度：中）
+#### 风险 4：Prompt 无版本管理（严重度：中 → 部分缓解）
 
-Prompt 以代码形式硬编码在各模块中。没有版本控制、A/B 测试、性能回归追踪能力。Prompt 质量的变化可能在无感知的情况下影响输出质量。
+~~Prompt 以代码形式硬编码在各模块中~~ → **已将 Ask 和 Social 模块的内联 Prompt 提取到独立文件**（`ask/prompts/ask-system.prompt.ts`、`social/prompts/social-transformer.prompt.ts`、`social/prompts/social-version.prompt.ts`），建立统一的 Prompt 组织规范。版本控制、A/B 测试能力仍需后续建设。
 
 ### 6.2 运维风险
 
-| 风险 | 影响 | 概率 |
-|------|------|------|
-| LLM 提供商 API 变更 | 需修改 Adapter | 高 |
-| 模型价格变动 | 成本超预算 | 高 |
-| 上下文窗口限制 | 长对话/长文档处理失败 | 中 |
-| 单点故障（单实例部署） | 服务不可用 | 中 |
-| API Key 泄露 | 安全事件 | 低 |
+| 风险                   | 影响                  | 概率 |
+| ---------------------- | --------------------- | ---- |
+| LLM 提供商 API 变更    | 需修改 Adapter        | 高   |
+| 模型价格变动           | 成本超预算            | 高   |
+| 上下文窗口限制         | 长对话/长文档处理失败 | 中   |
+| 单点故障（单实例部署） | 服务不可用            | 中   |
+| API Key 泄露           | 安全事件              | 低   |
 
 ---
 
@@ -411,33 +419,33 @@ Prompt 以代码形式硬编码在各模块中。没有版本控制、A/B 测试
 
 ### Phase 1：加固基础（优先级：高）
 
-| 改进项 | 预期收益 | 复杂度 |
-|--------|----------|--------|
-| 拆分 ai-chat.service.ts | 可维护性、可测试性提升 | 中 |
-| 限流/状态迁移 Redis | 支持水平扩展 | 中 |
-| 建立 AI Eval 框架 | 输出质量可度量、可回归 | 中-高 |
-| 统一 Prompt Registry | 版本管理、A/B 测试 | 中 |
-| 补充核心服务测试 | 回归安全网 | 中 |
+| 改进项                      | 预期收益                   | 复杂度      |
+| --------------------------- | -------------------------- | ----------- |
+| ~~拆分 ai-chat.service.ts~~ | ~~可维护性、可测试性提升~~ | ✅ 已完成   |
+| 限流/状态迁移 Redis         | 支持水平扩展               | 中          |
+| 建立 AI Eval 框架           | 输出质量可度量、可回归     | 中-高       |
+| ~~统一 Prompt Registry~~    | ~~版本管理、A/B 测试~~     | ✅ 部分完成 |
+| ~~补充核心服务测试~~        | ~~回归安全网~~             | ✅ 已完成   |
 
 ### Phase 2：能力增强（优先级：中）
 
-| 改进项 | 预期收益 | 复杂度 |
-|--------|----------|--------|
-| 结构化输出（JSON Schema mode） | 输出可靠性提升 | 低 |
-| Prompt Caching 集成 | 成本降低 30-50% | 低 |
-| 统一 Agent 接口 IAgent | 跨层互操作、可替换 | 中 |
-| 多模态 Pipeline | 支持 Vision + Audio 统一处理 | 高 |
-| 上下文窗口优化策略 | 长对话/文档处理能力提升 | 中 |
+| 改进项                         | 预期收益                     | 复杂度 |
+| ------------------------------ | ---------------------------- | ------ |
+| 结构化输出（JSON Schema mode） | 输出可靠性提升               | 低     |
+| Prompt Caching 集成            | 成本降低 30-50%              | 低     |
+| 统一 Agent 接口 IAgent         | 跨层互操作、可替换           | 中     |
+| 多模态 Pipeline                | 支持 Vision + Audio 统一处理 | 高     |
+| 上下文窗口优化策略             | 长对话/文档处理能力提升      | 中     |
 
 ### Phase 3：前瞻性建设（优先级：中-低）
 
-| 改进项 | 预期收益 | 复杂度 |
-|--------|----------|--------|
-| LangSmith/自建 Observability | 专业级 AI 可观测 | 高 |
-| 本地模型支持（Ollama/vLLM） | 隐私场景、成本优化 | 中 |
-| Agent 间 Peer-to-Peer 通信 | 更灵活的协作模式 | 高 |
-| 实时语音交互 | 新交互形态 | 高 |
-| 工具市场/插件生态 | 生态扩展 | 高 |
+| 改进项                       | 预期收益           | 复杂度 |
+| ---------------------------- | ------------------ | ------ |
+| LangSmith/自建 Observability | 专业级 AI 可观测   | 高     |
+| 本地模型支持（Ollama/vLLM）  | 隐私场景、成本优化 | 中     |
+| Agent 间 Peer-to-Peer 通信   | 更灵活的协作模式   | 高     |
+| 实时语音交互                 | 新交互形态         | 高     |
+| 工具市场/插件生态            | 生态扩展           | 高     |
 
 ---
 
@@ -445,25 +453,41 @@ Prompt 以代码形式硬编码在各模块中。没有版本控制、A/B 测试
 
 ### 维度评分
 
-| 评估维度 | 评分 | 权重 | 加权分 |
-|----------|------|------|--------|
-| 架构设计理念 | A (9/10) | 20% | 1.8 |
-| LLM 抽象质量 | A (9/10) | 15% | 1.35 |
-| 多 Agent 协作 | A- (8.5/10) | 15% | 1.275 |
-| 应用模块丰富度 | B+ (8/10) | 10% | 0.8 |
-| 横切关注点覆盖 | A- (8.5/10) | 10% | 0.85 |
-| 代码质量与组织 | B+ (8/10) | 10% | 0.8 |
-| 可测试性 | B (7/10) | 5% | 0.35 |
-| 面向未来可演进性 | B+ (8/10) | 10% | 0.8 |
-| 业界竞争力 | B+ (8/10) | 5% | 0.4 |
+| 评估维度         | 评分        | 权重 | 加权分 |
+| ---------------- | ----------- | ---- | ------ |
+| 架构设计理念     | A (9/10)    | 20%  | 1.8    |
+| LLM 抽象质量     | A (9/10)    | 15%  | 1.35   |
+| 多 Agent 协作    | A- (8.5/10) | 15%  | 1.275  |
+| 应用模块丰富度   | B+ (8/10)   | 10%  | 0.8    |
+| 横切关注点覆盖   | A- (8.5/10) | 10%  | 0.85   |
+| 代码质量与组织   | A- (8.5/10) | 10%  | 0.85   |
+| 可测试性         | B+ (8/10)   | 5%   | 0.4    |
+| 面向未来可演进性 | B+ (8/10)   | 10%  | 0.8    |
+| 业界竞争力       | B+ (8/10)   | 5%   | 0.4    |
 
-**总分：8.425 / 10（B+ / A-）**
+**总分：8.575 / 10（A-）**
+
+### 2026-02-06 修复记录
+
+本次架构质量修复（9 项改进）后的变更：
+
+| 修复项                             | 优先级 | 状态    | 影响                       |
+| ---------------------------------- | ------ | ------- | -------------------------- |
+| 拆分 ai-chat.service.ts God Object | P0     | ✅ 完成 | 4341→~1100 行，7 个子服务  |
+| 补充核心服务单元测试               | P0     | ✅ 完成 | +166 测试（4 套测试）      |
+| ESLint Facade 绕行防护             | P1     | ✅ 完成 | no-restricted-imports 规则 |
+| Prompt 管理规范化                  | P1     | ✅ 完成 | 3 个 prompt 文件提取       |
+| 限流/成本控制接入主路径            | P2     | ✅ 完成 | CONSTRAINT_FEATURE Token   |
+| Guardrails 默认启用                | P2     | ✅ 完成 | `!== "false"` 检查         |
+| 统一可观测性                       | P3     | ✅ 完成 | TraceCollector 接入 chat() |
+| Facade API JSDoc 文档              | P3     | ✅ 完成 | 36 个公开方法文档化        |
+| 更新架构评估文档                   | —      | ✅ 完成 | 评分更新                   |
 
 ### 核心结论
 
 1. **架构设计是最大优势**。三层分离、TaskProfile 语义配置、WorkStyle 驱动的执行策略，这些设计在业界具有原创性和领先性。
 
-2. **工程成熟度是主要差距**。大文件未拆分、测试覆盖不足、内存状态管理、Prompt 无版本控制等问题，反映出"设计超前于工程实践"的阶段性特征。
+2. **工程成熟度差距已大幅缩小**。~~大文件未拆分、测试覆盖不足~~ → God Object 已拆分为 7 个聚焦服务，新增 166 个单元测试，Guardrails 默认启用，限流/成本控制接入主路径。剩余差距：内存状态管理（Redis 迁移）、Prompt 版本控制/A/B 测试。
 
 3. **应用深度是差异化壁垒**。Research 的多维度研究、Writing 的 Story Bible、Office 的 5 阶段 PPT 生成，每个模块都有独特的领域深度，这是纯框架产品（LangChain、CrewAI）无法复制的。
 
@@ -473,4 +497,4 @@ Prompt 以代码形式硬编码在各模块中。没有版本控制、A/B 测试
 
 ---
 
-*本评估基于截至 2026-02-06 的代码库状态。评估结论可能随代码库演进而变化。*
+_本评估基于截至 2026-02-06 的代码库状态。评估结论可能随代码库演进而变化。_

@@ -2,7 +2,7 @@
  * Image Designer Agent
  * AI 图像设计师 Agent
  *
- * 使用依赖反转原则，通过接口与 AI Apps 层解耦
+ * 使用依赖反转原则,通过接口与 AI Apps 层解耦
  * - IImageGenerationService: 图像生成服务抽象接口
  */
 
@@ -15,12 +15,15 @@ import {
   AgentEvent,
   AgentTemplate,
   ToolId,
-} from "../../base/plan-based-agent";
-import { BUILTIN_TOOLS, PlanStep } from "../../../core/types/agent.types";
+} from "../../../ai-engine/agents/base/plan-based-agent";
+import {
+  BUILTIN_TOOLS,
+  PlanStep,
+} from "../../../ai-engine/core/types/agent.types";
 import {
   IImageGenerationService,
   IMAGE_GENERATION_SERVICE_TOKEN,
-} from "../../../interfaces/image.interface";
+} from "../../../ai-engine/interfaces/image.interface";
 
 /**
  * 信息图表风格 (从原 InfographicService 复制)
@@ -64,7 +67,7 @@ export class ImageDesignerAgent extends PlanBasedAgent {
 
   readonly id = BUILTIN_AGENTS.IMAGE_DESIGNER;
   readonly name = "AI Image Designer";
-  readonly description = "智能图像设计师，生成高质量图像和信息图表";
+  readonly description = "智能图像设计师,生成高质量图像和信息图表";
   readonly capabilities = [
     "信息图表生成",
     "Prompt 增强优化",
@@ -169,18 +172,32 @@ export class ImageDesignerAgent extends PlanBasedAgent {
     },
   ];
 
+  protected selectionKeywords: string[] = [
+    "图像",
+    "图片",
+    "信息图",
+    "infographic",
+    "设计",
+    "海报",
+    "logo",
+    "banner",
+    "品牌",
+    "视觉",
+    "image",
+  ];
+
   constructor(
     @Optional()
     @Inject(IMAGE_GENERATION_SERVICE_TOKEN)
     private readonly imageService?: IImageGenerationService,
   ) {
     super();
-    // 服务是可选的，如果未提供则 Agent 功能会降级
+    // 服务是可选的,如果未提供则 Agent 功能会降级
     void this.imageService;
   }
 
   /**
-   * 分析用户输入，生成执行计划
+   * 分析用户输入,生成执行计划
    */
   async plan(input: AgentInput): Promise<AgentPlan> {
     this.logger.log(
@@ -333,7 +350,7 @@ export class ImageDesignerAgent extends PlanBasedAgent {
   }
 
   /**
-   * 执行计划，流式返回进度和结果
+   * 执行计划,流式返回进度和结果
    */
   async *execute(plan: AgentPlan): AsyncGenerator<AgentEvent> {
     this.logger.log(`[execute] Starting image design for task: ${plan.taskId}`);
@@ -414,7 +431,7 @@ export class ImageDesignerAgent extends PlanBasedAgent {
         result: {
           success: true,
           artifacts,
-          summary: `图像设计完成，生成 ${artifacts.length} 个产出物`,
+          summary: `图像设计完成,生成 ${artifacts.length} 个产出物`,
           tokensUsed: 0,
           duration,
         },
@@ -449,7 +466,7 @@ export class ImageDesignerAgent extends PlanBasedAgent {
 
     switch (step.name) {
       case "需求分析":
-        // 分析需求，返回增强的 prompt
+        // 分析需求,返回增强的 prompt
         return {
           enhancedPrompt: this.analyzeRequirements(input.prompt || ""),
         };
@@ -550,7 +567,7 @@ export class ImageDesignerAgent extends PlanBasedAgent {
    * 增强 Prompt
    */
   private async enhancePrompt(prompt: string): Promise<string> {
-    // 简化实现：添加质量修饰词
+    // 简化实现:添加质量修饰词
     const qualityModifiers = [
       "high quality",
       "detailed",
@@ -572,7 +589,7 @@ export class ImageDesignerAgent extends PlanBasedAgent {
    * 渲染信息图表
    */
   private async renderInfographic(input: AgentInput): Promise<string> {
-    // 简化实现：返回模拟 HTML
+    // 简化实现:返回模拟 HTML
     const style = (input.options?.style as InfographicStyle) || "consulting";
     return `<div class="infographic" style="${style}">
       <h1>${input.prompt}</h1>
@@ -597,7 +614,7 @@ export class ImageDesignerAgent extends PlanBasedAgent {
    * 分析品牌
    */
   private analyzeBrand(prompt: string): string {
-    return `品牌分析：${prompt}`;
+    return `品牌分析:${prompt}`;
   }
 
   /**
@@ -605,12 +622,12 @@ export class ImageDesignerAgent extends PlanBasedAgent {
    */
   private generateColorScheme(_prompt: string): string {
     return `
-配色方案：
-- 主色：#3B82F6 (蓝色)
-- 辅助色：#10B981 (绿色)
-- 强调色：#F59E0B (橙色)
-- 背景色：#F9FAFB (浅灰)
-- 文字色：#111827 (深灰)
+配色方案:
+- 主色:#3B82F6 (蓝色)
+- 辅助色:#10B981 (绿色)
+- 强调色:#F59E0B (橙色)
+- 背景色:#F9FAFB (浅灰)
+- 文字色:#111827 (深灰)
 `;
   }
 
@@ -619,12 +636,12 @@ export class ImageDesignerAgent extends PlanBasedAgent {
    */
   private generateVisualGuideline(_prompt: string): string {
     return `
-视觉设计规范：
+视觉设计规范:
 1. Logo 使用规范
-2. 字体规范：标题使用 Sans-serif，正文使用 System UI
-3. 间距规范：基础单位 8px
-4. 圆角规范：8px (小)、12px (中)、16px (大)
-5. 阴影规范：轻阴影用于卡片，重阴影用于模态框
+2. 字体规范:标题使用 Sans-serif,正文使用 System UI
+3. 间距规范:基础单位 8px
+4. 圆角规范:8px (小)、12px (中)、16px (大)
+5. 阴影规范:轻阴影用于卡片,重阴影用于模态框
 `;
   }
 

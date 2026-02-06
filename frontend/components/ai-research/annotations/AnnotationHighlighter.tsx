@@ -232,7 +232,7 @@ export function AnnotationHighlighter({
               );
 
               try {
-                const range = findTextRange(containerRef.current!, {
+                const range = findTextRange(containerRef.current, {
                   exact: annotation.selectedText,
                   prefix: annotation.selectorPrefix,
                   suffix: annotation.selectorSuffix,

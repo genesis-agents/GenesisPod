@@ -717,7 +717,7 @@ function applyAnnotationHighlights(
     const normalizedText = normalizeForMatch(text);
 
     // Try exact match first
-    let matchIndex = normalizedText.indexOf(normalizedTarget);
+    const matchIndex = normalizedText.indexOf(normalizedTarget);
     if (matchIndex !== -1) {
       // Map back to original text positions
       const originalStart = findOriginalPosition(text, matchIndex);

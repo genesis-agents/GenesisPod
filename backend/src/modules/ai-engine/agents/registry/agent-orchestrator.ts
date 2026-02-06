@@ -36,7 +36,7 @@ export class AgentOrchestrator {
     private readonly configService?: ConfigService,
   ) {
     this.guardrailsEnabled =
-      this.configService?.get<string>("GUARDRAILS_ENABLED") === "true";
+      this.configService?.get<string>("GUARDRAILS_ENABLED") !== "false";
     this.guardrailsFailClosed =
       this.configService?.get<string>("GUARDRAILS_FAIL_CLOSED") === "true";
     if (this.guardrailsEnabled && this.guardrailsPipeline) {
@@ -178,60 +178,24 @@ export class AgentOrchestrator {
 
   /**
    * 选择适合的 Agent
-   * 基于输入内容自动选择
+   * 基于已注册 Agent 的 selectionKeywords 进行数据驱动匹配
    */
   private async selectAgent(input: AgentInput): Promise<AgentId | null> {
     const prompt = input.prompt?.toLowerCase() || "";
 
-    // 简单的关键词匹配
-    if (
-      prompt.includes("ppt") ||
-      prompt.includes("演示") ||
-      prompt.includes("幻灯片") ||
-      prompt.includes("slides")
-    ) {
-      return "slides";
+    // 遍历所有已注册 Agent，检查 selectionKeywords 匹配
+    const agents = this.registry.getAll();
+    for (const agent of agents) {
+      const config = agent.getConfig();
+      const keywords = config.selectionKeywords || [];
+      if (keywords.length > 0 && keywords.some((kw) => prompt.includes(kw))) {
+        return agent.id;
+      }
     }
 
-    if (
-      prompt.includes("文档") ||
-      prompt.includes("报告") ||
-      prompt.includes("doc") ||
-      prompt.includes("word")
-    ) {
-      return "docs";
-    }
-
-    if (
-      prompt.includes("设计") ||
-      prompt.includes("海报") ||
-      prompt.includes("logo") ||
-      prompt.includes("banner")
-    ) {
-      return "designer";
-    }
-
-    if (
-      prompt.includes("代码") ||
-      prompt.includes("程序") ||
-      prompt.includes("code") ||
-      prompt.includes("编程")
-    ) {
-      return "developer";
-    }
-
-    if (
-      prompt.includes("研究") ||
-      prompt.includes("调研") ||
-      prompt.includes("分析") ||
-      prompt.includes("research")
-    ) {
-      return "researcher";
-    }
-
-    // 默认使用 docs agent
-    const agents = this.registry.getAllIds();
-    return agents.length > 0 ? agents[0] : null;
+    // 无匹配时返回第一个已注册的 Agent
+    const agentIds = this.registry.getAllIds();
+    return agentIds.length > 0 ? agentIds[0] : null;
   }
 
   /**

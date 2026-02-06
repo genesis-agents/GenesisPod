@@ -340,7 +340,7 @@ export function notionBlocksToBlockNote(
 
       case 'image':
         flushList();
-        const imageBlock = block.image as NotionBlockContent | undefined;
+        const imageBlock = block.image;
         const imageUrl =
           imageBlock?.file?.url || imageBlock?.external?.url || '';
         if (imageUrl) {
@@ -348,7 +348,7 @@ export function notionBlocksToBlockNote(
             type: 'image',
             props: {
               url: imageUrl,
-              caption: (imageBlock?.caption as NotionRichText[] | undefined)?.[0]?.plain_text || '',
+              caption: imageBlock?.caption?.[0]?.plain_text || '',
             },
           });
         }
@@ -418,15 +418,13 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
           id,
           type: 'paragraph',
           paragraph: {
-            rich_text: convertInlineContentToNotionRichText(
-              block.content
-            ),
+            rich_text: convertInlineContentToNotionRichText(block.content),
           },
         });
         break;
 
       case 'heading':
-        const level = (block.props)?.level || 1;
+        const level = block.props?.level || 1;
         const headingType = `heading_${level}` as
           | 'heading_1'
           | 'heading_2'
@@ -435,9 +433,7 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
           id,
           type: headingType,
           [headingType]: {
-            rich_text: convertInlineContentToNotionRichText(
-              block.content
-            ),
+            rich_text: convertInlineContentToNotionRichText(block.content),
           },
         });
         break;
@@ -447,9 +443,7 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
           id,
           type: 'bulleted_list_item',
           bulleted_list_item: {
-            rich_text: convertInlineContentToNotionRichText(
-              block.content
-            ),
+            rich_text: convertInlineContentToNotionRichText(block.content),
           },
         });
         break;
@@ -459,9 +453,7 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
           id,
           type: 'numbered_list_item',
           numbered_list_item: {
-            rich_text: convertInlineContentToNotionRichText(
-              block.content
-            ),
+            rich_text: convertInlineContentToNotionRichText(block.content),
           },
         });
         break;
@@ -471,10 +463,8 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
           id,
           type: 'to_do',
           to_do: {
-            rich_text: convertInlineContentToNotionRichText(
-              block.content
-            ),
-            checked: (block.props)?.checked || false,
+            rich_text: convertInlineContentToNotionRichText(block.content),
+            checked: block.props?.checked || false,
           },
         });
         break;
@@ -484,16 +474,14 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
           id,
           type: 'code',
           code: {
-            rich_text: convertInlineContentToNotionRichText(
-              block.content
-            ),
-            language: (block.props)?.language || 'plain text',
+            rich_text: convertInlineContentToNotionRichText(block.content),
+            language: block.props?.language || 'plain text',
           },
         });
         break;
 
       case 'image':
-        const url = (block.props)?.url;
+        const url = block.props?.url;
         if (url) {
           notionBlocks.push({
             id,
@@ -501,12 +489,12 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
             image: {
               type: 'external',
               external: { url },
-              caption: (block.props)?.caption
+              caption: block.props?.caption
                 ? [
                     {
                       type: 'text',
-                      text: { content: (block.props).caption },
-                      plain_text: (block.props).caption,
+                      text: { content: block.props.caption },
+                      plain_text: block.props.caption,
                     },
                   ]
                 : [],
@@ -525,7 +513,11 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
             type: 'table',
             table: {
               table_width: tableContent.rows[0]?.cells?.length || 1,
-            } as { table_width: number; has_column_header: boolean; has_row_header: boolean },
+            } as {
+              table_width: number;
+              has_column_header: boolean;
+              has_row_header: boolean;
+            },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             children: tableContent.rows.map((row) => ({
               type: 'table_row',
@@ -548,9 +540,7 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
             id,
             type: 'paragraph',
             paragraph: {
-              rich_text: convertInlineContentToNotionRichText(
-                block.content
-              ),
+              rich_text: convertInlineContentToNotionRichText(block.content),
             },
           });
         }

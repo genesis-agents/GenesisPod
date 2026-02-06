@@ -19,13 +19,16 @@ import {
   AgentEvent,
   AgentTemplate,
   ToolId,
-} from "../../base/plan-based-agent";
-import { BUILTIN_TOOLS, PlanStep } from "../../../core/types/agent.types";
+} from "../../../ai-engine/agents/base/plan-based-agent";
+import {
+  BUILTIN_TOOLS,
+  PlanStep,
+} from "../../../ai-engine/core/types/agent.types";
 import {
   AiChatService,
   ChatMessage,
-} from "../../../llm/services/ai-chat.service";
-import { AIEngineFacade } from "../../../facade/ai-engine.facade";
+} from "../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 
 @Injectable()
 export class DeveloperAgent extends PlanBasedAgent {
@@ -105,6 +108,16 @@ export class DeveloperAgent extends PlanBasedAgent {
         coverage: "comprehensive",
       },
     },
+  ];
+
+  protected selectionKeywords: string[] = [
+    "代码",
+    "程序",
+    "code",
+    "编程",
+    "开发",
+    "developer",
+    "coding",
   ];
 
   constructor(

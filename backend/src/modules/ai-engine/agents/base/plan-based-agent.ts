@@ -104,6 +104,12 @@ export abstract class PlanBasedAgent implements IPlanBasedAgent {
   protected templates: AgentTemplate[] = [];
 
   /**
+   * Agent 选择关键词 - 子类可覆盖
+   * 用于 AgentOrchestrator 根据用户输入自动选择 Agent
+   */
+  protected selectionKeywords: string[] = [];
+
+  /**
    * 分析用户输入，生成执行计划
    */
   abstract plan(input: AgentInput): Promise<AgentPlan>;
@@ -130,6 +136,7 @@ export abstract class PlanBasedAgent implements IPlanBasedAgent {
       return {
         ...predefinedConfig,
         templates: this.templates,
+        selectionKeywords: this.selectionKeywords,
       };
     }
 
@@ -142,6 +149,7 @@ export abstract class PlanBasedAgent implements IPlanBasedAgent {
       color: "#6B7280",
       capabilities: this.capabilities,
       templates: this.templates,
+      selectionKeywords: this.selectionKeywords,
     };
   }
 

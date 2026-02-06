@@ -98,5 +98,38 @@ module.exports = {
         "@typescript-eslint/no-unsafe-argument": "off",
       },
     },
+    {
+      // AI-App modules should use AIEngineFacade instead of direct ai-engine imports
+      files: ["**/modules/ai-app/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "warn",
+          {
+            patterns: [
+              {
+                group: ["**/ai-engine/tools/registry/*"],
+                message:
+                  "Use AIEngineFacade.executeTool()/getAvailableTools() instead.",
+              },
+              {
+                group: ["**/ai-engine/capabilities/*"],
+                message:
+                  "Use AIEngineFacade.getAvailableCapabilities() instead.",
+              },
+              {
+                group: ["**/ai-engine/realtime/**"],
+                message:
+                  "Use AIEngineFacade.emitToRoom()/emitProgress() instead.",
+              },
+              {
+                group: ["**/ai-engine/memory/stores/*"],
+                message:
+                  "Use AIEngineFacade.storeMemory()/retrieveMemory() instead.",
+              },
+            ],
+          },
+        ],
+      },
+    },
   ],
 };

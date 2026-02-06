@@ -618,9 +618,9 @@ export function ResearchTodoList({
                             <div
                               className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-600"
                               title={
-                                todo.dependsOn!.length > 2
-                                  ? `${t('topicResearch.researchControl.todoList.waiting')}: ${todo
-                                      .dependsOn!.map((depId) => {
+                                todo.dependsOn.length > 2
+                                  ? `${t('topicResearch.researchControl.todoList.waiting')}: ${todo.dependsOn
+                                      .map((depId) => {
                                         const depTodo = sortedTodos.find(
                                           (t) => t.id === depId
                                         );
@@ -634,12 +634,12 @@ export function ResearchTodoList({
                             >
                               <Clock className="h-2.5 w-2.5" />
                               <span>
-                                {todo.dependsOn!.length > 2 ? (
+                                {todo.dependsOn.length > 2 ? (
                                   <>
                                     ⏳{' '}
                                     {t(
                                       'topicResearch.researchControl.todoList.waitingTasks',
-                                      { count: todo.dependsOn!.length }
+                                      { count: todo.dependsOn.length }
                                     )}
                                   </>
                                 ) : (
@@ -647,8 +647,8 @@ export function ResearchTodoList({
                                     {t(
                                       'topicResearch.researchControl.todoList.waiting'
                                     )}{' '}
-                                    {todo
-                                      .dependsOn!.map((depId) => {
+                                    {todo.dependsOn
+                                      .map((depId) => {
                                         const depTodo = sortedTodos.find(
                                           (t) => t.id === depId
                                         );

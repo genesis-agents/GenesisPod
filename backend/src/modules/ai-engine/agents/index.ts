@@ -86,8 +86,5 @@ export { PlanAgent } from "./base/plan-agent";
 // ==================== Registry ====================
 export * from "./registry";
 
-// ==================== Implementations ====================
-export * from "./implementations";
-
 // ==================== API Layer ====================
 export * from "./api";

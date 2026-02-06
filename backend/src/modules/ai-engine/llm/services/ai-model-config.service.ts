@@ -644,12 +644,16 @@ export class AiModelConfigService {
    */
   async getAllEnabledModelsByType(
     modelType: AIModelType,
+    excludeModelIds: string[] = [],
   ): Promise<AIModelConfig[]> {
     try {
       const models = await this.prisma.aIModel.findMany({
         where: {
           modelType,
           isEnabled: true,
+          ...(excludeModelIds.length > 0 && {
+            modelId: { notIn: excludeModelIds },
+          }),
         },
         orderBy: {
           priority: "desc",

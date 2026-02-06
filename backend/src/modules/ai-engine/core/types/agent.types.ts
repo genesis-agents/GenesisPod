@@ -352,10 +352,15 @@ export interface AgentConfig {
   color: string;
   capabilities: string[];
   templates: AgentTemplate[];
+  /** Agent 选择关键词，用于 Orchestrator 自动路由 */
+  selectionKeywords?: string[];
 }
 
 /**
  * 预定义的 Agent 配置
+ *
+ * @deprecated 业务 Agent 配置应从各 AI App 模块获取，或通过 AgentRegistry.getAllConfigs() 查询。
+ * 此静态映射仅保留作为向后兼容，未来将移除。
  */
 export const AGENT_CONFIGS: Record<BuiltinAgentId, AgentConfig> = {
   [BUILTIN_AGENTS.SLIDES]: {

@@ -17,6 +17,9 @@ import { SkillPromptBuilder } from "../skills/builder/skill-prompt-builder.servi
 // ★ P2 能力下沉：Realtime Feature 依赖
 import { EngineEventEmitterService } from "../realtime/services/engine-event-emitter.service";
 import { ProgressTrackerService } from "../realtime/services/progress-tracker.service";
+// ★ Constraint Feature 依赖
+import { RateLimiter } from "../constraint/guardrails/rate-limiter";
+import { CostController } from "../constraint/guardrails/cost-controller";
 
 // ============================================================================
 // Feature Interfaces (re-export from facade)
@@ -67,6 +70,18 @@ export interface RealtimeFeature {
 }
 
 // ============================================================================
+// Constraint Feature Interface
+// ============================================================================
+
+/**
+ * 约束控制特性
+ */
+export interface ConstraintFeature {
+  rateLimiter: RateLimiter;
+  costController: CostController;
+}
+
+// ============================================================================
 // Injection Tokens
 // ============================================================================
 
@@ -76,6 +91,7 @@ export const ORCHESTRATION_FEATURE = "ORCHESTRATION_FEATURE";
 export const SKILL_FEATURE = "SKILL_FEATURE";
 // ★ P2 能力下沉：Realtime Injection Token
 export const REALTIME_FEATURE = "REALTIME_FEATURE";
+export const CONSTRAINT_FEATURE = "CONSTRAINT_FEATURE";
 
 // ============================================================================
 // Factory Providers
@@ -181,6 +197,29 @@ export const realtimeFeatureProvider: Provider = {
 };
 
 // ============================================================================
+// Constraint Feature Provider
+// ============================================================================
+
+/**
+ * Constraint Feature Provider
+ * 聚合速率限制器和成本控制器
+ */
+export const constraintFeatureProvider: Provider = {
+  provide: CONSTRAINT_FEATURE,
+  useFactory: (
+    rateLimiter?: RateLimiter,
+    costController?: CostController,
+  ): ConstraintFeature | undefined => {
+    if (!rateLimiter || !costController) return undefined;
+    return { rateLimiter, costController };
+  },
+  inject: [
+    { token: RateLimiter, optional: true },
+    { token: CostController, optional: true },
+  ],
+};
+
+// ============================================================================
 // All Feature Providers
 // ============================================================================
 
@@ -191,4 +230,5 @@ export const FACADE_FEATURE_PROVIDERS: Provider[] = [
   skillFeatureProvider,
   // ★ P2 能力下沉：Realtime Provider
   realtimeFeatureProvider,
+  constraintFeatureProvider,
 ];

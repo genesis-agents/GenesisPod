@@ -24,6 +24,19 @@ import {
   isProjectRelatedQuery,
 } from "./constants/project-context";
 import { ShortTermMemoryService } from "../../ai-engine/memory/stores/short-term-memory.service";
+import {
+  ASK_BASE_SYSTEM_PROMPT,
+  ASK_RESPONSE_GUIDELINES,
+  PROJECT_KNOWLEDGE_SECTION_TITLE,
+  PROJECT_KNOWLEDGE_INTRO,
+  RAG_REFERENCE_SECTION_TITLE,
+  RAG_REFERENCE_INTRO,
+  RAG_USAGE_GUIDE,
+  RAG_REFERENCE_SECTION_TITLE_CHAT,
+  RAG_REFERENCE_INTRO_CHAT,
+  RESPONSE_REQUIREMENTS_TITLE,
+  RESPONSE_REQUIREMENTS,
+} from "./prompts/ask-system.prompt";
 
 interface CreateSessionDto {
   title?: string;
@@ -601,18 +614,15 @@ export class AiAskService {
     userQuery?: string,
   ): string {
     const systemParts = [
-      "你是一个智能助手，可以帮助用户回答问题、搜索信息和完成各种任务。",
+      ASK_BASE_SYSTEM_PROMPT,
       this.getCurrentDateInfo(), // ★ 添加当前日期
-      "请用中文回答，除非用户明确要求使用其他语言。",
-      "回答要准确、简洁、有帮助。",
+      ASK_RESPONSE_GUIDELINES,
     ];
 
     // 如果问题与 DeepDive Engine 项目相关，添加项目上下文
     if (userQuery && isProjectRelatedQuery(userQuery)) {
-      systemParts.push("\n## DeepDive Engine 项目知识库");
-      systemParts.push(
-        "以下是 DeepDive Engine 项目的内置知识，请基于这些信息回答关于本项目的问题：",
-      );
+      systemParts.push(`\n${PROJECT_KNOWLEDGE_SECTION_TITLE}`);
+      systemParts.push(PROJECT_KNOWLEDGE_INTRO);
       systemParts.push(DEEPDIVE_ENGINE_CONTEXT);
       this.logger.debug(
         "[buildSystemPromptWithContext] Added DeepDive Engine project context",
@@ -622,12 +632,10 @@ export class AiAskService {
     // 如果有 RAG 上下文，添加知识库内容
     if (ragContext) {
       systemParts.push(
-        "\n## 参考知识库内容\n以下是从知识库检索到的相关内容，请基于这些内容回答用户问题：",
+        `\n${RAG_REFERENCE_SECTION_TITLE}\n${RAG_REFERENCE_INTRO}`,
       );
       systemParts.push(ragContext);
-      systemParts.push(
-        "\n请基于上述知识库内容回答问题。如果内容不相关，可以结合自身知识回答。",
-      );
+      systemParts.push(`\n${RAG_USAGE_GUIDE}`);
     }
 
     // 如果有对话历史，添加上下文
@@ -657,16 +665,14 @@ export class AiAskService {
     ragContext?: string,
   ): string {
     const parts = [
-      "你是一个智能助手，可以帮助用户回答问题、搜索信息和完成各种任务。",
+      ASK_BASE_SYSTEM_PROMPT,
       this.getCurrentDateInfo(), // ★ 添加当前日期
     ];
 
     // 如果问题与 DeepDive Engine 项目相关，添加项目上下文
     if (isProjectRelatedQuery(userQuery)) {
-      parts.push("\n## DeepDive Engine 项目知识库");
-      parts.push(
-        "以下是 DeepDive Engine 项目的内置知识，请基于这些信息回答关于本项目的问题：",
-      );
+      parts.push(`\n${PROJECT_KNOWLEDGE_SECTION_TITLE}`);
+      parts.push(PROJECT_KNOWLEDGE_INTRO);
       parts.push(DEEPDIVE_ENGINE_CONTEXT);
       this.logger.debug(
         "[buildSystemPromptForChat] Added DeepDive Engine project context",
@@ -675,17 +681,13 @@ export class AiAskService {
 
     // 如果有 RAG 上下文，添加知识库内容
     if (ragContext) {
-      parts.push("\n## 参考知识库内容");
-      parts.push("以下是从用户知识库中检索到的相关内容：");
+      parts.push(`\n${RAG_REFERENCE_SECTION_TITLE_CHAT}`);
+      parts.push(RAG_REFERENCE_INTRO_CHAT);
       parts.push(ragContext);
     }
 
-    parts.push("\n## 回答要求");
-    parts.push("1. 优先使用上述知识库内容来回答问题");
-    parts.push("2. 如果知识库内容与问题相关，请基于这些内容给出准确答案");
-    parts.push("3. 如果知识库内容不足以回答问题，可以结合你自身的知识进行补充");
-    parts.push("4. 请用中文回答，除非用户明确要求使用其他语言");
-    parts.push("5. 回答要准确、简洁、有帮助");
+    parts.push(`\n${RESPONSE_REQUIREMENTS_TITLE}`);
+    parts.push(...RESPONSE_REQUIREMENTS);
 
     return parts.join("\n");
   }

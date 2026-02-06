@@ -202,7 +202,7 @@ function findTextWithContext(
   if (!normalizedExact) return -1;
 
   // Strategy 1: Try exact match
-  let matches = findAllMatches(normalizedText, normalizedExact);
+  const matches = findAllMatches(normalizedText, normalizedExact);
 
   // Strategy 2: If no matches, try with citation markers removed
   if (matches.length === 0) {

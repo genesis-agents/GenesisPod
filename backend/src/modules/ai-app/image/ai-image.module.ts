@@ -1,4 +1,4 @@
-import { Module, forwardRef } from "@nestjs/common";
+import { Module, forwardRef, OnModuleInit, Logger } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { MulterModule } from "@nestjs/platform-express";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
@@ -9,6 +9,9 @@ import { AiOfficeModule } from "../office/ai-office.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 // ★ 依赖反转: 导入 token 用于提供 ImageGenerationService 实现
 import { IMAGE_GENERATION_SERVICE } from "../../ai-engine/tools/abstractions/generation-services.interface";
+import { IMAGE_GENERATION_SERVICE_TOKEN } from "../../ai-engine/interfaces/image.interface";
+import { AgentRegistry } from "../../ai-engine/agents/registry";
+import { ImageDesignerAgent } from "./agents";
 
 // Generation
 import {
@@ -70,6 +73,13 @@ import { AnalyticsService, AgentExecutorService } from "./analytics";
       provide: IMAGE_GENERATION_SERVICE,
       useExisting: GenerationService,
     },
+    // ★ Agent 依赖反转: 提供 IImageGenerationService (Agent 接口)
+    {
+      provide: IMAGE_GENERATION_SERVICE_TOKEN,
+      useExisting: GenerationService,
+    },
+    // Agent
+    ImageDesignerAgent,
   ],
   exports: [
     // Generation
@@ -91,4 +101,16 @@ import { AnalyticsService, AgentExecutorService } from "./analytics";
     IMAGE_GENERATION_SERVICE,
   ],
 })
-export class AiImageModule {}
+export class AiImageModule implements OnModuleInit {
+  private readonly logger = new Logger(AiImageModule.name);
+
+  constructor(
+    private readonly agentRegistry: AgentRegistry,
+    private readonly imageDesignerAgent: ImageDesignerAgent,
+  ) {}
+
+  onModuleInit() {
+    this.agentRegistry.register(this.imageDesignerAgent);
+    this.logger.log("Registered ImageDesignerAgent to AgentRegistry");
+  }
+}

@@ -90,8 +90,7 @@ export default function AIChatMessages({
                 <p className="text-xs">
                   {(aiModels.find((m) => m.modelId === aiModel)
                     ?.name as string) || aiModel}{' '}
-                  {(t('explore.aiPanel.thinking') as string) ||
-                    'is thinking...'}
+                  {t('explore.aiPanel.thinking') || 'is thinking...'}
                 </p>
               </div>
             </div>

@@ -284,20 +284,16 @@ ${sourceSummaries}
                   ? Math.max(0, Math.min(1, badge.confidence))
                   : 0.7,
               issues: Array.isArray(badge.issues)
-                ? (badge.issues.filter(
-                    (i) => typeof i === 'string'
-                  ) as string[])
+                ? badge.issues.filter((i) => typeof i === 'string')
                 : undefined,
               suggestions: Array.isArray(badge.suggestions)
-                ? (badge.suggestions.filter(
-                    (s) => typeof s === 'string'
-                  ) as string[])
+                ? badge.suggestions.filter((s) => typeof s === 'string')
                 : undefined,
             };
           })
         : [],
       suggestions: Array.isArray(r.suggestions)
-        ? (r.suggestions.filter((s) => typeof s === 'string') as string[])
+        ? r.suggestions.filter((s) => typeof s === 'string')
         : [],
       issues: Array.isArray(r.issues)
         ? r.issues.map((i) => {

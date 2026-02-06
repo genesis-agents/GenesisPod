@@ -68,9 +68,7 @@ export function HierarchicalSummaryTab({
       });
       setData(response);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to load summaries'
-      );
+      setError(err instanceof Error ? err.message : 'Failed to load summaries');
     } finally {
       setLoading(false);
     }
@@ -127,7 +125,11 @@ export function HierarchicalSummaryTab({
         </div>
         <div className="flex items-center gap-2">
           {/* View Mode Toggle */}
-          <div className="flex rounded-md border border-gray-200" role="group" aria-label="View mode">
+          <div
+            className="flex rounded-md border border-gray-200"
+            role="group"
+            aria-label="View mode"
+          >
             <button
               onClick={() => setViewMode('structured')}
               className={`px-2 py-1 text-xs ${
@@ -211,12 +213,12 @@ export function HierarchicalSummaryTab({
           </div>
         ) : viewMode === 'structured' ? (
           <StructuredView
-            data={data!}
+            data={data}
             expandedChapters={expandedChapters}
             onToggleChapter={toggleChapter}
           />
         ) : (
-          <ContextView formattedContext={data!.formattedContext} />
+          <ContextView formattedContext={data.formattedContext} />
         )}
       </div>
     </div>
@@ -339,7 +341,7 @@ function ChapterCard({
               <span className="text-gray-600">{chapter.title}</span>
             )}
           </div>
-          <p className="mt-1 text-sm text-gray-600 line-clamp-2">
+          <p className="mt-1 line-clamp-2 text-sm text-gray-600">
             {chapter.summary}
           </p>
         </div>

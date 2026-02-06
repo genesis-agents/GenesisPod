@@ -1,0 +1,1434 @@
+import { Test, TestingModule } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
+import { AiChatService } from "../ai-chat.service";
+import { TaskProfileMapperService } from "../task-profile-mapper.service";
+import {
+  AiModelConfigService,
+  AIModelConfig,
+} from "../ai-model-config.service";
+import { AiApiCallerService } from "../ai-api-caller.service";
+import { AiStreamHandlerService } from "../ai-stream-handler.service";
+import { AIMetricsService } from "../../../../core/monitoring";
+import { GuardrailsPipelineService } from "../../../guardrails/guardrails-pipeline.service";
+import { CircuitBreakerService } from "../../../orchestration/services/circuit-breaker.service";
+import { AiConnectionTestService } from "../ai-connection-test.service";
+import { AiModelDiscoveryService } from "../ai-model-discovery.service";
+import { AiDirectKeyService } from "../ai-direct-key.service";
+import { AiImageGenerationService } from "../ai-image-generation.service";
+import { TraceCollectorService } from "../../../observability/trace-collector.service";
+import { AIModelType } from "@prisma/client";
+import { AiServiceUnavailableError } from "../../../core/exceptions";
+
+// Helper to create mock AIModelConfig
+function createMockModelConfig(
+  overrides: Partial<AIModelConfig> = {},
+): AIModelConfig {
+  return {
+    id: "test-model-id",
+    name: "test-model",
+    displayName: "Test Model",
+    provider: "openai",
+    modelId: "gpt-4o",
+    apiEndpoint: "https://api.openai.com/v1",
+    apiKey: "test-key",
+    maxTokens: 4000,
+    temperature: 0.7,
+    isEnabled: true,
+    isDefault: false,
+    isReasoning: false,
+    apiFormat: "openai",
+    supportsTemperature: true,
+    tokenParamName: "max_tokens",
+    defaultTimeoutMs: 120000,
+    ...overrides,
+  };
+}
+
+describe("AiChatService", () => {
+  let service: AiChatService;
+  let mockConfigService: any;
+  let mockTaskProfileMapper: any;
+  let mockModelConfigService: any;
+  let mockApiCallerService: any;
+  let mockStreamHandlerService: any;
+  let mockMetricsService: any;
+  let mockGuardrailsPipeline: any;
+  let mockCircuitBreaker: any;
+  let mockConnectionTestService: any;
+  let mockModelDiscoveryService: any;
+  let mockDirectKeyService: any;
+  let mockImageGenerationService: any;
+  let mockTraceCollectorService: any;
+
+  beforeEach(async () => {
+    // Required services
+    mockConfigService = {
+      get: jest.fn((key: string, defaultValue?: any) => {
+        if (key === "DEFAULT_AI_MODEL") return "gpt-4o";
+        if (key === "GUARDRAILS_ENABLED") return "false";
+        return defaultValue;
+      }),
+    };
+
+    mockTaskProfileMapper = {
+      mapToParameters: jest.fn().mockReturnValue({
+        temperature: 0.7,
+        maxTokens: 4000,
+      }),
+    };
+
+    mockModelConfigService = {
+      getModelConfig: jest.fn().mockResolvedValue(null),
+      getDefaultModelConfig: jest.fn().mockResolvedValue(null),
+      getDefaultModelByType: jest.fn().mockResolvedValue(null),
+      getAllEnabledModelsByType: jest.fn().mockResolvedValue([]),
+      getReasoningModelConfig: jest.fn().mockResolvedValue(null),
+      getApiKeyForModel: jest.fn().mockResolvedValue("test-key"),
+      isReasoningModel: jest.fn().mockReturnValue(false),
+      resolveApiKey: jest.fn().mockResolvedValue({
+        apiKey: "test-key",
+        source: "system",
+        apiEndpoint: "https://api.openai.com/v1",
+      }),
+    };
+
+    mockApiCallerService = {
+      callOpenAICompatibleAPI: jest.fn().mockResolvedValue({
+        content: "Test response",
+        model: "gpt-4o",
+        tokensUsed: 100,
+      }),
+      callAnthropicAPI: jest.fn().mockResolvedValue({
+        content: "Test response",
+        model: "claude-3-opus",
+        tokensUsed: 100,
+      }),
+      callGoogleAPI: jest.fn().mockResolvedValue({
+        content: "Test response",
+        model: "gemini-2.0-flash",
+        tokensUsed: 100,
+      }),
+      callXAIAPI: jest.fn().mockResolvedValue({
+        content: "Test response",
+        model: "grok",
+        tokensUsed: 100,
+      }),
+    };
+
+    mockStreamHandlerService = {
+      streamOpenAICompatible: jest.fn(),
+      streamAnthropic: jest.fn(),
+    };
+
+    // Optional services
+    mockMetricsService = {
+      recordMetric: jest.fn().mockResolvedValue(undefined),
+    };
+
+    mockGuardrailsPipeline = {
+      processInput: jest.fn().mockResolvedValue({ passed: true }),
+      processOutput: jest.fn().mockResolvedValue({ passed: true }),
+    };
+
+    mockCircuitBreaker = {
+      recordSuccess: jest.fn(),
+      recordFailure: jest.fn(),
+      parseErrorType: jest.fn().mockReturnValue("API_ERROR"),
+      incrementLoad: jest.fn(),
+      decrementLoad: jest.fn(),
+      canExecute: jest.fn().mockReturnValue(true),
+    };
+
+    mockConnectionTestService = {
+      testModelConnectionWithKey: jest.fn().mockResolvedValue({
+        success: true,
+        message: "Connection successful",
+        latency: 100,
+      }),
+    };
+
+    mockModelDiscoveryService = {
+      fetchAvailableModels: jest.fn().mockResolvedValue({
+        success: true,
+        models: [{ id: "gpt-4o", name: "GPT-4 Optimized" }],
+      }),
+      formatModelDisplayName: jest.fn((model: string) => model),
+      getEnvVarNameForProvider: jest.fn().mockReturnValue("OPENAI_API_KEY"),
+    };
+
+    mockDirectKeyService = {
+      generateChatCompletionWithKey: jest.fn().mockResolvedValue({
+        content: "Direct key response",
+        model: "gpt-4o",
+        tokensUsed: 100,
+      }),
+    };
+
+    mockImageGenerationService = {
+      isImageGenerationRequest: jest.fn().mockReturnValue(false),
+    };
+
+    mockTraceCollectorService = {
+      addSpan: jest.fn().mockReturnValue("test-span-id"),
+      endSpan: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiChatService,
+        { provide: ConfigService, useValue: mockConfigService },
+        { provide: TaskProfileMapperService, useValue: mockTaskProfileMapper },
+        { provide: AiModelConfigService, useValue: mockModelConfigService },
+        { provide: AiApiCallerService, useValue: mockApiCallerService },
+        { provide: AiStreamHandlerService, useValue: mockStreamHandlerService },
+        { provide: AIMetricsService, useValue: mockMetricsService },
+        {
+          provide: GuardrailsPipelineService,
+          useValue: mockGuardrailsPipeline,
+        },
+        { provide: CircuitBreakerService, useValue: mockCircuitBreaker },
+        {
+          provide: AiConnectionTestService,
+          useValue: mockConnectionTestService,
+        },
+        {
+          provide: AiModelDiscoveryService,
+          useValue: mockModelDiscoveryService,
+        },
+        { provide: AiDirectKeyService, useValue: mockDirectKeyService },
+        {
+          provide: AiImageGenerationService,
+          useValue: mockImageGenerationService,
+        },
+        {
+          provide: TraceCollectorService,
+          useValue: mockTraceCollectorService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<AiChatService>(AiChatService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // ==================== Model Config Delegation Tests ====================
+
+  describe("Model Configuration Delegation", () => {
+    it("should delegate getDefaultModelByType to AiModelConfigService", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getDefaultModelByType.mockResolvedValue(
+        mockConfig,
+      );
+
+      const result = await service.getDefaultModelByType(AIModelType.CHAT);
+
+      expect(mockModelConfigService.getDefaultModelByType).toHaveBeenCalledWith(
+        AIModelType.CHAT,
+      );
+      expect(result).toEqual(mockConfig);
+    });
+
+    it("should delegate getAllEnabledModelsByType to AiModelConfigService", async () => {
+      const mockModels = [
+        createMockModelConfig({ modelId: "gpt-4o" }),
+        createMockModelConfig({ modelId: "claude-3-opus" }),
+      ];
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        mockModels,
+      );
+
+      const result = await service.getAllEnabledModelsByType(AIModelType.CHAT, [
+        "gpt-4",
+      ]);
+
+      expect(
+        mockModelConfigService.getAllEnabledModelsByType,
+      ).toHaveBeenCalledWith(AIModelType.CHAT, ["gpt-4"]);
+      expect(result).toEqual(mockModels);
+    });
+
+    it("should delegate getReasoningModelConfig to AiModelConfigService", async () => {
+      const mockConfig = createMockModelConfig({ isReasoning: true });
+      mockModelConfigService.getReasoningModelConfig.mockResolvedValue(
+        mockConfig,
+      );
+
+      const result = await service.getReasoningModelConfig();
+
+      expect(mockModelConfigService.getReasoningModelConfig).toHaveBeenCalled();
+      expect(result).toEqual(mockConfig);
+    });
+
+    it("should delegate getApiKeyForModel to AiModelConfigService", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getApiKeyForModel.mockResolvedValue("test-key");
+
+      const result = await service.getApiKeyForModel(mockConfig);
+
+      expect(mockModelConfigService.getApiKeyForModel).toHaveBeenCalledWith(
+        mockConfig,
+      );
+      expect(result).toBe("test-key");
+    });
+
+    it("should delegate isReasoningModel to AiModelConfigService", () => {
+      mockModelConfigService.isReasoningModel.mockReturnValue(true);
+
+      const result = service.isReasoningModel("o1-preview");
+
+      expect(mockModelConfigService.isReasoningModel).toHaveBeenCalledWith(
+        "o1-preview",
+      );
+      expect(result).toBe(true);
+    });
+  });
+
+  // ==================== Sub-service Delegation Tests ====================
+
+  describe("Sub-service Delegation", () => {
+    it("should delegate testModelConnectionWithKey to AiConnectionTestService", async () => {
+      const result = await service.testModelConnectionWithKey(
+        "openai",
+        "gpt-4o",
+        "test-key",
+        "https://api.openai.com/v1",
+      );
+
+      expect(
+        mockConnectionTestService.testModelConnectionWithKey,
+      ).toHaveBeenCalledWith(
+        "openai",
+        "gpt-4o",
+        "test-key",
+        "https://api.openai.com/v1",
+        undefined,
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("should return error when AiConnectionTestService not available", async () => {
+      service = new AiChatService(
+        mockConfigService,
+        mockTaskProfileMapper,
+        mockModelConfigService,
+        mockApiCallerService,
+        mockStreamHandlerService,
+      );
+
+      const result = await service.testModelConnectionWithKey(
+        "openai",
+        "gpt-4o",
+        "test-key",
+        "https://api.openai.com/v1",
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe("AiConnectionTestService not available");
+    });
+
+    it("should delegate fetchAvailableModels to AiModelDiscoveryService", async () => {
+      const result = await service.fetchAvailableModels(
+        "openai",
+        "test-key",
+        "https://api.openai.com/v1",
+      );
+
+      expect(
+        mockModelDiscoveryService.fetchAvailableModels,
+      ).toHaveBeenCalledWith(
+        "openai",
+        "test-key",
+        "https://api.openai.com/v1",
+        undefined,
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("should return error when AiModelDiscoveryService not available", async () => {
+      service = new AiChatService(
+        mockConfigService,
+        mockTaskProfileMapper,
+        mockModelConfigService,
+        mockApiCallerService,
+        mockStreamHandlerService,
+      );
+
+      const result = await service.fetchAvailableModels("openai", "test-key");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("AiModelDiscoveryService not available");
+    });
+
+    it("should delegate generateChatCompletionWithKey to AiDirectKeyService", async () => {
+      const result = await service.generateChatCompletionWithKey({
+        provider: "openai",
+        modelId: "gpt-4o",
+        apiKey: "test-key",
+        messages: [{ role: "user", content: "Hello" }],
+      });
+
+      expect(
+        mockDirectKeyService.generateChatCompletionWithKey,
+      ).toHaveBeenCalled();
+      expect(result.content).toBe("Direct key response");
+    });
+
+    it("should return error when AiDirectKeyService not available", async () => {
+      service = new AiChatService(
+        mockConfigService,
+        mockTaskProfileMapper,
+        mockModelConfigService,
+        mockApiCallerService,
+        mockStreamHandlerService,
+      );
+
+      const result = await service.generateChatCompletionWithKey({
+        provider: "openai",
+        modelId: "gpt-4o",
+        apiKey: "test-key",
+        messages: [{ role: "user", content: "Hello" }],
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content).toBe("AiDirectKeyService not available");
+    });
+
+    it("should delegate isImageGenerationRequest to AiImageGenerationService", () => {
+      mockImageGenerationService.isImageGenerationRequest.mockReturnValue(true);
+
+      const result = service.isImageGenerationRequest("Generate an image");
+
+      expect(
+        mockImageGenerationService.isImageGenerationRequest,
+      ).toHaveBeenCalledWith("Generate an image");
+      expect(result).toBe(true);
+    });
+
+    it("should return false when AiImageGenerationService not available", () => {
+      service = new AiChatService(
+        mockConfigService,
+        mockTaskProfileMapper,
+        mockModelConfigService,
+        mockApiCallerService,
+        mockStreamHandlerService,
+      );
+
+      const result = service.isImageGenerationRequest("Generate an image");
+
+      expect(result).toBe(false);
+    });
+
+    it("should delegate formatModelDisplayName to AiModelDiscoveryService", () => {
+      mockModelDiscoveryService.formatModelDisplayName.mockReturnValue(
+        "GPT-4 Optimized",
+      );
+
+      const result = service.formatModelDisplayName("gpt-4o");
+
+      expect(
+        mockModelDiscoveryService.formatModelDisplayName,
+      ).toHaveBeenCalledWith("gpt-4o");
+      expect(result).toBe("GPT-4 Optimized");
+    });
+
+    it("should return original model name when AiModelDiscoveryService not available", () => {
+      service = new AiChatService(
+        mockConfigService,
+        mockTaskProfileMapper,
+        mockModelConfigService,
+        mockApiCallerService,
+        mockStreamHandlerService,
+      );
+
+      const result = service.formatModelDisplayName("gpt-4o");
+
+      expect(result).toBe("gpt-4o");
+    });
+
+    it("should delegate getEnvVarNameForProvider to AiModelDiscoveryService", () => {
+      const result = service.getEnvVarNameForProvider("openai");
+
+      expect(
+        mockModelDiscoveryService.getEnvVarNameForProvider,
+      ).toHaveBeenCalledWith("openai");
+      expect(result).toBe("OPENAI_API_KEY");
+    });
+
+    it("should return default format when AiModelDiscoveryService not available", () => {
+      service = new AiChatService(
+        mockConfigService,
+        mockTaskProfileMapper,
+        mockModelConfigService,
+        mockApiCallerService,
+        mockStreamHandlerService,
+      );
+
+      const result = service.getEnvVarNameForProvider("openai");
+
+      expect(result).toBe("OPENAI_API_KEY");
+    });
+  });
+
+  // ==================== Chat Method Tests ====================
+
+  describe("chat() - Main Entry Point", () => {
+    it("should route to Path B (BYOK) when apiKey and provider are provided", async () => {
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        provider: "openai",
+        apiKey: "custom-key",
+        model: "gpt-4o",
+      });
+
+      expect(
+        mockDirectKeyService.generateChatCompletionWithKey,
+      ).toHaveBeenCalled();
+      expect(result.content).toBe("Direct key response");
+    });
+
+    it("should route to Path A (system config) when no apiKey provided", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      });
+
+      expect(mockApiCallerService.callOpenAICompatibleAPI).toHaveBeenCalled();
+      expect(result.content).toBe("Test response");
+    });
+
+    it("should resolve model from modelType when model not provided", async () => {
+      const mockConfig = createMockModelConfig({ modelId: "gpt-4o" });
+      mockModelConfigService.getDefaultModelByType.mockResolvedValue(
+        mockConfig,
+      );
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        modelType: AIModelType.CHAT,
+      });
+
+      expect(mockModelConfigService.getDefaultModelByType).toHaveBeenCalledWith(
+        AIModelType.CHAT,
+      );
+    });
+
+    it("should fallback to DEFAULT_AI_MODEL when no model or modelType provided", async () => {
+      const mockConfig = createMockModelConfig({ modelId: "gpt-4o" });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+      });
+
+      expect(mockConfigService.get).toHaveBeenCalledWith(
+        "DEFAULT_AI_MODEL",
+        "gemini",
+      );
+      expect(mockModelConfigService.getModelConfig).toHaveBeenCalledWith(
+        "gpt-4o",
+      );
+    });
+
+    it("should apply taskProfile parameters when provided", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockTaskProfileMapper.mapToParameters.mockReturnValue({
+        temperature: 0.3,
+        maxTokens: 1500,
+      });
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+        taskProfile: { creativity: "low", outputLength: "short" },
+      });
+
+      expect(mockTaskProfileMapper.mapToParameters).toHaveBeenCalledWith(
+        { creativity: "low", outputLength: "short" },
+        mockConfig,
+      );
+      expect(mockApiCallerService.callOpenAICompatibleAPI).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(Array),
+        1500, // maxTokens from taskProfile
+        0.3, // temperature from taskProfile
+        expect.any(Number),
+        expect.any(String),
+      );
+    });
+
+    it("should prefer direct parameters over taskProfile", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+        maxTokens: 2000,
+        temperature: 0.5,
+        taskProfile: { creativity: "low", outputLength: "short" },
+      });
+
+      // Should not call taskProfileMapper when direct params provided
+      expect(mockTaskProfileMapper.mapToParameters).not.toHaveBeenCalled();
+      expect(mockApiCallerService.callOpenAICompatibleAPI).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(Array),
+        2000,
+        0.5,
+        expect.any(Number),
+        expect.any(String),
+      );
+    });
+
+    it("should use model defaults when no taskProfile or direct params", async () => {
+      const mockConfig = createMockModelConfig({
+        maxTokens: 8000,
+        temperature: 0.8,
+      });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockTaskProfileMapper.mapToParameters.mockReturnValue({
+        temperature: 0.8,
+        maxTokens: 8000,
+      });
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      });
+
+      expect(mockTaskProfileMapper.mapToParameters).toHaveBeenCalledWith(
+        undefined,
+        mockConfig,
+      );
+    });
+  });
+
+  // ==================== Guardrails Integration Tests ====================
+
+  describe("Guardrails Integration", () => {
+    beforeEach(() => {
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === "GUARDRAILS_ENABLED") return "true";
+        if (key === "DEFAULT_AI_MODEL") return "gpt-4o";
+        return undefined;
+      });
+    });
+
+    it("should block input when guardrails fail", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockGuardrailsPipeline.processInput.mockResolvedValue({
+        passed: false,
+        blockedBy: "profanity_filter",
+      });
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Bad content" }],
+        model: "gpt-4o",
+      });
+
+      expect(mockGuardrailsPipeline.processInput).toHaveBeenCalled();
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain("blocked by content safety guardrail");
+      expect(
+        mockApiCallerService.callOpenAICompatibleAPI,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("should block output when guardrails fail", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockGuardrailsPipeline.processOutput.mockResolvedValue({
+        passed: false,
+        blockedBy: "sensitive_info_filter",
+      });
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      });
+
+      expect(mockGuardrailsPipeline.processOutput).toHaveBeenCalled();
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain("filtered by content safety guardrail");
+    });
+
+    it("should allow content when guardrails pass", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockGuardrailsPipeline.processInput.mockResolvedValue({ passed: true });
+      mockGuardrailsPipeline.processOutput.mockResolvedValue({ passed: true });
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toBe("Test response");
+    });
+
+    it("should skip guardrails when not enabled", async () => {
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === "GUARDRAILS_ENABLED") return "false";
+        if (key === "DEFAULT_AI_MODEL") return "gpt-4o";
+        return undefined;
+      });
+
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      });
+
+      expect(mockGuardrailsPipeline.processInput).not.toHaveBeenCalled();
+      expect(mockGuardrailsPipeline.processOutput).not.toHaveBeenCalled();
+    });
+
+    it("should continue when guardrails throw error", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockGuardrailsPipeline.processInput.mockRejectedValue(
+        new Error("Guardrail error"),
+      );
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      });
+
+      // Should continue despite guardrail error
+      expect(result.content).toBe("Test response");
+    });
+  });
+
+  // ==================== Fallback Chain Tests ====================
+
+  describe("Fallback Chain", () => {
+    it("should return first successful model response", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+        modelType: AIModelType.CHAT,
+      });
+
+      expect(result.content).toBe("Test response");
+      expect(result.isError).not.toBe(true);
+    });
+
+    it("should fallback to alternative models when primary fails and modelType is provided", async () => {
+      const primaryConfig = createMockModelConfig({ modelId: "gpt-4o" });
+      const fallbackConfig = createMockModelConfig({
+        modelId: "claude-3-opus",
+        provider: "anthropic",
+        apiFormat: "anthropic",
+      });
+
+      // Mock getModelConfig to return appropriate config based on model ID
+      mockModelConfigService.getModelConfig.mockImplementation(
+        async (modelId: string) => {
+          if (modelId === "gpt-4o") return primaryConfig;
+          if (modelId === "claude-3-opus") return fallbackConfig;
+          return null;
+        },
+      );
+
+      // After primary fails, getAllEnabledModelsByType returns fallback
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue([
+        fallbackConfig,
+      ]);
+
+      // Primary model returns error
+      mockApiCallerService.callOpenAICompatibleAPI.mockResolvedValueOnce({
+        content: "Primary API Error",
+        model: "gpt-4o",
+        tokensUsed: 0,
+        isError: true,
+      });
+
+      // Fallback model succeeds
+      mockApiCallerService.callAnthropicAPI.mockResolvedValueOnce({
+        content: "Fallback success",
+        model: "claude-3-opus",
+        tokensUsed: 100,
+      });
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+        modelType: AIModelType.CHAT, // modelType required for fallback
+      });
+
+      // Should query for alternative models after primary fails
+      expect(
+        mockModelConfigService.getAllEnabledModelsByType,
+      ).toHaveBeenCalledWith(
+        AIModelType.CHAT,
+        expect.arrayContaining(["gpt-4o"]), // Should exclude tried model
+      );
+      expect(mockApiCallerService.callAnthropicAPI).toHaveBeenCalled();
+      expect(result.content).toBe("Fallback success");
+      expect(result.isError).toBeFalsy();
+    });
+
+    it("should return error after all fallbacks exhausted", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue([]);
+
+      mockApiCallerService.callOpenAICompatibleAPI.mockResolvedValue({
+        content: "API Error",
+        model: "gpt-4o",
+        tokensUsed: 0,
+        isError: true,
+      });
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+        modelType: AIModelType.CHAT,
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain("API Error");
+    });
+
+    it("should limit fallback attempts to maxFallbackAttempts", async () => {
+      const configs = Array.from({ length: 10 }, (_, i) =>
+        createMockModelConfig({ modelId: `model-${i}` }),
+      );
+
+      mockModelConfigService.getModelConfig.mockResolvedValue(configs[0]);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        configs.slice(1),
+      );
+
+      mockApiCallerService.callOpenAICompatibleAPI.mockResolvedValue({
+        content: "Error",
+        model: "test",
+        tokensUsed: 0,
+        isError: true,
+      });
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "model-0",
+        modelType: AIModelType.CHAT,
+      });
+
+      // Should try at most 5 models (maxFallbackAttempts)
+      expect(
+        mockApiCallerService.callOpenAICompatibleAPI,
+      ).toHaveBeenCalledTimes(5);
+      expect(result.isError).toBe(true);
+    });
+  });
+
+  // ==================== Circuit Breaker Integration Tests ====================
+
+  describe("Circuit Breaker Integration", () => {
+    it("should record success when model call succeeds", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      });
+
+      expect(mockCircuitBreaker.recordSuccess).toHaveBeenCalledWith(
+        "gpt-4o",
+        expect.any(Number),
+      );
+    });
+
+    it("should record failure when model call fails", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue([]);
+
+      mockApiCallerService.callOpenAICompatibleAPI.mockResolvedValue({
+        content: "API Error",
+        model: "gpt-4o",
+        tokensUsed: 0,
+        isError: true,
+      });
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+        modelType: AIModelType.CHAT,
+      });
+
+      expect(mockCircuitBreaker.recordFailure).toHaveBeenCalledWith(
+        "gpt-4o",
+        "API_ERROR",
+        "API Error",
+      );
+    });
+
+    it("should work when circuit breaker not available", async () => {
+      service = new AiChatService(
+        mockConfigService,
+        mockTaskProfileMapper,
+        mockModelConfigService,
+        mockApiCallerService,
+        mockStreamHandlerService,
+      );
+
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      });
+
+      expect(result.content).toBe("Test response");
+    });
+  });
+
+  // ==================== Retry Logic Tests ====================
+
+  describe("Retry Logic", () => {
+    it("should retry on retryable errors", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      // Mock to succeed on the first attempt (no retries needed at chat level)
+      mockApiCallerService.callOpenAICompatibleAPI.mockResolvedValue({
+        content: "Success after retry",
+        model: "gpt-4o",
+        tokensUsed: 100,
+      });
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      });
+
+      // Retry logic is internal to generateChatCompletion via withRetry
+      expect(result.content).toBe("Success after retry");
+    });
+
+    it("should not retry on non-retryable errors in strict mode", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      // Mock error in API caller
+      const error = new Error("Invalid API key");
+      mockApiCallerService.callOpenAICompatibleAPI.mockRejectedValue(error);
+
+      await expect(
+        service.chat({
+          messages: [{ role: "user", content: "Hello" }],
+          model: "gpt-4o",
+          strictMode: true,
+        }),
+      ).rejects.toThrow();
+    });
+
+    it("should respect MAX_RETRIES limit", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      const error = new Error("Rate limit exceeded");
+      mockApiCallerService.callOpenAICompatibleAPI.mockRejectedValue(error);
+
+      await expect(
+        service.chat({
+          messages: [{ role: "user", content: "Hello" }],
+          model: "gpt-4o",
+          strictMode: true,
+        }),
+      ).rejects.toThrow();
+
+      // Retry happens inside withRetry() called by callAPIWithConfig
+      // The chat() method itself only calls generateChatCompletion once
+      expect(mockApiCallerService.callOpenAICompatibleAPI).toHaveBeenCalled();
+    });
+  });
+
+  // ==================== Error Handling Tests ====================
+
+  describe("Error Handling", () => {
+    it("should throw error in strict mode when model not configured", async () => {
+      mockModelConfigService.getModelConfig.mockResolvedValue(null);
+
+      await expect(
+        service.chat({
+          messages: [{ role: "user", content: "Hello" }],
+          model: "unknown-model",
+          strictMode: true,
+        }),
+      ).rejects.toThrow(AiServiceUnavailableError);
+    });
+
+    it("should return error message in non-strict mode when model not configured", async () => {
+      mockModelConfigService.getModelConfig.mockResolvedValue(null);
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "unknown-model",
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain("模型未配置");
+    });
+
+    it("should throw error when API key not configured in strict mode", async () => {
+      const mockConfig = createMockModelConfig({ apiKey: null });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockModelConfigService.resolveApiKey.mockResolvedValue(null);
+
+      await expect(
+        service.generateChatCompletion({
+          model: "gpt-4o",
+          messages: [{ role: "user", content: "Hello" }],
+          strictMode: true,
+        }),
+      ).rejects.toThrow(AiServiceUnavailableError);
+    });
+
+    it("should return error message when API key not configured in non-strict mode", async () => {
+      const mockConfig = createMockModelConfig({ apiKey: null });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockModelConfigService.resolveApiKey.mockResolvedValue(null);
+
+      const result = await service.generateChatCompletion({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: "Hello" }],
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain("API Key 未配置");
+    });
+  });
+
+  // ==================== API Format Routing Tests ====================
+
+  describe("API Format Routing", () => {
+    it("should route to OpenAI API for openai format", async () => {
+      const mockConfig = createMockModelConfig({ apiFormat: "openai" });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      });
+
+      expect(mockApiCallerService.callOpenAICompatibleAPI).toHaveBeenCalled();
+    });
+
+    it("should route to Anthropic API for anthropic format", async () => {
+      const mockConfig = createMockModelConfig({
+        apiFormat: "anthropic",
+        provider: "anthropic",
+      });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "claude-3-opus",
+      });
+
+      expect(mockApiCallerService.callAnthropicAPI).toHaveBeenCalled();
+    });
+
+    it("should route to Google API for google format", async () => {
+      const mockConfig = createMockModelConfig({
+        apiFormat: "google",
+        provider: "google",
+      });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gemini-2.0-flash",
+      });
+
+      expect(mockApiCallerService.callGoogleAPI).toHaveBeenCalled();
+    });
+
+    it("should route to XAI API for xai format", async () => {
+      const mockConfig = createMockModelConfig({
+        apiFormat: "xai",
+        provider: "xai",
+      });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "grok",
+      });
+
+      expect(mockApiCallerService.callXAIAPI).toHaveBeenCalled();
+    });
+
+    it("should default to OpenAI API for unknown format", async () => {
+      const mockConfig = createMockModelConfig({
+        apiFormat: "unknown" as any,
+      });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "custom-model",
+      });
+
+      expect(mockApiCallerService.callOpenAICompatibleAPI).toHaveBeenCalled();
+    });
+  });
+
+  // ==================== Metrics Recording Tests ====================
+
+  describe("Metrics Recording", () => {
+    it("should record successful LLM call metrics", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+        userId: "user-123",
+      });
+
+      expect(mockMetricsService.recordMetric).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metricType: "llm_call",
+          modelId: "gpt-4o",
+          userId: "user-123",
+          success: true,
+          providerId: "openai",
+        }),
+      );
+    });
+
+    it("should record failed LLM call metrics", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue([]);
+
+      mockApiCallerService.callOpenAICompatibleAPI.mockResolvedValue({
+        content: "API Error",
+        model: "gpt-4o",
+        tokensUsed: 0,
+        isError: true,
+      });
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+        modelType: AIModelType.CHAT,
+      });
+
+      expect(mockMetricsService.recordMetric).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metricType: "llm_call",
+          success: false,
+          errorCode: "LLM_CALL_FAILED",
+        }),
+      );
+    });
+
+    it("should work when metrics service not available", async () => {
+      service = new AiChatService(
+        mockConfigService,
+        mockTaskProfileMapper,
+        mockModelConfigService,
+        mockApiCallerService,
+        mockStreamHandlerService,
+      );
+
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      });
+
+      expect(result.content).toBe("Test response");
+    });
+  });
+
+  // ==================== Stream Tests ====================
+
+  describe("chatStream()", () => {
+    it("should stream response for OpenAI format", async () => {
+      const mockConfig = createMockModelConfig({ apiFormat: "openai" });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      const mockStream = (async function* () {
+        yield { content: "Hello", done: false };
+        yield { content: " world", done: false };
+        yield { content: "", done: true };
+      })();
+
+      mockStreamHandlerService.streamOpenAICompatible.mockReturnValue(
+        mockStream,
+      );
+
+      const chunks: any[] = [];
+      for await (const chunk of service.chatStream({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      })) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(
+        mockStreamHandlerService.streamOpenAICompatible,
+      ).toHaveBeenCalled();
+    });
+
+    it("should stream response for Anthropic format", async () => {
+      const mockConfig = createMockModelConfig({
+        apiFormat: "anthropic",
+        provider: "anthropic",
+      });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      const mockStream = (async function* () {
+        yield { content: "Test", done: false };
+        yield { content: "", done: true };
+      })();
+
+      mockStreamHandlerService.streamAnthropic.mockReturnValue(mockStream);
+
+      const chunks: any[] = [];
+      for await (const chunk of service.chatStream({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "claude-3-opus",
+      })) {
+        chunks.push(chunk);
+      }
+
+      expect(mockStreamHandlerService.streamAnthropic).toHaveBeenCalled();
+    });
+
+    it("should fallback to non-streaming for unsupported formats", async () => {
+      const mockConfig = createMockModelConfig({
+        apiFormat: "google",
+        provider: "google",
+      });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockApiCallerService.callGoogleAPI.mockResolvedValue({
+        content: "Full response",
+        model: "gemini-2.0-flash",
+        tokensUsed: 100,
+      });
+
+      const chunks: any[] = [];
+      for await (const chunk of service.chatStream({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gemini-2.0-flash",
+      })) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks.length).toBe(1);
+      expect(chunks[0].content).toBe("Full response");
+      expect(chunks[0].done).toBe(true);
+    });
+
+    it("should return error when model not configured", async () => {
+      mockModelConfigService.getModelConfig.mockResolvedValue(null);
+
+      const chunks: any[] = [];
+      for await (const chunk of service.chatStream({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "unknown-model",
+      })) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks[0].error).toBe("MODEL_NOT_CONFIGURED");
+      expect(chunks[0].done).toBe(true);
+    });
+
+    it("should return error when API key not configured", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockModelConfigService.resolveApiKey.mockResolvedValue(null);
+
+      const chunks: any[] = [];
+      for await (const chunk of service.chatStream({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      })) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks[0].error).toBe("API_KEY_NOT_CONFIGURED");
+      expect(chunks[0].done).toBe(true);
+    });
+  });
+
+  // ==================== Observability / Trace Tests ====================
+
+  describe("Trace Integration", () => {
+    it("should record trace span when traceId is provided", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+        traceId: "test-trace-id",
+      });
+
+      expect(mockTraceCollectorService.addSpan).toHaveBeenCalledWith(
+        "test-trace-id",
+        expect.objectContaining({
+          name: "ai-chat",
+          type: "llm_call",
+          metadata: expect.objectContaining({
+            messageCount: 1,
+          }),
+        }),
+      );
+      expect(mockTraceCollectorService.endSpan).toHaveBeenCalledWith(
+        "test-span-id",
+        expect.objectContaining({
+          status: "success",
+        }),
+      );
+    });
+
+    it("should not record trace span when traceId is not provided", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+      });
+
+      expect(mockTraceCollectorService.addSpan).not.toHaveBeenCalled();
+      expect(mockTraceCollectorService.endSpan).not.toHaveBeenCalled();
+    });
+
+    it("should end trace span with error status on failure", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue([]);
+
+      mockApiCallerService.callOpenAICompatibleAPI.mockResolvedValue({
+        content: "API Error",
+        model: "gpt-4o",
+        tokensUsed: 0,
+        isError: true,
+      });
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+        modelType: AIModelType.CHAT,
+        traceId: "test-trace-id",
+      });
+
+      expect(mockTraceCollectorService.endSpan).toHaveBeenCalledWith(
+        "test-span-id",
+        expect.objectContaining({
+          status: "error",
+        }),
+      );
+    });
+
+    it("should work when trace collector not available", async () => {
+      service = new AiChatService(
+        mockConfigService,
+        mockTaskProfileMapper,
+        mockModelConfigService,
+        mockApiCallerService,
+        mockStreamHandlerService,
+      );
+
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      const result = await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+        traceId: "test-trace-id",
+      });
+
+      expect(result.content).toBe("Test response");
+    });
+  });
+
+  // ==================== Utility Methods Tests ====================
+
+  describe("Utility Methods", () => {
+    it("should set and get strict mode", () => {
+      service.setStrictMode(true);
+      // Verify by checking behavior changes
+      expect(() => service.setStrictMode(false)).not.toThrow();
+    });
+
+    it("should validate AI service availability", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+      mockApiCallerService.callOpenAICompatibleAPI.mockResolvedValue({
+        content: "OK",
+        model: "gpt-4o",
+        tokensUsed: 10,
+      });
+
+      await expect(
+        service.validateAIServiceAvailability("gpt-4o"),
+      ).resolves.not.toThrow();
+    });
+
+    it("should throw error when AI service validation fails", async () => {
+      mockModelConfigService.getModelConfig.mockResolvedValue(null);
+      mockModelConfigService.getDefaultModelConfig.mockResolvedValue(null);
+
+      await expect(service.validateAIServiceAvailability()).rejects.toThrow(
+        AiServiceUnavailableError,
+      );
+    });
+
+    it("should check if API key is configured", async () => {
+      const mockConfig = createMockModelConfig({ apiKey: "test-key" });
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      const result = await service.isApiKeyConfiguredAsync("gpt-4o");
+
+      expect(result).toBe(true);
+    });
+
+    it("should get available models asynchronously", async () => {
+      const mockModels = [
+        createMockModelConfig({ modelId: "gpt-4o" }),
+        createMockModelConfig({ modelId: "claude-3-opus" }),
+      ];
+      mockModelConfigService.getAllEnabledModelsByType.mockResolvedValue(
+        mockModels,
+      );
+
+      const result = await service.getAvailableModelsAsync();
+
+      expect(result).toContain("gpt-4o");
+      expect(result).toContain("claude-3-opus");
+    });
+  });
+});

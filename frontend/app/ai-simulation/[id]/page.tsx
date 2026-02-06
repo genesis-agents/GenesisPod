@@ -265,7 +265,7 @@ export default function ScenarioDetailPage() {
         body: JSON.stringify({
           scenarioId: scenario.id,
           rounds: scenario.params?.humanBreakEvery
-            ? (scenario.params.humanBreakEvery as number) * 5
+            ? scenario.params.humanBreakEvery * 5
             : 10,
           params: {
             ...scenario.params,

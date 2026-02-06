@@ -197,14 +197,14 @@ export default function ExploreDetail() {
       <div className="flex-1 overflow-auto bg-gray-50">
         {isPDF && (
           <PDFViewer
-            url={selectedResource.sourceUrl!}
+            url={selectedResource.sourceUrl}
             className="h-full w-full"
           />
         )}
 
         {isHTML && htmlViewMode === 'reader' && (
           <ReaderView
-            url={selectedResource.sourceUrl!}
+            url={selectedResource.sourceUrl}
             onArticleLoaded={(article) =>
               setArticleTextContent(article.textContent || '')
             }
@@ -212,7 +212,7 @@ export default function ExploreDetail() {
         )}
 
         {isHTML && htmlViewMode === 'original' && (
-          <HTMLViewer url={selectedResource.sourceUrl!} />
+          <HTMLViewer url={selectedResource.sourceUrl} />
         )}
 
         {!isPDF && !isHTML && (

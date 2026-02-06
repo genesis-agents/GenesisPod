@@ -477,7 +477,7 @@ export function TopicReportView({
                     createdAt:
                       typeof rev.createdAt === 'string'
                         ? rev.createdAt
-                        : (rev.createdAt as Date).toISOString(),
+                        : rev.createdAt.toISOString(),
                     wordCount: 0,
                     wordCountDelta: 0,
                   }))}

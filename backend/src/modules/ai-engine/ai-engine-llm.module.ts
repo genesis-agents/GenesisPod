@@ -30,7 +30,15 @@ import { AiChatService } from "./llm/services/ai-chat.service";
 import { AiModelConfigService } from "./llm/services/ai-model-config.service";
 import { AiApiCallerService } from "./llm/services/ai-api-caller.service";
 import { AiStreamHandlerService } from "./llm/services/ai-stream-handler.service";
+import { AiChatPromptService } from "./llm/services/ai-chat-prompt.service";
+import { AiChatRetryService } from "./llm/services/ai-chat-retry.service";
 import { SearchService } from "./search/search.service";
+
+// Extracted Services (from ai-chat.service.ts God Object split)
+import { AiConnectionTestService } from "./llm/services/ai-connection-test.service";
+import { AiModelDiscoveryService } from "./llm/services/ai-model-discovery.service";
+import { AiDirectKeyService } from "./llm/services/ai-direct-key.service";
+import { AiImageGenerationService } from "./llm/services/ai-image-generation.service";
 
 // Model Fallback
 import { ModelFallbackService } from "./llm/model-fallback/model-fallback.service";
@@ -74,8 +82,16 @@ import { ModelFallbackService } from "./llm/model-fallback/model-fallback.servic
     AiModelConfigService,
     AiApiCallerService,
     AiStreamHandlerService,
+    AiChatPromptService,
+    AiChatRetryService,
     AiChatService,
     SearchService,
+
+    // Extracted Services
+    AiConnectionTestService,
+    AiModelDiscoveryService,
+    AiDirectKeyService,
+    AiImageGenerationService,
 
     // Model Fallback
     ModelFallbackService,
@@ -89,8 +105,14 @@ import { ModelFallbackService } from "./llm/model-fallback/model-fallback.servic
     AiModelConfigService,
     AiApiCallerService,
     AiStreamHandlerService,
+    AiChatPromptService,
+    AiChatRetryService,
     AiChatService,
     SearchService,
+    AiConnectionTestService,
+    AiModelDiscoveryService,
+    AiDirectKeyService,
+    AiImageGenerationService,
     ModelFallbackService,
   ],
 })

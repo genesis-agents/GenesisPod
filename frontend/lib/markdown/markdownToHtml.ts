@@ -33,7 +33,7 @@ export function processInlineMarkdown(text: string): string {
 // Comprehensive markdown to HTML converter (for TipTap)
 export function markdownToHtml(markdown: string): string {
   // First normalize and clean the markdown
-  let normalized = markdown
+  const normalized = markdown
     .replace(/\r\n/g, '\n') // Normalize Windows line endings
     // Fix accumulated backslashes before periods (from Turndown escaping round-trips)
     // Pattern: number followed by one or more \\ then period → number + period

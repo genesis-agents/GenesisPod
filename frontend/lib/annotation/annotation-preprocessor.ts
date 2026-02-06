@@ -94,7 +94,7 @@ function findAnnotationPosition(
   if (!normalizedTarget) return null;
 
   // Strategy 1: Exact match
-  let index = normalizedContent.indexOf(normalizedTarget);
+  const index = normalizedContent.indexOf(normalizedTarget);
   if (index !== -1) {
     return { start: index, end: index + normalizedTarget.length };
   }

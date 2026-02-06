@@ -1,0 +1,861 @@
+import { Test, TestingModule } from "@nestjs/testing";
+import { HttpService } from "@nestjs/axios";
+import { of, throwError } from "rxjs";
+import { AxiosError, AxiosResponse } from "axios";
+import { AiConnectionTestService } from "../ai-connection-test.service";
+
+describe("AiConnectionTestService", () => {
+  let service: AiConnectionTestService;
+
+  const mockHttpService = {
+    post: jest.fn(),
+    get: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiConnectionTestService,
+        {
+          provide: HttpService,
+          useValue: mockHttpService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<AiConnectionTestService>(AiConnectionTestService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("testModelConnectionWithKey", () => {
+    describe("Missing API Key", () => {
+      it("should return failure when API key is not provided", async () => {
+        const result = await service.testModelConnectionWithKey(
+          "openai",
+          "gpt-4",
+          "",
+          "https://api.openai.com/v1/chat/completions",
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.message).toBe("API key is not configured");
+        expect(result.latency).toBe(0);
+      });
+    });
+
+    describe("OpenAI Provider", () => {
+      it("should successfully test OpenAI connection with non-reasoning model", async () => {
+        const mockResponse: AxiosResponse = {
+          data: {
+            choices: [
+              {
+                message: {
+                  content: "OK",
+                },
+              },
+            ],
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as any,
+        };
+
+        mockHttpService.post.mockReturnValue(of(mockResponse));
+
+        const result = await service.testModelConnectionWithKey(
+          "openai",
+          "gpt-4",
+          "test-api-key",
+          "https://api.openai.com/v1/chat/completions",
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain("Connection successful!");
+        expect(result.message).toContain("OK");
+        expect(result.latency).toBeGreaterThanOrEqual(0);
+
+        expect(mockHttpService.post).toHaveBeenCalledWith(
+          "https://api.openai.com/v1/chat/completions",
+          expect.objectContaining({
+            model: "gpt-4",
+            messages: [
+              {
+                role: "user",
+                content: "Say 'OK' to confirm you are working.",
+              },
+            ],
+            max_tokens: 50,
+            temperature: 0,
+          }),
+          expect.objectContaining({
+            headers: {
+              Authorization: "Bearer test-api-key",
+              "Content-Type": "application/json",
+            },
+            timeout: 30000,
+          }),
+        );
+      });
+
+      it("should use max_completion_tokens for reasoning models (o1)", async () => {
+        const mockResponse: AxiosResponse = {
+          data: {
+            choices: [
+              {
+                message: {
+                  content: "OK",
+                },
+              },
+            ],
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as any,
+        };
+
+        mockHttpService.post.mockReturnValue(of(mockResponse));
+
+        await service.testModelConnectionWithKey(
+          "openai",
+          "o1-preview",
+          "test-api-key",
+          "https://api.openai.com/v1/chat/completions",
+        );
+
+        expect(mockHttpService.post).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            max_completion_tokens: 50,
+            temperature: 0,
+          }),
+          expect.any(Object),
+        );
+      });
+
+      it("should use max_completion_tokens for deepseek-r1 reasoning model", async () => {
+        const mockResponse: AxiosResponse = {
+          data: {
+            choices: [
+              {
+                message: {
+                  content: "OK",
+                },
+              },
+            ],
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as any,
+        };
+
+        mockHttpService.post.mockReturnValue(of(mockResponse));
+
+        await service.testModelConnectionWithKey(
+          "openai",
+          "deepseek-r1",
+          "test-api-key",
+          "https://api.openai.com/v1/chat/completions",
+        );
+
+        expect(mockHttpService.post).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            max_completion_tokens: 50,
+          }),
+          expect.any(Object),
+        );
+      });
+    });
+
+    describe("Anthropic Provider", () => {
+      it("should successfully test Anthropic connection", async () => {
+        const mockResponse: AxiosResponse = {
+          data: {
+            content: [
+              {
+                text: "OK, I'm working.",
+              },
+            ],
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as any,
+        };
+
+        mockHttpService.post.mockReturnValue(of(mockResponse));
+
+        const result = await service.testModelConnectionWithKey(
+          "anthropic",
+          "claude-3-sonnet-20240229",
+          "test-api-key",
+          "https://api.anthropic.com/v1/messages",
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain("Connection successful!");
+        expect(result.message).toContain("OK, I'm working.");
+        expect(result.latency).toBeGreaterThanOrEqual(0);
+
+        expect(mockHttpService.post).toHaveBeenCalledWith(
+          "https://api.anthropic.com/v1/messages",
+          expect.objectContaining({
+            model: "claude-3-sonnet-20240229",
+            max_tokens: 50,
+            messages: [
+              {
+                role: "user",
+                content: "Say 'OK' to confirm you are working.",
+              },
+            ],
+          }),
+          expect.objectContaining({
+            headers: {
+              "x-api-key": "test-api-key",
+              "anthropic-version": "2023-06-01",
+              "Content-Type": "application/json",
+            },
+            timeout: 30000,
+          }),
+        );
+      });
+
+      it("should use claude alias for anthropic provider", async () => {
+        const mockResponse: AxiosResponse = {
+          data: {
+            content: [
+              {
+                text: "OK",
+              },
+            ],
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as any,
+        };
+
+        mockHttpService.post.mockReturnValue(of(mockResponse));
+
+        await service.testModelConnectionWithKey(
+          "claude",
+          "claude-3-opus-20240229",
+          "test-api-key",
+          "https://api.anthropic.com/v1/messages",
+        );
+
+        expect(mockHttpService.post).toHaveBeenCalled();
+      });
+    });
+
+    describe("Google/Gemini Provider", () => {
+      it("should successfully test Gemini connection", async () => {
+        const mockResponse: AxiosResponse = {
+          data: {
+            candidates: [
+              {
+                content: {
+                  parts: [
+                    {
+                      text: "OK, confirmed working.",
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as any,
+        };
+
+        mockHttpService.post.mockReturnValue(of(mockResponse));
+
+        const result = await service.testModelConnectionWithKey(
+          "google",
+          "gemini-pro",
+          "test-api-key",
+          "https://generativelanguage.googleapis.com/v1beta/models",
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain("Connection successful!");
+        expect(result.message).toContain("OK, confirmed working.");
+        expect(result.latency).toBeGreaterThanOrEqual(0);
+
+        expect(mockHttpService.post).toHaveBeenCalledWith(
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
+          expect.objectContaining({
+            contents: [
+              {
+                parts: [{ text: "Say 'OK' to confirm you are working." }],
+              },
+            ],
+            generationConfig: {
+              maxOutputTokens: 50,
+              temperature: 0,
+            },
+          }),
+          expect.objectContaining({
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": "test-api-key",
+            },
+            timeout: 30000,
+          }),
+        );
+      });
+
+      it("should test Imagen model with different endpoint", async () => {
+        const mockResponse: AxiosResponse = {
+          data: {
+            predictions: [
+              {
+                bytesBase64Encoded: "base64-image-data",
+              },
+            ],
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as any,
+        };
+
+        mockHttpService.post.mockReturnValue(of(mockResponse));
+
+        const result = await service.testModelConnectionWithKey(
+          "google",
+          "imagen-3.0-generate-001",
+          "test-api-key",
+          "https://generativelanguage.googleapis.com/v1beta/models",
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain("Imagen connection successful!");
+        expect(result.latency).toBeGreaterThanOrEqual(0);
+
+        expect(mockHttpService.post).toHaveBeenCalledWith(
+          expect.stringContaining("imagen-3.0-generate-001:predict"),
+          expect.objectContaining({
+            instances: [
+              {
+                prompt: "A simple blue circle on white background",
+              },
+            ],
+          }),
+          expect.any(Object),
+        );
+      });
+    });
+
+    describe("xAI/Grok Provider", () => {
+      it("should successfully test xAI Grok connection", async () => {
+        const mockResponse: AxiosResponse = {
+          data: {
+            choices: [
+              {
+                message: {
+                  content: "4",
+                },
+              },
+            ],
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as any,
+        };
+
+        mockHttpService.post.mockReturnValue(of(mockResponse));
+
+        const result = await service.testModelConnectionWithKey(
+          "xai",
+          "grok-beta",
+          "test-api-key",
+          "https://api.x.ai/v1/chat/completions",
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain("Connection successful!");
+        expect(result.latency).toBeGreaterThanOrEqual(0);
+
+        expect(mockHttpService.post).toHaveBeenCalledWith(
+          "https://api.x.ai/v1/chat/completions",
+          expect.objectContaining({
+            model: "grok-beta",
+            messages: [
+              {
+                role: "user",
+                content: "What is 2+2?",
+              },
+            ],
+            max_tokens: 50,
+            temperature: 0,
+          }),
+          expect.any(Object),
+        );
+      });
+    });
+
+    describe("Chinese Providers", () => {
+      it("should successfully test DeepSeek connection", async () => {
+        const mockResponse: AxiosResponse = {
+          data: {
+            choices: [
+              {
+                message: {
+                  content: "OK",
+                },
+              },
+            ],
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as any,
+        };
+
+        mockHttpService.post.mockReturnValue(of(mockResponse));
+
+        const result = await service.testModelConnectionWithKey(
+          "deepseek",
+          "deepseek-chat",
+          "test-api-key",
+          "https://api.deepseek.com/v1/chat/completions",
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain("Connection successful!");
+        expect(result.latency).toBeGreaterThanOrEqual(0);
+
+        expect(mockHttpService.post).toHaveBeenCalledWith(
+          "https://api.deepseek.com/v1/chat/completions",
+          expect.objectContaining({
+            model: "deepseek-chat",
+            messages: [
+              {
+                role: "user",
+                content: "Say 'OK' to confirm you are working.",
+              },
+            ],
+            max_tokens: 50,
+            temperature: 0,
+          }),
+          expect.any(Object),
+        );
+      });
+
+      it("should successfully test Qwen connection", async () => {
+        const mockResponse: AxiosResponse = {
+          data: {
+            choices: [
+              {
+                message: {
+                  content: "OK",
+                },
+              },
+            ],
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as any,
+        };
+
+        mockHttpService.post.mockReturnValue(of(mockResponse));
+
+        await service.testModelConnectionWithKey(
+          "qwen",
+          "qwen-turbo",
+          "test-api-key",
+          "https://dashscope.aliyuncs.com/api/v1/services/chat/completions",
+        );
+
+        expect(mockHttpService.post).toHaveBeenCalled();
+      });
+    });
+
+    describe("Error Handling", () => {
+      it("should handle 401 unauthorized error", async () => {
+        const mockError = {
+          response: {
+            status: 401,
+            data: {
+              error: {
+                message: "Invalid API key",
+              },
+            },
+          },
+        } as AxiosError;
+
+        mockHttpService.post.mockReturnValue(throwError(() => mockError));
+
+        const result = await service.testModelConnectionWithKey(
+          "openai",
+          "gpt-4",
+          "invalid-key",
+          "https://api.openai.com/v1/chat/completions",
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain("API Error (401)");
+        expect(result.message).toContain("Invalid API key");
+        expect(result.latency).toBeGreaterThanOrEqual(0);
+      });
+
+      it("should handle connection timeout", async () => {
+        const mockError = {
+          code: "ECONNABORTED",
+          message: "timeout of 30000ms exceeded",
+        } as AxiosError;
+
+        mockHttpService.post.mockReturnValue(throwError(() => mockError));
+
+        const result = await service.testModelConnectionWithKey(
+          "openai",
+          "gpt-4",
+          "test-api-key",
+          "https://api.openai.com/v1/chat/completions",
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain("Connection timeout");
+        expect(result.latency).toBeGreaterThanOrEqual(0);
+      });
+
+      it("should handle network error without response", async () => {
+        const mockError = {
+          message: "Network Error: getaddrinfo ENOTFOUND",
+        } as AxiosError;
+
+        mockHttpService.post.mockReturnValue(throwError(() => mockError));
+
+        const result = await service.testModelConnectionWithKey(
+          "openai",
+          "gpt-4",
+          "test-api-key",
+          "https://api.openai.com/v1/chat/completions",
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain("Network Error");
+        expect(result.latency).toBeGreaterThanOrEqual(0);
+      });
+
+      it("should handle unsupported provider", async () => {
+        const result = await service.testModelConnectionWithKey(
+          "unsupported-provider",
+          "some-model",
+          "test-api-key",
+          "https://api.example.com",
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain("Unsupported provider");
+        expect(result.latency).toBeGreaterThanOrEqual(0);
+      });
+    });
+  });
+
+  describe("testEmbeddingModel (EMBEDDING modelType)", () => {
+    it("should successfully test OpenAI embedding model", async () => {
+      const mockResponse: AxiosResponse = {
+        data: {
+          data: [
+            {
+              embedding: new Array(1536).fill(0.1),
+            },
+          ],
+        },
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        config: {} as any,
+      };
+
+      mockHttpService.post.mockReturnValue(of(mockResponse));
+
+      const result = await service.testModelConnectionWithKey(
+        "openai",
+        "text-embedding-3-small",
+        "test-api-key",
+        "https://api.openai.com/v1",
+        "EMBEDDING",
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("Embedding model connected!");
+      expect(result.message).toContain("Dimensions: 1536");
+      expect(result.latency).toBeGreaterThanOrEqual(0);
+
+      expect(mockHttpService.post).toHaveBeenCalledWith(
+        "https://api.openai.com/v1/embeddings",
+        expect.objectContaining({
+          model: "text-embedding-3-small",
+          input: "Hello, this is a test.",
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it("should successfully test Cohere embedding model", async () => {
+      const mockResponse: AxiosResponse = {
+        data: {
+          embeddings: [new Array(1024).fill(0.2)],
+        },
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        config: {} as any,
+      };
+
+      mockHttpService.post.mockReturnValue(of(mockResponse));
+
+      const result = await service.testModelConnectionWithKey(
+        "cohere",
+        "embed-english-v3.0",
+        "test-api-key",
+        "https://api.cohere.ai/v1",
+        "EMBEDDING",
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("Embedding model connected!");
+      expect(result.message).toContain("Dimensions: 1024");
+      expect(result.latency).toBeGreaterThanOrEqual(0);
+
+      expect(mockHttpService.post).toHaveBeenCalledWith(
+        "https://api.cohere.ai/v1/embed",
+        expect.objectContaining({
+          model: "embed-english-v3.0",
+          texts: ["Hello, this is a test."],
+          input_type: "search_document",
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it("should successfully test Google embedding model", async () => {
+      const mockResponse: AxiosResponse = {
+        data: {
+          embedding: {
+            values: new Array(768).fill(0.3),
+          },
+        },
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        config: {} as any,
+      };
+
+      mockHttpService.post.mockReturnValue(of(mockResponse));
+
+      const result = await service.testModelConnectionWithKey(
+        "google",
+        "text-embedding-004",
+        "test-api-key",
+        "https://generativelanguage.googleapis.com/v1beta",
+        "EMBEDDING",
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("Embedding model connected!");
+      expect(result.message).toContain("Dimensions: 768");
+      expect(result.latency).toBeGreaterThanOrEqual(0);
+
+      expect(mockHttpService.post).toHaveBeenCalledWith(
+        expect.stringContaining("text-embedding-004:embedContent"),
+        expect.objectContaining({
+          content: {
+            parts: [{ text: "Hello, this is a test." }],
+          },
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it("should handle unsupported embedding provider", async () => {
+      const result = await service.testModelConnectionWithKey(
+        "unsupported-provider",
+        "some-embedding-model",
+        "test-api-key",
+        "https://api.example.com",
+        "EMBEDDING",
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("Embedding not supported");
+    });
+
+    it("should handle embedding API error", async () => {
+      const mockError = {
+        response: {
+          status: 403,
+          data: {
+            error: {
+              message: "Insufficient quota",
+            },
+          },
+        },
+      } as AxiosError;
+
+      mockHttpService.post.mockReturnValue(throwError(() => mockError));
+
+      const result = await service.testModelConnectionWithKey(
+        "openai",
+        "text-embedding-3-small",
+        "test-api-key",
+        "https://api.openai.com/v1",
+        "EMBEDDING",
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("API Error (403)");
+      expect(result.message).toContain("Insufficient quota");
+    });
+  });
+
+  describe("testRerankModel (RERANK modelType)", () => {
+    it("should successfully test Cohere rerank model", async () => {
+      const mockResponse: AxiosResponse = {
+        data: {
+          results: [
+            {
+              index: 0,
+              relevance_score: 0.9876,
+            },
+            {
+              index: 1,
+              relevance_score: 0.1234,
+            },
+          ],
+        },
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        config: {} as any,
+      };
+
+      mockHttpService.post.mockReturnValue(of(mockResponse));
+
+      const result = await service.testModelConnectionWithKey(
+        "cohere",
+        "rerank-v3.5",
+        "test-api-key",
+        "https://api.cohere.ai/v1/rerank",
+        "RERANK",
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("Rerank model connected!");
+      expect(result.message).toContain("Top relevance score: 0.9876");
+      expect(result.latency).toBeGreaterThanOrEqual(0);
+
+      expect(mockHttpService.post).toHaveBeenCalledWith(
+        "https://api.cohere.ai/v1/rerank",
+        expect.objectContaining({
+          model: "rerank-v3.5",
+          query: "What is the capital of France?",
+          documents: [
+            "Paris is the capital of France.",
+            "London is the capital of UK.",
+          ],
+          top_n: 2,
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it("should handle unsupported rerank provider", async () => {
+      const result = await service.testModelConnectionWithKey(
+        "openai",
+        "some-rerank-model",
+        "test-api-key",
+        "https://api.openai.com/v1",
+        "RERANK",
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("Rerank not supported");
+      expect(result.message).toContain("Supported: cohere");
+    });
+
+    it("should handle rerank API error", async () => {
+      const mockError = {
+        response: {
+          status: 400,
+          data: {
+            message: "Invalid request",
+          },
+        },
+      } as AxiosError;
+
+      mockHttpService.post.mockReturnValue(throwError(() => mockError));
+
+      const result = await service.testModelConnectionWithKey(
+        "cohere",
+        "rerank-v3.5",
+        "test-api-key",
+        "https://api.cohere.ai/v1/rerank",
+        "RERANK",
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("API Error (400)");
+      expect(result.message).toContain("Invalid request");
+    });
+  });
+
+  describe("testTTSModel (TTS/AUDIO modelType)", () => {
+    it("should return success for Google TTS model without actual API call", async () => {
+      const result = await service.testModelConnectionWithKey(
+        "google",
+        "tts-1",
+        "test-api-key",
+        "https://texttospeech.googleapis.com/v1",
+        "TTS",
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("TTS model configured");
+      expect(result.message).toContain("API key is set");
+      expect(result.latency).toBeGreaterThanOrEqual(0);
+
+      expect(mockHttpService.post).not.toHaveBeenCalled();
+    });
+
+    it("should return success for AUDIO model type", async () => {
+      const result = await service.testModelConnectionWithKey(
+        "openai",
+        "tts-1-hd",
+        "test-api-key",
+        "https://api.openai.com/v1",
+        "AUDIO",
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("TTS/Audio model configured");
+      expect(result.message).toContain("API key is set");
+      expect(result.latency).toBeGreaterThanOrEqual(0);
+    });
+
+    it("should detect TTS from model name", async () => {
+      const result = await service.testModelConnectionWithKey(
+        "openai",
+        "tts-1-hd",
+        "test-api-key",
+        "https://api.openai.com/v1",
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("TTS/Audio model configured");
+    });
+  });
+});

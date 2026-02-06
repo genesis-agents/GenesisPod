@@ -875,7 +875,7 @@ export function TopicContentPanel({
         createdAt:
           typeof rev.createdAt === 'string'
             ? rev.createdAt
-            : (rev.createdAt as Date).toISOString(),
+            : rev.createdAt.toISOString(),
         wordCount: chars,
         wordCountDelta: 0,
       });
@@ -3609,7 +3609,7 @@ function TeamInteractionTabContent({
       let detail: MessageDetail | undefined;
       let progress: number | undefined;
       let status: UIMessage['status'] = undefined; // ★ 消息状态
-      let dimensionName: string | undefined =
+      const dimensionName: string | undefined =
         (data.dimensionName as string) || undefined; // ★ 研究维度名称
 
       // 根据事件类型解析
@@ -5553,7 +5553,7 @@ function ActivityItem({
                               : key === 'currency'
                                 ? t('topicResearch.contentPanel.timeliness')
                                 : key}
-                      : {val as number}
+                      : {val}
                     </span>
                   )
                 )}
