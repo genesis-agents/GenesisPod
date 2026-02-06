@@ -103,6 +103,11 @@ COPY --chown=raven:raven --from=builder /app/package*.json ./
 COPY --chown=raven:raven --from=builder /app/prisma ./prisma
 COPY --chown=raven:raven --from=builder /app/scripts ./scripts
 
+# Create writable directories for runtime data (exports, thumbnails)
+# /app is owned by root, so raven user can't mkdir directly
+RUN mkdir -p /app/public/thumbnails /app/exports && \
+    chown -R raven:raven /app/public /app/exports
+
 # Make entrypoint executable
 RUN chmod +x ./scripts/devops/docker-entrypoint.sh
 

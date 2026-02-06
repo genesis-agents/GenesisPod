@@ -21,12 +21,13 @@ import {
   MIME_TYPES,
 } from "../renderers/renderer.interface";
 import * as path from "path";
+import * as os from "os";
 import * as fs from "fs/promises";
 
 @Injectable()
 export class ExportOrchestratorService {
   private readonly logger = new Logger(ExportOrchestratorService.name);
-  private readonly exportDir: string;
+  private exportDir: string;
   private readonly urlExpireHours = 24; // 下载链接有效期
 
   constructor(
@@ -411,13 +412,26 @@ export class ExportOrchestratorService {
   }
 
   /**
-   * 确保导出目录存在
+   * 确保导出目录存在，若主目录不可写则回退到 /tmp
    */
   private async ensureExportDir(): Promise<void> {
     try {
       await fs.mkdir(this.exportDir, { recursive: true });
     } catch (error) {
-      this.logger.warn(`Failed to create export directory: ${error}`);
+      this.logger.warn(
+        `Failed to create export directory at ${this.exportDir}: ${error}`,
+      );
+      // Fallback to /tmp for restricted filesystems (e.g., Railway)
+      const fallbackDir = path.join(os.tmpdir(), "exports");
+      try {
+        await fs.mkdir(fallbackDir, { recursive: true });
+        this.exportDir = fallbackDir;
+        this.logger.log(`Using fallback export directory: ${this.exportDir}`);
+      } catch (fallbackError) {
+        this.logger.error(
+          `Failed to create fallback export directory: ${fallbackError}`,
+        );
+      }
     }
   }
 

@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { getErrorMessage } from "../../../common/utils/error.utils";
 import * as fs from "fs/promises";
 import * as path from "path";
+import * as os from "os";
 import axios from "axios";
 // 使用 legacy 版本，兼容 Node.js 环境（无需 DOMMatrix）
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
@@ -17,11 +18,7 @@ const sharp = require("sharp");
 @Injectable()
 export class PdfThumbnailService {
   private readonly logger = new Logger(PdfThumbnailService.name);
-  private readonly thumbnailDir = path.join(
-    process.cwd(),
-    "public",
-    "thumbnails",
-  );
+  private thumbnailDir = path.join(process.cwd(), "public", "thumbnails");
   private readonly thumbnailWidth = 400; // 缩略图宽度
   private readonly thumbnailHeight = 566; // 缩略图高度 (A4比例)
 
@@ -30,14 +27,29 @@ export class PdfThumbnailService {
   }
 
   /**
-   * 确保缩略图目录存在
+   * 确保缩略图目录存在，若主目录不可写则回退到 /tmp
    */
   private async ensureThumbnailDirExists() {
     try {
       await fs.mkdir(this.thumbnailDir, { recursive: true });
       this.logger.log(`Thumbnail directory ensured at: ${this.thumbnailDir}`);
     } catch (error) {
-      this.logger.error("Failed to create thumbnail directory:", error);
+      this.logger.warn(
+        `Failed to create thumbnail directory at ${this.thumbnailDir}: ${error}`,
+      );
+      // Fallback to /tmp for restricted filesystems (e.g., Railway)
+      const fallbackDir = path.join(os.tmpdir(), "thumbnails");
+      try {
+        await fs.mkdir(fallbackDir, { recursive: true });
+        this.thumbnailDir = fallbackDir;
+        this.logger.log(
+          `Using fallback thumbnail directory: ${this.thumbnailDir}`,
+        );
+      } catch (fallbackError) {
+        this.logger.error(
+          `Failed to create fallback thumbnail directory: ${fallbackError}`,
+        );
+      }
     }
   }
 
