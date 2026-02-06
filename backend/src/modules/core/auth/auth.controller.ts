@@ -220,8 +220,8 @@ export class AuthController {
 
     this.logger.log(`Google OAuth callback for user: ${user.email}`);
 
-    // 生成短期授权码
-    const authCode = this.authService.generateAuthCode(
+    // 生成短期授权码（存储在 Redis 中）
+    const authCode = await this.authService.generateAuthCode(
       accessToken,
       refreshToken,
       user.id,

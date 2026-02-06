@@ -19,6 +19,8 @@ export enum CachePrefix {
   SESSION = "session:",
   /** 临时数据 */
   TEMP = "temp:",
+  /** OAuth 授权码 */
+  AUTH_CODE = "auth:code:",
 }
 
 /**
