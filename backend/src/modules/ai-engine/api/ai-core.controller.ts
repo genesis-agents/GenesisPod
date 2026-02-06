@@ -25,6 +25,7 @@ import {
 import { SecretsService } from "../../core/secrets/secrets.service";
 import { SearchService } from "../search/search.service";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
+import { Public } from "../../../common/decorators/public.decorator";
 
 interface TranslateSingleRequest {
   text: string;
@@ -79,6 +80,7 @@ export class AiCoreController {
    * GET /api/v1/ai/models
    */
   @Get("models")
+  @Public()
   @UseGuards(OptionalJwtAuthGuard)
   async getEnabledModels(@Req() req: Request) {
     const userId = (req as any).user?.id;

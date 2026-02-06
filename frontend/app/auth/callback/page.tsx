@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, Suspense } from 'react';
+import { useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
@@ -10,6 +10,7 @@ function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
+  const exchangedRef = useRef(false);
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -50,6 +51,12 @@ function AuthCallbackContent() {
         router.push('/');
         return;
       }
+
+      // Prevent duplicate exchange (React StrictMode fires useEffect twice)
+      if (exchangedRef.current) {
+        return;
+      }
+      exchangedRef.current = true;
 
       try {
         // Exchange authorization code for tokens
