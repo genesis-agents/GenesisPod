@@ -1,6 +1,6 @@
 {
   "name": "raven-frontend",
-  "version": "3.50.6",
+  "version": "3.50.7",
   "private": true,
   "scripts": {
     "dev": "node scripts/generate-changelog.js && next dev",

@@ -1,5 +1,47 @@
 [
   {
+    "version": "3.50.7",
+    "date": "2026-02-06",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "fix diagnoseTools false positive \"需要配置 API 密钥\""
+      },
+      {
+        "type": "fix",
+        "description": "fix provider icon 404s and dashboard resilience"
+      },
+      {
+        "type": "fix",
+        "description": "make monitoring fetchData endpoints independent"
+      },
+      {
+        "type": "fix",
+        "description": "show incremental progress in batch collection drawer"
+      },
+      {
+        "type": "fix",
+        "description": "fix tag push and regenerate deduplicated CHANGELOG"
+      },
+      {
+        "type": "fix",
+        "description": "correct module name and transaction type in credit billing"
+      },
+      {
+        "type": "improvement",
+        "description": "move business agents to AI App modules"
+      },
+      {
+        "type": "improvement",
+        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
+      },
+      {
+        "type": "improvement",
+        "description": "optimize memory usage - limit Node.js heap + Puppeteer idle cleanup"
+      }
+    ]
+  },
+  {
     "version": "3.50.6",
     "date": "2026-02-06",
     "changes": [
