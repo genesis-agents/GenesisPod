@@ -4,7 +4,6 @@ import { ConfigModule } from "@nestjs/config";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
-import { AiImageModule } from "../image/ai-image.module";
 import { StorageModule } from "../../core/storage/storage.module";
 import { CreditsModule } from "../../credits/credits.module";
 import { ExportModule } from "../../../common/export/export.module";
@@ -62,9 +61,7 @@ import {
     HttpModule,
     ConfigModule,
     PrismaModule,
-    // 使用 forwardRef 打破三角循环: AiEngineModule → AiImageModule → AiOfficeModule → AiEngineModule
     forwardRef(() => AiEngineModule),
-    forwardRef(() => AiImageModule),
     StorageModule,
     CreditsModule,
     ExportModule,

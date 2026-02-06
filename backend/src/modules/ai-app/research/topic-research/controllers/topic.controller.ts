@@ -149,7 +149,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement listTopics
+
     return this.topicResearchService.listTopics(userId, query);
   }
 
@@ -166,7 +166,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement getTopic
+
     return this.topicResearchService.getTopic(userId, id);
   }
 
@@ -187,7 +187,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement updateTopic
+
     return this.topicResearchService.updateTopic(userId, id, dto);
   }
 
@@ -204,7 +204,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement deleteTopic
+
     return this.topicResearchService.deleteTopic(userId, id);
   }
 
@@ -229,7 +229,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement triggerRefresh
+
     return this.topicResearchService.triggerRefresh(userId, id, dto);
   }
 
@@ -313,7 +313,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement getRefreshStatus
+
     return this.topicResearchService.getRefreshStatus(userId, id);
   }
 
@@ -334,7 +334,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement streamRefreshProgress
+
     return this.topicResearchService.streamRefreshProgress(userId, id);
   }
 
@@ -354,7 +354,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement cancelRefresh
+
     return this.topicResearchService.cancelRefresh(userId, id, dto);
   }
 
@@ -375,7 +375,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement listDimensions
+
     return this.topicResearchService.listDimensions(userId, id);
   }
 
@@ -395,7 +395,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement addDimension
+
     return this.topicResearchService.addDimension(userId, id, dto);
   }
 
@@ -417,7 +417,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement updateDimension
+
     return this.topicResearchService.updateDimension(
       userId,
       topicId,
@@ -443,7 +443,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement deleteDimension
+
     return this.topicResearchService.deleteDimension(
       userId,
       topicId,
@@ -469,7 +469,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement refreshDimension
+
     return this.topicResearchService.refreshDimension(
       userId,
       topicId,
@@ -494,7 +494,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement reorderDimensions
+
     return this.topicResearchService.reorderDimensions(userId, id, dto);
   }
 
@@ -515,7 +515,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement getTemplates
+
     return this.topicResearchService.getTemplates(query);
   }
 
@@ -533,7 +533,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement createFromTemplate
+
     return this.topicResearchService.createFromTemplate(userId, dto);
   }
 
@@ -551,7 +551,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement getSchedule
+
     return this.topicResearchService.getSchedule(userId, id);
   }
 
@@ -571,7 +571,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement updateSchedule
+
     return this.topicResearchService.updateSchedule(userId, id, dto);
   }
 
@@ -595,7 +595,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement getLogs
+
     return this.topicResearchService.getLogs(userId, id, query);
   }
 
@@ -613,7 +613,7 @@ export class TopicController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    // TODO: Implement getStats
+
     return this.topicResearchService.getStats(userId, id);
   }
 

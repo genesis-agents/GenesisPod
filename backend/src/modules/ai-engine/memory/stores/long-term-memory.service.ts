@@ -1,27 +1,13 @@
 /**
  * AI Engine - Long Term Memory Service
  * 长期记忆服务 - 持久化存储（基于用户隔离）
+ *
+ * 使用 Prisma + PostgreSQL 持久化，重启不丢失
  */
 
 import { Injectable } from "@nestjs/common";
-import { v4 as uuid } from "uuid";
-import { LruMap } from "@/common/utils/lru-map";
-
-/**
- * 长期记忆条目
- */
-interface LongTermMemoryEntry {
-  id: string;
-  key: string;
-  value: unknown;
-  userId: string;
-  type?: string;
-  importance?: number;
-  tags?: string[];
-  expiresAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { Prisma } from "@prisma/client";
 
 /**
  * 搜索选项
@@ -59,28 +45,11 @@ interface SetOptions {
 
 /**
  * 长期记忆服务
- * 基于 userId 隔离的持久存储
- *
- * TODO: 当前为内存实现，生产环境应使用数据库
+ * 基于 userId 隔离的持久存储（Prisma + PostgreSQL）
  */
 @Injectable()
 export class LongTermMemoryService {
-  private readonly entries = new LruMap<string, LongTermMemoryEntry>(5000);
-
-  /**
-   * 生成组合键
-   */
-  private getCompositeKey(userId: string, key: string): string {
-    return `${userId}:${key}`;
-  }
-
-  /**
-   * 检查是否过期
-   */
-  private isExpired(entry: LongTermMemoryEntry): boolean {
-    if (!entry.expiresAt) return false;
-    return entry.expiresAt < new Date();
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * 根据 TTL 计算过期时间
@@ -99,21 +68,26 @@ export class LongTermMemoryService {
     value: unknown,
     options?: SetOptions,
   ): Promise<void> {
-    const compositeKey = this.getCompositeKey(userId, key);
-    const now = new Date();
-    const existing = this.entries.get(compositeKey);
+    const expiresAt = this.getExpiresAt(options?.ttl);
 
-    this.entries.set(compositeKey, {
-      id: existing?.id || uuid(),
-      key,
-      value,
-      userId,
-      type: options?.type,
-      importance: options?.importance ?? 5,
-      tags: options?.tags,
-      expiresAt: this.getExpiresAt(options?.ttl),
-      createdAt: existing?.createdAt || now,
-      updatedAt: now,
+    await this.prisma.longTermMemory.upsert({
+      where: { userId_key: { userId, key } },
+      create: {
+        userId,
+        key,
+        value: value as Prisma.InputJsonValue,
+        type: options?.type,
+        importance: options?.importance ?? 0.5,
+        tags: options?.tags ?? [],
+        expiresAt,
+      },
+      update: {
+        value: value as Prisma.InputJsonValue,
+        type: options?.type,
+        importance: options?.importance ?? 0.5,
+        tags: options?.tags ?? [],
+        expiresAt,
+      },
     });
   }
 
@@ -121,13 +95,17 @@ export class LongTermMemoryService {
    * 获取值（带用户隔离）
    */
   async getWithUser(userId: string, key: string): Promise<unknown> {
-    const compositeKey = this.getCompositeKey(userId, key);
-    const entry = this.entries.get(compositeKey);
+    const entry = await this.prisma.longTermMemory.findUnique({
+      where: { userId_key: { userId, key } },
+    });
 
     if (!entry) return undefined;
 
-    if (this.isExpired(entry)) {
-      this.entries.delete(compositeKey);
+    // 过期检查
+    if (entry.expiresAt && entry.expiresAt < new Date()) {
+      await this.prisma.longTermMemory.delete({
+        where: { id: entry.id },
+      });
       return undefined;
     }
 
@@ -144,6 +122,7 @@ export class LongTermMemoryService {
   /**
    * 语义搜索
    * TODO: 实际应使用向量数据库进行语义搜索
+   * 当前使用关键词匹配作为过渡方案
    */
   async search(
     query: string,
@@ -151,44 +130,40 @@ export class LongTermMemoryService {
   ): Promise<
     Array<{ key: string; value: unknown; score: number; metadata: unknown }>
   > {
+    const where: Prisma.LongTermMemoryWhereInput = {
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    };
+
+    if (options?.userId) {
+      where.userId = options.userId;
+    }
+
+    if (options?.type) {
+      where.type = options.type;
+    }
+
+    if (options?.tags && options.tags.length > 0) {
+      where.tags = { hasSome: options.tags };
+    }
+
+    const entries = await this.prisma.longTermMemory.findMany({
+      where,
+    });
+
+    // 关键词匹配（模拟语义搜索）
+    const queryLower = query.toLowerCase();
     const results: Array<{
       key: string;
       value: unknown;
       score: number;
       metadata: unknown;
     }> = [];
-    const queryLower = query.toLowerCase();
 
-    for (const entry of this.entries.values()) {
-      // 用户过滤
-      if (options?.userId && entry.userId !== options.userId) {
-        continue;
-      }
-
-      // 过期检查
-      if (this.isExpired(entry)) {
-        continue;
-      }
-
-      // 类型过滤
-      if (options?.type && entry.type !== options.type) {
-        continue;
-      }
-
-      // 标签过滤
-      if (options?.tags && options.tags.length > 0) {
-        const hasMatchingTag = options.tags.some((tag) =>
-          entry.tags?.includes(tag),
-        );
-        if (!hasMatchingTag) continue;
-      }
-
-      // 简单关键词匹配（模拟语义搜索）
+    for (const entry of entries) {
       const valueStr = JSON.stringify(entry.value).toLowerCase();
       const keyLower = entry.key.toLowerCase();
 
       if (valueStr.includes(queryLower) || keyLower.includes(queryLower)) {
-        // 计算简单相似度分数
         const score = this.calculateSimpleScore(
           queryLower,
           valueStr,
@@ -213,10 +188,8 @@ export class LongTermMemoryService {
       }
     }
 
-    // 按分数排序
     results.sort((a, b) => b.score - a.score);
 
-    // 限制数量
     if (options?.limit) {
       return results.slice(0, options.limit);
     }
@@ -231,11 +204,10 @@ export class LongTermMemoryService {
     query: string,
     valueStr: string,
     key: string,
-    importance?: number,
+    importance?: number | null,
   ): number {
     let score = 0;
 
-    // 完全匹配得高分
     if (key === query) {
       score += 1.0;
     } else if (key.includes(query)) {
@@ -246,7 +218,6 @@ export class LongTermMemoryService {
       score += 0.3;
     }
 
-    // 重要性加权
     if (importance) {
       score *= 1 + (importance / 10) * 0.5;
     }
@@ -258,8 +229,14 @@ export class LongTermMemoryService {
    * 删除值（带用户隔离）
    */
   async deleteWithUser(userId: string, key: string): Promise<boolean> {
-    const compositeKey = this.getCompositeKey(userId, key);
-    return this.entries.delete(compositeKey);
+    try {
+      await this.prisma.longTermMemory.delete({
+        where: { userId_key: { userId, key } },
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -274,63 +251,37 @@ export class LongTermMemoryService {
       tags?: string[];
     }>
   > {
-    let results = Array.from(this.entries.values()).filter(
-      (entry) => !this.isExpired(entry),
-    );
+    const where: Prisma.LongTermMemoryWhereInput = {
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    };
 
-    // 用户过滤
     if (options?.userId) {
-      results = results.filter((entry) => entry.userId === options.userId);
+      where.userId = options.userId;
     }
 
-    // 类型过滤
     if (options?.type) {
-      results = results.filter((entry) => entry.type === options.type);
+      where.type = options.type;
     }
 
-    // 标签过滤
     if (options?.tags && options.tags.length > 0) {
-      results = results.filter((entry) =>
-        options.tags!.some((tag) => entry.tags?.includes(tag)),
-      );
+      where.tags = { hasSome: options.tags };
     }
 
-    // 排序
     const sortBy = options?.sortBy || "updatedAt";
     const sortOrder = options?.sortOrder || "desc";
 
-    results.sort((a, b) => {
-      let aVal: number;
-      let bVal: number;
-
-      if (sortBy === "importance") {
-        aVal = a.importance || 0;
-        bVal = b.importance || 0;
-      } else if (sortBy === "createdAt") {
-        aVal = a.createdAt.getTime();
-        bVal = b.createdAt.getTime();
-      } else {
-        aVal = a.updatedAt.getTime();
-        bVal = b.updatedAt.getTime();
-      }
-
-      return sortOrder === "asc" ? aVal - bVal : bVal - aVal;
+    const entries = await this.prisma.longTermMemory.findMany({
+      where,
+      orderBy: { [sortBy]: sortOrder },
+      skip: options?.offset,
+      take: options?.limit,
     });
 
-    // 分页
-    if (options?.offset) {
-      results = results.slice(options.offset);
-    }
-
-    if (options?.limit) {
-      results = results.slice(0, options.limit);
-    }
-
-    return results.map((entry) => ({
+    return entries.map((entry) => ({
       key: entry.key,
       value: entry.value,
-      type: entry.type,
-      importance: entry.importance,
+      type: entry.type ?? undefined,
+      importance: entry.importance ?? undefined,
       tags: entry.tags,
     }));
   }
@@ -343,77 +294,66 @@ export class LongTermMemoryService {
     metadata: { importance?: number; tags?: string[] },
     userId?: string,
   ): Promise<boolean> {
-    // 如果提供了 userId，使用组合键
-    if (userId) {
-      const compositeKey = this.getCompositeKey(userId, key);
-      const entry = this.entries.get(compositeKey);
+    const data: Prisma.LongTermMemoryUpdateInput = {};
 
-      if (!entry || this.isExpired(entry)) {
+    if (metadata.importance !== undefined) {
+      data.importance = metadata.importance;
+    }
+    if (metadata.tags !== undefined) {
+      data.tags = metadata.tags;
+    }
+
+    if (userId) {
+      try {
+        await this.prisma.longTermMemory.update({
+          where: { userId_key: { userId, key } },
+          data,
+        });
+        return true;
+      } catch {
         return false;
       }
-
-      if (metadata.importance !== undefined) {
-        entry.importance = metadata.importance;
-      }
-
-      if (metadata.tags !== undefined) {
-        entry.tags = metadata.tags;
-      }
-
-      entry.updatedAt = new Date();
-      return true;
     }
 
-    // 否则搜索所有匹配的键
-    let found = false;
-    for (const entry of this.entries.values()) {
-      if (entry.key === key && !this.isExpired(entry)) {
-        if (metadata.importance !== undefined) {
-          entry.importance = metadata.importance;
-        }
+    // 没有 userId 时，更新所有匹配 key 的记录
+    const result = await this.prisma.longTermMemory.updateMany({
+      where: {
+        key,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      data,
+    });
 
-        if (metadata.tags !== undefined) {
-          entry.tags = metadata.tags;
-        }
-
-        entry.updatedAt = new Date();
-        found = true;
-      }
-    }
-
-    return found;
+    return result.count > 0;
   }
 
   /**
    * 清理过期数据
    */
-  cleanup(): number {
-    let count = 0;
-    const now = new Date();
+  async cleanup(): Promise<number> {
+    const result = await this.prisma.longTermMemory.deleteMany({
+      where: {
+        expiresAt: { lt: new Date() },
+      },
+    });
 
-    for (const [key, entry] of this.entries.entries()) {
-      if (entry.expiresAt && entry.expiresAt < now) {
-        this.entries.delete(key);
-        count++;
-      }
-    }
-
-    return count;
+    return result.count;
   }
 
   /**
    * 获取统计信息
    */
-  getStats(): { totalEntries: number; userCount: number } {
-    const users = new Set<string>();
-
-    for (const entry of this.entries.values()) {
-      users.add(entry.userId);
-    }
+  async getStats(): Promise<{ totalEntries: number; userCount: number }> {
+    const [totalEntries, userCountResult] = await Promise.all([
+      this.prisma.longTermMemory.count(),
+      this.prisma.longTermMemory.groupBy({
+        by: ["userId"],
+      }),
+    ]);
 
     return {
-      totalEntries: this.entries.size,
-      userCount: users.size,
+      totalEntries,
+      userCount: userCountResult.length,
     };
   }
 }

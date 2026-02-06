@@ -4,7 +4,6 @@ import { MulterModule } from "@nestjs/platform-express";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { StorageModule } from "../../core/storage/storage.module";
 import { SecretsModule } from "../../core/secrets/secrets.module";
-import { AiOfficeModule } from "../office/ai-office.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 // ★ 依赖反转: 导入 token 用于提供 ImageGenerationService 实现
@@ -48,7 +47,6 @@ import { AnalyticsService, AgentExecutorService } from "./analytics";
     }),
     // 使用 forwardRef 打破循环依赖: AiImageModule ↔ AiEngineModule
     forwardRef(() => AiEngineModule),
-    forwardRef(() => AiOfficeModule),
   ],
   controllers: [GenerationController, BrandKitController, ExportController],
   providers: [

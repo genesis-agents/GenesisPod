@@ -194,53 +194,7 @@ import {
     ConsistencyCheckerAgent,
     EditorAgent,
   ],
-  exports: [
-    // Repository
-    WritingRepository,
-
-    AiWritingService,
-    WritingEventEmitterService,
-    WritingRealtimeAdapter, // ★ Engine Realtime 集成
-    StoryBibleService,
-    CharacterService,
-    ProjectService,
-    ConsistencyEngineService,
-    FactExtractorService,
-    ParallelOrchestratorService,
-    WritingMissionService,
-    WorldBuildingEnhancerService,
-    // Quality services
-    ExpressionMemoryService,
-    CharacterPersonalityService,
-    CharacterConsistencyService,
-    QualityGateService,
-    HistoricalKnowledgeService,
-    DialogueConstraintsService,
-    NarrativePacingService,
-    SemanticConsistencyService,
-    ExpressionAlternativesService,
-    ProfessionalVoiceService,
-    SensoryImmersionService,
-    OpeningHookService,
-    ForeshadowingService,
-    PacingControlService,
-    ChapterQualityEvaluatorService,
-    NarrativeCraftService,
-    // v4-DOME: 新增服务导出
-    StoryCompletionDetectorService,
-    TemporalConflictAnalyzerService,
-    HierarchicalSummaryService,
-    DynamicOutlineService,
-    SharedScratchpadService,
-    // Style services
-    StyleTemplateService,
-    // Export agents for external use
-    StoryArchitectAgent,
-    BibleKeeperAgent,
-    WriterAgent,
-    ConsistencyCheckerAgent,
-    EditorAgent,
-  ],
+  exports: [AiWritingService, WritingRepository],
 })
 export class AiWritingModule implements OnModuleInit {
   private readonly logger = new Logger(AiWritingModule.name);

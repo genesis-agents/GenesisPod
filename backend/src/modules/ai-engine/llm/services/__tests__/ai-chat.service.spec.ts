@@ -82,7 +82,6 @@ describe("AiChatService", () => {
       getDefaultModelConfig: jest.fn().mockResolvedValue(null),
       getDefaultModelByType: jest.fn().mockResolvedValue(null),
       getAllEnabledModelsByType: jest.fn().mockResolvedValue([]),
-      getReasoningModelConfig: jest.fn().mockResolvedValue(null),
       getApiKeyForModel: jest.fn().mockResolvedValue("test-key"),
       isReasoningModel: jest.fn().mockReturnValue(false),
       resolveApiKey: jest.fn().mockResolvedValue({
@@ -248,18 +247,6 @@ describe("AiChatService", () => {
         mockModelConfigService.getAllEnabledModelsByType,
       ).toHaveBeenCalledWith(AIModelType.CHAT, ["gpt-4"]);
       expect(result).toEqual(mockModels);
-    });
-
-    it("should delegate getReasoningModelConfig to AiModelConfigService", async () => {
-      const mockConfig = createMockModelConfig({ isReasoning: true });
-      mockModelConfigService.getReasoningModelConfig.mockResolvedValue(
-        mockConfig,
-      );
-
-      const result = await service.getReasoningModelConfig();
-
-      expect(mockModelConfigService.getReasoningModelConfig).toHaveBeenCalled();
-      expect(result).toEqual(mockConfig);
     });
 
     it("should delegate getApiKeyForModel to AiModelConfigService", async () => {

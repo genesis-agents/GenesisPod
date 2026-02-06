@@ -8149,3 +8149,24 @@ model EngineTodo {
   @@index([createdAt(sort: Desc)])
   @@map("engine_todos")
 }
+
+// ============ AI Engine - 长期记忆 ============
+
+model LongTermMemory {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  key        String
+  value      Json
+  type       String?
+  importance Float?    @default(0.5)
+  tags       String[]  @default([])
+  expiresAt  DateTime? @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@index([type])
+  @@index([expiresAt])
+  @@map("long_term_memories")
+}

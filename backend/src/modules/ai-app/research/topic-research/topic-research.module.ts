@@ -162,6 +162,6 @@ const services = [
     ReportReviewController,
   ],
   providers: [...services, TopicResearchGateway, TopicAccessGuard],
-  exports: [...services, TopicAccessGuard],
+  exports: [TopicResearchService, TopicAccessGuard],
 })
 export class TopicResearchModule {}

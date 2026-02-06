@@ -202,14 +202,6 @@ export class AiChatService {
   }
 
   /**
-   * ★ 获取推理模型配置
-   * @deprecated 使用 AiModelConfigService.getReasoningModelConfig() 替代
-   */
-  async getReasoningModelConfig(): Promise<AIModelConfig | null> {
-    return this.modelConfigService.getReasoningModelConfig();
-  }
-
-  /**
    * 根据 provider 确定 API 格式类型
    */
   private getApiFormatForProvider(
@@ -697,55 +689,6 @@ export class AiChatService {
   }
 
   // ==================== 委托给提取的子服务 ====================
-
-  /**
-   * Test connection to an AI model
-   * @deprecated 使用 AiConnectionTestService.testModelConnectionWithKey() 替代
-   */
-  async testModelConnection(
-    model: string,
-  ): Promise<{ success: boolean; message: string; latency?: number }> {
-    const startTime = Date.now();
-
-    try {
-      const result = await this.generateChatCompletion({
-        model,
-        messages: [
-          { role: "user", content: "Say 'OK' to confirm you are working." },
-        ],
-        maxTokens: 50,
-        temperature: 0,
-      });
-
-      const latency = Date.now() - startTime;
-
-      if (
-        result.content.includes("API Key 未配置") ||
-        result.content.includes("mock response")
-      ) {
-        return {
-          success: false,
-          message: `API key not configured for ${model}`,
-          latency,
-        };
-      }
-
-      return {
-        success: true,
-        message: `Connection successful! Response: "${result.content.substring(0, 100)}..."`,
-        latency,
-      };
-    } catch (error) {
-      const latency = Date.now() - startTime;
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      return {
-        success: false,
-        message: `Connection failed: ${errorMessage}`,
-        latency,
-      };
-    }
-  }
 
   /**
    * Test connection to an AI model with custom API key and endpoint
