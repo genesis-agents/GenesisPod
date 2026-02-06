@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   X,
   Play,
@@ -49,6 +49,7 @@ interface TaskProgress {
   successItems: number;
   failedItems: number;
   duplicateItems: number;
+  errorMessage?: string;
 }
 
 export default function BatchCollectionDrawer({
@@ -65,6 +66,12 @@ export default function BatchCollectionDrawer({
   );
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const taskProgressRef = useRef(taskProgress);
+
+  // 保持 ref 与 state 同步
+  useEffect(() => {
+    taskProgressRef.current = taskProgress;
+  }, [taskProgress]);
 
   // 默认选择所有ACTIVE的源
   useEffect(() => {
@@ -76,28 +83,38 @@ export default function BatchCollectionDrawer({
     }
   }, [isOpen, sources]);
 
-  // 轮询任务进度
+  // 轮询任务进度 - 通过 ref 读取最新 taskProgress，避免每次 setTaskProgress 重建 interval
   useEffect(() => {
     if (!isRunning) return;
 
     const interval = setInterval(async () => {
-      const updatedProgress = new Map(taskProgress);
+      const currentProgress = taskProgressRef.current;
+      if (currentProgress.size === 0) return;
+
       let hasRunning = false;
 
-      for (const [taskId, progress] of taskProgress.entries()) {
+      for (const [taskId, progress] of currentProgress.entries()) {
         if (progress.status === 'RUNNING' || progress.status === 'PENDING') {
           try {
             const response = await getCollectionTask(taskId);
             const task = response.data;
 
-            updatedProgress.set(taskId, {
-              ...progress,
-              status: task.status,
-              progress: task.progress,
-              totalItems: task.totalItems,
-              successItems: task.successItems,
-              failedItems: task.failedItems,
-              duplicateItems: task.duplicateItems,
+            setTaskProgress((prev) => {
+              const next = new Map(prev);
+              const existing = next.get(taskId);
+              if (existing) {
+                next.set(taskId, {
+                  ...existing,
+                  status: task.status,
+                  progress: task.progress,
+                  totalItems: task.totalItems,
+                  successItems: task.successItems,
+                  failedItems: task.failedItems,
+                  duplicateItems: task.duplicateItems,
+                  errorMessage: task.errorMessage,
+                });
+              }
+              return next;
             });
 
             if (task.status === 'RUNNING' || task.status === 'PENDING') {
@@ -105,11 +122,10 @@ export default function BatchCollectionDrawer({
             }
           } catch (error) {
             logger.error(`Failed to fetch task ${taskId}:`, error);
+            hasRunning = true; // 网络错误时保持轮询
           }
         }
       }
-
-      setTaskProgress(updatedProgress);
 
       // 如果所有任务都完成了，停止轮询
       if (!hasRunning) {
@@ -118,7 +134,7 @@ export default function BatchCollectionDrawer({
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [isRunning, taskProgress]);
+  }, [isRunning]);
 
   const toggleSource = (sourceId: string) => {
     const newSelected = new Set(selectedSources);
@@ -155,32 +171,34 @@ export default function BatchCollectionDrawer({
     // 立即设置运行状态，防止多次点击
     setIsRunning(true);
     setIsPaused(false);
+    setTaskProgress(new Map());
 
-    const newProgress = new Map<string, TaskProgress>();
+    let hasAnyRunning = false;
 
-    try {
-      // 并行创建和执行所有任务
-      const taskPromises = Array.from(selectedSources).map(async (sourceId) => {
-        const source = sources.find((s) => s.id === sourceId);
-        if (!source) return null;
+    // 并行创建和执行所有任务，每个任务创建后立即显示
+    const taskPromises = Array.from(selectedSources).map(async (sourceId) => {
+      const source = sources.find((s) => s.id === sourceId);
+      if (!source) return;
 
-        try {
-          // 创建任务
-          logger.debug(`Creating task for ${source.name}...`);
-          const taskResponse = await createCollectionTask({
-            sourceId: source.id,
-            name: `Batch: ${categoryName} - ${source.name}`,
-            description: `Batch collection for ${categoryName} category`,
-            type: 'MANUAL',
-            sourceConfig: { maxResults: 50 },
-            deduplicationRules: {},
-          });
+      try {
+        // 创建任务
+        logger.debug(`Creating task for ${source.name}...`);
+        const taskResponse = await createCollectionTask({
+          sourceId: source.id,
+          name: `Batch: ${categoryName} - ${source.name}`,
+          description: `Batch collection for ${categoryName} category`,
+          type: 'MANUAL',
+          sourceConfig: { maxResults: 50 },
+          deduplicationRules: {},
+        });
 
-          const taskId = taskResponse.data.id;
-          logger.debug(`Task created: ${taskId}, executing...`);
+        const taskId = taskResponse.data.id;
+        logger.debug(`Task created: ${taskId}, showing PENDING...`);
 
-          // 立即添加到进度显示（状态为PENDING）
-          const progressEntry: TaskProgress = {
+        // 立即添加到进度面板（PENDING 状态）
+        setTaskProgress((prev) => {
+          const next = new Map(prev);
+          next.set(taskId, {
             id: taskId,
             sourceId: source.id,
             sourceName: source.name,
@@ -190,63 +208,54 @@ export default function BatchCollectionDrawer({
             successItems: 0,
             failedItems: 0,
             duplicateItems: 0,
-          };
+          });
+          return next;
+        });
 
-          // 执行任务（后端会异步执行）
-          await executeTask(taskId);
-          logger.debug(`Task ${taskId} execution started`);
+        // 执行任务（后端会异步执行）
+        await executeTask(taskId);
+        logger.debug(`Task ${taskId} execution started, showing RUNNING...`);
 
-          // 更新状态为RUNNING
-          progressEntry.status = 'RUNNING';
-          return { taskId, progressEntry };
-        } catch (taskError) {
-          logger.error(`Failed to start task for ${source.name}:`, taskError);
-          // 单个任务失败不影响其他任务
-          return {
-            taskId: `failed-${sourceId}`,
-            progressEntry: {
-              id: `failed-${sourceId}`,
-              sourceId: source.id,
-              sourceName: source.name,
-              status: 'FAILED' as const,
-              progress: 0,
-              totalItems: 0,
-              successItems: 0,
-              failedItems: 0,
-              duplicateItems: 0,
-            },
-          };
-        }
-      });
+        // 更新为 RUNNING 状态
+        setTaskProgress((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(taskId);
+          if (existing) {
+            next.set(taskId, { ...existing, status: 'RUNNING' });
+          }
+          return next;
+        });
 
-      // 等待所有任务创建完成
-      const results = await Promise.all(taskPromises);
-
-      // 构建进度Map
-      for (const result of results) {
-        if (result) {
-          newProgress.set(result.taskId, result.progressEntry);
-        }
+        hasAnyRunning = true;
+      } catch (taskError) {
+        logger.error(`Failed to start task for ${source.name}:`, taskError);
+        const errorMsg =
+          taskError instanceof Error ? taskError.message : 'Unknown error';
+        // 单个任务失败不影响其他任务，立即显示失败状态
+        setTaskProgress((prev) => {
+          const next = new Map(prev);
+          next.set(`failed-${sourceId}`, {
+            id: `failed-${sourceId}`,
+            sourceId: source.id,
+            sourceName: source.name,
+            status: 'FAILED',
+            progress: 0,
+            totalItems: 0,
+            successItems: 0,
+            failedItems: 0,
+            duplicateItems: 0,
+            errorMessage: errorMsg,
+          });
+          return next;
+        });
       }
+    });
 
-      setTaskProgress(newProgress);
+    await Promise.all(taskPromises);
 
-      // 如果没有成功启动任何任务，停止运行状态
-      const hasRunningTasks = Array.from(newProgress.values()).some(
-        (t) => t.status === 'RUNNING' || t.status === 'PENDING'
-      );
-      if (!hasRunningTasks) {
-        setIsRunning(false);
-      }
-    } catch (error) {
-      logger.error('Failed to start batch collection:', error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : 'Failed to start batch collection'
-      );
+    // 如果没有成功启动任何任务，停止运行状态
+    if (!hasAnyRunning) {
       setIsRunning(false);
-      setTaskProgress(new Map());
     }
   };
 
@@ -613,6 +622,15 @@ export default function BatchCollectionDrawer({
                           </div>
                         </div>
                       </div>
+
+                      {/* Error message for failed tasks */}
+                      {progress.status === 'FAILED' &&
+                        progress.errorMessage && (
+                          <div className="mt-2 flex items-start gap-1 rounded bg-red-50 px-2 py-1 text-xs text-red-700">
+                            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                            <span>{progress.errorMessage}</span>
+                          </div>
+                        )}
 
                       {/* Special message when all items are duplicates */}
                       {progress.status === 'COMPLETED' &&
