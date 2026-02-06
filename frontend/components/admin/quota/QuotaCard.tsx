@@ -136,7 +136,10 @@ export default function QuotaCard({
               alt={quota.providerDisplayName}
               className="h-8 w-8"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = '/icons/ai/default.svg';
+                const img = e.target as HTMLImageElement;
+                if (!img.src.endsWith('/icons/ai/default.svg')) {
+                  img.src = '/icons/ai/default.svg';
+                }
               }}
             />
           </div>

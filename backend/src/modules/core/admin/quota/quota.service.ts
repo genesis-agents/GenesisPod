@@ -399,8 +399,13 @@ export class QuotaService implements OnModuleInit {
       anthropic: "/icons/ai/claude.svg",
       google: "/icons/ai/gemini.svg",
       xai: "/icons/ai/grok.svg",
-      cohere: "/icons/ai/cohere.svg",
       deepseek: "/icons/ai/deepseek.svg",
+      meta: "/icons/ai/meta.svg",
+      mistral: "/icons/ai/mistral.svg",
+      qwen: "/icons/ai/qwen.svg",
+      doubao: "/icons/ai/doubao.svg",
+      zhipu: "/icons/ai/zhipu.svg",
+      kimi: "/icons/ai/kimi.svg",
     };
     return icons[provider.toLowerCase()] || "/icons/ai/default.svg";
   }

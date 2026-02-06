@@ -321,15 +321,16 @@ export class MonitoringAdminController {
 
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const warnings: string[] = [];
 
     const [
-      errorStats,
-      aggregatedErrors,
-      aiMetrics,
-      realtimeMetrics,
-      modelStats,
-      aiDiagnosis,
-    ] = await Promise.all([
+      errorStatsResult,
+      aggregatedErrorsResult,
+      aiMetricsResult,
+      realtimeMetricsResult,
+      modelStatsResult,
+      aiDiagnosisResult,
+    ] = await Promise.allSettled([
       this.errorTrackingService.getErrorStats({ startDate: oneWeekAgo }),
       this.errorTrackingService.getAggregatedErrors({
         startDate: oneDayAgo,
@@ -342,24 +343,97 @@ export class MonitoringAdminController {
       this.aiAdminService.diagnoseAllCapabilities(),
     ]);
 
+    const errorStats =
+      errorStatsResult.status === "fulfilled"
+        ? errorStatsResult.value
+        : (() => {
+            this.logger.warn(
+              `Dashboard: errorStats failed: ${errorStatsResult.reason}`,
+            );
+            warnings.push("Error stats unavailable");
+            return null;
+          })();
+
+    const aggregatedErrors =
+      aggregatedErrorsResult.status === "fulfilled"
+        ? aggregatedErrorsResult.value
+        : (() => {
+            this.logger.warn(
+              `Dashboard: aggregatedErrors failed: ${aggregatedErrorsResult.reason}`,
+            );
+            warnings.push("Aggregated errors unavailable");
+            return [];
+          })();
+
+    const aiMetrics =
+      aiMetricsResult.status === "fulfilled"
+        ? aiMetricsResult.value
+        : (() => {
+            this.logger.warn(
+              `Dashboard: aiMetrics failed: ${aiMetricsResult.reason}`,
+            );
+            warnings.push("AI metrics unavailable");
+            return null;
+          })();
+
+    const realtimeMetrics =
+      realtimeMetricsResult.status === "fulfilled"
+        ? realtimeMetricsResult.value
+        : (() => {
+            this.logger.warn(
+              `Dashboard: realtimeMetrics failed: ${realtimeMetricsResult.reason}`,
+            );
+            warnings.push("Realtime metrics unavailable");
+            return null;
+          })();
+
+    const modelStats =
+      modelStatsResult.status === "fulfilled"
+        ? modelStatsResult.value
+        : (() => {
+            this.logger.warn(
+              `Dashboard: modelStats failed: ${modelStatsResult.reason}`,
+            );
+            warnings.push("Model stats unavailable");
+            return [];
+          })();
+
+    const aiDiagnosis =
+      aiDiagnosisResult.status === "fulfilled"
+        ? aiDiagnosisResult.value
+        : (() => {
+            this.logger.warn(
+              `Dashboard: aiDiagnosis failed: ${aiDiagnosisResult.reason}`,
+            );
+            warnings.push("AI diagnosis unavailable");
+            return null;
+          })();
+
     return {
       timestamp: new Date().toISOString(),
-      errors: {
-        stats: errorStats,
-        topErrors: aggregatedErrors,
-      },
-      aiMetrics: {
-        summary: aiMetrics,
-        realtime: realtimeMetrics,
-        modelUsage: modelStats,
-      },
-      aiDiagnosis: {
-        tools: aiDiagnosis.builtinTools.summary,
-        skills: aiDiagnosis.skills.summary,
-        mcpServers: aiDiagnosis.mcpServers.summary,
-        externalTools: aiDiagnosis.externalTools.summary,
-        breakpoints: aiDiagnosis.breakpoints,
-      },
+      warnings,
+      errors: errorStats
+        ? {
+            stats: errorStats,
+            topErrors: aggregatedErrors,
+          }
+        : null,
+      aiMetrics: aiMetrics
+        ? {
+            summary: aiMetrics,
+            realtime: realtimeMetrics,
+            modelUsage: modelStats,
+          }
+        : null,
+      aiDiagnosis: aiDiagnosis
+        ? {
+            tools: aiDiagnosis.builtinTools.summary,
+            skills: aiDiagnosis.skills.summary,
+            mcpServers: aiDiagnosis.mcpServers.summary,
+            externalTools: aiDiagnosis.externalTools.summary,
+            breakpoints: aiDiagnosis.breakpoints,
+          }
+        : null,
     };
   }
 

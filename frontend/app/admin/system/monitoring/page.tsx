@@ -101,10 +101,11 @@ interface AIDiagnosis {
 }
 
 interface DashboardData {
+  warnings?: string[];
   errors: {
     stats: ErrorStats;
     topErrors: AggregatedError[];
-  };
+  } | null;
   aiMetrics: {
     summary: AIMetricsSummary;
     realtime: RealtimeMetrics;
@@ -115,8 +116,8 @@ interface DashboardData {
       totalTokens: number;
       estimatedCost: number;
     }>;
-  };
-  aiDiagnosis: AIDiagnosis;
+  } | null;
+  aiDiagnosis: AIDiagnosis | null;
 }
 
 // ==================== Helper Functions ====================
@@ -298,6 +299,7 @@ export default function MonitoringPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'errors' | 'ai'>(
     'overview'
@@ -311,7 +313,13 @@ export default function MonitoringPage() {
       const [metricsRes, dashboardRes] = await Promise.all([
         fetch(`${config.apiUrl}/data-collection/monitor/metrics`, { headers }),
         fetch(`${config.apiUrl}/admin/monitoring/dashboard`, { headers }).catch(
-          () => null
+          (err: unknown) => {
+            const msg =
+              err instanceof Error ? err.message : 'Dashboard fetch failed';
+            logger.error('Failed to fetch dashboard:', err);
+            setDashboardError(msg);
+            return null;
+          }
         ),
       ]);
 
@@ -323,7 +331,14 @@ export default function MonitoringPage() {
 
       if (dashboardRes?.ok) {
         const dashboardData = await dashboardRes.json();
-        setDashboard(dashboardData);
+        setDashboard(dashboardData?.data ?? dashboardData);
+        setDashboardError(null);
+      } else if (dashboardRes) {
+        setDashboardError(`Dashboard returned status ${dashboardRes.status}`);
+        logger.error(
+          'Dashboard fetch returned non-OK status:',
+          dashboardRes.status
+        );
       }
 
       setError(null);
@@ -352,35 +367,45 @@ export default function MonitoringPage() {
   const renderOverviewTab = () => (
     <>
       {/* System Health */}
-      <div className="mb-6">
-        <h3 className="mb-3 text-lg font-semibold text-gray-900">
-          System Health
-        </h3>
-        <div className="flex flex-wrap gap-3">
-          <HealthIndicator
-            status={
-              dashboard?.aiDiagnosis?.breakpoints?.length === 0
-                ? 'healthy'
-                : 'degraded'
-            }
-            label="AI Engine"
-          />
-          <HealthIndicator
-            status={
-              dashboard?.errors?.stats?.critical === 0 ? 'healthy' : 'unhealthy'
-            }
-            label="Error Rate"
-          />
-          <HealthIndicator
-            status={
-              (dashboard?.aiMetrics?.summary?.successRate ?? 100) >= 95
-                ? 'healthy'
-                : 'degraded'
-            }
-            label="AI Success Rate"
-          />
+      {dashboard ? (
+        <div className="mb-6">
+          <h3 className="mb-3 text-lg font-semibold text-gray-900">
+            System Health
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            <HealthIndicator
+              status={
+                dashboard?.aiDiagnosis?.breakpoints?.length === 0
+                  ? 'healthy'
+                  : 'degraded'
+              }
+              label="AI Engine"
+            />
+            <HealthIndicator
+              status={
+                dashboard?.errors?.stats?.critical === 0
+                  ? 'healthy'
+                  : 'unhealthy'
+              }
+              label="Error Rate"
+            />
+            <HealthIndicator
+              status={
+                (dashboard?.aiMetrics?.summary?.successRate ?? 100) >= 95
+                  ? 'healthy'
+                  : 'degraded'
+              }
+              label="AI Success Rate"
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="mb-6 rounded-lg bg-gray-50 p-6 text-center text-sm text-gray-500">
+          <AlertCircle className="mx-auto mb-2 h-6 w-6 text-gray-400" />
+          Dashboard data unavailable. System health indicators require dashboard
+          data.
+        </div>
+      )}
 
       {/* Stats Cards */}
       {metrics && (
@@ -422,7 +447,7 @@ export default function MonitoringPage() {
       )}
 
       {/* AI Metrics Quick View */}
-      {dashboard?.aiMetrics?.summary && (
+      {dashboard?.aiMetrics?.summary ? (
         <div className="mb-6">
           <h3 className="mb-3 text-lg font-semibold text-gray-900">
             AI Engine (Last 7 Days)
@@ -454,10 +479,16 @@ export default function MonitoringPage() {
             />
           </div>
         </div>
+      ) : (
+        dashboard && (
+          <div className="mb-6 rounded-lg bg-gray-50 p-4 text-center text-sm text-gray-500">
+            No AI metrics data available for the last 7 days.
+          </div>
+        )
       )}
 
       {/* AI Diagnosis */}
-      {dashboard?.aiDiagnosis && (
+      {dashboard?.aiDiagnosis ? (
         <div className="mb-6">
           <h3 className="mb-3 text-lg font-semibold text-gray-900">
             AI Capabilities
@@ -566,6 +597,12 @@ export default function MonitoringPage() {
             </div>
           )}
         </div>
+      ) : (
+        dashboard && (
+          <div className="mb-6 rounded-lg bg-gray-50 p-4 text-center text-sm text-gray-500">
+            No AI capabilities data available.
+          </div>
+        )
       )}
     </>
   );
@@ -690,6 +727,16 @@ export default function MonitoringPage() {
               )
             )}
           </div>
+        </div>
+      )}
+
+      {/* Empty state when no error data */}
+      {!dashboard?.errors && (
+        <div className="rounded-lg bg-gray-50 p-8 text-center text-sm text-gray-500">
+          <AlertCircle className="mx-auto mb-2 h-6 w-6 text-gray-400" />
+          {dashboard
+            ? 'No error tracking data available.'
+            : 'Dashboard data unavailable. Error tracking requires dashboard data.'}
         </div>
       )}
     </>
@@ -858,6 +905,16 @@ export default function MonitoringPage() {
           </div>
         </div>
       )}
+
+      {/* Empty state when no AI metrics data */}
+      {!dashboard?.aiMetrics && (
+        <div className="rounded-lg bg-gray-50 p-8 text-center text-sm text-gray-500">
+          <AlertCircle className="mx-auto mb-2 h-6 w-6 text-gray-400" />
+          {dashboard
+            ? 'No AI metrics data available.'
+            : 'Dashboard data unavailable. AI metrics require dashboard data.'}
+        </div>
+      )}
     </>
   );
 
@@ -896,6 +953,15 @@ export default function MonitoringPage() {
         {error && (
           <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-800">
             {error}
+          </div>
+        )}
+
+        {dashboardError && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg bg-amber-50 p-4 text-amber-800">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+            <span className="text-sm">
+              Dashboard data unavailable: {dashboardError}
+            </span>
           </div>
         )}
 
