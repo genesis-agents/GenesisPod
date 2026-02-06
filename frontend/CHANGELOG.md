@@ -2,6 +2,13 @@
 
 Raven AI Engine 版本变更记录。
 
+### [3.50.1](https://github.com/your-org/ai-teams-engine/compare/v3.50.0...v3.50.1) (2026-02-06)
+
+
+### Bug Fixes
+
+* **ci:** fix tag push and regenerate deduplicated CHANGELOG ([69cea64](https://github.com/your-org/ai-teams-engine/commit/69cea644c2ab18a4702987aa573bea190f89774c))
+
 # [3.50.0](https://github.com/your-org/ai-teams-engine/compare/v3.49.0...v3.50.0) (2026-02-06)
 
 ### Bug Fixes
