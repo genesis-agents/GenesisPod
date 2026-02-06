@@ -153,6 +153,17 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
 ];
 
 /**
+ * ★ 内置工具 → 外部 provider 类别映射
+ * 将内置工具 ID 关联到 EXTERNAL_TOOL_DEFINITIONS 的 category，
+ * 用于判断该内置工具的密钥是否已通过外部 provider 配置。
+ */
+const BUILTIN_TOOL_TO_PROVIDER_CATEGORY: Record<string, string> = {
+  "web-search": "Web Search",
+  "web-scraper": "Content Extraction",
+  "audio-generation": "TTS",
+};
+
+/**
  * 可执行工具接口
  */
 interface ExecutableTool {
@@ -760,6 +771,13 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     const dbConfigs = await this.prisma.toolConfig.findMany();
     const configMap = new Map(dbConfigs.map((c) => [c.toolId, c]));
 
+    // 预加载 Secret Manager 中所有活跃密钥名，用于 provider 级别的密钥检查
+    const allSecrets = await this.prisma.secret.findMany({
+      where: { deletedAt: null, isActive: true },
+      select: { name: true },
+    });
+    const secretNames = new Set(allSecrets.map((s) => s.name));
+
     const diagnostics = await Promise.all(
       registeredTools.map(async (tool) => {
         const dbConfig = configMap.get(tool.id);
@@ -777,11 +795,22 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
           }
         }
 
-        // 检查是否需要但未配置密钥（根据工具类型推断）
-        const requiresApiKey = this.toolRequiresApiKey(tool.id);
-        if (requiresApiKey && !hasSecretKey) {
-          status = "unconfigured";
-          message = "需要配置 API 密钥";
+        // 检查通过外部 provider 配置密钥的内置工具
+        const providerCategory = BUILTIN_TOOL_TO_PROVIDER_CATEGORY[tool.id];
+        if (providerCategory && !hasSecretKey) {
+          // 该工具的密钥由外部 provider 管理，检查对应类别下是否有可用 provider
+          const categoryProviders = EXTERNAL_TOOL_DEFINITIONS.filter(
+            (ext) => ext.category === providerCategory,
+          );
+          const hasAvailableProvider = categoryProviders.some(
+            (p) =>
+              p.noKeyRequired ||
+              (p.secretKeyName && secretNames.has(p.secretKeyName)),
+          );
+          if (!hasAvailableProvider) {
+            status = "unconfigured";
+            message = `需要配置 ${providerCategory} 类别的 API 密钥`;
+          }
         }
 
         // 检查是否被禁用
@@ -1333,29 +1362,6 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
    */
   async getToolKeyHealth(toolId: string): Promise<KeyHealthStatus[]> {
     return this.getServiceKeyHealth(toolId);
-  }
-
-  /**
-   * ★ 判断工具是否需要 API 密钥
-   */
-  private toolRequiresApiKey(toolId: string): boolean {
-    // 需要外部 API 密钥的工具列表
-    const toolsRequiringApiKey = [
-      "web-search",
-      "web-scraper",
-      "image-generation",
-      "audio-generation",
-      "video-generation",
-      "text-generation",
-      "code-generation",
-      "federal-register",
-      "congress-gov",
-      "email-sender",
-      "github-integration",
-      "cloud-storage",
-      "message-push",
-    ];
-    return toolsRequiringApiKey.includes(toolId);
   }
 
   /**
