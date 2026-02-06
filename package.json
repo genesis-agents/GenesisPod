@@ -1,6 +1,6 @@
 {
   "name": "raven-ai-engine",
-  "version": "3.50.7",
+  "version": "3.50.8",
   "description": "Raven AI Engine - AI驱动的智能研究平台",
   "private": true,
   "workspaces": [
