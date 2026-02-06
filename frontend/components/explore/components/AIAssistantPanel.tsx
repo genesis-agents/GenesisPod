@@ -121,7 +121,7 @@ export default function AIAssistantPanel({
   }
 
   return (
-    <aside className="relative hidden w-80 flex-shrink-0 flex-col border-l border-gray-200 bg-white lg:flex lg:w-96">
+    <aside className="relative hidden w-96 flex-shrink-0 flex-col border-l border-gray-200 bg-white lg:flex lg:w-[420px] xl:w-[480px]">
       {/* Collapse Button */}
       <button
         type="button"
