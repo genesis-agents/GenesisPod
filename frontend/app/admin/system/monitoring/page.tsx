@@ -309,39 +309,51 @@ export default function MonitoringPage() {
     try {
       const headers = getAuthHeader();
 
-      // Fetch both system metrics and monitoring dashboard
+      // Fetch both endpoints independently — one failure should not block the other
       const [metricsRes, dashboardRes] = await Promise.all([
-        fetch(`${config.apiUrl}/data-collection/monitor/metrics`, { headers }),
+        fetch(`${config.apiUrl}/data-collection/monitor/metrics`, {
+          headers,
+        }).catch((err: unknown) => {
+          logger.error('Failed to fetch metrics:', err);
+          return null;
+        }),
         fetch(`${config.apiUrl}/admin/monitoring/dashboard`, { headers }).catch(
           (err: unknown) => {
-            const msg =
-              err instanceof Error ? err.message : 'Dashboard fetch failed';
             logger.error('Failed to fetch dashboard:', err);
-            setDashboardError(msg);
             return null;
           }
         ),
       ]);
 
-      if (!metricsRes.ok)
-        throw new Error(t('admin.monitoring.errors.fetchFailed'));
+      // Process metrics (independent)
+      if (metricsRes?.ok) {
+        const metricsData = await metricsRes.json();
+        setMetrics(metricsData?.data ?? metricsData);
+        setError(null);
+      } else {
+        setError(t('admin.monitoring.errors.fetchFailed'));
+        logger.error(
+          'Metrics fetch failed:',
+          metricsRes ? `status ${metricsRes.status}` : 'network error'
+        );
+      }
 
-      const metricsData = await metricsRes.json();
-      setMetrics(metricsData?.data ?? metricsData);
-
+      // Process dashboard (independent)
       if (dashboardRes?.ok) {
         const dashboardData = await dashboardRes.json();
         setDashboard(dashboardData?.data ?? dashboardData);
         setDashboardError(null);
-      } else if (dashboardRes) {
-        setDashboardError(`Dashboard returned status ${dashboardRes.status}`);
+      } else {
+        setDashboardError(
+          dashboardRes
+            ? `Dashboard returned status ${dashboardRes.status}`
+            : 'Dashboard fetch failed'
+        );
         logger.error(
-          'Dashboard fetch returned non-OK status:',
-          dashboardRes.status
+          'Dashboard fetch failed:',
+          dashboardRes ? `status ${dashboardRes.status}` : 'network error'
         );
       }
-
-      setError(null);
     } catch (err) {
       const message =
         err instanceof Error
