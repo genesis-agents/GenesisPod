@@ -42,7 +42,7 @@ jobs:
 
       - name: Generate Prisma Client
         working-directory: ./backend
-        run: npx prisma generate
+        run: npx prisma generate --schema=prisma/schema
 
       - name: Format check
         run: npm run format:check
@@ -97,8 +97,8 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/deepdive_test
         run: |
-          npx prisma generate
-          npx prisma migrate deploy
+          npx prisma generate --schema=prisma/schema
+          npx prisma migrate deploy --schema=prisma/schema
 
       - name: Run backend tests
         working-directory: ./backend

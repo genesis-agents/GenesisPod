@@ -914,7 +914,9 @@ function HomeContent() {
 
         // Fetch from resources table with type=YOUTUBE_VIDEO
         const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=50&skip=0`;
-        const resourcesRes = await fetch(resourcesUrl);
+        const resourcesRes = await fetch(resourcesUrl, {
+          headers: getAuthHeader(),
+        });
         const resourcesResult = await resourcesRes.json();
         // Handle wrapped API response { success: true, data: T }
         const resourcesData = resourcesResult?.data ?? resourcesResult;
@@ -981,7 +983,9 @@ function HomeContent() {
       }
 
       const url = `${config.apiUrl}/resources?${params.toString()}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: getAuthHeader(),
+      });
       const result = await res.json();
       // Handle wrapped API response { success: true, data: T }
       const data = result?.data ?? result;
@@ -1079,6 +1083,7 @@ function HomeContent() {
       // Upload file to backend
       const response = await fetch(`${config.apiUrl}/resources/upload-file`, {
         method: 'POST',
+        headers: getAuthHeader(),
         body: formData,
       });
 
@@ -1209,7 +1214,9 @@ function HomeContent() {
       });
 
       const url = `${config.apiUrl}/resources/search/suggestions?${params.toString()}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: getAuthHeader(),
+      });
       const result = await res.json();
       // Handle wrapped API response { success: true, data: T }
       const data = result?.data ?? result;
@@ -1268,7 +1275,9 @@ function HomeContent() {
 
   const fetchResourceById = async (id: string) => {
     try {
-      const res = await fetch(`${config.apiUrl}/resources/${id}`);
+      const res = await fetch(`${config.apiUrl}/resources/${id}`, {
+        headers: getAuthHeader(),
+      });
       const result = await res.json();
       // Handle wrapped API response { success: true, data: T }
       const resource = result?.data ?? result;
@@ -1292,7 +1301,7 @@ function HomeContent() {
     try {
       const res = await fetch(`${config.apiUrl}/resources/${resourceId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify(data),
       });
       if (res.ok) {
@@ -1583,7 +1592,7 @@ function HomeContent() {
       // Save to notes using the existing notes API
       const response = await fetch(`${config.apiUrl}/notes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({
           resourceId: selectedResource.id,
           content: conversationText,
