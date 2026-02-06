@@ -6,6 +6,10 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import {
+  CacheService,
+  CachePrefix,
+} from "../../../common/cache/cache.service";
 import * as bcrypt from "bcrypt";
 import * as crypto from "crypto";
 
@@ -84,48 +88,38 @@ function parseUserAgent(userAgent?: string): {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private readonly authCodeStore = new Map<string, AuthCodeData>();
+
+  /** Auth code TTL: 5 minutes (in seconds) */
+  private static readonly AUTH_CODE_TTL = 300;
 
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-  ) {
-    // 定期清理过期的授权码（每分钟）
-    setInterval(() => this.cleanupExpiredAuthCodes(), 60000);
-  }
+    private cacheService: CacheService,
+  ) {}
 
   /**
-   * 清理过期的授权码
+   * 生成短期授权码（存储在 Redis 中，支持多实例）
    */
-  private cleanupExpiredAuthCodes(): void {
-    const now = new Date();
-    for (const [code, data] of this.authCodeStore.entries()) {
-      if (data.expiresAt < now) {
-        this.authCodeStore.delete(code);
-      }
-    }
-  }
-
-  /**
-   * 生成短期授权码
-   */
-  generateAuthCode(
+  async generateAuthCode(
     accessToken: string,
     refreshToken: string,
     userId: string,
-  ): string {
+  ): Promise<string> {
     const authCode = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 60000); // 60秒过期
+    const cacheKey = this.cacheService.buildKey(
+      CachePrefix.AUTH_CODE,
+      authCode,
+    );
 
-    this.authCodeStore.set(authCode, {
-      accessToken,
-      refreshToken,
-      userId,
-      expiresAt,
-    });
+    await this.cacheService.set<AuthCodeData>(
+      cacheKey,
+      { accessToken, refreshToken, userId, expiresAt: new Date() },
+      AuthService.AUTH_CODE_TTL,
+    );
 
     this.logger.debug(
-      `Auth code generated for user: ${userId}, expires at: ${expiresAt.toISOString()}`,
+      `Auth code generated for user: ${userId}, TTL: ${AuthService.AUTH_CODE_TTL}s`,
     );
     return authCode;
   }
@@ -133,24 +127,19 @@ export class AuthService {
   /**
    * 用授权码换取 token
    */
-  exchangeAuthCode(code: string): {
+  async exchangeAuthCode(code: string): Promise<{
     accessToken: string;
     refreshToken: string;
-  } {
-    const data = this.authCodeStore.get(code);
+  }> {
+    const cacheKey = this.cacheService.buildKey(CachePrefix.AUTH_CODE, code);
+    const data = await this.cacheService.get<AuthCodeData>(cacheKey);
 
     if (!data) {
       throw new UnauthorizedException("Invalid or expired authorization code");
     }
 
-    // 检查是否过期
-    if (data.expiresAt < new Date()) {
-      this.authCodeStore.delete(code);
-      throw new UnauthorizedException("Authorization code has expired");
-    }
-
     // 删除已使用的授权码（一次性使用）
-    this.authCodeStore.delete(code);
+    await this.cacheService.del(cacheKey);
 
     this.logger.log(`Auth code exchanged for user: ${data.userId}`);
 
