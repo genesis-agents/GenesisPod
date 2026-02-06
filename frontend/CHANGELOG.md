@@ -2,6 +2,28 @@
 
 Raven AI Engine 版本变更记录。
 
+### [3.50.6](https://github.com/your-org/ai-teams-engine/compare/v3.50.0...v3.50.6) (2026-02-06)
+
+
+### Bug Fixes
+
+* **admin:** fix diagnoseTools false positive "需要配置 API 密钥" ([6cae48d](https://github.com/your-org/ai-teams-engine/commit/6cae48d038f57e39677ff82f59ea33fa4ef8d2c1))
+* **admin:** fix provider icon 404s and dashboard resilience ([bc6eda4](https://github.com/your-org/ai-teams-engine/commit/bc6eda4a21c076a3c096b390806fd22705666e0d))
+* **admin:** make monitoring fetchData endpoints independent ([ce3ee90](https://github.com/your-org/ai-teams-engine/commit/ce3ee903969be216be6d6d93e273c305225ddc30))
+* **admin:** show incremental progress in batch collection drawer ([6476f19](https://github.com/your-org/ai-teams-engine/commit/6476f1913577e3fa67a6c8e5562e51cdc6b889ae))
+* **ci:** fix tag push and regenerate deduplicated CHANGELOG ([69cea64](https://github.com/your-org/ai-teams-engine/commit/69cea644c2ab18a4702987aa573bea190f89774c))
+
+
+### Refactoring
+
+* **ai-engine:** move business agents to AI App modules ([bfbbd90](https://github.com/your-org/ai-teams-engine/commit/bfbbd90facd4f0f6f0fd50fbb6507300633a128d))
+* **ai-engine:** replace hardcoded params with TaskProfile, add Redis + scoring ([20ce59d](https://github.com/your-org/ai-teams-engine/commit/20ce59dcd8a78dfcc450636bc574e426d37b1afd))
+
+
+### Performance
+
+* **backend:** optimize memory usage - limit Node.js heap + Puppeteer idle cleanup ([40ad1ee](https://github.com/your-org/ai-teams-engine/commit/40ad1ee64df3c4343d5791baaa287a285fdd4d66))
+
 ### [3.50.5](https://github.com/your-org/ai-teams-engine/compare/v3.50.0...v3.50.5) (2026-02-06)
 
 
