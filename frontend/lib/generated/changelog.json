@@ -1,5 +1,27 @@
 [
   {
+    "version": "3.50.3",
+    "date": "2026-02-06",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "fix provider icon 404s and dashboard resilience"
+      },
+      {
+        "type": "fix",
+        "description": "fix tag push and regenerate deduplicated CHANGELOG"
+      },
+      {
+        "type": "improvement",
+        "description": "move business agents to AI App modules"
+      },
+      {
+        "type": "improvement",
+        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
+      }
+    ]
+  },
+  {
     "version": "3.50.2",
     "date": "2026-02-06",
     "changes": [

@@ -2,6 +2,20 @@
 
 Raven AI Engine 版本变更记录。
 
+### [3.50.3](https://github.com/your-org/ai-teams-engine/compare/v3.50.0...v3.50.3) (2026-02-06)
+
+
+### Bug Fixes
+
+* **admin:** fix provider icon 404s and dashboard resilience ([bc6eda4](https://github.com/your-org/ai-teams-engine/commit/bc6eda4a21c076a3c096b390806fd22705666e0d))
+* **ci:** fix tag push and regenerate deduplicated CHANGELOG ([69cea64](https://github.com/your-org/ai-teams-engine/commit/69cea644c2ab18a4702987aa573bea190f89774c))
+
+
+### Refactoring
+
+* **ai-engine:** move business agents to AI App modules ([bfbbd90](https://github.com/your-org/ai-teams-engine/commit/bfbbd90facd4f0f6f0fd50fbb6507300633a128d))
+* **ai-engine:** replace hardcoded params with TaskProfile, add Redis + scoring ([20ce59d](https://github.com/your-org/ai-teams-engine/commit/20ce59dcd8a78dfcc450636bc574e426d37b1afd))
+
 ### [3.50.2](https://github.com/your-org/ai-teams-engine/compare/v3.50.0...v3.50.2) (2026-02-06)
 
 
