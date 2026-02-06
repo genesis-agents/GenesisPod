@@ -3,7 +3,8 @@
  * 速率限制器实现
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { CacheService } from "@/common/cache/cache.service";
 
 /**
  * 速率限制结果
@@ -93,9 +94,27 @@ export class RateLimiter {
     keyPrefix: "ratelimit",
   };
 
-  constructor() {
+  constructor(@Optional() private readonly cacheService?: CacheService) {
     // 定期清理过期条目
     setInterval(() => this.cleanup(), 60000);
+  }
+
+  /**
+   * 同步条目到 Redis（CacheService 内部已容错，失败不影响主流程）
+   */
+  private syncEntryToRedis(
+    config: RateLimitConfig,
+    key: string,
+    entry: RateLimitEntry,
+  ): void {
+    if (!this.cacheService) return;
+    const rKey = `ai:ratelimit:${config.keyPrefix}:${key}`;
+    const ttl = Math.ceil((config.windowMs * 2) / 1000);
+    this.cacheService.set(
+      rKey,
+      { count: entry.count, resetAt: entry.resetAt, requests: entry.requests },
+      ttl,
+    );
   }
 
   /**
@@ -177,6 +196,9 @@ export class RateLimiter {
       }
     }
 
+    // Sync to Redis (fire-and-forget, CacheService handles errors internally)
+    this.syncEntryToRedis(config, key, entry);
+
     return {
       allowed: true,
       remaining: Math.max(0, config.maxRequests - entry.count),
@@ -196,6 +218,11 @@ export class RateLimiter {
 
     const fullKey = `${config.keyPrefix}:${key}`;
     this.entries.delete(fullKey);
+
+    // Delete from Redis
+    if (this.cacheService) {
+      this.cacheService.del(`ai:ratelimit:${config.keyPrefix}:${key}`);
+    }
   }
 
   /**

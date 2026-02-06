@@ -475,7 +475,10 @@ ${content.slice(0, 2000)}
           },
           { role: "user", content: prompt },
         ],
-        maxTokens: 100,
+        taskProfile: {
+          creativity: "deterministic",
+          outputLength: "minimal",
+        },
       });
 
       const result = JSON.parse(response.content || "{}");

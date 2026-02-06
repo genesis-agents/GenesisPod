@@ -14,6 +14,7 @@ import {
   NotFoundException,
   UseGuards,
 } from "@nestjs/common";
+import { AIModelType } from "@prisma/client";
 import { ConfigService } from "@nestjs/config";
 import { Response, Request } from "express";
 import { AiCoreService } from "./ai-core.service";
@@ -675,8 +676,10 @@ ${webSearchContext}
           const result = await this.aiFacade.chat({
             messages: chatMessages,
             model: targetModelId,
-            maxTokens: 4000,
-            temperature: 0.7,
+            taskProfile: {
+              creativity: "medium",
+              outputLength: "medium",
+            },
           });
 
           // Send as SSE chunks
@@ -716,8 +719,10 @@ ${webSearchContext}
         const result = await this.aiFacade.chat({
           messages: chatMessages,
           model: targetModelId,
-          maxTokens: 4000,
-          temperature: 0.7,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "medium",
+          },
         });
 
         res.json({
@@ -835,8 +840,10 @@ JSON output:`;
       const result = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
         model: targetModelId,
-        maxTokens: 1500,
-        temperature: 0.7,
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "short",
+        },
       });
 
       // Try to parse JSON for methodology and insights
@@ -878,7 +885,7 @@ JSON output:`;
     try {
       // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
       const fastModel = await this.aiFacade.getDefaultModelByType(
-        "CHAT_FAST" as any,
+        AIModelType.CHAT_FAST,
       );
       // 如果没有 CHAT_FAST，fallback 到默认 CHAT
       const modelConfig =
@@ -900,8 +907,10 @@ JSON output:`;
       const result = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
         model: modelConfig.modelId,
-        maxTokens: 1000,
-        temperature: 0.5,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "short",
+        },
       });
 
       return {
@@ -938,7 +947,7 @@ JSON output:`;
     try {
       // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
       const fastModel = await this.aiFacade.getDefaultModelByType(
-        "CHAT_FAST" as any,
+        AIModelType.CHAT_FAST,
       );
       const modelConfig =
         fastModel || (await this.aiFacade.getDefaultTextModel());
@@ -968,8 +977,10 @@ JSON output:`;
       const result = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
         model: modelConfig.modelId,
-        maxTokens: 1500,
-        temperature: 0.7,
+        taskProfile: {
+          creativity: "deterministic",
+          outputLength: "short",
+        },
       });
 
       const jsonContent = this.extractJsonArray(result.content);
@@ -1042,7 +1053,7 @@ JSON output:`;
     try {
       // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
       const fastModel = await this.aiFacade.getDefaultModelByType(
-        "CHAT_FAST" as any,
+        AIModelType.CHAT_FAST,
       );
       const modelConfig =
         fastModel || (await this.aiFacade.getDefaultTextModel());
@@ -1080,8 +1091,11 @@ Translation:`;
       const result = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
         model: modelConfig.modelId,
-        maxTokens: dynamicMaxTokens,
-        temperature: 0.3,
+        maxTokens: dynamicMaxTokens, // Keep: dynamically calculated based on input length
+        taskProfile: {
+          creativity: "low",
+          outputLength: "medium",
+        },
       });
 
       return {

@@ -12,6 +12,10 @@ import {
   StatisticsService,
 } from "./services";
 import { APP_CONFIG } from "../../../common/config/app.config";
+import {
+  inferIsReasoning,
+  getKnownModelLimit,
+} from "../../ai-engine/llm/types";
 
 type ExternalProvider = {
   id: string;
@@ -384,6 +388,71 @@ export class AdminService {
   }
 
   /**
+   * 校验并修正模型配置，返回修正后的数据和警告信息
+   * 在 createAIModel / updateAIModel 写入数据库前调用
+   */
+  private validateAndCorrectModelConfig(
+    modelId: string,
+    data: {
+      maxTokens?: number;
+      isReasoning?: boolean;
+      tokenParamName?: string;
+      supportsTemperature?: boolean;
+    },
+  ): { corrected: typeof data; warnings: string[] } {
+    const warnings: string[] = [];
+    const corrected = { ...data };
+
+    // 1. maxTokens 超过已知 API 限制 → 自动修正
+    const knownLimit = getKnownModelLimit(modelId);
+    if (
+      knownLimit &&
+      corrected.maxTokens !== undefined &&
+      corrected.maxTokens > knownLimit
+    ) {
+      warnings.push(
+        `maxTokens ${corrected.maxTokens} exceeds known API limit ${knownLimit} for ${modelId}, auto-corrected`,
+      );
+      this.logger.warn(
+        `[validateModelConfig] ${modelId}: maxTokens ${corrected.maxTokens} -> ${knownLimit} (known API limit)`,
+      );
+      corrected.maxTokens = knownLimit;
+    }
+
+    // 2. isReasoning 与模型名称不匹配 → 附 warning
+    if (corrected.isReasoning !== undefined) {
+      const inferredReasoning = inferIsReasoning(modelId);
+      if (corrected.isReasoning && !inferredReasoning) {
+        warnings.push(
+          `isReasoning=true but "${modelId}" does not match known reasoning model patterns. Verify this is correct.`,
+        );
+        this.logger.warn(
+          `[validateModelConfig] ${modelId}: isReasoning=true but name does not match reasoning patterns`,
+        );
+      }
+
+      // 3. 自动设置推理模型相关参数
+      if (corrected.isReasoning) {
+        if (corrected.tokenParamName === undefined) {
+          corrected.tokenParamName = "max_completion_tokens";
+        }
+        if (corrected.supportsTemperature === undefined) {
+          corrected.supportsTemperature = false;
+        }
+      } else {
+        if (corrected.tokenParamName === undefined) {
+          corrected.tokenParamName = "max_tokens";
+        }
+        if (corrected.supportsTemperature === undefined) {
+          corrected.supportsTemperature = true;
+        }
+      }
+    }
+
+    return { corrected, warnings };
+  }
+
+  /**
    * 创建或更新AI模型 (upsert)
    * 根据 modelId 判断：
    * - 如果相同 modelId 已存在，则更新该模型
@@ -424,6 +493,21 @@ export class AdminService {
     this.logger.log(
       `createAIModel called: name=${data.name}, modelId=${data.modelId}, apiKeyProvided=${!!apiKey}, apiKeyLength=${apiKey?.length || 0}`,
     );
+
+    // ★ 校验并修正模型配置
+    const { corrected, warnings } = this.validateAndCorrectModelConfig(
+      data.modelId,
+      {
+        maxTokens: data.maxTokens,
+        isReasoning: data.isReasoning,
+        tokenParamName: data.tokenParamName,
+        supportsTemperature: data.supportsTemperature,
+      },
+    );
+    data.maxTokens = corrected.maxTokens;
+    data.isReasoning = corrected.isReasoning;
+    data.tokenParamName = corrected.tokenParamName;
+    data.supportsTemperature = corrected.supportsTemperature;
 
     // 根据 modelId 和 name 检查是否存在完全相同的模型配置
     // 如果只有 modelId 相同但 name 不同，则创建新配置（支持横向扩展）
@@ -500,6 +584,7 @@ export class AdminService {
         apiKey: updated.apiKey ? this.maskApiKey(updated.apiKey) : null,
         hasApiKey: !!updated.apiKey || !!updated.secretKey,
         isUpdate: true, // 标记这是更新操作
+        warnings,
       };
     }
 
@@ -545,6 +630,7 @@ export class AdminService {
       apiKey: model.apiKey ? this.maskApiKey(model.apiKey) : null,
       hasApiKey: !!model.apiKey || !!model.secretKey,
       isUpdate: false, // 标记这是创建操作
+      warnings,
     };
   }
 
@@ -612,6 +698,16 @@ export class AdminService {
       }
     }
 
+    // ★ 校验并修正模型配置
+    const effectiveModelId = data.modelId ?? model.modelId;
+    const { corrected: updateCorrected, warnings: updateWarnings } =
+      this.validateAndCorrectModelConfig(effectiveModelId, {
+        maxTokens: data.maxTokens,
+        isReasoning: data.isReasoning,
+        tokenParamName: data.tokenParamName,
+        supportsTemperature: data.supportsTemperature,
+      });
+
     const updated = await this.prisma.aIModel.update({
       where: { id },
       data: {
@@ -624,18 +720,18 @@ export class AdminService {
         apiEndpoint: data.apiEndpoint,
         apiKey: apiKeyUpdate,
         secretKey: (data as any).secretKey,
-        maxTokens: data.maxTokens,
+        maxTokens: updateCorrected.maxTokens,
         temperature: data.temperature,
         description: data.description,
         isEnabled: data.isEnabled,
-        isReasoning: data.isReasoning,
+        isReasoning: updateCorrected.isReasoning,
         // ★ 新增：模型能力配置字段
         apiFormat: data.apiFormat,
-        supportsTemperature: data.supportsTemperature,
+        supportsTemperature: updateCorrected.supportsTemperature,
         supportsStreaming: data.supportsStreaming,
         supportsFunctionCalling: data.supportsFunctionCalling,
         supportsVision: data.supportsVision,
-        tokenParamName: data.tokenParamName,
+        tokenParamName: updateCorrected.tokenParamName,
         defaultTimeoutMs: data.defaultTimeoutMs,
         priceInputPerMillion: data.priceInputPerMillion,
         priceOutputPerMillion: data.priceOutputPerMillion,
@@ -651,6 +747,7 @@ export class AdminService {
       ...updated,
       apiKey: updated.apiKey ? this.maskApiKey(updated.apiKey) : null,
       hasApiKey: !!updated.apiKey || !!updated.secretKey,
+      warnings: updateWarnings,
     };
   }
 

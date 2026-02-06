@@ -260,8 +260,6 @@ ${chunk.content}
       const response = await this.aiChatService.chat({
         modelType,
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
-        maxTokens: 800,
         taskProfile: {
           creativity: "low",
           outputLength: "short",
@@ -405,8 +403,7 @@ ${combinedText}
       const response = await this.aiChatService.chat({
         modelType,
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
-        maxTokens: 600,
+        taskProfile: { creativity: "low", outputLength: "short" },
       });
 
       return {
@@ -448,8 +445,6 @@ ${summaryText}
       const response = await this.aiChatService.chat({
         modelType,
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
-        maxTokens: 800,
         taskProfile: {
           creativity: "low",
           outputLength: "short",

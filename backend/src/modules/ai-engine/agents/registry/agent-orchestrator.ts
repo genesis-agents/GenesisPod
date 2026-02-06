@@ -178,24 +178,57 @@ export class AgentOrchestrator {
 
   /**
    * 选择适合的 Agent
-   * 基于已注册 Agent 的 selectionKeywords 进行数据驱动匹配
+   * 基于加权评分算法选择最匹配的 Agent
+   *
+   * 评分规则:
+   * - 每个匹配关键词 +1 分
+   * - 匹配率加成：匹配数/总关键词数
+   * - 最高分胜出
    */
   private async selectAgent(input: AgentInput): Promise<AgentId | null> {
     const prompt = input.prompt?.toLowerCase() || "";
-
-    // 遍历所有已注册 Agent，检查 selectionKeywords 匹配
     const agents = this.registry.getAll();
+
+    let bestAgent: AgentId | null = null;
+    let bestScore = 0;
+
     for (const agent of agents) {
       const config = agent.getConfig();
       const keywords = config.selectionKeywords || [];
-      if (keywords.length > 0 && keywords.some((kw) => prompt.includes(kw))) {
-        return agent.id;
+      if (keywords.length === 0) continue;
+
+      let score = 0;
+      let matchCount = 0;
+
+      for (const kw of keywords) {
+        if (prompt.includes(kw.toLowerCase())) {
+          matchCount++;
+          score += 1;
+        }
+      }
+
+      // 匹配率加成: 匹配关键词占总关键词的比例
+      if (matchCount > 0) {
+        score += matchCount / keywords.length;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestAgent = agent.id;
       }
     }
 
     // 无匹配时返回第一个已注册的 Agent
-    const agentIds = this.registry.getAllIds();
-    return agentIds.length > 0 ? agentIds[0] : null;
+    if (!bestAgent) {
+      const agentIds = this.registry.getAllIds();
+      return agentIds.length > 0 ? agentIds[0] : null;
+    }
+
+    this.logger.debug(
+      `[selectAgent] Selected ${bestAgent} (score: ${bestScore.toFixed(2)}) for prompt: "${prompt.slice(0, 50)}"`,
+    );
+
+    return bestAgent;
   }
 
   /**

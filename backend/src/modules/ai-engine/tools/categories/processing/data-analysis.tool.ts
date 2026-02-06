@@ -202,8 +202,15 @@ export class DataAnalysisTool extends BaseTool<
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        maxTokens: depth === "deep" ? 4000 : depth === "standard" ? 2000 : 1000,
-        temperature: 0.3,
+        taskProfile: {
+          creativity: "low",
+          outputLength:
+            depth === "deep"
+              ? "long"
+              : depth === "standard"
+                ? "medium"
+                : "short",
+        },
       });
 
       // 解析响应

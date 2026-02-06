@@ -259,8 +259,11 @@ export class StructuredOutputTool extends BaseTool<
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature,
-        maxTokens: 4000,
+        taskProfile: {
+          creativity:
+            temperature <= 0.3 ? "low" : temperature <= 0.5 ? "medium" : "high",
+          outputLength: "medium",
+        },
       });
 
       let rawOutput = response.content.trim();

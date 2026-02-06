@@ -313,7 +313,10 @@ ${recentSummariesText}
           { role: "system", content: "你是一个专业的内容摘要助手。" },
           { role: "user", content: prompt },
         ],
-        maxTokens: 500,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "minimal",
+        },
       });
 
       const newSummary = response.content || projectStore.globalSummary;
@@ -431,7 +434,10 @@ ${projectInfo.description}
             content: `请为以下内容（标题：${title}）生成不超过${maxLength}字的摘要：\n\n${content.slice(0, 2000)}`,
           },
         ],
-        maxTokens: 300,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "short",
+        },
       });
 
       return response.content || content.slice(0, maxLength) + "...";

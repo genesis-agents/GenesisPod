@@ -77,8 +77,6 @@ export class ContextEvolutionService implements IContextEvolutionService {
           { role: "user", content: extractionPrompt },
         ],
         {
-          maxTokens: 2000,
-          temperature: 0.2,
           taskProfile: {
             creativity: "deterministic",
             outputLength: "medium",

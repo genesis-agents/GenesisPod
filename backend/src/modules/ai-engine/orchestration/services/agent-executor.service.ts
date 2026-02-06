@@ -41,6 +41,10 @@ interface CircuitBreakerState {
 const DEFAULT_CONFIG: ExecutionConfig = {
   maxTokens: 4000,
   temperature: 0.7,
+  taskProfile: {
+    creativity: "medium",
+    outputLength: "medium",
+  },
   enableSearch: false,
   maxRetries: 3,
   retryInitialDelay: 1000,

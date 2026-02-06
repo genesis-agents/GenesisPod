@@ -4,6 +4,7 @@ import { SecretsService } from "../../../core/secrets/secrets.service";
 import { UserApiKeysService } from "../../../core/user-api-keys/user-api-keys.service";
 import { RequestContext } from "../../../../common/context/request-context";
 import { AIModelType } from "@prisma/client";
+import { inferIsReasoning } from "../types";
 
 /**
  * API Key 来源标识
@@ -336,29 +337,10 @@ export class AiModelConfigService {
   /**
    * 根据模型名称推断是否为推理模型
    * 当数据库中没有 isReasoning 字段时使用
+   * ★ 委托给共享纯函数 inferIsReasoning()
    */
   private inferIsReasoning(modelId: string): boolean {
-    const modelLower = modelId.toLowerCase();
-    return (
-      // OpenAI reasoning models
-      modelLower.includes("o1") ||
-      modelLower.includes("o3") ||
-      modelLower.includes("gpt-5") ||
-      modelLower.includes("gpt5") ||
-      // Google/Gemini reasoning models
-      modelLower.includes("gemini-2.0-flash-thinking") ||
-      modelLower.includes("gemini-3") || // gemini-3-pro-preview, etc.
-      modelLower.includes("gemini-exp") ||
-      // DeepSeek reasoning models
-      modelLower.includes("deepseek-r1") ||
-      modelLower.includes("deepseek-reasoner") ||
-      // Anthropic reasoning models
-      modelLower.includes("claude-3.5-opus") ||
-      modelLower.includes("claude-4") ||
-      // Generic reasoning keyword
-      modelLower.includes("reasoning") ||
-      modelLower.includes("thinking")
-    );
+    return inferIsReasoning(modelId);
   }
 
   /**

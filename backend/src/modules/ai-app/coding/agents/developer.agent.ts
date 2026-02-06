@@ -28,7 +28,7 @@ import {
   AiChatService,
   ChatMessage,
 } from "../../../ai-engine/llm/services/ai-chat.service";
-import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { AIModelType } from "@prisma/client";
 
 @Injectable()
 export class DeveloperAgent extends PlanBasedAgent {
@@ -120,10 +120,7 @@ export class DeveloperAgent extends PlanBasedAgent {
     "coding",
   ];
 
-  constructor(
-    private readonly aiChatService: AiChatService,
-    private readonly aiFacade: AIEngineFacade,
-  ) {
+  constructor(private readonly aiChatService: AiChatService) {
     super();
   }
 
@@ -224,16 +221,6 @@ export class DeveloperAgent extends PlanBasedAgent {
         message: "正在分析需求...",
       };
 
-      // ★ 使用 AIEngineFacade 获取默认文本模型
-      const preferredModelId = input.options?.textModelId as string | undefined;
-      const textModel = preferredModelId
-        ? await this.aiFacade.getModelById(preferredModelId)
-        : await this.aiFacade.getDefaultTextModel();
-
-      if (!textModel) {
-        throw new Error("No text model available");
-      }
-
       // 构建系统提示
       const systemPrompt = this.buildSystemPrompt(input);
       const userPrompt = this.buildUserPrompt(input);
@@ -247,14 +234,16 @@ export class DeveloperAgent extends PlanBasedAgent {
       };
 
       // 调用 AI 服务
-      // ★ 不传递 apiKey/provider，让 aiChatService 自动从 Secret Manager 获取
+      // ★ 使用 taskProfile 替代硬编码参数，让 AI Engine 处理模型细节
       const messages: ChatMessage[] = [{ role: "user", content: userPrompt }];
       const result = await this.aiChatService.chat({
-        model: textModel.modelId,
         systemPrompt,
         messages,
-        maxTokens: textModel.maxTokens || 4096,
-        temperature: 0.2, // 低温度以获得更确定性的代码
+        modelType: AIModelType.CHAT,
+        taskProfile: {
+          creativity: "low", // temperature 0.3，代码生成需确定性
+          outputLength: "medium", // maxTokens 4000
+        },
       });
 
       yield {

@@ -20,7 +20,9 @@ import {
   Logger,
   OnModuleInit,
   OnModuleDestroy,
+  Optional,
 } from "@nestjs/common";
+import { CacheService } from "@/common/cache/cache.service";
 
 // ==================== 类型定义 ====================
 
@@ -103,6 +105,8 @@ export class ExecutionStateManager implements OnModuleInit, OnModuleDestroy {
   /** 清理定时器 */
   private cleanupInterval: NodeJS.Timeout | null = null;
 
+  constructor(@Optional() private readonly cacheService?: CacheService) {}
+
   // ==================== 生命周期 ====================
 
   onModuleInit(): void {
@@ -142,6 +146,13 @@ export class ExecutionStateManager implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  /**
+   * Redis 键生成
+   */
+  private redisStateKey(category: string, id: string): string {
+    return `ai:state:${category}:${id}`;
+  }
+
   // ==================== 状态操作 API ====================
 
   /**
@@ -172,6 +183,17 @@ export class ExecutionStateManager implements OnModuleInit, OnModuleDestroy {
     this.logger.debug(
       `[ExecutionStateManager] Started ${category}:${id}. Active in category: ${categoryStore.size}`,
     );
+
+    // Dual-write to Redis (CacheService handles errors internally)
+    if (this.cacheService) {
+      const entry = categoryStore.get(id)!;
+      this.cacheService.set(
+        this.redisStateKey(category, id),
+        entry,
+        Math.ceil(this.ttlMs / 1000),
+      );
+    }
+
     return true;
   }
 
@@ -184,6 +206,11 @@ export class ExecutionStateManager implements OnModuleInit, OnModuleDestroy {
       this.logger.debug(
         `[ExecutionStateManager] Finished ${category}:${id}. Active in category: ${categoryStore.size}`,
       );
+
+      // Delete from Redis
+      if (this.cacheService) {
+        this.cacheService.del(this.redisStateKey(category, id));
+      }
     }
   }
 

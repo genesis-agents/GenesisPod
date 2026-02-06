@@ -151,6 +151,8 @@ export interface ExecutionConfig {
   maxTokens?: number;
   /** 温度参数 */
   temperature?: number;
+  /** TaskProfile for semantic parameter mapping */
+  taskProfile?: TaskProfile;
   /** 是否启用搜索增强 */
   enableSearch?: boolean;
   /** 最大重试次数 */

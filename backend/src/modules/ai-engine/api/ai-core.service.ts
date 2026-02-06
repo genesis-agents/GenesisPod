@@ -72,8 +72,11 @@ export class AiCoreService {
       const result = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
         model: modelConfig.modelId,
-        maxTokens: dynamicMaxTokens,
-        temperature: 0.3,
+        maxTokens: dynamicMaxTokens, // Keep: dynamically calculated based on input length
+        taskProfile: {
+          creativity: "low",
+          outputLength: "medium",
+        },
       });
 
       return result.content;

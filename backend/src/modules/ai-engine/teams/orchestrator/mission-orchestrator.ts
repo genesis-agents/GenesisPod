@@ -615,7 +615,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
             { role: "user", content: input.prompt },
           ],
           model: this.llmFactory.getDefaultModel(),
-          temperature: 0.3,
+          taskProfile: { creativity: "low", outputLength: "short" },
         }),
         timeoutPromise,
       ]);
@@ -1376,7 +1376,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
               { role: "user", content: userPrompt },
             ],
             model: executor.model,
-            temperature: 0.5, // 返工时使用较低温度
+            taskProfile: { creativity: "low", outputLength: "medium" },
           });
 
           if (response.usage) {
@@ -1676,7 +1676,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
               { role: "user", content: JSON.stringify(output) },
             ],
             model: team.leader.model,
-            temperature: 0.3,
+            taskProfile: { creativity: "low", outputLength: "short" },
           });
 
           if (response.usage) {

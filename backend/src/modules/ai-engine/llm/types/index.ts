@@ -16,4 +16,7 @@ export {
   OUTPUT_LENGTH_TO_TOKENS,
   REASONING_MODEL_MIN_TOKENS,
   JSON_OUTPUT_MAX_TEMPERATURE,
+  MODEL_KNOWN_LIMITS,
 } from "./task-profile";
+
+export { inferIsReasoning, getKnownModelLimit } from "./model-utils";

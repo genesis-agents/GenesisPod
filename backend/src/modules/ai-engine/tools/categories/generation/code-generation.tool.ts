@@ -212,8 +212,10 @@ ${referenceCode}
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        maxTokens: 4000,
-        temperature: 0.3, // 代码生成使用较低温度
+        taskProfile: {
+          creativity: "low", // 代码生成使用较低温度
+          outputLength: "medium",
+        },
       });
 
       // 解析响应

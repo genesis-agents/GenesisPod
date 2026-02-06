@@ -152,3 +152,43 @@ export const REASONING_MODEL_MIN_TOKENS = 25000;
  * 确保输出结构稳定
  */
 export const JSON_OUTPUT_MAX_TEMPERATURE = 0.3;
+
+/**
+ * 已知模型的实际最大 output tokens 限制
+ *
+ * ★ 用于兜底校验：即使数据库 maxTokens 配置错误，也不会超过 API 实际限制
+ * 使用 Array 而非 Record，因为需要有序前缀匹配（如 gpt-4o-mini 必须在 gpt-4o 之前）
+ *
+ * 格式：[模型名称前缀(小写), 最大 output tokens]
+ */
+export const MODEL_KNOWN_LIMITS: Array<[string, number]> = [
+  // OpenAI
+  ["gpt-4o-mini", 16384],
+  ["gpt-4o", 16384],
+  ["gpt-4-turbo", 4096],
+  ["gpt-4", 8192],
+  ["o1-mini", 65536],
+  ["o1-pro", 100000],
+  ["o1", 100000],
+  ["o3-mini", 65536],
+  ["o3", 100000],
+  ["o4-mini", 100000],
+  // Anthropic
+  ["claude-sonnet-4", 16384],
+  ["claude-opus-4", 16384],
+  ["claude-3.5-sonnet", 8192],
+  ["claude-3.5-haiku", 8192],
+  ["claude-3-opus", 4096],
+  ["claude-3-sonnet", 8192],
+  ["claude-3-haiku", 4096],
+  // Google Gemini
+  ["gemini-2.5", 65536],
+  ["gemini-2.0", 8192],
+  ["gemini-3", 65536],
+  // xAI
+  ["grok-3", 131072],
+  ["grok-4", 16384],
+  // DeepSeek
+  ["deepseek-reasoner", 65536],
+  ["deepseek-chat", 8192],
+];

@@ -7,6 +7,7 @@ import {
   OUTPUT_LENGTH_TO_TOKENS,
   REASONING_MODEL_MIN_TOKENS,
   JSON_OUTPUT_MAX_TEMPERATURE,
+  getKnownModelLimit,
 } from "../types";
 import { AIModelConfig } from "./ai-chat.service";
 
@@ -32,6 +33,9 @@ export interface MappedParameters {
 @Injectable()
 export class TaskProfileMapperService {
   private readonly logger = new Logger(TaskProfileMapperService.name);
+
+  /** 已警告过的模型硬限制，避免日志洪水 */
+  private readonly warnedHardCaps = new Set<string>();
 
   /**
    * 将 TaskProfile 映射为具体模型参数
@@ -131,7 +135,21 @@ export class TaskProfileMapperService {
       }
     }
 
-    // 4. JSON 格式需要更低 temperature（Phase 2 完整实现）
+    // 4. 硬限制兜底：基于已知模型的实际 API 限制
+    const knownLimit = getKnownModelLimit(modelConfig?.modelId ?? "");
+    if (knownLimit && effectiveMaxTokens > knownLimit) {
+      const warnKey = modelConfig?.modelId ?? "";
+      if (!this.warnedHardCaps.has(warnKey)) {
+        this.logger.warn(
+          `[mapToParameters] Hard cap: ${effectiveMaxTokens} -> ${knownLimit} ` +
+            `(${modelConfig?.modelId} known API limit). Update maxTokens in database.`,
+        );
+        this.warnedHardCaps.add(warnKey);
+      }
+      effectiveMaxTokens = knownLimit;
+    }
+
+    // 5. JSON 格式需要更低 temperature（Phase 2 完整实现）
     let effectiveTemperature = baseTemperature;
     if (profile.outputFormat === "json") {
       const originalTemp = effectiveTemperature;
@@ -147,7 +165,7 @@ export class TaskProfileMapperService {
       }
     }
 
-    // 5. 记录最终结果
+    // 6. 记录最终结果
     this.logger.debug(
       `[mapToParameters] Final parameters: ` +
         `temp=${effectiveTemperature}, maxTokens=${effectiveMaxTokens} ` +

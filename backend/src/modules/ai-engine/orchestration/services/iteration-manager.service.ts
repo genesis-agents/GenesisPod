@@ -21,6 +21,7 @@ import { AiChatService } from "../../llm/services/ai-chat.service";
 import { ToolRegistry } from "../../tools/registry/tool-registry";
 import type { ToolContext } from "../../tools/abstractions/tool.interface";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { AIModelType } from "@prisma/client";
 
 /**
  * 版本存储（内存实现，后续可替换为数据库）
@@ -1022,8 +1023,8 @@ ${context?.accumulatedKnowledge.facts.length ? `## 已知事实\n${context.accum
   private async callAI(
     prompt: string,
   ): Promise<{ content: string; tokensUsed: number }> {
-    const result = await this.aiChatService.generateChatCompletion({
-      model: "gpt-4o",
+    const result = await this.aiChatService.chat({
+      modelType: AIModelType.CHAT,
       messages: [
         {
           role: "system",
@@ -1031,13 +1032,15 @@ ${context?.accumulatedKnowledge.facts.length ? `## 已知事实\n${context.accum
         },
         { role: "user", content: prompt },
       ],
-      maxTokens: 4000,
-      temperature: 0.7,
+      taskProfile: {
+        creativity: "medium",
+        outputLength: "medium",
+      },
     });
 
     return {
       content: result.content,
-      tokensUsed: result.tokensUsed || 0,
+      tokensUsed: result.usage?.totalTokens || 0,
     };
   }
 

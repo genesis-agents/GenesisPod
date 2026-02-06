@@ -191,6 +191,10 @@ export class FunctionCallingExecutor {
     enableRetry: true,
     temperature: 0.7,
     maxTokens: 4096,
+    taskProfile: {
+      creativity: "medium",
+      outputLength: "medium",
+    },
   };
 
   constructor(

@@ -117,8 +117,7 @@ ${task.context ? `上下文：${JSON.stringify(task.context)}` : ""}`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.3,
-        maxTokens: 2000,
+        taskProfile: { creativity: "low", outputLength: "medium" },
       });
 
       // 解析 JSON 响应
@@ -216,8 +215,7 @@ ${typeof output.content === "string" ? output.content : JSON.stringify(output.co
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.2,
-        maxTokens: 1500,
+        taskProfile: { creativity: "deterministic", outputLength: "short" },
       });
 
       // 解析 JSON 响应
@@ -318,8 +316,7 @@ ${typeof r.content === "string" ? r.content : JSON.stringify(r.content, null, 2)
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.4,
-        maxTokens: 4000,
+        taskProfile: { creativity: "low", outputLength: "medium" },
       });
 
       // 解析 JSON 响应

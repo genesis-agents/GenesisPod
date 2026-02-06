@@ -27,9 +27,7 @@ import {
 } from "./interfaces";
 
 @Injectable()
-export class ContextInitializationService
-  implements IContextInitializationService
-{
+export class ContextInitializationService implements IContextInitializationService {
   private readonly logger = new Logger(ContextInitializationService.name);
 
   /**
@@ -156,8 +154,6 @@ export class ContextInitializationService
         { role: "user", content: prompt },
       ],
       {
-        maxTokens: 8000,
-        temperature: 0.7,
         taskProfile: {
           creativity: "medium",
           outputLength: "long",

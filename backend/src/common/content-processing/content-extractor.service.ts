@@ -178,7 +178,7 @@ export class ContentExtractorService {
             ],
             generationConfig: {
               maxOutputTokens: 1000,
-              temperature: 0.3,
+              temperature: 0.3, // Direct Gemini API call, not using AiChatService
             },
           },
           {

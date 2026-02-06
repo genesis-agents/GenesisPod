@@ -3,8 +3,9 @@
  * 成本控制器实现
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { LruMap } from "@/common/utils/lru-map";
+import { CacheService } from "@/common/cache/cache.service";
 
 /**
  * 成本记录
@@ -179,7 +180,7 @@ export class CostController {
     },
   ];
 
-  constructor() {
+  constructor(@Optional() private readonly cacheService?: CacheService) {
     this.initializeDefaultPricing();
   }
 
@@ -190,6 +191,14 @@ export class CostController {
     for (const pricing of CostController.DEFAULT_PRICING) {
       this.pricing.set(pricing.model, pricing);
     }
+  }
+
+  /**
+   * 计算预算的 Redis TTL（秒），基于周期剩余时间
+   */
+  private budgetTtlSeconds(budget: CostBudget): number {
+    const remainingMs = budget.periodEnd.getTime() - Date.now();
+    return Math.max(Math.ceil(remainingMs / 1000), 60); // 至少 60 秒
   }
 
   /**
@@ -233,6 +242,16 @@ export class CostController {
 
     // 更新预算使用量
     this.updateBudgets(fullRecord);
+
+    // Write record to Redis (CacheService handles errors internally)
+    if (this.cacheService) {
+      const dateKey = fullRecord.timestamp.toISOString().slice(0, 10);
+      this.cacheService.set(
+        `ai:cost:record:${fullRecord.category}:${dateKey}:${fullRecord.id}`,
+        fullRecord,
+        86400,
+      );
+    }
 
     return fullRecord;
   }
@@ -330,6 +349,14 @@ export class CostController {
 
     this.budgets.set(budget.id, budget);
 
+    if (this.cacheService) {
+      this.cacheService.set(
+        `ai:cost:budget:${budget.id}`,
+        budget,
+        this.budgetTtlSeconds(budget),
+      );
+    }
+
     return budget;
   }
 
@@ -410,6 +437,15 @@ export class CostController {
             `Budget "${budget.name}" reached ${(usageRate * 100).toFixed(1)}% of limit`,
           );
         }
+      }
+
+      // Sync updated budget to Redis
+      if (this.cacheService) {
+        this.cacheService.set(
+          `ai:cost:budget:${budget.id}`,
+          budget,
+          this.budgetTtlSeconds(budget),
+        );
       }
     }
   }

@@ -480,7 +480,7 @@ export class DataFetchingService {
               content: query,
             },
           ],
-          temperature: 0.1,
+          temperature: 0.1, // Direct Perplexity API call, not using AiChatService
           max_tokens: 1000,
         },
         {

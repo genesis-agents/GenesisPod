@@ -92,8 +92,6 @@ export class OutputReviewerService implements IOutputReviewerService {
       let result: { content: string; tokensUsed: number };
       if (aiCaller) {
         result = await aiCaller(request.leader.aiModel, messages, {
-          maxTokens: 2000,
-          temperature: 0.3,
           taskProfile: {
             creativity: "low",
             outputLength: "medium",
@@ -106,7 +104,7 @@ export class OutputReviewerService implements IOutputReviewerService {
           request.leader.aiModel,
           [{ role: "user", content: reviewPrompt }],
           systemPrompt,
-          { maxTokens: 2000, temperature: 0.3 },
+          { taskProfile: { creativity: "low", outputLength: "medium" } },
           modelConfig,
         );
       }
@@ -173,7 +171,7 @@ ${content.substring(0, 10000)}${content.length > 10000 ? "\n...(内容已截断)
             { role: "system", content: systemPrompt },
             { role: "user", content: prompt },
           ],
-          { maxTokens: 1500, temperature: 0.3 },
+          { taskProfile: { creativity: "low", outputLength: "short" } },
         );
       } else {
         // 回退到内部实现
@@ -182,7 +180,7 @@ ${content.substring(0, 10000)}${content.length > 10000 ? "\n...(内容已截断)
           model,
           [{ role: "user", content: prompt }],
           systemPrompt,
-          { maxTokens: 1500, temperature: 0.3 },
+          { taskProfile: { creativity: "low", outputLength: "short" } },
           modelConfig,
         );
       }
@@ -235,7 +233,7 @@ ${content.substring(0, 10000)}${content.length > 10000 ? "\n...(内容已截断)
             { role: "system", content: systemPrompt },
             { role: "user", content: revisionPrompt },
           ],
-          { maxTokens: 6000, temperature: 0.5 },
+          { taskProfile: { creativity: "low", outputLength: "standard" } },
         );
       } else {
         // 回退到内部实现
@@ -244,7 +242,7 @@ ${content.substring(0, 10000)}${content.length > 10000 ? "\n...(内容已截断)
           model,
           [{ role: "user", content: revisionPrompt }],
           systemPrompt,
-          { maxTokens: 6000, temperature: 0.5 },
+          { taskProfile: { creativity: "low", outputLength: "standard" } },
           modelConfig,
         );
       }
@@ -546,11 +544,12 @@ ${request.issues.map((issue, i) => `${i + 1}. ${issue}`).join("\n")}
     options: {
       maxTokens?: number;
       temperature?: number;
+      taskProfile?: TaskProfile;
     },
     modelConfig: Awaited<ReturnType<typeof this.getModelConfig>>,
   ): Promise<{ content: string; tokensUsed: number }> {
-    // Map legacy options to taskProfile
-    const taskProfile = {
+    // Use taskProfile if provided, otherwise map legacy options
+    const taskProfile = options.taskProfile || {
       creativity: this.mapTemperatureToCreativity(options.temperature ?? 0.7),
       outputLength: this.mapMaxTokensToOutputLength(options.maxTokens || 4000),
     };
