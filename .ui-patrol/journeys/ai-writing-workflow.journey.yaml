@@ -1,0 +1,25 @@
+# AI Writing Workflow Journey
+# Covers: WRT-001~006, E2E-004 from test plan
+id: ai-writing-workflow
+tier: important
+auth: demo
+description: >
+  Tests AI Writing workflow: view projects list, verify project cards,
+  check writing interface elements, outline/chapter structure.
+
+steps:
+  # Navigate to writing list
+  - navigate: /ai-writing
+  - wait: ".writing-card, [data-testid='writing-list'], .project-card"
+  - assert:
+      element_visible: ".writing-card, [data-testid='writing-list'], .project-card"
+      text_not_contains:
+        - "[object Object]"
+        - "undefined"
+        - "Error"
+
+  # Verify writing projects are listed (WRT-001)
+  - assert:
+      element_count_min:
+        selector: ".writing-card, .project-card, [data-testid='writing-item']"
+        min: 1

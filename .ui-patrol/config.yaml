@@ -115,6 +115,226 @@ quality:
       - lazy_load: "图片/长列表支持懒加载，非一次性全量渲染"
       - no_memory_leak: "重复操作无明显内存增长"
 
+# ============================================================
+# Security Assessment (Level 8)
+# Maps to: DFX-S-001~015 from comprehensive-test-plan-2026-02-06.md
+# ============================================================
+security:
+  enabled: true
+  checks:
+    - xss_prevention: "User input escaped in rendered HTML (DFX-S-001)"
+    - sql_injection_safe: "All queries use Prisma parameterized queries (DFX-S-002)"
+    - prompt_injection_filtered: "PromptSanitizer active on all AI inputs (DFX-S-003)"
+    - csrf_protection: "State-changing APIs protected against CSRF (DFX-S-004)"
+    - authorization_enforced: "Users cannot access other users' data (DFX-S-005)"
+    - jwt_validation: "Invalid/expired tokens return 401 (DFX-S-006)"
+    - file_upload_restricted: "Executable files (.exe, .bat, .sh) rejected (DFX-S-007)"
+    - file_size_limited: "Uploads > configured max rejected (DFX-S-008)"
+    - rate_limiting: "API rate limits enforced per user (DFX-S-009)"
+    - sensitive_data_hidden: "Passwords/secrets not in API responses (DFX-S-010)"
+    - https_enforced: "HTTP redirects to HTTPS (DFX-S-011)"
+    - error_stack_hidden: "500 errors don't expose internal stack traces (DFX-S-012)"
+    - dependencies_audited: "No high/critical npm audit vulnerabilities (DFX-S-013)"
+    - ssrf_prevention: "URL fetcher blocks internal/private addresses (DFX-S-014)"
+    - path_traversal_blocked: "File paths sanitized against traversal (DFX-S-015)"
+
+# ============================================================
+# Reliability Assessment (Level 9)
+# Maps to: DFX-R-001~012 from comprehensive-test-plan-2026-02-06.md
+# ============================================================
+reliability:
+  enabled: true
+  checks:
+    - page_refresh_recovery: "State preserved after F5 refresh (DFX-R-001)"
+    - browser_back_recovery: "Correct state on browser back (DFX-R-002)"
+    - network_disconnect_graceful: "No white screen on network loss (DFX-R-003)"
+    - api_error_friendly: "500 errors show retry option (DFX-R-004)"
+    - timeout_recovery: "Timeouts show clear message with retry (DFX-R-005)"
+    - session_persistence: "Session survives long idle (DFX-R-006)"
+    - data_persistence: "Conversations/projects not lost (DFX-R-007)"
+    - websocket_reconnect: "Auto-reconnect after disconnect (DFX-R-008)"
+    - stream_interrupt_recovery: "SSE interruption recoverable (DFX-R-009)"
+    - concurrent_write_safety: "No data corruption on concurrent edits (DFX-R-010)"
+    - idempotent_operations: "Duplicate submissions don't create duplicates (DFX-R-011)"
+    - graceful_degradation: "External API failure doesn't crash app (DFX-R-012)"
+
+# ============================================================
+# Maintainability Assessment (Level 10)
+# Maps to: DFX-M-001~008 from comprehensive-test-plan-2026-02-06.md
+# ============================================================
+maintainability:
+  enabled: true
+  checks:
+    - code_coverage_threshold: "Overall coverage >= 50% Phase1 (DFX-M-001)"
+    - typescript_strict: "No 'any' types, strict mode (DFX-M-002)"
+    - lint_clean: "0 errors, <10 warnings (DFX-M-003)"
+    - build_success: "Full build without errors (DFX-M-004)"
+    - no_circular_deps: "No circular module dependencies (DFX-M-005)"
+    - clean_module_boundaries: "No cross-layer direct calls (DFX-M-006)"
+    - logger_standard: "NestJS Logger only, no console.log (DFX-M-007)"
+    - no_hardcoded_config: "No hardcoded model/temperature values (DFX-M-008)"
+
+# ============================================================
+# Observability Assessment (Level 11)
+# Maps to: DFX-O-001~006 from comprehensive-test-plan-2026-02-06.md
+# ============================================================
+observability:
+  enabled: true
+  checks:
+    - request_tracing: "AI calls have traceId for debugging (DFX-O-001)"
+    - structured_logging: "JSON logs with timestamp/level fields (DFX-O-002)"
+    - error_logging: "Errors include stack trace + context (DFX-O-003)"
+    - ai_call_metering: "Model/token/cost data queryable (DFX-O-004)"
+    - health_endpoint: "/health returns service status (DFX-O-005)"
+    - task_progress_visible: "Research/Writing progress real-time (DFX-O-006)"
+
+# ============================================================
+# Usability Assessment (Level 12)
+# Maps to: DFX-U-001~008 from comprehensive-test-plan-2026-02-06.md
+# ============================================================
+usability:
+  enabled: true
+  checks:
+    - first_use_guidance: "New user completes first Ask within 3 minutes (DFX-U-001)"
+    - navigation_clarity: "Any feature reachable in ≤2 clicks from main nav (DFX-U-002)"
+    - three_state_feedback: "Loading/Success/Error states clearly visible (DFX-U-003)"
+    - error_recovery: "Error states provide retry/return action (DFX-U-004)"
+    - keyboard_shortcuts: "Enter sends, Esc cancels, Ctrl+K searches (DFX-U-005)"
+    - help_documentation: "Key features have tooltip/help explanation (DFX-U-006)"
+    - interaction_consistency: "Same-type operations use consistent patterns (DFX-U-007)"
+    - accessible_forms: "Form fields have labels, required fields marked (DFX-U-008)"
+
+# ============================================================
+# Browser Compatibility (Level 13)
+# Maps to: DFX-CP-001~006 from comprehensive-test-plan-2026-02-06.md
+# ============================================================
+compatibility:
+  enabled: true
+  browsers:
+    - {
+        name: "Chrome Desktop",
+        id: "DFX-CP-001",
+        priority: P0,
+        coverage: "100% functionality",
+      }
+    - {
+        name: "Firefox Desktop",
+        id: "DFX-CP-002",
+        priority: P1,
+        coverage: "Core features",
+      }
+    - {
+        name: "Safari macOS",
+        id: "DFX-CP-003",
+        priority: P1,
+        coverage: "Core features",
+      }
+    - {
+        name: "Edge Desktop",
+        id: "DFX-CP-004",
+        priority: P1,
+        coverage: "Core features",
+      }
+    - {
+        name: "Chrome Mobile",
+        id: "DFX-CP-005",
+        priority: P2,
+        coverage: "Basic usability",
+      }
+    - {
+        name: "Safari Mobile",
+        id: "DFX-CP-006",
+        priority: P2,
+        coverage: "Basic usability",
+      }
+
+# ============================================================
+# Performance Baselines
+# Maps to: PERF-RT-001~016 from comprehensive-test-plan-2026-02-06.md
+# ============================================================
+performance_baselines:
+  api_response_ms:
+    ask_ttfb: { p50: 2000, p90: 3000, p99: 5000 } # PERF-RT-001
+    ask_stream_complete: { p50: 10000, p90: 15000, p99: 20000 } # PERF-RT-002
+    mixture_ttfb: { p50: 3000, p90: 5000, p99: 8000 } # PERF-RT-003
+    web_search: { p50: 5000, p90: 8000, p99: 12000 } # PERF-RT-004
+    rag_search_10doc: { p50: 3000, p90: 5000, p99: 8000 } # PERF-RT-005
+    rag_search_100doc: { p50: 5000, p90: 8000, p99: 12000 } # PERF-RT-006
+    file_upload_1mb: { p50: 5000, p90: 10000, p99: 15000 } # PERF-RT-007
+    teams_task_start: { p50: 3000, p90: 5000, p99: 8000 } # PERF-RT-009
+    research_plan: { p50: 8000, p90: 12000, p99: 18000 } # PERF-RT-010
+    history_list: { p50: 1000, p90: 2000, p99: 3000 } # PERF-RT-012
+  page_load_ms:
+    fcp: 2000 # PERF-RT-013
+    tti: 3000 # PERF-RT-014
+  concurrent:
+    max_simultaneous_ask: 3 # PERF-CC-001
+    max_websocket_connections: 20 # PERF-CC-007
+
+# ============================================================
+# Boundary Test Config
+# Maps to: BND-001~006, BND-F-001~005 from comprehensive-test-plan-2026-02-06.md
+# ============================================================
+boundary:
+  input:
+    max_message_length: 10000 # BND-002
+    forbidden_inputs: # BND-003
+      - "<script>alert(1)</script>"
+      - "'; DROP TABLE users; --"
+      - "<img src=x onerror=alert(1)>"
+  files:
+    max_size_mb: 10 # BND-F-002
+    blocked_extensions: # BND-F-003
+      - .exe
+      - .bat
+      - .sh
+      - .cmd
+      - .com
+      - .msi
+    max_upload_count: 10 # BND-F-005
+
+# ============================================================
+# Test Plan Reference
+# Master test plan: comprehensive-test-plan-2026-02-06.md (~630 cases)
+# ============================================================
+test_plan:
+  reference: "docs/guides/testing/test-cases/comprehensive-test-plan-2026-02-06.md"
+  total_cases: 630
+  scenarios_dir: ".ui-patrol/scenarios/"
+  journeys_dir: ".ui-patrol/journeys/"
+  scenario_files:
+    - ask-combinations.scenarios.yaml # CMB-ASK, CMB-FT, CMB-CTX
+    - boundary-conditions.scenarios.yaml # BND-001~006, BND-F, BND-C, BND-N
+    - security-checks.scenarios.yaml # DFX-S-001~015
+    - performance-benchmarks.scenarios.yaml # PERF-RT, PERF-CC, PERF-BD-001~003
+    - cross-module-integration.scenarios.yaml # INT-*, E2E-*
+    - usability-walkthrough.scenarios.yaml # DFX-U-001~008
+    - compatibility-browser.scenarios.yaml # DFX-CP-001~006, DFX-RD-007
+    - throughput-resource.scenarios.yaml # PERF-TP-001~004, PERF-RS-001~006, PERF-BD-004~006
+    - ai-research.scenarios.yaml # Research page scenarios
+    - ai-teams.scenarios.yaml # Teams page scenarios
+    - library.scenarios.yaml # Library page scenarios
+  journey_files:
+    - ai-ask-conversation.journey.yaml
+    - ai-ask-combination-matrix.journey.yaml
+    - ai-ask-mixture.journey.yaml
+    - create-research-topic.journey.yaml
+    - ai-teams-collaboration.journey.yaml
+    - ai-writing-workflow.journey.yaml
+    - ai-office-slides.journey.yaml
+    - ai-image-generation.journey.yaml
+    - ai-social-content.journey.yaml
+    - ai-rag-knowledge.journey.yaml
+    - knowledge-base-to-ask.journey.yaml
+    - explore-to-library-to-ask.journey.yaml
+    - cross-module-data-flow.journey.yaml
+    - e2e-new-user-onboarding.journey.yaml
+    - e2e-image-writing-workflow.journey.yaml
+    - search-library.journey.yaml
+    - research-topic-all-tabs.journey.yaml
+    - admin-monitoring-check.journey.yaml
+    - full-site-i18n-check.journey.yaml
+
 # i18n patrol: check for untranslated Chinese when in English mode
 i18n:
   enabled: true
