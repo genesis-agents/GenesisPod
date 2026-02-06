@@ -39,6 +39,7 @@ import { PdfThumbnailService } from "./pdf-thumbnail.service";
 import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
 import { R2StorageService } from "../../core/storage/r2-storage.service";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { Public } from "../../../common/decorators/public.decorator";
 import { Prisma } from "@prisma/client";
 import {
   ResourceResponseDto,
@@ -76,6 +77,7 @@ export class ResourcesController {
    * 获取资源列表
    * GET /api/v1/resources?skip=0&take=20&type=PAPER&category=AI&search=machine+learning&sortBy=publishedAt&sortOrder=desc
    */
+  @Public()
   @Get()
   @ApiOperation({
     summary: "获取资源列表",
@@ -161,6 +163,7 @@ export class ResourcesController {
    *
    * 注意：此路由必须在 @Get(':id') 之前，否则会被 :id 捕获
    */
+  @Public()
   @Get("search/suggestions")
   @ApiOperation({
     summary: "获取搜索建议",
@@ -417,6 +420,7 @@ export class ResourcesController {
    *
    * 注意：动态路由必须放在所有具体路由之后，以免捕获其他路径
    */
+  @Public()
   @Get(":id")
   @ApiOperation({
     summary: "获取资源详情",
