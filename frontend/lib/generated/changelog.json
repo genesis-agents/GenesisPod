@@ -1,5 +1,19 @@
 [
   {
+    "version": "3.50.2",
+    "date": "2026-02-06",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "fix tag push and regenerate deduplicated CHANGELOG"
+      },
+      {
+        "type": "improvement",
+        "description": "move business agents to AI App modules"
+      }
+    ]
+  },
+  {
     "version": "3.50.1",
     "date": "2026-02-06",
     "changes": [
