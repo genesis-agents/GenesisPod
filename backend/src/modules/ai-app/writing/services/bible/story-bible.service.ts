@@ -23,7 +23,7 @@ export class StoryBibleService {
       throw new ForbiddenException("Project not found or access denied");
     }
 
-    return this.prisma.storyBible.findUnique({
+    const bible = await this.prisma.storyBible.findUnique({
       where: { projectId },
       include: {
         characters: {
@@ -39,6 +39,72 @@ export class StoryBibleService {
         factions: true,
       },
     });
+
+    // Normalize world setting descriptions (fix existing JSON string data in DB)
+    if (bible?.worldSettings) {
+      bible.worldSettings = bible.worldSettings.map((ws) => ({
+        ...ws,
+        description: this.normalizeDescription(ws.description),
+      }));
+    }
+
+    return bible;
+  }
+
+  /**
+   * Normalize a description that may contain raw JSON string into readable text.
+   * Handles data saved before the toStr() fix was deployed.
+   */
+  private normalizeDescription(desc: string): string {
+    if (!desc) return desc;
+    const trimmed = desc.trim();
+    // Only process strings that look like JSON objects or arrays
+    if (
+      !(
+        (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+        (trimmed.startsWith("[") && trimmed.endsWith("]"))
+      )
+    ) {
+      return desc;
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed !== "object" || parsed === null) return desc;
+      return this.flattenValue(parsed);
+    } catch {
+      return desc;
+    }
+  }
+
+  /** Recursively flatten nested objects/arrays into readable text */
+  private flattenValue(val: unknown): string {
+    if (!val) return "";
+    if (typeof val === "string") return val;
+    if (typeof val === "number" || typeof val === "boolean") return String(val);
+    if (Array.isArray(val)) {
+      return val
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (typeof item === "object" && item !== null) {
+            const obj = item as Record<string, unknown>;
+            if (obj.name && obj.description) {
+              return `${String(obj.name)}：${String(obj.description)}`;
+            }
+            return this.flattenValue(obj);
+          }
+          return String(item);
+        })
+        .join("\n");
+    }
+    if (typeof val === "object") {
+      const parts: string[] = [];
+      for (const v of Object.values(val as Record<string, unknown>)) {
+        const flat = this.flattenValue(v);
+        if (flat) parts.push(flat);
+      }
+      return parts.join("\n");
+    }
+    return String(val);
   }
 
   async update(projectId: string, userId: string, dto: any) {
@@ -83,6 +149,14 @@ export class StoryBibleService {
 
     if (!bible) {
       throw new NotFoundException("Story Bible not found");
+    }
+
+    // Normalize world setting descriptions (fix existing JSON string data in DB)
+    if (bible.worldSettings) {
+      bible.worldSettings = bible.worldSettings.map((ws) => ({
+        ...ws,
+        description: this.normalizeDescription(ws.description),
+      }));
     }
 
     return {

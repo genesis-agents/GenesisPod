@@ -654,51 +654,73 @@ export class WritingCoordinatorService {
     // Verify project ownership
     const project = await this.projectService.findOne(projectId, userId);
 
-    // Get scratchpad entries
-    let scratchpadEntries: ScratchpadEntry[] = [];
     try {
-      const recentMission =
-        await this.writingMissionService.getLatestMission(projectId);
-      if (recentMission) {
-        scratchpadEntries = await this.sharedScratchpadService.getEntries(
-          recentMission.id,
-          { limit: 10 },
-        );
+      // Get scratchpad entries
+      let scratchpadEntries: ScratchpadEntry[] = [];
+      try {
+        const recentMission =
+          await this.writingMissionService.getLatestMission(projectId);
+        if (recentMission) {
+          scratchpadEntries = await this.sharedScratchpadService.getEntries(
+            recentMission.id,
+            { limit: 10 },
+          );
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Failed to get scratchpad entries: ${errorMessage}`);
       }
+
+      // Parallel fetch completion and conflict analysis (with error boundaries)
+      const [completionAnalysis, conflictResult] = await Promise.all([
+        this.storyCompletionDetector
+          .analyzeCompletion(projectId)
+          .catch((err) => {
+            this.logger.warn(
+              `Completion analysis failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            return null;
+          }),
+        this.temporalConflictAnalyzer.analyzeProject(projectId).catch((err) => {
+          this.logger.warn(
+            `Conflict analysis failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          return null;
+        }),
+      ]);
+
+      return {
+        project: {
+          id: project.id,
+          name: project.name,
+        },
+        completion: completionAnalysis,
+        conflicts: conflictResult,
+        agentActivity: {
+          recentEntries: scratchpadEntries,
+          totalEntries: scratchpadEntries.length,
+        },
+        analyzedAt: new Date().toISOString(),
+      };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Failed to get scratchpad entries: ${errorMessage}`);
+      // Broad safety net: return empty dashboard instead of 500
+      this.logger.error(
+        `Analysis dashboard failed for project ${projectId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        project: {
+          id: project.id,
+          name: project.name,
+        },
+        completion: null,
+        conflicts: null,
+        agentActivity: {
+          recentEntries: [],
+          totalEntries: 0,
+        },
+        analyzedAt: new Date().toISOString(),
+      };
     }
-
-    // Parallel fetch completion and conflict analysis (with error boundaries)
-    const [completionAnalysis, conflictResult] = await Promise.all([
-      this.storyCompletionDetector.analyzeCompletion(projectId).catch((err) => {
-        this.logger.warn(
-          `Completion analysis failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        return null;
-      }),
-      this.temporalConflictAnalyzer.analyzeProject(projectId).catch((err) => {
-        this.logger.warn(
-          `Conflict analysis failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        return null;
-      }),
-    ]);
-
-    return {
-      project: {
-        id: project.id,
-        name: project.name,
-      },
-      completion: completionAnalysis,
-      conflicts: conflictResult,
-      agentActivity: {
-        recentEntries: scratchpadEntries,
-        totalEntries: scratchpadEntries.length,
-      },
-      analyzedAt: new Date().toISOString(),
-    };
   }
 }

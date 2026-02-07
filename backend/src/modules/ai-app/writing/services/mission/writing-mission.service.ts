@@ -1626,20 +1626,55 @@ ${storyCreativitySection}
             where: { bibleId: bible.id },
           });
 
-          // 确保 description 为字符串（AI 可能返回对象）
+          // 深度扁平化：将 AI 返回的嵌套对象/数组/JSON字符串转为可读文本
           const toStr = (val: unknown): string => {
             if (!val) return "";
-            if (typeof val === "string") return val;
-            // 将对象扁平化为可读文本，而非 JSON
-            if (typeof val === "object" && !Array.isArray(val)) {
-              return Object.entries(val as Record<string, unknown>)
-                .map(([k, v]) => {
-                  if (Array.isArray(v)) return `${k}: ${v.join("、")}`;
-                  return `${k}: ${String(v)}`;
+            if (typeof val === "number" || typeof val === "boolean")
+              return String(val);
+            // 字符串：检测是否为 JSON 对象/数组字符串，若是则解析后递归扁平化
+            if (typeof val === "string") {
+              const trimmed = val.trim();
+              if (
+                (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+                (trimmed.startsWith("[") && trimmed.endsWith("]"))
+              ) {
+                try {
+                  const parsed = JSON.parse(trimmed);
+                  if (typeof parsed === "object" && parsed !== null) {
+                    return toStr(parsed);
+                  }
+                } catch {
+                  // 不是合法 JSON，当普通字符串处理
+                }
+              }
+              return val;
+            }
+            // 数组：逐项扁平化
+            if (Array.isArray(val)) {
+              return val
+                .map((item) => {
+                  if (typeof item === "string") return item;
+                  if (typeof item === "object" && item !== null) {
+                    const obj = item as Record<string, unknown>;
+                    // name+description 模式 → "name：description"
+                    if (obj.name && obj.description) {
+                      return `${String(obj.name)}：${String(obj.description)}`;
+                    }
+                    return toStr(obj);
+                  }
+                  return String(item);
                 })
                 .join("\n");
             }
-            if (Array.isArray(val)) return val.join("、");
+            // 对象：只取值，跳过 JSON key
+            if (typeof val === "object") {
+              const parts: string[] = [];
+              for (const v of Object.values(val as Record<string, unknown>)) {
+                const flat = toStr(v);
+                if (flat) parts.push(flat);
+              }
+              return parts.join("\n");
+            }
             return String(val);
           };
 
