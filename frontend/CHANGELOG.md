@@ -2,6 +2,50 @@
 
 Raven AI Engine 版本变更记录。
 
+## [3.65.0](https://github.com/your-org/ai-teams-engine/compare/v3.50.0...v3.65.0) (2026-02-07)
+
+
+### Features
+
+* **testing:** add comprehensive test plan and full-spectrum ui-iteration coverage ([a4b485f](https://github.com/your-org/ai-teams-engine/commit/a4b485f5068860ace530b47de76b77bdb2d162b4))
+
+
+### Bug Fixes
+
+* **admin:** fix diagnoseTools false positive "需要配置 API 密钥" ([6cae48d](https://github.com/your-org/ai-teams-engine/commit/6cae48d038f57e39677ff82f59ea33fa4ef8d2c1))
+* **admin:** fix provider icon 404s and dashboard resilience ([bc6eda4](https://github.com/your-org/ai-teams-engine/commit/bc6eda4a21c076a3c096b390806fd22705666e0d))
+* **admin:** make monitoring fetchData endpoints independent ([ce3ee90](https://github.com/your-org/ai-teams-engine/commit/ce3ee903969be216be6d6d93e273c305225ddc30))
+* **admin:** preserve provider casing when creating/updating AI models ([17be513](https://github.com/your-org/ai-teams-engine/commit/17be513edfa9c393003fd6283cb246f0169a5d21))
+* **admin:** prevent type column text wrapping in model table ([3c176aa](https://github.com/your-org/ai-teams-engine/commit/3c176aa0163c01eaa47754c244f3b6ac6162f09e))
+* **admin:** show incremental progress in batch collection drawer ([6476f19](https://github.com/your-org/ai-teams-engine/commit/6476f1913577e3fa67a6c8e5562e51cdc6b889ae))
+* **changelog:** deduplicate cumulative entries and consolidate patch versions ([c68e870](https://github.com/your-org/ai-teams-engine/commit/c68e870f2a6f639cb1430b7450e6bd0f47c2118e))
+* **ci:** fix tag push and regenerate deduplicated CHANGELOG ([69cea64](https://github.com/your-org/ai-teams-engine/commit/69cea644c2ab18a4702987aa573bea190f89774c))
+* **credits:** correct module name and transaction type in credit billing ([33ae0e0](https://github.com/your-org/ai-teams-engine/commit/33ae0e036fa078af76952f828d77c120c831db38))
+* **library:** cycle icon colors per card and remove batch delete ([3f1e6cf](https://github.com/your-org/ai-teams-engine/commit/3f1e6cf5b53a25a7bd05fbb22be1f1c4728f7c42))
+* **library:** match knowledge base card icons to team card style ([fcfb8de](https://github.com/your-org/ai-teams-engine/commit/fcfb8dedd16dc9e4b51575c89a6dbd1ba5985bcb))
+* **library:** prevent knowledge base detail dialog flash on vectorize refresh ([93a8fc7](https://github.com/your-org/ai-teams-engine/commit/93a8fc72bc33081b3d6064188848e194ccfe3d7e))
+* **library:** replace emoji icons with Lucide icons on knowledge base cards ([4368cc0](https://github.com/your-org/ai-teams-engine/commit/4368cc0c2c289507e7e9b5f6f27b97af49463e04))
+* **library:** use bolder icons with more visual weight for knowledge base cards ([c05edff](https://github.com/your-org/ai-teams-engine/commit/c05edff72d1b6da2475ccb7069a2a32f1fc41f8f))
+* **security:** critical security fixes and ui-iteration skill optimization ([eeea26e](https://github.com/your-org/ai-teams-engine/commit/eeea26ea5f0f552d9e3e6eecdf772a222e3ba1ad))
+* **writing:** readable world settings + graceful analysis dashboard ([9d8f5bb](https://github.com/your-org/ai-teams-engine/commit/9d8f5bb9ed27b4e529cff64b6c2318a69cfa4a10))
+* **writing:** stringify world setting description before Prisma save ([36ad1c2](https://github.com/your-org/ai-teams-engine/commit/36ad1c2db9c9b932c06154f7c739a4be52dd2c4e))
+
+
+### Performance
+
+* **backend:** optimize memory usage - limit Node.js heap + Puppeteer idle cleanup ([40ad1ee](https://github.com/your-org/ai-teams-engine/commit/40ad1ee64df3c4343d5791baaa287a285fdd4d66))
+
+
+### Refactoring
+
+* **admin:** optimize model management from card grid to table layout ([36aaba1](https://github.com/your-org/ai-teams-engine/commit/36aaba144ce7c8c99d5fca78e0d2ced2b816c5e8))
+* **ai-engine:** move business agents to AI App modules ([bfbbd90](https://github.com/your-org/ai-teams-engine/commit/bfbbd90facd4f0f6f0fd50fbb6507300633a128d))
+* **ai-engine:** p0-p2 architecture improvements and security hardening ([b2d2c25](https://github.com/your-org/ai-teams-engine/commit/b2d2c258d09b9821d48baeb61ba27f6e1b43e772))
+* **ai-engine:** p0+p1 architecture improvements ([4b1b6d4](https://github.com/your-org/ai-teams-engine/commit/4b1b6d4ab06378fa9c8a4d6aa25df1b3023c90a4))
+* **ai-engine:** replace hardcoded params with TaskProfile, add Redis + scoring ([20ce59d](https://github.com/your-org/ai-teams-engine/commit/20ce59dcd8a78dfcc450636bc574e426d37b1afd))
+* **ai-engine:** unify TaskProfile and ChatMessage types ([c6e0eba](https://github.com/your-org/ai-teams-engine/commit/c6e0eba6162e61219f070ab935dbe7ddd0c51aba))
+* **modules:** separate AI Insights and AI Research into independent modules ([050c89d](https://github.com/your-org/ai-teams-engine/commit/050c89df9c95e224761c89a4cf15eb62b653be7e))
+
 ## [3.64.0](https://github.com/your-org/ai-teams-engine/compare/v3.50.0...v3.64.0) (2026-02-07)
 
 
