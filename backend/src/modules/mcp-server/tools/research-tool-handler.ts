@@ -54,7 +54,7 @@ export class ResearchToolHandler implements IMCPToolHandler {
       `MCP research request: "${topic}" (depth: ${depth}, key: ${context.apiKeyId})`,
     );
 
-    // TODO: Wire to TopicResearchService when full integration is ready
+    // TODO: Wire to TopicInsightsService when full integration is ready
     // For now, return a structured placeholder showing the tool is functional
     return {
       content: [
@@ -65,7 +65,7 @@ export class ResearchToolHandler implements IMCPToolHandler {
             topic,
             depth,
             message:
-              "Research request accepted. Full integration with TopicResearchService pending.",
+              "Research request accepted. Full integration with TopicInsightsService pending.",
             capabilities: [
               "multi-agent investigation",
               "citation tracking",

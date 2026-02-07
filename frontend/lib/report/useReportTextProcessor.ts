@@ -1,10 +1,10 @@
 import React, { useCallback } from 'react';
-import { CitationBadge } from '@/components/ai-research/citations/CitationBadge';
+import { CitationBadge } from '@/components/ai-insights/citations/CitationBadge';
 import {
   splitTextIntoSegments,
   type Annotation as PreprocessorAnnotation,
 } from '@/lib/annotation';
-import { AnnotatedText } from '@/components/ai-research/annotations/AnnotatedText';
+import { AnnotatedText } from '@/components/ai-insights/annotations/AnnotatedText';
 
 interface EvidenceItem {
   id: string;

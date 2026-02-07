@@ -80,10 +80,17 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       prefix: true,
     },
     {
+      href: '/ai-insights',
+      label: t('nav.aiInsights'),
+      icon: 'lightbulb',
+      activeClass: 'bg-purple-50',
+      prefix: true,
+    },
+    {
       href: '/ai-research',
       label: t('nav.aiResearch'),
-      icon: 'chart',
-      activeClass: 'bg-purple-50',
+      icon: 'flask',
+      activeClass: 'bg-indigo-50',
       prefix: true,
     },
     {

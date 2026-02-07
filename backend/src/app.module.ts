@@ -44,6 +44,7 @@ import { AiTeamsModule } from "./modules/ai-app/teams/ai-teams.module";
 import { RAGModule } from "./modules/ai-app/rag/rag.module";
 import { AiWritingModule } from "./modules/ai-app/writing/ai-writing.module";
 import { ResearchModule } from "./modules/ai-app/research";
+import { TopicInsightsModule } from "./modules/ai-app/topic-insights";
 import { AiSocialModule } from "./modules/ai-app/social/ai-social.module";
 // Content modules
 import { CollectionsModule } from "./modules/content/collections/collections.module";
@@ -151,7 +152,8 @@ import { RequestContextMiddleware } from "./common/context/request-context.middl
     AiTeamsModule,
     RAGModule,
     AiWritingModule,
-    ResearchModule, // 统一研究模块 (包含 Topic, Deep, Notebook Research)
+    ResearchModule, // Deep Research 模块 (Deep Research + Notebook Research)
+    TopicInsightsModule, // Topic Insights 专题洞察模块 (从 Research 拆分)
     AiSocialModule, // AI 社交媒体发布模块
     // Content modules
     ResourcesModule,

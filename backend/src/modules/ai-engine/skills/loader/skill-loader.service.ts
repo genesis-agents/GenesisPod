@@ -69,8 +69,8 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
         recursive: false,
       },
       {
-        // ★ topic-research 分析技能
-        path: path.join(this.baseSkillsDir, "research/topic-research/skills"),
+        // ★ topic-insights 洞察分析技能
+        path: path.join(this.baseSkillsDir, "topic-insights/skills"),
         domain: "research",
         recursive: false,
       },

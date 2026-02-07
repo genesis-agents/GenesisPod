@@ -121,6 +121,17 @@ const nextConfig = {
         destination: '/admin/ai/tools',
         permanent: false,
       },
+      // Topic routes moved from /ai-research to /ai-insights
+      {
+        source: '/ai-research/topic/:topicId',
+        destination: '/ai-insights/topic/:topicId',
+        permanent: false,
+      },
+      {
+        source: '/ai-research/topic-research',
+        destination: '/ai-insights/topic-research',
+        permanent: false,
+      },
     ];
   },
   async rewrites() {

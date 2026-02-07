@@ -1,14 +1,13 @@
 /**
- * AI Research Module - 统一研究模块
+ * AI Research Module - Deep Research 模块
  *
- * 整合四种研究模式:
- * - Fast Research: 快速问答式研究 (秒级)
- * - Topic Research: 专题多维度研究 (分钟级)
+ * 专注于深度研究模式:
  * - Deep Research: 深度迭代研究 (分钟-小时级)
  * - Notebook Research: NotebookLM 风格文档研究
+ *
+ * Note: Topic Research 已拆分为独立的 Topic Insights 模块
  */
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
-import { TopicResearchModule } from "./topic-research/topic-research.module";
 import { DeepResearchModule } from "./deep-research/deep-research.module";
 import { NotebookResearchModule } from "./notebook-research/notebook-research.module";
 import { AgentRegistry } from "../../ai-engine/agents/registry";
@@ -17,10 +16,9 @@ import { ResearcherAgent } from "./agents";
 import { RESEARCH_TEAM_CONFIG } from "./teams";
 
 @Module({
-  imports: [TopicResearchModule, DeepResearchModule, NotebookResearchModule],
+  imports: [DeepResearchModule, NotebookResearchModule],
   providers: [ResearcherAgent],
   exports: [
-    TopicResearchModule,
     DeepResearchModule,
     NotebookResearchModule,
     ResearcherAgent,

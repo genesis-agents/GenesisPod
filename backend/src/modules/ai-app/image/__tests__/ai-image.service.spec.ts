@@ -23,6 +23,8 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 // 直接从具体文件导入，避免通过 barrel export 引发循环依赖
 import { ContentExtractorService } from "../../../../common/content-processing/content-extractor.service";
 import { DataFetchingService } from "../../../../common/content-processing/data-fetching.service";
+import { Imagen4PromptService } from "../generation/imagen4-prompt.service";
+import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 
 describe("AiImageService", () => {
   let service: AiImageService;
@@ -92,6 +94,17 @@ describe("AiImageService", () => {
       .mockResolvedValue({ totalImages: 0, totalBookmarks: 0 }),
   };
 
+  const mockImagen4Prompt = {
+    enhancePrompt: jest.fn(),
+    generateCollaborativePrompt: jest.fn(),
+  };
+
+  const mockAIEngineFacade = {
+    chat: jest.fn(),
+    getAvailableModels: jest.fn().mockResolvedValue([]),
+    getModelConfig: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -106,6 +119,8 @@ describe("AiImageService", () => {
         { provide: PromptEnhancementService, useValue: mockPromptEnhancement },
         { provide: ImageGenerationService, useValue: mockImageGeneration },
         { provide: ImageStorageService, useValue: mockImageStorage },
+        { provide: Imagen4PromptService, useValue: mockImagen4Prompt },
+        { provide: AIEngineFacade, useValue: mockAIEngineFacade },
       ],
     }).compile();
 

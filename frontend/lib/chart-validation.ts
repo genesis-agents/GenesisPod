@@ -10,7 +10,7 @@
  * 4. 过滤无效数据点
  */
 
-import type { ReportChart, ChartDataPoint } from '@/types/topic-research';
+import type { ReportChart, ChartDataPoint } from '@/types/topic-insights';
 
 /**
  * 验证结果

@@ -1,28 +1,15 @@
 /**
- * AI Research Module - 统一导出入口
+ * AI Research Module - Deep Research 导出入口
  *
- * 提供四种研究模式:
- * - Fast Research: 快速问答式研究 (秒级) - TODO
- * - Topic Research: 专题多维度研究 (分钟级)
+ * 提供深度研究模式:
  * - Deep Research: 深度迭代研究 (分钟-小时级)
  * - Notebook Research: NotebookLM 风格文档研究
+ *
+ * Note: Topic Research 已拆分为独立的 Topic Insights 模块
  */
 
 // 统一模块
 export { ResearchModule } from "./research.module";
-
-// Topic Research - 使用命名空间避免冲突
-export { TopicResearchModule } from "./topic-research/topic-research.module";
-export { TopicResearchService } from "./topic-research/topic-research.service";
-export {
-  TopicController,
-  MissionController,
-  ReportController,
-  CollaborationController,
-  TodoController,
-  ReportReviewController,
-} from "./topic-research/controllers";
-export { TopicResearchGateway } from "./topic-research/topic-research.gateway";
 
 // Fast Research - 快速问答式研究 (★ P1 任务：待实现)
 export { FastResearchModule } from "./fast-research/fast-research.module";

@@ -582,7 +582,7 @@ export class CreditsService implements OnModuleInit {
       "ai-image": CreditTransactionType.AI_IMAGE,
       "ai-social": CreditTransactionType.AI_SOCIAL,
       "deep-research": CreditTransactionType.DEEP_RESEARCH,
-      "topic-research": CreditTransactionType.TOPIC_RESEARCH,
+      "topic-insights": CreditTransactionType.TOPIC_RESEARCH,
       "notebook-research": CreditTransactionType.NOTEBOOK_RESEARCH,
       library: CreditTransactionType.LIBRARY,
       notes: CreditTransactionType.NOTES,

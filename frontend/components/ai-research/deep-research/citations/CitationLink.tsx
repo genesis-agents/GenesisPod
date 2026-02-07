@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ExternalLink, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Citation } from './types';
 import { useCitationOptional } from './CitationContext';
-import { triggerCitationClick } from '../../citationNavigation';
+import { triggerCitationClick } from '@/components/common/citations/citationNavigation';
 import { useI18n } from '@/lib/i18n';
 
 interface CitationLinkProps {

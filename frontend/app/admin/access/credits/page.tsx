@@ -57,7 +57,7 @@ interface CreditRule {
 const MODULE_NAMES: Record<string, string> = {
   'ai-ask': 'AI Ask',
   'deep-research': 'Deep Research',
-  'topic-research': 'Topic Research',
+  'topic-insights': 'Topic Insights',
   'notebook-research': 'Notebook Research',
   'ai-teams': 'AI Teams',
   'ai-office': 'AI Office',

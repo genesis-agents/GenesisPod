@@ -1,82 +1,175 @@
 'use client';
 
 /**
- * AI Research - 专题研究页面
+ * AI Research - 专项研究项目列表页
+ * Fetches projects from AI Studio API and displays as card grid
  */
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
-import {
-  TopicResearchTab,
-  CreateTopicDialog as TopicCreateDialog,
-} from '@/components/ai-research';
-import { ResearchTopicType } from '@/types/topic-research';
+import { useAuth } from '@/contexts/AuthContext';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
+import { logger } from '@/lib/utils/logger';
+import ClientDate from '@/components/common/ClientDate';
 
-// ==================== 图标组件 ====================
-const SearchIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-    />
-  </svg>
-);
+interface ResearchProject {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  sourcesCount?: number;
+  notesCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
-const LoaderIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-    />
-  </svg>
-);
+// Gradient color schemes for project cards
+const PROJECT_GRADIENTS = [
+  {
+    from: 'from-indigo-500',
+    to: 'to-blue-600',
+    shadow: 'shadow-indigo-500/30',
+  },
+  {
+    from: 'from-violet-500',
+    to: 'to-purple-600',
+    shadow: 'shadow-violet-500/30',
+  },
+  {
+    from: 'from-emerald-500',
+    to: 'to-teal-500',
+    shadow: 'shadow-emerald-500/30',
+  },
+  { from: 'from-blue-500', to: 'to-cyan-500', shadow: 'shadow-blue-500/30' },
+  {
+    from: 'from-fuchsia-500',
+    to: 'to-pink-500',
+    shadow: 'shadow-fuchsia-500/30',
+  },
+  {
+    from: 'from-amber-500',
+    to: 'to-orange-600',
+    shadow: 'shadow-amber-500/30',
+  },
+  { from: 'from-cyan-500', to: 'to-blue-500', shadow: 'shadow-cyan-500/30' },
+  { from: 'from-pink-500', to: 'to-rose-500', shadow: 'shadow-pink-500/30' },
+];
 
-const PlusIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 4v16m8-8H4"
-    />
-  </svg>
-);
+function getProjectGradient(projectId: string) {
+  let hash = 0;
+  for (let i = 0; i < projectId.length; i++) {
+    hash = (hash << 5) - hash + projectId.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % PROJECT_GRADIENTS.length;
+  return PROJECT_GRADIENTS[index];
+}
 
-// ==================== 主页面内容 ====================
 function ResearchPageContent() {
+  const router = useRouter();
   const { t } = useTranslation();
+  const { user, isLoading: authLoading } = useAuth();
+
+  const [projects, setProjects] = useState<ResearchProject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [topicActiveType, setTopicActiveType] =
-    useState<ResearchTopicType | null>(null);
-  const [showTopicCreateDialog, setShowTopicCreateDialog] = useState(false);
+
+  const fetchProjects = useCallback(async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-studio/projects?status=ACTIVE`,
+        {
+          headers: getAuthHeader(),
+        }
+      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch projects');
+      }
+      const result = await response.json();
+      const data = result?.data ?? result;
+      const projectsArray = Array.isArray(data.projects)
+        ? data.projects
+        : Array.isArray(data)
+          ? data
+          : Array.isArray(data.items)
+            ? data.items
+            : [];
+      setProjects(projectsArray);
+    } catch (err) {
+      logger.error('Error fetching research projects:', err);
+      setError(t('common.loadError'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [t]);
+
+  const createProject = useCallback(async () => {
+    if (isCreating) return;
+    setIsCreating(true);
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-studio/projects`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          body: JSON.stringify({ name: t('aiResearch.empty.defaultName') }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error('Failed to create project');
+      }
+      const result = await response.json();
+      const project = result?.data ?? result;
+      router.push(`/ai-research/${project.id}`);
+    } catch (err) {
+      logger.error('Error creating research project:', err);
+      setError(t('common.loadError'));
+    } finally {
+      setIsCreating(false);
+    }
+  }, [isCreating, t, router]);
+
+  useEffect(() => {
+    if (user) {
+      void fetchProjects();
+    }
+  }, [user, fetchProjects]);
+
+  // Filter projects by search query
+  const filteredProjects = projects.filter((project) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      project.name.toLowerCase().includes(query) ||
+      project.description?.toLowerCase().includes(query)
+    );
+  });
+
+  if (authLoading) {
+    return (
+      <div className="flex h-full items-center justify-center bg-gray-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-auto bg-gray-50">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
+      <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
         <div className="px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/25">
                 <svg
                   className="h-7 w-7 text-white"
                   fill="none"
@@ -93,60 +186,250 @@ function ResearchPageContent() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {t('aiStudio.title')}
+                  {t('aiResearch.title')}
                 </h1>
                 <p className="text-sm text-gray-500">
-                  {t('aiStudio.subtitle')}
+                  {t('aiResearch.subtitle')}
                 </p>
               </div>
             </div>
 
-            {/* Create Button */}
+            {/* New Research Button */}
             <button
-              onClick={() => setShowTopicCreateDialog(true)}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
+              onClick={() => createProject()}
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
             >
-              <PlusIcon className="h-5 w-5" />
-              {t('aiStudio.actions.createNew')}
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              {t('aiResearch.newResearch')}
             </button>
           </div>
 
           {/* Search Bar */}
-          <div className="mt-6">
+          <div className="mt-4">
             <div className="relative">
-              <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <svg
+                className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
               <input
                 type="text"
+                placeholder={t('aiResearch.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t('aiStudio.search.placeholder')}
-                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Topic Research Content */}
+      {/* Content */}
       <div className="px-8 py-6">
-        <TopicResearchTab
-          activeType={topicActiveType}
-          searchQuery={searchQuery}
-          showCreateDialog={showTopicCreateDialog}
-          onShowCreateDialog={setShowTopicCreateDialog}
-        />
+        {error && (
+          <div className="mb-6 rounded-lg bg-red-50 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-red-600">{error}</p>
+              <button
+                onClick={() => setError('')}
+                className="text-sm text-red-600 hover:underline"
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+          </div>
+        ) : filteredProjects.length === 0 && !searchQuery ? (
+          /* Empty State */
+          <div className="flex flex-col items-center justify-center py-20">
+            <svg
+              className="h-16 w-16 text-gray-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+              />
+            </svg>
+            <h3 className="mt-4 text-lg font-medium text-gray-700">
+              {t('aiResearch.empty.noProjects')}
+            </h3>
+            <p className="mt-2 text-sm text-gray-500">
+              {t('aiResearch.empty.noProjectsDesc')}
+            </p>
+            <button
+              onClick={() => createProject()}
+              className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              {t('aiResearch.empty.createFirst')}
+            </button>
+          </div>
+        ) : filteredProjects.length === 0 && searchQuery ? (
+          /* No Search Results */
+          <div className="flex flex-col items-center justify-center py-20">
+            <svg
+              className="h-16 w-16 text-gray-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <h3 className="mt-4 text-lg font-medium text-gray-700">
+              {t('common.noResults')}
+            </h3>
+          </div>
+        ) : (
+          /* Project Card Grid */
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredProjects.map((project) => {
+              const gradient = getProjectGradient(project.id);
+
+              return (
+                <div
+                  key={project.id}
+                  onClick={() => router.push(`/ai-research/${project.id}`)}
+                  className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-indigo-300 hover:shadow-md"
+                >
+                  {/* Avatar with gradient */}
+                  <div className="flex items-start justify-between">
+                    <div
+                      className={`relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient.from} ${gradient.to} shadow-lg ${gradient.shadow} transition-transform group-hover:scale-105`}
+                    >
+                      <svg
+                        className="h-7 w-7 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 rounded-2xl ring-2 ring-white/20 transition-all group-hover:ring-4 group-hover:ring-white/30" />
+                    </div>
+                    <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                      {project.status === 'ACTIVE'
+                        ? t('aiResearch.status.active')
+                        : project.status}
+                    </span>
+                  </div>
+
+                  {/* Title & Description */}
+                  <h3 className="mt-3 truncate text-base font-semibold text-gray-900 group-hover:text-indigo-600">
+                    {project.name}
+                  </h3>
+                  {project.description && (
+                    <p className="mt-1 line-clamp-2 text-sm text-gray-500">
+                      {project.description}
+                    </p>
+                  )}
+
+                  {/* Stats */}
+                  <div className="mt-4 flex items-center gap-4 text-xs text-gray-400">
+                    {project.sourcesCount !== undefined && (
+                      <span className="flex items-center gap-1">
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                        {t('aiResearch.project.sourcesCount', {
+                          count: project.sourcesCount,
+                        })}
+                      </span>
+                    )}
+                    <span>
+                      <ClientDate
+                        date={project.updatedAt || project.createdAt}
+                        format="relative"
+                      />
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Create New Card */}
+            <button
+              onClick={() => createProject()}
+              className="flex min-h-[200px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-indigo-400 hover:bg-indigo-50"
+            >
+              <svg
+                className="h-10 w-10 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              <span className="mt-2 text-sm font-medium text-gray-600">
+                {t('aiResearch.newResearch')}
+              </span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// ==================== 主页面 ====================
 export default function ResearchPage() {
   return (
     <Suspense
       fallback={
         <div className="flex h-full items-center justify-center bg-gray-50">
-          <LoaderIcon className="h-8 w-8 animate-spin text-violet-600" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
         </div>
       }
     >

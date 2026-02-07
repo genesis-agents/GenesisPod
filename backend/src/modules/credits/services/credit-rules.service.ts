@@ -55,19 +55,19 @@ const DEFAULT_RULES = [
   // Topic Research (专题研究)
   // ============================================
   {
-    moduleType: "topic-research",
+    moduleType: "topic-insights",
     operationType: "refresh",
     baseCredits: 2000,
     name: "专题研究刷新",
   },
   {
-    moduleType: "topic-research",
+    moduleType: "topic-insights",
     operationType: "create",
     baseCredits: 500,
     name: "创建专题",
   },
   {
-    moduleType: "topic-research",
+    moduleType: "topic-insights",
     operationType: "ai-edit",
     baseCredits: 50,
     name: "AI编辑报告",

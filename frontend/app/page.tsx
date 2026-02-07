@@ -50,7 +50,7 @@ const SimilarResourcesList = dynamic(
 
 const ReportWorkspace = dynamic(
   () =>
-    import('@/components/ai-research').then((mod) => ({
+    import('@/components/ai-insights').then((mod) => ({
       default: mod.ReportWorkspace,
     })),
   { ssr: false }

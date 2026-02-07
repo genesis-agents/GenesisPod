@@ -13,20 +13,20 @@ import Link from 'next/link';
 import {
   getSharedTopic,
   getSharedTopicLatestReport,
-} from '@/lib/api/topic-research';
+} from '@/lib/api/topic-insights';
 import type {
   ResearchTopic,
   TopicReport,
   DimensionAnalysis,
   ReportChart,
-} from '@/types/topic-research';
-import { ResearchTopicType } from '@/types/topic-research';
+} from '@/types/topic-insights';
+import { ResearchTopicType } from '@/types/topic-insights';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   ReportChartRenderer,
   RiskMatrixRenderer,
-} from '@/components/ai-research/charts/ReportChartRenderer';
+} from '@/components/ai-insights/charts/ReportChartRenderer';
 import ClientDate from '@/components/common/ClientDate';
 
 // Icons
@@ -658,7 +658,7 @@ export default function SharedTopicPage() {
             </div>
           </div>
           <Link
-            href="/ai-research"
+            href="/ai-insights"
             className="flex items-center gap-1 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
           >
             <span>🔍</span>

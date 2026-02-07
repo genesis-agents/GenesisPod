@@ -19,7 +19,7 @@ import { useUrlDetection } from '@/hooks';
 import { LinkPreviewList } from '@/components/ai-teams/LinkPreviewCard';
 import type { ParsedUrl } from '@/lib/api/ai-teams';
 import { getProviderBrand } from '@/lib/ai-provider-logos';
-import { ModelBadge } from '@/components/ai-research/ModelBadge';
+import { ModelBadge } from '@/components/common/badges/ModelBadge';
 
 // Helper to get short capability labels and colors
 const CAPABILITY_CONFIG: Record<

@@ -251,17 +251,17 @@ export function ResearchTab({
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">
-                    {t('aiStudio.deepResearch.title')}
+                    {t('aiResearch.deepResearch.title')}
                   </h1>
                   <p className="text-sm text-gray-500">
-                    {t('aiStudio.deepResearch.subtitle')}
+                    {t('aiResearch.deepResearch.subtitle')}
                   </p>
                 </div>
               </div>
               {sessions.length > 0 && (
                 <button className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
                   <History className="h-4 w-4" />
-                  {t('aiStudio.deepResearch.researchCount', {
+                  {t('aiResearch.deepResearch.researchCount', {
                     count: sessions.length,
                   })}
                 </button>
@@ -276,7 +276,7 @@ export function ResearchTab({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleStartResearch()}
-                placeholder={t('aiStudio.deepResearch.inputPlaceholder')}
+                placeholder={t('aiResearch.deepResearch.inputPlaceholder')}
                 className="w-full rounded-2xl border-2 border-gray-200 bg-white py-4 pl-12 pr-32 text-lg text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
               />
               <button
@@ -284,26 +284,26 @@ export function ResearchTab({
                 disabled={!query.trim()}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-2.5 font-medium text-white transition-all hover:from-purple-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {t('aiStudio.deepResearch.startButton')}
+                {t('aiResearch.deepResearch.startButton')}
               </button>
             </div>
 
             {/* Quick Topics */}
             <div className="mt-4 flex flex-wrap gap-2">
               <span className="text-xs text-gray-400">
-                {t('aiStudio.deepResearch.hotTopics')}
+                {t('aiResearch.deepResearch.hotTopics')}
               </span>
               {hotTopics.map(({ key, fallback }) => (
                 <button
                   key={key}
                   onClick={() =>
                     setQuery(
-                      t(`aiStudio.deepResearch.topics.${key}`) || fallback
+                      t(`aiResearch.deepResearch.topics.${key}`) || fallback
                     )
                   }
                   className="rounded-full bg-gray-100 px-3 py-1 text-xs transition-colors hover:bg-purple-100 hover:text-purple-700"
                 >
-                  {t(`aiStudio.deepResearch.topics.${key}`) || fallback}
+                  {t(`aiResearch.deepResearch.topics.${key}`) || fallback}
                 </button>
               ))}
             </div>
@@ -322,7 +322,7 @@ export function ResearchTab({
             ) : (
               <div className="space-y-3">
                 <h3 className="mb-4 text-sm font-medium text-gray-500">
-                  {t('aiStudio.deepResearch.recentResearch')}
+                  {t('aiResearch.deepResearch.recentResearch')}
                 </h3>
                 {sessions.map((session) => (
                   <ResearchSessionCard
@@ -369,7 +369,7 @@ export function ResearchTab({
             className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2 text-red-600 transition-colors hover:bg-red-100"
           >
             <X className="h-4 w-4" />
-            {t('aiStudio.deepResearch.stopResearch')}
+            {t('aiResearch.deepResearch.stopResearch')}
           </button>
         </div>
 
@@ -408,8 +408,8 @@ export function ResearchTab({
           >
             <Brain className="h-4 w-4" />
             {showThinking
-              ? t('aiStudio.deepResearch.hideThinking')
-              : t('aiStudio.deepResearch.showThinking')}
+              ? t('aiResearch.deepResearch.hideThinking')
+              : t('aiResearch.deepResearch.showThinking')}
             {showThinking ? (
               <ChevronUp className="h-4 w-4" />
             ) : (
@@ -466,13 +466,13 @@ export function ResearchTab({
               <div className="flex items-center gap-3 text-sm text-gray-500">
                 <span className="flex items-center gap-1">
                   <FileText className="h-3.5 w-3.5" />
-                  {t('aiStudio.deepResearch.sourcesCount', {
+                  {t('aiResearch.deepResearch.sourcesCount', {
                     count: viewingSession.sourcesUsed,
                   })}
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" />
-                  {t('aiStudio.deepResearch.duration', {
+                  {t('aiResearch.deepResearch.duration', {
                     duration:
                       viewingSession.report.metadata.duration.toFixed(1),
                   })}
@@ -516,7 +516,7 @@ export function ResearchTab({
                 value={followUpQuery}
                 onChange={(e) => setFollowUpQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleFollowUp()}
-                placeholder={t('aiStudio.deepResearch.followUpPlaceholder')}
+                placeholder={t('aiResearch.deepResearch.followUpPlaceholder')}
                 className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-12 pr-4 text-gray-900 outline-none placeholder:text-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
               />
             </div>
@@ -525,7 +525,7 @@ export function ResearchTab({
               disabled={!followUpQuery.trim()}
               className="rounded-xl bg-purple-600 px-6 py-3 font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
             >
-              {t('aiStudio.deepResearch.followUp')}
+              {t('aiResearch.deepResearch.followUp')}
             </button>
           </div>
         </div>
@@ -566,10 +566,10 @@ function EmptyResearchState() {
         <Microscope className="h-12 w-12 text-purple-500" />
       </div>
       <h3 className="mb-2 text-lg font-semibold text-gray-900">
-        {t('aiStudio.deepResearch.empty.title')}
+        {t('aiResearch.deepResearch.empty.title')}
       </h3>
       <p className="max-w-md text-gray-500">
-        {t('aiStudio.deepResearch.empty.description')}
+        {t('aiResearch.deepResearch.empty.description')}
       </p>
       <div className="mt-6 grid max-w-lg grid-cols-2 gap-4 text-left">
         {features.map(({ icon: Icon, key }) => (
@@ -580,10 +580,10 @@ function EmptyResearchState() {
             <Icon className="mt-0.5 h-5 w-5 flex-shrink-0 text-purple-500" />
             <div>
               <div className="text-sm font-medium text-gray-900">
-                {t(`aiStudio.deepResearch.empty.features.${key}.title`)}
+                {t(`aiResearch.deepResearch.empty.features.${key}.title`)}
               </div>
               <div className="text-xs text-gray-500">
-                {t(`aiStudio.deepResearch.empty.features.${key}.desc`)}
+                {t(`aiResearch.deepResearch.empty.features.${key}.desc`)}
               </div>
             </div>
           </div>
@@ -678,12 +678,12 @@ function ResearchSessionCard({
                     'animate-spin'
                 )}
               />
-              {t(`aiStudio.deepResearch.status.${config.key}`)}
+              {t(`aiResearch.deepResearch.status.${config.key}`)}
             </span>
             {session.sourcesUsed > 0 && (
               <span className="flex items-center gap-1">
                 <FileText className="h-3.5 w-3.5" />
-                {t('aiStudio.deepResearch.sourcesCount', {
+                {t('aiResearch.deepResearch.sourcesCount', {
                   count: session.sourcesUsed,
                 })}
               </span>
@@ -699,7 +699,7 @@ function ResearchSessionCard({
             onClick={onDelete}
             disabled={isDeleting}
             className="rounded-lg p-2 text-gray-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 disabled:opacity-50 group-hover:opacity-100"
-            title={t('aiStudio.deepResearch.deleteResearch')}
+            title={t('aiResearch.deepResearch.deleteResearch')}
           >
             {isDeleting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -729,10 +729,10 @@ function StreamingReportView({
       <div className="flex h-full flex-col items-center justify-center">
         <Loader2 className="mb-4 h-10 w-10 animate-spin text-purple-500" />
         <p className="text-gray-500">
-          {t('aiStudio.deepResearch.streaming.collecting')}
+          {t('aiResearch.deepResearch.streaming.collecting')}
         </p>
         <p className="mt-1 text-sm text-gray-400">
-          {t('aiStudio.deepResearch.streaming.executing')}
+          {t('aiResearch.deepResearch.streaming.executing')}
         </p>
       </div>
     );
@@ -807,19 +807,19 @@ function CompletedReportView({
       <div className="flex flex-wrap gap-4 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 p-4 text-sm">
         <span className="flex items-center gap-2 text-purple-700">
           <FileText className="h-4 w-4" />
-          {t('aiStudio.deepResearch.report.sourcesCount', {
+          {t('aiResearch.deepResearch.report.sourcesCount', {
             count: report.metadata.totalSources,
           })}
         </span>
         <span className="flex items-center gap-2 text-purple-700">
           <Search className="h-4 w-4" />
-          {t('aiStudio.deepResearch.report.searchRounds', {
+          {t('aiResearch.deepResearch.report.searchRounds', {
             count: report.metadata.searchRounds,
           })}
         </span>
         <span className="flex items-center gap-2 text-purple-700">
           <Clock className="h-4 w-4" />
-          {t('aiStudio.deepResearch.report.duration', {
+          {t('aiResearch.deepResearch.report.duration', {
             duration: report.metadata.duration.toFixed(1),
           })}
         </span>
@@ -830,7 +830,7 @@ function CompletedReportView({
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-xl font-bold text-gray-900">
             <Sparkles className="h-5 w-5 text-purple-500" />
-            {t('aiStudio.deepResearch.report.executiveSummary')}
+            {t('aiResearch.deepResearch.report.executiveSummary')}
           </h2>
           <CopyButton
             content={report.executiveSummary}
@@ -877,7 +877,7 @@ function CompletedReportView({
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-xl font-bold text-gray-900">
             <CheckCircle2 className="h-5 w-5 text-green-500" />
-            {t('aiStudio.deepResearch.report.conclusion')}
+            {t('aiResearch.deepResearch.report.conclusion')}
           </h2>
           <CopyButton
             content={report.conclusion}
@@ -904,7 +904,7 @@ function CompletedReportView({
         >
           <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
             <FileText className="h-5 w-5 text-gray-500" />
-            {t('aiStudio.deepResearch.report.references')} (
+            {t('aiResearch.deepResearch.report.references')} (
             {report.references.length})
           </h2>
           {expandedRefs ? (
@@ -968,7 +968,7 @@ function CompletedReportView({
                             className="mt-2 border-t border-purple-200 pt-2"
                           >
                             <p className="text-xs italic text-purple-600">
-                              {t('aiStudio.deepResearch.report.clickToJump')}
+                              {t('aiResearch.deepResearch.report.clickToJump')}
                             </p>
                           </motion.div>
                         )}
@@ -1047,12 +1047,12 @@ function CopyButton({
       {copied ? (
         <>
           <CheckCircle2 className="h-4 w-4 text-green-500" />
-          {t('aiStudio.deepResearch.copy.copied')}
+          {t('aiResearch.deepResearch.copy.copied')}
         </>
       ) : (
         <>
           <Copy className="h-4 w-4" />
-          {t('aiStudio.deepResearch.copy.copy')}
+          {t('aiResearch.deepResearch.copy.copy')}
         </>
       )}
     </button>
@@ -1067,7 +1067,7 @@ type TranslateFunction = (
 ) => string;
 
 function getPhaseLabel(phase: string, t: TranslateFunction): string {
-  const key = `aiStudio.deepResearch.phase.${phase}`;
+  const key = `aiResearch.deepResearch.phase.${phase}`;
   return t(key) || phase;
 }
 
@@ -1083,10 +1083,10 @@ function getSectionIcon(section: string) {
 
 function getSectionTitle(section: string, t: TranslateFunction): string {
   if (section === 'executive_summary' || section.includes('摘要')) {
-    return t('aiStudio.deepResearch.report.executiveSummary');
+    return t('aiResearch.deepResearch.report.executiveSummary');
   }
   if (section === 'conclusion' || section.includes('结论')) {
-    return t('aiStudio.deepResearch.report.conclusion');
+    return t('aiResearch.deepResearch.report.conclusion');
   }
   return section;
 }
@@ -1214,7 +1214,7 @@ function DeepCitationLink({
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
         className="mx-0.5 cursor-pointer rounded px-0.5 font-medium text-purple-600 transition-all hover:bg-purple-100 hover:text-purple-800"
-        title={`${t('aiStudio.deepResearch.report.clickToJump')} [${sourceIndex}]`}
+        title={`${t('aiResearch.deepResearch.report.clickToJump')} [${sourceIndex}]`}
       >
         [{sourceIndex}]
       </sup>
@@ -1254,7 +1254,7 @@ function DeepCitationLink({
           {/* Footer */}
           <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-1.5">
             <span className="text-[10px] text-gray-400">
-              {t('aiStudio.deepResearch.report.clickToView')}
+              {t('aiResearch.deepResearch.report.clickToView')}
             </span>
             <ExternalLink className="h-3 w-3 text-gray-400" />
           </div>

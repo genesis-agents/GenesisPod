@@ -102,7 +102,7 @@
     "explore": "探索",
     "aiExplore": "AI 探索",
     "myLibrary": "我的知识库",
-    "aiStudio": "AI 研究",
+    "aiInsights": "AI 洞察",
     "aiResearch": "AI 研究",
     "aiTeams": "AI 团队",
     "myTeams": "自建团队",
@@ -577,9 +577,19 @@
       }
     }
   },
-  "aiStudio": {
+  "aiInsights": {
+    "title": "AI 洞察",
+    "subtitle": "AI 驱动的行业专题监控与分析",
+    "actions": {
+      "createNew": "新建洞察"
+    },
+    "search": {
+      "placeholder": "搜索洞察..."
+    }
+  },
+  "aiResearch": {
     "title": "AI 研究",
-    "subtitle": "AI驱动的深度专题研究",
+    "subtitle": "AI 驱动的深度研究",
     "research": "深度研究",
     "chat": "对话",
     "artifacts": "制品",
@@ -621,10 +631,10 @@
       "knowledgeBaseHint": "关联知识库后，AI 研究将优先使用知识库中的内容"
     },
     "empty": {
-      "noProjects": "暂无专题研究",
-      "noProjectsDesc": "创建你的第一个专题研究开始使用",
-      "createFirst": "创建专题研究",
-      "createNew": "创建新研究"
+      "noProjects": "暂无研究项目",
+      "noProjectsDesc": "创建你的第一个研究项目以开始使用",
+      "createFirst": "创建首个研究",
+      "defaultName": "未命名研究"
     },
     "time": {
       "minutesAgo": "{{count}} 分钟前",
@@ -874,6 +884,10 @@
         "legend": "图例",
         "expectedMaturity": "预计成熟"
       }
+    },
+    "searchPlaceholder": "搜索研究项目...",
+    "status": {
+      "active": "进行中"
     }
   },
   "aiTeams": {
@@ -2376,7 +2390,8 @@
         "removeCoverImage": "移除封面图片",
         "generateAICover": "使用 AI 生成封面图片",
         "uploadCover": "上传封面图片"
-      }
+      },
+      "digest": "摘要"
     },
     "edit": {
       "title": "编辑内容",
@@ -2467,6 +2482,19 @@
       "platformConnection": "平台连接",
       "withConnection": "已连接",
       "withoutConnection": "未连接"
+    },
+    "error": {
+      "title": "出现了问题",
+      "description": "抱歉，AI 社媒遇到了错误。我们已记录此问题并将尽快修复。",
+      "possibleCauses": "可能的原因",
+      "cause1": "网络连接中断或不稳定",
+      "cause2": "平台授权已过期，需要重新连接",
+      "cause3": "数据加载失败或格式不正确",
+      "retry": "重试",
+      "reload": "重新加载页面",
+      "goHome": "返回首页",
+      "helpText": "如果问题持续存在，请",
+      "reportIssue": "报告问题"
     }
   },
   "aiStore": {
@@ -4538,7 +4566,15 @@
           "percent": "{{percent}}%",
           "inProgress": "进行中 {{count}}"
         }
-      }
+      },
+      "searchPlaceholder": "搜索消息...",
+      "filterByAgent": "按 Agent 筛选",
+      "filterByDimension": "按维度筛选",
+      "allAgents": "全部 Agent",
+      "allDimensions": "全部维度",
+      "noMessages": "暂无协作消息",
+      "uncategorized": "未分类",
+      "otherActivities": "其他活动"
     },
     "maximize": "全屏阅读",
     "exitMaximize": "退出全屏",
@@ -5545,6 +5581,55 @@
         "recommend": "推荐 {{tech}}",
         "eitherWorks": "两者均可",
         "recommendation": "综合建议"
+      }
+    },
+    "teamPanel": {
+      "title": "研究团队",
+      "leaderModel": "Leader: {{model}}",
+      "legend": {
+        "inProgress": "进行中",
+        "completed": "已完成",
+        "idle": "待开始"
+      },
+      "agentRoles": {
+        "leader": {
+          "name": "研究协调员",
+          "description": "负责规划研究大纲、分配任务给研究员、审核研究质量、整合最终结果",
+          "note": "使用推理模型进行高级决策"
+        },
+        "dimensionResearcher": {
+          "name": "维度研究员",
+          "description": "负责深入研究特定维度，收集证据，撰写分析内容",
+          "note": "Leader 根据任务分配模型和工具",
+          "assignedTo": "负责研究「{{dimension}}」维度"
+        },
+        "qualityReviewer": {
+          "name": "质量审核员",
+          "description": "负责审核研究内容的准确性、完整性和一致性",
+          "note": "Leader 根据任务分配模型和工具"
+        },
+        "reportWriter": {
+          "name": "报告撰写员",
+          "description": "负责整合各维度研究结果，撰写最终综合报告",
+          "note": "Leader 根据任务分配模型和工具"
+        }
+      },
+      "agentDetail": {
+        "clickToView": "点击查看详情",
+        "status": "状态：",
+        "statusIdle": "待命中",
+        "statusWorking": "工作中",
+        "statusCompleted": "已完成",
+        "statusFailed": "失败",
+        "responsibilities": "职责：",
+        "capabilities": "能力范围：",
+        "assignedSkills": "分配的技能：",
+        "assignedTools": "分配的工具：",
+        "configMethod": "配置方式：",
+        "aiModel": "AI 模型",
+        "modelNotSpecified": "未指定",
+        "currentTask": "当前任务：",
+        "pendingAssignment": "待 Leader 分配"
       }
     }
   },

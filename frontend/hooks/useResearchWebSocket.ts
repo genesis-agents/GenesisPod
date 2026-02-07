@@ -253,9 +253,9 @@ export function useResearchWebSocket(
     const baseUrl = apiUrl?.replace('/api/v1', '') || 'http://localhost:3001';
 
     connectingRef.current = true;
-    logger.debug('[ResearchWS] Connecting to:', `${baseUrl}/topic-research`);
+    logger.debug('[ResearchWS] Connecting to:', `${baseUrl}/topic-insights`);
 
-    const socket = io(`${baseUrl}/topic-research`, {
+    const socket = io(`${baseUrl}/topic-insights`, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 3,

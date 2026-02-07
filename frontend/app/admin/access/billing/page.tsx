@@ -21,7 +21,7 @@ interface BillingOverview {
 const MODULE_LABELS: Record<string, string> = {
   'ai-ask': 'AI Ask',
   'ai-studio': 'AI Research',
-  'topic-research': 'Topic Research',
+  'topic-insights': 'Topic Insights',
   'ai-teams': 'AI Teams',
   'ai-office': 'AI Office',
   'ai-writing': 'AI Writing',

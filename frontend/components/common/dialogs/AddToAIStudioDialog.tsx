@@ -265,7 +265,7 @@ export function AddToAIStudioDialog({
                   : 'No active projects'}
               </p>
               <a
-                href="/ai-studio"
+                href="/ai-research"
                 className="mt-2 inline-block text-sm text-blue-600 hover:underline"
               >
                 Create a new project
@@ -329,7 +329,7 @@ export function AddToAIStudioDialog({
             Cancel
           </button>
           <a
-            href="/ai-studio"
+            href="/ai-research"
             className="flex items-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             <Plus className="h-4 w-4" />
