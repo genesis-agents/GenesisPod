@@ -1626,27 +1626,34 @@ ${storyCreativitySection}
             where: { bibleId: bible.id },
           });
 
+          // 确保 description 为字符串（AI 可能返回对象）
+          const toStr = (val: unknown): string => {
+            if (!val) return "";
+            if (typeof val === "string") return val;
+            return JSON.stringify(val, null, 2);
+          };
+
           // 构建要保存的设定列表
           const settingsToSave = [
             {
               category: "时代",
               name: "时代背景",
-              description: worldInfo.era || "",
+              description: toStr(worldInfo.era),
             },
             {
               category: "地理",
               name: "地理环境",
-              description: worldInfo.geography || "",
+              description: toStr(worldInfo.geography),
             },
             {
               category: "社会",
               name: "社会结构",
-              description: worldInfo.society || "",
+              description: toStr(worldInfo.society),
             },
             {
               category: "类型",
               name: "世界类型",
-              description: worldInfo.type || "",
+              description: toStr(worldInfo.type),
             },
           ].filter((s) => s.description);
 
