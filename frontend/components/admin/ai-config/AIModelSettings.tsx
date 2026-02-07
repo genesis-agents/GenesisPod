@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
@@ -250,8 +250,7 @@ const STANDARD_MODEL_CONFIGS = [
     name: 'Google Embedding',
     provider: 'Google',
     defaultModelId: 'text-embedding-004',
-    defaultEndpoint:
-      'https://generativelanguage.googleapis.com/v1beta',
+    defaultEndpoint: 'https://generativelanguage.googleapis.com/v1beta',
     icon: '/icons/ai/gemini.svg',
     defaultType: 'EMBEDDING',
   },
@@ -558,14 +557,39 @@ export default function AIModelSettings({
     {}
   );
   const [providerFilter, setProviderFilter] = useState<string>('all');
-  const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(
-    new Set()
-  );
+  const [searchTerm, setSearchTerm] = useState('');
   const [showDiagnose, setShowDiagnose] = useState(false);
   const [diagnoseResult, setDiagnoseResult] = useState<DiagnoseResult | null>(
     null
   );
   const [diagnosing, setDiagnosing] = useState(false);
+
+  // Memoize provider options for dropdown
+  const providerOptions = useMemo(() => {
+    const providerCounts: Record<string, number> = {};
+    for (const m of models) {
+      providerCounts[m.provider] = (providerCounts[m.provider] || 0) + 1;
+    }
+    return Object.entries(providerCounts)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([provider, count]) => ({ provider, count }));
+  }, [models]);
+
+  // Memoize filtered models to prevent recalculation on every render
+  const filteredModels = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return models.filter((m) => {
+      const matchesProvider =
+        providerFilter === 'all' || m.provider === providerFilter;
+      const matchesSearch =
+        !term ||
+        m.displayName.toLowerCase().includes(term) ||
+        m.modelId.toLowerCase().includes(term) ||
+        m.provider.toLowerCase().includes(term) ||
+        m.name.toLowerCase().includes(term);
+      return matchesProvider && matchesSearch;
+    });
+  }, [models, providerFilter, searchTerm]);
 
   // Reset filter when selected provider no longer exists
   useEffect(() => {
@@ -917,304 +941,298 @@ export default function AIModelSettings({
   }
 
   return (
-    <div className="p-8">
+    <div className="space-y-6">
       {/* Notifications */}
       {error && (
-        <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-600">
+        <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
           {error}
         </div>
       )}
       {success && (
-        <div className="mb-4 rounded-lg bg-green-50 p-4 text-sm text-green-600">
+        <div className="rounded-lg bg-green-50 p-4 text-sm text-green-600">
           {success}
         </div>
       )}
 
-      {/* Provider Filter */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-gray-500">Provider:</span>
-        {[
-          'all',
-          ...Array.from(new Set(models.map((m) => m.provider))).sort(),
-        ].map((p) => (
-          <button
-            key={p}
-            onClick={() => setProviderFilter(p)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              providerFilter === p
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
+      {/* Search and Filter */}
+      <div className="flex gap-4">
+        <div className="relative flex-1">
+          <svg
+            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            {p === 'all'
-              ? `All (${models.length})`
-              : `${p} (${models.filter((m) => m.provider === p).length})`}
-          </button>
-        ))}
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search 模型名称、Model ID、Provider..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          />
+        </div>
+        <select
+          value={providerFilter}
+          onChange={(e) => setProviderFilter(e.target.value)}
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+        >
+          <option value="all">All Providers ({models.length})</option>
+          {providerOptions.map(({ provider, count }) => (
+            <option key={provider} value={provider}>
+              {provider} ({count})
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => fetchModels()}
+          className="rounded-lg border border-gray-300 p-2 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700"
+          title="Refresh"
+        >
+          <svg
+            className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+        </button>
       </div>
 
-      {/* Models Grid - grouped by Provider */}
-      {(() => {
-        const filtered =
-          providerFilter === 'all'
-            ? models
-            : models.filter((m) => m.provider === providerFilter);
-        const grouped = filtered.reduce<Record<string, AIModel[]>>((acc, m) => {
-          (acc[m.provider] ??= []).push(m);
-          return acc;
-        }, {});
-        const providers = Object.keys(grouped).sort();
-        return providers.map((provider) => (
-          <div key={provider} className="mb-4">
-            <button
-              onClick={() =>
-                setCollapsedProviders((prev) => {
-                  const next = new Set(prev);
-                  next.has(provider)
-                    ? next.delete(provider)
-                    : next.add(provider);
-                  return next;
-                })
-              }
-              className="mb-2 flex w-full items-center gap-2 text-left"
-            >
-              <svg
-                className={`h-4 w-4 text-gray-400 transition-transform ${collapsedProviders.has(provider) ? '' : 'rotate-90'}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-              <span className="text-sm font-semibold text-gray-700">
-                {provider}
-              </span>
-              <span className="text-xs text-gray-400">
-                ({grouped[provider].length})
-              </span>
-            </button>
-            {!collapsedProviders.has(provider) && (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {grouped[provider].map((model) => (
-                  <div
-                    key={model.id}
-                    className={`rounded-xl border-2 bg-white p-5 shadow-sm transition-all ${
-                      model.isDefault ? 'border-blue-500' : 'border-gray-200'
-                    } ${!model.isEnabled ? 'opacity-60' : ''}`}
-                  >
-                    {/* Model Header */}
-                    <div className="mb-4 flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br ${model.color} text-2xl text-white shadow-sm`}
-                        >
-                          {(() => {
-                            const iconUrl = getModelIconUrl(model.name);
-                            // 优先使用 MODEL_ICONS 映射
-                            if (iconUrl) {
-                              return (
-                                <img
-                                  src={iconUrl}
-                                  alt={model.displayName}
-                                  className="h-8 w-8"
-                                />
-                              );
-                            }
-                            // 如果 model.icon 是路径，则用 img 显示
-                            if (model.icon && model.icon.startsWith('/')) {
-                              return (
-                                <img
-                                  src={model.icon}
-                                  alt={model.displayName}
-                                  className="h-8 w-8"
-                                />
-                              );
-                            }
-                            // 否则显示 emoji 或文字
-                            return model.icon || '🤖';
-                          })()}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-gray-900">
-                              {model.displayName}
-                            </h3>
-                            {model.isDefault && (
-                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                                Default
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-500">
-                            {model.provider}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Enable/Disable Toggle */}
-                      <button
-                        onClick={() => handleToggleEnabled(model)}
-                        className={`relative h-6 w-11 rounded-full transition-colors ${
-                          model.isEnabled ? 'bg-green-500' : 'bg-gray-300'
-                        }`}
-                      >
-                        <div
-                          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                            model.isEnabled ? 'left-[22px]' : 'left-0.5'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    {/* Model Info */}
-                    <div className="mb-4 space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Model ID:</span>
-                        <span className="font-mono text-gray-700">
-                          {model.modelId}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Type:</span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            model.modelType === 'CHAT'
-                              ? 'bg-blue-100 text-blue-700'
-                              : model.modelType === 'CHAT_FAST'
-                                ? 'bg-sky-100 text-sky-700'
-                                : model.modelType === 'IMAGE_GENERATION'
-                                  ? 'bg-green-100 text-green-700'
-                                  : model.modelType === 'IMAGE_EDITING'
-                                    ? 'bg-orange-100 text-orange-700'
-                                    : model.modelType === 'EMBEDDING'
-                                      ? 'bg-indigo-100 text-indigo-700'
-                                      : model.modelType === 'RERANK'
-                                        ? 'bg-pink-100 text-pink-700'
-                                        : 'bg-purple-100 text-purple-700'
-                          }`}
-                        >
-                          {MODEL_TYPE_OPTIONS.find(
-                            (o) => o.value === model.modelType
-                          )?.label || model.modelType}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">API Key:</span>
-                        <span
-                          className={`font-mono ${model.hasApiKey ? 'text-green-600' : 'text-red-500'}`}
-                        >
-                          {model.hasApiKey
-                            ? '✓ Configured'
-                            : '✗ Not configured'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Max Tokens:</span>
-                        <span className="text-gray-700">{model.maxTokens}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Temperature:</span>
-                        <span className="text-gray-700">
-                          {model.temperature}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">推理模型:</span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            model.isReasoning
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {model.isReasoning ? '是' : '否'}
-                        </span>
-                      </div>
-                      {/* ★ 模型能力配置显示 */}
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">API 格式:</span>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                          {model.apiFormat || 'openai'}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {model.supportsTemperature !== false && (
-                          <span
-                            className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700"
-                            title="支持 temperature"
-                          >
-                            T
-                          </span>
-                        )}
-                        {model.supportsStreaming !== false && (
-                          <span
-                            className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700"
-                            title="支持流式"
-                          >
-                            S
-                          </span>
-                        )}
-                        {model.supportsFunctionCalling !== false && (
-                          <span
-                            className="rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-700"
-                            title="支持函数调用"
-                          >
-                            F
-                          </span>
-                        )}
-                        {model.supportsVision && (
-                          <span
-                            className="rounded bg-pink-100 px-1.5 py-0.5 text-xs text-pink-700"
-                            title="支持视觉"
-                          >
-                            V
-                          </span>
-                        )}
-                        <span className="ml-auto text-xs text-gray-400">
-                          优先级: {model.priority ?? 50}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Test Result */}
-                    {testResults[model.id] && (
+      {/* Models Table */}
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+        <table className="w-full">
+          <thead className="bg-gray-50 dark:bg-gray-900">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Model
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Model ID
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Type
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                API Key
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Status
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Capabilities
+              </th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            {filteredModels.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  {searchTerm || providerFilter !== 'all'
+                    ? 'No matching models found'
+                    : '暂无模型，点击"Add Model"创建'}
+                </td>
+              </tr>
+            ) : (
+              filteredModels.map((model) => (
+                <tr
+                  key={model.id}
+                  className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${!model.isEnabled ? 'opacity-60' : ''}`}
+                >
+                  {/* Model Name + Icon + Provider */}
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-3">
                       <div
-                        className={`mb-4 rounded-lg p-3 text-sm ${
-                          testResults[model.id].success
-                            ? 'bg-green-50 text-green-700'
-                            : 'bg-red-50 text-red-700'
-                        }`}
+                        className={`flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br ${model.color} text-lg text-white shadow-sm`}
                       >
-                        <div className="flex items-center justify-between">
-                          <span>{testResults[model.id].message}</span>
-                          {testResults[model.id].latency && (
-                            <span className="font-mono text-xs">
-                              {testResults[model.id].latency}ms
+                        {(() => {
+                          const iconUrl = getModelIconUrl(model.name);
+                          if (iconUrl) {
+                            return (
+                              <img
+                                src={iconUrl}
+                                alt={model.displayName}
+                                className="h-6 w-6"
+                              />
+                            );
+                          }
+                          if (model.icon && model.icon.startsWith('/')) {
+                            return (
+                              <img
+                                src={model.icon}
+                                alt={model.displayName}
+                                className="h-6 w-6"
+                              />
+                            );
+                          }
+                          return model.icon || '🤖';
+                        })()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {model.displayName}
+                          </span>
+                          {model.isDefault && (
+                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                              Default
+                            </span>
+                          )}
+                          {model.isReasoning && (
+                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                              Reasoning
                             </span>
                           )}
                         </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          {model.provider}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Model ID */}
+                  <td className="px-4 py-4">
+                    <code className="font-mono rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-700">
+                      {model.modelId}
+                    </code>
+                  </td>
+
+                  {/* Type Badge */}
+                  <td className="px-4 py-4">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        model.modelType === 'CHAT'
+                          ? 'bg-blue-100 text-blue-700'
+                          : model.modelType === 'CHAT_FAST'
+                            ? 'bg-sky-100 text-sky-700'
+                            : model.modelType === 'IMAGE_GENERATION'
+                              ? 'bg-green-100 text-green-700'
+                              : model.modelType === 'IMAGE_EDITING'
+                                ? 'bg-orange-100 text-orange-700'
+                                : model.modelType === 'EMBEDDING'
+                                  ? 'bg-indigo-100 text-indigo-700'
+                                  : model.modelType === 'RERANK'
+                                    ? 'bg-pink-100 text-pink-700'
+                                    : 'bg-purple-100 text-purple-700'
+                      }`}
+                    >
+                      {MODEL_TYPE_OPTIONS.find(
+                        (o) => o.value === model.modelType
+                      )?.label || model.modelType}
+                    </span>
+                    <div className="mt-1 text-xs text-gray-400">
+                      {model.apiFormat || 'openai'}
+                    </div>
+                  </td>
+
+                  {/* API Key Status */}
+                  <td className="px-4 py-4">
+                    <span
+                      className={`text-sm font-medium ${model.hasApiKey ? 'text-green-600' : 'text-red-500'}`}
+                    >
+                      {model.hasApiKey ? '✓ Configured' : '✗ Missing'}
+                    </span>
+                    {model.secretKey && (
+                      <div className="mt-0.5 text-xs text-gray-400">
+                        via {model.secretKey}
                       </div>
                     )}
+                  </td>
 
-                    {/* Description */}
-                    {model.description && (
-                      <p className="mb-4 text-sm text-gray-600">
-                        {model.description}
-                      </p>
+                  {/* Status Toggle */}
+                  <td className="px-4 py-4 text-center">
+                    <button
+                      onClick={() => handleToggleEnabled(model)}
+                      className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${
+                        model.isEnabled ? 'bg-green-500' : 'bg-gray-300'
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                          model.isEnabled ? 'left-[22px]' : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                  </td>
+
+                  {/* Capabilities */}
+                  <td className="px-4 py-4">
+                    <div className="flex flex-wrap gap-1">
+                      {model.supportsTemperature !== false && (
+                        <span
+                          className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700"
+                          title="支持 temperature"
+                        >
+                          T
+                        </span>
+                      )}
+                      {model.supportsStreaming !== false && (
+                        <span
+                          className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700"
+                          title="支持流式"
+                        >
+                          S
+                        </span>
+                      )}
+                      {model.supportsFunctionCalling !== false && (
+                        <span
+                          className="rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-700"
+                          title="支持函数调用"
+                        >
+                          F
+                        </span>
+                      )}
+                      {model.supportsVision && (
+                        <span
+                          className="rounded bg-pink-100 px-1.5 py-0.5 text-xs text-pink-700"
+                          title="支持视觉"
+                        >
+                          V
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-400">
+                      P:{model.priority ?? 50} | T:{model.temperature} |{' '}
+                      {model.maxTokens}tok
+                    </div>
+                    {/* Test Result inline */}
+                    {testResults[model.id] && (
+                      <div
+                        className={`mt-1 text-xs font-medium ${testResults[model.id].success ? 'text-green-600' : 'text-red-500'}`}
+                      >
+                        {testResults[model.id].success ? '✓' : '✗'}{' '}
+                        {testResults[model.id].message}
+                        {testResults[model.id].latency &&
+                          ` (${testResults[model.id].latency}ms)`}
+                      </div>
                     )}
+                  </td>
 
-                    {/* Actions */}
-                    <div className="flex flex-wrap gap-2">
-                      {/* Test Connection */}
+                  {/* Actions */}
+                  <td className="px-4 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {/* Test */}
                       <button
                         onClick={() => handleTestConnection(model)}
                         disabled={testingModel === model.id || !model.isEnabled}
-                        className="flex items-center gap-1 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded p-1.5 text-green-600 hover:bg-green-100 disabled:opacity-50 dark:hover:bg-green-900/30"
+                        title="Test Connection"
                       >
                         {testingModel === model.id ? (
                           <svg
@@ -1251,30 +1269,58 @@ export default function AIModelSettings({
                             />
                           </svg>
                         )}
-                        Test
                       </button>
-
+                      {/* Set Default */}
                       {!model.isDefault && model.isEnabled && (
                         <button
                           onClick={() => handleSetDefault(model)}
-                          className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+                          className="rounded p-1.5 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                          title="Set as Default"
                         >
-                          Set Default
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                            />
+                          </svg>
                         </button>
                       )}
+                      {/* Edit */}
                       <button
                         onClick={() => setEditingModel(model)}
-                        className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                        className="rounded p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        title="Edit"
                       >
-                        Edit
+                        <svg
+                          className="h-4 w-4 text-gray-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
                       </button>
+                      {/* Delete */}
                       <button
                         onClick={() => handleDeleteModel(model)}
                         disabled={model.isDefault}
-                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded p-1.5 hover:bg-red-100 disabled:opacity-50 dark:hover:bg-red-900/30"
+                        title="Delete"
                       >
                         <svg
-                          className="h-4 w-4"
+                          className="h-4 w-4 text-red-500"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -1288,13 +1334,13 @@ export default function AIModelSettings({
                         </svg>
                       </button>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  </td>
+                </tr>
+              ))
             )}
-          </div>
-        ));
-      })()}
+          </tbody>
+        </table>
+      </div>
 
       {/* Edit Modal */}
       {editingModel && (
