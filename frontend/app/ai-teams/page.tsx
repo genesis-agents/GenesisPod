@@ -956,27 +956,27 @@ function TopicCard({
         )}
 
         {/* Tags */}
-        {topic.metadata &&
-          Array.isArray((topic.metadata as any).tags) &&
-          (topic.metadata as any).tags.length > 0 && (
+        {(() => {
+          const metadata = topic.metadata as { tags?: string[] } | null;
+          const tags = metadata?.tags;
+          return tags && Array.isArray(tags) && tags.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1">
-              {(topic.metadata as any).tags
-                .slice(0, 3)
-                .map((tag: string, idx: number) => (
-                  <span
-                    key={idx}
-                    className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              {(topic.metadata as any).tags.length > 3 && (
+              {tags.slice(0, 3).map((tag: string, idx: number) => (
+                <span
+                  key={idx}
+                  className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600"
+                >
+                  {tag}
+                </span>
+              ))}
+              {tags.length > 3 && (
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                  +{(topic.metadata as any).tags.length - 3}
+                  +{tags.length - 3}
                 </span>
               )}
             </div>
-          )}
+          ) : null;
+        })()}
 
         {/* Stats */}
         <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">

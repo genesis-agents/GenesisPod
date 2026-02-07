@@ -46,6 +46,40 @@ export class ProxyController {
   ) {}
 
   /**
+   * SSRF protection: block requests to internal/private IP addresses
+   */
+  private isBlockedAddress(hostname: string): boolean {
+    const lower = hostname.toLowerCase();
+
+    // Block localhost variants
+    if (lower === "localhost" || lower === "[::1]") return true;
+
+    // Block IPv6 private ranges
+    if (
+      lower.startsWith("[fc") ||
+      lower.startsWith("[fd") ||
+      lower.startsWith("[fe80")
+    )
+      return true;
+
+    // Check IPv4 patterns
+    const ipv4Match = hostname.match(
+      /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/,
+    );
+    if (ipv4Match) {
+      const [, a, b] = ipv4Match.map(Number);
+      if (a === 127) return true; // 127.0.0.0/8 loopback
+      if (a === 10) return true; // 10.0.0.0/8 private
+      if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12 private
+      if (a === 192 && b === 168) return true; // 192.168.0.0/16 private
+      if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local
+      if (a === 0) return true; // 0.0.0.0/8
+    }
+
+    return false;
+  }
+
+  /**
    * 通过 Jina Reader API 获取网页内容
    * 当直接获取返回 403 时使用此方法作为 fallback
    * Jina Reader 返回 Markdown 格式的内容
@@ -209,6 +243,14 @@ export class ProxyController {
     // 仅做基本的 URL 格式验证
     try {
       const urlObj = new URL(url);
+
+      if (this.isBlockedAddress(urlObj.hostname)) {
+        throw new HttpException(
+          "Access to internal addresses is not allowed",
+          HttpStatus.FORBIDDEN,
+        );
+      }
+
       this.logger.log(`Fetching PDF from: ${urlObj.hostname}`);
 
       // 从远程服务器获取 PDF
@@ -694,6 +736,13 @@ export class ProxyController {
       ) {
         const urlObj = new URL(currentUrl);
 
+        if (this.isBlockedAddress(urlObj.hostname)) {
+          throw new HttpException(
+            "Access to internal addresses is not allowed",
+            HttpStatus.FORBIDDEN,
+          );
+        }
+
         this.logger.log(
           `Fetching HTML for News Reader Mode from: ${urlObj.hostname} (redirect #${redirectCount})`,
         );
@@ -931,6 +980,13 @@ export class ProxyController {
       // 只允许 http/https 协议
       if (!["http:", "https:"].includes(urlObj.protocol)) {
         throw new HttpException("Invalid URL protocol", HttpStatus.BAD_REQUEST);
+      }
+
+      if (this.isBlockedAddress(urlObj.hostname)) {
+        throw new HttpException(
+          "Access to internal addresses is not allowed",
+          HttpStatus.FORBIDDEN,
+        );
       }
 
       this.logger.log(`Proxying image: ${urlObj.hostname}`);

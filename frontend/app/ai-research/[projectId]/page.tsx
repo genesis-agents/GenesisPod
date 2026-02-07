@@ -395,12 +395,18 @@ interface SearchStats {
   errors?: string[];
 }
 
-interface SearchResponse {
-  results: Array<Record<string, unknown>>;
-  query: string;
-  mode: 'quick' | 'deep';
-  sourcesSearched: string[];
-  stats: SearchStats;
+interface SearchResult {
+  id: string;
+  title: string;
+  sourceType: string;
+  source: string;
+  sourceUrl: string;
+  abstract: string | null;
+  authors: string[] | null;
+  publishedAt: string | null;
+  metadata: Record<string, unknown> | null;
+  content: string;
+  [key: string]: unknown;
 }
 
 function SourcesPanel({
@@ -432,7 +438,7 @@ function SourcesPanel({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogTab, setDialogTab] = useState<'search' | 'upload'>('search');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchStats, setSearchStats] = useState<SearchStats | null>(null);
 
   // Citation context for highlighting sources when citations are clicked
@@ -446,7 +452,7 @@ function SourcesPanel({
   ]);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [addingId, setAddingId] = useState<string | null>(null);
-  const [viewingSource, setViewingSource] = useState<any | null>(null);
+  const [viewingSource, setViewingSource] = useState<SearchResult | null>(null);
 
   const getSourceIcon = (type: string) => {
     switch (type.toLowerCase()) {
@@ -494,7 +500,7 @@ function SourcesPanel({
         searchQuery,
         'quick',
         searchSources
-      )) as SearchResponse;
+      )) as { results: SearchResult[]; stats: SearchStats };
       setSearchResults(result.results || []);
       setSearchStats(result.stats);
     } catch (err) {
@@ -1047,10 +1053,12 @@ function SourcesPanel({
                                     format="date"
                                   />
                                 )}
-                                {result.metadata?.stars && (
+                                {!!result.metadata?.stars && (
                                   <span className="flex items-center gap-0.5">
                                     <Sparkles className="h-3 w-3" />
-                                    {result.metadata.stars.toLocaleString()}
+                                    {Number(
+                                      result.metadata.stars
+                                    ).toLocaleString()}
                                   </span>
                                 )}
                               </div>
@@ -1200,10 +1208,12 @@ function SourcesPanel({
                               format="date"
                             />
                           )}
-                          {viewingSource.metadata?.stars && (
+                          {!!viewingSource.metadata?.stars && (
                             <span className="flex items-center gap-1">
                               <Sparkles className="h-3.5 w-3.5" />
-                              {viewingSource.metadata.stars.toLocaleString()}{' '}
+                              {Number(
+                                viewingSource.metadata.stars
+                              ).toLocaleString()}{' '}
                               stars
                             </span>
                           )}

@@ -1961,19 +1961,20 @@ export class StorageService {
       }
 
       // Get size before
+      // SAFETY: tableName validated by whitelist on line 1956
       const beforeSize = await this.prisma.$queryRawUnsafe<
         Array<{ size: string }>
-      >(`SELECT pg_total_relation_size('${tableName}')::text as size`);
+      >(`SELECT pg_total_relation_size($1::regclass)::text as size`, tableName);
       const beforeMB = Number(beforeSize[0]?.size || 0) / (1024 * 1024);
 
-      // Run VACUUM FULL
+      // SAFETY: tableName validated by whitelist above; VACUUM cannot use parameterized table names
       this.logger.log(`Running VACUUM FULL on ${tableName}...`);
-      await this.prisma.$executeRawUnsafe(`VACUUM FULL ${tableName}`);
+      await this.prisma.$executeRawUnsafe(`VACUUM FULL "${tableName}"`);
 
       // Get size after
       const afterSize = await this.prisma.$queryRawUnsafe<
         Array<{ size: string }>
-      >(`SELECT pg_total_relation_size('${tableName}')::text as size`);
+      >(`SELECT pg_total_relation_size($1::regclass)::text as size`, tableName);
       const afterMB = Number(afterSize[0]?.size || 0) / (1024 * 1024);
 
       const freedMB = Math.round((beforeMB - afterMB) * 100) / 100;

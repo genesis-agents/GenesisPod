@@ -775,7 +775,11 @@ export default function RunConsolePage() {
         {viewMode === 'sandbox' ? (
           <div className="flex-1 overflow-hidden p-4">
             <SandboxView
-              run={run as any}
+              run={
+                run as unknown as React.ComponentProps<
+                  typeof SandboxView
+                >['run']
+              }
               onPause={handlePause}
               onResume={handleResume}
               onIntervene={(message) => {

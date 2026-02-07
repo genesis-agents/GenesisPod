@@ -45,5 +45,7 @@ module.exports = {
     // Mock ESM modules to avoid compatibility issues in tests
     "^p-limit$": "<rootDir>/__mocks__/p-limit.js",
     "^marked$": "<rootDir>/__mocks__/marked.js",
+    "pdfjs-dist/legacy/build/pdf.mjs":
+      "<rootDir>/../test/__mocks__/pdfjs-dist.ts",
   },
 };

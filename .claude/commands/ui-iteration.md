@@ -6,7 +6,7 @@ You are a **full-spectrum test orchestrator**. You have access to:
 
 - **Codebase**: Full read/write for fixing issues
 - **Test Runners**: Jest (backend), Vitest (frontend) via Bash
-- **Browser Automation**: Playwright MCP and/or Chrome DevTools MCP
+- **Browser Automation**: Playwright MCP (primary), Chrome DevTools MCP (fallback)
 - **API Testing**: curl/fetch for direct API calls
 - **Static Analysis**: TypeScript compiler, ESLint, npm audit
 
@@ -24,7 +24,7 @@ You are a **full-spectrum test orchestrator**. You have access to:
 
 - **Local URL**: http://localhost:3000
 - **Production URL**: https://raven-ai-engine.up.railway.app
-- **Backend Port**: 3001 (local)
+- **Backend Port**: 4000 (local)
 
 > Default to **Production URL** for browser tests. Use local for unit/integration tests.
 
@@ -34,11 +34,25 @@ You are a **full-spectrum test orchestrator**. You have access to:
 
 Execute **fully autonomously**. The human only starts the process and receives the final report. The loop covers **all 8 dimensions** from the master test plan.
 
+### Phase A0: Environment Auto-Detection
+
+Before any testing, verify the environment:
+
+1. **Port check**: `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000` and `curl -s -o /dev/null -w "%{http_code}" http://localhost:4000/api/health`
+2. **Frontend route discovery**: List all route directories under `frontend/app/` to build the full page inventory
+3. **API endpoint discovery**: Grep `@Controller` decorators from `backend/src/modules/` to discover all registered API prefixes
+4. **Environment snapshot**: Record which services are up, route count, and endpoint count in the report header
+
+If local services are not running, default to Production URL for all tests.
+
+---
+
 ### Phase A: Initialize & Plan
 
 1. Read the master test plan at `docs/guides/testing/test-cases/comprehensive-test-plan-2026-02-06.md`
 2. Get the current git commit hash: `git rev-parse --short HEAD`
 3. Create a **dated report** at `docs/guides/testing/test-results/ui-iteration-{YYYY-MM-DD}.md` with header:
+
    ```markdown
    # Full-Spectrum Test Report - {date}
 
@@ -46,6 +60,7 @@ Execute **fully autonomously**. The human only starts the process and receives t
    **Test Plan Ref**: comprehensive-test-plan-2026-02-06.md (~630 cases)
    **Execution Start**: {timestamp}
    ```
+
 4. Initialize the **coverage tracker** - a table mapping each test plan ID to PASS/FAIL/SKIP status
 
 ---
@@ -182,6 +197,15 @@ Record results. Any failure → Phase H.
 
 Test API endpoints directly. Covers **Section 2.2~2.4** integration tests and **Section 3.2 (Auth chain)**.
 
+#### D0: API Route Discovery
+
+Before testing API endpoints, verify actual routes:
+
+1. Grep `@Controller` + `@Get/@Post/@Put/@Delete` decorators from `backend/src/modules/` to discover registered routes
+2. Validate that D1/D2 test URLs match actual registered controller paths
+3. If paths have changed (e.g., controller renamed), adjust test URLs dynamically
+4. Record discovered vs expected route mismatches in the report
+
 #### D1: Health & Auth Chain
 
 ```bash
@@ -237,7 +261,7 @@ Record each result. Any security failure is **P0 severity**.
 
 ### Phase E: Browser E2E Tests
 
-Use browser automation (Playwright MCP or Chrome DevTools MCP). Covers **Section 2.2 (AI Apps UI)**, **Section 3.1 (combinations)**, **Section 3.3 (E2E scenarios)**, and **Section 5.6 (responsive)**.
+Use **Playwright MCP** for all browser automation. Fall back to Chrome DevTools MCP only if Playwright is unavailable. Covers **Section 2.2 (AI Apps UI)**, **Section 3.1 (combinations)**, **Section 3.3 (E2E scenarios)**, and **Section 5.6 (responsive)**.
 
 #### E1: Page Loading Patrol (All Routes)
 
@@ -318,18 +342,27 @@ Execute boundary scenarios from `.ui-patrol/scenarios/boundary-conditions.scenar
 
 #### E4: Responsive Design Tests
 
-For key pages (Ask, Research, Teams, Writing), test at multiple viewports:
+Test 4 key pages (`/ai-ask`, `/ai-research`, `/ai-teams`, `/ai-writing`) at 5 viewports using Playwright MCP viewport commands:
 
-| Viewport         | Test Plan ID | Width | Height |
-| ---------------- | ------------ | ----- | ------ |
-| Desktop 1080p    | DFX-RD-001   | 1920  | 1080   |
-| Desktop 768p     | DFX-RD-002   | 1366  | 768    |
-| Tablet Landscape | DFX-RD-003   | 1024  | 768    |
-| Tablet Portrait  | DFX-RD-004   | 768   | 1024   |
-| Mobile SE        | DFX-RD-005   | 375   | 667    |
-| Mobile 11        | DFX-RD-006   | 414   | 896    |
+```javascript
+// For each page x viewport combination:
+await mcp__playwright__browser_resize({ width, height });
+await mcp__playwright__browser_navigate({ url: `{BASE_URL}{route}` });
+await mcp__playwright__browser_snapshot();
+// Verify: no horizontal overflow, no overlapping elements, navigation accessible
+```
 
-At each viewport: verify no horizontal overflow, no overlapping elements, navigation accessible.
+| Viewport         | Test Plan ID | Width | Height | Pass Criteria                                          |
+| ---------------- | ------------ | ----- | ------ | ------------------------------------------------------ |
+| Desktop 1080p    | DFX-RD-001   | 1920  | 1080   | Full layout, sidebar visible, no overflow              |
+| Desktop 768p     | DFX-RD-002   | 1366  | 768    | Layout adapts, all content accessible                  |
+| Tablet Landscape | DFX-RD-003   | 1024  | 768    | Sidebar may collapse, content readable                 |
+| Tablet Portrait  | DFX-RD-004   | 768   | 1024   | Single column or collapsible nav, no horizontal scroll |
+| Mobile SE        | DFX-RD-005   | 375   | 667    | Mobile layout, hamburger menu, touch-friendly targets  |
+
+**Total**: 4 pages x 5 viewports = 20 test cases. Each PASS/FAIL individually.
+
+**Fail criteria**: Horizontal scrollbar appears, text truncated without ellipsis, overlapping UI elements, navigation inaccessible, touch targets <44px.
 
 ---
 
@@ -576,10 +609,10 @@ Execute scenarios from `.ui-patrol/scenarios/compatibility-browser.scenarios.yam
 For each FAIL result found in any phase:
 
 1. **Analyze** root cause by reading relevant source code
-2. **Classify** severity:
-   - **P0**: Blocking - crashes, security vulnerabilities, data loss
-   - **P1**: Degraded - broken features, poor UX
-   - **P2**: Cosmetic - minor UI issues, warnings
+2. **Classify** severity using quantitative criteria:
+   - **P0 (Blocking)**: Crash/white screen, security vulnerability, data loss, auth bypass, HTTP 5xx on core endpoint, complete feature broken
+   - **P1 (Degraded)**: Broken workflow (user cannot complete intended action), non-functional UI element, console errors on page load, performance >3x threshold
+   - **P2 (Cosmetic)**: Visual misalignment, missing loading/empty states, lint warnings, minor text issues, performance 1.5-3x threshold
 3. **Fix** the issue:
    - Edit relevant source files
    - Run type checks: `cd backend && npx tsc --noEmit` and `cd frontend && npx tsc --noEmit`
@@ -613,6 +646,27 @@ For each FAIL result found in any phase:
 ### Phase J: Final Report
 
 Update `docs/guides/testing/test-results/ui-iteration-{date}.md` with:
+
+#### 0. Comparison with Previous Run
+
+Find the most recent previous `ui-iteration-*.md` report in `docs/guides/testing/test-results/`. If found:
+
+1. Compare pass rates (overall and per-section)
+2. Identify **new regressions** (tests that previously passed but now fail)
+3. Identify **newly passing** tests (tests that previously failed but now pass)
+4. Output a diff summary table:
+
+```markdown
+| Metric          | Previous ({prev_date}) | Current ({date}) | Delta |
+| --------------- | ---------------------- | ---------------- | ----- |
+| Total Executed  |                        |                  |       |
+| Pass Rate       |                        |                  |       |
+| Issues Found    |                        |                  |       |
+| New Regressions | -                      |                  |       |
+| Newly Passing   | -                      |                  |       |
+```
+
+If no previous report exists, note "First run - no baseline for comparison".
 
 #### 1. Executive Summary
 

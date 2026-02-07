@@ -8,6 +8,11 @@ Executes a complete **autonomous full-spectrum test cycle** against the master t
 
 ```
 ┌─────────────────────────────────────────────────────┐
+│  Phase A0: Environment Auto-Detection               │
+│  - Verify local services (ports 3000, 4000)         │
+│  - Discover frontend routes and API endpoints       │
+│  - Record environment snapshot                      │
+├─────────────────────────────────────────────────────┤
 │  Phase A: Initialize & Plan                         │
 │  - Read master test plan (2026-02-06, ~630 cases)   │
 │  - Initialize coverage tracker with all test IDs    │
@@ -128,7 +133,8 @@ The skill runs **fully autonomously** - no human input needed during execution.
 - **Local**: Unit/integration tests, static analysis
 - **Production**: Browser E2E, API integration, performance
 - **URL**: http://localhost:3000 (local) / https://raven-ai-engine.up.railway.app (prod)
-- **Browser**: Playwright MCP or Chrome DevTools MCP
+- **Backend Port**: 4000 (local)
+- **Browser**: Playwright MCP (primary), Chrome DevTools MCP (fallback)
 - **Fallback**: Code-level analysis + API testing via curl
 
 ## Journey & Scenario Inventory
@@ -210,6 +216,7 @@ Section 6 best practices audits, mobile responsive, visual regression, accessibi
 7. **Safety guardrails** - max 10 fixes, 50 lines each, type-check required
 8. **Record everything** - every action, observation, decision logged
 9. **100% ID coverage** - every test plan ID assigned to a phase, journey, or scenario
+10. **Environment-aware** - auto-detect running services, discover routes and API endpoints before testing
 
 ## Output Format
 

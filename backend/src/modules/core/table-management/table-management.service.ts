@@ -750,8 +750,10 @@ export class TableManagementService {
         throw new Error(`Table ${tableName} not found`);
       }
 
+      // SAFETY: tableName validated by pg_class existence check above
       return await this.prisma.$queryRawUnsafe(
-        `SELECT * FROM "${tableName}" LIMIT ${Math.min(limit, 100)}`,
+        `SELECT * FROM "${tableName}" LIMIT $1`,
+        Math.min(limit, 100),
       );
     } catch (error) {
       this.logger.error(`Failed to get sample for ${tableName}:`, error);
@@ -941,12 +943,14 @@ export class TableManagementService {
       let deletedCount = 0;
 
       // Get size before
+      // SAFETY: tableName validated by validateTableName() whitelist
       const sizeBefore = await this.prisma.$queryRawUnsafe<
         Array<{ size: string }>
-      >(`SELECT pg_total_relation_size('${tableName}')::text as size`);
+      >(`SELECT pg_total_relation_size($1::regclass)::text as size`, tableName);
       const beforeBytes = parseInt(sizeBefore[0]?.size || "0", 10);
 
       // Execute cleanup based on policy type
+      // SAFETY: tableName validated by validateTableName() whitelist; policy fields come from hardcoded CLEANUP_POLICIES
       if (policy.type === "age" && policy.field && policy.threshold) {
         const result = await this.prisma.$executeRawUnsafe(`
           DELETE FROM "${tableName}"
@@ -954,6 +958,7 @@ export class TableManagementService {
         `);
         deletedCount = result;
       } else if (policy.type === "status" && policy.field && policy.condition) {
+        // SAFETY: conditions come from hardcoded CLEANUP_POLICIES, not user input
         const conditions = policy.condition.split(" OR ").map((s) => s.trim());
         const dateField = policy.dateField || "created_at";
         const result = await this.prisma.$executeRawUnsafe(`
@@ -967,7 +972,7 @@ export class TableManagementService {
       // Get size after
       const sizeAfter = await this.prisma.$queryRawUnsafe<
         Array<{ size: string }>
-      >(`SELECT pg_total_relation_size('${tableName}')::text as size`);
+      >(`SELECT pg_total_relation_size($1::regclass)::text as size`, tableName);
       const afterBytes = parseInt(sizeAfter[0]?.size || "0", 10);
       const freedBytes = Math.max(0, beforeBytes - afterBytes);
 
