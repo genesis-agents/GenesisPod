@@ -7,6 +7,8 @@
  * @see https://code.claude.com/docs/en/skills.md
  */
 
+import type { TaskProfile } from "../../llm/types";
+
 /**
  * Skill 来源类型
  */
@@ -388,18 +390,8 @@ export interface ChatWithSkillsRequest {
   /** 传递给 Skill 的上下文变量 */
   skillContext?: Record<string, unknown>;
 
-  /** 任务画像 */
-  taskProfile: {
-    creativity?: "deterministic" | "low" | "medium" | "high";
-    outputLength?:
-      | "minimal"
-      | "short"
-      | "medium"
-      | "standard"
-      | "long"
-      | "extended";
-    responseFormat?: "text" | "json" | "markdown";
-  };
+  /** 任务画像（统一类型定义） */
+  taskProfile: TaskProfile;
 
   /** 模型类型 */
   modelType?: string;

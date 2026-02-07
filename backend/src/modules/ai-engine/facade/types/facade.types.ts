@@ -4,56 +4,23 @@
  */
 
 import { AIModelType } from "@prisma/client";
+import type { TaskProfile, ChatMessage } from "../../llm/types";
 
-// ==================== 通用类型 ====================
+// ==================== Re-export 统一类型（向后兼容） ====================
 
 /**
  * 任务画像 - 语义化配置
- * 用于描述任务特征，AI Engine 自动映射到具体参数
+ * Re-export from llm/types for backward compatibility
  */
-export interface TaskProfile {
-  /**
-   * 创造性等级（可选）
-   * - deterministic: 确定性输出（分类、提取、JSON解析）
-   * - low: 低创造性（分析、总结）
-   * - medium: 中等创造性（对话、研究）
-   * - high: 高创造性（创意写作、头脑风暴）
-   */
-  creativity?: "deterministic" | "low" | "medium" | "high";
-
-  /**
-   * 输出长度（可选）
-   * - minimal: 最小（分类标签、是否判断）
-   * - short: 短（摘要、标题）
-   * - medium: 中等（标准分析）
-   * - standard: 标准（编辑任务）
-   * - long: 长（报告、章节）
-   * - extended: 超长（完整文档）
-   */
-  outputLength?:
-    | "minimal"
-    | "short"
-    | "medium"
-    | "standard"
-    | "long"
-    | "extended";
-
-  /**
-   * 响应格式（可选）
-   */
-  responseFormat?: "text" | "json" | "markdown";
-}
-
-// ==================== LLM 能力类型 ====================
+export type { TaskProfile };
 
 /**
  * 聊天消息
+ * Re-export from llm/types for backward compatibility
  */
-export interface ChatMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
-  name?: string;
-}
+export type { ChatMessage };
+
+// ==================== LLM 能力类型 ====================
 
 /**
  * 积分计费信息

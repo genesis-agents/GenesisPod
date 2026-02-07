@@ -1,12 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-
-export interface ChatMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
-  name?: string;
-}
+import { ChatMessage } from "../types";
 
 export interface StreamChunk {
   content: string;

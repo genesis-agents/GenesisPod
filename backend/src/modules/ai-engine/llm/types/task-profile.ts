@@ -74,7 +74,18 @@ export type TaskType =
 export type OutputFormat =
   | "json" // 结构化 JSON（需要更低 temperature）
   | "markdown" // 格式化 Markdown
-  | "plaintext"; // 纯文本
+  | "plaintext" // 纯文本
+  | "text"; // 纯文本（别名，兼容 facade.types.ts）
+
+/**
+ * 聊天消息
+ * 统一类型定义，所有模块应从此处导入
+ */
+export interface ChatMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+  name?: string;
+}
 
 /**
  * 任务配置 - AI App 用语义化方式描述任务需求
@@ -108,6 +119,12 @@ export interface TaskProfile {
    * JSON 格式会自动降低 temperature 以确保结构稳定
    */
   outputFormat?: OutputFormat;
+
+  /**
+   * 响应格式（别名，兼容旧代码）
+   * @deprecated 使用 outputFormat 替代
+   */
+  responseFormat?: OutputFormat;
 }
 
 /**

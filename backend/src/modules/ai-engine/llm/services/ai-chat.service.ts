@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { AIErrorClassifier } from "../../../../common/ai-orchestration/error-classifier";
 import { AiServiceUnavailableError } from "../../core/exceptions";
 import { AIModelType } from "@prisma/client";
-import { TaskProfile } from "../types";
+import { TaskProfile, ChatMessage } from "../types";
 import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
 import { AiApiCallerService } from "./ai-api-caller.service";
@@ -20,12 +20,6 @@ import { AiConnectionTestService } from "./ai-connection-test.service";
 import { AiModelDiscoveryService } from "./ai-model-discovery.service";
 import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
-
-export interface ChatMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
-  name?: string;
-}
 
 export interface ChatCompletionOptions {
   model: string;
@@ -55,8 +49,9 @@ export interface ChatCompletionResult {
   apiKeySource?: "personal" | "donated" | "system";
 }
 
-// Re-export AIModelConfig from ai-model-config.service
+// Re-export types for backward compatibility
 export type { AIModelConfig } from "./ai-model-config.service";
+export type { ChatMessage } from "../types";
 
 /**
  * AI Chat Service - Thin Coordinator
