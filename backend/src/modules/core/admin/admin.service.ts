@@ -487,8 +487,8 @@ export class AdminService {
   }) {
     // Trim apiKey to remove any whitespace from copy-paste
     const apiKey = data.apiKey?.trim() || null;
-    // ★ BYOK: 标准化 provider 为小写，与 user_api_keys 保持一致
-    const provider = data.provider.toLowerCase();
+    // 保留 provider 原始大小写用于显示（下游比较均已使用 toLowerCase）
+    const provider = data.provider;
 
     this.logger.log(
       `createAIModel called: name=${data.name}, modelId=${data.modelId}, apiKeyProvided=${!!apiKey}, apiKeyLength=${apiKey?.length || 0}`,
@@ -712,7 +712,7 @@ export class AdminService {
       where: { id },
       data: {
         displayName: data.displayName,
-        provider: data.provider?.toLowerCase(),
+        provider: data.provider,
         modelId: data.modelId,
         modelType: data.modelType,
         icon: data.icon,
