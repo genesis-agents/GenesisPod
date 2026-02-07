@@ -1,5 +1,15 @@
 [
   {
+    "version": "3.58.0",
+    "date": "2026-02-07",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "preserve provider casing when creating/updating AI models"
+      }
+    ]
+  },
+  {
     "version": "3.57.0",
     "date": "2026-02-07",
     "changes": [
