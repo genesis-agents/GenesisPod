@@ -1114,7 +1114,7 @@ export default function AIModelSettings({
                   </td>
 
                   {/* Type Badge */}
-                  <td className="px-4 py-4">
+                  <td className="whitespace-nowrap px-4 py-4">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         model.modelType === 'CHAT'
