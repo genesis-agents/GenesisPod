@@ -17,12 +17,10 @@ import {
   AlertCircle,
   ExternalLink,
   ChevronDown,
-  HardDrive,
-  FileUp,
+  Cloud,
   Globe,
-  StickyNote,
   Bookmark,
-  PenLine,
+  NotebookPen,
   ImageIcon,
   BookOpen,
   ChevronUp,
@@ -106,15 +104,15 @@ export default function KnowledgeBaseDetailDialog({
   const getSourceTypeIcon = (type: string) => {
     const iconClass = 'h-4 w-4';
     const icons: Record<string, React.ReactNode> = {
-      GOOGLE_DRIVE: <HardDrive className={`${iconClass} text-emerald-500`} />,
-      MANUAL: <FileUp className={`${iconClass} text-blue-500`} />,
+      GOOGLE_DRIVE: <Cloud className={`${iconClass} text-emerald-500`} />,
+      MANUAL: <BookOpen className={`${iconClass} text-blue-500`} />,
       URL: <Globe className={`${iconClass} text-purple-500`} />,
-      NOTION: <StickyNote className={`${iconClass} text-gray-600`} />,
+      NOTION: <Layers className={`${iconClass} text-gray-600`} />,
       BOOKMARK: <Bookmark className={`${iconClass} text-orange-500`} />,
-      NOTE: <PenLine className={`${iconClass} text-pink-500`} />,
+      NOTE: <NotebookPen className={`${iconClass} text-pink-500`} />,
       IMAGE: <ImageIcon className={`${iconClass} text-cyan-500`} />,
     };
-    return icons[type] || <BookOpen className={`${iconClass} text-gray-500`} />;
+    return icons[type] || <Database className={`${iconClass} text-gray-500`} />;
   };
 
   const getStatusInfo = (status: string) => {

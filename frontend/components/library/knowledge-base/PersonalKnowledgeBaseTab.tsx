@@ -12,12 +12,12 @@ import {
   MoreVertical,
   AlertCircle,
   Eye,
-  HardDrive,
-  FileUp,
+  Cloud,
+  Database,
   Globe,
-  StickyNote,
+  Layers,
   Bookmark,
-  PenLine,
+  NotebookPen,
   ImageIcon,
   BookOpen,
 } from 'lucide-react';
@@ -233,16 +233,17 @@ export default function PersonalKnowledgeBaseTab({
 
   const getSourceTypeIcon = (type: KnowledgeBase['sourceType']) => {
     const iconClass = 'h-7 w-7 text-white drop-shadow-sm';
+    const sw = 2.5;
     const icons: Record<string, React.ReactNode> = {
-      GOOGLE_DRIVE: <HardDrive className={iconClass} />,
-      MANUAL: <FileUp className={iconClass} />,
-      URL: <Globe className={iconClass} />,
-      NOTION: <StickyNote className={iconClass} />,
-      BOOKMARK: <Bookmark className={iconClass} />,
-      NOTE: <PenLine className={iconClass} />,
-      IMAGE: <ImageIcon className={iconClass} />,
+      GOOGLE_DRIVE: <Cloud className={iconClass} strokeWidth={sw} />,
+      MANUAL: <BookOpen className={iconClass} strokeWidth={sw} />,
+      URL: <Globe className={iconClass} strokeWidth={sw} />,
+      NOTION: <Layers className={iconClass} strokeWidth={sw} />,
+      BOOKMARK: <Bookmark className={iconClass} strokeWidth={sw} />,
+      NOTE: <NotebookPen className={iconClass} strokeWidth={sw} />,
+      IMAGE: <ImageIcon className={iconClass} strokeWidth={sw} />,
     };
-    return icons[type] || <BookOpen className={iconClass} />;
+    return icons[type] || <Database className={iconClass} strokeWidth={sw} />;
   };
 
   const getSourceTypeLabel = (type: KnowledgeBase['sourceType'] | string) => {
