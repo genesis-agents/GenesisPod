@@ -10,14 +10,15 @@ const outputPath = path.resolve(__dirname, '../lib/generated/changelog.json');
 
 const content = fs.readFileSync(changelogPath, 'utf-8');
 
-// Match version headers: ### [3.3.31](...) (2026-02-02) or ## [3.3.0](...) (2026-02-01)
+// Match version headers: # [3.50.0](...) (2026-02-06) or ## [3.54.0](...) (2026-02-07) or ### [3.50.8](...) (2026-02-06)
 const versionRegex =
-  /^#{2,3}\s+\[?(\d+\.\d+\.\d+)\]?(?:\([^)]*\))?\s+\((\d{4}-\d{2}-\d{2})\)/gm;
+  /^#{1,3}\s+\[?(\d+\.\d+\.\d+)\]?(?:\([^)]*\))?\s+\((\d{4}-\d{2}-\d{2})\)/gm;
 
 const sectionTypeMap = {
   features: 'feature',
   'bug fixes': 'fix',
   refactoring: 'improvement',
+  performance: 'improvement',
   'performance improvements': 'improvement',
   'breaking changes': 'breaking',
 };
@@ -80,7 +81,83 @@ for (let i = 0; i < matches.length; i++) {
   entries.push({ version, date, changes });
 }
 
+// Deduplicate: each version should only show changes NEW to that version.
+// The CHANGELOG.md may contain cumulative entries (all commits since a base tag),
+// so we subtract older-version changes from newer ones.
+// Entries are ordered newest-first. For each version, remove changes that also
+// appear in the next (older) version, leaving only the delta.
+for (let i = 0; i < entries.length - 1; i++) {
+  const olderDescs = new Set(entries[i + 1].changes.map((c) => c.description));
+  entries[i].changes = entries[i].changes.filter(
+    (c) => !olderDescs.has(c.description)
+  );
+}
+
+// Drop versions that ended up with zero unique changes after dedup
+const dedupedEntries = entries.filter((e) => e.changes.length > 0);
+
+// Consolidate patch versions (x.y.1, x.y.2, ...) into their minor version (x.y.0).
+// Process oldest-first so the x.y.0 entry is created before patches merge into it.
+const consolidated = [];
+const minorMap = new Map(); // "major.minor" -> index in consolidated
+
+for (const entry of [...dedupedEntries].reverse()) {
+  const [major, minor, patch] = entry.version.split('.').map(Number);
+  const minorKey = `${major}.${minor}`;
+
+  if (patch === 0) {
+    // Minor/major release: keep as-is, merge any earlier patches already collected
+    const existingIdx = minorMap.get(minorKey);
+    if (existingIdx !== undefined) {
+      // Patches were processed before this minor version; prepend the minor's own changes
+      const existingDescs = new Set(
+        consolidated[existingIdx].changes.map((c) => c.description)
+      );
+      const newChanges = entry.changes.filter(
+        (c) => !existingDescs.has(c.description)
+      );
+      consolidated[existingIdx].changes = [
+        ...newChanges,
+        ...consolidated[existingIdx].changes,
+      ];
+    } else {
+      minorMap.set(minorKey, consolidated.length);
+      consolidated.push(entry);
+    }
+  } else {
+    // Patch release: merge into minor version entry
+    const existingIdx = minorMap.get(minorKey);
+    if (existingIdx !== undefined) {
+      const existingDescs = new Set(
+        consolidated[existingIdx].changes.map((c) => c.description)
+      );
+      for (const change of entry.changes) {
+        if (!existingDescs.has(change.description)) {
+          consolidated[existingIdx].changes.push(change);
+        }
+      }
+      // Use the latest date
+      if (entry.date > consolidated[existingIdx].date) {
+        consolidated[existingIdx].date = entry.date;
+      }
+    } else {
+      // No minor version entry yet, create a placeholder
+      minorMap.set(minorKey, consolidated.length);
+      consolidated.push({
+        version: `${major}.${minor}.0`,
+        date: entry.date,
+        changes: [...entry.changes],
+      });
+    }
+  }
+}
+
+// Reverse back to newest-first order
+consolidated.reverse();
+
 // Ensure output directory exists
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-fs.writeFileSync(outputPath, JSON.stringify(entries, null, 2));
-console.log(`Generated changelog.json with ${entries.length} versions`);
+fs.writeFileSync(outputPath, JSON.stringify(consolidated, null, 2));
+console.log(
+  `Generated changelog.json with ${consolidated.length} versions (${entries.length - consolidated.length} consolidated/removed)`
+);

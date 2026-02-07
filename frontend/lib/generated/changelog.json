@@ -4,62 +4,6 @@
     "date": "2026-02-07",
     "changes": [
       {
-        "type": "feature",
-        "description": "add comprehensive test plan and full-spectrum ui-iteration coverage"
-      },
-      {
-        "type": "fix",
-        "description": "fix diagnoseTools false positive \"需要配置 API 密钥\""
-      },
-      {
-        "type": "fix",
-        "description": "fix provider icon 404s and dashboard resilience"
-      },
-      {
-        "type": "fix",
-        "description": "make monitoring fetchData endpoints independent"
-      },
-      {
-        "type": "fix",
-        "description": "show incremental progress in batch collection drawer"
-      },
-      {
-        "type": "fix",
-        "description": "fix tag push and regenerate deduplicated CHANGELOG"
-      },
-      {
-        "type": "fix",
-        "description": "correct module name and transaction type in credit billing"
-      },
-      {
-        "type": "fix",
-        "description": "critical security fixes and ui-iteration skill optimization"
-      },
-      {
-        "type": "improvement",
-        "description": "optimize memory usage - limit Node.js heap + Puppeteer idle cleanup"
-      },
-      {
-        "type": "improvement",
-        "description": "move business agents to AI App modules"
-      },
-      {
-        "type": "improvement",
-        "description": "p0-p2 architecture improvements and security hardening"
-      },
-      {
-        "type": "improvement",
-        "description": "p0+p1 architecture improvements"
-      },
-      {
-        "type": "improvement",
-        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
-      },
-      {
-        "type": "improvement",
-        "description": "unify TaskProfile and ChatMessage types"
-      },
-      {
         "type": "improvement",
         "description": "separate AI Insights and AI Research into independent modules"
       }
@@ -70,60 +14,8 @@
     "date": "2026-02-07",
     "changes": [
       {
-        "type": "feature",
-        "description": "add comprehensive test plan and full-spectrum ui-iteration coverage"
-      },
-      {
-        "type": "fix",
-        "description": "fix diagnoseTools false positive \"需要配置 API 密钥\""
-      },
-      {
-        "type": "fix",
-        "description": "fix provider icon 404s and dashboard resilience"
-      },
-      {
-        "type": "fix",
-        "description": "make monitoring fetchData endpoints independent"
-      },
-      {
-        "type": "fix",
-        "description": "show incremental progress in batch collection drawer"
-      },
-      {
-        "type": "fix",
-        "description": "fix tag push and regenerate deduplicated CHANGELOG"
-      },
-      {
-        "type": "fix",
-        "description": "correct module name and transaction type in credit billing"
-      },
-      {
         "type": "fix",
         "description": "critical security fixes and ui-iteration skill optimization"
-      },
-      {
-        "type": "improvement",
-        "description": "optimize memory usage - limit Node.js heap + Puppeteer idle cleanup"
-      },
-      {
-        "type": "improvement",
-        "description": "move business agents to AI App modules"
-      },
-      {
-        "type": "improvement",
-        "description": "p0-p2 architecture improvements and security hardening"
-      },
-      {
-        "type": "improvement",
-        "description": "p0+p1 architecture improvements"
-      },
-      {
-        "type": "improvement",
-        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
-      },
-      {
-        "type": "improvement",
-        "description": "unify TaskProfile and ChatMessage types"
       }
     ]
   },
@@ -132,52 +24,8 @@
     "date": "2026-02-07",
     "changes": [
       {
-        "type": "feature",
-        "description": "add comprehensive test plan and full-spectrum ui-iteration coverage"
-      },
-      {
-        "type": "fix",
-        "description": "fix diagnoseTools false positive \"需要配置 API 密钥\""
-      },
-      {
-        "type": "fix",
-        "description": "fix provider icon 404s and dashboard resilience"
-      },
-      {
-        "type": "fix",
-        "description": "make monitoring fetchData endpoints independent"
-      },
-      {
-        "type": "fix",
-        "description": "show incremental progress in batch collection drawer"
-      },
-      {
-        "type": "fix",
-        "description": "fix tag push and regenerate deduplicated CHANGELOG"
-      },
-      {
-        "type": "fix",
-        "description": "correct module name and transaction type in credit billing"
-      },
-      {
-        "type": "improvement",
-        "description": "optimize memory usage - limit Node.js heap + Puppeteer idle cleanup"
-      },
-      {
-        "type": "improvement",
-        "description": "move business agents to AI App modules"
-      },
-      {
         "type": "improvement",
         "description": "p0-p2 architecture improvements and security hardening"
-      },
-      {
-        "type": "improvement",
-        "description": "p0+p1 architecture improvements"
-      },
-      {
-        "type": "improvement",
-        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
       },
       {
         "type": "improvement",
@@ -192,303 +40,113 @@
       {
         "type": "feature",
         "description": "add comprehensive test plan and full-spectrum ui-iteration coverage"
-      },
-      {
-        "type": "fix",
-        "description": "fix diagnoseTools false positive \"需要配置 API 密钥\""
-      },
-      {
-        "type": "fix",
-        "description": "fix provider icon 404s and dashboard resilience"
-      },
-      {
-        "type": "fix",
-        "description": "make monitoring fetchData endpoints independent"
-      },
-      {
-        "type": "fix",
-        "description": "show incremental progress in batch collection drawer"
-      },
-      {
-        "type": "fix",
-        "description": "fix tag push and regenerate deduplicated CHANGELOG"
-      },
-      {
-        "type": "fix",
-        "description": "correct module name and transaction type in credit billing"
-      },
-      {
-        "type": "improvement",
-        "description": "optimize memory usage - limit Node.js heap + Puppeteer idle cleanup"
-      },
-      {
-        "type": "improvement",
-        "description": "move business agents to AI App modules"
-      },
-      {
-        "type": "improvement",
-        "description": "p0+p1 architecture improvements"
-      },
-      {
-        "type": "improvement",
-        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
       }
     ]
   },
   {
-    "version": "3.50.8",
+    "version": "3.50.0",
     "date": "2026-02-06",
     "changes": [
-      {
-        "type": "fix",
-        "description": "fix diagnoseTools false positive \"需要配置 API 密钥\""
-      },
-      {
-        "type": "fix",
-        "description": "fix provider icon 404s and dashboard resilience"
-      },
-      {
-        "type": "fix",
-        "description": "make monitoring fetchData endpoints independent"
-      },
-      {
-        "type": "fix",
-        "description": "show incremental progress in batch collection drawer"
-      },
-      {
-        "type": "fix",
-        "description": "fix tag push and regenerate deduplicated CHANGELOG"
-      },
-      {
-        "type": "fix",
-        "description": "correct module name and transaction type in credit billing"
-      },
-      {
-        "type": "improvement",
-        "description": "optimize memory usage - limit Node.js heap + Puppeteer idle cleanup"
-      },
-      {
-        "type": "improvement",
-        "description": "move business agents to AI App modules"
-      },
-      {
-        "type": "improvement",
-        "description": "p0+p1 architecture improvements"
-      },
-      {
-        "type": "improvement",
-        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
-      }
-    ]
-  },
-  {
-    "version": "3.50.7",
-    "date": "2026-02-06",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "fix diagnoseTools false positive \"需要配置 API 密钥\""
-      },
-      {
-        "type": "fix",
-        "description": "fix provider icon 404s and dashboard resilience"
-      },
-      {
-        "type": "fix",
-        "description": "make monitoring fetchData endpoints independent"
-      },
-      {
-        "type": "fix",
-        "description": "show incremental progress in batch collection drawer"
-      },
-      {
-        "type": "fix",
-        "description": "fix tag push and regenerate deduplicated CHANGELOG"
-      },
-      {
-        "type": "fix",
-        "description": "correct module name and transaction type in credit billing"
-      },
-      {
-        "type": "improvement",
-        "description": "move business agents to AI App modules"
-      },
-      {
-        "type": "improvement",
-        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
-      },
-      {
-        "type": "improvement",
-        "description": "optimize memory usage - limit Node.js heap + Puppeteer idle cleanup"
-      }
-    ]
-  },
-  {
-    "version": "3.50.6",
-    "date": "2026-02-06",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "fix diagnoseTools false positive \"需要配置 API 密钥\""
-      },
-      {
-        "type": "fix",
-        "description": "fix provider icon 404s and dashboard resilience"
-      },
-      {
-        "type": "fix",
-        "description": "make monitoring fetchData endpoints independent"
-      },
-      {
-        "type": "fix",
-        "description": "show incremental progress in batch collection drawer"
-      },
-      {
-        "type": "fix",
-        "description": "fix tag push and regenerate deduplicated CHANGELOG"
-      },
-      {
-        "type": "improvement",
-        "description": "move business agents to AI App modules"
-      },
-      {
-        "type": "improvement",
-        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
-      },
-      {
-        "type": "improvement",
-        "description": "optimize memory usage - limit Node.js heap + Puppeteer idle cleanup"
-      }
-    ]
-  },
-  {
-    "version": "3.50.5",
-    "date": "2026-02-06",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "fix diagnoseTools false positive \"需要配置 API 密钥\""
-      },
-      {
-        "type": "fix",
-        "description": "fix provider icon 404s and dashboard resilience"
-      },
-      {
-        "type": "fix",
-        "description": "make monitoring fetchData endpoints independent"
-      },
-      {
-        "type": "fix",
-        "description": "fix tag push and regenerate deduplicated CHANGELOG"
-      },
-      {
-        "type": "improvement",
-        "description": "move business agents to AI App modules"
-      },
-      {
-        "type": "improvement",
-        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
-      },
-      {
-        "type": "improvement",
-        "description": "optimize memory usage - limit Node.js heap + Puppeteer idle cleanup"
-      }
-    ]
-  },
-  {
-    "version": "3.50.4",
-    "date": "2026-02-06",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "fix provider icon 404s and dashboard resilience"
-      },
-      {
-        "type": "fix",
-        "description": "make monitoring fetchData endpoints independent"
-      },
-      {
-        "type": "fix",
-        "description": "fix tag push and regenerate deduplicated CHANGELOG"
-      },
-      {
-        "type": "improvement",
-        "description": "move business agents to AI App modules"
-      },
-      {
-        "type": "improvement",
-        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
-      }
-    ]
-  },
-  {
-    "version": "3.50.3",
-    "date": "2026-02-06",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "fix provider icon 404s and dashboard resilience"
-      },
-      {
-        "type": "fix",
-        "description": "fix tag push and regenerate deduplicated CHANGELOG"
-      },
-      {
-        "type": "improvement",
-        "description": "move business agents to AI App modules"
-      },
-      {
-        "type": "improvement",
-        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
-      }
-    ]
-  },
-  {
-    "version": "3.50.2",
-    "date": "2026-02-06",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "fix tag push and regenerate deduplicated CHANGELOG"
-      },
-      {
-        "type": "improvement",
-        "description": "move business agents to AI App modules"
-      }
-    ]
-  },
-  {
-    "version": "3.50.1",
-    "date": "2026-02-06",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "fix tag push and regenerate deduplicated CHANGELOG"
-      },
       {
         "type": "fix",
         "description": "resolve 401 on /ai/models and double auth code exchange"
       },
       {
         "type": "fix",
-        "description": "increase AI assistant panel width in Explore page"
+        "description": "fix tag push and regenerate deduplicated CHANGELOG"
       },
+      {
+        "type": "improvement",
+        "description": "move business agents to AI App modules"
+      },
+      {
+        "type": "fix",
+        "description": "fix provider icon 404s and dashboard resilience"
+      },
+      {
+        "type": "improvement",
+        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
+      },
+      {
+        "type": "fix",
+        "description": "make monitoring fetchData endpoints independent"
+      },
+      {
+        "type": "fix",
+        "description": "fix diagnoseTools false positive \"需要配置 API 密钥\""
+      },
+      {
+        "type": "improvement",
+        "description": "optimize memory usage - limit Node.js heap + Puppeteer idle cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "show incremental progress in batch collection drawer"
+      },
+      {
+        "type": "fix",
+        "description": "correct module name and transaction type in credit billing"
+      },
+      {
+        "type": "improvement",
+        "description": "p0+p1 architecture improvements"
+      }
+    ]
+  },
+  {
+    "version": "3.49.0",
+    "date": "2026-02-06",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "increase AI assistant panel width in Explore page"
+      }
+    ]
+  },
+  {
+    "version": "3.48.0",
+    "date": "2026-02-06",
+    "changes": [
       {
         "type": "fix",
         "description": "expand AI assistant message width to full panel"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.46.0",
+    "date": "2026-02-06",
+    "changes": [
       {
         "type": "fix",
         "description": "create writable directories for exports and thumbnails in Dockerfile"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.45.0",
+    "date": "2026-02-06",
+    "changes": [
       {
         "type": "fix",
         "description": "skip MCP server registration when command binary is not found"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.44.0",
+    "date": "2026-02-06",
+    "changes": [
       {
         "type": "fix",
         "description": "make read-only resource endpoints public"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.43.0",
+    "date": "2026-02-06",
+    "changes": [
       {
         "type": "fix",
         "description": "add --schema=prisma/schema to prisma generate/migrate in CI"
@@ -500,15 +158,33 @@
       {
         "type": "fix",
         "description": "add missing auth headers to all fetch calls in home page"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.42.0",
+    "date": "2026-02-06",
+    "changes": [
       {
         "type": "fix",
         "description": "add missing Authorization header to /resources fetch calls"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.41.0",
+    "date": "2026-02-06",
+    "changes": [
       {
         "type": "fix",
         "description": "use Redis cache for OAuth auth codes instead of in-memory Map"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.40.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "add missing success field to graceful degradation responses"
@@ -516,11 +192,23 @@
       {
         "type": "fix",
         "description": "register ResearchMemoryService in TopicResearchModule"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.39.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "round-2 review fixes — 2 P0 + 6 P1 across 6 files"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.38.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "code review fixes — 10 P0 + 12 P1 across 9 files"
@@ -528,23 +216,53 @@
       {
         "type": "fix",
         "description": "resolve merge conflicts with upstream evidence refactoring"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.37.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "feature",
         "description": "wire 7 dormant infrastructure capabilities into consumers"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.35.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "comprehensive test verification fixes — 11 files"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.34.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "architecture audit fixes — 18 files, P0-P3"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.33.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "improvement",
         "description": "reduce image size ~200MB"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.32.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "stop deleting \"doc\" dirs that contain source code"
@@ -556,71 +274,173 @@
       {
         "type": "fix",
         "description": "update test mocks and assertions to match implementations"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.31.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "fix polling stop on PLAN_READY and add approveMissionPlan"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.30.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "fix TipTap SSR hydration warning and auto-poll on page load"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.29.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "feature",
         "description": "add dimension name validation and mission detail routes"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.28.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "improvement",
         "description": "strip non-essential files from backend node_modules"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.27.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "add DNS/TCP diagnostics to identify private network failure"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.26.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "add retry logic for database connection on Railway"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.25.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "add PLAN_READY enum to deploy-migrations Step 4.5"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.24.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "add PLAN_READY to ResearchMissionStatus enum"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.23.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "pin remotion to 4.0.417, avoid broken 4.0.418 tarball"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.22.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "revert npm ci to npm install for monorepo compatibility"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.21.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "switch to standalone mode, fix 502 zombie container issue"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.20.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "patch sql injection in cleanupTable/getTableDetail, fix mutex safety"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.19.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "p0-p2 audit fixes — 35 items across 6 batches"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.17.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "improve redis error handler to log error code"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.16.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "parse Redis URL into host/port/password for ioredis"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.15.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "add dns pre-check and connection probe for Railway Redis"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.14.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "fix",
         "description": "fix Railway Redis ECONNREFUSED with IPv6 and fallback"
@@ -628,15 +448,33 @@
       {
         "type": "fix",
         "description": "force IPv4 for Railway Redis internal network connection"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.13.0",
+    "date": "2026-02-05",
+    "changes": [
       {
         "type": "feature",
         "description": "add monitoring, cache, observability and security infrastructure"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.12.0",
+    "date": "2026-02-04",
+    "changes": [
       {
         "type": "fix",
         "description": "fix scratchpad service parameter mismatch in DOME/SCORE endpoints"
-      },
+      }
+    ]
+  },
+  {
+    "version": "3.11.0",
+    "date": "2026-02-04",
+    "changes": [
       {
         "type": "fix",
         "description": "add WebSocket event sync for task status and agent state"
@@ -652,23 +490,9 @@
     ]
   },
   {
-    "version": "3.10.2",
+    "version": "3.10.0",
     "date": "2026-02-04",
     "changes": [
-      {
-        "type": "fix",
-        "description": "pass modelId and assignmentReason from Leader plan to todos"
-      }
-    ]
-  },
-  {
-    "version": "3.10.1",
-    "date": "2026-02-04",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "update auto-release to sync package-lock.json"
-      },
       {
         "type": "fix",
         "description": "redirect /admin/secrets to /admin/access/secrets"
@@ -744,13 +568,45 @@
       {
         "type": "improvement",
         "description": "add missing indexes for research_topics"
+      },
+      {
+        "type": "fix",
+        "description": "update auto-release to sync package-lock.json"
+      },
+      {
+        "type": "fix",
+        "description": "pass modelId and assignmentReason from Leader plan to todos"
       }
     ]
   },
   {
-    "version": "3.9.7",
+    "version": "3.9.0",
     "date": "2026-02-04",
     "changes": [
+      {
+        "type": "feature",
+        "description": "add spec checks, i18n, perf, visual regression, trends"
+      },
+      {
+        "type": "fix",
+        "description": "add My Key badge to correct file (app/ai-ask/page.tsx)"
+      },
+      {
+        "type": "fix",
+        "description": "remove Back button from What's New page"
+      },
+      {
+        "type": "fix",
+        "description": "add dynamic model generation for user API keys"
+      },
+      {
+        "type": "fix",
+        "description": "forward Authorization header through all AI routes"
+      },
+      {
+        "type": "fix",
+        "description": "prioritize user's own API key as default model"
+      },
       {
         "type": "fix",
         "description": "add @Optional() decorator for optional constructor params"
@@ -846,63 +702,17 @@
     ]
   },
   {
-    "version": "3.9.6",
+    "version": "3.8.0",
     "date": "2026-02-03",
     "changes": [
-      {
-        "type": "fix",
-        "description": "prioritize user's own API key as default model"
-      }
-    ]
-  },
-  {
-    "version": "3.9.5",
-    "date": "2026-02-03",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "forward Authorization header through all AI routes"
-      }
-    ]
-  },
-  {
-    "version": "3.9.4",
-    "date": "2026-02-03",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "add dynamic model generation for user API keys"
-      }
-    ]
-  },
-  {
-    "version": "3.9.3",
-    "date": "2026-02-03",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "remove Back button from What's New page"
-      }
-    ]
-  },
-  {
-    "version": "3.9.1",
-    "date": "2026-02-03",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "add My Key badge to correct file (app/ai-ask/page.tsx)"
-      },
       {
         "type": "feature",
-        "description": "add spec checks, i18n, perf, visual regression, trends"
-      }
-    ]
-  },
-  {
-    "version": "3.8.2",
-    "date": "2026-02-03",
-    "changes": [
+        "description": "add change type statistics cards to What's New page"
+      },
+      {
+        "type": "fix",
+        "description": "invalidate model cache on auth state change and add debug logging"
+      },
       {
         "type": "fix",
         "description": "fix My Key badge removed by compiler dead-code elimination"
@@ -910,41 +720,9 @@
     ]
   },
   {
-    "version": "3.8.1",
+    "version": "3.7.0",
     "date": "2026-02-03",
     "changes": [
-      {
-        "type": "fix",
-        "description": "invalidate model cache on auth state change and add debug logging"
-      },
-      {
-        "type": "feature",
-        "description": "add change type statistics cards to What's New page"
-      }
-    ]
-  },
-  {
-    "version": "3.7.2",
-    "date": "2026-02-03",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "auto-refresh model list when user saves/deletes API key"
-      },
-      {
-        "type": "fix",
-        "description": "fix simulation cards and quote card using wrong source files"
-      }
-    ]
-  },
-  {
-    "version": "3.7.1",
-    "date": "2026-02-03",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "skip versions with no user-facing changes"
-      },
       {
         "type": "fix",
         "description": "clear model cache when user saves or deletes API key"
@@ -956,17 +734,25 @@
       {
         "type": "feature",
         "description": "comprehensive English mode i18n fixes across all pages"
+      },
+      {
+        "type": "fix",
+        "description": "skip versions with no user-facing changes"
+      },
+      {
+        "type": "fix",
+        "description": "auto-refresh model list when user saves/deletes API key"
+      },
+      {
+        "type": "fix",
+        "description": "fix simulation cards and quote card using wrong source files"
       }
     ]
   },
   {
-    "version": "3.6.1",
+    "version": "3.6.0",
     "date": "2026-02-03",
     "changes": [
-      {
-        "type": "fix",
-        "description": "remove duplicate keys in zh.json"
-      },
       {
         "type": "fix",
         "description": "merge v3.5.0 into frontend CHANGELOG, ignore root copy"
@@ -974,17 +760,17 @@
       {
         "type": "feature",
         "description": "show user API key models in model selector"
+      },
+      {
+        "type": "fix",
+        "description": "remove duplicate keys in zh.json"
       }
     ]
   },
   {
-    "version": "3.5.1",
+    "version": "3.5.0",
     "date": "2026-02-02",
     "changes": [
-      {
-        "type": "fix",
-        "description": "move CHANGELOG.md to frontend, fix script path and release config"
-      },
       {
         "type": "fix",
         "description": "handle missing CHANGELOG.md in Docker builds"
@@ -993,6 +779,16 @@
         "type": "feature",
         "description": "internationalize Credibility panel and History tab icon"
       },
+      {
+        "type": "fix",
+        "description": "move CHANGELOG.md to frontend, fix script path and release config"
+      }
+    ]
+  },
+  {
+    "version": "3.4.0",
+    "date": "2026-02-02",
+    "changes": [
       {
         "type": "fix",
         "description": "comprehensive English mode i18n coverage for multiple modules"
@@ -1032,173 +828,45 @@
     ]
   },
   {
-    "version": "3.3.31",
+    "version": "3.3.0",
     "date": "2026-02-02",
     "changes": [
       {
-        "type": "fix",
-        "description": "comprehensive i18n support and citation link fix"
-      }
-    ]
-  },
-  {
-    "version": "3.3.30",
-    "date": "2026-02-02",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "respect topic language setting in section writing"
-      }
-    ]
-  },
-  {
-    "version": "3.3.29",
-    "date": "2026-02-02",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "improve fallback when AI report JSON parsing fails"
-      }
-    ]
-  },
-  {
-    "version": "3.3.28",
-    "date": "2026-02-02",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "use brace counting for JSON extraction from code blocks"
-      }
-    ]
-  },
-  {
-    "version": "3.3.27",
-    "date": "2026-02-02",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "fix changelog page scrollbar overflow"
-      }
-    ]
-  },
-  {
-    "version": "3.3.26",
-    "date": "2026-02-02",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "fix Gemini embedding model test URL construction"
-      }
-    ]
-  },
-  {
-    "version": "3.3.25",
-    "date": "2026-02-02",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "strip leaked CHARTS JSON from report + clickable chart citations"
+        "type": "feature",
+        "description": "create todos during refresh for task list visibility"
       },
       {
         "type": "fix",
-        "description": "show sidebar on changelog page"
-      }
-    ]
-  },
-  {
-    "version": "3.3.24",
-    "date": "2026-02-02",
-    "changes": [
+        "description": "extract trends/challenges/opportunities from content and create ResearchTask records"
+      },
       {
         "type": "fix",
-        "description": "add backend safety net to strip raw JSON from report content"
-      }
-    ]
-  },
-  {
-    "version": "3.3.23",
-    "date": "2026-02-02",
-    "changes": [
+        "description": "handle 401 in fetchWithAuth and stop polling on auth failure"
+      },
       {
         "type": "fix",
-        "description": "robust JSON extraction with regex fullText fallback"
-      }
-    ]
-  },
-  {
-    "version": "3.3.22",
-    "date": "2026-02-02",
-    "changes": [
+        "description": "comprehensive business logic audit fixes (C1-C4, H1-H6, M2/M10)"
+      },
       {
         "type": "fix",
-        "description": "use JSON.parse instead of brace counting for embedded JSON extraction"
-      }
-    ]
-  },
-  {
-    "version": "3.3.21",
-    "date": "2026-02-02",
-    "changes": [
+        "description": "report quality root cause fixes and code review hardening"
+      },
       {
         "type": "fix",
-        "description": "persist language setting and apply to all prompts"
-      }
-    ]
-  },
-  {
-    "version": "3.3.20",
-    "date": "2026-02-02",
-    "changes": [
+        "description": "add fallback for Leader model display and diagnostic logging"
+      },
       {
         "type": "fix",
-        "description": "broaden JSON detection regex for embedded executiveSummary"
-      }
-    ]
-  },
-  {
-    "version": "3.3.19",
-    "date": "2026-02-02",
-    "changes": [
+        "description": "expose leaderModelId in mission status for reliable model display"
+      },
       {
         "type": "fix",
-        "description": "properly extract markdown from JSON embedded in fullReport"
-      }
-    ]
-  },
-  {
-    "version": "3.3.18",
-    "date": "2026-02-02",
-    "changes": [
+        "description": "fix agent model display by matching tasks via assignedAgent"
+      },
       {
         "type": "fix",
-        "description": "handle executiveSummary with fullText-only JSON format"
-      }
-    ]
-  },
-  {
-    "version": "3.3.17",
-    "date": "2026-02-02",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "handle JSON-formatted fullReport in report renderer"
-      }
-    ]
-  },
-  {
-    "version": "3.3.14",
-    "date": "2026-02-02",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "add modelId to agent activity for consistent model labels"
-      }
-    ]
-  },
-  {
-    "version": "3.3.13",
-    "date": "2026-02-02",
-    "changes": [
+        "description": "enhance Leader planning depth, report breadth, and tail dedup"
+      },
       {
         "type": "fix",
         "description": "auto-set apiFormat from provider, validate on load"
@@ -1206,97 +874,93 @@
       {
         "type": "fix",
         "description": "use class references instead of string tokens in forwardRef"
-      }
-    ]
-  },
-  {
-    "version": "3.3.8",
-    "date": "2026-02-01",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "enhance Leader planning depth, report breadth, and tail dedup"
-      }
-    ]
-  },
-  {
-    "version": "3.3.7",
-    "date": "2026-02-01",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "fix agent model display by matching tasks via assignedAgent"
-      }
-    ]
-  },
-  {
-    "version": "3.3.6",
-    "date": "2026-02-01",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "expose leaderModelId in mission status for reliable model display"
-      }
-    ]
-  },
-  {
-    "version": "3.3.5",
-    "date": "2026-02-01",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "add fallback for Leader model display and diagnostic logging"
-      }
-    ]
-  },
-  {
-    "version": "3.3.4",
-    "date": "2026-02-01",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "report quality root cause fixes and code review hardening"
-      }
-    ]
-  },
-  {
-    "version": "3.3.3",
-    "date": "2026-02-01",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "comprehensive business logic audit fixes (C1-C4, H1-H6, M2/M10)"
-      }
-    ]
-  },
-  {
-    "version": "3.3.2",
-    "date": "2026-02-01",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "handle 401 in fetchWithAuth and stop polling on auth failure"
-      }
-    ]
-  },
-  {
-    "version": "3.3.1",
-    "date": "2026-02-01",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "extract trends/challenges/opportunities from content and create ResearchTask records"
       },
       {
-        "type": "feature",
-        "description": "create todos during refresh for task list visibility"
+        "type": "fix",
+        "description": "add modelId to agent activity for consistent model labels"
+      },
+      {
+        "type": "fix",
+        "description": "handle JSON-formatted fullReport in report renderer"
+      },
+      {
+        "type": "fix",
+        "description": "handle executiveSummary with fullText-only JSON format"
+      },
+      {
+        "type": "fix",
+        "description": "properly extract markdown from JSON embedded in fullReport"
+      },
+      {
+        "type": "fix",
+        "description": "broaden JSON detection regex for embedded executiveSummary"
+      },
+      {
+        "type": "fix",
+        "description": "persist language setting and apply to all prompts"
+      },
+      {
+        "type": "fix",
+        "description": "use JSON.parse instead of brace counting for embedded JSON extraction"
+      },
+      {
+        "type": "fix",
+        "description": "robust JSON extraction with regex fullText fallback"
+      },
+      {
+        "type": "fix",
+        "description": "add backend safety net to strip raw JSON from report content"
+      },
+      {
+        "type": "fix",
+        "description": "strip leaked CHARTS JSON from report + clickable chart citations"
+      },
+      {
+        "type": "fix",
+        "description": "show sidebar on changelog page"
+      },
+      {
+        "type": "fix",
+        "description": "fix Gemini embedding model test URL construction"
+      },
+      {
+        "type": "fix",
+        "description": "fix changelog page scrollbar overflow"
+      },
+      {
+        "type": "fix",
+        "description": "use brace counting for JSON extraction from code blocks"
+      },
+      {
+        "type": "fix",
+        "description": "improve fallback when AI report JSON parsing fails"
+      },
+      {
+        "type": "fix",
+        "description": "respect topic language setting in section writing"
+      },
+      {
+        "type": "fix",
+        "description": "comprehensive i18n support and citation link fix"
       }
     ]
   },
   {
-    "version": "3.2.3",
+    "version": "3.2.0",
     "date": "2026-02-01",
     "changes": [
+      {
+        "type": "feature",
+        "description": "add content length validation with auto-continuation"
+      },
+      {
+        "type": "fix",
+        "description": "comprehensive quality validation for dimensions ([#23](https://github.com/your-org/ai-teams-engine/issues/23)/[#24](https://github.com/your-org/ai-teams-engine/issues/24)/[#25](https://github.com/your-org/ai-teams-engine/issues/25)/[#26](https://github.com/your-org/ai-teams-engine/issues/26))"
+      },
+      {
+        "type": "fix",
+        "description": "preserve full section content instead of AI compression ([#27](https://github.com/your-org/ai-teams-engine/issues/27))"
+      },
       {
         "type": "fix",
         "description": "save analyses before cognitive loop, make post-research steps non-fatal"
@@ -1304,33 +968,21 @@
     ]
   },
   {
-    "version": "3.2.2",
+    "version": "3.1.0",
     "date": "2026-02-01",
     "changes": [
-      {
-        "type": "fix",
-        "description": "preserve full section content instead of AI compression ([#27](https://github.com/your-org/ai-teams-engine/issues/27))"
-      }
-    ]
-  },
-  {
-    "version": "3.2.1",
-    "date": "2026-02-01",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "comprehensive quality validation for dimensions ([#23](https://github.com/your-org/ai-teams-engine/issues/23)/[#24](https://github.com/your-org/ai-teams-engine/issues/24)/[#25](https://github.com/your-org/ai-teams-engine/issues/25)/[#26](https://github.com/your-org/ai-teams-engine/issues/26))"
-      },
       {
         "type": "feature",
-        "description": "add content length validation with auto-continuation"
-      }
-    ]
-  },
-  {
-    "version": "3.1.3",
-    "date": "2026-02-01",
-    "changes": [
+        "description": "auto model fallback in AIEngineFacade.chat()"
+      },
+      {
+        "type": "fix",
+        "description": "integrate blocklist into getAvailableModelsExtended"
+      },
+      {
+        "type": "fix",
+        "description": "strengthen keyFindings prompt requirements"
+      },
       {
         "type": "fix",
         "description": "enforce minimum 6000-word detailedContent requirement"
@@ -1338,57 +990,9 @@
     ]
   },
   {
-    "version": "3.1.2",
+    "version": "3.0.0",
     "date": "2026-02-01",
     "changes": [
-      {
-        "type": "fix",
-        "description": "strengthen keyFindings prompt requirements"
-      }
-    ]
-  },
-  {
-    "version": "3.1.1",
-    "date": "2026-02-01",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "integrate blocklist into getAvailableModelsExtended"
-      },
-      {
-        "type": "feature",
-        "description": "auto model fallback in AIEngineFacade.chat()"
-      }
-    ]
-  },
-  {
-    "version": "3.0.3",
-    "date": "2026-02-01",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "increase dimension content depth and maxTokens"
-      }
-    ]
-  },
-  {
-    "version": "3.0.2",
-    "date": "2026-02-01",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "report quality - dedup charts, clean meta-notes, fix highlights"
-      }
-    ]
-  },
-  {
-    "version": "3.0.1",
-    "date": "2026-02-01",
-    "changes": [
-      {
-        "type": "fix",
-        "description": "integrate model blocklist into AIEngineFacade.selectModel"
-      },
       {
         "type": "fix",
         "description": "add ARG for build-time env vars in Dockerfile"
@@ -12367,6 +11971,24 @@
       },
       {
         "type": "fix",
+        "description": "integrate model blocklist into AIEngineFacade.selectModel"
+      },
+      {
+        "type": "fix",
+        "description": "report quality - dedup charts, clean meta-notes, fix highlights"
+      },
+      {
+        "type": "fix",
+        "description": "increase dimension content depth and maxTokens"
+      }
+    ]
+  },
+  {
+    "version": "2.0.0",
+    "date": "2025-11-18",
+    "changes": [
+      {
+        "type": "fix",
         "description": "improve subtitle export icon design and resolve request entity too large error"
       },
       {
@@ -12536,7 +12158,13 @@
       {
         "type": "feature",
         "description": "support resource replacement and real titles for Papers/Projects/News"
-      },
+      }
+    ]
+  },
+  {
+    "version": "2.1.0",
+    "date": "2025-11-14",
+    "changes": [
       {
         "type": "fix",
         "description": "add YouTube report generation endpoint and improve button layout"
