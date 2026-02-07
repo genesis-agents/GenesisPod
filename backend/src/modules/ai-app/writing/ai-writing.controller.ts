@@ -849,9 +849,7 @@ export class AiWritingController {
   /**
    * Map internal severity to frontend severity
    */
-  private mapConflictSeverity(
-    severity: "CRITICAL" | "WARNING" | "INFO",
-  ): "HIGH" | "MEDIUM" | "LOW" {
+  private mapConflictSeverity(severity: string): "HIGH" | "MEDIUM" | "LOW" {
     switch (severity) {
       case "CRITICAL":
         return "HIGH";
@@ -955,19 +953,31 @@ export class AiWritingController {
       );
 
       // Transform conflicts to frontend format (graceful when analysis failed)
-      const transformedConflicts = dashboard.conflicts?.conflicts
-        ? dashboard.conflicts.conflicts.map((c) => ({
-            id: `${c.chapter1}-${c.chapter2}-${c.entity}`,
-            type: c.type,
-            severity: this.mapConflictSeverity(c.severity),
-            description: c.description,
-            sourceChapter: c.chapter1,
-            targetChapter: c.chapter2,
-            subject: c.entity,
-            conflictingStatements: [c.expected, c.found],
-            suggestedResolution: c.suggestion,
-          }))
-        : [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawConflicts: any[] = dashboard.conflicts?.conflicts ?? [];
+      const transformedConflicts = rawConflicts.map(
+        (c: {
+          chapter1: string;
+          chapter2: string;
+          entity: string;
+          type: string;
+          severity: string;
+          description: string;
+          expected: string;
+          found: string;
+          suggestion: string;
+        }) => ({
+          id: `${c.chapter1}-${c.chapter2}-${c.entity}`,
+          type: c.type,
+          severity: this.mapConflictSeverity(c.severity),
+          description: c.description,
+          sourceChapter: c.chapter1,
+          targetChapter: c.chapter2,
+          subject: c.entity,
+          conflictingStatements: [c.expected, c.found],
+          suggestedResolution: c.suggestion,
+        }),
+      );
 
       return {
         projectId,
@@ -983,13 +993,14 @@ export class AiWritingController {
         conflicts: {
           total: transformedConflicts.length,
           highSeverity: transformedConflicts.filter(
-            (c) => c.severity === "HIGH",
+            (c: { severity: string }) => c.severity === "HIGH",
           ).length,
           mediumSeverity: transformedConflicts.filter(
-            (c) => c.severity === "MEDIUM",
+            (c: { severity: string }) => c.severity === "MEDIUM",
           ).length,
-          lowSeverity: transformedConflicts.filter((c) => c.severity === "LOW")
-            .length,
+          lowSeverity: transformedConflicts.filter(
+            (c: { severity: string }) => c.severity === "LOW",
+          ).length,
           recentConflicts: transformedConflicts.slice(0, 5),
         },
         agentActivity: dashboard.agentActivity,

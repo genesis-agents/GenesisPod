@@ -651,79 +651,74 @@ export class WritingCoordinatorService {
    * Combines completion analysis, timeline conflicts, and agent activity
    */
   async getAnalysisDashboard(projectId: string, userId: string) {
+    // Build an empty dashboard shell first — always returned on any failure
+    const emptyResult: {
+      project: { id: string; name: string };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      completion: any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      conflicts: any;
+      agentActivity: { recentEntries: ScratchpadEntry[]; totalEntries: number };
+      analyzedAt: string;
+    } = {
+      project: { id: projectId, name: "Unknown" },
+      completion: null,
+      conflicts: null,
+      agentActivity: { recentEntries: [], totalEntries: 0 },
+      analyzedAt: new Date().toISOString(),
+    };
+
+    // 1. Verify project ownership
     try {
-      // Verify project ownership
       const project = await this.projectService.findOne(projectId, userId);
-
-      // Get scratchpad entries
-      let scratchpadEntries: ScratchpadEntry[] = [];
-      try {
-        const recentMission =
-          await this.writingMissionService.getLatestMission(projectId);
-        if (recentMission) {
-          scratchpadEntries = await this.sharedScratchpadService.getEntries(
-            recentMission.id,
-            { limit: 10 },
-          );
-        }
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Failed to get scratchpad entries: ${errorMessage}`);
-      }
-
-      // Parallel fetch completion and conflict analysis (with error boundaries)
-      const [completionAnalysis, conflictResult] = await Promise.all([
-        this.storyCompletionDetector
-          ?.analyzeCompletion(projectId)
-          ?.catch((err: Error) => {
-            this.logger.warn(
-              `Completion analysis failed: ${err?.message || String(err)}`,
-            );
-            return null;
-          }) ?? Promise.resolve(null),
-        this.temporalConflictAnalyzer
-          ?.analyzeProject(projectId)
-          ?.catch((err: Error) => {
-            this.logger.warn(
-              `Conflict analysis failed: ${err?.message || String(err)}`,
-            );
-            return null;
-          }) ?? Promise.resolve(null),
-      ]);
-
-      return {
-        project: {
-          id: project.id,
-          name: project.name,
-        },
-        completion: completionAnalysis,
-        conflicts: conflictResult,
-        agentActivity: {
-          recentEntries: scratchpadEntries,
-          totalEntries: scratchpadEntries.length,
-        },
-        analyzedAt: new Date().toISOString(),
-      };
-    } catch (error) {
-      // Broad safety net: return empty dashboard instead of 500
+      emptyResult.project = { id: project.id, name: project.name };
+    } catch (err) {
       this.logger.error(
-        `Analysis dashboard failed for project ${projectId}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        `[AnalysisDashboard] Project lookup failed: ${err instanceof Error ? err.message : String(err)}`,
       );
-      return {
-        project: {
-          id: projectId,
-          name: "Unknown",
-        },
-        completion: null,
-        conflicts: null,
-        agentActivity: {
-          recentEntries: [],
-          totalEntries: 0,
-        },
-        analyzedAt: new Date().toISOString(),
-      };
+      return emptyResult;
     }
+
+    // 2. Get scratchpad entries
+    try {
+      const recentMission =
+        await this.writingMissionService.getLatestMission(projectId);
+      if (recentMission) {
+        const entries = await this.sharedScratchpadService.getEntries(
+          recentMission.id,
+          { limit: 10 },
+        );
+        emptyResult.agentActivity = {
+          recentEntries: entries,
+          totalEntries: entries.length,
+        };
+      }
+    } catch (err) {
+      this.logger.warn(
+        `[AnalysisDashboard] Scratchpad failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    // 3. Completion analysis (sequential, individual try-catch)
+    try {
+      emptyResult.completion =
+        await this.storyCompletionDetector.analyzeCompletion(projectId);
+    } catch (err) {
+      this.logger.warn(
+        `[AnalysisDashboard] Completion analysis failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    // 4. Conflict analysis (sequential, individual try-catch)
+    try {
+      emptyResult.conflicts =
+        await this.temporalConflictAnalyzer.analyzeProject(projectId);
+    } catch (err) {
+      this.logger.warn(
+        `[AnalysisDashboard] Conflict analysis failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    return emptyResult;
   }
 }
