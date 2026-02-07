@@ -948,50 +948,69 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
-    const dashboard = await this.coordinator.getAnalysisDashboard(
-      projectId,
-      req.user.id,
-    );
+    try {
+      const dashboard = await this.coordinator.getAnalysisDashboard(
+        projectId,
+        req.user.id,
+      );
 
-    // Transform conflicts to frontend format (graceful when analysis failed)
-    const transformedConflicts = dashboard.conflicts?.conflicts
-      ? dashboard.conflicts.conflicts.map((c) => ({
-          id: `${c.chapter1}-${c.chapter2}-${c.entity}`,
-          type: c.type,
-          severity: this.mapConflictSeverity(c.severity),
-          description: c.description,
-          sourceChapter: c.chapter1,
-          targetChapter: c.chapter2,
-          subject: c.entity,
-          conflictingStatements: [c.expected, c.found],
-          suggestedResolution: c.suggestion,
-        }))
-      : [];
+      // Transform conflicts to frontend format (graceful when analysis failed)
+      const transformedConflicts = dashboard.conflicts?.conflicts
+        ? dashboard.conflicts.conflicts.map((c) => ({
+            id: `${c.chapter1}-${c.chapter2}-${c.entity}`,
+            type: c.type,
+            severity: this.mapConflictSeverity(c.severity),
+            description: c.description,
+            sourceChapter: c.chapter1,
+            targetChapter: c.chapter2,
+            subject: c.entity,
+            conflictingStatements: [c.expected, c.found],
+            suggestedResolution: c.suggestion,
+          }))
+        : [];
 
-    return {
-      projectId,
-      projectName: dashboard.project.name,
-      completion: dashboard.completion
-        ? {
-            isComplete: dashboard.completion.isComplete,
-            confidence: dashboard.completion.confidence,
-            signals: dashboard.completion.signals,
-            recommendation: dashboard.completion.recommendation,
-          }
-        : null,
-      conflicts: {
-        total: transformedConflicts.length,
-        highSeverity: transformedConflicts.filter((c) => c.severity === "HIGH")
-          .length,
-        mediumSeverity: transformedConflicts.filter(
-          (c) => c.severity === "MEDIUM",
-        ).length,
-        lowSeverity: transformedConflicts.filter((c) => c.severity === "LOW")
-          .length,
-        recentConflicts: transformedConflicts.slice(0, 5),
-      },
-      agentActivity: dashboard.agentActivity,
-      analyzedAt: dashboard.analyzedAt,
-    };
+      return {
+        projectId,
+        projectName: dashboard.project?.name || "Unknown",
+        completion: dashboard.completion
+          ? {
+              isComplete: dashboard.completion.isComplete,
+              confidence: dashboard.completion.confidence,
+              signals: dashboard.completion.signals,
+              recommendation: dashboard.completion.recommendation,
+            }
+          : null,
+        conflicts: {
+          total: transformedConflicts.length,
+          highSeverity: transformedConflicts.filter(
+            (c) => c.severity === "HIGH",
+          ).length,
+          mediumSeverity: transformedConflicts.filter(
+            (c) => c.severity === "MEDIUM",
+          ).length,
+          lowSeverity: transformedConflicts.filter((c) => c.severity === "LOW")
+            .length,
+          recentConflicts: transformedConflicts.slice(0, 5),
+        },
+        agentActivity: dashboard.agentActivity,
+        analyzedAt: dashboard.analyzedAt,
+      };
+    } catch (error) {
+      // Last resort: return empty dashboard to prevent 500
+      return {
+        projectId,
+        projectName: "Unknown",
+        completion: null,
+        conflicts: {
+          total: 0,
+          highSeverity: 0,
+          mediumSeverity: 0,
+          lowSeverity: 0,
+          recentConflicts: [],
+        },
+        agentActivity: { recentEntries: [], totalEntries: 0 },
+        analyzedAt: new Date().toISOString(),
+      };
+    }
   }
 }

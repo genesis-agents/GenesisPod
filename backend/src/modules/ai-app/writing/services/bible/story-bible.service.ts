@@ -40,15 +40,31 @@ export class StoryBibleService {
       },
     });
 
-    // Normalize world setting descriptions (fix existing JSON string data in DB)
-    if (bible?.worldSettings) {
-      bible.worldSettings = bible.worldSettings.map((ws) => ({
-        ...ws,
-        description: this.normalizeDescription(ws.description),
-      }));
+    if (bible) {
+      // Normalize world setting descriptions (fix existing JSON string data in DB)
+      if (bible.worldSettings) {
+        bible.worldSettings = bible.worldSettings.map((ws) => ({
+          ...ws,
+          description: this.normalizeDescription(ws.description),
+        }));
+      }
+      // Clean premise: remove lines containing [object Object]
+      if (bible.premise) {
+        bible.premise = this.cleanPremise(bible.premise);
+      }
     }
 
     return bible;
+  }
+
+  /** Remove lines containing [object Object] from premise text */
+  private cleanPremise(premise: string): string {
+    return premise
+      .split("\n")
+      .filter((line) => !line.includes("[object Object]"))
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
   }
 
   /**

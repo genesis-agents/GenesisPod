@@ -651,10 +651,10 @@ export class WritingCoordinatorService {
    * Combines completion analysis, timeline conflicts, and agent activity
    */
   async getAnalysisDashboard(projectId: string, userId: string) {
-    // Verify project ownership
-    const project = await this.projectService.findOne(projectId, userId);
-
     try {
+      // Verify project ownership
+      const project = await this.projectService.findOne(projectId, userId);
+
       // Get scratchpad entries
       let scratchpadEntries: ScratchpadEntry[] = [];
       try {
@@ -675,19 +675,21 @@ export class WritingCoordinatorService {
       // Parallel fetch completion and conflict analysis (with error boundaries)
       const [completionAnalysis, conflictResult] = await Promise.all([
         this.storyCompletionDetector
-          .analyzeCompletion(projectId)
-          .catch((err) => {
+          ?.analyzeCompletion(projectId)
+          ?.catch((err: Error) => {
             this.logger.warn(
-              `Completion analysis failed: ${err instanceof Error ? err.message : String(err)}`,
+              `Completion analysis failed: ${err?.message || String(err)}`,
             );
             return null;
-          }),
-        this.temporalConflictAnalyzer.analyzeProject(projectId).catch((err) => {
-          this.logger.warn(
-            `Conflict analysis failed: ${err instanceof Error ? err.message : String(err)}`,
-          );
-          return null;
-        }),
+          }) ?? Promise.resolve(null),
+        this.temporalConflictAnalyzer
+          ?.analyzeProject(projectId)
+          ?.catch((err: Error) => {
+            this.logger.warn(
+              `Conflict analysis failed: ${err?.message || String(err)}`,
+            );
+            return null;
+          }) ?? Promise.resolve(null),
       ]);
 
       return {
@@ -707,11 +709,12 @@ export class WritingCoordinatorService {
       // Broad safety net: return empty dashboard instead of 500
       this.logger.error(
         `Analysis dashboard failed for project ${projectId}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       return {
         project: {
-          id: project.id,
-          name: project.name,
+          id: projectId,
+          name: "Unknown",
         },
         completion: null,
         conflicts: null,

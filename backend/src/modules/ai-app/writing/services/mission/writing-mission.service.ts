@@ -1510,12 +1510,28 @@ ${storyCreativitySection}
           rules?: string[];
         }
       | undefined;
+    // 将可能是对象的值转为可读字符串（用于 premise 拼接）
+    const briefStr = (val: unknown): string => {
+      if (!val) return "";
+      if (typeof val === "string") return val;
+      if (typeof val === "object" && !Array.isArray(val)) {
+        // 只取顶层字符串值作摘要，跳过嵌套数组/对象
+        const parts: string[] = [];
+        for (const v of Object.values(val as Record<string, unknown>)) {
+          if (typeof v === "string") parts.push(v);
+        }
+        return parts.join("；") || JSON.stringify(val);
+      }
+      if (Array.isArray(val))
+        return val.filter((v) => typeof v === "string").join("；");
+      return String(val);
+    };
     const worldDescription = worldInfo
       ? [
-          worldInfo.type && `类型: ${worldInfo.type}`,
-          worldInfo.era && `时代: ${worldInfo.era}`,
-          worldInfo.geography && `地理: ${worldInfo.geography}`,
-          worldInfo.society && `社会: ${worldInfo.society}`,
+          worldInfo.type && `类型: ${briefStr(worldInfo.type)}`,
+          worldInfo.era && `时代: ${briefStr(worldInfo.era)}`,
+          worldInfo.geography && `地理: ${briefStr(worldInfo.geography)}`,
+          worldInfo.society && `社会: ${briefStr(worldInfo.society)}`,
         ]
           .filter(Boolean)
           .join("\n")
