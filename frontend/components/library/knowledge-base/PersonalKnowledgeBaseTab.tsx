@@ -191,22 +191,48 @@ export default function PersonalKnowledgeBaseTab({
     );
   };
 
-  // 获取图标背景渐变色
-  const getIconGradient = (sourceType: string) => {
-    const gradients: Record<string, string> = {
-      GOOGLE_DRIVE: 'from-green-400 to-emerald-500',
-      MANUAL: 'from-blue-400 to-indigo-500',
-      URL: 'from-purple-400 to-violet-500',
-      NOTION: 'from-gray-600 to-gray-800',
-      BOOKMARK: 'from-orange-400 to-amber-500',
-      NOTE: 'from-pink-400 to-rose-500',
-      IMAGE: 'from-cyan-400 to-teal-500',
+  // 获取图标样式（渐变 + 彩色阴影），与自建团队卡片风格一致
+  const getIconStyle = (sourceType: string) => {
+    const styles: Record<string, { gradient: string; shadow: string }> = {
+      GOOGLE_DRIVE: {
+        gradient: 'from-emerald-500 to-teal-500',
+        shadow: 'shadow-emerald-500/30',
+      },
+      MANUAL: {
+        gradient: 'from-blue-500 to-cyan-500',
+        shadow: 'shadow-blue-500/30',
+      },
+      URL: {
+        gradient: 'from-violet-500 to-purple-600',
+        shadow: 'shadow-violet-500/30',
+      },
+      NOTION: {
+        gradient: 'from-gray-600 to-gray-800',
+        shadow: 'shadow-gray-600/30',
+      },
+      BOOKMARK: {
+        gradient: 'from-orange-500 to-red-500',
+        shadow: 'shadow-orange-500/30',
+      },
+      NOTE: {
+        gradient: 'from-pink-500 to-rose-500',
+        shadow: 'shadow-pink-500/30',
+      },
+      IMAGE: {
+        gradient: 'from-indigo-500 to-blue-600',
+        shadow: 'shadow-indigo-500/30',
+      },
     };
-    return gradients[sourceType] || 'from-blue-400 to-indigo-500';
+    return (
+      styles[sourceType] || {
+        gradient: 'from-blue-500 to-cyan-500',
+        shadow: 'shadow-blue-500/30',
+      }
+    );
   };
 
   const getSourceTypeIcon = (type: KnowledgeBase['sourceType']) => {
-    const iconClass = 'h-6 w-6 text-white';
+    const iconClass = 'h-7 w-7 text-white drop-shadow-sm';
     const icons: Record<string, React.ReactNode> = {
       GOOGLE_DRIVE: <HardDrive className={iconClass} />,
       MANUAL: <FileUp className={iconClass} />,
@@ -444,11 +470,17 @@ export default function PersonalKnowledgeBaseTab({
               <div className="p-5 pb-0">
                 <div className="flex items-start gap-4">
                   {/* Large Gradient Icon */}
-                  <div
-                    className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${getIconGradient(kb.sourceType)} shadow-md transition-transform duration-300 group-hover:scale-105`}
-                  >
-                    {getSourceTypeIcon(kb.sourceType)}
-                  </div>
+                  {(() => {
+                    const iconStyle = getIconStyle(kb.sourceType);
+                    return (
+                      <div
+                        className={`relative flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${iconStyle.gradient} shadow-lg ${iconStyle.shadow} transition-transform duration-300 group-hover:scale-105`}
+                      >
+                        {getSourceTypeIcon(kb.sourceType)}
+                        <div className="absolute inset-0 rounded-2xl ring-2 ring-white/20 transition-all group-hover:ring-4 group-hover:ring-white/30" />
+                      </div>
+                    );
+                  })()}
                   <div className="min-w-0 flex-1 pt-1">
                     <h3 className="truncate text-base font-semibold text-gray-900 transition-colors group-hover:text-blue-600">
                       {kb.name}
