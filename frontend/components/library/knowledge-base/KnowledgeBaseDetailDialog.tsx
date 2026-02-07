@@ -153,7 +153,7 @@ export default function KnowledgeBaseDetailDialog({
               <Database className="h-6 w-6" />
             </div>
             <div>
-              {loading ? (
+              {loading && !knowledgeBase ? (
                 <div className="h-6 w-32 animate-pulse rounded bg-gray-200" />
               ) : (
                 <h2 className="text-xl font-semibold text-gray-900">
@@ -173,7 +173,7 @@ export default function KnowledgeBaseDetailDialog({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          {loading ? (
+          {loading && !knowledgeBase ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
               <span className="ml-3 text-gray-500">加载中...</span>

@@ -276,25 +276,19 @@ export function useKnowledgeBaseDetail(id: string | null) {
     processDocuments: async () => {
       if (!id) return undefined;
       const result = await processDocuments({} as Record<string, never>);
-      await refresh();
-      await fetchStats();
-      await fetchDocuments();
+      await Promise.all([refresh(), fetchStats(), fetchDocuments()]);
       return result;
     },
     syncGoogleDrive: async () => {
       if (!id) return undefined;
       const result = await syncGoogleDrive({} as Record<string, never>);
-      await refresh();
-      await fetchStats();
-      await fetchDocuments();
+      await Promise.all([refresh(), fetchStats(), fetchDocuments()]);
       return result;
     },
     addDocument: async (doc: AddDocumentDto) => {
       if (!id) return undefined;
       const result = await addDocument(doc);
-      await refresh();
-      await fetchStats();
-      await fetchDocuments();
+      await Promise.all([refresh(), fetchStats(), fetchDocuments()]);
       return result;
     },
     deletingDocument,
