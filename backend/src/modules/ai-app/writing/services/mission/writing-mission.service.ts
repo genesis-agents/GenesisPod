@@ -1630,7 +1630,17 @@ ${storyCreativitySection}
           const toStr = (val: unknown): string => {
             if (!val) return "";
             if (typeof val === "string") return val;
-            return JSON.stringify(val, null, 2);
+            // 将对象扁平化为可读文本，而非 JSON
+            if (typeof val === "object" && !Array.isArray(val)) {
+              return Object.entries(val as Record<string, unknown>)
+                .map(([k, v]) => {
+                  if (Array.isArray(v)) return `${k}: ${v.join("、")}`;
+                  return `${k}: ${String(v)}`;
+                })
+                .join("\n");
+            }
+            if (Array.isArray(val)) return val.join("、");
+            return String(val);
           };
 
           // 构建要保存的设定列表

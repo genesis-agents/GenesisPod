@@ -671,10 +671,20 @@ export class WritingCoordinatorService {
       this.logger.warn(`Failed to get scratchpad entries: ${errorMessage}`);
     }
 
-    // Parallel fetch completion and conflict analysis
+    // Parallel fetch completion and conflict analysis (with error boundaries)
     const [completionAnalysis, conflictResult] = await Promise.all([
-      this.storyCompletionDetector.analyzeCompletion(projectId),
-      this.temporalConflictAnalyzer.analyzeProject(projectId),
+      this.storyCompletionDetector.analyzeCompletion(projectId).catch((err) => {
+        this.logger.warn(
+          `Completion analysis failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return null;
+      }),
+      this.temporalConflictAnalyzer.analyzeProject(projectId).catch((err) => {
+        this.logger.warn(
+          `Conflict analysis failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return null;
+      }),
     ]);
 
     return {

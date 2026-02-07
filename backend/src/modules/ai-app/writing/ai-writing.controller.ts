@@ -953,28 +953,32 @@ export class AiWritingController {
       req.user.id,
     );
 
-    // Transform conflicts to frontend format
-    const transformedConflicts = dashboard.conflicts.conflicts.map((c) => ({
-      id: `${c.chapter1}-${c.chapter2}-${c.entity}`,
-      type: c.type,
-      severity: this.mapConflictSeverity(c.severity),
-      description: c.description,
-      sourceChapter: c.chapter1,
-      targetChapter: c.chapter2,
-      subject: c.entity,
-      conflictingStatements: [c.expected, c.found],
-      suggestedResolution: c.suggestion,
-    }));
+    // Transform conflicts to frontend format (graceful when analysis failed)
+    const transformedConflicts = dashboard.conflicts?.conflicts
+      ? dashboard.conflicts.conflicts.map((c) => ({
+          id: `${c.chapter1}-${c.chapter2}-${c.entity}`,
+          type: c.type,
+          severity: this.mapConflictSeverity(c.severity),
+          description: c.description,
+          sourceChapter: c.chapter1,
+          targetChapter: c.chapter2,
+          subject: c.entity,
+          conflictingStatements: [c.expected, c.found],
+          suggestedResolution: c.suggestion,
+        }))
+      : [];
 
     return {
       projectId,
       projectName: dashboard.project.name,
-      completion: {
-        isComplete: dashboard.completion.isComplete,
-        confidence: dashboard.completion.confidence,
-        signals: dashboard.completion.signals,
-        recommendation: dashboard.completion.recommendation,
-      },
+      completion: dashboard.completion
+        ? {
+            isComplete: dashboard.completion.isComplete,
+            confidence: dashboard.completion.confidence,
+            signals: dashboard.completion.signals,
+            recommendation: dashboard.completion.recommendation,
+          }
+        : null,
       conflicts: {
         total: transformedConflicts.length,
         highSeverity: transformedConflicts.filter((c) => c.severity === "HIGH")
