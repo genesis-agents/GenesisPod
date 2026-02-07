@@ -938,6 +938,33 @@ export class AiWritingController {
   }
 
   /**
+   * [DEBUG] 公开诊断端点 - 用于排查 analysis-dashboard 500 错误
+   * TODO: 排查完成后移除此端点
+   */
+  @Public()
+  @Get("projects/:projectId/analysis-debug")
+  async debugAnalysisDashboard(@Param("projectId") projectId: string) {
+    const steps: string[] = [];
+    try {
+      steps.push("start");
+      const result = await this.coordinator.getAnalysisDashboard(
+        projectId,
+        "debug",
+      );
+      steps.push("coordinator-done");
+      return { ok: true, steps, result };
+    } catch (error) {
+      steps.push("error");
+      return {
+        ok: false,
+        steps,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      };
+    }
+  }
+
+  /**
    * 获取项目分析仪表板数据
    * 汇总完成度、冲突、摘要等信息
    */
