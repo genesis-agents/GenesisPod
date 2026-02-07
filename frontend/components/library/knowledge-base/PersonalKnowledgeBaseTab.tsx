@@ -52,7 +52,6 @@ export default function PersonalKnowledgeBaseTab({
   const [editingKbId, setEditingKbId] = useState<string | null>(null);
   const [deletingKbId, setDeletingKbId] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDetailKbId, setShowDetailKbId] = useState<string | null>(null); // 弹窗显示详情的知识库ID
   const [showSearchTest, setShowSearchTest] = useState<string | null>(null); // 搜索测试的知识库ID
   const [showDocList, setShowDocList] = useState<{
@@ -74,42 +73,6 @@ export default function PersonalKnowledgeBaseTab({
     deleteKnowledgeBase,
     refreshList,
   } = useKnowledgeBase();
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const selectAll = () => {
-    const personalKBs = knowledgeBases.filter(
-      (kb) => !kb.type || kb.type === 'PERSONAL'
-    );
-    if (selectedIds.size === personalKBs.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(personalKBs.map((kb) => kb.id)));
-    }
-  };
-
-  const handleBatchDelete = async () => {
-    for (const id of selectedIds) {
-      try {
-        await deleteKnowledgeBase(id);
-      } catch (err) {
-        logger.error('Failed to delete:', id, err);
-      }
-    }
-    setSelectedIds(new Set());
-    setDeletingKbId(null);
-    refreshList();
-  };
 
   // Get detail hook for editing
   const editingKbDetail = useKnowledgeBaseDetail(editingKbId || '');
@@ -191,45 +154,23 @@ export default function PersonalKnowledgeBaseTab({
     );
   };
 
-  // 获取图标样式（渐变 + 彩色阴影），与自建团队卡片风格一致
-  const getIconStyle = (sourceType: string) => {
-    const styles: Record<string, { gradient: string; shadow: string }> = {
-      GOOGLE_DRIVE: {
-        gradient: 'from-emerald-500 to-teal-500',
-        shadow: 'shadow-emerald-500/30',
-      },
-      MANUAL: {
-        gradient: 'from-blue-500 to-cyan-500',
-        shadow: 'shadow-blue-500/30',
-      },
-      URL: {
-        gradient: 'from-violet-500 to-purple-600',
-        shadow: 'shadow-violet-500/30',
-      },
-      NOTION: {
-        gradient: 'from-gray-600 to-gray-800',
-        shadow: 'shadow-gray-600/30',
-      },
-      BOOKMARK: {
-        gradient: 'from-orange-500 to-red-500',
-        shadow: 'shadow-orange-500/30',
-      },
-      NOTE: {
-        gradient: 'from-pink-500 to-rose-500',
-        shadow: 'shadow-pink-500/30',
-      },
-      IMAGE: {
-        gradient: 'from-indigo-500 to-blue-600',
-        shadow: 'shadow-indigo-500/30',
-      },
-    };
-    return (
-      styles[sourceType] || {
-        gradient: 'from-blue-500 to-cyan-500',
-        shadow: 'shadow-blue-500/30',
-      }
-    );
-  };
+  // 图标颜色轮换（按卡片索引），与自建团队卡片风格一致
+  const KB_GRADIENTS = [
+    {
+      gradient: 'from-violet-500 to-purple-600',
+      shadow: 'shadow-violet-500/30',
+    },
+    { gradient: 'from-blue-500 to-cyan-500', shadow: 'shadow-blue-500/30' },
+    {
+      gradient: 'from-emerald-500 to-teal-500',
+      shadow: 'shadow-emerald-500/30',
+    },
+    { gradient: 'from-orange-500 to-red-500', shadow: 'shadow-orange-500/30' },
+    { gradient: 'from-pink-500 to-rose-500', shadow: 'shadow-pink-500/30' },
+    { gradient: 'from-indigo-500 to-blue-600', shadow: 'shadow-indigo-500/30' },
+    { gradient: 'from-amber-500 to-orange-500', shadow: 'shadow-amber-500/30' },
+    { gradient: 'from-cyan-500 to-teal-500', shadow: 'shadow-cyan-500/30' },
+  ];
 
   const getSourceTypeIcon = (type: KnowledgeBase['sourceType']) => {
     const iconClass = 'h-7 w-7 text-white drop-shadow-sm';
@@ -353,71 +294,17 @@ export default function PersonalKnowledgeBaseTab({
         </div>
       </div>
 
-      {/* Batch Actions */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center justify-between rounded-lg bg-blue-50 px-4 py-3">
-          <span className="text-sm text-blue-700">
-            已选择 {selectedIds.size} 个知识库
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              className="rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-            >
-              取消选择
-            </button>
-            <button
-              onClick={() => setDeletingKbId('batch')}
-              className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
-            >
-              <Trash2 className="h-4 w-4" />
-              批量删除
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Knowledge Base Grid - Modern card design */}
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {personalKBs.map((kb) => (
+        {personalKBs.map((kb, index) => (
           <div
             key={kb.id}
             className={`group relative overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-300 ${
               activeMenuId === kb.id
                 ? '' // 菜单打开时禁用 hover 动画，防止光标抖动
                 : 'hover:-translate-y-1 hover:shadow-lg'
-            } ${
-              selectedIds.has(kb.id)
-                ? 'border-blue-400 ring-2 ring-blue-100'
-                : 'border-gray-100 hover:border-gray-200'
-            }`}
+            } border-gray-100 hover:border-gray-200`}
           >
-            {/* Selection Checkbox */}
-            <div className="absolute left-4 top-4 z-10">
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggleSelect(kb.id);
-                }}
-                className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-all ${
-                  selectedIds.has(kb.id)
-                    ? 'border-blue-500 bg-blue-500 text-white'
-                    : 'border-gray-300 bg-white/80 opacity-0 backdrop-blur-sm group-hover:opacity-100'
-                }`}
-              >
-                {selectedIds.has(kb.id) && (
-                  <svg
-                    className="h-3 w-3"
-                    fill="currentColor"
-                    viewBox="0 0 12 12"
-                  >
-                    <path d="M10.28 2.28L4.5 8.06 1.72 5.28a.75.75 0 00-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l6.5-6.5a.75.75 0 00-1.06-1.06z" />
-                  </svg>
-                )}
-              </button>
-            </div>
-
             {/* Action Menu */}
             <div className="absolute right-4 top-4 z-10">
               <div className="relative">
@@ -472,7 +359,7 @@ export default function PersonalKnowledgeBaseTab({
                 <div className="flex items-start gap-4">
                   {/* Large Gradient Icon */}
                   {(() => {
-                    const iconStyle = getIconStyle(kb.sourceType);
+                    const iconStyle = KB_GRADIENTS[index % KB_GRADIENTS.length];
                     return (
                       <div
                         className={`relative flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${iconStyle.gradient} shadow-lg ${iconStyle.shadow} transition-transform duration-300 group-hover:scale-105`}
@@ -585,9 +472,7 @@ export default function PersonalKnowledgeBaseTab({
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900">确认删除</h3>
             <p className="mt-2 text-gray-600">
-              {deletingKbId === 'batch'
-                ? `确定要删除选中的 ${selectedIds.size} 个知识库吗？此操作不可撤销，所有相关的文档和向量数据都将被删除。`
-                : '确定要删除这个知识库吗？此操作不可撤销，所有相关的文档和向量数据都将被删除。'}
+              确定要删除这个知识库吗？此操作不可撤销，所有相关的文档和向量数据都将被删除。
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button
@@ -597,11 +482,7 @@ export default function PersonalKnowledgeBaseTab({
                 取消
               </button>
               <button
-                onClick={() =>
-                  deletingKbId === 'batch'
-                    ? handleBatchDelete()
-                    : handleDelete(deletingKbId)
-                }
+                onClick={() => handleDelete(deletingKbId)}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
                 删除
