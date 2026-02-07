@@ -1,5 +1,15 @@
 [
   {
+    "version": "3.56.0",
+    "date": "2026-02-07",
+    "changes": [
+      {
+        "type": "improvement",
+        "description": "optimize model management from card grid to table layout"
+      }
+    ]
+  },
+  {
     "version": "3.55.0",
     "date": "2026-02-07",
     "changes": [
