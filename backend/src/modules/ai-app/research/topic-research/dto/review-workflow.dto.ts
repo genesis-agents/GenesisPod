@@ -12,6 +12,8 @@ import {
   IsString,
   Max,
   Min,
+  MaxLength,
+  IsNotEmpty,
 } from "class-validator";
 
 /**
@@ -20,15 +22,20 @@ import {
 export class AssignReviewTaskDto {
   @ApiProperty({ description: "被分配人的用户ID" })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
   assigneeId!: string;
 
   @ApiProperty({ description: "被分配人的名称" })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   assigneeName!: string;
 
   @ApiPropertyOptional({ description: "截止日期" })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   dueAt?: string;
 }
 
@@ -43,6 +50,7 @@ export class CompleteReviewTaskDto {
   @ApiPropertyOptional({ description: "审核评论" })
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   comments?: string;
 
   @ApiPropertyOptional({ description: "评分 (1-10)" })

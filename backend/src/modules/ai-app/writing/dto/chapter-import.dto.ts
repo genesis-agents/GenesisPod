@@ -7,6 +7,8 @@ import {
   IsNumber,
   Min,
   ArrayMinSize,
+  MaxLength,
+  IsNotEmpty,
 } from "class-validator";
 import { ImportSource, ImportStatus } from "@prisma/client";
 
@@ -34,22 +36,27 @@ export class ParseImportDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(50000)
   content?: string; // 粘贴文本时使用
 
   @IsString()
   @IsOptional()
+  @MaxLength(2048)
   sourceUrl?: string; // URL 抓取时使用
 
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   fileName?: string; // 文件上传时使用
 
   @IsString()
   @IsOptional()
+  @MaxLength(100)
   chapterPattern?: ChapterPatternType;
 
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   customPattern?: string; // 自定义正则表达式
 }
 
@@ -95,6 +102,8 @@ export class PostProcessOptionsDto {
  */
 export class ConfirmImportDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
   targetVolumeId!: string;
 
   @IsNumber()
@@ -108,6 +117,7 @@ export class ConfirmImportDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(50)
   conflictStrategy?: ConflictStrategy;
 
   @IsOptional()

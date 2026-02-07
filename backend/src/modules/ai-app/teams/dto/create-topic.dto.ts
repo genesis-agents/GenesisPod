@@ -6,16 +6,19 @@ import {
   IsArray,
   ValidateNested,
   ArrayMaxSize,
+  IsNotEmpty,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { TopicType } from "@prisma/client";
 
 export class InitialAIMemberDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(50)
   aiModel!: string;
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(100)
   displayName!: string;
 
@@ -26,6 +29,7 @@ export class InitialAIMemberDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   systemPrompt?: string;
 }
 
@@ -36,6 +40,7 @@ export class CreateTopicDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   description?: string;
 
   @IsOptional()
@@ -44,6 +49,7 @@ export class CreateTopicDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(2048)
   avatar?: string;
 
   @IsOptional()

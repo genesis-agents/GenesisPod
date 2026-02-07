@@ -1,10 +1,19 @@
-import { IsOptional, IsString, IsEnum, IsInt, Min, Max } from "class-validator";
+import {
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsInt,
+  Min,
+  Max,
+  MaxLength,
+} from "class-validator";
 import { Type } from "class-transformer";
 import { SourceType } from "../types";
 
 export class ListEvidenceDto {
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   dimensionId?: string;
 
   @IsOptional()

@@ -1,4 +1,11 @@
-import { IsArray, IsString, ArrayMinSize, ArrayMaxSize } from "class-validator";
+import {
+  IsArray,
+  IsString,
+  ArrayMinSize,
+  ArrayMaxSize,
+  IsNotEmpty,
+  MaxLength,
+} from "class-validator";
 
 /**
  * DTO for batch delete operation
@@ -22,6 +29,8 @@ export class BatchPublishDto {
   ids!: string[];
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
   connectionId!: string;
 }
 

@@ -2,6 +2,7 @@ import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { AiWritingController } from "./ai-writing.controller";
 import { AiWritingService } from "./ai-writing.service";
+import { WritingCoordinatorService } from "./writing-coordinator.service";
 import { WritingRepository } from "./writing.repository";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
@@ -115,6 +116,7 @@ import {
     WritingRepository,
 
     AiWritingService,
+    WritingCoordinatorService,
     // WebSocket Gateway and Event Emitter
     AiWritingGateway,
     WritingEventEmitterService,

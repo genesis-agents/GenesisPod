@@ -32,7 +32,7 @@ describe("LongTermMemoryService", () => {
     }).compile();
 
     service = module.get<LongTermMemoryService>(LongTermMemoryService);
-    prisma = module.get(PrismaService) as jest.Mocked<PrismaService>;
+    prisma = module.get(PrismaService);
   });
 
   afterEach(() => {
@@ -105,8 +105,7 @@ describe("LongTermMemoryService", () => {
       const afterCall = Date.now();
 
       expect(prisma.longTermMemory.upsert).toHaveBeenCalled();
-      const callArgs = (mockPrismaService.longTermMemory.upsert as jest.Mock)
-        .mock.calls[0][0];
+      const callArgs = mockPrismaService.longTermMemory.upsert.mock.calls[0][0];
       const expiresAt = callArgs.create.expiresAt as Date;
 
       // Verify expiresAt is within expected range
@@ -141,8 +140,7 @@ describe("LongTermMemoryService", () => {
       await service.setWithUser(userId, key, value, options);
 
       expect(prisma.longTermMemory.upsert).toHaveBeenCalled();
-      const callArgs = (mockPrismaService.longTermMemory.upsert as jest.Mock)
-        .mock.calls[0][0];
+      const callArgs = mockPrismaService.longTermMemory.upsert.mock.calls[0][0];
 
       expect(callArgs.create.type).toBe(options.type);
       expect(callArgs.create.importance).toBe(options.importance);
@@ -166,8 +164,7 @@ describe("LongTermMemoryService", () => {
 
       await service.setWithUser(userId, key, value, { ttl: 0 });
 
-      const callArgs = (mockPrismaService.longTermMemory.upsert as jest.Mock)
-        .mock.calls[0][0];
+      const callArgs = mockPrismaService.longTermMemory.upsert.mock.calls[0][0];
       expect(callArgs.create.expiresAt).toBeUndefined();
     });
 
@@ -187,8 +184,7 @@ describe("LongTermMemoryService", () => {
 
       await service.setWithUser(userId, key, value, { ttl: -100 });
 
-      const callArgs = (mockPrismaService.longTermMemory.upsert as jest.Mock)
-        .mock.calls[0][0];
+      const callArgs = mockPrismaService.longTermMemory.upsert.mock.calls[0][0];
       expect(callArgs.create.expiresAt).toBeUndefined();
     });
   });
@@ -1072,9 +1068,8 @@ describe("LongTermMemoryService", () => {
       await service.cleanup();
 
       const afterCall = new Date();
-      const callArgs = (
-        mockPrismaService.longTermMemory.deleteMany as jest.Mock
-      ).mock.calls[0][0];
+      const callArgs =
+        mockPrismaService.longTermMemory.deleteMany.mock.calls[0][0];
       const expirationDate = callArgs.where.expiresAt.lt;
 
       expect(expirationDate).toBeInstanceOf(Date);

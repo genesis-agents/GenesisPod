@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { AuthService } from "./auth.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { JwtService } from "@nestjs/jwt";
+import { CacheService } from "../../../common/cache/cache.service";
 import { UnauthorizedException, ConflictException } from "@nestjs/common";
 import * as bcrypt from "bcrypt";
 
@@ -37,6 +38,12 @@ describe("AuthService", () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      creditAccount: {
+        create: jest.fn(),
+      },
+      loginHistory: {
+        create: jest.fn(),
+      },
       userInterest: {
         deleteMany: jest.fn(),
         createMany: jest.fn(),
@@ -69,11 +76,23 @@ describe("AuthService", () => {
       sign: jest.fn().mockReturnValue("mock-token"),
     };
 
+    const mockCacheService = {
+      get: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn().mockResolvedValue(undefined),
+      del: jest.fn().mockResolvedValue(undefined),
+      buildKey: jest
+        .fn()
+        .mockImplementation(
+          (prefix, ...parts) => `${prefix}${parts.join(":")}`,
+        ),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: CacheService, useValue: mockCacheService },
       ],
     }).compile();
 

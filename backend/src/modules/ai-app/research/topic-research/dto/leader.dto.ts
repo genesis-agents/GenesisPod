@@ -5,6 +5,7 @@ import {
   IsObject,
   MaxLength,
   IsIn,
+  IsNotEmpty,
 } from "class-validator";
 
 /**
@@ -54,7 +55,9 @@ export class LeaderPlanDto {
     default: "standard",
   })
   @IsOptional()
+  @IsString()
   @IsIn(["quick", "standard", "thorough"])
+  @MaxLength(50)
   researchDepth?: string;
 }
 
@@ -67,6 +70,7 @@ export class LeaderMessageDto {
     example: "@Leader 请增加对开源模型的分析",
   })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(2000)
   content!: string;
 }

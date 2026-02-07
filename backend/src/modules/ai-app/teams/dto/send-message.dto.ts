@@ -5,6 +5,7 @@ import {
   IsArray,
   ValidateNested,
   MaxLength,
+  IsNotEmpty,
 } from "class-validator";
 import { Type } from "class-transformer";
 import {
@@ -16,10 +17,12 @@ import {
 export class MentionDto {
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   userId?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   aiMemberId?: string;
 
   @IsEnum(MentionType)
@@ -31,10 +34,13 @@ export class AttachmentDto {
   type!: AttachmentType;
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(500)
   name!: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(2048)
   url!: string;
 
   @IsOptional()
@@ -47,6 +53,7 @@ export class AttachmentDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   resourceId?: string; // 如果是Library资源
 
   @IsOptional()
@@ -60,6 +67,8 @@ export class AttachmentDto {
 
 export class SendMessageDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(50000)
   content!: string;
 
   @IsOptional()
@@ -68,6 +77,7 @@ export class SendMessageDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   replyToId?: string;
 
   @IsOptional()

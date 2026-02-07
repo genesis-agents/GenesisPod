@@ -7,6 +7,7 @@ import {
   MaxLength,
   ValidateNested,
   IsIn,
+  IsNotEmpty,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ResearchTopicType, RefreshFrequency } from "../types";
@@ -14,6 +15,7 @@ import { TopicVisibility } from "./collaborator.dto";
 
 export class DimensionConfigDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(200)
   name!: string;
 
@@ -44,6 +46,7 @@ export class DimensionConfigDto {
 
 export class CreateTopicDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(200)
   name!: string;
 
@@ -80,6 +83,7 @@ export class CreateTopicDto {
   @IsOptional()
   @IsString()
   @IsIn(["zh", "en"])
+  @MaxLength(10)
   language?: string;
 
   @IsOptional()

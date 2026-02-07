@@ -8,10 +8,12 @@ export class GenerateSummaryDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   fromMessageId?: string; // 纪要起始消息ID
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   toMessageId?: string; // 纪要结束消息ID
 
   @IsOptional()

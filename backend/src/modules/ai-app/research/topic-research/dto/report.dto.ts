@@ -7,6 +7,7 @@ import {
   Min,
   Max,
   IsNotEmpty,
+  MaxLength,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
@@ -23,6 +24,7 @@ export class UpdateReportContentDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   executiveSummary?: string;
 
   @ApiPropertyOptional({
@@ -31,6 +33,7 @@ export class UpdateReportContentDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(50000)
   fullReport?: string;
 
   @ApiPropertyOptional({
@@ -39,6 +42,7 @@ export class UpdateReportContentDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   changeDescription?: string;
 }
 
@@ -67,6 +71,7 @@ export class AIEditReportDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(50000)
   selectedText?: string;
 
   @ApiPropertyOptional({
@@ -75,6 +80,7 @@ export class AIEditReportDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   context?: string;
 
   @ApiPropertyOptional({
@@ -83,6 +89,7 @@ export class AIEditReportDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(50000)
   fullContent?: string;
 
   @ApiPropertyOptional({
@@ -91,6 +98,7 @@ export class AIEditReportDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   styleGuide?: string;
 
   @ApiPropertyOptional({
@@ -99,6 +107,7 @@ export class AIEditReportDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   selectorPrefix?: string;
 
   @ApiPropertyOptional({
@@ -107,6 +116,7 @@ export class AIEditReportDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   selectorSuffix?: string;
 
   // ==================== 旧模式字段（兼容） ====================
@@ -118,6 +128,7 @@ export class AIEditReportDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(50000)
   selection?: string;
 
   @ApiPropertyOptional({
@@ -127,6 +138,7 @@ export class AIEditReportDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   customInstruction?: string;
 
   @ApiPropertyOptional({
@@ -165,6 +177,7 @@ export class ListReportsDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   cursor?: string;
 }
 

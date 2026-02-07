@@ -44,5 +44,6 @@ export class UpdateTopicDto {
   @IsOptional()
   @IsString()
   @IsIn(["zh", "en"])
+  @MaxLength(10)
   language?: string;
 }

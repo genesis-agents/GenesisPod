@@ -1,4 +1,10 @@
-import { IsString, IsEnum, IsOptional } from "class-validator";
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  MaxLength,
+  IsNotEmpty,
+} from "class-validator";
 import { SocialContentType, SocialContentSourceType } from "@prisma/client";
 
 export class ProcessSourceDto {
@@ -6,6 +12,8 @@ export class ProcessSourceDto {
   sourceType!: SocialContentSourceType;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
   sourceId!: string;
 
   @IsEnum(SocialContentType)
@@ -13,5 +21,6 @@ export class ProcessSourceDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   additionalInstructions?: string;
 }

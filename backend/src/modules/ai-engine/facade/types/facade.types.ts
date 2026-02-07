@@ -133,6 +133,13 @@ export interface StreamChunk {
 
   /** 错误信息 */
   error?: string;
+
+  /** Token 使用统计（在最后一块中返回） */
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 }
 
 // ==================== 搜索能力类型 ====================
@@ -386,6 +393,15 @@ export interface ContextSource {
 
   /** 直接内容 */
   content?: string;
+
+  /**
+   * 预查询的业务数据（推荐使用）
+   * - type="topic": ResearchTopic with dimensions
+   * - type="resource": Resource
+   * 如果提供，buildContext() 将使用此数据而非通过 Prisma 查询
+   * 这样可以避免 AI Engine 层依赖 AI App 层的业务模型
+   */
+  data?: unknown;
 
   /** 权重（用于优先级） */
   weight?: number;

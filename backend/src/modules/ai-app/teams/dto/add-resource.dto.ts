@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsEnum, MaxLength } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  MaxLength,
+  IsNotEmpty,
+} from "class-validator";
 import { TopicResourceType } from "@prisma/client";
 
 export class AddResourceDto {
@@ -6,19 +12,23 @@ export class AddResourceDto {
   type!: TopicResourceType;
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(500)
   name!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(2048)
   url?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   resourceId?: string; // 如果是Library资源
 
   @IsOptional()
   @IsString()
+  @MaxLength(2048)
   fileUrl?: string;
 
   @IsOptional()
@@ -31,5 +41,6 @@ export class AddResourceDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   sourceMessageId?: string; // 来源消息ID
 }

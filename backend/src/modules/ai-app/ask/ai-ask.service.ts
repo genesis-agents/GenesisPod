@@ -37,26 +37,7 @@ import {
   RESPONSE_REQUIREMENTS_TITLE,
   RESPONSE_REQUIREMENTS,
 } from "./prompts/ask-system.prompt";
-
-interface CreateSessionDto {
-  title?: string;
-  modelId?: string;
-}
-
-interface SendMessageDto {
-  content: string;
-  modelId?: string;
-  webSearch?: boolean;
-  /**
-   * 是否启用工具调用（搜索、短期记忆等）
-   * @default false
-   */
-  enableTools?: boolean;
-  /**
-   * 知识库 ID 列表，用于 RAG 查询
-   */
-  knowledgeBaseIds?: string[];
-}
+import { CreateSessionDto, SendMessageDto } from "./dto";
 
 interface MessageWithContext {
   role: "user" | "assistant" | "system";

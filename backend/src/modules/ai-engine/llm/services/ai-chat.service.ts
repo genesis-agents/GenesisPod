@@ -887,41 +887,19 @@ export class AiChatService {
       );
 
       // ★ Guardrails: Input validation for BYOK path
-      if (
-        this.guardrailsPipeline &&
-        this.configService.get<string>("GUARDRAILS_ENABLED") !== "false"
-      ) {
-        const userContent = messages
-          .filter((m) => m.role === "user")
-          .map((m) => m.content)
-          .join("\n");
-        try {
-          const inputResult = await this.guardrailsPipeline.processInput({
-            content: userContent,
-            context: { provider, modelId: providedModel },
-          });
-          if (!inputResult.passed) {
-            this.logger.warn(
-              `[chat] BYOK input blocked by guardrail: ${inputResult.blockedBy}`,
-            );
-            if (this.traceCollector && spanId) {
-              this.traceCollector.endSpan(spanId, {
-                status: "error",
-                error: `Blocked by guardrail: ${inputResult.blockedBy}`,
-              });
-            }
-            return {
-              content: `Request blocked by content safety guardrail: ${inputResult.blockedBy}`,
-              model: providedModel || "unknown",
-              usage: { totalTokens: 0 },
-              isError: true,
-            };
-          }
-        } catch (error) {
-          this.logger.error(
-            `[chat] BYOK guardrail input check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-          );
-        }
+      const inputGuardrailResult = await this.runInputGuardrails(messages, {
+        provider,
+        modelId: providedModel,
+        spanId,
+        pathName: "BYOK",
+      });
+      if (!inputGuardrailResult.passed) {
+        return {
+          content: `Request blocked by content safety guardrail: ${inputGuardrailResult.blockedBy}`,
+          model: providedModel || "unknown",
+          usage: { totalTokens: 0 },
+          isError: true,
+        };
       }
 
       try {
@@ -941,41 +919,23 @@ export class AiChatService {
         });
 
         // ★ Guardrails: Output validation for BYOK path
-        if (
-          this.guardrailsPipeline &&
-          this.configService.get<string>("GUARDRAILS_ENABLED") !== "false" &&
-          !result.isError
-        ) {
-          try {
-            const outputResult = await this.guardrailsPipeline.processOutput({
-              content: result.content,
-              modelId: result.model,
-            });
-            if (!outputResult.passed) {
-              this.logger.warn(
-                `[chat] BYOK output blocked by guardrail: ${outputResult.blockedBy}`,
-              );
-              if (this.traceCollector && spanId) {
-                this.traceCollector.endSpan(spanId, {
-                  status: "error",
-                  error: `Output blocked by guardrail: ${outputResult.blockedBy}`,
-                  output: {
-                    model: result.model,
-                    tokensUsed: result.tokensUsed,
-                  },
-                });
-              }
-              return {
-                content: "Response filtered by content safety guardrail",
-                usage: { totalTokens: result.tokensUsed },
-                model: result.model,
-                isError: true,
-              };
-            }
-          } catch (error) {
-            this.logger.error(
-              `[chat] BYOK guardrail output check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-            );
+        if (!result.isError) {
+          const outputGuardrailResult = await this.runOutputGuardrails(
+            result.content,
+            result.model,
+            {
+              spanId,
+              tokensUsed: result.tokensUsed,
+              pathName: "BYOK",
+            },
+          );
+          if (!outputGuardrailResult.passed) {
+            return {
+              content: "Response filtered by content safety guardrail",
+              usage: { totalTokens: result.tokensUsed },
+              model: result.model,
+              isError: true,
+            };
           }
         }
 
@@ -1076,44 +1036,19 @@ export class AiChatService {
     );
 
     // ★ Guardrails: Input validation
-    if (
-      this.guardrailsPipeline &&
-      this.configService.get<string>("GUARDRAILS_ENABLED") !== "false"
-    ) {
-      const userContent = messages
-        .filter((m) => m.role === "user")
-        .map((m) => m.content)
-        .join("\n");
-      try {
-        const inputResult = await this.guardrailsPipeline.processInput({
-          content: userContent,
-          context: { modelType, model },
-        });
-        if (!inputResult.passed) {
-          this.logger.warn(
-            `[chat] Input blocked by guardrail: ${inputResult.blockedBy}`,
-          );
-
-          // ★ Observability: End trace span
-          if (this.traceCollector && spanId) {
-            this.traceCollector.endSpan(spanId, {
-              status: "error",
-              error: `Blocked by guardrail: ${inputResult.blockedBy}`,
-            });
-          }
-
-          return {
-            content: `Request blocked by content safety guardrail: ${inputResult.blockedBy}`,
-            model,
-            usage: { totalTokens: 0 },
-            isError: true,
-          };
-        }
-      } catch (error) {
-        this.logger.error(
-          `[chat] Guardrail input check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
-      }
+    const inputGuardrailResult = await this.runInputGuardrails(messages, {
+      modelType,
+      model,
+      spanId,
+      pathName: "Standard",
+    });
+    if (!inputGuardrailResult.passed) {
+      return {
+        content: `Request blocked by content safety guardrail: ${inputGuardrailResult.blockedBy}`,
+        model,
+        usage: { totalTokens: 0 },
+        isError: true,
+      };
     }
 
     // ★ Fallback 机制
@@ -1161,44 +1096,22 @@ export class AiChatService {
         }
 
         // ★ Guardrails: Output validation
-        if (
-          this.guardrailsPipeline &&
-          this.configService.get<string>("GUARDRAILS_ENABLED") !== "false"
-        ) {
-          try {
-            const outputResult = await this.guardrailsPipeline.processOutput({
-              content: result.content,
-              modelId: result.model,
-            });
-            if (!outputResult.passed) {
-              this.logger.warn(
-                `[chat] Output blocked by guardrail: ${outputResult.blockedBy}`,
-              );
-
-              // ★ Observability: End trace span
-              if (this.traceCollector && spanId) {
-                this.traceCollector.endSpan(spanId, {
-                  status: "error",
-                  error: `Output blocked by guardrail: ${outputResult.blockedBy}`,
-                  output: {
-                    model: result.model,
-                    tokensUsed: result.tokensUsed,
-                  },
-                });
-              }
-
-              return {
-                content: "Response filtered by content safety guardrail",
-                usage: { totalTokens: result.tokensUsed },
-                model: result.model,
-                isError: true,
-              };
-            }
-          } catch (error) {
-            this.logger.error(
-              `[chat] Guardrail output check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-            );
-          }
+        const outputGuardrailResult = await this.runOutputGuardrails(
+          result.content,
+          result.model,
+          {
+            spanId,
+            tokensUsed: result.tokensUsed,
+            pathName: "Standard",
+          },
+        );
+        if (!outputGuardrailResult.passed) {
+          return {
+            content: "Response filtered by content safety guardrail",
+            usage: { totalTokens: result.tokensUsed },
+            model: result.model,
+            isError: true,
+          };
         }
 
         if (attempt > 0) {
@@ -1325,6 +1238,11 @@ export class AiChatService {
       done: boolean;
       error?: string;
       apiKeySource?: "personal" | "donated" | "system";
+      usage?: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+      };
     },
     void
   > {
@@ -1408,12 +1326,33 @@ export class AiChatService {
     }
     const streamStartTime = Date.now();
 
+    // ★ 累积流式输出内容（用于 Guardrails 和 token 估算）
+    let accumulatedContent = "";
+    let streamUsage:
+      | { promptTokens: number; completionTokens: number; totalTokens: number }
+      | undefined;
+
     try {
+      // 根据 apiFormat 选择流式处理器
+      let streamGenerator: AsyncGenerator<
+        {
+          content: string;
+          done: boolean;
+          error?: string;
+          usage?: {
+            promptTokens: number;
+            completionTokens: number;
+            totalTokens: number;
+          };
+        },
+        void
+      >;
+
       if (apiFormat === "openai") {
         const tokenParamName =
           modelConfig.tokenParamName ||
           (modelConfig.isReasoning ? "max_completion_tokens" : "max_tokens");
-        yield* this.streamHandlerService.streamOpenAICompatible(
+        streamGenerator = this.streamHandlerService.streamOpenAICompatible(
           effectiveStreamEndpoint,
           apiKey,
           modelConfig.modelId,
@@ -1423,7 +1362,7 @@ export class AiChatService {
           tokenParamName,
         );
       } else if (apiFormat === "anthropic") {
-        yield* this.streamHandlerService.streamAnthropic(
+        streamGenerator = this.streamHandlerService.streamAnthropic(
           effectiveStreamEndpoint,
           apiKey,
           modelConfig.modelId,
@@ -1450,13 +1389,85 @@ export class AiChatService {
         return;
       }
 
+      // ★ 遍历流式 chunks，累积内容
+      for await (const chunk of streamGenerator) {
+        if (chunk.error) {
+          yield chunk;
+          return;
+        }
+
+        // 累积内容
+        if (chunk.content) {
+          accumulatedContent += chunk.content;
+        }
+
+        // 提取 usage 信息
+        if (chunk.usage) {
+          streamUsage = chunk.usage;
+        }
+
+        // 如果不是最后一个 chunk，直接 yield
+        if (!chunk.done) {
+          yield chunk;
+        }
+      }
+
+      // ★ Guardrails: Output validation
+      if (
+        this.guardrailsPipeline &&
+        this.configService.get<string>("GUARDRAILS_ENABLED") !== "false" &&
+        accumulatedContent
+      ) {
+        try {
+          const outputResult = await this.guardrailsPipeline.processOutput({
+            content: accumulatedContent,
+            modelId: model,
+          });
+          if (!outputResult.passed) {
+            this.logger.warn(
+              `[chatStream] Output blocked by guardrail: ${outputResult.blockedBy}`,
+            );
+
+            // ★ Circuit Breaker: Record guardrails failure
+            if (this.circuitBreaker) {
+              this.circuitBreaker.recordFailure(
+                model,
+                TaskCompletionType.CONTENT_ERROR,
+                outputResult.blockedBy || "output_blocked",
+              );
+            }
+
+            yield {
+              content: "",
+              done: true,
+              error: `内容违反安全策略: ${outputResult.blockedBy}`,
+            };
+            return;
+          }
+        } catch (guardrailsError) {
+          const errMsg =
+            guardrailsError instanceof Error
+              ? guardrailsError.message
+              : String(guardrailsError);
+          this.logger.error(
+            `[chatStream] Guardrails processing error: ${errMsg}`,
+          );
+          // 不阻塞输出，继续返回结果
+        }
+      }
+
       // ★ Circuit Breaker: Record success after stream completes
       if (this.circuitBreaker) {
         this.circuitBreaker.recordSuccess(model, Date.now() - streamStartTime);
       }
 
-      // ★ 流式完成后，发出一个带 apiKeySource 的终止信号
-      yield { content: "", done: true, apiKeySource: streamApiKeySource };
+      // ★ 流式完成后，发出一个带 apiKeySource 和 usage 的终止信号
+      yield {
+        content: "",
+        done: true,
+        apiKeySource: streamApiKeySource,
+        usage: streamUsage,
+      };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`[chatStream] Stream error: ${errorMsg}`);
@@ -1473,6 +1484,153 @@ export class AiChatService {
       if (this.circuitBreaker) {
         this.circuitBreaker.decrementLoad(model);
       }
+    }
+  }
+
+  // ==================== Guardrails 私有方法 ====================
+
+  /**
+   * 运行输入 Guardrails 检查
+   * 从 Path A 和 Path B 提取的通用逻辑
+   *
+   * @param messages - 聊天消息列表
+   * @param context - 上下文信息（可选，用于日志和追踪）
+   * @returns Guardrail 检查结果，如果通过则返回 null
+   */
+  private async runInputGuardrails(
+    messages: ChatMessage[],
+    context?: {
+      modelType?: AIModelType;
+      model?: string;
+      provider?: string;
+      modelId?: string;
+      spanId?: string;
+      pathName?: string; // 'BYOK' or 'Standard'
+    },
+  ): Promise<{
+    passed: boolean;
+    blockedBy?: string;
+  }> {
+    if (
+      !this.guardrailsPipeline ||
+      this.configService.get<string>("GUARDRAILS_ENABLED") === "false"
+    ) {
+      return { passed: true };
+    }
+
+    const userContent = messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content)
+      .join("\n");
+
+    try {
+      const inputResult = await this.guardrailsPipeline.processInput({
+        content: userContent,
+        context: {
+          modelType: context?.modelType,
+          model: context?.model,
+          provider: context?.provider,
+          modelId: context?.modelId,
+        },
+      });
+
+      if (!inputResult.passed) {
+        const pathLabel = context?.pathName || "chat";
+        this.logger.warn(
+          `[${pathLabel}] Input blocked by guardrail: ${inputResult.blockedBy}`,
+        );
+
+        // ★ Observability: End trace span on guardrail block
+        if (this.traceCollector && context?.spanId) {
+          this.traceCollector.endSpan(context.spanId, {
+            status: "error",
+            error: `Blocked by guardrail: ${inputResult.blockedBy}`,
+          });
+        }
+
+        return {
+          passed: false,
+          blockedBy: inputResult.blockedBy,
+        };
+      }
+
+      return { passed: true };
+    } catch (error) {
+      const pathLabel = context?.pathName || "chat";
+      this.logger.error(
+        `[${pathLabel}] Guardrail input check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+      // 检查失败时允许继续（fail-open 策略）
+      return { passed: true };
+    }
+  }
+
+  /**
+   * 运行输出 Guardrails 检查
+   * 从 Path A 和 Path B 提取的通用逻辑
+   *
+   * @param content - AI 生成的内容
+   * @param modelId - 使用的模型 ID
+   * @param context - 上下文信息（可选，用于日志和追踪）
+   * @returns Guardrail 检查结果，如果通过则返回 null
+   */
+  private async runOutputGuardrails(
+    content: string,
+    modelId: string,
+    context?: {
+      spanId?: string;
+      tokensUsed?: number;
+      pathName?: string; // 'BYOK' or 'Standard'
+    },
+  ): Promise<{
+    passed: boolean;
+    blockedBy?: string;
+  }> {
+    if (
+      !this.guardrailsPipeline ||
+      this.configService.get<string>("GUARDRAILS_ENABLED") === "false"
+    ) {
+      return { passed: true };
+    }
+
+    try {
+      const outputResult = await this.guardrailsPipeline.processOutput({
+        content,
+        modelId,
+      });
+
+      if (!outputResult.passed) {
+        const pathLabel = context?.pathName || "chat";
+        this.logger.warn(
+          `[${pathLabel}] Output blocked by guardrail: ${outputResult.blockedBy}`,
+        );
+
+        // ★ Observability: End trace span on guardrail block
+        if (this.traceCollector && context?.spanId) {
+          this.traceCollector.endSpan(context.spanId, {
+            status: "error",
+            error: `Output blocked by guardrail: ${outputResult.blockedBy}`,
+            output: {
+              model: modelId,
+              tokensUsed: context?.tokensUsed,
+            },
+          });
+        }
+
+        return {
+          passed: false,
+          blockedBy: outputResult.blockedBy,
+        };
+      }
+
+      return { passed: true };
+    } catch (error) {
+      const pathLabel = context?.pathName || "chat";
+      this.logger.error(
+        `[${pathLabel}] Guardrail output check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+      // 检查失败时允许继续（fail-open 策略）
+      return { passed: true };
     }
   }
 }

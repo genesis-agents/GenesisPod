@@ -5,18 +5,25 @@ import {
   IsEnum,
   Min,
   Max,
+  MaxLength,
+  IsNotEmpty,
 } from "class-validator";
 import { WritingProjectStatus, ContentVisibility } from "@prisma/client";
 
 export class CreateProjectDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   name!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   description?: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
   genre!: string;
 
   @IsOptional()
@@ -26,18 +33,22 @@ export class CreateProjectDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   writingStyle?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   targetAudience?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   pov?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   tense?: string;
 
   @IsOptional()
@@ -54,14 +65,17 @@ export class CreateProjectDto {
 export class UpdateProjectDto {
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   name?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   description?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   genre?: string;
 
   @IsOptional()
@@ -75,18 +89,22 @@ export class UpdateProjectDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   writingStyle?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   targetAudience?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   pov?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   tense?: string;
 
   @IsOptional()

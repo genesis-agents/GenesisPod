@@ -5,6 +5,7 @@ import {
   IsArray,
   IsString,
   MaxLength,
+  IsNotEmpty,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
@@ -38,6 +39,8 @@ export enum TopicVisibility {
 export class AddCollaboratorDto {
   @ApiProperty({ description: "用户邮箱" })
   @IsEmail()
+  @IsNotEmpty()
+  @MaxLength(255)
   email!: string;
 
   @ApiPropertyOptional({

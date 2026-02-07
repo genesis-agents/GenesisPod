@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsNumber, IsObject, Min } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsObject,
+  Min,
+  MaxLength,
+  IsNotEmpty,
+} from "class-validator";
 import { RevisionChangeType } from "@prisma/client";
 
 // ==================== AI 编辑操作类型 ====================
@@ -19,10 +27,13 @@ export type PolishLevel = "light" | "moderate" | "heavy";
  */
 export class UpdateChapterContentDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(50000)
   content!: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(2000)
   changeSummary?: string;
 }
 
@@ -39,6 +50,8 @@ export class TextSelectionDto {
   endOffset!: number;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(50000)
   originalText!: string;
 }
 
@@ -64,6 +77,8 @@ export class TargetStyleDto {
  */
 export class AiEditChapterDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
   operation!: AiEditOperation;
 
   @IsObject()
@@ -71,10 +86,13 @@ export class AiEditChapterDto {
   selection?: TextSelectionDto;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(10000)
   userFeedback!: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(50)
   polishLevel?: PolishLevel;
 
   @IsObject()
@@ -88,6 +106,7 @@ export class AiEditChapterDto {
 export class RollbackRevisionDto {
   @IsString()
   @IsOptional()
+  @MaxLength(2000)
   reason?: string;
 }
 

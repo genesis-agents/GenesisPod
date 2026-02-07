@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum } from "class-validator";
+import { IsString, IsOptional, IsEnum, MaxLength } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { SocialPlatformType } from "../types";
 
@@ -25,6 +25,7 @@ export class UpdateVersionDto {
   })
   @IsString()
   @IsOptional()
+  @MaxLength(200)
   title?: string;
 
   @ApiPropertyOptional({
@@ -33,6 +34,7 @@ export class UpdateVersionDto {
   })
   @IsString()
   @IsOptional()
+  @MaxLength(50000)
   content?: string;
 
   @ApiPropertyOptional({
@@ -41,6 +43,7 @@ export class UpdateVersionDto {
   })
   @IsString()
   @IsOptional()
+  @MaxLength(2000)
   digest?: string;
 }
 

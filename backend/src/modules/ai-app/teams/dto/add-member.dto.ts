@@ -4,11 +4,13 @@ import {
   IsEnum,
   IsArray,
   MaxLength,
+  IsNotEmpty,
 } from "class-validator";
 import { TopicRole } from "@prisma/client";
 
 export class AddMemberDto {
   @IsString()
+  @IsNotEmpty()
   userId!: string;
 
   @IsOptional()
@@ -33,6 +35,8 @@ export class AddMembersDto {
 
 export class InviteMemberByEmailDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
   email!: string;
 
   @IsOptional()

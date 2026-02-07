@@ -6,19 +6,23 @@ import {
   Min,
   Max,
   MaxLength,
+  IsNotEmpty,
 } from "class-validator";
 
 export class AddAIMemberDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(50)
   aiModel!: string; // grok, gpt-4, claude, gemini
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(100)
   displayName!: string; // 显示名称，如 "AI-Grok"
 
   @IsOptional()
   @IsString()
+  @MaxLength(2048)
   avatar?: string;
 
   @IsOptional()
@@ -28,6 +32,7 @@ export class AddAIMemberDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   systemPrompt?: string; // 系统提示词
 
   @IsOptional()

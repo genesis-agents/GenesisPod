@@ -7,6 +7,11 @@ export interface StreamChunk {
   content: string;
   done: boolean;
   error?: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 }
 
 /**
@@ -53,6 +58,7 @@ export class AiStreamHandlerService {
             ...reasoningParam,
             temperature,
             stream: true,
+            stream_options: { include_usage: true }, // ★ 启用流式 usage 统计
           },
           {
             headers: {
@@ -89,6 +95,20 @@ export class AiStreamHandlerService {
               const delta = parsed.choices?.[0]?.delta?.content;
               if (delta) {
                 yield { content: delta, done: false };
+              }
+
+              // ★ 提取 usage 信息（在最后的 chunk 中）
+              if (parsed.usage) {
+                const usage = {
+                  promptTokens: parsed.usage.prompt_tokens || 0,
+                  completionTokens: parsed.usage.completion_tokens || 0,
+                  totalTokens: parsed.usage.total_tokens || 0,
+                };
+                this.logger.debug(
+                  `[streamOpenAICompatible] Usage received: ${usage.totalTokens} tokens`,
+                );
+                yield { content: "", done: true, usage };
+                return;
               }
             } catch {
               // 忽略解析错误

@@ -13,7 +13,7 @@ function createMockModelConfig(
     name: "test-model",
     displayName: "Test Model",
     provider: "openai",
-    modelId: "gpt-4",
+    modelId: overrides.isReasoning ? "o1" : "gpt-4",
     apiEndpoint: "https://api.openai.com/v1",
     apiKey: "test-key",
     maxTokens: 8000,

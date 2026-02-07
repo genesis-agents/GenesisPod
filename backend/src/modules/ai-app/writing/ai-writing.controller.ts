@@ -14,22 +14,7 @@ import {
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { Public } from "../../../common/decorators/public.decorator";
-import { AiWritingService } from "./ai-writing.service";
-import { ProjectService } from "./services/writing/project.service";
-import { StoryBibleService } from "./services/bible/story-bible.service";
-import { CharacterService } from "./services/bible/character.service";
-import { ChapterWritingService } from "./services/writing/chapter-writing.service";
-import { ChapterRevisionService } from "./services/writing/chapter-revision.service";
-import { ChapterAnnotationService } from "./services/writing/chapter-annotation.service";
-import { ChapterImportService } from "./services/writing/chapter-import.service";
-import { ConsistencyEngineService } from "./services/consistency/consistency-engine.service";
-import { ParallelOrchestratorService } from "./services/parallel/parallel-orchestrator.service";
-import { WritingMissionService } from "./services/mission/writing-mission.service";
-// DOME/SCORE Enhanced Services
-import { StoryCompletionDetectorService } from "./services/quality/story-completion-detector.service";
-import { TemporalConflictAnalyzerService } from "./services/consistency/temporal-conflict-analyzer.service";
-import { HierarchicalSummaryService } from "./services/writing/hierarchical-summary.service";
-import { SharedScratchpadService } from "./services/mission/shared-scratchpad.service";
+import { WritingCoordinatorService } from "./writing-coordinator.service";
 import {
   CreateProjectDto,
   UpdateProjectDto,
@@ -40,6 +25,10 @@ import {
   UpdateChapterDto,
   StartWritingDto,
 } from "./dto";
+import type {
+  ParseImportDto,
+  ConfirmImportDto,
+} from "./dto/chapter-import.dto";
 import { getAllStylePresets, recommendStyleByGenre } from "./constants";
 import type { RequestWithUser } from "../../../common/types/express-request.types";
 
@@ -48,27 +37,7 @@ import type { RequestWithUser } from "../../../common/types/express-request.type
 export class AiWritingController {
   private readonly logger = new Logger(AiWritingController.name);
 
-  constructor(
-    private readonly aiWritingService: AiWritingService,
-    private readonly projectService: ProjectService,
-    private readonly storyBibleService: StoryBibleService,
-    private readonly characterService: CharacterService,
-    private readonly chapterWritingService: ChapterWritingService,
-    private readonly chapterRevisionService: ChapterRevisionService,
-    private readonly chapterAnnotationService: ChapterAnnotationService,
-    private readonly chapterImportService: ChapterImportService,
-    private readonly consistencyEngine: ConsistencyEngineService,
-    private readonly parallelOrchestrator: ParallelOrchestratorService,
-    private readonly writingMissionService: WritingMissionService,
-    // DOME/SCORE Enhanced Services
-    private readonly storyCompletionDetector: StoryCompletionDetectorService,
-    private readonly temporalConflictAnalyzer: TemporalConflictAnalyzerService,
-    private readonly hierarchicalSummaryService: HierarchicalSummaryService,
-    private readonly sharedScratchpadService: SharedScratchpadService,
-  ) {
-    void this.logger;
-    void this.aiWritingService;
-  }
+  constructor(private readonly coordinator: WritingCoordinatorService) {}
 
   // ==================== Writing Style Presets ====================
 
@@ -107,7 +76,7 @@ export class AiWritingController {
     @Body() dto: CreateProjectDto,
   ) {
     this.logger.log(`Creating writing project for user ${req.user.id}`);
-    return this.projectService.create(req.user.id, dto);
+    return this.coordinator.createProject(req.user.id, dto);
   }
 
   @Get("projects")
@@ -117,7 +86,7 @@ export class AiWritingController {
     @Query("limit") limit?: string,
     @Query("cursor") cursor?: string,
   ) {
-    return this.projectService.findAll(req.user.id, {
+    return this.coordinator.getProjects(req.user.id, {
       status,
       limit: limit ? parseInt(limit, 10) : undefined,
       cursor,
@@ -126,7 +95,7 @@ export class AiWritingController {
 
   @Get("projects/:id")
   async getProject(@Request() req: RequestWithUser, @Param("id") id: string) {
-    return this.projectService.findOne(id, req.user.id);
+    return this.coordinator.getProject(id, req.user.id);
   }
 
   @Patch("projects/:id")
@@ -135,7 +104,7 @@ export class AiWritingController {
     @Param("id") id: string,
     @Body() dto: UpdateProjectDto,
   ) {
-    return this.projectService.update(id, req.user.id, dto);
+    return this.coordinator.updateProject(id, req.user.id, dto);
   }
 
   @Delete("projects/:id")
@@ -143,7 +112,7 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("id") id: string,
   ) {
-    return this.projectService.delete(id, req.user.id);
+    return this.coordinator.deleteProject(id, req.user.id);
   }
 
   // ==================== Story Bible ====================
@@ -153,7 +122,7 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
-    return this.storyBibleService.getByProject(projectId, req.user.id);
+    return this.coordinator.getStoryBible(projectId, req.user.id);
   }
 
   @Patch("projects/:projectId/bible")
@@ -168,7 +137,7 @@ export class AiWritingController {
       worldType?: string;
     },
   ) {
-    return this.storyBibleService.update(projectId, req.user.id, dto);
+    return this.coordinator.updateStoryBible(projectId, req.user.id, dto);
   }
 
   // ==================== Characters ====================
@@ -179,7 +148,7 @@ export class AiWritingController {
     @Param("projectId") projectId: string,
     @Body() dto: CreateCharacterDto,
   ) {
-    return this.characterService.create(projectId, req.user.id, dto);
+    return this.coordinator.createCharacter(projectId, req.user.id, dto);
   }
 
   @Get("projects/:projectId/characters")
@@ -187,7 +156,7 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
-    return this.characterService.findAll(projectId, req.user.id);
+    return this.coordinator.getCharacters(projectId, req.user.id);
   }
 
   @Get("projects/:projectId/characters/:id")
@@ -196,7 +165,7 @@ export class AiWritingController {
     @Param("projectId") projectId: string,
     @Param("id") id: string,
   ) {
-    return this.characterService.findOne(id, projectId, req.user.id);
+    return this.coordinator.getCharacter(id, projectId, req.user.id);
   }
 
   @Patch("projects/:projectId/characters/:id")
@@ -206,7 +175,7 @@ export class AiWritingController {
     @Param("id") id: string,
     @Body() dto: UpdateCharacterDto,
   ) {
-    return this.characterService.update(id, projectId, req.user.id, dto);
+    return this.coordinator.updateCharacter(id, projectId, req.user.id, dto);
   }
 
   @Delete("projects/:projectId/characters/:id")
@@ -215,7 +184,7 @@ export class AiWritingController {
     @Param("projectId") projectId: string,
     @Param("id") id: string,
   ) {
-    return this.characterService.delete(id, projectId, req.user.id);
+    return this.coordinator.deleteCharacter(id, projectId, req.user.id);
   }
 
   // ==================== Character Relationships ====================
@@ -225,7 +194,7 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
-    return this.characterService.getRelationshipGraph(projectId, req.user.id);
+    return this.coordinator.getRelationshipGraph(projectId, req.user.id);
   }
 
   @Post("projects/:projectId/characters/:characterId/relationships")
@@ -240,7 +209,7 @@ export class AiWritingController {
       description?: string;
     },
   ) {
-    return this.characterService.addRelationship(
+    return this.coordinator.addRelationship(
       characterId,
       projectId,
       req.user.id,
@@ -254,7 +223,7 @@ export class AiWritingController {
     @Param("projectId") projectId: string,
     @Param("relationshipId") relationshipId: string,
   ) {
-    return this.characterService.deleteRelationship(
+    return this.coordinator.deleteRelationship(
       relationshipId,
       projectId,
       req.user.id,
@@ -269,7 +238,7 @@ export class AiWritingController {
     @Param("projectId") projectId: string,
     @Body() dto: CreateVolumeDto,
   ) {
-    return this.projectService.createVolume(projectId, req.user.id, dto);
+    return this.coordinator.createVolume(projectId, req.user.id, dto);
   }
 
   @Get("projects/:projectId/volumes")
@@ -277,7 +246,7 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
-    return this.projectService.getVolumes(projectId, req.user.id);
+    return this.coordinator.getVolumes(projectId, req.user.id);
   }
 
   // ==================== Chapters ====================
@@ -288,7 +257,7 @@ export class AiWritingController {
     @Param("volumeId") volumeId: string,
     @Body() dto: CreateChapterDto,
   ) {
-    return this.chapterWritingService.createChapter(volumeId, req.user.id, dto);
+    return this.coordinator.createChapter(volumeId, req.user.id, dto);
   }
 
   @Get("volumes/:volumeId/chapters")
@@ -296,12 +265,12 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("volumeId") volumeId: string,
   ) {
-    return this.chapterWritingService.getChapters(volumeId, req.user.id);
+    return this.coordinator.getChapters(volumeId, req.user.id);
   }
 
   @Get("chapters/:id")
   async getChapter(@Request() req: RequestWithUser, @Param("id") id: string) {
-    return this.chapterWritingService.getChapter(id, req.user.id);
+    return this.coordinator.getChapter(id, req.user.id);
   }
 
   @Patch("chapters/:id")
@@ -310,7 +279,7 @@ export class AiWritingController {
     @Param("id") id: string,
     @Body() dto: UpdateChapterDto,
   ) {
-    return this.chapterWritingService.updateChapter(id, req.user.id, dto);
+    return this.coordinator.updateChapter(id, req.user.id, dto);
   }
 
   // ==================== Writing Actions ====================
@@ -322,7 +291,7 @@ export class AiWritingController {
     @Body() dto: StartWritingDto,
   ) {
     this.logger.log(`Starting writing for chapter ${id}`);
-    return this.chapterWritingService.startWriting(id, req.user.id, dto);
+    return this.coordinator.startWriting(id, req.user.id, dto);
   }
 
   @Post("volumes/:volumeId/write-parallel")
@@ -332,11 +301,7 @@ export class AiWritingController {
     @Body() dto: { maxParallel?: number },
   ) {
     this.logger.log(`Starting parallel writing for volume ${volumeId}`);
-    return this.parallelOrchestrator.orchestrateParallelWriting(
-      volumeId,
-      req.user.id,
-      dto,
-    );
+    return this.coordinator.startParallelWriting(volumeId, req.user.id, dto);
   }
 
   // ==================== Consistency ====================
@@ -346,7 +311,7 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("id") id: string,
   ) {
-    return this.consistencyEngine.validateChapter(id, req.user.id);
+    return this.coordinator.checkConsistency(id, req.user.id);
   }
 
   @Get("projects/:projectId/consistency-report")
@@ -354,7 +319,7 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
-    return this.consistencyEngine.getProjectReport(projectId, req.user.id);
+    return this.coordinator.getConsistencyReport(projectId, req.user.id);
   }
 
   // ==================== AI Writing Missions ====================
@@ -395,44 +360,9 @@ export class AiWritingController {
     },
   ) {
     this.logger.log(
-      `Starting AI writing mission for project ${projectId}: ${dto.missionType || "full_story"}`,
+      `Starting AI writing mission for project ${projectId}: ${dto.missionType ?? "full_story"}`,
     );
-
-    // 如果指定了章节号，查找对应的章节 ID
-    let chapterId: string | undefined;
-    if (dto.chapterNumber) {
-      const chapter = await this.projectService.findChapterByNumber(
-        projectId,
-        dto.chapterNumber,
-      );
-      if (chapter) {
-        chapterId = chapter.id;
-      }
-    }
-
-    // 启动写作任务并获取 missionId
-    const missionInfo = await this.writingMissionService.startMissionAsync(
-      {
-        projectId,
-        missionType: dto.missionType || "full_story",
-        userPrompt: dto.prompt,
-        targetWordCount: dto.targetWordCount,
-        additionalInstructions: dto.additionalInstructions,
-        chapterId,
-        targetAgent: dto.targetAgent,
-        conversationHistory: dto.conversationHistory,
-      },
-      req.user.id,
-    );
-
-    // 返回任务已启动的信息（包含 missionId 用于轮询）
-    return {
-      success: true,
-      message: "AI writing mission started",
-      projectId,
-      missionId: missionInfo.missionId,
-      missionType: dto.missionType || "full_story",
-    };
+    return this.coordinator.startMission(projectId, req.user.id, dto);
   }
 
   /**
@@ -443,7 +373,7 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("missionId") missionId: string,
   ) {
-    return this.writingMissionService.getMissionStatus(missionId, req.user.id);
+    return this.coordinator.getMissionStatus(missionId, req.user.id);
   }
 
   /**
@@ -454,7 +384,7 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("missionId") missionId: string,
   ) {
-    return this.writingMissionService.cancelMission(missionId, req.user.id);
+    return this.coordinator.cancelMission(missionId, req.user.id);
   }
 
   /**
@@ -466,12 +396,7 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
-    // 先验证项目权限
-    await this.projectService.findOne(projectId, req.user.id);
-    return this.writingMissionService.forceCleanupStuckMissions(
-      projectId,
-      req.user.id,
-    );
+    return this.coordinator.forceCleanupStuckMissions(projectId, req.user.id);
   }
 
   /**
@@ -483,10 +408,7 @@ export class AiWritingController {
     @Param("projectId") projectId: string,
     @Query("status") status?: string,
   ) {
-    // 先验证项目权限
-    await this.projectService.findOne(projectId, req.user.id);
-
-    return this.writingMissionService.getProjectMissions(projectId, status);
+    return this.coordinator.getProjectMissions(projectId, req.user.id, status);
   }
 
   /**
@@ -501,7 +423,7 @@ export class AiWritingController {
     @Query("limit") limit?: string,
     @Query("offset") offset?: string,
   ) {
-    return this.writingMissionService.getMissionLogs(
+    return this.coordinator.getMissionLogs(
       missionId,
       req.user.id,
       limit ? parseInt(limit, 10) : undefined,
@@ -520,7 +442,7 @@ export class AiWritingController {
   async getPublicProject(@Param("projectId") projectId: string) {
     this.logger.log(`Public access to project ${projectId}`);
 
-    const project = await this.projectService.findPublic(projectId);
+    const project = await this.coordinator.getPublicProject(projectId);
 
     if (!project) {
       throw new NotFoundException("Project not found or not public");
@@ -549,12 +471,9 @@ export class AiWritingController {
       `Resetting chapters ${dto.chapterNumbers.join(", ")} for project ${projectId}`,
     );
 
-    // 验证项目所有权
-    await this.projectService.findOne(projectId, req.user.id);
-
-    // 重置指定章节的内容
-    const result = await this.projectService.resetChaptersByNumbers(
+    const result = await this.coordinator.resetChaptersByNumbers(
       projectId,
+      req.user.id,
       dto.chapterNumbers,
     );
 
@@ -579,7 +498,7 @@ export class AiWritingController {
   ) {
     this.logger.log(`Re-extracting chapter titles for project ${projectId}`);
 
-    const result = await this.writingMissionService.reExtractChapterTitles(
+    const result = await this.coordinator.reExtractChapterTitles(
       projectId,
       req.user.id,
     );
@@ -602,7 +521,7 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("chapterId") chapterId: string,
   ) {
-    return this.chapterRevisionService.getRevisions(chapterId, req.user.id);
+    return this.coordinator.getChapterRevisions(chapterId, req.user.id);
   }
 
   /**
@@ -614,11 +533,7 @@ export class AiWritingController {
     @Param("chapterId") chapterId: string,
     @Body() dto: { content: string; changeSummary?: string },
   ) {
-    return this.chapterRevisionService.updateContent(
-      chapterId,
-      req.user.id,
-      dto,
-    );
+    return this.coordinator.updateChapterContent(chapterId, req.user.id, dto);
   }
 
   /**
@@ -645,7 +560,7 @@ export class AiWritingController {
       };
     },
   ) {
-    return this.chapterRevisionService.aiEdit(chapterId, req.user.id, dto);
+    return this.coordinator.aiEditChapter(chapterId, req.user.id, dto);
   }
 
   /**
@@ -658,7 +573,7 @@ export class AiWritingController {
     @Query("v1") revisionId1: string,
     @Query("v2") revisionId2: string,
   ) {
-    return this.chapterRevisionService.compareRevisions(
+    return this.coordinator.compareRevisions(
       chapterId,
       revisionId1,
       revisionId2,
@@ -676,7 +591,7 @@ export class AiWritingController {
     @Param("revisionId") revisionId: string,
     @Body() dto: { reason?: string },
   ) {
-    return this.chapterRevisionService.rollback(
+    return this.coordinator.rollbackRevision(
       chapterId,
       revisionId,
       req.user.id,
@@ -693,12 +608,12 @@ export class AiWritingController {
   async getChapterAnnotations(
     @Request() req: RequestWithUser,
     @Param("chapterId") chapterId: string,
-    @Query("status") status?: string,
+    @Query("status") status?: "OPEN" | "RESOLVED" | "DISMISSED",
   ) {
-    return this.chapterAnnotationService.getAnnotations(
+    return this.coordinator.getChapterAnnotations(
       chapterId,
       req.user.id,
-      status as any,
+      status,
     );
   }
 
@@ -718,11 +633,7 @@ export class AiWritingController {
       selectedText?: string;
     },
   ) {
-    return this.chapterAnnotationService.createAnnotation(
-      chapterId,
-      req.user.id,
-      dto,
-    );
+    return this.coordinator.createAnnotation(chapterId, req.user.id, dto);
   }
 
   /**
@@ -735,11 +646,7 @@ export class AiWritingController {
     @Body()
     dto: { content?: string; status?: "OPEN" | "RESOLVED" | "DISMISSED" },
   ) {
-    return this.chapterAnnotationService.updateAnnotation(
-      annotationId,
-      req.user.id,
-      dto,
-    );
+    return this.coordinator.updateAnnotation(annotationId, req.user.id, dto);
   }
 
   /**
@@ -750,10 +657,7 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("annotationId") annotationId: string,
   ) {
-    await this.chapterAnnotationService.deleteAnnotation(
-      annotationId,
-      req.user.id,
-    );
+    await this.coordinator.deleteAnnotation(annotationId, req.user.id);
     return { message: "Annotation deleted successfully" };
   }
 
@@ -766,7 +670,7 @@ export class AiWritingController {
     @Param("chapterId") chapterId: string,
     @Body() dto: { annotationIds: string[] },
   ) {
-    return this.chapterAnnotationService.resolveAnnotations(
+    return this.coordinator.resolveAnnotations(
       chapterId,
       req.user.id,
       dto.annotationIds,
@@ -782,21 +686,9 @@ export class AiWritingController {
   async parseImport(
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
-    @Body()
-    dto: {
-      source: string;
-      content?: string;
-      sourceUrl?: string;
-      fileName?: string;
-      chapterPattern?: string;
-      customPattern?: string;
-    },
+    @Body() dto: ParseImportDto,
   ) {
-    return this.chapterImportService.parseImport(
-      projectId,
-      req.user.id,
-      dto as any,
-    );
+    return this.coordinator.parseImport(projectId, req.user.id, dto);
   }
 
   /**
@@ -807,23 +699,13 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
     @Param("importId") importId: string,
-    @Body()
-    dto: {
-      targetVolumeId: string;
-      startChapterNumber: number;
-      selectedChapters: number[];
-      conflictStrategy?: "skip" | "overwrite" | "append";
-      postProcess?: {
-        runConsistencyCheck?: boolean;
-        extractToBible?: boolean;
-      };
-    },
+    @Body() dto: ConfirmImportDto,
   ) {
-    return this.chapterImportService.confirmImport(
+    return this.coordinator.confirmImport(
       projectId,
       importId,
       req.user.id,
-      dto as any,
+      dto,
     );
   }
 
@@ -836,11 +718,7 @@ export class AiWritingController {
     @Param("projectId") projectId: string,
     @Param("importId") importId: string,
   ) {
-    return this.chapterImportService.getImportStatus(
-      projectId,
-      importId,
-      req.user.id,
-    );
+    return this.coordinator.getImportStatus(projectId, importId, req.user.id);
   }
 
   /**
@@ -851,7 +729,7 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
-    return this.chapterImportService.getImportHistory(projectId, req.user.id);
+    return this.coordinator.getImportHistory(projectId, req.user.id);
   }
 
   /**
@@ -863,11 +741,7 @@ export class AiWritingController {
     @Param("projectId") projectId: string,
     @Param("importId") importId: string,
   ) {
-    return this.chapterImportService.cancelImport(
-      projectId,
-      importId,
-      req.user.id,
-    );
+    return this.coordinator.cancelImport(projectId, importId, req.user.id);
   }
 
   // ==================== DOME/SCORE Enhanced Features ====================
@@ -881,11 +755,10 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
-    // 验证项目权限
-    await this.projectService.findOne(projectId, req.user.id);
-
-    const analysis =
-      await this.storyCompletionDetector.analyzeCompletion(projectId);
+    const analysis = await this.coordinator.getCompletionAnalysis(
+      projectId,
+      req.user.id,
+    );
 
     return {
       projectId,
@@ -903,11 +776,10 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
-    // 验证项目权限
-    await this.projectService.findOne(projectId, req.user.id);
-
-    const result =
-      await this.temporalConflictAnalyzer.analyzeProject(projectId);
+    const result = await this.coordinator.getTimelineConflicts(
+      projectId,
+      req.user.id,
+    );
 
     // Transform conflicts to frontend format
     const conflicts = result.conflicts.map((c) => ({
@@ -939,19 +811,12 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("chapterId") chapterId: string,
   ) {
-    // 获取章节信息（同时验证权限）- getChapter 已包含 volume.project
-    const chapter = await this.chapterWritingService.getChapter(
+    const result = await this.coordinator.getChapterTimelineConflicts(
       chapterId,
       req.user.id,
-    ) as {
-      id: string;
-      content: string | null;
-      chapterNumber: number;
-      volumeId: string;
-      volume: { project: { id: string } };
-    };
+    );
 
-    if (!chapter.content) {
+    if (!result.conflicts || result.conflicts.length === 0) {
       return {
         chapterId,
         conflicts: [],
@@ -959,14 +824,6 @@ export class AiWritingController {
         analyzedAt: new Date().toISOString(),
       };
     }
-
-    const projectId = chapter.volume.project.id;
-
-    const result = await this.temporalConflictAnalyzer.analyzeChapter(
-      projectId,
-      chapter.chapterNumber,
-      chapter.content,
-    );
 
     // Transform conflicts to frontend format
     const conflicts = result.conflicts.map((c) => ({
@@ -1017,22 +874,21 @@ export class AiWritingController {
     @Query("currentChapter") currentChapter?: string,
     @Query("targetTokens") targetTokens?: string,
   ) {
-    // 验证项目权限
-    await this.projectService.findOne(projectId, req.user.id);
-
-    const context = await this.hierarchicalSummaryService.getHierarchicalContext(
+    const result = await this.coordinator.getHierarchicalSummaries(
       projectId,
+      req.user.id,
       {
-        currentChapter: currentChapter ? parseInt(currentChapter, 10) : 999,
-        targetTokens: targetTokens ? parseInt(targetTokens, 10) : 4000,
+        currentChapter: currentChapter
+          ? parseInt(currentChapter, 10)
+          : undefined,
+        targetTokens: targetTokens ? parseInt(targetTokens, 10) : undefined,
       },
     );
 
     return {
       projectId,
-      context,
-      formattedContext:
-        this.hierarchicalSummaryService.formatContextForPrompt(context),
+      context: result.context,
+      formattedContext: result.formattedContext,
     };
   }
 
@@ -1044,11 +900,10 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
-    // 验证项目权限
-    await this.projectService.findOne(projectId, req.user.id);
-
-    const updatedCount =
-      await this.hierarchicalSummaryService.batchUpdateSummaries(projectId);
+    const updatedCount = await this.coordinator.generateSummaries(
+      projectId,
+      req.user.id,
+    );
 
     return {
       projectId,
@@ -1068,44 +923,20 @@ export class AiWritingController {
     @Query("type") type?: string,
     @Query("limit") limit?: string,
   ) {
-    // 验证项目权限
-    await this.projectService.findOne(projectId, req.user.id);
+    const result = await this.coordinator.getScratchpad(
+      projectId,
+      req.user.id,
+      {
+        type,
+        limit: limit ? parseInt(limit, 10) : undefined,
+      },
+    );
 
-    try {
-      // 查找项目最近的活跃任务
-      const recentMission = await this.writingMissionService.getLatestMission(
-        projectId,
-      );
-
-      if (!recentMission) {
-        return {
-          projectId,
-          entries: [],
-          totalEntries: 0,
-        };
-      }
-
-      const entries = await this.sharedScratchpadService.getEntries(
-        recentMission.id,
-        {
-          type: type as any,
-          limit: limit ? parseInt(limit, 10) : 50,
-        },
-      );
-
-      return {
-        projectId,
-        entries,
-        totalEntries: entries.length,
-      };
-    } catch (error) {
-      this.logger.warn(`Failed to get scratchpad: ${error}`);
-      return {
-        projectId,
-        entries: [],
-        totalEntries: 0,
-      };
-    }
+    return {
+      projectId,
+      entries: result.entries,
+      totalEntries: result.totalEntries,
+    };
   }
 
   /**
@@ -1117,32 +948,13 @@ export class AiWritingController {
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
-    // 验证项目权限
-    const project = await this.projectService.findOne(projectId, req.user.id);
-
-    // 获取最近的任务用于 scratchpad
-    let scratchpadEntries: any[] = [];
-    try {
-      const recentMission =
-        await this.writingMissionService.getLatestMission(projectId);
-      if (recentMission) {
-        scratchpadEntries = await this.sharedScratchpadService.getEntries(
-          recentMission.id,
-          { limit: 10 },
-        );
-      }
-    } catch (error) {
-      this.logger.warn(`Failed to get scratchpad entries: ${error}`);
-    }
-
-    // 并行获取完成度和冲突分析数据
-    const [completionAnalysis, conflictResult] = await Promise.all([
-      this.storyCompletionDetector.analyzeCompletion(projectId),
-      this.temporalConflictAnalyzer.analyzeProject(projectId),
-    ]);
+    const dashboard = await this.coordinator.getAnalysisDashboard(
+      projectId,
+      req.user.id,
+    );
 
     // Transform conflicts to frontend format
-    const transformedConflicts = conflictResult.conflicts.map((c) => ({
+    const transformedConflicts = dashboard.conflicts.conflicts.map((c) => ({
       id: `${c.chapter1}-${c.chapter2}-${c.entity}`,
       type: c.type,
       severity: this.mapConflictSeverity(c.severity),
@@ -1156,12 +968,12 @@ export class AiWritingController {
 
     return {
       projectId,
-      projectName: project.name,
+      projectName: dashboard.project.name,
       completion: {
-        isComplete: completionAnalysis.isComplete,
-        confidence: completionAnalysis.confidence,
-        signals: completionAnalysis.signals,
-        recommendation: completionAnalysis.recommendation,
+        isComplete: dashboard.completion.isComplete,
+        confidence: dashboard.completion.confidence,
+        signals: dashboard.completion.signals,
+        recommendation: dashboard.completion.recommendation,
       },
       conflicts: {
         total: transformedConflicts.length,
@@ -1174,11 +986,8 @@ export class AiWritingController {
           .length,
         recentConflicts: transformedConflicts.slice(0, 5),
       },
-      agentActivity: {
-        recentEntries: scratchpadEntries,
-        totalEntries: scratchpadEntries.length,
-      },
-      analyzedAt: new Date().toISOString(),
+      agentActivity: dashboard.agentActivity,
+      analyzedAt: dashboard.analyzedAt,
     };
   }
 }

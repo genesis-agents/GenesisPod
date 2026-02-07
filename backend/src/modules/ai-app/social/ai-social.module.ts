@@ -15,6 +15,7 @@ import { WechatAdapter } from "./adapters/wechat.adapter";
 import { XiaohongshuAdapter } from "./adapters/xiaohongshu.adapter";
 import { MCPClientService } from "./core/mcp-client.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
+import { CacheModule } from "../../../common/cache/cache.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { ExploreModule } from "../../content/explore/explore.module";
 import { NotificationModule } from "../../core/notifications/notification.module";
@@ -23,6 +24,7 @@ import { CreditsModule } from "../../credits/credits.module";
 @Module({
   imports: [
     PrismaModule,
+    CacheModule,
     AiEngineModule,
     ExploreModule,
     ConfigModule,

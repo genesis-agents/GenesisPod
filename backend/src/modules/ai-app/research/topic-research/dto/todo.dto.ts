@@ -13,6 +13,8 @@ import {
   IsArray,
   Min,
   Max,
+  MaxLength,
+  IsNotEmpty,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ResearchTodoStatus, ResearchTodoType } from "@prisma/client";
@@ -24,6 +26,7 @@ export class GetTodosQueryDto {
   @ApiPropertyOptional({ description: "按 Mission ID 过滤" })
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   missionId?: string;
 
   @ApiPropertyOptional({
@@ -68,6 +71,7 @@ export class CancelTodoDto {
   @ApiPropertyOptional({ description: "取消原因" })
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   reason?: string;
 }
 
@@ -108,6 +112,7 @@ export class UpdateTodoProgressDto {
   @ApiPropertyOptional({ description: "状态消息" })
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   statusMessage?: string;
 }
 
@@ -117,10 +122,13 @@ export class UpdateTodoProgressDto {
 export class CreateUserRequestTodoDto {
   @ApiProperty({ description: "TODO 标题" })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   title!: string;
 
   @ApiPropertyOptional({ description: "TODO 描述" })
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   description?: string;
 }

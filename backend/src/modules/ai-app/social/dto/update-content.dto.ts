@@ -51,5 +51,6 @@ export class UpdateContentDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   connectionId?: string;
 }

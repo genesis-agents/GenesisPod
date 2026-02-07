@@ -5,17 +5,23 @@ import {
   MaxLength,
   IsBoolean,
   IsEmail,
+  IsNotEmpty,
 } from "class-validator";
 
 export class CreateMissionDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(500)
   title!: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(10000)
   description!: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
   leaderId!: string; // 指定的 Leader AI Member ID
 
   @IsOptional()

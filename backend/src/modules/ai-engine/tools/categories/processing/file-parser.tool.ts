@@ -15,6 +15,30 @@ import {
 // Types
 // ============================================================================
 
+interface PDFParseResult {
+  numpages: number;
+  text: string;
+  info?: {
+    Author?: string;
+  };
+}
+
+interface ExcelJSCell {
+  value: unknown;
+}
+
+interface ExcelJSRow {
+  eachCell: (
+    options: { includeEmpty: boolean },
+    callback: (cell: ExcelJSCell) => void,
+  ) => void;
+}
+
+interface ExcelJSWorksheet {
+  name: string;
+  eachRow: (callback: (row: ExcelJSRow, rowNumber: number) => void) => void;
+}
+
 export interface FileParserInput {
   /**
    * 文件信息
@@ -370,8 +394,12 @@ export class FileParserTool extends BaseTool<
   ): Promise<FileParserOutput> {
     const pdfParse = await import("pdf-parse");
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = await (pdfParse.default as any)(buffer, {
+    const data = await (
+      pdfParse.default as unknown as (
+        buffer: Buffer,
+        options: { max: number },
+      ) => Promise<PDFParseResult>
+    )(buffer, {
       max: options?.maxPages || 100,
     });
 
@@ -423,9 +451,10 @@ export class FileParserTool extends BaseTool<
 
     // 提取章节
     const sections: FileParserOutput["structure"]["sections"] = [];
-    $("h1, h2, h3, h4, h5, h6").each((_: number, element: any) => {
-      const $el = $(element);
-      const tagName = element.tagName.toLowerCase();
+    $("h1, h2, h3, h4, h5, h6").each((_: number, element: unknown) => {
+      const $el = $(element as never);
+      const elementObj = element as { tagName: string };
+      const tagName = elementObj.tagName.toLowerCase();
       const level = parseInt(tagName.substring(1));
       const title = $el.text().trim();
 
@@ -433,8 +462,11 @@ export class FileParserTool extends BaseTool<
       let content = "";
       $el
         .nextUntil(`h1, h2, h3, h4, h5, h6`)
-        .each((_: number, sibling: any) => {
-          content += $(sibling).text().trim() + "\n";
+        .each((_: number, sibling: unknown) => {
+          content +=
+            $(sibling as never)
+              .text()
+              .trim() + "\n";
         });
 
       sections.push({
@@ -453,31 +485,39 @@ export class FileParserTool extends BaseTool<
     let tables: FileParserOutput["tables"] | undefined;
     if (options?.extractTables) {
       tables = [];
-      $("table").each((_: number, table: any) => {
+      $("table").each((_: number, table: unknown) => {
         const headers: string[] = [];
         const rows: string[][] = [];
 
         // 提取表头
-        $(table)
+        $(table as never)
           .find("thead tr th, tr:first-child th, tr:first-child td")
-          .each((_: number, th: any) => {
-            headers.push($(th).text().trim());
+          .each((_: number, th: unknown) => {
+            headers.push(
+              $(th as never)
+                .text()
+                .trim(),
+            );
           });
 
         // 提取数据行
         const hasTheadOrFirstRowAsHeader = headers.length > 0;
-        $(table)
+        $(table as never)
           .find(
             hasTheadOrFirstRowAsHeader
               ? "tbody tr, tr:not(:first-child)"
               : "tr",
           )
-          .each((_: number, tr: any) => {
+          .each((_: number, tr: unknown) => {
             const row: string[] = [];
-            $(tr)
+            $(tr as never)
               .find("td, th")
-              .each((_: number, td: any) => {
-                row.push($(td).text().trim());
+              .each((_: number, td: unknown) => {
+                row.push(
+                  $(td as never)
+                    .text()
+                    .trim(),
+                );
               });
             if (row.length > 0) {
               rows.push(row);
@@ -516,15 +556,14 @@ export class FileParserTool extends BaseTool<
   ): Promise<FileParserOutput> {
     const ExcelJS = await import("exceljs");
     const workbook = new ExcelJS.Workbook();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await workbook.xlsx.load(buffer as any);
+    await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
 
     const sections: FileParserOutput["structure"]["sections"] = [];
     const tables: FileParserOutput["tables"] = [];
     let content = "";
 
     // 遍历所有工作表
-    workbook.eachSheet((worksheet: any, sheetId: number) => {
+    workbook.eachSheet((worksheet: ExcelJSWorksheet, sheetId: number) => {
       const sheetName = worksheet.name;
       sections.push({
         level: 1,
@@ -536,18 +575,29 @@ export class FileParserTool extends BaseTool<
       const rows: string[][] = [];
       let headers: string[] = [];
 
-      worksheet.eachRow((row: any, rowNumber: number) => {
+      worksheet.eachRow((row: ExcelJSRow, rowNumber: number) => {
         const rowData: string[] = [];
-        row.eachCell({ includeEmpty: true }, (cell: any) => {
+        row.eachCell({ includeEmpty: true }, (cell: ExcelJSCell) => {
           const value = cell.value;
           let cellText = "";
 
           if (value !== null && value !== undefined) {
-            if (typeof value === "object" && "richText" in value) {
-              // 处理富文本
-              cellText = value.richText.map((t: any) => t.text).join("");
-            } else if (typeof value === "object" && "text" in value) {
-              cellText = value.text;
+            if (
+              typeof value === "object" &&
+              value !== null &&
+              "richText" in value
+            ) {
+              const richTextValue = value as {
+                richText: Array<{ text: string }>;
+              };
+              cellText = richTextValue.richText.map((t) => t.text).join("");
+            } else if (
+              typeof value === "object" &&
+              value !== null &&
+              "text" in value
+            ) {
+              const textValue = value as { text: string };
+              cellText = textValue.text;
             } else {
               cellText = String(value);
             }
@@ -784,10 +834,10 @@ export class FileParserTool extends BaseTool<
   /**
    * 从 PPTX Slide XML 中提取文本
    */
-  private extractTextFromSlideXML(slideData: any): string {
+  private extractTextFromSlideXML(slideData: unknown): string {
     const texts: string[] = [];
 
-    const extractText = (obj: any) => {
+    const extractText = (obj: unknown): void => {
       if (!obj) return;
 
       if (typeof obj === "string") {
@@ -801,13 +851,14 @@ export class FileParserTool extends BaseTool<
       }
 
       if (typeof obj === "object") {
+        const objRecord = obj as Record<string, unknown>;
         // 查找 <a:t> 标签（文本内容）
-        if (obj["a:t"]) {
-          extractText(obj["a:t"]);
+        if (objRecord["a:t"]) {
+          extractText(objRecord["a:t"]);
         }
 
         // 递归处理所有属性
-        Object.values(obj).forEach((value) => extractText(value));
+        Object.values(objRecord).forEach((value) => extractText(value));
       }
     };
 

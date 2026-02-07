@@ -19,6 +19,10 @@ import {
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { AiModelConfigService } from "../llm/services/ai-model-config.service";
+import {
+  CREATIVITY_TO_TEMPERATURE,
+  OUTPUT_LENGTH_TO_TOKENS,
+} from "../llm/types/task-profile";
 // ★ 架构重构：通过 ToolRegistry 调用搜索工具
 import type { ToolContext } from "../tools/abstractions/tool.interface";
 import {
@@ -736,6 +740,9 @@ export class AIEngineFacade {
 
       // 使用 AiChatService 的真正流式输出
       let streamApiKeySource: string | undefined;
+      let tokensUsed = 0;
+      let accumulatedContentLength = 0; // 用于回退估算
+
       for await (const chunk of this.aiChatService.chatStream({
         messages: request.messages.map((m) => ({
           role: m.role,
@@ -753,6 +760,20 @@ export class AIEngineFacade {
         if (chunk.apiKeySource) {
           streamApiKeySource = chunk.apiKeySource;
         }
+
+        // ★ 捕获 usage 信息（在最终 chunk 中携带）
+        if (chunk.usage) {
+          tokensUsed = chunk.usage.totalTokens;
+          this.logger.debug(
+            `[chatStream] Received usage from stream: ${tokensUsed} tokens`,
+          );
+        }
+
+        // 累积内容长度（用于回退估算）
+        if (chunk.content) {
+          accumulatedContentLength += chunk.content.length;
+        }
+
         yield { content: chunk.content, done: chunk.done, error: chunk.error };
 
         // 如果有错误，记录失败
@@ -765,14 +786,29 @@ export class AIEngineFacade {
         }
       }
 
+      // ★ 回退估算：如果 API 未返回 usage，基于内容长度估算
+      if (tokensUsed === 0 && accumulatedContentLength > 0) {
+        // 估算规则：约 4 字符 = 1 token
+        const estimatedCompletionTokens = Math.ceil(
+          accumulatedContentLength / 4,
+        );
+        const estimatedPromptTokens = Math.ceil(
+          request.messages.reduce((sum, m) => sum + m.content.length, 0) / 4,
+        );
+        tokensUsed = estimatedCompletionTokens + estimatedPromptTokens;
+        this.logger.debug(
+          `[chatStream] Estimated tokens (fallback): ${tokensUsed} (prompt: ${estimatedPromptTokens}, completion: ${estimatedCompletionTokens})`,
+        );
+      }
+
       // 流式完成，记录成功
       this.orchestration?.circuitBreaker?.recordSuccess(entityId, 0);
 
-      // ★ BYOK: 流式完成后积分扣除
+      // ★ BYOK: 流式完成后积分扣除（现在会传递实际的 token 数）
       await this.handleBilling(
         request,
         streamApiKeySource,
-        0,
+        tokensUsed,
         request.model || "unknown",
       );
     } catch (error) {
@@ -1623,7 +1659,31 @@ export class AIEngineFacade {
           break;
 
         case "topic":
-          if (source.id && this.prisma) {
+          // ★ 架构分层：优先使用预查询的数据，避免 Engine 层依赖 App 层业务模型
+          if (source.data) {
+            const topic = source.data as {
+              name: string;
+              type: string;
+              description?: string;
+              dimensions?: Array<{ name: string; description?: string }>;
+            };
+            let topicContext = `## Research Topic: ${topic.name}\n`;
+            topicContext += `Type: ${topic.type}\n`;
+            if (topic.description) {
+              topicContext += `Description: ${topic.description}\n`;
+            }
+            if (topic.dimensions && topic.dimensions.length > 0) {
+              topicContext += `\nDimensions:\n`;
+              for (const dim of topic.dimensions) {
+                topicContext += `- ${dim.name}: ${dim.description || "No description"}\n`;
+              }
+            }
+            parts.push(topicContext);
+          } else if (source.id && this.prisma) {
+            // 兼容旧代码：直接查询（不推荐，违反架构分层）
+            this.logger.warn(
+              `[buildContext] Deprecated: type="topic" with id="${source.id}" should pass data via source.data instead of direct Prisma query`,
+            );
             const topic = await this.prisma.researchTopic.findUnique({
               where: { id: source.id },
               include: {
@@ -1648,7 +1708,31 @@ export class AIEngineFacade {
           break;
 
         case "resource":
-          if (source.id && this.prisma) {
+          // ★ 架构分层：优先使用预查询的数据，避免 Engine 层依赖 App 层业务模型
+          if (source.data) {
+            const resource = source.data as {
+              title: string;
+              aiSummary?: string;
+              content?: string;
+            };
+            let resourceContext = `## Resource: ${resource.title}\n`;
+            if (resource.aiSummary) {
+              resourceContext += `Summary: ${resource.aiSummary}\n`;
+            }
+            if (resource.content) {
+              // 截取前 2000 字符
+              const text =
+                resource.content.length > 2000
+                  ? resource.content.substring(0, 2000) + "..."
+                  : resource.content;
+              resourceContext += `\nContent:\n${text}`;
+            }
+            parts.push(resourceContext);
+          } else if (source.id && this.prisma) {
+            // 兼容旧代码：直接查询（不推荐，违反架构分层）
+            this.logger.warn(
+              `[buildContext] Deprecated: type="resource" with id="${source.id}" should pass data via source.data instead of direct Prisma query`,
+            );
             const resource = await this.prisma.resource.findUnique({
               where: { id: source.id },
             });
@@ -2074,28 +2158,13 @@ export class AIEngineFacade {
 
     // 根据 taskProfile 设置参数
     if (request.taskProfile) {
-      const creativityMap: Record<string, number> = {
-        deterministic: 0.1,
-        low: 0.3,
-        medium: 0.7,
-        high: 0.9,
-      };
-      const outputLengthMap: Record<string, number> = {
-        minimal: 500,
-        short: 1500,
-        medium: 4000,
-        standard: 6000,
-        long: 8000,
-        extended: 16000,
-      };
-
       if (!config.temperature && request.taskProfile.creativity) {
         config.temperature =
-          creativityMap[request.taskProfile.creativity] || 0.7;
+          CREATIVITY_TO_TEMPERATURE[request.taskProfile.creativity] ?? 0.7;
       }
       if (!config.maxTokens && request.taskProfile.outputLength) {
         config.maxTokens =
-          outputLengthMap[request.taskProfile.outputLength] || 4000;
+          OUTPUT_LENGTH_TO_TOKENS[request.taskProfile.outputLength] ?? 4000;
       }
     }
 

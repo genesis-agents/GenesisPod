@@ -15,6 +15,14 @@ import {
 // Types
 // ============================================================================
 
+interface HandlebarsInstance {
+  compile(
+    template: string,
+    options?: { strict?: boolean; noEscape?: boolean },
+  ): (context: Record<string, unknown>) => string;
+  registerHelper(name: string, helper: (...args: never[]) => unknown): void;
+}
+
 export interface TemplateRenderInput {
   /**
    * 模板字符串
@@ -234,7 +242,7 @@ export class TemplateRenderTool extends BaseTool<
       const hbs = handlebars.create();
 
       // 注册自定义辅助函数
-      this.registerHelpers(hbs);
+      this.registerHelpers(hbs as unknown as HandlebarsInstance);
 
       // 设置选项
       if (options.escapeHtml === false) {
@@ -306,10 +314,13 @@ export class TemplateRenderTool extends BaseTool<
   // Custom Helpers
   // ==========================================================================
 
-  private registerHelpers(hbs: any): void {
+  private registerHelpers(hbs: HandlebarsInstance): void {
     // Date formatting
-    hbs.registerHelper("formatDate", function (date: any, format: string) {
-      const d = new Date(date);
+    hbs.registerHelper("formatDate", function (...args: never[]) {
+      const argsUnknown = args as unknown as unknown[];
+      const date = argsUnknown[0];
+      const format = argsUnknown[1] as string;
+      const d = new Date(date as string | number | Date);
       if (isNaN(d.getTime())) return date;
 
       if (format === "iso") return d.toISOString();
@@ -320,108 +331,148 @@ export class TemplateRenderTool extends BaseTool<
     });
 
     // Number formatting
-    hbs.registerHelper("formatNumber", function (num: any, decimals = 2) {
-      const n = parseFloat(num);
+    hbs.registerHelper("formatNumber", function (...args: never[]) {
+      const argsUnknown = args as unknown as unknown[];
+      const num = argsUnknown[0];
+      const decimals = (argsUnknown[1] as number | undefined) ?? 2;
+      const n = parseFloat(String(num));
       if (isNaN(n)) return num;
 
       return n.toFixed(decimals);
     });
 
     // String operations
-    hbs.registerHelper("uppercase", function (str: string) {
-      return str?.toUpperCase() || "";
+    hbs.registerHelper("uppercase", function (...args: never[]) {
+      const str = (args as unknown as unknown[])[0];
+      return typeof str === "string" ? str.toUpperCase() : "";
     });
 
-    hbs.registerHelper("lowercase", function (str: string) {
-      return str?.toLowerCase() || "";
+    hbs.registerHelper("lowercase", function (...args: never[]) {
+      const str = (args as unknown as unknown[])[0];
+      return typeof str === "string" ? str.toLowerCase() : "";
     });
 
-    hbs.registerHelper("capitalize", function (str: string) {
+    hbs.registerHelper("capitalize", function (...args: never[]) {
+      const str = (args as unknown as unknown[])[0];
+      if (typeof str !== "string") return "";
       return str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
     });
 
     // Conditional helpers
-    hbs.registerHelper("eq", function (a: any, b: any) {
+    hbs.registerHelper("eq", function (...args: never[]) {
+      const argsUnknown = args as unknown as unknown[];
+      const [a, b] = argsUnknown;
       return a === b;
     });
 
-    hbs.registerHelper("ne", function (a: any, b: any) {
+    hbs.registerHelper("ne", function (...args: never[]) {
+      const argsUnknown = args as unknown as unknown[];
+      const [a, b] = argsUnknown;
       return a !== b;
     });
 
-    hbs.registerHelper("gt", function (a: any, b: any) {
+    hbs.registerHelper("gt", function (...args: never[]) {
+      const argsUnknown = args as unknown as number[];
+      const [a, b] = argsUnknown;
       return a > b;
     });
 
-    hbs.registerHelper("lt", function (a: any, b: any) {
+    hbs.registerHelper("lt", function (...args: never[]) {
+      const argsUnknown = args as unknown as number[];
+      const [a, b] = argsUnknown;
       return a < b;
     });
 
-    hbs.registerHelper("gte", function (a: any, b: any) {
+    hbs.registerHelper("gte", function (...args: never[]) {
+      const argsUnknown = args as unknown as number[];
+      const [a, b] = argsUnknown;
       return a >= b;
     });
 
-    hbs.registerHelper("lte", function (a: any, b: any) {
+    hbs.registerHelper("lte", function (...args: never[]) {
+      const argsUnknown = args as unknown as number[];
+      const [a, b] = argsUnknown;
       return a <= b;
     });
 
-    hbs.registerHelper("and", function (...args: any[]) {
-      return args.slice(0, -1).every((arg) => arg);
+    hbs.registerHelper("and", function (...args: never[]) {
+      const argsArray = args as unknown as unknown[];
+      return argsArray.slice(0, -1).every((arg) => arg);
     });
 
-    hbs.registerHelper("or", function (...args: any[]) {
-      return args.slice(0, -1).some((arg) => arg);
+    hbs.registerHelper("or", function (...args: never[]) {
+      const argsArray = args as unknown as unknown[];
+      return argsArray.slice(0, -1).some((arg) => arg);
     });
 
-    hbs.registerHelper("not", function (value: any) {
+    hbs.registerHelper("not", function (...args: never[]) {
+      const value = (args as unknown as unknown[])[0];
       return !value;
     });
 
     // Array helpers
-    hbs.registerHelper("length", function (arr: any[]) {
-      return arr?.length || 0;
+    hbs.registerHelper("length", function (...args: never[]) {
+      const arr = (args as unknown as unknown[])[0];
+      return Array.isArray(arr) ? arr.length : 0;
     });
 
-    hbs.registerHelper("join", function (arr: any[], separator = ", ") {
-      return arr?.join(separator) || "";
+    hbs.registerHelper("join", function (...args: never[]) {
+      const argsUnknown = args as unknown as unknown[];
+      const arr = argsUnknown[0];
+      const separator = (argsUnknown[1] as string | undefined) ?? ", ";
+      return Array.isArray(arr) ? arr.join(separator) : "";
     });
 
-    hbs.registerHelper("first", function (arr: any[]) {
-      return arr?.[0];
+    hbs.registerHelper("first", function (...args: never[]) {
+      const arr = (args as unknown as unknown[])[0];
+      return Array.isArray(arr) ? arr[0] : undefined;
     });
 
-    hbs.registerHelper("last", function (arr: any[]) {
-      return arr?.[arr.length - 1];
+    hbs.registerHelper("last", function (...args: never[]) {
+      const arr = (args as unknown as unknown[])[0];
+      return Array.isArray(arr) ? arr[arr.length - 1] : undefined;
     });
 
     // JSON helpers
-    hbs.registerHelper("json", function (obj: any) {
+    hbs.registerHelper("json", function (...args: never[]) {
+      const obj = (args as unknown as unknown[])[0];
       return JSON.stringify(obj, null, 2);
     });
 
-    hbs.registerHelper("jsonInline", function (obj: any) {
+    hbs.registerHelper("jsonInline", function (...args: never[]) {
+      const obj = (args as unknown as unknown[])[0];
       return JSON.stringify(obj);
     });
 
     // Math helpers
-    hbs.registerHelper("add", function (a: number, b: number) {
+    hbs.registerHelper("add", function (...args: never[]) {
+      const argsUnknown = args as unknown as number[];
+      const [a, b] = argsUnknown;
       return a + b;
     });
 
-    hbs.registerHelper("subtract", function (a: number, b: number) {
+    hbs.registerHelper("subtract", function (...args: never[]) {
+      const argsUnknown = args as unknown as number[];
+      const [a, b] = argsUnknown;
       return a - b;
     });
 
-    hbs.registerHelper("multiply", function (a: number, b: number) {
+    hbs.registerHelper("multiply", function (...args: never[]) {
+      const argsUnknown = args as unknown as number[];
+      const [a, b] = argsUnknown;
       return a * b;
     });
 
-    hbs.registerHelper("divide", function (a: number, b: number) {
+    hbs.registerHelper("divide", function (...args: never[]) {
+      const argsUnknown = args as unknown as number[];
+      const [a, b] = argsUnknown;
       return b !== 0 ? a / b : 0;
     });
 
     // Default value helper
-    hbs.registerHelper("default", function (value: any, defaultValue: any) {
+    hbs.registerHelper("default", function (...args: never[]) {
+      const argsUnknown = args as unknown as unknown[];
+      const [value, defaultValue] = argsUnknown;
       return value !== undefined && value !== null ? value : defaultValue;
     });
   }
@@ -476,13 +527,17 @@ export class TemplateRenderTool extends BaseTool<
    */
   private getNestedValue(obj: Record<string, unknown>, path: string): unknown {
     const keys = path.split(".");
-    let current: any = obj;
+    let current: unknown = obj;
 
     for (const key of keys) {
       if (current === null || current === undefined) {
         return undefined;
       }
-      current = current[key];
+      if (typeof current === "object" && current !== null) {
+        current = (current as Record<string, unknown>)[key];
+      } else {
+        return undefined;
+      }
     }
 
     return current;

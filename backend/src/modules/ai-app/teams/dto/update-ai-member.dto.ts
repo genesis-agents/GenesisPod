@@ -16,6 +16,7 @@ export class UpdateAIMemberDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(2048)
   avatar?: string;
 
   @IsOptional()
@@ -25,6 +26,7 @@ export class UpdateAIMemberDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   systemPrompt?: string;
 
   @IsOptional()

@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsNumber, IsEnum, Min } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsEnum,
+  Min,
+  MaxLength,
+  IsNotEmpty,
+} from "class-validator";
 import { AnnotationType, AnnotationStatus } from "@prisma/client";
 
 /**
@@ -14,6 +22,8 @@ export class CreateAnnotationDto {
   endOffset!: number;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(10000)
   content!: string;
 
   @IsEnum(AnnotationType)
@@ -22,6 +32,7 @@ export class CreateAnnotationDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(10000)
   selectedText?: string;
 }
 
@@ -31,6 +42,7 @@ export class CreateAnnotationDto {
 export class UpdateAnnotationDto {
   @IsString()
   @IsOptional()
+  @MaxLength(10000)
   content?: string;
 
   @IsEnum(AnnotationStatus)

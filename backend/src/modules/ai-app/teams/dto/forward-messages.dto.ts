@@ -5,6 +5,7 @@ import {
   IsString,
   IsUUID,
   ArrayMinSize,
+  MaxLength,
 } from "class-validator";
 import { ForwardTargetType, MergeMode } from "@prisma/client";
 
@@ -31,16 +32,19 @@ export class ForwardMessagesDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   forwardNote?: string;
 }
 
 export class BookmarkMessageDto {
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   category?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   note?: string;
 
   @IsOptional()

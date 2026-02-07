@@ -21,6 +21,10 @@ export enum CachePrefix {
   TEMP = "temp:",
   /** OAuth 授权码 */
   AUTH_CODE = "auth:code:",
+  /** 社交平台登录会话 */
+  SOCIAL_LOGIN = "social:login:",
+  /** 社交平台连接验证锁 */
+  SOCIAL_VERIFYING = "social:verifying:",
 }
 
 /**
@@ -31,6 +35,8 @@ export enum CacheTTL {
   SHORT = 60,
   /** 5 分钟 - 默认 */
   DEFAULT = 300,
+  /** 10 分钟 - 登录会话 */
+  LOGIN_SESSION = 600,
   /** 15 分钟 - 中等频率 */
   MEDIUM = 900,
   /** 1 小时 - 低频变化 */

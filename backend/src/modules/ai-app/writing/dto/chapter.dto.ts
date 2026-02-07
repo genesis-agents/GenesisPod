@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsNumber, IsArray, IsEnum, Min } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsArray,
+  IsEnum,
+  Min,
+  MaxLength,
+  IsNotEmpty,
+} from "class-validator";
 import { ChapterStatus } from "@prisma/client";
 
 export class CreateChapterDto {
@@ -7,10 +16,13 @@ export class CreateChapterDto {
   chapterNumber!: number;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   title!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   outline?: string;
 
   @IsOptional()
@@ -22,14 +34,17 @@ export class CreateChapterDto {
 export class UpdateChapterDto {
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   title?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   outline?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50000)
   content?: string;
 
   @IsOptional()
@@ -45,6 +60,7 @@ export class UpdateChapterDto {
 export class StartWritingDto {
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   additionalInstructions?: string;
 
   @IsOptional()

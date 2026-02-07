@@ -14,24 +14,7 @@ import {
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AiAskService } from "./ai-ask.service";
-
-interface CreateSessionDto {
-  title?: string;
-  modelId?: string;
-}
-
-interface UpdateSessionDto {
-  title?: string;
-  modelId?: string;
-}
-
-interface SendMessageDto {
-  content: string;
-  modelId?: string;
-  webSearch?: boolean;
-  /** Knowledge base IDs for RAG query */
-  knowledgeBaseIds?: string[];
-}
+import { CreateSessionDto, UpdateSessionDto, SendMessageDto } from "./dto";
 
 @Controller("ask/sessions")
 @UseGuards(JwtAuthGuard)
@@ -126,21 +109,8 @@ export class AiAskController {
     @Param("sessionId") sessionId: string,
     @Body() dto: SendMessageDto,
   ) {
-    if (!dto.content || typeof dto.content !== "string") {
-      throw new BadRequestException("Message content is required");
-    }
-    if (dto.content.trim().length === 0) {
-      throw new BadRequestException("Message content cannot be empty");
-    }
-    if (dto.content.length > 50000) {
-      throw new BadRequestException(
-        "Message content exceeds maximum length (50000 characters)",
-      );
-    }
-    if (
-      dto.knowledgeBaseIds &&
-      (!Array.isArray(dto.knowledgeBaseIds) || dto.knowledgeBaseIds.length > 10)
-    ) {
+    // Additional validation for knowledgeBaseIds array length
+    if (dto.knowledgeBaseIds && dto.knowledgeBaseIds.length > 10) {
       throw new BadRequestException(
         "Invalid knowledgeBaseIds: must be an array of at most 10 IDs",
       );

@@ -1,8 +1,18 @@
-import { IsString, IsOptional, IsArray, IsEnum, IsObject } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsEnum,
+  IsObject,
+  MaxLength,
+  IsNotEmpty,
+} from "class-validator";
 import { CharacterRole } from "@prisma/client";
 
 export class CreateCharacterDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   name!: string;
 
   @IsOptional()
@@ -24,6 +34,7 @@ export class CreateCharacterDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   background?: string;
 
   @IsOptional()
@@ -39,6 +50,7 @@ export class CreateCharacterDto {
 export class UpdateCharacterDto {
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   name?: string;
 
   @IsOptional()
@@ -60,6 +72,7 @@ export class UpdateCharacterDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   background?: string;
 
   @IsOptional()
@@ -74,12 +87,17 @@ export class UpdateCharacterDto {
 
 export class CreateCharacterRelationshipDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
   targetCharacterId!: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
   relationshipType!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   description?: string;
 }

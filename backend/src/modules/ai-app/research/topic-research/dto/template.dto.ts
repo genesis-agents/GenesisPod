@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsObject,
   MaxLength,
+  IsNotEmpty,
 } from "class-validator";
 import { ResearchTopicType } from "../types";
 
@@ -14,9 +15,12 @@ export class GetTemplatesDto {
 
 export class CreateFromTemplateDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
   templateId!: string;
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(200)
   name!: string;
 

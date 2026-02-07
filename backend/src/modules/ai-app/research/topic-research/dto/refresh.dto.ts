@@ -7,6 +7,7 @@ import {
   IsEmail,
   MaxLength,
   IsIn,
+  IsNotEmpty,
 } from "class-validator";
 import { RefreshType, RefreshPriority } from "../types";
 
@@ -34,12 +35,16 @@ export class TriggerRefreshDto {
   notificationEmail?: string;
 
   @IsOptional()
+  @IsString()
   @IsIn(["quick", "standard", "thorough"])
+  @MaxLength(50)
   researchDepth?: string;
 }
 
 export class CancelRefreshDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
   jobId!: string;
 }
 

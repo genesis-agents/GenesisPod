@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsNumber, Min } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  Min,
+  MaxLength,
+  IsNotEmpty,
+} from "class-validator";
 
 export class CreateVolumeDto {
   @IsNumber()
@@ -6,10 +13,13 @@ export class CreateVolumeDto {
   volumeNumber!: number;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   title!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   synopsis?: string;
 
   @IsOptional()
@@ -21,10 +31,12 @@ export class CreateVolumeDto {
 export class UpdateVolumeDto {
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   title?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   synopsis?: string;
 
   @IsOptional()

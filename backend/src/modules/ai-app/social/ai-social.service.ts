@@ -6,6 +6,11 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import {
+  CacheService,
+  CachePrefix,
+  CacheTTL,
+} from "../../../common/cache/cache.service";
 import { ContentCheckerService } from "./services/content-checker.service";
 import { PublishExecutorService } from "./services/publish-executor.service";
 import { PlaywrightService } from "./services/playwright.service";
@@ -29,6 +34,7 @@ export class AiSocialService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly cache: CacheService,
     private readonly contentChecker: ContentCheckerService,
     private readonly publishExecutor: PublishExecutorService,
     private readonly playwright: PlaywrightService,
@@ -47,14 +53,29 @@ export class AiSocialService {
     });
   }
 
-  // 存储待验证的登录会话
-  private pendingLoginSessions: Map<
-    string,
-    { sessionKey: string; platformType: SocialPlatformType }
-  > = new Map();
+  /**
+   * 构建登录会话缓存键
+   */
+  private buildLoginSessionKey(
+    userId: string,
+    platformType: SocialPlatformType,
+  ): string {
+    return this.cache.buildKey(CachePrefix.SOCIAL_LOGIN, userId, platformType);
+  }
 
-  // 防止并发验证的锁
-  private verifyingConnections: Set<string> = new Set();
+  /**
+   * 构建验证锁缓存键
+   */
+  private buildVerifyingLockKey(
+    userId: string,
+    platformType: SocialPlatformType,
+  ): string {
+    return this.cache.buildKey(
+      CachePrefix.SOCIAL_VERIFYING,
+      userId,
+      platformType,
+    );
+  }
 
   async initConnection(userId: string, type: string) {
     const platformType = type.toUpperCase() as SocialPlatformType;
@@ -82,14 +103,19 @@ export class AiSocialService {
       const { sessionKey, screenshot } =
         await this.playwright.startLoginSession(userId, platformType);
 
-      // 保存待验证的会话
-      this.pendingLoginSessions.set(userId + "-" + platformType, {
-        sessionKey,
-        platformType,
-      });
+      // 保存待验证的会话到 Redis (10分钟过期)
+      const cacheKey = this.buildLoginSessionKey(userId, platformType);
+      await this.cache.set(
+        cacheKey,
+        {
+          sessionKey,
+          platformType,
+        },
+        CacheTTL.LOGIN_SESSION,
+      );
 
       this.logger.log(
-        `Login session created for ${platformType}, sessionKey: ${sessionKey}`,
+        `Login session created for ${platformType}, sessionKey: ${sessionKey}, cached at ${cacheKey}`,
       );
 
       return {
@@ -112,11 +138,15 @@ export class AiSocialService {
 
   async verifyConnection(userId: string, type: string) {
     const platformType = type.toUpperCase() as SocialPlatformType;
-    const pendingKey = userId + "-" + platformType;
+    const loginCacheKey = this.buildLoginSessionKey(userId, platformType);
+    const lockCacheKey = this.buildVerifyingLockKey(userId, platformType);
 
     // 防止并发验证 - 如果已经在验证中，直接返回pending状态
-    if (this.verifyingConnections.has(pendingKey)) {
-      this.logger.debug(`Verification already in progress for ${pendingKey}`);
+    const isVerifying = await this.cache.get<boolean>(lockCacheKey);
+    if (isVerifying) {
+      this.logger.debug(
+        `Verification already in progress for ${userId}-${platformType}`,
+      );
       return {
         status: "pending",
         message: "验证中，请稍候...",
@@ -126,16 +156,14 @@ export class AiSocialService {
     this.logger.log(`Verifying connection ${platformType} for user ${userId}`);
 
     // 获取待验证的会话
-    const pending = this.pendingLoginSessions.get(pendingKey);
-
-    // 调试日志：显示当前所有待验证会话
-    this.logger.debug(
-      `Current pending sessions: ${Array.from(this.pendingLoginSessions.keys()).join(", ") || "none"}`,
-    );
+    const pending = await this.cache.get<{
+      sessionKey: string;
+      platformType: SocialPlatformType;
+    }>(loginCacheKey);
 
     if (!pending) {
       this.logger.warn(
-        `No pending session found for key: ${pendingKey}. User may need to restart login.`,
+        `No pending session found for ${userId}-${platformType}. User may need to restart login.`,
       );
       return {
         status: "error",
@@ -143,8 +171,8 @@ export class AiSocialService {
       };
     }
 
-    // 获取锁
-    this.verifyingConnections.add(pendingKey);
+    // 获取锁 (设置短TTL，防止死锁)
+    await this.cache.set(lockCacheKey, true, CacheTTL.SHORT);
 
     try {
       // 检查登录状态
@@ -192,9 +220,10 @@ export class AiSocialService {
           },
         });
 
-        // 清理登录会话
+        // 清理登录会话和锁
         await this.playwright.endLoginSession(pending.sessionKey);
-        this.pendingLoginSessions.delete(pendingKey);
+        await this.cache.del(loginCacheKey);
+        await this.cache.del(lockCacheKey);
 
         return {
           status: "success",
@@ -221,7 +250,7 @@ export class AiSocialService {
       };
     } finally {
       // 释放锁
-      this.verifyingConnections.delete(pendingKey);
+      await this.cache.del(lockCacheKey);
     }
   }
 

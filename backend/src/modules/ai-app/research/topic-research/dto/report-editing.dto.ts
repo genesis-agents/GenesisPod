@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsNumber,
   IsArray,
+  MaxLength,
 } from "class-validator";
 
 // ==================== Annotation DTOs ====================
@@ -25,6 +26,7 @@ export enum AnnotationStatus {
 export class CreateAnnotationDto {
   @ApiProperty({ description: "批注内容" })
   @IsString()
+  @MaxLength(10000)
   content!: string;
 
   @ApiProperty({
@@ -37,6 +39,7 @@ export class CreateAnnotationDto {
   @ApiPropertyOptional({ description: "选中的文本" })
   @IsString()
   @IsOptional()
+  @MaxLength(10000)
   selectedText?: string;
 
   @ApiProperty({ description: "起始偏移量" })
@@ -50,16 +53,19 @@ export class CreateAnnotationDto {
   @ApiPropertyOptional({ description: "选区前文上下文（用于精确定位）" })
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   selectorPrefix?: string;
 
   @ApiPropertyOptional({ description: "选区后文上下文（用于精确定位）" })
   @IsString()
   @IsOptional()
+  @MaxLength(500)
   selectorSuffix?: string;
 
   @ApiPropertyOptional({ description: "高亮颜色", default: "yellow" })
   @IsString()
   @IsOptional()
+  @MaxLength(50)
   color?: string;
 }
 
@@ -67,6 +73,7 @@ export class UpdateAnnotationDto {
   @ApiPropertyOptional({ description: "批注内容" })
   @IsString()
   @IsOptional()
+  @MaxLength(10000)
   content?: string;
 
   @ApiPropertyOptional({
@@ -90,6 +97,7 @@ export class CheckinChangeDto {
   @ApiPropertyOptional({ description: "Checkin 备注" })
   @IsString()
   @IsOptional()
+  @MaxLength(2000)
   comment?: string;
 }
 

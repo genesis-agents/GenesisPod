@@ -13,6 +13,8 @@ import {
   Max,
   IsEnum,
   IsBoolean,
+  MaxLength,
+  IsNotEmpty,
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -21,6 +23,8 @@ import { Type } from "class-transformer";
  */
 export class MemberRoleConfigDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   roleId!: string;
 
   @IsNumber()
@@ -43,16 +47,23 @@ export class MemberRoleConfigDto {
  */
 export class WorkflowStepConfigDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   id!: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   name!: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(2000)
   description?: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
   type!:
     | "task"
     | "decision"
@@ -136,21 +147,28 @@ export class ConstraintConfigDto {
  */
 export class CreateCustomTeamDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   name!: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(2000)
   description?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(100)
   icon?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(50)
   color?: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   leaderRoleId!: string;
 
   @IsArray()

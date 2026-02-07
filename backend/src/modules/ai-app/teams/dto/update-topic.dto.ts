@@ -9,6 +9,7 @@ export class UpdateTopicDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   description?: string;
 
   @IsOptional()
@@ -17,6 +18,7 @@ export class UpdateTopicDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(2048)
   avatar?: string;
 
   @IsOptional()
