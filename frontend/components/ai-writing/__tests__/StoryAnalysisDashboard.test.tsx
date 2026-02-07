@@ -44,7 +44,10 @@ const mockDashboard: api.AnalysisDashboard = {
         sourceChapter: 5,
         targetChapter: 10,
         subject: 'John',
-        conflictingStatements: ['John is 25 years old', 'John celebrated his 30th birthday'],
+        conflictingStatements: [
+          'John is 25 years old',
+          'John celebrated his 30th birthday',
+        ],
         suggestedResolution: 'Adjust the timeline or character age',
       },
     ],
@@ -173,12 +176,13 @@ describe('StoryAnalysisDashboard', () => {
   });
 
   it('displays completion status correctly when story is complete', async () => {
-    const completeDashboard = {
+    const completeDashboard: api.AnalysisDashboard = {
       ...mockDashboard,
       completion: {
-        ...mockDashboard.completion,
         isComplete: true,
         confidence: 0.95,
+        signals: [],
+        recommendation: 'Story is complete',
       },
     };
     vi.mocked(api.getAnalysisDashboard).mockResolvedValue(completeDashboard);

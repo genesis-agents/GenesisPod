@@ -114,11 +114,22 @@ export function StoryAnalysisDashboard({
       </div>
 
       {/* Completion Analysis */}
-      <CompletionSection
-        completion={dashboard.completion}
-        expanded={expandedSections.completion}
-        onToggle={() => toggleSection('completion')}
-      />
+      {dashboard.completion ? (
+        <CompletionSection
+          completion={dashboard.completion}
+          expanded={expandedSections.completion}
+          onToggle={() => toggleSection('completion')}
+        />
+      ) : (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="flex items-center gap-2 text-gray-500">
+            <Info className="h-5 w-5" />
+            <span className="text-sm">
+              Story completion analysis not yet available
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Timeline Conflicts */}
       <ConflictsSection
@@ -146,7 +157,7 @@ export function StoryAnalysisDashboard({
 // ==================== Sub Components ====================
 
 interface CompletionSectionProps {
-  completion: AnalysisDashboard['completion'];
+  completion: NonNullable<AnalysisDashboard['completion']>;
   expanded: boolean;
   onToggle: () => void;
 }
@@ -304,9 +315,7 @@ function ConflictsSection({
           {hasConflicts ? (
             <AlertTriangle
               className={`h-5 w-5 ${
-                conflicts.highSeverity > 0
-                  ? 'text-red-500'
-                  : 'text-yellow-500'
+                conflicts.highSeverity > 0 ? 'text-red-500' : 'text-yellow-500'
               }`}
             />
           ) : (
@@ -398,7 +407,9 @@ function ConflictItem({
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-900">{conflict.subject}</span>
+            <span className="font-medium text-gray-900">
+              {conflict.subject}
+            </span>
             <span className="text-xs text-gray-500">
               Ch.{conflict.sourceChapter}
               {conflict.targetChapter && ` vs Ch.${conflict.targetChapter}`}

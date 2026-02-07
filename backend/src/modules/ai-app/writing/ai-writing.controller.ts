@@ -938,117 +938,32 @@ export class AiWritingController {
   }
 
   /**
-   * [DEBUG] 公开诊断端点 - 用于排查 analysis-dashboard 500 错误
-   * TODO: 排查完成后移除此端点
-   */
-  @Public()
-  @Get("projects/:projectId/analysis-debug")
-  async debugAnalysisDashboard(@Param("projectId") projectId: string) {
-    const steps: string[] = [];
-    try {
-      steps.push("start");
-      const result = await this.coordinator.getAnalysisDashboard(
-        projectId,
-        "debug",
-      );
-      steps.push("coordinator-done");
-      return { ok: true, steps, result };
-    } catch (error) {
-      steps.push("error");
-      return {
-        ok: false,
-        steps,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      };
-    }
-  }
-
-  /**
-   * 获取项目分析仪表板数据
-   * 汇总完成度、冲突、摘要等信息
+   * 获取项目分析仪表板数据（轻量级，仅数据库查询）
+   * 完成度分析和冲突检测通过独立端点按需触发
    */
   @Get("projects/:projectId/analysis-dashboard")
   async getAnalysisDashboard(
     @Request() req: RequestWithUser,
     @Param("projectId") projectId: string,
   ) {
-    try {
-      const dashboard = await this.coordinator.getAnalysisDashboard(
-        projectId,
-        req.user.id,
-      );
+    const dashboard = await this.coordinator.getAnalysisDashboard(
+      projectId,
+      req.user.id,
+    );
 
-      // Transform conflicts to frontend format (graceful when analysis failed)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rawConflicts: any[] = dashboard.conflicts?.conflicts ?? [];
-      const transformedConflicts = rawConflicts.map(
-        (c: {
-          chapter1: string;
-          chapter2: string;
-          entity: string;
-          type: string;
-          severity: string;
-          description: string;
-          expected: string;
-          found: string;
-          suggestion: string;
-        }) => ({
-          id: `${c.chapter1}-${c.chapter2}-${c.entity}`,
-          type: c.type,
-          severity: this.mapConflictSeverity(c.severity),
-          description: c.description,
-          sourceChapter: c.chapter1,
-          targetChapter: c.chapter2,
-          subject: c.entity,
-          conflictingStatements: [c.expected, c.found],
-          suggestedResolution: c.suggestion,
-        }),
-      );
-
-      return {
-        projectId,
-        projectName: dashboard.project?.name || "Unknown",
-        completion: dashboard.completion
-          ? {
-              isComplete: dashboard.completion.isComplete,
-              confidence: dashboard.completion.confidence,
-              signals: dashboard.completion.signals,
-              recommendation: dashboard.completion.recommendation,
-            }
-          : null,
-        conflicts: {
-          total: transformedConflicts.length,
-          highSeverity: transformedConflicts.filter(
-            (c: { severity: string }) => c.severity === "HIGH",
-          ).length,
-          mediumSeverity: transformedConflicts.filter(
-            (c: { severity: string }) => c.severity === "MEDIUM",
-          ).length,
-          lowSeverity: transformedConflicts.filter(
-            (c: { severity: string }) => c.severity === "LOW",
-          ).length,
-          recentConflicts: transformedConflicts.slice(0, 5),
-        },
-        agentActivity: dashboard.agentActivity,
-        analyzedAt: dashboard.analyzedAt,
-      };
-    } catch (error) {
-      // Last resort: return empty dashboard to prevent 500
-      return {
-        projectId,
-        projectName: "Unknown",
-        completion: null,
-        conflicts: {
-          total: 0,
-          highSeverity: 0,
-          mediumSeverity: 0,
-          lowSeverity: 0,
-          recentConflicts: [],
-        },
-        agentActivity: { recentEntries: [], totalEntries: 0 },
-        analyzedAt: new Date().toISOString(),
-      };
-    }
+    return {
+      projectId,
+      projectName: dashboard.project?.name || "Unknown",
+      completion: null,
+      conflicts: {
+        total: 0,
+        highSeverity: 0,
+        mediumSeverity: 0,
+        lowSeverity: 0,
+        recentConflicts: [],
+      },
+      agentActivity: dashboard.agentActivity,
+      analyzedAt: dashboard.analyzedAt,
+    };
   }
 }

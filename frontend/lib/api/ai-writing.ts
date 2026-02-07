@@ -1131,7 +1131,7 @@ export interface AnalysisDashboard {
     confidence: number;
     signals: CompletionSignal[];
     recommendation: string;
-  };
+  } | null;
   conflicts: {
     total: number;
     highSeverity: number;
@@ -1171,9 +1171,7 @@ export async function getTimelineConflicts(
 /**
  * 获取章节时间线冲突
  */
-export async function getChapterTimelineConflicts(
-  chapterId: string
-): Promise<{
+export async function getChapterTimelineConflicts(chapterId: string): Promise<{
   chapterId: string;
   conflicts: TimelineConflict[];
   totalConflicts: number;

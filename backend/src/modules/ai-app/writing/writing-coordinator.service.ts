@@ -651,19 +651,16 @@ export class WritingCoordinatorService {
    * Combines completion analysis, timeline conflicts, and agent activity
    */
   async getAnalysisDashboard(projectId: string, userId: string) {
-    // Build an empty dashboard shell first — always returned on any failure
-    const emptyResult: {
+    // Dashboard endpoint must be lightweight — no LLM calls.
+    // Completion and conflict analysis involve multiple LLM calls that
+    // exceed Railway's 30s request timeout. Use the dedicated
+    // /completion-analysis and /timeline-conflicts endpoints instead.
+    const result: {
       project: { id: string; name: string };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      completion: any;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      conflicts: any;
       agentActivity: { recentEntries: ScratchpadEntry[]; totalEntries: number };
       analyzedAt: string;
     } = {
       project: { id: projectId, name: "Unknown" },
-      completion: null,
-      conflicts: null,
       agentActivity: { recentEntries: [], totalEntries: 0 },
       analyzedAt: new Date().toISOString(),
     };
@@ -671,15 +668,15 @@ export class WritingCoordinatorService {
     // 1. Verify project ownership
     try {
       const project = await this.projectService.findOne(projectId, userId);
-      emptyResult.project = { id: project.id, name: project.name };
+      result.project = { id: project.id, name: project.name };
     } catch (err) {
       this.logger.error(
         `[AnalysisDashboard] Project lookup failed: ${err instanceof Error ? err.message : String(err)}`,
       );
-      return emptyResult;
+      return result;
     }
 
-    // 2. Get scratchpad entries
+    // 2. Get scratchpad entries (DB only, no LLM)
     try {
       const recentMission =
         await this.writingMissionService.getLatestMission(projectId);
@@ -688,7 +685,7 @@ export class WritingCoordinatorService {
           recentMission.id,
           { limit: 10 },
         );
-        emptyResult.agentActivity = {
+        result.agentActivity = {
           recentEntries: entries,
           totalEntries: entries.length,
         };
@@ -699,26 +696,6 @@ export class WritingCoordinatorService {
       );
     }
 
-    // 3. Completion analysis (sequential, individual try-catch)
-    try {
-      emptyResult.completion =
-        await this.storyCompletionDetector.analyzeCompletion(projectId);
-    } catch (err) {
-      this.logger.warn(
-        `[AnalysisDashboard] Completion analysis failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-
-    // 4. Conflict analysis (sequential, individual try-catch)
-    try {
-      emptyResult.conflicts =
-        await this.temporalConflictAnalyzer.analyzeProject(projectId);
-    } catch (err) {
-      this.logger.warn(
-        `[AnalysisDashboard] Conflict analysis failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-
-    return emptyResult;
+    return result;
   }
 }
