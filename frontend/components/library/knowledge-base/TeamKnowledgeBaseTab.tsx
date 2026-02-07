@@ -14,6 +14,14 @@ import {
   UserPlus,
   ChevronRight,
   Eye,
+  HardDrive,
+  FileUp,
+  Globe,
+  StickyNote,
+  Bookmark,
+  PenLine,
+  ImageIcon,
+  BookOpen,
 } from 'lucide-react';
 import {
   useKnowledgeBase,
@@ -206,15 +214,17 @@ export default function TeamKnowledgeBaseTab({
   };
 
   const getSourceTypeIcon = (type: KnowledgeBase['sourceType']) => {
-    const icons: Record<string, string> = {
-      GOOGLE_DRIVE: '📁',
-      MANUAL: '📄',
-      URL: '🔗',
-      NOTION: '📝',
-      BOOKMARK: '🔖',
-      NOTE: '✍️',
+    const iconClass = 'h-6 w-6 text-white';
+    const icons: Record<string, React.ReactNode> = {
+      GOOGLE_DRIVE: <HardDrive className={iconClass} />,
+      MANUAL: <FileUp className={iconClass} />,
+      URL: <Globe className={iconClass} />,
+      NOTION: <StickyNote className={iconClass} />,
+      BOOKMARK: <Bookmark className={iconClass} />,
+      NOTE: <PenLine className={iconClass} />,
+      IMAGE: <ImageIcon className={iconClass} />,
     };
-    return icons[type] || '📚';
+    return icons[type] || <BookOpen className={iconClass} />;
   };
 
   const getSourceTypeLabel = (type: KnowledgeBase['sourceType'] | string) => {
@@ -471,11 +481,9 @@ export default function TeamKnowledgeBaseTab({
                 <div className="flex items-start gap-4">
                   {/* Large Gradient Icon */}
                   <div
-                    className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${getIconGradient(kb.sourceType)} text-2xl shadow-md transition-transform duration-300 group-hover:scale-105`}
+                    className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${getIconGradient(kb.sourceType)} shadow-md transition-transform duration-300 group-hover:scale-105`}
                   >
-                    <span className="drop-shadow-sm">
-                      {getSourceTypeIcon(kb.sourceType)}
-                    </span>
+                    {getSourceTypeIcon(kb.sourceType)}
                   </div>
                   <div className="min-w-0 flex-1 pt-1">
                     <h3 className="truncate text-base font-semibold text-gray-900 transition-colors group-hover:text-purple-600">
