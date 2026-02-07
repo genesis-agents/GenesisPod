@@ -1,5 +1,63 @@
 [
   {
+    "version": "3.52.0",
+    "date": "2026-02-07",
+    "changes": [
+      {
+        "type": "feature",
+        "description": "add comprehensive test plan and full-spectrum ui-iteration coverage"
+      },
+      {
+        "type": "fix",
+        "description": "fix diagnoseTools false positive \"需要配置 API 密钥\""
+      },
+      {
+        "type": "fix",
+        "description": "fix provider icon 404s and dashboard resilience"
+      },
+      {
+        "type": "fix",
+        "description": "make monitoring fetchData endpoints independent"
+      },
+      {
+        "type": "fix",
+        "description": "show incremental progress in batch collection drawer"
+      },
+      {
+        "type": "fix",
+        "description": "fix tag push and regenerate deduplicated CHANGELOG"
+      },
+      {
+        "type": "fix",
+        "description": "correct module name and transaction type in credit billing"
+      },
+      {
+        "type": "improvement",
+        "description": "optimize memory usage - limit Node.js heap + Puppeteer idle cleanup"
+      },
+      {
+        "type": "improvement",
+        "description": "move business agents to AI App modules"
+      },
+      {
+        "type": "improvement",
+        "description": "p0-p2 architecture improvements and security hardening"
+      },
+      {
+        "type": "improvement",
+        "description": "p0+p1 architecture improvements"
+      },
+      {
+        "type": "improvement",
+        "description": "replace hardcoded params with TaskProfile, add Redis + scoring"
+      },
+      {
+        "type": "improvement",
+        "description": "unify TaskProfile and ChatMessage types"
+      }
+    ]
+  },
+  {
     "version": "3.51.0",
     "date": "2026-02-06",
     "changes": [
