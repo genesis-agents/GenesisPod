@@ -585,6 +585,9 @@
     },
     "search": {
       "placeholder": "Search insights..."
+    },
+    "skills": {
+      "title": "Research Skills"
     }
   },
   "aiResearch": {
@@ -996,6 +999,9 @@
     "header": {
       "selectResources": "Select resources, customize generation"
     },
+    "skills": {
+      "title": "AI Office Skills"
+    },
     "tabs": {
       "slides": "AI Slides",
       "docs": "AI Docs",
@@ -1251,6 +1257,9 @@
     "signIn": {
       "title": "Please Sign In",
       "description": "Sign in to start AI Writing"
+    },
+    "skills": {
+      "title": "AI Writing Skills"
     },
     "newProject": "New Project",
     "myProjects": "My Projects",
@@ -5066,6 +5075,10 @@
           "noResults": "No matching users found",
           "selectedCount": "{{count}} members selected",
           "addMembersHint": "Add team members who can access this research topic"
+        },
+        "skills": {
+          "title": "Research Skills",
+          "description": "Skills powering your research analysis"
         },
         "saveSuccess": "Saved successfully",
         "saveSuccessMsg": "Research settings updated",

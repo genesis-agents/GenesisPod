@@ -1,10 +1,11 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppShell from '@/components/layout/AppShell';
 import WorkspaceLayout from '@/components/ai-office/layout/WorkspaceLayout';
-import { LogIn } from 'lucide-react';
+import { SkillsModal } from '@/components/common/skills/SkillsModal';
+import { LogIn, Sparkles } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 
 // Loading fallback for Suspense
@@ -24,6 +25,7 @@ function WorkspaceLoading() {
 export default function AIOfficePage() {
   const { user, isLoading, loginWithGoogle } = useAuth();
   const { t } = useTranslation();
+  const [showSkillsModal, setShowSkillsModal] = useState(false);
 
   // 加载中
   if (isLoading) {
@@ -112,8 +114,17 @@ export default function AIOfficePage() {
                   </p>
                 </div>
               </div>
-              <div className="text-sm text-gray-500">
-                {t('aiOffice.header.selectResources')}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowSkillsModal(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+                  title={t('aiOffice.skills.title') || 'AI Office Skills'}
+                >
+                  <Sparkles className="h-4 w-4 text-violet-500" />
+                </button>
+                <span className="text-sm text-gray-500">
+                  {t('aiOffice.header.selectResources')}
+                </span>
               </div>
             </div>
           </div>
@@ -126,6 +137,14 @@ export default function AIOfficePage() {
           </Suspense>
         </div>
       </main>
+
+      {/* Skills Modal */}
+      <SkillsModal
+        open={showSkillsModal}
+        onClose={() => setShowSkillsModal(false)}
+        domain="office"
+        title={t('aiOffice.skills.title') || 'AI Office Skills'}
+      />
     </AppShell>
   );
 }

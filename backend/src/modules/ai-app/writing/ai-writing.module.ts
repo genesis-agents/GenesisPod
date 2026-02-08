@@ -7,6 +7,7 @@ import { WritingRepository } from "./writing.repository";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
+import { PromptSkillBridge } from "../../ai-engine/skills/runtime";
 import { CreditsModule } from "../../credits/credits.module";
 
 // AI Engine Long Content (for long-form writing) - 直接文件导入
@@ -201,7 +202,10 @@ import {
 export class AiWritingModule implements OnModuleInit {
   private readonly logger = new Logger(AiWritingModule.name);
 
-  constructor(private readonly styleTemplateService: StyleTemplateService) {}
+  constructor(
+    private readonly styleTemplateService: StyleTemplateService,
+    private readonly promptSkillBridge: PromptSkillBridge,
+  ) {}
 
   async onModuleInit() {
     // Writing Agents are managed internally by WritingMissionService
@@ -226,5 +230,12 @@ export class AiWritingModule implements OnModuleInit {
         `Failed to initialize system style templates: ${(e as Error).message}`,
       );
     }
+
+    // Bridge prompt skills from SKILL.md → SkillRegistry
+    const bridgeResult = await this.promptSkillBridge.registerDomain("writing");
+    this.logger.log(
+      `  Prompt skills bridged: registered=${bridgeResult.registered.length}, ` +
+        `skipped=${bridgeResult.skipped.length}, errors=${bridgeResult.errors.length}`,
+    );
   }
 }

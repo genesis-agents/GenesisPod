@@ -77,6 +77,10 @@ import { AiEngineTracingService, TraceCollectorService } from "./observability";
 import { AIEngineFacade } from "./facade";
 import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
 
+// SKILL.md Runtime (PromptSkillBridge + InputBindingResolver)
+import { PromptSkillBridge } from "./skills/runtime/prompt-skill-bridge.service";
+import { InputBindingResolver } from "./skills/runtime/input-binding-resolver";
+
 // ★ VotingManager 和 HandoffCoordinator 已迁移到 CollaborationModule
 // (不再需要在此导入，通过 CollaborationModule 导出)
 
@@ -140,6 +144,10 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // === Facade (统一入口) ===
     AIEngineFacade,
+
+    // === SKILL.md Runtime ===
+    PromptSkillBridge,
+    InputBindingResolver,
   ],
   exports: [
     // ★ 重新导出子模块
@@ -180,6 +188,10 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // === Facade (统一入口) ===
     AIEngineFacade,
+
+    // === SKILL.md Runtime ===
+    PromptSkillBridge,
+    InputBindingResolver,
   ],
 })
 export class AiEngineModule implements OnModuleInit {

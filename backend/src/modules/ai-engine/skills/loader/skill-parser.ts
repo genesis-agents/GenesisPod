@@ -126,6 +126,15 @@ function normalizeFrontmatter(
   const description =
     raw.description || extractedTitle || `Skill: ${name || id}`;
 
+  // Runtime 扩展字段 (kebab-case 别名)
+  const outputKey = raw.outputKey ?? raw["output-key"];
+  const taskProfile = raw.taskProfile ?? raw["task-profile"];
+  const outputSchema = raw.outputSchema ?? raw["output-schema"];
+  const inputSchema = raw.inputSchema ?? raw["input-schema"];
+  const requiredSkills = raw.requiredSkills ?? raw["required-skills"];
+  const requiredTools = raw.requiredTools ?? raw["required-tools"];
+  const executionMode = raw.executionMode ?? raw["execution-mode"];
+
   // 设置默认值并返回标准化结果
   return {
     // Claude Code 官方字段
@@ -154,6 +163,17 @@ function normalizeFrontmatter(
     updatedAt: raw.updatedAt,
     enabled: raw.enabled !== false, // 默认启用
     tokenBudget: raw.tokenBudget,
+
+    // Runtime 扩展字段
+    layer: raw.layer as SkillMdFrontmatter["layer"],
+    outputKey,
+    taskProfile,
+    outputSchema,
+    inputSchema,
+    inputs: raw.inputs,
+    requiredSkills,
+    requiredTools,
+    executionMode,
   };
 }
 

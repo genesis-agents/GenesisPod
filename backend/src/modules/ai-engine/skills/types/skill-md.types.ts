@@ -8,6 +8,7 @@
  */
 
 import type { TaskProfile } from "../../llm/types";
+import type { SkillLayer } from "../abstractions/skill.interface";
 
 /**
  * Skill 来源类型
@@ -48,6 +49,62 @@ export interface SkillHooks {
 }
 
 /**
+ * 声明式输入绑定
+ *
+ * 在 SKILL.md frontmatter 中声明输入来源，替代硬编码的 switch/case 映射。
+ *
+ * 绑定解析规则:
+ * - 无前缀: SkillOutputManager.get(key)  → from: "task-decomposition"
+ * - context.: globalContext[path]         → from: "context.sourceText"
+ * - input.:   task.input[path]            → from: "input.targetPages"
+ */
+export interface SkillInputBinding {
+  /** 数据来源 (SkillOutputManager key / context.path / input.path) */
+  from: string;
+  /** 是否必需 (缺失时抛错 vs 返回 undefined) */
+  required: boolean;
+}
+
+/**
+ * SKILL.md Runtime 扩展字段
+ *
+ * 使 SKILL.md 能被 PromptSkillAdapter 转为 ISkill 实例。
+ * 通过 intersection type 追加到 SkillMdFrontmatter。
+ */
+export interface SkillMdRuntimeFields {
+  /** ISkill.layer 映射 (默认 "content") */
+  layer?: SkillLayer;
+
+  /** SkillOutputManager 存储键 (默认 = skill id) */
+  outputKey?: string;
+
+  /** LLM 调用参数 (prompt 模式使用) */
+  taskProfile?: TaskProfile;
+
+  /** 输出 JSON Schema (LLM 输出解析/验证) */
+  outputSchema?: Record<string, unknown>;
+
+  /** 输入 JSON Schema (可选验证) */
+  inputSchema?: Record<string, unknown>;
+
+  /** 声明式输入绑定 */
+  inputs?: Record<string, SkillInputBinding>;
+
+  /** 依赖的其他 Skills (执行前检查) */
+  requiredSkills?: string[];
+
+  /** 声明需要的 Tools */
+  requiredTools?: string[];
+
+  /**
+   * 执行模式标记
+   * 'provider' = 此 SKILL.md 有对应的 NestJS Provider 实现 (code-based)
+   * 省略 = 使用 PromptSkillAdapter (prompt-based)
+   */
+  executionMode?: "provider";
+}
+
+/**
  * SKILL.md 文件的 Frontmatter 元数据
  *
  * 完全兼容 Claude Code 官方字段，同时支持我们的扩展
@@ -70,7 +127,7 @@ export interface SkillHooks {
  * - taskTypes: 任务类型匹配
  * - priority: 优先级
  */
-export interface SkillMdFrontmatter {
+export interface SkillMdFrontmatterBase {
   // ========== Claude Code 官方字段 ==========
 
   /**
@@ -191,6 +248,13 @@ export interface SkillMdFrontmatter {
 }
 
 /**
+ * 完整的 Frontmatter 类型 (基础 + Runtime 扩展)
+ *
+ * 所有消费方应使用此类型，而非 SkillMdFrontmatterBase
+ */
+export type SkillMdFrontmatter = SkillMdFrontmatterBase & SkillMdRuntimeFields;
+
+/**
  * 原始 Frontmatter（解析时使用，支持 Claude Code 字段别名）
  * 同时支持 kebab-case（Claude Code 官方）和 camelCase（我们的扩展）
  */
@@ -227,6 +291,24 @@ export interface RawSkillMdFrontmatter {
   updatedAt?: string;
   enabled?: boolean;
   tokenBudget?: number;
+
+  // Runtime 扩展字段 (SKILL.md → ISkill 转换)
+  layer?: string;
+  outputKey?: string;
+  "output-key"?: string;
+  taskProfile?: TaskProfile;
+  "task-profile"?: TaskProfile;
+  outputSchema?: Record<string, unknown>;
+  "output-schema"?: Record<string, unknown>;
+  inputSchema?: Record<string, unknown>;
+  "input-schema"?: Record<string, unknown>;
+  inputs?: Record<string, SkillInputBinding>;
+  requiredSkills?: string[];
+  "required-skills"?: string[];
+  requiredTools?: string[];
+  "required-tools"?: string[];
+  executionMode?: "provider";
+  "execution-mode"?: "provider";
 }
 
 /**

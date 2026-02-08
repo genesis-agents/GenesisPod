@@ -585,6 +585,9 @@
     },
     "search": {
       "placeholder": "搜索洞察..."
+    },
+    "skills": {
+      "title": "研究技能"
     }
   },
   "aiResearch": {
@@ -996,6 +999,9 @@
     "header": {
       "selectResources": "选择资源，自定义生成"
     },
+    "skills": {
+      "title": "AI 办公技能"
+    },
     "tabs": {
       "slides": "AI Slides",
       "docs": "AI Docs",
@@ -1251,6 +1257,9 @@
     "signIn": {
       "title": "请先登录",
       "description": "登录后即可开始 AI 写作"
+    },
+    "skills": {
+      "title": "AI 写作技能"
     },
     "newProject": "新建项目",
     "myProjects": "我的项目",
@@ -5347,6 +5356,10 @@
           "noResults": "未找到匹配的用户",
           "selectedCount": "已选择 {{count}} 名成员",
           "addMembersHint": "添加可以访问此研究专题的团队成员"
+        },
+        "skills": {
+          "title": "研究技能",
+          "description": "驱动研究分析的 AI 技能"
         },
         "saveSuccess": "保存成功",
         "saveSuccessMsg": "研究设置已更新",

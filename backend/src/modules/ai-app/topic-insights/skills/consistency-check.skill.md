@@ -1,3 +1,17 @@
+---
+id: consistency-check
+name: 跨维度一致性检查
+version: 1.0.0
+domain: research
+tags: [analysis, consistency, quality, validation]
+taskTypes: [dimension-research, report-synthesis]
+priority: 10
+author: deepdive-engine
+source: local
+description: 检查多个研究维度之间的数据冲突和逻辑矛盾，确保最终报告的一致性和可信度
+tokenBudget: 800
+---
+
 # 跨维度一致性检查 Skill
 
 ## 技能概述

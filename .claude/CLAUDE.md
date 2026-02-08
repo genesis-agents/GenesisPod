@@ -40,6 +40,72 @@ AI Apps（应用层）→ AI Studio / AI Office / AI Simulation
 
 > 详细文档: [skills/ai-architecture-layering/SKILL.md](skills/ai/ai-architecture-layering/SKILL.md)
 
+### 模块依赖关系（必读）
+
+**所有 AI App 模块只通过 `AIEngineFacade` 和 Registry 访问 AI Engine，禁止直接导入 Engine 内部服务。**
+
+```
+AI App 模块                          AI Engine 核心
+─────────────                        ─────────────
+Research  ──┐                        ┌── AIEngineFacade (统一入口)
+Teams     ──┤                        ├── AgentRegistry (注册 Agent)
+Writing   ──┤── 全部通过 ──────────→ ├── TeamRegistry (注册 Team)
+Office    ──┤   Facade + Registry    ├── ToolRegistry (注册 Tool)
+Ask       ──┤                        ├── AiChatService (LLM 调用)
+Social    ──┤                        ├── EmbeddingService (向量化)
+Image     ──┘                        └── Orchestration (执行器)
+```
+
+**关键关系（Claude 必须记住，不要猜）：**
+
+| 关系               | 说明                                                                          |
+| ------------------ | ----------------------------------------------------------------------------- |
+| AI App → AI Engine | 单向依赖，App 层调 Engine 层，**反过来不行**                                  |
+| AI App 之间        | **极少直接依赖**，如有需要通过 AI Engine 中转                                 |
+| Topic Insights     | 属于 `ai-app/`，是 Research 的衍生应用，**不是** AI Engine 核心               |
+| RAG                | 核心在 `ai-engine/rag/`（Embedding/Vector/Chunker），业务逻辑在 `ai-app/rag/` |
+| Teams 模块         | `ai-engine/teams/` 是框架（Registry），`ai-app/teams/` 是业务（辩论等）       |
+| Image 模块         | `ai-engine/image/` 是能力，`ai-app/image/` 是应用，用 `forwardRef` 解循环依赖 |
+
+**注册模式（onModuleInit）：**
+
+```typescript
+// AI App 模块在 onModuleInit 中向 Engine Registry 注册自己的 Agent/Team
+onModuleInit() {
+  this.agentRegistry.register(this.myAgent);
+  this.teamRegistry.registerConfig(MY_TEAM_CONFIG);
+}
+```
+
+---
+
+## 行为红线
+
+> **这些规则从历史 session 中提炼，Claude 必须严格遵守。**
+
+### 分析先行，禁止猜测
+
+- 诊断任何问题前，**必须先 Read 相关源码**，不得凭记忆或猜测给出结论
+- 做架构评估/代码审查时，**必须列出实际读过的文件路径**，未读过的不评分
+- 如果不确定两个模块的关系，**读 .module.ts 的 imports 确认**，不要猜
+
+### 只改该改的
+
+- **不得修改任务范围外的文件**。发现无关问题可以记录，但不要擅自改
+- 不做"顺手优化"——不加 docstring、不重命名变量、不"改善"未涉及的代码
+
+### 架构决策必须确认
+
+- 涉及新增依赖、模块间关系变更、接口设计时，**先说方案等我确认**
+- 在"快速修复"和"正确抽象"之间，**永远选正确抽象**，除非我明确说"临时方案"
+- 不得用 provider-specific 硬编码（如 `model: "gpt-4o"`），必须走 TaskProfile
+
+### Git 规范
+
+- Commit message: 小写 type，header < 100 字符，无句号结尾
+- Push 失败时：`git pull --rebase` 然后重试，不要 force push
+- 一个 commit 只做一件事，不要混合无关变更
+
 ---
 
 ## 代码规范

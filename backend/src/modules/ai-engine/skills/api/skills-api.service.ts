@@ -6,8 +6,10 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { APP_CONFIG } from "../../../../common/config/app.config";
+import { SkillRegistry } from "../registry/skill-registry";
 
 export interface SkillItem {
   id: string;
@@ -45,11 +47,42 @@ export interface SearchParams {
   offset?: number;
 }
 
+export interface SkillEffectiveness {
+  usageCount: number;
+  successCount: number;
+  successRate: number;
+  avgDuration: number | null;
+}
+
+export interface DomainSkillItem {
+  skillId: string;
+  displayName: string;
+  description: string;
+  layer: string | null;
+  domain: string | null;
+  enabled: boolean;
+  tags: string[];
+  source: string;
+  effectiveness: SkillEffectiveness;
+}
+
+export interface DomainSkillsResponse {
+  skills: DomainSkillItem[];
+  stats: {
+    total: number;
+    enabled: number;
+    byLayer: Record<string, number>;
+  };
+}
+
 @Injectable()
 export class SkillsApiService {
   private readonly logger = new Logger(SkillsApiService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly skillRegistry: SkillRegistry,
+  ) {}
 
   /**
    * 获取设置值
@@ -558,5 +591,216 @@ export class SkillsApiService {
       return `${(count / 1000).toFixed(0)}K+`;
     }
     return `${count}+`;
+  }
+
+  // ==================== Domain Skills API ====================
+
+  /**
+   * 获取指定领域的 Skills
+   * 包含 domain-specific + general skills + effectiveness 数据
+   */
+  async getSkillsByDomain(domain: string): Promise<DomainSkillsResponse> {
+    // 1. 获取 SkillConfig 中属于该 domain 或 general 的技能
+    const skillConfigs = await this.prisma.skillConfig.findMany({
+      where: {
+        OR: [
+          { domain },
+          { domain: "general" },
+          { domain: "common" },
+          { domain: null },
+        ],
+      },
+    });
+
+    // 2. 也从 SkillRegistry 获取已注册但可能没有 SkillConfig 的技能
+    const domainSet = new Set([domain, "general", "common"]);
+    const registrySkills = Array.from(domainSet).flatMap((d) =>
+      this.skillRegistry.getByDomain(d),
+    );
+
+    // 3. 合并去重，以 SkillConfig 为主
+    const configSkillIds = new Set(skillConfigs.map((c) => c.skillId));
+    const allSkillIds = new Set<string>(configSkillIds);
+    for (const skill of registrySkills) {
+      allSkillIds.add(skill.id);
+    }
+
+    // 4. 批量查询 effectiveness
+    const effectivenessMap = await this.getSkillEffectiveness(
+      Array.from(allSkillIds),
+    );
+
+    // 5. 构建返回数据
+    const skills: DomainSkillItem[] = [];
+    const byLayer: Record<string, number> = {};
+
+    for (const skillId of allSkillIds) {
+      const config = skillConfigs.find((c) => c.skillId === skillId);
+      const registrySkill = this.skillRegistry.tryGet(skillId);
+
+      // allowedDomains enforcement: 与 resolveSkillsForAgent 对齐
+      if (
+        config?.allowedDomains &&
+        config.allowedDomains.length > 0 &&
+        !config.allowedDomains.includes(domain)
+      ) {
+        continue;
+      }
+
+      // 检查 domain override
+      const domainOverrides = (config?.config as Record<string, unknown>)
+        ?.domainOverrides as Record<string, { enabled: boolean }> | undefined;
+      const domainOverride = domainOverrides?.[domain];
+      const isEnabled = domainOverride
+        ? domainOverride.enabled
+        : (config?.enabled ?? true);
+
+      const layer = config?.layer ?? registrySkill?.layer ?? null;
+      const skillDomain = config?.domain ?? registrySkill?.domain ?? null;
+
+      const item: DomainSkillItem = {
+        skillId,
+        displayName: config?.displayName ?? registrySkill?.name ?? skillId,
+        description: config?.description ?? registrySkill?.description ?? "",
+        layer,
+        domain: skillDomain,
+        enabled: isEnabled,
+        tags: config?.tags ?? registrySkill?.tags ?? [],
+        source: registrySkill ? "local" : "config",
+        effectiveness: effectivenessMap.get(skillId) ?? {
+          usageCount: 0,
+          successCount: 0,
+          successRate: 0,
+          avgDuration: null,
+        },
+      };
+      skills.push(item);
+
+      // Count by layer
+      const layerKey = layer ?? "unknown";
+      byLayer[layerKey] = (byLayer[layerKey] ?? 0) + 1;
+    }
+
+    return {
+      skills,
+      stats: {
+        total: skills.length,
+        enabled: skills.filter((s) => s.enabled).length,
+        byLayer,
+      },
+    };
+  }
+
+  /**
+   * 批量获取 Skill effectiveness 数据
+   * 使用 groupBy 避免 N+1 查询
+   */
+  async getSkillEffectiveness(
+    skillIds: string[],
+  ): Promise<Map<string, SkillEffectiveness>> {
+    const result = new Map<string, SkillEffectiveness>();
+
+    if (skillIds.length === 0) {
+      return result;
+    }
+
+    try {
+      const grouped = await this.prisma.aIUsageLog.groupBy({
+        by: ["capabilityId"],
+        where: {
+          capabilityType: "skill",
+          capabilityId: { in: skillIds },
+        },
+        _count: { id: true },
+        _avg: { duration: true },
+      });
+
+      // 另外查询成功次数
+      const successGrouped = await this.prisma.aIUsageLog.groupBy({
+        by: ["capabilityId"],
+        where: {
+          capabilityType: "skill",
+          capabilityId: { in: skillIds },
+          success: true,
+        },
+        _count: { id: true },
+      });
+
+      const successMap = new Map<string, number>();
+      for (const item of successGrouped) {
+        successMap.set(item.capabilityId, item._count.id);
+      }
+
+      for (const item of grouped) {
+        const usageCount = item._count.id;
+        const successCount = successMap.get(item.capabilityId) ?? 0;
+        const successRate =
+          usageCount > 0 ? Math.round((successCount / usageCount) * 100) : 0;
+
+        result.set(item.capabilityId, {
+          usageCount,
+          successCount,
+          successRate,
+          avgDuration: item._avg.duration ?? null,
+        });
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to query skill effectiveness: ${(error as Error).message}`,
+      );
+    }
+
+    return result;
+  }
+
+  /**
+   * 设置 Skill 的 domain-specific override
+   * 使用 config JSON 字段存储 domainOverrides
+   */
+  async setSkillDomainOverride(
+    skillId: string,
+    domain: string,
+    enabled: boolean,
+  ): Promise<void> {
+    // 查找或创建 SkillConfig
+    const existing = await this.prisma.skillConfig.findUnique({
+      where: { skillId },
+    });
+
+    if (existing) {
+      const config = (existing.config as Record<string, unknown>) ?? {};
+      const domainOverrides =
+        (config.domainOverrides as Record<string, unknown>) ?? {};
+      domainOverrides[domain] = { enabled };
+      config.domainOverrides = domainOverrides;
+
+      await this.prisma.skillConfig.update({
+        where: { skillId },
+        data: { config: config as Prisma.InputJsonValue },
+      });
+    } else {
+      // 从 registry 获取信息创建 config
+      const registrySkill = this.skillRegistry.tryGet(skillId);
+      await this.prisma.skillConfig.create({
+        data: {
+          skillId,
+          enabled: true,
+          displayName: registrySkill?.name ?? skillId,
+          description: registrySkill?.description ?? "",
+          domain: registrySkill?.domain ?? "general",
+          layer: registrySkill?.layer ?? null,
+          tags: registrySkill?.tags ?? [],
+          config: {
+            domainOverrides: {
+              [domain]: { enabled },
+            },
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }
+
+    this.logger.log(
+      `Set skill domain override: ${skillId} -> ${domain}: enabled=${enabled}`,
+    );
   }
 }

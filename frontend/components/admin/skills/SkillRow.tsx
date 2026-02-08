@@ -22,6 +22,8 @@ interface SkillRowProps {
   onToggle: (skillId: string, enabled: boolean) => void;
   onEdit: (skill: SkillConfig) => void;
   usageCount?: number;
+  successRate?: number;
+  avgDuration?: number | null;
 }
 
 export function SkillRow({
@@ -29,6 +31,8 @@ export function SkillRow({
   onToggle,
   onEdit,
   usageCount,
+  successRate,
+  avgDuration,
 }: SkillRowProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -105,6 +109,31 @@ export function SkillRow({
               </span>
             </div>
           )}
+          {/* Success Rate Badge */}
+          {successRate !== undefined &&
+            usageCount !== undefined &&
+            usageCount > 0 && (
+              <div
+                className={`rounded-lg px-2 py-1 text-xs font-medium ${
+                  successRate >= 90
+                    ? 'bg-green-50 text-green-700'
+                    : successRate >= 70
+                      ? 'bg-yellow-50 text-yellow-700'
+                      : 'bg-red-50 text-red-700'
+                }`}
+              >
+                {successRate}% success
+              </div>
+            )}
+          {/* Avg Duration Badge */}
+          {avgDuration !== undefined &&
+            avgDuration !== null &&
+            usageCount !== undefined &&
+            usageCount > 0 && (
+              <div className="rounded-lg bg-gray-50 px-2 py-1 text-xs text-gray-600">
+                ~{Math.round(avgDuration)}ms
+              </div>
+            )}
           {hasDependencies && (
             <button
               onClick={() => setExpanded(!expanded)}

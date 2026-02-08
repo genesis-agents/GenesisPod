@@ -9,12 +9,17 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Param,
+  Body,
   Query,
   Logger,
   UseGuards,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { SkillsApiService } from "./skills-api.service";
+import { SetDomainOverrideDto } from "./dto/set-domain-override.dto";
 
 @Controller("skills")
 @UseGuards(JwtAuthGuard)
@@ -97,6 +102,39 @@ export class SkillsController {
   async getCategories() {
     this.logger.debug("Fetching skill categories");
     return this.skillsApiService.getCategories();
+  }
+
+  /**
+   * 获取指定领域的 Skills + effectiveness
+   * GET /api/v1/skills/by-domain/:domain
+   */
+  @Get("by-domain/:domain")
+  async getSkillsByDomain(@Param("domain") domain: string) {
+    this.logger.debug(`Fetching skills for domain: ${domain}`);
+    return this.skillsApiService.getSkillsByDomain(domain);
+  }
+
+  /**
+   * 切换 Skill 在特定领域的启用状态
+   * PATCH /api/v1/skills/:skillId/domains/:domain
+   * Admin only
+   */
+  @Patch(":skillId/domains/:domain")
+  @UseGuards(AdminGuard)
+  async setSkillDomainOverride(
+    @Param("skillId") skillId: string,
+    @Param("domain") domain: string,
+    @Body() body: SetDomainOverrideDto,
+  ) {
+    this.logger.log(
+      `Setting domain override: skill=${skillId}, domain=${domain}, enabled=${body.enabled}`,
+    );
+    await this.skillsApiService.setSkillDomainOverride(
+      skillId,
+      domain,
+      body.enabled,
+    );
+    return { success: true };
   }
 
   /**

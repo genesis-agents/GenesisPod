@@ -8,6 +8,11 @@ import { Injectable, Logger } from "@nestjs/common";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
 import { AiChatLLMAdapter } from "@/modules/ai-engine/llm/adapters/ai-chat-llm-adapter";
 import {
+  InputBindingResolver,
+  PromptSkillAdapter,
+} from "@/modules/ai-engine/skills/runtime";
+import { ISkill } from "@/modules/ai-engine/skills/abstractions/skill.interface";
+import {
   SlidesTask,
   SlidesTeamMemberRole,
   SLIDES_TEAM_MEMBERS,
@@ -28,6 +33,7 @@ export class SlidesTeamMember {
   constructor(
     private readonly skillRegistry: SkillRegistry,
     private readonly llmAdapter: AiChatLLMAdapter,
+    private readonly inputBindingResolver: InputBindingResolver,
   ) {}
 
   /**
@@ -96,7 +102,7 @@ export class SlidesTeamMember {
       }
 
       // 构建 Skill 输入
-      const skillInput = this.buildSkillInput(task, context);
+      const skillInput = this.buildSkillInput(task, context, targetSkill);
 
       // 执行 Skill
       const skillResult = await targetSkill.execute(skillInput, {
@@ -139,23 +145,24 @@ export class SlidesTeamMember {
   /**
    * 构建 Skill 输入
    *
-   * 使用 AI Engine 统一规范的 SkillOutputManager 获取之前的输出
+   * - PromptSkillAdapter: 使用 InputBindingResolver 从 SKILL.md inputs 声明自动解析
+   * - Code-based skills: 保留手动 switch/case 映射
    */
   private buildSkillInput(
     task: SlidesTask,
     context: SkillExecutionContext,
+    skill: ISkill,
   ): unknown {
     // 优先使用 outputManager（新规范），回退到 previousOutputs（兼容）
     const getOutput = <T>(skillId: string): T | undefined => {
       if (context.outputManager) {
         return context.outputManager.get<T>(skillId);
       }
-      // 兼容旧的 previousOutputs
       return (context.previousOutputs[skillId] ||
         context.previousOutputs[`slides-${skillId}`]) as T | undefined;
     };
 
-    // 基础输入
+    // 基础输入（始终包含，供 prompt 和 code skills 使用）
     const baseInput = {
       task: task.description,
       context: {
@@ -168,61 +175,42 @@ export class SlidesTeamMember {
       previousOutputs: context.previousOutputs,
     };
 
-    // 根据 Skill ID 进行特殊处理
+    // ★ PromptSkillAdapter: 声明式 InputBinding 解析
+    const adapter = skill as PromptSkillAdapter;
+    if (adapter.isPromptSkillAdapter) {
+      const bindings = adapter.getInputBindings();
+      if (bindings) {
+        const resolved = this.inputBindingResolver.resolve(bindings, {
+          outputManager: context.outputManager,
+          context: {
+            ...context.globalContext,
+            sessionId: context.sessionId,
+          },
+          input: task.input as Record<string, unknown>,
+          previousOutputs: context.previousOutputs,
+        });
+        return { ...baseInput, ...resolved };
+      }
+      // No inputs declared — use baseInput only
+      return baseInput;
+    }
+
+    // ★ Code-based skills: 手动映射（保持向后兼容）
     switch (task.skillId) {
-      case "task-decomposition":
-      case "slides-task-decomposition":
-        return {
-          sourceText: context.globalContext.sourceText,
-          userRequirement:
-            (task.input as Record<string, unknown>)?.userRequirement || "",
-          targetPages: (task.input as Record<string, unknown>)?.targetPages,
-          stylePreference: context.globalContext.stylePreference || "dark",
-          sessionId: context.sessionId,
-          ...baseInput,
-        };
-
-      case "outline-planning":
-      case "slides-outline-planning":
-        // 使用 outputManager 获取任务分解结果（自动处理 Key 规范化）
-        const taskDecomposition = getOutput("task-decomposition");
-        return {
-          taskDecomposition,
-          sourceText: context.globalContext.sourceText,
-          targetPages: (task.input as Record<string, unknown>)?.targetPages,
-          stylePreference: context.globalContext.stylePreference,
-          sessionId: context.sessionId,
-          ...baseInput,
-        };
-
       case "page-type-selection":
-      case "slides-page-type-selection":
+      case "slides-page-type-selection": {
         const outline = getOutput<{ slides?: unknown[] }>("outline");
         return outline?.slides || [];
-
-      case "four-step-design":
-      case "slides-four-step-design":
-        return {
-          pageOutline: (task.input as Record<string, unknown>)?.pageOutline,
-          pageContent: (task.input as Record<string, unknown>)?.pageContent,
-          globalStyles:
-            (task.input as Record<string, unknown>)?.globalStyles || {},
-          sessionId: context.sessionId,
-          ...baseInput,
-        };
+      }
 
       case "page-pipeline":
-      case "slides-page-pipeline":
-        // 使用 outputManager 获取大纲（自动处理 Key 规范化）
+      case "slides-page-pipeline": {
         const outlineResult =
           getOutput("outline-planning") || context.globalContext.outline;
-
-        // 诊断日志
         const outlinePages = (outlineResult as { pages?: unknown[] })?.pages;
         this.logger.log(
           `[buildSkillInput] page-pipeline: outline exists=${!!outlineResult}, pages=${outlinePages?.length || 0}, outputManager keys=${context.outputManager?.keys().join(", ") || "N/A"}`,
         );
-
         return {
           outline: outlineResult,
           sourceText: context.globalContext.sourceText,
@@ -231,26 +219,12 @@ export class SlidesTeamMember {
           sessionId: context.sessionId,
           ...baseInput,
         };
+      }
 
       case "quality-audit":
       case "slides-quality-audit":
         return {
           pages: getOutput("pages") || [],
-          ...baseInput,
-        };
-
-      case "terminology-unifier":
-      case "slides-terminology-unifier":
-        return {
-          pages: getOutput("pages") || [],
-          ...baseInput,
-        };
-
-      case "transition-checker":
-      case "slides-transition-checker":
-        return {
-          pages: getOutput("pages") || [],
-          sessionId: context.sessionId,
           ...baseInput,
         };
 

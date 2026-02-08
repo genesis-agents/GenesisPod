@@ -10,6 +10,8 @@ import { getStylePresets, type WritingStylePreset } from '@/lib/api/ai-writing';
 import { WRITING_AGENT_REGISTRY } from '@/lib/ai-writing/agent-config';
 import ShareModal from '@/components/common/dialogs/ShareModal';
 import ClientDate from '@/components/common/ClientDate';
+import { SkillsModal } from '@/components/common/skills/SkillsModal';
+import { Sparkles } from 'lucide-react';
 
 // AI Writing Team - Preview (5 core agents) - 使用统一配置
 const AI_TEAM_PREVIEW = Object.values(WRITING_AGENT_REGISTRY)
@@ -132,6 +134,9 @@ export default function AIWritingPage() {
   const [shareProject, setShareProject] = useState<(typeof projects)[0] | null>(
     null
   );
+
+  // Skills modal state
+  const [showSkillsModal, setShowSkillsModal] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -338,25 +343,34 @@ export default function AIWritingPage() {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowCreateDialog(true)}
-                className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
-              >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowSkillsModal(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+                  title={t('aiWriting.skills.title') || 'AI Writing Skills'}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                {t('aiWriting.createDialog.startCreating')}
-              </button>
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                </button>
+                <button
+                  onClick={() => setShowCreateDialog(true)}
+                  className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  {t('aiWriting.createDialog.startCreating')}
+                </button>
+              </div>
             </div>
 
             {/* Search Bar */}
@@ -1115,6 +1129,15 @@ export default function AIWritingPage() {
           description={shareProject.description}
         />
       )}
+
+      {/* Skills Modal */}
+      <SkillsModal
+        open={showSkillsModal}
+        onClose={() => setShowSkillsModal(false)}
+        domain="writing"
+        title={t('aiWriting.skills.title') || 'AI Writing Skills'}
+        accentColor="text-amber-500"
+      />
     </AppShell>
   );
 }

@@ -12,6 +12,8 @@ import {
   CreateTopicDialog as TopicCreateDialog,
 } from '@/components/ai-insights';
 import { ResearchTopicType } from '@/types/topic-insights';
+import { SkillsModal } from '@/components/common/skills/SkillsModal';
+import { Sparkles } from 'lucide-react';
 
 // ==================== 图标组件 ====================
 const SearchIcon = ({ className }: { className?: string }) => (
@@ -69,6 +71,7 @@ function InsightsPageContent() {
   const [topicActiveType, setTopicActiveType] =
     useState<ResearchTopicType | null>(null);
   const [showTopicCreateDialog, setShowTopicCreateDialog] = useState(false);
+  const [showSkillsModal, setShowSkillsModal] = useState(false);
 
   return (
     <div className="h-full overflow-auto bg-gray-50">
@@ -102,14 +105,23 @@ function InsightsPageContent() {
               </div>
             </div>
 
-            {/* Create Button */}
-            <button
-              onClick={() => setShowTopicCreateDialog(true)}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
-            >
-              <PlusIcon className="h-5 w-5" />
-              {t('aiInsights.actions.createNew')}
-            </button>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowSkillsModal(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+                title={t('aiInsights.skills.title') || 'Research Skills'}
+              >
+                <Sparkles className="h-4 w-4 text-violet-500" />
+              </button>
+              <button
+                onClick={() => setShowTopicCreateDialog(true)}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
+              >
+                <PlusIcon className="h-5 w-5" />
+                {t('aiInsights.actions.createNew')}
+              </button>
+            </div>
           </div>
 
           {/* Search Bar */}
@@ -137,6 +149,14 @@ function InsightsPageContent() {
           onShowCreateDialog={setShowTopicCreateDialog}
         />
       </div>
+
+      {/* Skills Modal */}
+      <SkillsModal
+        open={showSkillsModal}
+        onClose={() => setShowSkillsModal(false)}
+        domain="research"
+        title={t('aiInsights.skills.title') || 'Research Skills'}
+      />
     </div>
   );
 }

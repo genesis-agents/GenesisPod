@@ -26,7 +26,9 @@ import {
   UserPlus,
   Loader2,
   Save,
+  Sparkles,
 } from 'lucide-react';
+import { AppSkillsPanel } from '@/components/common/skills/AppSkillsPanel';
 
 interface ResearchSettingsModalProps {
   open: boolean;
@@ -334,6 +336,7 @@ export function ResearchSettingsModal({
           </div>
 
           {/* Team member configuration - shown when visibility is 'team' */}
+          {/* Team member configuration - shown when visibility is 'team' */}
           {visibility === 'team' && (
             <div className="mt-4 rounded-lg border border-purple-200 bg-purple-50/50 p-4">
               <div className="mb-3 flex items-center gap-2">
@@ -438,6 +441,25 @@ export function ResearchSettingsModal({
               </p>
             </div>
           )}
+        </div>
+
+        {/* AI Skills 配置 */}
+        <div className="rounded-lg border-l-4 border-l-amber-400 bg-amber-50/30 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-amber-600" />
+            <div>
+              <h4 className="font-medium text-gray-900">
+                {t('topicResearch.researchControl.settings.skills.title') ||
+                  'Research Skills'}
+              </h4>
+              <p className="text-sm text-gray-500">
+                {t(
+                  'topicResearch.researchControl.settings.skills.description'
+                ) || 'Skills powering your research analysis'}
+              </p>
+            </div>
+          </div>
+          <AppSkillsPanel domain="research" compact />
         </div>
       </div>
     </Modal>

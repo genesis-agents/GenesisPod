@@ -124,6 +124,7 @@ export class AICapabilityResolver {
   /**
    * 解析 Agent 可用的 Skills
    * 可按领域过滤
+   * ★ 现在会 enforce allowedDomains + domainOverrides
    */
   async resolveSkillsForAgent(context: AICapabilityContext): Promise<string[]> {
     // 1. 获取全局启用的技能
@@ -131,9 +132,49 @@ export class AICapabilityResolver {
 
     // 2. 如果有领域限制，过滤
     if (context.domain) {
+      // 批量获取 SkillConfig 以检查 allowedDomains 和 domainOverrides
+      const skillConfigs = await this.prisma.skillConfig.findMany({
+        where: { skillId: { in: enabledSkills } },
+        select: {
+          skillId: true,
+          domain: true,
+          allowedDomains: true,
+          config: true,
+        },
+      });
+      const configMap = new Map(skillConfigs.map((c) => [c.skillId, c]));
+
       const filteredSkills = enabledSkills.filter((skillId) => {
         const skill = this.skillRegistry.tryGet(skillId);
-        return skill?.domain === context.domain || skill?.domain === "common";
+        const config = configMap.get(skillId);
+
+        // Domain match: registry domain or config domain matches context or is common/general
+        const effectiveDomain = skill?.domain ?? config?.domain ?? null;
+        const domainMatch =
+          effectiveDomain === context.domain ||
+          effectiveDomain === "common" ||
+          effectiveDomain === "general" ||
+          effectiveDomain === null;
+
+        // allowedDomains enforcement: if non-empty, domain must be in list
+        if (
+          config?.allowedDomains &&
+          config.allowedDomains.length > 0 &&
+          !config.allowedDomains.includes(context.domain!)
+        ) {
+          return false;
+        }
+
+        // domainOverrides enforcement: check per-domain toggle
+        const configJson = config?.config as Record<string, unknown> | null;
+        const domainOverrides = configJson?.domainOverrides as
+          | Record<string, { enabled: boolean }>
+          | undefined;
+        if (domainOverrides?.[context.domain!]?.enabled === false) {
+          return false;
+        }
+
+        return domainMatch;
       });
 
       this.logger.debug(
