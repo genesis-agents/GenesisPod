@@ -64,14 +64,31 @@ export class SlidesTeamMember {
 
       if (!skill) {
         this.logger.log(
-          `[executeTask] Skill not found: ${skillId}, trying slides-prefixed version`,
+          `[executeTask] Skill not found: ${skillId}, trying prefix variants`,
         );
 
         // 尝试带 slides- 前缀
         skill = this.skillRegistry.tryGet(`slides-${skillId}`);
+        if (skill) {
+          this.logger.log(
+            `[executeTask] Found skill with slides- prefix: slides-${skillId}`,
+          );
+        }
+
+        // 尝试去掉 slides- 前缀（orchestrator 可能加了前缀，但 SKILL.md 注册时没有）
+        if (!skill && skillId.startsWith("slides-")) {
+          const unprefixed = skillId.slice("slides-".length);
+          skill = this.skillRegistry.tryGet(unprefixed);
+          if (skill) {
+            this.logger.log(
+              `[executeTask] Found skill by removing slides- prefix: ${unprefixed}`,
+            );
+          }
+        }
+
         if (!skill) {
           this.logger.error(
-            `[executeTask] Skill not found with both IDs: ${skillId}, slides-${skillId}`,
+            `[executeTask] Skill not found with any ID variant: ${skillId}`,
           );
           return {
             success: false,
@@ -79,9 +96,6 @@ export class SlidesTeamMember {
             duration: Date.now() - startTime,
           };
         }
-        this.logger.log(
-          `[executeTask] Found skill with slides- prefix: slides-${skillId}`,
-        );
       }
 
       const targetSkill = skill;
