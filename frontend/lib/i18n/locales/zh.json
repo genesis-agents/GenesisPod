@@ -2778,7 +2778,8 @@
         "overview": "概览",
         "tools": "工具",
         "metrics": "指标",
-        "sessions": "会话"
+        "sessions": "会话",
+        "apiKeys": "API Keys"
       },
       "status": {
         "healthy": "健康",
@@ -2817,6 +2818,32 @@
         "client": "客户端",
         "createdAt": "连接时间",
         "noSessions": "暂无活跃会话"
+      },
+      "apiKeys": {
+        "title": "API Keys",
+        "description": "管理外部 MCP 客户端的 API 密钥",
+        "generate": "生成 API Key",
+        "name": "名称",
+        "key": "API Key",
+        "status": "状态",
+        "usage": "调用数",
+        "lastUsed": "最近使用",
+        "actions": "操作",
+        "active": "启用",
+        "inactive": "停用",
+        "noKeys": "暂无 API Key",
+        "createTitle": "生成 MCP API Key",
+        "displayName": "密钥名称",
+        "displayNamePlaceholder": "例如 OpenClaw Production",
+        "generatedKey": "已生成的密钥",
+        "copyWarning": "请立即复制此密钥，之后将无法再次查看。",
+        "copied": "已复制！",
+        "create": "创建密钥",
+        "deleteConfirm": "删除 API Key \"{{name}}\"？此操作不可撤销。",
+        "connectionConfig": "连接配置",
+        "connectionConfigDesc": "使用以下配置连接外部 MCP 客户端：",
+        "reveal": "显示",
+        "never": "从未使用"
       },
       "errors": {
         "fetchFailed": "获取 MCP 服务数据失败"

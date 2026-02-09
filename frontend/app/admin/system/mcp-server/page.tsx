@@ -14,12 +14,19 @@ import {
   Users,
   Wrench,
   AlertTriangle,
+  Plus,
+  Trash2,
+  Copy,
+  Eye,
+  EyeOff,
+  X,
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
+import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
 
 // ==================== Types ====================
 
@@ -160,8 +167,26 @@ export default function MCPServerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'tools' | 'metrics' | 'sessions'
+    'overview' | 'tools' | 'metrics' | 'sessions' | 'api-keys'
   >('overview');
+
+  // API Keys state
+  const {
+    secrets,
+    createSecret,
+    deleteSecret,
+    getSecretValue,
+    isCreating,
+    isDeleting,
+    isGettingValue,
+  } = useAdminSecrets();
+  const mcpApiKeys = secrets.filter((s) => s.category === 'MCP');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [generatedKey, setGeneratedKey] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [revealedKeys, setRevealedKeys] = useState<Record<string, string>>({});
+  const [revealingKey, setRevealingKey] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -680,7 +705,345 @@ export default function MCPServerPage() {
     </>
   );
 
-  const tabs = ['overview', 'tools', 'metrics', 'sessions'] as const;
+  // ==================== API Keys Helpers ====================
+
+  function generateApiKey(): string {
+    const bytes = new Uint8Array(48);
+    crypto.getRandomValues(bytes);
+    // base64url encode
+    const base64 = btoa(String.fromCharCode(...bytes));
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  async function handleCreateApiKey() {
+    if (!newKeyName.trim()) return;
+    const key = generateApiKey();
+    const result = await createSecret({
+      name: `mcp-key-${Date.now()}`,
+      displayName: newKeyName.trim(),
+      value: key,
+      category: 'MCP',
+      description: 'MCP API Key',
+    });
+    if (result) {
+      setGeneratedKey(key);
+    }
+  }
+
+  async function handleDeleteApiKey(secret: {
+    name: string;
+    displayName: string;
+  }) {
+    const message = t('admin.mcpServer.apiKeys.deleteConfirm').replace(
+      '{{name}}',
+      secret.displayName
+    );
+    if (!window.confirm(message)) return;
+    await deleteSecret(secret.name);
+    setRevealedKeys((prev) => {
+      const next = { ...prev };
+      delete next[secret.name];
+      return next;
+    });
+  }
+
+  async function handleRevealKey(name: string) {
+    if (revealedKeys[name]) {
+      setRevealedKeys((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+      return;
+    }
+    setRevealingKey(name);
+    const value = await getSecretValue(name);
+    if (value) {
+      setRevealedKeys((prev) => ({ ...prev, [name]: value }));
+    }
+    setRevealingKey(null);
+  }
+
+  function handleCloseCreateModal() {
+    setShowCreateModal(false);
+    setNewKeyName('');
+    setGeneratedKey(null);
+    setCopiedKey(false);
+  }
+
+  async function handleCopyKey(text: string) {
+    await navigator.clipboard.writeText(text);
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2000);
+  }
+
+  const connectionConfigExample = `{
+  "plugins": {
+    "entries": {
+      "mcp-adapter": {
+        "enabled": true,
+        "config": {
+          "servers": [{
+            "name": "raven",
+            "transport": "http",
+            "url": "https://<your-domain>/api/v1/mcp",
+            "headers": {
+              "Authorization": "Bearer <your-api-key>"
+            }
+          }]
+        }
+      }
+    }
+  }
+}`;
+
+  const renderApiKeysTab = () => (
+    <>
+      {/* Header with Generate button */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">
+            {t('admin.mcpServer.apiKeys.title')}
+          </h3>
+          <p className="text-sm text-gray-500">
+            {t('admin.mcpServer.apiKeys.description')}
+          </p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          <Plus className="h-4 w-4" />
+          {t('admin.mcpServer.apiKeys.generate')}
+        </button>
+      </div>
+
+      {/* API Key List Table */}
+      {mcpApiKeys.length > 0 ? (
+        <div className="mb-6 rounded-lg bg-white shadow">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                <tr>
+                  <th className="px-4 py-3">
+                    {t('admin.mcpServer.apiKeys.name')}
+                  </th>
+                  <th className="px-4 py-3">
+                    {t('admin.mcpServer.apiKeys.key')}
+                  </th>
+                  <th className="px-4 py-3">
+                    {t('admin.mcpServer.apiKeys.status')}
+                  </th>
+                  <th className="px-4 py-3">
+                    {t('admin.mcpServer.apiKeys.usage')}
+                  </th>
+                  <th className="px-4 py-3">
+                    {t('admin.mcpServer.apiKeys.lastUsed')}
+                  </th>
+                  <th className="px-4 py-3">
+                    {t('admin.mcpServer.apiKeys.actions')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {mcpApiKeys.map((secret) => {
+                  const keyUsage = metrics?.byApiKey?.[secret.maskedValue];
+                  return (
+                    <tr key={secret.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Key className="h-4 w-4 text-gray-400" />
+                          <span className="font-medium text-gray-900">
+                            {secret.displayName}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <code className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                            {revealedKeys[secret.name] ?? secret.maskedValue}
+                          </code>
+                          <button
+                            onClick={() => handleRevealKey(secret.name)}
+                            disabled={revealingKey === secret.name}
+                            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            title={t('admin.mcpServer.apiKeys.reveal')}
+                          >
+                            {revealedKeys[secret.name] ? (
+                              <EyeOff className="h-3.5 w-3.5" />
+                            ) : (
+                              <Eye className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                          {revealedKeys[secret.name] && (
+                            <button
+                              onClick={() =>
+                                handleCopyKey(revealedKeys[secret.name])
+                              }
+                              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs font-medium ${
+                            secret.isActive
+                              ? 'bg-green-50 text-green-700'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}
+                        >
+                          {secret.isActive
+                            ? t('admin.mcpServer.apiKeys.active')
+                            : t('admin.mcpServer.apiKeys.inactive')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {keyUsage?.calls ?? secret.accessCount ?? 0}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {keyUsage?.lastUsed
+                          ? formatDate(keyUsage.lastUsed)
+                          : secret.lastAccessedAt
+                            ? formatDate(secret.lastAccessedAt)
+                            : t('admin.mcpServer.apiKeys.never')}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleDeleteApiKey(secret)}
+                          disabled={isDeleting}
+                          className="rounded p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-6 rounded-lg bg-gray-50 p-8 text-center text-sm text-gray-500">
+          <Key className="mx-auto mb-2 h-6 w-6 text-gray-400" />
+          {t('admin.mcpServer.apiKeys.noKeys')}
+        </div>
+      )}
+
+      {/* Connection Config Example */}
+      <div className="rounded-lg border border-gray-200 bg-white p-5">
+        <h4 className="mb-1 text-sm font-semibold text-gray-900">
+          {t('admin.mcpServer.apiKeys.connectionConfig')}
+        </h4>
+        <p className="mb-3 text-xs text-gray-500">
+          {t('admin.mcpServer.apiKeys.connectionConfigDesc')}
+        </p>
+        <pre className="overflow-x-auto rounded-lg bg-gray-900 p-4 text-xs text-gray-100">
+          <code>{connectionConfigExample}</code>
+        </pre>
+      </div>
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {t('admin.mcpServer.apiKeys.createTitle')}
+              </h3>
+              <button
+                onClick={handleCloseCreateModal}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {!generatedKey ? (
+              <>
+                <div className="mb-4">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    {t('admin.mcpServer.apiKeys.displayName')}
+                  </label>
+                  <input
+                    type="text"
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                    placeholder={t(
+                      'admin.mcpServer.apiKeys.displayNamePlaceholder'
+                    )}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void handleCreateApiKey();
+                    }}
+                  />
+                </div>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={handleCloseCreateModal}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    {t('common.cancel') || 'Cancel'}
+                  </button>
+                  <button
+                    onClick={() => void handleCreateApiKey()}
+                    disabled={!newKeyName.trim() || isCreating}
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {t('admin.mcpServer.apiKeys.create')}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-4">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    {t('admin.mcpServer.apiKeys.generatedKey')}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800">
+                      {generatedKey}
+                    </code>
+                    <button
+                      onClick={() => void handleCopyKey(generatedKey)}
+                      className="flex shrink-0 items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      {copiedKey
+                        ? t('admin.mcpServer.apiKeys.copied')
+                        : t('common.copy') || 'Copy'}
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-amber-600">
+                    {t('admin.mcpServer.apiKeys.copyWarning')}
+                  </p>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleCloseCreateModal}
+                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                  >
+                    {t('common.close') || 'Close'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  const tabs = [
+    'overview',
+    'tools',
+    'metrics',
+    'sessions',
+    'api-keys',
+  ] as const;
 
   return (
     <AdminPageLayout
@@ -734,6 +1097,7 @@ export default function MCPServerPage() {
             {activeTab === 'tools' && renderToolsTab()}
             {activeTab === 'metrics' && renderMetricsTab()}
             {activeTab === 'sessions' && renderSessionsTab()}
+            {activeTab === 'api-keys' && renderApiKeysTab()}
           </>
         )}
       </div>

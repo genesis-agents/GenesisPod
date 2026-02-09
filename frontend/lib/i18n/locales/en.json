@@ -2778,7 +2778,8 @@
         "overview": "Overview",
         "tools": "Tools",
         "metrics": "Metrics",
-        "sessions": "Sessions"
+        "sessions": "Sessions",
+        "apiKeys": "API Keys"
       },
       "status": {
         "healthy": "Healthy",
@@ -2817,6 +2818,32 @@
         "client": "Client",
         "createdAt": "Connected Since",
         "noSessions": "No active sessions"
+      },
+      "apiKeys": {
+        "title": "API Keys",
+        "description": "Manage API keys for external MCP clients",
+        "generate": "Generate API Key",
+        "name": "Name",
+        "key": "API Key",
+        "status": "Status",
+        "usage": "Calls",
+        "lastUsed": "Last Used",
+        "actions": "Actions",
+        "active": "Active",
+        "inactive": "Inactive",
+        "noKeys": "No API keys created yet",
+        "createTitle": "Generate MCP API Key",
+        "displayName": "Key Name",
+        "displayNamePlaceholder": "e.g. OpenClaw Production",
+        "generatedKey": "Generated Key",
+        "copyWarning": "Copy this key now. You won't be able to see it again.",
+        "copied": "Copied!",
+        "create": "Create Key",
+        "deleteConfirm": "Delete API key \"{{name}}\"? This cannot be undone.",
+        "connectionConfig": "Connection Config",
+        "connectionConfigDesc": "Use the following configuration to connect external MCP clients:",
+        "reveal": "Reveal",
+        "never": "Never"
       },
       "errors": {
         "fetchFailed": "Failed to fetch MCP Server data"
