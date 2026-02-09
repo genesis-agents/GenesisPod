@@ -9,6 +9,7 @@ import * as request from "supertest";
 import { MCPServerController } from "../mcp-server.controller";
 import { MCPServerService } from "../mcp-server.service";
 import { MCPApiKeyGuard } from "../guards/mcp-api-key.guard";
+import { MCPExceptionFilter } from "../filters/mcp-exception.filter";
 import {
   IMCPToolHandler,
   MCPRequestContext,
@@ -72,6 +73,7 @@ describe("MCPServerController (integration)", () => {
       .compile();
 
     app = module.createNestApplication();
+    app.useGlobalFilters(new MCPExceptionFilter());
     await app.init();
 
     service = module.get<MCPServerService>(MCPServerService);
@@ -93,16 +95,24 @@ describe("MCPServerController (integration)", () => {
   // ==================== Auth ====================
 
   describe("authentication", () => {
-    it("should reject request without API key (401)", async () => {
+    it("should reject without API key — 401 with JSON-RPC error body", async () => {
       const res = await request(app.getHttpServer())
         .post("/mcp")
         .set("Content-Type", "application/json")
         .send({ jsonrpc: "2.0", id: 1, method: "ping" });
 
       expect(res.status).toBe(HttpStatus.UNAUTHORIZED);
+      // Must be JSON-RPC format, not NestJS format
+      expect(res.body).toHaveProperty("jsonrpc", "2.0");
+      expect(res.body).toHaveProperty("error");
+      expect(res.body.error.code).toBe(-32001);
+      expect(res.body.error.message).toContain("API key");
+      // Must NOT have NestJS envelope fields
+      expect(res.body).not.toHaveProperty("statusCode");
+      expect(res.body).not.toHaveProperty("timestamp");
     });
 
-    it("should reject request with invalid API key (401)", async () => {
+    it("should reject with invalid API key — 401 with JSON-RPC error body", async () => {
       const res = await request(app.getHttpServer())
         .post("/mcp")
         .set("Authorization", "Bearer wrong-key")
@@ -110,6 +120,10 @@ describe("MCPServerController (integration)", () => {
         .send({ jsonrpc: "2.0", id: 1, method: "ping" });
 
       expect(res.status).toBe(HttpStatus.UNAUTHORIZED);
+      expect(res.body).toHaveProperty("jsonrpc", "2.0");
+      expect(res.body).toHaveProperty("error");
+      expect(res.body.error.code).toBe(-32001);
+      expect(res.body).not.toHaveProperty("statusCode");
     });
 
     it("should accept request with valid API key", async () => {

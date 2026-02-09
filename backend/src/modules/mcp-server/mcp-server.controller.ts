@@ -12,6 +12,7 @@ import {
   Headers,
   Res,
   UseGuards,
+  UseFilters,
   Logger,
   HttpStatus,
 } from "@nestjs/common";
@@ -24,8 +25,10 @@ import {
   JSON_RPC_ERRORS,
 } from "./abstractions/mcp-server.interface";
 import { Public } from "../../common/decorators/public.decorator";
+import { MCPExceptionFilter } from "./filters/mcp-exception.filter";
 
 @Public()
+@UseFilters(MCPExceptionFilter)
 @ApiTags("MCP Server")
 @Controller("mcp")
 @UseGuards(MCPApiKeyGuard)
