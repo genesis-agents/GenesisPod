@@ -56,6 +56,12 @@ export class MCPServerController {
 
     const response = await this.mcpServerService.handleRequest(body, context);
 
+    // JSON-RPC notifications return null — no response expected
+    if (!response) {
+      res.status(HttpStatus.NO_CONTENT).send();
+      return;
+    }
+
     // If initialize response, include session ID in header
     if (!Array.isArray(response) && response.result) {
       const result = response.result as Record<string, unknown>;
