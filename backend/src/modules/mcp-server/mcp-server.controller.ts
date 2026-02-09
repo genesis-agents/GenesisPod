@@ -22,8 +22,10 @@ import { MCPApiKeyGuard } from "./guards/mcp-api-key.guard";
 import { MCPServerService } from "./mcp-server.service";
 import { MCPRequestContext } from "./abstractions/mcp-server.interface";
 import { Public } from "../../common/decorators/public.decorator";
+import { SkipTransform } from "../../common/interceptors/decorators/skip-transform.decorator";
 
 @Public()
+@SkipTransform()
 @ApiTags("MCP Server")
 @Controller("mcp")
 @UseGuards(MCPApiKeyGuard)
