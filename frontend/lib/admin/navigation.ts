@@ -24,6 +24,7 @@ import {
   MessageSquare,
   ScrollText,
   Activity,
+  Radio,
   type LucideIcon,
 } from 'lucide-react';
 import { type AdminDomain } from './styles';
@@ -210,6 +211,12 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         labelKey: 'admin.nav.monitoring',
         href: '/admin/system/monitoring',
         icon: Activity,
+      },
+      {
+        key: 'mcp-server',
+        labelKey: 'admin.nav.mcpServer',
+        href: '/admin/system/mcp-server',
+        icon: Radio,
       },
     ],
   },

@@ -2767,8 +2767,60 @@
       "notifications": "Notifications",
       "logs": "Logs",
       "monitoring": "Monitoring",
+      "mcpServer": "MCP Server",
       "externalServices": "External Services",
       "externalApi": "External API"
+    },
+    "mcpServer": {
+      "title": "MCP Server",
+      "description": "Monitor and manage the externally exposed MCP Server",
+      "tabs": {
+        "overview": "Overview",
+        "tools": "Tools",
+        "metrics": "Metrics",
+        "sessions": "Sessions"
+      },
+      "status": {
+        "healthy": "Healthy",
+        "degraded": "Degraded",
+        "unhealthy": "Unhealthy",
+        "serverStatus": "Server Status",
+        "uptime": "Uptime",
+        "toolCount": "Registered Tools",
+        "activeSessions": "Active Sessions",
+        "totalCalls": "Total Calls (24h)",
+        "successRate": "Success Rate (24h)",
+        "avgDuration": "Avg Duration (24h)"
+      },
+      "tools": {
+        "title": "Registered Tools",
+        "name": "Tool Name",
+        "description": "Description",
+        "calls": "Calls",
+        "errors": "Errors",
+        "avgDuration": "Avg Duration"
+      },
+      "metrics": {
+        "title": "Usage Metrics",
+        "byTool": "By Tool",
+        "byApiKey": "By API Key",
+        "recentErrors": "Recent Errors",
+        "apiKey": "API Key",
+        "lastUsed": "Last Used",
+        "errorType": "Error Type",
+        "timestamp": "Timestamp",
+        "noData": "No metrics data available yet"
+      },
+      "sessions": {
+        "title": "Active Sessions",
+        "sessionId": "Session ID",
+        "client": "Client",
+        "createdAt": "Connected Since",
+        "noSessions": "No active sessions"
+      },
+      "errors": {
+        "fetchFailed": "Failed to fetch MCP Server data"
+      }
     },
     "logs": {
       "title": "Log Management",
