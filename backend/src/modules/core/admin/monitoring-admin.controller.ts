@@ -24,6 +24,7 @@ import {
 } from "../../../common/guards";
 import { runSecurityChecks } from "../../../common/config/security.config";
 import { MetricsService } from "../../../common/observability/metrics.service";
+import { MCPServerService } from "../../mcp-server/mcp-server.service";
 
 interface AuthenticatedRequest extends Request {
   user?: { id: string; email?: string };
@@ -50,6 +51,7 @@ export class MonitoringAdminController {
     @Optional()
     private readonly distributedRateLimitGuard?: DistributedRateLimitGuard,
     @Optional() private readonly metricsService?: MetricsService,
+    @Optional() private readonly mcpServerService?: MCPServerService,
   ) {}
 
   // ==================== Error Tracking ====================
@@ -278,6 +280,25 @@ export class MonitoringAdminController {
       aiMetrics,
     );
 
+    // 获取 MCP Server 状态
+    let mcpServerStatus: Record<string, unknown> | null = null;
+    if (this.mcpServerService) {
+      try {
+        const mcpStatus = this.mcpServerService.getDetailedStatus();
+        mcpServerStatus = {
+          status: mcpStatus.status,
+          uptime: mcpStatus.uptime,
+          toolCount: mcpStatus.toolCount,
+          activeSessions: mcpStatus.activeSessions,
+          metrics24h: mcpStatus.metrics24h,
+        };
+      } catch (error) {
+        this.logger.warn(
+          `Failed to fetch MCP Server status: ${(error as Error).message}`,
+        );
+      }
+    }
+
     return {
       timestamp: new Date().toISOString(),
       healthScore,
@@ -308,6 +329,7 @@ export class MonitoringAdminController {
           avgDuration: aiMetrics.avgDuration,
           totalTokens24h: aiMetrics.totalTokens,
         },
+        mcpServer: mcpServerStatus,
       },
       breakpoints: aiDiagnosis.breakpoints,
     };
@@ -409,6 +431,29 @@ export class MonitoringAdminController {
             return null;
           })();
 
+    // 获取 MCP Server 状态
+    let mcpServerStats: Record<string, unknown> | null = null;
+    if (this.mcpServerService) {
+      try {
+        const mcpStatus = this.mcpServerService.getDetailedStatus();
+        const mcpMetrics = this.mcpServerService.getMetrics({
+          startDate: oneDayAgo,
+        });
+        mcpServerStats = {
+          status: mcpStatus.status,
+          uptime: mcpStatus.uptime,
+          toolCount: mcpStatus.toolCount,
+          activeSessions: mcpStatus.activeSessions,
+          metrics24h: mcpMetrics,
+        };
+      } catch (error) {
+        this.logger.warn(
+          `Dashboard: MCP Server stats failed: ${(error as Error).message}`,
+        );
+        warnings.push("MCP Server stats unavailable");
+      }
+    }
+
     return {
       timestamp: new Date().toISOString(),
       warnings,
@@ -434,6 +479,7 @@ export class MonitoringAdminController {
             breakpoints: aiDiagnosis.breakpoints,
           }
         : null,
+      mcpServer: mcpServerStats,
     };
   }
 

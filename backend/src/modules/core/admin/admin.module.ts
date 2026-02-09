@@ -18,6 +18,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { SecretsModule } from "../secrets/secrets.module";
 import { QuotaModule } from "./quota/quota.module";
+import { MCPServerModule } from "../../mcp-server/mcp-server.module";
 
 // Admin sub-services
 import {
@@ -34,7 +35,13 @@ import {
 // ErrorTrackingService and AIMetricsService are provided by MonitoringModule
 
 @Module({
-  imports: [PrismaModule, AiEngineModule, SecretsModule, QuotaModule],
+  imports: [
+    PrismaModule,
+    AiEngineModule,
+    SecretsModule,
+    QuotaModule,
+    MCPServerModule,
+  ],
   controllers: [
     AdminController,
     AITeamsAdminController,

@@ -7,22 +7,28 @@
 import { Module, OnModuleInit } from "@nestjs/common";
 import { MCPServerController } from "./mcp-server.controller";
 import { MCPServerService } from "./mcp-server.service";
+import { MCPServerAdminController } from "./mcp-server-admin.controller";
 import { MCPApiKeyGuard } from "./guards/mcp-api-key.guard";
 import { ResearchToolHandler } from "./tools/research-tool-handler";
 import { AskToolHandler } from "./tools/ask-tool-handler";
 import { TeamsDebateToolHandler } from "./tools/teams-tool-handler";
+import { ContentAnalysisToolHandler } from "./tools/content-analysis-tool-handler";
+import { WritingAssistToolHandler } from "./tools/writing-assist-tool-handler";
 import { SecretsModule } from "../core/secrets/secrets.module";
 import { AiEngineConstraintModule } from "../ai-engine/ai-engine-constraint.module";
+import { DeepResearchModule } from "../ai-app/research/deep-research/deep-research.module";
 
 @Module({
-  imports: [SecretsModule, AiEngineConstraintModule],
-  controllers: [MCPServerController],
+  imports: [SecretsModule, AiEngineConstraintModule, DeepResearchModule],
+  controllers: [MCPServerController, MCPServerAdminController],
   providers: [
     MCPServerService,
     MCPApiKeyGuard,
     ResearchToolHandler,
     AskToolHandler,
     TeamsDebateToolHandler,
+    ContentAnalysisToolHandler,
+    WritingAssistToolHandler,
   ],
   exports: [MCPServerService],
 })
@@ -32,6 +38,8 @@ export class MCPServerModule implements OnModuleInit {
     private readonly researchToolHandler: ResearchToolHandler,
     private readonly askToolHandler: AskToolHandler,
     private readonly teamsDebateToolHandler: TeamsDebateToolHandler,
+    private readonly contentAnalysisToolHandler: ContentAnalysisToolHandler,
+    private readonly writingAssistToolHandler: WritingAssistToolHandler,
   ) {}
 
   onModuleInit() {
@@ -39,5 +47,7 @@ export class MCPServerModule implements OnModuleInit {
     this.mcpServerService.registerToolHandler(this.researchToolHandler);
     this.mcpServerService.registerToolHandler(this.askToolHandler);
     this.mcpServerService.registerToolHandler(this.teamsDebateToolHandler);
+    this.mcpServerService.registerToolHandler(this.contentAnalysisToolHandler);
+    this.mcpServerService.registerToolHandler(this.writingAssistToolHandler);
   }
 }
