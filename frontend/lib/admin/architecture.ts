@@ -1,7 +1,8 @@
 /**
  * Admin Architecture Diagram Configuration
  *
- * Three-layer architecture visualization:
+ * Four-layer architecture visualization:
+ * Layer 4: Open API Layer (External Interfaces)
  * Layer 3: AI Apps Layer (Business Applications - Read-only)
  * Layer 2: AI Engine Layer (Core Capabilities)
  * Layer 1: Infrastructure Layer (Foundation)
@@ -36,6 +37,8 @@ import {
   Bell,
   ScrollText,
   Activity,
+  Radio,
+  Webhook,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -61,10 +64,35 @@ export interface ArchitectureLayer {
   id: string;
   titleKey: string; // i18n key for layer title
   subtitleKey?: string; // i18n key for subtitle
-  level: 1 | 2 | 3; // Layer level for styling
+  level: 1 | 2 | 3 | 4; // Layer level for styling
   cards?: ArchitectureCard[];
   groups?: CardGroup[]; // For grouped cards (AI Apps layer)
 }
+
+// Layer 4: Open API Layer (External Interfaces)
+const openApiLayer: ArchitectureLayer = {
+  id: 'openApi',
+  titleKey: 'admin.architecture.layers.openApi',
+  subtitleKey: 'admin.architecture.layers.openApiDesc',
+  level: 4,
+  cards: [
+    {
+      id: 'mcpServer',
+      i18nKey: 'admin.nav.mcpServer',
+      descriptionKey: 'admin.architecture.cards.mcpServerDesc',
+      href: '/admin/system/mcp-server',
+      icon: Radio,
+      clickable: true,
+    },
+    {
+      id: 'webhooks',
+      i18nKey: 'admin.architecture.cards.webhooks',
+      descriptionKey: 'admin.architecture.cards.webhooksDesc',
+      icon: Webhook,
+      clickable: false,
+    },
+  ],
+};
 
 // Layer 3: AI Apps Layer (Business Applications - Read-only from main sidebar)
 const aiAppsLayer: ArchitectureLayer = {
@@ -327,6 +355,7 @@ const infrastructureLayer: ArchitectureLayer = {
 
 // Export all layers in order (top to bottom)
 export const ARCHITECTURE_LAYERS: ArchitectureLayer[] = [
+  openApiLayer,
   aiAppsLayer,
   aiEngineLayer,
   infrastructureLayer,
@@ -334,6 +363,16 @@ export const ARCHITECTURE_LAYERS: ArchitectureLayer[] = [
 
 // Layer styling configurations - enhanced visual design
 export const LAYER_STYLES = {
+  4: {
+    // Open API - Orange theme (top layer)
+    badge: 'bg-orange-100 text-orange-700',
+    border: 'border-orange-200',
+    accent: 'text-orange-600',
+    bg: 'bg-gradient-to-br from-orange-50/80 to-amber-50/50',
+    accentBar: 'bg-gradient-to-b from-orange-500 to-amber-600',
+    iconBg: 'bg-orange-100 text-orange-600',
+    hoverBorder: 'hover:border-orange-300',
+  },
   3: {
     // AI Apps - Purple theme (top layer)
     badge: 'bg-violet-100 text-violet-700',

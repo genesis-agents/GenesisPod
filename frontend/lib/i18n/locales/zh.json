@@ -3493,6 +3493,8 @@
       "subtitle": "点击可配置的卡片进入管理设置",
       "backToOverview": "返回架构图",
       "layers": {
+        "openApi": "第四层：开放 API",
+        "openApiDesc": "面向 AI Agent 和第三方的外部接口",
         "aiApps": "第三层：AI 应用",
         "aiAppsDesc": "业务应用（只读，通过左侧菜单访问）",
         "aiEngine": "第二层：AI 引擎",
@@ -3505,6 +3507,11 @@
         "operationBilling": "运营与计费",
         "dataStorage": "数据与存储",
         "systemOps": "系统运维"
+      },
+      "cards": {
+        "mcpServerDesc": "面向 AI Agent 的 MCP 协议端点",
+        "webhooks": "Webhooks",
+        "webhooksDesc": "向外部系统推送事件通知"
       },
       "legend": {
         "clickable": "可配置",

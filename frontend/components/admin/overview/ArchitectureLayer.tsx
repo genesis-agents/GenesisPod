@@ -106,7 +106,7 @@ export default function ArchitectureLayer({
           {layer.cards && (
             <div
               className={cn(
-                layer.level === 1 || layer.level === 2
+                layer.level !== 3
                   ? 'grid grid-cols-4 gap-3' // 4 columns for L1/L2 - bigger cards
                   : 'flex flex-wrap gap-2'
               )}
@@ -116,7 +116,7 @@ export default function ArchitectureLayer({
                   key={card.id}
                   card={card}
                   layerLevel={layer.level}
-                  fixedWidth={layer.level === 1 || layer.level === 2}
+                  fixedWidth={layer.level !== 3}
                 />
               ))}
             </div>

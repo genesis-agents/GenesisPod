@@ -3493,6 +3493,8 @@
       "subtitle": "Click on configurable cards to manage settings",
       "backToOverview": "Back to Architecture",
       "layers": {
+        "openApi": "Layer 4: Open API",
+        "openApiDesc": "External interfaces for AI agents and third-party integrations",
         "aiApps": "Layer 3: AI Apps",
         "aiAppsDesc": "Business Applications (read-only, access via sidebar)",
         "aiEngine": "Layer 2: AI Engine",
@@ -3505,6 +3507,11 @@
         "operationBilling": "Operations & Billing",
         "dataStorage": "Data & Storage",
         "systemOps": "System Ops"
+      },
+      "cards": {
+        "mcpServerDesc": "MCP protocol endpoint for AI agent tool calls",
+        "webhooks": "Webhooks",
+        "webhooksDesc": "Event-driven notifications to external systems"
       },
       "legend": {
         "clickable": "Configurable",
