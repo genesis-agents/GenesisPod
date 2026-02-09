@@ -167,7 +167,7 @@ export default function MCPServerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'tools' | 'metrics' | 'sessions' | 'api-keys'
+    'overview' | 'tools' | 'metrics' | 'sessions' | 'apiKeys'
   >('overview');
 
   // API Keys state
@@ -1037,13 +1037,7 @@ export default function MCPServerPage() {
     </>
   );
 
-  const tabs = [
-    'overview',
-    'tools',
-    'metrics',
-    'sessions',
-    'api-keys',
-  ] as const;
+  const tabs = ['overview', 'tools', 'metrics', 'sessions', 'apiKeys'] as const;
 
   return (
     <AdminPageLayout
@@ -1097,7 +1091,7 @@ export default function MCPServerPage() {
             {activeTab === 'tools' && renderToolsTab()}
             {activeTab === 'metrics' && renderMetricsTab()}
             {activeTab === 'sessions' && renderSessionsTab()}
-            {activeTab === 'api-keys' && renderApiKeysTab()}
+            {activeTab === 'apiKeys' && renderApiKeysTab()}
           </>
         )}
       </div>
