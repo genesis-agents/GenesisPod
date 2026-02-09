@@ -13,19 +13,19 @@ import {
   Res,
   UseGuards,
   Logger,
-  HttpCode,
   HttpStatus,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiHeader } from "@nestjs/swagger";
 import { Response } from "express";
 import { MCPApiKeyGuard } from "./guards/mcp-api-key.guard";
 import { MCPServerService } from "./mcp-server.service";
-import { MCPRequestContext } from "./abstractions/mcp-server.interface";
+import {
+  MCPRequestContext,
+  JSON_RPC_ERRORS,
+} from "./abstractions/mcp-server.interface";
 import { Public } from "../../common/decorators/public.decorator";
-import { SkipTransform } from "../../common/interceptors/decorators/skip-transform.decorator";
 
 @Public()
-@SkipTransform()
 @ApiTags("MCP Server")
 @Controller("mcp")
 @UseGuards(MCPApiKeyGuard)
@@ -36,42 +36,52 @@ export class MCPServerController {
 
   /**
    * JSON-RPC 2.0 端点
-   * 处理所有 MCP 客户端请求（initialize, tools/list, tools/call 等）
+   * 使用 @Res() 直接控制响应，绕过 NestJS 拦截器，确保输出裸 JSON-RPC
    */
   @Post()
-  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "MCP JSON-RPC 2.0 endpoint" })
   @ApiHeader({ name: "Mcp-Session-Id", required: false })
   async handleJsonRpc(
     @Body() body: unknown,
     @Headers("mcp-session-id") sessionId: string | undefined,
-    @Res({ passthrough: true }) res: Response,
+    @Res() res: Response,
   ) {
-    // Build request context from guard-injected data
-    const request = res.req as any;
-    const context: MCPRequestContext = {
-      apiKeyId: request.mcpApiKeyId || "unknown",
-      sessionId,
-    };
+    try {
+      const request = res.req as unknown as Record<string, unknown>;
+      const context: MCPRequestContext = {
+        apiKeyId: (request.mcpApiKeyId as string) || "unknown",
+        sessionId,
+      };
 
-    const response = await this.mcpServerService.handleRequest(body, context);
+      const response = await this.mcpServerService.handleRequest(body, context);
 
-    // JSON-RPC notifications return null — no response expected
-    if (!response) {
-      res.status(HttpStatus.NO_CONTENT).send();
-      return;
-    }
-
-    // If initialize response, include session ID in header
-    if (!Array.isArray(response) && response.result) {
-      const result = response.result as Record<string, unknown>;
-      const meta = result._meta as Record<string, unknown> | undefined;
-      if (meta?.sessionId) {
-        res.setHeader("Mcp-Session-Id", meta.sessionId as string);
+      // JSON-RPC notifications — server MUST NOT reply
+      if (!response) {
+        res.status(HttpStatus.NO_CONTENT).send();
+        return;
       }
-    }
 
-    return response;
+      // If initialize response, include session ID in header
+      if (!Array.isArray(response) && response.result) {
+        const result = response.result as Record<string, unknown>;
+        const meta = result._meta as Record<string, unknown> | undefined;
+        if (meta?.sessionId) {
+          res.setHeader("Mcp-Session-Id", meta.sessionId as string);
+        }
+      }
+
+      res.status(HttpStatus.OK).json(response);
+    } catch (error) {
+      this.logger.error(`MCP request error: ${(error as Error).message}`);
+      res.status(HttpStatus.OK).json({
+        jsonrpc: "2.0",
+        id: null,
+        error: {
+          code: JSON_RPC_ERRORS.INTERNAL_ERROR.code,
+          message: (error as Error).message || "Internal error",
+        },
+      });
+    }
   }
 
   /**
@@ -89,11 +99,8 @@ export class MCPServerController {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    // Send initial keepalive
     res.write(": keepalive\n\n");
 
-    // Keep connection open - in a full implementation, this would
-    // push server-initiated notifications (e.g., tool list changes)
     const keepaliveInterval = setInterval(() => {
       res.write(": keepalive\n\n");
     }, 30000);
@@ -107,13 +114,13 @@ export class MCPServerController {
    * 终止会话
    */
   @Delete()
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Terminate MCP session" })
   @ApiHeader({ name: "Mcp-Session-Id", required: true })
   async terminateSession(
     @Headers("mcp-session-id") _sessionId: string | undefined,
+    @Res() res: Response,
   ) {
-    // Session cleanup handled internally
     this.logger.log(`Session terminated: ${_sessionId}`);
+    res.status(HttpStatus.NO_CONTENT).send();
   }
 }

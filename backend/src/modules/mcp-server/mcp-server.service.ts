@@ -74,17 +74,20 @@ export class MCPServerService implements OnModuleInit {
   async handleRequest(
     body: unknown,
     context: MCPRequestContext,
-  ): Promise<JsonRpcResponse | JsonRpcResponse[]> {
+  ): Promise<JsonRpcResponse | JsonRpcResponse[] | null> {
     // Handle batch requests
     if (Array.isArray(body)) {
       const responses = await Promise.all(
         body.map((req) => this.processSingleRequest(req, context)),
       );
-      return responses.filter((r): r is JsonRpcResponse => r !== null);
+      const filtered = responses.filter(
+        (r): r is JsonRpcResponse => r !== null,
+      );
+      // JSON-RPC spec: if all are notifications, return nothing
+      return filtered.length > 0 ? filtered : null;
     }
 
-    const response = await this.processSingleRequest(body, context);
-    return response!;
+    return this.processSingleRequest(body, context);
   }
 
   private async processSingleRequest(
