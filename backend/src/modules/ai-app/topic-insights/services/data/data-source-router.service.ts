@@ -1,9 +1,12 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 // ★ 架构重构：移除 SearchService 直接导入，通过 ToolRegistry 调用
 // TODO: 后续添加其他数据源服务导入
 // import { ArxivService } from '../../../ingestion/crawlers/arxiv.service';
 // import { GithubService } from '../../../ingestion/crawlers/github.service';
 // import { HackernewsService } from '../../../ingestion/crawlers/hackernews.service';
+
+// ★ P0: 数据源连接器注册中心
+import { DataSourceConnectorRegistry } from "./connectors/data-source-connector.registry";
 
 // ★ AI Engine Facade 导入 - 用于 Social X 搜索
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
@@ -91,6 +94,9 @@ export class DataSourceRouterService {
     private readonly vectorService: VectorService,
     // ★ AI Facade - 用于 Social X 搜索（Grok Live Search）
     private readonly aiFacade: AIEngineFacade,
+    // ★ P0: 数据源连接器注册中心（可选，向后兼容）
+    @Optional()
+    private readonly connectorRegistry?: DataSourceConnectorRegistry,
   ) {}
 
   /**
@@ -680,10 +686,40 @@ export class DataSourceRouterService {
       case DataSourceType.SOCIAL_X:
         return this.searchSocialX(query, maxResults);
 
+      // ★ P0: 新增实时数据源（通过 ConnectorRegistry 路由）
+      case DataSourceType.SEMANTIC_SCHOLAR:
+      case DataSourceType.PUBMED:
+      case DataSourceType.FINANCE_API:
+      case DataSourceType.WEATHER_API:
+        return this.searchViaConnector(source, query, maxResults);
+
       default:
         this.logger.warn(`Unknown data source type: ${source}`);
         return [];
     }
+  }
+
+  /**
+   * ★ P0: 通过 ConnectorRegistry 执行搜索
+   * 统一路由到已注册的数据源连接器
+   */
+  private async searchViaConnector(
+    source: DataSourceType,
+    query: string,
+    maxResults: number,
+  ): Promise<DataSourceResult[]> {
+    if (!this.connectorRegistry) {
+      this.logger.warn(
+        `[searchViaConnector] ConnectorRegistry not available, skipping ${source}`,
+      );
+      return [];
+    }
+
+    return this.connectorRegistry.searchViaConnector(
+      source,
+      query,
+      maxResults,
+    );
   }
 
   /**

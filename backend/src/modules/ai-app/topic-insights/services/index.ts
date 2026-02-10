@@ -19,6 +19,10 @@ export {
 export { ResearchRealtimeAdapter } from "./core/research-realtime.adapter";
 export { ResearchStrategyService } from "./core/research-strategy.service";
 export { ResearchMemoryService } from "./core/research-memory.service";
+// ★ P0: 交互式研究
+export { InteractiveResearchService } from "./core/interactive-research.service";
+// ★ P1: 研究模板
+export { ResearchTemplateService } from "./core/research-template.service";
 
 // ★ Leader sub-services
 export { LeaderPlanningService } from "./core/leader-planning.service";
@@ -48,6 +52,9 @@ export { FigureExtractorService } from "./report/figure-extractor.service";
 // ★ Report sub-services
 export { ReportGeneratorService } from "./report/report-generator.service";
 export { ReportDataService } from "./report/report-data.service";
+// ★ P1: 引用格式化 + 多格式导出
+export { CitationFormatterService } from "./report/citation-formatter.service";
+export { ResearchExportService } from "./report/research-export.service";
 
 // ==================== Data ====================
 export { DataSourceRouterService } from "./data/data-source-router.service";
@@ -58,6 +65,14 @@ export { LeaderToolService } from "./data/leader-tool.service";
 export { DataSourceFetcherService } from "./data/data-source-fetcher.service";
 export { DataSourceStrategyService } from "./data/data-source-strategy.service";
 export { EvidenceSyncCompensationService } from "./data/evidence-sync-compensation.service";
+// ★ P0: 新增数据服务
+export { DataSourceConnectorRegistry } from "./data/connectors/data-source-connector.registry";
+export { SemanticScholarConnector } from "./data/connectors/semantic-scholar.connector";
+export { PubMedConnector } from "./data/connectors/pubmed.connector";
+export { FinanceApiConnector } from "./data/connectors/finance-api.connector";
+export { WeatherApiConnector } from "./data/connectors/weather-api.connector";
+export { KnowledgeGraphService } from "./data/knowledge-graph.service";
+export { MultiLanguageResearchService } from "./data/multi-language-research.service";
 
 // ==================== Collaboration ====================
 export { TopicCollaboratorService } from "./collaboration/topic-collaborator.service";

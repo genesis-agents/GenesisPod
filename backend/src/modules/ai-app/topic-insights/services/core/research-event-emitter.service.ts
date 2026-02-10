@@ -71,6 +71,21 @@ export enum ResearchEventType {
   REPORT_SYNTHESIS_STARTED = "report:synthesis_started",
   REPORT_SYNTHESIS_PROGRESS = "report:synthesis_progress",
   REPORT_SYNTHESIS_COMPLETED = "report:synthesis_completed",
+
+  // ★ P0: 交互式研究事件
+  RESEARCH_PAUSED = "research:paused",
+  RESEARCH_RESUMED = "research:resumed",
+  RESEARCH_REDIRECTED = "research:redirected",
+  RESEARCH_FOLLOW_UP = "research:follow_up",
+  RESEARCH_CHECKPOINT = "research:checkpoint",
+  DIMENSION_ADDED = "dimension:added",
+  DIMENSION_REMOVED = "dimension:removed",
+  DEPTH_ADJUSTED = "depth:adjusted",
+
+  // ★ P0: 知识图谱事件
+  ENTITY_EXTRACTED = "knowledge:entity_extracted",
+  RELATION_DISCOVERED = "knowledge:relation_discovered",
+  KNOWLEDGE_REUSED = "knowledge:reused",
 }
 
 /**

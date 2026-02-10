@@ -153,6 +153,92 @@ export class DataSourcePlannerService {
       requiresApiKey: true, // 需要 xAI API 或 Web Search 作为降级
       isAvailable: true,
     },
+    // ★ P0: 新增实时数据源连接器
+    {
+      type: DataSourceType.SEMANTIC_SCHOLAR,
+      displayName: "Semantic Scholar",
+      description:
+        "Semantic Scholar 学术论文搜索，覆盖全领域高质量论文，包含引用网络",
+      useCases: [
+        "学术文献综述",
+        "引用分析",
+        "研究趋势",
+        "高影响力论文",
+        "跨学科研究",
+      ],
+      characteristics: [
+        "论文引用数据",
+        "全学科覆盖",
+        "开放获取标记",
+        "作者网络",
+        "语义搜索",
+      ],
+      requiresApiKey: false,
+      isAvailable: true,
+    },
+    {
+      type: DataSourceType.PUBMED,
+      displayName: "PubMed",
+      description:
+        "NCBI PubMed 生物医学文献搜索，覆盖医学、生命科学、生物技术",
+      useCases: [
+        "医学研究",
+        "生物技术",
+        "药物开发",
+        "临床试验",
+        "公共卫生",
+      ],
+      characteristics: [
+        "生物医学权威",
+        "MeSH 术语",
+        "临床证据",
+        "同行评审",
+      ],
+      requiresApiKey: false,
+      isAvailable: true,
+    },
+    {
+      type: DataSourceType.FINANCE_API,
+      displayName: "Finance Data API",
+      description:
+        "金融数据搜索，获取公司信息、股票行情、市场数据",
+      useCases: [
+        "公司分析",
+        "股票研究",
+        "行业对比",
+        "市场数据",
+        "投资研究",
+      ],
+      characteristics: [
+        "实时行情",
+        "公司基本面",
+        "行业分类",
+        "全球市场",
+      ],
+      requiresApiKey: true,
+      isAvailable: true,
+    },
+    {
+      type: DataSourceType.WEATHER_API,
+      displayName: "Weather Data API",
+      description:
+        "天气和气候数据搜索，获取全球天气预报和历史气候数据",
+      useCases: [
+        "气候研究",
+        "农业分析",
+        "能源需求",
+        "灾害评估",
+        "旅游规划",
+      ],
+      characteristics: [
+        "全球覆盖",
+        "实时数据",
+        "历史记录",
+        "免费开放",
+      ],
+      requiresApiKey: false,
+      isAvailable: true,
+    },
   ];
 
   constructor(
