@@ -30,7 +30,7 @@ module.exports = {
     "@typescript-eslint/explicit-module-boundary-types": "off",
 
     // 类型安全 - 核心规则保持error
-    "@typescript-eslint/no-explicit-any": "warn", // 降级为warn，允许合理使用any
+    "@typescript-eslint/no-explicit-any": "error", // Production code must not use any (tests override to off)
     "@typescript-eslint/no-unused-vars": [
       "error",
       {
@@ -39,7 +39,7 @@ module.exports = {
       },
     ],
     // Promise handling - temporarily relaxed for legacy code
-    "@typescript-eslint/no-floating-promises": "warn",
+    "@typescript-eslint/no-floating-promises": "error",
     "@typescript-eslint/no-misused-promises": "warn",
     "@typescript-eslint/await-thenable": "error",
     "@typescript-eslint/no-unnecessary-type-assertion": "error",
@@ -62,10 +62,10 @@ module.exports = {
     "@typescript-eslint/no-unsafe-enum-comparison": "warn",
     "@typescript-eslint/ban-ts-comment": "warn",
     "@typescript-eslint/no-var-requires": "warn",
-    "@typescript-eslint/await-thenable": "warn",
+    // Note: await-thenable is already "error" above - do NOT re-declare here
     "@typescript-eslint/no-base-to-string": "warn",
     "@typescript-eslint/ban-types": "warn",
-    "@typescript-eslint/no-implied-eval": "warn",
+    "@typescript-eslint/no-implied-eval": "error", // Promoted: eval-like code is a security risk
     "@typescript-eslint/unbound-method": "warn",
 
     // 代码质量
@@ -103,7 +103,7 @@ module.exports = {
       files: ["**/modules/ai-app/**/*.ts"],
       rules: {
         "no-restricted-imports": [
-          "warn",
+          "error",
           {
             patterns: [
               {

@@ -104,7 +104,7 @@ export class AiStudioSourceService {
     sourceUrl?: string | null,
     resourceId?: string | null,
   ) {
-    const conditions: any[] = [];
+    const conditions: Array<{ title?: { equals: string; mode: "insensitive" }; sourceUrl?: { equals: string; mode: "insensitive" }; resourceId?: string }> = [];
 
     // Check by exact title match (case-insensitive)
     if (title) {
@@ -333,8 +333,8 @@ export class AiStudioSourceService {
    */
   private async quickSearch(query: string, sourcesToSearch: string[]) {
     const startTime = Date.now();
-    const results: any[] = [];
-    const searchPromises: Promise<any[]>[] = [];
+    const results: Array<Record<string, unknown>> = [];
+    const searchPromises: Promise<Array<Record<string, unknown>>>[] = [];
     const errors: string[] = [];
 
     // Launch all searches in parallel for speed
@@ -458,7 +458,7 @@ export class AiStudioSourceService {
    */
   private async deepResearch(query: string, sourcesToSearch: string[]) {
     const startTime = Date.now();
-    const allResults: any[] = [];
+    const allResults: Array<Record<string, unknown>> = [];
     const searchHistory: string[] = [query];
     const errors: string[] = [];
 
@@ -493,8 +493,8 @@ export class AiStudioSourceService {
             allResults.push({ ...result, relatedQuery });
           }
         }
-      } catch (error: any) {
-        errors.push(`related search "${relatedQuery}": ${error.message}`);
+      } catch (error: unknown) {
+        errors.push(`related search "${relatedQuery}": ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -514,8 +514,8 @@ export class AiStudioSourceService {
               allResults.push({ ...result, relatedQuery: academicQuery });
             }
           }
-        } catch (error: any) {
-          errors.push(`arxiv deep search: ${error.message}`);
+        } catch (error: unknown) {
+          errors.push(`arxiv deep search: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
     }
@@ -547,7 +547,7 @@ export class AiStudioSourceService {
   /**
    * Search local database
    */
-  private async searchLocalDB(query: string, limit: number): Promise<any[]> {
+  private async searchLocalDB(query: string, limit: number): Promise<Array<Record<string, unknown>>> {
     const results = await this.prisma.resource.findMany({
       where: {
         OR: [
@@ -582,7 +582,7 @@ export class AiStudioSourceService {
    * Search web using Tavily/Serper
    * ★ 架构重构：通过 ToolRegistry 调用 web-search 工具
    */
-  private async searchWeb(query: string, limit: number): Promise<any[]> {
+  private async searchWeb(query: string, limit: number): Promise<Array<Record<string, unknown>>> {
     // ★ 通过 ToolRegistry 获取 web-search 工具
     const webSearchTool = this.toolRegistry.tryGet("web-search");
     if (!webSearchTool) {
@@ -639,10 +639,10 @@ export class AiStudioSourceService {
     query: string,
     category: string,
     limit: number,
-  ): Promise<any[]> {
+  ): Promise<Array<Record<string, unknown>>> {
     const results = await this.prisma.resource.findMany({
       where: {
-        type: category as any,
+        type: category as "PAPER" | "BLOG" | "REPORT" | "POLICY" | "YOUTUBE_VIDEO" | "NEWS" | "PROJECT" | "EVENT" | "RSS",
         OR: [
           { title: { contains: query, mode: "insensitive" } },
           { abstract: { contains: query, mode: "insensitive" } },
@@ -678,7 +678,7 @@ export class AiStudioSourceService {
    * Search news sources using web search with news-focused keywords
    * ★ 架构重构：通过 ToolRegistry 调用 web-search 工具
    */
-  private async searchNews(query: string, limit: number): Promise<any[]> {
+  private async searchNews(query: string, limit: number): Promise<Array<Record<string, unknown>>> {
     // ★ 通过 ToolRegistry 获取 web-search 工具
     const webSearchTool = this.toolRegistry.tryGet("web-search");
     if (!webSearchTool) {
@@ -736,7 +736,7 @@ export class AiStudioSourceService {
   /**
    * Search academic papers using Semantic Scholar API
    */
-  private async searchScholar(query: string, limit: number): Promise<any[]> {
+  private async searchScholar(query: string, limit: number): Promise<Array<Record<string, unknown>>> {
     const axios = await import("axios");
 
     try {
@@ -759,14 +759,14 @@ export class AiStudioSourceService {
       const papers = response.data.data || [];
       this.logger.log(`Scholar search returned ${papers.length} results`);
 
-      return papers.map((paper: any) => ({
+      return papers.map((paper: Record<string, unknown>) => ({
         id: null,
         title: paper.title,
         abstract: paper.abstract || "",
         sourceUrl:
-          paper.openAccessPdf?.url ||
+          (paper.openAccessPdf as Record<string, unknown> | undefined)?.url as string | undefined ||
           `https://www.semanticscholar.org/paper/${paper.paperId}`,
-        authors: paper.authors?.map((a: any) => a.name) || [],
+        authors: Array.isArray(paper.authors) ? paper.authors.map((a: unknown) => (a as Record<string, unknown>).name as string) : [],
         publishedAt: paper.year ? `${paper.year}-01-01` : null,
         source: "scholar",
         sourceType: "paper",
@@ -775,8 +775,8 @@ export class AiStudioSourceService {
           paperId: paper.paperId,
         },
       }));
-    } catch (error: any) {
-      this.logger.warn(`Scholar search failed: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.warn(`Scholar search failed: ${error instanceof Error ? error.message : String(error)}`);
       return [];
     }
   }
@@ -784,7 +784,7 @@ export class AiStudioSourceService {
   /**
    * Generate related queries based on initial results
    */
-  private generateRelatedQueries(query: string, results: any[]): string[] {
+  private generateRelatedQueries(query: string, results: Array<Record<string, unknown>>): string[] {
     if (!query) return [];
     const queries: string[] = [];
     const words = query
@@ -838,13 +838,15 @@ export class AiStudioSourceService {
   /**
    * Check if result is a duplicate
    */
-  private isDuplicate(result: any, existingResults: any[]): boolean {
-    const url = result.sourceUrl?.toLowerCase();
-    const title = result.title?.toLowerCase();
+  private isDuplicate(result: Record<string, unknown>, existingResults: Array<Record<string, unknown>>): boolean {
+    const url = typeof result.sourceUrl === 'string' ? result.sourceUrl.toLowerCase() : undefined;
+    const title = typeof result.title === 'string' ? result.title.toLowerCase() : undefined;
 
     return existingResults.some((existing) => {
-      if (url && existing.sourceUrl?.toLowerCase() === url) return true;
-      if (title && existing.title?.toLowerCase() === title) return true;
+      const existingUrl = typeof existing.sourceUrl === 'string' ? existing.sourceUrl.toLowerCase() : undefined;
+      const existingTitle = typeof existing.title === 'string' ? existing.title.toLowerCase() : undefined;
+      if (url && existingUrl === url) return true;
+      if (title && existingTitle === title) return true;
       return false;
     });
   }
@@ -852,11 +854,12 @@ export class AiStudioSourceService {
   /**
    * Deduplicate results by URL and title
    */
-  private deduplicateResults(results: any[]): any[] {
+  private deduplicateResults(results: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
     const seen = new Set<string>();
     return results.filter((result) => {
-      const key =
-        result.sourceUrl?.toLowerCase() || result.title?.toLowerCase();
+      const sourceUrl = typeof result.sourceUrl === 'string' ? result.sourceUrl.toLowerCase() : undefined;
+      const title = typeof result.title === 'string' ? result.title.toLowerCase() : undefined;
+      const key = sourceUrl || title;
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -874,7 +877,7 @@ export class AiStudioSourceService {
    * - Diversity (10%): Bonus for unique sources
    * - Depth (10%): Content length and detail
    */
-  private rankByRelevance(results: any[], query: string): any[] {
+  private rankByRelevance(results: Array<Record<string, unknown>>, query: string): Array<Record<string, unknown>> {
     if (!query) return results;
     const queryTerms = query
       .toLowerCase()
@@ -894,7 +897,7 @@ export class AiStudioSourceService {
         const freshnessScore = this.calculateFreshness(result);
 
         // 4. Diversity Score (10% weight)
-        const domain = this.extractDomain(result.sourceUrl);
+        const domain = this.extractDomain(typeof result.sourceUrl === 'string' ? result.sourceUrl : undefined);
         const diversityScore = seenDomains.has(domain) ? 30 : 100;
         seenDomains.add(domain);
 
@@ -927,14 +930,14 @@ export class AiStudioSourceService {
   /**
    * Calculate relevance score based on query matching
    */
-  private calculateRelevance(result: any, queryTerms: string[]): number {
+  private calculateRelevance(result: Record<string, unknown>, queryTerms: string[]): number {
     let score = 0;
-    const titleLower = (result.title || "").toLowerCase();
-    const abstractLower = (result.abstract || "").toLowerCase();
+    const titleLower = (typeof result.title === 'string' ? result.title : "").toLowerCase();
+    const abstractLower = (typeof result.abstract === 'string' ? result.abstract : "").toLowerCase();
     const text = `${titleLower} ${abstractLower}`;
 
     // Start with existing score if available
-    if (result.score) {
+    if (typeof result.score === 'number') {
       score = result.score * 40;
     }
 
@@ -970,7 +973,7 @@ export class AiStudioSourceService {
   /**
    * Calculate quality score based on source type and authority
    */
-  private calculateQuality(result: any): number {
+  private calculateQuality(result: Record<string, unknown>): number {
     let score = 50; // Base score
 
     // Source type bonuses
@@ -982,12 +985,13 @@ export class AiStudioSourceService {
         break;
       case "github":
         score += 25; // Technical repos
-        if (result.metadata?.stars > 1000) score += 15;
-        if (result.metadata?.stars > 10000) score += 10;
+        const metadata = result.metadata as Record<string, unknown> | undefined;
+        if (metadata && typeof metadata.stars === 'number' && metadata.stars > 1000) score += 15;
+        if (metadata && typeof metadata.stars === 'number' && metadata.stars > 10000) score += 10;
         break;
       case "local":
         score += 20; // Already curated in DB
-        if (result.qualityScore) score += result.qualityScore * 20;
+        if (typeof result.qualityScore === 'number') score += result.qualityScore * 20;
         break;
       case "web":
       case "news":
@@ -996,7 +1000,7 @@ export class AiStudioSourceService {
     }
 
     // Domain authority check
-    const domain = this.extractDomain(result.sourceUrl);
+    const domain = this.extractDomain(typeof result.sourceUrl === 'string' ? result.sourceUrl : undefined);
     if (this.isHighAuthorityDomain(domain)) {
       score += 25;
     } else if (this.isMediumAuthorityDomain(domain)) {
@@ -1004,7 +1008,7 @@ export class AiStudioSourceService {
     }
 
     // Citation count bonus (for papers)
-    if (result.citationCount) {
+    if (typeof result.citationCount === 'number') {
       if (result.citationCount > 100) score += 20;
       else if (result.citationCount > 50) score += 15;
       else if (result.citationCount > 10) score += 10;
@@ -1016,14 +1020,14 @@ export class AiStudioSourceService {
   /**
    * Calculate freshness score (prefer recent content)
    */
-  private calculateFreshness(result: any): number {
+  private calculateFreshness(result: Record<string, unknown>): number {
     const publishedAt = result.publishedAt || result.publishedDate;
     if (!publishedAt) {
       return 50; // Unknown date gets neutral score
     }
 
     try {
-      const pubDate = new Date(publishedAt);
+      const pubDate = new Date(publishedAt as string | number | Date);
       const now = new Date();
       const daysDiff =
         (now.getTime() - pubDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -1043,9 +1047,10 @@ export class AiStudioSourceService {
   /**
    * Calculate content depth score
    */
-  private calculateDepth(result: any): number {
-    const content = result.abstract || result.content || "";
-    const contentLength = content.length;
+  private calculateDepth(result: Record<string, unknown>): number {
+    const abstract = typeof result.abstract === 'string' ? result.abstract : "";
+    const content = typeof result.content === 'string' ? result.content : "";
+    const contentLength = (abstract || content).length;
 
     if (contentLength >= 1000) return 100;
     if (contentLength >= 500) return 80;
@@ -1138,7 +1143,7 @@ export class AiStudioSourceService {
   private async searchArxivDirect(
     query: string,
     maxResults: number,
-  ): Promise<any[]> {
+  ): Promise<Array<Record<string, unknown>>> {
     const axios = await import("axios");
     const xml2js = await import("xml2js");
 
@@ -1167,34 +1172,36 @@ export class AiStudioSourceService {
       ? result.feed.entry
       : [result.feed.entry];
 
-    return entries.map((entry: any) => {
+    return entries.map((entry: Record<string, unknown>) => {
       const authors = entry.author
         ? Array.isArray(entry.author)
-          ? entry.author.map((a: any) => a.name)
-          : [entry.author.name]
+          ? entry.author.map((a: Record<string, unknown>) => a.name as string)
+          : [(entry.author as Record<string, unknown>).name as string]
         : [];
 
-      const pdfLink = entry.link
-        ? Array.isArray(entry.link)
-          ? entry.link.find((l: any) => l.$.title === "pdf")
-          : entry.link.$.title === "pdf"
-            ? entry.link
+      const entryLink = entry.link as Record<string, unknown> | Array<Record<string, unknown>> | undefined;
+      const pdfLink = entryLink
+        ? Array.isArray(entryLink)
+          ? entryLink.find((l: Record<string, unknown>) => (l.$ as Record<string, unknown>)?.title === "pdf")
+          : (entryLink.$ as Record<string, unknown> | undefined)?.title === "pdf"
+            ? entryLink
             : null
         : null;
 
+      const entryCategory = entry.category as Record<string, unknown> | Array<Record<string, unknown>> | undefined;
       return {
         id: null,
-        title: entry.title?.replace(/\s+/g, " ").trim(),
-        abstract: entry.summary?.replace(/\s+/g, " ").trim(),
-        sourceUrl: pdfLink?.$?.href || entry.id,
+        title: typeof entry.title === 'string' ? entry.title.replace(/\s+/g, " ").trim() : undefined,
+        abstract: typeof entry.summary === 'string' ? entry.summary.replace(/\s+/g, " ").trim() : undefined,
+        sourceUrl: (pdfLink as Record<string, unknown> | undefined)?.$ ? ((pdfLink as Record<string, unknown>).$ as Record<string, unknown>).href as string : entry.id as string,
         authors,
-        publishedAt: entry.published,
+        publishedAt: entry.published as string,
         source: "arxiv",
         sourceType: "paper",
-        categories: entry.category
-          ? Array.isArray(entry.category)
-            ? entry.category.map((c: any) => c.$.term)
-            : [entry.category.$.term]
+        categories: entryCategory
+          ? Array.isArray(entryCategory)
+            ? entryCategory.map((c: Record<string, unknown>) => (c.$ as Record<string, unknown>).term as string)
+            : [(entryCategory.$ as Record<string, unknown>).term as string]
           : [],
       };
     });
@@ -1206,7 +1213,7 @@ export class AiStudioSourceService {
   private async searchGithubDirect(
     query: string,
     maxResults: number,
-  ): Promise<any[]> {
+  ): Promise<Array<Record<string, unknown>>> {
     const axios = await import("axios");
 
     const response = await axios.default.get(
@@ -1226,7 +1233,7 @@ export class AiStudioSourceService {
       },
     );
 
-    return (response.data.items || []).map((repo: any) => ({
+    return (response.data.items || []).map((repo: Record<string, unknown>) => ({
       id: null,
       title: repo.full_name,
       abstract: repo.description,
@@ -1263,8 +1270,8 @@ export class AiStudioSourceService {
       throw new ForbiddenException("Access denied");
     }
 
-    const results: any[] = [];
-    const errors: any[] = [];
+    const results: Array<Record<string, unknown>> = [];
+    const errors: Array<{ fileName: string; error: string }> = [];
 
     for (const file of files) {
       try {
@@ -1299,19 +1306,19 @@ export class AiStudioSourceService {
               fileUrl: parsed.fileUrl,
               storageKey: parsed.metadata.storageKey,
               ...parsed.metadata,
-            } as any,
+            } as unknown as InputJsonValue,
             analysisStatus: "COMPLETED", // File parsing is complete
           },
         });
 
         results.push(source);
-      } catch (error: any) {
+      } catch (error: unknown) {
         this.logger.error(
-          `Failed to process file ${file.originalname}: ${error.message}`,
+          `Failed to process file ${file.originalname}: ${error instanceof Error ? error.message : String(error)}`,
         );
         errors.push({
           fileName: file.originalname,
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     }
@@ -1336,7 +1343,7 @@ export class AiStudioSourceService {
     sourceId: string,
     status: "PENDING" | "ANALYZING" | "COMPLETED" | "FAILED",
     aiSummary?: string,
-    keyInsights?: any,
+    keyInsights?: InputJsonValue,
   ) {
     return this.prisma.researchProjectSource.update({
       where: { id: sourceId },

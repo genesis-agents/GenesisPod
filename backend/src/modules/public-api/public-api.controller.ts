@@ -14,11 +14,13 @@ import {
   Post,
   Body,
   Param,
+  Query,
   UseGuards,
   Logger,
   NotImplementedException,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { AIModelType } from "@prisma/client";
 import { Public } from "../../common/decorators/public.decorator";
 import { MCPApiKeyGuard } from "../mcp-server/guards/mcp-api-key.guard";
@@ -122,6 +124,7 @@ export class PublicApiController {
 
   // ==================== Research ====================
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("research")
   @UseGuards(MCPApiKeyGuard)
   @ApiOperation({ summary: "Start deep research" })
@@ -171,6 +174,7 @@ export class PublicApiController {
 
   // ==================== Ask ====================
 
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post("ask")
   @UseGuards(MCPApiKeyGuard)
   @ApiOperation({ summary: "Quick question and answer" })
@@ -209,6 +213,7 @@ export class PublicApiController {
 
   // ==================== Chat ====================
 
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post("chat")
   @UseGuards(MCPApiKeyGuard)
   @ApiOperation({ summary: "General chat" })
@@ -235,6 +240,7 @@ export class PublicApiController {
 
   // ==================== Teams / Debate ====================
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("teams/debate")
   @UseGuards(MCPApiKeyGuard)
   @ApiOperation({ summary: "Start a team debate" })
@@ -286,6 +292,7 @@ export class PublicApiController {
 
   // ==================== Writing ====================
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post("writing/assist")
   @UseGuards(MCPApiKeyGuard)
   @ApiOperation({ summary: "Writing assistance" })
@@ -359,6 +366,7 @@ export class PublicApiController {
 
   // ==================== Content Analysis ====================
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post("content/analyze")
   @UseGuards(MCPApiKeyGuard)
   @ApiOperation({ summary: "Analyze content" })
@@ -401,6 +409,76 @@ export class PublicApiController {
       result: parsedResult,
       model: response.model,
       tokensUsed: response.tokensUsed,
+    };
+  }
+
+  // ==================== Discovery (OpenClaw Openness) ====================
+
+  @Get("discovery/tools")
+  @UseGuards(MCPApiKeyGuard)
+  @ApiOperation({ summary: "List available AI tools with schemas" })
+  @ApiQuery({ name: "category", required: false, description: "Filter by tool category" })
+  @ApiResponse({ status: 200, description: "Tool list with input schemas" })
+  async discoverTools(@Query("category") category?: string) {
+    const tools = this.aiFacade.getAvailableTools(
+      category as Parameters<typeof this.aiFacade.getAvailableTools>[0],
+    );
+    const definitions = this.aiFacade.getToolFunctionDefinitions(
+      tools.map((t) => t.id),
+    );
+
+    const definitionMap = new Map(definitions.map((d) => [d.name, d]));
+
+    return {
+      count: tools.length,
+      tools: tools.map((tool) => ({
+        ...tool,
+        inputSchema: definitionMap.get(tool.id)?.parameters || null,
+      })),
+    };
+  }
+
+  @Get("discovery/models")
+  @UseGuards(MCPApiKeyGuard)
+  @ApiOperation({ summary: "List available LLM models" })
+  @ApiQuery({ name: "type", required: false, description: "Filter by model type (CHAT, IMAGE_GENERATION, etc.)" })
+  @ApiResponse({ status: 200, description: "Model list" })
+  async discoverModels(@Query("type") modelType?: string) {
+    const type = modelType
+      ? (modelType as AIModelType)
+      : AIModelType.CHAT;
+
+    const models = await this.aiFacade.getAvailableModels(type);
+
+    return {
+      count: models.length,
+      modelType: type,
+      models,
+    };
+  }
+
+  @Get("discovery/capabilities")
+  @UseGuards(MCPApiKeyGuard)
+  @ApiOperation({ summary: "Full capability snapshot (tools + skills + MCP)" })
+  @ApiResponse({ status: 200, description: "Complete capability summary" })
+  async discoverCapabilities() {
+    const capabilities = await this.aiFacade.getAvailableCapabilities({});
+
+    return {
+      version: "1.0.0",
+      restEndpoints: CAPABILITIES,
+      tools: {
+        count: capabilities.tools.length,
+        items: capabilities.tools,
+      },
+      skills: {
+        count: capabilities.skills.length,
+        items: capabilities.skills,
+      },
+      mcpTools: {
+        count: capabilities.mcpTools.length,
+        items: capabilities.mcpTools,
+      },
     };
   }
 

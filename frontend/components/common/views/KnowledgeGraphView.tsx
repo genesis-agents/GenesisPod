@@ -234,16 +234,16 @@ export default function KnowledgeGraphView({
     // 绘制节点
     const node = g
       .append('g')
-      .selectAll('g')
+      .selectAll<SVGGElement, GraphNode>('g')
       .data(nodes)
       .join('g')
       .attr('cursor', 'pointer')
       .call(
         d3
           .drag<SVGGElement, GraphNode>()
-          .on('start', dragstarted as any)
-          .on('drag', dragged as any)
-          .on('end', dragended as any) as any
+          .on('start', dragstarted)
+          .on('drag', dragged)
+          .on('end', dragended)
       );
 
     // 节点圆形

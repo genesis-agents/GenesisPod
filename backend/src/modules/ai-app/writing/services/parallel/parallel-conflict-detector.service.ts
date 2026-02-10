@@ -18,7 +18,7 @@ export class ParallelConflictDetectorService {
     void this.prisma;
   }
 
-  async detect(chapterResults: any[]): Promise<ParallelConflict[]> {
+  async detect(chapterResults: Array<Record<string, unknown>>): Promise<ParallelConflict[]> {
     const conflicts: ParallelConflict[] = [];
 
     // Detect character state conflicts
@@ -41,7 +41,7 @@ export class ParallelConflictDetectorService {
     return conflicts;
   }
 
-  private detectCharacterStateConflicts(results: any[]): ParallelConflict[] {
+  private detectCharacterStateConflicts(results: Array<Record<string, unknown>>): ParallelConflict[] {
     const conflicts: ParallelConflict[] = [];
 
     // Group by character mentions across chapters
@@ -50,11 +50,13 @@ export class ParallelConflictDetectorService {
     for (const result of results) {
       // Extract character state changes from content
       // This is a simplified version - would need NLP in production
-      const stateChanges = this.extractStateChanges(result.content);
+      const content = result.content as string;
+      const stateChanges = this.extractStateChanges(content);
 
       for (const change of stateChanges) {
         const existing = characterMentions.get(change.characterName) || [];
-        existing.push(result.chapter.id);
+        const chapter = result.chapter as { id: string };
+        existing.push(chapter.id);
         characterMentions.set(change.characterName, existing);
       }
     }
@@ -75,17 +77,19 @@ export class ParallelConflictDetectorService {
     return conflicts;
   }
 
-  private detectNewSettingConflicts(results: any[]): ParallelConflict[] {
+  private detectNewSettingConflicts(results: Array<Record<string, unknown>>): ParallelConflict[] {
     const conflicts: ParallelConflict[] = [];
 
     // Detect if same new entity is introduced in multiple chapters
     const newEntities = new Map<string, string[]>();
 
     for (const result of results) {
-      const entities = this.extractNewEntities(result.content);
+      const content = result.content as string;
+      const entities = this.extractNewEntities(content);
       for (const entity of entities) {
         const existing = newEntities.get(entity.toLowerCase()) || [];
-        existing.push(result.chapter.id);
+        const chapter = result.chapter as { id: string };
+        existing.push(chapter.id);
         newEntities.set(entity.toLowerCase(), existing);
       }
     }
@@ -105,12 +109,12 @@ export class ParallelConflictDetectorService {
     return conflicts;
   }
 
-  private detectTimelineConflicts(_results: any[]): ParallelConflict[] {
+  private detectTimelineConflicts(_results: Array<Record<string, unknown>>): ParallelConflict[] {
     // Placeholder - would need more sophisticated analysis
     return [];
   }
 
-  private detectTerminologyConflicts(_results: any[]): ParallelConflict[] {
+  private detectTerminologyConflicts(_results: Array<Record<string, unknown>>): ParallelConflict[] {
     // Placeholder - would need NLP analysis
     return [];
   }

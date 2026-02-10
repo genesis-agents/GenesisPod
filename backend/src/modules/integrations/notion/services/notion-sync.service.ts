@@ -4,7 +4,9 @@ import {
   PageObjectResponse,
   DatabaseObjectResponse,
   BlockObjectResponse,
+  BlockObjectRequest,
 } from "@notionhq/client/build/src/api-endpoints";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { NotionAuthService } from "./notion-auth.service";
 
@@ -373,7 +375,7 @@ export class NotionSyncService {
       url: page.url,
       parentType,
       parentId,
-      blocks: blocks as any,
+      blocks: blocks as unknown as Prisma.InputJsonValue,
       plainTextContent,
       notionCreatedAt: new Date(page.created_time),
       notionUpdatedAt: new Date(page.last_edited_time),
@@ -393,7 +395,7 @@ export class NotionSyncService {
             data: {
               pageId: existing.id,
               version: await this.getNextVersion(existing.id),
-              blocks: existing.blocks as any,
+              blocks: existing.blocks as Prisma.InputJsonValue,
               source: "local",
             },
           });
@@ -402,7 +404,7 @@ export class NotionSyncService {
             data: {
               pageId: existing.id,
               version: await this.getNextVersion(existing.id),
-              blocks: blocks as any,
+              blocks: blocks as unknown as Prisma.InputJsonValue,
               source: "notion",
             },
           });
@@ -500,12 +502,12 @@ export class NotionSyncService {
       db.title.map((t) => t.plain_text).join("") || "Untitled Database";
 
     // 获取数据库条目（限制数量）
-    const queryResponse = await (client.databases as any).query({
+    const queryResponse = await (client.databases as unknown as { query: (params: { database_id: string; page_size: number }) => Promise<{ results: Array<Record<string, unknown>> }> }).query({
       database_id: db.id,
       page_size: 100,
     });
 
-    const items = queryResponse.results.map((item: any) => {
+    const items = queryResponse.results.map((item: Record<string, unknown>) => {
       if ("properties" in item) {
         return {
           id: item.id,
@@ -518,11 +520,11 @@ export class NotionSyncService {
     const dbData = {
       title,
       description:
-        db.description?.map((d: any) => d.plain_text).join("") || null,
+        db.description?.map((d: { plain_text: string }) => d.plain_text).join("") || null,
       icon: this.extractIcon(db.icon),
       url: db.url,
-      properties: (db as any).properties,
-      items: items,
+      properties: (db as unknown as { properties: Record<string, unknown> }).properties as unknown as Prisma.InputJsonValue,
+      items: items as unknown as Prisma.InputJsonValue,
       itemCount: queryResponse.results.length,
       syncStatus: NotionSyncStatus.SUCCESS,
       lastSyncedAt: new Date(),
@@ -577,7 +579,7 @@ export class NotionSyncService {
               typedBlock.id,
               depth + 1,
             );
-            (typedBlock as any).children = children;
+            (typedBlock as BlockObjectResponse & { children?: BlockObjectResponse[] }).children = children;
           }
         }
       }
@@ -637,18 +639,19 @@ export class NotionSyncService {
       ];
 
       if (richTextTypes.includes(block.type)) {
-        const content = (block as any)[block.type];
+        const content = (block as Record<string, unknown>)[block.type] as { rich_text?: Array<{ plain_text: string }> } | undefined;
         if (content?.rich_text) {
           const text = content.rich_text
-            .map((rt: any) => rt.plain_text)
+            .map((rt) => rt.plain_text)
             .join("");
           if (text) texts.push(text);
         }
       }
 
       // 处理子块
-      if ((block as any).children) {
-        for (const child of (block as any).children) {
+      const blockWithChildren = block as BlockObjectResponse & { children?: BlockObjectResponse[] };
+      if (blockWithChildren.children) {
+        for (const child of blockWithChildren.children) {
           processBlock(child);
         }
       }
@@ -893,7 +896,7 @@ export class NotionSyncService {
         const remotePage = await client.pages.retrieve({
           page_id: page.notionPageId,
         });
-        const remoteUpdatedAt = new Date((remotePage as any).last_edited_time);
+        const remoteUpdatedAt = new Date((remotePage as { last_edited_time: string }).last_edited_time);
 
         // 如果远程有更新，记录冲突
         if (remoteUpdatedAt > page.notionUpdatedAt) {
@@ -937,7 +940,7 @@ export class NotionSyncService {
   /**
    * 推送单个页面到 Notion
    */
-  private async pushPageToNotion(client: any, page: any): Promise<void> {
+  private async pushPageToNotion(client: Client, page: { notionPageId: string; blocks: unknown }): Promise<void> {
     // 删除现有的所有块
     const existingBlocks = await client.blocks.children.list({
       block_id: page.notionPageId,
@@ -948,13 +951,13 @@ export class NotionSyncService {
     }
 
     // 添加新的块
-    const blocks = page.blocks as any[];
+    const blocks = page.blocks as Array<Record<string, unknown>>;
     const notionBlocks = this.convertToNotionBlocks(blocks);
 
     if (notionBlocks.length > 0) {
       await client.blocks.children.append({
         block_id: page.notionPageId,
-        children: notionBlocks,
+        children: notionBlocks as unknown as BlockObjectRequest[],
       });
     }
   }
@@ -1005,9 +1008,9 @@ export class NotionSyncService {
       await this.prisma.notionPage.update({
         where: { id: pageId },
         data: {
-          blocks: blocks as any,
+          blocks: blocks as unknown as Prisma.InputJsonValue,
           plainTextContent: this.extractPlainText(blocks),
-          notionUpdatedAt: new Date((remotePage as any).last_edited_time),
+          notionUpdatedAt: new Date((remotePage as { last_edited_time: string }).last_edited_time),
           isLocallyModified: false,
           localModifiedAt: null,
           lastSyncedAt: new Date(),
@@ -1021,8 +1024,8 @@ export class NotionSyncService {
   /**
    * 将 BlockNote 格式转换为 Notion API 格式
    */
-  private convertToNotionBlocks(blocks: any[]): any[] {
-    const result: any[] = [];
+  private convertToNotionBlocks(blocks: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+    const result: Array<Record<string, unknown>> = [];
 
     for (const block of blocks) {
       const notionBlock = this.convertBlock(block);
@@ -1034,8 +1037,10 @@ export class NotionSyncService {
     return result;
   }
 
-  private convertBlock(block: any): any {
-    const richText = this.convertContent(block.content || []);
+  private convertBlock(block: Record<string, unknown>): Record<string, unknown> | null {
+    const richText = this.convertContent((block.content as Array<Record<string, unknown>> | undefined) || []);
+
+    const blockProps = block.props as Record<string, unknown> | undefined;
 
     switch (block.type) {
       case "paragraph":
@@ -1046,7 +1051,7 @@ export class NotionSyncService {
         };
 
       case "heading":
-        const level = block.props?.level || 1;
+        const level = typeof blockProps?.level === 'number' ? blockProps.level : 1;
         const headingType = `heading_${Math.min(level, 3)}`;
         return {
           object: "block",
@@ -1074,7 +1079,7 @@ export class NotionSyncService {
           type: "to_do",
           to_do: {
             rich_text: richText,
-            checked: block.props?.checked || false,
+            checked: typeof blockProps?.checked === 'boolean' ? blockProps.checked : false,
           },
         };
 
@@ -1084,7 +1089,7 @@ export class NotionSyncService {
           type: "code",
           code: {
             rich_text: richText,
-            language: block.props?.language || "plain text",
+            language: typeof blockProps?.language === 'string' ? blockProps.language : "plain text",
           },
         };
 
@@ -1100,19 +1105,22 @@ export class NotionSyncService {
     }
   }
 
-  private convertContent(content: any[]): any[] {
+  private convertContent(content: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
     return content
       .filter((item) => item.type === "text" && item.text)
-      .map((item) => ({
-        type: "text",
-        text: { content: item.text },
-        annotations: {
-          bold: item.styles?.bold || false,
-          italic: item.styles?.italic || false,
-          strikethrough: item.styles?.strike || false,
-          underline: item.styles?.underline || false,
-          code: item.styles?.code || false,
-        },
-      }));
+      .map((item) => {
+        const styles = item.styles as Record<string, boolean> | undefined;
+        return {
+          type: "text",
+          text: { content: item.text },
+          annotations: {
+            bold: styles?.bold || false,
+            italic: styles?.italic || false,
+            strikethrough: styles?.strike || false,
+            underline: styles?.underline || false,
+            code: styles?.code || false,
+          },
+        };
+      });
   }
 }

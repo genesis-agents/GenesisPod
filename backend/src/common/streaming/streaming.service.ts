@@ -340,7 +340,7 @@ export class StreamingService {
    * @param buffer 缓冲区数组
    * @param target 目标大小
    */
-  private async waitForBufferDrain(buffer: any[], target: number): Promise<void> {
+  private async waitForBufferDrain(buffer: unknown[], target: number): Promise<void> {
     return new Promise((resolve) => {
       const check = () => {
         if (buffer.length <= target) {

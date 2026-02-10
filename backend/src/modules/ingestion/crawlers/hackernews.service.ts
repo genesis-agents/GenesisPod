@@ -180,8 +180,9 @@ export class HackernewsService {
       await this.mongodb.findRawDataByExternalIdAcrossAllSources(externalId);
 
     if (crossSourceDuplicate) {
+      const source = (crossSourceDuplicate as { source?: string }).source;
       this.logger.debug(
-        `Story already exists from another source: ${itemId} (source: ${crossSourceDuplicate.source})`,
+        `Story already exists from another source: ${itemId} (source: ${source})`,
       );
       return;
     }
@@ -195,7 +196,7 @@ export class HackernewsService {
     }
 
     // 层级3去重：URL 去重（防止同一链接从不同源采集）
-    const storyUrl = storyData.url;
+    const storyUrl = typeof storyData.url === 'string' ? storyData.url : '';
 
     if (storyUrl) {
       const normalizedUrl = this.dedup.normalizeUrl(storyUrl);
@@ -203,24 +204,27 @@ export class HackernewsService {
         await this.mongodb.findRawDataByUrlAcrossAllSources(normalizedUrl);
 
       if (urlDuplicate) {
+        const source = (urlDuplicate as { source?: string }).source;
         this.logger.debug(
-          `Story already exists with same URL: ${normalizedUrl} (source: ${urlDuplicate.source})`,
+          `Story already exists with same URL: ${normalizedUrl} (source: ${source})`,
         );
         return;
       }
     }
 
     // 层级4去重：标题相似度检查
-    const storyTitle = storyData.title || "";
+    const storyTitle = typeof storyData.title === 'string' ? storyData.title : "";
 
     if (storyTitle) {
       const similarTitles =
         await this.mongodb.findRawDataByTitleAcrossAllSources(storyTitle);
 
       for (const similar of similarTitles) {
-        if (this.dedup.areTitlesSimilar(storyTitle, similar.data?.title, 0.9)) {
+        const similarData = (similar as { data?: { title?: string }; source?: string });
+        const similarTitle = typeof similarData.data?.title === 'string' ? similarData.data.title : '';
+        if (this.dedup.areTitlesSimilar(storyTitle, similarTitle, 0.9)) {
           this.logger.debug(
-            `Story already exists with similar title: "${similar.data?.title}" (source: ${similar.source}, similarity threshold: 0.9)`,
+            `Story already exists with similar title: "${similarTitle}" (source: ${similarData.source}, similarity threshold: 0.9)`,
           );
           return;
         }
@@ -243,7 +247,8 @@ export class HackernewsService {
 
     // 获取热门评论（非阻塞，如果失败不影响主流程）
     try {
-      if (rawData.kids && rawData.kids.length > 0) {
+      const kids = rawData.kids as unknown;
+      if (kids && Array.isArray(kids) && kids.length > 0) {
         this.logger.log(`Fetching top comments for story ${itemId}`);
         const comments = await this.commentsService.fetchTopComments(
           itemId,
@@ -278,7 +283,7 @@ export class HackernewsService {
     const resourceData = this.extractResourceData(rawData, rawDataId);
 
     const resource = await this.prisma.resource.create({
-      data: resourceData,
+      data: resourceData as any,
     });
 
     this.logger.log(
@@ -291,9 +296,10 @@ export class HackernewsService {
 
     // 3.2 验证引用同步成功
     const linkedRawData = await this.mongodb.findRawDataById(rawDataId);
-    if (linkedRawData?.resourceId !== resource.id) {
+    const linkedResourceId = (linkedRawData as { resourceId?: string })?.resourceId;
+    if (linkedResourceId !== resource.id) {
       this.logger.error(
-        `Reference sync failed for story ${itemId}: MongoDB resourceId=${linkedRawData?.resourceId}, expected ${resource.id}`,
+        `Reference sync failed for story ${itemId}: MongoDB resourceId=${linkedResourceId}, expected ${resource.id}`,
       );
       throw new Error(
         `Failed to establish bi-directional reference for resource ${resource.id}`,
@@ -320,7 +326,7 @@ export class HackernewsService {
   /**
    * 获取单个 item 详情
    */
-  private async fetchItem(id: number): Promise<any> {
+  private async fetchItem(id: number): Promise<Record<string, unknown> | null> {
     try {
       const response = await axios.get(`${this.HN_API_URL}/item/${id}.json`, {
         timeout: 15000, // 单个项目15秒超时
@@ -341,7 +347,8 @@ export class HackernewsService {
    *
    * ⚠️ 关键：存储所有字段！
    */
-  private parseRawData(storyData: any, externalId: string): any {
+  private parseRawData(storyData: Record<string, unknown>, externalId: string): Record<string, unknown> {
+    const timeValue = typeof storyData.time === 'number' ? storyData.time : 0;
     return {
       // 外部 ID（用于去重）
       externalId: externalId,
@@ -349,16 +356,16 @@ export class HackernewsService {
       // 基础信息
       id: storyData.id,
       type: storyData.type,
-      title: this.dedup.cleanText(storyData.title),
-      text: storyData.text ? this.dedup.cleanText(storyData.text) : null,
+      title: this.dedup.cleanText(typeof storyData.title === 'string' ? storyData.title : ''),
+      text: storyData.text ? this.dedup.cleanText(typeof storyData.text === 'string' ? storyData.text : '') : null,
       url: storyData.url || null,
 
       // 作者信息
       by: storyData.by,
 
       // 时间信息（Unix timestamp）
-      time: storyData.time,
-      timeFormatted: new Date(storyData.time * 1000).toISOString(),
+      time: timeValue,
+      timeFormatted: new Date(timeValue * 1000).toISOString(),
 
       // 统计数据
       score: storyData.score || 0,
@@ -387,22 +394,27 @@ export class HackernewsService {
    *
    * ⚠️ 关键：建立 rawDataId 引用关系！
    */
-  private extractResourceData(rawData: any, rawDataId: string): any {
+  private extractResourceData(rawData: Record<string, unknown>, rawDataId: string): Record<string, unknown> {
     // 确定资源 URL
     const sourceUrl = rawData.url || rawData.hnUrl;
 
     // 提取域名作为分类
-    const domain = rawData.url
+    const domain = rawData.url && typeof rawData.url === 'string'
       ? this.dedup.extractDomain(rawData.url)
       : "news.ycombinator.com";
+
+    const title = typeof rawData.title === 'string' ? rawData.title : '';
+    const text = typeof rawData.text === 'string' ? rawData.text : '';
+    const timeFormatted = typeof rawData.timeFormatted === 'string' ? rawData.timeFormatted : new Date().toISOString();
+    const kids = Array.isArray(rawData.kids) ? rawData.kids : [];
 
     return {
       type: "NEWS",
 
       // 基础信息
-      title: rawData.title,
-      abstract: rawData.text || "",
-      content: rawData.text || "",
+      title: title,
+      abstract: text || "",
+      content: text || "",
       sourceUrl: sourceUrl,
 
       // 作者
@@ -414,12 +426,12 @@ export class HackernewsService {
       ],
 
       // 发布时间
-      publishedAt: new Date(rawData.timeFormatted),
+      publishedAt: new Date(timeFormatted),
 
       // 分类
       primaryCategory: "Tech News",
       categories: domain ? [domain] : ["Tech News"],
-      tags: this.extractTags(rawData.title),
+      tags: this.extractTags(title),
 
       // 统计数据
       upvoteCount: rawData.score,
@@ -436,7 +448,7 @@ export class HackernewsService {
         domain: domain,
         author: rawData.by,
         commentsCount: rawData.descendants,
-        kidIds: rawData.kids.slice(0, 10), // 保存前10个评论ID
+        kidIds: kids.slice(0, 10), // 保存前10个评论ID
         timestamp: rawData.time,
       },
 
@@ -448,8 +460,10 @@ export class HackernewsService {
   /**
    * 从标题提取标签
    */
-  private extractTags(title: string): string[] {
+  private extractTags(title: unknown): string[] {
     const tags: string[] = [];
+
+    if (typeof title !== 'string') return tags;
 
     // 常见技术关键词
     const keywords = [
@@ -498,9 +512,9 @@ export class HackernewsService {
   /**
    * 计算质量评分（0-100）
    */
-  private calculateQualityScore(rawData: any): number {
-    const score = rawData.score || 0;
-    const comments = rawData.descendants || 0;
+  private calculateQualityScore(rawData: Record<string, unknown>): number {
+    const score = typeof rawData.score === 'number' ? rawData.score : 0;
+    const comments = typeof rawData.descendants === 'number' ? rawData.descendants : 0;
 
     // 加权计算
     let quality = 0;
@@ -513,9 +527,10 @@ export class HackernewsService {
   /**
    * 计算趋势评分
    */
-  private calculateTrendingScore(rawData: any): number {
-    const score = rawData.score || 0;
-    const ageInHours = (Date.now() - rawData.time * 1000) / (1000 * 60 * 60);
+  private calculateTrendingScore(rawData: Record<string, unknown>): number {
+    const score = typeof rawData.score === 'number' ? rawData.score : 0;
+    const timeValue = typeof rawData.time === 'number' ? rawData.time : 0;
+    const ageInHours = (Date.now() - timeValue * 1000) / (1000 * 60 * 60);
 
     // HackerNews 算法：分数 / (年龄 + 2)^1.8
     const gravity = 1.8;
@@ -547,7 +562,7 @@ export class HackernewsService {
         where: { id: resourceId },
         data: {
           aiSummary: enrichment.aiSummary,
-          keyInsights: enrichment.keyInsights as any,
+          keyInsights: enrichment.keyInsights as unknown as string[],
           primaryCategory: enrichment.primaryCategory || "Tech News",
           autoTags: enrichment.autoTags,
           difficultyLevel: enrichment.difficultyLevel,
@@ -608,9 +623,10 @@ export class HackernewsService {
       }
 
       return isAccessible;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number }; message?: string };
       // 如果 HEAD 请求被拒绝，尝试 GET 请求（某些服务器不支持 HEAD）
-      if (error.response?.status === 405) {
+      if (axiosError.response?.status === 405) {
         try {
           const getResponse = await axios.get(url, {
             timeout: 10000,
@@ -636,8 +652,8 @@ export class HackernewsService {
       }
 
       // 记录失败原因
-      const status = error.response?.status;
-      const message = error.message || "Unknown error";
+      const status = axiosError.response?.status;
+      const message = axiosError.message || "Unknown error";
 
       this.logger.debug(
         `URL accessibility check failed: ${url} (status: ${status}, error: ${message})`,

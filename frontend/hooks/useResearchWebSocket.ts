@@ -533,6 +533,7 @@ export function useResearchWebSocket(
         if (topicId) {
           socketRef.current.emit('leave:topic', { topicId });
         }
+        socketRef.current.removeAllListeners();
         socketRef.current.disconnect();
         socketRef.current = null;
         connectingRef.current = false;

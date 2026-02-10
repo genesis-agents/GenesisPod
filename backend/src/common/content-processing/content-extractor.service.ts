@@ -255,9 +255,10 @@ export class ContentExtractorService {
       );
 
       return `[YouTube Video]\nTitle: ${transcriptResponse.title}\n\n[Subtitles]\n${subtitleText}`;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `Failed to extract YouTube subtitles via YoutubeService: ${error?.message || error}`,
+        `Failed to extract YouTube subtitles via YoutubeService: ${errorMessage}`,
       );
 
       // 回退：尝试获取视频基本信息
@@ -341,8 +342,8 @@ export class ContentExtractorService {
               );
 
               if (subtitleResponse.data?.body) {
-                const subtitleText = subtitleResponse.data.body
-                  .map((item: any) => item.content)
+                const subtitleText = (subtitleResponse.data.body as Array<{ content: string }>)
+                  .map((item) => item.content)
                   .join(" ");
                 content += `\n\nSubtitles:\n${subtitleText}`;
               }
@@ -536,9 +537,10 @@ export class ContentExtractorService {
           this.logger.warn(
             `[extractPdfEnhanced] MinerU parsing failed: ${minerUResult.error}`,
           );
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
           this.logger.warn(
-            `[extractPdfEnhanced] MinerU error: ${error.message}`,
+            `[extractPdfEnhanced] MinerU error: ${errorMessage}`,
           );
         }
       }

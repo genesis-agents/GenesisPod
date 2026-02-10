@@ -525,7 +525,7 @@ export class AdminService {
       );
 
       // 准备更新数据 - 只有提供了有效的 apiKey 才更新
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         name: data.name,
         displayName: data.displayName,
         provider,
@@ -533,7 +533,7 @@ export class AdminService {
         icon: data.icon,
         color: data.color,
         apiEndpoint: data.apiEndpoint,
-        secretKey: (data as any).secretKey,
+        secretKey: data.secretKey,
         maxTokens: data.maxTokens ?? existingByModelId.maxTokens,
         temperature: data.temperature ?? existingByModelId.temperature,
         description: data.description,
@@ -600,7 +600,7 @@ export class AdminService {
         color: data.color,
         apiEndpoint: data.apiEndpoint,
         apiKey: apiKey,
-        secretKey: (data as any).secretKey,
+        secretKey: data.secretKey,
         maxTokens: data.maxTokens ?? 4096,
         temperature: data.temperature ?? 0.7,
         description: data.description,
@@ -719,7 +719,7 @@ export class AdminService {
         color: data.color,
         apiEndpoint: data.apiEndpoint,
         apiKey: apiKeyUpdate,
-        secretKey: (data as any).secretKey,
+        secretKey: data.secretKey,
         maxTokens: updateCorrected.maxTokens,
         temperature: data.temperature,
         description: data.description,
@@ -862,7 +862,7 @@ export class AdminService {
     });
 
     // 将设置转换为键值对格式
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
     for (const setting of settings) {
       try {
         if (setting.value) result[setting.key] = JSON.parse(setting.value);
@@ -898,7 +898,7 @@ export class AdminService {
    */
   async setSetting(
     key: string,
-    value: any,
+    value: unknown,
     options?: { description?: string; category?: string },
   ) {
     const stringValue =
@@ -930,7 +930,7 @@ export class AdminService {
   async setSettings(
     settings: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category?: string;
     }>,
@@ -1042,7 +1042,7 @@ export class AdminService {
   }) {
     const updates: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category: string;
     }> = [];
@@ -1194,7 +1194,7 @@ export class AdminService {
   }) {
     const updates: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category: string;
     }> = [];
@@ -1294,7 +1294,7 @@ export class AdminService {
   }) {
     const updates: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category: string;
     }> = [];
@@ -1381,7 +1381,7 @@ export class AdminService {
   }) {
     const updates: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category: string;
     }> = [];
@@ -2186,7 +2186,7 @@ export class AdminService {
 
     const result: Record<
       string,
-      { defaultModel: any; availableModels: number }
+      { defaultModel: unknown; availableModels: number }
     > = {};
 
     for (const type of types) {
@@ -2330,7 +2330,7 @@ export class AdminService {
   }) {
     const updates: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category: string;
     }> = [];
@@ -2528,7 +2528,7 @@ export class AdminService {
   }) {
     const updates: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category: string;
     }> = [];
@@ -2770,7 +2770,7 @@ export class AdminService {
   }) {
     const updates: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category: string;
     }> = [];
@@ -2867,7 +2867,7 @@ export class AdminService {
   }) {
     const updates: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category: string;
     }> = [];
@@ -2945,7 +2945,7 @@ export class AdminService {
   }) {
     const updates: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category: string;
     }> = [];
@@ -3004,7 +3004,7 @@ export class AdminService {
   }) {
     const updates: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category: string;
     }> = [];
@@ -3052,7 +3052,7 @@ export class AdminService {
   async updateOpenAIConfig(config: { enabled?: boolean; apiKey?: string }) {
     const updates: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category: string;
     }> = [];
@@ -3159,7 +3159,7 @@ export class AdminService {
   async updateCohereConfig(config: { enabled?: boolean; apiKey?: string }) {
     const updates: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category: string;
     }> = [];
@@ -3340,7 +3340,7 @@ export class AdminService {
   }) {
     const updates: Array<{
       key: string;
-      value: any;
+      value: unknown;
       description?: string;
       category: string;
     }> = [];
@@ -3348,7 +3348,7 @@ export class AdminService {
     // Helper to add update if value is provided and not masked
     const addUpdate = (
       key: string,
-      value: any,
+      value: unknown,
       description: string,
       isSensitive = false,
     ) => {
@@ -3470,7 +3470,7 @@ export class AdminService {
 
       const bucketsData = await listResponse.json();
       const bucketExists = bucketsData.buckets?.some(
-        (b: any) => b.bucketName === config.bucketName,
+        (b: Record<string, unknown>) => b.bucketName === config.bucketName,
       );
 
       if (!bucketExists) {

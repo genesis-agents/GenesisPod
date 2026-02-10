@@ -16,63 +16,82 @@ export async function setupSwagger(app: INestApplication): Promise<void> {
     const { DocumentBuilder, SwaggerModule } = await import("@nestjs/swagger");
 
     const config = new DocumentBuilder()
-      .setTitle("DeepDive Engine API")
+      .setTitle("Raven AI Engine API")
       .setDescription(
         `
-## DeepDive Engine Backend API
+## Raven AI Engine - REST API
 
-### 功能模块
+Enterprise AI deep research and content management platform.
 
-- **AI Studio** - 专题研究项目管理
-- **AI Office** - 智能文档生成 (PPT/Word/Excel)
-- **AI Teams** - 多人多AI协作讨论
-- **AI Ask** - AI对话助手
-- **AI Image** - AI图像生成
-- **Explore** - 资源发现与管理
-- **Library** - 个人收藏管理
-- **Admin** - 系统管理
+### Authentication
 
-### 认证方式
-
-所有需要认证的接口都需要在 Header 中携带 Bearer Token:
+**Internal API** (JWT): All internal endpoints require Bearer token:
 \`\`\`
-Authorization: Bearer <access_token>
+Authorization: Bearer <jwt_access_token>
 \`\`\`
 
-### 错误响应格式
+**Public API** (API Key): Public endpoints accept either header format:
+\`\`\`
+Authorization: Bearer <api_key>
+X-API-Key: <api_key>
+\`\`\`
+
+### Public API Endpoints
+
+The Public API (\`/api/v1/public/*\`) provides external access to AI capabilities:
+- **Discovery**: \`/discovery/tools\`, \`/discovery/models\`, \`/discovery/capabilities\`
+- **Research**: Deep multi-step research with planning and synthesis
+- **Chat / Ask**: General chat and Q&A with configurable models
+- **Debate**: Multi-agent structured debate
+- **Writing**: Content improvement, summarization, proofreading
+- **Analysis**: Multi-dimensional content analysis
+
+### Error Response Format
 
 \`\`\`json
 {
   "statusCode": 400,
-  "message": "错误描述",
+  "message": "Error description",
   "error": "Bad Request"
 }
 \`\`\`
       `,
       )
-      .setVersion("1.0")
+      .setVersion("1.0.0")
+      .setContact("Raven AI Engine", "https://github.com/JUNJIE-DUAN/deepdive-engine", "hello.junjie.duan@gmail.com")
+      .setLicense("MIT", "https://opensource.org/licenses/MIT")
       .addBearerAuth(
         {
           type: "http",
           scheme: "bearer",
           bearerFormat: "JWT",
           name: "Authorization",
-          description: "输入 JWT access token",
+          description: "JWT access token for internal API",
           in: "header",
         },
         "access-token",
       )
-      .addTag("auth", "用户认证相关接口")
-      .addTag("ai-studio", "AI Studio 专题研究")
-      .addTag("ai-office", "AI Office 文档生成")
-      .addTag("ai-teams", "AI Teams 协作讨论")
-      .addTag("ai-ask", "AI Ask 对话助手")
-      .addTag("ai-image", "AI Image 图像生成")
-      .addTag("explore", "资源发现")
-      .addTag("library", "个人收藏")
-      .addTag("notes", "笔记管理")
-      .addTag("webhooks", "Webhook 订阅管理")
-      .addTag("admin", "系统管理")
+      .addApiKey(
+        {
+          type: "apiKey",
+          name: "X-API-Key",
+          in: "header",
+          description: "MCP API Key for Public API endpoints",
+        },
+        "api-key",
+      )
+      .addTag("Public API", "External-facing REST API for OpenClaw and integrations")
+      .addTag("auth", "User authentication")
+      .addTag("ai-studio", "AI Studio deep research")
+      .addTag("ai-office", "AI Office document generation")
+      .addTag("ai-teams", "AI Teams collaboration")
+      .addTag("ai-ask", "AI Ask Q&A assistant")
+      .addTag("ai-image", "AI Image generation")
+      .addTag("explore", "Resource discovery")
+      .addTag("library", "Personal library")
+      .addTag("notes", "Notes management")
+      .addTag("webhooks", "Webhook subscriptions")
+      .addTag("admin", "System administration")
       .build();
 
     const document = SwaggerModule.createDocument(app, config, {
@@ -98,7 +117,7 @@ Authorization: Bearer <access_token>
 
     // 添加 JSON 导出端点
     const httpAdapter = app.getHttpAdapter();
-    httpAdapter.get("/api/openapi.json", (_req: any, res: any) => {
+    httpAdapter.get("/api/openapi.json", (_req: unknown, res: { json: (doc: object) => void }) => {
       res.json(document);
     });
 

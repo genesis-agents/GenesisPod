@@ -106,6 +106,9 @@ interface AIWritingState {
   clearCurrentProjectData: () => void;
 }
 
+// Module-level variable to control active polling
+let activePollController: AbortController | null = null;
+
 const initialState = {
   projects: [],
   currentProject: null,
@@ -367,7 +370,10 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
   // ==================== AI Mission ====================
 
   startMission: async (projectId: string, dto: StartMissionDto) => {
-    const { fetchVolumes, fetchProject } = get();
+    // Cancel any existing polling
+    activePollController?.abort();
+    activePollController = new AbortController();
+    const signal = activePollController.signal;
 
     set({
       isMissionRunning: true,
@@ -425,10 +431,18 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
 
       const pollForStatus = async () => {
         while (pollCount < maxPolls) {
+          // Check if cancelled
+          if (signal.aborted) return;
+
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
           pollCount++;
 
+          // Check again after await
+          if (signal.aborted) return;
+
           try {
+            // Get fresh function references from store
+            const { fetchVolumes, fetchProject } = get();
             const status = await api.getMissionStatus(missionId);
 
             // 根据 orchestratorState 更新 UI
@@ -713,6 +727,11 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
           return; // 不启动轮询
         }
 
+        // Cancel any existing polling before starting new one
+        activePollController?.abort();
+        activePollController = new AbortController();
+        const signal = activePollController.signal;
+
         // 有正在运行的任务，同步状态
         set({
           isMissionRunning: true,
@@ -723,9 +742,6 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
           isStuckMission: false,
           stuckMissionId: null,
         });
-
-        // 开始轮询状态
-        const { fetchVolumes, fetchProject } = get();
         const pollInterval = 2000;
         const maxPolls = 450; // 15分钟
         let pollCount = 0;
@@ -735,8 +751,14 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
 
         const pollForStatus = async () => {
           while (pollCount < maxPolls) {
+            // Check if cancelled
+            if (signal.aborted) return;
+
             await new Promise((resolve) => setTimeout(resolve, pollInterval));
             pollCount++;
+
+            // Check again after await
+            if (signal.aborted) return;
 
             // 检查是否长时间无进度更新（卡住）
             if (Date.now() - lastProgressUpdate > STUCK_DURING_POLL_MS) {
@@ -753,6 +775,8 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
             }
 
             try {
+              // Get fresh function references from store
+              const { fetchVolumes, fetchProject } = get();
               const status = await api.getMissionStatus(runningMission.id);
 
               if (status.status === 'COMPLETED') {

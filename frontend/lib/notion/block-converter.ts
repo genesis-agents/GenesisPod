@@ -71,16 +71,14 @@ interface NotionBlock {
   [key: string]: unknown;
 }
 
-// Convert Notion rich text to BlockNote inline content
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockNote's inline content types are complex, using any for flexibility
 function convertNotionRichTextToInlineContent(
   richText: NotionRichText[] | undefined
-): any[] {
+): unknown[] {
   if (!richText || richText.length === 0) {
     return [];
   }
 
-  return richText.map((text) => {
+  return richText.map((text): unknown => {
     const styles: Record<string, boolean> = {};
 
     if (text.annotations?.bold) styles.bold = true;
@@ -111,10 +109,8 @@ function convertNotionRichTextToInlineContent(
   });
 }
 
-// Convert BlockNote inline content to Notion rich text
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockNote content types are complex
 function convertInlineContentToNotionRichText(
-  content: any[] | undefined
+  content: unknown[] | undefined
 ): NotionRichText[] {
   if (!content || content.length === 0) {
     return [];
@@ -122,37 +118,36 @@ function convertInlineContentToNotionRichText(
 
   const result: NotionRichText[] = [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockNote content structure varies
-  const processContent = (item: any): NotionRichText[] => {
-    if (item.type === 'text') {
+  const processContent = (item: unknown): NotionRichText[] => {
+    const blockItem = item as BlockNoteInlineContent;
+    if (blockItem.type === 'text') {
       return [
         {
           type: 'text',
           text: {
-            content: item.text || '',
+            content: blockItem.text || '',
             link: null,
           },
           annotations: {
-            bold: item.styles?.bold || false,
-            italic: item.styles?.italic || false,
-            strikethrough: item.styles?.strike || false,
-            underline: item.styles?.underline || false,
-            code: item.styles?.code || false,
+            bold: blockItem.styles?.bold || false,
+            italic: blockItem.styles?.italic || false,
+            strikethrough: blockItem.styles?.strike || false,
+            underline: blockItem.styles?.underline || false,
+            code: blockItem.styles?.code || false,
           },
-          plain_text: item.text || '',
+          plain_text: blockItem.text || '',
           href: null,
         },
       ];
     }
 
-    if (item.type === 'link') {
-      const linkContent = item.content || [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockNote link content
-      return linkContent.map((c: any) => ({
+    if (blockItem.type === 'link') {
+      const linkContent = blockItem.content || [];
+      return linkContent.map((c) => ({
         type: 'text' as const,
         text: {
           content: c.text || '',
-          link: { url: item.href },
+          link: { url: blockItem.href || '' },
         },
         annotations: {
           bold: c.styles?.bold || false,
@@ -162,7 +157,7 @@ function convertInlineContentToNotionRichText(
           code: c.styles?.code || false,
         },
         plain_text: c.text || '',
-        href: item.href,
+        href: blockItem.href || null,
       }));
     }
 
@@ -213,8 +208,8 @@ export function notionBlocksToBlockNote(
           type: 'paragraph',
           content: convertNotionRichTextToInlineContent(
             block.paragraph?.rich_text
-          ),
-        });
+          ) as unknown,
+        } as PartialBlock);
         break;
 
       case 'heading_1':
@@ -224,8 +219,8 @@ export function notionBlocksToBlockNote(
           props: { level: 1 },
           content: convertNotionRichTextToInlineContent(
             block.heading_1?.rich_text
-          ),
-        });
+          ) as unknown,
+        } as PartialBlock);
         break;
 
       case 'heading_2':
@@ -235,8 +230,8 @@ export function notionBlocksToBlockNote(
           props: { level: 2 },
           content: convertNotionRichTextToInlineContent(
             block.heading_2?.rich_text
-          ),
-        });
+          ) as unknown,
+        } as PartialBlock);
         break;
 
       case 'heading_3':
@@ -246,8 +241,8 @@ export function notionBlocksToBlockNote(
           props: { level: 3 },
           content: convertNotionRichTextToInlineContent(
             block.heading_3?.rich_text
-          ),
-        });
+          ) as unknown,
+        } as PartialBlock);
         break;
 
       case 'bulleted_list_item':
@@ -259,8 +254,8 @@ export function notionBlocksToBlockNote(
           type: 'bulletListItem',
           content: convertNotionRichTextToInlineContent(
             block.bulleted_list_item?.rich_text
-          ),
-        });
+          ) as unknown,
+        } as PartialBlock);
         break;
 
       case 'numbered_list_item':
@@ -272,8 +267,8 @@ export function notionBlocksToBlockNote(
           type: 'numberedListItem',
           content: convertNotionRichTextToInlineContent(
             block.numbered_list_item?.rich_text
-          ),
-        });
+          ) as unknown,
+        } as PartialBlock);
         break;
 
       case 'to_do':
@@ -283,20 +278,19 @@ export function notionBlocksToBlockNote(
           props: {
             checked: block.to_do?.checked || false,
           },
-          content: convertNotionRichTextToInlineContent(block.to_do?.rich_text),
-        });
+          content: convertNotionRichTextToInlineContent(block.to_do?.rich_text) as unknown,
+        } as PartialBlock);
         break;
 
       case 'quote':
         flushList();
-        // BlockNote doesn't have a native quote block, use paragraph with styling
         blocks.push({
           type: 'paragraph',
           props: {
             textColor: 'gray',
           },
-          content: convertNotionRichTextToInlineContent(block.quote?.rich_text),
-        });
+          content: convertNotionRichTextToInlineContent(block.quote?.rich_text) as unknown,
+        } as PartialBlock);
         break;
 
       case 'code':
@@ -306,22 +300,20 @@ export function notionBlocksToBlockNote(
           props: {
             language: block.code?.language || 'plain text',
           },
-          content: convertNotionRichTextToInlineContent(block.code?.rich_text),
-        });
+          content: convertNotionRichTextToInlineContent(block.code?.rich_text) as unknown,
+        } as PartialBlock);
         break;
 
       case 'divider':
         flushList();
-        // BlockNote doesn't have a divider, skip or use a separator
         blocks.push({
           type: 'paragraph',
-          content: [{ type: 'text', text: '───────────────────', styles: {} }],
-        });
+          content: [{ type: 'text', text: '───────────────────', styles: {} }] as unknown,
+        } as PartialBlock);
         break;
 
       case 'callout':
         flushList();
-        // Convert callout to a styled paragraph
         const emoji = block.callout?.icon?.emoji || '💡';
         const calloutContent = convertNotionRichTextToInlineContent(
           block.callout?.rich_text
@@ -332,10 +324,10 @@ export function notionBlocksToBlockNote(
             backgroundColor: 'yellow',
           },
           content: [
-            { type: 'text', text: `${emoji} `, styles: {} },
+            { type: 'text', text: `${emoji} `, styles: {} } as unknown,
             ...calloutContent,
-          ],
-        });
+          ] as unknown,
+        } as PartialBlock);
         break;
 
       case 'image':
@@ -383,8 +375,8 @@ export function notionBlocksToBlockNote(
             type: 'paragraph',
             content: convertNotionRichTextToInlineContent(
               blockContent.rich_text
-            ),
-          });
+            ) as unknown,
+          } as PartialBlock);
         }
         break;
     }
@@ -523,9 +515,8 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
               type: 'table_row',
               table_row: {
                 cells:
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
                   row.cells?.map((cell: unknown) =>
-                    convertInlineContentToNotionRichText(cell as any[])
+                    convertInlineContentToNotionRichText(cell as unknown as BlockNoteInlineContent[])
                   ) || [],
               },
             })),

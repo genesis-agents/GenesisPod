@@ -7,6 +7,7 @@ import {
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
 import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
+import { Prisma } from "@prisma/client";
 
 /**
  * 笔记服务
@@ -49,22 +50,22 @@ export class NotesService {
       }
     }
 
-    const data: any = {
-      userId,
+    const createData: Prisma.NoteCreateInput = {
+      user: { connect: { id: userId } },
       title: dto.title,
       content: dto.content,
       source: dto.source,
-      highlights: dto.highlights || [],
+      highlights: (dto.highlights || []) as Prisma.InputJsonValue,
       tags: dto.tags || [],
       isPublic: dto.isPublic ?? false,
     };
 
     if (resourceId) {
-      data.resourceId = resourceId;
+      createData.resource = { connect: { id: resourceId } };
     }
 
     const note = await this.prisma.note.create({
-      data,
+      data: createData,
       include: {
         resource: resourceId
           ? {
@@ -89,7 +90,7 @@ export class NotesService {
    * 获取用户的所有笔记
    */
   async getUserNotes(userId: string, skip = 0, take = 50, source?: string) {
-    const where: any = { userId };
+    const where: Record<string, unknown> = { userId };
     if (source) {
       where.source = source;
     }
@@ -130,7 +131,7 @@ export class NotesService {
    * 获取资源的笔记
    */
   async getResourceNotes(resourceId: string, userId?: string) {
-    let where: any;
+    let where: Record<string, unknown>;
 
     // 如果没有提供userId，只返回公开笔记
     if (!userId) {
@@ -282,7 +283,7 @@ export class NotesService {
     }
 
     // 获取现有高亮
-    const currentHighlights = (note.highlights as any[]) || [];
+    const currentHighlights = (note.highlights as Array<Record<string, unknown>>) || [];
 
     // 添加新高亮
     const newHighlight = {
@@ -300,7 +301,7 @@ export class NotesService {
     const updated = await this.prisma.note.update({
       where: { id: noteId },
       data: {
-        highlights: currentHighlights,
+        highlights: currentHighlights as Prisma.InputJsonValue,
       },
     });
 
@@ -327,15 +328,15 @@ export class NotesService {
     }
 
     // 移除高亮
-    const currentHighlights = (note.highlights as any[]) || [];
+    const currentHighlights = (note.highlights as Array<Record<string, unknown>>) || [];
     const filteredHighlights = currentHighlights.filter(
-      (h: any) => h.id !== highlightId,
+      (h: Record<string, unknown>) => h.id !== highlightId,
     );
 
     const updated = await this.prisma.note.update({
       where: { id: noteId },
       data: {
-        highlights: filteredHighlights,
+        highlights: filteredHighlights as Prisma.InputJsonValue,
       },
     });
 
@@ -432,16 +433,17 @@ export class NotesService {
     };
 
     // 更新笔记的AI洞察
-    const currentInsights = (note.aiInsights as any) || { explanations: [] };
-    if (!currentInsights.explanations) {
-      currentInsights.explanations = [];
-    }
-    currentInsights.explanations.push(aiExplanation);
+    const currentInsights = (note.aiInsights as Record<string, unknown>) || { explanations: [] };
+    const explanations = Array.isArray(currentInsights.explanations)
+      ? currentInsights.explanations
+      : [];
+    explanations.push(aiExplanation);
+    currentInsights.explanations = explanations;
 
     await this.prisma.note.update({
       where: { id: noteId },
       data: {
-        aiInsights: currentInsights,
+        aiInsights: currentInsights as Prisma.InputJsonValue,
       },
     });
 
@@ -513,10 +515,10 @@ export class NotesService {
     }
 
     // 获取现有图谱节点
-    const currentNodes = (note.graphNodes as any[]) || [];
+    const currentNodes = (note.graphNodes as Array<Record<string, unknown>>) || [];
 
     // 检查是否已存在
-    const exists = currentNodes.some((node: any) => node.id === nodeId);
+    const exists = currentNodes.some((node: Record<string, unknown>) => node.id === nodeId);
     if (exists) {
       return note;
     }
@@ -533,7 +535,7 @@ export class NotesService {
     const updated = await this.prisma.note.update({
       where: { id: noteId },
       data: {
-        graphNodes: currentNodes,
+        graphNodes: currentNodes as Prisma.InputJsonValue,
       },
     });
 
@@ -560,11 +562,11 @@ export class NotesService {
     }
 
     // 获取现有图谱节点
-    const currentNodes = (note.graphNodes as any[]) || [];
+    const currentNodes = (note.graphNodes as Array<Record<string, unknown>>) || [];
 
     // 过滤掉要移除的节点
     const filteredNodes = currentNodes.filter(
-      (node: any) => node.id !== nodeId,
+      (node: Record<string, unknown>) => node.id !== nodeId,
     );
 
     // 如果没有变化,直接返回
@@ -575,7 +577,7 @@ export class NotesService {
     const updated = await this.prisma.note.update({
       where: { id: noteId },
       data: {
-        graphNodes: filteredNodes,
+        graphNodes: filteredNodes as Prisma.InputJsonValue,
       },
     });
 

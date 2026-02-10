@@ -19,7 +19,7 @@ interface AdjudicationResult {
   ruling: string;
   notes?: string;
   evidenceRefs?: EvidenceRef[];
-  worldDelta?: Record<string, any>;
+  worldDelta?: Record<string, unknown>;
   blackSwanEvent?: BlackSwanEvent;
 }
 
@@ -124,7 +124,7 @@ export class AiSimulationEngineService {
       tools: Prisma.JsonValue;
       [key: string]: unknown;
     },
-    worldState: Record<string, any>,
+    worldState: Record<string, unknown>,
     roundNumber: number,
     scenario: { name: string; industry: string; [key: string]: unknown },
     irrationalBias: boolean,
@@ -275,7 +275,7 @@ ${agent.persona ? `人设：${JSON.stringify(agent.persona)}` : ""}
 
   private buildAgentUserPrompt(
     agent: { role: string; team: string; memoryPublic: Prisma.JsonValue },
-    worldState: Record<string, any>,
+    worldState: Record<string, unknown>,
     roundNumber: number,
     irrationalBias: boolean,
   ): string {
@@ -294,7 +294,7 @@ ${agent.persona ? `人设：${JSON.stringify(agent.persona)}` : ""}
 - ${newsInfo}
 - ${regulationInfo}
 
-${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} - ${worldState.blackSwan.description}` : ""}
+${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as BlackSwanEvent).name} - ${(worldState.blackSwan as BlackSwanEvent).description}` : ""}
 
 请基于你的角色和当前态势，决定你的下一步行动。`;
 
@@ -385,7 +385,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
 
   private generateTemplateDecision(
     agent: { role: string; team: string; persona: Prisma.JsonValue },
-    worldState: Record<string, any>,
+    worldState: Record<string, unknown>,
     irrationalBias: boolean,
   ): { innerMonologue: string; publicAction: string } {
     const parts = [
@@ -420,8 +420,8 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
     const rounds = run.rounds ?? 2;
 
     // Initialization: fetch external data snapshot
-    const evidenceTrail: any[] = [];
-    const state: Record<string, any> = {};
+    const evidenceTrail: Array<Record<string, unknown>> = [];
+    const state: Record<string, unknown> = {};
 
     const { snapshot, evidence } = await this.externalData.getSnapshot();
     evidenceTrail.push(...evidence);
@@ -496,8 +496,8 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
     }
 
     // Collect submissions: enforce CoT (inner monologue + blind public action scaffold)
-    const submissions: any[] = [];
-    const worldState = (run.worldState as Record<string, any> | null) || {};
+    const submissions: Array<Record<string, unknown>> = [];
+    const worldState = (run.worldState as Record<string, unknown> | null) || {};
     const irrationalProb =
       (run.params as Record<string, any> | null)?.irrationalProb !== undefined
         ? (run.params as Record<string, any> | null)?.irrationalProb
@@ -555,7 +555,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
     const evidenceRefs = adjudication.evidenceRefs || [];
 
     // 累积worldState：将worldDelta与现有worldState深度合并
-    const prevWorldState = (run.worldState as Record<string, any>) || {};
+    const prevWorldState = (run.worldState as Record<string, unknown>) || {};
     const mergedWorldState = {
       ...prevWorldState,
       ...adjudication.worldDelta,
@@ -572,7 +572,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
       },
     });
 
-    const prevTrail = (run.evidenceTrail as Record<string, any> | null) || {};
+    const prevTrail = (run.evidenceTrail as Record<string, unknown> | null) || {};
 
     await this.prisma.simulationRun.update({
       where: { id: runId },
@@ -594,18 +594,19 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
    * If any provider missing data, mark ruling as "insufficient_evidence".
    */
   private async simpleAdjudication(
-    run: any,
-    submissions: any[],
+    run: { worldState: unknown; scenario: { companies: Array<{ id: string; metrics: unknown }> }; params: unknown },
+    submissions: Array<Record<string, unknown>>,
   ): Promise<AdjudicationResult> {
     const evidenceRefs: EvidenceRef[] = [];
-    const worldDelta: Record<string, any> = {};
-    const worldState = (run.worldState as Record<string, any>) || {};
+    const worldDelta: Record<string, unknown> = {};
+    const worldState = (run.worldState as Record<string, unknown>) || {};
 
     // Basic resource sanity check: if a submission declares cost but公司现金不足则驳回
     const companyCashMap: Record<string, number> = {};
     (run.scenario.companies || []).forEach(
-      (c: { id: string; metrics: Prisma.JsonValue }) => {
-        const cash = (c.metrics as Record<string, any>)?.cash;
+      (c: { id: string; metrics: unknown }) => {
+        const metrics = c.metrics as Record<string, unknown> | null;
+        const cash = metrics?.cash;
         if (typeof cash === "number") {
           companyCashMap[c.id] = cash;
         }
@@ -613,15 +614,18 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
     );
 
     for (const sub of submissions) {
+      const intent = sub.intent as { cost?: number } | undefined;
+      const tools = sub.tools as { plannedCost?: number } | undefined;
       const intentCost =
-        (sub.intent && typeof sub.intent.cost === "number"
-          ? sub.intent.cost
+        (intent && typeof intent.cost === "number"
+          ? intent.cost
           : undefined) ||
-        (sub.tools && typeof sub.tools?.plannedCost === "number"
-          ? sub.tools.plannedCost
+        (tools && typeof tools.plannedCost === "number"
+          ? tools.plannedCost
           : undefined);
-      if (intentCost !== undefined && sub.companyId) {
-        const available = companyCashMap[sub.companyId];
+      const companyId = sub.companyId as string | undefined;
+      if (intentCost !== undefined && companyId) {
+        const available = companyCashMap[companyId];
         if (typeof available === "number" && intentCost > available) {
           evidenceRefs.push({
             provider: "arbiter",
@@ -641,7 +645,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
 
     const providers = ["market", "finance", "news", "regulation"];
     const missing = providers.filter(
-      (p) => !worldState[p] || worldState[p]?.error,
+      (p) => !worldState[p] || (worldState[p] as { error?: unknown })?.error,
     );
 
     if (missing.length > 0) {

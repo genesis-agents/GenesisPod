@@ -167,8 +167,9 @@ export class MinerUService {
         },
         error: "All MinerU parsing methods failed",
       };
-    } catch (error: any) {
-      this.logger.error(`[parsePdf] Error: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`[parsePdf] Error: ${errorMessage}`);
       return {
         success: false,
         content: "",
@@ -181,7 +182,7 @@ export class MinerUService {
           parseTime: Date.now() - startTime,
           method: "fallback",
         },
-        error: error.message,
+        error: errorMessage,
       };
     }
   }
@@ -255,8 +256,9 @@ export class MinerUService {
       }
 
       throw new Error(response.data?.error || "API returned empty result");
-    } catch (error: any) {
-      this.logger.warn(`[parseViaApi] Failed: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`[parseViaApi] Failed: ${errorMessage}`);
       return {
         success: false,
         content: "",
@@ -269,7 +271,7 @@ export class MinerUService {
           parseTime: 0,
           method: "api",
         },
-        error: error.message,
+        error: errorMessage,
       };
     }
   }
@@ -360,8 +362,9 @@ export class MinerUService {
         },
         images,
       };
-    } catch (error: any) {
-      this.logger.warn(`[parseViaCli] Failed: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`[parseViaCli] Failed: ${errorMessage}`);
       return {
         success: false,
         content: "",
@@ -374,7 +377,7 @@ export class MinerUService {
           parseTime: 0,
           method: "cli",
         },
-        error: error.message,
+        error: errorMessage,
       };
     } finally {
       // 清理临时文件

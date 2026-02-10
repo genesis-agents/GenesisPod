@@ -37,6 +37,10 @@ import {
   CancelResponseDto,
 } from "./dto";
 
+interface AuthenticatedRequest {
+  user: { id: string; email: string };
+}
+
 @ApiTags("AI Agents")
 @Controller("agents")
 export class AgentsController {
@@ -150,7 +154,7 @@ export class AgentsController {
   })
   async execute(
     @Body() body: ExecuteRequestDto,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ): Promise<ExecuteResponseDto> {
     const userId = req.user?.id;
 
@@ -207,7 +211,7 @@ export class AgentsController {
     if (!task) {
       throw new HttpException("Task not found", HttpStatus.NOT_FOUND);
     }
-    return task;
+    return task as unknown as TaskResponseDto;
   }
 
   /**
@@ -296,7 +300,7 @@ export class AgentsController {
     @Param("taskId") taskId: string,
   ): Promise<ArtifactsResponseDto> {
     const artifacts = await this.agentsService.getArtifacts(taskId);
-    return { artifacts: artifacts as any };
+    return { artifacts: artifacts as unknown as ArtifactsResponseDto["artifacts"] };
   }
 
   /**
@@ -322,7 +326,7 @@ export class AgentsController {
   })
   async downloadArtifact(
     @Param("artifactId") artifactId: string,
-  ): Promise<any> {
+  ): Promise<{ url: string | null; name: string; mimeType: string }> {
     return this.agentsService.getArtifactDownload(artifactId);
   }
 

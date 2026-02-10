@@ -96,14 +96,22 @@ export class DuplicateDetectorService {
   private async findExactUrlDuplicate(sourceUrl: string) {
     try {
       // 检查ImportTask表中是否存在相同的URL
-      const existing = await (this.prisma as any).importTask.findFirst({
+      const existing = await (
+        this.prisma as unknown as {
+          importTask: {
+            findFirst: (args: {
+              where: { sourceUrl: string };
+            }) => Promise<{ id: string } | null>;
+          };
+        }
+      ).importTask.findFirst({
         where: { sourceUrl },
       });
 
       return existing
         ? {
             id: existing.id,
-            type: "importTask",
+            type: "importTask" as const,
           }
         : null;
     } catch (error) {
@@ -131,7 +139,24 @@ export class DuplicateDetectorService {
   > {
     try {
       // 从ImportTask中获取同resourceType的最近500条记录的元数据
-      const recentTasks = await (this.prisma as any).importTask.findMany({
+      const recentTasks = (await (
+        this.prisma as unknown as {
+          importTask: {
+            findMany: (args: {
+              where: { resourceType: ResourceType; status: string };
+              select: { id: boolean; sourceUrl: boolean; metadata: boolean };
+              orderBy: { createdAt: string };
+              take: number;
+            }) => Promise<
+              Array<{
+                id: string;
+                sourceUrl: string;
+                metadata?: { title?: string };
+              }>
+            >;
+          };
+        }
+      ).importTask.findMany({
         where: {
           resourceType,
           status: "SUCCESS", // 只检查成功导入的任务
@@ -145,10 +170,14 @@ export class DuplicateDetectorService {
           createdAt: "desc",
         },
         take: 500,
-      });
+      })) as Array<{
+        id: string;
+        sourceUrl: string;
+        metadata?: { title?: string };
+      }>;
 
       // 转换为元数据对象
-      const recentMetadata = recentTasks.map((task: any) => ({
+      const recentMetadata = recentTasks.map((task) => ({
         id: task.id,
         title: task.metadata?.title || "",
         sourceUrl: task.sourceUrl,
@@ -208,7 +237,26 @@ export class DuplicateDetectorService {
 
       // 从ImportTask中查找相同contentHash的任务
       // 使用 Prisma JSON 字段的 path + equals 语法
-      const duplicates = await (this.prisma as any).importTask.findMany({
+      const duplicates = (await (
+        this.prisma as unknown as {
+          importTask: {
+            findMany: (args: {
+              where: {
+                resourceType: ResourceType;
+                status: string;
+                metadata: { path: string[]; equals: string };
+              };
+              select: { id: boolean; sourceUrl: boolean; metadata: boolean };
+            }) => Promise<
+              Array<{
+                id: string;
+                sourceUrl: string;
+                metadata?: { title?: string };
+              }>
+            >;
+          };
+        }
+      ).importTask.findMany({
         where: {
           resourceType,
           status: "SUCCESS",
@@ -222,9 +270,13 @@ export class DuplicateDetectorService {
           sourceUrl: true,
           metadata: true,
         },
-      });
+      })) as Array<{
+        id: string;
+        sourceUrl: string;
+        metadata?: { title?: string };
+      }>;
 
-      return duplicates.map((task: any) => ({
+      return duplicates.map((task) => ({
         id: task.id,
         title: task.metadata?.title || "",
         sourceUrl: task.sourceUrl,

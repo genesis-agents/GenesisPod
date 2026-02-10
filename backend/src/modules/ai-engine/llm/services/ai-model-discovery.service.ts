@@ -151,21 +151,23 @@ export class AiModelDiscoveryService {
         default:
           return { success: false, error: `Unknown provider: ${provider}` };
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorResponse = (error as { response?: { data?: { error?: { message?: string } | string; message?: string }; status?: number } }).response;
+      const errorData = errorResponse?.data;
       const apiError =
-        error.response?.data?.error?.message ||
-        error.response?.data?.message ||
-        error.response?.data?.error ||
+        (typeof errorData?.error === 'object' && errorData.error !== null ? (errorData.error as { message?: string }).message : null) ||
+        errorData?.message ||
+        (typeof errorData?.error === 'string' ? errorData.error : null) ||
         null;
-      const statusCode = error.response?.status;
+      const statusCode = errorResponse?.status;
 
       this.logger.error(
-        `Failed to fetch models for ${provider}: status=${statusCode}, apiError=${JSON.stringify(apiError)}, message=${error.message}`,
+        `Failed to fetch models for ${provider}: status=${statusCode}, apiError=${JSON.stringify(apiError)}, message=${error instanceof Error ? error.message : String(error)}`,
       );
 
       const errorMessage =
-        (typeof apiError === "string" ? apiError : apiError?.message) ||
-        error.message ||
+        (typeof apiError === "string" ? apiError : (apiError as { message?: string } | null)?.message) ||
+        (error instanceof Error ? error.message : null) ||
         "Unknown error";
       return { success: false, error: errorMessage };
     }
@@ -191,7 +193,7 @@ export class AiModelDiscoveryService {
 
     if (modelType === "EMBEDDING") {
       models = models.filter(
-        (m: any) =>
+        (m: { id: string }) =>
           m.id.includes("embed") || m.id.includes("embedding") || m.id === "v1",
       );
     } else if (
@@ -200,7 +202,7 @@ export class AiModelDiscoveryService {
       modelType === "MULTIMODAL"
     ) {
       models = models.filter(
-        (m: any) =>
+        (m: { id: string }) =>
           m.id.includes("grok") &&
           !m.id.includes("embed") &&
           !m.id.includes("embedding"),
@@ -209,7 +211,7 @@ export class AiModelDiscoveryService {
 
     return {
       success: true,
-      models: models.map((m: any) => ({
+      models: models.map((m: { id: string; description?: string }) => ({
         id: m.id,
         name: m.id,
         description: m.description || `xAI ${m.id}`,
@@ -234,11 +236,11 @@ export class AiModelDiscoveryService {
     );
 
     const allModels = response.data?.data || [];
-    let filteredModels: any[];
+    let filteredModels: Array<{ id: string; created?: number }>;
 
     if (modelType === "EMBEDDING") {
       filteredModels = allModels.filter(
-        (m: any) =>
+        (m: { id: string }) =>
           m.id.includes("embedding") ||
           m.id.startsWith("text-embedding") ||
           (m.id.includes("ada") && m.id.includes("002")),
@@ -247,28 +249,28 @@ export class AiModelDiscoveryService {
       modelType === "IMAGE_GENERATION" ||
       modelType === "IMAGE_EDITING"
     ) {
-      filteredModels = allModels.filter((m: any) => m.id.startsWith("dall-e"));
+      filteredModels = allModels.filter((m: { id: string }) => m.id.startsWith("dall-e"));
     } else if (modelType === "CHAT_FAST") {
       filteredModels = allModels.filter(
-        (m: any) =>
+        (m: { id: string }) =>
           m.id.includes("mini") ||
           m.id.includes("3.5") ||
           m.id.includes("turbo"),
       );
     } else {
       filteredModels = allModels.filter(
-        (m: any) =>
+        (m: { id: string }) =>
           m.id.startsWith("gpt-") ||
           m.id.startsWith("o1") ||
           m.id.startsWith("o3"),
       );
     }
 
-    filteredModels.sort((a: any, b: any) => b.created - a.created);
+    filteredModels.sort((a, b) => (b.created || 0) - (a.created || 0));
 
     return {
       success: true,
-      models: filteredModels.map((m: any) => ({
+      models: filteredModels.map((m) => ({
         id: m.id,
         name: m.id,
         description: `OpenAI ${m.id}`,
@@ -340,10 +342,10 @@ export class AiModelDiscoveryService {
     );
 
     const allModels = response.data?.models || [];
-    let filteredModels: any[];
+    let filteredModels: Array<{ name: string; displayName?: string; description?: string; supportedGenerationMethods?: string[] }>;
 
     if (modelType === "EMBEDDING") {
-      filteredModels = allModels.filter((m: any) => {
+      filteredModels = allModels.filter((m: { name: string; supportedGenerationMethods?: string[] }) => {
         const name = m.name.toLowerCase();
         return (
           name.includes("embedding") ||
@@ -355,12 +357,12 @@ export class AiModelDiscoveryService {
       modelType === "IMAGE_GENERATION" ||
       modelType === "IMAGE_EDITING"
     ) {
-      filteredModels = allModels.filter((m: any) => {
+      filteredModels = allModels.filter((m: { name: string }) => {
         const name = m.name.toLowerCase();
         return name.includes("imagen");
       });
     } else if (modelType === "MULTIMODAL") {
-      filteredModels = allModels.filter((m: any) => {
+      filteredModels = allModels.filter((m: { name: string; supportedGenerationMethods?: string[] }) => {
         const name = m.name.toLowerCase();
         return (
           name.includes("gemini") &&
@@ -368,7 +370,7 @@ export class AiModelDiscoveryService {
         );
       });
     } else {
-      filteredModels = allModels.filter((m: any) => {
+      filteredModels = allModels.filter((m: { name: string; supportedGenerationMethods?: string[] }) => {
         const name = m.name.toLowerCase();
         return (
           name.includes("gemini") &&
@@ -378,13 +380,13 @@ export class AiModelDiscoveryService {
       });
     }
 
-    filteredModels.sort((a: any, b: any) =>
+    filteredModels.sort((a, b) =>
       a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
     );
 
     return {
       success: true,
-      models: filteredModels.map((m: any) => {
+      models: filteredModels.map((m) => {
         const modelId = m.name.replace("models/", "");
         return {
           id: modelId,

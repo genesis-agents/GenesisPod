@@ -431,13 +431,13 @@ export default function ResourcePage() {
             <div className="mb-6">
               {resource.structuredAISummary ? (
                 <StructuredAISummaryRouter
-                  summary={resource.structuredAISummary as any}
+                  summary={resource.structuredAISummary as unknown as ResourceAISummary}
                   compact={false}
                   expandable={true}
                 />
               ) : isStructuredAISummary(resource.aiSummary) ? (
                 <StructuredAISummaryRouter
-                  summary={resource.aiSummary as any}
+                  summary={resource.aiSummary as unknown as ResourceAISummary}
                   compact={false}
                   expandable={true}
                 />
@@ -621,14 +621,14 @@ export default function ResourcePage() {
 
                   {resource.structuredAISummary ? (
                     <StructuredAISummaryRouter
-                      summary={resource.structuredAISummary as any}
+                      summary={resource.structuredAISummary as unknown as ResourceAISummary}
                       compact={false}
                       expandable={true}
                     />
                   ) : resource.aiSummary ? (
                     isStructuredAISummary(resource.aiSummary) ? (
                       <StructuredAISummaryRouter
-                        summary={resource.aiSummary as any}
+                        summary={resource.aiSummary as unknown as ResourceAISummary}
                         compact={false}
                         expandable={true}
                       />

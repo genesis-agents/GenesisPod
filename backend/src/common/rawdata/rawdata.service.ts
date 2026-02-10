@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { Prisma } from "@prisma/client";
 
 /**
  * PostgreSQL RawData Service
@@ -21,18 +22,18 @@ export class RawDataService {
    */
   async insertRawData(
     source: string,
-    data: any,
+    data: Record<string, unknown>,
     resourceId?: string,
   ): Promise<string> {
     // Extract externalId from data if present
-    const externalId = data.externalId || data.id || data.url || null;
+    const externalId = (data.externalId || data.id || data.url || null) as string | null;
     const processedAt = resourceId ? new Date() : null;
 
     const rawData = await this.prisma.rawData.create({
       data: {
         source,
         externalId,
-        data,
+        data: data as Prisma.InputJsonValue,
         resourceId: resourceId ?? null,
         isProcessed: !!resourceId,
         processedAt,
@@ -49,7 +50,7 @@ export class RawDataService {
   /**
    * Get raw data by ID
    */
-  async getRawDataById(id: string): Promise<any> {
+  async getRawDataById(id: string): Promise<Record<string, unknown> | null> {
     return this.prisma.rawData.findUnique({
       where: { id },
     });
@@ -58,7 +59,7 @@ export class RawDataService {
   /**
    * Get raw data by ID (alias method for MongoDB compatibility)
    */
-  async findRawDataById(id: string): Promise<any> {
+  async findRawDataById(id: string): Promise<Record<string, unknown> | null> {
     return this.getRawDataById(id);
   }
 
@@ -70,7 +71,7 @@ export class RawDataService {
   async findRawDataByExternalId(
     source: string,
     externalId: string,
-  ): Promise<any> {
+  ): Promise<Record<string, unknown> | null> {
     return this.prisma.rawData.findFirst({
       where: {
         source,
@@ -84,7 +85,7 @@ export class RawDataService {
    */
   async findRawDataByExternalIdAcrossAllSources(
     externalId: string,
-  ): Promise<any> {
+  ): Promise<Record<string, unknown> | null> {
     return this.prisma.rawData.findFirst({
       where: {
         externalId,
@@ -96,9 +97,9 @@ export class RawDataService {
    * Find by title across all sources (for cross-source deduplication)
    * Uses JSONB containment operators
    */
-  async findRawDataByTitleAcrossAllSources(title: string): Promise<any[]> {
+  async findRawDataByTitleAcrossAllSources(title: string): Promise<Array<Record<string, unknown>>> {
     // Use raw SQL for JSONB text search
-    const results = await this.prisma.$queryRaw<any[]>`
+    const results = await this.prisma.$queryRaw<Array<Record<string, unknown>>>`
       SELECT * FROM raw_data
       WHERE data->>'title' ILIKE ${`%${title}%`}
       LIMIT 10
@@ -110,9 +111,9 @@ export class RawDataService {
   /**
    * Find by URL across all sources (for cross-source deduplication)
    */
-  async findRawDataByUrlAcrossAllSources(url: string): Promise<any> {
+  async findRawDataByUrlAcrossAllSources(url: string): Promise<Record<string, unknown> | null> {
     // Use raw SQL for multiple JSONB field checks
-    const results = await this.prisma.$queryRaw<any[]>`
+    const results = await this.prisma.$queryRaw<Array<Record<string, unknown>>>`
       SELECT * FROM raw_data
       WHERE data->>'url' = ${url}
          OR data->>'abstractUrl' = ${url}
@@ -130,13 +131,13 @@ export class RawDataService {
    */
   async updateRawData(
     id: string,
-    data: any,
+    data: Record<string, unknown>,
     resourceId?: string,
   ): Promise<void> {
     // Extract externalId if it changed
     const externalId = data.externalId || data.id || data.url || null;
 
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       data,
       externalId,
     };
@@ -179,13 +180,13 @@ export class RawDataService {
   /**
    * Batch insert raw data
    */
-  async insertManyRawData(source: string, dataArray: any[]): Promise<string[]> {
+  async insertManyRawData(source: string, dataArray: Array<Record<string, unknown>>): Promise<string[]> {
     const createData = dataArray.map((data) => {
-      const externalId = data.externalId || data.id || data.url || null;
+      const externalId = (data.externalId || data.id || data.url || null) as string | null;
       return {
         source,
         externalId,
-        data,
+        data: data as Prisma.InputJsonValue,
         resourceId: null,
       };
     });
@@ -214,7 +215,7 @@ export class RawDataService {
   /**
    * Find raw data by resourceId
    */
-  async findRawDataByResourceId(resourceId: string): Promise<any> {
+  async findRawDataByResourceId(resourceId: string): Promise<Record<string, unknown> | null> {
     return this.prisma.rawData.findFirst({
       where: { resourceId },
     });
@@ -226,7 +227,7 @@ export class RawDataService {
   async findRawDataWithoutResourceId(
     source?: string,
     limit: number = 100,
-  ): Promise<any[]> {
+  ): Promise<Array<Record<string, unknown>>> {
     return this.prisma.rawData.findMany({
       where: {
         resourceId: null,

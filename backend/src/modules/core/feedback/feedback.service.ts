@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "./dto/create-feedback.dto";
 import { EmailService } from "../email/email.service";
@@ -302,6 +303,22 @@ export class FeedbackService {
     };
   }
 
+  private static readonly VALID_STATUSES: FeedbackStatusEnum[] = [
+    "PENDING",
+    "REVIEWED",
+    "IN_PROGRESS",
+    "RESOLVED",
+    "CLOSED",
+  ];
+
+  private static readonly VALID_TYPES: FeedbackTypeEnum[] = [
+    "BUG",
+    "FEATURE",
+    "IMPROVEMENT",
+    "OTHER",
+    "ANNOTATION",
+  ];
+
   /**
    * Get all feedback (admin)
    */
@@ -314,28 +331,40 @@ export class FeedbackService {
   }) {
     const { status, type, limit = 50, offset = 0 } = options || {};
 
-    // Build where clause parts (skip priority filter as column may not exist yet)
-    const whereParts: string[] = [];
-    if (status) whereParts.push(`"status" = '${status}'::"FeedbackStatus"`);
-    if (type) whereParts.push(`"type" = '${type}'::"FeedbackType"`);
-    // Note: priority filtering temporarily disabled until migration adds column
-    // if (priority)
-    //   whereParts.push(`"priority" = '${priority}'::"FeedbackPriority"`);
+    // Validate enum values against whitelist to prevent SQL injection
+    if (status && !FeedbackService.VALID_STATUSES.includes(status)) {
+      throw new Error(`Invalid feedback status: ${status}`);
+    }
+    if (type && !FeedbackService.VALID_TYPES.includes(type)) {
+      throw new Error(`Invalid feedback type: ${type}`);
+    }
+
+    // Build dynamic WHERE using parameterized Prisma.sql fragments
+    const conditions: Prisma.Sql[] = [];
+    if (status)
+      conditions.push(
+        Prisma.sql`"status" = ${status}::"FeedbackStatus"`,
+      );
+    if (type)
+      conditions.push(
+        Prisma.sql`"type" = ${type}::"FeedbackType"`,
+      );
 
     const whereClause =
-      whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
+      conditions.length > 0
+        ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
+        : Prisma.empty;
 
-    // Sort by created_at DESC (priority column may not exist yet until migration runs)
-    const feedbacks = await this.prisma.$queryRawUnsafe<unknown[]>(`
+    const feedbacks = await this.prisma.$queryRaw<unknown[]>`
       SELECT * FROM "feedbacks"
       ${whereClause}
       ORDER BY "created_at" DESC
       LIMIT ${limit} OFFSET ${offset}
-    `);
+    `;
 
-    const countResult = await this.prisma.$queryRawUnsafe<{ count: bigint }[]>(`
+    const countResult = await this.prisma.$queryRaw<{ count: bigint }[]>`
       SELECT COUNT(*) as count FROM "feedbacks" ${whereClause}
-    `);
+    `;
 
     return {
       feedbacks,
@@ -538,12 +567,11 @@ export class FeedbackService {
   ) {
     const { includeInternal = false, limit = 50, offset = 0 } = options || {};
 
-    let whereClause = `WHERE "feedback_id" = '${feedbackId}'::uuid`;
-    if (!includeInternal) {
-      whereClause += ` AND "internal_note" = false`;
-    }
+    const internalCondition = includeInternal
+      ? Prisma.empty
+      : Prisma.sql`AND "internal_note" = false`;
 
-    const replies = await this.prisma.$queryRawUnsafe<unknown[]>(`
+    const replies = await this.prisma.$queryRaw<unknown[]>`
       SELECT
         r.*,
         u."username" as user_username,
@@ -551,14 +579,17 @@ export class FeedbackService {
         u."avatar_url" as user_avatar_url
       FROM "feedback_replies" r
       LEFT JOIN "users" u ON r."user_id" = u."id"
-      ${whereClause}
+      WHERE "feedback_id" = ${feedbackId}::uuid
+      ${internalCondition}
       ORDER BY r."created_at" ASC
       LIMIT ${limit} OFFSET ${offset}
-    `);
+    `;
 
-    const countResult = await this.prisma.$queryRawUnsafe<{ count: bigint }[]>(`
-      SELECT COUNT(*) as count FROM "feedback_replies" ${whereClause}
-    `);
+    const countResult = await this.prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(*) as count FROM "feedback_replies"
+      WHERE "feedback_id" = ${feedbackId}::uuid
+      ${internalCondition}
+    `;
 
     return {
       replies,

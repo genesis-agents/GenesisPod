@@ -2,6 +2,9 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { GraphService } from "../../../common/graph/graph.service";
 import { getErrorMessage } from "../../../common/utils/error.utils";
+import { Resource, ResourceType } from "@prisma/client";
+
+type ResourceRecommendation = Resource;
 
 /**
  * 推荐系统服务（PostgreSQL 实现）
@@ -21,7 +24,7 @@ export class RecommendationsService {
   async getPersonalizedRecommendations(
     userId?: string,
     limit: number = 10,
-  ): Promise<any[]> {
+  ): Promise<ResourceRecommendation[]> {
     if (userId) {
       // 基于用户历史的个性化推荐
       return this.getUserBasedRecommendations(userId, limit);
@@ -37,7 +40,7 @@ export class RecommendationsService {
   private async getUserBasedRecommendations(
     userId: string,
     limit: number,
-  ): Promise<any[]> {
+  ): Promise<ResourceRecommendation[]> {
     // 1. 获取用户浏览/收藏过的资源
     const userActivities = await this.prisma.userActivity.findMany({
       where: { userId },
@@ -70,11 +73,11 @@ export class RecommendationsService {
     return recommendations
       .sort((a, b) => {
         const scoreA =
-          parseFloat(a.qualityScore || "0") +
-          parseFloat(a.trendingScore || "0");
+          parseFloat(String(a.qualityScore || "0")) +
+          parseFloat(String(a.trendingScore || "0"));
         const scoreB =
-          parseFloat(b.qualityScore || "0") +
-          parseFloat(b.trendingScore || "0");
+          parseFloat(String(b.qualityScore || "0")) +
+          parseFloat(String(b.trendingScore || "0"));
         return scoreB - scoreA;
       })
       .slice(0, limit);
@@ -83,7 +86,9 @@ export class RecommendationsService {
   /**
    * 基于热门度的推荐
    */
-  private async getPopularRecommendations(limit: number): Promise<any[]> {
+  private async getPopularRecommendations(
+    limit: number,
+  ): Promise<ResourceRecommendation[]> {
     const resources = await this.prisma.resource.findMany({
       take: limit,
       orderBy: [{ trendingScore: "desc" }, { qualityScore: "desc" }],
@@ -103,7 +108,7 @@ export class RecommendationsService {
   async getContentBasedRecommendations(
     resourceId: string,
     limit: number = 10,
-  ): Promise<any[]> {
+  ): Promise<ResourceRecommendation[]> {
     const resource = await this.prisma.resource.findUnique({
       where: { id: resourceId },
       select: {
@@ -154,7 +159,7 @@ export class RecommendationsService {
   async getGraphBasedRecommendations(
     resourceId: string,
     limit: number = 10,
-  ): Promise<any[]> {
+  ): Promise<ResourceRecommendation[]> {
     try {
       // 使用 PostgreSQL GraphService 找相似资源
       const results = await this.graphService.findSimilarResources(
@@ -162,7 +167,7 @@ export class RecommendationsService {
         limit,
       );
 
-      return results.map((r) => r.resource);
+      return results.map((r) => r.resource as unknown as ResourceRecommendation);
     } catch (error) {
       this.logger.warn(
         `Graph-based recommendation failed: ${getErrorMessage(error)}`,
@@ -178,7 +183,7 @@ export class RecommendationsService {
     resourceId: string,
     _userId?: string,
     limit: number = 10,
-  ): Promise<any[]> {
+  ): Promise<ResourceRecommendation[]> {
     // 1. 基于内容的推荐（权重40%）
     const contentBased = await this.getContentBasedRecommendations(
       resourceId,
@@ -199,7 +204,7 @@ export class RecommendationsService {
 
     // 添加基于内容的推荐（分数 = 质量分 * 0.4）
     contentBased.forEach((r) => {
-      const score = parseFloat(r.qualityScore || "0") * 0.4;
+      const score = parseFloat(String(r.qualityScore || "0")) * 0.4;
       allRecommendations.set(r.id, { resource: r, score });
     });
 
@@ -207,9 +212,9 @@ export class RecommendationsService {
     graphBased.forEach((r) => {
       if (allRecommendations.has(r.id)) {
         const existing = allRecommendations.get(r.id);
-        existing.score += parseFloat(r.qualityScore || "0") * 0.4;
+        existing.score += parseFloat(String(r.qualityScore || "0")) * 0.4;
       } else {
-        const score = parseFloat(r.qualityScore || "0") * 0.4;
+        const score = parseFloat(String(r.qualityScore || "0")) * 0.4;
         allRecommendations.set(r.id, { resource: r, score });
       }
     });
@@ -218,9 +223,9 @@ export class RecommendationsService {
     popular.forEach((r) => {
       if (allRecommendations.has(r.id)) {
         const existing = allRecommendations.get(r.id);
-        existing.score += parseFloat(r.trendingScore || "0") * 0.2;
+        existing.score += parseFloat(String(r.trendingScore || "0")) * 0.2;
       } else {
-        const score = parseFloat(r.trendingScore || "0") * 0.2;
+        const score = parseFloat(String(r.trendingScore || "0")) * 0.2;
         allRecommendations.set(r.id, { resource: r, score });
       }
     });
@@ -243,7 +248,7 @@ export class RecommendationsService {
   private async findSimilarResources(
     resourceIds: string[],
     limit: number,
-  ): Promise<any[]> {
+  ): Promise<ResourceRecommendation[]> {
     // 获取这些资源的所有类别和标签
     const resources = await this.prisma.resource.findMany({
       where: { id: { in: resourceIds } },
@@ -266,7 +271,7 @@ export class RecommendationsService {
 
     // 查找相似资源
     const typeConditions = Array.from(types).map((type) => ({
-      type: type as any,
+      type: type as ResourceType,
     }));
 
     const similar = await this.prisma.resource.findMany({
@@ -294,7 +299,9 @@ export class RecommendationsService {
   /**
    * 冷启动推荐（新用户推荐）
    */
-  async getColdStartRecommendations(limit: number = 10): Promise<any[]> {
+  async getColdStartRecommendations(
+    limit: number = 10,
+  ): Promise<ResourceRecommendation[]> {
     // 推荐高质量、热门的资源
     const resources = await this.prisma.resource.findMany({
       where: {
@@ -319,7 +326,7 @@ export class RecommendationsService {
   async getRecommendationsByCategory(
     category: string,
     limit: number = 10,
-  ): Promise<any[]> {
+  ): Promise<ResourceRecommendation[]> {
     const resources = await this.prisma.resource.findMany({
       where: {
         OR: [
@@ -337,7 +344,9 @@ export class RecommendationsService {
   /**
    * 探索发现（diverse recommendations）
    */
-  async getExploreRecommendations(limit: number = 10): Promise<any[]> {
+  async getExploreRecommendations(
+    limit: number = 10,
+  ): Promise<ResourceRecommendation[]> {
     // 从不同类别中各选一些高质量资源
     const categories = [
       "AI",

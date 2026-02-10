@@ -50,8 +50,8 @@ export default function BillingPage() {
         headers: getAuthHeader(),
       });
       if (!res.ok) throw new Error(t('admin.billing.errors.fetchFailed'));
-      const json = await res.json();
-      setData(json?.data ?? json);
+      const json = (await res.json()) as { data?: BillingOverview } | BillingOverview;
+      setData((json as { data?: BillingOverview })?.data ?? json as BillingOverview);
     } catch (err) {
       const message =
         err instanceof Error

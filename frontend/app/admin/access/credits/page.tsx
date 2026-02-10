@@ -239,13 +239,13 @@ export default function CreditsManagementPage() {
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = (await response.json().catch(() => ({}))) as { message?: string };
         throw new Error(
           errorData.message || t('admin.credits.errors.fetchFailed')
         );
       }
 
-      const result = await response.json();
+      const result = await response.json() as { data?: { accounts?: CreditAccount[]; pagination?: { totalPages?: number } }; accounts?: CreditAccount[]; pagination?: { totalPages?: number } };
       const data = result?.data ?? result;
       setAccounts(data.accounts || []);
       setTotalPages(data.pagination?.totalPages || 1);
@@ -271,8 +271,8 @@ export default function CreditsManagementPage() {
         throw new Error(t('admin.credits.errors.statsFailed'));
       }
 
-      const result = await response.json();
-      setStats(result?.data ?? result);
+      const result = (await response.json()) as { data?: CreditsStats } | CreditsStats;
+      setStats((result as { data?: CreditsStats })?.data ?? result as CreditsStats);
     } catch (err) {
       logger.error('Failed to fetch credits stats:', err);
     }
@@ -291,7 +291,7 @@ export default function CreditsManagementPage() {
           throw new Error(t('admin.credits.errors.transactionsFailed'));
         }
 
-        const result = await response.json();
+        const result = await response.json() as { data?: { transactions?: CreditTransaction[] }; transactions?: CreditTransaction[] };
         const data = result?.data ?? result;
         setTransactions(data.transactions || []);
       } catch (err) {
@@ -314,9 +314,9 @@ export default function CreditsManagementPage() {
       if (!response.ok) {
         throw new Error('Failed to fetch credit rules');
       }
-      const result = await response.json();
-      const data = result?.data ?? result;
-      setCreditRules(Array.isArray(data) ? data : []);
+      const result = (await response.json()) as { data?: CreditRule[] } | CreditRule[];
+      const unwrapped = 'data' in result ? result.data : result;
+      setCreditRules(Array.isArray(unwrapped) ? unwrapped : []);
       setEditedRules({});
     } catch (err) {
       logger.error('Failed to fetch credit rules:', err);
@@ -448,7 +448,7 @@ export default function CreditsManagementPage() {
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = (await response.json().catch(() => ({}))) as { message?: string };
         throw new Error(
           errorData.message || t('admin.credits.errors.grantFailed')
         );
@@ -502,7 +502,7 @@ export default function CreditsManagementPage() {
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = (await response.json().catch(() => ({}))) as { message?: string };
         throw new Error(
           errorData.message || t('admin.credits.errors.freezeFailed')
         );
@@ -770,7 +770,7 @@ export default function CreditsManagementPage() {
                         {t('admin.credits.grant')}
                       </button>
                       <button
-                        onClick={() => handleToggleFreeze(selectedAccount)}
+                        onClick={() => { void handleToggleFreeze(selectedAccount); }}
                         className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
                           selectedAccount.isFrozen
                             ? 'bg-blue-600 text-white hover:bg-blue-700'

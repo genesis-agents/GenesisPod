@@ -8,6 +8,7 @@ import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { APP_CONFIG } from "../../common/config/app.config";
 import {
+  Prisma,
   WebhookEventType,
   WebhookDeliveryStatus,
   WebhookSubscription,
@@ -138,7 +139,7 @@ export class WebhookDispatcherService implements OnModuleInit {
         subscriptionId: subscription.id,
         eventType,
         eventId,
-        payload: payload as any,
+        payload: payload as unknown as Prisma.InputJsonValue,
         status: WebhookDeliveryStatus.PENDING,
         attemptCount: 0,
       },
@@ -445,7 +446,7 @@ export class WebhookDispatcherService implements OnModuleInit {
   }
 
   @OnEvent("topic.updated")
-  async handleTopicUpdated(payload: { topicId: string; changes: any }) {
+  async handleTopicUpdated(payload: { topicId: string; changes: Record<string, unknown> }) {
     await this.dispatch({
       type: WebhookEventType.TOPIC_UPDATED,
       topicId: payload.topicId,

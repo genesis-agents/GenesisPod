@@ -530,9 +530,9 @@ export class DataFetchingService {
     }
 
     // 从搜索结果中提取数据
-    const snippets = organic
+    const snippets = (organic as Array<{ snippet: string }>)
       .slice(0, 5)
-      .map((r: any) => r.snippet)
+      .map((r) => r.snippet)
       .join("\n");
 
     return this.parseSearchResult(query, snippets);
@@ -576,9 +576,9 @@ export class DataFetchingService {
     // 优先使用 answer，辅以 results 内容
     let content = answer || "";
     if (results && results.length > 0) {
-      const snippets = results
+      const snippets = (results as Array<{ content?: string; title?: string }>)
         .slice(0, 3)
-        .map((r: any) => r.content || r.title)
+        .map((r) => r.content || r.title)
         .join("\n");
       content = content ? `${content}\n\n${snippets}` : snippets;
     }

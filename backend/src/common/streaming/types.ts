@@ -7,7 +7,7 @@
 /**
  * SSE 事件类型
  */
-export interface SSEEvent<T = any> {
+export interface SSEEvent<T = unknown> {
   // 事件类型（用于 EventSource.addEventListener）
   type: string;
 
@@ -36,7 +36,7 @@ export interface ProgressEvent {
 /**
  * 完成事件
  */
-export interface CompleteEvent<T = any> {
+export interface CompleteEvent<T = unknown> {
   type: "complete";
   result: T;
   totalTime?: number;
@@ -99,13 +99,13 @@ export interface StreamingOptions {
   heartbeatInterval?: number;
 
   // 事件映射函数
-  mapToEvent?: (item: any) => SSEEvent<any>;
+  mapToEvent?: (item: unknown) => SSEEvent<unknown>;
 
   // 完成事件回调
-  onComplete?: () => SSEEvent<any>;
+  onComplete?: () => SSEEvent<unknown>;
 
   // 错误事件回调
-  onError?: (error: Error) => SSEEvent<any>;
+  onError?: (error: Error) => SSEEvent<unknown>;
 }
 
 /**

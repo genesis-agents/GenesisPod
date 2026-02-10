@@ -11,6 +11,7 @@ import {
   OfficeAgentType,
   OfficeTaskStatus,
   OfficeArtifactType,
+  Prisma,
 } from "@prisma/client";
 import {
   AgentId,
@@ -117,7 +118,7 @@ export class AgentsService {
         userId: input.userId,
         agentType: toOfficeAgentType(input.agentId),
         status: OfficeTaskStatus.PENDING,
-        input: input.input as any,
+        input: input.input as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -128,7 +129,7 @@ export class AgentsService {
   /**
    * 获取任务
    */
-  async getTask(taskId: string): Promise<any | null> {
+  async getTask(taskId: string) {
     const task = await this.prisma.officeAgentTask.findUnique({
       where: { id: taskId },
       include: {
@@ -146,7 +147,13 @@ export class AgentsService {
     status: string,
     error?: string,
   ): Promise<void> {
-    const updateData: any = {
+    const updateData: {
+      status: OfficeTaskStatus;
+      error?: string;
+      startedAt?: Date;
+      completedAt?: Date;
+      duration?: number;
+    } = {
       status: toOfficeTaskStatus(status),
       error,
     };
@@ -183,7 +190,7 @@ export class AgentsService {
     await this.prisma.officeAgentTask.update({
       where: { id: taskId },
       data: {
-        plan: plan as any,
+        plan: plan as unknown as Prisma.InputJsonValue,
       },
     });
   }
@@ -195,7 +202,7 @@ export class AgentsService {
     await this.prisma.officeAgentTask.update({
       where: { id: taskId },
       data: {
-        result: result as any,
+        result: result as unknown as Prisma.InputJsonValue,
         tokensUsed: result.tokensUsed,
       },
     });
@@ -213,7 +220,7 @@ export class AgentsService {
         mimeType: artifact.mimeType,
         size: artifact.size,
         url: artifact.url,
-        content: artifact.content as any,
+        content: artifact.content as unknown as Prisma.InputJsonValue,
       },
     });
   }
@@ -232,14 +239,18 @@ export class AgentsService {
       mimeType: a.mimeType,
       size: a.size,
       url: a.url || undefined,
-      content: a.content as any,
+      content: a.content as Prisma.JsonValue,
     }));
   }
 
   /**
    * 获取产出物下载
    */
-  async getArtifactDownload(artifactId: string): Promise<any> {
+  async getArtifactDownload(artifactId: string): Promise<{
+    url: string | null;
+    name: string;
+    mimeType: string;
+  }> {
     const artifact = await this.prisma.officeAgentArtifact.findUnique({
       where: { id: artifactId },
     });
@@ -300,7 +311,7 @@ export class AgentsService {
       limit?: number;
       offset?: number;
     },
-  ): Promise<any[]> {
+  ) {
     return this.prisma.officeAgentTask.findMany({
       where: {
         userId,

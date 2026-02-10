@@ -164,6 +164,13 @@ export class GoogleDriveExportService {
           },
         },
       },
+      select: {
+        title: true,
+        content: true,
+        abstract: true,
+        sourceUrl: true,
+        tags: true,
+      },
     });
 
     if (!resource) {
@@ -176,7 +183,13 @@ export class GoogleDriveExportService {
 
     // 生成文件内容和元数据
     const { content, mimeType, fileName } = await this.generateExportFile(
-      resource,
+      {
+        title: resource.title,
+        content: resource.content || undefined,
+        description: resource.abstract || undefined,
+        url: resource.sourceUrl || undefined,
+        tags: (resource.tags as unknown as string[]) || undefined,
+      },
       dto,
     );
 
@@ -200,7 +213,13 @@ export class GoogleDriveExportService {
    * 生成导出文件
    */
   private async generateExportFile(
-    resource: any,
+    resource: {
+      title: string;
+      content?: string;
+      description?: string;
+      url?: string;
+      tags?: string[];
+    },
     dto: ExportResourcesDto,
   ): Promise<{ content: Buffer; mimeType: string; fileName: string }> {
     const format = dto.format || ExportFormat.ORIGINAL;
@@ -236,7 +255,7 @@ export class GoogleDriveExportService {
    * 导出为原始格式
    */
   private async exportAsOriginal(
-    resource: any,
+    resource: { content?: string; description?: string },
     baseFileName: string,
   ): Promise<{ content: Buffer; mimeType: string; fileName: string }> {
     const content = resource.content || resource.description || "";
@@ -251,7 +270,13 @@ export class GoogleDriveExportService {
    * 导出为 Markdown
    */
   private async exportAsMarkdown(
-    resource: any,
+    resource: {
+      title: string;
+      description?: string;
+      url?: string;
+      tags?: string[];
+      content?: string;
+    },
     baseFileName: string,
   ): Promise<{ content: Buffer; mimeType: string; fileName: string }> {
     let markdown = `# ${resource.title}\n\n`;
@@ -285,7 +310,13 @@ export class GoogleDriveExportService {
    * 导出为纯文本
    */
   private async exportAsTxt(
-    resource: any,
+    resource: {
+      title: string;
+      description?: string;
+      url?: string;
+      tags?: string[];
+      content?: string;
+    },
     baseFileName: string,
   ): Promise<{ content: Buffer; mimeType: string; fileName: string }> {
     let text = `${resource.title}\n${"=".repeat(resource.title.length)}\n\n`;
@@ -319,7 +350,13 @@ export class GoogleDriveExportService {
    * 导出为 HTML
    */
   private async exportAsHtml(
-    resource: any,
+    resource: {
+      title: string;
+      description?: string;
+      url?: string;
+      tags?: string[];
+      content?: string;
+    },
     baseFileName: string,
   ): Promise<{ content: Buffer; mimeType: string; fileName: string }> {
     const html = `<!DOCTYPE html>

@@ -110,15 +110,41 @@ export function convertToAIOfficeResource(
       metadata: {
         title: resource.title,
         description: resource.abstract || '',
+        channel: {
+          id: '',
+          name: '',
+          subscribers: 0,
+        },
+        duration: '',
+        publishedAt: new Date(),
+        statistics: {
+          views: 0,
+          likes: 0,
+          comments: 0,
+        },
         thumbnails: {
           default: resource.thumbnailUrl || '',
           medium: resource.thumbnailUrl || '',
           high: resource.thumbnailUrl || '',
         },
-      } as any,
+        tags: [],
+        category: '',
+        language: '',
+      },
       aiAnalysis: {
         summary: resource.aiSummary || resource.abstract || '',
-      } as any,
+        keyPoints: [],
+        topics: [],
+        entities: [],
+        sentiment: {
+          overall: 'neutral' as const,
+          confidence: 0,
+        },
+        difficultyLevel: 'intermediate' as const,
+        targetAudience: [],
+        prerequisites: [],
+        learningOutcomes: [],
+      },
     };
   } else if (resource.type === 'paper') {
     return {
@@ -126,11 +152,27 @@ export function convertToAIOfficeResource(
       resourceType: 'academic_paper' as const,
       metadata: {
         title: resource.title,
+        authors: resource.authors?.map(a => ({
+          name: a.name || a.username || '',
+          affiliation: '',
+        })) || [],
         abstract: resource.abstract || '',
-      } as any,
+        keywords: [],
+        publishedAt: new Date(),
+        venue: '',
+        citations: 0,
+      },
       aiAnalysis: {
         summary: resource.aiSummary || resource.abstract || '',
-      } as any,
+        contributions: [],
+        methodology: '',
+        results: '',
+        limitations: [],
+        futureWork: [],
+        impact: 'medium' as const,
+        field: '',
+        subfields: [],
+      },
     };
   } else {
     return {
@@ -139,10 +181,16 @@ export function convertToAIOfficeResource(
       metadata: {
         title: resource.title,
         description: resource.abstract || '',
-      } as any,
+        author: resource.authors?.[0]?.name || resource.authors?.[0]?.username || '',
+        publishedAt: resource.publishedAt ? new Date(resource.publishedAt) : undefined,
+        language: 'en',
+      },
       aiAnalysis: {
         summary: resource.aiSummary || resource.abstract || '',
-      } as any,
+        mainTopics: [],
+        keyInsights: [],
+        credibility: 0,
+      },
     };
   }
 }

@@ -12,6 +12,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { Public } from "../../../common/decorators/public.decorator";
 import { WritingCoordinatorService } from "./writing-coordinator.service";
@@ -284,6 +285,7 @@ export class AiWritingController {
 
   // ==================== Writing Actions ====================
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post("chapters/:id/write")
   async startWriting(
     @Request() req: RequestWithUser,
@@ -294,6 +296,7 @@ export class AiWritingController {
     return this.coordinator.startWriting(id, req.user.id, dto);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("volumes/:volumeId/write-parallel")
   async startParallelWriting(
     @Request() req: RequestWithUser,
@@ -306,6 +309,7 @@ export class AiWritingController {
 
   // ==================== Consistency ====================
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post("chapters/:id/check-consistency")
   async checkConsistency(
     @Request() req: RequestWithUser,

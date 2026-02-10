@@ -26,8 +26,12 @@ export class MongoDBService {
   /**
    * Get raw data collection (no-op for PostgreSQL)
    */
-  getRawDataCollection(): any {
-    // Return a mock object to prevent crashes
+  getRawDataCollection(): {
+    find: () => { toArray: () => Promise<unknown[]> };
+    findOne: () => Promise<null>;
+    insertOne: () => Promise<{ insertedId: string }>;
+    updateOne: () => Promise<{ modifiedCount: number }>;
+  } {
     return {
       find: () => ({ toArray: async () => [] }),
       findOne: async () => null,
@@ -41,7 +45,7 @@ export class MongoDBService {
    */
   async insertRawData(
     source: string,
-    data: any,
+    data: Record<string, unknown>,
     resourceId?: string,
   ): Promise<string> {
     return this.rawDataService.insertRawData(source, data, resourceId);
@@ -50,14 +54,14 @@ export class MongoDBService {
   /**
    * Get raw data by ID
    */
-  async getRawDataById(id: string): Promise<any> {
+  async getRawDataById(id: string): Promise<unknown> {
     return this.rawDataService.getRawDataById(id);
   }
 
   /**
    * Find raw data by ID (alias)
    */
-  async findRawDataById(id: string): Promise<any> {
+  async findRawDataById(id: string): Promise<unknown> {
     return this.rawDataService.findRawDataById(id);
   }
 
@@ -67,7 +71,7 @@ export class MongoDBService {
   async findRawDataByExternalId(
     source: string,
     externalId: string,
-  ): Promise<any> {
+  ): Promise<unknown> {
     return this.rawDataService.findRawDataByExternalId(source, externalId);
   }
 
@@ -76,7 +80,7 @@ export class MongoDBService {
    */
   async findRawDataByExternalIdAcrossAllSources(
     externalId: string,
-  ): Promise<any> {
+  ): Promise<unknown> {
     return this.rawDataService.findRawDataByExternalIdAcrossAllSources(
       externalId,
     );
@@ -85,14 +89,14 @@ export class MongoDBService {
   /**
    * Find by title across all sources
    */
-  async findRawDataByTitleAcrossAllSources(title: string): Promise<any[]> {
+  async findRawDataByTitleAcrossAllSources(title: string): Promise<unknown[]> {
     return this.rawDataService.findRawDataByTitleAcrossAllSources(title);
   }
 
   /**
    * Find by URL across all sources
    */
-  async findRawDataByUrlAcrossAllSources(url: string): Promise<any> {
+  async findRawDataByUrlAcrossAllSources(url: string): Promise<unknown> {
     return this.rawDataService.findRawDataByUrlAcrossAllSources(url);
   }
 
@@ -101,7 +105,7 @@ export class MongoDBService {
    */
   async updateRawData(
     id: string,
-    data: any,
+    data: Record<string, unknown>,
     resourceId?: string,
   ): Promise<void> {
     return this.rawDataService.updateRawData(id, data, resourceId);
@@ -120,7 +124,7 @@ export class MongoDBService {
   /**
    * Batch insert
    */
-  async insertManyRawData(source: string, dataArray: any[]): Promise<string[]> {
+  async insertManyRawData(source: string, dataArray: Record<string, unknown>[]): Promise<string[]> {
     return this.rawDataService.insertManyRawData(source, dataArray);
   }
 
@@ -134,7 +138,7 @@ export class MongoDBService {
   /**
    * Find by resourceId
    */
-  async findRawDataByResourceId(resourceId: string): Promise<any> {
+  async findRawDataByResourceId(resourceId: string): Promise<unknown> {
     return this.rawDataService.findRawDataByResourceId(resourceId);
   }
 
@@ -144,7 +148,7 @@ export class MongoDBService {
   async findRawDataWithoutResourceId(
     source?: string,
     limit: number = 100,
-  ): Promise<any[]> {
+  ): Promise<unknown[]> {
     return this.rawDataService.findRawDataWithoutResourceId(source, limit);
   }
 

@@ -139,15 +139,17 @@ export class XiaohongshuAdapter {
     return false;
   }
 
-  private async checkLoginStatus(page: any): Promise<boolean> {
+  private async checkLoginStatus(page: unknown): Promise<boolean> {
     try {
+      const pageObj = page as { waitForLoadState: (state: string, options: { timeout: number }) => Promise<void>; url: () => string; $: (selector: string) => Promise<unknown | null> };
+
       // 等待页面稳定
-      await page
+      await pageObj
         .waitForLoadState("networkidle", { timeout: 10000 })
         .catch(() => {});
 
       // 方法1: 检查 URL - 如果重定向到登录页面则未登录
-      const url = page.url();
+      const url = pageObj.url();
       if (url.includes("/login") || url.includes("login.xiaohongshu.com")) {
         this.logger.debug("Login check: URL indicates not logged in");
         return false;
@@ -173,7 +175,7 @@ export class XiaohongshuAdapter {
 
       for (const selector of selectors) {
         try {
-          const element = await page.$(selector);
+          const element = await pageObj.$(selector);
           if (element) {
             this.logger.debug(
               `Login check: Found logged-in indicator: ${selector}`,
@@ -195,7 +197,7 @@ export class XiaohongshuAdapter {
 
       for (const selector of loginIndicators) {
         try {
-          const element = await page.$(selector);
+          const element = await pageObj.$(selector);
           if (element) {
             this.logger.debug(
               `Login check: Found login indicator: ${selector}, not logged in`,
@@ -218,35 +220,45 @@ export class XiaohongshuAdapter {
   }
 
   private async selectPostType(
-    page: any,
+    page: unknown,
     type: "image-text" | "video",
   ): Promise<void> {
+    const pageObj = page as { $: (selector: string) => Promise<{ click: () => Promise<void> } | null> };
+
     // 小红书创作中心默认是图文发布页面
     if (type === "video") {
-      const videoTab = await page.$('[data-type="video"]');
+      const videoTab = await pageObj.$('[data-type="video"]');
       if (videoTab) {
         await videoTab.click();
       }
     }
   }
 
-  private async uploadImages(page: any, imageUrls: string[]): Promise<void> {
+  private async uploadImages(page: unknown, imageUrls: string[]): Promise<void> {
+    const pageObj = page as { $: (selector: string) => Promise<unknown | null> };
+
     // TODO: 实现图片上传
     // 小红书需要本地文件上传，需要先下载远程图片
     this.logger.log(`Would upload ${imageUrls.length} images`);
 
     // 找到上传按钮
-    const uploadInput = await page.$('input[type="file"]');
+    const uploadInput = await pageObj.$('input[type="file"]');
     if (uploadInput && imageUrls.length > 0) {
       // 实际实现需要先下载图片到本地临时目录
       // await uploadInput.setInputFiles(localImagePaths);
     }
   }
 
-  private async fillContent(page: any, content: SocialContent): Promise<void> {
+  private async fillContent(page: unknown, content: SocialContent): Promise<void> {
+    const pageObj = page as {
+      waitForSelector: (selector: string) => Promise<{ fill: (text: string) => Promise<void>; click: () => Promise<void> }>;
+      keyboard: { type: (text: string) => Promise<void>; press: (key: string) => Promise<void> };
+      $: (selector: string) => Promise<{ click: () => Promise<void> } | null>;
+    };
+
     // 填写标题
     if (content.title) {
-      const titleInput = await page.waitForSelector(
+      const titleInput = await pageObj.waitForSelector(
         'input[placeholder*="标题"]',
       );
       await titleInput.fill(content.title);
@@ -254,25 +266,25 @@ export class XiaohongshuAdapter {
 
     // 填写正文
     if (content.content) {
-      const contentEditor = await page.waitForSelector(
+      const contentEditor = await pageObj.waitForSelector(
         '[contenteditable="true"]',
       );
       await contentEditor.click();
-      await page.keyboard.type(content.content);
+      await pageObj.keyboard.type(content.content);
     }
 
     // 添加话题标签
     if (content.tags && content.tags.length > 0) {
       for (const tag of content.tags) {
         // 输入 # 触发话题选择
-        await page.keyboard.type(tag.startsWith("#") ? tag : `#${tag}`);
-        await page.keyboard.press("Space");
+        await pageObj.keyboard.type(tag.startsWith("#") ? tag : `#${tag}`);
+        await pageObj.keyboard.press("Space");
       }
     }
 
     // 添加位置
     if (content.location) {
-      const locationBtn = await page.$('[class*="location"]');
+      const locationBtn = await pageObj.$('[class*="location"]');
       if (locationBtn) {
         await locationBtn.click();
         // TODO: 选择位置
@@ -281,27 +293,34 @@ export class XiaohongshuAdapter {
   }
 
   private async submitPost(
-    page: any,
+    page: unknown,
     publishImmediately: boolean,
   ): Promise<string> {
+    const pageObj = page as {
+      waitForSelector: (selector: string) => Promise<{ click: () => Promise<void> }>;
+      $: (selector: string) => Promise<{ click: () => Promise<void> } | null>;
+      waitForTimeout: (ms: number) => Promise<void>;
+      url: () => string;
+    };
+
     if (publishImmediately) {
       // 点击发布按钮
-      const publishButton = await page.waitForSelector(
+      const publishButton = await pageObj.waitForSelector(
         'button:has-text("发布")',
       );
       await publishButton.click();
     } else {
       // 点击存草稿按钮
-      const draftButton = await page.$('button:has-text("存草稿")');
+      const draftButton = await pageObj.$('button:has-text("存草稿")');
       if (draftButton) {
         await draftButton.click();
       }
     }
 
     // 等待操作完成
-    await page.waitForTimeout(2000);
+    await pageObj.waitForTimeout(2000);
 
     // 返回当前URL
-    return page.url();
+    return pageObj.url();
   }
 }

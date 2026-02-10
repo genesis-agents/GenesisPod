@@ -6879,7 +6879,12 @@ ${instruction}
       title: string;
       volumeId: string;
     }>;
-    storyBible: any;
+    storyBible: {
+      worldType?: string;
+      theme?: string;
+      premise?: string;
+      characters?: Array<{ name: string; role?: string; background?: string; personality?: string }>;
+    } | null;
     projectDescription: string | null; // ★ 新增：项目原始描述（用户设定的主题）
   }> {
     // 获取项目当前字数和原始描述
@@ -6937,7 +6942,17 @@ ${instruction}
         title: ch.title,
         volumeId: ch.volumeId,
       })),
-      storyBible,
+      storyBible: storyBible ? {
+        worldType: storyBible.worldType ?? undefined,
+        theme: storyBible.theme ?? undefined,
+        premise: storyBible.premise ?? undefined,
+        characters: storyBible.characters.map((ch) => ({
+          name: ch.name,
+          role: String(ch.role) ?? undefined,
+          background: ch.background ?? undefined,
+          personality: String(ch.personality) ?? undefined,
+        })),
+      } : null,
       projectDescription: project?.description || null, // ★ 新增：返回项目原始描述
     };
   }
@@ -6960,7 +6975,12 @@ ${instruction}
         title: string;
         volumeId: string;
       }>;
-      storyBible: any;
+      storyBible: {
+        worldType?: string;
+        theme?: string;
+        premise?: string;
+        characters?: Array<{ name: string; role?: string; background?: string; personality?: string }>;
+      } | null;
       projectDescription: string | null; // ★ 新增：项目原始描述
     },
     targetWordCount: number,
@@ -7001,7 +7021,10 @@ ${instruction}
     );
 
     // 获取世界观设定（包含角色信息，用于质量约束生成）
-    let worldSettings: any = null;
+    let worldSettings: {
+      world: { type?: string; theme?: string; premise?: string };
+      characters: Array<{ name: string; role?: string; background?: string; personality?: string }>;
+    } | null = null;
     if (existingContent.storyBible) {
       worldSettings = {
         world: {
@@ -7958,8 +7981,8 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
   async getProjectMissions(
     projectId: string,
     status?: string,
-  ): Promise<{ items: any[]; total: number }> {
-    const where: any = { projectId };
+  ): Promise<{ items: Array<Record<string, unknown>>; total: number }> {
+    const where: Record<string, unknown> = { projectId };
     if (status) {
       where.status = status.toUpperCase();
     }
@@ -7984,8 +8007,8 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
         completedAt: m.completedAt,
         result: m.result,
         // 从 result 中提取进度
-        progress: (m.result as any)?.progress || 0,
-        currentStep: (m.result as any)?.currentStep || "",
+        progress: (typeof (m.result as Record<string, unknown>)?.progress === "number" ? (m.result as Record<string, unknown>).progress : undefined) || 0,
+        currentStep: (typeof (m.result as Record<string, unknown>)?.currentStep === "string" ? (m.result as Record<string, unknown>).currentStep : undefined) || "",
       })),
       total,
     };

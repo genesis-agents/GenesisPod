@@ -52,6 +52,7 @@
     "verify:changed": "node scripts/verify-changed.js",
     "verify:pre-push": "npm run type-check && npm run build:backend",
     "verify:ci-local": "npm run type-check && npm run lint && npm run build && npm run test:quick",
+    "quality-metrics": "node scripts/quality-metrics.js",
     "release": "standard-version",
     "release:minor": "standard-version --release-as minor",
     "release:major": "standard-version --release-as major",
@@ -68,7 +69,10 @@
     "db:clean:ui-patrol": "cd backend && tsx prisma/clean-ui-patrol.ts",
     "ui-patrol:journeys": "tsx scripts/ui-iteration/journey-cli.ts",
     "e2e": "cd e2e && npx playwright test",
-    "e2e:ui": "cd e2e && npx playwright test --ui"
+    "e2e:ui": "cd e2e && npx playwright test --ui",
+    "sdk:export-spec": "curl -s http://localhost:3001/api/openapi.json > backend/openapi.json",
+    "sdk:generate": "npx @openapitools/openapi-generator-cli generate -g typescript-fetch -i backend/openapi.json -o sdk/typescript",
+    "sdk:generate:python": "npx @openapitools/openapi-generator-cli generate -g python -i backend/openapi.json -o sdk/python"
   },
   "devDependencies": {
     "@commitlint/cli": "^18.4.3",

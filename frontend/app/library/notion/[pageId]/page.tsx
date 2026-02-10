@@ -40,7 +40,7 @@ export default function NotionPageDetail() {
   const [error, setError] = useState<string | null>(null);
   const [pushing, setPushing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [localBlocks, setLocalBlocks] = useState<any[]>([]);
+  const [localBlocks, setLocalBlocks] = useState<Record<string, unknown>[]>([]);
 
   const fetchPage = useCallback(async () => {
     if (!pageId) return;

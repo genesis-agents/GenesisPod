@@ -8,7 +8,7 @@
  * - websocketSlice: WebSocket 连接管理
  */
 
-import { create } from 'zustand';
+import { create, StateCreator } from 'zustand';
 import {
   TopicMessage,
   MissionStatus,
@@ -36,10 +36,10 @@ interface AiGroupState
 }
 
 export const useAiGroupStore = create<AiGroupState>()((set, get, api) => {
-  const topicsSlice = createTopicsSlice(set, get, api as any);
-  const messagesSlice = createMessagesSlice(set, get, api as any);
-  const missionsSlice = createMissionsSlice(set, get, api as any);
-  const websocketSlice = createWebSocketSlice(set, get, api as any);
+  const topicsSlice = createTopicsSlice(set as unknown as Parameters<StateCreator<TopicsSlice, [], [], TopicsSlice>>[0], get as unknown as Parameters<StateCreator<TopicsSlice, [], [], TopicsSlice>>[1], api as unknown as Parameters<StateCreator<TopicsSlice, [], [], TopicsSlice>>[2]);
+  const messagesSlice = createMessagesSlice(set as unknown as Parameters<StateCreator<MessagesSlice, [], [], MessagesSlice>>[0], get as unknown as Parameters<StateCreator<MessagesSlice, [], [], MessagesSlice>>[1], api as unknown as Parameters<StateCreator<MessagesSlice, [], [], MessagesSlice>>[2]);
+  const missionsSlice = createMissionsSlice(set as unknown as Parameters<StateCreator<MissionsSlice, [], [], MissionsSlice>>[0], get as unknown as Parameters<StateCreator<MissionsSlice, [], [], MissionsSlice>>[1], api as unknown as Parameters<StateCreator<MissionsSlice, [], [], MissionsSlice>>[2]);
+  const websocketSlice = createWebSocketSlice(set as unknown as Parameters<StateCreator<WebSocketSlice, [], [], WebSocketSlice>>[0], get as unknown as Parameters<StateCreator<WebSocketSlice, [], [], WebSocketSlice>>[1], api as unknown as Parameters<StateCreator<WebSocketSlice, [], [], WebSocketSlice>>[2]);
 
   // Setup WebSocket event listeners
   const setupWebSocketListeners = (

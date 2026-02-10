@@ -173,9 +173,8 @@ export default function MessageRenderer({
           ol: ({ node, ...props }) => (
             <ol className="my-3 list-decimal space-y-2 pl-5" {...props} />
           ),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- react-markdown node type is complex
-          li: ({ node, children, ...props }: any) => {
-            const isOrdered = (node as { ordered?: boolean })?.ordered || false;
+          li: ({ children, ...props }: React.LiHTMLAttributes<HTMLLIElement> & { children?: React.ReactNode }) => {
+            const isOrdered = false;
             // 检查是否是包含标签的结构化内容（如 "事件："、"时间："）
             const childText = String(children || '');
             const hasLabel =

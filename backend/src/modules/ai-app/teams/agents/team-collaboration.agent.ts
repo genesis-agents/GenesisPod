@@ -506,7 +506,7 @@ export class TeamCollaborationAgent extends PlanBasedAgent {
       `[execute] Starting team collaboration for task: ${plan.taskId}`,
     );
 
-    const input = (plan as any).input as AgentInput;
+    const input = (plan as unknown as { input?: AgentInput }).input;
     if (!input) {
       yield {
         type: "error",
@@ -527,8 +527,8 @@ export class TeamCollaborationAgent extends PlanBasedAgent {
         plan,
       };
 
-      let collaborationResult: any = {};
-      const memberContributions: any[] = [];
+      let collaborationResult: Record<string, unknown> = {};
+      const memberContributions: Array<Record<string, unknown>> = [];
 
       // 执行每个步骤
       for (let i = 0; i < plan.steps.length; i++) {
@@ -628,10 +628,10 @@ export class TeamCollaborationAgent extends PlanBasedAgent {
     context: {
       topicId?: string;
       taskType: TeamTaskType;
-      previousResult: any;
-      contributions: any[];
+      previousResult: Record<string, unknown>;
+      contributions: Array<Record<string, unknown>>;
     },
-  ): Promise<{ data?: any; contribution?: any }> {
+  ): Promise<{ data?: Record<string, unknown>; contribution?: Record<string, unknown> }> {
     const { topicId: _topicId, taskType } = context;
 
     // 根据工具类型模拟执行
@@ -715,8 +715,8 @@ export class TeamCollaborationAgent extends PlanBasedAgent {
    */
   private generateSummary(
     taskType: TeamTaskType,
-    _result: any,
-    contributions: any[],
+    _result: Record<string, unknown>,
+    contributions: Array<Record<string, unknown>>,
   ): string {
     const typeNames: Record<TeamTaskType, string> = {
       [TeamTaskType.TEAM_BRAINSTORM]: "团队头脑风暴",

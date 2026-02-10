@@ -10,6 +10,11 @@ import {
   UseGuards,
   UnauthorizedException,
 } from "@nestjs/common";
+
+interface AuthenticatedRequest {
+  user: { id: string; email: string };
+}
+
 import {
   CreateWorkspaceDto,
   CreateWorkspaceTaskDto,
@@ -33,7 +38,7 @@ export class WorkspaceController {
    * 创建新的工作区
    */
   @Post()
-  async createWorkspace(@Request() req: any, @Body() dto: CreateWorkspaceDto) {
+  async createWorkspace(@Request() req: AuthenticatedRequest, @Body() dto: CreateWorkspaceDto) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -53,7 +58,7 @@ export class WorkspaceController {
    * 获取工作区详情
    */
   @Get(":id")
-  async getWorkspace(@Param("id") id: string, @Request() req: any) {
+  async getWorkspace(@Param("id") id: string, @Request() req: AuthenticatedRequest) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -67,7 +72,7 @@ export class WorkspaceController {
   @Patch(":id")
   async updateWorkspaceResources(
     @Param("id") id: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body() dto: UpdateWorkspaceResourcesDto,
   ) {
     const userId = req.user?.id;
@@ -83,7 +88,7 @@ export class WorkspaceController {
   @Post(":id/tasks")
   async createWorkspaceTask(
     @Param("id") id: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body() dto: CreateWorkspaceTaskDto,
   ) {
     const userId = req.user?.id;
@@ -100,7 +105,7 @@ export class WorkspaceController {
   async getWorkspaceTask(
     @Param("id") id: string,
     @Param("taskId") taskId: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const userId = req.user?.id;
     if (!userId) {

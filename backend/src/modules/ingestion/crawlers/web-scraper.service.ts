@@ -65,7 +65,7 @@ export class WebScraperService {
         );
 
         // 尝试自动检测常见的新闻/文章结构
-        const fallbackItems = await this.autoDetectItems($, url);
+        const fallbackItems = this.autoDetectItems($, url);
         if (fallbackItems.length > 0) {
           return await this.processItems(
             fallbackItems.slice(0, maxItems),
@@ -82,8 +82,15 @@ export class WebScraperService {
       );
 
       // 提取和处理项目
-      const extractedItems: any[] = [];
-      items.slice(0, maxItems).each((_index, element) => {
+      const extractedItems: Array<{
+        title: string;
+        link: string;
+        summary: string;
+        publishedAt: Date;
+        author: string;
+        rawHtml: string;
+      }> = [];
+      items.slice(0, maxItems).each((_index: number, element: any) => {
         const item = this.extractItemData($, $(element), url);
         if (item) {
           extractedItems.push(item);
@@ -126,7 +133,14 @@ export class WebScraperService {
     _$: cheerio.CheerioAPI,
     element: cheerio.Cheerio<any>,
     baseUrl: string,
-  ): any {
+  ): {
+    title: string;
+    link: string;
+    summary: string;
+    publishedAt: Date;
+    author: string;
+    rawHtml: string;
+  } | null {
     try {
       // 提取标题 - 尝试多种选择器
       const title =
@@ -215,10 +229,24 @@ export class WebScraperService {
   private autoDetectItems(
     $: cheerio.CheerioAPI,
     url: string,
-  ): { title: string; link: string; summary: string; publishedAt: Date }[] {
+  ): Array<{
+    title: string;
+    link: string;
+    summary: string;
+    publishedAt: Date;
+    author: string;
+    rawHtml: string;
+  }> {
     this.logger.log("Auto-detecting content structure...");
 
-    const items: any[] = [];
+    const items: Array<{
+      title: string;
+      link: string;
+      summary: string;
+      publishedAt: Date;
+      author: string;
+      rawHtml: string;
+    }> = [];
 
     // 尝试常见的新闻/文章选择器
     const commonSelectors = [
@@ -243,7 +271,7 @@ export class WebScraperService {
           `Auto-detected ${elements.length} items with selector: ${selector}`,
         );
 
-        elements.each((_index, element) => {
+        elements.each((_index: number, element: any) => {
           const item = this.extractItemData($, $(element), url);
           if (item) {
             items.push(item);
@@ -263,7 +291,14 @@ export class WebScraperService {
    * 处理和存储提取的项目
    */
   private async processItems(
-    items: any[],
+    items: Array<{
+      title: string;
+      link: string;
+      summary: string;
+      publishedAt: Date;
+      author: string;
+      rawHtml: string;
+    }>,
     sourceUrl: string,
     category: string,
   ): Promise<number> {
@@ -285,8 +320,9 @@ export class WebScraperService {
           await this.mongodb.findRawDataByUrlAcrossAllSources(normalizedUrl);
 
         if (urlDuplicate) {
+          const source = (urlDuplicate as { source?: string }).source;
           this.logger.debug(
-            `Web scraped item already exists: ${item.title} (source: ${urlDuplicate.source})`,
+            `Web scraped item already exists: ${item.title} (source: ${source})`,
           );
           duplicateCount++;
           continue;
@@ -319,7 +355,7 @@ export class WebScraperService {
         // 2. 创建 PostgreSQL Resource 记录
         const resource = await this.prisma.resource.create({
           data: {
-            type: category as any,
+            type: category as unknown as "PAPER" | "BLOG" | "REPORT" | "YOUTUBE_VIDEO" | "NEWS" | "PROJECT" | "EVENT" | "RSS" | "POLICY",
 
             // 基础信息
             title: item.title,
@@ -361,9 +397,10 @@ export class WebScraperService {
 
         // 4. 验证引用同步成功
         const linkedRawData = await this.mongodb.findRawDataById(rawDataId);
-        if (linkedRawData?.resourceId !== resource.id) {
+        const linkedResourceId = (linkedRawData as { resourceId?: string })?.resourceId;
+        if (linkedResourceId !== resource.id) {
           this.logger.error(
-            `Reference sync failed for scraped item ${item.title}: MongoDB resourceId=${linkedRawData?.resourceId}, expected ${resource.id}`,
+            `Reference sync failed for scraped item ${item.title}: MongoDB resourceId=${linkedResourceId}, expected ${resource.id}`,
           );
           throw new Error(
             `Failed to establish bi-directional reference for resource ${resource.id}`,

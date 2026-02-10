@@ -13,6 +13,19 @@ import { Request, Response } from "express";
 import { RequestContext } from "../context/request-context";
 import { ErrorTrackingService } from "../../modules/core/monitoring";
 
+interface ErrorResponse {
+  statusCode: number;
+  timestamp: string;
+  path: string;
+  method: string;
+  message: string;
+  code: string;
+  requestId?: string;
+  traceId?: string;
+  details?: Record<string, unknown>;
+  stack?: string;
+}
+
 /**
  * 全局异常过滤器
  *
@@ -58,11 +71,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
   /**
    * 构建统一的错误响应格式
    */
-  private buildErrorResponse(exception: unknown, request: Request) {
+  private buildErrorResponse(exception: unknown, request: Request): ErrorResponse {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = "Internal server error";
     let code = "INTERNAL_ERROR";
-    let details: any = undefined;
+    let details: Record<string, unknown> | undefined = undefined;
 
     // 处理Prisma数据库错误
     if (exception instanceof PrismaClientKnownRequestError) {
@@ -80,8 +93,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (typeof errorResponse === "string") {
         message = errorResponse;
       } else if (typeof errorResponse === "object") {
-        message = (errorResponse as any).message || message;
-        code = (errorResponse as any).error || code;
+        const errorObj = errorResponse as Record<string, unknown>;
+        message = (typeof errorObj.message === "string" ? errorObj.message : undefined) || message;
+        code = (typeof errorObj.error === "string" ? errorObj.error : undefined) || code;
       }
     }
     // 处理未知错误
@@ -117,7 +131,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
    * 处理Prisma数据库错误
    */
   private handlePrismaError(error: PrismaClientKnownRequestError) {
-    const meta = error.meta as any;
+    const meta = error.meta as Record<string, unknown> | undefined;
 
     switch (error.code) {
       case "P2002":
@@ -209,7 +223,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   /**
    * 记录错误日志
    */
-  private logError(request: Request, errorResponse: any, exception: unknown) {
+  private logError(request: Request, errorResponse: ErrorResponse, exception: unknown) {
     const logContext = {
       method: request.method,
       url: request.url,
@@ -218,7 +232,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message: errorResponse.message,
       ip: request.ip,
       userAgent: request.get("user-agent"),
-      userId: (request as any).user?.id,
+      userId: (request as unknown as { user?: { id?: string } }).user?.id,
     };
 
     if (errorResponse.statusCode >= 500) {
@@ -235,7 +249,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
    * 发送错误到监控系统
    * 通过 ErrorTrackingService 持久化错误记录
    */
-  private reportToMonitoring(errorResponse: any, exception: unknown) {
+  private reportToMonitoring(errorResponse: ErrorResponse, exception: unknown) {
     // 记录到本地日志
     this.logger.error(
       `[MONITORING] Critical error: ${errorResponse.code}`,
@@ -257,7 +271,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           path: errorResponse.path,
           method: errorResponse.method,
           statusCode: errorResponse.statusCode,
-          userId: RequestContext.getUserId(),
+          userId: RequestContext.getUserId() || undefined,
           requestId: errorResponse.requestId,
           metadata: {
             traceId: errorResponse.traceId,

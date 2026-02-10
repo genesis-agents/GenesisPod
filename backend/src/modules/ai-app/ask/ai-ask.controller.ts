@@ -12,10 +12,13 @@ import {
   Logger,
   BadRequestException,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
+import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AiAskService } from "./ai-ask.service";
 import { CreateSessionDto, UpdateSessionDto, SendMessageDto } from "./dto";
 
+@ApiTags("AI Ask")
 @Controller("ask/sessions")
 @UseGuards(JwtAuthGuard)
 export class AiAskController {
@@ -28,7 +31,10 @@ export class AiAskController {
    * POST /api/v1/ask/sessions
    */
   @Post()
-  async createSession(@Request() req: any, @Body() dto: CreateSessionDto) {
+  @ApiOperation({ summary: "创建新会话" })
+  @ApiResponse({ status: 201, description: "创建成功" })
+  @ApiResponse({ status: 401, description: "未授权" })
+  async createSession(@Request() req: { user: { id: string } }, @Body() dto: CreateSessionDto) {
     this.logger.log(`Creating session for user ${req.user.id}`);
     return this.aiAskService.createSession(req.user.id, dto);
   }
@@ -38,8 +44,11 @@ export class AiAskController {
    * GET /api/v1/ask/sessions?page=1&limit=20
    */
   @Get()
+  @ApiOperation({ summary: "获取会话列表" })
+  @ApiResponse({ status: 200, description: "成功" })
+  @ApiResponse({ status: 401, description: "未授权" })
   async getSessions(
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
     @Query("page") page?: string,
     @Query("limit") limit?: string,
   ) {
@@ -56,8 +65,11 @@ export class AiAskController {
    * GET /api/v1/ask/sessions/search?q=keyword
    */
   @Get("search")
+  @ApiOperation({ summary: "搜索会话" })
+  @ApiResponse({ status: 200, description: "成功" })
+  @ApiResponse({ status: 401, description: "未授权" })
   async searchSessions(
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
     @Query("q") query: string,
     @Query("limit") limit?: string,
   ) {
@@ -73,7 +85,11 @@ export class AiAskController {
    * GET /api/v1/ask/sessions/:id
    */
   @Get(":id")
-  async getSession(@Request() req: any, @Param("id") id: string) {
+  @ApiOperation({ summary: "获取会话详情" })
+  @ApiResponse({ status: 200, description: "成功" })
+  @ApiResponse({ status: 401, description: "未授权" })
+  @ApiResponse({ status: 404, description: "未找到" })
+  async getSession(@Request() req: { user: { id: string } }, @Param("id") id: string) {
     return this.aiAskService.getSession(id, req.user.id);
   }
 
@@ -82,8 +98,12 @@ export class AiAskController {
    * PATCH /api/v1/ask/sessions/:id
    */
   @Patch(":id")
+  @ApiOperation({ summary: "更新会话" })
+  @ApiResponse({ status: 200, description: "成功" })
+  @ApiResponse({ status: 401, description: "未授权" })
+  @ApiResponse({ status: 404, description: "未找到" })
   async updateSession(
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
     @Param("id") id: string,
     @Body() dto: UpdateSessionDto,
   ) {
@@ -95,7 +115,11 @@ export class AiAskController {
    * DELETE /api/v1/ask/sessions/:id
    */
   @Delete(":id")
-  async deleteSession(@Request() req: any, @Param("id") id: string) {
+  @ApiOperation({ summary: "删除会话" })
+  @ApiResponse({ status: 200, description: "成功" })
+  @ApiResponse({ status: 401, description: "未授权" })
+  @ApiResponse({ status: 404, description: "未找到" })
+  async deleteSession(@Request() req: { user: { id: string } }, @Param("id") id: string) {
     return this.aiAskService.deleteSession(id, req.user.id);
   }
 
@@ -103,9 +127,14 @@ export class AiAskController {
    * 发送消息
    * POST /api/v1/ask/sessions/:sessionId/messages
    */
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post(":sessionId/messages")
+  @ApiOperation({ summary: "发送消息" })
+  @ApiResponse({ status: 201, description: "创建成功" })
+  @ApiResponse({ status: 401, description: "未授权" })
+  @ApiResponse({ status: 404, description: "未找到" })
   async sendMessage(
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
     @Param("sessionId") sessionId: string,
     @Body() dto: SendMessageDto,
   ) {
@@ -123,8 +152,12 @@ export class AiAskController {
    * GET /api/v1/ask/sessions/:sessionId/messages?limit=50&before=timestamp
    */
   @Get(":sessionId/messages")
+  @ApiOperation({ summary: "获取会话消息" })
+  @ApiResponse({ status: 200, description: "成功" })
+  @ApiResponse({ status: 401, description: "未授权" })
+  @ApiResponse({ status: 404, description: "未找到" })
   async getMessages(
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
     @Param("sessionId") sessionId: string,
     @Query("limit") limit?: string,
     @Query("before") before?: string,
@@ -143,9 +176,14 @@ export class AiAskController {
    * 重新生成消息
    * POST /api/v1/ask/sessions/:sessionId/messages/:messageId/regenerate
    */
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post(":sessionId/messages/:messageId/regenerate")
+  @ApiOperation({ summary: "重新生成消息" })
+  @ApiResponse({ status: 201, description: "创建成功" })
+  @ApiResponse({ status: 401, description: "未授权" })
+  @ApiResponse({ status: 404, description: "未找到" })
   async regenerateMessage(
-    @Request() req: any,
+    @Request() req: { user: { id: string } },
     @Param("sessionId") sessionId: string,
     @Param("messageId") messageId: string,
   ) {

@@ -319,8 +319,10 @@ export class DataValidationTool extends BaseTool<
     const Ajv = await import("ajv");
     const addFormats = await import("ajv-formats");
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ajvOptions: any = {
+    const ajvOptions: {
+      allErrors: boolean;
+      strict?: boolean;
+    } = {
       allErrors: true,
     };
     if (strict) {
@@ -328,8 +330,7 @@ export class DataValidationTool extends BaseTool<
     }
     const ajv = new Ajv.default(ajvOptions);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    addFormats.default(ajv as any);
+    addFormats.default(ajv as unknown as Parameters<typeof addFormats.default>[0]);
 
     const validate = ajv.compile(schema);
     const valid = validate(data);
@@ -342,14 +343,13 @@ export class DataValidationTool extends BaseTool<
 
     if (validate.errors) {
       for (const error of validate.errors) {
+        const errorRecord = error as unknown as Record<string, unknown>;
         errors.push({
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           field:
-            (error as any).instancePath || (error as any).dataPath || "root",
+            (errorRecord.instancePath as string) || (errorRecord.dataPath as string) || "root",
           message: error.message || "Validation failed",
           type: "error",
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          value: (error as any).data,
+          value: errorRecord.data,
         });
       }
     }
@@ -460,13 +460,13 @@ export class DataValidationTool extends BaseTool<
    */
   private getNestedValue(obj: unknown, path: string): unknown {
     const keys = path.split(".");
-    let current: any = obj;
+    let current: unknown = obj;
 
     for (const key of keys) {
       if (current === null || current === undefined) {
         return undefined;
       }
-      current = current[key];
+      current = (current as Record<string, unknown>)[key];
     }
 
     return current;
@@ -539,7 +539,7 @@ export class DataValidationTool extends BaseTool<
     let count = 0;
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        count += 1 + this.countFields((obj as any)[key], visited);
+        count += 1 + this.countFields((obj as Record<string, unknown>)[key], visited);
       }
     }
 

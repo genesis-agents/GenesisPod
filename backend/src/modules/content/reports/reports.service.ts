@@ -13,6 +13,7 @@ import { GenerateReportDto } from "./dto/generate-report.dto";
 import { ExportOrchestratorService } from "../../../common/export";
 import { ExportFormat } from "@prisma/client";
 import axios from "axios";
+import { Response } from "express";
 
 interface ReportSection {
   title: string;
@@ -23,7 +24,26 @@ interface AIReportResponse {
   title: string;
   summary: string;
   sections: ReportSection[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+}
+
+interface ChatDto {
+  stream?: boolean;
+  [key: string]: unknown;
+}
+
+interface ExportDto {
+  format: string;
+  content: string;
+  title: string;
+}
+
+interface ReportTemplate {
+  id: string;
+  name: string;
+  category: string;
+  promptConfig: unknown;
+  version: number;
 }
 
 @Injectable()
@@ -72,7 +92,7 @@ export class ReportsService {
   /**
    * 与资源对话
    */
-  async chatWithResources(dto: any, res: any) {
+  async chatWithResources(dto: ChatDto, res: Response) {
     try {
       const aiServiceUrl =
         process.env.AI_SERVICE_URL || "http://localhost:5000";
@@ -144,28 +164,28 @@ export class ReportsService {
     }
 
     // 获取关联的资源
-    let resources: any[] = [];
-    if (Array.isArray(report.resourceIds) && report.resourceIds.length > 0) {
-      resources = await this.prisma.resource.findMany({
-        where: {
-          id: {
-            in: report.resourceIds as string[],
-          },
-        },
-        select: {
-          id: true,
-          type: true,
-          title: true,
-          abstract: true,
-          authors: true,
-          publishedAt: true,
-          thumbnailUrl: true,
-          sourceUrl: true,
-          pdfUrl: true,
-          tags: true,
-        },
-      });
-    }
+    const resources =
+      Array.isArray(report.resourceIds) && report.resourceIds.length > 0
+        ? await this.prisma.resource.findMany({
+            where: {
+              id: {
+                in: report.resourceIds as string[],
+              },
+            },
+            select: {
+              id: true,
+              type: true,
+              title: true,
+              abstract: true,
+              authors: true,
+              publishedAt: true,
+              thumbnailUrl: true,
+              sourceUrl: true,
+              pdfUrl: true,
+              tags: true,
+            },
+          })
+        : [];
 
     return {
       ...report,
@@ -241,7 +261,7 @@ export class ReportsService {
    * 导出文档为各种格式
    * 使用统一导出模块
    */
-  async exportDocument(dto: any, res: any, userId: string) {
+  async exportDocument(dto: ExportDto, res: Response, userId: string) {
     try {
       const { format, content, title } = dto;
 
@@ -324,13 +344,7 @@ export class ReportsService {
 
   private async generateReportFromResources(
     dto: GenerateReportDto,
-    template: {
-      id: string;
-      name: string;
-      category: string;
-      promptConfig: any;
-      version: number;
-    },
+    template: ReportTemplate,
   ) {
     const resources = await this.prisma.resource.findMany({
       where: {
@@ -392,15 +406,15 @@ export class ReportsService {
         templateName: template.name,
         templateIcon: this.getTemplateIcon(template.category),
         summary: aiReport.summary,
-        sections: aiReport.sections as any,
-        resourceIds: dto.resourceIds as any,
+        sections: aiReport.sections as unknown as Prisma.InputJsonValue,
+        resourceIds: dto.resourceIds as unknown as Prisma.InputJsonValue,
         resourceCount: dto.resourceIds?.length ?? 0,
         metadata: {
           model,
           generatedAt: new Date().toISOString(),
           templateVersion: template.version,
           ...aiReport.metadata,
-        } as any,
+        } as Prisma.InputJsonValue,
       },
       include: {
         user: {
@@ -417,7 +431,7 @@ export class ReportsService {
 
   private async generateReportFromWorkspaceTask(
     dto: GenerateReportDto,
-    template: { id: string; name: string; version: number; category: string },
+    template: ReportTemplate,
   ) {
     const task = await this.prisma.workspaceTask.findUnique({
       where: { id: dto.taskId as string },
@@ -460,7 +474,7 @@ export class ReportsService {
         templateIcon: this.getTemplateIcon(template.category),
         summary,
         sections,
-        resourceIds: resourceIds as any,
+        resourceIds: resourceIds as Prisma.InputJsonValue,
         resourceCount: resourceIds.length,
         metadata: {
           model: task.model,
@@ -469,7 +483,7 @@ export class ReportsService {
           workspaceId: task.workspaceId,
           taskId: task.id,
           rawResult: task.result,
-        } as any,
+        } as Prisma.InputJsonValue,
       },
       include: {
         user: {
@@ -484,11 +498,19 @@ export class ReportsService {
     });
   }
 
-  private buildSectionsFromResult(result: any): Prisma.InputJsonValue {
-    if (result && Array.isArray(result.sections)) {
+  private buildSectionsFromResult(result: unknown): Prisma.InputJsonValue {
+    if (
+      result &&
+      typeof result === "object" &&
+      "sections" in result &&
+      Array.isArray(result.sections)
+    ) {
       const valid = result.sections.every(
-        (section: any) =>
+        (section: unknown) =>
           typeof section === "object" &&
+          section !== null &&
+          "title" in section &&
+          "content" in section &&
           typeof section.title === "string" &&
           typeof section.content === "string",
       );
@@ -505,11 +527,21 @@ export class ReportsService {
     ] as Prisma.InputJsonValue;
   }
 
-  private extractSummary(result: any, fallback?: string): string {
-    if (result && typeof result.summary === "string") {
+  private extractSummary(result: unknown, fallback?: string): string {
+    if (
+      result &&
+      typeof result === "object" &&
+      "summary" in result &&
+      typeof result.summary === "string"
+    ) {
       return result.summary;
     }
-    if (result && typeof result.overview === "string") {
+    if (
+      result &&
+      typeof result === "object" &&
+      "overview" in result &&
+      typeof result.overview === "string"
+    ) {
       return result.overview;
     }
     return fallback ?? "AI 自动生成的报告摘要";

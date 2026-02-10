@@ -129,6 +129,17 @@ jobs:
           NODE_ENV: test
         run: npm run test:quick
 
+      - name: Verify coverage thresholds
+        working-directory: ./backend
+        run: |
+          echo "Verifying backend coverage meets thresholds..."
+          npx jest --coverage --coverageReporters=json-summary --passWithNoTests 2>/dev/null || true
+          if [ -f coverage/coverage-summary.json ]; then
+            LINES=$(node -e "const c=require('./coverage/coverage-summary.json');console.log(c.total.lines.pct)")
+            echo "Line coverage: ${LINES}%"
+            node -e "const c=require('./coverage/coverage-summary.json');if(c.total.lines.pct<65){console.error('Coverage below 65% threshold');process.exit(1)}"
+          fi
+
       - name: Upload test coverage
         if: always()
         uses: codecov/codecov-action@v4
@@ -136,7 +147,7 @@ jobs:
           files: ./backend/coverage/lcov.info
           flags: backend
           name: backend-coverage
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   # ---------------------------------------------------------------------------
   # Job 3: Frontend Lint & Build
@@ -211,7 +222,7 @@ jobs:
           files: ./frontend/coverage/lcov.info
           flags: frontend
           name: frontend-coverage
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   # ---------------------------------------------------------------------------
   # Job 5: Security Audit
@@ -231,13 +242,31 @@ jobs:
 
       - name: Audit backend dependencies
         working-directory: ./backend
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical
         continue-on-error: true
 
       - name: Audit frontend dependencies
         working-directory: ./frontend
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical
         continue-on-error: true
+
+      - name: Check for critical vulnerabilities (hard fail)
+        run: |
+          echo "Checking for critical vulnerabilities..."
+          cd backend && npm audit --audit-level=critical --json > /tmp/backend-audit.json 2>/dev/null || true
+          cd ../frontend && npm audit --audit-level=critical --json > /tmp/frontend-audit.json 2>/dev/null || true
+
+          BACKEND_CRITICAL=$(node -e "try{const a=require('/tmp/backend-audit.json');console.log(a.metadata?.vulnerabilities?.critical||0)}catch{console.log(0)}")
+          FRONTEND_CRITICAL=$(node -e "try{const a=require('/tmp/frontend-audit.json');console.log(a.metadata?.vulnerabilities?.critical||0)}catch{console.log(0)}")
+
+          echo "Backend critical: $BACKEND_CRITICAL"
+          echo "Frontend critical: $FRONTEND_CRITICAL"
+
+          if [ "$BACKEND_CRITICAL" -gt 0 ] || [ "$FRONTEND_CRITICAL" -gt 0 ]; then
+            echo "CRITICAL vulnerabilities found - failing CI"
+            exit 1
+          fi
+          echo "No critical vulnerabilities found"
 
   # ---------------------------------------------------------------------------
   # Job 6: Code Quality Check
@@ -344,14 +373,15 @@ jobs:
              [ "${{ needs.backend-test.result }}" != "success" ] || \
              [ "${{ needs.frontend-build.result }}" != "success" ] || \
              [ "${{ needs.frontend-test.result }}" != "success" ] || \
+             [ "${{ needs.security-audit.result }}" == "failure" ] || \
              [ "${{ needs.code-quality.result }}" != "success" ]; then
-            echo "❌ CI Pipeline failed - see above for details"
+            echo "CI Pipeline failed - see above for details"
             exit 1
           else
-            echo "✅ All CI checks passed successfully"
-            echo "✅ Code quality: PASS"
-            echo "✅ Tests: PASS"
-            echo "✅ Build: PASS"
-            echo "✅ Security: Check audit results above"
-            echo "✅ Coverage: Check Codecov for detailed reports"
+            echo "All CI checks passed successfully"
+            echo "Code quality: PASS"
+            echo "Tests: PASS"
+            echo "Build: PASS"
+            echo "Security: PASS"
+            echo "Coverage: Check Codecov for detailed reports"
           fi

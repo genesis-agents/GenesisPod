@@ -314,7 +314,7 @@ export class DataCollectionSchedulerService
       name: `Scheduled: ${source.name}`,
       type: "SCHEDULED",
       sourceId: source.id,
-      sourceConfig: source.crawlerConfig || {},
+      sourceConfig: (source.crawlerConfig || {}) as Record<string, unknown>,
       timeout,
     });
 

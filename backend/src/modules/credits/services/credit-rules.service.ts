@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { CreditRule } from "@prisma/client";
+import { CreditRule, Prisma } from "@prisma/client";
 
 /**
  * 默认积分规则
@@ -550,7 +550,7 @@ export class CreditRulesService implements OnModuleInit {
           operationType,
         },
       },
-      data: data as any,
+      data: data as Prisma.CreditRuleUpdateInput,
     });
 
     // 更新缓存

@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
-import TextHighlighter from '../../ui/TextHighlighter';
+import TextHighlighter, { type Highlight } from '../../ui/TextHighlighter';
 import NoteEditor from './NoteEditor';
 
 import { logger } from '@/lib/utils/logger';
+
 interface Resource {
   id: string;
   type: string;
@@ -45,7 +46,7 @@ export default function ResourceReader({
   const [note, setNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
   const [showNoteEditor, setShowNoteEditor] = useState(false);
-  const [highlights, setHighlights] = useState<any[]>([]);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
 
   useEffect(() => {
     loadResource();
@@ -124,7 +125,7 @@ export default function ResourceReader({
     }
   };
 
-  const handleHighlightAdded = (highlight: any) => {
+  const handleHighlightAdded = (highlight: Highlight) => {
     setHighlights([...highlights, highlight]);
   };
 

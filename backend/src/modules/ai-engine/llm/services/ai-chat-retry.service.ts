@@ -27,12 +27,13 @@ export class AiChatRetryService {
   /**
    * 分类错误并决定是否可重试
    */
-  classifyError(error: any): {
+  classifyError(error: unknown): {
     isRetriable: boolean;
     category: string;
     message: string;
   } {
-    const errorMessage = error?.message || String(error);
+    const err = error as Record<string, unknown>;
+    const errorMessage = (err?.message as string) || String(error);
 
     // 使用 AIErrorClassifier 分类错误
     const aiError: AIError = this.errorClassifier.classify(error);
@@ -54,7 +55,7 @@ export class AiChatRetryService {
     options: {
       maxRetries?: number;
       retryDelays?: number[];
-      onRetry?: (attempt: number, error: any) => void;
+      onRetry?: (attempt: number, error: unknown) => void;
       context?: string;
     } = {},
   ): Promise<T> {
@@ -62,7 +63,7 @@ export class AiChatRetryService {
     const retryDelays = options.retryDelays ?? this.RETRY_DELAYS;
     const context = options.context || "API call";
 
-    let lastError: any;
+    let lastError: unknown;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -127,7 +128,7 @@ export class AiChatRetryService {
    * 构建错误响应（用于非严格模式）
    */
   buildErrorResponse(
-    error: any,
+    error: unknown,
     model: string,
   ): {
     content: string;
@@ -163,7 +164,7 @@ export class AiChatRetryService {
    * 处理 API 错误（根据严格模式决定抛出异常还是返回错误响应）
    */
   handleApiError(
-    error: any,
+    error: unknown,
     model: string,
     strictMode: boolean = false,
   ): {

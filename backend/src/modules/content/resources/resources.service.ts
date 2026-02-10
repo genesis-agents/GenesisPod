@@ -7,7 +7,7 @@ import {
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { MongoDBService } from "../../../common/mongodb/mongodb.service.postgres";
 import { ensureError } from "../../../common/utils/error.utils";
-import { Prisma } from "@prisma/client";
+import { Prisma, ResourceType } from "@prisma/client";
 import { SourceWhitelistService } from "../../ingestion/config/services/source-whitelist.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 import { ResourcesRepository } from "./resources.repository";
@@ -58,7 +58,7 @@ export class ResourcesService {
     };
 
     if (type) {
-      where.type = type as any;
+      where.type = type as Prisma.ResourceWhereInput["type"];
     }
 
     if (category) {
@@ -66,7 +66,7 @@ export class ResourcesService {
       where.categories = {
         path: [],
         array_contains: [category],
-      } as any;
+      };
     }
 
     if (search) {
@@ -124,7 +124,7 @@ export class ResourcesService {
 
     return {
       ...resource,
-      rawData: rawData?.data || null,
+      rawData: (rawData as { data?: unknown })?.data || null,
     };
   }
 
@@ -420,7 +420,7 @@ export class ResourcesService {
     try {
       // 第一步：验证URL域名是否在白名单中
       const whitelistValidation = await this.whitelistService.validateUrl(
-        type as any,
+        type as ResourceType,
         url,
       );
 
@@ -524,7 +524,7 @@ export class ResourcesService {
         );
 
         const resource = await this.repository.update(existing.id, {
-          type: type as any, // 更新类型（允许用户更改分类）
+          type: type as ResourceType, // 更新类型（允许用户更改分类）
           title: title,
           abstract: abstract || `从URL导入: ${finalUrl}`,
           pdfUrl: pdfUrl,
@@ -540,7 +540,7 @@ export class ResourcesService {
 
       // 创建新资源
       const resourceData: Prisma.ResourceCreateInput = {
-        type: type as any,
+        type: type as ResourceType,
         title: title,
         abstract: abstract || `从URL导入: ${finalUrl}`,
         sourceUrl: finalUrl, // 使用转换后的URL
@@ -851,7 +851,7 @@ export class ResourcesService {
     );
 
     // 构建类型过滤条件
-    const typeFilter = resourceType ? { type: resourceType as any } : {};
+    const typeFilter = resourceType ? { type: resourceType as ResourceType } : {};
 
     // 查找所有重复的 sourceUrl
     const duplicateUrls = await this.repository.groupBySourceUrl(typeFilter);

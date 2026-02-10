@@ -15,10 +15,10 @@ import {
   MIME_TYPES,
   FILE_EXTENSIONS,
 } from "./renderer.interface";
-import { UnifiedContent, ContentSection } from "../types/unified-content";
+import { UnifiedContent, ContentSection, Reference } from "../types/unified-content";
 import { ThemeConfig, LayoutConfig } from "../types/theme-config";
 import { ExportOptions } from "../types/export-options";
-import puppeteer from "puppeteer";
+import puppeteer, { PDFOptions } from "puppeteer";
 import * as PDFDocument from "pdfkit";
 
 @Injectable()
@@ -75,8 +75,8 @@ export class PdfRenderer implements ExportRenderer {
       await page.setContent(html, { waitUntil: "networkidle0" });
 
       // PDF 配置
-      const pdfOptions: any = {
-        format: this.mapPageSize(layout.pageSize),
+      const pdfOptions: PDFOptions = {
+        format: this.mapPageSize(layout.pageSize) as PDFOptions['format'],
         landscape: layout.orientation === "landscape",
         margin: {
           top: `${theme.spacing.page.top}px`,
@@ -756,7 +756,7 @@ export class PdfRenderer implements ExportRenderer {
   /**
    * 生成参考文献
    */
-  private generateReferences(references: any[]): string {
+  private generateReferences(references: Reference[]): string {
     const items = references
       .map(
         (ref) => `

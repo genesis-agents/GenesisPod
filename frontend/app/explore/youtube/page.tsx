@@ -916,8 +916,8 @@ function YouTubeTLDWContent() {
         logger.debug(
           `Translated merged segment ${activeMergedIndex}: "${currentMerged.text.substring(0, 50)}..." -> "${data.translation?.substring(0, 50)}..."`
         );
-      } catch (error: any) {
-        logger.error('Failed to translate segment:', error?.message || error);
+      } catch (error: unknown) {
+        logger.error('Failed to translate segment:', error instanceof Error ? error.message : String(error));
         // Fallback to original text on error
         setTranslations((prev) => {
           const newMap = new Map(prev);

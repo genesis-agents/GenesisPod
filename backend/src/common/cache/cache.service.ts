@@ -137,8 +137,12 @@ export class CacheService {
   async delByPrefix(prefix: string): Promise<void> {
     try {
       // 尝试获取底层存储客户端进行 keys 操作
-      const stores = (this.cacheManager as any).stores;
-      const store = stores?.[0] || (this.cacheManager as any).store;
+      const cacheManagerInternal = this.cacheManager as unknown as {
+        stores?: Array<{ keys?: (pattern: string) => Promise<string[]> }>;
+        store?: { keys?: (pattern: string) => Promise<string[]> };
+      };
+      const stores = cacheManagerInternal.stores;
+      const store = stores?.[0] || cacheManagerInternal.store;
       if (store?.keys) {
         const keys = await store.keys(`${prefix}*`);
         if (keys && keys.length > 0) {

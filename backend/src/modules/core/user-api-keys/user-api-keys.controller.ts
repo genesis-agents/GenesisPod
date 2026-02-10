@@ -14,6 +14,10 @@ import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { UserApiKeysService } from "./user-api-keys.service";
 import { SaveUserApiKeyDto, TestApiKeyDto } from "./dto";
 
+interface AuthenticatedRequest {
+  user: { id: string; email: string };
+}
+
 @Controller("user/api-keys")
 @UseGuards(JwtAuthGuard)
 export class UserApiKeysController {
@@ -23,7 +27,7 @@ export class UserApiKeysController {
    * 列出用户的所有 API Key 配置
    */
   @Get()
-  async listKeys(@Req() req: any) {
+  async listKeys(@Req() req: AuthenticatedRequest) {
     const keys = await this.userApiKeysService.listUserApiKeys(req.user.id);
     const providers = this.userApiKeysService.getSupportedProviders();
     return { keys, providers };
@@ -35,7 +39,7 @@ export class UserApiKeysController {
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   @Put(":provider")
   async saveKey(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Param("provider") provider: string,
     @Body() dto: SaveUserApiKeyDto,
   ) {
@@ -53,7 +57,7 @@ export class UserApiKeysController {
    * 删除 API Key
    */
   @Delete(":provider")
-  async deleteKey(@Req() req: any, @Param("provider") provider: string) {
+  async deleteKey(@Req() req: AuthenticatedRequest, @Param("provider") provider: string) {
     return this.userApiKeysService.deleteKey(req.user.id, provider);
   }
 
@@ -77,7 +81,7 @@ export class UserApiKeysController {
    * 撤回捐赠（Key 变回自用模式）
    */
   @Delete(":provider/donate")
-  async withdrawDonation(@Req() req: any, @Param("provider") provider: string) {
+  async withdrawDonation(@Req() req: AuthenticatedRequest, @Param("provider") provider: string) {
     return this.userApiKeysService.withdrawDonation(req.user.id, provider);
   }
 }

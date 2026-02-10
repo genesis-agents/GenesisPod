@@ -176,7 +176,21 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
     );
 
     // 构建请求参数
-    const requestParams: any = {
+    interface RequestParams {
+      provider: string;
+      modelId: string;
+      apiKey: string;
+      apiEndpoint?: string;
+      messages: ChatMessage[];
+      taskProfile: typeof taskProfile;
+      maxTokens?: number;
+      temperature?: number;
+      systemPrompt?: string;
+      tools?: Array<{ type: "function"; function: FunctionDefinition }>;
+      tool_choice?: string | { type: string; function: { name: string } };
+    }
+
+    const requestParams: RequestParams = {
       provider: this.config?.provider || llmConfig.provider,
       modelId: this.config?.modelId || model || llmConfig.modelId,
       apiKey: this.config?.apiKey || llmConfig.apiKey,
@@ -218,7 +232,19 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
    *
    * ★ 统一通过 aiChatService.chat() 调用，支持 TaskProfile
    */
-  private async callAiChatServiceWithTools(params: any): Promise<any> {
+  private async callAiChatServiceWithTools(params: {
+    provider: string;
+    modelId: string;
+    apiKey: string;
+    apiEndpoint?: string;
+    systemPrompt?: string;
+    messages: ChatMessage[];
+    maxTokens?: number;
+    temperature?: number;
+    taskProfile: unknown;
+    tools?: Array<{ type: "function"; function: FunctionDefinition }>;
+    tool_choice?: string | { type: string; function: { name: string } };
+  }): Promise<unknown> {
     const {
       provider,
       modelId,
@@ -247,7 +273,7 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       maxTokens,
       temperature,
       ...(tools ? { tools, tool_choice } : {}),
-    } as any);
+    } as Parameters<typeof this.aiChatService.chat>[0]);
   }
 
   /**
@@ -546,7 +572,7 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
   /**
    * 转换 AiChatService 响应到 LLMResponse
    */
-  private convertToLLMResponse(result: any, provider: string): LLMResponse {
+  private convertToLLMResponse(result: unknown, provider: string): LLMResponse {
     // 处理不同 Provider 的响应格式
     const lower = provider.toLowerCase();
 
@@ -567,19 +593,21 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
    *
    * ★ 支持 aiChatService.chat() 的新响应格式 (usage.totalTokens)
    */
-  private parseOpenAIResponse(result: any): LLMResponse {
+  private parseOpenAIResponse(result: unknown): LLMResponse {
+    const response = result as Record<string, unknown>;
+
     // AiChatService.chat() 返回的简化格式
-    if (result.content !== undefined) {
+    if (response.content !== undefined) {
       // ★ 处理两种响应格式：
       // - 旧格式: tokensUsed (from generateChatCompletion)
       // - 新格式: usage.totalTokens (from chat())
       const totalTokens =
-        "tokensUsed" in result
-          ? result.tokensUsed
-          : result.usage?.totalTokens || 0;
+        "tokensUsed" in response
+          ? (response.tokensUsed as number)
+          : ((response.usage as Record<string, unknown> | undefined)?.totalTokens as number | undefined) || 0;
 
       return {
-        content: result.content,
+        content: response.content as string,
         usage: totalTokens
           ? {
               promptTokens: 0,
@@ -587,48 +615,52 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
               totalTokens,
             }
           : undefined,
-        model: result.model,
+        model: response.model as string | undefined,
         finishReason: "stop",
       };
     }
 
     // 原始 API 响应格式
-    const choice = result.choices?.[0];
-    const message = choice?.message;
+    const choices = response.choices as Array<Record<string, unknown>> | undefined;
+    const choice = choices?.[0];
+    const message = choice?.message as Record<string, unknown> | undefined;
+    const usage = response.usage as Record<string, unknown> | undefined;
 
     return {
-      content: message?.content || null,
-      function_call: message?.function_call,
-      tool_calls: message?.tool_calls,
-      usage: result.usage
+      content: (message?.content as string | null) || null,
+      function_call: message?.function_call as { name: string; arguments: string } | undefined,
+      tool_calls: message?.tool_calls as Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> | undefined,
+      usage: usage
         ? {
-            promptTokens: result.usage.prompt_tokens || 0,
-            completionTokens: result.usage.completion_tokens || 0,
-            totalTokens: result.usage.total_tokens || 0,
+            promptTokens: (usage.prompt_tokens as number | undefined) || 0,
+            completionTokens: (usage.completion_tokens as number | undefined) || 0,
+            totalTokens: (usage.total_tokens as number | undefined) || 0,
           }
         : undefined,
-      model: result.model,
-      finishReason: choice?.finish_reason,
+      model: response.model as string | undefined,
+      finishReason: choice?.finish_reason as "stop" | "length" | "function_call" | "tool_calls" | undefined,
     };
   }
 
   /**
    * 解析 Anthropic 响应
    */
-  private parseAnthropicResponse(result: any): LLMResponse {
+  private parseAnthropicResponse(result: unknown): LLMResponse {
+    const response = result as Record<string, unknown>;
     let content: string | null = null;
-    const toolCalls: any[] = [];
+    const toolCalls: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> = [];
 
-    if (result.content && Array.isArray(result.content)) {
-      for (const block of result.content) {
+    const contentBlocks = response.content as Array<Record<string, unknown>> | undefined;
+    if (contentBlocks && Array.isArray(contentBlocks)) {
+      for (const block of contentBlocks) {
         if (block.type === "text") {
-          content = (content || "") + block.text;
+          content = (content || "") + (block.text as string);
         } else if (block.type === "tool_use") {
           toolCalls.push({
-            id: block.id,
+            id: block.id as string,
             type: "function",
             function: {
-              name: block.name,
+              name: block.name as string,
               arguments: JSON.stringify(block.input),
             },
           });
@@ -636,20 +668,22 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       }
     }
 
+    const usage = response.usage as Record<string, unknown> | undefined;
+
     return {
       content,
       tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-      usage: result.usage
+      usage: usage
         ? {
-            promptTokens: result.usage.input_tokens || 0,
-            completionTokens: result.usage.output_tokens || 0,
+            promptTokens: (usage.input_tokens as number | undefined) || 0,
+            completionTokens: (usage.output_tokens as number | undefined) || 0,
             totalTokens:
-              (result.usage.input_tokens || 0) +
-              (result.usage.output_tokens || 0),
+              ((usage.input_tokens as number | undefined) || 0) +
+              ((usage.output_tokens as number | undefined) || 0),
           }
         : undefined,
-      model: result.model,
-      finishReason: result.stop_reason === "tool_use" ? "tool_calls" : "stop",
+      model: response.model as string | undefined,
+      finishReason: response.stop_reason === "tool_use" ? "tool_calls" : "stop",
     };
   }
 
@@ -660,16 +694,18 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
    * - 简化格式: AiChatService.chat() 返回的 { content, model, tokensUsed }
    * - 原始格式: Gemini API 原始响应 { candidates: [...] }
    */
-  private parseGoogleResponse(result: any): LLMResponse {
+  private parseGoogleResponse(result: unknown): LLMResponse {
+    const response = result as Record<string, unknown>;
+
     // ★ 处理 AiChatService.chat() 返回的简化格式
-    if (result.content !== undefined) {
+    if (response.content !== undefined) {
       const totalTokens =
-        "tokensUsed" in result
-          ? result.tokensUsed
-          : result.usage?.totalTokens || 0;
+        "tokensUsed" in response
+          ? (response.tokensUsed as number)
+          : ((response.usage as Record<string, unknown> | undefined)?.totalTokens as number | undefined) || 0;
 
       return {
-        content: result.content,
+        content: response.content as string,
         usage: totalTokens
           ? {
               promptTokens: 0,
@@ -677,25 +713,30 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
               totalTokens,
             }
           : undefined,
-        model: result.model,
+        model: response.model as string | undefined,
         finishReason: "stop",
       };
     }
 
     // 原始 Gemini API 响应格式
-    const candidate = result.candidates?.[0];
-    const content = candidate?.content?.parts?.[0]?.text || null;
+    const candidates = response.candidates as Array<Record<string, unknown>> | undefined;
+    const candidate = candidates?.[0];
+    const candidateContent = candidate?.content as Record<string, unknown> | undefined;
+    const parts = candidateContent?.parts as Array<Record<string, unknown>> | undefined;
+    const content = (parts?.[0]?.text as string) || null;
+
+    const usageMetadata = response.usageMetadata as Record<string, unknown> | undefined;
 
     return {
       content,
-      usage: result.usageMetadata
+      usage: usageMetadata
         ? {
-            promptTokens: result.usageMetadata.promptTokenCount || 0,
-            completionTokens: result.usageMetadata.candidatesTokenCount || 0,
-            totalTokens: result.usageMetadata.totalTokenCount || 0,
+            promptTokens: (usageMetadata.promptTokenCount as number | undefined) || 0,
+            completionTokens: (usageMetadata.candidatesTokenCount as number | undefined) || 0,
+            totalTokens: (usageMetadata.totalTokenCount as number | undefined) || 0,
           }
         : undefined,
-      model: result.model,
+      model: response.model as string | undefined,
       finishReason: "stop",
     };
   }

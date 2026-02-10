@@ -618,10 +618,12 @@ export class TableManagementService {
       }));
 
       // Get sample data (limit to 10 rows)
+      // SAFETY: tableName validated by validateTableName() whitelist at method entry
       let sampleData: Record<string, unknown>[] = [];
       try {
         sampleData = await this.prisma.$queryRawUnsafe(
-          `SELECT * FROM "${tableName}" LIMIT 10`,
+          `SELECT * FROM "${tableName}" LIMIT $1`,
+          10,
         );
       } catch (e) {
         this.logger.warn(`Failed to get sample data for ${tableName}:`, e);

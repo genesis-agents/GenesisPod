@@ -403,8 +403,9 @@ export class RssService {
             await this.mongodb.findRawDataByUrlAcrossAllSources(normalizedUrl);
 
           if (urlDuplicate) {
+            const source = (urlDuplicate as { source?: string }).source;
             this.logger.log(
-              `⚠️ Duplicate found in raw_data: ${item.title?.substring(0, 50)}... (source: ${urlDuplicate.source})`,
+              `⚠️ Duplicate found in raw_data: ${item.title?.substring(0, 50)}... (source: ${source})`,
             );
             duplicateCount++;
             continue;
@@ -458,9 +459,10 @@ export class RssService {
 
           // 4. 验证引用同步成功
           const linkedRawData = await this.mongodb.findRawDataById(rawDataId);
-          if (linkedRawData?.resourceId !== resource.id) {
+          const linkedResourceId = (linkedRawData as { resourceId?: string })?.resourceId;
+          if (linkedResourceId !== resource.id) {
             this.logger.error(
-              `Reference sync failed for RSS item ${item.title}: MongoDB resourceId=${linkedRawData?.resourceId}, expected ${resource.id}`,
+              `Reference sync failed for RSS item ${item.title}: MongoDB resourceId=${linkedResourceId}, expected ${resource.id}`,
             );
             throw new Error(
               `Failed to establish bi-directional reference for resource ${resource.id}`,

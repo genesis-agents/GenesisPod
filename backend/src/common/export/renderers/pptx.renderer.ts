@@ -381,7 +381,7 @@ export class PptxRenderer implements ExportRenderer {
       }
       // 处理表格
       else if (section.type === "table") {
-        const tableData: any[][] = [];
+        const tableData: Array<Array<{ text: string; options?: { bold?: boolean; fill?: { color: string } } }>> = [];
 
         if (section.headers) {
           tableData.push(

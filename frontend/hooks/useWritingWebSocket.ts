@@ -390,6 +390,7 @@ export function useWritingWebSocket(
         if (projectId) {
           socketRef.current.emit('leave:project', { projectId });
         }
+        socketRef.current.removeAllListeners();
         socketRef.current.disconnect();
         socketRef.current = null;
         connectingRef.current = false;

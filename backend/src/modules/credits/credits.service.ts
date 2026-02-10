@@ -273,7 +273,7 @@ export class CreditsService implements OnModuleInit {
         await tx.creditTransaction.create({
           data: {
             accountId: account.id,
-            type: "INITIAL" as any,
+            type: CreditTransactionType.INITIAL,
             amount: 10000,
             balanceAfter: 10000,
             description: "初始积分 / Initial credits",
@@ -553,7 +553,16 @@ export class CreditsService implements OnModuleInit {
   /**
    * 格式化账户信息
    */
-  private formatAccountInfo(account: any): CreditAccountInfo {
+  private formatAccountInfo(account: {
+    balance: number;
+    totalEarned: number;
+    totalSpent: number;
+    giftBalance: number;
+    giftExpiresAt: Date | null;
+    isActive: boolean;
+    isFrozen: boolean;
+    todaySpent: number;
+  }): CreditAccountInfo {
     return {
       balance: account.balance,
       totalEarned: account.totalEarned,

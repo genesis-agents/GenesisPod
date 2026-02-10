@@ -347,48 +347,47 @@ export class AiModelConfigService {
    * 从数据库模型构建 AIModelConfig
    * ★ 统一处理所有字段，兼容新旧数据库
    */
-  private buildModelConfig(model: any): AIModelConfig {
-    const modelAny = model;
+  private buildModelConfig(model: Record<string, unknown>): AIModelConfig {
     const isReasoning =
-      modelAny.isReasoning ?? this.inferIsReasoning(model.modelId);
+      (model.isReasoning as boolean | undefined) ?? this.inferIsReasoning(model.modelId as string);
 
     return {
-      id: model.id,
-      name: model.name,
-      displayName: model.displayName,
-      provider: model.provider,
-      modelId: model.modelId,
-      apiEndpoint: model.apiEndpoint,
-      apiKey: model.apiKey,
-      secretKey: model.secretKey, // ★ 添加 secretKey 以支持 Secret Manager
-      maxTokens: model.maxTokens,
-      temperature: model.temperature,
-      isEnabled: model.isEnabled,
-      isDefault: model.isDefault,
+      id: model.id as string,
+      name: model.name as string,
+      displayName: model.displayName as string,
+      provider: model.provider as string,
+      modelId: model.modelId as string,
+      apiEndpoint: model.apiEndpoint as string,
+      apiKey: (model.apiKey as string | null) || null,
+      secretKey: (model.secretKey as string | null) || undefined, // ★ 添加 secretKey 以支持 Secret Manager
+      maxTokens: model.maxTokens as number,
+      temperature: model.temperature as number,
+      isEnabled: model.isEnabled as boolean,
+      isDefault: model.isDefault as boolean,
 
       // ★ 模型能力配置 - 优先使用数据库值，否则根据 isReasoning 推断
       isReasoning,
       apiFormat: this.resolveApiFormat(
-        modelAny.apiFormat,
-        model.provider,
-        model.modelId,
+        model.apiFormat as string | undefined,
+        model.provider as string,
+        model.modelId as string,
       ),
-      supportsTemperature: modelAny.supportsTemperature ?? !isReasoning,
-      supportsStreaming: modelAny.supportsStreaming ?? true,
-      supportsFunctionCalling: modelAny.supportsFunctionCalling ?? true,
-      supportsVision: modelAny.supportsVision ?? false,
+      supportsTemperature: (model.supportsTemperature as boolean | undefined) ?? !isReasoning,
+      supportsStreaming: (model.supportsStreaming as boolean | undefined) ?? true,
+      supportsFunctionCalling: (model.supportsFunctionCalling as boolean | undefined) ?? true,
+      supportsVision: (model.supportsVision as boolean | undefined) ?? false,
       tokenParamName:
-        modelAny.tokenParamName ??
+        (model.tokenParamName as string | undefined) ??
         (isReasoning ? "max_completion_tokens" : "max_tokens"),
       defaultTimeoutMs:
-        modelAny.defaultTimeoutMs ?? (isReasoning ? 300000 : 120000),
-      priceInputPerMillion: modelAny.priceInputPerMillion
-        ? Number(modelAny.priceInputPerMillion)
+        (model.defaultTimeoutMs as number | undefined) ?? (isReasoning ? 300000 : 120000),
+      priceInputPerMillion: model.priceInputPerMillion
+        ? Number(model.priceInputPerMillion)
         : undefined,
-      priceOutputPerMillion: modelAny.priceOutputPerMillion
-        ? Number(modelAny.priceOutputPerMillion)
+      priceOutputPerMillion: model.priceOutputPerMillion
+        ? Number(model.priceOutputPerMillion)
         : undefined,
-      priority: modelAny.priority ?? 50,
+      priority: (model.priority as number | undefined) ?? 50,
     };
   }
 

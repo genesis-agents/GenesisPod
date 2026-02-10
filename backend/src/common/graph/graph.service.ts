@@ -20,7 +20,22 @@ export class GraphService {
     limit: number = 10,
   ): Promise<
     Array<{
-      resource: any;
+      resource: {
+        id: string;
+        type: string;
+        title: string;
+        abstract: string | null;
+        publishedAt: Date | null;
+        qualityScore: number | null;
+        trendingScore: number | null;
+        categories: unknown;
+        tags: unknown;
+        primaryCategory: string | null;
+        authors: unknown;
+        sourceUrl: string;
+        thumbnailUrl: string | null;
+        commonCount: number;
+      };
       commonCount: number;
     }>
   > {
@@ -54,10 +69,10 @@ export class GraphService {
         publishedAt: Date | null;
         qualityScore: number | null;
         trendingScore: number | null;
-        categories: any;
-        tags: any;
+        categories: unknown;
+        tags: unknown;
         primaryCategory: string | null;
-        authors: any;
+        authors: unknown;
         sourceUrl: string;
         thumbnailUrl: string | null;
         commonCount: number;
@@ -141,7 +156,7 @@ export class GraphService {
     nodes: Array<{
       id: string;
       label: string;
-      properties: any;
+      properties: Record<string, unknown>;
     }>;
     edges: Array<{
       source: string;
@@ -157,7 +172,11 @@ export class GraphService {
       return { nodes: [], edges: [] };
     }
 
-    const nodes: Array<{ id: string; label: string; properties: any }> = [];
+    const nodes: Array<{
+      id: string;
+      label: string;
+      properties: Record<string, unknown>;
+    }> = [];
     const edges: Array<{ source: string; target: string; type: string }> = [];
 
     // 1. 添加资源节点
@@ -174,7 +193,7 @@ export class GraphService {
     });
 
     // 2. 添加作者节点和关系
-    const authors = (resource.authors as any[]) || [];
+    const authors = (resource.authors as Array<Record<string, unknown>>) || [];
     authors.forEach((author) => {
       const authorId = author.name || author.username;
       if (authorId) {
@@ -268,11 +287,11 @@ export class GraphService {
    * 获取作者的知识图谱
    */
   async getAuthorGraph(authorUsername: string): Promise<{
-    nodes: any[];
-    edges: any[];
+    nodes: Array<Record<string, unknown>>;
+    edges: Array<Record<string, unknown>>;
   }> {
     // 查找该作者的所有资源
-    const resources = await this.prisma.$queryRaw<any[]>`
+    const resources = await this.prisma.$queryRaw<Array<Record<string, unknown>>>`
       SELECT *
       FROM resources
       WHERE jsonb_path_exists(
@@ -283,8 +302,8 @@ export class GraphService {
       LIMIT 100
     `;
 
-    const nodes: any[] = [];
-    const edges: any[] = [];
+    const nodes: Array<Record<string, unknown>> = [];
+    const edges: Array<Record<string, unknown>> = [];
 
     // 添加作者节点
     nodes.push({
@@ -302,7 +321,7 @@ export class GraphService {
           id: resource.id,
           type: resource.type,
           title: resource.title,
-          abstract: resource.abstract?.substring(0, 200),
+          abstract: typeof resource.abstract === "string" ? resource.abstract.substring(0, 200) : null,
         },
       });
 
@@ -339,11 +358,11 @@ export class GraphService {
    * 获取主题的知识图谱
    */
   async getTopicGraph(topicName: string): Promise<{
-    nodes: any[];
-    edges: any[];
+    nodes: Array<Record<string, unknown>>;
+    edges: Array<Record<string, unknown>>;
   }> {
     // 查找该主题下的所有资源
-    const resources = await this.prisma.$queryRaw<any[]>`
+    const resources = await this.prisma.$queryRaw<Array<Record<string, unknown>>>`
       SELECT *
       FROM resources
       WHERE
@@ -356,8 +375,8 @@ export class GraphService {
       LIMIT 100
     `;
 
-    const nodes: any[] = [];
-    const edges: any[] = [];
+    const nodes: Array<Record<string, unknown>> = [];
+    const edges: Array<Record<string, unknown>> = [];
 
     // 添加主题节点
     nodes.push({
@@ -377,7 +396,7 @@ export class GraphService {
           id: resource.id,
           type: resource.type,
           title: resource.title,
-          abstract: resource.abstract?.substring(0, 200),
+          abstract: typeof resource.abstract === "string" ? resource.abstract.substring(0, 200) : null,
         },
       });
 
@@ -388,9 +407,9 @@ export class GraphService {
       });
 
       // 收集作者
-      const authors = (resource.authors as any[]) || [];
+      const authors = (resource.authors as Array<Record<string, unknown>>) || [];
       authors.forEach((author) => {
-        const authorId = author.name || author.username;
+        const authorId = (author.name || author.username) as string;
         if (authorId) {
           authorSet.add(authorId);
         }
@@ -409,9 +428,9 @@ export class GraphService {
 
         // 找该作者的资源并建立关系
         resources.forEach((resource) => {
-          const authors = (resource.authors as any[]) || [];
+          const authors = (resource.authors as Array<Record<string, unknown>>) || [];
           const hasAuthor = authors.some(
-            (a) => a.name === authorId || a.username === authorId,
+            (a: Record<string, unknown>) => a.name === authorId || a.username === authorId,
           );
           if (hasAuthor) {
             edges.push({
@@ -448,7 +467,7 @@ export class GraphService {
         | "Author"
         | "Topic"
         | "Tag";
-      properties: Record<string, any>;
+      properties: Record<string, unknown>;
     }>;
     edges: Array<{
       source: string;
@@ -477,7 +496,7 @@ export class GraphService {
         | "Author"
         | "Topic"
         | "Tag";
-      properties: Record<string, any>;
+      properties: Record<string, unknown>;
     }> = [];
     const edges: Array<{
       source: string;
@@ -609,10 +628,10 @@ export class GraphService {
         });
 
         // 处理作者
-        const authors = (resource.authors as any[]) || [];
+        const authors = (resource.authors as Array<Record<string, unknown>>) || [];
         for (const author of authors) {
           const authorName =
-            author?.name || author?.username || author?.displayName;
+            (author?.name || author?.username || author?.displayName) as string;
           if (authorName && !authorSet.has(authorName)) {
             authorSet.add(authorName);
             nodes.push({
@@ -807,7 +826,7 @@ export class GraphService {
         | "Author"
         | "Topic"
         | "Tag";
-      properties: Record<string, any>;
+      properties: Record<string, unknown>;
     }>;
     edges: Array<{
       source: string;
@@ -860,7 +879,7 @@ export class GraphService {
         | "Author"
         | "Topic"
         | "Tag";
-      properties: Record<string, any>;
+      properties: Record<string, unknown>;
     }> = [];
     const edges: Array<{
       source: string;

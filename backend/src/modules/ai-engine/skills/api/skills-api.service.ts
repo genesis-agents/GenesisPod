@@ -87,7 +87,7 @@ export class SkillsApiService {
   /**
    * 获取设置值
    */
-  private async getSetting(key: string): Promise<any> {
+  private async getSetting(key: string): Promise<unknown> {
     const setting = await this.prisma.systemSetting.findUnique({
       where: { key },
     });
@@ -102,7 +102,7 @@ export class SkillsApiService {
   /**
    * 设置值
    */
-  private async setSetting(key: string, value: any): Promise<void> {
+  private async setSetting(key: string, value: unknown): Promise<void> {
     const stringValue =
       typeof value === "string" ? value : JSON.stringify(value);
     await this.prisma.systemSetting.upsert({
@@ -116,20 +116,20 @@ export class SkillsApiService {
    * 获取统计数据
    */
   async getStats(): Promise<SkillsStats> {
-    const totalSkills =
-      (await this.getSetting("skillsmp.totalSkills")) ?? 66541;
-    const lastSync = await this.getSetting("skillsmp.lastSync");
-    const skills = (await this.getSetting("skillsmp.syncedSkills")) ?? [];
+    const totalSkillsSetting = await this.getSetting("skillsmp.totalSkills");
+    const totalSkills = typeof totalSkillsSetting === "number" ? totalSkillsSetting : 66541;
+
+    const lastSyncSetting = await this.getSetting("skillsmp.lastSync");
+    const lastSync = typeof lastSyncSetting === "string" ? lastSyncSetting : null;
+
+    const skillsSetting = await this.getSetting("skillsmp.syncedSkills");
+    const skills = Array.isArray(skillsSetting) ? skillsSetting : [];
 
     // Calculate featured count
-    const featuredCount = Array.isArray(skills)
-      ? skills.filter((s: any) => s.featured).length
-      : 0;
+    const featuredCount = skills.filter((s: unknown): s is SkillItem => (s as SkillItem).featured).length;
 
     // Get unique categories
-    const categories = Array.isArray(skills)
-      ? new Set(skills.map((s: any) => s.category))
-      : new Set();
+    const categories = new Set(skills.map((s: unknown) => (s as SkillItem).category));
 
     return {
       totalSkills,
@@ -184,7 +184,7 @@ export class SkillsApiService {
     skills: SkillItem[];
     total: number;
   }> {
-    let skills = (await this.getSetting("skillsmp.syncedSkills")) ?? [];
+    let skills = ((await this.getSetting("skillsmp.syncedSkills")) ?? []) as SkillItem[];
 
     if (!Array.isArray(skills)) {
       skills = [];
@@ -194,23 +194,24 @@ export class SkillsApiService {
     if (params.query) {
       const q = params.query.toLowerCase();
       skills = skills.filter(
-        (s: any) =>
-          s.name?.toLowerCase().includes(q) ||
-          s.description?.toLowerCase().includes(q) ||
-          s.tags?.some((t: string) => t.toLowerCase().includes(q)),
+        (skill) => (
+            skill.name?.toLowerCase().includes(q) ||
+            skill.description?.toLowerCase().includes(q) ||
+            skill.tags?.some((t: string) => t.toLowerCase().includes(q))
+        ),
       );
     }
 
     // Filter by category
     if (params.category && params.category !== "all") {
-      skills = skills.filter((s: any) => s.category === params.category);
+      skills = skills.filter((skill) => skill.category === params.category);
     }
 
     // Sort
     const sortBy = params.sortBy || "stars";
-    skills.sort((a: any, b: any) => {
+    skills.sort((skillA, skillB) => {
       if (sortBy === "stars") {
-        return (b.stars || 0) - (a.stars || 0);
+        return (skillB.stars || 0) - (skillA.stars || 0);
       }
       if (sortBy === "downloads") {
         const parseDownloads = (d?: string) => {
@@ -220,9 +221,9 @@ export class SkillsApiService {
             (d.includes("M") ? 1000000 : d.includes("K") ? 1000 : 1)
           );
         };
-        return parseDownloads(b.downloads) - parseDownloads(a.downloads);
+        return parseDownloads(skillB.downloads) - parseDownloads(skillA.downloads);
       }
-      return (a.name || "").localeCompare(b.name || "");
+      return (skillA.name || "").localeCompare(skillB.name || "");
     });
 
     const total = skills.length;
@@ -254,8 +255,8 @@ export class SkillsApiService {
     }
 
     return skills
-      .filter((s: any) => s.featured)
-      .sort((a: any, b: any) => (b.stars || 0) - (a.stars || 0))
+      .filter((s: unknown) => (s as SkillItem).featured)
+      .sort((a: unknown, b: unknown) => ((b as SkillItem).stars || 0) - ((a as SkillItem).stars || 0))
       .slice(0, limit);
   }
 
@@ -273,7 +274,8 @@ export class SkillsApiService {
 
     const categoryMap = new Map<string, number>();
     for (const skill of skills) {
-      const category = skill.category || "other";
+      const skillItem = skill as SkillItem;
+      const category = skillItem.category || "other";
       categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
     }
 
@@ -323,7 +325,7 @@ export class SkillsApiService {
       this.logger.log("Starting SkillsMP sync...");
 
       // ★ Fetch ALL skills from SkillsMP API using pagination
-      const allSkills: any[] = [];
+      const allSkills: unknown[] = [];
       const seenIds = new Set<string>();
       let totalFromApi = 0;
       const pageSize = 100; // Max per page
@@ -331,14 +333,19 @@ export class SkillsApiService {
       let hasMore = true;
 
       // Helper function to extract skills from response
-      const extractSkills = (data: any): any[] => {
-        if (Array.isArray(data.data)) return data.data;
-        if (data.data?.skills && Array.isArray(data.data.skills))
-          return data.data.skills;
-        if (data.data?.items && Array.isArray(data.data.items))
-          return data.data.items;
-        if (Array.isArray(data.skills)) return data.skills;
-        if (Array.isArray(data.results)) return data.results;
+      const extractSkills = (data: unknown): unknown[] => {
+        const response = data as Record<string, unknown>;
+        const dataField = response.data as Record<string, unknown> | unknown[] | undefined;
+
+        if (Array.isArray(dataField)) return dataField;
+        if (dataField && typeof dataField === "object") {
+          const skills = (dataField as Record<string, unknown>).skills;
+          const items = (dataField as Record<string, unknown>).items;
+          if (Array.isArray(skills)) return skills;
+          if (Array.isArray(items)) return items;
+        }
+        if (Array.isArray(response.skills)) return response.skills as unknown[];
+        if (Array.isArray(response.results)) return response.results as unknown[];
         return [];
       };
 
@@ -425,10 +432,15 @@ export class SkillsApiService {
 
           // Capture total count from pagination
           if (totalFromApi === 0) {
+            const responseData = data as Record<string, unknown>;
+            const dataField = responseData.data as Record<string, unknown> | undefined;
+            const metaField = responseData.meta as Record<string, unknown> | undefined;
+            const paginationField = dataField?.pagination as Record<string, unknown> | undefined;
+
             totalFromApi =
-              data.data?.pagination?.total ||
-              data.meta?.total ||
-              data.total ||
+              (paginationField?.total as number) ||
+              (metaField?.total as number) ||
+              (responseData.total as number) ||
               0;
             this.logger.log(
               `SkillsMP total skills in platform: ${totalFromApi}`,
@@ -442,8 +454,10 @@ export class SkillsApiService {
 
           // Deduplicate and add skills
           for (const skill of skills) {
+            const skillData = skill as Record<string, unknown>;
             const id =
-              skill.id || skill.name?.toLowerCase().replace(/\s+/g, "-");
+              (skillData.id as string | undefined) ||
+              (skillData.name as string | undefined)?.toLowerCase().replace(/\s+/g, "-");
             if (id && !seenIds.has(id)) {
               seenIds.add(id);
               allSkills.push(skill);
@@ -527,27 +541,36 @@ export class SkillsApiService {
   /**
    * 转换 SkillsMP API 数据格式
    */
-  private transformSkillsData(rawSkills: any[]): SkillItem[] {
-    return rawSkills.map((skill, index) => ({
-      id:
-        skill.id ||
-        skill.name?.toLowerCase().replace(/\s+/g, "-") ||
-        `skill-${index}`,
-      name: skill.name || "Unknown Skill",
-      description: skill.description || "",
-      category: this.mapCategory(skill.category || skill.tags?.[0] || "other"),
-      author: skill.author || skill.owner || "unknown",
-      stars: skill.stars || skill.rating || 0,
-      downloads: this.formatDownloads(skill.downloads || 0),
-      tags: skill.tags || [],
-      featured: skill.featured || skill.stars > 10000 || false,
-      url:
-        skill.url ||
-        skill.github_url ||
-        `https://skillsmp.com/skills/${skill.id}`,
-      lastUpdated:
-        skill.updated_at || skill.lastUpdated || new Date().toISOString(),
-    }));
+  private transformSkillsData(rawSkills: unknown[]): SkillItem[] {
+    return rawSkills.map((skill, index) => {
+      const skillData = skill as Record<string, unknown>;
+      const tags = skillData.tags as string[] | undefined;
+      const firstTag = tags?.[0];
+      const stars = (skillData.stars as number | undefined) || (skillData.rating as number | undefined) || 0;
+
+      return {
+        id:
+          (skillData.id as string | undefined) ||
+          (skillData.name as string | undefined)?.toLowerCase().replace(/\s+/g, "-") ||
+          `skill-${index}`,
+        name: (skillData.name as string | undefined) || "Unknown Skill",
+        description: (skillData.description as string | undefined) || "",
+        category: this.mapCategory((skillData.category as string | undefined) || firstTag || "other"),
+        author: (skillData.author as string | undefined) || (skillData.owner as string | undefined) || "unknown",
+        stars,
+        downloads: this.formatDownloads((skillData.downloads as number | undefined) || 0),
+        tags: tags || [],
+        featured: (skillData.featured as boolean | undefined) || stars > 10000 || false,
+        url:
+          (skillData.url as string | undefined) ||
+          (skillData.github_url as string | undefined) ||
+          `https://skillsmp.com/skills/${skillData.id}`,
+        lastUpdated:
+          (skillData.updated_at as string | undefined) ||
+          (skillData.lastUpdated as string | undefined) ||
+          new Date().toISOString(),
+      };
+    });
   }
 
   /**

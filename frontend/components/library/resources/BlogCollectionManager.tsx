@@ -64,7 +64,12 @@ export const BlogCollectionManager: React.FC<BlogCollectionManagerProps> = ({
   const [schedulerConfig, setSchedulerConfig] =
     useState<SchedulerConfig | null>(null);
   const [activeTasks, setActiveTasks] = useState<CollectionTask[]>([]);
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<{
+    totalPosts?: number;
+    collectionStatus?: string;
+    recentPosts?: Array<{ id: string; title: string; publishedAt?: string; source?: string; publisherName?: string; createdAt?: string }>;
+    [key: string]: unknown;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -260,14 +265,14 @@ export const BlogCollectionManager: React.FC<BlogCollectionManagerProps> = ({
       )}
 
       {/* 统计信息 */}
-      {stats && (
+      {stats && stats.totalPosts !== undefined && (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <div className="rounded-lg border border-gray-200 bg-white p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">总计博客文章</p>
                 <p className="mt-1 text-2xl font-bold text-gray-900">
-                  {stats.totalPosts}
+                  {String(stats.totalPosts ?? 0)}
                 </p>
               </div>
               <Database className="h-8 w-8 text-blue-500" />
@@ -433,14 +438,7 @@ export const BlogCollectionManager: React.FC<BlogCollectionManagerProps> = ({
           </h3>
 
           <div className="space-y-2">
-            {stats.recentPosts.map(
-              (post: {
-                id: string;
-                title: string;
-                createdAt: string;
-                publisherName?: string;
-                publishedAt?: string;
-              }) => (
+            {(Array.isArray(stats.recentPosts) ? stats.recentPosts : []).map((post) => (
                 <a
                   key={post.id}
                   href={`/reports/${post.id}`}

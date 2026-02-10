@@ -258,7 +258,7 @@ export class SecretsService {
           keyVersion: this.currentKeyVersion,
           checksum: this.calculateChecksum(dto.value),
           createdBy: context?.userEmail || context?.userId,
-          changeNote: (dto as any).changeNote || null,
+          changeNote: dto.changeNote || null,
         },
       });
     }

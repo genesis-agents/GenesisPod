@@ -1259,14 +1259,17 @@ export default function AskPage() {
           const data = result?.data ?? result;
           setCurrentSessionId(sessionId);
           setMessages(
-            (data.messages || []).map((m: any) => ({
-              id: m.id,
-              role: m.role,
-              content: m.content,
-              modelId: m.modelId,
-              modelName: m.modelName,
-              createdAt: m.createdAt,
-            }))
+            (data.messages || []).map((m: unknown) => {
+              const msg = m as Record<string, unknown>;
+              return {
+                id: msg.id as string,
+                role: msg.role as 'user' | 'assistant',
+                content: msg.content as string,
+                modelId: msg.modelId as string | undefined,
+                modelName: msg.modelName as string | undefined,
+                createdAt: msg.createdAt as string,
+              };
+            })
           );
           setMixtureResponses([]);
         }

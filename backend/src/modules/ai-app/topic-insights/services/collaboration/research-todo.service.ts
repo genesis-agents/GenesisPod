@@ -163,7 +163,7 @@ export class ResearchTodoService {
    */
   async getTodoDetails(todoId: string): Promise<{
     todo: ResearchTodo;
-    activities: any[];
+    activities: unknown[];
   }> {
     const todo = await this.getTodoById(todoId);
 
@@ -593,7 +593,26 @@ export class ResearchTodoService {
    */
   async generateTodosFromMission(
     mission: ResearchMission,
-    leaderPlan: any,
+    leaderPlan: {
+      dimensions?: Array<{
+        id?: string;
+        dimensionId?: string;
+        name?: string;
+        dimensionName?: string;
+        description?: string;
+      }>;
+      agentAssignments?: Array<{
+        agentType?: string;
+        assignedDimensions?: string[];
+        agentId?: string;
+        agentName?: string;
+        modelId?: string;
+        assignmentReason?: {
+          agentReason?: string;
+          modelReason?: string;
+        };
+      }>;
+    },
   ): Promise<ResearchTodo[]> {
     const todos: ResearchTodo[] = [];
     const topicId = mission.topicId;
@@ -639,26 +658,27 @@ export class ResearchTodoService {
 
       // ★ 查找此维度对应的 Agent 分配，获取 modelId
       const assignment = agentAssignments.find(
-        (a: { agentType: string; assignedDimensions?: string[] }) =>
+        (a) =>
           a.agentType === "dimension_researcher" &&
+          dimId &&
           a.assignedDimensions?.includes(dimId),
       );
 
+      const todoName = dim.name || dim.dimensionName || "未命名维度";
       const dimensionTodo = await this.createTodo({
         topicId,
         missionId,
         type: ResearchTodoType.DIMENSION_RESEARCH,
-        title: `${dim.name || dim.dimensionName}维度研究`,
-        description:
-          dim.description || `研究 ${dim.name || dim.dimensionName} 相关内容`,
-        dimensionId: dimId,
-        dimensionName: dim.name || dim.dimensionName,
+        title: `${todoName}维度研究`,
+        description: dim.description || `研究 ${todoName} 相关内容`,
+        dimensionId: dimId || "",
+        dimensionName: todoName,
         agentId: assignment?.agentId || `researcher-${i + 1}`,
         agentName: assignment?.agentName || `研究员 ${i + 1}`,
         agentRole: "researcher",
         modelId: assignment?.modelId, // ★ 保存分配的模型 ID
         assignmentReason: assignment?.assignmentReason || {
-          agentReason: `研究员专注于「${dim.name || dim.dimensionName}」领域的深度信息收集和分析`,
+          agentReason: `研究员专注于「${todoName}」领域的深度信息收集和分析`,
           modelReason: "使用擅长信息检索和内容分析的模型",
         },
         priority: 500 - i,
@@ -1607,7 +1627,7 @@ export class ResearchTodoService {
   /**
    * 格式化 TODO 用于客户端
    */
-  private formatTodoForClient(todo: ResearchTodo): any {
+  private formatTodoForClient(todo: ResearchTodo): Record<string, unknown> {
     return {
       id: todo.id,
       topicId: todo.topicId,
@@ -1645,7 +1665,7 @@ export class ResearchTodoService {
   private async emitTodoEvent(
     topicId: string,
     event: TodoEventType,
-    data: any,
+    data: Record<string, unknown>,
   ): Promise<void> {
     await this.eventEmitter.emitToTopic(topicId, event, {
       ...data,

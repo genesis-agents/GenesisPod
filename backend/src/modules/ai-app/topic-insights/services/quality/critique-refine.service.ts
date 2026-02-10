@@ -220,7 +220,20 @@ ${categoryDescriptions}
       const result = extractJsonFromAIResponse<{
         overallScore: number;
         categoryScores: Record<string, number>;
-        items: any[];
+        items: Array<{
+          id?: string;
+          category: string;
+          severity: string;
+          location?: {
+            type: string;
+            reference: string;
+            quote?: string;
+          };
+          issue?: string;
+          suggestion?: string;
+          exampleFix?: string;
+          relatedEvidence?: unknown;
+        }>;
         strengths: string[];
         improvementPriorities: string[];
         summary: string;
@@ -228,18 +241,30 @@ ${categoryDescriptions}
 
       if (result.success && result.data) {
         const items: CritiqueItem[] = (result.data.items || []).map(
-          (item: any, index: number) => ({
+          (item, index: number) => ({
             id: item.id || `issue-${index + 1}`,
             category: this.parseCategory(item.category),
             severity: this.parseSeverity(item.severity),
-            location: item.location || {
-              type: "document" as const,
-              reference: "全文",
-            },
+            location: item.location
+              ? {
+                  type: item.location.type as
+                    | "paragraph"
+                    | "sentence"
+                    | "section"
+                    | "document",
+                  reference: item.location.reference,
+                  quote: item.location.quote,
+                }
+              : {
+                  type: "document" as const,
+                  reference: "全文",
+                },
             issue: item.issue || "",
             suggestion: item.suggestion || "",
             exampleFix: item.exampleFix,
-            relatedEvidence: item.relatedEvidence,
+            relatedEvidence: item.relatedEvidence
+              ? (item.relatedEvidence as string[])
+              : undefined,
           }),
         );
 
@@ -374,7 +399,13 @@ ${issuesText}
 
       const result = extractJsonFromAIResponse<{
         refinedContent: string;
-        changesApplied: any[];
+        changesApplied: Array<{
+          critiqueItemId?: string;
+          original?: string;
+          revised?: string;
+          reason?: string;
+          changeType?: string;
+        }>;
         remainingIssues: string[];
         refinementSummary: string;
       }>(response.content);
@@ -396,12 +427,13 @@ ${issuesText}
         return {
           refinedContent: result.data.refinedContent || content,
           changesApplied: (result.data.changesApplied || []).map(
-            (change: any) => ({
-              critiqueItemId: change.critiqueItemId,
+            (change) => ({
+              critiqueItemId: change.critiqueItemId || "",
               original: change.original || "",
               revised: change.revised || "",
               reason: change.reason || "",
-              changeType: change.changeType || "improvement",
+              changeType: (change.changeType ||
+                "improvement") as RefineResult["changesApplied"][0]["changeType"],
             }),
           ),
           remainingIssues,
@@ -593,7 +625,7 @@ ${issuesText}
     scores: Record<string, number>,
     enabledCategories: CritiqueCategory[],
   ): Record<CritiqueCategory, number> {
-    const result: Record<CritiqueCategory, number> = {} as any;
+    const result = {} as Record<CritiqueCategory, number>;
     for (const category of enabledCategories) {
       result[category] = Math.max(0, Math.min(1, scores[category] || 0.5));
     }
@@ -634,7 +666,7 @@ ${issuesText}
    * 创建回退批评结果
    */
   private createFallbackCritique(config: CritiqueRefineConfig): CritiqueResult {
-    const categoryScores: Record<CritiqueCategory, number> = {} as any;
+    const categoryScores = {} as Record<CritiqueCategory, number>;
     for (const category of config.enabledCategories) {
       categoryScores[category] = 0.6;
     }

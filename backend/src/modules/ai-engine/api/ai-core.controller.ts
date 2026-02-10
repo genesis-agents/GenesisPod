@@ -86,7 +86,7 @@ export class AiCoreController {
   @Public()
   @UseGuards(OptionalJwtAuthGuard)
   async getEnabledModels(@Req() req: Request) {
-    const userId = (req as any).user?.id;
+    const userId = (req as unknown as { user?: { id?: string } }).user?.id;
     this.logger.log(
       `Fetching enabled AI models${userId ? ` for user ${userId}` : ""}`,
     );
@@ -159,7 +159,15 @@ export class AiCoreController {
       );
     }
 
-    const results: any[] = [];
+    const results: Array<{
+      modelId: string;
+      name: string;
+      status: string;
+      error?: string;
+      supportsImage?: boolean;
+      responseType?: string;
+      textPreview?: string | null;
+    }> = [];
 
     for (const model of geminiModels) {
       // ★ 优先从 Secret Manager 获取 API Key
@@ -226,10 +234,10 @@ export class AiCoreController {
 
         // Check if response contains image
         const parts = data.candidates?.[0]?.content?.parts || [];
-        const hasImage = parts.some((p: any) =>
-          p.inlineData?.mimeType?.startsWith("image/"),
+        const hasImage = parts.some((p: unknown) =>
+          (p as { inlineData?: { mimeType?: string } }).inlineData?.mimeType?.startsWith("image/"),
         );
-        const hasText = parts.some((p: any) => p.text);
+        const hasText = parts.some((p: unknown) => !!(p as { text?: string }).text);
 
         results.push({
           modelId: model.modelId,
@@ -238,15 +246,15 @@ export class AiCoreController {
           supportsImage: hasImage,
           responseType: hasImage ? "image" : hasText ? "text-only" : "empty",
           textPreview: hasText
-            ? parts.find((p: any) => p.text)?.text?.substring(0, 100)
+            ? (parts.find((p: unknown) => !!(p as { text?: string }).text) as { text?: string } | undefined)?.text?.substring(0, 100)
             : null,
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.push({
           modelId: model.modelId,
           name: model.name,
           status: "FETCH_ERROR",
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
           supportsImage: false,
         });
       }
@@ -320,53 +328,53 @@ export class AiCoreController {
 
       // Filter and categorize models
       const imageModels = models.filter(
-        (m: any) =>
-          m.name?.includes("imagen") ||
-          m.supportedGenerationMethods?.includes("generateImage"),
+        (m: unknown) =>
+          (m as { name?: string; supportedGenerationMethods?: string[] }).name?.includes("imagen") ||
+          (m as { name?: string; supportedGenerationMethods?: string[] }).supportedGenerationMethods?.includes("generateImage"),
       );
 
-      const geminiModels = models.filter((m: any) =>
-        m.name?.includes("gemini"),
+      const geminiModels = models.filter((m: unknown) =>
+        (m as { name?: string }).name?.includes("gemini"),
       );
 
-      const modelsWithImageGen = models.filter((m: any) =>
-        m.supportedGenerationMethods?.includes("generateContent"),
+      const modelsWithImageGen = models.filter((m: unknown) =>
+        (m as { supportedGenerationMethods?: string[] }).supportedGenerationMethods?.includes("generateContent"),
       );
 
       return {
         timestamp: new Date().toISOString(),
         totalModels: models.length,
         apiKeyPrefix: apiKey.substring(0, 10) + "...",
-        imageModels: imageModels.map((m: any) => ({
-          name: m.name,
-          displayName: m.displayName,
-          methods: m.supportedGenerationMethods,
+        imageModels: imageModels.map((m: unknown) => ({
+          name: (m as { name?: string }).name,
+          displayName: (m as { displayName?: string }).displayName,
+          methods: (m as { supportedGenerationMethods?: string[] }).supportedGenerationMethods,
         })),
-        geminiModels: geminiModels.map((m: any) => ({
-          name: m.name?.replace("models/", ""),
-          displayName: m.displayName,
-          methods: m.supportedGenerationMethods,
+        geminiModels: geminiModels.map((m: unknown) => ({
+          name: (m as { name?: string }).name?.replace("models/", ""),
+          displayName: (m as { displayName?: string }).displayName,
+          methods: (m as { supportedGenerationMethods?: string[] }).supportedGenerationMethods,
         })),
         modelsWithImageGeneration: modelsWithImageGen
           .filter(
-            (m: any) =>
-              m.name?.includes("2.0") ||
-              m.name?.includes("2.5") ||
-              m.name?.includes("imagen"),
+            (m: unknown) =>
+              (m as { name?: string }).name?.includes("2.0") ||
+              (m as { name?: string }).name?.includes("2.5") ||
+              (m as { name?: string }).name?.includes("imagen"),
           )
-          .map((m: any) => ({
-            name: m.name?.replace("models/", ""),
-            displayName: m.displayName,
+          .map((m: unknown) => ({
+            name: (m as { name?: string }).name?.replace("models/", ""),
+            displayName: (m as { displayName?: string }).displayName,
           })),
         recommendation:
           "For image generation, use gemini-2.0-flash-exp or imagen-3.0-generate-001",
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof HttpException) {
         throw error;
       }
       throw new BadRequestException(
-        `Failed to fetch Google models: ${error.message} (API key prefix: ${apiKey.substring(0, 10)}...)`,
+        `Failed to fetch Google models: ${error instanceof Error ? error.message : String(error)} (API key prefix: ${apiKey.substring(0, 10)}...)`,
       );
     }
   }
@@ -386,7 +394,15 @@ export class AiCoreController {
     }
 
     // Check each AI member's model lookup
-    const results: any[] = [];
+    const results: Array<{
+      aiMemberId: string;
+      displayName: string;
+      storedAiModel: string;
+      foundByModelId: { id: string; name: string; modelId: string; hasApiKey: boolean } | null;
+      foundByName: { id: string; name: string; modelId: string; hasApiKey: boolean } | null;
+      willWork: boolean;
+      problem: string | null;
+    }> = [];
     for (const ai of topic.aiMembers) {
       // Try to find by modelId
       const byModelId = await this.aiCoreService.findModelByModelId(ai.aiModel);
@@ -476,7 +492,7 @@ export class AiCoreController {
     }
 
     // Wrap in BillingContext for correct credit tracking
-    const userId = (req as any).user?.id || RequestContext.getUserId();
+    const userId = (req as unknown as { user?: { id?: string } }).user?.id || RequestContext.getUserId();
     const operationType = knowledgeBaseIds?.length ? "rag-chat" : "chat";
 
     const executeChat = async () => {
@@ -792,7 +808,7 @@ ${webSearchContext}
       throw new BadRequestException("Content is required");
     }
 
-    const userId = (req as any).user?.id || RequestContext.getUserId();
+    const userId = (req as unknown as { user?: { id?: string } }).user?.id || RequestContext.getUserId();
 
     const executeQuickAction = async () => {
       try {
@@ -872,7 +888,7 @@ JSON output:`;
         });
 
         // Try to parse JSON for methodology and insights
-        let finalContent: string | any[] = result.content;
+        let finalContent: string | Array<{ title: string; description: string; importance: string }> = result.content;
         if (action === "methodology" || action === "insights") {
           finalContent = this.extractJsonArray(result.content);
         }
@@ -916,7 +932,7 @@ JSON output:`;
       throw new BadRequestException("Content is required");
     }
 
-    const userId = (req as any).user?.id || RequestContext.getUserId();
+    const userId = (req as unknown as { user?: { id?: string } }).user?.id || RequestContext.getUserId();
 
     const executeSummary = async () => {
       try {
@@ -990,7 +1006,7 @@ JSON output:`;
       throw new BadRequestException("Content is required");
     }
 
-    const userId = (req as any).user?.id || RequestContext.getUserId();
+    const userId = (req as unknown as { user?: { id?: string } }).user?.id || RequestContext.getUserId();
 
     const executeInsights = async () => {
       try {
@@ -1109,7 +1125,7 @@ JSON output:`;
       ? languageNames[body.sourceLanguage] || body.sourceLanguage
       : "auto-detect";
 
-    const userId = (req as any).user?.id || RequestContext.getUserId();
+    const userId = (req as unknown as { user?: { id?: string } }).user?.id || RequestContext.getUserId();
 
     const executeTranslate = async () => {
       try {
@@ -1205,7 +1221,7 @@ Translation:`;
 
     const targetLang = body.targetLang || "zh-CN";
     const sourceLang = body.sourceLang || "en";
-    const userId = (req as any).user?.id || RequestContext.getUserId();
+    const userId = (req as unknown as { user?: { id?: string } }).user?.id || RequestContext.getUserId();
 
     const executeTranslateSingle = async () => {
       try {
@@ -1248,7 +1264,7 @@ Translation:`;
   /**
    * Helper: Extract JSON array from AI response and parse it
    */
-  private extractJsonArray(content: string): any[] {
+  private extractJsonArray(content: string): Array<{ title: string; description: string; importance: string }> {
     try {
       let jsonContent = content.trim();
 

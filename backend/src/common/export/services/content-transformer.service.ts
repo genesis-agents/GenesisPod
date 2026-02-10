@@ -17,6 +17,7 @@ import {
   ContentType,
   Reference,
   ContentMetadata,
+  ListItem,
 } from "../types/unified-content";
 import { ExportSource } from "../types/export-options";
 import { marked } from "marked";
@@ -62,7 +63,7 @@ export class ContentTransformerService {
           options?.simplifiedMode,
         );
       default:
-        throw new Error(`Unsupported source type: ${(source as any).type}`);
+        throw new Error(`Unsupported source type: ${(source as { type: string }).type}`);
     }
   }
 
@@ -93,12 +94,12 @@ export class ContentTransformerService {
       sections = this.parseMarkdown(doc.markdown);
     } else if (doc.content) {
       // 从结构化内容解析
-      const content = doc.content as any;
-      if (content.sections) {
+      const content = doc.content as Record<string, unknown>;
+      if (content.sections && Array.isArray(content.sections)) {
         sections = this.parseStructuredContent(content.sections);
       }
-      if (content.references) {
-        references = content.references;
+      if (content.references && Array.isArray(content.references)) {
+        references = content.references as Reference[];
       }
     }
 
@@ -133,10 +134,10 @@ export class ContentTransformerService {
 
     // 解析研究报告
     if (session.report) {
-      const report = session.report as any;
+      const report = session.report as Record<string, unknown>;
 
       // 执行摘要
-      if (report.executiveSummary) {
+      if (report.executiveSummary && typeof report.executiveSummary === "string") {
         sections.push({
           id: "executive-summary",
           type: "heading",
@@ -172,7 +173,7 @@ export class ContentTransformerService {
       }
 
       // 结论
-      if (report.conclusion) {
+      if (report.conclusion && typeof report.conclusion === "string") {
         sections.push({
           id: "conclusion",
           type: "heading",
@@ -247,18 +248,22 @@ export class ContentTransformerService {
     }
 
     // 各章节
-    if (report.sections) {
-      const reportSections = report.sections as any[];
+    if (report.sections && Array.isArray(report.sections)) {
+      const reportSections = report.sections as Array<Record<string, unknown>>;
       for (const section of reportSections) {
-        sections.push({
-          id: `section-${section.title}`,
-          type: "heading",
-          content: section.title,
-          level: 2,
-        });
+        if (typeof section.title === "string") {
+          sections.push({
+            id: `section-${section.title}`,
+            type: "heading",
+            content: section.title,
+            level: 2,
+          });
+        }
 
-        const parsedSections = this.parseMarkdown(section.content);
-        sections.push(...parsedSections);
+        if (typeof section.content === "string") {
+          const parsedSections = this.parseMarkdown(section.content);
+          sections.push(...parsedSections);
+        }
       }
     }
 
@@ -365,9 +370,9 @@ export class ContentTransformerService {
           sections.push({
             id,
             type: "table",
-            headers: token.header.map((h: any) => h.text),
-            rows: token.rows.map((row: any) => ({
-              cells: row.map((cell: any) => cell.text),
+            headers: token.header.map((h: Record<string, unknown>) => h.text as string),
+            rows: token.rows.map((row: Array<Record<string, unknown>>) => ({
+              cells: row.map((cell: Record<string, unknown>) => cell.text as string),
             })),
           });
           break;
@@ -405,27 +410,41 @@ export class ContentTransformerService {
    * 解析列表项
    */
   private parseListItems(
-    items: any[],
-  ): { content: string; children?: any[] }[] {
+    items: Array<Record<string, unknown>>,
+  ): ListItem[] {
     return items.map((item) => ({
-      content: item.text,
-      children: item.items ? this.parseListItems(item.items) : undefined,
+      content: typeof item.text === "string" ? item.text : "",
+      children: Array.isArray(item.items) ? this.parseListItems(item.items) : undefined,
     }));
   }
 
   /**
    * 解析结构化内容
    */
-  private parseStructuredContent(sections: any[]): ContentSection[] {
-    return sections.map((section, index) => ({
-      id: section.id || `section-${index}`,
-      type: (section.type as ContentType) || "paragraph",
-      content: section.content,
-      level: section.level,
-      items: section.items,
-      rows: section.rows,
-      headers: section.headers,
-      citations: section.citations,
-    }));
+  private parseStructuredContent(sections: Array<Record<string, unknown>>): ContentSection[] {
+    return sections.map((section, index) => {
+      const baseSection: ContentSection = {
+        id: typeof section.id === "string" ? section.id : `section-${index}`,
+        type: (section.type as ContentType) || "paragraph",
+        content: typeof section.content === "string" ? section.content : undefined,
+        level: typeof section.level === "number" ? section.level : undefined,
+      };
+
+      // Add optional fields only if they are the correct type
+      if (Array.isArray(section.items)) {
+        baseSection.items = section.items as ListItem[];
+      }
+      if (Array.isArray(section.rows)) {
+        baseSection.rows = section.rows as Array<{ cells: string[] }>;
+      }
+      if (Array.isArray(section.headers)) {
+        baseSection.headers = section.headers as string[];
+      }
+      if (Array.isArray(section.citations)) {
+        baseSection.citations = section.citations as number[];
+      }
+
+      return baseSection;
+    });
   }
 }

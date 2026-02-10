@@ -38,7 +38,7 @@ export class QualityService {
     reviewStatus?: string;
     limit?: number;
   }): Promise<QualityIssue[]> {
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     if (filters?.reviewStatus) {
       where.reviewStatus = filters.reviewStatus;
@@ -55,7 +55,11 @@ export class QualityService {
     for (const metric of metrics) {
       if (!metric.issues) continue;
 
-      const issueArray = metric.issues as any[];
+      const issueArray = metric.issues as Array<{
+        type: string;
+        severity: "HIGH" | "MEDIUM" | "LOW";
+        message: string;
+      }>;
       for (const issue of issueArray) {
         // 根据severity过滤
         if (filters?.severity && issue.severity !== filters.severity) {
@@ -138,7 +142,15 @@ export class QualityService {
   /**
    * 评估资源质量
    */
-  async assessResourceQuality(resourceId: string): Promise<any> {
+  async assessResourceQuality(resourceId: string): Promise<{
+    qualityScore: number;
+    completenessScore: number;
+    issues: Array<{
+      type: string;
+      severity: string;
+      message: string;
+    }>;
+  } | null> {
     const resource = await this.prisma.resource.findUnique({
       where: { id: resourceId },
     });
@@ -154,7 +166,8 @@ export class QualityService {
       !!resource.abstract ||
       (!!resource.pdfUrl && resource.pdfUrl.length > 0);
     const hasAuthor =
-      !!resource.authors && (resource.authors as any[]).length > 0;
+      !!resource.authors &&
+      (resource.authors as unknown[]).length > 0;
     const hasPublishDate = !!resource.publishedAt;
     const hasMetadata = !!resource.metadata;
 
@@ -166,7 +179,11 @@ export class QualityService {
       (hasMetadata ? 15 : 0);
 
     // 检测问题
-    const issues: any[] = [];
+    const issues: Array<{
+      type: string;
+      severity: string;
+      message: string;
+    }> = [];
     if (!hasTitle) {
       issues.push({
         type: "MISSING_TITLE",

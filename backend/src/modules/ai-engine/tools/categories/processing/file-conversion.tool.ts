@@ -549,9 +549,9 @@ export class FileConversionTool extends BaseTool<
     const $ = cheerio.load(html);
 
     // 提取表格数据
-    const tables: any[] = [];
+    const tables: Array<{ rows: string[][] }> = [];
     $("table").each((_, table) => {
-      const rows: any[] = [];
+      const rows: string[][] = [];
       $(table)
         .find("tr")
         .each((_, tr) => {
@@ -749,10 +749,10 @@ export class FileConversionTool extends BaseTool<
   /**
    * 解析 Markdown 为结构化数据
    */
-  private parseMarkdownToStructuredData(markdown: string): any {
+  private parseMarkdownToStructuredData(markdown: string): unknown {
     const lines = markdown.split("\n");
-    const sections: any[] = [];
-    let currentSection: any = null;
+    const sections: Array<Record<string, unknown>> = [];
+    let currentSection: Record<string, unknown> | null = null;
 
     for (const line of lines) {
       const trimmed = line.trim();
@@ -779,14 +779,14 @@ export class FileConversionTool extends BaseTool<
           currentSection = { type: "list", items: [] };
         }
         if (currentSection.type !== "list") {
-          currentSection.content = currentSection.content || [];
-          currentSection.content.push({
+          (currentSection as any).content = (currentSection as any).content || [];
+          (currentSection as any).content.push({
             type: "list_item",
             text: listMatch[1],
           });
         } else {
-          currentSection.items = currentSection.items || [];
-          currentSection.items.push(listMatch[1]);
+          (currentSection as any).items = (currentSection as any).items || [];
+          (currentSection as any).items.push(listMatch[1]);
         }
         continue;
       }
@@ -796,8 +796,8 @@ export class FileConversionTool extends BaseTool<
         if (!currentSection) {
           currentSection = { type: "paragraph", text: trimmed };
         } else {
-          currentSection.content = currentSection.content || [];
-          currentSection.content.push({ type: "text", text: trimmed });
+          (currentSection as any).content = (currentSection as any).content || [];
+          (currentSection as any).content.push({ type: "text", text: trimmed });
         }
       }
     }
@@ -812,7 +812,7 @@ export class FileConversionTool extends BaseTool<
   /**
    * JSON 转 CSV
    */
-  private convertJSONToCSV(data: any, delimiter: string): string {
+  private convertJSONToCSV(data: unknown, delimiter: string): string {
     // 处理数组
     if (Array.isArray(data)) {
       if (data.length === 0) return "";
@@ -830,7 +830,7 @@ export class FileConversionTool extends BaseTool<
 
       data.forEach((item) => {
         const row = headers.map((header) => {
-          const value = item[header];
+          const value = (item as Record<string, unknown>)[header];
           return this.escapeCSVValue(String(value ?? ""), delimiter);
         });
         rows.push(row.join(delimiter));
@@ -844,7 +844,7 @@ export class FileConversionTool extends BaseTool<
       const keys = Object.keys(data);
       const rows = [keys.join(delimiter)];
       const values = keys.map((key) =>
-        this.escapeCSVValue(String(data[key] ?? ""), delimiter),
+        this.escapeCSVValue(String((data as Record<string, unknown>)[key] ?? ""), delimiter),
       );
       rows.push(values.join(delimiter));
       return rows.join("\n");

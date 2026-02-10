@@ -9,6 +9,7 @@
  */
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   getStylePreset,
@@ -394,9 +395,9 @@ export class StyleTemplateService {
             description: template.description,
             category: template.category,
             isSystem: true,
-            dialogueRules: template.dialogueRules as any,
-            descriptionRules: template.descriptionRules as any,
-            pacingRules: template.pacingRules as any,
+            dialogueRules: template.dialogueRules as unknown as Prisma.InputJsonValue,
+            descriptionRules: template.descriptionRules as unknown as Prisma.InputJsonValue,
+            pacingRules: template.pacingRules as unknown as Prisma.InputJsonValue,
             avoidPatterns: template.avoidPatterns,
             referenceWorks: template.referenceWorks,
             systemPromptFragment: template.systemPromptFragment,
@@ -499,32 +500,32 @@ export class StyleTemplateService {
     // 3. 获取项目级覆盖（如果有）
     const projectOverrides = project.styleOverrides as Record<
       string,
-      any
+      unknown
     > | null;
 
     // 4. 合并规则
-    const mergedDialogueRules = this.mergeRules(
+    const mergedDialogueRules = this.mergeRules<DialogueRules>(
       this.getDefaultDialogueRules(),
       templateRules?.dialogueRules,
-      projectOverrides?.dialogueRules,
+      projectOverrides?.dialogueRules as DialogueRules | undefined,
     );
 
-    const mergedDescriptionRules = this.mergeRules(
+    const mergedDescriptionRules = this.mergeRules<DescriptionRules>(
       this.getDefaultDescriptionRules(),
       templateRules?.descriptionRules,
-      projectOverrides?.descriptionRules,
+      projectOverrides?.descriptionRules as DescriptionRules | undefined,
     );
 
-    const mergedPacingRules = this.mergeRules(
+    const mergedPacingRules = this.mergeRules<PacingRules>(
       this.getDefaultPacingRules(),
       templateRules?.pacingRules,
-      projectOverrides?.pacingRules,
+      projectOverrides?.pacingRules as PacingRules | undefined,
     );
 
     const mergedAvoidPatterns = [
       ...basePreset.avoidPatterns,
       ...(templateRules?.avoidPatterns || []),
-      ...(projectOverrides?.avoidPatterns || []),
+      ...((projectOverrides?.avoidPatterns as string[] | undefined) || []),
     ];
 
     // 5. 生成完整提示词
@@ -572,9 +573,9 @@ export class StyleTemplateService {
         category: data.category || "自定义",
         isSystem: false,
         ownerId: userId,
-        dialogueRules: (data.dialogueRules as any) || {},
-        descriptionRules: (data.descriptionRules as any) || {},
-        pacingRules: (data.pacingRules as any) || {},
+        dialogueRules: (data.dialogueRules as unknown as Prisma.InputJsonValue) || {},
+        descriptionRules: (data.descriptionRules as unknown as Prisma.InputJsonValue) || {},
+        pacingRules: (data.pacingRules as unknown as Prisma.InputJsonValue) || {},
         avoidPatterns: data.avoidPatterns || [],
         referenceWorks: data.referenceWorks || [],
         systemPromptFragment: data.systemPromptFragment,
@@ -608,9 +609,9 @@ export class StyleTemplateService {
       data: {
         name: data.name,
         description: data.description,
-        dialogueRules: data.dialogueRules as any,
-        descriptionRules: data.descriptionRules as any,
-        pacingRules: data.pacingRules as any,
+        dialogueRules: data.dialogueRules as unknown as Prisma.InputJsonValue,
+        descriptionRules: data.descriptionRules as unknown as Prisma.InputJsonValue,
+        pacingRules: data.pacingRules as unknown as Prisma.InputJsonValue,
         avoidPatterns: data.avoidPatterns,
         systemPromptFragment: data.systemPromptFragment,
       },
@@ -623,7 +624,7 @@ export class StyleTemplateService {
   async setProjectTemplate(
     projectId: string,
     templateId: string | null,
-    overrides?: Record<string, any>,
+    overrides?: Record<string, unknown>,
   ) {
     // 增加模板使用计数
     if (templateId) {
@@ -637,7 +638,7 @@ export class StyleTemplateService {
       where: { id: projectId },
       data: {
         styleTemplateId: templateId,
-        styleOverrides: overrides ?? undefined,
+        styleOverrides: (overrides as Prisma.InputJsonValue) ?? undefined,
       },
     });
   }
@@ -679,32 +680,32 @@ export class StyleTemplateService {
    * - 数组：追加合并（去重）
    * - 基本类型：后者覆盖前者
    */
-  private mergeRules<T extends Record<string, any>>(
+  private mergeRules<T>(
     defaults: T,
     template?: T,
     overrides?: T,
   ): T {
-    const result = { ...defaults };
+    const result = { ...defaults } as Record<string, unknown>;
 
     // 合并 template
     if (template) {
-      this.deepMergeInto(result, template);
+      this.deepMergeInto(result, template as Record<string, unknown>);
     }
 
     // 合并 overrides
     if (overrides) {
-      this.deepMergeInto(result, overrides);
+      this.deepMergeInto(result, overrides as Record<string, unknown>);
     }
 
-    return result;
+    return result as T;
   }
 
   /**
    * 深度合并源对象到目标对象
    */
   private deepMergeInto(
-    target: Record<string, any>,
-    source: Record<string, any>,
+    target: Record<string, unknown>,
+    source: Record<string, unknown>,
   ): void {
     for (const key of Object.keys(source)) {
       const sourceVal = source[key];
@@ -733,7 +734,7 @@ export class StyleTemplateService {
         !Array.isArray(targetVal)
       ) {
         // 对象：递归合并
-        this.deepMergeInto(targetVal, sourceVal);
+        this.deepMergeInto(targetVal as Record<string, unknown>, sourceVal as Record<string, unknown>);
       } else {
         // 基本类型：直接覆盖
         target[key] = sourceVal;

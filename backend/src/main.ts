@@ -78,7 +78,7 @@ async function bootstrap() {
   );
 
   // 增加请求体大小限制，支持大型字幕数据
-  app.use(express.json({ limit: "50mb" }));
+  app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
   // 启用安全头 (Helmet) - 但对代理路由禁用CSP
@@ -91,6 +91,7 @@ async function bootstrap() {
         crossOriginEmbedderPolicy: false,
       })(req, res, next);
     } else {
+      const isProd = process.env.NODE_ENV === "production";
       helmet({
         contentSecurityPolicy: {
           directives: {
@@ -98,13 +99,18 @@ async function bootstrap() {
             styleSrc: ["'self'", "'unsafe-inline'"],
             scriptSrc: ["'self'"],
             imgSrc: ["'self'", "data:", "https:"],
-            frameSrc: ["'self'", "http://localhost:*"], // 允许localhost的iframe
-            frameAncestors: ["'self'", "http://localhost:*"], // 允许被localhost的页面嵌入
-            upgradeInsecureRequests: null, // 开发环境禁用HTTPS升级
+            frameSrc: isProd ? ["'self'"] : ["'self'", "http://localhost:*"],
+            frameAncestors: isProd
+              ? ["'self'"]
+              : ["'self'", "http://localhost:*"],
+            upgradeInsecureRequests: isProd ? [] : null,
           },
         },
         crossOriginEmbedderPolicy: false, // 允许跨域资源嵌入
-        frameguard: false, // 禁用X-Frame-Options
+        frameguard: { action: "deny" }, // 防止点击劫持
+        strictTransportSecurity: isProd
+          ? { maxAge: 31536000, includeSubDomains: true }
+          : false,
       })(req, res, next);
     }
   });
@@ -113,15 +119,17 @@ async function bootstrap() {
   const corsOriginsEnv =
     process.env.CORS_ORIGINS?.split(",").map((o) => o.trim()) || [];
   const allowedOrigins = new Set<string>(corsOriginsEnv);
+  const isDev = process.env.NODE_ENV !== "production";
 
   app.enableCors({
     origin: (origin, callback) => {
-      // 允许所有localhost端口（开发环境）
+      // 仅开发环境允许 localhost（生产环境必须精确匹配 CORS_ORIGINS）
       const isLocalhost =
-        !origin ||
-        origin.match(/^http:\/\/localhost:\d+$/) ||
-        origin.match(/^http:\/\/127\.0\.0\.1:\d+$/) ||
-        origin.match(/^http:\/\/\[::1\]:\d+$/);
+        isDev &&
+        (!origin ||
+          origin.match(/^http:\/\/localhost:\d+$/) ||
+          origin.match(/^http:\/\/127\.0\.0\.1:\d+$/) ||
+          origin.match(/^http:\/\/\[::1\]:\d+$/));
 
       // 生产环境：精确匹配配置的域名（包括 Railway 域名）
       const isAllowed = origin ? allowedOrigins.has(origin) : false;
@@ -135,12 +143,14 @@ async function bootstrap() {
       }
     },
     credentials: true,
+    exposedHeaders: ["X-Request-Id"],
   });
 
   // 启用全局验证管道
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
+      forbidNonWhitelisted: true,
       transform: true,
     }),
   );

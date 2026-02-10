@@ -172,7 +172,7 @@ export class TeamCollaborationService {
       // 3. 如果 waitForResult=true，调用目标 AI 生成响应
       if (waitForResult) {
         try {
-          // 构造任务消息作为上下文
+          // 构造任务消息作为上下文（无需事务，因为响应生成可能失败，消息已记录）
           const taskContextMessage = await this.prisma.topicMessage.create({
             data: {
               topicId,
@@ -288,35 +288,39 @@ export class TeamCollaborationService {
         );
       }
 
-      // 3. 创建提案到数据库
-      const proposal = await this.prisma.voteProposal.create({
-        data: {
-          id: proposalId,
-          topicId,
-          title,
-          description,
-          initiatorId,
-          strategy: strategy as VoteStrategy,
-          options: options || [],
-          status: ProposalStatus.OPEN,
-        },
-      });
+      // 3. 创建提案和消息（事务确保一致性）
+      const proposal = await this.prisma.$transaction(async (tx) => {
+        const newProposal = await tx.voteProposal.create({
+          data: {
+            id: proposalId,
+            topicId,
+            title,
+            description,
+            initiatorId,
+            strategy: strategy as VoteStrategy,
+            options: options || [],
+            status: ProposalStatus.OPEN,
+          },
+        });
 
-      // 4. 创建提案消息
-      const optionsText =
-        options && options.length > 0
-          ? `\n\n**选项**：\n${options.map((opt, i) => `${i + 1}. ${opt}`).join("\n")}`
-          : "";
+        // 4. 创建提案消息
+        const optionsText =
+          options && options.length > 0
+            ? `\n\n**选项**：\n${options.map((opt, i) => `${i + 1}. ${opt}`).join("\n")}`
+            : "";
 
-      await this.prisma.topicMessage.create({
-        data: {
-          topicId,
-          aiMemberId: initiatorId,
-          content: `📊 **[共识投票]**\n\n**提案**：${title}\n\n**描述**：${description}${optionsText}\n\n**策略**：${strategy}\n**投票者**：${voters.map((v) => `@${v.displayName}`).join(", ")}\n\n提案ID: \`${proposalId}\``,
-          contentType: "TEXT",
-          modelUsed: "system",
-          tokensUsed: 0,
-        },
+        await tx.topicMessage.create({
+          data: {
+            topicId,
+            aiMemberId: initiatorId,
+            content: `📊 **[共识投票]**\n\n**提案**：${title}\n\n**描述**：${description}${optionsText}\n\n**策略**：${strategy}\n**投票者**：${voters.map((v) => `@${v.displayName}`).join(", ")}\n\n提案ID: \`${proposalId}\``,
+            contentType: "TEXT",
+            modelUsed: "system",
+            tokensUsed: 0,
+          },
+        });
+
+        return newProposal;
       });
 
       this.logger.log(

@@ -160,9 +160,17 @@ export const createMessagesSlice: StateCreator<
     try {
       const message = await api.generateAIResponse(topicId, aiMemberId);
       // WebSocket未实现，需要手动更新state
-      set((state) => ({
-        messages: [...state.messages, message],
-      }));
+      set((state) => {
+        let newMessages = [...state.messages, message];
+        // Performance: Trim old messages if exceeding limit
+        if (newMessages.length > MAX_MESSAGES_IN_MEMORY) {
+          newMessages = newMessages.slice(-MAX_MESSAGES_IN_MEMORY);
+          logger.debug(
+            `[generateAIResponse] Trimmed to ${MAX_MESSAGES_IN_MEMORY} most recent messages`
+          );
+        }
+        return { messages: newMessages };
+      });
       return message;
     } catch (error) {
       logger.error('Failed to generate AI response:', error);

@@ -25,7 +25,7 @@ export class Neo4jService {
    * 执行 Cypher 查询（兼容接口）
    * 由于使用 PostgreSQL，只支持常见的查询模式
    */
-  async run(cypher: string, parameters?: any): Promise<any> {
+  async run(cypher: string, parameters?: Record<string, unknown>): Promise<unknown> {
     // 解析常见的 Cypher 模式并转换为 PostgreSQL 查询
     this.logger.debug(`Cypher query (converted to PostgreSQL): ${cypher}`);
 
@@ -34,13 +34,13 @@ export class Neo4jService {
       cypher.includes("BELONGS_TO|TAGGED_WITH") &&
       cypher.includes("commonCount")
     ) {
-      const resourceId = parameters?.resourceId;
-      const limit = parameters?.limit || 10;
+      const resourceId = parameters?.resourceId as string | undefined;
+      const limit = (parameters?.limit as number | undefined) || 10;
 
       if (resourceId) {
         const results = await this.graphService.findSimilarResources(
           resourceId,
-          limit,
+          limit as number,
         );
 
         // 转换为 Neo4j 格式
@@ -72,7 +72,7 @@ export class Neo4jService {
   /**
    * 创建节点（兼容接口，PostgreSQL 中无需显式创建）
    */
-  async createNode(_label: string, _properties: any): Promise<any> {
+  async createNode(_label: string, _properties: Record<string, unknown>): Promise<Record<string, unknown>> {
     // PostgreSQL 模式下，数据已在 Resource 表中
     return { properties: _properties };
   }
@@ -80,7 +80,7 @@ export class Neo4jService {
   /**
    * 查找节点（兼容接口）
    */
-  async findNode(_label: string, _properties: any): Promise<any> {
+  async findNode(_label: string, _properties: Record<string, unknown>): Promise<Record<string, unknown>> {
     // PostgreSQL 模式下，直接返回存在标识
     // 实际判断逻辑在业务层已完成
     return { properties: _properties };
@@ -89,7 +89,7 @@ export class Neo4jService {
   /**
    * 获取会话（兼容接口）
    */
-  getSession(): any {
+  getSession(): { run: (cypher: string, parameters?: Record<string, unknown>) => Promise<unknown>; close: () => Promise<void> } {
     // PostgreSQL 模式下不需要 session
     return {
       run: this.run.bind(this),
@@ -108,8 +108,8 @@ export class Neo4jService {
     _toLabel: string,
     _toId: string,
     _relationshipType: string,
-    _properties?: any,
-  ): Promise<any> {
+    _properties?: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
     // PostgreSQL 模式下，关系通过 JSON 字段隐式维护
     return { type: _relationshipType, properties: _properties || {} };
   }
@@ -117,7 +117,7 @@ export class Neo4jService {
   /**
    * 获取节点关系（兼容接口）
    */
-  async getNodeRelationships(_label: string, _id: string): Promise<any[]> {
+  async getNodeRelationships(_label: string, _id: string): Promise<unknown[]> {
     // PostgreSQL 模式下，通过 GraphService 查询
     return [];
   }

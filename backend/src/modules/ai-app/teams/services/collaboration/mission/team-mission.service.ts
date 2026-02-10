@@ -213,8 +213,8 @@ export class TeamMissionService implements OnModuleInit {
 
       try {
         await this.executeTaskRevision(
-          mission as any,
-          task as any,
+          mission as MissionWithRelations,
+          task as AgentTaskWithAssignee,
           task.leaderFeedback,
         );
       } catch (error) {
@@ -746,12 +746,12 @@ export class TeamMissionService implements OnModuleInit {
         await this.prisma.teamMission.update({
           where: { id: mission.id },
           data: {
-            mustConstraints: hardConstraints as any,
+            mustConstraints: hardConstraints as unknown as Prisma.InputJsonValue,
           },
         });
 
         // ★ 同时更新内存中的 mission 对象，确保后续流程可以访问
-        (mission as any).mustConstraints = hardConstraints;
+        mission.mustConstraints = hardConstraints as unknown as Prisma.JsonValue;
 
         this.logger.log(
           `[startMission] Extracted ${hardConstraints.length} constraints from mission description:`,
@@ -815,7 +815,9 @@ export class TeamMissionService implements OnModuleInit {
         );
 
         // 合并世界观约束到现有约束
-        const existingConstraints = (mission as any).mustConstraints || [];
+        const existingConstraints = Array.isArray(mission.mustConstraints)
+          ? (mission.mustConstraints as unknown as HardConstraint[])
+          : [];
         const mergedConstraints = [
           ...existingConstraints,
           ...worldBuildingResult.hardConstraints,
@@ -825,12 +827,12 @@ export class TeamMissionService implements OnModuleInit {
         await this.prisma.teamMission.update({
           where: { id: mission.id },
           data: {
-            mustConstraints: mergedConstraints as any,
+            mustConstraints: mergedConstraints as unknown as Prisma.InputJsonValue,
           },
         });
 
         // 更新内存中的 mission 对象
-        (mission as any).mustConstraints = mergedConstraints;
+        mission.mustConstraints = mergedConstraints as unknown as Prisma.JsonValue;
 
         // 发送世界观设定消息到群聊
         if (worldBuildingResult.settings) {
@@ -1079,8 +1081,8 @@ export class TeamMissionService implements OnModuleInit {
       await this.prisma.teamMission.update({
         where: { id: mission.id },
         data: {
-          taskBreakdown: breakdown as any,
-          contextPackage: contextPackage as any,
+          taskBreakdown: breakdown as unknown as Prisma.InputJsonValue,
+          contextPackage: contextPackage as unknown as Prisma.InputJsonValue,
         },
       });
 
@@ -1790,7 +1792,9 @@ export class TeamMissionService implements OnModuleInit {
             task,
             mission.contextPackage as MissionContextPackage | null,
             mission.description || undefined,
-            (mission.mustConstraints as any[]) || undefined, // ★ 注入用户约束
+            Array.isArray(mission.mustConstraints)
+              ? (mission.mustConstraints as unknown as HardConstraint[])
+              : undefined,
           ),
           { taskProfile: { creativity: "medium", outputLength: "long" } },
           {
@@ -1970,7 +1974,9 @@ export class TeamMissionService implements OnModuleInit {
                 task,
                 mission.contextPackage as MissionContextPackage | null,
                 mission.description || undefined,
-                (mission.mustConstraints as any[]) || undefined, // ★ 注入用户约束
+                Array.isArray(mission.mustConstraints)
+                  ? (mission.mustConstraints as unknown as HardConstraint[])
+                  : undefined,
               ),
               { taskProfile: { creativity: "medium", outputLength: "long" } },
               {
@@ -2857,7 +2863,9 @@ export class TeamMissionService implements OnModuleInit {
             latestTask,
             mission.contextPackage as MissionContextPackage | null,
             mission.description || undefined,
-            (mission.mustConstraints as any[]) || undefined, // ★ 注入用户约束
+            Array.isArray(mission.mustConstraints)
+              ? (mission.mustConstraints as unknown as HardConstraint[])
+              : undefined,
           ),
           {
             taskProfile: { creativity: "medium", outputLength: "long" },

@@ -349,10 +349,23 @@ export class SQLExecutorTool extends BaseTool<
   }
 
   /**
+   * 移除 SQL 注释，防止通过注释绕过安全检查
+   */
+  private stripSQLComments(query: string): string {
+    // Remove single-line comments (-- ...)
+    let result = query.replace(/--[^\n]*/g, "");
+    // Remove multi-line comments (/* ... */)
+    result = result.replace(/\/\*[\s\S]*?\*\//g, "");
+    return result.trim();
+  }
+
+  /**
    * 检查 SQL 查询是否安全
    */
   private isQuerySafe(query: string, readOnly: boolean): boolean {
-    const upperQuery = query.toUpperCase();
+    // Strip SQL comments before analysis to prevent comment-based bypass
+    const strippedQuery = this.stripSQLComments(query);
+    const upperQuery = strippedQuery.toUpperCase();
 
     // 只读模式：只允许 SELECT 和 WITH (CTE)
     if (readOnly) {
@@ -373,6 +386,8 @@ export class SQLExecutorTool extends BaseTool<
     const dangerousKeywords = [
       "DROP DATABASE",
       "DROP SCHEMA",
+      "DROP TABLE",
+      "TRUNCATE",
       "GRANT",
       "REVOKE",
       "SHUTDOWN",
@@ -380,6 +395,10 @@ export class SQLExecutorTool extends BaseTool<
       "EXECUTE",
       "xp_",
       "sp_",
+      "ALTER ROLE",
+      "CREATE ROLE",
+      "COPY ",
+      "\\\\COPY",
     ];
 
     for (const keyword of dangerousKeywords) {
@@ -389,8 +408,8 @@ export class SQLExecutorTool extends BaseTool<
       }
     }
 
-    // 检查是否包含多个语句（防止 SQL 注入）
-    const semicolonCount = (query.match(/;/g) || []).length;
+    // 检查是否包含多个语句（在去除注释后检测分号）
+    const semicolonCount = (strippedQuery.match(/;/g) || []).length;
     if (semicolonCount > 1) {
       this.logger.warn("Multiple statements detected");
       return false;

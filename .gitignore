@@ -1,5 +1,8 @@
 # 依赖
 node_modules/
+
+# Generated SDK output
+sdk/
 .pnp
 .pnp.js
 __pycache__/

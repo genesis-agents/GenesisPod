@@ -110,7 +110,7 @@ export interface A2ATaskRequest {
     webhookUrl?: string;
 
     /** 附加参数 */
-    [key: string]: any;
+    [key: string]: unknown;
   };
 
   /** 任务元数据 */
@@ -122,7 +122,7 @@ export interface A2ATaskRequest {
     traceId?: string;
 
     /** 附加元数据 */
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -143,7 +143,7 @@ export interface A2ATaskResponse {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
 
   /** 创建时间 */
@@ -184,7 +184,7 @@ export interface A2ATaskResult {
   mode: string;
 
   /** 附加数据 */
-  data?: any;
+  data?: unknown;
 
   /** 元数据 */
   metadata?: {
@@ -199,7 +199,7 @@ export interface A2ATaskResult {
     };
 
     /** 附加元数据 */
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -223,7 +223,7 @@ export interface A2ATaskStatusResponse {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
 
   /** 创建时间 */

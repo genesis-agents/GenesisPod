@@ -37,28 +37,28 @@ export class KnowledgeGraphService {
   /**
    * 获取资源的知识图谱
    */
-  async getResourceGraph(resourceId: string, depth: number = 2): Promise<any> {
+  async getResourceGraph(resourceId: string, depth: number = 2): Promise<unknown> {
     return this.graphService.getResourceGraph(resourceId, depth);
   }
 
   /**
    * 获取作者的知识图谱
    */
-  async getAuthorGraph(authorUsername: string): Promise<any> {
+  async getAuthorGraph(authorUsername: string): Promise<unknown> {
     return this.graphService.getAuthorGraph(authorUsername);
   }
 
   /**
    * 获取主题的知识图谱
    */
-  async getTopicGraph(topicName: string): Promise<any> {
+  async getTopicGraph(topicName: string): Promise<unknown> {
     return this.graphService.getTopicGraph(topicName);
   }
 
   /**
    * 获取整个知识图谱概览
    */
-  async getGraphOverview(): Promise<any> {
+  async getGraphOverview(): Promise<unknown> {
     return this.graphService.getGraphOverview();
   }
 
@@ -72,7 +72,7 @@ export class KnowledgeGraphService {
       collectionId?: string;
       includeNotes?: boolean;
     },
-  ): Promise<any> {
+  ): Promise<unknown> {
     return this.graphService.getUserGraphOverview(userId, options);
   }
 
@@ -82,7 +82,7 @@ export class KnowledgeGraphService {
   async findSimilarResources(
     resourceId: string,
     limit: number = 10,
-  ): Promise<any[]> {
+  ): Promise<Array<{ resource: unknown; commonCount: number }>> {
     const results = await this.graphService.findSimilarResources(
       resourceId,
       limit,

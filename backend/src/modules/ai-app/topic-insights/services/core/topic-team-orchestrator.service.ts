@@ -559,8 +559,11 @@ export class TopicTeamOrchestratorService {
             const tid = todoMap[result.value.dimensionId];
             if (tid) {
               await this.researchTodoService.completeTodo(tid, {
-                wordCount: (result.value.analysisResult as any)?.content
-                  ?.length,
+                wordCount: (
+                  result.value.analysisResult as unknown as {
+                    content?: { length?: number };
+                  }
+                )?.content?.length,
               });
             }
             if (missionId) {
@@ -614,7 +617,9 @@ export class TopicTeamOrchestratorService {
             [];
           for (const result of analysisResults) {
             if (result.status === "fulfilled") {
-              const val = result.value as any;
+              const val = result.value as {
+                extractedClaims?: import("../../types/v5-research.types").ExtractedClaim[];
+              };
               if (val.extractedClaims) {
                 allClaims.push(...val.extractedClaims);
               }
@@ -626,7 +631,11 @@ export class TopicTeamOrchestratorService {
             const evidenceSummary = analysisResults
               .filter((r) => r.status === "fulfilled")
               .map((r) => {
-                const val = (r as PromiseFulfilledResult<any>).value;
+                const val = (
+                  r as PromiseFulfilledResult<{
+                    analysisResult?: { summary?: string };
+                  }>
+                ).value;
                 return val.analysisResult?.summary || "";
               })
               .join("\n\n")
@@ -779,7 +788,8 @@ export class TopicTeamOrchestratorService {
         });
 
         try {
-          const reportContent = (finalReport as any).content || "";
+          const reportContent =
+            (finalReport as unknown as { content?: string }).content || "";
           // Collect evidence data from successful analysis results
           const evidenceForFactCheck = await this.prisma.topicEvidence.findMany(
             {
@@ -806,7 +816,8 @@ export class TopicTeamOrchestratorService {
       try {
         if (reportTodoId)
           await this.researchTodoService.completeTodo(reportTodoId, {
-            wordCount: (finalReport as any).fullReport?.length,
+            wordCount: (finalReport as unknown as { fullReport?: string })
+              .fullReport?.length,
           });
         if (reviewTodoId) {
           await this.researchTodoService.updateTodoStatus(
@@ -1027,7 +1038,7 @@ export class TopicTeamOrchestratorService {
     topicId: string,
     options: RefreshOptions,
   ): Promise<TopicDimension[]> {
-    const where: any = {
+    const where: Record<string, unknown> = {
       topicId,
       isEnabled: true,
     };

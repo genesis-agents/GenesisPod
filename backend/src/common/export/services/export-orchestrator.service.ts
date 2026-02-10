@@ -60,23 +60,23 @@ export class ExportOrchestratorService {
     let sourceData: Prisma.InputJsonValue | undefined;
     if (request.source.type === "RAW") {
       sourceData = {
-        content: (request.source as any).content,
-        contentType: (request.source as any).contentType,
-        title: (request.source as any).title,
-      };
+        content: (request.source as { content: unknown }).content,
+        contentType: (request.source as { contentType: string }).contentType,
+        title: (request.source as { title?: string }).title,
+      } as Prisma.InputJsonValue;
     } else if (request.source.type === "MISSION") {
       // MISSION 类型需要存储 topicId
       sourceData = {
-        topicId: (request.source as any).topicId,
-      };
+        topicId: (request.source as { topicId?: string }).topicId,
+      } as Prisma.InputJsonValue;
     }
 
     // 构建选项
     const options: Prisma.InputJsonValue = {
-      ...(request.options as object),
-      customTheme: request.customTheme as object | undefined,
-      customLayout: request.customLayout as object | undefined,
-    };
+      ...(request.options as Record<string, unknown>),
+      customTheme: request.customTheme,
+      customLayout: request.customLayout,
+    } as Prisma.InputJsonValue;
 
     // 创建导出任务
     const job = await this.prisma.exportJob.create({
@@ -210,15 +210,15 @@ export class ExportOrchestratorService {
 
       // 1. 获取源内容
       const source = this.reconstructSource(job);
-      const options = job.options as any;
+      const options = job.options as Record<string, unknown> | null;
 
       // 对于 MISSION 类型，传递 simplifiedMode 选项
       const transformOptions =
         source.type === "MISSION"
-          ? { simplifiedMode: retryWithSimplified || options?.simplifiedMode }
+          ? { simplifiedMode: retryWithSimplified || (options?.simplifiedMode as boolean | undefined) }
           : undefined;
       const content = await this.contentTransformer.transform(
-        source,
+        source as ExportRequest["source"],
         transformOptions,
       );
       await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 30);
@@ -226,8 +226,8 @@ export class ExportOrchestratorService {
       // 2. 获取模板配置
       const { theme, layout } = await this.templateManager.getThemeAndLayout(
         job.templateId || undefined,
-        options?.customTheme,
-        options?.customLayout,
+        options?.customTheme as Partial<typeof theme> | undefined,
+        options?.customLayout as Partial<typeof layout> | undefined,
       );
       await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 40);
 
@@ -241,12 +241,12 @@ export class ExportOrchestratorService {
         content,
         theme,
         layout,
-        options as ExportOptions,
+        (options || {}) as ExportOptions,
       );
       await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 80);
 
       // 4. 保存文件
-      const fileName = this.generateFileName(content, job.format, options);
+      const fileName = this.generateFileName(content, job.format, (options || undefined) as ExportOptions | undefined);
       const filePath = await this.saveFile(jobId, buffer, fileName);
       await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 95);
 
@@ -306,27 +306,35 @@ export class ExportOrchestratorService {
   /**
    * 重构导出源
    */
-  private reconstructSource(job: any): any {
+  private reconstructSource(job: {
+    sourceType: string;
+    sourceId: string | null;
+    sourceData: Prisma.JsonValue | null;
+  }): ExportRequest["source"] {
     switch (job.sourceType) {
       case "DOCUMENT":
-        return { type: "DOCUMENT", documentId: job.sourceId };
+        return { type: "DOCUMENT", documentId: job.sourceId || "" };
       case "RESEARCH":
-        return { type: "RESEARCH", sessionId: job.sourceId };
+        return { type: "RESEARCH", sessionId: job.sourceId || "" };
       case "REPORT":
-        return { type: "REPORT", reportId: job.sourceId };
-      case "RAW":
+        return { type: "REPORT", reportId: job.sourceId || "" };
+      case "RAW": {
+        const sourceData = job.sourceData as { content: string; contentType: string; title?: string } | null;
         return {
           type: "RAW",
-          content: job.sourceData.content,
-          contentType: job.sourceData.contentType,
-          title: job.sourceData.title,
+          content: sourceData?.content || "",
+          contentType: (sourceData?.contentType || "text") as "markdown" | "html" | "json",
+          title: sourceData?.title,
         };
-      case "MISSION":
+      }
+      case "MISSION": {
+        const sourceData = job.sourceData as { topicId?: string } | null;
         return {
           type: "MISSION",
-          missionId: job.sourceId,
-          topicId: job.sourceData?.topicId,
+          missionId: job.sourceId || "",
+          topicId: sourceData?.topicId || "",
         };
+      }
       default:
         throw new Error(`Unknown source type: ${job.sourceType}`);
     }

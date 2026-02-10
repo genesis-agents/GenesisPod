@@ -17,13 +17,13 @@ export interface CreateCollectionTaskDto {
   description?: string;
   type: CollectionTaskType;
   sourceId: string;
-  sourceConfig: any;
+  sourceConfig: Record<string, unknown>;
   schedule?: string;
   priority?: number;
   maxConcurrency?: number;
   timeout?: number;
   retryCount?: number;
-  deduplicationRules?: any;
+  deduplicationRules?: Record<string, unknown>;
   createdBy?: string;
 }
 
@@ -36,7 +36,7 @@ export interface UpdateCollectionTaskDto {
   maxConcurrency?: number;
   timeout?: number;
   retryCount?: number;
-  deduplicationRules?: any;
+  deduplicationRules?: Record<string, unknown>;
 }
 
 @Injectable()
@@ -67,13 +67,13 @@ export class CollectionTaskService {
         description: dto.description,
         type: dto.type,
         sourceId: dto.sourceId,
-        sourceConfig: dto.sourceConfig || {},
+        sourceConfig: (dto.sourceConfig || {}) as any,
         schedule: dto.schedule,
         priority: dto.priority || 5,
         maxConcurrency: dto.maxConcurrency || 5,
         timeout: dto.timeout || 300,
         retryCount: dto.retryCount || 3,
-        deduplicationRules: dto.deduplicationRules || {},
+        deduplicationRules: (dto.deduplicationRules || {}) as any,
         status: "PENDING",
         progress: 0,
         createdBy: dto.createdBy,
@@ -96,7 +96,7 @@ export class CollectionTaskService {
     sourceId?: string;
     limit?: number;
   }): Promise<CollectionTask[]> {
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     if (filters?.status) {
       where.status = filters.status;
@@ -166,7 +166,7 @@ export class CollectionTaskService {
         maxConcurrency: dto.maxConcurrency,
         timeout: dto.timeout,
         retryCount: dto.retryCount,
-        deduplicationRules: dto.deduplicationRules,
+        deduplicationRules: dto.deduplicationRules as any,
       },
       include: {
         source: true,
@@ -227,8 +227,8 @@ export class CollectionTaskService {
       }
 
       const sourceType = dataSource.type;
-      const sourceConfig = task.sourceConfig as any;
-      const maxResults = sourceConfig?.maxResults || 10;
+      const sourceConfig = task.sourceConfig as Record<string, unknown>;
+      const maxResults = (typeof sourceConfig?.maxResults === "number" ? sourceConfig.maxResults : undefined) || 10;
       // Category from source config or data source (used for filtering)
       void (sourceConfig?.category || dataSource.category);
 
@@ -259,8 +259,10 @@ export class CollectionTaskService {
 
         case "GITHUB":
           collectedCount = await this.githubService.fetchTrendingRepos(
-            sourceConfig?.language,
-            sourceConfig?.since || "daily",
+            typeof sourceConfig?.language === "string" ? sourceConfig.language : undefined,
+            (typeof sourceConfig?.since === "string" && ["daily", "weekly", "monthly"].includes(sourceConfig.since)
+              ? sourceConfig.since as "daily" | "weekly" | "monthly"
+              : "daily"),
           );
           break;
 
@@ -279,8 +281,8 @@ export class CollectionTaskService {
         case "THE_VERGE":
           // RSS/Atom订阅源采集 (包括YouTube频道、Substack、各类博客)
           // YouTube RSS格式: https://www.youtube.com/feeds/videos.xml?channel_id=XXX
-          const crawlerConfigRss = dataSource.crawlerConfig as any;
-          const rssUrl = crawlerConfigRss?.rssUrl || dataSource.baseUrl;
+          const crawlerConfigRss = dataSource.crawlerConfig as Record<string, unknown>;
+          const rssUrl = (typeof crawlerConfigRss?.rssUrl === "string" ? crawlerConfigRss.rssUrl : undefined) || dataSource.baseUrl;
           this.logger.log(`Fetching RSS feed from: ${rssUrl}`);
 
           // 构建过滤选项（YouTube视频时长过滤等）
@@ -290,7 +292,7 @@ export class CollectionTaskService {
           } = {};
           if (
             sourceType === "YOUTUBE" &&
-            crawlerConfigRss?.minDurationSeconds
+            typeof crawlerConfigRss?.minDurationSeconds === "number"
           ) {
             filterOptions.minDurationSeconds =
               crawlerConfigRss.minDurationSeconds;
@@ -331,8 +333,8 @@ export class CollectionTaskService {
         case "CUSTOM":
           // 通用网页爬虫采集
           const pageUrl = dataSource.baseUrl + dataSource.apiEndpoint;
-          const crawlerConfigCustom = dataSource.crawlerConfig as any;
-          const selector = crawlerConfigCustom?.selector || ".news-item";
+          const crawlerConfigCustom = dataSource.crawlerConfig as Record<string, unknown>;
+          const selector = (typeof crawlerConfigCustom?.selector === "string" ? crawlerConfigCustom.selector : undefined) || ".news-item";
           collectedCount = await this.webScraperService.scrapeWebPage(
             pageUrl,
             maxResults,

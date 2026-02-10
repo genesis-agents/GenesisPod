@@ -19,6 +19,7 @@ import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import { AIModelType } from "@prisma/client";
 import { SecretsService } from "../secrets/secrets.service";
 import { APP_CONFIG } from "../../../common/config/app.config";
+import { CreateUserDto } from "./dto/create-user.dto";
 
 /**
  * 管理员控制器
@@ -68,15 +69,7 @@ export class AdminController {
    * POST /api/v1/admin/users
    */
   @Post("users")
-  async createUser(
-    @Body()
-    body: {
-      email: string;
-      username?: string;
-      role?: "USER" | "ADMIN";
-      password?: string;
-    },
-  ) {
+  async createUser(@Body() body: CreateUserDto) {
     this.logger.log(`Admin: Creating user ${body.email}`);
     return this.adminService.createUser(body);
   }
@@ -250,9 +243,16 @@ export class AdminController {
       models,
       summary: {
         total: models.length,
-        enabled: models.filter((m: any) => m.isEnabled).length,
-        withApiKey: models.filter((m: any) => m.hasApiKey).length,
-        ready: models.filter((m: any) => m.isEnabled && m.hasApiKey).length,
+        enabled: models.filter(
+          (m: { isEnabled: boolean }) => m.isEnabled,
+        ).length,
+        withApiKey: models.filter(
+          (m: { hasApiKey: boolean }) => m.hasApiKey,
+        ).length,
+        ready: models.filter(
+          (m: { isEnabled: boolean; hasApiKey: boolean }) =>
+            m.isEnabled && m.hasApiKey,
+        ).length,
       },
     };
   }
@@ -477,7 +477,7 @@ export class AdminController {
     @Body()
     body: Array<{
       key: string;
-      value: any;
+      value: string | number | boolean | Record<string, unknown>;
       description?: string;
       category?: string;
     }>,
@@ -848,11 +848,13 @@ export class AdminController {
         success: false,
         message: `Unknown provider: ${body.provider}`,
       };
-    } catch (error: any) {
-      this.logger.error(`Search API test failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`Search API test failed: ${message}`);
       return {
         success: false,
-        message: error.response?.data?.message || error.message,
+        message,
       };
     }
   }
@@ -1004,11 +1006,13 @@ export class AdminController {
         success: false,
         message: `Unknown provider: ${body.provider}`,
       };
-    } catch (error: any) {
-      this.logger.error(`Extraction API test failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`Extraction API test failed: ${message}`);
       return {
         success: false,
-        message: error.message,
+        message,
       };
     }
   }
@@ -1113,11 +1117,13 @@ export class AdminController {
         success: false,
         message: `未知的 provider: ${body.provider}`,
       };
-    } catch (error: any) {
-      this.logger.error(`YouTube API test failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`YouTube API test failed: ${message}`);
       return {
         success: false,
-        message: error.message,
+        message,
       };
     }
   }
@@ -1236,11 +1242,13 @@ export class AdminController {
         success: false,
         message: `未知的 provider: ${body.provider}`,
       };
-    } catch (error: any) {
-      this.logger.error(`TTS API test failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`TTS API test failed: ${message}`);
       return {
         success: false,
-        message: error.message,
+        message,
       };
     }
   }
@@ -1353,11 +1361,13 @@ export class AdminController {
           message: `SkillsMP API 错误: HTTP ${response.status}`,
         };
       }
-    } catch (error: any) {
-      this.logger.error(`SkillsMP API test failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`SkillsMP API test failed: ${message}`);
       return {
         success: false,
-        message: error.message,
+        message,
       };
     }
   }
@@ -1382,7 +1392,17 @@ export class AdminController {
 
       // Fetch popular skills from SkillsMP using multiple search terms
       const searchTerms = ["claude", "agent", "mcp", "tool", "api"];
-      const allSkills: any[] = [];
+      interface SkillsmpSkill {
+        id?: string;
+        name?: string;
+        displayName?: string;
+        description?: string;
+        layer?: string;
+        domain?: string;
+        tags?: string[];
+        [key: string]: unknown;
+      }
+      const allSkills: SkillsmpSkill[] = [];
       const seenIds = new Set<string>();
 
       for (const term of searchTerms) {
@@ -1405,7 +1425,7 @@ export class AdminController {
               `SkillsMP search '${term}': response keys=${Object.keys(data).join(",")}`,
             );
             // API returns { success, data, meta } - skills may be in data directly or nested
-            let skills: any[] = [];
+            let skills: SkillsmpSkill[] = [];
             if (Array.isArray(data.data)) {
               skills = data.data;
             } else if (data.data && Array.isArray(data.data.skills)) {
@@ -1459,11 +1479,13 @@ export class AdminController {
         message: `同步成功，获取了 ${allSkills.length} 个技能`,
         lastSync: new Date().toISOString(),
       };
-    } catch (error: any) {
-      this.logger.error(`SkillsMP sync failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`SkillsMP sync failed: ${message}`);
       return {
         success: false,
-        message: error.message,
+        message,
       };
     }
   }
@@ -1541,11 +1563,13 @@ export class AdminController {
           displayName: skill.displayName,
         },
       };
-    } catch (error: any) {
-      this.logger.error(`Failed to install skill ${skillId}: ${error.message}`);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to install skill ${skillId}: ${message}`);
       return {
         success: false,
-        message: error.message,
+        message,
       };
     }
   }

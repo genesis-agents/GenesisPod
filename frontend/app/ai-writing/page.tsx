@@ -243,14 +243,12 @@ export default function AIWritingPage() {
 
   const getGenreLabel = (genre: string) => {
     const genreKey = genre.toLowerCase().replace('_', '');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return t(`aiWriting.genres.${genreKey}` as any) || genre;
+    return t(`aiWriting.genres.${genreKey}` as never) || genre;
   };
 
   const getStatusBadge = (status: string) => {
     const statusKey = status.toLowerCase();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const label = t(`aiWriting.status.${statusKey}` as any);
+    const label = t(`aiWriting.status.${statusKey}` as never);
     const colorConfig: Record<string, string> = {
       PLANNING: 'bg-purple-100 text-purple-700',
       OUTLINING: 'bg-blue-100 text-blue-700',
@@ -765,9 +763,8 @@ export default function AIWritingPage() {
                       >
                         {GENRE_KEYS.map((key) => (
                           <option key={key} value={key}>
-                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                             {t(
-                              `aiWriting.genres.${key.toLowerCase().replace('_', '')}` as any
+                              `aiWriting.genres.${key.toLowerCase().replace('_', '')}` as never
                             )}
                           </option>
                         ))}
@@ -844,11 +841,10 @@ export default function AIWritingPage() {
                               ? 'chineseWebNovel'
                               : category;
                         return (
-                          /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
                           <optgroup
                             key={category}
                             label={t(
-                              `aiWriting.styleCategories.${categoryKey}` as any
+                              `aiWriting.styleCategories.${categoryKey}` as never
                             )}
                           >
                             {presetsInCategory.map((preset) => (
@@ -994,9 +990,8 @@ export default function AIWritingPage() {
                     >
                       {GENRE_KEYS.map((key) => (
                         <option key={key} value={key}>
-                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                           {t(
-                            `aiWriting.genres.${key.toLowerCase().replace('_', '')}` as any
+                            `aiWriting.genres.${key.toLowerCase().replace('_', '')}` as never
                           )}
                         </option>
                       ))}
@@ -1069,11 +1064,10 @@ export default function AIWritingPage() {
                             ? 'chineseWebNovel'
                             : category;
                       return (
-                        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
                         <optgroup
                           key={category}
                           label={t(
-                            `aiWriting.styleCategories.${categoryKey}` as any
+                            `aiWriting.styleCategories.${categoryKey}` as never
                           )}
                         >
                           {presetsInCategory.map((preset) => (

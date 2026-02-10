@@ -13,6 +13,7 @@ import {
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../common/guards/admin.guard";
+import { CreditTransactionType } from "@prisma/client";
 import { CreditsService } from "./credits.service";
 import { CheckinService } from "./services/checkin.service";
 import { CreditRulesService } from "./services/credit-rules.service";
@@ -21,6 +22,10 @@ import {
   AdminGrantCreditsDto,
   BatchGrantCreditsDto,
 } from "./dto/grant-credits.dto";
+
+interface AuthenticatedRequest {
+  user: { id: string; email: string };
+}
 
 /**
  * 积分控制器
@@ -38,7 +43,7 @@ export class CreditsController {
    * 获取积分账户信息
    */
   @Get()
-  async getAccount(@Request() req: any) {
+  async getAccount(@Request() req: AuthenticatedRequest) {
     return this.creditsService.getOrCreateAccount(req.user.id);
   }
 
@@ -46,7 +51,7 @@ export class CreditsController {
    * 获取积分余额（轻量级）
    */
   @Get("balance")
-  async getBalance(@Request() req: any) {
+  async getBalance(@Request() req: AuthenticatedRequest) {
     return this.creditsService.getBalance(req.user.id);
   }
 
@@ -54,7 +59,7 @@ export class CreditsController {
    * 获取积分统计
    */
   @Get("stats")
-  async getStats(@Request() req: any) {
+  async getStats(@Request() req: AuthenticatedRequest) {
     return this.creditsService.getCreditsStats(req.user.id);
   }
 
@@ -63,7 +68,7 @@ export class CreditsController {
    */
   @Get("transactions")
   async getTransactions(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Query() query: TransactionQueryDto,
   ) {
     return this.creditsService.getTransactions(req.user.id, query);
@@ -73,7 +78,7 @@ export class CreditsController {
    * 获取签到状态
    */
   @Get("checkin/status")
-  async getCheckinStatus(@Request() req: any) {
+  async getCheckinStatus(@Request() req: AuthenticatedRequest) {
     return this.checkinService.getCheckinStatus(req.user.id);
   }
 
@@ -82,7 +87,7 @@ export class CreditsController {
    */
   @Post("checkin")
   @HttpCode(HttpStatus.OK)
-  async performCheckin(@Request() req: any, @Ip() ip: string) {
+  async performCheckin(@Request() req: AuthenticatedRequest, @Ip() ip: string) {
     return this.checkinService.performCheckin(req.user.id, ip);
   }
 
@@ -90,7 +95,7 @@ export class CreditsController {
    * 获取签到历史
    */
   @Get("checkin/history")
-  async getCheckinHistory(@Request() req: any, @Query("limit") limit?: number) {
+  async getCheckinHistory(@Request() req: AuthenticatedRequest, @Query("limit") limit?: number) {
     return this.checkinService.getCheckinHistory(req.user.id, limit || 30);
   }
 
@@ -170,7 +175,7 @@ export class AdminCreditsController {
           .grantCredits(
             userId,
             dto.amount,
-            "ADMIN_GRANT" as any,
+            CreditTransactionType.ADMIN_GRANT,
             dto.description,
           )
           .then((result) => ({

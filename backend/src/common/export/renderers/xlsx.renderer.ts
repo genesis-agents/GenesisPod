@@ -324,7 +324,11 @@ export class XlsxRenderer implements ExportRenderer {
     section: ContentSection,
     theme: ThemeConfig,
   ): void {
-    const renderItems = (items: any[], depth: number) => {
+    interface ListItemType {
+      content: string;
+      children?: ListItemType[];
+    }
+    const renderItems = (items: ListItemType[], depth: number) => {
       items.forEach((item, index) => {
         const prefix = section.ordered
           ? `${"  ".repeat(depth)}${index + 1}. `

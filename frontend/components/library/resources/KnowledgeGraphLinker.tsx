@@ -8,6 +8,13 @@ interface GraphNode {
   id: string;
   type: string;
   linkedAt: string;
+  labels?: string[];
+  properties?: {
+    name?: string;
+    description?: string;
+    username?: string;
+    affiliation?: string;
+  };
 }
 
 interface KnowledgeGraphLinkerProps {
@@ -34,9 +41,9 @@ export default function KnowledgeGraphLinker({
   onNodeLinked,
   onNodeUnlinked,
 }: KnowledgeGraphLinkerProps) {
-  const [graphData, setGraphData] = useState<any>(null);
+  const [graphData, setGraphData] = useState<{ nodes?: GraphNode[] } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [showNodeSelector, setShowNodeSelector] = useState(false);
 
   useEffect(() => {
@@ -127,10 +134,10 @@ export default function KnowledgeGraphLinker({
   }
 
   const availableNodes = graphData?.nodes || [];
-  const topics = availableNodes.filter((n: { labels?: string[] }) =>
+  const topics = availableNodes.filter((n) =>
     n.labels?.includes('Topic')
   );
-  const authors = availableNodes.filter((n: { labels?: string[] }) =>
+  const authors = availableNodes.filter((n) =>
     n.labels?.includes('Author')
   );
 
@@ -203,10 +210,7 @@ export default function KnowledgeGraphLinker({
                 主题 ({topics.length})
               </h4>
               <div className="max-h-48 space-y-2 overflow-auto">
-                {topics.map(
-                  (topic: {
-                    properties?: { name?: string; description?: string };
-                  }) => {
+                {topics.map((topic) => {
                     const isLinked = linkedNodes.some(
                       (n) => n.id === topic.properties?.name
                     );
@@ -252,14 +256,7 @@ export default function KnowledgeGraphLinker({
                 作者 ({authors.length})
               </h4>
               <div className="max-h-48 space-y-2 overflow-auto">
-                {authors.map(
-                  (author: {
-                    properties?: {
-                      username?: string;
-                      name?: string;
-                      affiliation?: string;
-                    };
-                  }) => {
+                {authors.map((author) => {
                     const isLinked = linkedNodes.some(
                       (n) => n.id === author.properties?.username
                     );

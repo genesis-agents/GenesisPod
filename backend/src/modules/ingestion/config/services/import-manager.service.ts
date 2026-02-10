@@ -1,7 +1,7 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { MongoDBService } from "../../../../common/mongodb/mongodb.service.postgres";
-import { ResourceType, ImportTaskStatus } from "@prisma/client";
+import { ResourceType, ImportTaskStatus, Prisma } from "@prisma/client";
 import { getErrorMessage } from "../../../../common/utils/error.utils";
 import {
   MetadataExtractorService,
@@ -161,7 +161,7 @@ export class ImportManagerService {
     offset: number = 0,
   ) {
     try {
-      const where: any = {};
+      const where: Prisma.ImportTaskWhereInput = {};
 
       if (resourceType) {
         where.resourceType = resourceType;
@@ -235,7 +235,7 @@ export class ImportManagerService {
   ) {
     try {
       const now = new Date();
-      const data: any = {
+      const data: Prisma.ImportTaskUpdateInput = {
         status,
         updatedAt: now,
       };
@@ -277,7 +277,7 @@ export class ImportManagerService {
    */
   async getDataQualityMetrics(resourceType?: ResourceType) {
     try {
-      const where: any = {};
+      const where: Prisma.DataQualityMetricWhereInput = {};
 
       if (resourceType) {
         where.resourceType = resourceType;
@@ -309,7 +309,7 @@ export class ImportManagerService {
    */
   private async getQualityStats(resourceType?: ResourceType) {
     try {
-      const where: any = {};
+      const where: Prisma.DataQualityMetricWhereInput = {};
 
       if (resourceType) {
         where.resourceType = resourceType;
@@ -915,14 +915,14 @@ export class ImportManagerService {
 
       return {
         id: resourceId,
-        status: "SUCCESS",
+        status: "SUCCESS" as const,
         resourceId,
         rawDataId,
         sourceUrl: url,
         itemsProcessed: 1,
         itemsSaved: 1,
         importTaskId: importTask.id,
-      } as any;
+      };
     } catch (error) {
       this.logger.error(
         `Failed to import with metadata: ${getErrorMessage(error)}`,
@@ -939,8 +939,8 @@ export class ImportManagerService {
     url: string,
     metadata: ParsedUrlMetadata,
     resourceType: ResourceType,
-  ): any {
-    const rawData: any = {
+  ): Record<string, unknown> {
+    const rawData: Record<string, unknown> = {
       // 基础信息
       sourceUrl: url,
       title: metadata.title,

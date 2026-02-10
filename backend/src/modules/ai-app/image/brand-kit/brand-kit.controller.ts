@@ -13,6 +13,10 @@ import {
   UseGuards,
   Req,
 } from "@nestjs/common";
+
+interface AuthenticatedRequest {
+  user: { id: string; email: string };
+}
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import {
   BrandKitService,
@@ -29,7 +33,7 @@ export class BrandKitController {
    * 获取用户的所有品牌套件
    */
   @Get()
-  async findAll(@Req() req: any) {
+  async findAll(@Req() req: AuthenticatedRequest) {
     return this.brandKitService.findByUser(req.user.id);
   }
 
@@ -45,7 +49,7 @@ export class BrandKitController {
    * 获取单个品牌套件
    */
   @Get(":id")
-  async findOne(@Param("id") id: string, @Req() req: any) {
+  async findOne(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
     return this.brandKitService.findById(id, req.user.id);
   }
 
@@ -53,7 +57,7 @@ export class BrandKitController {
    * 创建品牌套件
    */
   @Post()
-  async create(@Body() dto: CreateBrandKitDto, @Req() req: any) {
+  async create(@Body() dto: CreateBrandKitDto, @Req() req: AuthenticatedRequest) {
     return this.brandKitService.create(req.user.id, dto);
   }
 
@@ -64,7 +68,7 @@ export class BrandKitController {
   async update(
     @Param("id") id: string,
     @Body() dto: UpdateBrandKitDto,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.brandKitService.update(id, req.user.id, dto);
   }
@@ -73,7 +77,7 @@ export class BrandKitController {
    * 删除品牌套件
    */
   @Delete(":id")
-  async delete(@Param("id") id: string, @Req() req: any) {
+  async delete(@Param("id") id: string, @Req() req: AuthenticatedRequest) {
     await this.brandKitService.delete(id, req.user.id);
     return { message: "Brand kit deleted successfully" };
   }

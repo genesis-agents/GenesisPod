@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AdminService } from "../../core/admin/admin.service";
+import { Prisma } from "@prisma/client";
 
 type YoutubeModule = typeof import("youtubei.js");
 type YoutubeClient = Awaited<ReturnType<YoutubeModule["Innertube"]["create"]>>;
@@ -197,8 +198,8 @@ export class YoutubeService {
           if (transcriptData?.transcript?.content?.body) {
             const segments: TranscriptSegment[] =
               transcriptData.transcript.content.body.initial_segments
-                .filter((segment: any) => segment.snippet?.text)
-                .map((segment: any) => ({
+                .filter((segment: { snippet?: { text?: string } }) => segment.snippet?.text)
+                .map((segment: { snippet: { text: string }; start_ms: number; end_ms: number }) => ({
                   text: segment.snippet.text,
                   start: segment.start_ms / 1000,
                   duration: segment.end_ms / 1000 - segment.start_ms / 1000,
@@ -332,7 +333,7 @@ export class YoutubeService {
       await this.prisma.youTubeTranscriptCache.update({
         where: { videoId },
         data: {
-          translatedTranscript: translatedTranscript as any,
+          translatedTranscript: translatedTranscript as unknown as Prisma.InputJsonValue,
           targetLanguage,
           translatedAt: new Date(),
         },
@@ -388,14 +389,14 @@ export class YoutubeService {
         where: { videoId },
         update: {
           title,
-          transcript: transcript as any,
+          transcript: transcript as unknown as Prisma.InputJsonValue,
           language,
           expiresAt,
         },
         create: {
           videoId,
           title,
-          transcript: transcript as any,
+          transcript: transcript as unknown as Prisma.InputJsonValue,
           language,
           expiresAt,
         },
@@ -676,7 +677,7 @@ export class YoutubeService {
 
           if (transcript && transcript.length > 0) {
             const segments: TranscriptSegment[] = transcript.map(
-              (item: any) => ({
+              (item: { text?: string; offset: number; duration: number }) => ({
                 text: item.text || "",
                 start: item.offset / 1000, // Convert milliseconds to seconds
                 duration: item.duration / 1000, // Convert milliseconds to seconds
@@ -778,7 +779,7 @@ export class YoutubeService {
           continue;
         }
 
-        let raw: any;
+        let raw: unknown;
         try {
           raw = JSON.parse(text);
         } catch {
@@ -787,22 +788,22 @@ export class YoutubeService {
           );
           continue;
         }
-        const items: Array<Record<string, any>> = Array.isArray(raw)
+        const items: Array<Record<string, unknown>> = Array.isArray(raw)
           ? raw
-          : Array.isArray(raw?.transcripts)
-            ? raw.transcripts
-            : Array.isArray(raw?.data)
-              ? raw.data
+          : Array.isArray((raw as { transcripts?: unknown })?.transcripts)
+            ? (raw as { transcripts: Array<Record<string, unknown>> }).transcripts
+            : Array.isArray((raw as { data?: unknown })?.data)
+              ? (raw as { data: Array<Record<string, unknown>> }).data
               : [];
 
         const segments: TranscriptSegment[] = items
           .map((item) => {
-            const text = item.text ?? item.caption ?? "";
+            const text = (item.text ?? item.caption ?? "") as string | unknown;
             const startValue = Number.parseFloat(
-              item.start ?? item.start_offset ?? item.offset ?? "0",
+              String(item.start ?? item.start_offset ?? item.offset ?? "0"),
             );
             const durationValue = Number.parseFloat(
-              item.dur ?? item.duration ?? item.length ?? "0",
+              String(item.dur ?? item.duration ?? item.length ?? "0"),
             );
 
             return {
@@ -817,11 +818,12 @@ export class YoutubeService {
           continue;
         }
 
+        const rawObj = raw as Record<string, unknown>;
         const title =
-          typeof raw?.title === "string"
-            ? raw.title
-            : typeof raw?.video_title === "string"
-              ? raw.video_title
+          typeof rawObj?.title === "string"
+            ? rawObj.title
+            : typeof rawObj?.video_title === "string"
+              ? rawObj.video_title
               : null;
 
         this.logger.log(
@@ -903,7 +905,7 @@ export class YoutubeService {
       }
 
       let captionTracks: Array<{
-        baseUrl: string;
+        baseUrl?: string;
         languageCode: string;
         name?: { simpleText?: string };
       }>;

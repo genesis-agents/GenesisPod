@@ -287,21 +287,23 @@ export class AiDirectKeyService {
           );
       }
     } catch (error) {
+      const errorResponse = error as { response?: { data?: unknown; status?: number } };
       const errorDetails =
         error instanceof Error
           ? {
               message: error.message,
               name: error.name,
-              response: (error as any).response?.data,
-              status: (error as any).response?.status,
+              response: errorResponse.response?.data,
+              status: errorResponse.response?.status,
             }
           : error;
       this.logger.error(
         `API call failed for ${provider}: ${JSON.stringify(errorDetails)}`,
       );
 
+      const responseData = errorResponse.response?.data as { error?: { message?: string } } | undefined;
       const errorMessage =
-        (error as any).response?.data?.error?.message ||
+        responseData?.error?.message ||
         (error instanceof Error ? error.message : "Unknown API error");
 
       if (
@@ -330,11 +332,11 @@ export class AiDirectKeyService {
    */
   private async callApiWithKey(
     url: string,
-    body: any,
+    body: Record<string, unknown>,
     headers: Record<string, string>,
     modelName: string,
   ): Promise<ChatCompletionResult> {
-    const maxTokens = body.max_completion_tokens || body.max_tokens || 2048;
+    const maxTokens = (body.max_completion_tokens as number | undefined) || (body.max_tokens as number | undefined) || 2048;
     const isReasoning = this.modelConfigService.isReasoningModel(modelName);
     const baseTimeout = isReasoning ? 300000 : 120000;
     const maxTimeout = isReasoning ? 900000 : 600000;
@@ -356,18 +358,19 @@ export class AiDirectKeyService {
       );
     };
 
-    const systemPromptTokens = body.messages?.find(
-      (m: any) => m.role === "system",
+    const messages = body.messages as Array<{ role: string; content: string }> | undefined;
+    const systemPromptTokens = messages?.find(
+      (m) => m.role === "system",
     )?.content
       ? estimateTokens(
-          body.messages.find((m: any) => m.role === "system").content,
+          messages.find((m) => m.role === "system")!.content,
         )
       : 0;
     const userTokens =
-      body.messages
-        ?.filter((m: any) => m.role === "user")
+      messages
+        ?.filter((m) => m.role === "user")
         .reduce(
-          (sum: number, m: any) => sum + estimateTokens(m.content || ""),
+          (sum, m) => sum + estimateTokens(m.content || ""),
           0,
         ) || 0;
     const totalEstimatedTokens = systemPromptTokens + userTokens;
@@ -680,7 +683,12 @@ export class AiDirectKeyService {
       effectiveModelId.includes("gemini-3") &&
       effectiveModelId.includes("image");
 
-    let contents: any[];
+    interface GeminiContent {
+      role: string;
+      parts: Array<{ text: string }>;
+    }
+
+    let contents: GeminiContent[];
 
     if (isGemini3ImageModel && isImageRequest) {
       const lastUserMsg = otherMessages.filter((m) => m.role === "user").pop();
@@ -722,7 +730,18 @@ export class AiDirectKeyService {
       });
     }
 
-    const requestBody: any = {
+    interface GeminiRequestBody {
+      contents: GeminiContent[];
+      generationConfig: {
+        maxOutputTokens: number;
+        temperature: number;
+        responseModalities?: string[];
+      };
+      tools?: Array<{ googleSearch: Record<string, never> }>;
+      systemInstruction?: { parts: Array<{ text: string }> };
+    }
+
+    const requestBody: GeminiRequestBody = {
       contents,
       generationConfig: {
         maxOutputTokens: maxTokens,
@@ -773,7 +792,7 @@ export class AiDirectKeyService {
       const candidate = data.candidates[0];
       if (candidate.safetyRatings) {
         const blocked = candidate.safetyRatings.filter(
-          (r: any) => r.probability === "HIGH" || r.blocked,
+          (r: { probability?: string; blocked?: boolean }) => r.probability === "HIGH" || r.blocked,
         );
         if (blocked.length > 0) {
           this.logger.warn(

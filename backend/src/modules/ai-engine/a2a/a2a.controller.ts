@@ -244,9 +244,9 @@ export class A2AController {
         teamId,
         goal: request.input.content,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        context: request.config?.context ?? "",
+        context: (request.config?.context ?? "") as string,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        constraints: request.config?.constraints,
+        constraints: request.config?.constraints as any,
         metadata: {
           ...sanitizedMetadata,
           a2aSkillId: request.skillId,

@@ -292,29 +292,30 @@ export class GlobalDeduplicationService {
    *
    * 返回用于去重检查的关键字段
    */
-  extractDeduplicationKey(rawData: any): {
+  extractDeduplicationKey(rawData: { data?: Record<string, unknown>; [key: string]: unknown }): {
     url: string | null;
     contentHash: string | null;
     simhash: string | null;
     externalId: string | null;
   } {
+    const d = rawData.data;
     const url =
-      rawData.data?.url ||
-      rawData.data?.sourceUrl ||
-      rawData.data?.htmlUrl ||
-      rawData.data?.abstractUrl ||
+      (d?.url as string) ||
+      (d?.sourceUrl as string) ||
+      (d?.htmlUrl as string) ||
+      (d?.abstractUrl as string) ||
       null;
 
     const content =
-      rawData.data?.content ||
-      rawData.data?.text ||
-      rawData.data?.summary ||
-      rawData.data?.description ||
+      (d?.content as string) ||
+      (d?.text as string) ||
+      (d?.summary as string) ||
+      (d?.description as string) ||
       "";
 
     const contentHash = content ? this.computeContentHash(content) : null;
     const simhash = content ? this.computeSimhash(content) : null;
-    const externalId = rawData.data?.externalId || null;
+    const externalId = (d?.externalId as string) || null;
 
     return {
       url,

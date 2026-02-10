@@ -387,14 +387,14 @@ export class DataCleaningTool extends BaseTool<
   }
 
   private handleMissingInObject(
-    obj: any,
+    obj: unknown,
     rule: CleaningRule,
     statistics: CleaningStatistics,
     strategy: string,
-  ): any {
+  ): unknown {
     if (!obj || typeof obj !== "object") return obj;
 
-    const result = { ...obj };
+    const result = { ...(obj as Record<string, unknown>) };
 
     for (const key in result) {
       const value = result[key];
@@ -453,14 +453,14 @@ export class DataCleaningTool extends BaseTool<
   }
 
   private normalizeItem(
-    item: any,
+    item: unknown,
     rule: CleaningRule,
     format: string | undefined,
     statistics: CleaningStatistics,
-  ): any {
+  ): unknown {
     if (!item || typeof item !== "object") return item;
 
-    const result = { ...item };
+    const result = { ...(item as Record<string, unknown>) };
 
     for (const key in result) {
       if (rule.field && key !== rule.field) {
@@ -526,13 +526,13 @@ export class DataCleaningTool extends BaseTool<
   }
 
   private trimItem(
-    item: any,
+    item: unknown,
     rule: CleaningRule,
     statistics: CleaningStatistics,
-  ): any {
+  ): unknown {
     if (!item || typeof item !== "object") return item;
 
-    const result = { ...item };
+    const result = { ...(item as Record<string, unknown>) };
 
     for (const key in result) {
       if (rule.field && key !== rule.field) {
@@ -567,13 +567,13 @@ export class DataCleaningTool extends BaseTool<
   }
 
   private replaceItem(
-    item: any,
+    item: unknown,
     rule: CleaningRule,
     statistics: CleaningStatistics,
-  ): any {
+  ): unknown {
     if (!item || typeof item !== "object") return item;
 
-    const result = { ...item };
+    const result = { ...(item as Record<string, unknown>) };
     const from = rule.params?.from;
     const to = rule.params?.to ?? "";
 
@@ -616,13 +616,13 @@ export class DataCleaningTool extends BaseTool<
   }
 
   private transformItem(
-    item: any,
+    item: unknown,
     rule: CleaningRule,
     statistics: CleaningStatistics,
-  ): any {
+  ): unknown {
     if (!item || typeof item !== "object") return item;
 
-    const result = { ...item };
+    const result = { ...(item as Record<string, unknown>) };
     const transformer = rule.params?.transformer;
 
     for (const key in result) {
@@ -670,15 +670,19 @@ export class DataCleaningTool extends BaseTool<
   // Helper Methods
   // ==========================================================================
 
-  private getFieldValue(obj: any, field: string): unknown {
+  private getFieldValue(obj: unknown, field: string): unknown {
     const keys = field.split(".");
-    let current = obj;
+    let current: unknown = obj;
 
     for (const key of keys) {
       if (current === null || current === undefined) {
         return undefined;
       }
-      current = current[key];
+      if (typeof current === "object" && current !== null) {
+        current = (current as Record<string, unknown>)[key];
+      } else {
+        return undefined;
+      }
     }
 
     return current;
@@ -698,10 +702,22 @@ export class DataCleaningTool extends BaseTool<
       return "";
     }
 
-    const headers = Object.keys(data[0]);
-    const rows = data.map((item) =>
-      headers.map((h) => item[h] ?? "").join(","),
-    );
+    const firstItem = data[0];
+    if (!firstItem || typeof firstItem !== "object") {
+      return "";
+    }
+
+    const headers = Object.keys(firstItem);
+    const rows = data.map((item) => {
+      if (!item || typeof item !== "object") return "";
+      const record = item as Record<string, unknown>;
+      return headers
+        .map((h) => {
+          const val = record[h];
+          return val !== null && val !== undefined ? String(val) : "";
+        })
+        .join(",");
+    });
 
     return [headers.join(","), ...rows].join("\n");
   }

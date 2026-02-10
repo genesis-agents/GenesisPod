@@ -769,15 +769,23 @@ export class MissionTransformerService {
   /**
    * 将 marked token 转换为 ContentSection
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private tokenToSection(token: any): ContentSection | null {
+  private tokenToSection(token: {
+    type: string;
+    text?: string;
+    depth?: number;
+    ordered?: boolean;
+    items?: unknown[];
+    header?: Array<{ text: string }>;
+    rows?: Array<Array<{ text: string }>>;
+    lang?: string;
+  }): ContentSection | null {
     switch (token.type) {
       case "heading":
         return {
           id: this.nextSectionId(),
           type: "heading",
           content: token.text,
-          level: Math.min(token.depth + 1, 6), // 偏移 1 级，保持在父标题下
+          level: Math.min((token.depth || 1) + 1, 6), // 偏移 1 级，保持在父标题下
         };
 
       case "paragraph":
@@ -792,16 +800,16 @@ export class MissionTransformerService {
           id: this.nextSectionId(),
           type: "list",
           ordered: token.ordered,
-          items: this.parseListItems(token.items),
+          items: token.items ? this.parseListItems(token.items as Array<{ text: string; items?: unknown[] }>) : undefined,
         };
 
       case "table":
         return {
           id: this.nextSectionId(),
           type: "table",
-          headers: token.header.map((h: any) => h.text),
-          rows: token.rows.map((row: any) => ({
-            cells: row.map((cell: any) => cell.text),
+          headers: token.header?.map((h) => h.text),
+          rows: token.rows?.map((row) => ({
+            cells: row.map((cell) => cell.text),
           })),
         };
 
@@ -834,10 +842,10 @@ export class MissionTransformerService {
   /**
    * 解析列表项（递归）
    */
-  private parseListItems(items: any[]): ListItem[] {
+  private parseListItems(items: Array<{ text: string; items?: unknown[] }>): ListItem[] {
     return items.map((item) => ({
       content: item.text,
-      children: item.items ? this.parseListItems(item.items) : undefined,
+      children: item.items ? this.parseListItems(item.items as Array<{ text: string; items?: unknown[] }>) : undefined,
     }));
   }
 

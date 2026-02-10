@@ -4,6 +4,7 @@ import {
   StoryBibleChangeType,
   StoryBibleEntityType,
   StoryBibleAuditLog,
+  Prisma,
 } from "@prisma/client";
 
 /**
@@ -29,8 +30,8 @@ export interface AuditLogEntry {
     | "FACTION";
   entityId?: string;
   field: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   changedBy: string; // 'user' | 'story-architect' | 'bible-keeper' 等
   reason?: string;
   createdAt: Date;
@@ -43,8 +44,8 @@ export interface CreateAuditLogDto {
   entityType: StoryBibleEntityType;
   entityId?: string;
   field: string;
-  oldValue?: any;
-  newValue?: any;
+  oldValue?: unknown;
+  newValue?: unknown;
   changedBy: string;
   reason?: string;
 }
@@ -62,8 +63,8 @@ export interface VersionDiff {
   field: string;
   entityType: StoryBibleEntityType;
   entityId?: string;
-  v1Value: any;
-  v2Value: any;
+  v1Value: unknown;
+  v2Value: unknown;
   changeType: "added" | "removed" | "modified";
 }
 
@@ -88,8 +89,8 @@ export class StoryBibleAuditService {
           entityType: entry.entityType,
           entityId: entry.entityId,
           field: entry.field,
-          oldValue: entry.oldValue,
-          newValue: entry.newValue,
+          oldValue: entry.oldValue as Prisma.InputJsonValue,
+          newValue: entry.newValue as Prisma.InputJsonValue,
           changedBy: entry.changedBy,
           reason: entry.reason,
         },
@@ -116,8 +117,8 @@ export class StoryBibleAuditService {
           entityType: entry.entityType,
           entityId: entry.entityId,
           field: entry.field,
-          oldValue: entry.oldValue,
-          newValue: entry.newValue,
+          oldValue: entry.oldValue as Prisma.InputJsonValue,
+          newValue: entry.newValue as Prisma.InputJsonValue,
           changedBy: entry.changedBy,
           reason: entry.reason,
         })),
@@ -157,7 +158,7 @@ export class StoryBibleAuditService {
       }
 
       // 构建查询条件
-      const where: any = { bibleId };
+      const where: Prisma.StoryBibleAuditLogWhereInput = { bibleId };
 
       if (options?.entityType) {
         where.entityType = options.entityType;
@@ -301,8 +302,8 @@ export class StoryBibleAuditService {
 
         // 确定变更类型
         let changeType: "added" | "removed" | "modified";
-        let v1Value: any;
-        let v2Value: any;
+        let v1Value: unknown;
+        let v2Value: unknown;
 
         if (firstChange.changeType === "CREATE") {
           changeType = "added";

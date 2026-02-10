@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 import ClientDate from '@/components/common/ClientDate';
 import { logger } from '@/lib/utils/logger';
-interface Highlight {
+export interface Highlight {
   id: string;
   text: string;
   startOffset: number;

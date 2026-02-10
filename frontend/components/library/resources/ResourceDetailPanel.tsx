@@ -31,7 +31,12 @@ export default function ResourceDetailPanel({
   const [activeTab, setActiveTab] = useState<
     'notes' | 'comments' | 'ai' | 'graph'
   >(defaultTab);
-  const [note, setNote] = useState<any>(null);
+  const [note, setNote] = useState<{
+    id: string;
+    content?: string;
+    aiInsights?: Record<string, unknown>;
+    graphNodes?: { id: string; type: string; linkedAt: string }[];
+  } | null>(null);
 
   const tabs = [
     {
@@ -157,13 +162,12 @@ export default function ResourceDetailPanel({
               existingInsights={note.aiInsights}
               pdfContext={pdfContext}
               onExplanationAdded={(explanation) => {
-                // Update note's AI insights
                 setNote({
                   ...note,
                   aiInsights: {
-                    ...note.aiInsights,
+                    ...(note.aiInsights || {}),
                     explanations: [
-                      ...(note.aiInsights?.explanations || []),
+                      ...((note.aiInsights?.explanations as unknown[]) || []),
                       explanation,
                     ],
                   },
@@ -207,17 +211,17 @@ export default function ResourceDetailPanel({
             <KnowledgeGraphLinker
               noteId={note.id}
               resourceId={resourceId}
-              linkedNodes={note.graphNodes || []}
+              linkedNodes={Array.isArray(note.graphNodes) ? note.graphNodes as { id: string; type: string; linkedAt: string }[] : []}
               onNodeLinked={(node) => {
                 setNote({
                   ...note,
-                  graphNodes: [...(note.graphNodes || []), node],
+                  graphNodes: [...(Array.isArray(note.graphNodes) ? note.graphNodes : []), node],
                 });
               }}
               onNodeUnlinked={(nodeId) => {
                 setNote({
                   ...note,
-                  graphNodes: (note.graphNodes || []).filter(
+                  graphNodes: (Array.isArray(note.graphNodes) ? note.graphNodes : []).filter(
                     (n: { id: string }) => n.id !== nodeId
                   ),
                 });

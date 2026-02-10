@@ -10,7 +10,7 @@ export default defineConfig({
     setupFiles: './vitest.setup.ts',
 
     // 超时配置
-    testTimeout: 30000,
+    testTimeout: 10000,
     hookTimeout: 30000,
 
     // 禁用 pool 以避免启动超时问题

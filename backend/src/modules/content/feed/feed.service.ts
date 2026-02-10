@@ -39,7 +39,7 @@ export class FeedService {
     };
 
     if (type) {
-      where.type = type as any;
+      where.type = type as ResourceType;
     }
 
     if (category) {
@@ -119,7 +119,7 @@ export class FeedService {
     };
 
     if (type) {
-      where.type = type as any;
+      where.type = type as ResourceType;
     }
 
     if (category) {
@@ -213,7 +213,7 @@ export class FeedService {
     // 收集所有推荐结果，使用 Map 去重并记录匹配分数
     const recommendationMap = new Map<
       string,
-      { resource: any; score: number; matchType: string }
+      { resource: Record<string, unknown>; score: number; matchType: string }
     >();
 
     // 策略1: 分类+标签精确匹配（权重最高）
@@ -332,8 +332,8 @@ export class FeedService {
         // 首先按分数排序
         if (b.score !== a.score) return b.score - a.score;
         // 分数相同时，按质量分排序
-        const qualityA = parseFloat(a.resource.qualityScore || "0");
-        const qualityB = parseFloat(b.resource.qualityScore || "0");
+        const qualityA = parseFloat(String(a.resource.qualityScore || "0"));
+        const qualityB = parseFloat(String(b.resource.qualityScore || "0"));
         return qualityB - qualityA;
       })
       .slice(0, take)
@@ -369,7 +369,7 @@ export class FeedService {
       return [];
     }
 
-    const orConditions: any[] = [];
+    const orConditions: Array<{ categories?: { array_contains: string }; tags?: { array_contains: string }; autoTags?: { array_contains: string } }> = [];
 
     // 分类匹配
     categories.forEach((cat) => {

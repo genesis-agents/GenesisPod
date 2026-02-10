@@ -15,6 +15,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import type { WritingCharacter } from "@prisma/client";
 import type {
@@ -235,26 +236,26 @@ export class CharacterConsistencyService {
       }
 
       // 读取当前状态
-      const currentState = character.currentState as any;
-      const stateTimeline = (character.stateTimeline as any[]) || [];
+      const currentState = (character.currentState || {}) as Record<string, unknown>;
+      const stateTimeline = (character.stateTimeline || []) as unknown[];
 
       // 创建状态快照
-      const snapshot: CharacterStateSnapshot = {
+      const snapshot = {
         storyTime: `第${chapterNumber}章`,
         sourceChapterId: `chapter-${chapterNumber}`,
         state: {
           location:
-            stateUpdates.physicalState?.location || currentState.location,
+            stateUpdates.physicalState?.location || (currentState.location as string | undefined),
           condition:
             this.serializeHealthCondition(stateUpdates.physicalState) ||
-            currentState.condition,
+            (currentState.condition as string | undefined),
           mood:
-            stateUpdates.emotionalState?.mood || currentState.mood || "平静",
+            stateUpdates.emotionalState?.mood || (currentState.mood as string | undefined) || "平静",
           relationships:
-            stateUpdates.relationships || currentState.relationships,
-          secrets: stateUpdates.knownSecrets || currentState.secrets,
+            stateUpdates.relationships || (currentState.relationships as Record<string, unknown> | undefined),
+          secrets: stateUpdates.knownSecrets || (currentState.secrets as string[] | undefined),
           goals:
-            stateUpdates.goals?.map((g) => g.description) || currentState.goals,
+            stateUpdates.goals?.map((g) => g.description) || (currentState.goals as string[] | undefined),
         },
       };
 
@@ -273,8 +274,8 @@ export class CharacterConsistencyService {
       await tx.writingCharacter.update({
         where: { id: characterId },
         data: {
-          currentState: newCurrentState,
-          stateTimeline: [...stateTimeline, snapshot],
+          currentState: newCurrentState as Prisma.InputJsonValue,
+          stateTimeline: [...stateTimeline, snapshot] as unknown as Prisma.InputJsonValue[],
         },
       });
 
@@ -305,7 +306,7 @@ export class CharacterConsistencyService {
         return;
       }
 
-      const stateTimeline = (character.stateTimeline as any[]) || [];
+      const stateTimeline = (character.stateTimeline || []) as unknown[];
 
       const newTransition: CharacterStateTransition = {
         ...transition,
@@ -328,7 +329,7 @@ export class CharacterConsistencyService {
       await tx.writingCharacter.update({
         where: { id: characterId },
         data: {
-          stateTimeline: updatedTimeline,
+          stateTimeline: updatedTimeline as unknown as Prisma.InputJsonValue[],
         },
       });
 
@@ -450,7 +451,7 @@ export class CharacterConsistencyService {
     });
 
     if (character) {
-      const stateTimeline = (character.stateTimeline as any[]) || [];
+      const stateTimeline = (character.stateTimeline || []) as unknown[];
       // 如果时间线中没有铺垫，变化可能过于突然
       if (stateTimeline.length < 3 && proposedChange.traitChange) {
         issues.push({
@@ -514,13 +515,13 @@ export class CharacterConsistencyService {
     // 4. 根据当前状态生成约束
     if (currentState) {
       constraints.currentStateConstraints =
-        this.deriveStateConstraints(currentState);
+        this.deriveStateConstraints(currentState as unknown as Record<string, unknown>);
     }
 
     // 5. 根据关系生成约束
     if (currentState && chapterContext?.involvedCharacters) {
       constraints.relationshipConstraints = this.deriveRelationshipConstraints(
-        currentState,
+        currentState as unknown as Record<string, unknown>,
         chapterContext.involvedCharacters,
       );
     }
@@ -598,32 +599,31 @@ export class CharacterConsistencyService {
    * 从数据库角色构建 CharacterState
    */
   private buildCharacterState(character: WritingCharacter): CharacterState {
-    const currentState = (character.currentState as any) || {};
-    const personality = (character.personality as any) || {};
-    const stateTimeline = (character.stateTimeline as any[]) || [];
+    const currentState = (character.currentState || {}) as Record<string, unknown>;
+    const personality = (character.personality || {}) as Record<string, unknown>;
+    const stateTimeline = (character.stateTimeline || []) as unknown[];
 
     return {
       characterId: character.id,
       name: character.name,
-      physicalState: currentState.physicalState || {
-        health: "healthy",
+      physicalState: (currentState.physicalState as CharacterState["physicalState"]) || {
+        health: "healthy" as const,
         injuries: [],
         location: undefined,
         condition: undefined,
       },
-      emotionalState: currentState.emotionalState || {
+      emotionalState: (currentState.emotionalState as CharacterState["emotionalState"]) || {
         mood: "平静",
         moodHistory: [],
       },
-      relationships: currentState.relationships || {},
-      knownSecrets: currentState.knownSecrets || [],
-      knownEvents: currentState.knownEvents || [],
-      beliefs: currentState.beliefs || [],
-      hiddenSecrets: personality.hiddenSecrets || [],
-      goals: currentState.goals || [],
+      relationships: (currentState.relationships as CharacterState["relationships"]) || {},
+      knownSecrets: (currentState.knownSecrets as string[]) || [],
+      knownEvents: (currentState.knownEvents as string[]) || [],
+      beliefs: (currentState.beliefs as string[]) || [],
+      hiddenSecrets: (personality.hiddenSecrets as string[]) || [],
+      goals: (currentState.goals as CharacterState["goals"]) || [],
       stateTimeline: stateTimeline as CharacterStateSnapshot[],
-      stateTransitions: (currentState.stateTransitions ||
-        []) as CharacterStateTransition[],
+      stateTransitions: ((currentState.stateTransitions || []) as CharacterStateTransition[]),
     };
   }
 
@@ -855,12 +855,13 @@ export class CharacterConsistencyService {
   /**
    * 从当前状态推导约束
    */
-  private deriveStateConstraints(currentState: any): string[] {
+  private deriveStateConstraints(currentState: Record<string, unknown>): string[] {
     const constraints: string[] = [];
 
-    if (currentState.physicalState) {
-      const health = currentState.physicalState.health;
-      const location = currentState.physicalState.location;
+    const physicalState = currentState.physicalState as CharacterState["physicalState"] | undefined;
+    if (physicalState) {
+      const health = physicalState.health;
+      const location = physicalState.location;
 
       if (health === "injured") {
         constraints.push("受伤状态，行动受限");
@@ -876,8 +877,9 @@ export class CharacterConsistencyService {
       }
     }
 
-    if (currentState.emotionalState) {
-      const mood = currentState.emotionalState.mood;
+    const emotionalState = currentState.emotionalState as CharacterState["emotionalState"] | undefined;
+    if (emotionalState) {
+      const mood = emotionalState.mood;
       if (mood) {
         constraints.push(`当前情绪：${mood}`);
       }
@@ -890,11 +892,11 @@ export class CharacterConsistencyService {
    * 从关系推导约束
    */
   private deriveRelationshipConstraints(
-    currentState: any,
+    currentState: Record<string, unknown>,
     involvedCharacters: string[],
   ): string[] {
     const constraints: string[] = [];
-    const relationships = currentState.relationships || {};
+    const relationships = (currentState.relationships || {}) as CharacterState["relationships"];
 
     for (const charName of involvedCharacters) {
       const rel = relationships[charName];

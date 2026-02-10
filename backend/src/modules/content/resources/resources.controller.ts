@@ -18,7 +18,7 @@ import {
   Req,
   BadRequestException,
 } from "@nestjs/common";
-import { SkipThrottle } from "@nestjs/throttler";
+import { SkipThrottle, Throttle } from "@nestjs/throttler";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
 import * as path from "path";
@@ -303,13 +303,12 @@ export class ResourcesController {
    *
    * 实时从网页提取og:image等缩略图
    * 注意：此路由必须在 @Get(':id') 之前
-   * 跳过速率限制，因为前端会批量请求缩略图
    *
    * 新增缓存机制：
    * - 如果提供 resourceId，成功提取后自动保存到数据库
    * - 后续访问直接使用数据库中的缓存值
    */
-  @SkipThrottle()
+  @Throttle({ default: { limit: 100, ttl: 60000 } })
   @Get("thumbnail/extract")
   async extractThumbnail(
     @Query("url") url: string,
@@ -947,9 +946,7 @@ export class ResourcesController {
 
     // Check file extension
     const fileExt = path.extname(file.originalname).toLowerCase();
-    const isValidExt = restrictions.extensions.some(
-      (ext) => ext === fileExt || fileExt.endsWith(ext),
-    );
+    const isValidExt = restrictions.extensions.includes(fileExt);
 
     if (!isValidExt) {
       throw new HttpException(

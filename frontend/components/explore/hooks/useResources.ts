@@ -63,14 +63,14 @@ export function useResources({
         const ytVideosArray = Array.isArray(ytResponseData)
           ? ytResponseData
           : ytResponseData?.data || [];
-        const youtubeVideos = ytVideosArray.map((video: any) => ({
-          id: video.id,
-          type: 'YOUTUBE',
-          title: video.title,
+        const youtubeVideos = ytVideosArray.map((video: Record<string, unknown>) => ({
+          id: video.id as string,
+          type: 'YOUTUBE' as const,
+          title: video.title as string,
           abstract: null,
-          sourceUrl: video.url,
-          publishedAt: video.createdAt,
-          videoId: video.videoId,
+          sourceUrl: video.url as string,
+          publishedAt: video.createdAt as string,
+          videoId: video.videoId as string,
         }));
 
         const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=${PAGE_SIZE}&skip=${currentPage * PAGE_SIZE}`;
@@ -90,9 +90,9 @@ export function useResources({
         const seenVideoIds = new Set<string>();
         const allVideos: Resource[] = [];
 
-        const getVideoId = (video: any): string | null => {
-          if (video.videoId) return video.videoId;
-          if (video.sourceUrl) {
+        const getVideoId = (video: Record<string, unknown>): string | null => {
+          if (video.videoId) return video.videoId as string;
+          if (video.sourceUrl && typeof video.sourceUrl === 'string') {
             const match = video.sourceUrl.match(
               /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/
             );

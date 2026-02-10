@@ -9,7 +9,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { ExportFormat, ExportTemplateCategory } from "@prisma/client";
+import { ExportFormat, ExportTemplateCategory, Prisma } from "@prisma/client";
 import {
   ThemeConfig,
   LayoutConfig,
@@ -22,6 +22,9 @@ import {
   TemplateQueryDto,
   TemplateResponse,
 } from "../types/export-options";
+
+// Re-export type from export-options
+type ExportSourceType = "DOCUMENT" | "RESEARCH" | "REPORT" | "RAW" | "MISSION";
 
 @Injectable()
 export class TemplateManagerService {
@@ -36,7 +39,7 @@ export class TemplateManagerService {
     userId: string,
     query: TemplateQueryDto,
   ): Promise<TemplateResponse[]> {
-    const where: any = {
+    const where: Record<string, unknown> = {
       OR: [
         { userId }, // 用户自己的模板
         { isBuiltIn: true }, // 内置模板
@@ -59,7 +62,7 @@ export class TemplateManagerService {
     }
 
     // 包含公开模板
-    if (query.includePublic) {
+    if (query.includePublic && Array.isArray(where.OR)) {
       where.OR.push({ isPublic: true });
     }
 
@@ -105,7 +108,7 @@ export class TemplateManagerService {
     category: ExportTemplateCategory,
     format?: ExportFormat,
   ): Promise<TemplateResponse | null> {
-    const where: any = {
+    const where: Record<string, unknown> = {
       category,
       isDefault: true,
     };
@@ -150,9 +153,9 @@ export class TemplateManagerService {
         name: dto.name,
         description: dto.description,
         category: dto.category,
-        themeConfig: dto.themeConfig as any,
-        layoutConfig: dto.layoutConfig as any,
-        styleConfig: dto.styleConfig as any,
+        themeConfig: dto.themeConfig as unknown as Prisma.InputJsonValue,
+        layoutConfig: dto.layoutConfig as unknown as Prisma.InputJsonValue,
+        styleConfig: dto.styleConfig as unknown as Prisma.InputJsonValue,
         supportedFormats: dto.supportedFormats,
         supportedSources: dto.supportedSources,
         isPublic: dto.isPublic ?? false,
@@ -197,9 +200,9 @@ export class TemplateManagerService {
       data: {
         name: dto.name,
         description: dto.description,
-        themeConfig: dto.themeConfig as any,
-        layoutConfig: dto.layoutConfig as any,
-        styleConfig: dto.styleConfig as any,
+        themeConfig: dto.themeConfig as unknown as Prisma.InputJsonValue,
+        layoutConfig: dto.layoutConfig as unknown as Prisma.InputJsonValue,
+        styleConfig: dto.styleConfig as unknown as Prisma.InputJsonValue,
         supportedFormats: dto.supportedFormats,
         supportedSources: dto.supportedSources,
         isPublic: dto.isPublic,
@@ -313,23 +316,23 @@ export class TemplateManagerService {
   /**
    * 格式化模板响应
    */
-  private formatTemplate(template: any): TemplateResponse {
+  private formatTemplate(template: Record<string, unknown>): TemplateResponse {
     return {
-      id: template.id,
-      name: template.name,
-      description: template.description,
-      category: template.category,
+      id: template.id as string,
+      name: template.name as string,
+      description: template.description as string | undefined,
+      category: template.category as ExportTemplateCategory,
       themeConfig: template.themeConfig as ThemeConfig,
       layoutConfig: template.layoutConfig as LayoutConfig,
-      supportedFormats: template.supportedFormats,
-      supportedSources: template.supportedSources,
-      isBuiltIn: template.isBuiltIn,
-      isDefault: template.isDefault,
-      isPublic: template.isPublic,
-      previewImage: template.previewImage,
-      version: template.version,
-      createdAt: template.createdAt,
-      updatedAt: template.updatedAt,
+      supportedFormats: template.supportedFormats as ExportFormat[],
+      supportedSources: template.supportedSources as ExportSourceType[],
+      isBuiltIn: template.isBuiltIn as boolean,
+      isDefault: template.isDefault as boolean,
+      isPublic: template.isPublic as boolean,
+      previewImage: template.previewImage as string | undefined,
+      version: template.version as number,
+      createdAt: template.createdAt as Date,
+      updatedAt: template.updatedAt as Date,
     };
   }
 
@@ -346,9 +349,12 @@ export class TemplateManagerService {
           source[key] !== null &&
           !Array.isArray(source[key])
         ) {
-          output[key] = this.mergeDeep(output[key] as any, source[key] as any);
+          (output as Record<string, unknown>)[key] = this.mergeDeep(
+            output[key] as unknown as T,
+            source[key] as Partial<T>,
+          );
         } else {
-          (output as any)[key] = source[key];
+          (output as Record<string, unknown>)[key] = source[key];
         }
       }
     }

@@ -51,7 +51,7 @@ export class ContextBuilderService {
     }
   }
 
-  async buildWritingContext(chapterId: string, bibleSnapshot?: any) {
+  async buildWritingContext(chapterId: string, bibleSnapshot?: Record<string, unknown>) {
     const chapter = await this.prisma.writingChapter.findUnique({
       where: { id: chapterId },
       include: {
@@ -245,35 +245,39 @@ export class ContextBuilderService {
     return keyContexts;
   }
 
-  formatWriterPrompt(context: any): string {
+  formatWriterPrompt(context: Record<string, unknown>): string {
     const sections = [];
 
+    const chapter = context.chapter as Record<string, unknown>;
     sections.push(
-      `## 章节任务\n标题：${context.chapter.title}\n大纲：${context.chapter.outline || "无"}`,
+      `## 章节任务\n标题：${chapter.title}\n大纲：${chapter.outline || "无"}`,
     );
 
-    if (context.characters?.length > 0) {
+    const characters = context.characters as Array<Record<string, unknown>> | undefined;
+    if (characters && characters.length > 0) {
       sections.push(
-        `## 本章涉及角色\n${this.formatCharacters(context.characters)}`,
+        `## 本章涉及角色\n${this.formatCharacters(characters)}`,
       );
     }
 
-    if (context.worldSettings?.length > 0) {
+    const worldSettings = context.worldSettings as Array<Record<string, unknown>> | undefined;
+    if (worldSettings && worldSettings.length > 0) {
       sections.push(
-        `## 场景设定\n${this.formatWorldSettings(context.worldSettings)}`,
+        `## 场景设定\n${this.formatWorldSettings(worldSettings)}`,
       );
     }
 
-    if (context.previousContext?.length > 0) {
+    const previousContext = context.previousContext as Array<Record<string, unknown>> | undefined;
+    if (previousContext && previousContext.length > 0) {
       sections.push(
-        `## 前情提要\n${this.formatPreviousContext(context.previousContext)}`,
+        `## 前情提要\n${this.formatPreviousContext(previousContext)}`,
       );
     }
 
     return sections.join("\n\n");
   }
 
-  private formatCharacters(characters: any[]): string {
+  private formatCharacters(characters: Array<Record<string, unknown>>): string {
     return characters
       .map(
         (c) =>
@@ -282,13 +286,13 @@ export class ContextBuilderService {
       .join("\n\n");
   }
 
-  private formatWorldSettings(settings: any[]): string {
+  private formatWorldSettings(settings: Array<Record<string, unknown>>): string {
     return settings
       .map((s) => `### ${s.name} (${s.category})\n${s.description}`)
       .join("\n\n");
   }
 
-  private formatPreviousContext(chapters: any[]): string {
+  private formatPreviousContext(chapters: Array<Record<string, unknown>>): string {
     // 按上下文类型分组格式化
     const recent = chapters.filter((ch) => ch.contextType === "recent");
     const medium = chapters.filter((ch) => ch.contextType === "medium");

@@ -173,8 +173,9 @@ export class GithubService {
       await this.mongodb.findRawDataByExternalIdAcrossAllSources(repoFullName);
 
     if (crossSourceDuplicate) {
+      const source = (crossSourceDuplicate as { source?: string }).source;
       this.logger.debug(
-        `Repo already exists from another source: ${repoFullName} (source: ${crossSourceDuplicate.source})`,
+        `Repo already exists from another source: ${repoFullName} (source: ${source})`,
       );
       return;
     }
@@ -188,8 +189,9 @@ export class GithubService {
         await this.mongodb.findRawDataByUrlAcrossAllSources(normalizedUrl);
 
       if (urlDuplicate) {
+        const source = (urlDuplicate as { source?: string }).source;
         this.logger.debug(
-          `Repo already exists with same URL: ${normalizedUrl} (source: ${urlDuplicate.source})`,
+          `Repo already exists with same URL: ${normalizedUrl} (source: ${source})`,
         );
         return;
       }
@@ -205,14 +207,18 @@ export class GithubService {
         await this.mongodb.findRawDataByTitleAcrossAllSources(titleText);
 
       for (const similar of similarTitles) {
-        const similarTitle =
-          similar.data?.name && similar.data?.description
-            ? `${similar.data.name} ${similar.data.description}`
-            : similar.data?.title || "";
+        const similarData = (similar as { data?: { name?: unknown; description?: unknown; title?: unknown }; source?: string });
+        const similarName = typeof similarData.data?.name === 'string' ? similarData.data.name : '';
+        const similarDescription = typeof similarData.data?.description === 'string' ? similarData.data.description : '';
+        const similarTitleStr = typeof similarData.data?.title === 'string' ? similarData.data.title : '';
+
+        const similarTitle = similarName && similarDescription
+          ? `${similarName} ${similarDescription}`
+          : similarTitleStr;
 
         if (this.dedup.areTitlesSimilar(titleText, similarTitle, 0.9)) {
           this.logger.debug(
-            `Repo already exists with similar title/description (source: ${similar.source}, similarity threshold: 0.9)`,
+            `Repo already exists with similar title/description (source: ${similarData.source}, similarity threshold: 0.9)`,
           );
           return;
         }
@@ -257,9 +263,10 @@ export class GithubService {
 
     // 3.2 验证引用同步成功
     const linkedRawData = await this.mongodb.findRawDataById(rawDataId);
-    if (linkedRawData?.resourceId !== resource.id) {
+    const linkedResourceId = (linkedRawData as { resourceId?: string })?.resourceId;
+    if (linkedResourceId !== resource.id) {
       this.logger.error(
-        `Reference sync failed for repo ${repoFullName}: MongoDB resourceId=${linkedRawData?.resourceId}, expected ${resource.id}`,
+        `Reference sync failed for repo ${repoFullName}: MongoDB resourceId=${linkedResourceId}, expected ${resource.id}`,
       );
       throw new Error(
         `Failed to establish bi-directional reference for resource ${resource.id}`,

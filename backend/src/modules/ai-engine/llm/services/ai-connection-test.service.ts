@@ -252,13 +252,17 @@ export class AiConnectionTestService {
                 message: `Imagen API responded successfully. Response keys: ${Object.keys(response.data || {}).join(", ")}`,
                 latency,
               };
-            } catch (testError: any) {
+            } catch (testError: unknown) {
               const latency = Date.now() - startTime;
+              const err = testError as Record<string, unknown>;
+              const response = err.response as Record<string, unknown> | undefined;
+              const data = response?.data as Record<string, unknown> | undefined;
+              const error = data?.error as Record<string, unknown> | undefined;
               const errorMsg =
-                testError.response?.data?.error?.message ||
-                testError.message ||
+                (error?.message as string) ||
+                (err.message as string) ||
                 "Unknown error";
-              const errorCode = testError.response?.status || "N/A";
+              const errorCode = (response?.status as number) || "N/A";
               return {
                 success: false,
                 message: `Imagen test failed (${errorCode}): ${errorMsg}`,
@@ -381,18 +385,20 @@ export class AiConnectionTestService {
         message: `Connection successful! Response: "${content.substring(0, 100)}${content.length > 100 ? "..." : ""}"`,
         latency,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       const latency = Date.now() - startTime;
       let errorMessage = "Unknown error";
 
-      if (error.response) {
-        const status = error.response.status;
-        const data = error.response.data;
-        errorMessage = `API Error (${status}): ${data?.error?.message || data?.message || JSON.stringify(data)}`;
-      } else if (error.code === "ECONNABORTED") {
+      const err = error as Record<string, unknown>;
+      if (err.response) {
+        const response = err.response as Record<string, unknown>;
+        const status = response.status;
+        const data = response.data as Record<string, unknown> | undefined;
+        errorMessage = `API Error (${status}): ${(data?.error as Record<string, unknown>)?.message || data?.message || JSON.stringify(data)}`;
+      } else if (err.code === "ECONNABORTED") {
         errorMessage = "Connection timeout";
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else if (err.message) {
+        errorMessage = err.message as string;
       }
 
       this.logger.error(`Model connection test failed: ${errorMessage}`);
@@ -551,18 +557,20 @@ export class AiConnectionTestService {
         message: `Embedding API responded successfully`,
         latency,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       const latency = Date.now() - startTime;
       let errorMessage = "Unknown error";
 
-      if (error.response) {
-        const status = error.response.status;
-        const data = error.response.data;
-        errorMessage = `API Error (${status}): ${data?.error?.message || data?.message || JSON.stringify(data)}`;
-      } else if (error.code === "ECONNABORTED") {
+      const err = error as Record<string, unknown>;
+      if (err.response) {
+        const response = err.response as Record<string, unknown>;
+        const status = response.status;
+        const data = response.data as Record<string, unknown> | undefined;
+        errorMessage = `API Error (${status}): ${(data?.error as Record<string, unknown>)?.message || data?.message || JSON.stringify(data)}`;
+      } else if (err.code === "ECONNABORTED") {
         errorMessage = "Connection timeout";
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else if (err.message) {
+        errorMessage = err.message as string;
       }
 
       this.logger.error(`Embedding model test failed: ${errorMessage}`);
@@ -640,18 +648,20 @@ export class AiConnectionTestService {
         message: `Rerank API responded successfully`,
         latency,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       const latency = Date.now() - startTime;
       let errorMessage = "Unknown error";
 
-      if (error.response) {
-        const status = error.response.status;
-        const data = error.response.data;
-        errorMessage = `API Error (${status}): ${data?.error?.message || data?.message || JSON.stringify(data)}`;
-      } else if (error.code === "ECONNABORTED") {
+      const err = error as Record<string, unknown>;
+      if (err.response) {
+        const response = err.response as Record<string, unknown>;
+        const status = response.status;
+        const data = response.data as Record<string, unknown> | undefined;
+        errorMessage = `API Error (${status}): ${(data?.error as Record<string, unknown>)?.message || data?.message || JSON.stringify(data)}`;
+      } else if (err.code === "ECONNABORTED") {
         errorMessage = "Connection timeout";
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else if (err.message) {
+        errorMessage = err.message as string;
       }
 
       this.logger.error(`Rerank model test failed: ${errorMessage}`);
@@ -693,9 +703,10 @@ export class AiConnectionTestService {
         message: `TTS/Audio model configured. This model outputs audio instead of text. API key is set.`,
         latency,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       const latency = Date.now() - startTime;
-      const errorMessage = error.message || "Unknown error";
+      const err = error as Record<string, unknown>;
+      const errorMessage = (err.message as string) || "Unknown error";
 
       this.logger.error(`TTS model test failed: ${errorMessage}`);
 

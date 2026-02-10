@@ -476,22 +476,22 @@ export class DataSourceSeederService implements OnModuleInit {
           let result: "created" | "skipped" | "invalid";
           switch (source.type) {
             case "youtube":
-              result = await this.seedYouTubeChannel(source as any);
+              result = await this.seedYouTubeChannel(source as unknown as typeof this.YOUTUBE_CHANNELS[0]);
               break;
             case "blog":
-              result = await this.seedBlog(source as any);
+              result = await this.seedBlog(source as unknown as typeof this.TECH_BLOGS[0]);
               break;
             case "report":
-              result = await this.seedReport(source as any);
+              result = await this.seedReport(source as unknown as typeof this.REPORT_SOURCES[0]);
               break;
             case "paper":
-              result = await this.seedPaper(source as any);
+              result = await this.seedPaper(source as unknown as typeof this.PAPER_SOURCES[0]);
               break;
             case "news":
-              result = await this.seedNews(source as any);
+              result = await this.seedNews(source as unknown as typeof this.NEWS_SOURCES[0]);
               break;
             case "policy":
-              result = await this.seedPolicy(source as any);
+              result = await this.seedPolicy(source as unknown as typeof this.POLICY_SOURCES[0]);
               break;
             default:
               result = "invalid";

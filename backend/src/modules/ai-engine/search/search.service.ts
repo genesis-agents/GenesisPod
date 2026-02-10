@@ -352,8 +352,9 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   /**
    * 判断错误是否需要触发降级
    */
-  private shouldFailover(error: any): boolean {
-    const statusCode = error.response?.status;
+  private shouldFailover(error: unknown): boolean {
+    const err = error as { response?: { status?: number } };
+    const statusCode = err.response?.status;
     // 网络超时、连接失败、或特定状态码都应该降级
     if (!statusCode) return true; // 网络错误
     return FAILOVER_STATUS_CODES.includes(statusCode);
@@ -386,7 +387,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log(`[Search] Failover chain: ${failoverChain.join(" → ")}`);
 
-    let lastError: any = null;
+    let lastError: unknown = null;
 
     for (const provider of failoverChain) {
       // 获取当前 Provider 要使用的 Key
@@ -414,14 +415,15 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
           `[Search] ${provider} returned unsuccessful: ${result.error}`,
         );
         lastError = new Error(result.error);
-      } catch (error: any) {
+      } catch (error: unknown) {
         lastError = error;
         // ★ 使用 undefined 而非 0 来区分"无响应"和"有响应但状态码异常"
-        const statusCode: number | undefined = error.response?.status;
+        const err = error as { response?: { status?: number; data?: { message?: string; error?: string } }; message?: string };
+        const statusCode: number | undefined = err.response?.status;
         const errorMessage =
-          error.response?.data?.message ||
-          error.response?.data?.error ||
-          error.message;
+          err.response?.data?.message ||
+          err.response?.data?.error ||
+          err.message;
 
         this.logger.warn(
           `[Search] ${provider} failed (${statusCode !== undefined ? `HTTP ${statusCode}` : "network error"}): ${errorMessage}`,
@@ -453,9 +455,10 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     }
 
     // 所有 Provider 都失败了
+    const lastErr = lastError as { response?: { data?: { message?: string } }; message?: string } | undefined;
     const finalError =
-      lastError?.response?.data?.message ||
-      lastError?.message ||
+      lastErr?.response?.data?.message ||
+      lastErr?.message ||
       "All search providers failed";
     this.logger.error(
       `[Search] All providers exhausted. Final error: ${finalError}`,
@@ -746,7 +749,13 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     );
 
     const rawResults: SearchResult[] = (response.data.results || []).map(
-      (r: any) => ({
+      (r: {
+        title: string;
+        url: string;
+        content: string;
+        score?: number;
+        published_date?: string;
+      }) => ({
         title: r.title,
         url: r.url,
         content: r.content,
@@ -1095,7 +1104,12 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     );
 
     const results: SearchResult[] = (response.data.organic || []).map(
-      (r: any) => ({
+      (r: {
+        title: string;
+        link: string;
+        snippet: string;
+        date?: string;
+      }) => ({
         title: r.title,
         url: r.link,
         content: r.snippet,
@@ -1183,12 +1197,13 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         `DuckDuckGo returned ${searchResults.results.length} results, ranked to ${rankedResults.length}`,
       );
       return { success: true, results: rankedResults };
-    } catch (error: any) {
-      this.logger.error(`DuckDuckGo search failed: ${error.message}`);
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      this.logger.error(`DuckDuckGo search failed: ${err.message || String(error)}`);
       return {
         success: false,
         results: [],
-        error: `DuckDuckGo search failed: ${error.message}`,
+        error: `DuckDuckGo search failed: ${err.message || String(error)}`,
       };
     }
   }
@@ -1302,10 +1317,11 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       );
 
       return { success: true, title, content };
-    } catch (error: any) {
-      const errorMessage = error.response?.status
-        ? `HTTP ${error.response.status}: ${error.response.statusText}`
-        : error.message;
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number; statusText?: string }; message?: string };
+      const errorMessage = err.response?.status
+        ? `HTTP ${err.response.status}: ${err.response.statusText || ''}`
+        : err.message || String(error);
       // ★ 降级为 warn：URL 获取失败不是致命错误，研究会继续处理其他结果
       this.logger.warn(`Failed to fetch URL ${url}: ${errorMessage}`);
       return { success: false, error: errorMessage };

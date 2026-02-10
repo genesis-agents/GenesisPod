@@ -15,6 +15,10 @@ import { CommentsService } from "./comments.service";
 import { CreateCommentDto, UpdateCommentDto } from "./dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 
+interface AuthenticatedRequest {
+  user: { id: string; email: string };
+}
+
 /**
  * 评论控制器
  *
@@ -39,7 +43,7 @@ export class CommentsController {
   @Post()
   @HttpCode(201)
   @UseGuards(JwtAuthGuard)
-  async createComment(@Request() req: any, @Body() dto: CreateCommentDto) {
+  async createComment(@Request() req: AuthenticatedRequest, @Body() dto: CreateCommentDto) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -87,7 +91,7 @@ export class CommentsController {
   @UseGuards(JwtAuthGuard)
   async updateComment(
     @Param("id") id: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body() dto: UpdateCommentDto,
   ) {
     const userId = req.user?.id;
@@ -102,7 +106,7 @@ export class CommentsController {
    */
   @Delete(":id")
   @UseGuards(JwtAuthGuard)
-  async deleteComment(@Param("id") id: string, @Request() req: any) {
+  async deleteComment(@Param("id") id: string, @Request() req: AuthenticatedRequest) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");

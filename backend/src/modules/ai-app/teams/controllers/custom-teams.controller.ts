@@ -31,6 +31,10 @@ import {
   UpdateCustomTeamDto,
 } from "../dto/create-custom-team.dto";
 
+interface AuthenticatedRequest {
+  user: { id: string; email: string };
+}
+
 @ApiTags("AI Teams - Custom Teams")
 @ApiBearerAuth()
 @Controller("ai-teams/custom-teams")
@@ -95,7 +99,7 @@ export class CustomTeamsController {
   @ApiResponse({ status: 201, description: "团队创建成功" })
   @ApiResponse({ status: 400, description: "请求参数错误" })
   async createCustomTeam(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body() dto: CreateCustomTeamDto,
   ) {
     this.logger.log(
@@ -113,7 +117,7 @@ export class CustomTeamsController {
   @ApiResponse({ status: 400, description: "请求参数错误或不可修改" })
   @ApiResponse({ status: 404, description: "团队不存在" })
   async updateCustomTeam(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param("teamId") teamId: string,
     @Body() dto: UpdateCustomTeamDto,
   ) {
@@ -131,7 +135,7 @@ export class CustomTeamsController {
   @ApiResponse({ status: 200, description: "团队删除成功" })
   @ApiResponse({ status: 400, description: "不可删除预定义团队" })
   @ApiResponse({ status: 404, description: "团队不存在" })
-  async deleteCustomTeam(@Request() req: any, @Param("teamId") teamId: string) {
+  async deleteCustomTeam(@Request() req: AuthenticatedRequest, @Param("teamId") teamId: string) {
     this.logger.log(
       `[deleteCustomTeam] User ${req.user.id} deleting team: ${teamId}`,
     );

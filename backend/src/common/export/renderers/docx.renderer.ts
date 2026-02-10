@@ -51,7 +51,7 @@ export class DocxRenderer implements ExportRenderer {
   ): Promise<Buffer> {
     this.logger.debug("Rendering DOCX...");
 
-    const children: any[] = [];
+    const children: Array<Paragraph | Table> = [];
 
     // 封面
     if (options.includeCover !== false) {
@@ -84,7 +84,7 @@ export class DocxRenderer implements ExportRenderer {
     // 创建文档
     const doc = new Document({
       styles: this.generateStyles(theme),
-      numbering: this.generateNumbering(),
+      numbering: this.generateNumbering() as never,
       sections: [
         {
           properties: {
@@ -307,7 +307,7 @@ export class DocxRenderer implements ExportRenderer {
   /**
    * 渲染单个内容节
    */
-  private renderSection(section: ContentSection, theme: ThemeConfig): any {
+  private renderSection(section: ContentSection, theme: ThemeConfig): Paragraph | Paragraph[] | Table {
     switch (section.type) {
       case "heading":
         return this.renderHeading(section, theme);
@@ -403,7 +403,11 @@ export class DocxRenderer implements ExportRenderer {
   private renderList(section: ContentSection, theme: ThemeConfig): Paragraph[] {
     const paragraphs: Paragraph[] = [];
 
-    const renderItems = (items: any[], level: number) => {
+    interface ListItemType {
+      content: string;
+      children?: ListItemType[];
+    }
+    const renderItems = (items: ListItemType[], level: number) => {
       for (const item of items) {
         paragraphs.push(
           new Paragraph({
@@ -696,7 +700,14 @@ export class DocxRenderer implements ExportRenderer {
   /**
    * 生成样式
    */
-  private generateStyles(theme: ThemeConfig): any {
+  private generateStyles(theme: ThemeConfig): {
+    paragraphStyles: Array<{
+      id: string;
+      name: string;
+      run: { size: number; font: string; color: string };
+      paragraph: { spacing: { line: number } };
+    }>;
+  } {
     return {
       paragraphStyles: [
         {
@@ -718,7 +729,7 @@ export class DocxRenderer implements ExportRenderer {
   /**
    * 生成编号配置
    */
-  private generateNumbering(): any {
+  private generateNumbering(): unknown {
     return {
       config: [
         {

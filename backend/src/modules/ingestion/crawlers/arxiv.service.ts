@@ -1,10 +1,104 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { MongoDBService } from "../../../common/mongodb/mongodb.service.postgres";
 import { DeduplicationService } from "./deduplication.service";
 import { getErrorStack } from "../../../common/utils/error.utils";
 import axios from "axios";
 import * as xml2js from "xml2js";
+
+interface ArxivAuthor {
+  name: string;
+  "arxiv:affiliation"?: {
+    $?: {
+      "xmlns:arxiv"?: string;
+    };
+  };
+}
+
+interface ArxivCategory {
+  $: {
+    term: string;
+    scheme: string;
+  };
+}
+
+interface ArxivLink {
+  $: {
+    href: string;
+    rel: string;
+    type: string;
+    title?: string;
+  };
+}
+
+interface ArxivEntry {
+  id: string;
+  title: string;
+  summary: string;
+  author: ArxivAuthor | ArxivAuthor[];
+  published: string;
+  updated: string;
+  category?: ArxivCategory | ArxivCategory[];
+  link?: ArxivLink | ArxivLink[];
+  "arxiv:primary_category"?: {
+    $?: {
+      term?: string;
+    };
+  };
+  "arxiv:doi"?: {
+    $?: {
+      doi?: string;
+    };
+  };
+  "arxiv:comment"?: {
+    $?: {
+      "xmlns:arxiv"?: string;
+    };
+  };
+  "arxiv:journal_ref"?: {
+    $?: {
+      "xmlns:arxiv"?: string;
+    };
+  };
+}
+
+interface ParsedAuthor {
+  name: string;
+  affiliation: string | null;
+}
+
+interface ParsedCategory {
+  term: string;
+  scheme: string;
+}
+
+interface ParsedLink {
+  href: string;
+  rel: string;
+  type: string;
+  title?: string;
+}
+
+interface ArxivRawData {
+  externalId: string;
+  id: string;
+  title: string;
+  summary: string;
+  authors: ParsedAuthor[];
+  published: string;
+  updated: string;
+  categories: ParsedCategory[];
+  primaryCategory: string | null;
+  links: ParsedLink[];
+  pdfUrl: string | null;
+  abstractUrl: string;
+  doi: string | null;
+  comment: string | null;
+  journalRef: string | null;
+  _raw: ArxivEntry;
+  fetchedAt: string;
+}
 
 /**
  * arXiv 论文采集器
@@ -106,7 +200,7 @@ export class ArxivService {
   /**
    * 处理单个论文
    */
-  private async processPaper(entry: any): Promise<void> {
+  private async processPaper(entry: ArxivEntry): Promise<void> {
     // 提取 arXiv ID（用于去重）
     const arxivId = this.extractArxivId(entry.id);
 
@@ -131,8 +225,9 @@ export class ArxivService {
       await this.mongodb.findRawDataByExternalIdAcrossAllSources(arxivId);
 
     if (crossSourceDuplicate) {
+      const source = (crossSourceDuplicate as { source?: string }).source;
       this.logger.debug(
-        `Paper already exists from another source: ${arxivId} (source: ${crossSourceDuplicate.source})`,
+        `Paper already exists from another source: ${arxivId} (source: ${source})`,
       );
       return;
     }
@@ -147,8 +242,9 @@ export class ArxivService {
         await this.mongodb.findRawDataByUrlAcrossAllSources(normalizedUrl);
 
       if (urlDuplicate) {
+        const source = (urlDuplicate as { source?: string }).source;
         this.logger.debug(
-          `Paper already exists with same URL: ${normalizedUrl} (source: ${urlDuplicate.source})`,
+          `Paper already exists with same URL: ${normalizedUrl} (source: ${source})`,
         );
         return;
       }
@@ -159,9 +255,11 @@ export class ArxivService {
       await this.mongodb.findRawDataByTitleAcrossAllSources(title);
 
     for (const similar of similarTitles) {
-      if (this.dedup.areTitlesSimilar(title, similar.data?.title, 0.9)) {
+      const similarData = (similar as { data?: { title?: unknown }; source?: string });
+      const similarTitle = typeof similarData.data?.title === 'string' ? similarData.data.title : '';
+      if (this.dedup.areTitlesSimilar(title, similarTitle, 0.9)) {
         this.logger.debug(
-          `Paper already exists with similar title: "${similar.data?.title}" (source: ${similar.source}, similarity threshold: 0.9)`,
+          `Paper already exists with similar title: "${similarTitle}" (source: ${similarData.source}, similarity threshold: 0.9)`,
         );
         return;
       }
@@ -171,7 +269,7 @@ export class ArxivService {
     const rawData = this.parseRawData(entry, arxivId);
 
     // 1. 存储完整原始数据到 MongoDB
-    const rawDataId = await this.mongodb.insertRawData("arxiv", rawData);
+    const rawDataId = await this.mongodb.insertRawData("arxiv", rawData as unknown as Record<string, unknown>);
 
     this.logger.log(`Stored raw data in MongoDB: ${arxivId} -> ${rawDataId}`);
 
@@ -179,7 +277,7 @@ export class ArxivService {
     const resourceData = this.extractResourceData(rawData, rawDataId);
 
     const resource = await this.prisma.resource.create({
-      data: resourceData,
+      data: resourceData as Prisma.ResourceCreateInput,
     });
 
     this.logger.log(
@@ -192,9 +290,10 @@ export class ArxivService {
 
     // 3.2 验证引用同步成功
     const linkedRawData = await this.mongodb.findRawDataById(rawDataId);
-    if (linkedRawData?.resourceId !== resource.id) {
+    const linkedResourceId = (linkedRawData as { resourceId?: string })?.resourceId;
+    if (linkedResourceId !== resource.id) {
       this.logger.error(
-        `Reference sync failed for paper ${arxivId}: MongoDB resourceId=${linkedRawData?.resourceId}, expected ${resource.id}`,
+        `Reference sync failed for paper ${arxivId}: MongoDB resourceId=${linkedResourceId}, expected ${resource.id}`,
       );
       throw new Error(
         `Failed to establish bi-directional reference for resource ${resource.id}`,
@@ -220,7 +319,7 @@ export class ArxivService {
    *
    * ⚠️ 关键：存储所有字段，不仅仅是基本信息！
    */
-  private parseRawData(entry: any, arxivId: string): any {
+  private parseRawData(entry: ArxivEntry, arxivId: string): ArxivRawData {
     // 解析作者
     const authors = this.parseAuthors(entry.author);
 
@@ -277,7 +376,9 @@ export class ArxivService {
   /**
    * 解析作者列表（完整信息）
    */
-  private parseAuthors(authorData: any): any[] {
+  private parseAuthors(
+    authorData: ArxivAuthor | ArxivAuthor[] | undefined,
+  ): ParsedAuthor[] {
     if (!authorData) return [];
 
     const authors = Array.isArray(authorData) ? authorData : [authorData];
@@ -291,7 +392,9 @@ export class ArxivService {
   /**
    * 解析分类列表
    */
-  private parseCategories(categoryData: any): any[] {
+  private parseCategories(
+    categoryData: ArxivCategory | ArxivCategory[] | undefined,
+  ): ParsedCategory[] {
     if (!categoryData) return [];
 
     const categories = Array.isArray(categoryData)
@@ -307,7 +410,7 @@ export class ArxivService {
   /**
    * 解析链接列表
    */
-  private parseLinks(linkData: any): any[] {
+  private parseLinks(linkData: ArxivLink | ArxivLink[] | undefined): ParsedLink[] {
     if (!linkData) return [];
 
     const links = Array.isArray(linkData) ? linkData : [linkData];
@@ -326,7 +429,7 @@ export class ArxivService {
    * 2. 其次查找 title === "pdf" 的链接
    * 3. 最后从 abstract URL 构造 PDF URL
    */
-  private extractPdfUrl(links: any[], abstractUrl: string): string | null {
+  private extractPdfUrl(links: ParsedLink[], abstractUrl: string): string | null {
     // 策略 1: 查找 type 为 application/pdf 的链接
     let pdfLink = links.find((l) => l.type === "application/pdf");
     if (pdfLink?.href) {
@@ -356,7 +459,10 @@ export class ArxivService {
    *
    * ⚠️ 关键：建立 rawDataId 引用关系！
    */
-  private extractResourceData(rawData: any, rawDataId: string): any {
+  private extractResourceData(
+    rawData: ArxivRawData,
+    rawDataId: string,
+  ): Record<string, unknown> {
     return {
       type: "PAPER",
 
@@ -367,15 +473,15 @@ export class ArxivService {
       pdfUrl: rawData.pdfUrl,
 
       // 作者信息（JSON 格式）
-      authors: rawData.authors,
+      authors: rawData.authors as unknown as Prisma.InputJsonValue,
 
       // 发布时间
       publishedAt: new Date(rawData.published),
 
       // 分类
       primaryCategory: rawData.primaryCategory,
-      categories: rawData.categories.map((c: any) => c.term),
-      tags: rawData.categories.map((c: any) => c.term),
+      categories: rawData.categories.map((c) => c.term),
+      tags: rawData.categories.map((c) => c.term),
 
       // 元数据
       metadata: {
@@ -384,7 +490,7 @@ export class ArxivService {
         comment: rawData.comment,
         journalRef: rawData.journalRef,
         updated: rawData.updated,
-      },
+      } as Prisma.InputJsonValue,
 
       // ⚠️ 关键！MongoDB 原始数据引用
       rawDataId: rawDataId,

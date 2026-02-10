@@ -23,12 +23,18 @@ npm run type-check || {
 echo "✓ 类型检查通过"
 echo ""
 
-# 2. Lint 检查 (警告不阻塞)
-echo "🔍 [2/4] Lint 检查..."
-npm run lint 2>/dev/null || {
-    echo "⚠ Lint 有警告，继续执行"
-}
-echo "✓ Lint 检查完成"
+# 2. Lint 检查 (errors block, warnings pass)
+echo "[2/4] Lint 检查..."
+npm run lint 2>&1 | tee /tmp/lint-output.txt
+LINT_ERRORS=$(grep -c "error " /tmp/lint-output.txt 2>/dev/null || echo "0")
+if [ "$LINT_ERRORS" -gt 0 ]; then
+    echo ""
+    echo "Lint errors found! Fix before pushing."
+    echo "Run 'npm run lint' for details"
+    echo ""
+    exit 1
+fi
+echo "Lint 检查完成"
 echo ""
 
 # 3. 构建检查
@@ -46,8 +52,11 @@ echo ""
 # 4. 快速测试
 echo "🧪 [4/4] 快速测试..."
 npm run test:quick > /dev/null 2>&1 || {
-    echo "⚠ 部分测试失败，继续执行"
+    echo ""
+    echo "❌ 测试失败！push 已阻止"
     echo "💡 运行 'npm run test:quick' 查看详细"
+    echo ""
+    exit 1
 }
 echo "✓ 测试完成"
 echo ""

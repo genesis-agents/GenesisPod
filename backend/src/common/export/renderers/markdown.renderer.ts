@@ -9,7 +9,7 @@ import {
   MIME_TYPES,
   FILE_EXTENSIONS,
 } from "./renderer.interface";
-import { UnifiedContent, ContentSection } from "../types/unified-content";
+import { UnifiedContent, ContentSection, Reference } from "../types/unified-content";
 import { ThemeConfig, LayoutConfig } from "../types/theme-config";
 import { ExportOptions } from "../types/export-options";
 
@@ -143,7 +143,11 @@ export class MarkdownRenderer implements ExportRenderer {
   private renderList(section: ContentSection): string {
     const lines: string[] = [];
 
-    const renderItems = (items: any[], prefix: string, depth: number) => {
+    interface ListItemType {
+      content: string;
+      children?: ListItemType[];
+    }
+    const renderItems = (items: ListItemType[], prefix: string, depth: number) => {
       const marker = section.ordered ? `1.` : `-`;
       for (const item of items) {
         lines.push(`${"  ".repeat(depth)}${marker} ${item.content}`);
@@ -185,7 +189,7 @@ export class MarkdownRenderer implements ExportRenderer {
   /**
    * 生成参考文献
    */
-  private generateReferences(references: any[]): string {
+  private generateReferences(references: Reference[]): string {
     const lines = ["\n---\n", "## 参考文献\n"];
 
     for (const ref of references) {

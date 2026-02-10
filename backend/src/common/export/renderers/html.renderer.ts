@@ -698,7 +698,11 @@ export class HtmlRenderer implements ExportRenderer {
   private renderList(section: ContentSection): string {
     const tag = section.ordered ? "ol" : "ul";
 
-    const renderItems = (items: any[]): string => {
+    interface ListItemType {
+      content: string;
+      children?: ListItemType[];
+    }
+    const renderItems = (items: ListItemType[]): string => {
       return items
         .map((item) => {
           const children = item.children ? renderItems(item.children) : "";

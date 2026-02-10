@@ -167,7 +167,7 @@ export default function AgentManagementPage() {
           <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
             {error.message || 'Failed to load agent configurations'}
             <button
-              onClick={() => refreshAgents()}
+              onClick={() => { void refreshAgents(); }}
               className="ml-2 underline hover:no-underline"
             >
               Retry
@@ -227,7 +227,7 @@ export default function AgentManagementPage() {
                       </td>
                       <td className="px-4 py-3">
                         <button
-                          onClick={() => handleToggleEnabled(agent)}
+                          onClick={() => { void handleToggleEnabled(agent); }}
                           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
                             agent.enabled
                               ? 'bg-emerald-500/10 text-emerald-400'
@@ -249,7 +249,7 @@ export default function AgentManagementPage() {
                           </button>
                           {!agent.isBuiltIn && (
                             <button
-                              onClick={() => handleDelete(agent.id)}
+                              onClick={() => { void handleDelete(agent.id); }}
                               className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
                               title="Delete"
                             >
@@ -497,7 +497,7 @@ export default function AgentManagementPage() {
                   Cancel
                 </button>
                 <button
-                  onClick={editingAgent ? handleUpdate : handleCreate}
+                  onClick={() => { void (editingAgent ? handleUpdate() : handleCreate()); }}
                   className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
                 >
                   {editingAgent ? 'Save Changes' : 'Create Agent'}

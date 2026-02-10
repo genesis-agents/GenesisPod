@@ -115,7 +115,7 @@ export class DataIntegrityValidatorService {
    * 验证MongoDB中的数据
    */
   private async validateMongoDB() {
-    const rawDataCollection = this.mongodb.getRawDataCollection();
+    const rawDataCollection = this.mongodb.getRawDataCollection() as any;
 
     const totalRawData = await rawDataCollection.countDocuments({});
     const rawDataWithResourceId = await rawDataCollection.countDocuments({
@@ -135,7 +135,7 @@ export class DataIntegrityValidatorService {
    * 验证双向引用完整性
    */
   private async validateBidirectionalReferences() {
-    const rawDataCollection = this.mongodb.getRawDataCollection();
+    const rawDataCollection = this.mongodb.getRawDataCollection() as any;
 
     // 获取所有有rawDataId的Resource
     const resourcesWithRawDataId = await this.prisma.resource.findMany({
@@ -156,14 +156,15 @@ export class DataIntegrityValidatorService {
       if (!resource.rawDataId) continue;
 
       try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { ObjectId } = require("mongodb");
         const rawData = await rawDataCollection.findOne({
           _id: new ObjectId(resource.rawDataId),
-        });
+        }) as any;
 
         if (!rawData) {
           brokenReferences++;
-        } else if (rawData.resourceId !== resource.id) {
+        } else if ((rawData as any).resourceId !== resource.id) {
           // 不一致但可修复
           brokenReferences++;
         } else {
@@ -180,9 +181,9 @@ export class DataIntegrityValidatorService {
       .toArray();
 
     let orphanedRawData = 0;
-    for (const rawData of orphanedRawDataDocs) {
+    for (const rawData of orphanedRawDataDocs as any[]) {
       const resource = await this.prisma.resource.findUnique({
-        where: { id: rawData.resourceId },
+        where: { id: (rawData as any).resourceId },
       });
 
       if (!resource) {
@@ -201,9 +202,12 @@ export class DataIntegrityValidatorService {
    * 判断系统状态
    */
   private determineStatus(
-    pgStats: any,
-    mongoStats: any,
-    referenceStats: any,
+    pgStats: {
+      completenessPercentage: number;
+      papersWithoutRawDataId: number;
+    },
+    mongoStats: { rawDataWithoutResourceId: number },
+    referenceStats: { brokenReferences: number; orphanedRawData: number },
   ): "healthy" | "warning" | "critical" {
     // 健康检查条件
     const isPgHealthy = pgStats.completenessPercentage === 100;
@@ -228,9 +232,9 @@ export class DataIntegrityValidatorService {
    * 生成改进建议
    */
   private generateRecommendations(
-    pgStats: any,
-    mongoStats: any,
-    referenceStats: any,
+    pgStats: { papersWithoutRawDataId: number },
+    mongoStats: { rawDataWithoutResourceId: number },
+    referenceStats: { brokenReferences: number; orphanedRawData: number },
   ): string[] {
     const recommendations: string[] = [];
 

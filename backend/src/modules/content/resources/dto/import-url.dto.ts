@@ -32,5 +32,5 @@ export class ImportUrlResponseDto {
   message!: string;
 
   @ApiProperty({ description: "资源信息", required: false })
-  resource?: any;
+  resource?: Record<string, unknown>;
 }

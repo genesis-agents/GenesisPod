@@ -55,19 +55,29 @@ export class DeepResearchController {
         },
         error: (error) => {
           this.logger.error(`Research stream error: ${error}`);
-          const errorEvent = `event: error\ndata: ${JSON.stringify({ code: "STREAM_ERROR", message: error.message, recoverable: false })}\n\n`;
+          const errorEvent = `event: error\ndata: ${JSON.stringify({ code: "STREAM_ERROR", message: "An error occurred during research", recoverable: false })}\n\n`;
           res.write(errorEvent);
+          clearTimeout(timeout);
           res.end();
         },
         complete: () => {
           this.logger.log(`Research stream completed for project ${projectId}`);
+          clearTimeout(timeout);
           res.end();
         },
       });
 
+    // 设置 10 分钟超时
+    const timeout = setTimeout(() => {
+      this.logger.warn('Research stream timeout after 10 minutes');
+      subscription.unsubscribe();
+      res.end();
+    }, 10 * 60 * 1000);
+
     // 客户端断开连接时取消订阅
     res.on("close", () => {
       this.logger.log(`Client disconnected from research stream`);
+      clearTimeout(timeout);
       subscription.unsubscribe();
     });
   }
