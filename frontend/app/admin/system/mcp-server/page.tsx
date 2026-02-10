@@ -20,6 +20,10 @@ import {
   Eye,
   EyeOff,
   X,
+  Globe,
+  Power,
+  PowerOff,
+  Pencil,
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
@@ -27,6 +31,11 @@ import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
+import {
+  useAdminMCPExternal,
+  ExternalMCPServer,
+  MCPExternalTool,
+} from '@/hooks/domain/useAdminMCPExternal';
 
 // ==================== Types ====================
 
@@ -167,7 +176,7 @@ export default function MCPServerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'tools' | 'metrics' | 'sessions' | 'apiKeys'
+    'overview' | 'tools' | 'metrics' | 'sessions' | 'apiKeys' | 'external'
   >('overview');
 
   // API Keys state
@@ -187,6 +196,36 @@ export default function MCPServerPage() {
   const [copiedKey, setCopiedKey] = useState(false);
   const [revealedKeys, setRevealedKeys] = useState<Record<string, string>>({});
   const [revealingKey, setRevealingKey] = useState<string | null>(null);
+
+  // External MCP state
+  const {
+    servers: externalServers,
+    loading: externalLoading,
+    actionLoading: externalActionLoading,
+    refetch: refetchExternal,
+    addServer: addExternalServer,
+    updateServer: updateExternalServer,
+    removeServer: removeExternalServer,
+    connectServer: connectExternalServer,
+    disconnectServer: disconnectExternalServer,
+    listTools: listExternalTools,
+  } = useAdminMCPExternal();
+  const [showAddExternalModal, setShowAddExternalModal] = useState(false);
+  const [editingExternal, setEditingExternal] =
+    useState<ExternalMCPServer | null>(null);
+  const [externalForm, setExternalForm] = useState({
+    serverId: '',
+    name: '',
+    description: '',
+    transport: 'sse',
+    url: '',
+    enabled: true,
+    autoConnect: false,
+  });
+  const [viewingToolsServer, setViewingToolsServer] = useState<string | null>(
+    null
+  );
+  const [discoveredTools, setDiscoveredTools] = useState<MCPExternalTool[]>([]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -1037,7 +1076,488 @@ export default function MCPServerPage() {
     </>
   );
 
-  const tabs = ['overview', 'tools', 'metrics', 'sessions', 'apiKeys'] as const;
+  // ==================== External MCP Helpers ====================
+
+  function resetExternalForm() {
+    setExternalForm({
+      serverId: '',
+      name: '',
+      description: '',
+      transport: 'sse',
+      url: '',
+      enabled: true,
+      autoConnect: false,
+    });
+  }
+
+  function openAddExternalModal() {
+    resetExternalForm();
+    setEditingExternal(null);
+    setShowAddExternalModal(true);
+  }
+
+  function openEditExternalModal(server: ExternalMCPServer) {
+    setExternalForm({
+      serverId: server.serverId,
+      name: server.name,
+      description: server.description ?? '',
+      transport: server.transport,
+      url: server.url ?? '',
+      enabled: server.enabled,
+      autoConnect: server.autoConnect,
+    });
+    setEditingExternal(server);
+    setShowAddExternalModal(true);
+  }
+
+  function closeExternalModal() {
+    setShowAddExternalModal(false);
+    setEditingExternal(null);
+    resetExternalForm();
+  }
+
+  async function handleSaveExternalServer() {
+    if (
+      !externalForm.serverId.trim() ||
+      !externalForm.name.trim() ||
+      !externalForm.url.trim()
+    )
+      return;
+    try {
+      if (editingExternal) {
+        await updateExternalServer(editingExternal.id, {
+          name: externalForm.name,
+          description: externalForm.description || undefined,
+          transport: externalForm.transport,
+          url: externalForm.url,
+          enabled: externalForm.enabled,
+          autoConnect: externalForm.autoConnect,
+        });
+      } else {
+        await addExternalServer({
+          serverId: externalForm.serverId,
+          name: externalForm.name,
+          description: externalForm.description || undefined,
+          transport: externalForm.transport,
+          url: externalForm.url,
+          enabled: externalForm.enabled,
+          autoConnect: externalForm.autoConnect,
+        });
+      }
+      closeExternalModal();
+    } catch {
+      // Error handled by hook
+    }
+  }
+
+  async function handleDeleteExternalServer(server: ExternalMCPServer) {
+    if (!window.confirm(`Remove external MCP server "${server.name}"?`)) return;
+    await removeExternalServer(server.id);
+  }
+
+  async function handleViewExternalTools(server: ExternalMCPServer) {
+    if (viewingToolsServer === server.id) {
+      setViewingToolsServer(null);
+      setDiscoveredTools([]);
+      return;
+    }
+    try {
+      setViewingToolsServer(server.id);
+      const tools = await listExternalTools(server.id);
+      setDiscoveredTools(tools);
+    } catch {
+      setDiscoveredTools([]);
+    }
+  }
+
+  function getConnectionStatusBadge(
+    status: ExternalMCPServer['connectionStatus']['status']
+  ) {
+    switch (status) {
+      case 'connected':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+            {t('admin.mcpExternal.status.connected') || 'Connected'}
+          </span>
+        );
+      case 'error':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+            {t('admin.mcpExternal.status.error') || 'Error'}
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+            {t('admin.mcpExternal.status.disconnected') || 'Disconnected'}
+          </span>
+        );
+    }
+  }
+
+  const renderExternalTab = () => (
+    <>
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">
+            {t('admin.mcpExternal.title') || 'External MCP Servers'}
+          </h3>
+          <p className="text-sm text-gray-500">
+            {t('admin.mcpExternal.description') ||
+              'Connect to external MCP servers to extend available tools'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => void refetchExternal()}
+            className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <button
+            onClick={openAddExternalModal}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4" />
+            {t('admin.mcpExternal.addServer') || 'Add Server'}
+          </button>
+        </div>
+      </div>
+
+      {/* Server List */}
+      {externalLoading ? (
+        <div className="p-8 text-center text-gray-500">
+          {t('common.loading') || 'Loading...'}
+        </div>
+      ) : externalServers.length > 0 ? (
+        <div className="space-y-4">
+          {externalServers.map((server) => (
+            <div
+              key={server.id}
+              className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+            >
+              <div className="flex items-start justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-3">
+                    <Globe className="h-5 w-5 shrink-0 text-blue-500" />
+                    <h4 className="truncate text-base font-semibold text-gray-900">
+                      {server.name}
+                    </h4>
+                    {getConnectionStatusBadge(server.connectionStatus.status)}
+                    {!server.enabled && (
+                      <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500">
+                        {t('admin.mcpExternal.disabled') || 'Disabled'}
+                      </span>
+                    )}
+                  </div>
+                  {server.description && (
+                    <p className="mt-1 text-sm text-gray-500">
+                      {server.description}
+                    </p>
+                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-gray-400">
+                    <span>
+                      ID:{' '}
+                      <code className="rounded bg-gray-100 px-1 py-0.5 text-gray-600">
+                        {server.serverId}
+                      </code>
+                    </span>
+                    <span>
+                      Transport:{' '}
+                      <code className="rounded bg-gray-100 px-1 py-0.5 text-gray-600">
+                        {server.transport}
+                      </code>
+                    </span>
+                    {server.url && (
+                      <span className="truncate">
+                        URL:{' '}
+                        <code className="rounded bg-gray-100 px-1 py-0.5 text-gray-600">
+                          {server.url}
+                        </code>
+                      </span>
+                    )}
+                    {server.autoConnect && (
+                      <span className="text-blue-500">Auto-connect</span>
+                    )}
+                  </div>
+                  {server.connectionStatus.error && (
+                    <p className="mt-2 rounded bg-red-50 px-3 py-1.5 text-xs text-red-600">
+                      {server.connectionStatus.error}
+                    </p>
+                  )}
+                </div>
+                <div className="ml-4 flex shrink-0 items-center gap-2">
+                  {server.connectionStatus.status === 'connected' ? (
+                    <>
+                      <button
+                        onClick={() => void handleViewExternalTools(server)}
+                        disabled={externalActionLoading}
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        title={t('admin.mcpExternal.viewTools') || 'View Tools'}
+                      >
+                        <Wrench className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => void disconnectExternalServer(server.id)}
+                        disabled={externalActionLoading}
+                        className="flex items-center gap-1 rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                        title={
+                          t('admin.mcpExternal.disconnect') || 'Disconnect'
+                        }
+                      >
+                        <PowerOff className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => void connectExternalServer(server.id)}
+                      disabled={externalActionLoading || !server.enabled}
+                      className="flex items-center gap-1 rounded-lg border border-green-300 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-50 disabled:opacity-50"
+                      title={t('admin.mcpExternal.connect') || 'Connect'}
+                    >
+                      <Power className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => openEditExternalModal(server)}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    title={t('common.edit') || 'Edit'}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => void handleDeleteExternalServer(server)}
+                    disabled={externalActionLoading}
+                    className="rounded p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600"
+                    title={t('common.delete') || 'Delete'}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Discovered Tools Panel */}
+              {viewingToolsServer === server.id && (
+                <div className="mt-4 border-t border-gray-100 pt-4">
+                  <h5 className="mb-2 text-sm font-medium text-gray-700">
+                    {t('admin.mcpExternal.discoveredTools') ||
+                      'Discovered Tools'}{' '}
+                    ({discoveredTools.length})
+                  </h5>
+                  {discoveredTools.length > 0 ? (
+                    <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                      {discoveredTools.map((tool) => (
+                        <div
+                          key={tool.name}
+                          className="rounded-lg border border-gray-100 bg-gray-50 p-3"
+                        >
+                          <h6 className="font-mono truncate text-xs font-semibold text-gray-800">
+                            {tool.name}
+                          </h6>
+                          <p className="mt-1 line-clamp-2 text-xs text-gray-500">
+                            {tool.description}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400">
+                      {t('admin.mcpExternal.noTools') || 'No tools discovered'}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg bg-gray-50 p-8 text-center text-sm text-gray-500">
+          <Globe className="mx-auto mb-2 h-6 w-6 text-gray-400" />
+          {t('admin.mcpExternal.noServers') ||
+            'No external MCP servers configured'}
+        </div>
+      )}
+
+      {/* Add/Edit External Server Modal */}
+      {showAddExternalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {editingExternal
+                  ? t('admin.mcpExternal.editServer') || 'Edit External Server'
+                  : t('admin.mcpExternal.addServer') || 'Add External Server'}
+              </h3>
+              <button
+                onClick={closeExternalModal}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Server ID */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('admin.mcpExternal.form.serverId') || 'Server ID'}
+                </label>
+                <input
+                  type="text"
+                  value={externalForm.serverId}
+                  onChange={(e) =>
+                    setExternalForm((f) => ({ ...f, serverId: e.target.value }))
+                  }
+                  disabled={!!editingExternal}
+                  placeholder="my-external-tools"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                />
+              </div>
+
+              {/* Name */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('admin.mcpExternal.form.name') || 'Name'}
+                </label>
+                <input
+                  type="text"
+                  value={externalForm.name}
+                  onChange={(e) =>
+                    setExternalForm((f) => ({ ...f, name: e.target.value }))
+                  }
+                  placeholder="My External Tools Server"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('admin.mcpExternal.form.description') || 'Description'}
+                </label>
+                <input
+                  type="text"
+                  value={externalForm.description}
+                  onChange={(e) =>
+                    setExternalForm((f) => ({
+                      ...f,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="Optional description"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Transport */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('admin.mcpExternal.form.transport') || 'Transport'}
+                </label>
+                <select
+                  value={externalForm.transport}
+                  onChange={(e) =>
+                    setExternalForm((f) => ({
+                      ...f,
+                      transport: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="sse">SSE</option>
+                  <option value="http">HTTP (Streamable)</option>
+                </select>
+              </div>
+
+              {/* URL */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('admin.mcpExternal.form.url') || 'Server URL'}
+                </label>
+                <input
+                  type="url"
+                  value={externalForm.url}
+                  onChange={(e) =>
+                    setExternalForm((f) => ({ ...f, url: e.target.value }))
+                  }
+                  placeholder="https://mcp.example.com/sse"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Toggles */}
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={externalForm.enabled}
+                    onChange={(e) =>
+                      setExternalForm((f) => ({
+                        ...f,
+                        enabled: e.target.checked,
+                      }))
+                    }
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  {t('admin.mcpExternal.form.enabled') || 'Enabled'}
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={externalForm.autoConnect}
+                    onChange={(e) =>
+                      setExternalForm((f) => ({
+                        ...f,
+                        autoConnect: e.target.checked,
+                      }))
+                    }
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  {t('admin.mcpExternal.form.autoConnect') || 'Auto-connect'}
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={closeExternalModal}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                {t('common.cancel') || 'Cancel'}
+              </button>
+              <button
+                onClick={() => void handleSaveExternalServer()}
+                disabled={
+                  !externalForm.serverId.trim() ||
+                  !externalForm.name.trim() ||
+                  !externalForm.url.trim() ||
+                  externalActionLoading
+                }
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {editingExternal
+                  ? t('common.save') || 'Save'
+                  : t('admin.mcpExternal.addServer') || 'Add Server'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  const tabs = [
+    'overview',
+    'tools',
+    'metrics',
+    'sessions',
+    'apiKeys',
+    'external',
+  ] as const;
 
   return (
     <AdminPageLayout
@@ -1092,6 +1612,7 @@ export default function MCPServerPage() {
             {activeTab === 'metrics' && renderMetricsTab()}
             {activeTab === 'sessions' && renderSessionsTab()}
             {activeTab === 'apiKeys' && renderApiKeysTab()}
+            {activeTab === 'external' && renderExternalTab()}
           </>
         )}
       </div>

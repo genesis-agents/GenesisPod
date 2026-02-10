@@ -8170,3 +8170,49 @@ model LongTermMemory {
   @@index([expiresAt])
   @@map("long_term_memories")
 }
+
+// ============ Agent Configuration (Admin UI Configurable) ============
+
+model AgentConfig {
+  id           String   @id @default(uuid())
+  agentId      String   @unique @map("agent_id")
+  name         String   @db.VarChar(100)
+  description  String?  @db.Text
+  agentType    String   @map("agent_type") @db.VarChar(50)
+  domain       String   @db.VarChar(50)
+  systemPrompt String   @map("system_prompt") @db.Text
+  tools        String[]
+  skills       String[]
+  modelType    String?  @map("model_type") @db.VarChar(50)
+  taskProfile  Json?    @map("task_profile")
+  enabled      Boolean  @default(true)
+  isBuiltIn    Boolean  @default(false) @map("is_built_in")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([domain, enabled])
+  @@map("agent_configs")
+}
+
+// ============ Research Template (Admin UI Configurable) ============
+
+model ResearchTemplate {
+  id              String   @id @default(uuid())
+  templateId      String   @unique @map("template_id")
+  name            String   @db.VarChar(100)
+  description     String?  @db.Text
+  category        String   @db.VarChar(50)
+  dimensions      Json
+  dataSources     String[] @map("data_sources")
+  guidancePrompt  String?  @map("guidance_prompt") @db.Text
+  reportStructure Json?    @map("report_structure")
+  iterationCount  Int      @default(3) @map("iteration_count")
+  enabled         Boolean  @default(true)
+  isBuiltIn       Boolean  @default(false) @map("is_built_in")
+  usageCount      Int      @default(0) @map("usage_count")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([category, enabled])
+  @@map("research_templates")
+}

@@ -75,6 +75,8 @@ import { ExportModule } from "./common/export";
 import { WebhooksModule } from "./modules/webhooks";
 // MCP Server module
 import { MCPServerModule } from "./modules/mcp-server";
+// Public API module
+import { PublicApiModule } from "./modules/public-api/public-api.module";
 // A2A Server module
 import { A2AModule } from "./modules/ai-engine/a2a";
 // Request context middleware
@@ -188,6 +190,9 @@ import { RequestContextMiddleware } from "./common/context/request-context.middl
 
     // MCP Server module
     MCPServerModule,
+
+    // Public API module
+    PublicApiModule,
 
     // A2A Server module
     A2AModule,

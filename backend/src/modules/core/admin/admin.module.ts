@@ -14,6 +14,10 @@ import { BillingAdminController } from "./billing-admin.controller";
 import { NotificationsAdminController } from "./notifications-admin.controller";
 import { MonitoringAdminController } from "./monitoring-admin.controller";
 import { CacheAdminController } from "./cache-admin.controller";
+import { AgentAdminController } from "./agent-admin.controller";
+import { ResearchAdminController } from "./research-admin.controller";
+import { MCPExternalAdminController } from "../../ai-engine/mcp/admin/mcp-external-admin.controller";
+import { AgentConfigService } from "../../ai-engine/agents/config/agent-config.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { SecretsModule } from "../secrets/secrets.module";
@@ -53,6 +57,9 @@ import {
     NotificationsAdminController, // /admin/notifications/* routes
     MonitoringAdminController, // /admin/monitoring/* routes for error tracking & AI metrics
     CacheAdminController, // /admin/cache/* routes for cache management
+    MCPExternalAdminController, // /admin/mcp/external-servers/* routes
+    AgentAdminController, // /admin/agents/* routes for agent configuration
+    ResearchAdminController, // /admin/research/templates/* routes for research templates
   ],
   providers: [
     AdminService,
@@ -66,6 +73,7 @@ import {
     PermissionsService,
     BillingService,
     NotificationsAdminService,
+    AgentConfigService,
     // Note: ErrorTrackingService and AIMetricsService are provided globally by MonitoringModule
   ],
   exports: [

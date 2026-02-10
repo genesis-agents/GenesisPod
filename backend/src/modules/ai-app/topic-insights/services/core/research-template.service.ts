@@ -13,9 +13,11 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { AIModelType } from "@prisma/client";
+import { AIModelType, Prisma } from "@prisma/client";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   TemplateCategory,
+  TemplateDimension,
   ResearchTemplate,
   TemplateApplicationResult,
 } from "../../types/research-template.types";
@@ -534,7 +536,10 @@ export class ResearchTemplateService {
   /** 用户自定义模板（内存缓存，可持久化） */
   private readonly customTemplates = new Map<string, ResearchTemplate>();
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(
+    private readonly aiFacade: AIEngineFacade,
+    private readonly prisma: PrismaService,
+  ) {}
 
   /**
    * 获取所有可用模板
@@ -553,13 +558,34 @@ export class ResearchTemplateService {
   }
 
   /**
-   * 获取单个模板
+   * 获取单个模板 (checks DB first, then falls back to in-memory)
    */
   getTemplate(templateId: string): ResearchTemplate | undefined {
     return (
       this.builtInTemplates.find((t) => t.id === templateId) ||
       this.customTemplates.get(templateId)
     );
+  }
+
+  /**
+   * 获取单个模板 (async version, checks DB first)
+   */
+  async getTemplateAsync(
+    templateId: string,
+  ): Promise<ResearchTemplate | undefined> {
+    try {
+      const dbTemplate = await this.prisma.researchTemplate.findUnique({
+        where: { templateId },
+      });
+      if (dbTemplate) {
+        return this.dbTemplateToResearchTemplate(dbTemplate);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[getTemplateAsync] DB lookup failed, falling back to in-memory: ${error}`,
+      );
+    }
+    return this.getTemplate(templateId);
   }
 
   /**
@@ -685,6 +711,126 @@ Score from 0-1, recommend up to 3 templates.`,
       category,
       count,
     }));
+  }
+
+  // =========================================================================
+  // DB-Backed Template Management
+  // =========================================================================
+
+  /**
+   * Sync built-in templates to database as isBuiltIn: true
+   * Idempotent - skips templates that already exist in DB
+   */
+  async syncBuiltInTemplates(): Promise<number> {
+    let synced = 0;
+    for (const template of this.builtInTemplates) {
+      const existing = await this.prisma.researchTemplate.findUnique({
+        where: { templateId: template.id },
+      });
+      if (!existing) {
+        await this.prisma.researchTemplate.create({
+          data: {
+            templateId: template.id,
+            name: template.name,
+            description: template.description,
+            category: template.category,
+            dimensions: template.dimensions as unknown as Prisma.InputJsonValue,
+            dataSources: template.recommendedSources,
+            guidancePrompt: template.guidancePrompt,
+            reportStructure:
+              template.reportStructure as unknown as Prisma.InputJsonValue,
+            iterationCount: 3,
+            enabled: true,
+            isBuiltIn: true,
+          },
+        });
+        synced++;
+      }
+    }
+    this.logger.log(`[syncBuiltInTemplates] Synced ${synced} templates to DB`);
+    return synced;
+  }
+
+  /**
+   * Create a custom template in the database
+   */
+  async createCustomTemplate(data: {
+    templateId: string;
+    name: string;
+    description?: string;
+    category: string;
+    dimensions: Prisma.InputJsonValue;
+    dataSources?: string[];
+    guidancePrompt?: string;
+    reportStructure?: Prisma.InputJsonValue;
+    iterationCount?: number;
+  }) {
+    return this.prisma.researchTemplate.create({
+      data: {
+        templateId: data.templateId,
+        name: data.name,
+        description: data.description,
+        category: data.category,
+        dimensions: data.dimensions,
+        dataSources: data.dataSources ?? [],
+        guidancePrompt: data.guidancePrompt,
+        reportStructure: data.reportStructure,
+        iterationCount: data.iterationCount ?? 3,
+        enabled: true,
+        isBuiltIn: false,
+      },
+    });
+  }
+
+  /**
+   * Update a template in the database
+   */
+  async updateTemplate(
+    templateId: string,
+    data: Partial<{
+      name: string;
+      description: string;
+      category: string;
+      dimensions: Prisma.InputJsonValue;
+      dataSources: string[];
+      guidancePrompt: string;
+      reportStructure: Prisma.InputJsonValue;
+      iterationCount: number;
+      enabled: boolean;
+    }>,
+  ) {
+    return this.prisma.researchTemplate.update({
+      where: { templateId },
+      data: data as Prisma.ResearchTemplateUpdateInput,
+    });
+  }
+
+  /**
+   * Convert a DB research template record to the in-memory ResearchTemplate type
+   */
+  private dbTemplateToResearchTemplate(
+    dbTemplate: Record<string, unknown>,
+  ): ResearchTemplate {
+    const dimensions = dbTemplate.dimensions as TemplateDimension[] | unknown;
+    return {
+      id: dbTemplate.templateId as string,
+      name: dbTemplate.name as string,
+      description: (dbTemplate.description as string) || "",
+      category: dbTemplate.category as TemplateCategory,
+      tags: [],
+      dimensions: Array.isArray(dimensions)
+        ? (dimensions as TemplateDimension[])
+        : [],
+      recommendedSources: (dbTemplate.dataSources as string[]) || [],
+      recommendedDepth: "deep",
+      parameters: [],
+      guidancePrompt: (dbTemplate.guidancePrompt as string) || "",
+      reportStructure: dbTemplate.reportStructure as
+        | ResearchTemplate["reportStructure"]
+        | undefined,
+      usageCount: (dbTemplate.usageCount as number) || 0,
+      isBuiltIn: (dbTemplate.isBuiltIn as boolean) || false,
+    };
   }
 
   // =========================================================================

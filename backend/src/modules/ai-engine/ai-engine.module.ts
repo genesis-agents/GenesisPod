@@ -61,6 +61,7 @@ import { CreditsModule } from "../credits/credits.module";
 
 // MCP
 import { MCPManager } from "./mcp/manager/mcp-manager";
+import { MCPClientRegistryService } from "./mcp/registry/mcp-client-registry.service";
 
 // Capabilities
 import { AICapabilityResolver } from "./capabilities/ai-capability-resolver.service";
@@ -135,6 +136,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // === MCP ===
     MCPManager,
+    MCPClientRegistryService,
 
     // === Capabilities ===
     AICapabilityResolver,
@@ -185,6 +187,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // === MCP ===
     MCPManager,
+    MCPClientRegistryService,
 
     // === Capabilities ===
     AICapabilityResolver,

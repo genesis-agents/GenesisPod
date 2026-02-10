@@ -20,3 +20,6 @@ export * from "./manager";
 
 // Tools
 export * from "./tools";
+
+// Registry
+export * from "./registry";
