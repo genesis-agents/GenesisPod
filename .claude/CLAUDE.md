@@ -100,6 +100,37 @@ onModuleInit() {
 - 在"快速修复"和"正确抽象"之间，**永远选正确抽象**，除非我明确说"临时方案"
 - 不得用 provider-specific 硬编码（如 `model: "gpt-4o"`），必须走 TaskProfile
 
+### Sub-Agent 管控（血的教训）
+
+> **2026-02-10 事故**: Sub-Agent 越权创建 planning 模块、修改 Sidebar 等无关文件；主 Agent 用 `git checkout -- .` 回退时误删其他 session 的工作；`rm -rf` 删除未跟踪文件导致不可恢复的数据丢失。
+
+**规则（绝对不允许违反）：**
+
+1. **Agent prompt 必须包含白名单**：明确列出允许修改的文件路径列表，prompt 中写 "只允许修改以下文件：xxx"，禁止 Agent 触碰白名单外的任何文件
+2. **Agent 完成后必须逐文件 diff 审查**：用 `git diff {file}` 逐个检查每个被修改的文件，确认变更内容在任务范围内。发现越权修改时，只 `git checkout -- {具体文件}` 回退该文件，**绝不使用 `git checkout -- .`**
+3. **禁止全局回退命令**：**永远不用** `git checkout -- .`、`git restore .`、`git reset --hard`。只允许针对具体文件的回退：`git checkout -- path/to/specific/file`
+4. **禁止删除未跟踪文件**：**永远不用** `rm -rf` 删除可能属于其他 session/Agent 的文件。如果需要清理，先 `git status` 列出，逐个确认后只删除确定是本次 Agent 创建的文件
+5. **Agent 禁止创建新模块**：Sub-Agent 不得创建新的 .module.ts、新的页面路由（page.tsx）、新的 store 文件。如需新建模块，必须由主 Agent 确认后手动创建
+6. **Agent 禁止修改入口文件**：Sub-Agent 不得修改 `app.module.ts`、`layout.tsx`、`Sidebar.tsx`、`MobileNav.tsx`、路由配置等全局入口文件
+
+### Git 安全操作
+
+> **核心原则：工作目录可能有其他 session/Agent 的未提交工作，任何全局操作都可能造成不可恢复的损失。**
+
+**禁止的命令（绝对不用）：**
+
+- `git checkout -- .`（回退全部修改）
+- `git restore .`（同上）
+- `git reset --hard`（丢弃所有变更）
+- `git clean -fd`（删除未跟踪文件）
+- `rm -rf` 对未确认归属的文件/目录
+
+**正确做法：**
+
+- 回退单个文件：`git checkout -- path/to/file`
+- 回退前先看：`git diff path/to/file` 确认内容
+- 删除文件前先问：这个文件是不是我这个 session 创建的？不确定就不删
+
 ### Git 规范
 
 - Commit message: 小写 type，header < 100 字符，无句号结尾

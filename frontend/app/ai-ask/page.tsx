@@ -26,6 +26,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, AIModel } from '@/hooks';
 import { config } from '@/lib/utils/config';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
+import AskToolsButton from '@/components/ai-ask/AskToolsButton';
 import AppShell from '@/components/layout/AppShell';
 import SessionSidebar from '@/components/ai-ask/SessionSidebar';
 import MessageContextMenu from '@/components/ai-ask/MessageContextMenu';
@@ -1919,6 +1920,9 @@ export default function AskPage() {
                               onlyReady={false}
                               disabled={isLoading}
                             />
+
+                            {/* Tools Button */}
+                            <AskToolsButton />
                           </div>
 
                           {/* Send/Stop Button */}
@@ -2626,6 +2630,9 @@ export default function AskPage() {
                           onlyReady={false}
                           disabled={isLoading}
                         />
+
+                        {/* Tools Button */}
+                        <AskToolsButton />
                       </div>
                       <button
                         type="button"
