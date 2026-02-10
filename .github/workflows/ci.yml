@@ -142,7 +142,7 @@ jobs:
 
       - name: Upload test coverage
         if: always()
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./backend/coverage/lcov.info
           flags: backend
@@ -217,7 +217,7 @@ jobs:
         run: npm run test:ci -- --coverage
 
       - name: Upload test coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./frontend/coverage/lcov.info
           flags: frontend
