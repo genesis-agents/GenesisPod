@@ -9,6 +9,7 @@ import { ReportSynthesizerService } from "./report-synthesizer.service";
 import {
   StartDeepResearchDto,
   DeepResearchSSEEvent,
+  DeepResearchReport,
   SearchRound,
   Reflection,
   ThinkingStep,
@@ -86,6 +87,122 @@ export class DeepResearchAgentService {
     });
 
     return subject.asObservable();
+  }
+
+  /**
+   * 无状态直接研究 — 为 MCP Server 等外部调用方设计
+   *
+   * 与 startResearch() 不同：
+   * - 不需要 projectId，不持久化到数据库
+   * - 不发送 SSE 事件，不检查积分
+   * - 同步返回完整报告结果
+   */
+  async executeDirectResearch(params: {
+    query: string;
+    depth?: "quick" | "standard" | "deep";
+    language?: string;
+    dimensions?: string[];
+  }): Promise<{
+    report: DeepResearchReport;
+    searchRounds: SearchRound[];
+    duration: number;
+  }> {
+    const startTime = Date.now();
+    const depth = params.depth || "standard";
+    const depthConfig: Record<string, { maxRounds: number; plannerDepth: "quick" | "standard" | "thorough" }> = {
+      quick: { maxRounds: 2, plannerDepth: "quick" },
+      standard: { maxRounds: 4, plannerDepth: "standard" },
+      deep: { maxRounds: 8, plannerDepth: "thorough" },
+    };
+    const config = depthConfig[depth] || depthConfig.standard;
+
+    const enrichedQuery = params.dimensions?.length
+      ? `${params.query}\n\nFocus dimensions: ${params.dimensions.join(", ")}`
+      : params.query;
+
+    // 阶段 1: 规划
+    const plan = await this.withTimeout(
+      this.plannerService.generatePlan(enrichedQuery, { depth: config.plannerDepth }),
+      this.STAGE_TIMEOUT,
+      "Research planning",
+    );
+
+    // 阶段 2: 迭代搜索 + 反思
+    const maxRounds = config.maxRounds;
+    const searchRounds: SearchRound[] = [];
+    let currentRound = 0;
+    let stepIndex = 0;
+
+    while (currentRound < maxRounds && stepIndex < plan.steps.length) {
+      const step = plan.steps[stepIndex];
+      currentRound++;
+
+      const round = await this.withTimeout(
+        this.searchService.executeStep(step, currentRound),
+        this.STAGE_TIMEOUT,
+        `Search step ${currentRound}`,
+      );
+      searchRounds.push(round);
+
+      // 反思（跳过最后一轮）
+      if (currentRound < maxRounds && currentRound >= 2) {
+        try {
+          const reflection = await this.withTimeout(
+            this.reflectionService.reflect(
+              enrichedQuery,
+              plan,
+              searchRounds,
+              currentRound,
+              maxRounds,
+            ),
+            this.STAGE_TIMEOUT,
+            `Reflection ${currentRound}`,
+          );
+
+          if (
+            !this.reflectionService.shouldContinue(
+              reflection,
+              currentRound,
+              maxRounds,
+            )
+          ) {
+            break;
+          }
+
+          if (reflection.decision === "pivot" && reflection.nextSteps) {
+            const pivotSteps = this.reflectionService.generatePivotSteps(
+              reflection,
+              plan,
+              currentRound,
+            );
+            plan.steps.push(...pivotSteps);
+          }
+        } catch {
+          // 反思失败时根据阶段决定
+          if (currentRound >= maxRounds * 0.5) {
+            break; // 后期阶段直接结束
+          }
+          // 早期阶段继续搜索
+        }
+      }
+
+      stepIndex++;
+    }
+
+    // 阶段 3: 合成报告
+    const report = await this.withTimeout(
+      this.reportService.generateReport(enrichedQuery, searchRounds, {
+        language: params.language,
+      }),
+      this.STAGE_TIMEOUT,
+      "Report synthesis",
+    );
+
+    return {
+      report,
+      searchRounds,
+      duration: Math.round((Date.now() - startTime) / 1000),
+    };
   }
 
   /**

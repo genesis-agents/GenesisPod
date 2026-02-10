@@ -45,10 +45,6 @@ export class MCPToolBridgeService {
   /**
    * 从所有 Registry 动态聚合工具列表
    * 返回 MCP tools/list 兼容格式
-   */
-  /**
-   * 从所有 Registry 动态聚合工具列表
-   * 返回 MCP tools/list 兼容格式
    *
    * 使用原子替换模式避免并发调用时元数据丢失
    */

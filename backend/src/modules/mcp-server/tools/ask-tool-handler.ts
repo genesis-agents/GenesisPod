@@ -11,6 +11,7 @@ import {
   MCPToolResponse,
 } from "../abstractions/mcp-server.interface";
 import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
+import { withToolTimeout, TOOL_TIMEOUT_MS } from "./tool-timeout";
 
 @Injectable()
 export class AskToolHandler implements IMCPToolHandler {
@@ -105,13 +106,17 @@ export class AskToolHandler implements IMCPToolHandler {
             "\n\nUse the above context to help answer the question. Cite sources when using web search results."
           : undefined;
 
-      const response = await this.aiFacade.chat({
-        messages: [{ role: "user", content: question }],
-        systemPrompt,
-        modelType: AIModelType.CHAT,
-        taskProfile: { creativity: "medium", outputLength: "medium" },
-        strictMode: true,
-      });
+      const response = await withToolTimeout(
+        this.aiFacade.chat({
+          messages: [{ role: "user", content: question }],
+          systemPrompt,
+          modelType: AIModelType.CHAT,
+          taskProfile: { creativity: "medium", outputLength: "medium" },
+          strictMode: true,
+        }),
+        TOOL_TIMEOUT_MS,
+        "Ask AI",
+      );
 
       return {
         content: [

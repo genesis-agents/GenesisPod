@@ -12,6 +12,7 @@ import {
 } from "../abstractions/mcp-server.interface";
 import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import type { TaskProfile } from "../../ai-engine/facade/types/facade.types";
+import { withToolTimeout, TOOL_TIMEOUT_MS } from "./tool-timeout";
 
 type WritingTask =
   | "improve"
@@ -255,18 +256,22 @@ export class WritingAssistToolHandler implements IMCPToolHandler {
 
       const taskProfile = TASK_PROFILES[task];
 
-      const response = await this.aiFacade.chat({
-        messages: [
-          {
-            role: "user",
-            content: `<user_content>\n${content}\n</user_content>`,
-          },
-        ],
-        systemPrompt,
-        modelType: AIModelType.CHAT,
-        taskProfile,
-        strictMode: true,
-      });
+      const response = await withToolTimeout(
+        this.aiFacade.chat({
+          messages: [
+            {
+              role: "user",
+              content: `<user_content>\n${content}\n</user_content>`,
+            },
+          ],
+          systemPrompt,
+          modelType: AIModelType.CHAT,
+          taskProfile,
+          strictMode: true,
+        }),
+        TOOL_TIMEOUT_MS,
+        "Writing assist",
+      );
 
       let parsedResult: unknown;
       try {
