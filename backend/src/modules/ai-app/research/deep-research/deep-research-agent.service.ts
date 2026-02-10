@@ -305,8 +305,8 @@ export class DeepResearchAgentService {
       // 更新会话状态
       await this.updateSession(session.id, {
         status: DeepResearchStatus.SEARCHING,
-        plan: plan as any,
-        thinkingChain: thinkingChain as any[],
+        plan: plan as unknown as Record<string, unknown>,
+        thinkingChain: thinkingChain as unknown as Record<string, unknown>[],
       });
 
       // ========== 阶段 2: 迭代搜索 ==========
@@ -426,9 +426,9 @@ export class DeepResearchAgentService {
 
       // 更新搜索结果到会话
       await this.updateSession(session.id, {
-        searchRounds: searchRounds as any[],
-        reflections: reflections as any[],
-        thinkingChain: thinkingChain as any[],
+        searchRounds: searchRounds as unknown as Record<string, unknown>[],
+        reflections: reflections as unknown as Record<string, unknown>[],
+        thinkingChain: thinkingChain as unknown as Record<string, unknown>[],
       });
 
       // ========== 阶段 3: 合成报告 ==========
@@ -485,8 +485,8 @@ export class DeepResearchAgentService {
       // 更新最终状态
       await this.updateSession(session.id, {
         status: DeepResearchStatus.COMPLETED,
-        report: report as any,
-        thinkingChain: thinkingChain as any[],
+        report: report as unknown as Record<string, unknown>,
+        thinkingChain: thinkingChain as unknown as Record<string, unknown>[],
         sourcesUsed: totalSources,
         completedAt: new Date(),
       });
@@ -586,22 +586,22 @@ export class DeepResearchAgentService {
    */
   private async updateSession(
     sessionId: string,
-    data: Partial<{
-      status: DeepResearchStatus;
-      plan: any;
-      searchRounds: any[];
-      reflections: any[];
-      thinkingChain: any[];
-      report: any;
-      sourcesUsed: number;
-      tokensUsed: number;
-      error: string;
-      completedAt: Date;
-    }>,
+    data: {
+      status?: DeepResearchStatus;
+      plan?: unknown;
+      searchRounds?: unknown;
+      reflections?: unknown;
+      thinkingChain?: unknown;
+      report?: unknown;
+      sourcesUsed?: number;
+      tokensUsed?: number;
+      error?: string;
+      completedAt?: Date;
+    },
   ) {
     return this.prisma.deepResearchSession.update({
       where: { id: sessionId },
-      data,
+      data: data as never,
     });
   }
 

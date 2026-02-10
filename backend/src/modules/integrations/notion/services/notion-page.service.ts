@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException, NotFoundException } from "@nes
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { NotionAuthService } from "./notion-auth.service";
 import { ListPagesDto } from "../dto/notion.dto";
+import { Prisma } from "@prisma/client";
 
 @Injectable()
 export class NotionPageService {
@@ -29,7 +30,10 @@ export class NotionPageService {
     const connectionIds = connections.map((c) => c.id);
 
     // 构建查询条件
-    const where: any = {
+    const where: {
+      connectionId: { in: string[] };
+      OR?: Array<{ title?: { contains: string; mode: "insensitive" }; plainTextContent?: { contains: string; mode: "insensitive" } }>;
+    } = {
       connectionId: { in: connectionIds },
     };
 
@@ -125,7 +129,7 @@ export class NotionPageService {
   /**
    * 本地更新页面内容
    */
-  async updatePageLocally(userId: string, pageId: string, blocks: any[]) {
+  async updatePageLocally(userId: string, pageId: string, blocks: unknown[]) {
     const page = await this.prisma.notionPage.findFirst({
       where: {
         id: pageId,
@@ -147,7 +151,7 @@ export class NotionPageService {
       data: {
         pageId,
         version: (currentVersion?.version || 0) + 1,
-        blocks: page.blocks as any,
+        blocks: page.blocks as Prisma.InputJsonValue,
         source: "local_edit",
       },
     });
@@ -156,7 +160,7 @@ export class NotionPageService {
     const updated = await this.prisma.notionPage.update({
       where: { id: pageId },
       data: {
-        blocks: blocks as any,
+        blocks: blocks as unknown as Prisma.InputJsonValue,
         plainTextContent: this.extractPlainText(blocks),
         isLocallyModified: true,
         localModifiedAt: new Date(),
@@ -197,17 +201,19 @@ export class NotionPageService {
       });
 
       for (const block of existingBlocks.results) {
-        await client.blocks.delete({ block_id: block.id });
+        if ('id' in block) {
+          await client.blocks.delete({ block_id: block.id });
+        }
       }
 
       // 添加新的块
-      const blocks = page.blocks as any[];
+      const blocks = page.blocks as unknown[];
       const notionBlocks = this.convertToNotionBlocks(blocks);
 
       if (notionBlocks.length > 0) {
         await client.blocks.children.append({
           block_id: page.notionPageId,
-          children: notionBlocks,
+          children: notionBlocks as never,
         });
       }
 
@@ -347,22 +353,28 @@ export class NotionPageService {
   /**
    * 从块中提取纯文本
    */
-  private extractPlainText(blocks: any[]): string {
+  private extractPlainText(blocks: unknown[]): string {
     const texts: string[] = [];
 
-    const processBlock = (block: any) => {
-      if (block.content) {
+    const processBlock = (block: unknown) => {
+      if (typeof block !== 'object' || block === null) return;
+
+      const blockObj = block as Record<string, unknown>;
+      if (Array.isArray(blockObj.content)) {
         // BlockNote 格式
-        for (const inline of block.content) {
-          if (inline.type === "text" && inline.text) {
-            texts.push(inline.text);
+        for (const inline of blockObj.content) {
+          if (typeof inline === 'object' && inline !== null) {
+            const inlineObj = inline as Record<string, unknown>;
+            if (inlineObj.type === "text" && typeof inlineObj.text === "string") {
+              texts.push(inlineObj.text);
+            }
           }
         }
       }
 
       // 处理子块
-      if (block.children) {
-        for (const child of block.children) {
+      if (Array.isArray(blockObj.children)) {
+        for (const child of blockObj.children) {
           processBlock(child);
         }
       }
@@ -378,8 +390,8 @@ export class NotionPageService {
   /**
    * 将 BlockNote 格式转换为 Notion API 格式
    */
-  private convertToNotionBlocks(blocks: any[]): any[] {
-    const result: any[] = [];
+  private convertToNotionBlocks(blocks: unknown[]): unknown[] {
+    const result: unknown[] = [];
 
     for (const block of blocks) {
       const notionBlock = this.convertBlock(block);
@@ -391,10 +403,14 @@ export class NotionPageService {
     return result;
   }
 
-  private convertBlock(block: any): any {
-    const richText = this.convertContent(block.content || []);
+  private convertBlock(block: unknown): unknown | null {
+    if (typeof block !== 'object' || block === null) return null;
 
-    switch (block.type) {
+    const blockObj = block as Record<string, unknown>;
+    const richText = this.convertContent(Array.isArray(blockObj.content) ? blockObj.content : []);
+    const blockProps = (typeof blockObj.props === 'object' && blockObj.props !== null) ? blockObj.props as Record<string, unknown> : {};
+
+    switch (blockObj.type) {
       case "paragraph":
         return {
           object: "block",
@@ -403,7 +419,7 @@ export class NotionPageService {
         };
 
       case "heading":
-        const level = block.props?.level || 1;
+        const level = typeof blockProps.level === 'number' ? blockProps.level : 1;
         const headingType = `heading_${Math.min(level, 3)}`;
         return {
           object: "block",
@@ -431,7 +447,7 @@ export class NotionPageService {
           type: "to_do",
           to_do: {
             rich_text: richText,
-            checked: block.props?.checked || false,
+            checked: blockProps.checked === true,
           },
         };
 
@@ -441,18 +457,18 @@ export class NotionPageService {
           type: "code",
           code: {
             rich_text: richText,
-            language: block.props?.language || "plain text",
+            language: typeof blockProps.language === 'string' ? blockProps.language : "plain text",
           },
         };
 
       case "image":
-        if (block.props?.url) {
+        if (typeof blockProps.url === 'string') {
           return {
             object: "block",
             type: "image",
             image: {
               type: "external",
-              external: { url: block.props.url },
+              external: { url: blockProps.url },
             },
           };
         }
@@ -471,19 +487,26 @@ export class NotionPageService {
     }
   }
 
-  private convertContent(content: any[]): any[] {
+  private convertContent(content: unknown[]): Record<string, unknown>[] {
     return content
-      .filter((item) => item.type === "text" && item.text)
-      .map((item) => ({
-        type: "text",
-        text: { content: item.text },
-        annotations: {
-          bold: item.styles?.bold || false,
-          italic: item.styles?.italic || false,
-          strikethrough: item.styles?.strike || false,
-          underline: item.styles?.underline || false,
-          code: item.styles?.code || false,
-        },
-      }));
+      .filter((item): item is Record<string, unknown> => {
+        if (typeof item !== 'object' || item === null) return false;
+        const itemObj = item as Record<string, unknown>;
+        return itemObj.type === "text" && typeof itemObj.text === 'string';
+      })
+      .map((item) => {
+        const styles = (typeof item.styles === 'object' && item.styles !== null) ? item.styles as Record<string, unknown> : {};
+        return {
+          type: "text",
+          text: { content: item.text },
+          annotations: {
+            bold: styles.bold === true,
+            italic: styles.italic === true,
+            strikethrough: styles.strike === true,
+            underline: styles.underline === true,
+            code: styles.code === true,
+          },
+        };
+      });
   }
 }

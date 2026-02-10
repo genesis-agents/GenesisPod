@@ -24,6 +24,13 @@ import { Response } from "express";
 import { AiImageService } from "./generation.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
+interface AuthenticatedRequest {
+  user?: {
+    id: string;
+    email: string;
+  };
+}
+
 interface GenerateImageDto {
   // 输入内容 - 支持多种来源
   prompt?: string; // 直接输入的提示词或文本
@@ -59,7 +66,7 @@ export class AiImageController {
 
   @Post("generate")
   @UseGuards(JwtAuthGuard)
-  async generateImage(@Body() dto: GenerateImageDto, @Request() req: any) {
+  async generateImage(@Body() dto: GenerateImageDto, @Request() req: AuthenticatedRequest) {
     this.logger.log(`Generating image for user ${req.user?.id}`);
 
     // 如果提供了 referenceImageUrl，后端代理获取并转换为 base64
@@ -114,7 +121,7 @@ export class AiImageController {
     @Query("negativePrompt") negativePrompt: string,
     @Query("skipEnhancement") skipEnhancement: string,
     @Query("templateLayout") templateLayout: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ): Observable<MessageEvent> {
     return this.handleStreamGeneration({
       prompt,
@@ -152,7 +159,7 @@ export class AiImageController {
       skipEnhancement?: string;
       templateLayout?: string;
     },
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Res() res: Response,
   ): void {
     // 设置SSE响应头
@@ -179,8 +186,9 @@ export class AiImageController {
         const data = `data: ${event.data}\n\n`;
         res.write(data);
         // 尝试立即flush（如果可用）
-        if (typeof (res as any).flush === "function") {
-          (res as any).flush();
+        const resWithFlush = res as Response & { flush?: () => void };
+        if (typeof resWithFlush.flush === "function") {
+          resWithFlush.flush();
         }
       },
       error: (err) => {
@@ -288,7 +296,7 @@ export class AiImageController {
   async generateImageWithFiles(
     @UploadedFiles() files: Express.Multer.File[],
     @Body() dto: GenerateImageDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     this.logger.log(
       `Generating image with ${files?.length || 0} files for user ${req.user?.id}`,
@@ -333,13 +341,13 @@ export class AiImageController {
 
   @Get("history")
   @UseGuards(JwtAuthGuard)
-  async getHistory(@Request() req: any) {
+  async getHistory(@Request() req: AuthenticatedRequest) {
     return this.aiImageService.getHistory(req.user?.id);
   }
 
   @Get("bookmarks")
   @UseGuards(JwtAuthGuard)
-  async getBookmarkedImages(@Request() req: any) {
+  async getBookmarkedImages(@Request() req: AuthenticatedRequest) {
     return this.aiImageService.getBookmarkedImages(req.user?.id);
   }
 
@@ -393,21 +401,21 @@ export class AiImageController {
 
   @Delete(":id")
   @UseGuards(JwtAuthGuard)
-  async deleteImage(@Param("id") id: string, @Request() req: any) {
+  async deleteImage(@Param("id") id: string, @Request() req: AuthenticatedRequest) {
     this.logger.log(`Deleting image ${id} for user ${req.user?.id}`);
     return this.aiImageService.deleteImage(id, req.user?.id);
   }
 
   @Post(":id/bookmark")
   @UseGuards(JwtAuthGuard)
-  async addBookmark(@Param("id") id: string, @Request() req: any) {
+  async addBookmark(@Param("id") id: string, @Request() req: AuthenticatedRequest) {
     this.logger.log(`Adding bookmark for image ${id} by user ${req.user?.id}`);
     return this.aiImageService.addBookmark(id, req.user?.id);
   }
 
   @Delete(":id/bookmark")
   @UseGuards(JwtAuthGuard)
-  async removeBookmark(@Param("id") id: string, @Request() req: any) {
+  async removeBookmark(@Param("id") id: string, @Request() req: AuthenticatedRequest) {
     this.logger.log(
       `Removing bookmark for image ${id} by user ${req.user?.id}`,
     );
@@ -419,7 +427,7 @@ export class AiImageController {
   async updateVisibility(
     @Param("id") id: string,
     @Body("visibility") visibility: "PRIVATE" | "PUBLIC",
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     this.logger.log(
       `Updating visibility for image ${id} to ${visibility} by user ${req.user?.id}`,
@@ -433,10 +441,10 @@ export class AiImageController {
    */
   @Post("cleanup")
   @UseGuards(JwtAuthGuard)
-  async cleanupOldImages(@Request() req: any) {
+  async cleanupOldImages(@Request() req: AuthenticatedRequest) {
     this.logger.log(`Manual cleanup triggered by user ${req.user?.id}`);
     const deletedCount = await this.aiImageService.cleanupOldImages(
-      req.user?.id,
+      req.user?.id ?? null,
     );
     return {
       deletedCount,
@@ -470,7 +478,7 @@ export class AiImageController {
    */
   @Post("ai/auto-tag")
   @UseGuards(JwtAuthGuard)
-  async autoTagImages(@Request() req: any) {
+  async autoTagImages(@Request() req: AuthenticatedRequest) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -484,7 +492,7 @@ export class AiImageController {
    */
   @Post("ai/analyze-styles")
   @UseGuards(JwtAuthGuard)
-  async analyzeStyles(@Request() req: any) {
+  async analyzeStyles(@Request() req: AuthenticatedRequest) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -498,7 +506,7 @@ export class AiImageController {
    */
   @Post("ai/cluster-themes")
   @UseGuards(JwtAuthGuard)
-  async clusterVisualThemes(@Request() req: any) {
+  async clusterVisualThemes(@Request() req: AuthenticatedRequest) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");

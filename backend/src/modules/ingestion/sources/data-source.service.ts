@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { DataSource, DataSourceStatus, DataSourceType } from "@prisma/client";
+import { DataSource, DataSourceStatus, DataSourceType, Prisma } from "@prisma/client";
 
 export interface CreateDataSourceDto {
   name: string;
@@ -12,13 +12,13 @@ export interface CreateDataSourceDto {
   authType?: string;
   credentials?: string;
   crawlerType: string;
-  crawlerConfig: any;
+  crawlerConfig: Prisma.InputJsonValue;
   rateLimit?: number;
   keywords?: string[];
   categories?: string[];
   languages?: string[];
   minQualityScore?: number;
-  deduplicationConfig?: any;
+  deduplicationConfig?: Prisma.InputJsonValue;
   status?: DataSourceStatus;
   createdBy?: string;
 }
@@ -32,13 +32,13 @@ export interface UpdateDataSourceDto {
   authType?: string;
   credentials?: string;
   crawlerType?: string;
-  crawlerConfig?: any;
+  crawlerConfig?: Prisma.InputJsonValue;
   rateLimit?: number;
   keywords?: string[];
   categories?: string[];
   languages?: string[];
   minQualityScore?: number;
-  deduplicationConfig?: any;
+  deduplicationConfig?: Prisma.InputJsonValue;
 }
 
 @Injectable()
@@ -57,7 +57,7 @@ export class DataSourceService {
     const existing = await this.prisma.dataSource.findFirst({
       where: {
         OR: [
-          { name: dto.name, category: dto.category as any },
+          { name: dto.name, category: dto.category as never },
           ...(dto.baseUrl ? [{ baseUrl: dto.baseUrl }] : []),
         ],
       },
@@ -75,7 +75,7 @@ export class DataSourceService {
         name: dto.name,
         description: dto.description,
         type: dto.type,
-        category: dto.category as any, // ResourceType
+        category: dto.category as never, // ResourceType
         baseUrl: dto.baseUrl,
         apiEndpoint: dto.apiEndpoint,
         authType: dto.authType || "NONE",
@@ -106,7 +106,7 @@ export class DataSourceService {
     status?: DataSourceStatus;
     category?: string;
   }): Promise<DataSource[]> {
-    const where: any = {};
+    const where: Prisma.DataSourceWhereInput = {};
 
     if (filters?.type) {
       where.type = filters.type;
@@ -115,7 +115,7 @@ export class DataSourceService {
       where.status = filters.status;
     }
     if (filters?.category) {
-      where.category = filters.category;
+      where.category = filters.category as never;
     }
 
     return this.prisma.dataSource.findMany({
@@ -321,7 +321,7 @@ export class DataSourceService {
         const existing = await this.prisma.dataSource.findFirst({
           where: {
             name: dto.name,
-            category: dto.category as any,
+            category: dto.category as never,
           },
         });
 
@@ -418,9 +418,9 @@ export class DataSourceService {
             baseUrl: fix.baseUrl,
             apiEndpoint: fix.apiEndpoint,
             crawlerConfig: {
-              ...(source.crawlerConfig as any),
+              ...(typeof source.crawlerConfig === 'object' && source.crawlerConfig !== null ? source.crawlerConfig as Prisma.JsonObject : {}),
               rssUrl: fix.rssUrl,
-            },
+            } as Prisma.InputJsonValue,
             ...(fix.description && { description: fix.description }),
             ...(fix.status && { status: fix.status }),
           },

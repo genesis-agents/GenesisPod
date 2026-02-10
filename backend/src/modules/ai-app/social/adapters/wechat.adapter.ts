@@ -34,7 +34,7 @@ export class WechatAdapter {
     );
 
     const contextId = `wechat-${connection.id}`;
-    let page: any = null;
+    let page: Awaited<ReturnType<typeof this.playwright.createPage>> | null = null;
 
     try {
       // Step 1: 检查 session 数据是否存在
@@ -73,7 +73,7 @@ export class WechatAdapter {
 
       // 详细检查 cookies 状态
       const now = Date.now() / 1000; // 当前时间戳（秒）
-      const validCookies = sessionData.cookies.filter((cookie: any) => {
+      const validCookies = sessionData.cookies.filter((cookie: { name: string; expires?: number }) => {
         // 检查 cookie 是否过期
         if (cookie.expires && cookie.expires > 0 && cookie.expires < now) {
           this.logger.warn(
@@ -96,11 +96,11 @@ export class WechatAdapter {
         "data_bizuin",
         "data_ticket",
       ];
-      const keyCookies = validCookies.filter((c: any) =>
+      const keyCookies = validCookies.filter((c: { name: string }) =>
         keyCookieNames.includes(c.name),
       );
       this.logger.log(
-        `Key cookies found: ${keyCookies.map((c: any) => c.name).join(", ") || "none"}`,
+        `Key cookies found: ${keyCookies.map((c: { name: string }) => c.name).join(", ") || "none"}`,
       );
 
       // 如果所有关键 cookies 都过期了，直接返回错误
@@ -197,7 +197,7 @@ export class WechatAdapter {
         `Browser context cookies after navigation: ${browserCookies.length}`,
       );
       const mpCookies = browserCookies.filter(
-        (c: any) =>
+        (c: { domain: string; name: string }) =>
           c.domain.includes("mp.weixin.qq.com") || c.domain.includes(".qq.com"),
       );
       this.logger.log(
@@ -205,7 +205,7 @@ export class WechatAdapter {
       );
       if (mpCookies.length > 0) {
         this.logger.log(
-          `Cookie names in browser: ${mpCookies.map((c: any) => c.name).join(", ")}`,
+          `Cookie names in browser: ${mpCookies.map((c: { name: string }) => c.name).join(", ")}`,
         );
       }
 
@@ -498,7 +498,7 @@ export class WechatAdapter {
   /**
    * 捕获调试信息用于问题排查
    */
-  private async captureDebugInfo(page: any, context: string): Promise<void> {
+  private async captureDebugInfo(page: Awaited<ReturnType<typeof this.playwright.createPage>>, context: string): Promise<void> {
     try {
       this.logger.error(`[${context}] Capturing debug info...`);
       this.logger.error(`[${context}] Current URL: ${page.url()}`);
@@ -599,7 +599,7 @@ export class WechatAdapter {
     return false;
   }
 
-  private async checkLoginStatus(page: any): Promise<boolean> {
+  private async checkLoginStatus(page: Awaited<ReturnType<typeof this.playwright.createPage>>): Promise<boolean> {
     try {
       // 等待页面稳定
       await page
@@ -673,7 +673,7 @@ export class WechatAdapter {
     }
   }
 
-  private async fillContent(page: any, content: SocialContent): Promise<void> {
+  private async fillContent(page: Awaited<ReturnType<typeof this.playwright.createPage>>, content: SocialContent): Promise<void> {
     this.logger.log("Starting to fill content...");
 
     // 等待页面完全加载（包括动态内容）
@@ -914,8 +914,8 @@ export class WechatAdapter {
 
         // 方法1: 使用 execCommand 插入 HTML（最兼容 ProseMirror）
         // ProseMirror 会监听 beforeinput 和 input 事件来处理内容
-        const fillResult = await page.evaluate(
-          ({ html }: { html: string }) => {
+        const fillResult: { success: boolean; selector: string | null; method: string | null } = await page.evaluate(
+          ({ html }: { html: string }): { success: boolean; selector: string | null; method: string | null } => {
             const selectors = [
               ".ProseMirror",
               "#js_editor",
@@ -1111,7 +1111,7 @@ export class WechatAdapter {
     }
   }
 
-  private async saveDraft(page: any): Promise<string> {
+  private async saveDraft(page: Awaited<ReturnType<typeof this.playwright.createPage>>): Promise<string> {
     this.logger.log("Looking for save button...");
 
     let saveClicked = false;
@@ -1181,12 +1181,12 @@ export class WechatAdapter {
     // 等待保存完成 - 使用多种检测方式，并验证结果
     this.logger.log("Waiting for save response...");
     let saveSucceeded = false;
-    let saveResponse: any = null;
+    let saveResponse: Awaited<ReturnType<typeof page.waitForResponse>> | null = null;
 
     try {
       // 监听 API 响应
       const responsePromise = page.waitForResponse(
-        (response: any) => {
+        (response: { url: () => string; status: () => number }) => {
           const url = response.url();
           // 匹配保存草稿的 API
           return (

@@ -6,6 +6,7 @@ import { DeduplicationService } from "./deduplication.service";
 import { getErrorStack } from "../../../common/utils/error.utils";
 import axios from "axios";
 import { APP_CONFIG } from "../../../common/config/app.config";
+import { Prisma } from "@prisma/client";
 
 /**
  * GitHub 项目采集器
@@ -147,8 +148,12 @@ export class GithubService {
   /**
    * 处理单个仓库
    */
-  private async processRepository(repo: any): Promise<void> {
-    const repoFullName = repo.full_name;
+  private async processRepository(repo: Record<string, unknown>): Promise<void> {
+    const repoFullName = typeof repo.full_name === 'string' ? repo.full_name : '';
+    if (!repoFullName) {
+      this.logger.warn('Repository missing full_name, skipping');
+      return;
+    }
 
     // 层级1去重：检查同源是否已存在（GitHub 内部去重）
     const existingRawData = await this.mongodb.findRawDataByExternalId(
@@ -175,7 +180,7 @@ export class GithubService {
     }
 
     // 层级3去重：URL 去重（防止同一链接从不同源采集）
-    const repoUrl = repo.html_url;
+    const repoUrl = typeof repo.html_url === 'string' ? repo.html_url : '';
 
     if (repoUrl) {
       const normalizedUrl = this.dedup.normalizeUrl(repoUrl);
@@ -191,8 +196,8 @@ export class GithubService {
     }
 
     // 层级4去重：标题相似度检查（使用项目名称）
-    const repoName = repo.name || "";
-    const repoDescription = repo.description || "";
+    const repoName = typeof repo.name === 'string' ? repo.name : "";
+    const repoDescription = typeof repo.description === 'string' ? repo.description : "";
     const titleText = `${repoName} ${repoDescription}`.trim();
 
     if (titleText) {
@@ -215,9 +220,14 @@ export class GithubService {
     }
 
     // 获取完整的仓库信息（包括 README）
+    const ownerLogin = typeof repo.owner === 'object' && repo.owner !== null && 'login' in repo.owner && typeof repo.owner.login === 'string' ? repo.owner.login : '';
+    if (!ownerLogin || !repoName) {
+      this.logger.warn('Repository missing owner or name, skipping');
+      return;
+    }
     const fullRepoData = await this.fetchFullRepositoryData(
-      repo.owner.login,
-      repo.name,
+      ownerLogin,
+      repoName,
     );
 
     // 解析完整的原始数据
@@ -267,7 +277,7 @@ export class GithubService {
   private async fetchFullRepositoryData(
     owner: string,
     repo: string,
-  ): Promise<any> {
+  ): Promise<Record<string, unknown>> {
     try {
       const axiosConfig = this.getAxiosConfig();
       // 并行获取多个数据
@@ -291,14 +301,14 @@ export class GithubService {
           ),
         ]);
 
-      const data: any = {
-        ...(repoData.status === "fulfilled" ? repoData.value.data : {}),
+      const data: Record<string, unknown> = {
+        ...(repoData.status === "fulfilled" ? repoData.value.data as Record<string, unknown> : {}),
         readme: readmeData.status === "fulfilled" ? readmeData.value : null,
         languages:
-          languagesData.status === "fulfilled" ? languagesData.value.data : {},
+          languagesData.status === "fulfilled" ? languagesData.value.data as Record<string, unknown> : {},
         contributors:
           contributorsData.status === "fulfilled"
-            ? contributorsData.value.data
+            ? contributorsData.value.data as unknown[]
             : [],
       };
 
@@ -343,7 +353,7 @@ export class GithubService {
    *
    * ⚠️ 关键：存储所有字段，包括 README、contributors 等！
    */
-  private parseRawData(repoData: any, repoFullName: string): any {
+  private parseRawData(repoData: Record<string, unknown>, repoFullName: string): Record<string, unknown> {
     return {
       // 外部 ID（用于去重）
       externalId: repoFullName,
@@ -352,13 +362,13 @@ export class GithubService {
       id: repoData.id,
       name: repoData.name,
       fullName: repoData.full_name,
-      owner: {
-        login: repoData.owner?.login,
-        id: repoData.owner?.id,
-        avatarUrl: repoData.owner?.avatar_url,
-        url: repoData.owner?.url,
-        type: repoData.owner?.type,
-      },
+      owner: typeof repoData.owner === 'object' && repoData.owner !== null ? {
+        login: (repoData.owner as Record<string, unknown>).login,
+        id: (repoData.owner as Record<string, unknown>).id,
+        avatarUrl: (repoData.owner as Record<string, unknown>).avatar_url,
+        url: (repoData.owner as Record<string, unknown>).url,
+        type: (repoData.owner as Record<string, unknown>).type,
+      } : null,
 
       // 描述和文档
       description: repoData.description,
@@ -381,14 +391,14 @@ export class GithubService {
       languages: repoData.languages, // ⚠️ 所有语言的字节数统计
 
       // 主题标签
-      topics: repoData.topics || [],
+      topics: Array.isArray(repoData.topics) ? repoData.topics : [],
 
       // 许可证
-      license: repoData.license
+      license: typeof repoData.license === 'object' && repoData.license !== null
         ? {
-            key: repoData.license.key,
-            name: repoData.license.name,
-            spdxId: repoData.license.spdx_id,
+            key: (repoData.license as Record<string, unknown>).key,
+            name: (repoData.license as Record<string, unknown>).name,
+            spdxId: (repoData.license as Record<string, unknown>).spdx_id,
           }
         : null,
 
@@ -398,7 +408,7 @@ export class GithubService {
       pushedAt: repoData.pushed_at,
 
       // 贡献者信息（前5名）
-      contributors: repoData.contributors || [],
+      contributors: Array.isArray(repoData.contributors) ? repoData.contributors : [],
 
       // 其他元数据
       size: repoData.size,
@@ -426,7 +436,7 @@ export class GithubService {
    *
    * ⚠️ 关键：建立 rawDataId 引用关系！
    */
-  private extractResourceData(rawData: any, rawDataId: string): any {
+  private extractResourceData(rawData: Record<string, unknown>, rawDataId: string): Prisma.ResourceCreateInput {
     // 计算质量评分（基于 stars, forks, 活跃度）
     const qualityScore = this.calculateQualityScore(rawData);
 
@@ -434,47 +444,53 @@ export class GithubService {
     // 如果README过大（>500KB），则截断以避免性能问题
     // 但对大多数项目，README通常在50-200KB之间
     const MAX_README_SIZE = 500 * 1024; // 500KB限制
-    let readmeContent = rawData.readme || null;
+    let readmeContent: string | null = typeof rawData.readme === 'string' ? rawData.readme : null;
     if (readmeContent && readmeContent.length > MAX_README_SIZE) {
+      const fullName = typeof rawData.fullName === 'string' ? rawData.fullName : 'unknown';
       this.logger.warn(
-        `README for ${rawData.fullName} exceeds size limit (${readmeContent.length}/${MAX_README_SIZE} bytes), truncating`,
+        `README for ${fullName} exceeds size limit (${readmeContent.length}/${MAX_README_SIZE} bytes), truncating`,
       );
       readmeContent = readmeContent.substring(0, MAX_README_SIZE);
     }
+
+    const owner = typeof rawData.owner === 'object' && rawData.owner !== null ? rawData.owner as Record<string, unknown> : {};
+    const ownerLogin = typeof owner.login === 'string' ? owner.login : '';
+    const ownerUrl = typeof owner.url === 'string' ? owner.url : '';
+    const ownerType = typeof owner.type === 'string' ? owner.type : '';
 
     return {
       type: "PROJECT",
 
       // 基础信息
-      title: rawData.fullName,
-      abstract: rawData.description || "",
+      title: typeof rawData.fullName === 'string' ? rawData.fullName : '',
+      abstract: typeof rawData.description === 'string' ? rawData.description : "",
       content: readmeContent, // 完整README内容（无10KB限制）
-      sourceUrl: rawData.htmlUrl,
-      codeUrl: rawData.cloneUrl,
+      sourceUrl: typeof rawData.htmlUrl === 'string' ? rawData.htmlUrl : '',
+      codeUrl: typeof rawData.cloneUrl === 'string' ? rawData.cloneUrl : '',
 
       // 作者/组织
       authors: [
         {
-          name: rawData.owner.login,
-          url: rawData.owner.url,
-          type: rawData.owner.type,
+          name: ownerLogin,
+          url: ownerUrl,
+          type: ownerType,
         },
       ],
       organizations:
-        rawData.owner.type === "Organization" ? [rawData.owner.login] : null,
+        ownerType === "Organization" ? [ownerLogin] : null,
 
       // 发布时间
-      publishedAt: new Date(rawData.createdAt),
+      publishedAt: new Date(typeof rawData.createdAt === 'string' ? rawData.createdAt : Date.now()),
 
       // 分类和标签
-      primaryCategory: rawData.language || "Unknown",
-      categories: rawData.languages ? Object.keys(rawData.languages) : [],
-      tags: [...(rawData.topics || []), rawData.language].filter(Boolean),
+      primaryCategory: typeof rawData.language === 'string' ? rawData.language : "Unknown",
+      categories: typeof rawData.languages === 'object' && rawData.languages !== null ? Object.keys(rawData.languages as Record<string, unknown>) : [],
+      tags: [...(Array.isArray(rawData.topics) ? rawData.topics : []), rawData.language].filter(Boolean),
 
       // 统计数据
-      viewCount: rawData.watchersCount,
-      saveCount: rawData.stargazersCount,
-      upvoteCount: rawData.stargazersCount,
+      viewCount: typeof rawData.watchersCount === 'number' ? rawData.watchersCount : 0,
+      saveCount: typeof rawData.stargazersCount === 'number' ? rawData.stargazersCount : 0,
+      upvoteCount: typeof rawData.stargazersCount === 'number' ? rawData.stargazersCount : 0,
 
       // 评分
       qualityScore: qualityScore,
@@ -489,28 +505,32 @@ export class GithubService {
         openIssues: rawData.openIssuesCount,
         homepage: rawData.homepage,
         topics: rawData.topics,
-        contributors: rawData.contributors.map((c: any) => ({
-          login: c.login,
-          contributions: c.contributions,
-        })),
+        contributors: Array.isArray(rawData.contributors) ? rawData.contributors.map((c: unknown) => {
+          const contrib = typeof c === 'object' && c !== null ? c as Record<string, unknown> : {};
+          return {
+            login: contrib.login,
+            contributions: contrib.contributions,
+          };
+        }) : [],
         updatedAt: rawData.updatedAt,
         pushedAt: rawData.pushedAt,
-      },
+      } as Prisma.InputJsonValue,
 
       // ⚠️ 关键！MongoDB 原始数据引用
       rawDataId: rawDataId,
-    };
+    } as Prisma.ResourceCreateInput;
   }
 
   /**
    * 计算质量评分（0-100）
    */
-  private calculateQualityScore(rawData: any): number {
-    const stars = rawData.stargazersCount || 0;
-    const forks = rawData.forksCount || 0;
+  private calculateQualityScore(rawData: Record<string, unknown>): number {
+    const stars = typeof rawData.stargazersCount === 'number' ? rawData.stargazersCount : 0;
+    const forks = typeof rawData.forksCount === 'number' ? rawData.forksCount : 0;
     const hasReadme = !!rawData.readme;
     const hasLicense = !!rawData.license;
-    const recentActivity = this.isRecentlyActive(rawData.pushedAt);
+    const pushedAt = typeof rawData.pushedAt === 'string' ? rawData.pushedAt : '';
+    const recentActivity = this.isRecentlyActive(pushedAt);
 
     // 加权计算
     let score = 0;
@@ -526,10 +546,12 @@ export class GithubService {
   /**
    * 计算趋势评分
    */
-  private calculateTrendingScore(rawData: any): number {
-    const stars = rawData.stargazersCount || 0;
-    const daysSinceCreation = this.getDaysSince(rawData.createdAt);
-    const daysSinceUpdate = this.getDaysSince(rawData.pushedAt);
+  private calculateTrendingScore(rawData: Record<string, unknown>): number {
+    const stars = typeof rawData.stargazersCount === 'number' ? rawData.stargazersCount : 0;
+    const createdAt = typeof rawData.createdAt === 'string' ? rawData.createdAt : '';
+    const pushedAt = typeof rawData.pushedAt === 'string' ? rawData.pushedAt : '';
+    const daysSinceCreation = this.getDaysSince(createdAt);
+    const daysSinceUpdate = this.getDaysSince(pushedAt);
 
     // 增长速度（stars per day）
     const starsPerDay = daysSinceCreation > 0 ? stars / daysSinceCreation : 0;
@@ -544,7 +566,7 @@ export class GithubService {
    * 检查是否最近活跃（30天内）
    */
   private isRecentlyActive(pushedAt: string): boolean {
-    if (!pushedAt) return false;
+    if (!pushedAt || typeof pushedAt !== 'string') return false;
     const daysSince = this.getDaysSince(pushedAt);
     return daysSince <= 30;
   }
@@ -553,7 +575,9 @@ export class GithubService {
    * 获取距今天数
    */
   private getDaysSince(dateString: string): number {
+    if (!dateString || typeof dateString !== 'string') return Number.MAX_SAFE_INTEGER;
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return Number.MAX_SAFE_INTEGER;
     const now = new Date();
     return Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
   }
@@ -571,8 +595,8 @@ export class GithubService {
   /**
    * 获取请求头
    */
-  private getHeaders(): any {
-    const headers: any = {
+  private getHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
       Accept: "application/vnd.github.v3+json",
       "User-Agent": APP_CONFIG.brand.userAgent,
     };
@@ -587,7 +611,7 @@ export class GithubService {
   /**
    * 获取 axios 请求配置
    */
-  private getAxiosConfig(): any {
+  private getAxiosConfig(): { headers: Record<string, string>; timeout: number } {
     return {
       headers: this.getHeaders(),
       timeout: 30000, // 30秒超时
