@@ -72,10 +72,16 @@ import { DocumentChunker } from "./rag/chunking";
 
 // Observability
 import { AiEngineTracingService, TraceCollectorService } from "./observability";
+import { AiObservabilityService } from "./observability/ai-observability.service";
+import { CostAttributionService } from "./observability/cost-attribution.service";
+
+// Prompt Registry
+import { PromptRegistryService } from "./prompts/prompt-registry.service";
 
 // Facade (统一入口)
 import { AIEngineFacade } from "./facade";
 import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
+import { ModelResolverService } from "./facade/model-resolver.service";
 
 // SKILL.md Runtime (PromptSkillBridge + InputBindingResolver)
 import { PromptSkillBridge } from "./skills/runtime/prompt-skill-bridge.service";
@@ -141,8 +147,14 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // === Observability ===
     AiEngineTracingService,
     TraceCollectorService,
+    AiObservabilityService,
+    CostAttributionService,
+
+    // === Prompt Registry ===
+    PromptRegistryService,
 
     // === Facade (统一入口) ===
+    ModelResolverService,
     AIEngineFacade,
 
     // === SKILL.md Runtime ===
@@ -185,8 +197,14 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // === Observability ===
     AiEngineTracingService,
     TraceCollectorService,
+    AiObservabilityService,
+    CostAttributionService,
+
+    // === Prompt Registry ===
+    PromptRegistryService,
 
     // === Facade (统一入口) ===
+    ModelResolverService,
     AIEngineFacade,
 
     // === SKILL.md Runtime ===

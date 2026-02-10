@@ -12,6 +12,7 @@ import {
 } from "../abstractions/mcp-server.interface";
 import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import type { ChatMessage } from "../../ai-engine/facade/types/facade.types";
+import { withToolTimeout, MULTI_STEP_TIMEOUT_MS } from "./tool-timeout";
 
 interface DebateRound {
   round: number;
@@ -73,6 +74,47 @@ export class TeamsDebateToolHandler implements IMCPToolHandler {
     );
 
     try {
+      const result = await withToolTimeout(
+        this.executeDebate(topic, rounds, perspective),
+        MULTI_STEP_TIMEOUT_MS,
+        "Team debate",
+      );
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error) {
+      this.logger.error(`Debate tool failed: ${error}`);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              error: "Failed to execute debate",
+              details: error instanceof Error ? error.message : "Unknown error",
+            }),
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  private async executeDebate(
+    topic: string,
+    rounds: number,
+    perspective?: string,
+  ): Promise<{
+    topic: string;
+    perspective: string | null;
+    rounds: DebateRound[];
+    judgment: unknown;
+  }> {
       const debateRounds: DebateRound[] = [];
       const perspectiveNote = perspective
         ? ` Focus the debate around this angle: ${perspective}.`
@@ -178,33 +220,11 @@ export class TeamsDebateToolHandler implements IMCPToolHandler {
       }
 
       return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              topic,
-              perspective: perspective || null,
-              rounds: debateRounds,
-              judgment,
-            }),
-          },
-        ],
+        topic,
+        perspective: perspective || null,
+        rounds: debateRounds,
+        judgment,
       };
-    } catch (error) {
-      this.logger.error(`Debate tool failed: ${error}`);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              error: "Failed to execute debate",
-              details: error instanceof Error ? error.message : "Unknown error",
-            }),
-          },
-        ],
-        isError: true,
-      };
-    }
   }
 
   private buildDebateHistory(rounds: DebateRound[]): ChatMessage[] {

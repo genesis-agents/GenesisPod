@@ -25,6 +25,8 @@ import { MCPToolBridgeService } from "./bridge/mcp-tool-bridge.service";
 import { MCPResourceProvider } from "./bridge/mcp-resource-provider";
 import { MCPPromptProvider } from "./bridge/mcp-prompt-provider";
 import { MCPSessionManager } from "./gateway/mcp-session-manager";
+import { AiObservabilityService } from "../ai-engine/observability/ai-observability.service";
+import { CostAttributionService } from "../ai-engine/observability/cost-attribution.service";
 
 interface ToolCallMetric {
   toolName: string;
@@ -53,6 +55,8 @@ export class MCPServerService implements OnModuleInit {
     @Optional() private readonly promptProvider?: MCPPromptProvider,
     @Optional() private readonly guardrailsPipeline?: GuardrailsPipelineService,
     @Optional() private readonly configService?: ConfigService,
+    @Optional() private readonly observability?: AiObservabilityService,
+    @Optional() private readonly costAttribution?: CostAttributionService,
   ) {
     this.guardrailsEnabled =
       this.configService?.get<string>("GUARDRAILS_ENABLED") !== "false";
@@ -585,6 +589,41 @@ export class MCPServerService implements OnModuleInit {
     this.metrics.push(metric);
     if (this.metrics.length > this.MAX_METRICS) {
       this.metrics.splice(0, Math.floor(this.MAX_METRICS / 2));
+    }
+
+    // Forward to AI Engine observability (unified LLM call tracking)
+    if (this.observability) {
+      this.observability.recordLLMCall({
+        model: 'mcp-tool',
+        provider: 'mcp-server',
+        modelType: 'TOOL_EXECUTION',
+        module: 'mcp-server',
+        operation: metric.toolName,
+        userId: metric.apiKeyId,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        latencyMs: metric.duration,
+        estimatedCost: 0,
+        success: metric.success,
+        error: metric.errorType,
+        fallbackUsed: false,
+        retryCount: 0,
+      });
+    }
+
+    // Forward to cost attribution
+    if (this.costAttribution) {
+      this.costAttribution.recordCost({
+        userId: metric.apiKeyId || 'mcp-anonymous',
+        moduleType: 'mcp-server',
+        model: `mcp:${metric.toolName}`,
+        provider: 'mcp-server',
+        inputTokens: 0,
+        outputTokens: 0,
+        estimatedCost: 0,
+        timestamp: metric.timestamp,
+      });
     }
   }
 

@@ -9,3 +9,4 @@ export {
   PromptTemplateData,
   CreatePromptTemplateDto,
 } from './prompt-template.service';
+export { PromptRegistryService } from './prompt-registry.service';
