@@ -1,29 +1,39 @@
 /**
  * MCP Server - Core Service
- * 处理 JSON-RPC 2.0 请求路由和 MCP 协议逻辑
+ *
+ * 处理 JSON-RPC 2.0 请求路由和 MCP 协议逻辑。
+ * 支持完整 MCP 协议: Tools + Resources + Prompts。
+ *
+ * 工具来源:
+ * 1. Curated Handlers (精选工具) - 手写的高级 Tool Handler
+ * 2. Dynamic Bridge (动态桥接) - 从 Registry 自动生成的 Tool/Skill/Agent
  */
 
 import { Injectable, Logger, OnModuleInit, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { randomBytes } from "crypto";
 import {
   JsonRpcRequest,
   JsonRpcResponse,
   ExposedTool,
   IMCPToolHandler,
   MCPRequestContext,
+  MCPToolResponse,
   JSON_RPC_ERRORS,
 } from "./abstractions/mcp-server.interface";
 import { GuardrailsPipelineService } from "../ai-engine/guardrails/guardrails-pipeline.service";
-import { LruMap } from "@/common/utils/lru-map";
+import { MCPToolBridgeService } from "./bridge/mcp-tool-bridge.service";
+import { MCPResourceProvider } from "./bridge/mcp-resource-provider";
+import { MCPPromptProvider } from "./bridge/mcp-prompt-provider";
+import { MCPSessionManager } from "./gateway/mcp-session-manager";
 
 interface ToolCallMetric {
   toolName: string;
   success: boolean;
-  duration: number; // ms
+  duration: number;
   apiKeyId: string;
   timestamp: Date;
   errorType?: string;
+  source?: string;
 }
 
 @Injectable()
@@ -32,15 +42,15 @@ export class MCPServerService implements OnModuleInit {
   private readonly guardrailsEnabled: boolean;
   private readonly guardrailsFailClosed: boolean;
   private readonly toolHandlers = new Map<string, IMCPToolHandler>();
-  private readonly sessions = new LruMap<
-    string,
-    { clientInfo?: { name: string; version: string }; createdAt: Date }
-  >(1000);
   private readonly metrics: ToolCallMetric[] = [];
   private readonly MAX_METRICS = 10000;
   private startedAt: Date = new Date();
 
   constructor(
+    private readonly sessionManager: MCPSessionManager,
+    @Optional() private readonly toolBridge?: MCPToolBridgeService,
+    @Optional() private readonly resourceProvider?: MCPResourceProvider,
+    @Optional() private readonly promptProvider?: MCPPromptProvider,
     @Optional() private readonly guardrailsPipeline?: GuardrailsPipelineService,
     @Optional() private readonly configService?: ConfigService,
   ) {
@@ -55,27 +65,39 @@ export class MCPServerService implements OnModuleInit {
 
   onModuleInit() {
     this.startedAt = new Date();
+
+    // 触发 Bridge 初始发现
+    if (this.toolBridge) {
+      const bridgedTools = this.toolBridge.listBridgedTools();
+      this.logger.log(`Bridge initialized with ${bridgedTools.length} dynamic tools`);
+    }
+
     this.logger.log(
-      `MCP Server initialized with ${this.toolHandlers.size} tools`,
+      `MCP Server initialized: ` +
+      `${this.toolHandlers.size} curated tools, ` +
+      `bridge ${this.toolBridge ? "enabled" : "disabled"}, ` +
+      `resources ${this.resourceProvider ? "enabled" : "disabled"}, ` +
+      `prompts ${this.promptProvider ? "enabled" : "disabled"}`,
     );
   }
 
-  /**
-   * 注册工具处理器
-   */
+  // =========================================================================
+  // Tool Handler Registration (Curated)
+  // =========================================================================
+
   registerToolHandler(handler: IMCPToolHandler): void {
     this.toolHandlers.set(handler.toolName, handler);
-    this.logger.log(`Registered MCP tool: ${handler.toolName}`);
+    this.logger.log(`Registered curated MCP tool: ${handler.toolName}`);
   }
 
-  /**
-   * 处理 JSON-RPC 请求
-   */
+  // =========================================================================
+  // JSON-RPC Request Handling
+  // =========================================================================
+
   async handleRequest(
     body: unknown,
     context: MCPRequestContext,
   ): Promise<JsonRpcResponse | JsonRpcResponse[] | null> {
-    // Handle batch requests
     if (Array.isArray(body)) {
       const responses = await Promise.all(
         body.map((req) => this.processSingleRequest(req, context)),
@@ -83,10 +105,8 @@ export class MCPServerService implements OnModuleInit {
       const filtered = responses.filter(
         (r): r is JsonRpcResponse => r !== null,
       );
-      // JSON-RPC spec: if all are notifications, return nothing
       return filtered.length > 0 ? filtered : null;
     }
-
     return this.processSingleRequest(body, context);
   }
 
@@ -94,13 +114,11 @@ export class MCPServerService implements OnModuleInit {
     body: unknown,
     context: MCPRequestContext,
   ): Promise<JsonRpcResponse | null> {
-    // Validate JSON-RPC format
     if (!body || typeof body !== "object") {
       return this.errorResponse(null, JSON_RPC_ERRORS.INVALID_REQUEST);
     }
 
     const request = body as JsonRpcRequest;
-
     if (request.jsonrpc !== "2.0" || !request.method) {
       return this.errorResponse(
         request.id ?? null,
@@ -108,7 +126,6 @@ export class MCPServerService implements OnModuleInit {
       );
     }
 
-    // Notification (no id) - process but don't respond
     const isNotification = request.id === undefined;
 
     try {
@@ -117,68 +134,102 @@ export class MCPServerService implements OnModuleInit {
       return { jsonrpc: "2.0", id: request.id, result };
     } catch (error) {
       if (isNotification) return null;
-      return this.errorResponse(request.id!, {
-        code: (error as any).code || JSON_RPC_ERRORS.INTERNAL_ERROR.code,
-        message: (error as Error).message,
-      });
+      const errObj = error as unknown as Record<string, unknown>;
+      const code = (errObj.code as number) || JSON_RPC_ERRORS.INTERNAL_ERROR.code;
+      // 仅暴露已知错误码的消息，内部错误只返回通用文本
+      const safeMessage = errObj.code
+        ? (error as Error).message
+        : "Internal server error";
+      return this.errorResponse(request.id!, { code, message: safeMessage });
     }
   }
+
+  // =========================================================================
+  // Method Dispatch - 完整 MCP 协议路由
+  // =========================================================================
 
   private async dispatch(
     request: JsonRpcRequest,
     context: MCPRequestContext,
   ): Promise<unknown> {
     switch (request.method) {
+      // --- Lifecycle ---
       case "initialize":
         return this.handleInitialize(request.params, context);
-
-      case "tools/list":
-        return this.handleToolsList();
-
-      case "tools/call":
-        return this.handleToolsCall(request.params, context);
-
       case "notifications/initialized":
         return undefined;
-
       case "ping":
         return {};
 
-      default:
-        const error = new Error(`Method not found: ${request.method}`);
-        (error as any).code = JSON_RPC_ERRORS.METHOD_NOT_FOUND.code;
+      // --- Tools (MCP Primitive #1) ---
+      case "tools/list":
+        return this.handleToolsList(context);
+      case "tools/call":
+        return this.handleToolsCall(request.params, context);
+
+      // --- Resources (MCP Primitive #2) ---
+      case "resources/list":
+        return this.handleResourcesList(context);
+      case "resources/read":
+        return this.handleResourcesRead(request.params, context);
+
+      // --- Prompts (MCP Primitive #3) ---
+      case "prompts/list":
+        return this.handlePromptsList(context);
+      case "prompts/get":
+        return this.handlePromptsGet(request.params, context);
+
+      default: {
+        const error: Error & { code?: number } = new Error(`Method not found: ${request.method}`);
+        error.code = JSON_RPC_ERRORS.METHOD_NOT_FOUND.code;
         throw error;
+      }
     }
   }
+
+  // =========================================================================
+  // Initialize - Enhanced with Session Manager
+  // =========================================================================
 
   private handleInitialize(
     params: Record<string, unknown> | undefined,
     context: MCPRequestContext,
   ): Record<string, unknown> {
-    const sessionId = this.generateSessionId();
-    this.sessions.set(sessionId, {
-      clientInfo: params?.clientInfo as
-        | { name: string; version: string }
-        | undefined,
-      createdAt: new Date(),
-    });
-    context.sessionId = sessionId;
+    const clientInfo = params?.clientInfo as
+      | { name: string; version: string }
+      | undefined;
+
+    const session = this.sessionManager.createSession(
+      context.apiKeyId,
+      clientInfo,
+    );
+    context.sessionId = session.sessionId;
 
     return {
       protocolVersion: "2024-11-05",
       capabilities: {
-        tools: { listChanged: false },
+        tools: { listChanged: true },
+        resources: { subscribe: false, listChanged: false },
+        prompts: { listChanged: false },
       },
       serverInfo: {
         name: "raven-ai-engine",
-        version: "1.0.0",
+        version: "2.0.0",
+        sessionId: session.sessionId,
       },
-      _meta: { sessionId },
     };
   }
 
-  private handleToolsList(): { tools: ExposedTool[] } {
+  // =========================================================================
+  // Tools - Curated + Dynamic Bridge
+  // =========================================================================
+
+  private handleToolsList(
+    _context: MCPRequestContext,
+  ): { tools: ExposedTool[] } {
     const tools: ExposedTool[] = [];
+
+    // 1. Curated handlers（高优先级，精选工具）
     for (const handler of this.toolHandlers.values()) {
       tools.push({
         name: handler.toolName,
@@ -186,6 +237,22 @@ export class MCPServerService implements OnModuleInit {
         inputSchema: handler.inputSchema,
       });
     }
+
+    // 2. Dynamic bridge tools（从 Registry 自动发现）
+    if (this.toolBridge) {
+      const bridgedTools = this.toolBridge.listBridgedTools();
+      for (const bt of bridgedTools) {
+        // 避免重复: 如果 curated handler 已覆盖同名工具，跳过
+        if (!tools.some((t) => t.name === bt.name)) {
+          tools.push({
+            name: bt.name,
+            description: bt.description,
+            inputSchema: bt.inputSchema,
+          });
+        }
+      }
+    }
+
     return { tools };
   }
 
@@ -195,50 +262,54 @@ export class MCPServerService implements OnModuleInit {
   ): Promise<unknown> {
     if (!params?.name || typeof params.name !== "string") {
       const error = new Error("Missing required parameter: name");
-      (error as any).code = JSON_RPC_ERRORS.INVALID_PARAMS.code;
+      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.INVALID_PARAMS.code;
       throw error;
     }
 
-    const handler = this.toolHandlers.get(params.name);
-    if (!handler) {
-      const error = new Error(`Unknown tool: ${params.name}`);
-      (error as any).code = JSON_RPC_ERRORS.METHOD_NOT_FOUND.code;
-      throw error;
-    }
-
+    const toolName = params.name;
     const args = (params.arguments as Record<string, unknown>) || {};
 
-    // Input validation with guardrails
+    // 权限检查
+    if (context.sessionId) {
+      if (!this.sessionManager.isToolAllowed(context.sessionId, toolName)) {
+        return {
+          content: [{ type: "text", text: "Permission denied for this tool" }],
+          isError: true,
+        };
+      }
+    }
+
+    // 配额检查
+    if (!this.sessionManager.consumeQuota(context.apiKeyId, context.sessionId)) {
+      return {
+        content: [{ type: "text", text: "Daily quota exceeded" }],
+        isError: true,
+      };
+    }
+
+    // Guardrails 输入验证
     if (this.guardrailsEnabled && this.guardrailsPipeline) {
       try {
         const inputCheck = await this.guardrailsPipeline.processInput({
           content: JSON.stringify(args),
-          context: { toolName: params.name, sessionId: context.sessionId },
+          context: { toolName, sessionId: context.sessionId },
         });
-
         if (!inputCheck.passed) {
           this.logger.warn(
             `MCP tool call blocked by input guardrail: ${inputCheck.blockedBy}`,
           );
           return {
-            content: [
-              {
-                type: "text",
-                text: "Request blocked by security policy",
-              },
-            ],
+            content: [{ type: "text", text: "Request blocked by security policy" }],
             isError: true,
           };
         }
       } catch (guardrailError) {
         this.logger.error(
-          `MCP input guardrail execution error: ${(guardrailError as Error).message}`,
+          `MCP input guardrail error: ${(guardrailError as Error).message}`,
         );
         if (this.guardrailsFailClosed) {
           return {
-            content: [
-              { type: "text", text: "Security validation unavailable" },
-            ],
+            content: [{ type: "text", text: "Security validation unavailable" }],
             isError: true,
           };
         }
@@ -246,51 +317,56 @@ export class MCPServerService implements OnModuleInit {
     }
 
     const startTime = Date.now();
-    let errorType: string | undefined;
+    let result: MCPToolResponse;
+    let source = "curated";
 
     try {
-      const result = await handler.execute(args, context);
+      // 路由: 先查 curated handler，再查 bridge
+      const handler = this.toolHandlers.get(toolName);
+      if (handler) {
+        result = await handler.execute(args, context);
+        source = "curated";
+      } else if (this.toolBridge?.isBridgedTool(toolName)) {
+        result = await this.toolBridge.executeBridgedTool(toolName, args, context);
+        source = this.toolBridge.getBridgedToolMeta(toolName)?.source || "bridge";
+      } else {
+        const error = new Error(`Unknown tool: ${toolName}`);
+        (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.METHOD_NOT_FOUND.code;
+        throw error;
+      }
 
-      // Record metric
       this.recordMetric({
-        toolName: params.name,
-        success: true,
+        toolName,
+        success: !result.isError,
         duration: Date.now() - startTime,
         apiKeyId: context.apiKeyId || "unknown",
         timestamp: new Date(),
+        source,
       });
 
-      // Output validation with guardrails
-      if (this.guardrailsEnabled && this.guardrailsPipeline) {
+      // Guardrails 输出验证
+      if (this.guardrailsEnabled && this.guardrailsPipeline && !result.isError) {
         try {
           const outputCheck = await this.guardrailsPipeline.processOutput({
             content: JSON.stringify(result),
-            context: { toolName: params.name, sessionId: context.sessionId },
+            context: { toolName, sessionId: context.sessionId },
           });
-
           if (!outputCheck.passed) {
             this.logger.warn(
               `MCP tool output blocked by guardrail: ${outputCheck.blockedBy}`,
             );
             return {
-              content: [
-                {
-                  type: "text",
-                  text: "Request blocked by security policy",
-                },
-              ],
+              content: [{ type: "text", text: "Response blocked by security policy" }],
               isError: true,
             };
           }
         } catch (guardrailError) {
           this.logger.error(
-            `MCP output guardrail execution error: ${(guardrailError as Error).message}`,
+            `MCP output guardrail error: ${(guardrailError as Error).message}`,
           );
           if (this.guardrailsFailClosed) {
             return {
-              content: [
-                { type: "text", text: "Security validation unavailable" },
-              ],
+              content: [{ type: "text", text: "Security validation unavailable" }],
               isError: true,
             };
           }
@@ -299,46 +375,123 @@ export class MCPServerService implements OnModuleInit {
 
       return result;
     } catch (error) {
-      errorType = (error as Error).name || "UnknownError";
-
-      // Record metric
       this.recordMetric({
-        toolName: params.name,
+        toolName,
         success: false,
         duration: Date.now() - startTime,
         apiKeyId: context.apiKeyId || "unknown",
         timestamp: new Date(),
-        errorType,
+        errorType: (error as Error).name || "UnknownError",
+        source,
       });
 
-      this.logger.error(
-        `Tool ${params.name} failed: ${(error as Error).message}`,
-      );
+      if ((error as unknown as Record<string, unknown>).code) {
+        throw error;
+      }
+
+      this.logger.error(`Tool ${toolName} failed: ${(error as Error).message}`);
       return {
-        content: [{ type: "text", text: `Error: ${(error as Error).message}` }],
+        content: [{ type: "text", text: "Tool execution failed" }],
         isError: true,
       };
     }
   }
 
-  private errorResponse(
-    id: string | number | null,
-    error: { code: number; message: string },
-  ): JsonRpcResponse {
-    return {
-      jsonrpc: "2.0",
-      id: id ?? undefined,
-      error,
-    };
+  // =========================================================================
+  // Resources - MCP Primitive #2
+  // =========================================================================
+
+  private async handleResourcesList(
+    context: MCPRequestContext,
+  ): Promise<{ resources: unknown[] }> {
+    if (!this.resourceProvider) {
+      return { resources: [] };
+    }
+
+    if (context.sessionId && !this.sessionManager.isResourceAllowed(context.sessionId)) {
+      return { resources: [] };
+    }
+
+    const resources = await this.resourceProvider.listResources();
+    return { resources };
   }
 
-  private generateSessionId(): string {
-    return `mcp-${randomBytes(16).toString("hex")}`;
+  private async handleResourcesRead(
+    params: Record<string, unknown> | undefined,
+    context: MCPRequestContext,
+  ): Promise<unknown> {
+    if (!params?.uri || typeof params.uri !== "string") {
+      const error = new Error("Missing required parameter: uri");
+      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.INVALID_PARAMS.code;
+      throw error;
+    }
+
+    if (!this.resourceProvider) {
+      const error = new Error("Resources not available");
+      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.RESOURCE_NOT_FOUND.code;
+      throw error;
+    }
+
+    if (context.sessionId && !this.sessionManager.isResourceAllowed(context.sessionId)) {
+      const error = new Error("Resource access denied");
+      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.PERMISSION_DENIED.code;
+      throw error;
+    }
+
+    const content = await this.resourceProvider.readResource(params.uri);
+    return { contents: [content] };
   }
 
-  /**
-   * 获取服务器状态（管理端使用）
-   */
+  // =========================================================================
+  // Prompts - MCP Primitive #3
+  // =========================================================================
+
+  private async handlePromptsList(
+    context: MCPRequestContext,
+  ): Promise<{ prompts: unknown[] }> {
+    if (!this.promptProvider) {
+      return { prompts: [] };
+    }
+
+    if (context.sessionId && !this.sessionManager.isPromptAllowed(context.sessionId)) {
+      return { prompts: [] };
+    }
+
+    const prompts = await this.promptProvider.listPrompts();
+    return { prompts };
+  }
+
+  private async handlePromptsGet(
+    params: Record<string, unknown> | undefined,
+    context: MCPRequestContext,
+  ): Promise<unknown> {
+    if (!params?.name || typeof params.name !== "string") {
+      const error = new Error("Missing required parameter: name");
+      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.INVALID_PARAMS.code;
+      throw error;
+    }
+
+    if (!this.promptProvider) {
+      const error = new Error("Prompts not available");
+      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.RESOURCE_NOT_FOUND.code;
+      throw error;
+    }
+
+    if (context.sessionId && !this.sessionManager.isPromptAllowed(context.sessionId)) {
+      const error = new Error("Prompt access denied");
+      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.PERMISSION_DENIED.code;
+      throw error;
+    }
+
+    const args = params.arguments as Record<string, string> | undefined;
+    const messages = await this.promptProvider.getPrompt(params.name, args);
+    return { messages };
+  }
+
+  // =========================================================================
+  // Admin & Status APIs
+  // =========================================================================
+
   getStatus(): {
     toolCount: number;
     tools: string[];
@@ -347,25 +500,94 @@ export class MCPServerService implements OnModuleInit {
     return {
       toolCount: this.toolHandlers.size,
       tools: Array.from(this.toolHandlers.keys()),
-      activeSessions: this.sessions.size,
+      activeSessions: this.sessionManager.getStats().activeSessions,
     };
   }
 
-  /**
-   * Record tool call metric with circular buffer
-   */
+  getDetailedStatus(): {
+    status: "healthy" | "degraded" | "unhealthy";
+    uptime: number;
+    curatedToolCount: number;
+    bridgedToolCount: number;
+    totalToolCount: number;
+    tools: Array<{ name: string; description: string; source: string }>;
+    activeSessions: number;
+    capabilities: { tools: boolean; resources: boolean; prompts: boolean; streaming: boolean };
+    metrics24h: { totalCalls: number; successRate: number; avgDuration: number };
+  } {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const metrics24h = this.getMetrics({ startDate: oneDayAgo });
+
+    let status: "healthy" | "degraded" | "unhealthy" = "healthy";
+    if (metrics24h.successRate < 95) status = "degraded";
+    if (metrics24h.successRate < 80) status = "unhealthy";
+
+    const tools: Array<{ name: string; description: string; source: string }> = [];
+
+    for (const handler of this.toolHandlers.values()) {
+      tools.push({
+        name: handler.toolName,
+        description: handler.description,
+        source: "curated",
+      });
+    }
+
+    const bridgeStats = this.toolBridge?.getStats();
+    const bridgedCount = bridgeStats?.total || 0;
+
+    if (this.toolBridge) {
+      for (const bt of this.toolBridge.listBridgedTools()) {
+        if (!tools.some((t) => t.name === bt.name)) {
+          tools.push({
+            name: bt.name,
+            description: bt.description,
+            source: bt.source,
+          });
+        }
+      }
+    }
+
+    return {
+      status,
+      uptime: Math.floor((Date.now() - this.startedAt.getTime()) / 1000),
+      curatedToolCount: this.toolHandlers.size,
+      bridgedToolCount: bridgedCount,
+      totalToolCount: tools.length,
+      tools,
+      activeSessions: this.sessionManager.getStats().activeSessions,
+      capabilities: {
+        tools: true,
+        resources: !!this.resourceProvider,
+        prompts: !!this.promptProvider,
+        streaming: true,
+      },
+      metrics24h: {
+        totalCalls: metrics24h.totalCalls,
+        successRate: metrics24h.successRate,
+        avgDuration: metrics24h.avgDuration,
+      },
+    };
+  }
+
+  getSessions() {
+    return this.sessionManager.getAllSessions();
+  }
+
+  terminateSession(sessionId: string): boolean {
+    return this.sessionManager.terminateSession(sessionId);
+  }
+
+  // =========================================================================
+  // Metrics
+  // =========================================================================
+
   private recordMetric(metric: ToolCallMetric): void {
     this.metrics.push(metric);
-
-    // Circular buffer: when exceeding limit, remove oldest half
     if (this.metrics.length > this.MAX_METRICS) {
       this.metrics.splice(0, Math.floor(this.MAX_METRICS / 2));
     }
   }
 
-  /**
-   * Get aggregated metrics for admin dashboard
-   */
   getMetrics(options?: {
     startDate?: Date;
     endDate?: Date;
@@ -376,80 +598,45 @@ export class MCPServerService implements OnModuleInit {
     errorCount: number;
     successRate: number;
     avgDuration: number;
-    byTool: Record<
-      string,
-      { calls: number; errors: number; avgDuration: number }
-    >;
+    byTool: Record<string, { calls: number; errors: number; avgDuration: number }>;
     byApiKey: Record<string, { calls: number; lastUsed: Date }>;
-    recentErrors: Array<{
-      toolName: string;
-      errorType: string;
-      timestamp: Date;
-    }>;
+    bySource: Record<string, number>;
+    recentErrors: Array<{ toolName: string; errorType: string; timestamp: Date }>;
   } {
-    // Filter metrics
-    let filteredMetrics = this.metrics;
+    let filtered = this.metrics;
     if (options?.startDate) {
-      filteredMetrics = filteredMetrics.filter(
-        (m) => m.timestamp >= options.startDate!,
-      );
+      filtered = filtered.filter((m) => m.timestamp >= options.startDate!);
     }
     if (options?.endDate) {
-      filteredMetrics = filteredMetrics.filter(
-        (m) => m.timestamp <= options.endDate!,
-      );
+      filtered = filtered.filter((m) => m.timestamp <= options.endDate!);
     }
     if (options?.toolName) {
-      filteredMetrics = filteredMetrics.filter(
-        (m) => m.toolName === options.toolName,
-      );
+      filtered = filtered.filter((m) => m.toolName === options.toolName);
     }
 
-    // Aggregate
-    const totalCalls = filteredMetrics.length;
-    const successCount = filteredMetrics.filter((m) => m.success).length;
+    const totalCalls = filtered.length;
+    const successCount = filtered.filter((m) => m.success).length;
     const errorCount = totalCalls - successCount;
-    const successRate =
-      totalCalls > 0 ? (successCount / totalCalls) * 100 : 100;
+    const successRate = totalCalls > 0 ? (successCount / totalCalls) * 100 : 100;
     const avgDuration =
       totalCalls > 0
-        ? filteredMetrics.reduce((sum, m) => sum + m.duration, 0) / totalCalls
+        ? filtered.reduce((sum, m) => sum + m.duration, 0) / totalCalls
         : 0;
 
-    // By tool (accumulate with internal totalDuration, then project to output type)
-    const byToolAccum: Record<
-      string,
-      { calls: number; errors: number; totalDuration: number }
-    > = {};
-    for (const metric of filteredMetrics) {
+    const byToolAccum: Record<string, { calls: number; errors: number; totalDuration: number }> = {};
+    const byApiKey: Record<string, { calls: number; lastUsed: Date }> = {};
+    const bySource: Record<string, number> = {};
+
+    for (const metric of filtered) {
+      // By tool
       if (!byToolAccum[metric.toolName]) {
-        byToolAccum[metric.toolName] = {
-          calls: 0,
-          errors: 0,
-          totalDuration: 0,
-        };
+        byToolAccum[metric.toolName] = { calls: 0, errors: 0, totalDuration: 0 };
       }
       byToolAccum[metric.toolName].calls++;
       if (!metric.success) byToolAccum[metric.toolName].errors++;
       byToolAccum[metric.toolName].totalDuration += metric.duration;
-    }
-    const byTool: Record<
-      string,
-      { calls: number; errors: number; avgDuration: number }
-    > = {};
-    for (const toolName of Object.keys(byToolAccum)) {
-      const acc = byToolAccum[toolName];
-      byTool[toolName] = {
-        calls: acc.calls,
-        errors: acc.errors,
-        avgDuration:
-          acc.calls > 0 ? Math.round(acc.totalDuration / acc.calls) : 0,
-      };
-    }
 
-    // By API key
-    const byApiKey: Record<string, { calls: number; lastUsed: Date }> = {};
-    for (const metric of filteredMetrics) {
+      // By API key
       if (!byApiKey[metric.apiKeyId]) {
         byApiKey[metric.apiKeyId] = { calls: 0, lastUsed: metric.timestamp };
       }
@@ -457,10 +644,22 @@ export class MCPServerService implements OnModuleInit {
       if (metric.timestamp > byApiKey[metric.apiKeyId].lastUsed) {
         byApiKey[metric.apiKeyId].lastUsed = metric.timestamp;
       }
+
+      // By source
+      const source = metric.source || "curated";
+      bySource[source] = (bySource[source] || 0) + 1;
     }
 
-    // Recent errors (last 10)
-    const recentErrors = filteredMetrics
+    const byTool: Record<string, { calls: number; errors: number; avgDuration: number }> = {};
+    for (const [name, acc] of Object.entries(byToolAccum)) {
+      byTool[name] = {
+        calls: acc.calls,
+        errors: acc.errors,
+        avgDuration: acc.calls > 0 ? Math.round(acc.totalDuration / acc.calls) : 0,
+      };
+    }
+
+    const recentErrors = filtered
       .filter((m) => !m.success && m.errorType)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, 10)
@@ -478,82 +677,23 @@ export class MCPServerService implements OnModuleInit {
       avgDuration: Math.round(avgDuration),
       byTool,
       byApiKey,
+      bySource,
       recentErrors,
     };
   }
 
-  /**
-   * Get active sessions info
-   */
-  getSessions(): Array<{
-    sessionId: string;
-    clientInfo?: { name: string; version: string };
-    createdAt: Date;
-  }> {
-    const sessions: Array<{
-      sessionId: string;
-      clientInfo?: { name: string; version: string };
-      createdAt: Date;
-    }> = [];
+  // =========================================================================
+  // Private Helpers
+  // =========================================================================
 
-    // LruMap extends Map, so we can iterate
-    for (const [sessionId, sessionData] of this.sessions) {
-      sessions.push({
-        sessionId,
-        clientInfo: sessionData.clientInfo,
-        createdAt: sessionData.createdAt,
-      });
-    }
-
-    return sessions;
-  }
-
-  /**
-   * Enhanced status with metrics
-   */
-  getDetailedStatus(): {
-    status: "healthy" | "degraded" | "unhealthy";
-    uptime: number;
-    toolCount: number;
-    tools: Array<{ name: string; description: string }>;
-    activeSessions: number;
-    metrics24h: {
-      totalCalls: number;
-      successRate: number;
-      avgDuration: number;
-    };
-  } {
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const metrics24h = this.getMetrics({ startDate: oneDayAgo });
-
-    // Determine health status
-    let status: "healthy" | "degraded" | "unhealthy" = "healthy";
-    if (metrics24h.successRate < 95) {
-      status = "degraded";
-    }
-    if (metrics24h.successRate < 80) {
-      status = "unhealthy";
-    }
-
-    const tools: Array<{ name: string; description: string }> = [];
-    for (const handler of this.toolHandlers.values()) {
-      tools.push({
-        name: handler.toolName,
-        description: handler.description,
-      });
-    }
-
+  private errorResponse(
+    id: string | number | null,
+    error: { code: number; message: string },
+  ): JsonRpcResponse {
     return {
-      status,
-      uptime: Math.floor((Date.now() - this.startedAt.getTime()) / 1000),
-      toolCount: this.toolHandlers.size,
-      tools,
-      activeSessions: this.sessions.size,
-      metrics24h: {
-        totalCalls: metrics24h.totalCalls,
-        successRate: metrics24h.successRate,
-        avgDuration: metrics24h.avgDuration,
-      },
+      jsonrpc: "2.0",
+      id: id ?? undefined,
+      error,
     };
   }
 }
