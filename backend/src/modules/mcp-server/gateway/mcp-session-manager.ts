@@ -1,0 +1,224 @@
+/**
+ * MCP Session Manager
+ *
+ * 管理 MCP 会话的完整生命周期，替代原有的简单 LRU Map。
+ * 每个 Session 关联权限策略、执行历史、活跃状态追踪。
+ */
+
+import { Injectable, Logger } from "@nestjs/common";
+import { randomBytes } from "crypto";
+import {
+  MCPSession,
+  MCPPermissionPolicy,
+  MCPRequestContext,
+} from "../abstractions/mcp-server.interface";
+import { LruMap } from "@/common/utils/lru-map";
+
+/**
+ * 默认权限策略: 最小权限原则
+ * 仅允许 curated (精选) 工具，需要显式授权才能使用 bridge 工具
+ */
+const DEFAULT_POLICY: MCPPermissionPolicy = {
+  allowedToolPatterns: [
+    "raven_*",        // curated tools (raven_ask, raven_deep_research, etc.)
+  ],
+  deniedToolPatterns: [],
+  maxConcurrency: 5,
+  dailyQuota: 1000,
+  allowStreaming: true,
+  allowResources: true,
+  allowPrompts: true,
+};
+
+const MAX_SESSIONS = 2000;
+
+@Injectable()
+export class MCPSessionManager {
+  private readonly logger = new Logger(MCPSessionManager.name);
+  private readonly sessions = new LruMap<string, MCPSession>(MAX_SESSIONS);
+  private readonly dailyUsage = new Map<string, { count: number; resetAt: Date }>();
+
+  /**
+   * 创建新会话
+   */
+  createSession(
+    apiKeyId: string,
+    clientInfo?: { name: string; version: string },
+    policy?: Partial<MCPPermissionPolicy>,
+  ): MCPSession {
+    const sessionId = `mcp-${randomBytes(16).toString("hex")}`;
+    const now = new Date();
+
+    const session: MCPSession = {
+      sessionId,
+      apiKeyId,
+      clientInfo,
+      permissionPolicy: { ...DEFAULT_POLICY, ...policy },
+      createdAt: now,
+      lastActiveAt: now,
+    };
+
+    this.sessions.set(sessionId, session);
+    this.logger.log(
+      `Session created: ${sessionId} (client: ${clientInfo?.name || "unknown"})`,
+    );
+
+    return session;
+  }
+
+  /**
+   * 获取会话
+   */
+  getSession(sessionId: string): MCPSession | undefined {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.lastActiveAt = new Date();
+    }
+    return session;
+  }
+
+  /**
+   * 终止会话
+   */
+  terminateSession(sessionId: string): boolean {
+    const existed = this.sessions.has(sessionId);
+    this.sessions.delete(sessionId);
+    if (existed) {
+      this.logger.log(`Session terminated: ${sessionId}`);
+    }
+    return existed;
+  }
+
+  /**
+   * 检查工具权限
+   */
+  isToolAllowed(sessionId: string, toolName: string): boolean {
+    const session = this.sessions.get(sessionId);
+    if (!session?.permissionPolicy) return false; // fail-closed: 无会话则拒绝
+
+    const policy = session.permissionPolicy;
+
+    // 检查 deny 列表（优先）
+    for (const pattern of policy.deniedToolPatterns) {
+      if (this.matchPattern(toolName, pattern)) {
+        return false;
+      }
+    }
+
+    // 检查 allow 列表
+    for (const pattern of policy.allowedToolPatterns) {
+      if (this.matchPattern(toolName, pattern)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * 检查并消费每日配额
+   */
+  consumeQuota(apiKeyId: string, sessionId?: string): boolean {
+    const session = sessionId ? this.sessions.get(sessionId) : undefined;
+    const dailyQuota = session?.permissionPolicy?.dailyQuota ?? DEFAULT_POLICY.dailyQuota;
+
+    const now = new Date();
+    const key = apiKeyId;
+    let usage = this.dailyUsage.get(key);
+
+    // 重置过期的计数器
+    if (!usage || usage.resetAt <= now) {
+      const resetAt = new Date(now);
+      resetAt.setHours(24, 0, 0, 0);
+      usage = { count: 0, resetAt };
+      this.dailyUsage.set(key, usage);
+    }
+
+    if (usage.count >= dailyQuota) {
+      return false;
+    }
+
+    usage.count++;
+    return true;
+  }
+
+  /**
+   * 检查是否允许 Resources
+   */
+  isResourceAllowed(sessionId: string): boolean {
+    const session = this.sessions.get(sessionId);
+    if (!session) return false;
+    return session.permissionPolicy?.allowResources ?? false;
+  }
+
+  /**
+   * 检查是否允许 Prompts
+   */
+  isPromptAllowed(sessionId: string): boolean {
+    const session = this.sessions.get(sessionId);
+    if (!session) return false;
+    return session.permissionPolicy?.allowPrompts ?? false;
+  }
+
+  /**
+   * 获取所有活跃会话
+   */
+  getAllSessions(): MCPSession[] {
+    const result: MCPSession[] = [];
+    for (const session of this.sessions.values()) {
+      result.push(session);
+    }
+    return result;
+  }
+
+  /**
+   * 获取会话统计
+   */
+  getStats(): {
+    activeSessions: number;
+    byClient: Record<string, number>;
+    byApiKey: Record<string, number>;
+  } {
+    const byClient: Record<string, number> = {};
+    const byApiKey: Record<string, number> = {};
+
+    for (const session of this.sessions.values()) {
+      const clientName = session.clientInfo?.name || "unknown";
+      byClient[clientName] = (byClient[clientName] || 0) + 1;
+      byApiKey[session.apiKeyId] = (byApiKey[session.apiKeyId] || 0) + 1;
+    }
+
+    return {
+      activeSessions: this.sessions.size,
+      byClient,
+      byApiKey,
+    };
+  }
+
+  /**
+   * 从 MCPRequestContext 获取或创建 Session
+   */
+  resolveSession(context: MCPRequestContext): MCPSession | undefined {
+    if (context.sessionId) {
+      return this.getSession(context.sessionId);
+    }
+    return undefined;
+  }
+
+  /**
+   * Glob-style 通配符匹配
+   * 支持: "*" (全匹配), "raven_*" (前缀), "*_search" (后缀),
+   *       "tool_web_*" (前缀), "tool_*_v2" (中间通配)
+   */
+  private matchPattern(value: string, pattern: string): boolean {
+    if (pattern === "*") return true;
+    if (!pattern.includes("*")) return value === pattern;
+
+    // 将 glob pattern 转换为正则
+    const escaped = pattern
+      .split("*")
+      .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join(".*");
+    return new RegExp(`^${escaped}$`).test(value);
+  }
+}
