@@ -1042,7 +1042,8 @@
       "advanceSuccess": "已推进到下一阶段",
       "retrySuccess": "已重新启动阶段",
       "pause": "暂停",
-      "resume": "继续"
+      "resume": "继续",
+      "startPlanning": "启动策划"
     },
     "templates": {
       "general": "通用策划",
@@ -1064,6 +1065,7 @@
       "title": "阶段进度",
       "currentPhase": "阶段 {{phase}}: {{name}}",
       "progress": "总进度",
+      "status": "状态",
       "phasesCompleted": "阶段已完成",
       "info": "策划信息"
     },
@@ -1088,6 +1090,65 @@
     "confirmDelete": "确定要删除此策划吗？此操作无法撤销。",
     "members": {
       "title": "团队成员"
+    },
+    "team": {
+      "title": "AI 策划团队",
+      "canvas": "团队协作",
+      "roles": "角色配置",
+      "skills": "技能",
+      "tools": "工具",
+      "responsibilities": "职责",
+      "agentDetail": "成员详情",
+      "legend": {
+        "leader": "总监",
+        "working": "工作中",
+        "completed": "已完成",
+        "idle": "待命"
+      }
+    },
+    "content": {
+      "phaseOutputs": "阶段产出",
+      "planReport": "策划报告",
+      "activityLog": "活动日志",
+      "noActivity": "暂无活动记录",
+      "noReport": "暂无策划报告，启动策划后将自动生成",
+      "notStartedHint": "点击左侧「启动策划」开始执行",
+      "planCreated": "策划已创建",
+      "phaseStarted": "已启动",
+      "phaseCompleted": "已完成",
+      "inputPlaceholder": "策划对话能力即将上线..."
+    },
+    "status": {
+      "notStarted": "未启动",
+      "inProgress": "进行中",
+      "completed": "已完成"
+    },
+    "settings": {
+      "title": "策划设置",
+      "subtitle": "修改策划参数和团队配置",
+      "basicInfo": "基础信息",
+      "teamConfig": "团队配置",
+      "teamConfigHint": "团队自定义功能即将上线",
+      "workflowDesign": "流程设计",
+      "workflowHint": "自定义流程功能即将上线",
+      "memberCount": "{{count}} 位 AI 成员",
+      "sequentialWorkflow": "阶段顺序执行流程",
+      "parallelHint": "可并行",
+      "save": "保存",
+      "saveSuccess": "设置已保存",
+      "saving": "保存中..."
+    },
+    "roles": {
+      "leader": "策划总监",
+      "researcher": "研究员",
+      "analyst": "分析师",
+      "copywriter": "文案专家",
+      "debater": "辩手",
+      "leaderDesc": "制定研究框架、分配任务、审核质量、整合报告",
+      "researcherDesc": "信息检索、资料整理、可信度判断、数据收集",
+      "analystDesc": "数据分析、趋势洞察、逻辑推理、综合判断",
+      "copywriterDesc": "内容创作、结构组织、语言润色、多风格写作",
+      "debaterDesc": "观点构建、论证推理、反驳应对、立场陈述"
     }
   },
   "aiOffice": {
