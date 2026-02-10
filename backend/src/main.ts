@@ -78,7 +78,7 @@ async function bootstrap() {
   );
 
   // 增加请求体大小限制，支持大型字幕数据
-  app.use(express.json({ limit: "10mb" }));
+  app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
   // 启用安全头 (Helmet) - 但对代理路由禁用CSP
@@ -107,7 +107,7 @@ async function bootstrap() {
           },
         },
         crossOriginEmbedderPolicy: false, // 允许跨域资源嵌入
-        frameguard: { action: "deny" }, // 防止点击劫持
+        frameguard: false, // 允许 iframe 嵌入（内部使用）
         strictTransportSecurity: isProd
           ? { maxAge: 31536000, includeSubDomains: true }
           : false,
@@ -123,16 +123,21 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
-      // 仅开发环境允许 localhost（生产环境必须精确匹配 CORS_ORIGINS）
+      // 无 Origin 头的请求（健康检查、服务端调用、curl 等）始终放行
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      // 开发环境允许 localhost
       const isLocalhost =
         isDev &&
-        (!origin ||
-          origin.match(/^http:\/\/localhost:\d+$/) ||
+        (origin.match(/^http:\/\/localhost:\d+$/) ||
           origin.match(/^http:\/\/127\.0\.0\.1:\d+$/) ||
           origin.match(/^http:\/\/\[::1\]:\d+$/));
 
       // 生产环境：精确匹配配置的域名（包括 Railway 域名）
-      const isAllowed = origin ? allowedOrigins.has(origin) : false;
+      const isAllowed = allowedOrigins.has(origin);
 
       if (isLocalhost || isAllowed) {
         callback(null, true);
@@ -150,7 +155,6 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
       transform: true,
     }),
   );
