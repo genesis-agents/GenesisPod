@@ -151,6 +151,7 @@ export {
 
 // NestJS 模块导出
 export { AiEngineModule } from "./ai-engine.module";
+export { AiEngineCoreModule } from "./ai-engine-core.module";
 export { AiEngineLLMModule } from "./ai-engine-llm.module";
 export { AiEngineToolsModule } from "./ai-engine-tools.module";
 export { AiEngineSkillsModule } from "./ai-engine-skills.module";
@@ -184,7 +185,19 @@ export type {
   TaskProfile as FacadeTaskProfile,
   MissionProgress as FacadeMissionProgress,
   ProgressCallback as FacadeProgressCallback,
+  // 结构化输出类型
+  StructuredChatRequest,
+  StructuredChatResponse,
+  JsonSchemaDefinition,
+  JsonSchemaProperty,
 } from "./facade/types";
+
+// Observability 导出
+export { AiObservabilityService } from "./observability/ai-observability.service";
+export { CostAttributionService } from "./observability/cost-attribution.service";
+
+// Prompt Registry 导出
+export { PromptRegistryService } from "./prompts/prompt-registry.service";
 
 // Image 模块核心服务
 export { ImageFactory } from "./image/factory";

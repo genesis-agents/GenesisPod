@@ -507,6 +507,155 @@ export class AIEngineFacade {
     }
   }
 
+  // ==================== 结构化输出 ====================
+
+  /**
+   * 结构化输出：LLM 响应 → 类型安全的 JSON 对象
+   *
+   * 自动在 system prompt 中注入 JSON Schema 约束，
+   * 解析响应为类型安全对象，解析失败时自动重试。
+   *
+   * @example
+   * interface Analysis { themes: string[]; score: number; }
+   * const result = await facade.chatStructured<Analysis>({
+   *   messages: [{ role: "user", content: "分析这篇文章" }],
+   *   schema: {
+   *     type: "object",
+   *     properties: {
+   *       themes: { type: "array", items: { type: "string" } },
+   *       score: { type: "number" },
+   *     },
+   *     required: ["themes", "score"],
+   *   },
+   *   taskProfile: { creativity: "low", outputLength: "medium" },
+   * });
+   * // result.data.themes — string[]
+   * // result.data.score — number
+   */
+  async chatStructured<T>(
+    request: import("./types/facade.types").StructuredChatRequest,
+  ): Promise<import("./types/facade.types").StructuredChatResponse<T>> {
+    const maxRetries = request.maxRetries ?? 1;
+    const throwOnParseError = request.throwOnParseError ?? true;
+
+    const schemaInstruction = [
+      "You MUST respond with ONLY valid JSON matching this schema:",
+      "```json",
+      JSON.stringify(request.schema, null, 2),
+      "```",
+      "No markdown fences, no extra text, no explanation. ONLY the JSON object.",
+    ].join("\n");
+
+    const systemPrompt = request.systemPrompt
+      ? `${request.systemPrompt}\n\n${schemaInstruction}`
+      : schemaInstruction;
+
+    let lastError: Error | undefined;
+    let totalTokens = 0;
+    let lastModel = "";
+    let lastRawContent = "";
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const chatRequest: ChatRequest = {
+        ...request,
+        systemPrompt:
+          attempt > 0
+            ? `${systemPrompt}\n\nYour previous response was not valid JSON. Return ONLY the JSON object.`
+            : systemPrompt,
+        taskProfile: request.taskProfile || {
+          creativity: "deterministic",
+          outputLength: "medium",
+        },
+        strictMode: true,
+      };
+
+      const response = await this.chat(chatRequest);
+      totalTokens += response.tokensUsed;
+      lastModel = response.model;
+      lastRawContent = response.content;
+
+      if (response.isError) {
+        lastError = new Error(response.content);
+        continue;
+      }
+
+      // 尝试解析 JSON
+      try {
+        const cleaned = this.extractJson(response.content);
+        const parsed = JSON.parse(cleaned) as T;
+
+        return {
+          data: parsed,
+          rawContent: response.content,
+          model: response.model,
+          tokensUsed: totalTokens,
+          retriedParse: attempt > 0,
+        };
+      } catch (parseError) {
+        lastError =
+          parseError instanceof Error
+            ? parseError
+            : new Error(String(parseError));
+        this.logger.warn(
+          `[chatStructured] JSON parse failed (attempt ${attempt + 1}/${maxRetries + 1}): ${lastError.message}`,
+        );
+      }
+    }
+
+    // 所有重试都失败
+    if (throwOnParseError) {
+      throw new Error(
+        `Structured output parse failed after ${maxRetries + 1} attempts: ${lastError?.message}`,
+      );
+    }
+
+    // 非严格模式：返回空对象
+    return {
+      data: {} as T,
+      rawContent: lastRawContent,
+      model: lastModel,
+      tokensUsed: totalTokens,
+      retriedParse: true,
+    };
+  }
+
+  /**
+   * 从 LLM 响应中提取 JSON 内容
+   * 处理常见的 markdown 代码块包裹
+   */
+  private extractJson(content: string): string {
+    let cleaned = content.trim();
+
+    // 移除 markdown 代码块
+    const jsonBlockMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+    if (jsonBlockMatch) {
+      cleaned = jsonBlockMatch[1].trim();
+    }
+
+    // 移除开头的非 JSON 文本（找到第一个 { 或 [）
+    const firstBrace = cleaned.indexOf("{");
+    const firstBracket = cleaned.indexOf("[");
+    const start = Math.min(
+      firstBrace >= 0 ? firstBrace : Infinity,
+      firstBracket >= 0 ? firstBracket : Infinity,
+    );
+
+    if (start !== Infinity && start > 0) {
+      cleaned = cleaned.substring(start);
+    }
+
+    // 移除末尾的非 JSON 文本
+    const lastBrace = cleaned.lastIndexOf("}");
+    const lastBracket = cleaned.lastIndexOf("]");
+    const end = Math.max(lastBrace, lastBracket);
+
+    if (end >= 0 && end < cleaned.length - 1) {
+      cleaned = cleaned.substring(0, end + 1);
+    }
+
+    return cleaned;
+  }
+
   private resolveBillingFromContext(): CreditBillingInfo | undefined {
     const ctx = BillingContext.get();
     if (ctx) {

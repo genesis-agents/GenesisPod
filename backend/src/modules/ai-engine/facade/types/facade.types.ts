@@ -711,6 +711,63 @@ export interface MemoryItem {
   metadata?: Record<string, unknown>;
 }
 
+// ==================== 结构化输出类型 ====================
+
+/**
+ * JSON Schema 定义（简化版）
+ */
+export interface JsonSchemaDefinition {
+  type: "object" | "array" | "string" | "number" | "boolean";
+  properties?: Record<string, JsonSchemaProperty>;
+  required?: string[];
+  items?: JsonSchemaProperty;
+  description?: string;
+}
+
+export interface JsonSchemaProperty {
+  type: string;
+  description?: string;
+  enum?: string[];
+  items?: JsonSchemaProperty;
+  properties?: Record<string, JsonSchemaProperty>;
+  required?: string[];
+  default?: unknown;
+}
+
+/**
+ * 结构化输出请求
+ */
+export interface StructuredChatRequest extends ChatRequest {
+  /** JSON Schema 描述期望的输出结构 */
+  schema: JsonSchemaDefinition;
+
+  /** 解析失败时是否抛出异常（默认 true） */
+  throwOnParseError?: boolean;
+
+  /** 最大重试次数（JSON 解析失败时自动重试，默认 1） */
+  maxRetries?: number;
+}
+
+/**
+ * 结构化输出响应
+ */
+export interface StructuredChatResponse<T> {
+  /** 类型安全的解析结果 */
+  data: T;
+
+  /** 原始响应文本 */
+  rawContent: string;
+
+  /** 使用的模型 */
+  model: string;
+
+  /** 使用的 token 数 */
+  tokensUsed: number;
+
+  /** 是否在重试后成功 */
+  retriedParse: boolean;
+}
+
 // ==================== 工具类别类型 ====================
 
 /**
