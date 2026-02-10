@@ -361,7 +361,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 window.location.href = '/ai-ask';
               }
             }}
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               isActive('/ai-ask') || pathname?.startsWith('/ai-ask')
                 ? 'bg-violet-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -385,9 +385,9 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiAsk')}</span>}
           </Link>
 
-          {/* Section: Materials & Knowledge */}
+          {/* Section: Knowledge */}
           {showExpanded && (
-            <div className="px-3 pb-0.5 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               {t('nav.sections.materialsKnowledge')}
             </div>
           )}
@@ -403,7 +403,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 window.location.href = '/explore';
               }
             }}
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               isActive('/explore')
                 ? 'bg-pink-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -434,7 +434,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 window.location.href = '/library';
               }
             }}
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               isActive('/library')
                 ? 'bg-indigo-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -457,10 +457,10 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.myLibrary')}</span>}
           </Link>
 
-          {/* Section: AI Teams */}
+          {/* Section: Research & Analysis */}
           {showExpanded && (
-            <div className="px-3 pb-0.5 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              {t('nav.sections.aiTeams')}
+            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              {t('nav.sections.researchAnalysis')}
             </div>
           )}
           {!showExpanded && (
@@ -468,58 +468,8 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           )}
 
           <Link
-            href="/ai-image"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
-              pathname?.startsWith('/ai-image')
-                ? 'bg-pink-50 text-gray-900'
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            title={t('nav.aiImage')}
-          >
-            <svg
-              className="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            {showExpanded && <span>{t('nav.aiImage')}</span>}
-          </Link>
-
-          <Link
-            href="/ai-writing"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
-              pathname?.startsWith('/ai-writing')
-                ? 'bg-amber-50 text-gray-900'
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            title={t('nav.aiWriting')}
-          >
-            <svg
-              className="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
-            {showExpanded && <span>{t('nav.aiWriting')}</span>}
-          </Link>
-
-          <Link
             href="/ai-insights"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/ai-insights')
                 ? 'bg-purple-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -544,7 +494,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           <Link
             href="/ai-research"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/ai-research')
                 ? 'bg-indigo-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -575,7 +525,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 window.location.href = '/ai-office';
               }
             }}
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} relative rounded-lg px-3 py-2 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} relative rounded-lg px-3 py-1.5 text-sm font-medium ${
               isActive('/ai-office') || pathname?.startsWith('/ai-office')
                 ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-gray-900 shadow-sm'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -605,8 +555,68 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           </Link>
 
           <Link
+            href="/ai-teams"
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+              pathname?.startsWith('/ai-teams')
+                ? 'bg-green-50 text-gray-900'
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            title={t('nav.myTeams')}
+          >
+            <svg
+              className="h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+              />
+            </svg>
+            {showExpanded && <span>{t('nav.myTeams')}</span>}
+          </Link>
+
+          {/* Section: Planning & Decision */}
+          {showExpanded && (
+            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              {t('nav.sections.planningDecision')}
+            </div>
+          )}
+          {!showExpanded && (
+            <div className="my-1 border-t border-gray-200/60" />
+          )}
+
+          <Link
+            href="/ai-planning"
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+              pathname?.startsWith('/ai-planning')
+                ? 'bg-amber-50 text-gray-900'
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            title={t('nav.aiPlanning')}
+          >
+            <svg
+              className="h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+              />
+            </svg>
+            {showExpanded && <span>{t('nav.aiPlanning')}</span>}
+          </Link>
+
+          <Link
             href="/ai-simulation"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/ai-simulation')
                 ? 'bg-indigo-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -673,14 +683,24 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiSimulation')}</span>}
           </Link>
 
+          {/* Section: Creative Writing */}
+          {showExpanded && (
+            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              {t('nav.sections.creativeWriting')}
+            </div>
+          )}
+          {!showExpanded && (
+            <div className="my-1 border-t border-gray-200/60" />
+          )}
+
           <Link
-            href="/ai-teams"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
-              pathname?.startsWith('/ai-teams')
-                ? 'bg-green-50 text-gray-900'
+            href="/ai-writing"
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+              pathname?.startsWith('/ai-writing')
+                ? 'bg-amber-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title={t('nav.myTeams')}
+            title={t('nav.aiWriting')}
           >
             <svg
               className="h-5 w-5 flex-shrink-0"
@@ -692,16 +712,43 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
               />
             </svg>
-            {showExpanded && <span>{t('nav.myTeams')}</span>}
+            {showExpanded && <span>{t('nav.aiWriting')}</span>}
           </Link>
 
-          {/* Section: AI Tools */}
+          {isAdmin && (
+            <Link
+              href="/ai-social"
+              className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+                pathname?.startsWith('/ai-social')
+                  ? 'bg-rose-50 text-gray-900'
+                  : 'text-gray-700 hover:bg-gray-50'
+              }`}
+              title={t('nav.aiSocial')}
+            >
+              <svg
+                className="h-5 w-5 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                />
+              </svg>
+              {showExpanded && <span>{t('nav.aiSocial')}</span>}
+            </Link>
+          )}
+
+          {/* Section: Tool Store */}
           {showExpanded && (
-            <div className="px-3 pb-0.5 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              {t('nav.sections.aiTools')}
+            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              {t('nav.sections.toolStore')}
             </div>
           )}
           {!showExpanded && (
@@ -710,7 +757,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           <Link
             href="/ai-store"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
               pathname?.startsWith('/ai-store') ||
               pathname?.startsWith('/ai-skills')
                 ? 'bg-cyan-50 text-gray-900'
@@ -736,35 +783,8 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           {isAdmin && (
             <Link
-              href="/ai-social"
-              className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
-                pathname?.startsWith('/ai-social')
-                  ? 'bg-rose-50 text-gray-900'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-              title={t('nav.aiSocial')}
-            >
-              <svg
-                className="h-5 w-5 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                />
-              </svg>
-              {showExpanded && <span>{t('nav.aiSocial')}</span>}
-            </Link>
-          )}
-
-          {isAdmin && (
-            <Link
               href="/admin/overview"
-              className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
+              className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
                 pathname?.startsWith('/admin')
                   ? 'bg-purple-50 text-gray-900'
                   : 'text-gray-700 hover:bg-gray-50'
@@ -837,70 +857,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
         {/* Language Switcher */}
         <LanguageSwitcher variant={showExpanded ? 'sidebar' : 'icon'} />
-
-        <Link
-          href="/changelog"
-          onClick={(e) => {
-            // Force navigation even if already on changelog page
-            if (pathname === '/changelog') {
-              e.preventDefault();
-              window.location.href = '/changelog';
-            }
-          }}
-          className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-            isActive('/changelog')
-              ? 'bg-pink-50 text-gray-900'
-              : 'text-gray-700 hover:bg-gray-50'
-          }`}
-          title="What's New"
-        >
-          <svg
-            className="h-5 w-5 flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-            />
-          </svg>
-          {showExpanded && <span>{t('nav.whatsNew')}</span>}
-        </Link>
-
-        <Link
-          href="/feedback"
-          onClick={(e) => {
-            // Force navigation even if already on feedback page
-            if (pathname === '/feedback') {
-              e.preventDefault();
-              window.location.href = '/feedback';
-            }
-          }}
-          className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-            isActive('/feedback')
-              ? 'bg-pink-50 text-gray-900'
-              : 'text-gray-700 hover:bg-gray-50'
-          }`}
-          title="Feedback"
-        >
-          <svg
-            className="h-5 w-5 flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-            />
-          </svg>
-          {showExpanded && <span>{t('nav.feedback')}</span>}
-        </Link>
       </div>
     </aside>
   );

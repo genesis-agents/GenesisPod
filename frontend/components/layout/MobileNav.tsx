@@ -63,22 +63,8 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     },
   ];
 
-  // AI Teams section
-  const aiTeamsItems = [
-    {
-      href: '/ai-image',
-      label: t('nav.aiImage'),
-      icon: 'image',
-      activeClass: 'bg-pink-50',
-      prefix: true,
-    },
-    {
-      href: '/ai-writing',
-      label: t('nav.aiWriting'),
-      icon: 'pen',
-      activeClass: 'bg-amber-50',
-      prefix: true,
-    },
+  // Research & Analysis section
+  const researchItems = [
     {
       href: '/ai-insights',
       label: t('nav.aiInsights'),
@@ -101,13 +87,6 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       prefix: true,
     },
     {
-      href: '/ai-simulation',
-      label: t('nav.aiSimulation'),
-      icon: 'grid',
-      activeClass: 'bg-indigo-50',
-      prefix: true,
-    },
-    {
       href: '/ai-teams',
       label: t('nav.myTeams'),
       icon: 'users',
@@ -116,19 +95,37 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     },
   ];
 
-  // AI Tools section
-  const aiToolsItems = [
+  // Planning & Decision section
+  const planningItems = [
     {
-      href: '/ai-store',
-      label: t('nav.aiStore'),
-      icon: 'store',
-      activeClass: 'bg-cyan-50',
+      href: '/ai-planning',
+      label: t('nav.aiPlanning'),
+      icon: 'lightbulb',
+      activeClass: 'bg-amber-50',
+      prefix: true,
+    },
+    {
+      href: '/ai-simulation',
+      label: t('nav.aiSimulation'),
+      icon: 'grid',
+      activeClass: 'bg-indigo-50',
       prefix: true,
     },
   ];
 
-  // Admin-only tools
-  const adminToolsItems = [
+  // Creative Writing section
+  const creativeItems = [
+    {
+      href: '/ai-writing',
+      label: t('nav.aiWriting'),
+      icon: 'pen',
+      activeClass: 'bg-amber-50',
+      prefix: true,
+    },
+  ];
+
+  // Admin-only creative tools
+  const adminCreativeItems = [
     {
       href: '/ai-social',
       label: t('nav.aiSocial'),
@@ -138,9 +135,19 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     },
   ];
 
+  // Tool Store section
+  const toolStoreItems = [
+    {
+      href: '/ai-store',
+      label: t('nav.aiStore'),
+      icon: 'store',
+      activeClass: 'bg-cyan-50',
+      prefix: true,
+    },
+  ];
+
   const bottomNavItems = [
     { href: '/notifications', label: t('nav.notifications'), icon: 'bell' },
-    { href: '/feedback', label: t('nav.feedback'), icon: 'message' },
   ];
 
   const getIcon = (iconName: string) => {
@@ -528,11 +535,11 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 );
               })}
 
-              {/* Section: AI Teams */}
+              {/* Section: Research & Analysis */}
               <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                {t('nav.sections.aiTeams')}
+                {t('nav.sections.researchAnalysis')}
               </div>
-              {aiTeamsItems.map((item) => {
+              {researchItems.map((item) => {
                 const active = item.prefix
                   ? isActivePrefix(item.href)
                   : isActive(item.href);
@@ -552,11 +559,11 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 );
               })}
 
-              {/* Section: AI Tools */}
+              {/* Section: Planning & Decision */}
               <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                {t('nav.sections.aiTools')}
+                {t('nav.sections.planningDecision')}
               </div>
-              {aiToolsItems.map((item) => {
+              {planningItems.map((item) => {
                 const active = item.prefix
                   ? isActivePrefix(item.href)
                   : isActive(item.href);
@@ -576,8 +583,31 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 );
               })}
 
+              {/* Section: Creative Writing */}
+              <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {t('nav.sections.creativeWriting')}
+              </div>
+              {creativeItems.map((item) => {
+                const active = item.prefix
+                  ? isActivePrefix(item.href)
+                  : isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      active
+                        ? `${item.activeClass} text-gray-900`
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {getIcon(item.icon)}
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
               {isAdmin &&
-                adminToolsItems.map((item) => {
+                adminCreativeItems.map((item) => {
                   const active = item.prefix
                     ? isActivePrefix(item.href)
                     : isActive(item.href);
@@ -596,6 +626,30 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                     </Link>
                   );
                 })}
+
+              {/* Section: Tool Store */}
+              <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {t('nav.sections.toolStore')}
+              </div>
+              {toolStoreItems.map((item) => {
+                const active = item.prefix
+                  ? isActivePrefix(item.href)
+                  : isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      active
+                        ? `${item.activeClass} text-gray-900`
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {getIcon(item.icon)}
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
 
               {isAdmin && (
                 <Link

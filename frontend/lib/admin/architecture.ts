@@ -122,19 +122,13 @@ const aiAppsLayer: ArchitectureLayer = {
       ],
     },
     {
-      id: 'aiTeamsGroup',
-      titleKey: 'nav.sections.aiTeams',
+      id: 'researchAnalysisGroup',
+      titleKey: 'nav.sections.researchAnalysis',
       cards: [
         {
-          id: 'aiImage',
-          i18nKey: 'nav.aiImage',
-          icon: Image,
-          clickable: false,
-        },
-        {
-          id: 'aiWriting',
-          i18nKey: 'nav.aiWriting',
-          icon: PenTool,
+          id: 'aiInsights',
+          i18nKey: 'nav.aiInsights',
+          icon: Lightbulb,
           clickable: false,
         },
         {
@@ -150,12 +144,6 @@ const aiAppsLayer: ArchitectureLayer = {
           clickable: false,
         },
         {
-          id: 'aiSimulation',
-          i18nKey: 'nav.aiSimulation',
-          icon: Brain,
-          clickable: false,
-        },
-        {
           id: 'myTeams',
           i18nKey: 'nav.myTeams',
           icon: UsersRound,
@@ -164,8 +152,44 @@ const aiAppsLayer: ArchitectureLayer = {
       ],
     },
     {
-      id: 'aiToolsGroup',
-      titleKey: 'nav.sections.aiTools',
+      id: 'planningDecisionGroup',
+      titleKey: 'nav.sections.planningDecision',
+      cards: [
+        {
+          id: 'aiPlanning',
+          i18nKey: 'nav.aiPlanning',
+          icon: Lightbulb,
+          clickable: false,
+        },
+        {
+          id: 'aiSimulation',
+          i18nKey: 'nav.aiSimulation',
+          icon: Brain,
+          clickable: false,
+        },
+      ],
+    },
+    {
+      id: 'creativeWritingGroup',
+      titleKey: 'nav.sections.creativeWriting',
+      cards: [
+        {
+          id: 'aiWriting',
+          i18nKey: 'nav.aiWriting',
+          icon: PenTool,
+          clickable: false,
+        },
+        {
+          id: 'aiImage',
+          i18nKey: 'nav.aiImage',
+          icon: Image,
+          clickable: false,
+        },
+      ],
+    },
+    {
+      id: 'toolStoreGroup',
+      titleKey: 'nav.sections.toolStore',
       cards: [
         {
           id: 'aiTools',

@@ -1,0 +1,404 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAiPlanningStore } from '@/stores/aiPlanningStore';
+import AppShell from '@/components/layout/AppShell';
+import CreatePlanDialog from '@/components/ai-planning/CreatePlanDialog';
+import { useTranslation } from '@/lib/i18n';
+import { toast } from '@/stores';
+import type { PlanSummary } from '@/lib/api/ai-planning';
+import { PHASE_KEYS } from '@/lib/constants/ai-planning';
+import ClientDate from '@/components/common/ClientDate';
+
+export default function AiPlanningPage() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const { user, accessToken, isLoading: authLoading } = useAuth();
+  const {
+    plans,
+    templates,
+    isLoadingPlans,
+    isCreating,
+    fetchPlans,
+    fetchTemplates,
+    createPlan,
+    deletePlan,
+  } = useAiPlanningStore();
+
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const isAuthenticated = !!accessToken;
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      fetchPlans();
+      fetchTemplates();
+    }
+  }, [authLoading, isAuthenticated, fetchPlans, fetchTemplates]);
+
+  const filteredPlans = (plans || []).filter((plan) => {
+    if (!searchQuery) return true;
+    return (
+      plan.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      plan.goal.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
+
+  const handleCreate = async (data: Parameters<typeof createPlan>[0]) => {
+    try {
+      const planId = await createPlan(data);
+      setShowCreateDialog(false);
+      router.push(`/ai-planning/${planId}`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('aiPlanning.error.createFailed')
+      );
+    }
+  };
+
+  const handleDelete = async (planId: string) => {
+    if (!confirm(t('aiPlanning.confirmDelete'))) return;
+    try {
+      await deletePlan(planId);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('aiPlanning.error.deleteFailed')
+      );
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <AppShell>
+        <div className="flex flex-1 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <AppShell>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
+          <svg
+            className="h-16 w-16 text-gray-300"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+            />
+          </svg>
+          <h2 className="text-xl font-semibold text-gray-700">
+            {t('aiPlanning.signIn')}
+          </h2>
+        </div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell>
+      <main className="flex-1 overflow-auto">
+        {/* Header */}
+        <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
+          <div className="px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25">
+                  <svg
+                    className="h-7 w-7 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    {t('aiPlanning.title')}
+                  </h1>
+                  <p className="text-sm text-gray-500">
+                    {t('aiPlanning.subtitle')}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCreateDialog(true)}
+                className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                {t('aiPlanning.newPlan')}
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="mt-4">
+              <div className="relative">
+                <svg
+                  className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  placeholder={t('aiPlanning.search.plans')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="px-8 py-6">
+          {isLoadingPlans ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
+            </div>
+          ) : filteredPlans.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <svg
+                className="h-16 w-16 text-gray-300"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                />
+              </svg>
+              <h3 className="mt-4 text-lg font-medium text-gray-700">
+                {t('aiPlanning.empty.noPlans')}
+              </h3>
+              <p className="mt-2 text-sm text-gray-500">
+                {t('aiPlanning.empty.noPlansDesc')}
+              </p>
+              <button
+                onClick={() => setShowCreateDialog(true)}
+                className="mt-4 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+              >
+                {t('aiPlanning.newPlan')}
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredPlans.map((plan) => (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  onClick={() => router.push(`/ai-planning/${plan.id}`)}
+                  onDelete={() => handleDelete(plan.id)}
+                />
+              ))}
+
+              {/* Create New Card */}
+              <button
+                onClick={() => setShowCreateDialog(true)}
+                className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-amber-400 hover:bg-amber-50"
+              >
+                <svg
+                  className="h-10 w-10 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                <span className="mt-2 text-sm font-medium text-gray-600">
+                  {t('aiPlanning.newPlan')}
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {showCreateDialog && (
+        <CreatePlanDialog
+          templates={templates}
+          onClose={() => setShowCreateDialog(false)}
+          onCreate={handleCreate}
+          isCreating={isCreating}
+        />
+      )}
+    </AppShell>
+  );
+}
+
+// Plan Card Component
+function PlanCard({
+  plan,
+  onClick,
+  onDelete,
+}: {
+  plan: PlanSummary;
+  onClick: () => void;
+  onDelete: () => void;
+}) {
+  const { t } = useTranslation();
+
+  const completedPhases = Object.values(plan.phaseStatus).filter(
+    (s) => s.status === 'completed'
+  ).length;
+
+  const currentPhaseKey = PHASE_KEYS[plan.currentPhase] || '';
+
+  const activePhase = Object.entries(plan.phaseStatus).find(
+    ([, s]) => s.status === 'active'
+  );
+
+  return (
+    <div className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-amber-300 hover:shadow-md">
+      {/* Delete button */}
+      <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-red-50 hover:text-red-600"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <div onClick={onClick}>
+        {/* Icon */}
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25 transition-transform group-hover:scale-105">
+          <svg
+            className="h-6 w-6 text-white"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+            />
+          </svg>
+        </div>
+
+        {/* Title & Goal */}
+        <h3 className="mt-3 truncate text-base font-semibold text-gray-900 group-hover:text-amber-600">
+          {plan.name}
+        </h3>
+        <p className="mt-1 line-clamp-2 text-sm text-gray-500">{plan.goal}</p>
+
+        {/* Phase Progress */}
+        <div className="mt-3">
+          <div className="flex items-center gap-1.5">
+            {[1, 2, 3, 4, 5, 6].map((phase) => {
+              const status = plan.phaseStatus[phase]?.status || 'pending';
+              return (
+                <div
+                  key={phase}
+                  className={`h-1.5 flex-1 rounded-full ${
+                    status === 'completed'
+                      ? 'bg-green-400'
+                      : status === 'active'
+                        ? 'animate-pulse bg-amber-400'
+                        : 'bg-gray-200'
+                  }`}
+                />
+              );
+            })}
+          </div>
+          <p className="mt-1.5 text-xs text-gray-500">
+            {t('aiPlanning.card.phase')} {plan.currentPhase}
+            {t('aiPlanning.card.of')}
+            {plan.totalPhases}
+            {activePhase && currentPhaseKey && (
+              <span className="ml-1 text-amber-600">
+                · {t(`aiPlanning.phases.${currentPhaseKey}`)}
+              </span>
+            )}
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+          <span className="flex items-center gap-1">
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
+            </svg>
+            {plan.memberCount} AI
+          </span>
+          <ClientDate date={plan.updatedAt} format="date" />
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -106,6 +106,7 @@
     "aiResearch": "AI 研究",
     "aiTeams": "AI 团队",
     "myTeams": "自建团队",
+    "aiPlanning": "AI 策划",
     "aiOffice": "AI 办公",
     "aiReports": "AI 报告",
     "aiAsk": "AI 问答",
@@ -125,8 +126,10 @@
     "whatsNew": "最新动态",
     "sections": {
       "materialsKnowledge": "知识库",
-      "aiTeams": "AI 团队",
-      "aiTools": "AI 工具"
+      "researchAnalysis": "研究分析",
+      "planningDecision": "规划决策",
+      "creativeWriting": "创意写作",
+      "toolStore": "工具市场"
     }
   },
   "home": {
@@ -986,6 +989,106 @@
     "confirmDelete": "确定要删除此团队吗？此操作无法撤销。",
     "signInRequired": "请登录以访问 AI 团队",
     "signInDesc": "创建并加入与 AI 助手协作的团队"
+  },
+  "aiPlanning": {
+    "title": "AI 策划",
+    "subtitle": "AI 驱动的多智能体协作策划平台",
+    "newPlan": "新建策划",
+    "discover": "发现",
+    "search": {
+      "plans": "搜索策划...",
+      "publicPlans": "搜索公开策划..."
+    },
+    "empty": {
+      "noPlans": "暂无策划",
+      "noPlansDesc": "新建一个 AI 策划，多智能体协作为你输出专业方案"
+    },
+    "create": {
+      "title": "新建 AI 策划",
+      "name": "策划名称",
+      "namePlaceholder": "例如：双11营销方案、Q2产品规划",
+      "nameRequired": "策划名称 *",
+      "goal": "策划目标",
+      "goalPlaceholder": "描述你的策划目标，越具体越好...",
+      "goalRequired": "策划目标 *",
+      "template": "策划模板",
+      "depth": "策划深度",
+      "depthQuick": "快速（约10分钟）",
+      "depthStandard": "标准（约30分钟）",
+      "depthComprehensive": "深度（约60分钟）",
+      "createButton": "创建策划",
+      "creating": "创建中..."
+    },
+    "phases": {
+      "goalAnalysis": "目标分析",
+      "research": "调研洞察",
+      "brainstorm": "头脑风暴",
+      "debate": "辩论推演",
+      "synthesis": "方案综合",
+      "delivery": "输出交付"
+    },
+    "phaseStatus": {
+      "pending": "待启动",
+      "active": "进行中",
+      "completed": "已完成",
+      "skipped": "已跳过"
+    },
+    "actions": {
+      "advancePhase": "推进到下一阶段",
+      "retryPhase": "重新执行本阶段",
+      "export": "导出策划方案",
+      "viewOutput": "查看产出",
+      "collapse": "收起",
+      "advanceSuccess": "已推进到下一阶段",
+      "retrySuccess": "已重新启动阶段",
+      "pause": "暂停",
+      "resume": "继续"
+    },
+    "templates": {
+      "general": "通用策划",
+      "generalDesc": "适用于各类策划场景的通用模板",
+      "marketing": "营销策划",
+      "marketingDesc": "品牌推广、活动策划、内容营销",
+      "product": "产品策划",
+      "productDesc": "产品规划、功能设计、用户研究",
+      "event": "活动策划",
+      "eventDesc": "线上线下活动方案、执行计划"
+    },
+    "card": {
+      "phase": "阶段",
+      "of": "/",
+      "public": "公开",
+      "private": "私有"
+    },
+    "panel": {
+      "title": "阶段进度",
+      "currentPhase": "阶段 {{phase}}: {{name}}",
+      "progress": "总进度",
+      "phasesCompleted": "阶段已完成",
+      "info": "策划信息"
+    },
+    "export": {
+      "title": "导出策划",
+      "copying": "复制中...",
+      "copied": "已复制到剪贴板",
+      "copyFailed": "复制失败",
+      "copy": "复制",
+      "download": "下载"
+    },
+    "error": {
+      "createFailed": "创建策划失败",
+      "deleteFailed": "删除策划失败",
+      "advanceFailed": "推进阶段失败",
+      "retryFailed": "重试阶段失败",
+      "exportFailed": "导出失败"
+    },
+    "signIn": "请登录以访问 AI 策划",
+    "signInRequired": "请登录以访问 AI 策划",
+    "signInDesc": "使用 AI 多智能体协作策划平台",
+    "confirmDelete": "确定要删除此策划吗？此操作无法撤销。",
+    "members": {
+      "title": "团队成员"
+    }
   },
   "aiOffice": {
     "title": "AI Office",
@@ -3869,6 +3972,9 @@
     }
   },
   "aiAsk": {
+    "tools": "工具",
+    "tools.image": "AI 图片",
+    "tools.image.description": "通过文字描述生成图片",
     "webSearch": "联网搜索",
     "ragSources": {
       "title": "知识库来源",
