@@ -109,7 +109,7 @@
     "pdfjs-dist": "^5.4.394",
     "pdfkit": "^0.17.2",
     "pdfkit-table": "^0.1.99",
-    "pdfmake": "^0.2.20",
+    "pdfmake": "^0.3.3",
     "pg": "^8.16.3",
     "playwright-core": "^1.57.0",
     "pptxgenjs": "^4.0.1",
