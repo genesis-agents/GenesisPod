@@ -1,5 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { PrismaService } from '../../../common/prisma/prisma.service';
+import { Decimal } from '@prisma/client/runtime/library';
 
 /**
  * LLM 调用事件
@@ -94,7 +96,7 @@ const COST_PER_1K_TOKENS: Record<string, { input: number; output: number }> = {
  * - 高性能聚合计算
  */
 @Injectable()
-export class AiObservabilityService {
+export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AiObservabilityService.name);
 
   /**
@@ -116,6 +118,60 @@ export class AiObservabilityService {
    * 已记录的事件总数（包括已被驱逐的）
    */
   private totalEventsRecorded = 0;
+
+  /**
+   * 上次 flush 到 DB 的事件总数（用于计算增量）
+   */
+  private lastFlushedCount = 0;
+
+  /**
+   * 待持久化的事件缓冲区
+   */
+  private readonly pendingFlush: LLMCallEvent[] = [];
+
+  /**
+   * Flush 定时器
+   */
+  private flushInterval: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Flush 间隔（毫秒），默认 5 分钟
+   */
+  private readonly FLUSH_INTERVAL_MS = 5 * 60 * 1000;
+
+  /**
+   * 单次 flush 最大批量
+   */
+  private readonly FLUSH_BATCH_SIZE = 500;
+
+  constructor(
+    @Optional() private readonly prisma?: PrismaService,
+  ) {}
+
+  onModuleInit() {
+    if (this.prisma) {
+      this.flushInterval = setInterval(
+        () => this.flushToDB(),
+        this.FLUSH_INTERVAL_MS,
+      );
+      this.logger.log(
+        `DB persistence enabled, flush interval: ${this.FLUSH_INTERVAL_MS / 1000}s`,
+      );
+    }
+  }
+
+  onModuleDestroy() {
+    if (this.flushInterval) {
+      clearInterval(this.flushInterval);
+      this.flushInterval = null;
+    }
+    // Final flush on shutdown
+    if (this.prisma && this.pendingFlush.length > 0) {
+      this.flushToDB().catch((err) =>
+        this.logger.error(`Final flush failed: ${err}`),
+      );
+    }
+  }
 
   /**
    * 记录 LLM 调用事件
@@ -140,6 +196,11 @@ export class AiObservabilityService {
 
     this.writeIndex = (this.writeIndex + 1) % this.MAX_EVENTS;
     this.totalEventsRecorded++;
+
+    // 加入待持久化队列
+    if (this.prisma) {
+      this.pendingFlush.push(fullEvent);
+    }
 
     // 记录失败调用（警告级别）
     if (!fullEvent.success && fullEvent.error) {
@@ -324,6 +385,72 @@ export class AiObservabilityService {
   }
 
   /**
+   * 将待持久化事件批量写入数据库
+   *
+   * 使用 AIEngineMetric 模型存储，支持后续聚合查询
+   */
+  async flushToDB(): Promise<number> {
+    if (!this.prisma || this.pendingFlush.length === 0) {
+      return 0;
+    }
+
+    const batch = this.pendingFlush.splice(0, this.FLUSH_BATCH_SIZE);
+    const flushed = batch.length;
+
+    try {
+      await this.prisma.aIEngineMetric.createMany({
+        data: batch.map((event) => ({
+          id: event.id,
+          metricType: 'llm_call',
+          operationId: event.operation,
+          modelId: event.model,
+          providerId: event.provider,
+          userId: event.userId || null,
+          duration: event.latencyMs,
+          inputTokens: event.inputTokens,
+          outputTokens: event.outputTokens,
+          totalTokens: event.totalTokens,
+          estimatedCost: new Decimal(event.estimatedCost.toFixed(6)),
+          success: event.success,
+          errorCode: event.error || null,
+          metadata: {
+            module: event.module,
+            modelType: event.modelType,
+            fallbackUsed: event.fallbackUsed,
+            retryCount: event.retryCount,
+          },
+          createdAt: event.timestamp,
+        })),
+        skipDuplicates: true,
+      });
+
+      this.lastFlushedCount += flushed;
+      this.logger.log(`Flushed ${flushed} events to DB (total: ${this.lastFlushedCount})`);
+
+      // 如果还有剩余，递归 flush
+      if (this.pendingFlush.length > 0) {
+        return flushed + await this.flushToDB();
+      }
+
+      return flushed;
+    } catch (error) {
+      // 失败时将事件放回队列头部
+      this.pendingFlush.unshift(...batch);
+      this.logger.error(
+        `Failed to flush ${flushed} events to DB: ${error instanceof Error ? error.message : error}`,
+      );
+      return 0;
+    }
+  }
+
+  /**
+   * 获取待持久化事件数量
+   */
+  getPendingFlushCount(): number {
+    return this.pendingFlush.length;
+  }
+
+  /**
    * 重置所有数据
    *
    * 清空环形缓冲区和计数器，主要用于测试
@@ -332,6 +459,8 @@ export class AiObservabilityService {
     this.events.length = 0;
     this.writeIndex = 0;
     this.totalEventsRecorded = 0;
+    this.pendingFlush.length = 0;
+    this.lastFlushedCount = 0;
     this.logger.log('可观测性数据已重置');
   }
 

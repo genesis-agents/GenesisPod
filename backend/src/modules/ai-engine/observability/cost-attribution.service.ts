@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { PrismaService } from '../../../common/prisma/prisma.service';
+import { Decimal } from '@prisma/client/runtime/library';
 
 /**
  * 成本事件
@@ -123,7 +125,7 @@ interface BudgetConfig {
  * 追踪和分析 AI 调用成本，支持多维度聚合和预算告警
  */
 @Injectable()
-export class CostAttributionService {
+export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CostAttributionService.name);
 
   // 小时桶存储: "2026-02-10T14" -> HourlyBucketData
@@ -138,6 +140,40 @@ export class CostAttributionService {
   // LRU 配置
   private readonly MAX_USERS = 10000;
   private readonly BUCKET_RETENTION_DAYS = 30;
+
+  // DB persistence
+  private readonly pendingCostEvents: CostEvent[] = [];
+  private flushInterval: ReturnType<typeof setInterval> | null = null;
+  private readonly FLUSH_INTERVAL_MS = 5 * 60 * 1000;
+  private readonly FLUSH_BATCH_SIZE = 500;
+
+  constructor(
+    @Optional() private readonly prisma?: PrismaService,
+  ) {}
+
+  onModuleInit() {
+    if (this.prisma) {
+      this.flushInterval = setInterval(
+        () => this.flushCostsToDB(),
+        this.FLUSH_INTERVAL_MS,
+      );
+      this.logger.log(
+        `Cost DB persistence enabled, flush interval: ${this.FLUSH_INTERVAL_MS / 1000}s`,
+      );
+    }
+  }
+
+  onModuleDestroy() {
+    if (this.flushInterval) {
+      clearInterval(this.flushInterval);
+      this.flushInterval = null;
+    }
+    if (this.prisma && this.pendingCostEvents.length > 0) {
+      this.flushCostsToDB().catch((err) =>
+        this.logger.error(`Final cost flush failed: ${err}`),
+      );
+    }
+  }
 
   /**
    * 记录成本事件
@@ -186,6 +222,11 @@ export class CostAttributionService {
 
     // 更新用户聚合数据
     this.updateUserAggregation(event);
+
+    // 加入待持久化队列
+    if (this.prisma) {
+      this.pendingCostEvents.push(event);
+    }
 
     // 清理过期数据
     this.cleanupExpiredBuckets();
@@ -431,12 +472,66 @@ export class CostAttributionService {
   }
 
   /**
+   * 将待持久化成本事件批量写入数据库
+   */
+  async flushCostsToDB(): Promise<number> {
+    if (!this.prisma || this.pendingCostEvents.length === 0) {
+      return 0;
+    }
+
+    const batch = this.pendingCostEvents.splice(0, this.FLUSH_BATCH_SIZE);
+    const flushed = batch.length;
+
+    try {
+      await this.prisma.aIEngineMetric.createMany({
+        data: batch.map((event) => ({
+          metricType: 'cost_event',
+          operationId: event.moduleType,
+          modelId: event.model,
+          providerId: event.provider,
+          userId: event.userId,
+          inputTokens: event.inputTokens,
+          outputTokens: event.outputTokens,
+          totalTokens: event.inputTokens + event.outputTokens,
+          estimatedCost: new Decimal(event.estimatedCost.toFixed(6)),
+          success: true,
+          metadata: { moduleType: event.moduleType },
+          createdAt: event.timestamp || new Date(),
+        })),
+        skipDuplicates: true,
+      });
+
+      this.logger.log(`Flushed ${flushed} cost events to DB`);
+
+      if (this.pendingCostEvents.length > 0) {
+        return flushed + await this.flushCostsToDB();
+      }
+
+      return flushed;
+    } catch (error) {
+      this.pendingCostEvents.unshift(...batch);
+      this.logger.error(
+        `Failed to flush ${flushed} cost events: ${error instanceof Error ? error.message : error}`,
+      );
+      return 0;
+    }
+  }
+
+  /**
+   * 获取待持久化事件数量
+   */
+  getPendingFlushCount(): number {
+    return this.pendingCostEvents.length;
+  }
+
+  /**
    * 重置所有数据
    */
   reset(): void {
     this.hourlyBuckets.clear();
     this.userAggregations.clear();
     this.budgetConfigs.clear();
+    this.pendingCostEvents.length = 0;
     this.logger.log('成本归因数据已重置');
   }
 

@@ -81,6 +81,7 @@ import { PromptRegistryService } from "./prompts/prompt-registry.service";
 // Facade (统一入口)
 import { AIEngineFacade } from "./facade";
 import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
+import { ModelResolverService } from "./facade/model-resolver.service";
 
 // SKILL.md Runtime (PromptSkillBridge + InputBindingResolver)
 import { PromptSkillBridge } from "./skills/runtime/prompt-skill-bridge.service";
@@ -153,6 +154,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     PromptRegistryService,
 
     // === Facade (统一入口) ===
+    ModelResolverService,
     AIEngineFacade,
 
     // === SKILL.md Runtime ===
@@ -202,6 +204,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     PromptRegistryService,
 
     // === Facade (统一入口) ===
+    ModelResolverService,
     AIEngineFacade,
 
     // === SKILL.md Runtime ===

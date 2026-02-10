@@ -177,6 +177,7 @@ export class AIEngineFacade {
     @Inject(forwardRef(() => CreditsService))
     private readonly creditsService?: CreditsService,
     @Optional() private readonly modelFallbackService?: ModelFallbackService,
+    @Optional() private readonly modelResolver?: import("./model-resolver.service").ModelResolverService,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -999,6 +1000,11 @@ export class AIEngineFacade {
   async selectModel(
     options: ModelSelectionOptions = {},
   ): Promise<ModelInfo | null> {
+    // ★ P1-1: 委托给 ModelResolverService（渐进迁移）
+    if (this.modelResolver) {
+      return this.modelResolver.selectModel(options);
+    }
+
     this.logger.log(
       `[selectModel] Starting selection with options=${JSON.stringify(options)}`,
     );
@@ -1132,6 +1138,11 @@ export class AIEngineFacade {
   async getAvailableModelsExtended(
     modelType: AIModelType = AIModelType.CHAT,
   ): Promise<ModelInfo[]> {
+    // ★ P1-1: 委托给 ModelResolverService
+    if (this.modelResolver) {
+      return this.modelResolver.getAvailableModelsExtended(modelType);
+    }
+
     this.logger.debug(
       `[getAvailableModelsExtended] Querying models with modelType=${modelType}`,
     );
@@ -1191,6 +1202,11 @@ export class AIEngineFacade {
       isDefault?: boolean;
     }>
   > {
+    // ★ P1-1: 委托给 ModelResolverService
+    if (this.modelResolver) {
+      return this.modelResolver.getAvailableModels(modelType);
+    }
+
     this.logger.debug(`[getAvailableModels] modelType=${modelType}`);
 
     // ★ 统一委托给 AiModelConfigService
@@ -1228,6 +1244,9 @@ export class AIEngineFacade {
     provider: string;
     maxTokens?: number;
   } | null> {
+    if (this.modelResolver) {
+      return this.modelResolver.getDefaultTextModel();
+    }
     const config = await this.aiChatService.getDefaultModelByType(
       AIModelType.CHAT,
     );
@@ -1260,6 +1279,9 @@ export class AIEngineFacade {
     provider: string;
     maxTokens?: number;
   } | null> {
+    if (this.modelResolver) {
+      return this.modelResolver.getDefaultImageModel();
+    }
     const config = await this.aiChatService.getDefaultModelByType(
       AIModelType.IMAGE_GENERATION,
     );
@@ -1301,6 +1323,9 @@ export class AIEngineFacade {
     secretKey?: string | null;
     modelType?: string;
   } | null> {
+    if (this.modelResolver) {
+      return this.modelResolver.getModelById(idOrModelId);
+    }
     // ★ 统一委托给 AiModelConfigService
     const config = await this.modelConfigService.getModelById(idOrModelId);
 
@@ -1360,6 +1385,9 @@ export class AIEngineFacade {
     priceOutputPerMillion?: number | null;
     priority?: number | null;
   } | null> {
+    if (this.modelResolver) {
+      return this.modelResolver.getFullModelConfig(modelId);
+    }
     // ★ 统一委托给 AiModelConfigService
     const config = await this.modelConfigService.getModelById(modelId);
 
@@ -1414,6 +1442,9 @@ export class AIEngineFacade {
     provider: string;
     maxTokens?: number;
   } | null> {
+    if (this.modelResolver) {
+      return this.modelResolver.getDefaultModelByType(modelType);
+    }
     const config = await this.aiChatService.getDefaultModelByType(modelType);
     if (!config) return null;
     return {

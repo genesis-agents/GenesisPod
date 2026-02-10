@@ -163,6 +163,7 @@ export { TeamsModule } from "./teams";
 
 // Facade (统一入口)
 export { AIEngineFacade } from "./facade";
+export { ModelResolverService } from "./facade/model-resolver.service";
 export type {
   // LLM 类型
   ChatRequest,
