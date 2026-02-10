@@ -73,7 +73,9 @@ export class MCPServerController {
       // If initialize response, include session ID in header
       if (!Array.isArray(response) && response.result) {
         const result = response.result as Record<string, unknown>;
-        const serverInfo = result.serverInfo as Record<string, unknown> | undefined;
+        const serverInfo = result.serverInfo as
+          | Record<string, unknown>
+          | undefined;
         if (serverInfo?.sessionId) {
           res.setHeader("Mcp-Session-Id", serverInfo.sessionId as string);
         }
@@ -128,18 +130,38 @@ export class MCPServerController {
       this.streamingBridge.registerConnection(sessionId, res);
     }
 
-    // Keepalive 每 30 秒
+    // Keepalive 每 30 秒，带连接状态检查防止泄漏
     const keepaliveInterval = setInterval(() => {
+      if (res.writableEnded || res.destroyed) {
+        clearInterval(keepaliveInterval);
+        if (sessionId) this.streamingBridge.unregisterConnection(sessionId);
+        return;
+      }
       try {
         res.write(": keepalive\n\n");
       } catch {
         clearInterval(keepaliveInterval);
+        if (sessionId) this.streamingBridge.unregisterConnection(sessionId);
       }
     }, 30000);
+
+    // 最大连接时长 1 小时，防止僵尸连接
+    const maxConnectionTimeout = setTimeout(() => {
+      clearInterval(keepaliveInterval);
+      if (sessionId) this.streamingBridge.unregisterConnection(sessionId);
+      if (!res.writableEnded) {
+        try {
+          res.end();
+        } catch {
+          // ignore
+        }
+      }
+    }, 3600000);
 
     // 连接关闭时清理
     res.on("close", () => {
       clearInterval(keepaliveInterval);
+      clearTimeout(maxConnectionTimeout);
       if (sessionId) {
         this.streamingBridge.unregisterConnection(sessionId);
       }

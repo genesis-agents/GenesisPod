@@ -41,49 +41,38 @@ export class MCPStreamingBridge {
 
     const subscriptions: Array<() => void> = [];
 
-    // 订阅进度事件
+    // 订阅进度事件（每个 handler 内部 try-catch，防止 unhandled rejection）
     if (this.eventEmitter) {
-      const unsubProgress = this.eventEmitter.subscribe(
-        "task.progress",
-        (event: unknown) => {
-          const data = (event as Record<string, unknown>).data as Record<string, unknown> || {};
-          this.sendEvent(sessionId, {
-            type: "progress",
-            taskId: (data.taskId as string) || "unknown",
-            data,
-            timestamp: new Date(),
-          });
-        },
-      );
-      subscriptions.push(unsubProgress);
+      const safeHandler =
+        (type: MCPStreamEvent["type"]) => (event: unknown) => {
+          try {
+            const data =
+              ((event as Record<string, unknown>).data as Record<
+                string,
+                unknown
+              >) || {};
+            this.sendEvent(sessionId, {
+              type,
+              taskId: (data.taskId as string) || "unknown",
+              data,
+              timestamp: new Date(),
+            });
+          } catch (error) {
+            this.logger.warn(
+              `Event handler error [${type}] for ${sessionId}: ${(error as Error).message}`,
+            );
+          }
+        };
 
-      const unsubComplete = this.eventEmitter.subscribe(
-        "task.complete",
-        (event: unknown) => {
-          const data = (event as Record<string, unknown>).data as Record<string, unknown> || {};
-          this.sendEvent(sessionId, {
-            type: "result",
-            taskId: (data.taskId as string) || "unknown",
-            data,
-            timestamp: new Date(),
-          });
-        },
+      subscriptions.push(
+        this.eventEmitter.subscribe("task.progress", safeHandler("progress")),
       );
-      subscriptions.push(unsubComplete);
-
-      const unsubError = this.eventEmitter.subscribe(
-        "task.error",
-        (event: unknown) => {
-          const data = (event as Record<string, unknown>).data as Record<string, unknown> || {};
-          this.sendEvent(sessionId, {
-            type: "error",
-            taskId: (data.taskId as string) || "unknown",
-            data,
-            timestamp: new Date(),
-          });
-        },
+      subscriptions.push(
+        this.eventEmitter.subscribe("task.complete", safeHandler("result")),
       );
-      subscriptions.push(unsubError);
+      subscriptions.push(
+        this.eventEmitter.subscribe("task.error", safeHandler("error")),
+      );
     }
 
     this.connections.set(sessionId, {
@@ -93,9 +82,7 @@ export class MCPStreamingBridge {
       connectedAt: new Date(),
     });
 
-    this.logger.log(
-      `SSE connection registered for session: ${sessionId}`,
-    );
+    this.logger.log(`SSE connection registered for session: ${sessionId}`);
   }
 
   /**

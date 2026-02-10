@@ -52,6 +52,7 @@ describe("MCPServerService - Tool Dispatch", () => {
       createSession: jest.fn().mockReturnValue({ sessionId: "new-session" }),
       isToolAllowed: jest.fn().mockReturnValue(true),
       consumeQuota: jest.fn().mockReturnValue(true),
+      validateAndConsumeQuota: jest.fn().mockReturnValue({ allowed: true }),
       isResourceAllowed: jest.fn().mockReturnValue(true),
       isPromptAllowed: jest.fn().mockReturnValue(true),
       getStats: jest.fn().mockReturnValue({ activeSessions: 3 }),
@@ -349,7 +350,10 @@ describe("MCPServerService - Tool Dispatch", () => {
     });
 
     it("should deny tool when permission check fails", async () => {
-      mockSessionManager.isToolAllowed.mockReturnValue(false);
+      mockSessionManager.validateAndConsumeQuota.mockReturnValue({
+        allowed: false,
+        reason: "permission_denied",
+      });
       service.registerToolHandler(createMockHandler("protected-tool"));
 
       const result = await service.handleRequest(
@@ -368,7 +372,10 @@ describe("MCPServerService - Tool Dispatch", () => {
     });
 
     it("should deny tool when quota exceeded", async () => {
-      mockSessionManager.consumeQuota.mockReturnValue(false);
+      mockSessionManager.validateAndConsumeQuota.mockReturnValue({
+        allowed: false,
+        reason: "quota_exceeded",
+      });
       service.registerToolHandler(createMockHandler("some-tool"));
 
       const result = await service.handleRequest(
@@ -383,7 +390,7 @@ describe("MCPServerService - Tool Dispatch", () => {
 
       const resp = result as any;
       expect(resp.result.isError).toBe(true);
-      expect(resp.result.content[0].text).toContain("quota exceeded");
+      expect(resp.result.content[0].text).toContain("Daily quota exceeded");
     });
   });
 

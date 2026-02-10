@@ -65,6 +65,7 @@ describe("MCPServerService", () => {
       isResourceAllowed: jest.fn(() => true),
       isPromptAllowed: jest.fn(() => true),
       consumeQuota: jest.fn(() => true),
+      validateAndConsumeQuota: jest.fn(() => ({ allowed: true })),
       getAllSessions: jest.fn(() => []),
       terminateSession: jest.fn(() => true),
     } as any;
@@ -1040,9 +1041,8 @@ describe("MCPServerService", () => {
       }
 
       const metrics = service.getMetrics();
-      // After eviction, should have roughly MAX_METRICS / 2 + remaining
-      expect(metrics.totalCalls).toBeLessThan(MAX_METRICS);
-      expect(metrics.totalCalls).toBeGreaterThan(MAX_METRICS / 2);
+      // Circular buffer keeps exactly MAX_METRICS entries (oldest overwritten)
+      expect(metrics.totalCalls).toBe(MAX_METRICS);
     });
   });
 
@@ -1461,6 +1461,7 @@ describe("MCPServerService with Guardrails", () => {
       isResourceAllowed: jest.fn(() => true),
       isPromptAllowed: jest.fn(() => true),
       consumeQuota: jest.fn(() => true),
+      validateAndConsumeQuota: jest.fn(() => ({ allowed: true })),
       getAllSessions: jest.fn(() => []),
       terminateSession: jest.fn(() => true),
     } as any;

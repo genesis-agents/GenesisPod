@@ -29,14 +29,21 @@ export class MCPApiKeyGuard implements CanActivate {
 
     try {
       // Validate against stored MCP API keys
+      // Check ALL keys to avoid timing side-channel leaking which key matched
       const storedKeys = await this.secretsService.getSecretNames("MCP");
+      let matchedKeyName: string | null = null;
 
       for (const keyName of storedKeys) {
         const storedValue = await this.secretsService.getValueInternal(keyName);
         if (storedValue && safeCompare(storedValue, apiKey)) {
-          request.mcpApiKeyId = keyName;
-          return true;
+          matchedKeyName = keyName;
+          // Don't return early — continue checking to prevent timing leak
         }
+      }
+
+      if (matchedKeyName) {
+        request.mcpApiKeyId = matchedKeyName;
+        return true;
       }
 
       this.logger.warn("Invalid MCP API key attempted");

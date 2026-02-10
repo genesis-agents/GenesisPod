@@ -119,23 +119,79 @@ export class MCPSessionManager {
   }
 
   /**
-   * 检查并消费每日配额
+   * 原子性验证工具权限 + 消费配额
+   * 避免权限检查与配额消耗之间 session 被销毁的竞态条件
+   */
+  validateAndConsumeQuota(
+    apiKeyId: string,
+    sessionId?: string,
+    toolName?: string,
+  ): { allowed: boolean; reason?: string } {
+    const session = sessionId ? this.sessions.get(sessionId) : undefined;
+
+    // Session 权限检查（如有 session 且指定 tool）
+    if (session && toolName) {
+      if (!session.permissionPolicy) {
+        return { allowed: false, reason: "permission_denied" };
+      }
+      const policy = session.permissionPolicy;
+      // 检查 deny 列表（优先）
+      for (const pattern of policy.deniedToolPatterns) {
+        if (this.matchPattern(toolName, pattern)) {
+          return { allowed: false, reason: "permission_denied" };
+        }
+      }
+      // 检查 allow 列表
+      let allowed = false;
+      for (const pattern of policy.allowedToolPatterns) {
+        if (this.matchPattern(toolName, pattern)) {
+          allowed = true;
+          break;
+        }
+      }
+      if (!allowed) {
+        return { allowed: false, reason: "permission_denied" };
+      }
+    } else if (sessionId && !session) {
+      // Session ID provided but session not found (may have been terminated)
+      return { allowed: false, reason: "session_expired" };
+    }
+
+    // 配额消耗
+    const dailyQuota =
+      session?.permissionPolicy?.dailyQuota ?? DEFAULT_POLICY.dailyQuota;
+    if (!this.consumeQuotaInternal(apiKeyId, dailyQuota)) {
+      return { allowed: false, reason: "quota_exceeded" };
+    }
+
+    // 更新 session 活跃时间
+    if (session) {
+      session.lastActiveAt = new Date();
+    }
+
+    return { allowed: true };
+  }
+
+  /**
+   * 检查并消费每日配额（保留向后兼容）
    */
   consumeQuota(apiKeyId: string, sessionId?: string): boolean {
     const session = sessionId ? this.sessions.get(sessionId) : undefined;
     const dailyQuota =
       session?.permissionPolicy?.dailyQuota ?? DEFAULT_POLICY.dailyQuota;
+    return this.consumeQuotaInternal(apiKeyId, dailyQuota);
+  }
 
+  private consumeQuotaInternal(apiKeyId: string, dailyQuota: number): boolean {
     const now = new Date();
-    const key = apiKeyId;
-    let usage = this.dailyUsage.get(key);
+    let usage = this.dailyUsage.get(apiKeyId);
 
     // 重置过期的计数器
     if (!usage || usage.resetAt <= now) {
       const resetAt = new Date(now);
       resetAt.setHours(24, 0, 0, 0);
       usage = { count: 0, resetAt };
-      this.dailyUsage.set(key, usage);
+      this.dailyUsage.set(apiKeyId, usage);
     }
 
     if (usage.count >= dailyQuota) {
@@ -147,19 +203,19 @@ export class MCPSessionManager {
   }
 
   /**
-   * 检查是否允许 Resources
+   * 检查是否允许 Resources（同时更新 lastActiveAt）
    */
   isResourceAllowed(sessionId: string): boolean {
-    const session = this.sessions.get(sessionId);
+    const session = this.getSession(sessionId);
     if (!session) return false;
     return session.permissionPolicy?.allowResources ?? false;
   }
 
   /**
-   * 检查是否允许 Prompts
+   * 检查是否允许 Prompts（同时更新 lastActiveAt）
    */
   isPromptAllowed(sessionId: string): boolean {
-    const session = this.sessions.get(sessionId);
+    const session = this.getSession(sessionId);
     if (!session) return false;
     return session.permissionPolicy?.allowPrompts ?? false;
   }

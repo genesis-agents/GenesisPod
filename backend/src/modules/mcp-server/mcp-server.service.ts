@@ -44,8 +44,10 @@ export class MCPServerService implements OnModuleInit {
   private readonly guardrailsEnabled: boolean;
   private readonly guardrailsFailClosed: boolean;
   private readonly toolHandlers = new Map<string, IMCPToolHandler>();
-  private readonly metrics: ToolCallMetric[] = [];
+  private readonly metrics: (ToolCallMetric | null)[] = [];
   private readonly MAX_METRICS = 10000;
+  private metricsWriteIdx = 0;
+  private metricsCount = 0;
   private startedAt: Date = new Date();
 
   constructor(
@@ -286,22 +288,25 @@ export class MCPServerService implements OnModuleInit {
     const toolName = params.name;
     const args = (params.arguments as Record<string, unknown>) || {};
 
-    // 权限检查
-    if (context.sessionId) {
-      if (!this.sessionManager.isToolAllowed(context.sessionId, toolName)) {
-        return {
-          content: [{ type: "text", text: "Permission denied for this tool" }],
-          isError: true,
-        };
-      }
-    }
-
-    // 配额检查
-    if (
-      !this.sessionManager.consumeQuota(context.apiKeyId, context.sessionId)
-    ) {
+    // 原子性权限 + 配额检查（避免检查与消耗之间的竞态条件）
+    const validation = this.sessionManager.validateAndConsumeQuota(
+      context.apiKeyId,
+      context.sessionId,
+      toolName,
+    );
+    if (!validation.allowed) {
+      const messages: Record<string, string> = {
+        permission_denied: "Permission denied for this tool",
+        session_expired: "Session expired or terminated",
+        quota_exceeded: "Daily quota exceeded",
+      };
       return {
-        content: [{ type: "text", text: "Daily quota exceeded" }],
+        content: [
+          {
+            type: "text",
+            text: messages[validation.reason!] || "Access denied",
+          },
+        ],
         isError: true,
       };
     }
@@ -647,9 +652,11 @@ export class MCPServerService implements OnModuleInit {
   // =========================================================================
 
   private recordMetric(metric: ToolCallMetric): void {
-    this.metrics.push(metric);
-    if (this.metrics.length > this.MAX_METRICS) {
-      this.metrics.splice(0, Math.floor(this.MAX_METRICS / 2));
+    // Circular buffer: O(1) write, no splice/shift needed
+    this.metrics[this.metricsWriteIdx] = metric;
+    this.metricsWriteIdx = (this.metricsWriteIdx + 1) % this.MAX_METRICS;
+    if (this.metricsCount < this.MAX_METRICS) {
+      this.metricsCount++;
     }
 
     // Forward to AI Engine observability (unified LLM call tracking)
@@ -710,7 +717,17 @@ export class MCPServerService implements OnModuleInit {
       timestamp: Date;
     }>;
   } {
-    let filtered = this.metrics;
+    // Read from circular buffer into a flat array
+    const allMetrics: ToolCallMetric[] = [];
+    for (let i = 0; i < this.metricsCount; i++) {
+      const idx =
+        (this.metricsWriteIdx - this.metricsCount + i + this.MAX_METRICS) %
+        this.MAX_METRICS;
+      const m = this.metrics[idx];
+      if (m) allMetrics.push(m);
+    }
+
+    let filtered = allMetrics;
     if (options?.startDate) {
       filtered = filtered.filter((m) => m.timestamp >= options.startDate!);
     }
