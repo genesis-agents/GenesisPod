@@ -53,7 +53,7 @@
     "jspdf": "^3.0.3",
     "katex": "^0.16.27",
     "lowlight": "^3.3.0",
-    "lucide-react": "^0.553.0",
+    "lucide-react": "^0.563.0",
     "mermaid": "^11.12.2",
     "next": "^14.2.35",
     "pdfjs-dist": "^5.4.394",
