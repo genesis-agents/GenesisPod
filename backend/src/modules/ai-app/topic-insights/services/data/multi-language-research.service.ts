@@ -59,7 +59,9 @@ export class MultiLanguageResearchService {
    * 检测文本语言
    */
   async detectLanguage(text: string): Promise<LanguageDetectionResult> {
-    this.logger.log(`[detectLanguage] Detecting language for text (${text.length} chars)`);
+    this.logger.log(
+      `[detectLanguage] Detecting language for text (${text.length} chars)`,
+    );
 
     try {
       const response = await this.aiFacade.chat({
@@ -76,12 +78,14 @@ export class MultiLanguageResearchService {
 
       const parsed = this.parseJsonResponse(response.content || "");
       return {
-        primaryLanguage: parsed.primaryLanguage || ResearchLanguage.EN,
-        confidence: parsed.confidence || 0.5,
-        isMultilingual: parsed.isMultilingual || false,
-        languageDistribution: parsed.languageDistribution || [
-          { language: ResearchLanguage.EN, percentage: 100 },
-        ],
+        primaryLanguage:
+          (parsed.primaryLanguage as ResearchLanguage) || ResearchLanguage.EN,
+        confidence: (parsed.confidence as number) || 0.5,
+        isMultilingual: (parsed.isMultilingual as boolean) || false,
+        languageDistribution: (parsed.languageDistribution as {
+          language: ResearchLanguage;
+          percentage: number;
+        }[]) || [{ language: ResearchLanguage.EN, percentage: 100 }],
       };
     } catch (error) {
       this.logger.warn(`[detectLanguage] Failed: ${error}`);
@@ -145,14 +149,21 @@ ${request.preserveTerminology ? "Preserve technical terminology in original lang
 
       return {
         originalQuery: request.originalQuery,
-        translatedQueries: parsed.translatedQueries || {},
-        terminologyMapping: parsed.terminologyMapping || [],
+        translatedQueries:
+          (parsed.translatedQueries as Record<ResearchLanguage, string>) ||
+          ({} as Record<ResearchLanguage, string>),
+        terminologyMapping:
+          (parsed.terminologyMapping as {
+            term: string;
+            translations: Record<ResearchLanguage, string>;
+            isProperNoun: boolean;
+          }[]) || [],
       };
     } catch (error) {
       this.logger.error(`[generateCrossLanguageQueries] Failed: ${error}`);
       return {
         originalQuery: request.originalQuery,
-        translatedQueries: {},
+        translatedQueries: {} as Record<ResearchLanguage, string>,
         terminologyMapping: [],
       };
     }
@@ -217,12 +228,15 @@ Content: ${request.content.slice(0, 3000)}`,
 
       return {
         originalContent: request.content,
-        translatedContent: parsed.translatedContent || request.content,
+        translatedContent:
+          (parsed.translatedContent as string) || request.content,
         sourceLanguage: request.sourceLanguage,
-        translatedTitle: parsed.translatedTitle || request.title,
-        translatedSnippet: parsed.translatedSnippet || request.snippet,
-        translationQuality: parsed.translationQuality || 0.7,
-        culturalNotes: parsed.culturalNotes,
+        translatedTitle:
+          (parsed.translatedTitle as string | undefined) || request.title,
+        translatedSnippet:
+          (parsed.translatedSnippet as string | undefined) || request.snippet,
+        translationQuality: (parsed.translationQuality as number) || 0.7,
+        culturalNotes: parsed.culturalNotes as string[] | undefined,
       };
     } catch (error) {
       this.logger.error(`[normalizeEvidence] Failed: ${error}`);
@@ -239,7 +253,7 @@ Content: ${request.content.slice(0, 3000)}`,
    * 获取推荐的辅助语言
    */
   getRecommendedLanguages(
-    topicName: string,
+    _topicName: string,
     topicType: string,
   ): ResearchLanguage[] {
     // 根据话题类型推荐辅助搜索语言
@@ -301,7 +315,8 @@ Content: ${request.content.slice(0, 3000)}`,
 
   private parseJsonResponse(content: string): Record<string, unknown> {
     try {
-      const jsonMatch = content.match(/```json\s*([\s\S]*?)```/) ||
+      const jsonMatch =
+        content.match(/```json\s*([\s\S]*?)```/) ||
         content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) return {};
 

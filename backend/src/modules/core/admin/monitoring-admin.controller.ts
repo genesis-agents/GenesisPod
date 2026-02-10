@@ -288,7 +288,7 @@ export class MonitoringAdminController {
         mcpServerStatus = {
           status: mcpStatus.status,
           uptime: mcpStatus.uptime,
-          toolCount: mcpStatus.toolCount,
+          toolCount: mcpStatus.totalToolCount,
           activeSessions: mcpStatus.activeSessions,
           metrics24h: mcpStatus.metrics24h,
         };
@@ -442,7 +442,7 @@ export class MonitoringAdminController {
         mcpServerStats = {
           status: mcpStatus.status,
           uptime: mcpStatus.uptime,
-          toolCount: mcpStatus.toolCount,
+          toolCount: mcpStatus.totalToolCount,
           activeSessions: mcpStatus.activeSessions,
           metrics24h: mcpMetrics,
         };

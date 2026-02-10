@@ -1,7 +1,13 @@
-import { Injectable, Logger, Optional, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { randomUUID } from 'crypto';
-import { PrismaService } from '../../../common/prisma/prisma.service';
-import { Decimal } from '@prisma/client/runtime/library';
+import {
+  Injectable,
+  Logger,
+  Optional,
+  OnModuleInit,
+  OnModuleDestroy,
+} from "@nestjs/common";
+import { randomUUID } from "crypto";
+import { PrismaService } from "../../../common/prisma/prisma.service";
+import { Decimal } from "@prisma/client/runtime/library";
 
 /**
  * LLM 调用事件
@@ -62,7 +68,12 @@ export interface ObservabilityDashboard {
   fallbackRate: number;
   byModel: Record<string, ModelMetrics>;
   byModule: Record<string, ModuleMetrics>;
-  byUser: Array<{ userId: string; calls: number; tokens: number; cost: number }>;
+  byUser: Array<{
+    userId: string;
+    calls: number;
+    tokens: number;
+    cost: number;
+  }>;
   recentErrors: Array<{ timestamp: Date; model: string; error: string }>;
 }
 
@@ -70,13 +81,13 @@ export interface ObservabilityDashboard {
  * LLM 成本估算（美元/1K tokens）
  */
 const COST_PER_1K_TOKENS: Record<string, { input: number; output: number }> = {
-  'gpt-4o': { input: 0.0025, output: 0.01 },
-  'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
-  'claude-3.5-sonnet': { input: 0.003, output: 0.015 },
-  'claude-3-haiku': { input: 0.00025, output: 0.00125 },
-  'grok-2': { input: 0.002, output: 0.01 },
-  'grok-beta': { input: 0.005, output: 0.015 },
-  'default': { input: 0.001, output: 0.002 },
+  "gpt-4o": { input: 0.0025, output: 0.01 },
+  "gpt-4o-mini": { input: 0.00015, output: 0.0006 },
+  "claude-3.5-sonnet": { input: 0.003, output: 0.015 },
+  "claude-3-haiku": { input: 0.00025, output: 0.00125 },
+  "grok-2": { input: 0.002, output: 0.01 },
+  "grok-beta": { input: 0.005, output: 0.015 },
+  default: { input: 0.001, output: 0.002 },
 };
 
 /**
@@ -130,9 +141,19 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
   private readonly pendingFlush: LLMCallEvent[] = [];
 
   /**
+   * 待持久化缓冲区最大容量（防止 DB 不可用时 OOM）
+   */
+  private readonly MAX_PENDING_FLUSH = 50000;
+
+  /**
    * Flush 定时器
    */
   private flushInterval: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * 当前正在执行的 flush Promise（防止并发 flush）
+   */
+  private flushInProgress: Promise<number> | null = null;
 
   /**
    * Flush 间隔（毫秒），默认 5 分钟
@@ -144,9 +165,7 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
    */
   private readonly FLUSH_BATCH_SIZE = 500;
 
-  constructor(
-    @Optional() private readonly prisma?: PrismaService,
-  ) {}
+  constructor(@Optional() private readonly prisma?: PrismaService) {}
 
   onModuleInit() {
     if (this.prisma) {
@@ -160,16 +179,29 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  onModuleDestroy() {
+  async onModuleDestroy() {
     if (this.flushInterval) {
       clearInterval(this.flushInterval);
       this.flushInterval = null;
     }
+
+    // Wait for in-flight flush to complete
+    if (this.flushInProgress) {
+      try {
+        await this.flushInProgress;
+      } catch {
+        // Already logged in flushToDB
+      }
+    }
+
     // Final flush on shutdown
     if (this.prisma && this.pendingFlush.length > 0) {
-      this.flushToDB().catch((err) =>
-        this.logger.error(`Final flush failed: ${err}`),
-      );
+      try {
+        const flushed = await this.flushToDB();
+        this.logger.log(`Final shutdown flush: ${flushed} events`);
+      } catch (err) {
+        this.logger.error(`Final flush failed: ${err}`);
+      }
     }
   }
 
@@ -180,7 +212,7 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
    *
    * @param event - 调用事件（不含 id 和 timestamp，自动生成）
    */
-  recordLLMCall(event: Omit<LLMCallEvent, 'id' | 'timestamp'>): void {
+  recordLLMCall(event: Omit<LLMCallEvent, "id" | "timestamp">): void {
     const fullEvent: LLMCallEvent = {
       id: randomUUID(),
       timestamp: new Date(),
@@ -197,8 +229,14 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
     this.writeIndex = (this.writeIndex + 1) % this.MAX_EVENTS;
     this.totalEventsRecorded++;
 
-    // 加入待持久化队列
+    // 加入待持久化队列（有上限保护，防止 DB 不可用时 OOM）
     if (this.prisma) {
+      if (this.pendingFlush.length >= this.MAX_PENDING_FLUSH) {
+        this.pendingFlush.shift();
+        this.logger.warn(
+          `Pending flush buffer full (${this.MAX_PENDING_FLUSH}), dropping oldest event`,
+        );
+      }
       this.pendingFlush.push(fullEvent);
     }
 
@@ -257,7 +295,9 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
     const byUser = this.aggregateByUser(recentEvents);
 
     // 延迟百分位数
-    const latencies = recentEvents.map((e) => e.latencyMs).sort((a, b) => a - b);
+    const latencies = recentEvents
+      .map((e) => e.latencyMs)
+      .sort((a, b) => a - b);
     const p95LatencyMs = this.percentile(latencies, 0.95);
     const p99LatencyMs = this.percentile(latencies, 0.99);
 
@@ -338,7 +378,8 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
     const byModel: Record<string, number> = {};
 
     for (const event of userEvents) {
-      byModule[event.module] = (byModule[event.module] || 0) + event.estimatedCost;
+      byModule[event.module] =
+        (byModule[event.module] || 0) + event.estimatedCost;
       byModel[event.model] = (byModel[event.model] || 0) + event.estimatedCost;
     }
 
@@ -351,7 +392,11 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
    * @param model - 可选，指定模型筛选
    * @returns p50/p95/p99 延迟（毫秒）
    */
-  getLatencyPercentiles(model?: string): { p50: number; p95: number; p99: number } {
+  getLatencyPercentiles(model?: string): {
+    p50: number;
+    p95: number;
+    p99: number;
+  } {
     let relevantEvents = this.events;
 
     if (model) {
@@ -362,7 +407,9 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
       return { p50: 0, p95: 0, p99: 0 };
     }
 
-    const latencies = relevantEvents.map((e) => e.latencyMs).sort((a, b) => a - b);
+    const latencies = relevantEvents
+      .map((e) => e.latencyMs)
+      .sort((a, b) => a - b);
 
     return {
       p50: this.percentile(latencies, 0.5),
@@ -394,6 +441,24 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
       return 0;
     }
 
+    // Prevent concurrent flush operations
+    if (this.flushInProgress) {
+      return this.flushInProgress;
+    }
+
+    this.flushInProgress = this._doFlush();
+    try {
+      return await this.flushInProgress;
+    } finally {
+      this.flushInProgress = null;
+    }
+  }
+
+  private async _doFlush(): Promise<number> {
+    if (!this.prisma || this.pendingFlush.length === 0) {
+      return 0;
+    }
+
     const batch = this.pendingFlush.splice(0, this.FLUSH_BATCH_SIZE);
     const flushed = batch.length;
 
@@ -401,7 +466,7 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
       await this.prisma.aIEngineMetric.createMany({
         data: batch.map((event) => ({
           id: event.id,
-          metricType: 'llm_call',
+          metricType: "llm_call",
           operationId: event.operation,
           modelId: event.model,
           providerId: event.provider,
@@ -425,19 +490,29 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
       });
 
       this.lastFlushedCount += flushed;
-      this.logger.log(`Flushed ${flushed} events to DB (total: ${this.lastFlushedCount})`);
+      this.logger.log(
+        `Flushed ${flushed} events to DB (total: ${this.lastFlushedCount})`,
+      );
 
-      // 如果还有剩余，递归 flush
+      // 如果还有剩余，继续 flush
       if (this.pendingFlush.length > 0) {
-        return flushed + await this.flushToDB();
+        return flushed + (await this._doFlush());
       }
 
       return flushed;
     } catch (error) {
-      // 失败时将事件放回队列头部
-      this.pendingFlush.unshift(...batch);
+      // 失败时将事件放回队列头部（有上限保护）
+      const spaceAvailable = this.MAX_PENDING_FLUSH - this.pendingFlush.length;
+      const toRequeue = Math.min(batch.length, spaceAvailable);
+      if (toRequeue > 0) {
+        this.pendingFlush.unshift(...batch.slice(0, toRequeue));
+      }
+      const dropped = batch.length - toRequeue;
       this.logger.error(
-        `Failed to flush ${flushed} events to DB: ${error instanceof Error ? error.message : error}`,
+        `Failed to flush ${flushed} events to DB: ${error instanceof Error ? error.message : error}` +
+          (dropped > 0
+            ? ` (dropped ${dropped} events due to buffer limit)`
+            : ""),
       );
       return 0;
     }
@@ -461,7 +536,7 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
     this.totalEventsRecorded = 0;
     this.pendingFlush.length = 0;
     this.lastFlushedCount = 0;
-    this.logger.log('可观测性数据已重置');
+    this.logger.log("可观测性数据已重置");
   }
 
   /**
@@ -474,8 +549,12 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
    * @param outputTokens - 输出 tokens 数
    * @returns 估算成本（美元）
    */
-  static estimateCost(model: string, inputTokens: number, outputTokens: number): number {
-    const pricing = COST_PER_1K_TOKENS[model] || COST_PER_1K_TOKENS['default'];
+  static estimateCost(
+    model: string,
+    inputTokens: number,
+    outputTokens: number,
+  ): number {
+    const pricing = COST_PER_1K_TOKENS[model] || COST_PER_1K_TOKENS["default"];
     const inputCost = (inputTokens / 1000) * pricing.input;
     const outputCost = (outputTokens / 1000) * pricing.output;
     return inputCost + outputCost;
@@ -484,7 +563,9 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
   /**
    * 按模型聚合事件
    */
-  private aggregateByModel(events: LLMCallEvent[]): Record<string, ModelMetrics> {
+  private aggregateByModel(
+    events: LLMCallEvent[],
+  ): Record<string, ModelMetrics> {
     const modelMap = new Map<string, LLMCallEvent[]>();
 
     for (const event of events) {
@@ -518,7 +599,9 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
   /**
    * 按模块聚合事件
    */
-  private aggregateByModule(events: LLMCallEvent[]): Record<string, ModuleMetrics> {
+  private aggregateByModule(
+    events: LLMCallEvent[],
+  ): Record<string, ModuleMetrics> {
     const moduleMap = new Map<string, LLMCallEvent[]>();
 
     for (const event of events) {
@@ -563,7 +646,10 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
   private aggregateByUser(
     events: LLMCallEvent[],
   ): Array<{ userId: string; calls: number; tokens: number; cost: number }> {
-    const userMap = new Map<string, { calls: number; tokens: number; cost: number }>();
+    const userMap = new Map<
+      string,
+      { calls: number; tokens: number; cost: number }
+    >();
 
     for (const event of events) {
       if (!event.userId) continue;

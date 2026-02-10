@@ -101,9 +101,7 @@ export class ResearchExportService {
         include: {
           topic: {
             include: {
-              dimensions: {
-                include: { evidence: true },
-              },
+              dimensions: true,
             },
           },
         },
@@ -123,22 +121,40 @@ export class ResearchExportService {
 
       switch (options.format) {
         case ExportFormat.MARKDOWN:
-          return this.exportAsMarkdown(report, options);
+          return this.exportAsMarkdown(
+            report as unknown as ReportWithRelations,
+            options,
+          );
 
         case ExportFormat.HTML:
-          return this.exportAsHTML(report, options);
+          return this.exportAsHTML(
+            report as unknown as ReportWithRelations,
+            options,
+          );
 
         case ExportFormat.PDF:
-          return this.exportAsPDF(report, options);
+          return this.exportAsPDF(
+            report as unknown as ReportWithRelations,
+            options,
+          );
 
         case ExportFormat.DOCX:
-          return this.exportAsDOCX(report, options);
+          return this.exportAsDOCX(
+            report as unknown as ReportWithRelations,
+            options,
+          );
 
         case ExportFormat.PPTX:
-          return this.exportAsPPTX(report, options);
+          return this.exportAsPPTX(
+            report as unknown as ReportWithRelations,
+            options,
+          );
 
         default:
-          return this.exportAsMarkdown(report, options);
+          return this.exportAsMarkdown(
+            report as unknown as ReportWithRelations,
+            options,
+          );
       }
     } catch (error) {
       this.logger.error(`[exportReport] Failed: ${error}`);
@@ -222,7 +238,7 @@ export class ResearchExportService {
     // 参考文献
     if (options.includeBibliography !== false) {
       const bibliography = this.buildBibliography(
-        report.topic.dimensions,
+        report.topic.dimensions || [],
         options.citationStyle || CitationStyle.APA,
       );
       if (bibliography) {
@@ -347,10 +363,12 @@ export class ResearchExportService {
   // =========================================================================
 
   private buildBibliography(
-    dimensions: Array<{ evidence: Array<Record<string, unknown>> }>,
+    dimensions: Array<Record<string, unknown>>,
     style: CitationStyle,
   ): string {
-    const allEvidence = dimensions.flatMap((d) => d.evidence);
+    const allEvidence = dimensions.flatMap(
+      (d) => (d.evidence as Array<Record<string, unknown>>) || [],
+    );
     if (allEvidence.length === 0) return "";
 
     const citationMetas = allEvidence
@@ -409,10 +427,9 @@ type ReportWithRelations = {
   id: string;
   content: string | null;
   executiveSummary: string | null;
+  fullReport?: string;
   topic: {
     name: string;
-    dimensions: Array<{
-      evidence: Array<Record<string, unknown>>;
-    }>;
+    dimensions?: Array<Record<string, unknown>>;
   };
-};
+} & Record<string, unknown>;

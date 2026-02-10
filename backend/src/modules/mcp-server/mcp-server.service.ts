@@ -73,15 +73,17 @@ export class MCPServerService implements OnModuleInit {
     // 触发 Bridge 初始发现
     if (this.toolBridge) {
       const bridgedTools = this.toolBridge.listBridgedTools();
-      this.logger.log(`Bridge initialized with ${bridgedTools.length} dynamic tools`);
+      this.logger.log(
+        `Bridge initialized with ${bridgedTools.length} dynamic tools`,
+      );
     }
 
     this.logger.log(
       `MCP Server initialized: ` +
-      `${this.toolHandlers.size} curated tools, ` +
-      `bridge ${this.toolBridge ? "enabled" : "disabled"}, ` +
-      `resources ${this.resourceProvider ? "enabled" : "disabled"}, ` +
-      `prompts ${this.promptProvider ? "enabled" : "disabled"}`,
+        `${this.toolHandlers.size} curated tools, ` +
+        `bridge ${this.toolBridge ? "enabled" : "disabled"}, ` +
+        `resources ${this.resourceProvider ? "enabled" : "disabled"}, ` +
+        `prompts ${this.promptProvider ? "enabled" : "disabled"}`,
     );
   }
 
@@ -104,7 +106,13 @@ export class MCPServerService implements OnModuleInit {
   ): Promise<JsonRpcResponse | JsonRpcResponse[] | null> {
     if (Array.isArray(body)) {
       const responses = await Promise.all(
-        body.map((req) => this.processSingleRequest(req, context)),
+        body.map((req) =>
+          req && typeof req === "object"
+            ? this.processSingleRequest(req, { ...context })
+            : Promise.resolve(
+                this.errorResponse(null, JSON_RPC_ERRORS.INVALID_REQUEST),
+              ),
+        ),
       );
       const filtered = responses.filter(
         (r): r is JsonRpcResponse => r !== null,
@@ -139,7 +147,8 @@ export class MCPServerService implements OnModuleInit {
     } catch (error) {
       if (isNotification) return null;
       const errObj = error as unknown as Record<string, unknown>;
-      const code = (errObj.code as number) || JSON_RPC_ERRORS.INTERNAL_ERROR.code;
+      const code =
+        (errObj.code as number) || JSON_RPC_ERRORS.INTERNAL_ERROR.code;
       // 仅暴露已知错误码的消息，内部错误只返回通用文本
       const safeMessage = errObj.code
         ? (error as Error).message
@@ -184,7 +193,9 @@ export class MCPServerService implements OnModuleInit {
         return this.handlePromptsGet(request.params, context);
 
       default: {
-        const error: Error & { code?: number } = new Error(`Method not found: ${request.method}`);
+        const error: Error & { code?: number } = new Error(
+          `Method not found: ${request.method}`,
+        );
         error.code = JSON_RPC_ERRORS.METHOD_NOT_FOUND.code;
         throw error;
       }
@@ -207,7 +218,8 @@ export class MCPServerService implements OnModuleInit {
       context.apiKeyId,
       clientInfo,
     );
-    context.sessionId = session.sessionId;
+    // Note: sessionId is returned in the response, not mutated on context
+    // to avoid session leakage between requests sharing a context object
 
     return {
       protocolVersion: "2024-11-05",
@@ -228,9 +240,9 @@ export class MCPServerService implements OnModuleInit {
   // Tools - Curated + Dynamic Bridge
   // =========================================================================
 
-  private handleToolsList(
-    _context: MCPRequestContext,
-  ): { tools: ExposedTool[] } {
+  private handleToolsList(_context: MCPRequestContext): {
+    tools: ExposedTool[];
+  } {
     const tools: ExposedTool[] = [];
 
     // 1. Curated handlers（高优先级，精选工具）
@@ -266,7 +278,8 @@ export class MCPServerService implements OnModuleInit {
   ): Promise<unknown> {
     if (!params?.name || typeof params.name !== "string") {
       const error = new Error("Missing required parameter: name");
-      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.INVALID_PARAMS.code;
+      (error as unknown as Record<string, unknown>).code =
+        JSON_RPC_ERRORS.INVALID_PARAMS.code;
       throw error;
     }
 
@@ -284,7 +297,9 @@ export class MCPServerService implements OnModuleInit {
     }
 
     // 配额检查
-    if (!this.sessionManager.consumeQuota(context.apiKeyId, context.sessionId)) {
+    if (
+      !this.sessionManager.consumeQuota(context.apiKeyId, context.sessionId)
+    ) {
       return {
         content: [{ type: "text", text: "Daily quota exceeded" }],
         isError: true,
@@ -303,7 +318,9 @@ export class MCPServerService implements OnModuleInit {
             `MCP tool call blocked by input guardrail: ${inputCheck.blockedBy}`,
           );
           return {
-            content: [{ type: "text", text: "Request blocked by security policy" }],
+            content: [
+              { type: "text", text: "Request blocked by security policy" },
+            ],
             isError: true,
           };
         }
@@ -313,7 +330,9 @@ export class MCPServerService implements OnModuleInit {
         );
         if (this.guardrailsFailClosed) {
           return {
-            content: [{ type: "text", text: "Security validation unavailable" }],
+            content: [
+              { type: "text", text: "Security validation unavailable" },
+            ],
             isError: true,
           };
         }
@@ -331,11 +350,17 @@ export class MCPServerService implements OnModuleInit {
         result = await handler.execute(args, context);
         source = "curated";
       } else if (this.toolBridge?.isBridgedTool(toolName)) {
-        result = await this.toolBridge.executeBridgedTool(toolName, args, context);
-        source = this.toolBridge.getBridgedToolMeta(toolName)?.source || "bridge";
+        result = await this.toolBridge.executeBridgedTool(
+          toolName,
+          args,
+          context,
+        );
+        source =
+          this.toolBridge.getBridgedToolMeta(toolName)?.source || "bridge";
       } else {
         const error = new Error(`Unknown tool: ${toolName}`);
-        (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.METHOD_NOT_FOUND.code;
+        (error as unknown as Record<string, unknown>).code =
+          JSON_RPC_ERRORS.METHOD_NOT_FOUND.code;
         throw error;
       }
 
@@ -349,7 +374,11 @@ export class MCPServerService implements OnModuleInit {
       });
 
       // Guardrails 输出验证
-      if (this.guardrailsEnabled && this.guardrailsPipeline && !result.isError) {
+      if (
+        this.guardrailsEnabled &&
+        this.guardrailsPipeline &&
+        !result.isError
+      ) {
         try {
           const outputCheck = await this.guardrailsPipeline.processOutput({
             content: JSON.stringify(result),
@@ -360,7 +389,9 @@ export class MCPServerService implements OnModuleInit {
               `MCP tool output blocked by guardrail: ${outputCheck.blockedBy}`,
             );
             return {
-              content: [{ type: "text", text: "Response blocked by security policy" }],
+              content: [
+                { type: "text", text: "Response blocked by security policy" },
+              ],
               isError: true,
             };
           }
@@ -370,7 +401,9 @@ export class MCPServerService implements OnModuleInit {
           );
           if (this.guardrailsFailClosed) {
             return {
-              content: [{ type: "text", text: "Security validation unavailable" }],
+              content: [
+                { type: "text", text: "Security validation unavailable" },
+              ],
               isError: true,
             };
           }
@@ -412,7 +445,10 @@ export class MCPServerService implements OnModuleInit {
       return { resources: [] };
     }
 
-    if (context.sessionId && !this.sessionManager.isResourceAllowed(context.sessionId)) {
+    if (
+      context.sessionId &&
+      !this.sessionManager.isResourceAllowed(context.sessionId)
+    ) {
       return { resources: [] };
     }
 
@@ -426,19 +462,25 @@ export class MCPServerService implements OnModuleInit {
   ): Promise<unknown> {
     if (!params?.uri || typeof params.uri !== "string") {
       const error = new Error("Missing required parameter: uri");
-      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.INVALID_PARAMS.code;
+      (error as unknown as Record<string, unknown>).code =
+        JSON_RPC_ERRORS.INVALID_PARAMS.code;
       throw error;
     }
 
     if (!this.resourceProvider) {
       const error = new Error("Resources not available");
-      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.RESOURCE_NOT_FOUND.code;
+      (error as unknown as Record<string, unknown>).code =
+        JSON_RPC_ERRORS.RESOURCE_NOT_FOUND.code;
       throw error;
     }
 
-    if (context.sessionId && !this.sessionManager.isResourceAllowed(context.sessionId)) {
+    if (
+      context.sessionId &&
+      !this.sessionManager.isResourceAllowed(context.sessionId)
+    ) {
       const error = new Error("Resource access denied");
-      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.PERMISSION_DENIED.code;
+      (error as unknown as Record<string, unknown>).code =
+        JSON_RPC_ERRORS.PERMISSION_DENIED.code;
       throw error;
     }
 
@@ -457,7 +499,10 @@ export class MCPServerService implements OnModuleInit {
       return { prompts: [] };
     }
 
-    if (context.sessionId && !this.sessionManager.isPromptAllowed(context.sessionId)) {
+    if (
+      context.sessionId &&
+      !this.sessionManager.isPromptAllowed(context.sessionId)
+    ) {
       return { prompts: [] };
     }
 
@@ -471,19 +516,25 @@ export class MCPServerService implements OnModuleInit {
   ): Promise<unknown> {
     if (!params?.name || typeof params.name !== "string") {
       const error = new Error("Missing required parameter: name");
-      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.INVALID_PARAMS.code;
+      (error as unknown as Record<string, unknown>).code =
+        JSON_RPC_ERRORS.INVALID_PARAMS.code;
       throw error;
     }
 
     if (!this.promptProvider) {
       const error = new Error("Prompts not available");
-      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.RESOURCE_NOT_FOUND.code;
+      (error as unknown as Record<string, unknown>).code =
+        JSON_RPC_ERRORS.RESOURCE_NOT_FOUND.code;
       throw error;
     }
 
-    if (context.sessionId && !this.sessionManager.isPromptAllowed(context.sessionId)) {
+    if (
+      context.sessionId &&
+      !this.sessionManager.isPromptAllowed(context.sessionId)
+    ) {
       const error = new Error("Prompt access denied");
-      (error as unknown as Record<string, unknown>).code = JSON_RPC_ERRORS.PERMISSION_DENIED.code;
+      (error as unknown as Record<string, unknown>).code =
+        JSON_RPC_ERRORS.PERMISSION_DENIED.code;
       throw error;
     }
 
@@ -516,8 +567,17 @@ export class MCPServerService implements OnModuleInit {
     totalToolCount: number;
     tools: Array<{ name: string; description: string; source: string }>;
     activeSessions: number;
-    capabilities: { tools: boolean; resources: boolean; prompts: boolean; streaming: boolean };
-    metrics24h: { totalCalls: number; successRate: number; avgDuration: number };
+    capabilities: {
+      tools: boolean;
+      resources: boolean;
+      prompts: boolean;
+      streaming: boolean;
+    };
+    metrics24h: {
+      totalCalls: number;
+      successRate: number;
+      avgDuration: number;
+    };
   } {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const metrics24h = this.getMetrics({ startDate: oneDayAgo });
@@ -526,7 +586,8 @@ export class MCPServerService implements OnModuleInit {
     if (metrics24h.successRate < 95) status = "degraded";
     if (metrics24h.successRate < 80) status = "unhealthy";
 
-    const tools: Array<{ name: string; description: string; source: string }> = [];
+    const tools: Array<{ name: string; description: string; source: string }> =
+      [];
 
     for (const handler of this.toolHandlers.values()) {
       tools.push({
@@ -594,10 +655,10 @@ export class MCPServerService implements OnModuleInit {
     // Forward to AI Engine observability (unified LLM call tracking)
     if (this.observability) {
       this.observability.recordLLMCall({
-        model: 'mcp-tool',
-        provider: 'mcp-server',
-        modelType: 'TOOL_EXECUTION',
-        module: 'mcp-server',
+        model: "mcp-tool",
+        provider: "mcp-server",
+        modelType: "TOOL_EXECUTION",
+        module: "mcp-server",
         operation: metric.toolName,
         userId: metric.apiKeyId,
         inputTokens: 0,
@@ -615,10 +676,10 @@ export class MCPServerService implements OnModuleInit {
     // Forward to cost attribution
     if (this.costAttribution) {
       this.costAttribution.recordCost({
-        userId: metric.apiKeyId || 'mcp-anonymous',
-        moduleType: 'mcp-server',
+        userId: metric.apiKeyId || "mcp-anonymous",
+        moduleType: "mcp-server",
         model: `mcp:${metric.toolName}`,
-        provider: 'mcp-server',
+        provider: "mcp-server",
         inputTokens: 0,
         outputTokens: 0,
         estimatedCost: 0,
@@ -637,10 +698,17 @@ export class MCPServerService implements OnModuleInit {
     errorCount: number;
     successRate: number;
     avgDuration: number;
-    byTool: Record<string, { calls: number; errors: number; avgDuration: number }>;
+    byTool: Record<
+      string,
+      { calls: number; errors: number; avgDuration: number }
+    >;
     byApiKey: Record<string, { calls: number; lastUsed: Date }>;
     bySource: Record<string, number>;
-    recentErrors: Array<{ toolName: string; errorType: string; timestamp: Date }>;
+    recentErrors: Array<{
+      toolName: string;
+      errorType: string;
+      timestamp: Date;
+    }>;
   } {
     let filtered = this.metrics;
     if (options?.startDate) {
@@ -656,20 +724,28 @@ export class MCPServerService implements OnModuleInit {
     const totalCalls = filtered.length;
     const successCount = filtered.filter((m) => m.success).length;
     const errorCount = totalCalls - successCount;
-    const successRate = totalCalls > 0 ? (successCount / totalCalls) * 100 : 100;
+    const successRate =
+      totalCalls > 0 ? (successCount / totalCalls) * 100 : 100;
     const avgDuration =
       totalCalls > 0
         ? filtered.reduce((sum, m) => sum + m.duration, 0) / totalCalls
         : 0;
 
-    const byToolAccum: Record<string, { calls: number; errors: number; totalDuration: number }> = {};
+    const byToolAccum: Record<
+      string,
+      { calls: number; errors: number; totalDuration: number }
+    > = {};
     const byApiKey: Record<string, { calls: number; lastUsed: Date }> = {};
     const bySource: Record<string, number> = {};
 
     for (const metric of filtered) {
       // By tool
       if (!byToolAccum[metric.toolName]) {
-        byToolAccum[metric.toolName] = { calls: 0, errors: 0, totalDuration: 0 };
+        byToolAccum[metric.toolName] = {
+          calls: 0,
+          errors: 0,
+          totalDuration: 0,
+        };
       }
       byToolAccum[metric.toolName].calls++;
       if (!metric.success) byToolAccum[metric.toolName].errors++;
@@ -689,12 +765,16 @@ export class MCPServerService implements OnModuleInit {
       bySource[source] = (bySource[source] || 0) + 1;
     }
 
-    const byTool: Record<string, { calls: number; errors: number; avgDuration: number }> = {};
+    const byTool: Record<
+      string,
+      { calls: number; errors: number; avgDuration: number }
+    > = {};
     for (const [name, acc] of Object.entries(byToolAccum)) {
       byTool[name] = {
         calls: acc.calls,
         errors: acc.errors,
-        avgDuration: acc.calls > 0 ? Math.round(acc.totalDuration / acc.calls) : 0,
+        avgDuration:
+          acc.calls > 0 ? Math.round(acc.totalDuration / acc.calls) : 0,
       };
     }
 

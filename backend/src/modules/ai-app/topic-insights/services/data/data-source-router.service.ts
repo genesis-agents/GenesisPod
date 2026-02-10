@@ -178,12 +178,14 @@ export class DataSourceRouterService {
             [DataSourceType.HACKERNEWS]: 0,
             [DataSourceType.RSS]: 0,
             [DataSourceType.LOCAL]: 0,
-            // ★ 政策数据源
             [DataSourceType.FEDERAL_REGISTER]: 0,
             [DataSourceType.CONGRESS]: 0,
             [DataSourceType.WHITEHOUSE]: 0,
-            // ★ 社媒数据源
             [DataSourceType.SOCIAL_X]: 0,
+            [DataSourceType.SEMANTIC_SCHOLAR]: 0,
+            [DataSourceType.PUBMED]: 0,
+            [DataSourceType.FINANCE_API]: 0,
+            [DataSourceType.WEATHER_API]: 0,
           },
         },
       };
@@ -715,11 +717,7 @@ export class DataSourceRouterService {
       return [];
     }
 
-    return this.connectorRegistry.searchViaConnector(
-      source,
-      query,
-      maxResults,
-    );
+    return this.connectorRegistry.searchViaConnector(source, query, maxResults);
   }
 
   /**
@@ -1815,18 +1813,20 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
    */
   private getSourceTypeScore(sourceType: DataSourceType): number {
     const scores: Record<DataSourceType, number> = {
-      [DataSourceType.ACADEMIC]: 100, // 学术来源最高
-      [DataSourceType.GITHUB]: 85, // 开源项目次之
-      [DataSourceType.WEB]: 70, // 一般网页搜索
-      [DataSourceType.HACKERNEWS]: 75, // 技术新闻
-      [DataSourceType.RSS]: 65, // RSS 订阅
-      [DataSourceType.LOCAL]: 80, // 本地库 (已验证)
-      // ★ 政策数据源（官方来源，可信度高）
-      [DataSourceType.FEDERAL_REGISTER]: 95, // 联邦公报（官方）
-      [DataSourceType.CONGRESS]: 95, // 国会立法（官方）
-      [DataSourceType.WHITEHOUSE]: 90, // 白宫新闻（官方）
-      // ★ 社媒数据源
-      [DataSourceType.SOCIAL_X]: 60, // X/Twitter 社媒热点
+      [DataSourceType.ACADEMIC]: 100,
+      [DataSourceType.GITHUB]: 85,
+      [DataSourceType.WEB]: 70,
+      [DataSourceType.HACKERNEWS]: 75,
+      [DataSourceType.RSS]: 65,
+      [DataSourceType.LOCAL]: 80,
+      [DataSourceType.FEDERAL_REGISTER]: 95,
+      [DataSourceType.CONGRESS]: 95,
+      [DataSourceType.WHITEHOUSE]: 90,
+      [DataSourceType.SOCIAL_X]: 60,
+      [DataSourceType.SEMANTIC_SCHOLAR]: 100,
+      [DataSourceType.PUBMED]: 95,
+      [DataSourceType.FINANCE_API]: 85,
+      [DataSourceType.WEATHER_API]: 75,
     };
 
     return scores[sourceType] || 50;

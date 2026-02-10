@@ -11,13 +11,27 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { AgentExecutorService } from "../agent-executor.service";
+import { AiChatService } from "../../../llm/services/ai-chat.service";
+import { ToolRegistry } from "../../../tools/registry/tool-registry";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 describe("AgentExecutorService", () => {
   let service: AgentExecutorService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AgentExecutorService],
+      providers: [
+        AgentExecutorService,
+        { provide: AiChatService, useValue: { chat: jest.fn() } },
+        {
+          provide: ToolRegistry,
+          useValue: {
+            executeTool: jest.fn(),
+            getToolNames: jest.fn().mockReturnValue([]),
+          },
+        },
+        { provide: PrismaService, useValue: {} },
+      ],
     }).compile();
 
     service = module.get<AgentExecutorService>(AgentExecutorService);
@@ -36,11 +50,11 @@ describe("AgentExecutorService", () => {
     expect(service).toBeDefined();
   });
 
-  describe("execute", () => {
-    it("should execute a simple agent task", async () => {
+  describe("executeTask", () => {
+    it("should have executeTask method available", async () => {
       // AgentExecutorService manages agent execution lifecycle
       // Test that it's instantiable and methods are available
-      expect(typeof service.execute).toBe("function");
+      expect(typeof service.executeTask).toBe("function");
     });
   });
 });

@@ -8,8 +8,7 @@
  * - refreshToken() Token 刷新
  */
 
-import { Test, TestingModule } from "@nestjs/testing";
-import { Logger } from "@nestjs/common";
+// Placeholder test file for additional auth edge cases
 
 describe("AuthService - placeholder", () => {
   // Auth module already has auth.service.spec.ts and jwt.strategy.spec.ts

@@ -13,7 +13,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { Subject, firstValueFrom, toArray, take } from "rxjs";
+import { Subject } from "rxjs";
 import { StreamingService } from "../streaming.service";
 
 describe("StreamingService", () => {

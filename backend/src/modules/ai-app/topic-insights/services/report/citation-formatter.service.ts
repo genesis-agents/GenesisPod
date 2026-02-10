@@ -11,7 +11,7 @@
  * 4. 多格式并行输出
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import {
   CitationStyle,
   SourceCategory,
@@ -22,8 +22,6 @@ import {
 
 @Injectable()
 export class CitationFormatterService {
-  private readonly logger = new Logger(CitationFormatterService.name);
-
   /**
    * 从证据数据构建引用元数据
    */
@@ -128,16 +126,14 @@ export class CitationFormatterService {
   // APA 7th Edition
   // =========================================================================
 
-  private formatAPA(
-    meta: CitationMetadata,
-    index: number,
-  ): FormattedCitation {
+  private formatAPA(meta: CitationMetadata, index: number): FormattedCitation {
     const authorStr = this.formatAuthorsAPA(meta.authors);
     const year = this.extractYear(meta.publishedDate);
     const yearStr = year || "n.d.";
 
     // 行内引用
-    const firstAuthorLast = meta.authors[0]?.lastName || meta.authors[0]?.fullName || "Unknown";
+    const firstAuthorLast =
+      meta.authors[0]?.lastName || meta.authors[0]?.fullName || "Unknown";
     const inText =
       meta.authors.length > 2
         ? `(${firstAuthorLast} et al., ${yearStr})`
@@ -185,20 +181,16 @@ export class CitationFormatterService {
   // MLA 9th Edition
   // =========================================================================
 
-  private formatMLA(
-    meta: CitationMetadata,
-    index: number,
-  ): FormattedCitation {
+  private formatMLA(meta: CitationMetadata, index: number): FormattedCitation {
     const firstAuthor = meta.authors[0];
     const authorStr = this.formatAuthorsMLA(meta.authors);
     const year = this.extractYear(meta.publishedDate);
 
     // 行内引用
-    const lastName = firstAuthor?.lastName || firstAuthor?.fullName || "Unknown";
+    const lastName =
+      firstAuthor?.lastName || firstAuthor?.fullName || "Unknown";
     const inText =
-      meta.authors.length > 2
-        ? `(${lastName} et al.)`
-        : `(${lastName})`;
+      meta.authors.length > 2 ? `(${lastName} et al.)` : `(${lastName})`;
 
     // 完整引用
     let fullCitation = `${authorStr} `;
@@ -237,7 +229,8 @@ export class CitationFormatterService {
   ): FormattedCitation {
     const authorStr = this.formatAuthorsChicago(meta.authors);
     const year = this.extractYear(meta.publishedDate);
-    const firstName = meta.authors[0]?.lastName || meta.authors[0]?.fullName || "Unknown";
+    const firstName =
+      meta.authors[0]?.lastName || meta.authors[0]?.fullName || "Unknown";
 
     const inText = `(${firstName}${year ? `, ${year}` : ""})`;
 
@@ -274,10 +267,7 @@ export class CitationFormatterService {
   // IEEE
   // =========================================================================
 
-  private formatIEEE(
-    meta: CitationMetadata,
-    index: number,
-  ): FormattedCitation {
+  private formatIEEE(meta: CitationMetadata, index: number): FormattedCitation {
     const authorStr = this.formatAuthorsIEEE(meta.authors);
     const year = this.extractYear(meta.publishedDate);
 
@@ -373,7 +363,11 @@ export class CitationFormatterService {
     // Domain-based classification
     if (domain) {
       if (domain.includes("arxiv")) return SourceCategory.PREPRINT;
-      if (domain.includes("reuters") || domain.includes("bbc") || domain.includes("cnn")) {
+      if (
+        domain.includes("reuters") ||
+        domain.includes("bbc") ||
+        domain.includes("cnn")
+      ) {
         return SourceCategory.NEWS_ARTICLE;
       }
     }
@@ -387,9 +381,7 @@ export class CitationFormatterService {
     return isNaN(d.getTime()) ? null : String(d.getFullYear());
   }
 
-  private formatAuthorsAPA(
-    authors: CitationMetadata["authors"],
-  ): string {
+  private formatAuthorsAPA(authors: CitationMetadata["authors"]): string {
     if (authors.length === 0) return "Unknown";
     if (authors.length === 1) {
       const a = authors[0];
@@ -411,9 +403,7 @@ export class CitationFormatterService {
     return `${first.lastName || first.fullName}, ${first.firstName?.charAt(0) || ""}., et al.`;
   }
 
-  private formatAuthorsMLA(
-    authors: CitationMetadata["authors"],
-  ): string {
+  private formatAuthorsMLA(authors: CitationMetadata["authors"]): string {
     if (authors.length === 0) return "Unknown.";
     const first = authors[0];
     if (authors.length === 1) {
@@ -426,15 +416,11 @@ export class CitationFormatterService {
     return `${first.lastName}, ${first.firstName}, et al.`;
   }
 
-  private formatAuthorsChicago(
-    authors: CitationMetadata["authors"],
-  ): string {
+  private formatAuthorsChicago(authors: CitationMetadata["authors"]): string {
     return this.formatAuthorsMLA(authors);
   }
 
-  private formatAuthorsIEEE(
-    authors: CitationMetadata["authors"],
-  ): string {
+  private formatAuthorsIEEE(authors: CitationMetadata["authors"]): string {
     if (authors.length === 0) return "Unknown";
     return authors
       .map((a) => {

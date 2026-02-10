@@ -34,6 +34,7 @@ describe("AiAskService", () => {
     modelId: "gpt-4o",
     createdAt: new Date(),
     updatedAt: new Date(),
+    _count: { messages: 0 },
   };
 
   const mockMessage = {
@@ -51,7 +52,9 @@ describe("AiAskService", () => {
         findMany: jest.fn().mockResolvedValue([mockSession]),
         findFirst: jest.fn().mockResolvedValue(mockSession),
         count: jest.fn().mockResolvedValue(1),
-        update: jest.fn().mockResolvedValue({ ...mockSession, title: "Updated" }),
+        update: jest
+          .fn()
+          .mockResolvedValue({ ...mockSession, title: "Updated" }),
         delete: jest.fn().mockResolvedValue(mockSession),
       },
       askMessage: {
@@ -208,17 +211,17 @@ describe("AiAskService", () => {
     it("should throw NotFoundException when session not found", async () => {
       mockPrisma.askSession.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getSession("nonexistent", userId),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getSession("nonexistent", userId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("should not return sessions belonging to other users", async () => {
       mockPrisma.askSession.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getSession(sessionId, "other-user"),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getSession(sessionId, "other-user")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -313,9 +316,9 @@ describe("AiAskService", () => {
     it("should throw NotFoundException for invalid session", async () => {
       mockPrisma.askSession.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getMessages("nonexistent", userId),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getMessages("nonexistent", userId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

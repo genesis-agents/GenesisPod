@@ -14,16 +14,16 @@
  * - AI Engine 仪表盘快照
  */
 
-import { Injectable, Logger, Optional } from '@nestjs/common';
-import { PrismaService } from '../../../common/prisma/prisma.service';
-import { CacheService } from '../../../common/cache/cache.service';
-import { AiObservabilityService } from '../../ai-engine/observability/ai-observability.service';
+import { Injectable, Optional } from "@nestjs/common";
+import { PrismaService } from "../../../common/prisma/prisma.service";
+import { CacheService } from "../../../common/cache/cache.service";
+import { AiObservabilityService } from "../../ai-engine/observability/ai-observability.service";
 
 /**
  * 子系统健康状态
  */
 export interface SubsystemHealth {
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: "healthy" | "degraded" | "unhealthy";
   latencyMs?: number;
   message?: string;
   details?: Record<string, unknown>;
@@ -33,7 +33,7 @@ export interface SubsystemHealth {
  * 完整健康检查响应
  */
 export interface HealthCheckResponse {
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: "healthy" | "degraded" | "unhealthy";
   timestamp: string;
   service: string;
   version: string;
@@ -49,7 +49,6 @@ export interface HealthCheckResponse {
 
 @Injectable()
 export class HealthCheckService {
-  private readonly logger = new Logger(HealthCheckService.name);
   private readonly startedAt = new Date();
 
   constructor(
@@ -72,50 +71,53 @@ export class HealthCheckService {
     ]);
 
     subsystems.database =
-      dbHealth.status === 'fulfilled'
+      dbHealth.status === "fulfilled"
         ? dbHealth.value
-        : { status: 'unhealthy', message: 'Check failed' };
+        : { status: "unhealthy", message: "Check failed" };
 
     subsystems.cache =
-      cacheHealth.status === 'fulfilled'
+      cacheHealth.status === "fulfilled"
         ? cacheHealth.value
-        : { status: 'unhealthy', message: 'Check failed' };
+        : { status: "unhealthy", message: "Check failed" };
 
     subsystems.aiEngine =
-      aiHealth.status === 'fulfilled'
+      aiHealth.status === "fulfilled"
         ? aiHealth.value
-        : { status: 'unhealthy', message: 'Check failed' };
+        : { status: "unhealthy", message: "Check failed" };
 
     // 计算总体状态
     const statuses = Object.values(subsystems).map((s) => s.status);
-    let overallStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
+    let overallStatus: "healthy" | "degraded" | "unhealthy" = "healthy";
 
-    if (statuses.includes('unhealthy')) {
+    if (statuses.includes("unhealthy")) {
       // 数据库不健康 = 整体不健康，其他不健康 = 降级
-      overallStatus = subsystems.database?.status === 'unhealthy'
-        ? 'unhealthy'
-        : 'degraded';
-    } else if (statuses.includes('degraded')) {
-      overallStatus = 'degraded';
+      overallStatus =
+        subsystems.database?.status === "unhealthy" ? "unhealthy" : "degraded";
+    } else if (statuses.includes("degraded")) {
+      overallStatus = "degraded";
     }
 
     // AI Engine 仪表盘快照
-    let ai: HealthCheckResponse['ai'];
+    let ai: HealthCheckResponse["ai"];
     if (this.observability) {
-      const dashboard = this.observability.getDashboard(60);
-      ai = {
-        totalCalls: dashboard.totalCalls,
-        successRate: dashboard.successRate,
-        avgLatencyMs: dashboard.avgLatencyMs,
-        activeModels: Object.keys(dashboard.byModel).length,
-      };
+      try {
+        const dashboard = this.observability.getDashboard(60);
+        ai = {
+          totalCalls: dashboard.totalCalls,
+          successRate: dashboard.successRate,
+          avgLatencyMs: dashboard.avgLatencyMs,
+          activeModels: Object.keys(dashboard.byModel).length,
+        };
+      } catch {
+        // Dashboard snapshot is best-effort; don't fail the health check
+      }
     }
 
     return {
       status: overallStatus,
       timestamp: new Date().toISOString(),
-      service: 'Raven AI Engine',
-      version: process.env.npm_package_version || '3.70.0',
+      service: "Raven AI Engine",
+      version: process.env.npm_package_version || "3.70.0",
       uptime: Math.floor((Date.now() - this.startedAt.getTime()) / 1000),
       subsystems,
       ai,
@@ -130,14 +132,15 @@ export class HealthCheckService {
     try {
       const result = await this.prisma.healthCheck();
       return {
-        status: result.status === 'healthy' ? 'healthy' : 'unhealthy',
+        status: result.status === "healthy" ? "healthy" : "unhealthy",
         latencyMs: Date.now() - start,
       };
     } catch (error) {
       return {
-        status: 'unhealthy',
+        status: "unhealthy",
         latencyMs: Date.now() - start,
-        message: error instanceof Error ? error.message : 'Database unreachable',
+        message:
+          error instanceof Error ? error.message : "Database unreachable",
       };
     }
   }
@@ -147,23 +150,23 @@ export class HealthCheckService {
    */
   private async checkCache(): Promise<SubsystemHealth> {
     if (!this.cache) {
-      return { status: 'degraded', message: 'Cache service not available' };
+      return { status: "degraded", message: "Cache service not available" };
     }
 
     const start = Date.now();
     try {
-      const testKey = '__health_check__';
-      await this.cache.set(testKey, 'ok', 10);
+      const testKey = "__health_check__";
+      await this.cache.set(testKey, "ok", 10);
       const val = await this.cache.get<string>(testKey);
       return {
-        status: val === 'ok' ? 'healthy' : 'unhealthy',
+        status: val === "ok" ? "healthy" : "unhealthy",
         latencyMs: Date.now() - start,
       };
     } catch (error) {
       return {
-        status: 'unhealthy',
+        status: "unhealthy",
         latencyMs: Date.now() - start,
-        message: error instanceof Error ? error.message : 'Cache unavailable',
+        message: error instanceof Error ? error.message : "Cache unavailable",
       };
     }
   }
@@ -173,7 +176,7 @@ export class HealthCheckService {
    */
   private async checkAiEngine(): Promise<SubsystemHealth> {
     if (!this.observability) {
-      return { status: 'degraded', message: 'Observability not available' };
+      return { status: "degraded", message: "Observability not available" };
     }
 
     try {
@@ -182,7 +185,7 @@ export class HealthCheckService {
       // AI Engine is degraded if error rate > 50% in recent calls
       if (dashboard.totalCalls > 0 && dashboard.successRate < 0.5) {
         return {
-          status: 'degraded',
+          status: "degraded",
           message: `High error rate: ${((1 - dashboard.successRate) * 100).toFixed(1)}%`,
           details: {
             totalCalls: dashboard.totalCalls,
@@ -193,7 +196,7 @@ export class HealthCheckService {
       }
 
       return {
-        status: 'healthy',
+        status: "healthy",
         details: {
           totalCalls: dashboard.totalCalls,
           successRate: dashboard.successRate,
@@ -202,8 +205,9 @@ export class HealthCheckService {
       };
     } catch (error) {
       return {
-        status: 'unhealthy',
-        message: error instanceof Error ? error.message : 'AI Engine check failed',
+        status: "unhealthy",
+        message:
+          error instanceof Error ? error.message : "AI Engine check failed",
       };
     }
   }

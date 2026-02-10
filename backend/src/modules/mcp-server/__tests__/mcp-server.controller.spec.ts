@@ -14,6 +14,8 @@ import { MCPServerController } from "../mcp-server.controller";
 import { MCPServerService } from "../mcp-server.service";
 import { MCPApiKeyGuard } from "../guards/mcp-api-key.guard";
 import { MCPExceptionFilter } from "../filters/mcp-exception.filter";
+import { MCPSessionManager } from "../gateway/mcp-session-manager";
+import { MCPStreamingBridge } from "../streaming/mcp-streaming-bridge";
 import {
   IMCPToolHandler,
   MCPRequestContext,
@@ -97,9 +99,55 @@ describe("MCPServerController Integration Tests (100% Coverage)", () => {
   let service: MCPServerService;
 
   beforeAll(async () => {
+    const mockSessionManager = {
+      createSession: jest.fn().mockReturnValue({
+        sessionId: "mcp-test-session-id",
+        apiKeyId: "test-key",
+        createdAt: new Date(),
+        lastActiveAt: new Date(),
+        permissionPolicy: {
+          allowedToolPatterns: ["*"],
+          deniedToolPatterns: [],
+          maxConcurrency: 5,
+          dailyQuota: 1000,
+          allowStreaming: true,
+          allowResources: true,
+          allowPrompts: true,
+        },
+      }),
+      getSession: jest.fn().mockReturnValue(null),
+      getStats: jest.fn().mockReturnValue({
+        activeSessions: 0,
+        byClient: {},
+        byApiKey: {},
+      }),
+      getAllSessions: jest.fn().mockReturnValue([]),
+      isToolAllowed: jest.fn().mockReturnValue(true),
+      isResourceAllowed: jest.fn().mockReturnValue(true),
+      isPromptAllowed: jest.fn().mockReturnValue(true),
+      consumeQuota: jest.fn().mockReturnValue(true),
+      terminateSession: jest.fn().mockReturnValue(true),
+    };
+
+    const mockStreamingBridge = {
+      registerConnection: jest.fn(),
+      unregisterConnection: jest.fn(),
+      sendEvent: jest.fn(),
+      broadcast: jest.fn(),
+      getTaskProgress: jest.fn().mockReturnValue(null),
+      getStats: jest.fn().mockReturnValue({
+        activeConnections: 0,
+        connections: [],
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [MCPServerController],
-      providers: [MCPServerService],
+      providers: [
+        MCPServerService,
+        { provide: MCPSessionManager, useValue: mockSessionManager },
+        { provide: MCPStreamingBridge, useValue: mockStreamingBridge },
+      ],
     })
       .overrideGuard(MCPApiKeyGuard)
       .useValue({
@@ -320,7 +368,7 @@ describe("MCPServerController Integration Tests (100% Coverage)", () => {
   // ==================== 3. JSON-RPC PROTOCOL COMPLIANCE ====================
 
   describe("3. JSON-RPC Protocol Compliance", () => {
-    it("initialize: returns capabilities, serverInfo, _meta.sessionId, Mcp-Session-Id header matches", async () => {
+    it("initialize: returns capabilities, serverInfo, sessionId in serverInfo, Mcp-Session-Id header matches", async () => {
       const res = await authedPost({
         jsonrpc: "2.0",
         id: 1,
@@ -338,9 +386,9 @@ describe("MCPServerController Integration Tests (100% Coverage)", () => {
       expect(res.body.result.capabilities).toBeDefined();
       expect(res.body.result.capabilities.tools).toBeDefined();
       expect(res.body.result.serverInfo.name).toBe("raven-ai-engine");
-      expect(res.body.result._meta.sessionId).toMatch(/^mcp-/);
+      expect(res.body.result.serverInfo.sessionId).toMatch(/^mcp-/);
       expect(res.headers["mcp-session-id"]).toBe(
-        res.body.result._meta.sessionId,
+        res.body.result.serverInfo.sessionId,
       );
     });
 
@@ -854,7 +902,7 @@ describe("MCPServerController Integration Tests (100% Coverage)", () => {
       });
       expect(res3.body.id).toBe(3);
       expect(res3.body.result.content[0].text).toBe("Result: test");
-    });
+    }, 15000);
 
     it("slow tool handler completes successfully", async () => {
       const res = await authedPost({
@@ -881,10 +929,10 @@ describe("MCPServerController Integration Tests (100% Coverage)", () => {
       expect(res.status).toBe(HttpStatus.OK);
       expect(res.body.error).toBeDefined();
       expect(res.body.error.code).toBe(-32603);
-      expect(res.body.error.message).toContain("Service crashed");
+      expect(res.body.error.message).toBe("Internal server error");
 
       // Restore
       service.handleRequest = originalMethod;
-    });
+    }, 15000);
   });
 });

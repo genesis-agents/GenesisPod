@@ -290,6 +290,10 @@ export class DataSourceStrategyService {
       [DataSourceType.CONGRESS]: 95,
       [DataSourceType.WHITEHOUSE]: 90,
       [DataSourceType.SOCIAL_X]: 60,
+      [DataSourceType.SEMANTIC_SCHOLAR]: 100,
+      [DataSourceType.PUBMED]: 95,
+      [DataSourceType.FINANCE_API]: 85,
+      [DataSourceType.WEATHER_API]: 75,
     };
 
     return scores[sourceType] || 50;

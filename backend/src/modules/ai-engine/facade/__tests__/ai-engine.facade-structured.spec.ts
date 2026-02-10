@@ -12,7 +12,6 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { AIModelType } from "@prisma/client";
 import { AIEngineFacade } from "../ai-engine.facade";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../llm/services/ai-model-config.service";
@@ -74,7 +73,7 @@ describe("AIEngineFacade - chatStructured", () => {
   });
 
   const testSchema = {
-    type: "object",
+    type: "object" as const,
     properties: {
       name: { type: "string" },
       score: { type: "number" },
@@ -125,7 +124,9 @@ describe("AIEngineFacade - chatStructured", () => {
 
       const chatCall = mockAiChatService.chat.mock.calls[0][0];
       expect(chatCall.systemPrompt).toContain("You are an evaluator.");
-      expect(chatCall.systemPrompt).toContain("MUST respond with ONLY valid JSON");
+      expect(chatCall.systemPrompt).toContain(
+        "MUST respond with ONLY valid JSON",
+      );
     });
 
     it("should use deterministic creativity by default", async () => {

@@ -14,7 +14,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { MCPServerService } from "../mcp-server.service";
-import { MCPSessionManager } from "../gateway/mcp-session-manager";
 import {
   IMCPToolHandler,
   MCPRequestContext,
@@ -69,12 +68,8 @@ describe("MCPServerService - Tool Dispatch", () => {
     };
 
     mockGuardrailsPipeline = {
-      processInput: jest
-        .fn()
-        .mockResolvedValue({ passed: true, results: [] }),
-      processOutput: jest
-        .fn()
-        .mockResolvedValue({ passed: true, results: [] }),
+      processInput: jest.fn().mockResolvedValue({ passed: true, results: [] }),
+      processOutput: jest.fn().mockResolvedValue({ passed: true, results: [] }),
     };
 
     mockConfigService = {

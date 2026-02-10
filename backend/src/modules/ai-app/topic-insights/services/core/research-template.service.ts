@@ -17,8 +17,6 @@ import { AIModelType } from "@prisma/client";
 import {
   TemplateCategory,
   ResearchTemplate,
-  TemplateParameter,
-  TemplateDimension,
   TemplateApplicationResult,
 } from "../../types/research-template.types";
 
@@ -41,8 +39,7 @@ export class ResearchTemplateService {
       dimensions: [
         {
           name: "Market Position & Strategy",
-          description:
-            "分析各竞品的市场定位、目标客户、定价策略和品牌差异化",
+          description: "分析各竞品的市场定位、目标客户、定价策略和品牌差异化",
           queryTemplates: [
             "{company} market position strategy",
             "{company} vs {competitor} comparison",
@@ -115,11 +112,31 @@ export class ResearchTemplateService {
       reportStructure: {
         titleTemplate: "Competitive Analysis: {company}",
         sections: [
-          { title: "Executive Summary", description: "Key findings overview", required: true },
-          { title: "Market Landscape", description: "Industry context", required: true },
-          { title: "Product Comparison", description: "Feature matrix", required: true },
-          { title: "SWOT Analysis", description: "Strengths/Weaknesses/Opportunities/Threats", required: true },
-          { title: "Recommendations", description: "Strategic recommendations", required: true },
+          {
+            title: "Executive Summary",
+            description: "Key findings overview",
+            required: true,
+          },
+          {
+            title: "Market Landscape",
+            description: "Industry context",
+            required: true,
+          },
+          {
+            title: "Product Comparison",
+            description: "Feature matrix",
+            required: true,
+          },
+          {
+            title: "SWOT Analysis",
+            description: "Strengths/Weaknesses/Opportunities/Threats",
+            required: true,
+          },
+          {
+            title: "Recommendations",
+            description: "Strategic recommendations",
+            required: true,
+          },
         ],
         includeExecutiveSummary: true,
         includeCredibilityReport: true,
@@ -135,8 +152,7 @@ export class ResearchTemplateService {
     {
       id: "market-research",
       name: "Market Research",
-      description:
-        "市场规模、增长趋势、主要参与者、用户需求和市场机会分析",
+      description: "市场规模、增长趋势、主要参与者、用户需求和市场机会分析",
       category: TemplateCategory.MARKET_RESEARCH,
       tags: ["market", "business", "investment"],
       dimensions: [
@@ -221,8 +237,7 @@ export class ResearchTemplateService {
     {
       id: "technology-evaluation",
       name: "Technology Evaluation",
-      description:
-        "技术成熟度、生态系统、性能对比、采用趋势和最佳实践",
+      description: "技术成熟度、生态系统、性能对比、采用趋势和最佳实践",
       category: TemplateCategory.TECHNOLOGY_EVALUATION,
       tags: ["technology", "engineering", "architecture"],
       dimensions: [
@@ -319,7 +334,12 @@ export class ResearchTemplateService {
             "{policy} regulation overview background",
             "{policy} legislation history",
           ],
-          sources: ["web", "federal-register", "congress-gov", "whitehouse-news"],
+          sources: [
+            "web",
+            "federal-register",
+            "congress-gov",
+            "whitehouse-news",
+          ],
           required: true,
           weight: 1.0,
         },
@@ -476,11 +496,31 @@ export class ResearchTemplateService {
       reportStructure: {
         titleTemplate: "Literature Review: {topic}",
         sections: [
-          { title: "Introduction", description: "Research context", required: true },
-          { title: "Methodology", description: "Review methodology", required: true },
-          { title: "Findings", description: "Thematic analysis", required: true },
-          { title: "Discussion", description: "Synthesis and gaps", required: true },
-          { title: "Conclusion", description: "Summary and future work", required: true },
+          {
+            title: "Introduction",
+            description: "Research context",
+            required: true,
+          },
+          {
+            title: "Methodology",
+            description: "Review methodology",
+            required: true,
+          },
+          {
+            title: "Findings",
+            description: "Thematic analysis",
+            required: true,
+          },
+          {
+            title: "Discussion",
+            description: "Synthesis and gaps",
+            required: true,
+          },
+          {
+            title: "Conclusion",
+            description: "Summary and future work",
+            required: true,
+          },
         ],
         includeExecutiveSummary: true,
         includeCredibilityReport: true,
@@ -576,7 +616,9 @@ export class ResearchTemplateService {
    */
   async recommendTemplate(
     topicDescription: string,
-  ): Promise<Array<{ template: ResearchTemplate; score: number; reason: string }>> {
+  ): Promise<
+    Array<{ template: ResearchTemplate; score: number; reason: string }>
+  > {
     try {
       const templateSummaries = this.builtInTemplates
         .map((t) => `- ${t.id}: ${t.name} - ${t.description}`)
@@ -603,14 +645,18 @@ Score from 0-1, recommend up to 3 templates.`,
         taskProfile: { creativity: "low", outputLength: "short" },
       });
 
-      const parsed = this.parseJsonArray(response.content || "");
+      const parsed = this.parseJsonArray(response.content || "") as Array<
+        Record<string, unknown>
+      >;
       return parsed
-        .map((item: { templateId: string; score: number; reason: string }) => ({
-          template: this.getTemplate(item.templateId)!,
-          score: item.score,
-          reason: item.reason,
+        .map((item: Record<string, unknown>) => ({
+          template: this.getTemplate(item.templateId as string)!,
+          score: item.score as number,
+          reason: item.reason as string,
         }))
-        .filter((item: { template: ResearchTemplate | undefined }) => item.template);
+        .filter(
+          (item: { template: ResearchTemplate | undefined }) => item.template,
+        );
     } catch (error) {
       this.logger.error(`[recommendTemplate] Failed: ${error}`);
       return [];
@@ -658,7 +704,8 @@ Score from 0-1, recommend up to 3 templates.`,
 
   private parseJsonArray(content: string): Array<Record<string, unknown>> {
     try {
-      const jsonMatch = content.match(/```json\s*([\s\S]*?)```/) ||
+      const jsonMatch =
+        content.match(/```json\s*([\s\S]*?)```/) ||
         content.match(/\[[\s\S]*\]/);
       if (!jsonMatch) return [];
 

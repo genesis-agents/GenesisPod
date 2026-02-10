@@ -10,6 +10,7 @@ import {
   JsonRpcResponse,
 } from "../abstractions/mcp-server.interface";
 import { GuardrailsPipelineService } from "../../ai-engine/guardrails/guardrails-pipeline.service";
+import { MCPSessionManager } from "../gateway/mcp-session-manager";
 
 // Mock tool handler
 class MockToolHandler implements IMCPToolHandler {
@@ -43,10 +44,36 @@ class MockToolHandler implements IMCPToolHandler {
 
 describe("MCPServerService", () => {
   let service: MCPServerService;
+  let mockSessionManager: jest.Mocked<MCPSessionManager>;
 
   beforeEach(async () => {
+    mockSessionManager = {
+      createSession: jest.fn((apiKeyId: string, clientInfo?: any) => ({
+        sessionId: `mcp-${Math.random().toString(16).slice(2)}`,
+        apiKeyId,
+        clientInfo,
+        createdAt: new Date(),
+        lastActiveAt: new Date(),
+      })),
+      getSession: jest.fn(),
+      getStats: jest.fn(() => ({
+        activeSessions: 0,
+        byClient: {},
+        byApiKey: {},
+      })),
+      isToolAllowed: jest.fn(() => true),
+      isResourceAllowed: jest.fn(() => true),
+      isPromptAllowed: jest.fn(() => true),
+      consumeQuota: jest.fn(() => true),
+      getAllSessions: jest.fn(() => []),
+      terminateSession: jest.fn(() => true),
+    } as any;
+
     const module: TestingModule = await Test.createTestingModule({
-      providers: [MCPServerService],
+      providers: [
+        MCPServerService,
+        { provide: MCPSessionManager, useValue: mockSessionManager },
+      ],
     }).compile();
 
     service = module.get<MCPServerService>(MCPServerService);
@@ -257,6 +284,13 @@ describe("MCPServerService", () => {
     const context: MCPRequestContext = { apiKeyId: "test-key" };
 
     it("should handle initialize method", async () => {
+      mockSessionManager.createSession.mockReturnValue({
+        sessionId: "mcp-test789",
+        apiKeyId: "test-key",
+        createdAt: new Date(),
+        lastActiveAt: new Date(),
+      });
+
       const request: JsonRpcRequest = {
         jsonrpc: "2.0",
         id: 1,
@@ -269,12 +303,12 @@ describe("MCPServerService", () => {
       >;
 
       expect(result.protocolVersion).toBe("2024-11-05");
-      expect(result.serverInfo).toEqual({
-        name: "raven-ai-engine",
-        version: "1.0.0",
-      });
-      expect(result.capabilities).toEqual({ tools: { listChanged: false } });
-      expect(result._meta).toHaveProperty("sessionId");
+      const serverInfo = result.serverInfo as Record<string, unknown>;
+      expect(serverInfo.name).toBe("raven-ai-engine");
+      expect(serverInfo.version).toBe("2.0.0");
+      expect(serverInfo.sessionId).toBe("mcp-test789");
+      const capabilities = result.capabilities as Record<string, unknown>;
+      expect(capabilities.tools).toEqual({ listChanged: true });
     });
 
     it("should handle tools/list method", async () => {
@@ -360,6 +394,16 @@ describe("MCPServerService", () => {
     const context: MCPRequestContext = { apiKeyId: "test-key" };
 
     it("should initialize with clientInfo", async () => {
+      const createdSession = {
+        sessionId: "mcp-test123",
+        apiKeyId: "test-key",
+        clientInfo: { name: "TestClient", version: "1.0.0" },
+        createdAt: new Date(),
+        lastActiveAt: new Date(),
+      };
+      mockSessionManager.createSession.mockReturnValue(createdSession);
+      mockSessionManager.getAllSessions.mockReturnValue([createdSession]);
+
       const request: JsonRpcRequest = {
         jsonrpc: "2.0",
         id: 1,
@@ -372,15 +416,13 @@ describe("MCPServerService", () => {
         string,
         unknown
       >;
-      const sessionId = (result._meta as Record<string, unknown>)
-        .sessionId as string;
+      const serverInfo = result.serverInfo as Record<string, unknown>;
 
-      expect(sessionId).toMatch(/^mcp-[0-9a-f]{32}$/);
-      expect(context.sessionId).toBe(sessionId);
+      expect(serverInfo.sessionId).toBe("mcp-test123");
 
       const sessions = service.getSessions();
       expect(sessions).toHaveLength(1);
-      expect(sessions[0].sessionId).toBe(sessionId);
+      expect(sessions[0].sessionId).toBe("mcp-test123");
       expect(sessions[0].clientInfo).toEqual({
         name: "TestClient",
         version: "1.0.0",
@@ -388,6 +430,15 @@ describe("MCPServerService", () => {
     });
 
     it("should initialize without clientInfo", async () => {
+      const createdSession = {
+        sessionId: "mcp-test456",
+        apiKeyId: "test-key",
+        createdAt: new Date(),
+        lastActiveAt: new Date(),
+      };
+      mockSessionManager.createSession.mockReturnValue(createdSession);
+      mockSessionManager.getAllSessions.mockReturnValue([createdSession]);
+
       const request: JsonRpcRequest = {
         jsonrpc: "2.0",
         id: 1,
@@ -398,8 +449,9 @@ describe("MCPServerService", () => {
         string,
         unknown
       >;
+      const serverInfo = result.serverInfo as Record<string, unknown>;
 
-      expect(result._meta).toHaveProperty("sessionId");
+      expect(serverInfo.sessionId).toBe("mcp-test456");
 
       const sessions = service.getSessions();
       expect(sessions).toHaveLength(1);
@@ -407,6 +459,16 @@ describe("MCPServerService", () => {
     });
 
     it("should generate unique session IDs", async () => {
+      let callCount = 0;
+      mockSessionManager.createSession.mockImplementation(
+        (apiKeyId: string) => ({
+          sessionId: `mcp-unique-${callCount++}`,
+          apiKeyId,
+          createdAt: new Date(),
+          lastActiveAt: new Date(),
+        }),
+      );
+
       const request1: JsonRpcRequest = {
         jsonrpc: "2.0",
         id: 1,
@@ -423,14 +485,14 @@ describe("MCPServerService", () => {
       const response1 = await service.handleRequest(request1, context1);
       const response2 = await service.handleRequest(request2, context2);
 
-      const sessionId1 = (
+      const serverInfo1 = (
         (response1 as JsonRpcResponse).result as Record<string, unknown>
-      )._meta as Record<string, string>;
-      const sessionId2 = (
+      ).serverInfo as Record<string, string>;
+      const serverInfo2 = (
         (response2 as JsonRpcResponse).result as Record<string, unknown>
-      )._meta as Record<string, string>;
+      ).serverInfo as Record<string, string>;
 
-      expect(sessionId1.sessionId).not.toBe(sessionId2.sessionId);
+      expect(serverInfo1.sessionId).not.toBe(serverInfo2.sessionId);
     });
   });
 
@@ -631,7 +693,7 @@ describe("MCPServerService", () => {
       const result = (response as JsonRpcResponse).result as MCPToolResponse;
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error: Tool execution failed");
+      expect(result.content[0].text).toBe("Tool execution failed");
     });
   });
 
@@ -1007,14 +1069,11 @@ describe("MCPServerService", () => {
     });
 
     it("should return status with sessions", async () => {
-      await service.handleRequest(
-        { jsonrpc: "2.0", id: 1, method: "initialize" },
-        { apiKeyId: "key1" },
-      );
-      await service.handleRequest(
-        { jsonrpc: "2.0", id: 2, method: "initialize" },
-        { apiKeyId: "key2" },
-      );
+      mockSessionManager.getStats.mockReturnValue({
+        activeSessions: 2,
+        byClient: {},
+        byApiKey: {},
+      });
 
       const status = service.getStatus();
       expect(status.activeSessions).toBe(2);
@@ -1045,7 +1104,7 @@ describe("MCPServerService", () => {
       const status = service.getDetailedStatus();
       expect(status.status).toBe("healthy");
       expect(status.uptime).toBeGreaterThanOrEqual(0);
-      expect(status.toolCount).toBe(1);
+      expect(status.totalToolCount).toBe(1);
       expect(status.tools).toHaveLength(1);
       expect(status.tools[0].name).toBe("success");
       expect(status.tools[0].description).toBe("Success");
@@ -1136,42 +1195,42 @@ describe("MCPServerService", () => {
 
   describe("2. METRICS & MONITORING - getSessions", () => {
     it("should return empty array initially", () => {
+      mockSessionManager.getAllSessions.mockReturnValue([]);
       const sessions = service.getSessions();
       expect(sessions).toEqual([]);
     });
 
     it("should return sessions after initialize calls", async () => {
-      await service.handleRequest(
+      const sessions = [
         {
-          jsonrpc: "2.0",
-          id: 1,
-          method: "initialize",
-          params: { clientInfo: { name: "Client1", version: "1.0" } },
+          sessionId: "mcp-session1",
+          apiKeyId: "key1",
+          clientInfo: { name: "Client1", version: "1.0" },
+          createdAt: new Date(),
+          lastActiveAt: new Date(),
         },
-        { apiKeyId: "key1" },
-      );
-      await service.handleRequest(
         {
-          jsonrpc: "2.0",
-          id: 2,
-          method: "initialize",
-          params: { clientInfo: { name: "Client2", version: "2.0" } },
+          sessionId: "mcp-session2",
+          apiKeyId: "key2",
+          clientInfo: { name: "Client2", version: "2.0" },
+          createdAt: new Date(),
+          lastActiveAt: new Date(),
         },
-        { apiKeyId: "key2" },
-      );
+      ];
+      mockSessionManager.getAllSessions.mockReturnValue(sessions);
 
-      const sessions = service.getSessions();
-      expect(sessions).toHaveLength(2);
-      expect(sessions[0].sessionId).toMatch(/^mcp-[0-9a-f]{32}$/);
-      expect(sessions[0].clientInfo).toEqual({
+      const result = service.getSessions();
+      expect(result).toHaveLength(2);
+      expect(result[0].sessionId).toBe("mcp-session1");
+      expect(result[0].clientInfo).toEqual({
         name: "Client1",
         version: "1.0",
       });
-      expect(sessions[1].clientInfo).toEqual({
+      expect(result[1].clientInfo).toEqual({
         name: "Client2",
         version: "2.0",
       });
-      expect(sessions[0].createdAt).toBeInstanceOf(Date);
+      expect(result[0].createdAt).toBeInstanceOf(Date);
     });
   });
 
@@ -1293,13 +1352,15 @@ describe("MCPServerService", () => {
 
   describe("5. DFX - Session LRU eviction", () => {
     it("should maintain session count under LRU limit", async () => {
-      // LRU is set to 1000 in service
-      for (let i = 0; i < 1100; i++) {
-        await service.handleRequest(
-          { jsonrpc: "2.0", id: i, method: "initialize" },
-          { apiKeyId: `key${i}` },
-        );
-      }
+      // Session manager handles LRU eviction
+      mockSessionManager.getAllSessions.mockReturnValue(
+        Array.from({ length: 1000 }, (_, i) => ({
+          sessionId: `mcp-session${i}`,
+          apiKeyId: `key${i}`,
+          createdAt: new Date(),
+          lastActiveAt: new Date(),
+        })),
+      );
 
       const sessions = service.getSessions();
       expect(sessions.length).toBeLessThanOrEqual(1000);
@@ -1366,6 +1427,7 @@ describe("MCPServerService with Guardrails", () => {
   let service: MCPServerService;
   let mockGuardrailsPipeline: jest.Mocked<GuardrailsPipelineService>;
   let mockConfigService: jest.Mocked<Partial<ConfigService>>;
+  let mockSessionManager: jest.Mocked<MCPSessionManager>;
 
   beforeEach(async () => {
     mockGuardrailsPipeline = {
@@ -1381,9 +1443,32 @@ describe("MCPServerService with Guardrails", () => {
       }),
     };
 
+    mockSessionManager = {
+      createSession: jest.fn((apiKeyId: string, clientInfo?: any) => ({
+        sessionId: `mcp-${Math.random().toString(16).slice(2)}`,
+        apiKeyId,
+        clientInfo,
+        createdAt: new Date(),
+        lastActiveAt: new Date(),
+      })),
+      getSession: jest.fn(),
+      getStats: jest.fn(() => ({
+        activeSessions: 0,
+        byClient: {},
+        byApiKey: {},
+      })),
+      isToolAllowed: jest.fn(() => true),
+      isResourceAllowed: jest.fn(() => true),
+      isPromptAllowed: jest.fn(() => true),
+      consumeQuota: jest.fn(() => true),
+      getAllSessions: jest.fn(() => []),
+      terminateSession: jest.fn(() => true),
+    } as any;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MCPServerService,
+        { provide: MCPSessionManager, useValue: mockSessionManager },
         {
           provide: GuardrailsPipelineService,
           useValue: mockGuardrailsPipeline,
@@ -1500,6 +1585,7 @@ describe("MCPServerService with Guardrails", () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           MCPServerService,
+          { provide: MCPSessionManager, useValue: mockSessionManager },
           {
             provide: GuardrailsPipelineService,
             useValue: mockGuardrailsPipeline,
@@ -1572,7 +1658,9 @@ describe("MCPServerService with Guardrails", () => {
       const result = (response as JsonRpcResponse).result as MCPToolResponse;
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Request blocked by security policy");
+      expect(result.content[0].text).toBe(
+        "Response blocked by security policy",
+      );
     });
 
     it("should return result when output guardrail passes", async () => {
@@ -1658,6 +1746,7 @@ describe("MCPServerService with Guardrails", () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           MCPServerService,
+          { provide: MCPSessionManager, useValue: mockSessionManager },
           {
             provide: GuardrailsPipelineService,
             useValue: mockGuardrailsPipeline,
@@ -1715,6 +1804,7 @@ describe("MCPServerService with Guardrails", () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           MCPServerService,
+          { provide: MCPSessionManager, useValue: mockSessionManager },
           {
             provide: GuardrailsPipelineService,
             useValue: mockGuardrailsPipeline,

@@ -310,12 +310,17 @@ describe("TraceCollectorService", () => {
 
   describe("listTraces", () => {
     beforeEach(() => {
-      // Create multiple traces of different types
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date("2025-01-01T00:00:00Z"));
+
+      // Create multiple traces of different types with distinct timestamps
       const t1 = service.startTrace({
         name: "Research 1",
         type: "research_mission",
       });
       service.endTrace(t1, { status: "success", totalDuration: 100 });
+
+      jest.advanceTimersByTime(1000);
 
       const t2 = service.startTrace({
         name: "Tool Call 1",
@@ -323,8 +328,12 @@ describe("TraceCollectorService", () => {
       });
       service.endTrace(t2, { status: "error", totalDuration: 50 });
 
+      jest.advanceTimersByTime(1000);
+
       service.startTrace({ name: "Research 2", type: "research_mission" });
       // t3 remains running
+
+      jest.useRealTimers();
     });
 
     it("should return all traces by default (limit 50)", () => {

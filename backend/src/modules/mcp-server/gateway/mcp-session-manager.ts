@@ -20,7 +20,7 @@ import { LruMap } from "@/common/utils/lru-map";
  */
 const DEFAULT_POLICY: MCPPermissionPolicy = {
   allowedToolPatterns: [
-    "raven_*",        // curated tools (raven_ask, raven_deep_research, etc.)
+    "raven_*", // curated tools (raven_ask, raven_deep_research, etc.)
   ],
   deniedToolPatterns: [],
   maxConcurrency: 5,
@@ -36,7 +36,10 @@ const MAX_SESSIONS = 2000;
 export class MCPSessionManager {
   private readonly logger = new Logger(MCPSessionManager.name);
   private readonly sessions = new LruMap<string, MCPSession>(MAX_SESSIONS);
-  private readonly dailyUsage = new Map<string, { count: number; resetAt: Date }>();
+  private readonly dailyUsage = new Map<
+    string,
+    { count: number; resetAt: Date }
+  >();
 
   /**
    * 创建新会话
@@ -120,7 +123,8 @@ export class MCPSessionManager {
    */
   consumeQuota(apiKeyId: string, sessionId?: string): boolean {
     const session = sessionId ? this.sessions.get(sessionId) : undefined;
-    const dailyQuota = session?.permissionPolicy?.dailyQuota ?? DEFAULT_POLICY.dailyQuota;
+    const dailyQuota =
+      session?.permissionPolicy?.dailyQuota ?? DEFAULT_POLICY.dailyQuota;
 
     const now = new Date();
     const key = apiKeyId;
@@ -214,11 +218,26 @@ export class MCPSessionManager {
     if (pattern === "*") return true;
     if (!pattern.includes("*")) return value === pattern;
 
-    // 将 glob pattern 转换为正则
-    const escaped = pattern
-      .split("*")
-      .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .join(".*");
-    return new RegExp(`^${escaped}$`).test(value);
+    // Simple glob matching without regex (avoids ReDoS)
+    const parts = pattern.split("*");
+    let pos = 0;
+
+    // First part must match at start
+    if (parts[0] && !value.startsWith(parts[0])) return false;
+    pos = parts[0].length;
+
+    // Middle parts must match in order
+    for (let i = 1; i < parts.length - 1; i++) {
+      const idx = value.indexOf(parts[i], pos);
+      if (idx === -1) return false;
+      pos = idx + parts[i].length;
+    }
+
+    // Last part must match at end
+    const lastPart = parts[parts.length - 1];
+    if (lastPart && !value.endsWith(lastPart)) return false;
+    if (lastPart && value.length - lastPart.length < pos) return false;
+
+    return true;
   }
 }

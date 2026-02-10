@@ -13,7 +13,6 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "@/common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
@@ -39,10 +38,7 @@ export class KnowledgeGraphService {
   /** 实体名称索引（用于快速去重） */
   private readonly entityNameIndex = new Map<string, string>();
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly aiFacade: AIEngineFacade,
-  ) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 从文本中提取实体和关系
@@ -176,8 +172,7 @@ export class KnowledgeGraphService {
     // 获取相关关系
     const entityIds = new Set(filteredEntities.map((e) => e.id));
     let filteredRelations = this.relations.filter(
-      (r) =>
-        entityIds.has(r.sourceEntityId) || entityIds.has(r.targetEntityId),
+      (r) => entityIds.has(r.sourceEntityId) || entityIds.has(r.targetEntityId),
     );
 
     // 按关系类型过滤
@@ -201,37 +196,34 @@ export class KnowledgeGraphService {
   /**
    * 查找与查询相关的已有知识
    */
-  findRelatedKnowledge(
-    query: string,
-    topicId?: string,
-  ): KnowledgeSubgraph {
+  findRelatedKnowledge(query: string, topicId?: string): KnowledgeSubgraph {
     const queryLower = query.toLowerCase();
     const queryTerms = queryLower.split(/\s+/);
 
     // 模糊匹配实体名称
-    const matchedEntities = Array.from(this.entities.values()).filter((entity) => {
-      const nameLower = entity.name.toLowerCase();
-      return (
-        queryTerms.some((term) => nameLower.includes(term)) ||
-        entity.aliases.some((alias) =>
-          queryTerms.some((term) => alias.toLowerCase().includes(term)),
-        )
-      );
-    });
+    const matchedEntities = Array.from(this.entities.values()).filter(
+      (entity) => {
+        const nameLower = entity.name.toLowerCase();
+        return (
+          queryTerms.some((term) => nameLower.includes(term)) ||
+          entity.aliases.some((alias) =>
+            queryTerms.some((term) => alias.toLowerCase().includes(term)),
+          )
+        );
+      },
+    );
 
     // 排除当前研究的实体（避免重复）
     const crossProjectEntities = topicId
       ? matchedEntities.filter(
           (e) =>
-            e.sourceTopicIds.length > 1 ||
-            !e.sourceTopicIds.includes(topicId),
+            e.sourceTopicIds.length > 1 || !e.sourceTopicIds.includes(topicId),
         )
       : matchedEntities;
 
     const entityIds = new Set(crossProjectEntities.map((e) => e.id));
     const relatedRelations = this.relations.filter(
-      (r) =>
-        entityIds.has(r.sourceEntityId) || entityIds.has(r.targetEntityId),
+      (r) => entityIds.has(r.sourceEntityId) || entityIds.has(r.targetEntityId),
     );
 
     return {
@@ -294,8 +286,7 @@ export class KnowledgeGraphService {
       relationTypeDistribution,
       topConnectedEntities: topConnected,
       recentUpdates: entities.filter(
-        (e) =>
-          Date.now() - e.lastUpdated.getTime() < 24 * 60 * 60 * 1000,
+        (e) => Date.now() - e.lastUpdated.getTime() < 24 * 60 * 60 * 1000,
       ).length,
     };
   }
@@ -408,7 +399,8 @@ export class KnowledgeGraphService {
   private parseExtractionResult(content: string): EntityExtractionResult {
     try {
       // 提取 JSON 块
-      const jsonMatch = content.match(/```json\s*([\s\S]*?)```/) ||
+      const jsonMatch =
+        content.match(/```json\s*([\s\S]*?)```/) ||
         content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         return { entities: [], relations: [] };

@@ -20,7 +20,6 @@ import {
   InteractionRequest,
   InteractionResponse,
   ResearchState,
-  ResearchStateChange,
   InteractionCheckpoint,
   RedirectPayload,
   FollowUpPayload,
@@ -222,7 +221,7 @@ export class InteractiveResearchService {
 
     try {
       // 使用 AI 分析新方向对现有研究的影响
-      const analysisResponse = await this.aiFacade.chat({
+      await this.aiFacade.chat({
         messages: [
           {
             role: "system",
@@ -265,7 +264,7 @@ export class InteractiveResearchService {
   }
 
   private async handleFollowUp(
-    missionId: string,
+    _missionId: string,
     topicId: string,
     payload: FollowUpPayload,
   ): Promise<InteractionResponse> {
@@ -325,18 +324,12 @@ export class InteractiveResearchService {
     payload: AddDimensionPayload,
   ): Promise<InteractionResponse> {
     try {
-      // 获取现有维度数量
-      const existing = await this.prisma.topicDimension.count({
-        where: { topicId },
-      });
-
       // 创建新维度
       const dimension = await this.prisma.topicDimension.create({
         data: {
           topicId,
           name: payload.dimensionName,
           description: payload.dimensionDescription,
-          orderIndex: existing,
           searchQueries: payload.searchQueries || [],
           searchSources: ["web", "academic"],
           status: "PENDING",
@@ -373,8 +366,9 @@ export class InteractiveResearchService {
     // 深度调整存储在检查点中，供 Orchestrator 读取
     const checkpoint = this.checkpoints.get(missionId);
     if (checkpoint) {
-      (checkpoint as Record<string, unknown>).adjustedDepth = payload.newDepth;
-      (checkpoint as Record<string, unknown>).adjustedDimensionId =
+      (checkpoint as unknown as Record<string, unknown>).adjustedDepth =
+        payload.newDepth;
+      (checkpoint as unknown as Record<string, unknown>).adjustedDimensionId =
         payload.dimensionId;
     }
 
@@ -386,9 +380,9 @@ export class InteractiveResearchService {
   }
 
   private handleApprovalDecision(
-    missionId: string,
+    _missionId: string,
     type: InteractionType,
-    payload: unknown,
+    _payload: unknown,
   ): InteractionResponse {
     const isApproved = type === InteractionType.APPROVE;
 
@@ -442,8 +436,14 @@ export class InteractiveResearchService {
         InteractionType.FOLLOW_UP,
         InteractionType.PAUSE,
       ],
-      [ResearchState.REDIRECTING]: [InteractionType.PAUSE, InteractionType.FOLLOW_UP],
-      [ResearchState.SYNTHESIZING]: [InteractionType.PAUSE, InteractionType.FOLLOW_UP],
+      [ResearchState.REDIRECTING]: [
+        InteractionType.PAUSE,
+        InteractionType.FOLLOW_UP,
+      ],
+      [ResearchState.SYNTHESIZING]: [
+        InteractionType.PAUSE,
+        InteractionType.FOLLOW_UP,
+      ],
       [ResearchState.COMPLETED]: [InteractionType.FOLLOW_UP],
       [ResearchState.FAILED]: [InteractionType.FOLLOW_UP],
     };

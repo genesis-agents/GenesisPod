@@ -11,23 +11,25 @@ import {
   ConnectorRegistration,
   ConnectorHealthStatus,
 } from "../../../types/data-source-connector.types";
-import { DataSourceType, DataSourceResult } from "../../../types/data-source.types";
+import {
+  DataSourceType,
+  DataSourceResult,
+} from "../../../types/data-source.types";
 
 @Injectable()
 export class DataSourceConnectorRegistry implements OnModuleInit {
   private readonly logger = new Logger(DataSourceConnectorRegistry.name);
-  private readonly connectors = new Map<DataSourceType, ConnectorRegistration>();
-  private healthCheckInterval?: ReturnType<typeof setInterval>;
+  private readonly connectors = new Map<
+    DataSourceType,
+    ConnectorRegistration
+  >();
 
   async onModuleInit(): Promise<void> {
     this.logger.log(
       `DataSourceConnectorRegistry initialized with ${this.connectors.size} connectors`,
     );
     // 启动定期健康检查（每 5 分钟）
-    this.healthCheckInterval = setInterval(
-      () => this.runHealthChecks(),
-      5 * 60 * 1000,
-    );
+    setInterval(() => this.runHealthChecks(), 5 * 60 * 1000);
   }
 
   /**

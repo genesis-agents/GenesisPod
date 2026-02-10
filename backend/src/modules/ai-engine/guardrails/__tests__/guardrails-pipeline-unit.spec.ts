@@ -350,7 +350,7 @@ describe("GuardrailsPipelineService - Unit", () => {
       service.registerOutputGuardrail(blocker);
       service.registerOutputGuardrail(afterBlocker);
 
-      const result = await service.processOutput({ content: "test" });
+      await service.processOutput({ content: "test" });
 
       expect(afterBlocker.check).not.toHaveBeenCalled();
     });

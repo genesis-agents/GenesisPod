@@ -106,7 +106,7 @@ describe("CreditsService", () => {
     it("should create new account with welcome bonus when not exists", async () => {
       mockPrisma.creditAccount.findUnique.mockResolvedValue(null);
 
-      const result = await service.getOrCreateAccount("new-user");
+      await service.getOrCreateAccount("new-user");
 
       expect(mockPrisma.creditAccount.create).toHaveBeenCalledWith({
         data: expect.objectContaining({

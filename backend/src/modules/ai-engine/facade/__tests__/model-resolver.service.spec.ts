@@ -21,9 +21,12 @@ import { ORCHESTRATION_FEATURE } from "../facade.providers";
 
 describe("ModelResolverService", () => {
   let service: ModelResolverService;
-  let mockAiChatService: jest.Mocked<Partial<AiChatService>>;
-  let mockModelConfigService: jest.Mocked<Partial<AiModelConfigService>>;
-  let mockFallbackService: jest.Mocked<Partial<ModelFallbackService>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let mockAiChatService: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let mockModelConfigService: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let mockFallbackService: any;
   let mockOrchestration: any;
 
   const MOCK_MODELS = [

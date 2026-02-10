@@ -13,6 +13,10 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { ModelFallbackService } from "../model-fallback.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import {
+  AIError,
+  AIErrorType,
+} from "../../../../../common/ai-orchestration/error-classifier";
 
 describe("ModelFallbackService - Extended", () => {
   let service: ModelFallbackService;
@@ -60,12 +64,40 @@ describe("ModelFallbackService - Extended", () => {
   beforeEach(async () => {
     mockPrisma = {
       aIModel: {
-        findMany: jest.fn().mockResolvedValue(createMockModels()),
+        findMany: jest.fn().mockImplementation(({ where }: any = {}) => {
+          let models = createMockModels();
+          if (where?.modelId?.notIn) {
+            models = models.filter(
+              (m: any) => !where.modelId.notIn.includes(m.modelId),
+            );
+          }
+          if (where?.modelType) {
+            models = models.filter((m: any) => m.modelType === where.modelType);
+          }
+          return Promise.resolve(models);
+        }),
         findFirst: jest.fn().mockImplementation(({ where }: any) => {
           const models = createMockModels();
-          const match = models.find(
-            (m) => m.modelId === where.modelId || m.id === where.id,
-          );
+          let match: any = null;
+          if (where?.OR) {
+            const modelIdEquals = where.OR.find((c: any) => c.modelId)?.modelId
+              ?.equals;
+            const nameEquals = where.OR.find((c: any) => c.name)?.name?.equals;
+            match = models.find(
+              (m: any) =>
+                (modelIdEquals &&
+                  m.modelId.toLowerCase() === modelIdEquals.toLowerCase()) ||
+                (nameEquals &&
+                  m.displayName?.toLowerCase() === nameEquals.toLowerCase()),
+            );
+          } else {
+            match = models.find(
+              (m: any) => m.modelId === where?.modelId || m.id === where?.id,
+            );
+          }
+          if (match && where?.isEnabled !== undefined && !match.isEnabled) {
+            return Promise.resolve(null);
+          }
           return Promise.resolve(match || null);
         }),
       },
@@ -96,30 +128,30 @@ describe("ModelFallbackService - Extended", () => {
 
   describe("shouldSwitchModel", () => {
     it("should return true for quota errors", () => {
-      const error = { type: "quota", message: "Quota exceeded" } as any;
+      const error = new AIError(AIErrorType.QUOTA_EXCEEDED, "Quota exceeded");
       expect(service.shouldSwitchModel(error)).toBe(true);
     });
 
     it("should return true for invalid_model errors", () => {
-      const error = { type: "invalid_model", message: "Model not found" } as any;
+      const error = new AIError(AIErrorType.INVALID_MODEL, "Model not found");
       expect(service.shouldSwitchModel(error)).toBe(true);
     });
 
     it("should return true for content_filtered errors", () => {
-      const error = {
-        type: "content_filtered",
-        message: "Content filtered",
-      } as any;
+      const error = new AIError(
+        AIErrorType.CONTENT_FILTERED,
+        "Content filtered",
+      );
       expect(service.shouldSwitchModel(error)).toBe(true);
     });
 
     it("should return false for timeout errors (retryable, not switch)", () => {
-      const error = { type: "timeout", message: "Timeout" } as any;
+      const error = new AIError(AIErrorType.TIMEOUT, "Timeout");
       expect(service.shouldSwitchModel(error)).toBe(false);
     });
 
     it("should return false for unknown error types", () => {
-      const error = { type: "unknown", message: "Unknown" } as any;
+      const error = new AIError(AIErrorType.UNKNOWN, "Unknown");
       expect(service.shouldSwitchModel(error)).toBe(false);
     });
   });
@@ -130,30 +162,27 @@ describe("ModelFallbackService - Extended", () => {
 
   describe("isRetryableError", () => {
     it("should return true for timeout errors", () => {
-      const error = { type: "timeout", message: "Timeout" } as any;
+      const error = new AIError(AIErrorType.TIMEOUT, "Timeout");
       expect(service.isRetryableError(error)).toBe(true);
     });
 
     it("should return true for network_error", () => {
-      const error = { type: "network_error", message: "Network" } as any;
+      const error = new AIError(AIErrorType.NETWORK_ERROR, "Network");
       expect(service.isRetryableError(error)).toBe(true);
     });
 
     it("should return true for temporary_unavailable", () => {
-      const error = {
-        type: "temporary_unavailable",
-        message: "Temp",
-      } as any;
+      const error = new AIError(AIErrorType.TEMPORARY_UNAVAILABLE, "Temp");
       expect(service.isRetryableError(error)).toBe(true);
     });
 
-    it("should return true for rate_limit (retry first)", () => {
-      const error = { type: "rate_limit", message: "Rate limited" } as any;
-      expect(service.isRetryableError(error)).toBe(true);
+    it("should return false for rate_limit (handled separately in executeWithFallback)", () => {
+      const error = new AIError(AIErrorType.RATE_LIMIT, "Rate limited");
+      expect(service.isRetryableError(error)).toBe(false);
     });
 
     it("should return false for quota errors (should switch)", () => {
-      const error = { type: "quota", message: "Quota" } as any;
+      const error = new AIError(AIErrorType.QUOTA_EXCEEDED, "Quota");
       expect(service.isRetryableError(error)).toBe(false);
     });
   });
@@ -168,8 +197,7 @@ describe("ModelFallbackService - Extended", () => {
     });
 
     it("should block model after invalid_api_key error in executeWithFallback", async () => {
-      const error = new Error("Invalid API key");
-      (error as any).type = "invalid_api_key";
+      const error = new AIError(AIErrorType.INVALID_API_KEY, "Invalid API key");
 
       const executor = jest.fn().mockRejectedValue(error);
 
@@ -224,8 +252,7 @@ describe("ModelFallbackService - Extended", () => {
     });
 
     it("should retry on retryable error", async () => {
-      const error = new Error("Timeout");
-      (error as any).type = "timeout";
+      const error = new AIError(AIErrorType.TIMEOUT, "Timeout");
 
       const executor = jest
         .fn()
@@ -242,8 +269,10 @@ describe("ModelFallbackService - Extended", () => {
     });
 
     it("should switch model on model-switch errors", async () => {
-      const quotaError = new Error("Quota exceeded");
-      (quotaError as any).type = "quota";
+      const quotaError = new AIError(
+        AIErrorType.QUOTA_EXCEEDED,
+        "Quota exceeded",
+      );
 
       const executor = jest
         .fn()
@@ -259,8 +288,10 @@ describe("ModelFallbackService - Extended", () => {
     });
 
     it("should return failure after all retries and switches exhausted", async () => {
-      const error = new Error("Permanent failure");
-      (error as any).type = "quota";
+      const error = new AIError(
+        AIErrorType.QUOTA_EXCEEDED,
+        "Permanent failure",
+      );
 
       const executor = jest.fn().mockRejectedValue(error);
 
@@ -274,8 +305,7 @@ describe("ModelFallbackService - Extended", () => {
     });
 
     it("should track attempted models", async () => {
-      const error = new Error("Quota");
-      (error as any).type = "quota";
+      const error = new AIError(AIErrorType.QUOTA_EXCEEDED, "Quota");
 
       const executor = jest
         .fn()
