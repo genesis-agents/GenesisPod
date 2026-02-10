@@ -8,6 +8,8 @@ import { ConfigService } from "@nestjs/config";
 import { AgentId, AgentInput, AgentEvent } from "../../core/types/agent.types";
 import { AgentRegistry } from "./agent-registry";
 import { GuardrailsPipelineService } from "../../guardrails/guardrails-pipeline.service";
+import { AgentConfigService } from "../config/agent-config.service";
+import { IPlanBasedAgent } from "../base/plan-based-agent";
 
 /**
  * 状态报告项
@@ -32,6 +34,7 @@ export class AgentOrchestrator {
 
   constructor(
     private readonly registry: AgentRegistry,
+    @Optional() private readonly agentConfigService?: AgentConfigService,
     @Optional() private readonly guardrailsPipeline?: GuardrailsPipelineService,
     private readonly configService?: ConfigService,
   ) {
@@ -111,6 +114,9 @@ export class AgentOrchestrator {
       `[execute] Using agent: ${agent.id} for prompt: ${input.prompt?.substring(0, 50)}...`,
     );
 
+    // Apply DB-stored runtime config overrides
+    await this.applyRuntimeConfig(agent);
+
     try {
       // 生成执行计划
       const plan = await agent.plan(input);
@@ -173,6 +179,63 @@ export class AgentOrchestrator {
         error:
           error instanceof Error ? error.message : "Agent execution failed",
       };
+    } finally {
+      // Clean up runtime overrides after execution
+      if ("clearRuntimeOverrides" in agent) {
+        (
+          agent as IPlanBasedAgent & { clearRuntimeOverrides(): void }
+        ).clearRuntimeOverrides();
+      }
+    }
+  }
+
+  /**
+   * Apply DB-stored runtime config to agent before execution
+   */
+  private async applyRuntimeConfig(agent: IPlanBasedAgent): Promise<void> {
+    if (!this.agentConfigService) return;
+
+    try {
+      const dbConfig = await this.agentConfigService.getEffectiveConfig(
+        agent.id,
+      );
+      if (!dbConfig || !dbConfig.enabled) return;
+
+      // Apply system prompt override
+      if (dbConfig.systemPrompt && "setSystemPromptOverride" in agent) {
+        (
+          agent as IPlanBasedAgent & {
+            setSystemPromptOverride(p: string): void;
+          }
+        ).setSystemPromptOverride(dbConfig.systemPrompt);
+      }
+
+      // Apply model type override
+      if (dbConfig.modelType && "setModelTypeOverride" in agent) {
+        (
+          agent as IPlanBasedAgent & { setModelTypeOverride(m: string): void }
+        ).setModelTypeOverride(dbConfig.modelType);
+      }
+
+      // Apply task profile override
+      if (dbConfig.taskProfile && "setTaskProfileOverride" in agent) {
+        (
+          agent as IPlanBasedAgent & {
+            setTaskProfileOverride(p: Record<string, unknown>): void;
+          }
+        ).setTaskProfileOverride(
+          dbConfig.taskProfile as Record<string, unknown>,
+        );
+      }
+
+      this.logger.debug(
+        `[applyRuntimeConfig] Applied DB config for agent ${agent.id}`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `[applyRuntimeConfig] Failed to apply config for ${agent.id}: ${(error as Error).message}`,
+      );
+      // Continue with defaults - config failure should not block execution
     }
   }
 

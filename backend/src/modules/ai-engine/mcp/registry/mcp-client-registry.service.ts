@@ -6,11 +6,13 @@
  * with MCPManager for actual connections.
  */
 
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit, Optional } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { MCPManager } from "../manager/mcp-manager";
 import { MCPTransportType } from "../abstractions/mcp.interface";
+import { ToolRegistry } from "../../tools/registry/tool-registry";
+import { MCPToolAdapter } from "../tools/mcp-tool-adapter";
 
 export interface ConnectionStatus {
   status: "connected" | "disconnected" | "error";
@@ -26,6 +28,7 @@ export class MCPClientRegistryService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mcpManager: MCPManager,
+    @Optional() private readonly toolRegistry?: ToolRegistry,
   ) {}
 
   async onModuleInit() {
@@ -100,6 +103,9 @@ export class MCPClientRegistryService implements OnModuleInit {
       // Connect via MCPManager
       await this.mcpManager.connect(serverConfig.serverId);
 
+      // Register discovered MCP tools into ToolRegistry
+      await this.registerMCPTools(serverConfig.serverId);
+
       this.connectionStatus.set(serverId, {
         status: "connected",
         connectedAt: new Date(),
@@ -119,6 +125,9 @@ export class MCPClientRegistryService implements OnModuleInit {
    * Disconnect from a server
    */
   async disconnectServer(serverId: string): Promise<void> {
+    // Unregister MCP tools from ToolRegistry before disconnecting
+    this.unregisterMCPTools(serverId);
+
     try {
       await this.mcpManager.disconnect(serverId);
     } catch (error) {
@@ -127,6 +136,61 @@ export class MCPClientRegistryService implements OnModuleInit {
       );
     }
     this.connectionStatus.set(serverId, { status: "disconnected" });
+  }
+
+  /**
+   * Register discovered MCP tools into the AI Engine ToolRegistry
+   */
+  private async registerMCPTools(serverId: string): Promise<void> {
+    if (!this.toolRegistry) return;
+
+    try {
+      const client = this.mcpManager.getClient(serverId);
+      if (!client?.connected) return;
+
+      const tools = await client.listTools();
+      let registered = 0;
+
+      for (const tool of tools) {
+        const adapter = new MCPToolAdapter(tool, serverId, this.mcpManager);
+        this.toolRegistry.register(adapter);
+        registered++;
+      }
+
+      if (registered > 0) {
+        this.logger.log(
+          `Registered ${registered} MCP tools from server ${serverId} into ToolRegistry`,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to register MCP tools for ${serverId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Unregister all MCP tools for a server from the ToolRegistry
+   */
+  private unregisterMCPTools(serverId: string): void {
+    if (!this.toolRegistry) return;
+
+    const prefix = `mcp:${serverId}:`;
+    const allTools = this.toolRegistry.getAll();
+    let removed = 0;
+
+    for (const tool of allTools) {
+      if (tool.id.startsWith(prefix)) {
+        this.toolRegistry.unregister(tool.id);
+        removed++;
+      }
+    }
+
+    if (removed > 0) {
+      this.logger.log(
+        `Unregistered ${removed} MCP tools for server ${serverId} from ToolRegistry`,
+      );
+    }
   }
 
   /**

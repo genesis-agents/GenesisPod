@@ -7,9 +7,16 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
+interface CacheEntry {
+  data: Awaited<ReturnType<PrismaService["agentConfig"]["findUnique"]>>;
+  timestamp: number;
+}
+
 @Injectable()
 export class AgentConfigService {
   private readonly logger = new Logger(AgentConfigService.name);
+  private readonly configCache = new Map<string, CacheEntry>();
+  private readonly CACHE_TTL = 60_000;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -77,11 +84,13 @@ export class AgentConfigService {
       enabled: boolean;
     }>,
   ) {
-    await this.findOne(id); // throws if not found
-    return this.prisma.agentConfig.update({
+    const existing = await this.findOne(id); // throws if not found
+    const result = await this.prisma.agentConfig.update({
       where: { id },
       data: data as Prisma.AgentConfigUpdateInput,
     });
+    this.invalidateCache(existing.agentId);
+    return result;
   }
 
   async delete(id: string) {
@@ -91,13 +100,26 @@ export class AgentConfigService {
         "Cannot delete built-in agent configuration",
       );
     }
-    return this.prisma.agentConfig.delete({ where: { id } });
+    const result = await this.prisma.agentConfig.delete({ where: { id } });
+    this.invalidateCache(config.agentId);
+    return result;
   }
 
   async getEffectiveConfig(agentId: string) {
+    const cached = this.configCache.get(agentId);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return cached.data;
+    }
+
     const dbConfig = await this.findByAgentId(agentId);
+    this.configCache.set(agentId, { data: dbConfig, timestamp: Date.now() });
+
     if (dbConfig) return dbConfig;
     return null; // Caller should fallback to code-registered config
+  }
+
+  invalidateCache(agentId: string): void {
+    this.configCache.delete(agentId);
   }
 
   async seedDefaults(

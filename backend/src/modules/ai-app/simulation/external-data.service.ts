@@ -71,8 +71,15 @@ export class ExternalDataService {
         return { category, res };
       }),
     );
-    const snapshot: Record<string, any> = {};
-    const evidence: any[] = [];
+    const snapshot: Record<string, unknown> = {};
+    const evidence: Array<{
+      category: string;
+      provider: string;
+      endpoint?: string;
+      ok: boolean;
+      error?: string;
+      timestamp: string;
+    }> = [];
 
     results.forEach(({ category, res }) => {
       // 始终使用category名作为key，确保前端能正确识别
@@ -93,11 +100,11 @@ export class ExternalDataService {
   async fetchFromProvider(
     categoryOrProviderId: string,
     path?: string,
-    query?: Record<string, any>,
+    query?: Record<string, string>,
   ): Promise<{
     ok: boolean;
     providerId: string;
-    data?: any;
+    data?: unknown;
     error?: string;
     endpoint?: string;
   }> {
@@ -172,7 +179,7 @@ export class ExternalDataService {
       endpoint = endpoint + `/${path.replace(/^\/+/, "")}`;
     }
 
-    const headers: Record<string, any> = {};
+    const headers: Record<string, string> = {};
     // 只有当URL中没有API Key占位符时，才使用Bearer认证
     if (provider.apiKey && !needsUrlApiKey) {
       headers.Authorization = `Bearer ${provider.apiKey}`;
@@ -200,16 +207,20 @@ export class ExternalDataService {
         data: res.data,
         endpoint,
       };
-    } catch (err: any) {
+    } catch (error: unknown) {
       this.logger.error(
-        `External fetch failed [${provider.id}] ${endpoint}: ${err?.message}`,
+        `External fetch failed [${provider.id}] ${endpoint}: ${(error as Error).message}`,
       );
+      const axiosError = error as {
+        response?: { status: number };
+        message?: string;
+      };
       return {
         ok: false,
         providerId: provider.id,
-        error: err?.response?.status
-          ? `HTTP_${err.response.status}`
-          : err?.message || "fetch_failed",
+        error: axiosError.response?.status
+          ? `HTTP_${axiosError.response.status}`
+          : axiosError.message || "fetch_failed",
         endpoint,
       };
     }
@@ -229,7 +240,7 @@ export class ExternalDataService {
   }): Promise<{
     ok: boolean;
     providerId: string;
-    data?: any;
+    data?: unknown;
     error?: string;
     endpoint?: string;
   }> {
@@ -261,7 +272,7 @@ export class ExternalDataService {
       );
     }
 
-    const reqHeaders: Record<string, any> = {};
+    const reqHeaders: Record<string, string> = {};
 
     // 只有当URL中没有API Key占位符时，才使用Bearer认证
     if (apiKey && !needsUrlApiKey) {
@@ -290,16 +301,20 @@ export class ExternalDataService {
         data: res.data,
         endpoint: endpoint.replace(apiKey || "", "***"),
       };
-    } catch (err: any) {
+    } catch (error: unknown) {
       this.logger.error(
-        `Test provider failed [${provider.id}] ${endpoint.replace(apiKey || "", "***")}: ${err?.message}`,
+        `Test provider failed [${provider.id}] ${endpoint.replace(apiKey || "", "***")}: ${(error as Error).message}`,
       );
+      const axiosError = error as {
+        response?: { status: number };
+        message?: string;
+      };
       return {
         ok: false,
         providerId: provider.id,
-        error: err?.response?.status
-          ? `HTTP_${err.response.status}`
-          : err?.message || "fetch_failed",
+        error: axiosError.response?.status
+          ? `HTTP_${axiosError.response.status}`
+          : axiosError.message || "fetch_failed",
         endpoint: endpoint.replace(apiKey || "", "***"),
       };
     }

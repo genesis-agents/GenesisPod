@@ -110,6 +110,43 @@ export abstract class PlanBasedAgent implements IPlanBasedAgent {
   protected selectionKeywords: string[] = [];
 
   /**
+   * Runtime overrides from DB config (set by orchestrator)
+   */
+  protected _systemPromptOverride?: string;
+  protected _modelTypeOverride?: string;
+  protected _taskProfileOverride?: Record<string, unknown>;
+
+  /**
+   * Set system prompt override from DB config
+   */
+  setSystemPromptOverride(prompt: string): void {
+    this._systemPromptOverride = prompt;
+  }
+
+  /**
+   * Set model type override from DB config
+   */
+  setModelTypeOverride(modelType: string): void {
+    this._modelTypeOverride = modelType;
+  }
+
+  /**
+   * Set task profile override from DB config
+   */
+  setTaskProfileOverride(profile: Record<string, unknown>): void {
+    this._taskProfileOverride = profile;
+  }
+
+  /**
+   * Clear all runtime overrides (called after execution)
+   */
+  clearRuntimeOverrides(): void {
+    this._systemPromptOverride = undefined;
+    this._modelTypeOverride = undefined;
+    this._taskProfileOverride = undefined;
+  }
+
+  /**
    * 分析用户输入，生成执行计划
    */
   abstract plan(input: AgentInput): Promise<AgentPlan>;

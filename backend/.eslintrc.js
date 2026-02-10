@@ -70,9 +70,9 @@ module.exports = {
 
     // 代码质量
     "no-console": [
-      "warn",
+      "error",
       {
-        allow: ["warn", "error", "info"],
+        allow: ["warn", "error"],
       },
     ],
     "no-debugger": "error",

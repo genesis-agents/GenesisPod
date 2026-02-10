@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { SimulationRunStatus, SimulationTeam } from "@prisma/client";
+import { Prisma, SimulationRunStatus, SimulationTeam } from "@prisma/client";
 import { AiSimulationEngineService } from "./ai-simulation.engine";
 import { BillingContext } from "../../credits/billing-context";
 
@@ -8,33 +8,33 @@ export interface CreateScenarioInput {
   name: string;
   industry: string;
   region?: string;
-  goals?: any;
-  constraints?: any;
-  dataSources?: any;
+  goals?: Prisma.InputJsonValue;
+  constraints?: Prisma.InputJsonValue;
+  dataSources?: Prisma.InputJsonValue;
   createdById?: string;
   companies?: Array<{
     name: string;
     type?: string;
     market?: string;
-    metrics?: any;
-    publicData?: any;
-    privateData?: any;
+    metrics?: Prisma.InputJsonValue;
+    publicData?: Prisma.InputJsonValue;
+    privateData?: Prisma.InputJsonValue;
   }>;
   agents?: Array<{
     companyName?: string;
     team: SimulationTeam;
     role: string;
-    persona?: any;
-    memoryPublic?: any;
-    memoryPrivate?: any;
-    tools?: any;
+    persona?: Prisma.InputJsonValue;
+    memoryPublic?: Prisma.InputJsonValue;
+    memoryPrivate?: Prisma.InputJsonValue;
+    tools?: Prisma.InputJsonValue;
   }>;
 }
 
 export interface StartRunInput {
   scenarioId: string;
   rounds?: number;
-  params?: any;
+  params?: Prisma.InputJsonValue;
   startedById?: string;
 }
 
@@ -223,9 +223,15 @@ export class AiSimulationService {
         name: input.name ?? existing.name,
         industry: input.industry ?? existing.industry,
         region: input.region ?? existing.region,
-        goals: input.goals ?? existing.goals,
-        constraints: input.constraints ?? existing.constraints,
-        dataSources: input.dataSources ?? existing.dataSources,
+        goals: (input.goals ?? existing.goals) as
+          | Prisma.InputJsonValue
+          | undefined,
+        constraints: (input.constraints ?? existing.constraints) as
+          | Prisma.InputJsonValue
+          | undefined,
+        dataSources: (input.dataSources ?? existing.dataSources) as
+          | Prisma.InputJsonValue
+          | undefined,
       },
     });
 
@@ -407,7 +413,7 @@ export class AiSimulationService {
 
   async interveneRun(
     runId: string,
-    intervention: { message: string; injectEvent?: any },
+    intervention: { message: string; injectEvent?: Record<string, unknown> },
   ) {
     const run = await this.getRunById(runId);
 
@@ -420,18 +426,19 @@ export class AiSimulationService {
 
     // Store intervention in run params
     const updatedParams = {
-      ...(run.params as any),
+      ...(run.params as Record<string, any> | null),
       interventions: [
-        ...((run.params as any)?.interventions || []),
+        ...((run.params as Record<string, any> | null)?.interventions || []),
         interventionRecord,
       ],
     };
 
     // Also store in worldState for frontend display
     const updatedWorldState = {
-      ...(run.worldState as any),
+      ...(run.worldState as Record<string, any> | null),
       interventions: [
-        ...((run.worldState as any)?.interventions || []),
+        ...((run.worldState as Record<string, any> | null)?.interventions ||
+          []),
         interventionRecord,
       ],
       lastIntervention: interventionRecord,
@@ -440,8 +447,8 @@ export class AiSimulationService {
     await this.prisma.simulationRun.update({
       where: { id: runId },
       data: {
-        params: updatedParams,
-        worldState: updatedWorldState,
+        params: updatedParams as Prisma.InputJsonValue,
+        worldState: updatedWorldState as Prisma.InputJsonValue,
       },
     });
 

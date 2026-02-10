@@ -9,10 +9,16 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ExternalDataService } from "./external-data.service";
 import { AIEngineFacade, ChatMessage } from "../../ai-engine/facade";
 
+interface EvidenceRef {
+  provider: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
 interface AdjudicationResult {
   ruling: string;
   notes?: string;
-  evidenceRefs?: any[];
+  evidenceRefs?: EvidenceRef[];
   worldDelta?: Record<string, any>;
   blackSwanEvent?: BlackSwanEvent;
 }
@@ -110,10 +116,17 @@ export class AiSimulationEngineService {
    * 支持多模型fallback，如果主模型失败则尝试备用模型
    */
   private async generateAgentDecision(
-    agent: any,
+    agent: {
+      role: string;
+      team: string;
+      persona: Prisma.JsonValue;
+      memoryPublic: Prisma.JsonValue;
+      tools: Prisma.JsonValue;
+      [key: string]: unknown;
+    },
     worldState: Record<string, any>,
     roundNumber: number,
-    scenario: any,
+    scenario: { name: string; industry: string; [key: string]: unknown },
     irrationalBias: boolean,
   ): Promise<{ innerMonologue: string; publicAction: string }> {
     // 获取所有可用的AI模型（优先CHAT_FAST，回退CHAT）
@@ -177,8 +190,8 @@ export class AiSimulationEngineService {
         // 成功：解析AI响应并返回
         this.logger.log(`[Agent ${agent.role}] Using model: ${model.name}`);
         return this.parseAgentResponse(result.content, agent);
-      } catch (error: any) {
-        const errorMsg = error?.message || String(error);
+      } catch (error: unknown) {
+        const errorMsg = (error as Error)?.message || String(error);
 
         // 区分不同类型的错误
         // quota/rate limit errors - 配额或速率限制
@@ -229,7 +242,10 @@ export class AiSimulationEngineService {
     return this.generateTemplateDecision(agent, worldState, irrationalBias);
   }
 
-  private buildAgentSystemPrompt(agent: any, scenario: any): string {
+  private buildAgentSystemPrompt(
+    agent: { role: string; team: string; persona: Prisma.JsonValue },
+    scenario: { name: string; industry: string },
+  ): string {
     const teamRole = {
       BLUE: "你是蓝军（我方/主角），代表当前市场主导者。你的目标是保持市场份额、抵御竞争、防范风险。",
       RED: "你是红军（对手/挑战者），代表激进的竞争者。你的目标是抢占市场、颠覆格局、寻找弱点攻击。",
@@ -258,7 +274,7 @@ ${agent.persona ? `人设：${JSON.stringify(agent.persona)}` : ""}
   }
 
   private buildAgentUserPrompt(
-    agent: any,
+    agent: { role: string; team: string; memoryPublic: Prisma.JsonValue },
     worldState: Record<string, any>,
     roundNumber: number,
     irrationalBias: boolean,
@@ -296,7 +312,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
 
   private parseAgentResponse(
     response: string,
-    agent: any,
+    agent: { role: string },
   ): { innerMonologue: string; publicAction: string } {
     // 清理响应：移除markdown代码块标记
     const cleanResponse = response
@@ -368,7 +384,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
   }
 
   private generateTemplateDecision(
-    agent: any,
+    agent: { role: string; team: string; persona: Prisma.JsonValue },
     worldState: Record<string, any>,
     irrationalBias: boolean,
   ): { innerMonologue: string; publicAction: string } {
@@ -415,22 +431,22 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
     await this.prisma.simulationRun.update({
       where: { id: run.id },
       data: {
-        worldState: state,
-        evidenceTrail,
+        worldState: state as Prisma.InputJsonValue,
+        evidenceTrail: evidenceTrail as Prisma.InputJsonValue,
       },
     });
 
     let currentRound = options?.resume ? run.currentRound || 0 : 0;
     const humanBreakEvery =
-      (run.params as any)?.humanBreakEvery !== undefined
-        ? (run.params as any)?.humanBreakEvery
+      (run.params as Record<string, any> | null)?.humanBreakEvery !== undefined
+        ? (run.params as Record<string, any> | null)?.humanBreakEvery
         : 2;
 
     while (currentRound < rounds) {
       currentRound += 1;
       const turn = await this.processRound(run.id, currentRound);
       this.logger.log(
-        `[Simulation] Run ${run.id} finished round ${currentRound}, ruling=${(turn.adjudication as any)?.ruling}`,
+        `[Simulation] Run ${run.id} finished round ${currentRound}, ruling=${(turn.adjudication as Record<string, any> | null)?.ruling}`,
       );
 
       if (
@@ -483,8 +499,8 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
     const submissions: any[] = [];
     const worldState = (run.worldState as Record<string, any> | null) || {};
     const irrationalProb =
-      (run.params as any)?.irrationalProb !== undefined
-        ? (run.params as any)?.irrationalProb
+      (run.params as Record<string, any> | null)?.irrationalProb !== undefined
+        ? (run.params as Record<string, any> | null)?.irrationalProb
         : 0.2;
     const chaosInjectedTeam =
       run.scenario.agents.some((a) => a.team === SimulationTeam.CHAOS) || false;
@@ -512,7 +528,8 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
       const chaosInjected =
         chaosInjectedTeam &&
         isChaos &&
-        Math.random() < ((run.params as any)?.chaosProb ?? 0.3);
+        Math.random() <
+          ((run.params as Record<string, any> | null)?.chaosProb ?? 0.3);
 
       const submission = {
         agentId: agent.id,
@@ -580,18 +597,20 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
     run: any,
     submissions: any[],
   ): Promise<AdjudicationResult> {
-    const evidenceRefs: any[] = [];
+    const evidenceRefs: EvidenceRef[] = [];
     const worldDelta: Record<string, any> = {};
     const worldState = (run.worldState as Record<string, any>) || {};
 
     // Basic resource sanity check: if a submission declares cost but公司现金不足则驳回
     const companyCashMap: Record<string, number> = {};
-    (run.scenario.companies || []).forEach((c: any) => {
-      const cash = c.metrics?.cash;
-      if (typeof cash === "number") {
-        companyCashMap[c.id] = cash;
-      }
-    });
+    (run.scenario.companies || []).forEach(
+      (c: { id: string; metrics: Prisma.JsonValue }) => {
+        const cash = (c.metrics as Record<string, any>)?.cash;
+        if (typeof cash === "number") {
+          companyCashMap[c.id] = cash;
+        }
+      },
+    );
 
     for (const sub of submissions) {
       const intentCost =
@@ -643,7 +662,10 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
     worldDelta["last_submissions"] = submissions.length;
 
     // Chaos / Black Swan toggle based on params
-    const chaosProb = run.params?.chaosProb ?? run.params?.blackSwanProb ?? 0.1;
+    const chaosProb =
+      (run.params as Record<string, any> | null)?.chaosProb ??
+      (run.params as Record<string, any> | null)?.blackSwanProb ??
+      0.1;
     const chaosTriggered = Math.random() < chaosProb;
     // 非理性因素：对部分队别施加随机偏置
     const irrationalBias = Math.random() < 0.3 ? "irrational_spike" : null;
@@ -669,7 +691,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
 
       worldDelta["blackSwan"] = blackSwanEvent;
       worldDelta["blackSwanHistory"] = [
-        ...((worldState["blackSwanHistory"] as any[]) || []),
+        ...((worldState["blackSwanHistory"] as unknown[]) || []),
         {
           ...blackSwanEvent,
           triggeredAt: new Date().toISOString(),
@@ -677,7 +699,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
       ];
 
       this.logger.warn(
-        `[Black Swan] ${blackSwanEvent.name}: ${blackSwanEvent.description}`,
+        `[Black Swan] ${blackSwanEvent?.name}: ${blackSwanEvent?.description}`,
       );
     }
 
@@ -746,11 +768,33 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
 
     const keyFindings: string[] = [];
     const monologueLog: any[] = [];
-    const causalChain: any[] = []; // 因果链
-    const biasesDetected: any[] = []; // 偏见识别
-    const blindspots: any[] = []; // 盲点
-    const counterfactuals: any[] = []; // 反事实推理
-    const blackSwanEvents: any[] = []; // 黑天鹅事件历史
+    const causalChain: Array<{
+      round: number;
+      cause: string;
+      effect: any;
+      timestamp: Date;
+    }> = [];
+    const biasesDetected: Array<{
+      round: number;
+      type: string;
+      description: string;
+      recommendation: string;
+      team?: string;
+      role?: string;
+    }> = [];
+    const blindspots: Array<{
+      type: string;
+      description: string;
+      recommendation: string;
+      team?: string;
+    }> = [];
+    const counterfactuals: Array<{
+      round: number;
+      scenario: string;
+      potentialOutcome: string;
+      probability: string;
+    }> = [];
+    const blackSwanEvents: unknown[] = [];
 
     // Missing data
     const worldState = (run.worldState as Record<string, any>) || {};
@@ -768,7 +812,9 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
 
     // Black swan history
     if (worldState["blackSwanHistory"]) {
-      blackSwanEvents.push(...(worldState["blackSwanHistory"] as any[]));
+      blackSwanEvents.push(
+        ...((worldState["blackSwanHistory"] as unknown[]) || []),
+      );
     }
     if (worldState["blackSwan"]) {
       const bs = worldState["blackSwan"] as BlackSwanEvent;
@@ -777,11 +823,11 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
 
     // Scan turns and build analysis
     const teamActions: Record<string, any[]> = {};
-    let prevWorldState: any = null;
+    let prevWorldState: Record<string, any> | null = null;
 
     for (const turn of run.turns) {
-      const adjudication = turn.adjudication as any;
-      const currentWorldState = turn.worldState as any;
+      const adjudication = turn.adjudication as Record<string, any>;
+      const currentWorldState = turn.worldState as Record<string, any>;
 
       // Track state changes for causal chain
       if (prevWorldState && currentWorldState) {
@@ -929,7 +975,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${worldState.blackSwan.name} 
   private detectStateChange(
     prev: Record<string, any>,
     current: Record<string, any>,
-  ): any | null {
+  ): { changes: string[]; significance: "high" | "medium" | "low" } | null {
     const changes: string[] = [];
     let significance: "high" | "medium" | "low" = "low";
 

@@ -109,13 +109,106 @@ export interface KeyPointItem {
 }
 
 /**
+ * 仪表盘指标项
+ */
+export interface DashboardMetric {
+  label: string;
+  value: string | number;
+  unit?: string;
+  trend?: "up" | "down" | "flat";
+  icon?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * 仪表盘图表
+ */
+export interface DashboardChart {
+  type: string;
+  title: string;
+  data?: unknown;
+  [key: string]: unknown;
+}
+
+/**
+ * 风险项
+ */
+export interface RiskItem {
+  title: string;
+  description?: string;
+  severity?: "high" | "medium" | "low";
+  likelihood?: "high" | "medium" | "low";
+  mitigation?: string;
+  icon?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * 机会项
+ */
+export interface OpportunityItem {
+  title: string;
+  description?: string;
+  impact?: "high" | "medium" | "low";
+  timeline?: string;
+  icon?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * 建议项
+ */
+export interface RecommendationItem {
+  title: string;
+  description?: string;
+  priority?: "high" | "medium" | "low";
+  timeline?: string;
+  owner?: string;
+  icon?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * 成熟度级别
+ */
+export interface MaturityLevel {
+  level: number;
+  name: string;
+  description?: string;
+  criteria?: string[];
+  icon?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * 案例研究结果项
+ */
+export interface CaseStudyResult {
+  metric: string;
+  value: string;
+  improvement?: string;
+  icon?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * 对比点
+ */
+export interface ComparisonPoint {
+  text: string;
+  highlight?: boolean;
+  icon?: string;
+  [key: string]: unknown;
+}
+
+/**
  * 章节摘要幻灯片
  */
 export interface ChapterSummarySlideContent extends BaseSlideContent {
   templateType: "chapterSummary";
   title: string;
-  keyPoints: any[];
-  takeaways?: any[];
+  keyPoints: KeyPointItem[];
+  takeaways?: KeyPointItem[];
   summary?: string;
 }
 
@@ -126,7 +219,7 @@ export interface ConclusionSlideContent extends BaseSlideContent {
   templateType: "conclusion";
   title: string;
   summary: string;
-  keyTakeaways: any[];
+  keyTakeaways: KeyPointItem[];
   callToAction?: string;
   closingMessage?: string;
   contactInfo?: {
@@ -168,7 +261,7 @@ export interface ColumnContent {
   content: unknown;
   icon?: string;
   highlight?: boolean;
-  items?: any[];
+  items?: KeyPointItem[];
   /** 品牌颜色头部 */
   brandColor?: string;
   /** 品牌Logo (base64或URL) */
@@ -218,8 +311,8 @@ export interface SplitLayoutSlideContent extends BaseSlideContent {
 export interface DashboardSlideContent extends BaseSlideContent {
   templateType: "dashboard";
   title: string;
-  metrics: any[];
-  charts?: any[];
+  metrics: DashboardMetric[];
+  charts?: DashboardChart[];
 }
 
 /**
@@ -251,9 +344,9 @@ export interface EvolutionRoadmapSlideContent extends BaseSlideContent {
  */
 export interface ComparisonOption {
   title: string;
-  points: any[];
-  pros?: any[];
-  cons?: any[];
+  points: ComparisonPoint[];
+  pros?: ComparisonPoint[];
+  cons?: ComparisonPoint[];
   [key: string]: unknown;
 }
 
@@ -277,7 +370,7 @@ export interface CaseStudySlideContent extends BaseSlideContent {
   company?: string;
   challenge: string;
   solution: string;
-  results: any[];
+  results: CaseStudyResult[];
   quote?: {
     text: string;
     author: string;
@@ -292,7 +385,7 @@ export interface CaseStudySlideContent extends BaseSlideContent {
 export interface MaturityModelSlideContent extends BaseSlideContent {
   templateType: "maturityModel";
   title: string;
-  levels: any[];
+  levels: MaturityLevel[];
   currentAssessment?: {
     level: number;
     notes?: string;
@@ -306,8 +399,8 @@ export interface MaturityModelSlideContent extends BaseSlideContent {
 export interface RiskOpportunitySlideContent extends BaseSlideContent {
   templateType: "riskOpportunity";
   title: string;
-  risks: any[];
-  opportunities: any[];
+  risks: RiskItem[];
+  opportunities: OpportunityItem[];
 }
 
 /**
@@ -316,8 +409,8 @@ export interface RiskOpportunitySlideContent extends BaseSlideContent {
 export interface RecommendationsSlideContent extends BaseSlideContent {
   templateType: "recommendations";
   title: string;
-  recommendations: any[];
-  nextSteps?: any[];
+  recommendations: RecommendationItem[];
+  nextSteps?: RecommendationItem[];
 }
 
 /**

@@ -14,7 +14,7 @@ import {
 import { Observable, interval, map, switchMap, from, takeWhile } from "rxjs";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AiSimulationService, ViewPerspective } from "./ai-simulation.service";
-import { SimulationTeam, SimulationRunStatus } from "@prisma/client";
+import { Prisma, SimulationTeam, SimulationRunStatus } from "@prisma/client";
 import { ExternalDataService } from "./external-data.service";
 import { AIAssistService } from "./ai-assist.service";
 
@@ -34,25 +34,25 @@ export class AiSimulationController {
       name: string;
       industry: string;
       region?: string;
-      goals?: any;
-      constraints?: any;
-      dataSources?: any;
+      goals?: Prisma.InputJsonValue;
+      constraints?: Prisma.InputJsonValue;
+      dataSources?: Prisma.InputJsonValue;
       companies?: Array<{
         name: string;
         type?: string;
         market?: string;
-        metrics?: any;
-        publicData?: any;
-        privateData?: any;
+        metrics?: Prisma.InputJsonValue;
+        publicData?: Prisma.InputJsonValue;
+        privateData?: Prisma.InputJsonValue;
       }>;
       agents?: Array<{
         companyName?: string;
         team: SimulationTeam;
         role: string;
-        persona?: any;
-        memoryPublic?: any;
-        memoryPrivate?: any;
-        tools?: any;
+        persona?: Prisma.InputJsonValue;
+        memoryPublic?: Prisma.InputJsonValue;
+        memoryPrivate?: Prisma.InputJsonValue;
+        tools?: Prisma.InputJsonValue;
       }>;
     },
   ) {
@@ -77,25 +77,25 @@ export class AiSimulationController {
       name?: string;
       industry?: string;
       region?: string;
-      goals?: any;
-      constraints?: any;
-      dataSources?: any;
+      goals?: Prisma.InputJsonValue;
+      constraints?: Prisma.InputJsonValue;
+      dataSources?: Prisma.InputJsonValue;
       companies?: Array<{
         name: string;
         type?: string;
         market?: string;
-        metrics?: any;
-        publicData?: any;
-        privateData?: any;
+        metrics?: Prisma.InputJsonValue;
+        publicData?: Prisma.InputJsonValue;
+        privateData?: Prisma.InputJsonValue;
       }>;
       agents?: Array<{
         companyName?: string;
         team: SimulationTeam;
         role: string;
-        persona?: any;
-        memoryPublic?: any;
-        memoryPrivate?: any;
-        tools?: any;
+        persona?: Prisma.InputJsonValue;
+        memoryPublic?: Prisma.InputJsonValue;
+        memoryPrivate?: Prisma.InputJsonValue;
+        tools?: Prisma.InputJsonValue;
       }>;
     },
   ) {
@@ -113,7 +113,7 @@ export class AiSimulationController {
     body: {
       scenarioId: string;
       rounds?: number;
-      params?: any;
+      params?: Prisma.InputJsonValue;
     },
   ) {
     return this.simulationService.startRun({
@@ -161,13 +161,13 @@ export class AiSimulationController {
   @Post("runs/:id/intervene")
   async interveneRun(
     @Param("id") id: string,
-    @Body() body: { message: string; injectEvent?: any },
+    @Body() body: { message: string; injectEvent?: Record<string, unknown> },
   ) {
     return this.simulationService.interveneRun(id, body);
   }
 
   @Get("external/snapshot")
-  async getExternalSnapshot(): Promise<any> {
+  async getExternalSnapshot() {
     return this.externalData.getSnapshot();
   }
 
@@ -201,7 +201,7 @@ export class AiSimulationController {
       region?: string;
       existingCompanies?: string[];
     },
-  ): Promise<any> {
+  ) {
     return this.aiAssist.analyzeIndustry(body);
   }
 
@@ -216,7 +216,7 @@ export class AiSimulationController {
       companies: Array<{ name: string; type: string }>;
       existingAgents?: Array<{ role: string; team: string }>;
     },
-  ): Promise<any> {
+  ) {
     const agents = await this.aiAssist.suggestAgents(body);
     return { agents };
   }
@@ -232,7 +232,7 @@ export class AiSimulationController {
       region?: string;
       goals?: string;
     },
-  ): Promise<any> {
+  ) {
     return this.aiAssist.generateScenarioSuggestions(body);
   }
 
@@ -248,7 +248,7 @@ export class AiSimulationController {
       industry: string;
       market?: string;
     },
-  ): Promise<any> {
+  ) {
     return this.aiAssist.generateCompanyMetrics(body);
   }
 
@@ -269,7 +269,7 @@ export class AiSimulationController {
         growth?: string;
       };
     },
-  ): Promise<any> {
+  ) {
     return this.aiAssist.suggestParams(body);
   }
 
@@ -320,7 +320,7 @@ export class AiSimulationController {
         }
 
         // 构建事件数据
-        const eventData: any = {
+        const eventData: Record<string, unknown> = {
           type: "status_update",
           runId: run.id,
           status: run.status,
@@ -335,7 +335,9 @@ export class AiSimulationController {
           eventData.latestTurn = {
             roundNumber: latestTurn.roundNumber,
             adjudication: latestTurn.adjudication,
-            hasBlackSwan: !!(latestTurn.adjudication as any)?.blackSwanEvent,
+            hasBlackSwan: !!(
+              latestTurn.adjudication as Record<string, any> | null
+            )?.blackSwanEvent,
           };
 
           // 检查是否有新回合完成
@@ -368,13 +370,13 @@ export class AiSimulationController {
   async getRunReport(
     @Param("id") id: string,
     @Param("version") version?: "public" | "internal",
-  ): Promise<any> {
+  ) {
     const run = await this.simulationService.getRunById(id);
     if (!run || !run.summary) {
       return { error: "Report not available" };
     }
 
-    const summary = run.summary as any;
+    const summary = run.summary as Record<string, unknown>;
     if (version === "public" && summary.publicReport) {
       return summary.publicReport;
     }

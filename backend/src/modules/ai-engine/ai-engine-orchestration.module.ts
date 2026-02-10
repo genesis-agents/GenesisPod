@@ -48,6 +48,7 @@ import { ExecutionStateManager } from "./orchestration/state-machine/execution-s
 // Agents (needed for executors)
 import { AgentOrchestrator } from "./agents/registry";
 import { AgentsController, AgentsService } from "./agents/api";
+import { AgentConfigService } from "./agents/config/agent-config.service";
 
 /**
  * Sequential Executor Factory
@@ -122,6 +123,7 @@ const checkpointManagerFactory = {
     AgentRegistry,
     AgentOrchestrator,
     AgentsService,
+    AgentConfigService,
 
     // Executors
     sequentialExecutorFactory,
@@ -154,6 +156,7 @@ const checkpointManagerFactory = {
     AgentRegistry,
     AgentOrchestrator,
     AgentsService,
+    AgentConfigService,
 
     // Executors
     SequentialExecutor,
