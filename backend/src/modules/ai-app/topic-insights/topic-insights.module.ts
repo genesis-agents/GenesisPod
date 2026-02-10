@@ -75,6 +75,19 @@ import {
   ResearchRealtimeAdapter,
   EvidenceSyncCompensationService,
   ResearchMemoryService,
+  // ★ P0: 新增核心能力
+  InteractiveResearchService,
+  DataSourceConnectorRegistry,
+  SemanticScholarConnector,
+  PubMedConnector,
+  FinanceApiConnector,
+  WeatherApiConnector,
+  KnowledgeGraphService,
+  MultiLanguageResearchService,
+  // ★ P1: 新增增强能力
+  CitationFormatterService,
+  ResearchExportService,
+  ResearchTemplateService,
 } from "./services";
 import { TopicAccessGuard } from "./guards";
 
@@ -134,6 +147,19 @@ const services = [
   EvidenceSyncCompensationService,
   // ★ Memory
   ResearchMemoryService,
+  // ★ P0: 新增核心能力
+  InteractiveResearchService,
+  DataSourceConnectorRegistry,
+  SemanticScholarConnector,
+  PubMedConnector,
+  FinanceApiConnector,
+  WeatherApiConnector,
+  KnowledgeGraphService,
+  MultiLanguageResearchService,
+  // ★ P1: 新增增强能力
+  CitationFormatterService,
+  ResearchExportService,
+  ResearchTemplateService,
 ];
 
 @Module({
@@ -168,7 +194,14 @@ const services = [
 export class TopicInsightsModule implements OnModuleInit {
   private readonly logger = new Logger(TopicInsightsModule.name);
 
-  constructor(private readonly promptSkillBridge: PromptSkillBridge) {}
+  constructor(
+    private readonly promptSkillBridge: PromptSkillBridge,
+    private readonly connectorRegistry: DataSourceConnectorRegistry,
+    private readonly semanticScholarConnector: SemanticScholarConnector,
+    private readonly pubMedConnector: PubMedConnector,
+    private readonly financeApiConnector: FinanceApiConnector,
+    private readonly weatherApiConnector: WeatherApiConnector,
+  ) {}
 
   async onModuleInit() {
     // Bridge prompt skills from SKILL.md → SkillRegistry
@@ -177,6 +210,15 @@ export class TopicInsightsModule implements OnModuleInit {
     this.logger.log(
       `Prompt skills bridged: registered=${bridgeResult.registered.length}, ` +
         `skipped=${bridgeResult.skipped.length}, errors=${bridgeResult.errors.length}`,
+    );
+
+    // ★ P0: 注册数据源连接器
+    this.connectorRegistry.register(this.semanticScholarConnector);
+    this.connectorRegistry.register(this.pubMedConnector);
+    this.connectorRegistry.register(this.financeApiConnector);
+    this.connectorRegistry.register(this.weatherApiConnector);
+    this.logger.log(
+      `Data source connectors registered: ${this.connectorRegistry.getCount()}`,
     );
   }
 }

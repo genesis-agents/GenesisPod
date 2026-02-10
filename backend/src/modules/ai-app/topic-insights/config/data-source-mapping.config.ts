@@ -22,6 +22,11 @@ export const DATA_SOURCE_TO_TOOL_ID: Partial<Record<DataSourceType, string>> = {
   [DataSourceType.CONGRESS]: "congress-gov",
   [DataSourceType.WHITEHOUSE]: "whitehouse-news",
   [DataSourceType.SOCIAL_X]: "social-x",
+  // ★ P0: 新增实时数据源连接器
+  [DataSourceType.SEMANTIC_SCHOLAR]: "semantic-scholar",
+  [DataSourceType.PUBMED]: "pubmed",
+  [DataSourceType.FINANCE_API]: "finance-api",
+  [DataSourceType.WEATHER_API]: "weather-api",
   // RSS, LOCAL 暂未映射工具
 };
 
@@ -48,6 +53,14 @@ export const TOOL_ID_TO_DATA_SOURCE: Record<string, DataSourceType> = {
   "social-media": DataSourceType.SOCIAL_X,
   "x-twitter": DataSourceType.SOCIAL_X,
   twitter: DataSourceType.SOCIAL_X,
+  // ★ P0: 新增实时数据源连接器别名
+  "semantic-scholar": DataSourceType.SEMANTIC_SCHOLAR,
+  semanticscholar: DataSourceType.SEMANTIC_SCHOLAR,
+  pubmed: DataSourceType.PUBMED,
+  "finance-api": DataSourceType.FINANCE_API,
+  finance: DataSourceType.FINANCE_API,
+  "weather-api": DataSourceType.WEATHER_API,
+  weather: DataSourceType.WEATHER_API,
   web: DataSourceType.WEB,
   academic: DataSourceType.ACADEMIC,
   github: DataSourceType.GITHUB,
