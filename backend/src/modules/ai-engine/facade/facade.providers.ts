@@ -10,6 +10,7 @@ import { ShortTermMemoryService } from "../memory/stores/short-term-memory.servi
 import { LongTermMemoryService } from "../memory/stores/long-term-memory.service";
 import { ToolRegistry } from "../tools/registry/tool-registry";
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
+import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
 import { CircuitBreakerService } from "../orchestration/services/circuit-breaker.service";
 import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
 import { SkillLoaderService } from "../skills/loader/skill-loader.service";
@@ -39,6 +40,7 @@ export interface MemoryFeature {
 export interface ToolFeature {
   registry: ToolRegistry;
   executor?: FunctionCallingExecutor; // ★ 设为可选，避免运行时错误
+  llmAdapter?: FunctionCallingLLMAdapter; // ★ Facade 封装 chatWithToolsStream
 }
 
 /**
@@ -125,13 +127,15 @@ export const toolFeatureProvider: Provider = {
   useFactory: (
     registry?: ToolRegistry,
     executor?: FunctionCallingExecutor,
+    llmAdapter?: FunctionCallingLLMAdapter,
   ): ToolFeature | undefined => {
     if (!registry) return undefined;
-    return { registry, executor }; // ★ 移除非空断言，executor 可能为 undefined
+    return { registry, executor, llmAdapter };
   },
   inject: [
     { token: ToolRegistry, optional: true },
     { token: FunctionCallingExecutor, optional: true },
+    { token: FunctionCallingLLMAdapter, optional: true },
   ],
 };
 

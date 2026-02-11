@@ -20,6 +20,10 @@ interface AiPlanningState {
   fetchPlanDetail: (planId: string) => Promise<void>;
   fetchTemplates: () => Promise<void>;
   createPlan: (data: CreatePlanPayload) => Promise<string>;
+  updatePlan: (
+    planId: string,
+    data: { name?: string; goal?: string; depth?: string }
+  ) => Promise<void>;
   advancePhase: (planId: string) => Promise<void>;
   retryPhase: (planId: string, phase: number) => Promise<void>;
   cancelPhase: (planId: string) => Promise<void>;
@@ -73,6 +77,14 @@ export const useAiPlanningStore = create<AiPlanningState>((set, get) => ({
     } finally {
       set({ isCreating: false });
     }
+  },
+
+  updatePlan: async (
+    planId: string,
+    data: { name?: string; goal?: string; depth?: string }
+  ) => {
+    const updated = await api.updatePlan(planId, data);
+    set({ currentPlan: updated });
   },
 
   advancePhase: async (planId: string) => {

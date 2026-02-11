@@ -41,6 +41,10 @@ import { CreditsService } from "../../credits/credits.service";
 import { BillingContext } from "../../credits/billing-context";
 import { RequestContext } from "../../../common/context/request-context";
 import type { CreditBillingInfo } from "./types/facade.types";
+import type {
+  AgentEvent,
+  ExecutionConfig,
+} from "../orchestration/executors/function-calling-executor";
 
 // ★ P1 重构：使用分组的 Feature Providers
 import {
@@ -177,7 +181,8 @@ export class AIEngineFacade {
     @Inject(forwardRef(() => CreditsService))
     private readonly creditsService?: CreditsService,
     @Optional() private readonly modelFallbackService?: ModelFallbackService,
-    @Optional() private readonly modelResolver?: import("./model-resolver.service").ModelResolverService,
+    @Optional()
+    private readonly modelResolver?: import("./model-resolver.service").ModelResolverService,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -2259,6 +2264,39 @@ export class AIEngineFacade {
     }
   }
 
+  // ==================== Session Memory (raw key-value) ====================
+
+  /**
+   * Get a value from session memory by key.
+   * Unlike storeMemory/retrieveMemory (structured MemoryType data),
+   * these methods expose raw key-value storage for arbitrary data (e.g. MessageWithContext[]).
+   */
+  async sessionMemoryGet(sessionId: string, key: string): Promise<unknown> {
+    if (!this.memory?.shortTerm) return undefined;
+    return this.memory.shortTerm.getWithSession(sessionId, key);
+  }
+
+  /**
+   * Set a value in session memory by key with optional TTL.
+   */
+  async sessionMemorySet(
+    sessionId: string,
+    key: string,
+    value: unknown,
+    ttl?: number,
+  ): Promise<void> {
+    if (!this.memory?.shortTerm) return;
+    await this.memory.shortTerm.setWithSession(sessionId, key, value, ttl);
+  }
+
+  /**
+   * Clear all session memory for a given session.
+   */
+  async sessionMemoryClear(sessionId: string): Promise<void> {
+    if (!this.memory?.shortTerm) return;
+    await this.memory.shortTerm.clearSession(sessionId);
+  }
+
   // ==================== Agent 执行能力 ====================
 
   /**
@@ -2794,6 +2832,53 @@ export class AIEngineFacade {
       toolCalls: [],
       isError: result.isError,
     };
+  }
+
+  /**
+   * Stream-based tool calling: yields AgentEvent as the executor progresses.
+   * Used by ai-ask for real-time tool-call streaming.
+   */
+  async *chatWithToolsStream(request: {
+    systemPrompt: string;
+    userPrompt: string;
+    context: AICapabilityContext;
+    modelConfig: {
+      provider: string;
+      modelId: string;
+      apiKey?: string;
+      apiEndpoint?: string;
+    };
+    executionConfig?: Partial<ExecutionConfig>;
+  }): AsyncGenerator<AgentEvent> {
+    if (!this.tools?.executor || !this.tools?.llmAdapter) {
+      yield {
+        type: "error",
+        error: "Tool execution not available",
+      } as AgentEvent;
+      return;
+    }
+
+    this.tools.llmAdapter.setConfig({
+      provider: request.modelConfig.provider,
+      modelId: request.modelConfig.modelId,
+      apiKey: request.modelConfig.apiKey,
+      apiEndpoint: request.modelConfig.apiEndpoint,
+    });
+
+    yield* this.tools.executor.executeWithContext(
+      this.tools.llmAdapter,
+      request.systemPrompt,
+      request.userPrompt,
+      request.context,
+      request.executionConfig,
+    );
+  }
+
+  /**
+   * Check if streaming tool execution is available (executor + llmAdapter).
+   */
+  isToolExecutionAvailable(): boolean {
+    return !!(this.tools?.executor && this.tools?.llmAdapter);
   }
 
   // ==================== 管理功能 ====================

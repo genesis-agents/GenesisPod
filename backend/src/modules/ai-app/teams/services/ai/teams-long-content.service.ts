@@ -11,9 +11,7 @@ import {
   LongContentProjectConfig,
   TaskExecutionContext,
   TaskCompletionResult,
-} from "../../../../ai-engine/long-content";
-import { ContinuationProtocolService } from "../../../../ai-engine/long-content/services";
-import {
+  ContinuationProtocolService,
   GranularityLevel,
   TaskEstimate,
   TaskDecomposition,
@@ -21,7 +19,7 @@ import {
   ContinuationState,
   ExpectedOutput,
   QualityDashboard,
-} from "../../../../ai-engine/long-content/interfaces";
+} from "../../../../ai-engine/long-content";
 
 /**
  * AI Teams 任务配置

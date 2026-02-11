@@ -32,6 +32,7 @@ interface PlanTeamPanelProps {
   onRetry: (phase: number) => void;
   onCancel?: () => void;
   onPhaseSelect?: (phase: number) => void;
+  onDepthChange?: (depth: 'quick' | 'standard' | 'comprehensive') => void;
   error?: string | null;
 }
 
@@ -53,6 +54,7 @@ const PHASE_STATUS_ICONS: Record<string, string> = {
   active: '\u{1F504}',
   completed: '\u{2705}',
   skipped: '\u{23ED}\u{FE0F}',
+  failed: '\u{274C}',
 };
 
 const PHASE_STATUS_COLORS: Record<string, string> = {
@@ -60,6 +62,7 @@ const PHASE_STATUS_COLORS: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700',
   completed: 'bg-green-100 text-green-700',
   skipped: 'bg-gray-100 text-gray-500',
+  failed: 'bg-red-100 text-red-700',
 };
 
 // Pentagon node positions (viewBox 320x200)
@@ -81,6 +84,7 @@ export function PlanTeamPanel({
   onRetry,
   onCancel,
   onPhaseSelect,
+  onDepthChange,
   error,
 }: PlanTeamPanelProps) {
   const { t } = useTranslation();
@@ -276,14 +280,21 @@ export function PlanTeamPanel({
               {(['quick', 'standard', 'comprehensive'] as const).map(
                 (depth) => {
                   const isSelected = plan.depth === depth;
+                  const canChange =
+                    !isMissionActive && !isAdvancing && onDepthChange;
                   return (
-                    <div
+                    <button
                       key={depth}
+                      type="button"
+                      disabled={!canChange}
+                      onClick={() => canChange && onDepthChange(depth)}
                       className={`rounded-md px-2 py-1.5 text-center text-xs transition-all ${
                         isSelected
                           ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
-                          : 'bg-gray-50 text-gray-400'
-                      }`}
+                          : canChange
+                            ? 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                            : 'bg-gray-50 text-gray-400'
+                      } ${!canChange ? 'cursor-default' : 'cursor-pointer'}`}
                     >
                       <div className="font-medium">
                         {t(`aiPlanning.team.depth.${depth}`)}
@@ -291,7 +302,7 @@ export function PlanTeamPanel({
                       <div className="mt-0.5 whitespace-nowrap text-[10px] opacity-70">
                         {t(`aiPlanning.team.depth.${depth}Desc`)}
                       </div>
-                    </div>
+                    </button>
                   );
                 }
               )}

@@ -5,7 +5,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { NotificationModule } from "../../core/notifications/notification.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
-import { PromptSkillBridge } from "../../ai-engine/skills/runtime";
+import { PromptSkillBridge } from "../../ai-engine/facade";
 import { CreditsModule } from "../../credits/credits.module";
 import { ExportModule } from "../../../common/export/export.module";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源

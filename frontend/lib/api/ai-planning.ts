@@ -43,10 +43,12 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
 // ==================== Types ====================
 
 export interface PlanPhaseStatus {
-  status: 'pending' | 'active' | 'completed' | 'skipped';
+  status: 'pending' | 'active' | 'completed' | 'skipped' | 'failed';
   missionId?: string;
+  debateSessionId?: string;
   summary?: string;
   completedAt?: string;
+  error?: string;
 }
 
 export interface PlanSummary {
@@ -144,6 +146,16 @@ export async function exportPlan(planId: string): Promise<string> {
   }
 
   return response.text();
+}
+
+export async function updatePlan(
+  planId: string,
+  dto: { name?: string; goal?: string; depth?: string }
+): Promise<PlanDetail> {
+  return fetchWithAuth(`/api/v1/ai-planning/${planId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(dto),
+  });
 }
 
 export async function deletePlan(planId: string): Promise<void> {

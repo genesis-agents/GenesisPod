@@ -5,3 +5,4 @@
 
 export { AIEngineFacade } from "./ai-engine.facade";
 export * from "./types";
+export { PromptSkillBridge } from "../skills/runtime";

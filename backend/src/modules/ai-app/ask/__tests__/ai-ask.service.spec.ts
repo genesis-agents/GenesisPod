@@ -97,6 +97,12 @@ describe("AiAskService", () => {
         apiKey: "sk-xxx",
       }),
       buildContext: jest.fn().mockResolvedValue(""),
+      isToolAvailable: jest.fn().mockReturnValue(false),
+      isToolExecutionAvailable: jest.fn().mockReturnValue(false),
+      chatWithToolsStream: jest.fn(),
+      sessionMemoryGet: jest.fn().mockResolvedValue(undefined),
+      sessionMemorySet: jest.fn().mockResolvedValue(undefined),
+      sessionMemoryClear: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({

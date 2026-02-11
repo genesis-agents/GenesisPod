@@ -782,3 +782,16 @@ export type ToolCategory =
   | "memory"
   | "export"
   | "collaboration";
+
+// ==================== Re-exports for AI App consumption ====================
+// Eliminates direct AI Engine internal imports from AI App modules
+
+export {
+  BUILTIN_TOOLS,
+  type BuiltinToolId,
+} from "../../core/types/agent.types";
+export type { AICapabilityContext } from "../../capabilities/ai-capability-resolver.service";
+export type {
+  ExecutionConfig,
+  AgentEvent,
+} from "../../orchestration/executors/function-calling-executor";

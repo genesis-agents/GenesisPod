@@ -29,6 +29,7 @@ export default function PlanDetailPage() {
     currentPlan,
     isLoadingDetail,
     fetchPlanDetail,
+    updatePlan,
     advancePhase,
     retryPhase,
     cancelPhase,
@@ -51,6 +52,20 @@ export default function PlanDetailPage() {
       fetchPlanDetail(planId);
     }
   }, [authLoading, isAuthenticated, planId, fetchPlanDetail]);
+
+  // Poll for plan updates when a phase is active (AI is working)
+  useEffect(() => {
+    if (!planId || !currentPlan) return;
+    const isActive = Object.values(currentPlan.phaseStatus).some(
+      (s) => s.status === 'active'
+    );
+    if (!isActive) return;
+
+    const interval = setInterval(() => {
+      fetchPlanDetail(planId);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [planId, currentPlan, fetchPlanDetail]);
 
   const handleAdvance = async () => {
     if (!planId) return;
@@ -138,13 +153,33 @@ export default function PlanDetailPage() {
     goal: string;
     depth: string;
   }) => {
-    // Optimistic: update local store, backend PATCH not yet available
-    if (currentPlan) {
-      useAiPlanningStore.setState({
-        currentPlan: { ...currentPlan, ...data },
-      });
+    if (!planId) return;
+    try {
+      await updatePlan(planId, data);
+      toast.success(t('aiPlanning.settings.saveSuccess'));
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('aiPlanning.error.updateFailed')
+      );
     }
-    toast.success(t('aiPlanning.settings.saveSuccess'));
+  };
+
+  const handleDepthChange = async (
+    depth: 'quick' | 'standard' | 'comprehensive'
+  ) => {
+    if (!planId) return;
+    try {
+      await updatePlan(planId, { depth });
+      toast.success(t('aiPlanning.settings.saveSuccess'));
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('aiPlanning.error.updateFailed')
+      );
+    }
   };
 
   // Left panel phase click → switch to Tasks tab and expand that phase
@@ -319,6 +354,7 @@ export default function PlanDetailPage() {
                     onRetry={handleRetry}
                     onCancel={handleCancel}
                     onPhaseSelect={handlePhaseSelect}
+                    onDepthChange={handleDepthChange}
                     error={phaseError}
                   />
                 </div>
@@ -330,6 +366,7 @@ export default function PlanDetailPage() {
           <div className="flex-1 overflow-hidden">
             <PlanContentPanel
               plan={currentPlan}
+              planId={planId}
               activeTab={contentTab}
               onTabChange={setContentTab}
               selectedPhase={selectedPhase}

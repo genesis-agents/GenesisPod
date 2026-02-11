@@ -6,12 +6,12 @@
  * Tab layout matching TopicContentPanel pattern:
  * 1. Tasks - 6-phase accordion with click-to-expand details
  * 2. Planning Report - Aggregated report markdown
- * 3. Activity Log - Timeline of phase transitions
+ * 3. Activity Log - Timeline from real topic messages
  *
- * Bottom: QuickCommandBar (disabled, placeholder for future chat)
+ * Bottom: Chat input (reusing AI Teams message API)
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { LayoutList, FileText, Clock, Send, ChevronDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils/common';
@@ -24,6 +24,8 @@ import {
   PLANNING_WORKFLOW_CONFIG,
   AGENT_KEY_TO_INDEX,
 } from '@/lib/constants/planning-roles';
+import { getMessages, sendMessage } from '@/lib/api/ai-teams';
+import type { TopicMessage } from '@/types/ai-teams';
 
 export type PlanContentTabType = 'phases' | 'report' | 'activity';
 
@@ -41,10 +43,12 @@ const PHASE_STATUS_COLORS: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700',
   completed: 'bg-green-100 text-green-700',
   skipped: 'bg-gray-100 text-gray-500',
+  failed: 'bg-red-100 text-red-700',
 };
 
 interface PlanContentPanelProps {
   plan: PlanDetail;
+  planId: string;
   className?: string;
   activeTab?: PlanContentTabType;
   onTabChange?: (tab: PlanContentTabType) => void;
@@ -55,6 +59,7 @@ interface PlanContentPanelProps {
 
 export function PlanContentPanel({
   plan,
+  planId,
   className,
   activeTab: controlledTab,
   onTabChange,
@@ -64,6 +69,11 @@ export function PlanContentPanel({
   const { t } = useTranslation();
   const [internalTab, setInternalTab] = useState<PlanContentTabType>('phases');
   const [expandedPhase, setExpandedPhase] = useState<number | null>(null);
+  const [chatInput, setChatInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [messages, setMessages] = useState<TopicMessage[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const activeTab = controlledTab ?? internalTab;
   const setActiveTab = (tab: PlanContentTabType) => {
@@ -81,59 +91,57 @@ export function PlanContentPanel({
     }
   }, [selectedPhase]);
 
+  // Fetch messages for activity log and chat
+  const fetchMessages = useCallback(async () => {
+    if (!planId) return;
+    setIsLoadingMessages(true);
+    try {
+      const result = await getMessages(planId, { limit: 100 });
+      setMessages(result.messages || []);
+    } catch {
+      // Silently fail — messages may not exist yet
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  }, [planId]);
+
+  // Load messages on mount and when plan updates
+  useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages, plan.updatedAt]);
+
+  // Poll for new messages when a phase is active
+  useEffect(() => {
+    const isActive = Object.values(plan.phaseStatus).some(
+      (s) => s.status === 'active'
+    );
+    if (!isActive) return;
+
+    const interval = setInterval(fetchMessages, 5000);
+    return () => clearInterval(interval);
+  }, [plan.phaseStatus, fetchMessages]);
+
+  // Send chat message
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || !planId || isSending) return;
+
+    setIsSending(true);
+    try {
+      await sendMessage(planId, { content: chatInput.trim() });
+      setChatInput('');
+      await fetchMessages();
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } catch {
+      // Error handling — toast is managed by caller
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   // Count completed phases for badge
   const completedCount = Object.values(plan.phaseStatus).filter(
     (s) => s.status === 'completed'
   ).length;
-
-  // Build activity log from phaseStatus completedAt timestamps
-  const activityLog = useMemo(() => {
-    const entries: Array<{
-      id: string;
-      time: string;
-      label: string;
-      type: 'created' | 'started' | 'completed';
-    }> = [];
-
-    entries.push({
-      id: 'created',
-      time: plan.createdAt,
-      label: t('aiPlanning.content.planCreated'),
-      type: 'created',
-    });
-
-    for (let phase = 1; phase <= plan.totalPhases; phase++) {
-      const status = plan.phaseStatus[phase];
-      if (!status) continue;
-
-      const phaseKey = PHASE_KEYS[phase];
-      const phaseName = t(`aiPlanning.phases.${phaseKey}`);
-
-      if (status.status === 'active' || status.status === 'completed') {
-        entries.push({
-          id: `phase-${phase}-start`,
-          time: plan.updatedAt,
-          label: `${phaseName} ${t('aiPlanning.content.phaseStarted')}`,
-          type: 'started',
-        });
-      }
-
-      if (status.status === 'completed' && status.completedAt) {
-        entries.push({
-          id: `phase-${phase}-done`,
-          time: status.completedAt,
-          label: `${phaseName} ${t('aiPlanning.content.phaseCompleted')}`,
-          type: 'completed',
-        });
-      }
-    }
-
-    entries.sort(
-      (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
-    );
-
-    return entries;
-  }, [plan, t]);
 
   // Combine all completed phase summaries into a report
   const reportContent = useMemo(() => {
@@ -173,7 +181,7 @@ export function PlanContentPanel({
       key: 'activity',
       label: t('aiPlanning.content.activityLog'),
       icon: <Clock className="h-4 w-4" />,
-      badge: activityLog.length > 0 ? activityLog.length : undefined,
+      badge: messages.length > 0 ? messages.length : undefined,
     },
   ];
 
@@ -275,10 +283,14 @@ export function PlanContentPanel({
           </div>
         )}
 
-        {/* Activity Log Tab */}
+        {/* Activity Log Tab - Fix 6: Real messages from topic */}
         {activeTab === 'activity' && (
           <div className="p-4">
-            {activityLog.length === 0 ? (
+            {isLoadingMessages && messages.length === 0 ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+              </div>
+            ) : messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-gray-400">
                 <Clock className="mb-3 h-10 w-10 text-gray-300" />
                 <p className="text-sm">{t('aiPlanning.content.noActivity')}</p>
@@ -287,26 +299,55 @@ export function PlanContentPanel({
               <div className="relative">
                 <div className="absolute bottom-0 left-3 top-0 w-px bg-gray-200" />
                 <div className="space-y-4">
-                  {activityLog.map((entry) => (
-                    <div key={entry.id} className="relative flex gap-3 pl-1">
-                      <div
-                        className={cn(
-                          'relative z-10 mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white',
-                          entry.type === 'completed'
-                            ? 'bg-green-500'
-                            : entry.type === 'started'
-                              ? 'bg-amber-400'
-                              : 'bg-blue-400'
-                        )}
-                      />
-                      <div className="flex-1 pb-1">
-                        <p className="text-sm text-gray-700">{entry.label}</p>
-                        <p className="text-xs text-gray-400">
-                          {formatTime(entry.time)}
-                        </p>
+                  {messages.map((msg) => {
+                    const isAI = !!msg.aiMemberId;
+                    const isUser = !!msg.senderId;
+
+                    return (
+                      <div key={msg.id} className="relative flex gap-3 pl-1">
+                        <div
+                          className={cn(
+                            'relative z-10 mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white',
+                            isAI
+                              ? 'bg-blue-500'
+                              : isUser
+                                ? 'bg-green-500'
+                                : 'bg-gray-400'
+                          )}
+                        />
+                        <div className="flex-1 pb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-800">
+                              {isAI
+                                ? msg.aiMember?.displayName || 'AI'
+                                : msg.sender?.fullName ||
+                                  msg.sender?.username ||
+                                  t('aiPlanning.content.user')}
+                            </span>
+                            {isAI && msg.modelUsed && (
+                              <ModelBadge
+                                modelId={msg.modelUsed}
+                                variant="subtle"
+                              />
+                            )}
+                          </div>
+                          <div className="mt-1 text-sm text-gray-700">
+                            <div className="prose prose-sm max-w-none">
+                              <ReactMarkdown>
+                                {msg.content.length > 500
+                                  ? `${msg.content.slice(0, 500)}...`
+                                  : msg.content}
+                              </ReactMarkdown>
+                            </div>
+                          </div>
+                          <p className="mt-1 text-xs text-gray-400">
+                            {formatTime(msg.createdAt)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
                 </div>
               </div>
             )}
@@ -314,22 +355,39 @@ export function PlanContentPanel({
         )}
       </div>
 
-      {/* Bottom: QuickCommandBar placeholder */}
+      {/* Bottom: Chat input - Fix 5: Enabled, reusing AI Teams message API */}
       <div className="shrink-0 border-t border-gray-200 bg-gray-50/50 px-4 py-3">
         <div className="flex gap-2">
           <div className="flex-1">
             <textarea
               rows={1}
-              disabled
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
               placeholder={t('aiPlanning.content.inputPlaceholder')}
-              className="w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm leading-relaxed text-gray-500 placeholder:text-gray-400 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:opacity-60"
+              className="w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm leading-relaxed text-gray-700 placeholder:text-gray-400 focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
             />
           </div>
           <button
-            disabled
-            className="shrink-0 self-end rounded-lg bg-blue-600 px-4 py-2.5 text-white opacity-50"
+            onClick={handleSendMessage}
+            disabled={!chatInput.trim() || isSending}
+            className={cn(
+              'shrink-0 self-end rounded-lg px-4 py-2.5 text-white transition-colors',
+              chatInput.trim() && !isSending
+                ? 'bg-blue-600 hover:bg-blue-700'
+                : 'cursor-not-allowed bg-blue-600 opacity-50'
+            )}
           >
-            <Send className="h-4 w-4" />
+            {isSending ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </button>
         </div>
       </div>

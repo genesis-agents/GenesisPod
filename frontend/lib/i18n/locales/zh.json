@@ -1030,7 +1030,8 @@
       "pending": "待启动",
       "active": "进行中",
       "completed": "已完成",
-      "skipped": "已跳过"
+      "skipped": "已跳过",
+      "failed": "失败"
     },
     "actions": {
       "advancePhase": "推进到下一阶段",
@@ -1089,7 +1090,8 @@
       "advanceFailed": "推进阶段失败",
       "retryFailed": "重试阶段失败",
       "cancelFailed": "取消阶段失败",
-      "exportFailed": "导出失败"
+      "exportFailed": "导出失败",
+      "updateFailed": "更新策划失败"
     },
     "signIn": "请登录以访问 AI 策划",
     "signInRequired": "请登录以访问 AI 策划",
@@ -1142,7 +1144,8 @@
       "planCreated": "策划已创建",
       "phaseStarted": "已启动",
       "phaseCompleted": "已完成",
-      "inputPlaceholder": "策划对话能力即将上线...",
+      "inputPlaceholder": "输入消息与策划团队对话...",
+      "user": "用户",
       "phaseDescription": "阶段说明",
       "participatingAgents": "参与 Agent",
       "phaseOutput": "阶段产出",

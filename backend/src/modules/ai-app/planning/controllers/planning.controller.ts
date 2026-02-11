@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
@@ -22,6 +23,7 @@ import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { PlanningOrchestratorService } from "../services/planning-orchestrator.service";
 import { PlanningTemplateService } from "../services/planning-template.service";
 import { CreatePlanDto } from "../dto/create-plan.dto";
+import { UpdatePlanDto } from "../dto/update-plan.dto";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 
 @ApiTags("AI Planning")
@@ -69,6 +71,17 @@ export class PlanningController {
     @Param("planId") planId: string,
   ) {
     return this.orchestrator.getPlanDetail(planId, req.user.id);
+  }
+
+  @Patch(":planId")
+  @ApiOperation({ summary: "更新策划设置" })
+  @ApiResponse({ status: 200, description: "策划更新成功" })
+  async updatePlan(
+    @Request() req: RequestWithUser,
+    @Param("planId") planId: string,
+    @Body() dto: UpdatePlanDto,
+  ) {
+    return this.orchestrator.updatePlan(planId, req.user.id, dto);
   }
 
   @Post(":planId/advance")

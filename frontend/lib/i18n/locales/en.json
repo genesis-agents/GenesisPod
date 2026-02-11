@@ -1030,7 +1030,8 @@
       "pending": "Pending",
       "active": "In Progress",
       "completed": "Completed",
-      "skipped": "Skipped"
+      "skipped": "Skipped",
+      "failed": "Failed"
     },
     "actions": {
       "advancePhase": "Advance to Next Phase",
@@ -1089,7 +1090,8 @@
       "advanceFailed": "Failed to advance phase",
       "retryFailed": "Failed to retry phase",
       "cancelFailed": "Failed to cancel phase",
-      "exportFailed": "Export failed"
+      "exportFailed": "Export failed",
+      "updateFailed": "Failed to update plan"
     },
     "signIn": "Please sign in to access AI Planning",
     "signInRequired": "Please sign in to access AI Planning",
@@ -1142,7 +1144,8 @@
       "planCreated": "Plan created",
       "phaseStarted": "started",
       "phaseCompleted": "completed",
-      "inputPlaceholder": "Planning chat coming soon...",
+      "inputPlaceholder": "Type a message to chat with the planning team...",
+      "user": "User",
       "phaseDescription": "Phase Description",
       "participatingAgents": "Participating Agents",
       "phaseOutput": "Phase Output",

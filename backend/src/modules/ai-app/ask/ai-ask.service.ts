@@ -5,16 +5,14 @@ import {
   Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AIEngineFacade } from "../../ai-engine/facade";
-import { AIModelType } from "@prisma/client";
 import {
-  FunctionCallingExecutor,
-  ExecutionConfig,
-} from "../../ai-engine/orchestration/executors/function-calling-executor";
-import { BUILTIN_TOOLS, BuiltinToolId } from "../../ai-engine/core";
-import { ToolRegistry } from "../../ai-engine/tools/registry";
-import { AICapabilityContext } from "../../ai-engine/capabilities/ai-capability-resolver.service";
-import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
+  AIEngineFacade,
+  BUILTIN_TOOLS,
+  type BuiltinToolId,
+  type AICapabilityContext,
+  type ExecutionConfig,
+} from "../../ai-engine/facade";
+import { AIModelType } from "@prisma/client";
 import { RAGPipelineService } from "../rag/services/rag-pipeline.service";
 import { CreditsService } from "../../credits/credits.service";
 import { InsufficientCreditsException } from "../../credits/exceptions/insufficient-credits.exception";
@@ -23,7 +21,6 @@ import {
   DEEPDIVE_ENGINE_CONTEXT,
   isProjectRelatedQuery,
 } from "./constants/project-context";
-import { ShortTermMemoryService } from "../../ai-engine/memory/stores/short-term-memory.service";
 import {
   ASK_BASE_SYSTEM_PROMPT,
   ASK_RESPONSE_GUIDELINES,
@@ -64,25 +61,15 @@ export class AiAskService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
-    @Optional()
-    private readonly functionCallingExecutor: FunctionCallingExecutor,
-    @Optional()
-    private readonly functionCallingLLMAdapter: FunctionCallingLLMAdapter,
-    @Optional() private readonly toolRegistry: ToolRegistry,
     @Optional() private readonly ragPipelineService: RAGPipelineService,
     @Optional() private readonly creditsService: CreditsService,
-    @Optional() private readonly shortTermMemory: ShortTermMemoryService,
   ) {}
 
   /**
    * 检查工具能力是否可用
    */
   private isToolCapabilityAvailable(): boolean {
-    return !!(
-      this.functionCallingExecutor &&
-      this.functionCallingLLMAdapter &&
-      this.toolRegistry
-    );
+    return this.aiFacade.isToolExecutionAvailable();
   }
 
   /**
@@ -92,7 +79,7 @@ export class AiAskService {
     if (!this.isToolCapabilityAvailable()) {
       return [];
     }
-    return AI_ASK_TOOLS.filter((tool) => this.toolRegistry.has(tool));
+    return AI_ASK_TOOLS.filter((tool) => this.aiFacade.isToolAvailable(tool));
   }
 
   /**
@@ -171,7 +158,7 @@ export class AiAskService {
       orderBy: { createdAt: "asc" },
     });
 
-    if (this.shortTermMemory && messages.length > 0) {
+    if (messages.length > 0) {
       try {
         const contextMessages = messages
           .slice(-this.MAX_MEMORY_MESSAGES)
@@ -179,7 +166,7 @@ export class AiAskService {
             role: m.role as "user" | "assistant" | "system",
             content: this.sanitizeMessageContent(m.content),
           }));
-        await this.shortTermMemory.setWithSession(
+        await this.aiFacade.sessionMemorySet(
           sessionId,
           this.MEMORY_KEY,
           contextMessages,
@@ -235,15 +222,13 @@ export class AiAskService {
     });
 
     // 清理 ShortTermMemory 中的对话历史
-    if (this.shortTermMemory) {
-      try {
-        await this.shortTermMemory.clearSession(sessionId);
-        this.logger.debug(
-          `[deleteSession] Cleared memory for session ${sessionId}`,
-        );
-      } catch (error) {
-        this.logger.warn(`[deleteSession] Failed to clear memory: ${error}`);
-      }
+    try {
+      await this.aiFacade.sessionMemoryClear(sessionId);
+      this.logger.debug(
+        `[deleteSession] Cleared memory for session ${sessionId}`,
+      );
+    } catch (error) {
+      this.logger.warn(`[deleteSession] Failed to clear memory: ${error}`);
     }
 
     return { success: true };
@@ -385,14 +370,6 @@ export class AiAskService {
               `[sendMessage] Using tool-enabled mode for session ${sessionId}`,
             );
 
-            // 配置 LLM 适配器（使用 AI Engine 的 FunctionCallingLLMAdapter）
-            this.functionCallingLLMAdapter.setConfig({
-              provider: modelConfig.provider,
-              modelId: modelConfig.modelId,
-              apiKey: modelConfig.apiKey ?? undefined,
-              apiEndpoint: modelConfig.apiEndpoint ?? undefined,
-            });
-
             // 构建系统提示词（包含 RAG 上下文和项目上下文）
             const systemPrompt = this.buildSystemPromptWithContext(
               contextMessages,
@@ -417,17 +394,19 @@ export class AiAskService {
               },
             };
 
-            // T2 Fix: 使用 executeWithContext() 替代 execute()
-            // executeWithContext() 会：
-            // 1. 通过 AICapabilityResolver 解析可用工具（尊重 enabled/disabled 状态）
-            // 2. 自动记录工具使用日志
-            const events = this.functionCallingExecutor.executeWithContext(
-              this.functionCallingLLMAdapter,
+            // 通过 Facade 的 chatWithToolsStream 执行工具调用
+            const events = this.aiFacade.chatWithToolsStream({
               systemPrompt,
-              dto.content,
-              capabilityContext,
+              userPrompt: dto.content,
+              context: capabilityContext,
+              modelConfig: {
+                provider: modelConfig.provider,
+                modelId: modelConfig.modelId,
+                apiKey: modelConfig.apiKey ?? undefined,
+                apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+              },
               executionConfig,
-            );
+            });
 
             // 收集执行结果
             let finalContent = "";
@@ -794,35 +773,33 @@ export class AiAskService {
         },
       });
 
-      if (this.shortTermMemory) {
-        try {
-          await this.shortTermMemory.clearSession(sessionId);
-          // Rebuild cache from DB to prevent stale reads
-          const freshMessages = await this.prisma.askMessage.findMany({
-            where: { sessionId },
-            orderBy: { createdAt: "desc" },
-            take: this.MAX_MEMORY_MESSAGES,
-          });
-          if (freshMessages.length > 0) {
-            const orderedMessages = freshMessages.reverse();
-            const updatedHistory: MessageWithContext[] = orderedMessages.map(
-              (m) => ({
-                role: m.role as "user" | "assistant" | "system",
-                content: this.sanitizeMessageContent(m.content),
-              }),
-            );
-            await this.shortTermMemory.setWithSession(
-              sessionId,
-              this.MEMORY_KEY,
-              updatedHistory,
-              this.MEMORY_TTL,
-            );
-          }
-        } catch (error) {
-          this.logger.warn(
-            `Failed to rebuild cache after regeneration: ${(error as Error).message}`,
+      try {
+        await this.aiFacade.sessionMemoryClear(sessionId);
+        // Rebuild cache from DB to prevent stale reads
+        const freshMessages = await this.prisma.askMessage.findMany({
+          where: { sessionId },
+          orderBy: { createdAt: "desc" },
+          take: this.MAX_MEMORY_MESSAGES,
+        });
+        if (freshMessages.length > 0) {
+          const orderedMessages = freshMessages.reverse();
+          const updatedHistory: MessageWithContext[] = orderedMessages.map(
+            (m) => ({
+              role: m.role as "user" | "assistant" | "system",
+              content: this.sanitizeMessageContent(m.content),
+            }),
+          );
+          await this.aiFacade.sessionMemorySet(
+            sessionId,
+            this.MEMORY_KEY,
+            updatedHistory,
+            this.MEMORY_TTL,
           );
         }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to rebuild cache after regeneration: ${(error as Error).message}`,
+        );
       }
 
       return updatedMessage;
@@ -844,24 +821,20 @@ export class AiAskService {
     // 尝试从 ShortTermMemory 获取缓存的对话历史
     let contextMessages: MessageWithContext[] = [];
 
-    if (this.shortTermMemory) {
-      try {
-        const cachedHistory = await this.shortTermMemory.getWithSession(
-          sessionId,
-          this.MEMORY_KEY,
-        );
+    try {
+      const cachedHistory = await this.aiFacade.sessionMemoryGet(
+        sessionId,
+        this.MEMORY_KEY,
+      );
 
-        if (cachedHistory && Array.isArray(cachedHistory)) {
-          this.logger.debug(
-            `[buildContext] Using cached conversation history: ${cachedHistory.length} messages`,
-          );
-          contextMessages = cachedHistory as MessageWithContext[];
-        }
-      } catch (error) {
-        this.logger.warn(
-          `[buildContext] Failed to get cached history: ${error}`,
+      if (cachedHistory && Array.isArray(cachedHistory)) {
+        this.logger.debug(
+          `[buildContext] Using cached conversation history: ${cachedHistory.length} messages`,
         );
+        contextMessages = cachedHistory as MessageWithContext[];
       }
+    } catch (error) {
+      this.logger.warn(`[buildContext] Failed to get cached history: ${error}`);
     }
 
     // 如果缓存未命中，从数据库加载
@@ -927,10 +900,6 @@ export class AiAskService {
     _userMessage: MessageWithContext,
     _assistantMessage: MessageWithContext,
   ): Promise<void> {
-    if (!this.shortTermMemory) {
-      return;
-    }
-
     try {
       const messages = await this.prisma.askMessage.findMany({
         where: { sessionId },
@@ -945,7 +914,7 @@ export class AiAskService {
         content: this.sanitizeMessageContent(m.content),
       }));
 
-      await this.shortTermMemory.setWithSession(
+      await this.aiFacade.sessionMemorySet(
         sessionId,
         this.MEMORY_KEY,
         updatedHistory,
