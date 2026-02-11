@@ -66,7 +66,7 @@ import { IngestionConfigModule } from "./modules/ingestion/config/config.module"
 import { SchedulerModule } from "./modules/ingestion/scheduler/scheduler.module";
 // Integration modules
 import { ProxyModule } from "./modules/integrations/proxy/proxy.module";
-import { WechatWorkModule } from "./modules/integrations/wechat-work/wechat-work.module";
+import { FeishuModule } from "./modules/integrations/feishu/feishu.module";
 import { NotionModule } from "./modules/integrations/notion/notion.module";
 import { GoogleDriveModule } from "./modules/integrations/google-drive/google-drive.module";
 import { AiFileOrganizerModule } from "./modules/integrations/ai-file-organizer/ai-file-organizer.module";
@@ -179,7 +179,7 @@ import { RequestContextMiddleware } from "./common/context/request-context.middl
 
     // Integration modules
     ProxyModule,
-    WechatWorkModule,
+    FeishuModule,
     NotionModule,
     GoogleDriveModule,
     AiFileOrganizerModule,

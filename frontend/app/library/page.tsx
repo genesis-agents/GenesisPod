@@ -172,7 +172,7 @@ type DataSourceSubTab =
   | 'images'
   | 'notion'
   | 'google-drive'
-  | 'wechat';
+  | 'feishu';
 
 interface YouTubeVideo {
   id: string;

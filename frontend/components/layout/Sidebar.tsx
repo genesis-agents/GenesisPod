@@ -476,6 +476,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             }`}
             title={t('nav.aiInsights')}
           >
+            {/* AI Insights Icon - Eye with sparkle (distinct from AI Ask lightbulb) */}
             <svg
               className="h-5 w-5 flex-shrink-0"
               fill="none"
@@ -486,7 +487,13 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
               />
             </svg>
             {showExpanded && <span>{t('nav.aiInsights')}</span>}

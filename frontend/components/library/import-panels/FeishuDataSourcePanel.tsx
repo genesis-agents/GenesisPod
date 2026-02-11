@@ -2,64 +2,62 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  MessageCircle,
   CheckCircle2,
   XCircle,
   RefreshCw,
   Loader2,
   FileText,
-  Video,
+  Table,
+  Database,
   Link as LinkIcon,
   Copy,
   ExternalLink,
   Trash2,
-  Database,
   Plus,
+  Zap,
+  BookOpen,
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { formatDateSafe } from '@/lib/utils/date';
-
 import { logger } from '@/lib/utils/logger';
-interface WechatItem {
+
+interface FeishuItem {
   id: string;
-  type: 'ARTICLE' | 'VIDEO' | 'EXTERNAL';
+  type: 'WIKI_NODE' | 'DOC' | 'SHEET' | 'BITABLE' | 'EXTERNAL';
   title: string;
   description: string | null;
   sourceUrl: string;
-  thumbnail: string | null;
+  content: string | null;
+  nodeToken: string | null;
   author: string | null;
-  source: string | null;
-  publishedAt: string | null;
   syncedAt: string;
   syncedToRag: boolean;
   ragKnowledgeBaseId: string | null;
   createdAt: string;
 }
 
-interface WechatStats {
+interface FeishuStats {
   totalItems: number;
-  articleCount: number;
-  videoCount: number;
+  wikiNodeCount: number;
+  docCount: number;
+  sheetCount: number;
+  bitableCount: number;
   externalCount: number;
   syncedToRagCount: number;
   lastSyncAt: string | null;
 }
 
-interface WechatStatus {
+interface FeishuStatus {
   isConnected: boolean;
-  corpId: string | null;
-  stats: WechatStats;
+  appId: string | null;
+  stats: FeishuStats;
 }
 
-/**
- * WeChat 数据源面板
- * 显示企业微信连接状态和同步的内容
- */
-export default function WechatDataSourcePanel() {
+export default function FeishuDataSourcePanel() {
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<WechatStatus | null>(null);
-  const [items, setItems] = useState<WechatItem[]>([]);
+  const [status, setStatus] = useState<FeishuStatus | null>(null);
+  const [items, setItems] = useState<FeishuItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showAddUrl, setShowAddUrl] = useState(false);
@@ -67,47 +65,43 @@ export default function WechatDataSourcePanel() {
   const [addingUrl, setAddingUrl] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 获取 WeChat 数据源状态
   const fetchStatus = useCallback(async () => {
     try {
       const response = await fetch(
-        `${config.apiUrl}/wechat-data-source/status`,
+        `${config.apiUrl}/feishu-data-source/status`,
         {
           headers: { ...getAuthHeader() },
         }
       );
       if (response.ok) {
         const result = await response.json();
-        // Handle wrapped API response { success: true, data: T }
         const data = result?.data ?? result;
         setStatus(data);
       }
     } catch (error) {
-      logger.error('Failed to fetch WeChat status:', error);
+      logger.error('Failed to fetch Feishu status:', error);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // 获取同步的内容
   const fetchItems = useCallback(async () => {
     setLoadingItems(true);
     setError(null);
     try {
       const response = await fetch(
-        `${config.apiUrl}/wechat-data-source/items?limit=50`,
+        `${config.apiUrl}/feishu-data-source/items?limit=50`,
         {
           headers: { ...getAuthHeader() },
         }
       );
       if (response.ok) {
         const result = await response.json();
-        // Handle wrapped API response { success: true, data: T }
         const data = result?.data ?? result;
         setItems(data.items || []);
       }
     } catch (error) {
-      logger.error('Failed to fetch WeChat items:', error);
+      logger.error('Failed to fetch Feishu items:', error);
       setError('加载内容失败');
     } finally {
       setLoadingItems(false);
@@ -121,10 +115,14 @@ export default function WechatDataSourcePanel() {
 
   const getItemIcon = (type: string) => {
     switch (type) {
-      case 'ARTICLE':
+      case 'WIKI_NODE':
+        return <BookOpen className="h-4 w-4 text-blue-500" />;
+      case 'DOC':
         return <FileText className="h-4 w-4 text-blue-500" />;
-      case 'VIDEO':
-        return <Video className="h-4 w-4 text-red-500" />;
+      case 'SHEET':
+        return <Table className="h-4 w-4 text-green-500" />;
+      case 'BITABLE':
+        return <Database className="h-4 w-4 text-purple-500" />;
       default:
         return <LinkIcon className="h-4 w-4 text-gray-500" />;
     }
@@ -132,10 +130,14 @@ export default function WechatDataSourcePanel() {
 
   const getItemTypeLabel = (type: string) => {
     switch (type) {
-      case 'ARTICLE':
-        return '公众号文章';
-      case 'VIDEO':
-        return '视频号';
+      case 'WIKI_NODE':
+        return 'Wiki';
+      case 'DOC':
+        return '云文档';
+      case 'SHEET':
+        return '电子表格';
+      case 'BITABLE':
+        return '多维表格';
       default:
         return '外部链接';
     }
@@ -148,7 +150,7 @@ export default function WechatDataSourcePanel() {
   const handleDeleteItem = async (itemId: string) => {
     try {
       const response = await fetch(
-        `${config.apiUrl}/wechat-data-source/items/${itemId}`,
+        `${config.apiUrl}/feishu-data-source/items/${itemId}`,
         {
           method: 'DELETE',
           headers: { ...getAuthHeader() },
@@ -161,7 +163,7 @@ export default function WechatDataSourcePanel() {
           next.delete(itemId);
           return next;
         });
-        fetchStatus(); // Refresh stats
+        fetchStatus();
       }
     } catch (error) {
       logger.error('Failed to delete item:', error);
@@ -173,7 +175,7 @@ export default function WechatDataSourcePanel() {
 
     try {
       const response = await fetch(
-        `${config.apiUrl}/wechat-data-source/items/batch-delete`,
+        `${config.apiUrl}/feishu-data-source/items/batch-delete`,
         {
           method: 'POST',
           headers: {
@@ -186,7 +188,7 @@ export default function WechatDataSourcePanel() {
       if (response.ok) {
         setItems(items.filter((item) => !selectedItems.has(item.id)));
         setSelectedItems(new Set());
-        fetchStatus(); // Refresh stats
+        fetchStatus();
       }
     } catch (error) {
       logger.error('Failed to batch delete items:', error);
@@ -201,7 +203,7 @@ export default function WechatDataSourcePanel() {
 
     try {
       const response = await fetch(
-        `${config.apiUrl}/wechat-data-source/items`,
+        `${config.apiUrl}/feishu-data-source/items`,
         {
           method: 'POST',
           headers: {
@@ -219,7 +221,6 @@ export default function WechatDataSourcePanel() {
         fetchStatus();
       } else {
         const result = await response.json();
-        // Handle wrapped API response { success: true, data: T }
         const data = result?.data ?? result;
         setError(data.message || '添加失败');
       }
@@ -254,32 +255,32 @@ export default function WechatDataSourcePanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* 连接状态 */}
-      <div className="rounded-xl border-2 border-green-200 bg-white p-6">
+      {/* Connection status */}
+      <div className="rounded-xl border-2 border-blue-200 bg-white p-6">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-green-100">
-              <MessageCircle className="h-7 w-7 text-green-600" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-100">
+              <Zap className="h-7 w-7 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">企业微信</h3>
+              <h3 className="text-lg font-semibold text-gray-900">飞书</h3>
               <p className="text-sm text-gray-500">
-                通过企业微信同步公众号文章和视频号内容
+                通过飞书同步 Wiki 知识库和云文档内容
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {status?.isConnected ? (
               <>
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
-                <span className="text-sm font-medium text-green-600">
+                <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                <span className="text-sm font-medium text-blue-600">
                   已连接
                 </span>
               </>
@@ -292,13 +293,13 @@ export default function WechatDataSourcePanel() {
           </div>
         </div>
 
-        {status?.isConnected && status.corpId && (
+        {status?.isConnected && status.appId && (
           <div className="mt-4 text-sm text-gray-500">
-            企业ID: {status.corpId}
+            App ID: {status.appId}
           </div>
         )}
 
-        {/* 统计信息 */}
+        {/* Stats */}
         {status?.stats && status.stats.totalItems > 0 && (
           <div className="mt-4 grid grid-cols-4 gap-4 border-t border-gray-100 pt-4">
             <div className="text-center">
@@ -309,15 +310,15 @@ export default function WechatDataSourcePanel() {
             </div>
             <div className="text-center">
               <div className="text-2xl font-semibold text-blue-600">
-                {status.stats.articleCount}
+                {status.stats.wikiNodeCount + status.stats.docCount}
               </div>
-              <div className="text-xs text-gray-500">文章</div>
+              <div className="text-xs text-gray-500">文档</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-semibold text-red-600">
-                {status.stats.videoCount}
+              <div className="text-2xl font-semibold text-green-600">
+                {status.stats.sheetCount + status.stats.bitableCount}
               </div>
-              <div className="text-xs text-gray-500">视频</div>
+              <div className="text-xs text-gray-500">表格</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-semibold text-purple-600">
@@ -329,18 +330,18 @@ export default function WechatDataSourcePanel() {
         )}
       </div>
 
-      {/* 使用说明 */}
-      <div className="rounded-lg border border-green-100 bg-green-50 p-4">
-        <h4 className="text-sm font-medium text-green-900">如何使用</h4>
-        <ol className="mt-2 list-inside list-decimal space-y-1 text-sm text-green-700">
-          <li>在个人微信中复制公众号文章或视频号链接</li>
-          <li>打开企业微信 App → 工作台 → 找到同步应用</li>
-          <li>粘贴链接发送，系统会自动同步到此处</li>
+      {/* Usage guide */}
+      <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+        <h4 className="text-sm font-medium text-blue-900">如何使用</h4>
+        <ol className="mt-2 list-inside list-decimal space-y-1 text-sm text-blue-700">
+          <li>在飞书中向机器人发送文档链接或 Wiki 地址</li>
+          <li>系统会自动同步内容到此处</li>
           <li>可以选择内容同步到 RAG 知识库进行 AI 检索</li>
+          <li>也可以手动添加任意 URL 到数据源</li>
         </ol>
       </div>
 
-      {/* 已同步的内容 */}
+      {/* Synced content list */}
       <div>
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -383,7 +384,7 @@ export default function WechatDataSourcePanel() {
           </div>
         </div>
 
-        {/* 手动添加 URL */}
+        {/* Add URL form */}
         {showAddUrl && (
           <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
             <div className="flex gap-2">
@@ -391,13 +392,13 @@ export default function WechatDataSourcePanel() {
                 type="url"
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
-                placeholder="粘贴微信文章或视频链接..."
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                placeholder="粘贴飞书文档链接或任意 URL..."
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
               <button
                 onClick={handleAddUrl}
                 disabled={addingUrl || !newUrl.trim()}
-                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
               >
                 {addingUrl ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -412,15 +413,15 @@ export default function WechatDataSourcePanel() {
 
         {items.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-300 py-12 text-center">
-            <MessageCircle className="mx-auto h-12 w-12 text-gray-300" />
+            <Zap className="mx-auto h-12 w-12 text-gray-300" />
             <p className="mt-4 text-sm text-gray-500">暂无同步的内容</p>
             <p className="mt-1 text-xs text-gray-400">
-              在企业微信中发送链接即可同步
+              在飞书中向机器人发送链接即可同步
             </p>
           </div>
         ) : (
           <div className="space-y-2">
-            {/* 全选 */}
+            {/* Select all */}
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <input
                 type="checkbox"
@@ -438,7 +439,7 @@ export default function WechatDataSourcePanel() {
                 key={item.id}
                 className={`flex items-center gap-3 rounded-lg border bg-white p-4 transition-colors hover:bg-gray-50 ${
                   selectedItems.has(item.id)
-                    ? 'border-green-300 bg-green-50'
+                    ? 'border-blue-300 bg-blue-50'
                     : 'border-gray-200'
                 }`}
               >
@@ -462,7 +463,7 @@ export default function WechatDataSourcePanel() {
                     {item.author && <span>作者: {item.author}</span>}
                     <span>{formatDateSafe(item.syncedAt, 'date')}</span>
                     {item.syncedToRag && (
-                      <span className="flex items-center gap-1 text-green-600">
+                      <span className="flex items-center gap-1 text-blue-600">
                         <Database className="h-3 w-3" />
                         已入库
                       </span>

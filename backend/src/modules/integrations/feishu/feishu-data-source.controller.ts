@@ -1,6 +1,6 @@
 /**
- * WeChat Data Source Controller
- * API endpoints for managing WeChat synced items
+ * Feishu Data Source Controller
+ * API endpoints for managing Feishu synced items
  */
 
 import {
@@ -12,7 +12,6 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
   Req,
   Logger,
   HttpException,
@@ -26,24 +25,23 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { WechatDataSourceService } from "./wechat-data-source.service";
-import { WechatWorkCryptoService } from "./wechat-work-crypto.service";
-import { WechatItemType } from "@prisma/client";
+import { FeishuDataSourceService } from "./feishu-data-source.service";
+import { FeishuAuthService } from "./feishu-auth.service";
+import { FeishuItemType } from "@prisma/client";
 
 interface AuthenticatedRequest extends Request {
   user?: { id: string };
 }
 
-@ApiTags("WeChat Data Source")
-@Controller("wechat-data-source")
+@ApiTags("Feishu Data Source")
+@Controller("feishu-data-source")
 @ApiBearerAuth()
-export class WechatDataSourceController {
-  private readonly logger = new Logger(WechatDataSourceController.name);
+export class FeishuDataSourceController {
+  private readonly logger = new Logger(FeishuDataSourceController.name);
 
   constructor(
-    private readonly wechatDataSourceService: WechatDataSourceService,
-    private readonly wechatCryptoService: WechatWorkCryptoService,
+    private readonly feishuDataSourceService: FeishuDataSourceService,
+    private readonly feishuAuthService: FeishuAuthService,
   ) {}
 
   private getUserId(req: AuthenticatedRequest): string {
@@ -55,44 +53,40 @@ export class WechatDataSourceController {
   }
 
   /**
-   * Get WeChat data source status and stats
+   * Get Feishu data source status and stats
    */
   @Get("status")
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "Get WeChat data source status and statistics" })
+  @ApiOperation({ summary: "Get Feishu data source status and statistics" })
   @ApiResponse({
     status: 200,
-    description: "Returns WeChat data source status",
+    description: "Returns Feishu data source status",
   })
   async getStatus(@Req() req: AuthenticatedRequest) {
     const userId = this.getUserId(req);
-    const isConfigured = this.wechatCryptoService.isConfigured();
-    const stats = await this.wechatDataSourceService.getStats(userId);
+    const isConfigured = this.feishuAuthService.isConfigured();
+    const stats = await this.feishuDataSourceService.getStats(userId);
 
     return {
       isConnected: isConfigured,
-      corpId: isConfigured
-        ? `${this.wechatCryptoService.getCorpId().substring(0, 4)}****`
-        : null,
+      appId: isConfigured ? this.feishuAuthService.getMaskedAppId() : null,
       stats,
     };
   }
 
   /**
-   * List WeChat items
+   * List Feishu items
    */
   @Get("items")
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "List WeChat items" })
+  @ApiOperation({ summary: "List Feishu items" })
   @ApiQuery({
     name: "type",
     required: false,
-    enum: ["ARTICLE", "VIDEO", "EXTERNAL"],
+    enum: ["WIKI_NODE", "DOC", "SHEET", "BITABLE", "EXTERNAL"],
   })
   @ApiQuery({ name: "syncedToRag", required: false, type: Boolean })
   @ApiQuery({ name: "limit", required: false, type: Number })
   @ApiQuery({ name: "offset", required: false, type: Number })
-  @ApiResponse({ status: 200, description: "Returns list of WeChat items" })
+  @ApiResponse({ status: 200, description: "Returns list of Feishu items" })
   async listItems(
     @Req() req: AuthenticatedRequest,
     @Query("type") type?: string,
@@ -103,14 +97,17 @@ export class WechatDataSourceController {
     const userId = this.getUserId(req);
 
     const options: {
-      type?: WechatItemType;
+      type?: FeishuItemType;
       syncedToRag?: boolean;
       limit?: number;
       offset?: number;
     } = {};
 
-    if (type && ["ARTICLE", "VIDEO", "EXTERNAL"].includes(type)) {
-      options.type = type as WechatItemType;
+    if (
+      type &&
+      ["WIKI_NODE", "DOC", "SHEET", "BITABLE", "EXTERNAL"].includes(type)
+    ) {
+      options.type = type as FeishuItemType;
     }
 
     if (syncedToRag !== undefined) {
@@ -125,7 +122,7 @@ export class WechatDataSourceController {
       options.offset = parseInt(offset, 10);
     }
 
-    const result = await this.wechatDataSourceService.getItems(userId, options);
+    const result = await this.feishuDataSourceService.getItems(userId, options);
 
     return {
       items: result.items,
@@ -136,39 +133,35 @@ export class WechatDataSourceController {
   }
 
   /**
-   * Get a single WeChat item
+   * Get a single Feishu item
    */
   @Get("items/:id")
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "Get a single WeChat item" })
-  @ApiResponse({ status: 200, description: "Returns the WeChat item" })
+  @ApiOperation({ summary: "Get a single Feishu item" })
+  @ApiResponse({ status: 200, description: "Returns the Feishu item" })
   @ApiResponse({ status: 404, description: "Item not found" })
   async getItem(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     const userId = this.getUserId(req);
-    const item = await this.wechatDataSourceService.getItem(userId, id);
-    return item;
+    return this.feishuDataSourceService.getItem(userId, id);
   }
 
   /**
-   * Delete a WeChat item
+   * Delete a Feishu item
    */
   @Delete("items/:id")
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "Delete a WeChat item" })
+  @ApiOperation({ summary: "Delete a Feishu item" })
   @ApiResponse({ status: 200, description: "Item deleted successfully" })
   @ApiResponse({ status: 404, description: "Item not found" })
   async deleteItem(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     const userId = this.getUserId(req);
-    await this.wechatDataSourceService.deleteItem(userId, id);
+    await this.feishuDataSourceService.deleteItem(userId, id);
     return { message: "Item deleted successfully" };
   }
 
   /**
-   * Batch delete WeChat items
+   * Batch delete Feishu items
    */
   @Post("items/batch-delete")
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "Batch delete WeChat items" })
+  @ApiOperation({ summary: "Batch delete Feishu items" })
   @ApiResponse({ status: 200, description: "Items deleted successfully" })
   async batchDeleteItems(
     @Req() req: AuthenticatedRequest,
@@ -180,7 +173,7 @@ export class WechatDataSourceController {
       throw new HttpException("Invalid item IDs", HttpStatus.BAD_REQUEST);
     }
 
-    const count = await this.wechatDataSourceService.deleteItems(
+    const count = await this.feishuDataSourceService.deleteItems(
       userId,
       body.ids,
     );
@@ -188,11 +181,10 @@ export class WechatDataSourceController {
   }
 
   /**
-   * Manually add a URL to WeChat data source
+   * Manually add a URL
    */
   @Post("items")
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "Manually add a URL to WeChat data source" })
+  @ApiOperation({ summary: "Manually add a URL to Feishu data source" })
   @ApiResponse({ status: 201, description: "Item created successfully" })
   @ApiResponse({ status: 400, description: "Invalid URL or duplicate" })
   async addItem(
@@ -205,15 +197,13 @@ export class WechatDataSourceController {
       throw new HttpException("URL is required", HttpStatus.BAD_REQUEST);
     }
 
-    // Validate URL
     try {
       new URL(body.url);
     } catch {
       throw new HttpException("Invalid URL format", HttpStatus.BAD_REQUEST);
     }
 
-    // Check if already exists
-    const exists = await this.wechatDataSourceService.urlExists(
+    const exists = await this.feishuDataSourceService.urlExists(
       userId,
       body.url,
     );
@@ -221,13 +211,10 @@ export class WechatDataSourceController {
       throw new HttpException("URL already exists", HttpStatus.CONFLICT);
     }
 
-    // Identify link type
-    const type = this.wechatDataSourceService.identifyLinkType(body.url);
-
     try {
-      const item = await this.wechatDataSourceService.createItem({
+      const item = await this.feishuDataSourceService.createItem({
         userId,
-        type,
+        type: "EXTERNAL",
         title: body.title || body.url,
         sourceUrl: body.url,
         description: body.description,
@@ -248,8 +235,7 @@ export class WechatDataSourceController {
    * Sync item to RAG knowledge base
    */
   @Post("items/:id/sync-to-rag")
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "Sync a WeChat item to RAG knowledge base" })
+  @ApiOperation({ summary: "Sync a Feishu item to RAG knowledge base" })
   @ApiResponse({ status: 200, description: "Item synced to RAG" })
   async syncItemToRag(
     @Req() req: AuthenticatedRequest,
@@ -257,9 +243,7 @@ export class WechatDataSourceController {
     @Body() _body: { knowledgeBaseId?: string },
   ) {
     const userId = this.getUserId(req);
-
-    // Get the item first
-    const item = await this.wechatDataSourceService.getItem(userId, id);
+    const item = await this.feishuDataSourceService.getItem(userId, id);
 
     if (item.syncedToRag) {
       throw new HttpException(
@@ -268,9 +252,7 @@ export class WechatDataSourceController {
       );
     }
 
-    // TODO: Implement actual RAG sync
-    // This would call KnowledgeBaseService.addDocument and then markSyncedToRag
-
+    // TODO: Implement actual RAG sync via FeishuImportService
     return {
       message: "Sync to RAG not yet implemented",
       item,
@@ -278,58 +260,56 @@ export class WechatDataSourceController {
   }
 
   // =========================================================================
-  // WeChat Work Binding Endpoints
+  // Feishu Binding Endpoints
   // =========================================================================
 
   /**
-   * Get current WeChat Work binding status
+   * Get current Feishu binding status
    */
   @Get("binding")
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "Get WeChat Work binding status" })
+  @ApiOperation({ summary: "Get Feishu binding status" })
   @ApiResponse({ status: 200, description: "Returns binding status" })
   async getBinding(@Req() req: AuthenticatedRequest) {
     const userId = this.getUserId(req);
-    return this.wechatDataSourceService.getWechatWorkBinding(userId);
+    return this.feishuDataSourceService.getFeishuBinding(userId);
   }
 
   /**
-   * Bind WeChat Work user ID
+   * Bind Feishu Open ID
    */
   @Patch("binding")
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "Bind WeChat Work user ID" })
+  @ApiOperation({ summary: "Bind Feishu Open ID" })
   @ApiResponse({ status: 200, description: "Binding successful" })
-  @ApiResponse({ status: 400, description: "Invalid WeChat Work user ID" })
-  async bindWechatWork(
+  @ApiResponse({ status: 400, description: "Invalid Feishu Open ID" })
+  async bindFeishu(
     @Req() req: AuthenticatedRequest,
-    @Body() body: { wechatWorkUserId: string },
+    @Body() body: { feishuOpenId: string },
   ) {
     const userId = this.getUserId(req);
 
-    if (!body.wechatWorkUserId || body.wechatWorkUserId.trim() === "") {
+    if (!body.feishuOpenId || body.feishuOpenId.trim() === "") {
       throw new HttpException(
-        "WeChat Work user ID is required",
+        "Feishu Open ID is required",
         HttpStatus.BAD_REQUEST,
       );
     }
 
-    const wechatWorkUserId = body.wechatWorkUserId.trim();
+    const feishuOpenId = body.feishuOpenId.trim();
 
     try {
-      const result = await this.wechatDataSourceService.bindWechatWorkUserId(
+      const result = await this.feishuDataSourceService.bindFeishuOpenId(
         userId,
-        wechatWorkUserId,
+        feishuOpenId,
       );
 
       return {
-        message: "WeChat Work ID bound successfully",
-        wechatWorkUserId: result.wechatWorkUserId,
+        message: "Feishu account bound successfully",
+        feishuOpenId: result.feishuOpenId,
       };
     } catch (error) {
       if (
         error instanceof Error &&
-        error.message.includes("already bound to another account")
+        error.message.includes("already bound to another")
       ) {
         throw new HttpException(error.message, HttpStatus.CONFLICT);
       }
@@ -338,18 +318,15 @@ export class WechatDataSourceController {
   }
 
   /**
-   * Unbind WeChat Work user ID
+   * Unbind Feishu Open ID
    */
   @Delete("binding")
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "Unbind WeChat Work user ID" })
+  @ApiOperation({ summary: "Unbind Feishu Open ID" })
   @ApiResponse({ status: 200, description: "Unbinding successful" })
-  async unbindWechatWork(@Req() req: AuthenticatedRequest) {
+  async unbindFeishu(@Req() req: AuthenticatedRequest) {
     const userId = this.getUserId(req);
-    await this.wechatDataSourceService.unbindWechatWorkUserId(userId);
+    await this.feishuDataSourceService.unbindFeishuOpenId(userId);
 
-    return {
-      message: "WeChat Work ID unbound successfully",
-    };
+    return { message: "Feishu account unbound successfully" };
   }
 }

@@ -20,7 +20,7 @@ import { KnowledgeBaseService } from "./services/knowledge-base.service";
 import { GoogleDriveRAGService } from "./services/google-drive-rag.service";
 import { UrlFetchService } from "./services/url-fetch.service";
 import { PlatformImportService } from "./services/platform-import.service";
-import { WechatImportService } from "./services/wechat-import.service";
+import { FeishuImportService } from "./services/feishu-import.service";
 
 // Controller
 import { RAGController } from "./rag.controller";
@@ -42,7 +42,7 @@ import { RAGController } from "./rag.controller";
     GoogleDriveRAGService,
     UrlFetchService,
     PlatformImportService,
-    WechatImportService,
+    FeishuImportService,
   ],
   exports: [
     // 重新导出 AiEngineModule (向后兼容，使导入 RAGModule 的模块可以访问 AI Engine 服务)
@@ -55,7 +55,7 @@ import { RAGController } from "./rag.controller";
     GoogleDriveRAGService,
     UrlFetchService,
     PlatformImportService,
-    WechatImportService,
+    FeishuImportService,
   ],
 })
 export class RAGModule {}

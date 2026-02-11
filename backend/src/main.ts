@@ -71,12 +71,6 @@ async function bootstrap() {
     logger: logLevels,
   });
 
-  // 为企业微信回调配置 raw body 解析（必须在 json 解析之前）
-  app.use(
-    "/api/v1/wechat-work/callback",
-    express.text({ type: "text/xml", limit: "1mb" }),
-  );
-
   // 增加请求体大小限制，支持大型字幕数据
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));

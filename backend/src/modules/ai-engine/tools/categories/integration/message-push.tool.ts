@@ -18,7 +18,12 @@ import {
 /**
  * 消息平台类型
  */
-export type MessagePlatform = "slack" | "discord" | "email" | "webhook";
+export type MessagePlatform =
+  | "slack"
+  | "discord"
+  | "email"
+  | "webhook"
+  | "feishu";
 
 /**
  * 消息格式类型
@@ -169,6 +174,21 @@ export interface WebhookConfig {
 }
 
 /**
+ * Feishu 特定配置
+ */
+export interface FeishuConfig {
+  /**
+   * 接收方 ID（open_id / chat_id）
+   */
+  receiveId: string;
+
+  /**
+   * 接收方 ID 类型
+   */
+  receiveIdType?: "open_id" | "chat_id";
+}
+
+/**
  * 消息推送输入
  */
 export interface MessagePushInput {
@@ -200,7 +220,12 @@ export interface MessagePushInput {
   /**
    * 平台特定配置
    */
-  config: SlackConfig | DiscordConfig | EmailConfig | WebhookConfig;
+  config:
+    | SlackConfig
+    | DiscordConfig
+    | EmailConfig
+    | WebhookConfig
+    | FeishuConfig;
 
   /**
    * 优先级
@@ -344,8 +369,8 @@ export class MessagePushTool extends BaseTool<
     properties: {
       platform: {
         type: "string",
-        description: "目标平台：slack、discord、email 或 webhook",
-        enum: ["slack", "discord", "email", "webhook"],
+        description: "目标平台：slack、discord、email、webhook 或 feishu",
+        enum: ["slack", "discord", "email", "webhook", "feishu"],
       },
       message: {
         type: "string",
@@ -444,6 +469,7 @@ export class MessagePushTool extends BaseTool<
       "discord",
       "email",
       "webhook",
+      "feishu",
     ];
     if (!validPlatforms.includes(input.platform)) {
       this.logger.warn(`Invalid platform: ${input.platform}`);
@@ -462,6 +488,7 @@ export class MessagePushTool extends BaseTool<
       discord: 2000,
       email: 100000,
       webhook: 50000,
+      feishu: 30000,
     };
     if (input.message.length > maxLengths[input.platform]) {
       this.logger.warn(
@@ -486,6 +513,8 @@ export class MessagePushTool extends BaseTool<
         return this.validateEmailConfig(input.config as EmailConfig);
       case "webhook":
         return this.validateWebhookConfig(input.config as WebhookConfig);
+      case "feishu":
+        return this.validateFeishuConfig(input.config as FeishuConfig);
       default:
         return false;
     }
@@ -520,6 +549,9 @@ export class MessagePushTool extends BaseTool<
           break;
         case "webhook":
           result = await this.sendToWebhook(input, context);
+          break;
+        case "feishu":
+          result = await this.sendToFeishu(input, context);
           break;
         default:
           throw new Error(`Unsupported platform: ${input.platform}`);
@@ -722,6 +754,46 @@ export class MessagePushTool extends BaseTool<
       return false;
     }
     return true;
+  }
+
+  /**
+   * 验证 Feishu 配置
+   */
+  private validateFeishuConfig(config: FeishuConfig): boolean {
+    if (!config.receiveId || config.receiveId.trim().length === 0) {
+      this.logger.warn("Feishu receiveId is required");
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * 发送到飞书
+   */
+  private async sendToFeishu(
+    input: MessagePushInput,
+    _context: ToolContext,
+  ): Promise<MessagePushOutput> {
+    const config = input.config as FeishuConfig;
+
+    // TODO: Integrate with FeishuService for actual message sending
+    this.logger.debug(
+      `Sending to Feishu: receiveId=${config.receiveId}, type=${config.receiveIdType || "open_id"}`,
+    );
+
+    // Simulate API call
+    await this.simulateApiCall();
+
+    return {
+      success: true,
+      status: "delivered",
+      messageId: `feishu-${Date.now()}`,
+      deliveredAt: new Date(),
+      metadata: {
+        platform: "feishu",
+        statusCode: 200,
+      },
+    };
   }
 
   /**

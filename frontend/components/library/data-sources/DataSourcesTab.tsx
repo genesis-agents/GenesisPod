@@ -13,17 +13,19 @@ import {
   ExternalLink,
   Loader2,
   FolderOpen,
-  MessageCircle,
+  Zap,
   MoreHorizontal,
   ArrowUpRight,
   HelpCircle,
   Clock,
 } from 'lucide-react';
-import RAGStatusIndicator, { RAGServiceStatus } from '../knowledge-base/RAGStatusIndicator';
+import RAGStatusIndicator, {
+  RAGServiceStatus,
+} from '../knowledge-base/RAGStatusIndicator';
 import ConnectionStatusBadge, {
   ConnectionStatus,
 } from './ConnectionStatusBadge';
-import WechatDataSourcePanel from '../import-panels/WechatDataSourcePanel';
+import FeishuDataSourcePanel from '../import-panels/FeishuDataSourcePanel';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
@@ -37,7 +39,7 @@ type DataSourceSubTab =
   | 'images'
   | 'notion'
   | 'google-drive'
-  | 'wechat';
+  | 'feishu';
 
 interface DataSourcesTabProps {
   /** Initial sub-tab to show */
@@ -54,8 +56,8 @@ interface DataSourcesTabProps {
   renderNotion?: () => React.ReactNode;
   /** Render function for Google Drive content */
   renderGoogleDrive?: () => React.ReactNode;
-  /** Render function for WeChat content */
-  renderWechat?: () => React.ReactNode;
+  /** Render function for Feishu content */
+  renderFeishu?: () => React.ReactNode;
 }
 
 // Data source configuration type
@@ -93,14 +95,14 @@ const DATA_SOURCE_CONFIGS: DataSourceConfig[] = [
     subTab: 'notion',
   },
   {
-    type: 'WECHAT',
-    icon: MessageCircle,
-    color: 'text-green-600',
-    bgGradient: 'from-green-50/50 to-transparent',
-    connectedColor: 'bg-green-100 text-green-700',
+    type: 'FEISHU',
+    icon: Zap,
+    color: 'text-blue-600',
+    bgGradient: 'from-blue-50/50 to-transparent',
+    connectedColor: 'bg-blue-100 text-blue-700',
     settingsUrl: '/profile?tab=integrations',
     isInternal: false,
-    subTab: 'wechat',
+    subTab: 'feishu',
   },
   {
     type: 'BOOKMARK',
@@ -183,7 +185,7 @@ export default function DataSourcesTab({
   renderImages,
   renderNotion,
   renderGoogleDrive,
-  renderWechat,
+  renderFeishu,
 }: DataSourcesTabProps) {
   const { t } = useTranslation();
   const [activeSubTab, setActiveSubTab] =
@@ -327,34 +329,6 @@ export default function DataSourcesTab({
         };
       }
 
-      // Fetch WeChat Work binding status
-      try {
-        const wechatResponse = await fetch(
-          `${config.apiUrl}/wechat-data-source/binding`,
-          {
-            headers: { ...getAuthHeader() },
-          }
-        );
-
-        if (wechatResponse.ok) {
-          const wechatData = await wechatResponse.json();
-          statuses['WECHAT'] = {
-            type: 'WECHAT',
-            isConnected: wechatData.isBound ?? false,
-          };
-        } else {
-          statuses['WECHAT'] = {
-            type: 'WECHAT',
-            isConnected: false,
-          };
-        }
-      } catch {
-        statuses['WECHAT'] = {
-          type: 'WECHAT',
-          isConnected: false,
-        };
-      }
-
       // Internal sources are always "connected"
       ['BOOKMARK', 'NOTE', 'IMAGE', 'UPLOAD', 'URL'].forEach((type) => {
         statuses[type] = {
@@ -414,11 +388,6 @@ export default function DataSourcesTab({
     { id: 'images' as const, name: t('dataSources.tabs.images'), icon: Image },
     { id: 'notion' as const, name: 'Notion', icon: FileText },
     { id: 'google-drive' as const, name: 'Google Drive', icon: HardDrive },
-    {
-      id: 'wechat' as const,
-      name: t('dataSources.tabs.wechat'),
-      icon: MessageCircle,
-    },
   ];
 
   // Render sub-tab content
@@ -464,8 +433,8 @@ export default function DataSourcesTab({
             {t('dataSources.placeholder.googleDrive')}
           </div>
         );
-      case 'wechat':
-        return renderWechat ? renderWechat() : <WechatDataSourcePanel />;
+      case 'feishu':
+        return renderFeishu ? renderFeishu() : <FeishuDataSourcePanel />;
       default:
         return renderOverview();
     }

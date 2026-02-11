@@ -19,7 +19,7 @@ import {
   NotionConnection,
 } from '@/lib/api/notion';
 import { GoogleDriveConnectionCard } from '@/components/library/integrations/google-drive/GoogleDriveConnectionCard';
-import { WechatWorkBindingCard } from '@/components/library/integrations/wechat/WechatWorkBindingCard';
+import { FeishuBindingCard } from '@/components/library/integrations/feishu/FeishuBindingCard';
 import ClientDate from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
@@ -1300,8 +1300,8 @@ function ProfileContent() {
                 {/* Google Drive Integration */}
                 <GoogleDriveConnectionCard />
 
-                {/* WeChat Work Integration */}
-                <WechatWorkBindingCard />
+                {/* Feishu Integration */}
+                <FeishuBindingCard />
 
                 {/* Other Integrations - Coming Soon */}
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
