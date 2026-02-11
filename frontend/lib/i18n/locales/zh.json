@@ -1173,6 +1173,18 @@
       "openOriginal": "查看原文",
       "original": "原文"
     },
+    "sourceType": {
+      "academic": "学术",
+      "official": "官方",
+      "news": "新闻",
+      "report": "报告",
+      "web": "网页"
+    },
+    "report": {
+      "referenceSources": "参考文献",
+      "deliveryReport": "交付报告",
+      "partialProgress": "阶段进展"
+    },
     "status": {
       "notStarted": "未启动",
       "inProgress": "进行中",

@@ -60,6 +60,8 @@ export interface PlanReference {
   snippet: string;
   publishedDate?: string;
   score?: number;
+  credibilityScore?: number;
+  sourceType?: string;
   sourcePhase: number;
 }
 

@@ -1173,6 +1173,18 @@
       "openOriginal": "View source",
       "original": "Source"
     },
+    "sourceType": {
+      "academic": "Academic",
+      "official": "Official",
+      "news": "News",
+      "report": "Report",
+      "web": "Web"
+    },
+    "report": {
+      "referenceSources": "Reference Sources",
+      "deliveryReport": "Delivery Report",
+      "partialProgress": "Partial Progress"
+    },
     "status": {
       "notStarted": "Not Started",
       "inProgress": "In Progress",

@@ -11,7 +11,13 @@
  * Bottom: Chat input (reusing AI Teams message API)
  */
 
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useCallback,
+  useRef,
+} from 'react';
 import {
   LayoutList,
   FileText,
@@ -227,6 +233,159 @@ function PlanMarkdown({ content }: { content: string }) {
   );
 }
 
+// ============================================
+// Citation rendering for report tab
+// ============================================
+
+/** Inline citation badge: renders [n] as purple sup badge with hover tooltip */
+function CitationBadge({
+  index,
+  references,
+}: {
+  index: number;
+  references: PlanReference[];
+}) {
+  const ref = references[index - 1];
+  if (!ref) {
+    return (
+      <sup className="inline-flex h-4 min-w-[1.25rem] items-center justify-center rounded bg-gray-200 px-1 text-[10px] font-bold text-gray-500">
+        [{index}]
+      </sup>
+    );
+  }
+
+  return (
+    <span className="group/cite relative inline-block">
+      <sup className="inline-flex h-4 min-w-[1.25rem] cursor-help items-center justify-center rounded bg-purple-100 px-1 text-[10px] font-bold text-purple-700 transition-colors hover:bg-purple-200">
+        [{index}]
+      </sup>
+      <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 w-64 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-2.5 text-xs opacity-0 shadow-lg transition-opacity group-hover/cite:pointer-events-auto group-hover/cite:opacity-100">
+        <span className="line-clamp-2 block font-medium text-gray-900">
+          {ref.title}
+        </span>
+        <span className="mt-1 block text-gray-500">{ref.domain}</span>
+        {ref.url && (
+          <a
+            href={ref.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 block truncate text-blue-600 hover:underline"
+          >
+            {ref.url}
+          </a>
+        )}
+      </span>
+    </span>
+  );
+}
+
+/** Process text children to replace [n] patterns with CitationBadge components */
+function processCitations(
+  children: React.ReactNode,
+  references: PlanReference[]
+): React.ReactNode {
+  if (!references || references.length === 0) return children;
+
+  const processNode = (node: React.ReactNode): React.ReactNode => {
+    if (typeof node === 'string') {
+      const parts: React.ReactNode[] = [];
+      const regex = /\[(\d+)\](?!\()/g;
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      while ((match = regex.exec(node)) !== null) {
+        if (match.index > lastIndex) {
+          parts.push(node.slice(lastIndex, match.index));
+        }
+        const citationIndex = parseInt(match[1], 10);
+        if (citationIndex >= 1 && citationIndex <= references.length) {
+          parts.push(
+            <CitationBadge
+              key={`cite-${match.index}-${citationIndex}`}
+              index={citationIndex}
+              references={references}
+            />
+          );
+        } else {
+          parts.push(match[0]);
+        }
+        lastIndex = regex.lastIndex;
+      }
+
+      if (lastIndex < node.length) {
+        parts.push(node.slice(lastIndex));
+      }
+
+      return parts.length === 1 ? parts[0] : <>{parts}</>;
+    }
+
+    if (Array.isArray(node)) {
+      return node.map((child, i) => (
+        <React.Fragment key={i}>{processNode(child)}</React.Fragment>
+      ));
+    }
+
+    return node;
+  };
+
+  return processNode(children);
+}
+
+/** Build markdown components that process citations within text */
+function buildCitationMarkdownComponents(
+  references: PlanReference[]
+): React.ComponentPropsWithoutRef<typeof ReactMarkdown>['components'] {
+  return {
+    ...PLAN_MARKDOWN_COMPONENTS,
+    p: ({ children }) => (
+      <p className="mb-3 text-sm leading-relaxed text-gray-700 last:mb-0">
+        {processCitations(children, references)}
+      </p>
+    ),
+    li: ({ children }) => (
+      <li className="flex items-start gap-2 text-sm leading-relaxed">
+        <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-400" />
+        <span className="flex-1">{processCitations(children, references)}</span>
+      </li>
+    ),
+  };
+}
+
+/** Markdown renderer with citation support for the report tab */
+function ReportMarkdown({
+  content,
+  references,
+}: {
+  content: string;
+  references: PlanReference[];
+}) {
+  const cleanedContent = content.replace(/<br\s*\/?>/gi, ' ');
+  const components = useMemo(
+    () => buildCitationMarkdownComponents(references),
+    [references]
+  );
+
+  return (
+    <div className="prose prose-sm max-w-none">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {cleanedContent}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+// ============================================
+// Source type styling
+// ============================================
+
+const SOURCE_TYPE_COLORS: Record<string, string> = {
+  academic: 'bg-blue-100 text-blue-700',
+  official: 'bg-green-100 text-green-700',
+  news: 'bg-yellow-100 text-yellow-700',
+  report: 'bg-orange-100 text-orange-700',
+  web: 'bg-gray-100 text-gray-600',
+};
+
 interface PlanContentPanelProps {
   plan: PlanDetail;
   planId: string;
@@ -341,10 +500,19 @@ export function PlanContentPanel({
     (s) => s.status === 'completed'
   ).length;
 
-  // Combine all completed phase summaries into a report
+  // Report content: Phase 6 (Delivery) as primary when available, else all-phase fallback
+  const isDeliveryReport = !!(
+    plan.phaseStatus[6]?.status === 'completed' && plan.phaseStatus[6]?.summary
+  );
   const reportContent = useMemo(() => {
-    const sections: string[] = [];
+    // If Phase 6 (Delivery) is completed, use it as the primary report
+    const phase6 = plan.phaseStatus[6];
+    if (phase6?.status === 'completed' && phase6.summary) {
+      return phase6.summary;
+    }
 
+    // Fallback: concatenate all completed phase summaries for partial progress
+    const sections: string[] = [];
     for (let phase = 1; phase <= plan.totalPhases; phase++) {
       const status = plan.phaseStatus[phase];
       if (!status?.summary) continue;
@@ -461,10 +629,22 @@ export function PlanContentPanel({
                   <h3 className="text-base font-semibold text-gray-900">
                     {plan.name}
                   </h3>
-                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-500">
-                    {completedCount}/{plan.totalPhases}{' '}
-                    {t('aiPlanning.panel.phasesCompleted')}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {isDeliveryReport && (
+                      <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+                        {t('aiPlanning.report.deliveryReport')}
+                      </span>
+                    )}
+                    {!isDeliveryReport && (
+                      <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
+                        {t('aiPlanning.report.partialProgress')}
+                      </span>
+                    )}
+                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-500">
+                      {completedCount}/{plan.totalPhases}{' '}
+                      {t('aiPlanning.panel.phasesCompleted')}
+                    </span>
+                  </div>
                 </div>
                 {plan.goal && (
                   <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
@@ -475,8 +655,75 @@ export function PlanContentPanel({
                   </div>
                 )}
                 <div className="rounded-lg border border-gray-200 p-4">
-                  <PlanMarkdown content={reportContent} />
+                  <ReportMarkdown
+                    content={reportContent}
+                    references={plan.references || []}
+                  />
                 </div>
+
+                {/* References section at bottom of report */}
+                {plan.references?.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-gray-900">
+                      <LinkIcon className="h-4 w-4" />
+                      {t('aiPlanning.report.referenceSources')}
+                    </h3>
+                    <div className="space-y-2">
+                      {plan.references.map((ref, idx) => (
+                        <div
+                          key={ref.id}
+                          className="flex items-start gap-3 rounded-lg border border-gray-100 bg-gray-50/50 p-3"
+                        >
+                          <span className="flex-shrink-0 rounded bg-purple-100 px-1.5 py-0.5 text-xs font-bold text-purple-700">
+                            [{idx + 1}]
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-1 text-sm font-medium text-gray-900">
+                              {ref.title}
+                            </p>
+                            <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                              <span
+                                className={cn(
+                                  'rounded px-1.5 py-0.5 text-[10px] font-medium',
+                                  SOURCE_TYPE_COLORS[ref.sourceType || 'web']
+                                )}
+                              >
+                                {t(
+                                  `aiPlanning.sourceType.${ref.sourceType || 'web'}`
+                                )}
+                              </span>
+                              <span>{ref.domain}</span>
+                              {ref.url && (
+                                <a
+                                  href={ref.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="truncate text-blue-600 hover:underline"
+                                >
+                                  {ref.url}
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                          {ref.credibilityScore && (
+                            <span
+                              className={cn(
+                                'flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-bold',
+                                ref.credibilityScore >= 70
+                                  ? 'bg-green-100 text-green-700'
+                                  : ref.credibilityScore >= 40
+                                    ? 'bg-yellow-100 text-yellow-700'
+                                    : 'bg-red-100 text-red-700'
+                              )}
+                            >
+                              {ref.credibilityScore}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-16 text-gray-400">
@@ -749,10 +996,20 @@ function PhaseTaskCard({
               : 'border-gray-100 bg-white'
       )}
     >
-      {/* Header - clickable */}
+      {/* Header - clickable, sticky when expanded */}
       <div
         onClick={onToggle}
-        className="flex cursor-pointer items-center gap-3 p-3"
+        className={cn(
+          'flex cursor-pointer items-center gap-3 p-3',
+          isExpanded &&
+            (isActive
+              ? 'sticky top-0 z-10 border-b border-blue-200 bg-blue-50 shadow-sm'
+              : isCompleted
+                ? 'sticky top-0 z-10 border-b border-green-200 bg-green-50 shadow-sm'
+                : isFailed
+                  ? 'sticky top-0 z-10 border-b border-red-200 bg-red-50 shadow-sm'
+                  : 'sticky top-0 z-10 border-b border-gray-200 bg-white shadow-sm')
+        )}
       >
         <span
           className={cn(
@@ -929,6 +1186,11 @@ function PhaseTaskCard({
 // References Tab (matching AI Insights TopicReferencesPanel)
 // ============================================
 
+/** Get effective credibility score: prefer credibilityScore (20-100), fallback to score * 100 */
+function getCredibilityScore(r: PlanReference): number {
+  return r.credibilityScore ?? Math.round((r.score || 0) * 100);
+}
+
 function PlanReferencesTab({ references }: { references: PlanReference[] }) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>(
@@ -955,7 +1217,7 @@ function PlanReferencesTab({ references }: { references: PlanReference[] }) {
 
     if (filter !== 'all') {
       result = result.filter((r) => {
-        const score = (r.score || 0) * 100;
+        const score = getCredibilityScore(r);
         if (filter === 'high') return score >= 70;
         if (filter === 'medium') return score >= 40 && score < 70;
         if (filter === 'low') return score < 40;
@@ -965,7 +1227,7 @@ function PlanReferencesTab({ references }: { references: PlanReference[] }) {
 
     result.sort((a, b) => {
       if (sortBy === 'score') {
-        return (b.score || 0) - (a.score || 0);
+        return getCredibilityScore(b) - getCredibilityScore(a);
       }
       const dateA = a.publishedDate ? new Date(a.publishedDate).getTime() : 0;
       const dateB = b.publishedDate ? new Date(b.publishedDate).getTime() : 0;
@@ -977,11 +1239,11 @@ function PlanReferencesTab({ references }: { references: PlanReference[] }) {
 
   // Statistics
   const stats = useMemo(() => {
-    const high = references.filter((r) => (r.score || 0) * 100 >= 70).length;
+    const high = references.filter((r) => getCredibilityScore(r) >= 70).length;
     const medium = references.filter(
-      (r) => (r.score || 0) * 100 >= 40 && (r.score || 0) * 100 < 70
+      (r) => getCredibilityScore(r) >= 40 && getCredibilityScore(r) < 70
     ).length;
-    const low = references.filter((r) => (r.score || 0) * 100 < 40).length;
+    const low = references.filter((r) => getCredibilityScore(r) < 40).length;
     return { total: references.length, high, medium, low };
   }, [references]);
 
@@ -1068,7 +1330,7 @@ function PlanReferencesTab({ references }: { references: PlanReference[] }) {
             const citationIndex =
               references.findIndex((r) => r.id === item.id) + 1;
             const isExpanded = expandedIds.has(item.id);
-            const scorePercent = Math.round((item.score || 0) * 100);
+            const scorePercent = getCredibilityScore(item);
 
             return (
               <div
@@ -1138,8 +1400,15 @@ function PlanReferencesTab({ references }: { references: PlanReference[] }) {
                     {/* Footer */}
                     <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
                       <div className="flex items-center gap-3 text-xs text-gray-400">
-                        <span className="rounded bg-gray-100 px-1.5 py-0.5">
-                          web
+                        <span
+                          className={cn(
+                            'rounded px-1.5 py-0.5 text-[10px] font-medium',
+                            SOURCE_TYPE_COLORS[item.sourceType || 'web']
+                          )}
+                        >
+                          {t(
+                            `aiPlanning.sourceType.${item.sourceType || 'web'}`
+                          )}
                         </span>
                         {item.publishedDate && (
                           <span>{formatTime(item.publishedDate)}</span>
@@ -1164,8 +1433,13 @@ function PlanReferencesTab({ references }: { references: PlanReference[] }) {
                 {!isExpanded && (
                   <div className="flex items-center justify-between border-t border-gray-100 px-4 py-2">
                     <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <span className="rounded bg-gray-100 px-1.5 py-0.5">
-                        web
+                      <span
+                        className={cn(
+                          'rounded px-1.5 py-0.5 text-[10px] font-medium',
+                          SOURCE_TYPE_COLORS[item.sourceType || 'web']
+                        )}
+                      >
+                        {t(`aiPlanning.sourceType.${item.sourceType || 'web'}`)}
                       </span>
                       {item.publishedDate && (
                         <span>{formatTime(item.publishedDate)}</span>

@@ -26,6 +26,8 @@ export interface PlanReference {
   snippet: string;
   publishedDate?: string;
   score?: number;
+  credibilityScore?: number;
+  sourceType?: string;
   sourcePhase: number;
 }
 
@@ -803,8 +805,42 @@ export class PlanningOrchestratorService {
         : `请围绕策划目标进行深入调研，收集相关数据、案例和行业趋势，提供有价值的洞察。注意：你没有实时搜索能力，请基于已知信息分析，不要编造具体的报告名称、机构引用或统计数据。`,
       3: `请基于前期分析和调研成果，进行头脑风暴，提出创新方案和多种可选路径。`,
       4: `请对提出的方案进行辩论推演，分析方案的优劣势、可行性和潜在风险。`,
-      5: `请综合前述所有阶段的成果，整合出最优方案，形成结构化的策划框架。`,
-      6: `请将综合方案转化为可执行的最终策划文档，包含具体步骤、时间规划和关键指标。`,
+      5: `请综合前述所有阶段的成果，整合出最优方案。要求使用"结论先行"结构，按以下框架输出：
+
+## 执行摘要
+（核心结论和推荐方案，2-3段即可）
+
+## 关键发现
+（从调研和分析中提炼的最重要洞察，列出5-8条）
+
+## 推荐方案
+（详细描述推荐的行动方案，包括具体策略和实施路径）
+
+## 风险评估
+（主要风险及缓解措施）
+
+请使用 [编号] 格式引用调研阶段的参考资料（如 [1]、[2]），增强方案的可信度。`,
+      6: `请将综合方案转化为可直接提交决策层的最终策划文档。要求按以下结构输出：
+
+## 执行摘要
+（一页纸总结：目标、核心方案、预期成果）
+
+## 详细方案
+（完整的实施方案，包括具体策略、行动步骤）
+
+## 执行时间表
+（阶段划分、里程碑、关键节点）
+
+## 关键绩效指标（KPI）
+（可量化的成功指标和目标值）
+
+## 风险与应对
+（风险矩阵、缓解措施、应急预案）
+
+## 参考文献
+（列出所有引用来源，格式：[编号] 标题 - URL）
+
+输出质量要求：适合直接提交决策层审阅，语言专业严谨，数据引用有据可查。`,
     };
 
     let prompt = `# 策划任务: ${planName}\n\n`;
@@ -818,6 +854,17 @@ export class PlanningOrchestratorService {
     // Inject web search results for Research phase
     if (phase === 2 && searchContext) {
       prompt += `---\n\n## 实时搜索资料\n\n${searchContext}\n\n---\n\n`;
+    }
+
+    // Inject numbered reference list for Phase 5 (Synthesis) and Phase 6 (Delivery)
+    if ((phase === 5 || phase === 6) && meta.references?.length) {
+      const refList = meta.references
+        .map(
+          (r, i) =>
+            `[${i + 1}] ${r.title} — ${r.url}${r.sourceType ? ` (${r.sourceType})` : ""}`,
+        )
+        .join("\n");
+      prompt += `---\n\n## 可引用的参考资料\n\n以下是调研阶段收集的参考资料，请在正文中使用 [编号] 格式引用（如 [1]、[2]）：\n\n${refList}\n\n---\n\n`;
     }
 
     if (previousContext) {
@@ -911,8 +958,8 @@ export class PlanningOrchestratorService {
     phase: number,
   ): Promise<{ context: string }> {
     try {
-      // Generate diverse search queries from the goal
-      const queries = this.generateSearchQueries(goal, planName);
+      // Generate diverse search queries from the goal (LLM-powered with fallback)
+      const queries = await this.generateSearchQueries(goal, planName);
       this.logger.log(
         `Research phase: searching ${queries.length} queries for plan ${planId}`,
       );
@@ -932,14 +979,25 @@ export class PlanningOrchestratorService {
               if (seenUrls.has(result.url)) continue;
               seenUrls.add(result.url);
 
+              const domain = result.domain || new URL(result.url).hostname;
+              const sourceType = this.classifySourceType(domain);
+              const credibilityScore = this.calculateCredibilityScore({
+                domain,
+                snippet: result.content,
+                publishedDate: result.publishedDate,
+                sourceType,
+              });
+
               allResults.push({
                 id: `ref-${allResults.length + 1}`,
                 title: result.title,
                 url: result.url,
-                domain: result.domain || new URL(result.url).hostname,
+                domain,
                 snippet: result.content,
                 publishedDate: result.publishedDate,
                 score: result.score,
+                credibilityScore,
+                sourceType,
                 sourcePhase: phase,
               });
             }
@@ -1000,17 +1058,76 @@ export class PlanningOrchestratorService {
   }
 
   /**
-   * Generate diverse search queries from planning goal.
-   * Creates targeted queries covering different aspects of the goal.
+   * Generate diverse search queries using LLM for better coverage.
+   * Falls back to deterministic approach on failure.
    */
-  private generateSearchQueries(goal: string, planName: string): string[] {
+  private async generateSearchQueries(
+    goal: string,
+    planName: string,
+  ): Promise<string[]> {
+    try {
+      const currentYear = new Date().getFullYear();
+      const prompt = `You are a search query generator. Given a planning goal, generate exactly 4 targeted web search queries that cover different angles of the topic. Each query should be specific and actionable.
+
+Planning topic: ${planName}
+Planning goal: ${goal}
+Current year: ${currentYear}
+
+Requirements:
+- Query 1: Current trends and market dynamics
+- Query 2: Key data, statistics, or research reports
+- Query 3: Real-world case studies or best practices
+- Query 4: Challenges, risks, or competitive landscape
+
+Return ONLY a JSON array of 4 strings, no other text. Example:
+["query 1", "query 2", "query 3", "query 4"]`;
+
+      const response = await this.aiFacade.chat({
+        messages: [{ role: "user", content: prompt }],
+        modelType: AIModelType.CHAT_FAST,
+        taskProfile: {
+          creativity: "low" as const,
+          outputLength: "minimal" as const,
+        },
+      });
+
+      if (!response.isError && response.content) {
+        const jsonMatch = response.content.match(/\[[\s\S]*?\]/);
+        if (jsonMatch) {
+          const queries = JSON.parse(jsonMatch[0]) as string[];
+          if (
+            Array.isArray(queries) &&
+            queries.length >= 2 &&
+            queries.every((q) => typeof q === "string")
+          ) {
+            this.logger.log(
+              `LLM generated ${queries.length} search queries for plan`,
+            );
+            return queries.slice(0, 4);
+          }
+        }
+      }
+    } catch (err) {
+      this.logger.warn(
+        `LLM query generation failed, falling back to deterministic: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+
+    return this.generateSearchQueriesFallback(goal, planName);
+  }
+
+  /**
+   * Deterministic fallback for search query generation.
+   */
+  private generateSearchQueriesFallback(
+    goal: string,
+    planName: string,
+  ): string[] {
     const queries: string[] = [];
     const currentYear = new Date().getFullYear();
 
-    // Core topic query
     queries.push(`${planName} ${currentYear}`);
 
-    // Extract key concepts: split on common delimiters
     const goalKeywords = goal
       .replace(/[，。、；：！？\s]+/g, " ")
       .split(" ")
@@ -1018,22 +1135,185 @@ export class PlanningOrchestratorService {
       .slice(0, 6);
 
     if (goalKeywords.length >= 2) {
-      // Industry trend query
       queries.push(
         `${goalKeywords.slice(0, 3).join(" ")} 行业趋势 ${currentYear}`,
       );
-      // Data/report query
       queries.push(`${goalKeywords.slice(0, 3).join(" ")} 数据报告 最新`);
     }
 
-    // Full goal as query (trimmed)
     if (goal.length <= 80) {
       queries.push(goal);
     } else {
       queries.push(goal.slice(0, 80));
     }
 
-    return queries.slice(0, 4); // Max 4 queries
+    return queries.slice(0, 4);
+  }
+
+  // ==================== Credibility Scoring ====================
+
+  /**
+   * Classify source type based on domain patterns.
+   * Mirrors the algorithm from evidence-management.service.ts.
+   */
+  private classifySourceType(domain: string): string {
+    const d = domain.toLowerCase();
+
+    // Academic
+    if (
+      d.includes("arxiv.org") ||
+      d.includes("scholar.google") ||
+      d.includes("pubmed") ||
+      d.includes("doi.org") ||
+      d.includes("researchgate") ||
+      d.includes("springer.com") ||
+      d.includes("nature.com") ||
+      d.includes("sciencedirect") ||
+      d.includes("ieee.org") ||
+      d.includes("acm.org") ||
+      d.includes(".edu")
+    ) {
+      return "academic";
+    }
+
+    // Official / Government (specific domains only — broad .org would misclassify wikipedia, mozilla, etc.)
+    if (
+      d.includes(".gov") ||
+      d.includes("who.int") ||
+      d.includes("worldbank.org") ||
+      d.includes("un.org") ||
+      d.includes("europa.eu") ||
+      d.includes("imf.org") ||
+      d.includes("oecd.org") ||
+      d.includes("wto.org")
+    ) {
+      return "official";
+    }
+
+    // News
+    if (
+      d.includes("reuters.com") ||
+      d.includes("bloomberg.com") ||
+      d.includes("bbc.com") ||
+      d.includes("nytimes.com") ||
+      d.includes("wsj.com") ||
+      d.includes("ft.com") ||
+      d.includes("economist.com") ||
+      d.includes("cnbc.com") ||
+      d.includes("theguardian.com") ||
+      d.includes("apnews.com") ||
+      d.includes("xinhua") ||
+      d.includes("chinadaily")
+    ) {
+      return "news";
+    }
+
+    // Reports / Consulting
+    if (
+      d.includes("mckinsey.com") ||
+      d.includes("bcg.com") ||
+      d.includes("bain.com") ||
+      d.includes("deloitte.com") ||
+      d.includes("pwc.com") ||
+      d.includes("kpmg.com") ||
+      d.includes("ey.com") ||
+      d.includes("gartner.com") ||
+      d.includes("forrester.com") ||
+      d.includes("idc.com") ||
+      d.includes("statista.com")
+    ) {
+      return "report";
+    }
+
+    return "web";
+  }
+
+  /**
+   * Calculate credibility score (20-100) using 4-factor algorithm.
+   * Mirrors the algorithm from evidence-management.service.ts.
+   */
+  private calculateCredibilityScore(ref: {
+    domain: string;
+    snippet: string;
+    publishedDate?: string;
+    sourceType: string;
+  }): number {
+    const d = ref.domain.toLowerCase();
+
+    // Factor 1: Domain authority (0-40)
+    let domainAuthority = 15;
+    if (
+      d.includes(".gov") ||
+      d.includes(".edu") ||
+      d.includes("arxiv.org") ||
+      d.includes("pubmed") ||
+      d.includes("nature.com") ||
+      d.includes("sciencedirect")
+    ) {
+      domainAuthority = 40;
+    } else if (
+      d.includes("reuters.com") ||
+      d.includes("bloomberg.com") ||
+      d.includes("mckinsey.com") ||
+      d.includes("bcg.com") ||
+      d.includes("gartner.com") ||
+      d.includes("who.int") ||
+      d.includes("worldbank.org")
+    ) {
+      domainAuthority = 30;
+    } else if (
+      d.includes("techcrunch.com") ||
+      d.includes("forbes.com") ||
+      d.includes("wired.com") ||
+      d.includes("bbc.com") ||
+      d.includes("nytimes.com") ||
+      d.includes("wsj.com") ||
+      d.includes("economist.com") ||
+      d.includes("ft.com") ||
+      d.includes("cnbc.com") ||
+      d.includes("statista.com")
+    ) {
+      domainAuthority = 22;
+    }
+
+    // Factor 2: Source type (0-30)
+    const sourceTypeScores: Record<string, number> = {
+      academic: 30,
+      official: 28,
+      news: 22,
+      report: 20,
+      web: 15,
+    };
+    const sourceTypeScore = sourceTypeScores[ref.sourceType] || 15;
+
+    // Factor 3: Content depth (0-15)
+    const contentLength = ref.snippet?.length || 0;
+    let contentDepth = 0;
+    if (contentLength > 500) contentDepth = 15;
+    else if (contentLength > 200) contentDepth = 10;
+    else if (contentLength > 50) contentDepth = 5;
+
+    // Factor 4: Freshness (0-15)
+    let freshness = 5;
+    if (ref.publishedDate) {
+      try {
+        const pubDate = new Date(ref.publishedDate);
+        const now = new Date();
+        const daysDiff =
+          (now.getTime() - pubDate.getTime()) / (1000 * 60 * 60 * 24);
+
+        if (daysDiff <= 30) freshness = 15;
+        else if (daysDiff <= 180) freshness = 12;
+        else if (daysDiff <= 365) freshness = 8;
+        else if (daysDiff <= 730) freshness = 5;
+        else freshness = 3;
+      } catch {
+        freshness = 5;
+      }
+    }
+
+    const total = domainAuthority + sourceTypeScore + contentDepth + freshness;
+    return Math.max(20, Math.min(100, total));
   }
 
   // ==================== Model Allocation (Fix 1) ====================
