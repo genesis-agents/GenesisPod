@@ -1153,7 +1153,8 @@
       "executing": "Executing...",
       "currentPhase": "Current Phase",
       "waitingForStart": "Waiting for Planning",
-      "clickStartHint": "Click \"Start\" on the left. The AI team will begin collaborating."
+      "clickStartHint": "Click \"Start\" on the left. The AI team will begin collaborating.",
+      "phaseFailed": "Phase execution failed"
     },
     "status": {
       "notStarted": "Not Started",

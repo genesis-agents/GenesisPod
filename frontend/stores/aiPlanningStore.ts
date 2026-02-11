@@ -50,12 +50,17 @@ export const useAiPlanningStore = create<AiPlanningState>((set, get) => ({
   },
 
   fetchPlanDetail: async (planId: string) => {
-    set({ isLoadingDetail: true });
+    const isInitialLoad = !get().currentPlan;
+    if (isInitialLoad) {
+      set({ isLoadingDetail: true });
+    }
     try {
       const plan = await api.getPlanDetail(planId);
       set({ currentPlan: plan });
     } finally {
-      set({ isLoadingDetail: false });
+      if (isInitialLoad) {
+        set({ isLoadingDetail: false });
+      }
     }
   },
 

@@ -324,16 +324,18 @@ export class PlanningOrchestratorService {
       return this.activatePhase(planId, userId, meta, currentPhase);
     }
 
-    if (
-      currentStatus?.status === "completed" ||
-      currentStatus?.status === "failed"
-    ) {
-      // Completed/failed → advance to next
+    if (currentStatus?.status === "completed") {
+      // Completed → advance to next phase
       const nextPhase = currentPhase + 1;
       if (nextPhase > TOTAL_PHASES) {
         return { currentPhase }; // All done
       }
       return this.activatePhase(planId, userId, meta, nextPhase);
+    }
+
+    if (currentStatus?.status === "failed") {
+      // Failed → re-activate current phase (retry on user click)
+      return this.activatePhase(planId, userId, meta, currentPhase);
     }
 
     return { currentPhase };
@@ -342,17 +344,27 @@ export class PlanningOrchestratorService {
   private async activatePhase(
     planId: string,
     userId: string,
-    meta: PlanningTopicMetadata,
+    _meta: PlanningTopicMetadata,
     targetPhase: number,
   ): Promise<{ currentPhase: number }> {
-    const updatedPhaseStatus = { ...meta.phaseStatus };
+    // Read fresh metadata to prevent stale overwrites (Bug 1 fix)
+    const topic = await this.prisma.topic.findFirst({
+      where: { id: planId },
+    });
+    if (!topic) throw new NotFoundException("Plan not found");
+
+    const freshMeta =
+      (topic.metadata as unknown as PlanningTopicMetadata) ||
+      ({} as PlanningTopicMetadata);
+
+    const updatedPhaseStatus = { ...freshMeta.phaseStatus };
     updatedPhaseStatus[targetPhase] = {
       ...updatedPhaseStatus[targetPhase],
       status: "active",
     };
 
     const updatedMetadata: PlanningTopicMetadata = {
-      ...meta,
+      ...freshMeta,
       currentPhase: targetPhase,
       phaseStatus: updatedPhaseStatus,
     };
@@ -601,13 +613,20 @@ export class PlanningOrchestratorService {
         agentOutputs.push(`### ${agent.displayName}\n\n${response.content}`);
       }
 
-      // 5. Build phase summary
-      const summary =
-        agentOutputs.length > 0
-          ? agentOutputs.join("\n\n---\n\n")
-          : "No output generated for this phase.";
+      // 5. Handle no-output case as failure (Bug 2 fix)
+      if (agentOutputs.length === 0) {
+        this.logger.warn(
+          `Phase ${phase} produced no output for plan ${planId}`,
+        );
+        await this.updatePhaseStatus(planId, phase, {
+          status: "failed",
+          error: "All agents failed to produce output for this phase.",
+        });
+        return; // Don't auto-advance
+      }
 
-      // 6. Update phase status → completed
+      // 6. Build phase summary and mark completed
+      const summary = agentOutputs.join("\n\n---\n\n");
       await this.updatePhaseStatus(planId, phase, {
         status: "completed",
         summary,

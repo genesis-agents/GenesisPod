@@ -12,7 +12,14 @@
  */
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { LayoutList, FileText, Clock, Send, ChevronDown } from 'lucide-react';
+import {
+  LayoutList,
+  FileText,
+  Clock,
+  Send,
+  ChevronDown,
+  AlertTriangle,
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils/common';
 import { useTranslation } from '@/lib/i18n';
@@ -486,6 +493,7 @@ function PhaseTaskCard({
   const phaseKey = PHASE_KEYS[workflow.phase];
   const isActive = status?.status === 'active';
   const isCompleted = status?.status === 'completed';
+  const isFailed = status?.status === 'failed';
   const isCurrent = workflow.phase === plan.currentPhase;
 
   // Build agent info (memoized to avoid recalculation on every render)
@@ -525,7 +533,9 @@ function PhaseTaskCard({
           ? 'border-blue-200 bg-blue-50/30'
           : isCompleted
             ? 'border-green-200 bg-green-50/30'
-            : 'border-gray-100 bg-white'
+            : isFailed
+              ? 'border-red-200 bg-red-50/30'
+              : 'border-gray-100 bg-white'
       )}
     >
       {/* Header - clickable */}
@@ -540,7 +550,9 @@ function PhaseTaskCard({
               ? 'bg-green-500 text-white'
               : isActive
                 ? 'bg-blue-500 text-white'
-                : 'bg-gray-200 text-gray-500'
+                : isFailed
+                  ? 'bg-red-500 text-white'
+                  : 'bg-gray-200 text-gray-500'
           )}
         >
           {isCompleted ? (
@@ -675,6 +687,19 @@ function PhaseTaskCard({
             <div className="flex items-center gap-2 text-sm text-blue-600">
               <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
               {t('aiPlanning.content.executing')}
+            </div>
+          )}
+
+          {/* Failed indicator */}
+          {isFailed && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-red-700">
+                <AlertTriangle className="h-4 w-4" />
+                <span>{t('aiPlanning.content.phaseFailed')}</span>
+              </div>
+              {status?.error && (
+                <p className="mt-1 text-xs text-red-600">{status.error}</p>
+              )}
             </div>
           )}
 

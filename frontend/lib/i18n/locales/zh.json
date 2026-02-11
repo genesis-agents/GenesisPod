@@ -1153,7 +1153,8 @@
       "executing": "正在执行中...",
       "currentPhase": "当前阶段",
       "waitingForStart": "等待策划启动",
-      "clickStartHint": "点击左侧「启动」按钮，AI 团队将开始协作"
+      "clickStartHint": "点击左侧「启动」按钮，AI 团队将开始协作",
+      "phaseFailed": "阶段执行失败"
     },
     "status": {
       "notStarted": "未启动",

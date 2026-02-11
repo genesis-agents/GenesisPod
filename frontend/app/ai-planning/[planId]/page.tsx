@@ -27,7 +27,6 @@ export default function PlanDetailPage() {
   const { accessToken, isLoading: authLoading } = useAuth();
   const {
     currentPlan,
-    isLoadingDetail,
     fetchPlanDetail,
     updatePlan,
     advancePhase,
@@ -230,7 +229,7 @@ export default function PlanDetailPage() {
   }
 
   // Loading plan detail
-  if (isLoadingDetail || !currentPlan) {
+  if (!currentPlan) {
     return (
       <AppShell>
         <div className="flex flex-1 items-center justify-center">
