@@ -39,6 +39,7 @@ export default function PlanDetailPage() {
   const [exportMarkdown, setExportMarkdown] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [contentTab, setContentTab] = useState<PlanContentTabType>('phases');
+  const [selectedPhase, setSelectedPhase] = useState<number | null>(null);
 
   const isAuthenticated = !!accessToken;
 
@@ -121,6 +122,12 @@ export default function PlanDetailPage() {
       });
     }
     toast.success(t('aiPlanning.settings.saveSuccess'));
+  };
+
+  // Left panel phase click → switch to Tasks tab and expand that phase
+  const handlePhaseSelect = (phase: number) => {
+    setContentTab('phases');
+    setSelectedPhase(phase);
   };
 
   // Determine if any phase is currently active
@@ -237,6 +244,7 @@ export default function PlanDetailPage() {
               onAdvance={handleAdvance}
               onRetry={handleRetry}
               onExport={handleExport}
+              onPhaseSelect={handlePhaseSelect}
             />
           </div>
 
@@ -246,6 +254,8 @@ export default function PlanDetailPage() {
               plan={currentPlan}
               activeTab={contentTab}
               onTabChange={setContentTab}
+              selectedPhase={selectedPhase}
+              onPhaseDeselect={() => setSelectedPhase(null)}
             />
           </div>
         </div>

@@ -126,7 +126,7 @@
     "whatsNew": "最新动态",
     "sections": {
       "materialsKnowledge": "知识库",
-      "researchAnalysis": "研究分析",
+      "researchAnalysis": "洞察研究",
       "planningDecision": "规划决策",
       "creativeWriting": "创意写作",
       "toolStore": "工具市场"
@@ -322,8 +322,7 @@
       "overview": "概览",
       "bookmarks": "书签",
       "notes": "笔记",
-      "images": "图片",
-      "wechat": "微信"
+      "images": "图片"
     },
     "placeholder": {
       "bookmarks": "书签内容",
@@ -366,9 +365,9 @@
         "name": "URL 抓取",
         "description": "通过知识库「添加内容」导入"
       },
-      "WECHAT": {
-        "name": "微信",
-        "description": "同步公众号文章和视频号内容"
+      "FEISHU": {
+        "name": "飞书",
+        "description": "同步飞书 Wiki 知识库和云文档内容"
       }
     }
   },
@@ -1043,7 +1042,11 @@
       "retrySuccess": "已重新启动阶段",
       "pause": "暂停",
       "resume": "继续",
-      "startPlanning": "启动策划"
+      "startPlanning": "启动策划",
+      "start": "启动",
+      "advance": "推进",
+      "retry": "重试",
+      "exportShort": "导出"
     },
     "templates": {
       "general": "通用策划",
@@ -1099,6 +1102,12 @@
       "tools": "工具",
       "responsibilities": "职责",
       "agentDetail": "成员详情",
+      "clickAgentHint": "点击 Agent 查看详情",
+      "overallProgress": "总进度",
+      "totalPhases": "共 {{count}} 个阶段",
+      "phase": "阶段",
+      "waitingForStart": "等待策划启动",
+      "clickStartHint": "点击下方「启动」按钮开始执行",
       "legend": {
         "leader": "总监",
         "working": "工作中",
@@ -1107,6 +1116,7 @@
       }
     },
     "content": {
+      "tasks": "任务面板",
       "phaseOutputs": "阶段产出",
       "planReport": "策划报告",
       "activityLog": "活动日志",
@@ -1116,7 +1126,15 @@
       "planCreated": "策划已创建",
       "phaseStarted": "已启动",
       "phaseCompleted": "已完成",
-      "inputPlaceholder": "策划对话能力即将上线..."
+      "inputPlaceholder": "策划对话能力即将上线...",
+      "phaseDescription": "阶段说明",
+      "participatingAgents": "参与 Agent",
+      "phaseOutput": "阶段产出",
+      "completedAt": "完成时间",
+      "executing": "正在执行中...",
+      "currentPhase": "当前阶段",
+      "waitingForStart": "等待策划启动",
+      "clickStartHint": "点击左侧「启动」按钮，AI 团队将开始协作"
     },
     "status": {
       "notStarted": "未启动",
@@ -4003,32 +4021,32 @@
       "privacyNote": "AI Teams Engine 仅访问您明确共享的页面。您的数据将安全存储，绝不与第三方共享。",
       "moreIntegrations": "更多集成",
       "comingSoon": "即将推出",
-      "wechat": {
-        "title": "企业微信集成",
-        "description": "将微信公众号文章和视频号内容同步到数据源",
+      "feishu": {
+        "title": "飞书集成",
+        "description": "将飞书 Wiki 知识库和云文档同步到数据源",
         "connected": "已连接",
         "notConnected": "未连接",
         "boundTo": "已绑定",
         "bind": "绑定账号",
         "binding": "绑定中...",
         "unbind": "解除绑定",
-        "enterUserId": "请输入您的企业微信用户ID",
-        "bindSuccess": "企业微信账号绑定成功",
-        "bindFailed": "企业微信账号绑定失败",
-        "unbindSuccess": "企业微信账号已解除绑定",
-        "unbindFailed": "企业微信账号解除绑定失败",
-        "confirmUnbind": "确定要解除绑定企业微信账号吗？",
-        "userIdLabel": "企业微信用户ID",
-        "userIdPlaceholder": "请输入您的企业微信用户ID",
-        "userIdHelp": "这是您在企业微信中的用户ID，用于识别您同步的内容",
+        "enterOpenId": "请输入您的飞书 Open ID",
+        "bindSuccess": "飞书账号绑定成功",
+        "bindFailed": "飞书账号绑定失败",
+        "unbindSuccess": "飞书账号已解除绑定",
+        "unbindFailed": "飞书账号解除绑定失败",
+        "confirmUnbind": "确定要解除绑定飞书账号吗？",
+        "openIdLabel": "飞书 Open ID",
+        "openIdPlaceholder": "请输入您的飞书 Open ID",
+        "openIdHelp": "Open ID 由飞书应用分配，用于识别您同步的内容",
         "howToUse": "使用方法",
-        "step1": "将微信文章/视频转发到企业微信群",
+        "step1": "在飞书中向机器人发送文档链接或 Wiki 地址",
         "step2": "机器人会自动处理并同步内容",
-        "step3": "在资源库 → 微信中查看已同步的内容",
-        "findUserId": "如何找到您的企业微信用户ID",
-        "findStep1": "打开企业微信App",
-        "findStep2": "进入 我 → 个人信息",
-        "findStep3": "您的用户ID显示在页面底部"
+        "step3": "在资源库 → 飞书中查看已同步的内容",
+        "findOpenId": "如何找到您的飞书 Open ID",
+        "findStep1": "首次给机器人发消息时，机器人会显示您的 Open ID",
+        "findStep2": "或向飞书应用管理员询问您的 Open ID",
+        "findStep3": "格式类似：ou_xxxxxxxxxxxxxxxx"
       }
     }
   },
