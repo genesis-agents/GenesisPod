@@ -52,9 +52,22 @@ export default function PlanDetailPage() {
     }
   }, [authLoading, isAuthenticated, planId, fetchPlanDetail]);
 
-  // Stable polling: use ref to avoid re-creating interval on every state change
-  const hasActivePhase = currentPlan
-    ? Object.values(currentPlan.phaseStatus).some((s) => s.status === 'active')
+  // Stable polling: poll whenever plan is in-progress (not just when a phase is active).
+  // Auto-advance creates a ~3s gap between phases where no phase is "active".
+  // Without this broader condition, polling stops and never discovers the next phase starting.
+  const shouldPoll = currentPlan
+    ? (() => {
+        if (currentPlan.currentPhase === 0) return false; // not started
+        const statuses = Object.values(currentPlan.phaseStatus);
+        const completedOrSkipped = statuses.filter(
+          (s) => s.status === 'completed' || s.status === 'skipped'
+        ).length;
+        if (completedOrSkipped >= currentPlan.totalPhases) return false; // all done
+        const currentPhaseStatus =
+          currentPlan.phaseStatus[currentPlan.currentPhase];
+        if (currentPhaseStatus?.status === 'failed') return false; // needs user action
+        return true;
+      })()
     : false;
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -64,7 +77,7 @@ export default function PlanDetailPage() {
       pollRef.current = null;
     }
 
-    if (!planId || !hasActivePhase) return;
+    if (!planId || !shouldPoll) return;
 
     pollRef.current = setInterval(() => {
       fetchPlanDetail(planId);
@@ -76,7 +89,7 @@ export default function PlanDetailPage() {
         pollRef.current = null;
       }
     };
-  }, [planId, hasActivePhase, fetchPlanDetail]);
+  }, [planId, shouldPoll, fetchPlanDetail]);
 
   const handleAdvance = async () => {
     if (!planId) return;

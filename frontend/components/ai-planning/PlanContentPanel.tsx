@@ -282,16 +282,25 @@ export function PlanContentPanel({
     fetchMessages();
   }, [fetchMessages]);
 
-  // Stable polling: derive boolean to avoid object-reference deps
-  const hasActivePhase = Object.values(plan.phaseStatus).some(
-    (s) => s.status === 'active'
-  );
+  // Stable polling: poll messages whenever plan is in-progress (not just active phase).
+  // Matches the broader polling condition in page.tsx to cover auto-advance gaps.
+  const shouldPollMessages = (() => {
+    if (plan.currentPhase === 0) return false;
+    const statuses = Object.values(plan.phaseStatus);
+    const completedOrSkipped = statuses.filter(
+      (s) => s.status === 'completed' || s.status === 'skipped'
+    ).length;
+    if (completedOrSkipped >= plan.totalPhases) return false;
+    const currentPhaseStatus = plan.phaseStatus[plan.currentPhase];
+    if (currentPhaseStatus?.status === 'failed') return false;
+    return true;
+  })();
 
   useEffect(() => {
-    if (!hasActivePhase) return;
+    if (!shouldPollMessages) return;
     const interval = setInterval(fetchMessages, 5000);
     return () => clearInterval(interval);
-  }, [hasActivePhase, fetchMessages]);
+  }, [shouldPollMessages, fetchMessages]);
 
   // Send chat message
   const handleSendMessage = async () => {
