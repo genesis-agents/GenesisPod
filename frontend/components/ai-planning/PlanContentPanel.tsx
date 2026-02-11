@@ -21,6 +21,8 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import MermaidDiagram from '@/components/ui/MermaidDiagram';
 import { cn } from '@/lib/utils/common';
 import { useTranslation } from '@/lib/i18n';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
@@ -52,6 +54,165 @@ const PHASE_STATUS_COLORS: Record<string, string> = {
   skipped: 'bg-gray-100 text-gray-500',
   failed: 'bg-red-100 text-red-700',
 };
+
+// ============================================
+// Mermaid detection (ported from ai-ask)
+// ============================================
+const MERMAID_KEYWORDS = [
+  'graph',
+  'flowchart',
+  'sequenceDiagram',
+  'classDiagram',
+  'stateDiagram',
+  'erDiagram',
+  'gantt',
+  'pie',
+  'mindmap',
+  'timeline',
+  'gitGraph',
+  'journey',
+];
+
+function isMermaidDiagram(code: string, language?: string): boolean {
+  if (language === 'mermaid') return true;
+  const trimmedCode = code.trim();
+  return MERMAID_KEYWORDS.some((keyword) => trimmedCode.startsWith(keyword));
+}
+
+// ============================================
+// Shared styled markdown components
+// ============================================
+const PLAN_MARKDOWN_COMPONENTS: React.ComponentPropsWithoutRef<
+  typeof ReactMarkdown
+>['components'] = {
+  h1: ({ children }) => (
+    <h1 className="mb-3 mt-4 border-b border-gray-200 pb-2 text-lg font-bold text-gray-900 first:mt-0">
+      {children}
+    </h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="mb-2 mt-4 flex items-center gap-2 text-base font-bold text-gray-900 first:mt-0">
+      <span className="inline-block h-4 w-1 rounded-full bg-blue-500" />
+      {children}
+    </h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="mb-2 mt-3 text-sm font-semibold text-gray-800 first:mt-0">
+      {children}
+    </h3>
+  ),
+  h4: ({ children }) => (
+    <h4 className="mb-1.5 mt-2 text-sm font-medium text-gray-700 first:mt-0">
+      {children}
+    </h4>
+  ),
+  p: ({ children }) => (
+    <p className="mb-3 text-sm leading-relaxed text-gray-700 last:mb-0">
+      {children}
+    </p>
+  ),
+  ul: ({ children }) => (
+    <ul className="mb-3 ml-1 space-y-1.5 text-gray-700 last:mb-0">
+      {children}
+    </ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-3 ml-1 list-inside list-decimal space-y-1.5 text-gray-700 last:mb-0">
+      {children}
+    </ol>
+  ),
+  li: ({ children }) => (
+    <li className="flex items-start gap-2 text-sm leading-relaxed">
+      <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-400" />
+      <span className="flex-1">{children}</span>
+    </li>
+  ),
+  strong: ({ children }) => (
+    <strong className="font-semibold text-gray-900">{children}</strong>
+  ),
+  em: ({ children }) => <em className="text-gray-600">{children}</em>,
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-blue-600 underline decoration-1 underline-offset-2 hover:text-blue-700"
+    >
+      {children}
+    </a>
+  ),
+  hr: () => <hr className="my-4 border-t border-gray-200" />,
+  blockquote: ({ children }) => (
+    <blockquote className="mb-3 border-l-4 border-blue-300 bg-blue-50/50 py-2 pl-4 italic text-gray-600 last:mb-0">
+      {children}
+    </blockquote>
+  ),
+  // Code blocks with mermaid support
+  code: ({ className, children, ...props }) => {
+    const match = /language-(\w+)/.exec(className || '');
+    const language = match ? match[1] : undefined;
+    const codeString = String(children).replace(/\n$/, '');
+    const hasLanguage = !!match;
+    const hasNewlines = codeString.includes('\n');
+    const isInline = !hasLanguage && !hasNewlines;
+
+    if (!isInline && isMermaidDiagram(codeString, language)) {
+      return <MermaidDiagram chart={codeString} className="my-4" />;
+    }
+
+    if (isInline) {
+      return (
+        <code
+          className="font-mono rounded bg-gray-100 px-1.5 py-0.5 text-xs text-blue-700"
+          {...props}
+        >
+          {children}
+        </code>
+      );
+    }
+    return (
+      <code
+        className="font-mono block overflow-x-auto rounded-lg bg-gray-900 p-3 text-xs text-gray-100"
+        {...props}
+      >
+        {children}
+      </code>
+    );
+  },
+  pre: ({ children }) => (
+    <pre className="mb-3 overflow-hidden rounded-lg last:mb-0">{children}</pre>
+  ),
+  // Table styling
+  table: ({ children }) => (
+    <div className="mb-3 overflow-x-auto rounded-lg border border-gray-200 last:mb-0">
+      <table className="min-w-full text-sm text-gray-700">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
+  th: ({ children }) => (
+    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">
+      {children}
+    </th>
+  ),
+  tr: ({ children }) => (
+    <tr className="border-t border-gray-100 even:bg-gray-50/50">{children}</tr>
+  ),
+  td: ({ children }) => <td className="px-3 py-2 text-sm">{children}</td>,
+};
+
+/** Shared markdown renderer with GFM tables, styled components, and mermaid */
+function PlanMarkdown({ content }: { content: string }) {
+  return (
+    <div className="prose prose-sm max-w-none">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={PLAN_MARKDOWN_COMPONENTS}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 interface PlanContentPanelProps {
   plan: PlanDetail;
@@ -282,7 +443,7 @@ export function PlanContentPanel({
                   </div>
                 )}
                 <div className="rounded-lg border border-gray-200 p-4">
-                  <ReactMarkdown>{reportContent}</ReactMarkdown>
+                  <PlanMarkdown content={reportContent} />
                 </div>
               </div>
             ) : (
@@ -343,13 +504,13 @@ export function PlanContentPanel({
                             )}
                           </div>
                           <div className="mt-1 text-sm text-gray-700">
-                            <div className="prose prose-sm max-w-none">
-                              <ReactMarkdown>
-                                {msg.content.length > 500
+                            <PlanMarkdown
+                              content={
+                                msg.content.length > 500
                                   ? `${msg.content.slice(0, 500)}...`
-                                  : msg.content}
-                              </ReactMarkdown>
-                            </div>
+                                  : msg.content
+                              }
+                            />
                           </div>
                           <p className="mt-1 text-xs text-gray-400">
                             {formatTime(msg.createdAt)}
@@ -489,7 +650,19 @@ function PhaseTaskCard({
   onToggle: () => void;
 }) {
   const { t } = useTranslation();
+  const cardRef = useRef<HTMLDivElement>(null);
   const status = plan.phaseStatus[workflow.phase];
+
+  // Auto-scroll to card when expanded
+  useEffect(() => {
+    if (isExpanded && cardRef.current) {
+      // Small delay to let the content render before scrolling
+      const timer = setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isExpanded]);
   const phaseKey = PHASE_KEYS[workflow.phase];
   const isActive = status?.status === 'active';
   const isCompleted = status?.status === 'completed';
@@ -527,6 +700,7 @@ function PhaseTaskCard({
 
   return (
     <div
+      ref={cardRef}
       className={cn(
         'rounded-lg border transition-colors',
         isActive
@@ -675,9 +849,7 @@ function PhaseTaskCard({
                 {'\u{1F4DD}'} {t('aiPlanning.content.phaseOutput')}
               </div>
               <div className="rounded-lg border border-gray-200 p-3">
-                <div className="prose prose-sm max-w-none">
-                  <ReactMarkdown>{status.summary}</ReactMarkdown>
-                </div>
+                <PlanMarkdown content={status.summary} />
               </div>
             </div>
           )}
