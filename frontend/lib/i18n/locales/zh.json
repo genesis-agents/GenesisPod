@@ -1154,7 +1154,24 @@
       "currentPhase": "当前阶段",
       "waitingForStart": "等待策划启动",
       "clickStartHint": "点击左侧「启动」按钮，AI 团队将开始协作",
-      "phaseFailed": "阶段执行失败"
+      "phaseFailed": "阶段执行失败",
+      "references": "参考文献"
+    },
+    "references": {
+      "noReferences": "暂无参考文献",
+      "noReferencesHint": "调研洞察阶段完成后，系统将自动收集实时搜索资料作为参考文献",
+      "totalSources": "共 {{total}} 条来源",
+      "highRelevance": "高相关 {{count}}",
+      "mediumRelevance": "中相关 {{count}}",
+      "lowRelevance": "低相关 {{count}}",
+      "filterAll": "全部",
+      "filterHigh": "高相关",
+      "filterMedium": "中相关",
+      "filterLow": "低相关",
+      "sortByRelevance": "按相关度",
+      "sortByDate": "按日期",
+      "openOriginal": "查看原文",
+      "original": "原文"
     },
     "status": {
       "notStarted": "未启动",

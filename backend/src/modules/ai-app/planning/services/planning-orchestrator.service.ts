@@ -18,6 +18,17 @@ export interface PlanPhaseStatus {
   error?: string;
 }
 
+export interface PlanReference {
+  id: string;
+  title: string;
+  url: string;
+  domain: string;
+  snippet: string;
+  publishedDate?: string;
+  score?: number;
+  sourcePhase: number;
+}
+
 export interface PlanningTopicMetadata {
   planningMode: true;
   templateId: string;
@@ -28,6 +39,7 @@ export interface PlanningTopicMetadata {
     depth: PlanningDepth;
     autoAdvance: boolean;
   };
+  references?: PlanReference[];
 }
 
 export interface PlanSummary {
@@ -48,6 +60,7 @@ export interface PlanDetail extends PlanSummary {
   depth: PlanningDepth;
   autoAdvance: boolean;
   members: Array<{ id: string; displayName: string; aiModel: string }>;
+  references: PlanReference[];
 }
 
 const PHASE_NAMES = [
@@ -226,6 +239,7 @@ export class PlanningOrchestratorService {
       updatedAt: topic.updatedAt,
       memberCount: topic._count.aiMembers,
       members: topic.aiMembers,
+      references: meta.references || [],
     };
   }
 
@@ -534,10 +548,24 @@ export class PlanningOrchestratorService {
         return;
       }
 
-      // 2. Build context from previous phases
+      // 2. Web search for Research phase (Phase 2) — collect real-time references
+      let searchContext = "";
+      if (phase === 2) {
+        const searchResults = await this.searchForResearchPhase(
+          meta.planConfig.goal,
+          topic.name,
+          planId,
+          phase,
+        );
+        if (searchResults.context) {
+          searchContext = searchResults.context;
+        }
+      }
+
+      // 3. Build context from previous phases
       const previousContext = this.buildPreviousPhaseContext(meta, phase);
 
-      // 3. Get AI members for this phase
+      // 4. Get AI members for this phase
       const agentIndices = PHASE_AGENT_INDICES[phase] || [0];
       const agents = agentIndices
         .map((idx) => topic.aiMembers[idx])
@@ -555,7 +583,7 @@ export class PlanningOrchestratorService {
         throw new Error(`No agents available for phase ${phase}`);
       }
 
-      // 4. Execute each agent
+      // 5. Execute each agent
       const agentOutputs: string[] = [];
 
       for (const agent of agents) {
@@ -566,6 +594,7 @@ export class PlanningOrchestratorService {
           agent.roleDescription || "",
           previousContext,
           topic.name,
+          searchContext,
         );
 
         const messages: ChatMessage[] = [
@@ -613,7 +642,7 @@ export class PlanningOrchestratorService {
         agentOutputs.push(`### ${agent.displayName}\n\n${response.content}`);
       }
 
-      // 5. Handle no-output case as failure (Bug 2 fix)
+      // 6. Handle no-output case as failure (Bug 2 fix)
       if (agentOutputs.length === 0) {
         this.logger.warn(
           `Phase ${phase} produced no output for plan ${planId}`,
@@ -625,7 +654,7 @@ export class PlanningOrchestratorService {
         return; // Don't auto-advance
       }
 
-      // 6. Build phase summary and mark completed
+      // 7. Build phase summary and mark completed
       const summary = agentOutputs.join("\n\n---\n\n");
       await this.updatePhaseStatus(planId, phase, {
         status: "completed",
@@ -635,7 +664,7 @@ export class PlanningOrchestratorService {
 
       this.logger.log(`Phase ${phase} completed for plan ${planId}`);
 
-      // 7. Auto-advance if enabled (with delay so frontend can catch up)
+      // 8. Auto-advance if enabled (with delay so frontend can catch up)
       if (meta.planConfig.autoAdvance && phase < TOTAL_PHASES) {
         // Wait 3s before auto-advancing so the UI can show phase completion
         await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -753,10 +782,12 @@ export class PlanningOrchestratorService {
     agentRole: string,
     previousContext: string,
     planName: string,
+    searchContext?: string,
   ): string {
     const goal = meta.planConfig.goal;
     const depth = meta.planConfig.depth;
     const phaseName = PHASE_LABELS[phase];
+    const currentDate = new Date().toISOString().split("T")[0];
 
     const depthInstruction =
       depth === PlanningDepth.QUICK
@@ -767,7 +798,9 @@ export class PlanningOrchestratorService {
 
     const phaseInstructions: Record<number, string> = {
       1: `请分析以下策划目标，拆解关键要素，明确核心问题和约束条件，并提出分析框架。`,
-      2: `请围绕策划目标进行深入调研，收集相关数据、案例和行业趋势，提供有价值的洞察。`,
+      2: searchContext
+        ? `请基于以下实时搜索资料，围绕策划目标进行深入调研分析。你必须优先使用下方提供的搜索结果中的数据和信息，使用 [编号] 格式引用来源（如 [1]、[2]）。严禁编造或虚构任何引用来源、报告名称或数据。如果搜索资料中没有某方面的信息，请明确说明"该方面暂无实时数据"。`
+        : `请围绕策划目标进行深入调研，收集相关数据、案例和行业趋势，提供有价值的洞察。注意：你没有实时搜索能力，请基于已知信息分析，不要编造具体的报告名称、机构引用或统计数据。`,
       3: `请基于前期分析和调研成果，进行头脑风暴，提出创新方案和多种可选路径。`,
       4: `请对提出的方案进行辩论推演，分析方案的优劣势、可行性和潜在风险。`,
       5: `请综合前述所有阶段的成果，整合出最优方案，形成结构化的策划框架。`,
@@ -775,11 +808,17 @@ export class PlanningOrchestratorService {
     };
 
     let prompt = `# 策划任务: ${planName}\n\n`;
+    prompt += `**当前日期**: ${currentDate}\n\n`;
     prompt += `**策划目标**: ${goal}\n\n`;
     prompt += `**当前阶段**: 第 ${phase} 阶段 — ${phaseName}\n\n`;
     prompt += `**你的角色**: ${agentName} — ${agentRole}\n\n`;
     prompt += `**深度要求**: ${depthInstruction}\n\n`;
     prompt += `**任务指令**: ${phaseInstructions[phase] || "请完成本阶段的工作。"}\n\n`;
+
+    // Inject web search results for Research phase
+    if (phase === 2 && searchContext) {
+      prompt += `---\n\n## 实时搜索资料\n\n${searchContext}\n\n---\n\n`;
+    }
 
     if (previousContext) {
       prompt += `---\n\n${previousContext}\n\n---\n\n`;
@@ -856,6 +895,145 @@ export class PlanningOrchestratorService {
     });
 
     this.logger.log(`Plan ${planId} archived`);
+  }
+
+  // ==================== Web Search for Research Phase ====================
+
+  /**
+   * Search the web for real-time data related to the planning goal.
+   * Generates multiple search queries, executes them via AIEngineFacade,
+   * and stores results as references in the plan metadata.
+   */
+  private async searchForResearchPhase(
+    goal: string,
+    planName: string,
+    planId: string,
+    phase: number,
+  ): Promise<{ context: string }> {
+    try {
+      // Generate diverse search queries from the goal
+      const queries = this.generateSearchQueries(goal, planName);
+      this.logger.log(
+        `Research phase: searching ${queries.length} queries for plan ${planId}`,
+      );
+
+      const allResults: PlanReference[] = [];
+      const seenUrls = new Set<string>();
+
+      for (const query of queries) {
+        try {
+          const searchResponse = await this.aiFacade.search({
+            query,
+            maxResults: 5,
+          });
+
+          if (searchResponse.success && searchResponse.results?.length > 0) {
+            for (const result of searchResponse.results) {
+              if (seenUrls.has(result.url)) continue;
+              seenUrls.add(result.url);
+
+              allResults.push({
+                id: `ref-${allResults.length + 1}`,
+                title: result.title,
+                url: result.url,
+                domain: result.domain || new URL(result.url).hostname,
+                snippet: result.content,
+                publishedDate: result.publishedDate,
+                score: result.score,
+                sourcePhase: phase,
+              });
+            }
+          }
+        } catch (err) {
+          this.logger.warn(
+            `Search query failed: "${query}" — ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      if (allResults.length === 0) {
+        this.logger.warn(`No search results for plan ${planId}`);
+        return { context: "" };
+      }
+
+      // Store references in metadata
+      const topic = await this.prisma.topic.findFirst({
+        where: { id: planId },
+      });
+      if (topic) {
+        const meta =
+          (topic.metadata as unknown as PlanningTopicMetadata) ||
+          ({} as PlanningTopicMetadata);
+
+        const updatedMetadata: PlanningTopicMetadata = {
+          ...meta,
+          references: allResults,
+        };
+
+        await this.prisma.topic.update({
+          where: { id: planId },
+          data: {
+            metadata: updatedMetadata as unknown as Prisma.InputJsonValue,
+          },
+        });
+      }
+
+      this.logger.log(
+        `Research phase: collected ${allResults.length} references for plan ${planId}`,
+      );
+
+      // Format for prompt context
+      const context = allResults
+        .map(
+          (r, i) =>
+            `[${i + 1}] **${r.title}**\n${r.snippet}\n来源: ${r.url}${r.publishedDate ? ` (${r.publishedDate})` : ""}`,
+        )
+        .join("\n\n");
+
+      return { context };
+    } catch (error) {
+      this.logger.error(
+        `Research phase search failed: ${error instanceof Error ? error.message : error}`,
+      );
+      return { context: "" };
+    }
+  }
+
+  /**
+   * Generate diverse search queries from planning goal.
+   * Creates targeted queries covering different aspects of the goal.
+   */
+  private generateSearchQueries(goal: string, planName: string): string[] {
+    const queries: string[] = [];
+    const currentYear = new Date().getFullYear();
+
+    // Core topic query
+    queries.push(`${planName} ${currentYear}`);
+
+    // Extract key concepts: split on common delimiters
+    const goalKeywords = goal
+      .replace(/[，。、；：！？\s]+/g, " ")
+      .split(" ")
+      .filter((w) => w.length > 1)
+      .slice(0, 6);
+
+    if (goalKeywords.length >= 2) {
+      // Industry trend query
+      queries.push(
+        `${goalKeywords.slice(0, 3).join(" ")} 行业趋势 ${currentYear}`,
+      );
+      // Data/report query
+      queries.push(`${goalKeywords.slice(0, 3).join(" ")} 数据报告 最新`);
+    }
+
+    // Full goal as query (trimmed)
+    if (goal.length <= 80) {
+      queries.push(goal);
+    } else {
+      queries.push(goal.slice(0, 80));
+    }
+
+    return queries.slice(0, 4); // Max 4 queries
   }
 
   // ==================== Model Allocation (Fix 1) ====================

@@ -80,7 +80,10 @@ export default function PlanDetailPage() {
     if (!planId || !shouldPoll) return;
 
     pollRef.current = setInterval(() => {
-      fetchPlanDetail(planId);
+      fetchPlanDetail(planId).catch(() => {
+        // Silently retry on next interval — prevents unhandled rejection
+        // from freezing the UI when network/auth issues occur
+      });
     }, 5000);
 
     return () => {

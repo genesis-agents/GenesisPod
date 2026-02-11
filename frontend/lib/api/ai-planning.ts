@@ -17,6 +17,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const response = await fetch(`${API_BASE}${url}`, {
     ...options,
     headers,
+    cache: 'no-store',
   });
 
   if (!response.ok) {
@@ -51,6 +52,17 @@ export interface PlanPhaseStatus {
   error?: string;
 }
 
+export interface PlanReference {
+  id: string;
+  title: string;
+  url: string;
+  domain: string;
+  snippet: string;
+  publishedDate?: string;
+  score?: number;
+  sourcePhase: number;
+}
+
 export interface PlanSummary {
   id: string;
   name: string;
@@ -69,6 +81,7 @@ export interface PlanDetail extends PlanSummary {
   depth: string;
   autoAdvance: boolean;
   members: Array<{ id: string; displayName: string; aiModel: string }>;
+  references: PlanReference[];
 }
 
 export interface PlanTemplate {

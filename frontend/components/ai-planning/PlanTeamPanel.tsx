@@ -130,15 +130,34 @@ export function PlanTeamPanel({
         ? 'bg-gray-100 text-gray-600'
         : 'bg-blue-100 text-blue-700';
 
+  // Auto-advance pending: phase completed but not the last phase.
+  // Backend auto-advances after ~3s, so buttons must stay disabled during the gap.
+  // Timeout: if completedAt is >15s ago and next phase hasn't started, assume
+  // auto-advance failed and re-enable buttons so user can manually advance.
+  const isAutoAdvancePending = (() => {
+    if (
+      plan.currentPhase <= 0 ||
+      !isCurrentCompleted ||
+      plan.currentPhase >= plan.totalPhases
+    )
+      return false;
+    const completedAt = currentStatus?.completedAt;
+    if (completedAt) {
+      const elapsed = Date.now() - new Date(completedAt).getTime();
+      if (elapsed > 15000) return false; // >15s: auto-advance likely failed
+    }
+    return true;
+  })();
+
   // Button states (matching AI Insights: Start/Update/Cancel)
-  const isMissionActive = isCurrentActive;
+  const isMissionActive = isCurrentActive || isAutoAdvancePending;
   const canStart = !isAdvancing && !isMissionActive && !allCompleted;
   const canUpdate =
     !isAdvancing &&
     !isMissionActive &&
     plan.currentPhase > 0 &&
     isCurrentCompleted;
-  const canCancel = isMissionActive && !isAdvancing;
+  const canCancel = isCurrentActive && !isAdvancing;
 
   return (
     <div className="flex h-full flex-col bg-white">

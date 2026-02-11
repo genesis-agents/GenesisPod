@@ -19,6 +19,7 @@ import {
   Send,
   ChevronDown,
   AlertTriangle,
+  Link as LinkIcon,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -26,7 +27,7 @@ import MermaidDiagram from '@/components/ui/MermaidDiagram';
 import { cn } from '@/lib/utils/common';
 import { useTranslation } from '@/lib/i18n';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
-import type { PlanDetail } from '@/lib/api/ai-planning';
+import type { PlanDetail, PlanReference } from '@/lib/api/ai-planning';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';
 import {
   PLANNING_ROLES_CONFIG,
@@ -36,7 +37,11 @@ import {
 import { getMessages, sendMessage } from '@/lib/api/ai-teams';
 import type { TopicMessage } from '@/types/ai-teams';
 
-export type PlanContentTabType = 'phases' | 'report' | 'activity';
+export type PlanContentTabType =
+  | 'phases'
+  | 'report'
+  | 'references'
+  | 'activity';
 
 // Role icon mapping (shared with PlanTeamPanel)
 const ROLE_ICON_MAP: Record<string, string> = {
@@ -306,7 +311,11 @@ export function PlanContentPanel({
 
   useEffect(() => {
     if (!shouldPollMessages) return;
-    const interval = setInterval(fetchMessages, 5000);
+    const interval = setInterval(() => {
+      fetchMessages().catch(() => {
+        // Silently retry on next interval
+      });
+    }, 5000);
     return () => clearInterval(interval);
   }, [shouldPollMessages, fetchMessages]);
 
@@ -365,6 +374,12 @@ export function PlanContentPanel({
       key: 'report',
       label: t('aiPlanning.content.planReport'),
       icon: <FileText className="h-4 w-4" />,
+    },
+    {
+      key: 'references',
+      label: t('aiPlanning.content.references'),
+      icon: <LinkIcon className="h-4 w-4" />,
+      badge: plan.references?.length > 0 ? plan.references.length : undefined,
     },
     {
       key: 'activity',
@@ -470,6 +485,11 @@ export function PlanContentPanel({
               </div>
             )}
           </div>
+        )}
+
+        {/* References Tab */}
+        {activeTab === 'references' && (
+          <PlanReferencesTab references={plan.references || []} />
         )}
 
         {/* Activity Log Tab - Fix 6: Real messages from topic */}
@@ -901,6 +921,274 @@ function PhaseTaskCard({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================
+// References Tab (matching AI Insights TopicReferencesPanel)
+// ============================================
+
+function PlanReferencesTab({ references }: { references: PlanReference[] }) {
+  const { t } = useTranslation();
+  const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>(
+    'all'
+  );
+  const [sortBy, setSortBy] = useState<'score' | 'date'>('score');
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Filter and sort
+  const filteredRefs = useMemo(() => {
+    let result = [...references];
+
+    if (filter !== 'all') {
+      result = result.filter((r) => {
+        const score = (r.score || 0) * 100;
+        if (filter === 'high') return score >= 70;
+        if (filter === 'medium') return score >= 40 && score < 70;
+        if (filter === 'low') return score < 40;
+        return true;
+      });
+    }
+
+    result.sort((a, b) => {
+      if (sortBy === 'score') {
+        return (b.score || 0) - (a.score || 0);
+      }
+      const dateA = a.publishedDate ? new Date(a.publishedDate).getTime() : 0;
+      const dateB = b.publishedDate ? new Date(b.publishedDate).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    return result;
+  }, [references, filter, sortBy]);
+
+  // Statistics
+  const stats = useMemo(() => {
+    const high = references.filter((r) => (r.score || 0) * 100 >= 70).length;
+    const medium = references.filter(
+      (r) => (r.score || 0) * 100 >= 40 && (r.score || 0) * 100 < 70
+    ).length;
+    const low = references.filter((r) => (r.score || 0) * 100 < 40).length;
+    return { total: references.length, high, medium, low };
+  }, [references]);
+
+  if (references.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center px-8 py-16 text-gray-400">
+        <LinkIcon className="mb-3 h-10 w-10 text-gray-300" />
+        <h3 className="text-base font-medium text-gray-700">
+          {t('aiPlanning.references.noReferences')}
+        </h3>
+        <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
+          {t('aiPlanning.references.noReferencesHint')}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-gray-600">
+            {t('aiPlanning.references.totalSources', {
+              total: stats.total,
+            })}
+          </span>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="flex items-center gap-1 text-green-600">
+              <span className="h-2 w-2 rounded-full bg-green-500" />
+              {t('aiPlanning.references.highRelevance', {
+                count: stats.high,
+              })}
+            </span>
+            <span className="flex items-center gap-1 text-yellow-600">
+              <span className="h-2 w-2 rounded-full bg-yellow-500" />
+              {t('aiPlanning.references.mediumRelevance', {
+                count: stats.medium,
+              })}
+            </span>
+            <span className="flex items-center gap-1 text-red-600">
+              <span className="h-2 w-2 rounded-full bg-red-500" />
+              {t('aiPlanning.references.lowRelevance', {
+                count: stats.low,
+              })}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as typeof filter)}
+            className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
+          >
+            <option value="all">{t('aiPlanning.references.filterAll')}</option>
+            <option value="high">
+              {t('aiPlanning.references.filterHigh')}
+            </option>
+            <option value="medium">
+              {t('aiPlanning.references.filterMedium')}
+            </option>
+            <option value="low">{t('aiPlanning.references.filterLow')}</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
+          >
+            <option value="score">
+              {t('aiPlanning.references.sortByRelevance')}
+            </option>
+            <option value="date">
+              {t('aiPlanning.references.sortByDate')}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      {/* Reference list */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          {filteredRefs.map((item, idx) => {
+            const citationIndex =
+              references.findIndex((r) => r.id === item.id) + 1;
+            const isExpanded = expandedIds.has(item.id);
+            const scorePercent = Math.round((item.score || 0) * 100);
+
+            return (
+              <div
+                key={item.id}
+                className="group rounded-lg border border-gray-200 bg-white transition-all hover:border-blue-300 hover:shadow-md"
+              >
+                {/* Header */}
+                <div
+                  className="cursor-pointer p-4"
+                  onClick={() => toggleExpanded(item.id)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start gap-2">
+                        <span className="flex-shrink-0 rounded bg-purple-100 px-1.5 py-0.5 text-xs font-bold text-purple-700">
+                          [{citationIndex}]
+                        </span>
+                        <h4 className="text-sm font-medium text-gray-900">
+                          {item.title}
+                        </h4>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {item.domain}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {scorePercent > 0 && (
+                        <span
+                          className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${
+                            scorePercent >= 70
+                              ? 'bg-green-100 text-green-700'
+                              : scorePercent >= 40
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {scorePercent}%
+                        </span>
+                      )}
+                      <ChevronDown
+                        className={cn(
+                          'h-4 w-4 text-gray-400 transition-transform',
+                          isExpanded && 'rotate-180'
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  {!isExpanded && item.snippet && (
+                    <p className="mt-2 line-clamp-2 text-sm text-gray-600">
+                      {item.snippet}
+                    </p>
+                  )}
+                </div>
+
+                {/* Expanded content */}
+                {isExpanded && (
+                  <div className="border-t border-gray-100">
+                    {item.snippet && (
+                      <div className="max-h-64 overflow-y-auto bg-gray-50 p-4">
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                          {item.snippet}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                          web
+                        </span>
+                        {item.publishedDate && (
+                          <span>{formatTime(item.publishedDate)}</span>
+                        )}
+                      </div>
+                      {item.url && (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {t('aiPlanning.references.openOriginal')} ↗
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Collapsed footer */}
+                {!isExpanded && (
+                  <div className="flex items-center justify-between border-t border-gray-100 px-4 py-2">
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                        web
+                      </span>
+                      {item.publishedDate && (
+                        <span>{formatTime(item.publishedDate)}</span>
+                      )}
+                    </div>
+                    {item.url && (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {t('aiPlanning.references.original')} ↗
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

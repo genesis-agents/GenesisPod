@@ -1154,7 +1154,24 @@
       "currentPhase": "Current Phase",
       "waitingForStart": "Waiting for Planning",
       "clickStartHint": "Click \"Start\" on the left. The AI team will begin collaborating.",
-      "phaseFailed": "Phase execution failed"
+      "phaseFailed": "Phase execution failed",
+      "references": "References"
+    },
+    "references": {
+      "noReferences": "No references yet",
+      "noReferencesHint": "References will be automatically collected from web searches during the Research phase",
+      "totalSources": "{{total}} sources",
+      "highRelevance": "High {{count}}",
+      "mediumRelevance": "Medium {{count}}",
+      "lowRelevance": "Low {{count}}",
+      "filterAll": "All",
+      "filterHigh": "High relevance",
+      "filterMedium": "Medium relevance",
+      "filterLow": "Low relevance",
+      "sortByRelevance": "By relevance",
+      "sortByDate": "By date",
+      "openOriginal": "View source",
+      "original": "Source"
     },
     "status": {
       "notStarted": "Not Started",
