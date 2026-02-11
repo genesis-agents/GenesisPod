@@ -10,7 +10,7 @@
  * 4. Bottom Bar: phase indicator + 3 action buttons (grid-cols-3)
  */
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils/common';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
@@ -30,8 +30,9 @@ interface PlanTeamPanelProps {
   onStart: () => void;
   onAdvance: () => void;
   onRetry: (phase: number) => void;
-  onExport: () => void;
+  onCancel?: () => void;
   onPhaseSelect?: (phase: number) => void;
+  error?: string | null;
 }
 
 // ---- Constants (matching AI Insights pattern) ----
@@ -78,8 +79,9 @@ export function PlanTeamPanel({
   onStart,
   onAdvance,
   onRetry,
-  onExport,
+  onCancel,
   onPhaseSelect,
+  error,
 }: PlanTeamPanelProps) {
   const { t } = useTranslation();
   const [hoveredAgent, setHoveredAgent] = useState<number | null>(null);
@@ -124,12 +126,15 @@ export function PlanTeamPanel({
         ? 'bg-gray-100 text-gray-600'
         : 'bg-blue-100 text-blue-700';
 
-  // Button states
-  const canStartOrAdvance = !isAdvancing && !isCurrentActive && !allCompleted;
-  const canRetry =
+  // Button states (matching AI Insights: Start/Update/Cancel)
+  const isMissionActive = isCurrentActive;
+  const canStart = !isAdvancing && !isMissionActive && !allCompleted;
+  const canUpdate =
     !isAdvancing &&
+    !isMissionActive &&
     plan.currentPhase > 0 &&
-    (isCurrentActive || isCurrentCompleted);
+    isCurrentCompleted;
+  const canCancel = isMissionActive && !isAdvancing;
 
   return (
     <div className="flex h-full flex-col bg-white">
@@ -261,54 +266,96 @@ export function PlanTeamPanel({
           </span>
         </div>
 
-        {/* 3 action buttons - grid-cols-3 matching AI Insights */}
+        {/* Research Depth Display (matching AI Insights) */}
+        {plan.depth && (
+          <div className="mb-2">
+            <div className="mb-1 text-xs font-medium text-gray-500">
+              {t('aiPlanning.create.depth')}
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              {(['quick', 'standard', 'comprehensive'] as const).map(
+                (depth) => {
+                  const isSelected = plan.depth === depth;
+                  return (
+                    <div
+                      key={depth}
+                      className={`rounded-md px-2 py-1.5 text-center text-xs transition-all ${
+                        isSelected
+                          ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
+                          : 'bg-gray-50 text-gray-400'
+                      }`}
+                    >
+                      <div className="font-medium">
+                        {t(`aiPlanning.team.depth.${depth}`)}
+                      </div>
+                      <div className="mt-0.5 whitespace-nowrap text-[10px] opacity-70">
+                        {t(`aiPlanning.team.depth.${depth}Desc`)}
+                      </div>
+                    </div>
+                  );
+                }
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Error display (matching AI Insights) */}
+        {error && (
+          <div className="mb-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div className="mb-1 flex items-center gap-2 font-medium">
+              <span>{'\u26A0\uFE0F'}</span>
+              <span>{t('aiPlanning.team.executionError')}</span>
+            </div>
+            <p className="text-xs text-red-600">{error}</p>
+          </div>
+        )}
+
+        {/* Action Buttons - 3 equal buttons: Start/Update/Cancel (matching AI Insights) */}
         <div className="grid grid-cols-3 gap-2">
+          {/* Start button - start planning or advance to next phase */}
           <button
             onClick={plan.currentPhase === 0 ? onStart : onAdvance}
-            disabled={!canStartOrAdvance}
-            className={cn(
-              'flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
-              canStartOrAdvance
+            disabled={!canStart}
+            className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+              canStart
                 ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
                 : 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
-            )}
+            }`}
           >
             {isAdvancing ? (
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
             ) : (
               <span>{'\u25B6'}</span>
             )}
-            {plan.currentPhase === 0
-              ? t('aiPlanning.actions.start')
-              : t('aiPlanning.actions.advance')}
+            {t('aiPlanning.actions.start')}
           </button>
 
+          {/* Update button - retry current phase with updated results */}
           <button
             onClick={() => onRetry(plan.currentPhase)}
-            disabled={!canRetry}
-            className={cn(
-              'flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
-              canRetry
+            disabled={!canUpdate}
+            className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+              canUpdate
                 ? 'bg-green-600 text-white shadow-sm hover:bg-green-700'
                 : 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
-            )}
+            }`}
           >
             <span>{PHASE_STATUS_ICONS.active}</span>
-            {t('aiPlanning.actions.retry')}
+            {t('aiPlanning.actions.update')}
           </button>
 
+          {/* Cancel button - stop current active phase */}
           <button
-            onClick={onExport}
-            disabled={!allCompleted}
-            className={cn(
-              'flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
-              allCompleted
-                ? 'border border-green-200 bg-green-50 text-green-600 hover:bg-green-100'
+            onClick={onCancel}
+            disabled={!canCancel}
+            className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+              canCancel
+                ? 'border border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
                 : 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
-            )}
+            }`}
           >
-            <span>{'\u{1F4E5}'}</span>
-            {t('aiPlanning.actions.exportShort')}
+            <span>{'\u23F9'}</span>
+            {t('aiPlanning.actions.cancel')}
           </button>
         </div>
       </div>

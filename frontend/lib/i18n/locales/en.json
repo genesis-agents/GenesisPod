@@ -1046,6 +1046,9 @@
       "start": "Start",
       "advance": "Advance",
       "retry": "Retry",
+      "update": "Update",
+      "cancel": "Cancel",
+      "cancelSuccess": "Current phase cancelled",
       "exportShort": "Export"
     },
     "templates": {
@@ -1085,6 +1088,7 @@
       "deleteFailed": "Failed to delete plan",
       "advanceFailed": "Failed to advance phase",
       "retryFailed": "Failed to retry phase",
+      "cancelFailed": "Failed to cancel phase",
       "exportFailed": "Export failed"
     },
     "signIn": "Please sign in to access AI Planning",
@@ -1113,6 +1117,18 @@
         "working": "Working",
         "completed": "Completed",
         "idle": "Idle"
+      },
+      "planningTeam": "Planning Team",
+      "expandPanel": "Expand team panel",
+      "collapsePanel": "Collapse panel",
+      "executionError": "Execution error",
+      "depth": {
+        "quick": "Quick",
+        "quickDesc": "Basic search",
+        "standard": "Standard",
+        "standardDesc": "Literature+cognitive",
+        "comprehensive": "Thorough",
+        "comprehensiveDesc": "All V5 capabilities"
       }
     },
     "content": {

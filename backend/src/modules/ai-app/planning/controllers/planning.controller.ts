@@ -96,6 +96,17 @@ export class PlanningController {
     );
   }
 
+  @Post(":planId/cancel")
+  @ApiOperation({ summary: "取消当前阶段" })
+  @ApiResponse({ status: 200, description: "阶段取消成功" })
+  async cancelPhase(
+    @Request() req: RequestWithUser,
+    @Param("planId") planId: string,
+  ) {
+    await this.orchestrator.cancelPhase(planId, req.user.id);
+    return { success: true };
+  }
+
   @Get(":planId/export")
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: "导出策划文档" })

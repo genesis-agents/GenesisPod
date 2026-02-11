@@ -121,6 +121,12 @@ export async function retryPhase(planId: string, phase: number): Promise<void> {
   });
 }
 
+export async function cancelPhase(planId: string): Promise<void> {
+  return fetchWithAuth(`/api/v1/ai-planning/${planId}/cancel`, {
+    method: 'POST',
+  });
+}
+
 export async function exportPlan(planId: string): Promise<string> {
   const tokens = getAuthTokens();
   const headers: HeadersInit = {};

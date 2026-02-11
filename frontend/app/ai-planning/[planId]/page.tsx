@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Settings, Download, Trash2 } from 'lucide-react';
+import { ChevronLeft, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAiPlanningStore } from '@/stores/aiPlanningStore';
 import AppShell from '@/components/layout/AppShell';
@@ -31,6 +31,7 @@ export default function PlanDetailPage() {
     fetchPlanDetail,
     advancePhase,
     retryPhase,
+    cancelPhase,
     deletePlan,
   } = useAiPlanningStore();
 
@@ -38,6 +39,8 @@ export default function PlanDetailPage() {
   const [showExport, setShowExport] = useState(false);
   const [exportMarkdown, setExportMarkdown] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
+  const [phaseError, setPhaseError] = useState<string | null>(null);
   const [contentTab, setContentTab] = useState<PlanContentTabType>('phases');
   const [selectedPhase, setSelectedPhase] = useState<number | null>(null);
 
@@ -52,15 +55,17 @@ export default function PlanDetailPage() {
   const handleAdvance = async () => {
     if (!planId) return;
     setIsAdvancing(true);
+    setPhaseError(null);
     try {
       await advancePhase(planId);
       toast.success(t('aiPlanning.actions.advanceSuccess'));
     } catch (error) {
-      toast.error(
+      const msg =
         error instanceof Error
           ? error.message
-          : t('aiPlanning.error.advanceFailed')
-      );
+          : t('aiPlanning.error.advanceFailed');
+      setPhaseError(msg);
+      toast.error(msg);
     } finally {
       setIsAdvancing(false);
     }
@@ -68,15 +73,33 @@ export default function PlanDetailPage() {
 
   const handleRetry = async (phase: number) => {
     if (!planId) return;
+    setPhaseError(null);
     try {
       await retryPhase(planId, phase);
       toast.success(t('aiPlanning.actions.retrySuccess'));
     } catch (error) {
-      toast.error(
+      const msg =
         error instanceof Error
           ? error.message
-          : t('aiPlanning.error.retryFailed')
-      );
+          : t('aiPlanning.error.retryFailed');
+      setPhaseError(msg);
+      toast.error(msg);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!planId) return;
+    setPhaseError(null);
+    try {
+      await cancelPhase(planId);
+      toast.success(t('aiPlanning.actions.cancelSuccess'));
+    } catch (error) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : t('aiPlanning.error.cancelFailed');
+      setPhaseError(msg);
+      toast.error(msg);
     }
   };
 
@@ -172,7 +195,7 @@ export default function PlanDetailPage() {
 
   return (
     <AppShell>
-      <div className="flex h-full flex-col bg-gray-50">
+      <div className="flex h-full flex-1 flex-col overflow-hidden bg-gray-50">
         {/* Top bar */}
         <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
           <div className="flex items-center gap-3">
@@ -194,32 +217,19 @@ export default function PlanDetailPage() {
           <div className="flex items-center gap-2">
             {/* Status indicator */}
             {isAnyPhaseActive && (
-              <span className="flex items-center gap-1.5 text-xs text-blue-600">
+              <div className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-                {t('aiPlanning.status.inProgress')}
-              </span>
+                <span className="text-sm font-medium text-blue-700">
+                  {t('aiPlanning.status.inProgress')}
+                </span>
+              </div>
             )}
             {/* Settings */}
             <button
               onClick={() => setShowSettings(true)}
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
             >
-              <Settings className="h-4 w-4" />
-            </button>
-            {/* Export */}
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <Download className="h-4 w-4" />
-              {t('aiPlanning.actions.export')}
-            </button>
-            {/* Delete */}
-            <button
-              onClick={handleDelete}
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
-            >
-              <Trash2 className="h-5 w-5" />
+              <Settings className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -235,17 +245,85 @@ export default function PlanDetailPage() {
 
         {/* Main content: left panel + right panel */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left Panel - Team */}
-          <div className="hidden w-[360px] shrink-0 lg:block">
-            <PlanTeamPanel
-              plan={currentPlan}
-              isAdvancing={isAdvancing}
-              onStart={handleAdvance}
-              onAdvance={handleAdvance}
-              onRetry={handleRetry}
-              onExport={handleExport}
-              onPhaseSelect={handlePhaseSelect}
-            />
+          {/* Left Panel - Team (collapsible, matching AI Insights) */}
+          <div
+            className={`hidden flex-shrink-0 border-r border-gray-200 bg-white transition-all duration-300 lg:block ${
+              leftPanelCollapsed ? 'w-12' : 'w-[360px]'
+            }`}
+          >
+            {leftPanelCollapsed ? (
+              <div className="flex h-full flex-col items-center py-4">
+                <button
+                  onClick={() => setLeftPanelCollapsed(false)}
+                  className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                  title={t('aiPlanning.team.expandPanel')}
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                    />
+                  </svg>
+                </button>
+                <div className="mt-4 flex flex-col items-center gap-2">
+                  {isAnyPhaseActive && (
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+                  )}
+                  <span
+                    className="text-xs text-gray-500"
+                    style={{ writingMode: 'vertical-rl' }}
+                  >
+                    {t('aiPlanning.team.planningTeam')}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-full flex-col">
+                <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {t('aiPlanning.team.planningTeam')}
+                  </span>
+                  <button
+                    onClick={() => setLeftPanelCollapsed(true)}
+                    className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    title={t('aiPlanning.team.collapsePanel')}
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 9V5m0 0H5m4 0L4 10m11-1V5m0 0h4m-4 0l5 5M9 15v4m0 0H5m4 0l-5-5m11 5l5-5m-5 5v-4m0 4h4"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <PlanTeamPanel
+                    plan={currentPlan}
+                    isAdvancing={isAdvancing}
+                    onStart={handleAdvance}
+                    onAdvance={handleAdvance}
+                    onRetry={handleRetry}
+                    onCancel={handleCancel}
+                    onPhaseSelect={handlePhaseSelect}
+                    error={phaseError}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Panel - Content */}

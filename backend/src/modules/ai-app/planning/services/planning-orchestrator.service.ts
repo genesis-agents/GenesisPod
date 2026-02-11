@@ -291,6 +291,53 @@ export class PlanningOrchestratorService {
     );
   }
 
+  async cancelPhase(planId: string, userId: string): Promise<void> {
+    const topic = await this.prisma.topic.findFirst({
+      where: {
+        id: planId,
+        members: { some: { userId } },
+        metadata: { path: ["planningMode"], equals: true },
+      },
+    });
+
+    if (!topic) {
+      throw new NotFoundException("Plan not found");
+    }
+
+    const meta =
+      (topic.metadata as unknown as PlanningTopicMetadata) ||
+      ({} as PlanningTopicMetadata);
+
+    const currentPhase = meta.currentPhase || 0;
+    if (currentPhase === 0) {
+      return;
+    }
+
+    const currentStatus = meta.phaseStatus?.[currentPhase];
+    if (currentStatus?.status !== "active") {
+      return;
+    }
+
+    const updatedPhaseStatus = { ...meta.phaseStatus };
+    updatedPhaseStatus[currentPhase] = { status: "pending" };
+
+    const updatedMetadata: PlanningTopicMetadata = {
+      ...meta,
+      phaseStatus: updatedPhaseStatus,
+    };
+
+    await this.prisma.topic.update({
+      where: { id: planId },
+      data: {
+        metadata: updatedMetadata as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    this.logger.log(
+      `Plan ${planId} cancelled phase ${currentPhase}: ${PHASE_NAMES[currentPhase]}`,
+    );
+  }
+
   async exportPlan(planId: string, userId: string): Promise<string> {
     const plan = await this.getPlanDetail(planId, userId);
     const phases = plan.phaseStatus;

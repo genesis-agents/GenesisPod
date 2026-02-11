@@ -22,6 +22,7 @@ interface AiPlanningState {
   createPlan: (data: CreatePlanPayload) => Promise<string>;
   advancePhase: (planId: string) => Promise<void>;
   retryPhase: (planId: string, phase: number) => Promise<void>;
+  cancelPhase: (planId: string) => Promise<void>;
   deletePlan: (planId: string) => Promise<void>;
   reset: () => void;
 }
@@ -81,6 +82,11 @@ export const useAiPlanningStore = create<AiPlanningState>((set, get) => ({
 
   retryPhase: async (planId: string, phase: number) => {
     await api.retryPhase(planId, phase);
+    await get().fetchPlanDetail(planId);
+  },
+
+  cancelPhase: async (planId: string) => {
+    await api.cancelPhase(planId);
     await get().fetchPlanDetail(planId);
   },
 
