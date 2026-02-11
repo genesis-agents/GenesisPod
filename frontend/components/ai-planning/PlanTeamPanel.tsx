@@ -13,6 +13,7 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils/common';
+import { ModelBadge } from '@/components/common/badges/ModelBadge';
 import type { PlanDetail } from '@/lib/api/ai-planning';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';
 import {
@@ -42,6 +43,9 @@ const ROLE_ICON_MAP: Record<string, { icon: string; color: string }> = {
   copywriter: { icon: '\u{270D}\u{FE0F}', color: 'orange' },
   debater: { icon: '\u{2694}\u{FE0F}', color: 'red' },
 };
+
+// Fallback for unknown roles
+const DEFAULT_ROLE_ICON = { icon: '\u{1F916}', color: 'gray' };
 
 const PHASE_STATUS_ICONS: Record<string, string> = {
   pending: '\u{23F3}',
@@ -408,10 +412,7 @@ function PlanTeamCanvas({
       const isActive = activeAgentIndices.includes(index);
       const isHovered = hoveredAgent === index;
       const nodeRadius = isLeader ? 18 : 15;
-      const roleIcon = ROLE_ICON_MAP[role.key] || {
-        icon: '\u{1F916}',
-        color: 'gray',
-      };
+      const roleIcon = ROLE_ICON_MAP[role.key] || DEFAULT_ROLE_ICON;
       const fillColor = getFillColor(index, isActive);
 
       return (
@@ -422,6 +423,8 @@ function PlanTeamCanvas({
           onMouseLeave={() => onHover(null)}
           onClick={() => onSelect(index)}
           style={{ cursor: 'pointer' }}
+          role="button"
+          aria-label={t(`aiPlanning.roles.${role.nameKey}`)}
         >
           {/* Layer 1: Working glow */}
           {isActive && (
@@ -549,7 +552,8 @@ function PlanTeamCanvas({
         (() => {
           const pos = positions[hoveredAgent];
           const role = PLANNING_ROLES_CONFIG[hoveredAgent];
-          const roleIcon = ROLE_ICON_MAP[role.key];
+          if (!role) return null;
+          const roleIcon = ROLE_ICON_MAP[role.key] || DEFAULT_ROLE_ICON;
           const tooltipX = (pos.x / canvasSize.width) * 100;
           const tooltipY = (pos.y / canvasSize.height) * 100;
           const showAbove = tooltipY > 50;
@@ -579,8 +583,9 @@ function PlanTeamCanvas({
       {selectedAgent !== null &&
         (() => {
           const role = PLANNING_ROLES_CONFIG[selectedAgent];
-          const roleIcon = ROLE_ICON_MAP[role.key];
-          const member = plan.members[selectedAgent];
+          if (!role) return null;
+          const roleIcon = ROLE_ICON_MAP[role.key] || DEFAULT_ROLE_ICON;
+          const member = plan.members?.[selectedAgent];
 
           const bgColorMap: Record<string, string> = {
             purple: 'bg-purple-50',
@@ -687,12 +692,10 @@ function PlanTeamCanvas({
                 {member?.aiModel && (
                   <div>
                     <div className="mb-1.5 text-xs font-medium text-gray-500">
-                      {'\u{1F916}'} AI Model
+                      AI Model
                     </div>
                     <div className="rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 px-3 py-2">
-                      <span className="font-mono text-sm font-medium text-indigo-700">
-                        {member.aiModel}
-                      </span>
+                      <ModelBadge modelId={member.aiModel} variant="compact" />
                     </div>
                   </div>
                 )}

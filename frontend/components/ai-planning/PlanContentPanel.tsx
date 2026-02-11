@@ -16,6 +16,7 @@ import { LayoutList, FileText, Clock, Send, ChevronDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils/common';
 import { useTranslation } from '@/lib/i18n';
+import { ModelBadge } from '@/components/common/badges/ModelBadge';
 import type { PlanDetail } from '@/lib/api/ai-planning';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';
 import {
@@ -425,30 +426,34 @@ function PhaseTaskCard({
   const isCompleted = status?.status === 'completed';
   const isCurrent = workflow.phase === plan.currentPhase;
 
-  // Build agent info
-  const agents = workflow.agentKeys
-    .map((key) => {
-      const role = PLANNING_ROLES_CONFIG.find((r) => r.key === key);
-      if (!role) return null;
-      const memberIndex = AGENT_KEY_TO_INDEX[key];
-      const member = plan.members[memberIndex];
-      return {
-        icon: ROLE_ICON_MAP[key] || '',
-        name: t(`aiPlanning.roles.${role.nameKey}`),
-        description: t(`aiPlanning.roles.${role.descriptionKey}`),
-        skills: role.skills,
-        tools: role.tools,
-        model: member?.aiModel,
-      };
-    })
-    .filter(Boolean) as Array<{
-    icon: string;
-    name: string;
-    description: string;
-    skills: string[];
-    tools: string[];
-    model?: string;
-  }>;
+  // Build agent info (memoized to avoid recalculation on every render)
+  const agents = useMemo(
+    () =>
+      workflow.agentKeys
+        .map((key) => {
+          const role = PLANNING_ROLES_CONFIG.find((r) => r.key === key);
+          if (!role) return null;
+          const memberIndex = AGENT_KEY_TO_INDEX[key];
+          const member = plan.members?.[memberIndex];
+          return {
+            icon: ROLE_ICON_MAP[key] || '',
+            name: t(`aiPlanning.roles.${role.nameKey}`),
+            description: t(`aiPlanning.roles.${role.descriptionKey}`),
+            skills: role.skills,
+            tools: role.tools,
+            model: member?.aiModel,
+          };
+        })
+        .filter(Boolean) as Array<{
+        icon: string;
+        name: string;
+        description: string;
+        skills: string[];
+        tools: string[];
+        model?: string;
+      }>,
+    [workflow.agentKeys, plan.members, t]
+  );
 
   return (
     <div
@@ -534,12 +539,16 @@ function PhaseTaskCard({
       {isExpanded && (
         <div className="space-y-3 border-t border-gray-100 p-3">
           {/* Phase description */}
-          <div>
-            <div className="mb-1 text-xs font-medium text-gray-500">
-              {'\u{1F4CB}'} {t('aiPlanning.content.phaseDescription')}
+          {agents.length > 0 && (
+            <div>
+              <div className="mb-1 text-xs font-medium text-gray-500">
+                {t('aiPlanning.content.phaseDescription')}
+              </div>
+              <p className="text-sm text-gray-700">
+                {agents.map((a) => a.description).join('; ')}
+              </p>
             </div>
-            <p className="text-sm text-gray-700">{agents[0]?.description}</p>
-          </div>
+          )}
 
           {/* Participating agents */}
           <div>
@@ -555,9 +564,11 @@ function PhaseTaskCard({
                       {agent.name}
                     </span>
                     {agent.model && (
-                      <span className="font-mono ml-auto rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-600">
-                        {agent.model}
-                      </span>
+                      <ModelBadge
+                        modelId={agent.model}
+                        variant="subtle"
+                        className="ml-auto"
+                      />
                     )}
                   </div>
                   <div className="mt-1.5 flex flex-wrap gap-1">
