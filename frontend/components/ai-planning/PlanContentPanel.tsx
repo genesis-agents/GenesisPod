@@ -182,33 +182,41 @@ const PLAN_MARKDOWN_COMPONENTS: React.ComponentPropsWithoutRef<
   pre: ({ children }) => (
     <pre className="mb-3 overflow-hidden rounded-lg last:mb-0">{children}</pre>
   ),
-  // Table styling
+  // Table styling — allow wider-than-container tables with horizontal scroll
   table: ({ children }) => (
     <div className="mb-3 overflow-x-auto rounded-lg border border-gray-200 last:mb-0">
-      <table className="min-w-full text-sm text-gray-700">{children}</table>
+      <table className="w-max min-w-full text-sm text-gray-700">
+        {children}
+      </table>
     </div>
   ),
   thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
   th: ({ children }) => (
-    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-900">
+    <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold text-gray-900">
       {children}
     </th>
   ),
   tr: ({ children }) => (
     <tr className="border-t border-gray-100 even:bg-gray-50/50">{children}</tr>
   ),
-  td: ({ children }) => <td className="px-3 py-2 text-sm">{children}</td>,
+  td: ({ children }) => (
+    <td className="min-w-[100px] px-3 py-2 text-sm">{children}</td>
+  ),
 };
 
 /** Shared markdown renderer with GFM tables, styled components, and mermaid */
 function PlanMarkdown({ content }: { content: string }) {
+  // Strip <br> tags from AI output — they cause unwanted line breaks in table cells
+  // (GFM tables don't support multi-line cells; AI uses <br> as workaround but it renders poorly)
+  const cleanedContent = content.replace(/<br\s*\/?>/gi, ' ');
+
   return (
     <div className="prose prose-sm max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={PLAN_MARKDOWN_COMPONENTS}
       >
-        {content}
+        {cleanedContent}
       </ReactMarkdown>
     </div>
   );
