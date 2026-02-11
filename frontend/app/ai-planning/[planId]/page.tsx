@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,19 +53,31 @@ export default function PlanDetailPage() {
     }
   }, [authLoading, isAuthenticated, planId, fetchPlanDetail]);
 
-  // Poll for plan updates when a phase is active (AI is working)
-  useEffect(() => {
-    if (!planId || !currentPlan) return;
-    const isActive = Object.values(currentPlan.phaseStatus).some(
-      (s) => s.status === 'active'
-    );
-    if (!isActive) return;
+  // Stable polling: use ref to avoid re-creating interval on every state change
+  const hasActivePhase = currentPlan
+    ? Object.values(currentPlan.phaseStatus).some((s) => s.status === 'active')
+    : false;
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const interval = setInterval(() => {
+  useEffect(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+
+    if (!planId || !hasActivePhase) return;
+
+    pollRef.current = setInterval(() => {
       fetchPlanDetail(planId);
     }, 5000);
-    return () => clearInterval(interval);
-  }, [planId, currentPlan, fetchPlanDetail]);
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [planId, hasActivePhase, fetchPlanDetail]);
 
   const handleAdvance = async () => {
     if (!planId) return;

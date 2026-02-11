@@ -91,13 +91,17 @@ export function PlanContentPanel({
     }
   }, [selectedPhase]);
 
-  // Fetch messages for activity log and chat
+  // Fetch messages (only show loading spinner on initial load)
+  const hasFetchedRef = useRef(false);
   const fetchMessages = useCallback(async () => {
     if (!planId) return;
-    setIsLoadingMessages(true);
+    if (!hasFetchedRef.current) {
+      setIsLoadingMessages(true);
+    }
     try {
       const result = await getMessages(planId, { limit: 100 });
       setMessages(result.messages || []);
+      hasFetchedRef.current = true;
     } catch {
       // Silently fail — messages may not exist yet
     } finally {
@@ -105,21 +109,21 @@ export function PlanContentPanel({
     }
   }, [planId]);
 
-  // Load messages on mount and when plan updates
+  // Load messages on mount only
   useEffect(() => {
     fetchMessages();
-  }, [fetchMessages, plan.updatedAt]);
+  }, [fetchMessages]);
 
-  // Poll for new messages when a phase is active
+  // Stable polling: derive boolean to avoid object-reference deps
+  const hasActivePhase = Object.values(plan.phaseStatus).some(
+    (s) => s.status === 'active'
+  );
+
   useEffect(() => {
-    const isActive = Object.values(plan.phaseStatus).some(
-      (s) => s.status === 'active'
-    );
-    if (!isActive) return;
-
+    if (!hasActivePhase) return;
     const interval = setInterval(fetchMessages, 5000);
     return () => clearInterval(interval);
-  }, [plan.phaseStatus, fetchMessages]);
+  }, [hasActivePhase, fetchMessages]);
 
   // Send chat message
   const handleSendMessage = async () => {

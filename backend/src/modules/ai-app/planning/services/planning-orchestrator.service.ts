@@ -616,9 +616,12 @@ export class PlanningOrchestratorService {
 
       this.logger.log(`Phase ${phase} completed for plan ${planId}`);
 
-      // 7. Auto-advance if enabled
+      // 7. Auto-advance if enabled (with delay so frontend can catch up)
       if (meta.planConfig.autoAdvance && phase < TOTAL_PHASES) {
-        // Re-read metadata to check if cancelled
+        // Wait 3s before auto-advancing so the UI can show phase completion
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        // Re-read metadata to check if cancelled during the delay
         const freshTopic = await this.prisma.topic.findFirst({
           where: { id: planId },
         });
