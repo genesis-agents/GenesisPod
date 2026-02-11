@@ -595,8 +595,8 @@ export class PlanningOrchestratorService {
         });
 
         if (response.isError) {
-          this.logger.warn(
-            `Agent ${agent.displayName} returned error for phase ${phase}: ${response.content}`,
+          this.logger.error(
+            `Agent ${agent.displayName} failed for phase ${phase} of plan ${planId}: ${response.content}`,
           );
           continue;
         }
@@ -705,17 +705,38 @@ export class PlanningOrchestratorService {
     });
   }
 
+  /**
+   * Build previous phase context for the current phase prompt.
+   *
+   * For phase 6 (Delivery): only include phase 5 (Synthesis) since it already
+   * integrates all previous work. Including all 12 agent outputs from phases 1-5
+   * would exceed model context limits.
+   *
+   * For other phases: include all previous phases but cap each summary to
+   * prevent token overflow on long-running plans.
+   */
   private buildPreviousPhaseContext(
     meta: PlanningTopicMetadata,
     currentPhase: number,
   ): string {
+    const MAX_SUMMARY_CHARS = 8000;
     const contextParts: string[] = [];
 
-    for (let i = 1; i < currentPhase; i++) {
+    // Phase 6 (Delivery) only needs the Synthesis output (phase 5)
+    // since it already integrates all previous phases
+    const startPhase = currentPhase === 6 ? 5 : 1;
+
+    for (let i = startPhase; i < currentPhase; i++) {
       const phaseStatus = meta.phaseStatus?.[i];
       if (phaseStatus?.status === "completed" && phaseStatus.summary) {
+        let summary = phaseStatus.summary;
+        if (summary.length > MAX_SUMMARY_CHARS) {
+          summary =
+            summary.slice(0, MAX_SUMMARY_CHARS) +
+            "\n\n...(内容过长，已截断，请基于以上内容完成本阶段任务)";
+        }
         contextParts.push(
-          `## 阶段 ${i} — ${PHASE_LABELS[i]} (已完成)\n\n${phaseStatus.summary}`,
+          `## 阶段 ${i} — ${PHASE_LABELS[i]} (已完成)\n\n${summary}`,
         );
       }
     }
