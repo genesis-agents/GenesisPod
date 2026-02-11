@@ -43,7 +43,8 @@ const ROLE_ICON_MAP: Record<string, { icon: string; color: string }> = {
   researcher: { icon: '\u{1F50D}', color: 'blue' },
   analyst: { icon: '\u{1F4CA}', color: 'green' },
   copywriter: { icon: '\u{270D}\u{FE0F}', color: 'orange' },
-  debater: { icon: '\u{2694}\u{FE0F}', color: 'red' },
+  debaterPro: { icon: '\u{2694}\u{FE0F}', color: 'red' },
+  debaterCon: { icon: '\u{1F6E1}\u{FE0F}', color: 'rose' },
 };
 
 // Fallback for unknown roles
@@ -65,13 +66,14 @@ const PHASE_STATUS_COLORS: Record<string, string> = {
   failed: 'bg-red-100 text-red-700',
 };
 
-// Pentagon node positions (viewBox 320x200)
-const PENTAGON_POSITIONS = [
-  { x: 160, y: 38 },
-  { x: 240, y: 82 },
-  { x: 210, y: 158 },
-  { x: 110, y: 158 },
-  { x: 80, y: 82 },
+// Hexagon node positions (viewBox 320x200) — 6 roles
+const HEXAGON_POSITIONS = [
+  { x: 160, y: 32 }, // top: leader
+  { x: 228, y: 66 }, // top-right: researcher
+  { x: 228, y: 134 }, // bottom-right: analyst
+  { x: 160, y: 168 }, // bottom: copywriter
+  { x: 92, y: 134 }, // bottom-left: debaterPro
+  { x: 92, y: 66 }, // top-left: debaterCon
 ];
 
 // ---- Main Component ----
@@ -414,7 +416,7 @@ function PlanTeamCanvas({
 }) {
   const { t } = useTranslation();
   const canvasSize = { width: 320, height: 200 };
-  const positions = PENTAGON_POSITIONS;
+  const positions = HEXAGON_POSITIONS;
 
   // Render Bezier curve connections
   const renderConnections = () => {
@@ -477,6 +479,7 @@ function PlanTeamCanvas({
       green: 'fill-green-500',
       orange: 'fill-orange-500',
       red: 'fill-red-500',
+      rose: 'fill-rose-500',
     };
     return colorMap[role.color] || 'fill-gray-400';
   };
@@ -670,6 +673,7 @@ function PlanTeamCanvas({
             green: 'bg-green-50',
             orange: 'bg-orange-50',
             red: 'bg-red-50',
+            rose: 'bg-rose-50',
           };
 
           return (

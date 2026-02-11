@@ -65,14 +65,25 @@ export const PLANNING_ROLES_CONFIG: PlanningRole[] = [
     tools: ['TEXT_GENERATION'],
   },
   {
-    key: 'debater',
-    nameKey: 'debater',
-    roleId: 'advocate',
+    key: 'debaterPro',
+    nameKey: 'debaterPro',
+    roleId: 'advocate-pro',
     color: 'red',
     colorHex: '#ef4444',
     gradient: 'from-red-500 to-red-600',
-    descriptionKey: 'debaterDesc',
-    skills: ['debate-facilitation'],
+    descriptionKey: 'debaterProDesc',
+    skills: ['argument-construction', 'position-defense'],
+    tools: ['TEXT_GENERATION'],
+  },
+  {
+    key: 'debaterCon',
+    nameKey: 'debaterCon',
+    roleId: 'advocate-con',
+    color: 'rose',
+    colorHex: '#f43f5e',
+    gradient: 'from-rose-500 to-rose-600',
+    descriptionKey: 'debaterConDesc',
+    skills: ['critical-thinking', 'risk-analysis'],
     tools: ['TEXT_GENERATION'],
   },
 ];
@@ -87,18 +98,24 @@ export const PLANNING_WORKFLOW_CONFIG = [
     agentKeys: ['researcher', 'analyst', 'copywriter'],
     parallel: false,
   },
-  { phase: 4, key: 'debate', agentKeys: ['debater'], parallel: false },
+  {
+    phase: 4,
+    key: 'debate',
+    agentKeys: ['debaterPro', 'debaterCon'],
+    parallel: false,
+  },
   { phase: 5, key: 'synthesis', agentKeys: ['analyst'], parallel: false },
   { phase: 6, key: 'delivery', agentKeys: ['copywriter'], parallel: false },
 ];
 
-/** Map agent key to PLANNING_ROLES_CONFIG index */
+/** Map agent key to PLANNING_ROLES_CONFIG index (and AI members array index) */
 export const AGENT_KEY_TO_INDEX: Record<string, number> = {
   leader: 0,
   researcher: 1,
   analyst: 2,
   copywriter: 3,
-  debater: 4,
+  debaterPro: 4,
+  debaterCon: 5,
 };
 
 /** Map phase number to active agent indices */

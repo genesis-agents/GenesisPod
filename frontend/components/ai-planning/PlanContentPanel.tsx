@@ -55,7 +55,8 @@ const ROLE_ICON_MAP: Record<string, string> = {
   researcher: '\u{1F50D}',
   analyst: '\u{1F4CA}',
   copywriter: '\u{270D}\u{FE0F}',
-  debater: '\u{2694}\u{FE0F}',
+  debaterPro: '\u{2694}\u{FE0F}',
+  debaterCon: '\u{1F6E1}\u{FE0F}',
 };
 
 const PHASE_STATUS_COLORS: Record<string, string> = {

@@ -1210,12 +1210,14 @@
       "researcher": "Researcher",
       "analyst": "Analyst",
       "copywriter": "Copywriter",
-      "debater": "Debater",
+      "debaterPro": "Pro Advocate",
+      "debaterCon": "Con Advocate",
       "leaderDesc": "Design research framework, assign tasks, review quality, integrate reports",
       "researcherDesc": "Information retrieval, data collection, credibility assessment",
       "analystDesc": "Data analysis, trend insights, logical reasoning, synthesis",
       "copywriterDesc": "Content creation, structure organization, language polishing, multi-style writing",
-      "debaterDesc": "Argument construction, debate facilitation, rebuttal handling, position presentation"
+      "debaterProDesc": "Argument construction, position defense, evidence support, success case analysis",
+      "debaterConDesc": "Critical thinking, risk identification, rebuttal challenge, feasibility questioning"
     }
   },
   "aiOffice": {

@@ -1210,12 +1210,14 @@
       "researcher": "研究员",
       "analyst": "分析师",
       "copywriter": "文案专家",
-      "debater": "辩手",
+      "debaterPro": "正方辩手",
+      "debaterCon": "反方辩手",
       "leaderDesc": "制定研究框架、分配任务、审核质量、整合报告",
       "researcherDesc": "信息检索、资料整理、可信度判断、数据收集",
       "analystDesc": "数据分析、趋势洞察、逻辑推理、综合判断",
       "copywriterDesc": "内容创作、结构组织、语言润色、多风格写作",
-      "debaterDesc": "观点构建、论证推理、反驳应对、立场陈述"
+      "debaterProDesc": "观点构建、立场辩护、论据支持、成功案例分析",
+      "debaterConDesc": "批判性思考、风险识别、反驳挑战、可行性质疑"
     }
   },
   "aiOffice": {
