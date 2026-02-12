@@ -506,15 +506,17 @@ export function PlanContentPanel({
     plan.phaseStatus[6]?.status === 'completed' && plan.phaseStatus[6]?.summary
   );
   const reportContent = useMemo(() => {
-    // If Phase 6 (Delivery) is completed, use it as the primary report
+    const sections: string[] = [];
+
+    // If Phase 6 (Delivery) is completed, put it first as primary report
     const phase6 = plan.phaseStatus[6];
     if (phase6?.status === 'completed' && phase6.summary) {
-      return phase6.summary;
+      sections.push(phase6.summary);
     }
 
-    // Fallback: concatenate all completed phase summaries for partial progress
-    const sections: string[] = [];
+    // Append other completed phase summaries as supporting detail
     for (let phase = 1; phase <= plan.totalPhases; phase++) {
+      if (phase === 6) continue; // already added above
       const status = plan.phaseStatus[phase];
       if (!status?.summary) continue;
 
