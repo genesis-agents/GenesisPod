@@ -13,17 +13,14 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import {
-  Logger,
-  NotFoundException,
-  BadRequestException,
-} from "@nestjs/common";
+import { Logger, NotFoundException, BadRequestException } from "@nestjs/common";
 import { AiSocialService } from "../ai-social.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CacheService } from "../../../../common/cache/cache.service";
 import { ContentCheckerService } from "../services/content-checker.service";
 import { PublishExecutorService } from "../services/publish-executor.service";
 import { PlaywrightService } from "../services/playwright.service";
+import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
 import {
   SocialPlatformType,
   SocialContentStatus,
@@ -37,6 +34,7 @@ describe("AiSocialService", () => {
   let mockContentChecker: any;
   let mockPublishExecutor: any;
   let mockPlaywright: any;
+  let mockXhsMcpAdapter: any;
 
   const userId = "user-123";
   const connectionId = "conn-456";
@@ -117,7 +115,8 @@ describe("AiSocialService", () => {
       buildKey: jest
         .fn()
         .mockImplementation(
-          (prefix: string, ...parts: string[]) => `${prefix}:${parts.join(":")}`,
+          (prefix: string, ...parts: string[]) =>
+            `${prefix}:${parts.join(":")}`,
         ),
     };
 
@@ -154,6 +153,18 @@ describe("AiSocialService", () => {
       closeContext: jest.fn().mockResolvedValue(undefined),
     };
 
+    // Mock XhsMcpAdapter
+    mockXhsMcpAdapter = {
+      isAvailable: jest.fn().mockReturnValue(false),
+      checkLoginStatus: jest.fn().mockResolvedValue({ loggedIn: false }),
+      publishContent: jest.fn().mockResolvedValue({ success: true }),
+      listFeeds: jest.fn().mockResolvedValue([]),
+      searchFeeds: jest.fn().mockResolvedValue([]),
+      getFeedDetail: jest.fn().mockResolvedValue(null),
+      postComment: jest.fn().mockResolvedValue({ success: true }),
+      getUserProfile: jest.fn().mockResolvedValue(null),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiSocialService,
@@ -162,6 +173,7 @@ describe("AiSocialService", () => {
         { provide: ContentCheckerService, useValue: mockContentChecker },
         { provide: PublishExecutorService, useValue: mockPublishExecutor },
         { provide: PlaywrightService, useValue: mockPlaywright },
+        { provide: XhsMcpAdapter, useValue: mockXhsMcpAdapter },
       ],
     }).compile();
 
@@ -210,7 +222,7 @@ describe("AiSocialService", () => {
     it("should start new login session if no existing connection", async () => {
       mockPrisma.socialPlatformConnection.findUnique.mockResolvedValue(null);
 
-      const result = await service.initConnection(userId, "wechat_mp");
+      const result = (await service.initConnection(userId, "wechat_mp")) as any;
 
       expect(result.status).toBe("pending");
       expect(result.sessionKey).toBe("session-key-123");
@@ -267,7 +279,10 @@ describe("AiSocialService", () => {
         screenshot: "new-screenshot",
       });
 
-      const result = await service.verifyConnection(userId, "wechat_mp");
+      const result = (await service.verifyConnection(
+        userId,
+        "wechat_mp",
+      )) as any;
 
       expect(result.status).toBe("pending");
       expect(result.screenshot).toBe("new-screenshot");
@@ -284,12 +299,17 @@ describe("AiSocialService", () => {
         loggedIn: true,
         accountName: "MyAccount",
         sessionData: {
-          cookies: [{ name: "session", value: "abc123", domain: "weixin.qq.com" }],
+          cookies: [
+            { name: "session", value: "abc123", domain: "weixin.qq.com" },
+          ],
           localStorage: {},
         },
       });
 
-      const result = await service.verifyConnection(userId, "wechat_mp");
+      const result = (await service.verifyConnection(
+        userId,
+        "wechat_mp",
+      )) as any;
 
       expect(result.status).toBe("success");
       expect(result.connection).toBeDefined();
@@ -739,16 +759,14 @@ describe("AiSocialService", () => {
       mockPrisma.$transaction.mockImplementation(async (callback: any) => {
         const mockTx = {
           socialContent: {
-            findFirst: jest
-              .fn()
-              .mockImplementation((query: any) => {
-                const id = query.where.id;
-                return Promise.resolve({
-                  id,
-                  userId,
-                  status: "DRAFT",
-                });
-              }),
+            findFirst: jest.fn().mockImplementation((query: any) => {
+              const id = query.where.id;
+              return Promise.resolve({
+                id,
+                userId,
+                status: "DRAFT",
+              });
+            }),
             delete: jest.fn().mockResolvedValue(undefined),
           },
         };

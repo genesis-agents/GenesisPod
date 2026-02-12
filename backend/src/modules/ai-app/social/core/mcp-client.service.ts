@@ -39,12 +39,14 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
     return {
       id: socialConfig.id,
       name: socialConfig.name,
-      transport: "stdio", // Social 模块目前只使用 stdio
+      transport: socialConfig.transport || "stdio",
       command: socialConfig.command,
       args: socialConfig.args,
       env: socialConfig.env,
-      autoReconnect: socialConfig.restartOnFailure ?? true,
-      timeout: 30000,
+      url: socialConfig.url,
+      autoReconnect:
+        socialConfig.autoReconnect ?? socialConfig.restartOnFailure ?? true,
+      timeout: socialConfig.timeout ?? 30000,
     };
   }
 
@@ -87,7 +89,9 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
    */
   private isCommandAvailable(command: string): boolean {
     try {
-      execSync(`which ${command}`, { stdio: "ignore" });
+      const cmd =
+        process.platform === "win32" ? `where ${command}` : `which ${command}`;
+      execSync(cmd, { stdio: "ignore" });
       return true;
     } catch {
       return false;
@@ -100,8 +104,12 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
     // 注册所有 Social 模块的 MCP 服务器到统一的 MCPManager
     let registered = 0;
     for (const config of MCP_SERVER_CONFIGS) {
-      // 跳过命令不存在的服务器（如 Railway 环境无 python3）
-      if (!this.isCommandAvailable(config.command)) {
+      // stdio transport: 跳过命令不存在的服务器（如 Railway 环境无 python3）
+      if (
+        config.transport === "stdio" &&
+        config.command &&
+        !this.isCommandAvailable(config.command)
+      ) {
         this.logger.warn(
           `Skipping MCP server ${config.id}: command '${config.command}' not found`,
         );

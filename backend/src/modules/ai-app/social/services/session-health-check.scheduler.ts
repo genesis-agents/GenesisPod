@@ -9,6 +9,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { NotificationService } from "../../../core/notifications/notification.service";
 import { NotificationTypeDto } from "../../../core/notifications/dto/notification.dto";
 import { PlaywrightService } from "./playwright.service";
+import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
 import { SocialPlatformType } from "../types";
 
 /**
@@ -31,6 +32,7 @@ export class SessionHealthCheckScheduler
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
     private readonly playwright: PlaywrightService,
+    private readonly xhsMcpAdapter: XhsMcpAdapter,
   ) {}
 
   onModuleInit() {
@@ -183,6 +185,22 @@ export class SessionHealthCheckScheduler
       return false;
     }
 
+    // 小红书 MCP-managed 连接：通过 MCP 检查
+    if (
+      connection.platformType === SocialPlatformType.XIAOHONGSHU &&
+      connection.sessionData === "mcp-managed"
+    ) {
+      try {
+        const loginStatus = await this.xhsMcpAdapter.checkLoginStatus();
+        return loginStatus.loggedIn;
+      } catch (error) {
+        this.logger.error(
+          `XHS MCP validation error for ${connection.id}: ${(error as Error).message}`,
+        );
+        return false;
+      }
+    }
+
     const contextId = `health-check-${connection.id}-${Date.now()}`;
 
     try {
@@ -198,8 +216,6 @@ export class SessionHealthCheckScheduler
 
       if (connection.platformType === SocialPlatformType.WECHAT_MP) {
         isValid = await this.validateWechatSession(page);
-      } else if (connection.platformType === SocialPlatformType.XIAOHONGSHU) {
-        isValid = await this.validateXiaohongshuSession(page);
       }
 
       return isValid;
@@ -265,58 +281,6 @@ export class SessionHealthCheckScheduler
     } catch (error) {
       this.logger.error(
         `WeChat session validation error: ${(error as Error).message}`,
-      );
-      return false;
-    }
-  }
-
-  /**
-   * 验证小红书会话
-   */
-  private async validateXiaohongshuSession(page: unknown): Promise<boolean> {
-    try {
-      const p = page as {
-        goto: (url: string, options?: { timeout?: number }) => Promise<void>;
-        waitForLoadState: (
-          state: string,
-          options?: { timeout?: number },
-        ) => Promise<void>;
-        url: () => string;
-        $: (selector: string) => Promise<unknown>;
-      };
-
-      await p.goto("https://creator.xiaohongshu.com/publish/publish", {
-        timeout: 30000,
-      });
-      await p
-        .waitForLoadState("networkidle", { timeout: 15000 })
-        .catch(() => {});
-
-      const url = p.url();
-
-      // 如果重定向到登录页，说明未登录
-      if (url.includes("/login") || url.includes("login.xiaohongshu.com")) {
-        return false;
-      }
-
-      // 检查页面元素
-      const selectors = [
-        ".user-avatar",
-        ".publish-container",
-        ".upload-wrapper",
-      ];
-
-      for (const selector of selectors) {
-        const element = await p.$(selector);
-        if (element) {
-          return true;
-        }
-      }
-
-      return false;
-    } catch (error) {
-      this.logger.error(
-        `Xiaohongshu session validation error: ${(error as Error).message}`,
       );
       return false;
     }

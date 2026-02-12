@@ -13,7 +13,7 @@ import {
   Settings,
   Trash2,
   Loader2,
-  QrCode,
+  Terminal,
   X,
   Database,
 } from 'lucide-react';
@@ -42,8 +42,9 @@ type PlatformType = 'WECHAT_MP' | 'XIAOHONGSHU';
 interface LoginModalState {
   isOpen: boolean;
   platform: PlatformType | null;
-  status: 'idle' | 'loading' | 'scanning' | 'success' | 'error';
+  status: 'idle' | 'loading' | 'scanning' | 'mcp-guide' | 'success' | 'error';
   screenshot: string | null;
+  instructions: string[] | null;
   message: string;
 }
 
@@ -101,6 +102,7 @@ export default function ConnectionsTab() {
     platform: null,
     status: 'idle',
     screenshot: null,
+    instructions: null,
     message: '',
   });
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
@@ -108,8 +110,12 @@ export default function ConnectionsTab() {
   // Focus trap for login modal
   const modalRef = useFocusTrap<HTMLDivElement>(
     loginModal.isOpen,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useCallback(() => {
-      if (loginModal.status === 'scanning') {
+      if (
+        loginModal.status === 'scanning' ||
+        loginModal.status === 'mcp-guide'
+      ) {
         closeLoginModal();
       }
     }, [loginModal.status])
@@ -142,6 +148,7 @@ export default function ConnectionsTab() {
       platform: null,
       status: 'idle',
       screenshot: null,
+      instructions: null,
       message: '',
     });
   }, [stopPolling]);
@@ -153,6 +160,7 @@ export default function ConnectionsTab() {
       platform,
       status: 'loading',
       screenshot: null,
+      instructions: null,
       message: '正在启动登录...',
     });
 
@@ -169,8 +177,41 @@ export default function ConnectionsTab() {
       return;
     }
 
+    // MCP-based login: show guide for XHS external-mcp login
+    if (
+      result.status === 'success' &&
+      'connection' in result &&
+      result.connection
+    ) {
+      setLoginModal((prev) => ({
+        ...prev,
+        status: 'success',
+        message: result.message || '连接成功',
+      }));
+      toast.success(result.message || '连接成功');
+      swrRefresh();
+      setTimeout(closeLoginModal, 1500);
+      return;
+    }
+
+    if (
+      result.status === 'pending' &&
+      'loginMethod' in result &&
+      result.loginMethod === 'external-mcp'
+    ) {
+      const instructions =
+        'instructions' in result ? (result.instructions as string[]) : null;
+      setLoginModal((prev) => ({
+        ...prev,
+        status: 'mcp-guide',
+        instructions: instructions || null,
+        message: result.message || '请按照指引完成登录',
+      }));
+      return;
+    }
+
     if (result.status === 'pending') {
-      // 即使没有 screenshot 也进入 scanning 状态，等待轮询获取
+      // Playwright QR code flow
       setLoginModal((prev) => ({
         ...prev,
         status: 'scanning',
@@ -190,10 +231,9 @@ export default function ConnectionsTab() {
             message: verifyResult.message || '连接成功',
           }));
           toast.success(verifyResult.message || '连接成功');
-          swrRefresh(); // 使用 SWR 刷新连接列表
+          swrRefresh();
           setTimeout(closeLoginModal, 1500);
         } else if (verifyResult.status === 'pending') {
-          // Update screenshot if available
           setLoginModal((prev) => ({
             ...prev,
             screenshot: verifyResult.screenshot || prev.screenshot,
@@ -207,16 +247,51 @@ export default function ConnectionsTab() {
             message: verifyResult.message || '验证失败',
           }));
         }
-      }, 3000); // Poll every 3 seconds
+      }, 3000);
       return;
     }
 
-    // Error - status is 'error'
+    // Error
     setLoginModal((prev) => ({
       ...prev,
       status: 'error',
       message: result.message || '启动登录失败',
     }));
+  };
+
+  // Handle MCP guide "confirm login" button
+  const handleMcpConfirmLogin = async () => {
+    if (!loginModal.platform) return;
+
+    setLoginModal((prev) => ({
+      ...prev,
+      message: '正在确认登录状态...',
+    }));
+
+    // Start polling for MCP login verification
+    pollingRef.current = setInterval(async () => {
+      const verifyResult = await checkConnection(loginModal.platform!);
+
+      if (verifyResult.status === 'success') {
+        stopPolling();
+        setLoginModal((prev) => ({
+          ...prev,
+          status: 'success',
+          message: verifyResult.message || '连接成功',
+        }));
+        toast.success(verifyResult.message || '连接成功');
+        swrRefresh();
+        setTimeout(closeLoginModal, 1500);
+      } else if (verifyResult.status === 'error') {
+        stopPolling();
+        setLoginModal((prev) => ({
+          ...prev,
+          status: 'error',
+          message: verifyResult.message || '验证失败',
+        }));
+      }
+      // pending: keep polling
+    }, 3000);
   };
 
   const handleRefresh = async () => {
@@ -524,6 +599,36 @@ export default function ConnectionsTab() {
                   </div>
                 )}
 
+                {loginModal.status === 'mcp-guide' && (
+                  <div className="flex flex-col items-center">
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+                      <Terminal className="h-8 w-8 text-gray-600" />
+                    </div>
+                    <p className="mb-4 text-sm text-gray-600">
+                      {loginModal.message}
+                    </p>
+                    {loginModal.instructions && (
+                      <div className="mb-6 w-full rounded-lg bg-gray-50 p-4">
+                        <ol className="space-y-2 text-sm text-gray-700">
+                          {loginModal.instructions.map((step, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <span className="font-mono text-gray-400">
+                                {step}
+                              </span>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                    <button
+                      onClick={handleMcpConfirmLogin}
+                      className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                    >
+                      确认登录
+                    </button>
+                  </div>
+                )}
+
                 {loginModal.status === 'scanning' && (
                   <div className="flex flex-col items-center">
                     <p className="mb-4 text-sm text-gray-600">
@@ -577,7 +682,8 @@ export default function ConnectionsTab() {
               </div>
 
               {/* Footer */}
-              {loginModal.status === 'scanning' && (
+              {(loginModal.status === 'scanning' ||
+                loginModal.status === 'mcp-guide') && (
                 <div className="mt-4 border-t border-gray-100 pt-4">
                   <button
                     onClick={closeLoginModal}

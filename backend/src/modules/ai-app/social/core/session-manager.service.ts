@@ -8,10 +8,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SocialPlatformType } from "../types";
 import { SessionData, SessionValidationResult } from "../types/platform.types";
-import {
-  WECHAT_REQUIRED_COOKIES,
-  XHS_REQUIRED_COOKIES,
-} from "../config/platforms.config";
+import { WECHAT_REQUIRED_COOKIES } from "../config/platforms.config";
 import { encryptSession, decryptSession } from "../utils/session-crypto";
 
 @Injectable()
@@ -129,10 +126,11 @@ export class SessionManagerService {
     }
 
     // 检查必要的 cookies
+    // 小红书现在通过 MCP 管理会话，不再需要 cookie 验证
     const requiredCookies =
       platformType === SocialPlatformType.WECHAT_MP
         ? WECHAT_REQUIRED_COOKIES
-        : XHS_REQUIRED_COOKIES;
+        : [];
 
     const now = Date.now() / 1000;
     const existingCookies = new Set(sessionData.cookies.map((c) => c.name));

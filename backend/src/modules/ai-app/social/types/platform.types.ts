@@ -21,7 +21,6 @@ export interface SessionData {
   sessionStorage?: Record<string, string>;
   // 平台特定数据
   wechatToken?: string;
-  xhsCookiePath?: string;
 }
 
 export interface LoginSession {
@@ -198,12 +197,21 @@ export interface RateLimitResult {
 
 // ==================== MCP 相关 ====================
 
+export type MCPTransportType = "stdio" | "http" | "sse";
+
 export interface MCPServerConfig {
   id: string;
   name: string;
-  command: string;
-  args: string[];
+  transport: MCPTransportType;
+  // stdio transport
+  command?: string;
+  args?: string[];
   env?: Record<string, string>;
+  // http/sse transport
+  url?: string;
+  // common options
+  autoReconnect?: boolean;
+  timeout?: number;
   healthCheckInterval?: number;
   restartOnFailure?: boolean;
 }

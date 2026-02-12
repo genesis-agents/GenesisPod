@@ -340,10 +340,12 @@ export async function refreshConnection(
 // ==================== Connection Login API ====================
 
 export interface InitConnectionResponse {
-  status: 'existing' | 'pending' | 'error';
+  status: 'existing' | 'pending' | 'success' | 'error';
   connection?: SocialPlatformConnection;
   sessionKey?: string;
   screenshot?: string;
+  loginMethod?: 'external-mcp';
+  instructions?: string[];
   message: string;
 }
 
@@ -775,6 +777,95 @@ export async function getWritingSources(options?: {
     })),
     total: items.length,
   };
+}
+
+// ==================== Xiaohongshu MCP API ====================
+
+export interface XhsLoginStatus {
+  loggedIn: boolean;
+  userId?: string;
+  nickname?: string;
+}
+
+export interface XhsFeed {
+  id: string;
+  xsecToken?: string;
+  title?: string;
+  description?: string;
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  user?: {
+    userId?: string;
+    nickname?: string;
+    avatar?: string;
+  };
+  images?: string[];
+  [key: string]: unknown;
+}
+
+export interface XhsFeedDetail extends XhsFeed {
+  comments?: Array<{
+    id: string;
+    content: string;
+    user?: { nickname?: string };
+    createTime?: string;
+  }>;
+}
+
+export interface XhsUserProfile {
+  userId: string;
+  nickname?: string;
+  avatar?: string;
+  description?: string;
+  followerCount?: number;
+  followingCount?: number;
+  noteCount?: number;
+  likeCount?: number;
+  [key: string]: unknown;
+}
+
+export async function xhsGetLoginStatus(): Promise<XhsLoginStatus> {
+  return fetchWithAuth('/api/v1/ai-social/xhs/login-status');
+}
+
+export async function xhsListFeeds(): Promise<XhsFeed[]> {
+  return fetchWithAuth('/api/v1/ai-social/xhs/feeds');
+}
+
+export async function xhsSearchFeeds(keyword: string): Promise<XhsFeed[]> {
+  return fetchWithAuth(
+    `/api/v1/ai-social/xhs/search?keyword=${encodeURIComponent(keyword)}`
+  );
+}
+
+export async function xhsGetFeedDetail(
+  feedId: string,
+  xsecToken: string
+): Promise<XhsFeedDetail> {
+  return fetchWithAuth(
+    `/api/v1/ai-social/xhs/feeds/${feedId}?xsecToken=${encodeURIComponent(xsecToken)}`
+  );
+}
+
+export async function xhsPostComment(
+  feedId: string,
+  xsecToken: string,
+  content: string
+): Promise<{ success: boolean; error?: string }> {
+  return fetchWithAuth(`/api/v1/ai-social/xhs/feeds/${feedId}/comment`, {
+    method: 'POST',
+    body: JSON.stringify({ xsecToken, content }),
+  });
+}
+
+export async function xhsGetUserProfile(
+  userId: string,
+  xsecToken: string
+): Promise<XhsUserProfile> {
+  return fetchWithAuth(
+    `/api/v1/ai-social/xhs/users/${userId}?xsecToken=${encodeURIComponent(xsecToken)}`
+  );
 }
 
 // ==================== Content Version API ====================

@@ -18,7 +18,9 @@ The Raven AI Engine MCP Server exposes five core AI capabilities through a stand
 - **MCP Version**: 2024-11-05
 - **Transport**: HTTP POST for requests, SSE for server push (optional)
 - **Authentication**: API Key via HTTP headers
-- **Base URL**: `https://your-raven-instance.com/api/v1`
+- **Base URL**: `https://your-backend-instance.com/api/v1/mcp`
+
+> **Important**: MCP clients should connect directly to the **backend** service URL, not through the frontend proxy. The frontend proxy has a shorter timeout (~30s) that may interrupt long-running tools like `raven_deep_research` and `raven_team_debate`.
 
 ## Quick Start
 
@@ -1012,13 +1014,14 @@ curl -X POST https://your-raven-instance.com/api/v1/mcp \
 
 Raven follows standard JSON-RPC 2.0 error codes:
 
-| Code   | Message          | Description                     |
-| ------ | ---------------- | ------------------------------- |
-| -32700 | Parse error      | Invalid JSON received           |
-| -32600 | Invalid Request  | Missing jsonrpc or method field |
-| -32601 | Method not found | Method does not exist           |
-| -32602 | Invalid params   | Missing or invalid parameters   |
-| -32603 | Internal error   | Server-side processing error    |
+| Code   | Message          | Description                                      |
+| ------ | ---------------- | ------------------------------------------------ |
+| -32700 | Parse error      | Invalid JSON received                            |
+| -32600 | Invalid Request  | Missing jsonrpc or method field                  |
+| -32601 | Method not found | Method does not exist                            |
+| -32602 | Invalid params   | Missing or invalid parameters                    |
+| -32603 | Internal error   | Server-side processing error                     |
+| -32002 | Timeout          | Tool execution exceeded server timeout (use SSE) |
 
 **Error Response Format:**
 

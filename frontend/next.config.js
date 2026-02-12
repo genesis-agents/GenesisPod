@@ -46,6 +46,8 @@ const nextConfig = {
   experimental: {
     // 允许 CSR bailout 而不报错
     missingSuspenseWithCSRBailout: false,
+    // ★ rewrite 代理超时：默认 30s 太短，AI 操作（MCP/Research 等）需要更长时间
+    proxyTimeout: 300000, // 5 minutes
   },
   env: {
     NEXT_PUBLIC_API_URL:

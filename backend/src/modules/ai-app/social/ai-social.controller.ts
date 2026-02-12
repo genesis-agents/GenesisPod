@@ -442,6 +442,66 @@ export class AiSocialController {
     }
   }
 
+  // ==================== 小红书 MCP 功能 ====================
+
+  @Get("xhs/login-status")
+  async xhsLoginStatus() {
+    return this.aiSocialService.xhsGetLoginStatus();
+  }
+
+  @Get("xhs/feeds")
+  async xhsListFeeds() {
+    return this.aiSocialService.xhsListFeeds();
+  }
+
+  @Get("xhs/search")
+  async xhsSearchFeeds(@Query("keyword") keyword: string) {
+    if (!keyword) {
+      throw new HttpException("keyword is required", HttpStatus.BAD_REQUEST);
+    }
+    return this.aiSocialService.xhsSearchFeeds(keyword);
+  }
+
+  @Get("xhs/feeds/:feedId")
+  async xhsGetFeedDetail(
+    @Param("feedId") feedId: string,
+    @Query("xsecToken") xsecToken: string,
+  ) {
+    if (!xsecToken) {
+      throw new HttpException("xsecToken is required", HttpStatus.BAD_REQUEST);
+    }
+    return this.aiSocialService.xhsGetFeedDetail(feedId, xsecToken);
+  }
+
+  @Post("xhs/feeds/:feedId/comment")
+  async xhsPostComment(
+    @Param("feedId") feedId: string,
+    @Body() dto: { xsecToken: string; content: string },
+  ) {
+    if (!dto.xsecToken || !dto.content) {
+      throw new HttpException(
+        "xsecToken and content are required",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return this.aiSocialService.xhsPostComment(
+      feedId,
+      dto.xsecToken,
+      dto.content,
+    );
+  }
+
+  @Get("xhs/users/:userId")
+  async xhsGetUserProfile(
+    @Param("userId") userId: string,
+    @Query("xsecToken") xsecToken: string,
+  ) {
+    if (!xsecToken) {
+      throw new HttpException("xsecToken is required", HttpStatus.BAD_REQUEST);
+    }
+    return this.aiSocialService.xhsGetUserProfile(userId, xsecToken);
+  }
+
   // ==================== 审核管理 ====================
 
   @Post("contents/:id/approve")

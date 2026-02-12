@@ -49,7 +49,7 @@ export const PLATFORM_CONFIGS: Record<SocialPlatformType, PlatformConfig> = {
     ],
     needClickLogin: true,
     supportsMcp: true,
-    mcpServerId: "xhs-toolkit",
+    mcpServerId: "xiaohongshu-mcp",
   },
 };
 
@@ -74,15 +74,14 @@ export const RATE_LIMIT_CONFIGS: Record<SocialPlatformType, RateLimitConfig> = {
 
 export const MCP_SERVER_CONFIGS: MCPServerConfig[] = [
   {
-    id: "xhs-toolkit",
-    name: "小红书工具包",
-    command: process.platform === "win32" ? "python" : "python3",
-    args: ["-m", "src.server.mcp_server", "--stdio"],
-    env: {
-      PYTHONPATH: process.env.XHS_TOOLKIT_PATH || "/app/mcp/xhs-toolkit",
-    },
-    healthCheckInterval: 60000, // 1分钟
-    restartOnFailure: true,
+    id: "xiaohongshu-mcp",
+    name: "小红书 MCP (xpzouying/xiaohongshu-mcp)",
+    transport: "http",
+    url: process.env.XHS_MCP_URL || "http://localhost:18060/mcp",
+    autoReconnect: true,
+    timeout: 30000,
+    healthCheckInterval: 60000,
+    restartOnFailure: false,
   },
 ];
 
@@ -95,8 +94,6 @@ export const WECHAT_REQUIRED_COOKIES = [
   "data_bizuin",
   "data_ticket",
 ];
-
-export const XHS_REQUIRED_COOKIES = ["a1", "webId", "web_session", "xsecappid"];
 
 // ==================== 超时配置 ====================
 

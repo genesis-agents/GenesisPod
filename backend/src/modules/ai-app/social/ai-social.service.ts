@@ -14,6 +14,12 @@ import {
 import { ContentCheckerService } from "./services/content-checker.service";
 import { PublishExecutorService } from "./services/publish-executor.service";
 import { PlaywrightService } from "./services/playwright.service";
+import { XhsMcpAdapter } from "./adapters/xiaohongshu.adapter";
+import type {
+  XhsFeed,
+  XhsFeedDetail,
+  XhsUserProfile,
+} from "./adapters/xiaohongshu.adapter";
 import { CreateContentDto } from "./dto/create-content.dto";
 import { UpdateContentDto } from "./dto/update-content.dto";
 import { PublishContentDto } from "./dto/publish-content.dto";
@@ -38,6 +44,7 @@ export class AiSocialService {
     private readonly contentChecker: ContentCheckerService,
     private readonly publishExecutor: PublishExecutorService,
     private readonly playwright: PlaywrightService,
+    private readonly xhsMcpAdapter: XhsMcpAdapter,
   ) {}
 
   // Helper to access prisma with new models
@@ -98,8 +105,13 @@ export class AiSocialService {
       };
     }
 
+    // 小红书使用 MCP 外部登录
+    if (platformType === SocialPlatformType.XIAOHONGSHU) {
+      return this.initXhsMcpConnection(userId, platformType);
+    }
+
     try {
-      // 启动 Playwright 登录会话
+      // 其他平台使用 Playwright 登录会话
       const { sessionKey, screenshot } =
         await this.playwright.startLoginSession(userId, platformType);
 
@@ -138,6 +150,12 @@ export class AiSocialService {
 
   async verifyConnection(userId: string, type: string) {
     const platformType = type.toUpperCase() as SocialPlatformType;
+
+    // 小红书使用 MCP 验证
+    if (platformType === SocialPlatformType.XIAOHONGSHU) {
+      return this.verifyXhsMcpConnection(userId, platformType);
+    }
+
     const loginCacheKey = this.buildLoginSessionKey(userId, platformType);
     const lockCacheKey = this.buildVerifyingLockKey(userId, platformType);
 
@@ -301,7 +319,11 @@ export class AiSocialService {
   /**
    * 验证会话是否仍然有效
    */
-  private async validateSession(connection: any): Promise<{
+  private async validateSession(connection: {
+    id: string;
+    platformType: string;
+    sessionData: unknown;
+  }): Promise<{
     isValid: boolean;
     message?: string;
   }> {
@@ -309,10 +331,28 @@ export class AiSocialService {
       return { isValid: false, message: "无会话数据" };
     }
 
+    // 小红书 MCP-managed 连接
+    if (
+      connection.platformType === SocialPlatformType.XIAOHONGSHU &&
+      connection.sessionData === "mcp-managed"
+    ) {
+      try {
+        const loginStatus = await this.xhsMcpAdapter.checkLoginStatus();
+        return {
+          isValid: loginStatus.loggedIn,
+          message: loginStatus.loggedIn ? "" : "小红书登录已过期",
+        };
+      } catch (error) {
+        this.logger.error(
+          `XHS MCP validation failed: ${(error as Error).message}`,
+        );
+        return { isValid: false, message: "MCP 服务不可用" };
+      }
+    }
+
     const contextId = `validate-${connection.id}-${Date.now()}`;
 
     try {
-      // Decrypt and restore session
       const sessionDataStr =
         typeof connection.sessionData === "string"
           ? connection.sessionData
@@ -323,16 +363,12 @@ export class AiSocialService {
       await this.playwright.restoreSession(contextId, sessionData);
       const page = await this.playwright.createPage(contextId);
 
-      // 根据平台类型验证
       let isValid = false;
       let message = "";
 
       if (connection.platformType === SocialPlatformType.WECHAT_MP) {
         isValid = await this.validateWechatSession(page);
         if (!isValid) message = "微信公众号登录已过期";
-      } else if (connection.platformType === SocialPlatformType.XIAOHONGSHU) {
-        isValid = await this.validateXiaohongshuSession(page);
-        if (!isValid) message = "小红书登录已过期";
       } else {
         return { isValid: false, message: "不支持的平台类型" };
       }
@@ -396,46 +432,152 @@ export class AiSocialService {
     }
   }
 
-  private async validateXiaohongshuSession(page: any): Promise<boolean> {
+  // ==================== 小红书 MCP 连接管理 ====================
+
+  private async initXhsMcpConnection(
+    userId: string,
+    platformType: SocialPlatformType,
+  ) {
     try {
-      await page.goto("https://creator.xiaohongshu.com/publish/publish", {
-        timeout: 30000,
-      });
-      await page
-        .waitForLoadState("networkidle", { timeout: 15000 })
-        .catch(() => {});
-
-      const url = page.url();
-
-      // 如果重定向到登录页，说明未登录
-      if (url.includes("/login") || url.includes("login.xiaohongshu.com")) {
-        this.logger.debug("Xiaohongshu validation: redirected to login page");
-        return false;
+      if (!this.xhsMcpAdapter.isAvailable()) {
+        return {
+          status: "pending",
+          loginMethod: "external-mcp",
+          instructions: [
+            "1. 确保 xiaohongshu-mcp 服务已启动 (默认端口 18060)",
+            "2. 在终端运行 xiaohongshu-login 工具登录",
+            "3. 浏览器会自动打开，使用小红书 App 扫码登录",
+            "4. 登录成功后回到此页面点击「确认登录」",
+          ],
+          message: "MCP 服务未连接，请先启动 xiaohongshu-mcp 服务",
+        };
       }
 
-      // 检查页面元素
-      const selectors = [
-        ".user-avatar",
-        ".publish-container",
-        ".upload-wrapper",
-      ];
-      for (const selector of selectors) {
-        const element = await page.$(selector);
-        if (element) {
-          this.logger.debug(
-            `Xiaohongshu validation: found indicator ${selector}, session valid`,
-          );
-          return true;
-        }
+      const loginStatus = await this.xhsMcpAdapter.checkLoginStatus();
+
+      if (loginStatus.loggedIn) {
+        const connection = await this.db.socialPlatformConnection.create({
+          data: {
+            userId,
+            platformType,
+            accountName: loginStatus.nickname || "小红书用户",
+            sessionData: "mcp-managed",
+            isActive: true,
+            lastCheckAt: new Date(),
+          },
+        });
+
+        return {
+          status: "success",
+          connection,
+          message: "小红书已连接",
+        };
       }
 
-      return false;
+      return {
+        status: "pending",
+        loginMethod: "external-mcp",
+        instructions: [
+          "1. 在终端运行 xiaohongshu-login 工具",
+          "2. 浏览器会自动打开小红书登录页面",
+          "3. 使用小红书 App 扫码登录",
+          "4. 登录成功后回到此页面点击「确认登录」",
+        ],
+        message: "请按照指引完成小红书登录",
+      };
     } catch (error) {
-      this.logger.error(
-        `Xiaohongshu session validation error: ${(error as Error).message}`,
-      );
-      return false;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to init XHS MCP connection: ${errorMsg}`);
+      return {
+        status: "error",
+        message: `小红书连接失败: ${errorMsg}`,
+      };
     }
+  }
+
+  private async verifyXhsMcpConnection(
+    userId: string,
+    platformType: SocialPlatformType,
+  ) {
+    try {
+      const loginStatus = await this.xhsMcpAdapter.checkLoginStatus();
+
+      if (loginStatus.loggedIn) {
+        const connection = await this.db.socialPlatformConnection.upsert({
+          where: {
+            userId_platformType: { userId, platformType },
+          },
+          update: {
+            accountName: loginStatus.nickname || "小红书用户",
+            sessionData: "mcp-managed",
+            isActive: true,
+            lastCheckAt: new Date(),
+          },
+          create: {
+            userId,
+            platformType,
+            accountName: loginStatus.nickname || "小红书用户",
+            sessionData: "mcp-managed",
+            isActive: true,
+            lastCheckAt: new Date(),
+          },
+        });
+
+        return {
+          status: "success",
+          connection,
+          message: "小红书连接成功",
+        };
+      }
+
+      return {
+        status: "pending",
+        message: "等待小红书登录确认...",
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`XHS MCP verify failed: ${errorMsg}`);
+      return {
+        status: "error",
+        message: `验证失败: ${errorMsg}`,
+      };
+    }
+  }
+
+  // ==================== 小红书 MCP 功能 ====================
+
+  async xhsGetLoginStatus() {
+    return this.xhsMcpAdapter.checkLoginStatus();
+  }
+
+  async xhsListFeeds(): Promise<XhsFeed[]> {
+    return this.xhsMcpAdapter.listFeeds();
+  }
+
+  async xhsSearchFeeds(keyword: string): Promise<XhsFeed[]> {
+    return this.xhsMcpAdapter.searchFeeds(keyword);
+  }
+
+  async xhsGetFeedDetail(
+    feedId: string,
+    xsecToken: string,
+  ): Promise<XhsFeedDetail | null> {
+    return this.xhsMcpAdapter.getFeedDetail(feedId, xsecToken);
+  }
+
+  async xhsPostComment(
+    feedId: string,
+    xsecToken: string,
+    content: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    return this.xhsMcpAdapter.postComment(feedId, xsecToken, content);
+  }
+
+  async xhsGetUserProfile(
+    userId: string,
+    xsecToken: string,
+  ): Promise<XhsUserProfile | null> {
+    return this.xhsMcpAdapter.getUserProfile(userId, xsecToken);
   }
 
   async refreshConnection(userId: string, connectionId: string) {

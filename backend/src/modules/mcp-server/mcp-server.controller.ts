@@ -46,9 +46,11 @@ export class MCPServerController {
     private readonly streamingBridge: MCPStreamingBridge,
     private readonly configService: ConfigService,
   ) {
-    // 默认 290 秒（Railway 默认 300 秒代理超时，留 10 秒缓冲）
-    this.requestTimeoutMs =
-      (this.configService.get<number>("MCP_REQUEST_TIMEOUT_MS") || 290) * 1000;
+    // 默认 290 秒（Railway 代理超时约 300 秒，留 10 秒缓冲）
+    // 注意：如果经过 Next.js 前端代理，其默认超时为 30 秒，需通过 proxyTimeout 配置
+    const timeoutSeconds =
+      this.configService.get<number>("MCP_REQUEST_TIMEOUT_SECONDS") || 290;
+    this.requestTimeoutMs = timeoutSeconds * 1000;
   }
 
   /**

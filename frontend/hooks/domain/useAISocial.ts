@@ -55,6 +55,17 @@ import {
   getResearchSources,
   getOfficeSources,
   getWritingSources,
+  // XHS MCP
+  XhsLoginStatus,
+  XhsFeed,
+  XhsFeedDetail,
+  XhsUserProfile,
+  xhsGetLoginStatus,
+  xhsListFeeds,
+  xhsSearchFeeds,
+  xhsGetFeedDetail,
+  xhsPostComment,
+  xhsGetUserProfile,
 } from '@/lib/api/ai-social';
 
 // Re-export types for convenience
@@ -738,6 +749,122 @@ export function useSocialSources() {
   };
 }
 
+// ==================== XHS MCP Hooks ====================
+
+/**
+ * Hook for Xiaohongshu MCP features (search, feeds, comments, profiles)
+ */
+export function useXhsFeatures() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const getLoginStatus = useCallback(async () => {
+    try {
+      return await xhsGetLoginStatus();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to check XHS login';
+      setError(message);
+      return { loggedIn: false } as XhsLoginStatus;
+    }
+  }, []);
+
+  const listFeeds = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await xhsListFeeds();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to list feeds';
+      setError(message);
+      return [] as XhsFeed[];
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const searchFeeds = useCallback(async (keyword: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await xhsSearchFeeds(keyword);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to search feeds';
+      setError(message);
+      return [] as XhsFeed[];
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const getFeedDetail = useCallback(
+    async (feedId: string, xsecToken: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        return await xhsGetFeedDetail(feedId, xsecToken);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to get feed detail';
+        setError(message);
+        return null as XhsFeedDetail | null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  const postComment = useCallback(
+    async (feedId: string, xsecToken: string, content: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        return await xhsPostComment(feedId, xsecToken, content);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to post comment';
+        setError(message);
+        return { success: false, error: message };
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  const getUserProfile = useCallback(
+    async (userId: string, xsecToken: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        return await xhsGetUserProfile(userId, xsecToken);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to get user profile';
+        setError(message);
+        return null as XhsUserProfile | null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  return {
+    loading,
+    error,
+    getLoginStatus,
+    listFeeds,
+    searchFeeds,
+    getFeedDetail,
+    postComment,
+    getUserProfile,
+  };
+}
+
 // ==================== Combined Hook ====================
 
 /**
@@ -750,6 +877,7 @@ export function useAISocial() {
   const review = useSocialReview();
   const publish = useSocialPublish();
   const sources = useSocialSources();
+  const xhs = useXhsFeatures();
 
   return {
     connections,
@@ -758,5 +886,6 @@ export function useAISocial() {
     review,
     publish,
     sources,
+    xhs,
   };
 }

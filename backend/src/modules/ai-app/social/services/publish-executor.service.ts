@@ -3,7 +3,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { PlaywrightService } from "./playwright.service";
 import { ContentVersionService } from "./content-version.service";
 import { WechatAdapter } from "../adapters/wechat.adapter";
-import { XiaohongshuAdapter } from "../adapters/xiaohongshu.adapter";
+import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
 import {
   SocialContentStatus,
   SocialPlatformType,
@@ -32,7 +32,7 @@ export class PublishExecutorService {
     private readonly playwrightService: PlaywrightService,
     private readonly contentVersionService: ContentVersionService,
     private readonly wechatAdapter: WechatAdapter,
-    private readonly xiaohongshuAdapter: XiaohongshuAdapter,
+    private readonly xhsMcpAdapter: XhsMcpAdapter,
   ) {}
 
   // Helper to access prisma with new models
@@ -154,12 +154,19 @@ export class PublishExecutorService {
             connection as SocialPlatformConnection,
           );
           break;
-        case SocialPlatformType.XIAOHONGSHU:
-          result = await this.xiaohongshuAdapter.publish(
-            publishContent as SocialContent,
-            connection as SocialPlatformConnection,
-          );
+        case SocialPlatformType.XIAOHONGSHU: {
+          const xhsResult = await this.xhsMcpAdapter.publishContent({
+            title: publishContent.title,
+            content: publishContent.content,
+            images: publishContent.images || [],
+          });
+          result = {
+            success: xhsResult.success,
+            externalId: xhsResult.noteId,
+            errorMessage: xhsResult.error,
+          };
           break;
+        }
         default:
           result = {
             success: false,
@@ -228,6 +235,11 @@ export class PublishExecutorService {
   private hasValidSession(connection: any): boolean {
     if (!connection?.sessionData) {
       return false;
+    }
+
+    // MCP-managed sessions are always valid (validated via MCP)
+    if (connection.sessionData === "mcp-managed") {
+      return true;
     }
 
     try {
