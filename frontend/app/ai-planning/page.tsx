@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAiPlanningStore } from '@/stores/aiPlanningStore';
@@ -29,6 +29,7 @@ export default function AiPlanningPage() {
   } = useAiPlanningStore();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<PlanSummary | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const isAuthenticated = !!accessToken;
@@ -247,7 +248,7 @@ export default function AiPlanningPage() {
                   key={plan.id}
                   plan={plan}
                   onClick={() => router.push(`/ai-planning/${plan.id}`)}
-                  onEdit={(data) => handleEdit(plan.id, data)}
+                  onEditClick={() => setEditingPlan(plan)}
                   onDelete={() => handleDelete(plan.id)}
                 />
               ))}
@@ -287,6 +288,23 @@ export default function AiPlanningPage() {
           isCreating={isCreating}
         />
       )}
+
+      {editingPlan && (
+        <CreatePlanDialog
+          templates={templates}
+          onClose={() => setEditingPlan(null)}
+          onCreate={handleCreate}
+          isCreating={isCreating}
+          editMode={{
+            name: editingPlan.name,
+            goal: editingPlan.goal,
+            onSave: async (data) => {
+              await handleEdit(editingPlan.id, data);
+              await fetchPlans();
+            },
+          }}
+        />
+      )}
     </AppShell>
   );
 }
@@ -295,18 +313,15 @@ export default function AiPlanningPage() {
 function PlanCard({
   plan,
   onClick,
-  onEdit,
+  onEditClick,
   onDelete,
 }: {
   plan: PlanSummary;
   onClick: () => void;
-  onEdit: (data: { name?: string; goal?: string }) => void;
+  onEditClick: () => void;
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(plan.name);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const currentPhaseKey = PHASE_KEYS[plan.currentPhase] || '';
 
@@ -314,45 +329,31 @@ function PlanCard({
     ([, s]) => s.status === 'active'
   );
 
-  const handleEditSubmit = () => {
-    const trimmed = editName.trim();
-    if (trimmed && trimmed !== plan.name) {
-      onEdit({ name: trimmed });
-    }
-    setIsEditing(false);
-  };
-
-  const handleEditStart = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditName(plan.name);
-    setIsEditing(true);
-    setTimeout(() => inputRef.current?.select(), 0);
-  };
-
   return (
     <div className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-amber-300 hover:shadow-md">
       {/* Action buttons */}
       <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        {!isEditing && (
-          <button
-            onClick={handleEditStart}
-            className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-amber-50 hover:text-amber-600"
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEditClick();
+          }}
+          className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-amber-50 hover:text-amber-600"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
-          </button>
-        )}
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+            />
+          </svg>
+        </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -376,7 +377,7 @@ function PlanCard({
         </button>
       </div>
 
-      <div onClick={isEditing ? undefined : onClick}>
+      <div onClick={onClick}>
         {/* Icon */}
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25 transition-transform group-hover:scale-105">
           <svg
@@ -395,28 +396,9 @@ function PlanCard({
         </div>
 
         {/* Title & Goal */}
-        {isEditing ? (
-          <input
-            ref={inputRef}
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            onBlur={handleEditSubmit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleEditSubmit();
-              if (e.key === 'Escape') {
-                setEditName(plan.name);
-                setIsEditing(false);
-              }
-            }}
-            onClick={(e) => e.stopPropagation()}
-            className="mt-3 w-full truncate rounded border border-amber-400 bg-amber-50 px-2 py-1 text-base font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-amber-500/30"
-            autoFocus
-          />
-        ) : (
-          <h3 className="mt-3 truncate text-base font-semibold text-gray-900 group-hover:text-amber-600">
-            {plan.name}
-          </h3>
-        )}
+        <h3 className="mt-3 truncate text-base font-semibold text-gray-900 group-hover:text-amber-600">
+          {plan.name}
+        </h3>
         <p className="mt-1 line-clamp-2 text-sm text-gray-500">{plan.goal}</p>
 
         {/* Phase Progress */}

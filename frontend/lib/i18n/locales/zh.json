@@ -1018,6 +1018,11 @@
       "createButton": "创建策划",
       "creating": "创建中..."
     },
+    "edit": {
+      "title": "编辑策划",
+      "save": "保存",
+      "saving": "保存中..."
+    },
     "phases": {
       "goalAnalysis": "目标分析",
       "research": "调研洞察",

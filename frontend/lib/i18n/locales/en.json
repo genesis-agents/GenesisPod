@@ -1018,6 +1018,11 @@
       "createButton": "Create Plan",
       "creating": "Creating..."
     },
+    "edit": {
+      "title": "Edit Plan",
+      "save": "Save",
+      "saving": "Saving..."
+    },
     "phases": {
       "goalAnalysis": "Goal Analysis",
       "research": "Research Insights",
