@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import MermaidDiagram from '@/components/ui/MermaidDiagram';
 import { cn } from '@/lib/utils/common';
 import { useTranslation } from '@/lib/i18n';
@@ -223,17 +224,14 @@ const PLAN_MARKDOWN_COMPONENTS: React.ComponentPropsWithoutRef<
 
 /** Shared markdown renderer with GFM tables, styled components, and mermaid */
 function PlanMarkdown({ content }: { content: string }) {
-  // Strip <br> tags from AI output — they cause unwanted line breaks in table cells
-  // (GFM tables don't support multi-line cells; AI uses <br> as workaround but it renders poorly)
-  const cleanedContent = content.replace(/<br\s*\/?>/gi, ' ');
-
   return (
     <div className="prose prose-sm max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw]}
         components={PLAN_MARKDOWN_COMPONENTS}
       >
-        {cleanedContent}
+        {content}
       </ReactMarkdown>
     </div>
   );
@@ -391,7 +389,6 @@ function ReportMarkdown({
   content: string;
   references: PlanReference[];
 }) {
-  const cleanedContent = content.replace(/<br\s*\/?>/gi, ' ');
   const components = useMemo(
     () => buildCitationMarkdownComponents(references),
     [references]
@@ -399,8 +396,12 @@ function ReportMarkdown({
 
   return (
     <div className="prose prose-sm max-w-none">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {cleanedContent}
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw]}
+        components={components}
+      >
+        {content}
       </ReactMarkdown>
     </div>
   );
