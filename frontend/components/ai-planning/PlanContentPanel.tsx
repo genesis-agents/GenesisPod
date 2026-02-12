@@ -682,69 +682,8 @@ export function PlanContentPanel({
                   />
                 </div>
 
-                {/* References section at bottom of report */}
-                {plan.references?.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-gray-900">
-                      <LinkIcon className="h-4 w-4" />
-                      {t('aiPlanning.report.referenceSources')}
-                    </h3>
-                    <div className="space-y-2">
-                      {plan.references.map((ref, idx) => (
-                        <div
-                          key={ref.id}
-                          className="flex items-start gap-3 rounded-lg border border-gray-100 bg-gray-50/50 p-3"
-                        >
-                          <span className="flex-shrink-0 rounded bg-purple-100 px-1.5 py-0.5 text-xs font-bold text-purple-700">
-                            [{idx + 1}]
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="line-clamp-1 text-sm font-medium text-gray-900">
-                              {ref.title}
-                            </p>
-                            <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                              <span
-                                className={cn(
-                                  'rounded px-1.5 py-0.5 text-[10px] font-medium',
-                                  SOURCE_TYPE_COLORS[ref.sourceType || 'web']
-                                )}
-                              >
-                                {t(
-                                  `aiPlanning.sourceType.${ref.sourceType || 'web'}`
-                                )}
-                              </span>
-                              <span>{ref.domain}</span>
-                              {ref.url && (
-                                <a
-                                  href={ref.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="truncate text-blue-600 hover:underline"
-                                >
-                                  {ref.url}
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                          {ref.credibilityScore && (
-                            <span
-                              className={cn(
-                                'flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-bold',
-                                ref.credibilityScore >= 70
-                                  ? 'bg-green-100 text-green-700'
-                                  : ref.credibilityScore >= 40
-                                    ? 'bg-yellow-100 text-yellow-700'
-                                    : 'bg-red-100 text-red-700'
-                              )}
-                            >
-                              {ref.credibilityScore}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* References are already included in the AI-generated report markdown.
+                   A dedicated References tab is available for detailed source browsing. */}
               </div>
             ) : (
               <ReportInProgressState
