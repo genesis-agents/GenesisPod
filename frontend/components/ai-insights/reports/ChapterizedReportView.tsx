@@ -121,6 +121,8 @@ interface Chapter {
   wordCount: number;
   /** ★ v3.0: 该章节关联的图表 */
   charts?: ReportChart[];
+  /** ★ Key findings for takeaways card */
+  keyFindings?: Array<{ finding: string; significance: string }>;
 }
 
 /**
@@ -573,6 +575,15 @@ function ChapterizedReportViewInner({
         // ★ v3.0: Get charts for this chapter by sectionNumber
         const chapterCharts = chartsBySectionId.get(sectionNumber) || [];
 
+        // ★ Extract top 3 key findings for takeaways card
+        const topFindings = (analysis.keyFindings || [])
+          .filter((f) => f.finding && f.finding.trim().length > 3)
+          .slice(0, 3)
+          .map((f) => ({
+            finding: f.finding,
+            significance: f.significance || 'medium',
+          }));
+
         result.push({
           id: dimId,
           chapterNumber: chapterNum,
@@ -583,7 +594,8 @@ function ChapterizedReportViewInner({
           outline,
           content,
           wordCount: countWords(content),
-          charts: chapterCharts, // ★ 附加该章节的图表
+          charts: chapterCharts,
+          keyFindings: topFindings.length > 0 ? topFindings : undefined,
         });
 
         chapterNum++;
@@ -806,6 +818,35 @@ function ChapterizedReportViewInner({
           ) : (
             // ★ Preview mode - 与连续视图（ReportEditor）完全一致的渲染管线
             <div ref={previewRef} className="p-6">
+              {/* ★ Key Takeaways card */}
+              {selectedChapter.keyFindings &&
+                selectedChapter.keyFindings.length > 0 && (
+                  <div className="mb-5 rounded-xl border-l-4 border-blue-400 bg-blue-50/60 p-4">
+                    <h4 className="mb-2 text-sm font-semibold text-blue-800">
+                      Key Takeaways
+                    </h4>
+                    <ul className="space-y-1.5">
+                      {selectedChapter.keyFindings.map((kf, idx) => (
+                        <li
+                          key={idx}
+                          className="flex items-start gap-2 text-sm text-blue-900/80"
+                        >
+                          <span
+                            className={`mt-1 inline-block h-2 w-2 flex-shrink-0 rounded-full ${
+                              kf.significance === 'high'
+                                ? 'bg-red-400'
+                                : kf.significance === 'medium'
+                                  ? 'bg-amber-400'
+                                  : 'bg-blue-400'
+                            }`}
+                          />
+                          <span>{processText(kf.finding)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
               <article className="prose prose-gray max-w-none">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}

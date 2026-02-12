@@ -149,17 +149,78 @@ export function createMarkdownComponents(processText: ProcessTextFn) {
       ...props
     }: React.TableHTMLAttributes<HTMLTableElement> & {
       children?: React.ReactNode;
-    }) => (
-      <div className="overflow-x-auto">
-        <table {...props}>{children}</table>
-      </div>
-    ),
+    }) => {
+      // Extract text from children to detect risk matrix table
+      function extractText(node: React.ReactNode): string {
+        if (typeof node === 'string') return node;
+        if (typeof node === 'number') return String(node);
+        if (Array.isArray(node)) return node.map(extractText).join('');
+        if (React.isValidElement(node) && node.props?.children) {
+          return extractText(node.props.children as React.ReactNode);
+        }
+        return '';
+      }
+
+      const tableText = extractText(children);
+      const isRiskMatrix =
+        /风险类型|概率|影响|Risk Type|Probability|Impact/i.test(tableText);
+
+      return (
+        <div className="overflow-x-auto">
+          <table
+            {...props}
+            className={isRiskMatrix ? 'border border-red-100' : ''}
+          >
+            {children}
+          </table>
+        </div>
+      );
+    },
     td: ({
       children,
       ...props
     }: React.TdHTMLAttributes<HTMLTableCellElement> & {
       children?: React.ReactNode;
-    }) => <td {...props}>{processChildren(children, processText)}</td>,
+    }) => {
+      // Extract text from children to detect risk level
+      function extractText(node: React.ReactNode): string {
+        if (typeof node === 'string') return node;
+        if (typeof node === 'number') return String(node);
+        if (Array.isArray(node)) return node.map(extractText).join('');
+        if (React.isValidElement(node) && node.props?.children) {
+          return extractText(node.props.children as React.ReactNode);
+        }
+        return '';
+      }
+
+      const cellText = extractText(children).trim();
+
+      // Check if cell contains risk level indicator
+      const riskLevelMap: Record<string, string> = {
+        高: 'bg-red-100 text-red-700 font-medium',
+        High: 'bg-red-100 text-red-700 font-medium',
+        中: 'bg-amber-100 text-amber-700 font-medium',
+        Medium: 'bg-amber-100 text-amber-700 font-medium',
+        低: 'bg-green-100 text-green-700 font-medium',
+        Low: 'bg-green-100 text-green-700 font-medium',
+      };
+
+      const riskClass = riskLevelMap[cellText];
+
+      if (riskClass) {
+        return (
+          <td {...props}>
+            <span
+              className={`inline-block rounded-sm px-1.5 py-0.5 ${riskClass}`}
+            >
+              {processChildren(children, processText)}
+            </span>
+          </td>
+        );
+      }
+
+      return <td {...props}>{processChildren(children, processText)}</td>;
+    },
     th: ({
       children,
       ...props

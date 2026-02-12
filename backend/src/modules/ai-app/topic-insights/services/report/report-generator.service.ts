@@ -24,6 +24,7 @@ import {
   REPORT_SYNTHESIS_SYSTEM_PROMPT,
   formatDimensionOverview,
   formatDimensionDetails,
+  formatReducedDimensionSummaries,
   formatEvidenceList,
   renderReportSynthesisPrompt,
 } from "../../prompts/report-synthesis.prompt";
@@ -268,20 +269,67 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       getLanguageInstruction(topic.language || "zh"),
     );
 
-    // 调用 AI 生成报告
-    const response = await this.aiFacade.chat({
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      modelType: AIModelType.CHAT, // 使用标准聊天模型进行深度分析
-      taskProfile: {
-        creativity: "medium",
-        outputLength: "extended", // 基础配置
-      },
-      // ★ 直接指定 maxTokens 覆盖 taskProfile 的值（用于大型报告）
-      maxTokens: estimatedTokens,
-    });
+    // 调用 AI 生成报告（带 input-complexity-check 容错）
+    let response;
+    try {
+      response = await this.aiFacade.chat({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        modelType: AIModelType.CHAT,
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "extended",
+        },
+        maxTokens: estimatedTokens,
+      });
+    } catch (primaryError: unknown) {
+      const errMsg =
+        primaryError instanceof Error
+          ? primaryError.message
+          : String(primaryError);
+      if (
+        errMsg.includes("input-complexity-check") ||
+        errMsg.includes("context_length") ||
+        errMsg.includes("max_tokens")
+      ) {
+        this.logger.warn(
+          `[generateComprehensiveReport] Primary prompt too large (${errMsg}), retrying with reduced prompt`,
+        );
+
+        // ★ Fallback: 极简 prompt — 仅 summary + top 2 findings，无 evidence，无 detailedContent
+        const reducedDimensionDetails =
+          formatReducedDimensionSummaries(dimensionInputs);
+        const reducedUserPrompt =
+          renderReportSynthesisPrompt(
+            topic.name,
+            topic.type,
+            topic.description,
+            new Date().toISOString().split("T")[0],
+            dimensionInputs.length,
+            evidenceInputs.length,
+            dimensionOverview,
+            reducedDimensionDetails,
+            "（证据列表已省略以减少输入量，请基于维度摘要中的信息生成报告）",
+          ) + feedbackNotice;
+
+        response = await this.aiFacade.chat({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: reducedUserPrompt },
+          ],
+          modelType: AIModelType.CHAT,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "extended",
+          },
+          maxTokens: estimatedTokens,
+        });
+      } else {
+        throw primaryError;
+      }
+    }
 
     // 解析 AI 响应
     const { structuredReport, charts } = this.parseAIReportWithCharts(

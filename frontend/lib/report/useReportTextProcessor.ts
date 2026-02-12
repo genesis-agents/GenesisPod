@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { CitationBadge } from '@/components/ai-insights/citations/CitationBadge';
+import { CitationGroup } from '@/components/ai-insights/citations/CitationGroup';
 import {
   splitTextIntoSegments,
   type Annotation as PreprocessorAnnotation,
@@ -13,6 +14,90 @@ interface EvidenceItem {
   snippet?: string | null;
   domain?: string | null;
   citationIndex?: number | null;
+}
+
+/**
+ * Detect runs of 3+ consecutive CitationBadge elements and replace with CitationGroup.
+ * A "consecutive" run means CitationBadge elements with only empty/whitespace strings between them.
+ */
+function foldConsecutiveCitations(parts: React.ReactNode[]): React.ReactNode[] {
+  const result: React.ReactNode[] = [];
+  let currentRun: Array<{
+    index: number;
+    evidence: {
+      id: string;
+      title?: string | null;
+      url?: string | null;
+      snippet?: string | null;
+      domain?: string | null;
+    };
+    key: string;
+  }> = [];
+
+  const flushRun = () => {
+    if (currentRun.length >= 3) {
+      result.push(
+        React.createElement(CitationGroup, {
+          key: `cg-${currentRun[0].key}`,
+          citations: currentRun,
+        })
+      );
+    } else {
+      // Not enough to fold - push individual badges back
+      currentRun.forEach((c) => {
+        result.push(
+          React.createElement(CitationBadge, {
+            key: c.key,
+            index: c.index,
+            evidence: c.evidence,
+          })
+        );
+      });
+    }
+    currentRun = [];
+  };
+
+  for (const part of parts) {
+    // Check if this is a CitationBadge element
+    if (React.isValidElement(part) && part.type === CitationBadge) {
+      const props = part.props as {
+        index: number;
+        evidence: {
+          id: string;
+          title?: string | null;
+          url?: string | null;
+          snippet?: string | null;
+          domain?: string | null;
+        };
+        key?: string;
+      };
+      currentRun.push({
+        index: props.index,
+        evidence: props.evidence,
+        key: String(part.key || `cite-${props.index}`),
+      });
+      continue;
+    }
+
+    // Check if it's a whitespace-only string (allows space between consecutive badges)
+    if (typeof part === 'string' && part.trim() === '') {
+      // Keep accumulating - whitespace between badges is ok
+      if (currentRun.length > 0) continue;
+    }
+
+    // Non-badge, non-whitespace: flush any accumulated run
+    if (currentRun.length > 0) {
+      flushRun();
+    }
+    result.push(part);
+  }
+
+  // Flush any remaining run
+  if (currentRun.length > 0) {
+    flushRun();
+  }
+
+  return result;
 }
 
 interface UseReportTextProcessorOptions {
@@ -122,7 +207,9 @@ export function useReportTextProcessor({
         parts.push(text.slice(lastIndex));
       }
 
-      return parts.length === 1 ? parts[0] : parts;
+      // ★ Post-process: fold consecutive 3+ citations into CitationGroup
+      const folded = foldConsecutiveCitations(parts);
+      return folded.length === 1 ? folded[0] : folded;
     },
     [evidence]
   );

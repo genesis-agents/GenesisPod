@@ -279,66 +279,51 @@ export function formatDimensionDetails(
 ---
 ## 研究成果 ${i + 1}: ${da.dimensionName}
 
-**Agent 职责**: 负责研究 "${da.dimensionName}" 维度
 **维度描述**: ${da.dimensionDescription || "无"}
-**使用证据数**: ${da.sourcesUsed}
 
 ### 核心摘要
 ${da.summary}
 
-### 关键发现 (${da.keyFindings.length}项)
+### 关键发现 (Top 3)
 ${
   da.keyFindings
+    .slice(0, 3)
     .map(
-      (f, j) => `
-${j + 1}. **[${(f.significance || "medium").toUpperCase()}]** ${f.finding}
-   - 证据支撑: ${f.evidenceIds.length > 0 ? f.evidenceIds.map((id) => `[${id}]`).join(", ") : "无"}`,
+      (f, j) =>
+        `${j + 1}. **[${(f.significance || "medium").toUpperCase()}]** ${f.finding}`,
     )
     .join("\n") || "暂无关键发现"
 }
 
-### 趋势分析 (${da.trends.length}项)
+### 趋势分析 (Top 2)
 ${
   da.trends
-    .map(
-      (t, j) => `
-${j + 1}. **${t.trend}**
-   - 方向: ${t.direction}
-   - 时间范围: ${t.timeframe}
-   - 证据: ${t.evidenceIds.length > 0 ? t.evidenceIds.map((id) => `[${id}]`).join(", ") : "无"}`,
-    )
+    .slice(0, 2)
+    .map((t, j) => `${j + 1}. **${t.trend}** (${t.direction}, ${t.timeframe})`)
     .join("\n") || "暂无趋势分析"
 }
 
-### 挑战分析 (${da.challenges.length}项)
+### 挑战 (Top 2)
 ${
   da.challenges
-    .map(
-      (c, j) => `
-${j + 1}. **${c.challenge}**
-   - 影响: ${c.impact}
-   - 证据: ${c.evidenceIds.length > 0 ? c.evidenceIds.map((id) => `[${id}]`).join(", ") : "无"}`,
-    )
-    .join("\n") || "暂无挑战分析"
+    .slice(0, 2)
+    .map((c, j) => `${j + 1}. ${c.challenge}`)
+    .join("\n") || "暂无"
 }
 
-### 机会分析 (${da.opportunities.length}项)
+### 机会 (Top 2)
 ${
   da.opportunities
-    .map(
-      (o, j) => `
-${j + 1}. **${o.opportunity}**
-   - 潜力: ${o.potential}
-   - 证据: ${o.evidenceIds.length > 0 ? o.evidenceIds.map((id) => `[${id}]`).join(", ") : "无"}`,
-    )
-    .join("\n") || "暂无机会分析"
+    .slice(0, 2)
+    .map((o, j) => `${j + 1}. ${o.opportunity}`)
+    .join("\n") || "暂无"
 }
 
 ### 详细分析内容摘要
 ${
   da.detailedContent
-    ? da.detailedContent.substring(0, 800) +
-      (da.detailedContent.length > 800
+    ? da.detailedContent.substring(0, 400) +
+      (da.detailedContent.length > 400
         ? "...(已截断，完整内容已由研究 Agent 生成)"
         : "")
     : "详细内容请见各子章节"
@@ -346,6 +331,35 @@ ${
 `,
     )
     .join("\n\n");
+}
+
+/**
+ * 极简版维度摘要（用于 fallback 重试）
+ * 仅保留 summary + top 2 findings，无 evidence / detailedContent
+ */
+export function formatReducedDimensionSummaries(
+  dimensionAnalyses: Array<{
+    dimensionName: string;
+    summary: string;
+    keyFindings: Array<{
+      finding: string;
+      significance: string;
+    }>;
+  }>,
+): string {
+  return dimensionAnalyses
+    .map(
+      (da, i) => `
+### ${i + 1}. ${da.dimensionName}
+${da.summary}
+${
+  da.keyFindings
+    .slice(0, 2)
+    .map((f, j) => `${j + 1}. ${f.finding}`)
+    .join("\n") || ""
+}`,
+    )
+    .join("\n");
 }
 
 /**
@@ -368,15 +382,12 @@ export function formatEvidenceList(
 
   // ★ 限制证据数量，避免 token 溢出
   // 报告合成只需要知道有哪些证据可引用，不需要完整详情
-  const MAX_EVIDENCES_IN_PROMPT = 50;
+  const MAX_EVIDENCES_IN_PROMPT = 30;
   const truncated = evidences.length > MAX_EVIDENCES_IN_PROMPT;
   const displayedEvidences = evidences.slice(0, MAX_EVIDENCES_IN_PROMPT);
 
   const list = displayedEvidences
-    .map(
-      (e) =>
-        `[${e.citationIndex}] ${e.title} (${e.domain || "未知"}, ${e.credibilityScore !== null ? `${e.credibilityScore}分` : "未评"})`,
-    )
+    .map((e) => `[${e.citationIndex}] ${e.title} (${e.domain || "未知"})`)
     .join("\n");
 
   return truncated

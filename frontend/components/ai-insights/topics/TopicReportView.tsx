@@ -9,7 +9,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { X, RefreshCw, FileText } from 'lucide-react';
+import { X, RefreshCw, FileText, Zap } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import {
   aiEditReport,
@@ -20,6 +20,7 @@ import {
 import { apiClient } from '@/lib/api/client';
 import { ReportEditPanel } from '../reports/ReportEditPanel';
 import { ChapterizedReportView } from '../reports/ChapterizedReportView';
+import { QuickViewReport } from '../reports/QuickViewReport';
 import { ReportRevisionHistory } from '../reports/ReportRevisionHistory';
 import { ReportAnnotations } from '../annotations/ReportAnnotations';
 import { useTopicContent } from './TopicContentContext';
@@ -91,7 +92,7 @@ const AnnotationIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-type ReportViewMode = 'continuous' | 'chapter';
+type ReportViewMode = 'continuous' | 'chapter' | 'quick';
 type SidePanelType = null | 'history' | 'annotations';
 
 interface TopicReportViewProps {
@@ -293,6 +294,18 @@ export function TopicReportView({
               <DocumentIcon className="h-3.5 w-3.5" />
               <span>{t('topicResearch.contentPanel.toolbar.chapter')}</span>
             </button>
+            <button
+              onClick={() => setReportViewMode('quick')}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                reportViewMode === 'quick'
+                  ? 'bg-amber-50 text-amber-700'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+              title="Quick View"
+            >
+              <Zap className="h-3.5 w-3.5" />
+              <span>Quick</span>
+            </button>
           </div>
           {report && (
             <span className="text-xs text-gray-400">
@@ -431,6 +444,14 @@ export function TopicReportView({
                 selectorSuffix: a.selectorSuffix,
               }))}
               highlightedAnnotationId={highlightedAnnotationId}
+            />
+          )}
+
+          {reportViewMode === 'quick' && (
+            <QuickViewReport
+              report={report}
+              evidence={evidence}
+              isLoading={isLoadingReport}
             />
           )}
 
