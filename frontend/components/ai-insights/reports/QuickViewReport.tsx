@@ -118,15 +118,15 @@ export function QuickViewReport({
 
   return (
     <div className="h-full overflow-auto">
-      <div className="mx-auto max-w-3xl space-y-6 p-6">
+      <div className="mx-auto max-w-3xl space-y-5 p-6">
         {/* Executive Summary */}
         {report.executiveSummary && (
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">
+            <h2 className="mb-2 text-base font-bold text-gray-900">
               执行摘要
             </h2>
             <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
-              <article className="prose prose-sm prose-gray max-w-none">
+              <article className="prose prose-xs prose-gray max-w-none text-xs leading-relaxed">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={markdownComponents}
@@ -141,26 +141,26 @@ export function QuickViewReport({
         {/* Key Findings by Dimension */}
         {dimensionFindings.length > 0 && (
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">
+            <h2 className="mb-2 text-base font-bold text-gray-900">
               {t('topicResearch.reportEditor.keyFindings')}
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {dimensionFindings.map((dim) => (
                 <div
                   key={dim.name}
-                  className="rounded-xl border border-gray-100 bg-white p-4"
+                  className="rounded-xl border border-gray-100 bg-white p-3"
                 >
-                  <h3 className="mb-2 text-sm font-semibold text-gray-700">
+                  <h3 className="mb-1.5 text-sm font-bold text-gray-800">
                     {dim.name}
                   </h3>
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-1">
                     {dim.findings.map((f, idx) => (
                       <li
                         key={idx}
-                        className="flex items-start gap-2 text-sm text-gray-600"
+                        className="flex items-start gap-2 text-xs leading-relaxed text-gray-600"
                       >
                         <span
-                          className={`mt-0.5 inline-block h-2 w-2 flex-shrink-0 rounded-full ${
+                          className={`mt-1 inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full ${
                             f.significance === 'high'
                               ? 'bg-red-400'
                               : f.significance === 'medium'
@@ -181,21 +181,21 @@ export function QuickViewReport({
         {/* Trend Overview */}
         {topTrends.length > 0 && (
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">
+            <h2 className="mb-2 text-base font-bold text-gray-900">
               {t('topicResearch.reportEditor.trendAnalysis')}
             </h2>
-            <div className="rounded-xl border border-gray-100 bg-white p-4">
-              <div className="space-y-2">
+            <div className="rounded-xl border border-gray-100 bg-white p-3">
+              <div className="space-y-1.5">
                 {topTrends.map((tr, idx) => (
-                  <div key={idx} className="flex items-start gap-2 text-sm">
-                    <span className="mt-0.5 w-5 flex-shrink-0 text-center text-base">
+                  <div key={idx} className="flex items-start gap-2 text-xs">
+                    <span className="mt-0.5 w-4 flex-shrink-0 text-center text-sm">
                       {directionLabels[tr.direction] || '→'}
                     </span>
-                    <div>
+                    <div className="leading-relaxed">
                       <span className="font-medium text-gray-800">
                         {tr.trend}
                       </span>
-                      <span className="ml-2 text-xs text-gray-400">
+                      <span className="ml-1.5 text-[10px] text-gray-400">
                         {tr.dimensionName} · {tr.timeframe}
                       </span>
                     </div>
@@ -210,17 +210,20 @@ export function QuickViewReport({
         {(riskAndOpportunities.challenges.length > 0 ||
           riskAndOpportunities.opportunities.length > 0) && (
           <section>
-            <div className="grid grid-cols-2 gap-4">
+            <h2 className="mb-2 text-base font-bold text-gray-900">
+              风险与机遇速览
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
               {/* Challenges */}
               {riskAndOpportunities.challenges.length > 0 && (
-                <div className="rounded-xl border border-red-100 bg-red-50/50 p-4">
-                  <h3 className="mb-2 text-sm font-semibold text-red-700">
+                <div className="rounded-xl border border-red-100 bg-red-50/50 p-3">
+                  <h3 className="mb-2 text-sm font-bold text-red-700">
                     {t('topicResearch.reportEditor.challenges')}
                   </h3>
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-2">
                     {riskAndOpportunities.challenges.map((c, idx) => (
-                      <li key={idx} className="text-sm text-red-600">
-                        <span className="text-xs text-red-400">
+                      <li key={idx} className="text-xs leading-relaxed text-red-600/80">
+                        <span className="font-medium text-red-500">
                           {c.dimensionName}:
                         </span>{' '}
                         {c.text}
@@ -231,14 +234,14 @@ export function QuickViewReport({
               )}
               {/* Opportunities */}
               {riskAndOpportunities.opportunities.length > 0 && (
-                <div className="rounded-xl border border-green-100 bg-green-50/50 p-4">
-                  <h3 className="mb-2 text-sm font-semibold text-green-700">
+                <div className="rounded-xl border border-green-100 bg-green-50/50 p-3">
+                  <h3 className="mb-2 text-sm font-bold text-green-700">
                     {t('topicResearch.reportEditor.opportunities')}
                   </h3>
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-2">
                     {riskAndOpportunities.opportunities.map((o, idx) => (
-                      <li key={idx} className="text-sm text-green-600">
-                        <span className="text-xs text-green-400">
+                      <li key={idx} className="text-xs leading-relaxed text-green-600/80">
+                        <span className="font-medium text-green-500">
                           {o.dimensionName}:
                         </span>{' '}
                         {o.text}
@@ -256,23 +259,23 @@ export function QuickViewReport({
           report.riskAssessment.riskMatrix &&
           report.riskAssessment.riskMatrix.length > 0 && (
             <section>
-              <h2 className="mb-3 text-lg font-semibold text-gray-900">
+              <h2 className="mb-2 text-base font-bold text-gray-900">
                 {report.riskAssessment.title || '风险评估'}
               </h2>
               <div className="overflow-x-auto rounded-xl border border-red-100">
-                <table className="w-full text-sm">
+                <table className="w-full text-xs">
                   <thead className="bg-red-50">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-red-700">
+                      <th className="px-3 py-1.5 text-left font-medium text-red-700">
                         风险类型
                       </th>
-                      <th className="px-3 py-2 text-center font-medium text-red-700">
+                      <th className="px-3 py-1.5 text-center font-medium text-red-700">
                         概率
                       </th>
-                      <th className="px-3 py-2 text-center font-medium text-red-700">
+                      <th className="px-3 py-1.5 text-center font-medium text-red-700">
                         影响
                       </th>
-                      <th className="px-3 py-2 text-center font-medium text-red-700">
+                      <th className="px-3 py-1.5 text-center font-medium text-red-700">
                         时间窗口
                       </th>
                     </tr>
@@ -293,24 +296,24 @@ export function QuickViewReport({
                             : 'bg-green-100 text-green-700';
                       return (
                         <tr key={idx} className="border-t border-red-50">
-                          <td className="px-3 py-2 text-gray-700">
+                          <td className="px-3 py-1.5 text-gray-700">
                             {risk.riskType}
                           </td>
-                          <td className="px-3 py-2 text-center">
+                          <td className="px-3 py-1.5 text-center">
                             <span
-                              className={`inline-block rounded-sm px-1.5 py-0.5 text-xs font-medium ${probColor}`}
+                              className={`inline-block rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${probColor}`}
                             >
                               {risk.probability}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-center">
+                          <td className="px-3 py-1.5 text-center">
                             <span
-                              className={`inline-block rounded-sm px-1.5 py-0.5 text-xs font-medium ${impactColor}`}
+                              className={`inline-block rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${impactColor}`}
                             >
                               {risk.impact}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-center text-gray-500">
+                          <td className="px-3 py-1.5 text-center text-gray-500">
                             {risk.timeframe}
                           </td>
                         </tr>
@@ -325,25 +328,25 @@ export function QuickViewReport({
         {/* Strategic Recommendations (structured, if available) */}
         {report.strategicRecommendations && (
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">
+            <h2 className="mb-2 text-base font-bold text-gray-900">
               {report.strategicRecommendations.title || '战略建议'}
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {report.strategicRecommendations.forEnterprise && (
-                <div className="rounded-xl border border-gray-100 bg-white p-4">
-                  <h3 className="mb-2 text-sm font-semibold text-indigo-700">
+                <div className="rounded-xl border border-gray-100 bg-white p-3">
+                  <h3 className="mb-2 text-sm font-bold text-indigo-700">
                     对企业决策者
                   </h3>
                   {report.strategicRecommendations.forEnterprise.shortTerm
                     ?.length > 0 && (
                     <div className="mb-2">
-                      <span className="text-xs font-medium text-gray-500">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                         短期 (6-12月)
                       </span>
-                      <ul className="mt-1 space-y-1">
+                      <ul className="mt-1 space-y-0.5">
                         {report.strategicRecommendations.forEnterprise.shortTerm.map(
                           (s, i) => (
-                            <li key={i} className="text-sm text-gray-600">
+                            <li key={i} className="text-xs leading-relaxed text-gray-600">
                               - {s}
                             </li>
                           )
@@ -354,13 +357,13 @@ export function QuickViewReport({
                   {report.strategicRecommendations.forEnterprise.midTerm
                     ?.length > 0 && (
                     <div>
-                      <span className="text-xs font-medium text-gray-500">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                         中期 (1-3年)
                       </span>
-                      <ul className="mt-1 space-y-1">
+                      <ul className="mt-1 space-y-0.5">
                         {report.strategicRecommendations.forEnterprise.midTerm.map(
                           (s, i) => (
-                            <li key={i} className="text-sm text-gray-600">
+                            <li key={i} className="text-xs leading-relaxed text-gray-600">
                               - {s}
                             </li>
                           )
@@ -371,21 +374,21 @@ export function QuickViewReport({
                 </div>
               )}
               {report.strategicRecommendations.forInvestors && (
-                <div className="rounded-xl border border-gray-100 bg-white p-4">
-                  <h3 className="mb-2 text-sm font-semibold text-emerald-700">
+                <div className="rounded-xl border border-gray-100 bg-white p-3">
+                  <h3 className="mb-2 text-sm font-bold text-emerald-700">
                     对投资者
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
                     {report.strategicRecommendations.forInvestors.opportunities
                       ?.length > 0 && (
                       <div>
-                        <span className="text-xs font-medium text-green-600">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-green-500">
                           看好方向
                         </span>
-                        <ul className="mt-1 space-y-1">
+                        <ul className="mt-1 space-y-0.5">
                           {report.strategicRecommendations.forInvestors.opportunities.map(
                             (s, i) => (
-                              <li key={i} className="text-sm text-gray-600">
+                              <li key={i} className="text-xs leading-relaxed text-gray-600">
                                 - {s}
                               </li>
                             )
@@ -396,13 +399,13 @@ export function QuickViewReport({
                     {report.strategicRecommendations.forInvestors.risks
                       ?.length > 0 && (
                       <div>
-                        <span className="text-xs font-medium text-red-600">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-red-500">
                           警惕风险
                         </span>
-                        <ul className="mt-1 space-y-1">
+                        <ul className="mt-1 space-y-0.5">
                           {report.strategicRecommendations.forInvestors.risks.map(
                             (s, i) => (
-                              <li key={i} className="text-sm text-gray-600">
+                              <li key={i} className="text-xs leading-relaxed text-gray-600">
                                 - {s}
                               </li>
                             )
