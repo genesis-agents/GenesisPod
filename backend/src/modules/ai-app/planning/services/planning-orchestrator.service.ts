@@ -587,17 +587,34 @@ export class PlanningOrchestratorService {
 
       // 5. Execute each agent
       const agentOutputs: string[] = [];
+      // For Phase 6 (Delivery): use iterative refinement — each subsequent agent
+      // refines the previous output instead of writing from scratch. This produces
+      // a single polished report rather than multiple concatenated reports.
+      let previousAgentOutput = "";
 
       for (const agent of agents) {
-        const phasePrompt = this.buildPhasePrompt(
-          meta,
-          phase,
-          agent.displayName,
-          agent.roleDescription || "",
-          previousContext,
-          topic.name,
-          searchContext,
-        );
+        let phasePrompt: string;
+
+        if (phase === 6 && previousAgentOutput) {
+          // Subsequent agents in Delivery phase refine the previous draft
+          phasePrompt = this.buildDeliveryRefinementPrompt(
+            meta,
+            agent.displayName,
+            agent.roleDescription || "",
+            topic.name,
+            previousAgentOutput,
+          );
+        } else {
+          phasePrompt = this.buildPhasePrompt(
+            meta,
+            phase,
+            agent.displayName,
+            agent.roleDescription || "",
+            previousContext,
+            topic.name,
+            searchContext,
+          );
+        }
 
         const messages: ChatMessage[] = [
           {
@@ -641,7 +658,10 @@ export class PlanningOrchestratorService {
           response.tokensUsed,
         );
 
-        agentOutputs.push(`### ${agent.displayName}\n\n${response.content}`);
+        agentOutputs.push(response.content);
+        if (phase === 6) {
+          previousAgentOutput = response.content;
+        }
       }
 
       // 6. Handle no-output case as failure (Bug 2 fix)
@@ -657,7 +677,19 @@ export class PlanningOrchestratorService {
       }
 
       // 7. Build phase summary and mark completed
-      const summary = agentOutputs.join("\n\n---\n\n");
+      // Phase 6 (Delivery): use only the final refined output (single report)
+      // Other phases: concatenate all agent outputs with agent name headers
+      const summary =
+        phase === 6
+          ? agentOutputs[agentOutputs.length - 1]
+          : agentOutputs
+              .map((output, i) => {
+                const agent = agents[i];
+                return agent
+                  ? `### ${agent.displayName}\n\n${output}`
+                  : output;
+              })
+              .join("\n\n---\n\n");
       await this.updatePhaseStatus(planId, phase, {
         status: "completed",
         summary,
@@ -872,6 +904,50 @@ export class PlanningOrchestratorService {
     }
 
     prompt += `请以 Markdown 格式输出你的分析和成果。`;
+
+    return prompt;
+  }
+
+  /**
+   * Build a refinement prompt for Phase 6 subsequent agents.
+   * Instead of writing from scratch, the agent polishes the previous draft
+   * into a single cohesive delivery document.
+   */
+  private buildDeliveryRefinementPrompt(
+    meta: PlanningTopicMetadata,
+    agentName: string,
+    agentRole: string,
+    planName: string,
+    previousDraft: string,
+  ): string {
+    const goal = meta.planConfig.goal;
+    const currentDate = new Date().toISOString().split("T")[0];
+
+    let prompt = `# 策划任务: ${planName}\n\n`;
+    prompt += `**当前日期**: ${currentDate}\n\n`;
+    prompt += `**策划目标**: ${goal}\n\n`;
+    prompt += `**你的角色**: ${agentName} — ${agentRole}\n\n`;
+    prompt += `**任务指令**: 以下是策划总监撰写的策划文档初稿。请以你的专业视角对其进行润色和优化，使其成为一份可直接提交决策层的正式交付文档。\n\n`;
+    prompt += `具体要求：\n`;
+    prompt += `- 保持原有结构和核心内容不变\n`;
+    prompt += `- 优化语言表达，使其更加专业、严谨、简洁\n`;
+    prompt += `- 确保数据引用 [编号] 准确保留\n`;
+    prompt += `- 补充或优化表格、时间表等结构化内容的呈现\n`;
+    prompt += `- 确保整体风格统一，适合决策层阅读\n\n`;
+
+    // Inject reference list so the agent can verify citations
+    if (meta.references?.length) {
+      const refList = meta.references
+        .map(
+          (r, i) =>
+            `[${i + 1}] ${r.title} — ${r.url}${r.sourceType ? ` (${r.sourceType})` : ""}`,
+        )
+        .join("\n");
+      prompt += `---\n\n## 可引用的参考资料\n\n${refList}\n\n`;
+    }
+
+    prompt += `---\n\n## 待润色的初稿\n\n${previousDraft}\n\n---\n\n`;
+    prompt += `请输出完整的润色后文档（Markdown 格式），不要输出修改说明或对比，直接输出最终版本。`;
 
     return prompt;
   }
