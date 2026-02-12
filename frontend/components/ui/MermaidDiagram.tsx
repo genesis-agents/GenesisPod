@@ -46,10 +46,11 @@ export default function MermaidDiagram({
   const [fallbackError, setFallbackError] = useState<string | null>(null);
   const [fallbackLoading, setFallbackLoading] = useState(false);
 
-  // 判断是否需要回退渲染（Worker 不可用或 Worker 渲染失败）
+  // 判断是否需要回退渲染（Worker 不可用、CDN 加载失败、或 Worker 渲染失败）
   const needsFallback =
     workerError?.includes('Worker not available') ||
-    workerError?.includes('falling back');
+    workerError?.includes('falling back') ||
+    workerError?.includes('Failed to load mermaid');
 
   // 回退到主线程渲染
   useEffect(() => {
