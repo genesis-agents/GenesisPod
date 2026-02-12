@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import rehypeRaw from 'rehype-raw';
 import MermaidDiagram from '@/components/ui/MermaidDiagram';
 import { cn } from '@/lib/utils/common';
@@ -222,14 +223,28 @@ const PLAN_MARKDOWN_COMPONENTS: React.ComponentPropsWithoutRef<
   ),
 };
 
-/** Shared markdown renderer with GFM tables, styled components, and mermaid */
-function PlanMarkdown({ content }: { content: string }) {
+/** Shared markdown renderer with GFM tables, styled components, and mermaid.
+ *  When `references` is provided, [n] patterns are rendered as clickable CitationBadge. */
+function PlanMarkdown({
+  content,
+  references,
+}: {
+  content: string;
+  references?: PlanReference[];
+}) {
+  const components = useMemo(() => {
+    if (references && references.length > 0) {
+      return buildCitationMarkdownComponents(references);
+    }
+    return PLAN_MARKDOWN_COMPONENTS;
+  }, [references]);
+
   return (
     <div className="prose prose-sm max-w-none">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkBreaks]}
         rehypePlugins={[rehypeRaw]}
-        components={PLAN_MARKDOWN_COMPONENTS}
+        components={components}
       >
         {content}
       </ReactMarkdown>
@@ -397,7 +412,7 @@ function ReportMarkdown({
   return (
     <div className="prose prose-sm max-w-none">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkBreaks]}
         rehypePlugins={[rehypeRaw]}
         components={components}
       >
@@ -800,6 +815,7 @@ export function PlanContentPanel({
                                   ? `${msg.content.slice(0, 500)}...`
                                   : msg.content
                               }
+                              references={plan.references}
                             />
                           </div>
                           <p className="mt-1 text-xs text-gray-400">
@@ -1246,7 +1262,10 @@ function PhaseTaskCard({
                 {'\u{1F4DD}'} {t('aiPlanning.content.phaseOutput')}
               </div>
               <div className="rounded-lg border border-gray-200 p-3">
-                <PlanMarkdown content={status.summary} />
+                <PlanMarkdown
+                  content={status.summary}
+                  references={plan.references}
+                />
               </div>
             </div>
           )}
