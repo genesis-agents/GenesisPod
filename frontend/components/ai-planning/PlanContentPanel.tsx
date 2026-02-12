@@ -203,16 +203,21 @@ const PLAN_MARKDOWN_COMPONENTS: React.ComponentPropsWithoutRef<
     </div>
   ),
   thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
-  th: ({ children }) => (
-    <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold text-gray-900">
+  th: ({ children, style }) => (
+    <th
+      className="whitespace-nowrap px-3 py-2 text-xs font-semibold text-gray-900"
+      style={style}
+    >
       {children}
     </th>
   ),
   tr: ({ children }) => (
     <tr className="border-t border-gray-100 even:bg-gray-50/50">{children}</tr>
   ),
-  td: ({ children }) => (
-    <td className="min-w-[100px] px-3 py-2 text-sm">{children}</td>
+  td: ({ children, style }) => (
+    <td className="min-w-[100px] px-3 py-2 text-sm" style={style}>
+      {children}
+    </td>
   ),
 };
 
@@ -257,9 +262,22 @@ function CitationBadge({
 
   return (
     <span className="group/cite relative inline-block">
-      <sup className="inline-flex h-4 min-w-[1.25rem] cursor-help items-center justify-center rounded bg-purple-100 px-1 text-[10px] font-bold text-purple-700 transition-colors hover:bg-purple-200">
-        [{index}]
-      </sup>
+      {ref.url ? (
+        <a
+          href={ref.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex"
+        >
+          <sup className="inline-flex h-4 min-w-[1.25rem] cursor-pointer items-center justify-center rounded bg-purple-100 px-1 text-[10px] font-bold text-purple-700 transition-colors hover:bg-purple-300">
+            [{index}]
+          </sup>
+        </a>
+      ) : (
+        <sup className="inline-flex h-4 min-w-[1.25rem] cursor-help items-center justify-center rounded bg-purple-100 px-1 text-[10px] font-bold text-purple-700 transition-colors hover:bg-purple-200">
+          [{index}]
+        </sup>
+      )}
       <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 w-64 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-2.5 text-xs opacity-0 shadow-lg transition-opacity group-hover/cite:pointer-events-auto group-hover/cite:opacity-100">
         <span className="line-clamp-2 block font-medium text-gray-900">
           {ref.title}
@@ -348,6 +366,19 @@ function buildCitationMarkdownComponents(
         <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-400" />
         <span className="flex-1">{processCitations(children, references)}</span>
       </li>
+    ),
+    td: ({ children, style }) => (
+      <td className="min-w-[100px] px-3 py-2 text-sm" style={style}>
+        {processCitations(children, references)}
+      </td>
+    ),
+    th: ({ children, style }) => (
+      <th
+        className="whitespace-nowrap px-3 py-2 text-xs font-semibold text-gray-900"
+        style={style}
+      >
+        {processCitations(children, references)}
+      </th>
     ),
   };
 }
