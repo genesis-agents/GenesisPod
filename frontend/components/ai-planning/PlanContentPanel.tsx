@@ -1369,26 +1369,26 @@ function PlanReferencesTab({ references }: { references: PlanReference[] }) {
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-600">
+          <span className="text-sm font-medium text-gray-700">
             {t('aiPlanning.references.totalSources', {
               total: stats.total,
             })}
           </span>
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-3 text-xs">
             <span className="flex items-center gap-1 text-green-600">
-              <span className="h-2 w-2 rounded-full bg-green-500" />
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
               {t('aiPlanning.references.highRelevance', {
                 count: stats.high,
               })}
             </span>
-            <span className="flex items-center gap-1 text-yellow-600">
-              <span className="h-2 w-2 rounded-full bg-yellow-500" />
+            <span className="flex items-center gap-1 text-amber-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
               {t('aiPlanning.references.mediumRelevance', {
                 count: stats.medium,
               })}
             </span>
-            <span className="flex items-center gap-1 text-red-600">
-              <span className="h-2 w-2 rounded-full bg-red-500" />
+            <span className="flex items-center gap-1 text-red-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
               {t('aiPlanning.references.lowRelevance', {
                 count: stats.low,
               })}
@@ -1400,7 +1400,7 @@ function PlanReferencesTab({ references }: { references: PlanReference[] }) {
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value as typeof filter)}
-            className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
+            className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700"
           >
             <option value="all">{t('aiPlanning.references.filterAll')}</option>
             <option value="high">
@@ -1414,7 +1414,7 @@ function PlanReferencesTab({ references }: { references: PlanReference[] }) {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
+            className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700"
           >
             <option value="score">
               {t('aiPlanning.references.sortByRelevance')}
@@ -1426,139 +1426,138 @@ function PlanReferencesTab({ references }: { references: PlanReference[] }) {
         </div>
       </div>
 
-      {/* Reference list */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          {filteredRefs.map((item, idx) => {
+      {/* Reference list — single column, clean academic style */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="divide-y divide-gray-100">
+          {filteredRefs.map((item) => {
             const citationIndex =
               references.findIndex((r) => r.id === item.id) + 1;
             const isExpanded = expandedIds.has(item.id);
             const scorePercent = getCredibilityScore(item);
+            const scoreColor =
+              scorePercent >= 70
+                ? 'text-green-600'
+                : scorePercent >= 40
+                  ? 'text-amber-600'
+                  : 'text-red-500';
+            const scoreBg =
+              scorePercent >= 70
+                ? 'bg-green-500'
+                : scorePercent >= 40
+                  ? 'bg-amber-500'
+                  : 'bg-red-400';
 
             return (
               <div
                 key={item.id}
-                className="group rounded-lg border border-gray-200 bg-white transition-all hover:border-blue-300 hover:shadow-md"
+                className="group transition-colors hover:bg-gray-50/80"
               >
-                {/* Header */}
                 <div
-                  className="cursor-pointer p-4"
+                  className="flex cursor-pointer gap-3 px-4 py-3.5"
                   onClick={() => toggleExpanded(item.id)}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start gap-2">
-                        <span className="flex-shrink-0 rounded bg-purple-100 px-1.5 py-0.5 text-xs font-bold text-purple-700">
-                          [{citationIndex}]
-                        </span>
-                        <h4 className="text-sm font-medium text-gray-900">
-                          {item.title}
-                        </h4>
-                      </div>
-                      <p className="mt-1 text-xs text-gray-500">
-                        {item.domain}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {scorePercent > 0 && (
-                        <span
-                          className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${
-                            scorePercent >= 70
-                              ? 'bg-green-100 text-green-700'
-                              : scorePercent >= 40
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-red-100 text-red-700'
-                          }`}
-                        >
-                          {scorePercent}%
-                        </span>
-                      )}
-                      <ChevronDown
-                        className={cn(
-                          'h-4 w-4 text-gray-400 transition-transform',
-                          isExpanded && 'rotate-180'
-                        )}
-                      />
-                    </div>
-                  </div>
+                  {/* Citation number */}
+                  <span className="mt-0.5 flex h-6 w-7 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-xs font-semibold text-gray-500 group-hover:bg-purple-50 group-hover:text-purple-600">
+                    {citationIndex}
+                  </span>
 
-                  {!isExpanded && item.snippet && (
-                    <p className="mt-2 line-clamp-2 text-sm text-gray-600">
-                      {item.snippet}
-                    </p>
-                  )}
-                </div>
+                  {/* Content */}
+                  <div className="min-w-0 flex-1">
+                    {/* Title — clickable to open source */}
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="line-clamp-1 text-sm font-medium text-gray-900 hover:text-blue-600"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {item.title}
+                    </a>
 
-                {/* Expanded content */}
-                {isExpanded && (
-                  <div className="border-t border-gray-100">
-                    {item.snippet && (
-                      <div className="max-h-64 overflow-y-auto bg-gray-50 p-4">
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-                          {item.snippet}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
-                      <div className="flex items-center gap-3 text-xs text-gray-400">
-                        <span
-                          className={cn(
-                            'rounded px-1.5 py-0.5 text-[10px] font-medium',
-                            SOURCE_TYPE_COLORS[item.sourceType || 'web']
-                          )}
-                        >
-                          {t(
-                            `aiPlanning.sourceType.${item.sourceType || 'web'}`
-                          )}
-                        </span>
-                        {item.publishedDate && (
-                          <span>{formatTime(item.publishedDate)}</span>
-                        )}
-                      </div>
-                      {item.url && (
-                        <a
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {t('aiPlanning.references.openOriginal')} ↗
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Collapsed footer */}
-                {!isExpanded && (
-                  <div className="flex items-center justify-between border-t border-gray-100 px-4 py-2">
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                    {/* Metadata line: source type · domain · date */}
+                    <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
                       <span
                         className={cn(
-                          'rounded px-1.5 py-0.5 text-[10px] font-medium',
+                          'rounded px-1.5 py-px text-[10px] font-medium leading-4',
                           SOURCE_TYPE_COLORS[item.sourceType || 'web']
                         )}
                       >
                         {t(`aiPlanning.sourceType.${item.sourceType || 'web'}`)}
                       </span>
+                      <span className="text-gray-300">·</span>
+                      <span className="text-gray-500">{item.domain}</span>
                       {item.publishedDate && (
-                        <span>{formatTime(item.publishedDate)}</span>
+                        <>
+                          <span className="text-gray-300">·</span>
+                          <span>{formatTime(item.publishedDate)}</span>
+                        </>
                       )}
                     </div>
-                    {item.url && (
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {t('aiPlanning.references.original')} ↗
-                      </a>
+
+                    {/* Snippet preview (collapsed) */}
+                    {!isExpanded && item.snippet && (
+                      <p className="mt-1.5 line-clamp-1 text-xs text-gray-400">
+                        {item.snippet}
+                      </p>
                     )}
+                  </div>
+
+                  {/* Score + expand indicator */}
+                  <div className="flex flex-shrink-0 items-center gap-2">
+                    {scorePercent > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-1 w-8 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className={cn('h-full rounded-full', scoreBg)}
+                            style={{ width: `${scorePercent}%` }}
+                          />
+                        </div>
+                        <span
+                          className={cn(
+                            'w-7 text-right text-xs font-medium tabular-nums',
+                            scoreColor
+                          )}
+                        >
+                          {scorePercent}
+                        </span>
+                      </div>
+                    )}
+                    <ChevronDown
+                      className={cn(
+                        'h-3.5 w-3.5 text-gray-300 transition-transform',
+                        isExpanded && 'rotate-180'
+                      )}
+                    />
+                  </div>
+                </div>
+
+                {/* Expanded snippet */}
+                {isExpanded && item.snippet && (
+                  <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3 pl-14">
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-600">
+                      {item.snippet}
+                    </p>
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
+                    >
+                      {t('aiPlanning.references.openOriginal')}
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                    </a>
                   </div>
                 )}
               </div>
