@@ -12,7 +12,8 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Shield, Maximize2, X, RefreshCw } from 'lucide-react';
+import { Shield, Maximize2, X, RefreshCw, Zap } from 'lucide-react';
+import { QuickViewReport } from '../reports/QuickViewReport';
 import { ClientDate } from '@/components/common/ClientDate';
 import { formatDateSafe } from '@/lib/utils/date';
 import { useI18n } from '@/lib/i18n';
@@ -62,7 +63,7 @@ import {
 import { safeString } from '@/lib/utils/common';
 
 // 报告视图模式
-type ReportViewMode = 'continuous' | 'chapter';
+type ReportViewMode = 'continuous' | 'chapter' | 'quick';
 
 import { logger } from '@/lib/utils/logger';
 // Tab 类型定义
@@ -1358,6 +1359,18 @@ export function TopicContentPanel({
                   <DocumentIcon className="h-3.5 w-3.5" />
                   <span>{t('topicResearch.chapterView')}</span>
                 </button>
+                <button
+                  onClick={() => setReportViewMode('quick')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    reportViewMode === 'quick'
+                      ? 'bg-amber-50 text-amber-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  title="Quick View"
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  <span>Quick</span>
+                </button>
               </div>
             </div>
 
@@ -1538,6 +1551,13 @@ export function TopicContentPanel({
                       highlightedAnnotationId={highlightedAnnotationId}
                     />
                   )}
+                  {reportViewMode === 'quick' && report && (
+                    <QuickViewReport
+                      report={report}
+                      evidence={safeEvidence}
+                      isLoading={isLoadingReport}
+                    />
+                  )}
                   {!report && (
                     <div className="py-20 text-center text-gray-500">
                       {t('topicResearch.noReport')}
@@ -1672,6 +1692,17 @@ export function TopicContentPanel({
                   title={t('topicResearch.contentPanel.toolbar.chapterView')}
                 >
                   <DocumentIcon className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setReportViewMode('quick')}
+                  className={`rounded p-1.5 transition-colors ${
+                    reportViewMode === 'quick'
+                      ? 'bg-amber-50 text-amber-600'
+                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                  }`}
+                  title="Quick View"
+                >
+                  <Zap className="h-4 w-4" />
                 </button>
               </div>
 
@@ -2099,6 +2130,13 @@ export function TopicContentPanel({
                 </div>
               </div>
             </div>
+          )}
+          {activeTab === 'report' && reportViewMode === 'quick' && (
+            <QuickViewReport
+              report={report}
+              evidence={safeEvidence}
+              isLoading={isLoadingReport}
+            />
           )}
           {activeTab === 'research_collab' && topicId && (
             <ResearchCollaborationPanel
