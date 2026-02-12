@@ -58,7 +58,7 @@ export interface SearchResponse {
 }
 
 /** 需要触发自动降级的 HTTP 状态码 */
-const FAILOVER_STATUS_CODES = [401, 429, 432, 500, 502, 503, 504];
+const FAILOVER_STATUS_CODES = [400, 401, 429, 432, 500, 502, 503, 504];
 
 /** 搜索提供商优先级顺序 */
 type SearchProvider = "tavily" | "serper" | "duckduckgo";
@@ -331,25 +331,6 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 获取指定 Provider 当前会使用的 Key（用于错误追踪）
-   */
-  private getKeyForProvider(
-    provider: SearchProvider,
-    config: SearchConfig,
-  ): string | null {
-    switch (provider) {
-      case "tavily":
-        return this.getHealthyKey("tavily", config.tavilyKeys);
-      case "serper":
-        return this.getHealthyKey("serper", config.serperKeys);
-      case "duckduckgo":
-        return null;
-      default:
-        return null;
-    }
-  }
-
-  /**
    * 判断错误是否需要触发降级
    */
   private shouldFailover(error: unknown): boolean {
@@ -390,10 +371,9 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     let lastError: unknown = null;
 
     for (const provider of failoverChain) {
-      // 获取当前 Provider 要使用的 Key
-      const currentKey = this.getKeyForProvider(provider, searchConfig);
-
       try {
+        // ★ executeSearch 内部已实现同 Provider 多 Key 重试
+        // 所有 key 都失败后才会抛异常到这里触发 Provider 级降级
         const { result, usedKey } = await this.executeSearch(
           provider,
           query,
@@ -417,8 +397,13 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         lastError = new Error(result.error);
       } catch (error: unknown) {
         lastError = error;
-        // ★ 使用 undefined 而非 0 来区分"无响应"和"有响应但状态码异常"
-        const err = error as { response?: { status?: number; data?: { message?: string; error?: string } }; message?: string };
+        const err = error as {
+          response?: {
+            status?: number;
+            data?: { message?: string; error?: string };
+          };
+          message?: string;
+        };
         const statusCode: number | undefined = err.response?.status;
         const errorMessage =
           err.response?.data?.message ||
@@ -426,25 +411,17 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
           err.message;
 
         this.logger.warn(
-          `[Search] ${provider} failed (${statusCode !== undefined ? `HTTP ${statusCode}` : "network error"}): ${errorMessage}`,
+          `[Search] ${provider} all keys exhausted (${statusCode !== undefined ? `HTTP ${statusCode}` : "network error"}): ${errorMessage}`,
         );
 
-        // ★ 标记当前 Key 失败
-        // - 有 HTTP 状态码时（包括 0）：标记失败，进入冷却期
-        // - 网络错误（无状态码）：不标记失败，可能是临时网络问题
-        if (currentKey && statusCode !== undefined) {
-          this.markKeyFailed(provider, currentKey, statusCode);
-        }
-
-        // 判断是否需要降级
+        // 判断是否需要降级到下一个 Provider
         if (this.shouldFailover(error)) {
           this.logger.log(
             `[Search] Failing over from ${provider} to next provider...`,
           );
-          continue; // 尝试下一个 Provider
+          continue;
         }
 
-        // 非降级错误（如 400 Bad Request），直接返回错误
         return {
           success: false,
           results: [],
@@ -455,7 +432,9 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     }
 
     // 所有 Provider 都失败了
-    const lastErr = lastError as { response?: { data?: { message?: string } }; message?: string } | undefined;
+    const lastErr = lastError as
+      | { response?: { data?: { message?: string } }; message?: string }
+      | undefined;
     const finalError =
       lastErr?.response?.data?.message ||
       lastErr?.message ||
@@ -518,32 +497,18 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     searchConfig: SearchConfig,
   ): Promise<{ result: SearchResponse; usedKey: string | null }> {
     switch (provider) {
-      case "tavily": {
-        const apiKey = this.getHealthyKey("tavily", searchConfig.tavilyKeys);
-        if (!apiKey) {
-          throw new Error("No healthy Tavily API key available");
-        }
-        const result = await this.searchWithTavily(
-          query,
-          apiKey,
-          maxResults,
-          since,
+      case "tavily":
+        return this.executeWithKeyRetry(
+          "tavily",
+          searchConfig.tavilyKeys,
+          (apiKey) => this.searchWithTavily(query, apiKey, maxResults, since),
         );
-        return { result, usedKey: apiKey };
-      }
-      case "serper": {
-        const apiKey = this.getHealthyKey("serper", searchConfig.serperKeys);
-        if (!apiKey) {
-          throw new Error("No healthy Serper API key available");
-        }
-        const result = await this.searchWithSerper(
-          query,
-          apiKey,
-          maxResults,
-          since,
+      case "serper":
+        return this.executeWithKeyRetry(
+          "serper",
+          searchConfig.serperKeys,
+          (apiKey) => this.searchWithSerper(query, apiKey, maxResults, since),
         );
-        return { result, usedKey: apiKey };
-      }
       case "duckduckgo": {
         const result = await this.searchWithDuckduckgo(
           query,
@@ -555,6 +520,55 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       default:
         throw new Error(`Unknown search provider: ${provider}`);
     }
+  }
+
+  /**
+   * 同 Provider 内多 Key 重试
+   * ★ 一个 Key 失败后尝试下一个健康 Key，而非直接降级到下一个 Provider
+   */
+  private async executeWithKeyRetry(
+    provider: SearchProvider,
+    keys: string[],
+    searchFn: (apiKey: string) => Promise<SearchResponse>,
+  ): Promise<{ result: SearchResponse; usedKey: string | null }> {
+    const validKeys = keys.filter((k) => k && k.trim() !== "");
+    const triedKeys = new Set<string>();
+    let lastError: unknown = null;
+
+    for (let attempt = 0; attempt < validKeys.length; attempt++) {
+      const apiKey = this.getHealthyKey(provider, keys);
+      if (!apiKey || triedKeys.has(apiKey)) {
+        break; // 没有更多可用 key 或已经试过
+      }
+      triedKeys.add(apiKey);
+
+      try {
+        const result = await searchFn(apiKey);
+        return { result, usedKey: apiKey };
+      } catch (error) {
+        lastError = error;
+        const err = error as {
+          response?: { status?: number; data?: { message?: string } };
+        };
+        const statusCode = err.response?.status;
+
+        this.logger.warn(
+          `[Search] ${provider} key ${this.getMaskedKey(apiKey)} failed` +
+            `${statusCode !== undefined ? ` (HTTP ${statusCode})` : ""}, ` +
+            `trying next key (${attempt + 1}/${validKeys.length})`,
+        );
+
+        if (statusCode !== undefined) {
+          this.markKeyFailed(provider, apiKey, statusCode);
+        }
+      }
+    }
+
+    // 所有 key 都失败，抛出最后一个错误让上层降级处理
+    if (lastError) {
+      throw lastError;
+    }
+    throw new Error(`No healthy ${provider} API key available`);
   }
 
   /**
@@ -1104,12 +1118,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     );
 
     const results: SearchResult[] = (response.data.organic || []).map(
-      (r: {
-        title: string;
-        link: string;
-        snippet: string;
-        date?: string;
-      }) => ({
+      (r: { title: string; link: string; snippet: string; date?: string }) => ({
         title: r.title,
         url: r.link,
         content: r.snippet,
@@ -1199,7 +1208,9 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       return { success: true, results: rankedResults };
     } catch (error: unknown) {
       const err = error as { message?: string };
-      this.logger.error(`DuckDuckGo search failed: ${err.message || String(error)}`);
+      this.logger.error(
+        `DuckDuckGo search failed: ${err.message || String(error)}`,
+      );
       return {
         success: false,
         results: [],
@@ -1318,9 +1329,12 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
 
       return { success: true, title, content };
     } catch (error: unknown) {
-      const err = error as { response?: { status?: number; statusText?: string }; message?: string };
+      const err = error as {
+        response?: { status?: number; statusText?: string };
+        message?: string;
+      };
       const errorMessage = err.response?.status
-        ? `HTTP ${err.response.status}: ${err.response.statusText || ''}`
+        ? `HTTP ${err.response.status}: ${err.response.statusText || ""}`
         : err.message || String(error);
       // ★ 降级为 warn：URL 获取失败不是致命错误，研究会继续处理其他结果
       this.logger.warn(`Failed to fetch URL ${url}: ${errorMessage}`);

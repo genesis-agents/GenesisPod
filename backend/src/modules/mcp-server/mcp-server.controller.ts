@@ -29,6 +29,7 @@ import {
 } from "./abstractions/mcp-server.interface";
 import { Public } from "../../common/decorators/public.decorator";
 import { MCPExceptionFilter } from "./filters/mcp-exception.filter";
+import { ConfigService } from "@nestjs/config";
 
 @Public()
 @UseFilters(MCPExceptionFilter)
@@ -37,11 +38,18 @@ import { MCPExceptionFilter } from "./filters/mcp-exception.filter";
 @UseGuards(MCPApiKeyGuard)
 export class MCPServerController {
   private readonly logger = new Logger(MCPServerController.name);
+  /** HTTP 请求超时（需低于 Railway/Nginx 代理超时，留 5 秒缓冲） */
+  private readonly requestTimeoutMs: number;
 
   constructor(
     private readonly mcpServerService: MCPServerService,
     private readonly streamingBridge: MCPStreamingBridge,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    // 默认 290 秒（Railway 默认 300 秒代理超时，留 10 秒缓冲）
+    this.requestTimeoutMs =
+      (this.configService.get<number>("MCP_REQUEST_TIMEOUT_MS") || 290) * 1000;
+  }
 
   /**
    * JSON-RPC 2.0 端点
@@ -62,7 +70,10 @@ export class MCPServerController {
         sessionId,
       };
 
-      const response = await this.mcpServerService.handleRequest(body, context);
+      // ★ 超时保护：在反向代理超时之前返回 JSON-RPC 错误
+      const response = await this.withRequestTimeout(
+        this.mcpServerService.handleRequest(body, context),
+      );
 
       // JSON-RPC notifications — server MUST NOT reply
       if (!response) {
@@ -83,16 +94,42 @@ export class MCPServerController {
 
       res.status(HttpStatus.OK).json(response);
     } catch (error) {
-      this.logger.error(`MCP request error: ${(error as Error).message}`);
-      res.status(HttpStatus.OK).json({
-        jsonrpc: "2.0",
-        id: null,
-        error: {
-          code: JSON_RPC_ERRORS.INTERNAL_ERROR.code,
-          message: "Internal server error",
-        },
-      });
+      const message = (error as Error).message || "Internal server error";
+      const isTimeout = message.includes("timed out");
+      this.logger.error(
+        `MCP request ${isTimeout ? "timeout" : "error"}: ${message}`,
+      );
+
+      // ★ 确保始终返回 JSON-RPC 格式（而非裸 500）
+      if (!res.headersSent) {
+        res.status(HttpStatus.OK).json({
+          jsonrpc: "2.0",
+          id: null,
+          error: {
+            code: isTimeout ? -32002 : JSON_RPC_ERRORS.INTERNAL_ERROR.code,
+            message: isTimeout
+              ? "Tool execution timed out. Use SSE stream for long-running operations."
+              : "Internal server error",
+          },
+        });
+      }
     }
+  }
+
+  /**
+   * 请求级超时包装器
+   * 确保在反向代理（Railway/Nginx）切断连接之前返回 JSON-RPC 错误
+   */
+  private withRequestTimeout<T>(promise: Promise<T>): Promise<T> {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error("MCP request timed out"));
+      }, this.requestTimeoutMs);
+    });
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+      clearTimeout(timeoutId);
+    });
   }
 
   /**
