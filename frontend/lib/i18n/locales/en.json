@@ -1183,7 +1183,9 @@
     "report": {
       "referenceSources": "Reference Sources",
       "deliveryReport": "Delivery Report",
-      "partialProgress": "Partial Progress"
+      "reportGenerating": "The formal report will be generated after all 6 phases are completed",
+      "currentProgress": "Phase {{current}}/{{total}} in progress",
+      "notStarted": "Start planning to generate a formal delivery report"
     },
     "status": {
       "notStarted": "Not Started",

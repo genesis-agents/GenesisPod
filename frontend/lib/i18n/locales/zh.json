@@ -1183,7 +1183,9 @@
     "report": {
       "referenceSources": "参考文献",
       "deliveryReport": "交付报告",
-      "partialProgress": "阶段进展"
+      "reportGenerating": "正式报告将在全部 6 个阶段完成后生成",
+      "currentProgress": "阶段 {{current}}/{{total}} 进行中",
+      "notStarted": "启动策划后将生成正式交付报告"
     },
     "status": {
       "notStarted": "未启动",

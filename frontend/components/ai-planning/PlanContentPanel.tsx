@@ -501,32 +501,16 @@ export function PlanContentPanel({
     (s) => s.status === 'completed'
   ).length;
 
-  // Report content: Phase 6 (Delivery) as primary when available, else all-phase fallback
-  const isDeliveryReport = !!(
-    plan.phaseStatus[6]?.status === 'completed' && plan.phaseStatus[6]?.summary
-  );
+  // Report content: Phase 6 (Delivery) only — the formal deliverable report.
   const reportContent = useMemo(() => {
-    const sections: string[] = [];
-
-    // If Phase 6 (Delivery) is completed, put it first as primary report
+    // Report tab shows ONLY Phase 6 (Delivery) — the formal report.
+    // Phase 1-5 process details are viewable in the "Tasks" tab.
     const phase6 = plan.phaseStatus[6];
     if (phase6?.status === 'completed' && phase6.summary) {
-      sections.push(phase6.summary);
+      return phase6.summary;
     }
-
-    // Append other completed phase summaries as supporting detail
-    for (let phase = 1; phase <= plan.totalPhases; phase++) {
-      if (phase === 6) continue; // already added above
-      const status = plan.phaseStatus[phase];
-      if (!status?.summary) continue;
-
-      const phaseKey = PHASE_KEYS[phase];
-      const phaseName = t(`aiPlanning.phases.${phaseKey}`);
-      sections.push(`## ${phase}. ${phaseName}\n\n${status.summary}`);
-    }
-
-    return sections.length > 0 ? sections.join('\n\n---\n\n') : null;
-  }, [plan, t]);
+    return null;
+  }, [plan]);
 
   // Tab config
   const tabs: Array<{
@@ -632,22 +616,9 @@ export function PlanContentPanel({
                   <h3 className="text-base font-semibold text-gray-900">
                     {plan.name}
                   </h3>
-                  <div className="flex items-center gap-2">
-                    {isDeliveryReport && (
-                      <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
-                        {t('aiPlanning.report.deliveryReport')}
-                      </span>
-                    )}
-                    {!isDeliveryReport && (
-                      <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
-                        {t('aiPlanning.report.partialProgress')}
-                      </span>
-                    )}
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-500">
-                      {completedCount}/{plan.totalPhases}{' '}
-                      {t('aiPlanning.panel.phasesCompleted')}
-                    </span>
-                  </div>
+                  <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+                    {t('aiPlanning.report.deliveryReport')}
+                  </span>
                 </div>
                 {plan.goal && (
                   <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
@@ -729,10 +700,10 @@ export function PlanContentPanel({
                 )}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-                <FileText className="mb-3 h-10 w-10 text-gray-300" />
-                <p className="text-sm">{t('aiPlanning.content.noReport')}</p>
-              </div>
+              <ReportInProgressState
+                plan={plan}
+                completedCount={completedCount}
+              />
             )}
           </div>
         )}
@@ -917,6 +888,103 @@ function TasksEmptyState() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ============================================
+// Report In-Progress State
+// ============================================
+
+function ReportInProgressState({
+  plan,
+  completedCount,
+}: {
+  plan: PlanDetail;
+  completedCount: number;
+}) {
+  const { t } = useTranslation();
+  const isNotStarted = plan.currentPhase === 0;
+  const isInProgress = !isNotStarted && completedCount < plan.totalPhases;
+
+  return (
+    <div className="flex flex-col items-center justify-center px-8 py-12">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50">
+        <FileText className="h-8 w-8 text-blue-400" />
+      </div>
+
+      {isNotStarted ? (
+        <>
+          <p className="mt-4 text-sm text-gray-500">
+            {t('aiPlanning.report.notStarted')}
+          </p>
+        </>
+      ) : isInProgress ? (
+        <>
+          <p className="mt-4 text-sm font-medium text-gray-700">
+            {t('aiPlanning.report.currentProgress', {
+              current: plan.currentPhase,
+              total: plan.totalPhases,
+            })}
+          </p>
+          <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
+            {t('aiPlanning.report.reportGenerating')}
+          </p>
+          {/* Phase progress bar */}
+          <div className="mt-5 w-full max-w-xs">
+            <div className="flex justify-between text-xs text-gray-400">
+              {PLANNING_WORKFLOW_CONFIG.map((wf) => {
+                const s = plan.phaseStatus[wf.phase];
+                const isCompleted = s?.status === 'completed';
+                const isActive = s?.status === 'active';
+                return (
+                  <div
+                    key={wf.phase}
+                    className={cn(
+                      'flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-medium',
+                      isCompleted
+                        ? 'bg-green-500 text-white'
+                        : isActive
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-200 text-gray-500'
+                    )}
+                  >
+                    {isCompleted ? (
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    ) : (
+                      wf.phase
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 h-1.5 w-full rounded-full bg-gray-200">
+              <div
+                className="h-1.5 rounded-full bg-blue-500 transition-all"
+                style={{
+                  width: `${(completedCount / plan.totalPhases) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+        </>
+      ) : (
+        <p className="mt-4 text-sm text-gray-500">
+          {t('aiPlanning.content.noReport')}
+        </p>
+      )}
     </div>
   );
 }
