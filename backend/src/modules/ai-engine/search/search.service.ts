@@ -536,7 +536,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     let lastError: unknown = null;
 
     for (let attempt = 0; attempt < validKeys.length; attempt++) {
-      const apiKey = this.getHealthyKey(provider, keys);
+      const apiKey = this.getHealthyKey(provider, validKeys);
       if (!apiKey || triedKeys.has(apiKey)) {
         break; // 没有更多可用 key 或已经试过
       }
