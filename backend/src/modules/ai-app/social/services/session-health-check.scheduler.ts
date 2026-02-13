@@ -11,6 +11,8 @@ import { NotificationTypeDto } from "../../../core/notifications/dto/notificatio
 import { PlaywrightService } from "./playwright.service";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
 import { SocialPlatformType } from "../types";
+import { decryptSession } from "../utils/session-crypto";
+import { SessionData } from "../types/platform.types";
 
 /**
  * 会话健康检查调度器
@@ -204,10 +206,12 @@ export class SessionHealthCheckScheduler
     const contextId = `health-check-${connection.id}-${Date.now()}`;
 
     try {
-      const sessionData =
+      const sessionDataStr =
         typeof connection.sessionData === "string"
-          ? JSON.parse(connection.sessionData)
-          : connection.sessionData;
+          ? connection.sessionData
+          : JSON.stringify(connection.sessionData);
+
+      const sessionData = decryptSession<SessionData>(sessionDataStr);
 
       await this.playwright.restoreSession(contextId, sessionData);
       const page = await this.playwright.createPage(contextId);

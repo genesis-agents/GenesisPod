@@ -27,6 +27,7 @@ import {
 @Injectable()
 export class MCPClientService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MCPClientService.name);
+  private readonly startingServers = new Set<string>();
 
   constructor(private readonly mcpManager: MCPManager) {}
 
@@ -196,21 +197,33 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
       // 检查客户端是否存在
       let client = this.mcpManager.getClient(serverId);
       if (!client) {
-        // 尝试启动服务器
-        const started = await this.startServer(serverId);
-        if (!started) {
+        // 防止并发启动同一服务器
+        if (this.startingServers.has(serverId)) {
           return {
             success: false,
-            error: `Server ${serverId} not found or failed to start`,
+            error: `Server ${serverId} is starting, please retry later`,
           };
         }
-        // Re-fetch after start
-        client = this.mcpManager.getClient(serverId);
-        if (!client) {
-          return {
-            success: false,
-            error: `Server ${serverId} started but client not available`,
-          };
+
+        this.startingServers.add(serverId);
+        try {
+          const started = await this.startServer(serverId);
+          if (!started) {
+            return {
+              success: false,
+              error: `Server ${serverId} not found or failed to start`,
+            };
+          }
+          // Re-fetch after start
+          client = this.mcpManager.getClient(serverId);
+          if (!client) {
+            return {
+              success: false,
+              error: `Server ${serverId} started but client not available`,
+            };
+          }
+        } finally {
+          this.startingServers.delete(serverId);
         }
       }
 

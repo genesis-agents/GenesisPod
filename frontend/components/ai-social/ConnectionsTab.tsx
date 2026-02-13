@@ -107,20 +107,6 @@ export default function ConnectionsTab() {
   });
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Focus trap for login modal
-  const modalRef = useFocusTrap<HTMLDivElement>(
-    loginModal.isOpen,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useCallback(() => {
-      if (
-        loginModal.status === 'scanning' ||
-        loginModal.status === 'mcp-guide'
-      ) {
-        closeLoginModal();
-      }
-    }, [loginModal.status])
-  );
-
   // SWR handles initial data loading automatically - no need for useEffect
 
   // Cleanup polling on unmount
@@ -152,6 +138,19 @@ export default function ConnectionsTab() {
       message: '',
     });
   }, [stopPolling]);
+
+  // Focus trap for login modal
+  const modalRef = useFocusTrap<HTMLDivElement>(
+    loginModal.isOpen,
+    useCallback(() => {
+      if (
+        loginModal.status === 'scanning' ||
+        loginModal.status === 'mcp-guide'
+      ) {
+        closeLoginModal();
+      }
+    }, [loginModal.status, closeLoginModal])
+  );
 
   // Handle add connection - start login flow
   const handleAddConnection = async (platform: PlatformType) => {
@@ -200,7 +199,11 @@ export default function ConnectionsTab() {
       result.loginMethod === 'external-mcp'
     ) {
       const instructions =
-        'instructions' in result ? (result.instructions as string[]) : null;
+        'instructions' in result &&
+        Array.isArray(result.instructions) &&
+        result.instructions.every((item: unknown) => typeof item === 'string')
+          ? (result.instructions as string[])
+          : null;
       setLoginModal((prev) => ({
         ...prev,
         status: 'mcp-guide',
@@ -624,7 +627,9 @@ export default function ConnectionsTab() {
                       onClick={handleMcpConfirmLogin}
                       className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
                     >
-                      确认登录
+                      {t('aiSocial.connections.confirmLogin', {
+                        defaultValue: 'Confirm Login',
+                      })}
                     </button>
                   </div>
                 )}

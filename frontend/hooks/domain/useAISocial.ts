@@ -765,7 +765,7 @@ export function useXhsFeatures() {
       const message =
         err instanceof Error ? err.message : 'Failed to check XHS login';
       setError(message);
-      return { loggedIn: false } as XhsLoginStatus;
+      return { loggedIn: false };
     }
   }, []);
 
@@ -778,7 +778,7 @@ export function useXhsFeatures() {
       const message =
         err instanceof Error ? err.message : 'Failed to list feeds';
       setError(message);
-      return [] as XhsFeed[];
+      return [];
     } finally {
       setLoading(false);
     }
@@ -793,7 +793,7 @@ export function useXhsFeatures() {
       const message =
         err instanceof Error ? err.message : 'Failed to search feeds';
       setError(message);
-      return [] as XhsFeed[];
+      return [];
     } finally {
       setLoading(false);
     }
@@ -809,7 +809,7 @@ export function useXhsFeatures() {
         const message =
           err instanceof Error ? err.message : 'Failed to get feed detail';
         setError(message);
-        return null as XhsFeedDetail | null;
+        return null;
       } finally {
         setLoading(false);
       }
@@ -845,7 +845,7 @@ export function useXhsFeatures() {
         const message =
           err instanceof Error ? err.message : 'Failed to get user profile';
         setError(message);
-        return null as XhsUserProfile | null;
+        return null;
       } finally {
         setLoading(false);
       }

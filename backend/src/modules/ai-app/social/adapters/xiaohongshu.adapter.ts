@@ -253,7 +253,10 @@ export class XhsMcpAdapter {
       return await this.mcpClient.callTool(this.MCP_SERVER_ID, toolName, args);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`MCP tool call failed [${toolName}]: ${message}`);
+      this.logger.error(
+        `MCP tool call failed [${toolName}]: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return { success: false, error: message };
     }
   }

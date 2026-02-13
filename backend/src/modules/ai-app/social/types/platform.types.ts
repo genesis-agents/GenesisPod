@@ -222,8 +222,8 @@ export interface MCPToolCall {
   arguments: Record<string, unknown>;
 }
 
-export interface MCPToolResult {
+export interface MCPToolResult<T = unknown> {
   success: boolean;
-  data?: unknown;
+  data?: T;
   error?: string;
 }

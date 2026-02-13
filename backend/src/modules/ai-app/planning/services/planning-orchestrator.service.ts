@@ -107,6 +107,12 @@ const ROLE_MODEL_TYPE: Record<string, "reasoning" | "chat"> = {
 
 const TOTAL_PHASES = 6;
 
+/** Delay before auto-advancing to next phase, allowing UI to catch up */
+const AUTO_ADVANCE_DELAY_MS = 3000;
+
+/** Maximum length for phase summary to prevent token overflow */
+const MAX_PHASE_SUMMARY_LENGTH = 8000;
+
 const DEFAULT_FALLBACK_MODEL = "claude-sonnet-4-20250514";
 
 @Injectable()
@@ -698,8 +704,10 @@ export class PlanningOrchestratorService {
 
       // 8. Auto-advance if enabled (with delay so frontend can catch up)
       if (meta.planConfig.autoAdvance && phase < TOTAL_PHASES) {
-        // Wait 3s before auto-advancing so the UI can show phase completion
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        // Wait before auto-advancing so the UI can show phase completion
+        await new Promise((resolve) =>
+          setTimeout(resolve, AUTO_ADVANCE_DELAY_MS),
+        );
 
         // Re-read metadata to check if cancelled during the delay
         const freshTopic = await this.prisma.topic.findFirst({
@@ -780,7 +788,6 @@ export class PlanningOrchestratorService {
     meta: PlanningTopicMetadata,
     currentPhase: number,
   ): string {
-    const MAX_SUMMARY_CHARS = 8000;
     const contextParts: string[] = [];
 
     // Phase 6 (Delivery) only needs the Synthesis output (phase 5)
@@ -791,9 +798,9 @@ export class PlanningOrchestratorService {
       const phaseStatus = meta.phaseStatus?.[i];
       if (phaseStatus?.status === "completed" && phaseStatus.summary) {
         let summary = phaseStatus.summary;
-        if (summary.length > MAX_SUMMARY_CHARS) {
+        if (summary.length > MAX_PHASE_SUMMARY_LENGTH) {
           summary =
-            summary.slice(0, MAX_SUMMARY_CHARS) +
+            summary.slice(0, MAX_PHASE_SUMMARY_LENGTH) +
             "\n\n...(内容过长，已截断，请基于以上内容完成本阶段任务)";
         }
         contextParts.push(

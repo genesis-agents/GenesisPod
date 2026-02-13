@@ -213,14 +213,14 @@ async function fetchWithAuth<T>(
             // 如果不是 JSON，可能是 HTML 错误页面
             errorMessage =
               response.status === 502 || response.status === 503
-                ? '服务暂时不可用，请稍后重试'
+                ? 'Service temporarily unavailable, please try again later'
                 : response.status === 504
-                  ? '请求超时，请稍后重试'
-                  : `服务器错误 (${response.status})`;
+                  ? 'Request timed out, please try again later'
+                  : `Server error (${response.status})`;
           }
         }
       } catch {
-        errorMessage = '网络请求失败';
+        errorMessage = 'Network request failed';
       }
       throw new ApiError(errorMessage, response.status);
     }
@@ -235,7 +235,7 @@ async function fetchWithAuth<T>(
       data = JSON.parse(text);
     } catch (parseError) {
       logger.error('Failed to parse API response:', text.substring(0, 200));
-      throw new ApiError('服务器响应格式错误', response.status);
+      throw new ApiError('Invalid server response format', response.status);
     }
 
     // Unwrap { success, data } format if present
@@ -252,7 +252,10 @@ async function fetchWithAuth<T>(
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new ApiError('请求超时，AI 正在生成内容，请稍后重试', 408);
+      throw new ApiError(
+        'Request timed out, AI is generating content, please try again later',
+        408
+      );
     }
     throw error;
   }

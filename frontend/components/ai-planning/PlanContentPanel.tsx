@@ -30,7 +30,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
-import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import MermaidDiagram from '@/components/ui/MermaidDiagram';
 import { cn } from '@/lib/utils/common';
 import { useTranslation } from '@/lib/i18n';
@@ -243,7 +243,7 @@ function PlanMarkdown({
     <div className="prose prose-sm max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkBreaks]}
-        rehypePlugins={[rehypeRaw]}
+        rehypePlugins={[rehypeSanitize]}
         components={components}
       >
         {content}
@@ -413,7 +413,7 @@ function ReportMarkdown({
     <div className="prose prose-sm max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkBreaks]}
-        rehypePlugins={[rehypeRaw]}
+        rehypePlugins={[rehypeSanitize]}
         components={components}
       >
         {content}
@@ -517,14 +517,14 @@ export function PlanContentPanel({
   })();
 
   useEffect(() => {
-    if (!shouldPollMessages) return;
+    if (!shouldPollMessages || activeTab !== 'activity') return;
     const interval = setInterval(() => {
       fetchMessages().catch(() => {
         // Silently retry on next interval
       });
     }, 5000);
     return () => clearInterval(interval);
-  }, [shouldPollMessages, fetchMessages]);
+  }, [shouldPollMessages, fetchMessages, activeTab]);
 
   // Send chat message
   const handleSendMessage = async () => {

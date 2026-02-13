@@ -390,7 +390,7 @@ export class AiSocialController {
     // Log at entry point to verify request reaches backend
     this.logger.log(
       `[process-source] Request received: sourceType=${dto.sourceType}, ` +
-        `sourceId=${dto.sourceId}, targetType=${dto.targetType}`,
+        `sourceId=${dto.sourceId?.substring(0, 8)}..., targetType=${dto.targetType}`,
     );
     const startTime = Date.now();
 
@@ -445,17 +445,20 @@ export class AiSocialController {
   // ==================== 小红书 MCP 功能 ====================
 
   @Get("xhs/login-status")
-  async xhsLoginStatus() {
+  async xhsLoginStatus(@Request() _req: AuthenticatedRequest) {
     return this.aiSocialService.xhsGetLoginStatus();
   }
 
   @Get("xhs/feeds")
-  async xhsListFeeds() {
+  async xhsListFeeds(@Request() _req: AuthenticatedRequest) {
     return this.aiSocialService.xhsListFeeds();
   }
 
   @Get("xhs/search")
-  async xhsSearchFeeds(@Query("keyword") keyword: string) {
+  async xhsSearchFeeds(
+    @Request() _req: AuthenticatedRequest,
+    @Query("keyword") keyword: string,
+  ) {
     if (!keyword) {
       throw new HttpException("keyword is required", HttpStatus.BAD_REQUEST);
     }
@@ -464,6 +467,7 @@ export class AiSocialController {
 
   @Get("xhs/feeds/:feedId")
   async xhsGetFeedDetail(
+    @Request() _req: AuthenticatedRequest,
     @Param("feedId") feedId: string,
     @Query("xsecToken") xsecToken: string,
   ) {
@@ -475,6 +479,7 @@ export class AiSocialController {
 
   @Post("xhs/feeds/:feedId/comment")
   async xhsPostComment(
+    @Request() _req: AuthenticatedRequest,
     @Param("feedId") feedId: string,
     @Body() dto: { xsecToken: string; content: string },
   ) {
@@ -493,6 +498,7 @@ export class AiSocialController {
 
   @Get("xhs/users/:userId")
   async xhsGetUserProfile(
+    @Request() _req: AuthenticatedRequest,
     @Param("userId") userId: string,
     @Query("xsecToken") xsecToken: string,
   ) {

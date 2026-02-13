@@ -232,7 +232,7 @@ export class PublishExecutorService {
   /**
    * 检查连接是否有有效的会话数据
    */
-  private hasValidSession(connection: any): boolean {
+  private hasValidSession(connection: { sessionData?: unknown }): boolean {
     if (!connection?.sessionData) {
       return false;
     }
@@ -243,7 +243,6 @@ export class PublishExecutorService {
     }
 
     try {
-      // Decrypt session data (handles legacy unencrypted data)
       const sessionDataStr =
         typeof connection.sessionData === "string"
           ? connection.sessionData
@@ -251,9 +250,15 @@ export class PublishExecutorService {
 
       const sessionData = decryptSession<SessionData>(sessionDataStr);
 
-      return sessionData?.cookies?.length > 0;
+      if (!sessionData?.cookies?.length) {
+        this.logger.warn("Session has no valid cookies");
+        return false;
+      }
+      return true;
     } catch (error) {
-      this.logger.error(`Failed to decrypt session data: ${error}`);
+      this.logger.error(
+        `Failed to decrypt session data: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return false;
     }
   }
