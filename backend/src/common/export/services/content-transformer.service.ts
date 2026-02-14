@@ -471,6 +471,11 @@ export class ContentTransformerService {
   /**
    * 转换 AI Planning 规划报告
    * Planning 使用 Topic 模型（表 topics），计划数据存储在 topic.metadata JSON 字段中
+   *
+   * Metadata structure (PlanningTopicMetadata):
+   *   phaseStatus: Record<number, { status, summary?, completedAt?, error? }>
+   *   planConfig: { goal, depth, autoAdvance }
+   *   references?: PlanReference[]
    */
   private async transformPlanning(planId: string): Promise<UnifiedContent> {
     const topic = await this.prisma.topic.findFirst({
@@ -485,39 +490,69 @@ export class ContentTransformerService {
     }
 
     const meta = (topic.metadata as Record<string, unknown>) || {};
-    const phaseOutputs = (meta.phaseOutputs || {}) as Record<string, unknown>;
+    const phaseStatus = (meta.phaseStatus || {}) as Record<
+      string,
+      { status?: string; summary?: string; completedAt?: string }
+    >;
+    const planConfig = (meta.planConfig || {}) as Record<string, unknown>;
 
     const metadata: ContentMetadata = {
       title: topic.name,
-      subtitle: topic.description || undefined,
+      subtitle: (planConfig.goal as string) || topic.description || undefined,
       date: topic.updatedAt,
       language: "zh-CN",
     };
 
     const sections: ContentSection[] = [];
 
-    // 从各阶段输出中提取报告内容
-    for (const [phaseKey, output] of Object.entries(phaseOutputs)) {
-      const phaseOutput = output as Record<string, unknown>;
-      const report = phaseOutput.report;
-      if (typeof report === "string") {
-        sections.push({
-          id: `phase-${phaseKey}`,
-          type: "heading",
-          content: `Phase ${phaseKey}`,
-          level: 1,
-        });
-        sections.push(...this.parseMarkdown(report));
+    const PHASE_LABELS: Record<string, string> = {
+      "1": "目标分析",
+      "2": "调研洞察",
+      "3": "头脑风暴",
+      "4": "辩论推演",
+      "5": "方案综合",
+      "6": "输出交付",
+    };
+
+    // Phase 6 (Delivery) is the final report — use it as primary content
+    const phase6 = phaseStatus["6"];
+    if (phase6?.status === "completed" && phase6.summary) {
+      sections.push(...this.parseMarkdown(phase6.summary));
+    }
+
+    // If no delivery report, include all completed phase summaries
+    if (sections.length === 0) {
+      for (let i = 1; i <= 6; i++) {
+        const phase = phaseStatus[String(i)];
+        if (phase?.status === "completed" && phase.summary) {
+          sections.push({
+            id: `phase-${i}`,
+            type: "heading",
+            content: `${PHASE_LABELS[String(i)] || `Phase ${i}`}`,
+            level: 1,
+          });
+          sections.push(...this.parseMarkdown(phase.summary));
+        }
       }
     }
 
-    // 如果没有阶段报告，尝试从 metadata.deliveryReport 获取
-    if (sections.length === 0) {
-      const deliveryReport = meta.deliveryReport;
-      if (typeof deliveryReport === "string") {
-        sections.push(...this.parseMarkdown(deliveryReport));
-      }
-    }
+    // Map planning references to export Reference format
+    const planRefs = (meta.references || []) as Array<{
+      id: string;
+      title: string;
+      url?: string;
+      snippet?: string;
+      domain?: string;
+      publishedDate?: string;
+    }>;
+    const references: Reference[] = planRefs.map((ref, idx) => ({
+      id: idx + 1,
+      title: ref.title,
+      url: ref.url,
+      snippet: ref.snippet,
+      domain: ref.domain,
+      publishedDate: ref.publishedDate,
+    }));
 
     return {
       metadata,
@@ -531,6 +566,7 @@ export class ContentTransformerService {
                 content: "暂无报告内容",
               },
             ],
+      references: references.length > 0 ? references : undefined,
       tableOfContents: { enabled: true, maxDepth: 3 },
     };
   }
