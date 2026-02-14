@@ -151,14 +151,24 @@ export function ExportDialog({
   const selectedFormatConfig = formats.find((f) => f.key === selectedFormat);
   const canSelectEditable = selectedFormatConfig?.supportsEditable ?? false;
 
-  // Handle format change
-  const handleFormatChange = useCallback((format: ExportFormat) => {
-    setSelectedFormat(format);
-    const config = FORMAT_CONFIGS.find((f) => f.key === format);
-    if (!config?.supportsEditable) {
-      setRenderMode('wysiwyg');
-    }
-  }, []);
+  // Handle format change - reset completed status so user can re-export
+  const handleFormatChange = useCallback(
+    (format: ExportFormat) => {
+      setSelectedFormat(format);
+      const config = FORMAT_CONFIGS.find((f) => f.key === format);
+      if (!config?.supportsEditable) {
+        setRenderMode('wysiwyg');
+      }
+      // Reset export state so button switches back to "Export" for the new format
+      if (
+        exportStatus.status === 'completed' ||
+        exportStatus.status === 'failed'
+      ) {
+        reset();
+      }
+    },
+    [exportStatus.status, reset]
+  );
 
   // Handle export
   const handleExport = useCallback(async () => {
@@ -342,7 +352,14 @@ export function ExportDialog({
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => setRenderMode('wysiwyg')}
+                onClick={() => {
+                  setRenderMode('wysiwyg');
+                  if (
+                    exportStatus.status === 'completed' ||
+                    exportStatus.status === 'failed'
+                  )
+                    reset();
+                }}
                 disabled={isExporting}
                 className={cn(
                   'flex items-center gap-2 rounded-xl border-2 p-3 text-left transition-all',
@@ -375,7 +392,14 @@ export function ExportDialog({
                 </div>
               </button>
               <button
-                onClick={() => setRenderMode('editable')}
+                onClick={() => {
+                  setRenderMode('editable');
+                  if (
+                    exportStatus.status === 'completed' ||
+                    exportStatus.status === 'failed'
+                  )
+                    reset();
+                }}
                 disabled={isExporting}
                 className={cn(
                   'flex items-center gap-2 rounded-xl border-2 p-3 text-left transition-all',
