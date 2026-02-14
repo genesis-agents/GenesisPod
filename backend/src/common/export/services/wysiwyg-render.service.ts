@@ -30,6 +30,18 @@ export class WysiwygRenderService implements OnModuleDestroy {
   private readonly logger = new Logger(WysiwygRenderService.name);
   private browserPromise: Promise<Browser> | null = null;
 
+  private readonly launchOptions = {
+    headless: true as const,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--font-render-hinting=none",
+    ],
+  };
+
   async onModuleDestroy(): Promise<void> {
     await this.closeBrowser();
   }
@@ -326,20 +338,12 @@ export class WysiwygRenderService implements OnModuleDestroy {
 
   /**
    * 获取或创建 Puppeteer 浏览器实例（Promise 缓存模式避免并发启动泄漏）
+   * Public so PdfRenderer can reuse the shared browser instead of launching its own.
    */
-  private async getBrowser(): Promise<Browser> {
+  async getBrowser(): Promise<Browser> {
     if (!this.browserPromise) {
       this.browserPromise = puppeteer
-        .launch({
-          headless: true,
-          args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-gpu",
-            "--font-render-hinting=none",
-          ],
-        })
+        .launch(this.launchOptions)
         .catch((err) => {
           this.browserPromise = null;
           throw err;
@@ -349,16 +353,7 @@ export class WysiwygRenderService implements OnModuleDestroy {
     const browser = await this.browserPromise;
     if (!browser.connected) {
       this.browserPromise = puppeteer
-        .launch({
-          headless: true,
-          args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-gpu",
-            "--font-render-hinting=none",
-          ],
-        })
+        .launch(this.launchOptions)
         .catch((err) => {
           this.browserPromise = null;
           throw err;

@@ -15,16 +15,24 @@ import {
   MIME_TYPES,
   FILE_EXTENSIONS,
 } from "./renderer.interface";
-import { UnifiedContent, ContentSection, Reference } from "../types/unified-content";
+import {
+  UnifiedContent,
+  ContentSection,
+  Reference,
+} from "../types/unified-content";
 import { ThemeConfig, LayoutConfig } from "../types/theme-config";
 import { ExportOptions } from "../types/export-options";
-import puppeteer, { PDFOptions } from "puppeteer";
+import { PDFOptions } from "puppeteer";
 import * as PDFDocument from "pdfkit";
+import { accessSync, constants as fsConstants } from "fs";
+import { WysiwygRenderService } from "../services/wysiwyg-render.service";
 
 @Injectable()
 export class PdfRenderer implements ExportRenderer {
   private readonly logger = new Logger(PdfRenderer.name);
   readonly format = ExportFormat.PDF;
+
+  constructor(private readonly wysiwygRenderService: WysiwygRenderService) {}
 
   async render(
     content: UnifiedContent,
@@ -59,24 +67,16 @@ export class PdfRenderer implements ExportRenderer {
     // 生成 HTML
     const html = this.generateHtml(content, theme, layout, options);
 
-    // 使用 Puppeteer 转换为 PDF
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-      ],
-    });
+    // Reuse shared browser from WysiwygRenderService (avoids per-export launches that OOM on Railway)
+    const browser = await this.wysiwygRenderService.getBrowser();
+    const page = await browser.newPage();
 
     try {
-      const page = await browser.newPage();
       await page.setContent(html, { waitUntil: "networkidle0" });
 
       // PDF 配置
       const pdfOptions: PDFOptions = {
-        format: this.mapPageSize(layout.pageSize) as PDFOptions['format'],
+        format: this.mapPageSize(layout.pageSize) as PDFOptions["format"],
         landscape: layout.orientation === "landscape",
         margin: {
           top: `${theme.spacing.page.top}px`,
@@ -105,7 +105,11 @@ export class PdfRenderer implements ExportRenderer {
 
       return Buffer.from(pdfBuffer);
     } finally {
-      await browser.close();
+      try {
+        await page.close();
+      } catch (closeError) {
+        this.logger.warn(`Failed to close Puppeteer page: ${closeError}`);
+      }
     }
   }
 
@@ -135,6 +139,22 @@ export class PdfRenderer implements ExportRenderer {
           },
         });
 
+        // Register CJK font if available (for Chinese/Japanese/Korean text)
+        const cjkFontPath =
+          "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc";
+        let hasCjkFont = false;
+        try {
+          accessSync(cjkFontPath, fsConstants.R_OK);
+          doc.registerFont("NotoSansCJK", cjkFontPath);
+          doc.font("NotoSansCJK");
+          hasCjkFont = true;
+          this.logger.debug("CJK font registered for PDFKit rendering");
+        } catch {
+          this.logger.warn(
+            "CJK font not found, falling back to default font. CJK text may not render correctly.",
+          );
+        }
+
         const chunks: Buffer[] = [];
         doc.on("data", (chunk: Buffer) => chunks.push(chunk));
         doc.on("end", () => {
@@ -148,12 +168,12 @@ export class PdfRenderer implements ExportRenderer {
 
         // 封面
         if (options.includeCover !== false) {
-          this.renderPDFKitCover(doc, content, theme);
+          this.renderPDFKitCover(doc, content, theme, hasCjkFont);
           doc.addPage();
         }
 
         // 正文内容
-        this.renderPDFKitContent(doc, content, theme);
+        this.renderPDFKitContent(doc, content, theme, hasCjkFont);
 
         doc.end();
       } catch (error) {
@@ -169,7 +189,9 @@ export class PdfRenderer implements ExportRenderer {
     doc: typeof PDFDocument,
     content: UnifiedContent,
     theme: ThemeConfig,
+    hasCjkFont = false,
   ): void {
+    if (hasCjkFont) doc.font("NotoSansCJK");
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
 
@@ -214,7 +236,9 @@ export class PdfRenderer implements ExportRenderer {
     doc: typeof PDFDocument,
     content: UnifiedContent,
     theme: ThemeConfig,
+    hasCjkFont = false,
   ): void {
+    if (hasCjkFont) doc.font("NotoSansCJK");
     for (const section of content.sections) {
       this.renderPDFKitSection(doc, section, theme);
     }

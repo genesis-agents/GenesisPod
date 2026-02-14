@@ -667,7 +667,7 @@ export function PlanContentPanel({
           </div>
         )}
 
-        {/* Report Tab */}
+        {/* Report Tab (visible) + Export content div (always rendered for WYSIWYG capture) */}
         {activeTab === 'report' && (
           <div className="p-4">
             {reportContent ? (
@@ -718,6 +718,20 @@ export function PlanContentPanel({
                 completedCount={completedCount}
               />
             )}
+          </div>
+        )}
+
+        {/* Hidden export content div: always rendered when report exists but tab is not active.
+            This ensures document.querySelector('[data-export-content="planning"]') always
+            finds the element for WYSIWYG HTML capture regardless of which tab is active. */}
+        {activeTab !== 'report' && reportContent && (
+          <div className="hidden">
+            <div data-export-content="planning">
+              <ReportMarkdown
+                content={reportContent}
+                references={plan.references || []}
+              />
+            </div>
           </div>
         )}
 

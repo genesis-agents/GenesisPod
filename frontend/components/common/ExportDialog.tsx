@@ -168,20 +168,30 @@ export function ExportDialog({
 
       // Capture HTML for WYSIWYG mode
       if (renderMode === 'wysiwyg') {
-        try {
-          const captured = await HtmlCaptureService.capture(contentSelector, {
-            inlineStyles: true,
-            freezeCharts: true,
-            freezeMermaid: true,
-          });
-          wysiwygHtml = captured.html;
-          wysiwygCss = captured.css;
-        } catch (captureError) {
-          logger.error(
-            'HTML capture failed, falling back to editable mode:',
-            captureError
+        // Check if the target element exists before attempting capture.
+        // For example, AI Planning's data-export-content="planning" only exists
+        // when the Report tab is active (or rendered via CSS hidden).
+        const targetElement = document.querySelector(contentSelector);
+        if (targetElement) {
+          try {
+            const captured = await HtmlCaptureService.capture(contentSelector, {
+              inlineStyles: true,
+              freezeCharts: true,
+              freezeMermaid: true,
+            });
+            wysiwygHtml = captured.html;
+            wysiwygCss = captured.css;
+          } catch (captureError) {
+            logger.error(
+              'HTML capture failed, falling back to editable mode:',
+              captureError
+            );
+            toast.warning(t('export.captureFallback'));
+          }
+        } else {
+          logger.debug(
+            `WYSIWYG target element not found: ${contentSelector}, using editable mode`
           );
-          toast.warning(t('export.captureFallback'));
         }
       }
 
