@@ -28,7 +28,8 @@ export type ExportSourceType =
   | 'PLANNING'
   | 'WRITING'
   | 'SOCIAL'
-  | 'SLIDES';
+  | 'SLIDES'
+  | 'TOPIC_REPORT';
 
 export type TemplateCategory =
   | 'REPORT'

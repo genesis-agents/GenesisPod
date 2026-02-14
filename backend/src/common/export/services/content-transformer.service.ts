@@ -70,6 +70,8 @@ export class ContentTransformerService {
         return this.transformSocial(source.contentId);
       case "SLIDES":
         return this.transformSlides(source.sessionId);
+      case "TOPIC_REPORT":
+        return this.transformTopicReport(source.topicId, source.reportId);
       default:
         throw new Error(
           `Unsupported source type: ${(source as { type: string }).type}`,
@@ -748,6 +750,90 @@ export class ContentTransformerService {
                 content: "暂无幻灯片内容",
               },
             ],
+    };
+  }
+
+  /**
+   * 转换 Topic Insights 报告
+   * TopicReport 模型包含 fullReport (Markdown), executiveSummary, topic, evidences
+   */
+  private async transformTopicReport(
+    topicId: string,
+    reportId?: string,
+  ): Promise<UnifiedContent> {
+    // Find the report
+    const report = reportId
+      ? await this.prisma.topicReport.findUnique({ where: { id: reportId } })
+      : await this.prisma.topicReport.findFirst({
+          where: { topicId },
+          orderBy: { version: "desc" },
+        });
+
+    if (!report) {
+      throw new NotFoundException(
+        `Topic report not found for topic: ${topicId}`,
+      );
+    }
+
+    // Fetch related topic and evidences separately
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: report.topicId },
+    });
+    const evidences = await this.prisma.topicEvidence.findMany({
+      where: { reportId: report.id },
+      take: 50,
+      orderBy: { accessedAt: "desc" },
+    });
+
+    const metadata: ContentMetadata = {
+      title: topic?.name || "Topic Report",
+      subtitle: topic?.description || undefined,
+      date: report.generatedAt,
+      language: topic?.language === "en" ? "en-US" : "zh-CN",
+    };
+
+    // Parse the fullReport markdown into sections
+    const sections: ContentSection[] = [];
+
+    // Add executive summary as first section if available
+    if (report.executiveSummary) {
+      sections.push({
+        id: "executive-summary",
+        type: "heading",
+        content: "执行摘要",
+        level: 1,
+      });
+      sections.push(...this.parseMarkdown(report.executiveSummary));
+    }
+
+    // Parse the full report
+    if (report.fullReport) {
+      sections.push(...this.parseMarkdown(report.fullReport));
+    }
+
+    // Map evidences to references
+    const references: Reference[] = evidences.map((ev, idx) => ({
+      id: idx + 1,
+      title: ev.title || "Untitled",
+      url: ev.url || undefined,
+      snippet: ev.snippet || undefined,
+      domain: ev.domain || undefined,
+    }));
+
+    return {
+      metadata,
+      sections:
+        sections.length > 0
+          ? sections
+          : [
+              {
+                id: "empty",
+                type: "paragraph",
+                content: "暂无报告内容",
+              },
+            ],
+      references: references.length > 0 ? references : undefined,
+      tableOfContents: { enabled: true, maxDepth: 3 },
     };
   }
 }

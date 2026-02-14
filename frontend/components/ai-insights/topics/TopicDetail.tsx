@@ -13,6 +13,7 @@ import type { ResearchTopic } from '@/types/topic-insights';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 import { useResearchWebSocket } from '@/hooks/useResearchWebSocket';
 import { TopicResearchLayout } from './TopicResearchLayout';
+import { ExportDialog } from '@/components/common/ExportDialog';
 
 interface TopicDetailProps {
   topic: ResearchTopic;
@@ -70,6 +71,9 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
     isConnected: wsConnected,
     clearEvents: clearWsEvents,
   } = useResearchWebSocket(topic.id, { enabled: true });
+
+  // Export dialog state
+  const [showExport, setShowExport] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -202,18 +206,9 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
     }
   }, [topic.id, startLeaderPlan]);
 
-  const handleExport = useCallback(
-    async (format: 'pdf' | 'docx') => {
-      if (!currentReport) return;
-      try {
-        const url = await exportReport(topic.id, currentReport.id, { format });
-        window.open(url, '_blank');
-      } catch {
-        // Error is already handled in store
-      }
-    },
-    [topic.id, currentReport, exportReport]
-  );
+  const handleExport = useCallback(() => {
+    setShowExport(true);
+  }, []);
 
   const handleSendLeaderInstruction = useCallback(
     async (instruction: string) => {
@@ -273,33 +268,43 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
   );
 
   return (
-    <TopicResearchLayout
-      topic={topic}
-      dimensions={dimensions}
-      report={currentReport}
-      evidence={evidence}
-      revisions={revisions}
-      isRefreshing={isRefreshing}
-      refreshProgress={refreshProgress}
-      missionStatus={missionStatus}
-      teamInfo={teamInfo}
-      isLoadingReport={isLoadingReports}
-      isLoadingEvidence={isLoadingEvidence}
-      onStartRefresh={handleStartResearch}
-      onContinueRefresh={handleContinueResearch}
-      onCancelRefresh={handleCancelRefresh}
-      researchDepth={researchDepth}
-      onResearchDepthChange={handleResearchDepthChange}
-      onExportReport={handleExport}
-      onBack={onBack}
-      onSendLeaderInstruction={handleSendLeaderInstruction}
-      onRollbackVersion={handleRollbackVersion}
-      onDeleteReport={handleDeleteReport}
-      wsEvents={wsEvents}
-      wsConnected={wsConnected}
-      onClearWsEvents={clearWsEvents}
-      error={error}
-      initialView={initialView}
-    />
+    <>
+      <TopicResearchLayout
+        topic={topic}
+        dimensions={dimensions}
+        report={currentReport}
+        evidence={evidence}
+        revisions={revisions}
+        isRefreshing={isRefreshing}
+        refreshProgress={refreshProgress}
+        missionStatus={missionStatus}
+        teamInfo={teamInfo}
+        isLoadingReport={isLoadingReports}
+        isLoadingEvidence={isLoadingEvidence}
+        onStartRefresh={handleStartResearch}
+        onContinueRefresh={handleContinueResearch}
+        onCancelRefresh={handleCancelRefresh}
+        researchDepth={researchDepth}
+        onResearchDepthChange={handleResearchDepthChange}
+        onExportReport={handleExport}
+        onBack={onBack}
+        onSendLeaderInstruction={handleSendLeaderInstruction}
+        onRollbackVersion={handleRollbackVersion}
+        onDeleteReport={handleDeleteReport}
+        wsEvents={wsEvents}
+        wsConnected={wsConnected}
+        onClearWsEvents={clearWsEvents}
+        error={error}
+        initialView={initialView}
+      />
+      <ExportDialog
+        isOpen={showExport}
+        onClose={() => setShowExport(false)}
+        contentSelector="[data-export-content='insights']"
+        contentTitle={topic.name}
+        moduleType="insights"
+        sourceId={topic.id}
+      />
+    </>
   );
 }

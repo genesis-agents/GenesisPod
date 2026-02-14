@@ -85,6 +85,10 @@ export class ExportOrchestratorService implements OnModuleInit {
       sourceData = {
         topicId: (request.source as { topicId?: string }).topicId,
       } as Prisma.InputJsonValue;
+    } else if (request.source.type === "TOPIC_REPORT") {
+      sourceData = {
+        reportId: (request.source as { reportId?: string }).reportId,
+      } as Prisma.InputJsonValue;
     }
 
     // 构建选项
@@ -107,6 +111,7 @@ export class ExportOrchestratorService implements OnModuleInit {
             "missionId",
             "planId",
             "contentId",
+            "topicId",
           ] as const
         ).reduce<string | null>(
           (found, key) =>
@@ -424,6 +429,14 @@ export class ExportOrchestratorService implements OnModuleInit {
         return { type: "SOCIAL", contentId: job.sourceId || "" };
       case "SLIDES":
         return { type: "SLIDES", sessionId: job.sourceId || "" };
+      case "TOPIC_REPORT": {
+        const sourceData = job.sourceData as { reportId?: string } | null;
+        return {
+          type: "TOPIC_REPORT",
+          topicId: job.sourceId || "",
+          reportId: sourceData?.reportId,
+        };
+      }
       default:
         throw new Error(`Unknown source type: ${job.sourceType}`);
     }
@@ -452,9 +465,12 @@ export class ExportOrchestratorService implements OnModuleInit {
     options?: ExportOptions,
   ): string {
     if (options?.fileName) {
-      const safeName = path.basename(options.fileName);
       const ext = FILE_EXTENSIONS[format];
-      return safeName.endsWith(ext) ? safeName : `${safeName}${ext}`;
+      const baseName = path.basename(
+        options.fileName,
+        path.extname(options.fileName),
+      );
+      return `${baseName}${ext}`;
     }
 
     // 从标题生成文件名

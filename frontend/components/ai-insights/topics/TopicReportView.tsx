@@ -393,6 +393,7 @@ export function TopicReportView({
         {/* Main report content */}
         <div
           ref={reportContentRef}
+          data-export-content="insights"
           className={`flex-1 overflow-hidden ${sidePanelType ? 'border-r border-gray-200' : ''}`}
         >
           {reportViewMode === 'continuous' && (

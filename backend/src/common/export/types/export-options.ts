@@ -36,7 +36,8 @@ export type ExportSource =
   | PlanningSource
   | WritingSource
   | SocialSource
-  | SlidesSource;
+  | SlidesSource
+  | TopicReportSource;
 
 export interface DocumentSource {
   type: "DOCUMENT";
@@ -84,6 +85,12 @@ export interface SocialSource {
 export interface SlidesSource {
   type: "SLIDES";
   sessionId: string;
+}
+
+export interface TopicReportSource {
+  type: "TOPIC_REPORT";
+  topicId: string;
+  reportId?: string; // Optional - if not provided, use latest report
 }
 
 // ==================== 导出选项 ====================

@@ -68,7 +68,7 @@ interface TopicResearchLayoutProps {
   onStartRefresh: () => void;
   onContinueRefresh?: () => void;
   onCancelRefresh: () => void;
-  onExportReport: (format: 'pdf' | 'docx') => void;
+  onExportReport: () => void;
   onBack: () => void;
   onSendLeaderInstruction?: (instruction: string) => void;
   onRollbackVersion?: (revisionId: string) => void;
@@ -237,12 +237,9 @@ export function TopicResearchLayout({
     setCanEdit(false);
   }, [user?.id, topic.id, topic.userId, topic.createdById, topic.visibility]);
 
-  const handleExport = useCallback(
-    (format: 'pdf' | 'docx') => {
-      onExportReport(format);
-    },
-    [onExportReport]
-  );
+  const handleExport = useCallback(() => {
+    onExportReport();
+  }, [onExportReport]);
 
   return (
     <div className="flex h-full flex-col bg-gray-50">

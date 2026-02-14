@@ -5,7 +5,7 @@
  * 支持 PDF/DOCX/PPTX/HTML 格式，WYSIWYG 和可编辑两种模式
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   FileText,
   FileSpreadsheet,
@@ -37,7 +37,8 @@ export type ExportModuleType =
   | 'writing'
   | 'social'
   | 'office'
-  | 'teams';
+  | 'teams'
+  | 'insights';
 
 export interface ExportDialogProps {
   isOpen: boolean;
@@ -110,6 +111,8 @@ function buildSource(
       // Note: Teams currently uses exportMission() directly (TeamCanvasModal.tsx) with
       // separate missionId and topicId. This path is for future ExportDialog integration.
       return { type: 'MISSION', missionId: sourceId, topicId: sourceId };
+    case 'insights':
+      return { type: 'TOPIC_REPORT', topicId: sourceId };
   }
 }
 
@@ -151,24 +154,26 @@ export function ExportDialog({
   const selectedFormatConfig = formats.find((f) => f.key === selectedFormat);
   const canSelectEditable = selectedFormatConfig?.supportsEditable ?? false;
 
-  // Handle format change - reset completed status so user can re-export
-  const handleFormatChange = useCallback(
-    (format: ExportFormat) => {
-      setSelectedFormat(format);
-      const config = FORMAT_CONFIGS.find((f) => f.key === format);
-      if (!config?.supportsEditable) {
-        setRenderMode('wysiwyg');
-      }
-      // Reset export state so button switches back to "Export" for the new format
-      if (
-        exportStatus.status === 'completed' ||
-        exportStatus.status === 'failed'
-      ) {
-        reset();
-      }
-    },
-    [exportStatus.status, reset]
-  );
+  // Reset completed/failed state when ANY export config changes
+  // This ensures the button always shows "Export" (not stale "Download")
+  useEffect(() => {
+    if (
+      exportStatus.status === 'completed' ||
+      exportStatus.status === 'failed'
+    ) {
+      reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reset when config changes, not when status changes
+  }, [selectedFormat, renderMode, options]);
+
+  // Handle format change
+  const handleFormatChange = useCallback((format: ExportFormat) => {
+    setSelectedFormat(format);
+    const config = FORMAT_CONFIGS.find((f) => f.key === format);
+    if (!config?.supportsEditable) {
+      setRenderMode('wysiwyg');
+    }
+  }, []);
 
   // Handle export
   const handleExport = useCallback(async () => {
@@ -352,14 +357,7 @@ export function ExportDialog({
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => {
-                  setRenderMode('wysiwyg');
-                  if (
-                    exportStatus.status === 'completed' ||
-                    exportStatus.status === 'failed'
-                  )
-                    reset();
-                }}
+                onClick={() => setRenderMode('wysiwyg')}
                 disabled={isExporting}
                 className={cn(
                   'flex items-center gap-2 rounded-xl border-2 p-3 text-left transition-all',
@@ -392,14 +390,7 @@ export function ExportDialog({
                 </div>
               </button>
               <button
-                onClick={() => {
-                  setRenderMode('editable');
-                  if (
-                    exportStatus.status === 'completed' ||
-                    exportStatus.status === 'failed'
-                  )
-                    reset();
-                }}
+                onClick={() => setRenderMode('editable')}
                 disabled={isExporting}
                 className={cn(
                   'flex items-center gap-2 rounded-xl border-2 p-3 text-left transition-all',
