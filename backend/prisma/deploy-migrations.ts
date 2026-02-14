@@ -636,6 +636,51 @@ async function deploy(): Promise<void> {
         prisma.$executeRaw`ALTER TYPE "DeepResearchStatus" ADD VALUE IF NOT EXISTS 'FINDINGS'`,
       "DeepResearchStatus.FINDINGS",
     );
+
+    // CreditTransactionType enum values (billing overhaul + donation rewards)
+    const creditEnumValues = [
+      "AI_WRITING",
+      "AI_IMAGE",
+      "AI_SOCIAL",
+      "DEEP_RESEARCH",
+      "TOPIC_RESEARCH",
+      "NOTEBOOK_RESEARCH",
+      "LIBRARY",
+      "NOTES",
+      "COLLECTIONS",
+      "DONATION_REWARD",
+      "DONATION_USAGE_REWARD",
+    ];
+    for (const value of creditEnumValues) {
+      await addEnumIfNotExists(
+        prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = ${value} AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'CreditTransactionType')) as exists`,
+        () =>
+          prisma.$executeRawUnsafe(
+            `ALTER TYPE "CreditTransactionType" ADD VALUE IF NOT EXISTS '${value}'`,
+          ),
+        `CreditTransactionType.${value}`,
+      );
+    }
+
+    // Migrate legacy AI_STUDIO data to DEEP_RESEARCH (idempotent)
+    try {
+      const migrated = await prisma.$executeRaw`
+        UPDATE "credit_transactions" SET "type" = 'DEEP_RESEARCH' WHERE "type" = 'AI_STUDIO'
+      `;
+      if (migrated > 0) {
+        console.log(
+          `   Migrated ${migrated} AI_STUDIO transactions to DEEP_RESEARCH`,
+        );
+      }
+      await prisma.$executeRaw`
+        UPDATE "credit_transactions" SET "module_type" = 'deep-research' WHERE "module_type" = 'ai-studio'
+      `;
+      await prisma.$executeRaw`
+        UPDATE "credit_rules" SET "module_type" = 'deep-research' WHERE "module_type" = 'ai-studio'
+      `;
+    } catch {
+      // AI_STUDIO enum value may not exist or tables may not exist yet
+    }
     console.log("");
 
     // Step 4.6: Fix MCP server package names (from @anthropics to @modelcontextprotocol)
