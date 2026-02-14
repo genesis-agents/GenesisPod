@@ -27,19 +27,22 @@ import {
   Brain,
   Clock,
   ArrowLeft,
-  Download,
+  Lightbulb,
   MessageSquare,
   Sparkles,
   History,
-  Plus,
-  MoreHorizontal,
   Trash2,
   Share2,
   FileOutput,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import { useDeepResearch, DeepResearchReport, ReportReference } from '@/hooks';
-import ThinkingChainPanel from './ThinkingChainPanel';
+import {
+  useDiscussionResearch,
+  DeepResearchReport,
+  ReportReference,
+} from '@/hooks';
+import { DiscussionChat } from './DiscussionChat';
+import { IdeasPanel } from './IdeasPanel';
 import { useTranslation } from '@/lib/i18n';
 import { getAuthHeader } from '@/lib/utils/auth';
 import ClientDate from '@/components/common/ClientDate';
@@ -52,12 +55,37 @@ interface ResearchSession {
   query: string;
   status:
     | 'PLANNING'
+    | 'IDEATION'
     | 'SEARCHING'
+    | 'FINDINGS'
     | 'REFLECTING'
     | 'SYNTHESIZING'
     | 'COMPLETED'
     | 'FAILED';
   report?: DeepResearchReport;
+  discussion?: Array<{
+    id: string;
+    agentRole: string;
+    agentName: string;
+    agentIcon: string;
+    content: string;
+    phase: string;
+    messageType: string;
+    metadata?: {
+      searchResults?: unknown[];
+      directions?: string[];
+      citations?: number[];
+    };
+    timestamp: string | Date;
+  }>;
+  directions?: {
+    directions: Array<{
+      title: string;
+      description?: string;
+      assignedTo?: string;
+      searchQueries?: string[];
+    }>;
+  } | null;
   sourcesUsed: number;
   tokensUsed: number;
   createdAt: string;
@@ -82,39 +110,41 @@ export function ResearchTab({ projectId, className }: ResearchTabProps) {
     null
   );
   const [loadingSessions, setLoadingSessions] = useState(true);
-  const [showThinking, setShowThinking] = useState(true);
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [followUpQuery, setFollowUpQuery] = useState('');
+  const [viewingTab, setViewingTab] = useState<'report' | 'ideas'>('report');
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(
     null
   );
   const [showExport, setShowExport] = useState(false);
 
-  const { state, startResearch, stop, reset, isSearching } = useDeepResearch(
-    projectId,
-    {
-      onComplete: (report) => {
-        // Save to sessions
-        const newSession: ResearchSession = {
-          id: `dr_${Date.now()}`,
-          query: query,
-          status: 'COMPLETED',
-          report,
-          sourcesUsed: report.metadata.totalSources,
-          tokensUsed: 0,
-          createdAt: new Date().toISOString(),
-          completedAt: new Date().toISOString(),
-        };
-        setSessions((prev) => [newSession, ...prev]);
-        setViewingSession(newSession);
-        setView('viewing');
-      },
-      onError: (error) => {
-        logger.error('Deep Research error:', error);
-        setView('list');
-      },
-    }
-  );
+  const {
+    state: discussionState,
+    startResearch,
+    stop,
+    reset,
+    isActive: isSearching,
+  } = useDiscussionResearch(projectId, {
+    onComplete: (report) => {
+      const newSession: ResearchSession = {
+        id: discussionState.sessionId || `dr_${Date.now()}`,
+        query: query,
+        status: 'COMPLETED',
+        report,
+        sourcesUsed: report.metadata.totalSources,
+        tokensUsed: 0,
+        createdAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      };
+      setSessions((prev) => [newSession, ...prev]);
+      setViewingSession(newSession);
+      setView('viewing');
+    },
+    onError: (error) => {
+      logger.error('Discussion Research error:', error);
+      setView('list');
+    },
+  });
 
   // Load research history
   useEffect(() => {
@@ -339,7 +369,7 @@ export function ResearchTab({ projectId, className }: ResearchTabProps) {
     );
   }
 
-  // Researching View
+  // Researching View - Discussion-driven
   if (view === 'researching') {
     return (
       <div className={cn('flex h-full flex-col bg-white', className)}>
@@ -358,7 +388,7 @@ export function ResearchTab({ projectId, className }: ResearchTabProps) {
               </h2>
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>{getPhaseLabel(state.phase, t)}</span>
+                <span>{getPhaseLabel(discussionState.phase, t)}</span>
               </div>
             </div>
           </div>
@@ -371,81 +401,22 @@ export function ResearchTab({ projectId, className }: ResearchTabProps) {
           </button>
         </div>
 
-        {/* Progress Bar */}
-        <div className="border-b bg-gray-50 px-6 py-2">
-          <div className="flex items-center gap-4">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
-              <motion.div
-                className="h-full bg-gradient-to-r from-purple-500 to-indigo-500"
-                initial={{ width: 0 }}
-                animate={{
-                  width: state.searchProgress
-                    ? `${Math.round((state.searchProgress.currentRound / Math.max(state.searchProgress.totalRounds, 1)) * 100)}%`
-                    : state.phase === 'completed'
-                      ? '100%'
-                      : '10%',
-                }}
-                transition={{ duration: 0.5 }}
-              />
-            </div>
-            <span className="text-sm font-medium text-gray-600">
-              {state.searchProgress
-                ? `${Math.round((state.searchProgress.currentRound / Math.max(state.searchProgress.totalRounds, 1)) * 100)}%`
-                : state.phase === 'completed'
-                  ? '100%'
-                  : '...'}
-            </span>
-          </div>
-        </div>
-
-        {/* Toggle Thinking */}
-        <div className="border-b px-6 py-2">
-          <button
-            onClick={() => setShowThinking(!showThinking)}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
-          >
-            <Brain className="h-4 w-4" />
-            {showThinking
-              ? t('aiResearch.deepResearch.hideThinking')
-              : t('aiResearch.deepResearch.showThinking')}
-            {showThinking ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </button>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Thinking Panel (30%) */}
-          <AnimatePresence>
-            {showThinking && (
-              <motion.div
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: '30%', opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                className="flex-shrink-0 overflow-hidden border-r"
-              >
-                <ThinkingChainPanel state={state} className="h-full" />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Report Content (70%) */}
-          <div className="flex-1 overflow-y-auto p-6">
-            <StreamingReportView
-              reportContent={state.reportContent}
-              phase={state.phase}
-            />
-          </div>
-        </div>
+        {/* Discussion Chat View */}
+        <DiscussionChat
+          state={discussionState}
+          query={query}
+          onStop={handleStopResearch}
+          className="flex-1"
+        />
       </div>
     );
   }
 
   // Viewing Completed Research
   if (view === 'viewing' && viewingSession?.report) {
+    const hasDiscussion =
+      viewingSession.discussion && viewingSession.discussion.length > 0;
+
     return (
       <div className={cn('flex h-full flex-col bg-white', className)}>
         {/* Header */}
@@ -493,15 +464,50 @@ export function ResearchTab({ projectId, className }: ResearchTabProps) {
           </div>
         </div>
 
-        {/* Report Content */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-4xl p-6" data-export-content="research">
-            <CompletedReportView
-              report={viewingSession.report}
-              copiedSection={copiedSection}
-              onCopySection={handleCopySection}
-            />
+        {/* Tab Bar */}
+        {hasDiscussion && (
+          <div className="border-b bg-gray-50 px-6">
+            <div className="mx-auto flex max-w-4xl gap-1">
+              <TabButton
+                active={viewingTab === 'report'}
+                icon={FileText}
+                label="研究报告"
+                onClick={() => setViewingTab('report')}
+              />
+              <TabButton
+                active={viewingTab === 'ideas'}
+                icon={Lightbulb}
+                label="Ideas 成果"
+                badge={viewingSession.directions?.directions?.length}
+                onClick={() => setViewingTab('ideas')}
+              />
+            </div>
           </div>
+        )}
+
+        {/* Tab Content */}
+        <div className="flex-1 overflow-y-auto">
+          {viewingTab === 'report' && (
+            <div
+              className="mx-auto max-w-4xl p-6"
+              data-export-content="research"
+            >
+              <CompletedReportView
+                report={viewingSession.report}
+                copiedSection={copiedSection}
+                onCopySection={handleCopySection}
+              />
+            </div>
+          )}
+          {viewingTab === 'ideas' && (
+            <div className="mx-auto max-w-4xl p-6">
+              <IdeasPanel
+                discussion={viewingSession.discussion ?? []}
+                directions={viewingSession.directions}
+                query={viewingSession.query}
+              />
+            </div>
+          )}
         </div>
 
         {/* Export Dialog */}
@@ -636,10 +642,20 @@ function ResearchSessionCard({
       icon: Loader2,
       key: 'planning',
     },
+    IDEATION: {
+      color: 'text-purple-600 bg-purple-50',
+      icon: MessageSquare,
+      key: 'ideation',
+    },
     SEARCHING: {
       color: 'text-purple-600 bg-purple-50',
       icon: Search,
       key: 'searching',
+    },
+    FINDINGS: {
+      color: 'text-amber-600 bg-amber-50',
+      icon: Brain,
+      key: 'findings',
     },
     REFLECTING: {
       color: 'text-yellow-600 bg-yellow-50',
@@ -1078,8 +1094,17 @@ type TranslateFunction = (
 ) => string;
 
 function getPhaseLabel(phase: string, t: TranslateFunction): string {
+  // Discussion phases fallback labels
+  const discussionPhaseLabels: Record<string, string> = {
+    ideation: '头脑风暴中...',
+    execution: '搜索调研中...',
+    findings: '汇报讨论中...',
+    synthesis: '报告撰写中...',
+    completed: '研究完成',
+    error: '研究出错',
+  };
   const key = `aiResearch.deepResearch.phase.${phase}`;
-  return t(key) || phase;
+  return t(key) || discussionPhaseLabels[phase] || phase;
 }
 
 function getSectionIcon(section: string) {
@@ -1277,6 +1302,50 @@ function DeepCitationLink({
         </div>
       )}
     </span>
+  );
+}
+
+/**
+ * Tab button for switching between Report and Ideas views
+ */
+function TabButton({
+  active,
+  icon: Icon,
+  label,
+  badge,
+  onClick,
+}: {
+  active: boolean;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  badge?: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors',
+        active
+          ? 'border-purple-600 text-purple-600'
+          : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+      )}
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+      {badge != null && badge > 0 && (
+        <span
+          className={cn(
+            'rounded-full px-1.5 py-0.5 text-xs font-semibold',
+            active
+              ? 'bg-purple-100 text-purple-700'
+              : 'bg-gray-100 text-gray-600'
+          )}
+        >
+          {badge}
+        </span>
+      )}
+    </button>
   );
 }
 

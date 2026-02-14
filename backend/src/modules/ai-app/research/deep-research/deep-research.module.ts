@@ -2,10 +2,11 @@
  * Deep Research Module - 深度研究模块
  *
  * 提供深度迭代研究能力:
- * - 研究规划 (Research Planning)
+ * - 讨论驱动型研究 (Discussion-driven Research)
  * - 迭代搜索 (Iterative Search)
- * - 自我反思 (Self Reflection)
  * - 报告合成 (Report Synthesis)
+ *
+ * 保留旧服务用于向后兼容旧 session 和 MCP Server 调用
  */
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
@@ -19,6 +20,8 @@ import { ResearchPlannerService } from "./research-planner.service";
 import { IterativeSearchService } from "./iterative-search.service";
 import { SelfReflectionService } from "./self-reflection.service";
 import { ReportSynthesizerService } from "./report-synthesizer.service";
+import { DiscussionAgentService } from "./discussion-agent.service";
+import { DiscussionOrchestratorService } from "./discussion-orchestrator.service";
 
 const services = [
   DeepResearchAgentService,
@@ -26,6 +29,8 @@ const services = [
   IterativeSearchService,
   SelfReflectionService,
   ReportSynthesizerService,
+  DiscussionAgentService,
+  DiscussionOrchestratorService,
 ];
 
 @Module({

@@ -11,4 +11,5 @@
 export * from './useAIModels';
 export * from './useCollections';
 export * from './useDeepResearch';
+export * from './useDiscussionResearch';
 export * from './useExport';

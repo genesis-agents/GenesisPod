@@ -3423,7 +3423,9 @@ model NotionSyncHistory {
 
 enum DeepResearchStatus {
   PLANNING // AI 正在规划研究步骤
+  IDEATION // 团队头脑风暴讨论
   SEARCHING // 正在执行搜索
+  FINDINGS // 团队汇报讨论发现
   REFLECTING // 正在自我反思评估
   SYNTHESIZING // 正在合成报告
   COMPLETED // 研究完成
@@ -3461,6 +3463,10 @@ model DeepResearchSession {
 
   // 错误信息
   error String? @db.Text
+
+  // 讨论驱动型研究
+  discussion Json[] @default([]) // DiscussionMessage[]
+  directions Json?               // { directions: ResearchDirection[] }
 
   // 时间戳
   createdAt   DateTime  @default(now()) @map("created_at")

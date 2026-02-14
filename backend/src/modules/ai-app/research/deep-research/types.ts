@@ -175,6 +175,14 @@ export interface ErrorEvent {
   };
 }
 
+// ==================== 讨论驱动型研究 SSE 事件 ====================
+
+import type {
+  DiscussionMessageEvent,
+  DiscussionPhaseEvent,
+  DiscussionTypingEvent,
+} from "./discussion-types";
+
 export type DeepResearchSSEEvent =
   | ThoughtSummaryEvent
   | PlanReadyEvent
@@ -182,7 +190,11 @@ export type DeepResearchSSEEvent =
   | ReflectionEvent
   | ContentDeltaEvent
   | InteractionCompleteEvent
-  | ErrorEvent;
+  | ErrorEvent
+  // Discussion-driven research events
+  | DiscussionMessageEvent
+  | DiscussionPhaseEvent
+  | DiscussionTypingEvent;
 
 // ==================== 请求/响应相关 ====================
 
