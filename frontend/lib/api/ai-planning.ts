@@ -173,6 +173,16 @@ export async function updatePlan(
   });
 }
 
+export async function replanFromPhase(
+  planId: string,
+  startPhase: number
+): Promise<{ currentPhase: number }> {
+  return fetchWithAuth(`/api/v1/ai-planning/${planId}/replan`, {
+    method: 'POST',
+    body: JSON.stringify({ startPhase }),
+  });
+}
+
 export async function deletePlan(planId: string): Promise<void> {
   return fetchWithAuth(`/api/v1/ai-planning/${planId}`, {
     method: 'DELETE',

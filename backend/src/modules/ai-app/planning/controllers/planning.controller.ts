@@ -24,6 +24,7 @@ import { PlanningOrchestratorService } from "../services/planning-orchestrator.s
 import { PlanningTemplateService } from "../services/planning-template.service";
 import { CreatePlanDto } from "../dto/create-plan.dto";
 import { UpdatePlanDto } from "../dto/update-plan.dto";
+import { ReplanDto } from "../dto/replan.dto";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 
 @ApiTags("AI Planning")
@@ -105,6 +106,21 @@ export class PlanningController {
     return this.orchestrator.retryPhase(
       planId,
       parseInt(phase, 10),
+      req.user.id,
+    );
+  }
+
+  @Post(":planId/replan")
+  @ApiOperation({ summary: "从指定阶段重新策划" })
+  @ApiResponse({ status: 200, description: "重新策划已启动" })
+  async replanFromPhase(
+    @Request() req: RequestWithUser,
+    @Param("planId") planId: string,
+    @Body() dto: ReplanDto,
+  ) {
+    return this.orchestrator.replanFromPhase(
+      planId,
+      dto.startPhase,
       req.user.id,
     );
   }

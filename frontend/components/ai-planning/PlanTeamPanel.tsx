@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils/common';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
+import ReplanModal from '@/components/ai-planning/ReplanModal';
 import type { PlanDetail } from '@/lib/api/ai-planning';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';
 import {
@@ -30,6 +31,7 @@ interface PlanTeamPanelProps {
   onStart: () => void;
   onAdvance: () => void;
   onRetry: (phase: number) => void;
+  onReplan?: (startPhase: number) => void;
   onCancel?: () => void;
   onPhaseSelect?: (phase: number) => void;
   onDepthChange?: (depth: 'quick' | 'standard' | 'comprehensive') => void;
@@ -84,6 +86,7 @@ export function PlanTeamPanel({
   onStart,
   onAdvance,
   onRetry,
+  onReplan,
   onCancel,
   onPhaseSelect,
   onDepthChange,
@@ -92,6 +95,7 @@ export function PlanTeamPanel({
   const { t } = useTranslation();
   const [hoveredAgent, setHoveredAgent] = useState<number | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<number | null>(null);
+  const [showReplanModal, setShowReplanModal] = useState(false);
 
   // Stats
   const completedCount = Object.values(plan.phaseStatus).filter(
@@ -151,10 +155,10 @@ export function PlanTeamPanel({
     return true;
   })();
 
-  // Button states (matching AI Insights: Start/Update/Cancel)
+  // Button states (matching AI Insights: Start/Replan/Cancel)
   const isMissionActive = isCurrentActive || isAutoAdvancePending;
   const canStart = !isAdvancing && !isMissionActive && !allCompleted;
-  const canUpdate =
+  const canReplan =
     !isAdvancing &&
     !isMissionActive &&
     plan.currentPhase > 0 &&
@@ -362,18 +366,18 @@ export function PlanTeamPanel({
             {t('aiPlanning.actions.start')}
           </button>
 
-          {/* Update button - retry current phase with updated results */}
+          {/* Replan button - re-execute from selected phase */}
           <button
-            onClick={() => onRetry(plan.currentPhase)}
-            disabled={!canUpdate}
+            onClick={() => setShowReplanModal(true)}
+            disabled={!canReplan}
             className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
-              canUpdate
+              canReplan
                 ? 'bg-green-600 text-white shadow-sm hover:bg-green-700'
                 : 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
             }`}
           >
             <span>{PHASE_STATUS_ICONS.active}</span>
-            {t('aiPlanning.actions.update')}
+            {t('aiPlanning.actions.replan')}
           </button>
 
           {/* Cancel button - stop current active phase */}
@@ -391,6 +395,19 @@ export function PlanTeamPanel({
           </button>
         </div>
       </div>
+
+      {/* Replan Modal */}
+      {showReplanModal && (
+        <ReplanModal
+          open={showReplanModal}
+          onClose={() => setShowReplanModal(false)}
+          onConfirm={(startPhase) => {
+            setShowReplanModal(false);
+            onReplan?.(startPhase);
+          }}
+          totalPhases={plan.totalPhases}
+        />
+      )}
     </div>
   );
 }

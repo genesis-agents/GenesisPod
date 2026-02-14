@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AiTeamsService } from "../../teams/ai-teams.service";
 import { AiResponseService } from "../../teams/services/ai/ai-response.service";
@@ -464,6 +469,81 @@ export class PlanningOrchestratorService {
         err.stack,
       );
     });
+  }
+
+  async replanFromPhase(
+    planId: string,
+    startPhase: number,
+    userId: string,
+  ): Promise<{ currentPhase: number }> {
+    if (startPhase < 1 || startPhase > TOTAL_PHASES) {
+      throw new BadRequestException(
+        `startPhase must be between 1 and ${TOTAL_PHASES}`,
+      );
+    }
+
+    const topic = await this.prisma.topic.findFirst({
+      where: {
+        id: planId,
+        members: { some: { userId } },
+        metadata: { path: ["planningMode"], equals: true },
+      },
+    });
+
+    if (!topic) {
+      throw new NotFoundException("Plan not found");
+    }
+
+    const meta =
+      (topic.metadata as unknown as PlanningTopicMetadata) ||
+      ({} as PlanningTopicMetadata);
+
+    // Check if any phase is currently active
+    const hasActivePhase = Object.values(meta.phaseStatus || {}).some(
+      (s) => s.status === "active",
+    );
+
+    if (hasActivePhase) {
+      throw new BadRequestException(
+        "A phase is currently running. Please cancel it before replanning.",
+      );
+    }
+
+    // Reset phases from startPhase to TOTAL_PHASES
+    const updatedPhaseStatus = { ...meta.phaseStatus };
+    for (let i = startPhase; i <= TOTAL_PHASES; i++) {
+      updatedPhaseStatus[i] = { status: "pending" };
+    }
+
+    // If replan from phase 1 or 2, clear references to force re-search
+    const shouldClearReferences = startPhase <= 2;
+    const updatedMetadata: PlanningTopicMetadata = {
+      ...meta,
+      currentPhase: startPhase,
+      phaseStatus: updatedPhaseStatus,
+      ...(shouldClearReferences ? { references: [] } : {}),
+    };
+
+    await this.prisma.topic.update({
+      where: { id: planId },
+      data: {
+        metadata: updatedMetadata as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    this.logger.log(
+      `Plan ${planId} replanning from phase ${startPhase}: ${PHASE_NAMES[startPhase]}`,
+    );
+
+    // Trigger async execution from startPhase
+    this.executePhaseAsync(planId, userId, startPhase).catch((err) => {
+      this.logger.error(
+        `Replan from phase ${startPhase} failed for plan ${planId}: ${err.message}`,
+        err.stack,
+      );
+    });
+
+    return { currentPhase: startPhase };
   }
 
   async cancelPhase(planId: string, userId: string): Promise<void> {
