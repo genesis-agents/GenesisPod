@@ -190,7 +190,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 }
 
 // Data Sources
-export async function getDataSources(): Promise<DataSource[]> {
+export async function getDataSources(): Promise<{
+  data: DataSource[];
+  total: number;
+}> {
   return request('/sources');
 }
 
@@ -249,7 +252,7 @@ export async function fixRssUrls(): Promise<{
 export async function getCollectionTasks(params?: {
   status?: string;
   sourceId?: string;
-}): Promise<CollectionTask[]> {
+}): Promise<{ data: CollectionTask[]; total: number }> {
   const query = new URLSearchParams();
   if (params?.status) query.append('status', params.status);
   if (params?.sourceId) query.append('sourceId', params.sourceId);
@@ -307,7 +310,10 @@ export async function cancelTask(id: string): Promise<{ message: string }> {
 }
 
 // Monitor
-export async function getRunningTasks(): Promise<CollectionTask[]> {
+export async function getRunningTasks(): Promise<{
+  data: CollectionTask[];
+  total: number;
+}> {
   return request('/monitor/running');
 }
 

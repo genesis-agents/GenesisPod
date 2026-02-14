@@ -300,8 +300,8 @@ export default function ConfigPage() {
     async function fetchSources() {
       try {
         setLoading(true);
-        const sources = await getDataSources();
-        setSources(sources);
+        const response = await getDataSources();
+        setSources(response.data);
       } catch (err) {
         logger.error('Failed to fetch sources:', err);
         setError(err instanceof Error ? err.message : 'Failed to load sources');
@@ -439,8 +439,8 @@ export default function ConfigPage() {
         ...dataSourceFields,
         crawlerConfig: updatedCrawlerConfig,
       });
-      const updatedSources = await getDataSources();
-      setSources(updatedSources);
+      const response = await getDataSources();
+      setSources(response.data);
       setEditingSource(null);
       setEditForm({});
     } catch (err) {
@@ -602,8 +602,8 @@ export default function ConfigPage() {
         isVerified: false,
       });
 
-      const newSources = await getDataSources();
-      setSources(newSources);
+      const response = await getDataSources();
+      setSources(response.data);
       setShowAddSourceModal(null);
       setNewSourceForm({
         name: '',
@@ -667,8 +667,8 @@ export default function ConfigPage() {
       setFixRssResult(fixResult);
 
       // Refresh sources after fix
-      const refreshedSources = await getDataSources();
-      setSources(refreshedSources);
+      const sourcesResponse = await getDataSources();
+      setSources(sourcesResponse.data);
 
       setNotification({
         type: 'success',
@@ -732,8 +732,8 @@ export default function ConfigPage() {
       {/* Scheduler Panel */}
       <SchedulerPanel
         onRefresh={async () => {
-          const refreshed = await getDataSources();
-          setSources(refreshed);
+          const response = await getDataSources();
+          setSources(response.data);
         }}
       />
 
