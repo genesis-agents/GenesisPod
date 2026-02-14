@@ -500,6 +500,42 @@ async function deploy(): Promise<void> {
     } else {
       console.log("   OK slides_missions.context_package");
     }
+
+    // Check if deep_research_sessions.discussion column exists
+    // ★ 2026-02-14: Discussion-driven research team columns
+    const deepResearchDiscussionCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'deep_research_sessions' AND column_name = 'discussion'
+      ) as exists
+    `;
+
+    if (!deepResearchDiscussionCheck[0]?.exists) {
+      console.log("   Adding deep_research_sessions.discussion column...");
+      await prisma.$executeRaw`ALTER TABLE "deep_research_sessions" ADD COLUMN IF NOT EXISTS "discussion" JSONB[] DEFAULT '{}'`;
+      console.log("   Added deep_research_sessions.discussion");
+    } else {
+      console.log("   OK deep_research_sessions.discussion");
+    }
+
+    const deepResearchDirectionsCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'deep_research_sessions' AND column_name = 'directions'
+      ) as exists
+    `;
+
+    if (!deepResearchDirectionsCheck[0]?.exists) {
+      console.log("   Adding deep_research_sessions.directions column...");
+      await prisma.$executeRaw`ALTER TABLE "deep_research_sessions" ADD COLUMN IF NOT EXISTS "directions" JSONB`;
+      console.log("   Added deep_research_sessions.directions");
+    } else {
+      console.log("   OK deep_research_sessions.directions");
+    }
     console.log("");
 
     // Step 4: Generate Prisma Client
@@ -585,6 +621,20 @@ async function deploy(): Promise<void> {
       () =>
         prisma.$executeRaw`ALTER TYPE "SecretCategory" ADD VALUE IF NOT EXISTS 'MCP'`,
       "SecretCategory.MCP",
+    );
+
+    // DeepResearchStatus enum values (discussion-driven research)
+    await addEnumIfNotExists(
+      prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'IDEATION' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'DeepResearchStatus')) as exists`,
+      () =>
+        prisma.$executeRaw`ALTER TYPE "DeepResearchStatus" ADD VALUE IF NOT EXISTS 'IDEATION'`,
+      "DeepResearchStatus.IDEATION",
+    );
+    await addEnumIfNotExists(
+      prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'FINDINGS' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'DeepResearchStatus')) as exists`,
+      () =>
+        prisma.$executeRaw`ALTER TYPE "DeepResearchStatus" ADD VALUE IF NOT EXISTS 'FINDINGS'`,
+      "DeepResearchStatus.FINDINGS",
     );
     console.log("");
 
