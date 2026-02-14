@@ -36,6 +36,7 @@ import {
   convertInchesToTwip,
   LevelFormat,
   ShadingType,
+  ImageRun,
 } from "docx";
 
 @Injectable()
@@ -307,7 +308,10 @@ export class DocxRenderer implements ExportRenderer {
   /**
    * 渲染单个内容节
    */
-  private renderSection(section: ContentSection, theme: ThemeConfig): Paragraph | Paragraph[] | Table {
+  private renderSection(
+    section: ContentSection,
+    theme: ThemeConfig,
+  ): Paragraph | Paragraph[] | Table {
     switch (section.type) {
       case "heading":
         return this.renderHeading(section, theme);
@@ -780,6 +784,54 @@ export class DocxRenderer implements ExportRenderer {
         },
       ],
     };
+  }
+
+  /**
+   * WYSIWYG 模式：从截图创建 DOCX
+   */
+  async renderFromScreenshot(
+    screenshotBuffer: Buffer,
+    _title: string,
+    options: ExportOptions,
+  ): Promise<Buffer> {
+    // A4 dimensions at 96 DPI: 794 x 1123 pixels
+    const pageWidthPx = options.pageSize === "Letter" ? 816 : 794;
+    const pageHeightPx = options.pageSize === "Letter" ? 1056 : 1123;
+
+    const doc = new Document({
+      sections: [
+        {
+          properties: {
+            page: {
+              size: this.getPageSize(options.pageSize || "A4"),
+              margin: {
+                top: convertInchesToTwip(0.5),
+                right: convertInchesToTwip(0.5),
+                bottom: convertInchesToTwip(0.5),
+                left: convertInchesToTwip(0.5),
+              },
+            },
+          },
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new ImageRun({
+                  data: screenshotBuffer,
+                  transformation: {
+                    width: pageWidthPx,
+                    height: pageHeightPx,
+                  },
+                  type: "png",
+                }),
+              ],
+            }),
+          ],
+        },
+      ],
+    });
+
+    return await Packer.toBuffer(doc);
   }
 
   /**

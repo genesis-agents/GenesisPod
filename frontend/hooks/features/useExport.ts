@@ -4,9 +4,10 @@
  * 提供统一的导出功能接口
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 // ==================== 类型定义 ====================
 
@@ -23,7 +24,11 @@ export type ExportSourceType =
   | 'RESEARCH'
   | 'REPORT'
   | 'RAW'
-  | 'MISSION';
+  | 'MISSION'
+  | 'PLANNING'
+  | 'WRITING'
+  | 'SOCIAL'
+  | 'SLIDES';
 
 export type TemplateCategory =
   | 'REPORT'
@@ -39,6 +44,8 @@ export interface ExportSource {
   reportId?: string;
   missionId?: string;
   topicId?: string;
+  planId?: string;
+  contentId?: string;
   content?: string;
   contentType?: 'markdown' | 'html' | 'json';
   title?: string;
@@ -55,6 +62,10 @@ export interface ExportOptions {
   fileName?: string;
   // Mission 导出专用：简化模式只导出核心结果
   simplifiedMode?: boolean;
+  // WYSIWYG 导出选项
+  renderMode?: 'wysiwyg' | 'editable';
+  wysiwygHtml?: string;
+  wysiwygCss?: string;
 }
 
 export interface ExportRequest {
@@ -93,6 +104,7 @@ export interface ExportStatus {
   downloadUrl?: string;
   fileName?: string;
   error?: string;
+  jobId?: string;
 }
 
 export interface UseExportResult {
@@ -125,7 +137,7 @@ export interface UseExportResult {
   getTemplates: (category?: TemplateCategory) => Promise<ExportTemplate[]>;
 
   // 下载
-  downloadExport: (jobId: string) => void;
+  downloadExport: (jobId: string) => Promise<void>;
 
   // 重置
   reset: () => void;
@@ -137,6 +149,14 @@ export function useExport(): UseExportResult {
   const [status, setStatus] = useState<ExportStatus>({ status: 'idle' });
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Cleanup: abort polling on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   /**
    * 轮询任务状态
@@ -145,14 +165,23 @@ export function useExport(): UseExportResult {
     async (
       jobId: string,
       onProgress?: (progress: number) => void
-    ): Promise<ExportJobResponse> => {
+    ): Promise<ExportJobResponse | null> => {
+      // Cancel any previous polling before starting a new one
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       const maxAttempts = 120; // 最多轮询 2 分钟
       const interval = 1000; // 每秒轮询一次
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        if (controller.signal.aborted) return null;
+
         const result = await apiClient.get<ExportJobResponse>(
           `/export/${jobId}`
         );
+
+        if (controller.signal.aborted) return null;
 
         if (onProgress) {
           onProgress(result.progress);
@@ -196,11 +225,18 @@ export function useExport(): UseExportResult {
           setStatus({ status: 'processing', progress });
         });
 
+        // 轮询被取消
+        if (!result) {
+          setStatus({ status: 'idle' });
+          return { jobId, status: 'PROCESSING', progress: 0 };
+        }
+
         // 3. 更新状态
         setStatus({
           status: 'completed',
           downloadUrl: result.downloadUrl,
           fileName: result.fileName,
+          jobId,
         });
 
         return result;
@@ -314,8 +350,49 @@ export function useExport(): UseExportResult {
   /**
    * 下载导出文件
    */
-  const downloadExport = useCallback((jobId: string) => {
-    window.open(`${config.apiUrl}/export/${jobId}/download`, '_blank');
+  const downloadExport = useCallback(async (jobId: string) => {
+    try {
+      const response = await fetch(
+        `${config.apiUrl}/export/${jobId}/download`,
+        {
+          headers: getAuthHeader(),
+        }
+      );
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition');
+      // Parse RFC 5987 filename*=UTF-8''<encoded> or standard filename="<name>"
+      let fileName = 'export';
+      if (contentDisposition) {
+        const rfc5987Match = contentDisposition.match(
+          /filename\*=UTF-8''(.+?)(?:;|$)/i
+        );
+        if (rfc5987Match) {
+          fileName = decodeURIComponent(rfc5987Match[1]);
+        } else {
+          const standardMatch = contentDisposition.match(
+            /filename="?([^";]+)"?/
+          );
+          if (standardMatch) {
+            fileName = standardMatch[1];
+          }
+        }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setStatus((prev) => ({
+        ...prev,
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Download failed',
+      }));
+    }
   }, []);
 
   /**

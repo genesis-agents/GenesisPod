@@ -22,7 +22,8 @@ import {
   LayoutList,
   FileText,
   Clock,
-  Send,
+  StickyNote,
+  Download,
   ChevronDown,
   AlertTriangle,
   Link as LinkIcon,
@@ -34,6 +35,7 @@ import rehypeSanitize from 'rehype-sanitize';
 import MermaidDiagram from '@/components/ui/MermaidDiagram';
 import { cn } from '@/lib/utils/common';
 import { useTranslation } from '@/lib/i18n';
+import { toast } from '@/stores';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
 import type { PlanDetail, PlanReference } from '@/lib/api/ai-planning';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';
@@ -443,6 +445,8 @@ interface PlanContentPanelProps {
   /** Phase to auto-expand (from left panel click) */
   selectedPhase?: number | null;
   onPhaseDeselect?: () => void;
+  onExport?: () => void;
+  onRetryPhase?: (phase: number) => void;
 }
 
 export function PlanContentPanel({
@@ -453,6 +457,8 @@ export function PlanContentPanel({
   onTabChange,
   selectedPhase,
   onPhaseDeselect,
+  onExport,
+  onRetryPhase,
 }: PlanContentPanelProps) {
   const { t } = useTranslation();
   const [internalTab, setInternalTab] = useState<PlanContentTabType>('phases');
@@ -535,9 +541,15 @@ export function PlanContentPanel({
       await sendMessage(planId, { content: chatInput.trim() });
       setChatInput('');
       await fetchMessages();
+      toast.success(t('aiPlanning.content.noteSaved'));
+      setActiveTab('activity');
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    } catch {
-      // Error handling — toast is managed by caller
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('aiPlanning.error.noteFailed')
+      );
     } finally {
       setIsSending(false);
     }
@@ -647,6 +659,7 @@ export function PlanContentPanel({
                         onPhaseDeselect?.();
                       }
                     }}
+                    onRetryPhase={onRetryPhase}
                   />
                 ))}
               </div>
@@ -663,9 +676,20 @@ export function PlanContentPanel({
                   <h3 className="text-base font-semibold text-gray-900">
                     {plan.name}
                   </h3>
-                  <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
-                    {t('aiPlanning.report.deliveryReport')}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+                      {t('aiPlanning.report.deliveryReport')}
+                    </span>
+                    {onExport && (
+                      <button
+                        onClick={onExport}
+                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-800"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {t('aiPlanning.actions.exportReport')}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {plan.goal && (
                   <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
@@ -675,7 +699,10 @@ export function PlanContentPanel({
                     <p className="mt-1 text-sm text-blue-700">{plan.goal}</p>
                   </div>
                 )}
-                <div className="rounded-lg border border-gray-200 p-4">
+                <div
+                  className="rounded-lg border border-gray-200 p-4"
+                  data-export-content="planning"
+                >
                   <ReportMarkdown
                     content={reportContent}
                     references={plan.references || []}
@@ -772,7 +799,7 @@ export function PlanContentPanel({
         )}
       </div>
 
-      {/* Bottom: Chat input - Fix 5: Enabled, reusing AI Teams message API */}
+      {/* Bottom: Note input */}
       <div className="shrink-0 border-t border-gray-200 bg-gray-50/50 px-4 py-3">
         <div className="flex gap-2">
           <div className="flex-1">
@@ -789,6 +816,9 @@ export function PlanContentPanel({
               placeholder={t('aiPlanning.content.inputPlaceholder')}
               className="w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm leading-relaxed text-gray-700 placeholder:text-gray-400 focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
             />
+            <p className="mt-1.5 text-xs text-gray-400">
+              {t('aiPlanning.content.noteHint')}
+            </p>
           </div>
           <button
             onClick={handleSendMessage}
@@ -803,7 +833,7 @@ export function PlanContentPanel({
             {isSending ? (
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
             ) : (
-              <Send className="h-4 w-4" />
+              <StickyNote className="h-4 w-4" />
             )}
           </button>
         </div>
@@ -985,11 +1015,13 @@ function PhaseTaskCard({
   workflow,
   isExpanded,
   onToggle,
+  onRetryPhase,
 }: {
   plan: PlanDetail;
   workflow: (typeof PLANNING_WORKFLOW_CONFIG)[number];
   isExpanded: boolean;
   onToggle: () => void;
+  onRetryPhase?: (phase: number) => void;
 }) {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -1230,11 +1262,24 @@ function PhaseTaskCard({
             </div>
           )}
 
-          {/* Completion time */}
+          {/* Completion time & retry */}
           {status?.completedAt && (
-            <div className="text-xs text-gray-400">
-              {'\u{23F1}'} {t('aiPlanning.content.completedAt')}:{' '}
-              {formatTime(status.completedAt)}
+            <div className="flex items-center justify-between border-t border-gray-100 pt-2">
+              <span className="text-xs text-gray-400">
+                {t('aiPlanning.content.completedAt')}:{' '}
+                {formatTime(status.completedAt)}
+              </span>
+              {isCompleted && onRetryPhase && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRetryPhase(workflow.phase);
+                  }}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  {t('aiPlanning.actions.retryThisPhase')}
+                </button>
+              )}
             </div>
           )}
         </div>

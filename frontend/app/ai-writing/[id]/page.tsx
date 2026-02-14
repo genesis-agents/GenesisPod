@@ -28,7 +28,9 @@ import ClientDate from '@/components/common/ClientDate';
 // DOME/SCORE Enhanced Components
 import StoryAnalysisDashboard from '@/components/ai-writing/StoryAnalysisDashboard';
 import HierarchicalSummaryTab from '@/components/ai-writing/HierarchicalSummaryTab';
-import { FileText, BarChart3 } from 'lucide-react';
+import { FileText, BarChart3, Download } from 'lucide-react';
+import { ExportDialog } from '@/components/common/ExportDialog';
+import { useTranslation } from '@/lib/i18n';
 
 import { logger } from '@/lib/utils/logger';
 // Dynamic import for Canvas component
@@ -295,6 +297,7 @@ function ChapterContentStructured({
 }
 
 export default function WritingProjectPage() {
+  const { t } = useTranslation();
   const params = useParams();
   const router = useRouter();
   const projectId = params?.id as string;
@@ -374,6 +377,7 @@ export default function WritingProjectPage() {
     new Set()
   );
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const [showConsistencyPanel, setShowConsistencyPanel] = useState(true);
   const [toast, setToast] = useState<{
     message: string;
@@ -1954,6 +1958,17 @@ export default function WritingProjectPage() {
                 </button>
                 {showExportMenu && (
                   <div className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                    <button
+                      onClick={() => {
+                        setShowExportDialog(true);
+                        setShowExportMenu(false);
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-violet-600 hover:bg-violet-50"
+                    >
+                      <Download className="h-4 w-4" />
+                      {t('common.export')}
+                    </button>
+                    <div className="border-t border-gray-100" />
                     <button
                       onClick={handleExportMarkdown}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
@@ -4477,6 +4492,19 @@ export default function WritingProjectPage() {
               fetchVolumes(projectId);
             }}
             onClose={() => setShowImportModal(false)}
+          />
+        )}
+
+        {/* Export Dialog */}
+        {currentProject && (
+          <ExportDialog
+            isOpen={showExportDialog}
+            onClose={() => setShowExportDialog(false)}
+            contentSelector="[data-export-content='writing']"
+            contentTitle={currentProject.name}
+            moduleType="writing"
+            sourceId={projectId}
+            availableFormats={['PDF', 'DOCX', 'PPTX', 'HTML']}
           />
         )}
       </main>

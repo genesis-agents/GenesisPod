@@ -381,7 +381,12 @@ export class PptxRenderer implements ExportRenderer {
       }
       // 处理表格
       else if (section.type === "table") {
-        const tableData: Array<Array<{ text: string; options?: { bold?: boolean; fill?: { color: string } } }>> = [];
+        const tableData: Array<
+          Array<{
+            text: string;
+            options?: { bold?: boolean; fill?: { color: string } };
+          }>
+        > = [];
 
         if (section.headers) {
           tableData.push(
@@ -563,6 +568,39 @@ export class PptxRenderer implements ExportRenderer {
       color: this.hexToPptx(theme.colors.textLight),
       align: "center",
     });
+  }
+
+  /**
+   * WYSIWYG 模式：从截图创建 PPTX
+   */
+  async renderFromScreenshot(
+    screenshotBuffer: Buffer,
+    title: string,
+    options: ExportOptions,
+  ): Promise<Buffer> {
+    const pptx = new PptxGenJS();
+    pptx.title = title;
+    pptx.layout =
+      options.orientation === "landscape" ? "LAYOUT_WIDE" : "LAYOUT_16x9";
+
+    // Convert buffer to base64 data URL
+    const base64 = screenshotBuffer.toString("base64");
+    const dataUrl = `data:image/png;base64,${base64}`;
+
+    // Calculate how many slides we need based on aspect ratio
+    // Standard slide is 10" x 7.5" (landscape) or 7.5" x 10" (portrait)
+    const slide = pptx.addSlide();
+    slide.addImage({
+      data: dataUrl,
+      x: 0,
+      y: 0,
+      w: "100%",
+      h: "100%",
+      sizing: { type: "contain", w: "100%", h: "100%" },
+    });
+
+    const data = await pptx.write({ outputType: "nodebuffer" });
+    return Buffer.from(data as ArrayBuffer);
   }
 
   /**

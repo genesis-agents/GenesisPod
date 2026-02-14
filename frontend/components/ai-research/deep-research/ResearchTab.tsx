@@ -43,6 +43,7 @@ import ThinkingChainPanel from './ThinkingChainPanel';
 import { useTranslation } from '@/lib/i18n';
 import { getAuthHeader } from '@/lib/utils/auth';
 import ClientDate from '@/components/common/ClientDate';
+import { ExportDialog } from '@/components/common/ExportDialog';
 
 import { logger } from '@/lib/utils/logger';
 // ==================== Types ====================
@@ -71,11 +72,7 @@ interface ResearchTabProps {
 }
 
 // ==================== Main Component ====================
-export function ResearchTab({
-  projectId,
-  onExportToOutputs,
-  className,
-}: ResearchTabProps) {
+export function ResearchTab({ projectId, className }: ResearchTabProps) {
   const { t } = useTranslation();
   // View state: 'list' | 'researching' | 'viewing'
   const [view, setView] = useState<'list' | 'researching' | 'viewing'>('list');
@@ -91,6 +88,7 @@ export function ResearchTab({
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(
     null
   );
+  const [showExport, setShowExport] = useState(false);
 
   const { state, startResearch, stop, reset, isSearching } = useDeepResearch(
     projectId,
@@ -482,7 +480,7 @@ export function ResearchTab({
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => onExportToOutputs?.(viewingSession.report!)}
+              onClick={() => setShowExport(true)}
               className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               <FileOutput className="h-4 w-4" />
@@ -497,7 +495,7 @@ export function ResearchTab({
 
         {/* Report Content */}
         <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-4xl p-6">
+          <div className="mx-auto max-w-4xl p-6" data-export-content="research">
             <CompletedReportView
               report={viewingSession.report}
               copiedSection={copiedSection}
@@ -505,6 +503,19 @@ export function ResearchTab({
             />
           </div>
         </div>
+
+        {/* Export Dialog */}
+        {viewingSession.report && (
+          <ExportDialog
+            isOpen={showExport}
+            onClose={() => setShowExport(false)}
+            contentSelector="[data-export-content='research']"
+            contentTitle={viewingSession.query}
+            moduleType="research"
+            sourceId={viewingSession.id}
+            availableFormats={['PDF', 'DOCX', 'PPTX', 'HTML']}
+          />
+        )}
 
         {/* Follow-up Bar */}
         <div className="border-t bg-gray-50 px-6 py-4">

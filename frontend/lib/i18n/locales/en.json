@@ -1055,7 +1055,11 @@
       "update": "Update",
       "cancel": "Cancel",
       "cancelSuccess": "Current phase cancelled",
-      "exportShort": "Export"
+      "exportShort": "Export",
+      "replan": "Replan",
+      "replanSuccess": "Replan started",
+      "retryThisPhase": "Retry this phase",
+      "exportReport": "Export Report"
     },
     "templates": {
       "general": "General Planning",
@@ -1096,7 +1100,22 @@
       "retryFailed": "Failed to retry phase",
       "cancelFailed": "Failed to cancel phase",
       "exportFailed": "Export failed",
-      "updateFailed": "Failed to update plan"
+      "updateFailed": "Failed to update plan",
+      "replanFailed": "Failed to replan",
+      "noteFailed": "Failed to save note"
+    },
+    "replan": {
+      "title": "Replan",
+      "description": "Starting from the selected phase, that phase and all subsequent phases will be re-executed. Results from prior phases will be preserved as context.",
+      "selectPhase": "Select starting phase for replan",
+      "resetAll": "Reset all",
+      "reSearch": "Re-search",
+      "rewriteOnly": "Rewrite report only",
+      "willRedo": "Will be re-executed",
+      "willKeep": "Preserved",
+      "confirm": "Confirm Replan",
+      "hint": "Earlier phases mean larger scope and longer execution time.",
+      "activePhaseError": "A phase is currently running. Please cancel it before replanning."
     },
     "signIn": "Please sign in to access AI Planning",
     "signInRequired": "Please sign in to access AI Planning",
@@ -1149,7 +1168,9 @@
       "planCreated": "Plan created",
       "phaseStarted": "started",
       "phaseCompleted": "completed",
-      "inputPlaceholder": "Type a message to chat with the planning team...",
+      "inputPlaceholder": "Add planning note...",
+      "noteHint": "Notes are recorded in the activity log and do not affect the AI planning process",
+      "noteSaved": "Note saved",
       "user": "User",
       "phaseDescription": "Phase Description",
       "participatingAgents": "Participating Agents",
@@ -6178,6 +6199,35 @@
       "recommended": "(Recommended)",
       "stepProgress": "Step {{current}} / {{total}}",
       "startGeneration": "Start Generating"
+    }
+  },
+  "export": {
+    "dialogTitle": "Export Document",
+    "format": "Format",
+    "renderMode": "Render Mode",
+    "options": "Options",
+    "pageSize": "Page Size",
+    "orientation": "Orientation",
+    "portrait": "Portrait",
+    "landscape": "Landscape",
+    "wysiwyg": "WYSIWYG",
+    "wysiwygDesc": "Screenshot-based, exact visual match",
+    "wysiwygHint": "Exports exactly as displayed on screen",
+    "editable": "Editable",
+    "editableDesc": "Programmatic, editable in Office",
+    "editableHint": "Exports as editable document",
+    "optCover": "Cover Page",
+    "optToc": "Table of Contents",
+    "optReferences": "References",
+    "optPageNumbers": "Page Numbers",
+    "exporting": "Exporting...",
+    "success": "Export completed",
+    "captureFallback": "WYSIWYG capture failed, using editable mode",
+    "formats": {
+      "pdfDesc": "Best for viewing and printing",
+      "docxDesc": "Editable Word document",
+      "pptxDesc": "Presentation slides",
+      "htmlDesc": "Standalone web page"
     }
   }
 }

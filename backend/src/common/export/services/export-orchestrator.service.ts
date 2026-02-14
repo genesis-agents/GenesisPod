@@ -3,9 +3,20 @@
  * 负责协调整个导出流程
  */
 
-import { Injectable, Logger, NotFoundException, Inject } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Inject,
+  OnModuleInit,
+} from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { ExportFormat, ExportJobStatus, Prisma } from "@prisma/client";
+import {
+  ExportFormat,
+  ExportJobStatus,
+  ExportSourceType,
+  Prisma,
+} from "@prisma/client";
 import { ContentTransformerService } from "./content-transformer.service";
 import { TemplateManagerService } from "./template-manager.service";
 import {
@@ -20,12 +31,13 @@ import {
   FILE_EXTENSIONS,
   MIME_TYPES,
 } from "../renderers/renderer.interface";
+import { WysiwygRenderService } from "./wysiwyg-render.service";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs/promises";
 
 @Injectable()
-export class ExportOrchestratorService {
+export class ExportOrchestratorService implements OnModuleInit {
   private readonly logger = new Logger(ExportOrchestratorService.name);
   private exportDir: string;
   private readonly urlExpireHours = 24; // 下载链接有效期
@@ -36,11 +48,15 @@ export class ExportOrchestratorService {
     private readonly templateManager: TemplateManagerService,
     @Inject(RENDERER_TOKEN)
     private readonly renderers: Map<ExportFormat, ExportRenderer>,
+    private readonly wysiwygRenderService: WysiwygRenderService,
   ) {
     // 设置导出目录
     this.exportDir =
       process.env.EXPORT_DIR || path.join(process.cwd(), "exports");
-    this.ensureExportDir();
+  }
+
+  async onModuleInit(): Promise<void> {
+    await this.ensureExportDir();
   }
 
   /**
@@ -82,17 +98,24 @@ export class ExportOrchestratorService {
     const job = await this.prisma.exportJob.create({
       data: {
         userId,
-        sourceType: request.source.type,
-        sourceId:
-          "documentId" in request.source
-            ? request.source.documentId
-            : "sessionId" in request.source
-              ? request.source.sessionId
-              : "reportId" in request.source
-                ? request.source.reportId
-                : "missionId" in request.source
-                  ? request.source.missionId
-                  : null,
+        sourceType: request.source.type as ExportSourceType,
+        sourceId: (
+          [
+            "documentId",
+            "sessionId",
+            "reportId",
+            "missionId",
+            "planId",
+            "contentId",
+          ] as const
+        ).reduce<string | null>(
+          (found, key) =>
+            found ||
+            (key in request.source
+              ? (request.source as unknown as Record<string, string>)[key]
+              : null),
+          null,
+        ),
         sourceData,
         format: request.format,
         templateId: request.templateId,
@@ -215,7 +238,11 @@ export class ExportOrchestratorService {
       // 对于 MISSION 类型，传递 simplifiedMode 选项
       const transformOptions =
         source.type === "MISSION"
-          ? { simplifiedMode: retryWithSimplified || (options?.simplifiedMode as boolean | undefined) }
+          ? {
+              simplifiedMode:
+                retryWithSimplified ||
+                (options?.simplifiedMode as boolean | undefined),
+            }
           : undefined;
       const content = await this.contentTransformer.transform(
         source as ExportRequest["source"],
@@ -232,21 +259,33 @@ export class ExportOrchestratorService {
       await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 40);
 
       // 3. 渲染文档
-      const renderer = this.renderers.get(job.format);
-      if (!renderer) {
-        throw new Error(`No renderer for format: ${job.format}`);
-      }
+      const exportOptions = (options || {}) as ExportOptions;
+      let buffer: Buffer;
 
-      const buffer = await renderer.render(
-        content,
-        theme,
-        layout,
-        (options || {}) as ExportOptions,
-      );
+      if (exportOptions.renderMode === "wysiwyg" && exportOptions.wysiwygHtml) {
+        // WYSIWYG 模式：使用前端捕获的 HTML+CSS 渲染
+        buffer = await this.wysiwygRenderService.renderByFormat(
+          job.format,
+          exportOptions.wysiwygHtml,
+          exportOptions.wysiwygCss,
+          exportOptions,
+        );
+      } else {
+        // 编辑模式：使用传统渲染器
+        const renderer = this.renderers.get(job.format);
+        if (!renderer) {
+          throw new Error(`No renderer for format: ${job.format}`);
+        }
+        buffer = await renderer.render(content, theme, layout, exportOptions);
+      }
       await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 80);
 
       // 4. 保存文件
-      const fileName = this.generateFileName(content, job.format, (options || undefined) as ExportOptions | undefined);
+      const fileName = this.generateFileName(
+        content,
+        job.format,
+        (options || undefined) as ExportOptions | undefined,
+      );
       const filePath = await this.saveFile(jobId, buffer, fileName);
       await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 95);
 
@@ -255,6 +294,17 @@ export class ExportOrchestratorService {
       const expiresAt = new Date(
         Date.now() + this.urlExpireHours * 60 * 60 * 1000,
       );
+
+      // 5.5 清理大型 WYSIWYG 数据，避免数据库膨胀
+      if (exportOptions.wysiwygHtml || exportOptions.wysiwygCss) {
+        const cleanOptions = { ...(job.options as Record<string, unknown>) };
+        delete cleanOptions.wysiwygHtml;
+        delete cleanOptions.wysiwygCss;
+        await this.prisma.exportJob.update({
+          where: { id: jobId },
+          data: { options: cleanOptions as Prisma.InputJsonValue },
+        });
+      }
 
       // 6. 完成
       await this.prisma.exportJob.update({
@@ -319,11 +369,18 @@ export class ExportOrchestratorService {
       case "REPORT":
         return { type: "REPORT", reportId: job.sourceId || "" };
       case "RAW": {
-        const sourceData = job.sourceData as { content: string; contentType: string; title?: string } | null;
+        const sourceData = job.sourceData as {
+          content: string;
+          contentType: string;
+          title?: string;
+        } | null;
         return {
           type: "RAW",
           content: sourceData?.content || "",
-          contentType: (sourceData?.contentType || "text") as "markdown" | "html" | "json",
+          contentType: (sourceData?.contentType || "text") as
+            | "markdown"
+            | "html"
+            | "json",
           title: sourceData?.title,
         };
       }
@@ -335,6 +392,14 @@ export class ExportOrchestratorService {
           topicId: sourceData?.topicId || "",
         };
       }
+      case "PLANNING":
+        return { type: "PLANNING", planId: job.sourceId || "" };
+      case "WRITING":
+        return { type: "WRITING", sessionId: job.sourceId || "" };
+      case "SOCIAL":
+        return { type: "SOCIAL", contentId: job.sourceId || "" };
+      case "SLIDES":
+        return { type: "SLIDES", sessionId: job.sourceId || "" };
       default:
         throw new Error(`Unknown source type: ${job.sourceType}`);
     }
@@ -363,10 +428,9 @@ export class ExportOrchestratorService {
     options?: ExportOptions,
   ): string {
     if (options?.fileName) {
+      const safeName = path.basename(options.fileName);
       const ext = FILE_EXTENSIONS[format];
-      return options.fileName.endsWith(ext)
-        ? options.fileName
-        : `${options.fileName}${ext}`;
+      return safeName.endsWith(ext) ? safeName : `${safeName}${ext}`;
     }
 
     // 从标题生成文件名
@@ -387,9 +451,17 @@ export class ExportOrchestratorService {
     buffer: Buffer,
     fileName: string,
   ): Promise<string> {
-    const filePath = path.join(this.exportDir, jobId, fileName);
-    const dir = path.dirname(filePath);
+    const safeFileName = path.basename(fileName);
+    const filePath = path.join(this.exportDir, jobId, safeFileName);
 
+    // 验证路径在导出目录范围内
+    const resolvedPath = path.resolve(filePath);
+    const resolvedExportDir = path.resolve(this.exportDir);
+    if (!resolvedPath.startsWith(resolvedExportDir)) {
+      throw new Error("Invalid file path detected");
+    }
+
+    const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(filePath, buffer);
 
@@ -459,10 +531,16 @@ export class ExportOrchestratorService {
     for (const job of expiredJobs) {
       try {
         if (job.filePath) {
-          await fs.rm(path.dirname(job.filePath), {
-            recursive: true,
-            force: true,
-          });
+          const dir = path.dirname(job.filePath);
+          const resolvedDir = path.resolve(dir);
+          const resolvedExportDir = path.resolve(this.exportDir);
+          if (!resolvedDir.startsWith(resolvedExportDir)) {
+            this.logger.warn(
+              `Suspicious filePath for job ${job.id}: ${job.filePath}`,
+            );
+            continue;
+          }
+          await fs.rm(dir, { recursive: true, force: true });
         }
 
         await this.prisma.exportJob.update({

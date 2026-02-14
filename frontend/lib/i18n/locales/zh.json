@@ -1055,7 +1055,11 @@
       "update": "更新",
       "cancel": "取消",
       "cancelSuccess": "已取消当前阶段",
-      "exportShort": "导出"
+      "exportShort": "导出",
+      "replan": "重新策划",
+      "replanSuccess": "已启动重新策划",
+      "retryThisPhase": "重试此阶段",
+      "exportReport": "导出报告"
     },
     "templates": {
       "general": "通用策划",
@@ -1096,7 +1100,22 @@
       "retryFailed": "重试阶段失败",
       "cancelFailed": "取消阶段失败",
       "exportFailed": "导出失败",
-      "updateFailed": "更新策划失败"
+      "updateFailed": "更新策划失败",
+      "replanFailed": "重新策划失败",
+      "noteFailed": "备注保存失败"
+    },
+    "replan": {
+      "title": "重新策划",
+      "description": "从选定阶段开始，该阶段及后续阶段将被重新执行。前序阶段的已有成果将保留作为上下文输入。",
+      "selectPhase": "选择重新策划的起始阶段",
+      "resetAll": "重置全部",
+      "reSearch": "重新搜索",
+      "rewriteOnly": "仅重写报告",
+      "willRedo": "将被重新执行",
+      "willKeep": "保留已有成果",
+      "confirm": "确认重新策划",
+      "hint": "选择越早的阶段，重新策划的范围越大，耗时越长。",
+      "activePhaseError": "有阶段正在执行中，请先取消后再重新策划"
     },
     "signIn": "请登录以访问 AI 策划",
     "signInRequired": "请登录以访问 AI 策划",
@@ -1149,7 +1168,9 @@
       "planCreated": "策划已创建",
       "phaseStarted": "已启动",
       "phaseCompleted": "已完成",
-      "inputPlaceholder": "输入消息与策划团队对话...",
+      "inputPlaceholder": "添加策划笔记...",
+      "noteHint": "笔记将记录在活动日志中，不会影响 AI 策划流程",
+      "noteSaved": "笔记已保存",
       "user": "用户",
       "phaseDescription": "阶段说明",
       "participatingAgents": "参与 Agent",
@@ -6178,6 +6199,35 @@
       "recommended": "(推荐)",
       "stepProgress": "第 {{current}} / {{total}} 步",
       "startGeneration": "开始生成"
+    }
+  },
+  "export": {
+    "dialogTitle": "导出文档",
+    "format": "格式",
+    "renderMode": "渲染模式",
+    "options": "选项",
+    "pageSize": "页面大小",
+    "orientation": "方向",
+    "portrait": "纵向",
+    "landscape": "横向",
+    "wysiwyg": "所见即所得",
+    "wysiwygDesc": "截图模式，完全匹配屏幕显示",
+    "wysiwygHint": "按照屏幕显示效果导出",
+    "editable": "可编辑",
+    "editableDesc": "程序化生成，可在 Office 中编辑",
+    "editableHint": "导出为可编辑文档",
+    "optCover": "封面页",
+    "optToc": "目录",
+    "optReferences": "参考文献",
+    "optPageNumbers": "页码",
+    "exporting": "导出中...",
+    "success": "导出完成",
+    "captureFallback": "所见即所得截图失败，已切换为可编辑模式",
+    "formats": {
+      "pdfDesc": "适合查看和打印",
+      "docxDesc": "可编辑的 Word 文档",
+      "pptxDesc": "演示文稿幻灯片",
+      "htmlDesc": "独立网页文件"
     }
   }
 }

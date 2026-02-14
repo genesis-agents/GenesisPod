@@ -14,6 +14,7 @@ import { ExportOrchestratorService } from "./services/export-orchestrator.servic
 import { ContentTransformerService } from "./services/content-transformer.service";
 import { TemplateManagerService } from "./services/template-manager.service";
 import { MissionTransformerService } from "./services/mission-transformer.service";
+import { WysiwygRenderService } from "./services/wysiwyg-render.service";
 
 // Renderers
 import { RENDERER_TOKEN } from "./renderers/renderer.interface";
@@ -37,6 +38,7 @@ import { PrismaModule } from "../../common/prisma/prisma.module";
     ContentTransformerService,
     TemplateManagerService,
     MissionTransformerService,
+    WysiwygRenderService,
 
     // Renderers
     PdfRenderer,
@@ -81,6 +83,7 @@ import { PrismaModule } from "../../common/prisma/prisma.module";
     ContentTransformerService,
     TemplateManagerService,
     MissionTransformerService,
+    WysiwygRenderService,
   ],
 })
 export class ExportModule {}

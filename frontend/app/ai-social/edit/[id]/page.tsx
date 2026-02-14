@@ -22,9 +22,11 @@ import {
   AlertCircle,
   Eye,
   Code,
+  Download,
 } from 'lucide-react';
 import { VersionTabs } from '@/components/ai-social/create/VersionTabs';
 import { SocialPlatformType } from '@/lib/api/ai-social';
+import { ExportDialog } from '@/components/common/ExportDialog';
 
 export default function EditSocialContentPage() {
   const { t } = useTranslation();
@@ -59,6 +61,9 @@ export default function EditSocialContentPage() {
   // Platform version state
   const [selectedPlatform, setSelectedPlatform] =
     useState<SocialPlatformType>('WECHAT_MP');
+
+  // Export dialog state
+  const [showExport, setShowExport] = useState(false);
 
   // Client-side mount state to avoid hydration mismatch with DOMPurify
   const [mounted, setMounted] = useState(false);
@@ -331,6 +336,7 @@ export default function EditSocialContentPage() {
                   ) : (
                     /* Preview */
                     <div
+                      data-export-content="social"
                       className="max-h-[calc(100vh-400px)] min-h-[500px] overflow-auto rounded-lg border border-gray-200 bg-white p-6"
                       style={{
                         fontFamily:
@@ -457,47 +463,70 @@ export default function EditSocialContentPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-3 border-t pt-6">
+              <div className="flex items-center justify-between border-t pt-6">
                 <button
-                  onClick={handleBack}
-                  disabled={isSaving}
-                  className="rounded-lg border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  onClick={() => setShowExport(true)}
+                  disabled={!title || !content}
+                  className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {t('common.back')}
+                  <Download className="h-4 w-4" />
+                  {t('common.export')}
                 </button>
-                <button
-                  onClick={handleSave}
-                  disabled={!title || !content || isSaving}
-                  className="flex items-center gap-2 rounded-lg border border-rose-200 px-6 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {contentLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  {t('aiSocial.edit.save')}
-                </button>
-                {/* Publish button - always visible */}
-                <button
-                  onClick={handlePublish}
-                  disabled={!title || !content || isSaving}
-                  className="flex items-center gap-2 rounded-lg bg-rose-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {publishLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : currentContent.status === 'FAILED' ? (
-                    <RefreshCw className="h-4 w-4" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                  {currentContent.status === 'FAILED'
-                    ? t('aiSocial.edit.retry') || 'Retry Publish'
-                    : t('aiSocial.edit.publish')}
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleBack}
+                    disabled={isSaving}
+                    className="rounded-lg border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {t('common.back')}
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={!title || !content || isSaving}
+                    className="flex items-center gap-2 rounded-lg border border-rose-200 px-6 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {contentLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    {t('aiSocial.edit.save')}
+                  </button>
+                  {/* Publish button - always visible */}
+                  <button
+                    onClick={handlePublish}
+                    disabled={!title || !content || isSaving}
+                    className="flex items-center gap-2 rounded-lg bg-rose-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {publishLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : currentContent.status === 'FAILED' ? (
+                      <RefreshCw className="h-4 w-4" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    {currentContent.status === 'FAILED'
+                      ? t('aiSocial.edit.retry') || 'Retry Publish'
+                      : t('aiSocial.edit.publish')}
+                  </button>
+                </div>
               </div>
             </div>
           )}
         </div>
+
+        {/* Export Dialog */}
+        {currentContent && (
+          <ExportDialog
+            isOpen={showExport}
+            onClose={() => setShowExport(false)}
+            contentSelector="[data-export-content='social']"
+            contentTitle={title || currentContent.title}
+            moduleType="social"
+            sourceId={contentId}
+            availableFormats={['PDF', 'DOCX', 'HTML']}
+          />
+        )}
       </main>
     </AppShell>
   );

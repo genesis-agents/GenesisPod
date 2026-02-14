@@ -32,7 +32,11 @@ export type ExportSource =
   | ResearchSource
   | ReportSource
   | RawSource
-  | MissionSource;
+  | MissionSource
+  | PlanningSource
+  | WritingSource
+  | SocialSource
+  | SlidesSource;
 
 export interface DocumentSource {
   type: "DOCUMENT";
@@ -60,6 +64,26 @@ export interface MissionSource {
   type: "MISSION";
   missionId: string;
   topicId: string;
+}
+
+export interface PlanningSource {
+  type: "PLANNING";
+  planId: string;
+}
+
+export interface WritingSource {
+  type: "WRITING";
+  sessionId: string;
+}
+
+export interface SocialSource {
+  type: "SOCIAL";
+  contentId: string;
+}
+
+export interface SlidesSource {
+  type: "SLIDES";
+  sessionId: string;
 }
 
 // ==================== 导出选项 ====================
@@ -90,6 +114,11 @@ export interface ExportOptions {
   // Mission 导出专用选项
   // 简化模式：只导出核心结果，跳过详细的任务执行报告和附录
   simplifiedMode?: boolean;
+
+  // WYSIWYG 导出选项
+  renderMode?: "wysiwyg" | "editable";
+  wysiwygHtml?: string;
+  wysiwygCss?: string;
 }
 
 // ==================== 导出响应 ====================

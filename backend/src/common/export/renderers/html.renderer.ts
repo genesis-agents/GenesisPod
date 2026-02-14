@@ -832,6 +832,30 @@ export class HtmlRenderer implements ExportRenderer {
   }
 
   /**
+   * WYSIWYG 模式：包装前端捕获的 HTML+CSS 为独立文件
+   */
+  async renderFromHtml(
+    capturedHtml: string,
+    capturedCss: string,
+    title: string,
+  ): Promise<Buffer> {
+    const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${this.escapeHtml(title)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>${capturedCss}</style>
+</head>
+<body>
+  ${capturedHtml}
+</body>
+</html>`;
+    return Buffer.from(html, "utf-8");
+  }
+
+  /**
    * 生成 slug
    */
   private slugify(text: string): string {

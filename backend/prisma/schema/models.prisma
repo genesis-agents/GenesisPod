@@ -3484,6 +3484,10 @@ enum ExportSourceType {
   REPORT // Content Report
   RAW // 原始内容 (Markdown/JSON)
   MISSION // AI Teams 任务报告
+  PLANNING // AI Planning 规划报告
+  WRITING // AI Writing 写作文档
+  SOCIAL // AI Social 社交内容
+  SLIDES // AI Slides 演示文稿
 }
 
 enum ExportFormat {

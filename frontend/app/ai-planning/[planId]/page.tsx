@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Settings } from 'lucide-react';
+import { ChevronLeft, Download, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAiPlanningStore } from '@/stores/aiPlanningStore';
 import AppShell from '@/components/layout/AppShell';
@@ -12,11 +12,10 @@ import {
   PlanContentPanel,
   type PlanContentTabType,
 } from '@/components/ai-planning/PlanContentPanel';
-import PlanExportDialog from '@/components/ai-planning/PlanExportDialog';
+import { ExportDialog } from '@/components/common/ExportDialog';
 import PlanSettingsModal from '@/components/ai-planning/PlanSettingsModal';
 import { useTranslation } from '@/lib/i18n';
 import { toast } from '@/stores';
-import * as api from '@/lib/api/ai-planning';
 
 export default function PlanDetailPage() {
   const { t } = useTranslation();
@@ -31,13 +30,13 @@ export default function PlanDetailPage() {
     updatePlan,
     advancePhase,
     retryPhase,
+    replanFromPhase,
     cancelPhase,
     deletePlan,
   } = useAiPlanningStore();
 
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [showExport, setShowExport] = useState(false);
-  const [exportMarkdown, setExportMarkdown] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [phaseError, setPhaseError] = useState<string | null>(null);
@@ -129,6 +128,22 @@ export default function PlanDetailPage() {
     }
   };
 
+  const handleReplan = async (startPhase: number) => {
+    if (!planId) return;
+    setPhaseError(null);
+    try {
+      await replanFromPhase(planId, startPhase);
+      toast.success(t('aiPlanning.actions.replanSuccess'));
+    } catch (error) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : t('aiPlanning.error.replanFailed');
+      setPhaseError(msg);
+      toast.error(msg);
+    }
+  };
+
   const handleCancel = async () => {
     if (!planId) return;
     setPhaseError(null);
@@ -145,19 +160,8 @@ export default function PlanDetailPage() {
     }
   };
 
-  const handleExport = async () => {
-    if (!planId) return;
-    try {
-      const markdown = await api.exportPlan(planId);
-      setExportMarkdown(markdown);
-      setShowExport(true);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t('aiPlanning.error.exportFailed')
-      );
-    }
+  const handleExport = () => {
+    setShowExport(true);
   };
 
   const handleDelete = async () => {
@@ -286,6 +290,17 @@ export default function PlanDetailPage() {
                 </span>
               </div>
             )}
+            {/* Export */}
+            {currentPlan.phaseStatus[currentPlan.totalPhases]?.status ===
+              'completed' && (
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-800"
+              >
+                <Download className="h-4 w-4" />
+                {t('aiPlanning.actions.exportShort')}
+              </button>
+            )}
             {/* Settings */}
             <button
               onClick={() => setShowSettings(true)}
@@ -379,6 +394,7 @@ export default function PlanDetailPage() {
                     onStart={handleAdvance}
                     onAdvance={handleAdvance}
                     onRetry={handleRetry}
+                    onReplan={handleReplan}
                     onCancel={handleCancel}
                     onPhaseSelect={handlePhaseSelect}
                     onDepthChange={handleDepthChange}
@@ -398,19 +414,23 @@ export default function PlanDetailPage() {
               onTabChange={setContentTab}
               selectedPhase={selectedPhase}
               onPhaseDeselect={() => setSelectedPhase(null)}
+              onExport={handleExport}
+              onRetryPhase={handleRetry}
             />
           </div>
         </div>
       </div>
 
       {/* Export dialog */}
-      {showExport && (
-        <PlanExportDialog
-          markdown={exportMarkdown}
-          planName={currentPlan.name}
-          onClose={() => setShowExport(false)}
-        />
-      )}
+      <ExportDialog
+        isOpen={showExport}
+        onClose={() => setShowExport(false)}
+        contentSelector="[data-export-content='planning']"
+        contentTitle={currentPlan.name}
+        moduleType="planning"
+        sourceId={planId}
+        availableFormats={['PDF', 'DOCX', 'PPTX', 'HTML']}
+      />
 
       {/* Settings modal */}
       {showSettings && (

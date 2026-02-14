@@ -62,8 +62,18 @@ export class ContentTransformerService {
           source.missionId,
           options?.simplifiedMode,
         );
+      case "PLANNING":
+        return this.transformPlanning(source.planId);
+      case "WRITING":
+        return this.transformWriting(source.sessionId);
+      case "SOCIAL":
+        return this.transformSocial(source.contentId);
+      case "SLIDES":
+        return this.transformSlides(source.sessionId);
       default:
-        throw new Error(`Unsupported source type: ${(source as { type: string }).type}`);
+        throw new Error(
+          `Unsupported source type: ${(source as { type: string }).type}`,
+        );
     }
   }
 
@@ -137,7 +147,10 @@ export class ContentTransformerService {
       const report = session.report as Record<string, unknown>;
 
       // 执行摘要
-      if (report.executiveSummary && typeof report.executiveSummary === "string") {
+      if (
+        report.executiveSummary &&
+        typeof report.executiveSummary === "string"
+      ) {
         sections.push({
           id: "executive-summary",
           type: "heading",
@@ -370,9 +383,13 @@ export class ContentTransformerService {
           sections.push({
             id,
             type: "table",
-            headers: token.header.map((h: Record<string, unknown>) => h.text as string),
+            headers: token.header.map(
+              (h: Record<string, unknown>) => h.text as string,
+            ),
             rows: token.rows.map((row: Array<Record<string, unknown>>) => ({
-              cells: row.map((cell: Record<string, unknown>) => cell.text as string),
+              cells: row.map(
+                (cell: Record<string, unknown>) => cell.text as string,
+              ),
             })),
           });
           break;
@@ -409,24 +426,27 @@ export class ContentTransformerService {
   /**
    * 解析列表项
    */
-  private parseListItems(
-    items: Array<Record<string, unknown>>,
-  ): ListItem[] {
+  private parseListItems(items: Array<Record<string, unknown>>): ListItem[] {
     return items.map((item) => ({
       content: typeof item.text === "string" ? item.text : "",
-      children: Array.isArray(item.items) ? this.parseListItems(item.items) : undefined,
+      children: Array.isArray(item.items)
+        ? this.parseListItems(item.items)
+        : undefined,
     }));
   }
 
   /**
    * 解析结构化内容
    */
-  private parseStructuredContent(sections: Array<Record<string, unknown>>): ContentSection[] {
+  private parseStructuredContent(
+    sections: Array<Record<string, unknown>>,
+  ): ContentSection[] {
     return sections.map((section, index) => {
       const baseSection: ContentSection = {
         id: typeof section.id === "string" ? section.id : `section-${index}`,
         type: (section.type as ContentType) || "paragraph",
-        content: typeof section.content === "string" ? section.content : undefined,
+        content:
+          typeof section.content === "string" ? section.content : undefined,
         level: typeof section.level === "number" ? section.level : undefined,
       };
 
@@ -446,5 +466,252 @@ export class ContentTransformerService {
 
       return baseSection;
     });
+  }
+
+  /**
+   * 转换 AI Planning 规划报告
+   * Planning 使用 Topic 模型（表 topics），计划数据存储在 topic.metadata JSON 字段中
+   */
+  private async transformPlanning(planId: string): Promise<UnifiedContent> {
+    const topic = await this.prisma.topic.findFirst({
+      where: {
+        id: planId,
+        metadata: { path: ["planningMode"], equals: true },
+      },
+    });
+
+    if (!topic) {
+      throw new NotFoundException(`Planning not found: ${planId}`);
+    }
+
+    const meta = (topic.metadata as Record<string, unknown>) || {};
+    const phaseOutputs = (meta.phaseOutputs || {}) as Record<string, unknown>;
+
+    const metadata: ContentMetadata = {
+      title: topic.name,
+      subtitle: topic.description || undefined,
+      date: topic.updatedAt,
+      language: "zh-CN",
+    };
+
+    const sections: ContentSection[] = [];
+
+    // 从各阶段输出中提取报告内容
+    for (const [phaseKey, output] of Object.entries(phaseOutputs)) {
+      const phaseOutput = output as Record<string, unknown>;
+      const report = phaseOutput.report;
+      if (typeof report === "string") {
+        sections.push({
+          id: `phase-${phaseKey}`,
+          type: "heading",
+          content: `Phase ${phaseKey}`,
+          level: 1,
+        });
+        sections.push(...this.parseMarkdown(report));
+      }
+    }
+
+    // 如果没有阶段报告，尝试从 metadata.deliveryReport 获取
+    if (sections.length === 0) {
+      const deliveryReport = meta.deliveryReport;
+      if (typeof deliveryReport === "string") {
+        sections.push(...this.parseMarkdown(deliveryReport));
+      }
+    }
+
+    return {
+      metadata,
+      sections:
+        sections.length > 0
+          ? sections
+          : [
+              {
+                id: "empty",
+                type: "paragraph",
+                content: "暂无报告内容",
+              },
+            ],
+      tableOfContents: { enabled: true, maxDepth: 3 },
+    };
+  }
+
+  /**
+   * 转换 AI Writing 写作项目
+   * Writing 使用 WritingProject 模型（表 writing_projects），包含卷和章节
+   */
+  private async transformWriting(sessionId: string): Promise<UnifiedContent> {
+    const project = await this.prisma.writingProject.findUnique({
+      where: { id: sessionId },
+      include: {
+        volumes: {
+          include: {
+            chapters: {
+              orderBy: { chapterNumber: "asc" },
+            },
+          },
+          orderBy: { volumeNumber: "asc" },
+        },
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException(`Writing project not found: ${sessionId}`);
+    }
+
+    const metadata: ContentMetadata = {
+      title: project.name,
+      subtitle: project.description || undefined,
+      author: undefined,
+      date: project.updatedAt,
+      language: "zh-CN",
+    };
+
+    const sections: ContentSection[] = [];
+
+    for (const volume of project.volumes) {
+      // 卷标题
+      sections.push({
+        id: `volume-${volume.id}`,
+        type: "heading",
+        content: volume.title || `卷 ${volume.volumeNumber}`,
+        level: 1,
+      });
+
+      for (const chapter of volume.chapters) {
+        // 章节标题
+        sections.push({
+          id: `chapter-${chapter.id}`,
+          type: "heading",
+          content: chapter.title,
+          level: 2,
+        });
+
+        // 章节内容
+        if (chapter.content) {
+          sections.push(...this.parseMarkdown(chapter.content));
+        }
+      }
+    }
+
+    return {
+      metadata,
+      sections:
+        sections.length > 0
+          ? sections
+          : [
+              {
+                id: "empty",
+                type: "paragraph",
+                content: "暂无写作内容",
+              },
+            ],
+    };
+  }
+
+  /**
+   * 转换 AI Social 社交内容
+   * Social 使用 SocialContent 模型（表 social_contents）
+   */
+  private async transformSocial(contentId: string): Promise<UnifiedContent> {
+    const socialContent = await this.prisma.socialContent.findUnique({
+      where: { id: contentId },
+      include: {
+        connection: true,
+      },
+    });
+
+    if (!socialContent) {
+      throw new NotFoundException(`Social content not found: ${contentId}`);
+    }
+
+    const metadata: ContentMetadata = {
+      title: socialContent.title || "社交内容",
+      subtitle: socialContent.contentType
+        ? `类型: ${socialContent.contentType}`
+        : undefined,
+      author: socialContent.author || undefined,
+      date: socialContent.createdAt,
+      language: "zh-CN",
+    };
+
+    const sections: ContentSection[] = [];
+    if (socialContent.content) {
+      sections.push(...this.parseMarkdown(socialContent.content));
+    }
+
+    return { metadata, sections };
+  }
+
+  /**
+   * 转换 AI Slides 演示文稿
+   * Slides 使用 SlidesSession 模型（表 slides_sessions）和 SlidesCheckpoint
+   */
+  private async transformSlides(sessionId: string): Promise<UnifiedContent> {
+    const session = await this.prisma.slidesSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        checkpoints: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException(`Slides session not found: ${sessionId}`);
+    }
+
+    const metadata: ContentMetadata = {
+      title: session.title || "演示文稿",
+      date: session.updatedAt,
+      language: "zh-CN",
+    };
+
+    const sections: ContentSection[] = [];
+
+    // 从最新检查点提取幻灯片内容
+    if (session.checkpoints.length > 0) {
+      const checkpoint = session.checkpoints[0];
+      const state = checkpoint.stateJson as Record<string, unknown>;
+      const slides = (state.slides || state.pages) as
+        | Array<Record<string, unknown>>
+        | undefined;
+
+      if (Array.isArray(slides)) {
+        for (const slide of slides) {
+          if (typeof slide.title === "string") {
+            sections.push({
+              id: `slide-${slide.id || sections.length}`,
+              type: "heading",
+              content: slide.title,
+              level: 2,
+            });
+          }
+          if (typeof slide.content === "string") {
+            sections.push(...this.parseMarkdown(slide.content));
+          } else if (typeof slide.notes === "string") {
+            sections.push({
+              id: `slide-notes-${sections.length}`,
+              type: "paragraph",
+              content: slide.notes,
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      metadata,
+      sections:
+        sections.length > 0
+          ? sections
+          : [
+              {
+                id: "empty",
+                type: "paragraph",
+                content: "暂无幻灯片内容",
+              },
+            ],
+    };
   }
 }
