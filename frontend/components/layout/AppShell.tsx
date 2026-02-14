@@ -2,6 +2,7 @@
 
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
+import VersionUpdateBanner from './VersionUpdateBanner';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -30,12 +31,17 @@ export default function AppShell({
       {!hideSidebar && <MobileNav />}
 
       {/* Main Layout Container */}
-      <div className={`flex h-screen bg-gray-50 ${className}`}>
-        {/* Desktop Sidebar - Hidden on mobile, or when hideSidebar is true */}
-        {!hideSidebar && <Sidebar />}
+      <div className={`flex h-screen flex-col bg-gray-50 ${className}`}>
+        {/* Version Update Banner */}
+        <VersionUpdateBanner />
 
-        {/* Main Content */}
-        {children}
+        <div className="flex min-h-0 flex-1">
+          {/* Desktop Sidebar - Hidden on mobile, or when hideSidebar is true */}
+          {!hideSidebar && <Sidebar />}
+
+          {/* Main Content */}
+          {children}
+        </div>
       </div>
     </>
   );

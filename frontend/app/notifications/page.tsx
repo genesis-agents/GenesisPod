@@ -5,6 +5,7 @@ import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { useSettingsStore, type Notification } from '@/stores';
 import ClientDate from '@/components/common/ClientDate';
+import { useRouter } from 'next/navigation';
 import {
   Bell,
   BellOff,
@@ -25,6 +26,7 @@ export default function Notifications() {
     deleteNotification,
     clearAllNotifications,
   } = useSettingsStore();
+  const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [mounted, setMounted] = useState(false);
 
@@ -199,10 +201,18 @@ export default function Notifications() {
                   <div
                     key={notification.id}
                     className={`group rounded-lg border bg-white p-4 transition-all hover:shadow-md ${
+                      notification.actionUrl ? 'cursor-pointer' : ''
+                    } ${
                       !notification.read
                         ? 'border-violet-200 bg-violet-50/30'
                         : 'border-gray-200'
                     }`}
+                    onClick={() => {
+                      if (notification.actionUrl) {
+                        markAsRead(notification.id);
+                        router.push(notification.actionUrl);
+                      }
+                    }}
                   >
                     <div className="flex items-start gap-4">
                       {getNotificationIcon(notification.type)}
@@ -239,7 +249,10 @@ export default function Notifications() {
                           {notification.actionUrl && (
                             <Link
                               href={notification.actionUrl}
-                              onClick={() => markAsRead(notification.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(notification.id);
+                              }}
                               className="text-sm font-medium text-violet-600 hover:text-violet-700"
                             >
                               View
@@ -247,7 +260,10 @@ export default function Notifications() {
                           )}
                           {!notification.read && (
                             <button
-                              onClick={() => markAsRead(notification.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(notification.id);
+                              }}
                               className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-700"
                             >
                               <Check className="h-3.5 w-3.5" />
@@ -255,7 +271,10 @@ export default function Notifications() {
                             </button>
                           )}
                           <button
-                            onClick={() => deleteNotification(notification.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteNotification(notification.id);
+                            }}
                             className="flex items-center gap-1 text-sm font-medium text-gray-400 opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
