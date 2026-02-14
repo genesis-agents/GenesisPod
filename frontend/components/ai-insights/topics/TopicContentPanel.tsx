@@ -12,10 +12,9 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Shield, Maximize2, X, RefreshCw, Zap } from 'lucide-react';
+import { Shield, Maximize2, X, RefreshCw, Zap, Link2 } from 'lucide-react';
 import { QuickViewReport } from '../reports/QuickViewReport';
 import { ClientDate } from '@/components/common/ClientDate';
-import { formatDateSafe } from '@/lib/utils/date';
 import { useI18n } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import type {
@@ -152,7 +151,7 @@ interface TopicContentPanelProps {
   evidence: TopicEvidence[];
   isLoadingReport: boolean;
   isLoadingEvidence: boolean;
-  onExportReport?: (format: 'pdf' | 'docx') => void;
+  onExportReport?: () => void;
   researchEvents?: ResearchEvent[];
   agentThinkings?: AgentThinking[];
   /** Report revisions for version selection */
@@ -423,7 +422,6 @@ export function TopicContentPanel({
       setActiveTab('report');
     }
   }, [initialView]);
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [versionMenuOpen, setVersionMenuOpen] = useState(false);
   // Toast 提示状态
   const [toast, setToast] = useState<{
@@ -504,262 +502,6 @@ export function TopicContentPanel({
     fullContent: report?.fullReport,
   });
 
-  // ★ 前端导出功能（参考 AI Writing 实现）
-  // 生成报告的 Markdown 内容（从 dimensionAnalyses 和 highlights 组合）
-  const getReportTextContent = useCallback(
-    (includeReferences = true) => {
-      if (!report) return '';
-
-      const parts: string[] = [];
-
-      // 标题
-      if (report.title) {
-        parts.push(`# ${report.title}\n\n`);
-      }
-
-      // Summary
-      if (report.summary) {
-        parts.push(
-          `## ${t('topicResearch.contentPanel.export.summary')}\n\n${report.summary}\n\n`
-        );
-      }
-
-      // Key Findings
-      if (report.highlights && report.highlights.length > 0) {
-        const validHighlights = report.highlights.filter(
-          (h) => h.content && h.content.trim().length > 20
-        );
-        if (validHighlights.length > 0) {
-          parts.push(
-            `## ${t('topicResearch.contentPanel.export.keyFindings')}\n\n`
-          );
-          validHighlights.forEach((h, idx) => {
-            if (h.title) {
-              parts.push(`### ${idx + 1}. ${h.title}\n\n${h.content}\n\n`);
-            } else {
-              parts.push(`${h.content}\n\n`);
-            }
-          });
-        }
-      }
-
-      // Dimension Analysis
-      if (report.dimensionAnalyses && report.dimensionAnalyses.length > 0) {
-        report.dimensionAnalyses.forEach((analysis) => {
-          const content = analysis.detailedContent || analysis.summary;
-          if (content && content.trim().length > 20) {
-            const title =
-              analysis.dimension?.name ||
-              `${t('topicResearch.contentPanel.dimension')} ${analysis.dimensionId}`;
-            parts.push(`## ${title}\n\n${content}\n\n`);
-          }
-        });
-      }
-
-      // References
-      if (includeReferences && evidence && evidence.length > 0) {
-        parts.push(
-          `## ${t('topicResearch.contentPanel.export.references')}\n\n`
-        );
-        evidence.forEach((ev, idx) => {
-          const title =
-            ev.title || t('topicResearch.contentPanel.export.untitledSource');
-          const url = ev.url || '';
-          if (url) {
-            parts.push(`${idx + 1}. [${title}](${url})\n`);
-          } else {
-            parts.push(`${idx + 1}. ${title}\n`);
-          }
-        });
-        parts.push('\n');
-      }
-
-      return parts.join('');
-    },
-    [report, evidence]
-  );
-
-  // 导出为 Markdown
-  const handleExportMarkdown = useCallback(() => {
-    if (!report) return;
-    const content = getReportTextContent();
-    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${report.title || t('topicResearch.contentPanel.export.researchReport')}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setExportMenuOpen(false);
-    setToast({
-      message: t('topicResearch.contentPanel.toast.exportedMarkdown'),
-      type: 'success',
-    });
-  }, [report, getReportTextContent]);
-
-  // 导出为纯文本
-  const handleExportTxt = useCallback(() => {
-    if (!report) return;
-    const content = getReportTextContent();
-    // 移除 Markdown 标记
-    const plainText = content
-      .replace(/^#+\s*/gm, '')
-      .replace(/\*\*(.+?)\*\*/g, '$1')
-      .replace(/\*(.+?)\*/g, '$1')
-      .replace(/`(.+?)`/g, '$1')
-      .replace(/\[(.+?)\]\(.+?\)/g, '$1');
-    const blob = new Blob([plainText], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${report.title || t('topicResearch.contentPanel.export.researchReport')}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setExportMenuOpen(false);
-    setToast({
-      message: t('topicResearch.contentPanel.toast.exportedText'),
-      type: 'success',
-    });
-  }, [report, getReportTextContent]);
-
-  // 导出为 HTML（支持点击链接跳转）
-  const handleExportHtml = useCallback(() => {
-    if (!report) return;
-    const content = getReportTextContent();
-    // 转换 Markdown 为 HTML
-    let htmlContent = content;
-    // 标题转换
-    htmlContent = htmlContent.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
-    htmlContent = htmlContent.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-    htmlContent = htmlContent.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-    htmlContent = htmlContent.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-    // 粗体和斜体
-    htmlContent = htmlContent.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    htmlContent = htmlContent.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    // 链接（保留可点击）
-    htmlContent = htmlContent.replace(
-      /\[(.+?)\]\((.+?)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
-    );
-    // 列表
-    htmlContent = htmlContent.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
-    htmlContent = htmlContent.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
-    // 段落
-    htmlContent = htmlContent
-      .split('\n\n')
-      .map((p) => (p.trim() && !p.startsWith('<') ? `<p>${p}</p>` : p))
-      .join('\n');
-
-    const htmlDocument = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${report.title || t('topicResearch.contentPanel.export.researchReport')}</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 40px 20px; line-height: 1.8; color: #333; }
-    h1 { color: #1a1a1a; border-bottom: 2px solid #3b82f6; padding-bottom: 0.3em; }
-    h2 { color: #2563eb; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.2em; margin-top: 1.5em; }
-    h3 { color: #3b82f6; margin-top: 1.2em; }
-    h4 { color: #6b7280; margin-top: 1em; }
-    a { color: #2563eb; text-decoration: none; border-bottom: 1px solid transparent; }
-    a:hover { border-bottom-color: #2563eb; }
-    ul { margin-left: 1.5em; }
-    li { margin-bottom: 0.5em; }
-    p { margin-bottom: 1em; text-align: justify; }
-    blockquote { border-left: 4px solid #3b82f6; padding-left: 1em; margin: 1em 0; color: #6b7280; font-style: italic; }
-    code { background: #f3f4f6; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
-    .footer { margin-top: 3em; padding-top: 1em; border-top: 1px solid #e5e7eb; text-align: center; color: #9ca3af; font-size: 0.9em; }
-    @media print { body { padding: 20px; } .footer { page-break-before: avoid; } }
-  </style>
-</head>
-<body>
-  <h1>${report.title || t('topicResearch.contentPanel.export.researchReport')}</h1>
-  ${htmlContent}
-  <div class="footer">
-    <p>${t('topicResearch.contentPanel.export.generatedBy')} · DeepDive Engine · ${formatDateSafe(new Date(), 'date')}</p>
-  </div>
-</body>
-</html>`;
-
-    const blob = new Blob([htmlDocument], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${report.title || t('topicResearch.contentPanel.export.researchReport')}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setExportMenuOpen(false);
-    setToast({
-      message: t('topicResearch.contentPanel.toast.exportedHtml'),
-      type: 'success',
-    });
-  }, [report, getReportTextContent]);
-
-  // 打印/导出 PDF
-  const handleExportPdf = useCallback(() => {
-    if (!report) return;
-    const content = getReportTextContent();
-    // 转换 Markdown 为 HTML
-    let htmlContent = content;
-    htmlContent = htmlContent.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
-    htmlContent = htmlContent.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-    htmlContent = htmlContent.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-    htmlContent = htmlContent.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-    htmlContent = htmlContent.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    htmlContent = htmlContent.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    htmlContent = htmlContent.replace(
-      /\[(.+?)\]\((.+?)\)/g,
-      '<a href="$2" target="_blank">$1</a>'
-    );
-    htmlContent = htmlContent.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
-    htmlContent = htmlContent.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
-    htmlContent = htmlContent
-      .split('\n\n')
-      .map((p) => (p.trim() && !p.startsWith('<') ? `<p>${p}</p>` : p))
-      .join('\n');
-
-    // 在新窗口打开打印预览
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      setToast({
-        message: t('topicResearch.contentPanel.toast.allowPopup'),
-        type: 'error',
-      });
-      return;
-    }
-
-    printWindow.document.write(`<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <title>${report.title || t('topicResearch.contentPanel.export.researchReport')} - ${t('topicResearch.contentPanel.export.printPreview')}</title>
-  <style>
-    body { font-family: "SimSun", "Songti SC", serif; max-width: 210mm; margin: 0 auto; padding: 20mm; line-height: 1.8; color: #000; }
-    h1 { font-size: 24pt; text-align: center; margin-bottom: 1em; }
-    h2 { font-size: 18pt; margin-top: 1.5em; border-bottom: 1px solid #000; }
-    h3 { font-size: 14pt; margin-top: 1.2em; }
-    h4 { font-size: 12pt; margin-top: 1em; }
-    p { text-indent: 2em; margin-bottom: 0.8em; text-align: justify; }
-    ul { margin-left: 2em; }
-    li { margin-bottom: 0.5em; }
-    a { color: #000; text-decoration: underline; }
-    .print-btn { position: fixed; top: 10px; right: 10px; padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 1000; }
-    .print-btn:hover { background: #2563eb; }
-    @media print { .print-btn { display: none; } body { padding: 0; } }
-  </style>
-</head>
-<body>
-  <button class="print-btn" onclick="window.print()">🖨️ ${t('topicResearch.contentPanel.export.printPdf')}</button>
-  <h1>${report.title || t('topicResearch.contentPanel.export.researchReport')}</h1>
-  ${htmlContent}
-</body>
-</html>`);
-
-    printWindow.document.close();
-    setExportMenuOpen(false);
-  }, [report, getReportTextContent]);
-
   // 复制分享链接 - 指向报告阅读页面（左侧目录+右侧内容布局）
   // ★ 会自动将专题设置为公开，使分享链接可访问
   const handleShareLink = useCallback(async () => {
@@ -803,7 +545,6 @@ export function TopicContentPanel({
         type: 'error',
       });
     }
-    setExportMenuOpen(false);
   }, [report, topicId]);
 
   // 自动隐藏 toast
@@ -1789,81 +1530,37 @@ export function TopicContentPanel({
                 <Maximize2 className="h-4 w-4" />
               </button>
 
-              {/* 导出下拉菜单 */}
+              {/* 导出按钮 - 使用统一导出服务 */}
+              {report && onExportReport && (
+                <button
+                  onClick={onExportReport}
+                  className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                  title={t('topicResearch.contentPanel.export')}
+                >
+                  <DownloadIcon className="h-4 w-4" />
+                </button>
+              )}
+
+              {/* 分享链接按钮 */}
               {report && (
-                <div className="relative">
-                  <button
-                    onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                    className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                    title={t('topicResearch.contentPanel.export')}
-                  >
-                    <DownloadIcon className="h-4 w-4" />
-                  </button>
-                  {exportMenuOpen && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setExportMenuOpen(false)}
-                      />
-                      <div className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
-                        <button
-                          onClick={handleExportMarkdown}
-                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          <span className="text-base">📝</span>
-                          Markdown (.md)
-                        </button>
-                        <button
-                          onClick={handleExportTxt}
-                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          <span className="text-base">📄</span>
-                          {t('topicResearch.contentPanel.plainTextExport')}
-                        </button>
-                        <button
-                          onClick={handleExportHtml}
-                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          <span className="text-base">🌐</span>
-                          {t('topicResearch.contentPanel.webPageExport')}
-                        </button>
-                        <button
-                          onClick={handleExportPdf}
-                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          <span className="text-base">📑</span>
-                          {t('topicResearch.contentPanel.printPdfExport')}
-                        </button>
-                        <div className="border-t border-gray-100" />
-                        <button
-                          onClick={handleShareLink}
-                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          <span className="text-base">🔗</span>
-                          {t('topicResearch.contentPanel.copyShareLinkExport')}
-                        </button>
-                        {/* Delete option with divider */}
-                        {onDeleteReport && (
-                          <>
-                            <div className="border-t border-gray-100" />
-                            <button
-                              onClick={() => {
-                                setExportMenuOpen(false);
-                                setShowDeleteConfirm(true);
-                              }}
-                              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                              {t(
-                                'topicResearch.contentPanel.deleteReportButton'
-                              )}
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
+                <button
+                  onClick={handleShareLink}
+                  className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                  title={t('topicResearch.contentPanel.copyShareLinkExport')}
+                >
+                  <Link2 className="h-4 w-4" />
+                </button>
+              )}
+
+              {/* 删除报告按钮 */}
+              {report && onDeleteReport && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="rounded p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"
+                  title={t('topicResearch.contentPanel.deleteReportButton')}
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
               )}
             </div>
           </div>
