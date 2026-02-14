@@ -17,7 +17,9 @@ import {
 } from "../types/unified-content";
 import { ThemeConfig, LayoutConfig } from "../types/theme-config";
 import { ExportOptions } from "../types/export-options";
-import PptxGenJS from "pptxgenjs";
+import type PptxGenJSType from "pptxgenjs";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const PptxGenJS: new () => PptxGenJSType = require("pptxgenjs");
 
 @Injectable()
 export class PptxRenderer implements ExportRenderer {
@@ -94,7 +96,7 @@ export class PptxRenderer implements ExportRenderer {
   /**
    * 定义母版幻灯片
    */
-  private defineMasterSlide(pptx: PptxGenJS, theme: ThemeConfig): void {
+  private defineMasterSlide(pptx: PptxGenJSType, theme: ThemeConfig): void {
     pptx.defineSlideMaster({
       title: "MASTER_SLIDE",
       background: { color: this.hexToPptx(theme.colors.background) },
@@ -131,7 +133,7 @@ export class PptxRenderer implements ExportRenderer {
    * 添加封面页
    */
   private addCoverSlide(
-    pptx: PptxGenJS,
+    pptx: PptxGenJSType,
     content: UnifiedContent,
     theme: ThemeConfig,
   ): void {
@@ -199,7 +201,7 @@ export class PptxRenderer implements ExportRenderer {
    * 添加目录页
    */
   private addTocSlide(
-    pptx: PptxGenJS,
+    pptx: PptxGenJSType,
     content: UnifiedContent,
     theme: ThemeConfig,
   ): void {
@@ -297,7 +299,7 @@ export class PptxRenderer implements ExportRenderer {
    * 添加内容幻灯片
    */
   private addContentSlide(
-    pptx: PptxGenJS,
+    pptx: PptxGenJSType,
     sections: ContentSection[],
     theme: ThemeConfig,
   ): void {
@@ -472,7 +474,7 @@ export class PptxRenderer implements ExportRenderer {
    * 添加参考文献页
    */
   private addReferencesSlide(
-    pptx: PptxGenJS,
+    pptx: PptxGenJSType,
     references: Reference[],
     theme: ThemeConfig,
   ): void {
@@ -534,7 +536,7 @@ export class PptxRenderer implements ExportRenderer {
   /**
    * 添加结束页
    */
-  private addEndSlide(pptx: PptxGenJS, theme: ThemeConfig): void {
+  private addEndSlide(pptx: PptxGenJSType, theme: ThemeConfig): void {
     const slide = pptx.addSlide({ masterName: "MASTER_SLIDE" });
 
     // 背景装饰
