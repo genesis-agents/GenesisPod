@@ -48,6 +48,16 @@ export interface ExportRenderer {
    * @returns 验证结果
    */
   validate?(content: UnifiedContent): ValidationResult;
+
+  /**
+   * WYSIWYG 模式：从截图 Buffer 创建目标格式文件
+   * 仅 DOCX/PPTX 渲染器需要实现
+   */
+  renderFromScreenshot?(
+    screenshotBuffer: Buffer,
+    title: string,
+    options: ExportOptions,
+  ): Promise<Buffer>;
 }
 
 export interface ValidationResult {

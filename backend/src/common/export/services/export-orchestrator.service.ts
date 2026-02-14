@@ -263,13 +263,37 @@ export class ExportOrchestratorService implements OnModuleInit {
       let buffer: Buffer;
 
       if (exportOptions.renderMode === "wysiwyg" && exportOptions.wysiwygHtml) {
-        // WYSIWYG 模式：使用前端捕获的 HTML+CSS 渲染
-        buffer = await this.wysiwygRenderService.renderByFormat(
-          job.format,
-          exportOptions.wysiwygHtml,
-          exportOptions.wysiwygCss,
-          exportOptions,
-        );
+        // WYSIWYG 模式
+        const format = job.format;
+        if (
+          (format === "DOCX" || format === "PPTX") &&
+          this.renderers.get(format)?.renderFromScreenshot
+        ) {
+          // DOCX/PPTX：先截图，再交给对应渲染器转换为目标格式
+          const screenshotBuffer =
+            await this.wysiwygRenderService.renderToScreenshots(
+              exportOptions.wysiwygHtml,
+              exportOptions.wysiwygCss || "",
+              {
+                pageSize: exportOptions.pageSize,
+                orientation: exportOptions.orientation,
+              },
+            );
+          const renderer = this.renderers.get(format)!;
+          buffer = await renderer.renderFromScreenshot!(
+            screenshotBuffer,
+            content.metadata.title || "Export",
+            exportOptions,
+          );
+        } else {
+          // PDF/HTML：直接渲染
+          buffer = await this.wysiwygRenderService.renderByFormat(
+            format,
+            exportOptions.wysiwygHtml,
+            exportOptions.wysiwygCss,
+            exportOptions,
+          );
+        }
       } else {
         // 编辑模式：使用传统渲染器
         const renderer = this.renderers.get(job.format);
