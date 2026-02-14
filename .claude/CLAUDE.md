@@ -107,11 +107,28 @@ onModuleInit() {
 **规则（绝对不允许违反）：**
 
 1. **Agent prompt 必须包含白名单**：明确列出允许修改的文件路径列表，prompt 中写 "只允许修改以下文件：xxx"，禁止 Agent 触碰白名单外的任何文件
-2. **Agent 完成后必须逐文件 diff 审查**：用 `git diff {file}` 逐个检查每个被修改的文件，确认变更内容在任务范围内。发现越权修改时，只 `git checkout -- {具体文件}` 回退该文件，**绝不使用 `git checkout -- .`**
-3. **禁止全局回退命令**：**永远不用** `git checkout -- .`、`git restore .`、`git reset --hard`。只允许针对具体文件的回退：`git checkout -- path/to/specific/file`
-4. **禁止删除未跟踪文件**：**永远不用** `rm -rf` 删除可能属于其他 session/Agent 的文件。如果需要清理，先 `git status` 列出，逐个确认后只删除确定是本次 Agent 创建的文件
-5. **Agent 禁止创建新模块**：Sub-Agent 不得创建新的 .module.ts、新的页面路由（page.tsx）、新的 store 文件。如需新建模块，必须由主 Agent 确认后手动创建
-6. **Agent 禁止修改入口文件**：Sub-Agent 不得修改 `app.module.ts`、`layout.tsx`、`Sidebar.tsx`、`MobileNav.tsx`、路由配置等全局入口文件
+2. **Agent prompt 必须包含上下文**：涉及数据库操作时，必须在 prompt 中附上相关 Prisma model 定义；涉及前后端对接时，必须附上接口/DTO 类型定义。**不允许 Agent 凭猜测写表名、字段名、接口格式**
+3. **Agent 完成后必须逐文件 diff 审查**：用 `git diff {file}` 逐个检查每个被修改的文件，确认变更内容在任务范围内。发现越权修改时，只 `git checkout -- {具体文件}` 回退该文件，**绝不使用 `git checkout -- .`**
+4. **禁止全局回退命令**：**永远不用** `git checkout -- .`、`git restore .`、`git reset --hard`。只允许针对具体文件的回退：`git checkout -- path/to/specific/file`
+5. **禁止删除未跟踪文件**：**永远不用** `rm -rf` 删除可能属于其他 session/Agent 的文件。如果需要清理，先 `git status` 列出，逐个确认后只删除确定是本次 Agent 创建的文件
+6. **Agent 禁止创建新模块**：Sub-Agent 不得创建新的 .module.ts、新的页面路由（page.tsx）、新的 store 文件。如需新建模块，必须由主 Agent 确认后手动创建
+7. **Agent 禁止修改入口文件**：Sub-Agent 不得修改 `app.module.ts`、`layout.tsx`、`Sidebar.tsx`、`MobileNav.tsx`、路由配置等全局入口文件
+
+### 交付前自检清单（必须执行）
+
+> **2026-02-13 教训**: 统一导出系统首次交付时遗漏了数据库迁移脚本、前后端协议不匹配（Content-Disposition 格式）、下载错误状态未设置、AbortController 竞态条件等问题，经过两轮检视才全部发现。
+
+**每次功能完成后、提交前，主 Agent 必须逐项过以下清单：**
+
+1. **数据库配套**：修改了 Prisma schema 的 enum/model → 是否创建了对应的手写 SQL 迁移脚本？（本项目用手写迁移，不用 `npx prisma migrate dev`）
+2. **前后端协议对齐**：新增/修改了后端 API 响应格式 → 前端解析逻辑是否匹配？（重点检查 header 格式、JSON 字段名、枚举值）
+3. **错误路径完整**：try-catch 中 catch 分支 → 是否正确设置了错误状态让 UI 能展示？不允许静默吞掉错误（`.catch(() => {})` / `.catch(() => [])`)
+4. **资源清理**：用了定时器/轮询/AbortController/WebSocket → 组件卸载时是否正确清理？是否处理了重入（连续触发）场景？
+5. **安全边界**：接受外部输入（用户内容、文件名、URL）→ 是否做了 sanitize/escape/校验？Puppeteer 渲染用户内容 → JS 是否禁用？外部请求是否拦截？
+6. **旧代码清理**：新组件替换了旧组件 → 旧文件是否删除？旧的 import 是否全部替换？
+7. **项目规范**：禁止 emoji（用 Lucide 图标）、禁止 `console.log`（用 Logger/logger）、禁止 `any` 类型、`t()` 函数签名是否正确？
+
+**以上任何一项未通过，不允许提交。**
 
 ### Git 安全操作
 
@@ -275,23 +292,37 @@ const response = await this.aiChatService.chat({
 
 ### 数据库变更
 
+本项目使用**手写 SQL 迁移脚本**，不用 `npx prisma migrate dev` 自动生成。
+
 ```bash
-1. backend/prisma/schema.prisma
-2. npx prisma migrate dev --name xxx
-3. npx prisma generate
+1. backend/prisma/schema/models.prisma          # 修改 schema
+2. backend/prisma/migrations/YYYYMMDD_描述/migration.sql  # 手写迁移 SQL
+3. npx prisma generate                          # 更新 Prisma Client 类型
 ```
+
+迁移脚本示例（添加 enum 值）：
+
+```sql
+DO $$
+BEGIN
+    ALTER TYPE "MyEnum" ADD VALUE IF NOT EXISTS 'NEW_VALUE';
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+```
+
+**禁止**：使用 `npx prisma migrate dev`（会与手写迁移冲突）
 
 ---
 
 ## 快速参考
 
-| 命令                     | 描述         |
-| ------------------------ | ------------ |
-| `npm run dev`            | 启动全栈开发 |
-| `npm run dev:frontend`   | 启动前端     |
-| `npm run dev:backend`    | 启动后端     |
-| `npx prisma studio`      | 数据库管理   |
-| `npx prisma migrate dev` | 数据库迁移   |
+| 命令                   | 描述               |
+| ---------------------- | ------------------ |
+| `npm run dev`          | 启动全栈开发       |
+| `npm run dev:frontend` | 启动前端           |
+| `npm run dev:backend`  | 启动后端           |
+| `npx prisma studio`    | 数据库管理         |
+| `npx prisma generate`  | 更新 Prisma Client |
 
 ### Git 工作流
 
@@ -327,6 +358,6 @@ git commit -m "feat(module): description"
 
 ---
 
-**最后更新**: 2025-01-15
+**最后更新**: 2026-02-13
 **维护者**: Claude Code
-**版本**: 2.0
+**版本**: 2.1
