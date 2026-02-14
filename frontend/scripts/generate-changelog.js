@@ -1,16 +1,168 @@
 /**
- * Parse CHANGELOG.md (conventional-changelog format) and generate changelog.json
- * Run before build: node scripts/generate-changelog.js
+ * Auto-version & changelog generator
+ *
+ * Runs before every build (dev/build). Reads git log for commits after the last
+ * released version, auto-bumps version (minor for feat, patch for fix), updates:
+ *   - frontend/CHANGELOG.md
+ *   - frontend/lib/generated/changelog.json
+ *   - package.json, backend/package.json, frontend/package.json
+ *
+ * If no new conventional commits exist, skips bumping and just regenerates JSON.
  */
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
+// ── Paths ──────────────────────────────────────────────────────────────────
+const rootDir = path.resolve(__dirname, '../..');
 const changelogPath = path.resolve(__dirname, '../CHANGELOG.md');
 const outputPath = path.resolve(__dirname, '../lib/generated/changelog.json');
+const packagePaths = [
+  path.join(rootDir, 'package.json'),
+  path.join(rootDir, 'backend/package.json'),
+  path.join(rootDir, 'frontend/package.json'),
+];
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+function git(cmd) {
+  try {
+    return execSync(`git ${cmd}`, {
+      cwd: rootDir,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+  } catch {
+    return '';
+  }
+}
+
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// ── Step 1: Read current version from root package.json ────────────────────
+const rootPkg = JSON.parse(fs.readFileSync(packagePaths[0], 'utf-8'));
+const currentVersion = rootPkg.version; // e.g. "3.70.0"
+console.log(`Current version: ${currentVersion}`);
+
+// ── Step 2: Find the base commit for current version ───────────────────────
+// Strategy: try release commit first, then tag, then auto-bump commit
+let baseCommit = git(
+  `log --all --format=%H --grep="chore(release): ${currentVersion}" -1`
+);
+if (!baseCommit) {
+  baseCommit = git(`rev-list -1 v${currentVersion}`);
+}
+if (!baseCommit) {
+  // Fallback: find auto-bump commit (this script's own commits)
+  baseCommit = git(
+    `log --all --format=%H --grep="chore(auto-release): ${currentVersion}" -1`
+  );
+}
+
+// ── Step 3: Get new conventional commits since last release ────────────────
+let newCommits = [];
+if (baseCommit) {
+  const raw = git(`log --format=%s ${baseCommit}..HEAD`);
+  if (raw) newCommits = raw.split('\n').filter(Boolean);
+} else {
+  console.log('No base commit found for current version, skipping auto-bump');
+}
+
+// Parse conventional commits: type(scope): description
+const conventionalRegex =
+  /^(feat|fix|refactor|perf|docs|style|test|chore|ci|build)(\([^)]+\))?!?:\s*(.+)$/;
+const visibleTypes = new Set(['feat', 'fix', 'refactor', 'perf']);
+const typeToSection = {
+  feat: 'Features',
+  fix: 'Bug Fixes',
+  refactor: 'Refactoring',
+  perf: 'Performance',
+};
+const typeToChangeType = {
+  feat: 'feature',
+  fix: 'fix',
+  refactor: 'improvement',
+  perf: 'improvement',
+};
+
+const parsed = [];
+let hasFeat = false;
+let hasFix = false;
+
+for (const msg of newCommits) {
+  const m = msg.match(conventionalRegex);
+  if (!m) continue;
+  const [, type, scopeRaw, description] = m;
+  if (!visibleTypes.has(type)) continue;
+  const scope = scopeRaw ? scopeRaw.slice(1, -1) : null;
+  parsed.push({ type, scope, description });
+  if (type === 'feat') hasFeat = true;
+  if (type === 'fix') hasFix = true;
+}
+
+// ── Step 4: Bump version if needed ─────────────────────────────────────────
+let newVersion = currentVersion;
+
+if (parsed.length > 0) {
+  const [major, minor, patch] = currentVersion.split('.').map(Number);
+  if (hasFeat) {
+    newVersion = `${major}.${minor + 1}.0`;
+  } else {
+    newVersion = `${major}.${minor}.${patch + 1}`;
+  }
+  console.log(
+    `Auto-bump: ${currentVersion} → ${newVersion} (${parsed.length} changes: ${hasFeat ? 'minor' : 'patch'})`
+  );
+
+  // Update all package.json files
+  for (const pkgPath of packagePaths) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+      pkg.version = newVersion;
+      fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+    } catch {
+      // Skip if file doesn't exist (e.g. in partial checkout)
+    }
+  }
+
+  // Build CHANGELOG.md entry
+  const sections = {};
+  for (const { type, scope, description } of parsed) {
+    const section = typeToSection[type];
+    if (!sections[section]) sections[section] = [];
+    const prefix = scope ? `**${scope}:** ` : '';
+    sections[section].push(`* ${prefix}${description}`);
+  }
+
+  let entry = `\n## ${newVersion} (${today()})\n`;
+  for (const [section, items] of Object.entries(sections)) {
+    entry += `\n\n### ${section}\n\n`;
+    entry += items.join('\n');
+  }
+  entry += '\n';
+
+  // Prepend to CHANGELOG.md (after header)
+  const changelog = fs.readFileSync(changelogPath, 'utf-8');
+  const headerEnd = changelog.indexOf('\n## ');
+  if (headerEnd !== -1) {
+    const header = changelog.slice(0, headerEnd);
+    const rest = changelog.slice(headerEnd);
+    fs.writeFileSync(changelogPath, header + '\n' + entry + rest);
+  } else {
+    // No existing versions, append after header
+    fs.writeFileSync(changelogPath, changelog + '\n' + entry);
+  }
+
+  console.log(`Updated CHANGELOG.md and package.json files`);
+} else {
+  console.log('No new conventional commits, skipping version bump');
+}
+
+// ── Step 5: Parse CHANGELOG.md → changelog.json (existing logic) ───────────
 const content = fs.readFileSync(changelogPath, 'utf-8');
 
-// Match version headers: # [3.50.0](...) (2026-02-06) or ## [3.54.0](...) (2026-02-07) or ### [3.50.8](...) (2026-02-06)
 const versionRegex =
   /^#{1,3}\s+\[?(\d+\.\d+\.\d+)\]?(?:\([^)]*\))?\s+\((\d{4}-\d{2}-\d{2})\)/gm;
 
@@ -39,33 +191,27 @@ for (let i = 0; i < matches.length; i++) {
 
   const changes = [];
 
-  // Find section headers within the block: ### Bug Fixes, ### Features, etc.
   const sectionRegex = /^### (.+)$/gm;
   let secMatch;
-  const sections = [];
+  const sections2 = [];
   while ((secMatch = sectionRegex.exec(block)) !== null) {
-    // Skip the version header itself
     if (secMatch[1].startsWith('[') || /^\d/.test(secMatch[1])) continue;
-    sections.push({ name: secMatch[1].trim(), index: secMatch.index });
+    sections2.push({ name: secMatch[1].trim(), index: secMatch.index });
   }
 
-  for (let j = 0; j < sections.length; j++) {
+  for (let j = 0; j < sections2.length; j++) {
     const secEnd =
-      j + 1 < sections.length ? sections[j + 1].index : block.length;
-    const secBlock = block.slice(sections[j].index, secEnd);
+      j + 1 < sections2.length ? sections2[j + 1].index : block.length;
+    const secBlock = block.slice(sections2[j].index, secEnd);
     const type =
-      sectionTypeMap[sections[j].name.toLowerCase()] || 'improvement';
+      sectionTypeMap[sections2[j].name.toLowerCase()] || 'improvement';
 
-    // Match bullet items: * description or * **scope:** description
     const itemRegex = /^[*-]\s+(.+)$/gm;
     let itemMatch;
     while ((itemMatch = itemRegex.exec(secBlock)) !== null) {
       let raw = itemMatch[1];
-      // Extract scope if present: **scope:**
-      const scopeMatch = raw.match(/^\*\*([^*:]+):?\*\*:?\s*/);
-      const scope = scopeMatch ? scopeMatch[1] : null;
-      if (scopeMatch) raw = raw.slice(scopeMatch[0].length);
-      // Clean: remove trailing commit link ([abc123](url))
+      const scopeMatch2 = raw.match(/^\*\*([^*:]+):?\*\*:?\s*/);
+      if (scopeMatch2) raw = raw.slice(scopeMatch2[0].length);
       let desc = raw
         .replace(/\s*\(\[[a-f0-9]+\]\([^)]*\)\)\s*$/, '')
         .replace(/\s*\([a-f0-9]{7,}\)\s*$/, '')
@@ -76,16 +222,11 @@ for (let i = 0; i < matches.length; i++) {
     }
   }
 
-  // Skip versions with no user-facing changes
   if (changes.length === 0) continue;
   entries.push({ version, date, changes });
 }
 
-// Deduplicate: each version should only show changes NEW to that version.
-// The CHANGELOG.md may contain cumulative entries (all commits since a base tag),
-// so we subtract older-version changes from newer ones.
-// Entries are ordered newest-first. For each version, remove changes that also
-// appear in the next (older) version, leaving only the delta.
+// Deduplicate
 for (let i = 0; i < entries.length - 1; i++) {
   const olderDescs = new Set(entries[i + 1].changes.map((c) => c.description));
   entries[i].changes = entries[i].changes.filter(
@@ -93,23 +234,19 @@ for (let i = 0; i < entries.length - 1; i++) {
   );
 }
 
-// Drop versions that ended up with zero unique changes after dedup
 const dedupedEntries = entries.filter((e) => e.changes.length > 0);
 
-// Consolidate patch versions (x.y.1, x.y.2, ...) into their minor version (x.y.0).
-// Process oldest-first so the x.y.0 entry is created before patches merge into it.
+// Consolidate patch versions
 const consolidated = [];
-const minorMap = new Map(); // "major.minor" -> index in consolidated
+const minorMap = new Map();
 
 for (const entry of [...dedupedEntries].reverse()) {
   const [major, minor, patch] = entry.version.split('.').map(Number);
   const minorKey = `${major}.${minor}`;
 
   if (patch === 0) {
-    // Minor/major release: keep as-is, merge any earlier patches already collected
     const existingIdx = minorMap.get(minorKey);
     if (existingIdx !== undefined) {
-      // Patches were processed before this minor version; prepend the minor's own changes
       const existingDescs = new Set(
         consolidated[existingIdx].changes.map((c) => c.description)
       );
@@ -125,7 +262,6 @@ for (const entry of [...dedupedEntries].reverse()) {
       consolidated.push(entry);
     }
   } else {
-    // Patch release: merge into minor version entry
     const existingIdx = minorMap.get(minorKey);
     if (existingIdx !== undefined) {
       const existingDescs = new Set(
@@ -136,12 +272,10 @@ for (const entry of [...dedupedEntries].reverse()) {
           consolidated[existingIdx].changes.push(change);
         }
       }
-      // Use the latest date
       if (entry.date > consolidated[existingIdx].date) {
         consolidated[existingIdx].date = entry.date;
       }
     } else {
-      // No minor version entry yet, create a placeholder
       minorMap.set(minorKey, consolidated.length);
       consolidated.push({
         version: `${major}.${minor}.0`,
@@ -152,10 +286,9 @@ for (const entry of [...dedupedEntries].reverse()) {
   }
 }
 
-// Reverse back to newest-first order
 consolidated.reverse();
 
-// Ensure output directory exists
+// Write changelog.json
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, JSON.stringify(consolidated, null, 2));
 console.log(
