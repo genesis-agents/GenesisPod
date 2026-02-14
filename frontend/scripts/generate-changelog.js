@@ -14,14 +14,21 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 // ── Paths ──────────────────────────────────────────────────────────────────
-const rootDir = path.resolve(__dirname, '../..');
-const changelogPath = path.resolve(__dirname, '../CHANGELOG.md');
-const outputPath = path.resolve(__dirname, '../lib/generated/changelog.json');
-const packagePaths = [
-  path.join(rootDir, 'package.json'),
-  path.join(rootDir, 'backend/package.json'),
-  path.join(rootDir, 'frontend/package.json'),
-];
+const frontendDir = path.resolve(__dirname, '..');
+const rootDir = path.resolve(frontendDir, '..');
+const changelogPath = path.join(frontendDir, 'CHANGELOG.md');
+const outputPath = path.join(frontendDir, 'lib/generated/changelog.json');
+
+// Detect Docker build: frontend is at /app, root package.json won't exist
+const isDockerBuild = !fs.existsSync(path.join(rootDir, 'package.json'));
+
+const packagePaths = isDockerBuild
+  ? [path.join(frontendDir, 'package.json')]
+  : [
+      path.join(rootDir, 'package.json'),
+      path.join(rootDir, 'backend/package.json'),
+      path.join(rootDir, 'frontend/package.json'),
+    ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function git(cmd) {
@@ -41,10 +48,12 @@ function today() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// ── Step 1: Read current version from root package.json ────────────────────
+// ── Step 1: Read current version from package.json ─────────────────────────
 const rootPkg = JSON.parse(fs.readFileSync(packagePaths[0], 'utf-8'));
-const currentVersion = rootPkg.version; // e.g. "3.70.0"
-console.log(`Current version: ${currentVersion}`);
+const currentVersion = rootPkg.version; // e.g. "3.71.0"
+console.log(
+  `Current version: ${currentVersion}${isDockerBuild ? ' (Docker build)' : ''}`
+);
 
 // ── Step 2: Find the base commit for current version ───────────────────────
 // Strategy: try release commit first, then tag, then auto-bump commit
