@@ -73,11 +73,11 @@ const DEFAULT_AI_FEATURES: AIFeatureSettings = {
 const INITIAL_NOTIFICATIONS: Omit<Notification, 'id' | 'timestamp'>[] = [
   {
     type: 'update',
-    title: 'Raven v1.0 Released',
+    title: 'New Version Available',
     message:
-      'Welcome to Raven! Explore AI-powered research tools including AI Office, AI Teams, and more.',
+      'Check out the latest features, bug fixes, and improvements in this release.',
     read: false,
-    actionUrl: '/',
+    actionUrl: '/changelog',
     persistent: true,
   },
   {
