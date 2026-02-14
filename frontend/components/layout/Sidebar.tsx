@@ -326,9 +326,13 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 >
                   Raven
                 </span>
-                <span className="rounded bg-gradient-to-r from-blue-500 to-indigo-500 px-1 py-0.5 text-[7px] font-bold text-white">
-                  v{process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0'}
-                </span>
+                <Link
+                  href="/changelog"
+                  onClick={(e) => e.stopPropagation()}
+                  className="rounded bg-gradient-to-r from-blue-500 to-indigo-500 px-1 py-0.5 text-[7px] font-bold text-white transition-opacity hover:opacity-80"
+                >
+                  v{CURRENT_VERSION}
+                </Link>
               </div>
               <span className="logo-shimmer text-[9px] font-medium tracking-[0.15em]">
                 AI ENGINE
@@ -826,37 +830,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
       {/* Bottom Navigation */}
       <div className="flex-shrink-0 space-y-0 border-t border-gray-200 px-3 py-1.5">
-        <Link
-          href="/changelog"
-          className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-            isActive('/changelog')
-              ? 'bg-violet-50 text-violet-700'
-              : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
-          }`}
-          title="What's New"
-        >
-          <svg
-            className="h-5 w-5 flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-            />
-          </svg>
-          {showExpanded && (
-            <span className="flex items-center gap-2">
-              {"What's New"}
-              <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-700">
-                v{CURRENT_VERSION}
-              </span>
-            </span>
-          )}
-        </Link>
         <Link
           href="/notifications"
           onClick={(e) => {
