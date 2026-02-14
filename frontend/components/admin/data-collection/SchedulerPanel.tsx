@@ -116,7 +116,7 @@ export default function SchedulerPanel({ onRefresh }: SchedulerPanelProps) {
       setLoading(true);
       setError(null);
       const response = await getSchedulerStatus();
-      setStatus(response.data);
+      setStatus(response);
     } catch (err) {
       logger.error('Failed to fetch scheduler status:', err);
       setError(
@@ -148,7 +148,7 @@ export default function SchedulerPanel({ onRefresh }: SchedulerPanelProps) {
       setUpdating(true);
       setError(null);
       const response = await updateSchedulerConfig({ enabled });
-      setStatus(response.data);
+      setStatus(response);
     } catch (err) {
       logger.error('Failed to update scheduler config:', err);
       setError(
@@ -167,7 +167,7 @@ export default function SchedulerPanel({ onRefresh }: SchedulerPanelProps) {
       const response = await updateSchedulerConfig({
         defaultInterval: interval,
       });
-      setStatus(response.data);
+      setStatus(response);
     } catch (err) {
       logger.error('Failed to update interval:', err);
       setError(

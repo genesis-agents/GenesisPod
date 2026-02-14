@@ -300,8 +300,8 @@ export default function ConfigPage() {
     async function fetchSources() {
       try {
         setLoading(true);
-        const response = await getDataSources();
-        setSources(response.data);
+        const sources = await getDataSources();
+        setSources(sources);
       } catch (err) {
         logger.error('Failed to fetch sources:', err);
         setError(err instanceof Error ? err.message : 'Failed to load sources');
@@ -324,14 +324,14 @@ export default function ConfigPage() {
       for (const [taskId, task] of runningTasks.entries()) {
         if (task.status === 'RUNNING' || task.status === 'PENDING') {
           try {
-            const response = await getCollectionTask(taskId);
-            updatedTasks.set(taskId, response.data);
+            const task = await getCollectionTask(taskId);
+            updatedTasks.set(taskId, task);
             hasChanges = true;
 
             // Remove completed/failed tasks after 5 seconds
             if (
-              response.data.status === 'COMPLETED' ||
-              response.data.status === 'FAILED'
+              task.status === 'COMPLETED' ||
+              task.status === 'FAILED'
             ) {
               setTimeout(() => {
                 setRunningTasks((prev) => {
@@ -439,8 +439,8 @@ export default function ConfigPage() {
         ...dataSourceFields,
         crawlerConfig: updatedCrawlerConfig,
       });
-      const response = await getDataSources();
-      setSources(response.data);
+      const updatedSources = await getDataSources();
+      setSources(updatedSources);
       setEditingSource(null);
       setEditForm({});
     } catch (err) {
@@ -507,13 +507,13 @@ export default function ConfigPage() {
         deduplicationRules: {},
       });
 
-      await executeTask(taskResponse.data.id);
+      await executeTask(taskResponse.id);
 
       // Track the running task
       setRunningTasks((prev) =>
-        new Map(prev).set(taskResponse.data.id, taskResponse.data)
+        new Map(prev).set(taskResponse.id, taskResponse)
       );
-      setSelectedTaskId(taskResponse.data.id);
+      setSelectedTaskId(taskResponse.id);
       setShowProgressModal(true);
 
       setNotification({
@@ -602,8 +602,8 @@ export default function ConfigPage() {
         isVerified: false,
       });
 
-      const response = await getDataSources();
-      setSources(response.data);
+      const newSources = await getDataSources();
+      setSources(newSources);
       setShowAddSourceModal(null);
       setNewSourceForm({
         name: '',
@@ -663,16 +663,16 @@ export default function ConfigPage() {
       setIsFixingRss(true);
       setFixRssResult(null);
       setNotification(null);
-      const response = await fixRssUrls();
-      setFixRssResult(response.data);
+      const fixResult = await fixRssUrls();
+      setFixRssResult(fixResult);
 
       // Refresh sources after fix
-      const sourcesResponse = await getDataSources();
-      setSources(sourcesResponse.data);
+      const refreshedSources = await getDataSources();
+      setSources(refreshedSources);
 
       setNotification({
         type: 'success',
-        message: `RSS URLs Fixed! ✅ ${response.data.fixed.length} fixed, ⏭️ ${response.data.skipped.length} skipped, ❌ ${response.data.failed.length} failed`,
+        message: `RSS URLs Fixed! ${fixResult.fixed.length} fixed, ${fixResult.skipped.length} skipped, ${fixResult.failed.length} failed`,
       });
 
       // Auto-hide after 5 seconds
@@ -732,8 +732,8 @@ export default function ConfigPage() {
       {/* Scheduler Panel */}
       <SchedulerPanel
         onRefresh={async () => {
-          const response = await getDataSources();
-          setSources(response.data);
+          const refreshed = await getDataSources();
+          setSources(refreshed);
         }}
       />
 

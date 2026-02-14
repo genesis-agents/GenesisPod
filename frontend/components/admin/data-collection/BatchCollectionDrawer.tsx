@@ -96,8 +96,7 @@ export default function BatchCollectionDrawer({
       for (const [taskId, progress] of currentProgress.entries()) {
         if (progress.status === 'RUNNING' || progress.status === 'PENDING') {
           try {
-            const response = await getCollectionTask(taskId);
-            const task = response.data;
+            const task = await getCollectionTask(taskId);
 
             setTaskProgress((prev) => {
               const next = new Map(prev);
@@ -192,7 +191,7 @@ export default function BatchCollectionDrawer({
           deduplicationRules: {},
         });
 
-        const taskId = taskResponse.data.id;
+        const taskId = taskResponse.id;
         logger.debug(`Task created: ${taskId}, showing PENDING...`);
 
         // 立即添加到进度面板（PENDING 状态）

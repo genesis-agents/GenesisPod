@@ -185,30 +185,22 @@ export interface HistoryStats {
 // ============ API Functions ============
 
 // Dashboard
-export async function getDashboardStats(): Promise<{
-  success: boolean;
-  data: DashboardStats;
-}> {
+export async function getDashboardStats(): Promise<DashboardStats> {
   return request('/dashboard');
 }
 
 // Data Sources
-export async function getDataSources(): Promise<{
-  success: boolean;
-  data: DataSource[];
-}> {
+export async function getDataSources(): Promise<DataSource[]> {
   return request('/sources');
 }
 
-export async function getDataSource(
-  id: string
-): Promise<{ success: boolean; data: DataSource }> {
+export async function getDataSource(id: string): Promise<DataSource> {
   return request(`/sources/${id}`);
 }
 
 export async function createDataSource(
   data: Partial<DataSource>
-): Promise<{ success: boolean; data: DataSource }> {
+): Promise<DataSource> {
   return request('/sources', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -218,7 +210,7 @@ export async function createDataSource(
 export async function updateDataSource(
   id: string,
   data: Partial<DataSource>
-): Promise<{ success: boolean; data: DataSource }> {
+): Promise<DataSource> {
   return request(`/sources/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -233,22 +225,20 @@ export async function deleteDataSource(id: string): Promise<void> {
 
 export async function testDataSource(
   id: string
-): Promise<{ success: boolean; message: string; data?: unknown }> {
+): Promise<{ message: string; data?: unknown }> {
   return request(`/sources/${id}/test`, {
     method: 'POST',
   });
 }
 
-export async function getDataSourceStats(): Promise<{
-  success: boolean;
-  data: unknown;
-}> {
+export async function getDataSourceStats(): Promise<unknown> {
   return request('/sources/stats');
 }
 
 export async function fixRssUrls(): Promise<{
-  success: boolean;
-  data: { fixed: string[]; failed: string[]; skipped: string[] };
+  fixed: string[];
+  failed: string[];
+  skipped: string[];
 }> {
   return request('/sources/fix-rss-urls', {
     method: 'POST',
@@ -259,7 +249,7 @@ export async function fixRssUrls(): Promise<{
 export async function getCollectionTasks(params?: {
   status?: string;
   sourceId?: string;
-}): Promise<{ success: boolean; data: CollectionTask[] }> {
+}): Promise<CollectionTask[]> {
   const query = new URLSearchParams();
   if (params?.status) query.append('status', params.status);
   if (params?.sourceId) query.append('sourceId', params.sourceId);
@@ -268,9 +258,7 @@ export async function getCollectionTasks(params?: {
   return request(`/tasks${queryString ? `?${queryString}` : ''}`);
 }
 
-export async function getCollectionTask(
-  id: string
-): Promise<{ success: boolean; data: CollectionTask }> {
+export async function getCollectionTask(id: string): Promise<CollectionTask> {
   return request(`/tasks/${id}`);
 }
 
@@ -287,57 +275,43 @@ export async function createCollectionTask(data: {
   timeout?: number;
   retryCount?: number;
   createdBy?: string;
-}): Promise<{ success: boolean; data: CollectionTask }> {
+}): Promise<CollectionTask> {
   return request('/tasks', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function executeTask(
-  id: string
-): Promise<{ success: boolean; message: string }> {
+export async function executeTask(id: string): Promise<{ message: string }> {
   return request(`/tasks/${id}/execute`, {
     method: 'POST',
   });
 }
 
-export async function pauseTask(
-  id: string
-): Promise<{ success: boolean; message: string }> {
+export async function pauseTask(id: string): Promise<{ message: string }> {
   return request(`/tasks/${id}/pause`, {
     method: 'POST',
   });
 }
 
-export async function resumeTask(
-  id: string
-): Promise<{ success: boolean; message: string }> {
+export async function resumeTask(id: string): Promise<{ message: string }> {
   return request(`/tasks/${id}/resume`, {
     method: 'POST',
   });
 }
 
-export async function cancelTask(
-  id: string
-): Promise<{ success: boolean; message: string }> {
+export async function cancelTask(id: string): Promise<{ message: string }> {
   return request(`/tasks/${id}/cancel`, {
     method: 'POST',
   });
 }
 
 // Monitor
-export async function getRunningTasks(): Promise<{
-  success: boolean;
-  data: CollectionTask[];
-}> {
+export async function getRunningTasks(): Promise<CollectionTask[]> {
   return request('/monitor/running');
 }
 
-export async function getSystemMetrics(): Promise<{
-  success: boolean;
-  data: unknown;
-}> {
+export async function getSystemMetrics(): Promise<unknown> {
   return request('/monitor/metrics');
 }
 
@@ -347,7 +321,7 @@ export async function getTaskLogs(
     level?: string;
     limit?: number;
   }
-): Promise<{ success: boolean; data: unknown[] }> {
+): Promise<unknown[]> {
   const query = new URLSearchParams();
   if (params?.level) query.append('level', params.level);
   if (params?.limit) query.append('limit', params.limit.toString());
@@ -363,7 +337,7 @@ export async function getQualityIssues(params?: {
   severity?: string;
   reviewStatus?: string;
   limit?: number;
-}): Promise<{ success: boolean; data: QualityIssue[]; total: number }> {
+}): Promise<{ data: QualityIssue[]; total: number }> {
   const query = new URLSearchParams();
   if (params?.severity) query.append('severity', params.severity);
   if (params?.reviewStatus) query.append('reviewStatus', params.reviewStatus);
@@ -373,16 +347,13 @@ export async function getQualityIssues(params?: {
   return request(`/quality/issues${queryString ? `?${queryString}` : ''}`);
 }
 
-export async function getQualityStats(): Promise<{
-  success: boolean;
-  data: QualityStats;
-}> {
+export async function getQualityStats(): Promise<QualityStats> {
   return request('/quality/stats');
 }
 
 export async function assessResourceQuality(
   resourceId: string
-): Promise<{ success: boolean; data: unknown }> {
+): Promise<unknown> {
   return request(`/quality/assess/${resourceId}`, {
     method: 'POST',
   });
@@ -390,7 +361,7 @@ export async function assessResourceQuality(
 
 export async function batchAssessQuality(
   limit?: number
-): Promise<{ success: boolean; message: string; data: { assessed: number } }> {
+): Promise<{ message: string; assessed: number }> {
   const query = limit ? `?limit=${limit}` : '';
   return request(`/quality/batch-assess${query}`, {
     method: 'POST',
@@ -401,7 +372,7 @@ export async function updateReviewStatus(
   resourceId: string,
   status: string,
   note?: string
-): Promise<{ success: boolean; message: string }> {
+): Promise<{ message: string }> {
   return request(`/quality/review/${resourceId}`, {
     method: 'PUT',
     body: JSON.stringify({ status, note }),
@@ -416,7 +387,7 @@ export async function getHistory(params?: {
   endDate?: string;
   limit?: number;
   offset?: number;
-}): Promise<{ success: boolean; data: HistoryRecord[]; total: number }> {
+}): Promise<{ data: HistoryRecord[]; total: number }> {
   const query = new URLSearchParams();
   if (params?.status) query.append('status', params.status);
   if (params?.sourceId) query.append('sourceId', params.sourceId);
@@ -431,14 +402,12 @@ export async function getHistory(params?: {
 
 export async function getHistoryStats(
   period?: 'day' | 'week' | 'month'
-): Promise<{ success: boolean; data: HistoryStats }> {
+): Promise<HistoryStats> {
   const query = period ? `?period=${period}` : '';
   return request(`/history/stats${query}`);
 }
 
-export async function getTaskHistory(
-  id: string
-): Promise<{ success: boolean; data: unknown }> {
+export async function getTaskHistory(id: string): Promise<unknown> {
   return request(`/history/${id}`);
 }
 
@@ -450,7 +419,7 @@ export async function deleteHistory(id: string): Promise<void> {
 
 export async function cleanOldHistory(
   days?: number
-): Promise<{ success: boolean; message: string; data: { cleaned: number } }> {
+): Promise<{ message: string; cleaned: number }> {
   const query = days ? `?days=${days}` : '';
   return request(`/history/cleanup/old${query}`, {
     method: 'DELETE',
@@ -490,10 +459,7 @@ export interface TriggerResult {
 /**
  * Get scheduler status
  */
-export async function getSchedulerStatus(): Promise<{
-  success: boolean;
-  data: SchedulerStatus;
-}> {
+export async function getSchedulerStatus(): Promise<SchedulerStatus> {
   return request('/scheduler/status');
 }
 
@@ -503,7 +469,7 @@ export async function getSchedulerStatus(): Promise<{
 export async function updateSchedulerConfig(config: {
   enabled?: boolean;
   defaultInterval?: '6h' | '12h' | '24h';
-}): Promise<{ success: boolean; data: SchedulerStatus }> {
+}): Promise<SchedulerStatus> {
   return request('/scheduler/config', {
     method: 'PUT',
     body: JSON.stringify(config),
@@ -515,7 +481,7 @@ export async function updateSchedulerConfig(config: {
  */
 export async function triggerCollection(
   resourceType: string
-): Promise<{ success: boolean; data: TriggerResult }> {
+): Promise<TriggerResult> {
   return request(`/scheduler/trigger/${resourceType}`, {
     method: 'POST',
   });
@@ -524,10 +490,7 @@ export async function triggerCollection(
 /**
  * Trigger collection for all resource types
  */
-export async function triggerAllCollections(): Promise<{
-  success: boolean;
-  data: TriggerResult[];
-}> {
+export async function triggerAllCollections(): Promise<TriggerResult[]> {
   return request('/scheduler/trigger-all', {
     method: 'POST',
   });
@@ -536,10 +499,7 @@ export async function triggerAllCollections(): Promise<{
 /**
  * Restart all schedulers
  */
-export async function restartSchedulers(): Promise<{
-  success: boolean;
-  message: string;
-}> {
+export async function restartSchedulers(): Promise<{ message: string }> {
   return request('/scheduler/restart', {
     method: 'POST',
   });
