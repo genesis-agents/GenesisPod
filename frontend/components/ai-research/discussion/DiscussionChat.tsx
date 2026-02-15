@@ -108,9 +108,9 @@ export function DiscussionChat({
   // ==================== List View ====================
   if (showList) {
     return (
-      <div className={cn('flex h-full flex-col', className)}>
+      <div className={cn('flex h-full flex-col overflow-hidden', className)}>
         {/* Search Input */}
-        <div className="border-b border-gray-200 bg-white px-6 py-4">
+        <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4">
           <div className="mx-auto max-w-3xl">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -232,9 +232,9 @@ export function DiscussionChat({
     }));
 
     return (
-      <div className={cn('flex h-full flex-col', className)}>
+      <div className={cn('flex h-full flex-col overflow-hidden', className)}>
         {/* Back header */}
-        <div className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
+        <div className="flex flex-shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
           <button
             onClick={onBackToList}
             className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100"

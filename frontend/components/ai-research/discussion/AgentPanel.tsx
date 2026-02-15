@@ -223,7 +223,7 @@ export function AgentPanel({
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Header */}
-      <div className="border-b border-gray-100 px-4 py-3">
+      <div className="flex-shrink-0 border-b border-gray-100 px-4 py-3">
         <h3 className="text-sm font-semibold text-gray-800">研究团队</h3>
         <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
           <span className="flex items-center gap-1">
@@ -242,7 +242,7 @@ export function AgentPanel({
       </div>
 
       {/* SVG Canvas */}
-      <div className="relative border-b border-gray-100">
+      <div className="relative flex-shrink-0 border-b border-gray-100">
         {hasAgents ? (
           <TeamCanvas
             agents={agents}

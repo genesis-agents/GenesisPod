@@ -291,7 +291,7 @@ export function ResearchProjectLayout({
       <div className="flex flex-1 overflow-hidden">
         {/* Left Panel: Team (collapsible) */}
         {!leftPanelCollapsed ? (
-          <div className="relative w-[340px] flex-shrink-0">
+          <div className="relative w-[340px] flex-shrink-0 overflow-hidden border-r border-gray-200">
             <AgentPanel
               messages={discussionState.messages}
               typingAgent={discussionState.typingAgent}
