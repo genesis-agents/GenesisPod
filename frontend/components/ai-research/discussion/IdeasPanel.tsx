@@ -36,6 +36,11 @@ import type { ResearchIdea } from '@/hooks/features/useResearchIdeas';
 
 // ==================== Types ====================
 
+interface DemoSummary {
+  ideaId: string;
+  status: string;
+}
+
 interface IdeasPanelProps {
   ideas: ResearchIdea[];
   isLoading: boolean;
@@ -46,6 +51,10 @@ interface IdeasPanelProps {
   ) => void;
   onGenerateDemo?: (ideaId: string) => void;
   onExtractCreativeIdeas?: () => void;
+  /** The idea ID currently being generated */
+  generatingIdeaId?: string | null;
+  /** All demos for duplicate checking */
+  demos?: DemoSummary[];
   className?: string;
 }
 
@@ -130,6 +139,8 @@ export function IdeasPanel({
   onUpdateIdea,
   onGenerateDemo,
   onExtractCreativeIdeas,
+  generatingIdeaId,
+  demos = [],
   className,
 }: IdeasPanelProps) {
   const [filter, setFilter] = useState<FilterKey>('all');
@@ -484,17 +495,50 @@ export function IdeasPanel({
                           归档
                         </button>
                       )}
-                      {onGenerateDemo && (
-                        <button
-                          onClick={() => onGenerateDemo(idea.id)}
-                          className="flex-1 rounded-lg bg-purple-100 px-3 py-1.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
-                        >
-                          <span className="inline-flex items-center gap-1">
-                            <Play className="h-3 w-3" />
-                            生成演示
-                          </span>
-                        </button>
-                      )}
+                      {onGenerateDemo &&
+                        (() => {
+                          const isGenerating = generatingIdeaId === idea.id;
+                          const hasPendingDemo = demos.some(
+                            (d) =>
+                              d.ideaId === idea.id &&
+                              (d.status === 'PENDING' ||
+                                d.status === 'GENERATING')
+                          );
+                          const hasCompletedDemo = demos.some(
+                            (d) =>
+                              d.ideaId === idea.id && d.status === 'COMPLETED'
+                          );
+
+                          return (
+                            <button
+                              onClick={() => onGenerateDemo(idea.id)}
+                              disabled={isGenerating}
+                              className={cn(
+                                'flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                                isGenerating || hasPendingDemo
+                                  ? 'cursor-not-allowed bg-purple-200 text-purple-500'
+                                  : hasCompletedDemo
+                                    ? 'bg-purple-50 text-purple-600 hover:bg-purple-100'
+                                    : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                              )}
+                            >
+                              <span className="inline-flex items-center gap-1">
+                                {isGenerating ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Play className="h-3 w-3" />
+                                )}
+                                {isGenerating
+                                  ? '生成中...'
+                                  : hasPendingDemo
+                                    ? '生成中...'
+                                    : hasCompletedDemo
+                                      ? '重新生成'
+                                      : '生成演示'}
+                              </span>
+                            </button>
+                          );
+                        })()}
                     </div>
                   </div>
                 )}

@@ -10,7 +10,7 @@
  * ideas/demos hooks, and coordination between all child components.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
   MessageSquare,
@@ -296,11 +296,39 @@ export function ResearchProjectLayout({
     }
   }, [extractCreativeIdeas]);
 
+  const [generatingIdeaId, setGeneratingIdeaId] = useState<string | null>(null);
+
+  // Use ref to access latest demos without adding it to useCallback deps
+  // (demos changes every 5s during polling, which would cause unnecessary re-renders)
+  const demosRef = useRef(demos);
+  useEffect(() => {
+    demosRef.current = demos;
+  }, [demos]);
+
   const handleGenerateDemo = useCallback(
-    (ideaId: string) => {
-      void generateDemo(ideaId);
+    async (ideaId: string) => {
+      // Prevent duplicate: check if there's already a PENDING/GENERATING demo for this idea
+      const hasPending = demosRef.current.some(
+        (d) =>
+          d.ideaId === ideaId &&
+          (d.status === 'PENDING' || d.status === 'GENERATING')
+      );
+      if (hasPending) {
+        setActiveTab('demos');
+        return;
+      }
+
+      setGeneratingIdeaId(ideaId);
+      try {
+        const demo = await generateDemo(ideaId);
+        if (demo) {
+          setActiveTab('demos');
+        }
+      } finally {
+        setGeneratingIdeaId(null);
+      }
     },
-    [generateDemo]
+    [generateDemo, setActiveTab]
   );
 
   // Toggle left panel
@@ -532,6 +560,8 @@ export function ResearchProjectLayout({
                         onUpdateIdea={handleUpdateCreativeIdea}
                         onExtractCreativeIdeas={handleExtractCreativeIdeas}
                         onGenerateDemo={handleGenerateDemo}
+                        generatingIdeaId={generatingIdeaId}
+                        demos={demos}
                       />
                     </div>
                   </div>
