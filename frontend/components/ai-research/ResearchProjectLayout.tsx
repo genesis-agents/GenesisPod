@@ -170,7 +170,7 @@ export function ResearchProjectLayout({
         'SSE stream ended without completion, starting recovery polling...'
       );
       let attempts = 0;
-      const maxAttempts = 30; // Poll for up to 5 minutes (10s * 30)
+      const maxAttempts = 90; // Poll for up to 15 minutes (10s * 90)
       const pollInterval = setInterval(async () => {
         attempts++;
         const reloaded = await reloadSessions();
