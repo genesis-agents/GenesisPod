@@ -5,7 +5,7 @@
  * Fetches projects from AI Studio API and displays as card grid
  */
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
@@ -79,6 +79,15 @@ function ResearchPageContent() {
   const [newProjectName, setNewProjectName] = useState('');
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [renameProject, setRenameProject] = useState<ResearchProject | null>(
+    null
+  );
+  const [renameName, setRenameName] = useState('');
+  const [deleteProject, setDeleteProject] = useState<ResearchProject | null>(
+    null
+  );
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const fetchProjects = useCallback(async () => {
     setIsLoading(true);
@@ -154,6 +163,67 @@ function ResearchPageContent() {
     },
     [isCreating, t, router]
   );
+
+  const handleRename = useCallback(
+    async (projectId: string, name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      try {
+        const response = await fetch(
+          `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            body: JSON.stringify({ name: trimmed }),
+          }
+        );
+        if (!response.ok) throw new Error('Failed to rename project');
+        setProjects((prev) =>
+          prev.map((p) => (p.id === projectId ? { ...p, name: trimmed } : p))
+        );
+      } catch (err) {
+        logger.error('Error renaming project:', err);
+        setError(t('common.loadError'));
+      } finally {
+        setRenameProject(null);
+      }
+    },
+    [t]
+  );
+
+  const handleDelete = useCallback(
+    async (projectId: string) => {
+      try {
+        const response = await fetch(
+          `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}`,
+          {
+            method: 'DELETE',
+            headers: getAuthHeader(),
+          }
+        );
+        if (!response.ok) throw new Error('Failed to delete project');
+        setProjects((prev) => prev.filter((p) => p.id !== projectId));
+      } catch (err) {
+        logger.error('Error deleting project:', err);
+        setError(t('common.loadError'));
+      } finally {
+        setDeleteProject(null);
+      }
+    },
+    [t]
+  );
+
+  // Close menu on click outside
+  useEffect(() => {
+    if (!menuOpenId) return;
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpenId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [menuOpenId]);
 
   useEffect(() => {
     if (user) {
@@ -362,11 +432,89 @@ function ResearchPageContent() {
                       </svg>
                       <div className="absolute inset-0 rounded-2xl ring-2 ring-white/20 transition-all group-hover:ring-4 group-hover:ring-white/30" />
                     </div>
-                    <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
-                      {project.status === 'ACTIVE'
-                        ? t('aiResearch.status.active')
-                        : project.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                        {project.status === 'ACTIVE'
+                          ? t('aiResearch.status.active')
+                          : project.status}
+                      </span>
+                      {/* More menu */}
+                      <div
+                        className="relative"
+                        ref={menuOpenId === project.id ? menuRef : undefined}
+                      >
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpenId(
+                              menuOpenId === project.id ? null : project.id
+                            );
+                          }}
+                          className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle cx="12" cy="5" r="1.5" />
+                            <circle cx="12" cy="12" r="1.5" />
+                            <circle cx="12" cy="19" r="1.5" />
+                          </svg>
+                        </button>
+                        {menuOpenId === project.id && (
+                          <div className="absolute right-0 top-8 z-20 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuOpenId(null);
+                                setRenameName(project.name);
+                                setRenameProject(project);
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                              <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
+                              </svg>
+                              {t('aiResearch.project.rename')}
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuOpenId(null);
+                                setDeleteProject(project);
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                            >
+                              <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                              {t('common.delete')}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Title & Description */}
@@ -437,6 +585,92 @@ function ResearchPageContent() {
           </div>
         )}
       </div>
+
+      {/* Rename Project Dialog */}
+      {renameProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div
+            className="mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-gray-900">
+              {t('aiResearch.project.rename')}
+            </h2>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700">
+                {t('aiResearch.project.name')}
+              </label>
+              <input
+                type="text"
+                autoFocus
+                value={renameName}
+                onChange={(e) => setRenameName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && renameName.trim()) {
+                    void handleRename(renameProject.id, renameName);
+                  }
+                  if (e.key === 'Escape') {
+                    setRenameProject(null);
+                  }
+                }}
+                placeholder={t('aiResearch.project.namePlaceholder')}
+                className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                maxLength={500}
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setRenameProject(null)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() => void handleRename(renameProject.id, renameName)}
+                disabled={
+                  !renameName.trim() || renameName.trim() === renameProject.name
+                }
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {t('common.save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div
+            className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-gray-900">
+              {t('common.delete')}
+            </h2>
+            <p className="mt-2 text-sm text-gray-500">
+              {t('aiResearch.project.deleteConfirm', {
+                name: deleteProject.name,
+              })}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteProject(null)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() => void handleDelete(deleteProject.id)}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+              >
+                {t('common.delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Project Dialog */}
       {showCreateDialog && (

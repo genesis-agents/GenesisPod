@@ -638,7 +638,9 @@
       "sourcesCount": "{{count}} sources",
       "notesCount": "{{count}} notes",
       "knowledgeBasePlaceholder": "Select knowledge bases (optional)",
-      "knowledgeBaseHint": "AI research will prioritize content from linked knowledge bases"
+      "knowledgeBaseHint": "AI research will prioritize content from linked knowledge bases",
+      "rename": "Rename",
+      "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
     },
     "empty": {
       "noProjects": "No research projects yet",

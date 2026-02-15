@@ -638,7 +638,9 @@
       "sourcesCount": "{{count}} 个来源",
       "notesCount": "{{count}} 条笔记",
       "knowledgeBasePlaceholder": "选择关联的知识库（可选）",
-      "knowledgeBaseHint": "关联知识库后，AI 研究将优先使用知识库中的内容"
+      "knowledgeBaseHint": "关联知识库后，AI 研究将优先使用知识库中的内容",
+      "rename": "重命名",
+      "deleteConfirm": "确定要删除研究项目「{{name}}」吗？此操作不可恢复。"
     },
     "empty": {
       "noProjects": "暂无研究项目",
