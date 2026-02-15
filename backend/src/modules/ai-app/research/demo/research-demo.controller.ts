@@ -32,8 +32,7 @@ export class ResearchDemoController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException("User not authenticated");
 
-    const demos = await this.demoService.listByProject(userId, projectId);
-    return { success: true, data: demos };
+    return this.demoService.listByProject(userId, projectId);
   }
 
   @Get("demos/:demoId")
@@ -46,8 +45,7 @@ export class ResearchDemoController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException("User not authenticated");
 
-    const demo = await this.demoService.getById(userId, projectId, demoId);
-    return { success: true, data: demo };
+    return this.demoService.getById(userId, projectId, demoId);
   }
 
   @Post("ideas/:ideaId/generate-demo")
@@ -61,13 +59,7 @@ export class ResearchDemoController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException("User not authenticated");
 
-    const demo = await this.demoService.createForIdea(
-      userId,
-      projectId,
-      ideaId,
-      dto.title,
-    );
-    return { success: true, data: demo };
+    return this.demoService.createForIdea(userId, projectId, ideaId, dto.title);
   }
 
   @Delete("demos/:demoId")
@@ -81,6 +73,6 @@ export class ResearchDemoController {
     if (!userId) throw new UnauthorizedException("User not authenticated");
 
     await this.demoService.delete(userId, projectId, demoId);
-    return { success: true };
+    return { deleted: true };
   }
 }

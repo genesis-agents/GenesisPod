@@ -36,8 +36,7 @@ export class ResearchIdeaController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException("User not authenticated");
 
-    const ideas = await this.ideaService.listByProject(userId, projectId);
-    return { success: true, data: ideas };
+    return this.ideaService.listByProject(userId, projectId);
   }
 
   @Post()
@@ -50,8 +49,7 @@ export class ResearchIdeaController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException("User not authenticated");
 
-    const idea = await this.ideaService.create(userId, projectId, dto);
-    return { success: true, data: idea };
+    return this.ideaService.create(userId, projectId, dto);
   }
 
   @Patch(":ideaId")
@@ -65,8 +63,7 @@ export class ResearchIdeaController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException("User not authenticated");
 
-    const idea = await this.ideaService.update(userId, projectId, ideaId, dto);
-    return { success: true, data: idea };
+    return this.ideaService.update(userId, projectId, ideaId, dto);
   }
 
   @Delete(":ideaId")
@@ -80,7 +77,7 @@ export class ResearchIdeaController {
     if (!userId) throw new UnauthorizedException("User not authenticated");
 
     await this.ideaService.delete(userId, projectId, ideaId);
-    return { success: true };
+    return { deleted: true };
   }
 
   @Post("sessions/:sessionId/extract")
@@ -93,11 +90,6 @@ export class ResearchIdeaController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException("User not authenticated");
 
-    const ideas = await this.ideaService.extractFromSession(
-      userId,
-      projectId,
-      sessionId,
-    );
-    return { success: true, data: ideas };
+    return this.ideaService.extractFromSession(userId, projectId, sessionId);
   }
 }

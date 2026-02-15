@@ -123,7 +123,7 @@ export class ReportSynthesizerService {
     yield { section: "executive_summary", content: summary };
 
     // 2. 生成主要章节
-    const sectionTopics = this.identifySectionTopics(query, sources);
+    const sectionTopics = await this.identifySectionTopics(query, sources);
     for (const topic of sectionTopics) {
       yield { section: topic, content: "" };
       const sectionContent = await this.generateSection(topic, query, sources);
@@ -155,7 +155,7 @@ export class ReportSynthesizerService {
     // 按相关性排序
     sources.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
-    return sources.slice(0, 30); // 最多使用 30 个来源
+    return sources.slice(0, 40); // 最多使用 40 个来源
   }
 
   /**
@@ -210,8 +210,8 @@ export class ReportSynthesizerService {
         ],
         modelType: AIModelType.CHAT,
         taskProfile: {
-          creativity: "medium", // 报告生成需要中等创造性
-          outputLength: "standard", // 标准输出长度
+          creativity: "medium",
+          outputLength: "long", // 长输出：报告需要充足的篇幅
         },
       });
 
@@ -240,8 +240,8 @@ export class ReportSynthesizerService {
         messages: [{ role: "user", content: prompt }],
         modelType: AIModelType.CHAT,
         taskProfile: {
-          creativity: "medium", // 章节生成需要中等创造性
-          outputLength: "short", // 章节输出较短
+          creativity: "medium",
+          outputLength: "medium", // 章节需要充足篇幅进行深度分析
         },
       });
 
@@ -253,16 +253,62 @@ export class ReportSynthesizerService {
   }
 
   /**
-   * 识别报告章节主题
+   * 动态识别报告章节主题（基于查询和来源内容）
    */
-  private identifySectionTopics(
-    _query: string,
-    _sources: SearchSource[],
-  ): string[] {
-    // 基于查询和来源内容识别关键主题
-    // 简化实现：使用固定结构
-    // TODO: 可以基于 query 和 sources 动态识别主题
-    return ["背景与概述", "关键发现", "深入分析", "比较与评估"];
+  private async identifySectionTopics(
+    query: string,
+    sources: SearchSource[],
+  ): Promise<string[]> {
+    // Extract key themes from source titles and snippets
+    const sourceContext = sources
+      .slice(0, 15)
+      .map((s) => `- ${s.title}: ${s.snippet.slice(0, 100)}`)
+      .join("\n");
+
+    try {
+      const result = await this.aiFacade.chat({
+        messages: [
+          {
+            role: "system",
+            content: `你是一位研究报告架构师。根据研究主题和来源材料，设计 4-6 个最佳报告章节标题。
+要求：
+- 章节标题应该具体、有针对性，反映实际研究内容
+- 不要使用通用标题如"背景与概述"、"关键发现"等
+- 每个章节应覆盖研究主题的不同维度
+- 章节间应有逻辑递进关系
+- 只输出 JSON 数组，不要其他内容
+
+示例输出：["全球电池技术发展现状", "固态电池核心技术突破", "主要企业研发布局对比", "商业化挑战与解决方案", "未来五年市场预测"]`,
+          },
+          {
+            role: "user",
+            content: `研究主题：${query}\n\n来源材料摘要：\n${sourceContext}`,
+          },
+        ],
+        modelType: AIModelType.CHAT,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "minimal",
+        },
+      });
+
+      const topics = JSON.parse(
+        result.content.replace(/```json\s*|\s*```/g, "").trim(),
+      );
+      if (Array.isArray(topics) && topics.length >= 3) {
+        return topics.slice(0, 6);
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to identify dynamic topics: ${error}`);
+    }
+
+    // Fallback: derive topics from query
+    return [
+      `${query}的背景与现状`,
+      `核心发现与关键数据`,
+      `深度分析与多维评估`,
+      `趋势展望与建议`,
+    ];
   }
 
   /**
@@ -333,7 +379,7 @@ ${styleGuide[style as keyof typeof styleGuide] || styleGuide.business}
     }
 
     // 常规模式
-    return `你是一个专业的研究报告撰写助手。请根据提供的搜索结果，撰写一份结构化的研究报告。
+    return `你是一位资深行业研究分析师，擅长撰写深度、专业、数据驱动的研究报告。你的报告以洞察深刻、论证严密、数据翔实著称。
 
 ## 语言要求
 ${language === "zh-CN" ? "使用中文撰写" : "使用英文撰写"}
@@ -341,28 +387,51 @@ ${language === "zh-CN" ? "使用中文撰写" : "使用英文撰写"}
 ## 风格要求
 ${styleGuide[style as keyof typeof styleGuide] || styleGuide.business}
 
-## 报告结构
-1. 执行摘要：200-300字，概述主要发现和结论
-2. 主体章节：每个章节包含标题、内容和引用
-3. 结论：总结研究发现，提出建议
+## 报告质量标准
+
+### 执行摘要（400-600字）
+- 开门见山陈述核心发现，不要写空泛的引言
+- 包含关键数据点和量化结论
+- 明确指出研究揭示的最重要洞察
+- 简述主要建议方向
+
+### 主体章节（每章节 800-1500字）
+- 每个章节必须包含：事实陈述 + 数据支撑 + 深度分析 + 洞察结论
+- 引用具体数据、案例、趋势来支撑观点
+- 对比不同来源的观点，指出共识和分歧
+- 识别隐含模式、因果关系和潜在影响
+- 避免笼统概述，要有具体的、可操作的分析
+
+### 结论（300-500字）
+- 综合所有章节发现，提炼核心洞察
+- 提出具体、可操作的建议（3-5条）
+- 指出研究局限和未来需关注的方向
+
+## 写作原则
+1. **数据优先**：每个论点必须有来源支撑，用 [N] 标记引用
+2. **批判性思维**：不盲从来源，要交叉验证和批判分析
+3. **深度优于广度**：宁可深入分析少数主题，也不要浮光掠影
+4. **具体优于抽象**：用具体案例、数据、趋势替代空泛描述
+5. **逻辑递进**：章节间有清晰的逻辑链条，不是松散的信息堆砌
 
 ## 引用格式
 - 在文中使用 [1]、[2] 等数字标记引用来源
+- 每个关键论断至少有一个引用支撑
 - 引用必须基于提供的来源内容
 
 ## 输出格式
 请以 JSON 格式输出：
 \`\`\`json
 {
-  "executiveSummary": "执行摘要内容",
+  "executiveSummary": "执行摘要（400-600字，包含核心数据和关键洞察）",
   "sections": [
     {
       "title": "章节标题",
-      "content": "章节内容，包含[1][2]等引用标记",
-      "citations": [1, 2]
+      "content": "章节内容（800-1500字），包含数据分析、案例对比、洞察结论，使用 [1][2] 引用标记",
+      "citations": [1, 2, 3]
     }
   ],
-  "conclusion": "结论内容"
+  "conclusion": "结论与建议（300-500字，包含可操作建议）"
 }
 \`\`\``;
   }
@@ -380,20 +449,21 @@ ${styleGuide[style as keyof typeof styleGuide] || styleGuide.business}
     // 追问模式：引用编号从之前的数量继续
     const startIndex = isFollowUp && previousRefsCount ? previousRefsCount : 0;
 
+    // Provide full snippet content for richer analysis
     const sourcesList = sources
-      .slice(0, 20)
+      .slice(0, 25)
       .map(
         (s, i) =>
-          `[${startIndex + i + 1}] ${s.title}\n来源: ${s.domain}\n内容: ${s.snippet}`,
+          `[${startIndex + i + 1}] **${s.title}**\n来源: ${s.domain} (相关度: ${(s.relevanceScore * 100).toFixed(0)}%)${s.publishedDate ? `\n日期: ${s.publishedDate}` : ""}\n内容: ${s.snippet}`,
       )
-      .join("\n\n");
+      .join("\n\n---\n\n");
 
     if (isFollowUp && previousContext) {
       return `## 追问内容
 ${query}
 
 ## 新搜索结果来源
-（引用编号从 [${startIndex + 1}] 开始）
+（引用编号从 [${startIndex + 1}] 开始，共 ${Math.min(sources.length, 25)} 个来源）
 
 ${sourcesList}
 
@@ -406,10 +476,17 @@ ${sourcesList}
     return `## 研究主题
 ${query}
 
-## 搜索结果来源
+## 搜索结果来源（共 ${Math.min(sources.length, 25)} 个高相关度来源）
+
 ${sourcesList}
 
-请基于以上来源，撰写一份专业的研究报告。`;
+## 写作要求
+请基于以上来源撰写一份深度研究报告。要求：
+1. 充分利用每个来源的信息，交叉引用和对比分析
+2. 不要简单罗列信息，要提炼洞察、识别趋势、分析因果
+3. 每个章节 800-1500 字，确保分析深度
+4. 执行摘要 400-600 字，结论 300-500 字
+5. 对来源中的数据、案例要具体引用，不要泛泛而谈`;
   }
 
   /**
@@ -421,19 +498,35 @@ ${sourcesList}
     sources: SearchSource[],
   ): string {
     const sectionGuides: Record<string, string> = {
-      executive_summary: `请为"${query}"主题撰写一个200-300字的执行摘要，概述主要发现和关键结论。`,
-      conclusion: `请为"${query}"主题撰写结论，总结研究发现并提出建议。`,
+      executive_summary: `请为"${query}"主题撰写一个 400-600 字的执行摘要。
+要求：
+- 开门见山陈述最重要的发现，不要写空泛的引言
+- 包含关键数据点（数字、比例、趋势）
+- 概述各章节的核心洞察
+- 使用 [N] 标记引用来源`,
+      conclusion: `请为"${query}"主题撰写 300-500 字的结论与建议。
+要求：
+- 综合所有研究发现，提炼 3-5 个核心洞察
+- 提出具体可操作的建议（不少于 3 条）
+- 指出研究局限和未来需关注的方向
+- 使用 [N] 标记引用来源`,
     };
 
-    const defaultGuide = `请为"${query}"主题的"${sectionType}"章节撰写内容，包含[1][2]等引用标记。`;
+    const defaultGuide = `请为"${query}"研究报告的「${sectionType}」章节撰写 800-1500 字的深度分析。
+要求：
+- 基于来源数据进行深入分析，不要简单罗列信息
+- 包含具体数据、案例、对比分析
+- 交叉引用多个来源，识别共识和分歧
+- 提炼出该领域的关键洞察和隐含趋势
+- 使用 [N] 标记引用来源`;
 
     const guide = sectionGuides[sectionType] || defaultGuide;
     const topSources = sources
-      .slice(0, 10)
-      .map((s, i) => `[${i + 1}] ${s.snippet.slice(0, 150)}`)
-      .join("\n");
+      .slice(0, 15)
+      .map((s, i) => `[${i + 1}] ${s.title}\n${s.snippet}`)
+      .join("\n\n");
 
-    return `${guide}\n\n参考来源:\n${topSources}`;
+    return `${guide}\n\n## 参考来源\n\n${topSources}`;
   }
 
   /**

@@ -93,13 +93,17 @@ function ResearchPageContent() {
       }
       const result = await response.json();
       const data = result?.data ?? result;
-      const projectsArray = Array.isArray(data.projects)
-        ? data.projects
-        : Array.isArray(data)
-          ? data
-          : Array.isArray(data.items)
-            ? data.items
-            : [];
+      // Unwrap: interceptor wraps service { data: projects, pagination } →
+      // response is { success, data: { data: [...], pagination }, metadata }
+      const projectsArray = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.projects)
+            ? data.projects
+            : Array.isArray(data?.items)
+              ? data.items
+              : [];
       setProjects(projectsArray);
     } catch (err) {
       logger.error('Error fetching research projects:', err);
