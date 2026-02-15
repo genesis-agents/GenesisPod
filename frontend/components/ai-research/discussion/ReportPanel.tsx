@@ -561,12 +561,10 @@ function ReportMarkdown({
         return `[${indices.replace(/、/g, ', ')}]`;
       }
     );
-    // Convert citation brackets to HTML sup tags that survive markdown
-    text = text.replace(/\[(\d+(?:\s*,\s*\d+)*)\]/g, (match, indices) => {
+    // Convert citation brackets to text markers that survive markdown parsing
+    text = text.replace(/\[(\d+(?:\s*,\s*\d+)*)\]/g, (_, indices) => {
       const nums = indices.split(/\s*,\s*/);
-      return nums
-        .map((n: string) => `<cite-ref data-ref="${n.trim()}"></cite-ref>`)
-        .join('');
+      return nums.map((n: string) => `\u200BCITEREF${n.trim()}\u200B`).join('');
     });
     return text;
   }, [content]);
@@ -682,14 +680,14 @@ function processCiteRefs(
 }
 
 /**
- * Replace <cite-ref data-ref="N"></cite-ref> markers in text with citation components
+ * Replace CITEREF markers in text with citation components
  */
 function replaceCiteRefsInText(
   text: string,
   references: ReportReference[],
   onCitationClick?: (refId: number, surroundingContext?: string) => void
 ): React.ReactNode {
-  const pattern = /<cite-ref data-ref="(\d+)"><\/cite-ref>/g;
+  const pattern = /\u200BCITEREF(\d+)\u200B/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
