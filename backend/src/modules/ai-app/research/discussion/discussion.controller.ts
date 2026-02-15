@@ -49,25 +49,53 @@ export class DiscussionController {
     res.setHeader("X-Accel-Buffering", "no");
     res.flushHeaders();
 
+    // Track connection state to avoid writing to closed connections
+    let connectionOpen = true;
+
+    const safeWrite = (data: string): boolean => {
+      if (!connectionOpen) return false;
+      try {
+        res.write(data);
+        return true;
+      } catch {
+        connectionOpen = false;
+        return false;
+      }
+    };
+
+    // SSE keepalive heartbeat every 15s to prevent proxy idle timeouts
+    // (Railway/Cloudflare proxies may close idle SSE connections after ~60s)
+    const heartbeat = setInterval(() => {
+      safeWrite(":heartbeat\n\n");
+    }, 15_000);
+
     // 使用讨论驱动型研究流程
     const subscription = this.discussionOrchestrator
       .startResearch(projectId, dto)
       .subscribe({
         next: (event) => {
           const eventData = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
-          res.write(eventData);
+          safeWrite(eventData);
         },
         error: (error) => {
           this.logger.error(`Research stream error: ${error}`);
           const errorEvent = `event: error\ndata: ${JSON.stringify({ code: "STREAM_ERROR", message: "An error occurred during research", recoverable: false })}\n\n`;
-          res.write(errorEvent);
+          safeWrite(errorEvent);
+          clearInterval(heartbeat);
           clearTimeout(timeout);
-          res.end();
+          if (connectionOpen) {
+            connectionOpen = false;
+            res.end();
+          }
         },
         complete: () => {
           this.logger.log(`Research stream completed for project ${projectId}`);
+          clearInterval(heartbeat);
           clearTimeout(timeout);
-          res.end();
+          if (connectionOpen) {
+            connectionOpen = false;
+            res.end();
+          }
         },
       });
 
@@ -75,15 +103,21 @@ export class DiscussionController {
     const timeout = setTimeout(
       () => {
         this.logger.warn("Research stream timeout after 30 minutes");
+        clearInterval(heartbeat);
         subscription.unsubscribe();
-        res.end();
+        if (connectionOpen) {
+          connectionOpen = false;
+          res.end();
+        }
       },
       30 * 60 * 1000,
     );
 
-    // 客户端断开连接时取消订阅
+    // 客户端断开连接时清理（但不 unsubscribe — research continues in background）
     res.on("close", () => {
       this.logger.log(`Client disconnected from research stream`);
+      connectionOpen = false;
+      clearInterval(heartbeat);
       clearTimeout(timeout);
       subscription.unsubscribe();
     });
