@@ -222,23 +222,20 @@ export function AgentPanel({
 
   return (
     <div className="flex h-full flex-col bg-white">
-      {/* Header */}
-      <div className="flex-shrink-0 border-b border-gray-100 px-4 py-3">
-        <h3 className="text-sm font-semibold text-gray-800">研究团队</h3>
-        <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-purple-500" />
-            总监
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-            工作中
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-gray-300" />
-            待命
-          </span>
-        </div>
+      {/* Status Legend */}
+      <div className="flex flex-shrink-0 items-center gap-3 border-b border-gray-100 px-4 py-2 text-xs text-gray-500">
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-purple-500" />
+          总监
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+          工作中
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-gray-300" />
+          待命
+        </span>
       </div>
 
       {/* SVG Canvas */}

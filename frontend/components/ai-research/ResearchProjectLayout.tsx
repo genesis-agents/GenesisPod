@@ -17,8 +17,8 @@ import {
   Lightbulb,
   Play,
   FileText,
-  ChevronLeft,
-  ChevronRight,
+  Maximize2,
+  Minimize2,
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
@@ -289,35 +289,56 @@ export function ResearchProjectLayout({
 
       {/* Main Content: Left Panel + Right Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Panel: Team (collapsible) */}
-        {!leftPanelCollapsed ? (
-          <div className="relative w-[340px] flex-shrink-0 overflow-hidden border-r border-gray-200">
-            <AgentPanel
-              messages={discussionState.messages}
-              typingAgent={discussionState.typingAgent}
-              directions={discussionState.directions}
-              currentPhase={discussionState.phase}
-            />
-            {/* Collapse Button */}
-            <button
-              onClick={toggleLeftPanel}
-              className="absolute right-0 top-1/2 z-10 -translate-y-1/2 translate-x-1/2 rounded-full border border-gray-300 bg-white p-1 shadow-sm transition-colors hover:bg-gray-100"
-              title={t('common.collapse') || '收起'}
-            >
-              <ChevronLeft className="h-4 w-4 text-gray-600" />
-            </button>
-          </div>
-        ) : (
-          <div className="relative w-3 flex-shrink-0 bg-gray-100">
-            <button
-              onClick={toggleLeftPanel}
-              className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gray-300 bg-white p-1 shadow-sm transition-colors hover:bg-gray-100"
-              title={t('common.expand') || '展开'}
-            >
-              <ChevronRight className="h-4 w-4 text-gray-600" />
-            </button>
-          </div>
-        )}
+        {/* Left Panel: Team (collapsible, AI Insights pattern) */}
+        <div
+          className={cn(
+            'flex-shrink-0 border-r border-gray-200 bg-white transition-all duration-300',
+            leftPanelCollapsed ? 'w-12' : 'w-[340px]'
+          )}
+        >
+          {leftPanelCollapsed ? (
+            <div className="flex h-full flex-col items-center py-4">
+              <button
+                onClick={toggleLeftPanel}
+                className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                title={t('common.expand') || '展开'}
+              >
+                <Maximize2 className="h-5 w-5" />
+              </button>
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <span
+                  className="text-xs text-gray-500"
+                  style={{ writingMode: 'vertical-rl' }}
+                >
+                  研究团队
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-full flex-col overflow-hidden">
+              <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  研究团队
+                </span>
+                <button
+                  onClick={toggleLeftPanel}
+                  className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  title={t('common.collapse') || '收起'}
+                >
+                  <Minimize2 className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <AgentPanel
+                  messages={discussionState.messages}
+                  typingAgent={discussionState.typingAgent}
+                  directions={discussionState.directions}
+                  currentPhase={discussionState.phase}
+                />
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Right Content Area */}
         <div className="flex flex-1 flex-col overflow-hidden">
