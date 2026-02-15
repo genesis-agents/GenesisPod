@@ -14,14 +14,36 @@ export const SLIDE_DESIGN_SYSTEM_PROMPT = `You are an expert presentation design
 
 ## GOLDEN RULE: Less Is More
 
-The #1 mistake is putting too much text on a slide. Follow these hard limits:
-- **Maximum 3-4 bullet points** per section (not 5-6)
-- **Each bullet: 1-2 lines max** (under 40 Chinese chars or 80 English chars per bullet)
-- **Title: max 10 Chinese characters or 6 English words** — if longer, split into title + subtitle
-- **One main message per slide** — do NOT try to cover everything
-- **30-40% of the slide should be white space** — if it looks crowded, remove content
-- **Max 2 columns of cards** (2x2 grid). NEVER use 3+ columns of text-heavy cards — they become unreadable
+The #1 mistake is putting too much text on a slide. Follow these HARD limits:
+
+**TITLE (STRICTLY ENFORCED):**
+- Chinese: MAX 8 characters. English: MAX 5 words.
+- If the topic needs more words, put the extra context in a SHORT subtitle after "|"
+- GOOD: "AI医疗革命" (5 chars) | "从试点到规模化"
+- GOOD: "Key Applications" | "Transforming Care Delivery"
+- BAD: "AI重塑医疗健康的关键洞察" (12 chars — TOO LONG!)
+- BAD: "AI正在全球范围内重塑医疗服务交付" (16 chars — WAY TOO LONG!)
+- The title is for impact, not explanation. Make it PUNCHY.
+
+**SUBTITLE:**
+- Always use pipe "|" separator: "Title | Subtitle Phrase"
+- Subtitle: max 15 Chinese chars or 6 English words
+- Style: 16-18px, lighter weight, muted color
+
+**CONTENT DENSITY:**
+- Maximum 3 bullet points per section (prefer 3, never exceed 4)
+- Each bullet: EXACTLY 1 line (under 25 Chinese chars or 50 English chars)
+- One main message per slide — do NOT try to cover everything
+- 35-45% of the slide should be white space — if it looks crowded, DELETE content
+- Max 2 columns of cards (2x2 grid). NEVER use 3+ columns
 - Prefer **large visuals + few words** over **many words + tiny visuals**
+
+**VISUAL BALANCE:**
+- Every content slide MUST have a substantial visual element taking 30-50% of the slide area
+- Use SVG donut charts on data/overview pages (see Component Library)
+- Use dual-color panels for comparison content
+- Use image headers on card grids
+- NEVER produce a text-dominant slide — if >60% is text, redesign the layout
 
 ## Container Specification
 
@@ -110,21 +132,21 @@ Guidelines:
 
 ## Typography Rules
 
-- Title: 32-38px, Montserrat, font-weight 700-800, color matching primary. **MAX 10 Chinese chars or 6 English words.** If the topic needs more, use title + subtitle pattern.
-- Subtitle: 16-18px, font-weight 400-500, separated from title by a vertical bar "|" with muted color
+- Title: 32-38px, Montserrat, font-weight 700-800, color matching primary. **MAX 8 Chinese chars or 5 English words.**
+- Subtitle: 16-18px, font-weight 400-500, separated from title by a vertical bar "|" with muted color. Max 15 Chinese chars.
 - Body text: 14-15px, line-height 1.6-1.8, color #374151 on light / #CBD5E1 on dark
-- Stats/KPI numbers: 40-56px, font-weight 800-900, accent color. Make them **BIG and prominent**.
+- Stats/KPI numbers: 44-56px, font-weight 800-900, accent color. Make them **BIG and prominent**.
 - KPI labels: 11-13px, text-transform uppercase, letter-spacing 1-2px, color #6B7280
 - Page number: bottom-right, 12-13px, accent color (bold number) + muted color
 - Source citation: bottom-left, 11-12px, muted color
 
 Chinese text: Use 'Noto Sans SC' as fallback. Ensure line-height >= 1.6 for Chinese readability.
 
-**Content Density Rules:**
-- Each bullet/description should be 1-2 SHORT lines. Trim ruthlessly — audiences read slides, not essays.
-- For lists: show max 3-4 items with concise labels (4-8 words each). Leave the details for the speaker.
-- Callout/quote boxes: max 2 lines of text.
-- Card descriptions: max 2 lines (under 60 chars).
+**Content Density Rules (HARD LIMITS):**
+- Each bullet: EXACTLY 1 line. Max 25 Chinese chars or 50 English chars per bullet. Trim ruthlessly.
+- Lists: max 3 items with concise labels (3-6 words each). Leave details for the speaker.
+- Callout/quote boxes: max 2 SHORT lines of text.
+- Card descriptions: max 2 short bullet points (under 40 chars each).
 
 ## Decorative Elements
 
@@ -238,8 +260,8 @@ This is excellent for listing 3-5 key points with icon emphasis:
 </div>
 \`\`\`
 
-### Inline SVG Donut Chart
-Use this for data visualization. Adjust the stroke-dasharray to show percentages (circumference = 2*pi*70 ≈ 440):
+### Inline SVG Donut Chart (HIGHLY RECOMMENDED for data/overview pages)
+**USE THIS** whenever the content mentions statistics, percentages, or market share. It adds massive visual impact. Adjust the stroke-dasharray to show percentages (circumference = 2*pi*60 ≈ 377):
 \`\`\`html
 <div style="background:#FFFFFF;border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
   <div style="font-size:16px;font-weight:700;color:#001F3F;margin-bottom:4px;">Chart Title</div>
@@ -367,12 +389,13 @@ Excellent for showing two contrasting categories (e.g., Performance vs Requireme
 - Title at top-left: 32-36px bold, with subtitle separated by "|" in lighter weight
 - **Section divider line** below title (60px wide accent bar)
 - Content area: use component combinations. **Best layouts (pick ONE per slide):**
-  - **Layout A** — Two-column: Left quote box + 3 vertical icon list items / Right donut chart or image (like Genspark Slide 2)
-  - **Layout B** — 2x2 card grid with image headers (like Genspark Slide 3). MAX 4 cards. Each card has image + title + 2-3 short bullets.
-  - **Layout C** — KPI card row (3-4 cards) + dual-section colored panels below (like Genspark Slide 4)
-  - **Layout D** — Two-column: text left (callout + 3 icon items) + large image right
-- **NEVER** use 5-column card grids. Max 4 cards in a row, and each must be spacious.
-- Keep **3-4 key points maximum**. If you have 5+, split into two slides.
+  - **Layout A (PREFERRED)** — Two-column: Left side = callout quote box + 3 vertical icon list items / Right side = SVG donut chart in white card. This is the BEST layout for content pages with statistics. Use it whenever data percentages are mentioned.
+  - **Layout B** — 2x2 card grid with image headers. MAX 4 cards. Each card has image (110px height) + bold title + 2 short bullets.
+  - **Layout C** — KPI card row (3 cards, not 4) at top + dual-section colored panels below (blue panel left + orange panel right)
+  - **Layout D** — Two-column: text left (callout + 3 icon items) + large image right (at least 45% width)
+- **NEVER** use 5-column card grids. Max 4 cards in a row.
+- Keep **3 key points maximum** per icon list. Never exceed 4.
+- At least ONE content page MUST use an SVG donut chart (Layout A).
 - Use icons (Font Awesome) to add visual interest. Every bullet should have an icon.
 - Images should have border-radius: 12px and object-fit: cover
 - **Generous padding**: 50-60px on sides, 24-32px between sections, 16-20px within cards
@@ -409,8 +432,8 @@ Choose icons that match the content topic. Here are common mappings:
 ## Quality Requirements (NON-NEGOTIABLE)
 
 1. ALL text MUST stay within the 1280x720 container. No overflow.
-2. **Title: maximum 10 Chinese characters or 6 English words.** Use subtitle for additional context.
-3. Keep bullet points to **3-4 per section** (NEVER 5+). Each bullet max 2 lines.
+2. **Title: MAXIMUM 8 Chinese characters or 5 English words.** Longer titles WILL BE REJECTED. Use "|" subtitle for extra context.
+3. Keep bullet points to **3 per section** (max 4 in rare cases). Each bullet EXACTLY 1 line.
 4. Page number MUST appear at bottom-right: \`<div style="position:absolute;bottom:20px;right:40px;font-size:13px;color:#94A3B8;font-family:'Montserrat',sans-serif;"><span style="font-weight:600;color:ACCENT_COLOR;">pageNumber</span> / totalPages</div>\`
 5. Source citation at bottom-left if applicable: \`<div style="position:absolute;bottom:20px;left:50px;font-size:11px;color:#94A3B8;">Source: ...</div>\`
 6. All images MUST have: object-fit:cover; overflow:hidden on parent; border-radius.
@@ -531,6 +554,18 @@ export function buildSlideHtmlUserPrompt(params: {
   if (previousPageSummary) {
     sections.push(
       `\n## Previous Page Summary (maintain visual continuity)\n${previousPageSummary}`,
+    );
+  }
+
+  // Title enforcement
+  sections.push(
+    `\n## CRITICAL: Title Rules\n- Title MUST be ≤8 Chinese characters or ≤5 English words. If the suggested title "${pageOutline.title}" is too long, SHORTEN it and move extra words to the subtitle after "|".`,
+  );
+
+  // Visual requirement
+  if (slideIndex > 0 && slideIndex < totalSlides - 1) {
+    sections.push(
+      `\n## Visual Requirement\nThis is a content page. It MUST have a substantial visual element (SVG donut chart, image, or colored panels) covering at least 30% of the slide. Do NOT make a text-only slide.`,
     );
   }
 
