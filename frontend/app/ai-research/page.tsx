@@ -75,6 +75,8 @@ function ResearchPageContent() {
   const [projects, setProjects] = useState<ResearchProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -113,34 +115,45 @@ function ResearchPageContent() {
     }
   }, [t]);
 
-  const createProject = useCallback(async () => {
-    if (isCreating) return;
-    setIsCreating(true);
-    try {
-      const response = await fetch(
-        `${config.apiBaseUrl}/api/v1/ai-studio/projects`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...getAuthHeader(),
-          },
-          body: JSON.stringify({ name: t('aiResearch.empty.defaultName') }),
+  const openCreateDialog = useCallback(() => {
+    setNewProjectName('');
+    setShowCreateDialog(true);
+  }, []);
+
+  const createProject = useCallback(
+    async (name: string) => {
+      if (isCreating) return;
+      const trimmedName = name.trim();
+      if (!trimmedName) return;
+      setIsCreating(true);
+      setShowCreateDialog(false);
+      try {
+        const response = await fetch(
+          `${config.apiBaseUrl}/api/v1/ai-studio/projects`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeader(),
+            },
+            body: JSON.stringify({ name: trimmedName }),
+          }
+        );
+        if (!response.ok) {
+          throw new Error('Failed to create project');
         }
-      );
-      if (!response.ok) {
-        throw new Error('Failed to create project');
+        const result = await response.json();
+        const project = result?.data ?? result;
+        router.push(`/ai-research/${project.id}`);
+      } catch (err) {
+        logger.error('Error creating research project:', err);
+        setError(t('common.loadError'));
+      } finally {
+        setIsCreating(false);
       }
-      const result = await response.json();
-      const project = result?.data ?? result;
-      router.push(`/ai-research/${project.id}`);
-    } catch (err) {
-      logger.error('Error creating research project:', err);
-      setError(t('common.loadError'));
-    } finally {
-      setIsCreating(false);
-    }
-  }, [isCreating, t, router]);
+    },
+    [isCreating, t, router]
+  );
 
   useEffect(() => {
     if (user) {
@@ -200,7 +213,7 @@ function ResearchPageContent() {
 
             {/* New Research Button */}
             <button
-              onClick={() => createProject()}
+              onClick={openCreateDialog}
               className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
             >
               <svg
@@ -291,7 +304,7 @@ function ResearchPageContent() {
               {t('aiResearch.empty.noProjectsDesc')}
             </p>
             <button
-              onClick={() => createProject()}
+              onClick={openCreateDialog}
               className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
             >
               {t('aiResearch.empty.createFirst')}
@@ -401,7 +414,7 @@ function ResearchPageContent() {
 
             {/* Create New Card */}
             <button
-              onClick={() => createProject()}
+              onClick={openCreateDialog}
               className="flex min-h-[200px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-indigo-400 hover:bg-indigo-50"
             >
               <svg
@@ -424,6 +437,62 @@ function ResearchPageContent() {
           </div>
         )}
       </div>
+
+      {/* Create Project Dialog */}
+      {showCreateDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div
+            className="mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-gray-900">
+              {t('aiResearch.project.createTitle')}
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              {t('aiResearch.project.createDesc')}
+            </p>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700">
+                {t('aiResearch.project.name')}
+              </label>
+              <input
+                type="text"
+                autoFocus
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newProjectName.trim()) {
+                    void createProject(newProjectName);
+                  }
+                  if (e.key === 'Escape') {
+                    setShowCreateDialog(false);
+                  }
+                }}
+                placeholder={t('aiResearch.project.namePlaceholder')}
+                className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                maxLength={500}
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowCreateDialog(false)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() => void createProject(newProjectName)}
+                disabled={!newProjectName.trim() || isCreating}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isCreating
+                  ? t('common.creating')
+                  : t('aiResearch.project.create')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
