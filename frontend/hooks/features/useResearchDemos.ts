@@ -32,7 +32,10 @@ interface UseResearchDemosResult {
   demos: ResearchDemo[];
   isLoading: boolean;
   error: string | null;
-  fetchDemos: () => Promise<void>;
+  fetchDemos: (
+    signal?: AbortSignal,
+    options?: { silent?: boolean }
+  ) => Promise<void>;
   generateDemo: (
     ideaId: string,
     title?: string
@@ -47,9 +50,11 @@ export function useResearchDemos(projectId: string): UseResearchDemosResult {
   const [error, setError] = useState<string | null>(null);
 
   const fetchDemos = useCallback(
-    async (signal?: AbortSignal) => {
-      setIsLoading(true);
-      setError(null);
+    async (signal?: AbortSignal, { silent = false } = {}) => {
+      if (!silent) {
+        setIsLoading(true);
+        setError(null);
+      }
       try {
         const res = await fetch(
           `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}/demos`,
@@ -63,10 +68,10 @@ export function useResearchDemos(projectId: string): UseResearchDemosResult {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         const msg =
           err instanceof Error ? err.message : 'Failed to fetch demos';
-        setError(msg);
+        if (!silent) setError(msg);
         logger.error('Failed to fetch research demos:', err);
       } finally {
-        setIsLoading(false);
+        if (!silent) setIsLoading(false);
       }
     },
     [projectId]
@@ -144,22 +149,37 @@ export function useResearchDemos(projectId: string): UseResearchDemosResult {
 
   // Poll for in-progress demos (PENDING/GENERATING) until they complete
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasPendingRef = useRef(false);
+
+  // Track pending status in ref to avoid effect re-triggering on every demos change
+  const hasPending = demos.some(
+    (d) => d.status === 'PENDING' || d.status === 'GENERATING'
+  );
+
   useEffect(() => {
-    const hasPending = demos.some(
-      (d) => d.status === 'PENDING' || d.status === 'GENERATING'
-    );
-    if (hasPending) {
+    // Only start/stop polling when pending status actually changes
+    if (hasPending === hasPendingRef.current) return;
+    hasPendingRef.current = hasPending;
+
+    if (hasPending && !pollTimerRef.current) {
       pollTimerRef.current = setInterval(() => {
-        void fetchDemos();
+        void fetchDemos(undefined, { silent: true });
       }, 5000);
+    } else if (!hasPending && pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
     }
+  }, [hasPending, fetchDemos]);
+
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
       if (pollTimerRef.current) {
         clearInterval(pollTimerRef.current);
         pollTimerRef.current = null;
       }
     };
-  }, [demos, fetchDemos]);
+  }, []);
 
   return {
     demos,
