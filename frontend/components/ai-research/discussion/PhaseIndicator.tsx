@@ -3,8 +3,8 @@
 /**
  * PhaseIndicator - Research phase progress bar
  *
- * PlanPhaseBar style: circular badge + connecting line + green/amber/gray states
- * No framer-motion dependency - uses CSS transitions and animations
+ * Layout: badge ── line ── badge ── line ── badge ── line ── badge
+ * Connectors are fixed-width, badges are flex-shrink-0.
  */
 
 import {
@@ -50,29 +50,27 @@ export function PhaseIndicator({ currentPhase }: PhaseIndicatorProps) {
           const isPending = !isCompleted && !isCurrent;
           const Icon = phase.icon;
 
+          // Connector fills between completed phases
+          const connectorFilled = currentIndex > index;
+          const connectorHalf = currentIndex === index;
+
           return (
-            <div key={phase.key} className="flex flex-1 items-center">
-              {/* Connector line */}
+            <div key={phase.key} className="contents">
+              {/* Connector line (between badges) */}
               {index > 0 && (
-                <div className="relative mx-1.5 h-0.5 flex-1">
+                <div className="relative mx-1 h-0.5 flex-1">
                   <div className="absolute inset-0 rounded-full bg-gray-200" />
-                  {isCompleted && (
-                    <div
-                      className="absolute inset-0 rounded-full bg-green-400 transition-all duration-500"
-                      style={{ transformOrigin: 'left' }}
-                    />
+                  {connectorFilled && (
+                    <div className="absolute inset-0 rounded-full bg-green-400 transition-all duration-500" />
                   )}
-                  {isCurrent && (
-                    <div
-                      className="absolute inset-y-0 left-0 w-1/2 rounded-full bg-amber-300 transition-all duration-500"
-                      style={{ transformOrigin: 'left' }}
-                    />
+                  {connectorHalf && (
+                    <div className="absolute inset-y-0 left-0 w-1/2 rounded-full bg-amber-300 transition-all duration-500" />
                   )}
                 </div>
               )}
 
-              {/* Phase badge */}
-              <div className="flex items-center gap-1.5">
+              {/* Phase badge + label */}
+              <div className="flex flex-shrink-0 items-center gap-1.5">
                 <div
                   className={cn(
                     'relative flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-all duration-300',
@@ -86,14 +84,10 @@ export function PhaseIndicator({ currentPhase }: PhaseIndicatorProps) {
                   ) : (
                     <Icon className="h-3.5 w-3.5" />
                   )}
-
-                  {/* Active pulse ring */}
                   {isCurrent && (
                     <span className="absolute inset-0 animate-ping rounded-full bg-amber-300 opacity-30" />
                   )}
                 </div>
-
-                {/* Label */}
                 <span
                   className={cn(
                     'hidden whitespace-nowrap text-xs font-medium sm:inline',
