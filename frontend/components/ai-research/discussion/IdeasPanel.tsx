@@ -33,6 +33,7 @@ import type { ResearchIdea } from '@/hooks/features/useResearchIdeas';
 interface IdeasPanelProps {
   ideas: ResearchIdea[];
   isLoading: boolean;
+  isExtracting?: boolean;
   onUpdateIdea: (
     ideaId: string,
     data: { status?: 'DISCOVERED' | 'STARRED' | 'ARCHIVED' }
@@ -96,6 +97,7 @@ const FILTER_TABS: { key: FilterKey; label: string }[] = [
 export function IdeasPanel({
   ideas,
   isLoading,
+  isExtracting = false,
   onUpdateIdea,
   onExtractIdeas,
   activeSessionId,
@@ -184,10 +186,20 @@ export function IdeasPanel({
           {activeSessionId && onExtractIdeas && (
             <button
               onClick={() => onExtractIdeas(activeSessionId)}
-              className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple-700"
+              disabled={isExtracting}
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors',
+                isExtracting
+                  ? 'cursor-not-allowed bg-purple-400'
+                  : 'bg-purple-600 hover:bg-purple-700'
+              )}
             >
-              <Sparkles className="h-3.5 w-3.5" />
-              提取创意
+              {isExtracting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              {isExtracting ? 'AI 提取中...' : '提取创意'}
             </button>
           )}
         </div>

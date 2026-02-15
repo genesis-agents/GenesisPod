@@ -185,14 +185,8 @@ export function useResearchIdeas(projectId: string): UseResearchIdeasResult {
         const result = await res.json();
         const extracted = result?.data ?? result;
         const newIdeas = Array.isArray(extracted) ? extracted : [];
-        // Merge with existing ideas, avoiding duplicates
-        setIdeas((prev) => {
-          const existingIds = new Set(prev.map((i) => i.id));
-          const unique = newIdeas.filter(
-            (i: ResearchIdea) => !existingIds.has(i.id)
-          );
-          return [...unique, ...prev];
-        });
+        // Replace all ideas since extraction deletes old ones and creates new
+        setIdeas(newIdeas);
         return newIdeas;
       } catch (err) {
         logger.error('Failed to extract ideas:', err);

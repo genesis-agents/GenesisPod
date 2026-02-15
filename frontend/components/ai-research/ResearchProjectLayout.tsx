@@ -70,6 +70,7 @@ export function ResearchProjectLayout({
   );
   const [query, setQuery] = useState('');
   const [loadingSessions, setLoadingSessions] = useState(true);
+  const [isExtracting, setIsExtracting] = useState(false);
 
   // Ideas & Demos hooks
   const {
@@ -220,8 +221,13 @@ export function ResearchProjectLayout({
   );
 
   const handleExtractIdeas = useCallback(
-    (sessionId: string) => {
-      void extractIdeas(sessionId);
+    async (sessionId: string) => {
+      setIsExtracting(true);
+      try {
+        await extractIdeas(sessionId);
+      } finally {
+        setIsExtracting(false);
+      }
     },
     [extractIdeas]
   );
@@ -419,6 +425,7 @@ export function ResearchProjectLayout({
                       <IdeasPanel
                         ideas={ideas}
                         isLoading={ideasLoading}
+                        isExtracting={isExtracting}
                         onUpdateIdea={handleUpdateIdea}
                         onExtractIdeas={handleExtractIdeas}
                         activeSessionId={activeSessionId}
