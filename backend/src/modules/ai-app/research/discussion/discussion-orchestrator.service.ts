@@ -737,29 +737,8 @@ export class DiscussionOrchestratorService {
     allMessages.push(writeStartMsg);
     subject.next({ type: "discussion.message", data: writeStartMsg });
 
-    // 流式生成报告（带超时保护，避免无限等待）
+    // 生成完整报告（单次生成，避免双重 LLM 调用导致超时/OOM）
     this.emitTyping(subject, writer);
-    await this.withTimeout(
-      (async () => {
-        for await (const chunk of this.reportService.generateReportStream(
-          dto.query,
-          searchRounds,
-          { language: dto.options?.language },
-        )) {
-          subject.next({
-            type: "content.delta",
-            data: {
-              section: chunk.section,
-              delta: chunk.content,
-            },
-          });
-        }
-      })(),
-      this.SYNTHESIS_TIMEOUT,
-      "Report streaming",
-    );
-
-    // 生成完整报告
     const report = await this.withTimeout(
       this.reportService.generateReport(dto.query, searchRounds, {
         language: dto.options?.language,
