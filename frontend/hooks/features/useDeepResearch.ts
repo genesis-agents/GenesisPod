@@ -435,7 +435,7 @@ export function useDeepResearch(
         const abortController = new AbortController();
         abortControllerRef.current = abortController;
 
-        const response = await fetch(config.apiUrl + url, {
+        const response = await fetch(config.streamApiUrl + url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -490,7 +490,8 @@ export function useDeepResearch(
         if (error instanceof Error && error.name === 'AbortError') {
           return; // 用户主动取消
         }
-        const errorMessage = error instanceof Error ? error.message : '研究启动失败';
+        const errorMessage =
+          error instanceof Error ? error.message : '研究启动失败';
         setState((prev) => ({
           ...prev,
           phase: 'error',

@@ -104,6 +104,24 @@ export const config = {
     return `${this.getBackendUrl()}/api/v1${path}`;
   },
 
+  /**
+   * 获取 SSE 流式请求的直连 API URL（绕过 Next.js rewrites 代理）
+   * Next.js rewrites 会缓冲整个响应体，导致 SSE 实时流无法工作。
+   * 此方法返回直连后端的完整 URL，用于 SSE fetch 请求。
+   */
+  get streamApiUrl(): string {
+    if (isBrowser()) {
+      // 浏览器端：直连后端，绕过 Next.js 代理
+      if (isRailwayProduction()) {
+        return `${RAILWAY_BACKEND_URL}/api/${this.apiVersion}`;
+      }
+      // 本地开发：直连后端 localhost:4000
+      return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/${this.apiVersion}`;
+    }
+    // 服务端：与 apiUrl 相同
+    return this.apiUrl;
+  },
+
   // ==================== 环境配置 ====================
   /**
    * Workspace AI v2 开启状态

@@ -101,14 +101,16 @@ const ROLE_DESCRIPTIONS: Record<DiscussionRole, string> = {
   reviewer: '质量审核和建议改进',
 };
 
-// Hexagon node positions (viewBox 320x200) - 6 roles
-const HEXAGON_POSITIONS = [
-  { x: 160, y: 32 }, // top: director
-  { x: 248, y: 76 }, // top-right: researcher A
-  { x: 248, y: 148 }, // bottom-right: researcher B
-  { x: 160, y: 178 }, // bottom: writer
-  { x: 72, y: 148 }, // bottom-left: analyst
-  { x: 72, y: 76 }, // top-left: reviewer
+// Node positions (viewBox 320x210): center + 6-ring layout
+// Index 0: director in center; 1-6: ring members
+const NODE_POSITIONS = [
+  { x: 160, y: 105 }, // center: director
+  { x: 160, y: 32 }, // top: researcher A
+  { x: 248, y: 68 }, // top-right: researcher B
+  { x: 248, y: 142 }, // bottom-right: researcher C
+  { x: 160, y: 178 }, // bottom: analyst
+  { x: 72, y: 142 }, // bottom-left: writer
+  { x: 72, y: 68 }, // top-left: reviewer
 ];
 
 type AgentStatus = 'idle' | 'speaking' | 'searching' | 'writing';
@@ -142,40 +144,51 @@ function extractAgentNodes(
 ): AgentNode[] {
   const seen = new Map<string, AgentNode>();
 
-  // Default layout order for consistent positioning
+  // Default layout order: director center, then ring
   const roleOrder: DiscussionRole[] = [
     'director',
     'researcher',
     'researcher',
-    'writer',
+    'researcher',
     'analyst',
+    'writer',
     'reviewer',
   ];
 
+  // Extract director first, then others, to ensure center positioning
+  const directorMsgs: DiscussionMessage[] = [];
+  const otherMsgs: DiscussionMessage[] = [];
   messages
     .filter((msg) => msg.messageType !== 'system')
     .forEach((msg) => {
-      const key = `${msg.agentRole}_${msg.agentName}`;
-      if (!seen.has(key)) {
-        seen.set(key, {
-          role: msg.agentRole,
-          name: msg.agentName,
-          icon: msg.agentIcon,
-          status: getAgentStatus(msg.agentRole, typingAgent),
-          posIndex: seen.size,
-        });
-      }
+      if (msg.agentRole === 'director') directorMsgs.push(msg);
+      else otherMsgs.push(msg);
     });
+
+  // Director always at index 0 (center)
+  [...directorMsgs, ...otherMsgs].forEach((msg) => {
+    const key = `${msg.agentRole}_${msg.agentName}`;
+    if (!seen.has(key)) {
+      seen.set(key, {
+        role: msg.agentRole,
+        name: msg.agentName,
+        icon: msg.agentIcon,
+        status: getAgentStatus(msg.agentRole, typingAgent),
+        posIndex: seen.size,
+      });
+    }
+  });
 
   // If we have agents, use them; otherwise use defaults
   if (seen.size > 0) {
     const nodes = Array.from(seen.values());
-    return nodes.slice(0, 6).map((n, i) => ({ ...n, posIndex: i }));
+    return nodes.slice(0, 7).map((n, i) => ({ ...n, posIndex: i }));
   }
 
   return roleOrder.map((role, i) => ({
     role,
-    name: role === 'researcher' ? `研究员 ${i === 1 ? 'A' : 'B'}` : '',
+    name:
+      role === 'researcher' ? `研究员 ${String.fromCharCode(65 + i - 1)}` : '',
     icon: '',
     status: 'idle' as AgentStatus,
     posIndex: i,
@@ -367,56 +380,57 @@ function TeamCanvas({
   selectedAgent: number | null;
   onSelect: (index: number | null) => void;
 }) {
-  const positions = HEXAGON_POSITIONS;
+  const positions = NODE_POSITIONS;
 
-  // Render Bezier curve connections
+  // Render connections: center → ring nodes + ring edges
   const renderConnections = () => {
     const connections: JSX.Element[] = [];
     if (agents.length === 0) return connections;
 
-    const leaderPos = positions[0];
+    const centerPos = positions[0]; // Director at center
 
-    // Leader -> each member
+    // Center -> each ring member (straight lines to center)
     for (let i = 1; i < Math.min(agents.length, positions.length); i++) {
       const mPos = positions[i];
       const isActive =
         agents[0]?.status !== 'idle' || agents[i]?.status !== 'idle';
 
-      const midX = (leaderPos.x + mPos.x) / 2;
-      const midY = (leaderPos.y + mPos.y) / 2 - 8;
-
       connections.push(
-        <path
-          key={`leader-${i}`}
-          d={`M ${leaderPos.x} ${leaderPos.y + 16} Q ${midX} ${midY} ${mPos.x} ${mPos.y - 14}`}
+        <line
+          key={`center-${i}`}
+          x1={centerPos.x}
+          y1={centerPos.y}
+          x2={mPos.x}
+          y2={mPos.y}
           className={cn(
-            'fill-none transition-all duration-300',
+            'transition-all duration-300',
             isActive
               ? 'stroke-blue-400 stroke-[1.5]'
               : 'stroke-gray-200 stroke-[1]'
           )}
           strokeDasharray={isActive ? 'none' : '3 3'}
-          opacity={isActive ? 0.8 : 0.5}
+          opacity={isActive ? 0.6 : 0.3}
         />
       );
     }
 
-    // Hexagon edges
-    for (let i = 1; i < Math.min(agents.length, positions.length); i++) {
-      const next = i === positions.length - 1 ? 1 : i + 1;
-      if (next >= agents.length) continue;
+    // Ring edges (connecting adjacent ring nodes)
+    const ringCount = Math.min(agents.length, positions.length) - 1;
+    for (let i = 1; i <= ringCount; i++) {
+      const next = i === ringCount ? 1 : i + 1;
       const p1 = positions[i];
       const p2 = positions[next];
-      const midX = (p1.x + p2.x) / 2;
-      const midY = (p1.y + p2.y) / 2 - 3;
 
       connections.push(
-        <path
-          key={`edge-${i}-${next}`}
-          d={`M ${p1.x} ${p1.y} Q ${midX} ${midY} ${p2.x} ${p2.y}`}
-          className="fill-none stroke-gray-200 stroke-[0.5]"
+        <line
+          key={`ring-${i}-${next}`}
+          x1={p1.x}
+          y1={p1.y}
+          x2={p2.x}
+          y2={p2.y}
+          className="stroke-gray-200 stroke-[0.5]"
           strokeDasharray="3 3"
-          opacity={0.3}
+          opacity={0.25}
         />
       );
     }
@@ -606,7 +620,7 @@ function HoverTooltip({
   posIndex: number;
   canvasSize: { width: number; height: number };
 }) {
-  const pos = HEXAGON_POSITIONS[posIndex];
+  const pos = NODE_POSITIONS[posIndex];
   if (!pos) return null;
 
   const tooltipX = (pos.x / canvasSize.width) * 100;

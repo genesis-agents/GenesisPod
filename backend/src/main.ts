@@ -115,6 +115,14 @@ async function bootstrap() {
   const allowedOrigins = new Set<string>(corsOriginsEnv);
   const isDev = process.env.NODE_ENV !== "production";
 
+  // Railway 环境自动添加前端 URL 到 CORS 白名单（SSE 直连需要）
+  if (process.env.RAILWAY_ENVIRONMENT === "production") {
+    const railwayFrontendUrl =
+      process.env.RAILWAY_FRONTEND_URL ||
+      "https://raven-ai-engine.up.railway.app";
+    allowedOrigins.add(railwayFrontendUrl);
+  }
+
   app.enableCors({
     origin: (origin, callback) => {
       // 无 Origin 头的请求（健康检查、服务端调用、curl 等）始终放行

@@ -9,7 +9,6 @@ import {
   ExternalLink,
   RefreshCw,
   Trash2,
-  Maximize2,
   Lightbulb,
   Code2,
 } from 'lucide-react';

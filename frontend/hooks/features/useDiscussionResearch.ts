@@ -341,7 +341,7 @@ export function useDiscussionResearch(
         const abortController = new AbortController();
         abortControllerRef.current = abortController;
 
-        const response = await fetch(config.apiUrl + url, {
+        const response = await fetch(config.streamApiUrl + url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
