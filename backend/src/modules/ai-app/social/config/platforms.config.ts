@@ -73,16 +73,21 @@ export const RATE_LIMIT_CONFIGS: Record<SocialPlatformType, RateLimitConfig> = {
 // ==================== MCP 服务器配置 ====================
 
 export const MCP_SERVER_CONFIGS: MCPServerConfig[] = [
-  {
-    id: "xiaohongshu-mcp",
-    name: "小红书 MCP (xpzouying/xiaohongshu-mcp)",
-    transport: "http",
-    url: process.env.XHS_MCP_URL || "http://localhost:18060/mcp",
-    autoReconnect: true,
-    timeout: 30000,
-    healthCheckInterval: 60000,
-    restartOnFailure: false,
-  },
+  // Only register xiaohongshu MCP when XHS_MCP_URL is explicitly set
+  ...(process.env.XHS_MCP_URL
+    ? [
+        {
+          id: "xiaohongshu-mcp",
+          name: "小红书 MCP (xpzouying/xiaohongshu-mcp)",
+          transport: "http" as const,
+          url: process.env.XHS_MCP_URL,
+          autoReconnect: true,
+          timeout: 30000,
+          healthCheckInterval: 60000,
+          restartOnFailure: false,
+        },
+      ]
+    : []),
 ];
 
 // ==================== Cookie 配置 ====================
