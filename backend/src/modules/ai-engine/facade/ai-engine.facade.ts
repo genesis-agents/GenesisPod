@@ -267,11 +267,21 @@ export class AIEngineFacade {
       };
     }
 
-    const modelId = request.model || request.modelType || "default";
+    // ★ 解析首选模型 ID：优先使用指定 model，否则按 modelType 查询数据库默认模型
+    let modelId = request.model;
+    if (!modelId && request.modelType) {
+      const defaultModel = await this.aiChatService.getDefaultModelByType(
+        request.modelType as AIModelType,
+      );
+      if (defaultModel) {
+        modelId = defaultModel.modelId;
+      }
+    }
+    modelId = modelId || "default";
     const entityId = `chat:${modelId}`;
 
     this.logger.debug(
-      `[chat] modelType=${request.modelType}, messages=${request.messages.length}`,
+      `[chat] modelType=${request.modelType}, model=${modelId}, messages=${request.messages.length}`,
     );
 
     // ★ Constraint: Rate limit check

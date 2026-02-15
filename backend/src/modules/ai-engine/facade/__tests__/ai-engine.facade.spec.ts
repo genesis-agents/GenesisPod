@@ -35,6 +35,7 @@ describe("AIEngineFacade", () => {
         .fn()
         .mockResolvedValue(["gpt-4o", "claude-3"]),
       isReasoningModel: jest.fn().mockReturnValue(false),
+      getDefaultModelByType: jest.fn().mockResolvedValue({ modelId: "gpt-4o" }),
     };
 
     // ★ 架构重构：使用 ToolRegistry mock
@@ -432,26 +433,22 @@ describe("AIEngineFacade without optional dependencies", () => {
       getDefaultModel: jest.fn().mockResolvedValue(null),
       getModelById: jest.fn().mockResolvedValue(null),
       refreshModelConfigCache: jest.fn().mockResolvedValue(undefined),
-      getEnabledModelsForFrontend: jest
-        .fn()
-        .mockResolvedValue([
-          {
-            modelId: "gpt-4o",
-            name: "GPT-4o",
-            displayName: "GPT-4o",
-            provider: "openai",
-          },
-        ]),
-      getAllEnabledModelsByType: jest
-        .fn()
-        .mockResolvedValue([
-          {
-            modelId: "gpt-4o",
-            name: "GPT-4o",
-            provider: "openai",
-            isReasoning: false,
-          },
-        ]),
+      getEnabledModelsForFrontend: jest.fn().mockResolvedValue([
+        {
+          modelId: "gpt-4o",
+          name: "GPT-4o",
+          displayName: "GPT-4o",
+          provider: "openai",
+        },
+      ]),
+      getAllEnabledModelsByType: jest.fn().mockResolvedValue([
+        {
+          modelId: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+          isReasoning: false,
+        },
+      ]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
