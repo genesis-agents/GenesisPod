@@ -442,9 +442,13 @@ ${discussionContent}`;
     // Call AI to extract creative ideas
     const creativeIdeas = await this.aiExtractCreativeIdeas(insightsContent);
 
+    this.logger.log(
+      `AI creative extraction produced ${creativeIdeas.length} ideas for project ${projectId}`,
+    );
+
     if (creativeIdeas.length === 0) {
       this.logger.warn(
-        `AI creative extraction produced no ideas for project ${projectId}`,
+        `AI creative extraction produced no ideas for project ${projectId} (insights count: ${insights.length})`,
       );
       return [];
     }
@@ -568,6 +572,10 @@ ${insightsContent}`;
         return [];
       }
 
+      this.logger.log(
+        `AI returned ${ideas.length} raw creative ideas for extraction`,
+      );
+
       return ideas
         .filter(
           (idea: {
@@ -586,12 +594,21 @@ ${insightsContent}`;
               !idea.feasibility ||
               !idea.dimension
             ) {
+              this.logger.debug(
+                `Filtered out idea "${idea.title || "untitled"}": missing required fields`,
+              );
               return false;
             }
             if (idea.title.length < 5) return false;
-            if (!["high", "medium", "low"].includes(idea.feasibility)) {
+            const feasLower = idea.feasibility.toLowerCase();
+            if (!["high", "medium", "low"].includes(feasLower)) {
+              this.logger.debug(
+                `Filtered out idea "${idea.title}": invalid feasibility "${idea.feasibility}"`,
+              );
               return false;
             }
+            // Normalize feasibility to lowercase for downstream
+            idea.feasibility = feasLower;
             return true;
           },
         )
