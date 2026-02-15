@@ -40,7 +40,7 @@ export class DiscussionOrchestratorService {
   private readonly logger = new Logger(DiscussionOrchestratorService.name);
   private readonly STAGE_TIMEOUT = 2 * 60 * 1000;
   /** Synthesis involves multi-step report generation; needs a longer timeout */
-  private readonly SYNTHESIS_TIMEOUT = 8 * 60 * 1000;
+  private readonly SYNTHESIS_TIMEOUT = 12 * 60 * 1000;
 
   constructor(
     private readonly prisma: PrismaService,

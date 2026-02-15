@@ -252,14 +252,31 @@ export class ReportSynthesizerService {
         "long",
       );
 
-      // Step 4: Generate each section independently
-      const sections: ReportSection[] = [];
-      for (const topic of sectionTopics) {
-        this.logger.debug(`Generating section: ${topic}`);
-        const sectionContent = await this.generatePart(
-          rp.sectionPrompt(query, topic, sourceContext),
-          "long",
-        );
+      // Step 4: Generate all sections in parallel for speed
+      this.logger.debug(
+        `Generating ${sectionTopics.length} sections in parallel...`,
+      );
+      const sectionResults = await Promise.allSettled(
+        sectionTopics.map((topic) =>
+          this.generatePart(
+            rp.sectionPrompt(query, topic, sourceContext),
+            "long",
+          ),
+        ),
+      );
+
+      const sections: ReportSection[] = sectionTopics.map((topic, i) => {
+        const result = sectionResults[i];
+        const sectionContent =
+          result.status === "fulfilled"
+            ? result.value
+            : rp.generateSectionError(topic);
+
+        if (result.status === "rejected") {
+          this.logger.warn(
+            `Section "${topic}" generation failed: ${result.reason}`,
+          );
+        }
 
         // Extract citation numbers from content
         const citationMatches = sectionContent.match(/\[(\d+)\]/g) || [];
@@ -271,12 +288,12 @@ export class ReportSynthesizerService {
           ),
         ];
 
-        sections.push({
+        return {
           title: topic,
           content: sectionContent,
           citations,
-        });
-      }
+        };
+      });
 
       // Step 5: Generate conclusion
       this.logger.debug("Generating conclusion...");
@@ -428,7 +445,7 @@ export class ReportSynthesizerService {
             content: `${rp.researchTopicLabel}：${query}\n\n${rp.sourceMaterialLabel}：\n${sourceContext}`,
           },
         ],
-        modelType: AIModelType.CHAT,
+        modelType: AIModelType.CHAT_FAST,
         taskProfile: {
           creativity: "low",
           outputLength: "minimal",
