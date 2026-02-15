@@ -407,6 +407,17 @@ export function ResearchProjectLayout({
                         : 'idle'
                       : discussionState.phase
                   }
+                  isActive={isSearching}
+                  hasSession={sessions.length > 0 || !!viewingSession}
+                  onStart={() => {
+                    const q = query || projectName;
+                    handleStartResearch(q);
+                  }}
+                  onContinue={() => {
+                    const q = query || projectName;
+                    handleStartResearch(q);
+                  }}
+                  onStop={stop}
                 />
               </div>
             </div>

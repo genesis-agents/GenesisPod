@@ -344,19 +344,32 @@ export const ORCHESTRATOR_PROMPTS: Record<
 
 ${sourceSummary}
 
-请总结你的关键发现（150-250字），包括：
-1. 最重要的发现
-2. 意外发现
-3. 需要进一步验证的点`,
+请总结你的关键发现（150-250字）。使用以下 Markdown 格式输出：
+
+### 最重要的发现
+- 发现1
+- 发现2
+
+### 意外发现
+- 发现1
+
+### 需要进一步验证的点
+- 待验证点1`,
     crossCheckRequest: (findingsTexts) =>
       `以下是研究员们的汇报：
 
 ${findingsTexts}
 
-请进行交叉验证：
-1. 指出不同研究员发现之间的矛盾
-2. 识别信息缺口
-3. 评估整体研究质量`,
+请进行交叉验证，使用以下 Markdown 格式输出：
+
+### 发现之间的矛盾
+- 矛盾点1
+
+### 信息缺口
+- 缺口1
+
+### 整体研究质量评估
+简要评价`,
     insightRequest: (crossCheck) =>
       `分析师的交叉验证：
 ${crossCheck}
@@ -431,19 +444,32 @@ Please output in JSON format:
 
 ${sourceSummary}
 
-Please summarize your key findings (150-250 words), including:
-1. Most important discoveries
-2. Unexpected findings
-3. Points requiring further verification`,
+Please summarize your key findings (150-250 words). Use the following Markdown format:
+
+### Most Important Discoveries
+- Discovery 1
+- Discovery 2
+
+### Unexpected Findings
+- Finding 1
+
+### Points Requiring Further Verification
+- Point 1`,
     crossCheckRequest: (findingsTexts) =>
       `Here are the researchers' reports:
 
 ${findingsTexts}
 
-Please cross-validate:
-1. Identify contradictions between different researchers' findings
-2. Identify information gaps
-3. Assess overall research quality`,
+Please cross-validate using the following Markdown format:
+
+### Contradictions Between Findings
+- Contradiction 1
+
+### Information Gaps
+- Gap 1
+
+### Overall Research Quality Assessment
+Brief evaluation`,
     insightRequest: (crossCheck) =>
       `Analyst's cross-validation:
 ${crossCheck}

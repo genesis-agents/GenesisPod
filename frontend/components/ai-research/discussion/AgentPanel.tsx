@@ -23,6 +23,9 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  Play,
+  RotateCw,
+  Square,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
@@ -39,6 +42,16 @@ interface AgentPanelProps {
   typingAgent: { role: string; name: string } | null;
   directions: string[];
   currentPhase: DiscussionPhase;
+  /** Whether research is currently running */
+  isActive?: boolean;
+  /** Whether a previous session exists (enables Continue) */
+  hasSession?: boolean;
+  /** Start new research */
+  onStart?: () => void;
+  /** Continue / re-run last research */
+  onContinue?: () => void;
+  /** Stop current research */
+  onStop?: () => void;
 }
 
 // ---- Constants ----
@@ -226,6 +239,11 @@ export function AgentPanel({
   typingAgent,
   directions,
   currentPhase,
+  isActive = false,
+  hasSession = false,
+  onStart,
+  onContinue,
+  onStop,
 }: AgentPanelProps) {
   const [hoveredAgent, setHoveredAgent] = useState<number | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<number | null>(null);
@@ -326,7 +344,7 @@ export function AgentPanel({
 
       {/* Research Directions */}
       {directions.length > 0 && (
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           <button
             onClick={() => setDirectionsExpanded(!directionsExpanded)}
             className="flex w-full items-center justify-between px-4 py-2 text-left"
@@ -357,6 +375,58 @@ export function AgentPanel({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Control Buttons */}
+      {(onStart || onContinue || onStop) && (
+        <div className="flex-shrink-0 border-t border-gray-100 px-4 py-3">
+          <div className="grid grid-cols-3 gap-2">
+            {/* Start: new research */}
+            <button
+              onClick={onStart}
+              disabled={isActive || !onStart}
+              className={cn(
+                'flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+                isActive || !onStart
+                  ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
+                  : 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
+              )}
+            >
+              <Play className="h-3.5 w-3.5" />
+              开始
+            </button>
+
+            {/* Continue: re-run last research */}
+            <button
+              onClick={onContinue}
+              disabled={isActive || !hasSession || !onContinue}
+              className={cn(
+                'flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+                isActive || !hasSession || !onContinue
+                  ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
+                  : 'bg-green-600 text-white shadow-sm hover:bg-green-700'
+              )}
+            >
+              <RotateCw className="h-3.5 w-3.5" />
+              继续
+            </button>
+
+            {/* Stop: cancel current research */}
+            <button
+              onClick={onStop}
+              disabled={!isActive || !onStop}
+              className={cn(
+                'flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+                !isActive || !onStop
+                  ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
+                  : 'border border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
+              )}
+            >
+              <Square className="h-3.5 w-3.5" />
+              停止
+            </button>
+          </div>
         </div>
       )}
     </div>
