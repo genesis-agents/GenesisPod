@@ -40,6 +40,7 @@ import { ContentAnalyzerSkill } from "./content-analyzer.skill";
 import { LayoutOptimizerSkill } from "./layout-optimizer.skill";
 import { QualityAuditSkill } from "./quality-audit.skill";
 import { SlideThinkingSkill } from "./slide-thinking.skill";
+import { SlideHtmlGenerationSkill } from "./slide-html-generation.skill";
 
 // DI-dependent prompt skills (still needed as NestJS providers for controller/service injection)
 import { ContentCompressionSkill } from "./content-compression.skill";
@@ -63,6 +64,7 @@ const SLIDES_CODE_SKILL_PROVIDERS = [
   TemplateRenderingSkill,
   ChartRendererSkill,
   ImageFetcherSkill,
+  SlideHtmlGenerationSkill, // v6.0: AI HTML generation
   ContentCompressionSkill, // DI-dependent: used by page-pipeline, slides-engine
   DataSupplementSkill, // DI-dependent: used by content-compression
   // Layer 4.5 - Content-Driven Layout
@@ -99,6 +101,7 @@ export class SlidesSkillsModule implements OnModuleInit {
     private readonly templateRendering: TemplateRenderingSkill,
     private readonly chartRenderer: ChartRendererSkill,
     private readonly imageFetcher: ImageFetcherSkill,
+    private readonly slideHtmlGeneration: SlideHtmlGenerationSkill,
     private readonly contentAnalyzer: ContentAnalyzerSkill,
     private readonly layoutOptimizer: LayoutOptimizerSkill,
     private readonly qualityAudit: QualityAuditSkill,
@@ -129,6 +132,7 @@ export class SlidesSkillsModule implements OnModuleInit {
       this.templateRendering,
       this.chartRenderer,
       this.imageFetcher,
+      this.slideHtmlGeneration,
       this.contentAnalyzer,
       this.layoutOptimizer,
       this.qualityAudit,

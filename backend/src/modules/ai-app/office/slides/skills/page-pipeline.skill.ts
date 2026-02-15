@@ -1,16 +1,18 @@
 /**
- * Slides Engine v4.0 - Page Generation Pipeline Skill
+ * Slides Engine v6.0 - Page Generation Pipeline Skill
  *
  * 页面生成流水线：协调逐页生成和渲染
- * - 获取大纲规划中的所有页面
- * - 为每页生成内容
- * - 为每页渲染 HTML
- * - 每完成一页就通过回调发送事件
+ *
+ * v6.0 重构：AI 自适应 HTML 生成
+ * - 每页先搜索图片（ImageFetcherSkill）
+ * - AI 直接生成完整 HTML（SlideHtmlGenerationSkill）
+ * - 后处理验证和保护（html-post-processor）
+ * - 失败时降级到旧 TemplateRendering 流程
  *
  * 这是实现"完成一页发送一页"的核心组件
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   ISkill,
@@ -25,6 +27,8 @@ import {
 } from "../checkpoint/checkpoint.types";
 import { TemplateRenderingSkill } from "./template-rendering.skill";
 import { ContentCompressionSkill } from "./content-compression.skill";
+import { ImageFetcherSkill } from "./image-fetcher.skill";
+import { SlideHtmlGenerationSkill } from "./slide-html-generation.skill";
 
 /**
  * 单页生成结果
@@ -124,12 +128,14 @@ export class PagePipelineSkill implements ISkill<
   readonly layer: SkillLayer = "orchestration";
   readonly domain = "slides";
   readonly tags = ["slides", "pipeline", "streaming", "generation"];
-  readonly version = "1.0.0";
+  readonly version = "6.0.0";
 
   constructor(
     private readonly templateRendering: TemplateRenderingSkill,
     private readonly contentCompression: ContentCompressionSkill,
     private readonly eventEmitter: EventEmitter2,
+    @Optional() private readonly imageFetcher?: ImageFetcherSkill,
+    @Optional() private readonly slideHtmlGeneration?: SlideHtmlGenerationSkill,
   ) {}
 
   /**
@@ -142,25 +148,8 @@ export class PagePipelineSkill implements ISkill<
     const startTime = Date.now();
     const sessionId = context.sessionId || "unknown";
 
-    // ★★★ 关键诊断日志 ★★★
-    this.logger.warn(
-      `[execute] ★★★ PAGE-PIPELINE CALLED ★★★ sessionId=${sessionId}, eventEmitter exists=${!!this.eventEmitter}`,
-    );
-    this.logger.warn(
-      `[execute] ★★★ INPUT KEYS: ${Object.keys(input).join(", ")}`,
-    );
-    if (input.previousOutputs) {
-      this.logger.warn(
-        `[execute] ★★★ previousOutputs KEYS: ${Object.keys(input.previousOutputs).join(", ")}`,
-      );
-    }
-    const inputWithOutline = input as OrchestratorInput & { outline?: unknown };
-    this.logger.warn(
-      `[execute] ★★★ input.outline exists=${!!inputWithOutline.outline}, type=${typeof inputWithOutline.outline}`,
-    );
-
     this.logger.log(
-      `[execute] Starting page pipeline for session ${sessionId}`,
+      `[execute] Starting page pipeline v6.0 for session ${sessionId}`,
     );
 
     // 1. 提取必要数据
@@ -188,6 +177,13 @@ export class PagePipelineSkill implements ISkill<
     const pages: PageGenerationResult[] = [];
     let completedPages = 0;
     let failedPages = 0;
+    let previousPageSummary: string | undefined;
+
+    // 检测是否可用 AI HTML 生成
+    const useAiHtmlGeneration = !!this.slideHtmlGeneration;
+    this.logger.log(
+      `[execute] AI HTML generation: ${useAiHtmlGeneration ? "enabled" : "disabled (fallback to template)"}`,
+    );
 
     // 2. 逐页生成
     for (let i = 0; i < totalPages; i++) {
@@ -199,7 +195,7 @@ export class PagePipelineSkill implements ISkill<
         `[execute] Processing page ${pageNumber}/${totalPages}: ${pageOutline.title}`,
       );
 
-      // ★ 发送页面开始生成事件
+      // 发送页面开始生成事件
       this.eventEmitter.emit("slides.page.generating", {
         pageNumber,
         totalPages,
@@ -209,65 +205,82 @@ export class PagePipelineSkill implements ISkill<
       });
 
       try {
-        // 2a. 生成页面内容
-        const pageContent = await this.generatePageContent(
-          pageOutline,
-          sourceText,
-          context,
-        );
+        let html: string;
+        let templateId: string;
+        let designDecisions: string | undefined;
+        let hasImages = false;
 
-        // 2b. 渲染 HTML
-        const renderResult = await this.renderPage(
-          pageOutline,
-          pageContent,
-          themeId,
-          context,
-        );
-
-        if (renderResult.success && renderResult.data) {
-          const htmlLength = renderResult.data.html?.length || 0;
-          this.logger.log(
-            `[execute] ★ Page ${pageNumber} rendered successfully, HTML length: ${htmlLength}`,
-          );
-
-          const result: PageGenerationResult = {
-            pageNumber,
-            title: pageOutline.title,
-            html: renderResult.data.html,
-            templateId: renderResult.data.templateId,
-            status: "completed",
-            duration: Date.now() - pageStartTime,
-          };
-
-          pages.push(result);
-          completedPages++;
-
-          // 2c. 生成设计思考数据
-          const designThinking = this.generateDesignThinking(
+        if (useAiHtmlGeneration) {
+          // ★ v6.0 新流程：图片搜索 → AI HTML 生成
+          const result = await this.generateWithAi(
             pageOutline,
-            pageContent,
-            renderResult.data.templateId,
-          );
-
-          // 2d. 发送页面生成事件（流式输出的关键）
-          this.emitPageGenerated({
-            type: "page:generated",
-            pageNumber,
+            sourceText,
+            themeId,
+            i,
             totalPages,
-            title: pageOutline.title,
-            html: renderResult.data.html,
-            templateId: renderResult.data.templateId,
-            sessionId,
-            design: designThinking,
-            keyPoints: pageOutline.keyElements || [],
-          });
-
-          this.logger.log(
-            `[execute] Page ${pageNumber} completed in ${result.duration}ms`,
+            previousPageSummary,
+            context,
           );
+          html = result.html;
+          templateId = "ai-generated";
+          designDecisions = result.designDecisions;
+          hasImages = result.hasImages;
         } else {
-          throw new Error(renderResult.error?.message || "渲染失败");
+          // 降级：旧流程（ContentCompression → TemplateRendering）
+          const result = await this.generateWithTemplate(
+            pageOutline,
+            sourceText,
+            themeId,
+            context,
+          );
+          html = result.html;
+          templateId = result.templateId;
         }
+
+        const htmlLength = html?.length || 0;
+        this.logger.log(
+          `[execute] Page ${pageNumber} rendered successfully, HTML length: ${htmlLength}`,
+        );
+
+        const result: PageGenerationResult = {
+          pageNumber,
+          title: pageOutline.title,
+          html,
+          templateId,
+          status: "completed",
+          duration: Date.now() - pageStartTime,
+        };
+
+        pages.push(result);
+        completedPages++;
+
+        // 生成设计思考数据
+        const designThinking = this.generateDesignThinking(
+          pageOutline,
+          templateId,
+          designDecisions,
+          hasImages,
+        );
+
+        // 更新上一页摘要（用于 AI 生成时保持连贯性）
+        previousPageSummary = `Page ${pageNumber}: "${pageOutline.title}" - ${pageOutline.templateType} layout, ${designDecisions || templateId}`;
+
+        // 发送页面生成事件（流式输出的关键）
+        this.emitPageGenerated({
+          type: "page:generated",
+          pageNumber,
+          totalPages,
+          title: pageOutline.title,
+          html,
+          templateId,
+          sessionId,
+          design: designThinking,
+          keyPoints: pageOutline.keyElements || [],
+        });
+
+        this.logger.log(
+          `[execute] Page ${pageNumber} completed in ${result.duration}ms`,
+        );
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "未知错误";
@@ -325,6 +338,144 @@ export class PagePipelineSkill implements ISkill<
   }
 
   /**
+   * v6.0 新流程：图片搜索 → AI HTML 生成
+   * 失败时自动降级到旧 TemplateRendering 流程
+   */
+  private async generateWithAi(
+    pageOutline: PageOutline,
+    sourceText: string,
+    themeHint: string,
+    slideIndex: number,
+    totalSlides: number,
+    previousPageSummary: string | undefined,
+    context: SkillContext,
+  ): Promise<{ html: string; designDecisions: string; hasImages: boolean }> {
+    // Detect language from source text
+    const language = this.detectLanguage(sourceText);
+
+    // Step 1: 搜索图片
+    let imageUrls: string[] = [];
+    if (this.imageFetcher) {
+      try {
+        const keywords = this.imageFetcher.extractKeywords(
+          pageOutline.title,
+          pageOutline.contentBrief,
+        );
+        if (keywords.length > 0) {
+          const imageResult = await this.imageFetcher.searchImages({
+            keywords,
+            size: "medium",
+            orientation: "landscape",
+            count: 2,
+          });
+          imageUrls = imageResult.map((img) => img.url);
+          this.logger.log(
+            `[generateWithAi] Found ${imageUrls.length} images for page "${pageOutline.title}"`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[generateWithAi] Image search failed, proceeding without images: ${error}`,
+        );
+      }
+    }
+
+    // Step 2: AI 生成完整 HTML
+    try {
+      if (!this.slideHtmlGeneration) {
+        throw new Error("SlideHtmlGenerationSkill not available");
+      }
+      const aiResult = await this.slideHtmlGeneration.execute(
+        {
+          pageOutline,
+          sourceText,
+          imageUrls,
+          themeHint: this.resolveThemeHint(themeHint),
+          previousPageSummary,
+          slideIndex,
+          totalSlides,
+          language,
+        },
+        {
+          ...context,
+          executionId: `${context.executionId}-ai-html-${pageOutline.pageNumber}`,
+        },
+      );
+
+      if (aiResult.success && aiResult.data?.html) {
+        return {
+          html: aiResult.data.html,
+          designDecisions: aiResult.data.designDecisions,
+          hasImages: imageUrls.length > 0,
+        };
+      }
+
+      this.logger.warn(
+        `[generateWithAi] AI HTML generation returned no data, falling back to template`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `[generateWithAi] AI HTML generation failed, falling back to template: ${error}`,
+      );
+    }
+
+    // Step 3: 降级到旧 TemplateRendering 流程
+    this.logger.log(
+      `[generateWithAi] Fallback: using template rendering for page "${pageOutline.title}"`,
+    );
+    const fallback = await this.generateWithTemplate(
+      pageOutline,
+      sourceText,
+      themeHint,
+      context,
+    );
+    return {
+      html: fallback.html,
+      designDecisions: `Fallback to template: ${fallback.templateId}`,
+      hasImages: false,
+    };
+  }
+
+  /**
+   * 旧流程：ContentCompression → TemplateRendering（降级方案）
+   */
+  private async generateWithTemplate(
+    pageOutline: PageOutline,
+    sourceText: string,
+    themeId: string,
+    context: SkillContext,
+  ): Promise<{ html: string; templateId: string }> {
+    // Generate page content
+    const pageContent = await this.generatePageContent(
+      pageOutline,
+      sourceText,
+      context,
+    );
+
+    // Render HTML with template
+    const renderResult = await this.templateRendering.execute(
+      {
+        pageOutline,
+        pageContent,
+        themeId,
+      },
+      {
+        ...context,
+        executionId: `${context.executionId}-render-${pageOutline.pageNumber}`,
+      },
+    );
+
+    if (renderResult.success && renderResult.data) {
+      return {
+        html: renderResult.data.html,
+        templateId: renderResult.data.templateId,
+      };
+    }
+
+    throw new Error(renderResult.error?.message || "Template rendering failed");
+  }
+
+  /**
    * 提取输入数据
    */
   private extractInputData(input: OrchestratorInput): {
@@ -335,7 +486,6 @@ export class PagePipelineSkill implements ISkill<
     const previousOutputs = input.previousOutputs || {};
     const contextInput = input.context?.input || {};
 
-    // ★ 修复：从多个位置获取大纲规划（包括 input.outline）
     const inputWithOutline = input as OrchestratorInput & {
       outline?: OutlinePlan;
       sourceText?: string;
@@ -343,12 +493,9 @@ export class PagePipelineSkill implements ISkill<
     };
 
     let outlinePlan =
-      // 1. 直接在 input.outline（SlidesTeamMember.buildSkillInput 设置）
       inputWithOutline.outline ||
-      // 2. 从 previousOutputs 获取（完整 OutlinePlan）
       (previousOutputs["slides-outline-planning"] as OutlinePlan) ||
       (previousOutputs["outline-planning"] as OutlinePlan) ||
-      // 3. 从 context 获取
       (input.context?.outlinePlan as OutlinePlan) ||
       (input.context?.outline as OutlinePlan) ||
       null;
@@ -363,7 +510,6 @@ export class PagePipelineSkill implements ISkill<
       }
     }
 
-    // ★ 修复：sourceText 和 themeId 也可能在顶层
     const sourceText =
       inputWithOutline.sourceText ||
       (contextInput.sourceText as string) ||
@@ -376,11 +522,11 @@ export class PagePipelineSkill implements ISkill<
       "genspark-dark";
 
     this.logger.log(
-      `[extractInputData] ★ Found outline: ${!!outlinePlan}, pages: ${outlinePlan?.pages?.length || 0}, sourceText: ${sourceText.length} chars, themeId: ${themeId}`,
+      `[extractInputData] Found outline: ${!!outlinePlan}, pages: ${outlinePlan?.pages?.length || 0}, sourceText: ${sourceText.length} chars, themeId: ${themeId}`,
     );
     if (!outlinePlan) {
       this.logger.error(
-        `[extractInputData] ✗ OUTLINE NOT FOUND! input keys: ${Object.keys(input).join(", ")}, previousOutputs keys: ${Object.keys(input.previousOutputs || {}).join(", ")}`,
+        `[extractInputData] OUTLINE NOT FOUND! input keys: ${Object.keys(input).join(", ")}, previousOutputs keys: ${Object.keys(input.previousOutputs || {}).join(", ")}`,
       );
     }
 
@@ -388,21 +534,19 @@ export class PagePipelineSkill implements ISkill<
   }
 
   /**
-   * 生成页面内容
-   * 使用 ContentCompression 将源文本压缩为页面内容
+   * 生成页面内容（旧流程降级用）
    */
   private async generatePageContent(
     pageOutline: PageOutline,
     sourceText: string,
     context: SkillContext,
   ): Promise<PageContent> {
-    // 使用 ContentCompression 压缩源文本
     try {
       const result = await this.contentCompression.execute(
         {
           pageOutline,
           sourceText,
-          maxCharacters: 500, // 每页最大字数
+          maxCharacters: 500,
         },
         {
           ...context,
@@ -419,7 +563,6 @@ export class PagePipelineSkill implements ISkill<
       );
     }
 
-    // 降级：创建基础内容
     return this.createBasicPageContent(pageOutline);
   }
 
@@ -440,43 +583,18 @@ export class PagePipelineSkill implements ISkill<
   }
 
   /**
-   * 渲染页面 HTML
-   */
-  private async renderPage(
-    pageOutline: PageOutline,
-    pageContent: PageContent,
-    themeId: string,
-    context: SkillContext,
-  ) {
-    return this.templateRendering.execute(
-      {
-        pageOutline,
-        pageContent,
-        themeId,
-      },
-      {
-        ...context,
-        executionId: `${context.executionId}-render-${pageOutline.pageNumber}`,
-      },
-    );
-  }
-
-  /**
    * 生成页面设计思考数据
-   * 这些数据将同步到前端的 Thinking TAB，便于 AI 持续改进
+   * v6.0: 支持 AI 生成模式和模板模式的设计思考
    */
   private generateDesignThinking(
     pageOutline: PageOutline,
-    pageContent: PageContent,
     templateId: string,
+    designDecisions?: string,
+    hasImages?: boolean,
   ): PageDesignThinking {
-    // 从页面大纲和内容中提取设计思考
     const templateType = pageOutline.templateType || "content";
-    const hasSubtitle = !!pageOutline.subtitle || !!pageContent.subtitle;
-    const sectionsCount = pageContent.sections?.length || 0;
-    const hasImages = pageContent.sections?.some((s) => s.type === "image");
+    const isAiGenerated = templateId === "ai-generated";
 
-    // 根据模板类型确定样式
     const styleMap: Record<string, string> = {
       cover: "大标题居中，强调视觉冲击",
       chapterTitle: "章节标题突出，引导阅读",
@@ -497,96 +615,50 @@ export class PagePipelineSkill implements ISkill<
       closing: "总结归纳，要点突出",
     };
 
-    // 根据模板类型确定对齐方式
-    const alignmentMap: Record<string, string> = {
-      cover: "居中对齐，视觉焦点集中",
-      chapterTitle: "左对齐标题，右侧装饰",
-      toc: "左对齐列表，层次缩进",
-      questions: "居中问题，答案分布",
-      pillars: "多栏均分，间距适中",
-      framework: "框架居中，元素环绕",
-      timeline: "时间轴居中，事件左右交替",
-      evolutionRoadmap: "横向时间轴，阶段分明",
-      dashboard: "网格布局，指标卡片",
-      comparison: "左右对称，对比鲜明",
-      splitLayout: "左右分栏，比例均衡",
-      caseStudy: "上下结构，案例详情",
-      multiColumn: "多栏并列，内容独立",
-      recommendations: "列表布局，优先级排列",
-      maturityModel: "阶梯布局，层级递进",
-      riskOpportunity: "双栏对比，红绿标识",
-      closing: "居中总结，要点列表",
-    };
-
-    // 生成核心元素列表
-    const coreElements: string[] = [
-      `标题: ${pageOutline.title}`,
-      ...(hasSubtitle ? [`副标题: ${pageOutline.subtitle}`] : []),
-      ...(pageOutline.keyElements?.slice(0, 3).map((e) => `要点: ${e}`) || []),
-    ];
-
-    // 推断情绪/氛围
     const moodMap: Record<string, string> = {
       cover: "专业、大气、引人注目",
       chapterTitle: "过渡、引导、承上启下",
       toc: "结构化、导航感、全局视角",
-      questions: "好奇、探索、引人思考",
       pillars: "稳固、支撑、核心要素",
       framework: "系统化、结构化、逻辑性",
       timeline: "有序、流程感、时间感",
-      evolutionRoadmap: "发展、进步、未来导向",
       dashboard: "数据驱动、量化、精确",
       comparison: "对比、选择、决策导向",
-      splitLayout: "对比、平衡、逻辑清晰",
-      caseStudy: "实践、证据、深度分析",
-      multiColumn: "信息密集、并列、多维度",
-      recommendations: "行动导向、建议、下一步",
-      maturityModel: "成长、阶段、进阶",
-      riskOpportunity: "权衡、决策、战略思维",
       closing: "归纳、重点、收尾",
     };
 
-    // 生成装饰元素列表
-    const decorations: string[] = [];
-    if (templateType === "cover") {
-      decorations.push("渐变背景", "品牌 Logo", "装饰线条");
-    } else if (templateType === "chapterTitle") {
-      decorations.push("章节编号", "分隔线", "背景图案");
-    } else if (templateType === "dashboard") {
-      decorations.push("指标卡片", "进度条", "图表边框");
-    } else {
-      decorations.push("列表图标", "分隔线");
-      if (hasImages) decorations.push("图片边框", "阴影效果");
-    }
+    const coreElements: string[] = [
+      `标题: ${pageOutline.title}`,
+      ...(pageOutline.subtitle ? [`副标题: ${pageOutline.subtitle}`] : []),
+      ...(pageOutline.keyElements?.slice(0, 3).map((e) => `要点: ${e}`) || []),
+    ];
 
-    // 构建完整的思考过程
-    const reasoning = `
-【页面 ${pageOutline.pageNumber} 设计思考】
+    const decorations: string[] = isAiGenerated
+      ? [
+          "AI 自适应布局",
+          "Font Awesome 图标",
+          hasImages ? "Unsplash 图片" : "色彩块",
+        ]
+      : ["列表图标", "分隔线"];
 
-1️⃣ 草稿阶段 (Drafting):
-   - 确定页面类型: ${templateType}
-   - 核心内容: ${pageOutline.title}
-   - 关键要素: ${pageOutline.keyElements?.join(", ") || "无"}
+    const reasoning = isAiGenerated
+      ? `
+【页面 ${pageOutline.pageNumber} AI 自适应设计】
 
-2️⃣ 布局精化 (Refining Layout):
-   - 选择模板: ${templateId}
-   - 对齐方式: ${alignmentMap[templateType] || "标准左对齐"}
-   - 内容区块: ${sectionsCount} 个部分
+1. 图片搜索: ${hasImages ? "已获取相关图片" : "无图片，使用图标替代"}
+2. AI HTML 生成: 根据设计系统规范直接生成完整 HTML
+3. 配色方案: AI 根据内容主题自适应选择
+4. 布局决策: ${designDecisions || "AI 自适应"}
 
-3️⃣ 视觉规划 (Planning Visuals):
-   - 配色方案: 继承主题色
-   - 装饰元素: ${decorations.join(", ")}
-   - 图片使用: ${hasImages ? "是" : "否"}
+页面类型: ${templateType}
+核心内容: ${pageOutline.title}
+`.trim()
+      : `
+【页面 ${pageOutline.pageNumber} 模板渲染】
 
-4️⃣ HTML 生成 (Formulating HTML):
-   - 使用模板: ${templateId}
-   - 响应式设计: 是
-   - 动画效果: 淡入
-
-✅ 设计决策依据:
-   - 模板 "${templateType}" 适合展示 "${pageOutline.title}"
-   - ${sectionsCount} 个内容块保持页面信息量适中
-   - ${hasSubtitle ? "副标题增强了层次感" : "无副标题，保持简洁"}
+使用模板: ${templateId}
+页面类型: ${templateType}
+核心内容: ${pageOutline.title}
 `.trim();
 
     return {
@@ -596,18 +668,18 @@ export class PagePipelineSkill implements ISkill<
         mood: moodMap[templateType] || "专业、清晰",
       },
       step2_refiningLayout: {
-        alignment: alignmentMap[templateType] || "左对齐",
-        graphicsPosition: hasImages ? "右侧或下方" : "无图片",
+        alignment: isAiGenerated ? "AI 自适应对齐" : "模板预设对齐",
+        graphicsPosition: hasImages ? "包含图片" : "无图片",
         spacing: "标准间距 (24px)",
       },
       step3_planningVisuals: {
-        backgroundColor: "继承主题背景色",
-        accentColors: ["主题强调色", "辅助色"],
+        backgroundColor: isAiGenerated ? "AI 自适应配色" : "继承主题背景色",
+        accentColors: isAiGenerated ? ["AI 自选强调色"] : ["主题强调色"],
         decorations,
       },
       step4_formulatingHTML: {
         templateUsed: templateId,
-        sectionsCount,
+        sectionsCount: pageOutline.keyElements?.length || 0,
         hasImages: hasImages || false,
       },
       reasoning,
@@ -615,26 +687,46 @@ export class PagePipelineSkill implements ISkill<
   }
 
   /**
+   * 检测源文本语言
+   */
+  private detectLanguage(sourceText: string): string | undefined {
+    if (!sourceText) return undefined;
+    // Count Chinese characters in the first 500 chars
+    const sample = sourceText.substring(0, 500);
+    const chineseChars = (sample.match(/[\u4e00-\u9fa5]/g) || []).length;
+    const ratio = chineseChars / sample.length;
+    if (ratio > 0.1) return "Chinese (Simplified)";
+    return undefined; // Default: let AI decide based on content
+  }
+
+  /**
+   * 将内部 themeId 转为 AI 可理解的风格描述
+   */
+  private resolveThemeHint(themeId: string): string {
+    const themeDescriptions: Record<string, string> = {
+      "genspark-dark":
+        "Dark prestige theme with gold accents, navy backgrounds for cover/closing, light backgrounds for content pages",
+      "corporate-blue": "Professional business blue theme, clean and corporate",
+      "tech-modern": "Modern tech purple theme, innovative and forward-looking",
+      "nature-green": "Natural green theme, sustainability-focused and calming",
+      "warm-creative": "Warm orange creative theme, energetic and engaging",
+    };
+    return themeDescriptions[themeId] || themeId;
+  }
+
+  /**
    * 发送页面生成事件
    */
   private emitPageGenerated(event: PageGeneratedEvent): void {
-    // ★★★ 关键诊断日志 ★★★
-    this.logger.warn(
-      `[emitPageGenerated] ★★★ EMITTING EVENT ★★★ page=${event.pageNumber}, sessionId=${event.sessionId}, htmlLength=${event.html?.length || 0}`,
+    this.logger.log(
+      `[emitPageGenerated] Emitting event for page=${event.pageNumber}, htmlLength=${event.html?.length || 0}`,
     );
 
-    // 通过 EventEmitter 发送事件
     if (!this.eventEmitter) {
-      this.logger.error(
-        `[emitPageGenerated] ★★★ ERROR: eventEmitter is NULL! ★★★`,
-      );
+      this.logger.error("[emitPageGenerated] eventEmitter is NULL!");
       return;
     }
 
     this.eventEmitter.emit("slides.page.generated", event);
-
-    this.logger.warn(
-      `[emitPageGenerated] ★★★ EVENT EMITTED ★★★ page=${event.pageNumber}`,
-    );
   }
 }

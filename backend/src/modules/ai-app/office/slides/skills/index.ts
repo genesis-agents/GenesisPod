@@ -37,6 +37,8 @@ export * from "./data-supplement.skill";
 export * from "./template-rendering.skill";
 export * from "./chart-renderer.skill";
 export * from "./image-fetcher.skill";
+export * from "./slide-html-generation.skill";
+export { postProcessSlideHtml } from "./html-post-processor";
 
 // Layer 4.5 - Content-Driven Layout (v4.0 experimental)
 export * from "./content-analyzer.skill";
