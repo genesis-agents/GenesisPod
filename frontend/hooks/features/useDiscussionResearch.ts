@@ -337,6 +337,8 @@ export function useDiscussionResearch(
 
         const decoder = new TextDecoder();
         let buffer = '';
+        let currentEvent = '';
+        let currentData = '';
 
         while (true) {
           const { done, value } = await reader.read();
@@ -346,9 +348,6 @@ export function useDiscussionResearch(
 
           const lines = buffer.split('\n');
           buffer = lines.pop() || '';
-
-          let currentEvent = '';
-          let currentData = '';
 
           for (const line of lines) {
             if (line.startsWith('event:')) {
