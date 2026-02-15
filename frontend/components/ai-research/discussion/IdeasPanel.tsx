@@ -1,11 +1,17 @@
 'use client';
 
 /**
- * IdeasPanel - Research Ideas card grid with detail view
+ * IdeasPanel - Structured, expandable research ideas display
  *
- * Displays AI-extracted research ideas as structured cards.
- * Click a card to expand full detail view with description, tags, and actions.
- * Data source: ResearchIdea entities from the API (via useResearchIdeas hook).
+ * Each idea card shows:
+ * - Collapsed: title, core insight, impact level, agent, tags, star button
+ * - Expanded: + evidence bullets + research direction + actions
+ *
+ * Data model:
+ * - metadata.coreInsight (display text)
+ * - metadata.evidence (array of supporting points)
+ * - metadata.researchDirection (suggested next steps)
+ * - metadata.impactLevel ('high' | 'medium' | 'low')
  */
 
 import { useState, useMemo } from 'react';
@@ -23,14 +29,10 @@ import {
   Sparkles,
   Target,
   MessageSquare,
-  ChevronRight,
-  X,
-  Tag,
-  Zap,
-  TrendingUp,
-  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
   Compass,
-  Layers,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
@@ -54,6 +56,13 @@ interface IdeasPanelProps {
 
 type FilterKey = 'all' | 'DISCOVERED' | 'STARRED' | 'ARCHIVED';
 
+interface IdeaMetadata {
+  coreInsight?: string;
+  evidence?: string[];
+  researchDirection?: string;
+  impactLevel?: 'high' | 'medium' | 'low';
+}
+
 // ==================== Constants ====================
 
 const ROLE_ICON: Record<string, LucideIcon> = {
@@ -64,35 +73,12 @@ const ROLE_ICON: Record<string, LucideIcon> = {
   reviewer: ShieldCheck,
 };
 
-const ROLE_COLORS: Record<
-  string,
-  { bg: string; text: string; border: string }
-> = {
-  director: {
-    bg: 'bg-purple-50',
-    text: 'text-purple-700',
-    border: 'border-purple-200',
-  },
-  researcher: {
-    bg: 'bg-blue-50',
-    text: 'text-blue-700',
-    border: 'border-blue-200',
-  },
-  analyst: {
-    bg: 'bg-emerald-50',
-    text: 'text-emerald-700',
-    border: 'border-emerald-200',
-  },
-  writer: {
-    bg: 'bg-amber-50',
-    text: 'text-amber-700',
-    border: 'border-amber-200',
-  },
-  reviewer: {
-    bg: 'bg-rose-50',
-    text: 'text-rose-700',
-    border: 'border-rose-200',
-  },
+const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
+  director: { bg: 'bg-purple-100', text: 'text-purple-700' },
+  researcher: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  analyst: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  writer: { bg: 'bg-amber-100', text: 'text-amber-700' },
+  reviewer: { bg: 'bg-rose-100', text: 'text-rose-700' },
 };
 
 const STATUS_CONFIG: Record<
@@ -101,36 +87,50 @@ const STATUS_CONFIG: Record<
 > = {
   DISCOVERED: {
     icon: Sparkles,
-    label: '\u65b0\u53d1\u73b0',
-    color: 'bg-blue-50 text-blue-700 border-blue-200',
+    label: '新发现',
+    color: 'bg-blue-50 text-blue-700',
   },
   STARRED: {
     icon: Star,
-    label: '\u5df2\u6536\u85cf',
-    color: 'bg-amber-50 text-amber-700 border-amber-200',
+    label: '已收藏',
+    color: 'bg-amber-50 text-amber-700',
   },
   ARCHIVED: {
     icon: Archive,
-    label: '\u5df2\u5f52\u6863',
-    color: 'bg-gray-100 text-gray-500 border-gray-200',
+    label: '已归档',
+    color: 'bg-gray-100 text-gray-500',
   },
 };
 
-// Tag icon mapping for idea type tags
-const TAG_ICON: Record<string, LucideIcon> = {
-  '\u6280\u672f\u6d1e\u5bdf': Zap,
-  '\u5e02\u573a\u673a\u4f1a': TrendingUp,
-  '\u6218\u7565\u5efa\u8bae': Target,
-  '\u98ce\u9669\u9884\u8b66': AlertTriangle,
-  '\u7814\u7a76\u65b9\u5411': Compass,
-  '\u8de8\u9886\u57df\u53d1\u73b0': Layers,
+const IMPACT_CONFIG: Record<
+  'high' | 'medium' | 'low',
+  { label: string; dotColor: string; textColor: string; borderColor: string }
+> = {
+  high: {
+    label: '高影响',
+    dotColor: 'bg-red-500',
+    textColor: 'text-red-700',
+    borderColor: 'border-l-red-500',
+  },
+  medium: {
+    label: '中影响',
+    dotColor: 'bg-amber-500',
+    textColor: 'text-amber-700',
+    borderColor: 'border-l-amber-500',
+  },
+  low: {
+    label: '低影响',
+    dotColor: 'bg-gray-400',
+    textColor: 'text-gray-600',
+    borderColor: 'border-l-gray-400',
+  },
 };
 
 const FILTER_TABS: { key: FilterKey; label: string }[] = [
-  { key: 'all', label: '\u5168\u90e8' },
-  { key: 'DISCOVERED', label: '\u65b0\u53d1\u73b0' },
-  { key: 'STARRED', label: '\u5df2\u6536\u85cf' },
-  { key: 'ARCHIVED', label: '\u5df2\u5f52\u6863' },
+  { key: 'all', label: '全部' },
+  { key: 'DISCOVERED', label: '新发现' },
+  { key: 'STARRED', label: '已收藏' },
+  { key: 'ARCHIVED', label: '已归档' },
 ];
 
 // ==================== Component ====================
@@ -145,7 +145,7 @@ export function IdeasPanel({
   className,
 }: IdeasPanelProps) {
   const [filter, setFilter] = useState<FilterKey>('all');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const filteredIdeas = useMemo(() => {
     if (filter === 'all') return ideas;
@@ -159,37 +159,26 @@ export function IdeasPanel({
     return { total: ideas.length, discovered, starred, withDemos };
   }, [ideas]);
 
+  const toggleExpand = (ideaId: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(ideaId)) {
+        next.delete(ideaId);
+      } else {
+        next.add(ideaId);
+      }
+      return next;
+    });
+  };
+
   const handleToggleStar = (idea: ResearchIdea) => {
     const newStatus = idea.status === 'STARRED' ? 'DISCOVERED' : 'STARRED';
     onUpdateIdea(idea.id, { status: newStatus });
   };
 
-  const toggleExpand = (ideaId: string) => {
-    setExpandedId((prev) => (prev === ideaId ? null : ideaId));
+  const handleArchive = (ideaId: string) => {
+    onUpdateIdea(ideaId, { status: 'ARCHIVED' });
   };
-
-  // Extracting state overlay
-  if (isExtracting) {
-    return (
-      <div
-        className={cn(
-          'flex h-full flex-col items-center justify-center py-16',
-          className
-        )}
-      >
-        <div className="mb-4 rounded-2xl bg-purple-50 p-5">
-          <Loader2 className="h-10 w-10 animate-spin text-purple-500" />
-        </div>
-        <h3 className="mb-2 text-lg font-semibold text-gray-900">
-          AI \u6b63\u5728\u63d0\u70bc\u7814\u7a76\u521b\u610f...
-        </h3>
-        <p className="max-w-md text-center text-sm text-gray-500">
-          \u5206\u6790\u591a Agent
-          \u8ba8\u8bba\u5185\u5bb9\uff0c\u63d0\u70bc\u6709\u4ef7\u503c\u7684\u7814\u7a76\u6d1e\u5bdf\u548c\u521b\u65b0\u65b9\u5411
-        </p>
-      </div>
-    );
-  }
 
   // Loading state
   if (isLoading) {
@@ -218,11 +207,10 @@ export function IdeasPanel({
           <Lightbulb className="h-12 w-12 text-purple-500" />
         </div>
         <h3 className="mb-2 text-lg font-semibold text-gray-900">
-          \u6682\u65e0\u7814\u7a76\u521b\u610f
+          暂无研究创意
         </h3>
         <p className="mb-6 max-w-md text-center text-sm text-gray-500">
-          \u5f00\u59cb\u4e00\u6b21\u8ba8\u8bba\uff0c\u7136\u540e\u70b9\u51fb\u201c\u63d0\u53d6\u521b\u610f\u201d\u8ba9
-          AI \u4ece\u8ba8\u8bba\u4e2d\u63d0\u70bc\u7814\u7a76\u6d1e\u5bdf
+          开始一次讨论,AI 团队将自动从讨论中提炼创意
         </p>
         {activeSessionId && onExtractIdeas && (
           <button
@@ -230,7 +218,7 @@ export function IdeasPanel({
             className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700"
           >
             <Sparkles className="h-4 w-4" />
-            \u4ece\u6700\u8fd1\u8ba8\u8bba\u4e2d\u63d0\u53d6\u521b\u610f
+            从最近讨论中提取创意
           </button>
         )}
       </div>
@@ -247,12 +235,9 @@ export function IdeasPanel({
               <Target className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">
-                \u7814\u7a76\u521b\u610f
-              </h3>
+              <h3 className="font-semibold text-gray-900">研究创意</h3>
               <p className="mt-1 text-sm text-gray-600">
-                AI
-                \u4ece\u8ba8\u8bba\u4e2d\u63d0\u70bc\u7684\u7814\u7a76\u6d1e\u5bdf\u548c\u521b\u65b0\u65b9\u5411
+                从讨论中提炼的创意和研究方向
               </p>
             </div>
           </div>
@@ -272,9 +257,7 @@ export function IdeasPanel({
               ) : (
                 <Sparkles className="h-3.5 w-3.5" />
               )}
-              {isExtracting
-                ? 'AI \u63d0\u53d6\u4e2d...'
-                : '\u91cd\u65b0\u63d0\u53d6'}
+              {isExtracting ? 'AI 提取中...' : '提取创意'}
             </button>
           )}
         </div>
@@ -283,19 +266,19 @@ export function IdeasPanel({
         <div className="mt-4 flex flex-wrap gap-3">
           <StatBadge
             icon={Lightbulb}
-            label="\u603b\u521b\u610f"
+            label="总创意"
             count={stats.total}
             color="purple"
           />
           <StatBadge
             icon={Star}
-            label="\u5df2\u6536\u85cf"
+            label="已收藏"
             count={stats.starred}
             color="amber"
           />
           <StatBadge
             icon={Play}
-            label="\u5df2\u751f\u6210\u6f14\u793a"
+            label="已生成演示"
             count={stats.withDemos}
             color="blue"
           />
@@ -304,50 +287,239 @@ export function IdeasPanel({
 
       {/* Filter tabs */}
       <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
-        {FILTER_TABS.map((tab) => {
-          const count =
-            tab.key === 'all'
-              ? ideas.length
-              : ideas.filter((i) => i.status === tab.key).length;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setFilter(tab.key)}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                filter === tab.key
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              )}
-            >
-              {tab.label}
-              <span className="ml-1.5 text-xs text-gray-400">{count}</span>
-            </button>
-          );
-        })}
+        {FILTER_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setFilter(tab.key)}
+            className={cn(
+              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              filter === tab.key
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            )}
+          >
+            {tab.label}
+            {tab.key !== 'all' && (
+              <span className="ml-1.5 text-xs text-gray-400">
+                {
+                  ideas.filter((i) => tab.key === 'all' || i.status === tab.key)
+                    .length
+                }
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* Ideas List */}
+      {/* Ideas list (single column) */}
       <div className="space-y-3">
-        {filteredIdeas.map((idea) => (
-          <IdeaCard
-            key={idea.id}
-            idea={idea}
-            isExpanded={expandedId === idea.id}
-            onToggleExpand={() => toggleExpand(idea.id)}
-            onToggleStar={() => handleToggleStar(idea)}
-            onArchive={() => onUpdateIdea(idea.id, { status: 'ARCHIVED' })}
-          />
-        ))}
+        {filteredIdeas.map((idea) => {
+          const metadata = (idea.metadata || {}) as IdeaMetadata;
+          const coreInsight = metadata.coreInsight || idea.description;
+          const evidence = metadata.evidence || [];
+          const researchDirection = metadata.researchDirection || '';
+          const impactLevel = metadata.impactLevel || 'medium';
+
+          const isExpanded = expandedIds.has(idea.id);
+          const impactCfg = IMPACT_CONFIG[impactLevel];
+          const RoleIcon = ROLE_ICON[idea.agentRole || ''] || Lightbulb;
+          const roleColors = ROLE_COLORS[idea.agentRole || ''] || {
+            bg: 'bg-gray-100',
+            text: 'text-gray-700',
+          };
+          const StatusIcon = STATUS_CONFIG[idea.status].icon;
+
+          return (
+            <div
+              key={idea.id}
+              className={cn(
+                'overflow-hidden rounded-xl border border-l-4 bg-white transition-shadow hover:shadow-md',
+                impactCfg.borderColor,
+                idea.status === 'STARRED' && 'ring-1 ring-amber-200',
+                idea.status === 'ARCHIVED' && 'opacity-60'
+              )}
+            >
+              {/* Card content */}
+              <div className="p-4">
+                {/* Collapsed state always visible */}
+                <div className="space-y-3">
+                  {/* Top row: Impact + Title + Star */}
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center gap-1.5 pt-0.5">
+                      <div
+                        className={cn(
+                          'h-2 w-2 rounded-full',
+                          impactCfg.dotColor
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          'text-xs font-medium',
+                          impactCfg.textColor
+                        )}
+                      >
+                        {impactCfg.label}
+                      </span>
+                    </div>
+                    <h4 className="flex-1 text-sm font-bold leading-snug text-gray-900">
+                      {idea.title}
+                    </h4>
+                    <button
+                      onClick={() => handleToggleStar(idea)}
+                      className={cn(
+                        'flex-shrink-0 rounded p-1 transition-colors',
+                        idea.status === 'STARRED'
+                          ? 'text-amber-500 hover:text-amber-600'
+                          : 'text-gray-300 hover:text-amber-400'
+                      )}
+                    >
+                      <Star
+                        className="h-4 w-4"
+                        fill={
+                          idea.status === 'STARRED' ? 'currentColor' : 'none'
+                        }
+                      />
+                    </button>
+                  </div>
+
+                  {/* Core insight */}
+                  <p className="text-sm leading-relaxed text-gray-600">
+                    {coreInsight}
+                  </p>
+
+                  {/* Bottom row: Agent + Tags + Status */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Agent badge */}
+                    {idea.agentRole && idea.agentName && (
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                          roleColors.bg,
+                          roleColors.text
+                        )}
+                      >
+                        <RoleIcon className="h-3 w-3" />
+                        {idea.agentName}
+                      </span>
+                    )}
+
+                    {/* Category tags */}
+                    {idea.tags.map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+
+                    {/* Status badge */}
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                        STATUS_CONFIG[idea.status].color
+                      )}
+                    >
+                      <StatusIcon className="h-3 w-3" />
+                      {STATUS_CONFIG[idea.status].label}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Expanded state sections */}
+                {isExpanded && (
+                  <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+                    {/* Evidence section */}
+                    {evidence.length > 0 && (
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <div className="mb-2 flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          <span className="text-xs font-semibold text-gray-700">
+                            支撑论据
+                          </span>
+                        </div>
+                        <ul className="space-y-1.5">
+                          {evidence.map((point, idx) => (
+                            <li
+                              key={idx}
+                              className="flex items-start gap-2 text-xs text-gray-600"
+                            >
+                              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
+                              <span className="flex-1">{point}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Research Direction section */}
+                    {researchDirection && (
+                      <div className="rounded-lg bg-blue-50 p-3">
+                        <div className="mb-2 flex items-center gap-1.5">
+                          <Compass className="h-4 w-4 text-blue-600" />
+                          <span className="text-xs font-semibold text-gray-700">
+                            研究方向
+                          </span>
+                        </div>
+                        <p className="text-xs italic leading-relaxed text-gray-700">
+                          {researchDirection}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Action buttons (expanded) */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleToggleStar(idea)}
+                        className={cn(
+                          'flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                          idea.status === 'STARRED'
+                            ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        )}
+                      >
+                        {idea.status === 'STARRED' ? '取消收藏' : '收藏'}
+                      </button>
+                      {idea.status !== 'ARCHIVED' && (
+                        <button
+                          onClick={() => handleArchive(idea.id)}
+                          className="flex-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                        >
+                          归档
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Expand/Collapse toggle */}
+                <button
+                  onClick={() => toggleExpand(idea.id)}
+                  className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
+                >
+                  {isExpanded ? (
+                    <>
+                      <ChevronUp className="h-3.5 w-3.5" />
+                      收起详情
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                      展开详情
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Filtered empty */}
       {filteredIdeas.length === 0 && ideas.length > 0 && (
         <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center">
           <MessageSquare className="mx-auto h-8 w-8 text-gray-300" />
-          <p className="mt-2 text-sm text-gray-500">
-            \u6ca1\u6709\u7b26\u5408\u7b5b\u9009\u6761\u4ef6\u7684\u521b\u610f
-          </p>
+          <p className="mt-2 text-sm text-gray-500">没有符合筛选条件的创意</p>
         </div>
       )}
     </div>
@@ -355,213 +527,6 @@ export function IdeasPanel({
 }
 
 // ==================== Sub Components ====================
-
-function IdeaCard({
-  idea,
-  isExpanded,
-  onToggleExpand,
-  onToggleStar,
-  onArchive,
-}: {
-  idea: ResearchIdea;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-  onToggleStar: () => void;
-  onArchive: () => void;
-}) {
-  const RoleIcon = ROLE_ICON[idea.agentRole || ''] || Lightbulb;
-  const roleColors = ROLE_COLORS[idea.agentRole || ''] || {
-    bg: 'bg-gray-50',
-    text: 'text-gray-700',
-    border: 'border-gray-200',
-  };
-  const statusCfg = STATUS_CONFIG[idea.status] || STATUS_CONFIG.DISCOVERED;
-  const StatusIcon = statusCfg.icon;
-  const hasDemos = idea.demos && idea.demos.length > 0;
-
-  // Find a type tag (first tag that matches TAG_ICON keys)
-  const typeTag = idea.tags.find((t) => t in TAG_ICON);
-  const TypeIcon = typeTag ? TAG_ICON[typeTag] : null;
-  const otherTags = idea.tags.filter((t) => t !== typeTag);
-
-  return (
-    <div
-      className={cn(
-        'overflow-hidden rounded-xl border bg-white transition-all',
-        idea.status === 'ARCHIVED'
-          ? 'border-gray-200 opacity-60'
-          : 'border-gray-200 hover:border-gray-300 hover:shadow-sm',
-        isExpanded && 'border-purple-200 shadow-md'
-      )}
-    >
-      {/* Compact card header - always visible, clickable */}
-      <button
-        onClick={onToggleExpand}
-        className="flex w-full items-start gap-3 p-4 text-left"
-      >
-        {/* Type icon */}
-        <div
-          className={cn(
-            'mt-0.5 flex-shrink-0 rounded-lg border p-2',
-            TypeIcon ? roleColors.bg : 'bg-gray-50',
-            TypeIcon ? roleColors.border : 'border-gray-200'
-          )}
-        >
-          {TypeIcon ? (
-            <TypeIcon className={cn('h-4 w-4', roleColors.text)} />
-          ) : (
-            <Lightbulb className="h-4 w-4 text-gray-500" />
-          )}
-        </div>
-
-        {/* Title + preview */}
-        <div className="min-w-0 flex-1">
-          <div className="mb-1 flex items-center gap-2">
-            {typeTag && (
-              <span className="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                {typeTag}
-              </span>
-            )}
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium',
-                statusCfg.color
-              )}
-            >
-              <StatusIcon className="h-2.5 w-2.5" />
-              {statusCfg.label}
-            </span>
-          </div>
-          <h4 className="text-sm font-semibold leading-snug text-gray-900">
-            {idea.title}
-          </h4>
-          {!isExpanded && (
-            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-gray-500">
-              {idea.description}
-            </p>
-          )}
-        </div>
-
-        {/* Expand chevron */}
-        <ChevronRight
-          className={cn(
-            'mt-1 h-4 w-4 flex-shrink-0 text-gray-400 transition-transform',
-            isExpanded && 'rotate-90'
-          )}
-        />
-      </button>
-
-      {/* Expanded detail view */}
-      {isExpanded && (
-        <div className="border-t border-gray-100 bg-gray-50/30">
-          {/* Full description */}
-          <div className="px-4 pb-3 pt-4">
-            <p className="whitespace-pre-line text-sm leading-relaxed text-gray-700">
-              {idea.description}
-            </p>
-          </div>
-
-          {/* Tags */}
-          {(otherTags.length > 0 || idea.agentName) && (
-            <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
-              {/* Agent source */}
-              {idea.agentName && (
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium',
-                    roleColors.bg,
-                    roleColors.text,
-                    roleColors.border
-                  )}
-                >
-                  <RoleIcon className="h-3 w-3" />
-                  {idea.agentName}
-                </span>
-              )}
-
-              {/* Domain tags */}
-              {otherTags.map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600"
-                >
-                  <Tag className="h-3 w-3" />
-                  {tag}
-                </span>
-              ))}
-
-              {/* Demo count */}
-              {hasDemos && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
-                  <Play className="h-3 w-3" />
-                  {idea.demos!.length} \u6f14\u793a
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Actions bar */}
-          <div className="flex items-center gap-2 border-t border-gray-100 px-4 py-3">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleStar();
-              }}
-              className={cn(
-                'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
-                idea.status === 'STARRED'
-                  ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
-                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-              )}
-            >
-              <Star
-                className="h-3.5 w-3.5"
-                fill={idea.status === 'STARRED' ? 'currentColor' : 'none'}
-              />
-              {idea.status === 'STARRED'
-                ? '\u5df2\u6536\u85cf'
-                : '\u6536\u85cf'}
-            </button>
-
-            <button
-              disabled
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-400"
-              title="\u6f14\u793a\u751f\u6210\u529f\u80fd\u5f00\u53d1\u4e2d"
-            >
-              <Play className="h-3.5 w-3.5" />
-              \u751f\u6210\u6f14\u793a\uff08\u5373\u5c06\u63a8\u51fa\uff09
-            </button>
-
-            <div className="flex-1" />
-
-            {idea.status !== 'ARCHIVED' && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onArchive();
-                }}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-50"
-              >
-                <Archive className="h-3.5 w-3.5" />
-                \u5f52\u6863
-              </button>
-            )}
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleExpand();
-              }}
-              className="rounded-lg border border-gray-200 bg-white p-1.5 text-gray-400 transition-colors hover:bg-gray-50"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function StatBadge({
   icon: Icon,

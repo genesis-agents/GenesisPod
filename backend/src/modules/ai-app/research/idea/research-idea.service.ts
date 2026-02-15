@@ -175,15 +175,21 @@ export class ResearchIdeaService {
       return [];
     }
 
-    // Save extracted ideas
+    // Save extracted ideas with structured metadata
     const ideaData = extractedIdeas.map((idea) => ({
       projectId,
       sessionId,
       title: idea.title,
-      description: idea.description,
+      description: idea.coreInsight,
       agentRole: idea.sourceAgent || null,
       agentName: idea.sourceAgent || null,
       tags: idea.tags || [],
+      metadata: {
+        coreInsight: idea.coreInsight,
+        evidence: idea.evidence,
+        researchDirection: idea.researchDirection,
+        impactLevel: idea.impactLevel,
+      },
     }));
 
     await this.prisma.researchIdea.createMany({ data: ideaData });
@@ -242,49 +248,62 @@ export class ResearchIdeaService {
   private async aiExtractIdeas(discussionContent: string): Promise<
     Array<{
       title: string;
-      description: string;
+      coreInsight: string;
+      evidence: string[];
+      researchDirection: string;
+      impactLevel: "high" | "medium" | "low";
       sourceAgent: string;
       tags: string[];
     }>
   > {
-    const systemPrompt = `你是一位专业的研究洞察分析师。你的任务是从多Agent研究讨论中提炼出具体的、有价值的研究创意和洞察。
+    const systemPrompt = `你是一位专业的研究洞察分析师。你的任务是从多Agent研究讨论中提炼出结构化的、高质量的研究洞察和判断。
 
-## 你需要做的
-分析讨论内容，提炼出 8-15 个高质量的研究创意。每个创意必须是：
-1. **具体且可操作的研究想法**（不是泛泛的讨论摘要）
-2. **有明确的研究方向**（可以作为后续深入研究的起点）
-3. **标题简洁有力**（15-40字，概括核心创意点）
-4. **描述精炼深入**（100-200字，说明创意的核心价值、可行性、预期影响）
+## 核心要求
+从讨论内容中提炼出 8-15 个高价值的研究洞察。每个洞察必须是：
+1. **明确的判断**（不是总结，是带有判断力的结论，例如"CUDA生态锁定正被边缘AI瓦解"而非"研究AI芯片市场"）
+2. **有论据支撑**（从讨论中提取2-4个具体的支撑论据）
+3. **有后续方向**（基于这个洞察应该进一步研究什么）
+4. **标题简洁有力**（15-40字，必须是核心判断陈述，禁止使用"各位同事"、"总监"等对话开头）
+5. **影响力评估**（high/medium/low）
 
-## 创意类型
-- **技术洞察**: 从技术分析中提炼的创新点或技术趋势判断
-- **市场机会**: 从市场分析中发现的未被充分认识的机会
-- **战略建议**: 从综合分析中提出的战略性建议
-- **风险预警**: 从批判性分析中识别的潜在风险或盲区
-- **研究方向**: 值得进一步深入研究的课题方向
-- **跨领域发现**: 从交叉验证中发现的跨领域关联
+## 洞察类型
+- **技术趋势判断**: 技术演进方向、技术格局变化的判断
+- **市场机会识别**: 未被充分认识的市场空间和时间窗口
+- **战略风险预警**: 潜在的战略盲区、路径依赖、生态锁定
+- **跨领域发现**: 不同领域之间的关联、迁移、颠覆性机会
+- **反共识观点**: 与主流认知不同的判断和理由
 
 ## 输出格式
 只输出 JSON 数组，不要其他内容：
 \`\`\`json
 [
   {
-    "title": "简洁有力的创意标题（15-40字）",
-    "description": "创意的核心价值和研究方向描述。说明这个创意为什么重要、核心论点是什么、可以如何深入研究。（100-200字）",
+    "title": "核心判断标题（15-40字）",
+    "coreInsight": "用1-2句话清晰表达核心洞察和判断。这是what和why的结合。",
+    "evidence": [
+      "支撑论据1：从讨论中提取的具体证据或观点",
+      "支撑论据2：具体的数据、案例、分析",
+      "支撑论据3：额外的支撑信息"
+    ],
+    "researchDirection": "基于此洞察的下一步研究方向。如果验证这个判断，应该去研究什么？",
+    "impactLevel": "high",
     "sourceAgent": "提出核心观点的Agent名称",
     "tags": ["类型标签", "领域标签"]
   }
 ]
 \`\`\`
 
-## 重要原则
-- 不要简单复制消息内容，要**提炼和升华**
-- 每个创意应该有独特的切入角度，避免重复
-- 标题不能是"各位同事"、"总监"等对话开头
-- 描述要有见地，不是信息罗列
-- 优先提炼有数据支撑、有争议性、或有创新视角的想法`;
+## 质量标准（必须严格遵守）
+- title: 必须是判断性陈述，不能是问题、不能是总结性描述
+- title: 禁止以"各位"、"总监"、"同事"等称呼开头
+- coreInsight: 必须说清楚"是什么判断"和"为什么这样判断"
+- evidence: 必须是从讨论中提取的具体内容，不能泛泛而谈
+- researchDirection: 必须是可执行的下一步研究方向
+- impactLevel: high=可能改变格局，medium=值得深入，low=补充性发现
+- 不要简单复制消息内容，必须提炼、升华、形成判断
+- 每个洞察必须有独特的切入角度，避免重复`;
 
-    const userPrompt = `请从以下研究团队讨论中提炼出高质量的研究创意：
+    const userPrompt = `请从以下研究团队讨论中提炼出高质量的结构化洞察：
 
 ${discussionContent}`;
 
@@ -309,24 +328,62 @@ ${discussionContent}`;
         return [];
       }
 
-      // Validate and clean each idea
+      // Validate and clean each idea with strict quality checks
       return ideas
         .filter(
-          (idea: { title?: string; description?: string }) =>
-            idea.title &&
-            idea.description &&
-            idea.title.length >= 5 &&
-            idea.description.length >= 20,
+          (idea: {
+            title?: string;
+            coreInsight?: string;
+            evidence?: string[];
+            researchDirection?: string;
+            impactLevel?: string;
+          }) => {
+            // Must have all required fields
+            if (
+              !idea.title ||
+              !idea.coreInsight ||
+              !idea.evidence ||
+              !idea.researchDirection ||
+              !idea.impactLevel
+            ) {
+              return false;
+            }
+            // Title quality checks
+            if (idea.title.length < 5) return false;
+            if (
+              idea.title.startsWith("各位") ||
+              idea.title.startsWith("总监")
+            ) {
+              return false;
+            }
+            // Core insight must be substantial
+            if (idea.coreInsight.length < 10) return false;
+            // Evidence must be an array with at least 1 item
+            if (!Array.isArray(idea.evidence) || idea.evidence.length < 1) {
+              return false;
+            }
+            // Impact level must be valid
+            if (!["high", "medium", "low"].includes(idea.impactLevel)) {
+              return false;
+            }
+            return true;
+          },
         )
         .map(
           (idea: {
             title: string;
-            description: string;
+            coreInsight: string;
+            evidence: string[];
+            researchDirection: string;
+            impactLevel: "high" | "medium" | "low";
             sourceAgent?: string;
             tags?: string[];
           }) => ({
             title: idea.title.substring(0, 200),
-            description: idea.description.substring(0, 2000),
+            coreInsight: idea.coreInsight.substring(0, 2000),
+            evidence: idea.evidence.slice(0, 4).map((e) => e.substring(0, 500)),
+            researchDirection: idea.researchDirection.substring(0, 500),
+            impactLevel: idea.impactLevel,
             sourceAgent: idea.sourceAgent || "",
             tags: Array.isArray(idea.tags) ? idea.tags.slice(0, 5) : [],
           }),
