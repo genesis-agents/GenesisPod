@@ -2,6 +2,44 @@
 
 Raven AI Engine 版本变更记录。
 
+## 3.72.0 (2026-02-15)
+
+### Features
+
+- **research:** 5-tab refactor with insights/creative ideas separation
+- **research:** structured idea extraction with expandable cards
+- **research:** structured idea cards with click-to-expand detail
+- **research:** implement discussion-driven deep research
+
+### Bug Fixes
+
+- **research:** fix ideas extraction state management
+- **research:** ai-powered idea extraction + multi-call report generation
+- **research:** fix project list parsing, ideas extraction, and report quality
+- **research:** fix SSE streaming and agent hexagon layout
+- **research:** deep review fixes for AgentPanel, DiscussionChat, and history viewing
+- **research:** fix stale closure causing empty discussion history
+- **research:** fix broken connector lines in PhaseIndicator
+- **research:** refactor left panel collapse to match AI Insights pattern
+- **research:** add empty state for session history with no discussion messages
+- **research:** fix left panel and chat overflow with proper flex height chain
+- **research:** render JSON directions as cards and fix layout overflow
+- **social:** skip xiaohongshu MCP registration when XHS_MCP_URL not set
+- **research:** fix SSE parser losing events across TCP chunks
+- **research:** add auth header to SSE stream and ensure DB migration runs
+- **credits:** add missing CreditTransactionType enum values to deploy script
+- **research:** fix DB migration for discussion-driven research
+- **data-collection:** restore .data access for self-wrapped list endpoints
+- **data-collection:** fix response unwrapping causing batch collection failure
+- **ui:** update initial notifications with useful actionUrls
+- **ui:** move changelog link to header version badge, remove sidebar item
+- **build:** handle Docker build where root package.json is absent
+- **ui:** make notification cards clickable and add What's New to sidebar
+
+### Refactoring
+
+- **research:** restructure AI Research into discussion-ideas-demos pipeline
+
 ## 3.71.0 (2026-02-14)
 
 ### Bug Fixes

@@ -1,5 +1,119 @@
 [
   {
+    "version": "3.72.0",
+    "date": "2026-02-15",
+    "changes": [
+      {
+        "type": "feature",
+        "description": "5-tab refactor with insights/creative ideas separation"
+      },
+      {
+        "type": "feature",
+        "description": "structured idea extraction with expandable cards"
+      },
+      {
+        "type": "feature",
+        "description": "structured idea cards with click-to-expand detail"
+      },
+      {
+        "type": "feature",
+        "description": "implement discussion-driven deep research"
+      },
+      {
+        "type": "fix",
+        "description": "fix ideas extraction state management"
+      },
+      {
+        "type": "fix",
+        "description": "ai-powered idea extraction + multi-call report generation"
+      },
+      {
+        "type": "fix",
+        "description": "fix project list parsing, ideas extraction, and report quality"
+      },
+      {
+        "type": "fix",
+        "description": "fix SSE streaming and agent hexagon layout"
+      },
+      {
+        "type": "fix",
+        "description": "deep review fixes for AgentPanel, DiscussionChat, and history viewing"
+      },
+      {
+        "type": "fix",
+        "description": "fix stale closure causing empty discussion history"
+      },
+      {
+        "type": "fix",
+        "description": "fix broken connector lines in PhaseIndicator"
+      },
+      {
+        "type": "fix",
+        "description": "refactor left panel collapse to match AI Insights pattern"
+      },
+      {
+        "type": "fix",
+        "description": "add empty state for session history with no discussion messages"
+      },
+      {
+        "type": "fix",
+        "description": "fix left panel and chat overflow with proper flex height chain"
+      },
+      {
+        "type": "fix",
+        "description": "render JSON directions as cards and fix layout overflow"
+      },
+      {
+        "type": "fix",
+        "description": "skip xiaohongshu MCP registration when XHS_MCP_URL not set"
+      },
+      {
+        "type": "fix",
+        "description": "fix SSE parser losing events across TCP chunks"
+      },
+      {
+        "type": "fix",
+        "description": "add auth header to SSE stream and ensure DB migration runs"
+      },
+      {
+        "type": "fix",
+        "description": "add missing CreditTransactionType enum values to deploy script"
+      },
+      {
+        "type": "fix",
+        "description": "fix DB migration for discussion-driven research"
+      },
+      {
+        "type": "fix",
+        "description": "restore .data access for self-wrapped list endpoints"
+      },
+      {
+        "type": "fix",
+        "description": "fix response unwrapping causing batch collection failure"
+      },
+      {
+        "type": "fix",
+        "description": "update initial notifications with useful actionUrls"
+      },
+      {
+        "type": "fix",
+        "description": "move changelog link to header version badge, remove sidebar item"
+      },
+      {
+        "type": "fix",
+        "description": "handle Docker build where root package.json is absent"
+      },
+      {
+        "type": "fix",
+        "description": "make notification cards clickable and add What's New to sidebar"
+      },
+      {
+        "type": "improvement",
+        "description": "restructure AI Research into discussion-ideas-demos pipeline"
+      }
+    ]
+  },
+  {
     "version": "3.71.0",
     "date": "2026-02-14",
     "changes": [
@@ -274,10 +388,6 @@
       {
         "type": "improvement",
         "description": "unified timeout, research facade, and SKILL.md manifest"
-      },
-      {
-        "type": "fix",
-        "description": "make notification cards clickable and add What's New to sidebar"
       }
     ]
   },
