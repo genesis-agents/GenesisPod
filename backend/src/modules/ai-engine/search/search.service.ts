@@ -83,8 +83,15 @@ export interface KeyHealthStatus {
   cooldownUntil?: string;
 }
 
-/** Key 冷却时间（毫秒）- 失败后多久重试 */
+/** Key 冷却时间（毫秒）- 临时性错误（429/5xx）后多久重试 */
 const KEY_COOLDOWN_MS = 5 * 60 * 1000; // 5 分钟
+
+/** Key 长冷却时间（毫秒）- 配额耗尽（400/401）等不可恢复错误，月度重置 */
+const KEY_QUOTA_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 小时
+
+/** 判断错误码是否为配额耗尽类（需要长冷却） */
+const isQuotaExhaustedError = (errorCode: number): boolean =>
+  errorCode === 400 || errorCode === 401;
 
 /** 健康记录过期时间（毫秒）- 24 小时后清理 */
 const KEY_HEALTH_TTL_MS = 24 * 60 * 60 * 1000;
@@ -218,8 +225,12 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       const healthKey = this.getKeyHash(provider, key);
       const health = this.keyHealthMap.get(healthKey);
 
-      // Key 从未失败过，或冷却期已过
-      if (!health || now - health.failedAt >= KEY_COOLDOWN_MS) {
+      // Key 从未失败过，或冷却期已过（配额耗尽用长冷却）
+      const cooldown =
+        health && isQuotaExhaustedError(health.errorCode)
+          ? KEY_QUOTA_COOLDOWN_MS
+          : KEY_COOLDOWN_MS;
+      if (!health || now - health.failedAt >= cooldown) {
         if (health) {
           this.logger.debug(
             `[Search] Key ${this.getMaskedKey(key)} cooldown expired, retrying`,
@@ -310,13 +321,17 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       const healthKey = this.getKeyHash(provider, key);
       const health = this.keyHealthMap.get(healthKey);
 
-      // 计算是否健康：未失败过，或冷却期已过
-      const isHealthy = !health || now - health.failedAt >= KEY_COOLDOWN_MS;
+      // 计算是否健康：未失败过，或冷却期已过（配额耗尽用长冷却）
+      const cooldown =
+        health && isQuotaExhaustedError(health.errorCode)
+          ? KEY_QUOTA_COOLDOWN_MS
+          : KEY_COOLDOWN_MS;
+      const isHealthy = !health || now - health.failedAt >= cooldown;
 
       // 计算冷却结束时间
       let cooldownUntil: string | undefined;
       if (health && !isHealthy) {
-        const cooldownEnd = new Date(health.failedAt + KEY_COOLDOWN_MS);
+        const cooldownEnd = new Date(health.failedAt + cooldown);
         cooldownUntil = cooldownEnd.toISOString();
       }
 
