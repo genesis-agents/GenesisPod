@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import type {
   DeepResearchReport,
@@ -319,6 +320,7 @@ export function useDiscussionResearch(
           headers: {
             'Content-Type': 'application/json',
             Accept: 'text/event-stream',
+            ...getAuthHeader(),
           },
           body: JSON.stringify(body),
           signal: abortController.signal,

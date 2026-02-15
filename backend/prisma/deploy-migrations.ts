@@ -536,6 +536,76 @@ async function deploy(): Promise<void> {
     } else {
       console.log("   OK deep_research_sessions.directions");
     }
+    // Check if research_ideas table exists
+    // ★ 2026-02-14: Research Ideas & Demos tables
+    const researchIdeasCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = 'research_ideas'
+      ) as exists
+    `;
+
+    if (!researchIdeasCheck[0]?.exists) {
+      console.log("   Creating research ideas & demos tables...");
+
+      // Create enums
+      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "ResearchIdeaStatus" AS ENUM ('DISCOVERED', 'STARRED', 'ARCHIVED'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
+      await prisma.$executeRaw`DO $$ BEGIN CREATE TYPE "ResearchDemoStatus" AS ENUM ('PENDING', 'GENERATING', 'COMPLETED', 'FAILED'); EXCEPTION WHEN duplicate_object THEN null; END $$`;
+
+      // Create research_ideas table
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "research_ideas" (
+          "id" TEXT NOT NULL,
+          "project_id" TEXT NOT NULL,
+          "session_id" TEXT,
+          "title" VARCHAR(500) NOT NULL,
+          "description" TEXT NOT NULL,
+          "source_message_id" TEXT,
+          "agent_role" VARCHAR(50),
+          "agent_name" VARCHAR(100),
+          "status" "ResearchIdeaStatus" NOT NULL DEFAULT 'DISCOVERED',
+          "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+          "evidence" JSONB,
+          "metadata" JSONB,
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "research_ideas_pkey" PRIMARY KEY ("id"),
+          CONSTRAINT "research_ideas_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "research_projects"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+          CONSTRAINT "research_ideas_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "deep_research_sessions"("id") ON DELETE SET NULL ON UPDATE CASCADE
+        )
+      `;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_ideas_project_id_idx" ON "research_ideas"("project_id")`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_ideas_session_id_idx" ON "research_ideas"("session_id")`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_ideas_status_idx" ON "research_ideas"("status")`;
+
+      // Create research_demos table
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "research_demos" (
+          "id" TEXT NOT NULL,
+          "idea_id" TEXT NOT NULL,
+          "project_id" TEXT NOT NULL,
+          "title" VARCHAR(500) NOT NULL,
+          "html_content" TEXT NOT NULL DEFAULT '',
+          "status" "ResearchDemoStatus" NOT NULL DEFAULT 'PENDING',
+          "error" TEXT,
+          "metadata" JSONB,
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "research_demos_pkey" PRIMARY KEY ("id"),
+          CONSTRAINT "research_demos_idea_id_fkey" FOREIGN KEY ("idea_id") REFERENCES "research_ideas"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+          CONSTRAINT "research_demos_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "research_projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
+        )
+      `;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_demos_idea_id_idx" ON "research_demos"("idea_id")`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_demos_project_id_idx" ON "research_demos"("project_id")`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "research_demos_status_idx" ON "research_demos"("status")`;
+
+      console.log("   Created research ideas & demos tables");
+    } else {
+      console.log("   OK research_ideas & research_demos tables");
+    }
     console.log("");
 
     // Step 4: Generate Prisma Client
