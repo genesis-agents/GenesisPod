@@ -4,7 +4,7 @@
  * CRUD + generate operations for research demos within a project
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -141,6 +141,25 @@ export function useResearchDemos(projectId: string): UseResearchDemosResult {
     void fetchDemos(controller.signal);
     return () => controller.abort();
   }, [projectId, fetchDemos]);
+
+  // Poll for in-progress demos (PENDING/GENERATING) until they complete
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    const hasPending = demos.some(
+      (d) => d.status === 'PENDING' || d.status === 'GENERATING'
+    );
+    if (hasPending) {
+      pollTimerRef.current = setInterval(() => {
+        void fetchDemos();
+      }, 5000);
+    }
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, [demos, fetchDemos]);
 
   return {
     demos,

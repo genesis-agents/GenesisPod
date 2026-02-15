@@ -3487,6 +3487,11 @@ model DeepResearchSession {
 
 // ============ 研究创意 & 演示 ============
 
+enum ResearchIdeaType {
+  INSIGHT       // 观点荟萃 - 从讨论中提炼的分析判断和洞察
+  CREATIVE_IDEA // 研究创意 - 从观点中衍生的创新方案
+}
+
 enum ResearchIdeaStatus {
   DISCOVERED // 从讨论中自动发现
   STARRED    // 用户标记收藏
@@ -3509,20 +3514,25 @@ model ResearchIdea {
   sourceMessageId String?            @map("source_message_id")
   agentRole       String?            @map("agent_role") @db.VarChar(50)
   agentName       String?            @map("agent_name") @db.VarChar(100)
+  type            ResearchIdeaType   @default(INSIGHT)
   status          ResearchIdeaStatus @default(DISCOVERED)
   tags            String[]           @default([])
   evidence        Json?
   metadata        Json?
+  sourceInsightId String?            @map("source_insight_id")
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
 
-  project ResearchProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  session DeepResearchSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  demos   ResearchDemo[]
+  project       ResearchProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  session       DeepResearchSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  demos         ResearchDemo[]
+  sourceInsight ResearchIdea?        @relation("InsightToIdea", fields: [sourceInsightId], references: [id], onDelete: SetNull)
+  derivedIdeas  ResearchIdea[]       @relation("InsightToIdea")
 
   @@index([projectId])
   @@index([sessionId])
   @@index([status])
+  @@index([type])
   @@map("research_ideas")
 }
 

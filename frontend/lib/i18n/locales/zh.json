@@ -610,7 +610,12 @@
       "specialResearch": "专题研究",
       "createImage": "AI 绘图",
       "fastResearch": "快速研究",
-      "deepResearch": "深度研究"
+      "deepResearch": "深度研究",
+      "discussion": "讨论",
+      "insights": "观点荟萃",
+      "ideas": "研究创意",
+      "demos": "演示",
+      "report": "报告"
     },
     "researchType": {
       "label": "研究类型",

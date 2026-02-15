@@ -6,11 +6,13 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   Request,
   UseGuards,
   UnauthorizedException,
   ParseUUIDPipe,
 } from "@nestjs/common";
+import { ResearchIdeaType } from "@prisma/client";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
@@ -32,11 +34,17 @@ export class ResearchIdeaController {
   async listIdeas(
     @Request() req: RequestWithUser,
     @Param("projectId", ParseUUIDPipe) projectId: string,
+    @Query("type") type?: string,
   ) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException("User not authenticated");
 
-    return this.ideaService.listByProject(userId, projectId);
+    const ideaType =
+      type && Object.values(ResearchIdeaType).includes(type as ResearchIdeaType)
+        ? (type as ResearchIdeaType)
+        : undefined;
+
+    return this.ideaService.listByProject(userId, projectId, ideaType);
   }
 
   @Post()
@@ -78,6 +86,18 @@ export class ResearchIdeaController {
 
     await this.ideaService.delete(userId, projectId, ideaId);
     return { deleted: true };
+  }
+
+  @Post("extract-creative-ideas")
+  @ApiOperation({ summary: "Extract creative ideas from project insights" })
+  async extractCreativeIdeas(
+    @Request() req: RequestWithUser,
+    @Param("projectId", ParseUUIDPipe) projectId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException("User not authenticated");
+
+    return this.ideaService.extractCreativeIdeas(userId, projectId);
   }
 
   @Post("sessions/:sessionId/extract")

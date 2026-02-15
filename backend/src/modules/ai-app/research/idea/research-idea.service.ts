@@ -3,8 +3,9 @@ import {
   Logger,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from "@nestjs/common";
-import { AIModelType } from "@prisma/client";
+import { AIModelType, ResearchIdeaType } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "../../../ai-engine/facade";
 import {
@@ -38,11 +39,15 @@ export class ResearchIdeaService {
     }
   }
 
-  async listByProject(userId: string, projectId: string) {
+  async listByProject(
+    userId: string,
+    projectId: string,
+    type?: ResearchIdeaType,
+  ) {
     await this.verifyProjectOwnership(userId, projectId);
 
     return this.prisma.researchIdea.findMany({
-      where: { projectId },
+      where: { projectId, ...(type && { type }) },
       include: { demos: { select: { id: true, status: true } } },
       orderBy: { createdAt: "desc" },
     });
@@ -156,7 +161,9 @@ export class ResearchIdeaService {
     });
     if (existingIdeas.length > 0) {
       // Re-extract: delete old ideas and re-analyze
-      await this.prisma.researchIdea.deleteMany({ where: { sessionId } });
+      await this.prisma.researchIdea.deleteMany({
+        where: { sessionId, type: ResearchIdeaType.INSIGHT },
+      });
       this.logger.log(
         `Cleared ${existingIdeas.length} old ideas for re-extraction`,
       );
@@ -183,6 +190,7 @@ export class ResearchIdeaService {
       description: idea.coreInsight,
       agentRole: idea.sourceAgent || null,
       agentName: idea.sourceAgent || null,
+      type: ResearchIdeaType.INSIGHT,
       tags: idea.tags || [],
       metadata: {
         coreInsight: idea.coreInsight,
@@ -390,6 +398,230 @@ ${discussionContent}`;
         );
     } catch (error) {
       this.logger.error(`AI idea extraction failed: ${error}`);
+      return [];
+    }
+  }
+
+  /**
+   * Extract creative ideas from existing insights.
+   * Analyzes all INSIGHT-type records for a project and generates
+   * creative, actionable ideas using AI.
+   */
+  async extractCreativeIdeas(userId: string, projectId: string) {
+    await this.verifyProjectOwnership(userId, projectId);
+
+    // Load all insights for this project
+    const insights = await this.prisma.researchIdea.findMany({
+      where: { projectId, type: ResearchIdeaType.INSIGHT },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (insights.length === 0) {
+      throw new BadRequestException(
+        "No insights found. Please extract insights from discussions first.",
+      );
+    }
+
+    // Format insights as input for AI
+    const insightsContent = insights
+      .map((insight) => {
+        const meta = (insight.metadata || {}) as {
+          coreInsight?: string;
+          evidence?: string[];
+          researchDirection?: string;
+          impactLevel?: string;
+        };
+        return `## [ID: ${insight.id}] ${insight.title}
+- 核心洞察: ${meta.coreInsight || insight.description}
+- 论据: ${(meta.evidence || []).join("; ")}
+- 研究方向: ${meta.researchDirection || "未指定"}
+- 影响力: ${meta.impactLevel || "medium"}`;
+      })
+      .join("\n\n");
+
+    // Call AI to extract creative ideas
+    const creativeIdeas = await this.aiExtractCreativeIdeas(insightsContent);
+
+    if (creativeIdeas.length === 0) {
+      this.logger.warn(
+        `AI creative extraction produced no ideas for project ${projectId}`,
+      );
+      return [];
+    }
+
+    // Delete existing creative ideas for this project before re-extracting
+    await this.prisma.researchIdea.deleteMany({
+      where: { projectId, type: ResearchIdeaType.CREATIVE_IDEA },
+    });
+
+    // Save creative ideas
+    const ideaData = creativeIdeas.map((idea) => {
+      // Find the first matching source insight ID
+      const sourceId = idea.sourceInsightIds.find((id) =>
+        insights.some((i) => i.id === id),
+      );
+      return {
+        projectId,
+        title: idea.title,
+        description: idea.concept,
+        type: ResearchIdeaType.CREATIVE_IDEA,
+        sourceInsightId: sourceId || null,
+        tags: [idea.dimension],
+        metadata: {
+          concept: idea.concept,
+          innovationPoints: idea.innovationPoints,
+          approach: idea.approach,
+          feasibility: idea.feasibility,
+          dimension: idea.dimension,
+          sourceInsightIds: idea.sourceInsightIds,
+        },
+      };
+    });
+
+    await this.prisma.researchIdea.createMany({ data: ideaData });
+    this.logger.log(
+      `AI extracted ${ideaData.length} creative ideas for project ${projectId}`,
+    );
+
+    return this.prisma.researchIdea.findMany({
+      where: { projectId, type: ResearchIdeaType.CREATIVE_IDEA },
+      include: { demos: { select: { id: true, status: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  /**
+   * Use AI to extract creative ideas from insights content.
+   */
+  private async aiExtractCreativeIdeas(insightsContent: string): Promise<
+    Array<{
+      title: string;
+      concept: string;
+      innovationPoints: string[];
+      approach: string;
+      feasibility: "high" | "medium" | "low";
+      dimension: string;
+      sourceInsightIds: string[];
+    }>
+  > {
+    const systemPrompt = `你是一位创新策略专家。基于以下研究观点和洞察，提炼出可落地的创意方案。
+
+## 创意维度（每个创意至少属于一个）
+- 新理念：颠覆性的概念框架或思维模型
+- 新方案：解决具体问题的创新方案
+- 新方法：新的研究方法、分析框架、评估工具
+- 新实践：可直接执行的行动方案或最佳实践
+
+## 每个创意必须包含
+1. title：一句话说清是什么创意（15-40字）
+2. concept：这个创意要做什么、解决什么问题（2-3句）
+3. innovationPoints：相比现有做法，新在哪里（数组，2-4项）
+4. approach：怎么做，关键步骤（1-2段）
+5. feasibility：high/medium/low
+6. dimension：新理念/新方案/新方法/新实践
+7. sourceInsightIds：基于哪些观点衍生（ID数组）
+
+## 输出格式
+只输出 JSON 数组，不要其他内容：
+\`\`\`json
+[
+  {
+    "title": "创意标题（15-40字）",
+    "concept": "核心概念描述",
+    "innovationPoints": ["创新点1", "创新点2"],
+    "approach": "实现路径描述",
+    "feasibility": "high",
+    "dimension": "新方案",
+    "sourceInsightIds": ["insight-id-1"]
+  }
+]
+\`\`\`
+
+## 质量标准
+- 提取 5-10 个高质量创意
+- 每个创意必须可落地、有明确的实现路径
+- 创意之间不要重复，各自有独特切入角度
+- sourceInsightIds 必须来自输入的观点 ID`;
+
+    const userPrompt = `请基于以下研究观点，提炼出创新的、可落地的创意方案：
+
+${insightsContent}`;
+
+    try {
+      const result = await this.aiFacade.chat({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        modelType: AIModelType.CHAT,
+        taskProfile: {
+          creativity: "high",
+          outputLength: "long",
+        },
+      });
+
+      const jsonStr = result.content.replace(/```json\s*|\s*```/g, "").trim();
+      const ideas = JSON.parse(jsonStr);
+
+      if (!Array.isArray(ideas)) {
+        this.logger.warn("AI creative extraction did not return an array");
+        return [];
+      }
+
+      return ideas
+        .filter(
+          (idea: {
+            title?: string;
+            concept?: string;
+            innovationPoints?: string[];
+            approach?: string;
+            feasibility?: string;
+            dimension?: string;
+            sourceInsightIds?: string[];
+          }) => {
+            if (
+              !idea.title ||
+              !idea.concept ||
+              !idea.approach ||
+              !idea.feasibility ||
+              !idea.dimension
+            ) {
+              return false;
+            }
+            if (idea.title.length < 5) return false;
+            if (!["high", "medium", "low"].includes(idea.feasibility)) {
+              return false;
+            }
+            return true;
+          },
+        )
+        .map(
+          (idea: {
+            title: string;
+            concept: string;
+            innovationPoints?: string[];
+            approach: string;
+            feasibility: "high" | "medium" | "low";
+            dimension: string;
+            sourceInsightIds?: string[];
+          }) => ({
+            title: idea.title.substring(0, 200),
+            concept: idea.concept.substring(0, 2000),
+            innovationPoints: Array.isArray(idea.innovationPoints)
+              ? idea.innovationPoints
+                  .slice(0, 4)
+                  .map((p) => p.substring(0, 500))
+              : [],
+            approach: idea.approach.substring(0, 2000),
+            feasibility: idea.feasibility,
+            dimension: idea.dimension.substring(0, 20),
+            sourceInsightIds: Array.isArray(idea.sourceInsightIds)
+              ? idea.sourceInsightIds
+              : [],
+          }),
+        );
+    } catch (error) {
+      this.logger.error(`AI creative idea extraction failed: ${error}`);
       return [];
     }
   }

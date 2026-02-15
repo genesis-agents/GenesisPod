@@ -610,7 +610,12 @@
       "specialResearch": "Special Research",
       "createImage": "Create Image",
       "fastResearch": "Fast Research",
-      "deepResearch": "Deep Research"
+      "deepResearch": "Deep Research",
+      "discussion": "Discussion",
+      "insights": "Insights",
+      "ideas": "Creative Ideas",
+      "demos": "Demos",
+      "report": "Report"
     },
     "researchType": {
       "label": "Research Type",

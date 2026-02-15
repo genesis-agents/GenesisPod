@@ -4,7 +4,7 @@
  * ResearchProjectLayout - Research project detail page layout
  *
  * Two-panel layout: Left TeamPanel (340px, collapsible) + Right Tab Content (flex-1)
- * Tabs: Discussion, Ideas, Demos, Report
+ * Tabs: Discussion, Insights, Ideas, Demos, Report
  *
  * Manages: useDiscussionResearch SSE hook, session loading, tab state,
  * ideas/demos hooks, and coordination between all child components.
@@ -14,6 +14,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   ArrowLeft,
   MessageSquare,
+  Brain,
   Lightbulb,
   Play,
   FileText,
@@ -32,6 +33,7 @@ import { useResearchDemos } from '@/hooks/features/useResearchDemos';
 import type { ResearchSession } from './types';
 import { AgentPanel } from './discussion/AgentPanel';
 import { DiscussionChat } from './discussion/DiscussionChat';
+import { InsightsPanel } from './discussion/InsightsPanel';
 import { IdeasPanel } from './discussion/IdeasPanel';
 import { DemosPanel } from './discussion/DemosPanel';
 import { ReportPanel } from './discussion/ReportPanel';
@@ -45,7 +47,7 @@ interface ResearchProjectLayoutProps {
   onBack: () => void;
 }
 
-type TabKey = 'discussion' | 'ideas' | 'demos' | 'report';
+type TabKey = 'discussion' | 'insights' | 'ideas' | 'demos' | 'report';
 
 interface TabDefinition {
   key: TabKey;
@@ -70,20 +72,29 @@ export function ResearchProjectLayout({
   );
   const [query, setQuery] = useState('');
   const [loadingSessions, setLoadingSessions] = useState(true);
-  const [isExtracting, setIsExtracting] = useState(false);
+  const [isExtractingInsights, setIsExtractingInsights] = useState(false);
+  const [isExtractingIdeas, setIsExtractingIdeas] = useState(false);
 
-  // Ideas & Demos hooks
+  // Insights (INSIGHT type) & Ideas (CREATIVE_IDEA type) hooks
   const {
-    ideas,
+    ideas: insights,
+    isLoading: insightsLoading,
+    updateIdea: updateInsight,
+    extractIdeas: extractInsights,
+  } = useResearchIdeas(projectId, 'INSIGHT');
+
+  const {
+    ideas: creativeIdeas,
     isLoading: ideasLoading,
-    updateIdea,
-    extractIdeas,
-  } = useResearchIdeas(projectId);
+    updateIdea: updateCreativeIdea,
+    extractCreativeIdeas,
+  } = useResearchIdeas(projectId, 'CREATIVE_IDEA');
 
   const {
     demos,
     isLoading: demosLoading,
     deleteDemo,
+    generateDemo,
   } = useResearchDemos(projectId);
 
   // Discussion research hook
@@ -202,15 +213,25 @@ export function ResearchProjectLayout({
     setViewingSession(null);
   }, []);
 
-  // Ideas/Demos handlers
-  const handleUpdateIdea = useCallback(
+  // Insights/Ideas/Demos handlers
+  const handleUpdateInsight = useCallback(
     (
       ideaId: string,
       data: { status?: 'DISCOVERED' | 'STARRED' | 'ARCHIVED' }
     ) => {
-      void updateIdea(ideaId, data);
+      void updateInsight(ideaId, data);
     },
-    [updateIdea]
+    [updateInsight]
+  );
+
+  const handleUpdateCreativeIdea = useCallback(
+    (
+      ideaId: string,
+      data: { status?: 'DISCOVERED' | 'STARRED' | 'ARCHIVED' }
+    ) => {
+      void updateCreativeIdea(ideaId, data);
+    },
+    [updateCreativeIdea]
   );
 
   const handleDeleteDemo = useCallback(
@@ -220,16 +241,36 @@ export function ResearchProjectLayout({
     [deleteDemo]
   );
 
-  const handleExtractIdeas = useCallback(
+  const handleExtractInsights = useCallback(
     async (sessionId: string) => {
-      setIsExtracting(true);
+      setIsExtractingInsights(true);
       try {
-        await extractIdeas(sessionId);
+        await extractInsights(sessionId);
+      } catch (err) {
+        logger.error('Failed to extract insights:', err);
       } finally {
-        setIsExtracting(false);
+        setIsExtractingInsights(false);
       }
     },
-    [extractIdeas]
+    [extractInsights]
+  );
+
+  const handleExtractCreativeIdeas = useCallback(async () => {
+    setIsExtractingIdeas(true);
+    try {
+      await extractCreativeIdeas();
+    } catch (err) {
+      logger.error('Failed to extract creative ideas:', err);
+    } finally {
+      setIsExtractingIdeas(false);
+    }
+  }, [extractCreativeIdeas]);
+
+  const handleGenerateDemo = useCallback(
+    (ideaId: string) => {
+      void generateDemo(ideaId);
+    },
+    [generateDemo]
   );
 
   // Toggle left panel
@@ -253,8 +294,13 @@ export function ResearchProjectLayout({
       icon: MessageSquare,
     },
     {
+      key: 'insights',
+      label: t('aiResearch.tabs.insights') || '观点荟萃',
+      icon: Brain,
+    },
+    {
       key: 'ideas',
-      label: t('aiResearch.tabs.ideas') || '创意',
+      label: t('aiResearch.tabs.ideas') || '研究创意',
       icon: Lightbulb,
     },
     {
@@ -317,7 +363,7 @@ export function ResearchProjectLayout({
                   className="text-xs text-gray-500"
                   style={{ writingMode: 'vertical-rl' }}
                 >
-                  研究团队
+                  {t('aiResearch.layout.researchTeam') || '研究团队'}
                 </span>
               </div>
             </div>
@@ -325,7 +371,7 @@ export function ResearchProjectLayout({
             <div className="flex h-full flex-col overflow-hidden">
               <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  研究团队
+                  {t('aiResearch.layout.researchTeam') || '研究团队'}
                 </span>
                 <button
                   onClick={toggleLeftPanel}
@@ -418,17 +464,33 @@ export function ResearchProjectLayout({
                   />
                 )}
 
+                {/* Insights Tab */}
+                {activeTab === 'insights' && (
+                  <div className="h-full overflow-y-auto">
+                    <div className="mx-auto max-w-4xl p-6">
+                      <InsightsPanel
+                        ideas={insights}
+                        isLoading={insightsLoading}
+                        isExtracting={isExtractingInsights}
+                        onUpdateIdea={handleUpdateInsight}
+                        onExtractIdeas={handleExtractInsights}
+                        activeSessionId={activeSessionId}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Ideas Tab */}
                 {activeTab === 'ideas' && (
                   <div className="h-full overflow-y-auto">
                     <div className="mx-auto max-w-4xl p-6">
                       <IdeasPanel
-                        ideas={ideas}
+                        ideas={creativeIdeas}
                         isLoading={ideasLoading}
-                        isExtracting={isExtracting}
-                        onUpdateIdea={handleUpdateIdea}
-                        onExtractIdeas={handleExtractIdeas}
-                        activeSessionId={activeSessionId}
+                        isExtracting={isExtractingIdeas}
+                        onUpdateIdea={handleUpdateCreativeIdea}
+                        onExtractCreativeIdeas={handleExtractCreativeIdeas}
+                        onGenerateDemo={handleGenerateDemo}
                       />
                     </div>
                   </div>

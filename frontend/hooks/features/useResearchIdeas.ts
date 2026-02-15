@@ -16,6 +16,8 @@ export interface ResearchIdea {
   sessionId: string | null;
   title: string;
   description: string;
+  type: 'INSIGHT' | 'CREATIVE_IDEA';
+  sourceInsightId: string | null;
   sourceMessageId: string | null;
   agentRole: string | null;
   agentName: string | null;
@@ -53,9 +55,13 @@ interface UseResearchIdeasResult {
   ) => Promise<ResearchIdea | null>;
   deleteIdea: (ideaId: string) => Promise<boolean>;
   extractIdeas: (sessionId: string) => Promise<ResearchIdea[]>;
+  extractCreativeIdeas: () => Promise<ResearchIdea[]>;
 }
 
-export function useResearchIdeas(projectId: string): UseResearchIdeasResult {
+export function useResearchIdeas(
+  projectId: string,
+  type?: 'INSIGHT' | 'CREATIVE_IDEA'
+): UseResearchIdeasResult {
   const [ideas, setIdeas] = useState<ResearchIdea[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,10 +71,13 @@ export function useResearchIdeas(projectId: string): UseResearchIdeasResult {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await fetch(
-          `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}/ideas`,
-          { headers: { ...getAuthHeader() }, signal }
-        );
+        const url = type
+          ? `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}/ideas?type=${type}`
+          : `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}/ideas`;
+        const res = await fetch(url, {
+          headers: { ...getAuthHeader() },
+          signal,
+        });
         if (!res.ok) throw new Error('Failed to fetch ideas');
         const result = await res.json();
         const data = result?.data ?? result;
@@ -83,7 +92,7 @@ export function useResearchIdeas(projectId: string): UseResearchIdeasResult {
         setIsLoading(false);
       }
     },
-    [projectId]
+    [projectId, type]
   );
 
   const createIdea = useCallback(
@@ -196,6 +205,29 @@ export function useResearchIdeas(projectId: string): UseResearchIdeasResult {
     [projectId]
   );
 
+  const extractCreativeIdeas = useCallback(async (): Promise<
+    ResearchIdea[]
+  > => {
+    try {
+      const res = await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}/ideas/extract-creative-ideas`,
+        {
+          method: 'POST',
+          headers: { ...getAuthHeader() },
+        }
+      );
+      if (!res.ok) throw new Error('Failed to extract creative ideas');
+      const result = await res.json();
+      const extracted = result?.data ?? result;
+      const newIdeas = Array.isArray(extracted) ? extracted : [];
+      setIdeas(newIdeas);
+      return newIdeas;
+    } catch (err) {
+      logger.error('Failed to extract creative ideas:', err);
+      return [];
+    }
+  }, [projectId]);
+
   useEffect(() => {
     if (!projectId) return;
     const controller = new AbortController();
@@ -212,6 +244,7 @@ export function useResearchIdeas(projectId: string): UseResearchIdeasResult {
     updateIdea,
     deleteIdea,
     extractIdeas,
+    extractCreativeIdeas,
   };
 }
 

@@ -1,34 +1,36 @@
 'use client';
 
 /**
- * IdeasPanel - Creative ideas display (CREATIVE_IDEA type)
+ * InsightsPanel - Structured, expandable research insights display
  *
- * Each idea card shows:
- * - Collapsed: title, concept, feasibility, dimension badge, star button
- * - Expanded: + innovation points + approach + generate demo button
+ * Each insight card shows:
+ * - Collapsed: title, core insight, impact level, agent, tags, star button
+ * - Expanded: + evidence bullets + research direction + actions
  *
- * Data model (metadata):
- * - concept: core concept description
- * - innovationPoints: string[] of innovation highlights
- * - approach: implementation path
- * - feasibility: 'high' | 'medium' | 'low'
- * - dimension: creative dimension category
+ * Data model:
+ * - metadata.coreInsight (display text)
+ * - metadata.evidence (array of supporting points)
+ * - metadata.researchDirection (suggested next steps)
+ * - metadata.impactLevel ('high' | 'medium' | 'low')
  */
 
 import { useState, useMemo } from 'react';
 import {
-  Lightbulb,
+  Crown,
+  Search,
+  BarChart3,
+  PenLine,
+  ShieldCheck,
+  Brain,
   Star,
   Archive,
-  Play,
   Loader2,
   Sparkles,
-  Target,
   MessageSquare,
   ChevronDown,
   ChevronUp,
-  Zap,
-  Route,
+  CheckCircle2,
+  Compass,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
@@ -36,7 +38,7 @@ import type { ResearchIdea } from '@/hooks/features/useResearchIdeas';
 
 // ==================== Types ====================
 
-interface IdeasPanelProps {
+interface InsightsPanelProps {
   ideas: ResearchIdea[];
   isLoading: boolean;
   isExtracting?: boolean;
@@ -44,23 +46,37 @@ interface IdeasPanelProps {
     ideaId: string,
     data: { status?: 'DISCOVERED' | 'STARRED' | 'ARCHIVED' }
   ) => void;
-  onGenerateDemo?: (ideaId: string) => void;
-  onExtractCreativeIdeas?: () => void;
+  onExtractIdeas?: (sessionId: string) => void;
+  activeSessionId?: string | null;
   className?: string;
 }
 
 type FilterKey = 'all' | 'DISCOVERED' | 'STARRED' | 'ARCHIVED';
 
-interface CreativeMetadata {
-  concept?: string;
-  innovationPoints?: string[];
-  approach?: string;
-  feasibility?: 'high' | 'medium' | 'low';
-  dimension?: string;
-  sourceInsightIds?: string[];
+interface IdeaMetadata {
+  coreInsight?: string;
+  evidence?: string[];
+  researchDirection?: string;
+  impactLevel?: 'high' | 'medium' | 'low';
 }
 
 // ==================== Constants ====================
+
+const ROLE_ICON: Record<string, LucideIcon> = {
+  director: Crown,
+  researcher: Search,
+  analyst: BarChart3,
+  writer: PenLine,
+  reviewer: ShieldCheck,
+};
+
+const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
+  director: { bg: 'bg-purple-100', text: 'text-purple-700' },
+  researcher: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  analyst: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  writer: { bg: 'bg-amber-100', text: 'text-amber-700' },
+  reviewer: { bg: 'bg-rose-100', text: 'text-rose-700' },
+};
 
 const STATUS_CONFIG: Record<
   string,
@@ -83,35 +99,28 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const FEASIBILITY_CONFIG: Record<
+const IMPACT_CONFIG: Record<
   'high' | 'medium' | 'low',
   { label: string; dotColor: string; textColor: string; borderColor: string }
 > = {
   high: {
-    label: '高可行',
-    dotColor: 'bg-emerald-500',
-    textColor: 'text-emerald-700',
-    borderColor: 'border-l-emerald-500',
+    label: '高影响',
+    dotColor: 'bg-red-500',
+    textColor: 'text-red-700',
+    borderColor: 'border-l-red-500',
   },
   medium: {
-    label: '中可行',
+    label: '中影响',
     dotColor: 'bg-amber-500',
     textColor: 'text-amber-700',
     borderColor: 'border-l-amber-500',
   },
   low: {
-    label: '低可行',
+    label: '低影响',
     dotColor: 'bg-gray-400',
     textColor: 'text-gray-600',
     borderColor: 'border-l-gray-400',
   },
-};
-
-const DIMENSION_COLORS: Record<string, string> = {
-  新理念: 'bg-violet-100 text-violet-700',
-  新方案: 'bg-blue-100 text-blue-700',
-  新方法: 'bg-teal-100 text-teal-700',
-  新实践: 'bg-orange-100 text-orange-700',
 };
 
 const FILTER_TABS: { key: FilterKey; label: string }[] = [
@@ -123,15 +132,15 @@ const FILTER_TABS: { key: FilterKey; label: string }[] = [
 
 // ==================== Component ====================
 
-export function IdeasPanel({
+export function InsightsPanel({
   ideas,
   isLoading,
   isExtracting = false,
   onUpdateIdea,
-  onGenerateDemo,
-  onExtractCreativeIdeas,
+  onExtractIdeas,
+  activeSessionId,
   className,
-}: IdeasPanelProps) {
+}: InsightsPanelProps) {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
@@ -142,8 +151,7 @@ export function IdeasPanel({
 
   const stats = useMemo(() => {
     const starred = ideas.filter((i) => i.status === 'STARRED').length;
-    const withDemos = ideas.filter((i) => i.demos && i.demos.length > 0).length;
-    return { total: ideas.length, starred, withDemos };
+    return { total: ideas.length, starred };
   }, [ideas]);
 
   const toggleExpand = (ideaId: string) => {
@@ -176,7 +184,7 @@ export function IdeasPanel({
           className
         )}
       >
-        <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
       </div>
     );
   }
@@ -190,32 +198,22 @@ export function IdeasPanel({
           className
         )}
       >
-        <div className="mb-4 rounded-2xl bg-purple-50 p-4">
-          <Lightbulb className="h-12 w-12 text-purple-500" />
+        <div className="mb-4 rounded-2xl bg-indigo-50 p-4">
+          <Brain className="h-12 w-12 text-indigo-500" />
         </div>
         <h3 className="mb-2 text-lg font-semibold text-gray-900">
-          暂无研究创意
+          暂无研究观点
         </h3>
         <p className="mb-6 max-w-md text-center text-sm text-gray-500">
-          先从讨论中提取观点,然后从观点中提炼创意方案
+          开始一次讨论,AI 团队将自动从讨论中提炼观点
         </p>
-        {onExtractCreativeIdeas && (
+        {activeSessionId && onExtractIdeas && (
           <button
-            onClick={onExtractCreativeIdeas}
-            disabled={isExtracting}
-            className={cn(
-              'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors',
-              isExtracting
-                ? 'cursor-not-allowed bg-purple-400'
-                : 'bg-purple-600 hover:bg-purple-700'
-            )}
+            onClick={() => onExtractIdeas(activeSessionId)}
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
           >
-            {isExtracting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-            {isExtracting ? 'AI 提取中...' : '从观点中提取创意'}
+            <Sparkles className="h-4 w-4" />
+            从最近讨论中提取观点
           </button>
         )}
       </div>
@@ -225,28 +223,28 @@ export function IdeasPanel({
   return (
     <div className={cn('space-y-6', className)}>
       {/* Header with stats */}
-      <div className="rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 p-5">
+      <div className="rounded-xl bg-gradient-to-r from-indigo-50 to-blue-50 p-5">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-purple-100 p-2">
-              <Target className="h-5 w-5 text-purple-600" />
+            <div className="rounded-lg bg-indigo-100 p-2">
+              <Brain className="h-5 w-5 text-indigo-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">研究创意</h3>
+              <h3 className="font-semibold text-gray-900">观点荟萃</h3>
               <p className="mt-1 text-sm text-gray-600">
-                从观点中提炼的创新方案和可落地创意
+                从讨论中提炼的分析判断和研究洞察
               </p>
             </div>
           </div>
-          {onExtractCreativeIdeas && (
+          {activeSessionId && onExtractIdeas && (
             <button
-              onClick={onExtractCreativeIdeas}
+              onClick={() => onExtractIdeas(activeSessionId)}
               disabled={isExtracting}
               className={cn(
                 'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors',
                 isExtracting
-                  ? 'cursor-not-allowed bg-purple-400'
-                  : 'bg-purple-600 hover:bg-purple-700'
+                  ? 'cursor-not-allowed bg-indigo-400'
+                  : 'bg-indigo-600 hover:bg-indigo-700'
               )}
             >
               {isExtracting ? (
@@ -254,7 +252,7 @@ export function IdeasPanel({
               ) : (
                 <Sparkles className="h-3.5 w-3.5" />
               )}
-              {isExtracting ? 'AI 提取中...' : '从观点中提取创意'}
+              {isExtracting ? 'AI 提取中...' : '提取观点'}
             </button>
           )}
         </div>
@@ -262,22 +260,16 @@ export function IdeasPanel({
         {/* Stats */}
         <div className="mt-4 flex flex-wrap gap-3">
           <StatBadge
-            icon={Lightbulb}
-            label="总创意"
+            icon={Brain}
+            label="总观点"
             count={stats.total}
-            color="purple"
+            color="indigo"
           />
           <StatBadge
             icon={Star}
             label="已收藏"
             count={stats.starred}
             color="amber"
-          />
-          <StatBadge
-            icon={Play}
-            label="已生成演示"
-            count={stats.withDemos}
-            color="blue"
           />
         </div>
       </div>
@@ -308,28 +300,30 @@ export function IdeasPanel({
         ))}
       </div>
 
-      {/* Ideas list (single column) */}
+      {/* Insights list (single column) */}
       <div className="space-y-3">
         {filteredIdeas.map((idea) => {
-          const metadata = (idea.metadata || {}) as CreativeMetadata;
-          const concept = metadata.concept || idea.description;
-          const innovationPoints = metadata.innovationPoints || [];
-          const approach = metadata.approach || '';
-          const feasibility = metadata.feasibility || 'medium';
-          const dimension = metadata.dimension || '';
+          const metadata = (idea.metadata || {}) as IdeaMetadata;
+          const coreInsight = metadata.coreInsight || idea.description;
+          const evidence = metadata.evidence || [];
+          const researchDirection = metadata.researchDirection || '';
+          const impactLevel = metadata.impactLevel || 'medium';
 
           const isExpanded = expandedIds.has(idea.id);
-          const feasibilityCfg = FEASIBILITY_CONFIG[feasibility];
+          const impactCfg = IMPACT_CONFIG[impactLevel];
+          const RoleIcon = ROLE_ICON[idea.agentRole || ''] || Brain;
+          const roleColors = ROLE_COLORS[idea.agentRole || ''] || {
+            bg: 'bg-gray-100',
+            text: 'text-gray-700',
+          };
           const StatusIcon = STATUS_CONFIG[idea.status].icon;
-          const dimensionColor =
-            DIMENSION_COLORS[dimension] || 'bg-gray-100 text-gray-700';
 
           return (
             <div
               key={idea.id}
               className={cn(
                 'overflow-hidden rounded-xl border border-l-4 bg-white transition-shadow hover:shadow-md',
-                feasibilityCfg.borderColor,
+                impactCfg.borderColor,
                 idea.status === 'STARRED' && 'ring-1 ring-amber-200',
                 idea.status === 'ARCHIVED' && 'opacity-60'
               )}
@@ -338,22 +332,22 @@ export function IdeasPanel({
               <div className="p-4">
                 {/* Collapsed state always visible */}
                 <div className="space-y-3">
-                  {/* Top row: Feasibility + Title + Star */}
+                  {/* Top row: Impact + Title + Star */}
                   <div className="flex items-start gap-3">
                     <div className="flex items-center gap-1.5 pt-0.5">
                       <div
                         className={cn(
                           'h-2 w-2 rounded-full',
-                          feasibilityCfg.dotColor
+                          impactCfg.dotColor
                         )}
                       />
                       <span
                         className={cn(
                           'text-xs font-medium',
-                          feasibilityCfg.textColor
+                          impactCfg.textColor
                         )}
                       >
-                        {feasibilityCfg.label}
+                        {impactCfg.label}
                       </span>
                     </div>
                     <h4 className="flex-1 text-sm font-bold leading-snug text-gray-900">
@@ -377,37 +371,36 @@ export function IdeasPanel({
                     </button>
                   </div>
 
-                  {/* Concept */}
+                  {/* Core insight */}
                   <p className="text-sm leading-relaxed text-gray-600">
-                    {concept}
+                    {coreInsight}
                   </p>
 
-                  {/* Bottom row: Dimension + Tags + Status */}
+                  {/* Bottom row: Agent + Tags + Status */}
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* Dimension badge */}
-                    {dimension && (
+                    {/* Agent badge */}
+                    {idea.agentRole && idea.agentName && (
                       <span
                         className={cn(
                           'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                          dimensionColor
+                          roleColors.bg,
+                          roleColors.text
                         )}
                       >
-                        <Lightbulb className="h-3 w-3" />
-                        {dimension}
+                        <RoleIcon className="h-3 w-3" />
+                        {idea.agentName}
                       </span>
                     )}
 
-                    {/* Tags */}
-                    {idea.tags
-                      .filter((tag) => tag !== dimension)
-                      .map((tag, idx) => (
-                        <span
-                          key={idx}
-                          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700"
-                        >
-                          {tag}
-                        </span>
-                      ))}
+                    {/* Category tags */}
+                    {idea.tags.map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700"
+                      >
+                        {tag}
+                      </span>
+                    ))}
 
                     {/* Status badge */}
                     <span
@@ -425,22 +418,22 @@ export function IdeasPanel({
                 {/* Expanded state sections */}
                 {isExpanded && (
                   <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
-                    {/* Innovation Points */}
-                    {innovationPoints.length > 0 && (
-                      <div className="rounded-lg bg-violet-50 p-3">
+                    {/* Evidence section */}
+                    {evidence.length > 0 && (
+                      <div className="rounded-lg bg-gray-50 p-3">
                         <div className="mb-2 flex items-center gap-1.5">
-                          <Zap className="h-4 w-4 text-violet-600" />
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                           <span className="text-xs font-semibold text-gray-700">
-                            创新点
+                            支撑论据
                           </span>
                         </div>
                         <ul className="space-y-1.5">
-                          {innovationPoints.map((point, idx) => (
+                          {evidence.map((point, idx) => (
                             <li
                               key={idx}
                               className="flex items-start gap-2 text-xs text-gray-600"
                             >
-                              <Zap className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-violet-500" />
+                              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
                               <span className="flex-1">{point}</span>
                             </li>
                           ))}
@@ -448,17 +441,17 @@ export function IdeasPanel({
                       </div>
                     )}
 
-                    {/* Approach */}
-                    {approach && (
+                    {/* Research Direction section */}
+                    {researchDirection && (
                       <div className="rounded-lg bg-blue-50 p-3">
                         <div className="mb-2 flex items-center gap-1.5">
-                          <Route className="h-4 w-4 text-blue-600" />
+                          <Compass className="h-4 w-4 text-blue-600" />
                           <span className="text-xs font-semibold text-gray-700">
-                            实现路径
+                            研究方向
                           </span>
                         </div>
-                        <p className="text-xs leading-relaxed text-gray-700">
-                          {approach}
+                        <p className="text-xs italic leading-relaxed text-gray-700">
+                          {researchDirection}
                         </p>
                       </div>
                     )}
@@ -482,17 +475,6 @@ export function IdeasPanel({
                           className="flex-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200"
                         >
                           归档
-                        </button>
-                      )}
-                      {onGenerateDemo && (
-                        <button
-                          onClick={() => onGenerateDemo(idea.id)}
-                          className="flex-1 rounded-lg bg-purple-100 px-3 py-1.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
-                        >
-                          <span className="inline-flex items-center gap-1">
-                            <Play className="h-3 w-3" />
-                            生成演示
-                          </span>
                         </button>
                       )}
                     </div>
@@ -526,7 +508,7 @@ export function IdeasPanel({
       {filteredIdeas.length === 0 && ideas.length > 0 && (
         <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center">
           <MessageSquare className="mx-auto h-8 w-8 text-gray-300" />
-          <p className="mt-2 text-sm text-gray-500">没有符合筛选条件的创意</p>
+          <p className="mt-2 text-sm text-gray-500">没有符合筛选条件的观点</p>
         </div>
       )}
     </div>
@@ -547,7 +529,7 @@ function StatBadge({
   color: string;
 }) {
   const colorMap: Record<string, string> = {
-    purple: 'bg-purple-100 text-purple-700',
+    indigo: 'bg-indigo-100 text-indigo-700',
     amber: 'bg-amber-100 text-amber-700',
     blue: 'bg-blue-100 text-blue-700',
     gray: 'bg-gray-100 text-gray-700',
@@ -566,4 +548,4 @@ function StatBadge({
   );
 }
 
-export default IdeasPanel;
+export default InsightsPanel;
