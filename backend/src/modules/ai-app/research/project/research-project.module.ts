@@ -16,48 +16,45 @@ import { CreditsModule } from "../../../credits/credits.module";
 // ★ 依赖反转: 导入 token 用于提供 ITTSService 实现
 import { TTS_SERVICE } from "../../../ai-engine/tools/abstractions/generation-services.interface";
 
-// 控制器和服务 (保持原名以兼容现有 API 路由)
-import { AiStudioController } from "./ai-studio.controller";
-import { AiStudioService } from "./ai-studio.service";
-import { AiStudioSourceService } from "./ai-studio-source.service";
-import { AiStudioChatService } from "./ai-studio-chat.service";
-import { AiStudioOutputService } from "./ai-studio-output.service";
-import { AiStudioTTSService } from "./ai-studio-tts.service";
+// 控制器和服务
+import { ResearchProjectController } from "./research-project.controller";
+import { ResearchProjectService } from "./research-project.service";
+import { ResearchProjectSourceService } from "./research-project-source.service";
+import { ResearchProjectChatService } from "./research-project-chat.service";
+import { ResearchProjectOutputService } from "./research-project-output.service";
+import { ResearchProjectTTSService } from "./research-project-tts.service";
 import { FileParserService } from "./services/file-parser.service";
 
 @Module({
-  // 使用 forwardRef 打破循环依赖: NotebookResearchModule ↔ AiEngineModule (AudioGenerationTool 需要 AiStudioTTSService)
+  // 使用 forwardRef 打破循环依赖: ResearchProjectModule ↔ AiEngineModule (AudioGenerationTool 需要 ResearchProjectTTSService)
   imports: [
     PrismaModule,
     forwardRef(() => AiEngineModule),
     StorageModule,
     CreditsModule,
   ],
-  controllers: [AiStudioController],
+  controllers: [ResearchProjectController],
   providers: [
-    AiStudioService,
-    AiStudioSourceService,
-    AiStudioChatService,
-    AiStudioOutputService,
-    AiStudioTTSService,
+    ResearchProjectService,
+    ResearchProjectSourceService,
+    ResearchProjectChatService,
+    ResearchProjectOutputService,
+    ResearchProjectTTSService,
     FileParserService,
     // ★ 依赖反转: 提供 ITTSService 接口实现
     {
       provide: TTS_SERVICE,
-      useExisting: AiStudioTTSService,
+      useExisting: ResearchProjectTTSService,
     },
   ],
   exports: [
-    AiStudioService,
-    AiStudioSourceService,
-    AiStudioChatService,
-    AiStudioOutputService,
-    AiStudioTTSService,
+    ResearchProjectService,
+    ResearchProjectSourceService,
+    ResearchProjectChatService,
+    ResearchProjectOutputService,
+    ResearchProjectTTSService,
     // ★ 依赖反转: 导出接口实现供 AiEngineModule 使用
     TTS_SERVICE,
   ],
 })
-export class NotebookResearchModule {}
-
-// 为了向后兼容，保留 AiStudioModule 别名
-export { NotebookResearchModule as AiStudioModule };
+export class ResearchProjectModule {}

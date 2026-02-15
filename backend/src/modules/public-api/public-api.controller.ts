@@ -25,7 +25,7 @@ import { AIModelType } from "@prisma/client";
 import { Public } from "../../common/decorators/public.decorator";
 import { MCPApiKeyGuard } from "../mcp-server/guards/mcp-api-key.guard";
 import { AIEngineFacade } from "../ai-engine/facade/ai-engine.facade";
-import { DeepResearchAgentService } from "../ai-app/research/deep-research/deep-research-agent.service";
+import { DiscussionResearchService } from "../ai-app/research/discussion/discussion-research.service";
 import { StartResearchDto } from "./dto/research.dto";
 import { AskDto } from "./dto/ask.dto";
 import { ChatDto } from "./dto/chat.dto";
@@ -102,7 +102,7 @@ export class PublicApiController {
 
   constructor(
     private readonly aiFacade: AIEngineFacade,
-    private readonly researchAgent: DeepResearchAgentService,
+    private readonly researchAgent: DiscussionResearchService,
   ) {}
 
   // ==================== Self-Description ====================
@@ -417,7 +417,11 @@ export class PublicApiController {
   @Get("discovery/tools")
   @UseGuards(MCPApiKeyGuard)
   @ApiOperation({ summary: "List available AI tools with schemas" })
-  @ApiQuery({ name: "category", required: false, description: "Filter by tool category" })
+  @ApiQuery({
+    name: "category",
+    required: false,
+    description: "Filter by tool category",
+  })
   @ApiResponse({ status: 200, description: "Tool list with input schemas" })
   async discoverTools(@Query("category") category?: string) {
     const tools = this.aiFacade.getAvailableTools(
@@ -441,12 +445,14 @@ export class PublicApiController {
   @Get("discovery/models")
   @UseGuards(MCPApiKeyGuard)
   @ApiOperation({ summary: "List available LLM models" })
-  @ApiQuery({ name: "type", required: false, description: "Filter by model type (CHAT, IMAGE_GENERATION, etc.)" })
+  @ApiQuery({
+    name: "type",
+    required: false,
+    description: "Filter by model type (CHAT, IMAGE_GENERATION, etc.)",
+  })
   @ApiResponse({ status: 200, description: "Model list" })
   async discoverModels(@Query("type") modelType?: string) {
-    const type = modelType
-      ? (modelType as AIModelType)
-      : AIModelType.CHAT;
+    const type = modelType ? (modelType as AIModelType) : AIModelType.CHAT;
 
     const models = await this.aiFacade.getAvailableModels(type);
 

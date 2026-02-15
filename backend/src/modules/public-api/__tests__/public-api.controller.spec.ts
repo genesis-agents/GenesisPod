@@ -2,7 +2,7 @@
  * Public API Controller E2E Tests
  *
  * Tests all endpoints exposed by the PublicApiController.
- * Mocks AI dependencies (AIEngineFacade, DeepResearchAgentService).
+ * Mocks AI dependencies (AIEngineFacade, DiscussionResearchService).
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -10,13 +10,13 @@ import { NotImplementedException, ExecutionContext } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { PublicApiController } from "../public-api.controller";
 import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
-import { DeepResearchAgentService } from "../../ai-app/research/deep-research/deep-research-agent.service";
+import { DiscussionResearchService } from "../../ai-app/research/discussion/discussion-research.service";
 import { MCPApiKeyGuard } from "../../mcp-server/guards/mcp-api-key.guard";
 
 describe("PublicApiController", () => {
   let controller: PublicApiController;
   let aiFacade: jest.Mocked<AIEngineFacade>;
-  let researchAgent: jest.Mocked<DeepResearchAgentService>;
+  let researchAgent: jest.Mocked<DiscussionResearchService>;
 
   beforeEach(async () => {
     // Mock AIEngineFacade
@@ -28,7 +28,7 @@ describe("PublicApiController", () => {
       getAvailableCapabilities: jest.fn(),
     };
 
-    // Mock DeepResearchAgentService
+    // Mock DiscussionResearchService
     const mockResearchAgent = {
       executeDirectResearch: jest.fn(),
     };
@@ -42,7 +42,7 @@ describe("PublicApiController", () => {
       controllers: [PublicApiController],
       providers: [
         { provide: AIEngineFacade, useValue: mockAiFacade },
-        { provide: DeepResearchAgentService, useValue: mockResearchAgent },
+        { provide: DiscussionResearchService, useValue: mockResearchAgent },
       ],
     })
       .overrideGuard(MCPApiKeyGuard)
@@ -51,7 +51,7 @@ describe("PublicApiController", () => {
 
     controller = module.get<PublicApiController>(PublicApiController);
     aiFacade = module.get(AIEngineFacade);
-    researchAgent = module.get(DeepResearchAgentService);
+    researchAgent = module.get(DiscussionResearchService);
 
     jest.clearAllMocks();
   });
@@ -577,7 +577,9 @@ describe("PublicApiController", () => {
       });
 
       expect(result.result).toHaveProperty("rawOutput");
-      expect((result.result as Record<string, unknown>).rawOutput).toBe("This is not JSON");
+      expect((result.result as Record<string, unknown>).rawOutput).toBe(
+        "This is not JSON",
+      );
     });
   });
 
@@ -671,7 +673,9 @@ describe("PublicApiController", () => {
       });
 
       expect(result.result).toHaveProperty("rawAnalysis");
-      expect((result.result as Record<string, unknown>).rawAnalysis).toBe("Plain text analysis");
+      expect((result.result as Record<string, unknown>).rawAnalysis).toBe(
+        "Plain text analysis",
+      );
     });
   });
 
@@ -707,7 +711,9 @@ describe("PublicApiController", () => {
         query: "What is quantum computing?",
       });
 
-      expect(result.report.executiveSummary).toBe("This is the executive summary.");
+      expect(result.report.executiveSummary).toBe(
+        "This is the executive summary.",
+      );
       expect(result.searchRounds).toBe(2);
       expect(result.totalSources).toBe(3);
       expect(result.duration).toBe(15000);
@@ -827,7 +833,9 @@ describe("PublicApiController", () => {
 
       expect(result.judgment).toHaveProperty("winner", "draw");
       expect(result.judgment).toHaveProperty("confidence", "low");
-      expect((result.judgment as Record<string, unknown>).conclusion).toBe("Plain text judgment");
+      expect((result.judgment as Record<string, unknown>).conclusion).toBe(
+        "Plain text judgment",
+      );
     });
 
     it("should include language in debate prompts when provided", async () => {
@@ -856,9 +864,7 @@ describe("PublicApiController", () => {
 
   describe("Error Handling", () => {
     it("should propagate errors from AIEngineFacade.chat", async () => {
-      aiFacade.chat.mockRejectedValue(
-        new Error("AI service unavailable"),
-      );
+      aiFacade.chat.mockRejectedValue(new Error("AI service unavailable"));
 
       await expect(
         controller.ask({

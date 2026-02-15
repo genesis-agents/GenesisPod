@@ -11,7 +11,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Presentation, FileText, Table } from 'lucide-react';
 import CommandPalette, {
   useCommandPalette,
-} from '@/components/ai-research/deep-research/CommandPalette';
+} from '@/components/ai-research/discussion/CommandPalette';
 import { SlidesTab } from '../slides';
 import { useTranslation } from '@/lib/i18n';
 

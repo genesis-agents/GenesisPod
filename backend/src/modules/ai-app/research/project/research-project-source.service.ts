@@ -13,8 +13,8 @@ import { AddSourceDto, SearchSourcesDto } from "./dto";
 import { FileParserService } from "./services/file-parser.service";
 
 @Injectable()
-export class AiStudioSourceService {
-  private readonly logger = new Logger(AiStudioSourceService.name);
+export class ResearchProjectSourceService {
+  private readonly logger = new Logger(ResearchProjectSourceService.name);
 
   // ★ 架构重构：通过 ToolRegistry 调用工具，不再直接依赖 SearchService
   constructor(
@@ -104,7 +104,11 @@ export class AiStudioSourceService {
     sourceUrl?: string | null,
     resourceId?: string | null,
   ) {
-    const conditions: Array<{ title?: { equals: string; mode: "insensitive" }; sourceUrl?: { equals: string; mode: "insensitive" }; resourceId?: string }> = [];
+    const conditions: Array<{
+      title?: { equals: string; mode: "insensitive" };
+      sourceUrl?: { equals: string; mode: "insensitive" };
+      resourceId?: string;
+    }> = [];
 
     // Check by exact title match (case-insensitive)
     if (title) {
@@ -494,7 +498,9 @@ export class AiStudioSourceService {
           }
         }
       } catch (error: unknown) {
-        errors.push(`related search "${relatedQuery}": ${error instanceof Error ? error.message : String(error)}`);
+        errors.push(
+          `related search "${relatedQuery}": ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
 
@@ -515,7 +521,9 @@ export class AiStudioSourceService {
             }
           }
         } catch (error: unknown) {
-          errors.push(`arxiv deep search: ${error instanceof Error ? error.message : String(error)}`);
+          errors.push(
+            `arxiv deep search: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       }
     }
@@ -547,7 +555,10 @@ export class AiStudioSourceService {
   /**
    * Search local database
    */
-  private async searchLocalDB(query: string, limit: number): Promise<Array<Record<string, unknown>>> {
+  private async searchLocalDB(
+    query: string,
+    limit: number,
+  ): Promise<Array<Record<string, unknown>>> {
     const results = await this.prisma.resource.findMany({
       where: {
         OR: [
@@ -582,7 +593,10 @@ export class AiStudioSourceService {
    * Search web using Tavily/Serper
    * ★ 架构重构：通过 ToolRegistry 调用 web-search 工具
    */
-  private async searchWeb(query: string, limit: number): Promise<Array<Record<string, unknown>>> {
+  private async searchWeb(
+    query: string,
+    limit: number,
+  ): Promise<Array<Record<string, unknown>>> {
     // ★ 通过 ToolRegistry 获取 web-search 工具
     const webSearchTool = this.toolRegistry.tryGet("web-search");
     if (!webSearchTool) {
@@ -642,7 +656,16 @@ export class AiStudioSourceService {
   ): Promise<Array<Record<string, unknown>>> {
     const results = await this.prisma.resource.findMany({
       where: {
-        type: category as "PAPER" | "BLOG" | "REPORT" | "POLICY" | "YOUTUBE_VIDEO" | "NEWS" | "PROJECT" | "EVENT" | "RSS",
+        type: category as
+          | "PAPER"
+          | "BLOG"
+          | "REPORT"
+          | "POLICY"
+          | "YOUTUBE_VIDEO"
+          | "NEWS"
+          | "PROJECT"
+          | "EVENT"
+          | "RSS",
         OR: [
           { title: { contains: query, mode: "insensitive" } },
           { abstract: { contains: query, mode: "insensitive" } },
@@ -678,7 +701,10 @@ export class AiStudioSourceService {
    * Search news sources using web search with news-focused keywords
    * ★ 架构重构：通过 ToolRegistry 调用 web-search 工具
    */
-  private async searchNews(query: string, limit: number): Promise<Array<Record<string, unknown>>> {
+  private async searchNews(
+    query: string,
+    limit: number,
+  ): Promise<Array<Record<string, unknown>>> {
     // ★ 通过 ToolRegistry 获取 web-search 工具
     const webSearchTool = this.toolRegistry.tryGet("web-search");
     if (!webSearchTool) {
@@ -736,7 +762,10 @@ export class AiStudioSourceService {
   /**
    * Search academic papers using Semantic Scholar API
    */
-  private async searchScholar(query: string, limit: number): Promise<Array<Record<string, unknown>>> {
+  private async searchScholar(
+    query: string,
+    limit: number,
+  ): Promise<Array<Record<string, unknown>>> {
     const axios = await import("axios");
 
     try {
@@ -764,9 +793,15 @@ export class AiStudioSourceService {
         title: paper.title,
         abstract: paper.abstract || "",
         sourceUrl:
-          (paper.openAccessPdf as Record<string, unknown> | undefined)?.url as string | undefined ||
+          ((paper.openAccessPdf as Record<string, unknown> | undefined)?.url as
+            | string
+            | undefined) ||
           `https://www.semanticscholar.org/paper/${paper.paperId}`,
-        authors: Array.isArray(paper.authors) ? paper.authors.map((a: unknown) => (a as Record<string, unknown>).name as string) : [],
+        authors: Array.isArray(paper.authors)
+          ? paper.authors.map(
+              (a: unknown) => (a as Record<string, unknown>).name as string,
+            )
+          : [],
         publishedAt: paper.year ? `${paper.year}-01-01` : null,
         source: "scholar",
         sourceType: "paper",
@@ -776,7 +811,9 @@ export class AiStudioSourceService {
         },
       }));
     } catch (error: unknown) {
-      this.logger.warn(`Scholar search failed: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(
+        `Scholar search failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return [];
     }
   }
@@ -784,7 +821,10 @@ export class AiStudioSourceService {
   /**
    * Generate related queries based on initial results
    */
-  private generateRelatedQueries(query: string, results: Array<Record<string, unknown>>): string[] {
+  private generateRelatedQueries(
+    query: string,
+    results: Array<Record<string, unknown>>,
+  ): string[] {
     if (!query) return [];
     const queries: string[] = [];
     const words = query
@@ -838,13 +878,26 @@ export class AiStudioSourceService {
   /**
    * Check if result is a duplicate
    */
-  private isDuplicate(result: Record<string, unknown>, existingResults: Array<Record<string, unknown>>): boolean {
-    const url = typeof result.sourceUrl === 'string' ? result.sourceUrl.toLowerCase() : undefined;
-    const title = typeof result.title === 'string' ? result.title.toLowerCase() : undefined;
+  private isDuplicate(
+    result: Record<string, unknown>,
+    existingResults: Array<Record<string, unknown>>,
+  ): boolean {
+    const url =
+      typeof result.sourceUrl === "string"
+        ? result.sourceUrl.toLowerCase()
+        : undefined;
+    const title =
+      typeof result.title === "string" ? result.title.toLowerCase() : undefined;
 
     return existingResults.some((existing) => {
-      const existingUrl = typeof existing.sourceUrl === 'string' ? existing.sourceUrl.toLowerCase() : undefined;
-      const existingTitle = typeof existing.title === 'string' ? existing.title.toLowerCase() : undefined;
+      const existingUrl =
+        typeof existing.sourceUrl === "string"
+          ? existing.sourceUrl.toLowerCase()
+          : undefined;
+      const existingTitle =
+        typeof existing.title === "string"
+          ? existing.title.toLowerCase()
+          : undefined;
       if (url && existingUrl === url) return true;
       if (title && existingTitle === title) return true;
       return false;
@@ -854,11 +907,19 @@ export class AiStudioSourceService {
   /**
    * Deduplicate results by URL and title
    */
-  private deduplicateResults(results: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  private deduplicateResults(
+    results: Array<Record<string, unknown>>,
+  ): Array<Record<string, unknown>> {
     const seen = new Set<string>();
     return results.filter((result) => {
-      const sourceUrl = typeof result.sourceUrl === 'string' ? result.sourceUrl.toLowerCase() : undefined;
-      const title = typeof result.title === 'string' ? result.title.toLowerCase() : undefined;
+      const sourceUrl =
+        typeof result.sourceUrl === "string"
+          ? result.sourceUrl.toLowerCase()
+          : undefined;
+      const title =
+        typeof result.title === "string"
+          ? result.title.toLowerCase()
+          : undefined;
       const key = sourceUrl || title;
       if (!key || seen.has(key)) return false;
       seen.add(key);
@@ -877,7 +938,10 @@ export class AiStudioSourceService {
    * - Diversity (10%): Bonus for unique sources
    * - Depth (10%): Content length and detail
    */
-  private rankByRelevance(results: Array<Record<string, unknown>>, query: string): Array<Record<string, unknown>> {
+  private rankByRelevance(
+    results: Array<Record<string, unknown>>,
+    query: string,
+  ): Array<Record<string, unknown>> {
     if (!query) return results;
     const queryTerms = query
       .toLowerCase()
@@ -897,7 +961,9 @@ export class AiStudioSourceService {
         const freshnessScore = this.calculateFreshness(result);
 
         // 4. Diversity Score (10% weight)
-        const domain = this.extractDomain(typeof result.sourceUrl === 'string' ? result.sourceUrl : undefined);
+        const domain = this.extractDomain(
+          typeof result.sourceUrl === "string" ? result.sourceUrl : undefined,
+        );
         const diversityScore = seenDomains.has(domain) ? 30 : 100;
         seenDomains.add(domain);
 
@@ -930,14 +996,21 @@ export class AiStudioSourceService {
   /**
    * Calculate relevance score based on query matching
    */
-  private calculateRelevance(result: Record<string, unknown>, queryTerms: string[]): number {
+  private calculateRelevance(
+    result: Record<string, unknown>,
+    queryTerms: string[],
+  ): number {
     let score = 0;
-    const titleLower = (typeof result.title === 'string' ? result.title : "").toLowerCase();
-    const abstractLower = (typeof result.abstract === 'string' ? result.abstract : "").toLowerCase();
+    const titleLower = (
+      typeof result.title === "string" ? result.title : ""
+    ).toLowerCase();
+    const abstractLower = (
+      typeof result.abstract === "string" ? result.abstract : ""
+    ).toLowerCase();
     const text = `${titleLower} ${abstractLower}`;
 
     // Start with existing score if available
-    if (typeof result.score === 'number') {
+    if (typeof result.score === "number") {
       score = result.score * 40;
     }
 
@@ -986,12 +1059,23 @@ export class AiStudioSourceService {
       case "github":
         score += 25; // Technical repos
         const metadata = result.metadata as Record<string, unknown> | undefined;
-        if (metadata && typeof metadata.stars === 'number' && metadata.stars > 1000) score += 15;
-        if (metadata && typeof metadata.stars === 'number' && metadata.stars > 10000) score += 10;
+        if (
+          metadata &&
+          typeof metadata.stars === "number" &&
+          metadata.stars > 1000
+        )
+          score += 15;
+        if (
+          metadata &&
+          typeof metadata.stars === "number" &&
+          metadata.stars > 10000
+        )
+          score += 10;
         break;
       case "local":
         score += 20; // Already curated in DB
-        if (typeof result.qualityScore === 'number') score += result.qualityScore * 20;
+        if (typeof result.qualityScore === "number")
+          score += result.qualityScore * 20;
         break;
       case "web":
       case "news":
@@ -1000,7 +1084,9 @@ export class AiStudioSourceService {
     }
 
     // Domain authority check
-    const domain = this.extractDomain(typeof result.sourceUrl === 'string' ? result.sourceUrl : undefined);
+    const domain = this.extractDomain(
+      typeof result.sourceUrl === "string" ? result.sourceUrl : undefined,
+    );
     if (this.isHighAuthorityDomain(domain)) {
       score += 25;
     } else if (this.isMediumAuthorityDomain(domain)) {
@@ -1008,7 +1094,7 @@ export class AiStudioSourceService {
     }
 
     // Citation count bonus (for papers)
-    if (typeof result.citationCount === 'number') {
+    if (typeof result.citationCount === "number") {
       if (result.citationCount > 100) score += 20;
       else if (result.citationCount > 50) score += 15;
       else if (result.citationCount > 10) score += 10;
@@ -1048,8 +1134,8 @@ export class AiStudioSourceService {
    * Calculate content depth score
    */
   private calculateDepth(result: Record<string, unknown>): number {
-    const abstract = typeof result.abstract === 'string' ? result.abstract : "";
-    const content = typeof result.content === 'string' ? result.content : "";
+    const abstract = typeof result.abstract === "string" ? result.abstract : "";
+    const content = typeof result.content === "string" ? result.content : "";
     const contentLength = (abstract || content).length;
 
     if (contentLength >= 1000) return 100;
@@ -1179,28 +1265,50 @@ export class AiStudioSourceService {
           : [(entry.author as Record<string, unknown>).name as string]
         : [];
 
-      const entryLink = entry.link as Record<string, unknown> | Array<Record<string, unknown>> | undefined;
+      const entryLink = entry.link as
+        | Record<string, unknown>
+        | Array<Record<string, unknown>>
+        | undefined;
       const pdfLink = entryLink
         ? Array.isArray(entryLink)
-          ? entryLink.find((l: Record<string, unknown>) => (l.$ as Record<string, unknown>)?.title === "pdf")
-          : (entryLink.$ as Record<string, unknown> | undefined)?.title === "pdf"
+          ? entryLink.find(
+              (l: Record<string, unknown>) =>
+                (l.$ as Record<string, unknown>)?.title === "pdf",
+            )
+          : (entryLink.$ as Record<string, unknown> | undefined)?.title ===
+              "pdf"
             ? entryLink
             : null
         : null;
 
-      const entryCategory = entry.category as Record<string, unknown> | Array<Record<string, unknown>> | undefined;
+      const entryCategory = entry.category as
+        | Record<string, unknown>
+        | Array<Record<string, unknown>>
+        | undefined;
       return {
         id: null,
-        title: typeof entry.title === 'string' ? entry.title.replace(/\s+/g, " ").trim() : undefined,
-        abstract: typeof entry.summary === 'string' ? entry.summary.replace(/\s+/g, " ").trim() : undefined,
-        sourceUrl: (pdfLink as Record<string, unknown> | undefined)?.$ ? ((pdfLink as Record<string, unknown>).$ as Record<string, unknown>).href as string : entry.id as string,
+        title:
+          typeof entry.title === "string"
+            ? entry.title.replace(/\s+/g, " ").trim()
+            : undefined,
+        abstract:
+          typeof entry.summary === "string"
+            ? entry.summary.replace(/\s+/g, " ").trim()
+            : undefined,
+        sourceUrl: (pdfLink as Record<string, unknown> | undefined)?.$
+          ? (((pdfLink as Record<string, unknown>).$ as Record<string, unknown>)
+              .href as string)
+          : (entry.id as string),
         authors,
         publishedAt: entry.published as string,
         source: "arxiv",
         sourceType: "paper",
         categories: entryCategory
           ? Array.isArray(entryCategory)
-            ? entryCategory.map((c: Record<string, unknown>) => (c.$ as Record<string, unknown>).term as string)
+            ? entryCategory.map(
+                (c: Record<string, unknown>) =>
+                  (c.$ as Record<string, unknown>).term as string,
+              )
             : [(entryCategory.$ as Record<string, unknown>).term as string]
           : [],
       };

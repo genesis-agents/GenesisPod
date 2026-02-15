@@ -81,7 +81,7 @@ export interface DiscussionResearchState {
 }
 
 export interface UseDiscussionResearchOptions {
-  onComplete?: (report: DeepResearchReport) => void;
+  onComplete?: (report: DeepResearchReport, sessionId: string) => void;
   onError?: (error: string) => void;
   onMessage?: (message: DiscussionMessage) => void;
 }
@@ -242,7 +242,7 @@ export function useDiscussionResearch(
             report: completeData.report,
             typingAgent: null,
           }));
-          onComplete?.(completeData.report);
+          onComplete?.(completeData.report, completeData.sessionId);
           if (abortControllerRef.current) {
             abortControllerRef.current.abort();
             abortControllerRef.current = null;

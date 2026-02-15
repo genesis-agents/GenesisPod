@@ -23,7 +23,7 @@ AI Apps (应用层)
 **位置**: `research.interface.ts`
 **Token**: `RESEARCH_SERVICE_TOKEN`
 **使用者**: `ResearcherAgent`
-**实现者**: `backend/src/modules/ai-app/research/notebook-research/`
+**实现者**: `backend/src/modules/ai-app/research/project/`
 
 **方法**:
 
@@ -73,22 +73,22 @@ AI Apps (应用层)
 ### 方式 1: 在具体模块中提供 (推荐)
 
 ```typescript
-// backend/src/modules/ai-app/research/notebook-research/notebook-research.module.ts
+// backend/src/modules/ai-app/research/project/research-project.module.ts
 import { Module } from "@nestjs/common";
 import { RESEARCH_SERVICE_TOKEN } from "../../../ai-engine/interfaces";
-import { AiStudioService } from "./ai-studio.service";
+import { ResearchProjectService } from "./research-project.service";
 
 @Module({
   providers: [
-    AiStudioService,
+    ResearchProjectService,
     {
       provide: RESEARCH_SERVICE_TOKEN,
-      useExisting: AiStudioService,
+      useExisting: ResearchProjectService,
     },
   ],
   exports: [RESEARCH_SERVICE_TOKEN],
 })
-export class NotebookResearchModule {}
+export class ResearchProjectModule {}
 ```
 
 ### 方式 2: 创建适配器类
@@ -97,18 +97,18 @@ export class NotebookResearchModule {}
 // backend/src/modules/ai-app/research/adapters/research-service.adapter.ts
 import { Injectable } from "@nestjs/common";
 import { IResearchService } from "../../../ai-engine/interfaces";
-import { AiStudioService } from "../notebook-research/ai-studio.service";
-import { AiStudioOutputService } from "../notebook-research/ai-studio-output.service";
+import { ResearchProjectService } from "../project/research-project.service";
+import { ResearchProjectOutputService } from "../project/research-project-output.service";
 
 @Injectable()
 export class ResearchServiceAdapter implements IResearchService {
   constructor(
-    private readonly studioService: AiStudioService,
-    private readonly outputService: AiStudioOutputService,
+    private readonly projectService: ResearchProjectService,
+    private readonly outputService: ResearchProjectOutputService,
   ) {}
 
   async createProject(userId: string, title: string, description?: string) {
-    return this.studioService.createProject({ userId, title, description });
+    return this.projectService.createProject({ userId, title, description });
   }
 
   async saveResearchOutput(
@@ -137,7 +137,7 @@ export class ResearchServiceAdapter implements IResearchService {
   ],
   exports: [RESEARCH_SERVICE_TOKEN],
 })
-export class NotebookResearchModule {}
+export class ResearchProjectModule {}
 ```
 
 ## 验证依赖关系
@@ -153,9 +153,9 @@ npx madge --circular --extensions ts backend/src/modules/ai-app/
 ### 架构层次验证
 
 ```
-✅ 正确: AI Apps → AI Engine
-❌ 错误: AI Engine → AI Apps (直接导入)
-✅ 正确: AI Engine → Interfaces ← AI Apps (通过接口)
+正确: AI Apps -> AI Engine
+错误: AI Engine -> AI Apps (直接导入)
+正确: AI Engine -> Interfaces <- AI Apps (通过接口)
 ```
 
 ## 注意事项

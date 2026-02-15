@@ -23,7 +23,7 @@ import {
 
 /**
  * 讨论驱动型研究编排器
- * 完全替代 DeepResearchAgentService 的研究执行流程
+ * 完全替代 DiscussionResearchService 的研究执行流程
  *
  * 流程: Ideation → Execution → Findings → Synthesis
  */
@@ -271,6 +271,15 @@ export class DiscussionOrchestratorService {
       this.logger.log(
         `Discussion research completed: ${session.id}, sources: ${totalSources}, duration: ${duration.toFixed(1)}s`,
       );
+
+      // Auto-extract ideas from discussion messages
+      try {
+        await this.autoExtractIdeas(projectId, session.id, allMessages);
+      } catch (extractError) {
+        this.logger.warn(
+          `Failed to auto-extract ideas from session ${session.id}: ${extractError instanceof Error ? extractError.message : String(extractError)}`,
+        );
+      }
     } catch (error) {
       await this.updateSession(session.id, {
         status: DeepResearchStatus.FAILED,
@@ -907,5 +916,72 @@ ${crossCheck}
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Auto-extract ideas from completed discussion messages.
+   * Runs inline using PrismaService to avoid circular module dependency.
+   */
+  private async autoExtractIdeas(
+    projectId: string,
+    sessionId: string,
+    messages: DiscussionMessage[],
+  ): Promise<void> {
+    const ideaMessageTypes = [
+      "idea",
+      "proposal",
+      "findings",
+      "synthesis",
+      "cross_check",
+    ];
+
+    const ideaMessages = messages.filter((msg) =>
+      ideaMessageTypes.includes(msg.messageType),
+    );
+
+    if (ideaMessages.length === 0) {
+      this.logger.debug(
+        `No idea-worthy messages found in session ${sessionId}`,
+      );
+      return;
+    }
+
+    // Check for existing ideas to avoid duplicates
+    const existingIdeas = await this.prisma.researchIdea.findMany({
+      where: { sessionId },
+      select: { sourceMessageId: true },
+    });
+    const existingIds = new Set(existingIdeas.map((i) => i.sourceMessageId));
+
+    const newIdeas = ideaMessages
+      .filter((msg) => !existingIds.has(msg.id))
+      .map((msg) => {
+        // Extract title: first heading or first line
+        const headingMatch = msg.content.match(/^#+\s+(.+)$/m);
+        const title = headingMatch
+          ? headingMatch[1].substring(0, 200)
+          : msg.content.split("\n")[0].trim().substring(0, 200) || "Untitled";
+
+        return {
+          projectId,
+          sessionId,
+          title,
+          description:
+            msg.content.length > 1000
+              ? msg.content.substring(0, 1000) + "..."
+              : msg.content,
+          sourceMessageId: msg.id,
+          agentRole: msg.agentRole,
+          agentName: msg.agentName,
+          tags: [msg.messageType, msg.phase],
+        };
+      });
+
+    if (newIdeas.length === 0) return;
+
+    await this.prisma.researchIdea.createMany({ data: newIdeas });
+    this.logger.log(
+      `Auto-extracted ${newIdeas.length} ideas from session ${sessionId}`,
+    );
   }
 }

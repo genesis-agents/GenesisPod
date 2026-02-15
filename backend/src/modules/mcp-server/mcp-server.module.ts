@@ -38,10 +38,10 @@ import { MCPStreamingBridge } from "./streaming/mcp-streaming-bridge";
 // Dependencies
 import { SecretsModule } from "../core/secrets/secrets.module";
 import { AiEngineConstraintModule } from "../ai-engine/ai-engine-constraint.module";
-import { DeepResearchModule } from "../ai-app/research/deep-research/deep-research.module";
+import { DiscussionModule } from "../ai-app/research/discussion/discussion.module";
 
 @Module({
-  imports: [SecretsModule, AiEngineConstraintModule, DeepResearchModule],
+  imports: [SecretsModule, AiEngineConstraintModule, DiscussionModule],
   controllers: [MCPServerController, MCPServerAdminController],
   providers: [
     // Core

@@ -23,8 +23,8 @@ export interface AudioOverviewScript {
 }
 
 @Injectable()
-export class AiStudioTTSService {
-  private readonly logger = new Logger(AiStudioTTSService.name);
+export class ResearchProjectTTSService {
+  private readonly logger = new Logger(ResearchProjectTTSService.name);
   private readonly elevenLabsApiKey: string | undefined;
   private readonly googleTTSApiKey: string | undefined;
 

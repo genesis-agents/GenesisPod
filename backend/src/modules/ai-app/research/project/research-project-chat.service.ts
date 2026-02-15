@@ -22,8 +22,8 @@ export interface ChatMessage {
 }
 
 @Injectable()
-export class AiStudioChatService {
-  private readonly logger = new Logger(AiStudioChatService.name);
+export class ResearchProjectChatService {
+  private readonly logger = new Logger(ResearchProjectChatService.name);
 
   constructor(
     private readonly prisma: PrismaService,

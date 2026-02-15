@@ -19,12 +19,12 @@ import { InsufficientCreditsException } from "../../../credits/exceptions/insuff
 import { BillingContext } from "../../../credits/billing-context";
 
 /**
- * 深度研究 Agent 主控服务
+ * 讨论式研究服务
  * 协调规划、搜索、反思、报告生成的完整流程
  */
 @Injectable()
-export class DeepResearchAgentService {
-  private readonly logger = new Logger(DeepResearchAgentService.name);
+export class DiscussionResearchService {
+  private readonly logger = new Logger(DiscussionResearchService.name);
 
   // 单个阶段的最大超时时间 (2 分钟)
   private readonly STAGE_TIMEOUT = 2 * 60 * 1000;
@@ -109,7 +109,10 @@ export class DeepResearchAgentService {
   }> {
     const startTime = Date.now();
     const depth = params.depth || "standard";
-    const depthConfig: Record<string, { maxRounds: number; plannerDepth: "quick" | "standard" | "thorough" }> = {
+    const depthConfig: Record<
+      string,
+      { maxRounds: number; plannerDepth: "quick" | "standard" | "thorough" }
+    > = {
       quick: { maxRounds: 2, plannerDepth: "quick" },
       standard: { maxRounds: 4, plannerDepth: "standard" },
       deep: { maxRounds: 8, plannerDepth: "thorough" },
@@ -122,7 +125,9 @@ export class DeepResearchAgentService {
 
     // 阶段 1: 规划
     const plan = await this.withTimeout(
-      this.plannerService.generatePlan(enrichedQuery, { depth: config.plannerDepth }),
+      this.plannerService.generatePlan(enrichedQuery, {
+        depth: config.plannerDepth,
+      }),
       this.STAGE_TIMEOUT,
       "Research planning",
     );

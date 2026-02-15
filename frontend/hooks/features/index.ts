@@ -13,3 +13,5 @@ export * from './useCollections';
 export * from './useDeepResearch';
 export * from './useDiscussionResearch';
 export * from './useExport';
+export * from './useResearchIdeas';
+export * from './useResearchDemos';

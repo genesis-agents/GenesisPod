@@ -1,5 +1,5 @@
 /**
- * AI Studio 组件导出
+ * Discussion Components - 讨论驱动研究组件导出
  */
 
 // Command Palette
@@ -48,3 +48,29 @@ export { OutputViewer } from './outputs/OutputViewer';
 
 // File Uploader
 export { FileUploader } from './FileUploader';
+
+// ==================== New Components ====================
+
+// Agent Panel (SVG hexagonal team visualization)
+export { AgentPanel } from './AgentPanel';
+
+// Discussion Chat (chat area with session history)
+export { DiscussionChat } from './DiscussionChat';
+
+// Chat Message (individual message bubble)
+export { ChatMessage } from './ChatMessage';
+
+// Phase Indicator (research phase progress bar)
+export { PhaseIndicator } from './PhaseIndicator';
+
+// Phase Transition (phase change divider)
+export { PhaseTransition } from './PhaseTransition';
+
+// Ideas Panel (research ideas card grid)
+export { IdeasPanel } from './IdeasPanel';
+
+// Demos Panel (interactive demo viewer with iframe)
+export { DemosPanel } from './DemosPanel';
+
+// Report Panel (research report viewer)
+export { ReportPanel } from './ReportPanel';

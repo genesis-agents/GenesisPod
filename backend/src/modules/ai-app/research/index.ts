@@ -1,36 +1,30 @@
 /**
- * AI Research Module - Deep Research 导出入口
+ * AI Research Module - 导出入口
  *
- * 提供深度研究模式:
- * - Deep Research: 深度迭代研究 (分钟-小时级)
- * - Notebook Research: NotebookLM 风格文档研究
- *
- * Note: Topic Research 已拆分为独立的 Topic Insights 模块
+ * 子模块:
+ * - Discussion: 讨论驱动研究引擎
+ * - Project: 研究项目管理
+ * - Idea: 研究创意管理
+ * - Demo: 研究演示管理
  */
 
 // 统一模块
 export { ResearchModule } from "./research.module";
 
-// Fast Research - 快速问答式研究 (★ P1 任务：待实现)
-export { FastResearchModule } from "./fast-research/fast-research.module";
+// Discussion - 讨论驱动研究引擎
+export { DiscussionModule } from "./discussion/discussion.module";
+export { DiscussionResearchService } from "./discussion/discussion-research.service";
+export { DiscussionController } from "./discussion/discussion.controller";
+export { ResearchPlannerService } from "./discussion/research-planner.service";
+export { IterativeSearchService } from "./discussion/iterative-search.service";
+export { SelfReflectionService } from "./discussion/self-reflection.service";
+export { ReportSynthesizerService } from "./discussion/report-synthesizer.service";
 
-// Deep Research - 使用命名空间避免冲突
-export { DeepResearchModule } from "./deep-research/deep-research.module";
-export { DeepResearchAgentService } from "./deep-research/deep-research-agent.service";
-export { DeepResearchController } from "./deep-research/deep-research.controller";
-export { ResearchPlannerService } from "./deep-research/research-planner.service";
-export { IterativeSearchService } from "./deep-research/iterative-search.service";
-export { SelfReflectionService } from "./deep-research/self-reflection.service";
-export { ReportSynthesizerService } from "./deep-research/report-synthesizer.service";
-
-// Notebook Research (原 AI Studio) - NotebookLM 风格研究
-export {
-  NotebookResearchModule,
-  AiStudioModule,
-} from "./notebook-research/notebook-research.module";
-export { AiStudioService } from "./notebook-research/ai-studio.service";
-export { AiStudioController } from "./notebook-research/ai-studio.controller";
-export { AiStudioSourceService } from "./notebook-research/ai-studio-source.service";
-export { AiStudioChatService } from "./notebook-research/ai-studio-chat.service";
-export { AiStudioOutputService } from "./notebook-research/ai-studio-output.service";
-export { AiStudioTTSService } from "./notebook-research/ai-studio-tts.service";
+// Project - 研究项目管理 (原 AI Studio / Notebook Research)
+export { ResearchProjectModule } from "./project/research-project.module";
+export { ResearchProjectService } from "./project/research-project.service";
+export { ResearchProjectController } from "./project/research-project.controller";
+export { ResearchProjectSourceService } from "./project/research-project-source.service";
+export { ResearchProjectChatService } from "./project/research-project-chat.service";
+export { ResearchProjectOutputService } from "./project/research-project-output.service";
+export { ResearchProjectTTSService } from "./project/research-project-tts.service";

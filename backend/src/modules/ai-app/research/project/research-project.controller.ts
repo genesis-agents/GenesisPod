@@ -23,11 +23,11 @@ import {
   ApiConsumes,
 } from "@nestjs/swagger";
 import { FilesInterceptor } from "@nestjs/platform-express";
-import { AiStudioService } from "./ai-studio.service";
-import { AiStudioSourceService } from "./ai-studio-source.service";
-import { AiStudioChatService } from "./ai-studio-chat.service";
-import { AiStudioOutputService } from "./ai-studio-output.service";
-import { AiStudioTTSService } from "./ai-studio-tts.service";
+import { ResearchProjectService } from "./research-project.service";
+import { ResearchProjectSourceService } from "./research-project-source.service";
+import { ResearchProjectChatService } from "./research-project-chat.service";
+import { ResearchProjectOutputService } from "./research-project-output.service";
+import { ResearchProjectTTSService } from "./research-project-tts.service";
 import {
   CreateStudioProjectDto,
   UpdateProjectDto,
@@ -47,13 +47,13 @@ import type { RequestWithUser } from "../../../../common/types/express-request.t
 @ApiBearerAuth("access-token")
 @Controller("ai-studio")
 @UseGuards(JwtAuthGuard)
-export class AiStudioController {
+export class ResearchProjectController {
   constructor(
-    private readonly studioService: AiStudioService,
-    private readonly sourceService: AiStudioSourceService,
-    private readonly chatService: AiStudioChatService,
-    private readonly outputService: AiStudioOutputService,
-    private readonly ttsService: AiStudioTTSService,
+    private readonly studioService: ResearchProjectService,
+    private readonly sourceService: ResearchProjectSourceService,
+    private readonly chatService: ResearchProjectChatService,
+    private readonly outputService: ResearchProjectOutputService,
+    private readonly ttsService: ResearchProjectTTSService,
   ) {}
 
   // ==================== Projects ====================
@@ -156,7 +156,10 @@ export class AiStudioController {
    * Delete a project
    */
   @Delete("projects/:id")
-  async deleteProject(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async deleteProject(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -168,7 +171,10 @@ export class AiStudioController {
    * Archive a project
    */
   @Post("projects/:id/archive")
-  async archiveProject(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async archiveProject(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -180,7 +186,10 @@ export class AiStudioController {
    * Restore an archived project
    */
   @Post("projects/:id/restore")
-  async restoreProject(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async restoreProject(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -271,7 +280,10 @@ export class AiStudioController {
    * Get all sources for a project
    */
   @Get("projects/:projectId/sources")
-  async getSources(@Request() req: RequestWithUser, @Param("projectId") projectId: string) {
+  async getSources(
+    @Request() req: RequestWithUser,
+    @Param("projectId") projectId: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -315,7 +327,10 @@ export class AiStudioController {
    * Search for sources
    */
   @Post("search")
-  async searchSources(@Request() req: RequestWithUser, @Body() dto: SearchSourcesDto) {
+  async searchSources(
+    @Request() req: RequestWithUser,
+    @Body() dto: SearchSourcesDto,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -408,7 +423,10 @@ export class AiStudioController {
    * Get all notes for a project
    */
   @Get("projects/:projectId/notes")
-  async getNotes(@Request() req: RequestWithUser, @Param("projectId") projectId: string) {
+  async getNotes(
+    @Request() req: RequestWithUser,
+    @Param("projectId") projectId: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -479,7 +497,10 @@ export class AiStudioController {
    * Get all outputs for a project
    */
   @Get("projects/:projectId/outputs")
-  async getOutputs(@Request() req: RequestWithUser, @Param("projectId") projectId: string) {
+  async getOutputs(
+    @Request() req: RequestWithUser,
+    @Param("projectId") projectId: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");

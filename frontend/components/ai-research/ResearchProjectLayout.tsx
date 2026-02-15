@@ -1,0 +1,426 @@
+'use client';
+
+/**
+ * ResearchProjectLayout - Research project detail page layout
+ *
+ * Two-panel layout: Left TeamPanel (340px, collapsible) + Right Tab Content (flex-1)
+ * Tabs: Discussion, Ideas, Demos, Report
+ *
+ * Manages: useDiscussionResearch SSE hook, session loading, tab state,
+ * ideas/demos hooks, and coordination between all child components.
+ */
+
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  ArrowLeft,
+  MessageSquare,
+  Lightbulb,
+  Play,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+} from 'lucide-react';
+import { cn } from '@/lib/utils/common';
+import { useTranslation } from '@/lib/i18n';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
+import { logger } from '@/lib/utils/logger';
+import { useDiscussionResearch } from '@/hooks';
+import { useResearchIdeas } from '@/hooks/features/useResearchIdeas';
+import { useResearchDemos } from '@/hooks/features/useResearchDemos';
+import type { ResearchSession } from './types';
+import { AgentPanel } from './discussion/AgentPanel';
+import { DiscussionChat } from './discussion/DiscussionChat';
+import { IdeasPanel } from './discussion/IdeasPanel';
+import { DemosPanel } from './discussion/DemosPanel';
+import { ReportPanel } from './discussion/ReportPanel';
+
+// ==================== Types ====================
+
+interface ResearchProjectLayoutProps {
+  projectId: string;
+  projectName: string;
+  projectDescription: string | null;
+  onBack: () => void;
+}
+
+type TabKey = 'discussion' | 'ideas' | 'demos' | 'report';
+
+interface TabDefinition {
+  key: TabKey;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+// ==================== Component ====================
+
+export function ResearchProjectLayout({
+  projectId,
+  projectName,
+  projectDescription,
+  onBack,
+}: ResearchProjectLayoutProps) {
+  const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<TabKey>('discussion');
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
+  const [sessions, setSessions] = useState<ResearchSession[]>([]);
+  const [viewingSession, setViewingSession] = useState<ResearchSession | null>(
+    null
+  );
+  const [query, setQuery] = useState('');
+  const [loadingSessions, setLoadingSessions] = useState(true);
+
+  // Ideas & Demos hooks
+  const {
+    ideas,
+    isLoading: ideasLoading,
+    updateIdea,
+    extractIdeas,
+  } = useResearchIdeas(projectId);
+
+  const {
+    demos,
+    isLoading: demosLoading,
+    deleteDemo,
+  } = useResearchDemos(projectId);
+
+  // Discussion research hook
+  const {
+    state: discussionState,
+    startResearch,
+    stop,
+    isActive: isSearching,
+  } = useDiscussionResearch(projectId, {
+    onComplete: (report, sessionId) => {
+      // Create a session from the completed research
+      const newSession: ResearchSession = {
+        id: sessionId,
+        query: query,
+        status: 'COMPLETED',
+        report,
+        discussion: discussionState.messages.map((msg) => ({
+          id: msg.id,
+          agentRole: msg.agentRole,
+          agentName: msg.agentName,
+          agentIcon: msg.agentIcon,
+          content: msg.content,
+          phase: msg.phase,
+          messageType: msg.messageType,
+          metadata: msg.metadata,
+          timestamp: msg.timestamp,
+        })),
+        directions:
+          discussionState.directions.length > 0
+            ? {
+                directions: discussionState.directions.map((d) => ({
+                  title: d,
+                })),
+              }
+            : null,
+        sourcesUsed: report.metadata.totalSources,
+        tokensUsed: 0,
+        createdAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      };
+      setSessions((prev) => [newSession, ...prev]);
+      setViewingSession(newSession);
+      setActiveTab('report');
+    },
+    onError: (error) => {
+      logger.error('Discussion Research error:', error);
+    },
+  });
+
+  // Load sessions from API
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadSessions() {
+      setLoadingSessions(true);
+      try {
+        const res = await fetch(
+          `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}/deep-research/sessions`,
+          { headers: { ...getAuthHeader() }, signal: controller.signal }
+        );
+        if (res.ok) {
+          const result = await res.json();
+          const raw = result?.data ?? result;
+          const list = Array.isArray(raw) ? raw : (raw?.data ?? []);
+          setSessions(list);
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        logger.error('Failed to load research sessions:', err);
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingSessions(false);
+        }
+      }
+    }
+    loadSessions();
+
+    return () => controller.abort();
+  }, [projectId]);
+
+  // Handlers for DiscussionChat
+  const handleStartResearch = useCallback(
+    (q: string) => {
+      setQuery(q);
+      startResearch(q);
+    },
+    [startResearch]
+  );
+
+  const handleViewSession = useCallback((session: ResearchSession) => {
+    setViewingSession(session);
+  }, []);
+
+  const handleDeleteSession = useCallback(
+    async (sessionId: string) => {
+      try {
+        const res = await fetch(
+          `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}/deep-research/sessions/${sessionId}`,
+          { method: 'DELETE', headers: { ...getAuthHeader() } }
+        );
+        if (res.ok) {
+          setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+          if (viewingSession?.id === sessionId) {
+            setViewingSession(null);
+          }
+        }
+      } catch (err) {
+        logger.error('Failed to delete session:', err);
+      }
+    },
+    [projectId, viewingSession]
+  );
+
+  const handleBackToList = useCallback(() => {
+    setViewingSession(null);
+  }, []);
+
+  // Ideas/Demos handlers
+  const handleUpdateIdea = useCallback(
+    (
+      ideaId: string,
+      data: { status?: 'DISCOVERED' | 'STARRED' | 'ARCHIVED' }
+    ) => {
+      void updateIdea(ideaId, data);
+    },
+    [updateIdea]
+  );
+
+  const handleDeleteDemo = useCallback(
+    (demoId: string) => {
+      void deleteDemo(demoId);
+    },
+    [deleteDemo]
+  );
+
+  const handleExtractIdeas = useCallback(
+    (sessionId: string) => {
+      void extractIdeas(sessionId);
+    },
+    [extractIdeas]
+  );
+
+  // Toggle left panel
+  const toggleLeftPanel = useCallback(() => {
+    setLeftPanelCollapsed((prev) => !prev);
+  }, []);
+
+  // Get the active session for ideas extraction
+  const activeSessionId =
+    viewingSession?.id || (sessions.length > 0 ? sessions[0].id : null);
+
+  // Get current report
+  const currentReport = viewingSession?.report || null;
+  const currentSessionId = viewingSession?.id || null;
+
+  // Tab definitions
+  const TABS: TabDefinition[] = [
+    {
+      key: 'discussion',
+      label: t('aiResearch.tabs.discussion') || '讨论',
+      icon: MessageSquare,
+    },
+    {
+      key: 'ideas',
+      label: t('aiResearch.tabs.ideas') || '创意',
+      icon: Lightbulb,
+    },
+    {
+      key: 'demos',
+      label: t('aiResearch.tabs.demos') || '演示',
+      icon: Play,
+    },
+    {
+      key: 'report',
+      label: t('aiResearch.tabs.report') || '报告',
+      icon: FileText,
+    },
+  ];
+
+  return (
+    <div className="flex h-full flex-col bg-gray-50">
+      {/* Header Bar */}
+      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-4">
+          <button
+            onClick={onBack}
+            className="flex-shrink-0 rounded-lg p-2 transition-colors hover:bg-gray-100"
+            title={t('common.back') || '返回'}
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-500" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-lg font-semibold text-gray-900">
+              {projectName}
+            </h1>
+            {projectDescription && (
+              <p className="truncate text-sm text-gray-500">
+                {projectDescription}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content: Left Panel + Right Content */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Panel: Team (collapsible) */}
+        {!leftPanelCollapsed ? (
+          <div className="relative w-[340px] flex-shrink-0">
+            <AgentPanel
+              messages={discussionState.messages}
+              typingAgent={discussionState.typingAgent}
+              directions={discussionState.directions}
+              currentPhase={discussionState.phase}
+            />
+            {/* Collapse Button */}
+            <button
+              onClick={toggleLeftPanel}
+              className="absolute right-0 top-1/2 z-10 -translate-y-1/2 translate-x-1/2 rounded-full border border-gray-300 bg-white p-1 shadow-sm transition-colors hover:bg-gray-100"
+              title={t('common.collapse') || '收起'}
+            >
+              <ChevronLeft className="h-4 w-4 text-gray-600" />
+            </button>
+          </div>
+        ) : (
+          <div className="relative w-3 flex-shrink-0 bg-gray-100">
+            <button
+              onClick={toggleLeftPanel}
+              className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gray-300 bg-white p-1 shadow-sm transition-colors hover:bg-gray-100"
+              title={t('common.expand') || '展开'}
+            >
+              <ChevronRight className="h-4 w-4 text-gray-600" />
+            </button>
+          </div>
+        )}
+
+        {/* Right Content Area */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Tab Bar */}
+          <div className="flex items-center gap-1 border-b border-gray-200 bg-white px-6">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={cn(
+                    'relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'text-blue-600'
+                      : 'text-gray-600 hover:text-gray-900'
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {tab.label}
+                  {isActive && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Tab Content */}
+          <div className="flex-1 overflow-hidden">
+            {loadingSessions ? (
+              <div className="flex h-full items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              </div>
+            ) : (
+              <>
+                {/* Discussion Tab */}
+                {activeTab === 'discussion' && (
+                  <DiscussionChat
+                    projectId={projectId}
+                    state={discussionState}
+                    query={query}
+                    isSearching={isSearching}
+                    sessions={sessions}
+                    onStartResearch={handleStartResearch}
+                    onStop={stop}
+                    onViewSession={handleViewSession}
+                    onDeleteSession={handleDeleteSession}
+                    viewingSession={viewingSession}
+                    onBackToList={handleBackToList}
+                    className="h-full"
+                  />
+                )}
+
+                {/* Ideas Tab */}
+                {activeTab === 'ideas' && (
+                  <div className="h-full overflow-y-auto">
+                    <div className="mx-auto max-w-4xl p-6">
+                      <IdeasPanel
+                        ideas={ideas}
+                        isLoading={ideasLoading}
+                        onUpdateIdea={handleUpdateIdea}
+                        onExtractIdeas={handleExtractIdeas}
+                        activeSessionId={activeSessionId}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Demos Tab */}
+                {activeTab === 'demos' && (
+                  <div className="h-full overflow-y-auto">
+                    <div className="mx-auto max-w-4xl p-6">
+                      <DemosPanel
+                        projectId={projectId}
+                        demos={demos}
+                        onDeleteDemo={handleDeleteDemo}
+                        isLoading={demosLoading}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Report Tab */}
+                {activeTab === 'report' && (
+                  <div className="h-full overflow-y-auto">
+                    <div className="mx-auto max-w-4xl p-6">
+                      <ReportPanel
+                        report={currentReport || null}
+                        projectId={projectId}
+                        sessionId={currentSessionId}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default ResearchProjectLayout;

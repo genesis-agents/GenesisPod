@@ -2201,6 +2201,8 @@ model ResearchProject {
   outputs              ResearchProjectOutput[]
   deepResearchSessions DeepResearchSession[]
   knowledgeBases       ResearchProjectKnowledgeBase[] // 关联的知识库
+  ideas                ResearchIdea[]
+  demos                ResearchDemo[]
 
   @@index([userId])
   @@index([status])
@@ -3475,11 +3477,74 @@ model DeepResearchSession {
 
   // 关系
   project ResearchProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ideas   ResearchIdea[]
 
   @@index([projectId])
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@map("deep_research_sessions")
+}
+
+// ============ 研究创意 & 演示 ============
+
+enum ResearchIdeaStatus {
+  DISCOVERED // 从讨论中自动发现
+  STARRED    // 用户标记收藏
+  ARCHIVED   // 用户归档
+}
+
+enum ResearchDemoStatus {
+  PENDING
+  GENERATING
+  COMPLETED
+  FAILED
+}
+
+model ResearchIdea {
+  id              String             @id @default(uuid())
+  projectId       String             @map("project_id")
+  sessionId       String?            @map("session_id")
+  title           String             @db.VarChar(500)
+  description     String             @db.Text
+  sourceMessageId String?            @map("source_message_id")
+  agentRole       String?            @map("agent_role") @db.VarChar(50)
+  agentName       String?            @map("agent_name") @db.VarChar(100)
+  status          ResearchIdeaStatus @default(DISCOVERED)
+  tags            String[]           @default([])
+  evidence        Json?
+  metadata        Json?
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  project ResearchProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  session DeepResearchSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  demos   ResearchDemo[]
+
+  @@index([projectId])
+  @@index([sessionId])
+  @@index([status])
+  @@map("research_ideas")
+}
+
+model ResearchDemo {
+  id          String             @id @default(uuid())
+  ideaId      String             @map("idea_id")
+  projectId   String             @map("project_id")
+  title       String             @db.VarChar(500)
+  htmlContent String             @map("html_content") @db.Text
+  status      ResearchDemoStatus @default(PENDING)
+  error       String?            @db.Text
+  metadata    Json?
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  idea    ResearchIdea    @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  project ResearchProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([ideaId])
+  @@index([projectId])
+  @@index([status])
+  @@map("research_demos")
 }
 
 // ============ 统一导出系统 ============

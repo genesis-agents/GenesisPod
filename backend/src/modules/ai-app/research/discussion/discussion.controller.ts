@@ -21,8 +21,8 @@ import { StartDeepResearchDto } from "./types";
  * 使用 DiscussionOrchestratorService 驱动讨论式研究流程
  */
 @Controller("ai-studio/projects/:projectId/deep-research")
-export class DeepResearchController {
-  private readonly logger = new Logger(DeepResearchController.name);
+export class DiscussionController {
+  private readonly logger = new Logger(DiscussionController.name);
 
   constructor(
     private readonly discussionOrchestrator: DiscussionOrchestratorService,

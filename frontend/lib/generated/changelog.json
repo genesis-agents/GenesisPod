@@ -274,6 +274,10 @@
       {
         "type": "improvement",
         "description": "unified timeout, research facade, and SKILL.md manifest"
+      },
+      {
+        "type": "fix",
+        "description": "make notification cards clickable and add What's New to sidebar"
       }
     ]
   },

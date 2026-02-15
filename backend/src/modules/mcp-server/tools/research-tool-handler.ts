@@ -1,7 +1,7 @@
 /**
  * MCP Server - Research Tool Handler
  *
- * Deep research via DeepResearchAgentService.executeDirectResearch()
+ * Deep research via DiscussionResearchService.executeDirectResearch()
  * 通过统一的研究编排服务执行，不再直接依赖 4 个内部子服务。
  */
 
@@ -11,7 +11,7 @@ import {
   MCPRequestContext,
   MCPToolResponse,
 } from "../abstractions/mcp-server.interface";
-import { DeepResearchAgentService } from "../../ai-app/research/deep-research/deep-research-agent.service";
+import { DiscussionResearchService } from "../../ai-app/research/discussion/discussion-research.service";
 import { withToolTimeout } from "./tool-timeout";
 
 /** 深度研究总超时 5 分钟 (规划 + 多轮搜索 + 合成) */
@@ -51,9 +51,7 @@ export class ResearchToolHandler implements IMCPToolHandler {
     required: ["topic"],
   };
 
-  constructor(
-    private readonly researchAgent: DeepResearchAgentService,
-  ) {}
+  constructor(private readonly researchAgent: DiscussionResearchService) {}
 
   async execute(
     args: Record<string, unknown>,

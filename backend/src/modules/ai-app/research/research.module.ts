@@ -1,27 +1,34 @@
 /**
- * AI Research Module - Deep Research 模块
+ * AI Research Module - 研究模块
  *
- * 专注于深度研究模式:
- * - Deep Research: 深度迭代研究 (分钟-小时级)
- * - Notebook Research: NotebookLM 风格文档研究
- *
- * Note: Topic Research 已拆分为独立的 Topic Insights 模块
+ * 子模块:
+ * - Discussion: 讨论驱动研究引擎 (SSE 编排、Agent、搜索、报告合成)
+ * - Project: 研究项目管理 (CRUD、Sources、Chat、Notes、Outputs)
+ * - Idea: 研究创意管理
+ * - Demo: 研究演示管理
  */
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
-import { DeepResearchModule } from "./deep-research/deep-research.module";
-import { NotebookResearchModule } from "./notebook-research/notebook-research.module";
+import { DiscussionModule } from "./discussion/discussion.module";
+import { ResearchProjectModule } from "./project/research-project.module";
 import { AgentRegistry } from "../../ai-engine/agents/registry";
 import { TeamRegistry } from "../../ai-engine/teams/registry/team-registry";
 import { ResearcherAgent } from "./agents";
 import { RESEARCH_TEAM_CONFIG } from "./teams";
+import { ResearchIdeaService } from "./idea/research-idea.service";
+import { ResearchIdeaController } from "./idea/research-idea.controller";
+import { ResearchDemoService } from "./demo/research-demo.service";
+import { ResearchDemoController } from "./demo/research-demo.controller";
 
 @Module({
-  imports: [DeepResearchModule, NotebookResearchModule],
-  providers: [ResearcherAgent],
+  imports: [DiscussionModule, ResearchProjectModule],
+  controllers: [ResearchIdeaController, ResearchDemoController],
+  providers: [ResearcherAgent, ResearchIdeaService, ResearchDemoService],
   exports: [
-    DeepResearchModule,
-    NotebookResearchModule,
+    DiscussionModule,
+    ResearchProjectModule,
     ResearcherAgent,
+    ResearchIdeaService,
+    ResearchDemoService,
   ],
 })
 export class ResearchModule implements OnModuleInit {

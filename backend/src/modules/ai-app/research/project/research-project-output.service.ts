@@ -485,8 +485,8 @@ const OUTPUT_CONFIGS: Record<
 };
 
 @Injectable()
-export class AiStudioOutputService {
-  private readonly logger = new Logger(AiStudioOutputService.name);
+export class ResearchProjectOutputService {
+  private readonly logger = new Logger(ResearchProjectOutputService.name);
 
   constructor(
     private readonly prisma: PrismaService,

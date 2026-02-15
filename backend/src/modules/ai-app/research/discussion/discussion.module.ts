@@ -1,5 +1,5 @@
 /**
- * Deep Research Module - 深度研究模块
+ * Discussion Module - 讨论式研究模块
  *
  * 提供深度迭代研究能力:
  * - 讨论驱动型研究 (Discussion-driven Research)
@@ -14,8 +14,8 @@ import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 import { CreditsModule } from "../../../credits/credits.module";
 
-import { DeepResearchController } from "./deep-research.controller";
-import { DeepResearchAgentService } from "./deep-research-agent.service";
+import { DiscussionController } from "./discussion.controller";
+import { DiscussionResearchService } from "./discussion-research.service";
 import { ResearchPlannerService } from "./research-planner.service";
 import { IterativeSearchService } from "./iterative-search.service";
 import { SelfReflectionService } from "./self-reflection.service";
@@ -24,7 +24,7 @@ import { DiscussionAgentService } from "./discussion-agent.service";
 import { DiscussionOrchestratorService } from "./discussion-orchestrator.service";
 
 const services = [
-  DeepResearchAgentService,
+  DiscussionResearchService,
   ResearchPlannerService,
   IterativeSearchService,
   SelfReflectionService,
@@ -35,8 +35,8 @@ const services = [
 
 @Module({
   imports: [PrismaModule, AiEngineModule, CreditsModule],
-  controllers: [DeepResearchController],
+  controllers: [DiscussionController],
   providers: services,
   exports: services,
 })
-export class DeepResearchModule {}
+export class DiscussionModule {}

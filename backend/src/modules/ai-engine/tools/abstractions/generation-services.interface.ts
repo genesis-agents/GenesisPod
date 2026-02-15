@@ -6,7 +6,7 @@
  *
  * 架构说明:
  * - 接口定义在 AiEngineModule (核心层)
- * - 实现在各应用模块 (AiImageModule, NotebookResearchModule)
+ * - 实现在各应用模块 (AiImageModule, ResearchProjectModule)
  * - 工具依赖接口，不依赖具体实现
  */
 
@@ -83,7 +83,7 @@ export interface TTSResult {
 
 /**
  * TTS 服务接口
- * 由 NotebookResearchModule.AiStudioTTSService 实现
+ * 由 ResearchProjectModule.ResearchProjectTTSService 实现
  */
 export interface ITTSService {
   /**

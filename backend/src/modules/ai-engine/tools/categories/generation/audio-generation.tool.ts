@@ -1,10 +1,10 @@
 /**
  * Audio Generation Tool
- * 音频生成工具 (TTS) - 通过接口依赖 AiStudioTTSService
+ * 音频生成工具 (TTS) - 通过接口依赖 ResearchProjectTTSService
  *
  * ★ 架构重构: 使用依赖反转原则打破循环依赖
  * - 工具依赖 ITTSService 接口
- * - NotebookResearchModule 提供 TTS_SERVICE 实现
+ * - ResearchProjectModule 提供 TTS_SERVICE 实现
  * - 不再需要 forwardRef
  */
 
@@ -242,7 +242,7 @@ export class AudioGenerationTool extends BaseTool<
         format,
         success: false,
         error:
-          "TTS service not available. NotebookResearchModule may not be loaded.",
+          "TTS service not available. ResearchProjectModule may not be loaded.",
       };
     }
 

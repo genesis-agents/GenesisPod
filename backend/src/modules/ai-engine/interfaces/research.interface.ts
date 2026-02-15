@@ -3,7 +3,7 @@
  * 研究服务抽象接口 - 供 AI Engine 使用
  *
  * 解决问题: ResearcherAgent 不应直接依赖 AI Apps 的具体实现
- * 实现位置: backend/src/modules/ai-app/research/notebook-research/
+ * 实现位置: backend/src/modules/ai-app/research/project/
  */
 
 export interface IResearchService {

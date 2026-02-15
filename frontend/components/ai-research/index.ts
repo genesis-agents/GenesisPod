@@ -1,11 +1,11 @@
 /**
  * AI Research Components
  *
- * 深度研究模块组件导出
- * - Deep Research: 深度研究 (NotebookLM 风格)
+ * 研究模块组件导出
+ * - Discussion: 讨论驱动研究引擎
  */
 
-// ==================== Deep Research ====================
+// ==================== Discussion ====================
 
-// Re-export all deep-research components
-export * from './deep-research';
+// Re-export all discussion components
+export * from './discussion';

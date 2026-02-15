@@ -7,7 +7,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CreateStudioProjectDto, UpdateProjectDto } from "./dto";
 
 @Injectable()
-export class AiStudioService {
+export class ResearchProjectService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -21,7 +21,7 @@ export class AiStudioService {
         description: dto.description,
         icon: dto.icon || "📚",
         color: dto.color || "#6366f1",
-        researchType: dto.researchType || "FAST",
+        researchType: dto.researchType || "DEEP",
         lastAccessAt: new Date(),
       },
       include: {
