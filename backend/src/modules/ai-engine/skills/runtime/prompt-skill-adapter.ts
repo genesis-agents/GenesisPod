@@ -102,10 +102,10 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
         taskProfile,
       });
 
-      // 4. Parse output (JSON extraction if outputSchema defined)
-      const data = fm.outputSchema
-        ? this.extractJson(response.content)
-        : response.content;
+      // 4. Always try JSON extraction (extractJson has safe fallback to raw content)
+      // Most prompt skills expect JSON output; extractJson returns raw content
+      // if no valid JSON is found, so this is safe for text-based skills too.
+      const data = this.extractJson(response.content);
 
       return {
         success: true,

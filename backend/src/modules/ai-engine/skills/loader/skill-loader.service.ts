@@ -59,7 +59,8 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
     private readonly skillsMPClient: SkillsMPClientService,
   ) {
     // 基于当前模块位置计算 Skills 目录
-    this.baseSkillsDir = path.resolve(__dirname, "../../ai-app");
+    // __dirname = .../ai-engine/skills/loader/ → need 3 levels up to reach modules/
+    this.baseSkillsDir = path.resolve(__dirname, "../../../ai-app");
 
     // 配置各领域的 Skill 目录
     this.skillDirectories = [
