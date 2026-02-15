@@ -236,14 +236,18 @@ export class IterativeSearchService {
         return query;
 
       case "comparison":
-        if (!query.includes("vs") && !query.includes("比较")) {
+        if (
+          !query.includes("比较") &&
+          !query.includes("comparison") &&
+          !query.includes("vs")
+        ) {
           return `${query} comparison analysis pros cons`;
         }
         return query;
 
       case "verification":
         // 添加最新/权威来源
-        return `${query} official source 2024`;
+        return `${query} official source ${new Date().getFullYear()}`;
 
       default:
         return query;

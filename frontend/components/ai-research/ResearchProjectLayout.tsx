@@ -63,7 +63,7 @@ export function ResearchProjectLayout({
   projectDescription,
   onBack,
 }: ResearchProjectLayoutProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabKey>('discussion');
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [sessions, setSessions] = useState<ResearchSession[]>([]);
@@ -177,12 +177,14 @@ export function ResearchProjectLayout({
   }, [projectId]);
 
   // Handlers for DiscussionChat
+  const researchLanguage = locale === 'zh' ? 'zh-CN' : 'en-US';
+
   const handleStartResearch = useCallback(
     (q: string) => {
       setQuery(q);
-      startResearch(q);
+      startResearch(q, { language: researchLanguage });
     },
-    [startResearch]
+    [startResearch, researchLanguage]
   );
 
   const handleViewSession = useCallback((session: ResearchSession) => {

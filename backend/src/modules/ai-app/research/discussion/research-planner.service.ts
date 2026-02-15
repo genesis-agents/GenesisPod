@@ -8,6 +8,13 @@ import {
   AIResearchPlanResponse,
   PreviousReportContext,
 } from "./types";
+import {
+  ResearchLanguage,
+  resolveLanguage,
+  PLANNER_PROMPTS,
+  SEARCH_ENHANCE,
+  STEP_COUNT_GUIDE,
+} from "./prompt-locale";
 
 /**
  * 研究规划服务
@@ -31,6 +38,7 @@ export class ResearchPlannerService {
       includeAcademic?: boolean;
       isFollowUp?: boolean;
       previousContext?: PreviousReportContext;
+      language?: string;
     },
   ): Promise<ResearchPlan> {
     this.logger.debug(
@@ -41,25 +49,19 @@ export class ResearchPlannerService {
     const includeAcademic = options?.includeAcademic ?? true;
     const isFollowUp = options?.isFollowUp ?? false;
     const previousContext = options?.previousContext;
+    const lang = resolveLanguage(options?.language);
 
     const systemPrompt = this.buildPlanningPrompt(
       depth,
       includeAcademic,
       isFollowUp,
       previousContext,
+      lang,
     );
     const userPrompt =
       isFollowUp && previousContext
-        ? `这是一个追问研究，请在已有研究的基础上继续深入分析：
-
-追问内容：${query}
-
-请分析这个追问，确定需要补充研究的方向，并规划具体的搜索步骤。`
-        : `请为以下研究主题生成详细的研究计划：
-
-研究主题：${query}
-
-请分析这个主题，确定研究目标，并规划具体的搜索步骤。`;
+        ? PLANNER_PROMPTS[lang].followUpUserPrompt(query)
+        : PLANNER_PROMPTS[lang].userPrompt(query);
 
     try {
       // ★ 使用 AIEngineFacade 统一入口
@@ -75,14 +77,14 @@ export class ResearchPlannerService {
         },
       });
 
-      const plan = this.parsePlanResponse(result.content, query);
+      const plan = this.parsePlanResponse(result.content, query, lang);
       this.logger.debug(`Generated plan with ${plan.steps.length} steps`);
 
       return plan;
     } catch (error) {
       this.logger.error(`Failed to generate research plan: ${error}`);
       // 返回默认计划
-      return this.getDefaultPlan(query, depth, includeAcademic);
+      return this.getDefaultPlan(query, depth, includeAcademic, lang);
     }
   }
 
@@ -94,95 +96,25 @@ export class ResearchPlannerService {
     includeAcademic: boolean,
     isFollowUp: boolean = false,
     previousContext?: PreviousReportContext,
+    language: ResearchLanguage = "zh-CN",
   ): string {
-    const stepCountGuide = {
-      quick: "2-3 个步骤",
-      standard: "3-5 个步骤",
-      thorough: "5-7 个步骤",
-    };
+    const stepCountGuide = STEP_COUNT_GUIDE[language][depth];
 
     // 追问模式的特殊提示
     if (isFollowUp && previousContext) {
       const previousSummary = this.formatPreviousContext(previousContext);
-      return `你是一个专业的研究规划助手。这是一个追问研究，需要在已有研究的基础上继续深入。
-
-## 已有研究摘要
-${previousSummary}
-
-## 任务要求
-1. 分析用户的追问内容，理解需要补充研究的方向
-2. 制定 ${stepCountGuide[depth]} 的补充搜索计划
-3. 避免重复已有研究中已经覆盖的内容
-4. 专注于追问涉及的新方向或需要深化的领域
-
-## 可用的搜索步骤类型
-- initial_search: 初始广泛搜索，获取概览信息
-- deep_dive: 针对特定方面的深入搜索
-- academic: 学术论文和研究报告搜索${includeAcademic ? "" : "（本次不使用）"}
-- comparison: 对比分析，比较不同观点或方案
-- verification: 验证关键信息的准确性
-
-## 输出格式
-请以 JSON 格式输出，格式如下：
-\`\`\`json
-{
-  "objective": "追问研究的目标（应该是对原研究的扩展或深化）",
-  "approach": "补充研究的方法说明",
-  "steps": [
-    {
-      "type": "deep_dive",
-      "query": "具体的搜索查询",
-      "rationale": "为什么需要这个搜索，与原研究的关联",
-      "estimatedSources": 10
-    }
-  ]
-}
-\`\`\`
-
-## 注意事项
-- 搜索查询应该针对追问内容，避免重复已有研究
-- 每个步骤应该与追问的方向相关
-- 可以引用已有研究中的发现来指导新搜索
-- 确保补充研究与原研究形成完整的知识体系`;
+      return PLANNER_PROMPTS[language].followUpSystemPrompt(
+        stepCountGuide,
+        includeAcademic,
+        previousSummary,
+      );
     }
 
     // 常规研究模式
-    return `你是一个专业的研究规划助手。你的任务是为用户的研究主题制定详细的搜索计划。
-
-## 任务要求
-1. 分析用户的研究主题，理解研究目标
-2. 制定 ${stepCountGuide[depth]} 的搜索计划
-3. 每个步骤需要明确的搜索查询和理由
-
-## 可用的搜索步骤类型
-- initial_search: 初始广泛搜索，获取概览信息
-- deep_dive: 针对特定方面的深入搜索
-- academic: 学术论文和研究报告搜索${includeAcademic ? "" : "（本次不使用）"}
-- comparison: 对比分析，比较不同观点或方案
-- verification: 验证关键信息的准确性
-
-## 输出格式
-请以 JSON 格式输出，格式如下：
-\`\`\`json
-{
-  "objective": "研究目标的简要描述",
-  "approach": "研究方法的简要说明",
-  "steps": [
-    {
-      "type": "initial_search",
-      "query": "具体的搜索查询",
-      "rationale": "为什么需要这个搜索",
-      "estimatedSources": 10
-    }
-  ]
-}
-\`\`\`
-
-## 注意事项
-- 搜索查询应该具体、有针对性
-- 每个步骤应该有明确的目的
-- 后续步骤可以基于前面步骤可能发现的信息
-- 确保覆盖主题的各个重要方面`;
+    return PLANNER_PROMPTS[language].systemPrompt(
+      stepCountGuide,
+      includeAcademic,
+    );
   }
 
   /**
@@ -214,7 +146,11 @@ ${previousSummary}
   /**
    * 解析 AI 响应
    */
-  private parsePlanResponse(response: string, query: string): ResearchPlan {
+  private parsePlanResponse(
+    response: string,
+    query: string,
+    language: ResearchLanguage,
+  ): ResearchPlan {
     try {
       // 提取 JSON
       const jsonMatch =
@@ -223,7 +159,7 @@ ${previousSummary}
 
       if (!jsonMatch) {
         this.logger.warn("No JSON found in AI response, using default plan");
-        return this.getDefaultPlan(query, "standard", true);
+        return this.getDefaultPlan(query, "standard", true, language);
       }
 
       const jsonStr = jsonMatch[1] || jsonMatch[0];
@@ -249,7 +185,7 @@ ${previousSummary}
       };
     } catch (error) {
       this.logger.error(`Failed to parse plan response: ${error}`);
-      return this.getDefaultPlan(query, "standard", true);
+      return this.getDefaultPlan(query, "standard", true, language);
     }
   }
 
@@ -279,13 +215,14 @@ ${previousSummary}
     query: string,
     depth: "quick" | "standard" | "thorough",
     includeAcademic: boolean,
+    language: ResearchLanguage,
   ): ResearchPlan {
     const steps: ResearchPlanStep[] = [
       {
         id: "step_1",
         type: "initial_search",
         query: query,
-        rationale: "初始广泛搜索，获取主题概览",
+        rationale: PLANNER_PROMPTS[language].defaultRationale.initial,
         estimatedSources: 10,
       },
     ];
@@ -294,8 +231,8 @@ ${previousSummary}
       steps.push({
         id: "step_2",
         type: "deep_dive",
-        query: `${query} 详细分析`,
-        rationale: "深入探索主题的核心内容",
+        query: `${query} ${SEARCH_ENHANCE[language].detailedAnalysis}`,
+        rationale: PLANNER_PROMPTS[language].defaultRationale.deepDive,
         estimatedSources: 10,
       });
     }
@@ -305,7 +242,7 @@ ${previousSummary}
         id: "step_3",
         type: "academic",
         query: `${query} research paper study`,
-        rationale: "搜索学术研究和专业报告",
+        rationale: PLANNER_PROMPTS[language].defaultRationale.academic,
         estimatedSources: 5,
       });
     }
@@ -315,23 +252,23 @@ ${previousSummary}
         {
           id: "step_4",
           type: "comparison",
-          query: `${query} 比较 优缺点`,
-          rationale: "对比分析不同观点和方案",
+          query: `${query} ${SEARCH_ENHANCE[language].comparison}`,
+          rationale: PLANNER_PROMPTS[language].defaultRationale.comparison,
           estimatedSources: 5,
         },
         {
           id: "step_5",
           type: "verification",
-          query: `${query} 最新 2024`,
-          rationale: "验证信息的时效性和准确性",
+          query: `${query} ${SEARCH_ENHANCE[language].latest(new Date().getFullYear())}`,
+          rationale: PLANNER_PROMPTS[language].defaultRationale.verification,
           estimatedSources: 5,
         },
       );
     }
 
     return {
-      objective: `深入研究：${query}`,
-      approach: "通过多轮迭代搜索，收集全面信息并进行分析综合",
+      objective: PLANNER_PROMPTS[language].defaultObjective(query),
+      approach: PLANNER_PROMPTS[language].defaultApproach,
       steps,
       estimatedTime: steps.length * 20,
     };

@@ -45,7 +45,8 @@ export function DeepResearchPanel({
   className,
   initialQuery,
 }: DeepResearchPanelProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const researchLanguage = locale === 'zh' ? 'zh-CN' : 'en-US';
   const [query, setQuery] = useState(initialQuery || '');
   const [showThinking, setShowThinking] = useState(true);
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
@@ -76,7 +77,7 @@ export function DeepResearchPanel({
       startResearch(initialQuery, {
         depth: 'standard',
         includeAcademic: true,
-        language: 'zh-CN',
+        language: researchLanguage,
       });
     }
   }, [initialQuery, hasAutoStarted, isSearching, startResearch]);
@@ -86,7 +87,7 @@ export function DeepResearchPanel({
     await startResearch(query, {
       depth: 'standard',
       includeAcademic: true,
-      language: 'zh-CN',
+      language: researchLanguage,
     });
   }, [query, isSearching, startResearch]);
 

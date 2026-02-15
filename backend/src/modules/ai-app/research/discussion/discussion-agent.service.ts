@@ -5,12 +5,18 @@ import {
   DiscussionRole,
   AgentState,
   AGENT_ICONS,
-  AGENT_NAMES_ZH,
   DiscussionMessage,
   DiscussionPhase,
   DiscussionMessageType,
   ResearchDirection,
 } from "./discussion-types";
+import {
+  ResearchLanguage,
+  resolveLanguage,
+  AGENT_NAMES,
+  RESEARCHER_PERSPECTIVES,
+  AGENT_PROMPTS,
+} from "./prompt-locale";
 
 /**
  * 讨论 Agent 服务
@@ -25,7 +31,8 @@ export class DiscussionAgentService {
   /**
    * 初始化 Agent 团队
    */
-  initializeTeam(query: string): Map<string, AgentState> {
+  initializeTeam(query: string, language?: string): Map<string, AgentState> {
+    const lang = resolveLanguage(language);
     const team = new Map<string, AgentState>();
 
     const agents: Array<{
@@ -36,17 +43,27 @@ export class DiscussionAgentService {
       {
         id: "director",
         role: "director",
-        systemPrompt: this.buildDirectorPrompt(query),
+        systemPrompt: this.buildDirectorPrompt(query, lang),
       },
       {
         id: "researcher-a",
         role: "researcher",
-        systemPrompt: this.buildResearcherPrompt(query, "A", "技术与产品视角"),
+        systemPrompt: this.buildResearcherPrompt(
+          query,
+          "A",
+          RESEARCHER_PERSPECTIVES[lang].A,
+          lang,
+        ),
       },
       {
         id: "researcher-b",
         role: "researcher",
-        systemPrompt: this.buildResearcherPrompt(query, "B", "市场与商业视角"),
+        systemPrompt: this.buildResearcherPrompt(
+          query,
+          "B",
+          RESEARCHER_PERSPECTIVES[lang].B,
+          lang,
+        ),
       },
       {
         id: "researcher-c",
@@ -54,23 +71,24 @@ export class DiscussionAgentService {
         systemPrompt: this.buildResearcherPrompt(
           query,
           "C",
-          "用户与社会影响视角",
+          RESEARCHER_PERSPECTIVES[lang].C,
+          lang,
         ),
       },
       {
         id: "analyst",
         role: "analyst",
-        systemPrompt: this.buildAnalystPrompt(query),
+        systemPrompt: this.buildAnalystPrompt(query, lang),
       },
       {
         id: "writer",
         role: "writer",
-        systemPrompt: this.buildWriterPrompt(query),
+        systemPrompt: this.buildWriterPrompt(query, lang),
       },
       {
         id: "reviewer",
         role: "reviewer",
-        systemPrompt: this.buildReviewerPrompt(query),
+        systemPrompt: this.buildReviewerPrompt(query, lang),
       },
     ];
 
@@ -78,7 +96,7 @@ export class DiscussionAgentService {
       team.set(agent.id, {
         config: {
           role: agent.role,
-          name: AGENT_NAMES_ZH[agent.id] || agent.id,
+          name: AGENT_NAMES[lang][agent.id] || agent.id,
           icon: AGENT_ICONS[agent.role],
           systemPrompt: agent.systemPrompt,
         },
@@ -186,7 +204,11 @@ export class DiscussionAgentService {
   /**
    * 从总监的综合发言中解析研究方向
    */
-  parseDirections(directorResponse: string): ResearchDirection[] {
+  parseDirections(
+    directorResponse: string,
+    language?: ResearchLanguage,
+  ): ResearchDirection[] {
+    const lang = language || "zh-CN";
     // 尝试 JSON 解析
     const jsonMatch =
       directorResponse.match(/```json\s*([\s\S]*?)\s*```/) ||
@@ -198,7 +220,9 @@ export class DiscussionAgentService {
         const parsed = JSON.parse(jsonStr);
         if (Array.isArray(parsed)) {
           return parsed.map((d: Partial<ResearchDirection>, i: number) => ({
-            title: d.title || `方向 ${i + 1}`,
+            title:
+              d.title ||
+              (lang === "en-US" ? `Direction ${i + 1}` : `方向 ${i + 1}`),
             description: d.description || "",
             assignedTo: d.assignedTo || "",
             searchQueries: d.searchQueries || [],
@@ -246,93 +270,28 @@ export class DiscussionAgentService {
 
   // ==================== Prompt 构建 ====================
 
-  private buildDirectorPrompt(query: string): string {
-    return `你是一个资深研究总监，正在带领一个研究团队讨论课题。
-
-## 你的职责
-- 分析课题，提出研究框架
-- 引导讨论方向，综合团队观点
-- 最终确定研究方向并分配任务
-
-## 研究课题
-${query}
-
-## 沟通风格
-- 专业、有条理、善于总结
-- 发言简洁（150-300字）
-- 使用中文
-- 不使用 emoji`;
+  private buildDirectorPrompt(query: string, lang: ResearchLanguage): string {
+    return AGENT_PROMPTS[lang].director(query);
   }
 
   private buildResearcherPrompt(
     query: string,
     label: string,
     perspective: string,
+    lang: ResearchLanguage,
   ): string {
-    return `你是研究员 ${label}，擅长从${perspective}进行分析。
-
-## 你的职责
-- 从${perspective}提出研究 Ideas
-- 基于你的专业视角补充讨论
-- 搜索信息后汇报发现
-
-## 研究课题
-${query}
-
-## 沟通风格
-- 有洞察力、提出具体的想法
-- 发言简洁（100-200字）
-- 使用中文
-- 不使用 emoji`;
+    return AGENT_PROMPTS[lang].researcher(query, label, perspective);
   }
 
-  private buildAnalystPrompt(query: string): string {
-    return `你是一个批判性分析师，擅长找出研究盲区和挑战假设。
-
-## 你的职责
-- 挑战团队的假设和盲区
-- 交叉验证不同研究员的发现
-- 指出矛盾和逻辑漏洞
-
-## 研究课题
-${query}
-
-## 沟通风格
-- 犀利、客观、有建设性
-- 发言简洁（100-200字）
-- 使用中文
-- 不使用 emoji`;
+  private buildAnalystPrompt(query: string, lang: ResearchLanguage): string {
+    return AGENT_PROMPTS[lang].analyst(query);
   }
 
-  private buildWriterPrompt(query: string): string {
-    return `你是一个专业的研究报告撰稿人。
-
-## 你的职责
-- 基于团队讨论撰写研究报告
-- 确保报告结构清晰、引用准确
-
-## 研究课题
-${query}
-
-## 沟通风格
-- 专业、严谨
-- 使用中文`;
+  private buildWriterPrompt(query: string, lang: ResearchLanguage): string {
+    return AGENT_PROMPTS[lang].writer(query);
   }
 
-  private buildReviewerPrompt(query: string): string {
-    return `你是一个研究报告审稿人。
-
-## 你的职责
-- 审查报告质量、逻辑性和完整性
-- 提出修改建议
-
-## 研究课题
-${query}
-
-## 沟通风格
-- 严格、有建设性
-- 发言简洁（50-150字）
-- 使用中文
-- 不使用 emoji`;
+  private buildReviewerPrompt(query: string, lang: ResearchLanguage): string {
+    return AGENT_PROMPTS[lang].reviewer(query);
   }
 }

@@ -10,6 +10,11 @@ import {
   ResearchPlanStep,
   AIReflectionResponse,
 } from "./types";
+import {
+  ResearchLanguage,
+  resolveLanguage,
+  REFLECTION_PROMPTS,
+} from "./prompt-locale";
 
 /**
  * 自我反思服务
@@ -32,19 +37,22 @@ export class SelfReflectionService {
     searchRounds: SearchRound[],
     currentRound: number,
     maxRounds: number,
+    language?: string,
   ): Promise<Reflection> {
+    const lang = resolveLanguage(language);
     this.logger.debug(`Reflecting on round ${currentRound}/${maxRounds}`);
 
     // 准备搜索结果摘要
-    const resultsSummary = this.summarizeResults(searchRounds);
+    const resultsSummary = this.summarizeResults(searchRounds, lang);
 
-    const systemPrompt = this.buildReflectionPrompt();
+    const systemPrompt = this.buildReflectionPrompt(lang);
     const userPrompt = this.buildUserPrompt(
       query,
       plan,
       resultsSummary,
       currentRound,
       maxRounds,
+      lang,
     );
 
     try {
@@ -71,7 +79,7 @@ export class SelfReflectionService {
     } catch (error) {
       this.logger.error(`Reflection failed: ${error}`);
       // 默认继续搜索
-      return this.getDefaultReflection(currentRound, searchRounds);
+      return this.getDefaultReflection(currentRound, searchRounds, lang);
     }
   }
 
@@ -117,7 +125,10 @@ export class SelfReflectionService {
   /**
    * 汇总搜索结果
    */
-  private summarizeResults(searchRounds: SearchRound[]): string {
+  private summarizeResults(
+    searchRounds: SearchRound[],
+    language: ResearchLanguage,
+  ): string {
     const allSources: SearchSource[] = [];
     for (const round of searchRounds) {
       allSources.push(...round.sources);
@@ -140,46 +151,19 @@ export class SelfReflectionService {
       .slice(0, 5)
       .map((s) => `- ${s.title}: ${s.snippet.slice(0, 150)}...`);
 
-    return `
-已收集信息摘要：
-- 总来源数：${uniqueSources.length}
-- 搜索轮次：${searchRounds.length}
-- 主要域名：${domains.join(", ")}
-
-代表性内容：
-${topSnippets.join("\n")}
-`;
+    return REFLECTION_PROMPTS[language].resultsSummaryTemplate(
+      uniqueSources.length,
+      searchRounds.length,
+      domains.join(", "),
+      topSnippets.join("\n"),
+    );
   }
 
   /**
    * 构建反思提示词
    */
-  private buildReflectionPrompt(): string {
-    return `你是一个研究质量评估助手。你的任务是评估当前搜索结果的质量，并决定下一步行动。
-
-## 评估维度
-1. 信息覆盖度：是否涵盖了主题的主要方面？
-2. 信息深度：是否有足够深入的分析和数据？
-3. 来源质量：来源是否权威可信？
-4. 信息新鲜度：信息是否足够新？
-
-## 决策选项
-- continue: 继续执行原计划的下一步搜索
-- pivot: 调整搜索方向，需要提供新的搜索建议
-- complete: 信息已足够充分，可以开始生成报告
-
-## 输出格式
-请以 JSON 格式输出：
-\`\`\`json
-{
-  "quality_score": 75,
-  "information_coverage": "描述当前信息覆盖情况",
-  "gaps_identified": ["信息缺口1", "信息缺口2"],
-  "decision": "continue|pivot|complete",
-  "reasoning": "决策理由",
-  "suggested_queries": ["如果pivot，建议的新搜索查询"]
-}
-\`\`\``;
+  private buildReflectionPrompt(language: ResearchLanguage): string {
+    return REFLECTION_PROMPTS[language].systemPrompt;
   }
 
   /**
@@ -191,28 +175,23 @@ ${topSnippets.join("\n")}
     resultsSummary: string,
     currentRound: number,
     maxRounds: number,
+    language: ResearchLanguage,
   ): string {
+    const lang = language;
+    const rp = REFLECTION_PROMPTS[lang];
     const remainingSteps = plan.steps
       .slice(currentRound)
       .map((s) => `- ${s.type}: ${s.query}`)
       .join("\n");
 
-    return `## 研究主题
-${query}
-
-## 研究目标
-${plan.objective}
-
-## 当前进度
-第 ${currentRound} 轮 / 最多 ${maxRounds} 轮
-
-## 剩余计划步骤
-${remainingSteps || "无"}
-
-## 当前搜索结果
-${resultsSummary}
-
-请评估当前信息质量，并决定下一步行动。`;
+    return rp.userPromptTemplate(
+      query,
+      plan.objective,
+      currentRound,
+      maxRounds,
+      remainingSteps,
+      resultsSummary,
+    );
   }
 
   /**
@@ -225,7 +204,7 @@ ${resultsSummary}
         response.match(/\{[\s\S]*"decision"[\s\S]*\}/);
 
       if (!jsonMatch) {
-        return this.getDefaultReflection(round, []);
+        return this.getDefaultReflection(round, [], "zh-CN");
       }
 
       const jsonStr = jsonMatch[1] || jsonMatch[0];
@@ -242,7 +221,7 @@ ${resultsSummary}
       };
     } catch (error) {
       this.logger.error(`Failed to parse reflection response: ${error}`);
-      return this.getDefaultReflection(round, []);
+      return this.getDefaultReflection(round, [], "zh-CN");
     }
   }
 
@@ -267,6 +246,7 @@ ${resultsSummary}
   private getDefaultReflection(
     round: number,
     searchRounds: SearchRound[],
+    language: ResearchLanguage,
   ): Reflection {
     const totalSources = searchRounds.reduce(
       (sum, r) => sum + r.sources.length,
@@ -277,20 +257,20 @@ ${resultsSummary}
     if (totalSources >= 20) {
       return {
         round,
-        assessment: "已收集足够的信息来源",
+        assessment: REFLECTION_PROMPTS[language].defaultAssessmentSufficient,
         gaps: [],
         decision: "complete",
-        reasoning: "信息量已经充足，可以开始生成报告",
+        reasoning: REFLECTION_PROMPTS[language].defaultReasoningSufficient,
         timestamp: new Date(),
       };
     }
 
     return {
       round,
-      assessment: "需要继续收集更多信息",
-      gaps: ["信息覆盖可能不完整"],
+      assessment: REFLECTION_PROMPTS[language].defaultAssessmentInsufficient,
+      gaps: [REFLECTION_PROMPTS[language].defaultGapInsufficient],
       decision: "continue",
-      reasoning: "继续执行原计划以收集更多信息",
+      reasoning: REFLECTION_PROMPTS[language].defaultReasoningInsufficient,
       timestamp: new Date(),
     };
   }

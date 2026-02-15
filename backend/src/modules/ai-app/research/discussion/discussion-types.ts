@@ -116,7 +116,10 @@ export const AGENT_ICONS: Record<DiscussionRole, string> = {
   reviewer: "shield-check",
 };
 
-/** 讨论团队的默认角色名称（中文） */
+/**
+ * 讨论团队的默认角色名称（中文）
+ * @deprecated Use `AGENT_NAMES` from `./prompt-locale` instead for bilingual support
+ */
 export const AGENT_NAMES_ZH: Record<string, string> = {
   director: "研究总监",
   "researcher-a": "研究员 A",

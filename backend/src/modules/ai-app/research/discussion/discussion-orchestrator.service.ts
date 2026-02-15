@@ -20,6 +20,13 @@ import {
   AgentState,
   ResearchDirection,
 } from "./discussion-types";
+import {
+  ResearchLanguage,
+  resolveLanguage,
+  PHASE_MESSAGES,
+  ORCHESTRATOR_PROMPTS,
+  SEARCH_MESSAGES,
+} from "./prompt-locale";
 
 /**
  * 讨论驱动型研究编排器
@@ -97,6 +104,7 @@ export class DiscussionOrchestratorService {
     subject: Subject<DeepResearchSSEEvent>,
   ): Promise<void> {
     const startTime = Date.now();
+    const language = resolveLanguage(dto.options?.language);
     const allMessages: DiscussionMessage[] = [];
     const searchRounds: SearchRound[] = [];
 
@@ -143,14 +151,14 @@ export class DiscussionOrchestratorService {
 
     try {
       // 初始化 Agent 团队
-      const team = this.agentService.initializeTeam(dto.query);
+      const team = this.agentService.initializeTeam(dto.query, language);
 
       // ========== Phase 1: IDEATION ==========
       subject.next({
         type: "discussion.phase",
         data: {
           phase: "ideation",
-          summary: "团队开始围绕课题进行头脑风暴",
+          summary: PHASE_MESSAGES[language].ideation,
         },
       });
 
@@ -159,6 +167,7 @@ export class DiscussionOrchestratorService {
         team,
         allMessages,
         subject,
+        language,
       );
 
       await this.updateSession(session.id, {
@@ -172,7 +181,7 @@ export class DiscussionOrchestratorService {
         type: "discussion.phase",
         data: {
           phase: "execution",
-          summary: "研究员们开始分头调研",
+          summary: PHASE_MESSAGES[language].execution,
           directions: directions.map((d) => d.title),
         },
       });
@@ -184,6 +193,7 @@ export class DiscussionOrchestratorService {
         searchRounds,
         allMessages,
         subject,
+        language,
       );
 
       await this.updateSession(session.id, {
@@ -196,7 +206,7 @@ export class DiscussionOrchestratorService {
         type: "discussion.phase",
         data: {
           phase: "findings",
-          summary: "研究员开始汇报发现",
+          summary: PHASE_MESSAGES[language].findings,
         },
       });
 
@@ -210,6 +220,7 @@ export class DiscussionOrchestratorService {
         searchRounds,
         allMessages,
         subject,
+        language,
       );
 
       await this.updateSession(session.id, {
@@ -221,7 +232,7 @@ export class DiscussionOrchestratorService {
         type: "discussion.phase",
         data: {
           phase: "synthesis",
-          summary: "撰稿人开始撰写最终报告",
+          summary: PHASE_MESSAGES[language].synthesis,
         },
       });
 
@@ -235,6 +246,7 @@ export class DiscussionOrchestratorService {
         searchRounds,
         allMessages,
         subject,
+        language,
       );
 
       // ========== 完成 ==========
@@ -299,6 +311,7 @@ export class DiscussionOrchestratorService {
     team: Map<string, AgentState>,
     allMessages: DiscussionMessage[],
     subject: Subject<DeepResearchSSEEvent>,
+    language: ResearchLanguage,
   ): Promise<ResearchDirection[]> {
     const isFollowUp = dto.isFollowUp ?? false;
     const director = this.getAgent(team, "director");
@@ -307,10 +320,12 @@ export class DiscussionOrchestratorService {
     const researcherC = this.getAgent(team, "researcher-c");
     const analyst = this.getAgent(team, "analyst");
 
+    const op = ORCHESTRATOR_PROMPTS[language];
+
     // Round 1: 总监开场
     const directorOpener = isFollowUp
-      ? `基于之前的研究，我们来深入探讨这个追问："${dto.query}"。请分析这个新课题需要从哪些角度深入研究。`
-      : `请分析这个研究课题："${dto.query}"。提出你的研究框架和初步分析。`;
+      ? op.directorOpenerFollowUp(dto.query)
+      : op.directorOpener(dto.query);
 
     this.emitTyping(subject, director);
     const directorResponse = await this.withTimeout(
@@ -332,7 +347,7 @@ export class DiscussionOrchestratorService {
     subject.next({ type: "discussion.message", data: msg1 });
 
     // Round 2: 研究员们各自提 Ideas（并行）
-    const researcherContext = `总监的分析：\n${directorResponse}\n\n请从你的专业视角提出 2-3 个研究方向/Ideas。`;
+    const researcherContext = op.researcherIdeation(directorResponse);
 
     this.emitTyping(subject, researcherA);
     const researcherResults = await Promise.allSettled([
@@ -371,7 +386,9 @@ export class DiscussionOrchestratorService {
       const resp =
         result.status === "fulfilled"
           ? result.value
-          : `[分析暂时不可用: ${result.reason instanceof Error ? result.reason.message : "未知错误"}]`;
+          : language === "en-US"
+            ? `[Analysis temporarily unavailable: ${result.reason instanceof Error ? result.reason.message : "unknown error"}]`
+            : `[分析暂时不可用: ${result.reason instanceof Error ? result.reason.message : "未知错误"}]`;
 
       if (result.status === "rejected") {
         this.logger.warn(`Researcher ${i} ideation failed: ${result.reason}`);
@@ -391,17 +408,12 @@ export class DiscussionOrchestratorService {
     const [respA, respB, respC] = responses;
 
     // Round 3: 分析师挑战假设
-    const analystContext = `以下是团队的讨论：
-
-总监：${directorResponse}
-
-研究员 A：${respA}
-
-研究员 B：${respB}
-
-研究员 C：${respC}
-
-请指出团队讨论中的盲区、假设和潜在问题。`;
+    const analystContext = op.analystCritique(
+      directorResponse,
+      respA,
+      respB,
+      respC,
+    );
 
     this.emitTyping(subject, analyst);
     const analystResponse = await this.withTimeout(
@@ -423,23 +435,7 @@ export class DiscussionOrchestratorService {
     subject.next({ type: "discussion.message", data: msgAnalyst });
 
     // Round 4: 总监综合，确定研究方向
-    const summaryContext = `基于团队讨论和分析师的反馈：
-
-分析师反馈：${analystResponse}
-
-请综合所有观点，确定 3-4 个明确的研究方向，并分配给研究员。
-
-请以 JSON 格式输出：
-\`\`\`json
-[
-  {
-    "title": "研究方向标题",
-    "description": "简要描述",
-    "assignedTo": "研究员 A/B/C",
-    "searchQueries": ["搜索关键词1", "搜索关键词2"]
-  }
-]
-\`\`\``;
+    const summaryContext = op.directorSummary(analystResponse);
 
     this.emitTyping(subject, director);
     const directorSummary = await this.withTimeout(
@@ -461,29 +457,30 @@ export class DiscussionOrchestratorService {
     subject.next({ type: "discussion.message", data: msgSummary });
 
     // 解析研究方向
-    let directions = this.agentService.parseDirections(directorSummary);
+    let directions = this.agentService.parseDirections(
+      directorSummary,
+      language,
+    );
 
     // 确保有至少 2 个方向
     if (directions.length < 2) {
+      const currentYear = new Date().getFullYear();
+      const core = op.fallbackDirectionCore(dto.query);
+      const impact = op.fallbackDirectionImpact(dto.query);
+      const trends = op.fallbackDirectionTrends(dto.query);
       directions = [
         {
-          title: `${dto.query} - 核心分析`,
-          description: "从核心概念和技术角度深入分析",
-          assignedTo: "研究员 A",
+          ...core,
           searchQueries: [dto.query, `${dto.query} analysis`],
         },
         {
-          title: `${dto.query} - 应用与影响`,
-          description: "从应用场景和社会影响角度分析",
-          assignedTo: "研究员 B",
+          ...impact,
           searchQueries: [`${dto.query} impact`, `${dto.query} application`],
         },
         {
-          title: `${dto.query} - 趋势与展望`,
-          description: "从发展趋势和未来展望角度分析",
-          assignedTo: "研究员 C",
+          ...trends,
           searchQueries: [
-            `${dto.query} trends 2024 2025`,
+            `${dto.query} trends ${currentYear} ${currentYear + 1}`,
             `${dto.query} future`,
           ],
         },
@@ -502,6 +499,7 @@ export class DiscussionOrchestratorService {
     searchRounds: SearchRound[],
     allMessages: DiscussionMessage[],
     subject: Subject<DeepResearchSSEEvent>,
+    language: ResearchLanguage,
   ): Promise<void> {
     const depth = dto.options?.depth || "standard";
     const maxRoundsPerDirection: Record<string, number> = {
@@ -510,6 +508,9 @@ export class DiscussionOrchestratorService {
       thorough: 3,
     };
     const roundsPerDir = maxRoundsPerDirection[depth] || 2;
+
+    const op = ORCHESTRATOR_PROMPTS[language];
+    const searchMsg = SEARCH_MESSAGES[language];
 
     // 按方向分配给研究员
     const researcherIds = ["researcher-a", "researcher-b", "researcher-c"];
@@ -522,7 +523,7 @@ export class DiscussionOrchestratorService {
       // 状态更新
       const statusMsg = this.agentService.createMessage(
         researcher,
-        `正在调研方向："${direction.title}"`,
+        op.executionStatus(direction.title),
         "execution",
         "status",
       );
@@ -546,7 +547,7 @@ export class DiscussionOrchestratorService {
             totalRounds: directions.length * roundsPerDir,
             query,
             resultsCount: 0,
-            message: `${researcher.config.name} 正在搜索: ${query}`,
+            message: searchMsg.searchProgress(researcher.config.name, query),
           },
         });
 
@@ -573,7 +574,10 @@ export class DiscussionOrchestratorService {
             totalRounds: directions.length * roundsPerDir,
             query,
             resultsCount: round.resultsCount,
-            message: `${researcher.config.name} 找到 ${round.resultsCount} 个来源`,
+            message: searchMsg.searchComplete(
+              researcher.config.name,
+              round.resultsCount,
+            ),
           },
         });
 
@@ -591,16 +595,20 @@ export class DiscussionOrchestratorService {
     searchRounds: SearchRound[],
     allMessages: DiscussionMessage[],
     subject: Subject<DeepResearchSSEEvent>,
+    language: ResearchLanguage,
   ): Promise<void> {
     const director = this.getAgent(team, "director");
     const analyst = this.getAgent(team, "analyst");
     const researcherIds = ["researcher-a", "researcher-b", "researcher-c"];
 
+    const op = ORCHESTRATOR_PROMPTS[language];
+    const searchMsg = SEARCH_MESSAGES[language];
+
     // 准备搜索结果摘要
     const sourceSummary = searchRounds
       .map(
         (r) =>
-          `[轮次 ${r.round}] 查询: "${r.query}" - 找到 ${r.resultsCount} 个来源\n` +
+          `[${searchMsg.roundLabel(r.round)}] ${language === "en-US" ? `Query: "${r.query}" - found ${r.resultsCount} sources` : `查询: "${r.query}" - 找到 ${r.resultsCount} 个来源`}\n` +
           r.sources
             .slice(0, 3)
             .map((s) => `  - ${s.title}: ${s.snippet.slice(0, 100)}`)
@@ -609,14 +617,7 @@ export class DiscussionOrchestratorService {
       .join("\n\n");
 
     // 研究员汇报（并行）
-    const findingsContext = `你已完成搜索调研。以下是搜索结果：
-
-${sourceSummary}
-
-请总结你的关键发现（150-250字），包括：
-1. 最重要的发现
-2. 意外发现
-3. 需要进一步验证的点`;
+    const findingsContext = op.findingsRequest(sourceSummary);
 
     const findingsPromises = researcherIds.map(async (id) => {
       const researcher = team.get(id);
@@ -662,14 +663,7 @@ ${sourceSummary}
     }
 
     // 分析师交叉验证
-    const crossCheckContext = `以下是研究员们的汇报：
-
-${findingsTexts.join("\n\n")}
-
-请进行交叉验证：
-1. 指出不同研究员发现之间的矛盾
-2. 识别信息缺口
-3. 评估整体研究质量`;
+    const crossCheckContext = op.crossCheckRequest(findingsTexts.join("\n\n"));
 
     this.emitTyping(subject, analyst);
     const crossCheck = await this.withTimeout(
@@ -691,10 +685,7 @@ ${findingsTexts.join("\n\n")}
     subject.next({ type: "discussion.message", data: msgCrossCheck });
 
     // 总监综合洞察
-    const insightContext = `分析师的交叉验证：
-${crossCheck}
-
-请综合所有发现，给出最终研究洞察（200-300字）。这将作为报告撰写的核心纲要。`;
+    const insightContext = op.insightRequest(crossCheck);
 
     this.emitTyping(subject, director);
     const directorInsight = await this.withTimeout(
@@ -724,14 +715,18 @@ ${crossCheck}
     searchRounds: SearchRound[],
     allMessages: DiscussionMessage[],
     subject: Subject<DeepResearchSSEEvent>,
+    language: ResearchLanguage,
   ): Promise<DeepResearchReport> {
     const writer = this.getAgent(team, "writer");
     const reviewer = this.getAgent(team, "reviewer");
 
+    const phaseMsg = PHASE_MESSAGES[language];
+    const op = ORCHESTRATOR_PROMPTS[language];
+
     // 撰稿人开始写作通知
     const writeStartMsg = this.agentService.createMessage(
       writer,
-      "开始基于团队讨论和研究发现撰写报告...",
+      phaseMsg.writeStart,
       "synthesis",
       "status",
     );
@@ -768,7 +763,7 @@ ${crossCheck}
     // 撰稿人完成通知
     const writeDoneMsg = this.agentService.createMessage(
       writer,
-      "报告初稿已完成，提交审稿人评审。",
+      phaseMsg.writeDone,
       "synthesis",
       "draft",
     );
@@ -776,14 +771,11 @@ ${crossCheck}
     subject.next({ type: "discussion.message", data: writeDoneMsg });
 
     // 审稿人评审
-    const reviewContext = `请审查以下报告的质量：
-
-执行摘要：${report.executiveSummary.slice(0, 300)}...
-
-章节数：${report.sections.length}
-引用数：${report.references.length}
-
-请简要评价报告质量（50-100字）。`;
+    const reviewContext = op.reviewRequest(
+      report.executiveSummary.slice(0, 300),
+      report.sections.length,
+      report.references.length,
+    );
 
     this.emitTyping(subject, reviewer);
     const reviewResponse = await this.withTimeout(
