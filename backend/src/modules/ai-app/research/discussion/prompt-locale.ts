@@ -303,11 +303,25 @@ export const ORCHESTRATOR_PROMPTS: Record<
 > = {
   "zh-CN": {
     directorOpener: (query) =>
-      `请分析这个研究课题："${query}"。提出你的研究框架和初步分析。`,
+      `请分析这个研究课题："${query}"。提出你的研究框架和初步分析。
+
+请使用 Markdown 格式组织输出，用 ### 标记主要板块，用 - 列举要点。例如：
+
+### 问题界定
+- 要点1
+- 要点2
+
+### 研究框架
+- 方向1
+- 方向2`,
     directorOpenerFollowUp: (query) =>
-      `基于之前的研究，我们来深入探讨这个追问："${query}"。请分析这个新课题需要从哪些角度深入研究。`,
+      `基于之前的研究，我们来深入探讨这个追问："${query}"。请分析这个新课题需要从哪些角度深入研究。
+
+请使用 Markdown 格式组织输出，用 ### 标记主要板块，用 - 列举要点。`,
     researcherIdeation: (directorResponse) =>
-      `总监的分析：\n${directorResponse}\n\n请从你的专业视角提出 2-3 个研究方向/Ideas。`,
+      `总监的分析：\n${directorResponse}\n\n请从你的专业视角提出 2-3 个研究方向/Ideas。
+
+请使用 Markdown 格式，用 ### 标记每个研究方向标题，用 - 列举关键点。`,
     analystCritique: (directorResponse, respA, respB, respC) =>
       `以下是团队的讨论：
 
@@ -319,7 +333,9 @@ export const ORCHESTRATOR_PROMPTS: Record<
 
 研究员 C：${respC}
 
-请指出团队讨论中的盲区、假设和潜在问题。`,
+请指出团队讨论中的盲区、假设和潜在问题。
+
+请使用 Markdown 格式，用 ### 标记分析维度（如"盲区"、"隐含假设"、"潜在风险"），用 - 列举具体问题。`,
     directorSummary: (analystResponse) =>
       `基于团队讨论和分析师的反馈：
 
@@ -374,7 +390,9 @@ ${findingsTexts}
       `分析师的交叉验证：
 ${crossCheck}
 
-请综合所有发现，给出最终研究洞察（200-300字）。这将作为报告撰写的核心纲要。`,
+请综合所有发现，给出最终研究洞察（200-300字）。这将作为报告撰写的核心纲要。
+
+请使用 Markdown 格式，用 ### 标记核心洞察板块，用 - 列举要点。`,
     reviewRequest: (summaryPreview, sectionCount, refCount) =>
       `请审查以下报告的质量：
 
@@ -402,11 +420,25 @@ ${crossCheck}
   },
   "en-US": {
     directorOpener: (query) =>
-      `Please analyze this research topic: "${query}". Present your research framework and initial analysis.`,
+      `Please analyze this research topic: "${query}". Present your research framework and initial analysis.
+
+Use Markdown formatting: ### for major sections, - for bullet points. For example:
+
+### Problem Definition
+- Point 1
+- Point 2
+
+### Research Framework
+- Direction 1
+- Direction 2`,
     directorOpenerFollowUp: (query) =>
-      `Building on our previous research, let's dive deeper into this follow-up question: "${query}". Please analyze what angles need further investigation.`,
+      `Building on our previous research, let's dive deeper into this follow-up question: "${query}". Please analyze what angles need further investigation.
+
+Use Markdown formatting: ### for major sections, - for bullet points.`,
     researcherIdeation: (directorResponse) =>
-      `Director's analysis:\n${directorResponse}\n\nPlease propose 2-3 research directions/ideas from your professional perspective.`,
+      `Director's analysis:\n${directorResponse}\n\nPlease propose 2-3 research directions/ideas from your professional perspective.
+
+Use Markdown formatting: ### for each research direction title, - for key points.`,
     analystCritique: (directorResponse, respA, respB, respC) =>
       `Here is the team's discussion:
 
@@ -418,7 +450,9 @@ Researcher B: ${respB}
 
 Researcher C: ${respC}
 
-Please identify blind spots, assumptions, and potential issues in the team's discussion.`,
+Please identify blind spots, assumptions, and potential issues in the team's discussion.
+
+Use Markdown formatting: ### for analysis dimensions (e.g., "Blind Spots", "Hidden Assumptions", "Potential Risks"), - for specific issues.`,
     directorSummary: (analystResponse) =>
       `Based on the team discussion and analyst feedback:
 
@@ -474,7 +508,9 @@ Brief evaluation`,
       `Analyst's cross-validation:
 ${crossCheck}
 
-Please synthesize all findings and provide the final research insights (200-300 words). This will serve as the core outline for the report.`,
+Please synthesize all findings and provide the final research insights (200-300 words). This will serve as the core outline for the report.
+
+Use Markdown formatting: ### for core insight sections, - for key points.`,
     reviewRequest: (summaryPreview, sectionCount, refCount) =>
       `Please review the quality of the following report:
 
