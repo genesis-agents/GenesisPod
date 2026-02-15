@@ -13,30 +13,47 @@ Executes a complete **autonomous full-spectrum test cycle** against the master t
 │  - Discover frontend routes and API endpoints       │
 │  - Record environment snapshot                      │
 ├─────────────────────────────────────────────────────┤
+│  Phase A1: Authentication Setup              [NEW]  │
+│  - Obtain test auth token (env / API / browser)     │
+│  - Validate token, store for all subsequent phases  │
+│  - Fallback: mark auth-required tests as SKIP       │
+├─────────────────────────────────────────────────────┤
+│  Phase A2: Test Data Setup                   [NEW]  │
+│  - Seed test data via npm run db:seed:ui-patrol     │
+├─────────────────────────────────────────────────────┤
 │  Phase A: Initialize & Plan                         │
 │  - Read master test plan (2026-02-06, ~630 cases)   │
 │  - Initialize coverage tracker with all test IDs    │
 │  - Create dated report                              │
 ├─────────────────────────────────────────────────────┤
+│  *** Circuit Breaker active from here ***           │
+│  - tsc errors >10 → ABORT to Phase H               │
+│  - Unit test failure >30% → SKIP D/E/F             │
+│  - Homepage white screen → SKIP all E2E            │
+├─────────────────────────────────────────────────────┤
 │  Phase B: Backend Automated Tests                   │
-│  B1: Jest unit tests (AI Engine, Apps, Core)        │
+│  B1: Jest unit tests (with known failures registry) │
 │  B2: Quick test suite                               │
 │  B3: Static analysis (TypeScript, Lint)             │
+│  B4: Database schema validation              [NEW]  │
 ├─────────────────────────────────────────────────────┤
 │  Phase C: Frontend Automated Tests                  │
-│  - Vitest component/hook/store tests                │
-│  - Identify missing P0 test coverage gaps           │
+│  C1: Vitest component/hook/store tests              │
+│  C2: Frontend coverage gap analysis          [NEW]  │
 ├─────────────────────────────────────────────────────┤
 │  Phase D: API Integration Tests                     │
+│  D0: API route discovery                            │
 │  D1: Health & auth chain validation                 │
 │  D2: Core AI API endpoint verification              │
 │  D3: Security probes (XSS, injection, CSRF, SSRF)  │
 ├─────────────────────────────────────────────────────┤
 │  Phase E: Browser E2E Tests                         │
-│  E1: Page loading patrol (73 routes)                │
+│  E0: UI Patrol runner (preferred path)       [NEW]  │
+│  E1: Page loading patrol (73 routes, fallback)      │
 │  E2: Functional journey tests (19 journeys)         │
 │  E3: Boundary & edge case tests (14 scenarios)      │
-│  E4: Responsive design tests (7 viewports)          │
+│  E4: Responsive design tests (5 viewports)          │
+│  E5: i18n verification (zh-CN / en-US)       [NEW]  │
 ├─────────────────────────────────────────────────────┤
 │  Phase F: Performance Tests                         │
 │  F1: Page load metrics (FCP, TTI)                   │
@@ -59,17 +76,19 @@ Executes a complete **autonomous full-spectrum test cycle** against the master t
 │  - Analyze root cause, classify severity            │
 │  - Apply fixes + type check + test                  │
 │  - Safety guardrails (max 10 fixes, 50 lines each)  │
+│  - Forbidden: changing assertions, @ts-ignore  [NEW]│
 ├─────────────────────────────────────────────────────┤
 │  Phase I: Regression & Refresh                      │
 │  - Re-test failed cases, spot-check passed cases    │
 │  - Loop back to H if new failures (max 3 rounds)   │
 ├─────────────────────────────────────────────────────┤
 │  Phase J: Final Report                              │
-│  - Executive summary with pass rate                 │
-│  - Coverage by test plan section                    │
-│  - Full test ID tracking table                      │
-│  - Issues found/fixed, code changes                 │
-│  - Quality gate assessment                          │
+│  - Multi-run trend analysis (not just prev)    [NEW]│
+│  - Executive summary with known failures split [NEW]│
+│  - ROI-prioritized recommendations            [NEW]│
+│  - Change archival (git diff)                  [NEW]│
+│  - Test data cleanup                           [NEW]│
+│  - Quality gate (with regression check)        [NEW]│
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -212,21 +231,26 @@ Section 6 best practices audits, mobile responsive, visual regression, accessibi
 3. **Fix immediately** - don't just report issues, fix them in code
 4. **Map to test plan** - every result maps to a test plan ID
 5. **Iterate until clean** - loop until regression passes (max 3 rounds)
-6. **Parallel execution** - use Task tool for independent test groups
-7. **Safety guardrails** - max 10 fixes, 50 lines each, type-check required
+6. **Parallel execution** - 4 parallel groups with explicit agent assignment and file whitelists
+7. **Safety guardrails** - max 10 fixes, 50 lines each, type-check required, forbidden fix patterns enforced
 8. **Record everything** - every action, observation, decision logged
 9. **100% ID coverage** - every test plan ID assigned to a phase, journey, or scenario
 10. **Environment-aware** - auto-detect running services, discover routes and API endpoints before testing
+11. **Circuit breaker** - early termination when fundamental problems exist (tsc errors, >30% unit test failure, white screen)
+12. **Timeout controls** - strict per-phase and per-test timeouts prevent infinite hangs (60min total)
+13. **Known failures registry** - separate pre-existing failures from new regressions for clean signal
+14. **Leverage existing infra** - use UI Patrol runners before falling back to manual Playwright MCP
+15. **Trend analysis** - compare across all historical runs, not just the previous one
 
 ## Output Format
 
 The test report (`docs/guides/testing/test-results/ui-iteration-{date}.md`) contains:
 
-1. **Header**: Date, commit, branch, execution time
-2. **Executive Summary**: Tests executed, passed, failed, fixed, pass rate, coverage %
+1. **Trend & Comparison**: Multi-run trend table + diff vs previous (new regressions, newly passing)
+2. **Executive Summary**: Executed, passed, new failures, known failures, fixed, skipped, circuit breaker status
 3. **Coverage by Section**: Progress against each test plan section
-4. **Test ID Tracking Table**: Every test plan ID with PASS/FAIL/SKIP status
-5. **Issues Log**: Every bug found with root cause, severity, fix, and mapped test plan ID
-6. **Code Changes**: Files modified with descriptions
-7. **Quality Gate Assessment**: Release readiness checklist
-8. **Gaps & Recommendations**: Remaining coverage gaps and next steps
+4. **Test ID Tracking Table**: Every test plan ID with PASS/FAIL/KNOWN_FAIL/SKIP status
+5. **Issues Log**: Every bug found with root cause, severity, fix, persistent/chronic flag
+6. **Code Changes**: Files modified + archived diff file
+7. **Quality Gate Assessment**: Release readiness checklist (with regression + known failures checks)
+8. **Prioritized Recommendations**: ROI-ranked action items with impact, effort, and blocked test count

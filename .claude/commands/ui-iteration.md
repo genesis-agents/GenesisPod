@@ -34,6 +34,37 @@ You are a **full-spectrum test orchestrator**. You have access to:
 
 Execute **fully autonomously**. The human only starts the process and receives the final report. The loop covers **all 8 dimensions** from the master test plan.
 
+### Timeout Controls
+
+Apply strict timeouts to prevent infinite hangs:
+
+| Scope                        | Timeout     | Action on Timeout                          |
+| ---------------------------- | ----------- | ------------------------------------------ |
+| **Total execution**          | 60 minutes  | Stop all phases, write partial report      |
+| **Phase B** (Backend tests)  | 10 minutes  | Kill Jest, record partial results          |
+| **Phase C** (Frontend tests) | 5 minutes   | Kill Vitest, record partial results        |
+| **Phase D** (API tests)      | 5 minutes   | Skip remaining endpoints                   |
+| **Phase E** (Browser E2E)    | 20 minutes  | Skip remaining journeys                    |
+| **Phase F** (Performance)    | 10 minutes  | Skip remaining benchmarks                  |
+| **Phase G** (DFX quality)    | 5 minutes   | Skip remaining audits                      |
+| **Single unit test**         | 30 seconds  | Mark as TIMEOUT                            |
+| **Single API call**          | 60 seconds  | Mark as TIMEOUT                            |
+| **Single E2E journey step**  | 120 seconds | Mark step as TIMEOUT, skip rest of journey |
+
+### Circuit Breaker (Early Termination)
+
+Stop wasting time when fundamental problems exist:
+
+| Condition                                         | Action                                                                                        |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `tsc --noEmit` errors > 10 (backend or frontend)  | **ABORT** Phases D/E/F/G. Only output static analysis report + Phase H fixes for type errors. |
+| Backend unit test failure rate > 30%              | **SKIP** Phases D/E/F. Go directly to Phase H for unit test fixes, then retry B.              |
+| Browser: homepage returns white screen / HTTP 5xx | **SKIP** all E2E (Phase E). Mark all browser tests as `BLOCKED(app-down)`.                    |
+| Auth setup (Phase A1) fails completely            | **SKIP** all auth-required tests. Continue with non-auth tests only.                          |
+| Phase H fix attempt causes new type errors        | **ROLLBACK** the fix immediately (`git checkout -- {file}`). Do not retry same fix.           |
+
+When circuit breaker triggers, record the reason in the report header and jump to Phase J for partial report.
+
 ### Phase A0: Environment Auto-Detection
 
 Before any testing, verify the environment:
@@ -44,6 +75,36 @@ Before any testing, verify the environment:
 4. **Environment snapshot**: Record which services are up, route count, and endpoint count in the report header
 
 If local services are not running, default to Production URL for all tests.
+
+---
+
+### Phase A1: Authentication Setup
+
+Before any authenticated tests, establish a valid session:
+
+1. **Environment variable check**: Look for `TEST_AUTH_TOKEN` in `.env.test` or environment
+2. **API login attempt**: If no token, try `POST {BASE_URL}/api/auth/login` with test credentials from `.env.test` (`TEST_USER_EMAIL`, `TEST_USER_PASSWORD`)
+3. **Browser OAuth fallback**: If API login fails, use Playwright MCP to navigate to login page, complete OAuth flow, and extract token from cookies/localStorage
+4. **Token validation**: Verify obtained token with `GET {BASE_URL}/api/auth/me` → expect 200 with user info
+5. **Store token**: Save as `AUTH_TOKEN` for all subsequent Phase D/E/F authenticated requests
+6. **Fallback**: If all methods fail, mark all auth-required tests as `SKIP(no-auth)` and record in report. **Do NOT block non-auth tests.**
+
+**Auth-required test count**: ~80 tests in D2, E2 journeys, F2 API timing. Without auth, these are all SKIP.
+
+---
+
+### Phase A2: Test Data Setup
+
+Prepare test data for E2E and integration tests:
+
+```bash
+# Seed test data if local environment is available
+npm run db:seed:ui-patrol 2>&1 | tail -10
+```
+
+If seed command fails or not available, proceed without — tests should handle missing data gracefully.
+
+> **Cleanup**: `npm run db:clean:ui-patrol` runs in Phase J (after all tests complete).
 
 ---
 
@@ -128,7 +189,17 @@ cd backend && npx jest --verbose --coverage 2>&1 | head -200
 - `resource.service.spec.ts` → RES-R-001~004
 
 Record: total tests, passed, failed, coverage percentages.
-If any **test failure**, proceed to Phase H (Triage & Fix) immediately for that test before continuing.
+
+**Known Failures Registry**: Separate test failures into two categories:
+
+- **Known failures**: Tests matching patterns in the known failures list below. Record as `KNOWN_FAIL` (not counted toward failure rate). These are pre-existing issues tracked separately.
+- **New failures**: All other failures. These trigger Phase H triage.
+
+Current known failures (update this list as issues are resolved):
+
+- `mcp-server.*.spec.ts` — 21 tests with timeout issues (MCP server integration)
+
+If any **new test failure** (not in known failures list), proceed to Phase H (Triage & Fix) immediately for that test before continuing.
 
 #### B2: Quick Test (Skipping Slow Tests)
 
@@ -161,6 +232,18 @@ npm run lint 2>&1 | tail -20
 
 Record results. Any failure → Phase H.
 
+#### B4: Database Schema Validation
+
+```bash
+# Validate Prisma schema syntax
+cd backend && npx prisma validate 2>&1
+
+# Check for pending migrations (schema drift)
+cd backend && npx prisma migrate status 2>&1 | tail -10
+```
+
+Record: schema valid (yes/no), pending migrations count. Schema validation failure is P1 severity.
+
 ---
 
 ### Phase C: Frontend Automated Tests
@@ -190,6 +273,22 @@ cd frontend && npx vitest run --reporter=verbose 2>&1 | head -200
 - FE-CP-004~005 (TopicContentPanel) - if missing, flag as SKIP with note "test file needed"
 
 Record results. Any failure → Phase H.
+
+#### C2: Frontend Coverage Gap Analysis
+
+Identify untested critical components:
+
+1. List all directories under `frontend/components/` and `frontend/app/`
+2. Cross-reference with existing `*.test.{ts,tsx}` files
+3. Calculate component test coverage ratio: `{tested_components} / {total_components}`
+4. Flag **P0 components without tests** (components in pages that handle core user flows):
+   - `frontend/components/ai-ask/` — main Ask page components
+   - `frontend/components/ai-research/` — research topic components
+   - `frontend/components/ai-teams/` — teams collaboration components
+   - `frontend/components/library/` — knowledge base components
+5. Record gap list in report section "Gaps & Recommendations"
+
+This is **analysis only** — do not create test files during this phase.
 
 ---
 
@@ -262,6 +361,24 @@ Record each result. Any security failure is **P0 severity**.
 ### Phase E: Browser E2E Tests
 
 Use **Playwright MCP** for all browser automation. Fall back to Chrome DevTools MCP only if Playwright is unavailable. Covers **Section 2.2 (AI Apps UI)**, **Section 3.1 (combinations)**, **Section 3.3 (E2E scenarios)**, and **Section 5.6 (responsive)**.
+
+#### E0: UI Patrol Runner (Preferred Path)
+
+**Before manual Playwright steps**, attempt to use the existing UI Patrol runner infrastructure:
+
+```bash
+# Try critical route patrol first (uses existing specs + runner)
+npm run ui-patrol:critical 2>&1 | tail -50
+
+# If critical patrol succeeds, run journey tests
+npm run ui-patrol:journeys 2>&1 | tail -50
+```
+
+**If UI Patrol runners succeed**: Parse their JSON output from `.ui-patrol/reports/`, map results to test plan IDs, and **skip manual E1/E2 steps** for routes already covered by the runner.
+
+**If UI Patrol runners fail or are unavailable**: Fall back to manual Playwright MCP steps below (E1~E4).
+
+**Hybrid approach**: For routes covered by UI Patrol runner, use runner results. For routes NOT covered or needing deeper verification, use manual Playwright MCP.
 
 #### E1: Page Loading Patrol (All Routes)
 
@@ -363,6 +480,20 @@ await mcp__playwright__browser_snapshot();
 **Total**: 4 pages x 5 viewports = 20 test cases. Each PASS/FAIL individually.
 
 **Fail criteria**: Horizontal scrollbar appears, text truncated without ellipsis, overlapping UI elements, navigation inaccessible, touch targets <44px.
+
+#### E5: i18n Verification
+
+The project supports bilingual (zh-CN / en-US). Verify translation completeness:
+
+1. **English mode check**: Navigate to 5 key pages (`/ai-ask`, `/ai-research`, `/ai-teams`, `/ai-writing`, `/library`) with `?lng=en` or locale switch
+   - Scan accessibility snapshot for **untranslated Chinese characters** (regex: `[\u4e00-\u9fff]` in UI text, excluding user-generated content)
+   - Scan for **raw translation keys** leaked to UI (patterns: `t('`, `i18n.`, `.key_name`)
+2. **Chinese mode check**: Navigate to same 5 pages with `?lng=zh`
+   - Verify no English-only placeholder text in form fields
+   - Verify dates/numbers use locale-appropriate formatting
+3. Record findings per page. Any untranslated string in a P0 page is P2 severity.
+
+**Map to**: i18n coverage (not in numbered test plan, but tracked in `.ui-patrol/journeys/full-site-i18n-check.journey.yaml`)
 
 ---
 
@@ -627,7 +758,13 @@ For each FAIL result found in any phase:
    - Max 50 lines changed per fix
    - No file deletions, no route changes, no auth logic changes
    - Type-check required after every fix
-   - Auto-rollback on type-check failure
+   - Auto-rollback on type-check failure: `git checkout -- {specific_file}` (NEVER `git checkout -- .`)
+   - **Forbidden fix patterns** (these are not real fixes):
+     - Changing test assertions to match broken behavior
+     - Modifying mock data to bypass failures
+     - Adding `@ts-ignore` or `// eslint-disable`
+     - Deleting or skipping failing test cases
+   - Before fixing, snapshot current state: `git stash push -m "ui-iteration-backup"` (restore with `git stash pop` if needed)
 
 ---
 
@@ -647,9 +784,11 @@ For each FAIL result found in any phase:
 
 Update `docs/guides/testing/test-results/ui-iteration-{date}.md` with:
 
-#### 0. Comparison with Previous Run
+#### 0. Comparison & Trend Analysis
 
-Find the most recent previous `ui-iteration-*.md` report in `docs/guides/testing/test-results/`. If found:
+Find **all** previous `ui-iteration-*.md` reports in `docs/guides/testing/test-results/`.
+
+**Single-run comparison** (vs most recent):
 
 1. Compare pass rates (overall and per-section)
 2. Identify **new regressions** (tests that previously passed but now fail)
@@ -662,9 +801,25 @@ Find the most recent previous `ui-iteration-*.md` report in `docs/guides/testing
 | Total Executed  |                        |                  |       |
 | Pass Rate       |                        |                  |       |
 | Issues Found    |                        |                  |       |
+| Known Failures  |                        |                  |       |
 | New Regressions | -                      |                  |       |
 | Newly Passing   | -                      |                  |       |
 ```
+
+**Multi-run trend** (if 3+ reports exist):
+
+```markdown
+### Trend (last N runs)
+
+| Date       | Executed | Pass Rate | Issues | Known Fails |
+| ---------- | -------- | --------- | ------ | ----------- |
+| 2026-02-06 |          |           |        |             |
+| 2026-02-07 |          |           |        |             |
+| 2026-02-10 |          |           |        |             |
+| {today}    |          |           |        |             |
+```
+
+Flag **persistent failures**: Tests that failed in 3+ consecutive runs → mark as "chronic" in the issues table.
 
 If no previous report exists, note "First run - no baseline for comparison".
 
@@ -675,10 +830,11 @@ If no previous report exists, note "First run - no baseline for comparison".
 
 - Total Test Plan Cases: ~630
 - Cases Executed: {N}
-- Passed: {N} | Failed: {N} | Fixed: {N} | Skipped: {N}
-- Pass Rate: {N}%
+- Passed: {N} | Failed (new): {N} | Known Failures: {N} | Fixed: {N} | Skipped: {N}
+- Pass Rate: {N}% (excluding known failures: {N}%)
 - Coverage of Test Plan: {N}%
 - Issues Found: {N} | Issues Fixed: {N}
+- Circuit Breaker Triggered: {yes/no, reason if yes}
 - Execution Time: {duration}
 ```
 
@@ -709,11 +865,26 @@ Full mapping of every test plan ID (ENG-LLM-001 through DFX-CP-006) to execution
 
 List all files modified with descriptions.
 
-#### 6. Gaps & Recommendations
+#### 6. Gaps & Prioritized Recommendations
 
-- List test plan IDs that were SKIPPED and why
-- Recommend next steps for remaining coverage
-- Flag any architectural concerns found during testing
+List test plan IDs that were SKIPPED, then provide **ROI-ranked** action items:
+
+```markdown
+## Prioritized Recommendations
+
+| Priority | Action            | Impact             | Effort | Blocked Tests |
+| -------- | ----------------- | ------------------ | ------ | ------------- |
+| 1        | {highest ROI fix} | {what it unblocks} | S/M/L  | {count}       |
+| 2        | ...               | ...                | ...    | ...           |
+| ...      | ...               | ...                | ...    | ...           |
+```
+
+Include:
+
+- Frontend component coverage gaps (from Phase C2)
+- Known failures needing investigation
+- Missing test infrastructure (load testing tools, etc.)
+- Architectural concerns found during testing
 
 #### 7. Quality Gate Assessment
 
@@ -727,7 +898,28 @@ List all files modified with descriptions.
 - [ ] Type check clean
 - [ ] Lint clean
 - [ ] Build successful
+- [ ] No new regressions vs previous run
+- [ ] Known failures count ≤ previous run (not growing)
 ```
+
+#### 8. Change Archival
+
+Archive all code changes made during this run for traceability:
+
+```bash
+# Record all changes as a diff file (even if not committed)
+git diff > docs/guides/testing/test-results/changes-{date}.diff
+git diff --stat >> docs/guides/testing/test-results/ui-iteration-{date}.md
+```
+
+#### 9. Test Data Cleanup
+
+```bash
+# Clean up seeded test data (if Phase A2 seeded data)
+npm run db:clean:ui-patrol 2>&1 | tail -5
+```
+
+If cleanup fails, record in report but do not block.
 
 ---
 
@@ -738,12 +930,51 @@ List all files modified with descriptions.
 - **Record EVERYTHING** - every command output, every observation, every decision.
 - **Fix issues immediately** when found - don't just report them.
 - **Iterate until clean** - max 3 fix iterations, then report remaining.
-- **Use parallel Task agents** for independent test groups (backend tests, frontend tests, browser tests can run in parallel phases).
 - **Commit fixes** only at the end after all iterations pass.
 - **Map every result** to a test plan ID from `comprehensive-test-plan-2026-02-06.md`.
 - Use **browser snapshot** (accessibility tree) as primary verification, screenshots as backup.
 - If browser tools are unavailable, maximize code-level analysis + API testing coverage.
-- If a page requires authentication, navigate to login first and authenticate.
+- If a page requires authentication, use the token from Phase A1.
+
+### Parallel Execution Strategy
+
+Use **parallel Task agents** for independent test groups. Concrete grouping:
+
+```
+┌─ Parallel Group 1 (after Phase A) ────────────────────────┐
+│  Agent 1: Phase B (Backend Jest + tsc + lint)              │
+│  Agent 2: Phase C (Frontend Vitest + coverage gap)         │
+│  Agent 3: Phase G2 + G3 (Static audits: npm audit,        │
+│           console.log check, hardcoded model check)        │
+└────────────────────────────────────────────────────────────┘
+         ↓ Wait for all to complete
+         ↓ Check circuit breaker conditions
+┌─ Parallel Group 2 (requires Phase A1 token) ──────────────┐
+│  Agent 4: Phase D (API integration tests)                  │
+│  Agent 5: Phase G4 + G6 (Code-level audits)                │
+└────────────────────────────────────────────────────────────┘
+         ↓ Wait for completion
+┌─ Parallel Group 3 (browser tests) ────────────────────────┐
+│  Agent 6: Phase E1 + E5 (Page patrol + i18n)               │
+│  Agent 7: Phase E2 journeys (core: Ask, Research, Teams)   │
+│  Agent 8: Phase E2 journeys (secondary: Writing, Office,   │
+│           Image, Social, Library, Admin)                    │
+│  Agent 9: Phase E3 + E4 (Boundary + Responsive)            │
+└────────────────────────────────────────────────────────────┘
+         ↓ Wait for completion
+┌─ Sequential (must not interfere) ─────────────────────────┐
+│  Phase F: Performance tests (sequential to avoid noise)    │
+│  Phase G1 + G5 + G7: Browser-dependent DFX tests          │
+└────────────────────────────────────────────────────────────┘
+         ↓
+┌─ Sequential ──────────────────────────────────────────────┐
+│  Phase H: Triage & Fix (depends on all results above)      │
+│  Phase I: Regression (re-test fixes)                       │
+│  Phase J: Final Report                                     │
+└────────────────────────────────────────────────────────────┘
+```
+
+Each parallel agent MUST include the **file whitelist** and **context** per CLAUDE.md sub-agent rules.
 
 ## Test Priority Order
 
