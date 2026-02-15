@@ -809,11 +809,64 @@ export class DiscussionOrchestratorService {
   }
 
   async getProjectSessions(projectId: string) {
-    return this.prisma.deepResearchSession.findMany({
+    const sessions = await this.prisma.deepResearchSession.findMany({
       where: { projectId },
       orderBy: { createdAt: "desc" },
       take: 10,
     });
+
+    // Auto-correct stale sessions stuck in intermediate states
+    const staleThreshold = 15 * 60 * 1000; // 15 minutes
+    const now = Date.now();
+    const intermediateStatuses: DeepResearchStatus[] = [
+      DeepResearchStatus.IDEATION,
+      DeepResearchStatus.PLANNING,
+      DeepResearchStatus.SEARCHING,
+      DeepResearchStatus.FINDINGS,
+      DeepResearchStatus.REFLECTING,
+      DeepResearchStatus.SYNTHESIZING,
+    ];
+
+    for (const session of sessions) {
+      if (
+        intermediateStatuses.includes(session.status) &&
+        now - session.updatedAt.getTime() > staleThreshold
+      ) {
+        // If session has discussion data, mark as COMPLETED; otherwise FAILED
+        const hasContent =
+          session.discussion !== null &&
+          Array.isArray(session.discussion) &&
+          (session.discussion as unknown[]).length > 0;
+        const newStatus = hasContent
+          ? DeepResearchStatus.COMPLETED
+          : DeepResearchStatus.FAILED;
+
+        this.logger.warn(
+          `Auto-correcting stale session ${session.id}: ${session.status} → ${newStatus}`,
+        );
+        try {
+          await this.prisma.deepResearchSession.update({
+            where: { id: session.id },
+            data: {
+              status: newStatus,
+              ...(newStatus === DeepResearchStatus.FAILED && {
+                error: "研究会话超时中断",
+              }),
+              ...(newStatus === DeepResearchStatus.COMPLETED && {
+                completedAt: session.updatedAt,
+              }),
+            },
+          });
+          session.status = newStatus;
+        } catch (e) {
+          this.logger.error(
+            `Failed to auto-correct session ${session.id}: ${e}`,
+          );
+        }
+      }
+    }
+
+    return sessions;
   }
 
   async deleteSession(sessionId: string) {
