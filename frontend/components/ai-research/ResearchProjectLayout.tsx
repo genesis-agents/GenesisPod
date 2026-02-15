@@ -92,14 +92,15 @@ export function ResearchProjectLayout({
     stop,
     isActive: isSearching,
   } = useDiscussionResearch(projectId, {
-    onComplete: (report, sessionId) => {
+    onComplete: ({ report, sessionId, messages, directions }) => {
       // Create a session from the completed research
+      // Uses messages/directions passed directly from the hook (via refs, always fresh)
       const newSession: ResearchSession = {
         id: sessionId,
         query: query,
         status: 'COMPLETED',
         report,
-        discussion: discussionState.messages.map((msg) => ({
+        discussion: messages.map((msg) => ({
           id: msg.id,
           agentRole: msg.agentRole,
           agentName: msg.agentName,
@@ -111,9 +112,9 @@ export function ResearchProjectLayout({
           timestamp: msg.timestamp,
         })),
         directions:
-          discussionState.directions.length > 0
+          directions.length > 0
             ? {
-                directions: discussionState.directions.map((d) => ({
+                directions: directions.map((d) => ({
                   title: d,
                 })),
               }

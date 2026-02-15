@@ -81,8 +81,15 @@ export interface DiscussionResearchState {
   error: string | null;
 }
 
+export interface DiscussionCompleteData {
+  report: DeepResearchReport;
+  sessionId: string;
+  messages: DiscussionMessage[];
+  directions: string[];
+}
+
 export interface UseDiscussionResearchOptions {
-  onComplete?: (report: DeepResearchReport, sessionId: string) => void;
+  onComplete?: (data: DiscussionCompleteData) => void;
   onError?: (error: string) => void;
   onMessage?: (message: DiscussionMessage) => void;
 }
@@ -127,10 +134,14 @@ export function useDiscussionResearch(
   projectId: string,
   options: UseDiscussionResearchOptions = {}
 ): UseDiscussionResearchResult {
-  const { onComplete, onError, onMessage } = options;
-
   const [state, setState] = useState<DiscussionResearchState>(initialState);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Use refs for callbacks + accumulated data to avoid stale closures in SSE loop
+  const callbacksRef = useRef(options);
+  callbacksRef.current = options;
+  const messagesRef = useRef<DiscussionMessage[]>([]);
+  const directionsRef = useRef<string[]>([]);
 
   const cleanup = useCallback(() => {
     if (abortControllerRef.current) {
@@ -139,18 +150,19 @@ export function useDiscussionResearch(
     }
   }, []);
 
-  // SSE event handler
+  // SSE event handler — uses refs to avoid stale closures
   const handleEvent = useCallback(
     (eventType: string, data: Record<string, unknown>) => {
       switch (eventType) {
         case 'discussion.message': {
           const msg = data as unknown as DiscussionMessage;
+          messagesRef.current = [...messagesRef.current, msg];
           setState((prev) => ({
             ...prev,
-            messages: [...prev.messages, msg],
+            messages: messagesRef.current,
             typingAgent: null,
           }));
-          onMessage?.(msg);
+          callbacksRef.current.onMessage?.(msg);
           break;
         }
 
@@ -174,10 +186,14 @@ export function useDiscussionResearch(
               : undefined,
             timestamp: new Date(),
           };
+          messagesRef.current = [...messagesRef.current, systemMsg];
+          if (phaseData.directions) {
+            directionsRef.current = phaseData.directions;
+          }
           setState((prev) => ({
             ...prev,
             phase: phaseData.phase,
-            messages: [...prev.messages, systemMsg],
+            messages: messagesRef.current,
             directions: phaseData.directions || prev.directions,
             typingAgent: null,
           }));
@@ -243,7 +259,13 @@ export function useDiscussionResearch(
             report: completeData.report,
             typingAgent: null,
           }));
-          onComplete?.(completeData.report, completeData.sessionId);
+          // Pass accumulated messages/directions via refs (always fresh)
+          callbacksRef.current.onComplete?.({
+            report: completeData.report,
+            sessionId: completeData.sessionId,
+            messages: messagesRef.current,
+            directions: directionsRef.current,
+          });
           if (abortControllerRef.current) {
             abortControllerRef.current.abort();
             abortControllerRef.current = null;
@@ -259,7 +281,7 @@ export function useDiscussionResearch(
             error: errorData.message,
             typingAgent: null,
           }));
-          onError?.(errorData.message);
+          callbacksRef.current.onError?.(errorData.message);
           if (abortControllerRef.current) {
             abortControllerRef.current.abort();
             abortControllerRef.current = null;
@@ -268,13 +290,17 @@ export function useDiscussionResearch(
         }
       }
     },
-    [onComplete, onError, onMessage]
+    [] // No deps — uses refs for all external values
   );
 
   // Start research
   const startResearch = useCallback(
     async (query: string, researchOptions?: DiscussionResearchOptions) => {
       cleanup();
+
+      // Reset accumulated data refs
+      messagesRef.current = [];
+      directionsRef.current = [];
 
       setState({
         ...initialState,
@@ -377,10 +403,10 @@ export function useDiscussionResearch(
           phase: 'error',
           error: errorMessage,
         }));
-        onError?.(errorMessage);
+        callbacksRef.current.onError?.(errorMessage);
       }
     },
-    [projectId, cleanup, handleEvent, onError]
+    [projectId, cleanup, handleEvent]
   );
 
   const stop = useCallback(() => {
