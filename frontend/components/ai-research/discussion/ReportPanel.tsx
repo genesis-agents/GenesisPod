@@ -1,6 +1,12 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useMemo,
+} from 'react';
 import {
   FileText,
   Copy,
@@ -15,6 +21,9 @@ import {
   Clock,
   Sparkles,
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import type { Components } from 'react-markdown';
 import { cn } from '@/lib/utils/common';
 import { ExportDialog } from '@/components/common/ExportDialog';
 import { useTranslation } from '@/lib/i18n';
@@ -225,14 +234,11 @@ export function ReportPanel({
             onCopy={handleCopySection}
           />
         </div>
-        <div className="prose prose-purple max-w-none leading-relaxed text-gray-700">
-          {formatContentWithCitations(
-            report.executiveSummary,
-            [],
-            handleCitationClick,
-            report.references
-          )}
-        </div>
+        <ReportMarkdown
+          content={report.executiveSummary}
+          references={report.references}
+          onCitationClick={handleCitationClick}
+        />
       </section>
 
       {/* Main Sections */}
@@ -247,14 +253,11 @@ export function ReportPanel({
               onCopy={handleCopySection}
             />
           </div>
-          <div className="prose prose-purple max-w-none">
-            {formatContentWithCitations(
-              section.content,
-              section.citations,
-              handleCitationClick,
-              report.references
-            )}
-          </div>
+          <ReportMarkdown
+            content={section.content}
+            references={report.references}
+            onCitationClick={handleCitationClick}
+          />
         </section>
       ))}
 
@@ -272,14 +275,11 @@ export function ReportPanel({
             onCopy={handleCopySection}
           />
         </div>
-        <div className="prose prose-purple max-w-none leading-relaxed text-gray-700">
-          {formatContentWithCitations(
-            report.conclusion,
-            [],
-            handleCitationClick,
-            report.references
-          )}
-        </div>
+        <ReportMarkdown
+          content={report.conclusion}
+          references={report.references}
+          onCitationClick={handleCitationClick}
+        />
       </section>
 
       {/* References */}
@@ -529,6 +529,196 @@ function DeepCitationLink({
   );
 }
 
+// ==================== Report Markdown Renderer ====================
+
+interface ReportMarkdownProps {
+  content: string;
+  references: ReportReference[];
+  onCitationClick?: (refId: number, surroundingContext?: string) => void;
+}
+
+function ReportMarkdown({
+  content,
+  references,
+  onCitationClick,
+}: ReportMarkdownProps) {
+  // Pre-process: convert citation patterns to markers that survive markdown parsing
+  const processedContent = useMemo(() => {
+    let text = content;
+    // Remove stray underscores around citations
+    text = text
+      .replace(/_+(\[\d+(?:\s*,\s*\d+)*\])_+/g, '$1')
+      .replace(/_+(\[\d+(?:\s*,\s*\d+)*\])/g, '$1')
+      .replace(/(\[\d+(?:\s*,\s*\d+)*\])_+/g, '$1');
+    // Convert CITE_GROUP_x_y to bracket format for uniform handling
+    text = text.replace(/CITE_GROUP_(\d+(?:_\d+)*)/g, (_, indices) => {
+      return `[${indices.split('_').join(', ')}]`;
+    });
+    // Convert [资料 1, 2] to bracket format
+    text = text.replace(
+      /\[资料\s*(\d+(?:\s*[,、]\s*\d+)*)\]/g,
+      (_, indices) => {
+        return `[${indices.replace(/、/g, ', ')}]`;
+      }
+    );
+    // Convert citation brackets to HTML sup tags that survive markdown
+    text = text.replace(/\[(\d+(?:\s*,\s*\d+)*)\]/g, (match, indices) => {
+      const nums = indices.split(/\s*,\s*/);
+      return nums
+        .map((n: string) => `<cite-ref data-ref="${n.trim()}"></cite-ref>`)
+        .join('');
+    });
+    return text;
+  }, [content]);
+
+  // Custom components for markdown rendering with citation support
+  const components = useMemo<Components>(
+    () => ({
+      p: ({ children, ...props }) => (
+        <p {...props}>
+          {processCiteRefs(children, references, onCitationClick)}
+        </p>
+      ),
+      li: ({ children, ...props }) => (
+        <li {...props}>
+          {processCiteRefs(children, references, onCitationClick)}
+        </li>
+      ),
+      td: ({ children, ...props }) => (
+        <td {...props}>
+          {processCiteRefs(children, references, onCitationClick)}
+        </td>
+      ),
+      blockquote: ({ children, ...props }) => (
+        <blockquote {...props}>
+          {processCiteRefs(children, references, onCitationClick)}
+        </blockquote>
+      ),
+      strong: ({ children, ...props }) => (
+        <strong {...props}>
+          {processCiteRefs(children, references, onCitationClick)}
+        </strong>
+      ),
+      em: ({ children, ...props }) => (
+        <em {...props}>
+          {processCiteRefs(children, references, onCitationClick)}
+        </em>
+      ),
+    }),
+    [references, onCitationClick]
+  );
+
+  return (
+    <div
+      className={`
+      prose prose-sm prose-purple prose-headings:font-semibold
+      prose-headings:text-gray-900 prose-h1:text-lg
+      prose-h1:mt-4 prose-h1:mb-2 prose-h2:text-base
+      prose-h2:mt-3 prose-h2:mb-2 prose-h3:text-sm
+      prose-h3:mt-2 prose-h3:mb-1 prose-p:text-gray-700
+      prose-p:leading-relaxed prose-p:my-2 prose-ul:my-2
+      prose-ul:pl-4 prose-ol:my-2 prose-ol:pl-4 prose-li:my-1
+      prose-li:text-gray-700 prose-strong:text-gray-900
+      prose-strong:font-semibold prose-blockquote:border-l-purple-400
+      prose-blockquote:bg-purple-50 prose-blockquote:py-1
+      prose-blockquote:px-3 prose-blockquote:my-2 prose-blockquote:rounded-r
+      prose-blockquote:text-gray-700 prose-code:text-purple-600
+      prose-code:bg-purple-50 prose-code:px-1
+      prose-code:rounded max-w-none
+    `}
+    >
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {processedContent}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+/**
+ * Process React children to replace cite-ref markers with clickable citation links
+ */
+function processCiteRefs(
+  children: React.ReactNode,
+  references: ReportReference[],
+  onCitationClick?: (refId: number, surroundingContext?: string) => void
+): React.ReactNode {
+  if (!children) return children;
+
+  if (typeof children === 'string') {
+    return replaceCiteRefsInText(children, references, onCitationClick);
+  }
+
+  if (Array.isArray(children)) {
+    return children.map((child, i) => {
+      if (typeof child === 'string') {
+        return (
+          <React.Fragment key={i}>
+            {replaceCiteRefsInText(child, references, onCitationClick)}
+          </React.Fragment>
+        );
+      }
+      if (React.isValidElement(child)) {
+        const childProps = child.props as { children?: React.ReactNode };
+        return React.cloneElement(
+          child as React.ReactElement<{ children?: React.ReactNode }>,
+          { key: i },
+          processCiteRefs(childProps.children, references, onCitationClick)
+        );
+      }
+      return child;
+    });
+  }
+
+  if (React.isValidElement(children)) {
+    const childProps = children.props as { children?: React.ReactNode };
+    return React.cloneElement(
+      children as React.ReactElement<{ children?: React.ReactNode }>,
+      {},
+      processCiteRefs(childProps.children, references, onCitationClick)
+    );
+  }
+
+  return children;
+}
+
+/**
+ * Replace <cite-ref data-ref="N"></cite-ref> markers in text with citation components
+ */
+function replaceCiteRefsInText(
+  text: string,
+  references: ReportReference[],
+  onCitationClick?: (refId: number, surroundingContext?: string) => void
+): React.ReactNode {
+  const pattern = /<cite-ref data-ref="(\d+)"><\/cite-ref>/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const refId = parseInt(match[1], 10);
+    const reference = references.find((r) => r.id === refId);
+    parts.push(
+      <DeepCitationLink
+        key={`cite-${match.index}-${refId}`}
+        sourceIndex={refId}
+        sourceTitle={reference?.title}
+        sourceSnippet={reference?.snippet}
+        onClick={() => onCitationClick?.(refId)}
+      />
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length === 0 ? text : parts.length === 1 ? parts[0] : parts;
+}
+
 // ==================== Helpers ====================
 
 type TranslateFunction = (
@@ -557,73 +747,4 @@ function getSectionTitle(section: string, t: TranslateFunction): string {
     return t('aiResearch.deepResearch.report.conclusion') || 'Conclusion';
   }
   return section;
-}
-
-function formatContentWithCitations(
-  content: string,
-  citations: number[],
-  onCitationClick?: (refId: number, surroundingContext?: string) => void,
-  references?: ReportReference[]
-): React.ReactNode {
-  const pattern =
-    /(\[(\d+(?:\s*,\s*\d+)*)\]|\[资料\s*(\d+(?:\s*[,、]\s*\d+)*)\]|CITE_GROUP_(\d+(?:_\d+)*))/g;
-
-  const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(content.slice(lastIndex, match.index));
-    }
-
-    let indices: number[];
-    if (match[2]) {
-      indices = match[2].split(/\s*,\s*/).map((s) => parseInt(s, 10));
-    } else if (match[3]) {
-      indices = match[3].split(/\s*[,、]\s*/).map((s) => parseInt(s, 10));
-    } else if (match[4]) {
-      indices = match[4].split('_').map((s) => parseInt(s, 10));
-    } else {
-      parts.push(match[0]);
-      lastIndex = match.index + match[0].length;
-      continue;
-    }
-
-    const contextStart = Math.max(0, match.index - 80);
-    const contextEnd = Math.min(
-      content.length,
-      match.index + match[0].length + 80
-    );
-    let surroundingContext = content.slice(contextStart, contextEnd);
-    surroundingContext = surroundingContext
-      .replace(/\[[\d,\s]+\]/g, '')
-      .replace(/\[资料\s*[\d,、\s]+\]/g, '')
-      .replace(/CITE_GROUP_\d+(?:_\d+)*/g, '')
-      .trim();
-
-    indices.forEach((num) => {
-      const shouldShow = citations.length === 0 || citations.includes(num);
-      if (shouldShow) {
-        const reference = references?.find((r) => r.id === num);
-        parts.push(
-          <DeepCitationLink
-            key={`${match!.index}-${num}`}
-            sourceIndex={num}
-            sourceTitle={reference?.title}
-            sourceSnippet={reference?.snippet}
-            onClick={() => onCitationClick?.(num, surroundingContext)}
-          />
-        );
-      }
-    });
-
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < content.length) {
-    parts.push(content.slice(lastIndex));
-  }
-
-  return parts.length === 0 ? content : parts;
 }
