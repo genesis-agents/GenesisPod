@@ -736,6 +736,8 @@
         "executing": "AI is executing research plan"
       },
       "report": {
+        "noReport": "No report yet",
+        "noReportDescription": "Start a research discussion to generate a comprehensive report",
         "sourcesCount": "{{count}} sources",
         "searchRounds": "{{count}} search rounds",
         "duration": "{{duration}} seconds",

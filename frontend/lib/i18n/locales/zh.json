@@ -736,6 +736,8 @@
         "executing": "AI正在执行研究计划"
       },
       "report": {
+        "noReport": "暂无报告",
+        "noReportDescription": "开始研究讨论以生成综合报告",
         "sourcesCount": "{{count}} 个来源",
         "searchRounds": "{{count}} 轮搜索",
         "duration": "{{duration}} 秒",

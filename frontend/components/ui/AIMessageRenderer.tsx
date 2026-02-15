@@ -59,10 +59,15 @@ export default function AIMessageRenderer({
           ),
           h3: ({ children }) => (
             <h3
-              className={`mb-2 mt-3 text-sm font-semibold first:mt-0 ${
-                isDark ? 'text-white/90' : 'text-gray-800'
+              className={`mb-2 mt-3 flex items-center gap-1.5 text-sm font-bold first:mt-0 ${
+                isDark ? 'text-white/90' : 'text-gray-900'
               }`}
             >
+              <span
+                className={`inline-block h-3 w-0.5 rounded-full ${
+                  isDark ? 'bg-white/40' : 'bg-blue-500'
+                }`}
+              />
               {children}
             </h3>
           ),
