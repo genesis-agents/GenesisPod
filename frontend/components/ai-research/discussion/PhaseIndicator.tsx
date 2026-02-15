@@ -42,7 +42,7 @@ export function PhaseIndicator({ currentPhase }: PhaseIndicatorProps) {
   const currentIndex = PHASE_ORDER[currentPhase] ?? -1;
 
   return (
-    <div className="border-b border-gray-200 bg-white px-4 py-3">
+    <div className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-3">
       <div className="flex items-center">
         {PHASES.map((phase, index) => {
           const isCompleted = currentIndex > index;

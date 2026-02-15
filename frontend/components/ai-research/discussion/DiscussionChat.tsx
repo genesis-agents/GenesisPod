@@ -278,13 +278,13 @@ export function DiscussionChat({
 
   // ==================== Active Research View ====================
   return (
-    <div className={cn('flex h-full flex-col', className)}>
-      {/* Phase Indicator - top bar */}
+    <div className={cn('flex h-full flex-col overflow-hidden', className)}>
+      {/* Phase Indicator - top bar (flex-shrink-0 keeps it fixed) */}
       <PhaseIndicator currentPhase={state.phase} />
 
       {/* Search Progress Bar */}
       {state.phase === 'execution' && state.searchProgress && (
-        <div className="border-b border-blue-200 bg-blue-50 px-6 py-2.5">
+        <div className="flex-shrink-0 border-b border-blue-200 bg-blue-50 px-6 py-2.5">
           <div className="flex items-center gap-3">
             <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-blue-600" />
             <div className="min-w-0 flex-1">

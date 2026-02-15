@@ -10,7 +10,7 @@
  * - Expandable search source references
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Crown,
   Search,
@@ -22,6 +22,7 @@ import {
   ChevronUp,
   ExternalLink,
   AlertTriangle,
+  User,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
@@ -31,6 +32,67 @@ import type {
   DiscussionMessageType,
   DiscussionRole,
 } from '@/hooks';
+
+// ==================== Direction Card Types ====================
+
+interface ResearchDirection {
+  title: string;
+  description: string;
+  assignedTo?: string;
+  searchQueries?: string[];
+}
+
+/**
+ * Extract JSON direction array from message content.
+ * The backend asks the AI to output research directions in JSON format,
+ * which may appear as raw JSON or inside markdown code fences.
+ * Returns { textBefore, directions, textAfter } or null if not found.
+ */
+function extractDirections(content: string): {
+  textBefore: string;
+  directions: ResearchDirection[];
+  textAfter: string;
+} | null {
+  // Try to find JSON inside markdown code fences first
+  const fenceMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (fenceMatch) {
+    try {
+      const parsed = JSON.parse(fenceMatch[1]);
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].title) {
+        const fenceStart = content.indexOf(fenceMatch[0]);
+        const fenceEnd = fenceStart + fenceMatch[0].length;
+        return {
+          textBefore: content.slice(0, fenceStart).trim(),
+          directions: parsed as ResearchDirection[],
+          textAfter: content.slice(fenceEnd).trim(),
+        };
+      }
+    } catch {
+      // Not valid JSON, continue
+    }
+  }
+
+  // Try to find raw JSON array in content
+  const arrayStart = content.indexOf('[');
+  const arrayEnd = content.lastIndexOf(']');
+  if (arrayStart !== -1 && arrayEnd > arrayStart) {
+    try {
+      const jsonStr = content.slice(arrayStart, arrayEnd + 1);
+      const parsed = JSON.parse(jsonStr);
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].title) {
+        return {
+          textBefore: content.slice(0, arrayStart).trim(),
+          directions: parsed as ResearchDirection[],
+          textAfter: content.slice(arrayEnd + 1).trim(),
+        };
+      }
+    } catch {
+      // Not valid JSON, continue
+    }
+  }
+
+  return null;
+}
 
 interface ChatMessageProps {
   message: DiscussionMessage;
@@ -141,6 +203,50 @@ function getMessageStyle(messageType: DiscussionMessageType): {
   }
 }
 
+// ==================== Direction Cards Component ====================
+
+function DirectionCards({ directions }: { directions: ResearchDirection[] }) {
+  return (
+    <div className="mt-3 grid gap-3 sm:grid-cols-1">
+      {directions.map((dir, index) => (
+        <div
+          key={index}
+          className="rounded-lg border border-purple-200 bg-purple-50/50 p-3"
+        >
+          <div className="mb-1.5 flex items-start gap-2">
+            <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-purple-500 text-[10px] font-bold text-white">
+              {index + 1}
+            </span>
+            <h4 className="text-sm font-semibold text-gray-900">{dir.title}</h4>
+          </div>
+          <p className="ml-7 text-xs leading-relaxed text-gray-600">
+            {dir.description}
+          </p>
+          <div className="ml-7 mt-2 flex flex-wrap items-center gap-2">
+            {dir.assignedTo && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                <User className="h-2.5 w-2.5" />
+                {dir.assignedTo}
+              </span>
+            )}
+            {dir.searchQueries?.map((q, qi) => (
+              <span
+                key={qi}
+                className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600"
+              >
+                <Search className="h-2.5 w-2.5" />
+                {q}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ==================== Main Component ====================
+
 export function ChatMessage({ message }: ChatMessageProps) {
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const Icon = ICON_MAP[message.agentIcon] || Info;
@@ -149,6 +255,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
   const hasSearchResults =
     message.metadata?.searchResults &&
     message.metadata.searchResults.length > 0;
+
+  // Detect and extract JSON direction blocks from content
+  const parsedContent = useMemo(
+    () => extractDirections(message.content),
+    [message.content]
+  );
 
   // System divider
   if (style.layout === 'divider') {
@@ -209,7 +321,21 @@ export function ChatMessage({ message }: ChatMessageProps) {
               style.borderClass
             )}
           >
-            <AIMessageRenderer content={message.content} />
+            {parsedContent ? (
+              <>
+                {parsedContent.textBefore && (
+                  <AIMessageRenderer content={parsedContent.textBefore} />
+                )}
+                <DirectionCards directions={parsedContent.directions} />
+                {parsedContent.textAfter && (
+                  <div className="mt-3">
+                    <AIMessageRenderer content={parsedContent.textAfter} />
+                  </div>
+                )}
+              </>
+            ) : (
+              <AIMessageRenderer content={message.content} />
+            )}
           </div>
 
           {/* Search Sources Footer */}
