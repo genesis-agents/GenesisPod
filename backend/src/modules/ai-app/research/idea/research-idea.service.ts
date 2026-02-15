@@ -422,8 +422,28 @@ ${discussionContent}`;
       );
     }
 
+    // Limit insights to top 30 (by impact level) to avoid exceeding LLM token limits
+    const impactOrder: Record<string, number> = {
+      high: 0,
+      medium: 1,
+      low: 2,
+    };
+    const topInsights = [...insights]
+      .sort((a, b) => {
+        const aImpact =
+          (a.metadata as { impactLevel?: string })?.impactLevel || "medium";
+        const bImpact =
+          (b.metadata as { impactLevel?: string })?.impactLevel || "medium";
+        return (impactOrder[aImpact] ?? 1) - (impactOrder[bImpact] ?? 1);
+      })
+      .slice(0, 30);
+
+    this.logger.log(
+      `Using ${topInsights.length} of ${insights.length} insights for creative extraction`,
+    );
+
     // Format insights as input for AI
-    const insightsContent = insights
+    const insightsContent = topInsights
       .map((insight) => {
         const meta = (insight.metadata || {}) as {
           coreInsight?: string;
