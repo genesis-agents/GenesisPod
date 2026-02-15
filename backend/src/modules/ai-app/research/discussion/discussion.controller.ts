@@ -71,14 +71,14 @@ export class DiscussionController {
         },
       });
 
-    // 设置 10 分钟超时
+    // 设置 30 分钟超时（研究流程包含多轮AI调用+搜索，通常需要10-20分钟）
     const timeout = setTimeout(
       () => {
-        this.logger.warn("Research stream timeout after 10 minutes");
+        this.logger.warn("Research stream timeout after 30 minutes");
         subscription.unsubscribe();
         res.end();
       },
-      10 * 60 * 1000,
+      30 * 60 * 1000,
     );
 
     // 客户端断开连接时取消订阅

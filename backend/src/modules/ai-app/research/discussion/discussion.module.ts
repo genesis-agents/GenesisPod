@@ -22,6 +22,7 @@ import { SelfReflectionService } from "./self-reflection.service";
 import { ReportSynthesizerService } from "./report-synthesizer.service";
 import { DiscussionAgentService } from "./discussion-agent.service";
 import { DiscussionOrchestratorService } from "./discussion-orchestrator.service";
+import { ResearchIdeaService } from "../idea/research-idea.service";
 
 const services = [
   DiscussionResearchService,
@@ -31,6 +32,7 @@ const services = [
   ReportSynthesizerService,
   DiscussionAgentService,
   DiscussionOrchestratorService,
+  ResearchIdeaService,
 ];
 
 @Module({

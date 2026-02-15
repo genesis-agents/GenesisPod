@@ -92,6 +92,8 @@ export interface UseDiscussionResearchOptions {
   onComplete?: (data: DiscussionCompleteData) => void;
   onError?: (error: string) => void;
   onMessage?: (message: DiscussionMessage) => void;
+  /** Called when the SSE stream ends without receiving interaction.complete (e.g. server timeout) */
+  onStreamEndIncomplete?: () => void;
 }
 
 export interface DiscussionResearchOptions {
@@ -392,6 +394,22 @@ export function useDiscussionResearch(
             }
           }
         }
+
+        // SSE stream ended - check if we got a complete response
+        setState((currentState) => {
+          if (
+            currentState.phase !== 'completed' &&
+            currentState.phase !== 'idle' &&
+            currentState.phase !== 'error'
+          ) {
+            // Stream ended without completion - backend may still be processing
+            logger.warn(
+              `SSE stream ended in phase "${currentState.phase}" without completion. Backend may still be running.`
+            );
+            callbacksRef.current.onStreamEndIncomplete?.();
+          }
+          return currentState;
+        });
       } catch (error: unknown) {
         if (error instanceof Error && error.name === 'AbortError') {
           return;

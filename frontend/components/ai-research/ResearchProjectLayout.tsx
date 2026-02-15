@@ -97,6 +97,26 @@ export function ResearchProjectLayout({
     generateDemo,
   } = useResearchDemos(projectId);
 
+  // Reusable session loader
+  const reloadSessions = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}/deep-research/sessions`,
+        { headers: { ...getAuthHeader() } }
+      );
+      if (res.ok) {
+        const result = await res.json();
+        const raw = result?.data ?? result;
+        const list = Array.isArray(raw) ? raw : (raw?.data ?? []);
+        setSessions(list);
+        return list as ResearchSession[];
+      }
+    } catch (err) {
+      logger.error('Failed to reload sessions:', err);
+    }
+    return null;
+  }, [projectId]);
+
   // Discussion research hook
   const {
     state: discussionState,
@@ -143,38 +163,46 @@ export function ResearchProjectLayout({
     onError: (error) => {
       logger.error('Discussion Research error:', error);
     },
+    onStreamEndIncomplete: () => {
+      // SSE stream ended without completion (server timeout or disconnect)
+      // Backend may still be processing - poll for completed session
+      logger.warn(
+        'SSE stream ended without completion, starting recovery polling...'
+      );
+      let attempts = 0;
+      const maxAttempts = 30; // Poll for up to 5 minutes (10s * 30)
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        const reloaded = await reloadSessions();
+        if (reloaded) {
+          // Check if a new COMPLETED session appeared
+          const completed = reloaded.find(
+            (s) => s.status === 'COMPLETED' && s.report
+          );
+          if (completed) {
+            clearInterval(pollInterval);
+            setViewingSession(completed);
+            setActiveTab('report');
+            logger.info(
+              'Recovery polling: found completed session',
+              completed.id
+            );
+            return;
+          }
+        }
+        if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          logger.warn('Recovery polling: gave up after max attempts');
+        }
+      }, 10000);
+    },
   });
 
-  // Load sessions from API
+  // Load sessions from API on mount
   useEffect(() => {
-    const controller = new AbortController();
-
-    async function loadSessions() {
-      setLoadingSessions(true);
-      try {
-        const res = await fetch(
-          `${config.apiBaseUrl}/api/v1/ai-studio/projects/${projectId}/deep-research/sessions`,
-          { headers: { ...getAuthHeader() }, signal: controller.signal }
-        );
-        if (res.ok) {
-          const result = await res.json();
-          const raw = result?.data ?? result;
-          const list = Array.isArray(raw) ? raw : (raw?.data ?? []);
-          setSessions(list);
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        logger.error('Failed to load research sessions:', err);
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoadingSessions(false);
-        }
-      }
-    }
-    loadSessions();
-
-    return () => controller.abort();
-  }, [projectId]);
+    setLoadingSessions(true);
+    reloadSessions().finally(() => setLoadingSessions(false));
+  }, [reloadSessions]);
 
   // Handlers for DiscussionChat
   const researchLanguage = locale === 'zh' ? 'zh-CN' : 'en-US';

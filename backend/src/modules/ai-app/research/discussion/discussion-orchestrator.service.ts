@@ -6,6 +6,7 @@ import { DiscussionAgentService } from "./discussion-agent.service";
 import { IterativeSearchService } from "./iterative-search.service";
 import { ReportSynthesizerService } from "./report-synthesizer.service";
 import { CreditsService } from "../../../credits/credits.service";
+import { ResearchIdeaService } from "../idea/research-idea.service";
 import { InsufficientCreditsException } from "../../../credits/exceptions/insufficient-credits.exception";
 import { BillingContext } from "../../../credits/billing-context";
 import {
@@ -45,6 +46,7 @@ export class DiscussionOrchestratorService {
     private readonly searchService: IterativeSearchService,
     private readonly reportService: ReportSynthesizerService,
     @Optional() private readonly creditsService: CreditsService,
+    @Optional() private readonly ideaService: ResearchIdeaService,
   ) {}
 
   /**
@@ -964,20 +966,36 @@ export class DiscussionOrchestratorService {
   }
 
   /**
-   * Auto-extract ideas stub.
-   * Real AI-powered extraction happens via ResearchIdeaService.extractFromSession()
-   * triggered by the frontend "提取创意" button or API endpoint.
-   * We don't extract here inline because:
-   * 1. No access to AIEngineFacade (circular module dependency)
-   * 2. Raw message copying produces low-quality "ideas" (just message text, not refined insights)
+   * Auto-extract insights from completed discussion.
+   * Uses ResearchIdeaService for AI-powered extraction.
    */
   private async autoExtractIdeas(
-    _projectId: string,
+    projectId: string,
     sessionId: string,
     _messages: DiscussionMessage[],
   ): Promise<void> {
+    if (!this.ideaService) {
+      this.logger.log(
+        `Discussion ${sessionId} completed. Ideas available for manual extraction.`,
+      );
+      return;
+    }
+
+    // Get the project's userId for the extraction
+    const project = await this.prisma.researchProject.findUnique({
+      where: { id: projectId },
+      select: { userId: true },
+    });
+    if (!project) return;
+
+    this.logger.log(`Auto-extracting insights from session ${sessionId}...`);
+    const ideas = await this.ideaService.extractFromSession(
+      project.userId,
+      projectId,
+      sessionId,
+    );
     this.logger.log(
-      `Discussion ${sessionId} completed. Ideas available for AI extraction via API.`,
+      `Auto-extracted ${ideas.length} insights from session ${sessionId}`,
     );
   }
 }
