@@ -257,19 +257,39 @@ export function DiscussionChat({
         {/* History messages */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <div className="mx-auto max-w-3xl">
-            {historyMessages.map((message) => {
-              if (message.messageType === 'system') {
-                return (
-                  <PhaseTransition
-                    key={message.id}
-                    phase={message.phase}
-                    summary={message.content}
-                    directions={message.metadata?.directions}
-                  />
-                );
-              }
-              return <ChatMessage key={message.id} message={message} />;
-            })}
+            {historyMessages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <AlertCircle className="mb-3 h-10 w-10 text-gray-300" />
+                <h4 className="mb-1 text-sm font-medium text-gray-600">
+                  {viewingSession.status === 'COMPLETED'
+                    ? '讨论记录为空'
+                    : viewingSession.status === 'FAILED'
+                      ? '研究执行失败'
+                      : '研究被中断'}
+                </h4>
+                <p className="max-w-xs text-xs text-gray-400">
+                  {viewingSession.status === 'COMPLETED'
+                    ? '该研究已完成但未保存讨论消息'
+                    : viewingSession.status === 'FAILED'
+                      ? viewingSession.error || '执行过程中发生错误'
+                      : '该研究在执行过程中被中断，讨论消息未能保存。你可以重新发起研究。'}
+                </p>
+              </div>
+            ) : (
+              historyMessages.map((message) => {
+                if (message.messageType === 'system') {
+                  return (
+                    <PhaseTransition
+                      key={message.id}
+                      phase={message.phase}
+                      summary={message.content}
+                      directions={message.metadata?.directions}
+                    />
+                  );
+                }
+                return <ChatMessage key={message.id} message={message} />;
+              })
+            )}
           </div>
         </div>
       </div>
