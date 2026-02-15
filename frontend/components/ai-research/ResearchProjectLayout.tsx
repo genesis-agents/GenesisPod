@@ -331,10 +331,28 @@ export function ResearchProjectLayout({
               </div>
               <div className="flex-1 overflow-hidden">
                 <AgentPanel
-                  messages={discussionState.messages}
-                  typingAgent={discussionState.typingAgent}
-                  directions={discussionState.directions}
-                  currentPhase={discussionState.phase}
+                  messages={
+                    viewingSession?.discussion
+                      ? (viewingSession.discussion as unknown as import('@/hooks').DiscussionMessage[])
+                      : discussionState.messages
+                  }
+                  typingAgent={
+                    viewingSession ? null : discussionState.typingAgent
+                  }
+                  directions={
+                    viewingSession?.directions?.directions
+                      ? viewingSession.directions.directions.map(
+                          (d: { title: string }) => d.title
+                        )
+                      : discussionState.directions
+                  }
+                  currentPhase={
+                    viewingSession
+                      ? viewingSession.status === 'COMPLETED'
+                        ? 'completed'
+                        : 'idle'
+                      : discussionState.phase
+                  }
                 />
               </div>
             </div>
@@ -380,7 +398,6 @@ export function ResearchProjectLayout({
                 {/* Discussion Tab */}
                 {activeTab === 'discussion' && (
                   <DiscussionChat
-                    projectId={projectId}
                     state={discussionState}
                     query={query}
                     isSearching={isSearching}

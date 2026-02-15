@@ -30,7 +30,6 @@ import type { ResearchSession } from '../types';
 // ==================== Types ====================
 
 interface DiscussionChatProps {
-  projectId: string;
   state: DiscussionResearchState;
   query: string;
   isSearching: boolean;
@@ -47,7 +46,6 @@ interface DiscussionChatProps {
 // ==================== Component ====================
 
 export function DiscussionChat({
-  projectId,
   state,
   query,
   isSearching,
@@ -261,18 +259,14 @@ export function DiscussionChat({
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <AlertCircle className="mb-3 h-10 w-10 text-gray-300" />
                 <h4 className="mb-1 text-sm font-medium text-gray-600">
-                  {viewingSession.status === 'COMPLETED'
-                    ? '讨论记录为空'
-                    : viewingSession.status === 'FAILED'
-                      ? '研究执行失败'
-                      : '研究被中断'}
+                  {viewingSession.status === 'FAILED'
+                    ? '研究执行失败'
+                    : '讨论记录为空'}
                 </h4>
                 <p className="max-w-xs text-xs text-gray-400">
-                  {viewingSession.status === 'COMPLETED'
-                    ? '该研究已完成但未保存讨论消息'
-                    : viewingSession.status === 'FAILED'
-                      ? viewingSession.error || '执行过程中发生错误'
-                      : '该研究在执行过程中被中断，讨论消息未能保存。你可以重新发起研究。'}
+                  {viewingSession.status === 'FAILED'
+                    ? viewingSession.error || '执行过程中发生错误'
+                    : '该研究已完成但未保存讨论消息，请查看报告 Tab'}
                 </p>
               </div>
             ) : (

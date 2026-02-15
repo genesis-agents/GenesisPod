@@ -152,18 +152,20 @@ function extractAgentNodes(
     'reviewer',
   ];
 
-  messages.forEach((msg) => {
-    const key = `${msg.agentRole}_${msg.agentName}`;
-    if (!seen.has(key)) {
-      seen.set(key, {
-        role: msg.agentRole,
-        name: msg.agentName,
-        icon: msg.agentIcon,
-        status: getAgentStatus(msg.agentRole, typingAgent),
-        posIndex: seen.size,
-      });
-    }
-  });
+  messages
+    .filter((msg) => msg.messageType !== 'system')
+    .forEach((msg) => {
+      const key = `${msg.agentRole}_${msg.agentName}`;
+      if (!seen.has(key)) {
+        seen.set(key, {
+          role: msg.agentRole,
+          name: msg.agentName,
+          icon: msg.agentIcon,
+          status: getAgentStatus(msg.agentRole, typingAgent),
+          posIndex: seen.size,
+        });
+      }
+    });
 
   // If we have agents, use them; otherwise use defaults
   if (seen.size > 0) {
