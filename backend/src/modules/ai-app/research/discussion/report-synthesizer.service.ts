@@ -172,7 +172,10 @@ export class ReportSynthesizerService {
   }
 
   /**
-   * 生成报告内容
+   * 生成报告内容（多步生成：每个部分独立 API 调用，确保充足的 token 预算）
+   *
+   * 原单次调用仅 8000 tokens，无法生成完整报告。
+   * 改为分步生成：执行摘要 + 各章节 + 结论，每部分独立调用。
    */
   private async generateReportContent(
     query: string,
@@ -187,22 +190,180 @@ export class ReportSynthesizerService {
     sections: ReportSection[];
     conclusion: string;
   }> {
+    // Follow-up mode still uses single-call (shorter reports)
+    if (isFollowUp && previousContext) {
+      return this.generateFollowUpReport(
+        query,
+        sources,
+        language,
+        style,
+        previousContext,
+        previousRefsCount,
+      );
+    }
+
+    try {
+      // Step 1: Identify section topics
+      const sectionTopics = await this.identifySectionTopics(query, sources);
+      this.logger.debug(`Report sections: ${sectionTopics.join(", ")}`);
+
+      // Step 2: Build source context (shared across all calls)
+      const startIndex = 0;
+      const sourceContext = sources
+        .slice(0, 30)
+        .map(
+          (s, i) =>
+            `[${startIndex + i + 1}] **${s.title}**\n来源: ${s.domain}${s.publishedDate ? ` (${s.publishedDate})` : ""}\n内容: ${s.snippet}`,
+        )
+        .join("\n\n---\n\n");
+
+      const langInstruction =
+        language === "zh-CN" ? "使用中文撰写" : "使用英文撰写";
+
+      // Step 3: Generate executive summary
+      this.logger.debug("Generating executive summary...");
+      const executiveSummary = await this.generatePart(
+        `你是一位资深行业研究分析师。${langInstruction}。
+
+请为"${query}"研究报告撰写一个 500-800 字的执行摘要。
+
+要求：
+- 开门见山陈述最重要的发现，不要写空泛的引言
+- 必须包含关键数据点（具体数字、比例、增长率、市场规模等）
+- 概述报告将覆盖的核心主题：${sectionTopics.join("、")}
+- 明确指出研究揭示的 2-3 个最重要洞察
+- 简述主要建议方向
+- 使用 [N] 标记引用来源
+
+## 参考来源
+${sourceContext}`,
+        "long",
+      );
+
+      // Step 4: Generate each section independently
+      const sections: ReportSection[] = [];
+      for (const topic of sectionTopics) {
+        this.logger.debug(`Generating section: ${topic}`);
+        const sectionContent = await this.generatePart(
+          `你是一位资深行业研究分析师。${langInstruction}。
+
+请为"${query}"研究报告的「${topic}」章节撰写 1000-2000 字的深度分析。
+
+## 写作要求
+1. **数据驱动**：必须引用来源中的具体数据、数字、案例，用 [N] 标记
+2. **深度分析**：不要简单罗列信息，要分析原因、影响、趋势
+3. **交叉引用**：对比不同来源的观点，指出共识和分歧
+4. **结构清晰**：使用小标题组织内容，逻辑递进
+5. **洞察提炼**：在事实陈述基础上提炼出独特洞察
+6. **具体案例**：引用具体公司、产品、政策、数据作为论据
+
+## 章节结构建议
+- 引言段（简述本章节核心问题）
+- 2-3 个小标题下的深入分析（每段 300-500 字）
+- 小结段（本章节核心洞察）
+
+## 参考来源
+${sourceContext}`,
+          "long",
+        );
+
+        // Extract citation numbers from content
+        const citationMatches = sectionContent.match(/\[(\d+)\]/g) || [];
+        const citations = [
+          ...new Set(
+            citationMatches.map((m: string) =>
+              parseInt(m.replace(/[\[\]]/g, "")),
+            ),
+          ),
+        ];
+
+        sections.push({
+          title: topic,
+          content: sectionContent,
+          citations,
+        });
+      }
+
+      // Step 5: Generate conclusion
+      this.logger.debug("Generating conclusion...");
+      const sectionSummaries = sections
+        .map((s) => `- ${s.title}: ${s.content.substring(0, 200)}...`)
+        .join("\n");
+
+      const conclusion = await this.generatePart(
+        `你是一位资深行业研究分析师。${langInstruction}。
+
+请为"${query}"研究报告撰写 400-600 字的结论与建议。
+
+## 已完成章节摘要
+${sectionSummaries}
+
+## 要求
+1. 综合所有章节发现，提炼 3-5 个核心洞察（不是重复章节内容）
+2. 提出 4-5 条具体、可操作的建议（每条 2-3 句话，说明具体做什么、为什么）
+3. 指出研究局限和未来需关注的 2-3 个方向
+4. 使用 [N] 标记引用来源
+
+## 参考来源
+${sourceContext}`,
+        "long",
+      );
+
+      return { executiveSummary, sections, conclusion };
+    } catch (error) {
+      this.logger.error(`Failed to generate report content: ${error}`);
+      return this.getDefaultReport(query, sources);
+    }
+  }
+
+  /**
+   * Generate a single report part via independent API call
+   */
+  private async generatePart(
+    prompt: string,
+    outputLength: "medium" | "long" = "long",
+  ): Promise<string> {
+    const result = await this.aiFacade.chat({
+      messages: [{ role: "user", content: prompt }],
+      modelType: AIModelType.CHAT,
+      taskProfile: {
+        creativity: "medium",
+        outputLength,
+      },
+    });
+    return result.content;
+  }
+
+  /**
+   * Follow-up report generation (single-call, shorter)
+   */
+  private async generateFollowUpReport(
+    query: string,
+    sources: SearchSource[],
+    language: string,
+    style: string,
+    previousContext: PreviousReportContext,
+    previousRefsCount?: number,
+  ): Promise<{
+    executiveSummary: string;
+    sections: ReportSection[];
+    conclusion: string;
+  }> {
     const systemPrompt = this.buildReportSystemPrompt(
       language,
       style,
-      isFollowUp,
+      true,
       previousContext,
     );
     const userPrompt = this.buildReportUserPrompt(
       query,
       sources,
-      isFollowUp,
+      true,
       previousContext,
       previousRefsCount,
     );
 
     try {
-      // ★ 使用 AIEngineFacade 统一入口
       const result = await this.aiFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
@@ -211,13 +372,13 @@ export class ReportSynthesizerService {
         modelType: AIModelType.CHAT,
         taskProfile: {
           creativity: "medium",
-          outputLength: "long", // 长输出：报告需要充足的篇幅
+          outputLength: "long",
         },
       });
 
       return this.parseReportResponse(result.content);
     } catch (error) {
-      this.logger.error(`Failed to generate report content: ${error}`);
+      this.logger.error(`Failed to generate follow-up report: ${error}`);
       return this.getDefaultReport(query, sources);
     }
   }

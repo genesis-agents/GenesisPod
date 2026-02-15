@@ -4,7 +4,9 @@ import {
   NotFoundException,
   ForbiddenException,
 } from "@nestjs/common";
+import { AIModelType } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { AIEngineFacade } from "../../../ai-engine/facade";
 import {
   CreateResearchIdeaDto,
   UpdateResearchIdeaDto,
@@ -14,7 +16,10 @@ import {
 export class ResearchIdeaService {
   private readonly logger = new Logger(ResearchIdeaService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiFacade: AIEngineFacade,
+  ) {}
 
   /**
    * Verify that the project belongs to the user
@@ -114,8 +119,9 @@ export class ResearchIdeaService {
   }
 
   /**
-   * Extract ideas from a discussion session's messages.
-   * Looks for messages with messageType: 'idea', 'proposal', 'findings'
+   * AI-powered idea extraction from discussion session.
+   * Analyzes all discussion messages and synthesizes refined research ideas
+   * with clear titles, concise descriptions, and proper attribution.
    */
   async extractFromSession(
     userId: string,
@@ -138,63 +144,196 @@ export class ResearchIdeaService {
       messageType: string;
     }>;
 
-    // Filter messages that represent ideas
-    const ideaMessages = discussion.filter((msg) =>
-      ["idea", "proposal", "findings", "synthesis", "cross_check"].includes(
-        msg.messageType,
-      ),
-    );
-
-    if (ideaMessages.length === 0) {
-      this.logger.debug(`No idea messages found in session ${sessionId}`);
+    if (discussion.length === 0) {
       return [];
     }
 
-    // Check for existing ideas from this session to avoid duplicates
+    // Check for existing ideas - if already extracted, return them
     const existingIdeas = await this.prisma.researchIdea.findMany({
       where: { sessionId },
-      select: { sourceMessageId: true },
+      include: { demos: { select: { id: true, status: true } } },
+      orderBy: { createdAt: "desc" },
     });
-    const existingMessageIds = new Set(
-      existingIdeas.map((i) => i.sourceMessageId),
-    );
+    if (existingIdeas.length > 0) {
+      // Re-extract: delete old ideas and re-analyze
+      await this.prisma.researchIdea.deleteMany({ where: { sessionId } });
+      this.logger.log(
+        `Cleared ${existingIdeas.length} old ideas for re-extraction`,
+      );
+    }
 
-    const newIdeas = ideaMessages
-      .filter((msg) => !existingMessageIds.has(msg.id))
-      .map((msg) => ({
-        projectId,
-        sessionId,
-        title: this.extractTitle(msg.content),
-        description:
-          msg.content.length > 1000
-            ? msg.content.substring(0, 1000) + "..."
-            : msg.content,
-        sourceMessageId: msg.id,
-        agentRole: msg.agentRole,
-        agentName: msg.agentName,
-        tags: [msg.messageType, msg.phase],
-      }));
+    // Prepare discussion content for AI analysis
+    const discussionContent = this.prepareDiscussionForAnalysis(discussion);
 
-    if (newIdeas.length === 0) return [];
+    // Use AI to extract refined ideas
+    const extractedIdeas = await this.aiExtractIdeas(discussionContent);
 
-    await this.prisma.researchIdea.createMany({ data: newIdeas });
+    if (extractedIdeas.length === 0) {
+      this.logger.warn(
+        `AI extraction produced no ideas for session ${sessionId}`,
+      );
+      return [];
+    }
+
+    // Save extracted ideas
+    const ideaData = extractedIdeas.map((idea) => ({
+      projectId,
+      sessionId,
+      title: idea.title,
+      description: idea.description,
+      agentRole: idea.sourceAgent || null,
+      agentName: idea.sourceAgent || null,
+      tags: idea.tags || [],
+    }));
+
+    await this.prisma.researchIdea.createMany({ data: ideaData });
     this.logger.log(
-      `Extracted ${newIdeas.length} ideas from session ${sessionId}`,
+      `AI extracted ${ideaData.length} refined ideas from session ${sessionId}`,
     );
 
     return this.prisma.researchIdea.findMany({
       where: { sessionId },
+      include: { demos: { select: { id: true, status: true } } },
       orderBy: { createdAt: "desc" },
     });
   }
 
-  private extractTitle(content: string): string {
-    // Try to extract first heading or first sentence
-    const headingMatch = content.match(/^#+\s+(.+)$/m);
-    if (headingMatch) return headingMatch[1].substring(0, 200);
+  /**
+   * Prepare discussion messages for AI analysis.
+   * Condenses messages into a structured summary for the AI to analyze.
+   */
+  private prepareDiscussionForAnalysis(
+    discussion: Array<{
+      agentRole: string;
+      agentName: string;
+      content: string;
+      phase: string;
+      messageType: string;
+    }>,
+  ): string {
+    // Group by phase for context
+    const phases = new Map<string, string[]>();
+    for (const msg of discussion) {
+      const phase = msg.phase || "unknown";
+      if (!phases.has(phase)) phases.set(phase, []);
+      // Truncate very long messages but keep enough context
+      const truncated =
+        msg.content.length > 2000
+          ? msg.content.substring(0, 2000) + "..."
+          : msg.content;
+      phases
+        .get(phase)!
+        .push(
+          `[${msg.agentName || msg.agentRole}] (${msg.messageType})\n${truncated}`,
+        );
+    }
 
-    const firstLine = content.split("\n")[0].trim();
-    if (firstLine.length <= 200) return firstLine;
-    return firstLine.substring(0, 197) + "...";
+    const parts: string[] = [];
+    for (const [phase, messages] of phases) {
+      parts.push(`## 阶段: ${phase}\n\n${messages.join("\n\n---\n\n")}`);
+    }
+
+    return parts.join("\n\n========\n\n");
+  }
+
+  /**
+   * Use AI to extract refined research ideas from discussion content.
+   */
+  private async aiExtractIdeas(discussionContent: string): Promise<
+    Array<{
+      title: string;
+      description: string;
+      sourceAgent: string;
+      tags: string[];
+    }>
+  > {
+    const systemPrompt = `你是一位专业的研究洞察分析师。你的任务是从多Agent研究讨论中提炼出具体的、有价值的研究创意和洞察。
+
+## 你需要做的
+分析讨论内容，提炼出 8-15 个高质量的研究创意。每个创意必须是：
+1. **具体且可操作的研究想法**（不是泛泛的讨论摘要）
+2. **有明确的研究方向**（可以作为后续深入研究的起点）
+3. **标题简洁有力**（15-40字，概括核心创意点）
+4. **描述精炼深入**（100-200字，说明创意的核心价值、可行性、预期影响）
+
+## 创意类型
+- **技术洞察**: 从技术分析中提炼的创新点或技术趋势判断
+- **市场机会**: 从市场分析中发现的未被充分认识的机会
+- **战略建议**: 从综合分析中提出的战略性建议
+- **风险预警**: 从批判性分析中识别的潜在风险或盲区
+- **研究方向**: 值得进一步深入研究的课题方向
+- **跨领域发现**: 从交叉验证中发现的跨领域关联
+
+## 输出格式
+只输出 JSON 数组，不要其他内容：
+\`\`\`json
+[
+  {
+    "title": "简洁有力的创意标题（15-40字）",
+    "description": "创意的核心价值和研究方向描述。说明这个创意为什么重要、核心论点是什么、可以如何深入研究。（100-200字）",
+    "sourceAgent": "提出核心观点的Agent名称",
+    "tags": ["类型标签", "领域标签"]
+  }
+]
+\`\`\`
+
+## 重要原则
+- 不要简单复制消息内容，要**提炼和升华**
+- 每个创意应该有独特的切入角度，避免重复
+- 标题不能是"各位同事"、"总监"等对话开头
+- 描述要有见地，不是信息罗列
+- 优先提炼有数据支撑、有争议性、或有创新视角的想法`;
+
+    const userPrompt = `请从以下研究团队讨论中提炼出高质量的研究创意：
+
+${discussionContent}`;
+
+    try {
+      const result = await this.aiFacade.chat({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        modelType: AIModelType.CHAT,
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "long",
+        },
+      });
+
+      const jsonStr = result.content.replace(/```json\s*|\s*```/g, "").trim();
+      const ideas = JSON.parse(jsonStr);
+
+      if (!Array.isArray(ideas)) {
+        this.logger.warn("AI extraction did not return an array");
+        return [];
+      }
+
+      // Validate and clean each idea
+      return ideas
+        .filter(
+          (idea: { title?: string; description?: string }) =>
+            idea.title &&
+            idea.description &&
+            idea.title.length >= 5 &&
+            idea.description.length >= 20,
+        )
+        .map(
+          (idea: {
+            title: string;
+            description: string;
+            sourceAgent?: string;
+            tags?: string[];
+          }) => ({
+            title: idea.title.substring(0, 200),
+            description: idea.description.substring(0, 2000),
+            sourceAgent: idea.sourceAgent || "",
+            tags: Array.isArray(idea.tags) ? idea.tags.slice(0, 5) : [],
+          }),
+        );
+    } catch (error) {
+      this.logger.error(`AI idea extraction failed: ${error}`);
+      return [];
+    }
   }
 }

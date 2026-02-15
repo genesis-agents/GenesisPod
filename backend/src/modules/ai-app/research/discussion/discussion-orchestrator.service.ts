@@ -919,69 +919,20 @@ ${crossCheck}
   }
 
   /**
-   * Auto-extract ideas from completed discussion messages.
-   * Runs inline using PrismaService to avoid circular module dependency.
+   * Auto-extract ideas stub.
+   * Real AI-powered extraction happens via ResearchIdeaService.extractFromSession()
+   * triggered by the frontend "提取创意" button or API endpoint.
+   * We don't extract here inline because:
+   * 1. No access to AIEngineFacade (circular module dependency)
+   * 2. Raw message copying produces low-quality "ideas" (just message text, not refined insights)
    */
   private async autoExtractIdeas(
-    projectId: string,
+    _projectId: string,
     sessionId: string,
-    messages: DiscussionMessage[],
+    _messages: DiscussionMessage[],
   ): Promise<void> {
-    const ideaMessageTypes = [
-      "idea",
-      "proposal",
-      "findings",
-      "synthesis",
-      "cross_check",
-    ];
-
-    const ideaMessages = messages.filter((msg) =>
-      ideaMessageTypes.includes(msg.messageType),
-    );
-
-    if (ideaMessages.length === 0) {
-      this.logger.debug(
-        `No idea-worthy messages found in session ${sessionId}`,
-      );
-      return;
-    }
-
-    // Check for existing ideas to avoid duplicates
-    const existingIdeas = await this.prisma.researchIdea.findMany({
-      where: { sessionId },
-      select: { sourceMessageId: true },
-    });
-    const existingIds = new Set(existingIdeas.map((i) => i.sourceMessageId));
-
-    const newIdeas = ideaMessages
-      .filter((msg) => !existingIds.has(msg.id))
-      .map((msg) => {
-        // Extract title: first heading or first line
-        const headingMatch = msg.content.match(/^#+\s+(.+)$/m);
-        const title = headingMatch
-          ? headingMatch[1].substring(0, 200)
-          : msg.content.split("\n")[0].trim().substring(0, 200) || "Untitled";
-
-        return {
-          projectId,
-          sessionId,
-          title,
-          description:
-            msg.content.length > 1000
-              ? msg.content.substring(0, 1000) + "..."
-              : msg.content,
-          sourceMessageId: msg.id,
-          agentRole: msg.agentRole,
-          agentName: msg.agentName,
-          tags: [msg.messageType, msg.phase],
-        };
-      });
-
-    if (newIdeas.length === 0) return;
-
-    await this.prisma.researchIdea.createMany({ data: newIdeas });
     this.logger.log(
-      `Auto-extracted ${newIdeas.length} ideas from session ${sessionId}`,
+      `Discussion ${sessionId} completed. Ideas available for AI extraction via API.`,
     );
   }
 }
