@@ -39,6 +39,8 @@ import {
 export class DiscussionOrchestratorService {
   private readonly logger = new Logger(DiscussionOrchestratorService.name);
   private readonly STAGE_TIMEOUT = 2 * 60 * 1000;
+  /** Synthesis involves multi-step report generation; needs a longer timeout */
+  private readonly SYNTHESIS_TIMEOUT = 8 * 60 * 1000;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -735,21 +737,27 @@ export class DiscussionOrchestratorService {
     allMessages.push(writeStartMsg);
     subject.next({ type: "discussion.message", data: writeStartMsg });
 
-    // 流式生成报告
+    // 流式生成报告（带超时保护，避免无限等待）
     this.emitTyping(subject, writer);
-    for await (const chunk of this.reportService.generateReportStream(
-      dto.query,
-      searchRounds,
-      { language: dto.options?.language },
-    )) {
-      subject.next({
-        type: "content.delta",
-        data: {
-          section: chunk.section,
-          delta: chunk.content,
-        },
-      });
-    }
+    await this.withTimeout(
+      (async () => {
+        for await (const chunk of this.reportService.generateReportStream(
+          dto.query,
+          searchRounds,
+          { language: dto.options?.language },
+        )) {
+          subject.next({
+            type: "content.delta",
+            data: {
+              section: chunk.section,
+              delta: chunk.content,
+            },
+          });
+        }
+      })(),
+      this.SYNTHESIS_TIMEOUT,
+      "Report streaming",
+    );
 
     // 生成完整报告
     const report = await this.withTimeout(
@@ -758,7 +766,7 @@ export class DiscussionOrchestratorService {
         isFollowUp: dto.isFollowUp,
         previousContext: dto.previousContext,
       }),
-      this.STAGE_TIMEOUT,
+      this.SYNTHESIS_TIMEOUT,
       "Report synthesis",
     );
 
