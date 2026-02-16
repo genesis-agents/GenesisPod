@@ -306,11 +306,12 @@ export class WysiwygRenderService implements OnModuleDestroy {
       : "";
 
     return `<!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${this.escapeHtml(metadata.title || "Export")}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     /* Reset for export rendering */
     *, *::before, *::after {
@@ -319,7 +320,7 @@ export class WysiwygRenderService implements OnModuleDestroy {
     body {
       margin: 0;
       padding: 20px;
-      font-family: 'Inter', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+      font-family: 'Inter', 'Microsoft YaHei', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }

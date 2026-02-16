@@ -45,13 +45,15 @@ const professionalReportTheme: ThemeConfig = {
   },
   fonts: {
     heading: {
-      family: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+      family:
+        "Inter, 'Microsoft YaHei', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif",
       size: 24,
       weight: 700,
       lineHeight: 1.3,
     },
     body: {
-      family: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+      family:
+        "Inter, 'Microsoft YaHei', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif",
       size: 14,
       weight: 400,
       lineHeight: 1.7,
@@ -134,13 +136,15 @@ const deepResearchTheme: ThemeConfig = {
   },
   fonts: {
     heading: {
-      family: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+      family:
+        "Inter, 'Microsoft YaHei', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif",
       size: 26,
       weight: 700,
       lineHeight: 1.25,
     },
     body: {
-      family: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+      family:
+        "Inter, 'Microsoft YaHei', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif",
       size: 14,
       weight: 400,
       lineHeight: 1.75,
