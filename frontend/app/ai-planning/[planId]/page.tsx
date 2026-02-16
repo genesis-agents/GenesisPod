@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Download, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -219,6 +219,29 @@ export default function PlanDetailPage() {
     setSelectedPhase(phase);
   };
 
+  // Build export scope options: "full" always available, "report" only when Phase 6 done
+  const exportScopeOptions = useMemo(() => {
+    if (!currentPlan) return [];
+    const hasReport =
+      currentPlan.phaseStatus[currentPlan.totalPhases]?.status === 'completed';
+    const options = [];
+    if (hasReport) {
+      options.push({
+        key: 'report',
+        label: t('aiPlanning.export.scopeReport'),
+        description: t('aiPlanning.export.scopeReportDesc'),
+        selector: "[data-export-content='planning']",
+      });
+    }
+    options.push({
+      key: 'full',
+      label: t('aiPlanning.export.scopeFull'),
+      description: t('aiPlanning.export.scopeFullDesc'),
+      selector: "[data-export-content='planning-full']",
+    });
+    return options;
+  }, [currentPlan, t]);
+
   // Determine if any phase is currently active
   const isAnyPhaseActive =
     currentPlan &&
@@ -291,8 +314,9 @@ export default function PlanDetailPage() {
               </div>
             )}
             {/* Export */}
-            {currentPlan.phaseStatus[currentPlan.totalPhases]?.status ===
-              'completed' && (
+            {Object.values(currentPlan.phaseStatus).some(
+              (s) => s.status === 'completed'
+            ) && (
               <button
                 onClick={handleExport}
                 className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-800"
@@ -430,6 +454,7 @@ export default function PlanDetailPage() {
         moduleType="planning"
         sourceId={planId}
         availableFormats={['PDF', 'DOCX', 'PPTX', 'HTML']}
+        contentScopeOptions={exportScopeOptions}
       />
 
       {/* Settings modal */}

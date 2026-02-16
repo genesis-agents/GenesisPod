@@ -1100,7 +1100,15 @@
       "copied": "已复制到剪贴板",
       "copyFailed": "复制失败",
       "copy": "复制",
-      "download": "下载"
+      "download": "下载",
+      "scopeReport": "仅最终报告",
+      "scopeReportDesc": "Phase 6 交付文档",
+      "scopeFull": "完整策划过程",
+      "scopeFullDesc": "所有阶段分析过程与产出",
+      "depth": "策划深度",
+      "exportDate": "导出日期",
+      "agents": "参与角色",
+      "referencesAppendix": "参考文献"
     },
     "error": {
       "createFailed": "创建策划失败",
@@ -6232,6 +6240,7 @@
     "exporting": "导出中...",
     "success": "导出完成",
     "captureFallback": "所见即所得截图失败，已切换为可编辑模式",
+    "scope": "导出范围",
     "formats": {
       "pdfDesc": "适合查看和打印",
       "docxDesc": "可编辑的 Word 文档",

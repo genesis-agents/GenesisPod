@@ -1488,24 +1488,74 @@ export class PlanningOrchestratorService {
 
   // ==================== Export & Delete ====================
 
-  async exportPlan(planId: string, userId: string): Promise<string> {
+  async exportPlan(
+    planId: string,
+    userId: string,
+    mode: "report" | "full" = "report",
+  ): Promise<string> {
     const plan = await this.getPlanDetail(planId, userId);
     const phases = plan.phaseStatus;
 
-    let markdown = `# ${plan.name}\n\n> ${plan.goal}\n\n---\n\n`;
+    if (mode === "report") {
+      // 仅导出 Phase 6 交付报告
+      const phase6 = phases[TOTAL_PHASES];
+      if (phase6?.status === "completed" && phase6.summary) {
+        return `# ${plan.name}\n\n> ${plan.goal}\n\n---\n\n${phase6.summary}`;
+      }
+      return `# ${plan.name}\n\n> ${plan.goal}\n\n_Report not yet available._`;
+    }
+
+    // full 模式：所有已完成阶段 + Agent 信息 + 参考文献
+    let markdown = `# ${plan.name}\n\n`;
+    markdown += `> **策划目标**: ${plan.goal}\n`;
+    markdown += `> **深度**: ${plan.depth || "STANDARD"}\n`;
+    markdown += `> **导出时间**: ${new Date().toISOString().split("T")[0]}\n\n`;
+    markdown += `---\n\n`;
 
     for (let i = 1; i <= TOTAL_PHASES; i++) {
       const status = phases[i];
-      const icon =
-        status?.status === "completed"
-          ? "[x]"
-          : status?.status === "active"
-            ? "[-]"
-            : "[ ]";
-      markdown += `## ${icon} Phase ${i}: ${PHASE_LABELS[i]}\n\n`;
-      markdown += status?.summary
-        ? `${status.summary}\n\n`
-        : `_No output yet_\n\n`;
+      if (status?.status !== "completed" || !status.summary) continue;
+
+      const agentIndices = PHASE_AGENT_INDICES[i] || [];
+      const agentNames = agentIndices
+        .map((idx) => plan.members?.[idx]?.displayName)
+        .filter(Boolean);
+
+      markdown += `## 阶段 ${i}: ${PHASE_LABELS[i]}\n\n`;
+      markdown += `**状态**: 已完成`;
+      if (status.completedAt) {
+        markdown += ` | **完成时间**: ${status.completedAt}`;
+      }
+      markdown += "\n";
+      if (agentNames.length > 0) {
+        markdown += `**参与 Agent**: ${agentNames.join(", ")}\n`;
+      }
+      markdown += "\n";
+      markdown += `${status.summary}\n\n---\n\n`;
+    }
+
+    // 参考文献
+    const refs = plan.references;
+    if (refs && refs.length > 0) {
+      markdown += `## 参考文献\n\n`;
+      refs.forEach(
+        (
+          ref: {
+            title?: string;
+            url?: string;
+            domain?: string;
+            sourceType?: string;
+            credibilityScore?: number;
+          },
+          idx: number,
+        ) => {
+          markdown += `[${idx + 1}] ${ref.title || "Untitled"}`;
+          if (ref.domain) markdown += ` — ${ref.domain}`;
+          if (ref.sourceType) markdown += ` (${ref.sourceType})`;
+          if (ref.url) markdown += ` ${ref.url}`;
+          markdown += "\n";
+        },
+      );
     }
 
     return markdown;

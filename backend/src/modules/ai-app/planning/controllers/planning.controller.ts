@@ -143,9 +143,15 @@ export class PlanningController {
   async exportPlan(
     @Request() req: RequestWithUser,
     @Param("planId") planId: string,
+    @Query("mode") mode: string,
     @Res() res: Response,
   ) {
-    const markdown = await this.orchestrator.exportPlan(planId, req.user.id);
+    const exportMode = mode === "full" ? "full" : "report";
+    const markdown = await this.orchestrator.exportPlan(
+      planId,
+      req.user.id,
+      exportMode,
+    );
     res.setHeader("Content-Type", "text/markdown; charset=utf-8");
     res.setHeader(
       "Content-Disposition",

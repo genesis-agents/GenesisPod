@@ -735,6 +735,15 @@ export function PlanContentPanel({
           </div>
         )}
 
+        {/* Hidden full export content: all completed phases for WYSIWYG capture */}
+        {completedCount > 0 && (
+          <div className="hidden">
+            <div data-export-content="planning-full">
+              <PlanFullExportRenderer plan={plan} />
+            </div>
+          </div>
+        )}
+
         {/* References Tab */}
         {activeTab === 'references' && (
           <PlanReferencesTab references={plan.references || []} />
@@ -1582,6 +1591,106 @@ function PlanReferencesTab({ references }: { references: PlanReference[] }) {
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Full export renderer: all completed phases for WYSIWYG capture */
+function PlanFullExportRenderer({ plan }: { plan: PlanDetail }) {
+  const { t } = useTranslation();
+  const references = plan.references || [];
+
+  return (
+    <div className="prose prose-sm max-w-none bg-white p-6">
+      {/* Cover */}
+      <div className="mb-8 border-b-2 border-gray-300 pb-6">
+        <h1 className="mb-2 text-2xl font-bold text-gray-900">{plan.name}</h1>
+        {plan.goal && (
+          <p className="mb-3 text-sm text-gray-600">
+            {t('aiPlanning.create.goal')}: {plan.goal}
+          </p>
+        )}
+        <div className="flex items-center gap-4 text-xs text-gray-500">
+          <span>
+            {t('aiPlanning.export.depth')}:{' '}
+            {t(`aiPlanning.depth.${plan.depth?.toLowerCase() || 'standard'}`)}
+          </span>
+          <span>
+            {t('aiPlanning.export.exportDate')}:{' '}
+            {new Date().toLocaleDateString()}
+          </span>
+        </div>
+      </div>
+
+      {/* Phase contents */}
+      {PLANNING_WORKFLOW_CONFIG.map((wf) => {
+        const status = plan.phaseStatus[wf.phase];
+        if (status?.status !== 'completed' || !status.summary) return null;
+
+        const phaseKey = PHASE_KEYS[wf.phase];
+        const agents = wf.agentKeys
+          .map((key) => {
+            const role = PLANNING_ROLES_CONFIG.find((r) => r.key === key);
+            return role ? t(`aiPlanning.roles.${role.nameKey}`) : null;
+          })
+          .filter(Boolean);
+
+        return (
+          <div key={wf.phase} className="mb-8">
+            {/* Phase title */}
+            <div className="mb-4 border-b border-gray-200 pb-2">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-green-500 text-xs font-bold text-white">
+                  {wf.phase}
+                </span>
+                {t(`aiPlanning.phases.${phaseKey}`)}
+              </h2>
+              <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+                <span>
+                  {t('aiPlanning.export.agents')}: {agents.join(', ')}
+                </span>
+                {status.completedAt && (
+                  <span>
+                    {t('aiPlanning.content.completedAt')}:{' '}
+                    {formatTime(status.completedAt)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Phase content */}
+            <PlanMarkdown content={status.summary} references={references} />
+          </div>
+        );
+      })}
+
+      {/* References appendix */}
+      {references.length > 0 && (
+        <div className="mt-8 border-t-2 border-gray-300 pt-6">
+          <h2 className="mb-4 text-lg font-bold text-gray-900">
+            {t('aiPlanning.export.referencesAppendix')}
+          </h2>
+          <div className="space-y-2">
+            {references.map((ref, idx) => (
+              <div key={ref.id} className="text-sm text-gray-700">
+                <span className="font-semibold text-gray-900">[{idx + 1}]</span>{' '}
+                {ref.title}
+                {ref.domain && (
+                  <span className="text-gray-500"> — {ref.domain}</span>
+                )}
+                {ref.sourceType && (
+                  <span className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">
+                    {ref.sourceType}
+                  </span>
+                )}
+                {ref.url && (
+                  <span className="ml-1 text-xs text-blue-600">{ref.url}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

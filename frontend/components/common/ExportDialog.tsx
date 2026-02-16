@@ -5,7 +5,7 @@
  * 支持 PDF/DOCX/PPTX/HTML 格式，WYSIWYG 和可编辑两种模式
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   FileText,
   FileSpreadsheet,
@@ -40,6 +40,13 @@ export type ExportModuleType =
   | 'teams'
   | 'insights';
 
+export interface ContentScopeOption {
+  key: string;
+  label: string;
+  description: string;
+  selector: string;
+}
+
 export interface ExportDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -48,6 +55,7 @@ export interface ExportDialogProps {
   moduleType: ExportModuleType;
   sourceId: string;
   availableFormats?: ExportFormat[];
+  contentScopeOptions?: ContentScopeOption[];
 }
 
 // ==================== Format config ====================
@@ -126,6 +134,7 @@ export function ExportDialog({
   moduleType,
   sourceId,
   availableFormats,
+  contentScopeOptions,
 }: ExportDialogProps) {
   const { t } = useTranslation();
   const { exportDocument, downloadExport, exportStatus, isExporting, reset } =
@@ -135,6 +144,9 @@ export function ExportDialog({
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('PDF');
   const [renderMode, setRenderMode] = useState<'wysiwyg' | 'editable'>(
     'wysiwyg'
+  );
+  const [selectedScope, setSelectedScope] = useState<string>(
+    contentScopeOptions?.[0]?.key || 'default'
   );
   const [options, setOptions] = useState<ExportOptions>({
     includeCover: true,
@@ -150,6 +162,15 @@ export function ExportDialog({
     (f) => !availableFormats || availableFormats.includes(f.key)
   );
 
+  // Compute effective selector based on scope selection
+  const effectiveSelector = useMemo(() => {
+    if (contentScopeOptions && contentScopeOptions.length > 0) {
+      const scope = contentScopeOptions.find((s) => s.key === selectedScope);
+      return scope?.selector || contentSelector;
+    }
+    return contentSelector;
+  }, [contentScopeOptions, selectedScope, contentSelector]);
+
   // Check if editable mode is available for selected format
   const selectedFormatConfig = formats.find((f) => f.key === selectedFormat);
   const canSelectEditable = selectedFormatConfig?.supportsEditable ?? false;
@@ -164,7 +185,7 @@ export function ExportDialog({
       reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only reset when config changes, not when status changes
-  }, [selectedFormat, renderMode, options]);
+  }, [selectedFormat, renderMode, options, selectedScope]);
 
   // Handle format change
   const handleFormatChange = useCallback((format: ExportFormat) => {
@@ -186,14 +207,17 @@ export function ExportDialog({
         // Check if the target element exists before attempting capture.
         // For example, AI Planning's data-export-content="planning" only exists
         // when the Report tab is active (or rendered via CSS hidden).
-        const targetElement = document.querySelector(contentSelector);
+        const targetElement = document.querySelector(effectiveSelector);
         if (targetElement) {
           try {
-            const captured = await HtmlCaptureService.capture(contentSelector, {
-              inlineStyles: true,
-              freezeCharts: true,
-              freezeMermaid: true,
-            });
+            const captured = await HtmlCaptureService.capture(
+              effectiveSelector,
+              {
+                inlineStyles: true,
+                freezeCharts: true,
+                freezeMermaid: true,
+              }
+            );
             wysiwygHtml = captured.html;
             wysiwygCss = captured.css;
           } catch (captureError) {
@@ -205,7 +229,7 @@ export function ExportDialog({
           }
         } else {
           logger.debug(
-            `WYSIWYG target element not found: ${contentSelector}, using editable mode`
+            `WYSIWYG target element not found: ${effectiveSelector}, using editable mode`
           );
         }
       }
@@ -235,7 +259,7 @@ export function ExportDialog({
     }
   }, [
     renderMode,
-    contentSelector,
+    effectiveSelector,
     moduleType,
     sourceId,
     options,
@@ -313,6 +337,45 @@ export function ExportDialog({
       }
     >
       <div className="space-y-5">
+        {/* Content Scope Selector (for planning module) */}
+        {contentScopeOptions && contentScopeOptions.length > 1 && (
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              {t('export.scope')}
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {contentScopeOptions.map((scope) => (
+                <button
+                  key={scope.key}
+                  onClick={() => setSelectedScope(scope.key)}
+                  disabled={isExporting}
+                  className={cn(
+                    'flex flex-col rounded-xl border-2 p-3 text-left transition-all',
+                    selectedScope === scope.key
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50',
+                    isExporting && 'opacity-50'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'text-sm font-medium',
+                      selectedScope === scope.key
+                        ? 'text-blue-700'
+                        : 'text-gray-700'
+                    )}
+                  >
+                    {scope.label}
+                  </span>
+                  <span className="mt-0.5 text-xs text-gray-500">
+                    {scope.description}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Format Selector */}
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-700">

@@ -1100,7 +1100,15 @@
       "copied": "Copied to clipboard",
       "copyFailed": "Copy failed",
       "copy": "Copy",
-      "download": "Download"
+      "download": "Download",
+      "scopeReport": "Final Report Only",
+      "scopeReportDesc": "Phase 6 delivery document",
+      "scopeFull": "Full Planning Process",
+      "scopeFullDesc": "All phase analysis and outputs",
+      "depth": "Planning Depth",
+      "exportDate": "Export Date",
+      "agents": "Participants",
+      "referencesAppendix": "References"
     },
     "error": {
       "createFailed": "Failed to create plan",
@@ -6232,6 +6240,7 @@
     "exporting": "Exporting...",
     "success": "Export completed",
     "captureFallback": "WYSIWYG capture failed, using editable mode",
+    "scope": "Export Scope",
     "formats": {
       "pdfDesc": "Best for viewing and printing",
       "docxDesc": "Editable Word document",
