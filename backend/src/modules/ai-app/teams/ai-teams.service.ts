@@ -150,12 +150,18 @@ export class AiTeamsService {
       },
       archivedAt: null,
       // Exclude planning topics — they share the same Topic table but belong to AI Planning module
-      NOT: {
-        metadata: {
-          path: ["planningMode"],
-          equals: true,
+      // Use OR to handle nullable metadata: include topics with null metadata OR metadata without planningMode=true
+      OR: [
+        { metadata: { equals: Prisma.DbNull } },
+        {
+          NOT: {
+            metadata: {
+              path: ["planningMode"],
+              equals: true,
+            },
+          },
         },
-      },
+      ],
     };
 
     if (options?.type) {
