@@ -104,7 +104,7 @@
     "myLibrary": "我的知识库",
     "aiInsights": "AI 洞察",
     "aiResearch": "AI 研究",
-    "aiTeams": "AI 团队",
+    "aiTeams": "AI 探讨",
     "myTeams": "AI 探讨",
     "aiPlanning": "AI 策划",
     "aiOffice": "AI 办公",
@@ -905,13 +905,13 @@
     }
   },
   "aiTeams": {
-    "title": "AI 团队",
+    "title": "AI 探讨",
     "subtitle": "多人多AI协作讨论社区",
-    "createTeam": "创建团队",
-    "newTeam": "新建团队",
-    "myTeams": "自建团队",
+    "createTeam": "创建探讨",
+    "newTeam": "新建探讨",
+    "myTeams": "我的探讨",
     "discover": "发现",
-    "teamMembers": "团队成员",
+    "teamMembers": "探讨成员",
     "missions": "任务",
     "startMission": "启动任务",
     "missionStatus": {
@@ -921,21 +921,21 @@
       "failed": "失败"
     },
     "search": {
-      "myTeams": "搜索自建团队...",
-      "publicTeams": "搜索公开团队..."
+      "myTeams": "搜索我的探讨...",
+      "publicTeams": "搜索公开探讨..."
     },
     "empty": {
-      "noTeams": "暂无团队",
-      "noTeamsDesc": "创建新团队或发现公开团队加入",
-      "discoverTeams": "发现团队",
-      "noPublicTeams": "暂无公开团队",
-      "noPublicTeamsDesc": "目前没有可用的公开团队。创建您自己的团队吧！"
+      "noTeams": "暂无探讨",
+      "noTeamsDesc": "创建新探讨或发现公开探讨加入",
+      "discoverTeams": "发现探讨",
+      "noPublicTeams": "暂无公开探讨",
+      "noPublicTeamsDesc": "目前没有可用的公开探讨。创建您自己的探讨吧！"
     },
     "create": {
-      "title": "创建新团队",
-      "name": "团队名称",
+      "title": "创建新探讨",
+      "name": "探讨名称",
       "namePlaceholder": "例如：技术讨论、周会",
-      "nameRequired": "团队名称 *",
+      "nameRequired": "探讨名称 *",
       "description": "描述",
       "descriptionPlaceholder": "这个团队是关于什么的？",
       "tags": "标签",
@@ -944,16 +944,16 @@
       "add": "添加",
       "cancel": "取消",
       "creating": "创建中...",
-      "createButton": "创建团队"
+      "createButton": "创建探讨"
     },
     "edit": {
-      "title": "编辑团队",
+      "title": "编辑探讨",
       "updating": "更新中...",
-      "updateButton": "更新团队"
+      "updateButton": "更新探讨"
     },
     "card": {
-      "editTeam": "编辑团队",
-      "deleteTeam": "删除团队",
+      "editTeam": "编辑探讨",
+      "deleteTeam": "删除探讨",
       "justNow": "刚刚",
       "mAgo": "{{count}}分钟前",
       "hAgo": "{{count}}小时前",
@@ -965,7 +965,7 @@
       "share": "分享到社交媒体"
     },
     "joinRequest": {
-      "title": "申请加入团队",
+      "title": "申请加入探讨",
       "members": "{{count}} 位成员",
       "aiMembers": "{{count}} 个AI",
       "messageLabel": "申请留言（可选）",
@@ -979,7 +979,7 @@
     "pendingRequests": {
       "title": "我的申请",
       "pending": "待审核",
-      "unknownTeam": "未知团队",
+      "unknownTeam": "未知探讨",
       "cancelRequest": "取消申请",
       "confirmCancel": "确定要取消此加入申请吗？",
       "cancelFailed": "取消申请失败"
@@ -994,9 +994,9 @@
       "applying": "申请中...",
       "applyToJoin": "申请加入"
     },
-    "confirmDelete": "确定要删除此团队吗？此操作无法撤销。",
-    "signInRequired": "请登录以访问 AI 团队",
-    "signInDesc": "创建并加入与 AI 助手协作的团队"
+    "confirmDelete": "确定要删除此探讨吗？此操作无法撤销。",
+    "signInRequired": "请登录以访问 AI 探讨",
+    "signInDesc": "创建并加入与 AI 助手协作的探讨"
   },
   "aiPlanning": {
     "title": "AI 策划",
@@ -2893,7 +2893,7 @@
     "tabs": {
       "dashboard": "仪表板",
       "aiModels": "AI 模型",
-      "aiTeams": "AI 团队",
+      "aiTeams": "AI 探讨",
       "capabilities": "功能管理",
       "externalApi": "外部 API",
       "secrets": "密钥管理",
@@ -2906,7 +2906,7 @@
     "tabDescriptions": {
       "dashboard": "系统概览和关键指标",
       "aiModels": "AI 模型配置",
-      "aiTeams": "AI 团队模板配置",
+      "aiTeams": "AI 探讨模板配置",
       "capabilities": "工具、技能和 MCP 管理",
       "externalApi": "搜索和第三方 API 配置",
       "secrets": "API 密钥和凭证管理",
@@ -4085,8 +4085,8 @@
       "imagesGenerated": "生成的图片",
       "recentActivity": "最近活动（30 天内）",
       "totalActivities": "过去 30 天的总活动数",
-      "aiTeamsCreated": "创建的 AI 团队",
-      "aiTeamsDesc": "您创建的 AI 团队主题"
+      "aiTeamsCreated": "创建的 AI 探讨",
+      "aiTeamsDesc": "您创建的 AI 探讨主题"
     },
     "integrations": {
       "notionIntegration": "Notion 集成",
@@ -4262,7 +4262,7 @@
     "modules": {
       "ai-ask": "AI 对话",
       "ai-studio": "深度研究",
-      "ai-teams": "AI 团队",
+      "ai-teams": "AI 探讨",
       "ai-office": "AI 办公",
       "ai-image": "AI 绘图",
       "ai-writing": "AI 写作"
