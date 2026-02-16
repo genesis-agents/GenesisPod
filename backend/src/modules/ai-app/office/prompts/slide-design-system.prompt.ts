@@ -174,34 +174,67 @@ Use these decorations thoughtfully - not every slide needs all of them. Cover pa
 
 Use these as building blocks. Adapt colors and content to match the theme.
 
-### KPI Card Row (3-4 cards in a row)
+### KPI Card Row (use EXACTLY 4 cards for data pages)
+For data/impact pages, always show exactly 4 KPI metrics in a row. Each card should have: big number + uppercase label + 1-line description.
 \`\`\`html
-<div style="display:flex;gap:24px;margin:24px 0;">
-  <div style="flex:1;background:#FFFFFF;border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid #00D2D3;">
-    <div style="font-size:36px;font-weight:800;color:#00D2D3;margin-bottom:4px;">40-60%</div>
-    <div style="font-size:12px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Time Reduction</div>
-    <div style="font-size:12px;color:#9CA3AF;line-height:1.4;">Decrease in clinical documentation time with AI scribes.</div>
+<div style="display:flex;gap:16px;margin:24px 0;">
+  <div style="flex:1;background:#FFFFFF;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid #00D2D3;">
+    <div style="font-size:32px;font-weight:800;color:#00D2D3;margin-bottom:4px;">40-60%</div>
+    <div style="font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Time Reduction</div>
+    <div style="font-size:11px;color:#9CA3AF;line-height:1.4;">Clinical documentation with AI scribes.</div>
   </div>
-  <!-- More cards... -->
+  <div style="flex:1;background:#FFFFFF;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid #00D2D3;">
+    <div style="font-size:32px;font-weight:800;color:#00D2D3;margin-bottom:4px;">5-15%</div>
+    <div style="font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Diagnostic Lift</div>
+    <div style="font-size:11px;color:#9CA3AF;line-height:1.4;">Improvement in accuracy with AI imaging.</div>
+  </div>
+  <div style="flex:1;background:#FFFFFF;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid #00D2D3;">
+    <div style="font-size:32px;font-weight:800;color:#00D2D3;margin-bottom:4px;">3-6 Mo.</div>
+    <div style="font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Accelerated</div>
+    <div style="font-size:11px;color:#9CA3AF;line-height:1.4;">Drug discovery lead-phase reduction.</div>
+  </div>
+  <div style="flex:1;background:#FFFFFF;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border-left:4px solid #00D2D3;">
+    <div style="font-size:32px;font-weight:800;color:#00D2D3;margin-bottom:4px;">High</div>
+    <div style="font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Satisfaction</div>
+    <div style="font-size:11px;color:#9CA3AF;line-height:1.4;">Patient experience improvement.</div>
+  </div>
 </div>
 \`\`\`
 
-### Vertical Icon List (left-aligned, with descriptions)
-This is excellent for listing 3-5 key points with icon emphasis:
+### Vertical Icon List (MUST use real Font Awesome icons, NOT colored dots)
+This is excellent for listing 3 key points. **CRITICAL: Each icon MUST be a real Font Awesome icon (e.g., fa-brain, fa-shield-alt), NOT a colored circle/dot.** Use DIFFERENT background colors for each icon circle to add visual variety.
 \`\`\`html
-<div style="display:flex;flex-direction:column;gap:20px;margin:16px 0;">
+<div style="display:flex;flex-direction:column;gap:22px;margin:16px 0;">
   <div style="display:flex;align-items:flex-start;gap:16px;">
-    <div style="width:40px;height:40px;border-radius:50%;background:#E0F7FA;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <i class="fas fa-brain" style="font-size:18px;color:#00D2D3;"></i>
+    <div style="width:44px;height:44px;border-radius:50%;background:#E0F7FA;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <i class="fas fa-brain" style="font-size:20px;color:#00B4D8;"></i>
     </div>
     <div>
-      <div style="font-size:15px;font-weight:700;color:#001F3F;margin-bottom:4px;">At-Scale Adoption</div>
-      <div style="font-size:13px;color:#6B7280;line-height:1.5;">Widespread integration for admin workflows and clinical support, moving beyond isolated pilots.</div>
+      <div style="font-size:15px;font-weight:700;color:#001F3F;margin-bottom:3px;">At-Scale Adoption</div>
+      <div style="font-size:13px;color:#6B7280;line-height:1.5;">Moving beyond pilots to widespread clinical deployment.</div>
     </div>
   </div>
-  <!-- More items... -->
+  <div style="display:flex;align-items:flex-start;gap:16px;">
+    <div style="width:44px;height:44px;border-radius:50%;background:#FEE2E2;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <i class="fas fa-shield-alt" style="font-size:20px;color:#EF4444;"></i>
+    </div>
+    <div>
+      <div style="font-size:15px;font-weight:700;color:#001F3F;margin-bottom:3px;">Embedded Safety</div>
+      <div style="font-size:13px;color:#6B7280;line-height:1.5;">Governance frameworks ensuring responsible use.</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:flex-start;gap:16px;">
+    <div style="width:44px;height:44px;border-radius:50%;background:#DCFCE7;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <i class="fas fa-chart-line" style="font-size:20px;color:#16A34A;"></i>
+    </div>
+    <div>
+      <div style="font-size:15px;font-weight:700;color:#001F3F;margin-bottom:3px;">Value Orientation</div>
+      <div style="font-size:13px;color:#6B7280;line-height:1.5;">ROI-focused deployment with measurable outcomes.</div>
+    </div>
+  </div>
 </div>
 \`\`\`
+**Icon color variety is MANDATORY**: Use at least 3 different icon background colors (e.g., light blue #E0F7FA, light red #FEE2E2, light green #DCFCE7, light purple #EDE9FE, light orange #FFF7ED). NEVER use the same color for all icons.
 
 ### Horizontal Icon Feature Grid (centered, for overview pages)
 \`\`\`html
@@ -363,7 +396,7 @@ Excellent for showing two contrasting categories (e.g., Performance vs Requireme
 
 ## Page Type Guidelines
 
-### Cover Page
+### Cover Page (KEEP IT SIMPLE — like a book cover, not a dashboard)
 - Full dark background (#0F172A or #1A1A2E)
 - If an image URL is provided, use it as background: \`background: linear-gradient(rgba(15,23,42,0.65), rgba(15,23,42,0.8)), url('IMAGE_URL') center/cover;\`
 - **Topic brand tag** in top-right corner (see Decorative Elements)
@@ -376,6 +409,7 @@ Excellent for showing two contrasting categories (e.g., Performance vs Requireme
     <span style="display:flex;align-items:center;gap:6px;"><i class="fas fa-building" style="font-size:10px;color:ACCENT;"></i> Event or Company</span>
   </div>\`
 - Decorative accent squares in corners
+- **DO NOT** add KPI cards, data panels, or complex layouts to the cover. The cover should have: title + subtitle + info bar + brand tag. That's it. Keep it elegant and spacious.
 
 ### Overview / TOC Page
 - Light background
@@ -388,14 +422,17 @@ Excellent for showing two contrasting categories (e.g., Performance vs Requireme
 - **Top accent gradient bar** (4px, see Decorative Elements)
 - Title at top-left: 32-36px bold, with subtitle separated by "|" in lighter weight
 - **Section divider line** below title (60px wide accent bar)
-- Content area: use component combinations. **Best layouts (pick ONE per slide):**
-  - **Layout A (PREFERRED)** — Two-column: Left side = callout quote box + 3 vertical icon list items / Right side = SVG donut chart in white card. This is the BEST layout for content pages with statistics. Use it whenever data percentages are mentioned.
-  - **Layout B** — 2x2 card grid with image headers. MAX 4 cards. Each card has image (110px height) + bold title + 2 short bullets.
-  - **Layout C** — KPI card row (3 cards, not 4) at top + dual-section colored panels below (blue panel left + orange panel right)
-  - **Layout D** — Two-column: text left (callout + 3 icon items) + large image right (at least 45% width)
+- Content area: use component combinations. **Pick ONE layout per slide, and use a DIFFERENT layout for each slide in the deck:**
+  - **Layout A** — Two-column: Left side = callout quote box + 3 vertical icon list items (with REAL FA icons in multi-colored circles) / Right side = SVG donut chart in white card. Best for overview pages with statistics.
+  - **Layout B** — 2x2 card grid with image headers. EXACTLY 4 cards. Each card has real photo image (110px height) + bold title + 2-3 short bullets. Best for "applications" or "features" pages.
+  - **Layout C** — 4 KPI cards in a row at top + dual-section colored panels below (blue panel left + orange/coral panel right with 2x2 sub-grid). Best for data/impact pages.
+  - **Layout D** — Two-column: text left (callout + 3 icon items) + large image right (at least 45% width). Best for "how it works" pages.
+- **LAYOUT VARIETY IS MANDATORY**: If generating multiple slides, NEVER repeat the same layout. Each slide must use a different layout pattern (A/B/C/D).
 - **NEVER** use 5-column card grids. Max 4 cards in a row.
-- Keep **3 key points maximum** per icon list. Never exceed 4.
+- Keep **3 key points maximum** per icon list.
 - At least ONE content page MUST use an SVG donut chart (Layout A).
+- At least ONE content page MUST use a 2x2 card grid with real photos (Layout B).
+- At least ONE content page MUST use 4 KPI cards + dual panels (Layout C).
 - Use icons (Font Awesome) to add visual interest. Every bullet should have an icon.
 - Images should have border-radius: 12px and object-fit: cover
 - **Generous padding**: 50-60px on sides, 24-32px between sections, 16-20px within cards
@@ -446,6 +483,10 @@ Choose icons that match the content topic. Here are common mappings:
 13. **Card grid: MAX 2 columns (2x2 grid)**. NEVER use 3+ column grids for text-heavy cards.
 14. **30-40% white space**. If the slide looks dense, remove content rather than shrinking fonts.
 15. When images are available, use them as **card header images** (with border-radius and object-fit:cover), NOT as small thumbnails in bottom panels.
+16. **Font Awesome icons are MANDATORY** in icon lists. Use REAL icons (fa-brain, fa-shield-alt, fa-chart-line, etc.) inside colored circles. NEVER use plain colored dots (●) as icon substitutes.
+17. **Multi-color icon circles**: Each icon in a list must have a DIFFERENT background color (light blue, light red, light green, light purple, etc.). Monotone icons look cheap.
+18. **Layout variety**: In a 5-slide deck, use at least 3 different layout patterns. No two content pages should look the same.
+19. **Cover page must be CLEAN**: Only title + subtitle + brand tag + bottom info bar. No KPI panels, no data cards, no complex layouts on the cover.
 
 ## Output Format
 
@@ -562,10 +603,22 @@ export function buildSlideHtmlUserPrompt(params: {
     `\n## CRITICAL: Title Rules\n- Title MUST be ≤8 Chinese characters or ≤5 English words. If the suggested title "${pageOutline.title}" is too long, SHORTEN it and move extra words to the subtitle after "|".`,
   );
 
-  // Visual requirement
+  // Layout assignment and visual requirement per slide position
   if (slideIndex > 0 && slideIndex < totalSlides - 1) {
+    const contentIndex = slideIndex - 1; // 0-based content page index
+    const layouts = ["A", "B", "C", "D"];
+    const assignedLayout = layouts[contentIndex % layouts.length];
+    const layoutDescriptions: Record<string, string> = {
+      A: "Layout A: Two-column with callout box + 3 icon list items (with REAL Font Awesome icons in multi-colored circles) on the left, SVG donut chart on the right.",
+      B: "Layout B: 2x2 card grid with real photo image headers (110px height each). Each card needs: photo + bold title + 2-3 bullet points.",
+      C: "Layout C: 4 KPI metric cards in a row at top (big numbers), then dual-section colored panels below (blue left + orange right).",
+      D: "Layout D: Two-column with callout + 3 icon list items on the left, large image on the right (45%+ width).",
+    };
     sections.push(
-      `\n## Visual Requirement\nThis is a content page. It MUST have a substantial visual element (SVG donut chart, image, or colored panels) covering at least 30% of the slide. Do NOT make a text-only slide.`,
+      `\n## MANDATORY Layout Assignment\nUse ${layoutDescriptions[assignedLayout]}\nDo NOT use a different layout. Each slide in this deck has a unique layout to maximize visual variety.`,
+    );
+    sections.push(
+      `\n## Visual Requirement\nThis is a content page. It MUST have a substantial visual element covering at least 30% of the slide. Do NOT make a text-only slide.`,
     );
   }
 
