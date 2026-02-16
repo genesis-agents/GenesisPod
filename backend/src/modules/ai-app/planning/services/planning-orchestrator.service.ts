@@ -13,6 +13,8 @@ import { UpdatePlanDto } from "../dto/update-plan.dto";
 import { Prisma, TopicType, AIModelType } from "@prisma/client";
 import { AIEngineFacade } from "../../../ai-engine/facade";
 import type { ChatMessage, TaskProfile } from "../../../ai-engine/facade";
+import { ReflectionService } from "../../../ai-engine/orchestration/services/reflection.service";
+import { ContextCompressionService } from "../../../ai-engine/orchestration/services/context-compression.service";
 
 export interface PlanPhaseStatus {
   status: "pending" | "active" | "completed" | "skipped" | "failed";
@@ -36,6 +38,12 @@ export interface PlanReference {
   sourcePhase: number;
 }
 
+export interface VerifiedDataPoint {
+  claim: string;
+  sourceRef: string;
+  confidence: "high" | "medium" | "low";
+}
+
 export interface PlanningTopicMetadata {
   planningMode: true;
   templateId: string;
@@ -47,6 +55,7 @@ export interface PlanningTopicMetadata {
     autoAdvance: boolean;
   };
   references?: PlanReference[];
+  verifiedDataPoints?: VerifiedDataPoint[];
 }
 
 export interface PlanSummary {
@@ -130,6 +139,8 @@ export class PlanningOrchestratorService {
     private readonly aiResponseService: AiResponseService,
     private readonly templateService: PlanningTemplateService,
     private readonly aiFacade: AIEngineFacade,
+    private readonly reflectionService: ReflectionService,
+    private readonly contextCompression: ContextCompressionService,
   ) {}
 
   // ==================== Plan CRUD ====================
@@ -651,7 +662,7 @@ export class PlanningOrchestratorService {
       }
 
       // 3. Build context from previous phases
-      const previousContext = this.buildPreviousPhaseContext(meta, phase);
+      const previousContext = await this.buildPreviousPhaseContext(meta, phase);
 
       // 4. Get AI members for this phase
       const agentIndices = PHASE_AGENT_INDICES[phase] || [0];
@@ -784,12 +795,96 @@ export class PlanningOrchestratorService {
       // 7. Build phase summary and mark completed
       // - Phase 5, 6 (refinement): only the final agent's polished output
       // - Phase 1-4 (chain collaboration / debate): concatenate all with agent name headers
-      const summary =
+      let summary =
         phase >= 5
           ? completedResults[completedResults.length - 1].output
           : completedResults
               .map((r) => `### ${r.agentName}\n\n${r.output}`)
               .join("\n\n---\n\n");
+
+      // 7a. Phase 2 post-processing: extract verified data points
+      if (phase === 2) {
+        await this.extractVerifiedDataPoints(planId, summary);
+      }
+
+      // 7b. Quality gate (STANDARD and COMPREHENSIVE only)
+      if (meta.planConfig.depth !== PlanningDepth.QUICK) {
+        const qualityDimensions = this.getQualityDimensions(phase);
+        const reflection = await this.reflectionService.reflect(
+          {
+            objective: `Phase ${phase} (${PHASE_LABELS[phase]}): ${meta.planConfig.goal}`,
+            progressSummary: summary.substring(0, 8000),
+            currentRound: 1,
+            maxRounds: 2,
+            evaluationDimensions: qualityDimensions,
+          },
+          { modelType: AIModelType.CHAT_FAST, completionThreshold: 60 },
+        );
+
+        this.logger.log(
+          `Quality gate for phase ${phase}: score=${reflection.qualityScore}, gaps=${reflection.gaps.length}`,
+        );
+
+        if (reflection.qualityScore < 50 && reflection.gaps.length > 0) {
+          // Retry with the last agent using quality feedback
+          const lastAgent = agents[agents.length - 1];
+          const retryPrompt = `质量评审反馈（评分：${reflection.qualityScore}/100）：\n${reflection.gaps.map((g) => `- ${g}`).join("\n")}\n\n请针对以上问题修正你的输出。保持原有结构，重点修正评审指出的问题。\n\n---\n\n你之前的输出：\n\n${completedResults[completedResults.length - 1].output}`;
+
+          const retryMessages: ChatMessage[] = [
+            {
+              role: "system",
+              content:
+                lastAgent.systemPrompt || `你是${lastAgent.displayName}。`,
+            },
+            { role: "user", content: retryPrompt },
+          ];
+
+          const retryResponse = await this.aiFacade.chat({
+            messages: retryMessages,
+            modelType: AIModelType.CHAT,
+            taskProfile: this.getTaskProfileForPhase(
+              phase,
+              meta.planConfig.depth,
+            ),
+            model:
+              lastAgent.aiModel !== "default" ? lastAgent.aiModel : undefined,
+            billing: {
+              userId,
+              moduleType: "ai-planning",
+              operationType: `phase-${phase}-retry`,
+              referenceId: planId,
+            },
+          });
+
+          if (!retryResponse.isError) {
+            // Save retry response as message
+            await this.aiResponseService.createAIMessage(
+              planId,
+              lastAgent.id,
+              retryResponse.content,
+              retryResponse.model,
+              retryResponse.tokensUsed,
+            );
+
+            // Replace summary with improved output
+            if (phase >= 5) {
+              summary = retryResponse.content;
+            } else {
+              // Replace the last agent's output
+              completedResults[completedResults.length - 1].output =
+                retryResponse.content;
+              summary = completedResults
+                .map((r) => `### ${r.agentName}\n\n${r.output}`)
+                .join("\n\n---\n\n");
+            }
+
+            this.logger.log(
+              `Quality gate retry completed for phase ${phase}, plan ${planId}`,
+            );
+          }
+        }
+      }
+
       await this.updatePhaseStatus(planId, phase, {
         status: "completed",
         summary,
@@ -880,10 +975,10 @@ export class PlanningOrchestratorService {
    * For other phases: include all previous phases, each capped at
    * MAX_PHASE_SUMMARY_LENGTH to prevent token overflow.
    */
-  private buildPreviousPhaseContext(
+  private async buildPreviousPhaseContext(
     meta: PlanningTopicMetadata,
     currentPhase: number,
-  ): string {
+  ): Promise<string> {
     const contextParts: string[] = [];
 
     // Phase 6 (Delivery): see Phase 2 (research data) + Phase 4 (debate conclusions)
@@ -902,9 +997,20 @@ export class PlanningOrchestratorService {
       if (phaseStatus?.status === "completed" && phaseStatus.summary) {
         let summary = phaseStatus.summary;
         if (summary.length > perPhaseLimit) {
-          summary =
-            summary.slice(0, perPhaseLimit) +
-            "\n\n...(内容过长，已截断，请基于以上内容完成本阶段任务)";
+          try {
+            const result = await this.contextCompression.compress(summary, {
+              targetSize: perPhaseLimit,
+              summaryStyle: i === 2 ? "analytical" : "detailed",
+            });
+            summary = result.compressedContext;
+          } catch (err) {
+            this.logger.warn(
+              `Context compression failed for phase ${i}, falling back to truncation: ${err instanceof Error ? err.message : err}`,
+            );
+            summary =
+              summary.slice(0, perPhaseLimit) +
+              "\n\n...(内容过长，已截断，请基于以上内容完成本阶段任务)";
+          }
         }
         contextParts.push(
           `## 阶段 ${i} — ${PHASE_LABELS[i]} (已完成)\n\n${summary}`,
@@ -1082,98 +1188,95 @@ export class PlanningOrchestratorService {
 （核心结论和推荐方案，2-3段即可）
 
 ## 关键发现
-（从调研和分析中提炼的最重要洞察，列出5-8条）
+（从调研和分析中提炼的最重要洞察，列出5-8条，每条必须引用调研来源 [编号]）
 
 ## 推荐方案
 （详细描述推荐的行动方案，包括具体策略和实施路径）
 
 ## 风险评估
-（主要风险及缓解措施）
+（主要风险及缓解措施，基于辩论阶段暴露的实际问题）
 
-请使用 [编号] 格式引用调研阶段的参考资料（如 [1]、[2]），增强方案的可信度。`,
-      6: `请将综合方案转化为可直接提交决策层的最终策划文档。这是一份正式的战略规划文档，需达到专业咨询公司（麦肯锡/BCG）级别的质量标准。
+## 本方案的关键假设
+（列出方案成立所依赖的假设条件）
 
-⚠️ **绝对禁止事项（违反任何一条即为不合格文档）**：
-- 禁止出现任何占位符：[Your Name]、[公司名]、[填写]、（待定）、TBD、XXX、N/A
-- 禁止出现模板提示语：如"具体填写"、"请在此填入"、"根据实际情况"
-- 禁止使用模糊表述：如"显著提升"、"大幅增长"、"尽快完成"、"适当调整"
-- 所有责任人必须使用具体的角色职位名称（如"市场部负责人"、"技术总监"、"项目经理"），不得使用 [Your Name] 等占位符
-- 所有时间节点必须写明具体日期或时段（如"2026年Q2"、"第3-4周"），不得留空
-- 所有数据必须给出合理的具体数值（基于行业常识和调研数据进行专业推算）
+## 需要进一步验证的问题
+（列出当前数据不足、需要实地验证或深入调研的问题）
 
-请严格按以下10个章节结构输出完整文档：
+### 综合核心要求
+
+**证据追溯（最高优先级）**：
+- 每个"关键发现"必须引用调研阶段的具体来源 [编号]
+- 每个"推荐方案"必须说明它来自哪个阶段的哪个结论
+- 如果推荐无法追溯到前序证据，标注为"假设性建议，需验证"
+
+**诚实性要求**：
+- 数据不足的维度明确写："调研数据有限，以下为初步判断"
+- 不要把辩论中被否定的方向当推荐方案
+- 不要把低可信度信息当确定事实
+- 不要编造调研阶段没有的数据`,
+      6: `请将综合方案转化为可提交决策层的策划文档。
+
+## 文档质量标准（严格按优先级排序）
+
+### 第一优先：内容真实性
+- 来自调研的数据：使用并标注 [编号]
+- 可从调研数据推算的数据：使用并标注"推算，基于 [编号]"
+- 无数据支撑的指标：标注 [需补充实际数据]
+- 绝对禁止凭空编造具体数值
+
+### 第二优先：逻辑链完整
+- 每个推荐行动必须可追溯到调研发现或辩论结论
+- 无法追溯的建议标注为"假设性建议"
+- 风险评估基于辩论阶段暴露的实际问题
+
+### 第三优先：可操作性
+- 行动计划颗粒度到"第一步做什么"
+- 时间表标注为"建议时间，需根据实际资源调整"
+- 预算标注为"量级估算"
+- 所有责任人使用角色职位名称（如"市场部负责人"、"技术总监"）
+
+### 第四优先：文档结构
+按需使用以下章节（只写有实质内容的，不强制所有章节都出现）：
 
 ## 执行摘要
-使用金字塔原理（结论先行）撰写。必须包含：
-- **项目背景**（1-2句话概述为什么需要这个策划）
-- **核心策略**（推荐方案的一句话概括）
-- **预期量化成果**（具体数字，如"预计6个月内用户增长30%"、"年营收提升500万"）
-- **资源投入概估**（如"需要5人核心团队，预算约50万"）
-- **推荐行动**（立即应执行的前3项优先事项，每项含责任角色和完成时限）
+- 项目背景（1-2句话）
+- 核心策略（推荐方案一句话概括）
+- 预期成果（基于调研数据的合理预期，标注数据来源）
+- 推荐的前3项优先行动
 
 ## 背景与现状分析
-- 问题或机遇的详细描述，量化当前痛点（数据支撑）
-- 市场环境与行业趋势分析（引用调研数据 [编号]）
-- 竞争格局概述（如适用），列出关键竞争者和差异化点
-- 使用 SWOT 分析框架总结（用简洁的表格呈现）
+- 引用调研数据 [编号] 描述市场环境和行业趋势
+- 竞争格局概述（如有调研数据支撑）
 
 ## 战略方案
-核心策略与子策略的完整分解。使用 Markdown 表格呈现策略矩阵（至少3-5行具体策略）：
-
-| 策略方向 | 具体措施 | 目标成果 | 负责方 | 优先级 |
-|---------|---------|---------|--------|--------|
-
-表格后需对每个核心策略补充1-2段说明，解释选择理由和预期效果。
+| 策略方向 | 具体措施 | 目标成果 | 负责方 | 优先级 | 数据依据 |
+|---------|---------|---------|--------|--------|---------|
 
 ## 详细行动计划
-将策略转化为可执行的具体行动步骤（至少8-12个行动项）：
-
-| 序号 | 行动项 | 负责人/团队 | 开始时间 | 完成时间 | 交付物 | 依赖关系 |
-|-----|--------|-----------|---------|---------|--------|---------|
-
-## 执行时间表
-分阶段的实施路线图（至少3个阶段），标注关键里程碑：
-
-| 阶段 | 时间范围 | 关键里程碑 | 主要交付物 | 负责方 |
-|-----|---------|-----------|-----------|--------|
-
-## 资源与预算
-按类别详细列出所需资源（每类至少2-3个具体项目）：
-
-| 资源类别 | 具体项目 | 数量/规格 | 预估费用 | 备注 |
-|---------|---------|----------|---------|------|
-
-末尾附资源总计和预算汇总。
-
-## 关键绩效指标（KPI）
-所有指标必须符合 SMART 标准（至少5-8个KPI）：
-
-| 指标名称 | 当前基线 | 目标值 | 衡量方式 | 考核周期 |
-|---------|---------|--------|---------|---------|
+| 序号 | 行动项 | 负责人/团队 | 建议时间 | 交付物 |
+|-----|--------|-----------|---------|--------|
 
 ## 风险管理
-风险登记册（至少识别5个风险），使用概率×影响矩阵评估：
+基于辩论阶段暴露的实际问题：
+| 风险描述 | 概率 | 影响程度 | 缓解措施 | 来源 |
+|---------|------|---------|---------|------|
 
-| 风险描述 | 概率 | 影响程度 | 风险等级 | 缓解措施 | 应急预案 | 责任人 |
-|---------|------|---------|---------|---------|---------|--------|
+（有数据支撑时可添加：KPI框架、资源预算、治理机制。各章节篇幅与可用证据成正比——证据充分详写，不足简写并标注）
 
-## 治理与评审机制
-- **评审节奏**：明确的评审频率、参与人员和形式（如"每两周一次项目进度会，由项目经理主持"）
-- **决策升级**：分层级的问题升级路径（日常问题→项目经理，重大风险→管理委员会）
-- **干系人沟通**：沟通矩阵（干系人、沟通内容、频率、渠道、责任人）
+## 数据可信度声明
+文档末尾必须包含：
+- **已验证数据**：列出引用编号和来源
+- **推算数据**：列出推算依据
+- **待补充数据**：列出具体缺口
 
 ## 参考文献
 仅列出正文中实际引用的参考来源，格式：[编号] 标题 — URL
 
----
-**输出质量检查清单**：
-1. ✅ 全文无任何占位符或模板提示语（搜索 [Your Name]、TBD、待定、具体填写 应返回零结果）
-2. ✅ 所有表格行都填入了与主题直接相关的具体内容，无空白单元格
-3. ✅ 所有数据指标都是具体数值（百分比、金额、人数、时间节点）
-4. ✅ 所有责任人都使用了具体角色名称（部门+职位）
-5. ✅ 正文中使用 [编号] 格式引用了调研参考资料
-6. ✅ 文档语言专业严谨，适合C-level高管审阅
-7. ✅ 运用 MECE 原则确保分析全面无遗漏`,
+⚠️ **禁止事项**：
+- 禁止占位符 [Your Name]、TBD、待定
+- 禁止"基于行业常识推算"出精确数字——没有来源的数字标注 [需补充实际数据]
+- 禁止编造参考文献
+- 禁止出现模板提示语（如"具体填写"、"请在此填入"）`,
     };
 
     let prompt = `# 策划任务: ${planName}\n\n`;
@@ -1198,6 +1301,17 @@ export class PlanningOrchestratorService {
         )
         .join("\n");
       prompt += `---\n\n## 可引用的参考资料\n\n以下是调研阶段收集的参考资料，请在正文中使用 [编号] 格式引用（如 [1]、[2]）：\n\n${refList}\n\n---\n\n`;
+    }
+
+    // Inject verified data points for Phase 5/6
+    if (phase >= 5 && meta.verifiedDataPoints?.length) {
+      const dataPointsList = meta.verifiedDataPoints
+        .map(
+          (dp, i) =>
+            `${i + 1}. ${dp.claim} — 来源: ${dp.sourceRef}, 可信度: ${dp.confidence}`,
+        )
+        .join("\n");
+      prompt += `---\n\n## 已验证数据点（调研阶段确认）\n\n以下数据经调研验证，可在文档中直接使用：\n${dataPointsList}\n\n⚠️ 文档中使用的数据必须来自上述清单，或明确标注为"推算/估算"。\n\n---\n\n`;
     }
 
     if (previousContext) {
@@ -1252,6 +1366,17 @@ export class PlanningOrchestratorService {
       prompt += `---\n\n## 可引用的参考资料\n\n以下是调研阶段收集的参考资料，请在正文中使用 [编号] 格式引用：\n\n${refList}\n\n`;
     }
 
+    // Inject verified data points
+    if (meta.verifiedDataPoints?.length) {
+      const dataPointsList = meta.verifiedDataPoints
+        .map(
+          (dp, i) =>
+            `${i + 1}. ${dp.claim} — 来源: ${dp.sourceRef}, 可信度: ${dp.confidence}`,
+        )
+        .join("\n");
+      prompt += `---\n\n## 已验证数据点\n\n以下数据经调研验证，可直接使用：\n${dataPointsList}\n\n`;
+    }
+
     // Inject previous phase context so the agent can reference research data and debate conclusions
     if (previousContext) {
       prompt += `---\n\n${previousContext}\n\n`;
@@ -1282,31 +1407,24 @@ export class PlanningOrchestratorService {
     prompt += `**当前日期**: ${currentDate}\n\n`;
     prompt += `**策划目标**: ${goal}\n\n`;
     prompt += `**你的角色**: ${agentName} — ${agentRole}\n\n`;
-    prompt += `**任务指令**: 以下是策划总监撰写的策划文档初稿。请以资深商业文档专家的视角进行全面审查和优化，使其成为一份可直接提交C-level决策层的正式交付文档。\n\n`;
-    prompt += `**⚠️ 最高优先级：消除所有占位符和模糊表述**\n`;
-    prompt += `逐字扫描全文，发现以下内容必须替换为具体内容：\n`;
-    prompt += `- [Your Name]、[公司名]、[填写]、（待定）、TBD、XXX、N/A → 替换为具体角色名称或数据\n`;
-    prompt += `- "显著提升"、"大幅增长"、"适当调整" → 替换为"提升25%"、"增长200万"等具体数值\n`;
-    prompt += `- "尽快完成"、"近期启动" → 替换为"2026年Q2前完成"等具体时间\n`;
-    prompt += `- 空白表格单元格 → 必须填入与主题相关的具体内容\n\n`;
-    prompt += `**一、内容质量审查（必须逐项检查并修正）**：\n`;
-    prompt += `- 所有表格是否包含具体、有意义的数据（发现空白、占位符必须补充具体内容）\n`;
-    prompt += `- 所有责任人是否使用了具体角色名称（如"市场部负责人"、"技术总监"），而非占位符\n`;
-    prompt += `- KPI指标是否符合SMART标准（每个KPI都有具体基线值和目标数值）\n`;
-    prompt += `- 执行摘要是否包含量化的预期成果（具体百分比、金额、时间节点）\n`;
-    prompt += `- 风险矩阵是否完整（每个风险都必须有：概率、影响、缓解措施、应急预案、具体责任人角色）\n`;
-    prompt += `- 行动计划中每个步骤是否有明确的责任人角色和具体时间节点\n`;
-    prompt += `- 资源预算是否有具体的数量和费用估算数值\n\n`;
-    prompt += `**二、文档结构与逻辑**：\n`;
-    prompt += `- 保持原有章节结构不变，确保10个章节完整\n`;
-    prompt += `- 检查章节间的逻辑衔接和过渡是否自然\n`;
-    prompt += `- 确保战略方案→行动计划→时间表→KPI之间的一致性和可追溯性\n`;
-    prompt += `- 验证执行摘要准确反映文档核心内容\n\n`;
-    prompt += `**三、语言与格式**：\n`;
-    prompt += `- 优化语言表达，使其专业、严谨、简洁，适合高管审阅\n`;
+    prompt += `**任务指令**: 以下是策划总监撰写的策划文档初稿。你的审查任务（严格按优先级）：\n\n`;
+    prompt += `**一、数据真实性审查（最高优先级）**：\n`;
+    prompt += `- 逐个检查每个数字——有来源标注 [编号]？没有则标注 [需补充来源]\n`;
+    prompt += `- 检查推荐行动——能追溯到调研发现？不能则标注 [需补充依据]\n`;
+    prompt += `- 检查逻辑链——发现→洞察→策略→行动 是否连贯？\n\n`;
+    prompt += `**二、占位符消除**：\n`;
+    prompt += `- [Your Name]、[公司名]、TBD、待定 → 替换为具体角色名称\n`;
+    prompt += `- 空白表格单元格 → 必须填入具体内容\n`;
+    prompt += `- 模糊表述如"显著提升"→ 若有数据支撑则替换为具体数值并标注来源，否则保留定性描述\n\n`;
+    prompt += `**三、语言与格式优化**：\n`;
+    prompt += `- 优化语言表达，使其专业、严谨、简洁\n`;
     prompt += `- 确保数据引用 [编号] 准确保留\n`;
-    prompt += `- 统一全文术语和格式风格\n`;
-    prompt += `- 最终质检：搜索 "Your Name"、"TBD"、"待定"、"具体填写" 确保零结果\n\n`;
+    prompt += `- 确保"数据可信度声明"章节完整\n\n`;
+    prompt += `**严禁行为**：\n`;
+    prompt += `- 禁止把 [需补充] 标记替换为编造的数字\n`;
+    prompt += `- 禁止把定性描述替换为没来源的定量描述\n`;
+    prompt += `- 禁止删除"数据缺失"或"待确认"等诚实标注\n`;
+    prompt += `- 禁止添加原始分析中不存在的新数据\n\n`;
 
     // Inject reference list so the agent can verify citations
     if (meta.references?.length) {
@@ -1319,8 +1437,19 @@ export class PlanningOrchestratorService {
       prompt += `---\n\n## 可引用的参考资料\n\n${refList}\n\n`;
     }
 
-    prompt += `---\n\n## 待润色的初稿\n\n${previousDraft}\n\n---\n\n`;
-    prompt += `请输出完整的润色后文档（Markdown 格式），不要输出修改说明或对比，直接输出最终版本。`;
+    // Inject verified data points for quality checking
+    if (meta.verifiedDataPoints?.length) {
+      const dataPointsList = meta.verifiedDataPoints
+        .map(
+          (dp, i) =>
+            `${i + 1}. ${dp.claim} — 来源: ${dp.sourceRef}, 可信度: ${dp.confidence}`,
+        )
+        .join("\n");
+      prompt += `---\n\n## 已验证数据点\n\n文档中使用的数据必须来自以下清单或标注为推算/估算：\n${dataPointsList}\n\n`;
+    }
+
+    prompt += `---\n\n## 待审查的初稿\n\n${previousDraft}\n\n---\n\n`;
+    prompt += `请输出完整的审查优化后文档（Markdown 格式），不要输出修改说明或对比，直接输出最终版本。`;
 
     return prompt;
   }
@@ -1422,7 +1551,7 @@ export class PlanningOrchestratorService {
         try {
           const searchResponse = await this.aiFacade.search({
             query,
-            maxResults: 5,
+            maxResults: 8,
           });
 
           if (searchResponse.success && searchResponse.results?.length > 0) {
@@ -1518,7 +1647,7 @@ export class PlanningOrchestratorService {
   ): Promise<string[]> {
     try {
       const currentYear = new Date().getFullYear();
-      const prompt = `You are a search query generator. Given a planning goal, generate exactly 4 targeted web search queries that cover different angles of the topic. Each query should be specific and actionable.
+      const prompt = `You are a search query generator. Given a planning goal, generate exactly 6 targeted web search queries that cover different angles of the topic. Each query should be specific and actionable.
 
 Planning topic: ${planName}
 Planning goal: ${goal}
@@ -1529,9 +1658,11 @@ Requirements:
 - Query 2: Key data, statistics, or research reports
 - Query 3: Real-world case studies or best practices
 - Query 4: Challenges, risks, or competitive landscape
+- Query 5: Quantitative data — market size, growth rate, statistics
+- Query 6: Expert analysis, industry outlook, and emerging challenges
 
-Return ONLY a JSON array of 4 strings, no other text. Example:
-["query 1", "query 2", "query 3", "query 4"]`;
+Return ONLY a JSON array of 6 strings, no other text. Example:
+["query 1", "query 2", "query 3", "query 4", "query 5", "query 6"]`;
 
       const response = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
@@ -1554,7 +1685,7 @@ Return ONLY a JSON array of 4 strings, no other text. Example:
             this.logger.log(
               `LLM generated ${queries.length} search queries for plan`,
             );
-            return queries.slice(0, 4);
+            return queries.slice(0, 6);
           }
         }
       }
@@ -1598,7 +1729,15 @@ Return ONLY a JSON array of 4 strings, no other text. Example:
       queries.push(goal.slice(0, 80));
     }
 
-    return queries.slice(0, 4);
+    // Additional quantitative and expert queries
+    if (goalKeywords.length >= 2) {
+      queries.push(
+        `${goalKeywords.slice(0, 3).join(" ")} 市场规模 数据 统计 报告`,
+      );
+      queries.push(`${goalKeywords.slice(0, 3).join(" ")} 专家分析 挑战 趋势`);
+    }
+
+    return queries.slice(0, 6);
   }
 
   // ==================== Credibility Scoring ====================
@@ -1767,6 +1906,116 @@ Return ONLY a JSON array of 4 strings, no other text. Example:
     return Math.max(20, Math.min(100, total));
   }
 
+  // ==================== Quality Gate Helpers ====================
+
+  /**
+   * Extract verified data points from Phase 2 research output using CHAT_FAST.
+   * Stores them in metadata for use in Phase 5/6 prompts.
+   */
+  private async extractVerifiedDataPoints(
+    planId: string,
+    researchOutput: string,
+  ): Promise<void> {
+    try {
+      const extractPrompt = `从以下调研报告中提取所有有来源引用的数据点。
+
+调研报告：
+${researchOutput.substring(0, 12000)}
+
+请以 JSON 数组格式输出，每个数据点包含：
+- claim: 数据声明（如"中国AI市场2025年规模达XXX亿"）
+- sourceRef: 来源引用编号（如"[3]"）
+- confidence: 可信度（"high"=权威来源+有数据支撑, "medium"=可信来源+定性判断, "low"=单一来源+推测性）
+
+只提取有明确 [编号] 引用的数据点，没有引用的不要提取。
+返回 JSON 数组，无其他文字。示例：
+[{"claim": "某数据", "sourceRef": "[1]", "confidence": "high"}]`;
+
+      const response = await this.aiFacade.chat({
+        messages: [{ role: "user", content: extractPrompt }],
+        modelType: AIModelType.CHAT_FAST,
+        taskProfile: {
+          creativity: "deterministic" as const,
+          outputLength: "medium" as const,
+        },
+      });
+
+      if (!response.isError && response.content) {
+        const jsonMatch = response.content.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          const dataPoints = JSON.parse(jsonMatch[0]) as VerifiedDataPoint[];
+          if (Array.isArray(dataPoints) && dataPoints.length > 0) {
+            // Store in metadata
+            const topic = await this.prisma.topic.findFirst({
+              where: { id: planId },
+            });
+            if (topic) {
+              const meta =
+                (topic.metadata as unknown as PlanningTopicMetadata) ||
+                ({} as PlanningTopicMetadata);
+              const updatedMetadata: PlanningTopicMetadata = {
+                ...meta,
+                verifiedDataPoints: dataPoints.slice(0, 30),
+              };
+              await this.prisma.topic.update({
+                where: { id: planId },
+                data: {
+                  metadata: updatedMetadata as unknown as Prisma.InputJsonValue,
+                },
+              });
+              this.logger.log(
+                `Extracted ${dataPoints.length} verified data points for plan ${planId}`,
+              );
+            }
+          }
+        }
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Failed to extract verified data points: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+  }
+
+  /**
+   * Get quality evaluation dimensions for each phase.
+   */
+  private getQualityDimensions(phase: number): string[] {
+    const dimensionMap: Record<number, string[]> = {
+      1: [
+        "子问题是否具体可回答？而非空泛的大问题",
+        "是否识别了信息缺口？明确标注了需要调研的领域",
+        "分析维度是否符合MECE原则？",
+      ],
+      2: [
+        "是否有 [编号] 来源引用？每个关键论点需有出处",
+        "是否区分了事实和推断？标注了可信度",
+        "信息缺口是否诚实标注？而非用模糊语言绕过",
+      ],
+      3: [
+        "战略方向之间是否有实质差异？不是换个说法的同一方案",
+        "每个方向的优劣势分析是否基于调研数据？",
+        "是否包含至少一个非常规方向？",
+      ],
+      4: [
+        "反方是否提出了实质性质疑？而非泛泛的'可能有风险'",
+        "正方是否用调研数据回应质疑？而非空洞的保证",
+        "辩论结论是否基于论据强弱，而非偏向性总结？",
+      ],
+      5: [
+        "推荐方案是否可追溯到调研数据？每个推荐有 [编号] 引用",
+        "是否有新编造的内容？综合阶段不应出现调研中没有的数据",
+        "是否包含'关键假设'和'待验证问题'章节？",
+      ],
+      6: [
+        "所有数字是否可追溯？有 [编号] 引用或标注为推算/估算",
+        "是否存在未标注来源的编造数据？如凭空出现的百分比或金额",
+        "文档末尾是否有数据可信度声明？",
+      ],
+    };
+    return dimensionMap[phase] || [];
+  }
+
   // ==================== Model Allocation (Fix 1) ====================
 
   private async buildAIMembers(depth: PlanningDepth) {
@@ -1800,28 +2049,61 @@ Return ONLY a JSON array of 4 strings, no other text. Example:
       {
         aiModel: resolveModel("策划总监"),
         displayName: "策划总监",
-        roleDescription: "统筹策划流程，分析目标，整合方案",
-        systemPrompt:
-          "你是一位资深策划总监，具有深厚的战略思维和分析能力。你擅长：拆解复杂问题，识别关键矛盾和核心驱动因素；MECE分析（相互独立、完全穷尽）确保逻辑严密；多角度评估方案的可行性和风险；根据不同阶段的要求调整输出——前期重分析和洞察，后期重方案和执行。你的核心价值在于战略判断力，而非文档格式。请严格按照每个阶段的具体指令行事，不要在分析阶段就输出执行方案。",
+        roleDescription: "结构化思考，拆解问题，整合方案",
+        systemPrompt: `你是策划总监。你的独占职责是结构化思考：
+- 拆解问题时必须用 MECE 原则，给出明确的分析维度
+- 每个分析结论必须说明"依据是什么"——来自调研数据[编号]还是逻辑推理
+- 当信息不足时，你必须明确标注"此处需要更多数据"，而不是用模糊语言绕过
+- 根据不同阶段的要求调整输出——前期重分析和洞察，后期重方案和执行
+
+你的禁区：
+- 禁止编造任何数据或统计数字
+- 禁止做文档润色工作（那是文案专家的事）
+- 禁止代替研究员做调研分析
+- 不要在分析阶段就输出执行方案`,
       },
       {
         aiModel: resolveModel("研究员"),
         displayName: "研究员",
-        roleDescription: "深入调研，收集数据和案例",
-        systemPrompt: "你是一位专业研究员，擅长市场调研、数据分析和趋势洞察。",
+        roleDescription: "处理外部数据，整理调研发现",
+        systemPrompt: `你是研究员。你的唯一职责是处理外部数据：
+- 你的每一个论点都必须附带 [编号] 来源引用
+- 对于每条发现，标注可信度：高（权威来源+有数据支撑）/ 中（可信来源+定性判断）/ 低（单一来源+推测性）
+- 当搜索结果中没有某方面的数据时，你必须写"该方面暂无可靠数据"
+
+你的禁区：
+- 严禁提出战略建议或行动方案——你只呈现事实
+- 严禁编造引用来源、报告名称或数据
+- 严禁在没有来源的情况下给出任何具体数字`,
       },
       {
         aiModel: resolveModel("分析师"),
         displayName: "分析师",
-        roleDescription: "分析评估，逻辑推理",
-        systemPrompt: "你是一位数据分析师，擅长逻辑分析、风险评估和方案比较。",
+        roleDescription: "定量分析，用数字说话",
+        systemPrompt: `你是定量分析师。你的独占职责是用数字说话：
+- 对其他成员的每个定性判断，追问"数字是多少？"
+- 做竞争对比、成本效益、敏感性分析
+- 当没有定量数据时，明确写"无定量数据，以下为定性评估"
+
+你的禁区：
+- 禁止做纯文字性的定性分析（那是总监的事）
+- 禁止编造数字——没有数据就写"数据缺失"
+- 禁止做文档格式优化`,
       },
       {
         aiModel: resolveModel("文案专家"),
         displayName: "文案专家",
-        roleDescription: "审查优化策划文档，确保专业质量",
-        systemPrompt:
-          "你是一位资深商业文档专家，专注于将策划方案优化为可直接提交决策层的正式文档。你擅长：确保文档结构严谨、逻辑自洽；验证所有表格包含具体、可量化的数据；检查KPI是否符合SMART标准；确保风险矩阵完整（概率×影响+缓解措施+应急预案+责任人）；验证行动计划有明确责任人和时间节点；消除模糊表述，用精确数据替代。",
+        roleDescription: "文档质检，发现问题而非掩盖问题",
+        systemPrompt: `你是文档质检专家。你的职责不是"让文档更好看"，而是：
+- 找出文档中每个没有来源标注的数字，标注为 [需补充来源]
+- 找出推荐行动与调研发现之间的逻辑断裂
+- 找出前后矛盾的内容
+- 最后才做语言优化
+
+你的禁区：
+- 严禁把 [需补充] 标记替换为编造的数字
+- 严禁添加原始分析中不存在的新数据
+- 严禁删除"数据缺失"或"待确认"等诚实标注`,
       },
     ];
 
@@ -1830,16 +2112,28 @@ Return ONLY a JSON array of 4 strings, no other text. Example:
         {
           aiModel: resolveModel("正方辩手"),
           displayName: "正方辩手",
-          roleDescription: "为方案辩护，寻找支持论据",
-          systemPrompt:
-            "你是一位辩手，负责为策划方案辩护，提出支持论据和成功案例。",
+          roleDescription: "用数据和案例支持方案",
+          systemPrompt: `你是正方辩手。你的职责是为策划方案辩护：
+- 必须引用调研阶段的数据 [编号] 支持你的论点，不能只用"一般来说"
+- 每个论点必须有具体案例或数据支撑
+- 如果某个方向缺乏数据支持，诚实承认"该方向数据支持较弱"
+
+你的禁区：
+- 禁止编造支持案例或数据
+- 禁止用模糊的"行业普遍认为"替代具体引用`,
         },
         {
           aiModel: resolveModel("反方辩手"),
           displayName: "反方辩手",
-          roleDescription: "质疑方案，发现潜在风险",
-          systemPrompt:
-            "你是一位批判性思考者，负责质疑方案的可行性，发现潜在风险和不足。",
+          roleDescription: "质疑方案，找出数据缺口和逻辑漏洞",
+          systemPrompt: `你是反方辩手。你的职责是找出方案的致命弱点：
+- 必须指出具体的数据缺口和逻辑漏洞，不能只说"可能有风险"
+- 对每个推荐方案，追问：数据够不够？假设成立吗？最坏情况是什么？
+- 如果正方的论点没有数据支撑，明确指出"此论点缺乏数据"
+
+你的禁区：
+- 禁止泛泛而谈的质疑——每个反对意见必须具体
+- 禁止编造反面数据来否定方案`,
         },
       );
     }
