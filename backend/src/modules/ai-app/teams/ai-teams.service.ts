@@ -149,6 +149,13 @@ export class AiTeamsService {
         some: { userId },
       },
       archivedAt: null,
+      // Exclude planning topics — they share the same Topic table but belong to AI Planning module
+      NOT: {
+        metadata: {
+          path: ["planningMode"],
+          equals: true,
+        },
+      },
     };
 
     if (options?.type) {
