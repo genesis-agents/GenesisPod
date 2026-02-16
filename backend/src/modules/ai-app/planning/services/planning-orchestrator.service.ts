@@ -116,7 +116,7 @@ const TOTAL_PHASES = 6;
 const AUTO_ADVANCE_DELAY_MS = 3000;
 
 /** Maximum length for phase summary to prevent token overflow */
-const MAX_PHASE_SUMMARY_LENGTH = 8000;
+const MAX_PHASE_SUMMARY_LENGTH = 24000;
 
 const DEFAULT_FALLBACK_MODEL = "claude-sonnet-4-20250514";
 
@@ -671,24 +671,35 @@ export class PlanningOrchestratorService {
         throw new Error(`No agents available for phase ${phase}`);
       }
 
-      // 5. Execute each agent
-      const agentOutputs: string[] = [];
-      // For Phase 6 (Delivery): use iterative refinement — each subsequent agent
-      // refines the previous output instead of writing from scratch. This produces
-      // a single polished report rather than multiple concatenated reports.
-      let previousAgentOutput = "";
+      // 5. Execute each agent with chain collaboration
+      // - Phase 6 (Delivery): iterative refinement via buildDeliveryRefinementPrompt
+      // - Phase 5 (Synthesis): iterative refinement via buildSynthesisRefinementPrompt
+      // - Phase 1-4: later agents see ALL earlier agents' accumulated output
+      // Each completed result is stored as { agentName, output } to keep agent
+      // identity bound to its output even when earlier agents fail (skip via continue).
+      const completedResults: Array<{ agentName: string; output: string }> = [];
 
       for (const agent of agents) {
         let phasePrompt: string;
 
-        if (phase === 6 && previousAgentOutput) {
-          // Subsequent agents in Delivery phase refine the previous draft
+        if (phase === 6 && completedResults.length > 0) {
+          // Phase 6: subsequent agents refine into delivery document
           phasePrompt = this.buildDeliveryRefinementPrompt(
             meta,
             agent.displayName,
             agent.roleDescription || "",
             topic.name,
-            previousAgentOutput,
+            completedResults[completedResults.length - 1].output,
+          );
+        } else if (phase === 5 && completedResults.length > 0) {
+          // Phase 5: subsequent agents deepen the synthesis (not delivery formatting)
+          phasePrompt = this.buildSynthesisRefinementPrompt(
+            meta,
+            agent.displayName,
+            agent.roleDescription || "",
+            topic.name,
+            completedResults[completedResults.length - 1].output,
+            previousContext,
           );
         } else {
           phasePrompt = this.buildPhasePrompt(
@@ -700,6 +711,14 @@ export class PlanningOrchestratorService {
             topic.name,
             searchContext,
           );
+
+          // Phase 1-4: append ALL previous agents' outputs for chain collaboration
+          if (completedResults.length > 0 && phase <= 4) {
+            const allPrevious = completedResults
+              .map((r) => `### ${r.agentName}\n\n${r.output}`)
+              .join("\n\n---\n\n");
+            phasePrompt += `\n\n---\n\n## 本阶段其他成员的分析\n\n${allPrevious}\n\n---\n\n请在上述分析的基础上，补充、质疑或深化你的分析，避免重复已有内容。`;
+          }
         }
 
         const messages: ChatMessage[] = [
@@ -744,14 +763,14 @@ export class PlanningOrchestratorService {
           response.tokensUsed,
         );
 
-        agentOutputs.push(response.content);
-        if (phase === 6) {
-          previousAgentOutput = response.content;
-        }
+        completedResults.push({
+          agentName: agent.displayName,
+          output: response.content,
+        });
       }
 
       // 6. Handle no-output case as failure (Bug 2 fix)
-      if (agentOutputs.length === 0) {
+      if (completedResults.length === 0) {
         this.logger.warn(
           `Phase ${phase} produced no output for plan ${planId}`,
         );
@@ -763,16 +782,13 @@ export class PlanningOrchestratorService {
       }
 
       // 7. Build phase summary and mark completed
-      // Phase 6 (Delivery): use only the final refined output (single report)
-      // Other phases: concatenate all agent outputs with agent name headers
+      // - Phase 5, 6 (refinement): only the final agent's polished output
+      // - Phase 1-4 (chain collaboration / debate): concatenate all with agent name headers
       const summary =
-        phase === 6
-          ? agentOutputs[agentOutputs.length - 1]
-          : agentOutputs
-              .map((output, i) => {
-                const agent = agents[i];
-                return agent ? `### ${agent.displayName}\n\n${output}` : output;
-              })
+        phase >= 5
+          ? completedResults[completedResults.length - 1].output
+          : completedResults
+              .map((r) => `### ${r.agentName}\n\n${r.output}`)
               .join("\n\n---\n\n");
       await this.updatePhaseStatus(planId, phase, {
         status: "completed",
@@ -857,12 +873,12 @@ export class PlanningOrchestratorService {
   /**
    * Build previous phase context for the current phase prompt.
    *
-   * For phase 6 (Delivery): only include phase 5 (Synthesis) since it already
-   * integrates all previous work. Including all 12 agent outputs from phases 1-5
-   * would exceed model context limits.
+   * For phase 6 (Delivery): include phase 2 (research data) + phase 4
+   * (debate conclusions) + phase 5 (synthesis) — the three most valuable
+   * upstream phases, each with a 20000-char limit.
    *
-   * For other phases: include all previous phases but cap each summary to
-   * prevent token overflow on long-running plans.
+   * For other phases: include all previous phases, each capped at
+   * MAX_PHASE_SUMMARY_LENGTH to prevent token overflow.
    */
   private buildPreviousPhaseContext(
     meta: PlanningTopicMetadata,
@@ -870,17 +886,24 @@ export class PlanningOrchestratorService {
   ): string {
     const contextParts: string[] = [];
 
-    // Phase 6 (Delivery) only needs the Synthesis output (phase 5)
-    // since it already integrates all previous phases
-    const startPhase = currentPhase === 6 ? 5 : 1;
+    // Phase 6 (Delivery): see Phase 2 (research data) + Phase 4 (debate conclusions)
+    // + Phase 5 (synthesis) — the three most valuable upstream phases
+    // Other phases: see all previous phases as before
+    const phases =
+      currentPhase === 6
+        ? [2, 4, 5]
+        : Array.from({ length: currentPhase - 1 }, (_, i) => i + 1);
 
-    for (let i = startPhase; i < currentPhase; i++) {
+    // Phase 6 gets a higher per-phase limit since it only reads 3 phases
+    const perPhaseLimit = currentPhase === 6 ? 20000 : MAX_PHASE_SUMMARY_LENGTH;
+
+    for (const i of phases) {
       const phaseStatus = meta.phaseStatus?.[i];
       if (phaseStatus?.status === "completed" && phaseStatus.summary) {
         let summary = phaseStatus.summary;
-        if (summary.length > MAX_PHASE_SUMMARY_LENGTH) {
+        if (summary.length > perPhaseLimit) {
           summary =
-            summary.slice(0, MAX_PHASE_SUMMARY_LENGTH) +
+            summary.slice(0, perPhaseLimit) +
             "\n\n...(内容过长，已截断，请基于以上内容完成本阶段任务)";
         }
         contextParts.push(
@@ -916,12 +939,143 @@ export class PlanningOrchestratorService {
           : "请按照标准深度进行分析，兼顾全面性和简洁性。";
 
     const phaseInstructions: Record<number, string> = {
-      1: `请分析以下策划目标，拆解关键要素，明确核心问题和约束条件，并提出分析框架。`,
+      1: `你的任务是**深度理解和拆解策划目标**，而非制定执行方案。
+
+请完成以下分析工作：
+
+### 1. 目标解读
+- 这个策划目标的本质诉求是什么？
+- 目标中有哪些模糊或待澄清的地方？
+- 隐含的假设有哪些？
+
+### 2. 关键维度拆解
+- 将目标拆解为3-5个需要深入分析的子问题
+- 每个子问题说明：为什么重要、需要什么信息来回答
+
+### 3. 分析框架建议
+- 针对该目标，推荐1-2个适用的分析框架（如SWOT、PESTEL、波特五力、价值链等）
+- 说明为什么选择这些框架，但**不要在本阶段填写框架内容**
+
+### 4. 信息缺口识别
+- 列出当前信息不足、需要在调研阶段重点关注的领域
+
+⚠️ **本阶段禁止事项**：
+- 禁止输出时间表、预算、KPI、行动计划
+- 禁止给出具体的执行建议或推荐方案
+- 禁止编造数据或统计数字
+- 本阶段的价值在于"问对问题"，而非"给出答案"`,
       2: searchContext
-        ? `请基于以下实时搜索资料，围绕策划目标进行深入调研分析。你必须优先使用下方提供的搜索结果中的数据和信息，使用 [编号] 格式引用来源（如 [1]、[2]）。严禁编造或虚构任何引用来源、报告名称或数据。如果搜索资料中没有某方面的信息，请明确说明"该方面暂无实时数据"。`
-        : `请围绕策划目标进行深入调研，收集相关数据、案例和行业趋势，提供有价值的洞察。注意：你没有实时搜索能力，请基于已知信息分析，不要编造具体的报告名称、机构引用或统计数据。`,
-      3: `请基于前期分析和调研成果，进行头脑风暴，提出创新方案和多种可选路径。`,
-      4: `请对提出的方案进行辩论推演，分析方案的优劣势、可行性和潜在风险。`,
+        ? `你的任务是**基于实时搜索资料进行调研分析**，梳理事实和洞察。
+
+请使用下方提供的搜索结果，按以下结构组织调研发现：
+
+### 1. 按维度整理的调研发现
+针对第一阶段提出的每个分析维度/子问题，整理相关的事实、数据和案例。
+- 使用 [编号] 格式引用来源（如 [1]、[2]）
+- 区分"硬数据"（有出处的统计数字）和"软信息"（趋势判断、专家观点）
+
+### 2. 关键洞察
+- 提炼5-8条最重要的发现，每条用1-2句话概括
+- 标注每条洞察的可信度（高/中/低）和数据来源
+
+### 3. 行业对标与趋势
+- 相关行业的基准数据和最佳实践
+- 值得关注的趋势和变化信号
+
+### 4. 信息缺口
+- 哪些问题仍然缺乏可靠数据？
+- 如果搜索资料中没有某方面的信息，明确说明"该方面暂无实时数据"
+
+⚠️ **本阶段禁止事项**：
+- 严禁编造或虚构任何引用来源、报告名称或数据
+- 禁止给出推荐方案或行动建议——本阶段只呈现事实和洞察
+- 禁止输出时间表、预算、KPI`
+        : `你的任务是**围绕策划目标进行调研分析**，梳理已知信息和洞察。
+
+注意：你没有实时搜索能力，请基于已有知识进行分析。
+
+请按以下结构组织调研发现：
+
+### 1. 按维度整理的调研发现
+针对第一阶段提出的每个分析维度/子问题，整理相关的事实、数据和案例。
+- 区分"确定性较高的信息"和"需要验证的推断"
+
+### 2. 关键洞察
+- 提炼5-8条最重要的发现，每条用1-2句话概括
+
+### 3. 行业对标与趋势
+- 相关行业的通用规律和最佳实践
+- 值得关注的趋势和变化方向
+
+### 4. 信息缺口
+- 哪些问题需要进一步调研或实地验证？
+
+⚠️ **本阶段禁止事项**：
+- 不要编造具体的报告名称、机构引用或统计数据
+- 禁止给出推荐方案或行动建议——本阶段只呈现事实和洞察
+- 禁止输出时间表、预算、KPI`,
+      3: `你的任务是**发散性思考**，提出多种截然不同的战略方向，而非输出一个确定的执行方案。
+
+请完成以下工作：
+
+### 战略方向探索
+基于前期分析和调研成果，提出 **3-5个差异化的战略方向**。每个方向需包括：
+
+**方向 N：[方向名称]**
+- **核心思路**：用2-3句话描述这个方向的核心逻辑
+- **优势**：这个方向的主要优点（2-3条）
+- **劣势/风险**：这个方向的主要挑战（2-3条）
+- **适用条件**：在什么情况下这个方向最优
+- **创新点**：这个方向有什么独特或非常规之处
+
+### 方向对比总览
+用简表对比各方向在关键维度上的差异（如资源需求、见效速度、风险水平、创新程度等）。
+
+### 组合可能性
+是否有方向可以组合？哪些方向是互斥的？
+
+⚠️ **本阶段禁止事项**：
+- 禁止只给出一个"推荐方案"——必须呈现多个可选方向
+- 禁止输出详细的执行计划、时间表、预算
+- 禁止过早收敛——本阶段的价值在于充分探索可能性
+- 鼓励包含至少一个"非常规/大胆"的方向`,
+      4: `你的任务是**对第三阶段提出的战略方向进行辩论式推演**，通过正反对抗发现最优路径。
+
+请按以下辩论格式输出：
+
+### 辩论推演
+
+对每个主要战略方向，进行正反方辩论：
+
+**方向 N：[方向名称]**
+
+🟢 **正方论点**（支持该方向的理由）：
+- 论点1：[具体论据和推理]
+- 论点2：[具体论据和推理]
+- 支撑案例或数据
+
+🔴 **反方质疑**（反对该方向的理由）：
+- 质疑1：[具体的挑战和风险]
+- 质疑2：[假设可能不成立的地方]
+- 最坏情况推演
+
+🔄 **正方回应**：
+- 对反方核心质疑的回应和缓解方案
+
+### 压力测试
+对各方向进行"如果...会怎样"的情景推演：
+- 如果市场环境突变？
+- 如果资源不足预期？
+- 如果竞争对手先行一步？
+
+### 辩论结论
+- 哪些方向经受住了考验？哪些暴露了致命弱点？
+- 各方向的韧性排序
+
+⚠️ **本阶段禁止事项**：
+- 禁止输出为正式报告格式——必须保持辩论/对抗的结构
+- 禁止跳过反方质疑，不允许"一边倒"地支持某方案
+- 禁止输出详细的执行计划、预算、KPI`,
       5: `请综合前述所有阶段的成果，整合出最优方案。要求使用"结论先行"结构，按以下框架输出：
 
 ## 执行摘要
@@ -1050,15 +1204,69 @@ export class PlanningOrchestratorService {
       prompt += `---\n\n${previousContext}\n\n---\n\n`;
     }
 
+    // Universal anti-fabrication constraint for all phases
+    prompt += `\n⚠️ **通用准则**：不要编造具体数据、统计数字或引用来源。如果没有实际数据支撑，请使用定性分析（如"较高/中等/较低"），并明确标注为推断而非事实。\n\n`;
+
     prompt += `请以 Markdown 格式输出你的分析和成果。`;
 
     return prompt;
   }
 
   /**
-   * Build a refinement prompt for Phase 6 subsequent agents.
-   * Instead of writing from scratch, the agent polishes the previous draft
-   * into a single cohesive delivery document.
+   * Build a refinement prompt for Phase 5 (Synthesis) subsequent agents.
+   * The agent deepens the synthesis — adding analytical depth, data references,
+   * and expression quality — while preserving access to previous phase context.
+   */
+  private buildSynthesisRefinementPrompt(
+    meta: PlanningTopicMetadata,
+    agentName: string,
+    agentRole: string,
+    planName: string,
+    previousDraft: string,
+    previousContext: string,
+  ): string {
+    const goal = meta.planConfig.goal;
+    const currentDate = new Date().toISOString().split("T")[0];
+
+    let prompt = `# 策划任务: ${planName}\n\n`;
+    prompt += `**当前日期**: ${currentDate}\n\n`;
+    prompt += `**策划目标**: ${goal}\n\n`;
+    prompt += `**你的角色**: ${agentName} — ${agentRole}\n\n`;
+    prompt += `**任务指令**: 以下是本阶段前一位成员撰写的综合方案初稿。请基于你的专业视角（${agentRole}）对方案进行深化和完善。\n\n`;
+    prompt += `**你的具体任务**：\n`;
+    prompt += `- 检查方案的分析深度是否足够，补充遗漏的关键维度\n`;
+    prompt += `- 验证推荐方案是否有充分的调研数据支撑，补充 [编号] 引用\n`;
+    prompt += `- 检查风险评估是否全面，补充遗漏的风险点\n`;
+    prompt += `- 确保关键发现和推荐方案之间有清晰的逻辑链条\n`;
+    prompt += `- 优化语言表达的专业性和清晰度\n\n`;
+    prompt += `**注意**：保持综合方案的结构框架（执行摘要、关键发现、推荐方案、风险评估），在此基础上深化内容，不要改变为交付文档的10章节格式。\n\n`;
+
+    // Inject reference list so the agent can add citations
+    if (meta.references?.length) {
+      const refList = meta.references
+        .map(
+          (r, i) =>
+            `[${i + 1}] ${r.title} — ${r.url}${r.sourceType ? ` (${r.sourceType})` : ""}`,
+        )
+        .join("\n");
+      prompt += `---\n\n## 可引用的参考资料\n\n以下是调研阶段收集的参考资料，请在正文中使用 [编号] 格式引用：\n\n${refList}\n\n`;
+    }
+
+    // Inject previous phase context so the agent can reference research data and debate conclusions
+    if (previousContext) {
+      prompt += `---\n\n${previousContext}\n\n`;
+    }
+
+    prompt += `---\n\n## 待深化的综合方案\n\n${previousDraft}\n\n---\n\n`;
+    prompt += `请输出完整的深化后方案（Markdown 格式），直接输出最终版本，不要输出修改说明。`;
+
+    return prompt;
+  }
+
+  /**
+   * Build a refinement prompt for Phase 6 (Delivery) subsequent agents.
+   * The agent polishes the previous draft into a single cohesive formal document
+   * suitable for C-level review.
    */
   private buildDeliveryRefinementPrompt(
     meta: PlanningTopicMetadata,
@@ -1594,7 +1802,7 @@ Return ONLY a JSON array of 4 strings, no other text. Example:
         displayName: "策划总监",
         roleDescription: "统筹策划流程，分析目标，整合方案",
         systemPrompt:
-          "你是一位资深策划总监，具有麦肯锡级别的战略规划能力。你擅长：使用金字塔原理（结论先行）组织文档；MECE分析（相互独立、完全穷尽）确保逻辑严密；数据驱动的决策建议，所有结论都有量化支撑；制作专业的战略规划文档，适合C-level高管审阅。你的输出必须包含具体数据、明确的责任人和时间节点，禁止模糊表述。",
+          "你是一位资深策划总监，具有深厚的战略思维和分析能力。你擅长：拆解复杂问题，识别关键矛盾和核心驱动因素；MECE分析（相互独立、完全穷尽）确保逻辑严密；多角度评估方案的可行性和风险；根据不同阶段的要求调整输出——前期重分析和洞察，后期重方案和执行。你的核心价值在于战略判断力，而非文档格式。请严格按照每个阶段的具体指令行事，不要在分析阶段就输出执行方案。",
       },
       {
         aiModel: resolveModel("研究员"),
