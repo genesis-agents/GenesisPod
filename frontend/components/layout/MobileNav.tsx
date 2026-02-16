@@ -86,6 +86,10 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       activeClass: 'bg-blue-50',
       prefix: true,
     },
+  ];
+
+  // Planning & Decision section
+  const planningItems = [
     {
       href: '/ai-teams',
       label: t('nav.myTeams'),
@@ -93,10 +97,6 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       activeClass: 'bg-green-50',
       prefix: true,
     },
-  ];
-
-  // Planning & Decision section
-  const planningItems = [
     {
       href: '/ai-planning',
       label: t('nav.aiPlanning'),

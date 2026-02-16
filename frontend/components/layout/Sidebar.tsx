@@ -566,6 +566,16 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiReports')}</span>}
           </Link>
 
+          {/* Section: Planning & Decision */}
+          {showExpanded && (
+            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              {t('nav.sections.planningDecision')}
+            </div>
+          )}
+          {!showExpanded && (
+            <div className="my-1 border-t border-gray-200/60" />
+          )}
+
           <Link
             href="/ai-teams"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
@@ -590,16 +600,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             </svg>
             {showExpanded && <span>{t('nav.myTeams')}</span>}
           </Link>
-
-          {/* Section: Planning & Decision */}
-          {showExpanded && (
-            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              {t('nav.sections.planningDecision')}
-            </div>
-          )}
-          {!showExpanded && (
-            <div className="my-1 border-t border-gray-200/60" />
-          )}
 
           <Link
             href="/ai-planning"
