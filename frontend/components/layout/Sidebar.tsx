@@ -182,19 +182,19 @@ export default function Sidebar({ className = '' }: SidebarProps) {
     >
       {/* Header */}
       <div
-        className={`flex flex-shrink-0 items-center overflow-hidden px-3 py-3.5 ${showExpanded ? 'justify-between' : 'justify-center'}`}
+        className={`flex flex-shrink-0 items-center overflow-hidden px-3 py-2.5 ${showExpanded ? 'justify-between' : 'justify-center'}`}
       >
         {!showExpanded ? (
           /* Collapsed state: Logo with hover -> Toggle button */
           <button
             onClick={handleToggle}
-            className="group relative flex h-11 w-11 items-center justify-center rounded-xl transition-all hover:bg-gray-100"
+            className="group relative flex h-9 w-9 items-center justify-center rounded-xl transition-all hover:bg-gray-100"
             title="Open sidebar"
           >
             {/* Default: Show Logo */}
             <BrandLogo
               variant="icon"
-              iconClassName="h-10 w-10 transition-all duration-200 group-hover:scale-75 group-hover:opacity-0"
+              iconClassName="h-8 w-8 transition-all duration-200 group-hover:scale-75 group-hover:opacity-0"
             />
             {/* Hover: Show Toggle icon */}
             <span className="absolute text-gray-600 opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:opacity-100">
@@ -210,7 +210,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           >
             <BrandLogo
               variant="full"
-              iconClassName="h-10 w-10 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
+              iconClassName="h-8 w-8 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
               nameAddon={
                 <Link
                   href="/changelog"

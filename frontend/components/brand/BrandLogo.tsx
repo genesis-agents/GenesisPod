@@ -12,14 +12,16 @@ interface BrandLogoProps {
 
 export function BrandLogo({
   variant = 'icon',
-  iconClassName = 'h-10 w-10',
+  iconClassName = 'h-8 w-8',
   className = '',
   nameAddon,
 }: BrandLogoProps) {
   const isFull = variant === 'full';
 
   return (
-    <div className={`flex items-center ${isFull ? 'gap-1' : ''} ${className}`}>
+    <div
+      className={`flex items-center ${isFull ? 'gap-2.5' : ''} ${className}`}
+    >
       <div
         className={`${iconClassName} relative flex-shrink-0`}
         style={{
@@ -37,14 +39,21 @@ export function BrandLogo({
       </div>
 
       {isFull && (
-        <div className="flex items-center gap-1.5">
-          <span
-            className="logo-shimmer text-[14px] font-bold tracking-tight"
-            style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
-          >
-            {config.brand.fullName}
-          </span>
-          {nameAddon}
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5">
+            <span
+              className="logo-shimmer text-[14px] font-bold tracking-tight"
+              style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+            >
+              {config.brand.name}
+            </span>
+            {nameAddon}
+          </div>
+          {config.brand.subtitle && (
+            <span className="text-[9px] font-semibold tracking-[0.15em] text-gray-400">
+              {config.brand.subtitle}
+            </span>
+          )}
         </div>
       )}
     </div>
