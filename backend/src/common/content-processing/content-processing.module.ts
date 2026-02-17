@@ -14,7 +14,7 @@
  * - ai-studio (深度研究)
  */
 
-import { Module, Global } from "@nestjs/common";
+import { Module, Global, forwardRef } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { ConfigModule } from "@nestjs/config";
 import { ContentExtractorService } from "./content-extractor.service";
@@ -33,8 +33,8 @@ import { AdminModule } from "../../modules/core/admin/admin.module";
       maxRedirects: 5,
     }),
     ConfigModule,
-    ExploreModule,
-    AdminModule,
+    forwardRef(() => ExploreModule),
+    forwardRef(() => AdminModule),
   ],
   providers: [
     ContentExtractorService,
