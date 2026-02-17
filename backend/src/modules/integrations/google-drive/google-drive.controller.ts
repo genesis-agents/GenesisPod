@@ -22,6 +22,7 @@ import {
   ApiBearerAuth,
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { Public } from "../../../common/decorators/public.decorator";
 import { GoogleDriveAuthService } from "./services/google-drive-auth.service";
 import { GoogleDriveFileService } from "./services/google-drive-file.service";
 import { GoogleDriveImportService } from "./services/google-drive-import.service";
@@ -81,6 +82,7 @@ export class GoogleDriveController {
   }
 
   @Get("callback")
+  @Public()
   @ApiOperation({ summary: "Google Drive OAuth 回调（用于浏览器重定向流程）" })
   async callback(
     @Query("code") code: string,
@@ -383,6 +385,7 @@ export class GoogleDriveController {
   // ============ Config ============
 
   @Get("config")
+  @Public()
   @ApiOperation({ summary: "获取 Google Drive 集成配置状态" })
   @ApiResponse({ status: 200, description: "返回配置状态" })
   async getConfig() {

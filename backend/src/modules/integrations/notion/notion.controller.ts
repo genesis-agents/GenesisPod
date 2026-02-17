@@ -22,6 +22,7 @@ import {
   ApiBearerAuth,
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { Public } from "../../../common/decorators/public.decorator";
 import { NotionAuthService } from "./services/notion-auth.service";
 import { NotionSyncService } from "./services/notion-sync.service";
 import { NotionPageService } from "./services/notion-page.service";
@@ -101,6 +102,7 @@ export class NotionController {
   }
 
   @Get("callback")
+  @Public()
   @ApiOperation({ summary: "Notion OAuth 回调（用于浏览器重定向流程）" })
   async callback(
     @Query("code") code: string,
@@ -427,6 +429,7 @@ export class NotionController {
   // ============ Config ============
 
   @Get("config")
+  @Public()
   @ApiOperation({ summary: "获取 Notion 集成配置状态" })
   @ApiResponse({ status: 200, description: "返回配置状态" })
   async getConfig() {
