@@ -1,40 +1,50 @@
-<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Genesis.ai Logo: Line-art tech squirrel with circuit-trace tail -->
+<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="nodeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#06B6D4"/>
-      <stop offset="50%" stop-color="#8B5CF6"/>
-      <stop offset="100%" stop-color="#EC4899"/>
+    <linearGradient id="tail" x1="0.1" y1="1" x2="0.9" y2="0">
+      <stop offset="0" stop-color="#EC4899"/>
+      <stop offset="0.4" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#4F46E5"/>
+    </linearGradient>
+    <linearGradient id="head" x1="0.3" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#818CF8"/>
+      <stop offset="1" stop-color="#6366F1"/>
     </linearGradient>
   </defs>
-  <!-- Tail — three flowing circuit traces curving up-left -->
-  <path d="M13 24 Q7 22 5.5 17 Q4 12 6.5 8.5 Q8.5 5.5 11.5 5" stroke="#1E293B" stroke-width="1.2" stroke-linecap="round" fill="none"/>
-  <path d="M13 24 Q8.5 20 8 15.5 Q7.5 11 10 8" stroke="#1E293B" stroke-width="1.2" stroke-linecap="round" fill="none"/>
-  <path d="M13 24 Q10.5 19.5 11 15.5 Q11.5 12 14 10" stroke="#1E293B" stroke-width="1.2" stroke-linecap="round" fill="none"/>
-  <!-- Circuit nodes — colorful sparkle dots at trace endpoints -->
-  <circle cx="11.5" cy="5" r="1.2" fill="#06B6D4"/>
-  <circle cx="6.5" cy="8.5" r="1.2" fill="#8B5CF6"/>
-  <circle cx="5.5" cy="17" r="1.2" fill="#EC4899"/>
-  <circle cx="10" cy="8" r="1" fill="#A78BFA"/>
-  <circle cx="8" cy="15.5" r="1" fill="#6366F1"/>
-  <circle cx="14" cy="10" r="1" fill="#06B6D4"/>
-  <circle cx="11" cy="15.5" r="1" fill="#EC4899"/>
-  <!-- Sparkle halos on primary nodes -->
-  <circle cx="11.5" cy="5" r="2.4" fill="#06B6D4" opacity="0.12"/>
-  <circle cx="6.5" cy="8.5" r="2.4" fill="#8B5CF6" opacity="0.12"/>
-  <circle cx="5.5" cy="17" r="2.4" fill="#EC4899" opacity="0.12"/>
-  <!-- Body — simple oval outline -->
-  <ellipse cx="16" cy="23" rx="4" ry="4.8" stroke="#1E293B" stroke-width="1.2" fill="none"/>
-  <!-- Head — oval outline -->
-  <ellipse cx="20.5" cy="16" rx="3.8" ry="4" stroke="#1E293B" stroke-width="1.2" fill="none"/>
+  <!-- Tail — three gradient circuit traces -->
+  <path d="M26 48 Q14 44 11 34 Q8 24 13 17 Q17 11 23 10" stroke="url(#tail)" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <path d="M26 48 Q17 40 16 31 Q15 22 20 16" stroke="url(#tail)" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <path d="M26 48 Q21 39 22 31 Q23 24 28 20" stroke="url(#tail)" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <!-- Circuit nodes — colorful sparkle dots -->
+  <circle cx="23" cy="10" r="3.2" fill="#22D3EE"/>
+  <circle cx="13" cy="17" r="3.2" fill="#A78BFA"/>
+  <circle cx="11" cy="34" r="3.2" fill="#F472B6"/>
+  <circle cx="20" cy="16" r="2.4" fill="#C4B5FD"/>
+  <circle cx="16" cy="31" r="2.4" fill="#818CF8"/>
+  <circle cx="28" cy="20" r="2.4" fill="#67E8F9"/>
+  <circle cx="22" cy="31" r="2.4" fill="#F9A8D4"/>
+  <!-- Sparkle halos -->
+  <circle cx="23" cy="10" r="6" fill="#22D3EE" opacity="0.15"/>
+  <circle cx="13" cy="17" r="6" fill="#A78BFA" opacity="0.15"/>
+  <circle cx="11" cy="34" r="6" fill="#F472B6" opacity="0.15"/>
+  <!-- Body -->
+  <ellipse cx="32" cy="46" rx="8" ry="9.6" fill="url(#body)"/>
+  <!-- Head -->
+  <ellipse cx="41" cy="32" rx="7.6" ry="8" fill="url(#head)"/>
   <!-- Ear -->
-  <path d="M22 12.5 L23.5 9.5 L21 11.5" stroke="#1E293B" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M44 25 L47 19 L42 23" fill="#818CF8"/>
   <!-- Eye -->
-  <circle cx="22" cy="15" r="0.8" fill="#1E293B"/>
+  <circle cx="44" cy="30" r="2.2" fill="white"/>
+  <circle cx="44.6" cy="29.7" r="1.1" fill="#1E1B4B"/>
+  <circle cx="45.2" cy="29" r="0.5" fill="white"/>
   <!-- Nose -->
-  <circle cx="24" cy="17" r="0.5" fill="#1E293B"/>
-  <!-- Front paw + acorn -->
-  <path d="M21.5 19.5 Q23 20.5 23.5 22" stroke="#1E293B" stroke-width="1.1" stroke-linecap="round" fill="none"/>
-  <circle cx="24" cy="22.5" r="1" stroke="#1E293B" stroke-width="0.8" fill="none"/>
-  <path d="M23.5 21.5 L24 21 L24.5 21.5" stroke="#1E293B" stroke-width="0.6" stroke-linecap="round" fill="none"/>
+  <ellipse cx="48" cy="34" rx="1.2" ry="1" fill="#4338CA"/>
+  <!-- Front paw -->
+  <path d="M43 39 Q46 41 47 44" stroke="#4F46E5" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- Acorn -->
+  <circle cx="48" cy="45" r="2.2" fill="#FBBF24"/>
+  <path d="M46.8 43.2 L48 42 L49.2 43.2" stroke="#B45309" stroke-width="1.2" stroke-linecap="round" fill="#D97706"/>
 </svg>

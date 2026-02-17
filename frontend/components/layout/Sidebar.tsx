@@ -180,22 +180,21 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       onMouseLeave={handleMouseLeave}
       className={`${showExpanded ? 'w-52' : 'w-16'} relative z-40 hidden h-full flex-col overflow-hidden border-r border-gray-200 bg-white transition-all duration-300 md:flex ${className}`}
     >
-      {/* Header - ChatGPT style */}
+      {/* Header */}
       <div
-        className={`flex flex-shrink-0 items-center overflow-hidden px-3 py-2.5 ${showExpanded ? 'justify-between' : 'justify-center'}`}
+        className={`flex flex-shrink-0 items-center overflow-hidden px-3 py-3.5 ${showExpanded ? 'justify-between' : 'justify-center'}`}
       >
         {!showExpanded ? (
           /* Collapsed state: Logo with hover -> Toggle button */
           <button
             onClick={handleToggle}
-            className="group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all hover:bg-gray-100"
+            className="group relative flex h-11 w-11 items-center justify-center rounded-xl transition-all hover:bg-gray-100"
             title="Open sidebar"
           >
             {/* Default: Show Logo */}
             <BrandLogo
               variant="icon"
-              gradientId="collapsed"
-              iconClassName="h-8 w-8 transition-all duration-200 group-hover:scale-75 group-hover:opacity-0"
+              iconClassName="h-10 w-10 transition-all duration-200 group-hover:scale-75 group-hover:opacity-0"
             />
             {/* Hover: Show Toggle icon */}
             <span className="absolute text-gray-600 opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:opacity-100">
@@ -206,23 +205,22 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           /* Expanded state: Logo + Text on left */
           <Link
             href="/"
-            className="group relative flex items-center gap-2.5"
+            className="group relative flex items-center"
             title={config.brand.fullName}
           >
-            <BrandLogo
-              variant="full"
-              gradientId="expanded"
-              iconClassName="h-8 w-8 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
-              nameAddon={
-                <Link
-                  href="/changelog"
-                  onClick={(e) => e.stopPropagation()}
-                  className="rounded bg-gradient-to-r from-blue-500 to-indigo-500 px-1 py-0.5 text-[7px] font-bold text-white transition-opacity hover:opacity-80"
-                >
-                  v{CURRENT_VERSION}
-                </Link>
-              }
-            />
+            <div className="relative">
+              <BrandLogo
+                variant="full"
+                iconClassName="h-10 w-10 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
+              />
+              <Link
+                href="/changelog"
+                onClick={(e) => e.stopPropagation()}
+                className="absolute -right-1 -top-1 rounded bg-gradient-to-r from-blue-500 to-indigo-500 px-1 py-0.5 text-[7px] font-bold leading-none text-white transition-opacity hover:opacity-80"
+              >
+                v{CURRENT_VERSION}
+              </Link>
+            </div>
           </Link>
         )}
         {/* Toggle button - only in expanded state */}
