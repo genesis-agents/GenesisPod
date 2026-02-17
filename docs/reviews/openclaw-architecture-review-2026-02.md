@@ -1,4 +1,4 @@
-# OpenClaw 架构对标审查 - Raven MCP Server 改进方案
+# OpenClaw 架构对标审查 - Genesis MCP Server 改进方案
 
 > **审查范围**: 对标 OpenClaw 架构，审视 Genesis.ai 对外能力开放（MCP Server）的架构差距与改进路径
 > **日期**: 2026-02-10
@@ -64,11 +64,11 @@
 
 ---
 
-## 2. Raven 的架构优势（相对于 OpenClaw）
+## 2. Genesis 的架构优势（相对于 OpenClaw）
 
-在开始讨论差距之前，需要明确 Raven 已有的架构优势：
+在开始讨论差距之前，需要明确 Genesis 已有的架构优势：
 
-| 维度                | Raven                                                     | OpenClaw                                     |
+| 维度                | Genesis                                                   | OpenClaw                                     |
 | ------------------- | --------------------------------------------------------- | -------------------------------------------- |
 | **Facade 统一入口** | AIEngineFacade 严格管控所有能力访问                       | 无统一 Facade，工具直接注入 Agent            |
 | **能力上下文解析**  | AICapabilityResolver 根据 Agent/Team/Role/Domain 动态解析 | Tool Policy 较简单（全局 → Agent → Sandbox） |
@@ -78,7 +78,7 @@
 | **编排引擎**        | 断路器 + 状态机 + Checkpoint                              | 简单的推理循环                               |
 | **模型抽象**        | LLMFactory + TaskProfile + ModelFallback                  | 直接调 Provider API                          |
 
-**结论**: Raven 的核心引擎在企业级能力（计费、安全、编排、协作）上远强于 OpenClaw。差距主要在**对外能力开放的架构设计**上。
+**结论**: Genesis 的核心引擎在企业级能力（计费、安全、编排、协作）上远强于 OpenClaw。差距主要在**对外能力开放的架构设计**上。
 
 ---
 
@@ -124,7 +124,7 @@ onModuleInit() {
 - **Resources**: 可读取的数据源 (未实现)
 - **Prompts**: 可复用的提示模板 (未实现)
 
-Raven 有丰富的知识库（Library/Resources）和 Skill Prompt 模板，但未通过 MCP 暴露。
+Genesis 有丰富的知识库（Library/Resources）和 Skill Prompt 模板，但未通过 MCP 暴露。
 
 **OpenClaw 做法**: MCP Client 支持 `listResources`、`readResource`、`listPrompts`、`getPrompt`。
 
@@ -337,7 +337,7 @@ External Consumers → │  - Permission Policy Engine  │ → AIEngineFacade
 
 ### Phase 3: MCP Resources & Prompts（资源与提示原语）
 
-**目标**: 暴露知识库和提示模板，让外部 AI 工具能读取 Raven 的数据。
+**目标**: 暴露知识库和提示模板，让外部 AI 工具能读取 Genesis 的数据。
 
 **Resources（暴露知识库）**:
 
@@ -346,12 +346,12 @@ External Consumers → │  - Permission Policy Engine  │ → AIEngineFacade
 {
   resources: [
     {
-      uri: "raven://library/{resourceId}",
+      uri: "genesis://library/{resourceId}",
       name: "用户文档库",
       mimeType: "text/markdown",
     },
     {
-      uri: "raven://rag/{collectionId}",
+      uri: "genesis://rag/{collectionId}",
       name: "RAG 知识库",
       mimeType: "application/json",
     },
@@ -482,7 +482,7 @@ metadata:
 
 ## 7. 安全考量
 
-参考 OpenClaw 的安全事件（CVE-2026-25253 WebSocket 劫持、ClawHub 12% 恶意 Skill），Raven 在对外开放时必须:
+参考 OpenClaw 的安全事件（CVE-2026-25253 WebSocket 劫持、ClawHub 12% 恶意 Skill），Genesis 在对外开放时必须:
 
 1. **输入验证**: 现有 Guardrails 管道已覆盖，需确保覆盖所有新暴露的工具
 2. **输出过滤**: 防止敏感数据通过 MCP 响应泄露

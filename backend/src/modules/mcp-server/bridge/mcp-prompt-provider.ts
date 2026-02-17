@@ -1,11 +1,11 @@
 /**
  * MCP Prompt Provider
  *
- * 将 Raven 的 AI 能力暴露为 MCP Prompts（可复用的提示模板），
+ * 将 Genesis 的 AI 能力暴露为 MCP Prompts（可复用的提示模板），
  * 让外部 AI 工具可以直接获取预构建的提示词。
  *
  * MCP Prompts 是用户驱动的模板（不同于 Tools 是模型驱动的）。
- * 典型用例: 用户在 Claude Code 中选择一个 Raven prompt 来执行特定任务。
+ * 典型用例: 用户在 Claude Code 中选择一个 Genesis prompt 来执行特定任务。
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -72,7 +72,7 @@ export class MCPPromptProvider implements IMCPPromptProvider {
       name: "deep-research",
       description:
         "Generate a deep research request with structured planning. " +
-        "Use this to leverage Raven's multi-stage research pipeline.",
+        "Use this to leverage Genesis's multi-stage research pipeline.",
       arguments: [
         {
           name: "topic",
@@ -104,7 +104,7 @@ export class MCPPromptProvider implements IMCPPromptProvider {
               `- Include key findings with evidence\n` +
               `- Cite sources where possible\n` +
               `- Output in ${args.language || "en"}\n\n` +
-              `Use the raven_deep_research tool to execute this research.`,
+              `Use the genesis_deep_research tool to execute this research.`,
           },
         },
       ],
@@ -116,7 +116,7 @@ export class MCPPromptProvider implements IMCPPromptProvider {
     this.templates.set("content-analysis", {
       name: "content-analysis",
       description:
-        "Analyze content with multiple dimensions using Raven's analysis engine.",
+        "Analyze content with multiple dimensions using Genesis's analysis engine.",
       arguments: [
         { name: "content", description: "Content to analyze", required: true },
         {
@@ -134,7 +134,7 @@ export class MCPPromptProvider implements IMCPPromptProvider {
             text:
               `Analyze the following content using ${args.type || "comprehensive"} analysis:\n\n` +
               `---\n${args.content}\n---\n\n` +
-              `Use the raven_content_analysis tool for detailed analysis.`,
+              `Use the genesis_content_analysis tool for detailed analysis.`,
           },
         },
       ],
@@ -170,7 +170,7 @@ export class MCPPromptProvider implements IMCPPromptProvider {
               `"${args.topic}"\n\n` +
               `- Use ${args.rounds || "3"} rounds of pro/con arguments\n` +
               `- Include a final judgment from a neutral perspective\n\n` +
-              `Use the raven_team_debate tool to run this debate.`,
+              `Use the genesis_team_debate tool to run this debate.`,
           },
         },
       ],
@@ -207,7 +207,7 @@ export class MCPPromptProvider implements IMCPPromptProvider {
               `Please ${args.task || "improve"} the following text` +
               (args.style ? ` in a ${args.style} style` : "") +
               `:\n\n---\n${args.text}\n---\n\n` +
-              `Use the raven_writing_assist tool for AI-powered writing assistance.`,
+              `Use the genesis_writing_assist tool for AI-powered writing assistance.`,
           },
         },
       ],
@@ -229,8 +229,8 @@ export class MCPPromptProvider implements IMCPPromptProvider {
       ],
       build: (args) => {
         const resourceUri = args.category
-          ? `raven://${args.category}`
-          : "raven://capabilities";
+          ? `genesis://${args.category}`
+          : "genesis://capabilities";
 
         return [
           {

@@ -3129,7 +3129,7 @@
       },
       "external": {
         "title": "External MCP Servers",
-        "description": "Connect to external MCP servers to extend Raven capabilities",
+        "description": "Connect to external MCP servers to extend Genesis capabilities",
         "tab": "External",
         "addServer": "Add Server",
         "editServer": "Edit Server",
@@ -3198,7 +3198,7 @@
     },
     "publicApi": {
       "title": "Public API",
-      "description": "External REST API for integrating Raven capabilities",
+      "description": "External REST API for integrating Genesis capabilities",
       "capabilities": "Capabilities",
       "status": "Service Status",
       "openclawConfig": "OpenClaw Config"

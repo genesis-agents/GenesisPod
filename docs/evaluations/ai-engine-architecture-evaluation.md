@@ -62,12 +62,12 @@ AI Apps（应用层）→ Research / Office / Writing / Social / Ask / ...
 
 **对标分析：**
 
-| 项目      | 架构方式                  | Raven 对比               |
-| --------- | ------------------------- | ------------------------ |
-| LangChain | 链式组合，扁平结构        | Raven 分层更清晰         |
-| CrewAI    | Agent + Task 两层         | Raven 多一层基础能力抽象 |
-| AutoGen   | 会话驱动，扁平 Agent 通信 | Raven 有更强的编排能力   |
-| Dify      | 低代码平台，工作流驱动    | Raven 代码级灵活性更高   |
+| 项目      | 架构方式                  | Genesis 对比               |
+| --------- | ------------------------- | -------------------------- |
+| LangChain | 链式组合，扁平结构        | Genesis 分层更清晰         |
+| CrewAI    | Agent + Task 两层         | Genesis 多一层基础能力抽象 |
+| AutoGen   | 会话驱动，扁平 Agent 通信 | Genesis 有更强的编排能力   |
+| Dify      | 低代码平台，工作流驱动    | Genesis 代码级灵活性更高   |
 
 ### 2.2 LLM 抽象层 — 评分：A
 
@@ -335,7 +335,7 @@ ToolRegistry (注册、发现、调用)
 
 ### 5.2 差异化优势
 
-**Raven 的独特竞争力：**
+**Genesis 的独特竞争力：**
 
 1. **TaskProfile 语义配置**
    - 业界独创的"描述意图，自动映射参数"机制

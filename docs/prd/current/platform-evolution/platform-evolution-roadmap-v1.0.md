@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-Genesis.ai already possesses a mature platform with comprehensive Admin management (MCP servers, Skills, Tools, Teams, Monitoring). This roadmap focuses on **filling the real gaps** that prevent Raven from fully participating in the emerging AI Agent ecosystem.
+Genesis.ai already possesses a mature platform with comprehensive Admin management (MCP servers, Skills, Tools, Teams, Monitoring). This roadmap focuses on **filling the real gaps** that prevent Genesis from fully participating in the emerging AI Agent ecosystem.
 
 ---
 
@@ -40,7 +40,7 @@ Genesis.ai already possesses a mature platform with comprehensive Admin manageme
 | Gap                     | Current State                                                       | Target State                                            |
 | ----------------------- | ------------------------------------------------------------------- | ------------------------------------------------------- |
 | MCP HTTP Transport      | `createMCPClient()` throws "not yet implemented" for http/websocket | Streamable HTTP + SSE transport working                 |
-| Raven as MCP Server     | Not implemented                                                     | Raven exposes research/write/teams as MCP tools         |
+| Genesis as MCP Server   | Not implemented                                                     | Genesis exposes research/write/teams as MCP tools       |
 | A2A Agent Interop       | Teams only support internal `ITeamMember`                           | External A2A agents can join as team members (optional) |
 | Research Planning       | Black-box execution                                                 | Visible plan + user approval + dynamic adjustment       |
 | Agent Trace             | Monitoring is error/metrics focused                                 | Full execution trace with span visualization            |
@@ -88,11 +88,11 @@ backend/src/modules/ai-engine/mcp/
 - [ ] Connection pooling for HTTP transport
 - [ ] Unit tests for both transport modes
 
-### 1.2 Raven as MCP Server
+### 1.2 Genesis as MCP Server
 
 **Priority**: P0 | **Effort**: 1.5 weeks | **ADR**: [002](../../decisions/002-raven-as-mcp-server.md)
 
-Expose Raven's core capabilities as an MCP Server so Claude Code, Cursor, ChatGPT Desktop etc. can call Raven.
+Expose Genesis's core capabilities as an MCP Server so Claude Code, Cursor, ChatGPT Desktop etc. can call Genesis.
 
 **Scope:**
 
@@ -100,13 +100,13 @@ Expose Raven's core capabilities as an MCP Server so Claude Code, Cursor, ChatGP
 - Implements MCP protocol (JSON-RPC 2.0 over HTTP+SSE)
 - Exposes tools:
 
-| Tool                  | Wraps                | Description                |
-| --------------------- | -------------------- | -------------------------- |
-| `raven/research`      | TopicResearchService | Deep research on any topic |
-| `raven/write`         | AI Writing services  | Content generation         |
-| `raven/teams/debate`  | Teams debate flow    | Multi-agent debate         |
-| `raven/teams/analyze` | Teams analysis flow  | Multi-perspective analysis |
-| `raven/slides`        | AI Slides services   | Presentation generation    |
+| Tool                    | Wraps                | Description                |
+| ----------------------- | -------------------- | -------------------------- |
+| `genesis/research`      | TopicResearchService | Deep research on any topic |
+| `genesis/write`         | AI Writing services  | Content generation         |
+| `genesis/teams/debate`  | Teams debate flow    | Multi-agent debate         |
+| `genesis/teams/analyze` | Teams analysis flow  | Multi-perspective analysis |
+| `genesis/slides`        | AI Slides services   | Presentation generation    |
 
 - Auth: API key guard (reuse existing Secrets Manager, category `MCP`)
 - Rate limiting per key
@@ -202,7 +202,7 @@ frontend/components/research/
 **Scope:**
 
 - Define A2A Agent Card interface (JSON, per A2A spec v0.3)
-- Generate cards for Raven agents: Research Leader, Report Synthesizer, Debate Moderator, etc.
+- Generate cards for Genesis agents: Research Leader, Report Synthesizer, Debate Moderator, etc.
 - Discovery endpoint: `GET /.well-known/agent.json`
 - Agent Card registry for external agents
 
@@ -371,15 +371,15 @@ frontend/components/admin/skills/
 
 **Priority**: P2 | **Effort**: 4 weeks
 
-Extract Raven's agent core into independent TypeScript SDK packages.
+Extract Genesis's agent core into independent TypeScript SDK packages.
 
 **Scope:**
 
-- `@raven/agent-core`: BaseAgent, Executor (DAG/Sequential), Registry
-- `@raven/agent-teams`: Team, TeamBuilder, Workflow, Constraints, ITeamMember
-- `@raven/agent-tools`: ITool, ToolRegistry, built-in tool interfaces
-- `@raven/agent-mcp`: MCP Client (all transports), MCP Server framework
-- `@raven/agent-a2a`: A2A Client, Agent Cards, Team Member Adapter
+- `@genesis/agent-core`: BaseAgent, Executor (DAG/Sequential), Registry
+- `@genesis/agent-teams`: Team, TeamBuilder, Workflow, Constraints, ITeamMember
+- `@genesis/agent-tools`: ITool, ToolRegistry, built-in tool interfaces
+- `@genesis/agent-mcp`: MCP Client (all transports), MCP Server framework
+- `@genesis/agent-a2a`: A2A Client, Agent Cards, Team Member Adapter
 
 Internal modules remain as-is; SDK wraps internal interfaces. Feature flags control SDK vs internal paths.
 
@@ -390,7 +390,7 @@ Internal modules remain as-is; SDK wraps internal interfaces. Feature flags cont
 ### 4.1 AGENTS.md Support
 
 - AI Coding module understands AGENTS.md project instructions
-- Auto-generate AGENTS.md for Raven-managed projects
+- Auto-generate AGENTS.md for Genesis-managed projects
 
 ### 4.2 Community Contributions
 
@@ -419,14 +419,14 @@ Internal modules remain as-is; SDK wraps internal interfaces. Feature flags cont
 
 ## Success Metrics
 
-| Metric                            | Phase 1    | Phase 2 | Phase 3 |
-| --------------------------------- | ---------- | ------- | ------- |
-| MCP HTTP connections working      | 5+ servers | 10+     | 15+     |
-| External MCP tool calls/day       | 100        | 500     | 2000    |
-| Raven MCP Server external clients | 3+         | 10+     | 30+     |
-| Research plan approval rate       | 70%        | 85%     | 90%     |
-| A2A external agents in teams      | -          | 3+      | 10+     |
-| Agent trace coverage              | -          | 80%     | 100%    |
+| Metric                              | Phase 1    | Phase 2 | Phase 3 |
+| ----------------------------------- | ---------- | ------- | ------- |
+| MCP HTTP connections working        | 5+ servers | 10+     | 15+     |
+| External MCP tool calls/day         | 100        | 500     | 2000    |
+| Genesis MCP Server external clients | 3+         | 10+     | 30+     |
+| Research plan approval rate         | 70%        | 85%     | 90%     |
+| A2A external agents in teams        | -          | 3+      | 10+     |
+| Agent trace coverage                | -          | 80%     | 100%    |
 
 ---
 
@@ -434,7 +434,7 @@ Internal modules remain as-is; SDK wraps internal interfaces. Feature flags cont
 
 - [Architecture Design](../../architecture/platform-evolution/architecture-design.md)
 - [ADR-001: MCP Transport Extension](../../decisions/001-mcp-transport-extension.md)
-- [ADR-002: Raven as MCP Server](../../decisions/002-raven-as-mcp-server.md)
+- [ADR-002: Genesis as MCP Server](../../decisions/002-raven-as-mcp-server.md)
 - [ADR-003: A2A Protocol Adoption](../../decisions/003-a2a-protocol-adoption.md)
 - [AI Engine Target Architecture](../../architecture/ai-engine/ai-engine-target-architecture.md)
 

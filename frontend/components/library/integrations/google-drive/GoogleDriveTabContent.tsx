@@ -231,7 +231,7 @@ export default function GoogleDriveTabContent() {
           Connect your Google Drive
         </h3>
         <p className="mt-1 max-w-md text-center text-gray-500">
-          Access and import your Google Drive files to Raven. Your files will
+          Access and import your Google Drive files to Genesis. Your files will
           appear here after connecting.
         </p>
         <button

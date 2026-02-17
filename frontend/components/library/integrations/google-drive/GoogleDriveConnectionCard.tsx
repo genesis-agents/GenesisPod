@@ -358,7 +358,7 @@ export function GoogleDriveConnectionCard() {
                     Grant Access Permissions
                   </p>
                   <p className="text-sm text-blue-700">
-                    Allow Raven to access your Google Drive files
+                    Allow Genesis to access your Google Drive files
                   </p>
                 </div>
               </div>

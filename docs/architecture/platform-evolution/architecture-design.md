@@ -50,12 +50,12 @@ All designs in this document build on existing implementations. No existing UI, 
 
 ```
 [Admin Console] (EXTEND existing pages)
-  |- /admin/ai/tools      -> + "MCP Server Output" tab (Raven-as-MCP-Server status)
+  |- /admin/ai/tools      -> + "MCP Server Output" tab (Genesis-as-MCP-Server status)
   |- /admin/ai/teams      -> + "External Agent" option in member editor (A2A)
   |- /admin/system/monitoring -> + "Agent Traces" tab
 
 [NEW: Protocol Gateway]
-  |- MCP Server Module         -> Exposes Raven capabilities to external AI tools
+  |- MCP Server Module         -> Exposes Genesis capabilities to external AI tools
   |- A2A Gateway               -> /.well-known/agent.json + task lifecycle
 
 [AI Engine Core] (EXTEND existing)
@@ -218,5 +218,5 @@ Guardrails are **configurable via Admin settings** and can be enabled/disabled p
 
 - [Platform Evolution Roadmap](../../prd/current/platform-evolution/platform-evolution-roadmap-v1.0.md)
 - [ADR-001: MCP Transport Extension](../../decisions/001-mcp-transport-extension.md)
-- [ADR-002: Raven as MCP Server](../../decisions/002-raven-as-mcp-server.md)
+- [ADR-002: Genesis as MCP Server](../../decisions/002-genesis-as-mcp-server.md)
 - [ADR-003: A2A Protocol Adoption](../../decisions/003-a2a-protocol-adoption.md)

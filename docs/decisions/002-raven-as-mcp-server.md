@@ -1,17 +1,17 @@
-# 002. Expose Raven Capabilities as MCP Server
+# 002. Expose Genesis Capabilities as MCP Server
 
 **Date**: 2026-02-05
 **Status**: Proposed
 
 ## Background
 
-MCP has become the universal standard for AI tool integration. Claude Code, Cursor, ChatGPT Desktop, and other AI tools can connect to any MCP server to extend their capabilities. By exposing Raven's unique capabilities (deep research, multi-agent teams, content generation) as an MCP server, Raven can serve as a backend capability provider for the entire AI tool ecosystem.
+MCP has become the universal standard for AI tool integration. Claude Code, Cursor, ChatGPT Desktop, and other AI tools can connect to any MCP server to extend their capabilities. By exposing Genesis's unique capabilities (deep research, multi-agent teams, content generation) as an MCP server, Genesis can serve as a backend capability provider for the entire AI tool ecosystem.
 
 ## Decision
 
-Implement a standalone MCP Server module in Raven that:
+Implement a standalone MCP Server module in Genesis that:
 
-1. Exposes 5 core tools: `raven/research`, `raven/write`, `raven/teams/debate`, `raven/teams/analyze`, `raven/slides`
+1. Exposes 5 core tools: `genesis/research`, `genesis/write`, `genesis/teams/debate`, `genesis/teams/analyze`, `genesis/slides`
 2. Uses Streamable HTTP transport for external access
 3. Authenticates via API key (reusing existing BYOK infrastructure)
 4. Supports streaming responses via SSE for long-running operations
@@ -19,9 +19,9 @@ Implement a standalone MCP Server module in Raven that:
 
 ## Rationale
 
-- Turns Raven from a consumer-only platform into a capability provider
+- Turns Genesis from a consumer-only platform into a capability provider
 - Enables integration with developer workflows (Claude Code, Cursor)
-- Creates a new distribution channel for Raven's core AI capabilities
+- Creates a new distribution channel for Genesis's core AI capabilities
 - API key model aligns with existing BYOK system
 - Low implementation cost: wraps existing services, no new AI logic
 

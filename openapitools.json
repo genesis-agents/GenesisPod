@@ -9,7 +9,7 @@
         "output": "#{cwd}/sdk/typescript",
         "inputSpec": "#{cwd}/backend/openapi.json",
         "additionalProperties": {
-          "npmName": "@raven-ai/sdk",
+          "npmName": "@genesis-ai/sdk",
           "npmVersion": "1.0.0",
           "supportsES6": true,
           "typescriptThreePlus": true,
@@ -21,9 +21,9 @@
         "output": "#{cwd}/sdk/python",
         "inputSpec": "#{cwd}/backend/openapi.json",
         "additionalProperties": {
-          "packageName": "raven_ai_sdk",
+          "packageName": "genesis_ai_sdk",
           "packageVersion": "1.0.0",
-          "projectName": "raven-ai-sdk"
+          "projectName": "genesis-ai-sdk"
         }
       }
     }

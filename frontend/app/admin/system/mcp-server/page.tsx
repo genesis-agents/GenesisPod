@@ -823,7 +823,7 @@ export default function MCPServerPage() {
         "enabled": true,
         "config": {
           "servers": [{
-            "name": "raven",
+            "name": "genesis",
             "transport": "http",
             "url": "https://<your-domain>/api/v1/mcp",
             "headers": {

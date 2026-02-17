@@ -31,7 +31,7 @@ prd/
 
 - [Architecture Design](../../architecture/platform-evolution/architecture-design.md) - 架构设计
 - [ADR-001: MCP Transport Extension](../../decisions/001-mcp-transport-extension.md)
-- [ADR-002: Raven as MCP Server](../../decisions/002-raven-as-mcp-server.md)
+- [ADR-002: Genesis as MCP Server](../../decisions/002-raven-as-mcp-server.md)
 - [ADR-003: A2A Protocol Adoption](../../decisions/003-a2a-protocol-adoption.md)
 
 ---

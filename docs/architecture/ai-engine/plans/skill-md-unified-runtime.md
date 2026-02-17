@@ -2071,7 +2071,7 @@ SkillLoaderService (统一加载)
        ▼
   一键发布到 SkillsMP (Phase 8 实现)
        │
-       ├─→ CLI: raven skill publish <skillId>
+       ├─→ CLI: genesis skill publish <skillId>
        ├─→ Admin UI: 技能详情页「发布到市场」按钮
        └─→ 自动生成 README + 元数据 + 版本号
 ```

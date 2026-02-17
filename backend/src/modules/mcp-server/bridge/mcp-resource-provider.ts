@@ -5,12 +5,12 @@
  * 让外部 AI 工具（Claude Code、Cursor 等）可以读取 Genesis.ai 管理的内容。
  *
  * 资源 URI 规范:
- * - raven://capabilities         → 能力摘要
- * - raven://tools                → 工具列表
- * - raven://skills               → 技能列表
- * - raven://agents               → Agent 列表
- * - raven://teams                → Team 配置列表
- * - raven://models               → 可用模型列表
+ * - genesis://capabilities         → 能力摘要
+ * - genesis://tools                → 工具列表
+ * - genesis://skills               → 技能列表
+ * - genesis://agents               → Agent 列表
+ * - genesis://teams                → Team 配置列表
+ * - genesis://models               → 可用模型列表
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
@@ -41,41 +41,41 @@ export class MCPResourceProvider implements IMCPResourceProvider {
   async listResources(): Promise<MCPResource[]> {
     const resources: MCPResource[] = [
       {
-        uri: "raven://capabilities",
+        uri: "genesis://capabilities",
         name: `${APP_CONFIG.brand.fullName} Capabilities`,
         description:
           "Overview of all available AI capabilities, tools, skills, and agents",
         mimeType: "application/json",
       },
       {
-        uri: "raven://tools",
+        uri: "genesis://tools",
         name: "Available Tools",
         description:
           "List of all registered tools with their schemas and categories",
         mimeType: "application/json",
       },
       {
-        uri: "raven://skills",
+        uri: "genesis://skills",
         name: "Available Skills",
         description:
           "List of all registered skills organized by domain and layer",
         mimeType: "application/json",
       },
       {
-        uri: "raven://agents",
+        uri: "genesis://agents",
         name: "Available Agents",
         description: "List of all registered agents with their capabilities",
         mimeType: "application/json",
       },
       {
-        uri: "raven://teams",
+        uri: "genesis://teams",
         name: "Team Configurations",
         description:
           "Available team configurations for multi-agent collaboration",
         mimeType: "application/json",
       },
       {
-        uri: "raven://models",
+        uri: "genesis://models",
         name: "Available AI Models",
         description: "List of all configured and available AI models",
         mimeType: "application/json",
@@ -90,17 +90,17 @@ export class MCPResourceProvider implements IMCPResourceProvider {
 
     try {
       switch (uri) {
-        case "raven://capabilities":
+        case "genesis://capabilities":
           return this.readCapabilities();
-        case "raven://tools":
+        case "genesis://tools":
           return this.readTools();
-        case "raven://skills":
+        case "genesis://skills":
           return this.readSkills();
-        case "raven://agents":
+        case "genesis://agents":
           return this.readAgents();
-        case "raven://teams":
+        case "genesis://teams":
           return this.readTeams();
-        case "raven://models":
+        case "genesis://models":
           return this.readModels();
         default:
           return {
@@ -157,7 +157,7 @@ export class MCPResourceProvider implements IMCPResourceProvider {
     };
 
     return {
-      uri: "raven://capabilities",
+      uri: "genesis://capabilities",
       mimeType: "application/json",
       text: JSON.stringify(data, null, 2),
     };
@@ -176,7 +176,7 @@ export class MCPResourceProvider implements IMCPResourceProvider {
     }));
 
     return {
-      uri: "raven://tools",
+      uri: "genesis://tools",
       mimeType: "application/json",
       text: JSON.stringify({ tools: data, count: data.length }, null, 2),
     };
@@ -196,7 +196,7 @@ export class MCPResourceProvider implements IMCPResourceProvider {
     }));
 
     return {
-      uri: "raven://skills",
+      uri: "genesis://skills",
       mimeType: "application/json",
       text: JSON.stringify({ skills: data, count: data.length }, null, 2),
     };
@@ -213,7 +213,7 @@ export class MCPResourceProvider implements IMCPResourceProvider {
     }));
 
     return {
-      uri: "raven://agents",
+      uri: "genesis://agents",
       mimeType: "application/json",
       text: JSON.stringify({ agents: data, count: data.length }, null, 2),
     };
@@ -232,7 +232,7 @@ export class MCPResourceProvider implements IMCPResourceProvider {
     }));
 
     return {
-      uri: "raven://teams",
+      uri: "genesis://teams",
       mimeType: "application/json",
       text: JSON.stringify({ teams: data, count: data.length }, null, 2),
     };
@@ -242,13 +242,13 @@ export class MCPResourceProvider implements IMCPResourceProvider {
     try {
       const models = await this.facade.getAvailableModels();
       return {
-        uri: "raven://models",
+        uri: "genesis://models",
         mimeType: "application/json",
         text: JSON.stringify({ models, count: models.length }, null, 2),
       };
     } catch {
       return {
-        uri: "raven://models",
+        uri: "genesis://models",
         mimeType: "application/json",
         text: JSON.stringify({
           models: [],

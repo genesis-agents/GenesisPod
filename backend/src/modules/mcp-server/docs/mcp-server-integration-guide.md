@@ -42,7 +42,7 @@ POST /api/v1/secrets
 Send an `initialize` request to establish a session:
 
 ```bash
-curl -X POST https://your-raven-instance.com/api/v1/mcp \
+curl -X POST https://your-genesis-instance.com/api/v1/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
@@ -89,7 +89,7 @@ The `Mcp-Session-Id` header in the response contains your session ID for subsequ
 Use the session ID and call any available tool:
 
 ```bash
-curl -X POST https://your-raven-instance.com/api/v1/mcp \
+curl -X POST https://your-genesis-instance.com/api/v1/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Mcp-Session-Id: mcp-a1b2c3d4e5f6..." \
@@ -349,7 +349,7 @@ Ask Genesis AI a question with optional web search augmentation.
 **Example Call:**
 
 ```bash
-curl -X POST https://your-raven-instance.com/api/v1/mcp \
+curl -X POST https://your-genesis-instance.com/api/v1/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Mcp-Session-Id: SESSION_ID" \
@@ -451,7 +451,7 @@ Execute comprehensive research with iterative search, self-reflection, and repor
 **Example Call:**
 
 ```bash
-curl -X POST https://your-raven-instance.com/api/v1/mcp \
+curl -X POST https://your-genesis-instance.com/api/v1/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Mcp-Session-Id: SESSION_ID" \
@@ -689,7 +689,7 @@ Output:
 **Example Call:**
 
 ```bash
-curl -X POST https://your-raven-instance.com/api/v1/mcp \
+curl -X POST https://your-genesis-instance.com/api/v1/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Mcp-Session-Id: SESSION_ID" \
@@ -887,7 +887,7 @@ Output:
 **Example Call:**
 
 ```bash
-curl -X POST https://your-raven-instance.com/api/v1/mcp \
+curl -X POST https://your-genesis-instance.com/api/v1/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Mcp-Session-Id: SESSION_ID" \
@@ -981,7 +981,7 @@ Multi-perspective debate with structured judgment.
 **Example Call:**
 
 ```bash
-curl -X POST https://your-raven-instance.com/api/v1/mcp \
+curl -X POST https://your-genesis-instance.com/api/v1/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Mcp-Session-Id: SESSION_ID" \
@@ -1142,9 +1142,9 @@ System prompts explicitly instruct the model to:
 ```json
 {
   "mcpServers": {
-    "raven": {
+    "genesis": {
       "transport": "http",
-      "baseUrl": "https://your-raven-instance.com/api/v1/mcp",
+      "baseUrl": "https://your-genesis-instance.com/api/v1/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_API_KEY"
       },
@@ -1159,11 +1159,11 @@ System prompts explicitly instruct the model to:
 ```json
 {
   "mcpServers": {
-    "raven-ai": {
+    "genesis-ai": {
       "command": "mcp-http-client",
       "args": [
         "--url",
-        "https://your-raven-instance.com/api/v1/mcp",
+        "https://your-genesis-instance.com/api/v1/mcp",
         "--header",
         "Authorization: Bearer YOUR_API_KEY"
       ]
@@ -1178,7 +1178,7 @@ System prompts explicitly instruct the model to:
 const axios = require("axios");
 
 class Genesis.aiMCPClient {
-  constructor(apiKey, baseUrl = "https://your-raven-instance.com/api/v1/mcp") {
+  constructor(apiKey, baseUrl = "https://your-genesis-instance.com/api/v1/mcp") {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
     this.sessionId = null;
@@ -1276,7 +1276,7 @@ import requests
 import json
 
 class Genesis.aiMCPClient:
-    def __init__(self, api_key, base_url='https://your-raven-instance.com/api/v1/mcp'):
+    def __init__(self, api_key, base_url='https://your-genesis-instance.com/api/v1/mcp'):
         self.api_key = api_key
         self.base_url = base_url
         self.session_id = None
@@ -1387,7 +1387,7 @@ print(json.loads(result['content'][0]['text']))
 ## Support and Resources
 
 - **Documentation**: https://github.com/your-org/genesis-ai/docs
-- **API Status**: https://status.your-raven-instance.com
+- **API Status**: https://status.your-genesis-instance.com
 - **Issue Tracker**: https://github.com/your-org/genesis-ai/issues
 - **MCP Specification**: https://spec.modelcontextprotocol.io
 

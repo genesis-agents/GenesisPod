@@ -533,7 +533,7 @@ Genesis 的深度研究、写作等能力可以作为 OpenClaw 技能发布:
 ```yaml
 # SKILL.md (AgentSkills 格式)
 ---
-name: raven-deep-research
+name: genesis-deep-research
 description: Deep multi-dimensional research powered by Genesis.ai
 user-invocable: true
 metadata: {"openclaw": {"emoji": "magnifying_glass", "primaryEnv": "RAVEN_API_KEY"}}
@@ -542,7 +542,7 @@ metadata: {"openclaw": {"emoji": "magnifying_glass", "primaryEnv": "RAVEN_API_KE
 This skill connects to a Genesis.ai instance to perform deep research.
 
 ## Usage
-/raven-deep-research <topic>
+/genesis-deep-research <topic>
 
 ## Configuration
 Set RAVEN_API_KEY in your OpenClaw settings.
@@ -656,7 +656,7 @@ Phase 5 (1-2 天) ──── Admin UI 配置
 | AI Social 架构             | `docs/architecture/ai-apps/ai-social/ai-social-architecture.md`       |
 | Social MCP 重构方案        | `docs/architecture/ai-apps/ai-social/plans/ai-social-mcp-refactor.md` |
 | ADR-001 MCP 传输扩展       | `docs/decisions/001-mcp-transport-extension.md`                       |
-| ADR-002 Genesis MCP Server | `docs/decisions/002-raven-as-mcp-server.md`                           |
+| ADR-002 Genesis MCP Server | `docs/decisions/002-genesis-as-mcp-server.md`                         |
 | ADR-003 A2A 协议           | `docs/decisions/003-a2a-protocol-adoption.md`                         |
 | OpenClaw 技能文档          | https://docs.openclaw.ai/tools/skills                                 |
 

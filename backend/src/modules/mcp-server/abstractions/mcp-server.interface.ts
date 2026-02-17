@@ -1,6 +1,6 @@
 /**
  * MCP Server - Interface Definitions
- * Raven 作为 MCP Server 对外暴露能力的接口定义
+ * Genesis 作为 MCP Server 对外暴露能力的接口定义
  *
  * 支持 MCP 协议三大原语: Tools / Resources / Prompts
  */
@@ -151,7 +151,11 @@ export interface MCPPermissionPolicy {
 // MCP Capability Discovery
 // ============================================================================
 
-export type MCPToolSource = "curated" | "registry-tool" | "registry-skill" | "registry-agent";
+export type MCPToolSource =
+  | "curated"
+  | "registry-tool"
+  | "registry-skill"
+  | "registry-agent";
 
 export interface ExposedToolWithMeta extends ExposedTool {
   source: MCPToolSource;

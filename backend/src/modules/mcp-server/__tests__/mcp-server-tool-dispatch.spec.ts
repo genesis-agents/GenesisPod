@@ -212,7 +212,7 @@ describe("MCPServerService - Tool Dispatch", () => {
 
   describe("tools/list", () => {
     it("should list registered curated tools", async () => {
-      const handler = createMockHandler("raven-search");
+      const handler = createMockHandler("genesis-search");
       service.registerToolHandler(handler);
 
       const result = await service.handleRequest(
@@ -222,7 +222,7 @@ describe("MCPServerService - Tool Dispatch", () => {
 
       const resp = result as any;
       expect(resp.result.tools).toHaveLength(1);
-      expect(resp.result.tools[0].name).toBe("raven-search");
+      expect(resp.result.tools[0].name).toBe("genesis-search");
     });
 
     it("should include bridged tools", async () => {
@@ -273,7 +273,7 @@ describe("MCPServerService - Tool Dispatch", () => {
 
   describe("tools/call", () => {
     it("should execute curated tool handler", async () => {
-      const handler = createMockHandler("raven-research");
+      const handler = createMockHandler("genesis-research");
       service.registerToolHandler(handler);
 
       const result = await service.handleRequest(
@@ -281,7 +281,7 @@ describe("MCPServerService - Tool Dispatch", () => {
           jsonrpc: "2.0",
           id: 1,
           method: "tools/call",
-          params: { name: "raven-research", arguments: { query: "AI" } },
+          params: { name: "genesis-research", arguments: { query: "AI" } },
         },
         defaultContext,
       );
