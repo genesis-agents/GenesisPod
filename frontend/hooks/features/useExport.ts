@@ -67,6 +67,8 @@ export interface ExportOptions {
   renderMode?: 'wysiwyg' | 'editable';
   wysiwygHtml?: string;
   wysiwygCss?: string;
+  // 导出范围 (planning: 'full' = 全部阶段, undefined = 仅报告)
+  exportScope?: 'full';
 }
 
 export interface ExportRequest {

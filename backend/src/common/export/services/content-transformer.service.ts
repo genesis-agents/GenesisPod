@@ -40,7 +40,7 @@ export class ContentTransformerService {
    */
   async transform(
     source: ExportSource,
-    options?: { simplifiedMode?: boolean },
+    options?: { simplifiedMode?: boolean; exportScope?: string },
   ): Promise<UnifiedContent> {
     this.logger.debug(`Transforming source: ${source.type}`);
 
@@ -63,7 +63,10 @@ export class ContentTransformerService {
           options?.simplifiedMode,
         );
       case "PLANNING":
-        return this.transformPlanning(source.planId);
+        return this.transformPlanning(
+          source.planId,
+          options?.exportScope === "full",
+        );
       case "WRITING":
         return this.transformWriting(source.sessionId);
       case "SOCIAL":
@@ -479,7 +482,10 @@ export class ContentTransformerService {
    *   planConfig: { goal, depth, autoAdvance }
    *   references?: PlanReference[]
    */
-  private async transformPlanning(planId: string): Promise<UnifiedContent> {
+  private async transformPlanning(
+    planId: string,
+    includeAllPhases = false,
+  ): Promise<UnifiedContent> {
     const topic = await this.prisma.topic.findFirst({
       where: {
         id: planId,
@@ -516,14 +522,8 @@ export class ContentTransformerService {
       "6": "输出交付",
     };
 
-    // Phase 6 (Delivery) is the final report — use it as primary content
-    const phase6 = phaseStatus["6"];
-    if (phase6?.status === "completed" && phase6.summary) {
-      sections.push(...this.parseMarkdown(phase6.summary));
-    }
-
-    // If no delivery report, include all completed phase summaries
-    if (sections.length === 0) {
+    if (includeAllPhases) {
+      // 导出全部完成的阶段（用户选择了"完整策划过程"）
       for (let i = 1; i <= 6; i++) {
         const phase = phaseStatus[String(i)];
         if (phase?.status === "completed" && phase.summary) {
@@ -534,6 +534,28 @@ export class ContentTransformerService {
             level: 1,
           });
           sections.push(...this.parseMarkdown(phase.summary));
+        }
+      }
+    } else {
+      // Phase 6 (Delivery) is the final report — use it as primary content
+      const phase6 = phaseStatus["6"];
+      if (phase6?.status === "completed" && phase6.summary) {
+        sections.push(...this.parseMarkdown(phase6.summary));
+      }
+
+      // If no delivery report, include all completed phase summaries
+      if (sections.length === 0) {
+        for (let i = 1; i <= 6; i++) {
+          const phase = phaseStatus[String(i)];
+          if (phase?.status === "completed" && phase.summary) {
+            sections.push({
+              id: `phase-${i}`,
+              type: "heading",
+              content: `${PHASE_LABELS[String(i)] || `Phase ${i}`}`,
+              level: 1,
+            });
+            sections.push(...this.parseMarkdown(phase.summary));
+          }
         }
       }
     }

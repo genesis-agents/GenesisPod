@@ -241,6 +241,8 @@ export function ExportDialog({
         wysiwygHtml,
         wysiwygCss,
         fileName: contentTitle,
+        // 传递导出范围，让后端 editable 模式知道是 full（全部阶段）还是 report（仅报告）
+        exportScope: selectedScope === 'full' ? 'full' : undefined,
       };
 
       const result = await exportDocument({

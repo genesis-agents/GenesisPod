@@ -240,15 +240,24 @@ export class ExportOrchestratorService implements OnModuleInit {
       const source = this.reconstructSource(job);
       const options = job.options as Record<string, unknown> | null;
 
-      // 对于 MISSION 类型，传递 simplifiedMode 选项
-      const transformOptions =
-        source.type === "MISSION"
-          ? {
-              simplifiedMode:
-                retryWithSimplified ||
-                (options?.simplifiedMode as boolean | undefined),
-            }
-          : undefined;
+      // 构建转换选项
+      const transformOptions: {
+        simplifiedMode?: boolean;
+        exportScope?: string;
+      } = {};
+
+      // MISSION: 传递 simplifiedMode
+      if (source.type === "MISSION") {
+        transformOptions.simplifiedMode =
+          retryWithSimplified ||
+          (options?.simplifiedMode as boolean | undefined) ||
+          false;
+      }
+
+      // PLANNING: 传递 exportScope（full = 全部阶段）
+      if (options?.exportScope) {
+        transformOptions.exportScope = options.exportScope as string;
+      }
       const content = await this.contentTransformer.transform(
         source as ExportRequest["source"],
         transformOptions,
