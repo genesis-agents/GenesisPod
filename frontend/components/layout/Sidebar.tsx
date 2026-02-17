@@ -205,22 +205,22 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           /* Expanded state: Logo + Text on left */
           <Link
             href="/"
-            className="group relative flex items-center"
+            className="group flex items-center"
             title={config.brand.fullName}
           >
-            <div className="relative">
-              <BrandLogo
-                variant="full"
-                iconClassName="h-10 w-10 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
-              />
-              <Link
-                href="/changelog"
-                onClick={(e) => e.stopPropagation()}
-                className="absolute -right-1 -top-1 rounded bg-gradient-to-r from-blue-500 to-indigo-500 px-1 py-0.5 text-[7px] font-bold leading-none text-white transition-opacity hover:opacity-80"
-              >
-                v{CURRENT_VERSION}
-              </Link>
-            </div>
+            <BrandLogo
+              variant="full"
+              iconClassName="h-10 w-10 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
+              nameAddon={
+                <Link
+                  href="/changelog"
+                  onClick={(e) => e.stopPropagation()}
+                  className="rounded bg-gradient-to-r from-blue-500 to-indigo-500 px-1 py-0.5 text-[7px] font-bold leading-none text-white transition-opacity hover:opacity-80"
+                >
+                  v{CURRENT_VERSION}
+                </Link>
+              }
+            />
           </Link>
         )}
         {/* Toggle button - only in expanded state */}
