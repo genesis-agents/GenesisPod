@@ -4,7 +4,6 @@ import {
   STYLE_PRESETS,
   FONT_STYLES,
   CARD_GRADIENTS,
-  DEEPDIVE_LOGO,
 } from "../infographic.constants";
 import {
   escapeHtml,
@@ -12,6 +11,7 @@ import {
   adjustColor,
   getIcon,
 } from "../infographic.utils";
+import { APP_CONFIG } from "../../../../../common/config/app.config";
 
 /**
  * Base helper class for all infographic templates
@@ -127,7 +127,16 @@ export class TemplateBaseHelper {
   protected getConstants() {
     return {
       CARD_GRADIENTS,
-      DEEPDIVE_LOGO,
+    };
+  }
+
+  /**
+   * Get brand configuration
+   */
+  protected getBrand() {
+    return {
+      name: APP_CONFIG.brand.name,
+      fullName: APP_CONFIG.brand.fullName,
     };
   }
 

@@ -3,10 +3,12 @@
  * 内置项目信息，让 AI Ask 能够回答关于本项目的问题
  */
 
-export const DEEPDIVE_ENGINE_CONTEXT = `
-## DeepDive Engine (AI Teams Engine) 项目概述
+import { APP_CONFIG } from "@/common/config/app.config";
 
-**DeepDive Engine** 是一个企业级 AI 深度研究和内容管理平台，代号 **Raven**（渡鸦）。
+export const DEEPDIVE_ENGINE_CONTEXT = `
+## ${APP_CONFIG.brand.fullName} (AI Teams Engine) 项目概述
+
+**${APP_CONFIG.brand.fullName}** 是一个企业级 AI 深度研究和内容管理平台，代号 **${APP_CONFIG.brand.name}**（渡鸦）。
 核心价值是帮助用户高效获取、整理、分析和生成高质量内容，通过多 Agent 协作完成复杂任务。
 
 > 为什么叫 Raven？渡鸦是公认最聪明的鸟类之一，能使用工具、解决多步骤推理问题、团队协作狩猎。

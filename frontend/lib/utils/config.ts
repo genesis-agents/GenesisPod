@@ -3,10 +3,15 @@
  * ★ 统一管理环境变量、品牌名称、URL 等配置
  */
 
-// ==================== 核心品牌配置（唯一定义处）====================
-const BRAND_NAME = 'Raven';
-const BRAND_FULL_NAME = 'Raven AI Engine';
-const RAILWAY_DOMAIN = 'raven-ai-engine';
+// ==================== 核心品牌配置（环境变量优先）====================
+const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME || 'Raven';
+const BRAND_FULL_NAME =
+  process.env.NEXT_PUBLIC_BRAND_FULL_NAME || 'Raven AI Engine';
+const BRAND_SUBTITLE = process.env.NEXT_PUBLIC_BRAND_SUBTITLE || 'AI ENGINE';
+const BRAND_TAGLINE =
+  process.env.NEXT_PUBLIC_BRAND_TAGLINE || 'AI-Powered Research Platform';
+const RAILWAY_DOMAIN =
+  process.env.NEXT_PUBLIC_RAILWAY_DOMAIN || 'raven-ai-engine';
 
 // ==================== Railway URL 配置 ====================
 const RAILWAY_FRONTEND_URL = `https://${RAILWAY_DOMAIN}.up.railway.app`;
@@ -53,8 +58,29 @@ export const config = {
     name: BRAND_NAME,
     /** 品牌全称 */
     fullName: BRAND_FULL_NAME,
+    /** 品牌副标题（Logo 下方小字） */
+    subtitle: BRAND_SUBTITLE,
+    /** 品牌标语 */
+    tagline: BRAND_TAGLINE,
     /** HTTP User-Agent */
     userAgent: `${BRAND_NAME}-AI-Engine/1.0`,
+    /** Logo 路径 */
+    logo: {
+      path: process.env.NEXT_PUBLIC_BRAND_LOGO_PATH || '/favicon.svg',
+      faviconPath: process.env.NEXT_PUBLIC_BRAND_FAVICON_PATH || '/favicon.svg',
+    },
+    /** 默认邮件发送者 */
+    emailFrom:
+      process.env.NEXT_PUBLIC_BRAND_EMAIL_FROM ||
+      `${BRAND_NAME} <noreply@${BRAND_NAME.toLowerCase()}.ai>`,
+    /** 联系邮箱 */
+    contactEmail:
+      process.env.NEXT_PUBLIC_BRAND_CONTACT_EMAIL ||
+      'hello.junjie.duan@gmail.com',
+    /** GitHub Issues URL */
+    githubIssuesUrl:
+      process.env.NEXT_PUBLIC_BRAND_GITHUB_ISSUES_URL ||
+      'https://github.com/JUNJIE-DUAN/deepdive-engine/issues',
   },
 
   // ==================== Railway URL 配置 ====================

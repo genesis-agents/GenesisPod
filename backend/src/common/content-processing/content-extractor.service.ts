@@ -6,6 +6,7 @@ import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { MinerUService } from "./mineru.service";
+import { APP_CONFIG } from "../config/app.config";
 
 /**
  * PDF 提取选项
@@ -256,7 +257,8 @@ export class ContentExtractorService {
 
       return `[YouTube Video]\nTitle: ${transcriptResponse.title}\n\n[Subtitles]\n${subtitleText}`;
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.logger.warn(
         `Failed to extract YouTube subtitles via YoutubeService: ${errorMessage}`,
       );
@@ -317,7 +319,7 @@ export class ContentExtractorService {
         this.httpService.get(infoUrl, {
           timeout: 10000,
           headers: {
-            "User-Agent": "Mozilla/5.0 (compatible; DeepDive/1.0)",
+            "User-Agent": APP_CONFIG.brand.botUserAgent,
             Referer: "https://www.bilibili.com/",
           },
         }),
@@ -342,7 +344,9 @@ export class ContentExtractorService {
               );
 
               if (subtitleResponse.data?.body) {
-                const subtitleText = (subtitleResponse.data.body as Array<{ content: string }>)
+                const subtitleText = (
+                  subtitleResponse.data.body as Array<{ content: string }>
+                )
                   .map((item) => item.content)
                   .join(" ");
                 content += `\n\nSubtitles:\n${subtitleText}`;
@@ -538,7 +542,8 @@ export class ContentExtractorService {
             `[extractPdfEnhanced] MinerU parsing failed: ${minerUResult.error}`,
           );
         } catch (error: unknown) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           this.logger.warn(
             `[extractPdfEnhanced] MinerU error: ${errorMessage}`,
           );

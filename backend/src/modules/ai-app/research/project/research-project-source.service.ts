@@ -11,6 +11,7 @@ import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 import type { ToolContext } from "@/modules/ai-engine/tools/abstractions/tool.interface";
 import { AddSourceDto, SearchSourcesDto } from "./dto";
 import { FileParserService } from "./services/file-parser.service";
+import { APP_CONFIG } from "@/common/config/app.config";
 
 @Injectable()
 export class ResearchProjectSourceService {
@@ -1335,7 +1336,7 @@ export class ResearchProjectSourceService {
         },
         headers: {
           Accept: "application/vnd.github.v3+json",
-          "User-Agent": "DeepDive-Engine",
+          "User-Agent": APP_CONFIG.brand.userAgent,
         },
         timeout: 10000,
       },

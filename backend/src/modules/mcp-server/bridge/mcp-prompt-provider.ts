@@ -14,6 +14,7 @@ import {
   MCPPrompt,
   MCPPromptMessage,
 } from "../abstractions/mcp-server.interface";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 interface PromptTemplate {
   name: string;
@@ -73,10 +74,15 @@ export class MCPPromptProvider implements IMCPPromptProvider {
         "Generate a deep research request with structured planning. " +
         "Use this to leverage Raven's multi-stage research pipeline.",
       arguments: [
-        { name: "topic", description: "Research topic or question", required: true },
+        {
+          name: "topic",
+          description: "Research topic or question",
+          required: true,
+        },
         {
           name: "depth",
-          description: "Research depth: quick, standard, or deep (default: standard)",
+          description:
+            "Research depth: quick, standard, or deep (default: standard)",
           required: false,
         },
         {
@@ -141,9 +147,13 @@ export class MCPPromptProvider implements IMCPPromptProvider {
       name: "team-debate",
       description:
         "Start a multi-agent debate with opposing perspectives. " +
-        "Raven's team debate system simulates pro/con viewpoints with a neutral judge.",
+        `${APP_CONFIG.brand.name}'s team debate system simulates pro/con viewpoints with a neutral judge.`,
       arguments: [
-        { name: "topic", description: "Debate topic or proposition", required: true },
+        {
+          name: "topic",
+          description: "Debate topic or proposition",
+          required: true,
+        },
         {
           name: "rounds",
           description: "Number of debate rounds (1-5, default: 3)",
@@ -177,12 +187,14 @@ export class MCPPromptProvider implements IMCPPromptProvider {
         { name: "text", description: "Text to work with", required: true },
         {
           name: "task",
-          description: "Task: improve, expand, summarize, rewrite, proofread, outline",
+          description:
+            "Task: improve, expand, summarize, rewrite, proofread, outline",
           required: false,
         },
         {
           name: "style",
-          description: "Target style: academic, professional, casual, technical",
+          description:
+            "Target style: academic, professional, casual, technical",
           required: false,
         },
       ],
@@ -206,12 +218,12 @@ export class MCPPromptProvider implements IMCPPromptProvider {
     // -----------------------------------------------------------------------
     this.templates.set("discover-capabilities", {
       name: "discover-capabilities",
-      description:
-        "Discover available Raven AI capabilities, tools, skills, and agents.",
+      description: `Discover available ${APP_CONFIG.brand.name} AI capabilities, tools, skills, and agents.`,
       arguments: [
         {
           name: "category",
-          description: "Filter by category (optional): tools, skills, agents, teams, models",
+          description:
+            "Filter by category (optional): tools, skills, agents, teams, models",
           required: false,
         },
       ],
@@ -226,7 +238,7 @@ export class MCPPromptProvider implements IMCPPromptProvider {
             content: {
               type: "text",
               text:
-                `I want to discover what Raven AI Engine can do.\n\n` +
+                `I want to discover what ${APP_CONFIG.brand.fullName} can do.\n\n` +
                 `Please read the resource at ${resourceUri} to see available capabilities` +
                 (args.category ? ` filtered to ${args.category}` : "") +
                 `.`,
@@ -236,8 +248,6 @@ export class MCPPromptProvider implements IMCPPromptProvider {
       },
     });
 
-    this.logger.log(
-      `Registered ${this.templates.size} MCP prompt templates`,
-    );
+    this.logger.log(`Registered ${this.templates.size} MCP prompt templates`);
   }
 }

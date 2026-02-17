@@ -1,5 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import * as puppeteer from "puppeteer";
+import { APP_CONFIG } from "../../../../common/config/app.config";
+import { BrandLogoService } from "../../../../common/config/brand-logo.service";
 
 // 信息图内容结构
 export interface InfographicSection {
@@ -215,23 +217,12 @@ const ICONS: Record<string, string> = {
 
 const DEFAULT_ICON = ICONS.star;
 
-// DeepDive ENGINE 品牌 Logo - 紫色渐变 V 形标志
-const DEEPDIVE_LOGO = `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#8B5CF6"/>
-      <stop offset="50%" style="stop-color:#6366F1"/>
-      <stop offset="100%" style="stop-color:#3B82F6"/>
-    </linearGradient>
-  </defs>
-  <path d="M8 10 L20 30 L32 10" stroke="url(#logoGradient)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <path d="M14 10 L20 22 L26 10" stroke="url(#logoGradient)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.6"/>
-</svg>`;
-
 @Injectable()
 export class InfographicTemplateService {
   private readonly logger = new Logger(InfographicTemplateService.name);
   private browser: puppeteer.Browser | null = null;
+
+  constructor(private readonly brandLogoService: BrandLogoService) {}
 
   /**
    * 初始化 Puppeteer 浏览器实例
@@ -888,8 +879,8 @@ export class InfographicTemplateService {
   <div class="infographic">
     <!-- 品牌栏 -->
     <div class="brand-bar">
-      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
-      <span class="brand-name">DeepDive ENGINE</span>
+      <div class="brand-logo">${this.brandLogoService.getLogoSvg()}</div>
+      <span class="brand-name">${APP_CONFIG.brand.fullName}</span>
     </div>
 
     <!-- 标题区 -->
@@ -1462,8 +1453,8 @@ export class InfographicTemplateService {
     <!-- 头部区域 -->
     <div class="header-section">
       <div class="brand-bar">
-        <div class="brand-logo">${DEEPDIVE_LOGO}</div>
-        <span class="brand-name">DeepDive ENGINE</span>
+        <div class="brand-logo">${this.brandLogoService.getLogoSvg()}</div>
+        <span class="brand-name">${APP_CONFIG.brand.fullName}</span>
       </div>
       <div class="header">
         <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
@@ -1809,8 +1800,8 @@ export class InfographicTemplateService {
 <body>
   <div class="container">
     <div class="brand-bar">
-      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
-      <span class="brand-name">DeepDive ENGINE</span>
+      <div class="brand-logo">${this.brandLogoService.getLogoSvg()}</div>
+      <span class="brand-name">${APP_CONFIG.brand.fullName}</span>
     </div>
 
     <div class="header">
@@ -2105,8 +2096,8 @@ export class InfographicTemplateService {
 <body>
   <div class="container">
     <div class="brand-bar">
-      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
-      <span class="brand-name">DeepDive ENGINE</span>
+      <div class="brand-logo">${this.brandLogoService.getLogoSvg()}</div>
+      <span class="brand-name">${APP_CONFIG.brand.fullName}</span>
     </div>
 
     <div class="header">
@@ -2402,8 +2393,8 @@ export class InfographicTemplateService {
 <body>
   <div class="container">
     <div class="brand-bar">
-      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
-      <span class="brand-name">DeepDive ENGINE</span>
+      <div class="brand-logo">${this.brandLogoService.getLogoSvg()}</div>
+      <span class="brand-name">${APP_CONFIG.brand.fullName}</span>
     </div>
     <div class="header">
       <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
@@ -2584,8 +2575,8 @@ export class InfographicTemplateService {
 <body>
   <div class="container">
     <div class="brand-bar">
-      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
-      <span class="brand-name">DeepDive ENGINE</span>
+      <div class="brand-logo">${this.brandLogoService.getLogoSvg()}</div>
+      <span class="brand-name">${APP_CONFIG.brand.fullName}</span>
     </div>
     <div class="header">
       <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
@@ -2732,8 +2723,8 @@ export class InfographicTemplateService {
 <body>
   <div class="container">
     <div class="brand-bar">
-      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
-      <span class="brand-name">DeepDive ENGINE</span>
+      <div class="brand-logo">${this.brandLogoService.getLogoSvg()}</div>
+      <span class="brand-name">${APP_CONFIG.brand.fullName}</span>
     </div>
     <div class="header">
       <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
@@ -2909,8 +2900,8 @@ export class InfographicTemplateService {
 <body>
   <div class="container">
     <div class="brand-bar">
-      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
-      <span class="brand-name">DeepDive ENGINE</span>
+      <div class="brand-logo">${this.brandLogoService.getLogoSvg()}</div>
+      <span class="brand-name">${APP_CONFIG.brand.fullName}</span>
     </div>
     <div class="header">
       <h1 class="main-title">${this.escapeHtml(content.title)}</h1>
@@ -3160,8 +3151,8 @@ export class InfographicTemplateService {
 <body>
   <div class="container">
     <div class="brand-bar">
-      <div class="brand-logo">${DEEPDIVE_LOGO}</div>
-      <span class="brand-name">DeepDive ENGINE</span>
+      <div class="brand-logo">${this.brandLogoService.getLogoSvg()}</div>
+      <span class="brand-name">${APP_CONFIG.brand.fullName}</span>
     </div>
     <div class="header">
       <h1 class="main-title">${this.escapeHtml(content.title)}</h1>

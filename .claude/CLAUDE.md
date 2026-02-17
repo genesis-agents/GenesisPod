@@ -191,6 +191,7 @@ onModuleInit() {
 3. **错误处理**: 所有异步操作必须 try-catch
 4. **日志**: 使用 NestJS Logger，禁止 console.log
 5. **图标**: 禁止使用 emoji，必须使用 SVG 图标（Lucide React）
+6. **品牌名称**: 禁止硬编码品牌名（"Raven"/"DeepDive"等），前端用 `config.brand.*`（from `@/lib/utils/config`），后端用 `APP_CONFIG.brand.*`（from `common/config/app.config`）。Logo 用前端 `<BrandLogo />` 组件或后端 `BrandLogoService`
 
 ### 导入顺序
 

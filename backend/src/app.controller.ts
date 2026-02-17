@@ -3,6 +3,7 @@ import { AppService } from "./app.service";
 import { Public } from "./common/decorators/public.decorator";
 import { PrismaService } from "./common/prisma/prisma.service";
 import { CacheService } from "./common/cache/cache.service";
+import { APP_CONFIG } from "./common/config/app.config";
 
 @Public()
 @Controller()
@@ -53,7 +54,7 @@ export class AppController {
     return {
       status: allHealthy ? "ok" : "degraded",
       timestamp: new Date().toISOString(),
-      service: "Raven AI Engine Backend",
+      service: `${APP_CONFIG.brand.fullName} Backend`,
       version: "1.0.0",
       checks,
     };

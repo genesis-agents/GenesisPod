@@ -234,7 +234,7 @@ export default function SharedImagePage() {
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-gray-400">
-          <p>{t('share.poweredBy')}</p>
+          <p>{t('share.poweredBy', { brandName: config.brand.fullName })}</p>
         </div>
       </main>
     </div>

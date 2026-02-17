@@ -1,4 +1,5 @@
 import { INestApplication, Logger } from "@nestjs/common";
+import { APP_CONFIG } from "./app.config";
 
 /**
  * Swagger API 文档配置
@@ -16,10 +17,10 @@ export async function setupSwagger(app: INestApplication): Promise<void> {
     const { DocumentBuilder, SwaggerModule } = await import("@nestjs/swagger");
 
     const config = new DocumentBuilder()
-      .setTitle("Raven AI Engine API")
+      .setTitle(`${APP_CONFIG.brand.fullName} API`)
       .setDescription(
         `
-## Raven AI Engine - REST API
+## ${APP_CONFIG.brand.fullName} - REST API
 
 Enterprise AI deep research and content management platform.
 
@@ -58,7 +59,11 @@ The Public API (\`/api/v1/public/*\`) provides external access to AI capabilitie
       `,
       )
       .setVersion("1.0.0")
-      .setContact("Raven AI Engine", "https://github.com/JUNJIE-DUAN/deepdive-engine", "hello.junjie.duan@gmail.com")
+      .setContact(
+        APP_CONFIG.brand.fullName,
+        `https://github.com/${APP_CONFIG.github.owner}/${APP_CONFIG.github.repo}`,
+        APP_CONFIG.brand.contactEmail,
+      )
       .setLicense("MIT", "https://opensource.org/licenses/MIT")
       .addBearerAuth(
         {
@@ -80,7 +85,10 @@ The Public API (\`/api/v1/public/*\`) provides external access to AI capabilitie
         },
         "api-key",
       )
-      .addTag("Public API", "External-facing REST API for OpenClaw and integrations")
+      .addTag(
+        "Public API",
+        "External-facing REST API for OpenClaw and integrations",
+      )
       .addTag("auth", "User authentication")
       .addTag("ai-studio", "AI Studio deep research")
       .addTag("ai-office", "AI Office document generation")
@@ -100,7 +108,7 @@ The Public API (\`/api/v1/public/*\`) provides external access to AI capabilitie
     });
 
     SwaggerModule.setup("api/docs", app, document, {
-      customSiteTitle: "DeepDive Engine API Docs",
+      customSiteTitle: `${APP_CONFIG.brand.fullName} API Docs`,
       customfavIcon: "/favicon.ico",
       customCss: `
         .swagger-ui .topbar { display: none }
@@ -117,9 +125,12 @@ The Public API (\`/api/v1/public/*\`) provides external access to AI capabilitie
 
     // 添加 JSON 导出端点
     const httpAdapter = app.getHttpAdapter();
-    httpAdapter.get("/api/openapi.json", (_req: unknown, res: { json: (doc: object) => void }) => {
-      res.json(document);
-    });
+    httpAdapter.get(
+      "/api/openapi.json",
+      (_req: unknown, res: { json: (doc: object) => void }) => {
+        res.json(document);
+      },
+    );
 
     logger.log("📚 Swagger API docs available at /api/docs");
     logger.log("📄 OpenAPI JSON available at /api/openapi.json");

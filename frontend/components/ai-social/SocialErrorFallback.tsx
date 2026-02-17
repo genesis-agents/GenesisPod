@@ -7,6 +7,7 @@
 
 import { AlertTriangle, RefreshCw, Home, Share2 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
+import { config } from '@/lib/utils/config';
 
 interface SocialErrorFallbackProps {
   error?: Error | null;
@@ -139,7 +140,7 @@ export function SocialErrorFallback({
           <p className="text-center text-sm text-gray-500">
             {t('aiSocial.error.helpText')}{' '}
             <a
-              href="https://github.com/yourusername/deepdive-engine/issues"
+              href={config.brand.githubIssuesUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-rose-600 hover:underline"

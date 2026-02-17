@@ -3,10 +3,11 @@
  * ★ 统一管理品牌名称、URL 等配置，避免硬编码
  */
 
-// ==================== 核心品牌配置（唯一定义处）====================
-const BRAND_NAME = "Raven";
-const BRAND_FULL_NAME = "Raven AI Engine";
-const RAILWAY_DOMAIN = "raven-ai-engine";
+// ==================== 核心品牌配置（环境变量优先）====================
+const BRAND_NAME = process.env.BRAND_NAME || "Raven";
+const BRAND_FULL_NAME = process.env.BRAND_FULL_NAME || "Raven AI Engine";
+const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || "AI ENGINE";
+const RAILWAY_DOMAIN = process.env.RAILWAY_DOMAIN || "raven-ai-engine";
 
 /**
  * 应用配置常量
@@ -19,14 +20,27 @@ export const APP_CONFIG = {
     name: BRAND_NAME,
     /** 品牌全称 */
     fullName: BRAND_FULL_NAME,
-    /** HTTP User-Agent */
+    /** 品牌副标题 */
+    subtitle: BRAND_SUBTITLE,
+    /** HTTP User-Agent（API 调用） */
     userAgent: `${BRAND_NAME}-AI-Engine/1.0`,
+    /** 网页抓取 User-Agent（浏览器兼容格式，避免被网站拒绝） */
+    botUserAgent: `Mozilla/5.0 (compatible; ${BRAND_NAME}Bot/1.0; +https://${BRAND_NAME.toLowerCase()}.ai)`,
     /** Webhook User-Agent */
     webhookUserAgent: `${BRAND_NAME}-Webhook/1.0`,
     /** 默认邮件发送者 */
-    emailFrom: `${BRAND_NAME} <noreply@${BRAND_NAME.toLowerCase()}.ai>`,
+    emailFrom:
+      process.env.BRAND_EMAIL_FROM ||
+      `${BRAND_NAME} <noreply@${BRAND_NAME.toLowerCase()}.ai>`,
+    /** 联系邮箱 */
+    contactEmail:
+      process.env.BRAND_CONTACT_EMAIL || "hello.junjie.duan@gmail.com",
     /** 站点名称 */
     siteName: BRAND_NAME,
+    /** Logo SVG 路径（相对于项目根目录） */
+    logo: {
+      svgPath: process.env.BRAND_LOGO_SVG_PATH || "brand/logo.svg",
+    },
   },
 
   // ==================== Railway 域名配置 ====================

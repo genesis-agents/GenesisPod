@@ -56,6 +56,13 @@ const nextConfig = {
     NEXT_PUBLIC_GIT_COMMIT_HASH_FULL: gitInfo.full,
     NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
     NEXT_PUBLIC_APP_VERSION: packageJson.version,
+    // Brand configuration (env var passthrough for build-time injection)
+    NEXT_PUBLIC_BRAND_NAME: process.env.NEXT_PUBLIC_BRAND_NAME,
+    NEXT_PUBLIC_BRAND_FULL_NAME: process.env.NEXT_PUBLIC_BRAND_FULL_NAME,
+    NEXT_PUBLIC_BRAND_SUBTITLE: process.env.NEXT_PUBLIC_BRAND_SUBTITLE,
+    NEXT_PUBLIC_BRAND_TAGLINE: process.env.NEXT_PUBLIC_BRAND_TAGLINE,
+    NEXT_PUBLIC_BRAND_LOGO_PATH: process.env.NEXT_PUBLIC_BRAND_LOGO_PATH,
+    NEXT_PUBLIC_RAILWAY_DOMAIN: process.env.NEXT_PUBLIC_RAILWAY_DOMAIN,
   },
   eslint: {
     ignoreDuringBuilds: true,

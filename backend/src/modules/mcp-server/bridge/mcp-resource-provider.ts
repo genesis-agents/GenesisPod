@@ -24,6 +24,7 @@ import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
 import { AgentRegistry } from "../../ai-engine/agents/registry/agent-registry";
 import { TeamRegistry } from "../../ai-engine/teams/registry/team-registry";
 import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 @Injectable()
 export class MCPResourceProvider implements IMCPResourceProvider {
@@ -41,20 +42,23 @@ export class MCPResourceProvider implements IMCPResourceProvider {
     const resources: MCPResource[] = [
       {
         uri: "raven://capabilities",
-        name: "Raven AI Engine Capabilities",
-        description: "Overview of all available AI capabilities, tools, skills, and agents",
+        name: `${APP_CONFIG.brand.fullName} Capabilities`,
+        description:
+          "Overview of all available AI capabilities, tools, skills, and agents",
         mimeType: "application/json",
       },
       {
         uri: "raven://tools",
         name: "Available Tools",
-        description: "List of all registered tools with their schemas and categories",
+        description:
+          "List of all registered tools with their schemas and categories",
         mimeType: "application/json",
       },
       {
         uri: "raven://skills",
         name: "Available Skills",
-        description: "List of all registered skills organized by domain and layer",
+        description:
+          "List of all registered skills organized by domain and layer",
         mimeType: "application/json",
       },
       {
@@ -66,7 +70,8 @@ export class MCPResourceProvider implements IMCPResourceProvider {
       {
         uri: "raven://teams",
         name: "Team Configurations",
-        description: "Available team configurations for multi-agent collaboration",
+        description:
+          "Available team configurations for multi-agent collaboration",
         mimeType: "application/json",
       },
       {
@@ -245,7 +250,11 @@ export class MCPResourceProvider implements IMCPResourceProvider {
       return {
         uri: "raven://models",
         mimeType: "application/json",
-        text: JSON.stringify({ models: [], count: 0, error: "Unable to fetch models" }),
+        text: JSON.stringify({
+          models: [],
+          count: 0,
+          error: "Unable to fetch models",
+        }),
       };
     }
   }

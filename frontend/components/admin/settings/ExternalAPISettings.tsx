@@ -320,7 +320,7 @@ const API_TEMPLATES: Record<string, APITemplate[]> = {
       baseUrl: 'https://data.sec.gov/submissions/CIK0001045810.json',
       apiKeyUrl: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany',
       apiKeyPlaceholder: '无需API Key',
-      headers: '{"User-Agent": "DeepDive Research support@example.com"}',
+      headers: `{"User-Agent": "${config.brand.userAgent}"}`,
       freeQuota: '免费：无限制（需设置User-Agent）',
     },
     {

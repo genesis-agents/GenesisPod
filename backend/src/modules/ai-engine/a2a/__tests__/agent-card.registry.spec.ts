@@ -5,6 +5,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { AgentCardRegistry } from "../agent-card/agent-card.registry";
+import { APP_CONFIG } from "../../../../common/config/app.config";
 
 describe("AgentCardRegistry", () => {
   let registry: AgentCardRegistry;
@@ -35,9 +36,9 @@ describe("AgentCardRegistry", () => {
       const card = registry.getAgentCard();
 
       expect(card).toBeDefined();
-      expect(card.name).toBe("Raven AI Engine");
+      expect(card.name).toBe(APP_CONFIG.brand.fullName);
       expect(card.version).toBe("1.0.0");
-      expect(card.provider.organization).toBe("Raven AI");
+      expect(card.provider.organization).toBe(APP_CONFIG.brand.name);
     });
 
     it("应该包含正确的能力配置", () => {

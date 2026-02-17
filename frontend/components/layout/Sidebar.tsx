@@ -8,6 +8,8 @@ import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import { CURRENT_VERSION } from '@/lib/utils/changelog';
+import { BrandLogo } from '@/components/brand/BrandLogo';
+import { config } from '@/lib/utils/config';
 
 // Sidebar Panel Toggle Icon - left narrow, right wide
 // Fill shows current visible state: expanded = right filled, collapsed = left filled
@@ -190,43 +192,11 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             title="Open sidebar"
           >
             {/* Default: Show Logo */}
-            <svg
-              className="h-8 w-8 transition-all duration-200 group-hover:scale-75 group-hover:opacity-0"
-              viewBox="0 0 32 32"
-              fill="none"
-            >
-              <defs>
-                <linearGradient
-                  id="logoGradientCollapsed"
-                  x1="0%"
-                  y1="0%"
-                  x2="100%"
-                  y2="100%"
-                >
-                  <stop offset="0%" stopColor="#0F2A46" />
-                  <stop offset="40%" stopColor="#2BB7DA" />
-                  <stop offset="100%" stopColor="#7C5BFE" />
-                </linearGradient>
-              </defs>
-              <circle
-                cx="16"
-                cy="16"
-                r="10"
-                stroke="url(#logoGradientCollapsed)"
-                strokeWidth="2"
-                fill="none"
-              />
-              <circle cx="16" cy="6" r="3" fill="#0F2A46" />
-              <circle cx="26" cy="16" r="3" fill="#2BB7DA" />
-              <circle cx="16" cy="26" r="3" fill="#7C5BFE" />
-              <circle cx="6" cy="16" r="3" fill="#2BB7DA" />
-              <circle
-                cx="16"
-                cy="16"
-                r="3"
-                fill="url(#logoGradientCollapsed)"
-              />
-            </svg>
+            <BrandLogo
+              variant="icon"
+              gradientId="collapsed"
+              iconClassName="h-8 w-8 transition-all duration-200 group-hover:scale-75 group-hover:opacity-0"
+            />
             {/* Hover: Show Toggle icon */}
             <span className="absolute text-gray-600 opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:opacity-100">
               <SidebarToggleIcon state={sidebarState} />
@@ -237,95 +207,13 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           <Link
             href="/"
             className="group relative flex items-center gap-2.5"
-            title="Raven AI Engine"
+            title={config.brand.fullName}
           >
-            <svg
-              className="h-8 w-8 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
-              viewBox="0 0 32 32"
-              fill="none"
-            >
-              <defs>
-                <linearGradient
-                  id="logoGradient"
-                  x1="0%"
-                  y1="0%"
-                  x2="100%"
-                  y2="100%"
-                >
-                  <stop offset="0%" stopColor="#0F2A46" />
-                  <stop offset="40%" stopColor="#2BB7DA" />
-                  <stop offset="100%" stopColor="#7C5BFE" />
-                </linearGradient>
-                <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.3" />
-                  <stop offset="100%" stopColor="#7C5BFE" stopOpacity="0" />
-                </radialGradient>
-              </defs>
-              {/* Central glow */}
-              <circle
-                cx="16"
-                cy="16"
-                r="14"
-                fill="url(#glow)"
-                className="opacity-50 group-hover:opacity-80"
-              />
-              {/* Circular connection - holding hands ring */}
-              <circle
-                cx="16"
-                cy="16"
-                r="10"
-                stroke="url(#logoGradient)"
-                strokeWidth="2"
-                fill="none"
-                className="group-hover:stroke-[#2BB7DA]"
-              />
-              {/* Four agent nodes around the circle */}
-              <circle
-                cx="16"
-                cy="6"
-                r="3"
-                fill="#0F2A46"
-                className="transition-colors group-hover:fill-[#2BB7DA]"
-              />
-              <circle
-                cx="26"
-                cy="16"
-                r="3"
-                fill="#2BB7DA"
-                className="transition-colors group-hover:fill-[#7C5BFE]"
-              />
-              <circle
-                cx="16"
-                cy="26"
-                r="3"
-                fill="#7C5BFE"
-                className="transition-colors group-hover:fill-[#0F2A46]"
-              />
-              <circle
-                cx="6"
-                cy="16"
-                r="3"
-                fill="#2BB7DA"
-                className="transition-colors group-hover:fill-[#7C5BFE]"
-              />
-              {/* Engine core at center */}
-              <circle
-                cx="16"
-                cy="16"
-                r="3"
-                fill="url(#logoGradient)"
-                className="transition-transform group-hover:scale-110"
-              />
-            </svg>
-
-            <div className="flex flex-col gap-0.5">
-              <div className="flex items-center gap-1">
-                <span
-                  className="logo-shimmer text-[15px] font-bold tracking-tight"
-                  style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
-                >
-                  Raven
-                </span>
+            <BrandLogo
+              variant="full"
+              gradientId="expanded"
+              iconClassName="h-8 w-8 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
+              nameAddon={
                 <Link
                   href="/changelog"
                   onClick={(e) => e.stopPropagation()}
@@ -333,11 +221,8 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 >
                   v{CURRENT_VERSION}
                 </Link>
-              </div>
-              <span className="logo-shimmer text-[9px] font-medium tracking-[0.15em]">
-                AI ENGINE
-              </span>
-            </div>
+              }
+            />
           </Link>
         )}
         {/* Toggle button - only in expanded state */}

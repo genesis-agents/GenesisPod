@@ -13,6 +13,7 @@ import {
   TableRow,
   ListItem,
 } from "../types/unified-content";
+import { APP_CONFIG } from "../../config/app.config";
 import { marked } from "marked";
 import {
   TeamMission,
@@ -296,7 +297,7 @@ export class MissionTransformerService {
       title: mission.title,
       subtitle: "AI Teams 任务执行报告",
       author: mission.leader.agentName || mission.leader.displayName,
-      organization: "DeepDive Engine",
+      organization: APP_CONFIG.brand.fullName,
       date: mission.completedAt || mission.createdAt,
       tags: [
         "AI Teams",
@@ -800,7 +801,11 @@ export class MissionTransformerService {
           id: this.nextSectionId(),
           type: "list",
           ordered: token.ordered,
-          items: token.items ? this.parseListItems(token.items as Array<{ text: string; items?: unknown[] }>) : undefined,
+          items: token.items
+            ? this.parseListItems(
+                token.items as Array<{ text: string; items?: unknown[] }>,
+              )
+            : undefined,
         };
 
       case "table":
@@ -842,10 +847,16 @@ export class MissionTransformerService {
   /**
    * 解析列表项（递归）
    */
-  private parseListItems(items: Array<{ text: string; items?: unknown[] }>): ListItem[] {
+  private parseListItems(
+    items: Array<{ text: string; items?: unknown[] }>,
+  ): ListItem[] {
     return items.map((item) => ({
       content: item.text,
-      children: item.items ? this.parseListItems(item.items as Array<{ text: string; items?: unknown[] }>) : undefined,
+      children: item.items
+        ? this.parseListItems(
+            item.items as Array<{ text: string; items?: unknown[] }>,
+          )
+        : undefined,
     }));
   }
 

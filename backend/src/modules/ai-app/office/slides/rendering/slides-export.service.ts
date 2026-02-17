@@ -19,6 +19,7 @@ import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import * as puppeteer from "puppeteer";
+import { APP_CONFIG } from "../../../../../common/config/app.config";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PptxGenJS = require("pptxgenjs");
 import {
@@ -220,8 +221,8 @@ export class SlidesExportService {
     // 1. 设置文档属性
     pptx.title = options.title;
     pptx.subject = options.subtitle || options.title;
-    pptx.author = "DeepDive AI Office";
-    pptx.company = "DeepDive";
+    pptx.author = `${APP_CONFIG.brand.fullName} AI Office`;
+    pptx.company = APP_CONFIG.brand.name;
     pptx.defineLayout({
       name: "LAYOUT_WIDE",
       width: 13.33,
@@ -331,8 +332,8 @@ export class SlidesExportService {
     // 设置文档属性
     pptx.title = options.title;
     pptx.subject = options.subtitle || options.title;
-    pptx.author = "DeepDive AI Office";
-    pptx.company = "DeepDive";
+    pptx.author = `${APP_CONFIG.brand.fullName} AI Office`;
+    pptx.company = APP_CONFIG.brand.name;
     pptx.defineLayout({
       name: "LAYOUT_WIDE",
       width: 13.33,
@@ -1103,8 +1104,8 @@ export class SlidesExportService {
   ): void {
     pptx.title = document.title;
     pptx.subject = document.subtitle || document.title;
-    pptx.author = "DeepDive AI Office";
-    pptx.company = "DeepDive";
+    pptx.author = `${APP_CONFIG.brand.fullName} AI Office`;
+    pptx.company = APP_CONFIG.brand.name;
 
     // 设置幻灯片尺寸 (16:9)
     pptx.defineLayout({

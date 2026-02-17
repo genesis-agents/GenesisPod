@@ -13,6 +13,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { HealthCheckService } from "../health-check.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { APP_CONFIG } from "../../../../common/config/app.config";
 
 describe("HealthCheckService", () => {
   let service: HealthCheckService;
@@ -69,7 +70,7 @@ describe("HealthCheckService", () => {
       const result = await service.check();
 
       expect(result.status).toBe("healthy");
-      expect(result.service).toBe("Raven AI Engine");
+      expect(result.service).toBe(APP_CONFIG.brand.fullName);
       expect(result.timestamp).toBeDefined();
       expect(result.uptime).toBeGreaterThanOrEqual(0);
     });

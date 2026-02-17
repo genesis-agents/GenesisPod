@@ -17,6 +17,7 @@ import {
 } from "../types/unified-content";
 import { ThemeConfig, LayoutConfig } from "../types/theme-config";
 import { ExportOptions } from "../types/export-options";
+import { APP_CONFIG } from "../../config/app.config";
 import type PptxGenJSType from "pptxgenjs";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PptxGenJS: new () => PptxGenJSType = require("pptxgenjs");
@@ -37,7 +38,7 @@ export class PptxRenderer implements ExportRenderer {
     const pptx = new PptxGenJS();
 
     // 设置演示文稿属性
-    pptx.author = content.metadata.author || "DeepDive Engine";
+    pptx.author = content.metadata.author || APP_CONFIG.brand.fullName;
     pptx.title = content.metadata.title;
     pptx.subject = content.metadata.subtitle || "";
     pptx.company = content.metadata.organization || "";
@@ -560,8 +561,8 @@ export class PptxRenderer implements ExportRenderer {
       align: "center",
     });
 
-    // DeepDive 标识
-    slide.addText("Powered by DeepDive Engine", {
+    // Brand 标识
+    slide.addText(`Powered by ${APP_CONFIG.brand.fullName}`, {
       x: 0.5,
       y: 6.5,
       w: 9,

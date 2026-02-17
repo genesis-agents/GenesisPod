@@ -131,7 +131,8 @@ export const ICONS: Record<string, string> = {
 
 export const DEFAULT_ICON = ICONS.star;
 
-// DeepDive ENGINE 品牌 Logo - 紫色渐变 V 形标志
+// Brand Logo - 紫色渐变 V 形标志
+// @deprecated Use BrandLogoService.getLogoSvg() instead for centralized brand logo management
 export const DEEPDIVE_LOGO = `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">

@@ -93,7 +93,7 @@
     "createdAt": "Created",
     "promptUsed": "Prompt Used",
     "enhancedPrompt": "Enhanced Prompt",
-    "poweredBy": "Powered by Raven AI Engine"
+    "poweredBy": "Powered by {{brandName}}"
   },
   "nav": {
     "home": "Home",

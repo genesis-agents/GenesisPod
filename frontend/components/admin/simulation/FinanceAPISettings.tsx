@@ -1,6 +1,7 @@
 'use client';
 
 import { APISettingsForm } from '../settings/APISettingsForm';
+import { config } from '@/lib/utils/config';
 
 interface SimulationAPIProvider {
   id: string;
@@ -25,9 +26,15 @@ interface APITemplate {
 interface FinanceAPISettingsProps {
   providers: SimulationAPIProvider[];
   onAddProvider: (template?: APITemplate) => void;
-  onUpdateProvider: (providerId: string, updates: Partial<SimulationAPIProvider>) => void;
+  onUpdateProvider: (
+    providerId: string,
+    updates: Partial<SimulationAPIProvider>
+  ) => void;
   onRemoveProvider: (providerId: string) => void;
-  onTestProvider: (categoryId: string, provider: SimulationAPIProvider) => Promise<void>;
+  onTestProvider: (
+    categoryId: string,
+    provider: SimulationAPIProvider
+  ) => Promise<void>;
   testResults?: Record<string, { success: boolean; message: string }>;
   testing?: string | null;
 }
@@ -39,7 +46,7 @@ const FINANCE_TEMPLATES = [
     baseUrl: 'https://data.sec.gov/submissions/CIK0001045810.json',
     apiKeyUrl: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany',
     apiKeyPlaceholder: '无需API Key',
-    headers: '{"User-Agent": "DeepDive Research support@example.com"}',
+    headers: `{"User-Agent": "${config.brand.userAgent}"}`,
     freeQuota: '免费：无限制（需设置User-Agent）',
   },
   {

@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { InfographicStyle, FontStyle, StylePreset } from "../types";
+import { APP_CONFIG } from "../../../../../common/config/app.config";
 
 /**
  * 数据处理服务
@@ -136,19 +137,6 @@ export class InfographicDataService {
 
   private readonly DEFAULT_ICON = this.ICONS.star;
 
-  // DeepDive ENGINE 品牌 Logo
-  private readonly DEEPDIVE_LOGO = `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#8B5CF6"/>
-      <stop offset="50%" style="stop-color:#6366F1"/>
-      <stop offset="100%" style="stop-color:#3B82F6"/>
-    </linearGradient>
-  </defs>
-  <path d="M8 10 L20 30 L32 10" stroke="url(#logoGradient)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <path d="M14 10 L20 22 L26 10" stroke="url(#logoGradient)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.6"/>
-</svg>`;
-
   /**
    * 获取风格预设
    */
@@ -173,10 +161,17 @@ export class InfographicDataService {
   }
 
   /**
-   * 获取 DeepDive Logo
+   * 获取品牌名称
    */
-  getDeepDiveLogo(): string {
-    return this.DEEPDIVE_LOGO;
+  getBrandName(): string {
+    return APP_CONFIG.brand.name;
+  }
+
+  /**
+   * 获取品牌全称
+   */
+  getBrandFullName(): string {
+    return APP_CONFIG.brand.fullName;
   }
 
   /**

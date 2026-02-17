@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { isWorkspaceAiV2Enabled } from "./common/utils/feature-flags";
+import { APP_CONFIG } from "./common/config/app.config";
 
 export interface AppInfo {
   message: string;
@@ -13,7 +14,7 @@ export interface AppInfo {
 export class AppService {
   getHello(): AppInfo {
     return {
-      message: "Welcome to Raven AI Engine API",
+      message: `Welcome to ${APP_CONFIG.brand.fullName} API`,
       version: "1.0.0",
       docs: "/api/v1",
       health: "/api/v1/health",

@@ -6,6 +6,7 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { A2AAgentCard, A2ASkill } from "../abstractions/a2a.interface";
+import { APP_CONFIG } from "@/common/config/app.config";
 
 @Injectable()
 export class AgentCardRegistry {
@@ -18,12 +19,12 @@ export class AgentCardRegistry {
     const baseUrl = this.getBaseUrl();
 
     return {
-      name: "Raven AI Engine",
+      name: APP_CONFIG.brand.fullName,
       description:
         "Enterprise-grade AI research and content management platform with multi-agent collaboration, deep research, intelligent Q&A, document generation, and AI writing capabilities.",
       url: `${baseUrl}/a2a/tasks`,
       provider: {
-        organization: "Raven AI",
+        organization: APP_CONFIG.brand.name,
         url: baseUrl,
       },
       version: "1.0.0",

@@ -12,6 +12,7 @@ import {
 } from "../abstractions/mcp-server.interface";
 import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import { withToolTimeout, TOOL_TIMEOUT_MS } from "./tool-timeout";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 @Injectable()
 export class AskToolHandler implements IMCPToolHandler {
@@ -19,7 +20,7 @@ export class AskToolHandler implements IMCPToolHandler {
 
   readonly toolName = "raven_ask";
   readonly description =
-    "Ask Raven AI a question. Supports multi-model responses with " +
+    `Ask ${APP_CONFIG.brand.name} AI a question. Supports multi-model responses with ` +
     "web search augmentation and knowledge base integration.";
   readonly inputSchema = {
     type: "object",

@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { useTranslation } from '@/lib/i18n';
+import { config } from '@/lib/utils/config';
 import {
   MessageSquare,
   Bug,
@@ -31,9 +32,8 @@ interface UploadedFile {
   preview?: string;
 }
 
-const FEEDBACK_EMAIL = 'hello.junjie.duan@gmail.com';
-const GITHUB_ISSUES_URL =
-  'https://github.com/JUNJIE-DUAN/deepdive-engine/issues';
+const FEEDBACK_EMAIL = config.brand.contactEmail;
+const GITHUB_ISSUES_URL = config.brand.githubIssuesUrl;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES = 5;

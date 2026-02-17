@@ -487,7 +487,7 @@ export function generateReportHtml(data: MissionReportData): string {
     <!-- Header Banner -->
     <div style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: white; padding: 60px 40px; text-align: center;">
       <div style="font-size: 36px; font-weight: bold; margin-bottom: 12px; letter-spacing: 2px;">AI Team Mission Report</div>
-      <div style="font-size: 16px; color: #e9d5ff;">Powered by Raven AI Engine</div>
+      <div style="font-size: 16px; color: #e9d5ff;">Powered by ${config.brand.fullName}</div>
     </div>
 
     <!-- Mission Title Box -->
@@ -609,7 +609,7 @@ export function generateReportHtml(data: MissionReportData): string {
     <!-- Page Footer -->
     <div style="margin-top: 40px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
       <span>报告生成: ${generatedAt}</span>
-      <span>Raven AI Engine</span>
+      <span>${config.brand.fullName}</span>
     </div>
   </div>
 
@@ -651,7 +651,7 @@ export function generateReportHtml(data: MissionReportData): string {
     <!-- Page Footer -->
     <div style="margin-top: 40px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
       <span>报告生成: ${generatedAt}</span>
-      <span>Raven AI Engine</span>
+      <span>${config.brand.fullName}</span>
     </div>
   </div>
 
@@ -676,7 +676,7 @@ export function generateReportHtml(data: MissionReportData): string {
     <!-- Page Footer -->
     <div style="margin-top: 40px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
       <span>报告生成: ${generatedAt}</span>
-      <span>Raven AI Engine</span>
+      <span>${config.brand.fullName}</span>
     </div>
   </div>
   `
@@ -702,7 +702,7 @@ export function generateReportHtml(data: MissionReportData): string {
     <!-- Page Footer -->
     <div style="margin-top: 40px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
       <span>报告生成: ${generatedAt}</span>
-      <span>Raven AI Engine</span>
+      <span>${config.brand.fullName}</span>
     </div>
   </div>
   `
@@ -774,7 +774,7 @@ export function generateReportHtml(data: MissionReportData): string {
     <!-- Page Footer -->
     <div style="margin-top: 40px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
       <span>报告生成: ${generatedAt}</span>
-      <span>Raven AI Engine</span>
+      <span>${config.brand.fullName}</span>
     </div>
   </div>
 
@@ -832,14 +832,14 @@ export function generateReportHtml(data: MissionReportData): string {
     <!-- Page Footer -->
     <div style="margin-top: 40px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;">
       <span>报告生成: ${generatedAt}</span>
-      <span>Raven AI Engine</span>
+      <span>${config.brand.fullName}</span>
     </div>
   </div>
 
   <!-- Final Footer -->
   <div style="text-align: center; padding: 30px; color: #9ca3af; font-size: 11px; border-top: 1px solid #e2e8f0;">
     <div style="margin-bottom: 8px;">— 报告结束 —</div>
-    © ${new Date().getFullYear()} Raven AI Engine - AI Team Mission Report
+    © ${new Date().getFullYear()} ${config.brand.fullName} - AI Team Mission Report
   </div>
 
 </body>
@@ -870,7 +870,7 @@ function generateReportBodyHtml(data: MissionReportData): string {
     <!-- Header Banner -->
     <div style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: white; padding: 60px 40px; text-align: center;">
       <div style="font-size: 36px; font-weight: bold; margin-bottom: 12px; letter-spacing: 2px;">AI Team Mission Report</div>
-      <div style="font-size: 16px; color: #e9d5ff;">Powered by Raven AI Engine</div>
+      <div style="font-size: 16px; color: #e9d5ff;">Powered by ${config.brand.fullName}</div>
     </div>
 
     <!-- Mission Title Box -->
@@ -1095,7 +1095,7 @@ function generateReportBodyHtml(data: MissionReportData): string {
     <!-- Final Footer -->
     <div style="text-align: center; padding: 30px; color: #9ca3af; font-size: 11px; border-top: 1px solid #e2e8f0; margin-top: 40px;">
       <div style="margin-bottom: 8px;">— 报告结束 —</div>
-      © ${new Date().getFullYear()} Raven AI Engine - AI Team Mission Report
+      © ${new Date().getFullYear()} ${config.brand.fullName} - AI Team Mission Report
     </div>
   </div>
 `;

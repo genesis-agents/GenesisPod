@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
+import { config } from '@/lib/utils/config';
 
 interface Chapter {
   id: string;
@@ -513,7 +514,7 @@ export default function PublicReadPage() {
           <p>
             由{' '}
             <Link href="/" className="text-amber-600 hover:underline">
-              DeepDive AI Writing
+              {config.brand.name} AI Writing
             </Link>{' '}
             生成
           </p>

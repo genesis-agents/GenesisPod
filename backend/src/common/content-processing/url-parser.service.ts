@@ -13,6 +13,7 @@
 
 import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { WebContentExtractionService } from "./web-content-extraction.service";
+import { APP_CONFIG } from "../config/app.config";
 
 /**
  * URL 解析类型
@@ -376,8 +377,7 @@ export class UrlParserService {
       const response = await fetch(url, {
         signal: controller.signal,
         headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; DeepDiveBot/1.0; +https://deepdive.app)",
+          "User-Agent": APP_CONFIG.brand.botUserAgent,
           Accept:
             "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
@@ -423,8 +423,7 @@ export class UrlParserService {
         method: "HEAD",
         signal: controller.signal,
         headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; DeepDiveBot/1.0; +https://deepdive.app)",
+          "User-Agent": APP_CONFIG.brand.botUserAgent,
         },
       });
 
@@ -488,8 +487,7 @@ export class UrlParserService {
     try {
       const response = await fetch(oembedUrl, {
         headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; DeepDiveBot/1.0; +https://deepdive.app)",
+          "User-Agent": APP_CONFIG.brand.botUserAgent,
         },
       });
 
@@ -535,8 +533,7 @@ export class UrlParserService {
       const apiUrl = `https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`;
       const response = await fetch(apiUrl, {
         headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; DeepDiveBot/1.0; +https://deepdive.app)",
+          "User-Agent": APP_CONFIG.brand.botUserAgent,
           Referer: "https://www.bilibili.com/",
         },
       });
@@ -590,8 +587,7 @@ export class UrlParserService {
       const apiUrl = `https://api.github.com/repos/${repoPath}`;
       const response = await fetch(apiUrl, {
         headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; DeepDiveBot/1.0; +https://deepdive.app)",
+          "User-Agent": APP_CONFIG.brand.botUserAgent,
           Accept: "application/vnd.github.v3+json",
         },
       });

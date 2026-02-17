@@ -18,6 +18,7 @@ import { Injectable, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CacheService } from "../../../common/cache/cache.service";
 import { AiObservabilityService } from "../../ai-engine/observability/ai-observability.service";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 /**
  * 子系统健康状态
@@ -116,7 +117,7 @@ export class HealthCheckService {
     return {
       status: overallStatus,
       timestamp: new Date().toISOString(),
-      service: "Raven AI Engine",
+      service: APP_CONFIG.brand.fullName,
       version: process.env.npm_package_version || "3.70.0",
       uptime: Math.floor((Date.now() - this.startedAt.getTime()) / 1000),
       subsystems,

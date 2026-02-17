@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { getAuthTokens } from '@/lib/utils/auth';
+import { config as CONFIG } from '@/lib/utils/config';
 
 import { logger } from '@/lib/utils/logger';
 interface EmailConfig {
@@ -33,7 +34,7 @@ export default function EmailSettings() {
   const [config, setConfig] = useState<EmailConfig>({
     provider: 'smtp',
     enabled: false,
-    from: 'DeepDive <noreply@deepdive.ai>',
+    from: CONFIG.brand.emailFrom,
     adminEmail: '',
     host: '',
     port: 587,
@@ -283,7 +284,7 @@ export default function EmailSettings() {
             type="text"
             value={config.from}
             onChange={(e) => setConfig({ ...config, from: e.target.value })}
-            placeholder="DeepDive <noreply@deepdive.ai>"
+            placeholder={CONFIG.brand.emailFrom}
             className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-pink-500 focus:outline-none focus:ring-1 focus:ring-pink-500"
           />
         </div>

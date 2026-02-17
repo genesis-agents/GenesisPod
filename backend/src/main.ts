@@ -8,6 +8,7 @@ import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { isWorkspaceAiV2Enabled } from "./common/utils/feature-flags";
 import { setupSwagger } from "./common/config/swagger.config";
+import { APP_CONFIG } from "./common/config/app.config";
 
 /**
  * 验证必需的环境变量
@@ -118,8 +119,7 @@ async function bootstrap() {
   // Railway 环境自动添加前端 URL 到 CORS 白名单（SSE 直连需要）
   if (process.env.RAILWAY_ENVIRONMENT === "production") {
     const railwayFrontendUrl =
-      process.env.RAILWAY_FRONTEND_URL ||
-      "https://raven-ai-engine.up.railway.app";
+      process.env.RAILWAY_FRONTEND_URL || APP_CONFIG.railway.frontendUrl;
     allowedOrigins.add(railwayFrontendUrl);
   }
 
@@ -176,7 +176,7 @@ async function bootstrap() {
     res.json({
       status: "ok",
       timestamp: new Date().toISOString(),
-      service: "Raven AI Engine Backend",
+      service: `${APP_CONFIG.brand.fullName} Backend`,
       version: "1.0.0",
     });
   });
@@ -212,10 +212,10 @@ async function bootstrap() {
   const logger = new Logger("Bootstrap");
   if (isProduction) {
     logger.log(
-      `🚀 Raven AI Engine Backend started | ${baseUrl} | Port: ${port}`,
+      `🚀 ${APP_CONFIG.brand.fullName} Backend started | ${baseUrl} | Port: ${port}`,
     );
   } else {
-    logger.log(`🚀 Raven AI Engine Backend running on ${baseUrl}`);
+    logger.log(`🚀 ${APP_CONFIG.brand.fullName} Backend running on ${baseUrl}`);
     logger.log(`📚 API Docs: ${baseUrl}/api/docs`);
     logger.log(`🧩 Workspace AI v2 enabled: ${isWorkspaceAiV2Enabled()}`);
     logger.log(`📋 Log level: all (development)`);

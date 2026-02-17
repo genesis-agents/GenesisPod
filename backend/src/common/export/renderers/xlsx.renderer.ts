@@ -17,6 +17,7 @@ import {
 } from "../types/unified-content";
 import { ThemeConfig, LayoutConfig } from "../types/theme-config";
 import { ExportOptions } from "../types/export-options";
+import { APP_CONFIG } from "../../config/app.config";
 import ExcelJS from "exceljs";
 
 @Injectable()
@@ -35,7 +36,7 @@ export class XlsxRenderer implements ExportRenderer {
     const workbook = new ExcelJS.Workbook();
 
     // 设置工作簿属性
-    workbook.creator = content.metadata.author || "DeepDive Engine";
+    workbook.creator = content.metadata.author || APP_CONFIG.brand.fullName;
     workbook.created = new Date();
     workbook.modified = new Date();
     workbook.title = content.metadata.title;

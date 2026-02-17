@@ -3,8 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { config } from '@/lib/utils/config';
 
-const GITHUB_ISSUES_URL =
-  'https://github.com/JUNJIE-DUAN/deepdive-engine/issues';
+const GITHUB_ISSUES_URL = config.brand.githubIssuesUrl;
 
 export async function POST(request: NextRequest) {
   try {

@@ -1,5 +1,6 @@
 import { Global, Module } from "@nestjs/common";
 import { AdminAuthService } from "./services";
+import { BrandLogoService } from "./config/brand-logo.service";
 
 /**
  * 公共服务模块
@@ -9,7 +10,7 @@ import { AdminAuthService } from "./services";
  */
 @Global()
 @Module({
-  providers: [AdminAuthService],
-  exports: [AdminAuthService],
+  providers: [AdminAuthService, BrandLogoService],
+  exports: [AdminAuthService, BrandLogoService],
 })
 export class CommonModule {}

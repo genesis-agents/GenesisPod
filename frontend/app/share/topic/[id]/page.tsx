@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { config } from '@/lib/utils/config';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -1010,7 +1011,7 @@ export default function SharedTopicPage() {
           <p>
             由{' '}
             <Link href="/" className="text-blue-600 hover:underline">
-              DeepDive Engine
+              {config.brand.fullName}
             </Link>{' '}
             生成
           </p>
