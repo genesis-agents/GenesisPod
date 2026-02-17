@@ -53,6 +53,11 @@ const CATEGORY_OPTIONS: {
     color: 'bg-teal-100 text-teal-800',
   },
   {
+    value: 'FINANCE',
+    label: 'Finance Data',
+    color: 'bg-emerald-100 text-emerald-800',
+  },
+  {
     value: 'DEV_TOOLS',
     label: 'Dev Tools',
     color: 'bg-orange-100 text-orange-800',
