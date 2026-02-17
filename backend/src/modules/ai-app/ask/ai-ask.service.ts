@@ -18,7 +18,7 @@ import { CreditsService } from "../../credits/credits.service";
 import { InsufficientCreditsException } from "../../credits/exceptions/insufficient-credits.exception";
 import { BillingContext } from "../../credits/billing-context";
 import {
-  DEEPDIVE_ENGINE_CONTEXT,
+  GENESIS_AI_CONTEXT,
   isProjectRelatedQuery,
 } from "./constants/project-context";
 import {
@@ -579,13 +579,13 @@ export class AiAskService {
       ASK_RESPONSE_GUIDELINES,
     ];
 
-    // 如果问题与 DeepDive Engine 项目相关，添加项目上下文
+    // 如果问题与 Genesis.ai 项目相关，添加项目上下文
     if (userQuery && isProjectRelatedQuery(userQuery)) {
       systemParts.push(`\n${PROJECT_KNOWLEDGE_SECTION_TITLE}`);
       systemParts.push(PROJECT_KNOWLEDGE_INTRO);
-      systemParts.push(DEEPDIVE_ENGINE_CONTEXT);
+      systemParts.push(GENESIS_AI_CONTEXT);
       this.logger.debug(
-        "[buildSystemPromptWithContext] Added DeepDive Engine project context",
+        "[buildSystemPromptWithContext] Added Genesis.ai project context",
       );
     }
 
@@ -629,13 +629,13 @@ export class AiAskService {
       this.getCurrentDateInfo(), // ★ 添加当前日期
     ];
 
-    // 如果问题与 DeepDive Engine 项目相关，添加项目上下文
+    // 如果问题与 Genesis.ai 项目相关，添加项目上下文
     if (isProjectRelatedQuery(userQuery)) {
       parts.push(`\n${PROJECT_KNOWLEDGE_SECTION_TITLE}`);
       parts.push(PROJECT_KNOWLEDGE_INTRO);
-      parts.push(DEEPDIVE_ENGINE_CONTEXT);
+      parts.push(GENESIS_AI_CONTEXT);
       this.logger.debug(
-        "[buildSystemPromptForChat] Added DeepDive Engine project context",
+        "[buildSystemPromptForChat] Added Genesis.ai project context",
       );
     }
 

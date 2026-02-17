@@ -305,7 +305,7 @@ describe("MCPServerService", () => {
 
       expect(result.protocolVersion).toBe("2024-11-05");
       const serverInfo = result.serverInfo as Record<string, unknown>;
-      expect(serverInfo.name).toBe("raven-ai-engine");
+      expect(serverInfo.name).toBe("genesis-ai");
       expect(serverInfo.version).toBe("2.0.0");
       expect(serverInfo.sessionId).toBe("mcp-test789");
       const capabilities = result.capabilities as Record<string, unknown>;

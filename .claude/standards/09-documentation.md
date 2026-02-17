@@ -129,7 +129,7 @@ npm run dev
 ## 项目结构
 
 \```
-deepdive-engine/
+genesis-ai/
 ├── frontend/ # Next.js前端应用
 ├── backend/ # NestJS后端API
 ├── ai-service/ # Python AI服务

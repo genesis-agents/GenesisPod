@@ -16,7 +16,7 @@
 
 ### 1.1 用户反馈
 
-基于宏观洞察报告 [美国AI宏观洞察](https://deepdive-engine.up.railway.app/share/topic/7133aaac-8813-42a6-9ace-6d3c6d7de629) 的用户反馈：
+基于宏观洞察报告 [美国AI宏观洞察](https://genesis-ai.up.railway.app/share/topic/7133aaac-8813-42a6-9ace-6d3c6d7de629) 的用户反馈：
 
 1. **链接质量问题**：政策分析链接指向列表页（如 `https://2021-2025.state.gov/policy-issues/`）而非具体文章
 2. **内容提取不充分**：对于 Brookings 等专业智库文章，没有充分提炼与主题强相关的内容

@@ -1,5 +1,5 @@
 /**
- * DeepDive Engine v2.1 - 品牌套件 API 控制器
+ * Genesis.ai v2.1 - 品牌套件 API 控制器
  */
 
 import {
@@ -57,7 +57,10 @@ export class BrandKitController {
    * 创建品牌套件
    */
   @Post()
-  async create(@Body() dto: CreateBrandKitDto, @Req() req: AuthenticatedRequest) {
+  async create(
+    @Body() dto: CreateBrandKitDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.brandKitService.create(req.user.id, dto);
   }
 

@@ -6,7 +6,7 @@ domain: research
 tags: [analysis, comparison, benchmark, evaluation, research]
 taskTypes: [dimension-research, evaluation, decision-making]
 priority: 10
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业对比分析技能，比较不同方案、事物、路径，支撑决策
 tokenBudget: 800

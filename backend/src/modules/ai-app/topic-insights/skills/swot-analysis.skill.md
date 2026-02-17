@@ -6,7 +6,7 @@ domain: research
 tags: [analysis, swot, strategy, competitive, research]
 taskTypes: [dimension-research, strategic-analysis, market-research]
 priority: 10
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业SWOT分析技能，系统分析优势、劣势、机会、威胁
 tokenBudget: 800

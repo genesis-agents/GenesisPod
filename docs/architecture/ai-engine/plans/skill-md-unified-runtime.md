@@ -818,7 +818,7 @@ layer: design
 tags: [slides, data-visualization, charts, design]
 taskTypes: [slides-generation]
 priority: 90
-author: deepdive-engine
+author: genesis-ai
 source: local
 tokenBudget: 1500
 
@@ -1586,7 +1586,7 @@ layer: planning
 tags: [slides, outline, planning, structure]
 taskTypes: [slides-generation, presentation-planning]
 priority: 100
-author: deepdive-engine
+author: genesis-ai
 source: local
 tokenBudget: 2000
 
@@ -1668,7 +1668,7 @@ layer: rendering
 tags: [slides, template, rendering, html]
 taskTypes: [slides-generation]
 priority: 80
-author: deepdive-engine
+author: genesis-ai
 source: local
 
 executionMode: provider
@@ -2890,7 +2890,7 @@ AGENTS.md 层级:
         → AGENTS.override.md  (强制覆盖)
 ```
 
-**Raven 技能作用域设计**：
+**Genesis 技能作用域设计**：
 
 ```
 作用域层级 (从低到高):

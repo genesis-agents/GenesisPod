@@ -30,7 +30,7 @@ NEXT_PUBLIC_API_URL=https://backend-production-8638.up.railway.app
 ### 1. 配置后端环境变量
 
 1. 登录 [Railway Dashboard](https://railway.app/)
-2. 选择 deepdive-engine 项目
+2. 选择 genesis-ai 项目
 3. 选择 Backend 服务
 4. 点击 "Variables" 标签
 5. 点击 "New Variable"

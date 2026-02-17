@@ -6,7 +6,7 @@ domain: research
 tags: [analysis, forecast, prediction, scenario, research]
 taskTypes: [dimension-research, strategic-planning, trend-analysis]
 priority: 10
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业未来预测技能，基于现状预测发展、推演可能场景
 tokenBudget: 800

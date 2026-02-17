@@ -1728,9 +1728,9 @@ if (similarityMatrix.some((s) => s.similarity > 0.8)) {
 
 ### 附录B: 相关文档
 
-- [AI 调用规范](D:\projects\codes\deepdive-engine\docs\guides\ai-calling-standards.md)
-- [一致性检查 Skill](D:\projects\codes\deepdive-engine\skills\consistency-check.skill.md)
-- [项目规范总览](D:\projects\codes\deepdive-engine\standards\00-overview.md)
+- [AI 调用规范](D:\projects\codes\genesis-ai\docs\guides\ai-calling-standards.md)
+- [一致性检查 Skill](D:\projects\codes\genesis-ai\skills\consistency-check.skill.md)
+- [项目规范总览](D:\projects\codes\genesis-ai\standards\00-overview.md)
 
 ---
 

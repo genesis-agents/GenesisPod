@@ -496,7 +496,7 @@ export class PublicApiController {
   async getStatus() {
     return {
       status: "healthy",
-      service: "raven-ai-engine",
+      service: "genesis-ai",
       version: "1.0.0",
       timestamp: new Date().toISOString(),
       capabilities: CAPABILITIES.map((c) => c.id),
@@ -509,7 +509,7 @@ export class PublicApiController {
   @ApiResponse({ status: 200, description: "OpenClaw config template" })
   async getOpenClawConfig() {
     return {
-      provider: "raven-ai-engine",
+      provider: "genesis-ai",
       baseUrl: "/api/v1/public",
       authentication: {
         type: "api-key",

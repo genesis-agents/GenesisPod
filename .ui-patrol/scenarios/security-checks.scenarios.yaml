@@ -100,7 +100,7 @@
   test_plan_ids: [DFX-S-011]
   description: "HTTP redirects to HTTPS"
   method: api
-  url: "http://raven-ai-engine.up.railway.app"
+  url: "http://genesis-ai.up.railway.app"
   expected: "301/302 redirect to HTTPS"
   severity: P0
 

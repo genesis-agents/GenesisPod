@@ -6,7 +6,7 @@ domain: research
 tags: [analysis, consistency, quality, validation]
 taskTypes: [dimension-research, report-synthesis]
 priority: 10
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 检查多个研究维度之间的数据冲突和逻辑矛盾，确保最终报告的一致性和可信度
 tokenBudget: 800

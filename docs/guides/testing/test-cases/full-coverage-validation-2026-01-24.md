@@ -1,7 +1,7 @@
 # Genesis.ai 完整功能覆盖验证
 
 **验证日期**: 2026-01-24
-**验证环境**: https://deepdive-engine.up.railway.app
+**验证环境**: https://genesis-ai.up.railway.app
 **验证用户**: JUNJIE DUAN (已登录)
 **版本**: commit 6c635604
 

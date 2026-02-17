@@ -6,7 +6,7 @@ domain: writing
 tags: [outline, structure, planning, plot]
 taskTypes: [outline-generation, structure, chapter-planning, volume-planning]
 priority: 9
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业的小说大纲生成技能，设计引人入胜的故事结构和章节规划
 tokenBudget: 600

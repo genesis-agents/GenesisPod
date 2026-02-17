@@ -148,7 +148,7 @@ npm run dev:backend     # http://localhost:4000
 ## 项目结构
 
 ```
-deepdive-engine/
+genesis-ai/
 ├── frontend/                     # Next.js 14 前端
 │   ├── app/                      # App Router 页面
 │   │   ├── ai-research/          # 深度研究

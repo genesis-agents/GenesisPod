@@ -14,7 +14,7 @@ taskTypes:
     plot-check,
   ]
 priority: 7
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业的小说一致性检查技能，确保角色、时间线、世界观、术语和剧情的一致性
 tokenBudget: 500

@@ -7,7 +7,7 @@ layer: content
 tags: [slides, data, search, supplement]
 taskTypes: [slides-generation]
 priority: 65
-author: deepdive-engine
+author: genesis-ai
 source: local
 tokenBudget: 3000
 

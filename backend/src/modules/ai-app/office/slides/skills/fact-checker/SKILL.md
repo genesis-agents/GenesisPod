@@ -7,7 +7,7 @@ layer: quality
 tags: [slides, fact-check, verification, quality]
 taskTypes: [slides-enhancement]
 priority: 60
-author: deepdive-engine
+author: genesis-ai
 source: local
 tokenBudget: 5000
 

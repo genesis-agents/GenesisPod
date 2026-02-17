@@ -1,7 +1,7 @@
 #!/bin/bash
 # 更新 GCP Secret Manager 中的 API 密钥
 
-PROJECT_ID="deepdive-engine"
+PROJECT_ID="genesis-ai"
 
 echo "==================================="
 echo "更新 GCP Secret Manager API 密钥"

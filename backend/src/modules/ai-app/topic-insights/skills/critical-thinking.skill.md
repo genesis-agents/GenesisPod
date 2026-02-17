@@ -6,7 +6,7 @@ domain: research
 tags: [analysis, critical, verification, skepticism, research]
 taskTypes: [dimension-research, quality-review, fact-checking]
 priority: 10
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业批判性思维技能，质疑验证信息、多角度分析、辨别真伪
 tokenBudget: 800

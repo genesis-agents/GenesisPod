@@ -5,7 +5,7 @@
 ## Metadata
 
 ```yaml
-name: raven-ai-engine
+name: genesis-ai
 version: 2.0.0
 protocol: mcp/2024-11-05
 transport: streamable-http
@@ -54,10 +54,10 @@ capabilities:
 
 ## Tools (Curated)
 
-### raven_deep_research
+### genesis_deep_research
 
 ```yaml
-name: raven_deep_research
+name: genesis_deep_research
 category: research
 tier: curated
 timeout: 300s
@@ -93,10 +93,10 @@ output:
     metadata: { totalSources, duration, depth }
 ```
 
-### raven_ask
+### genesis_ask
 
 ```yaml
-name: raven_ask
+name: genesis_ask
 category: chat
 tier: curated
 timeout: 60s
@@ -125,10 +125,10 @@ output:
     webSearchUsed: boolean
 ```
 
-### raven_team_debate
+### genesis_team_debate
 
 ```yaml
-name: raven_team_debate
+name: genesis_team_debate
 category: collaboration
 tier: curated
 timeout: 180s
@@ -158,10 +158,10 @@ output:
     judgment: { winner, confidence, proStrengths, conStrengths, conclusion }
 ```
 
-### raven_content_analysis
+### genesis_content_analysis
 
 ```yaml
-name: raven_content_analysis
+name: genesis_content_analysis
 category: analysis
 tier: curated
 timeout: 60s
@@ -195,10 +195,10 @@ output:
     tokensUsed: number
 ```
 
-### raven_writing_assist
+### genesis_writing_assist
 
 ```yaml
-name: raven_writing_assist
+name: genesis_writing_assist
 category: writing
 tier: curated
 timeout: 60s
@@ -260,7 +260,7 @@ bridge:
 ```
 
 > Bridge tools require explicit permission via `allowedToolPatterns`
-> in the session's permission policy. Default policy only allows `raven_*`.
+> in the session's permission policy. Default policy only allows `genesis_*`.
 
 ---
 
@@ -268,22 +268,22 @@ bridge:
 
 ```yaml
 resources:
-  raven://capabilities:
+  genesis://capabilities:
     description: Overview of all AI capabilities
     mimeType: application/json
-  raven://tools:
+  genesis://tools:
     description: List of registered tools with schemas
     mimeType: application/json
-  raven://skills:
+  genesis://skills:
     description: List of skills organized by domain/layer
     mimeType: application/json
-  raven://agents:
+  genesis://agents:
     description: List of agents with capabilities
     mimeType: application/json
-  raven://teams:
+  genesis://teams:
     description: Team configurations for multi-agent collaboration
     mimeType: application/json
-  raven://models:
+  genesis://models:
     description: Available AI models
     mimeType: application/json
 ```
@@ -334,7 +334,7 @@ prompts:
 ```yaml
 permissions:
   default_policy:
-    allowedToolPatterns: ["raven_*"] # curated tools only
+    allowedToolPatterns: ["genesis_*"] # curated tools only
     deniedToolPatterns: []
     maxConcurrency: 5
     dailyQuota: 1000

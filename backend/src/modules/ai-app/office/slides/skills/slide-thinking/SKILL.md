@@ -7,7 +7,7 @@ layer: quality
 tags: [slides, thinking, monitoring, transparency]
 taskTypes: [slides-generation]
 priority: 30
-author: deepdive-engine
+author: genesis-ai
 source: local
 
 execution-mode: provider

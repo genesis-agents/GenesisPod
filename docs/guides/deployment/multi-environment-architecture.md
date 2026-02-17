@@ -62,7 +62,7 @@
 采用 **单 Project 多 Environment** 模式：
 
 ```
-deepdive-engine (Railway Project)
+genesis-ai (Railway Project)
 │
 ├── production (Environment)
 │   ├── frontend          # Next.js 前端

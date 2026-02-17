@@ -7,7 +7,7 @@ layer: quality
 tags: [slides, quality, transition, coherence]
 taskTypes: [slides-enhancement]
 priority: 55
-author: deepdive-engine
+author: genesis-ai
 source: local
 tokenBudget: 4000
 

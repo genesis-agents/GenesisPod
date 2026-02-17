@@ -195,7 +195,7 @@ export class R2StorageService implements OnModuleInit {
 
   /**
    * 上传 Buffer 数据（支持任意文件类型）
-   * DeepDive Engine v2.1 新增 - 用于 SVG/PDF/PPTX 等导出
+   * Genesis.ai v2.1 新增 - 用于 SVG/PDF/PPTX 等导出
    *
    * @param buffer - 文件数据 Buffer
    * @param prefix - 文件前缀，用于组织目录结构

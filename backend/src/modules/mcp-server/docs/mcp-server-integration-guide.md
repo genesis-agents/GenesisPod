@@ -6,11 +6,11 @@ Technical integration guide for external AI agents to discover and use Genesis.a
 
 The Genesis.ai MCP Server exposes five core AI capabilities through a standardized MCP interface over HTTP:
 
-- **raven_ask**: Multi-model Q&A with web search augmentation
-- **raven_deep_research**: Comprehensive research with iterative search and self-reflection
-- **raven_content_analysis**: Multi-dimensional content analysis and assessment
-- **raven_writing_assist**: Writing improvement, expansion, summarization, and proofreading
-- **raven_team_debate**: Multi-perspective debate analysis with structured judgment
+- **genesis_ask**: Multi-model Q&A with web search augmentation
+- **genesis_deep_research**: Comprehensive research with iterative search and self-reflection
+- **genesis_content_analysis**: Multi-dimensional content analysis and assessment
+- **genesis_writing_assist**: Writing improvement, expansion, summarization, and proofreading
+- **genesis_team_debate**: Multi-perspective debate analysis with structured judgment
 
 ### Protocol Details
 
@@ -20,7 +20,7 @@ The Genesis.ai MCP Server exposes five core AI capabilities through a standardiz
 - **Authentication**: API Key via HTTP headers
 - **Base URL**: `https://your-backend-instance.com/api/v1/mcp`
 
-> **Important**: MCP clients should connect directly to the **backend** service URL, not through the frontend proxy. The frontend proxy has a shorter timeout (~30s) that may interrupt long-running tools like `raven_deep_research` and `raven_team_debate`.
+> **Important**: MCP clients should connect directly to the **backend** service URL, not through the frontend proxy. The frontend proxy has a shorter timeout (~30s) that may interrupt long-running tools like `genesis_deep_research` and `genesis_team_debate`.
 
 ## Quick Start
 
@@ -72,7 +72,7 @@ Response:
       "tools": { "listChanged": false }
     },
     "serverInfo": {
-      "name": "raven-ai-engine",
+      "name": "genesis-ai",
       "version": "1.0.0"
     },
     "_meta": {
@@ -98,7 +98,7 @@ curl -X POST https://your-raven-instance.com/api/v1/mcp \
     "id": 2,
     "method": "tools/call",
     "params": {
-      "name": "raven_ask",
+      "name": "genesis_ask",
       "arguments": {
         "question": "What are the benefits of quantum computing?",
         "webSearch": true
@@ -171,7 +171,7 @@ Response:
       "tools": { "listChanged": false }
     },
     "serverInfo": {
-      "name": "raven-ai-engine",
+      "name": "genesis-ai",
       "version": "1.0.0"
     },
     "_meta": {
@@ -204,7 +204,7 @@ Response:
   "result": {
     "tools": [
       {
-        "name": "raven_ask",
+        "name": "genesis_ask",
         "description": "Ask Genesis AI a question...",
         "inputSchema": {
           "type": "object",
@@ -229,7 +229,7 @@ Request:
   "id": 3,
   "method": "tools/call",
   "params": {
-    "name": "raven_ask",
+    "name": "genesis_ask",
     "arguments": {
       "question": "What is quantum entanglement?"
     }
@@ -304,7 +304,7 @@ Requests without an `id` field are treated as notifications (no response sent):
 
 ## Tool Catalog
 
-### 1. raven_ask
+### 1. genesis_ask
 
 Ask Genesis AI a question with optional web search augmentation.
 
@@ -358,7 +358,7 @@ curl -X POST https://your-raven-instance.com/api/v1/mcp \
     "id": 1,
     "method": "tools/call",
     "params": {
-      "name": "raven_ask",
+      "name": "genesis_ask",
       "arguments": {
         "question": "What are the latest developments in AI safety?",
         "webSearch": true
@@ -376,7 +376,7 @@ curl -X POST https://your-raven-instance.com/api/v1/mcp \
 
 ---
 
-### 2. raven_deep_research
+### 2. genesis_deep_research
 
 Execute comprehensive research with iterative search, self-reflection, and report synthesis.
 
@@ -460,7 +460,7 @@ curl -X POST https://your-raven-instance.com/api/v1/mcp \
     "id": 2,
     "method": "tools/call",
     "params": {
-      "name": "raven_deep_research",
+      "name": "genesis_deep_research",
       "arguments": {
         "topic": "Impact of AI on healthcare diagnostics",
         "dimensions": ["clinical accuracy", "cost-effectiveness", "ethical considerations"],
@@ -480,7 +480,7 @@ curl -X POST https://your-raven-instance.com/api/v1/mcp \
 
 ---
 
-### 3. raven_content_analysis
+### 3. genesis_content_analysis
 
 Multi-dimensional content analysis supporting six analysis types.
 
@@ -698,7 +698,7 @@ curl -X POST https://your-raven-instance.com/api/v1/mcp \
     "id": 3,
     "method": "tools/call",
     "params": {
-      "name": "raven_content_analysis",
+      "name": "genesis_content_analysis",
       "arguments": {
         "content": "Your article text here...",
         "analysisType": "quality",
@@ -718,7 +718,7 @@ curl -X POST https://your-raven-instance.com/api/v1/mcp \
 
 ---
 
-### 4. raven_writing_assist
+### 4. genesis_writing_assist
 
 Writing assistance supporting six task types.
 
@@ -896,7 +896,7 @@ curl -X POST https://your-raven-instance.com/api/v1/mcp \
     "id": 4,
     "method": "tools/call",
     "params": {
-      "name": "raven_writing_assist",
+      "name": "genesis_writing_assist",
       "arguments": {
         "content": "Your draft text here...",
         "task": "improve",
@@ -917,7 +917,7 @@ curl -X POST https://your-raven-instance.com/api/v1/mcp \
 
 ---
 
-### 5. raven_team_debate
+### 5. genesis_team_debate
 
 Multi-perspective debate with structured judgment.
 
@@ -990,7 +990,7 @@ curl -X POST https://your-raven-instance.com/api/v1/mcp \
     "id": 5,
     "method": "tools/call",
     "params": {
-      "name": "raven_team_debate",
+      "name": "genesis_team_debate",
       "arguments": {
         "topic": "Should companies adopt 4-day work weeks?",
         "rounds": 3,
@@ -1012,7 +1012,7 @@ curl -X POST https://your-raven-instance.com/api/v1/mcp \
 
 ### JSON-RPC Error Codes
 
-Raven follows standard JSON-RPC 2.0 error codes:
+Genesis.ai follows standard JSON-RPC 2.0 error codes:
 
 | Code   | Message          | Description                                      |
 | ------ | ---------------- | ------------------------------------------------ |
@@ -1082,7 +1082,7 @@ Tool execution errors are returned as successful JSON-RPC responses with `isErro
 
 ### Guardrails
 
-Raven MCP Server includes multi-layer security guardrails:
+Genesis.ai MCP Server includes multi-layer security guardrails:
 
 1. **Input Guardrails**: Validate and sanitize all incoming tool arguments
 2. **Output Guardrails**: Filter sensitive data from responses
@@ -1129,7 +1129,7 @@ System prompts explicitly instruct the model to:
 
 ### API Key Management
 
-- API keys are stored in Raven's Secrets system with `category="MCP"`
+- API keys are stored in Genesis.ai's Secrets system with `category="MCP"`
 - Keys are validated on every request
 - Failed authentication returns HTTP 401
 - Sessions are isolated per API key
@@ -1177,7 +1177,7 @@ System prompts explicitly instruct the model to:
 ```javascript
 const axios = require("axios");
 
-class RavenMCPClient {
+class Genesis.aiMCPClient {
   constructor(apiKey, baseUrl = "https://your-raven-instance.com/api/v1/mcp") {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
@@ -1237,28 +1237,28 @@ class RavenMCPClient {
   }
 
   async ask(question, options = {}) {
-    return this.callTool("raven_ask", { question, ...options });
+    return this.callTool("genesis_ask", { question, ...options });
   }
 
   async research(topic, options = {}) {
-    return this.callTool("raven_deep_research", { topic, ...options });
+    return this.callTool("genesis_deep_research", { topic, ...options });
   }
 
   async analyzeContent(content, options = {}) {
-    return this.callTool("raven_content_analysis", { content, ...options });
+    return this.callTool("genesis_content_analysis", { content, ...options });
   }
 
   async assist(content, task, options = {}) {
-    return this.callTool("raven_writing_assist", { content, task, ...options });
+    return this.callTool("genesis_writing_assist", { content, task, ...options });
   }
 
   async debate(topic, options = {}) {
-    return this.callTool("raven_team_debate", { topic, ...options });
+    return this.callTool("genesis_team_debate", { topic, ...options });
   }
 }
 
 // Usage
-const client = new RavenMCPClient("your-api-key");
+const client = new Genesis.aiMCPClient("your-api-key");
 await client.initialize();
 
 const result = await client.research("Impact of AI on healthcare", {
@@ -1275,7 +1275,7 @@ console.log(JSON.parse(result.content[0].text));
 import requests
 import json
 
-class RavenMCPClient:
+class Genesis.aiMCPClient:
     def __init__(self, api_key, base_url='https://your-raven-instance.com/api/v1/mcp'):
         self.api_key = api_key
         self.base_url = base_url
@@ -1329,13 +1329,13 @@ class RavenMCPClient:
         return response.json()['result']
 
     def ask(self, question, **options):
-        return self.call_tool('raven_ask', {'question': question, **options})
+        return self.call_tool('genesis_ask', {'question': question, **options})
 
     def research(self, topic, **options):
-        return self.call_tool('raven_deep_research', {'topic': topic, **options})
+        return self.call_tool('genesis_deep_research', {'topic': topic, **options})
 
 # Usage
-client = RavenMCPClient('your-api-key')
+client = Genesis.aiMCPClient('your-api-key')
 client.initialize()
 
 result = client.research(
@@ -1386,9 +1386,9 @@ print(json.loads(result['content'][0]['text']))
 
 ## Support and Resources
 
-- **Documentation**: https://github.com/your-org/raven-ai-engine/docs
+- **Documentation**: https://github.com/your-org/genesis-ai/docs
 - **API Status**: https://status.your-raven-instance.com
-- **Issue Tracker**: https://github.com/your-org/raven-ai-engine/issues
+- **Issue Tracker**: https://github.com/your-org/genesis-ai/issues
 - **MCP Specification**: https://spec.modelcontextprotocol.io
 
 ## Changelog

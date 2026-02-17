@@ -1911,7 +1911,7 @@ model SharedInfographic {
 ### 6.2 TypeScript 类型定义
 
 ```typescript
-// types/deepdive-engine.ts
+// types/genesis-ai.ts
 
 // ============================================
 // 输入类型

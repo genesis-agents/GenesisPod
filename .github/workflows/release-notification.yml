@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # 仅在主仓库运行，避免 fork 触发
-    if: github.repository == 'your-org/deepdive-engine'
+    if: github.repository == 'your-org/genesis-ai'
 
     steps:
       - name: Checkout code

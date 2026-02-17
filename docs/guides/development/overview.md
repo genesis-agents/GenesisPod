@@ -27,8 +27,8 @@
 ### 2. 克隆项目
 
 ```bash
-git clone https://github.com/your-org/deepdive-engine.git
-cd deepdive-engine
+git clone https://github.com/your-org/genesis-ai.git
+cd genesis-ai
 ```
 
 ### 3. 安装依赖
@@ -48,7 +48,7 @@ npm install
 
 ```bash
 # 数据库
-DATABASE_URL="postgresql://deepdive:deepdive_dev_password@localhost:5432/deepdive"
+DATABASE_URL="postgresql://genesis:genesis_dev_password@localhost:5432/genesis"
 
 # Redis (可选)
 REDIS_URL="redis://localhost:6379"

@@ -863,7 +863,7 @@ UI Issues
 ## 13. 文件结构
 
 ```
-deepdive-engine/
+genesis-ai/
 ├── scripts/
 │   └── ui-patrol/
 │       ├── index.ts                  # CLI 入口

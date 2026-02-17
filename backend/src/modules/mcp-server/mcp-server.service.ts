@@ -231,7 +231,7 @@ export class MCPServerService implements OnModuleInit {
         prompts: { listChanged: false },
       },
       serverInfo: {
-        name: "raven-ai-engine",
+        name: "genesis-ai",
         version: "2.0.0",
         sessionId: session.sessionId,
       },

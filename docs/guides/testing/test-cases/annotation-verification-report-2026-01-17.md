@@ -1,7 +1,7 @@
 # 批注功能验证报告
 
 **测试日期**: 2026-01-17
-**测试环境**: https://deepdive-engine.up.railway.app
+**测试环境**: https://genesis-ai.up.railway.app
 **测试页面**: /ai-research/topic/0fade644-79bc-479b-8049-ce282ec00fc7
 **测试方法**: Playwright 自动化验证
 

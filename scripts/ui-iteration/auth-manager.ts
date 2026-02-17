@@ -10,7 +10,7 @@ export interface AuthConfig {
 // The frontend proxies API calls, so we need to call the backend directly
 const BACKEND_API_URL =
   process.env.UI_PATROL_BACKEND_URL ||
-  "https://raven-ai-engine-backend.up.railway.app";
+  "https://genesis-ai-backend.up.railway.app";
 
 function getAuthProfiles(): Record<string, AuthConfig> {
   return {
@@ -112,7 +112,7 @@ export async function injectAuth(
   // Navigate to the target domain first to access its localStorage
   const domain = targetUrl
     ? new URL(targetUrl).origin
-    : "https://raven-ai-engine.up.railway.app";
+    : "https://genesis-ai.up.railway.app";
 
   await page.goto(domain, { waitUntil: "domcontentloaded" });
 

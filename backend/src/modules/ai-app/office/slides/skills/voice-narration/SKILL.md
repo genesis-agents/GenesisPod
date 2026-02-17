@@ -7,7 +7,7 @@ layer: content
 tags: [narration, voice, audio]
 taskTypes: [slides-enhancement]
 priority: 40
-author: deepdive-engine
+author: genesis-ai
 source: local
 tokenBudget: 2500
 

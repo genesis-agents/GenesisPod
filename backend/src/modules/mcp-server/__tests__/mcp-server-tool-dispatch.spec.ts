@@ -141,7 +141,7 @@ describe("MCPServerService - Tool Dispatch", () => {
       expect(result).toBeDefined();
       const resp = result as any;
       expect(resp.result.protocolVersion).toBe("2024-11-05");
-      expect(resp.result.serverInfo.name).toBe("raven-ai-engine");
+      expect(resp.result.serverInfo.name).toBe("genesis-ai");
     });
 
     it("should handle ping request", async () => {

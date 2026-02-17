@@ -385,7 +385,7 @@ describe("MCPServerController Integration Tests (100% Coverage)", () => {
       expect(res.body.result.protocolVersion).toBe("2024-11-05");
       expect(res.body.result.capabilities).toBeDefined();
       expect(res.body.result.capabilities.tools).toBeDefined();
-      expect(res.body.result.serverInfo.name).toBe("raven-ai-engine");
+      expect(res.body.result.serverInfo.name).toBe("genesis-ai");
       expect(res.body.result.serverInfo.sessionId).toMatch(/^mcp-/);
       expect(res.headers["mcp-session-id"]).toBe(
         res.body.result.serverInfo.sessionId,

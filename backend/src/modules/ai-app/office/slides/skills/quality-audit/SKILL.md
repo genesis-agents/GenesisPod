@@ -7,7 +7,7 @@ layer: quality
 tags: [slides, quality, audit, review]
 taskTypes: [slides-generation]
 priority: 50
-author: deepdive-engine
+author: genesis-ai
 source: local
 
 execution-mode: provider

@@ -62,7 +62,7 @@ Genesis.ai包含多个紧密关联的模块：
 项目结构如下：
 
 ```
-deepdive-engine/
+genesis-ai/
 ├── frontend/              # Next.js前端
 │   ├── package.json
 │   └── ...

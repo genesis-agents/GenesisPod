@@ -6,7 +6,7 @@ domain: writing
 tags: [quality, review, dialogue, style, logic]
 taskTypes: [quality-check, review, dialogue-fix, style-check]
 priority: 7
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业的写作质量检查技能，包括对话质量、风格一致性、逻辑一致性等检查
 tokenBudget: 500

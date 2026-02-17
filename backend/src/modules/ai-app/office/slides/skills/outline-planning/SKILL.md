@@ -7,7 +7,7 @@ layer: planning
 tags: [slides, planning, outline, architecture]
 taskTypes: [slides-generation]
 priority: 85
-author: deepdive-engine
+author: genesis-ai
 source: local
 tokenBudget: 12000
 

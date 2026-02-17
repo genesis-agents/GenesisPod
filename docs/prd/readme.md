@@ -118,7 +118,7 @@ prd/
 
 #### Core (核心系统)
 
-- [Genesis.ai 核心 PRD v2.0](./current/infra/core/deepdive-engine-prd-v2.0.md)
+- [Genesis.ai 核心 PRD v2.0](./current/infra/core/genesis-ai-prd-v2.0.md)
 - [积分系统 PRD v1.0](./current/infra/core/credits-system-prd-v1.0.md) - AI 功能计费管控
 - [管理后台存储增强](./current/infra/core/admin-storage-enhancement.md)
 - [自动反馈处理系统 v1.0](./current/infra/core/auto-feedback-resolution-v1.0.md)

@@ -1,7 +1,7 @@
 # Genesis.ai 全面组合测试方案
 
 **测试日期**: 2026-01-25
-**测试环境**: https://deepdive-engine.up.railway.app
+**测试环境**: https://genesis-ai.up.railway.app
 **测试用户**: JUNJIE DUAN
 **基准版本**: commit 5609fe83
 

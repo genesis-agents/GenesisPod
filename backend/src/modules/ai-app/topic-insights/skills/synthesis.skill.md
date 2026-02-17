@@ -6,7 +6,7 @@ domain: research
 tags: [analysis, synthesis, integration, summary, research]
 taskTypes: [dimension-research, report-writing, executive-summary]
 priority: 10
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业综合归纳技能，整合多源信息、提炼核心观点、形成统一洞察
 tokenBudget: 800

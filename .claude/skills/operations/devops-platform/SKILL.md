@@ -45,7 +45,7 @@ You are a senior DevOps engineer specializing in deployment, infrastructure, and
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                   Genesis.ai Infrastructure                 │
+│                   Genesis.ai Infrastructure                      │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  Production (Railway)                                           │
@@ -94,7 +94,7 @@ restartPolicyMaxRetries = 3
 internalPort = 3001
 
 [[services.domains]]
-host = "api.deepdive.example.com"
+host = "api.genesis.example.com"
 ```
 
 ### Railway Commands
@@ -131,7 +131,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: deepdive
+      POSTGRES_DB: genesis
     ports:
       - "5432:5432"
     volumes:
@@ -195,7 +195,7 @@ volumes:
 
 networks:
   default:
-    name: deepdive-network
+    name: genesis-network
 ```
 
 ### Dockerfile (Backend)
@@ -246,8 +246,8 @@ docker compose ps                 # Check status
 docker compose exec postgres psql # Access PostgreSQL
 
 # Production build
-docker build -t deepdive-backend ./backend
-docker build -t deepdive-frontend ./frontend
+docker build -t genesis-backend ./backend
+docker build -t genesis-frontend ./frontend
 ```
 
 ---
@@ -263,7 +263,7 @@ module.exports = {
       name: "leader-agent",
       script: "npm",
       args: "run dear",
-      cwd: "/home/user/deepdive-engine",
+      cwd: "/home/user/genesis-engine",
       watch: false,
       autorestart: true,
       max_restarts: 10,
@@ -303,8 +303,8 @@ pm2 save                        # Save process list
 
 ```bash
 # Database
-DATABASE_URL=postgresql://user:pass@host:5432/deepdive
-MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/deepdive
+DATABASE_URL=postgresql://user:pass@host:5432/genesis
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/genesis
 REDIS_URL=redis://user:pass@host:6379
 NEO4J_URI=neo4j+s://host:7687
 NEO4J_USER=neo4j
@@ -312,7 +312,7 @@ NEO4J_PASSWORD=password
 
 # Authentication
 NEXTAUTH_SECRET=your-secret-key-here
-NEXTAUTH_URL=https://app.deepdive.example.com
+NEXTAUTH_URL=https://app.genesis.example.com
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
@@ -419,17 +419,17 @@ export class MetricsService {
   private readonly aiRequestDuration: client.Histogram<string>;
 
   constructor() {
-    client.collectDefaultMetrics({ prefix: "deepdive_" });
+    client.collectDefaultMetrics({ prefix: "genesis_" });
 
     this.httpRequestDuration = new client.Histogram({
-      name: "deepdive_http_request_duration_seconds",
+      name: "genesis_http_request_duration_seconds",
       help: "Duration of HTTP requests in seconds",
       labelNames: ["method", "route", "status_code"],
       buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
     });
 
     this.aiRequestDuration = new client.Histogram({
-      name: "deepdive_ai_request_duration_seconds",
+      name: "genesis_ai_request_duration_seconds",
       help: "Duration of AI provider requests",
       labelNames: ["provider", "model", "status"],
       buckets: [0.5, 1, 2, 5, 10, 30, 60],
@@ -443,10 +443,10 @@ export class MetricsService {
 ```yaml
 # prometheus-rules.yml
 groups:
-  - name: deepdive-alerts
+  - name: genesis-alerts
     rules:
       - alert: HighErrorRate
-        expr: rate(deepdive_http_requests_total{status_code=~"5.."}[5m]) > 0.1
+        expr: rate(genesis_http_requests_total{status_code=~"5.."}[5m]) > 0.1
         for: 5m
         labels:
           severity: critical
@@ -455,7 +455,7 @@ groups:
           description: "Error rate is {{ $value }} errors/sec"
 
       - alert: DatabaseConnectionFailed
-        expr: deepdive_health_check_database != 1
+        expr: genesis_health_check_database != 1
         for: 1m
         labels:
           severity: critical
@@ -482,7 +482,7 @@ export class LoggerService {
         winston.format.json(),
       ),
       defaultMeta: {
-        service: "deepdive-engine",
+        service: "genesis-engine",
         environment: process.env.NODE_ENV,
       },
       transports: [

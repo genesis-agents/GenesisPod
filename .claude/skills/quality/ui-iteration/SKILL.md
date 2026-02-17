@@ -151,7 +151,7 @@ The skill runs **fully autonomously** - no human input needed during execution.
 
 - **Local**: Unit/integration tests, static analysis
 - **Production**: Browser E2E, API integration, performance
-- **URL**: http://localhost:3000 (local) / https://raven-ai-engine.up.railway.app (prod)
+- **URL**: http://localhost:3000 (local) / https://genesis-ai-engine.up.railway.app (prod)
 - **Backend Port**: 4000 (local)
 - **Browser**: Playwright MCP (primary), Chrome DevTools MCP (fallback)
 - **Fallback**: Code-level analysis + API testing via curl

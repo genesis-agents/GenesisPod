@@ -7,7 +7,7 @@ tags: [content, creative, novel, chapter, continuation]
 taskTypes:
   [chapter-writing, chapter-continuation, scene-writing, content-generation]
 priority: 10
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业小说章节写作技能，包含展示而非告知、角色驱动、感官细节等核心原则
 tokenBudget: 1000

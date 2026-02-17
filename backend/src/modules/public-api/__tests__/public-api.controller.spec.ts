@@ -103,7 +103,7 @@ describe("PublicApiController", () => {
       const result = await controller.getStatus();
 
       expect(result.status).toBe("healthy");
-      expect(result.service).toBe("raven-ai-engine");
+      expect(result.service).toBe("genesis-ai");
       expect(result.version).toBe("1.0.0");
       expect(result).toHaveProperty("timestamp");
       expect(result).toHaveProperty("capabilities");
@@ -125,7 +125,7 @@ describe("PublicApiController", () => {
     it("should return OpenClaw integration config", async () => {
       const result = await controller.getOpenClawConfig();
 
-      expect(result.provider).toBe("raven-ai-engine");
+      expect(result.provider).toBe("genesis-ai");
       expect(result.baseUrl).toBe("/api/v1/public");
       expect(result).toHaveProperty("authentication");
       expect(result.authentication.type).toBe("api-key");

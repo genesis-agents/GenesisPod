@@ -1,5 +1,5 @@
 /**
- * DeepDive Engine v2.1 - 导出 API 控制器
+ * Genesis.ai v2.1 - 导出 API 控制器
  */
 
 import {

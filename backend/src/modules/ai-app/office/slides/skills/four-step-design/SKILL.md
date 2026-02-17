@@ -7,7 +7,7 @@ layer: design
 tags: [slides, design, four-step, html, visual]
 taskTypes: [slides-generation]
 priority: 70
-author: deepdive-engine
+author: genesis-ai
 source: local
 tokenBudget: 15000
 

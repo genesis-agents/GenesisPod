@@ -6,7 +6,7 @@ domain: writing
 tags: [style, tone, voice, formatting]
 taskTypes: [chapter-writing, style-adaptation, content-generation]
 priority: 8
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 控制写作风格、语气和格式的技能，确保内容风格一致性
 tokenBudget: 400

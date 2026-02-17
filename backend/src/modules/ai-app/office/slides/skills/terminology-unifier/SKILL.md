@@ -7,7 +7,7 @@ layer: quality
 tags: [slides, quality, terminology, consistency]
 taskTypes: [slides-enhancement]
 priority: 60
-author: deepdive-engine
+author: genesis-ai
 source: local
 tokenBudget: 3500
 

@@ -7,7 +7,7 @@ layer: content
 tags: [slides, image, fetch, search]
 taskTypes: [slides-generation]
 priority: 3
-author: deepdive-engine
+author: genesis-ai
 source: local
 
 execution-mode: provider

@@ -6,7 +6,7 @@ domain: research
 tags: [analysis, trend, forecast, pattern, research]
 taskTypes: [dimension-research, report-writing, market-analysis]
 priority: 10
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业趋势分析技能，识别发展趋势、变化方向、预测未来走向
 tokenBudget: 800

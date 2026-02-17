@@ -7,7 +7,7 @@ layer: rendering
 tags: [slides, chart, rendering, echarts]
 taskTypes: [slides-generation]
 priority: 2
-author: deepdive-engine
+author: genesis-ai
 source: local
 
 execution-mode: provider

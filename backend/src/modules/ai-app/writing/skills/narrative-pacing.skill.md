@@ -6,7 +6,7 @@ domain: writing
 tags: [pacing, structure, tension, rhythm]
 taskTypes: [chapter-writing, plot-development, scene-writing]
 priority: 6
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 控制故事节奏，管理张弛有度的叙事进展
 tokenBudget: 400

@@ -23,7 +23,7 @@
 ```bash
 # 1. 克隆项目
 git clone <repo-url>
-cd deepdive-engine
+cd genesis-ai
 
 # 2. 安装依赖
 npm install

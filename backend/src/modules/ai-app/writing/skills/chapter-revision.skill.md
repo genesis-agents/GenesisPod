@@ -6,7 +6,7 @@ domain: writing
 tags: [revision, polish, rewrite, editing]
 taskTypes: [chapter-revision, polish, rewrite, expand, condense, style-fix]
 priority: 8
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业小说章节修订技能，包含重写、润色、扩写、精简等编辑功能
 tokenBudget: 600

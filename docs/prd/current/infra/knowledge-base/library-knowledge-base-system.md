@@ -35,7 +35,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                          DeepDive Platform                                  │
+│                          Genesis.ai Platform                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
@@ -1251,7 +1251,7 @@ POST   /api/v1/admin/embedding-models/:id/test    # 测试模型
 ### 11.1 参考文档
 
 - [Google Drive RAG 知识库 PRD v2.0](./google-drive-rag-knowledge-base-v2.0.md)
-- [Genesis.ai PRD v2.0](./deepdive-engine-prd-v2.0.md)
+- [Genesis.ai PRD v2.0](./genesis-ai-prd-v2.0.md)
 - [RAG Best Practices 2025](https://orkes.io/blog/rag-best-practices/)
 
 ### 11.2 变更记录

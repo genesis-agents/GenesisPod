@@ -12,8 +12,8 @@
         secret: config.get("JWT_SECRET"),
         signOptions: {
           expiresIn: config.get("JWT_EXPIRES_IN", "1h"),
-          issuer: "deepdive-engine",
-          audience: "deepdive-users",
+          issuer: "genesis-ai",
+          audience: "genesis-users",
         },
       }),
     }),
@@ -106,8 +106,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: configService.get("JWT_SECRET"),
-      issuer: "deepdive-engine",
-      audience: "deepdive-users",
+      issuer: "genesis-ai",
+      audience: "genesis-users",
     });
   }
 

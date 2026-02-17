@@ -6,7 +6,7 @@ domain: research
 tags: [analysis, competitive, market, strategy, research]
 taskTypes: [dimension-research, market-research, strategic-analysis]
 priority: 10
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业竞争分析技能，分析竞争格局、主要玩家、策略对比
 tokenBudget: 800

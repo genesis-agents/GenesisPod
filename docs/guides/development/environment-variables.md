@@ -16,7 +16,7 @@
 # ===================================
 
 # PostgreSQL 主数据库
-DATABASE_URL="postgresql://deepdive:deepdive_dev_password@localhost:5432/deepdive"
+DATABASE_URL="postgresql://genesis:genesis_dev_password@localhost:5432/genesis"
 
 # ===================================
 # Redis 缓存（可选）
@@ -84,7 +84,7 @@ NEXT_PUBLIC_API_URL="http://localhost:4000"
 
 ```bash
 # 本地开发（Docker）
-DATABASE_URL="postgresql://deepdive:deepdive_dev_password@localhost:5432/deepdive"
+DATABASE_URL="postgresql://genesis:genesis_dev_password@localhost:5432/genesis"
 
 # 生产环境（Railway）
 DATABASE_URL="postgresql://postgres:xxx@containers-us-west-xxx.railway.app:6543/railway"
@@ -229,7 +229,7 @@ JWT_REFRESH_EXPIRES_IN="30d"  # 30天
 GOOGLE_CALLBACK_URL="http://localhost:4000/api/v1/auth/google/callback"
 
 # 生产环境
-GOOGLE_CALLBACK_URL="https://api.deepdive.com/api/v1/auth/google/callback"
+GOOGLE_CALLBACK_URL="https://api.genesis.com/api/v1/auth/google/callback"
 ```
 
 **必需**: ❌ 可选
@@ -287,7 +287,7 @@ API_PREFIX="api/v1"
 FRONTEND_URL="http://localhost:3000"
 
 # 生产环境
-FRONTEND_URL="https://deepdive.com"
+FRONTEND_URL="https://genesis.com"
 ```
 
 **必需**: ✅ 是
@@ -336,7 +336,7 @@ UPLOAD_DIR="./uploads"
 ```bash
 STORAGE_TYPE="s3"
 AWS_REGION="us-west-2"
-AWS_S3_BUCKET="deepdive-files"
+AWS_S3_BUCKET="genesis-files"
 AWS_ACCESS_KEY_ID="AKIAIOSFODNN7EXAMPLE"
 AWS_SECRET_ACCESS_KEY="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 ```
@@ -356,10 +356,10 @@ AWS_SECRET_ACCESS_KEY="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 CORS_ORIGIN="http://localhost:3000"
 
 # 生产环境（单个域名）
-CORS_ORIGIN="https://deepdive.com"
+CORS_ORIGIN="https://genesis.com"
 
 # 生产环境（多个域名，逗号分隔）
-CORS_ORIGIN="https://deepdive.com,https://app.deepdive.com"
+CORS_ORIGIN="https://genesis.com,https://app.genesis.com"
 
 # 允许所有（不推荐生产环境）
 CORS_ORIGIN="*"
@@ -531,4 +531,4 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ---
 
 **最后更新**: 2026-01-15
-**维护者**: DeepDive Team
+**维护者**: Genesis Team

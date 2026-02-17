@@ -7,7 +7,7 @@ tags: [extraction, fact, analysis, continuity]
 taskTypes:
   [fact-extraction, entity-extraction, event-extraction, conflict-detection]
 priority: 6
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 从章节内容中提取关键事实，用于维护故事一致性和连续性
 tokenBudget: 500

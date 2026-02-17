@@ -1,6 +1,6 @@
 # UI Patrol Configuration
 # Base URL for all patrol routes
-baseUrl: https://raven-ai-engine.up.railway.app
+baseUrl: https://genesis-ai.up.railway.app
 
 # Authentication
 auth:

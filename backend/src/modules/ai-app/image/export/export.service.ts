@@ -1,5 +1,5 @@
 /**
- * DeepDive Engine v2.1 - 多格式导出服务
+ * Genesis.ai v2.1 - 多格式导出服务
  *
  * 支持 PNG/SVG/PDF/PPTX 多种导出格式
  */

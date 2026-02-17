@@ -7,7 +7,7 @@ layer: content
 tags: [slides, content, compression, writing]
 taskTypes: [slides-generation]
 priority: 75
-author: deepdive-engine
+author: genesis-ai
 source: local
 tokenBudget: 6000
 

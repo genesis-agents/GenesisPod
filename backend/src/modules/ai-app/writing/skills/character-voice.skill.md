@@ -6,7 +6,7 @@ domain: writing
 tags: [character, dialogue, voice, personality]
 taskTypes: [chapter-writing, dialogue-writing, character-development]
 priority: 7
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 塑造独特的角色声音和对话风格，确保每个角色都有辨识度
 tokenBudget: 500

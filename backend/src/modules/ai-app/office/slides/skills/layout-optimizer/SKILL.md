@@ -7,7 +7,7 @@ layer: optimization
 tags: [slides, layout, optimization, design]
 taskTypes: [slides-generation]
 priority: 50
-author: deepdive-engine
+author: genesis-ai
 source: local
 
 execution-mode: provider

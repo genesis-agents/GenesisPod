@@ -23,7 +23,7 @@ You are a **full-spectrum test orchestrator**. You have access to:
 ## Test Environment
 
 - **Local URL**: http://localhost:3000
-- **Production URL**: https://raven-ai-engine.up.railway.app
+- **Production URL**: https://genesis-ai-engine.up.railway.app
 - **Backend Port**: 4000 (local)
 
 > Default to **Production URL** for browser tests. Use local for unit/integration tests.

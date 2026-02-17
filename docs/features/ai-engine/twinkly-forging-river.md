@@ -86,7 +86,7 @@ domain: writing
 tags: [content, creative, novel]
 taskTypes: [chapter-writing, scene-writing]
 priority: 10
-author: deepdive-engine
+author: genesis-ai
 source: local # local | skillsmp | custom-url
 ---
 

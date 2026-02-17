@@ -6,7 +6,7 @@ domain: research
 tags: [analysis, data, quantitative, statistics, research]
 taskTypes: [dimension-research, data-analysis, report-writing]
 priority: 10
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业数据解读技能，分析和解释定量数据、统计指标、量化信息
 tokenBudget: 800

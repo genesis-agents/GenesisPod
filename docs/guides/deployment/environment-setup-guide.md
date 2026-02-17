@@ -31,7 +31,7 @@
 **操作步骤**:
 
 1. 打开 [Railway Dashboard](https://railway.app/dashboard)
-2. 进入 `deepdive-engine` 项目
+2. 进入 `genesis-ai` 项目
 3. 点击顶部的 "Environments" 下拉菜单
 4. 点击 "New Environment"
 5. 命名为 `staging`

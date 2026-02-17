@@ -286,7 +286,7 @@ taskTypes: [slides-generation, presentation-planning]
 
 # === 扩展可选字段 ===
 priority: 90
-author: deepdive-engine
+author: genesis-ai
 source: local
 tags: [slides, outline, planning, structure]
 tokenBudget: 2000

@@ -7,7 +7,7 @@ layer: design
 tags: [slides, template, matching, design]
 taskTypes: [slides-generation]
 priority: 4
-author: deepdive-engine
+author: genesis-ai
 source: local
 
 execution-mode: provider

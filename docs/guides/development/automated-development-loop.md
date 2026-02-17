@@ -527,6 +527,6 @@ claude mcp add playwright -- npx @executeautomation/playwright-mcp-server
 
 ---
 
-**维护者**: DeepDive Team
+**维护者**: Genesis Team
 **创建日期**: 2025-12-28
 **版本**: v1.0

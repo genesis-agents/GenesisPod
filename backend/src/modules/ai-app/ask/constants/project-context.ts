@@ -1,19 +1,15 @@
 /**
- * DeepDive Engine 项目上下文
+ * Genesis.ai 项目上下文
  * 内置项目信息，让 AI Ask 能够回答关于本项目的问题
  */
 
 import { APP_CONFIG } from "@/common/config/app.config";
 
-export const DEEPDIVE_ENGINE_CONTEXT = `
+export const GENESIS_AI_CONTEXT = `
 ## ${APP_CONFIG.brand.fullName} (AI Teams Engine) 项目概述
 
-**${APP_CONFIG.brand.fullName}** 是一个企业级 AI 深度研究和内容管理平台，代号 **${APP_CONFIG.brand.name}**（渡鸦）。
+**${APP_CONFIG.brand.fullName}** 是一个企业级 AI 深度研究和内容管理平台。
 核心价值是帮助用户高效获取、整理、分析和生成高质量内容，通过多 Agent 协作完成复杂任务。
-
-> 为什么叫 Raven？渡鸦是公认最聪明的鸟类之一，能使用工具、解决多步骤推理问题、团队协作狩猎。
-> 北欧神话中奥丁的两只渡鸦 Huginn（思想）和 Muninn（记忆），每天飞遍世界收集情报——
-> 这与 AI Teams Engine 的核心理念高度契合：多 Agent 协作、深度研究、知识汇总。
 
 ### 技术栈
 - **前端**: Next.js 14 (App Router) + TypeScript + Zustand + TailwindCSS + shadcn/ui
@@ -51,7 +47,7 @@ export const DEEPDIVE_ENGINE_CONTEXT = `
 ### 项目结构
 
 \`\`\`
-deepdive-engine/
+genesis-ai/
 ├── frontend/                 # Next.js 前端
 │   ├── app/                  # App Router 页面
 │   │   ├── ai-ask/           # AI 问答

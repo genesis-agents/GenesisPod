@@ -346,7 +346,7 @@ const response = await this.aiFacade.chat(request);
 
 ## 相关资源
 
-- **项目规范**: [D:\projects\codes\deepdive-engine\.claude\CLAUDE.md](../../../.claude/CLAUDE.md)
+- **项目规范**: [D:\projects\codes\genesis-ai\.claude\CLAUDE.md](../../../.claude/CLAUDE.md)
 - **代码位置**: `backend/src/modules/ai-engine/`
 - **前端调用**: `frontend/lib/api/` 中的 API 客户端
 - **数据库**: AIModel 表配置模型行为

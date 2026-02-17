@@ -1,8 +1,8 @@
 /**
  * MCP Resource Provider
  *
- * 将 Raven 的知识库和内部数据暴露为 MCP Resources，
- * 让外部 AI 工具（Claude Code、Cursor 等）可以读取 Raven 管理的内容。
+ * 将 Genesis.ai 的知识库和内部数据暴露为 MCP Resources，
+ * 让外部 AI 工具（Claude Code、Cursor 等）可以读取 Genesis.ai 管理的内容。
  *
  * 资源 URI 规范:
  * - raven://capabilities         → 能力摘要
@@ -131,7 +131,7 @@ export class MCPResourceProvider implements IMCPResourceProvider {
     const skillStats = this.skillRegistry?.getStats();
 
     const data = {
-      engine: "raven-ai-engine",
+      engine: "genesis-ai",
       version: "1.0.0",
       summary: {
         totalTools: toolCount,

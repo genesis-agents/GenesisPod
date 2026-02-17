@@ -53,8 +53,8 @@
 
 ```bash
 # 开发环境当前配置 (错误)
-GOOGLE_CALLBACK_URL=https://deepdive-engine-backend.up.railway.app/...  # 指向生产!
-GITHUB_CALLBACK_URL=https://deepdive-engine-backend.up.railway.app/...  # 指向生产!
+GOOGLE_CALLBACK_URL=https://genesis-ai-backend.up.railway.app/...  # 指向生产!
+GITHUB_CALLBACK_URL=https://genesis-ai-backend.up.railway.app/...  # 指向生产!
 
 # 应该配置为
 GOOGLE_CALLBACK_URL=https://backend-development-5f56.up.railway.app/...
@@ -67,7 +67,7 @@ GITHUB_CALLBACK_URL=https://backend-development-5f56.up.railway.app/...
 
 ```bash
 # 开发环境当前配置 (错误)
-FRONTEND_URL=https://deepdive-engine.up.railway.app  # 指向生产!
+FRONTEND_URL=https://genesis-ai.up.railway.app  # 指向生产!
 
 # 应该配置为
 FRONTEND_URL=https://frontend-development-74d8.up.railway.app
@@ -91,13 +91,13 @@ FRONTEND_URL=https://frontend-development-74d8.up.railway.app
 ### 2.1 推荐架构
 
 ```
-deepdive-engine (Railway Project)
+genesis-ai (Railway Project)
 │
 ├── production (Environment) ─────────────────────────────────────────────┐
 │   │                                                                      │
-│   ├── frontend          → deepdive-engine.up.railway.app                │
-│   ├── backend           → deepdive-engine-backend.up.railway.app        │
-│   ├── ai-service        → deepdive-engine-ai-service.up.railway.app     │
+│   ├── frontend          → genesis-ai.up.railway.app                │
+│   ├── backend           → genesis-ai-backend.up.railway.app        │
+│   ├── ai-service        → genesis-ai-ai-service.up.railway.app     │
 │   │                                                                      │
 │   ├── postgres-prod     → [独立实例] postgres-prod.railway.internal     │
 │   ├── redis-prod        → [独立实例] redis-prod.railway.internal        │
@@ -136,7 +136,7 @@ deepdive-engine (Railway Project)
 
 | 环境        | 前端域名                                   | 后端 API 域名                             |
 | ----------- | ------------------------------------------ | ----------------------------------------- |
-| Production  | `deepdive-engine.up.railway.app`           | `deepdive-engine-backend.up.railway.app`  |
+| Production  | `genesis-ai.up.railway.app`                | `genesis-ai-backend.up.railway.app`       |
 | Development | `frontend-development-74d8.up.railway.app` | `backend-development-5f56.up.railway.app` |
 | Staging     | `frontend-staging-xxxx.up.railway.app`     | `backend-staging-xxxx.up.railway.app`     |
 
@@ -188,8 +188,8 @@ REDIS_URL=${{redis-prod.REDIS_URL}}
 # ============================================
 # URLs - 生产环境
 # ============================================
-FRONTEND_URL=https://deepdive-engine.up.railway.app
-CORS_ORIGIN=https://deepdive-engine.up.railway.app
+FRONTEND_URL=https://genesis-ai.up.railway.app
+CORS_ORIGIN=https://genesis-ai.up.railway.app
 
 # AI Service 内网通信
 AI_SERVICE_URL=http://${{ai-service.RAILWAY_PRIVATE_DOMAIN}}:8000
@@ -205,11 +205,11 @@ JWT_EXPIRES_IN=7d
 # ============================================
 GOOGLE_CLIENT_ID=<google-client-id>
 GOOGLE_CLIENT_SECRET=<google-client-secret>
-GOOGLE_CALLBACK_URL=https://deepdive-engine-backend.up.railway.app/api/v1/auth/google/callback
+GOOGLE_CALLBACK_URL=https://genesis-ai-backend.up.railway.app/api/v1/auth/google/callback
 
 GITHUB_CLIENT_ID=<github-client-id>
 GITHUB_CLIENT_SECRET=<github-client-secret>
-GITHUB_CALLBACK_URL=https://deepdive-engine-backend.up.railway.app/api/v1/auth/github/callback
+GITHUB_CALLBACK_URL=https://genesis-ai-backend.up.railway.app/api/v1/auth/github/callback
 
 # ============================================
 # AI API Keys
@@ -297,8 +297,8 @@ FLARESOLVERR_URL=http://${{flaresolverr.RAILWAY_PRIVATE_DOMAIN}}:8191
 
 ```bash
 # 构建时环境变量 (NEXT_PUBLIC_ 前缀)
-NEXT_PUBLIC_API_URL=https://deepdive-engine-backend.up.railway.app
-NEXT_PUBLIC_AI_URL=https://deepdive-engine-ai-service.up.railway.app
+NEXT_PUBLIC_API_URL=https://genesis-ai-backend.up.railway.app
+NEXT_PUBLIC_AI_URL=https://genesis-ai-ai-service.up.railway.app
 
 # 可选: 分析
 NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
@@ -817,7 +817,7 @@ console.log(`Frontend version: ${versionInfo.version}-${versionInfo.gitSha}`);
 
 ```bash
 # 验证生产环境版本
-curl -s https://deepdive-engine-backend.up.railway.app/api/v1/version | jq
+curl -s https://genesis-ai-backend.up.railway.app/api/v1/version | jq
 
 # 输出示例:
 # {
@@ -835,7 +835,7 @@ curl -s https://deepdive-engine-backend.up.railway.app/api/v1/version | jq
 curl -s https://backend-development-5f56.up.railway.app/api/v1/version | jq
 
 # 对比两个环境
-echo "=== Production ===" && curl -s https://deepdive-engine-backend.up.railway.app/api/v1/version | jq '.version, .gitSha, .buildTime'
+echo "=== Production ===" && curl -s https://genesis-ai-backend.up.railway.app/api/v1/version | jq '.version, .gitSha, .buildTime'
 echo "=== Development ===" && curl -s https://backend-development-5f56.up.railway.app/api/v1/version | jq '.version, .gitSha, .buildTime'
 ```
 
@@ -849,7 +849,7 @@ echo "=== Development ===" && curl -s https://backend-development-5f56.up.railwa
 #!/bin/bash
 # 检查开发和生产环境的版本同步状态
 
-PROD_URL="https://deepdive-engine-backend.up.railway.app/api/v1/version"
+PROD_URL="https://genesis-ai-backend.up.railway.app/api/v1/version"
 DEV_URL="https://backend-development-5f56.up.railway.app/api/v1/version"
 
 echo "Fetching version info..."
@@ -932,7 +932,7 @@ verify_deployment() {
 }
 
 # 使用示例
-# verify_deployment "https://deepdive-engine-backend.up.railway.app" "a1b2c3d"
+# verify_deployment "https://genesis-ai-backend.up.railway.app" "a1b2c3d"
 ```
 
 ### 6.8 语义化版本号 (SemVer)
@@ -1053,7 +1053,7 @@ echo ""
 echo "Next steps:"
 echo "  1. Railway will auto-deploy to production (if configured)"
 echo "  2. Verify deployment: railway logs --service backend"
-echo "  3. Create GitHub Release: https://github.com/YOUR_ORG/deepdive-engine/releases/new?tag=$TAG"
+echo "  3. Create GitHub Release: https://github.com/YOUR_ORG/genesis-ai/releases/new?tag=$TAG"
 ```
 
 ### 6.10 环境变量版本追踪
@@ -1324,7 +1324,7 @@ jobs:
 
 ```bash
 # 查看当前生产版本
-curl -s https://deepdive-engine-backend.up.railway.app/api/v1/version | jq
+curl -s https://genesis-ai-backend.up.railway.app/api/v1/version | jq
 
 # 查看 Git 标签版本
 git describe --tags --abbrev=0
@@ -1696,7 +1696,7 @@ railway run npx prisma studio
 
 - [ ] **部署并验证**
   ```bash
-  curl https://deepdive-engine-backend.up.railway.app/api/v1/version | jq
+  curl https://genesis-ai-backend.up.railway.app/api/v1/version | jq
   ```
 
 ### 10.5 文档更新

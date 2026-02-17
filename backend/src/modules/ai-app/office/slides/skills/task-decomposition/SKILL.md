@@ -7,7 +7,7 @@ layer: planning
 tags: [slides, planning, decomposition, analysis]
 taskTypes: [slides-generation]
 priority: 90
-author: deepdive-engine
+author: genesis-ai
 source: local
 tokenBudget: 8000
 

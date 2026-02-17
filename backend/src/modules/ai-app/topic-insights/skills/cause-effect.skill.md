@@ -6,7 +6,7 @@ domain: research
 tags: [analysis, causality, root-cause, impact, research]
 taskTypes: [dimension-research, problem-analysis, investigation]
 priority: 10
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业因果分析技能，分析原因和结果、追溯根源、评估影响
 tokenBudget: 800

@@ -7,7 +7,7 @@ layer: orchestration
 tags: [slides, pipeline, streaming, generation]
 taskTypes: [slides-generation]
 priority: 1
-author: deepdive-engine
+author: genesis-ai
 source: local
 
 execution-mode: provider

@@ -6,7 +6,7 @@ domain: research
 tags: [analysis, deep-dive, investigation, detail, research]
 taskTypes: [dimension-research, detailed-analysis, investigation]
 priority: 10
-author: deepdive-engine
+author: genesis-ai
 source: local
 description: 专业深度调研技能，深入挖掘细节、探究根因、全面分析
 tokenBudget: 1000

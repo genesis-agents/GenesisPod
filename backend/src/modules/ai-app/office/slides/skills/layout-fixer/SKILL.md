@@ -7,7 +7,7 @@ layer: optimization
 tags: [slides, layout, fix, html, css]
 taskTypes: [slides-enhancement]
 priority: 55
-author: deepdive-engine
+author: genesis-ai
 source: local
 tokenBudget: 3500
 

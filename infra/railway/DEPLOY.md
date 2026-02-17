@@ -4,7 +4,7 @@
 
 点击下面的按钮直接部署：
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/deepdive?referralCode=)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/genesis?referralCode=)
 
 ## 方法2: 手动部署步骤
 
@@ -20,7 +20,7 @@ https://railway.com/project/2521515b-3ddd-4c1e-9fb2-7f2bbe744982
 ### 3. 部署后端
 
 1. 点击 **+ New** → **GitHub Repo**
-2. 选择 `JUNJIE-DUAN/deepdive-engine`
+2. 选择 `JUNJIE-DUAN/genesis-ai`
 3. 配置：
    - **Root Directory**: `backend`
    - **Branch**: `main`
@@ -35,7 +35,7 @@ https://railway.com/project/2521515b-3ddd-4c1e-9fb2-7f2bbe744982
 ### 4. 部署前端
 
 1. 点击 **+ New** → **GitHub Repo**
-2. 选择 `JUNJIE-DUAN/deepdive-engine`
+2. 选择 `JUNJIE-DUAN/genesis-ai`
 3. 配置：
    - **Root Directory**: `frontend`
    - **Branch**: `main`

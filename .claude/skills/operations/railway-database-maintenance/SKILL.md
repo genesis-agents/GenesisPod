@@ -96,7 +96,7 @@ c.connect().then(async()=>{
 
 ```bash
 # 从 backend 目录执行，使用公网 URL
-cd "D:\projects\codes\deepdive-engine\backend"
+cd "D:\projects\codes\genesis-ai\backend"
 DATABASE_URL="DATABASE_PUBLIC_URL_HERE" npx prisma migrate deploy --schema ./prisma/schema/
 ```
 

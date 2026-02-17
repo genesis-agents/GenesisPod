@@ -158,7 +158,7 @@ const nextConfig = {
     // Railway 构建时会设置 NEXT_PUBLIC_API_URL，否则使用默认的 Railway 后端 URL
     const apiUrl = ensureProtocol(
       process.env.NEXT_PUBLIC_API_URL ||
-        'https://raven-ai-engine-backend.up.railway.app'
+        'https://genesis-ai-backend.up.railway.app'
     );
     const aiUrl = ensureProtocol(
       process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:5000'
