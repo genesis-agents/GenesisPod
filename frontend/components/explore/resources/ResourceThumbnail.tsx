@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import { extractYouTubeVideoId } from '../utils/utils';
 
 import { logger } from '@/lib/utils/logger';
@@ -48,7 +49,9 @@ async function fetchThumbnailWithQueue(
         if (resourceId) {
           apiUrl += `&resourceId=${resourceId}`;
         }
-        const response = await fetch(apiUrl);
+        const response = await fetch(apiUrl, {
+          headers: { ...getAuthHeader() },
+        });
         if (response.ok) {
           const rawData = await response.json();
           // Handle wrapped response { success: true, data: {...} }
