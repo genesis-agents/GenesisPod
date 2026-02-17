@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { SettingsService } from "../../core/settings/settings.service";
 import { CollectionTaskService } from "../sources/collection-task.service";
 import { getErrorMessage } from "../../../common/utils/error.utils";
 import { ResourceType } from "@prisma/client";
@@ -51,6 +52,7 @@ export class DataCollectionSchedulerService
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
+    private settingsService: SettingsService,
     private collectionTaskService: CollectionTaskService,
   ) {
     this.config = {
@@ -70,12 +72,42 @@ export class DataCollectionSchedulerService
   }
 
   async onModuleInit(): Promise<void> {
+    // Load persisted config from DB (overrides env vars)
+    await this.loadConfigFromDb();
+
     if (this.config.enabled) {
       this.logger.log("Data collection scheduler is enabled, initializing...");
       await this.initializeSchedulers();
     } else {
       this.logger.log(
         "Data collection scheduler is disabled. Set DATA_COLLECTION_ENABLED=true to enable.",
+      );
+    }
+  }
+
+  /**
+   * 从数据库加载持久化配置，DB 值优先于环境变量
+   */
+  private async loadConfigFromDb(): Promise<void> {
+    try {
+      const dbEnabled = await this.settingsService.get("scheduler.enabled");
+      if (dbEnabled !== null) {
+        this.config.enabled = dbEnabled === "true";
+      }
+
+      const dbInterval = await this.settingsService.get(
+        "scheduler.default_interval",
+      );
+      if (dbInterval !== null) {
+        this.config.defaultInterval = dbInterval;
+      }
+
+      this.logger.log(
+        `Scheduler config loaded: enabled=${this.config.enabled}, interval=${this.config.defaultInterval}`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to load scheduler config from DB, using env defaults: ${getErrorMessage(error)}`,
       );
     }
   }
@@ -399,6 +431,16 @@ export class DataCollectionSchedulerService
     if (dto.enabled !== undefined) {
       this.config.enabled = dto.enabled;
 
+      // Persist to DB
+      await this.settingsService.set(
+        "scheduler.enabled",
+        dto.enabled.toString(),
+        {
+          category: "scheduler",
+          description: "Data collection scheduler enabled",
+        },
+      );
+
       if (dto.enabled && this.cronJobs.size === 0) {
         await this.initializeSchedulers();
       } else if (!dto.enabled && this.cronJobs.size > 0) {
@@ -408,6 +450,13 @@ export class DataCollectionSchedulerService
 
     if (dto.defaultInterval) {
       this.config.defaultInterval = dto.defaultInterval;
+
+      // Persist to DB
+      await this.settingsService.set(
+        "scheduler.default_interval",
+        dto.defaultInterval,
+        { category: "scheduler", description: "Default collection interval" },
+      );
     }
 
     this.logger.log(
