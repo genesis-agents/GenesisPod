@@ -13,8 +13,10 @@ import { UpdatePlanDto } from "../dto/update-plan.dto";
 import { Prisma, TopicType, AIModelType } from "@prisma/client";
 import { AIEngineFacade } from "../../../ai-engine/facade";
 import type { ChatMessage, TaskProfile } from "../../../ai-engine/facade";
-import { ReflectionService } from "../../../ai-engine/orchestration/services/reflection.service";
-import { ContextCompressionService } from "../../../ai-engine/orchestration/services/context-compression.service";
+import {
+  ReflectionService,
+  ContextCompressionService,
+} from "../../../ai-engine/orchestration/services";
 
 export interface PlanPhaseStatus {
   status: "pending" | "active" | "completed" | "skipped" | "failed";

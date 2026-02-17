@@ -99,15 +99,33 @@ export class VectorService {
       `Starting similarity search: limit=${limit}, threshold=${threshold}, kbIds=${knowledgeBaseIds?.length || "all"}`,
     );
 
-    // Build where clause for knowledge base filtering
-    const whereClause = knowledgeBaseIds?.length
+    // Pre-filter: resolve knowledgeBaseIds -> documentIds upfront using the
+    // indexed knowledge_base_documents.knowledge_base_id column, then filter
+    // ChildEmbedding via the denormalized ChildChunk.documentId field.
+    // This replaces a 3-level nested JOIN with a single IN-list lookup,
+    // dramatically reducing the candidate set for large embedding tables.
+    let documentIds: string[] | undefined;
+    if (knowledgeBaseIds?.length) {
+      const docs = await this.prisma.knowledgeBaseDocument.findMany({
+        where: { knowledgeBaseId: { in: knowledgeBaseIds } },
+        select: { id: true },
+      });
+      documentIds = docs.map((d) => d.id);
+
+      // No documents in these knowledge bases – return early
+      if (documentIds.length === 0) {
+        this.logger.debug(
+          `No documents found for knowledgeBaseIds=${knowledgeBaseIds.join(",")}, returning empty results`,
+        );
+        return [];
+      }
+    }
+
+    // Build where clause using pre-resolved documentIds for efficient filtering
+    const whereClause = documentIds?.length
       ? {
           childChunk: {
-            parentChunk: {
-              document: {
-                knowledgeBaseId: { in: knowledgeBaseIds },
-              },
-            },
+            documentId: { in: documentIds },
           },
         }
       : {};
@@ -198,14 +216,28 @@ export class VectorService {
       batchSize = 1000,
     } = options;
 
-    const whereClause = knowledgeBaseIds?.length
+    // Pre-filter: resolve knowledgeBaseIds -> documentIds upfront (same
+    // optimisation as similaritySearch – avoids 3-level nested JOIN).
+    let documentIds: string[] | undefined;
+    if (knowledgeBaseIds?.length) {
+      const docs = await this.prisma.knowledgeBaseDocument.findMany({
+        where: { knowledgeBaseId: { in: knowledgeBaseIds } },
+        select: { id: true },
+      });
+      documentIds = docs.map((d) => d.id);
+
+      if (documentIds.length === 0) {
+        this.logger.debug(
+          `No documents found for knowledgeBaseIds=${knowledgeBaseIds.join(",")}, returning empty results`,
+        );
+        return [];
+      }
+    }
+
+    const whereClause = documentIds?.length
       ? {
           childChunk: {
-            parentChunk: {
-              document: {
-                knowledgeBaseId: { in: knowledgeBaseIds },
-              },
-            },
+            documentId: { in: documentIds },
           },
         }
       : {};

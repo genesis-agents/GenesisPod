@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * MissionExecutionService Unit Tests
  *
@@ -17,11 +16,7 @@ import { AgentActivityService } from "../../services/monitoring/agent-activity.s
 import { ResearchReviewerService } from "../../services/collaboration/research-reviewer.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import {
-  ResearchMissionStatus,
-  ResearchTaskStatus,
-  AIModelType,
-} from "@prisma/client";
+import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
 
 import {
   createMockPrisma,
@@ -33,7 +28,6 @@ import {
 import {
   MOCK_TOPIC,
   MOCK_MISSION_EXECUTING,
-  MOCK_TASK_PENDING,
   MOCK_TASK_EXECUTING,
   MOCK_TASK_COMPLETED,
   createMockTask,
@@ -528,8 +522,8 @@ describe("MissionExecutionService", () => {
 
       // Act
       await service.executeTask(
-        task,
-        topicWithDimensions,
+        task as any,
+        topicWithDimensions as any,
         "mission-123",
         "report-123",
       );
@@ -565,7 +559,12 @@ describe("MissionExecutionService", () => {
       });
 
       // Act
-      await service.executeTask(task, MOCK_TOPIC, "mission-123", "report-123");
+      await service.executeTask(
+        task as any,
+        MOCK_TOPIC as any,
+        "mission-123",
+        "report-123",
+      );
 
       // Assert
       expect(queryService.updateTaskStatus).not.toHaveBeenCalled();
@@ -586,7 +585,12 @@ describe("MissionExecutionService", () => {
       });
 
       // Act
-      await service.executeTask(task, MOCK_TOPIC, "mission-123", "report-123");
+      await service.executeTask(
+        task as any,
+        MOCK_TOPIC as any,
+        "mission-123",
+        "report-123",
+      );
 
       // Assert
       expect(queryService.updateTaskStatus).not.toHaveBeenCalled();
@@ -636,8 +640,8 @@ describe("MissionExecutionService", () => {
 
       // Act
       await service.executeTask(
-        task,
-        topicWithDimensions,
+        task as any,
+        topicWithDimensions as any,
         "mission-123",
         "report-123",
       );

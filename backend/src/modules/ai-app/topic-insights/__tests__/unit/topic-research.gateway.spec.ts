@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * TopicInsightsGateway Unit Tests
  *
@@ -451,7 +450,7 @@ describe("TopicInsightsGateway", () => {
           auth: { token: "valid-jwt-token" },
           headers: {},
         },
-        data: {},
+        data: {} as Record<string, unknown>,
       };
       prisma.user.findUnique.mockResolvedValue({
         id: "user-123",
@@ -466,7 +465,7 @@ describe("TopicInsightsGateway", () => {
       expect(jwtService.verifyAsync).toHaveBeenCalledWith("valid-jwt-token", {
         secret: "test-jwt-secret-at-least-32-chars",
       });
-      expect(validTokenClient.data.user).toEqual({
+      expect((validTokenClient.data as any).user).toEqual({
         id: "user-123",
         email: "test@example.com",
         username: "testuser",

@@ -1,15 +1,15 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import {
+  CreateWorldSettingData,
+  UpdateWorldSettingData,
+} from "./bible-entity.types";
 
 @Injectable()
 export class WorldSettingService {
-  private readonly logger = new Logger(WorldSettingService.name);
+  constructor(private readonly prisma: PrismaService) {}
 
-  constructor(private readonly prisma: PrismaService) {
-    void this.logger;
-  }
-
-  async create(bibleId: string, data: any) {
+  async create(bibleId: string, data: CreateWorldSettingData) {
     return this.prisma.worldSetting.create({
       data: {
         bibleId,
@@ -35,7 +35,7 @@ export class WorldSettingService {
     });
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: UpdateWorldSettingData) {
     return this.prisma.worldSetting.update({
       where: { id },
       data,

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ResearchLeaderService - Global Outline Tests
  *
@@ -37,7 +36,7 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
     emitLeaderResponse: jest.fn(),
   };
   const mockLeaderToolService = {
-    getAvailableTools: jest.fn().mockResolvedValue([]),
+    getAvailableTools: jest.fn<() => Promise<unknown>>().mockResolvedValue([]),
   };
   const mockResearchMissionService = {
     getMissionStatus: jest.fn(),
@@ -71,10 +70,12 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
     service = module.get<ResearchLeaderService>(ResearchLeaderService);
 
     // Mock getReasoningModel method
-    service["getReasoningModel"] = jest.fn().mockResolvedValue({
-      modelId: "gpt-4o",
-      name: "GPT-4o",
-    });
+    (service as any)["getReasoningModel"] = jest
+      .fn<() => Promise<unknown>>()
+      .mockResolvedValue({
+        modelId: "gpt-4o",
+        name: "GPT-4o",
+      });
   });
 
   afterEach(() => {
@@ -252,8 +253,8 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
         (d) => d.dimensionName === "Key Players",
       );
       expect(stubDimension).toBeDefined();
-      expect(stubDimension.outline.sections).toHaveLength(1);
-      expect(stubDimension.outline.sections[0].id).toContain("stub-");
+      expect(stubDimension!.outline.sections).toHaveLength(1);
+      expect(stubDimension!.outline.sections[0].id).toContain("stub-");
     });
 
     it("should retry on API error up to 3 times", async () => {
@@ -550,7 +551,9 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
         modelId: "claude-sonnet-4",
         name: "Claude Sonnet 4",
       };
-      service["getReasoningModel"] = jest.fn().mockResolvedValue(customModel);
+      (service as any)["getReasoningModel"] = jest
+        .fn<() => Promise<unknown>>()
+        .mockResolvedValue(customModel);
 
       const validOutline = {
         dimensions: mockDimensionSearchResults.map((dim) => ({
@@ -595,7 +598,7 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
       await service.planGlobalOutline(mockTopic, mockDimensionSearchResults);
 
       // Assert
-      expect(service["getReasoningModel"]).toHaveBeenCalled();
+      expect((service as any)["getReasoningModel"]).toHaveBeenCalled();
       expect(mockAiFacade.chat).toHaveBeenCalledWith(
         expect.objectContaining({
           model: customModel.modelId,
@@ -605,7 +608,9 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
 
     it("should throw if getReasoningModel returns null", async () => {
       // Arrange
-      service["getReasoningModel"] = jest.fn().mockResolvedValue(null);
+      (service as any)["getReasoningModel"] = jest
+        .fn<() => Promise<unknown>>()
+        .mockResolvedValue(null);
 
       // Act & Assert
       await expect(

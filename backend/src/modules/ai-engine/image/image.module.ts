@@ -23,6 +23,7 @@ import { OpenAIImageAdapter } from "./adapters/openai-image-adapter";
 import { StabilityImageAdapter } from "./adapters/stability-image-adapter";
 import { TogetherImageAdapter } from "./adapters/together-image-adapter";
 import { ImageMatchingService } from "./matching/image-matching.service";
+import { IMAGE_PROVIDERS } from "./abstractions/image-adapter.interface";
 
 @Module({
   imports: [HttpModule, PrismaModule, SecretsModule],
@@ -34,14 +35,7 @@ import { ImageMatchingService } from "./matching/image-matching.service";
     TogetherImageAdapter,
     ImageMatchingService,
   ],
-  exports: [
-    ImageFactory,
-    GeminiImageAdapter,
-    OpenAIImageAdapter,
-    StabilityImageAdapter,
-    TogetherImageAdapter,
-    ImageMatchingService,
-  ],
+  exports: [ImageFactory, ImageMatchingService],
 })
 export class ImageModule implements OnModuleInit {
   private readonly logger = new Logger(ImageModule.name);
@@ -105,24 +99,42 @@ export class ImageModule implements OnModuleInit {
 
         if (!apiKey) continue;
 
-        if (provider.includes("google") || provider.includes("gemini")) {
-          this.geminiAdapter.setApiKey(apiKey);
-          this.logger.debug("Loaded Gemini API key");
-        } else if (provider.includes("openai")) {
-          this.openaiAdapter.setApiKey(apiKey);
-          if (model.apiEndpoint) {
-            this.openaiAdapter.setBaseUrl(model.apiEndpoint);
-          }
-          this.logger.debug("Loaded OpenAI API key");
-        } else if (provider.includes("stability")) {
-          this.stabilityAdapter.setApiKey(apiKey);
-          if (model.apiEndpoint) {
-            this.stabilityAdapter.setBaseUrl(model.apiEndpoint);
-          }
-          this.logger.debug("Loaded Stability API key");
-        } else if (provider.includes("together")) {
-          this.togetherAdapter.setApiKey(apiKey);
-          this.logger.debug("Loaded Together API key");
+        // Map provider names to adapter config. Include "google" alias
+        // since DB may store provider as "google" for Gemini models.
+        const providerAdapterMap: Record<string, () => void> = {
+          google: () => {
+            this.geminiAdapter.setApiKey(apiKey!);
+            this.logger.debug("Loaded Gemini API key (google provider)");
+          },
+          [IMAGE_PROVIDERS.GEMINI]: () => {
+            this.geminiAdapter.setApiKey(apiKey!);
+            this.logger.debug("Loaded Gemini API key");
+          },
+          [IMAGE_PROVIDERS.OPENAI]: () => {
+            this.openaiAdapter.setApiKey(apiKey!);
+            if (model.apiEndpoint) {
+              this.openaiAdapter.setBaseUrl(model.apiEndpoint);
+            }
+            this.logger.debug("Loaded OpenAI API key");
+          },
+          [IMAGE_PROVIDERS.STABILITY]: () => {
+            this.stabilityAdapter.setApiKey(apiKey!);
+            if (model.apiEndpoint) {
+              this.stabilityAdapter.setBaseUrl(model.apiEndpoint);
+            }
+            this.logger.debug("Loaded Stability API key");
+          },
+          [IMAGE_PROVIDERS.TOGETHER]: () => {
+            this.togetherAdapter.setApiKey(apiKey!);
+            this.logger.debug("Loaded Together API key");
+          },
+        };
+
+        const applyConfig = providerAdapterMap[provider];
+        if (applyConfig) {
+          applyConfig();
+        } else {
+          this.logger.debug(`No adapter configured for provider: ${provider}`);
         }
       }
     } catch (error) {

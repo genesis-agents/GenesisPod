@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * EventEmitter2 Mock for Slides Tests
  */
@@ -10,16 +9,16 @@ import { jest } from "@jest/globals";
  */
 export function createMockEventEmitter() {
   return {
-    emit: jest.fn(),
-    emitAsync: jest.fn().mockResolvedValue(undefined),
+    emit: jest.fn<() => boolean>(),
+    emitAsync: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     on: jest.fn(),
     once: jest.fn(),
     onAny: jest.fn(),
     removeListener: jest.fn(),
     removeAllListeners: jest.fn(),
-    listeners: jest.fn().mockReturnValue([]),
-    listenerCount: jest.fn().mockReturnValue(0),
-    hasListeners: jest.fn().mockReturnValue(false),
+    listeners: jest.fn<() => unknown[]>().mockReturnValue([]),
+    listenerCount: jest.fn<() => number>().mockReturnValue(0),
+    hasListeners: jest.fn<() => boolean>().mockReturnValue(false),
   };
 }
 

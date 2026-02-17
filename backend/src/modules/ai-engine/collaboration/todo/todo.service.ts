@@ -5,12 +5,6 @@
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-
-// TODO: Phase 4.1 - 需要创建 EngineTodo Prisma 模型
-// 临时使用 any 类型以允许编译，待数据库迁移后移除
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getPrismaEngineTodo = (prisma: PrismaService): any =>
-  (prisma as any).engineTodo;
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   ITodoService,
@@ -24,6 +18,9 @@ import {
 
 /**
  * 待办管理服务
+ *
+ * Phase 4.1 技术债务：EngineTodo Prisma 模型尚未创建，
+ * 所有方法在模型可用前返回安全的空数据并记录警告。
  */
 @Injectable()
 export class TodoService implements ITodoService {
@@ -35,25 +32,46 @@ export class TodoService implements ITodoService {
   ) {}
 
   /**
+   * 检查 EngineTodo 模型是否在 Prisma Client 中可用。
+   * Phase 4.1: 模型尚未创建，始终返回 false。
+   */
+  private isModelAvailable(): boolean {
+    const available =
+      "engineTodo" in (this.prisma as unknown as Record<string, unknown>);
+    if (!available) {
+      this.logger.warn(
+        "Phase 4.1: EngineTodo Prisma model is not yet available. " +
+          "Returning safe default. Create the model and migration to enable this feature.",
+      );
+    }
+    return available;
+  }
+
+  /**
    * 创建待办
    */
-  async create(request: CreateTodoRequest): Promise<Todo> {
-    this.logger.debug(`Creating todo: ${request.title}`);
+  async create(_request: CreateTodoRequest): Promise<Todo> {
+    if (!this.isModelAvailable()) {
+      return this.emptyTodo();
+    }
 
-    const todo = await getPrismaEngineTodo(this.prisma).create({
+    const prismaModel = (this.prisma as unknown as Record<string, unknown>)
+      .engineTodo as PrismaModelDelegate;
+
+    const todo = await prismaModel.create({
       data: {
-        type: request.type,
-        title: request.title,
-        description: request.description,
-        entityType: request.entityType,
-        entityId: request.entityId,
-        assigneeId: request.assigneeId,
-        priority: request.priority ?? "medium",
-        dueDate: request.dueDate,
-        parentId: request.parentId,
-        labels: request.labels ?? [],
-        metadata: request.metadata as Record<string, unknown>,
-        createdBy: request.createdBy,
+        type: _request.type,
+        title: _request.title,
+        description: _request.description,
+        entityType: _request.entityType,
+        entityId: _request.entityId,
+        assigneeId: _request.assigneeId,
+        priority: _request.priority ?? "medium",
+        dueDate: _request.dueDate,
+        parentId: _request.parentId,
+        labels: _request.labels ?? [],
+        metadata: _request.metadata as Record<string, unknown>,
+        createdBy: _request.createdBy,
         status: "pending",
         progress: 0,
       },
@@ -63,8 +81,8 @@ export class TodoService implements ITodoService {
 
     this.eventEmitter.emit("todo.created", {
       todoId: result.id,
-      entityType: request.entityType,
-      entityId: request.entityId,
+      entityType: _request.entityType,
+      entityId: _request.entityId,
     });
 
     return result;
@@ -73,12 +91,19 @@ export class TodoService implements ITodoService {
   /**
    * 批量创建
    */
-  async createBatch(requests: CreateTodoRequest[]): Promise<Todo[]> {
-    this.logger.debug(`Batch creating ${requests.length} todos`);
+  async createBatch(_requests: CreateTodoRequest[]): Promise<Todo[]> {
+    if (!this.isModelAvailable()) {
+      return [];
+    }
 
-    const todos = await this.prisma.$transaction(
-      requests.map((request) =>
-        getPrismaEngineTodo(this.prisma).create({
+    // 使用交互式事务（callback 形式）以兼容类型安全的动态模型访问
+    return await this.prisma.$transaction(async (tx: unknown) => {
+      const txModel = (tx as Record<string, unknown>)
+        .engineTodo as PrismaModelDelegate;
+
+      const results: Record<string, unknown>[] = [];
+      for (const request of _requests) {
+        const todo = await txModel.create({
           data: {
             type: request.type,
             title: request.title,
@@ -95,20 +120,26 @@ export class TodoService implements ITodoService {
             status: "pending",
             progress: 0,
           },
-        }),
-      ),
-    );
+        });
+        results.push(todo);
+      }
 
-    return todos.map((t: Record<string, unknown>) => this.mapToTodo(t));
+      return results.map((t) => this.mapToTodo(t));
+    });
   }
 
   /**
    * 获取待办
    */
   async getById(id: string): Promise<Todo | null> {
-    const todo = await getPrismaEngineTodo(this.prisma).findUnique({
-      where: { id },
-    });
+    if (!this.isModelAvailable()) {
+      return null;
+    }
+
+    const prismaModel = (this.prisma as unknown as Record<string, unknown>)
+      .engineTodo as PrismaModelDelegate;
+
+    const todo = await prismaModel.findUnique({ where: { id } });
     return todo ? this.mapToTodo(todo) : null;
   }
 
@@ -116,6 +147,13 @@ export class TodoService implements ITodoService {
    * 查询待办
    */
   async query(query: TodoQuery): Promise<Todo[]> {
+    if (!this.isModelAvailable()) {
+      return [];
+    }
+
+    const prismaModel = (this.prisma as unknown as Record<string, unknown>)
+      .engineTodo as PrismaModelDelegate;
+
     const where: Record<string, unknown> = {};
 
     if (query.entityType) where.entityType = query.entityType;
@@ -160,14 +198,14 @@ export class TodoService implements ITodoService {
       orderBy.createdAt = "desc";
     }
 
-    const todos = await getPrismaEngineTodo(this.prisma).findMany({
+    const todos = await prismaModel.findMany({
       where,
       orderBy,
       take: query.limit ?? 50,
       skip: query.offset ?? 0,
     });
 
-    return todos.map((t: Record<string, unknown>) => this.mapToTodo(t));
+    return (todos as Record<string, unknown>[]).map((t) => this.mapToTodo(t));
   }
 
   /**
@@ -178,9 +216,14 @@ export class TodoService implements ITodoService {
     request: UpdateTodoRequest,
     _updatedBy: string,
   ): Promise<Todo> {
-    const existing = await getPrismaEngineTodo(this.prisma).findUnique({
-      where: { id },
-    });
+    if (!this.isModelAvailable()) {
+      throw new NotFoundException(`Todo ${id} not found`);
+    }
+
+    const prismaModel = (this.prisma as unknown as Record<string, unknown>)
+      .engineTodo as PrismaModelDelegate;
+
+    const existing = await prismaModel.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException(`Todo ${id} not found`);
     }
@@ -203,11 +246,7 @@ export class TodoService implements ITodoService {
       };
     }
 
-    const todo = await getPrismaEngineTodo(this.prisma).update({
-      where: { id },
-      data,
-    });
-
+    const todo = await prismaModel.update({ where: { id }, data });
     return this.mapToTodo(todo);
   }
 
@@ -215,7 +254,14 @@ export class TodoService implements ITodoService {
    * 完成待办
    */
   async complete(id: string, completedBy: string): Promise<Todo> {
-    const todo = await getPrismaEngineTodo(this.prisma).update({
+    if (!this.isModelAvailable()) {
+      throw new NotFoundException(`Todo ${id} not found`);
+    }
+
+    const prismaModel = (this.prisma as unknown as Record<string, unknown>)
+      .engineTodo as PrismaModelDelegate;
+
+    const todo = await prismaModel.update({
       where: { id },
       data: {
         status: "completed",
@@ -240,14 +286,19 @@ export class TodoService implements ITodoService {
     cancelledBy: string,
     reason?: string,
   ): Promise<Todo> {
-    const existing = await getPrismaEngineTodo(this.prisma).findUnique({
-      where: { id },
-    });
+    if (!this.isModelAvailable()) {
+      throw new NotFoundException(`Todo ${id} not found`);
+    }
+
+    const prismaModel = (this.prisma as unknown as Record<string, unknown>)
+      .engineTodo as PrismaModelDelegate;
+
+    const existing = await prismaModel.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException(`Todo ${id} not found`);
     }
 
-    const todo = await getPrismaEngineTodo(this.prisma).update({
+    const todo = await prismaModel.update({
       where: { id },
       data: {
         status: "cancelled",
@@ -267,7 +318,14 @@ export class TodoService implements ITodoService {
    * 删除待办
    */
   async delete(id: string): Promise<void> {
-    await getPrismaEngineTodo(this.prisma).delete({ where: { id } });
+    if (!this.isModelAvailable()) {
+      return;
+    }
+
+    const prismaModel = (this.prisma as unknown as Record<string, unknown>)
+      .engineTodo as PrismaModelDelegate;
+
+    await prismaModel.delete({ where: { id } });
     this.logger.debug(`Deleted todo ${id}`);
   }
 
@@ -279,12 +337,19 @@ export class TodoService implements ITodoService {
     entityId?: string;
     assigneeId?: string;
   }): Promise<TodoStats> {
+    if (!this.isModelAvailable()) {
+      return this.emptyStats();
+    }
+
+    const prismaModel = (this.prisma as unknown as Record<string, unknown>)
+      .engineTodo as PrismaModelDelegate;
+
     const where: Record<string, unknown> = {};
     if (filters?.entityType) where.entityType = filters.entityType;
     if (filters?.entityId) where.entityId = filters.entityId;
     if (filters?.assigneeId) where.assigneeId = filters.assigneeId;
 
-    const todos = await getPrismaEngineTodo(this.prisma).findMany({
+    const todos = await prismaModel.findMany({
       where,
       select: {
         status: true,
@@ -297,8 +362,95 @@ export class TodoService implements ITodoService {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const stats: TodoStats = {
-      total: todos.length,
+    const stats: TodoStats = this.emptyStats();
+    stats.total = (todos as Record<string, unknown>[]).length;
+
+    for (const todo of todos as Record<string, unknown>[]) {
+      stats.byStatus[todo.status as TodoStatus]++;
+      stats.byPriority[todo.priority as keyof typeof stats.byPriority]++;
+
+      if (
+        todo.dueDate &&
+        new Date(todo.dueDate as string) < now &&
+        !["completed", "cancelled"].includes(todo.status as string)
+      ) {
+        stats.overdue++;
+      }
+
+      if (todo.completedAt && new Date(todo.completedAt as string) > weekAgo) {
+        stats.completedThisWeek++;
+      }
+    }
+
+    return stats;
+  }
+
+  /**
+   * 获取子任务
+   */
+  async getChildren(parentId: string): Promise<Todo[]> {
+    if (!this.isModelAvailable()) {
+      return [];
+    }
+
+    const prismaModel = (this.prisma as unknown as Record<string, unknown>)
+      .engineTodo as PrismaModelDelegate;
+
+    const todos = await prismaModel.findMany({
+      where: { parentId },
+      orderBy: { createdAt: "asc" },
+    });
+    return (todos as Record<string, unknown>[]).map((t) => this.mapToTodo(t));
+  }
+
+  /**
+   * 批量更新状态
+   * 使用事务保证数据一致性
+   */
+  async batchUpdateStatus(
+    ids: string[],
+    status: TodoStatus,
+    _updatedBy: string,
+  ): Promise<Todo[]> {
+    if (!this.isModelAvailable()) {
+      return [];
+    }
+
+    const updateData: Record<string, unknown> = { status };
+    if (status === "completed") {
+      updateData.completedAt = new Date();
+      updateData.progress = 100;
+    }
+
+    // ★ 使用事务保证 updateMany 和 findMany 的一致性
+    return await this.prisma.$transaction(
+      async (tx: unknown) => {
+        const txModel = (tx as Record<string, unknown>)
+          .engineTodo as PrismaModelDelegate;
+
+        await txModel.updateMany({
+          where: { id: { in: ids } },
+          data: updateData,
+        });
+
+        const todos = await txModel.findMany({
+          where: { id: { in: ids } },
+        });
+
+        return (todos as Record<string, unknown>[]).map((t) =>
+          this.mapToTodo(t),
+        );
+      },
+      { timeout: 30000 },
+    ); // 30 秒超时
+  }
+
+  /**
+   * 返回空的 TodoStats 默认值
+   */
+  private emptyStats(): TodoStats {
+    return {
+      total: 0,
       byStatus: {
         pending: 0,
         in_progress: 0,
@@ -315,70 +467,25 @@ export class TodoService implements ITodoService {
       overdue: 0,
       completedThisWeek: 0,
     };
-
-    for (const todo of todos) {
-      stats.byStatus[todo.status as TodoStatus]++;
-      stats.byPriority[todo.priority as keyof typeof stats.byPriority]++;
-
-      if (
-        todo.dueDate &&
-        new Date(todo.dueDate) < now &&
-        !["completed", "cancelled"].includes(todo.status)
-      ) {
-        stats.overdue++;
-      }
-
-      if (todo.completedAt && new Date(todo.completedAt) > weekAgo) {
-        stats.completedThisWeek++;
-      }
-    }
-
-    return stats;
   }
 
   /**
-   * 获取子任务
+   * 返回空的 Todo 占位值（仅供 create 在模型不可用时使用）
    */
-  async getChildren(parentId: string): Promise<Todo[]> {
-    const todos = await getPrismaEngineTodo(this.prisma).findMany({
-      where: { parentId },
-      orderBy: { createdAt: "asc" },
-    });
-    return todos.map((t: Record<string, unknown>) => this.mapToTodo(t));
-  }
-
-  /**
-   * 批量更新状态
-   * 使用事务保证数据一致性
-   */
-  async batchUpdateStatus(
-    ids: string[],
-    status: TodoStatus,
-    _updatedBy: string,
-  ): Promise<Todo[]> {
-    const updateData: Record<string, unknown> = { status };
-    if (status === "completed") {
-      updateData.completedAt = new Date();
-      updateData.progress = 100;
-    }
-
-    // ★ 使用事务保证 updateMany 和 findMany 的一致性
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return await this.prisma.$transaction(
-      async (tx: any) => {
-        await getPrismaEngineTodo(tx).updateMany({
-          where: { id: { in: ids } },
-          data: updateData,
-        });
-
-        const todos = await getPrismaEngineTodo(tx).findMany({
-          where: { id: { in: ids } },
-        });
-
-        return todos.map((t: Record<string, unknown>) => this.mapToTodo(t));
-      },
-      { timeout: 30000 },
-    ); // 30 秒超时
+  private emptyTodo(): Todo {
+    return {
+      id: "",
+      type: "custom",
+      title: "",
+      entityType: "",
+      entityId: "",
+      createdBy: "",
+      status: "pending",
+      priority: "medium",
+      labels: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
   }
 
   /**
@@ -407,4 +514,35 @@ export class TodoService implements ITodoService {
       metadata: record.metadata as Record<string, unknown> | undefined,
     };
   }
+}
+
+/**
+ * 最小化 Prisma 模型委托接口，用于类型安全地调用动态模型方法。
+ * Phase 4.1: EngineTodo / Review 模型实际不存在时，isModelAvailable() 会拦截调用。
+ */
+interface PrismaModelDelegate {
+  create(args: {
+    data: Record<string, unknown>;
+  }): Promise<Record<string, unknown>>;
+  findUnique(args: {
+    where: Record<string, unknown>;
+  }): Promise<Record<string, unknown> | null>;
+  findMany(args: {
+    where?: Record<string, unknown>;
+    orderBy?: Record<string, unknown> | Record<string, unknown>[];
+    take?: number;
+    skip?: number;
+    select?: Record<string, unknown>;
+  }): Promise<unknown[]>;
+  update(args: {
+    where: Record<string, unknown>;
+    data: Record<string, unknown>;
+  }): Promise<Record<string, unknown>>;
+  updateMany(args: {
+    where: Record<string, unknown>;
+    data: Record<string, unknown>;
+  }): Promise<{ count: number }>;
+  delete(args: {
+    where: Record<string, unknown>;
+  }): Promise<Record<string, unknown>>;
 }

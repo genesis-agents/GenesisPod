@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback, memo, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAiGroupStore } from '@/stores/aiTeamsStore';
+import { useAiGroupStore } from '@/stores/ai-teams';
 import {
   Topic,
   TopicMessage,

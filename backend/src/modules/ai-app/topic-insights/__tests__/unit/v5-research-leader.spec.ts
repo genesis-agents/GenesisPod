@@ -1,6 +1,6 @@
-// @ts-nocheck
-import { describe, it, expect, beforeEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach } from "@jest/globals";
 import { ResearchLeaderService } from "../../services/core/research-leader.service";
+import type { ResearchHypothesis } from "../../types/v5-research.types";
 import { createMockAiEngineFacade } from "../mocks";
 
 describe("ResearchLeaderService - V5 Methods", () => {
@@ -15,7 +15,6 @@ describe("ResearchLeaderService - V5 Methods", () => {
       {} as any, // intentDetectionService
       {} as any, // eventEmitter
       {} as any, // leaderToolService
-      {} as any, // researchMissionService
     );
   });
 
@@ -68,7 +67,7 @@ describe("ResearchLeaderService - V5 Methods", () => {
 
   describe("verifyHypotheses", () => {
     it("should verify hypotheses using CHAT_FAST", async () => {
-      const hypotheses = [
+      const hypotheses: ResearchHypothesis[] = [
         {
           id: "h1",
           statement: "AI adoption increases",

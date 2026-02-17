@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ResearchMissionHealthService Unit Tests
  *

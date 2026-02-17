@@ -1,18 +1,14 @@
 import {
   Injectable,
-  Logger,
   NotFoundException,
   ForbiddenException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { UpdateStoryBibleDto } from "./bible-entity.types";
 
 @Injectable()
 export class StoryBibleService {
-  private readonly logger = new Logger(StoryBibleService.name);
-
-  constructor(private readonly prisma: PrismaService) {
-    void this.logger;
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   async getByProject(projectId: string, userId: string) {
     const project = await this.prisma.writingProject.findFirst({
@@ -123,7 +119,7 @@ export class StoryBibleService {
     return String(val);
   }
 
-  async update(projectId: string, userId: string, dto: any) {
+  async update(projectId: string, userId: string, dto: UpdateStoryBibleDto) {
     const project = await this.prisma.writingProject.findFirst({
       where: { id: projectId, ownerId: userId },
     });
@@ -191,19 +187,21 @@ export class StoryBibleService {
   }
 
   async getWorldSettings(bibleId: string, categories?: string[]) {
-    const where: any = { bibleId };
-    if (categories?.length) {
-      where.category = { in: categories };
-    }
-    return this.prisma.worldSetting.findMany({ where });
+    return this.prisma.worldSetting.findMany({
+      where: {
+        bibleId,
+        ...(categories?.length ? { category: { in: categories } } : {}),
+      },
+    });
   }
 
   async getTerminology(bibleId: string, terms?: string[]) {
-    const where: any = { bibleId };
-    if (terms?.length) {
-      where.term = { in: terms };
-    }
-    return this.prisma.terminology.findMany({ where });
+    return this.prisma.terminology.findMany({
+      where: {
+        bibleId,
+        ...(terms?.length ? { term: { in: terms } } : {}),
+      },
+    });
   }
 
   async getTimelineContext(bibleId: string, _storyTime?: string) {

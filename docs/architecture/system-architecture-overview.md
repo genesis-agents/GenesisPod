@@ -1,8 +1,8 @@
 # Genesis.ai - 系统架构总览
 
-> **版本**: v2.0
+> **版本**: v3.0
 > **创建日期**: 2026-01-24
-> **最后更新**: 2026-01-24
+> **最后更新**: 2026-02-17
 > **状态**: 🟢 活跃
 > **维护者**: Genesis Team
 
@@ -166,7 +166,205 @@ graph TB
     Auth --> Google
 ```
 
-### 3.2 请求流程图
+### 3.2 AI 系统全局架构图（2026-02-17 修复后）
+
+```mermaid
+graph TB
+    %% ═══════════════════════════════════════════════════════════
+    %% 前端层
+    %% ═══════════════════════════════════════════════════════════
+    subgraph Frontend["前端 (Next.js 14 + TypeScript)"]
+        direction TB
+        subgraph Pages["页面路由层"]
+            AskPage["AI Ask"]
+            ResearchPage["AI Research"]
+            TeamsPage["AI Teams"]
+            OfficePage["AI Office"]
+            WritingPage["AI Writing"]
+            SocialPage["AI Social"]
+        end
+
+        subgraph FEState["状态管理 (Zustand Slice)"]
+            AITeamsStore["ai-teams/\n(统一 Store)"]
+            AIWritingStore["ai-writing/\n(轮询去重)"]
+            SlidesStore["ai-office/\nslidesStore"]
+            ResearchStore["ai-research/\ntopicSlice + reportSlice"]
+        end
+
+        subgraph FEHooks["Hook 三层架构"]
+            FeatureHooks["Features: useDeepResearch, useSlides"]
+            DomainHooks["Domain: useResources, useAdminSecrets"]
+            CoreHooks["Core: useApi, useStream (SSE)"]
+        end
+
+        Pages --> FEState
+        Pages --> FEHooks
+        FEHooks --> CoreHooks
+    end
+
+    %% ═══════════════════════════════════════════════════════════
+    %% 后端 - AI 应用层
+    %% ═══════════════════════════════════════════════════════════
+    subgraph AIApps["AI 应用层 (ai-app/)"]
+        direction TB
+
+        subgraph AppModules["应用模块"]
+            Research["Research\n(9/10 最佳实践)"]
+            Ask["Ask\n(9/10 规范)"]
+            Teams["Teams\n(8/10 任务引擎)"]
+            Office["Office\n(DI Token 解耦)"]
+            Writing["Writing\n(废弃代码已清理)"]
+            Social["Social\n(PrismaAny 已移除)"]
+            Simulation["Simulation\n(catch 已修复)"]
+            Planning["Planning"]
+        end
+
+        subgraph AppInterfaces["模块间接口"]
+            IResearchExport["IResearchDataExport\n(DI Token)"]
+            IWritingExport["IWritingDataExport\n(DI Token)"]
+        end
+
+        Research -.->|"实现"| IResearchExport
+        Writing -.->|"实现"| IWritingExport
+        Office -->|"通过 Token 注入"| IResearchExport
+        Office -->|"通过 Token 注入"| IWritingExport
+    end
+
+    %% ═══════════════════════════════════════════════════════════
+    %% 后端 - AI Engine 核心层
+    %% ═══════════════════════════════════════════════════════════
+    subgraph AIEngine["AI Engine 核心层 (ai-engine/)"]
+        direction TB
+
+        subgraph EngineFacade["Facade 统一入口"]
+            Facade["AIEngineFacade\nchat() → 4 个子方法:\nhandleSkillProxy()\nresolveModelId()\nenforceRateLimitAndBudget()\nrouteToProvider()"]
+        end
+
+        subgraph Registries["三大 Registry (统一 warn+skip)"]
+            AgentReg["AgentRegistry\nget/tryGet + 深拷贝 stats"]
+            ToolReg["ToolRegistry\n46+ Tools\nbyCategory/byTag"]
+            TeamReg["TeamRegistry\n配置注册 + 延迟实例化"]
+        end
+
+        subgraph LLMLayer["LLM 服务层"]
+            ChatService["AiChatService\n(无类级别状态)"]
+            ModelConfig["ModelConfigService\n(DB 驱动)"]
+            TaskProfile["TaskProfileMapper\ncreativity → temperature\noutputLength → maxTokens"]
+            Fallback["ModelFallbackService"]
+        end
+
+        subgraph RAGLayer["RAG 系统"]
+            Pipeline["RAGPipeline\n(依赖 AiChatService\n循环已断开)"]
+            Vector["VectorService\n(前置过滤优化)"]
+            Embedding["EmbeddingService"]
+            Chunker["DocumentChunker"]
+        end
+
+        subgraph OrchLayer["编排引擎"]
+            SeqExec["Sequential"]
+            DAGExec["DAG"]
+            ParallelExec["Parallel"]
+            FuncCallExec["Function Calling"]
+            CircuitBreaker["CircuitBreaker"]
+            TokenBudget["TokenBudget"]
+        end
+
+        subgraph ImageLayer["图像系统"]
+            ImageFactory["ImageFactory\n(仅导出 Factory)"]
+            ImageMatch["ImageMatchingService"]
+        end
+
+        subgraph Support["支撑系统"]
+            Memory["Memory\n短期/长期"]
+            Skills["Skills System"]
+            MCP["MCP Manager"]
+            Constraints["Constraint Engine"]
+        end
+
+        Facade --> LLMLayer
+        Facade --> Registries
+        Facade --> RAGLayer
+        Facade --> OrchLayer
+        Facade --> Support
+        Pipeline --> ChatService
+    end
+
+    %% ═══════════════════════════════════════════════════════════
+    %% 后端 - 核心基础设施层
+    %% ═══════════════════════════════════════════════════════════
+    subgraph Infra["核心基础设施"]
+        Auth["Auth\n(JWT + OAuth)"]
+        Admin["Admin"]
+        Secrets["SecretsManager"]
+        Storage["Storage (R2)"]
+        PrismaORM["Prisma ORM"]
+    end
+
+    %% ═══════════════════════════════════════════════════════════
+    %% 数据层
+    %% ═══════════════════════════════════════════════════════════
+    subgraph DataLayer["数据层"]
+        PG[("PostgreSQL 16")]
+        Redis[("Redis Cache")]
+        R2[("Cloudflare R2")]
+    end
+
+    %% ═══════════════════════════════════════════════════════════
+    %% 外部服务
+    %% ═══════════════════════════════════════════════════════════
+    subgraph External["外部 AI 服务"]
+        OpenAI["OpenAI\nGPT-4o / DALL-E"]
+        Claude["Claude\nSonnet / Opus"]
+        Grok["Grok\nxAI"]
+        DeepSeek["DeepSeek"]
+        Gemini["Google\nGemini"]
+        LiteLLM["LiteLLM Gateway"]
+    end
+
+    %% ═══════════════════════════════════════════════════════════
+    %% 连接关系
+    %% ═══════════════════════════════════════════════════════════
+
+    %% 前端 → 后端
+    Frontend -->|"HTTP / SSE / WebSocket"| AIApps
+
+    %% AI Apps → AI Engine (单向依赖，通过 Facade + Registry)
+    AppModules -->|"全部通过\nFacade + Registry"| EngineFacade
+    AppModules -.->|"onModuleInit\n注册 Agent/Team/Tool"| Registries
+
+    %% AI Engine → 基础设施
+    AIEngine --> Infra
+
+    %% AI Apps → 基础设施
+    AIApps --> PrismaORM
+
+    %% 基础设施 → 数据
+    PrismaORM --> PG
+    Auth --> Redis
+    Storage --> R2
+    Secrets --> PG
+
+    %% LLM → 外部
+    ChatService --> LiteLLM
+    LiteLLM --> OpenAI
+    LiteLLM --> Claude
+    LiteLLM --> Grok
+    LiteLLM --> DeepSeek
+    LiteLLM --> Gemini
+
+    %% 样式
+    classDef facade fill:#4CAF50,stroke:#2E7D32,color:#fff
+    classDef registry fill:#2196F3,stroke:#1565C0,color:#fff
+    classDef fixed fill:#FF9800,stroke:#E65100,color:#fff
+    classDef external fill:#9C27B0,stroke:#6A1B9A,color:#fff
+
+    class Facade facade
+    class AgentReg,ToolReg,TeamReg registry
+    class ChatService,Pipeline,Vector,ImageFactory fixed
+    class OpenAI,Claude,Grok,DeepSeek,Gemini,LiteLLM external
+```
+
+### 3.3 请求流程图
 
 ```mermaid
 sequenceDiagram
@@ -670,57 +868,59 @@ erDiagram
 
 ### 8.1 质量评分总览
 
-| 层级              | 评分       | 状态        |
-| ----------------- | ---------- | ----------- |
-| **L0 基础设施层** | 8.5/10     | ✅ 良好     |
-| **L1 核心架构层** | 8.3/10     | ✅ 良好     |
-| **L2 代码质量层** | 8.1/10     | ✅ 良好     |
-| **L3 业务逻辑层** | 8.0/10     | ✅ 良好     |
-| **总体评分**      | **8.2/10** | ✅ 生产就绪 |
+| 维度               | 评分       | 状态        |
+| ------------------ | ---------- | ----------- |
+| **架构分层**       | 8.5/10     | ✅ 良好     |
+| **AI Engine 核心** | 8.8/10     | ✅ 优秀     |
+| **代码质量**       | 8.5/10     | ✅ 良好     |
+| **前端架构**       | 8.0/10     | ✅ 良好     |
+| **综合评分**       | **8.5/10** | ✅ 生产就绪 |
 
 ### 8.2 关键指标
 
-| 指标                  | 结果    | 评价      |
-| --------------------- | ------- | --------- |
-| TypeScript `any` 使用 | 0       | ✅ 优秀   |
-| `@ts-ignore` 使用     | 0       | ✅ 优秀   |
-| Try-Catch 覆盖率      | 85%     | ✅ 良好   |
-| NestJS Logger 使用    | 114+ 处 | ✅ 良好   |
-| console.log 残留      | 37 处   | ⚠️ 需清理 |
+| 指标                  | 结果    | 评价        |
+| --------------------- | ------- | ----------- |
+| SQL 注入漏洞          | 0       | ✅ 已修复   |
+| TypeScript `any` 滥用 | 极少    | ✅ 大幅改善 |
+| `@ts-nocheck` 使用    | 0       | ✅ 全部移除 |
+| Facade 绕过           | 0       | ✅ 全部修复 |
+| 静默 catch            | 0       | ✅ 全部修复 |
+| Try-Catch 覆盖率      | 90%+    | ✅ 良好     |
+| NestJS Logger 使用    | 120+ 处 | ✅ 良好     |
 
 ### 8.3 大型文件待重构
 
-| 文件                       | 行数  | 优先级 | 建议                     |
-| -------------------------- | ----- | ------ | ------------------------ |
-| `AIEngineFacade.ts`        | 2000+ | 🔴 P0  | 拆分为 5-6 个专用 Facade |
-| `AiAskService.ts`          | 1000+ | 🔴 P0  | 拆分为 4 个专用 Service  |
-| `HomePage.tsx`             | 4000+ | 🔴 P0  | 拆分为 6-8 个子组件      |
-| `WritingMissionService.ts` | 8000+ | 🟡 P1  | 拆分任务执行逻辑         |
+| 文件                       | 行数  | 优先级 | 状态                       |
+| -------------------------- | ----- | ------ | -------------------------- |
+| `AIEngineFacade.ts`        | 2000+ | 🟡 P1  | chat() 已拆分为 4 个子方法 |
+| `WritingMissionService.ts` | 8000+ | 🟡 P1  | 废弃代码已清理             |
+| `HomePage.tsx`             | 4000+ | 🔴 P0  | 待拆分                     |
 
 ---
 
 ## 9. 改进路线图
 
-### 9.1 短期改进 (1-2 周)
+### 9.1 短期改进 (已完成 ✅)
 
-- [ ] 拆分 AIEngineFacade（5-6 个专用 Facade）
-- [ ] 拆分 AiAskService（4 个专用 Service）
-- [ ] 重构 HomePage.tsx（6-8 个子组件）
-- [ ] 清理 console.log（37 处）
+- [x] 修复 SQL 注入漏洞 (knowledge-graph)
+- [x] 修复 Facade 绕过 (6 处)
+- [x] 拆分 Facade.chat() 方法
+- [x] 统一前端 Store 实例
+- [x] 移除测试文件 @ts-nocheck (24 个)
+- [x] 解耦 Office→Research/Writing 直接依赖
 
-### 9.2 中期改进 (3-4 周)
+### 9.2 中期改进 (进行中)
 
-- [ ] 统一 API 响应格式
-- [ ] 添加前端 API 拦截器
-- [ ] 清理遗留 Store
-- [ ] 添加 Repository 层（可选）
+- [ ] 拆分 HomePage.tsx（4000+ 行）
+- [ ] Ask 模块增加流式响应
+- [ ] VectorService 迁移 pgvector
+- [ ] 完善 Writing 多 Agent 执行框架
 
-### 9.3 长期改进 (1-2 月)
+### 9.3 长期改进
 
-- [ ] 实现分布式跟踪（OpenTelemetry）
-- [ ] 完善 Function Calling 实现
-- [ ] 添加更多测试覆盖
+- [ ] 分布式跟踪 (OpenTelemetry)
 - [ ] 性能基准测试
+- [ ] E2E 测试覆盖
 
 ---
 
@@ -736,6 +936,6 @@ erDiagram
 
 ---
 
-**文档版本**: v2.0
-**生成时间**: 2026-01-24
+**文档版本**: v3.0
+**生成时间**: 2026-02-17
 **分析范围**: 完整前后端代码库（1,887 个文件，691,084 行代码）

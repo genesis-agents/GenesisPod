@@ -19,6 +19,8 @@ import { ResearchIdeaController } from "./idea/research-idea.controller";
 import { ResearchDemoService } from "./demo/research-demo.service";
 import { ResearchDemoController } from "./demo/research-demo.controller";
 import { ResearchDataExportService } from "./services/research-data-export.service";
+import { ResearchDataExportAdapter } from "./services/research-data-export.adapter";
+import { RESEARCH_DATA_EXPORT } from "../office/interfaces/data-export.interface";
 
 @Module({
   imports: [DiscussionModule, ResearchProjectModule],
@@ -28,6 +30,11 @@ import { ResearchDataExportService } from "./services/research-data-export.servi
     ResearchIdeaService,
     ResearchDemoService,
     ResearchDataExportService,
+    ResearchDataExportAdapter,
+    {
+      provide: RESEARCH_DATA_EXPORT,
+      useExisting: ResearchDataExportAdapter,
+    },
   ],
   exports: [
     DiscussionModule,
@@ -36,6 +43,7 @@ import { ResearchDataExportService } from "./services/research-data-export.servi
     ResearchIdeaService,
     ResearchDemoService,
     ResearchDataExportService,
+    RESEARCH_DATA_EXPORT,
   ],
 })
 export class ResearchModule implements OnModuleInit {

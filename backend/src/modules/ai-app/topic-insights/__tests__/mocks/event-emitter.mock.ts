@@ -1,9 +1,7 @@
-// @ts-nocheck
 /**
  * Event Emitter Mock for Topic Research Tests
  *
  * Provides mock implementations for event-related services
- * Type checking is disabled due to Jest mock compatibility issues.
  */
 
 import { jest } from "@jest/globals";
@@ -13,8 +11,8 @@ import { jest } from "@jest/globals";
  */
 export function createMockEventEmitter2() {
   return {
-    emit: jest.fn(),
-    emitAsync: jest.fn().mockResolvedValue([]),
+    emit: jest.fn<() => boolean>(),
+    emitAsync: jest.fn<() => Promise<unknown[]>>().mockResolvedValue([]),
     on: jest.fn(),
     once: jest.fn(),
     addListener: jest.fn(),
@@ -27,60 +25,64 @@ export function createMockEventEmitter2() {
  * Create a mock ResearchEventEmitterService
  */
 export function createMockResearchEventEmitter() {
+  const voidFn = () =>
+    jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
   return {
     // Mission events
-    emitMissionStarted: jest.fn().mockResolvedValue(undefined),
-    emitMissionProgress: jest.fn().mockResolvedValue(undefined),
-    emitMissionCompleted: jest.fn().mockResolvedValue(undefined),
-    emitMissionFailed: jest.fn().mockResolvedValue(undefined),
+    emitMissionStarted: voidFn(),
+    emitMissionProgress: voidFn(),
+    emitMissionCompleted: voidFn(),
+    emitMissionFailed: voidFn(),
 
     // Leader events
-    emitLeaderThinking: jest.fn().mockResolvedValue(undefined),
-    emitLeaderPlanning: jest.fn().mockResolvedValue(undefined),
-    emitLeaderPlanReady: jest.fn().mockResolvedValue(undefined),
-    emitLeaderResponse: jest.fn().mockResolvedValue(undefined),
+    emitLeaderThinking: voidFn(),
+    emitLeaderPlanning: voidFn(),
+    emitLeaderPlanReady: voidFn(),
+    emitLeaderResponse: voidFn(),
 
     // Agent events
-    emitAgentWorking: jest.fn().mockResolvedValue(undefined),
-    emitAgentCompleted: jest.fn().mockResolvedValue(undefined),
-    emitAgentFailed: jest.fn().mockResolvedValue(undefined),
+    emitAgentWorking: voidFn(),
+    emitAgentCompleted: voidFn(),
+    emitAgentFailed: voidFn(),
 
     // Task events
-    emitTaskStarted: jest.fn().mockResolvedValue(undefined),
-    emitTaskProgress: jest.fn().mockResolvedValue(undefined),
-    emitTaskCompleted: jest.fn().mockResolvedValue(undefined),
-    emitTaskFailed: jest.fn().mockResolvedValue(undefined),
+    emitTaskStarted: voidFn(),
+    emitTaskProgress: voidFn(),
+    emitTaskCompleted: voidFn(),
+    emitTaskFailed: voidFn(),
 
     // Dimension events
-    emitDimensionResearchStarted: jest.fn().mockResolvedValue(undefined),
-    emitDimensionResearchProgress: jest.fn().mockResolvedValue(undefined),
-    emitDimensionResearchCompleted: jest.fn().mockResolvedValue(undefined),
+    emitDimensionResearchStarted: voidFn(),
+    emitDimensionResearchProgress: voidFn(),
+    emitDimensionResearchCompleted: voidFn(),
 
     // Report events
-    emitReportSynthesisStarted: jest.fn().mockResolvedValue(undefined),
-    emitReportSynthesisProgress: jest.fn().mockResolvedValue(undefined),
-    emitReportSynthesisCompleted: jest.fn().mockResolvedValue(undefined),
+    emitReportSynthesisStarted: voidFn(),
+    emitReportSynthesisProgress: voidFn(),
+    emitReportSynthesisCompleted: voidFn(),
 
     // TODO events
-    emitTodoCreated: jest.fn().mockResolvedValue(undefined),
-    emitTodoStatusChanged: jest.fn().mockResolvedValue(undefined),
-    emitTodoProgress: jest.fn().mockResolvedValue(undefined),
-    emitTodoCompleted: jest.fn().mockResolvedValue(undefined),
-    emitTodoFailed: jest.fn().mockResolvedValue(undefined),
-    emitTodoCancelled: jest.fn().mockResolvedValue(undefined),
-    emitTodoReviewing: jest.fn().mockResolvedValue(undefined),
-    emitTodoReviewed: jest.fn().mockResolvedValue(undefined),
+    emitTodoCreated: voidFn(),
+    emitTodoStatusChanged: voidFn(),
+    emitTodoProgress: voidFn(),
+    emitTodoCompleted: voidFn(),
+    emitTodoFailed: voidFn(),
+    emitTodoCancelled: voidFn(),
+    emitTodoReviewing: voidFn(),
+    emitTodoReviewed: voidFn(),
 
     // Generic emit
-    emitToTopic: jest.fn().mockResolvedValue(undefined),
+    emitToTopic: voidFn(),
 
     // Handler registration
     registerEmitHandler: jest.fn(),
 
     // Message persistence
-    saveUserMessage: jest.fn().mockResolvedValue(undefined),
-    getTeamMessages: jest.fn().mockResolvedValue([]),
-    getAgentActivities: jest.fn().mockResolvedValue([]),
+    saveUserMessage: voidFn(),
+    getTeamMessages: jest.fn<() => Promise<unknown[]>>().mockResolvedValue([]),
+    getAgentActivities: jest
+      .fn<() => Promise<unknown[]>>()
+      .mockResolvedValue([]),
   };
 }
 
@@ -89,15 +91,27 @@ export function createMockResearchEventEmitter() {
  */
 export function createMockAgentActivityService() {
   return {
-    recordActivity: jest.fn().mockResolvedValue({
-      id: "activity-123",
-      createdAt: new Date(),
-    }),
-    getActivitiesForMission: jest.fn().mockResolvedValue([]),
-    getActivitiesForTopic: jest.fn().mockResolvedValue([]),
-    getLatestActivityForAgent: jest.fn().mockResolvedValue(null),
-    recordDimensionReview: jest.fn().mockResolvedValue(undefined),
-    recordOverallReview: jest.fn().mockResolvedValue(undefined),
+    recordActivity: jest
+      .fn<() => Promise<{ id: string; createdAt: Date }>>()
+      .mockResolvedValue({
+        id: "activity-123",
+        createdAt: new Date(),
+      }),
+    getActivitiesForMission: jest
+      .fn<() => Promise<unknown[]>>()
+      .mockResolvedValue([]),
+    getActivitiesForTopic: jest
+      .fn<() => Promise<unknown[]>>()
+      .mockResolvedValue([]),
+    getLatestActivityForAgent: jest
+      .fn<() => Promise<null>>()
+      .mockResolvedValue(null),
+    recordDimensionReview: jest
+      .fn<() => Promise<void>>()
+      .mockResolvedValue(undefined),
+    recordOverallReview: jest
+      .fn<() => Promise<void>>()
+      .mockResolvedValue(undefined),
   };
 }
 

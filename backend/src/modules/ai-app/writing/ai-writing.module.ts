@@ -94,6 +94,8 @@ import {
 // Style services (Three-layer style configuration system)
 import { StyleTemplateService } from "./services/style/style-template.service";
 import { WritingDataExportService } from "./services/writing-data-export.service";
+import { WritingDataExportAdapter } from "./services/writing-data-export.adapter";
+import { WRITING_DATA_EXPORT } from "../office/interfaces/data-export.interface";
 
 // Writing Agents (extending AI Engine BaseAgent)
 import {
@@ -192,6 +194,12 @@ import {
     StoryCompletionDetectorService,
     // Style services (Three-layer style configuration)
     StyleTemplateService,
+    // Data export adapter (for Office module integration via DI token)
+    WritingDataExportAdapter,
+    {
+      provide: WRITING_DATA_EXPORT,
+      useExisting: WritingDataExportAdapter,
+    },
     // Writing Agents (from BaseAgent)
     StoryArchitectAgent,
     BibleKeeperAgent,
@@ -199,7 +207,12 @@ import {
     ConsistencyCheckerAgent,
     EditorAgent,
   ],
-  exports: [AiWritingService, WritingRepository, WritingDataExportService],
+  exports: [
+    AiWritingService,
+    WritingRepository,
+    WritingDataExportService,
+    WRITING_DATA_EXPORT,
+  ],
 })
 export class AiWritingModule implements OnModuleInit {
   private readonly logger = new Logger(AiWritingModule.name);

@@ -8,7 +8,7 @@ import {
   AddAIMemberDto,
   TopicRole,
 } from '@/types/ai-teams';
-import { useAiGroupStore } from '@/stores/aiTeamsStore';
+import { useAiGroupStore } from '@/stores/ai-teams';
 import { useAIModels, AIModel } from '@/hooks';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';

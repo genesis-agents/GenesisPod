@@ -7,7 +7,7 @@ import {
   TopicResourceType,
   AddResourceDto,
 } from '@/types/ai-teams';
-import { useAiGroupStore } from '@/stores/aiTeamsStore';
+import { useAiGroupStore } from '@/stores/ai-teams';
 
 interface ResourcesPanelProps {
   topic: Topic;

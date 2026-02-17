@@ -131,6 +131,287 @@ const initialState = {
   error: null,
 };
 
+// ==================== Step-to-phase mapping (shared) ====================
+
+const stepToPhase: Record<string, { agents: string[]; message: string }> = {
+  'world-building': {
+    agents: ['keeper'],
+    message: '设定守护者正在建立世界观...',
+  },
+  plan: {
+    agents: ['architect'],
+    message: '故事架构师正在基于世界观规划章节...',
+  },
+  'context-injection': {
+    agents: ['keeper'],
+    message: '设定守护者正在准备上下文...',
+  },
+  write: {
+    agents: ['writer-1', 'writer-2', 'writer-3'],
+    message: '作家团队正在并行创作内容...',
+  },
+  check: {
+    agents: ['checker-1', 'checker-2'],
+    message: '检查员团队正在校验一致性...',
+  },
+  edit: { agents: ['editor'], message: '润色编辑正在打磨文字...' },
+  review: {
+    agents: ['architect'],
+    message: '故事架构师正在最终审核...',
+  },
+};
+
+// ==================== Shared polling options ====================
+
+interface PollMissionStatusOptions {
+  /** The mission ID to poll. */
+  missionId: string;
+  /** The project ID (used for data refresh calls). */
+  projectId: string;
+  /** AbortSignal to stop polling when a newer poll starts. */
+  signal: AbortSignal;
+  /**
+   * Whether to apply the rich stepToPhase orchestrator UI updates.
+   * true  → startMission behaviour (updates activeAgentIds, fetches StoryBible on steps, etc.)
+   * false → checkRunningMission behaviour (simple progress update only)
+   */
+  richOrchestratorUpdates: boolean;
+  /**
+   * How often (in poll ticks) to silently refresh volumes + project.
+   * startMission uses 2 (every 4 s), checkRunningMission uses 5 (every 10 s).
+   */
+  refreshEveryNPolls: number;
+  /** Message to set when the mission completes successfully. */
+  completedMessage: string;
+  /** Fallback error message when FAILED and no structured error is available. */
+  failedFallbackMessage: string;
+  /** Zustand set function (passed in because the helper lives outside the store). */
+  set: (partial: Partial<AIWritingState>) => void;
+  /** Zustand get function. */
+  get: () => AIWritingState;
+}
+
+/**
+ * Shared polling loop used by both startMission and checkRunningMission.
+ *
+ * Polls getMissionStatus every 2 s for up to 15 minutes.
+ * Stops when: mission COMPLETED, mission FAILED, 404 (deleted), aborted,
+ * stuck detection (3 min without progress change), or max polls reached.
+ */
+async function pollMissionStatus(
+  opts: PollMissionStatusOptions
+): Promise<void> {
+  const {
+    missionId,
+    projectId,
+    signal,
+    richOrchestratorUpdates,
+    refreshEveryNPolls,
+    completedMessage,
+    failedFallbackMessage,
+    set,
+    get,
+  } = opts;
+
+  const POLL_INTERVAL_MS = 2000;
+  const MAX_POLLS = 450; // 15 minutes (450 × 2 s)
+  const STUCK_DURING_POLL_MS = 3 * 60 * 1000; // 3 minutes — unified threshold
+
+  let pollCount = 0;
+  let lastProgressUpdate = Date.now();
+  let lastProgress = -1; // -1 so the first real value always triggers a reset
+
+  while (pollCount < MAX_POLLS) {
+    if (signal.aborted) return;
+
+    await new Promise<void>((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    pollCount++;
+
+    if (signal.aborted) return;
+
+    // Stuck-during-poll detection (no progress change for STUCK_DURING_POLL_MS)
+    if (Date.now() - lastProgressUpdate > STUCK_DURING_POLL_MS) {
+      logger.warn(
+        `[pollMissionStatus] Mission ${missionId} appears stuck (no progress for ${Math.round((Date.now() - lastProgressUpdate) / 1000)}s)`
+      );
+      set({
+        isStuckMission: true,
+        stuckMissionId: missionId,
+        isMissionRunning: false,
+        missionMessage: '任务已卡住，请点击"继续创作"重新开始',
+      });
+      return;
+    }
+
+    try {
+      const { fetchVolumes, fetchProject } = get();
+      const status = await api.getMissionStatus(missionId);
+
+      // ── COMPLETED ──────────────────────────────────────────────────────────
+      if (status.status === 'COMPLETED') {
+        set({
+          isMissionRunning: false,
+          missionProgress: 100,
+          missionMessage: completedMessage,
+          missionCompleted: true,
+          activeAgentIds: [],
+        });
+        await fetchVolumes(projectId, true);
+        await fetchProject(projectId);
+        return;
+      }
+
+      // ── FAILED ─────────────────────────────────────────────────────────────
+      if (status.status === 'FAILED') {
+        const rawError = status.result?.error as
+          | string
+          | { message?: string }
+          | undefined;
+        const errorMsg =
+          typeof rawError === 'string'
+            ? rawError
+            : typeof rawError === 'object' && rawError?.message
+              ? rawError.message
+              : failedFallbackMessage;
+
+        const isCancelled =
+          errorMsg.toLowerCase().includes('cancelled') ||
+          errorMsg.includes('取消');
+        set({
+          isMissionRunning: false,
+          missionProgress: 0,
+          missionMessage: isCancelled ? '' : errorMsg,
+          missionCompleted: false,
+          activeAgentIds: [],
+          error: isCancelled ? null : errorMsg,
+        });
+        return;
+      }
+
+      // ── IN PROGRESS: orchestrator state update ─────────────────────────────
+      if (richOrchestratorUpdates && status.orchestratorState) {
+        const { completedSteps, currentSteps, progress } =
+          status.orchestratorState;
+
+        let activeAgents: string[] = [];
+        let message = '处理中...';
+
+        if (currentSteps.length > 0) {
+          const currentStep = currentSteps[0];
+          const phaseInfo = stepToPhase[currentStep];
+          if (phaseInfo) {
+            activeAgents = phaseInfo.agents;
+            message = phaseInfo.message;
+          }
+        } else if (completedSteps.length > 0) {
+          const lastStep = completedSteps[completedSteps.length - 1];
+          const phaseInfo = stepToPhase[lastStep];
+          if (phaseInfo) {
+            message = `${phaseInfo.message.replace('正在', '已完成')}`;
+          }
+        }
+
+        // Refresh chapter list as soon as the plan step completes
+        if (completedSteps.includes('plan')) {
+          try {
+            await fetchVolumes(projectId, true);
+          } catch {
+            // Ignore errors
+          }
+        }
+
+        // Refresh StoryBible when world-building or context-injection completes
+        if (
+          completedSteps.includes('world-building') ||
+          completedSteps.includes('context-injection')
+        ) {
+          try {
+            await get().fetchStoryBible(projectId);
+          } catch {
+            // Ignore errors
+          }
+        }
+
+        const currentProgress = Math.min(
+          95,
+          progress || (completedSteps.length / 6) * 100
+        );
+        if (currentProgress !== lastProgress) {
+          lastProgress = currentProgress;
+          lastProgressUpdate = Date.now();
+        }
+
+        set({
+          activeAgentIds: activeAgents,
+          missionProgress: currentProgress,
+          missionMessage: message,
+        });
+      } else if (!richOrchestratorUpdates && status.orchestratorState) {
+        // Simple progress update used by checkRunningMission
+        const { progress, currentSteps } = status.orchestratorState;
+        const currentProgress = progress || 0;
+
+        if (currentProgress !== lastProgress) {
+          lastProgress = currentProgress;
+          lastProgressUpdate = Date.now();
+        }
+
+        set({
+          missionProgress: currentProgress,
+          missionMessage:
+            status.result?.currentStep || currentSteps?.[0] || '处理中...',
+        });
+      } else if (status.result?.progress !== undefined) {
+        // Fallback: progress from result field (startMission path)
+        const currentProgress = Math.min(95, status.result.progress);
+        if (currentProgress !== lastProgress) {
+          lastProgress = currentProgress;
+          lastProgressUpdate = Date.now();
+        }
+        set({
+          missionProgress: currentProgress,
+          missionMessage: status.result.currentStep || '处理中...',
+        });
+      }
+
+      // Periodic silent refresh of volumes + project
+      if (pollCount % refreshEveryNPolls === 0) {
+        try {
+          await fetchVolumes(projectId, true);
+          await fetchProject(projectId, true);
+        } catch {
+          // Ignore errors during polling
+        }
+      }
+    } catch (err) {
+      // 404 means mission was deleted — stop polling cleanly
+      if (err instanceof ApiError && err.status === 404) {
+        set({
+          isMissionRunning: false,
+          missionProgress: 0,
+          missionMessage: '',
+          missionCompleted: false,
+          activeAgentIds: [],
+        });
+        return;
+      }
+      logger.warn('[pollMissionStatus] Status check failed, continuing:', err);
+      // Other errors: continue polling
+    }
+  }
+
+  // Max polls reached — task may still be running in the background
+  set({
+    isMissionRunning: false,
+    missionProgress: 0,
+    missionMessage: '',
+    missionCompleted: false,
+    activeAgentIds: [],
+    error:
+      '前端轮询超时（15分钟），任务可能仍在后台运行。请稍后刷新页面查看结果。',
+  });
+}
+
 export const useAIWritingStore = create<AIWritingState>((set, get) => ({
   ...initialState,
 
@@ -385,7 +666,6 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
     });
 
     try {
-      // 调用 API 启动任务，获取 missionId
       const response = await api.startMission(projectId, dto);
       const missionId = response.missionId;
 
@@ -393,206 +673,17 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
         throw new Error('未获取到任务ID');
       }
 
-      // 阶段映射：根据后端步骤确定当前阶段
-      // 注意：Phase 1 是世界观建设，Phase 2 是章节规划（世界观优先，确保章节符合规则）
-      const stepToPhase: Record<string, { agents: string[]; message: string }> =
-        {
-          'world-building': {
-            agents: ['keeper'],
-            message: '设定守护者正在建立世界观...',
-          },
-          plan: {
-            agents: ['architect'],
-            message: '故事架构师正在基于世界观规划章节...',
-          },
-          'context-injection': {
-            agents: ['keeper'],
-            message: '设定守护者正在准备上下文...',
-          },
-          write: {
-            agents: ['writer-1', 'writer-2', 'writer-3'],
-            message: '作家团队正在并行创作内容...',
-          },
-          check: {
-            agents: ['checker-1', 'checker-2'],
-            message: '检查员团队正在校验一致性...',
-          },
-          edit: { agents: ['editor'], message: '润色编辑正在打磨文字...' },
-          review: {
-            agents: ['architect'],
-            message: '故事架构师正在最终审核...',
-          },
-        };
-
-      // 轮询后端获取真实状态
-      const pollInterval = 2000; // 2秒轮询一次
-      const maxPolls = 450; // 最多轮询15分钟（450次 × 2秒）
-      let pollCount = 0;
-
-      const pollForStatus = async () => {
-        while (pollCount < maxPolls) {
-          // Check if cancelled
-          if (signal.aborted) return;
-
-          await new Promise((resolve) => setTimeout(resolve, pollInterval));
-          pollCount++;
-
-          // Check again after await
-          if (signal.aborted) return;
-
-          try {
-            // Get fresh function references from store
-            const { fetchVolumes, fetchProject } = get();
-            const status = await api.getMissionStatus(missionId);
-
-            // 根据 orchestratorState 更新 UI
-            if (status.orchestratorState) {
-              const { phase, completedSteps, currentSteps, progress } =
-                status.orchestratorState;
-
-              // 确定当前活跃的 agents
-              let activeAgents: string[] = [];
-              let message = '处理中...';
-
-              if (currentSteps.length > 0) {
-                const currentStep = currentSteps[0];
-                const phaseInfo = stepToPhase[currentStep];
-                if (phaseInfo) {
-                  activeAgents = phaseInfo.agents;
-                  message = phaseInfo.message;
-                }
-              } else if (completedSteps.length > 0) {
-                // 所有步骤完成，显示最后一个
-                const lastStep = completedSteps[completedSteps.length - 1];
-                const phaseInfo = stepToPhase[lastStep];
-                if (phaseInfo) {
-                  message = `${phaseInfo.message.replace('正在', '已完成')}`;
-                }
-              }
-
-              // 当 plan 步骤完成时，立即刷新章节列表（大纲已生成）
-              if (completedSteps.includes('plan')) {
-                try {
-                  await fetchVolumes(projectId, true);
-                } catch {
-                  // Ignore errors
-                }
-              }
-
-              // 当 world-building 或 context-injection 步骤完成时，刷新世界观（StoryBible）
-              if (
-                completedSteps.includes('world-building') ||
-                completedSteps.includes('context-injection')
-              ) {
-                try {
-                  await get().fetchStoryBible(projectId);
-                } catch {
-                  // Ignore errors
-                }
-              }
-
-              set({
-                activeAgentIds: activeAgents,
-                missionProgress: Math.min(
-                  95,
-                  progress || (completedSteps.length / 6) * 100
-                ),
-                missionMessage: message,
-              });
-            } else if (status.result?.progress !== undefined) {
-              // 从 result 中获取进度
-              set({
-                missionProgress: Math.min(95, status.result.progress),
-                missionMessage: status.result.currentStep || '处理中...',
-              });
-            }
-
-            // 检查是否完成
-            if (status.status === 'COMPLETED') {
-              set({
-                isMissionRunning: false,
-                missionProgress: 100,
-                missionMessage: '创作完成！',
-                missionCompleted: true,
-                activeAgentIds: [],
-              });
-
-              // 刷新数据
-              await fetchVolumes(projectId);
-              await fetchProject(projectId);
-              return;
-            }
-
-            // 检查是否失败
-            if (status.status === 'FAILED') {
-              // 确保 error 总是字符串
-              const rawError = status.result?.error as
-                | string
-                | { message?: string }
-                | undefined;
-              const errorMsg =
-                typeof rawError === 'string'
-                  ? rawError
-                  : typeof rawError === 'object' && rawError?.message
-                    ? rawError.message
-                    : '任务执行失败';
-
-              // 如果是用户取消的，不显示为错误（这是预期行为）
-              const isCancelled =
-                errorMsg.toLowerCase().includes('cancelled') ||
-                errorMsg.includes('取消');
-              set({
-                isMissionRunning: false,
-                missionProgress: 0,
-                missionMessage: '',
-                missionCompleted: false,
-                activeAgentIds: [],
-                error: isCancelled ? null : errorMsg, // 取消时不设置 error
-              });
-              return;
-            }
-
-            // 每 4 秒刷新一次章节列表和项目信息（检查是否有新章节/内容/字数更新）
-            // 使用 silent=true 避免 UI 闪烁
-            if (pollCount % 2 === 0) {
-              try {
-                await fetchVolumes(projectId, true);
-                await fetchProject(projectId, true); // ★ 同步更新项目信息（标题、字数等）
-              } catch {
-                // Ignore errors during polling
-              }
-            }
-          } catch (err) {
-            // 404 表示任务已被删除，停止轮询
-            if (err instanceof ApiError && err.status === 404) {
-              set({
-                isMissionRunning: false,
-                missionProgress: 0,
-                missionMessage: '',
-                missionCompleted: false,
-                activeAgentIds: [],
-              });
-              return;
-            }
-            logger.warn('轮询状态失败:', err);
-            // 其他错误继续轮询，不中断
-          }
-        }
-
-        // 超时处理 - 任务可能仍在后台运行
-        set({
-          isMissionRunning: false,
-          missionProgress: 0,
-          missionMessage: '',
-          missionCompleted: false,
-          activeAgentIds: [],
-          error:
-            '前端轮询超时（15分钟），任务可能仍在后台运行。请稍后刷新页面查看结果。',
-        });
-      };
-
-      // 开始轮询
-      void pollForStatus();
+      void pollMissionStatus({
+        missionId,
+        projectId,
+        signal,
+        richOrchestratorUpdates: true,
+        refreshEveryNPolls: 2,
+        completedMessage: '创作完成！',
+        failedFallbackMessage: '任务执行失败',
+        set: set as (partial: Partial<AIWritingState>) => void,
+        get,
+      });
     } catch (err) {
       set({
         error: (err as Error).message,
@@ -742,126 +833,18 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
           isStuckMission: false,
           stuckMissionId: null,
         });
-        const pollInterval = 2000;
-        const maxPolls = 450; // 15分钟
-        let pollCount = 0;
-        let lastProgressUpdate = Date.now();
-        let lastProgress = runningMission.progress || 0;
-        const STUCK_DURING_POLL_MS = 2 * 60 * 1000; // 2分钟无进度更新视为卡住
 
-        const pollForStatus = async () => {
-          while (pollCount < maxPolls) {
-            // Check if cancelled
-            if (signal.aborted) return;
-
-            await new Promise((resolve) => setTimeout(resolve, pollInterval));
-            pollCount++;
-
-            // Check again after await
-            if (signal.aborted) return;
-
-            // 检查是否长时间无进度更新（卡住）
-            if (Date.now() - lastProgressUpdate > STUCK_DURING_POLL_MS) {
-              logger.warn(
-                `[pollForStatus] Mission ${runningMission.id} appears stuck (no progress for ${Math.round((Date.now() - lastProgressUpdate) / 1000)}s)`
-              );
-              set({
-                isStuckMission: true,
-                stuckMissionId: runningMission.id,
-                isMissionRunning: false,
-                missionMessage: '任务已卡住，请点击"继续创作"重新开始',
-              });
-              return; // 停止轮询
-            }
-
-            try {
-              // Get fresh function references from store
-              const { fetchVolumes, fetchProject } = get();
-              const status = await api.getMissionStatus(runningMission.id);
-
-              if (status.status === 'COMPLETED') {
-                set({
-                  isMissionRunning: false,
-                  missionProgress: 100,
-                  missionMessage: '写作任务完成！',
-                  missionCompleted: true,
-                  activeAgentIds: [],
-                });
-                await fetchVolumes(projectId, true);
-                await fetchProject(projectId);
-                return;
-              }
-
-              if (status.status === 'FAILED') {
-                // 确保 error 总是字符串
-                const rawError = status.result?.error as
-                  | string
-                  | { message?: string }
-                  | undefined;
-                const errorMsg =
-                  typeof rawError === 'string'
-                    ? rawError
-                    : typeof rawError === 'object' && rawError?.message
-                      ? rawError.message
-                      : '写作任务失败';
-
-                // 如果是用户取消的，不显示为错误（这是预期行为）
-                const isCancelled =
-                  errorMsg.toLowerCase().includes('cancelled') ||
-                  errorMsg.includes('取消');
-                set({
-                  isMissionRunning: false,
-                  missionMessage: isCancelled ? '' : errorMsg,
-                  missionCompleted: false,
-                  activeAgentIds: [],
-                  error: isCancelled ? null : errorMsg, // 取消时不设置 error
-                });
-                return;
-              }
-
-              // 更新进度
-              if (status.orchestratorState) {
-                const { progress, currentSteps } = status.orchestratorState;
-                const currentProgress = progress || 0;
-
-                // 如果进度有变化，重置卡住检测计时器
-                if (currentProgress !== lastProgress) {
-                  lastProgress = currentProgress;
-                  lastProgressUpdate = Date.now();
-                }
-
-                set({
-                  missionProgress: currentProgress,
-                  missionMessage:
-                    status.result?.currentStep ||
-                    currentSteps?.[0] ||
-                    '处理中...',
-                });
-              }
-
-              // 定期刷新章节和项目（更新字数）- 使用 silent 模式避免 UI 闪烁
-              if (pollCount % 5 === 0) {
-                await fetchVolumes(projectId, true);
-                await fetchProject(projectId, true); // 更新字数显示
-              }
-            } catch (err) {
-              // 404 表示任务已被删除，停止轮询
-              if (err instanceof ApiError && err.status === 404) {
-                set({
-                  isMissionRunning: false,
-                  missionProgress: 0,
-                  missionMessage: '',
-                  missionCompleted: false,
-                  activeAgentIds: [],
-                });
-                return;
-              }
-              // 其他错误继续轮询
-            }
-          }
-        };
-
-        void pollForStatus();
+        void pollMissionStatus({
+          missionId: runningMission.id,
+          projectId,
+          signal,
+          richOrchestratorUpdates: false,
+          refreshEveryNPolls: 5,
+          completedMessage: '写作任务完成！',
+          failedFallbackMessage: '写作任务失败',
+          set: set as (partial: Partial<AIWritingState>) => void,
+          get,
+        });
       } else {
         // 检查是否有已完成的任务（兼容不同状态格式）
         const completedMission = items.find(

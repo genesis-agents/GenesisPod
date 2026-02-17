@@ -1,11 +1,10 @@
-// @ts-nocheck
 /**
  * CheckpointService Unit Tests
  *
  * Tests for checkpoint creation, restoration, pruning, and session management.
  */
 
-import { describe, it, expect, beforeEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 
@@ -177,7 +176,7 @@ describe("CheckpointService", () => {
       const result = await service.create({
         sessionId: "session-1",
         type: "task_decomposition",
-        state: { taskDecomposition: { totalPages: 5 }, pages: [] },
+        state: { taskDecomposition: { totalPages: 5 }, pages: [] } as any,
       });
 
       expect(prisma.slidesCheckpoint.create).toHaveBeenCalled();
@@ -204,7 +203,7 @@ describe("CheckpointService", () => {
       const result = await service.create({
         sessionId: "session-1",
         type: "page_rendered",
-        state: { pages: [{ pageNumber: 0, status: "completed" }] },
+        state: { pages: [{ pageNumber: 0, status: "completed" }] } as any,
       });
 
       expect(result.version).toBe("1.0.6");

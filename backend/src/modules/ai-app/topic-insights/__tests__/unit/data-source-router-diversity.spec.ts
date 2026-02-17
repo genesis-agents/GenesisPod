@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * DataSourceRouterService - Domain Diversity Tests
  *
@@ -6,7 +5,7 @@
  * Type checking is disabled due to Jest mock compatibility issues.
  */
 
-import { describe, it, expect, beforeEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataSourceRouterService } from "../../services/data/data-source-router.service";
 import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
@@ -20,7 +19,16 @@ import { DataSourcePlannerService } from "../../services/data/data-source-planne
 import { EmbeddingService } from "@/modules/ai-engine/rag/embedding";
 import { VectorService } from "@/modules/ai-engine/rag/vector";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { createMockPrisma, createMockAiEngineFacade } from "../mocks";
+import { createMockAiEngineFacade } from "../mocks";
+
+/** Local mock result type that includes extra test fields */
+type MockResult = {
+  url: string;
+  title: string;
+  snippet: string;
+  source: string;
+  credibilityScore: number;
+};
 
 describe("DataSourceRouterService - Domain Diversity", () => {
   let service: DataSourceRouterService;
@@ -36,7 +44,6 @@ describe("DataSourceRouterService - Domain Diversity", () => {
   const mockVectorService = {};
 
   beforeEach(async () => {
-    const mockPrisma = createMockPrisma();
     const mockAiFacade = createMockAiEngineFacade();
 
     const module: TestingModule = await Test.createTestingModule({
@@ -108,8 +115,12 @@ describe("DataSourceRouterService - Domain Diversity", () => {
 
   describe("enforceDomainDiversity (private method)", () => {
     it("should return input unchanged when ≤3 results", () => {
-      const enforceDomainDiversity =
-        service["enforceDomainDiversity"].bind(service);
+      const enforceDomainDiversity = service["enforceDomainDiversity"].bind(
+        service,
+      ) as unknown as (
+        results: MockResult[],
+        maxRatio?: number,
+      ) => MockResult[];
 
       const results = [
         {
@@ -142,8 +153,12 @@ describe("DataSourceRouterService - Domain Diversity", () => {
     });
 
     it("should cap single domain at 30% of total", () => {
-      const enforceDomainDiversity =
-        service["enforceDomainDiversity"].bind(service);
+      const enforceDomainDiversity = service["enforceDomainDiversity"].bind(
+        service,
+      ) as unknown as (
+        results: MockResult[],
+        maxRatio?: number,
+      ) => MockResult[];
 
       // 10 results, 7 from example.com (70%)
       const results = [
@@ -230,8 +245,12 @@ describe("DataSourceRouterService - Domain Diversity", () => {
     });
 
     it("should always keep at least 2 results per domain", () => {
-      const enforceDomainDiversity =
-        service["enforceDomainDiversity"].bind(service);
+      const enforceDomainDiversity = service["enforceDomainDiversity"].bind(
+        service,
+      ) as unknown as (
+        results: MockResult[],
+        maxRatio?: number,
+      ) => MockResult[];
 
       // 5 results, 4 from example.com (80%)
       const results = [
@@ -282,8 +301,12 @@ describe("DataSourceRouterService - Domain Diversity", () => {
     });
 
     it("should relax threshold to 50% for authoritative domains (.gov, .edu, arxiv.org)", () => {
-      const enforceDomainDiversity =
-        service["enforceDomainDiversity"].bind(service);
+      const enforceDomainDiversity = service["enforceDomainDiversity"].bind(
+        service,
+      ) as unknown as (
+        results: MockResult[],
+        maxRatio?: number,
+      ) => MockResult[];
 
       // 10 results, 5 from .gov domains (50%)
       const results = [
@@ -369,8 +392,12 @@ describe("DataSourceRouterService - Domain Diversity", () => {
     });
 
     it("should keep results with unparseable URLs", () => {
-      const enforceDomainDiversity =
-        service["enforceDomainDiversity"].bind(service);
+      const enforceDomainDiversity = service["enforceDomainDiversity"].bind(
+        service,
+      ) as unknown as (
+        results: MockResult[],
+        maxRatio?: number,
+      ) => MockResult[];
 
       const results = [
         {
@@ -418,8 +445,12 @@ describe("DataSourceRouterService - Domain Diversity", () => {
     });
 
     it("should preserve results order (highest credibility first)", () => {
-      const enforceDomainDiversity =
-        service["enforceDomainDiversity"].bind(service);
+      const enforceDomainDiversity = service["enforceDomainDiversity"].bind(
+        service,
+      ) as unknown as (
+        results: MockResult[],
+        maxRatio?: number,
+      ) => MockResult[];
 
       const results = [
         {
@@ -473,8 +504,12 @@ describe("DataSourceRouterService - Domain Diversity", () => {
     });
 
     it("should handle no over-represented domains", () => {
-      const enforceDomainDiversity =
-        service["enforceDomainDiversity"].bind(service);
+      const enforceDomainDiversity = service["enforceDomainDiversity"].bind(
+        service,
+      ) as unknown as (
+        results: MockResult[],
+        maxRatio?: number,
+      ) => MockResult[];
 
       // Each domain appears only once
       const results = [
@@ -523,8 +558,12 @@ describe("DataSourceRouterService - Domain Diversity", () => {
     });
 
     it("should handle custom maxRatio parameter", () => {
-      const enforceDomainDiversity =
-        service["enforceDomainDiversity"].bind(service);
+      const enforceDomainDiversity = service["enforceDomainDiversity"].bind(
+        service,
+      ) as unknown as (
+        results: MockResult[],
+        maxRatio?: number,
+      ) => MockResult[];
 
       const results = [
         {

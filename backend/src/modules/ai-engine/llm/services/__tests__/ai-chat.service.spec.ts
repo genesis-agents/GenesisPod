@@ -1365,12 +1365,6 @@ describe("AiChatService", () => {
   // ==================== Utility Methods Tests ====================
 
   describe("Utility Methods", () => {
-    it("should set and get strict mode", () => {
-      service.setStrictMode(true);
-      // Verify by checking behavior changes
-      expect(() => service.setStrictMode(false)).not.toThrow();
-    });
-
     it("should validate AI service availability", async () => {
       const mockConfig = createMockModelConfig();
       mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);

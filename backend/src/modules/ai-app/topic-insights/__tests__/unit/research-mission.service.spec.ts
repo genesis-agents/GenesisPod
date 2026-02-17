@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ResearchMissionService Unit Tests
  *
@@ -35,7 +34,6 @@ import {
   MOCK_MISSION_PLANNING,
   MOCK_MISSION_EXECUTING,
   MOCK_MISSION_COMPLETED,
-  MOCK_TASK_PENDING,
   MOCK_TASK_EXECUTING,
   MOCK_TASK_COMPLETED,
   createMockMissionWithTasks,

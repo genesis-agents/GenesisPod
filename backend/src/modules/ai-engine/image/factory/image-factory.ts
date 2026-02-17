@@ -8,6 +8,7 @@ import {
   IImageAdapter,
   ImageProvider,
   IMAGE_PROVIDERS,
+  IMAGE_MODELS,
   ImageGenerationOptions,
   ImageGenerationResult,
   ImageModel,
@@ -56,7 +57,7 @@ export class ImageFactory {
     ImageProviderConfig
   >();
   private defaultProvider: ImageProvider = IMAGE_PROVIDERS.GEMINI;
-  private defaultModel: ImageModel = "gemini-2.0-flash-exp";
+  private defaultModel: ImageModel = IMAGE_MODELS.GEMINI_2_FLASH;
 
   constructor() {}
 

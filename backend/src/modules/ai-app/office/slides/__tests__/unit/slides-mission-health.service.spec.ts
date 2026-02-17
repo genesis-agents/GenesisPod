@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SlidesMissionHealthService Unit Tests
  *
@@ -26,13 +25,7 @@ import {
   MockPrismaService,
   MockEventEmitter,
 } from "../mocks";
-import {
-  mockMission,
-  mockStuckMission,
-  mockMissionWithExecutingTasks,
-  mockCompletedMission,
-  mockUserId,
-} from "../fixtures/slides.fixture";
+import { mockMission, mockStuckMission } from "../fixtures/slides.fixture";
 
 describe("SlidesMissionHealthService", () => {
   let service: SlidesMissionHealthService;

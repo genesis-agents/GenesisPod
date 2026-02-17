@@ -1,9 +1,7 @@
-// @ts-nocheck
 /**
  * AI Chat Service Mock for Topic Research Tests
  *
  * Provides mock implementations for AI-related services
- * Type checking is disabled due to Jest mock compatibility issues.
  */
 
 import { jest } from "@jest/globals";
@@ -103,12 +101,49 @@ export const MOCK_REPORT_SYNTHESIS = {
   recommendations: ["Focus on innovation", "Expand to Asia-Pacific"],
 };
 
+type MockChatResponse = {
+  content: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  isError?: boolean;
+};
+
+type MockModelInfo = {
+  id: string;
+  name: string;
+  provider: string;
+  contextWindow?: number;
+};
+
+type MockDefaultModel = {
+  modelId: string;
+  modelName: string;
+};
+
+type MockAvailableModel = {
+  id: string;
+  name?: string;
+  provider: string;
+  isAvailable?: boolean;
+  isReasoning?: boolean;
+};
+
+type MockReasoningModel = {
+  id: string;
+  name: string;
+  provider: string;
+  isReasoning?: boolean;
+};
+
 /**
  * Create a mock AI Chat service
  */
 export function createMockAiChat() {
   return {
-    chat: jest.fn().mockResolvedValue({
+    chat: jest.fn<() => Promise<MockChatResponse>>().mockResolvedValue({
       content: JSON.stringify(MOCK_LEADER_PLAN),
       usage: {
         promptTokens: 1000,
@@ -130,7 +165,7 @@ export function createMockAiChat() {
  */
 export function createMockAiEngineFacade() {
   return {
-    chat: jest.fn().mockResolvedValue({
+    chat: jest.fn<() => Promise<MockChatResponse>>().mockResolvedValue({
       content: JSON.stringify(MOCK_LEADER_PLAN),
       usage: {
         promptTokens: 1000,
@@ -145,42 +180,50 @@ export function createMockAiEngineFacade() {
       yield { content: "topic...", done: true };
     }),
 
-    getModelInfo: jest.fn().mockReturnValue({
+    getModelInfo: jest.fn<() => MockModelInfo | undefined>().mockReturnValue({
       id: "gpt-4o-mini",
       name: "GPT-4o Mini",
       provider: "openai",
       contextWindow: 128000,
     }),
 
-    getDefaultModelByType: jest.fn().mockResolvedValue({
-      modelId: "gpt-4o-mini",
-      modelName: "GPT-4o Mini",
-    }),
+    getDefaultModelByType: jest
+      .fn<() => Promise<MockDefaultModel>>()
+      .mockResolvedValue({
+        modelId: "gpt-4o-mini",
+        modelName: "GPT-4o Mini",
+      }),
 
-    getAvailableModels: jest.fn().mockResolvedValue([
-      {
-        id: "gpt-4o-mini",
-        name: "GPT-4o Mini",
-        provider: "openai",
-        isAvailable: true,
-      },
-    ]),
+    getAvailableModels: jest
+      .fn<() => Promise<MockAvailableModel[]>>()
+      .mockResolvedValue([
+        {
+          id: "gpt-4o-mini",
+          name: "GPT-4o Mini",
+          provider: "openai",
+          isAvailable: true,
+        },
+      ]),
 
-    getAvailableModelsExtended: jest.fn().mockResolvedValue([
-      {
-        id: "gpt-4o-mini",
-        name: "GPT-4o Mini",
-        provider: "openai",
-        isAvailable: true,
-      },
-    ]),
+    getAvailableModelsExtended: jest
+      .fn<() => Promise<MockAvailableModel[]>>()
+      .mockResolvedValue([
+        {
+          id: "gpt-4o-mini",
+          name: "GPT-4o Mini",
+          provider: "openai",
+          isAvailable: true,
+        },
+      ]),
 
-    getReasoningModel: jest.fn().mockResolvedValue({
-      id: "deepseek-r1",
-      name: "DeepSeek R1",
-      provider: "deepseek",
-      isReasoning: true,
-    }),
+    getReasoningModel: jest
+      .fn<() => Promise<MockReasoningModel | null>>()
+      .mockResolvedValue({
+        id: "deepseek-r1",
+        name: "DeepSeek R1",
+        provider: "deepseek",
+        isReasoning: true,
+      }),
   };
 }
 

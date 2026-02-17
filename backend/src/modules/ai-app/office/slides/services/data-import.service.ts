@@ -8,10 +8,14 @@
  * - Library: User's resource library (images, documents)
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, Inject } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ResearchDataExportService } from "../../../research/services/research-data-export.service";
-import { WritingDataExportService } from "../../../writing/services/writing-data-export.service";
+import {
+  RESEARCH_DATA_EXPORT,
+  WRITING_DATA_EXPORT,
+  IResearchDataExport,
+  IWritingDataExport,
+} from "../../interfaces/data-export.interface";
 import {
   SlidesSourceData,
   SlidesSourceType,
@@ -50,8 +54,10 @@ export class SlidesDataImportService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly researchExport: ResearchDataExportService,
-    private readonly writingExport: WritingDataExportService,
+    @Inject(RESEARCH_DATA_EXPORT)
+    private readonly researchExport: IResearchDataExport,
+    @Inject(WRITING_DATA_EXPORT)
+    private readonly writingExport: IWritingDataExport,
   ) {}
 
   // ============================================

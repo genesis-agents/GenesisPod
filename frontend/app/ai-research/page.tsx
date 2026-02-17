@@ -5,7 +5,14 @@
  * Fetches projects from AI Studio API and displays as card grid
  */
 
-import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+  Suspense,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +20,9 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import ClientDate from '@/components/common/ClientDate';
+import { CreateProjectDialog } from '@/components/ai-research/CreateProjectDialog';
+import { RenameProjectDialog } from '@/components/ai-research/RenameProjectDialog';
+import { DeleteProjectDialog } from '@/components/ai-research/DeleteProjectDialog';
 
 interface ResearchProject {
   id: string;
@@ -232,14 +242,18 @@ function ResearchPageContent() {
   }, [user, fetchProjects]);
 
   // Filter projects by search query
-  const filteredProjects = projects.filter((project) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      project.name.toLowerCase().includes(query) ||
-      project.description?.toLowerCase().includes(query)
-    );
-  });
+  const filteredProjects = useMemo(
+    () =>
+      projects.filter((project) => {
+        if (!searchQuery) return true;
+        const query = searchQuery.toLowerCase();
+        return (
+          project.name.toLowerCase().includes(query) ||
+          project.description?.toLowerCase().includes(query)
+        );
+      }),
+    [projects, searchQuery]
+  );
 
   if (authLoading) {
     return (
@@ -586,147 +600,37 @@ function ResearchPageContent() {
         )}
       </div>
 
-      {/* Rename Project Dialog */}
-      {renameProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div
-            className="mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-semibold text-gray-900">
-              {t('aiResearch.project.rename')}
-            </h2>
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700">
-                {t('aiResearch.project.name')}
-              </label>
-              <input
-                type="text"
-                autoFocus
-                value={renameName}
-                onChange={(e) => setRenameName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && renameName.trim()) {
-                    void handleRename(renameProject.id, renameName);
-                  }
-                  if (e.key === 'Escape') {
-                    setRenameProject(null);
-                  }
-                }}
-                placeholder={t('aiResearch.project.namePlaceholder')}
-                className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                maxLength={500}
-              />
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setRenameProject(null)}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={() => void handleRename(renameProject.id, renameName)}
-                disabled={
-                  !renameName.trim() || renameName.trim() === renameProject.name
-                }
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {t('common.save')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Dialogs */}
+      <CreateProjectDialog
+        isOpen={showCreateDialog}
+        isCreating={isCreating}
+        projectName={newProjectName}
+        onProjectNameChange={setNewProjectName}
+        onConfirm={() => void createProject(newProjectName)}
+        onClose={() => setShowCreateDialog(false)}
+      />
 
-      {/* Delete Confirmation Dialog */}
-      {deleteProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div
-            className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-semibold text-gray-900">
-              {t('common.delete')}
-            </h2>
-            <p className="mt-2 text-sm text-gray-500">
-              {t('aiResearch.project.deleteConfirm', {
-                name: deleteProject.name,
-              })}
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteProject(null)}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={() => void handleDelete(deleteProject.id)}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
-              >
-                {t('common.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RenameProjectDialog
+        isOpen={renameProject !== null}
+        originalName={renameProject?.name ?? ''}
+        renameName={renameName}
+        onRenameNameChange={setRenameName}
+        onConfirm={() =>
+          renameProject
+            ? void handleRename(renameProject.id, renameName)
+            : undefined
+        }
+        onClose={() => setRenameProject(null)}
+      />
 
-      {/* Create Project Dialog */}
-      {showCreateDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div
-            className="mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-semibold text-gray-900">
-              {t('aiResearch.project.createTitle')}
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              {t('aiResearch.project.createDesc')}
-            </p>
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700">
-                {t('aiResearch.project.name')}
-              </label>
-              <input
-                type="text"
-                autoFocus
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newProjectName.trim()) {
-                    void createProject(newProjectName);
-                  }
-                  if (e.key === 'Escape') {
-                    setShowCreateDialog(false);
-                  }
-                }}
-                placeholder={t('aiResearch.project.namePlaceholder')}
-                className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                maxLength={500}
-              />
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setShowCreateDialog(false)}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={() => void createProject(newProjectName)}
-                disabled={!newProjectName.trim() || isCreating}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isCreating
-                  ? t('common.creating')
-                  : t('aiResearch.project.create')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteProjectDialog
+        isOpen={deleteProject !== null}
+        projectName={deleteProject?.name ?? ''}
+        onConfirm={() =>
+          deleteProject ? void handleDelete(deleteProject.id) : undefined
+        }
+        onClose={() => setDeleteProject(null)}
+      />
     </div>
   );
 }

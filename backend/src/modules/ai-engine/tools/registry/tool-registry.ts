@@ -31,9 +31,11 @@ export class ToolRegistry
    * 注册工具
    */
   override register(tool: ITool): void {
-    // Warn on ID collision
     if (this.has(tool.id)) {
-      this.logger.warn(`[register] Overwriting existing tool: ${tool.id}`);
+      this.logger.warn(
+        `Tool already registered, skipping: ${tool.id} (${tool.name})`,
+      );
+      return;
     }
 
     super.register(tool);

@@ -19,7 +19,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "../embedding";
 import { VectorService } from "../vector";
-import { AIEngineFacade } from "../../facade/ai-engine.facade";
+import { AiChatService } from "../../llm/services/ai-chat.service";
 import { AIModelType } from "@prisma/client";
 import {
   RAGQuery,
@@ -43,7 +43,7 @@ export class RAGPipelineService {
     private readonly prisma: PrismaService,
     private readonly embeddingService: EmbeddingService,
     private readonly vectorService: VectorService,
-    private readonly aiFacade: AIEngineFacade,
+    private readonly aiChatService: AiChatService,
   ) {}
 
   /**
@@ -148,7 +148,7 @@ export class RAGPipelineService {
 
   /**
    * Stage 1: Generate hypothetical document using HyDE
-   * Uses AIEngineFacade.chat() instead of AiOrchestrationService
+   * Uses AiChatService.chat() directly to avoid circular dependency with AIEngineFacade
    */
   private async generateHypotheticalDocument(query: string): Promise<string> {
     const systemPrompt = `You are a helpful assistant that generates a hypothetical document passage that would perfectly answer the given query.
@@ -156,7 +156,7 @@ Generate a detailed, factual-sounding passage (2-3 paragraphs) that would contai
 Do not mention that this is hypothetical. Write as if this is actual content from a document.
 Focus on being specific and informative.`;
 
-    const response = await this.aiFacade.chat({
+    const response = await this.aiChatService.chat({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Query: ${query}` },

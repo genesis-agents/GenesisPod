@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import ClientDate from '@/components/common/ClientDate';
 import { logger } from '@/lib/utils/logger';
 interface AIExplanation {
@@ -60,7 +61,7 @@ export default function AIAssistant({
           `${config.apiBaseUrl}/api/v1/notes/${noteId}/ai-explain`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
             body: JSON.stringify({
               text: textToExplain,
               pdfContext: pdfContext || undefined,

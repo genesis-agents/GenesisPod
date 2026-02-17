@@ -1,30 +1,19 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { PreWriteInjectionService } from "./pre-write-injection.service";
 import { PostWriteValidationService } from "./post-write-validation.service";
 import { ConflictResolutionService } from "./conflict-resolution.service";
 import { ChapterCoherenceService } from "./chapter-coherence.service";
-import { StoryBibleService } from "../bible/story-bible.service";
 import { ContextBuilderService } from "../writing/context-builder.service";
 
 @Injectable()
 export class ConsistencyEngineService {
-  private readonly logger = new Logger(ConsistencyEngineService.name);
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly preWriteInjection: PreWriteInjectionService,
     private readonly postWriteValidation: PostWriteValidationService,
     private readonly conflictResolution: ConflictResolutionService,
     private readonly chapterCoherence: ChapterCoherenceService,
-    private readonly storyBibleService: StoryBibleService,
     private readonly contextBuilder: ContextBuilderService,
-  ) {
-    // Services available for future use
-    void this.logger;
-    void this.preWriteInjection;
-    void this.storyBibleService;
-  }
+  ) {}
 
   async buildWritingContext(chapterId: string, bibleSnapshot?: any) {
     return this.contextBuilder.buildWritingContext(chapterId, bibleSnapshot);

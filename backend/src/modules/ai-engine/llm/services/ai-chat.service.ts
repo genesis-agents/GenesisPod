@@ -79,9 +79,6 @@ export class AiChatService {
   // Retry configuration
   private readonly MAX_RETRIES = 3;
 
-  // 是否在 AI Coding 模式下（严格模式，API失败会抛出异常）
-  private strictMode = false;
-
   constructor(
     private readonly configService: ConfigService,
     private readonly taskProfileMapper: TaskProfileMapperService,
@@ -207,13 +204,6 @@ export class AiChatService {
     if (p === "google" || p === "gemini") return "google";
     if (p === "xai" || p === "grok") return "xai";
     return "openai";
-  }
-
-  /**
-   * 设置严格模式
-   */
-  setStrictMode(enabled: boolean): void {
-    this.strictMode = enabled;
   }
 
   /**
@@ -483,7 +473,7 @@ export class AiChatService {
     const errorMsg = `模型 "${model}" 未在数据库中配置，请在管理后台添加该模型的配置`;
     this.logger.error(`[generateChatCompletion] ${errorMsg}`);
 
-    const useStrictMode = optionStrictMode ?? this.strictMode;
+    const useStrictMode = optionStrictMode ?? false;
     if (useStrictMode) {
       throw new AiServiceUnavailableError(errorMsg, model);
     }
@@ -546,7 +536,7 @@ export class AiChatService {
     const timeout =
       config.defaultTimeoutMs || this.getTimeoutForModel(modelId, maxTokens);
 
-    const useStrictMode = optionStrictMode ?? this.strictMode;
+    const useStrictMode = optionStrictMode ?? false;
 
     if (!apiKey) {
       const errorMsg = `模型 ${modelId} 的 API Key 未配置（直接输入或 Secret Manager 均未找到）`;

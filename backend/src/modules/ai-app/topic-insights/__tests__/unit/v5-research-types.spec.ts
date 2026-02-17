@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect } from "@jest/globals";
 import { resolveResearchDepthConfig } from "../../types/v5-research.types";
 import { buildValidationContextForWriting } from "../../prompts/v5-research.prompt";

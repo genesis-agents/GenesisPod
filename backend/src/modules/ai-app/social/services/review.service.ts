@@ -2,26 +2,18 @@ import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SocialReviewStatus, SocialContentStatus } from "../types";
 
-// Prisma client accessor for models not yet migrated
-type PrismaAny = any;
-
 @Injectable()
 export class ReviewService {
   private readonly logger = new Logger(ReviewService.name);
 
   constructor(private readonly prisma: PrismaService) {}
 
-  // Helper to access prisma with new models
-  private get db(): PrismaAny {
-    return this.prisma;
-  }
-
   /**
    * 获取待审核内容列表
    */
   async getPendingReviewContents(userId: string) {
     this.logger.log(`Getting pending review contents for user ${userId}`);
-    return this.db.socialContent.findMany({
+    return this.prisma.socialContent.findMany({
       where: {
         userId,
         reviewStatus: SocialReviewStatus.PENDING,
@@ -42,7 +34,7 @@ export class ReviewService {
    * 审核通过
    */
   async approveContent(reviewerId: string, contentId: string, note?: string) {
-    const content = await this.db.socialContent.findUnique({
+    const content = await this.prisma.socialContent.findUnique({
       where: { id: contentId },
     });
 
@@ -50,7 +42,7 @@ export class ReviewService {
       throw new NotFoundException("内容不存在");
     }
 
-    return this.db.socialContent.update({
+    return this.prisma.socialContent.update({
       where: { id: contentId },
       data: {
         reviewStatus: SocialReviewStatus.APPROVED,
@@ -70,7 +62,7 @@ export class ReviewService {
    * 审核拒绝
    */
   async rejectContent(reviewerId: string, contentId: string, note: string) {
-    const content = await this.db.socialContent.findUnique({
+    const content = await this.prisma.socialContent.findUnique({
       where: { id: contentId },
     });
 
@@ -78,7 +70,7 @@ export class ReviewService {
       throw new NotFoundException("内容不存在");
     }
 
-    return this.db.socialContent.update({
+    return this.prisma.socialContent.update({
       where: { id: contentId },
       data: {
         reviewStatus: SocialReviewStatus.REJECTED,
@@ -95,7 +87,7 @@ export class ReviewService {
    * 重新提交审核
    */
   async resubmitForReview(userId: string, contentId: string) {
-    const content = await this.db.socialContent.findFirst({
+    const content = await this.prisma.socialContent.findFirst({
       where: { id: contentId, userId },
     });
 
@@ -107,7 +99,7 @@ export class ReviewService {
       throw new Error("只有被拒绝的内容可以重新提交审核");
     }
 
-    return this.db.socialContent.update({
+    return this.prisma.socialContent.update({
       where: { id: contentId },
       data: {
         reviewStatus: SocialReviewStatus.PENDING,

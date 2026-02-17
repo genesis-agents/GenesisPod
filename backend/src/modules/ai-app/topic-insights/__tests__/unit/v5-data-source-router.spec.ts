@@ -1,10 +1,11 @@
-// @ts-nocheck
 import { describe, it, expect, beforeEach, jest } from "@jest/globals";
 import { DataSourceRouterService } from "../../services/data/data-source-router.service";
 
 describe("DataSourceRouterService - V5 Methods", () => {
   let service: DataSourceRouterService;
-  let mockExecuteSearch: jest.Mock;
+  let mockExecuteSearch: ReturnType<
+    typeof jest.fn<(source: unknown, query: string) => Promise<unknown>>
+  >;
 
   beforeEach(() => {
     service = new DataSourceRouterService(
@@ -20,7 +21,8 @@ describe("DataSourceRouterService - V5 Methods", () => {
     );
 
     // Mock the private executeSearch method
-    mockExecuteSearch = jest.fn();
+    mockExecuteSearch =
+      jest.fn<(source: unknown, query: string) => Promise<unknown>>();
     (service as any).executeSearch = mockExecuteSearch;
   });
 

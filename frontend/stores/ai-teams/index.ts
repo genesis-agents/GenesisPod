@@ -27,19 +27,56 @@ import { createWebSocketSlice, WebSocketSlice } from './websocketSlice';
 import { logger } from '@/lib/utils/logger';
 // Combined store interface
 interface AiGroupState
-  extends TopicsSlice,
-    MessagesSlice,
-    MissionsSlice,
-    WebSocketSlice {
+  extends TopicsSlice, MessagesSlice, MissionsSlice, WebSocketSlice {
   // UI Actions
   resetStore: () => void;
 }
 
 export const useAiGroupStore = create<AiGroupState>()((set, get, api) => {
-  const topicsSlice = createTopicsSlice(set as unknown as Parameters<StateCreator<TopicsSlice, [], [], TopicsSlice>>[0], get as unknown as Parameters<StateCreator<TopicsSlice, [], [], TopicsSlice>>[1], api as unknown as Parameters<StateCreator<TopicsSlice, [], [], TopicsSlice>>[2]);
-  const messagesSlice = createMessagesSlice(set as unknown as Parameters<StateCreator<MessagesSlice, [], [], MessagesSlice>>[0], get as unknown as Parameters<StateCreator<MessagesSlice, [], [], MessagesSlice>>[1], api as unknown as Parameters<StateCreator<MessagesSlice, [], [], MessagesSlice>>[2]);
-  const missionsSlice = createMissionsSlice(set as unknown as Parameters<StateCreator<MissionsSlice, [], [], MissionsSlice>>[0], get as unknown as Parameters<StateCreator<MissionsSlice, [], [], MissionsSlice>>[1], api as unknown as Parameters<StateCreator<MissionsSlice, [], [], MissionsSlice>>[2]);
-  const websocketSlice = createWebSocketSlice(set as unknown as Parameters<StateCreator<WebSocketSlice, [], [], WebSocketSlice>>[0], get as unknown as Parameters<StateCreator<WebSocketSlice, [], [], WebSocketSlice>>[1], api as unknown as Parameters<StateCreator<WebSocketSlice, [], [], WebSocketSlice>>[2]);
+  const topicsSlice = createTopicsSlice(
+    set as unknown as Parameters<
+      StateCreator<TopicsSlice, [], [], TopicsSlice>
+    >[0],
+    get as unknown as Parameters<
+      StateCreator<TopicsSlice, [], [], TopicsSlice>
+    >[1],
+    api as unknown as Parameters<
+      StateCreator<TopicsSlice, [], [], TopicsSlice>
+    >[2]
+  );
+  const messagesSlice = createMessagesSlice(
+    set as unknown as Parameters<
+      StateCreator<MessagesSlice, [], [], MessagesSlice>
+    >[0],
+    get as unknown as Parameters<
+      StateCreator<MessagesSlice, [], [], MessagesSlice>
+    >[1],
+    api as unknown as Parameters<
+      StateCreator<MessagesSlice, [], [], MessagesSlice>
+    >[2]
+  );
+  const missionsSlice = createMissionsSlice(
+    set as unknown as Parameters<
+      StateCreator<MissionsSlice, [], [], MissionsSlice>
+    >[0],
+    get as unknown as Parameters<
+      StateCreator<MissionsSlice, [], [], MissionsSlice>
+    >[1],
+    api as unknown as Parameters<
+      StateCreator<MissionsSlice, [], [], MissionsSlice>
+    >[2]
+  );
+  const websocketSlice = createWebSocketSlice(
+    set as unknown as Parameters<
+      StateCreator<WebSocketSlice, [], [], WebSocketSlice>
+    >[0],
+    get as unknown as Parameters<
+      StateCreator<WebSocketSlice, [], [], WebSocketSlice>
+    >[1],
+    api as unknown as Parameters<
+      StateCreator<WebSocketSlice, [], [], WebSocketSlice>
+    >[2]
+  );
 
   // Setup WebSocket event listeners
   const setupWebSocketListeners = (
@@ -300,17 +337,17 @@ export const useAiGroupStore = create<AiGroupState>()((set, get, api) => {
     });
   };
 
-  // Override connectSocket to setup listeners
+  // Override connectSocket to setup listeners synchronously after socket creation
   const originalConnectSocket = websocketSlice.connectSocket;
   const connectSocket = (userId: string) => {
     originalConnectSocket(userId);
-    // Wait for socket to be set, then setup listeners
-    setTimeout(() => {
-      const state = get();
-      if (state.socket) {
-        setupWebSocketListeners(state.socket);
-      }
-    }, 100);
+    // Read the socket immediately after connectSocket returns — the slice stores
+    // the socket via set({ socket: newSocket }) synchronously at the end of its
+    // body, so get().socket is already populated at this point.
+    const socket = get().socket;
+    if (socket) {
+      setupWebSocketListeners(socket);
+    }
   };
 
   return {

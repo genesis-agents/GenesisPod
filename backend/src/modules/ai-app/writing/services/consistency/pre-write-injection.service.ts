@@ -1,15 +1,12 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { BibleSnapshot } from "../bible/bible-entity.types";
 
 @Injectable()
 export class PreWriteInjectionService {
-  private readonly logger = new Logger(PreWriteInjectionService.name);
+  constructor(private readonly prisma: PrismaService) {}
 
-  constructor(private readonly prisma: PrismaService) {
-    void this.logger;
-  }
-
-  async injectContext(chapterId: string, bibleSnapshot: any) {
+  async injectContext(chapterId: string, bibleSnapshot: BibleSnapshot) {
     // Extract entities from chapter outline
     const chapter = await this.prisma.writingChapter.findUnique({
       where: { id: chapterId },
@@ -23,15 +20,15 @@ export class PreWriteInjectionService {
     const extractedEntities = this.extractEntitiesFromOutline(chapter.outline);
 
     // Filter relevant settings from bible
-    const relevantCharacters = bibleSnapshot.characters.filter((c: any) =>
+    const relevantCharacters = bibleSnapshot.characters.filter((c) =>
       extractedEntities.characterNames.some(
-        (name: string) => c.name.includes(name) || c.aliases?.includes(name),
+        (name) => c.name.includes(name) || c.aliases?.includes(name),
       ),
     );
 
-    const relevantSettings = bibleSnapshot.worldSettings.filter((s: any) =>
+    const relevantSettings = bibleSnapshot.worldSettings.filter((s) =>
       extractedEntities.locations.some(
-        (loc: string) => s.name.includes(loc) || s.description.includes(loc),
+        (loc) => s.name.includes(loc) || s.description.includes(loc),
       ),
     );
 

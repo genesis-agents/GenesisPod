@@ -21,7 +21,7 @@ import { ExploreModule } from "../../content/explore/explore.module";
 import { NotificationModule } from "../../core/notifications/notification.module";
 import { CreditsModule } from "../../credits/credits.module";
 import { YoutubeService } from "../../content/explore/youtube.service";
-import { YOUTUBE_SERVICE_TOKEN } from "../../ai-engine/content-fetch/content-fetch.service";
+import { YOUTUBE_SERVICE_TOKEN } from "../../ai-engine/content-fetch";
 
 @Module({
   imports: [

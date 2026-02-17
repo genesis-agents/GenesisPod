@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SlidesController Unit Tests
  *
@@ -7,7 +6,6 @@
 
 import { describe, it, expect, beforeEach, jest } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
-import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 
 import { SlidesController } from "../../orchestrator/slides.controller";
@@ -23,18 +21,15 @@ import {
   RATE_LIMIT_KEY,
 } from "@/common/guards/rate-limit.guard";
 
-import { createMockPrisma, createMockEventEmitter } from "../mocks";
 import {
   mockAuthenticatedRequest,
   mockSession,
   mockSessions,
-  mockGenerateDto,
   mockUserId,
 } from "../fixtures/slides.fixture";
 
 describe("SlidesController", () => {
   let controller: SlidesController;
-  let slidesEngine: jest.Mocked<SlidesEngineService>;
   let checkpointService: jest.Mocked<CheckpointService>;
   let dataImportService: jest.Mocked<SlidesDataImportService>;
   let aiEditService: jest.Mocked<AIEditService>;
@@ -98,7 +93,6 @@ describe("SlidesController", () => {
       .compile();
 
     controller = module.get<SlidesController>(SlidesController);
-    slidesEngine = module.get(SlidesEngineService);
     checkpointService = module.get(CheckpointService);
     dataImportService = module.get(SlidesDataImportService);
     aiEditService = module.get(AIEditService);
@@ -110,7 +104,9 @@ describe("SlidesController", () => {
       expect(guards).toBeDefined();
       expect(
         guards.some(
-          (guard) => guard === JwtAuthGuard || guard.name === "JwtAuthGuard",
+          (guard: unknown) =>
+            (guard as { name?: string }) === JwtAuthGuard ||
+            (guard as { name?: string }).name === "JwtAuthGuard",
         ),
       ).toBe(true);
     });
@@ -120,8 +116,9 @@ describe("SlidesController", () => {
       expect(guards).toBeDefined();
       expect(
         guards.some(
-          (guard) =>
-            guard === RateLimitGuard || guard.name === "RateLimitGuard",
+          (guard: unknown) =>
+            (guard as { name?: string }) === RateLimitGuard ||
+            (guard as { name?: string }).name === "RateLimitGuard",
         ),
       ).toBe(true);
     });
@@ -129,7 +126,7 @@ describe("SlidesController", () => {
 
   describe("getSessions", () => {
     it("should get sessions for authenticated user", async () => {
-      checkpointService.getSessions.mockResolvedValue(mockSessions);
+      checkpointService.getSessions.mockResolvedValue(mockSessions as any);
 
       const result = await controller.getSessions(
         mockAuthenticatedRequest as any,
@@ -142,11 +139,11 @@ describe("SlidesController", () => {
         status: undefined,
         limit: 50,
       });
-      expect(result.sessions).toHaveLength(mockSessions.length);
+      expect((result as any).sessions).toHaveLength(mockSessions.length);
     });
 
     it("should filter sessions by status", async () => {
-      checkpointService.getSessions.mockResolvedValue([mockSession]);
+      checkpointService.getSessions.mockResolvedValue([mockSession] as any);
 
       await controller.getSessions(
         mockAuthenticatedRequest as any,
@@ -165,7 +162,9 @@ describe("SlidesController", () => {
   describe("listResearchSources", () => {
     it("should list research sources for authenticated user", async () => {
       const mockSources = [{ id: "topic-1", title: "Research 1" }];
-      dataImportService.listResearchTopics.mockResolvedValue(mockSources);
+      dataImportService.listResearchTopics.mockResolvedValue(
+        mockSources as any,
+      );
 
       const result = await controller.listResearchSources(
         mockAuthenticatedRequest as any,
@@ -181,7 +180,7 @@ describe("SlidesController", () => {
   describe("importFromResearch", () => {
     it("should import from research with authenticated user", async () => {
       const mockData = { sourceText: "content", sections: [] };
-      dataImportService.importFromResearch.mockResolvedValue(mockData);
+      dataImportService.importFromResearch.mockResolvedValue(mockData as any);
 
       const result = await controller.importFromResearch(
         mockAuthenticatedRequest as any,

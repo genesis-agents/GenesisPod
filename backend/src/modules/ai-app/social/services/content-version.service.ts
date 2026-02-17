@@ -1,8 +1,7 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
-import { AIModelType } from "@prisma/client";
-import { SocialPlatformType } from "../types";
+import { AIModelType, Prisma, SocialPlatformType } from "@prisma/client";
 import {
   PLATFORM_LIMITS,
   getPlatformLimits,
@@ -13,27 +12,15 @@ import {
   XIAOHONGSHU_ADAPTATION_SYSTEM_PROMPT,
 } from "../prompts/social-version.prompt";
 
-// Prisma client accessor for models not yet migrated
-type PrismaAny = any;
-
 export interface ContentVersionData {
   title: string;
   content: string;
   digest?: string | null;
 }
 
-export interface SocialContentVersion {
-  id: string;
-  contentId: string;
-  platformType: SocialPlatformType;
-  title: string;
-  content: string;
-  digest: string | null;
-  isDefault: boolean;
-  generatedBy: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
+// Use Prisma's generated model type to ensure type compatibility
+export type SocialContentVersion =
+  Prisma.SocialContentVersionGetPayload<object>;
 
 @Injectable()
 export class ContentVersionService {
@@ -48,11 +35,6 @@ export class ContentVersionService {
     private readonly aiFacade: AIEngineFacade,
   ) {}
 
-  // Helper to access prisma with new models
-  private get db(): PrismaAny {
-    return this.prisma;
-  }
-
   /**
    * 为内容生成指定平台的适配版本
    */
@@ -66,7 +48,7 @@ export class ContentVersionService {
     );
 
     // 获取原始内容
-    const content = await this.db.socialContent.findUnique({
+    const content = await this.prisma.socialContent.findUnique({
       where: { id: contentId },
     });
 
@@ -74,8 +56,10 @@ export class ContentVersionService {
       throw new NotFoundException(`Content ${contentId} not found`);
     }
 
-    // 获取平台限制
-    const limits = getPlatformLimits(platformType);
+    // 获取平台限制 (cast needed: both enums share same string values but differ nominally)
+    const limits = getPlatformLimits(
+      platformType as Parameters<typeof getPlatformLimits>[0],
+    );
 
     // 使用 AI 生成适配版本
     const adaptedContent = await this.adaptContentForPlatform(
@@ -91,7 +75,7 @@ export class ContentVersionService {
     );
 
     // 使用 upsert 创建或更新版本
-    const version = await this.db.socialContentVersion.upsert({
+    const version = await this.prisma.socialContentVersion.upsert({
       where: {
         contentId_platformType: {
           contentId,
@@ -173,7 +157,7 @@ export class ContentVersionService {
    * 获取内容的所有版本
    */
   async getVersions(contentId: string): Promise<SocialContentVersion[]> {
-    return this.db.socialContentVersion.findMany({
+    return this.prisma.socialContentVersion.findMany({
       where: { contentId },
       orderBy: { createdAt: "asc" },
     });
@@ -186,7 +170,7 @@ export class ContentVersionService {
     contentId: string,
     platformType: SocialPlatformType,
   ): Promise<SocialContentVersion | null> {
-    return this.db.socialContentVersion.findUnique({
+    return this.prisma.socialContentVersion.findUnique({
       where: {
         contentId_platformType: {
           contentId,
@@ -218,7 +202,7 @@ export class ContentVersionService {
     }
 
     // 2. 尝试获取默认版本
-    const defaultVersion = await this.db.socialContentVersion.findFirst({
+    const defaultVersion = await this.prisma.socialContentVersion.findFirst({
       where: { contentId, isDefault: true },
     });
     if (defaultVersion) {
@@ -251,7 +235,7 @@ export class ContentVersionService {
 
     if (!existing) {
       // 如果版本不存在，先创建
-      const content = await this.db.socialContent.findUnique({
+      const content = await this.prisma.socialContent.findUnique({
         where: { id: contentId },
       });
 
@@ -259,7 +243,7 @@ export class ContentVersionService {
         throw new NotFoundException(`Content ${contentId} not found`);
       }
 
-      return this.db.socialContentVersion.create({
+      return this.prisma.socialContentVersion.create({
         data: {
           contentId,
           platformType,
@@ -273,7 +257,7 @@ export class ContentVersionService {
     }
 
     // 更新现有版本
-    return this.db.socialContentVersion.update({
+    return this.prisma.socialContentVersion.update({
       where: { id: existing.id },
       data: {
         ...(data.title !== undefined && { title: data.title }),
@@ -292,7 +276,7 @@ export class ContentVersionService {
     contentId: string,
     platformType: SocialPlatformType,
   ): Promise<void> {
-    await this.db.socialContentVersion.deleteMany({
+    await this.prisma.socialContentVersion.deleteMany({
       where: { contentId, platformType },
     });
   }
@@ -305,13 +289,13 @@ export class ContentVersionService {
     platformType: SocialPlatformType,
   ): Promise<SocialContentVersion> {
     // 先取消所有默认版本
-    await this.db.socialContentVersion.updateMany({
+    await this.prisma.socialContentVersion.updateMany({
       where: { contentId },
       data: { isDefault: false },
     });
 
     // 设置新的默认版本
-    return this.db.socialContentVersion.update({
+    return this.prisma.socialContentVersion.update({
       where: {
         contentId_platformType: {
           contentId,

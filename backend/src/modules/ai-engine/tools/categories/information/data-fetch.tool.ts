@@ -302,22 +302,30 @@ export class DataFetchTool extends BaseTool<DataFetchInput, DataFetchOutput> {
 
     const limit = Math.min(query.limit || 100, 1000);
 
-    // 使用 Prisma 查询
-    const prismaModel = (this.prisma as any)[query.table];
-    if (!prismaModel) {
-      return {
-        data: null,
-        dataType: "database",
-        count: 0,
-        success: false,
-        error: `Table not found: ${query.table}`,
-      };
+    // 使用显式 switch-case 查询，避免动态字符串访问 Prisma 模型
+    let data: unknown[];
+    switch (query.table.toLowerCase()) {
+      case "resource":
+        data = await this.prisma.resource.findMany({
+          where: query.filters || {},
+          take: limit,
+        });
+        break;
+      case "topic":
+        data = await this.prisma.topic.findMany({
+          where: query.filters || {},
+          take: limit,
+        });
+        break;
+      default:
+        return {
+          data: null,
+          dataType: "database",
+          count: 0,
+          success: false,
+          error: `Table '${query.table}' is not accessible`,
+        };
     }
-
-    const data = await prismaModel.findMany({
-      where: query.filters || {},
-      take: limit,
-    });
 
     return {
       data,

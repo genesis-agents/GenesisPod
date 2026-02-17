@@ -10,11 +10,6 @@ import {
   ConflictException,
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-
-// TODO: Phase 4.1 - 需要创建 Review Prisma 模型
-// 临时使用 any 类型以允许编译，待数据库迁移后移除
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getPrismaReview = (prisma: PrismaService): any => (prisma as any).review;
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   IReviewWorkflow,
@@ -28,6 +23,9 @@ import {
 
 /**
  * 审查工作流服务
+ *
+ * Phase 4.1 技术债务：Review Prisma 模型尚未创建，
+ * 所有方法在模型可用前返回安全的空数据并记录警告。
  */
 @Injectable()
 export class ReviewWorkflowService implements IReviewWorkflow {
@@ -39,6 +37,30 @@ export class ReviewWorkflowService implements IReviewWorkflow {
   ) {}
 
   /**
+   * 检查 Review 模型是否在 Prisma Client 中可用。
+   * Phase 4.1: 模型尚未创建，始终返回 false。
+   */
+  private isModelAvailable(): boolean {
+    const available =
+      "review" in (this.prisma as unknown as Record<string, unknown>);
+    if (!available) {
+      this.logger.warn(
+        "Phase 4.1: Review Prisma model is not yet available. " +
+          "Returning safe default. Create the model and migration to enable this feature.",
+      );
+    }
+    return available;
+  }
+
+  /**
+   * 获取 Review Prisma 模型委托（仅在 isModelAvailable() 返回 true 后调用）
+   */
+  private get reviewModel(): PrismaModelDelegate {
+    return (this.prisma as unknown as Record<string, unknown>)
+      .review as PrismaModelDelegate;
+  }
+
+  /**
    * 创建审查请求
    */
   async createReview(request: ReviewRequest): Promise<Review> {
@@ -46,7 +68,11 @@ export class ReviewWorkflowService implements IReviewWorkflow {
       `Creating review for ${request.entityType}:${request.entityId}`,
     );
 
-    const review = await getPrismaReview(this.prisma).create({
+    if (!this.isModelAvailable()) {
+      return this.emptyReview(request);
+    }
+
+    const review = await this.reviewModel.create({
       data: {
         entityType: request.entityType,
         entityId: request.entityId,
@@ -90,7 +116,11 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     reviewerId: string,
     assignedBy: string,
   ): Promise<Review> {
-    const review = await getPrismaReview(this.prisma).findUnique({
+    if (!this.isModelAvailable()) {
+      throw new NotFoundException(`Review ${reviewId} not found`);
+    }
+
+    const review = await this.reviewModel.findUnique({
       where: { id: reviewId },
     });
     if (!review) {
@@ -107,7 +137,7 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     });
 
     try {
-      const updated = await getPrismaReview(this.prisma).update({
+      const updated = await this.reviewModel.update({
         where: {
           id: reviewId,
           version: currentVersion, // ★ 乐观锁：检查版本
@@ -141,9 +171,13 @@ export class ReviewWorkflowService implements IReviewWorkflow {
    * 自动分配审查者
    */
   async autoAssign(reviewId: string): Promise<Review> {
+    if (!this.isModelAvailable()) {
+      throw new NotFoundException(`Review ${reviewId} not found`);
+    }
+
     // 简化实现：随机选择一个可用的审查者
     // 实际应用中应根据工作负载、专业领域等进行智能分配
-    const review = await getPrismaReview(this.prisma).findUnique({
+    const review = await this.reviewModel.findUnique({
       where: { id: reviewId },
     });
     if (!review) {
@@ -160,7 +194,11 @@ export class ReviewWorkflowService implements IReviewWorkflow {
    * 使用乐观锁防止并发更新冲突
    */
   async startReview(reviewId: string, reviewerId: string): Promise<Review> {
-    const review = await getPrismaReview(this.prisma).findUnique({
+    if (!this.isModelAvailable()) {
+      throw new NotFoundException(`Review ${reviewId} not found`);
+    }
+
+    const review = await this.reviewModel.findUnique({
       where: { id: reviewId },
     });
     if (!review) {
@@ -176,7 +214,7 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     });
 
     try {
-      const updated = await getPrismaReview(this.prisma).update({
+      const updated = await this.reviewModel.update({
         where: {
           id: reviewId,
           version: currentVersion, // ★ 乐观锁
@@ -208,7 +246,11 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     feedback: ReviewFeedback,
     reviewerId: string,
   ): Promise<Review> {
-    const review = await getPrismaReview(this.prisma).findUnique({
+    if (!this.isModelAvailable()) {
+      throw new NotFoundException(`Review ${reviewId} not found`);
+    }
+
+    const review = await this.reviewModel.findUnique({
       where: { id: reviewId },
     });
     if (!review) {
@@ -246,7 +288,7 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     }
 
     try {
-      const updated = await getPrismaReview(this.prisma).update({
+      const updated = await this.reviewModel.update({
         where: {
           id: reviewId,
           version: currentVersion, // ★ 乐观锁
@@ -287,7 +329,11 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     status: ReviewStatus,
     actor: string,
   ): Promise<Review> {
-    const review = await getPrismaReview(this.prisma).findUnique({
+    if (!this.isModelAvailable()) {
+      throw new NotFoundException(`Review ${reviewId} not found`);
+    }
+
+    const review = await this.reviewModel.findUnique({
       where: { id: reviewId },
     });
     if (!review) {
@@ -304,7 +350,7 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     });
 
     try {
-      const updated = await getPrismaReview(this.prisma).update({
+      const updated = await this.reviewModel.update({
         where: {
           id: reviewId,
           version: currentVersion, // ★ 乐观锁
@@ -334,7 +380,11 @@ export class ReviewWorkflowService implements IReviewWorkflow {
    * 获取审查记录
    */
   async getReview(reviewId: string): Promise<Review | null> {
-    const review = await getPrismaReview(this.prisma).findUnique({
+    if (!this.isModelAvailable()) {
+      return null;
+    }
+
+    const review = await this.reviewModel.findUnique({
       where: { id: reviewId },
     });
     return review ? this.mapToReview(review) : null;
@@ -347,25 +397,37 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     entityType: string,
     entityId: string,
   ): Promise<Review[]> {
-    const reviews = await getPrismaReview(this.prisma).findMany({
+    if (!this.isModelAvailable()) {
+      return [];
+    }
+
+    const reviews = await this.reviewModel.findMany({
       where: { entityType, entityId },
       orderBy: { createdAt: "desc" },
     });
-    return reviews.map((r: Record<string, unknown>) => this.mapToReview(r));
+    return (reviews as Record<string, unknown>[]).map((r) =>
+      this.mapToReview(r),
+    );
   }
 
   /**
    * 获取审查者的待审列表
    */
   async getPendingReviews(reviewerId: string): Promise<Review[]> {
-    const reviews = await getPrismaReview(this.prisma).findMany({
+    if (!this.isModelAvailable()) {
+      return [];
+    }
+
+    const reviews = await this.reviewModel.findMany({
       where: {
         reviewerId,
         status: { in: ["pending", "in_progress"] },
       },
       orderBy: [{ priority: "desc" }, { deadline: "asc" }],
     });
-    return reviews.map((r: Record<string, unknown>) => this.mapToReview(r));
+    return (reviews as Record<string, unknown>[]).map((r) =>
+      this.mapToReview(r),
+    );
   }
 
   /**
@@ -375,11 +437,22 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     entityType?: string;
     reviewerId?: string;
   }): Promise<ReviewStats> {
+    if (!this.isModelAvailable()) {
+      return {
+        totalReviews: 0,
+        pendingCount: 0,
+        inProgressCount: 0,
+        completedCount: 0,
+        avgCompletionTime: 0,
+        avgRating: 0,
+      };
+    }
+
     const where: Record<string, unknown> = {};
     if (filters?.entityType) where.entityType = filters.entityType;
     if (filters?.reviewerId) where.reviewerId = filters.reviewerId;
 
-    const reviews = await getPrismaReview(this.prisma).findMany({
+    const reviews = await this.reviewModel.findMany({
       where,
       select: {
         status: true,
@@ -395,7 +468,7 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     let ratingCount = 0;
 
     const stats: ReviewStats = {
-      totalReviews: reviews.length,
+      totalReviews: (reviews as Record<string, unknown>[]).length,
       pendingCount: 0,
       inProgressCount: 0,
       completedCount: 0,
@@ -403,7 +476,7 @@ export class ReviewWorkflowService implements IReviewWorkflow {
       avgRating: 0,
     };
 
-    for (const review of reviews) {
+    for (const review of reviews as Record<string, unknown>[]) {
       switch (review.status) {
         case "pending":
           stats.pendingCount++;
@@ -417,8 +490,8 @@ export class ReviewWorkflowService implements IReviewWorkflow {
           completedCount++;
           if (review.completedAt && review.createdAt) {
             totalCompletionTime +=
-              new Date(review.completedAt).getTime() -
-              new Date(review.createdAt).getTime();
+              new Date(review.completedAt as string).getTime() -
+              new Date(review.createdAt as string).getTime();
           }
           break;
       }
@@ -446,7 +519,11 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     actor: string,
     reason?: string,
   ): Promise<Review> {
-    const review = await getPrismaReview(this.prisma).findUnique({
+    if (!this.isModelAvailable()) {
+      throw new NotFoundException(`Review ${reviewId} not found`);
+    }
+
+    const review = await this.reviewModel.findUnique({
       where: { id: reviewId },
     });
     if (!review) {
@@ -463,7 +540,7 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     });
 
     try {
-      const updated = await getPrismaReview(this.prisma).update({
+      const updated = await this.reviewModel.update({
         where: {
           id: reviewId,
           version: currentVersion, // ★ 乐观锁
@@ -496,7 +573,11 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     actor: string,
     reason?: string,
   ): Promise<Review> {
-    const review = await getPrismaReview(this.prisma).findUnique({
+    if (!this.isModelAvailable()) {
+      throw new NotFoundException(`Review ${reviewId} not found`);
+    }
+
+    const review = await this.reviewModel.findUnique({
       where: { id: reviewId },
     });
     if (!review) {
@@ -513,7 +594,7 @@ export class ReviewWorkflowService implements IReviewWorkflow {
     });
 
     try {
-      const updated = await getPrismaReview(this.prisma).update({
+      const updated = await this.reviewModel.update({
         where: {
           id: reviewId,
           version: currentVersion, // ★ 乐观锁
@@ -554,6 +635,32 @@ export class ReviewWorkflowService implements IReviewWorkflow {
   }
 
   /**
+   * 返回空 Review 占位值（仅供 createReview 在模型不可用时使用）
+   */
+  private emptyReview(request: ReviewRequest): Review {
+    return {
+      id: "",
+      request: {
+        entityType: request.entityType,
+        entityId: request.entityId,
+        requesterId: request.requesterId,
+        reviewerId: request.reviewerId,
+        criteria: request.criteria,
+        deadline: request.deadline,
+        priority: request.priority ?? "medium",
+        title: request.title,
+        description: request.description,
+        metadata: request.metadata,
+      },
+      status: "pending",
+      timeline: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      version: 0,
+    };
+  }
+
+  /**
    * 映射数据库记录到 Review 类型
    */
   private mapToReview(record: Record<string, unknown>): Review {
@@ -587,4 +694,28 @@ export class ReviewWorkflowService implements IReviewWorkflow {
       version: record.version as number,
     };
   }
+}
+
+/**
+ * 最小化 Prisma 模型委托接口，用于类型安全地调用动态模型方法。
+ * Phase 4.1: Review 模型实际不存在时，isModelAvailable() 会拦截调用。
+ */
+interface PrismaModelDelegate {
+  create(args: {
+    data: Record<string, unknown>;
+  }): Promise<Record<string, unknown>>;
+  findUnique(args: {
+    where: Record<string, unknown>;
+  }): Promise<Record<string, unknown> | null>;
+  findMany(args: {
+    where?: Record<string, unknown>;
+    orderBy?: Record<string, unknown> | Record<string, unknown>[];
+    take?: number;
+    skip?: number;
+    select?: Record<string, unknown>;
+  }): Promise<unknown[]>;
+  update(args: {
+    where: Record<string, unknown>;
+    data: Record<string, unknown>;
+  }): Promise<Record<string, unknown>>;
 }

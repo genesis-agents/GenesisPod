@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAiGroupStore } from '@/stores/aiTeamsStore';
+import { useAiGroupStore } from '@/stores/ai-teams';
 import {
   Topic,
   TopicType,

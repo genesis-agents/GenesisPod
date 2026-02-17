@@ -1,12 +1,13 @@
-// @ts-nocheck
 /**
  * Prisma Mock for Slides Tests
  *
  * Provides a mock implementation of PrismaService for unit testing slides module.
- * Type checking is disabled due to Jest mock compatibility issues.
  */
 
 import { jest } from "@jest/globals";
+
+/** Helper: create a mock function that accepts any resolved value */
+const fn = () => jest.fn<() => Promise<unknown>>();
 
 /**
  * Create a mock Prisma service with all slides-related methods
@@ -15,109 +16,109 @@ export function createMockPrisma() {
   return {
     // SlidesSession
     slidesSession: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      update: fn(),
+      delete: fn(),
+      count: fn(),
     },
 
     // SlidesMission
     slidesMission: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      deleteMany: jest.fn(),
-      count: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      update: fn(),
+      delete: fn(),
+      deleteMany: fn(),
+      count: fn(),
     },
 
     // SlidesTask
     slidesTask: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      createMany: jest.fn(),
-      update: jest.fn(),
-      updateMany: jest.fn(),
-      delete: jest.fn(),
-      deleteMany: jest.fn(),
-      count: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      createMany: fn(),
+      update: fn(),
+      updateMany: fn(),
+      delete: fn(),
+      deleteMany: fn(),
+      count: fn(),
     },
 
     // SlidesCheckpoint
     slidesCheckpoint: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      deleteMany: jest.fn(),
-      count: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      update: fn(),
+      delete: fn(),
+      deleteMany: fn(),
+      count: fn(),
     },
 
     // SlidesMissionEvent
     slidesMissionEvent: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      createMany: jest.fn(),
-      delete: jest.fn(),
-      deleteMany: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      createMany: fn(),
+      delete: fn(),
+      deleteMany: fn(),
     },
 
     // ResearchTopic (for import)
     researchTopic: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
     },
 
     // WritingProject (for import)
     writingProject: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
     },
 
     // Topic (AI Teams - for import)
     topic: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
     },
 
     // Resource (Library - for import)
     resource: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
     },
 
     // User
     user: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
     },
 
     // Transaction support
-    $transaction: jest.fn((callback) => {
+    $transaction: jest.fn().mockImplementation((callback: unknown) => {
       if (typeof callback === "function") {
-        return callback(createMockPrisma());
+        return (callback as (arg: unknown) => unknown)({});
       }
-      return Promise.all(callback);
+      return Promise.resolve([]);
     }),
 
     // Raw query
-    $queryRaw: jest.fn(),
+    $queryRaw: fn(),
   };
 }
 

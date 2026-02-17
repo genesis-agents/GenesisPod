@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ReportEditorService Unit Tests
  *
@@ -23,7 +22,7 @@ describe("ReportEditorService", () => {
 
   beforeEach(() => {
     mockAiFacade = createMockAiEngineFacade();
-    service = new ReportEditorService(mockAiFacade);
+    service = new ReportEditorService(mockAiFacade as any);
   });
 
   afterEach(() => {
@@ -35,12 +34,12 @@ describe("ReportEditorService", () => {
   describe("editDimensionInputs", () => {
     it("should return unchanged for empty array", async () => {
       // Arrange
-      const dimensionInputs = [];
+      const dimensionInputs: unknown[] = [];
       const topicName = "Test Topic";
 
       // Act
       const result = await service.editDimensionInputs(
-        dimensionInputs,
+        dimensionInputs as any,
         topicName,
       );
 
@@ -73,7 +72,7 @@ describe("ReportEditorService", () => {
 
       // Act
       const result = await service.editDimensionInputs(
-        dimensionInputs,
+        dimensionInputs as any,
         topicName,
       );
 
@@ -138,7 +137,7 @@ describe("ReportEditorService", () => {
 
       // Act
       const result = await service.editDimensionInputs(
-        dimensionInputs,
+        dimensionInputs as any,
         "AI Market",
       );
 
@@ -154,10 +153,10 @@ describe("ReportEditorService", () => {
       const editedDim2 = result.dimensions.find(
         (d) => d.dimensionName === "Competitive Landscape",
       );
-      expect(editedDim2.detailedContent).not.toContain(
+      expect(editedDim2!.detailedContent).not.toContain(
         "The global market reached $10B in 2024.",
       );
-      expect(editedDim2.detailedContent).toContain("Top players dominate.");
+      expect(editedDim2!.detailedContent).toContain("Top players dominate.");
     });
 
     it("should match paragraphs with normalized whitespace", async () => {
@@ -220,7 +219,7 @@ describe("ReportEditorService", () => {
       const editedDimB = result.dimensions.find(
         (d) => d.dimensionName === "Dimension B",
       );
-      expect(editedDimB.detailedContent).toBe("Para 1\n\nPara 2");
+      expect(editedDimB!.detailedContent).toBe("Para 1\n\nPara 2");
     });
 
     it("should never remove headings (starting with #)", async () => {
@@ -282,8 +281,8 @@ describe("ReportEditorService", () => {
       const editedDimB = result.dimensions.find(
         (d) => d.dimensionName === "Dimension B",
       );
-      expect(editedDimB.detailedContent).toContain("# Heading 1");
-      expect(editedDimB.detailedContent).toContain("## Subheading");
+      expect(editedDimB!.detailedContent).toContain("# Heading 1");
+      expect(editedDimB!.detailedContent).toContain("## Subheading");
       expect(result.deduplicationStats.removedParagraphs).toBe(0);
     });
 

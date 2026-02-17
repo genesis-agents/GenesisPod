@@ -54,6 +54,9 @@ import {
 } from "./teams";
 import { ResearchModule } from "../research/research.module";
 import { AiWritingModule } from "../writing/ai-writing.module";
+// RESEARCH_DATA_EXPORT / WRITING_DATA_EXPORT tokens are defined in
+// ./interfaces/data-export.interface.ts and used by SlidesDataImportService.
+// They are provided by ResearchModule and AiWritingModule (imported above).
 
 @Module({
   imports: [
@@ -65,14 +68,17 @@ import { AiWritingModule } from "../writing/ai-writing.module";
     CreditsModule,
     ExportModule,
     AIOfficeCommonModule,
-    forwardRef(() => ResearchModule),
-    forwardRef(() => AiWritingModule),
+    ResearchModule,
+    AiWritingModule,
     // 使用 forwardRef: SlidesSkillsModule 也导入 AiEngineModule，形成循环
     forwardRef(() => SlidesSkillsModule),
   ],
   controllers: [AIModelController, SlidesController, AgentsController],
   providers: [
     AIModelService,
+    // RESEARCH_DATA_EXPORT and WRITING_DATA_EXPORT tokens are provided
+    // by ResearchModule and AiWritingModule via their exports — no need
+    // to re-provide here since those modules are imported above.
     // Slides Services (v5.0: Team-based Orchestrator)
     SlidesExportService,
     ParameterizedRendererService,

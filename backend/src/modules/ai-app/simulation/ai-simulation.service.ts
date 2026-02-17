@@ -356,7 +356,11 @@ export class AiSimulationService {
             where: { id: run.id },
             data: { status: SimulationRunStatus.FAILED },
           })
-          .catch(() => {});
+          .catch((err) => {
+            this.logger.error(
+              `Failed to update simulation run status: ${err?.message}`,
+            );
+          });
       },
     );
 
@@ -393,7 +397,11 @@ export class AiSimulationService {
           where: { id: runId },
           data: { status: SimulationRunStatus.FAILED },
         })
-        .catch(() => {});
+        .catch((err) => {
+          this.logger.error(
+            `Failed to update simulation run status: ${err?.message}`,
+          );
+        });
     });
 
     return this.getRunById(runId);

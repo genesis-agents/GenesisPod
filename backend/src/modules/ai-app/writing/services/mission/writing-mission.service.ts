@@ -24,20 +24,22 @@ import { AIEngineFacade } from "../../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
 // AI Capability Resolver - Skills 和 Tools 集成
-import { AICapabilityResolver } from "../../../../ai-engine/capabilities/ai-capability-resolver.service";
-import type { AICapabilityContext } from "../../../../ai-engine/capabilities/ai-capability-resolver.service";
-
-// AI Engine 核心依赖
-import { MissionOrchestrator } from "../../../../ai-engine/teams/orchestrator/mission-orchestrator";
-import { TeamFactory } from "../../../../ai-engine/teams/factory/team-factory";
-import { TeamRegistry } from "../../../../ai-engine/teams/registry/team-registry";
-import { RoleRegistry } from "../../../../ai-engine/teams/registry/role-registry";
-import { ITeam } from "../../../../ai-engine/teams/abstractions/team.interface";
 import {
+  AICapabilityResolver,
+  AICapabilityContext,
+} from "../../../../ai-engine/capabilities";
+
+// AI Engine 核心依赖 - 通过 TeamsModule (由 AiEngineModule 导出) 注入
+import {
+  MissionOrchestrator,
+  ITeam,
   MissionInput,
   MissionEvent,
   MissionResult,
-} from "../../../../ai-engine/teams/abstractions/mission.interface";
+} from "../../../../ai-engine/teams";
+import { TeamFactory } from "../../../../ai-engine/teams/factory";
+import { TeamRegistry } from "../../../../ai-engine/teams/registry/team-registry";
+import { RoleRegistry } from "../../../../ai-engine/teams/registry/role-registry";
 import { ConstraintProfile } from "../../../../ai-engine/teams/constraints";
 
 // AI Engine Long Content - 长篇内容处理能力
@@ -1015,8 +1017,18 @@ export class WritingMissionService {
         (a) => a.roleId === "writer" && a.isActive,
       )?.modelId;
 
-      // 使用默认模型如果没有分配
-      const modelToUse = writerModel || leaderModel || "gpt-4o-mini";
+      // 使用默认模型如果没有分配（通过 AIEngineFacade 获取，避免硬编码模型名）
+      const defaultModelConfig = await this.aiFacade.getDefaultTextModel();
+      const modelToUse =
+        writerModel || leaderModel || defaultModelConfig?.modelId;
+      if (!modelToUse) {
+        this.logger.warn(
+          `No model available for content generation (no writer/leader model assigned, no default text model configured)`,
+        );
+        throw new Error(
+          "No AI model configured for content generation. Please configure a default text model in the admin panel.",
+        );
+      }
 
       this.logger.log(`Using model: ${modelToUse} for content generation`);
 
@@ -6883,7 +6895,12 @@ ${instruction}
       worldType?: string;
       theme?: string;
       premise?: string;
-      characters?: Array<{ name: string; role?: string; background?: string; personality?: string }>;
+      characters?: Array<{
+        name: string;
+        role?: string;
+        background?: string;
+        personality?: string;
+      }>;
     } | null;
     projectDescription: string | null; // ★ 新增：项目原始描述（用户设定的主题）
   }> {
@@ -6942,17 +6959,19 @@ ${instruction}
         title: ch.title,
         volumeId: ch.volumeId,
       })),
-      storyBible: storyBible ? {
-        worldType: storyBible.worldType ?? undefined,
-        theme: storyBible.theme ?? undefined,
-        premise: storyBible.premise ?? undefined,
-        characters: storyBible.characters.map((ch) => ({
-          name: ch.name,
-          role: String(ch.role) ?? undefined,
-          background: ch.background ?? undefined,
-          personality: String(ch.personality) ?? undefined,
-        })),
-      } : null,
+      storyBible: storyBible
+        ? {
+            worldType: storyBible.worldType ?? undefined,
+            theme: storyBible.theme ?? undefined,
+            premise: storyBible.premise ?? undefined,
+            characters: storyBible.characters.map((ch) => ({
+              name: ch.name,
+              role: String(ch.role) ?? undefined,
+              background: ch.background ?? undefined,
+              personality: String(ch.personality) ?? undefined,
+            })),
+          }
+        : null,
       projectDescription: project?.description || null, // ★ 新增：返回项目原始描述
     };
   }
@@ -6979,7 +6998,12 @@ ${instruction}
         worldType?: string;
         theme?: string;
         premise?: string;
-        characters?: Array<{ name: string; role?: string; background?: string; personality?: string }>;
+        characters?: Array<{
+          name: string;
+          role?: string;
+          background?: string;
+          personality?: string;
+        }>;
       } | null;
       projectDescription: string | null; // ★ 新增：项目原始描述
     },
@@ -7023,7 +7047,12 @@ ${instruction}
     // 获取世界观设定（包含角色信息，用于质量约束生成）
     let worldSettings: {
       world: { type?: string; theme?: string; premise?: string };
-      characters: Array<{ name: string; role?: string; background?: string; personality?: string }>;
+      characters: Array<{
+        name: string;
+        role?: string;
+        background?: string;
+        personality?: string;
+      }>;
     } | null = null;
     if (existingContent.storyBible) {
       worldSettings = {
@@ -8007,8 +8036,15 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
         completedAt: m.completedAt,
         result: m.result,
         // 从 result 中提取进度
-        progress: (typeof (m.result as Record<string, unknown>)?.progress === "number" ? (m.result as Record<string, unknown>).progress : undefined) || 0,
-        currentStep: (typeof (m.result as Record<string, unknown>)?.currentStep === "string" ? (m.result as Record<string, unknown>).currentStep : undefined) || "",
+        progress:
+          (typeof (m.result as Record<string, unknown>)?.progress === "number"
+            ? (m.result as Record<string, unknown>).progress
+            : undefined) || 0,
+        currentStep:
+          (typeof (m.result as Record<string, unknown>)?.currentStep ===
+          "string"
+            ? (m.result as Record<string, unknown>).currentStep
+            : undefined) || "",
       })),
       total,
     };

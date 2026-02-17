@@ -17,11 +17,11 @@ import {
 import { TopicContextRetrievalService } from "./topic-context-retrieval.service";
 import { ParsedUrl } from "../../../../../common/content-processing";
 import { TeamMemberAgent } from "../../agents";
-import { FunctionCallingLLMAdapter } from "../../../../ai-engine/llm/adapters/function-calling-llm-adapter";
+import { FunctionCallingLLMAdapter } from "../../../../ai-engine/llm/adapters";
 import {
   FunctionCallingExecutor,
   AgentEvent,
-} from "../../../../ai-engine/orchestration/executors/function-calling-executor";
+} from "../../../../ai-engine/orchestration/executors";
 import { BuiltinToolId } from "../../../../ai-engine/core";
 import { AICapabilityContext } from "../../../../ai-engine/capabilities/ai-capability-resolver.service";
 import { TopicEventEmitterService } from "../events";

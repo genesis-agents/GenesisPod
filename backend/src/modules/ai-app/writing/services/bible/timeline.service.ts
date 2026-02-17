@@ -1,15 +1,15 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import {
+  CreateTimelineEventData,
+  UpdateTimelineEventData,
+} from "./bible-entity.types";
 
 @Injectable()
 export class TimelineService {
-  private readonly logger = new Logger(TimelineService.name);
+  constructor(private readonly prisma: PrismaService) {}
 
-  constructor(private readonly prisma: PrismaService) {
-    void this.logger;
-  }
-
-  async create(bibleId: string, data: any) {
+  async create(bibleId: string, data: CreateTimelineEventData) {
     return this.prisma.timelineEvent.create({
       data: {
         bibleId,
@@ -30,7 +30,7 @@ export class TimelineService {
     });
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: UpdateTimelineEventData) {
     return this.prisma.timelineEvent.update({
       where: { id },
       data,

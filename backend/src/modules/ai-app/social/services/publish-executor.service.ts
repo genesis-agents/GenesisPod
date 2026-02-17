@@ -13,9 +13,6 @@ import {
 import { decryptSession } from "../utils/session-crypto";
 import { SessionData } from "../types/platform.types";
 
-// Prisma client accessor for models not yet migrated
-type PrismaAny = any;
-
 export interface PublishResult {
   success: boolean;
   externalUrl?: string;
@@ -35,18 +32,13 @@ export class PublishExecutorService {
     private readonly xhsMcpAdapter: XhsMcpAdapter,
   ) {}
 
-  // Helper to access prisma with new models
-  private get db(): PrismaAny {
-    return this.prisma;
-  }
-
   // Expose playwright for adapters that may need direct access
   getPlaywright(): PlaywrightService {
     return this.playwrightService;
   }
 
   async execute(contentId: string): Promise<PublishResult> {
-    const content = await this.db.socialContent.findUnique({
+    const content = await this.prisma.socialContent.findUnique({
       where: { id: contentId },
       include: { connection: true },
     });
@@ -74,16 +66,15 @@ export class PublishExecutorService {
           : SocialPlatformType.XIAOHONGSHU;
 
       // 查找用户的活跃连接
-      const activeConnection = await this.db.socialPlatformConnection.findFirst(
-        {
+      const activeConnection =
+        await this.prisma.socialPlatformConnection.findFirst({
           where: {
             userId: content.userId,
             platformType,
             isActive: true,
           },
           orderBy: { lastCheckAt: "desc" },
-        },
-      );
+        });
 
       if (activeConnection && this.hasValidSession(activeConnection)) {
         this.logger.log(
@@ -92,7 +83,7 @@ export class PublishExecutorService {
         connection = activeConnection;
 
         // 更新内容的连接关联
-        await this.db.socialContent.update({
+        await this.prisma.socialContent.update({
           where: { id: contentId },
           data: { connectionId: activeConnection.id },
         });
@@ -111,20 +102,25 @@ export class PublishExecutorService {
       }
     }
 
+    // At this point connection is guaranteed non-null:
+    // - if needsFallback was true, all null paths returned early above
+    // - if needsFallback was false, connection had a valid sessionData
+    const activeConn = connection!;
+
     try {
       // 更新状态为发布中
-      await this.db.socialContent.update({
+      await this.prisma.socialContent.update({
         where: { id: contentId },
         data: { status: SocialContentStatus.PUBLISHING },
       });
 
       // 获取平台适配版本内容
       this.logger.log(
-        `Fetching version for content ${contentId}, platform: ${connection.platformType}`,
+        `Fetching version for content ${contentId}, platform: ${activeConn.platformType}`,
       );
       const versionData = await this.contentVersionService.getVersionForPublish(
         contentId,
-        connection.platformType,
+        activeConn.platformType,
       );
 
       // 使用版本内容覆盖原始内容（如果存在）
@@ -139,7 +135,7 @@ export class PublishExecutorService {
 
       // 详细日志：版本内容 vs 原始内容
       this.logger.log(
-        `Publishing content ${contentId} to ${connection.platformType}: ` +
+        `Publishing content ${contentId} to ${activeConn.platformType}: ` +
           `version=${versionData ? "YES" : "NO"}, ` +
           `title=${publishContent.title.length}字, ` +
           `content=${publishContent.content.length}字`,
@@ -147,11 +143,11 @@ export class PublishExecutorService {
 
       let result: PublishResult;
 
-      switch (connection.platformType) {
+      switch (activeConn.platformType) {
         case SocialPlatformType.WECHAT_MP:
           result = await this.wechatAdapter.publish(
             publishContent as SocialContent,
-            connection as SocialPlatformConnection,
+            activeConn as SocialPlatformConnection,
           );
           break;
         case SocialPlatformType.XIAOHONGSHU: {
@@ -170,12 +166,12 @@ export class PublishExecutorService {
         default:
           result = {
             success: false,
-            errorMessage: `不支持的平台类型: ${connection.platformType}`,
+            errorMessage: `不支持的平台类型: ${activeConn.platformType}`,
           };
       }
 
       // 更新发布结果
-      await this.db.socialContent.update({
+      await this.prisma.socialContent.update({
         where: { id: contentId },
         data: {
           status: result.success
@@ -189,7 +185,7 @@ export class PublishExecutorService {
       });
 
       // 记录发布日志
-      await this.db.socialPublishLog.create({
+      await this.prisma.socialPublishLog.create({
         data: {
           contentId,
           action: "PUBLISH",
@@ -207,7 +203,7 @@ export class PublishExecutorService {
       const err = error as Error;
       this.logger.error(`发布失败: ${err.message}`, err.stack);
 
-      await this.db.socialContent.update({
+      await this.prisma.socialContent.update({
         where: { id: contentId },
         data: {
           status: SocialContentStatus.FAILED,
@@ -216,7 +212,7 @@ export class PublishExecutorService {
       });
 
       // 记录错误日志
-      await this.db.socialPublishLog.create({
+      await this.prisma.socialPublishLog.create({
         data: {
           contentId,
           action: "PUBLISH",

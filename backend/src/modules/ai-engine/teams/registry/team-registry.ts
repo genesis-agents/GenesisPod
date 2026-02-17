@@ -24,8 +24,10 @@ export class TeamRegistry {
    * 注册团队
    */
   register(team: ITeam): void {
-    // 如果已经注册，静默跳过（正常情况，无需告警）
     if (this.teams.has(team.id)) {
+      this.logger.warn(
+        `Team already registered, skipping: ${team.id} (${team.name})`,
+      );
       return;
     }
     this.teams.set(team.id, team);
@@ -37,8 +39,10 @@ export class TeamRegistry {
    * 注册团队配置（延迟实例化）
    */
   registerConfig(config: TeamConfig): void {
-    // 如果已经注册，静默跳过（正常情况，无需告警）
     if (this.teamConfigs.has(config.id)) {
+      this.logger.warn(
+        `Team config already registered, skipping: ${config.id} (${config.name})`,
+      );
       return;
     }
     this.teamConfigs.set(config.id, config);

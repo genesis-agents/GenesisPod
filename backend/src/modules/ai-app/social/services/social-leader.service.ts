@@ -13,14 +13,12 @@ import { ContentVersionService } from "./content-version.service";
 import { ProcessUrlDto } from "../dto/process-url.dto";
 import { ProcessSourceDto } from "../dto/process-source.dto";
 import {
+  Prisma,
   SocialContentStatus,
   SocialContentSourceType,
   SocialContentType,
   SocialReviewStatus,
 } from "@prisma/client";
-
-// Prisma client accessor for models not yet migrated
-type PrismaAny = any;
 
 // Helper to sanitize strings by removing problematic characters for PostgreSQL
 function sanitizeString(str: string | undefined | null): string {
@@ -172,11 +170,6 @@ export class SocialLeaderService {
     private readonly contentVersionService: ContentVersionService,
   ) {}
 
-  // Helper to access prisma with new models
-  private get db(): PrismaAny {
-    return this.prisma;
-  }
-
   // Expose AI engine facade for advanced operations
   getAiFacade(): AIEngineFacade {
     return this.aiFacade;
@@ -282,7 +275,7 @@ export class SocialLeaderService {
 
       const content = await withRetry(
         async () => {
-          return this.db.socialContent.create({
+          return this.prisma.socialContent.create({
             data: minimalData,
           });
         },
@@ -298,7 +291,7 @@ export class SocialLeaderService {
       // Step 2: Update with optional fields
       const updatedContent = await withRetry(
         async () => {
-          return this.db.socialContent.update({
+          return this.prisma.socialContent.update({
             where: { id: content.id },
             data: {
               sourceUrl: safeSourceUrl,
@@ -306,7 +299,8 @@ export class SocialLeaderService {
               coverImageUrl: safeCoverImageUrl,
               images: safeImages,
               tags: safeTags,
-              complianceCheck: safeComplianceCheck,
+              complianceCheck:
+                safeComplianceCheck as unknown as Prisma.InputJsonValue,
             },
           });
         },
@@ -452,7 +446,7 @@ export class SocialLeaderService {
       // Note: images and tags columns are text[] (PostgreSQL array), not jsonb
       // Use ARRAY() constructor with jsonb_array_elements_text to convert
       // Return all fields to avoid Prisma ORM type mismatch when reading back
-      const results = await this.db.$queryRaw<
+      const results = await this.prisma.$queryRaw<
         Array<{
           id: string;
           user_id: string;
@@ -578,7 +572,7 @@ export class SocialLeaderService {
     // Use retry for database query in case of transient connection issues
     const existingContent = await withRetry(
       async () => {
-        const result = await this.db.socialContent.findFirst({
+        const result = await this.prisma.socialContent.findFirst({
           where: { id: contentId, userId },
         });
         return result as {

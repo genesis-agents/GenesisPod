@@ -238,53 +238,103 @@ export class AIEngineFacade {
    * });
    */
   async chat(request: ChatRequest): Promise<ChatResponse> {
-    // K3 Fix: 如果提供了 domain 或 taskType，自动委托给 chatWithSkills
-    if ((request.domain || request.taskType) && this.skills) {
-      this.logger.debug(
-        `[chat] K3 Fix: Auto-delegating to chatWithSkills (domain=${request.domain}, taskType=${request.taskType})`,
-      );
-      const skillResponse = await this.chatWithSkills({
-        messages: request.messages,
-        modelType: request.modelType,
-        model: request.model,
-        taskProfile: request.taskProfile || {
-          creativity: "medium",
-          outputLength: "standard",
-        },
-        maxTokens: request.maxTokens,
-        temperature: request.temperature,
-        strictMode: request.strictMode,
-        domain: request.domain || "common",
-        taskType: request.taskType || "general",
-        additionalSkills: request.additionalSkills,
-        skillContext: request.skillContext,
-      });
-      return {
-        content: skillResponse.content,
-        model: skillResponse.model,
-        tokensUsed: skillResponse.tokensUsed,
-        isError: skillResponse.isError,
-      };
+    // Step 1: Skill proxy — if domain/taskType provided, delegate to chatWithSkills
+    const skillResult = await this.handleSkillProxy(request);
+    if (skillResult !== null) {
+      return skillResult;
     }
 
-    // ★ 解析首选模型 ID：优先使用指定 model，否则按 modelType 查询数据库默认模型
-    let modelId = request.model;
-    if (!modelId && request.modelType) {
-      const defaultModel = await this.aiChatService.getDefaultModelByType(
-        request.modelType as AIModelType,
-      );
-      if (defaultModel) {
-        modelId = defaultModel.modelId;
-      }
-    }
-    modelId = modelId || "default";
+    // Step 2: Resolve the model ID to use for this request
+    const modelId = await this.resolveModelId(request);
     const entityId = `chat:${modelId}`;
 
     this.logger.debug(
       `[chat] modelType=${request.modelType}, model=${modelId}, messages=${request.messages.length}`,
     );
 
-    // ★ Constraint: Rate limit check
+    // Step 3: Enforce rate limit and budget constraints
+    const constraintError = this.enforceRateLimitAndBudget(request, modelId);
+    if (constraintError !== null) {
+      return constraintError;
+    }
+
+    // Step 4: Route to provider — with automatic model fallback when available
+    if (this.modelFallbackService) {
+      return this.chatWithFallback(request, modelId);
+    }
+
+    return this.chatSingleModel(request, modelId, entityId);
+  }
+
+  /**
+   * Step 1 — Skill proxy: auto-delegate to chatWithSkills when domain/taskType is present.
+   * Returns a ChatResponse when delegation occurred, or null to continue normal flow.
+   */
+  private async handleSkillProxy(
+    request: ChatRequest,
+  ): Promise<ChatResponse | null> {
+    if (!(request.domain || request.taskType) || !this.skills) {
+      return null;
+    }
+
+    this.logger.debug(
+      `[chat] K3 Fix: Auto-delegating to chatWithSkills (domain=${request.domain}, taskType=${request.taskType})`,
+    );
+
+    const skillResponse = await this.chatWithSkills({
+      messages: request.messages,
+      modelType: request.modelType,
+      model: request.model,
+      taskProfile: request.taskProfile || {
+        creativity: "medium",
+        outputLength: "standard",
+      },
+      maxTokens: request.maxTokens,
+      temperature: request.temperature,
+      strictMode: request.strictMode,
+      domain: request.domain || "common",
+      taskType: request.taskType || "general",
+      additionalSkills: request.additionalSkills,
+      skillContext: request.skillContext,
+    });
+
+    return {
+      content: skillResponse.content,
+      model: skillResponse.model,
+      tokensUsed: skillResponse.tokensUsed,
+      isError: skillResponse.isError,
+    };
+  }
+
+  /**
+   * Step 2 — Model resolution: resolve the preferred model ID from the request.
+   * Priority: explicit request.model → default model for modelType → "default".
+   */
+  private async resolveModelId(request: ChatRequest): Promise<string> {
+    if (request.model) {
+      return request.model;
+    }
+
+    if (request.modelType) {
+      const defaultModel = await this.aiChatService.getDefaultModelByType(
+        request.modelType as AIModelType,
+      );
+      if (defaultModel) {
+        return defaultModel.modelId;
+      }
+    }
+
+    return "default";
+  }
+
+  /**
+   * Step 3 — Rate limit and budget enforcement.
+   * Returns an error ChatResponse when a constraint is violated, or null to continue.
+   */
+  private enforceRateLimitAndBudget(
+    request: ChatRequest,
+    modelId: string,
+  ): ChatResponse | null {
     if (this.constraint?.rateLimiter) {
       const rateLimitKey = request.billing?.userId || "global";
       const rateLimitResult = this.constraint.rateLimiter.check(rateLimitKey);
@@ -299,11 +349,9 @@ export class AIEngineFacade {
           isError: true,
         };
       }
-      // Consume a request token
       this.constraint.rateLimiter.consume(rateLimitKey);
     }
 
-    // ★ Constraint: Budget check
     if (this.constraint?.costController) {
       const budgetCheck = this.constraint.costController.checkBudget(0.01); // estimated minimum cost
       if (!budgetCheck.allowed) {
@@ -317,13 +365,7 @@ export class AIEngineFacade {
       }
     }
 
-    // ★ 自动模型 fallback：使用 ModelFallbackService 自动切换失败模型
-    if (this.modelFallbackService) {
-      return this.chatWithFallback(request, modelId);
-    }
-
-    // Fallback 不可用时，使用单模型调用（保持向后兼容）
-    return this.chatSingleModel(request, modelId, entityId);
+    return null;
   }
 
   /**

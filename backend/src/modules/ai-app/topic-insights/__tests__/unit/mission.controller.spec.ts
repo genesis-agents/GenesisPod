@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * MissionController Unit Tests
  *
@@ -21,11 +20,7 @@ import {
 } from "../../services";
 import { TopicAccessGuard } from "../../guards";
 
-import {
-  MOCK_TOPIC,
-  MOCK_MISSION_EXECUTING,
-  MOCK_MISSION_COMPLETED,
-} from "../fixtures/topics.fixture";
+import { MOCK_MISSION_EXECUTING } from "../fixtures/topics.fixture";
 
 describe("MissionController", () => {
   let controller: MissionController;
@@ -93,7 +88,7 @@ describe("MissionController", () => {
 
     // Mock TopicAccessGuard to always allow access
     const mockGuard = {
-      canActivate: jest.fn((context: ExecutionContext) => true),
+      canActivate: jest.fn((_context: ExecutionContext) => true),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -138,7 +133,7 @@ describe("MissionController", () => {
       });
 
       // Act
-      const result = await controller.leaderPlan(topicId, dto);
+      const result = await controller.leaderPlan(topicId, dto as any);
 
       // Assert
       expect(result).toBeDefined();
@@ -265,7 +260,7 @@ describe("MissionController", () => {
       // Assert
       expect(result.decisionType).toBe("CREATE_TODO");
       expect(result.todo).toBeDefined();
-      expect(result.todo.id).toBe("todo-123");
+      expect(result.todo!.id).toBe("todo-123");
       expect(todoService.createTodo).toHaveBeenCalledWith(
         expect.objectContaining({
           topicId,
@@ -405,7 +400,7 @@ describe("MissionController", () => {
       expect(missionService.retryMission).toHaveBeenCalledWith(
         MOCK_MISSION_EXECUTING.id,
       );
-      expect(result.retriedTasks).toBe(3);
+      expect((result as any).retriedTasks).toBe(3);
     });
 
     it("should retry specific tasks when taskIds provided", async () => {
@@ -424,7 +419,7 @@ describe("MissionController", () => {
       expect(missionService.retryTask).toHaveBeenCalledTimes(2);
       expect(missionService.retryTask).toHaveBeenCalledWith("task-1");
       expect(missionService.retryTask).toHaveBeenCalledWith("task-2");
-      expect(result.retriedTasks).toBe(2);
+      expect((result as any).retriedTasks).toBe(2);
     });
   });
 
@@ -668,7 +663,7 @@ describe("MissionController", () => {
       const result = await controller.adjustMission(
         mockRequest,
         "topic-123",
-        dto,
+        dto as any,
       );
 
       // Assert
@@ -688,7 +683,7 @@ describe("MissionController", () => {
       await expect(
         controller.adjustMission(mockRequest, "topic-123", {
           action: "ADD_DIMENSION",
-        }),
+        } as any),
       ).rejects.toThrow(NotFoundException);
     });
   });

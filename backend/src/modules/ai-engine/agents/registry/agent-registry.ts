@@ -32,8 +32,10 @@ export class AgentRegistry {
    * 注册 Agent
    */
   register(agent: IPlanBasedAgent): void {
-    // 如果已经注册，静默跳过（正常情况，无需告警）
     if (this.agents.has(agent.id)) {
+      this.logger.warn(
+        `Agent already registered, skipping: ${agent.id} (${agent.name})`,
+      );
       return;
     }
 
@@ -106,10 +108,14 @@ export class AgentRegistry {
   }
 
   /**
-   * 获取统计信息
+   * 获取统计信息（返回深拷贝，防止外部修改内部状态）
    */
   getStats(): AgentRegistryStats {
-    return { ...this.stats };
+    const byIdCopy: Record<string, { executions: number; errors: number }> = {};
+    for (const [id, counters] of Object.entries(this.stats.byId)) {
+      byIdCopy[id] = { ...counters };
+    }
+    return { total: this.stats.total, byId: byIdCopy };
   }
 
   /**

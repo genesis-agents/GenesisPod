@@ -14,11 +14,11 @@ import {
 import { execSync } from "child_process";
 import { MCPToolResult } from "../types/platform.types";
 import { MCP_SERVER_CONFIGS } from "../config/platforms.config";
-import { MCPManager } from "@/modules/ai-engine/mcp/manager/mcp-manager";
+import { MCPManager } from "@/modules/ai-engine/mcp/manager";
 import {
   MCPServerConfig as UnifiedMCPServerConfig,
   MCPToolResult as UnifiedMCPToolResult,
-} from "@/modules/ai-engine/mcp/abstractions/mcp.interface";
+} from "@/modules/ai-engine/mcp/abstractions";
 
 /**
  * ★ Social Module MCP Client Service (Refactored)

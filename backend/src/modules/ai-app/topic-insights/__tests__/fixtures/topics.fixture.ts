@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Test Fixtures for Topic Research
  *
@@ -14,7 +13,7 @@ import type {
   ResearchTaskStatus,
   ResearchTodoStatus,
   ResearchTopicType,
-  ResearchTopicVisibility,
+  TopicVisibility,
   ResearchTodoType,
 } from "@prisma/client";
 
@@ -25,7 +24,7 @@ export const MOCK_TOPIC = {
   name: "AI Market Analysis 2024",
   description: "Comprehensive analysis of the AI market",
   type: "MACRO" as ResearchTopicType,
-  visibility: "PRIVATE" as ResearchTopicVisibility,
+  visibility: "PRIVATE" as TopicVisibility,
   userId: "user-123",
   topicConfig: {
     searchTimeRange: "month",
@@ -40,13 +39,13 @@ export const MOCK_TOPIC = {
 export const MOCK_PUBLIC_TOPIC = {
   ...MOCK_TOPIC,
   id: "topic-456",
-  visibility: "PUBLIC" as ResearchTopicVisibility,
+  visibility: "PUBLIC" as TopicVisibility,
 };
 
 export const MOCK_SHARED_TOPIC = {
   ...MOCK_TOPIC,
   id: "topic-789",
-  visibility: "SHARED" as ResearchTopicVisibility,
+  visibility: "SHARED" as TopicVisibility,
 };
 
 // ==================== Dimensions ====================

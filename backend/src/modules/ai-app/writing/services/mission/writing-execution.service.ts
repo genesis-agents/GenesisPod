@@ -4,15 +4,10 @@
  * 负责写作任务的执行引擎：
  * - runMissionInBackground() - 后台任务执行
  * - updateMissionProgress() - 进度更新
- * - execute() - 主执行器（MissionOrchestrator集成）
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { MissionOrchestrator } from "../../../../ai-engine/teams/orchestrator/mission-orchestrator";
-import { ITeam } from "../../../../ai-engine/teams/abstractions/team.interface";
-import { MissionEvent } from "../../../../ai-engine/teams/abstractions/mission.interface";
-import { ConstraintProfile } from "../../../../ai-engine/teams/constraints";
 import type {
   WritingMissionInput,
   WritingMissionResult,
@@ -31,12 +26,7 @@ interface RoleModelAssignment {
 export class WritingExecutionService {
   private readonly logger = new Logger(WritingExecutionService.name);
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly missionOrchestrator: MissionOrchestrator,
-  ) {
-    // eventEmitter will be used in future enhancements
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * 更新任务进度
@@ -111,7 +101,11 @@ export class WritingExecutionService {
       // 根据任务类型决定生成策略
       if (input.missionType === "full_story") {
         // 完整故事：一次性生成多章节内容
-        generatedContent = await generateFullStory(input, modelToUse, missionId);
+        generatedContent = await generateFullStory(
+          input,
+          modelToUse,
+          missionId,
+        );
       } else {
         // 单章节或大纲：直接调用 LLM 生成内容
         generatedContent = await generateContentDirectly(
@@ -244,45 +238,6 @@ export class WritingExecutionService {
           reviewPassRate: 0,
         },
       });
-    }
-  }
-
-  /**
-   * 执行写作任务（MissionOrchestrator集成版本）
-   *
-   * 这是旧版本的 execute 方法，使用 MissionOrchestrator 执行任务。
-   * 新版本已改为直接调用 LLM，但保留此方法供参考。
-   */
-  async *executeMission(
-    team: ITeam,
-    constraints: ConstraintProfile,
-    prompt: string,
-  ): AsyncGenerator<MissionEvent, WritingMissionResult> {
-    this.logger.log(
-      `Executing writing mission via MissionOrchestrator`,
-    );
-
-    const missionInput = {
-      prompt,
-    };
-
-    try {
-      const result = yield* this.missionOrchestrator.execute(
-        missionInput,
-        team,
-        constraints,
-      );
-
-      return {
-        ...result,
-        content: result.summary,
-        wordCount: 0,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Mission execution failed: ${(error as Error).message}`,
-      );
-      throw error;
     }
   }
 }

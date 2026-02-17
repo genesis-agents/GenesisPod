@@ -4,6 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
@@ -485,18 +486,23 @@ export class KnowledgeGraphTool extends BaseTool<
   ): Promise<KnowledgeGraphOutput> {
     const { entityId, entityName, entityTypes, limit = 50 } = input;
 
-    // 构建查询条件
-    const where: Record<string, unknown> = {};
+    // 构建参数化 WHERE 条件
+    const conditions: Prisma.Sql[] = [];
 
     if (entityId) {
-      where.id = entityId;
+      conditions.push(Prisma.sql`id = ${entityId}`);
     } else if (entityName) {
-      where.name = { contains: entityName, mode: "insensitive" };
+      // entityId takes priority; only use entityName when entityId is absent
+      conditions.push(Prisma.sql`name ILIKE ${"%" + entityName + "%"}`);
+    }
+    if (entityTypes && entityTypes.length > 0) {
+      conditions.push(Prisma.sql`type = ANY(${entityTypes})`);
     }
 
-    if (entityTypes && entityTypes.length > 0) {
-      where.type = { in: entityTypes };
-    }
+    const whereClause =
+      conditions.length > 0
+        ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
+        : Prisma.empty;
 
     // 注意：这里假设存在 Entity 表
     // 实际实现需要根据具体的数据库 schema 调整
@@ -511,12 +517,12 @@ export class KnowledgeGraphTool extends BaseTool<
     >`
       SELECT id, name, type, properties, resource_id
       FROM entities
-      WHERE
-        (${entityId ? `id = ${entityId}` : "TRUE"})
-        AND (${entityName ? `name ILIKE '%${entityName}%'` : "TRUE"})
-        AND (${entityTypes && entityTypes.length > 0 ? `type = ANY(ARRAY[${entityTypes.map((t) => `'${t}'`).join(",")}])` : "TRUE"})
+      ${whereClause}
       LIMIT ${limit}
-    `.catch(() => []);
+    `.catch((err) => {
+      this.logger.warn("Knowledge graph query failed", err?.message);
+      return [];
+    });
 
     const nodes: GraphNode[] = entities.map((e) => ({
       id: e.id,
@@ -545,25 +551,22 @@ export class KnowledgeGraphTool extends BaseTool<
   ): Promise<KnowledgeGraphOutput> {
     const { entityId, relationshipTypes, limit = 50 } = input;
 
-    // 构建查询条件
-    const whereConditions: string[] = [];
+    // 构建参数化 WHERE 条件
+    const conditions: Prisma.Sql[] = [];
 
     if (entityId) {
-      whereConditions.push(
-        `(source_id = '${entityId}' OR target_id = '${entityId}')`,
+      conditions.push(
+        Prisma.sql`(source_id = ${entityId} OR target_id = ${entityId})`,
       );
     }
-
     if (relationshipTypes && relationshipTypes.length > 0) {
-      whereConditions.push(
-        `type = ANY(ARRAY[${relationshipTypes.map((t) => `'${t}'`).join(",")}])`,
-      );
+      conditions.push(Prisma.sql`type = ANY(${relationshipTypes})`);
     }
 
     const whereClause =
-      whereConditions.length > 0
-        ? `WHERE ${whereConditions.join(" AND ")}`
-        : "";
+      conditions.length > 0
+        ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
+        : Prisma.empty;
 
     // 查询关系
     const relationships = await this.prisma.$queryRaw<
@@ -580,7 +583,10 @@ export class KnowledgeGraphTool extends BaseTool<
       FROM relationships
       ${whereClause}
       LIMIT ${limit}
-    `.catch(() => []);
+    `.catch((err) => {
+      this.logger.warn("Knowledge graph query failed", err?.message);
+      return [];
+    });
 
     // 获取涉及的实体
     const entityIds = new Set<string>();
@@ -602,10 +608,11 @@ export class KnowledgeGraphTool extends BaseTool<
           >`
           SELECT id, name, type, properties, resource_id
           FROM entities
-          WHERE id = ANY(ARRAY[${Array.from(entityIds)
-            .map((id) => `'${id}'`)
-            .join(",")}])
-        `.catch(() => [])
+          WHERE id = ANY(${Array.from(entityIds)})
+        `.catch((err) => {
+            this.logger.warn("Knowledge graph query failed", err?.message);
+            return [];
+          })
         : [];
 
     const nodes: GraphNode[] = entities.map((e) => ({
@@ -664,7 +671,10 @@ export class KnowledgeGraphTool extends BaseTool<
       WHERE
         (source_id = ${entityId} AND target_id = ${targetEntityId})
         OR (source_id = ${targetEntityId} AND target_id = ${entityId})
-    `.catch(() => []);
+    `.catch((err) => {
+      this.logger.warn("Knowledge graph query failed", err?.message);
+      return [];
+    });
 
     // 获取涉及的实体
     const entities = await this.prisma.$queryRaw<
@@ -678,8 +688,11 @@ export class KnowledgeGraphTool extends BaseTool<
     >`
       SELECT id, name, type, properties, resource_id
       FROM entities
-      WHERE id = ANY(ARRAY['${entityId}', '${targetEntityId}'])
-    `.catch(() => []);
+      WHERE id = ANY(${[entityId, targetEntityId]})
+    `.catch((err) => {
+      this.logger.warn("Knowledge graph query failed", err?.message);
+      return [];
+    });
 
     const nodes: GraphNode[] = entities.map((e) => ({
       id: e.id,
@@ -739,11 +752,11 @@ export class KnowledgeGraphTool extends BaseTool<
       throw new Error("entityId is required");
     }
 
-    // 查找相邻的关系
-    const relationshipTypeFilter =
+    // 构建参数化关系类型过滤条件
+    const relTypeFilter =
       relationshipTypes && relationshipTypes.length > 0
-        ? `AND type = ANY(ARRAY[${relationshipTypes.map((t) => `'${t}'`).join(",")}])`
-        : "";
+        ? Prisma.sql`AND type = ANY(${relationshipTypes})`
+        : Prisma.empty;
 
     const relationships = await this.prisma.$queryRaw<
       Array<{
@@ -758,9 +771,12 @@ export class KnowledgeGraphTool extends BaseTool<
       SELECT id, source_id, target_id, type, weight, properties
       FROM relationships
       WHERE (source_id = ${entityId} OR target_id = ${entityId})
-      ${relationshipTypeFilter}
+      ${relTypeFilter}
       LIMIT ${limit}
-    `.catch(() => []);
+    `.catch((err) => {
+      this.logger.warn("Knowledge graph query failed", err?.message);
+      return [];
+    });
 
     // 获取邻居实体 ID
     const neighborIds = new Set<string>();
@@ -773,10 +789,10 @@ export class KnowledgeGraphTool extends BaseTool<
     });
 
     // 查询所有涉及的实体（包括中心节点）
-    const allEntityIds = new Set([entityId, ...Array.from(neighborIds)]);
+    const allEntityIds = [entityId, ...Array.from(neighborIds)];
 
     const entities =
-      allEntityIds.size > 0
+      allEntityIds.length > 0
         ? await this.prisma.$queryRaw<
             Array<{
               id: string;
@@ -788,10 +804,11 @@ export class KnowledgeGraphTool extends BaseTool<
           >`
           SELECT id, name, type, properties, resource_id
           FROM entities
-          WHERE id = ANY(ARRAY[${Array.from(allEntityIds)
-            .map((id) => `'${id}'`)
-            .join(",")}])
-        `.catch(() => [])
+          WHERE id = ANY(${allEntityIds})
+        `.catch((err) => {
+            this.logger.warn("Knowledge graph query failed", err?.message);
+            return [];
+          })
         : [];
 
     const nodes: GraphNode[] = entities.map((e) => ({

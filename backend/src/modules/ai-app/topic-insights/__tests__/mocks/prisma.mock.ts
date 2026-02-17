@@ -1,12 +1,13 @@
-// @ts-nocheck
 /**
  * Prisma Mock for Topic Research Tests
  *
  * Provides a mock implementation of PrismaService for unit testing
- * Type checking is disabled due to Jest mock compatibility issues.
  */
 
 import { jest } from "@jest/globals";
+
+/** Helper: create a mock function that accepts any resolved value */
+const fn = () => jest.fn<() => Promise<unknown>>();
 
 /**
  * Create a mock Prisma service with all commonly used methods
@@ -15,148 +16,148 @@ export function createMockPrisma() {
   return {
     // ResearchTopic
     researchTopic: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      update: fn(),
+      delete: fn(),
+      count: fn(),
     },
 
     // ResearchMission
     researchMission: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      update: fn(),
+      delete: fn(),
+      count: fn(),
     },
 
     // ResearchTask
     researchTask: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      createMany: jest.fn(),
-      update: jest.fn(),
-      updateMany: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      createMany: fn(),
+      update: fn(),
+      updateMany: fn(),
+      delete: fn(),
+      count: fn(),
     },
 
     // ResearchTodo
     researchTodo: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      createMany: jest.fn(),
-      update: jest.fn(),
-      updateMany: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      createMany: fn(),
+      update: fn(),
+      updateMany: fn(),
+      delete: fn(),
+      count: fn(),
     },
 
     // TopicReport
     topicReport: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      deleteMany: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      update: fn(),
+      delete: fn(),
+      deleteMany: fn(),
     },
 
     // TopicEvidence
     topicEvidence: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      createMany: jest.fn(),
-      update: jest.fn(),
-      updateMany: jest.fn(),
-      delete: jest.fn(),
-      deleteMany: jest.fn(),
-      aggregate: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      createMany: fn(),
+      update: fn(),
+      updateMany: fn(),
+      delete: fn(),
+      deleteMany: fn(),
+      aggregate: fn(),
     },
 
     // TopicDimension
     topicDimension: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      createMany: jest.fn(),
-      update: jest.fn(),
-      upsert: jest.fn(),
-      delete: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      createMany: fn(),
+      update: fn(),
+      upsert: fn(),
+      delete: fn(),
     },
 
     // LeaderDecision
     leaderDecision: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      update: fn(),
     },
 
     // TopicCollaborator
     topicCollaborator: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      update: fn(),
+      delete: fn(),
     },
 
     // AgentActivity
     agentActivity: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
+      create: fn(),
+      update: fn(),
     },
 
     // KnowledgeBase
     knowledgeBase: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
     },
 
     // DefaultModel
     defaultModel: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
     },
 
-    // ★ Security: User model for JWT authentication
+    // User model for JWT authentication
     user: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
+      findUnique: fn(),
+      findFirst: fn(),
+      findMany: fn(),
     },
 
     // Transaction support
-    $transaction: jest.fn((callback) => {
+    $transaction: jest.fn().mockImplementation((callback: unknown) => {
       if (typeof callback === "function") {
-        return callback(createMockPrisma());
+        return (callback as (arg: unknown) => unknown)({});
       }
-      return Promise.all(callback);
+      return Promise.resolve([]);
     }),
 
     // Raw query (should not be used after Phase 1 security fixes)
-    $queryRaw: jest.fn(),
+    $queryRaw: fn(),
   };
 }
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {
   describe,
   it,
@@ -8,6 +7,9 @@ import {
   jest,
 } from "@jest/globals";
 import { TopicTeamOrchestratorService } from "../../services/core/topic-team-orchestrator.service";
+
+/** Helper: create a mock function that accepts any resolved value */
+const fn = () => jest.fn<() => Promise<unknown>>();
 
 function createMockServices() {
   const mockDimension = {
@@ -36,35 +38,33 @@ function createMockServices() {
 
   const prisma = {
     topicRefreshLog: {
-      create: jest.fn().mockResolvedValue({ id: "log1" }),
-      update: jest.fn().mockResolvedValue({}),
+      create: fn().mockResolvedValue({ id: "log1" }),
+      update: fn().mockResolvedValue({}),
     },
     researchTopic: {
-      update: jest.fn().mockResolvedValue({}),
+      update: fn().mockResolvedValue({}),
     },
     topicDimension: {
-      findMany: jest.fn().mockResolvedValue([mockDimension]),
-      update: jest.fn().mockResolvedValue({}),
+      findMany: fn().mockResolvedValue([mockDimension]),
+      update: fn().mockResolvedValue({}),
     },
     topicEvidence: {
-      findMany: jest
-        .fn()
-        .mockResolvedValue([
-          { id: "e1", title: "Evidence 1", snippet: "data" },
-        ]),
+      findMany: fn().mockResolvedValue([
+        { id: "e1", title: "Evidence 1", snippet: "data" },
+      ]),
     },
   };
 
   const eventEmitter = { emit: jest.fn() };
 
   const dimensionMissionService = {
-    executeSearchPhase: jest.fn().mockResolvedValue({
+    executeSearchPhase: fn().mockResolvedValue({
       success: true,
       evidenceSummary: "summary",
       evidenceIds: ["e1"],
       figuresSummary: "",
     }),
-    executeWritingPhase: jest.fn().mockResolvedValue({
+    executeWritingPhase: fn().mockResolvedValue({
       success: true,
       analysisResult: mockAnalysisResult,
       evidenceIds: ["e1"],
@@ -73,10 +73,10 @@ function createMockServices() {
   };
 
   const reportSynthesisService = {
-    createDraftReport: jest.fn().mockResolvedValue({ id: "r1" }),
-    saveDimensionAnalysis: jest.fn().mockResolvedValue({ id: "a1" }),
-    linkEvidenceToReport: jest.fn().mockResolvedValue(undefined),
-    synthesizeReport: jest.fn().mockResolvedValue({
+    createDraftReport: fn().mockResolvedValue({ id: "r1" }),
+    saveDimensionAnalysis: fn().mockResolvedValue({ id: "a1" }),
+    linkEvidenceToReport: fn().mockResolvedValue(undefined),
+    synthesizeReport: fn().mockResolvedValue({
       id: "r1",
       content: "Report content with [1] citation.",
       totalSources: 5,
@@ -84,7 +84,7 @@ function createMockServices() {
   };
 
   const researchReviewerService = {
-    reviewDimension: jest.fn().mockResolvedValue({
+    reviewDimension: fn().mockResolvedValue({
       qualityLevel: "good",
       overallScore: 80,
       scores: {
@@ -98,7 +98,7 @@ function createMockServices() {
       suggestions: [],
       needsReresearch: false,
     }),
-    reviewOverall: jest.fn().mockResolvedValue({
+    reviewOverall: fn().mockResolvedValue({
       qualityLevel: "good",
       overallScore: 80,
       dimensionReviews: [],
@@ -112,11 +112,11 @@ function createMockServices() {
       needsReresearch: false,
       dimensionsToReresearch: [],
     }),
-    validateClaims: jest.fn().mockResolvedValue({
+    validateClaims: fn().mockResolvedValue({
       results: [],
       stats: { verified: 0, unverified: 0, disputed: 0, total: 0 },
     }),
-    factCheckReport: jest.fn().mockResolvedValue({
+    factCheckReport: fn().mockResolvedValue({
       citations: [],
       accuracyScore: 90,
       issues: [],
@@ -124,7 +124,7 @@ function createMockServices() {
   };
 
   const researchLeaderService = {
-    planResearch: jest.fn().mockResolvedValue({
+    planResearch: fn().mockResolvedValue({
       dimensions: [
         {
           id: "dim-1",
@@ -143,7 +143,7 @@ function createMockServices() {
         objectives: ["analyze"],
       },
     }),
-    planGlobalOutline: jest.fn().mockResolvedValue({
+    planGlobalOutline: fn().mockResolvedValue({
       dimensions: [
         {
           dimensionId: "dim-1",
@@ -152,25 +152,26 @@ function createMockServices() {
         },
       ],
     }),
-    planDimensionOutline: jest.fn().mockResolvedValue({
+    planDimensionOutline: fn().mockResolvedValue({
       title: "Market",
       sections: [],
       totalWordCount: 1000,
     }),
-    verifyHypotheses: jest.fn().mockResolvedValue([]),
-    extractClaims: jest.fn().mockResolvedValue([]),
+    verifyHypotheses: fn().mockResolvedValue([]),
+    extractClaims: fn().mockResolvedValue([]),
   };
 
   const researchCheckpointService = {
-    saveCheckpoint: jest.fn().mockResolvedValue(undefined),
+    saveCheckpoint: fn().mockResolvedValue(undefined),
   };
 
   const dataSourceRouterService = {
-    scanLiteratureBaseline: jest.fn().mockResolvedValue([]),
-    searchForHypothesis: jest
-      .fn()
-      .mockResolvedValue({ supportResults: [], counterResults: [] }),
-    fetchDataForDimension: jest.fn().mockResolvedValue({
+    scanLiteratureBaseline: fn().mockResolvedValue([]),
+    searchForHypothesis: fn().mockResolvedValue({
+      supportResults: [],
+      counterResults: [],
+    }),
+    fetchDataForDimension: fn().mockResolvedValue({
       items: [],
       totalCount: 0,
       sources: ["web"],
@@ -214,6 +215,7 @@ describe("TopicTeamOrchestratorService - V5 Depth Gating", () => {
       mocks.researchLeaderService as any,
       mocks.researchCheckpointService as any,
       mocks.dataSourceRouterService as any,
+      {} as any, // researchTodoService
     );
   });
 
@@ -307,13 +309,15 @@ describe("TopicTeamOrchestratorService - V5 Depth Gating", () => {
   it("should save checkpoints at key phases", async () => {
     await service.executeRefresh(topic, { researchDepth: "standard" });
 
-    const checkpointCalls =
-      mocks.researchCheckpointService.saveCheckpoint.mock.calls;
+    const checkpointCalls = mocks.researchCheckpointService.saveCheckpoint.mock
+      .calls as unknown[][];
     // Should have checkpoints for: L2_knowledge (after search), L2_knowledge (after Phase 2), L4_writing (per dimension)
     expect(checkpointCalls.length).toBeGreaterThanOrEqual(2);
 
     // Verify checkpoint phases
-    const phases = checkpointCalls.map((c) => c[1]?.phase);
+    const phases = checkpointCalls.map(
+      (c) => (c[1] as { phase?: string })?.phase,
+    );
     expect(phases).toContain("L2_knowledge");
   });
 
@@ -332,8 +336,8 @@ describe("TopicTeamOrchestratorService - V5 Depth Gating", () => {
     await service.executeRefresh(topic, { researchDepth: "standard" });
 
     // standard config has maxRevisionRounds=1
-    const writingCalls =
-      mocks.dimensionMissionService.executeWritingPhase.mock.calls;
+    const writingCalls = mocks.dimensionMissionService.executeWritingPhase.mock
+      .calls as unknown[][];
     expect(writingCalls.length).toBeGreaterThan(0);
     // The last argument should be maxRevisionRounds (index 11 based on the source)
     const lastArg = writingCalls[0][writingCalls[0].length - 1];

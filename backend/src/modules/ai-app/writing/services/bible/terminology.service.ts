@@ -1,15 +1,15 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import {
+  CreateTerminologyData,
+  UpdateTerminologyData,
+} from "./bible-entity.types";
 
 @Injectable()
 export class TerminologyService {
-  private readonly logger = new Logger(TerminologyService.name);
+  constructor(private readonly prisma: PrismaService) {}
 
-  constructor(private readonly prisma: PrismaService) {
-    void this.logger;
-  }
-
-  async create(bibleId: string, data: any) {
+  async create(bibleId: string, data: CreateTerminologyData) {
     return this.prisma.terminology.create({
       data: {
         bibleId,
@@ -47,7 +47,7 @@ export class TerminologyService {
     });
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: UpdateTerminologyData) {
     return this.prisma.terminology.update({
       where: { id },
       data,

@@ -31,9 +31,6 @@ import {
 import { encryptSession, decryptSession } from "./utils/session-crypto";
 import { SessionData } from "./types/platform.types";
 
-// Prisma client accessor for models not yet migrated
-type PrismaAny = any;
-
 @Injectable()
 export class AiSocialService {
   private readonly logger = new Logger(AiSocialService.name);
@@ -47,15 +44,10 @@ export class AiSocialService {
     private readonly xhsMcpAdapter: XhsMcpAdapter,
   ) {}
 
-  // Helper to access prisma with new models
-  private get db(): PrismaAny {
-    return this.prisma;
-  }
-
   // ==================== 平台连接 ====================
 
   async getConnections(userId: string) {
-    return this.db.socialPlatformConnection.findMany({
+    return this.prisma.socialPlatformConnection.findMany({
       where: { userId },
     });
   }
@@ -88,7 +80,7 @@ export class AiSocialService {
     const platformType = type.toUpperCase() as SocialPlatformType;
 
     // 检查是否已存在连接
-    const existing = await this.db.socialPlatformConnection.findUnique({
+    const existing = await this.prisma.socialPlatformConnection.findUnique({
       where: {
         userId_platformType: {
           userId,
@@ -215,7 +207,7 @@ export class AiSocialService {
         // Encrypt session data before storing
         const encryptedSessionData = encryptSession(result.sessionData);
 
-        const connection = await this.db.socialPlatformConnection.upsert({
+        const connection = await this.prisma.socialPlatformConnection.upsert({
           where: {
             userId_platformType: {
               userId,
@@ -275,7 +267,7 @@ export class AiSocialService {
   async deleteConnection(userId: string, type: string) {
     const platformType = type.toUpperCase() as SocialPlatformType;
 
-    await this.db.socialPlatformConnection.delete({
+    await this.prisma.socialPlatformConnection.delete({
       where: {
         userId_platformType: {
           userId,
@@ -288,7 +280,7 @@ export class AiSocialService {
   }
 
   async testConnection(userId: string, connectionId: string) {
-    const connection = await this.db.socialPlatformConnection.findFirst({
+    const connection = await this.prisma.socialPlatformConnection.findFirst({
       where: { id: connectionId, userId },
     });
 
@@ -300,7 +292,7 @@ export class AiSocialService {
     const validationResult = await this.validateSession(connection);
 
     // 更新最后检查时间和状态
-    await this.db.socialPlatformConnection.update({
+    await this.prisma.socialPlatformConnection.update({
       where: { id: connectionId },
       data: {
         lastCheckAt: new Date(),
@@ -456,7 +448,7 @@ export class AiSocialService {
       const loginStatus = await this.xhsMcpAdapter.checkLoginStatus();
 
       if (loginStatus.loggedIn) {
-        const connection = await this.db.socialPlatformConnection.create({
+        const connection = await this.prisma.socialPlatformConnection.create({
           data: {
             userId,
             platformType,
@@ -503,7 +495,7 @@ export class AiSocialService {
       const loginStatus = await this.xhsMcpAdapter.checkLoginStatus();
 
       if (loginStatus.loggedIn) {
-        const connection = await this.db.socialPlatformConnection.upsert({
+        const connection = await this.prisma.socialPlatformConnection.upsert({
           where: {
             userId_platformType: { userId, platformType },
           },
@@ -581,7 +573,7 @@ export class AiSocialService {
   }
 
   async refreshConnection(userId: string, connectionId: string) {
-    const connection = await this.db.socialPlatformConnection.findFirst({
+    const connection = await this.prisma.socialPlatformConnection.findFirst({
       where: { id: connectionId, userId },
     });
 
@@ -591,7 +583,7 @@ export class AiSocialService {
 
     // TODO: 实际刷新 session（如重新获取 token）
     // 目前只更新时间戳
-    return this.db.socialPlatformConnection.update({
+    return this.prisma.socialPlatformConnection.update({
       where: { id: connectionId },
       data: {
         lastCheckAt: new Date(),
@@ -750,7 +742,7 @@ export class AiSocialService {
     );
 
     // Execute queries using shared SQL fragments
-    const contents = (await this.db.$queryRaw`
+    const contents = (await this.prisma.$queryRaw`
       SELECT ${this.CONTENT_SELECT_FIELDS}
       FROM social_contents sc
       LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
@@ -759,7 +751,7 @@ export class AiSocialService {
       LIMIT ${options.limit} OFFSET ${offset}
     `) as ContentRow[];
 
-    const countResult = (await this.db.$queryRaw`
+    const countResult = (await this.prisma.$queryRaw`
       SELECT COUNT(*) as count FROM social_contents sc
       ${whereClause}
     `) as Array<{ count: bigint }>;
@@ -794,7 +786,7 @@ export class AiSocialService {
     const images = JSON.stringify(dto.images || []);
     const tags = JSON.stringify(dto.tags || []);
 
-    const results = await this.db.$queryRaw<
+    const results = await this.prisma.$queryRaw<
       Array<{
         id: string;
         user_id: string;
@@ -838,7 +830,7 @@ export class AiSocialService {
 
   async getContent(userId: string, id: string) {
     // Use $queryRaw because images and tags columns are text[] in database
-    const results = await this.db.$queryRaw<
+    const results = await this.prisma.$queryRaw<
       Array<{
         id: string;
         userId: string;
@@ -953,7 +945,7 @@ export class AiSocialService {
     }
 
     // Use Prisma ORM for safe parameterized update
-    await this.db.socialContent.update({
+    await this.prisma.socialContent.update({
       where: {
         id,
         userId, // Ensures user owns the content
@@ -971,7 +963,7 @@ export class AiSocialService {
     // First verify the content exists and belongs to user
     await this.getContent(userId, id);
 
-    await this.db.$executeRaw`
+    await this.prisma.$executeRaw`
       DELETE FROM social_contents
       WHERE id = ${id} AND user_id = ${userId}
     `;
@@ -992,7 +984,7 @@ export class AiSocialService {
     };
 
     // Use $executeRaw to avoid Prisma ORM issues with text[] columns
-    await this.db.$executeRaw`
+    await this.prisma.$executeRaw`
       UPDATE social_contents
       SET compliance_check = ${JSON.stringify(resultWithTimestamp)}::jsonb, updated_at = NOW()
       WHERE id = ${content.id}
@@ -1010,10 +1002,11 @@ export class AiSocialService {
       throw new BadRequestException("请选择发布账号");
     }
 
-    let connectionId = dto.connectionId || content.connectionId;
+    // After the guard above, at least one of dto.connectionId or content.connectionId is set
+    let connectionId = (dto.connectionId || content.connectionId) as string;
 
     // 验证连接是否存在
-    const connection = await this.db.socialPlatformConnection.findUnique({
+    const connection = await this.prisma.socialPlatformConnection.findUnique({
       where: { id: connectionId },
     });
 
@@ -1022,15 +1015,14 @@ export class AiSocialService {
       const platformType =
         content.contentType === "WECHAT_ARTICLE" ? "WECHAT_MP" : "XIAOHONGSHU";
 
-      const activeConnection = await this.db.socialPlatformConnection.findFirst(
-        {
+      const activeConnection =
+        await this.prisma.socialPlatformConnection.findFirst({
           where: {
             userId,
             platformType,
             isActive: true,
           },
-        },
-      );
+        });
 
       if (!activeConnection) {
         throw new BadRequestException(
@@ -1045,7 +1037,7 @@ export class AiSocialService {
     }
 
     // Use $executeRaw to avoid Prisma ORM issues with text[] columns
-    await this.db.$executeRaw`
+    await this.prisma.$executeRaw`
       UPDATE social_contents
       SET status = 'PENDING'::"SocialContentStatus",
           connection_id = ${connectionId},
@@ -1061,7 +1053,7 @@ export class AiSocialService {
     const content = await this.getContent(userId, id);
 
     // Use $executeRaw to avoid Prisma ORM issues with text[] columns
-    await this.db.$executeRaw`
+    await this.prisma.$executeRaw`
       UPDATE social_contents
       SET status = 'SCHEDULED'::"SocialContentStatus",
           scheduled_at = ${scheduledAt},
@@ -1083,7 +1075,7 @@ export class AiSocialService {
     }
 
     // Use $executeRaw to avoid Prisma ORM issues with text[] columns
-    await this.db.$executeRaw`
+    await this.prisma.$executeRaw`
       UPDATE social_contents
       SET status = 'DRAFT'::"SocialContentStatus",
           scheduled_at = NULL,
@@ -1098,7 +1090,7 @@ export class AiSocialService {
     // 验证内容归属
     await this.getContent(userId, contentId);
 
-    return this.db.socialPublishLog.findMany({
+    return this.prisma.socialPublishLog.findMany({
       where: { contentId },
       orderBy: { createdAt: "desc" },
     });
@@ -1257,6 +1249,7 @@ export class AiSocialService {
   }> {
     const errors: Array<{ id: string; error: string }> = [];
     let succeeded = 0;
+    const succeededIds: string[] = [];
 
     // 验证连接有效性
     const connection = await this.prisma.socialPlatformConnection.findFirst({
@@ -1273,7 +1266,7 @@ export class AiSocialService {
       };
     }
 
-    // 使用事务处理批量发布
+    // 使用事务处理批量发布（只做状态更新和记录创建，不触发外部调用）
     await this.prisma.$transaction(async (tx) => {
       for (const id of ids) {
         try {
@@ -1315,6 +1308,7 @@ export class AiSocialService {
             },
           });
 
+          succeededIds.push(id);
           succeeded++;
         } catch (error) {
           const message = error instanceof Error ? error.message : "发布失败";
@@ -1322,6 +1316,16 @@ export class AiSocialService {
         }
       }
     });
+
+    // 事务结束后触发实际发布执行（fire-and-forget，与单条 publishContent 行为一致）
+    for (const contentId of succeededIds) {
+      this.publishExecutor.execute(contentId).catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.error(
+          `Failed to trigger publish for content ${contentId}: ${message}`,
+        );
+      });
+    }
 
     return {
       success: errors.length === 0,

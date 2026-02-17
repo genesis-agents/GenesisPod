@@ -175,10 +175,12 @@ export const createWebSocketSlice: StateCreator<
       );
     } else {
       logger.debug('[WS] Socket not connected, waiting...');
+      const MAX_RETRIES = 20;
+      let retryCount = 0;
       const checkAndJoin = () => {
         const { socket: currentSocket } = get();
         logger.debug(
-          `[WS] Retry join: socket connected: ${currentSocket?.connected}, socket id: ${currentSocket?.id}`
+          `[WS] Retry join (${retryCount + 1}/${MAX_RETRIES}): socket connected: ${currentSocket?.connected}, socket id: ${currentSocket?.id}`
         );
         if (currentSocket?.connected) {
           currentSocket.emit(
@@ -203,7 +205,14 @@ export const createWebSocketSlice: StateCreator<
             }
           );
         } else {
-          setTimeout(checkAndJoin, 500);
+          retryCount += 1;
+          if (retryCount < MAX_RETRIES) {
+            setTimeout(checkAndJoin, 500);
+          } else {
+            logger.error(
+              `[WS] Gave up waiting to join topic room ${topicId} after ${MAX_RETRIES} retries`
+            );
+          }
         }
       };
       setTimeout(checkAndJoin, 500);
