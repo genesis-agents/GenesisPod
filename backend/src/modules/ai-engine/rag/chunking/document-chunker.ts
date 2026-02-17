@@ -44,6 +44,7 @@ export interface ChildChunkData {
   tokenCount: number;
   position: number;
   parentPosition: number;
+  documentId?: string;
 }
 
 /**
@@ -57,7 +58,7 @@ export interface ParentChunkData {
   pageStart?: number;
   pageEnd?: number;
   sectionTitle?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, any>;
   childChunks: ChildChunkData[];
 }
 

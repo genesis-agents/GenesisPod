@@ -6,13 +6,12 @@ import {
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { SessionData } from "../types/platform.types";
+import { BrowserService } from "../../../ai-engine/browser/browser.service";
 
 // Re-export SessionData for backward compatibility
 export { SessionData };
 
 // Playwright types - will be properly typed when playwright-core is installed
-type Browser = any;
-type BrowserContext = any;
 type Page = any;
 
 // Platform login configuration
@@ -58,10 +57,10 @@ export { PLATFORM_CONFIGS };
 @Injectable()
 export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
   private readonly logger = new Logger(PlaywrightService.name);
-  private browser: Browser | null = null;
-  private contexts: Map<string, BrowserContext> = new Map();
   private pendingLogins: Map<string, PendingLoginSession> = new Map();
   private cleanupInterval: NodeJS.Timeout | null = null;
+
+  constructor(private readonly browserService: BrowserService) {}
 
   onModuleInit() {
     // Start periodic cleanup of expired sessions (every 2 minutes)
@@ -81,167 +80,46 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
       clearInterval(this.cleanupInterval);
       this.cleanupInterval = null;
     }
-    await this.cleanup();
+    // BrowserService handles its own cleanup via OnModuleDestroy
   }
 
-  private async getBrowser(): Promise<Browser> {
-    if (!this.browser) {
-      try {
-        // Dynamic import to avoid issues if playwright-core not installed
-        const playwright = await import("playwright-core").catch(() => null);
-        if (!playwright) {
-          throw new Error(
-            "playwright-core is not installed. Run: npm install playwright-core",
-          );
-        }
+  // ==================== 委托给 BrowserService 的方法 ====================
 
-        // Use system Chromium if available (Docker environment)
-        // Falls back to bundled Chromium if not set
-        const executablePath =
-          process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
-          process.env.PUPPETEER_EXECUTABLE_PATH ||
-          undefined;
-
-        this.logger.log(
-          `Attempting to launch Chromium${executablePath ? ` from: ${executablePath}` : " (using bundled)"}`,
-        );
-
-        // Check if executable exists when path is specified
-        if (executablePath) {
-          const fs = await import("fs");
-          if (!fs.existsSync(executablePath)) {
-            throw new Error(
-              `Chromium not found at: ${executablePath}. Please install Chromium or set correct path.`,
-            );
-          }
-        }
-
-        this.browser = await playwright.chromium.launch({
-          headless: true,
-          executablePath,
-          args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-gpu",
-          ],
-        });
-        this.logger.log(
-          `Playwright browser launched successfully${executablePath ? ` (using: ${executablePath})` : ""}`,
-        );
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        this.logger.error(`Failed to launch browser: ${errorMsg}`);
-        throw new Error(`浏览器启动失败: ${errorMsg}`);
-      }
-    }
-    return this.browser;
+  async createContext(contextId: string) {
+    return this.browserService.createContext(contextId);
   }
 
-  async createContext(contextId: string): Promise<BrowserContext> {
-    const browser = await this.getBrowser();
-    const context = await browser.newContext({
-      viewport: { width: 1280, height: 720 },
-      userAgent:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    });
-    this.contexts.set(contextId, context);
-    return context;
-  }
-
-  async getContext(contextId: string): Promise<BrowserContext | null> {
-    return this.contexts.get(contextId) || null;
+  async getContext(contextId: string) {
+    return this.browserService.getContext(contextId);
   }
 
   async createPage(contextId: string): Promise<Page> {
-    let context = this.contexts.get(contextId);
-    if (!context) {
-      context = await this.createContext(contextId);
-    }
-    return context.newPage();
+    return this.browserService.createPage(contextId);
   }
 
   async saveSession(contextId: string): Promise<SessionData | null> {
-    const context = this.contexts.get(contextId);
-    if (!context) {
-      return null;
-    }
-
-    const pages = context.pages();
-    if (pages.length === 0) {
-      return null;
-    }
-
-    const page = pages[0];
-    const cookies = await context.cookies();
-
-    // Get storage data
-    const localStorage = await page.evaluate(() => {
-      const data: Record<string, string> = {};
-      for (let i = 0; i < window.localStorage.length; i++) {
-        const key = window.localStorage.key(i);
-        if (key) {
-          data[key] = window.localStorage.getItem(key) || "";
-        }
-      }
-      return data;
-    });
-
-    const sessionStorage = await page.evaluate(() => {
-      const data: Record<string, string> = {};
-      for (let i = 0; i < window.sessionStorage.length; i++) {
-        const key = window.sessionStorage.key(i);
-        if (key) {
-          data[key] = window.sessionStorage.getItem(key) || "";
-        }
-      }
-      return data;
-    });
-
-    return { cookies, localStorage, sessionStorage };
+    return this.browserService.saveSession(
+      contextId,
+    ) as Promise<SessionData | null>;
   }
 
   async restoreSession(
     contextId: string,
     sessionData: SessionData,
   ): Promise<void> {
-    let context = this.contexts.get(contextId);
-    if (!context) {
-      context = await this.createContext(contextId);
-    }
-
-    // Restore cookies
-    if (sessionData.cookies && sessionData.cookies.length > 0) {
-      await context.addCookies(sessionData.cookies);
-    }
-
-    // Storage will be restored when page navigates
+    return this.browserService.restoreSession(contextId, sessionData);
   }
 
   async closeContext(contextId: string): Promise<void> {
-    const context = this.contexts.get(contextId);
-    if (context) {
-      await context.close();
-      this.contexts.delete(contextId);
-    }
+    return this.browserService.closeContext(contextId);
   }
 
   async cleanup(): Promise<void> {
-    for (const [id, context] of this.contexts) {
-      await context.close();
-      this.contexts.delete(id);
-    }
-
-    if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
-    }
-
-    this.logger.log("Playwright cleanup completed");
+    return this.browserService.cleanup();
   }
 
   async screenshot(page: Page, path: string): Promise<void> {
-    await page.screenshot({ path, fullPage: true });
+    return this.browserService.screenshot(page, path);
   }
 
   // ==================== 登录会话管理 ====================
@@ -262,7 +140,7 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
     this.logger.log(`Starting login session: ${sessionKey}`);
 
     try {
-      const page = await this.createPage(sessionKey);
+      const page = await this.browserService.createPage(sessionKey);
 
       // 导航到登录页
       await page.goto(config.loginUrl, { waitUntil: "networkidle" });
@@ -340,7 +218,7 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
       };
     } catch (error) {
       this.logger.error(`Failed to start login session: ${error}`);
-      await this.closeContext(sessionKey);
+      await this.browserService.closeContext(sessionKey);
       throw error;
     }
   }
@@ -410,7 +288,7 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
 
         // 检查微信公众号相关的 cookies
         if (!loggedIn) {
-          const context = this.contexts.get(sessionKey);
+          const context = await this.browserService.getContext(sessionKey);
           if (context) {
             const cookies = await context.cookies();
             const hasLoginCookie = cookies.some(
@@ -479,7 +357,7 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
           .catch(() => false);
 
         // 检查是否有登录相关的 cookies
-        const context = this.contexts.get(sessionKey);
+        const context = await this.browserService.getContext(sessionKey);
         if (context) {
           const cookies = await context.cookies();
           const hasLoginCookie = cookies.some(
@@ -546,7 +424,9 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
         await page.waitForTimeout(2000).catch(() => {});
 
         // 保存会话数据
-        let sessionData = await this.saveSession(sessionKey);
+        let sessionData = (await this.browserService.saveSession(
+          sessionKey,
+        )) as SessionData | null;
 
         // 验证 cookies 数量，如果为 0 则重试
         if (!sessionData?.cookies?.length) {
@@ -554,7 +434,9 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
             `Session saved with 0 cookies, waiting and retrying...`,
           );
           await page.waitForTimeout(3000).catch(() => {});
-          sessionData = await this.saveSession(sessionKey);
+          sessionData = (await this.browserService.saveSession(
+            sessionKey,
+          )) as SessionData | null;
         }
 
         // WeChat MP 特殊处理：从 URL 中提取并保存 token
@@ -711,7 +593,7 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
     const session = this.pendingLogins.get(sessionKey);
     if (session) {
       this.pendingLogins.delete(sessionKey);
-      await this.closeContext(sessionKey);
+      await this.browserService.closeContext(sessionKey);
       this.logger.log(`Login session ended: ${sessionKey}`);
     }
   }

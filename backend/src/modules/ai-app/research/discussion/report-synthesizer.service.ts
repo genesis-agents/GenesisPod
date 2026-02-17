@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AIEngineFacade } from "../../../ai-engine/facade";
-import { sanitizeMarkdownContent } from "../../../../common/utils/sanitize-content.utils";
+import { ReportSynthesisEngine } from "../../../ai-engine/synthesis";
 import {
   SearchRound,
   SearchSource,
@@ -26,7 +26,10 @@ import {
 export class ReportSynthesizerService {
   private readonly logger = new Logger(ReportSynthesizerService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(
+    private readonly aiFacade: AIEngineFacade,
+    private readonly synthesisEngine: ReportSynthesisEngine,
+  ) {}
 
   /**
    * 生成完整研究报告
@@ -87,14 +90,16 @@ export class ReportSynthesizerService {
 
     const duration = (Date.now() - startTime) / 1000;
 
-    // ★ 清理 AI 生成内容中的格式问题（如引用后的孤立下划线）
+    // ★ 清理 AI 生成内容中的格式问题（使用 Engine 通用清洗）
     return {
-      executiveSummary: sanitizeMarkdownContent(reportContent.executiveSummary),
+      executiveSummary: this.synthesisEngine.sanitizeReport(
+        reportContent.executiveSummary,
+      ),
       sections: reportContent.sections.map((section) => ({
         ...section,
-        content: sanitizeMarkdownContent(section.content),
+        content: this.synthesisEngine.sanitizeReport(section.content),
       })),
-      conclusion: sanitizeMarkdownContent(reportContent.conclusion),
+      conclusion: this.synthesisEngine.sanitizeReport(reportContent.conclusion),
       references: allReferences,
       metadata: {
         totalSources: sources.length + previousRefsCount,

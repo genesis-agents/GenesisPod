@@ -15,3 +15,6 @@ export * from "./vector";
 
 // Chunking
 export * from "./chunking";
+
+// Pipeline
+export * from "./pipeline";

@@ -22,6 +22,7 @@ import { GeminiImageAdapter } from "./adapters/gemini-image-adapter";
 import { OpenAIImageAdapter } from "./adapters/openai-image-adapter";
 import { StabilityImageAdapter } from "./adapters/stability-image-adapter";
 import { TogetherImageAdapter } from "./adapters/together-image-adapter";
+import { ImageMatchingService } from "./matching/image-matching.service";
 
 @Module({
   imports: [HttpModule, PrismaModule, SecretsModule],
@@ -31,6 +32,7 @@ import { TogetherImageAdapter } from "./adapters/together-image-adapter";
     OpenAIImageAdapter,
     StabilityImageAdapter,
     TogetherImageAdapter,
+    ImageMatchingService,
   ],
   exports: [
     ImageFactory,
@@ -38,6 +40,7 @@ import { TogetherImageAdapter } from "./adapters/together-image-adapter";
     OpenAIImageAdapter,
     StabilityImageAdapter,
     TogetherImageAdapter,
+    ImageMatchingService,
   ],
 })
 export class ImageModule implements OnModuleInit {

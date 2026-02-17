@@ -1,10 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { ReportSynthesisEngine } from "@/modules/ai-engine/synthesis";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import {
-  sanitizeMarkdownContent,
   sanitizeAllStrings,
   stripLeadingHeading,
 } from "@/common/utils/sanitize-content.utils";
@@ -65,6 +65,7 @@ export class ReportSynthesisService {
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
     private readonly reportEditor: ReportEditorService,
+    private readonly synthesisEngine: ReportSynthesisEngine,
   ) {}
 
   /**
@@ -965,7 +966,7 @@ export class ReportSynthesisService {
       parts.push("\n");
     }
 
-    return sanitizeMarkdownContent(parts.join("\n"));
+    return this.synthesisEngine.sanitizeReport(parts.join("\n"));
   }
 
   /**
@@ -1947,8 +1948,8 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
       });
     }
 
-    // ★ 清理 AI 生成内容中的格式问题（如引用后的孤立下划线 [1]___）
-    return sanitizeMarkdownContent(parts.join("\n"));
+    // ★ 清理 AI 生成内容中的格式问题（使用 Engine 通用清洗）
+    return this.synthesisEngine.sanitizeReport(parts.join("\n"));
   }
 
   /**

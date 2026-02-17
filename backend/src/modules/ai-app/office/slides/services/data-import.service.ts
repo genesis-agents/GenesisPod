@@ -10,6 +10,8 @@
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { ResearchDataExportService } from "../../../research/services/research-data-export.service";
+import { WritingDataExportService } from "../../../writing/services/writing-data-export.service";
 import {
   SlidesSourceData,
   SlidesSourceType,
@@ -46,7 +48,11 @@ const IMPORT_CONFIG = {
 export class SlidesDataImportService {
   private readonly logger = new Logger(SlidesDataImportService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly researchExport: ResearchDataExportService,
+    private readonly writingExport: WritingDataExportService,
+  ) {}
 
   // ============================================
   // Import from AI Research
@@ -64,40 +70,12 @@ export class SlidesDataImportService {
   ): Promise<SlidesSourceData> {
     this.logger.log(`Importing from Research topic: ${topicId}`);
 
-    const topic = await this.prisma.researchTopic.findFirst({
-      where: {
-        id: topicId,
-        userId,
-      },
-      include: {
-        reports: {
-          orderBy: { generatedAt: "desc" },
-          take: 1,
-          include: {
-            dimensionAnalyses: {
-              include: {
-                dimension: true,
-              },
-              orderBy: { createdAt: "asc" },
-            },
-          },
-        },
-        dimensions: {
-          orderBy: { sortOrder: "asc" },
-        },
-      },
-    });
-
-    if (!topic) {
-      throw new NotFoundException(`Research topic not found: ${topicId}`);
-    }
-
-    const latestReport = topic.reports[0];
+    const data = await this.researchExport.getTopicForExport(topicId, userId);
 
     // Extract sections from dimension analyses (from the latest report)
     const sections: SourceSection[] = [];
-    if (latestReport?.dimensionAnalyses) {
-      latestReport.dimensionAnalyses.forEach((analysis, index) => {
+    if (data.latestReport?.dimensionAnalyses) {
+      data.latestReport.dimensionAnalyses.forEach((analysis, index) => {
         sections.push({
           title: analysis.dimension.name,
           content: analysis.summary || "",
@@ -107,7 +85,7 @@ export class SlidesDataImportService {
       });
     } else {
       // Fallback: use dimensions without analysis content
-      topic.dimensions.forEach((dim, index) => {
+      data.dimensions.forEach((dim, index) => {
         sections.push({
           title: dim.name,
           content: dim.description || "",
@@ -116,17 +94,21 @@ export class SlidesDataImportService {
       });
     }
 
-    // Extract charts from report
-    const charts = this.extractChartsFromReport(latestReport);
-
-    // Extract key findings from report highlights
-    const keyFindings = this.extractKeyFindingsFromReport(latestReport);
-
-    // Extract references from report
-    const references = this.extractReferences(latestReport?.fullReport || "");
+    // Extract charts from report (convert null to undefined for type compat)
+    const reportForExtract = data.latestReport
+      ? {
+          ...data.latestReport,
+          fullReport: data.latestReport.fullReport ?? undefined,
+        }
+      : null;
+    const charts = this.extractChartsFromReport(reportForExtract);
+    const keyFindings = this.extractKeyFindingsFromReport(reportForExtract);
+    const references = this.extractReferences(
+      data.latestReport?.fullReport || "",
+    );
 
     return {
-      sourceText: latestReport?.fullReport || topic.description || "",
+      sourceText: data.latestReport?.fullReport || data.description || "",
       sourceType: "research",
       sourceId: topicId,
       sections,
@@ -134,9 +116,9 @@ export class SlidesDataImportService {
       keyFindings,
       references,
       metadata: {
-        title: topic.name,
-        createdAt: topic.createdAt,
-        language: topic.language || "zh",
+        title: data.name,
+        createdAt: data.createdAt,
+        language: data.language || "zh",
       },
     };
   }
@@ -157,33 +139,16 @@ export class SlidesDataImportService {
   ): Promise<SlidesSourceData> {
     this.logger.log(`Importing from Writing project: ${projectId}`);
 
-    const project = await this.prisma.writingProject.findFirst({
-      where: {
-        id: projectId,
-        ownerId: userId,
-      },
-      include: {
-        volumes: {
-          orderBy: { volumeNumber: "asc" },
-          include: {
-            chapters: {
-              orderBy: { chapterNumber: "asc" },
-            },
-          },
-        },
-        storyBible: true,
-      },
-    });
-
-    if (!project) {
-      throw new NotFoundException(`Writing project not found: ${projectId}`);
-    }
+    const data = await this.writingExport.getProjectForExport(
+      projectId,
+      userId,
+    );
 
     // Extract sections from chapters
     const sections: SourceSection[] = [];
     let sectionIndex = 0;
 
-    for (const volume of project.volumes) {
+    for (const volume of data.volumes) {
       for (const chapter of volume.chapters) {
         sections.push({
           title: chapter.title,
@@ -194,7 +159,7 @@ export class SlidesDataImportService {
     }
 
     // Build outline from volume/chapter structure
-    const outline = project.volumes.map((volume) => ({
+    const outline = data.volumes.map((volume) => ({
       id: volume.id,
       title: volume.title,
       level: 1,
@@ -217,11 +182,11 @@ export class SlidesDataImportService {
       sections,
       outline,
       metadata: {
-        title: project.name,
-        genre: project.genre || undefined,
-        style: project.writingStyle || undefined,
+        title: data.name,
+        genre: data.genre || undefined,
+        style: data.writingStyle || undefined,
         wordCount: totalWords,
-        createdAt: project.createdAt,
+        createdAt: data.createdAt,
       },
     };
   }
@@ -366,16 +331,10 @@ export class SlidesDataImportService {
    * List available Research topics for import
    */
   async listResearchTopics(userId: string): Promise<SourceListItem[]> {
-    const topics = await this.prisma.researchTopic.findMany({
-      where: { userId },
-      orderBy: { updatedAt: "desc" },
-      take: IMPORT_CONFIG.DEFAULT_LIST_LIMIT,
-      include: {
-        _count: {
-          select: { dimensions: true },
-        },
-      },
-    });
+    const topics = await this.researchExport.listTopicsForExport(
+      userId,
+      IMPORT_CONFIG.DEFAULT_LIST_LIMIT,
+    );
 
     return topics.map((t) => ({
       id: t.id,
@@ -384,7 +343,7 @@ export class SlidesDataImportService {
       preview: t.description || undefined,
       createdAt: t.createdAt,
       metadata: {
-        pageCount: t._count.dimensions,
+        pageCount: t.dimensionCount,
       },
     }));
   }
@@ -393,16 +352,10 @@ export class SlidesDataImportService {
    * List available Writing projects for import
    */
   async listWritingProjects(userId: string): Promise<SourceListItem[]> {
-    const projects = await this.prisma.writingProject.findMany({
-      where: { ownerId: userId },
-      orderBy: { updatedAt: "desc" },
-      take: IMPORT_CONFIG.DEFAULT_LIST_LIMIT,
-      include: {
-        _count: {
-          select: { volumes: true },
-        },
-      },
-    });
+    const projects = await this.writingExport.listProjectsForExport(
+      userId,
+      IMPORT_CONFIG.DEFAULT_LIST_LIMIT,
+    );
 
     return projects.map((p) => ({
       id: p.id,
@@ -411,7 +364,7 @@ export class SlidesDataImportService {
       preview: p.genre || undefined,
       createdAt: p.createdAt,
       metadata: {
-        pageCount: p._count.volumes,
+        pageCount: p.volumeCount,
       },
     }));
   }

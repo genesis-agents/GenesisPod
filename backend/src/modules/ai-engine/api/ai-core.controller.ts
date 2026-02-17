@@ -10,7 +10,6 @@ import {
   HttpException,
   Logger,
   Optional,
-  Inject,
   NotFoundException,
   UseGuards,
 } from "@nestjs/common";
@@ -19,10 +18,7 @@ import { ConfigService } from "@nestjs/config";
 import { Response, Request } from "express";
 import { AiCoreService } from "./ai-core.service";
 import { AIEngineFacade } from "../facade/ai-engine.facade";
-import {
-  IRAGPipelineService,
-  RAG_PIPELINE_SERVICE_TOKEN,
-} from "../interfaces/rag.interface";
+import { RAGPipelineService } from "../rag/pipeline";
 import { SecretsService } from "../../core/secrets/secrets.service";
 import { SearchService } from "../search/search.service";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
@@ -71,9 +67,7 @@ export class AiCoreController {
     private readonly aiCoreService: AiCoreService,
     private readonly aiFacade: AIEngineFacade,
     private readonly configService: ConfigService,
-    @Optional()
-    @Inject(RAG_PIPELINE_SERVICE_TOKEN)
-    private readonly ragPipelineService?: IRAGPipelineService,
+    private readonly ragPipelineService: RAGPipelineService,
     @Optional() private readonly secretsService?: SecretsService,
     @Optional() private readonly searchService?: SearchService,
   ) {}
@@ -235,9 +229,13 @@ export class AiCoreController {
         // Check if response contains image
         const parts = data.candidates?.[0]?.content?.parts || [];
         const hasImage = parts.some((p: unknown) =>
-          (p as { inlineData?: { mimeType?: string } }).inlineData?.mimeType?.startsWith("image/"),
+          (
+            p as { inlineData?: { mimeType?: string } }
+          ).inlineData?.mimeType?.startsWith("image/"),
         );
-        const hasText = parts.some((p: unknown) => !!(p as { text?: string }).text);
+        const hasText = parts.some(
+          (p: unknown) => !!(p as { text?: string }).text,
+        );
 
         results.push({
           modelId: model.modelId,
@@ -246,7 +244,11 @@ export class AiCoreController {
           supportsImage: hasImage,
           responseType: hasImage ? "image" : hasText ? "text-only" : "empty",
           textPreview: hasText
-            ? (parts.find((p: unknown) => !!(p as { text?: string }).text) as { text?: string } | undefined)?.text?.substring(0, 100)
+            ? (
+                parts.find((p: unknown) => !!(p as { text?: string }).text) as
+                  | { text?: string }
+                  | undefined
+              )?.text?.substring(0, 100)
             : null,
         });
       } catch (error: unknown) {
@@ -329,8 +331,12 @@ export class AiCoreController {
       // Filter and categorize models
       const imageModels = models.filter(
         (m: unknown) =>
-          (m as { name?: string; supportedGenerationMethods?: string[] }).name?.includes("imagen") ||
-          (m as { name?: string; supportedGenerationMethods?: string[] }).supportedGenerationMethods?.includes("generateImage"),
+          (
+            m as { name?: string; supportedGenerationMethods?: string[] }
+          ).name?.includes("imagen") ||
+          (
+            m as { name?: string; supportedGenerationMethods?: string[] }
+          ).supportedGenerationMethods?.includes("generateImage"),
       );
 
       const geminiModels = models.filter((m: unknown) =>
@@ -338,7 +344,9 @@ export class AiCoreController {
       );
 
       const modelsWithImageGen = models.filter((m: unknown) =>
-        (m as { supportedGenerationMethods?: string[] }).supportedGenerationMethods?.includes("generateContent"),
+        (
+          m as { supportedGenerationMethods?: string[] }
+        ).supportedGenerationMethods?.includes("generateContent"),
       );
 
       return {
@@ -348,12 +356,14 @@ export class AiCoreController {
         imageModels: imageModels.map((m: unknown) => ({
           name: (m as { name?: string }).name,
           displayName: (m as { displayName?: string }).displayName,
-          methods: (m as { supportedGenerationMethods?: string[] }).supportedGenerationMethods,
+          methods: (m as { supportedGenerationMethods?: string[] })
+            .supportedGenerationMethods,
         })),
         geminiModels: geminiModels.map((m: unknown) => ({
           name: (m as { name?: string }).name?.replace("models/", ""),
           displayName: (m as { displayName?: string }).displayName,
-          methods: (m as { supportedGenerationMethods?: string[] }).supportedGenerationMethods,
+          methods: (m as { supportedGenerationMethods?: string[] })
+            .supportedGenerationMethods,
         })),
         modelsWithImageGeneration: modelsWithImageGen
           .filter(
@@ -398,8 +408,18 @@ export class AiCoreController {
       aiMemberId: string;
       displayName: string;
       storedAiModel: string;
-      foundByModelId: { id: string; name: string; modelId: string; hasApiKey: boolean } | null;
-      foundByName: { id: string; name: string; modelId: string; hasApiKey: boolean } | null;
+      foundByModelId: {
+        id: string;
+        name: string;
+        modelId: string;
+        hasApiKey: boolean;
+      } | null;
+      foundByName: {
+        id: string;
+        name: string;
+        modelId: string;
+        hasApiKey: boolean;
+      } | null;
       willWork: boolean;
       problem: string | null;
     }> = [];
@@ -492,7 +512,9 @@ export class AiCoreController {
     }
 
     // Wrap in BillingContext for correct credit tracking
-    const userId = (req as unknown as { user?: { id?: string } }).user?.id || RequestContext.getUserId();
+    const userId =
+      (req as unknown as { user?: { id?: string } }).user?.id ||
+      RequestContext.getUserId();
     const operationType = knowledgeBaseIds?.length ? "rag-chat" : "chat";
 
     const executeChat = async () => {
@@ -808,7 +830,9 @@ ${webSearchContext}
       throw new BadRequestException("Content is required");
     }
 
-    const userId = (req as unknown as { user?: { id?: string } }).user?.id || RequestContext.getUserId();
+    const userId =
+      (req as unknown as { user?: { id?: string } }).user?.id ||
+      RequestContext.getUserId();
 
     const executeQuickAction = async () => {
       try {
@@ -888,7 +912,10 @@ JSON output:`;
         });
 
         // Try to parse JSON for methodology and insights
-        let finalContent: string | Array<{ title: string; description: string; importance: string }> = result.content;
+        let finalContent:
+          | string
+          | Array<{ title: string; description: string; importance: string }> =
+          result.content;
         if (action === "methodology" || action === "insights") {
           finalContent = this.extractJsonArray(result.content);
         }
@@ -932,7 +959,9 @@ JSON output:`;
       throw new BadRequestException("Content is required");
     }
 
-    const userId = (req as unknown as { user?: { id?: string } }).user?.id || RequestContext.getUserId();
+    const userId =
+      (req as unknown as { user?: { id?: string } }).user?.id ||
+      RequestContext.getUserId();
 
     const executeSummary = async () => {
       try {
@@ -1006,7 +1035,9 @@ JSON output:`;
       throw new BadRequestException("Content is required");
     }
 
-    const userId = (req as unknown as { user?: { id?: string } }).user?.id || RequestContext.getUserId();
+    const userId =
+      (req as unknown as { user?: { id?: string } }).user?.id ||
+      RequestContext.getUserId();
 
     const executeInsights = async () => {
       try {
@@ -1125,7 +1156,9 @@ JSON output:`;
       ? languageNames[body.sourceLanguage] || body.sourceLanguage
       : "auto-detect";
 
-    const userId = (req as unknown as { user?: { id?: string } }).user?.id || RequestContext.getUserId();
+    const userId =
+      (req as unknown as { user?: { id?: string } }).user?.id ||
+      RequestContext.getUserId();
 
     const executeTranslate = async () => {
       try {
@@ -1221,7 +1254,9 @@ Translation:`;
 
     const targetLang = body.targetLang || "zh-CN";
     const sourceLang = body.sourceLang || "en";
-    const userId = (req as unknown as { user?: { id?: string } }).user?.id || RequestContext.getUserId();
+    const userId =
+      (req as unknown as { user?: { id?: string } }).user?.id ||
+      RequestContext.getUserId();
 
     const executeTranslateSingle = async () => {
       try {
@@ -1264,7 +1299,9 @@ Translation:`;
   /**
    * Helper: Extract JSON array from AI response and parse it
    */
-  private extractJsonArray(content: string): Array<{ title: string; description: string; importance: string }> {
+  private extractJsonArray(
+    content: string,
+  ): Array<{ title: string; description: string; importance: string }> {
     try {
       let jsonContent = content.trim();
 

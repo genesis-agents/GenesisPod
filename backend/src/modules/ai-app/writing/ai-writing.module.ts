@@ -93,6 +93,7 @@ import {
 
 // Style services (Three-layer style configuration system)
 import { StyleTemplateService } from "./services/style/style-template.service";
+import { WritingDataExportService } from "./services/writing-data-export.service";
 
 // Writing Agents (extending AI Engine BaseAgent)
 import {
@@ -117,6 +118,7 @@ import {
     WritingRepository,
 
     AiWritingService,
+    WritingDataExportService,
     WritingCoordinatorService,
     // WebSocket Gateway and Event Emitter
     AiWritingGateway,
@@ -197,7 +199,7 @@ import {
     ConsistencyCheckerAgent,
     EditorAgent,
   ],
-  exports: [AiWritingService, WritingRepository],
+  exports: [AiWritingService, WritingRepository, WritingDataExportService],
 })
 export class AiWritingModule implements OnModuleInit {
   private readonly logger = new Logger(AiWritingModule.name);

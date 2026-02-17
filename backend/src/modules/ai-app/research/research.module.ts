@@ -18,17 +18,24 @@ import { ResearchIdeaService } from "./idea/research-idea.service";
 import { ResearchIdeaController } from "./idea/research-idea.controller";
 import { ResearchDemoService } from "./demo/research-demo.service";
 import { ResearchDemoController } from "./demo/research-demo.controller";
+import { ResearchDataExportService } from "./services/research-data-export.service";
 
 @Module({
   imports: [DiscussionModule, ResearchProjectModule],
   controllers: [ResearchIdeaController, ResearchDemoController],
-  providers: [ResearcherAgent, ResearchIdeaService, ResearchDemoService],
+  providers: [
+    ResearcherAgent,
+    ResearchIdeaService,
+    ResearchDemoService,
+    ResearchDataExportService,
+  ],
   exports: [
     DiscussionModule,
     ResearchProjectModule,
     ResearcherAgent,
     ResearchIdeaService,
     ResearchDemoService,
+    ResearchDataExportService,
   ],
 })
 export class ResearchModule implements OnModuleInit {

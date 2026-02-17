@@ -1,9 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SocialContentSourceType } from "@prisma/client";
-import { WebContentExtractionService } from "../../../../common/content-processing/web-content-extraction.service";
-import { YoutubeService } from "../../../content/explore/youtube.service";
-import { validateUrl } from "../utils/url-validator";
+import { ContentFetchService } from "../../../ai-engine/content-fetch/content-fetch.service";
+import {
+  sanitizeForDb,
+  sanitizeJson,
+} from "../../../ai-engine/content-fetch/content-fetch.types";
 
 export interface FetchedContent {
   title: string;
@@ -20,218 +22,32 @@ export interface FetchedContent {
   metadata?: Record<string, unknown>;
 }
 
-/**
- * Sanitize string by removing characters that can cause PostgreSQL protocol errors.
- * Removes null bytes, control characters (except tab/LF/CR), replacement character,
- * and lone surrogates that can corrupt the PostgreSQL binary protocol.
- */
-function sanitizeForDb(str: string | undefined | null): string {
-  if (!str) return "";
-  return str
-    .replace(/\x00/g, "") // Remove null bytes
-    .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, "") // Remove control chars except tab, LF, CR
-    .replace(/\uFFFD/g, "") // Remove replacement character
-    .replace(/[\uD800-\uDFFF]/g, ""); // Remove lone surrogates
-}
-
-/**
- * Sanitize JSON data recursively to remove problematic characters.
- */
-function sanitizeJson(data: unknown): unknown {
-  if (data === null || data === undefined) return data;
-  if (typeof data === "string") return sanitizeForDb(data);
-  if (Array.isArray(data)) return data.map(sanitizeJson);
-  if (typeof data === "object") {
-    const result: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(data)) {
-      result[key] = sanitizeJson(value);
-    }
-    return result;
-  }
-  return data;
-}
-
 @Injectable()
 export class ContentFetcherService {
   private readonly logger = new Logger(ContentFetcherService.name);
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly webExtractor: WebContentExtractionService,
-    private readonly youtubeService: YoutubeService,
+    private readonly contentFetchService: ContentFetchService,
   ) {}
 
   /**
    * 从外部URL获取内容
-   * 支持：YouTube 视频（自动获取字幕）、普通网页（Jina/Firecrawl）
-   *
-   * 安全检查：
-   * - SSRF 防护（阻止内网 IP、本地回环等）
-   * - URL 格式和长度验证
-   * - 协议限制（仅 HTTP/HTTPS）
+   * 委托给 AI Engine ContentFetchService 处理（含 SSRF 防护和 YouTube 字幕）
    */
   async fetchFromUrl(url: string): Promise<FetchedContent> {
-    // SSRF 防护：验证 URL 安全性
-    validateUrl(url);
-
-    this.logger.log(`Fetching content from URL: ${url}`);
-
-    try {
-      // 检测是否是 YouTube 视频
-      const youtubeVideoId = this.extractYoutubeVideoId(url);
-      if (youtubeVideoId) {
-        return this.fetchFromYoutubeUrl(youtubeVideoId, url);
-      }
-
-      // 使用 WebContentExtractionService 提取普通网页内容
-      const extracted = await this.webExtractor.extractContent(url);
-
-      if (extracted.error || !extracted.content) {
-        throw new Error(extracted.error || "无法提取内容");
-      }
-
-      return {
-        title: sanitizeForDb(extracted.title || "Untitled"),
-        content: sanitizeForDb(extracted.content),
-        coverImage: extracted.image,
-        url,
-        metadata: {
-          source: extracted.source,
-          siteName: extracted.siteName,
-          author: extracted.author,
-          publishedDate: extracted.publishedDate,
-          fetchedAt: new Date().toISOString(),
-        },
-      };
-    } catch (error) {
-      const err = error as Error;
-      this.logger.error(`Failed to fetch URL: ${url}`, err);
-      throw new Error(`无法获取URL内容: ${err.message}`);
-    }
-  }
-
-  /**
-   * 从 YouTube 视频获取字幕内容
-   * 优先从数据库缓存获取，支持双语输出
-   */
-  private async fetchFromYoutubeUrl(
-    videoId: string,
-    url: string,
-  ): Promise<FetchedContent> {
-    this.logger.log(`Fetching YouTube transcript for video: ${videoId}`);
-
-    try {
-      // 1. 先检查数据库缓存（和 AI Explore 一致的处理方式）
-      const cached = await this.prisma.youTubeTranscriptCache.findUnique({
-        where: { videoId },
-      });
-
-      if (cached && cached.expiresAt > new Date()) {
-        this.logger.log(
-          `[Cache Hit] Found cached transcript for ${videoId}, hasTranslation=${!!cached.translatedTranscript}`,
-        );
-
-        const originalSegments = cached.transcript as Array<{
-          text: string;
-          start: number;
-          duration: number;
-        }>;
-        const translatedSegments = cached.translatedTranscript as Array<{
-          text: string;
-          translatedText?: string;
-        }> | null;
-
-        // 构建双语内容
-        const originalContent = originalSegments.map((s) => s.text).join(" ");
-        const translatedContent = translatedSegments
-          ? translatedSegments.map((s) => s.translatedText || s.text).join(" ")
-          : null;
-
-        // 合并内容：如果有翻译，优先使用翻译版本作为主要内容
-        const mainContent = translatedContent || originalContent;
-
-        return {
-          title: sanitizeForDb(cached.title || "YouTube Video"),
-          content: sanitizeForDb(mainContent),
-          originalContent: sanitizeForDb(originalContent),
-          translatedContent: translatedContent
-            ? sanitizeForDb(translatedContent)
-            : undefined,
-          isBilingual: !!translatedContent,
-          url,
-          metadata: {
-            videoId,
-            source: "youtube",
-            hasTranslation: !!cached.translatedTranscript,
-            targetLanguage: cached.targetLanguage || undefined,
-            cachedAt: cached.createdAt?.toISOString(),
-            fetchedAt: new Date().toISOString(),
-          },
-        };
-      }
-
-      // 2. 缓存不存在或已过期，使用 YoutubeService 获取（会自动缓存）
-      this.logger.log(
-        `[Cache Miss] Fetching transcript via YoutubeService for ${videoId}`,
-      );
-      const transcript = await this.youtubeService.getTranscript(videoId);
-
-      if (!transcript?.transcript?.length) {
-        throw new Error("无法获取视频字幕");
-      }
-
-      // 构建内容
-      const originalContent = transcript.transcript
-        .map((seg) => seg.text)
-        .join(" ");
-      const translatedContent = transcript.hasTranslation
-        ? transcript.transcript
-            .map((seg) => seg.translatedText || seg.text)
-            .join(" ")
-        : null;
-
-      const mainContent = translatedContent || originalContent;
-
-      return {
-        title: sanitizeForDb(transcript.title || "YouTube Video"),
-        content: sanitizeForDb(mainContent),
-        originalContent: sanitizeForDb(originalContent),
-        translatedContent: translatedContent
-          ? sanitizeForDb(translatedContent)
-          : undefined,
-        isBilingual: !!translatedContent,
-        url,
-        metadata: {
-          videoId,
-          source: "youtube",
-          hasTranslation: transcript.hasTranslation,
-          targetLanguage: transcript.targetLanguage,
-          fetchedAt: new Date().toISOString(),
-        },
-      };
-    } catch (error) {
-      const err = error as Error;
-      this.logger.error(`Failed to fetch YouTube transcript: ${videoId}`, err);
-      throw new Error(`无法获取YouTube字幕: ${err.message}`);
-    }
-  }
-
-  /**
-   * 提取 YouTube 视频 ID
-   */
-  private extractYoutubeVideoId(url: string): string | null {
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-      /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
-    ];
-
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) {
-        return match[1];
-      }
-    }
-    return null;
+    const result = await this.contentFetchService.fetchFromUrl(url);
+    return {
+      title: result.title || "Untitled",
+      content: result.content,
+      originalContent: result.originalContent,
+      translatedContent: result.translatedContent,
+      isBilingual: result.isBilingual,
+      coverImage: result.coverImage,
+      images: result.images,
+      url: result.url,
+      metadata: result.metadata,
+    };
   }
 
   /**
@@ -275,18 +91,21 @@ export class ContentFetcherService {
 
     // ===== YouTube 视频：优先使用数据库缓存的字幕（和 AI Explore 一致） =====
     if (resource.type === "YOUTUBE_VIDEO") {
-      const videoId = this.extractYoutubeVideoId(resource.sourceUrl);
+      const videoId = this.contentFetchService.extractYoutubeVideoId(
+        resource.sourceUrl,
+      );
       if (videoId) {
         this.logger.log(
           `Processing YouTube resource ${resourceId}, videoId: ${videoId}`,
         );
 
-        // 直接使用 fetchFromYoutubeUrl，它会先检查缓存
+        // 直接使用 engine 的 fetchFromYoutubeUrl，它会先检查缓存
         try {
-          const youtubeContent = await this.fetchFromYoutubeUrl(
-            videoId,
-            resource.sourceUrl,
-          );
+          const youtubeContent =
+            await this.contentFetchService.fetchFromYoutubeUrl(
+              videoId,
+              resource.sourceUrl,
+            );
 
           // 如果成功获取到字幕，返回（保留 Resource 的标题如果更好）
           if (
@@ -294,8 +113,11 @@ export class ContentFetcherService {
             youtubeContent.content.trim().length > 100
           ) {
             return {
-              ...youtubeContent,
               title: sanitizeForDb(resource.title || youtubeContent.title),
+              content: youtubeContent.content,
+              originalContent: youtubeContent.originalContent,
+              translatedContent: youtubeContent.translatedContent,
+              isBilingual: youtubeContent.isBilingual,
               coverImage: resource.thumbnailUrl || youtubeContent.coverImage,
               metadata: {
                 ...youtubeContent.metadata,
@@ -318,8 +140,6 @@ export class ContentFetcherService {
     // Use the best available content: content > aiSummary > abstract
     let bestContent =
       resource.content || resource.aiSummary || resource.abstract || "";
-    let originalContent: string | undefined;
-    let translatedContent: string | undefined;
     const isBilingual = false;
 
     // 如果是普通网页且内容不足，尝试从 URL 获取
@@ -331,14 +151,14 @@ export class ContentFetcherService {
         `Resource ${resourceId} has insufficient content (${bestContent?.length || 0} chars), fetching from URL...`,
       );
       try {
-        const extracted = await this.webExtractor.extractContent(
+        const fetched = await this.contentFetchService.fetchFromUrl(
           resource.sourceUrl,
         );
         if (
-          extracted.content &&
-          extracted.content.length > (bestContent?.length || 0)
+          fetched.content &&
+          fetched.content.length > (bestContent?.length || 0)
         ) {
-          bestContent = extracted.content;
+          bestContent = fetched.content;
           this.logger.log(
             `Fetched content from URL: ${bestContent.length} chars`,
           );
@@ -366,8 +186,6 @@ export class ContentFetcherService {
     return {
       title: sanitizeForDb(resource.title),
       content: sanitizeForDb(bestContent),
-      originalContent,
-      translatedContent,
       isBilingual,
       coverImage: resource.thumbnailUrl || undefined,
       url: resource.sourceUrl || undefined,

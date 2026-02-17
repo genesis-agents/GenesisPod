@@ -52,6 +52,18 @@ import { UniversalLLMAdapter } from "./llm/adapters/universal-llm-adapter";
 // Controllers & API Services (only AiCoreController, others in sub-modules)
 import { AiCoreController, AiCoreService } from "./api";
 
+// Content Analysis (migrated from ai-app/office/common)
+import { ContentAnalysisModule } from "./content-analysis/content-analysis.module";
+
+// Content Fetch (generic URL fetch capability)
+import { ContentFetchModule } from "./content-fetch/content-fetch.module";
+
+// Browser (通用浏览器生命周期管理)
+import { BrowserModule } from "./browser/browser.module";
+
+// Synthesis (报告合成通用能力)
+import { SynthesisModule } from "./synthesis/synthesis.module";
+
 // Other Modules
 import { ImageModule } from "./image/image.module";
 import { TeamsModule } from "./teams/teams.module";
@@ -70,6 +82,7 @@ import { AICapabilityResolver } from "./capabilities/ai-capability-resolver.serv
 import { EmbeddingService } from "./rag/embedding";
 import { VectorService } from "./rag/vector";
 import { DocumentChunker } from "./rag/chunking";
+import { RAGPipelineService } from "./rag/pipeline";
 
 // Observability
 import { AiEngineTracingService, TraceCollectorService } from "./observability";
@@ -117,6 +130,18 @@ import { ITool } from "./tools/abstractions/tool.interface";
     CollaborationModule,
     RealtimeModule,
 
+    // Content Analysis (migrated from ai-app/office/common)
+    ContentAnalysisModule,
+
+    // Content Fetch (generic URL fetch capability)
+    ContentFetchModule,
+
+    // Browser (通用浏览器生命周期管理)
+    BrowserModule,
+
+    // Synthesis (报告合成通用能力)
+    SynthesisModule,
+
     // Other Modules
     ImageModule,
     TeamsModule,
@@ -145,6 +170,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     EmbeddingService,
     VectorService,
     DocumentChunker,
+    RAGPipelineService,
 
     // === Observability ===
     AiEngineTracingService,
@@ -177,6 +203,18 @@ import { ITool } from "./tools/abstractions/tool.interface";
     CollaborationModule,
     RealtimeModule,
 
+    // Content Analysis
+    ContentAnalysisModule,
+
+    // Content Fetch (generic URL fetch capability)
+    ContentFetchModule,
+
+    // Browser (通用浏览器生命周期管理)
+    BrowserModule,
+
+    // Synthesis (报告合成通用能力)
+    SynthesisModule,
+
     // Other Modules
     ImageModule,
     TeamsModule,
@@ -196,6 +234,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     EmbeddingService,
     VectorService,
     DocumentChunker,
+    RAGPipelineService,
 
     // === Observability ===
     AiEngineTracingService,

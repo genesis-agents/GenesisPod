@@ -52,6 +52,8 @@ import {
   SLIDES_TEAM_CONFIG,
   VISUAL_DESIGN_TEAM_CONFIG,
 } from "./teams";
+import { ResearchModule } from "../research/research.module";
+import { AiWritingModule } from "../writing/ai-writing.module";
 
 @Module({
   imports: [
@@ -63,6 +65,8 @@ import {
     CreditsModule,
     ExportModule,
     AIOfficeCommonModule,
+    forwardRef(() => ResearchModule),
+    forwardRef(() => AiWritingModule),
     // 使用 forwardRef: SlidesSkillsModule 也导入 AiEngineModule，形成循环
     forwardRef(() => SlidesSkillsModule),
   ],
