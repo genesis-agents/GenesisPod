@@ -1,7 +1,7 @@
 # 知识库增强 PRD
 
 > **版本**: 1.2
-> **作者**: DeepDive Product Team
+> **作者**: Genesis Product Team
 > **日期**: 2024-12-27
 > **状态**: Active
 > **最后更新**: 2024-12-27 (基于实际实现状态更新)
@@ -1675,7 +1675,7 @@ export function BatchImportDialog({ kbId, open, onClose }: Props) {
 
 ```
 ┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐
-│  User   │────▶│ DeepDive│────▶│  Notion │────▶│ DeepDive│
+│  User   │────▶│ Genesis │────▶│  Notion │────▶│ Genesis │
 │ Browser │     │ Frontend│     │  OAuth  │     │ Backend │
 └─────────┘     └─────────┘     └─────────┘     └─────────┘
      │               │               │               │

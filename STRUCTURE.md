@@ -733,7 +733,7 @@ scripts/
 ## 配置文件 (根目录)
 
 ```
-deepdive/
+genesis/
 ├── package.json                # 项目配置和脚本
 ├── pnpm-workspace.yaml         # pnpm 工作空间
 ├── docker-compose.yml          # Docker 配置

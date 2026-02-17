@@ -2,7 +2,7 @@
 
 ## 概述
 
-DeepDive 实现了数据库驱动的 AI 编排层，通过 `AIModel` 表管理所有模型配置，实现零硬编码、动态切换和自动降级。
+Genesis 实现了数据库驱动的 AI 编排层，通过 `AIModel` 表管理所有模型配置，实现零硬编码、动态切换和自动降级。
 
 ## 架构设计
 
@@ -639,4 +639,4 @@ if (modelConfig.capabilities?.isReasoning) {
 ---
 
 **最后更新**: 2026-01-15
-**维护者**: DeepDive Team
+**维护者**: Genesis Team

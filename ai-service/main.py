@@ -1,5 +1,5 @@
 """
-Raven AI Service - FastAPI 应用入口
+Genesis AI Service - FastAPI 应用入口
 """
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -48,7 +48,7 @@ orchestrator = AIOrchestrator(grok_client, openai_client)
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # Startup
-    logger.info("🚀 Raven AI Service starting up...")
+    logger.info("🚀 Genesis AI Service starting up...")
     logger.info(f"📝 Grok available: {grok_client.available}")
     logger.info(f"📝 OpenAI available: {openai_client.available}")
     logger.info(f"🎯 Active model: {orchestrator.active_model}")
@@ -57,12 +57,12 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    logger.info("👋 Raven AI Service shutting down...")
+    logger.info("👋 Genesis AI Service shutting down...")
 
 
 # 创建 FastAPI 应用
 app = FastAPI(
-    title="Raven AI Service",
+    title="Genesis AI Service",
     description="AI-driven insights and content processing service",
     version="1.0.0",
     docs_url="/docs",
@@ -96,7 +96,7 @@ quick_generate.init_clients(grok_client, openai_client)
 async def root():
     """根路径"""
     return {
-        "service": "Raven AI Service",
+        "service": "Genesis AI Service",
         "version": "1.0.0",
         "status": "running",
         "workspaceAiV2Enabled": is_workspace_ai_v2_enabled(),
@@ -107,7 +107,7 @@ async def root():
 async def api_root():
     """API 根路径"""
     return {
-        "message": "Raven AI Service API v1",
+        "message": "Genesis AI Service API v1",
         "endpoints": {
             "summary": "/api/v1/ai/summary",
             "insights": "/api/v1/ai/insights",

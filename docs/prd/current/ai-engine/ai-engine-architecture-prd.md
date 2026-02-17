@@ -495,7 +495,7 @@ interface EfficiencyConstraint {
 
 ### 10.2 独特差异化
 
-| 特性           | 业界现状            | DeepDive 愿景          | 领先程度 |
+| 特性           | 业界现状            | Genesis 愿景           | 领先程度 |
 | -------------- | ------------------- | ---------------------- | -------- |
 | **约束铁三角** | 几乎无产品实现      | 成本-质量-效率动态权衡 | 🥇 领先  |
 | **团队隐喻**   | CrewAI 有 Crew 概念 | Leader-Member 组织架构 | 🥈 并列  |
@@ -511,7 +511,7 @@ interface EfficiencyConstraint {
 │                                                                 │
 │  学术原型    开源框架    初创产品    商业产品    企业平台        │
 │     ●          ●          ◐          ○          ○              │
-│  AutoGPT   CrewAI    DeepDive   Microsoft   (未来目标)         │
+│  AutoGPT   CrewAI    Genesis    Microsoft   (未来目标)         │
 │            LangGraph   (现状)    AutoGen                        │
 │                                                                 │
 │  特点: 概念   特点: 可用   特点: 有   特点: 稳定   特点: 完整   │

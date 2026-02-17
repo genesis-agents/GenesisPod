@@ -53,8 +53,8 @@
           └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘
                    │                     │                     │
                    ▼                     ▼                     ▼
-          api.deepdive.app    staging-api.deepdive.app   dev-api.deepdive.app
-          deepdive.app        staging.deepdive.app       dev.deepdive.app
+          api.genesis.ai    staging-api.genesis.ai   dev-api.genesis.ai
+          genesis.ai        staging.genesis.ai       dev.genesis.ai
 ```
 
 ### 1.2 Railway 项目结构
@@ -106,11 +106,11 @@ genesis-ai (Railway Project)
 
 ### 2.2 域名规划
 
-| 环境        | 前端域名               | 后端 API 域名              |
-| ----------- | ---------------------- | -------------------------- |
-| Production  | `deepdive.app`         | `api.deepdive.app`         |
-| Staging     | `staging.deepdive.app` | `staging-api.deepdive.app` |
-| Development | `dev.deepdive.app`     | `dev-api.deepdive.app`     |
+| 环境        | 前端域名             | 后端 API 域名            |
+| ----------- | -------------------- | ------------------------ |
+| Production  | `genesis.ai`         | `api.genesis.ai`         |
+| Staging     | `staging.genesis.ai` | `staging-api.genesis.ai` |
+| Development | `dev.genesis.ai`     | `dev-api.genesis.ai`     |
 
 ### 2.3 成本估算
 
@@ -183,11 +183,11 @@ dismiss_stale_reviews: true
 
 ### 4.1 数据库命名规范
 
-| 环境        | 数据库名           |
-| ----------- | ------------------ |
-| Production  | `deepdive_prod`    |
-| Staging     | `deepdive_staging` |
-| Development | `deepdive_dev`     |
+| 环境        | 数据库名          |
+| ----------- | ----------------- |
+| Production  | `genesis_prod`    |
+| Staging     | `genesis_staging` |
+| Development | `genesis_dev`     |
 
 ### 4.2 迁移策略
 

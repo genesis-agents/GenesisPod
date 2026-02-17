@@ -30,7 +30,7 @@ INSERT INTO "system_settings" ("id", "key", "value", "description", "category", 
     (gen_random_uuid()::text, 'smtp_port', '587', 'SMTP server port (587 for TLS, 465 for SSL)', 'email', NOW(), NOW(), false),
     (gen_random_uuid()::text, 'smtp_user', '', 'SMTP username/email address', 'email', NOW(), NOW(), false),
     (gen_random_uuid()::text, 'smtp_pass', '', 'SMTP password (App Password for Gmail)', 'email', NOW(), NOW(), true),
-    (gen_random_uuid()::text, 'smtp_from', 'DeepDive <noreply@deepdive.ai>', 'Default sender address', 'email', NOW(), NOW(), false),
+    (gen_random_uuid()::text, 'smtp_from', 'Genesis <noreply@genesis.ai>', 'Default sender address', 'email', NOW(), NOW(), false),
     (gen_random_uuid()::text, 'smtp_enabled', 'false', 'Enable email notifications', 'email', NOW(), NOW(), false),
     (gen_random_uuid()::text, 'admin_email', '', 'Admin email for system notifications', 'email', NOW(), NOW(), false),
     -- Site Settings

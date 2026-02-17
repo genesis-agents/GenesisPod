@@ -1,10 +1,10 @@
 groups:
-  - name: deepdive_staging
+  - name: genesis_staging
     interval: 30s
     rules:
       # 后端 API 告警
       - alert: BackendDown
-        expr: up{job="deepdive-backend"} == 0
+        expr: up{job="genesis-backend"} == 0
         for: 1m
         labels:
           severity: critical
@@ -14,7 +14,7 @@ groups:
           description: "Backend service has been unreachable for more than 1 minute"
 
       - alert: HighErrorRate
-        expr: rate(http_requests_total{job="deepdive-backend",status=~"5.."}[5m]) > 0.05
+        expr: rate(http_requests_total{job="genesis-backend",status=~"5.."}[5m]) > 0.05
         for: 5m
         labels:
           severity: warning
@@ -24,7 +24,7 @@ groups:
           description: "Error rate is above 5% in the last 5 minutes"
 
       - alert: HighLatency
-        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="deepdive-backend"}[5m])) > 1
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="genesis-backend"}[5m])) > 1
         for: 5m
         labels:
           severity: warning
@@ -118,7 +118,7 @@ groups:
 
       # 应用级别告警
       - alert: ExtractionServiceDown
-        expr: up{job="deepdive-backend",instance=~".*:4000"} == 0
+        expr: up{job="genesis-backend",instance=~".*:4000"} == 0
         for: 2m
         labels:
           severity: critical
@@ -128,7 +128,7 @@ groups:
           description: "Content extraction service has stopped responding"
 
       - alert: DeduplicationServiceDown
-        expr: up{job="deepdive-backend",instance=~".*:4000"} == 0
+        expr: up{job="genesis-backend",instance=~".*:4000"} == 0
         for: 2m
         labels:
           severity: critical

@@ -484,7 +484,7 @@
 │ 当前: 幻 │  GW级数据...   │ │   │                                          │     │
 │ 灯片3    │                │ │   │                                          │     │
 │          │ ┌──────────┐   │ │   │                                          │     │
-│ 你: 这页 │ │ [缩略图] │   │ │   │      DeepDive Research Team              │     │
+│ 你: 这页 │ │ [缩略图] │   │ │   │      Genesis Research Team              │     │
 │ 太单调， │ └──────────┘   │ │   │      2025年11月15日                      │     │
 │ 加点图表 │  多维资源...   │ │   │                                          │     │
 │          │                │ │   │                                          │     │
@@ -635,7 +635,7 @@
 │ │ ║   与生态      ║│ │
 │ │ ║               ║│ │
 │ │ ║ 算力基础设施  ║│ │
-│ │ ║ DeepDive Team ║│ │
+│ │ ║ Genesis Team ║│ │
 │ │ ╚═══════════════╝│ │
 │ └──────────────────┘ │
 │ [封面]               │
@@ -1013,7 +1013,7 @@ async function streamAIGeneration() {
 // 使用WebSocket实现实时同步
 class CollaborationManager {
   constructor() {
-    this.ws = new WebSocket("wss://api.deepdive.com/collab");
+    this.ws = new WebSocket("wss://api.genesis.ai/collab");
   }
 
   onAIUpdate(content) {

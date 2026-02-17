@@ -107,7 +107,7 @@ version: '3.8'
 services:
   prometheus:
     image: prom/prometheus:latest
-    container_name: deepdive-prometheus
+    container_name: genesis-prometheus
     restart: unless-stopped
     ports:
       - "9090:9090"
@@ -127,7 +127,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: deepdive-grafana
+    container_name: genesis-grafana
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -146,7 +146,7 @@ services:
 
   alertmanager:
     image: prom/alertmanager:latest
-    container_name: deepdive-alertmanager
+    container_name: genesis-alertmanager
     restart: unless-stopped
     ports:
       - "9093:9093"
@@ -162,7 +162,7 @@ services:
   # Exporters
   postgres-exporter:
     image: quay.io/prometheuscommunity/postgres-exporter:latest
-    container_name: deepdive-postgres-exporter
+    container_name: genesis-postgres-exporter
     restart: unless-stopped
     ports:
       - "9187:9187"
@@ -170,11 +170,11 @@ services:
       DATA_SOURCE_NAME: "postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@postgres:5432/\${POSTGRES_DB}?sslmode=disable"
     networks:
       - monitoring
-      - deepdive-network
+      - genesis-network
 
   redis-exporter:
     image: oliver006/redis_exporter:latest
-    container_name: deepdive-redis-exporter
+    container_name: genesis-redis-exporter
     restart: unless-stopped
     ports:
       - "9121:9121"
@@ -182,11 +182,11 @@ services:
       REDIS_ADDR: "redis:6379"
     networks:
       - monitoring
-      - deepdive-network
+      - genesis-network
 
   mongodb-exporter:
     image: percona/mongodb_exporter:latest
-    container_name: deepdive-mongodb-exporter
+    container_name: genesis-mongodb-exporter
     restart: unless-stopped
     ports:
       - "9216:9216"
@@ -194,11 +194,11 @@ services:
       MONGODB_URI: "\${MONGODB_URI}"
     networks:
       - monitoring
-      - deepdive-network
+      - genesis-network
 
   node-exporter:
     image: prom/node-exporter:latest
-    container_name: deepdive-node-exporter
+    container_name: genesis-node-exporter
     restart: unless-stopped
     ports:
       - "9100:9100"
@@ -215,7 +215,7 @@ services:
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
-    container_name: deepdive-cadvisor
+    container_name: genesis-cadvisor
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -236,7 +236,7 @@ volumes:
 networks:
   monitoring:
     driver: bridge
-  deepdive-network:
+  genesis-network:
     external: true
 EOF
 

@@ -229,7 +229,7 @@ POST /api/v1/research/notebook/:id/tts
 
 Response:
 {
-  "audioUrl": "https://cdn.deepdive.com/audio/xxx.mp3",
+  "audioUrl": "https://cdn.genesis.ai/audio/xxx.mp3",
   "transcript": "主持人A: 今天我们来聊聊这几篇文档...",
   "duration": 360 // 秒
 }
@@ -422,21 +422,21 @@ function ResearchPage() {
 
 ```bash
 # 创建研究任务
-curl -X POST https://api.deepdive.com/api/v1/research/topics \
+curl -X POST https://api.genesis.ai/api/v1/research/topics \
   -d '{
     "name": "Web3 技术趋势",
     "dimensions": ["技术架构", "应用场景", "市场趋势"]
   }'
 
 # 2-5 分钟后获取结果
-curl -X GET https://api.deepdive.com/api/v1/research/topics/TOPIC_ID
+curl -X GET https://api.genesis.ai/api/v1/research/topics/TOPIC_ID
 ```
 
 ### 2. 深度研究（Deep Research）
 
 ```bash
 # 创建深度研究
-curl -X POST https://api.deepdive.com/api/v1/research/deep \
+curl -X POST https://api.genesis.ai/api/v1/research/deep \
   -d '{
     "title": "AI 安全",
     "question": "如何确保大模型的安全性？",
@@ -452,16 +452,16 @@ curl -X POST https://api.deepdive.com/api/v1/research/deep \
 
 ```bash
 # 上传文档
-curl -X POST https://api.deepdive.com/api/v1/research/notebook \
+curl -X POST https://api.genesis.ai/api/v1/research/notebook \
   -F "files=@paper1.pdf" \
   -F "files=@paper2.pdf"
 
 # 文档问答
-curl -X POST https://api.deepdive.com/api/v1/research/notebook/NOTEBOOK_ID/query \
+curl -X POST https://api.genesis.ai/api/v1/research/notebook/NOTEBOOK_ID/query \
   -d '{"question": "这些论文的核心创新是什么？"}'
 
 # 生成播客
-curl -X POST https://api.deepdive.com/api/v1/research/notebook/NOTEBOOK_ID/tts \
+curl -X POST https://api.genesis.ai/api/v1/research/notebook/NOTEBOOK_ID/tts \
   -d '{"style": "podcast", "duration": "medium"}'
 ```
 

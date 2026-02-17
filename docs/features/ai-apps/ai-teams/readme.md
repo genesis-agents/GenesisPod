@@ -217,7 +217,7 @@ Response:
 ```typescript
 import { io } from "socket.io-client";
 
-const socket = io("wss://api.deepdive.com/ai-teams", {
+const socket = io("wss://api.genesis.ai/ai-teams", {
   auth: { token: "YOUR_TOKEN" },
 });
 
@@ -459,20 +459,20 @@ function TopicPage({ topicId }) {
 
 ```bash
 # 1. 创建话题
-curl -X POST https://api.deepdive.com/api/v1/ai-teams/topics \
+curl -X POST https://api.genesis.ai/api/v1/ai-teams/topics \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name": "产品方案讨论"}'
 
 # 2. 添加 Agent
-curl -X POST https://api.deepdive.com/api/v1/ai-teams/topics/TOPIC_ID/members \
+curl -X POST https://api.genesis.ai/api/v1/ai-teams/topics/TOPIC_ID/members \
   -d '{"agentId": "agent-critic", "role": "CRITIC"}'
 ```
 
 ### 2. 发起辩论
 
 ```bash
-curl -X POST https://api.deepdive.com/api/v1/ai-teams/topics/TOPIC_ID/messages \
+curl -X POST https://api.genesis.ai/api/v1/ai-teams/topics/TOPIC_ID/messages \
   -d '{
     "content": "我们应该优先开发哪个功能？",
     "triggerDebate": true
@@ -489,14 +489,14 @@ curl -X POST https://api.deepdive.com/api/v1/ai-teams/topics/TOPIC_ID/messages \
 
 ```bash
 # 创建任务
-curl -X POST https://api.deepdive.com/api/v1/ai-teams/topics/TOPIC_ID/missions \
+curl -X POST https://api.genesis.ai/api/v1/ai-teams/topics/TOPIC_ID/missions \
   -d '{
     "title": "竞品分析",
     "description": "对比三家竞品的功能和定价"
   }'
 
 # 启动任务
-curl -X POST https://api.deepdive.com/api/v1/ai-teams/missions/MISSION_ID/start
+curl -X POST https://api.genesis.ai/api/v1/ai-teams/missions/MISSION_ID/start
 ```
 
 ---

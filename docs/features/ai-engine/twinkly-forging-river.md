@@ -272,9 +272,9 @@ async chatWithSkills(options: {
 
 ```bash
 # CLI 命令（未来可实现）
-deepdive skill install cameronsjo/deep-research
-deepdive skill search "novel writing"
-deepdive skill list --installed
+genesis skill install cameronsjo/deep-research
+genesis skill search "novel writing"
+genesis skill list --installed
 ```
 
 ---

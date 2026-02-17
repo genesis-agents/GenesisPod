@@ -2,7 +2,7 @@
 
 ## 概述
 
-DeepDive 使用以下 UI 技术栈：
+Genesis 使用以下 UI 技术栈：
 
 - **Radix UI**: 无障碍无头组件
 - **TipTap**: 富文本编辑器
@@ -505,7 +505,8 @@ const buttonVariants = cva(
 );
 
 interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
 }

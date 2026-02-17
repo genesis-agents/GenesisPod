@@ -614,7 +614,7 @@ FEEDBACK_ANALYSIS_ENABLED=true
 
 # GitHub 集成
 GITHUB_TOKEN=ghp_xxx
-GITHUB_REPO=owner/deepdive
+GITHUB_REPO=owner/genesis
 GITHUB_AUTO_PR_ENABLED=true
 
 # 通知配置

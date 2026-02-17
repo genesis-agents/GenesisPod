@@ -2,7 +2,7 @@
 
 ## 概述
 
-DeepDive 采用双轨状态管理策略：
+Genesis 采用双轨状态管理策略：
 
 - **TanStack Query (React Query)**: 管理服务端状态
 - **Zustand**: 管理客户端状态
@@ -456,7 +456,7 @@ export const useSettingsStore = create<SettingsStore>()(
       resetToDefaults: () => set(defaultSettings),
     }),
     {
-      name: "deepdive-settings", // localStorage key
+      name: "genesis-settings", // localStorage key
     },
   ),
 );

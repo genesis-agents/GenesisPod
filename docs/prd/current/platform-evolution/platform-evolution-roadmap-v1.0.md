@@ -441,4 +441,4 @@ Internal modules remain as-is; SDK wraps internal interfaces. Feature flags cont
 ---
 
 **Next Review**: 2026-02-19
-**Owner**: DeepDive Team
+**Owner**: Genesis Team

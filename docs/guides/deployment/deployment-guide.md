@@ -57,8 +57,8 @@ railway --version
 
 ```env
 # Database
-DATABASE_URL=postgresql://user:password@host:5432/deepdive
-MONGODB_URI=mongodb://host:27017/deepdive
+DATABASE_URL=postgresql://user:password@host:5432/genesis
+MONGODB_URI=mongodb://host:27017/genesis
 
 # JWT
 JWT_SECRET=your-secret-key-change-in-production

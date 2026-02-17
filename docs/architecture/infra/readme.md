@@ -1,4 +1,4 @@
-# DeepDive 基础设施架构文档
+# Genesis 基础设施架构文档
 
 本目录包含 Genesis.ai 项目使用的关键技术的核心原理和实现细节。
 
@@ -33,7 +33,7 @@ infra/
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│                   DeepDive Architecture                        │
+│                   Genesis Architecture                        │
 ├───────────────────────────────────────────────────────────────┤
 │                                                                │
 │  ┌──────────────────────────────────────────────────────┐    │
@@ -389,7 +389,7 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: deepdive
+      POSTGRES_DB: genesis
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
@@ -398,7 +398,7 @@ services:
   backend:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/deepdive
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/genesis
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     ports:
       - "3001:3001"
@@ -459,5 +459,5 @@ services:
 ---
 
 **最后更新**: 2026-01-15
-**维护者**: DeepDive Team
+**维护者**: Genesis Team
 **版本**: 2.0

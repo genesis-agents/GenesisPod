@@ -2,7 +2,7 @@
 
 ## 概述
 
-DeepDive 实现了多种数据采集服务，支持从不同来源获取内容：
+Genesis 实现了多种数据采集服务，支持从不同来源获取内容：
 
 - 网页爬虫 (Cheerio + Axios)
 - RSS/Atom 订阅
@@ -85,7 +85,7 @@ export class WebScraperService {
   ): Promise<ScrapedContent> {
     const response = await this.httpService.axiosRef.get(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; DeepDive/1.0)",
+        "User-Agent": "Mozilla/5.0 (compatible; Genesis/1.0)",
         Accept: "text/html,application/xhtml+xml",
       },
       timeout: 30000,
@@ -224,7 +224,7 @@ export class RssService {
       },
       timeout: 30000,
       headers: {
-        "User-Agent": "DeepDive RSS Reader/1.0",
+        "User-Agent": "Genesis RSS Reader/1.0",
       },
     });
   }

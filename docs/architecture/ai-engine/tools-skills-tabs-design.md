@@ -76,7 +76,7 @@ interface LocalSkill {
 ├─────────────────────────────────────────────────────────┤
 │ ┌───────────────────────────────────────────────────┐   │
 │ │ 📊 AI Architecture Layering        v2.0  [Active] │   │
-│ │ By: DeepDive Team                                 │   │
+│ │ By: Genesis Team                                 │   │
 │ │ Design AI systems with clear architectural layers │   │
 │ │ [View] [Edit] [Disable] [Delete]                  │   │
 │ └───────────────────────────────────────────────────┘   │

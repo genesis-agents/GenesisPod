@@ -2,7 +2,7 @@
 
 > **版本**: v1.0
 > **创建日期**: 2025-11-07
-> **架构师**: DeepDive Team
+> **架构师**: Genesis Team
 
 ---
 
@@ -897,7 +897,7 @@ from services.openai_client import OpenAIClient
 from services.ai_service import AIService
 from config import settings
 
-app = FastAPI(title="DeepDive AI Service")
+app = FastAPI(title="Genesis AI Service")
 
 # 初始化AI客户端
 grok = GrokClient(api_key=settings.GROK_API_KEY)
@@ -958,9 +958,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: deepdive
+      POSTGRES_USER: genesis
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: deepdive
+      POSTGRES_DB: genesis
     ports:
       - "5432:5432"
     volumes:
@@ -997,7 +997,7 @@ services:
   mongo:
     image: mongo:7
     environment:
-      MONGO_INITDB_ROOT_USERNAME: deepdive
+      MONGO_INITDB_ROOT_USERNAME: genesis
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
     ports:
       - "27017:27017"

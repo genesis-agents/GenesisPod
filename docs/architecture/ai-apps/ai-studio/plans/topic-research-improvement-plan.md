@@ -2202,7 +2202,7 @@ export class ResearchMissionHealthService
 module.exports = {
   apps: [
     {
-      name: "deepdive-backend",
+      name: "genesis-backend",
       script: "dist/main.js",
 
       // ★ 优雅关机配置
@@ -2336,7 +2336,7 @@ interface MissionExecutionState {
 pm2 start ecosystem.config.js
 
 # 2. 滚动重启（一次一个实例）
-pm2 reload deepdive-backend
+pm2 reload genesis-backend
 
 # 3. 健康检查确认后再重启下一个
 curl http://localhost:3001/health

@@ -53,7 +53,7 @@ These issues make the editor essentially unusable for non-English users and prov
 
 #### Issue 1: IME Double Character Input
 
-**File**: `D:\projects\deepdive\frontend\components\notion\NotionBlockEditor.tsx`
+**File**: `D:\projects\genesis\frontend\components\notion\NotionBlockEditor.tsx`
 
 **Root Cause Analysis**:
 
@@ -760,10 +760,10 @@ interface NotesStore {
 
 ### Related Files
 
-- `D:\projects\deepdive\frontend\components\notion\NotionBlockEditor.tsx`
-- `D:\projects\deepdive\frontend\app\notion\[pageId]\page.tsx`
-- `D:\projects\deepdive\frontend\lib\notion\block-converter.ts`
-- `D:\projects\deepdive\frontend\package.json`
+- `D:\projects\genesis\frontend\components\notion\NotionBlockEditor.tsx`
+- `D:\projects\genesis\frontend\app\notion\[pageId]\page.tsx`
+- `D:\projects\genesis\frontend\lib\notion\block-converter.ts`
+- `D:\projects\genesis\frontend\package.json`
 
 ---
 

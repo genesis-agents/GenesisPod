@@ -28,7 +28,7 @@
 **backend/.env.test:**
 
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/deepdive_test"
+DATABASE_URL="postgresql://user:password@localhost:5432/genesis_test"
 AI_SERVICE_URL="http://localhost:5001"
 ```
 
@@ -36,7 +36,7 @@ AI_SERVICE_URL="http://localhost:5001"
 
 ```bash
 cd backend
-DATABASE_URL="postgresql://user:password@localhost:5432/deepdive_test" npx prisma migrate deploy
+DATABASE_URL="postgresql://user:password@localhost:5432/genesis_test" npx prisma migrate deploy
 ```
 
 ---
@@ -1137,7 +1137,7 @@ jobs:
         image: postgres:14
         env:
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: deepdive_test
+          POSTGRES_DB: genesis_test
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -1162,14 +1162,14 @@ jobs:
           cd backend
           npx prisma migrate deploy
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/deepdive_test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/genesis_test
 
       - name: Run tests
         run: |
           cd backend
           npm test -- --coverage
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/deepdive_test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/genesis_test
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3

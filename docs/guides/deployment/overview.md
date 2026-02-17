@@ -88,7 +88,7 @@ PORT=4000
 API_PREFIX=api/v1
 
 # 数据库
-DATABASE_URL="postgresql://user:password@db-host:5432/deepdive_prod"
+DATABASE_URL="postgresql://user:password@db-host:5432/genesis_prod"
 DATABASE_POOL_MIN=2
 DATABASE_POOL_MAX=10
 
@@ -113,12 +113,12 @@ REDIS_PASSWORD="your-redis-password"
 # 文件存储
 STORAGE_TYPE=s3  # 或 local, gcs
 AWS_REGION=us-west-2
-AWS_S3_BUCKET=deepdive-files
+AWS_S3_BUCKET=genesis-files
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
 
 # CORS
-CORS_ORIGIN=https://deepdive.com
+CORS_ORIGIN=https://genesis.ai
 CORS_CREDENTIALS=true
 
 # 日志
@@ -137,10 +137,10 @@ PROMETHEUS_PORT=9090
 
 ```bash
 # API配置
-NEXT_PUBLIC_API_BASE_URL=https://api.deepdive.com
+NEXT_PUBLIC_API_BASE_URL=https://api.genesis.ai
 
 # 认证
-NEXT_PUBLIC_AUTH_DOMAIN=auth.deepdive.com
+NEXT_PUBLIC_AUTH_DOMAIN=auth.genesis.ai
 
 # 分析
 NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
@@ -165,19 +165,19 @@ NEXT_PUBLIC_SENTRY_DSN=https://your-sentry-dsn
 
 ```sql
 -- 创建数据库
-CREATE DATABASE deepdive_prod;
+CREATE DATABASE genesis_prod;
 
 -- 创建专用用户
-CREATE USER deepdive_user WITH ENCRYPTED PASSWORD 'your-secure-password';
+CREATE USER genesis_user WITH ENCRYPTED PASSWORD 'your-secure-password';
 
 -- 授予权限
-GRANT ALL PRIVILEGES ON DATABASE deepdive_prod TO deepdive_user;
+GRANT ALL PRIVILEGES ON DATABASE genesis_prod TO genesis_user;
 
 -- 连接到数据库
-\c deepdive_prod
+\c genesis_prod
 
 -- 授予 schema 权限
-GRANT ALL ON SCHEMA public TO deepdive_user;
+GRANT ALL ON SCHEMA public TO genesis_user;
 ```
 
 **优化配置 (postgresql.conf):**
@@ -215,7 +215,7 @@ log_min_duration_statement = 1000  # 记录超过1秒的查询
 cd backend
 
 # 生产环境迁移
-DATABASE_URL="postgresql://user:password@host:5432/deepdive_prod" \
+DATABASE_URL="postgresql://user:password@host:5432/genesis_prod" \
   npx prisma migrate deploy
 
 # 生成 Prisma Client
@@ -250,10 +250,10 @@ CREATE INDEX idx_notes_content_search ON notes USING GIN(to_tsvector('english', 
 #!/bin/bash
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR="/backups/postgres"
-DB_NAME="deepdive_prod"
+DB_NAME="genesis_prod"
 
 # 创建备份
-pg_dump -h localhost -U deepdive_user -d $DB_NAME \
+pg_dump -h localhost -U genesis_user -d $DB_NAME \
   -F c -b -v -f "$BACKUP_DIR/backup_$DATE.dump"
 
 # 保留最近30天的备份
@@ -261,7 +261,7 @@ find $BACKUP_DIR -name "backup_*.dump" -mtime +30 -delete
 
 # 上传到 S3
 aws s3 cp "$BACKUP_DIR/backup_$DATE.dump" \
-  s3://deepdive-backups/postgres/
+  s3://genesis-backups/postgres/
 ```
 
 **Cron 任务:**
@@ -304,7 +304,7 @@ npm install -g pm2
 module.exports = {
   apps: [
     {
-      name: "deepdive-backend",
+      name: "genesis-backend",
       script: "./dist/main.js",
       instances: 4, // 4个实例
       exec_mode: "cluster",
@@ -334,10 +334,10 @@ pm2 start ecosystem.config.js --env production
 pm2 status
 
 # 查看日志
-pm2 logs deepdive-backend
+pm2 logs genesis-backend
 
 # 重启
-pm2 restart deepdive-backend
+pm2 restart genesis-backend
 
 # 设置开机自启
 pm2 startup
@@ -403,25 +403,25 @@ services:
       - "4000:4000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://user:password@postgres:5432/deepdive_prod
+      - DATABASE_URL=postgresql://user:password@postgres:5432/genesis_prod
       - AI_SERVICE_URL=http://ai-service:5000
     depends_on:
       - postgres
       - redis
     restart: unless-stopped
     networks:
-      - deepdive-network
+      - genesis-network
 
   postgres:
     image: postgres:14-alpine
     environment:
-      - POSTGRES_DB=deepdive_prod
-      - POSTGRES_USER=deepdive_user
+      - POSTGRES_DB=genesis_prod
+      - POSTGRES_USER=genesis_user
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - deepdive-network
+      - genesis-network
     restart: unless-stopped
 
   redis:
@@ -430,19 +430,19 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - deepdive-network
+      - genesis-network
     restart: unless-stopped
 
   ai-service:
-    image: deepdive/ai-service:latest
+    image: genesis/ai-service:latest
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     networks:
-      - deepdive-network
+      - genesis-network
     restart: unless-stopped
 
 networks:
-  deepdive-network:
+  genesis-network:
     driver: bridge
 
 volumes:
@@ -557,7 +557,7 @@ upstream frontend {
 
 server {
     listen 80;
-    server_name deepdive.com www.deepdive.com;
+    server_name genesis.ai www.genesis.ai;
 
     # 重定向到 HTTPS
     return 301 https://$server_name$request_uri;
@@ -565,7 +565,7 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name deepdive.com www.deepdive.com;
+    server_name genesis.ai www.genesis.ai;
 
     # SSL 配置
     ssl_certificate /etc/nginx/ssl/cert.pem;
@@ -574,8 +574,8 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
 
     # 日志
-    access_log /var/log/nginx/deepdive_access.log;
-    error_log /var/log/nginx/deepdive_error.log;
+    access_log /var/log/nginx/genesis_access.log;
+    error_log /var/log/nginx/genesis_error.log;
 
     # Gzip 压缩
     gzip on;
@@ -639,22 +639,22 @@ server {
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: deepdive-backend
+  name: genesis-backend
   labels:
-    app: deepdive-backend
+    app: genesis-backend
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: deepdive-backend
+      app: genesis-backend
   template:
     metadata:
       labels:
-        app: deepdive-backend
+        app: genesis-backend
     spec:
       containers:
         - name: backend
-          image: deepdive/backend:latest
+          image: genesis/backend:latest
           ports:
             - containerPort: 4000
           env:
@@ -663,12 +663,12 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: deepdive-secrets
+                  name: genesis-secrets
                   key: database-url
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: deepdive-secrets
+                  name: genesis-secrets
                   key: jwt-secret
           resources:
             requests:
@@ -693,10 +693,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: deepdive-backend-service
+  name: genesis-backend-service
 spec:
   selector:
-    app: deepdive-backend
+    app: genesis-backend
   ports:
     - protocol: TCP
       port: 80
@@ -712,27 +712,27 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: deepdive-frontend
+  name: genesis-frontend
   labels:
-    app: deepdive-frontend
+    app: genesis-frontend
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: deepdive-frontend
+      app: genesis-frontend
   template:
     metadata:
       labels:
-        app: deepdive-frontend
+        app: genesis-frontend
     spec:
       containers:
         - name: frontend
-          image: deepdive/frontend:latest
+          image: genesis/frontend:latest
           ports:
             - containerPort: 3000
           env:
             - name: NEXT_PUBLIC_API_BASE_URL
-              value: "https://api.deepdive.com"
+              value: "https://api.genesis.ai"
           resources:
             requests:
               memory: "256Mi"
@@ -744,10 +744,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: deepdive-frontend-service
+  name: genesis-frontend-service
 spec:
   selector:
-    app: deepdive-frontend
+    app: genesis-frontend
   ports:
     - protocol: TCP
       port: 80
@@ -759,7 +759,7 @@ spec:
 
 ```bash
 # 创建 secrets
-kubectl create secret generic deepdive-secrets \
+kubectl create secret generic genesis-secrets \
   --from-literal=database-url='postgresql://...' \
   --from-literal=jwt-secret='your-secret'
 
@@ -772,7 +772,7 @@ kubectl get pods
 kubectl get services
 
 # 查看日志
-kubectl logs -f deployment/deepdive-backend
+kubectl logs -f deployment/genesis-backend
 ```
 
 ---
@@ -788,7 +788,7 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: "deepdive-backend"
+  - job_name: "genesis-backend"
     static_configs:
       - targets: ["backend:9090"]
     metrics_path: "/metrics"
@@ -860,7 +860,7 @@ Sentry.init({
 ```conf
 input {
   file {
-    path => "/var/log/deepdive/*.log"
+    path => "/var/log/genesis/*.log"
     codec => json
   }
 }
@@ -874,7 +874,7 @@ filter {
 output {
   elasticsearch {
     hosts => ["elasticsearch:9200"]
-    index => "deepdive-%{+YYYY.MM.dd}"
+    index => "genesis-%{+YYYY.MM.dd}"
   }
 }
 ```
@@ -941,8 +941,8 @@ export class CacheService {
 {
   "Origins": [
     {
-      "DomainName": "deepdive.com",
-      "Id": "deepdive-origin",
+      "DomainName": "genesis.ai",
+      "Id": "genesis-origin",
       "CustomOriginConfig": {
         "HTTPPort": 80,
         "HTTPSPort": 443,
@@ -951,7 +951,7 @@ export class CacheService {
     }
   ],
   "DefaultCacheBehavior": {
-    "TargetOriginId": "deepdive-origin",
+    "TargetOriginId": "genesis-origin",
     "ViewerProtocolPolicy": "redirect-to-https",
     "CachePolicyId": "managed-caching-optimized",
     "Compress": true
@@ -984,7 +984,7 @@ sudo ufw enable
 sudo apt-get install certbot python3-certbot-nginx
 
 # 获取证书
-sudo certbot --nginx -d deepdive.com -d www.deepdive.com
+sudo certbot --nginx -d genesis.ai -d www.genesis.ai
 
 # 自动续期
 sudo certbot renew --dry-run
@@ -1048,22 +1048,22 @@ docker-compose down
 docker-compose up -d --build --force-recreate
 
 # Kubernetes
-kubectl rollout undo deployment/deepdive-backend
-kubectl rollout status deployment/deepdive-backend
+kubectl rollout undo deployment/genesis-backend
+kubectl rollout status deployment/genesis-backend
 
 # PM2
-pm2 stop deepdive-backend
+pm2 stop genesis-backend
 git checkout <previous-commit>
 npm run build
-pm2 restart deepdive-backend
+pm2 restart genesis-backend
 ```
 
 ### 数据库回滚
 
 ```bash
 # 恢复备份
-pg_restore -h localhost -U deepdive_user \
-  -d deepdive_prod /backups/backup_20251109.dump
+pg_restore -h localhost -U genesis_user \
+  -d genesis_prod /backups/backup_20251109.dump
 
 # 回滚迁移（Prisma）
 npx prisma migrate resolve --rolled-back <migration-name>

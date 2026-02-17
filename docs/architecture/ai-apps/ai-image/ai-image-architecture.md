@@ -501,8 +501,8 @@ GenerationService (主门面)
 R2_ACCOUNT_ID=xxx
 R2_ACCESS_KEY_ID=xxx
 R2_SECRET_ACCESS_KEY=xxx
-R2_BUCKET_NAME=deepdive-images
-R2_PUBLIC_URL=https://cdn.deepdive.com
+R2_BUCKET_NAME=genesis-images
+R2_PUBLIC_URL=https://cdn.genesis.ai
 
 # 数据库
 DATABASE_URL=postgresql://...
@@ -619,11 +619,11 @@ POST /api/v1/ai-image/cleanup
 Response: { deletedCount: number, message: string }
 
 // 管理员清理所有用户 (需要密钥)
-POST /api/v1/ai-image/cleanup-all?key=deepdive-admin-cleanup-2024
+POST /api/v1/ai-image/cleanup-all?key=genesis-admin-cleanup-2024
 Response: { totalDeleted, usersCleaned, orphanDeleted, message }
 
 // 管理员删除所有图片 (需要密钥)
-DELETE /api/v1/ai-image/delete-all?key=deepdive-admin-cleanup-2024
+DELETE /api/v1/ai-image/delete-all?key=genesis-admin-cleanup-2024
 Response: { deletedCount: number, message: string }
 ```
 
@@ -876,5 +876,5 @@ try {
 
 ---
 
-**维护者**: DeepDive Team
-**联系方式**: tech@deepdive.com
+**维护者**: Genesis Team
+**联系方式**: tech@genesis.ai

@@ -49,7 +49,7 @@ JWT_SECRET=long-random-secret-string
 # ✅ 提供模板，不含实际密钥
 GROK_API_KEY=<从 GCP Secret Manager 获取>
 OPENAI_API_KEY=<从 GCP Secret Manager 获取>
-DATABASE_URL=postgresql://user:password@localhost:5432/deepdive
+DATABASE_URL=postgresql://user:password@localhost:5432/genesis
 JWT_SECRET=<生成随机密钥>
 ```
 

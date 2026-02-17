@@ -142,10 +142,10 @@ genesis-ai (Railway Project)
 
 **自定义域名 (可选)**:
 
-| 环境        | 前端               | 后端 API               |
-| ----------- | ------------------ | ---------------------- |
-| Production  | `deepdive.app`     | `api.deepdive.app`     |
-| Development | `dev.deepdive.app` | `dev-api.deepdive.app` |
+| 环境        | 前端             | 后端 API             |
+| ----------- | ---------------- | -------------------- |
+| Production  | `genesis.ai`     | `api.genesis.ai`     |
+| Development | `dev.genesis.ai` | `dev-api.genesis.ai` |
 
 ---
 
@@ -361,7 +361,7 @@ Backend 启动 → 从数据库读取 API Keys → 注入 AI 调用链路
 │  ┌─────────────────────────┐          ┌─────────────────────────┐       │
 │  │  PostgreSQL (postgres)  │          │  PostgreSQL (postgres)  │       │
 │  │  ─────────────────────  │          │  ─────────────────────  │       │
-│  │  DB: deepdive_prod      │          │  DB: deepdive_dev       │       │
+│  │  DB: genesis_prod       │          │  DB: genesis_dev        │       │
 │  │  真实用户数据            │          │  测试/开发数据           │       │
 │  │                         │          │                         │       │
 │  │  [完全隔离]             │          │  [完全隔离]             │       │
@@ -1355,7 +1355,7 @@ git log v1.2.2..v1.2.3 --oneline
 docker-compose up -d postgres redis
 
 # 配置本地环境变量 (backend/.env)
-DATABASE_URL=postgresql://deepdive:deepdive_dev_password@localhost:5432/deepdive
+DATABASE_URL=postgresql://genesis:genesis_dev_password@localhost:5432/genesis
 REDIS_URL=redis://localhost:6379
 
 # 运行迁移
@@ -1398,7 +1398,7 @@ railway connect redis
 
 ```bash
 # 数据库 (本地 Docker)
-DATABASE_URL=postgresql://deepdive:deepdive_dev_password@localhost:5432/deepdive
+DATABASE_URL=postgresql://genesis:genesis_dev_password@localhost:5432/genesis
 
 # Redis (本地 Docker)
 REDIS_URL=redis://localhost:6379

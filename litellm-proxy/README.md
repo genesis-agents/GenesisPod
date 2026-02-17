@@ -37,7 +37,7 @@ pip install "litellm[proxy]"
 ### 2. 配置 API 密钥
 
 ```powershell
-cd D:\projects\deepdive\litellm-proxy
+cd D:\projects\genesis\litellm-proxy
 cp .env.example .env
 notepad .env  # 填入你的 API 密钥
 ```
@@ -100,7 +100,7 @@ litellm-proxy/
 ## 手动使用 (不安装快捷命令)
 
 ```powershell
-cd D:\projects\deepdive\litellm-proxy
+cd D:\projects\genesis\litellm-proxy
 
 # 订阅模式
 .\claude-code.ps1

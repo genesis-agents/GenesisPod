@@ -19,7 +19,7 @@
 ## 项目总体结构
 
 ```
-deepdive/
+genesis/
 ├── frontend/                          <- Next.js 前端服务
 ├── backend/                           <- NestJS 后端服务
 ├── ai-service/                        <- Python AI服务

@@ -4,7 +4,7 @@
 
 **版本**: v1.0
 **创建日期**: 2025-12-04
-**产品负责人**: DeepDive Team
+**产品负责人**: Genesis Team
 **关联文档**: ai-group-prd-v1.0.md, ai-group-spec-v2.0.md
 
 ---

@@ -65,7 +65,7 @@
 加密密钥来源 (行 85-88):
 
 - 从 SETTINGS_ENCRYPTION_KEY 环境变量获取
-- 默认值: "deepdive-default-encryption-key!" (硬编码风险)
+- 默认值: "genesis-default-encryption-key!" (硬编码风险)
 - 密钥长度: 32 字节
 
 加密格式: IV:密文 (AES-256-CBC)

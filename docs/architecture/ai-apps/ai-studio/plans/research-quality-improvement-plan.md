@@ -3,7 +3,7 @@
 >
 > 归档时间：2026-02-01
 
-# DeepDive Research V5 — 认知研究团队架构（已归档）
+# Genesis Research V5 — 认知研究团队架构（已归档）
 
 ## 目录
 

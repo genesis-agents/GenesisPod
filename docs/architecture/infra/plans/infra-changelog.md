@@ -228,8 +228,8 @@ const response = await this.aiChatService.chat({
 
 ### 贡献者
 
-- **Claude Code (DeepDive 文档专家 Agent)** - 主要编写和维护
-- **DeepDive Team** - 代码审查和技术指导
+- **Claude Code (Genesis 文档专家 Agent)** - 主要编写和维护
+- **Genesis Team** - 代码审查和技术指导
 
 ---
 

@@ -271,7 +271,7 @@ npm run dear
 
 ```bash
 # 数据库
-DATABASE_URL="postgresql://deepdive:deepdive_dev_password@localhost:5432/deepdive"
+DATABASE_URL="postgresql://genesis:genesis_dev_password@localhost:5432/genesis"
 
 # Redis（可选）
 REDIS_URL="redis://localhost:6379"
@@ -368,4 +368,4 @@ npm ci
 ---
 
 **最后更新**: 2026-01-15
-**维护者**: DeepDive Team
+**维护者**: Genesis Team

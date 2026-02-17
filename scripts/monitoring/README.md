@@ -234,10 +234,10 @@ cd scripts/monitoring && docker-compose logs prometheus
 
 ```bash
 # 检查网络
-docker network inspect deepdive-network
+docker network inspect genesis-network
 
 # 测试连接
-docker exec deepdive-prometheus curl -sf http://postgres-exporter:9187/metrics
+docker exec genesis-prometheus curl -sf http://postgres-exporter:9187/metrics
 ```
 
 ### 告警未触发
@@ -247,7 +247,7 @@ docker exec deepdive-prometheus curl -sf http://postgres-exporter:9187/metrics
 curl http://localhost:9090/api/v1/rules
 
 # 测试查询
-curl 'http://localhost:9090/api/v1/query?query=up{job="deepdive-backend"}'
+curl 'http://localhost:9090/api/v1/query?query=up{job="genesis-backend"}'
 ```
 
 ---

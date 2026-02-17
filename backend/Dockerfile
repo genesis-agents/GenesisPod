@@ -93,26 +93,26 @@ ENV CHROMIUM_FLAGS="--no-sandbox --disable-setuid-sandbox"
 ENV NODE_ENV=production
 
 # Create non-root user for security
-RUN groupadd --gid 1001 raven && \
-    useradd --uid 1001 --gid raven --shell /bin/bash --create-home raven
+RUN groupadd --gid 1001 genesis && \
+    useradd --uid 1001 --gid genesis --shell /bin/bash --create-home genesis
 
 # Copy built application (--chown avoids extra layer from RUN chown -R)
-COPY --chown=raven:raven --from=builder /app/dist ./dist
-COPY --chown=raven:raven --from=builder /app/node_modules ./node_modules
-COPY --chown=raven:raven --from=builder /app/package*.json ./
-COPY --chown=raven:raven --from=builder /app/prisma ./prisma
-COPY --chown=raven:raven --from=builder /app/scripts ./scripts
+COPY --chown=genesis:genesis --from=builder /app/dist ./dist
+COPY --chown=genesis:genesis --from=builder /app/node_modules ./node_modules
+COPY --chown=genesis:genesis --from=builder /app/package*.json ./
+COPY --chown=genesis:genesis --from=builder /app/prisma ./prisma
+COPY --chown=genesis:genesis --from=builder /app/scripts ./scripts
 
 # Create writable directories for runtime data (exports, thumbnails)
 # /app is owned by root, so raven user can't mkdir directly
 RUN mkdir -p /app/public/thumbnails /app/exports && \
-    chown -R raven:raven /app/public /app/exports
+    chown -R genesis:genesis /app/public /app/exports
 
 # Make entrypoint executable
 RUN chmod +x ./scripts/devops/docker-entrypoint.sh
 
 # Switch to non-root user
-USER raven
+USER genesis
 
 # Expose port
 EXPOSE 4000

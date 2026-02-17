@@ -29,11 +29,11 @@ jobs:
         id: set-url
         run: |
           if [ "${{ github.event.inputs.environment }}" = "staging" ]; then
-            echo "API_URL=https://staging-api.deepdive.app" >> $GITHUB_OUTPUT
-            echo "WEB_URL=https://staging.deepdive.app" >> $GITHUB_OUTPUT
+            echo "API_URL=https://staging-api.genesis.ai" >> $GITHUB_OUTPUT
+            echo "WEB_URL=https://staging.genesis.ai" >> $GITHUB_OUTPUT
           else
-            echo "API_URL=https://api.deepdive.app" >> $GITHUB_OUTPUT
-            echo "WEB_URL=https://deepdive.app" >> $GITHUB_OUTPUT
+            echo "API_URL=https://api.genesis.ai" >> $GITHUB_OUTPUT
+            echo "WEB_URL=https://genesis.ai" >> $GITHUB_OUTPUT
           fi
 
       - name: Health Check - API

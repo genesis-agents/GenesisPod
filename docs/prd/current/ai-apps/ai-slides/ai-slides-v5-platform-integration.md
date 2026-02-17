@@ -16,14 +16,14 @@
 **核心发现**:
 
 - Genspark 在单一产品层面体验优秀（AI Edit、Thinking Tab、Voice Slides）
-- DeepDive 拥有 Genspark 不可企及的**平台级整合能力**（Research/Writing/Teams/Library）
-- DeepDive 已实现 AI Teams 协作架构 + 15+ Skills，需进一步放大优势
+- Genesis 拥有 Genspark 不可企及的**平台级整合能力**（Research/Writing/Teams/Library）
+- Genesis 已实现 AI Teams 协作架构 + 15+ Skills，需进一步放大优势
 
 ### 1.2 战略定位
 
 ```
 Genspark: 单一产品，独立工具
-DeepDive AI Slides: 平台级产品，数据中枢
+Genesis AI Slides: 平台级产品，数据中枢
 ```
 
 **差异化核心**: 从"输入文本生成PPT"升级为"整合全平台数据生成专业演示"
@@ -116,7 +116,7 @@ this specific slide.
 
 ---
 
-## 三、DeepDive AI Slides 现状分析
+## 三、Genesis AI Slides 现状分析
 
 ### 3.1 已实现的架构优势
 
@@ -1463,7 +1463,7 @@ model SlidesNarration {
 
 ### A. Genspark 功能对照表
 
-| Genspark 功能            | DeepDive V5.0 对应        | 状态    |
+| Genspark 功能            | Genesis V5.0 对应         | 状态    |
 | ------------------------ | ------------------------- | ------- |
 | Preview Tab              | SlidePreview              | ✅ 已有 |
 | Code Tab                 | CodePreview               | Phase 3 |
@@ -2056,7 +2056,7 @@ Step 4: 生成 → 预览 → 导出
 │  │                                                           │ │
 │  │         2026 全球 AI 市场趋势分析                         │ │
 │  │                                                           │ │
-│  │              DeepDive Research Team                       │ │
+│  │              Genesis Research Team                       │ │
 │  │                   2026.01.26                              │ │
 │  │                                                           │ │
 │  └───────────────────────────────────────────────────────────┘ │
@@ -2071,7 +2071,7 @@ Step 4: 生成 → 预览 → 导出
 │  │  │市场规模 │  │ 年增长率│  │ 企业渗透│  │ AI岗位 │     │ │
 │  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘     │ │
 │  │                                                           │ │
-│  │  来源: DeepDive Research 分析                             │ │
+│  │  来源: Genesis Research 分析                             │ │
 │  │                                                           │ │
 │  └───────────────────────────────────────────────────────────┘ │
 ├─────────────────────────────────────────────────────────────────┤
@@ -2156,7 +2156,7 @@ Step 4: 生成 → 预览 → 导出
 #### 在线演示
 
 ```
-URL 格式: https://app.deepdive.com/share/slides/{sessionId}
+URL 格式: https://app.genesis.ai/share/slides/{sessionId}
 有效期: 永久 (可设置过期)
 权限: 公开 / 密码保护 / 仅限指定用户
 功能: 全屏演示、缩略图导航、移动端适配
@@ -2167,7 +2167,7 @@ URL 格式: https://app.deepdive.com/share/slides/{sessionId}
 ## 十五、参考资料
 
 1. Genspark AI Slides: https://www.genspark.ai/agents
-2. DeepDive AI Slides Architecture: `backend/src/modules/ai-app/office/slides/docs/ARCHITECTURE.md`
+2. Genesis AI Slides Architecture: `backend/src/modules/ai-app/office/slides/docs/ARCHITECTURE.md`
 3. AI Teams System Design: `docs/features/ai-teams/system-design.md`
 4. Skills 技能库: `backend/src/modules/ai-app/office/slides/skills/`
 

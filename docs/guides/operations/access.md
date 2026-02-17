@@ -211,7 +211,7 @@ GET http://localhost:4000/api/v1/recommendations/explore
 
 ```bash
 # 连接MongoDB
-docker exec -it deepdive-mongo mongosh -u deepdive -p mongo_dev_password --authenticationDatabase admin deepdive
+docker exec -it genesis-mongo mongosh -u genesis -p mongo_dev_password --authenticationDatabase admin genesis
 
 # 查看集合
 show collections
@@ -224,7 +224,7 @@ db.data_collection_raw_data.find().limit(5)
 
 ```bash
 # 连接PostgreSQL
-docker exec -it deepdive-postgres psql -U deepdive -d deepdive
+docker exec -it genesis-postgres psql -U genesis -d genesis
 
 # 查看表
 \dt

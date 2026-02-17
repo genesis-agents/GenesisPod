@@ -8,7 +8,7 @@ services:
   # 用于绕过 Cloudflare 等反爬虫保护
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
-    container_name: deepdive-flaresolverr
+    container_name: genesis-flaresolverr
     environment:
       - LOG_LEVEL=info
       - LOG_HTML=false
@@ -21,17 +21,17 @@ services:
   # PostgreSQL - 主数据库 (唯一数据库)
   postgres:
     image: postgres:16-alpine
-    container_name: deepdive-postgres
+    container_name: genesis-postgres
     environment:
-      POSTGRES_USER: deepdive
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-deepdive_dev_password}
-      POSTGRES_DB: deepdive
+      POSTGRES_USER: genesis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-genesis_dev_password}
+      POSTGRES_DB: genesis
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U deepdive"]
+      test: ["CMD-SHELL", "pg_isready -U genesis"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,7 +39,7 @@ services:
   # Redis - 缓存 (可选，用于会话和缓存)
   redis:
     image: redis:7-alpine
-    container_name: deepdive-redis
+    container_name: genesis-redis
     command: redis-server --appendonly yes
     ports:
       - "6379:6379"
@@ -57,4 +57,4 @@ volumes:
 
 networks:
   default:
-    name: deepdive-network
+    name: genesis-network

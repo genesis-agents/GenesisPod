@@ -22,7 +22,7 @@ model: sonnet
 ## 项目测试架构
 
 ```
-DeepDive 测试金字塔
+Genesis 测试金字塔
 ────────────────────────────────────────────────────────
 
         /\
@@ -765,7 +765,7 @@ describe("API Integration", () => {
 
 ## 基本信息
 
-- 项目: DeepDive
+- 项目: Genesis
 - 版本: v1.x.x
 - 测试日期: YYYY-MM-DD
 - 测试人员: Tester Agent
@@ -843,7 +843,7 @@ Coverage:
 # full-test.sh - 完整测试脚本
 
 echo "=========================================="
-echo "  DeepDive 全栈测试"
+echo "  Genesis 全栈测试"
 echo "=========================================="
 
 # 1. Backend 测试

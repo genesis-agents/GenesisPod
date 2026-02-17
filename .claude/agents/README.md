@@ -1,6 +1,6 @@
 # Claude Code Agents 架构文档
 
-本文档描述了DeepDive项目中Claude Code agent系统的整体架构和使用指南。
+本文档描述了Genesis项目中Claude Code agent系统的整体架构和使用指南。
 
 ## 目录
 
@@ -17,7 +17,7 @@
 
 ## 概述
 
-DeepDive项目采用**专业化Agent系统**，将不同的开发任务委托给特定的sub-agents处理，每个agent专注于特定领域，提供专业化的自动化支持。
+Genesis项目采用**专业化Agent系统**，将不同的开发任务委托给特定的sub-agents处理，每个agent专注于特定领域，提供专业化的自动化支持。
 
 ### 核心理念
 
@@ -280,7 +280,7 @@ backend/test/                # 测试脚本
 ## 目录结构
 
 ```
-deepdive/
+genesis/
 ├── .claude/                          # Claude Code配置根目录
 │   ├── agents/                       # Agent定义
 │   │   ├── README.md                 # 本文件

@@ -1,4 +1,4 @@
-# DeepDive AI Office 系统优化方案 V2
+# Genesis AI Office 系统优化方案 V2
 
 > 基于 Banana-Slides 竞品分析和现有架构的全面优化方案
 >
@@ -22,7 +22,7 @@
 
 ### 1.1 背景
 
-DeepDive AI Office 是一个智能文档生成系统,支持 PPT/Word/Excel/PDF 等多格式输出。通过对比分析 Banana-Slides 项目,我们发现当前系统存在以下核心问题:
+Genesis AI Office 是一个智能文档生成系统,支持 PPT/Word/Excel/PDF 等多格式输出。通过对比分析 Banana-Slides 项目,我们发现当前系统存在以下核心问题:
 
 1. **文件解析能力不足**: 无法深度解析 PDF/DOCX 中的图片、表格等结构化内容
 2. **缺乏自然语言编辑**: 不支持"把第3页图表换成饼图"等口语化指令

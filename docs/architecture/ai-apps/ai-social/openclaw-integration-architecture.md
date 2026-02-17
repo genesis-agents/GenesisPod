@@ -536,7 +536,7 @@ Genesis 的深度研究、写作等能力可以作为 OpenClaw 技能发布:
 name: genesis-deep-research
 description: Deep multi-dimensional research powered by Genesis.ai
 user-invocable: true
-metadata: {"openclaw": {"emoji": "magnifying_glass", "primaryEnv": "RAVEN_API_KEY"}}
+metadata: {"openclaw": {"emoji": "magnifying_glass", "primaryEnv": "GENESIS_API_KEY"}}
 ---
 
 This skill connects to a Genesis.ai instance to perform deep research.
@@ -545,7 +545,7 @@ This skill connects to a Genesis.ai instance to perform deep research.
 /genesis-deep-research <topic>
 
 ## Configuration
-Set RAVEN_API_KEY in your OpenClaw settings.
+Set GENESIS_API_KEY in your OpenClaw settings.
 The skill will call Genesis's MCP Server at the configured URL.
 ```
 

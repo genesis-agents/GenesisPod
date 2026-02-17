@@ -239,7 +239,7 @@ model: sonnet
 
 ### 项目特定规范
 
-根据 `deepdive` 项目的特点：
+根据 `genesis` 项目的特点：
 
 - 关注 **数据采集系统** 的文档完整性
 - 确保 **API 文档** 与 backend 实现一致

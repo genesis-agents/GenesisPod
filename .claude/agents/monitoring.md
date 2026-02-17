@@ -94,16 +94,16 @@ model: sonnet
 
 ```promql
 # 请求总数
-http_requests_total{job="deepdive-backend"}
+http_requests_total{job="genesis-backend"}
 
 # 请求延迟（P50, P95, P99）
-http_request_duration_seconds{job="deepdive-backend"}
+http_request_duration_seconds{job="genesis-backend"}
 
 # 错误率
 rate(http_requests_total{status=~"5.."}[5m])
 
 # 并发请求数
-http_requests_in_flight{job="deepdive-backend"}
+http_requests_in_flight{job="genesis-backend"}
 ```
 
 **业务指标：**
@@ -183,7 +183,7 @@ rate(container_network_receive_bytes_total[5m])
 
 ```yaml
 - alert: BackendDown
-  expr: up{job="deepdive-backend"} == 0
+  expr: up{job="genesis-backend"} == 0
   for: 1m
   labels:
     severity: critical
@@ -191,8 +191,8 @@ rate(container_network_receive_bytes_total[5m])
     summary: "Backend API is down"
     runbook: |
       1. 检查服务状态: docker ps | grep backend
-      2. 查看日志: docker logs deepdive-backend
-      3. 重启服务: docker restart deepdive-backend
+      2. 查看日志: docker logs genesis-backend
+      3. 重启服务: docker restart genesis-backend
       4. 如果问题持续，回滚到上一个版本
 ```
 
@@ -337,7 +337,7 @@ kubectl apply -f monitoring/k8s/
     Severity: critical
     Started: 2025-11-23 14:30:00
     Duration: 5m
-    Labels: {job="deepdive-backend", instance="backend:4000"}
+    Labels: {job="genesis-backend", instance="backend:4000"}
 
 [2] PostgresHighConnections
     Severity: critical
@@ -746,10 +746,10 @@ global:
 ```bash
 # 1. 检查服务状态
 docker ps | grep backend
-docker logs --tail 100 deepdive-backend
+docker logs --tail 100 genesis-backend
 
 # 2. 尝试重启
-docker restart deepdive-backend
+docker restart genesis-backend
 
 # 3. 如果问题持续，检查依赖
 ./scripts/monitoring/check-dependencies.sh

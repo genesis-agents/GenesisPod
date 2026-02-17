@@ -175,7 +175,7 @@ Response:
 
 当用户提问包含以下关键词时，自动注入 Genesis.ai 项目知识：
 
-- "deepdive"
+- "genesis"
 - "这个项目"
 - "ai studio"
 - "ai office"
@@ -353,13 +353,13 @@ Response:
 
 ```bash
 # 1. 创建会话
-curl -X POST https://api.deepdive.com/api/v1/ai-ask/sessions \
+curl -X POST https://api.genesis.ai/api/v1/ai-ask/sessions \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"title": "测试会话"}'
 
 # 2. 发送消息
-curl -X POST https://api.deepdive.com/api/v1/ai-ask/sessions/SESSION_ID/messages \
+curl -X POST https://api.genesis.ai/api/v1/ai-ask/sessions/SESSION_ID/messages \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"content": "你好"}'
@@ -370,7 +370,7 @@ curl -X POST https://api.deepdive.com/api/v1/ai-ask/sessions/SESSION_ID/messages
 ```bash
 # 前提：已创建知识库并上传文档（通过 RAG 模块）
 
-curl -X POST https://api.deepdive.com/api/v1/ai-ask/sessions/SESSION_ID/messages \
+curl -X POST https://api.genesis.ai/api/v1/ai-ask/sessions/SESSION_ID/messages \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

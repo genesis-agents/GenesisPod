@@ -452,4 +452,4 @@ curl -X POST /api/v1/rag/query \
 ---
 
 **最后更新**: 2026-01-15
-**维护者**: DeepDive Team
+**维护者**: Genesis Team

@@ -8,7 +8,7 @@ function global:claude {
         $remainingArgs
     )
 
-    $proxyPath = "D:\projects\deepdive\litellm-proxy"
+    $proxyPath = "D:\projects\genesis\litellm-proxy"
     $claudeCmd = "C:\Users\dudugo\AppData\Roaming\npm\claude.cmd"
 
     if ($api) {
