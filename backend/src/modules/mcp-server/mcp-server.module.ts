@@ -11,7 +11,7 @@
  * 让外部 AI 工具（Claude Code、Cursor、OpenClaw 等）调用 Genesis 能力
  */
 
-import { Module, OnModuleInit } from "@nestjs/common";
+import { Module, OnModuleInit, forwardRef } from "@nestjs/common";
 import { MCPServerController } from "./mcp-server.controller";
 import { MCPServerService } from "./mcp-server.service";
 import { MCPServerAdminController } from "./mcp-server-admin.controller";
@@ -41,7 +41,11 @@ import { AiEngineConstraintModule } from "../ai-engine/ai-engine-constraint.modu
 import { DiscussionModule } from "../ai-app/research/discussion/discussion.module";
 
 @Module({
-  imports: [SecretsModule, AiEngineConstraintModule, DiscussionModule],
+  imports: [
+    SecretsModule,
+    AiEngineConstraintModule,
+    forwardRef(() => DiscussionModule),
+  ],
   controllers: [MCPServerController, MCPServerAdminController],
   providers: [
     // Core

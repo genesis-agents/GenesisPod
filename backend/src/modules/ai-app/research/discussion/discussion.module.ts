@@ -8,7 +8,7 @@
  *
  * 保留旧服务用于向后兼容旧 session 和 MCP Server 调用
  */
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
@@ -36,7 +36,7 @@ const services = [
 ];
 
 @Module({
-  imports: [PrismaModule, AiEngineModule, CreditsModule],
+  imports: [PrismaModule, forwardRef(() => AiEngineModule), CreditsModule],
   controllers: [DiscussionController],
   providers: services,
   exports: services,
