@@ -122,10 +122,54 @@ export class HtmlCaptureService {
               ) {
                 styles.push(rule.cssText);
               }
-            } else {
-              // @font-face, @keyframes, @media 等全部保留
-              styles.push(rule.cssText);
+            } else if (rule instanceof CSSMediaRule) {
+              // @media: 只保留内部有匹配规则的 media query
+              const matchedInner: string[] = [];
+              for (const inner of Array.from(rule.cssRules)) {
+                if (
+                  inner instanceof CSSStyleRule &&
+                  this.selectorMightMatch(
+                    inner.selectorText,
+                    usedClasses,
+                    usedTags,
+                    usedIds
+                  )
+                ) {
+                  matchedInner.push(inner.cssText);
+                }
+              }
+              if (matchedInner.length > 0) {
+                styles.push(
+                  `@media ${rule.conditionText} { ${matchedInner.join(' ')} }`
+                );
+              }
+            } else if (rule instanceof CSSKeyframesRule) {
+              // @keyframes: 只保留容器中实际使用的动画
+              const animName = rule.name;
+              const isUsed = Array.from(elements).some((el) => {
+                const computed = window.getComputedStyle(el);
+                return computed.animationName.includes(animName);
+              });
+              if (isUsed) {
+                styles.push(rule.cssText);
+              }
+            } else if (rule instanceof CSSFontFaceRule) {
+              // @font-face: 只保留容器中实际使用的字体
+              const fontFamily = rule.style
+                .getPropertyValue('font-family')
+                .replace(/['"]/g, '')
+                .trim();
+              if (fontFamily) {
+                const isUsed = Array.from(elements).some((el) => {
+                  const computed = window.getComputedStyle(el);
+                  return computed.fontFamily.includes(fontFamily);
+                });
+                if (isUsed) {
+                  styles.push(rule.cssText);
+                }
+              }
             }
+            // 其他 at-rules（@layer, @supports 等）跳过以减少体积
           }
         } catch {
           // 跨域样式表无法访问 cssRules，跳过

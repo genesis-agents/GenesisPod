@@ -215,12 +215,41 @@ export function useExport(): UseExportResult {
       setStatus({ status: 'processing', progress: 0 });
 
       try {
-        // 1. 创建导出任务 (WYSIWYG HTML body 可能很大，需要更长超时)
-        const { jobId } = await apiClient.post<{ jobId: string }>(
-          '/export',
-          request,
-          { timeout: 120000 }
-        );
+        // 1. 创建导出任务
+        let actualRequest = request;
+
+        // WYSIWYG body 可能很大（HTML + Tailwind CSS），先尝试发送
+        // 如果失败则自动 fallback 到 editable 模式（后端自行渲染）
+        let jobId: string;
+        try {
+          const res = await apiClient.post<{ jobId: string }>(
+            '/export',
+            actualRequest,
+            { timeout: 120000 }
+          );
+          jobId = res.jobId;
+        } catch (postError) {
+          // WYSIWYG 请求失败（body 太大/连接中断），fallback 到 editable 模式
+          if (
+            actualRequest.options?.renderMode === 'wysiwyg' &&
+            actualRequest.options?.wysiwygHtml
+          ) {
+            const fallbackOptions = { ...actualRequest.options };
+            delete fallbackOptions.wysiwygHtml;
+            delete fallbackOptions.wysiwygCss;
+            fallbackOptions.renderMode = 'editable';
+            actualRequest = { ...actualRequest, options: fallbackOptions };
+
+            const res = await apiClient.post<{ jobId: string }>(
+              '/export',
+              actualRequest,
+              { timeout: 120000 }
+            );
+            jobId = res.jobId;
+          } else {
+            throw postError;
+          }
+        }
 
         // 2. 轮询任务状态
         const result = await pollJobStatus(jobId, (progress) => {
