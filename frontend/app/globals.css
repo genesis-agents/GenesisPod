@@ -916,20 +916,19 @@ body {
 .logo-shimmer {
   background: linear-gradient(
     90deg,
-    #0F2A46 0%,
-    #2BB7DA 25%,
-    #7C5BFE 50%,
-    #FF6B9D 60%,
-    #FFD93D 70%,
-    #7C5BFE 85%,
-    #2BB7DA 95%,
-    #0F2A46 100%
+    #4338CA 0%,
+    #6366F1 15%,
+    #06B6D4 35%,
+    #8B5CF6 55%,
+    #EC4899 70%,
+    #6366F1 85%,
+    #4338CA 100%
   );
   background-size: 200% auto;
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: logo-shimmer 3s linear infinite;
+  animation: logo-shimmer 4s linear infinite;
 }
 
 /* Annotation mark base styles */

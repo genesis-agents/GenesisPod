@@ -26,7 +26,7 @@ export function BrandLogo({
         className={`${iconClassName} relative flex-shrink-0`}
         style={{
           filter:
-            'drop-shadow(0 0 4px rgba(6,182,212,0.4)) drop-shadow(0 0 8px rgba(139,92,246,0.3)) drop-shadow(0 0 2px rgba(236,72,153,0.3))',
+            'drop-shadow(0 0 6px rgba(99,102,241,0.5)) drop-shadow(0 0 12px rgba(139,92,246,0.35)) drop-shadow(0 0 3px rgba(6,182,212,0.4))',
         }}
       >
         <Image
@@ -42,7 +42,7 @@ export function BrandLogo({
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
             <span
-              className="logo-shimmer text-[14px] font-bold tracking-tight"
+              className="logo-shimmer text-[16px] font-extrabold tracking-tight"
               style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
             >
               {config.brand.name}

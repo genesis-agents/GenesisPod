@@ -2,6 +2,106 @@
 
 Genesis.ai 版本变更记录。
 
+## 3.74.0 (2026-02-17)
+
+### Refactoring
+
+- **research:** extract project dialogs into standalone components
+- **ai:** system-wide evaluation fixes — 23 tasks across AI Engine and AI Apps
+- **ai-engine:** migrate 6 services from AI Apps to AI Engine core
+- **finance-api:** migrate API key to Secrets Manager
+- **brand:** comprehensive cleanup of all raven/deepdive references
+- **brand:** replace remaining raven references with genesis
+- **brand:** revert to original layout with Genesis + AI ENGINE subtitle
+- centralize brand configuration with env var support
+- **planning:** quality overhaul for AI planning output
+- **nav:** move AI Teams to planning group and rename to AI 探讨
+- **research:** restructure AI Research into discussion-ideas-demos pipeline
+
+### Bug Fixes
+
+- **admin:** add FINANCE category to SecretsManager CATEGORY_OPTIONS
+- **deps:** resolve circular dependency in DiscussionModule and MCPServerModule
+- **admin:** add forwardRef for AiEngineModule import
+- **content-processing:** add forwardRef to break circular dependency chain
+- **content-fetch:** break circular dependency via optional YoutubeService injection
+- **export:** pass exportScope to backend for full planning export
+- **export:** reduce WYSIWYG payload size and add editable fallback
+- **export:** add dedicated API route to bypass rewrite proxy for large bodies
+- **export:** increase timeout for export POST to prevent ECONNRESET
+- **explore:** add missing auth header to thumbnail extract request
+- **explore:** add missing auth header to resource PATCH request
+- **scheduler:** sync collection rules with actual data source categories
+- **scheduler:** persist enabled/interval config to database via SettingsService
+- **brand:** move version badge inline next to brand name
+- **planning:** strengthen Phase 1 to focus on problem decomposition not solutions
+- **teams:** handle nullable metadata in planning topic exclusion filter
+- **i18n:** complete AI 团队 → AI 探讨 rename in zh.json
+- **teams:** exclude planning topics from teams list and add playwright
+- **planning:** improve orchestrator execution architecture for output quality
+- **slides:** enforce real FA icons, layout variety, clean cover, and 4 KPI cards
+- **slides:** tighten design system prompt for title brevity and visual balance
+- **slides:** improve design system prompt and fix skill runtime issues
+- **research:** improve generate demo button UX with feedback and duplicate guard
+- **research:** use text markers for citations in markdown rendering
+- **research:** render report content as markdown with proper formatting
+- **research:** limit insights to top 30 for creative idea extraction
+- **research:** case-insensitive feasibility filter for creative ideas
+- **research:** extend recovery polling to 15 minutes to match synthesis timeout
+- **research:** add SSE heartbeat and safe write to prevent proxy idle disconnect
+- **research:** parallelize report section generation to prevent synthesis timeout
+- **research:** eliminate double report generation in synthesis phase
+- **research:** increase synthesis timeout to 8min and protect streaming
+- **research:** fix empty reports/ideas with timeout increase and recovery
+- **research:** auto-correct stale discussion sessions stuck in intermediate states
+- **research:** improve h3 heading styling and add missing i18n keys
+- **research:** add markdown formatting to all discussion phase prompts
+- **research:** improve discussion output hierarchy and add team panel controls
+- **search:** use 24h cooldown for quota-exhausted API keys instead of 5min
+- **ai-engine:** resolve preferred model by modelType instead of passing raw enum string
+- **research:** fix demos tab flickering caused by polling loop
+- **research:** fix ideas extraction state management
+- **research:** ai-powered idea extraction + multi-call report generation
+- **research:** fix project list parsing, ideas extraction, and report quality
+- **research:** fix SSE streaming and agent hexagon layout
+- **research:** deep review fixes for AgentPanel, DiscussionChat, and history viewing
+- **research:** fix stale closure causing empty discussion history
+- **research:** fix broken connector lines in PhaseIndicator
+- **research:** refactor left panel collapse to match AI Insights pattern
+- **research:** add empty state for session history with no discussion messages
+- **research:** fix left panel and chat overflow with proper flex height chain
+- **research:** render JSON directions as cards and fix layout overflow
+- **social:** skip xiaohongshu MCP registration when XHS_MCP_URL not set
+- **research:** fix SSE parser losing events across TCP chunks
+- **research:** add auth header to SSE stream and ensure DB migration runs
+- **credits:** add missing CreditTransactionType enum values to deploy script
+- **research:** fix DB migration for discussion-driven research
+- **data-collection:** restore .data access for self-wrapped list endpoints
+- **data-collection:** fix response unwrapping causing batch collection failure
+- **ui:** update initial notifications with useful actionUrls
+- **ui:** move changelog link to header version badge, remove sidebar item
+- **build:** handle Docker build where root package.json is absent
+- **ui:** make notification cards clickable and add What's New to sidebar
+
+### Features
+
+- **tools:** add finance-data capability to tools management UI
+- **tools:** add Alpha Vantage finance API to external tools management
+- **brand:** redesign logo to Orbital Core - AI team concept
+- **brand:** enlarge logo with colorful CSS glow and version badge as superscript
+- **brand:** use original PNG logo and clean up all remaining brand refs
+- **brand:** rebrand to Genesis.ai with new squirrel logo
+- **export:** upgrade fonts to Inter + Microsoft YaHei/Noto Sans SC
+- **planning:** add full planning process WYSIWYG export
+- **office:** refactor slides engine to AI-adaptive HTML generation (v6.0)
+- **research:** add rename and delete actions to project cards
+- **research:** add project naming dialog before creating new research
+- **research:** add bilingual (zh-CN/en-US) support for discussion research
+- **research:** 5-tab refactor with insights/creative ideas separation
+- **research:** structured idea extraction with expandable cards
+- **research:** structured idea cards with click-to-expand detail
+- **research:** implement discussion-driven deep research
+
 ## 3.73.0 (2026-02-16)
 
 ### Refactoring

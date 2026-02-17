@@ -76,6 +76,20 @@ if (!baseCommit) {
   );
 }
 
+// Fallback: find the most recent release/bump commit of ANY version
+if (!baseCommit) {
+  baseCommit = git(`log --all --format=%H --grep="chore(release):" -1`);
+  if (baseCommit) {
+    console.log(`Using latest release commit as fallback base`);
+  }
+}
+if (!baseCommit) {
+  baseCommit = git(`log --all --format=%H --grep="bump version to" -1`);
+  if (baseCommit) {
+    console.log(`Using latest bump commit as fallback base`);
+  }
+}
+
 // ── Step 3: Get new conventional commits since last release ────────────────
 let newCommits = [];
 if (baseCommit) {
