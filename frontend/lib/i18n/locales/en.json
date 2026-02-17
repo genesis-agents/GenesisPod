@@ -3658,6 +3658,7 @@
         "policy": "Policy Research",
         "mcp": "MCP Servers",
         "devtools": "Dev Tools",
+        "finance": "Finance Data",
         "generation": "Content Generation",
         "processing": "Processing"
       },
@@ -3789,6 +3790,11 @@
           "description": "Official White House statements, press briefings, and presidential actions",
           "tags": "White House, Press, Executive",
           "features": "Press briefings, Statements, Presidential actions"
+        },
+        "alpha-vantage": {
+          "description": "Real-time financial data API for stocks, forex, crypto quotes and fundamentals",
+          "tags": "Stocks, Forex, Crypto, Financial Data",
+          "features": "Real-time quotes, Historical data, Fundamental analysis, Technical indicators"
         }
       }
     },
@@ -3908,6 +3914,7 @@
         "tts": "Text-to-Speech",
         "skillsmp": "Skills Marketplace",
         "policy": "Policy Research",
+        "finance": "Finance Data",
         "devTools": "Dev Tools",
         "mcp": "MCP Servers",
         "other": "Other"

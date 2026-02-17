@@ -3658,6 +3658,7 @@
         "policy": "政策研究",
         "mcp": "MCP 服务器",
         "devtools": "开发工具",
+        "finance": "金融数据",
         "generation": "内容生成",
         "processing": "数据处理"
       },
@@ -3789,6 +3790,11 @@
           "description": "美国白宫官方声明、新闻发布、总统行动",
           "tags": "白宫, 新闻, 行政",
           "features": "新闻简报, 官方声明, 总统行动"
+        },
+        "alpha-vantage": {
+          "description": "实时金融数据API，提供股票、外汇、加密货币行情和基本面数据",
+          "tags": "股票, 外汇, 加密货币, 金融数据",
+          "features": "实时行情, 历史数据, 基本面分析, 技术指标"
         }
       }
     },
@@ -3908,6 +3914,7 @@
         "tts": "语音合成",
         "skillsmp": "技能市场",
         "policy": "政策研究",
+        "finance": "金融数据",
         "devTools": "开发工具",
         "mcp": "MCP 服务器",
         "other": "其他"

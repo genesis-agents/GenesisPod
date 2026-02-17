@@ -127,6 +127,15 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     freeQuota: "Basic search free",
     secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING.skillsmp,
   },
+  // Finance Data
+  {
+    id: "alpha-vantage",
+    name: "Alpha Vantage",
+    category: "Finance Data",
+    url: "https://www.alphavantage.co",
+    freeQuota: "25 requests/day",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING["alpha-vantage"],
+  },
   // Policy Research
   {
     id: "federal-register",

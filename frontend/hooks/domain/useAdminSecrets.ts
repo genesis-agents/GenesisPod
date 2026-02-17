@@ -10,6 +10,7 @@ export type SecretCategory =
   | 'TTS'
   | 'SKILLSMP'
   | 'POLICY'
+  | 'FINANCE'
   | 'DEV_TOOLS'
   | 'MCP'
   | 'OTHER';

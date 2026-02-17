@@ -30,6 +30,7 @@ const EXTERNAL_CATEGORIES = [
   'external-youtube',
   'external-tts',
   'external-skills',
+  'external-finance',
   'policy-research',
 ] as const;
 

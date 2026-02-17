@@ -120,6 +120,14 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     freeQuota: 'Basic search free',
     pricing: 'Free/Paid',
   },
+  // Finance Data
+  {
+    id: 'alpha-vantage',
+    name: 'Alpha Vantage',
+    category: 'external-finance',
+    url: 'https://www.alphavantage.co',
+    freeQuota: '25 requests/day',
+  },
   // Policy Research Tools
   {
     id: 'federal-register',

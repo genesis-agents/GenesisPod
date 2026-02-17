@@ -33,6 +33,7 @@ const CATEGORY_TO_SECRET_CATEGORY: Record<string, string | null> = {
   'external-youtube': 'YOUTUBE',
   'external-tts': 'TTS',
   'external-skills': 'SKILLSMP',
+  'external-finance': 'FINANCE',
   'policy-research': 'POLICY',
   'external-devtools': 'DEV_TOOLS',
   mcp: 'MCP',

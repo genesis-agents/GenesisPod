@@ -7491,6 +7491,7 @@ enum SecretCategory {
   TTS // 语音合成 API
   SKILLSMP // SkillsMP API
   POLICY // 政策研究 API (Congress.gov)
+  FINANCE // 金融数据 API (Alpha Vantage)
   DEV_TOOLS // 开发工具 API (GitHub, GitLab)
   MCP // MCP 服务器 API (Slack, Google Drive)
   USER_DONATED // 用户捐赠的 API Key
