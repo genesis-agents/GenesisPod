@@ -215,10 +215,11 @@ export function useExport(): UseExportResult {
       setStatus({ status: 'processing', progress: 0 });
 
       try {
-        // 1. 创建导出任务
+        // 1. 创建导出任务 (WYSIWYG HTML body 可能很大，需要更长超时)
         const { jobId } = await apiClient.post<{ jobId: string }>(
           '/export',
-          request
+          request,
+          { timeout: 120000 }
         );
 
         // 2. 轮询任务状态
