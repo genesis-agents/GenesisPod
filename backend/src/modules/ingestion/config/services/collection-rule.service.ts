@@ -376,16 +376,6 @@ export class CollectionRuleService {
           description: "YouTube videos collection rule",
         },
         {
-          resourceType: "RSS" as ResourceType,
-          cronExpression: "*/30 * * * *", // 每30分钟
-          maxConcurrent: 4,
-          timeout: 180,
-          deduplicationStrategy: "CONTENT_HASH",
-          minimumQualityScore: 0.5,
-          priority: 4,
-          description: "RSS feeds collection rule",
-        },
-        {
           resourceType: "REPORT" as ResourceType,
           cronExpression: "0 0 1 * *", // 每月1号凌晨
           maxConcurrent: 2,
@@ -396,14 +386,14 @@ export class CollectionRuleService {
           description: "Industry reports collection rule",
         },
         {
-          resourceType: "EVENT" as ResourceType,
-          cronExpression: "0 0 * * 0", // 每周一凌晨
-          maxConcurrent: 2,
+          resourceType: "POLICY" as ResourceType,
+          cronExpression: "0 0 * * *", // 每天凌晨
+          maxConcurrent: 3,
           timeout: 300,
-          deduplicationStrategy: "URL_ONLY",
-          minimumQualityScore: 0.6,
-          priority: 1,
-          description: "Tech events collection rule",
+          deduplicationStrategy: "CONTENT_HASH",
+          minimumQualityScore: 0.7,
+          priority: 2,
+          description: "US tech policy collection rule",
         },
       ];
 
