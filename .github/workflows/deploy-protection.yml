@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 2 # 获取最近2个commit，以便与HEAD~1对比
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: "npm"
