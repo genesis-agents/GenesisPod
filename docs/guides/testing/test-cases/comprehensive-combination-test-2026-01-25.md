@@ -1,4 +1,4 @@
-# DeepDive Engine 全面组合测试方案
+# Genesis.ai 全面组合测试方案
 
 **测试日期**: 2026-01-25
 **测试环境**: https://deepdive-engine.up.railway.app
@@ -402,7 +402,7 @@
 
 ## 结论
 
-本次测试验证了 DeepDive Engine 的核心功能组合正常工作：
+本次测试验证了 Genesis.ai 的核心功能组合正常工作：
 
 1. **AI Ask 模块**：单模型和多模型(Mixture)均能正常工作，联网搜索和知识库集成功能完善
 2. **知识库模块**：CRUD操作正常，与AI Ask集成良好

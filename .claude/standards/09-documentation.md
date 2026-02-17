@@ -19,7 +19,7 @@
 
 ## 文档类型
 
-DeepDive Engine的文档体系：
+Genesis.ai的文档体系：
 
 ```
 docs/

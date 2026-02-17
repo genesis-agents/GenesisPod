@@ -228,7 +228,7 @@ export const TEMPLATE_VARIABLE_MAPPINGS: Record<
       SUBTITLE: (c) => c.subtitle || "",
       DATE: (c) => c.metadata?.date || new Date().toLocaleDateString("zh-CN"),
       AUTHOR: (c) => c.metadata?.author || "",
-      ORG_NAME: (c) => "DeepDive Engine",
+      ORG_NAME: (c) => "Genesis.ai",
     },
     fallbacks: {
       SUBTITLE: "专业分析报告",

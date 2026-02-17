@@ -5,78 +5,89 @@ import * as path from "path";
 
 /**
  * Brand Logo Service
- * Provides centralized access to brand logo SVG for backend rendering
+ * Provides centralized access to brand logo for backend rendering
  * (Puppeteer infographics, PDF generation, etc.)
+ *
+ * Supports both SVG and PNG logo files.
+ * - SVG: returned as raw SVG string (inline-able in HTML)
+ * - PNG/other: returned as `<img>` tag with base64 data URI
  */
 @Injectable()
 export class BrandLogoService {
   private readonly logger = new Logger(BrandLogoService.name);
-  private cachedSvg: string | null = null;
-
-  /** Default fallback logo — Genesis.ai tech squirrel */
-  private readonly DEFAULT_LOGO = `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366F1"/>
-      <stop offset="50%" stop-color="#8B5CF6"/>
-      <stop offset="100%" stop-color="#A78BFA"/>
-    </linearGradient>
-    <linearGradient id="tailGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#06B6D4"/>
-      <stop offset="40%" stop-color="#8B5CF6"/>
-      <stop offset="100%" stop-color="#EC4899"/>
-    </linearGradient>
-  </defs>
-  <path d="M12.5 27.5 Q7.5 25 6.25 20 Q5 13.75 8.75 10 Q11.25 6.875 15 7.5" stroke="url(#tailGrad)" stroke-width="2" stroke-linecap="round" fill="none"/>
-  <path d="M12.5 27.5 Q8.75 22.5 9.375 17.5 Q10 12.5 13.75 10.625" stroke="url(#tailGrad)" stroke-width="2" stroke-linecap="round" fill="none"/>
-  <path d="M12.5 27.5 Q11.25 21.25 12.5 17.5 Q13.75 13.75 16.875 12.5" stroke="url(#tailGrad)" stroke-width="2" stroke-linecap="round" fill="none"/>
-  <circle cx="15" cy="7.5" r="1.6" fill="#06B6D4"/>
-  <circle cx="8.75" cy="10" r="1.6" fill="#8B5CF6"/>
-  <circle cx="6.25" cy="20" r="1.6" fill="#EC4899"/>
-  <circle cx="9.375" cy="17.5" r="1.4" fill="#A78BFA"/>
-  <circle cx="13.75" cy="10.625" r="1.4" fill="#6366F1"/>
-  <circle cx="12.5" cy="17.5" r="1.4" fill="#06B6D4"/>
-  <circle cx="16.875" cy="12.5" r="1.4" fill="#EC4899"/>
-  <circle cx="15" cy="7.5" r="3.2" fill="#06B6D4" opacity="0.15"/>
-  <circle cx="8.75" cy="10" r="3.2" fill="#8B5CF6" opacity="0.15"/>
-  <circle cx="6.25" cy="20" r="3.2" fill="#EC4899" opacity="0.15"/>
-  <ellipse cx="18.75" cy="27.5" rx="5.625" ry="6.25" fill="url(#bodyGrad)"/>
-  <ellipse cx="23.75" cy="18.125" rx="5" ry="5.625" fill="url(#bodyGrad)"/>
-  <path d="M26.25 13.125 L28.125 9.375 L25 11.875" fill="#8B5CF6"/>
-  <circle cx="25.625" cy="16.875" r="1.25" fill="white"/>
-  <circle cx="26" cy="16.875" r="0.625" fill="#1E1B4B"/>
-  <circle cx="28.125" cy="19.375" r="0.75" fill="#C4B5FD"/>
-  <path d="M25 22.5 Q27.5 23.75 28.125 25.625" stroke="url(#bodyGrad)" stroke-width="1.75" stroke-linecap="round" fill="none"/>
-  <circle cx="28.75" cy="26.25" r="1.5" fill="#F59E0B"/>
-</svg>`;
+  private cachedLogoHtml: string | null = null;
 
   /**
-   * Get the brand logo SVG string.
-   * Tries to load from configured file path, falls back to built-in default.
+   * Get the brand logo as an HTML string suitable for embedding in Puppeteer templates.
+   * For SVG files, returns raw SVG markup.
+   * For PNG/other image files, returns an `<img>` tag with base64 data URI.
    */
   getLogoSvg(): string {
-    if (this.cachedSvg !== null) {
-      return this.cachedSvg;
+    if (this.cachedLogoHtml !== null) {
+      return this.cachedLogoHtml;
     }
 
-    const svgPath = APP_CONFIG.brand.logo.svgPath;
+    const logoPath = APP_CONFIG.brand.logo.svgPath;
     try {
-      const absolutePath = path.resolve(process.cwd(), svgPath);
+      const absolutePath = path.resolve(process.cwd(), logoPath);
       if (fs.existsSync(absolutePath)) {
-        this.cachedSvg = fs.readFileSync(absolutePath, "utf-8");
+        const ext = path.extname(absolutePath).toLowerCase();
+        if (ext === ".svg") {
+          this.cachedLogoHtml = fs.readFileSync(absolutePath, "utf-8");
+        } else {
+          // For PNG/JPG/other formats, create <img> with data URI
+          const mimeType =
+            ext === ".png"
+              ? "image/png"
+              : ext === ".jpg" || ext === ".jpeg"
+                ? "image/jpeg"
+                : "image/png";
+          const base64 = fs.readFileSync(absolutePath).toString("base64");
+          this.cachedLogoHtml = `<img src="data:${mimeType};base64,${base64}" style="width:100%;height:100%;object-fit:contain" />`;
+        }
         this.logger.log(`Brand logo loaded from ${absolutePath}`);
-        return this.cachedSvg;
+        return this.cachedLogoHtml;
       }
     } catch (err) {
       this.logger.warn(
-        `Failed to load brand logo from ${svgPath}: ${err instanceof Error ? err.message : err}`,
+        `Failed to load brand logo from ${logoPath}: ${err instanceof Error ? err.message : err}`,
       );
     }
 
-    this.cachedSvg = this.DEFAULT_LOGO;
+    // Fallback: try to find logo.png in the brand directory
+    try {
+      const fallbackPath = path.resolve(process.cwd(), "brand/logo.png");
+      if (fs.existsSync(fallbackPath)) {
+        const base64 = fs.readFileSync(fallbackPath).toString("base64");
+        this.cachedLogoHtml = `<img src="data:image/png;base64,${base64}" style="width:100%;height:100%;object-fit:contain" />`;
+        this.logger.log(`Brand logo loaded from fallback ${fallbackPath}`);
+        return this.cachedLogoHtml;
+      }
+    } catch {
+      // Ignore fallback errors
+    }
+
+    this.cachedLogoHtml = this.DEFAULT_LOGO;
     this.logger.log("Using default built-in brand logo");
-    return this.cachedSvg;
+    return this.cachedLogoHtml;
   }
+
+  /** Default fallback logo — Genesis.ai tech squirrel (simple SVG) */
+  private readonly DEFAULT_LOGO = `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M16.25 30 Q8.75 27.5 6.875 21.25 Q5 15 8.125 10.625 Q10.625 6.875 14.375 6.25" stroke="#1E293B" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+  <path d="M16.25 30 Q10.625 25 10 19.375 Q9.375 13.75 12.5 10" stroke="#1E293B" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+  <path d="M16.25 30 Q13.125 24.375 13.75 19.375 Q14.375 15 17.5 12.5" stroke="#1E293B" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+  <circle cx="14.375" cy="6.25" r="1.5" fill="#06B6D4"/>
+  <circle cx="8.125" cy="10.625" r="1.5" fill="#8B5CF6"/>
+  <circle cx="6.875" cy="21.25" r="1.5" fill="#EC4899"/>
+  <ellipse cx="20" cy="28.75" rx="5" ry="6" stroke="#1E293B" stroke-width="1.5" fill="none"/>
+  <ellipse cx="25.625" cy="20" rx="4.75" ry="5" stroke="#1E293B" stroke-width="1.5" fill="none"/>
+  <path d="M27.5 15.625 L29.375 11.875 L26.25 14.375" stroke="#1E293B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="27.5" cy="18.75" r="1" fill="#1E293B"/>
+  <circle cx="30" cy="21.25" r="0.625" fill="#1E293B"/>
+  <path d="M26.875 24.375 Q28.75 25.625 29.375 27.5" stroke="#1E293B" stroke-width="1.375" stroke-linecap="round" fill="none"/>
+  <circle cx="30" cy="28.125" r="1.25" stroke="#1E293B" stroke-width="1" fill="none"/>
+</svg>`;
 
   /** Get brand name for watermarks and footers */
   getBrandName(): string {

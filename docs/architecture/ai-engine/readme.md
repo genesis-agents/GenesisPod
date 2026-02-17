@@ -8,7 +8,7 @@
 
 ## 概述
 
-AI Engine 是 DeepDive Engine 的核心能力层，提供领域无关的通用 AI 能力。所有 AI Apps（AI Research、AI Teams、AI Office 等）通过统一的 `AIEngineFacade` 消费这些能力。
+AI Engine 是 Genesis.ai 的核心能力层，提供领域无关的通用 AI 能力。所有 AI Apps（AI Research、AI Teams、AI Office 等）通过统一的 `AIEngineFacade` 消费这些能力。
 
 ### 核心定位
 

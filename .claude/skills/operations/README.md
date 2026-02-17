@@ -1,6 +1,6 @@
 # Operations Skills
 
-> DevOps, debugging, and operational tasks for DeepDive Engine.
+> DevOps, debugging, and operational tasks for Genesis.ai.
 
 ## Skills Overview
 

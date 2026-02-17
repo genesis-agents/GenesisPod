@@ -36,7 +36,7 @@
 
 #### 当前架构状态
 
-DeepDive Engine 已具备 AI Agent 系统的基础框架:
+Genesis.ai 已具备 AI Agent 系统的基础框架:
 
 ```
 已实现:

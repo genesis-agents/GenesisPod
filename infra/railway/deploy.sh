@@ -1,10 +1,10 @@
 #!/bin/bash
-# Railway Deployment Script for DeepDive Engine
+# Railway Deployment Script for Genesis.ai
 
 set -e
 
 echo "=========================================="
-echo "  DeepDive Engine - Railway Deployment"
+echo "  Genesis.ai - Railway Deployment"
 echo "=========================================="
 
 # Check if Railway CLI is installed
@@ -28,7 +28,7 @@ cd "$PROJECT_ROOT"
 
 # Initialize project if not exists
 if [ ! -f ".railway/config.json" ]; then
-    railway init --name "deepdive-engine"
+    railway init --name "genesis-ai"
 fi
 
 echo ""

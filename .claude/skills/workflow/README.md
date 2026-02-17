@@ -1,6 +1,6 @@
 # Workflow Skills
 
-> Task planning and execution workflows for DeepDive Engine.
+> Task planning and execution workflows for Genesis.ai.
 
 ## Skills Overview
 

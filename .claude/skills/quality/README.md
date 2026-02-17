@@ -1,6 +1,6 @@
 # Quality Skills
 
-> Testing, code review, and performance optimization for DeepDive Engine.
+> Testing, code review, and performance optimization for Genesis.ai.
 
 ## Skills Overview
 

@@ -1,4 +1,4 @@
-# Raven AI Engine — MCP Skill Manifest
+# Genesis.ai — MCP Skill Manifest
 
 > 声明式能力描述，供 OpenClaw、Claude Code 等 MCP 客户端自动发现和集成。
 
@@ -13,7 +13,7 @@ description: >
   Enterprise AI engine exposing deep research, multi-agent debate,
   content analysis, writing assistance, and 50+ dynamic tools
   via the Model Context Protocol.
-author: Raven AI
+author: Genesis AI
 license: proprietary
 ```
 
@@ -90,7 +90,7 @@ output:
     sections: array[{title, content, sources}]
     conclusion: string
     references: array[{title, url, relevance}]
-    metadata: {totalSources, duration, depth}
+    metadata: { totalSources, duration, depth }
 ```
 
 ### raven_ask
@@ -101,7 +101,7 @@ category: chat
 tier: curated
 timeout: 60s
 description: >
-  Ask Raven AI a question. Supports multi-model responses
+  Ask Genesis AI a question. Supports multi-model responses
   with web search augmentation.
 input:
   question:
@@ -155,7 +155,7 @@ output:
   fields:
     topic: string
     rounds: array[{round, proArgument, conArgument}]
-    judgment: {winner, confidence, proStrengths, conStrengths, conclusion}
+    judgment: { winner, confidence, proStrengths, conStrengths, conclusion }
 ```
 
 ### raven_content_analysis
@@ -176,7 +176,8 @@ input:
     description: The text content to analyze
   analysisType:
     type: enum
-    values: [comprehensive, summary, key_findings, quality, structure, sentiment]
+    values:
+      [comprehensive, summary, key_findings, quality, structure, sentiment]
     default: comprehensive
   dimensions:
     type: array[string]
@@ -189,7 +190,7 @@ output:
   format: json
   fields:
     analysisType: string
-    result: object  # structure varies by analysisType
+    result: object # structure varies by analysisType
     model: string
     tokensUsed: number
 ```
@@ -230,7 +231,7 @@ output:
   format: json
   fields:
     task: string
-    result: object  # structure varies by task
+    result: object # structure varies by task
     model: string
     tokensUsed: number
 ```
@@ -320,9 +321,10 @@ prompts:
       style: { required: false, description: "academic|professional|..." }
 
   discover-capabilities:
-    description: Discover available Raven AI capabilities
+    description: Discover available Genesis AI capabilities
     arguments:
-      category: { required: false, description: "tools|skills|agents|teams|models" }
+      category:
+        { required: false, description: "tools|skills|agents|teams|models" }
 ```
 
 ---
@@ -332,16 +334,16 @@ prompts:
 ```yaml
 permissions:
   default_policy:
-    allowedToolPatterns: ["raven_*"]    # curated tools only
+    allowedToolPatterns: ["raven_*"] # curated tools only
     deniedToolPatterns: []
     maxConcurrency: 5
     dailyQuota: 1000
     allowStreaming: true
     allowResources: true
     allowPrompts: true
-  pattern_matching: glob  # supports *, tool_*, *_search, tool_*_v2
+  pattern_matching: glob # supports *, tool_*, *_search, tool_*_v2
   enforcement: deny-by-default
-  fail_mode: closed  # no session = denied
+  fail_mode: closed # no session = denied
 ```
 
 ---

@@ -135,10 +135,10 @@ prd/
 
 ### Core (核心系统)
 
-| 文件                                                                    | 版本 | 状态     | 说明                     |
-| ----------------------------------------------------------------------- | ---- | -------- | ------------------------ |
-| [deepdive-engine-prd-v2.0.md](./infra/core/deepdive-engine-prd-v2.0.md) | v2.0 | **当前** | DeepDive Engine 核心 PRD |
-| [credits-system-prd-v1.0.md](./infra/core/credits-system-prd-v1.0.md)   | v1.0 | **当前** | 积分系统 PRD             |
+| 文件                                                                    | 版本 | 状态     | 说明                |
+| ----------------------------------------------------------------------- | ---- | -------- | ------------------- |
+| [deepdive-engine-prd-v2.0.md](./infra/core/deepdive-engine-prd-v2.0.md) | v2.0 | **当前** | Genesis.ai 核心 PRD |
+| [credits-system-prd-v1.0.md](./infra/core/credits-system-prd-v1.0.md)   | v1.0 | **当前** | 积分系统 PRD        |
 
 **子文档**:
 

@@ -71,7 +71,7 @@ graph TB
         DB[(Databases)]
     end
 
-    subgraph DeepDive[DeepDive Engine]
+    subgraph DeepDive[Genesis.ai]
         FE[Frontend<br/>Next.js]
         BE[Backend<br/>NestJS]
     end

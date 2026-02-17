@@ -21,7 +21,7 @@
 
 ### Testing Trophy 原则
 
-DeepDive Engine采用**Testing Trophy**策略（优化版的测试金字塔）：
+Genesis.ai采用**Testing Trophy**策略（优化版的测试金字塔）：
 
 ```
         ╱╲  E2E Tests (10%)

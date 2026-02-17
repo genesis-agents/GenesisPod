@@ -8,10 +8,10 @@
 
 ## 1. 产品定位
 
-### 1.1 Raven 定位: AI 内容中台
+### 1.1 Genesis 定位: AI 内容中台
 
 ```
-素材/选题 → Raven 内容生产引擎 → 全平台分发
+素材/选题 → Genesis 内容生产引擎 → 全平台分发
 
                ┌── 输入层 ──┐        ┌── 生产层（核心）──┐        ┌── 分发层 ──┐
                │            │        │                   │        │           │
@@ -27,9 +27,9 @@
 
 ### 1.2 OpenClaw 角色: 分发通道合作伙伴
 
-- OpenClaw 不是 Raven 的功能模块，而是通过 MCP 协议连接的外部分发通道
-- 用户在 Raven Admin 中配置 OpenClaw 实例连接，如同配置其他 MCP Server
-- Raven 不依赖 OpenClaw — 移除 OpenClaw 不影响核心功能
+- OpenClaw 不是 Genesis 的功能模块，而是通过 MCP 协议连接的外部分发通道
+- 用户在 Genesis Admin 中配置 OpenClaw 实例连接，如同配置其他 MCP Server
+- Genesis 不依赖 OpenClaw — 移除 OpenClaw 不影响核心功能
 
 ### 1.3 OpenClaw 核心特征
 
@@ -131,7 +131,7 @@ export enum SocialPlatformType {
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│                         Raven AI Content Hub                       │
+│                         Genesis AI Content Hub                       │
 ├──────────────────────────────────────────────────────────────────  ┤
 │                                                                    │
 │  ┌─────────────┐    ┌─────────────────────┐    ┌───────────────┐  │
@@ -176,7 +176,7 @@ PlatformAdapterRegistry.get(platformType)
 ### 3.3 OpenClaw 通信流
 
 ```
-Raven 发布内容到 WhatsApp:
+Genesis 发布内容到 WhatsApp:
 
 PublishExecutorService
   → PlatformAdapterRegistry.get("WHATSAPP")
@@ -191,11 +191,11 @@ PublishExecutorService
 ```
 
 ```
-Raven 接收 OpenClaw 触发的研究请求:
+Genesis 接收 OpenClaw 触发的研究请求:
 
 OpenClaw 用户在 WhatsApp: "帮我研究一下 AI 芯片行业"
   → OpenClaw Agent
-  → MCP Client → HTTP POST → Raven MCP Server (/mcp endpoint)
+  → MCP Client → HTTP POST → Genesis MCP Server (/mcp endpoint)
   → MCPServerService.handleRequest()
   → ResearchToolHandler.execute({ topic: "AI 芯片行业" })
   → GuardrailsPipeline.processInput() ← 安全校验
@@ -400,7 +400,7 @@ export class OpenClawChannelAdapter implements IPlatformAdapter {
 
   async initLogin(): Promise<LoginSession> {
     // OpenClaw 的认证由用户在 OpenClaw 侧完成
-    // Raven 只需要验证 MCP 连接可用
+    // Genesis 只需要验证 MCP 连接可用
     const isAvailable = this.mcpManager.getClient(this.mcpServerId)?.connected;
     return {
       sessionKey: this.mcpServerId,
@@ -526,32 +526,32 @@ export class OpenClawContentFormatter {
 
 ## 5. 技能生态互通（后期规划）
 
-### 5.1 Raven 技能发布到 ClawHub
+### 5.1 Genesis 技能发布到 ClawHub
 
-Raven 的深度研究、写作等能力可以作为 OpenClaw 技能发布:
+Genesis 的深度研究、写作等能力可以作为 OpenClaw 技能发布:
 
 ```yaml
 # SKILL.md (AgentSkills 格式)
 ---
 name: raven-deep-research
-description: Deep multi-dimensional research powered by Raven AI Engine
+description: Deep multi-dimensional research powered by Genesis.ai
 user-invocable: true
 metadata: {"openclaw": {"emoji": "magnifying_glass", "primaryEnv": "RAVEN_API_KEY"}}
 ---
 
-This skill connects to a Raven AI Engine instance to perform deep research.
+This skill connects to a Genesis.ai instance to perform deep research.
 
 ## Usage
 /raven-deep-research <topic>
 
 ## Configuration
 Set RAVEN_API_KEY in your OpenClaw settings.
-The skill will call Raven's MCP Server at the configured URL.
+The skill will call Genesis's MCP Server at the configured URL.
 ```
 
 ### 5.2 字段映射
 
-| Raven ISkill    | AgentSkills SKILL.md                  |
+| Genesis ISkill  | AgentSkills SKILL.md                  |
 | --------------- | ------------------------------------- |
 | `id`            | `name`                                |
 | `description`   | `description`                         |
@@ -562,13 +562,13 @@ The skill will call Raven's MCP Server at the configured URL.
 
 ### 5.3 Moltbook Agent 注册
 
-通过 A2A Client（已实现）将 Raven Agent 注册到 Moltbook:
+通过 A2A Client（已实现）将 Genesis Agent 注册到 Moltbook:
 
 ```
 A2AClientService.discoverAgent(moltbook-registry-url)
 → 获取 Moltbook Agent 注册 API
-→ 提交 Raven Agent Card (/.well-known/agent.json)
-→ Raven Agent 出现在 Moltbook 网络
+→ 提交 Genesis Agent Card (/.well-known/agent.json)
+→ Genesis Agent 出现在 Moltbook 网络
 ```
 
 ## 6. 安全设计
@@ -650,15 +650,15 @@ Phase 5 (1-2 天) ──── Admin UI 配置
 
 ## 9. 相关文档
 
-| 文档                     | 路径                                                                  |
-| ------------------------ | --------------------------------------------------------------------- |
-| ADR-004 集成策略决策     | `docs/decisions/004-openclaw-integration-strategy.md`                 |
-| AI Social 架构           | `docs/architecture/ai-apps/ai-social/ai-social-architecture.md`       |
-| Social MCP 重构方案      | `docs/architecture/ai-apps/ai-social/plans/ai-social-mcp-refactor.md` |
-| ADR-001 MCP 传输扩展     | `docs/decisions/001-mcp-transport-extension.md`                       |
-| ADR-002 Raven MCP Server | `docs/decisions/002-raven-as-mcp-server.md`                           |
-| ADR-003 A2A 协议         | `docs/decisions/003-a2a-protocol-adoption.md`                         |
-| OpenClaw 技能文档        | https://docs.openclaw.ai/tools/skills                                 |
+| 文档                       | 路径                                                                  |
+| -------------------------- | --------------------------------------------------------------------- |
+| ADR-004 集成策略决策       | `docs/decisions/004-openclaw-integration-strategy.md`                 |
+| AI Social 架构             | `docs/architecture/ai-apps/ai-social/ai-social-architecture.md`       |
+| Social MCP 重构方案        | `docs/architecture/ai-apps/ai-social/plans/ai-social-mcp-refactor.md` |
+| ADR-001 MCP 传输扩展       | `docs/decisions/001-mcp-transport-extension.md`                       |
+| ADR-002 Genesis MCP Server | `docs/decisions/002-raven-as-mcp-server.md`                           |
+| ADR-003 A2A 协议           | `docs/decisions/003-a2a-protocol-adoption.md`                         |
+| OpenClaw 技能文档          | https://docs.openclaw.ai/tools/skills                                 |
 
 ---
 

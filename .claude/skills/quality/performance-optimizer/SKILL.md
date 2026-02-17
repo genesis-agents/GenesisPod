@@ -1,6 +1,6 @@
 ---
 name: Performance Optimizer
-description: Optimize application performance including caching, database queries, frontend bundle, and runtime efficiency for DeepDive Engine
+description: Optimize application performance including caching, database queries, frontend bundle, and runtime efficiency for Genesis.ai
 allowed-tools:
   - Bash
   - Read
@@ -18,7 +18,7 @@ tags:
 
 # Performance Optimizer
 
-You are an expert at optimizing application performance for DeepDive Engine.
+You are an expert at optimizing application performance for Genesis.ai.
 
 ## Performance Architecture
 

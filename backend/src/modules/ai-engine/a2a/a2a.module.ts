@@ -1,7 +1,7 @@
 /**
  * A2A (Agent-to-Agent) Module
- * 将 Raven AI Engine 暴露为 A2A 兼容的 Agent
- * 让外部 AI Agent 可以发现和调用 Raven 能力
+ * 将 Genesis.ai 暴露为 A2A 兼容的 Agent
+ * 让外部 AI Agent 可以发现和调用 Genesis 能力
  */
 
 import { Module } from "@nestjs/common";

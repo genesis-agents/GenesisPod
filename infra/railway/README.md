@@ -2,7 +2,7 @@
 
 ## Overview
 
-DeepDive Engine 部署到 Railway 的完整指南。
+Genesis.ai 部署到 Railway 的完整指南。
 
 ## 架构
 

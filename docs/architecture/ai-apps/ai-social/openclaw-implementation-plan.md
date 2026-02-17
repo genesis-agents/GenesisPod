@@ -6,16 +6,16 @@
 
 ## Overview
 
-Integrate OpenClaw's multi-platform messaging capabilities into Raven's Social module, extending distribution from 2 platforms (WeChat MP, Xiaohongshu) to 8+ platforms (adding WhatsApp, Telegram, Discord, Slack). OpenClaw connects as a remote MCP Server; Raven's MCPManager calls OpenClaw tools for message delivery.
+Integrate OpenClaw's multi-platform messaging capabilities into Genesis's Social module, extending distribution from 2 platforms (WeChat MP, Xiaohongshu) to 8+ platforms (adding WhatsApp, Telegram, Discord, Slack). OpenClaw connects as a remote MCP Server; Genesis's MCPManager calls OpenClaw tools for message delivery.
 
-**Positioning**: Raven = AI Content Hub (deep content production + multi-platform distribution); OpenClaw = distribution channel partner via MCP.
+**Positioning**: Genesis = AI Content Hub (deep content production + multi-platform distribution); OpenClaw = distribution channel partner via MCP.
 
 **连接模式**: 所有新增平台（WhatsApp/Telegram/Discord/Slack）统一通过 OpenClaw MCP Server 对接。需要部署 OpenClaw 实例。
 
 ### Architecture Diagram
 
 ```
-Raven AI Content Hub
+Genesis AI Content Hub
 ├── Content Production (Research → Writing → Office)
 ├── Content Distribution
 │   ├── Direct Platforms (Playwright-based, existing)
@@ -31,12 +31,12 @@ Raven AI Content Hub
 
 ### OpenClaw 部署方式
 
-OpenClaw 是独立服务，Raven 通过 MCP 协议远程调用。部署选项：
+OpenClaw 是独立服务，Genesis 通过 MCP 协议远程调用。部署选项：
 
 | 方式           | 适用场景     | 说明                                    |
 | -------------- | ------------ | --------------------------------------- |
 | Docker Compose | 开发/测试    | `docker run openclaw/openclaw` 本地运行 |
-| Railway/Render | 生产         | 与 Raven 同平台部署，内网通信           |
+| Railway/Render | 生产         | 与 Genesis 同平台部署，内网通信         |
 | 独立 VPS       | 高稳定性需求 | 单独管理，通过公网 HTTPS 连接           |
 
 管理员在 Admin → MCP Servers 注册 OpenClaw 实例的 HTTP/SSE endpoint，MCPManager 自动连接。
@@ -165,7 +165,7 @@ Run: `npx prisma migrate dev --name add-openclaw-platforms`
 
 **NEW**: `backend/src/modules/ai-app/social/services/openclaw-content-formatter.ts`
 
-Transforms Raven's `SocialContent` into platform-specific message formats:
+Transforms Genesis's `SocialContent` into platform-specific message formats:
 
 | Platform | Format                        | Char Limit | Rich Text    | Images         |
 | -------- | ----------------------------- | ---------- | ------------ | -------------- |

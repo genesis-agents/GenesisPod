@@ -1,6 +1,6 @@
 # Data Skills
 
-> Data processing and knowledge management for DeepDive Engine.
+> Data processing and knowledge management for Genesis.ai.
 
 ## Skills Overview
 

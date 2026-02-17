@@ -7,7 +7,7 @@
 
 OpenClaw (formerly Clawdbot/Moltbot) is a rapidly growing open-source AI personal assistant (150K+ GitHub stars) that integrates with messaging platforms (WhatsApp, Telegram, Discord, Slack, Signal, Teams). Its ecosystem includes ClawHub (skill marketplace) and Moltbook (AI agent social network with 1.4M+ agents).
 
-Raven AI Engine has mature deep content production capabilities (research, writing, team collaboration, office automation) but limited distribution reach (only WeChat MP and Xiaohongshu). The integration aims to extend Raven's content distribution capabilities while maintaining its core identity.
+Genesis.ai has mature deep content production capabilities (research, writing, team collaboration, office automation) but limited distribution reach (only WeChat MP and Xiaohongshu). The integration aims to extend Raven's content distribution capabilities while maintaining its core identity.
 
 ## Decision
 

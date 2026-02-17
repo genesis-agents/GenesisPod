@@ -1,7 +1,7 @@
 /**
  * Public API Module
  *
- * Exposes Raven AI Engine capabilities via REST endpoints
+ * Exposes Genesis.ai capabilities via REST endpoints
  * for external consumers (OpenClaw, Web Apps, Mobile).
  *
  * Authentication: MCP API Key (same key pool as MCP Server)

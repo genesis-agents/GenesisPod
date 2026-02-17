@@ -25,7 +25,7 @@ echo "✅ Railway CLI is ready"
 echo ""
 
 # Link to the project
-echo "🔗 Linking to deepdive-engine project..."
+echo "🔗 Linking to genesis-ai project..."
 cd "$(dirname "$0")/../backend"
 
 echo ""

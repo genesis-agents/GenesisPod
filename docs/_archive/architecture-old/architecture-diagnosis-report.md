@@ -1,4 +1,4 @@
-# DeepDive Engine 架构诊断报告
+# Genesis.ai 架构诊断报告
 
 **诊断日期**: 2025-12-12
 **诊断人**: 资深架构师
@@ -32,7 +32,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      DeepDive Engine                         │
+│                      Genesis.ai                         │
 ├─────────────────┬─────────────────┬─────────────────────────┤
 │    Frontend     │     Backend     │      AI Service         │
 │   Next.js 14    │    NestJS 10    │      FastAPI            │
@@ -224,7 +224,7 @@ class ResourcesService {
 
 | 关系链                               | 风险等级 | 说明       |
 | ------------------------------------ | -------- | ---------- |
-| Resources ↔ AI-Enrichment           | 高       | 互相调用   |
+| Resources ↔ AI-Enrichment            | 高       | 互相调用   |
 | DataCollection → Crawler → Resources | 中       | 单向但紧密 |
 | AI-Office → Storage → AI-Image       | 中       | 共享存储   |
 

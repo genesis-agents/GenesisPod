@@ -19,7 +19,7 @@
 
 ## 数据库选择原则
 
-### DeepDive Engine 数据架构
+### Genesis.ai 数据架构
 
 **PostgreSQL (主数据库)**:
 

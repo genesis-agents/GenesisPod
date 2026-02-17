@@ -67,7 +67,7 @@ function runCommand(name, cmd, cwd = process.cwd()) {
 
 function main() {
   log('\n========================================', 'blue');
-  log('  DeepDive Engine - 智能变更验证', 'blue');
+  log('  Genesis.ai - 智能变更验证', 'blue');
   log('========================================\n', 'blue');
 
   const changedFiles = getChangedFiles();

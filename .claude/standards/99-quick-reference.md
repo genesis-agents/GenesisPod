@@ -9,7 +9,7 @@
 
 ```bash
 # 1. 克隆并设置项目
-git clone https://github.com/JUNJIE-DUAN/deepdive-engine.git
+git clone https://github.com/JUNJIE-DUAN/genesis-ai.git
 cd deepdive-engine
 
 # 2. 安装依赖

@@ -1,10 +1,10 @@
-# Raven AI Engine MCP Server Integration Guide
+# Genesis.ai MCP Server Integration Guide
 
-Technical integration guide for external AI agents to discover and use Raven AI Engine capabilities via the Model Context Protocol (MCP).
+Technical integration guide for external AI agents to discover and use Genesis.ai capabilities via the Model Context Protocol (MCP).
 
 ## Overview
 
-The Raven AI Engine MCP Server exposes five core AI capabilities through a standardized MCP interface over HTTP:
+The Genesis.ai MCP Server exposes five core AI capabilities through a standardized MCP interface over HTTP:
 
 - **raven_ask**: Multi-model Q&A with web search augmentation
 - **raven_deep_research**: Comprehensive research with iterative search and self-reflection
@@ -26,7 +26,7 @@ The Raven AI Engine MCP Server exposes five core AI capabilities through a stand
 
 ### Step 1: Obtain API Key
 
-API keys are managed through Raven's Secrets system with category "MCP". Contact your Raven administrator or create a key via the Secrets API:
+API keys are managed through Genesis's Secrets system with category "MCP". Contact your Genesis administrator or create a key via the Secrets API:
 
 ```bash
 POST /api/v1/secrets
@@ -205,7 +205,7 @@ Response:
     "tools": [
       {
         "name": "raven_ask",
-        "description": "Ask Raven AI a question...",
+        "description": "Ask Genesis AI a question...",
         "inputSchema": {
           "type": "object",
           "properties": { "question": { "type": "string" } },
@@ -306,7 +306,7 @@ Requests without an `id` field are treated as notifications (no response sent):
 
 ### 1. raven_ask
 
-Ask Raven AI a question with optional web search augmentation.
+Ask Genesis AI a question with optional web search augmentation.
 
 **Input Schema:**
 

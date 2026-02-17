@@ -1,4 +1,4 @@
-# DeepDive Engine - MVP实施计划
+# Genesis.ai - MVP实施计划
 
 > **版本**: MVP v1.0-2.0
 > **参考设计**: AlphaXiv (https://www.alphaxiv.org/)
@@ -9,7 +9,7 @@
 
 ## 产品定位（聚焦版）
 
-**DeepDive Engine** = AlphaXiv + Grok AI + 个性化推荐
+**Genesis.ai** = AlphaXiv + Grok AI + 个性化推荐
 
 **核心价值**:
 

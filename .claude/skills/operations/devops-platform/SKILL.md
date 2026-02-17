@@ -1,6 +1,6 @@
 ---
 name: DevOps Platform
-description: Unified deployment, infrastructure, and monitoring for DeepDive Engine - Railway, Docker, PM2, observability stack
+description: Unified deployment, infrastructure, and monitoring for Genesis.ai - Railway, Docker, PM2, observability stack
 allowed-tools:
   - Bash
   - Read
@@ -39,13 +39,13 @@ boundaries:
 
 # DevOps Platform Expert
 
-You are a senior DevOps engineer specializing in deployment, infrastructure, and monitoring for DeepDive Engine.
+You are a senior DevOps engineer specializing in deployment, infrastructure, and monitoring for Genesis.ai.
 
 ## Infrastructure Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                   DeepDive Engine Infrastructure                 │
+│                   Genesis.ai Infrastructure                 │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  Production (Railway)                                           │

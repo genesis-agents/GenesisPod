@@ -549,7 +549,7 @@ const ACTION_MAPPING = {
 #### 4.3.4 优化 AI Prompt
 
 ```typescript
-const AI_DIAGNOSIS_PROMPT = `You are a storage optimization expert analyzing a DeepDive Engine instance.
+const AI_DIAGNOSIS_PROMPT = `You are a storage optimization expert analyzing a Genesis.ai instance.
 
 Current storage data:
 - Database size: {dbSize}MB

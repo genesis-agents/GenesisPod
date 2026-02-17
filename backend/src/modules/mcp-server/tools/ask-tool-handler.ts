@@ -1,6 +1,6 @@
 /**
  * MCP Server - Ask Tool Handler
- * Raven AI Ask -> AIEngineFacade.chat()
+ * Genesis AI Ask -> AIEngineFacade.chat()
  */
 
 import { Injectable, Logger } from "@nestjs/common";

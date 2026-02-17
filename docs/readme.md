@@ -1,4 +1,4 @@
-# DeepDive Engine - 项目文档
+# Genesis.ai - 项目文档
 
 > AI 驱动的深度研究和内容管理平台
 

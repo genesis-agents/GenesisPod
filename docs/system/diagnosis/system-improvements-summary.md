@@ -1,4 +1,4 @@
-# DeepDive Engine 架构改进总结报告
+# Genesis.ai 架构改进总结报告
 
 **日期**: 2025-11-15
 **评审者**: Claude (Senior Architecture & Software Engineering Expert)
@@ -8,7 +8,7 @@
 
 ## 📊 执行摘要
 
-本次架构评审基于软件工程最佳实践，对DeepDive Engine项目进行了全面审视，并实施了**P0优先级**的关键改进。
+本次架构评审基于软件工程最佳实践，对Genesis.ai项目进行了全面审视，并实施了**P0优先级**的关键改进。
 
 ### 总体评分
 

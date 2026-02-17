@@ -1,4 +1,4 @@
-# DeepDive Engine - Service Management Scripts
+# Genesis.ai - Service Management Scripts
 
 ## 使用说明
 

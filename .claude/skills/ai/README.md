@@ -1,6 +1,6 @@
 # AI Skills
 
-> AI/LLM development capabilities for DeepDive Engine.
+> AI/LLM development capabilities for Genesis.ai.
 
 ## Skills Overview
 

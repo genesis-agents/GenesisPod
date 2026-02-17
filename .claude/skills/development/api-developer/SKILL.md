@@ -1,7 +1,7 @@
 ---
 name: API Developer
 description: |
-  Design and implement RESTful APIs with NestJS for DeepDive Engine.
+  Design and implement RESTful APIs with NestJS for Genesis.ai.
   Trigger keywords: api, rest, nestjs, controller, service, dto, endpoint
   Not for: Schema design (-> schema-architect), Security (-> security-specialist)
 allowed-tools: [Bash, Read, Write, Edit, Grep, Glob]
@@ -24,7 +24,7 @@ boundaries:
 
 # API Developer
 
-> NestJS API development for DeepDive Engine.
+> NestJS API development for Genesis.ai.
 
 ## Backend Architecture
 

@@ -1,6 +1,6 @@
 # 数据库迁移技能 (Database Migration Skill)
 
-> 本文档记录 DeepDive Engine 项目的数据库迁移系统使用方法和最佳实践。
+> 本文档记录 Genesis.ai 项目的数据库迁移系统使用方法和最佳实践。
 
 ---
 

@@ -6,7 +6,7 @@
 // ==================== 核心品牌配置（环境变量优先）====================
 const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME || 'Genesis';
 const BRAND_FULL_NAME = process.env.NEXT_PUBLIC_BRAND_FULL_NAME || 'Genesis.ai';
-const BRAND_SUBTITLE = process.env.NEXT_PUBLIC_BRAND_SUBTITLE || '.ai';
+const BRAND_SUBTITLE = process.env.NEXT_PUBLIC_BRAND_SUBTITLE || '';
 const BRAND_TAGLINE =
   process.env.NEXT_PUBLIC_BRAND_TAGLINE || 'AI-Powered Research Platform';
 const RAILWAY_DOMAIN = process.env.NEXT_PUBLIC_RAILWAY_DOMAIN || 'genesis-ai';
@@ -64,8 +64,8 @@ export const config = {
     userAgent: `${BRAND_NAME}-AI-Engine/1.0`,
     /** Logo 路径 */
     logo: {
-      path: process.env.NEXT_PUBLIC_BRAND_LOGO_PATH || '/favicon.svg',
-      faviconPath: process.env.NEXT_PUBLIC_BRAND_FAVICON_PATH || '/favicon.svg',
+      path: process.env.NEXT_PUBLIC_BRAND_LOGO_PATH || '/logo.png',
+      faviconPath: process.env.NEXT_PUBLIC_BRAND_FAVICON_PATH || '/logo.png',
     },
     /** 默认邮件发送者 */
     emailFrom:

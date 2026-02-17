@@ -1,13 +1,13 @@
-# Raven AI Engine 项目结构
+# Genesis.ai 项目结构
 
 > 最后更新: 2026-01-23 | 维护者: Claude Code | 版本: 3.0
 
 ## 项目概览
 
-Raven AI Engine 是一个企业级 AI 深度研究和内容管理平台，采用 monorepo 结构，包含前端、后端、AI 服务和文档。
+Genesis.ai 是一个企业级 AI 深度研究和内容管理平台，采用 monorepo 结构，包含前端、后端、AI 服务和文档。
 
 ```
-raven-ai-engine/
+genesis-ai/
 ├── frontend/           # Next.js 14 前端应用
 ├── backend/            # NestJS 后端服务
 ├── ai-service/         # Python FastAPI 微服务
@@ -779,7 +779,7 @@ deepdive/
 
 ## 架构分层说明
 
-DeepDive Engine 采用清晰的分层架构：
+Genesis.ai 采用清晰的分层架构：
 
 ```
 AI Engine (ai-engine/)

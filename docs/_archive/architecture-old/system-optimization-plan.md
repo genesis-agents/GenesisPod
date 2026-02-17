@@ -1,4 +1,4 @@
-# DeepDive Engine 系统优化与整改专项方案
+# Genesis.ai 系统优化与整改专项方案
 
 > **版本**: 1.0
 > **日期**: 2025-12-25
@@ -1479,9 +1479,10 @@ interface DeepResearchOutput {
 }
 
 @Injectable()
-export class DeepResearchCapability
-  implements ICapability<DeepResearchInput, DeepResearchOutput>
-{
+export class DeepResearchCapability implements ICapability<
+  DeepResearchInput,
+  DeepResearchOutput
+> {
   constructor(private readonly deepResearchService: DeepResearchAgentService) {}
 
   getMetadata(): CapabilityMetadata {

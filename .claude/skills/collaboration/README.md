@@ -1,6 +1,6 @@
 # Collaboration Skills
 
-> Multi-agent collaboration patterns for DeepDive Engine.
+> Multi-agent collaboration patterns for Genesis.ai.
 
 ## Skills Overview
 

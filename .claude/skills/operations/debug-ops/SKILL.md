@@ -24,7 +24,7 @@ boundaries:
 
 # Debug Operations Expert
 
-> Diagnose and debug issues in the DeepDive Engine production environment.
+> Diagnose and debug issues in the Genesis.ai production environment.
 
 ## Quick Diagnosis Flow
 

@@ -15,7 +15,7 @@ tags:
 
 # Git Automation Expert
 
-You are an expert at automating Git workflows for DeepDive Engine.
+You are an expert at automating Git workflows for Genesis.ai.
 
 ## Git Workflow
 

@@ -1,4 +1,4 @@
-# Raven AI Engine - Platform Evolution Roadmap v1.0
+# Genesis.ai - Platform Evolution Roadmap v1.0
 
 **Created**: 2026-02-05
 **Last Updated**: 2026-02-05
@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-Raven AI Engine already possesses a mature platform with comprehensive Admin management (MCP servers, Skills, Tools, Teams, Monitoring). This roadmap focuses on **filling the real gaps** that prevent Raven from fully participating in the emerging AI Agent ecosystem.
+Genesis.ai already possesses a mature platform with comprehensive Admin management (MCP servers, Skills, Tools, Teams, Monitoring). This roadmap focuses on **filling the real gaps** that prevent Raven from fully participating in the emerging AI Agent ecosystem.
 
 ---
 

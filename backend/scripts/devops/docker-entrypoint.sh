@@ -2,7 +2,7 @@
 # Version: 8 - Clean migration approach
 
 echo "=========================================="
-echo "Starting ${BRAND_FULL_NAME:-Raven AI Engine} Backend"
+echo "Starting ${BRAND_FULL_NAME:-Genesis.ai} Backend"
 echo "=========================================="
 
 echo "🔧 Step 0: Fixing enum values (outside Prisma transaction)..."

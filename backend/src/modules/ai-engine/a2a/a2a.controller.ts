@@ -70,7 +70,7 @@ export class A2AController {
   @ApiOperation({
     summary: "Get Agent Card",
     description:
-      "Returns the A2A Agent Card describing Raven AI Engine capabilities. This is a public discovery endpoint.",
+      "Returns the A2A Agent Card describing Genesis.ai capabilities. This is a public discovery endpoint.",
   })
   @ApiResponse({
     status: 200,

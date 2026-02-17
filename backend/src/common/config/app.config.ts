@@ -6,7 +6,7 @@
 // ==================== 核心品牌配置（环境变量优先）====================
 const BRAND_NAME = process.env.BRAND_NAME || "Genesis";
 const BRAND_FULL_NAME = process.env.BRAND_FULL_NAME || "Genesis.ai";
-const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || ".ai";
+const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || "";
 const RAILWAY_DOMAIN = process.env.RAILWAY_DOMAIN || "genesis-ai";
 
 /**
@@ -39,7 +39,7 @@ export const APP_CONFIG = {
     siteName: BRAND_NAME,
     /** Logo SVG 路径（相对于项目根目录） */
     logo: {
-      svgPath: process.env.BRAND_LOGO_SVG_PATH || "brand/logo.svg",
+      svgPath: process.env.BRAND_LOGO_SVG_PATH || "brand/logo.png",
     },
   },
 

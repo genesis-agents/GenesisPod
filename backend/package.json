@@ -1,7 +1,7 @@
 {
-  "name": "raven-backend",
+  "name": "genesis-backend",
   "version": "3.73.0",
-  "description": "Raven AI Engine Backend API",
+  "description": "Genesis.ai Backend API",
   "private": true,
   "scripts": {
     "build": "prisma generate --schema=prisma/schema && nest build",

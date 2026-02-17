@@ -8,7 +8,7 @@
 
 ## 概述
 
-AI Teams 是 DeepDive Engine 的核心能力层，实现了"像真实团队一样运作的 AI 协作系统"。本文档定义 AI Teams 的核心抽象和概念模型。
+AI Teams 是 Genesis.ai 的核心能力层，实现了"像真实团队一样运作的 AI 协作系统"。本文档定义 AI Teams 的核心抽象和概念模型。
 
 ---
 

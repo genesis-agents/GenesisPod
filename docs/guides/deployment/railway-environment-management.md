@@ -1,6 +1,6 @@
 # Railway 环境管理方案
 
-> DeepDive Engine 的 Railway 多环境隔离、部署和管理完整指南。
+> Genesis.ai 的 Railway 多环境隔离、部署和管理完整指南。
 
 | 属性         | 值                |
 | ------------ | ----------------- |
@@ -752,9 +752,7 @@ async function bootstrap() {
   // 启动时打印版本信息
   console.log("");
   console.log("╔════════════════════════════════════════════════════════════╗");
-  console.log(
-    "║          DeepDive Engine Backend Started                    ║",
-  );
+  console.log("║          Genesis.ai Backend Started                    ║");
   console.log("╠════════════════════════════════════════════════════════════╣");
   console.log(`║  Version:     ${versionInfo.version.padEnd(42)}║`);
   console.log(`║  Environment: ${versionInfo.environment.padEnd(42)}║`);
@@ -1081,7 +1079,7 @@ railway variables set APP_VERSION=dev
 ```typescript
 // backend/src/main.ts
 const version = process.env.APP_VERSION || 'unknown';
-console.log(`DeepDive Engine Backend v${version} starting...`);
+console.log(`Genesis.ai Backend v${version} starting...`);
 
 // 暴露版本端点
 @Get('version')

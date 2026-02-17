@@ -4,7 +4,7 @@
 
 ## 概述
 
-**AI Teams** 是 DeepDive Engine 的核心协作模块，实现了人机混合团队的实时协作能力。该模块将 AI Engine 的通用协作机制（投票、任务交接、工作流编排）与具体的聊天场景深度整合，提供了一个完整的多智能体协作平台。
+**AI Teams** 是 Genesis.ai 的核心协作模块，实现了人机混合团队的实时协作能力。该模块将 AI Engine 的通用协作机制（投票、任务交接、工作流编排）与具体的聊天场景深度整合，提供了一个完整的多智能体协作平台。
 
 ### 核心特性
 
@@ -815,7 +815,7 @@ Controller → Service (Facade) → Domain Services → Repository → Prisma
 
 **最后更新**：2026-02-01
 **版本**：v1.0
-**维护者**：DeepDive Engine Team
+**维护者**：Genesis.ai Team
 
 **相关文档**：
 

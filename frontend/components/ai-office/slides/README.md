@@ -47,8 +47,8 @@ const coverContent: CoverSlideContent = {
   templateType: 'cover',
   title: 'AI 驱动的未来',
   subtitle: '探索人工智能的无限可能',
-  author: 'DeepDive Team',
-  organization: 'DeepDive Engine',
+  author: 'Genesis Team',
+  organization: 'Genesis.ai',
   date: '2025-12-28',
   tagline: '创新 · 洞察 · 行动',
 };
@@ -309,4 +309,4 @@ import { FixedSizeList } from 'react-window';
 
 ## 许可
 
-MIT License - DeepDive Engine
+MIT License - Genesis.ai

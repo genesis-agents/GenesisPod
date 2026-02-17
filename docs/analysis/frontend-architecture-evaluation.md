@@ -1,4 +1,4 @@
-# DeepDive Engine - Frontend Architecture Evaluation
+# Genesis.ai - Frontend Architecture Evaluation
 
 **Evaluation Date**: 2026-01-23
 **Evaluator**: Architect Agent
@@ -8,14 +8,14 @@
 
 ## Executive Summary
 
-| Category | Score | Status |
-|----------|-------|--------|
-| Directory Structure | 3.5/5 | Needs Improvement |
-| Component Architecture | 3/5 | Needs Improvement |
-| State Management | 4/5 | Good |
-| Routing Structure | 4/5 | Good |
-| Performance | 2.5/5 | Needs Significant Improvement |
-| **Overall** | **3.4/5** | Moderate |
+| Category               | Score     | Status                        |
+| ---------------------- | --------- | ----------------------------- |
+| Directory Structure    | 3.5/5     | Needs Improvement             |
+| Component Architecture | 3/5       | Needs Improvement             |
+| State Management       | 4/5       | Good                          |
+| Routing Structure      | 4/5       | Good                          |
+| Performance            | 2.5/5     | Needs Significant Improvement |
+| **Overall**            | **3.4/5** | Moderate                      |
 
 ---
 
@@ -93,11 +93,11 @@ app/ai-simulation/components/   # Components should NOT be in app/
 
 #### HIGH: Inconsistent component organization
 
-| Pattern | Examples | Issue |
-|---------|----------|-------|
-| Feature-based | `components/ai-office/`, `components/ai-research/` | Good |
-| Flat structure | `components/admin/*.tsx` (50+ files) | Hard to navigate |
-| Mixed nesting | Some have sub-folders, some don't | Inconsistent |
+| Pattern        | Examples                                           | Issue            |
+| -------------- | -------------------------------------------------- | ---------------- |
+| Feature-based  | `components/ai-office/`, `components/ai-research/` | Good             |
+| Flat structure | `components/admin/*.tsx` (50+ files)               | Hard to navigate |
+| Mixed nesting  | Some have sub-folders, some don't                  | Inconsistent     |
 
 #### MEDIUM: Duplicate/backup files
 
@@ -116,12 +116,13 @@ components/ai-image/ImageGenerator.original.backup.tsx  # 3182 lines
 
 **Finding**: Almost all components are Client Components (`'use client'`)
 
-| Location | Client Components | Total Files |
-|----------|-------------------|-------------|
-| app/ | 70 | 70+ |
-| components/ | 300+ | 379 |
+| Location    | Client Components | Total Files |
+| ----------- | ----------------- | ----------- |
+| app/        | 70                | 70+         |
+| components/ | 300+              | 379         |
 
 **Impact**:
+
 - Increased JavaScript bundle size
 - No Server-Side Rendering benefits
 - All data fetching happens on client
@@ -130,22 +131,22 @@ components/ai-image/ImageGenerator.original.backup.tsx  # 3182 lines
 
 ### 2.2 Component Size Analysis (Top 10 Largest)
 
-| File | Lines | Status |
-|------|-------|--------|
-| TopicContentPanel.tsx | 5,573 | CRITICAL - needs splitting |
-| ExploreContent.tsx | 3,551 | CRITICAL - needs splitting |
-| ExternalAPISettings.tsx | 3,477 | CRITICAL - needs splitting |
-| TeamCanvasModal.tsx | 3,224 | HIGH - needs splitting |
-| ImageGenerator.tsx | 2,516 | HIGH - needs splitting |
-| AIModelSettings.tsx | 2,670 | HIGH - needs splitting |
-| AICapabilitiesSettings.tsx | 2,405 | HIGH - needs splitting |
-| SandboxView.tsx | 2,182 | HIGH - needs splitting |
+| File                       | Lines | Status                     |
+| -------------------------- | ----- | -------------------------- |
+| TopicContentPanel.tsx      | 5,573 | CRITICAL - needs splitting |
+| ExploreContent.tsx         | 3,551 | CRITICAL - needs splitting |
+| ExternalAPISettings.tsx    | 3,477 | CRITICAL - needs splitting |
+| TeamCanvasModal.tsx        | 3,224 | HIGH - needs splitting     |
+| ImageGenerator.tsx         | 2,516 | HIGH - needs splitting     |
+| AIModelSettings.tsx        | 2,670 | HIGH - needs splitting     |
+| AICapabilitiesSettings.tsx | 2,405 | HIGH - needs splitting     |
+| SandboxView.tsx            | 2,182 | HIGH - needs splitting     |
 
 **Additional Large Files in app/ (Pages)**:
 
-| File | Lines | Status |
-|------|-------|--------|
-| app/ai-ask/page.tsx | 2,629 | CRITICAL - should be in components |
+| File                 | Lines | Status                             |
+| -------------------- | ----- | ---------------------------------- |
+| app/ai-ask/page.tsx  | 2,629 | CRITICAL - should be in components |
 | app/library/page.tsx | 2,582 | CRITICAL - should be in components |
 
 ### 2.3 Props Drilling Analysis
@@ -160,7 +161,7 @@ interface TopicContentPanelProps {
   evidence: TopicEvidence[];
   isLoadingReport: boolean;
   isLoadingEvidence: boolean;
-  onExportReport?: (format: 'pdf' | 'docx') => void;
+  onExportReport?: (format: "pdf" | "docx") => void;
   researchEvents?: ResearchEvent[];
   agentThinkings?: AgentThinking[];
   revisions?: ReportRevision[];
@@ -183,11 +184,13 @@ interface TopicContentPanelProps {
 ### 2.4 Component Reusability
 
 **Good Patterns**:
+
 - `components/ui/` - Base UI components (24 files)
 - `components/shared/` - Shared utility components
 - `components/layout/` - AppShell, Sidebar, MobileNav
 
 **Issues**:
+
 - Many components are highly coupled to specific features
 - Limited composition patterns
 - Inline SVG icons instead of icon library
@@ -198,28 +201,30 @@ interface TopicContentPanelProps {
 
 ### 3.1 Zustand Stores (16 stores)
 
-| Store | Lines | Persistence | Purpose |
-|-------|-------|-------------|---------|
-| slidesStore.ts | 556 | Yes | Slides generation state |
-| aiStudioStore.ts | 549 | Partial | Research plan, trends |
-| topicResearchStore.ts | ~400 | Yes | Topic research state |
-| aiTeamsStore.ts | ~350 | Yes | Teams collaboration |
-| aiWritingStore.ts | ~300 | Yes | Writing sessions |
-| socialCreateStore.ts | ~250 | No | Social content creation |
-| aiOfficeStore.ts | ~200 | No | AI Office state |
-| agentStore.ts | ~150 | No | Agent execution state |
-| creditsStore.ts | ~100 | No | User credits |
-| settingsStore.ts | ~100 | Yes | User settings |
-| themeStore.ts | ~80 | Yes | Theme preferences |
-| toastStore.ts | ~50 | No | Toast notifications |
+| Store                 | Lines | Persistence | Purpose                 |
+| --------------------- | ----- | ----------- | ----------------------- |
+| slidesStore.ts        | 556   | Yes         | Slides generation state |
+| aiStudioStore.ts      | 549   | Partial     | Research plan, trends   |
+| topicResearchStore.ts | ~400  | Yes         | Topic research state    |
+| aiTeamsStore.ts       | ~350  | Yes         | Teams collaboration     |
+| aiWritingStore.ts     | ~300  | Yes         | Writing sessions        |
+| socialCreateStore.ts  | ~250  | No          | Social content creation |
+| aiOfficeStore.ts      | ~200  | No          | AI Office state         |
+| agentStore.ts         | ~150  | No          | Agent execution state   |
+| creditsStore.ts       | ~100  | No          | User credits            |
+| settingsStore.ts      | ~100  | Yes         | User settings           |
+| themeStore.ts         | ~80   | Yes         | Theme preferences       |
+| toastStore.ts         | ~50   | No          | Toast notifications     |
 
 **Strengths**:
+
 - Well-organized per-feature stores
 - Appropriate use of persistence middleware
 - Clean selector patterns
 - devtools integration in slidesStore
 
 **Issues**:
+
 - Some stores are too large (slidesStore, aiStudioStore)
 - Inconsistent persistence strategy
 - Missing action types/constants
@@ -239,23 +244,25 @@ frontend/hooks/core/useApi.ts
 
 ```typescript
 // hooks/core/useApi.ts
-export function useApiGet<T>(path: string, options?: UseApiOptions<T>)
-export function useApiPost<T, P>(path: string, options?: UseApiOptions<T>)
+export function useApiGet<T>(path: string, options?: UseApiOptions<T>);
+export function useApiPost<T, P>(path: string, options?: UseApiOptions<T>);
 ```
 
 **Assessment**:
+
 - Custom implementation provides caching via LRU cache
 - Missing: Automatic refetch, background updates, optimistic updates
 - TanStack Query is installed but underutilized
 
 ### 3.3 Context Usage
 
-| Context | Purpose | Scope |
-|---------|---------|-------|
-| AuthContext | User authentication | Global |
+| Context      | Purpose              | Scope  |
+| ------------ | -------------------- | ------ |
+| AuthContext  | User authentication  | Global |
 | I18nProvider | Internationalization | Global |
 
 **Issues**:
+
 - Only 2 contexts for a large app
 - Auth validation on every mount (performance concern)
 
@@ -266,6 +273,7 @@ export function useApiPost<T, P>(path: string, options?: UseApiOptions<T>)
 ### 4.1 App Router Usage
 
 **Structure**:
+
 ```
 app/
 ├── layout.tsx          # Root layout (Server Component)
@@ -279,6 +287,7 @@ app/
 ```
 
 **Strengths**:
+
 - Good use of nested layouts (admin, ai-research)
 - Proper dynamic routes for IDs
 - Redirects configured for legacy routes
@@ -325,8 +334,8 @@ app/api/
 ```javascript
 // next.config.js
 rewrites: [
-  { source: '/api/v1/:path*', destination: `${apiUrl}/api/v1/:path*` },
-]
+  { source: "/api/v1/:path*", destination: `${apiUrl}/api/v1/:path*` },
+];
 ```
 
 ---
@@ -349,6 +358,7 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
 ```
 
 **Issues**:
+
 - Most components are NOT dynamically imported
 - Large dependencies loaded synchronously:
   - mermaid (11+ MB)
@@ -360,14 +370,14 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
 
 **Heavy Dependencies**:
 
-| Package | Approx. Size | Usage |
-|---------|--------------|-------|
-| mermaid | ~2.5 MB | Diagrams |
-| pdfjs-dist | ~1.5 MB | PDF viewing |
-| @monaco-editor/react | ~2 MB | Code editing |
-| recharts | ~500 KB | Charts |
-| d3 | ~300 KB | Visualizations |
-| framer-motion | ~150 KB | Animations |
+| Package              | Approx. Size | Usage          |
+| -------------------- | ------------ | -------------- |
+| mermaid              | ~2.5 MB      | Diagrams       |
+| pdfjs-dist           | ~1.5 MB      | PDF viewing    |
+| @monaco-editor/react | ~2 MB        | Code editing   |
+| recharts             | ~500 KB      | Charts         |
+| d3                   | ~300 KB      | Visualizations |
+| framer-motion        | ~150 KB      | Animations     |
 
 **Recommendation**: Dynamic import all heavy dependencies
 
@@ -385,6 +395,7 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
 ```
 
 **Impact**:
+
 - Slow initial render
 - Re-renders entire tree on state changes
 - No memoization patterns observed
@@ -400,30 +411,30 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   "next": "^14.2.35",
   "react": "^18.3.0",
   "zustand": "^4.5.0",
-  "@tanstack/react-query": "^5.28.0",  // Underutilized
+  "@tanstack/react-query": "^5.28.0", // Underutilized
   "tailwindcss": "^3.4.0"
 }
 ```
 
 ### 6.2 UI Libraries (Multiple)
 
-| Library | Purpose | Overlap |
-|---------|---------|---------|
-| lucide-react | Icons | Primary |
-| @heroicons/react | Icons | Redundant |
-| @radix-ui/* | Primitives | Good |
-| @mantine/core | Components | Partial overlap |
-| framer-motion | Animation | Good |
+| Library          | Purpose    | Overlap         |
+| ---------------- | ---------- | --------------- |
+| lucide-react     | Icons      | Primary         |
+| @heroicons/react | Icons      | Redundant       |
+| @radix-ui/\*     | Primitives | Good            |
+| @mantine/core    | Components | Partial overlap |
+| framer-motion    | Animation  | Good            |
 
 **Recommendation**: Consolidate on one icon library (lucide-react)
 
 ### 6.3 Editor Libraries (Multiple)
 
-| Library | Purpose |
-|---------|---------|
-| @tiptap/* | Rich text editing |
-| @blocknote/* | Block editor |
-| @monaco-editor/react | Code editing |
+| Library              | Purpose           |
+| -------------------- | ----------------- |
+| @tiptap/\*           | Rich text editing |
+| @blocknote/\*        | Block editor      |
+| @monaco-editor/react | Code editing      |
 
 **Assessment**: All serve different purposes, acceptable
 
@@ -433,31 +444,31 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
 
 ### 7.1 Critical Issues
 
-| Issue | Location | Impact | Effort |
-|-------|----------|--------|--------|
-| Components in app/ai-simulation/ | app/ai-simulation/components/ | Routing issues | Low |
-| Giant page files (2500+ lines) | app/ai-ask/page.tsx, app/library/page.tsx | Unmaintainable | High |
-| Giant components (5000+ lines) | TopicContentPanel.tsx, ExploreContent.tsx | Performance, maintenance | High |
-| No Server Components | All pages use 'use client' | Bundle size, SEO | Medium |
+| Issue                            | Location                                  | Impact                   | Effort |
+| -------------------------------- | ----------------------------------------- | ------------------------ | ------ |
+| Components in app/ai-simulation/ | app/ai-simulation/components/             | Routing issues           | Low    |
+| Giant page files (2500+ lines)   | app/ai-ask/page.tsx, app/library/page.tsx | Unmaintainable           | High   |
+| Giant components (5000+ lines)   | TopicContentPanel.tsx, ExploreContent.tsx | Performance, maintenance | High   |
+| No Server Components             | All pages use 'use client'                | Bundle size, SEO         | Medium |
 
 ### 7.2 High Priority Issues
 
-| Issue | Impact | Recommendation |
-|-------|--------|----------------|
-| Backup files in codebase | Confusion | Delete, use git |
-| Heavy deps loaded sync | Performance | Dynamic imports |
-| Props drilling (30+ props) | Maintenance | Use stores |
-| TanStack Query underused | Missing features | Adopt or remove |
-| Duplicate icon libraries | Bundle size | Consolidate |
+| Issue                      | Impact           | Recommendation  |
+| -------------------------- | ---------------- | --------------- |
+| Backup files in codebase   | Confusion        | Delete, use git |
+| Heavy deps loaded sync     | Performance      | Dynamic imports |
+| Props drilling (30+ props) | Maintenance      | Use stores      |
+| TanStack Query underused   | Missing features | Adopt or remove |
+| Duplicate icon libraries   | Bundle size      | Consolidate     |
 
 ### 7.3 Medium Priority Issues
 
-| Issue | Impact | Recommendation |
-|-------|--------|----------------|
-| Flat admin components | Navigation | Sub-folder structure |
-| Inconsistent store patterns | Maintenance | Standardize |
-| Missing memoization | Performance | Add React.memo, useMemo |
-| Auth validation on mount | Performance | Use middleware |
+| Issue                       | Impact      | Recommendation          |
+| --------------------------- | ----------- | ----------------------- |
+| Flat admin components       | Navigation  | Sub-folder structure    |
+| Inconsistent store patterns | Maintenance | Standardize             |
+| Missing memoization         | Performance | Add React.memo, useMemo |
+| Auth validation on mount    | Performance | Use middleware          |
 
 ---
 
@@ -466,11 +477,13 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
 ### 8.1 Immediate Actions (Week 1-2)
 
 1. **Move components out of app/**
+
    ```bash
    mv app/ai-simulation/components/* components/ai-simulation/
    ```
 
 2. **Remove backup files**
+
    ```bash
    rm components/ai-image/ImageGenerator.old.tsx
    rm components/ai-image/ImageGenerator.original.backup.tsx
@@ -478,13 +491,14 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
 
 3. **Add dynamic imports for heavy dependencies**
    ```typescript
-   const Mermaid = dynamic(() => import('mermaid'), { ssr: false });
-   const PDF = dynamic(() => import('react-pdf'), { ssr: false });
+   const Mermaid = dynamic(() => import("mermaid"), { ssr: false });
+   const PDF = dynamic(() => import("react-pdf"), { ssr: false });
    ```
 
 ### 8.2 Short-term Improvements (Month 1)
 
 1. **Split giant components**
+
    ```
    TopicContentPanel.tsx (5573 lines) ->
    ├── TopicReportView.tsx
@@ -495,6 +509,7 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
    ```
 
 2. **Extract page logic to components**
+
    ```
    app/ai-ask/page.tsx (2629 lines) ->
    app/ai-ask/page.tsx (50 lines)
@@ -574,10 +589,10 @@ export function AIAskPage() {
 
 ```typescript
 // stores/ai-ask/index.ts
-export { useAIAskStore } from './store';
-export { useAIAskActions } from './actions';
-export { selectCurrentSession } from './selectors';
-export type { AIAskState } from './types';
+export { useAIAskStore } from "./store";
+export { useAIAskActions } from "./actions";
+export { selectCurrentSession } from "./selectors";
+export type { AIAskState } from "./types";
 ```
 
 ---
@@ -586,13 +601,13 @@ export type { AIAskState } from './types';
 
 ### 10.1 Current Metrics
 
-| Metric | Value | Target |
-|--------|-------|--------|
-| Total Components | 379 | - |
-| Average Component Size | ~300 lines | <200 lines |
-| Max Component Size | 5,573 lines | <500 lines |
-| Client Components | 98%+ | <60% |
-| Code Coverage | Unknown | >70% |
+| Metric                 | Value       | Target     |
+| ---------------------- | ----------- | ---------- |
+| Total Components       | 379         | -          |
+| Average Component Size | ~300 lines  | <200 lines |
+| Max Component Size     | 5,573 lines | <500 lines |
+| Client Components      | 98%+        | <60%       |
+| Code Coverage          | Unknown     | >70%       |
 
 ### 10.2 Recommended Tracking
 
@@ -605,7 +620,7 @@ export type { AIAskState } from './types';
 
 ## Conclusion
 
-The DeepDive Engine frontend demonstrates solid foundational choices (Next.js 14, Zustand, TypeScript) but suffers from:
+The Genesis.ai frontend demonstrates solid foundational choices (Next.js 14, Zustand, TypeScript) but suffers from:
 
 1. **Oversized components** that need splitting
 2. **Underutilization** of Next.js App Router capabilities

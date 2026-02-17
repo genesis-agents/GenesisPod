@@ -1,6 +1,6 @@
 # Architecture Skills
 
-> System design and architectural patterns for DeepDive Engine.
+> System design and architectural patterns for Genesis.ai.
 
 ## Skills Overview
 

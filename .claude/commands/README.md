@@ -1,6 +1,6 @@
 # Claude Code Commands
 
-> DeepDive Engine 项目的 slash commands 快捷指令集。
+> Genesis.ai 项目的 slash commands 快捷指令集。
 
 ## 使用方法
 

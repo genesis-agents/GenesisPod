@@ -1,6 +1,6 @@
 # Development Skills
 
-> Frontend and backend development patterns for DeepDive Engine.
+> Frontend and backend development patterns for Genesis.ai.
 
 ## Skills Overview
 

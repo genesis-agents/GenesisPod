@@ -1,10 +1,10 @@
-# Raven AI Engine - Claude Code 配置
+# Genesis.ai - Claude Code 配置
 
 > AI 助手行为配置，指导 Claude Code 在本项目中的决策和行为。
 
 ## 项目概述
 
-**Raven AI Engine** - 企业级 AI 深度研究和内容管理平台。
+**Genesis.ai** - 企业级 AI 深度研究和内容管理平台。
 
 ### 核心模块
 
@@ -191,7 +191,7 @@ onModuleInit() {
 3. **错误处理**: 所有异步操作必须 try-catch
 4. **日志**: 使用 NestJS Logger，禁止 console.log
 5. **图标**: 禁止使用 emoji，必须使用 SVG 图标（Lucide React）
-6. **品牌名称**: 禁止硬编码品牌名（"Raven"/"DeepDive"等），前端用 `config.brand.*`（from `@/lib/utils/config`），后端用 `APP_CONFIG.brand.*`（from `common/config/app.config`）。Logo 用前端 `<BrandLogo />` 组件或后端 `BrandLogoService`
+6. **品牌名称**: 禁止硬编码品牌名（"Genesis"/"Raven"/"DeepDive"等），前端用 `config.brand.*`（from `@/lib/utils/config`），后端用 `APP_CONFIG.brand.*`（from `common/config/app.config`）。Logo 用前端 `<BrandLogo />` 组件或后端 `BrandLogoService`
 
 ### 导入顺序
 

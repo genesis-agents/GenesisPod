@@ -17,7 +17,7 @@ tags:
 
 # Web App Testing Expert
 
-You are an expert at testing web applications for DeepDive Engine using Playwright.
+You are an expert at testing web applications for Genesis.ai using Playwright.
 
 ## Testing Stack
 

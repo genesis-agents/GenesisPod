@@ -1,6 +1,6 @@
 # AI Teams 产品文档
 
-> AI Teams 是 DeepDive Engine 的核心能力，实现"像真实公司一样运作的 AI 团队"。
+> AI Teams 是 Genesis.ai 的核心能力，实现"像真实公司一样运作的 AI 团队"。
 
 ---
 

@@ -1,6 +1,6 @@
 # AI Apps - 应用模块总览
 
-> DeepDive Engine 的九大 AI 应用模块，覆盖问答、研究、创作、编程、模拟等全方位场景
+> Genesis.ai 的九大 AI 应用模块，覆盖问答、研究、创作、编程、模拟等全方位场景
 
 **最后更新**: 2026-01-15
 **版本**: v2.0
@@ -40,7 +40,7 @@
 # 创建会话并提问
 curl -X POST /api/v1/ai-ask/sessions -d '{"title": "测试会话"}'
 curl -X POST /api/v1/ai-ask/sessions/SESSION_ID/messages \
-  -d '{"content": "你好，请介绍一下 DeepDive Engine"}'
+  -d '{"content": "你好，请介绍一下 Genesis.ai"}'
 ```
 
 ---
