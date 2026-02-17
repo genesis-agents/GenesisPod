@@ -21,7 +21,7 @@ export async function saveAIAnalysisToDatabase(
   try {
     const res = await fetch(`${config.apiUrl}/resources/${resourceId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       body: JSON.stringify(data),
     });
     if (res.ok) {
