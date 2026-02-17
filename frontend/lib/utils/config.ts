@@ -64,8 +64,8 @@ export const config = {
     userAgent: `${BRAND_NAME}-AI-Engine/1.0`,
     /** Logo 路径 */
     logo: {
-      path: process.env.NEXT_PUBLIC_BRAND_LOGO_PATH || '/logo.png',
-      faviconPath: process.env.NEXT_PUBLIC_BRAND_FAVICON_PATH || '/logo.png',
+      path: process.env.NEXT_PUBLIC_BRAND_LOGO_PATH || '/favicon.svg',
+      faviconPath: process.env.NEXT_PUBLIC_BRAND_FAVICON_PATH || '/favicon.svg',
     },
     /** 默认邮件发送者 */
     emailFrom:
