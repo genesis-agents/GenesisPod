@@ -20,6 +20,8 @@ import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { ExploreModule } from "../../content/explore/explore.module";
 import { NotificationModule } from "../../core/notifications/notification.module";
 import { CreditsModule } from "../../credits/credits.module";
+import { YoutubeService } from "../../content/explore/youtube.service";
+import { YOUTUBE_SERVICE_TOKEN } from "../../ai-engine/content-fetch/content-fetch.service";
 
 @Module({
   imports: [
@@ -33,6 +35,8 @@ import { CreditsModule } from "../../credits/credits.module";
   ],
   controllers: [AiSocialController],
   providers: [
+    // Bind YoutubeService to YOUTUBE_SERVICE_TOKEN for ContentFetchService (Engine)
+    { provide: YOUTUBE_SERVICE_TOKEN, useExisting: YoutubeService },
     AiSocialService,
     SocialLeaderService,
     ContentFetcherService,

@@ -8,11 +8,22 @@
  * - SSRF 防护（URL 安全验证）
  */
 
-import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  Optional,
+  Inject,
+} from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { WebContentExtractionService } from "../../../common/content-processing/web-content-extraction.service";
-import { YoutubeService } from "../../content/explore/youtube.service";
 import { FetchedContent, sanitizeForDb } from "./content-fetch.types";
+
+/**
+ * YoutubeService injection token
+ * 使用字符串 token 避免直接导入 ExploreModule（会引起循环依赖）
+ */
+export const YOUTUBE_SERVICE_TOKEN = "YOUTUBE_SERVICE";
 
 // ===== SSRF 防护常量 =====
 const ALLOWED_PROTOCOLS = ["http:", "https:"];
@@ -100,7 +111,9 @@ export class ContentFetchService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly webExtractor: WebContentExtractionService,
-    private readonly youtubeService: YoutubeService,
+    @Optional()
+    @Inject(YOUTUBE_SERVICE_TOKEN)
+    private readonly youtubeService?: any,
   ) {}
 
   /**
@@ -119,10 +132,17 @@ export class ContentFetchService {
     this.logger.log(`Fetching content from URL: ${url}`);
 
     try {
-      // 检测是否是 YouTube 视频
+      // 检测是否是 YouTube 视频（需要 YoutubeService 或 DB 缓存）
       const youtubeVideoId = this.extractYoutubeVideoId(url);
       if (youtubeVideoId) {
-        return this.fetchFromYoutubeUrl(youtubeVideoId, url);
+        try {
+          return await this.fetchFromYoutubeUrl(youtubeVideoId, url);
+        } catch (ytError) {
+          this.logger.warn(
+            `YouTube fetch failed for ${youtubeVideoId}, falling back to web extraction: ${ytError}`,
+          );
+          // 降级到普通网页提取
+        }
       }
 
       // 使用 WebContentExtractionService 提取普通网页内容
@@ -213,10 +233,18 @@ export class ContentFetchService {
       }
 
       // 2. 缓存不存在或已过期，使用 YoutubeService 获取（会自动缓存）
+      if (!this.youtubeService) {
+        throw new Error("YoutubeService 未注入，无法获取视频字幕");
+      }
       this.logger.log(
         `[Cache Miss] Fetching transcript via YoutubeService for ${videoId}`,
       );
-      const transcript = await this.youtubeService.getTranscript(videoId);
+      const transcript = (await this.youtubeService.getTranscript(videoId)) as {
+        title?: string;
+        transcript: Array<{ text: string; translatedText?: string }>;
+        hasTranslation?: boolean;
+        targetLanguage?: string;
+      } | null;
 
       if (!transcript?.transcript?.length) {
         throw new Error("无法获取视频字幕");
@@ -224,11 +252,14 @@ export class ContentFetchService {
 
       // 构建内容
       const originalContent = transcript.transcript
-        .map((seg) => seg.text)
+        .map((seg: { text: string }) => seg.text)
         .join(" ");
       const translatedContent = transcript.hasTranslation
         ? transcript.transcript
-            .map((seg) => seg.translatedText || seg.text)
+            .map(
+              (seg: { text: string; translatedText?: string }) =>
+                seg.translatedText || seg.text,
+            )
             .join(" ")
         : null;
 
