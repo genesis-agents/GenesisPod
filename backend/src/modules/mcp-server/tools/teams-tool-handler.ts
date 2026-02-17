@@ -24,7 +24,7 @@ interface DebateRound {
 export class TeamsDebateToolHandler implements IMCPToolHandler {
   private readonly logger = new Logger(TeamsDebateToolHandler.name);
 
-  readonly toolName = "raven_team_debate";
+  readonly toolName = "genesis_team_debate";
   readonly description =
     "Run a structured multi-agent debate on a topic. Two AI agents with opposing perspectives " +
     "analyze the topic through multiple rounds, producing balanced analysis with a final judgment.";
@@ -115,116 +115,116 @@ export class TeamsDebateToolHandler implements IMCPToolHandler {
     rounds: DebateRound[];
     judgment: unknown;
   }> {
-      const debateRounds: DebateRound[] = [];
-      const perspectiveNote = perspective
-        ? ` Focus the debate around this angle: ${perspective}.`
-        : "";
+    const debateRounds: DebateRound[] = [];
+    const perspectiveNote = perspective
+      ? ` Focus the debate around this angle: ${perspective}.`
+      : "";
 
-      const proSystemPrompt =
-        `You are a skilled debater arguing IN FAVOR of the following proposition. ` +
-        `Present strong, evidence-based arguments supporting the position.${perspectiveNote} ` +
-        `Be persuasive but intellectually honest. Keep your argument focused and concise (200-400 words per round). ` +
-        `In subsequent rounds, directly respond to the opposing arguments presented.`;
+    const proSystemPrompt =
+      `You are a skilled debater arguing IN FAVOR of the following proposition. ` +
+      `Present strong, evidence-based arguments supporting the position.${perspectiveNote} ` +
+      `Be persuasive but intellectually honest. Keep your argument focused and concise (200-400 words per round). ` +
+      `In subsequent rounds, directly respond to the opposing arguments presented.`;
 
-      const conSystemPrompt =
-        `You are a skilled debater arguing AGAINST the following proposition. ` +
-        `Present strong, evidence-based counterarguments.${perspectiveNote} ` +
-        `Be persuasive but intellectually honest. Keep your argument focused and concise (200-400 words per round). ` +
-        `Directly respond to the arguments presented by the other side.`;
+    const conSystemPrompt =
+      `You are a skilled debater arguing AGAINST the following proposition. ` +
+      `Present strong, evidence-based counterarguments.${perspectiveNote} ` +
+      `Be persuasive but intellectually honest. Keep your argument focused and concise (200-400 words per round). ` +
+      `Directly respond to the arguments presented by the other side.`;
 
-      for (let round = 1; round <= rounds; round++) {
-        const debateHistory = this.buildDebateHistory(debateRounds);
+    for (let round = 1; round <= rounds; round++) {
+      const debateHistory = this.buildDebateHistory(debateRounds);
 
-        // Pro argument
-        const proMessages: ChatMessage[] = [
-          ...debateHistory,
-          {
-            role: "user",
-            content:
-              round === 1
-                ? `Debate topic: "${topic}"\n\nPresent your opening argument IN FAVOR of this proposition.`
-                : `Continue the debate. Present your round ${round} argument, responding to the opposing points made.`,
-          },
-        ];
+      // Pro argument
+      const proMessages: ChatMessage[] = [
+        ...debateHistory,
+        {
+          role: "user",
+          content:
+            round === 1
+              ? `Debate topic: "${topic}"\n\nPresent your opening argument IN FAVOR of this proposition.`
+              : `Continue the debate. Present your round ${round} argument, responding to the opposing points made.`,
+        },
+      ];
 
-        const proResponse = await this.aiFacade.chat({
-          messages: proMessages,
-          systemPrompt: proSystemPrompt,
-          modelType: AIModelType.CHAT,
-          taskProfile: { creativity: "medium", outputLength: "medium" },
-          strictMode: true,
-        });
-
-        // Con argument (includes pro argument from this round)
-        const conMessages: ChatMessage[] = [
-          ...debateHistory,
-          {
-            role: "assistant",
-            content: `[PRO - Round ${round}]: ${proResponse.content}`,
-          },
-          {
-            role: "user",
-            content:
-              round === 1
-                ? `Debate topic: "${topic}"\n\nThe PRO side has presented their opening argument above. Present your argument AGAINST this proposition.`
-                : `The PRO side has presented their round ${round} argument above. Present your counterargument.`,
-          },
-        ];
-
-        const conResponse = await this.aiFacade.chat({
-          messages: conMessages,
-          systemPrompt: conSystemPrompt,
-          modelType: AIModelType.CHAT,
-          taskProfile: { creativity: "medium", outputLength: "medium" },
-          strictMode: true,
-        });
-
-        debateRounds.push({
-          round,
-          proArgument: proResponse.content,
-          conArgument: conResponse.content,
-        });
-      }
-
-      // Final judgment
-      const judgmentResponse = await this.aiFacade.chat({
-        messages: [
-          {
-            role: "user",
-            content: this.buildJudgmentPrompt(topic, debateRounds, perspective),
-          },
-        ],
-        systemPrompt:
-          "You are an impartial judge and expert analyst. Evaluate the debate objectively. " +
-          "Return your judgment as valid JSON. No markdown code fences or extra text.",
+      const proResponse = await this.aiFacade.chat({
+        messages: proMessages,
+        systemPrompt: proSystemPrompt,
         modelType: AIModelType.CHAT,
-        taskProfile: { creativity: "low", outputLength: "long" },
+        taskProfile: { creativity: "medium", outputLength: "medium" },
         strictMode: true,
       });
 
-      let judgment: unknown;
-      try {
-        judgment = JSON.parse(judgmentResponse.content);
-      } catch {
-        judgment = {
-          winner: "draw",
-          confidence: "low",
-          proStrengths: [],
-          proWeaknesses: [],
-          conStrengths: [],
-          conWeaknesses: [],
-          keyInsights: [],
-          conclusion: judgmentResponse.content,
-          _parseError: true,
-        };
-      }
+      // Con argument (includes pro argument from this round)
+      const conMessages: ChatMessage[] = [
+        ...debateHistory,
+        {
+          role: "assistant",
+          content: `[PRO - Round ${round}]: ${proResponse.content}`,
+        },
+        {
+          role: "user",
+          content:
+            round === 1
+              ? `Debate topic: "${topic}"\n\nThe PRO side has presented their opening argument above. Present your argument AGAINST this proposition.`
+              : `The PRO side has presented their round ${round} argument above. Present your counterargument.`,
+        },
+      ];
 
-      return {
-        topic,
-        perspective: perspective || null,
-        rounds: debateRounds,
-        judgment,
+      const conResponse = await this.aiFacade.chat({
+        messages: conMessages,
+        systemPrompt: conSystemPrompt,
+        modelType: AIModelType.CHAT,
+        taskProfile: { creativity: "medium", outputLength: "medium" },
+        strictMode: true,
+      });
+
+      debateRounds.push({
+        round,
+        proArgument: proResponse.content,
+        conArgument: conResponse.content,
+      });
+    }
+
+    // Final judgment
+    const judgmentResponse = await this.aiFacade.chat({
+      messages: [
+        {
+          role: "user",
+          content: this.buildJudgmentPrompt(topic, debateRounds, perspective),
+        },
+      ],
+      systemPrompt:
+        "You are an impartial judge and expert analyst. Evaluate the debate objectively. " +
+        "Return your judgment as valid JSON. No markdown code fences or extra text.",
+      modelType: AIModelType.CHAT,
+      taskProfile: { creativity: "low", outputLength: "long" },
+      strictMode: true,
+    });
+
+    let judgment: unknown;
+    try {
+      judgment = JSON.parse(judgmentResponse.content);
+    } catch {
+      judgment = {
+        winner: "draw",
+        confidence: "low",
+        proStrengths: [],
+        proWeaknesses: [],
+        conStrengths: [],
+        conWeaknesses: [],
+        keyInsights: [],
+        conclusion: judgmentResponse.content,
+        _parseError: true,
       };
+    }
+
+    return {
+      topic,
+      perspective: perspective || null,
+      rounds: debateRounds,
+      judgment,
+    };
   }
 
   private buildDebateHistory(rounds: DebateRound[]): ChatMessage[] {

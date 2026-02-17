@@ -6,7 +6,7 @@
 **Execution End**: 2026-02-10T19:40:00+00:00
 **Purpose**: Confirmation run - verify stability and reproducibility of Run A results
 **Local Services**: Frontend :3000 (DOWN), Backend :4000 (DOWN)
-**Production URL**: https://raven-ai-engine.up.railway.app
+**Production URL**: https://genesis-ai.up.railway.app
 
 **Changes Under Test**: Same as Run A (no new commits since 62d81906)
 
@@ -168,7 +168,7 @@ All endpoints respond correctly: 401 for auth-protected routes, 200 for public e
 
 ### E1: Page Loading Patrol
 
-All pages tested against production (https://raven-ai-engine.up.railway.app) via Playwright MCP. User authenticated as JUNJIE DUAN.
+All pages tested against production (https://genesis-ai.up.railway.app) via Playwright MCP. User authenticated as JUNJIE DUAN.
 
 | Page        | URL             | Status | Notes                                                                                                 |
 | ----------- | --------------- | ------ | ----------------------------------------------------------------------------------------------------- |

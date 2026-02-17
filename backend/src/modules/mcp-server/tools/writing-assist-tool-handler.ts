@@ -144,7 +144,7 @@ const TASK_PROFILES: Record<WritingTask, TaskProfile> = {
 export class WritingAssistToolHandler implements IMCPToolHandler {
   private readonly logger = new Logger(WritingAssistToolHandler.name);
 
-  readonly toolName = "raven_writing_assist";
+  readonly toolName = "genesis_writing_assist";
   readonly description =
     "Writing assistance tool. Supports content improvement, expansion, " +
     "summarization, rewriting, proofreading, and outline generation.";

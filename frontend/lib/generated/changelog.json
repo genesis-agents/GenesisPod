@@ -1201,7 +1201,7 @@
       },
       {
         "type": "fix",
-        "description": "rename service to Raven AI Engine & fix report version conflict"
+        "description": "rename service to Genesis.ai & fix report version conflict"
       },
       {
         "type": "fix",
@@ -9105,7 +9105,7 @@
       },
       {
         "type": "fix",
-        "description": "use correct B2 bucket name deepdive-engine-images"
+        "description": "use correct B2 bucket name genesis-ai-images"
       },
       {
         "type": "fix",
@@ -11185,7 +11185,7 @@
       },
       {
         "type": "feature",
-        "description": "implement DeepDive Engine v2.1 unified rendering architecture"
+        "description": "implement Genesis.ai v2.1 unified rendering architecture"
       },
       {
         "type": "feature",
@@ -11529,7 +11529,7 @@
       },
       {
         "type": "feature",
-        "description": "rebrand from DeepDive Engine to AI Teams Engine"
+        "description": "rebrand from Genesis.ai to AI Teams Engine"
       },
       {
         "type": "feature",
@@ -12929,7 +12929,7 @@
       },
       {
         "type": "feature",
-        "description": "initial commit - DeepDive Engine core features"
+        "description": "initial commit - Genesis.ai core features"
       },
       {
         "type": "feature",

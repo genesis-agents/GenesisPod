@@ -132,7 +132,7 @@ Return valid JSON:
 export class ContentAnalysisToolHandler implements IMCPToolHandler {
   private readonly logger = new Logger(ContentAnalysisToolHandler.name);
 
-  readonly toolName = "raven_content_analysis";
+  readonly toolName = "genesis_content_analysis";
   readonly description =
     "Analyze provided text content across multiple dimensions. " +
     "Supports comprehensive analysis, summarization, key findings extraction, " +

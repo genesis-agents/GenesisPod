@@ -120,8 +120,8 @@ export async function injectAuth(
   // Frontend requires BOTH to recognize logged-in state (see AuthContext.tsx line 43)
   await page.evaluate(
     (data: { tokens: AuthTokens; user: Record<string, unknown> }) => {
-      localStorage.setItem("raven_auth_tokens", JSON.stringify(data.tokens));
-      localStorage.setItem("raven_user", JSON.stringify(data.user));
+      localStorage.setItem("deepdive_auth_tokens", JSON.stringify(data.tokens));
+      localStorage.setItem("deepdive_user", JSON.stringify(data.user));
     },
     {
       tokens: {

@@ -20,8 +20,8 @@ describe("AuthService - placeholder", () => {
 
   describe("API Key validation patterns", () => {
     it("should accept valid API key format", () => {
-      const validKey = "raven_sk_test123456789abcdef";
-      expect(validKey.startsWith("raven_")).toBe(true);
+      const validKey = "genesis_sk_test123456789abcdef";
+      expect(validKey.startsWith("genesis_")).toBe(true);
     });
 
     it("should reject empty API key", () => {

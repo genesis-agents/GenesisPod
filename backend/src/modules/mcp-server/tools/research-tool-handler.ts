@@ -21,7 +21,7 @@ const RESEARCH_TIMEOUT_MS = 5 * 60 * 1000;
 export class ResearchToolHandler implements IMCPToolHandler {
   private readonly logger = new Logger(ResearchToolHandler.name);
 
-  readonly toolName = "raven_deep_research";
+  readonly toolName = "genesis_deep_research";
   readonly description =
     "Execute deep research on a topic. Creates a research plan, " +
     "runs iterative search with self-reflection, and returns a comprehensive report with citations and evidence.";

@@ -20,7 +20,7 @@ import { LruMap } from "@/common/utils/lru-map";
  */
 const DEFAULT_POLICY: MCPPermissionPolicy = {
   allowedToolPatterns: [
-    "raven_*", // curated tools (raven_ask, raven_deep_research, etc.)
+    "genesis_*", // curated tools (genesis_ask, genesis_deep_research, etc.)
   ],
   deniedToolPatterns: [],
   maxConcurrency: 5,
@@ -267,7 +267,7 @@ export class MCPSessionManager {
 
   /**
    * Glob-style 通配符匹配
-   * 支持: "*" (全匹配), "raven_*" (前缀), "*_search" (后缀),
+   * 支持: "*" (全匹配), "genesis_*" (前缀), "*_search" (后缀),
    *       "tool_web_*" (前缀), "tool_*_v2" (中间通配)
    */
   private matchPattern(value: string, pattern: string): boolean {

@@ -6,7 +6,7 @@
 **Execution End**: 2026-02-10T19:00:00+00:00
 **Purpose**: Post-hotfix verification after CORS/security rollback (commits 3c8070cc, 62d81906)
 **Local Services**: Frontend :3000 (DOWN), Backend :4000 (DOWN)
-**Production URL**: https://raven-ai-engine.up.railway.app
+**Production URL**: https://genesis-ai.up.railway.app
 
 **Changes Under Test** (since last report commit eeea26ea):
 
@@ -170,7 +170,7 @@ All endpoints respond correctly: 401 for auth-protected routes, 200 for public e
 
 ### E1: Page Loading Patrol
 
-All pages tested against production (https://raven-ai-engine.up.railway.app). User authenticated as JUNJIE DUAN.
+All pages tested against production (https://genesis-ai.up.railway.app). User authenticated as JUNJIE DUAN.
 
 | Page        | URL             | Status | Notes                                                                                      |
 | ----------- | --------------- | ------ | ------------------------------------------------------------------------------------------ |

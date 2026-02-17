@@ -18,7 +18,7 @@ import { APP_CONFIG } from "../../../common/config/app.config";
 export class AskToolHandler implements IMCPToolHandler {
   private readonly logger = new Logger(AskToolHandler.name);
 
-  readonly toolName = "raven_ask";
+  readonly toolName = "genesis_ask";
   readonly description =
     `Ask ${APP_CONFIG.brand.name} AI a question. Supports multi-model responses with ` +
     "web search augmentation and knowledge base integration.";
