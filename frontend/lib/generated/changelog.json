@@ -1,5 +1,231 @@
 [
   {
+    "version": "3.74.0",
+    "date": "2026-02-17",
+    "changes": [
+      {
+        "type": "improvement",
+        "description": "extract project dialogs into standalone components"
+      },
+      {
+        "type": "improvement",
+        "description": "system-wide evaluation fixes — 23 tasks across AI Engine and AI Apps"
+      },
+      {
+        "type": "improvement",
+        "description": "migrate 6 services from AI Apps to AI Engine core"
+      },
+      {
+        "type": "improvement",
+        "description": "migrate API key to Secrets Manager"
+      },
+      {
+        "type": "improvement",
+        "description": "comprehensive cleanup of all raven/deepdive references"
+      },
+      {
+        "type": "improvement",
+        "description": "replace remaining raven references with genesis"
+      },
+      {
+        "type": "improvement",
+        "description": "revert to original layout with Genesis + AI ENGINE subtitle"
+      },
+      {
+        "type": "improvement",
+        "description": "restructure AI Research into discussion-ideas-demos pipeline"
+      },
+      {
+        "type": "fix",
+        "description": "add FINANCE category to SecretsManager CATEGORY_OPTIONS"
+      },
+      {
+        "type": "fix",
+        "description": "resolve circular dependency in DiscussionModule and MCPServerModule"
+      },
+      {
+        "type": "fix",
+        "description": "add forwardRef for AiEngineModule import"
+      },
+      {
+        "type": "fix",
+        "description": "add forwardRef to break circular dependency chain"
+      },
+      {
+        "type": "fix",
+        "description": "break circular dependency via optional YoutubeService injection"
+      },
+      {
+        "type": "fix",
+        "description": "pass exportScope to backend for full planning export"
+      },
+      {
+        "type": "fix",
+        "description": "reduce WYSIWYG payload size and add editable fallback"
+      },
+      {
+        "type": "fix",
+        "description": "add dedicated API route to bypass rewrite proxy for large bodies"
+      },
+      {
+        "type": "fix",
+        "description": "increase timeout for export POST to prevent ECONNRESET"
+      },
+      {
+        "type": "fix",
+        "description": "add missing auth header to thumbnail extract request"
+      },
+      {
+        "type": "fix",
+        "description": "add missing auth header to resource PATCH request"
+      },
+      {
+        "type": "fix",
+        "description": "sync collection rules with actual data source categories"
+      },
+      {
+        "type": "fix",
+        "description": "persist enabled/interval config to database via SettingsService"
+      },
+      {
+        "type": "fix",
+        "description": "move version badge inline next to brand name"
+      },
+      {
+        "type": "fix",
+        "description": "fix demos tab flickering caused by polling loop"
+      },
+      {
+        "type": "fix",
+        "description": "fix ideas extraction state management"
+      },
+      {
+        "type": "fix",
+        "description": "ai-powered idea extraction + multi-call report generation"
+      },
+      {
+        "type": "fix",
+        "description": "fix project list parsing, ideas extraction, and report quality"
+      },
+      {
+        "type": "fix",
+        "description": "fix SSE streaming and agent hexagon layout"
+      },
+      {
+        "type": "fix",
+        "description": "deep review fixes for AgentPanel, DiscussionChat, and history viewing"
+      },
+      {
+        "type": "fix",
+        "description": "fix stale closure causing empty discussion history"
+      },
+      {
+        "type": "fix",
+        "description": "fix broken connector lines in PhaseIndicator"
+      },
+      {
+        "type": "fix",
+        "description": "refactor left panel collapse to match AI Insights pattern"
+      },
+      {
+        "type": "fix",
+        "description": "add empty state for session history with no discussion messages"
+      },
+      {
+        "type": "fix",
+        "description": "fix left panel and chat overflow with proper flex height chain"
+      },
+      {
+        "type": "fix",
+        "description": "render JSON directions as cards and fix layout overflow"
+      },
+      {
+        "type": "fix",
+        "description": "skip xiaohongshu MCP registration when XHS_MCP_URL not set"
+      },
+      {
+        "type": "fix",
+        "description": "fix SSE parser losing events across TCP chunks"
+      },
+      {
+        "type": "fix",
+        "description": "add auth header to SSE stream and ensure DB migration runs"
+      },
+      {
+        "type": "fix",
+        "description": "add missing CreditTransactionType enum values to deploy script"
+      },
+      {
+        "type": "fix",
+        "description": "fix DB migration for discussion-driven research"
+      },
+      {
+        "type": "fix",
+        "description": "restore .data access for self-wrapped list endpoints"
+      },
+      {
+        "type": "fix",
+        "description": "fix response unwrapping causing batch collection failure"
+      },
+      {
+        "type": "fix",
+        "description": "update initial notifications with useful actionUrls"
+      },
+      {
+        "type": "fix",
+        "description": "move changelog link to header version badge, remove sidebar item"
+      },
+      {
+        "type": "fix",
+        "description": "handle Docker build where root package.json is absent"
+      },
+      {
+        "type": "fix",
+        "description": "make notification cards clickable and add What's New to sidebar"
+      },
+      {
+        "type": "feature",
+        "description": "add finance-data capability to tools management UI"
+      },
+      {
+        "type": "feature",
+        "description": "add Alpha Vantage finance API to external tools management"
+      },
+      {
+        "type": "feature",
+        "description": "redesign logo to Orbital Core - AI team concept"
+      },
+      {
+        "type": "feature",
+        "description": "enlarge logo with colorful CSS glow and version badge as superscript"
+      },
+      {
+        "type": "feature",
+        "description": "use original PNG logo and clean up all remaining brand refs"
+      },
+      {
+        "type": "feature",
+        "description": "rebrand to Genesis.ai with new squirrel logo"
+      },
+      {
+        "type": "feature",
+        "description": "5-tab refactor with insights/creative ideas separation"
+      },
+      {
+        "type": "feature",
+        "description": "structured idea extraction with expandable cards"
+      },
+      {
+        "type": "feature",
+        "description": "structured idea cards with click-to-expand detail"
+      },
+      {
+        "type": "feature",
+        "description": "implement discussion-driven deep research"
+      }
+    ]
+  },
+  {
     "version": "3.73.0",
     "date": "2026-02-16",
     "changes": [

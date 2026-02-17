@@ -111,8 +111,9 @@ infra/oci/terraform/*.tfplan
 !.edgeone/project.json
 .tef_dist/*
   
-# Generated files
-frontend/lib/generated/
+# Generated files (changelog.json is tracked for deployment)
+frontend/lib/generated/*
+!frontend/lib/generated/changelog.json
 /CHANGELOG.md
 
 # UI Patrol outputs (generated, not checked in)
