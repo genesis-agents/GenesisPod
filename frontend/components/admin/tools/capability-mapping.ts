@@ -39,6 +39,7 @@ export type CapabilityCategory =
   | 'memory'
   | 'integration'
   | 'export'
+  | 'finance'
   | 'policy'
   | 'devtools';
 
@@ -56,8 +57,9 @@ export const CATEGORY_CONFIG: Record<
   memory: { order: 5, labelKey: 'admin.tools.categories.memory' },
   integration: { order: 6, labelKey: 'admin.tools.categories.integration' },
   export: { order: 7, labelKey: 'admin.tools.categories.export' },
-  policy: { order: 8, labelKey: 'admin.tools.categories.policy' },
-  devtools: { order: 9, labelKey: 'admin.tools.categories.devtools' },
+  finance: { order: 8, labelKey: 'admin.tools.categories.finance' },
+  policy: { order: 9, labelKey: 'admin.tools.categories.policy' },
+  devtools: { order: 10, labelKey: 'admin.tools.categories.devtools' },
 };
 
 /**
@@ -229,6 +231,26 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         freeQuota: '4M chars/month',
         pricing: 'Usage-based',
         secretKeyName: 'google-tts-api-key',
+      },
+    ],
+  },
+
+  // ==================== 金融数据能力 ====================
+  {
+    id: 'finance-data',
+    name: 'finance-data',
+    displayName: '金融数据',
+    description: '获取实时金融数据，包括股票行情、外汇汇率和加密货币价格',
+    icon: 'TrendingUp',
+    category: 'finance',
+    providers: [
+      {
+        id: 'alpha-vantage',
+        name: 'Alpha Vantage',
+        description: '实时金融数据 API，股票、外汇、加密货币行情',
+        url: 'https://www.alphavantage.co',
+        freeQuota: '25 requests/day',
+        secretKeyName: 'alpha-vantage-api-key',
       },
     ],
   },
