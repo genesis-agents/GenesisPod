@@ -4,10 +4,10 @@
  */
 
 // ==================== 核心品牌配置（环境变量优先）====================
-const BRAND_NAME = process.env.BRAND_NAME || "Raven";
-const BRAND_FULL_NAME = process.env.BRAND_FULL_NAME || "Raven AI Engine";
-const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || "AI ENGINE";
-const RAILWAY_DOMAIN = process.env.RAILWAY_DOMAIN || "raven-ai-engine";
+const BRAND_NAME = process.env.BRAND_NAME || "Genesis";
+const BRAND_FULL_NAME = process.env.BRAND_FULL_NAME || "Genesis.ai";
+const BRAND_SUBTITLE = process.env.BRAND_SUBTITLE || ".ai";
+const RAILWAY_DOMAIN = process.env.RAILWAY_DOMAIN || "genesis-ai";
 
 /**
  * 应用配置常量
@@ -78,7 +78,7 @@ export const APP_CONFIG = {
     /** 默认 GitHub 仓库所有者 */
     owner: process.env.GITHUB_OWNER || "JUNJIE-DUAN",
     /** 默认 GitHub 仓库名称 */
-    repo: process.env.GITHUB_REPO || "raven-ai-engine",
+    repo: process.env.GITHUB_REPO || "genesis-ai",
   },
 
   // ==================== 辅助方法 ====================

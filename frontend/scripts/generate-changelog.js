@@ -69,6 +69,12 @@ if (!baseCommit) {
     `log --all --format=%H --grep="chore(auto-release): ${currentVersion}" -1`
   );
 }
+if (!baseCommit) {
+  // Fallback: find manual bump commit (e.g. "chore: bump version to 3.72.0 with changelog")
+  baseCommit = git(
+    `log --all --format=%H --grep="bump version to ${currentVersion}" -1`
+  );
+}
 
 // ── Step 3: Get new conventional commits since last release ────────────────
 let newCommits = [];

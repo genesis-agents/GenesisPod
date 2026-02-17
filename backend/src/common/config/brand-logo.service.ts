@@ -13,17 +13,41 @@ export class BrandLogoService {
   private readonly logger = new Logger(BrandLogoService.name);
   private cachedSvg: string | null = null;
 
-  /** Default fallback logo (same as infographic.constants.ts DEEPDIVE_LOGO) */
+  /** Default fallback logo — Genesis.ai tech squirrel */
   private readonly DEFAULT_LOGO = `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#8B5CF6"/>
-      <stop offset="50%" style="stop-color:#6366F1"/>
-      <stop offset="100%" style="stop-color:#3B82F6"/>
+    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="50%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+    <linearGradient id="tailGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06B6D4"/>
+      <stop offset="40%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#EC4899"/>
     </linearGradient>
   </defs>
-  <path d="M8 10 L20 30 L32 10" stroke="url(#logoGradient)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <path d="M14 10 L20 22 L26 10" stroke="url(#logoGradient)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.6"/>
+  <path d="M12.5 27.5 Q7.5 25 6.25 20 Q5 13.75 8.75 10 Q11.25 6.875 15 7.5" stroke="url(#tailGrad)" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M12.5 27.5 Q8.75 22.5 9.375 17.5 Q10 12.5 13.75 10.625" stroke="url(#tailGrad)" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M12.5 27.5 Q11.25 21.25 12.5 17.5 Q13.75 13.75 16.875 12.5" stroke="url(#tailGrad)" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <circle cx="15" cy="7.5" r="1.6" fill="#06B6D4"/>
+  <circle cx="8.75" cy="10" r="1.6" fill="#8B5CF6"/>
+  <circle cx="6.25" cy="20" r="1.6" fill="#EC4899"/>
+  <circle cx="9.375" cy="17.5" r="1.4" fill="#A78BFA"/>
+  <circle cx="13.75" cy="10.625" r="1.4" fill="#6366F1"/>
+  <circle cx="12.5" cy="17.5" r="1.4" fill="#06B6D4"/>
+  <circle cx="16.875" cy="12.5" r="1.4" fill="#EC4899"/>
+  <circle cx="15" cy="7.5" r="3.2" fill="#06B6D4" opacity="0.15"/>
+  <circle cx="8.75" cy="10" r="3.2" fill="#8B5CF6" opacity="0.15"/>
+  <circle cx="6.25" cy="20" r="3.2" fill="#EC4899" opacity="0.15"/>
+  <ellipse cx="18.75" cy="27.5" rx="5.625" ry="6.25" fill="url(#bodyGrad)"/>
+  <ellipse cx="23.75" cy="18.125" rx="5" ry="5.625" fill="url(#bodyGrad)"/>
+  <path d="M26.25 13.125 L28.125 9.375 L25 11.875" fill="#8B5CF6"/>
+  <circle cx="25.625" cy="16.875" r="1.25" fill="white"/>
+  <circle cx="26" cy="16.875" r="0.625" fill="#1E1B4B"/>
+  <circle cx="28.125" cy="19.375" r="0.75" fill="#C4B5FD"/>
+  <path d="M25 22.5 Q27.5 23.75 28.125 25.625" stroke="url(#bodyGrad)" stroke-width="1.75" stroke-linecap="round" fill="none"/>
+  <circle cx="28.75" cy="26.25" r="1.5" fill="#F59E0B"/>
 </svg>`;
 
   /**

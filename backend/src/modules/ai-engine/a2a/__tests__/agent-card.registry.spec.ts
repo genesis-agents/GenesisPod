@@ -126,7 +126,7 @@ describe("AgentCardRegistry", () => {
 
   describe("URL configuration", () => {
     it("应该使用 AGENT_BASE_URL 环境变量", () => {
-      const testUrl = "https://api.raven.ai";
+      const testUrl = "https://api.genesis.ai";
       jest.spyOn(configService, "get").mockImplementation((key: string) => {
         if (key === "AGENT_BASE_URL") return testUrl;
         return undefined;
@@ -138,7 +138,7 @@ describe("AgentCardRegistry", () => {
     });
 
     it("应该 fallback 到 API_URL", () => {
-      const testUrl = "https://api.raven.ai";
+      const testUrl = "https://api.genesis.ai";
       jest.spyOn(configService, "get").mockImplementation((key: string) => {
         if (key === "API_URL") return testUrl;
         if (key === "AGENT_BASE_URL") return undefined;

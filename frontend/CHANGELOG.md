@@ -2,6 +2,51 @@
 
 Raven AI Engine 版本变更记录。
 
+## 3.73.0 (2026-02-16)
+
+### Refactoring
+
+- centralize brand configuration with env var support
+- **planning:** quality overhaul for AI planning output
+- **nav:** move AI Teams to planning group and rename to AI 探讨
+
+### Features
+
+- **export:** upgrade fonts to Inter + Microsoft YaHei/Noto Sans SC
+- **planning:** add full planning process WYSIWYG export
+- **office:** refactor slides engine to AI-adaptive HTML generation (v6.0)
+- **research:** add rename and delete actions to project cards
+- **research:** add project naming dialog before creating new research
+- **research:** add bilingual (zh-CN/en-US) support for discussion research
+
+### Bug Fixes
+
+- **planning:** strengthen Phase 1 to focus on problem decomposition not solutions
+- **teams:** handle nullable metadata in planning topic exclusion filter
+- **i18n:** complete AI 团队 → AI 探讨 rename in zh.json
+- **teams:** exclude planning topics from teams list and add playwright
+- **planning:** improve orchestrator execution architecture for output quality
+- **slides:** enforce real FA icons, layout variety, clean cover, and 4 KPI cards
+- **slides:** tighten design system prompt for title brevity and visual balance
+- **slides:** improve design system prompt and fix skill runtime issues
+- **research:** improve generate demo button UX with feedback and duplicate guard
+- **research:** use text markers for citations in markdown rendering
+- **research:** render report content as markdown with proper formatting
+- **research:** limit insights to top 30 for creative idea extraction
+- **research:** case-insensitive feasibility filter for creative ideas
+- **research:** extend recovery polling to 15 minutes to match synthesis timeout
+- **research:** add SSE heartbeat and safe write to prevent proxy idle disconnect
+- **research:** parallelize report section generation to prevent synthesis timeout
+- **research:** eliminate double report generation in synthesis phase
+- **research:** increase synthesis timeout to 8min and protect streaming
+- **research:** fix empty reports/ideas with timeout increase and recovery
+- **research:** auto-correct stale discussion sessions stuck in intermediate states
+- **research:** improve h3 heading styling and add missing i18n keys
+- **research:** add markdown formatting to all discussion phase prompts
+- **research:** improve discussion output hierarchy and add team panel controls
+- **search:** use 24h cooldown for quota-exhausted API keys instead of 5min
+- **ai-engine:** resolve preferred model by modelType instead of passing raw enum string
+
 ## 3.72.0 (2026-02-15)
 
 ### Features

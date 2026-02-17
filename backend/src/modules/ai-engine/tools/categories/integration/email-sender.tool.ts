@@ -10,6 +10,7 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../abstractions/tool.interface";
+import { APP_CONFIG } from "@/common/config/app.config";
 
 // ============================================================================
 // Types
@@ -310,7 +311,7 @@ export class EmailSenderTool extends BaseTool<
       // 实际实现时应该使用 nodemailer 或邮件服务 API（如 SendGrid, Mailgun）
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const messageId = `<${Date.now()}.${Math.random().toString(36).substring(7)}@deepdive.ai>`;
+      const messageId = `<${Date.now()}.${Math.random().toString(36).substring(7)}@${APP_CONFIG.brand.name.toLowerCase()}.ai>`;
       const allRecipients = [...to, ...(cc || []), ...(bcc || [])];
 
       // 模拟收件人状态

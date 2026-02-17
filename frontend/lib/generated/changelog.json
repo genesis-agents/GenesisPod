@@ -1,5 +1,147 @@
 [
   {
+    "version": "3.73.0",
+    "date": "2026-02-16",
+    "changes": [
+      {
+        "type": "improvement",
+        "description": "centralize brand configuration with env var support"
+      },
+      {
+        "type": "improvement",
+        "description": "quality overhaul for AI planning output"
+      },
+      {
+        "type": "improvement",
+        "description": "move AI Teams to planning group and rename to AI 探讨"
+      },
+      {
+        "type": "feature",
+        "description": "upgrade fonts to Inter + Microsoft YaHei/Noto Sans SC"
+      },
+      {
+        "type": "feature",
+        "description": "add full planning process WYSIWYG export"
+      },
+      {
+        "type": "feature",
+        "description": "refactor slides engine to AI-adaptive HTML generation (v6.0)"
+      },
+      {
+        "type": "feature",
+        "description": "add rename and delete actions to project cards"
+      },
+      {
+        "type": "feature",
+        "description": "add project naming dialog before creating new research"
+      },
+      {
+        "type": "feature",
+        "description": "add bilingual (zh-CN/en-US) support for discussion research"
+      },
+      {
+        "type": "fix",
+        "description": "strengthen Phase 1 to focus on problem decomposition not solutions"
+      },
+      {
+        "type": "fix",
+        "description": "handle nullable metadata in planning topic exclusion filter"
+      },
+      {
+        "type": "fix",
+        "description": "complete AI 团队 → AI 探讨 rename in zh.json"
+      },
+      {
+        "type": "fix",
+        "description": "exclude planning topics from teams list and add playwright"
+      },
+      {
+        "type": "fix",
+        "description": "improve orchestrator execution architecture for output quality"
+      },
+      {
+        "type": "fix",
+        "description": "enforce real FA icons, layout variety, clean cover, and 4 KPI cards"
+      },
+      {
+        "type": "fix",
+        "description": "tighten design system prompt for title brevity and visual balance"
+      },
+      {
+        "type": "fix",
+        "description": "improve design system prompt and fix skill runtime issues"
+      },
+      {
+        "type": "fix",
+        "description": "improve generate demo button UX with feedback and duplicate guard"
+      },
+      {
+        "type": "fix",
+        "description": "use text markers for citations in markdown rendering"
+      },
+      {
+        "type": "fix",
+        "description": "render report content as markdown with proper formatting"
+      },
+      {
+        "type": "fix",
+        "description": "limit insights to top 30 for creative idea extraction"
+      },
+      {
+        "type": "fix",
+        "description": "case-insensitive feasibility filter for creative ideas"
+      },
+      {
+        "type": "fix",
+        "description": "extend recovery polling to 15 minutes to match synthesis timeout"
+      },
+      {
+        "type": "fix",
+        "description": "add SSE heartbeat and safe write to prevent proxy idle disconnect"
+      },
+      {
+        "type": "fix",
+        "description": "parallelize report section generation to prevent synthesis timeout"
+      },
+      {
+        "type": "fix",
+        "description": "eliminate double report generation in synthesis phase"
+      },
+      {
+        "type": "fix",
+        "description": "increase synthesis timeout to 8min and protect streaming"
+      },
+      {
+        "type": "fix",
+        "description": "fix empty reports/ideas with timeout increase and recovery"
+      },
+      {
+        "type": "fix",
+        "description": "auto-correct stale discussion sessions stuck in intermediate states"
+      },
+      {
+        "type": "fix",
+        "description": "improve h3 heading styling and add missing i18n keys"
+      },
+      {
+        "type": "fix",
+        "description": "add markdown formatting to all discussion phase prompts"
+      },
+      {
+        "type": "fix",
+        "description": "improve discussion output hierarchy and add team panel controls"
+      },
+      {
+        "type": "fix",
+        "description": "use 24h cooldown for quota-exhausted API keys instead of 5min"
+      },
+      {
+        "type": "fix",
+        "description": "resolve preferred model by modelType instead of passing raw enum string"
+      }
+    ]
+  },
+  {
     "version": "3.72.0",
     "date": "2026-02-15",
     "changes": [

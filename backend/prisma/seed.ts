@@ -24,14 +24,14 @@ async function main() {
     await prisma.user.create({
       data: {
         id: defaultUserId,
-        email: "demo@deepdive.ai",
+        email: "demo@genesis.ai",
         username: "demo",
         passwordHash: "$2b$10$placeholder.hash.for.demo.user.only",
         role: "USER",
         isVerified: true,
       },
     });
-    console.log("✅ 默认用户已创建 (demo@deepdive.ai)");
+    console.log("✅ 默认用户已创建 (demo@genesis.ai)");
   } else {
     console.log("⏩ 默认用户已存在");
   }

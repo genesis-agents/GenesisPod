@@ -4,14 +4,12 @@
  */
 
 // ==================== 核心品牌配置（环境变量优先）====================
-const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME || 'Raven';
-const BRAND_FULL_NAME =
-  process.env.NEXT_PUBLIC_BRAND_FULL_NAME || 'Raven AI Engine';
-const BRAND_SUBTITLE = process.env.NEXT_PUBLIC_BRAND_SUBTITLE || 'AI ENGINE';
+const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME || 'Genesis';
+const BRAND_FULL_NAME = process.env.NEXT_PUBLIC_BRAND_FULL_NAME || 'Genesis.ai';
+const BRAND_SUBTITLE = process.env.NEXT_PUBLIC_BRAND_SUBTITLE || '.ai';
 const BRAND_TAGLINE =
   process.env.NEXT_PUBLIC_BRAND_TAGLINE || 'AI-Powered Research Platform';
-const RAILWAY_DOMAIN =
-  process.env.NEXT_PUBLIC_RAILWAY_DOMAIN || 'raven-ai-engine';
+const RAILWAY_DOMAIN = process.env.NEXT_PUBLIC_RAILWAY_DOMAIN || 'genesis-ai';
 
 // ==================== Railway URL 配置 ====================
 const RAILWAY_FRONTEND_URL = `https://${RAILWAY_DOMAIN}.up.railway.app`;
@@ -80,7 +78,7 @@ export const config = {
     /** GitHub Issues URL */
     githubIssuesUrl:
       process.env.NEXT_PUBLIC_BRAND_GITHUB_ISSUES_URL ||
-      'https://github.com/JUNJIE-DUAN/deepdive-engine/issues',
+      'https://github.com/JUNJIE-DUAN/genesis-ai/issues',
   },
 
   // ==================== Railway URL 配置 ====================

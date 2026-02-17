@@ -106,9 +106,9 @@ echo ""
 echo -e "${GREEN}🏥 Running health checks...${NC}"
 sleep 5
 
-HEALTH_URL="https://api.deepdive.app/health"
+HEALTH_URL="https://api.genesis.ai/health"
 if [ "$ENVIRONMENT" = "staging" ]; then
-  HEALTH_URL="https://staging-api.deepdive.app/health"
+  HEALTH_URL="https://staging-api.genesis.ai/health"
 fi
 
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL")
