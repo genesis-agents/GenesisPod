@@ -4,16 +4,22 @@
  * P0: 实时数据源接入
  * 接入金融数据 API（Alpha Vantage / Yahoo Finance 替代）
  * 提供股票、公司、行业的实时和历史数据
+ *
+ * API Key 通过项目 Secrets Manager 统一管理，secret 名称: alpha-vantage-api-key
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import {
   IDataSourceConnector,
   ConnectorSearchOptions,
   ConnectorHealthStatus,
 } from "../../../types/data-source-connector.types";
-import { DataSourceType, DataSourceResult } from "../../../types/data-source.types";
+import {
+  DataSourceType,
+  DataSourceResult,
+} from "../../../types/data-source.types";
+import { SecretsService } from "../../../../../core/secrets/secrets.service";
+import { SECRET_NAMES } from "../../../../../core/secrets/secret-name-mapping";
 
 @Injectable()
 export class FinanceApiConnector implements IDataSourceConnector {
@@ -22,11 +28,12 @@ export class FinanceApiConnector implements IDataSourceConnector {
   readonly displayName = "Finance Data API";
   readonly requiresApiKey = true;
 
-  private readonly apiKey?: string;
   private readonly baseUrl = "https://www.alphavantage.co/query";
 
-  constructor(private readonly configService: ConfigService) {
-    this.apiKey = this.configService.get<string>("ALPHA_VANTAGE_API_KEY");
+  constructor(private readonly secretsService: SecretsService) {}
+
+  private async getApiKey(): Promise<string | null> {
+    return this.secretsService.getValueInternal(SECRET_NAMES.ALPHA_VANTAGE);
   }
 
   async search(
@@ -36,14 +43,14 @@ export class FinanceApiConnector implements IDataSourceConnector {
   ): Promise<DataSourceResult[]> {
     this.logger.log(`[search] query="${query}", maxResults=${maxResults}`);
 
-    if (!this.apiKey) {
+    const apiKey = await this.getApiKey();
+    if (!apiKey) {
       this.logger.warn("[search] No API key configured, skipping");
       return [];
     }
 
     try {
-      // 搜索公司/股票符号
-      const results = await this.searchSymbols(query, maxResults);
+      const results = await this.searchSymbols(query, maxResults, apiKey);
       return results;
     } catch (error) {
       this.logger.error(`[search] Failed: ${error}`);
@@ -52,11 +59,13 @@ export class FinanceApiConnector implements IDataSourceConnector {
   }
 
   async isAvailable(): Promise<boolean> {
-    return !!this.apiKey;
+    const apiKey = await this.getApiKey();
+    return !!apiKey;
   }
 
   async healthCheck(): Promise<ConnectorHealthStatus> {
-    if (!this.apiKey) {
+    const apiKey = await this.getApiKey();
+    if (!apiKey) {
       return {
         available: false,
         lastChecked: new Date(),
@@ -69,7 +78,7 @@ export class FinanceApiConnector implements IDataSourceConnector {
       const params = new URLSearchParams({
         function: "SYMBOL_SEARCH",
         keywords: "AAPL",
-        apikey: this.apiKey,
+        apikey: apiKey,
       });
 
       const response = await fetch(`${this.baseUrl}?${params.toString()}`, {
@@ -94,11 +103,12 @@ export class FinanceApiConnector implements IDataSourceConnector {
   private async searchSymbols(
     query: string,
     maxResults: number,
+    apiKey: string,
   ): Promise<DataSourceResult[]> {
     const params = new URLSearchParams({
       function: "SYMBOL_SEARCH",
       keywords: query,
-      apikey: this.apiKey!,
+      apikey: apiKey,
     });
 
     const response = await fetch(`${this.baseUrl}?${params.toString()}`, {

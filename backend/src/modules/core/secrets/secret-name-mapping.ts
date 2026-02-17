@@ -43,6 +43,9 @@ export const EXTERNAL_TOOL_SECRET_MAPPING: Record<string, string> = {
 
   // ==================== GitHub ====================
   "github-search": "github-token",
+
+  // ==================== Finance ====================
+  "alpha-vantage": "alpha-vantage-api-key",
 };
 
 /**
@@ -76,6 +79,9 @@ export const SECRET_NAMES = {
 
   // GitHub
   GITHUB_TOKEN: EXTERNAL_TOOL_SECRET_MAPPING["github-search"],
+
+  // Finance
+  ALPHA_VANTAGE: EXTERNAL_TOOL_SECRET_MAPPING["alpha-vantage"],
 } as const;
 
 /**
