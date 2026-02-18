@@ -2924,7 +2924,7 @@ function HomeContent() {
                             <h3 className="text-sm font-bold text-gray-900">
                               AI Summary
                             </h3>
-                            <p className="text-[11px] text-gray-500">
+                            <p className="text-xs text-gray-500">
                               Select text for more options
                             </p>
                           </div>
