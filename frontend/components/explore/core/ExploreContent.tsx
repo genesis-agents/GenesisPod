@@ -2794,7 +2794,7 @@ function HomeContent() {
             </div>
           </div>
           {/* Main Content Area */}
-          <div className="flex-1 overflow-y-auto px-3 py-4">
+          <div className="flex-1 overflow-y-auto p-4">
             {selectedResource ? (
               aiRightTab === 'assistant' ? (
                 <div className="space-y-4">
@@ -3214,7 +3214,7 @@ function HomeContent() {
                   )}
                 </div>
               ) : aiRightTab === 'notes' ? (
-                <div className="px-3 py-4">
+                <div className="p-4">
                   <NotesList
                     resourceId={selectedResource.id}
                     refreshKey={notesRefreshKey}
@@ -3226,11 +3226,11 @@ function HomeContent() {
                   />
                 </div>
               ) : aiRightTab === 'comments' ? (
-                <div className="px-3 py-4">
+                <div className="p-4">
                   <CommentsList resourceId={selectedResource.id} />
                 </div>
               ) : aiRightTab === 'similar' ? (
-                <div className="px-3 py-4">
+                <div className="p-4">
                   <SimilarResourcesList
                     resourceId={selectedResource.id}
                     onResourceClick={(resource) => {
