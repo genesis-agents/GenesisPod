@@ -4,6 +4,8 @@
  * 反馈分诊决策的类型定义
  */
 
+import { AIModelType } from "@prisma/client";
+
 // ============================================
 // 基础类型
 // ============================================
@@ -281,7 +283,7 @@ export interface TriageConfig {
 // ============================================
 
 export const DEFAULT_TRIAGE_CONFIG: TriageConfig = {
-  aiModel: "gpt-4o",
+  aiModel: AIModelType.CHAT,
   maxTokens: 2000,
   temperature: 0.3,
 

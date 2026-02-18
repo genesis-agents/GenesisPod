@@ -9,6 +9,7 @@ import {
   HttpStatus,
   UnauthorizedException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import * as request from "supertest";
 import { MCPServerController } from "../mcp-server.controller";
 import { MCPServerService } from "../mcp-server.service";
@@ -126,6 +127,7 @@ describe("MCPServerController Integration Tests (100% Coverage)", () => {
       isResourceAllowed: jest.fn().mockReturnValue(true),
       isPromptAllowed: jest.fn().mockReturnValue(true),
       consumeQuota: jest.fn().mockReturnValue(true),
+      validateAndConsumeQuota: jest.fn().mockReturnValue({ allowed: true }),
       terminateSession: jest.fn().mockReturnValue(true),
     };
 
@@ -141,12 +143,23 @@ describe("MCPServerController Integration Tests (100% Coverage)", () => {
       }),
     };
 
+    const mockConfigService = {
+      get: jest.fn((key: string, defaultValue?: unknown) => {
+        const config: Record<string, unknown> = {
+          MCP_REQUEST_TIMEOUT_SECONDS: 2,
+          MCP_MAX_PAYLOAD_SIZE: 10485760,
+        };
+        return config[key] ?? defaultValue;
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [MCPServerController],
       providers: [
         MCPServerService,
         { provide: MCPSessionManager, useValue: mockSessionManager },
         { provide: MCPStreamingBridge, useValue: mockStreamingBridge },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     })
       .overrideGuard(MCPApiKeyGuard)
@@ -651,31 +664,36 @@ describe("MCPServerController Integration Tests (100% Coverage)", () => {
   // ==================== 5. SSE ENDPOINT (GET /mcp) ====================
 
   describe("5. SSE Endpoint (GET /mcp)", () => {
-    it("returns text/event-stream Content-Type, Cache-Control: no-cache, and keepalive", (done) => {
-      const req = request(app.getHttpServer())
-        .get("/mcp")
-        .set("Authorization", `Bearer ${TEST_API_KEY}`);
-
+    it("returns text/event-stream Content-Type, Cache-Control: no-cache, and init event", (done) => {
       let data = "";
       let finished = false;
 
-      req
+      const req = request(app.getHttpServer())
+        .get("/mcp")
+        .set("Authorization", `Bearer ${TEST_API_KEY}`)
         .buffer(false)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .parse((res: any, callback: any) => {
           res.on("data", (chunk: Buffer) => {
             data += chunk.toString();
-            if (data.includes(": keepalive") && !finished) {
+            // Init event received — verify and close
+            if (data.includes("notifications/connected") && !finished) {
               finished = true;
               res.destroy();
               callback(null, data);
             }
           });
           res.on("end", () => {
-            if (!finished) callback(null, data);
+            if (!finished) {
+              finished = true;
+              callback(null, data);
+            }
           });
           res.on("error", () => {
-            if (!finished) callback(null, data);
+            if (!finished) {
+              finished = true;
+              callback(null, data);
+            }
           });
         })
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -684,14 +702,15 @@ describe("MCPServerController Integration Tests (100% Coverage)", () => {
             expect(res.headers["content-type"]).toMatch(/text\/event-stream/);
             expect(res.headers["cache-control"]).toBe("no-cache");
           }
-          expect(data).toContain(": keepalive\n\n");
+          expect(data).toContain("notifications/connected");
           done();
         });
 
-      // Safety timeout
+      // Safety timeout — abort the request to avoid dangling connection
       setTimeout(() => {
         if (!finished) {
           finished = true;
+          req.abort();
           done();
         }
       }, 3000);

@@ -7,6 +7,7 @@
 
 // ==================== 通用类型 ====================
 
+import { AIModelType } from "@prisma/client";
 import { TaskProfile } from "../../llm/types";
 
 /**
@@ -480,7 +481,7 @@ export const DEFAULT_CONTEXT_EVOLUTION_CONFIG: ContextEvolutionConfig = {
   maxMediumFactsDisplay: 10,
   minFactStatementLength: 5,
   asyncExtraction: false,
-  extractionModel: "gpt-4o-mini",
+  extractionModel: AIModelType.CHAT_FAST,
 };
 
 /**
@@ -903,7 +904,7 @@ export interface CompressionOptions {
   generateEmbeddings?: boolean;
   summaryStyle?: "brief" | "detailed" | "analytical";
   model?: string;
-  modelType?: import("@prisma/client").AIModelType;
+  modelType?: AIModelType;
   concurrency?: number;
 }
 

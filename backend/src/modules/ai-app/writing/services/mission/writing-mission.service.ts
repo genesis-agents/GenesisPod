@@ -5079,8 +5079,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
         aiEvaluation: {
           enabled: false,
           evaluationInterval: 5,
-          // TODO: 迁移到 AIModelType.CHAT_FAST 当启用此功能时
-          evaluationModel: "gpt-4o-mini", // Legacy: LongContentEngine interface 需要 string
+          evaluationModel: AIModelType.CHAT_FAST,
         },
       },
       // 简化续写配置

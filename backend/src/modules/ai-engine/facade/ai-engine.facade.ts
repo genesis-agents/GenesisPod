@@ -2408,7 +2408,7 @@ export class AIEngineFacade {
         id: request.agentType,
         agentName: request.agentType,
         displayName: request.agentType,
-        aiModel: request.model || "gpt-4o",
+        aiModel: request.model || AIModelType.CHAT,
         isLeader: false,
         systemPrompt: request.systemPrompt,
       },
