@@ -917,7 +917,10 @@ function YouTubeTLDWContent() {
           `Translated merged segment ${activeMergedIndex}: "${currentMerged.text.substring(0, 50)}..." -> "${data.translation?.substring(0, 50)}..."`
         );
       } catch (error: unknown) {
-        logger.error('Failed to translate segment:', error instanceof Error ? error.message : String(error));
+        logger.error(
+          'Failed to translate segment:',
+          error instanceof Error ? error.message : String(error)
+        );
         // Fallback to original text on error
         setTranslations((prev) => {
           const newMap = new Map(prev);
@@ -952,7 +955,7 @@ function YouTubeTLDWContent() {
       <main className="flex flex-1 overflow-hidden overflow-x-hidden">
         {/* Left Column - Video & Topics */}
         <div
-          className={`flex flex-col border-r border-gray-200 p-6 transition-all duration-300 ${
+          className={`flex flex-col border-r border-gray-200 p-4 transition-all duration-300 ${
             rightPanelCollapsed ? 'w-full' : 'w-1/2'
           }`}
         >
@@ -1296,7 +1299,7 @@ function YouTubeTLDWContent() {
             </div>
 
             {/* Transcript Content */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="flex-1 overflow-y-auto p-4">
               {activeTab === 'transcript' && (
                 <div className="space-y-0">
                   {loading ? (
