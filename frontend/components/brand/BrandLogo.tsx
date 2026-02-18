@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import { useId } from 'react';
 import { config } from '@/lib/utils/config';
 
 interface BrandLogoProps {
@@ -8,6 +8,35 @@ interface BrandLogoProps {
   iconClassName?: string;
   className?: string;
   nameAddon?: React.ReactNode;
+}
+
+function NodeRingIcon({ className = 'h-8 w-8' }: { className?: string }) {
+  const id = useId();
+  const gradId = `logoGrad${id}`;
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none">
+      <defs>
+        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#0F2A46" />
+          <stop offset="40%" stopColor="#2BB7DA" />
+          <stop offset="100%" stopColor="#7C5BFE" />
+        </linearGradient>
+      </defs>
+      <circle
+        cx="16"
+        cy="16"
+        r="10"
+        stroke={`url(#${gradId})`}
+        strokeWidth="2"
+        fill="none"
+      />
+      <circle cx="16" cy="6" r="3" fill="#0F2A46" />
+      <circle cx="26" cy="16" r="3" fill="#2BB7DA" />
+      <circle cx="16" cy="26" r="3" fill="#7C5BFE" />
+      <circle cx="6" cy="16" r="3" fill="#2BB7DA" />
+      <circle cx="16" cy="16" r="3" fill={`url(#${gradId})`} />
+    </svg>
+  );
 }
 
 export function BrandLogo({
@@ -23,19 +52,13 @@ export function BrandLogo({
       className={`flex items-center ${isFull ? 'gap-2.5' : ''} ${className}`}
     >
       <div
-        className={`${iconClassName} relative flex-shrink-0`}
+        className="flex-shrink-0"
         style={{
           filter:
-            'drop-shadow(0 0 6px rgba(99,102,241,0.5)) drop-shadow(0 0 12px rgba(139,92,246,0.35)) drop-shadow(0 0 3px rgba(6,182,212,0.4))',
+            'drop-shadow(0 0 6px rgba(43,183,218,0.5)) drop-shadow(0 0 10px rgba(124,91,254,0.35))',
         }}
       >
-        <Image
-          src={config.brand.logo.path}
-          alt={config.brand.fullName}
-          fill
-          className="object-contain"
-          priority
-        />
+        <NodeRingIcon className={iconClassName} />
       </div>
 
       {isFull && (
