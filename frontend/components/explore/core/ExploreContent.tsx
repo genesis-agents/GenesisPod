@@ -2962,14 +2962,12 @@ function HomeContent() {
                     </div>
                   )}
 
-                  {/* AI Loading Indicator */}
-                  {(aiLoading || isStreaming) && (
+                  {/* AI Loading Indicator - only for quick actions, not chat streaming */}
+                  {aiLoading && !isStreaming && (
                     <div className="flex items-center justify-center gap-2 py-4">
                       <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-red-600"></div>
-                      <span className="text-sm text-gray-600">
-                        {isStreaming
-                          ? `${aiModels.find((m) => m.modelId === aiModel)?.name || aiModel} is thinking...`
-                          : 'AI processing...'}
+                      <span className="text-xs text-gray-600">
+                        AI processing...
                       </span>
                     </div>
                   )}
