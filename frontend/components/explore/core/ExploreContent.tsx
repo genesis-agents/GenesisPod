@@ -2921,10 +2921,10 @@ function HomeContent() {
                             </svg>
                           </div>
                           <div>
-                            <h3 className="text-xs font-bold text-gray-900">
+                            <h3 className="text-sm font-bold text-gray-900">
                               AI Summary
                             </h3>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm text-gray-500">
                               Select text for more options
                             </p>
                           </div>
@@ -2936,7 +2936,7 @@ function HomeContent() {
                           setAiInput(text);
                         }}
                       >
-                        <div className="prose prose-xs max-w-none cursor-text select-text p-3 text-xs">
+                        <div className="prose prose-sm max-w-none cursor-text select-text p-3 text-sm">
                           {(() => {
                             const { images, textContent } =
                               extractImagesFromMarkdown(aiSummary);
@@ -2966,7 +2966,7 @@ function HomeContent() {
                   {aiLoading && !isStreaming && (
                     <div className="flex items-center justify-center gap-2 py-4">
                       <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-red-600"></div>
-                      <span className="text-xs text-gray-600">
+                      <span className="text-sm text-gray-600">
                         AI processing...
                       </span>
                     </div>
@@ -2993,10 +2993,10 @@ function HomeContent() {
                             </svg>
                           </div>
                           <div>
-                            <h3 className="text-xs font-bold text-gray-900">
+                            <h3 className="text-sm font-bold text-gray-900">
                               {aiInsights.length} Key Insights
                             </h3>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm text-gray-500">
                               Select text for more options
                             </p>
                           </div>
@@ -3022,10 +3022,10 @@ function HomeContent() {
                             >
                               <div className="flex items-start">
                                 <div className="flex-1">
-                                  <h4 className="text-xs font-semibold leading-snug text-gray-900">
+                                  <h4 className="text-sm font-semibold leading-snug text-gray-900">
                                     {insight.title}
                                   </h4>
-                                  <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                                  <p className="mt-1 text-sm leading-relaxed text-gray-600">
                                     {insight.description}
                                   </p>
                                 </div>
@@ -3058,10 +3058,10 @@ function HomeContent() {
                             </svg>
                           </div>
                           <div>
-                            <h3 className="text-xs font-bold text-gray-900">
+                            <h3 className="text-sm font-bold text-gray-900">
                               Research Methodology
                             </h3>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm text-gray-500">
                               Select text for more options
                             </p>
                           </div>
@@ -3088,10 +3088,10 @@ function HomeContent() {
                               <div className="flex items-start gap-2">
                                 <FlaskConical className="h-4 w-4 flex-shrink-0 text-blue-600" />
                                 <div className="flex-1">
-                                  <h4 className="text-xs font-semibold leading-snug text-gray-900">
+                                  <h4 className="text-sm font-semibold leading-snug text-gray-900">
                                     {method.title}
                                   </h4>
-                                  <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                                  <p className="mt-1 text-sm leading-relaxed text-gray-600">
                                     {method.description}
                                   </p>
                                 </div>
@@ -3123,7 +3123,7 @@ function HomeContent() {
                                 : undefined
                             }
                           >
-                            <div className="prose prose-xs max-w-none text-xs leading-relaxed [&>*]:my-1 [&>ol]:my-1 [&>p]:my-1 [&>ul]:my-1">
+                            <div className="prose prose-sm max-w-none text-sm leading-relaxed [&>*]:my-1 [&>ol]:my-1 [&>p]:my-1 [&>ul]:my-1">
                               {(() => {
                                 const { images, textContent } =
                                   extractImagesFromMarkdown(msg.content);
@@ -3162,7 +3162,7 @@ function HomeContent() {
                           <div className="max-w-[80%] rounded-lg bg-gray-100 px-3 py-2 text-gray-900">
                             <div className="flex items-center gap-2">
                               <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-red-600"></div>
-                              <p className="text-xs">
+                              <p className="text-sm">
                                 {aiModels.find((m) => m.modelId === aiModel)
                                   ?.name || aiModel}
                                 正在思考...
