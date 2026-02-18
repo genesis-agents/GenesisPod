@@ -641,15 +641,32 @@ export class SlidesTeamOrchestrator {
           await this.persistEvent(revisionEvent);
 
           // 重新执行任务
-          // 在审核阶段重试时，创建新的 outputManager（无历史输出）
-          const retryOutputManager = createSkillOutputManager();
+          // 从已完成任务的结果中重建 outputManager，保留依赖链上下文
+          const retryOutputManager = createSkillOutputManager({ debug: true });
+          for (const completedTask of mission.tasks) {
+            if (
+              completedTask.id !== task.id &&
+              (completedTask.status === "completed" ||
+                completedTask.status === "awaiting_review") &&
+              completedTask.result
+            ) {
+              retryOutputManager.store(
+                completedTask.skillId,
+                completedTask.result,
+                {
+                  taskId: completedTask.id,
+                  completedAt: completedTask.completedAt,
+                },
+              );
+            }
+          }
           const context: SkillExecutionContext = {
             missionId: mission.id,
             sessionId: mission.sessionId,
             taskId: task.id,
             executionId: uuidv4(),
             outputManager: retryOutputManager,
-            previousOutputs: {},
+            previousOutputs: retryOutputManager.exportTo(),
             globalContext: {
               sourceText: mission.sourceText,
               outline: mission.outline,

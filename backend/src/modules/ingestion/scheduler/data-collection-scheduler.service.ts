@@ -222,14 +222,18 @@ export class DataCollectionSchedulerService
 
   /**
    * 获取默认 cron 表达式
+   * 优先使用用户配置的 defaultInterval，仅在无配置时回退到类型默认值
    */
   private getDefaultCronExpression(resourceType: string): string {
-    // 先检查是否有特定类型的默认值
+    // 优先使用用户配置的统一间隔
+    if (INTERVAL_TO_CRON[this.config.defaultInterval]) {
+      return INTERVAL_TO_CRON[this.config.defaultInterval];
+    }
+    // 回退到类型特定的默认值
     if (DEFAULT_CRON_EXPRESSIONS[resourceType]) {
       return DEFAULT_CRON_EXPRESSIONS[resourceType];
     }
-    // 否则使用配置的默认间隔
-    return INTERVAL_TO_CRON[this.config.defaultInterval] || "0 */12 * * *";
+    return "0 */12 * * *";
   }
 
   /**
@@ -457,6 +461,17 @@ export class DataCollectionSchedulerService
         dto.defaultInterval,
         { category: "scheduler", description: "Default collection interval" },
       );
+
+      // 同步更新所有 CollectionRule 的 cron 表达式
+      const newCron = INTERVAL_TO_CRON[dto.defaultInterval] || "0 */12 * * *";
+      await this.prisma.collectionRule.updateMany({
+        where: { isActive: true },
+        data: { cronExpression: newCron },
+      });
+      this.logger.log(`Updated all collection rules to cron: ${newCron}`);
+
+      // 重启所有 cron jobs 使新表达式生效
+      await this.restartSchedulers();
     }
 
     this.logger.log(

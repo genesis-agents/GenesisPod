@@ -198,12 +198,21 @@ export class YoutubeService {
           if (transcriptData?.transcript?.content?.body) {
             const segments: TranscriptSegment[] =
               transcriptData.transcript.content.body.initial_segments
-                .filter((segment: { snippet?: { text?: string } }) => segment.snippet?.text)
-                .map((segment: { snippet: { text: string }; start_ms: number; end_ms: number }) => ({
-                  text: segment.snippet.text,
-                  start: segment.start_ms / 1000,
-                  duration: segment.end_ms / 1000 - segment.start_ms / 1000,
-                }));
+                .filter(
+                  (segment: { snippet?: { text?: string } }) =>
+                    segment.snippet?.text,
+                )
+                .map(
+                  (segment: {
+                    snippet: { text: string };
+                    start_ms: number;
+                    end_ms: number;
+                  }) => ({
+                    text: segment.snippet.text,
+                    start: segment.start_ms / 1000,
+                    duration: segment.end_ms / 1000 - segment.start_ms / 1000,
+                  }),
+                );
             if (segments.length > 0) {
               transcriptSegments = segments;
               this.logger.log(
@@ -333,7 +342,8 @@ export class YoutubeService {
       await this.prisma.youTubeTranscriptCache.update({
         where: { videoId },
         data: {
-          translatedTranscript: translatedTranscript as unknown as Prisma.InputJsonValue,
+          translatedTranscript:
+            translatedTranscript as unknown as Prisma.InputJsonValue,
           targetLanguage,
           translatedAt: new Date(),
         },
@@ -480,6 +490,13 @@ export class YoutubeService {
       }
 
       // Handle chunked response
+      if (!Array.isArray(data.content)) {
+        this.logger.warn(
+          `Supadata returned unexpected content type for ${videoId}: ${typeof data.content}`,
+        );
+        return null;
+      }
+
       const segments: TranscriptSegment[] = data.content.map((chunk) => ({
         text: chunk.text,
         start: chunk.offset / 1000, // Convert ms to seconds
@@ -552,6 +569,13 @@ export class YoutubeService {
               `YouTube Video ${videoId}`,
             transcript: [{ text: data.content, start: 0, duration: 0 }],
           };
+        }
+
+        if (!Array.isArray(data.content)) {
+          this.logger.warn(
+            `Supadata job ${jobId} returned unexpected content type: ${typeof data.content}`,
+          );
+          return null;
         }
 
         const segments: TranscriptSegment[] = data.content.map((chunk) => ({
@@ -791,7 +815,8 @@ export class YoutubeService {
         const items: Array<Record<string, unknown>> = Array.isArray(raw)
           ? raw
           : Array.isArray((raw as { transcripts?: unknown })?.transcripts)
-            ? (raw as { transcripts: Array<Record<string, unknown>> }).transcripts
+            ? (raw as { transcripts: Array<Record<string, unknown>> })
+                .transcripts
             : Array.isArray((raw as { data?: unknown })?.data)
               ? (raw as { data: Array<Record<string, unknown>> }).data
               : [];
