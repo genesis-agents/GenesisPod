@@ -1,5 +1,5 @@
 # AI Ask Mixture Mode Journey
-# Covers: ASK-007, CMB-ASK-007, CMB-ASK-010 from test plan
+# Covers: ASK-MIX-001, CMB-ASK-007, CMB-ASK-010 from comprehensive-test-suite-2026-02-17.md
 id: ai-ask-mixture
 tier: critical
 auth: demo

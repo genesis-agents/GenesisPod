@@ -1,9 +1,9 @@
 # Usability Walkthrough Scenarios
-# Covers: DFX-U-001~008 from comprehensive-test-plan-2026-02-06.md
+# Covers: DFX-USE-001~010 from comprehensive-test-suite-2026-02-17.md
 
 # First-use guidance
 - id: dfx-u-first-use
-  test_plan_ids: [DFX-U-001]
+  test_plan_ids: [DFX-USE-001]
   description: "New user completes first Ask within 3 minutes"
   method: browser
   route: /ai-ask
@@ -13,7 +13,7 @@
 
 # Navigation clarity
 - id: dfx-u-nav-depth
-  test_plan_ids: [DFX-U-002]
+  test_plan_ids: [DFX-USE-002]
   description: "Any feature reachable in ≤2 clicks from main nav"
   method: browser
   pages:
@@ -30,7 +30,7 @@
 
 # Loading/Success/Error states
 - id: dfx-u-feedback-states
-  test_plan_ids: [DFX-U-003]
+  test_plan_ids: [DFX-USE-003]
   description: "All async operations show loading → success → error states"
   method: browser
   route: /ai-ask
@@ -44,7 +44,7 @@
 
 # Error recovery
 - id: dfx-u-error-recovery
-  test_plan_ids: [DFX-U-004]
+  test_plan_ids: [DFX-USE-004]
   description: "Error states provide retry/return action"
   method: browser
   auth: demo
@@ -56,7 +56,7 @@
 
 # Keyboard shortcuts
 - id: dfx-u-shortcuts
-  test_plan_ids: [DFX-U-005]
+  test_plan_ids: [DFX-USE-005]
   description: "Enter sends, Esc cancels, Ctrl+K searches"
   method: browser
   route: /ai-ask
@@ -69,7 +69,7 @@
 
 # Help documentation
 - id: dfx-u-help
-  test_plan_ids: [DFX-U-006]
+  test_plan_ids: [DFX-USE-006]
   description: "Key features have tooltip/help explanation"
   method: browser
   auth: demo
@@ -81,7 +81,7 @@
 
 # Consistency
 - id: dfx-u-consistency
-  test_plan_ids: [DFX-U-007]
+  test_plan_ids: [DFX-USE-007]
   description: "Same-type operations use consistent interaction patterns"
   method: browser
   auth: demo
@@ -94,7 +94,7 @@
 
 # Accessible forms
 - id: dfx-u-forms
-  test_plan_ids: [DFX-U-008]
+  test_plan_ids: [DFX-USE-008]
   description: "Form fields have labels, required fields marked"
   method: browser
   auth: demo

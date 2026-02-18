@@ -1,5 +1,5 @@
 # Cross-Module Data Flow Journey
-# Covers: INT-RLA-001~003, INT-TRW-001~003, E2E-DF-002~003 from test plan
+# Covers: INT-RES-LIB-001~003, INT-TMS-RES-001~002 from comprehensive-test-suite-2026-02-17.md
 id: cross-module-data-flow
 tier: important
 auth: demo

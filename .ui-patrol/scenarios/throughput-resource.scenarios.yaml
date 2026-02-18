@@ -1,6 +1,5 @@
 # Throughput & Resource Monitoring Scenarios
-# Covers: PERF-TP-001~004, PERF-RS-001~006, PERF-BD-004~006
-# from comprehensive-test-plan-2026-02-06.md
+# Covers: PERF-BD-001~008, PERF-LR-001~005 from comprehensive-test-suite-2026-02-17.md
 
 # ============================================================
 # Throughput Tests (PERF-TP)

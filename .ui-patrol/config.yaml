@@ -117,50 +117,50 @@ quality:
 
 # ============================================================
 # Security Assessment (Level 8)
-# Maps to: DFX-S-001~015 from comprehensive-test-plan-2026-02-06.md
+# Maps to: DFX-SEC-001~015 from comprehensive-test-suite-2026-02-17.md
 # ============================================================
 security:
   enabled: true
   checks:
-    - xss_prevention: "User input escaped in rendered HTML (DFX-S-001)"
-    - sql_injection_safe: "All queries use Prisma parameterized queries (DFX-S-002)"
-    - prompt_injection_filtered: "PromptSanitizer active on all AI inputs (DFX-S-003)"
-    - csrf_protection: "State-changing APIs protected against CSRF (DFX-S-004)"
-    - authorization_enforced: "Users cannot access other users' data (DFX-S-005)"
-    - jwt_validation: "Invalid/expired tokens return 401 (DFX-S-006)"
-    - file_upload_restricted: "Executable files (.exe, .bat, .sh) rejected (DFX-S-007)"
-    - file_size_limited: "Uploads > configured max rejected (DFX-S-008)"
-    - rate_limiting: "API rate limits enforced per user (DFX-S-009)"
-    - sensitive_data_hidden: "Passwords/secrets not in API responses (DFX-S-010)"
-    - https_enforced: "HTTP redirects to HTTPS (DFX-S-011)"
-    - error_stack_hidden: "500 errors don't expose internal stack traces (DFX-S-012)"
-    - dependencies_audited: "No high/critical npm audit vulnerabilities (DFX-S-013)"
-    - ssrf_prevention: "URL fetcher blocks internal/private addresses (DFX-S-014)"
-    - path_traversal_blocked: "File paths sanitized against traversal (DFX-S-015)"
+    - xss_prevention: "User input escaped in rendered HTML (DFX-SEC-001)"
+    - sql_injection_safe: "All queries use Prisma parameterized queries (DFX-SEC-002)"
+    - prompt_injection_filtered: "PromptSanitizer active on all AI inputs (DFX-SEC-003)"
+    - csrf_protection: "State-changing APIs protected against CSRF (DFX-SEC-004)"
+    - authorization_enforced: "Users cannot access other users' data (DFX-SEC-005)"
+    - jwt_validation: "Invalid/expired tokens return 401 (DFX-SEC-006)"
+    - file_upload_restricted: "Executable files (.exe, .bat, .sh) rejected (DFX-SEC-007)"
+    - file_size_limited: "Uploads > configured max rejected (DFX-SEC-008)"
+    - rate_limiting: "API rate limits enforced per user (DFX-SEC-009)"
+    - sensitive_data_hidden: "Passwords/secrets not in API responses (DFX-SEC-010)"
+    - https_enforced: "HTTP redirects to HTTPS (DFX-SEC-011)"
+    - error_stack_hidden: "500 errors don't expose internal stack traces (DFX-SEC-012)"
+    - dependencies_audited: "No high/critical npm audit vulnerabilities (DFX-SEC-013)"
+    - ssrf_prevention: "URL fetcher blocks internal/private addresses (DFX-SEC-014)"
+    - path_traversal_blocked: "File paths sanitized against traversal (DFX-SEC-015)"
 
 # ============================================================
 # Reliability Assessment (Level 9)
-# Maps to: DFX-R-001~012 from comprehensive-test-plan-2026-02-06.md
+# Maps to: DFX-REL-001~012 from comprehensive-test-suite-2026-02-17.md
 # ============================================================
 reliability:
   enabled: true
   checks:
-    - page_refresh_recovery: "State preserved after F5 refresh (DFX-R-001)"
-    - browser_back_recovery: "Correct state on browser back (DFX-R-002)"
-    - network_disconnect_graceful: "No white screen on network loss (DFX-R-003)"
-    - api_error_friendly: "500 errors show retry option (DFX-R-004)"
-    - timeout_recovery: "Timeouts show clear message with retry (DFX-R-005)"
-    - session_persistence: "Session survives long idle (DFX-R-006)"
-    - data_persistence: "Conversations/projects not lost (DFX-R-007)"
-    - websocket_reconnect: "Auto-reconnect after disconnect (DFX-R-008)"
-    - stream_interrupt_recovery: "SSE interruption recoverable (DFX-R-009)"
-    - concurrent_write_safety: "No data corruption on concurrent edits (DFX-R-010)"
-    - idempotent_operations: "Duplicate submissions don't create duplicates (DFX-R-011)"
-    - graceful_degradation: "External API failure doesn't crash app (DFX-R-012)"
+    - page_refresh_recovery: "State preserved after F5 refresh (DFX-REL-001)"
+    - browser_back_recovery: "Correct state on browser back (DFX-REL-002)"
+    - network_disconnect_graceful: "No white screen on network loss (DFX-REL-003)"
+    - api_error_friendly: "500 errors show retry option (DFX-REL-004)"
+    - timeout_recovery: "Timeouts show clear message with retry (DFX-REL-005)"
+    - session_persistence: "Session survives long idle (DFX-REL-006)"
+    - data_persistence: "Conversations/projects not lost (DFX-REL-007)"
+    - websocket_reconnect: "Auto-reconnect after disconnect (DFX-REL-008)"
+    - stream_interrupt_recovery: "SSE interruption recoverable (DFX-REL-009)"
+    - concurrent_write_safety: "No data corruption on concurrent edits (DFX-REL-010)"
+    - idempotent_operations: "Duplicate submissions don't create duplicates (DFX-REL-011)"
+    - graceful_degradation: "External API failure doesn't crash app (DFX-REL-012)"
 
 # ============================================================
 # Maintainability Assessment (Level 10)
-# Maps to: DFX-M-001~008 from comprehensive-test-plan-2026-02-06.md
+# Maps to: DFX-M-001~008 from comprehensive-test-suite-2026-02-17.md
 # ============================================================
 maintainability:
   enabled: true
@@ -176,7 +176,7 @@ maintainability:
 
 # ============================================================
 # Observability Assessment (Level 11)
-# Maps to: DFX-O-001~006 from comprehensive-test-plan-2026-02-06.md
+# Maps to: DFX-O-001~006 from comprehensive-test-suite-2026-02-17.md
 # ============================================================
 observability:
   enabled: true
@@ -190,67 +190,67 @@ observability:
 
 # ============================================================
 # Usability Assessment (Level 12)
-# Maps to: DFX-U-001~008 from comprehensive-test-plan-2026-02-06.md
+# Maps to: DFX-USE-001~010 from comprehensive-test-suite-2026-02-17.md
 # ============================================================
 usability:
   enabled: true
   checks:
-    - first_use_guidance: "New user completes first Ask within 3 minutes (DFX-U-001)"
-    - navigation_clarity: "Any feature reachable in ≤2 clicks from main nav (DFX-U-002)"
-    - three_state_feedback: "Loading/Success/Error states clearly visible (DFX-U-003)"
-    - error_recovery: "Error states provide retry/return action (DFX-U-004)"
-    - keyboard_shortcuts: "Enter sends, Esc cancels, Ctrl+K searches (DFX-U-005)"
-    - help_documentation: "Key features have tooltip/help explanation (DFX-U-006)"
-    - interaction_consistency: "Same-type operations use consistent patterns (DFX-U-007)"
-    - accessible_forms: "Form fields have labels, required fields marked (DFX-U-008)"
+    - first_use_guidance: "New user completes first Ask within 3 minutes (DFX-USE-001)"
+    - navigation_clarity: "Any feature reachable in ≤2 clicks from main nav (DFX-USE-002)"
+    - three_state_feedback: "Loading/Success/Error states clearly visible (DFX-USE-003)"
+    - error_recovery: "Error states provide retry/return action (DFX-USE-004)"
+    - keyboard_shortcuts: "Enter sends, Esc cancels, Ctrl+K searches (DFX-USE-005)"
+    - help_documentation: "Key features have tooltip/help explanation (DFX-USE-006)"
+    - interaction_consistency: "Same-type operations use consistent patterns (DFX-USE-007)"
+    - accessible_forms: "Form fields have labels, required fields marked (DFX-USE-008)"
 
 # ============================================================
 # Browser Compatibility (Level 13)
-# Maps to: DFX-CP-001~006 from comprehensive-test-plan-2026-02-06.md
+# Maps to: DFX-CMP-001~005 from comprehensive-test-suite-2026-02-17.md
 # ============================================================
 compatibility:
   enabled: true
   browsers:
     - {
         name: "Chrome Desktop",
-        id: "DFX-CP-001",
+        id: "DFX-CMP-001",
         priority: P0,
         coverage: "100% functionality",
       }
     - {
         name: "Firefox Desktop",
-        id: "DFX-CP-002",
+        id: "DFX-CMP-002",
         priority: P1,
         coverage: "Core features",
       }
     - {
         name: "Safari macOS",
-        id: "DFX-CP-003",
+        id: "DFX-CMP-003",
         priority: P1,
         coverage: "Core features",
       }
     - {
         name: "Edge Desktop",
-        id: "DFX-CP-004",
+        id: "DFX-CMP-004",
         priority: P1,
         coverage: "Core features",
       }
     - {
         name: "Chrome Mobile",
-        id: "DFX-CP-005",
+        id: "DFX-CMP-005",
         priority: P2,
         coverage: "Basic usability",
       }
     - {
         name: "Safari Mobile",
-        id: "DFX-CP-006",
+        id: "DFX-CMP-006",
         priority: P2,
         coverage: "Basic usability",
       }
 
 # ============================================================
 # Performance Baselines
-# Maps to: PERF-RT-001~016 from comprehensive-test-plan-2026-02-06.md
+# Maps to: PERF-RT-001~020 from comprehensive-test-suite-2026-02-17.md
 # ============================================================
 performance_baselines:
   api_response_ms:
@@ -273,7 +273,7 @@ performance_baselines:
 
 # ============================================================
 # Boundary Test Config
-# Maps to: BND-001~006, BND-F-001~005 from comprehensive-test-plan-2026-02-06.md
+# Maps to: BND-INP-001~010, BND-FIL-001~008 from comprehensive-test-suite-2026-02-17.md
 # ============================================================
 boundary:
   input:
@@ -295,22 +295,22 @@ boundary:
 
 # ============================================================
 # Test Plan Reference
-# Master test plan: comprehensive-test-plan-2026-02-06.md (~630 cases)
+# Master test suite: comprehensive-test-suite-2026-02-17.md (~735 cases)
 # ============================================================
 test_plan:
-  reference: "docs/guides/testing/test-cases/comprehensive-test-plan-2026-02-06.md"
-  total_cases: 630
+  reference: "docs/guides/testing/test-cases/comprehensive-test-suite-2026-02-17.md"
+  total_cases: 735
   scenarios_dir: ".ui-patrol/scenarios/"
   journeys_dir: ".ui-patrol/journeys/"
   scenario_files:
-    - ask-combinations.scenarios.yaml # CMB-ASK, CMB-FT, CMB-CTX
-    - boundary-conditions.scenarios.yaml # BND-001~006, BND-F, BND-C, BND-N
-    - security-checks.scenarios.yaml # DFX-S-001~015
-    - performance-benchmarks.scenarios.yaml # PERF-RT, PERF-CC, PERF-BD-001~003
-    - cross-module-integration.scenarios.yaml # INT-*, E2E-*
-    - usability-walkthrough.scenarios.yaml # DFX-U-001~008
-    - compatibility-browser.scenarios.yaml # DFX-CP-001~006, DFX-RD-007
-    - throughput-resource.scenarios.yaml # PERF-TP-001~004, PERF-RS-001~006, PERF-BD-004~006
+    - ask-combinations.scenarios.yaml # CMB-ASK-001~010
+    - boundary-conditions.scenarios.yaml # BND-INP, BND-FIL, BND-CCR, BND-NET
+    - security-checks.scenarios.yaml # DFX-SEC-001~015
+    - performance-benchmarks.scenarios.yaml # PERF-RT-001~020, PERF-CC-001~007
+    - cross-module-integration.scenarios.yaml # INT-LIB-ASK, INT-EXP-LIB, INT-RES-LIB, INT-TMS-RES, E2E
+    - usability-walkthrough.scenarios.yaml # DFX-USE-001~010
+    - compatibility-browser.scenarios.yaml # DFX-CMP-001~005, DFX-RES-007
+    - throughput-resource.scenarios.yaml # PERF-BD-001~008, PERF-LR-001~005
     - ai-research.scenarios.yaml # Research page scenarios
     - ai-teams.scenarios.yaml # Teams page scenarios
     - library.scenarios.yaml # Library page scenarios

@@ -1,5 +1,5 @@
 # Explore -> Library -> Ask Integration Journey
-# Covers: INT-ELA-001~003, E2E-DF-001 from test plan
+# Covers: INT-EXP-LIB-001~003, E2E-006 from comprehensive-test-suite-2026-02-17.md
 id: explore-to-library-to-ask
 tier: important
 auth: demo

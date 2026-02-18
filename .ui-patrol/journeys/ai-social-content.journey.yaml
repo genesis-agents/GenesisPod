@@ -1,10 +1,10 @@
 # AI Social Content Journey
-# Covers: SOC-001~003 from comprehensive-test-plan-2026-02-06.md
+# Covers: SOC-CON-001~005, SOC-CNT-001~006 from comprehensive-test-suite-2026-02-17.md
 
 name: AI Social Content Creation
 description: "Test social content generation, queue management, and MCP integration"
 auth: demo
-test_plan_ids: [SOC-001, SOC-002, SOC-003]
+test_plan_ids: [SOC-CON-001, SOC-CON-002, SOC-CNT-001]
 
 steps:
   # SOC-001: Generate social post
@@ -19,7 +19,7 @@ steps:
   - id: create-social-post
     action: navigate
     route: /ai-social/create
-    test_plan_ids: [SOC-001]
+    test_plan_ids: [SOC-CON-001]
     assertions:
       - page_loaded: true
       - text_not_contains: "Error"
@@ -27,7 +27,7 @@ steps:
 
   - id: verify-social-form
     action: snapshot
-    test_plan_ids: [SOC-001]
+    test_plan_ids: [SOC-CON-001]
     assertions:
       - element_exists: "textarea, input[type=text]"
     description: "Form elements present for content generation"
@@ -36,7 +36,7 @@ steps:
   - id: verify-queue-ui
     action: snapshot
     route: /ai-social
-    test_plan_ids: [SOC-002]
+    test_plan_ids: [SOC-CON-002]
     assertions:
       - text_not_contains: "[object Object]"
     description: "Social content list / publish queue displays correctly"
@@ -44,5 +44,5 @@ steps:
   # SOC-003: MCP client integration (code-level check)
   - id: mcp-integration-note
     action: note
-    test_plan_ids: [SOC-003]
+    test_plan_ids: [SOC-CNT-001]
     description: "MCP client integration verified via unit test (useAISocial.test.ts → FE-DM-001)"

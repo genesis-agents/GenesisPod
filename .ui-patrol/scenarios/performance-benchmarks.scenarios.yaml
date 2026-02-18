@@ -1,5 +1,5 @@
 # Performance Benchmark Scenarios
-# Covers: PERF-RT-001~016, PERF-CC-001~008, PERF-TP-001~004, PERF-BD-001~006
+# Covers: PERF-RT-001~020, PERF-CC-001~007, PERF-BD-001~003 from comprehensive-test-suite-2026-02-17.md
 
 # Response Time Benchmarks
 - id: perf-ask-ttfb

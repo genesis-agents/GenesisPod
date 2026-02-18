@@ -1,5 +1,5 @@
 # Knowledge Base to Ask Integration Journey
-# Covers: INT-KA-001~005, E2E-002 from test plan
+# Covers: INT-LIB-ASK-001~003, INT-RAG-ASK-001~002, E2E-002 from comprehensive-test-suite-2026-02-17.md
 id: knowledge-base-to-ask
 tier: critical
 auth: demo

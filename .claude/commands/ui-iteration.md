@@ -12,7 +12,7 @@ You are a **full-spectrum test orchestrator**. You have access to:
 
 ## References
 
-- **Master Test Plan**: `docs/guides/testing/test-cases/comprehensive-test-plan-2026-02-06.md`
+- **Master Test Plan**: `docs/guides/testing/test-cases/comprehensive-test-suite-2026-02-17.md`
 - **Previous Baseline**: `docs/guides/testing/test-cases/comprehensive-combination-test-2026-01-25.md`
 - **UI Patrol Config**: `.ui-patrol/config.yaml`
 - **Page Specs**: `.ui-patrol/specs/*.yaml`
@@ -23,7 +23,7 @@ You are a **full-spectrum test orchestrator**. You have access to:
 ## Test Environment
 
 - **Local URL**: http://localhost:3000
-- **Production URL**: https://genesis-ai-engine.up.railway.app
+- **Production URL**: https://genesis-ai.up.railway.app (frontend) / https://genesis-ai-backend.up.railway.app (backend API)
 - **Backend Port**: 4000 (local)
 
 > Default to **Production URL** for browser tests. Use local for unit/integration tests.
@@ -110,7 +110,7 @@ If seed command fails or not available, proceed without — tests should handle 
 
 ### Phase A: Initialize & Plan
 
-1. Read the master test plan at `docs/guides/testing/test-cases/comprehensive-test-plan-2026-02-06.md`
+1. Read the master test plan at `docs/guides/testing/test-cases/comprehensive-test-suite-2026-02-17.md`
 2. Get the current git commit hash: `git rev-parse --short HEAD`
 3. Create a **dated report** at `docs/guides/testing/test-results/ui-iteration-{YYYY-MM-DD}.md` with header:
 
@@ -118,7 +118,7 @@ If seed command fails or not available, proceed without — tests should handle 
    # Full-Spectrum Test Report - {date}
 
    **Commit**: {hash} | **Branch**: {branch}
-   **Test Plan Ref**: comprehensive-test-plan-2026-02-06.md (~630 cases)
+   **Test Plan Ref**: comprehensive-test-suite-2026-02-17.md (~735 cases)
    **Execution Start**: {timestamp}
    ```
 
@@ -135,6 +135,8 @@ Run backend tests using Jest. These cover **Section 2.1 (AI Engine)**, **2.4 (Co
 ```bash
 cd backend && npx jest --verbose --coverage 2>&1 | head -200
 ```
+
+> **Note**: `ENG-*` and `FE-*` IDs are unit test IDs from the backend/frontend test suites. They are NOT in the new `comprehensive-test-suite-2026-02-17.md` (which focuses on functional/E2E cases), but are still executed and tracked.
 
 **Map results to test plan IDs:**
 
@@ -250,6 +252,8 @@ Record: schema valid (yes/no), pending migrations count. Schema validation failu
 
 Run frontend tests using Vitest. These cover **Section 2.5 (Frontend Components/Hooks)**.
 
+> **Note**: `FE-*` IDs are frontend unit test IDs. They are NOT in the new `comprehensive-test-suite-2026-02-17.md` (which focuses on functional/E2E cases), but are still executed and tracked.
+
 ```bash
 cd frontend && npx vitest run --reporter=verbose 2>&1 | head -200
 ```
@@ -311,10 +315,10 @@ Before testing API endpoints, verify actual routes:
 # Health check → DFX-O-005
 curl -s -o /dev/null -w "%{http_code}" {BASE_URL}/api/health
 
-# Unauthenticated access → INT-AUTH-001
+# Unauthenticated access → AUT-TKN-001
 curl -s -o /dev/null -w "%{http_code}" {BASE_URL}/api/ai-ask/conversations
 
-# Invalid token → INT-AUTH-002
+# Invalid token → AUT-TKN-002
 curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer invalid-token" {BASE_URL}/api/ai-ask/conversations
 ```
 
@@ -325,12 +329,12 @@ Expected: Health=200, Unauth=401, Invalid=401.
 If authenticated session available, test:
 
 ```
-GET  /api/ai-ask/conversations     → ASK-014 (history list)
-GET  /api/ai-research/topics       → RES-001 (topic list)
-GET  /api/ai-teams/topics          → TMS-001 (teams list)
-GET  /api/ai-writing/projects      → WRT-001 (writing list)
-GET  /api/resources/libraries       → RES-R-001 (knowledge base list)
-GET  /api/credits/balance           → CRD-001 (credits check)
+GET  /api/ai-ask/conversations     → ASK-SES-002 (history list)
+GET  /api/ai-research/topics       → RES-PRJ-001 (topic list)
+GET  /api/ai-teams/topics          → TMS-TOP-001 (teams list)
+GET  /api/ai-writing/projects      → WRT-PRJ-001 (writing list)
+GET  /api/resources/libraries       → LIB-RES-001 (knowledge base list)
+GET  /api/credits/balance           → ADM-CRD-001 (credits check)
 ```
 
 Verify: HTTP 200, valid JSON response, no error fields.
@@ -338,19 +342,19 @@ Verify: HTTP 200, valid JSON response, no error fields.
 #### D3: Security Probes
 
 ```bash
-# XSS probe → DFX-S-001
+# XSS probe → DFX-SEC-001
 # Send <script>alert(1)</script> as message and verify it's escaped in response
 
-# SQL injection probe → DFX-S-002
+# SQL injection probe → DFX-SEC-002
 # Send ' OR 1=1 -- as search query and verify no data leak
 
-# Path traversal → DFX-S-015
+# Path traversal → DFX-SEC-015
 # Request /api/resources/../../etc/passwd and verify 400/404
 
-# SSRF probe → DFX-S-014
+# SSRF probe → DFX-SEC-014
 # Submit http://localhost:6379 as URL fetch target, verify rejection
 
-# File upload security → DFX-S-007
+# File upload security → DFX-SEC-007
 # Check if .exe upload is rejected
 ```
 
@@ -395,18 +399,18 @@ For each route group in `.ui-patrol/config.yaml`:
 
 **Map to test plan IDs:**
 
-- `/ai-ask` → ASK-001 (page loads)
-- `/ai-research` → RES-001 (page loads)
-- `/ai-teams` → TMS-001 (page loads)
-- `/ai-writing` → WRT-001 (page loads)
-- `/ai-image` → IMG-001 (page loads)
-- `/ai-office` → OFC-001 (page loads)
-- `/ai-social` → SOC-001 (page loads)
-- `/library` → RES-R-001 (page loads)
-- `/library/rag` → RAG-001 (RAG management)
-- `/explore` → EXP-001 (page loads)
-- `/credits` → CRD-003 (credits page)
-- `/admin/*` → ADM-001~003 (admin pages)
+- `/ai-ask` → ASK-SES-001 (page loads)
+- `/ai-research` → RES-PRJ-001 (page loads)
+- `/ai-teams` → TMS-TOP-001 (page loads)
+- `/ai-writing` → WRT-PRJ-001 (page loads)
+- `/ai-image` → IMG-GEN-001 (page loads)
+- `/ai-office` → OFC-SLD-001 (page loads)
+- `/ai-social` → SOC-CON-001 (page loads)
+- `/library` → LIB-RES-001 (page loads)
+- `/library/rag` → RAG-KB-001 (RAG management)
+- `/explore` → EXP-UNI-001 (page loads; Note: EXP- prefix changed from Explore to Export in new suite. Explore page load verified manually.)
+- `/credits` → ADM-CRD-003 (credits page)
+- `/admin/*` → ADM-USR-001~003 (admin pages)
 
 **Use parallel Task agents** for independent page groups (core, teams, content, admin).
 
@@ -414,26 +418,26 @@ For each route group in `.ui-patrol/config.yaml`:
 
 Execute each journey in `.ui-patrol/journeys/*.yaml`:
 
-| Journey File                              | Test Plan Coverage                |
-| ----------------------------------------- | --------------------------------- |
-| `ai-ask-conversation.journey.yaml`        | ASK-001~020, CMB-CTX-001~007      |
-| `ai-ask-combination-matrix.journey.yaml`  | CMB-ASK-001~010, CMB-FT-001~008   |
-| `ai-ask-mixture.journey.yaml`             | ASK-007, CMB-ASK-007, CMB-ASK-010 |
-| `create-research-topic.journey.yaml`      | RES-001~006, E2E-001              |
-| `ai-teams-collaboration.journey.yaml`     | TMS-001~008, E2E-003              |
-| `ai-writing-workflow.journey.yaml`        | WRT-001~006, E2E-004              |
-| `ai-office-slides.journey.yaml`           | OFC-001~007, E2E-005              |
-| `ai-image-generation.journey.yaml`        | IMG-001~006                       |
-| `knowledge-base-to-ask.journey.yaml`      | INT-KA-001~005, E2E-002           |
-| `explore-to-library-to-ask.journey.yaml`  | INT-ELA-001~003, E2E-DF-001       |
-| `cross-module-data-flow.journey.yaml`     | INT-RLA-001~003, INT-TRW-001~003  |
-| `ai-social-content.journey.yaml`          | SOC-001~003                       |
-| `ai-rag-knowledge.journey.yaml`           | RAG-001~005                       |
-| `e2e-new-user-onboarding.journey.yaml`    | E2E-007                           |
-| `e2e-image-writing-workflow.journey.yaml` | E2E-008                           |
-| `search-library.journey.yaml`             | RES-R-002~006                     |
-| `research-topic-all-tabs.journey.yaml`    | RES-007~009                       |
-| `admin-monitoring-check.journey.yaml`     | ADM-001~003                       |
+| Journey File                              | Test Plan Coverage                                |
+| ----------------------------------------- | ------------------------------------------------- |
+| `ai-ask-conversation.journey.yaml`        | ASK-SES-001~005, ASK-MSG-001~010, CMB-ASK-001~010 |
+| `ai-ask-combination-matrix.journey.yaml`  | CMB-ASK-001~010                                   |
+| `ai-ask-mixture.journey.yaml`             | ASK-MIX-001, CMB-ASK-007, CMB-ASK-010             |
+| `create-research-topic.journey.yaml`      | RES-PRJ-001~006, E2E-001                          |
+| `ai-teams-collaboration.journey.yaml`     | TMS-TOP-001~005, TMS-MBR-001~005, E2E-003         |
+| `ai-writing-workflow.journey.yaml`        | WRT-PRJ-001~005, WRT-VOL-001~005, E2E-004         |
+| `ai-office-slides.journey.yaml`           | OFC-SLD-001~005, OFC-THM-001~002, E2E-005         |
+| `ai-image-generation.journey.yaml`        | IMG-GEN-001~006, IMG-STR-001~002, IMG-HIS-001~004 |
+| `knowledge-base-to-ask.journey.yaml`      | INT-LIB-ASK-001~003, INT-RAG-ASK-001~002, E2E-002 |
+| `explore-to-library-to-ask.journey.yaml`  | INT-EXP-LIB-001~003, E2E-006                      |
+| `cross-module-data-flow.journey.yaml`     | INT-RES-LIB-001~003, INT-TMS-RES-001~002          |
+| `ai-social-content.journey.yaml`          | SOC-CON-001~005, SOC-CNT-001~006                  |
+| `ai-rag-knowledge.journey.yaml`           | RAG-KB-001~005, RAG-DOC-001~004, RAG-QRY-001~004  |
+| `e2e-new-user-onboarding.journey.yaml`    | E2E-007                                           |
+| `e2e-image-writing-workflow.journey.yaml` | E2E-008                                           |
+| `search-library.journey.yaml`             | LIB-RES-002~006                                   |
+| `research-topic-all-tabs.journey.yaml`    | RES-TAB-001~005                                   |
+| `admin-monitoring-check.journey.yaml`     | ADM-USR-001~003                                   |
 
 For each journey:
 
@@ -447,15 +451,15 @@ Execute boundary scenarios from `.ui-patrol/scenarios/boundary-conditions.scenar
 
 | Scenario           | Test Plan ID | Input                       | Expected                    |
 | ------------------ | ------------ | --------------------------- | --------------------------- |
-| Empty message      | BND-001      | `""`                        | Prompt to enter content     |
-| Ultra-long message | BND-002      | 10000 chars                 | Process or truncate warning |
-| XSS in input       | BND-003      | `<script>alert(1)</script>` | Escaped, not executed       |
-| Unicode/emoji      | BND-004      | Mixed languages + emoji     | Display correctly           |
-| Whitespace only    | BND-005      | `"   "`                     | Prompt to enter content     |
-| Markdown injection | BND-006      | `# **bold** \`code\``       | Render correctly            |
-| Empty file         | BND-F-001    | 0-byte file                 | Friendly error              |
-| Oversized file     | BND-F-002    | >10MB                       | Size limit warning          |
-| Unsupported format | BND-F-003    | .exe file                   | Format rejection            |
+| Empty message      | BND-INP-001  | `""`                        | Prompt to enter content     |
+| Ultra-long message | BND-INP-002  | 10000 chars                 | Process or truncate warning |
+| XSS in input       | BND-INP-003  | `<script>alert(1)</script>` | Escaped, not executed       |
+| Unicode/emoji      | BND-INP-004  | Mixed languages + emoji     | Display correctly           |
+| Whitespace only    | BND-INP-005  | `"   "`                     | Prompt to enter content     |
+| Markdown injection | BND-INP-006  | `# **bold** \`code\``       | Render correctly            |
+| Empty file         | BND-FIL-001  | 0-byte file                 | Friendly error              |
+| Oversized file     | BND-FIL-002  | >10MB                       | Size limit warning          |
+| Unsupported format | BND-FIL-003  | .exe file                   | Format rejection            |
 
 #### E4: Responsive Design Tests
 
@@ -471,11 +475,11 @@ await mcp__playwright__browser_snapshot();
 
 | Viewport         | Test Plan ID | Width | Height | Pass Criteria                                          |
 | ---------------- | ------------ | ----- | ------ | ------------------------------------------------------ |
-| Desktop 1080p    | DFX-RD-001   | 1920  | 1080   | Full layout, sidebar visible, no overflow              |
-| Desktop 768p     | DFX-RD-002   | 1366  | 768    | Layout adapts, all content accessible                  |
-| Tablet Landscape | DFX-RD-003   | 1024  | 768    | Sidebar may collapse, content readable                 |
-| Tablet Portrait  | DFX-RD-004   | 768   | 1024   | Single column or collapsible nav, no horizontal scroll |
-| Mobile SE        | DFX-RD-005   | 375   | 667    | Mobile layout, hamburger menu, touch-friendly targets  |
+| Desktop 1080p    | DFX-RES-001  | 1920  | 1080   | Full layout, sidebar visible, no overflow              |
+| Desktop 768p     | DFX-RES-002  | 1366  | 768    | Layout adapts, all content accessible                  |
+| Tablet Landscape | DFX-RES-003  | 1024  | 768    | Sidebar may collapse, content readable                 |
+| Tablet Portrait  | DFX-RES-004  | 768   | 1024   | Single column or collapsible nav, no horizontal scroll |
+| Mobile SE        | DFX-RES-005  | 375   | 667    | Mobile layout, hamburger menu, touch-friendly targets  |
 
 **Total**: 4 pages x 5 viewports = 20 test cases. Each PASS/FAIL individually.
 
@@ -574,7 +578,7 @@ All should return 200 with no timeouts and no data corruption.
 
 #### F4: Throughput & Stress Tests
 
-Covers PERF-TP-001~004, PERF-CC-005~008. Execute from `.ui-patrol/scenarios/throughput-resource.scenarios.yaml`:
+Covers PERF-TP-001~004, PERF-CC-005~007. Execute from `.ui-patrol/scenarios/throughput-resource.scenarios.yaml`:
 
 | Test                          | Plan ID     | Target                  |
 | ----------------------------- | ----------- | ----------------------- |
@@ -585,11 +589,12 @@ Covers PERF-TP-001~004, PERF-CC-005~008. Execute from `.ui-patrol/scenarios/thro
 | Multi-user Ask (10 users)     | PERF-CC-005 | No QPS degradation      |
 | Research + Writing concurrent | PERF-CC-006 | No resource competition |
 | 20 WebSocket connections      | PERF-CC-007 | All connected           |
-| DB connection pool (50 req)   | PERF-CC-008 | Connection reuse        |
 
 Note: TP/CC-005+ tests require load testing tools (k6/Artillery). If unavailable, verify via sequential rapid requests and record as PARTIAL.
 
 #### F5: Resource Monitoring
+
+> **Note**: PERF-RS resource monitoring tests are not in the new test suite (which focuses on functional tests). These are tracked via infrastructure monitoring.
 
 Covers PERF-RS-001~006. Execute from `.ui-patrol/scenarios/throughput-resource.scenarios.yaml`:
 
@@ -611,7 +616,7 @@ Measurement methods:
 
 #### F6: Large Data Volume Tests
 
-Covers PERF-BD-001~006. Execute from `.ui-patrol/scenarios/throughput-resource.scenarios.yaml` and `.ui-patrol/scenarios/performance-benchmarks.scenarios.yaml`:
+Covers PERF-BD-001~008. Execute from `.ui-patrol/scenarios/throughput-resource.scenarios.yaml` and `.ui-patrol/scenarios/performance-benchmarks.scenarios.yaml`:
 
 | Test                           | Plan ID     | Volume             | Target                  |
 | ------------------------------ | ----------- | ------------------ | ----------------------- |
@@ -630,30 +635,30 @@ Covers **Section 5 (DFX)** from the test plan.
 
 #### G1: Reliability Tests
 
-| Test                      | Plan ID   | Method                                                    |
-| ------------------------- | --------- | --------------------------------------------------------- |
-| Page refresh recovery     | DFX-R-001 | Navigate → Refresh → Verify state                         |
-| Browser back              | DFX-R-002 | Navigate→Forward→Back → Verify                            |
-| Network disconnect        | DFX-R-003 | Throttle network → Verify friendly error                  |
-| API error handling        | DFX-R-004 | Check error boundaries in code                            |
-| Timeout recovery          | DFX-R-005 | Slow API → Verify timeout message + retry                 |
-| Session persistence       | DFX-R-006 | Long idle → Verify session survives                       |
-| Data persistence          | DFX-R-007 | Create conversation → Refresh → Verify data still present |
-| WebSocket reconnect       | DFX-R-008 | Check reconnection logic in code                          |
-| Stream interrupt recovery | DFX-R-009 | SSE interruption → Verify recoverable                     |
-| Concurrent write safety   | DFX-R-010 | Concurrent edits → Verify no corruption                   |
-| Idempotency               | DFX-R-011 | Check duplicate submission guards                         |
-| Graceful degradation      | DFX-R-012 | External API down → App doesn't crash                     |
+| Test                      | Plan ID     | Method                                                    |
+| ------------------------- | ----------- | --------------------------------------------------------- |
+| Page refresh recovery     | DFX-REL-001 | Navigate → Refresh → Verify state                         |
+| Browser back              | DFX-REL-002 | Navigate→Forward→Back → Verify                            |
+| Network disconnect        | DFX-REL-003 | Throttle network → Verify friendly error                  |
+| API error handling        | DFX-REL-004 | Check error boundaries in code                            |
+| Timeout recovery          | DFX-REL-005 | Slow API → Verify timeout message + retry                 |
+| Session persistence       | DFX-REL-006 | Long idle → Verify session survives                       |
+| Data persistence          | DFX-REL-007 | Create conversation → Refresh → Verify data still present |
+| WebSocket reconnect       | DFX-REL-008 | Check reconnection logic in code                          |
+| Stream interrupt recovery | DFX-REL-009 | SSE interruption → Verify recoverable                     |
+| Concurrent write safety   | DFX-REL-010 | Concurrent edits → Verify no corruption                   |
+| Idempotency               | DFX-REL-011 | Check duplicate submission guards                         |
+| Graceful degradation      | DFX-REL-012 | External API down → App doesn't crash                     |
 
 #### G2: Security Audit
 
-| Test                  | Plan ID   | Method                                        |
-| --------------------- | --------- | --------------------------------------------- |
-| npm audit (backend)   | DFX-S-013 | `cd backend && npm audit --audit-level=high`  |
-| npm audit (frontend)  | DFX-S-013 | `cd frontend && npm audit --audit-level=high` |
-| HTTPS enforcement     | DFX-S-011 | Check redirect config                         |
-| Error stack hiding    | DFX-S-012 | Trigger 500, verify no stack trace            |
-| Sensitive data in API | DFX-S-010 | Check DTO responses for password/key fields   |
+| Test                  | Plan ID     | Method                                        |
+| --------------------- | ----------- | --------------------------------------------- |
+| npm audit (backend)   | DFX-SEC-013 | `cd backend && npm audit --audit-level=high`  |
+| npm audit (frontend)  | DFX-SEC-013 | `cd frontend && npm audit --audit-level=high` |
+| HTTPS enforcement     | DFX-SEC-011 | Check redirect config                         |
+| Error stack hiding    | DFX-SEC-012 | Trigger 500, verify no stack trace            |
+| Sensitive data in API | DFX-SEC-010 | Check DTO responses for password/key fields   |
 
 #### G3: Maintainability Audit
 
@@ -676,16 +681,16 @@ Covers **Section 5 (DFX)** from the test plan.
 
 Execute scenarios from `.ui-patrol/scenarios/usability-walkthrough.scenarios.yaml`:
 
-| Test                         | Plan ID   | Method                                |
-| ---------------------------- | --------- | ------------------------------------- |
-| First-use guidance           | DFX-U-001 | New user Ask within 3 min             |
-| Navigation depth             | DFX-U-002 | Verify ≤2 clicks to any feature       |
-| Loading/Success/Error states | DFX-U-003 | Check spinner/skeleton in key pages   |
-| Error recovery               | DFX-U-004 | Check retry buttons on error states   |
-| Keyboard shortcuts           | DFX-U-005 | Enter sends, Esc cancels              |
-| Help documentation           | DFX-U-006 | Tooltips on non-obvious features      |
-| Interaction consistency      | DFX-U-007 | Same-type ops use consistent patterns |
-| Accessible forms             | DFX-U-008 | Labels, required field indicators     |
+| Test                         | Plan ID     | Method                                |
+| ---------------------------- | ----------- | ------------------------------------- |
+| First-use guidance           | DFX-USE-001 | New user Ask within 3 min             |
+| Navigation depth             | DFX-USE-002 | Verify ≤2 clicks to any feature       |
+| Loading/Success/Error states | DFX-USE-003 | Check spinner/skeleton in key pages   |
+| Error recovery               | DFX-USE-004 | Check retry buttons on error states   |
+| Keyboard shortcuts           | DFX-USE-005 | Enter sends, Esc cancels              |
+| Help documentation           | DFX-USE-006 | Tooltips on non-obvious features      |
+| Interaction consistency      | DFX-USE-007 | Same-type ops use consistent patterns |
+| Accessible forms             | DFX-USE-008 | Labels, required field indicators     |
 
 #### G6: Best Practices Audit
 
@@ -721,15 +726,15 @@ Execute scenarios from `.ui-patrol/scenarios/usability-walkthrough.scenarios.yam
 
 Execute scenarios from `.ui-patrol/scenarios/compatibility-browser.scenarios.yaml`:
 
-| Test                     | Plan ID    | Target               |
-| ------------------------ | ---------- | -------------------- |
-| Chrome latest (Desktop)  | DFX-CP-001 | 100% functionality   |
-| Firefox latest (Desktop) | DFX-CP-002 | Core features work   |
-| Safari latest (macOS)    | DFX-CP-003 | Core features work   |
-| Edge latest (Desktop)    | DFX-CP-004 | Core features work   |
-| Chrome Mobile (Android)  | DFX-CP-005 | Basic usability      |
-| Safari Mobile (iOS)      | DFX-CP-006 | Basic usability      |
-| 4K Display (3840x2160)   | DFX-RD-007 | No blur, no overflow |
+| Test                     | Plan ID     | Target               |
+| ------------------------ | ----------- | -------------------- |
+| Chrome latest (Desktop)  | DFX-CMP-001 | 100% functionality   |
+| Firefox latest (Desktop) | DFX-CMP-002 | Core features work   |
+| Safari latest (macOS)    | DFX-CMP-003 | Core features work   |
+| Edge latest (Desktop)    | DFX-CMP-004 | Core features work   |
+| Chrome Mobile (Android)  | DFX-CMP-005 | Basic usability      |
+| Safari Mobile (iOS)      | DFX-CMP-005 | Basic usability      |
+| 4K Display (3840x2160)   | DFX-RES-007 | No blur, no overflow |
 
 **Method**: Primary browser testing via Playwright/Chrome DevTools MCP. Cross-browser tests (Firefox/Safari/Edge) via viewport emulation or flagged as SKIP with note "requires multi-browser setup". Mobile tests via viewport + user-agent emulation.
 
@@ -828,7 +833,7 @@ If no previous report exists, note "First run - no baseline for comparison".
 ```markdown
 ## Executive Summary
 
-- Total Test Plan Cases: ~630
+- Total Test Plan Cases: ~735
 - Cases Executed: {N}
 - Passed: {N} | Failed (new): {N} | Known Failures: {N} | Fixed: {N} | Skipped: {N}
 - Pass Rate: {N}% (excluding known failures: {N}%)
@@ -840,17 +845,19 @@ If no previous report exists, note "First run - no baseline for comparison".
 
 #### 2. Coverage by Test Plan Section
 
-| Section           | Plan Cases | Executed | Passed | Coverage |
-| ----------------- | ---------- | -------- | ------ | -------- |
-| 2.1 AI Engine     | ~60        |          |        |          |
-| 2.2 AI Apps       | ~80        |          |        |          |
-| 2.3 Content       | ~10        |          |        |          |
-| 2.4 Core          | ~15        |          |        |          |
-| 2.5 Frontend      | ~20        |          |        |          |
-| 3. Combinations   | ~120       |          |        |          |
-| 4. Performance    | ~40        |          |        |          |
-| 5. DFX            | ~80        |          |        |          |
-| 6. Best Practices | ~30        |          |        |          |
+| Section                       | Plan Cases | Executed | Passed | Coverage |
+| ----------------------------- | ---------- | -------- | ------ | -------- |
+| Part 1: AI Engine (Unit)      | ~60        |          |        |          |
+| Part 1: AI Apps               | ~120       |          |        |          |
+| Part 1: Content & Core        | ~25        |          |        |          |
+| Part 2: Frontend              | ~20        |          |        |          |
+| Part 3: Combinations          | ~120       |          |        |          |
+| Part 3: Cross-Module & E2E    | ~35        |          |        |          |
+| Part 4: Performance           | ~50        |          |        |          |
+| Part 5: Boundary & Edge Cases | ~40        |          |        |          |
+| Part 5: DFX Quality           | ~80        |          |        |          |
+| Part 6: Data Integrity        | ~15        |          |        |          |
+| Best Practices (Audit)        | ~30        |          |        |          |
 
 #### 3. Test Plan ID Tracking Table
 
@@ -931,7 +938,7 @@ If cleanup fails, record in report but do not block.
 - **Fix issues immediately** when found - don't just report them.
 - **Iterate until clean** - max 3 fix iterations, then report remaining.
 - **Commit fixes** only at the end after all iterations pass.
-- **Map every result** to a test plan ID from `comprehensive-test-plan-2026-02-06.md`.
+- **Map every result** to a test plan ID from `comprehensive-test-suite-2026-02-17.md`.
 - Use **browser snapshot** (accessibility tree) as primary verification, screenshots as backup.
 - If browser tools are unavailable, maximize code-level analysis + API testing coverage.
 - If a page requires authentication, use the token from Phase A1.
@@ -1005,18 +1012,18 @@ Execute phases in order: B → C → D → E → F → G. Within each phase, exe
 
 **API Integration (Phase D)**:
 
-- INT-AUTH-001~003, DFX-O-005
+- AUT-TKN-001~002, BND-PRM-001, DFX-O-005
 
 **Browser E2E (Phase E)**:
 
-- ASK-001~010/013/014, RES-001~006, TMS-001~008, WRT-001~004
-- IMG-001, OFC-001, SOC-001 (page loads)
-- RAG-001~002 (knowledge pipeline)
+- ASK-SES-001~005, ASK-MSG-001~010, RES-PRJ-001~006, TMS-TOP-001~005, TMS-MBR-001~005, WRT-PRJ-001~005
+- IMG-GEN-001, OFC-SLD-001, SOC-CON-001 (page loads)
+- RAG-KB-001~002 (knowledge pipeline)
 
 **Combinations (Phase E)**:
 
 - CMB-ASK-001~003/007, CMB-CTX-001~004, CMB-FT-002
-- INT-KA-001~003, INT-ELA-001
+- INT-LIB-ASK-001~003, INT-EXP-LIB-001
 
 **E2E (Phase E)**:
 
@@ -1024,11 +1031,11 @@ Execute phases in order: B → C → D → E → F → G. Within each phase, exe
 
 **Security (Phase G2)**:
 
-- DFX-S-001~007/010~012
+- DFX-SEC-001~007/010~012
 
 **Reliability (Phase G1)**:
 
-- DFX-R-001~005/007/008
+- DFX-REL-001~005/007/008
 
 **Maintainability (Phase G3)**:
 
@@ -1036,7 +1043,7 @@ Execute phases in order: B → C → D → E → F → G. Within each phase, exe
 
 **Usability (Phase G5)**:
 
-- DFX-U-003~004
+- DFX-USE-003~004
 
 **Performance (Phase F)**:
 
@@ -1044,33 +1051,33 @@ Execute phases in order: B → C → D → E → F → G. Within each phase, exe
 
 **Responsive (Phase E4)**:
 
-- DFX-RD-001~002
+- DFX-RES-001~002
 
 **Compatibility (Phase G7)**:
 
-- DFX-CP-001
+- DFX-CMP-001
 
 ### P1 - Important (UX Impact)
 
 **Backend**: ENG-LLM-006~009, ENG-TPM-010~012, ENG-MFB-004, ENG-CB-006~007, ENG-MEM-002/005/007, ENG-ORC-005~008, ENG-CST-004~005, ENG-SK-002, ENG-FAC-003
-**AI Apps**: ASK-011/012/015/016/019/020, RES-007~009/012/013/016~018, TMS-007/012/013/015/017/018, WRT-005/006/008/009/011~013/015, OFC-005~007, IMG-002~004/006, SOC-001~002, RAG-003/005
-**Content**: RES-R-003~004, EXP-001~003
+**AI Apps**: ASK-MSG-006~010, ASK-SES-003~005, RES-TAB-001~005, RES-DIM-001~005, TMS-MBR-003~005, TMS-DIS-001~005, WRT-VOL-001~005, WRT-QUA-001~003, OFC-SLD-003~005, OFC-THM-001~002, IMG-GEN-002~004, IMG-STR-001~002, SOC-CON-001~005, RAG-DOC-001~004
+**Content**: LIB-RES-003~004, EXP-UNI-001~003
 **Frontend**: FE-HK-003/005/006, FE-DM-001~002, FE-ST-002, FE-CP-006~008
 **Combinations**: CMB-ASK-004~006/008~010, CMB-FT-001/003~007, CMB-CTX-005~007
-**Cross-Module**: INT-KA-004~005, INT-ELA-002~003, INT-RLA-001~002, INT-TRW-001~002
+**Cross-Module**: INT-LIB-ASK-003, INT-RAG-ASK-001~002, INT-EXP-LIB-002~003, INT-RES-LIB-001~002, INT-TMS-RES-001~002
 **E2E**: E2E-004~007
 **Performance**: PERF-RT-006~011/015/016, PERF-CC-005~007, PERF-TP-001~003, PERF-BD-001~003, PERF-RS-001~005
-**DFX**: DFX-S-008~009/013~015, DFX-R-006/009~012, DFX-M-005~007, DFX-O-001~004/006
-**Usability**: DFX-U-001~002/007
-**Responsive**: DFX-RD-003~004
-**Compatibility**: DFX-CP-002~004
+**DFX**: DFX-SEC-008~009/013~015, DFX-REL-006/009~012, DFX-M-005~007, DFX-O-001~004/006
+**Usability**: DFX-USE-001~002/007
+**Responsive**: DFX-RES-003~004
+**Compatibility**: DFX-CMP-002~004
 
 ### P2 - Nice to Have
 
-**Backend**: ENG-LLM-010, ENG-MEM-008, ENG-ORC-009~010, WRT-010/014, OFC-008, SOC-003, RAG-004
-**Content**: RES-R-005~006, RES-017
-**Combinations**: CMB-FT-008, INT-RLA-003, INT-TRW-003
+**Backend**: ENG-LLM-010, ENG-MEM-008, ENG-ORC-009~010, WRT-QUA-003, OFC-THM-002, SOC-CNT-005, RAG-DOC-003
+**Content**: LIB-RES-005~006, RES-DIM-005
+**Combinations**: CMB-FT-008, INT-RES-LIB-003
 **E2E**: E2E-008
-**Performance**: PERF-RT-008, PERF-CC-008, PERF-TP-004, PERF-BD-004~006, PERF-RS-006
-**DFX**: DFX-U-005~006/008, DFX-RD-005~007, DFX-CP-005~006
+**Performance**: PERF-RT-008, PERF-TP-004, PERF-BD-004~008
+**DFX**: DFX-USE-005~006/008, DFX-RES-005~007, DFX-CMP-005
 **Best Practices**: Section 6.1~6.6 audit items (OWASP, 12-Factor, chaos, API design, frontend practices)

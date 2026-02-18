@@ -1,5 +1,5 @@
 # AI Image Generation Journey
-# Covers: IMG-001~006 from test plan
+# Covers: IMG-GEN-001~006, IMG-STR-001~002, IMG-HIS-001~004 from comprehensive-test-suite-2026-02-17.md
 id: ai-image-generation
 tier: important
 auth: demo

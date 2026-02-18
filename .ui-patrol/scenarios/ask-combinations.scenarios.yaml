@@ -1,5 +1,5 @@
 # AI Ask Combination Scenarios
-# Covers: CMB-ASK-001~010, CMB-FT-001~008, CMB-CTX-001~007
+# Covers: CMB-ASK-001~010 from comprehensive-test-suite-2026-02-17.md
 
 # Model x Feature Combinations
 - id: ask-grok-all-features

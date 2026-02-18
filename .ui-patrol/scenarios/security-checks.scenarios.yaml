@@ -1,9 +1,9 @@
 # Security Check Scenarios
-# Covers: DFX-S-001~015 from test plan
+# Covers: DFX-SEC-001~015 from comprehensive-test-suite-2026-02-17.md
 
 # Injection Tests
 - id: sec-xss-stored
-  test_plan_ids: [DFX-S-001]
+  test_plan_ids: [DFX-SEC-001]
   description: "XSS prevention - stored XSS via message input"
   method: browser
   route: /ai-ask
@@ -12,7 +12,7 @@
   severity: P0
 
 - id: sec-xss-reflected
-  test_plan_ids: [DFX-S-001]
+  test_plan_ids: [DFX-SEC-001]
   description: "XSS prevention - reflected XSS via URL params"
   method: api
   url: "/api/resources?search=<script>alert(1)</script>"
@@ -20,7 +20,7 @@
   severity: P0
 
 - id: sec-sql-injection
-  test_plan_ids: [DFX-S-002]
+  test_plan_ids: [DFX-SEC-002]
   description: "SQL injection via search query"
   method: api
   url: "/api/resources?search=' OR 1=1 --"
@@ -28,7 +28,7 @@
   severity: P0
 
 - id: sec-prompt-injection
-  test_plan_ids: [DFX-S-003]
+  test_plan_ids: [DFX-SEC-003]
   description: "Prompt injection via user message"
   method: browser
   route: /ai-ask
@@ -37,7 +37,7 @@
   severity: P0
 
 - id: sec-csrf
-  test_plan_ids: [DFX-S-004]
+  test_plan_ids: [DFX-SEC-004]
   description: "CSRF protection on state-changing operations"
   method: api
   expected: "Cross-origin POST rejected or CSRF token required"
@@ -45,14 +45,14 @@
 
 # Authorization Tests
 - id: sec-unauthorized-access
-  test_plan_ids: [DFX-S-005]
+  test_plan_ids: [DFX-SEC-005]
   description: "User A cannot access User B's data"
   method: api
   expected: "403 Forbidden or 404 Not Found"
   severity: P0
 
 - id: sec-jwt-forgery
-  test_plan_ids: [DFX-S-006]
+  test_plan_ids: [DFX-SEC-006]
   description: "Forged JWT token rejected"
   method: api
   headers:
@@ -62,7 +62,7 @@
 
 # File Security
 - id: sec-exe-upload
-  test_plan_ids: [DFX-S-007]
+  test_plan_ids: [DFX-SEC-007]
   description: "Executable file upload blocked"
   method: api
   file_type: ".exe"
@@ -70,7 +70,7 @@
   severity: P0
 
 - id: sec-oversized-upload
-  test_plan_ids: [DFX-S-008]
+  test_plan_ids: [DFX-SEC-008]
   description: "Oversized file upload blocked"
   method: api
   file_size: ">50MB"
@@ -79,7 +79,7 @@
 
 # Rate Limiting
 - id: sec-rate-limit
-  test_plan_ids: [DFX-S-009]
+  test_plan_ids: [DFX-SEC-009]
   description: "API rate limiting enforced"
   method: api
   requests: 100
@@ -89,7 +89,7 @@
 
 # Data Protection
 - id: sec-sensitive-data-api
-  test_plan_ids: [DFX-S-010]
+  test_plan_ids: [DFX-SEC-010]
   description: "API responses don't contain passwords/secrets"
   method: code_review
   check: "grep for password/secret/apiKey in DTO response fields"
@@ -97,7 +97,7 @@
   severity: P0
 
 - id: sec-https-enforcement
-  test_plan_ids: [DFX-S-011]
+  test_plan_ids: [DFX-SEC-011]
   description: "HTTP redirects to HTTPS"
   method: api
   url: "http://genesis-ai.up.railway.app"
@@ -105,7 +105,7 @@
   severity: P0
 
 - id: sec-error-stack-hiding
-  test_plan_ids: [DFX-S-012]
+  test_plan_ids: [DFX-SEC-012]
   description: "500 errors don't expose stack traces"
   method: api
   expected: "Generic error message, no internal paths or stack"
@@ -113,7 +113,7 @@
 
 # Dependency Security
 - id: sec-npm-audit
-  test_plan_ids: [DFX-S-013]
+  test_plan_ids: [DFX-SEC-013]
   description: "No high/critical npm vulnerabilities"
   method: cli
   command: "npm audit --audit-level=high"
@@ -122,7 +122,7 @@
 
 # SSRF
 - id: sec-ssrf-prevention
-  test_plan_ids: [DFX-S-014]
+  test_plan_ids: [DFX-SEC-014]
   description: "URL fetch doesn't allow internal addresses"
   method: api
   input_urls:
@@ -134,7 +134,7 @@
 
 # Path Traversal
 - id: sec-path-traversal
-  test_plan_ids: [DFX-S-015]
+  test_plan_ids: [DFX-SEC-015]
   description: "Path traversal in file/resource requests blocked"
   method: api
   url: "/api/resources/../../etc/passwd"

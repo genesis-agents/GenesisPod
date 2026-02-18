@@ -1,9 +1,9 @@
 # Browser Compatibility Scenarios
-# Covers: DFX-CP-001~006, DFX-RD-007 from comprehensive-test-plan-2026-02-06.md
+# Covers: DFX-CMP-001~005, DFX-RES-007 from comprehensive-test-suite-2026-02-17.md
 
 # Chrome Desktop (primary)
 - id: dfx-cp-chrome
-  test_plan_ids: [DFX-CP-001]
+  test_plan_ids: [DFX-CMP-001]
   description: "Chrome latest - full functionality"
   method: browser
   browser: chrome
@@ -24,7 +24,7 @@
 
 # Firefox Desktop
 - id: dfx-cp-firefox
-  test_plan_ids: [DFX-CP-002]
+  test_plan_ids: [DFX-CMP-002]
   description: "Firefox latest - core functionality"
   method: browser
   browser: firefox
@@ -41,7 +41,7 @@
 
 # Safari macOS
 - id: dfx-cp-safari
-  test_plan_ids: [DFX-CP-003]
+  test_plan_ids: [DFX-CMP-003]
   description: "Safari latest - core functionality"
   method: browser
   browser: safari
@@ -57,7 +57,7 @@
 
 # Edge Desktop
 - id: dfx-cp-edge
-  test_plan_ids: [DFX-CP-004]
+  test_plan_ids: [DFX-CMP-004]
   description: "Edge latest - core functionality"
   method: browser
   browser: edge
@@ -73,7 +73,7 @@
 
 # Chrome Mobile (Android)
 - id: dfx-cp-chrome-mobile
-  test_plan_ids: [DFX-CP-005]
+  test_plan_ids: [DFX-CMP-005]
   description: "Chrome Mobile Android - basic usability"
   method: browser
   viewport: { width: 412, height: 915 }
@@ -90,7 +90,7 @@
 
 # Safari Mobile (iOS)
 - id: dfx-cp-safari-mobile
-  test_plan_ids: [DFX-CP-006]
+  test_plan_ids: [DFX-CMP-005]
   description: "Safari Mobile iOS - basic usability"
   method: browser
   viewport: { width: 390, height: 844 }
@@ -107,7 +107,7 @@
 
 # 4K Display
 - id: dfx-rd-4k
-  test_plan_ids: [DFX-RD-007]
+  test_plan_ids: [DFX-RES-007]
   description: "4K display 3840x2160 - no blur, no overflow"
   method: browser
   viewport: { width: 3840, height: 2160 }

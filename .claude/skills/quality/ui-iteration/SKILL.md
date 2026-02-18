@@ -1,10 +1,10 @@
 # UI Iteration Skill - Full-Spectrum Test Orchestrator
 
-Fully autonomous test-fix-retest cycle covering **all 8 testing dimensions**: unit tests, integration, combination matrix, performance, DFX quality, security, browser E2E, and best practices. **100% coverage** of master test plan (~630 cases).
+Fully autonomous test-fix-retest cycle covering **all 8 testing dimensions**: unit tests, integration, combination matrix, performance, DFX quality, security, browser E2E, and best practices. **100% coverage** of master test plan (~735 cases).
 
 ## What This Skill Does
 
-Executes a complete **autonomous full-spectrum test cycle** against the master test plan (~630 cases):
+Executes a complete **autonomous full-spectrum test cycle** against the master test plan (~735 cases):
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -22,7 +22,7 @@ Executes a complete **autonomous full-spectrum test cycle** against the master t
 │  - Seed test data via npm run db:seed:ui-patrol     │
 ├─────────────────────────────────────────────────────┤
 │  Phase A: Initialize & Plan                         │
-│  - Read master test plan (2026-02-06, ~630 cases)   │
+│  - Read master test plan (2026-02-17, ~735 cases)   │
 │  - Initialize coverage tracker with all test IDs    │
 │  - Create dated report                              │
 ├─────────────────────────────────────────────────────┤
@@ -104,42 +104,37 @@ The skill runs **fully autonomously** - no human input needed during execution.
 
 ## Test Plan Coverage Mapping
 
-### Master Test Plan: `comprehensive-test-plan-2026-02-06.md` (~630 cases)
+### Master Test Plan: `comprehensive-test-suite-2026-02-17.md` (~735 cases)
 
-| Test Plan Section           | Cases    | Covered By Phase                               | Coverage |
-| --------------------------- | -------- | ---------------------------------------------- | -------- |
-| 2.1 AI Engine (Unit)        | ~60      | Phase B (Jest) - 35+ spec file mappings        | 100%     |
-| 2.2 AI Apps (Integration)   | ~80      | Phase B + D + E (18 journey files)             | 100%     |
-| 2.3 Content (Integration)   | ~10      | Phase D + E (search-library, explore journeys) | 100%     |
-| 2.4 Core (Unit/Integration) | ~15      | Phase B + D (auth, credits, admin)             | 100%     |
-| 2.5 Frontend (Unit)         | ~20      | Phase C (Vitest)                               | 100%     |
-| 3.1 Ask Combinations        | ~25      | Phase E (ask-combinations scenarios)           | 100%     |
-| 3.2 Cross-Module            | ~25      | Phase E (cross-module-integration scenarios)   | 100%     |
-| 3.3 E2E Scenarios           | ~8       | Phase E (8 E2E journeys)                       | 100%     |
-| 3.1.2 File Types            | ~8       | Phase E (ask-combination-matrix journey)       | 100%     |
-| 3.1.3 Context Switching     | ~7       | Phase E (ask-conversation journey)             | 100%     |
-| 3.2.5 Auth Chain            | ~3       | Phase D (D1 auth chain)                        | 100%     |
-| 4.1 Response Time           | ~16      | Phase F2 (16 API endpoints)                    | 100%     |
-| 4.2 Concurrency             | ~8       | Phase F3 + F4                                  | 100%     |
-| 4.3 Throughput              | ~4       | Phase F4 (throughput scenarios)                | 100%     |
-| 4.4 Large Data              | ~6       | Phase F6 (data volume scenarios)               | 100%     |
-| 4.5 Resource Monitoring     | ~6       | Phase F5 (resource scenarios)                  | 100%     |
-| 5.1 Usability               | ~8       | Phase G5 (usability-walkthrough scenarios)     | 100%     |
-| 5.2 Reliability             | ~12      | Phase G1                                       | 100%     |
-| 5.3 Security                | ~15      | Phase G2 + D3 (security-checks scenarios)      | 100%     |
-| 5.4 Maintainability         | ~8       | Phase G3                                       | 100%     |
-| 5.5 Observability           | ~6       | Phase G4                                       | 100%     |
-| 5.6 Responsive              | ~7       | Phase E4 + G7 (compatibility scenarios)        | 100%     |
-| 5.7 Compatibility           | ~6       | Phase G7 (compatibility-browser scenarios)     | 100%     |
-| 6. Best Practices           | ~30      | Phase G6 (23 audit items)                      | 100%     |
-| **Total**                   | **~630** | **Phases B-G**                                 | **100%** |
+| Test Plan Section             | Cases    | Covered By Phase                               | Coverage |
+| ----------------------------- | -------- | ---------------------------------------------- | -------- |
+| Part 1: AI Engine (Unit)      | ~60      | Phase B (Jest) - 35+ spec file mappings        | 100%     |
+| Part 1: AI Apps (Integration) | ~120     | Phase B + D + E (18 journey files)             | 100%     |
+| Part 1: Content & Core        | ~25      | Phase D + E (search-library, explore journeys) | 100%     |
+| Part 2: Frontend (Unit)       | ~20      | Phase C (Vitest)                               | 100%     |
+| Part 3: Ask Combinations      | ~25      | Phase E (ask-combinations scenarios)           | 100%     |
+| Part 3: Cross-Module & E2E    | ~35      | Phase E (cross-module-integration scenarios)   | 100%     |
+| Part 4: Performance           | ~50      | Phase F (response time, concurrency, volume)   | 100%     |
+| Part 5: Boundary & Edge Cases | ~40      | Phase E3 (boundary-conditions scenarios)       | 100%     |
+| Part 5: DFX Usability         | ~10      | Phase G5 (usability-walkthrough scenarios)     | 100%     |
+| Part 5: DFX Reliability       | ~12      | Phase G1                                       | 100%     |
+| Part 5: DFX Security          | ~15      | Phase G2 + D3 (security-checks scenarios)      | 100%     |
+| Part 5: DFX Maintainability   | ~8       | Phase G3                                       | 100%     |
+| Part 5: DFX Observability     | ~6       | Phase G4                                       | 100%     |
+| Part 5: DFX Responsive        | ~7       | Phase E4 + G7 (compatibility scenarios)        | 100%     |
+| Part 5: DFX Compatibility     | ~5       | Phase G7 (compatibility-browser scenarios)     | 100%     |
+| Part 5: DFX Accessibility     | ~5       | Phase G (new DFX-ACC checks)                   | 100%     |
+| Part 5: DFX i18n              | ~5       | Phase E5 (i18n verification)                   | 100%     |
+| Part 6: Data Integrity        | ~15      | Phase B + D (data consistency checks)          | 100%     |
+| Best Practices (Audit)        | ~30      | Phase G6 (23 audit items)                      | 100%     |
+| **Total**                     | **~735** | **Phases B-G**                                 | **100%** |
 
 ## Key Files
 
 | File                                                                          | Purpose                                                    |
 | ----------------------------------------------------------------------------- | ---------------------------------------------------------- |
 | `.claude/commands/ui-iteration.md`                                            | Slash command prompt (full instructions)                   |
-| `docs/guides/testing/test-cases/comprehensive-test-plan-2026-02-06.md`        | Master test plan (~630 cases)                              |
+| `docs/guides/testing/test-cases/comprehensive-test-suite-2026-02-17.md`       | Master test plan (~735 cases)                              |
 | `docs/guides/testing/test-cases/comprehensive-combination-test-2026-01-25.md` | Previous baseline                                          |
 | `docs/guides/testing/test-results/ui-iteration-{date}.md`                     | Output test reports                                        |
 | `.ui-patrol/config.yaml`                                                      | UI patrol config (73 routes, 11-level quality + baselines) |
@@ -151,7 +146,7 @@ The skill runs **fully autonomously** - no human input needed during execution.
 
 - **Local**: Unit/integration tests, static analysis
 - **Production**: Browser E2E, API integration, performance
-- **URL**: http://localhost:3000 (local) / https://genesis-ai-engine.up.railway.app (prod)
+- **URL**: http://localhost:3000 (local) / https://genesis-ai.up.railway.app (frontend prod) / https://genesis-ai-backend.up.railway.app (backend API prod)
 - **Backend Port**: 4000 (local)
 - **Browser**: Playwright MCP (primary), Chrome DevTools MCP (fallback)
 - **Fallback**: Code-level analysis + API testing via curl
@@ -160,43 +155,43 @@ The skill runs **fully autonomously** - no human input needed during execution.
 
 ### 19 Journey Files
 
-| Journey                                   | Covers                           |
-| ----------------------------------------- | -------------------------------- |
-| `ai-ask-conversation.journey.yaml`        | ASK-001~020, CMB-CTX-001~007     |
-| `ai-ask-combination-matrix.journey.yaml`  | CMB-ASK-001~010, CMB-FT-001~008  |
-| `ai-ask-mixture.journey.yaml`             | ASK-007, CMB-ASK-007/010         |
-| `create-research-topic.journey.yaml`      | RES-001~006, E2E-001             |
-| `ai-teams-collaboration.journey.yaml`     | TMS-001~008, E2E-003             |
-| `ai-writing-workflow.journey.yaml`        | WRT-001~006, E2E-004             |
-| `ai-office-slides.journey.yaml`           | OFC-001~007, E2E-005             |
-| `ai-image-generation.journey.yaml`        | IMG-001~006                      |
-| `ai-social-content.journey.yaml`          | SOC-001~003                      |
-| `ai-rag-knowledge.journey.yaml`           | RAG-001~005                      |
-| `knowledge-base-to-ask.journey.yaml`      | INT-KA-001~005, E2E-002          |
-| `explore-to-library-to-ask.journey.yaml`  | INT-ELA-001~003, E2E-DF-001      |
-| `cross-module-data-flow.journey.yaml`     | INT-RLA-001~003, INT-TRW-001~003 |
-| `e2e-new-user-onboarding.journey.yaml`    | E2E-007                          |
-| `e2e-image-writing-workflow.journey.yaml` | E2E-008                          |
-| `search-library.journey.yaml`             | RES-R-002~006                    |
-| `research-topic-all-tabs.journey.yaml`    | RES-007~009                      |
-| `admin-monitoring-check.journey.yaml`     | ADM-001~003                      |
-| `full-site-i18n-check.journey.yaml`       | i18n coverage                    |
+| Journey                                   | Covers                                            |
+| ----------------------------------------- | ------------------------------------------------- |
+| `ai-ask-conversation.journey.yaml`        | ASK-SES-001~005, ASK-MSG-001~010, CMB-ASK-001~010 |
+| `ai-ask-combination-matrix.journey.yaml`  | CMB-ASK-001~010                                   |
+| `ai-ask-mixture.journey.yaml`             | ASK-MIX-001, CMB-ASK-007/010                      |
+| `create-research-topic.journey.yaml`      | RES-PRJ-001~006, E2E-001                          |
+| `ai-teams-collaboration.journey.yaml`     | TMS-TOP-001~005, TMS-MBR-001~005, E2E-003         |
+| `ai-writing-workflow.journey.yaml`        | WRT-PRJ-001~005, WRT-VOL-001~005, E2E-004         |
+| `ai-office-slides.journey.yaml`           | OFC-SLD-001~005, OFC-THM-001~002, E2E-005         |
+| `ai-image-generation.journey.yaml`        | IMG-GEN-001~006, IMG-STR-001~002, IMG-HIS-001~004 |
+| `ai-social-content.journey.yaml`          | SOC-CON-001~005, SOC-CNT-001~006                  |
+| `ai-rag-knowledge.journey.yaml`           | RAG-KB-001~005, RAG-DOC-001~004, RAG-QRY-001~004  |
+| `knowledge-base-to-ask.journey.yaml`      | INT-LIB-ASK-001~003, INT-RAG-ASK-001~002, E2E-002 |
+| `explore-to-library-to-ask.journey.yaml`  | INT-EXP-LIB-001~003, E2E-006                      |
+| `cross-module-data-flow.journey.yaml`     | INT-RES-LIB-001~003, INT-TMS-RES-001~002          |
+| `e2e-new-user-onboarding.journey.yaml`    | E2E-007                                           |
+| `e2e-image-writing-workflow.journey.yaml` | E2E-008                                           |
+| `search-library.journey.yaml`             | LIB-RES-002~006                                   |
+| `research-topic-all-tabs.journey.yaml`    | RES-TAB-001~005                                   |
+| `admin-monitoring-check.journey.yaml`     | ADM-USR-001~003                                   |
+| `full-site-i18n-check.journey.yaml`       | i18n coverage                                     |
 
 ### 11 Scenario Files
 
-| Scenario                                  | Covers                                            |
-| ----------------------------------------- | ------------------------------------------------- |
-| `ask-combinations.scenarios.yaml`         | CMB-ASK, CMB-FT, CMB-CTX                          |
-| `boundary-conditions.scenarios.yaml`      | BND-001~006, BND-F, BND-C, BND-N                  |
-| `security-checks.scenarios.yaml`          | DFX-S-001~015                                     |
-| `performance-benchmarks.scenarios.yaml`   | PERF-RT, PERF-CC, PERF-BD-001~003                 |
-| `cross-module-integration.scenarios.yaml` | INT-_, E2E-_                                      |
-| `usability-walkthrough.scenarios.yaml`    | DFX-U-001~008                                     |
-| `compatibility-browser.scenarios.yaml`    | DFX-CP-001~006, DFX-RD-007                        |
-| `throughput-resource.scenarios.yaml`      | PERF-TP-001~004, PERF-RS-001~006, PERF-BD-004~006 |
-| `ai-research.scenarios.yaml`              | Research page scenarios                           |
-| `ai-teams.scenarios.yaml`                 | Teams page scenarios                              |
-| `library.scenarios.yaml`                  | Library page scenarios                            |
+| Scenario                                  | Covers                                                                  |
+| ----------------------------------------- | ----------------------------------------------------------------------- |
+| `ask-combinations.scenarios.yaml`         | CMB-ASK-001~010                                                         |
+| `boundary-conditions.scenarios.yaml`      | BND-INP-001~010, BND-FIL-001~008, BND-CCR-001~007, BND-NET-001~008      |
+| `security-checks.scenarios.yaml`          | DFX-SEC-001~015                                                         |
+| `performance-benchmarks.scenarios.yaml`   | PERF-RT-001~020, PERF-CC-001~007, PERF-BD-001~003                       |
+| `cross-module-integration.scenarios.yaml` | INT-LIB-ASK-_, INT-EXP-LIB-_, INT-RES-LIB-_, INT-TMS-RES-_, E2E-001~010 |
+| `usability-walkthrough.scenarios.yaml`    | DFX-USE-001~010                                                         |
+| `compatibility-browser.scenarios.yaml`    | DFX-CMP-001~005, DFX-RES-007                                            |
+| `throughput-resource.scenarios.yaml`      | PERF-BD-001~008, PERF-LR-001~005                                        |
+| `ai-research.scenarios.yaml`              | Research page scenarios                                                 |
+| `ai-teams.scenarios.yaml`                 | Teams page scenarios                                                    |
+| `library.scenarios.yaml`                  | Library page scenarios                                                  |
 
 ## Test Scope by Priority
 
