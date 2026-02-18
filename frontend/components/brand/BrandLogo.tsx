@@ -25,7 +25,7 @@ function OrbitalIcon({ className = 'h-8 w-8' }: { className?: string }) {
         stroke="currentColor"
         strokeWidth="2.5"
         opacity="0.9"
-        className="text-indigo-400"
+        className="text-cyan-400"
       />
       <ellipse
         cx="22"
@@ -36,13 +36,13 @@ function OrbitalIcon({ className = 'h-8 w-8' }: { className?: string }) {
         strokeWidth="2.5"
         opacity="0.5"
         transform="rotate(60 22 22)"
-        className="text-indigo-400"
+        className="text-cyan-400"
       />
       <circle
         cx="22"
         cy="22"
         r="6"
-        className="text-cyan-400"
+        className="text-violet-500"
         fill="currentColor"
       />
     </svg>
@@ -65,7 +65,7 @@ export function BrandLogo({
         className={`flex-shrink-0`}
         style={{
           filter:
-            'drop-shadow(0 0 6px rgba(99,102,241,0.5)) drop-shadow(0 0 12px rgba(139,92,246,0.35)) drop-shadow(0 0 3px rgba(6,182,212,0.4))',
+            'drop-shadow(0 0 6px rgba(139,92,246,0.5)) drop-shadow(0 0 12px rgba(139,92,246,0.3)) drop-shadow(0 0 3px rgba(6,182,212,0.4))',
         }}
       >
         <OrbitalIcon className={iconClassName} />
