@@ -60,8 +60,10 @@ import {
   useSlideGenerationTeam,
   useCheckpoints,
   useSessions,
+  useThemes,
   SessionWithCheckpoint,
 } from '@/hooks/features/slides';
+import type { SlideThemePreview } from '@/hooks/features/slides';
 import type {
   GenerateRequest,
   PageState,
@@ -81,11 +83,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import { sanitizeSlideHtml } from '@/lib/utils/sanitize';
-import {
-  ThemeSelector,
-  SLIDE_THEMES,
-  type SlideThemeId,
-} from './ThemeSelector';
+import { ThemeSelector } from './ThemeSelector';
 
 // ★ 导入拆分后的组件
 import { ConversationPanel, type ToolCallItem } from './SlidesEditor';
@@ -114,6 +112,8 @@ export function SlidesTab() {
   const { t } = useI18n();
   const { session, pages, generating, streamEvents, progress, outlinePlan } =
     useSlidesStore();
+  const { themes } = useThemes();
+  const completedPages = pages.filter((p) => p.status === 'completed');
   const { generateWithTeam, cancel, teamState, teamEvents } =
     useSlideGenerationTeam();
   const { createCheckpoint, checkpoints } = useCheckpoints();
@@ -934,7 +934,7 @@ export function SlidesTab() {
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           onNewClick={() => setShowNewForm(true)}
-          showViewToggle={!showNewForm}
+          showViewToggle={true}
           onSmartTags={handleSmartTags}
         />
 
@@ -947,24 +947,29 @@ export function SlidesTab() {
           onRestore={handleRestoreHistory}
         />
 
-        {/* 根据状态显示画廊或输入表单 */}
-        {showNewForm ? (
-          <InitialInputForm
-            onGenerate={handleGenerate}
-            onCancel={() => setShowNewForm(false)}
-          />
-        ) : (
-          <SessionsGallery
-            backendSessions={backendSessions}
-            localHistory={history}
-            viewMode={viewMode}
-            onRestoreSession={handleRestoreSession}
-            onRestoreHistory={handleRestoreHistory}
-            onNewClick={() => setShowNewForm(true)}
-            loading={sessionsLoading}
-            restoring={restoring}
-            onUpdateSession={updateSession}
-            onDeleteSession={deleteSession}
+        {/* 画廊始终渲染 */}
+        <SessionsGallery
+          backendSessions={backendSessions}
+          localHistory={history}
+          viewMode={viewMode}
+          onRestoreSession={handleRestoreSession}
+          onRestoreHistory={handleRestoreHistory}
+          onNewClick={() => setShowNewForm(true)}
+          loading={sessionsLoading}
+          restoring={restoring}
+          onUpdateSession={updateSession}
+          onDeleteSession={deleteSession}
+        />
+
+        {/* Modal 浮层覆盖在画廊上 */}
+        {showNewForm && (
+          <CreateSlidesModal
+            themes={themes}
+            onClose={() => setShowNewForm(false)}
+            onGenerate={(req) => {
+              handleGenerate(req);
+              setShowNewForm(false);
+            }}
           />
         )}
       </div>
@@ -992,6 +997,31 @@ export function SlidesTab() {
               {session?.title || t('office.slides.title')}
             </span>
           </div>
+
+          {/* 中部：生成状态 */}
+          <div className="flex items-center gap-2">
+            {generating && (
+              <div className="flex items-center gap-2 text-sm text-orange-600">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>
+                  正在生成 {completedPages.length}/{progress?.totalPages || '?'}{' '}
+                  页
+                </span>
+              </div>
+            )}
+            {!generating && pages.length > 0 && (
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <span>
+                  共 {pages.length} 页 ·{' '}
+                  {formatRelativeTime(
+                    new Date(session?.updatedAt || Date.now())
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center gap-2">
             {pages.length > 0 && (
               <button
@@ -1024,18 +1054,20 @@ export function SlidesTab() {
 // PresentationMode 组件 - 全屏演示
 // ============================================================================
 
-function InitialInputForm({
+function CreateSlidesModal({
   onGenerate,
-  onCancel,
+  onClose,
+  themes,
 }: {
   onGenerate: (request: GenerateRequest) => void;
-  onCancel?: () => void;
+  onClose: () => void;
+  themes: SlideThemePreview[];
 }) {
   const { t } = useI18n();
   const [title, setTitle] = useState('');
   const [sourceText, setSourceText] = useState('');
   const [targetPages, setTargetPages] = useState(10);
-  const [themeId, setThemeId] = useState<SlideThemeId>('genspark-dark');
+  const [themeId, setThemeId] = useState('genspark-dark');
   const [showImportModal, setShowImportModal] = useState(false);
   const { generating } = useSlidesStore();
 
@@ -1067,105 +1099,105 @@ function InitialInputForm({
   }, [title, sourceText, targetPages, themeId, onGenerate]);
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col bg-gray-50">
-      <div className="flex-1 overflow-auto p-8">
-        <div className="mx-auto w-full max-w-2xl">
-          <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {t('office.slides.createNewPresentation')}
-              </h2>
-              {onCancel && (
-                <button
-                  onClick={onCancel}
-                  className="text-sm text-gray-500 hover:text-gray-700"
-                >
-                  {t('office.slides.cancel')}
-                </button>
-              )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
+        {/* Modal 内容区 */}
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {t('office.slides.createNewPresentation')}
+            </h2>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                {t('office.slides.presentationTitle')}
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={t('office.slides.titlePlaceholder')}
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+              />
             </div>
 
-            <div className="space-y-6">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  {t('office.slides.presentationTitle')}
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">
+                  {t('office.slides.materialContent')}
                 </label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder={t('office.slides.titlePlaceholder')}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                />
+                <button
+                  type="button"
+                  onClick={() => setShowImportModal(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  {t('office.slides.importFromPlatform')}
+                </button>
               </div>
+              <textarea
+                value={sourceText}
+                onChange={(e) => setSourceText(e.target.value)}
+                placeholder={t('office.slides.contentPlaceholderLong')}
+                rows={8}
+                className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+              />
+            </div>
 
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">
-                    {t('office.slides.materialContent')}
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowImportModal(true)}
-                    className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800"
-                  >
-                    <FolderOpen className="h-4 w-4" />
-                    {t('office.slides.importFromPlatform')}
-                  </button>
-                </div>
-                <textarea
-                  value={sourceText}
-                  onChange={(e) => setSourceText(e.target.value)}
-                  placeholder={t('office.slides.contentPlaceholderLong')}
-                  rows={8}
-                  className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                />
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                {t('office.slides.targetPages', { count: targetPages })}
+              </label>
+              <input
+                type="range"
+                min={5}
+                max={30}
+                value={targetPages}
+                onChange={(e) => setTargetPages(parseInt(e.target.value))}
+                className="w-full accent-orange-500"
+              />
+              <div className="mt-1 flex justify-between text-xs text-gray-500">
+                <span>{t('office.slides.pageCountWithN', { count: 5 })}</span>
+                <span>{t('office.slides.pageCountWithN', { count: 30 })}</span>
               </div>
+            </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  {t('office.slides.targetPages', { count: targetPages })}
-                </label>
-                <input
-                  type="range"
-                  min={5}
-                  max={30}
-                  value={targetPages}
-                  onChange={(e) => setTargetPages(parseInt(e.target.value))}
-                  className="w-full accent-orange-500"
-                />
-                <div className="mt-1 flex justify-between text-xs text-gray-500">
-                  <span>{t('office.slides.pageCountWithN', { count: 5 })}</span>
-                  <span>
-                    {t('office.slides.pageCountWithN', { count: 30 })}
-                  </span>
-                </div>
-              </div>
-
-              {/* 主题选择 */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  {t('office.slides.themeStyle')}
-                </label>
-                <ThemeSelector
-                  value={themeId}
-                  onChange={setThemeId}
-                  className="rounded-lg border border-gray-200 bg-gray-50 p-3"
-                />
-              </div>
+            {/* 主题选择 */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                {t('office.slides.themeStyle')}
+              </label>
+              <ThemeSelector
+                value={themeId}
+                onChange={setThemeId}
+                themes={themes}
+                className="rounded-lg border border-gray-200 bg-gray-50 p-3"
+              />
             </div>
           </div>
         </div>
-      </div>
 
-      {/* 固定在底部的按钮 */}
-      <div className="flex-shrink-0 border-t border-gray-200 bg-white p-4">
-        <div className="mx-auto w-full max-w-2xl">
+        {/* 固定底部按钮区 */}
+        <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-8 py-4">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          >
+            {t('office.slides.cancel')}
+          </button>
           <button
             onClick={handleSubmit}
             disabled={generating || !title.trim() || !sourceText.trim()}
             className={cn(
-              'flex w-full items-center justify-center gap-2 rounded-lg py-4 text-base font-medium transition-colors',
+              'flex items-center gap-2 rounded-lg px-6 py-2 text-sm font-medium transition-colors',
               generating || !title.trim() || !sourceText.trim()
                 ? 'cursor-not-allowed bg-gray-100 text-gray-400'
                 : 'bg-orange-500 text-white hover:bg-orange-600'
@@ -1173,26 +1205,26 @@ function InitialInputForm({
           >
             {generating ? (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 {t('office.slides.generating')}
               </>
             ) : (
               <>
-                <Layers className="h-5 w-5" />
+                <Layers className="h-4 w-4" />
                 {t('office.slides.beginGeneration')}
               </>
             )}
           </button>
         </div>
-      </div>
 
-      {/* V5.0: Source Import Modal */}
-      <SourceImportModal
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        onImport={handleImportData}
-      />
-    </main>
+        {/* V5.0: Source Import Modal */}
+        <SourceImportModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onImport={handleImportData}
+        />
+      </div>
+    </div>
   );
 }
 

@@ -52,8 +52,17 @@ export async function generateSummary(
 
   try {
     setAiLoading(true);
-    // Use extracted article content if available, otherwise fallback to abstract/title
-    const content = articleTextContent || resource.abstract || resource.title;
+    // Use extracted article content if available, otherwise fallback to abstract
+    const content = articleTextContent || resource.abstract || '';
+
+    // Don't call AI with insufficient content
+    if (content.length < 50) {
+      setAiSummary(
+        '内容尚未加载完成，请先切换到「阅读模式」等待文章内容加载后再试。'
+      );
+      return;
+    }
+
     logger.debug('Generating summary with content length:', content.length);
 
     // BYOK: Include auth header so backend can use user's personal API key
@@ -122,8 +131,14 @@ export async function generateInsights(
   }
 
   try {
-    // Use extracted article content if available, otherwise fallback to abstract/title
-    const content = articleTextContent || resource.abstract || resource.title;
+    // Use extracted article content if available, otherwise fallback to abstract
+    const content = articleTextContent || resource.abstract || '';
+
+    // Don't call AI with insufficient content
+    if (content.length < 50) {
+      return;
+    }
+
     logger.debug('Generating insights with content length:', content.length);
 
     // BYOK: Include auth header so backend can use user's personal API key

@@ -9,6 +9,8 @@ export { useSessions } from './useSessions';
 export { useDataImport } from './useDataImport';
 export { useAIEdit } from './useAIEdit';
 export { useNarration } from './useNarration';
+export { useThemes } from './useThemes';
+export type { SlideThemePreview } from './useThemes';
 export type { SessionWithCheckpoint } from './useSessions';
 export type {
   SlidesSourceType,

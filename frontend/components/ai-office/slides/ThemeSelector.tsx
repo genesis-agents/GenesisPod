@@ -60,11 +60,38 @@ export const SLIDE_THEMES = [
 
 export type SlideThemeId = (typeof SLIDE_THEMES)[number]['id'];
 
+// 内部统一主题项接口
+interface ThemeItem {
+  id: string;
+  name: string;
+  description: string;
+  preview: string; // CSS gradient 字符串
+  colors: {
+    primary: string;
+    accent: string;
+    text: string;
+  };
+}
+
+// 将 SLIDE_THEMES 转换为 ThemeItem 格式（供默认使用）
+const DEFAULT_THEMES: ThemeItem[] = SLIDE_THEMES.map((t) => ({
+  id: t.id,
+  name: t.name,
+  description: t.description,
+  preview: t.preview.bg,
+  colors: {
+    primary: t.preview.bg,
+    accent: t.preview.accent,
+    text: t.preview.text,
+  },
+}));
+
 interface ThemeSelectorProps {
-  value: SlideThemeId;
-  onChange: (themeId: SlideThemeId) => void;
+  value: string;
+  onChange: (themeId: string) => void;
   className?: string;
   compact?: boolean;
+  themes?: ThemeItem[];
 }
 
 /**
@@ -76,11 +103,14 @@ export function ThemeSelector({
   onChange,
   className,
   compact = false,
+  themes,
 }: ThemeSelectorProps) {
+  const displayThemes = themes && themes.length > 0 ? themes : DEFAULT_THEMES;
+
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       {!compact && (
-        <label className="text-xs font-medium text-slate-400">主题风格</label>
+        <label className="text-xs font-medium text-slate-500">主题风格</label>
       )}
       <div
         className={cn(
@@ -88,78 +118,92 @@ export function ThemeSelector({
           compact ? 'grid-cols-5' : 'grid-cols-3 sm:grid-cols-5'
         )}
       >
-        {SLIDE_THEMES.map((theme) => (
-          <button
-            key={theme.id}
-            onClick={() => onChange(theme.id)}
-            className={cn(
-              'group relative flex flex-col overflow-hidden rounded-lg border-2 transition-all hover:scale-105',
-              value === theme.id
-                ? 'border-orange-500 ring-2 ring-orange-500/20'
-                : 'border-slate-700 hover:border-slate-500'
-            )}
-            title={theme.description}
-          >
-            {/* 预览区域 */}
-            <div
+        {displayThemes.map((theme) => {
+          const isSelected = value === theme.id;
+          return (
+            <button
+              key={theme.id}
+              onClick={() => onChange(theme.id)}
               className={cn(
-                'relative aspect-[16/9] w-full',
-                compact ? 'min-h-[40px]' : 'min-h-[60px]'
+                'group relative flex flex-col overflow-hidden rounded-lg border-2 transition-all hover:scale-105',
+                isSelected
+                  ? 'border-2'
+                  : 'border-slate-200 hover:border-slate-400'
               )}
-              style={{ background: theme.preview.bg }}
+              style={
+                isSelected
+                  ? {
+                      borderColor: theme.colors.accent,
+                      boxShadow: `0 0 0 3px ${theme.colors.accent}33`,
+                    }
+                  : undefined
+              }
+              title={theme.description}
             >
-              {/* 模拟内容 */}
-              <div className="absolute inset-2 flex flex-col gap-1">
-                <div
-                  className="h-1 w-3/4 rounded-full"
-                  style={{ background: theme.preview.text, opacity: 0.9 }}
-                />
-                <div
-                  className="h-0.5 w-1/2 rounded-full"
-                  style={{ background: theme.preview.text, opacity: 0.5 }}
-                />
-                <div className="mt-auto flex gap-1">
+              {/* 预览区域 */}
+              <div
+                className={cn(
+                  'relative aspect-[16/9] w-full',
+                  compact ? 'min-h-[40px]' : 'min-h-[60px]'
+                )}
+                style={{ background: theme.preview }}
+              >
+                {/* 模拟内容 */}
+                <div className="absolute inset-2 flex flex-col gap-1">
                   <div
-                    className="h-2 w-2 rounded-sm"
-                    style={{ background: theme.preview.accent }}
+                    className="h-1 w-3/4 rounded-full"
+                    style={{ background: theme.colors.text, opacity: 0.9 }}
                   />
                   <div
-                    className="h-2 w-2 rounded-sm"
-                    style={{ background: theme.preview.accent, opacity: 0.6 }}
+                    className="h-0.5 w-1/2 rounded-full"
+                    style={{ background: theme.colors.text, opacity: 0.5 }}
                   />
+                  <div className="mt-auto flex gap-1">
+                    <div
+                      className="h-2 w-2 rounded-sm"
+                      style={{ background: theme.colors.accent }}
+                    />
+                    <div
+                      className="h-2 w-2 rounded-sm"
+                      style={{ background: theme.colors.accent, opacity: 0.6 }}
+                    />
+                  </div>
                 </div>
+
+                {/* 选中标记 */}
+                {isSelected && (
+                  <div
+                    className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full"
+                    style={{ background: theme.colors.accent }}
+                  >
+                    <svg
+                      className="h-2.5 w-2.5 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                )}
               </div>
 
-              {/* 选中标记 */}
-              {value === theme.id && (
-                <div className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500">
-                  <svg
-                    className="h-2.5 w-2.5 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+              {/* 名称 - 浅色风格 */}
+              {!compact && (
+                <div className="bg-gray-50 px-2 py-1 text-center">
+                  <span className="text-[10px] font-medium text-gray-700">
+                    {theme.name}
+                  </span>
                 </div>
               )}
-            </div>
-
-            {/* 名称 */}
-            {!compact && (
-              <div className="bg-slate-800/50 px-2 py-1 text-center">
-                <span className="text-[10px] font-medium text-slate-300">
-                  {theme.name}
-                </span>
-              </div>
-            )}
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -1186,27 +1186,57 @@ function HomeContent() {
       setAiMessages((prev) => [...prev, assistantMessage]);
       const messageIndex = aiMessages.length + 1;
 
-      while (reader) {
+      // Buffer for partial SSE lines split across chunks
+      let sseBuffer = '';
+      let streamDone = false;
+
+      while (reader && !streamDone) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        // Append decoded chunk to buffer and split into lines
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        // Keep the last (possibly incomplete) line in the buffer
+        sseBuffer = lines.pop() || '';
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
-            if (data === '[DONE]') break;
+            if (data === '[DONE]') {
+              streamDone = true;
+              break;
+            }
 
             try {
               const parsed = JSON.parse(data);
+              if (parsed.error) {
+                // Handle error events from backend
+                setAiMessages((prev) => {
+                  const newMessages = [...prev];
+                  if (newMessages[messageIndex]) {
+                    newMessages[messageIndex] = {
+                      ...newMessages[messageIndex],
+                      content:
+                        newMessages[messageIndex].content ||
+                        `AI 服务错误: ${parsed.error}`,
+                    };
+                  }
+                  return newMessages;
+                });
+                streamDone = true;
+                break;
+              }
               if (parsed.content) {
                 setAiMessages((prev) => {
                   const newMessages = [...prev];
-                  newMessages[messageIndex] = {
-                    ...newMessages[messageIndex],
-                    content: newMessages[messageIndex].content + parsed.content,
-                  };
+                  if (newMessages[messageIndex]) {
+                    newMessages[messageIndex] = {
+                      ...newMessages[messageIndex],
+                      content:
+                        newMessages[messageIndex].content + parsed.content,
+                    };
+                  }
                   return newMessages;
                 });
               }
@@ -1270,11 +1300,19 @@ function HomeContent() {
 
     try {
       // Use article text content if available (from Reader Mode), otherwise fall back to abstract
-      const mainContent =
-        articleTextContent ||
-        selectedResource.abstract ||
-        selectedResource.aiSummary ||
-        '';
+      const mainContent = articleTextContent || selectedResource.abstract || '';
+
+      // Don't call AI with insufficient content - need at least 50 chars beyond the title
+      if (mainContent.length < 50) {
+        const warningMessage =
+          '内容尚未加载完成，请先切换到「阅读模式」等待文章内容加载后再试。';
+        if (action === 'summary') {
+          setAiSummary(warningMessage);
+        }
+        setAiLoading(false);
+        return;
+      }
+
       // Limit content length to avoid token limits (max ~8000 chars for context)
       const truncatedContent =
         mainContent.length > 8000

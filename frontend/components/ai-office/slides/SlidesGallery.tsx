@@ -27,6 +27,66 @@ import { formatRelativeTime } from '@/stores';
 import { useI18n } from '@/lib/i18n/i18n-context';
 
 // ============================================================================
+// 主题渐变映射（内部常量，不 export）
+// ============================================================================
+
+const THEME_GRADIENTS = [
+  {
+    bg: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+    accent: '#D4AF37',
+  },
+  {
+    bg: 'linear-gradient(135deg, #13111C 0%, #1E1B2E 100%)',
+    accent: '#A855F7',
+  },
+  {
+    bg: 'linear-gradient(135deg, #0A1F1C 0%, #132F2A 100%)',
+    accent: '#10B981',
+  },
+  {
+    bg: 'linear-gradient(135deg, #1C1414 0%, #2A1F1F 100%)',
+    accent: '#F97316',
+  },
+  {
+    bg: 'linear-gradient(135deg, #1E3A5F 0%, #1E40AF 100%)',
+    accent: '#0EA5E9',
+  },
+];
+
+function hashIndex(str: string, range: number): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) % range;
+}
+
+// ============================================================================
+// StatusBadge 组件
+// ============================================================================
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === 'completed') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+        <CheckCircle2 className="h-3 w-3" />
+        完成
+      </span>
+    );
+  }
+  if (status === 'active') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        进行中
+      </span>
+    );
+  }
+  return null;
+}
+
+// ============================================================================
 // SessionsGallery 主组件
 // ============================================================================
 
@@ -186,6 +246,9 @@ function BackendSessionCard({
   const [showMenu, setShowMenu] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const { bg, accent } =
+    THEME_GRADIENTS[hashIndex(session.id, THEME_GRADIENTS.length)];
+
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
@@ -226,10 +289,27 @@ function BackendSessionCard({
         isDeleting && 'opacity-50'
       )}
     >
-      {/* 缩略图 */}
-      <div className="aspect-video bg-gradient-to-br from-orange-100 to-orange-200 p-4">
-        <div className="text-4xl font-bold text-orange-500/20">
-          {session.latestCheckpoint?.pagesCount || 0}
+      {/* 缩略图 - 主题渐变 + 模拟幻灯片内容 */}
+      <div
+        className="relative aspect-video overflow-hidden"
+        style={{ background: bg }}
+      >
+        {/* 模拟幻灯片内容线条 */}
+        <div className="absolute inset-4 flex flex-col gap-2">
+          <div className="h-2 w-3/4 rounded-full bg-white/30" />
+          <div className="h-1.5 w-1/2 rounded-full bg-white/20" />
+          <div className="mt-2 flex gap-2">
+            <div className="h-8 flex-1 rounded bg-white/15" />
+            <div className="h-8 flex-1 rounded bg-white/15" />
+            <div className="h-8 flex-1 rounded bg-white/15" />
+          </div>
+        </div>
+        {/* 页数角标（右下） */}
+        <div
+          className="absolute bottom-2 right-2 rounded-md px-2 py-0.5 text-xs font-medium text-white"
+          style={{ background: accent }}
+        >
+          {session.latestCheckpoint?.pagesCount || 0} 页
         </div>
       </div>
 
@@ -279,13 +359,11 @@ function BackendSessionCard({
           </h3>
         )}
 
-        <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>
-            {t('office.slides.pageCount', {
-              count: session.latestCheckpoint?.pagesCount || 0,
-            })}
+        <div className="flex items-center justify-between gap-1">
+          <StatusBadge status={session.status} />
+          <span className="text-xs text-gray-400">
+            {formatRelativeTime(new Date(session.updatedAt))}
           </span>
-          <span>{formatRelativeTime(new Date(session.createdAt))}</span>
         </div>
       </div>
 
@@ -362,6 +440,9 @@ function BackendSessionListItem({
   const [showMenu, setShowMenu] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const { accent } =
+    THEME_GRADIENTS[hashIndex(session.id, THEME_GRADIENTS.length)];
+
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
@@ -391,11 +472,17 @@ function BackendSessionListItem({
     <div
       onClick={() => !isEditing && !isDeleting && onClick()}
       className={cn(
-        'flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 transition-colors',
+        'flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 transition-colors',
         !isEditing && !isDeleting && 'cursor-pointer hover:bg-gray-50',
         isDeleting && 'opacity-50'
       )}
     >
+      {/* 主题色圆块 */}
+      <div
+        className="h-3 w-3 flex-shrink-0 rounded-full"
+        style={{ background: accent }}
+      />
+
       <div className="min-w-0 flex-1">
         {isEditing ? (
           <div className="flex items-center gap-2">
@@ -446,7 +533,8 @@ function BackendSessionListItem({
                   count: session.latestCheckpoint?.pagesCount || 0,
                 })}
               </span>
-              <span>{formatRelativeTime(new Date(session.createdAt))}</span>
+              <span>{formatRelativeTime(new Date(session.updatedAt))}</span>
+              <StatusBadge status={session.status} />
             </div>
           </>
         )}

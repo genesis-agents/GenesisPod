@@ -17,6 +17,7 @@ import AIInsightsCard from './AIInsightsCard';
 import AIMethodologyCard from './AIMethodologyCard';
 import AIChatMessages from './AIChatMessages';
 import AIInputArea from './AIInputArea';
+import { useTranslation } from '@/lib/i18n/i18n-context';
 
 interface AIAssistantPanelProps {
   isCollapsed: boolean;
@@ -83,6 +84,7 @@ export default function AIAssistantPanel({
   router,
   extractYouTubeVideoId,
 }: AIAssistantPanelProps) {
+  const { t } = useTranslation();
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -269,8 +271,8 @@ export default function AIAssistantPanel({
                   <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-red-600"></div>
                   <span className="text-sm text-gray-600">
                     {isStreaming
-                      ? `${(aiModels || []).find((m) => m.modelId === aiModel)?.name || aiModel} is thinking...`
-                      : 'AI processing...'}
+                      ? `${(aiModels || []).find((m) => m.modelId === aiModel)?.name || aiModel} ${t('explore.aiPanel.thinking') || '正在思考...'}`
+                      : t('explore.aiPanel.processing') || 'AI 处理中...'}
                   </span>
                 </div>
               )}

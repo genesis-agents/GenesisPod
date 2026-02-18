@@ -11,6 +11,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useSlidesStore } from '@/stores';
 import { useCheckpoints } from '@/hooks/features/slides';
@@ -26,6 +27,63 @@ interface SlidesWorkspaceProps {
   className?: string;
 }
 
+// ============================================================================
+// 辅助函数
+// ============================================================================
+
+function getPhaseName(phase: string | undefined): string {
+  const names: Record<string, string> = {
+    task_decomposition: '分析任务',
+    outline_planning: '规划大纲',
+    page_rendering: '生成页面',
+    quality_review: '质量检查',
+  };
+  return phase ? names[phase] || phase : '处理中';
+}
+
+// ============================================================================
+// 分段进度条组件
+// ============================================================================
+
+interface GenerationProgressStripProps {
+  completedPages: number;
+  totalPages: number;
+  phase: string;
+}
+
+function GenerationProgressStrip({
+  completedPages,
+  totalPages,
+  phase,
+}: GenerationProgressStripProps) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-medium text-slate-600">{phase}</span>
+        <span className="font-medium text-orange-600">
+          {completedPages}/{totalPages} 页
+        </span>
+      </div>
+      {/* 分段进度条：每段一页 */}
+      <div className="flex gap-0.5">
+        {Array.from({ length: totalPages }).map((_, i) => (
+          <div
+            key={i}
+            className={cn(
+              'h-1.5 flex-1 rounded-full transition-colors duration-300',
+              i < completedPages ? 'bg-orange-500' : 'bg-slate-200'
+            )}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// 主组件
+// ============================================================================
+
 export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
   const { t } = useI18n();
   const [showImportModal, setShowImportModal] = useState(false);
@@ -33,7 +91,9 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
   const [pendingSourceText, setPendingSourceText] = useState<string>('');
   const [pendingTitle, setPendingTitle] = useState<string>('');
 
-  const { session, pages, generating } = useSlidesStore();
+  const { session, pages, generating, progress } = useSlidesStore();
+  const completedCount = pages.filter((p) => p.status === 'completed').length;
+  const totalPages = progress?.totalPages || 10;
 
   const { createCheckpoint, restoreCheckpoint } = useCheckpoints();
 
@@ -118,16 +178,39 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
 
   return (
     <div className={cn('flex h-full', className)}>
-      {/* Left Panel */}
-      <LeftPanel
-        pageCount={pages.length}
-        fileSize={estimatedFileSize}
-        onSuggestionExecute={handleSuggestionExecute}
-        onSubmit={handleSubmit}
-        onImportClick={() => setShowImportModal(true)}
-        loading={generating}
-        disabled={generating}
-      />
+      {/* 左侧容器：进度条 + LeftPanel */}
+      <div className="flex w-[340px] flex-shrink-0 flex-col border-r border-slate-200">
+        {/* 生成中：分段进度条 */}
+        {generating && (
+          <div className="flex-shrink-0 border-b border-slate-100 bg-white px-4 py-3">
+            <GenerationProgressStrip
+              completedPages={completedCount}
+              totalPages={totalPages}
+              phase={getPhaseName(progress?.phase)}
+            />
+          </div>
+        )}
+        {/* 已完成：绿色状态条 */}
+        {!generating && pages.length > 0 && (
+          <div className="flex flex-shrink-0 items-center gap-2 border-b border-green-100 bg-green-50 px-4 py-2">
+            <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+            <span className="text-xs text-green-700">
+              全部 {pages.length} 页已生成
+            </span>
+          </div>
+        )}
+        {/* LeftPanel 填充剩余空间 */}
+        <LeftPanel
+          pageCount={pages.length}
+          fileSize={estimatedFileSize}
+          onSuggestionExecute={handleSuggestionExecute}
+          onSubmit={handleSubmit}
+          onImportClick={() => setShowImportModal(true)}
+          loading={generating}
+          disabled={generating}
+          className="!w-full flex-1 !border-r-0"
+        />
+      </div>
 
       {/* Right Panel */}
       <RightPanel
