@@ -246,7 +246,7 @@ export default function AIAssistantPanel({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto px-3 py-4">
         {selectedResource ? (
           aiRightTab === 'assistant' ? (
             <div className="space-y-4">
@@ -331,7 +331,7 @@ export default function AIAssistantPanel({
               )}
             </div>
           ) : aiRightTab === 'notes' ? (
-            <div className="p-6">
+            <div>
               <NotesList
                 resourceId={selectedResource.id}
                 refreshKey={notesRefreshKey}
@@ -342,11 +342,11 @@ export default function AIAssistantPanel({
               />
             </div>
           ) : aiRightTab === 'comments' ? (
-            <div className="p-6">
+            <div>
               <CommentsList resourceId={selectedResource.id} />
             </div>
           ) : aiRightTab === 'similar' ? (
-            <div className="p-6">
+            <div>
               <SimilarResourcesList
                 resourceId={selectedResource.id}
                 onResourceClick={(resource) => {
