@@ -23,9 +23,11 @@ import {
   Send,
   ChevronLeft,
   Loader2,
+  CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useSlidesStore } from '@/stores';
+import type { GenerationProgress } from '@/types/slides';
 
 // ============================================================================
 // Types
@@ -70,6 +72,115 @@ const QUICK_COMMANDS: QuickCommand[] = [
 ];
 
 // ============================================================================
+// Phase labels
+// ============================================================================
+
+const PHASE_LABELS: Record<NonNullable<GenerationProgress['phase']>, string> = {
+  task_decomposition: '分析内容',
+  outline_planning: '规划大纲',
+  page_rendering: '生成页面',
+  quality_review: '质量审查',
+};
+
+// ============================================================================
+// GeneratingStatus
+// ============================================================================
+
+function GeneratingStatus({
+  progress,
+}: {
+  progress: GenerationProgress | null;
+}) {
+  const phaseLabel = progress?.phase ? PHASE_LABELS[progress.phase] : '准备中';
+  const overallPct = progress?.overallProgress ?? 0;
+  const isPageRendering = progress?.phase === 'page_rendering';
+
+  return (
+    <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-3">
+      {/* Overall progress */}
+      <div>
+        <div className="mb-1.5 flex items-center justify-between text-xs">
+          <span className="font-medium text-slate-700">{phaseLabel}</span>
+          <span className="text-blue-600">{overallPct}%</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+          <div
+            className="h-full rounded-full bg-blue-500 transition-all duration-500"
+            style={{ width: `${overallPct}%` }}
+          />
+        </div>
+        {progress?.message && (
+          <p className="mt-1.5 text-xs text-slate-500">{progress.message}</p>
+        )}
+      </div>
+
+      {/* Page rendering progress */}
+      {isPageRendering && progress?.totalPages && (
+        <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+          <div className="flex items-center gap-1.5">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>
+              正在生成第 {progress.currentPage ?? '?'} 页， 共{' '}
+              {progress.totalPages} 页
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Phase checklist */}
+      <div className="space-y-1.5">
+        {(
+          [
+            'task_decomposition',
+            'outline_planning',
+            'page_rendering',
+            'quality_review',
+          ] as const
+        ).map((phase) => {
+          const currentPhaseOrder = progress?.phase
+            ? [
+                'task_decomposition',
+                'outline_planning',
+                'page_rendering',
+                'quality_review',
+              ].indexOf(progress.phase)
+            : -1;
+          const thisPhaseOrder = [
+            'task_decomposition',
+            'outline_planning',
+            'page_rendering',
+            'quality_review',
+          ].indexOf(phase);
+          const isDone = thisPhaseOrder < currentPhaseOrder;
+          const isActive = phase === progress?.phase;
+
+          return (
+            <div
+              key={phase}
+              className={cn(
+                'flex items-center gap-2 rounded-md px-2 py-1.5 text-xs',
+                isActive && 'bg-blue-50 text-blue-700',
+                isDone && 'text-green-600',
+                !isActive && !isDone && 'text-slate-400'
+              )}
+            >
+              {isDone ? (
+                <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-green-500" />
+              ) : isActive ? (
+                <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-blue-500" />
+              ) : (
+                <span className="h-3.5 w-3.5 flex-shrink-0 rounded-full border border-slate-300" />
+              )}
+              <span>{PHASE_LABELS[phase]}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // TypingIndicator
 // ============================================================================
 
@@ -108,7 +219,7 @@ export function LeftPanel({
   chatLoading,
   onSendMessage,
 }: LeftPanelProps) {
-  const { generating } = useSlidesStore();
+  const { generating, progress } = useSlidesStore();
 
   const [inputValue, setInputValue] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -170,86 +281,94 @@ export function LeftPanel({
         )}
       </div>
 
-      {/* Quick command grid */}
-      <div className="grid flex-shrink-0 grid-cols-2 gap-1.5 border-b border-slate-100 p-2">
-        {QUICK_COMMANDS.map((cmd) => (
-          <button
-            key={cmd.label}
-            onClick={() => handleQuickCommand(cmd)}
-            disabled={chatLoading}
-            className={cn(
-              'flex items-center gap-1.5 rounded-lg border border-slate-200 px-2 py-1.5 text-xs transition-colors',
-              chatLoading
-                ? 'cursor-not-allowed bg-slate-50 text-slate-300'
-                : 'bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700'
-            )}
-          >
-            {cmd.icon}
-            <span>{cmd.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Message list */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-        {chatMessages.length === 0 && !chatLoading ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-xs text-slate-400">
-            <Sparkles className="h-6 w-6 text-slate-300" />
-            <span>描述你想修改的内容，</span>
-            <span>AI 将实时更新幻灯片</span>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {chatMessages.map((msg, i) => (
-              <div
-                key={i}
+      {generating ? (
+        /* ---- Generating mode: show progress, hide chat ---- */
+        <GeneratingStatus progress={progress} />
+      ) : (
+        /* ---- Idle mode: quick commands + chat ---- */
+        <>
+          {/* Quick command grid */}
+          <div className="grid flex-shrink-0 grid-cols-2 gap-1.5 border-b border-slate-100 p-2">
+            {QUICK_COMMANDS.map((cmd) => (
+              <button
+                key={cmd.label}
+                onClick={() => handleQuickCommand(cmd)}
+                disabled={chatLoading}
                 className={cn(
-                  'rounded-lg px-3 py-2 text-sm leading-relaxed',
-                  msg.role === 'user'
-                    ? 'ml-8 bg-blue-600 text-white'
-                    : 'mr-8 border border-slate-200 bg-white text-slate-700'
+                  'flex items-center gap-1.5 rounded-lg border border-slate-200 px-2 py-1.5 text-xs transition-colors',
+                  chatLoading
+                    ? 'cursor-not-allowed bg-slate-50 text-slate-300'
+                    : 'bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700'
                 )}
               >
-                {msg.content}
-              </div>
+                {cmd.icon}
+                <span>{cmd.label}</span>
+              </button>
             ))}
-            {chatLoading && <TypingIndicator />}
-            <div ref={chatEndRef} />
           </div>
-        )}
-      </div>
 
-      {/* Input area */}
-      <div className="flex-shrink-0 border-t border-slate-200 px-3 py-2">
-        <div className="flex gap-2">
-          <textarea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="如：把第1页标题改为..."
-            rows={2}
-            disabled={chatLoading}
-            className="flex-1 resize-none rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!inputValue.trim() || chatLoading}
-            className={cn(
-              'self-end rounded-lg px-2.5 py-1.5 transition-colors',
-              inputValue.trim() && !chatLoading
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'cursor-not-allowed bg-slate-100 text-slate-400'
-            )}
-            title="发送"
-          >
-            {chatLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+          {/* Message list */}
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+            {chatMessages.length === 0 && !chatLoading ? (
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-xs text-slate-400">
+                <Sparkles className="h-6 w-6 text-slate-300" />
+                <span>描述你想修改的内容，</span>
+                <span>AI 将实时更新幻灯片</span>
+              </div>
             ) : (
-              <Send className="h-4 w-4" />
+              <div className="space-y-2">
+                {chatMessages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      'rounded-lg px-3 py-2 text-sm leading-relaxed',
+                      msg.role === 'user'
+                        ? 'ml-8 bg-blue-600 text-white'
+                        : 'mr-8 border border-slate-200 bg-white text-slate-700'
+                    )}
+                  >
+                    {msg.content}
+                  </div>
+                ))}
+                {chatLoading && <TypingIndicator />}
+                <div ref={chatEndRef} />
+              </div>
             )}
-          </button>
-        </div>
-      </div>
+          </div>
+
+          {/* Input area */}
+          <div className="flex-shrink-0 border-t border-slate-200 px-3 py-2">
+            <div className="flex gap-2">
+              <textarea
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="如：把第1页标题改为..."
+                rows={2}
+                disabled={chatLoading}
+                className="flex-1 resize-none rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400"
+              />
+              <button
+                onClick={handleSend}
+                disabled={!inputValue.trim() || chatLoading}
+                className={cn(
+                  'self-end rounded-lg px-2.5 py-1.5 transition-colors',
+                  inputValue.trim() && !chatLoading
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'cursor-not-allowed bg-slate-100 text-slate-400'
+                )}
+                title="发送"
+              >
+                {chatLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Bottom action buttons */}
       <div className="flex-shrink-0 border-t border-slate-200 px-3 py-2">
