@@ -582,7 +582,15 @@ export class ContentCompressionSkill implements ISkill<
    * 构建用户消息
    */
   private buildUserMessage(input: ContentCompressionInput): string {
-    const { pageOutline, sourceText, maxCharacters, retryContext } = input;
+    const { pageOutline, maxCharacters, retryContext } = input;
+
+    // Defense-in-depth truncation: sourceText should already be condensed at import time,
+    // but guard here in case raw content (100k+) is passed directly.
+    const MAX_SOURCE_CHARS = 8000;
+    const sourceText =
+      input.sourceText.length > MAX_SOURCE_CHARS
+        ? input.sourceText.substring(0, MAX_SOURCE_CHARS) + "\n...[内容已截断]"
+        : input.sourceText;
 
     let message = `## 页面信息
 

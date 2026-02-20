@@ -46,6 +46,14 @@ const IMPORT_CONFIG = {
 
   // Allowed URL protocols for references
   ALLOWED_URL_PROTOCOLS: ["http:", "https:"],
+
+  // sourceText limits for LLM pipeline
+  // Research: use dimension summaries, not full report
+  MAX_SOURCE_TEXT_RESEARCH: 12000,
+  MAX_SECTION_CHARS_RESEARCH: 1500, // per dimension summary
+  // Writing: cap per chapter and total
+  MAX_SOURCE_TEXT_WRITING: 15000,
+  MAX_CHAPTER_CHARS_WRITING: 3000, // per chapter
 } as const;
 
 @Injectable()
@@ -113,8 +121,23 @@ export class SlidesDataImportService {
       data.latestReport?.fullReport || "",
     );
 
+    // Build sourceText from dimension summaries (NOT fullReport).
+    // fullReport can be 100k+ chars; LLM pipeline only needs structured summaries.
+    // fullReport is still used above for chart/keyFindings/references extraction.
+    const sourceText = this.buildResearchSourceText(
+      data.name,
+      sections,
+      data.description,
+    );
+
+    this.logger.log(
+      `[importFromResearch] sourceText built: ${sourceText.length} chars ` +
+        `(from ${sections.length} dimension summaries, ` +
+        `fullReport was ${data.latestReport?.fullReport?.length ?? 0} chars)`,
+    );
+
     return {
-      sourceText: data.latestReport?.fullReport || data.description || "",
+      sourceText,
       sourceType: "research",
       sourceId: topicId,
       sections,
@@ -181,8 +204,17 @@ export class SlidesDataImportService {
       return sum + (s.content?.length || 0);
     }, 0);
 
+    // Build sourceText with per-chapter and total caps.
+    // Raw chapter content can be 50k+ chars per chapter; LLM doesn't need the full text.
+    const sourceText = this.buildWritingSourceText(data.name, sections);
+
+    this.logger.log(
+      `[importFromWriting] sourceText built: ${sourceText.length} chars ` +
+        `(from ${sections.length} chapters, total raw was ${totalWords} chars)`,
+    );
+
     return {
-      sourceText: sections.map((s) => s.content).join("\n\n"),
+      sourceText,
       sourceType: "writing",
       sourceId: projectId,
       sections,
@@ -440,6 +472,78 @@ export class SlidesDataImportService {
   // ============================================
   // Private Helper Methods
   // ============================================
+
+  /**
+   * Build condensed sourceText from research dimension summaries.
+   *
+   * Uses dimension summaries (already structured/condensed) instead of fullReport.
+   * fullReport can be 100k+ chars and is unsuitable for repeated per-page LLM calls.
+   * Each dimension summary is capped at MAX_SECTION_CHARS_RESEARCH chars.
+   * Total is capped at MAX_SOURCE_TEXT_RESEARCH chars.
+   */
+  private buildResearchSourceText(
+    topicName: string,
+    sections: SourceSection[],
+    description: string | null,
+  ): string {
+    const MAX_TOTAL = IMPORT_CONFIG.MAX_SOURCE_TEXT_RESEARCH;
+    const MAX_PER_SECTION = IMPORT_CONFIG.MAX_SECTION_CHARS_RESEARCH;
+
+    let text = `# ${topicName}\n\n`;
+
+    if (description) {
+      const descChunk = description.slice(0, 300);
+      text += `${descChunk}\n\n`;
+    }
+
+    for (const section of sections) {
+      const sectionContent = (section.content || "").slice(0, MAX_PER_SECTION);
+      const chunk = `## ${section.title}\n${sectionContent}\n\n`;
+
+      if (text.length + chunk.length > MAX_TOTAL) {
+        const remaining = MAX_TOTAL - text.length;
+        if (remaining > 100) {
+          text += chunk.slice(0, remaining - 20) + "...\n\n";
+        }
+        break;
+      }
+      text += chunk;
+    }
+
+    return text.trim();
+  }
+
+  /**
+   * Build condensed sourceText from writing chapter content.
+   *
+   * Each chapter is capped at MAX_CHAPTER_CHARS_WRITING chars.
+   * Total is capped at MAX_SOURCE_TEXT_WRITING chars.
+   */
+  private buildWritingSourceText(
+    projectName: string,
+    sections: SourceSection[],
+  ): string {
+    const MAX_TOTAL = IMPORT_CONFIG.MAX_SOURCE_TEXT_WRITING;
+    const MAX_PER_CHAPTER = IMPORT_CONFIG.MAX_CHAPTER_CHARS_WRITING;
+
+    let text = `# ${projectName}\n\n`;
+
+    for (const section of sections) {
+      const chapterContent = (section.content || "").slice(0, MAX_PER_CHAPTER);
+      const chunk = `## ${section.title}\n${chapterContent}\n\n`;
+
+      if (text.length + chunk.length > MAX_TOTAL) {
+        const remaining = MAX_TOTAL - text.length;
+        if (remaining > 100) {
+          text += chunk.slice(0, remaining - 20) + "...\n\n";
+        }
+        break;
+      }
+      text += chunk;
+    }
+
+    return text.trim();
+  }
 
   /**
    * Extract chart data from research report with validation
