@@ -355,6 +355,12 @@ export const createResearchSlice: StateCreator<
               }
             : null,
         });
+
+        // ★ 若 mission 正在运行但 polling 尚未启动（如页面刷新、SSE 超时后），自动补启 polling
+        // 确保即使 SSE 断开，前端也能持续感知 mission 状态变化
+        if (isActive && !get().missionPollingInterval) {
+          get().startMissionPolling(topicId);
+        }
       }
     } catch (error) {
       if (!isReportNotFoundError(error)) {

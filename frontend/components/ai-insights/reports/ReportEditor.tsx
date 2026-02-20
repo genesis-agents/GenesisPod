@@ -492,6 +492,19 @@ function stripChartJsonFromReport(content: string): string {
     if (before.length > 100) result = before;
   }
 
+  // ★ Case A: Strip complete code-fenced chart JSON blocks (AI wraps JSON in ```json...```)
+  // e.g. ```json\n{"generatedCharts":[...]}\n```
+  result = result.replace(
+    /\n?```json\s*\n\s*\{[\s\S]*?"(?:generatedCharts|figureReferences)"[\s\S]*?\n```/g,
+    ''
+  );
+
+  // ★ Case B: Remove unclosed ```json opener followed by markdown content (not JSON object).
+  // This fixes reports where parseChartOutput left an unclosed ```json at the end of a
+  // dimension section (because inlineJsonPattern matched inside the code fence),
+  // causing all subsequent content to render as a code block instead of markdown.
+  result = result.replace(/\n```json\s*\n(?!\s*\{)/g, '\n');
+
   return result.trim();
 }
 
@@ -620,6 +633,14 @@ function ReportEditorInner({
     if (resolvedFullReport) {
       resolvedFullReport = extractMarkdownFromJsonReport(resolvedFullReport);
       resolvedFullReport = stripChartJsonFromReport(resolvedFullReport);
+      // ★ Fix CommonMark bold+Chinese-quote parsing failure:
+      // "word**"text"**" fails because ** followed by Unicode punctuation (") requires
+      // ** to be preceded by whitespace/punctuation — Chinese letters don't qualify.
+      // Adding U+200B (zero-width space) makes ** a valid left-flanking delimiter.
+      resolvedFullReport = resolvedFullReport.replace(
+        /([\u4e00-\u9fff\u3400-\u4dbfA-Za-z0-9])\*\*(["""])/g,
+        '$1\u200B**$2'
+      );
     }
 
     // ★ Priority 1: Use resolvedFullReport if it's valid markdown (has chart placeholders or is long enough)

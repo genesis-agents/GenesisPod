@@ -569,7 +569,14 @@ function ChapterizedReportViewInner({
           parts.push('\n' + stripChartJsonBlock(analysis.detailedContent));
         }
 
-        const content = parts.join('\n');
+        // ★ Fix CommonMark bold+Chinese-quote: "word**"text"**" fails bold detection
+        // U+200B (zero-width space) before ** makes it a valid left-flanking delimiter
+        const content = parts
+          .join('\n')
+          .replace(
+            /([\u4e00-\u9fff\u3400-\u4dbfA-Za-z0-9])\*\*(["""])/g,
+            '$1\u200B**$2'
+          );
         const outline = analysis.summary?.slice(0, 100) || dimName;
 
         // ★ v3.0: Get charts for this chapter by sectionNumber

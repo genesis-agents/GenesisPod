@@ -704,25 +704,38 @@ export class SectionWriterService {
     const separatorPattern = /\n*(?:-+\s*CHARTS\s*-*|CHARTS\s*-+)\n*/i;
     const separatorMatch = raw.match(separatorPattern);
 
+    // ★ 优先检测 ```json\n{"generatedCharts": ...}``` 格式（AI 有时用代码块包裹 JSON）
+    // 必须在 inlineJsonPattern 之前检测，否则 inlineMatch.index 会指向 \n{ 而非 ``` 起点，
+    // 导致 markdown 末尾残留未关闭的 ```json，使后续内容全部被渲染为代码块。
+    const codeFenceJsonPattern =
+      /\n(\s*```json\s*\n\s*\{[\s\S]*?"(?:generatedCharts|figureReferences)")/;
+    const codeFenceMatch = !separatorMatch
+      ? raw.match(codeFenceJsonPattern)
+      : null;
+
     // 也检测直接嵌入的 {"generatedCharts": 或 { "generatedCharts": 模式
     const inlineJsonPattern =
       /\n\s*\{[\s\n]*"(?:generatedCharts|figureReferences)"/;
-    const inlineMatch = !separatorMatch ? raw.match(inlineJsonPattern) : null;
+    const inlineMatch =
+      !separatorMatch && !codeFenceMatch ? raw.match(inlineJsonPattern) : null;
 
-    if (!separatorMatch && !inlineMatch) {
+    if (!separatorMatch && !codeFenceMatch && !inlineMatch) {
       return {
         markdown: raw,
         charts: { generatedCharts: [], figureReferences: [] },
       };
     }
 
+    // splitIdx：分割点前的是正文 markdown，后的是 JSON 图表数据
     const splitIdx = separatorMatch
       ? separatorMatch.index!
-      : inlineMatch!.index!;
+      : codeFenceMatch
+        ? codeFenceMatch.index! // 指向 \n```json 前的 \n，不含代码块
+        : inlineMatch!.index!;
     const markdown = raw.substring(0, splitIdx).trim();
     const jsonPart = separatorMatch
       ? raw.substring(splitIdx + separatorMatch[0].length).trim()
-      : raw.substring(inlineMatch!.index!).trim();
+      : raw.substring(splitIdx).trim(); // 保留 ```json 或 { 开头的部分，由 extractJsonBlock 处理
     try {
       const parsed = JSON.parse(this.extractJsonBlock(jsonPart));
       if (typeof parsed !== "object" || parsed === null) {

@@ -540,8 +540,9 @@ export class TopicInsightsService {
       error: cleanup,
     });
 
-    // ★ 修复内存泄漏：5分钟超时自动清理（防止客户端异常断开未触发 complete）
-    const SSE_TIMEOUT_MS = 5 * 60 * 1000;
+    // ★ 修复内存泄漏：45分钟超时自动清理（防止客户端异常断开未触发 complete）
+    // 注意：报告综合（synthesis）可能需要 7-15 分钟，必须大于此值
+    const SSE_TIMEOUT_MS = 45 * 60 * 1000;
     const timeoutId = setTimeout(() => {
       cleanup();
       subject.complete();
