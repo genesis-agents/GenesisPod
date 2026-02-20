@@ -130,13 +130,17 @@ export function SlidesWorkspace({
 
   return (
     <div className={cn('flex overflow-hidden', className)}>
-      {/* Left Panel: 280px slide navigator */}
+      {/* Left Panel: 280px AI interaction center */}
       {!leftCollapsed && (
         <div className="flex h-full w-[280px] flex-shrink-0 flex-col overflow-hidden">
           <LeftPanel
             onCollapse={() => setLeftCollapsed(true)}
             onGenerate={handleGenerate}
             onCancel={handleCancel}
+            onCreateCheckpoint={handleCreateCheckpoint}
+            chatMessages={chatMessages}
+            chatLoading={chatLoading}
+            onSendMessage={handleSendMessage}
             className="flex-1"
           />
         </div>
@@ -159,14 +163,11 @@ export function SlidesWorkspace({
       <RightPanel
         title={session?.title || t('office.slides.title')}
         sessionId={session?.id}
-        chatMessages={chatMessages}
-        chatLoading={chatLoading}
         onCheckpointRestore={handleCheckpointRestore}
         onCreateCheckpoint={handleCreateCheckpoint}
         onFactCheck={handleFactCheck}
         onAIEdit={handleAIEdit}
         onAdvanced={handleAdvanced}
-        onSendMessage={handleSendMessage}
       />
     </div>
   );

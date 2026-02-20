@@ -204,14 +204,13 @@ export class AIEditService {
 任务：
 1. 理解修改指令
 2. 对 HTML 进行精准修改
-3. 输出完整修改后 HTML
+3. 输出完整修改后 HTML 和修改摘要
 
 规则：
 - 保持幻灯片整体布局、尺寸（1280×720px）和样式不变
 - 只修改用户要求的部分，其余内容保持原样
 - 必须输出完整的 HTML 文件（不是片段）
-- 格式：用 \`\`\`html ... \`\`\` 包裹完整 HTML
-- 不要任何解释，只输出 HTML`;
+- 严格按照以下格式输出，不要其他内容`;
 
     const userPrompt = `修改指令：${instruction}
 
@@ -220,7 +219,9 @@ export class AIEditService {
 ${currentHtml}
 \`\`\`
 
-请输出修改后的完整 HTML：`;
+输出格式：
+1. 先输出修改后完整 HTML（用 \`\`\`html ... \`\`\` 包裹）
+2. 然后输出修改摘要（用 <SUMMARY>...具体说明修改了什么...</SUMMARY> 包裹，简洁1-2句）`;
 
     const response = await this.aiFacade.chat({
       messages: [
@@ -238,6 +239,14 @@ ${currentHtml}
     const htmlMatch = response.content.match(/```html\s*([\s\S]*?)\s*```/);
     const updatedHtml = htmlMatch ? htmlMatch[1].trim() : currentHtml;
 
+    // Extract SUMMARY from response
+    const summaryMatch = response.content.match(
+      /<SUMMARY>([\s\S]*?)<\/SUMMARY>/,
+    );
+    const reply = summaryMatch
+      ? summaryMatch[1].trim()
+      : `已将第 ${pageIndex + 1} 页按您的指令修改完成。`;
+
     // Save updated HTML to DB
     if (updatedHtml && updatedHtml !== currentHtml) {
       pages[pageIndex] = {
@@ -254,8 +263,6 @@ ${currentHtml}
         `[chatEdit] Updated page ${pageIndex} in mission ${missionId}`,
       );
     }
-
-    const reply = `已根据您的指令修改了第 ${pageIndex + 1} 页的幻灯片内容。`;
 
     return { success: true, updatedHtml, reply };
   }
