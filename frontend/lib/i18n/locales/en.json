@@ -6174,6 +6174,8 @@
       "generatingPage": "Generating page {{number}}...",
       "selectPageToPreview": "Select a page to preview",
       "startGenerating": "Start generating presentation",
+      "restoredNoPages": "No slides available for this session",
+      "restoredNoPagesHint": "Data may not have been saved completely. Try regenerating or select another session from the gallery.",
       "preview": "Preview",
       "code": "Code",
       "thinking": "Thinking",

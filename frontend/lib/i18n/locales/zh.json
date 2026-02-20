@@ -6174,6 +6174,8 @@
       "generatingPage": "正在生成第 {{number}} 页...",
       "selectPageToPreview": "选择页面查看预览",
       "startGenerating": "开始生成演示文稿",
+      "restoredNoPages": "该会话暂无可显示的幻灯片",
+      "restoredNoPagesHint": "数据可能未保存完整，请尝试重新生成，或从画廊选择其他会话",
       "preview": "Preview",
       "code": "Code",
       "thinking": "Thinking",

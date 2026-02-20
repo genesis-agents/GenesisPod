@@ -140,11 +140,15 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           throw new Error('Failed to restore checkpoint');
         }
 
-        // 获取恢复 API 返回的 sessionId
+        // 获取恢复 API 返回的 sessionId 和 sessionTitle
         const restoreResult = await restoreResponse.json();
         // Handle wrapped response { success: true, data: {...} }
         const restoreData = restoreResult?.data ?? restoreResult;
         const restoredSessionId = restoreData.sessionId || checkpointId;
+        const sessionTitle =
+          restoreData.sessionTitle ||
+          (checkpointState.outlinePlan as { title?: string } | null)?.title ||
+          '已恢复的演示文稿';
 
         // 更新本地状态
         restoreFromCheckpointState(checkpointState);
@@ -155,7 +159,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         setSession({
           id: restoredSessionId, // 使用真正的 sessionId
           userId: 'user',
-          title: checkpointState.outlinePlan?.title || '已恢复的演示文稿',
+          title: sessionTitle,
           status: 'active',
           currentCheckpointId: checkpointId,
           createdAt: new Date(),

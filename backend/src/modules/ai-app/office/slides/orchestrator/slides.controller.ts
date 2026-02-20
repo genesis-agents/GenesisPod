@@ -556,29 +556,17 @@ export class SlidesController {
     this.logger.log(`[getCheckpoint] Checkpoint: ${checkpointId}`);
 
     try {
-      const result = await this.slidesEngine.restoreCheckpoint(checkpointId);
+      // ★ Read-only: use get() instead of restore() to avoid side effects
+      const checkpoint = await this.checkpointService.get(checkpointId);
 
-      // ★ DIAGNOSTIC: Log state details for debugging
       this.logger.log(
-        `[getCheckpoint] ★ State keys: ${Object.keys(result.state || {}).join(", ")}`,
+        `[getCheckpoint] pages=${checkpoint.state?.pages?.length || 0}, hasOutline=${!!checkpoint.state?.outlinePlan}`,
       );
-      this.logger.log(
-        `[getCheckpoint] ★ Pages count: ${result.state?.pages?.length || 0}`,
-      );
-      this.logger.log(
-        `[getCheckpoint] ★ Has outlinePlan: ${!!result.state?.outlinePlan}`,
-      );
-      if (result.state?.pages?.length > 0) {
-        const firstPage = result.state.pages[0];
-        this.logger.log(
-          `[getCheckpoint] ★ First page: htmlLength=${firstPage?.html?.length || 0}, status=${firstPage?.status}`,
-        );
-      }
 
       return {
-        sessionId: result.sessionId,
+        sessionId: checkpoint.sessionId,
         checkpointId,
-        state: result.state,
+        state: checkpoint.state,
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -600,9 +588,13 @@ export class SlidesController {
     try {
       const result = await this.slidesEngine.restoreCheckpoint(checkpointId);
 
+      // Fetch session title for the frontend
+      const session = await this.checkpointService.getSession(result.sessionId);
+
       return {
         message: "Checkpoint restored successfully",
         sessionId: result.sessionId,
+        sessionTitle: session?.title || null,
         checkpointId,
         state: {
           pagesCount: result.state.pages?.length || 0,

@@ -304,15 +304,22 @@ export function RightPanel({
                   </p>
                 </div>
               ) : (
-                <div>
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-200">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-200">
                     <Eye className="h-8 w-8 text-slate-400" />
                   </div>
                   <p className="text-sm text-slate-500">
                     {hasPages
                       ? t('office.slides.selectPageToPreview')
-                      : t('office.slides.startGenerating')}
+                      : session
+                        ? t('office.slides.restoredNoPages')
+                        : t('office.slides.startGenerating')}
                   </p>
+                  {!hasPages && session && (
+                    <p className="max-w-xs text-center text-xs text-slate-400">
+                      {t('office.slides.restoredNoPagesHint')}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
