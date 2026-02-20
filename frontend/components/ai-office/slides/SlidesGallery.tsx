@@ -66,12 +66,21 @@ function hashIndex(str: string, range: number): number {
 // StatusBadge 组件
 // ============================================================================
 
-function StatusBadge({ status }: { status: string }) {
-  if (status === 'completed') {
+function StatusBadge({
+  status,
+  hasCheckpoint,
+}: {
+  status: string;
+  hasCheckpoint: boolean;
+}) {
+  // 有 checkpoint 数据 → 已完成（不论 status 字段值）
+  const isCompleted = status === 'completed' || hasCheckpoint;
+
+  if (isCompleted) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
         <CheckCircle2 className="h-3 w-3" />
-        完成
+        已完成
       </span>
     );
   }
@@ -360,7 +369,13 @@ function BackendSessionCard({
         )}
 
         <div className="flex items-center justify-between gap-1">
-          <StatusBadge status={session.status} />
+          <StatusBadge
+            status={session.status}
+            hasCheckpoint={
+              !!session.latestCheckpoint?.pagesCount &&
+              session.latestCheckpoint.pagesCount > 0
+            }
+          />
           <span className="text-xs text-gray-400">
             {formatRelativeTime(new Date(session.updatedAt))}
           </span>
@@ -534,7 +549,13 @@ function BackendSessionListItem({
                 })}
               </span>
               <span>{formatRelativeTime(new Date(session.updatedAt))}</span>
-              <StatusBadge status={session.status} />
+              <StatusBadge
+                status={session.status}
+                hasCheckpoint={
+                  !!session.latestCheckpoint?.pagesCount &&
+                  session.latestCheckpoint.pagesCount > 0
+                }
+              />
             </div>
           </>
         )}

@@ -4,11 +4,10 @@
  * AI Slides V5.0 - Right Panel (Preview Area)
  *
  * Contains:
- * - Top toolbar: Title + Save Point + Export
- * - Slide preview area
- * - Preview | Code | Thinking tabs
- * - Fact check | AI Edit | Advanced buttons
+ * - Top toolbar: Title + Export
+ * - Slide preview area (scaled iframe)
  * - Page navigator
+ * - Bottom collapsible AI chat panel
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -17,14 +16,15 @@ import {
   Terminal,
   Brain,
   Download,
-  Play,
   ChevronDown,
   FileText,
   Loader2,
+  MessageSquare,
+  Send,
+  CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useSlidesStore, toast } from '@/stores';
-import type { PageState } from '@/types/slides';
 import { logger } from '@/lib/utils/logger';
 import { sanitizeSlideHtml } from '@/lib/utils/sanitize';
 import { CodePreview } from './CodePreview';
@@ -37,6 +37,11 @@ import { useI18n } from '@/lib/i18n/i18n-context';
 
 type ViewMode = 'preview' | 'code' | 'thinking';
 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 interface RightPanelProps {
   title?: string;
   sessionId?: string;
@@ -47,6 +52,7 @@ interface RightPanelProps {
     action: 'fix-layout' | 'polish-content' | 'mark-edit'
   ) => Promise<void>;
   onAdvanced?: () => void;
+  onSendMessage?: (message: string) => void;
   className?: string;
 }
 
@@ -58,19 +64,58 @@ export function RightPanel({
   onFactCheck,
   onAIEdit,
   onAdvanced,
+  onSendMessage,
   className,
 }: RightPanelProps) {
   const { t } = useI18n();
-  const { pages, selectedPageIndex, setSelectedPageIndex, session } =
-    useSlidesStore();
+  const {
+    pages,
+    selectedPageIndex,
+    setSelectedPageIndex,
+    session,
+    generating,
+    progress,
+  } = useSlidesStore();
+
+  const completedCount = pages.filter((p) => p.status === 'completed').length;
+  const totalPages = generating
+    ? (progress?.totalPages ?? pages.length)
+    : pages.length;
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [exporting, setExporting] = useState<'pptx' | 'pdf' | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
+  // AI chat state
+  const [chatCollapsed, setChatCollapsed] = useState(true);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [inputValue, setInputValue] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
   const currentPage = pages[selectedPageIndex];
   const hasPages = pages.length > 0;
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (!chatCollapsed && chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, chatCollapsed]);
+
+  // Handle send chat message
+  const handleSend = useCallback(() => {
+    const msg = inputValue.trim();
+    if (!msg || generating) return;
+
+    const userMsg: ChatMessage = { role: 'user', content: msg };
+    setChatMessages((prev) => [...prev, userMsg]);
+    setInputValue('');
+
+    if (onSendMessage) {
+      onSendMessage(msg);
+    }
+  }, [inputValue, generating, onSendMessage]);
 
   // Handle export
   const handleExport = useCallback(
@@ -172,12 +217,33 @@ export function RightPanel({
     <div className={cn('flex flex-1 flex-col bg-slate-100', className)}>
       {/* Top Toolbar */}
       <div className="flex-shrink-0 border-b border-slate-200 bg-white px-4 py-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-800">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="min-w-0 truncate text-sm font-semibold text-slate-800">
             {title || t('office.slides.title')}
           </h2>
 
-          <div className="flex items-center gap-2">
+          {/* Progress pill */}
+          {(hasPages || generating) && (
+            <div
+              className={cn(
+                'flex flex-shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
+                generating
+                  ? 'bg-blue-50 text-blue-700'
+                  : 'bg-green-50 text-green-700'
+              )}
+            >
+              {generating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-3 w-3" />
+              )}
+              <span>
+                {completedCount}/{totalPages} 页{generating ? '' : '完成'}
+              </span>
+            </div>
+          )}
+
+          <div className="flex flex-shrink-0 items-center gap-2">
             {/* Save Point Selector */}
             <SavePointSelector
               sessionId={sessionId}
@@ -360,6 +426,89 @@ export function RightPanel({
           totalPages={pages.length}
           onPageChange={(page) => setSelectedPageIndex(page - 1)}
         />
+      </div>
+
+      {/* Bottom AI Chat Panel */}
+      <div className="flex-shrink-0 border-t border-slate-200 bg-white">
+        {/* Collapse/expand header */}
+        <button
+          onClick={() => setChatCollapsed(!chatCollapsed)}
+          className="flex h-10 w-full items-center gap-2 px-4 transition-colors hover:bg-slate-50"
+        >
+          <MessageSquare className="h-4 w-4 text-blue-600" />
+          <span className="text-sm font-medium text-slate-700">AI 修改</span>
+          {chatMessages.length > 0 && (
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+              {chatMessages.length}
+            </span>
+          )}
+          <ChevronDown
+            className={cn(
+              'ml-auto h-4 w-4 text-slate-400 transition-transform duration-200',
+              !chatCollapsed && 'rotate-180'
+            )}
+          />
+        </button>
+
+        {/* Expanded: messages + input */}
+        {!chatCollapsed && (
+          <>
+            {/* Messages area */}
+            <div className="h-40 overflow-y-auto border-t border-slate-100 bg-slate-50 px-4 py-2">
+              {chatMessages.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-xs text-slate-400">
+                  描述你想修改的内容，AI 将实时更新幻灯片
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {chatMessages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        'rounded-lg px-3 py-2 text-sm',
+                        msg.role === 'user'
+                          ? 'ml-8 bg-blue-600 text-white'
+                          : 'mr-8 border border-slate-200 bg-white text-slate-700'
+                      )}
+                    >
+                      {msg.content}
+                    </div>
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
+              )}
+            </div>
+
+            {/* Input row */}
+            <div className="flex gap-2 border-t border-slate-100 px-3 py-2">
+              <input
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder="如：把第3页的标题改为..."
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={generating}
+              />
+              <button
+                onClick={handleSend}
+                disabled={!inputValue.trim() || generating}
+                className={cn(
+                  'rounded-lg px-3 py-1.5 text-sm transition-colors',
+                  inputValue.trim() && !generating
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'cursor-not-allowed bg-slate-100 text-slate-400'
+                )}
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
