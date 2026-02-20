@@ -361,7 +361,7 @@ ${mission.sourceText.substring(0, 8000)}${mission.sourceText.length > 8000 ? "\n
     return normalized;
   }
 
-  private createDefaultTasks(): TaskBreakdownItem[] {
+  createDefaultTasks(): TaskBreakdownItem[] {
     return [
       {
         title: "任务分解",

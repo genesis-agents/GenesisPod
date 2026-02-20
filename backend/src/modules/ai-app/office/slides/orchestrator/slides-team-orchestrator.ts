@@ -286,8 +286,16 @@ export class SlidesTeamOrchestrator {
     await this.persistEvent(startedEvent);
 
     try {
-      // Leader 规划任务
-      const breakdown = await this.leader.planTasks(mission);
+      // 使用固定默认任务流程：task-decomposition → outline-planning → page-pipeline
+      // 跳过 LLM 规划调用，避免依赖解析出错导致任务并发执行
+      const defaultItems = this.leader.createDefaultTasks();
+      const breakdown = {
+        understanding:
+          "默认任务流程：task-decomposition → outline-planning → page-pipeline",
+        tasks: defaultItems,
+        executionPlan: "顺序执行，每步依赖上一步输出",
+        risks: "",
+      };
       mission.taskBreakdown = breakdown;
 
       // 创建任务
