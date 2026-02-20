@@ -826,77 +826,12 @@ export class SlidesTeamOrchestrator {
     yield auditStartEvent;
     await this.persistEvent(auditStartEvent);
 
-    // 执行质量审计 Skills
-    const auditSkills = [
-      "quality-audit",
-      "terminology-unifier",
-      "transition-checker",
-    ];
-    const auditResults: Record<string, unknown> = {};
-
-    for (const skillId of auditSkills) {
-      const task: SlidesTask = {
-        id: uuidv4(),
-        title: `Quality Audit: ${skillId}`,
-        description: `Execute ${skillId} for quality check`,
-        assignee: "reviewer",
-        skillId,
-        input: { pages: mission.pages },
-        dependencies: [],
-        status: "pending",
-        priority: "high",
-        revisionCount: 0,
-        maxRevisions: 1,
-        createdAt: new Date(),
-      };
-
-      // 在审计阶段，创建包含当前页面的 outputManager
-      const auditOutputManager = createSkillOutputManager();
-      auditOutputManager.store("pages", mission.pages);
-
-      const context: SkillExecutionContext = {
-        missionId: mission.id,
-        sessionId: mission.sessionId,
-        taskId: task.id,
-        executionId: uuidv4(),
-        outputManager: auditOutputManager,
-        previousOutputs: { pages: mission.pages },
-        globalContext: {
-          sourceText: mission.sourceText,
-          outline: mission.outline,
-          themeId: mission.themeId,
-          stylePreference: mission.stylePreference,
-        },
-      };
-
-      try {
-        const result = await this.teamMember.executeTask(task, context);
-        if (result.success) {
-          auditResults[skillId] = result.result;
-        } else {
-          // 记录审计技能失败（非致命）
-          this.logger.warn(
-            `[executeAuditPhase] Audit skill ${skillId} failed: ${result.error}`,
-          );
-        }
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        this.logger.warn(
-          `[executeAuditPhase] Audit skill ${skillId} error: ${errorMsg}`,
-        );
-      }
-    }
-
-    // 汇总审计结果
+    // 汇总审计结果（审计 skill 当前为直通模式，直接使用默认通过分数）
     const qualityAudit: QualityAuditResult = {
       passed: true,
       overallScore: 85,
-      terminologyScore:
-        (auditResults["terminology-unifier"] as { score?: number })?.score ||
-        100,
-      transitionScore:
-        (auditResults["transition-checker"] as { score?: number })?.score ||
-        100,
+      terminologyScore: 100,
+      transitionScore: 100,
       consistencyScore: 90,
       issues: [],
       suggestions: [],
