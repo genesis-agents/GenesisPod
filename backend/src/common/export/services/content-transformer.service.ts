@@ -779,6 +779,126 @@ export class ContentTransformerService {
    * 转换 Topic Insights 报告
    * TopicReport 模型包含 fullReport (Markdown), executiveSummary, topic, evidences
    */
+
+  /**
+   * ★ 与前端 ReportEditor 对齐的预处理管道
+   *
+   * 前端在渲染前依次执行以下步骤，后端导出也必须执行相同步骤，
+   * 否则导出内容会包含 JSON 残留、chart 占位符等，与所见不符。
+   *
+   * Steps:
+   *   1. 从 JSON 包裹中提取纯 Markdown（部分报告 fullReport 是 JSON 字符串）
+   *   2. 剥除泄漏的图表 JSON 块（CHARTS--- 分隔符 或 ```json{generatedCharts}``` ）
+   *   3. 移除图表占位符（<!-- chart:id -->），导出格式无法渲染 SVG 图表
+   */
+  private preprocessTopicReportMarkdown(content: string): string {
+    let result = content;
+
+    // Step 1: Extract markdown from JSON-wrapped fullReport
+    const trimmed = result.trimStart();
+    if (trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+        const ft =
+          (parsed.fullText as string | undefined) ||
+          ((parsed.executiveSummary as Record<string, unknown> | null)
+            ?.fullText as string | undefined) ||
+          (typeof parsed.executiveSummary === "string"
+            ? parsed.executiveSummary
+            : undefined);
+        if (ft) result = ft;
+      } catch {
+        // Not pure JSON, try embedded JSON below
+        const jsonStartPattern =
+          /[\r\n]\s*\{[\s\r\n]*"(?:executiveSummary|fullText|preface|tableOfContents)"/;
+        const match = jsonStartPattern.exec(result);
+        if (match && match.index !== undefined) {
+          const bracePos = result.indexOf("{", match.index);
+          if (bracePos !== -1) {
+            const afterBrace = result.slice(bracePos);
+            const nextSection = afterBrace.match(/\n#{1,3}\s+\S/);
+            if (nextSection?.index) {
+              // Strip embedded JSON block, keep surrounding markdown
+              result =
+                result.slice(0, bracePos) +
+                result.slice(bracePos + nextSection.index);
+            }
+          }
+        }
+      }
+    }
+
+    // Step 2: Strip CHARTS--- separator blocks
+    const separatorPattern = /(?:-+\s*CHARTS\s*-*|CHARTS\s*-+)/gi;
+    let sepMatch: RegExpExecArray | null;
+    const sepMatches: { index: number; length: number }[] = [];
+    while ((sepMatch = separatorPattern.exec(result)) !== null) {
+      sepMatches.push({ index: sepMatch.index, length: sepMatch[0].length });
+    }
+    for (let i = sepMatches.length - 1; i >= 0; i--) {
+      const sep = sepMatches[i];
+      const afterSep = result.substring(sep.index + sep.length);
+      const braceStart = afterSep.search(/\{/);
+      if (braceStart === -1) continue;
+      const jsonStart = sep.index + sep.length + braceStart;
+      let depth = 0;
+      let inStr = false;
+      let esc = false;
+      let jsonEnd = -1;
+      for (let j = jsonStart; j < result.length; j++) {
+        const ch = result[j];
+        if (esc) {
+          esc = false;
+          continue;
+        }
+        if (ch === "\\") {
+          esc = true;
+          continue;
+        }
+        if (ch === '"') {
+          inStr = !inStr;
+          continue;
+        }
+        if (inStr) continue;
+        if (ch === "{") depth++;
+        else if (ch === "}") {
+          depth--;
+          if (depth === 0) {
+            jsonEnd = j + 1;
+            break;
+          }
+        }
+      }
+      let stripStart = sep.index;
+      while (stripStart > 0 && "\n\r \t".includes(result[stripStart - 1]))
+        stripStart--;
+      const stripEnd = jsonEnd > 0 ? jsonEnd : result.length;
+      result = result.substring(0, stripStart) + result.substring(stripEnd);
+    }
+
+    // Step 2b: Strip code-fenced chart JSON blocks (```json\n{generatedCharts...}```)
+    result = result.replace(
+      /\n?```json\s*\n\s*\{[\s\S]*?"(?:generatedCharts|figureReferences)"[\s\S]*?\n```/g,
+      "",
+    );
+    // Strip unclosed ```json opener followed by markdown (not JSON)
+    result = result.replace(/\n```json\s*\n(?!\s*\{)/g, "\n");
+
+    // Step 2c: Strip bare generatedCharts JSON at end
+    const bareJsonPattern =
+      /\n\s*\{\s*"(?:generatedCharts|figureReferences)"[\s\S]*$/;
+    const bareMatch = result.match(bareJsonPattern);
+    if (bareMatch && bareMatch.index !== undefined) {
+      const before = result.substring(0, bareMatch.index).trim();
+      if (before.length > 100) result = before;
+    }
+
+    // Step 3: Strip chart placeholders (cannot render SVG charts in editable export)
+    result = result.replace(/<!--\s*chart:[^>]*-->/g, "");
+
+    return result.trim();
+  }
+
   private async transformTopicReport(
     topicId: string,
     reportId?: string,
@@ -828,9 +948,12 @@ export class ContentTransformerService {
       sections.push(...this.parseMarkdown(report.executiveSummary));
     }
 
-    // Parse the full report
+    // Parse the full report (apply same preprocessing as frontend ReportEditor)
     if (report.fullReport) {
-      sections.push(...this.parseMarkdown(report.fullReport));
+      const cleanedReport = this.preprocessTopicReportMarkdown(
+        report.fullReport,
+      );
+      sections.push(...this.parseMarkdown(cleanedReport));
     }
 
     // Map evidences to references
