@@ -102,6 +102,8 @@ export class DiscussionResearchService {
     depth?: "quick" | "standard" | "deep";
     language?: string;
     dimensions?: string[];
+    /** 进度回调：每个阶段完成后通知调用方（stage, 0-100, message） */
+    onProgress?: (stage: string, percent: number, message: string) => void;
   }): Promise<{
     report: DeepResearchReport;
     searchRounds: SearchRound[];
@@ -123,7 +125,10 @@ export class DiscussionResearchService {
       ? `${params.query}\n\nFocus dimensions: ${params.dimensions.join(", ")}`
       : params.query;
 
+    const { onProgress } = params;
+
     // 阶段 1: 规划
+    onProgress?.("planning", 5, "Creating research plan...");
     const plan = await this.withTimeout(
       this.plannerService.generatePlan(enrichedQuery, {
         depth: config.plannerDepth,
@@ -131,6 +136,7 @@ export class DiscussionResearchService {
       this.STAGE_TIMEOUT,
       "Research planning",
     );
+    onProgress?.("planning_complete", 15, "Research plan ready");
 
     // 阶段 2: 迭代搜索 + 反思
     const maxRounds = config.maxRounds;
@@ -142,6 +148,14 @@ export class DiscussionResearchService {
       const step = plan.steps[stepIndex];
       currentRound++;
 
+      // 搜索进度: 15% + (轮次进度 * 65%)，搜索占每轮的 60%
+      const roundBase = 15 + ((currentRound - 1) / maxRounds) * 65;
+      onProgress?.(
+        "searching",
+        Math.round(roundBase + (1 / maxRounds) * 65 * 0.6),
+        `Searching round ${currentRound}/${maxRounds}: ${step.query.slice(0, 60)}...`,
+      );
+
       const round = await this.withTimeout(
         this.searchService.executeStep(step, currentRound),
         this.STAGE_TIMEOUT,
@@ -152,6 +166,12 @@ export class DiscussionResearchService {
       // 反思（跳过最后一轮）
       if (currentRound < maxRounds && currentRound >= 2) {
         try {
+          onProgress?.(
+            "reflecting",
+            Math.round(roundBase + (1 / maxRounds) * 65 * 0.85),
+            `Evaluating search quality (round ${currentRound})...`,
+          );
+
           const reflection = await this.withTimeout(
             this.reflectionService.reflect(
               enrichedQuery,
@@ -184,6 +204,11 @@ export class DiscussionResearchService {
           }
         } catch {
           // 反思失败时根据阶段决定
+          onProgress?.(
+            "reflecting_skipped",
+            Math.round(roundBase + (1 / maxRounds) * 65 * 0.85),
+            `Reflection skipped (round ${currentRound}), continuing...`,
+          );
           if (currentRound >= maxRounds * 0.5) {
             break; // 后期阶段直接结束
           }
@@ -195,6 +220,7 @@ export class DiscussionResearchService {
     }
 
     // 阶段 3: 合成报告
+    onProgress?.("synthesizing", 82, "Generating final research report...");
     const report = await this.withTimeout(
       this.reportService.generateReport(enrichedQuery, searchRounds, {
         language: params.language,
@@ -202,6 +228,7 @@ export class DiscussionResearchService {
       this.STAGE_TIMEOUT,
       "Report synthesis",
     );
+    onProgress?.("synthesis_complete", 98, "Report ready");
 
     return {
       report,
@@ -450,22 +477,8 @@ export class DiscussionResearchService {
         status: DeepResearchStatus.SYNTHESIZING,
       });
 
-      // 流式生成报告
-      for await (const chunk of this.reportService.generateReportStream(
-        dto.query,
-        searchRounds,
-        { language: dto.options?.language },
-      )) {
-        subject.next({
-          type: "content.delta",
-          data: {
-            section: chunk.section,
-            delta: chunk.content,
-          },
-        });
-      }
-
-      // 生成完整报告 (带超时保护)
+      // 生成完整报告（单次调用，消除原有双重 LLM 合成的重复开销）
+      // 报告完成后逐段发送 content.delta，保持前端接口兼容
       const report = await this.withTimeout(
         this.reportService.generateReport(dto.query, searchRounds, {
           language: dto.options?.language,
@@ -475,6 +488,23 @@ export class DiscussionResearchService {
         this.STAGE_TIMEOUT,
         "报告生成",
       );
+
+      subject.next({
+        type: "content.delta",
+        data: { section: "executive_summary", delta: report.executiveSummary },
+      });
+      for (const section of report.sections) {
+        subject.next({
+          type: "content.delta",
+          data: { section: section.title, delta: section.content },
+        });
+      }
+      if (report.conclusion) {
+        subject.next({
+          type: "content.delta",
+          data: { section: "conclusion", delta: report.conclusion },
+        });
+      }
 
       // ========== 完成 ==========
       this.emitThinking(

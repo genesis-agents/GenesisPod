@@ -112,9 +112,17 @@ export class MCPStreamingBridge {
     if (!conn) return;
 
     try {
+      // MCP spec: 按事件语义选择正确的 method 名称
+      const method =
+        event.type === "error"
+          ? "notifications/error"
+          : event.type === "result"
+            ? "notifications/message"
+            : "notifications/progress";
+
       const data = JSON.stringify({
         jsonrpc: "2.0",
-        method: "notifications/progress",
+        method,
         params: {
           type: event.type,
           taskId: event.taskId,
@@ -128,6 +136,45 @@ export class MCPStreamingBridge {
     } catch (error) {
       this.logger.warn(
         `Failed to send SSE event to ${sessionId}: ${(error as Error).message}`,
+      );
+      this.unregisterConnection(sessionId);
+    }
+  }
+
+  /**
+   * 向指定 Session 发送研究完成结果
+   *
+   * 通过 SSE 推送 notifications/message，让 MCP 客户端获得异步研究报告。
+   * 当 POST tools/call 立即返回 taskId 后，结果通过此方法异步投递。
+   */
+  sendResearchResult(sessionId: string, taskId: string, data: unknown): void {
+    const conn = this.connections.get(sessionId);
+    if (!conn) {
+      this.logger.warn(
+        `Research result ${taskId}: no SSE connection for session ${sessionId}, result lost`,
+      );
+      return;
+    }
+
+    try {
+      const payload = JSON.stringify({
+        jsonrpc: "2.0",
+        method: "notifications/message",
+        params: {
+          taskId,
+          type: "research_complete",
+          data,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      conn.response.write(`event: message\n`);
+      conn.response.write(`data: ${payload}\n\n`);
+      this.logger.log(
+        `Research result ${taskId} delivered to session ${sessionId}`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to deliver research result ${taskId} to ${sessionId}: ${(error as Error).message}`,
       );
       this.unregisterConnection(sessionId);
     }

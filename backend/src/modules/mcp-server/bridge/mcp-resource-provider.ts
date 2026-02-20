@@ -25,6 +25,10 @@ import { AgentRegistry } from "../../ai-engine/agents/registry/agent-registry";
 import { TeamRegistry } from "../../ai-engine/teams/registry/team-registry";
 import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import { APP_CONFIG } from "../../../common/config/app.config";
+import { ResearchToolHandler } from "../tools/research-tool-handler";
+
+/** 研究结果资源 URI 前缀 */
+const RESEARCH_RESULT_PREFIX = "genesis://research/result/";
 
 @Injectable()
 export class MCPResourceProvider implements IMCPResourceProvider {
@@ -36,6 +40,7 @@ export class MCPResourceProvider implements IMCPResourceProvider {
     @Optional() private readonly skillRegistry?: SkillRegistry,
     @Optional() private readonly agentRegistry?: AgentRegistry,
     @Optional() private readonly teamRegistry?: TeamRegistry,
+    @Optional() private readonly researchToolHandler?: ResearchToolHandler,
   ) {}
 
   async listResources(): Promise<MCPResource[]> {
@@ -80,6 +85,16 @@ export class MCPResourceProvider implements IMCPResourceProvider {
         description: "List of all configured and available AI models",
         mimeType: "application/json",
       },
+      {
+        uri: `${RESEARCH_RESULT_PREFIX}{taskId}`,
+        name: "Research Result",
+        description:
+          "Retrieve a completed deep research result by taskId. " +
+          "Call genesis_deep_research first to get a taskId, then read " +
+          `${RESEARCH_RESULT_PREFIX}<taskId> to fetch the report (cached 30 min). ` +
+          "Use this to recover results if your SSE connection was interrupted.",
+        mimeType: "application/json",
+      },
     ];
 
     return resources;
@@ -89,6 +104,12 @@ export class MCPResourceProvider implements IMCPResourceProvider {
     this.logger.log(`Reading resource: ${uri}`);
 
     try {
+      // 动态前缀：研究结果检索（SSE 断连后的恢复路径）
+      if (uri.startsWith(RESEARCH_RESULT_PREFIX)) {
+        const taskId = uri.slice(RESEARCH_RESULT_PREFIX.length);
+        return this.readResearchResult(uri, taskId);
+      }
+
       switch (uri) {
         case "genesis://capabilities":
           return this.readCapabilities();
@@ -235,6 +256,68 @@ export class MCPResourceProvider implements IMCPResourceProvider {
       uri: "genesis://teams",
       mimeType: "application/json",
       text: JSON.stringify({ teams: data, count: data.length }, null, 2),
+    };
+  }
+
+  private readResearchResult(uri: string, taskId: string): MCPResourceContent {
+    if (!taskId) {
+      return {
+        uri,
+        mimeType: "application/json",
+        text: JSON.stringify({
+          error: "Missing taskId",
+          hint: `Use URI format: ${RESEARCH_RESULT_PREFIX}<taskId>`,
+        }),
+      };
+    }
+
+    if (!this.researchToolHandler) {
+      return {
+        uri,
+        mimeType: "application/json",
+        text: JSON.stringify({ error: "Research handler not available" }),
+      };
+    }
+
+    const cached = this.researchToolHandler.getCachedResult(taskId);
+
+    if (!cached) {
+      return {
+        uri,
+        mimeType: "application/json",
+        text: JSON.stringify({
+          taskId,
+          status: "not_found",
+          message:
+            "Result not found. Either the taskId is invalid, the research is still running, " +
+            "or the result expired (cached for 30 minutes after completion).",
+        }),
+      };
+    }
+
+    if (cached.isError) {
+      return {
+        uri,
+        mimeType: "application/json",
+        text: JSON.stringify({
+          taskId,
+          status: "error",
+          error: cached.data,
+          storedAt: cached.storedAt,
+        }),
+      };
+    }
+
+    this.logger.log(`Research result retrieved via resources/read: ${taskId}`);
+    return {
+      uri,
+      mimeType: "application/json",
+      text: JSON.stringify({
+        taskId,
+        status: "complete",
+        result: cached.data,
+        storedAt: cached.storedAt,
+      }),
     };
   }
 
