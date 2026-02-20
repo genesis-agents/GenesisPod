@@ -567,6 +567,7 @@ export class MCPServerService implements OnModuleInit {
   getDetailedStatus(): {
     status: "healthy" | "degraded" | "unhealthy";
     uptime: number;
+    toolCount: number;
     curatedToolCount: number;
     bridgedToolCount: number;
     totalToolCount: number;
@@ -620,6 +621,7 @@ export class MCPServerService implements OnModuleInit {
     return {
       status,
       uptime: Math.floor((Date.now() - this.startedAt.getTime()) / 1000),
+      toolCount: tools.length,
       curatedToolCount: this.toolHandlers.size,
       bridgedToolCount: bridgedCount,
       totalToolCount: tools.length,
