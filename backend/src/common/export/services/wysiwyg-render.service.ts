@@ -94,7 +94,12 @@ export class WysiwygRenderService implements OnModuleDestroy {
       await page.setRequestInterception(true);
       page.on("request", (request) => {
         const url = request.url();
-        if (url.startsWith("data:") || url === "about:blank") {
+        if (
+          url.startsWith("data:") ||
+          url === "about:blank" ||
+          url.includes("fonts.googleapis.com") ||
+          url.includes("fonts.gstatic.com")
+        ) {
           request.continue();
         } else {
           request.abort("blockedbyclient");
@@ -103,9 +108,13 @@ export class WysiwygRenderService implements OnModuleDestroy {
 
       const fullHtml = this.wrapHtml(html, css, {});
       await page.setContent(fullHtml, {
-        waitUntil: "networkidle0",
+        waitUntil: "domcontentloaded",
         timeout: 30000,
       });
+      // Wait for fonts to load (max 5s); fall back to system fonts on timeout
+      await page
+        .waitForFunction(() => document.fonts.ready, { timeout: 5000 })
+        .catch(() => {});
 
       const pageFormat = this.mapPageSize(options.pageSize);
       const margin = {
@@ -158,7 +167,12 @@ export class WysiwygRenderService implements OnModuleDestroy {
       await page.setRequestInterception(true);
       page.on("request", (request) => {
         const url = request.url();
-        if (url.startsWith("data:") || url === "about:blank") {
+        if (
+          url.startsWith("data:") ||
+          url === "about:blank" ||
+          url.includes("fonts.googleapis.com") ||
+          url.includes("fonts.gstatic.com")
+        ) {
           request.continue();
         } else {
           request.abort("blockedbyclient");
@@ -175,9 +189,12 @@ export class WysiwygRenderService implements OnModuleDestroy {
 
       const fullHtml = this.wrapHtml(html, css, {});
       await page.setContent(fullHtml, {
-        waitUntil: "networkidle0",
+        waitUntil: "domcontentloaded",
         timeout: 30000,
       });
+      await page
+        .waitForFunction(() => document.fonts.ready, { timeout: 5000 })
+        .catch(() => {});
 
       // 单张全页截图
       const screenshot = await page.screenshot({
@@ -230,7 +247,12 @@ export class WysiwygRenderService implements OnModuleDestroy {
       await page.setRequestInterception(true);
       page.on("request", (request) => {
         const url = request.url();
-        if (url.startsWith("data:") || url === "about:blank") {
+        if (
+          url.startsWith("data:") ||
+          url === "about:blank" ||
+          url.includes("fonts.googleapis.com") ||
+          url.includes("fonts.gstatic.com")
+        ) {
           request.continue();
         } else {
           request.abort("blockedbyclient");
@@ -246,9 +268,12 @@ export class WysiwygRenderService implements OnModuleDestroy {
 
       const fullHtml = this.wrapHtml(html, css, {});
       await page.setContent(fullHtml, {
-        waitUntil: "networkidle0",
+        waitUntil: "domcontentloaded",
         timeout: 30000,
       });
+      await page
+        .waitForFunction(() => document.fonts.ready, { timeout: 5000 })
+        .catch(() => {});
 
       // 获取内容总高度
       const contentHeight = await page.evaluate(
