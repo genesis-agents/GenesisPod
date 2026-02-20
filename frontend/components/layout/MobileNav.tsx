@@ -8,6 +8,8 @@ import { useTranslation } from '@/lib/i18n';
 import UserProfileButton from './UserProfileButton';
 import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { Menu, X } from 'lucide-react';
+import { BrandLogo } from '@/components/brand/BrandLogo';
+import { CURRENT_VERSION } from '@/lib/utils/changelog';
 
 interface MobileNavProps {
   className?: string;
@@ -469,41 +471,20 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
         className={`fixed left-0 right-0 top-0 z-50 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden ${className}`}
       >
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <svg className="h-7 w-7" viewBox="0 0 32 32" fill="none">
-            <defs>
-              <linearGradient
-                id="mobileLogoGradient"
-                x1="0%"
-                y1="0%"
-                x2="100%"
-                y2="100%"
+        <Link href="/" className="flex items-center">
+          <BrandLogo
+            variant="full"
+            iconClassName="h-8 w-8"
+            subtitle={
+              <Link
+                href="/changelog"
+                onClick={(e) => e.stopPropagation()}
+                className="w-fit rounded bg-gradient-to-r from-indigo-500 to-violet-500 px-1.5 py-0.5 text-[8px] font-bold leading-none text-white transition-opacity hover:opacity-80"
               >
-                <stop offset="0%" stopColor="#0F2A46" />
-                <stop offset="40%" stopColor="#2BB7DA" />
-                <stop offset="100%" stopColor="#7C5BFE" />
-              </linearGradient>
-            </defs>
-            {/* Circular connection - holding hands ring */}
-            <circle
-              cx="16"
-              cy="16"
-              r="10"
-              stroke="url(#mobileLogoGradient)"
-              strokeWidth="2"
-              fill="none"
-            />
-            {/* Four agent nodes */}
-            <circle cx="16" cy="6" r="2.5" fill="#0F2A46" />
-            <circle cx="26" cy="16" r="2.5" fill="#2BB7DA" />
-            <circle cx="16" cy="26" r="2.5" fill="#7C5BFE" />
-            <circle cx="6" cy="16" r="2.5" fill="#2BB7DA" />
-            {/* Engine core */}
-            <circle cx="16" cy="16" r="2.5" fill="url(#mobileLogoGradient)" />
-          </svg>
-          <span className="bg-gradient-to-r from-[#0F2A46] via-[#2BB7DA] to-[#7C5BFE] bg-clip-text text-lg font-bold text-transparent">
-            AI Teams
-          </span>
+                v{CURRENT_VERSION}
+              </Link>
+            }
+          />
         </Link>
 
         {/* Menu Toggle Button */}

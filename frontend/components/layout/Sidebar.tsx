@@ -211,11 +211,11 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             <BrandLogo
               variant="full"
               iconClassName="h-9 w-9 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
-              nameAddon={
+              subtitle={
                 <Link
                   href="/changelog"
                   onClick={(e) => e.stopPropagation()}
-                  className="rounded bg-gradient-to-r from-indigo-500 to-violet-500 px-1.5 py-0.5 text-[8px] font-bold leading-none text-white transition-opacity hover:opacity-80"
+                  className="w-fit rounded bg-gradient-to-r from-indigo-500 to-violet-500 px-1.5 py-0.5 text-[8px] font-bold leading-none text-white transition-opacity hover:opacity-80"
                 >
                   v{CURRENT_VERSION}
                 </Link>

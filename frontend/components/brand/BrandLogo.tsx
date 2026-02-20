@@ -8,6 +8,8 @@ interface BrandLogoProps {
   iconClassName?: string;
   className?: string;
   nameAddon?: React.ReactNode;
+  /** 覆盖 config.brand.subtitle；传 null 隐藏副标题行 */
+  subtitle?: React.ReactNode;
 }
 
 export function BrandLogo({
@@ -15,6 +17,7 @@ export function BrandLogo({
   iconClassName = 'h-8 w-8',
   className = '',
   nameAddon,
+  subtitle,
 }: BrandLogoProps) {
   const isFull = variant === 'full';
 
@@ -50,11 +53,13 @@ export function BrandLogo({
             </span>
             {nameAddon}
           </div>
-          {config.brand.subtitle && (
-            <span className="text-[9px] font-semibold tracking-[0.15em] text-gray-400">
-              {config.brand.subtitle}
-            </span>
-          )}
+          {subtitle !== undefined
+            ? subtitle
+            : config.brand.subtitle && (
+                <span className="text-[9px] font-semibold tracking-[0.15em] text-gray-400">
+                  {config.brand.subtitle}
+                </span>
+              )}
         </div>
       )}
     </div>
