@@ -164,7 +164,25 @@ export class AIEditService {
       throw new NotFoundException(`Mission not found: ${missionId}`);
     }
 
-    const pages = (mission.pages as MissionPage[]) || [];
+    let pages = (mission.pages as MissionPage[]) || [];
+
+    // Fallback: if mission.pages is empty (e.g. after checkpoint restore without sync),
+    // load pages from the latest checkpoint state
+    if (pages.length === 0) {
+      const latestCheckpoint = await this.prisma.slidesCheckpoint.findFirst({
+        where: { sessionId: mission.sessionId },
+        orderBy: { createdAt: "desc" },
+      });
+      const checkpointPages = (
+        latestCheckpoint?.stateJson as { pages?: MissionPage[] } | null
+      )?.pages;
+      if (checkpointPages?.length) {
+        pages = checkpointPages;
+        this.logger.warn(
+          `[chatEdit] mission.pages empty, fell back to checkpoint state (${pages.length} pages)`,
+        );
+      }
+    }
 
     if (pageIndex < 0 || pageIndex >= pages.length) {
       throw new BadRequestException(
