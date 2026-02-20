@@ -10,6 +10,8 @@ export interface CaptureOptions {
   freezeCharts?: boolean;
   /** 等待并冻结 Mermaid 图 */
   freezeMermaid?: boolean;
+  /** 将 <img> 和 CSS background-image URL 转为 data: URL，避免 Puppeteer 请求拦截导致图片缺失 */
+  inlineImages?: boolean;
   /** 最大等待时间 (ms) */
   timeout?: number;
 }
@@ -31,6 +33,7 @@ export class HtmlCaptureService {
       inlineStyles = true,
       freezeCharts = true,
       freezeMermaid = true,
+      inlineImages = true,
       timeout = 5000,
     } = options;
 
@@ -56,6 +59,14 @@ export class HtmlCaptureService {
         container as HTMLElement,
         clone,
         timeout
+      );
+    }
+
+    // ★ 将 <img> 转为 data: URL（Puppeteer 会拦截所有非 data: 外部请求，导致图片缺失）
+    if (inlineImages) {
+      await HtmlCaptureService.inlineImagesAsDataUrls(
+        container as HTMLElement,
+        clone
       );
     }
 
@@ -273,6 +284,55 @@ export class HtmlCaptureService {
       cloneChart.innerHTML = '';
       cloneChart.appendChild(svgClone);
     }
+  }
+
+  /**
+   * ★ 将 clone 中所有 <img> 的 src 转为 data: URL
+   *
+   * Puppeteer 在渲染 WYSIWYG HTML 时会拦截所有非 data:/fonts.googleapis 请求。
+   * 若图片使用外部 URL（包括 /_next/image?url=... 相对路径），会直接显示为破图。
+   * 在前端 fetch 并转换为 base64 data URL，Puppeteer 就能直接内联渲染。
+   */
+  private static async inlineImagesAsDataUrls(
+    container: HTMLElement,
+    clone: HTMLElement
+  ): Promise<void> {
+    const liveImgs = Array.from(
+      container.querySelectorAll<HTMLImageElement>('img')
+    );
+    const cloneImgs = Array.from(
+      clone.querySelectorAll<HTMLImageElement>('img')
+    );
+
+    await Promise.allSettled(
+      cloneImgs.map(async (cloneImg, i) => {
+        const liveImg = liveImgs[i];
+        // Prefer currentSrc (the actually-loaded URL, e.g. after srcset resolution)
+        const src =
+          liveImg?.currentSrc ||
+          liveImg?.src ||
+          cloneImg.getAttribute('src') ||
+          '';
+        if (!src || src.startsWith('data:') || src.startsWith('blob:')) return;
+
+        try {
+          const response = await fetch(src);
+          if (!response.ok) return;
+          const blob = await response.blob();
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          cloneImg.src = dataUrl;
+          cloneImg.removeAttribute('srcset'); // srcset would override src in Puppeteer
+          cloneImg.removeAttribute('data-src'); // lazy-load attrs
+        } catch {
+          // Keep original src; export degrades gracefully
+        }
+      })
+    );
   }
 
   /**
