@@ -463,6 +463,23 @@ export class CheckpointService {
       data: { currentStateId: checkpointId },
     });
 
+    // 同步 mission.pages：让 chatEdit 等服务能读到最新页面内容
+    if (checkpoint.state?.pages?.length) {
+      const latestMission = await this.prisma.slidesMission.findFirst({
+        where: { sessionId: checkpoint.sessionId },
+        orderBy: { createdAt: "desc" },
+      });
+      if (latestMission) {
+        await this.prisma.slidesMission.update({
+          where: { id: latestMission.id },
+          data: { pages: checkpoint.state.pages as unknown as object },
+        });
+        this.logger.log(
+          `[restore] Synced ${checkpoint.state.pages.length} pages to mission ${latestMission.id}`,
+        );
+      }
+    }
+
     // 创建一个恢复检查点以记录操作
     // 清除名称中已有的 "Restored from: " 前缀，避免无限累积
     const baseName = checkpoint.name.replace(/^(Restored from: )+/, "");
