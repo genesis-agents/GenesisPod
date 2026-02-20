@@ -59,7 +59,10 @@ export function useChatEdit() {
         }
 
         const result = await response.json();
-        return result.data as ChatEditResult;
+        // NestJS interceptor wraps as { data: ... }; controller also wraps as { data: result }
+        // so the path may be result.data.data — fall back to result.data if .data.data is absent
+        const data = result.data?.data ?? result.data;
+        return data as ChatEditResult;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Chat edit failed';
         logger.error('[useChatEdit] error:', err);
