@@ -144,6 +144,14 @@ export function SlidesTab() {
     refreshSessions();
   }, [refreshSessions]);
 
+  // 重新生成：重置到画廊并立即打开新建表单
+  const handleRegenerate = useCallback(() => {
+    const { reset } = useSlidesStore.getState();
+    reset();
+    refreshSessions();
+    setShowNewForm(true);
+  }, [refreshSessions]);
+
   // ★ 清理不一致的状态：如果 generating=true 但没有活跃的生成进程，重置状态
   // 这可能发生在页面刷新或中途关闭后重新打开时
   useEffect(() => {
@@ -1037,7 +1045,11 @@ export function SlidesTab() {
       </header>
 
       {/* V5.0 新布局 - 左右分栏 */}
-      <SlidesWorkspace className="flex-1" onGoBack={handleBackToGallery} />
+      <SlidesWorkspace
+        className="flex-1"
+        onGoBack={handleBackToGallery}
+        onRegenerate={handleRegenerate}
+      />
 
       {/* 演示模式 */}
       {showPresentation && (

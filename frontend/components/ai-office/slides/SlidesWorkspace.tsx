@@ -27,9 +27,14 @@ interface ChatMessage {
 interface SlidesWorkspaceProps {
   className?: string;
   onGoBack?: () => void;
+  onRegenerate?: () => void;
 }
 
-export function SlidesWorkspace({ className, onGoBack }: SlidesWorkspaceProps) {
+export function SlidesWorkspace({
+  className,
+  onGoBack,
+  onRegenerate,
+}: SlidesWorkspaceProps) {
   const { t } = useI18n();
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -81,13 +86,13 @@ export function SlidesWorkspace({ className, onGoBack }: SlidesWorkspaceProps) {
     logger.info('[SlidesWorkspace] Generation cancelled by user');
   }, [setGenerating, setProgress]);
 
-  // Re-generate: go back to gallery so user can start a new generation
+  // Re-generate: go back to gallery and open the new generation form
   const handleGenerate = useCallback(() => {
-    if (onGoBack) {
-      onGoBack();
+    if (onRegenerate) {
+      onRegenerate();
     }
-    logger.info('[SlidesWorkspace] Re-generate: going back to gallery');
-  }, [onGoBack]);
+    logger.info('[SlidesWorkspace] Re-generate: opening new generation form');
+  }, [onRegenerate]);
 
   const handleSendMessage = useCallback(
     async (message: string) => {
