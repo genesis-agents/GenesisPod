@@ -58,6 +58,7 @@ import {
   IsIn,
   IsArray,
   IsNotEmpty,
+  IsObject,
   Min,
   Max,
   MaxLength,
@@ -69,6 +70,7 @@ import {
 } from "../../../../../common/guards/rate-limit.guard";
 import type { RequestWithUser } from "../../../../../common/types/express-request.types";
 import { BillingContext } from "../../../../credits/billing-context";
+import { Prisma } from "@prisma/client"; // needed for Prisma.JsonNull
 
 // ============================================
 // DTOs
@@ -112,6 +114,14 @@ class GenerateDto {
   @IsString()
   @MaxLength(100)
   themeId?: string;
+
+  @IsOptional()
+  @IsObject()
+  crossModuleSource?: {
+    type: string;
+    sourceId: string;
+    sourceName?: string;
+  };
 }
 
 class RerenderPageDto {
@@ -194,6 +204,12 @@ class ChatEditDto {
   @IsNumber()
   @Min(0)
   pageIndex!: number;
+}
+
+// export 使 TypeScript noUnusedLocals 不检查此 DTO（DTO 通常应导出供调用方使用）
+export class UpdateSubscriptionDto {
+  @IsIn(["refresh", "unsubscribe"])
+  action!: "refresh" | "unsubscribe";
 }
 
 @Controller("ai-office/slides")
@@ -422,6 +438,13 @@ export class SlidesController {
           stylePreference: dto.stylePreference as "dark" | "light",
           targetAudience: dto.targetAudience,
           themeId: dto.themeId,
+          crossModuleSource: dto.crossModuleSource as
+            | {
+                type: "topic-insights" | "research-project";
+                sourceId: string;
+                sourceName?: string;
+              }
+            | undefined,
         });
 
         try {
@@ -684,8 +707,29 @@ export class SlidesController {
         }),
       );
 
+      // 批量查询每个 session 最新 mission 的 sourceSubscription
+      const sessionIds = sessionsWithCheckpoints.map((s) => s.id);
+      const missionSubs = await this.prisma.slidesMission.findMany({
+        where: { sessionId: { in: sessionIds } },
+        orderBy: { createdAt: "desc" },
+        select: { sessionId: true, sourceSubscription: true },
+      });
+
+      // 建立 sessionId -> 最新 sourceSubscription 的映射
+      const subMap = new Map<string, unknown>();
+      for (const m of missionSubs) {
+        if (!subMap.has(m.sessionId)) {
+          subMap.set(m.sessionId, m.sourceSubscription ?? null);
+        }
+      }
+
+      const result = sessionsWithCheckpoints.map((s) => ({
+        ...s,
+        sourceSubscription: subMap.get(s.id) ?? null,
+      }));
+
       return {
-        sessions: sessionsWithCheckpoints,
+        sessions: result,
       };
     } catch (error: unknown) {
       const errorMessage =
@@ -713,6 +757,13 @@ export class SlidesController {
       const latestCheckpoint =
         await this.checkpointService.getLatestCheckpoint(sessionId);
 
+      // 获取最新 mission 的 sourceSubscription
+      const latestMission = await this.prisma.slidesMission.findFirst({
+        where: { sessionId },
+        orderBy: { createdAt: "desc" },
+        select: { sourceSubscription: true },
+      });
+
       return {
         session,
         latestCheckpoint: latestCheckpoint
@@ -723,6 +774,7 @@ export class SlidesController {
               pagesCount: latestCheckpoint.state?.pages?.length || 0,
             }
           : null,
+        sourceSubscription: latestMission?.sourceSubscription ?? null,
       };
     } catch (error: unknown) {
       if (error instanceof HttpException) {
@@ -816,6 +868,97 @@ export class SlidesController {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to archive session";
       this.logger.error(`[archiveSession] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * 更新订阅状态（刷新或取消订阅）
+   */
+  @Patch("sessions/:sessionId/subscription")
+  async updateSubscription(
+    @Req() req: RequestWithUser,
+    @Param("sessionId") sessionId: string,
+    @Body() dto: UpdateSubscriptionDto,
+  ): Promise<object> {
+    const userId = req.user.id;
+    this.logger.log(
+      `[updateSubscription] Session: ${sessionId}, Action: ${dto.action}, User: ${userId}`,
+    );
+
+    try {
+      if (dto.action === "unsubscribe") {
+        await this.prisma.slidesMission.updateMany({
+          where: { sessionId },
+          data: {
+            sourceSubscription: Prisma.JsonNull,
+          },
+        });
+        return { success: true };
+      }
+
+      // action === 'refresh'
+      const latestMission = await this.prisma.slidesMission.findFirst({
+        where: { sessionId },
+        orderBy: { createdAt: "desc" },
+        select: { sourceSubscription: true, id: true },
+      });
+
+      const sub = latestMission?.sourceSubscription as {
+        type?: string;
+        sourceId?: string;
+      } | null;
+
+      if (!sub?.type || !sub?.sourceId) {
+        throw new BadRequestException(
+          "No source subscription found for this session",
+        );
+      }
+
+      let sourceText = "";
+      if (sub.type === "topic-insights") {
+        const imported = await this.dataImportService.importFromResearch(
+          sub.sourceId,
+          userId,
+        );
+        sourceText = imported.sourceText;
+      } else if (sub.type === "research-project") {
+        const imported = await this.dataImportService.importFromResearchProject(
+          sub.sourceId,
+          userId,
+        );
+        sourceText = imported.sourceText;
+      }
+
+      const now = new Date().toISOString();
+      const updatedSub = { ...sub, isStale: false, lastSourceUpdatedAt: now };
+
+      if (latestMission?.id) {
+        await this.prisma.slidesMission.update({
+          where: { id: latestMission.id },
+          data: {
+            sourceSubscription: updatedSub as unknown as Prisma.InputJsonValue,
+          },
+        });
+      }
+
+      return {
+        success: true,
+        subscription: { isStale: false, lastSourceUpdatedAt: now },
+        sourceText,
+      };
+    } catch (error: unknown) {
+      if (
+        error instanceof HttpException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to update subscription";
+      this.logger.error(`[updateSubscription] Error: ${errorMessage}`);
       throw new InternalServerErrorException(errorMessage);
     }
   }
@@ -1014,6 +1157,61 @@ export class SlidesController {
           ? error.message
           : "Failed to import from research";
       this.logger.error(`[importFromResearch] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * 获取可导入的 Research Project 列表
+   */
+  @Get("sources/research-project")
+  async listResearchProjectSources(
+    @Req() req: RequestWithUser,
+  ): Promise<object> {
+    const userId = req.user.id;
+    this.logger.log(`[listResearchProjectSources] User: ${userId}`);
+
+    try {
+      const sources = await this.dataImportService.listResearchProjects(userId);
+      return { sources };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to list research project sources";
+      this.logger.error(`[listResearchProjectSources] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * 从 Research Project 导入数据
+   */
+  @Post("import/research-project/:projectId")
+  async importFromResearchProject(
+    @Req() req: RequestWithUser,
+    @Param("projectId") projectId: string,
+  ): Promise<object> {
+    const userId = req.user.id;
+    this.logger.log(
+      `[importFromResearchProject] Project: ${projectId}, User: ${userId}`,
+    );
+
+    try {
+      const data = await this.dataImportService.importFromResearchProject(
+        projectId,
+        userId,
+      );
+      return { data };
+    } catch (error: unknown) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to import from research project";
+      this.logger.error(`[importFromResearchProject] Error: ${errorMessage}`);
       throw new InternalServerErrorException(errorMessage);
     }
   }
