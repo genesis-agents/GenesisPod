@@ -14,6 +14,7 @@ import { getAuthTokens } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
 import { formatDateSafe } from '@/lib/utils/date';
+import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 // Helper function to get headers with auth token
 function getAuthHeaders(): HeadersInit {
   const tokens = getAuthTokens();
@@ -224,6 +225,7 @@ export function TopicSharingModal({
   onClose,
 }: TopicSharingModalProps) {
   const { t } = useTranslation();
+  const patchTopic = useTopicInsightsStore((s) => s.patchTopic);
   const [visibility, setVisibility] = useState<TopicVisibility>('PRIVATE');
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [pendingApplications, setPendingApplications] = useState<
@@ -307,6 +309,9 @@ export function TopicSharingModal({
       if (!res.ok) {
         throw new Error('Failed to update visibility');
       }
+
+      // ★ 同步 store，使 TopicCard 等组件无需整体刷新即可显示新可见性
+      patchTopic(topicId, { visibility: newVisibility });
     } catch (err) {
       logger.error('Failed to update visibility:', err);
       setError(t('topicResearch.sharing.updateVisibilityFailed'));

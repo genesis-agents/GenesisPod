@@ -119,6 +119,7 @@ interface TopicInsightsState {
   fetchTopic: (topicId: string) => Promise<void>;
   createTopic: (dto: CreateTopicDto) => Promise<ResearchTopic>;
   updateTopic: (topicId: string, dto: UpdateTopicDto) => Promise<ResearchTopic>;
+  patchTopic: (topicId: string, patch: Partial<ResearchTopic>) => void;
   deleteTopic: (topicId: string) => Promise<void>;
   setCurrentTopic: (topic: ResearchTopic | null) => void;
 
@@ -343,6 +344,19 @@ export const useTopicInsightsStore = create<TopicInsightsState>((set, get) => ({
         state.currentTopic?.id === topicId ? topic : state.currentTopic,
     }));
     return topic; // ★ 返回更新后的专题
+  },
+
+  // ★ 无 API 调用的本地 patch，用于 modal 等组件在自行完成 API 调用后同步 store
+  patchTopic: (topicId, patch) => {
+    set((state) => ({
+      topics: state.topics.map((t) =>
+        t.id === topicId ? { ...t, ...patch } : t
+      ),
+      currentTopic:
+        state.currentTopic?.id === topicId
+          ? { ...state.currentTopic, ...patch }
+          : state.currentTopic,
+    }));
   },
 
   deleteTopic: async (topicId) => {
