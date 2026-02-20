@@ -45,6 +45,10 @@ interface ChatMessage {
 interface RightPanelProps {
   title?: string;
   sessionId?: string;
+  /** Chat messages managed by parent (SlidesWorkspace) */
+  chatMessages?: ChatMessage[];
+  /** True while the parent is waiting for an AI response */
+  chatLoading?: boolean;
   onCheckpointRestore?: (checkpointId: string) => Promise<void>;
   onCreateCheckpoint?: () => void;
   onFactCheck?: () => Promise<void>;
@@ -59,6 +63,8 @@ interface RightPanelProps {
 export function RightPanel({
   title,
   sessionId,
+  chatMessages: chatMessagesProp = [],
+  chatLoading = false,
   onCheckpointRestore,
   onCreateCheckpoint,
   onFactCheck,
@@ -89,9 +95,9 @@ export function RightPanel({
 
   // AI chat state
   const [chatCollapsed, setChatCollapsed] = useState(true);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatMessages = chatMessagesProp;
 
   const currentPage = pages[selectedPageIndex];
   const hasPages = pages.length > 0;
@@ -103,19 +109,17 @@ export function RightPanel({
     }
   }, [chatMessages, chatCollapsed]);
 
-  // Handle send chat message
+  // Handle send chat message — parent (SlidesWorkspace) manages message state
   const handleSend = useCallback(() => {
     const msg = inputValue.trim();
-    if (!msg || generating) return;
+    if (!msg || generating || chatLoading) return;
 
-    const userMsg: ChatMessage = { role: 'user', content: msg };
-    setChatMessages((prev) => [...prev, userMsg]);
     setInputValue('');
 
     if (onSendMessage) {
       onSendMessage(msg);
     }
-  }, [inputValue, generating, onSendMessage]);
+  }, [inputValue, generating, chatLoading, onSendMessage]);
 
   // Handle export
   const handleExport = useCallback(
@@ -492,19 +496,23 @@ export function RightPanel({
                 }}
                 placeholder="如：把第3页的标题改为..."
                 className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={generating}
+                disabled={generating || chatLoading}
               />
               <button
                 onClick={handleSend}
-                disabled={!inputValue.trim() || generating}
+                disabled={!inputValue.trim() || generating || chatLoading}
                 className={cn(
                   'rounded-lg px-3 py-1.5 text-sm transition-colors',
-                  inputValue.trim() && !generating
+                  inputValue.trim() && !generating && !chatLoading
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'cursor-not-allowed bg-slate-100 text-slate-400'
                 )}
               >
-                <Send className="h-4 w-4" />
+                {chatLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
               </button>
             </div>
           </>

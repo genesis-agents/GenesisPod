@@ -37,7 +37,11 @@ import { Response } from "express";
 import { Observable } from "rxjs";
 import { SlidesEngineService } from "../services/slides-engine.service";
 import { SlidesDataImportService } from "../services/data-import.service";
-import { AIEditService, PolishOptions } from "../services/ai-edit.service";
+import {
+  AIEditService,
+  PolishOptions,
+  ChatEditResult,
+} from "../services/ai-edit.service";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
 import {
   VoiceNarrationSkill,
@@ -179,6 +183,17 @@ class ImportFromLibraryDto {
   @IsArray()
   @IsString({ each: true })
   resourceIds!: string[];
+}
+
+class ChatEditDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  instruction!: string;
+
+  @IsNumber()
+  @Min(0)
+  pageIndex!: number;
 }
 
 @Controller("ai-office/slides")
@@ -1207,6 +1222,42 @@ export class SlidesController {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to fact check";
       this.logger.error(`[factCheck] Error: ${errorMessage}`);
+      throw new InternalServerErrorException(errorMessage);
+    }
+  }
+
+  /**
+   * AI 对话式编辑指定幻灯片页面
+   * POST /ai-office/slides/sessions/:sessionId/chat-edit
+   */
+  @Post("sessions/:sessionId/chat-edit")
+  @RateLimit({
+    maxRequests: 30,
+    windowSeconds: 60,
+    message: "编辑请求过于频繁，请稍后重试",
+  })
+  async chatEdit(
+    @Req() req: RequestWithUser,
+    @Param("sessionId") sessionId: string,
+    @Body() dto: ChatEditDto,
+  ): Promise<{ data: ChatEditResult }> {
+    const userId = req.user.id;
+    this.logger.log(
+      `[chatEdit] Session: ${sessionId}, Page: ${dto.pageIndex}, User: ${userId}`,
+    );
+
+    try {
+      const result = await this.aiEditService.chatEdit(
+        sessionId,
+        dto.pageIndex,
+        dto.instruction,
+        userId,
+      );
+      return { data: result };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Chat edit failed";
+      this.logger.error(`[chatEdit] Error: ${errorMessage}`);
       throw new InternalServerErrorException(errorMessage);
     }
   }

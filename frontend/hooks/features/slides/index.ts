@@ -8,6 +8,8 @@ export { useCheckpoints } from './useCheckpoints';
 export { useSessions } from './useSessions';
 export { useDataImport } from './useDataImport';
 export { useAIEdit } from './useAIEdit';
+export { useChatEdit } from './useChatEdit';
+export type { ChatEditResult } from './useChatEdit';
 export { useNarration } from './useNarration';
 export { useThemes } from './useThemes';
 export type { SlideThemePreview } from './useThemes';

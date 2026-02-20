@@ -16,6 +16,8 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { AIModelType } from "@prisma/client";
 import {
   LayoutFixerSkill,
   LayoutFixerInput,
@@ -45,6 +47,15 @@ export interface PolishOptions {
   targetTone?: "formal" | "casual" | "technical" | "friendly";
   /** Language */
   language?: "zh" | "en";
+}
+
+/**
+ * Chat edit result
+ */
+export interface ChatEditResult {
+  success: boolean;
+  updatedHtml: string;
+  reply: string;
 }
 
 /**
@@ -112,10 +123,124 @@ export class AIEditService {
 
   constructor(
     private readonly prisma: PrismaService,
+    @Optional() private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly layoutFixerSkill: LayoutFixerSkill,
     @Optional() private readonly contentPolisherSkill: ContentPolisherSkill,
     @Optional() private readonly factCheckerSkill: FactCheckerSkill,
   ) {}
+
+  // ============================================
+  // Chat Edit
+  // ============================================
+
+  /**
+   * Apply a user's natural-language instruction to edit a specific slide page
+   * @param sessionOrMissionId - Session or Mission ID
+   * @param pageIndex - 0-based array index of the page
+   * @param instruction - User's edit instruction in natural language
+   * @param userId - Authenticated user
+   */
+  async chatEdit(
+    sessionOrMissionId: string,
+    pageIndex: number,
+    instruction: string,
+    userId: string,
+  ): Promise<ChatEditResult> {
+    this.logger.log(
+      `[chatEdit] Session/Mission: ${sessionOrMissionId}, Page: ${pageIndex}`,
+    );
+
+    if (!this.aiFacade) {
+      throw new InternalServerErrorException("AI facade is not available");
+    }
+
+    const missionId = await this.resolveMissionId(sessionOrMissionId, userId);
+
+    const mission = await this.prisma.slidesMission.findFirst({
+      where: { id: missionId, userId },
+    });
+
+    if (!mission) {
+      throw new NotFoundException(`Mission not found: ${missionId}`);
+    }
+
+    const pages = (mission.pages as MissionPage[]) || [];
+
+    if (pageIndex < 0 || pageIndex >= pages.length) {
+      throw new BadRequestException(
+        `Page index ${pageIndex} is out of range (0-${pages.length - 1})`,
+      );
+    }
+
+    const page = pages[pageIndex];
+    const currentHtml = (page.html as string) || (page.content as string) || "";
+
+    if (!currentHtml) {
+      throw new BadRequestException(
+        `Page ${pageIndex} has no HTML content to edit`,
+      );
+    }
+
+    const systemPrompt = `你是幻灯片 HTML 编辑助手。用户提供幻灯片 HTML 和修改指令。
+
+任务：
+1. 理解修改指令
+2. 对 HTML 进行精准修改
+3. 输出完整修改后 HTML
+
+规则：
+- 保持幻灯片整体布局、尺寸（1280×720px）和样式不变
+- 只修改用户要求的部分，其余内容保持原样
+- 必须输出完整的 HTML 文件（不是片段）
+- 格式：用 \`\`\`html ... \`\`\` 包裹完整 HTML
+- 不要任何解释，只输出 HTML`;
+
+    const userPrompt = `修改指令：${instruction}
+
+当前幻灯片 HTML：
+\`\`\`html
+${currentHtml}
+\`\`\`
+
+请输出修改后的完整 HTML：`;
+
+    const response = await this.aiFacade.chat({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      modelType: AIModelType.CHAT_FAST,
+      taskProfile: {
+        creativity: "low",
+        outputLength: "long",
+      },
+    });
+
+    // Extract HTML from response
+    const htmlMatch = response.content.match(/```html\s*([\s\S]*?)\s*```/);
+    const updatedHtml = htmlMatch ? htmlMatch[1].trim() : currentHtml;
+
+    // Save updated HTML to DB
+    if (updatedHtml && updatedHtml !== currentHtml) {
+      pages[pageIndex] = {
+        ...(pages[pageIndex] as object),
+        html: updatedHtml,
+      } as MissionPage;
+
+      await this.prisma.slidesMission.update({
+        where: { id: missionId },
+        data: { pages: pages as unknown as object },
+      });
+
+      this.logger.debug(
+        `[chatEdit] Updated page ${pageIndex} in mission ${missionId}`,
+      );
+    }
+
+    const reply = `已根据您的指令修改了第 ${pageIndex + 1} 页的幻灯片内容。`;
+
+    return { success: true, updatedHtml, reply };
+  }
 
   // ============================================
   // Fix Layout

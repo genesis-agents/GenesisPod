@@ -12,12 +12,17 @@ import React, { useState, useCallback } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useSlidesStore, toast } from '@/stores';
-import { useCheckpoints } from '@/hooks/features/slides';
+import { useCheckpoints, useChatEdit } from '@/hooks/features/slides';
 import { LeftPanel } from './LeftPanel';
 import { RightPanel } from './RightPanel';
 import { logger } from '@/lib/utils/logger';
 import { formatDateSafe } from '@/lib/utils/date';
 import { useI18n } from '@/lib/i18n/i18n-context';
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 interface SlidesWorkspaceProps {
   className?: string;
@@ -26,10 +31,19 @@ interface SlidesWorkspaceProps {
 export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
   const { t } = useI18n();
   const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
-  const { session, setGenerating, setProgress } = useSlidesStore();
+  const {
+    session,
+    pages,
+    selectedPageIndex,
+    updatePage,
+    setGenerating,
+    setProgress,
+  } = useSlidesStore();
 
   const { createCheckpoint, restoreCheckpoint } = useCheckpoints();
+  const { chatEdit, loading: chatLoading } = useChatEdit();
 
   const handleCheckpointRestore = useCallback(
     async (checkpointId: string) => {
@@ -74,10 +88,39 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
     );
   }, []);
 
-  const handleSendMessage = useCallback((message: string) => {
-    logger.info('[SlidesWorkspace] AI chat message:', message);
-    toast.info('AI 修改功能即将上线，敬请期待');
-  }, []);
+  const handleSendMessage = useCallback(
+    async (message: string) => {
+      if (!session?.id) {
+        toast.warning('请先生成幻灯片');
+        return;
+      }
+
+      // Append user message immediately so UI feels responsive
+      setChatMessages((prev) => [...prev, { role: 'user', content: message }]);
+
+      const result = await chatEdit(session.id, selectedPageIndex, message);
+
+      if (result && result.success) {
+        // Update the slide preview in the store
+        const currentPage = pages[selectedPageIndex];
+        if (currentPage && result.updatedHtml) {
+          updatePage(currentPage.pageNumber, { html: result.updatedHtml });
+        }
+
+        // Append AI reply
+        setChatMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: result.reply },
+        ]);
+      } else {
+        setChatMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: '修改失败，请检查网络或重试。' },
+        ]);
+      }
+    },
+    [session?.id, selectedPageIndex, pages, updatePage, chatEdit]
+  );
 
   return (
     <div className={cn('flex h-full', className)}>
@@ -110,6 +153,8 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
       <RightPanel
         title={session?.title || t('office.slides.title')}
         sessionId={session?.id}
+        chatMessages={chatMessages}
+        chatLoading={chatLoading}
         onCheckpointRestore={handleCheckpointRestore}
         onCreateCheckpoint={handleCreateCheckpoint}
         onFactCheck={handleFactCheck}
