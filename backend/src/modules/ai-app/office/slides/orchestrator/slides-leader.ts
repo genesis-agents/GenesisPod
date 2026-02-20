@@ -108,14 +108,12 @@ ${teamMembersInfo}
 ### Writer 技能（页面生成）
 - page-pipeline: 页面生成流水线，批量生成所有页面的 HTML（★ 推荐用于页面生成）
 
-### Reviewer 技能
-- quality-audit: 质量审计（在所有页面生成后执行）
-
 ## 重要约束
 1. 每个任务只能指定一个技能 ID，不要用逗号分隔多个技能
 2. 必须包含以下核心任务流程：
-   - task-decomposition → outline-planning → page-pipeline → quality-audit
+   - task-decomposition → outline-planning → page-pipeline
 3. 使用 page-pipeline 生成页面，不要使用 four-step-design
+4. 不需要添加 quality-audit 任务（质量审计由系统自动执行）
 
 ## 输出格式
 请使用以下 Markdown 表格格式输出任务分解：
@@ -155,12 +153,11 @@ ${mission.sourceText.substring(0, 8000)}${mission.sourceText.length > 8000 ? "\n
 1. 第一步：task-decomposition - 分析源文本，分解任务
 2. 第二步：outline-planning - 生成 PPT 大纲（依赖第1步）
 3. 第三步：page-pipeline - 批量生成所有页面 HTML（依赖第2步）
-4. 第四步：quality-audit - 质量审计（依赖第3步）
 
 ## 关键约束
 - 每行只能填写一个技能 ID
 - 必须使用 page-pipeline 生成页面
-- 不要添加额外的任务
+- 只需要以上 3 个任务，不要添加额外的任务
 `;
   }
 
@@ -391,15 +388,6 @@ ${mission.sourceText.substring(0, 8000)}${mission.sourceText.length > 8000 ? "\n
         skillId: "slides-page-pipeline",
         priority: "high",
         dependsOn: [1], // 依赖 outline-planning
-        inputSpec: {},
-      },
-      {
-        title: "质量审计",
-        description: "检查整体质量和一致性",
-        assignee: "reviewer",
-        skillId: "slides-quality-audit",
-        priority: "medium",
-        dependsOn: [2], // 依赖 page-pipeline
         inputSpec: {},
       },
     ];

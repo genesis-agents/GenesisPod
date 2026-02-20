@@ -378,23 +378,17 @@ export class SlidesTeamOrchestrator {
       const executableTasks = this.getExecutableTasks(mission);
 
       if (executableTasks.length === 0) {
-        // 检查是否有死锁
+        // 检查是否有因依赖失败而无法执行的任务
         const pendingTasks = mission.tasks.filter(
           (t) => t.status === "pending",
         );
         if (pendingTasks.length > 0) {
+          const failedDeps = mission.tasks
+            .filter((t) => t.status === "failed")
+            .map((t) => t.skillId);
           this.logger.warn(
-            `[executeTasksPhase] Deadlock detected: ${pendingTasks.length} pending tasks with unmet dependencies`,
+            `[executeTasksPhase] ${pendingTasks.length} tasks skipped due to failed dependencies: ${failedDeps.join(", ")}`,
           );
-          errors.push({
-            taskId: "",
-            phase: "executing",
-            errorType: "execution_failed",
-            message: `Deadlock: ${pendingTasks.length} tasks with unmet dependencies`,
-            timestamp: new Date(),
-            retryCount: 0,
-          });
-          break;
         }
         break;
       }
