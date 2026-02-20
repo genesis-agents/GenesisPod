@@ -203,10 +203,22 @@ export class SlidesTeamMember {
           input: task.input as Record<string, unknown>,
           previousOutputs: context.previousOutputs,
         });
-        return { ...baseInput, ...resolved };
+        // PromptSkillAdapter: 只传 task 描述 + 声明式绑定的输入
+        // 不包含 previousOutputs（避免将全部 skill 输出重复传入 LLM，导致超出 context 限制）
+        // 不包含 context.sourceText（SKILL.md 声明 required: sourceText 的 skill 已通过 resolved.sourceText 获取）
+        return {
+          task: task.description,
+          themeId: context.globalContext.themeId,
+          stylePreference: context.globalContext.stylePreference,
+          ...resolved,
+        };
       }
-      // No inputs declared — use baseInput only
-      return baseInput;
+      // No inputs declared — use baseInput only (no large previousOutputs)
+      return {
+        task: task.description,
+        themeId: context.globalContext.themeId,
+        stylePreference: context.globalContext.stylePreference,
+      };
     }
 
     // ★ Code-based skills: 手动映射（保持向后兼容）
