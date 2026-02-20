@@ -11,7 +11,7 @@
 import React, { useState, useCallback } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import { useSlidesStore } from '@/stores';
+import { useSlidesStore, toast } from '@/stores';
 import { useCheckpoints } from '@/hooks/features/slides';
 import { LeftPanel } from './LeftPanel';
 import { RightPanel } from './RightPanel';
@@ -66,8 +66,9 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
     logger.info('[SlidesWorkspace] Generation cancelled by user');
   }, [setGenerating, setProgress]);
 
-  // Re-generate is a no-op here — generation is triggered from SlidesTab's input form
+  // Re-generate directs user to the header form (generation is owned by SlidesTab)
   const handleGenerate = useCallback(() => {
+    toast.info('请使用顶部输入框重新生成幻灯片');
     logger.info(
       '[SlidesWorkspace] Re-generate: use header form to start a new generation'
     );
@@ -75,14 +76,14 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
 
   const handleSendMessage = useCallback((message: string) => {
     logger.info('[SlidesWorkspace] AI chat message:', message);
-    // TODO: connect to AI edit service
+    toast.info('AI 修改功能即将上线，敬请期待');
   }, []);
 
   return (
     <div className={cn('flex h-full', className)}>
       {/* Left Panel: 280px slide navigator */}
       {!leftCollapsed && (
-        <div className="flex w-[280px] flex-shrink-0 flex-col">
+        <div className="flex h-full w-[280px] flex-shrink-0 flex-col overflow-hidden">
           <LeftPanel
             onCollapse={() => setLeftCollapsed(true)}
             onGenerate={handleGenerate}
