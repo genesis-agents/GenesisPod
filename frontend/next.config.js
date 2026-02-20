@@ -154,10 +154,12 @@ const nextConfig = {
       return `https://${url}`;
     };
 
-    // 后端 URL 配置 - 直接使用环境变量或默认值
-    // Railway 构建时会设置 NEXT_PUBLIC_API_URL，否则使用默认的 Railway 后端 URL
+    // 后端 URL 配置
+    // 优先级：API_INTERNAL_URL（Railway 私有网络）> NEXT_PUBLIC_API_URL（公网）> 硬编码默认值
+    // API_INTERNAL_URL 仅在服务端使用，避免暴露内部地址到客户端
     const apiUrl = ensureProtocol(
-      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.API_INTERNAL_URL ||
+        process.env.NEXT_PUBLIC_API_URL ||
         'https://genesis-ai-backend.up.railway.app'
     );
     const aiUrl = ensureProtocol(
