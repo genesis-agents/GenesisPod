@@ -123,7 +123,7 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
   );
 
   return (
-    <div className={cn('flex', className)}>
+    <div className={cn('flex overflow-hidden', className)}>
       {/* Left Panel: 280px slide navigator */}
       {!leftCollapsed && (
         <div className="flex h-full w-[280px] flex-shrink-0 flex-col overflow-hidden">
