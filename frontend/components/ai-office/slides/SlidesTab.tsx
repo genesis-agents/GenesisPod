@@ -1037,7 +1037,7 @@ export function SlidesTab() {
       </header>
 
       {/* V5.0 新布局 - 左右分栏 */}
-      <SlidesWorkspace className="flex-1" />
+      <SlidesWorkspace className="flex-1" onGoBack={handleBackToGallery} />
 
       {/* 演示模式 */}
       {showPresentation && (

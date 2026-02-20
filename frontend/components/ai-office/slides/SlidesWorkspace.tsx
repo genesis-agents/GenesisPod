@@ -26,9 +26,10 @@ interface ChatMessage {
 
 interface SlidesWorkspaceProps {
   className?: string;
+  onGoBack?: () => void;
 }
 
-export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
+export function SlidesWorkspace({ className, onGoBack }: SlidesWorkspaceProps) {
   const { t } = useI18n();
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -80,13 +81,13 @@ export function SlidesWorkspace({ className }: SlidesWorkspaceProps) {
     logger.info('[SlidesWorkspace] Generation cancelled by user');
   }, [setGenerating, setProgress]);
 
-  // Re-generate directs user to the header form (generation is owned by SlidesTab)
+  // Re-generate: go back to gallery so user can start a new generation
   const handleGenerate = useCallback(() => {
-    toast.info('请使用顶部输入框重新生成幻灯片');
-    logger.info(
-      '[SlidesWorkspace] Re-generate: use header form to start a new generation'
-    );
-  }, []);
+    if (onGoBack) {
+      onGoBack();
+    }
+    logger.info('[SlidesWorkspace] Re-generate: going back to gallery');
+  }, [onGoBack]);
 
   const handleSendMessage = useCallback(
     async (message: string) => {
