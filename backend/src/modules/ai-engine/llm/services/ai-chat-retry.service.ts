@@ -161,6 +161,52 @@ export class AiChatRetryService {
   }
 
   /**
+   * 指数退避重试（含 provider 上下文）
+   * 替代各服务中重复的私有 withRetry 方法，统一策略：
+   * - 延迟 = baseRetryDelay * 2^(attempt-1) + random(0~500ms) jitter
+   * - 不可重试错误立即抛出
+   */
+  async withExponentialBackoff<T>(
+    operation: () => Promise<T>,
+    operationName: string,
+    provider?: string,
+  ): Promise<T> {
+    const maxRetries = this.MAX_RETRIES;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        const aiError: AIError = this.errorClassifier.classify(error, provider);
+        lastError = aiError;
+
+        this.logger.warn(
+          `[${operationName}] Attempt ${attempt}/${maxRetries} failed: ${aiError.message} (type: ${aiError.type})`,
+        );
+
+        if (aiError.isRetryable() && attempt < maxRetries) {
+          const delay =
+            aiError.getRetryDelay() * Math.pow(2, attempt - 1) +
+            Math.random() * 500;
+          this.logger.debug(
+            `[${operationName}] Retrying in ${Math.round(delay)}ms...`,
+          );
+          await this.sleep(delay);
+          continue;
+        }
+
+        this.logger.error(
+          `[${operationName}] ${aiError.isRetryable() ? "Max retries exceeded" : "Non-retryable error"}: ${aiError.message}`,
+        );
+        throw aiError;
+      }
+    }
+
+    throw lastError || new Error(`${operationName} failed after all retries`);
+  }
+
+  /**
    * 处理 API 错误（根据严格模式决定抛出异常还是返回错误响应）
    */
   handleApiError(

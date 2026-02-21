@@ -16,8 +16,9 @@ import { Public } from "../../../common/decorators/public.decorator";
 
 /**
  * 知识图谱控制器
+ * GET endpoints are public (read-only browsing).
+ * POST and DELETE endpoints require authentication (write/expensive operations).
  */
-@Public()
 @Controller("knowledge-graph")
 export class KnowledgeGraphController {
   private readonly logger = new Logger(KnowledgeGraphController.name);
@@ -53,6 +54,7 @@ export class KnowledgeGraphController {
    * 获取资源的知识图谱
    * GET /api/v1/knowledge-graph/resource/:id?depth=2
    */
+  @Public()
   @Get("resource/:id")
   async getResourceGraph(
     @Param("id") id: string,
@@ -68,6 +70,7 @@ export class KnowledgeGraphController {
    * 获取作者的知识图谱
    * GET /api/v1/knowledge-graph/author/:username
    */
+  @Public()
   @Get("author/:username")
   async getAuthorGraph(@Param("username") username: string) {
     this.logger.log(`Fetching knowledge graph for author ${username}`);
@@ -78,6 +81,7 @@ export class KnowledgeGraphController {
    * 获取主题的知识图谱
    * GET /api/v1/knowledge-graph/topic/:name
    */
+  @Public()
   @Get("topic/:name")
   async getTopicGraph(@Param("name") name: string) {
     this.logger.log(`Fetching knowledge graph for topic ${name}`);
@@ -93,6 +97,7 @@ export class KnowledgeGraphController {
    * - collectionId: 收藏集ID，筛选特定收藏集的内容
    * - includeNotes: 是否包含笔记节点（默认 true）
    */
+  @Public()
   @Get("overview")
   async getOverview(
     @Query("userId") userId?: string,
@@ -120,6 +125,7 @@ export class KnowledgeGraphController {
    * 查找相似资源
    * GET /api/v1/knowledge-graph/similar/:id?limit=10
    */
+  @Public()
   @Get("similar/:id")
   async findSimilar(
     @Param("id") id: string,

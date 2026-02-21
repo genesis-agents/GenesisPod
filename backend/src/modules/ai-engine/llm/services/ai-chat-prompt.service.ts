@@ -21,10 +21,7 @@ export class AiChatPromptService {
   /**
    * 构建完整消息数组（包含系统提示）
    */
-  buildMessages(
-    messages: ChatMessage[],
-    systemPrompt?: string,
-  ): ChatMessage[] {
+  buildMessages(messages: ChatMessage[], systemPrompt?: string): ChatMessage[] {
     const fullMessages: ChatMessage[] = [];
 
     if (systemPrompt) {
@@ -251,14 +248,18 @@ export class AiChatPromptService {
         // 1. 如果存在 URL，获取其内容
         if (urls.length > 0) {
           const urlsToFetch = urls.slice(0, 2);
-          const fetchedContents: string[] = [];
 
-          for (const url of urlsToFetch) {
-            const content = await this.fetchUrlContent(url);
-            if (content) {
-              fetchedContents.push(`\n\n--- 网页内容 (${url}) ---\n${content}`);
-            }
-          }
+          const fetchResults = await Promise.all(
+            urlsToFetch.map(async (url) => {
+              const content = await this.fetchUrlContent(url);
+              return content
+                ? `\n\n--- 网页内容 (${url}) ---\n${content}`
+                : null;
+            }),
+          );
+          const fetchedContents = fetchResults.filter(
+            (c): c is string => c !== null,
+          );
 
           if (fetchedContents.length > 0) {
             augmentedContent += fetchedContents.join("\n");

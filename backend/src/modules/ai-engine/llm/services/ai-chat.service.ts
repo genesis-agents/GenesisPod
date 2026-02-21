@@ -1,6 +1,5 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { AIErrorClassifier } from "../../../../common/ai-orchestration/error-classifier";
 import { AiServiceUnavailableError } from "../../core/exceptions";
 import { AIModelType } from "@prisma/client";
 import { TaskProfile, ChatMessage } from "../types";
@@ -20,6 +19,7 @@ import { AiConnectionTestService } from "./ai-connection-test.service";
 import { AiModelDiscoveryService } from "./ai-model-discovery.service";
 import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
+import { AiChatRetryService } from "./ai-chat-retry.service";
 
 export interface ChatCompletionOptions {
   model: string;
@@ -74,10 +74,6 @@ export type { ChatMessage } from "../types";
 @Injectable()
 export class AiChatService {
   private readonly logger = new Logger(AiChatService.name);
-  private readonly errorClassifier = new AIErrorClassifier();
-
-  // Retry configuration
-  private readonly MAX_RETRIES = 3;
 
   constructor(
     private readonly configService: ConfigService,
@@ -85,6 +81,7 @@ export class AiChatService {
     private readonly modelConfigService: AiModelConfigService,
     private readonly apiCallerService: AiApiCallerService,
     private readonly streamHandlerService: AiStreamHandlerService,
+    private readonly retryService: AiChatRetryService,
     @Optional() private readonly aiMetricsService?: AIMetricsService,
     @Optional()
     private readonly guardrailsPipeline?: GuardrailsPipelineService,
@@ -352,54 +349,6 @@ export class AiChatService {
     return models;
   }
 
-  // ==================== 重试逻辑 ====================
-
-  /**
-   * Execute an async operation with retry logic
-   */
-  private async withRetry<T>(
-    operation: () => Promise<T>,
-    operationName: string,
-    provider?: string,
-  ): Promise<T> {
-    let lastError: Error | null = null;
-
-    for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
-      try {
-        return await operation();
-      } catch (error) {
-        const aiError = this.errorClassifier.classify(error, provider);
-        lastError = aiError;
-
-        this.logger.warn(
-          `[${operationName}] Attempt ${attempt}/${this.MAX_RETRIES} failed: ${aiError.message} (type: ${aiError.type})`,
-        );
-
-        if (aiError.isRetryable() && attempt < this.MAX_RETRIES) {
-          const delay =
-            aiError.getRetryDelay() * Math.pow(2, attempt - 1) +
-            Math.random() * 500;
-          this.logger.debug(
-            `[${operationName}] Retrying in ${Math.round(delay)}ms...`,
-          );
-          await this.sleep(delay);
-          continue;
-        }
-
-        this.logger.error(
-          `[${operationName}] ${aiError.isRetryable() ? "Max retries exceeded" : "Non-retryable error"}: ${aiError.message}`,
-        );
-        throw aiError;
-      }
-    }
-
-    throw lastError || new Error(`${operationName} failed after all retries`);
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
   /**
    * 将 AIError.type 字符串映射到 CircuitBreaker 的 TaskCompletionType
    * 当 ChatCompletionResult.errorType 可用时使用，避免字符串解析丢失精度
@@ -628,7 +577,7 @@ export class AiChatService {
         }
       };
 
-      const result = await this.withRetry(
+      const result = await this.retryService.withExponentialBackoff(
         apiCall,
         `callAPIWithConfig [${modelId}]`,
         provider,

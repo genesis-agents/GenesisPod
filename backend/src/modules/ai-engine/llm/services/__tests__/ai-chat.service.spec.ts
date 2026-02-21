@@ -15,6 +15,7 @@ import { AiConnectionTestService } from "../ai-connection-test.service";
 import { AiModelDiscoveryService } from "../ai-model-discovery.service";
 import { AiDirectKeyService } from "../ai-direct-key.service";
 import { AiImageGenerationService } from "../ai-image-generation.service";
+import { AiChatRetryService } from "../ai-chat-retry.service";
 import { TraceCollectorService } from "../../../observability/trace-collector.service";
 import { AIModelType } from "@prisma/client";
 import { AiServiceUnavailableError } from "../../../core/exceptions";
@@ -58,6 +59,7 @@ describe("AiChatService", () => {
   let mockModelDiscoveryService: any;
   let mockDirectKeyService: any;
   let mockImageGenerationService: any;
+  let mockRetryService: any;
   let mockTraceCollectorService: any;
 
   beforeEach(async () => {
@@ -167,6 +169,10 @@ describe("AiChatService", () => {
       isImageGenerationRequest: jest.fn().mockReturnValue(false),
     };
 
+    mockRetryService = {
+      withExponentialBackoff: jest.fn((op: () => Promise<unknown>) => op()),
+    };
+
     mockTraceCollectorService = {
       addSpan: jest.fn().mockReturnValue("test-span-id"),
       endSpan: jest.fn(),
@@ -180,6 +186,7 @@ describe("AiChatService", () => {
         { provide: AiModelConfigService, useValue: mockModelConfigService },
         { provide: AiApiCallerService, useValue: mockApiCallerService },
         { provide: AiStreamHandlerService, useValue: mockStreamHandlerService },
+        { provide: AiChatRetryService, useValue: mockRetryService },
         { provide: AIMetricsService, useValue: mockMetricsService },
         {
           provide: GuardrailsPipelineService,
@@ -303,6 +310,7 @@ describe("AiChatService", () => {
         mockModelConfigService,
         mockApiCallerService,
         mockStreamHandlerService,
+        mockRetryService,
       );
 
       const result = await service.testModelConnectionWithKey(
@@ -341,6 +349,7 @@ describe("AiChatService", () => {
         mockModelConfigService,
         mockApiCallerService,
         mockStreamHandlerService,
+        mockRetryService,
       );
 
       const result = await service.fetchAvailableModels("openai", "test-key");
@@ -370,6 +379,7 @@ describe("AiChatService", () => {
         mockModelConfigService,
         mockApiCallerService,
         mockStreamHandlerService,
+        mockRetryService,
       );
 
       const result = await service.generateChatCompletionWithKey({
@@ -401,6 +411,7 @@ describe("AiChatService", () => {
         mockModelConfigService,
         mockApiCallerService,
         mockStreamHandlerService,
+        mockRetryService,
       );
 
       const result = service.isImageGenerationRequest("Generate an image");
@@ -428,6 +439,7 @@ describe("AiChatService", () => {
         mockModelConfigService,
         mockApiCallerService,
         mockStreamHandlerService,
+        mockRetryService,
       );
 
       const result = service.formatModelDisplayName("gpt-4o");
@@ -451,6 +463,7 @@ describe("AiChatService", () => {
         mockModelConfigService,
         mockApiCallerService,
         mockStreamHandlerService,
+        mockRetryService,
       );
 
       const result = service.getEnvVarNameForProvider("openai");
@@ -877,6 +890,7 @@ describe("AiChatService", () => {
         mockModelConfigService,
         mockApiCallerService,
         mockStreamHandlerService,
+        mockRetryService,
       );
 
       const mockConfig = createMockModelConfig();
@@ -1141,6 +1155,7 @@ describe("AiChatService", () => {
         mockModelConfigService,
         mockApiCallerService,
         mockStreamHandlerService,
+        mockRetryService,
       );
 
       const mockConfig = createMockModelConfig();
@@ -1347,6 +1362,7 @@ describe("AiChatService", () => {
         mockModelConfigService,
         mockApiCallerService,
         mockStreamHandlerService,
+        mockRetryService,
       );
 
       const mockConfig = createMockModelConfig();

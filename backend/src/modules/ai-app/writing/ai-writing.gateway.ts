@@ -22,12 +22,19 @@ import {
 import { Server, Socket } from "socket.io";
 import { Logger, Injectable } from "@nestjs/common";
 import { WritingEventEmitterService } from "./services/events/writing-event-emitter.service";
+import { APP_CONFIG } from "../../../common/config/app.config";
 
 @Injectable()
 @WebSocketGateway({
   namespace: "/ai-writing",
   cors: {
-    origin: "*",
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      APP_CONFIG.railway.frontendUrl,
+      APP_CONFIG.railway.backendUrl,
+      ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+    ].filter(Boolean),
     credentials: true,
   },
 })

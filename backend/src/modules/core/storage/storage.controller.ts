@@ -25,12 +25,14 @@ export class StorageController {
   private readonly adminKey: string;
 
   constructor(private readonly storageService: StorageService) {
-    this.adminKey =
-      process.env.STORAGE_ADMIN_KEY || "deepdive-admin-cleanup-2024";
-    if (!process.env.STORAGE_ADMIN_KEY) {
-      // Non-critical: using secure default, can be customized via env var
-      this.logger.debug("STORAGE_ADMIN_KEY not set, using default key.");
+    const adminKey = process.env.STORAGE_ADMIN_KEY;
+    if (!adminKey) {
+      throw new Error(
+        "STORAGE_ADMIN_KEY environment variable is required but not set. " +
+          "Set it in your .env file to enable storage admin operations.",
+      );
     }
+    this.adminKey = adminKey;
   }
 
   /**

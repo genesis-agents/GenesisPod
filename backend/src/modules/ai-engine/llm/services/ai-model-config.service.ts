@@ -206,6 +206,8 @@ export class AiModelConfigService {
   private modelConfigCache = new Map<string, AIModelConfig>();
   private modelConfigCacheTime = 0;
   private readonly MODEL_CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5 分钟缓存
+  // 防 stampede：并发刷新时共享同一个 Promise
+  private refreshPromise: Promise<void> | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -349,7 +351,8 @@ export class AiModelConfigService {
    */
   private buildModelConfig(model: Record<string, unknown>): AIModelConfig {
     const isReasoning =
-      (model.isReasoning as boolean | undefined) ?? this.inferIsReasoning(model.modelId as string);
+      (model.isReasoning as boolean | undefined) ??
+      this.inferIsReasoning(model.modelId as string);
 
     return {
       id: model.id as string,
@@ -372,15 +375,19 @@ export class AiModelConfigService {
         model.provider as string,
         model.modelId as string,
       ),
-      supportsTemperature: (model.supportsTemperature as boolean | undefined) ?? !isReasoning,
-      supportsStreaming: (model.supportsStreaming as boolean | undefined) ?? true,
-      supportsFunctionCalling: (model.supportsFunctionCalling as boolean | undefined) ?? true,
+      supportsTemperature:
+        (model.supportsTemperature as boolean | undefined) ?? !isReasoning,
+      supportsStreaming:
+        (model.supportsStreaming as boolean | undefined) ?? true,
+      supportsFunctionCalling:
+        (model.supportsFunctionCalling as boolean | undefined) ?? true,
       supportsVision: (model.supportsVision as boolean | undefined) ?? false,
       tokenParamName:
         (model.tokenParamName as string | undefined) ??
         (isReasoning ? "max_completion_tokens" : "max_tokens"),
       defaultTimeoutMs:
-        (model.defaultTimeoutMs as number | undefined) ?? (isReasoning ? 300000 : 120000),
+        (model.defaultTimeoutMs as number | undefined) ??
+        (isReasoning ? 300000 : 120000),
       priceInputPerMillion: model.priceInputPerMillion
         ? Number(model.priceInputPerMillion)
         : undefined,
@@ -455,9 +462,14 @@ export class AiModelConfigService {
    * @param modelId 模型 ID（如 "gpt-4o", "gemini-2.0-flash", "claude-3-opus"）
    */
   async getModelConfig(modelId: string): Promise<AIModelConfig | null> {
-    // 检查缓存是否过期
+    // 检查缓存是否过期，共享 Promise 防止并发 stampede
     if (Date.now() - this.modelConfigCacheTime > this.MODEL_CONFIG_CACHE_TTL) {
-      await this.refreshModelConfigCache();
+      if (!this.refreshPromise) {
+        this.refreshPromise = this.refreshModelConfigCache().finally(() => {
+          this.refreshPromise = null;
+        });
+      }
+      await this.refreshPromise;
     }
 
     // ★ 预处理：去掉可能的 #N 后缀（AI 可能误生成的无效后缀）

@@ -2,7 +2,6 @@ import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import { AIErrorClassifier } from "../../../../common/ai-orchestration/error-classifier";
 import type { ChatMessage, ChatCompletionResult } from "./ai-chat.service";
 import type { TaskProfile } from "../types";
 import { TaskProfileMapperService } from "./task-profile-mapper.service";
@@ -10,6 +9,7 @@ import { AiModelConfigService } from "./ai-model-config.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiModelDiscoveryService } from "./ai-model-discovery.service";
 import { AiChatPromptService } from "./ai-chat-prompt.service";
+import { AiChatRetryService } from "./ai-chat-retry.service";
 
 /**
  * AI Direct Key Service
@@ -23,14 +23,13 @@ import { AiChatPromptService } from "./ai-chat-prompt.service";
 @Injectable()
 export class AiDirectKeyService {
   private readonly logger = new Logger(AiDirectKeyService.name);
-  private readonly errorClassifier = new AIErrorClassifier();
-  private readonly MAX_RETRIES = 3;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
     private readonly taskProfileMapper: TaskProfileMapperService,
     private readonly modelConfigService: AiModelConfigService,
+    private readonly retryService: AiChatRetryService,
     @Inject(forwardRef(() => AiImageGenerationService))
     private readonly imageGenerationService: AiImageGenerationService,
     @Inject(forwardRef(() => AiModelDiscoveryService))
@@ -287,7 +286,9 @@ export class AiDirectKeyService {
           );
       }
     } catch (error) {
-      const errorResponse = error as { response?: { data?: unknown; status?: number } };
+      const errorResponse = error as {
+        response?: { data?: unknown; status?: number };
+      };
       const errorDetails =
         error instanceof Error
           ? {
@@ -301,7 +302,9 @@ export class AiDirectKeyService {
         `API call failed for ${provider}: ${JSON.stringify(errorDetails)}`,
       );
 
-      const responseData = errorResponse.response?.data as { error?: { message?: string } } | undefined;
+      const responseData = errorResponse.response?.data as
+        | { error?: { message?: string } }
+        | undefined;
       const errorMessage =
         responseData?.error?.message ||
         (error instanceof Error ? error.message : "Unknown API error");
@@ -336,7 +339,10 @@ export class AiDirectKeyService {
     headers: Record<string, string>,
     modelName: string,
   ): Promise<ChatCompletionResult> {
-    const maxTokens = (body.max_completion_tokens as number | undefined) || (body.max_tokens as number | undefined) || 2048;
+    const maxTokens =
+      (body.max_completion_tokens as number | undefined) ||
+      (body.max_tokens as number | undefined) ||
+      2048;
     const isReasoning = this.modelConfigService.isReasoningModel(modelName);
     const baseTimeout = isReasoning ? 300000 : 120000;
     const maxTimeout = isReasoning ? 900000 : 600000;
@@ -358,21 +364,17 @@ export class AiDirectKeyService {
       );
     };
 
-    const messages = body.messages as Array<{ role: string; content: string }> | undefined;
-    const systemPromptTokens = messages?.find(
-      (m) => m.role === "system",
-    )?.content
-      ? estimateTokens(
-          messages.find((m) => m.role === "system")!.content,
-        )
+    const messages = body.messages as
+      | Array<{ role: string; content: string }>
+      | undefined;
+    const systemPromptTokens = messages?.find((m) => m.role === "system")
+      ?.content
+      ? estimateTokens(messages.find((m) => m.role === "system")!.content)
       : 0;
     const userTokens =
       messages
         ?.filter((m) => m.role === "user")
-        .reduce(
-          (sum, m) => sum + estimateTokens(m.content || ""),
-          0,
-        ) || 0;
+        .reduce((sum, m) => sum + estimateTokens(m.content || ""), 0) || 0;
     const totalEstimatedTokens = systemPromptTokens + userTokens;
 
     this.logger.debug(
@@ -384,7 +386,7 @@ export class AiDirectKeyService {
         `estimatedPromptTokens=${totalEstimatedTokens} (system=${systemPromptTokens}, user=${userTokens})`,
     );
 
-    return await this.withRetry(
+    return await this.retryService.withExponentialBackoff(
       async () => {
         const response = await firstValueFrom(
           this.httpService.post(url, body, {
@@ -509,7 +511,7 @@ export class AiDirectKeyService {
       Math.min(600000, 120000 + Math.ceil(maxTokens / 1000) * 15000),
     );
 
-    return await this.withRetry(
+    return await this.retryService.withExponentialBackoff(
       async () => {
         const response = await firstValueFrom(
           this.httpService.post(
@@ -770,7 +772,7 @@ export class AiDirectKeyService {
       }
     }
 
-    const response = await this.withRetry(
+    const response = await this.retryService.withExponentialBackoff(
       async () =>
         firstValueFrom(
           this.httpService.post(url, requestBody, {
@@ -792,7 +794,8 @@ export class AiDirectKeyService {
       const candidate = data.candidates[0];
       if (candidate.safetyRatings) {
         const blocked = candidate.safetyRatings.filter(
-          (r: { probability?: string; blocked?: boolean }) => r.probability === "HIGH" || r.blocked,
+          (r: { probability?: string; blocked?: boolean }) =>
+            r.probability === "HIGH" || r.blocked,
         );
         if (blocked.length > 0) {
           this.logger.warn(
@@ -994,51 +997,5 @@ export class AiDirectKeyService {
         (data.usageMetadata?.promptTokenCount || 0) +
         (data.usageMetadata?.candidatesTokenCount || 0),
     };
-  }
-
-  /**
-   * Execute an async operation with retry logic
-   */
-  private async withRetry<T>(
-    operation: () => Promise<T>,
-    operationName: string,
-    provider?: string,
-  ): Promise<T> {
-    let lastError: Error | null = null;
-
-    for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
-      try {
-        return await operation();
-      } catch (error) {
-        const aiError = this.errorClassifier.classify(error, provider);
-        lastError = aiError;
-
-        this.logger.warn(
-          `[${operationName}] Attempt ${attempt}/${this.MAX_RETRIES} failed: ${aiError.message} (type: ${aiError.type})`,
-        );
-
-        if (aiError.isRetryable() && attempt < this.MAX_RETRIES) {
-          const delay =
-            aiError.getRetryDelay() * Math.pow(2, attempt - 1) +
-            Math.random() * 500;
-          this.logger.debug(
-            `[${operationName}] Retrying in ${Math.round(delay)}ms...`,
-          );
-          await this.sleep(delay);
-          continue;
-        }
-
-        this.logger.error(
-          `[${operationName}] ${aiError.isRetryable() ? "Max retries exceeded" : "Non-retryable error"}: ${aiError.message}`,
-        );
-        throw aiError;
-      }
-    }
-
-    throw lastError || new Error(`${operationName} failed after all retries`);
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
