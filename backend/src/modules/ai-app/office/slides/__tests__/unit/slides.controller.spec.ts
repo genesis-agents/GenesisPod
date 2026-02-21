@@ -33,6 +33,8 @@ describe("SlidesController", () => {
   let checkpointService: jest.Mocked<CheckpointService>;
   let dataImportService: jest.Mocked<SlidesDataImportService>;
   let aiEditService: jest.Mocked<AIEditService>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let prismaService: any;
 
   beforeEach(async () => {
     // Create mock services
@@ -104,6 +106,7 @@ describe("SlidesController", () => {
     checkpointService = module.get(CheckpointService);
     dataImportService = module.get(SlidesDataImportService);
     aiEditService = module.get(AIEditService);
+    prismaService = module.get(PrismaService);
   });
 
   describe("Authentication", () => {
@@ -164,6 +167,56 @@ describe("SlidesController", () => {
         status: "active",
         limit: 10,
       });
+    });
+
+    it("should attach sourceSubscription to matching session and null for unmatched", async () => {
+      const mockSub = {
+        type: "topic-insights",
+        sourceId: "topic-1",
+        isStale: false,
+      };
+      checkpointService.getSessions.mockResolvedValue(mockSessions as any);
+      checkpointService.getLatestCheckpoint.mockResolvedValue(null as any);
+      // session-1 has a subscription; session-2 does not
+      prismaService.slidesMission.findMany.mockImplementation(() =>
+        Promise.resolve([
+          { sessionId: "session-1", sourceSubscription: mockSub },
+        ]),
+      );
+
+      const result = await controller.getSessions(
+        mockAuthenticatedRequest as any,
+        undefined,
+        undefined,
+      );
+
+      const sessions = (result as any).sessions as Array<{
+        id: string;
+        sourceSubscription: unknown;
+      }>;
+      const s1 = sessions.find((s) => s.id === "session-1");
+      const s2 = sessions.find((s) => s.id === "session-2");
+      expect(s1?.sourceSubscription).toEqual(mockSub);
+      expect(s2?.sourceSubscription).toBeNull();
+    });
+
+    it("should return null sourceSubscription for all sessions when no missions exist", async () => {
+      checkpointService.getSessions.mockResolvedValue(mockSessions as any);
+      checkpointService.getLatestCheckpoint.mockResolvedValue(null as any);
+      prismaService.slidesMission.findMany.mockImplementation(() =>
+        Promise.resolve([]),
+      );
+
+      const result = await controller.getSessions(
+        mockAuthenticatedRequest as any,
+        undefined,
+        undefined,
+      );
+
+      const sessions = (result as any).sessions as Array<{
+        sourceSubscription: unknown;
+      }>;
+      expect(sessions.every((s) => s.sourceSubscription === null)).toBe(true);
     });
   });
 

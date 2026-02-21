@@ -889,7 +889,7 @@ export class SlidesController {
     try {
       if (dto.action === "unsubscribe") {
         await this.prisma.slidesMission.updateMany({
-          where: { sessionId },
+          where: { sessionId, userId },
           data: {
             sourceSubscription: Prisma.JsonNull,
           },
@@ -899,7 +899,7 @@ export class SlidesController {
 
       // action === 'refresh'
       const latestMission = await this.prisma.slidesMission.findFirst({
-        where: { sessionId },
+        where: { sessionId, userId },
         orderBy: { createdAt: "desc" },
         select: { sourceSubscription: true, id: true },
       });

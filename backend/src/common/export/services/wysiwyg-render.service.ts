@@ -112,9 +112,7 @@ export class WysiwygRenderService implements OnModuleDestroy {
         timeout: 30000,
       });
       // Wait for fonts to load (max 5s); fall back to system fonts on timeout
-      await page
-        .waitForFunction(() => document.fonts.ready, { timeout: 5000 })
-        .catch(() => {});
+      await page.evaluate(() => document.fonts.ready).catch(() => {});
 
       const pageFormat = this.mapPageSize(options.pageSize);
       const margin = {
@@ -192,9 +190,7 @@ export class WysiwygRenderService implements OnModuleDestroy {
         waitUntil: "domcontentloaded",
         timeout: 30000,
       });
-      await page
-        .waitForFunction(() => document.fonts.ready, { timeout: 5000 })
-        .catch(() => {});
+      await page.evaluate(() => document.fonts.ready).catch(() => {});
 
       // 单张全页截图
       const screenshot = await page.screenshot({
@@ -271,9 +267,7 @@ export class WysiwygRenderService implements OnModuleDestroy {
         waitUntil: "domcontentloaded",
         timeout: 30000,
       });
-      await page
-        .waitForFunction(() => document.fonts.ready, { timeout: 5000 })
-        .catch(() => {});
+      await page.evaluate(() => document.fonts.ready).catch(() => {});
 
       // 获取内容总高度
       const contentHeight = await page.evaluate(
