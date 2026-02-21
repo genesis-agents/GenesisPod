@@ -21,6 +21,8 @@ export function RelatedResearchTab({ topicName }: RelatedResearchTabProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchProjects = async () => {
       try {
         const params = new URLSearchParams({
@@ -29,7 +31,7 @@ export function RelatedResearchTab({ topicName }: RelatedResearchTabProps) {
         });
         const resp = await fetch(
           `${config.apiBaseUrl}/api/v1/ai-studio/projects?${params.toString()}`,
-          { headers: getAuthHeader() }
+          { headers: getAuthHeader(), signal: controller.signal }
         );
         if (!resp.ok) throw new Error('Failed to fetch projects');
         const data = (await resp.json()) as {
@@ -39,12 +41,15 @@ export function RelatedResearchTab({ topicName }: RelatedResearchTabProps) {
         const list = data.data ?? data.projects ?? [];
         setProjects(list);
       } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
         logger.error('[RelatedResearchTab] fetch error:', err);
       } finally {
         setLoading(false);
       }
     };
     void fetchProjects();
+
+    return () => controller.abort();
   }, [topicName]);
 
   if (loading) {

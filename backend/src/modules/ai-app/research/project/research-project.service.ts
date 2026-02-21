@@ -359,11 +359,17 @@ export class ResearchProjectService {
         id?: string;
       };
       const topicData = topicResult.data ?? topicResult;
-      const newTopicId = topicData.id as string;
+      const newTopicId = topicData.id;
+
+      if (!newTopicId) {
+        throw new BadRequestException(
+          "Failed to get new topic ID from response",
+        );
+      }
 
       // Add first dimension from the output
       const dimName = dto.dimensionName || output.title.slice(0, 200);
-      await fetch(
+      const dimResp = await fetch(
         `${apiBase}/api/v1/topic-insights/topics/${newTopicId}/dimensions`,
         {
           method: "POST",
@@ -371,6 +377,15 @@ export class ResearchProjectService {
           body: JSON.stringify({ name: dimName, description: contentText }),
         },
       );
+
+      if (!dimResp.ok) {
+        this.logger.error(
+          `Failed to add dimension to new topic: ${dimResp.statusText}`,
+        );
+        throw new BadRequestException(
+          `Failed to add dimension: ${dimResp.statusText}`,
+        );
+      }
 
       return {
         success: true,

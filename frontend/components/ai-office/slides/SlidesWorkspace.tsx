@@ -8,7 +8,7 @@
  * - RightPanel (preview, AI chat)
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useSlidesStore, toast } from '@/stores';
@@ -24,9 +24,8 @@ import { logger } from '@/lib/utils/logger';
 import { formatDateSafe } from '@/lib/utils/date';
 import { useI18n } from '@/lib/i18n/i18n-context';
 import { useAuth } from '@/contexts/AuthContext';
-import { config } from '@/lib/utils/config';
 
-const API_SLIDES_BASE = `${config.apiUrl || ''}/ai-office/slides`;
+const API_SLIDES_BASE = '/api/ai-office/slides';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -61,6 +60,7 @@ export function SlidesWorkspace({
   } = useSlidesStore();
 
   const { generateWithTeam } = useSlideGenerationTeam();
+  const isRefreshingRef = useRef(false);
 
   const { createCheckpoint, restoreCheckpoint } = useCheckpoints();
   const { chatEdit, loading: chatLoading } = useChatEdit();
@@ -144,6 +144,8 @@ export function SlidesWorkspace({
 
   // Refresh subscription: fetch updated source text and re-generate
   const handleRefreshSubscription = useCallback(async () => {
+    if (isRefreshingRef.current) return;
+
     if (onRefreshSource) {
       onRefreshSource();
       return;
@@ -152,6 +154,7 @@ export function SlidesWorkspace({
     const currentSession = useSlidesStore.getState().session;
     if (!currentSession?.id) return;
 
+    isRefreshingRef.current = true;
     try {
       const response = await fetch(
         `${API_SLIDES_BASE}/sessions/${currentSession.id}/subscription`,
@@ -185,6 +188,8 @@ export function SlidesWorkspace({
       }
     } catch (err) {
       logger.error('[SlidesWorkspace] Refresh subscription failed:', err);
+    } finally {
+      isRefreshingRef.current = false;
     }
   }, [onRefreshSource, accessToken, generateWithTeam]);
 
