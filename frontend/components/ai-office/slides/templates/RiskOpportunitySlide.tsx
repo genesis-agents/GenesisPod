@@ -10,6 +10,7 @@
  */
 
 import React from 'react';
+import { AlertTriangle } from 'lucide-react';
 import type { RiskOpportunitySlideContent } from '@/types/slides';
 import '../styles/slide-tokens.css';
 
@@ -416,7 +417,13 @@ export function RiskOpportunitySlide({
                 borderRadius: 'var(--slide-radius-md)',
               }}
             >
-              <span style={{ fontSize: 'var(--slide-font-h3)' }}>⚠️</span>
+              <AlertTriangle
+                style={{
+                  color: 'var(--slide-status-down)',
+                  width: 'var(--slide-font-h3)',
+                  height: 'var(--slide-font-h3)',
+                }}
+              />
               <h3
                 style={{
                   fontSize: 'var(--slide-font-h3)',

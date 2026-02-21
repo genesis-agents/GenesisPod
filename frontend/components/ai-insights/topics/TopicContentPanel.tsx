@@ -20,6 +20,8 @@ import {
   Zap,
   Link2,
   FolderOpen,
+  CheckCircle2,
+  Search,
 } from 'lucide-react';
 import { QuickViewReport } from '../reports/QuickViewReport';
 import { ClientDate } from '@/components/common/ClientDate';
@@ -2995,7 +2997,7 @@ function ResearchCompleteCard({ msg }: { msg: UIMessage }) {
     <div className="rounded-lg border border-green-200 bg-green-50 p-4">
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-lg">✅</span>
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
           <span className="font-medium text-green-800">
             {dimName
               ? t('topicResearch.contentPanel.researchCompletedFor', {
@@ -3936,7 +3938,7 @@ function TeamInteractionTabContent({
           </div>
           <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">✅</span>
+              <CheckCircle2 className="h-6 w-6 text-green-700" />
               <div>
                 <div className="font-medium text-gray-900">
                   {t('topicResearch.contentPanel.reviewAndWrite')}
@@ -4822,7 +4824,7 @@ function AgentThinkingTabContent({
           </div>
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
             <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
-              <span>🔍</span> 研究员推理链
+              <Search className="h-4 w-4" /> 研究员推理链
             </div>
             <p className="mt-2 text-xs text-blue-600">
               信息检索 → 数据分析 → 关键发现 → 结论推导
@@ -4830,7 +4832,7 @@ function AgentThinkingTabContent({
           </div>
           <div className="rounded-lg border border-green-200 bg-green-50 p-4">
             <div className="flex items-center gap-2 text-sm font-medium text-green-700">
-              <span>✅</span> 审核反馈链
+              <CheckCircle2 className="h-4 w-4" /> 审核反馈链
             </div>
             <p className="mt-2 text-xs text-green-600">
               质量评估 → 一致性检查 → 改进建议 → 通过/拒绝决定

@@ -28,7 +28,25 @@ import ClientDate from '@/components/common/ClientDate';
 // DOME/SCORE Enhanced Components
 import StoryAnalysisDashboard from '@/components/ai-writing/StoryAnalysisDashboard';
 import HierarchicalSummaryTab from '@/components/ai-writing/HierarchicalSummaryTab';
-import { FileText, BarChart3, Download } from 'lucide-react';
+import {
+  FileText,
+  BarChart3,
+  Download,
+  CheckCircle2,
+  XCircle,
+  Zap,
+  Pencil,
+  RefreshCw,
+  Lightbulb,
+  Globe,
+  Paintbrush,
+  Map,
+  Building2,
+  Users,
+  User,
+  Settings,
+  Search,
+} from 'lucide-react';
 import { ExportDialog } from '@/components/common/ExportDialog';
 import { useTranslation } from '@/lib/i18n';
 
@@ -252,7 +270,7 @@ function ChapterContentStructured({
             <div>
               <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-600">
                 <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-amber-100">
-                  ⚡
+                  <Zap className="h-3 w-3 text-amber-600" />
                 </span>
                 事件 ({parsed.events.length})
               </div>
@@ -2040,7 +2058,11 @@ export default function WritingProjectPage() {
             }`}
           >
             <span className="text-lg">
-              {toast.type === 'success' ? '✅' : '❌'}
+              {toast.type === 'success' ? (
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+              ) : (
+                <XCircle className="h-5 w-5 text-red-600" />
+              )}
             </span>
             <span className="text-sm font-medium">{toast.message}</span>
             <button
@@ -2700,7 +2722,7 @@ export default function WritingProjectPage() {
                             {isMissionRunning ? (
                               <>
                                 <div className="mx-auto mb-4 flex h-12 w-12 animate-pulse items-center justify-center rounded-full bg-amber-100">
-                                  <span className="text-2xl">✍️</span>
+                                  <Pencil className="h-6 w-6 text-amber-600" />
                                 </div>
                                 <p className="text-sm text-gray-500">
                                   AI 团队正在创作，章节内容将实时显示在这里...
@@ -2708,7 +2730,7 @@ export default function WritingProjectPage() {
                               </>
                             ) : missionCompleted ? (
                               <>
-                                <span className="mb-4 text-4xl">✅</span>
+                                <CheckCircle2 className="mb-4 h-10 w-10 text-green-500" />
                                 <h3 className="mb-2 text-lg font-semibold text-gray-800">
                                   创作任务已完成
                                 </h3>
@@ -2716,12 +2738,12 @@ export default function WritingProjectPage() {
                                   onClick={() => fetchVolumes(projectId)}
                                   className="mt-4 inline-flex items-center gap-2 rounded-xl bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600"
                                 >
-                                  🔄 刷新内容
+                                  <RefreshCw className="h-4 w-4" /> 刷新内容
                                 </button>
                               </>
                             ) : (
                               <>
-                                <span className="mb-4 text-4xl">📝</span>
+                                <FileText className="mb-4 h-10 w-10 text-gray-300" />
                                 <h3 className="mb-2 text-lg font-semibold text-gray-800">
                                   开始你的创作
                                 </h3>
@@ -2764,7 +2786,7 @@ export default function WritingProjectPage() {
                         {storyBible.premise && (
                           <div className="rounded-xl bg-indigo-50 p-4">
                             <h3 className="mb-2 flex items-center gap-2 font-medium text-indigo-800">
-                              <span>💡</span> 核心概念
+                              <Lightbulb className="h-4 w-4" /> 核心概念
                             </h3>
                             <p className="whitespace-pre-wrap text-sm text-indigo-700">
                               {storyBible.premise}
@@ -2776,7 +2798,7 @@ export default function WritingProjectPage() {
                         {storyBible.theme && (
                           <div className="rounded-xl bg-purple-50 p-4">
                             <h3 className="mb-2 flex items-center gap-2 font-medium text-purple-800">
-                              <span>🎭</span> 主题
+                              <FileText className="h-4 w-4" /> 主题
                             </h3>
                             <p className="whitespace-pre-wrap text-sm text-purple-700">
                               {storyBible.theme}
@@ -2788,7 +2810,7 @@ export default function WritingProjectPage() {
                         {storyBible.worldType && (
                           <div className="rounded-xl bg-blue-50 p-4">
                             <h3 className="mb-2 flex items-center gap-2 font-medium text-blue-800">
-                              <span>🌍</span> 世界类型
+                              <Globe className="h-4 w-4" /> 世界类型
                             </h3>
                             <p className="whitespace-pre-wrap text-sm text-blue-700">
                               {storyBible.worldType}
@@ -2800,7 +2822,7 @@ export default function WritingProjectPage() {
                         {storyBible.tone && (
                           <div className="rounded-xl bg-amber-50 p-4">
                             <h3 className="mb-2 flex items-center gap-2 font-medium text-amber-800">
-                              <span>🎨</span> 基调风格
+                              <Paintbrush className="h-4 w-4" /> 基调风格
                             </h3>
                             <p className="whitespace-pre-wrap text-sm text-amber-700">
                               {storyBible.tone}
@@ -2815,7 +2837,7 @@ export default function WritingProjectPage() {
                           ).length > 0 && (
                             <div className="rounded-xl bg-green-50 p-4">
                               <h3 className="mb-3 flex items-center gap-2 font-medium text-green-800">
-                                <span>🗺️</span> 世界设定
+                                <Map className="h-4 w-4" /> 世界设定
                               </h3>
                               <div className="space-y-3">
                                 {storyBible.worldSettings
@@ -2972,7 +2994,7 @@ export default function WritingProjectPage() {
                           storyBible.factions.length > 0 && (
                             <div className="rounded-xl bg-rose-50 p-4">
                               <h3 className="mb-2 flex items-center gap-2 font-medium text-rose-800">
-                                <span>🏛️</span> 势力与组织
+                                <Building2 className="h-4 w-4" /> 势力与组织
                                 <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs">
                                   {storyBible.factions.length} 个势力
                                 </span>
@@ -3095,7 +3117,7 @@ export default function WritingProjectPage() {
                         {/* 角色设定 - 核心内容 */}
                         <div className="rounded-xl border border-emerald-200 bg-white p-4">
                           <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-emerald-800">
-                            <span>👥</span> 角色设定
+                            <Users className="h-4 w-4" /> 角色设定
                             {storyBible.characters && (
                               <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs">
                                 {storyBible.characters.length} 位角色
@@ -3397,7 +3419,7 @@ export default function WritingProjectPage() {
                         {/* 详细世界设定 */}
                         <div className="rounded-xl border border-green-200 bg-white p-4">
                           <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-green-800">
-                            <span>🗺️</span> 详细设定
+                            <Map className="h-4 w-4" /> 详细设定
                           </h3>
                           {storyBible.worldSettings &&
                           storyBible.worldSettings.length > 0 ? (
@@ -3566,21 +3588,21 @@ export default function WritingProjectPage() {
                                 if (msg.type === 'user') {
                                   return (
                                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-xs text-white">
-                                      👤
+                                      <User className="h-3 w-3" />
                                     </span>
                                   );
                                 }
                                 if (msg.type === 'system') {
                                   return (
                                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-400 text-xs text-white">
-                                      ⚙️
+                                      <Settings className="h-3 w-3" />
                                     </span>
                                   );
                                 }
                                 if (msg.type === 'progress') {
                                   return (
                                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-xs text-white">
-                                      📊
+                                      <BarChart3 className="h-3 w-3" />
                                     </span>
                                   );
                                 }
@@ -3683,7 +3705,8 @@ export default function WritingProjectPage() {
                                   {msg.detail.type === 'issues' && (
                                     <div className="space-y-2">
                                       <div className="font-medium text-gray-600">
-                                        🔍 发现的问题：
+                                        <Search className="mr-1 inline h-3 w-3" />{' '}
+                                        发现的问题：
                                       </div>
                                       {(
                                         msg.detail.data as Array<{
@@ -3721,7 +3744,8 @@ export default function WritingProjectPage() {
                                           </div>
                                           {issue.suggestion && (
                                             <div className="mt-1 text-gray-500">
-                                              💡 建议：{issue.suggestion}
+                                              <Lightbulb className="mr-1 inline h-3 w-3" />
+                                              建议：{issue.suggestion}
                                             </div>
                                           )}
                                         </div>

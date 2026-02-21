@@ -1,6 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  CheckCircle2,
+  XCircle,
+  Clock,
+  RefreshCw,
+  Eye,
+  ClipboardList,
+} from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import {
   WritingMission,
@@ -15,13 +23,20 @@ interface WritingMissionPanelProps {
 }
 
 // 状态图标映射
-const statusIcons: Record<WritingTaskStatus, string> = {
-  PENDING: '⏳',
-  IN_PROGRESS: '🔄',
-  COMPLETED: '✅',
-  FAILED: '❌',
-  REVIEWING: '👀',
-};
+function getStatusIcon(status: WritingTaskStatus) {
+  switch (status) {
+    case 'PENDING':
+      return <Clock className="h-4 w-4 text-gray-400" />;
+    case 'IN_PROGRESS':
+      return <RefreshCw className="h-4 w-4 text-blue-500" />;
+    case 'COMPLETED':
+      return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+    case 'FAILED':
+      return <XCircle className="h-4 w-4 text-red-500" />;
+    case 'REVIEWING':
+      return <Eye className="h-4 w-4 text-purple-500" />;
+  }
+}
 
 // 状态颜色映射
 const statusColors: Record<WritingTaskStatus, string> = {
@@ -43,7 +58,7 @@ export default function WritingMissionPanel({
   if (!mission) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-4 text-center">
-        <div className="mb-3 text-4xl">📋</div>
+        <ClipboardList className="mb-3 h-10 w-10 text-gray-300" />
         <p className="text-sm text-gray-500">
           {t('aiWriting.missionPanel.selectOrCreate')}
         </p>
@@ -111,10 +126,16 @@ export default function WritingMissionPanel({
 
         {/* 进度统计 */}
         <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
-          <span className="text-green-600">✅ {completedCount}</span>
-          <span className="text-blue-600">🔄 {inProgressCount}</span>
+          <span className="flex items-center gap-1 text-green-600">
+            <CheckCircle2 className="h-3 w-3" /> {completedCount}
+          </span>
+          <span className="flex items-center gap-1 text-blue-600">
+            <RefreshCw className="h-3 w-3" /> {inProgressCount}
+          </span>
           {failedCount > 0 && (
-            <span className="text-red-600">❌ {failedCount}</span>
+            <span className="flex items-center gap-1 text-red-600">
+              <XCircle className="h-3 w-3" /> {failedCount}
+            </span>
           )}
           <span className="text-gray-400">
             {t('aiWriting.missionPanel.totalTasks', { count: totalCount })}
@@ -262,7 +283,7 @@ function TaskItem({
       <button className="w-full px-3 py-2 text-left" onClick={onToggle}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span>{statusIcons[task.status]}</span>
+            {getStatusIcon(task.status)}
             <span className="text-sm font-medium text-gray-800">
               {task.name}
             </span>

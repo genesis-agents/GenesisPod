@@ -10,6 +10,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { CheckCircle2, XCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
 import type {
@@ -492,12 +493,18 @@ export function TopicTeamPanel({
         {/* Progress stats */}
         {hasMission && (
           <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
-            <span className="text-green-600">✅ {stats.completed}</span>
+            <span className="flex items-center gap-1 text-green-600">
+              <CheckCircle2 className="h-3 w-3" /> {stats.completed}
+            </span>
             {stats.executing > 0 && (
-              <span className="text-blue-600">🔄 {stats.executing}</span>
+              <span className="flex items-center gap-1 text-blue-600">
+                <RefreshCw className="h-3 w-3" /> {stats.executing}
+              </span>
             )}
             {stats.failed > 0 && (
-              <span className="text-red-600">❌ {stats.failed}</span>
+              <span className="flex items-center gap-1 text-red-600">
+                <XCircle className="h-3 w-3" /> {stats.failed}
+              </span>
             )}
             <span className="text-gray-400">
               {t('topicResearch.common.totalTasks', { count: stats.total })}
@@ -638,7 +645,7 @@ export function TopicTeamPanel({
         {error && (
           <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             <div className="mb-1 flex items-center gap-2 font-medium">
-              <span>⚠️</span>
+              <AlertTriangle className="h-4 w-4" />
               <span>{t('topicResearch.errors.startResearchFailed')}</span>
             </div>
             <p className="text-xs text-red-600">

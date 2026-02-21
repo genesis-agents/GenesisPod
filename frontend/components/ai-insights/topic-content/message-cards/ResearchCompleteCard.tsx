@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CheckCircle2, Lightbulb } from 'lucide-react';
 import type { UIMessage } from '../shared/types';
 import { safeString } from '@/lib/utils/common';
 import { useI18n } from '@/lib/i18n';
@@ -30,7 +31,7 @@ export function ResearchCompleteCard({ msg }: ResearchCompleteCardProps) {
     <div className="rounded-lg border border-green-200 bg-green-50 p-4">
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-lg">✅</span>
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
           <span className="font-medium text-green-800">
             {dimName
               ? t('topicResearch.messageCards.complete.dimensionCompleted', {
@@ -47,7 +48,7 @@ export function ResearchCompleteCard({ msg }: ResearchCompleteCardProps) {
       {keyFindings.length > 0 && (
         <div className="mt-3">
           <div className="mb-2 flex items-center gap-1.5">
-            <span className="text-sm">💡</span>
+            <Lightbulb className="h-4 w-4 text-gray-400" />
             <span className="text-xs font-medium text-gray-600">
               {t('topicResearch.messageCards.complete.keyFindings')}
             </span>

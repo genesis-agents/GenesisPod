@@ -222,7 +222,7 @@ export function ProfessionalDataManagementPage() {
         {/* Header with Title and Breadcrumb */}
         <div className="border-b border-gray-200 bg-white px-8 py-6">
           <div className="mb-4 flex items-center gap-3">
-            <span className="text-3xl">⚙️</span>
+            <Settings className="h-8 w-8 text-gray-600" />
             <div>
               <h1 className="text-3xl font-bold text-gray-900">数据采集管理</h1>
               <p className="mt-1 text-sm text-gray-500">

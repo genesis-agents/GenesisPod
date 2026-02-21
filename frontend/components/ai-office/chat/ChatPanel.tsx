@@ -486,7 +486,7 @@ export default function ChatPanel() {
         documentId: targetDocumentId,
         role: 'assistant' as const,
         content:
-          '💡 检测到您想生成文档！建议先在左侧选择相关资源，然后我可以帮您生成更专业的内容。\n\n或者，您可以直接描述需求，我会尽力帮您生成。',
+          '提示：检测到您想生成文档！建议先在左侧选择相关资源，然后我可以帮您生成更专业的内容。\n\n或者，您可以直接描述需求，我会尽力帮您生成。',
         timestamp: new Date(),
       };
       addMessage(targetDocumentId, hintMessage);
@@ -1456,7 +1456,7 @@ ${userInput || ''}
         id: Date.now().toString(),
         documentId: currentDocumentId,
         role: 'assistant' as const,
-        content: '✅ 文档已生成完成！您可以在右侧面板查看和编辑。',
+        content: '文档已生成完成！您可以在右侧面板查看和编辑。',
         timestamp: new Date(),
       };
       addMessage(currentDocumentId, successMessage);

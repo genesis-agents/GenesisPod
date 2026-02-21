@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Star, GitFork, AlertCircle, Users, Circle, Award } from 'lucide-react';
 import type { ProjectAISummary } from '@/types/ai-office';
 import ClientDate from '@/components/common/ClientDate';
 
@@ -17,22 +18,22 @@ interface ProjectAISummaryProps {
 const MaturityBadge: React.FC<{ maturity: string }> = ({ maturity }) => {
   const maturities = {
     alpha: {
-      emoji: '🔵',
+      icon: <Circle className="h-3 w-3 fill-blue-500 text-blue-500" />,
       label: 'Alpha',
       color: 'bg-blue-50 text-blue-700 border-blue-200',
     },
     beta: {
-      emoji: '🟢',
+      icon: <Circle className="h-3 w-3 fill-green-500 text-green-500" />,
       label: 'Beta',
       color: 'bg-green-50 text-green-700 border-green-200',
     },
     stable: {
-      emoji: '⭐',
+      icon: <Star className="h-3 w-3 text-yellow-500" />,
       label: 'Stable',
       color: 'bg-yellow-50 text-yellow-700 border-yellow-200',
     },
     mature: {
-      emoji: '🏆',
+      icon: <Award className="h-3 w-3 text-purple-500" />,
       label: 'Mature',
       color: 'bg-purple-50 text-purple-700 border-purple-200',
     },
@@ -43,7 +44,7 @@ const MaturityBadge: React.FC<{ maturity: string }> = ({ maturity }) => {
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-medium ${m.color}`}
     >
-      <span>{m.emoji}</span>
+      {m.icon}
       {m.label}
     </span>
   );
@@ -98,26 +99,26 @@ export const ProjectAISummaryComponent: React.FC<ProjectAISummaryProps> = ({
         {/* 项目指标 */}
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="flex items-center gap-1 text-gray-600">
-            <span>⭐</span>
+            <Star className="h-4 w-4 text-yellow-400" />
             <span className="font-semibold">
               {summary.activity.stars.toLocaleString()}
             </span>
             <span>Stars</span>
           </div>
           <div className="flex items-center gap-1 text-gray-600">
-            <span>🔀</span>
+            <GitFork className="h-4 w-4 text-gray-400" />
             <span className="font-semibold">
               {summary.activity.forks.toLocaleString()}
             </span>
             <span>Forks</span>
           </div>
           <div className="flex items-center gap-1 text-gray-600">
-            <span>❌</span>
+            <AlertCircle className="h-4 w-4 text-orange-400" />
             <span className="font-semibold">{summary.activity.openIssues}</span>
             <span>Issues</span>
           </div>
           <div className="flex items-center gap-1 text-gray-600">
-            <span>👥</span>
+            <Users className="h-4 w-4 text-gray-400" />
             <span className="font-semibold">
               {summary.activity.activeContributors}
             </span>

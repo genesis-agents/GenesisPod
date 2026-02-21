@@ -20,6 +20,8 @@ import {
   ChevronUp,
   LayoutGrid,
   List,
+  Zap,
+  BarChart3,
 } from 'lucide-react';
 import SandboxView from '@/components/ai-simulation/SandboxView';
 import {
@@ -1174,7 +1176,7 @@ export default function RunConsolePage() {
                                   {turn.adjudication.worldDelta
                                     .irrationalBias && (
                                     <div className="flex items-center gap-2 rounded bg-orange-50 px-2 py-1 text-orange-700">
-                                      <span>⚡</span>
+                                      <Zap className="h-4 w-4" />
                                       <span>非理性因素激活</span>
                                     </div>
                                   )}
@@ -1182,7 +1184,7 @@ export default function RunConsolePage() {
                                   {turn.adjudication.worldDelta
                                     .last_submissions && (
                                     <div className="flex items-center gap-2 text-gray-600">
-                                      <span>📊</span>
+                                      <BarChart3 className="h-4 w-4" />
                                       <span>
                                         本轮提交:{' '}
                                         {

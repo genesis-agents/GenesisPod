@@ -1299,7 +1299,7 @@ export default function SandboxView({
               <div className="max-h-[60vh] overflow-y-auto p-5">
                 <div className="mb-4">
                   <div className="mb-2 flex items-center gap-2">
-                    <span className="text-lg">⚡</span>
+                    <Zap className="h-5 w-5 text-purple-400" />
                     <h3 className="text-sm font-semibold text-purple-400">
                       事件描述
                     </h3>
