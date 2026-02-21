@@ -15,6 +15,7 @@
  */
 
 import { useMemo, useState, useCallback } from 'react';
+import { Award } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type {
   AgentInfo,
@@ -638,7 +639,7 @@ function AgentTooltip({
         <div className="flex items-center gap-1 font-medium text-gray-900">
           {agent.icon} {agent.name}
           {agent.type === 'leader' && (
-            <span className="ml-1 text-purple-600">👑</span>
+            <Award className="ml-1 h-3 w-3 text-purple-600" />
           )}
         </div>
         <div className="mt-0.5 text-gray-500">{agent.role}</div>
@@ -702,7 +703,9 @@ function AgentDetailModal({
               <div>
                 <h3 className="font-semibold text-gray-900">
                   {agent.name}
-                  {agent.type === 'leader' && <span className="ml-1">👑</span>}
+                  {agent.type === 'leader' && (
+                    <Award className="ml-1 h-4 w-4 text-purple-500" />
+                  )}
                 </h3>
                 <p className="text-xs text-gray-500">{agent.role}</p>
               </div>

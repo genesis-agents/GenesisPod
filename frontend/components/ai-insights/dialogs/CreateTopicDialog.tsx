@@ -416,13 +416,7 @@ export function CreateTopicDialog({
             Object.keys(topicConfig).length > 0 ? topicConfig : undefined,
         };
 
-        console.log('★ [CreateTopicDialog] Updating topic:', {
-          id: editTopic.id,
-          ...updateDto,
-        });
-
         const topic = await updateTopic(editTopic.id, updateDto);
-        console.log('★ [CreateTopicDialog] Updated topic:', topic);
         onCreated(topic);
         onClose();
       } else {
@@ -439,10 +433,7 @@ export function CreateTopicDialog({
             Object.keys(topicConfig).length > 0 ? topicConfig : undefined,
         };
 
-        console.log('★ [CreateTopicDialog] Creating topic:', dto);
-
         const topic = await createTopic(dto);
-        console.log('★ [CreateTopicDialog] Created topic:', topic);
         onCreated(topic);
         onClose();
       }

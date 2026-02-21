@@ -7,6 +7,9 @@ import {
   BarChart3,
   AlertCircle,
   TrendingUp,
+  RefreshCw,
+  AlertTriangle,
+  Star,
 } from 'lucide-react';
 import { CollectionConfigurationPanel } from './CollectionConfigurationPanel';
 
@@ -251,7 +254,7 @@ export function NewDataManagementPage() {
                   <span className="text-sm font-medium text-gray-700">
                     今日新增
                   </span>
-                  <div className="text-2xl text-green-600">📈</div>
+                  <TrendingUp className="h-6 w-6 text-green-600" />
                 </div>
                 <p className="mt-2 text-2xl font-bold text-green-900">
                   +{stats.todayCollected}
@@ -263,7 +266,7 @@ export function NewDataManagementPage() {
                   <span className="text-sm font-medium text-gray-700">
                     重复项
                   </span>
-                  <div className="text-2xl text-orange-600">🔄</div>
+                  <RefreshCw className="h-6 w-6 text-orange-600" />
                 </div>
                 <p className="mt-2 text-2xl font-bold text-orange-900">
                   {stats.duplicates}
@@ -275,7 +278,7 @@ export function NewDataManagementPage() {
                   <span className="text-sm font-medium text-gray-700">
                     需审核
                   </span>
-                  <div className="text-2xl text-yellow-600">⚠️</div>
+                  <AlertTriangle className="h-6 w-6 text-yellow-600" />
                 </div>
                 <p className="mt-2 text-2xl font-bold text-yellow-900">
                   {stats.needsReview}
@@ -287,7 +290,7 @@ export function NewDataManagementPage() {
                   <span className="text-sm font-medium text-gray-700">
                     质量评分
                   </span>
-                  <div className="text-2xl text-purple-600">⭐</div>
+                  <Star className="h-6 w-6 text-purple-600" />
                 </div>
                 <p className="mt-2 text-2xl font-bold text-purple-900">
                   {stats.qualityScore}/5

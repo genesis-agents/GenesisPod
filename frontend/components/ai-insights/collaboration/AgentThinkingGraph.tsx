@@ -10,6 +10,13 @@
  */
 
 import { useState, useMemo } from 'react';
+import {
+  Clock,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+} from 'lucide-react';
 import type {
   MissionStatus,
   TaskStatus,
@@ -426,19 +433,17 @@ function AgentTasksSection({ tasks }: AgentTasksSectionProps) {
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <span
-                  className={`text-sm font-medium ${statusColors[task.status]}`}
-                >
-                  {task.status === 'PENDING'
-                    ? '⏳'
-                    : task.status === 'EXECUTING'
-                      ? '🔄'
-                      : task.status === 'COMPLETED'
-                        ? '✅'
-                        : task.status === 'FAILED'
-                          ? '❌'
-                          : '⚠️'}
-                </span>
+                {task.status === 'PENDING' ? (
+                  <Clock className="h-4 w-4 text-gray-400" />
+                ) : task.status === 'EXECUTING' ? (
+                  <RefreshCw className="h-4 w-4 text-blue-500" />
+                ) : task.status === 'COMPLETED' ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                ) : task.status === 'FAILED' ? (
+                  <XCircle className="h-4 w-4 text-red-500" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-orange-500" />
+                )}
                 <span className="text-sm font-medium text-gray-700">
                   {task.title}
                 </span>

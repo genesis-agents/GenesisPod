@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Shield, Settings, BarChart3, Upload } from 'lucide-react';
 import { DataImportDialog } from './DataImportDialog';
 import { SourceWhitelistManager } from './SourceWhitelistManager';
 import { CollectionRuleManager } from './CollectionRuleManager';
@@ -119,7 +119,8 @@ export function DataManagementPage() {
                   : 'border-transparent text-gray-600 hover:text-gray-900'
               }`}
             >
-              🛡️ 白名单
+              <Shield className="mr-1 inline h-4 w-4" />
+              白名单
             </button>
             <button
               onClick={() => setActiveTab('rules')}
@@ -129,7 +130,8 @@ export function DataManagementPage() {
                   : 'border-transparent text-gray-600 hover:text-gray-900'
               }`}
             >
-              ⚙️ 采集规则
+              <Settings className="mr-1 inline h-4 w-4" />
+              采集规则
             </button>
             <button
               onClick={() => setActiveTab('monitor')}
@@ -139,7 +141,8 @@ export function DataManagementPage() {
                   : 'border-transparent text-gray-600 hover:text-gray-900'
               }`}
             >
-              📊 监控
+              <BarChart3 className="mr-1 inline h-4 w-4" />
+              监控
             </button>
             <button
               onClick={() => setActiveTab('quality')}
@@ -149,7 +152,8 @@ export function DataManagementPage() {
                   : 'border-transparent text-gray-600 hover:text-gray-900'
               }`}
             >
-              📤 质量
+              <Upload className="mr-1 inline h-4 w-4" />
+              质量
             </button>
           </div>
         </div>

@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Circle,
   Clock,
+  ClipboardList,
   Loader2,
   Pause,
   Play,
@@ -463,8 +464,9 @@ export function ResearchTodoList({
       {/* 表头：任务列表 + 统计 */}
       <div className="flex items-center justify-between border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-4 py-3">
         <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-gray-800">
-            📋 {t('topicResearch.researchControl.todoList.taskList')}
+          <span className="flex items-center gap-1 text-sm font-semibold text-gray-800">
+            <ClipboardList className="h-4 w-4" />
+            {t('topicResearch.researchControl.todoList.taskList')}
           </span>
           <span className="rounded-full bg-blue-500 px-2.5 py-0.5 text-xs font-medium text-white shadow-sm">
             {summary?.completed || 0}/{summary?.total || todos.length}
@@ -636,7 +638,6 @@ export function ResearchTodoList({
                               <span>
                                 {todo.dependsOn.length > 2 ? (
                                   <>
-                                    ⏳{' '}
                                     {t(
                                       'topicResearch.researchControl.todoList.waitingTasks',
                                       { count: todo.dependsOn.length }

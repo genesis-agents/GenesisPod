@@ -1,3 +1,4 @@
+import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { UIMessage } from '../shared/types';
 import { safeString } from '@/lib/utils/common';
 import { useI18n } from '@/lib/i18n';
@@ -21,7 +22,11 @@ export function ReviewCard({ msg }: ReviewCardProps) {
       }`}
     >
       <div className="flex items-center gap-2">
-        <span className="text-lg">{isPassed ? '✅' : '⚠️'}</span>
+        {isPassed ? (
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
+        ) : (
+          <AlertTriangle className="h-5 w-5 text-yellow-600" />
+        )}
         <span
           className={`font-medium ${isPassed ? 'text-green-800' : 'text-yellow-800'}`}
         >
