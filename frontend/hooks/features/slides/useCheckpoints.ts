@@ -11,7 +11,11 @@ import { useCallback, useState, useMemo } from 'react';
 import { useSlidesStore } from '@/stores';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
-import type { Checkpoint, CheckpointState } from '@/types/slides';
+import type {
+  Checkpoint,
+  CheckpointState,
+  SourceSubscription,
+} from '@/types/slides';
 import { logger } from '@/lib/utils/logger';
 
 const API_BASE = config.apiUrl || '';
@@ -263,6 +267,7 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         setCurrentCheckpointId(sessionData.latestCheckpoint.id);
 
         // 更新会话信息 - 转换日期
+        // sourceSubscription 从后端根级别返回（与 session 平级），需手动合并
         const { setSession } = useSlidesStore.getState();
         setSession({
           id: sessionData.session.id,
@@ -272,6 +277,9 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           currentCheckpointId: sessionData.session.currentCheckpointId,
           createdAt: new Date(sessionData.session.createdAt),
           updatedAt: new Date(sessionData.session.updatedAt),
+          sourceSubscription:
+            (sessionData.sourceSubscription as SourceSubscription | null) ??
+            null,
         });
 
         options.onRestoreSuccess?.(sessionData.latestCheckpoint.id);

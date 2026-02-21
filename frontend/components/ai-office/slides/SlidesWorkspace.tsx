@@ -178,12 +178,22 @@ export function SlidesWorkspace({
       };
 
       if (data.sourceText && currentSession.title) {
+        // Preserve crossModuleSource so the new Mission keeps the subscription
+        // and will continue to receive stale notifications on future source updates
+        const sub = currentSession.sourceSubscription;
         generateWithTeam({
           title: currentSession.title,
           sourceText: data.sourceText,
           userRequirement: '',
           stylePreference: 'dark',
           themeId: 'genspark-dark',
+          ...(sub && {
+            crossModuleSource: {
+              type: sub.type,
+              sourceId: sub.sourceId,
+              sourceName: sub.sourceName,
+            },
+          }),
         });
       }
     } catch (err) {
