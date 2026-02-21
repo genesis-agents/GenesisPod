@@ -347,6 +347,20 @@ export class WysiwygRenderService implements OnModuleDestroy {
     svg { max-width: 100%; }
     /* Captured styles */
     ${safeCss}
+    /* Export rendering overrides: reset viewport-constrained layout classes.
+       TipTap / flex-based UIs use overflow-hidden + flex-1 + h-full to create
+       scrollable panels inside the browser. In Puppeteer (no flex parent context),
+       flex-1 collapses to 0 height and overflow-hidden hides all content.
+       These overrides make every element expand to its natural content height. */
+    .flex-1 { flex: none !important; width: 100% !important; }
+    .h-full, .min-h-full { height: auto !important; min-height: 0 !important; }
+    .min-h-0 { min-height: 0 !important; }
+    .overflow-hidden { overflow: visible !important; }
+    .overflow-y-auto, .overflow-y-scroll { overflow-y: visible !important; }
+    .overflow-x-hidden { overflow-x: visible !important; }
+    /* ProseMirror / TipTap editor content */
+    .ProseMirror { outline: none !important; height: auto !important; }
+    [contenteditable] { height: auto !important; min-height: 0 !important; }
   </style>
 </head>
 <body>
