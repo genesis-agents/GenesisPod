@@ -122,7 +122,7 @@ export class LongTermMemoryService {
   /**
    * 语义搜索
    * TODO: 实际应使用向量数据库进行语义搜索
-   * 当前使用关键词匹配作为过渡方案
+   * 当前使用关键词匹配作为过渡方案（DB 层 ILIKE 过滤，避免全表扫描）
    */
   async search(
     query: string,
@@ -130,27 +130,52 @@ export class LongTermMemoryService {
   ): Promise<
     Array<{ key: string; value: unknown; score: number; metadata: unknown }>
   > {
-    const where: Prisma.LongTermMemoryWhereInput = {
-      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-    };
+    // 转义 ILIKE 特殊字符，防止 SQL 注入
+    const likePattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
+    const limit = options?.limit ?? 100;
+
+    // 动态构建 WHERE 条件（全部参数化）
+    const conditions: Prisma.Sql[] = [
+      Prisma.sql`(expires_at IS NULL OR expires_at > NOW())`,
+      Prisma.sql`(key ILIKE ${likePattern} OR CAST(value AS TEXT) ILIKE ${likePattern})`,
+    ];
 
     if (options?.userId) {
-      where.userId = options.userId;
+      conditions.push(Prisma.sql`user_id = ${options.userId}`);
     }
-
     if (options?.type) {
-      where.type = options.type;
+      conditions.push(Prisma.sql`type = ${options.type}`);
     }
-
     if (options?.tags && options.tags.length > 0) {
-      where.tags = { hasSome: options.tags };
+      conditions.push(Prisma.sql`tags && ${options.tags}::text[]`);
     }
 
-    const entries = await this.prisma.longTermMemory.findMany({
-      where,
-    });
+    const whereClause = Prisma.join(conditions, " AND ");
 
-    // 关键词匹配（模拟语义搜索）
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        id: string;
+        userId: string;
+        key: string;
+        value: unknown;
+        type: string | null;
+        importance: number | null;
+        tags: string[];
+        expiresAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }>
+    >(
+      Prisma.sql`
+        SELECT id, user_id AS "userId", key, value, type, importance, tags,
+               expires_at AS "expiresAt", created_at AS "createdAt", updated_at AS "updatedAt"
+        FROM long_term_memories
+        WHERE ${whereClause}
+        ORDER BY COALESCE(importance, 0.5) DESC
+        LIMIT ${limit}
+      `,
+    );
+
     const queryLower = query.toLowerCase();
     const results: Array<{
       key: string;
@@ -159,40 +184,33 @@ export class LongTermMemoryService {
       metadata: unknown;
     }> = [];
 
-    for (const entry of entries) {
-      const valueStr = JSON.stringify(entry.value).toLowerCase();
-      const keyLower = entry.key.toLowerCase();
+    for (const row of rows) {
+      const valueStr = JSON.stringify(row.value).toLowerCase();
+      const keyLower = row.key.toLowerCase();
+      const score = this.calculateSimpleScore(
+        queryLower,
+        valueStr,
+        keyLower,
+        row.importance,
+      );
 
-      if (valueStr.includes(queryLower) || keyLower.includes(queryLower)) {
-        const score = this.calculateSimpleScore(
-          queryLower,
-          valueStr,
-          keyLower,
-          entry.importance,
-        );
-
-        if (!options?.threshold || score >= options.threshold) {
-          results.push({
-            key: entry.key,
-            value: entry.value,
-            score,
-            metadata: {
-              type: entry.type,
-              importance: entry.importance,
-              tags: entry.tags,
-              createdAt: entry.createdAt,
-              updatedAt: entry.updatedAt,
-            },
-          });
-        }
+      if (!options?.threshold || score >= options.threshold) {
+        results.push({
+          key: row.key,
+          value: row.value,
+          score,
+          metadata: {
+            type: row.type,
+            importance: row.importance,
+            tags: row.tags,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+          },
+        });
       }
     }
 
     results.sort((a, b) => b.score - a.score);
-
-    if (options?.limit) {
-      return results.slice(0, options.limit);
-    }
 
     return results;
   }

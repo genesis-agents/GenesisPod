@@ -448,14 +448,60 @@ export abstract class PlanAgent<
   }
 
   /**
-   * 并行执行
+   * 并行执行子步骤（每批最多 3 个并发，Promise.allSettled 保证部分失败不中断整体）
    */
   private async executeParallel(
-    _step: ReActPlanStep,
-    _context: AgentContext,
+    step: ReActPlanStep,
+    context: AgentContext,
   ): Promise<unknown[]> {
-    // TODO: 实现并行执行逻辑
-    return [];
+    const subSteps = step.input as ReActPlanStep[] | undefined;
+
+    if (!Array.isArray(subSteps) || subSteps.length === 0) {
+      this.logger.warn(
+        `[executeParallel] Step ${step.id}: no substeps in input, returning []`,
+      );
+      return [];
+    }
+
+    if (context.signal?.aborted) {
+      throw new Error(
+        `[executeParallel] Execution cancelled before step ${step.id}`,
+      );
+    }
+
+    const CONCURRENCY = 3;
+    const results: unknown[] = [];
+
+    for (let i = 0; i < subSteps.length; i += CONCURRENCY) {
+      if (context.signal?.aborted) break;
+
+      const batch = subSteps.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.allSettled(
+        batch.map((subStep) => this.executeStep(subStep, context)),
+      );
+
+      for (const settled of batchResults) {
+        if (settled.status === "fulfilled" && settled.value.success) {
+          results.push(settled.value.output ?? null);
+        } else if (settled.status === "fulfilled" && !settled.value.success) {
+          this.logger.warn(
+            `[executeParallel] Sub-step ${settled.value.stepId} failed: ${settled.value.error}`,
+          );
+          results.push(null);
+        } else {
+          this.logger.warn(
+            `[executeParallel] Sub-step rejected unexpectedly: ${String((settled as PromiseRejectedResult).reason)}`,
+          );
+          results.push(null);
+        }
+      }
+    }
+
+    this.logger.log(
+      `[executeParallel] Step ${step.id}: ${subSteps.length} substeps → ${results.filter((r) => r !== null).length} succeeded`,
+    );
+
+    return results;
   }
 
   /**
