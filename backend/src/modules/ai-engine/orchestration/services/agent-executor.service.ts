@@ -40,7 +40,6 @@ interface CircuitBreakerState {
  */
 const DEFAULT_CONFIG: ExecutionConfig = {
   maxTokens: 4000,
-  temperature: 0.7,
   taskProfile: {
     creativity: "medium",
     outputLength: "medium",
@@ -180,7 +179,7 @@ export class AgentExecutorService implements IAgentExecutorService {
             context.systemPrompt,
             {
               maxTokens: mergedConfig.maxTokens,
-              temperature: mergedConfig.temperature,
+              taskProfile: mergedConfig.taskProfile,
               missionId: context.missionId,
             },
             modelConfig,
@@ -368,7 +367,7 @@ export class AgentExecutorService implements IAgentExecutorService {
     systemPrompt: string,
     options: {
       maxTokens?: number;
-      temperature?: number;
+      taskProfile?: ExecutionConfig["taskProfile"];
       missionId?: string;
     },
     modelConfig: Awaited<ReturnType<typeof this.getModelConfig>>,
@@ -392,7 +391,10 @@ export class AgentExecutorService implements IAgentExecutorService {
           ...messages,
         ] as Array<{ role: "system" | "user" | "assistant"; content: string }>,
         maxTokens: options.maxTokens || defaultMaxTokens,
-        temperature: options.temperature ?? 0.7,
+        taskProfile: options.taskProfile ?? {
+          creativity: "medium",
+          outputLength: "medium",
+        },
         apiKey: modelConfig.apiKey,
         apiEndpoint: modelConfig.apiEndpoint || undefined,
       });
@@ -404,7 +406,10 @@ export class AgentExecutorService implements IAgentExecutorService {
           ...messages,
         ] as Array<{ role: "system" | "user" | "assistant"; content: string }>,
         maxTokens: options.maxTokens || defaultMaxTokens,
-        temperature: options.temperature ?? 0.7,
+        taskProfile: options.taskProfile ?? {
+          creativity: "medium",
+          outputLength: "medium",
+        },
       });
     }
 
