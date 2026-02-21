@@ -12,7 +12,15 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Shield, Maximize2, X, RefreshCw, Zap, Link2 } from 'lucide-react';
+import {
+  Shield,
+  Maximize2,
+  X,
+  RefreshCw,
+  Zap,
+  Link2,
+  FolderOpen,
+} from 'lucide-react';
 import { QuickViewReport } from '../reports/QuickViewReport';
 import { ClientDate } from '@/components/common/ClientDate';
 import { useI18n } from '@/lib/i18n';
@@ -52,6 +60,8 @@ import { CredibilityPanel } from '../panels/CredibilityPanel';
 import { ResearchCollaborationPanel } from '../collaboration/ResearchCollaborationPanel';
 // 研究历史组件 - 简化版，显示会话列表 + 对比功能
 import { ResearchTimeline } from '../collaboration/ResearchTimeline';
+// 相关研究 Tab - 显示关联的 AI Research 项目
+import { RelatedResearchTab } from './RelatedResearchTab';
 // 反馈API - 用于将批注提交为反馈（统一使用 Core Feedback）
 import { apiClient } from '@/lib/api/client';
 // ★ 使用共享模块的引用导航回调
@@ -72,7 +82,8 @@ type TabType =
   | 'references'
   | 'credibility'
   | 'research_collab'
-  | 'history';
+  | 'history'
+  | 'related_research';
 
 // 研究事件类型
 export interface ResearchEvent {
@@ -178,6 +189,8 @@ interface TopicContentPanelProps {
   initialView?: string | null;
   /** ★ 是否有编辑权限（所有者或 EDITOR/ADMIN 协作者） */
   canEdit?: boolean;
+  /** 专题名称，用于相关研究 Tab 搜索 */
+  topicName?: string;
 }
 
 // Icons
@@ -396,6 +409,7 @@ export function TopicContentPanel({
   onDeleteReport,
   initialView,
   canEdit = false,
+  topicName,
 }: TopicContentPanelProps) {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -1053,6 +1067,11 @@ export function TopicContentPanel({
       label: t('topicResearch.contentPanel.tabs.references'),
       icon: <LinkIcon className="h-4 w-4" />,
       badge: report?.totalSources || safeEvidence.length,
+    },
+    {
+      key: 'related_research',
+      label: '相关研究',
+      icon: <FolderOpen className="h-4 w-4" />,
     },
   ];
 
@@ -1899,6 +1918,13 @@ export function TopicContentPanel({
               autoExpandId={autoExpandEvidenceId}
               onAutoExpandHandled={() => setAutoExpandEvidenceId(null)}
             />
+          )}
+          {activeTab === 'related_research' && (
+            <div className="h-full overflow-y-auto">
+              <RelatedResearchTab
+                topicName={topicName ?? report?.title ?? ''}
+              />
+            </div>
           )}
         </div>
 

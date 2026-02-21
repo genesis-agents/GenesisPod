@@ -10,6 +10,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTopicContent } from './TopicContentContext';
 import { ClientDate } from '@/components/common/ClientDate';
 import { useI18n } from '@/lib/i18n';
+import { DeepDiveButton } from './DeepDiveButton';
 
 // Icons
 const SpinnerIcon = ({ className }: { className?: string }) => (
@@ -56,7 +57,8 @@ export function TopicReferencesPanel({
   onAutoExpandHandled,
 }: TopicReferencesPanelProps) {
   const { t } = useI18n();
-  const { report, dimensions, evidence, isLoadingEvidence } = useTopicContent();
+  const { report, dimensions, evidence, isLoadingEvidence, topicId } =
+    useTopicContent();
 
   const safeEvidence = Array.isArray(evidence) ? evidence : [];
 
@@ -456,17 +458,27 @@ export function TopicReferencesPanel({
                           </span>
                         )}
                     </div>
-                    {item.url && (
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {t('topicResearch.topics.referencesPanel.original')} ↗
-                      </a>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {topicId && (
+                        <DeepDiveButton
+                          topicId={topicId}
+                          contextTitle={item.title}
+                          contextSummary={item.snippet?.slice(0, 200)}
+                          size="xs"
+                        />
+                      )}
+                      {item.url && (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {t('topicResearch.topics.referencesPanel.original')} ↗
+                        </a>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

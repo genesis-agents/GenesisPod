@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { safeString } from '@/lib/utils/common';
 import {
   Loader2,
@@ -14,9 +15,12 @@ import {
   X,
   Eye,
   EyeOff,
+  Presentation,
+  BookOpen,
 } from 'lucide-react';
 import { AudioPlayer } from './AudioPlayer';
 import type { AudioOverviewScript } from './AudioPlayer';
+import { SedimentToInsightsModal } from './SedimentToInsightsModal';
 
 interface Output {
   id: string;
@@ -277,6 +281,19 @@ export function OutputViewer({
   onRegenerate,
   onExport,
 }: OutputViewerProps) {
+  const router = useRouter();
+  const [showSedimentModal, setShowSedimentModal] = useState(false);
+
+  const handleGenerateSlides = () => {
+    const params = new URLSearchParams();
+    params.set('action', 'import');
+    params.set('sourceType', 'research-project');
+    params.set('sourceId', projectId);
+    params.set('outputId', output.id);
+    if (output.title) params.set('title', output.title);
+    router.push(`/ai-office/slides?${params.toString()}`);
+  };
+
   if (output.status === 'PENDING' || output.status === 'GENERATING') {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -324,6 +341,24 @@ export function OutputViewer({
       <div className="flex items-center justify-between border-b pb-4">
         <h2 className="text-lg font-semibold text-gray-900">{output.title}</h2>
         <div className="flex items-center gap-2">
+          {output.status === 'COMPLETED' && (
+            <button
+              onClick={handleGenerateSlides}
+              className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              <Presentation className="h-4 w-4" />
+              生成 PPT
+            </button>
+          )}
+          {output.status === 'COMPLETED' && (
+            <button
+              onClick={() => setShowSedimentModal(true)}
+              className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+            >
+              <BookOpen className="h-4 w-4" />
+              沉淀到洞察
+            </button>
+          )}
           <button
             onClick={onRegenerate}
             className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
@@ -345,6 +380,19 @@ export function OutputViewer({
       <div className="prose max-w-none">
         {renderOutputContent(output.type, content, output.id, projectId)}
       </div>
+
+      <SedimentToInsightsModal
+        isOpen={showSedimentModal}
+        onClose={() => setShowSedimentModal(false)}
+        projectId={projectId}
+        outputId={output.id}
+        outputTitle={output.title}
+        outputContent={
+          typeof output.content === 'string'
+            ? output.content.slice(0, 500)
+            : undefined
+        }
+      />
     </div>
   );
 }

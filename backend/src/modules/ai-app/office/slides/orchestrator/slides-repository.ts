@@ -163,6 +163,9 @@ export class SlidesRepository {
         pages: [],
         errors: [],
         metadata: {},
+        sourceSubscription: input.sourceSubscription
+          ? (input.sourceSubscription as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       },
     });
 

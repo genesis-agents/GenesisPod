@@ -403,4 +403,9 @@ export interface GenerateTeamRequest {
   stylePreference?: 'dark' | 'light' | 'custom';
   targetAudience?: string;
   themeId?: string;
+  crossModuleSource?: {
+    type: 'topic-insights' | 'research-project';
+    sourceId: string;
+    sourceName?: string;
+  };
 }

@@ -40,6 +40,7 @@ import {
   // Deprecated: Kept for backward compatibility during skill migration
   MultiModelService,
 } from "./slides";
+import { SourceSubscriptionService } from "./slides/services/source-subscription.service";
 
 // Agents
 import { AgentsController } from "./agents";
@@ -93,6 +94,7 @@ import { AiWritingModule } from "../writing/ai-writing.module";
     SlidesTeamOrchestrator, // v5.0: 主编排器
     SlidesRepository, // v5.0: 持久化层
     MultiModelService, // @deprecated: Kept for skill compatibility during migration
+    SourceSubscriptionService, // Phase 3: 来源订阅服务
   ],
   exports: [
     AIModelService,

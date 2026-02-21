@@ -62,7 +62,13 @@ const TABS: TabConfig[] = [
     id: 'research',
     label: 'AI Research',
     icon: <Search className="h-4 w-4" />,
-    description: '从研究报告导入',
+    description: '从洞察报告导入',
+  },
+  {
+    id: 'research-project',
+    label: 'AI 研究',
+    icon: <FileText className="h-4 w-4" />,
+    description: '从研究项目导入',
   },
   {
     id: 'writing',
@@ -104,6 +110,7 @@ export function SourceImportModal({
     error,
     fetchSources,
     importFromResearch,
+    importFromResearchProject,
     importFromWriting,
     importFromTeams,
   } = useDataImport();
@@ -136,6 +143,9 @@ export function SourceImportModal({
         case 'research':
           data = await importFromResearch(selectedSource);
           break;
+        case 'research-project':
+          data = await importFromResearchProject(selectedSource);
+          break;
         case 'writing':
           data = await importFromWriting(selectedSource);
           break;
@@ -158,6 +168,7 @@ export function SourceImportModal({
     activeTab,
     selectedSource,
     importFromResearch,
+    importFromResearchProject,
     importFromWriting,
     importFromTeams,
     onImport,
@@ -332,11 +343,13 @@ export function SourceImportModal({
                                 {source.metadata.pageCount}{' '}
                                 {activeTab === 'research'
                                   ? '个维度'
-                                  : activeTab === 'writing'
-                                    ? '卷'
-                                    : activeTab === 'teams'
-                                      ? '条消息'
-                                      : '项'}
+                                  : activeTab === 'research-project'
+                                    ? '个输出'
+                                    : activeTab === 'writing'
+                                      ? '卷'
+                                      : activeTab === 'teams'
+                                        ? '条消息'
+                                        : '项'}
                               </span>
                             )}
                           </div>

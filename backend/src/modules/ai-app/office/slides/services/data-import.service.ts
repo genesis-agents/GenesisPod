@@ -12,8 +12,10 @@ import { Injectable, Logger, NotFoundException, Inject } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   RESEARCH_DATA_EXPORT,
+  RESEARCH_PROJECT_DATA_EXPORT,
   WRITING_DATA_EXPORT,
   IResearchDataExport,
+  IResearchProjectDataExport,
   IWritingDataExport,
 } from "../../interfaces/data-export.interface";
 import {
@@ -64,6 +66,8 @@ export class SlidesDataImportService {
     private readonly prisma: PrismaService,
     @Inject(RESEARCH_DATA_EXPORT)
     private readonly researchExport: IResearchDataExport,
+    @Inject(RESEARCH_PROJECT_DATA_EXPORT)
+    private readonly researchProjectExport: IResearchProjectDataExport,
     @Inject(WRITING_DATA_EXPORT)
     private readonly writingExport: IWritingDataExport,
   ) {}
@@ -148,6 +152,58 @@ export class SlidesDataImportService {
         title: data.name,
         createdAt: data.createdAt,
         language: data.language || "zh",
+      },
+    };
+  }
+
+  // ============================================
+  // Import from AI Research Project
+  // ============================================
+
+  /**
+   * Import data from AI Research Project
+   * @param projectId - Research project ID
+   * @param userId - User ID for access control
+   * @returns Unified SlidesSourceData structure
+   */
+  async importFromResearchProject(
+    projectId: string,
+    userId: string,
+  ): Promise<SlidesSourceData> {
+    this.logger.log(`Importing from Research project: ${projectId}`);
+
+    const data = await this.researchProjectExport.getProjectForExport(
+      projectId,
+      userId,
+    );
+
+    // Build sections from completed outputs
+    const sections: SourceSection[] = data.outputs.map((output, index) => ({
+      title: output.title,
+      content: output.content || "",
+      order: index,
+    }));
+
+    // Build sourceText from output contents, capped at MAX_SOURCE_TEXT_RESEARCH
+    const sourceText = this.buildResearchSourceText(
+      data.name,
+      sections,
+      data.description,
+    );
+
+    this.logger.log(
+      `[importFromResearchProject] sourceText built: ${sourceText.length} chars ` +
+        `(from ${sections.length} outputs)`,
+    );
+
+    return {
+      sourceText,
+      sourceType: "research-project" as SlidesSourceType,
+      sourceId: projectId,
+      sections,
+      metadata: {
+        title: data.name,
+        createdAt: data.createdAt,
       },
     };
   }
@@ -382,6 +438,27 @@ export class SlidesDataImportService {
       createdAt: t.createdAt,
       metadata: {
         pageCount: t.dimensionCount,
+      },
+    }));
+  }
+
+  /**
+   * List available Research projects for import
+   */
+  async listResearchProjects(userId: string): Promise<SourceListItem[]> {
+    const projects = await this.researchProjectExport.listProjectsForExport(
+      userId,
+      IMPORT_CONFIG.DEFAULT_LIST_LIMIT,
+    );
+
+    return projects.map((p) => ({
+      id: p.id,
+      title: p.name,
+      type: "research-project" as SlidesSourceType,
+      preview: p.description || undefined,
+      createdAt: p.createdAt,
+      metadata: {
+        pageCount: p.outputCount,
       },
     }));
   }

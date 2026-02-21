@@ -10,7 +10,13 @@
  * - 渲染后端返回的 HTML 页面
  */
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  Suspense,
+} from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -55,6 +61,7 @@ import type { PageState, GenerationProgress } from '@/types/slides';
 import { sanitizeSlideHtml } from '@/lib/utils/sanitize';
 import { useI18n } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
+import { AutoImportFlow } from '@/components/ai-office/slides/AutoImportFlow';
 // ============================================
 // Agent 图标映射
 // ============================================
@@ -300,6 +307,35 @@ export default function SlidesPage() {
     });
   }, [inputText, title, generateWithTeam]);
 
+  // 自动导入触发生成（用于跨模块导入流程）
+  const handleAutoImport = useCallback(
+    (options: {
+      title: string;
+      sourceText: string;
+      userRequirement?: string;
+      stylePreference?: string;
+      themeId?: string;
+      crossModuleSource?: {
+        type: 'topic-insights' | 'research-project';
+        sourceId: string;
+        sourceName?: string;
+      };
+    }) => {
+      generateWithTeam({
+        title: options.title || '演示文稿',
+        sourceText: options.sourceText,
+        userRequirement: options.userRequirement || '',
+        stylePreference:
+          (options.stylePreference as 'dark' | 'light' | 'custom') || 'dark',
+        themeId: options.themeId || 'genspark-dark',
+        ...(options.crossModuleSource && {
+          crossModuleSource: options.crossModuleSource,
+        }),
+      });
+    },
+    [generateWithTeam]
+  );
+
   // 重置
   const handleReset = useCallback(() => {
     resetStore();
@@ -328,6 +364,9 @@ export default function SlidesPage() {
 
   return (
     <AppShell>
+      <Suspense fallback={null}>
+        <AutoImportFlow onGenerate={handleAutoImport} />
+      </Suspense>
       <div ref={containerRef} className="flex flex-1 overflow-hidden">
         {/* 左侧面板：输入 + 进度 */}
         <div

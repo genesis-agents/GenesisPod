@@ -468,6 +468,14 @@ export class TopicInsightsService {
       `[regenerateReportContent] Report ${reportId} regenerated successfully`,
     );
 
+    // 通知订阅了此专题的 PPT 来源已刷新
+    const topicId = report.topic.id;
+    this.eventEmitter.emit("topic-insights.report.refreshed", {
+      topicId,
+      reportId,
+      refreshedAt: new Date(),
+    });
+
     return {
       success: true,
       report: updatedReport,

@@ -271,6 +271,15 @@ export interface SlidesExecutionError {
 // 输入/输出定义
 // ============================================
 
+export interface SourceSubscriptionData {
+  type: string;
+  sourceId: string;
+  sourceName?: string;
+  subscribedAt: string;
+  lastSourceUpdatedAt: string;
+  isStale: boolean;
+}
+
 export interface SlidesTeamOrchestratorInput {
   userId: string;
   sessionId: string;
@@ -280,6 +289,7 @@ export interface SlidesTeamOrchestratorInput {
   stylePreference?: "dark" | "light";
   themeId?: string;
   targetAudience?: string;
+  sourceSubscription?: SourceSubscriptionData;
 }
 
 export interface SlidesTeamOrchestratorOutput {

@@ -66,6 +66,13 @@ export interface SlidesGenerateInput {
 
   /** 目标受众（可选） */
   targetAudience?: string;
+
+  /** 跨模块来源（可选），用于追踪 PPT 从哪个模块内容生成 */
+  crossModuleSource?: {
+    type: "topic-insights" | "research-project";
+    sourceId: string;
+    sourceName?: string;
+  };
 }
 
 // Re-export StreamEvent for convenience
@@ -378,6 +385,7 @@ export class SlidesEngineService {
     this.logger.log(`[generateSlides] execution:started event sent`);
 
     // 3. 构建 SlidesTeamOrchestrator 输入
+    const now = new Date().toISOString();
     const orchestratorInput: SlidesTeamOrchestratorInput = {
       userId: input.userId,
       sessionId,
@@ -387,6 +395,16 @@ export class SlidesEngineService {
       stylePreference: input.stylePreference || "dark",
       themeId: input.themeId || "genspark-dark",
       targetAudience: input.targetAudience,
+      sourceSubscription: input.crossModuleSource
+        ? {
+            type: input.crossModuleSource.type,
+            sourceId: input.crossModuleSource.sourceId,
+            sourceName: input.crossModuleSource.sourceName,
+            subscribedAt: now,
+            lastSourceUpdatedAt: now,
+            isStale: false,
+          }
+        : undefined,
     };
 
     // 4. 心跳/缓冲区刷新间隔（不再只是空心跳）

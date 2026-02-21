@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslation } from '@/lib/i18n';
+import { RelatedTopicsHint } from './RelatedTopicsHint';
 
 interface CreateProjectDialogProps {
   isOpen: boolean;
@@ -56,6 +57,7 @@ export function CreateProjectDialog({
             className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
             maxLength={500}
           />
+          <RelatedTopicsHint keyword={projectName} />
         </div>
         <div className="mt-6 flex justify-end gap-3">
           <button

@@ -29,7 +29,12 @@ function getAuthHeaders(accessToken: string | null): HeadersInit {
 // Types
 // ============================================
 
-export type SlidesSourceType = 'research' | 'writing' | 'teams' | 'library';
+export type SlidesSourceType =
+  | 'research'
+  | 'research-project'
+  | 'writing'
+  | 'teams'
+  | 'library';
 
 export interface SourceListItem {
   id: string;
@@ -260,6 +265,47 @@ export function useDataImport() {
     [user?.id, authHeaders]
   );
 
+  // Import from Research Project
+  const importFromResearchProject = useCallback(
+    async (
+      projectId: string,
+      outputId?: string
+    ): Promise<SlidesSourceData | null> => {
+      if (!user?.id) {
+        setError('User not authenticated');
+        return null;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const url = outputId
+          ? `/api/ai-office/slides/import/research-project/${projectId}?outputId=${outputId}`
+          : `/api/ai-office/slides/import/research-project/${projectId}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: authHeaders,
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to import from research project');
+        }
+
+        const result = await response.json();
+        return result.data?.data || result.data || null;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Import failed';
+        logger.error('[useDataImport] importFromResearchProject error:', err);
+        setError(message);
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [user?.id, authHeaders]
+  );
+
   // Import from Library
   const importFromLibrary = useCallback(
     async (resourceIds: string[]): Promise<Asset[]> => {
@@ -301,6 +347,7 @@ export function useDataImport() {
     error,
     fetchSources,
     importFromResearch,
+    importFromResearchProject,
     importFromWriting,
     importFromTeams,
     importFromLibrary,

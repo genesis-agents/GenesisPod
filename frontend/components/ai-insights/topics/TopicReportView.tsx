@@ -25,6 +25,8 @@ import { ReportRevisionHistory } from '../reports/ReportRevisionHistory';
 import { ReportAnnotations } from '../annotations/ReportAnnotations';
 import { useTopicContent } from './TopicContentContext';
 import type { ReportAnnotation } from './TopicContentContext';
+import { GenerateSlidesButton } from './GenerateSlidesButton';
+import { DeepDiveButton } from './DeepDiveButton';
 
 import { logger } from '@/lib/utils/logger';
 // Icons
@@ -325,6 +327,23 @@ export function TopicReportView({
 
         {/* Right: Action buttons */}
         <div className="flex items-center gap-2">
+          {/* DeepDive button */}
+          {topicId && report && (
+            <DeepDiveButton
+              topicId={topicId}
+              contextTitle={report.title || '深入研究'}
+              contextSummary={report.title || undefined}
+            />
+          )}
+
+          {/* Generate Slides button */}
+          {report && topicId && (
+            <GenerateSlidesButton
+              topicId={topicId}
+              topicName={report.title || undefined}
+            />
+          )}
+
           {/* Regenerate button */}
           <button
             onClick={handleRegenerateReport}

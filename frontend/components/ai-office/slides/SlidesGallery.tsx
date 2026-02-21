@@ -25,6 +25,7 @@ import type { SessionWithCheckpoint } from '@/hooks/features/slides';
 import type { SlidesHistoryItem } from '@/stores';
 import { formatRelativeTime } from '@/stores';
 import { useI18n } from '@/lib/i18n/i18n-context';
+import { SourceUpdateBadge } from './SourceUpdateBadge';
 
 // ============================================================================
 // 主题渐变映射（内部常量，不 export）
@@ -380,6 +381,13 @@ function BackendSessionCard({
             {formatRelativeTime(new Date(session.updatedAt))}
           </span>
         </div>
+        {session.sourceSubscription?.isStale && (
+          <div className="mt-1.5">
+            <SourceUpdateBadge
+              sourceName={session.sourceSubscription.sourceName}
+            />
+          </div>
+        )}
       </div>
 
       {/* 操作菜单 */}
@@ -556,6 +564,11 @@ function BackendSessionListItem({
                   session.latestCheckpoint.pagesCount > 0
                 }
               />
+              {session.sourceSubscription?.isStale && (
+                <SourceUpdateBadge
+                  sourceName={session.sourceSubscription.sourceName}
+                />
+              )}
             </div>
           </>
         )}

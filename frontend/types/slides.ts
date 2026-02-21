@@ -469,6 +469,15 @@ export interface CheckpointMetadata {
 // 会话类型
 // ============================================================================
 
+export interface SourceSubscription {
+  type: 'topic-insights' | 'research-project';
+  sourceId: string;
+  sourceName?: string;
+  subscribedAt: string;
+  lastSourceUpdatedAt: string;
+  isStale: boolean;
+}
+
 export interface SlidesSession {
   id: string;
   userId: string;
@@ -477,6 +486,7 @@ export interface SlidesSession {
   currentCheckpointId?: string;
   createdAt: Date;
   updatedAt: Date;
+  sourceSubscription?: SourceSubscription | null;
 }
 
 // ============================================================================

@@ -7,6 +7,7 @@ import {
   IsBoolean,
   MaxLength,
   IsObject,
+  IsNotEmpty,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
@@ -59,6 +60,20 @@ export class CreateStudioProjectDto {
   @IsOptional()
   @IsEnum(["FAST", "DEEP"])
   researchType?: "FAST" | "DEEP";
+
+  @ApiPropertyOptional({
+    description: "跨模块来源引用（从其他模块跳转创建时携带）",
+  })
+  @IsOptional()
+  @IsObject()
+  crossModuleSource?: {
+    module: string;
+    sourceId: string;
+    dimensionId?: string;
+    contextTitle: string;
+    contextSummary?: string;
+    linkedAt: string;
+  };
 }
 
 export class UpdateProjectDto {
@@ -242,6 +257,46 @@ export class GenerateOutputDto {
   @IsOptional()
   @IsObject()
   options?: Record<string, unknown>;
+}
+
+// ==================== Sediment DTOs ====================
+
+export class SedimentToInsightsDto {
+  @IsString()
+  @IsNotEmpty()
+  outputId!: string;
+
+  @IsEnum(["add_dimension", "new_topic"])
+  mode!: "add_dimension" | "new_topic";
+
+  // For add_dimension mode
+  @IsOptional()
+  @IsString()
+  targetTopicId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  dimensionName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  dimensionDescription?: string;
+
+  // For new_topic mode
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  topicName?: string;
+
+  @IsOptional()
+  @IsString()
+  topicType?: string;
+
+  @IsOptional()
+  @IsString()
+  topicDescription?: string;
 }
 
 // ==================== Search DTOs ====================

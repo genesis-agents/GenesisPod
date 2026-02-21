@@ -2193,6 +2193,10 @@ model ResearchProject {
   updatedAt    DateTime  @updatedAt @map("updated_at")
   lastAccessAt DateTime? @map("last_access_at")
 
+  // 跨模块来源引用（跨模块创建时记录）
+  crossModuleSource Json? @map("cross_module_source")
+  // JSON 结构: { module: "topic-insights", sourceId, dimensionId?, contextTitle, contextSummary, linkedAt }
+
   // 关系
   user                 User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
   sources              ResearchProjectSource[]
@@ -4781,6 +4785,10 @@ model SlidesMission {
   // 元数据
   metadata Json @default("{}")
 
+  // 来源订阅（跨模块关联）
+  sourceSubscription Json? @map("source_subscription")
+  // JSON 结构: { type: "topic-insights"|"ai-studio", sourceId, sourceName, subscribedAt, lastSourceUpdatedAt, isStale }
+
   // 时间戳
   createdAt   DateTime  @default(now()) @map("created_at")
   startedAt   DateTime? @map("started_at")
@@ -6496,6 +6504,10 @@ model ResearchTopic {
   // ========== 统计数据 ==========
   totalReports Int @default(0) @map("total_reports") // 生成的报告总数
   totalSources Int @default(0) @map("total_sources") // 收集的来源总数
+
+  // 关联研究项目 ID 列表（从 AI 研究沉淀过来的项目）
+  linkedResearchIds Json? @default("[]") @map("linked_research_ids")
+  // JSON 结构: string[] - 关联的 Research Project ID 列表
 
   // ========== 时间戳 ==========
   createdAt DateTime @default(now()) @map("created_at")

@@ -13,7 +13,7 @@ import {
   useMemo,
   Suspense,
 } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
@@ -79,6 +79,7 @@ function getProjectGradient(projectId: string) {
 
 function ResearchPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useTranslation();
   const { user, isLoading: authLoading } = useAuth();
 
@@ -87,6 +88,11 @@ function ResearchPageContent() {
   const [isCreating, setIsCreating] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
+  const [crossModuleSource, setCrossModuleSource] = useState<{
+    fromTopicId: string;
+    contextTitle: string;
+    contextSummary?: string;
+  } | null>(null);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
@@ -155,7 +161,18 @@ function ResearchPageContent() {
               'Content-Type': 'application/json',
               ...getAuthHeader(),
             },
-            body: JSON.stringify({ name: trimmedName }),
+            body: JSON.stringify({
+              name: trimmedName,
+              ...(crossModuleSource && {
+                crossModuleSource: {
+                  module: 'topic-insights',
+                  sourceId: crossModuleSource.fromTopicId,
+                  contextTitle: crossModuleSource.contextTitle,
+                  contextSummary: crossModuleSource.contextSummary,
+                  linkedAt: new Date().toISOString(),
+                },
+              }),
+            }),
           }
         );
         if (!response.ok) {
@@ -171,7 +188,7 @@ function ResearchPageContent() {
         setIsCreating(false);
       }
     },
-    [isCreating, t, router]
+    [isCreating, t, router, crossModuleSource]
   );
 
   const handleRename = useCallback(
@@ -240,6 +257,23 @@ function ResearchPageContent() {
       void fetchProjects();
     }
   }, [user, fetchProjects]);
+
+  // Read URL params on mount to support cross-module navigation pre-fill
+  useEffect(() => {
+    const action = searchParams?.get('action');
+    if (action !== 'create') return;
+
+    const fromTopicId = searchParams?.get('fromTopicId');
+    const contextTitle = searchParams?.get('contextTitle');
+    const contextSummary = searchParams?.get('contextSummary') || undefined;
+
+    if (!fromTopicId || !contextTitle) return;
+
+    const prefilledName = `深入研究：${contextTitle}`.slice(0, 200);
+    setNewProjectName(prefilledName);
+    setCrossModuleSource({ fromTopicId, contextTitle, contextSummary });
+    setShowCreateDialog(true);
+  }, []); // Run only once on mount - intentionally empty deps to avoid re-triggering
 
   // Filter projects by search query
   const filteredProjects = useMemo(

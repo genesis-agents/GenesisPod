@@ -14,6 +14,9 @@
 // ============================================
 
 export const RESEARCH_DATA_EXPORT = Symbol("RESEARCH_DATA_EXPORT");
+export const RESEARCH_PROJECT_DATA_EXPORT = Symbol(
+  "RESEARCH_PROJECT_DATA_EXPORT",
+);
 export const WRITING_DATA_EXPORT = Symbol("WRITING_DATA_EXPORT");
 
 // ============================================
@@ -63,6 +66,46 @@ export interface IResearchDataExport {
     userId: string,
     limit?: number,
   ): Promise<IResearchListItem[]>;
+}
+
+// ============================================
+// Research Project Export Contract
+// ============================================
+
+export interface IResearchProjectListItem {
+  id: string;
+  name: string;
+  description: string | null;
+  researchType: string;
+  createdAt: Date;
+  outputCount: number;
+}
+
+export interface IExportableResearchProjectData {
+  id: string;
+  name: string;
+  description: string | null;
+  researchType: string;
+  createdAt: Date;
+  outputs: Array<{
+    id: string;
+    type: string;
+    title: string;
+    status: string;
+    content: string | null;
+  }>;
+}
+
+export interface IResearchProjectDataExport {
+  getProjectForExport(
+    projectId: string,
+    userId: string,
+  ): Promise<IExportableResearchProjectData>;
+
+  listProjectsForExport(
+    userId: string,
+    limit?: number,
+  ): Promise<IResearchProjectListItem[]>;
 }
 
 // ============================================

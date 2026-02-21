@@ -38,6 +38,7 @@ import {
   UpdateNoteDto,
   GenerateOutputDto,
   SearchSourcesDto,
+  SedimentToInsightsDto,
 } from "./dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { parsePagination } from "../../../../common/utils/pagination.utils";
@@ -651,5 +652,28 @@ export class ResearchProjectController {
       available: this.ttsService.isAvailable(),
       provider: this.ttsService.getProvider(),
     };
+  }
+
+  // ==================== Sediment ====================
+
+  /**
+   * Sediment research output to AI Insights
+   */
+  @Post("projects/:projectId/sediment")
+  @ApiOperation({ summary: "沉淀研究成果到 AI 洞察" })
+  @ApiResponse({ status: 201, description: "沉淀成功" })
+  async sedimentToInsights(
+    @Request() req: RequestWithUser,
+    @Param("projectId") projectId: string,
+    @Body() dto: SedimentToInsightsDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+
+    const authHeader = req.headers?.authorization ?? "";
+    const token = authHeader.replace("Bearer ", "");
+    return this.studioService.sedimentToInsights(userId, projectId, dto, token);
   }
 }
