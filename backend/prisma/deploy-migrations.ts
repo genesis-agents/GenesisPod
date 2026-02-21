@@ -606,6 +606,55 @@ async function deploy(): Promise<void> {
     } else {
       console.log("   OK research_ideas & research_demos tables");
     }
+
+    // Check cross-module linking columns (20260220_cross_module_linking)
+    const slidesMissionSourceSubscriptionCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'slides_missions' AND column_name = 'source_subscription'
+      ) as exists
+    `;
+    if (!slidesMissionSourceSubscriptionCheck[0]?.exists) {
+      console.log("   Adding slides_missions.source_subscription column...");
+      await prisma.$executeRaw`ALTER TABLE "slides_missions" ADD COLUMN IF NOT EXISTS "source_subscription" JSONB`;
+      console.log("   Added slides_missions.source_subscription");
+    } else {
+      console.log("   OK slides_missions.source_subscription");
+    }
+
+    const researchProjectCrossModuleSourceCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'research_projects' AND column_name = 'cross_module_source'
+      ) as exists
+    `;
+    if (!researchProjectCrossModuleSourceCheck[0]?.exists) {
+      console.log("   Adding research_projects.cross_module_source column...");
+      await prisma.$executeRaw`ALTER TABLE "research_projects" ADD COLUMN IF NOT EXISTS "cross_module_source" JSONB`;
+      console.log("   Added research_projects.cross_module_source");
+    } else {
+      console.log("   OK research_projects.cross_module_source");
+    }
+
+    const researchTopicLinkedResearchIdsCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'research_topics' AND column_name = 'linked_research_ids'
+      ) as exists
+    `;
+    if (!researchTopicLinkedResearchIdsCheck[0]?.exists) {
+      console.log("   Adding research_topics.linked_research_ids column...");
+      await prisma.$executeRaw`ALTER TABLE "research_topics" ADD COLUMN IF NOT EXISTS "linked_research_ids" JSONB DEFAULT '[]'::jsonb`;
+      console.log("   Added research_topics.linked_research_ids");
+    } else {
+      console.log("   OK research_topics.linked_research_ids");
+    }
     console.log("");
 
     // Step 4: Generate Prisma Client
@@ -712,8 +761,9 @@ async function deploy(): Promise<void> {
       "AI_WRITING",
       "AI_IMAGE",
       "AI_SOCIAL",
-      "DEEP_RESEARCH",
-      "TOPIC_RESEARCH",
+      "AI_RESEARCH",
+      "AI_INSIGHTS",
+      "AI_PLANNING",
       "NOTEBOOK_RESEARCH",
       "LIBRARY",
       "NOTES",
@@ -732,14 +782,14 @@ async function deploy(): Promise<void> {
       );
     }
 
-    // Migrate legacy AI_STUDIO data to DEEP_RESEARCH (idempotent)
+    // Migrate legacy AI_STUDIO data to AI_RESEARCH (idempotent)
     try {
       const migrated = await prisma.$executeRaw`
-        UPDATE "credit_transactions" SET "type" = 'DEEP_RESEARCH' WHERE "type" = 'AI_STUDIO'
+        UPDATE "credit_transactions" SET "type" = 'AI_RESEARCH' WHERE "type" = 'AI_STUDIO'
       `;
       if (migrated > 0) {
         console.log(
-          `   Migrated ${migrated} AI_STUDIO transactions to DEEP_RESEARCH`,
+          `   Migrated ${migrated} AI_STUDIO transactions to AI_RESEARCH`,
         );
       }
       await prisma.$executeRaw`
