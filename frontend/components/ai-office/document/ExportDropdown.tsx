@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils/common';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 interface ExportDropdownProps {
   documentId: string;
   documentTitle: string;
@@ -154,7 +155,9 @@ export default function ExportDropdown({
       setIsOpen(false);
     } catch (error) {
       logger.error('Export error:', error);
-      alert(`导出失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      toast.error(
+        `导出失败: ${error instanceof Error ? error.message : '未知错误'}`
+      );
     } finally {
       setIsExporting(false);
       setExportingFormat(null);

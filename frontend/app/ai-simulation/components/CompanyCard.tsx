@@ -6,6 +6,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 interface CompanyCardProps {
   index: number;
   company: ScenarioFormCompany;
@@ -43,7 +44,7 @@ export function CompanyCard({
   // AI辅助生成指标
   const handleAiAssist = async () => {
     if (!company.name || !company.type) {
-      alert('请先填写公司名称和类型');
+      toast.warning('请先填写公司名称和类型');
       return;
     }
 
@@ -75,7 +76,7 @@ export function CompanyCard({
       setShowConfirmDialog(true);
     } catch (err) {
       logger.error('AI assist error:', err);
-      alert('AI生成失败，请重试');
+      toast.error('AI生成失败，请重试');
     } finally {
       setAiLoading(false);
     }

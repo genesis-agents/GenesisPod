@@ -31,6 +31,7 @@ import type {
   CreateKnowledgeBaseDto,
 } from '@/hooks/domain/useKnowledgeBase';
 import SignInPrompt, { isAuthError } from '@/components/common/SignInPrompt';
+import { toast } from '@/stores';
 
 /**
  * RAG 知识库管理页面
@@ -501,9 +502,9 @@ function AddDocumentForm({ knowledgeBaseId }: { knowledgeBaseId: string }) {
       if (!response.ok) throw new Error('添加失败');
       setTitle('');
       setContent('');
-      alert('文档已添加，请点击"处理文档"生成向量');
+      toast.success('文档已添加，请点击"处理文档"生成向量');
     } catch (err) {
-      alert(err instanceof Error ? err.message : '添加失败');
+      toast.error(err instanceof Error ? err.message : '添加失败');
     } finally {
       setAdding(false);
     }

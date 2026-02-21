@@ -6,6 +6,7 @@ import {
   validateResourceCount,
   type ReportTemplate,
 } from '@/lib/templates/report-templates';
+import { toast } from '@/stores';
 
 interface ReportTemplateDialogProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ export default function ReportTemplateDialog({
 
     const validation = validateResourceCount(template, selectedCount);
     if (!validation.valid) {
-      alert(validation.message);
+      toast.warning(validation.message ?? '验证失败');
       return;
     }
 

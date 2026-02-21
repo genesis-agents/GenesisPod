@@ -21,6 +21,7 @@ import { useExport } from '@/hooks/features/useExport';
 
 import { logger } from '@/lib/utils/logger';
 import ClientDate from '@/components/common/ClientDate';
+import { toast } from '@/stores';
 interface TeamCanvasModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -712,7 +713,7 @@ export default function TeamCanvasModal({
         };
         const previewWin = previewMissionReport(reportData);
         if (previewWin) {
-          alert(
+          toast.info(
             '报告已在新窗口打开。请使用浏览器的"打印"功能 (Ctrl+P) 保存为PDF。'
           );
         }
@@ -2289,12 +2290,12 @@ function AgentPopover({
         window.location.reload();
       } else {
         setRegenerateStatus('error');
-        alert(`刷新失败: ${result.message}`);
+        toast.error(`刷新失败: ${result.message}`);
       }
     } catch (error) {
       setRegenerateStatus('error');
       const errMsg = error instanceof Error ? error.message : String(error);
-      alert(`刷新报告失败: ${errMsg}`);
+      toast.error(`刷新报告失败: ${errMsg}`);
     }
   }, [topicId, mission?.id]);
 

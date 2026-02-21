@@ -31,6 +31,7 @@ import {
 } from '@/lib/explore/youtube-transcript';
 import ClientDate from '@/components/common/ClientDate';
 import { useI18n } from '@/lib/i18n/i18n-context';
+import { toast } from '@/stores';
 
 interface TranscriptSegment {
   text: string;
@@ -502,11 +503,11 @@ function YouTubeTLDWContent() {
         fetchComments(); // Refresh comments
       } else {
         const error = await response.json();
-        alert(error.message || 'Failed to post comment');
+        toast.error(error.message || 'Failed to post comment');
       }
     } catch (error) {
       logger.error('Failed to submit comment:', error);
-      alert('Failed to post comment');
+      toast.error('Failed to post comment');
     } finally {
       setSubmittingComment(false);
     }
@@ -668,7 +669,7 @@ function YouTubeTLDWContent() {
     if (!contextMenu || !videoId) return;
 
     if (!accessToken) {
-      alert('Please sign in to save notes');
+      toast.warning('Please sign in to save notes');
       return;
     }
 
@@ -707,11 +708,13 @@ function YouTubeTLDWContent() {
           status: response.status,
           error: errorData,
         });
-        alert(`Failed to save note: ${errorData.message || 'Unknown error'}`);
+        toast.error(
+          `Failed to save note: ${errorData.message || 'Unknown error'}`
+        );
       }
     } catch (error) {
       logger.error('Failed to save note:', error);
-      alert('Failed to save note');
+      toast.error('Failed to save note');
     } finally {
       setSavingNote(false);
     }

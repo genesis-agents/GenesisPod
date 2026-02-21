@@ -42,6 +42,7 @@ import {
 } from '@/lib/api/topic-insights';
 import type { MissionStatus, TaskStatus } from '@/lib/api/topic-insights';
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 import type {
   ResearchTodo,
   ResearchTodoStatus,
@@ -628,7 +629,9 @@ export function ResearchCollaborationPanel({
         logger.warn(
           '[handleInstructionSubmit] No active mission to add instruction to'
         );
-        alert(t('topicResearch.collaboration.panel.pleaseStartResearch'));
+        toast.warning(
+          t('topicResearch.collaboration.panel.pleaseStartResearch')
+        );
         return;
       }
 

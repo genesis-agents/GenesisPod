@@ -8,6 +8,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 import ClientDate from '@/components/common/ClientDate';
 // 知名公司Logo映射 - 使用 Clearbit Logo API 或官方Logo
 const COMPANY_LOGOS: Record<string, string> = {
@@ -339,7 +340,7 @@ export default function ScenarioDetailPage() {
         });
       } else {
         const errorData = await res.json().catch(() => ({}));
-        alert(errorData.message || '删除失败');
+        toast.error(errorData.message || '删除失败');
         // 如果删除失败且之前是激活状态，恢复它
         if (wasActive && activeRun === null) {
           // 需要重新获取
@@ -349,7 +350,7 @@ export default function ScenarioDetailPage() {
     } catch (err: unknown) {
       logger.error('Failed to delete run:', err);
       const message = err instanceof Error ? err.message : '网络错误';
-      alert('删除失败: ' + message);
+      toast.error('删除失败: ' + message);
     } finally {
       setDeletingRunId(null);
     }

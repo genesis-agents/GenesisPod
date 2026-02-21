@@ -181,7 +181,7 @@ import { useResourceStore } from '@/stores/aiOfficeStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
 import { ThumbsUp, TrendingUp, Clock, Star, ChevronDown } from 'lucide-react';
 import { useAIModels } from '@/hooks';
-import { useImageSourceStore } from '@/stores';
+import { useImageSourceStore, toast as showToast } from '@/stores';
 
 import { logger } from '@/lib/utils/logger';
 interface Resource {
@@ -1030,14 +1030,14 @@ function HomeContent() {
     // Get restrictions for current tab
     const restrictions = FILE_RESTRICTIONS[activeTab];
     if (!restrictions) {
-      alert('当前标签页不支持文件上传');
+      showToast.warning('当前标签页不支持文件上传');
       return;
     }
 
     // Check file size
     if (file.size > restrictions.maxSize) {
       const maxSizeMB = restrictions.maxSize / (1024 * 1024);
-      alert(`文件大小超过限制（最大 ${maxSizeMB}MB）`);
+      showToast.warning(`文件大小超过限制（最大 ${maxSizeMB}MB）`);
       return;
     }
 
@@ -1055,7 +1055,9 @@ function HomeContent() {
     });
 
     if (!isValidType) {
-      alert(`请上传${restrictions.label}（${restrictions.accept}）`);
+      showToast.warning(
+        `请上传${restrictions.label}（${restrictions.accept}）`
+      );
       return;
     }
 
@@ -1098,7 +1100,7 @@ function HomeContent() {
       logger.debug('File uploaded successfully:', data);
 
       // Show success message
-      alert(
+      showToast.success(
         `文件 "${file.name}" 上传成功！\n\n文件将保存为资源，您可以在列表中查看。`
       );
 
@@ -1108,7 +1110,7 @@ function HomeContent() {
       logger.error('File upload error:', error);
       const errorMessage =
         error instanceof Error ? error.message : '文件上传失败';
-      alert(errorMessage);
+      showToast.error(errorMessage);
     } finally {
       setUploadingFile(false);
       setSelectedFile(null);
@@ -1515,7 +1517,9 @@ function HomeContent() {
       }
     } catch (error) {
       logger.error('Failed to save note:', error);
-      alert('Failed to save note: Network error or server unreachable');
+      showToast.error(
+        'Failed to save note: Network error or server unreachable'
+      );
     } finally {
       setSavingNote(false);
     }
@@ -1571,7 +1575,7 @@ function HomeContent() {
   // Save conversation to notes
   const saveConversationToNotes = async () => {
     if (!selectedResource || aiMessages.length === 0) {
-      alert('No conversation to save');
+      showToast.warning('No conversation to save');
       return;
     }
 
@@ -1602,11 +1606,11 @@ function HomeContent() {
 
       if (!response.ok) throw new Error('Failed to save conversation');
 
-      alert('Conversation saved to notes successfully!');
+      showToast.success('Conversation saved to notes successfully!');
       setNotesRefreshKey((prev) => prev + 1); // Refresh notes list
     } catch (error) {
       logger.error('Failed to save conversation:', error);
-      alert('Failed to save conversation. Please try again.');
+      showToast.error('Failed to save conversation. Please try again.');
     }
   };
 
@@ -1997,11 +2001,11 @@ function HomeContent() {
           setViewMode('list');
         }
       } else {
-        alert('Failed to delete resource');
+        showToast.error('Failed to delete resource');
       }
     } catch (err) {
       logger.error('Failed to delete resource:', err);
-      alert('Failed to delete resource');
+      showToast.error('Failed to delete resource');
     }
   };
 

@@ -13,6 +13,7 @@ import type { ResearchTopic } from '@/types/topic-insights';
 import * as api from '@/lib/api/topic-insights';
 import { logger } from '@/lib/utils/logger';
 import { useI18n } from '@/lib/i18n/i18n-context';
+import SignInPrompt from '@/components/common/SignInPrompt';
 
 export default function TopicDetailPage() {
   const params = useParams();
@@ -27,12 +28,8 @@ export default function TopicDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const tokens = getAuthTokens();
-    if (!tokens?.accessToken) {
-      router.push('/login');
-    }
-  }, [router]);
+  const tokens = getAuthTokens();
+  const isAuthenticated = !!tokens?.accessToken;
 
   const loadTopic = useCallback(async () => {
     if (!topicId) return;
@@ -58,6 +55,14 @@ export default function TopicDetailPage() {
   const handleBack = useCallback(() => {
     router.push('/ai-insights');
   }, [router]);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50 p-8">
+        <SignInPrompt />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

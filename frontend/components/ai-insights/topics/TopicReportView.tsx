@@ -29,6 +29,7 @@ import { GenerateSlidesButton } from './GenerateSlidesButton';
 import { DeepDiveButton } from './DeepDiveButton';
 
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 // Icons
 const ListIcon = ({ className }: { className?: string }) => (
   <svg
@@ -185,7 +186,7 @@ export function TopicReportView({
         window.location.reload();
       } catch (error) {
         logger.error('Failed to regenerate report:', error);
-        alert(t('topicResearch.reportView.regenerateFailed'));
+        toast.error(t('topicResearch.reportView.regenerateFailed'));
         setIsRegenerating(false);
       }
     },

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
+import { toast } from '@/stores';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -66,7 +67,7 @@ export default function ShareModal({
       color: 'bg-green-500 hover:bg-green-600 text-white',
       onClick: () => {
         // WeChat requires QR code generation, show a message
-        alert(t('share.wechatTip'));
+        toast.info(t('share.wechatTip'));
       },
     },
     {

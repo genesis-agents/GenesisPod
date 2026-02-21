@@ -20,6 +20,7 @@ import { LinkPreviewList } from '@/components/ai-teams/LinkPreviewCard';
 import type { ParsedUrl } from '@/lib/api/ai-teams';
 import { getProviderBrand } from '@/lib/ai-provider-logos';
 import { ModelBadge } from '@/components/common/badges/ModelBadge';
+import { toast } from '@/stores';
 
 // Helper to get short capability labels and colors
 const CAPABILITY_CONFIG: Record<
@@ -1891,7 +1892,7 @@ export default function TopicPage() {
   // Export all chat messages
   const handleExportAll = useCallback(async () => {
     if (!messages || messages.length === 0) {
-      alert('没有可导出的消息');
+      toast.warning('没有可导出的消息');
       return;
     }
 
@@ -1970,7 +1971,7 @@ export default function TopicPage() {
       URL.revokeObjectURL(url);
     } catch (error) {
       logger.error('Export failed:', error);
-      alert('导出失败，请重试');
+      toast.error('导出失败，请重试');
     } finally {
       setIsExporting(false);
     }

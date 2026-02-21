@@ -4,6 +4,7 @@
  */
 
 import { config } from './config';
+import { toast } from '@/stores';
 
 // Report data interfaces
 export interface MissionReportData {
@@ -1113,7 +1114,7 @@ export async function downloadMissionReportPDF(
   // Browser print is the most reliable method for high-quality PDF
   const printWindow = window.open('', '_blank', 'width=900,height=700');
   if (!printWindow) {
-    alert('请允许弹出窗口以导出PDF');
+    toast.warning('请允许弹出窗口以导出PDF');
     return;
   }
 

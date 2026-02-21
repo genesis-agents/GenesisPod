@@ -26,7 +26,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import { useSlidesStore, selectOverallProgress } from '@/stores';
+import { useSlidesStore, selectOverallProgress, toast } from '@/stores';
 import { useCheckpoints } from '@/hooks/features/slides';
 import { SlidesHistoryItem, formatRelativeTime } from '@/stores';
 import { config } from '@/lib/utils/config';
@@ -365,7 +365,7 @@ export function ExportDropdown({ onClose }: ExportDropdownProps) {
   const handleExport = useCallback(
     async (format: 'pptx' | 'pdf') => {
       if (!session?.id) {
-        alert(t('office.slides.pleaseGenerateFirst'));
+        toast.warning(t('office.slides.pleaseGenerateFirst'));
         return;
       }
 
@@ -417,7 +417,7 @@ export function ExportDropdown({ onClose }: ExportDropdownProps) {
         onClose();
       } catch (error: unknown) {
         logger.error('Export failed:', error);
-        alert(
+        toast.error(
           error instanceof Error
             ? error.message
             : t('office.slides.exportError')

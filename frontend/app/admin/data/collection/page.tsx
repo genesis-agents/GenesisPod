@@ -44,6 +44,7 @@ import SchedulerPanel from '@/components/admin/data-collection/SchedulerPanel';
 import { Modal } from '@/components/ui';
 
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 // Extended type for edit form with schedule fields
 interface EditFormData extends Partial<DataSource> {
   scheduleFrequency?: string;
@@ -384,7 +385,7 @@ export default function ConfigPage() {
       );
     } catch (err) {
       logger.error('Failed to toggle source status:', err);
-      alert('Failed to update source status');
+      toast.error('Failed to update source status');
     }
   };
 
@@ -445,7 +446,7 @@ export default function ConfigPage() {
       setEditForm({});
     } catch (err) {
       logger.error('Failed to update source:', err);
-      alert('Failed to update source configuration');
+      toast.error('Failed to update source configuration');
     }
   };
 
@@ -616,10 +617,10 @@ export default function ConfigPage() {
         scheduleTime: '06:00',
         minDurationMinutes: 15,
       });
-      alert('Data source added successfully!');
+      toast.success('Data source added successfully!');
     } catch (err) {
       logger.error('Failed to add source:', err);
-      alert(err instanceof Error ? err.message : 'Failed to add data source');
+      toast.error(err instanceof Error ? err.message : 'Failed to add data source');
     }
   };
 

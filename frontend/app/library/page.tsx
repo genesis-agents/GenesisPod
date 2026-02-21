@@ -31,7 +31,7 @@ import {
   PaginatedResult,
 } from '@/hooks';
 import { useResourceStore } from '@/stores/aiOfficeStore';
-import { useImageSourceStore } from '@/stores';
+import { useImageSourceStore, toast as showToast } from '@/stores';
 import type {
   Resource as AIOfficeResource,
   WebMetadata,
@@ -727,7 +727,7 @@ function LibraryPageContent() {
       }
     } catch (err) {
       logger.error('Failed to delete collection:', err);
-      alert('Failed to delete collection');
+      showToast.error('Failed to delete collection');
     }
   };
 
@@ -761,7 +761,7 @@ function LibraryPageContent() {
       loadCollections();
     } catch (err) {
       logger.error('Failed to move items:', err);
-      alert('Failed to move items');
+      showToast.error('Failed to move items');
     }
   };
 
@@ -775,7 +775,7 @@ function LibraryPageContent() {
       loadTagsAndStats();
     } catch (err) {
       logger.error('Failed to delete items:', err);
-      alert('Failed to delete items');
+      showToast.error('Failed to delete items');
     }
   };
 
@@ -788,7 +788,7 @@ function LibraryPageContent() {
       loadTagsAndStats();
     } catch (err) {
       logger.error('Failed to update status:', err);
-      alert('Failed to update status');
+      showToast.error('Failed to update status');
     }
   };
 
@@ -801,7 +801,7 @@ function LibraryPageContent() {
       loadTagsAndStats();
     } catch (err) {
       logger.error('Failed to add tags:', err);
-      alert('Failed to add tags');
+      showToast.error('Failed to add tags');
     }
   };
 
@@ -876,7 +876,7 @@ function LibraryPageContent() {
       setSelectedItem(null);
     } catch (err) {
       logger.error('Failed to remove:', err);
-      alert('Failed to remove from collection');
+      showToast.error('Failed to remove from collection');
     }
   };
 
@@ -899,7 +899,7 @@ function LibraryPageContent() {
       setSelectedItem(null);
     } catch (err) {
       logger.error('Failed to update note:', err);
-      alert('Failed to update note');
+      showToast.error('Failed to update note');
     }
   };
 

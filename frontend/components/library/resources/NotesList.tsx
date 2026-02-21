@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import ClientDate from '@/components/common/ClientDate';
 
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 interface Note {
   id: string;
   resourceId: string;
@@ -163,10 +164,10 @@ export default function NotesList({
         setNotes(notes.filter((n) => n.id !== noteId));
         onDeleteNote?.(noteId);
       } else {
-        alert('Failed to delete note');
+        toast.error('Failed to delete note');
       }
     } catch (err) {
-      alert('Error deleting note');
+      toast.error('Error deleting note');
       logger.error(
         'Error deleting note',
         err instanceof Error ? err.message : String(err)
@@ -237,10 +238,10 @@ export default function NotesList({
         setTagInput('');
         onEditNote?.({ ...editingNote, content: editContent, tags: editTags });
       } else {
-        alert('Failed to save note');
+        toast.error('Failed to save note');
       }
     } catch (err) {
-      alert('Error saving note');
+      toast.error('Error saving note');
       logger.error(
         'Error saving note',
         err instanceof Error ? err.message : String(err)
@@ -277,10 +278,10 @@ export default function NotesList({
           )
         );
       } else {
-        alert('Failed to update bookmark');
+        toast.error('Failed to update bookmark');
       }
     } catch (err) {
-      alert('Error updating bookmark');
+      toast.error('Error updating bookmark');
       logger.error(
         'Error updating bookmark',
         err instanceof Error ? err.message : String(err)

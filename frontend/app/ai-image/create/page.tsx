@@ -2,9 +2,10 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, Suspense } from 'react';
+import { Suspense } from 'react';
 import ImageGenerator from '@/components/ai-image/ImageGenerator';
 import AppShell from '@/components/layout/AppShell';
+import SignInPrompt from '@/components/common/SignInPrompt';
 import { useTranslation } from '@/lib/i18n';
 
 function AIImageCreateContent() {
@@ -13,12 +14,6 @@ function AIImageCreateContent() {
   const searchParams = useSearchParams();
   const { t } = useTranslation();
   const initialImageId = searchParams?.get('id') || undefined;
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -31,7 +26,13 @@ function AIImageCreateContent() {
   }
 
   if (!user) {
-    return null;
+    return (
+      <AppShell>
+        <div className="flex h-full items-center justify-center p-8">
+          <SignInPrompt />
+        </div>
+      </AppShell>
+    );
   }
 
   return (

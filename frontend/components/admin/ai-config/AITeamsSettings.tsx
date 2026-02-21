@@ -23,6 +23,7 @@ import type {
   UpdateTeamDto,
 } from '@/lib/api/admin-ai-teams';
 import AITeamMemberEditor from './AITeamMemberEditor';
+import { toast } from '@/stores';
 
 // ==================== Team Form Modal ====================
 
@@ -471,7 +472,7 @@ export default function AITeamsSettings({
 
   const handleDeleteTeam = async (team: AITeamTemplate) => {
     if (team.isSystem) {
-      alert('System teams cannot be deleted');
+      toast.warning('System teams cannot be deleted');
       return;
     }
     if (!confirm(`Delete team "${team.displayName}"?`)) return;
@@ -576,9 +577,9 @@ export default function AITeamsSettings({
       setSelectedTeam(newTeam);
       setTeams((prev) => prev.map((t) => (t.id === newTeam.id ? newTeam : t)));
 
-      alert(`Added ${addedMembers.length} AI-generated members!`);
+      toast.success(`Added ${addedMembers.length} AI-generated members!`);
     } catch (err) {
-      alert(`AI generation failed: ${(err as Error).message}`);
+      toast.error('AI generation failed', (err as Error).message);
     } finally {
       setGeneratingConfig(false);
     }

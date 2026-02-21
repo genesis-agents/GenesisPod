@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 import {
   createCollectionTask,
   executeTask,
@@ -163,7 +164,7 @@ export default function BatchCollectionDrawer({
     }
 
     if (selectedSources.size === 0) {
-      alert('请至少选择一个数据源');
+      toast.warning('请至少选择一个数据源');
       return;
     }
 

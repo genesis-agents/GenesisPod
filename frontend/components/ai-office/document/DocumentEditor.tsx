@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useDocumentStore } from '@/stores/aiOfficeStore';
+import { toast } from '@/stores';
 import { getTemplateById, PPTTemplate } from '@/lib/ai-office/ppt-templates';
 import type { Document } from '@/types/ai-office';
 import {
@@ -304,7 +305,7 @@ export default function DocumentEditor() {
       document.body.removeChild(a);
     } catch (error) {
       logger.error('Export error:', error);
-      alert('导出失败，请稍后重试');
+      toast.error('导出失败，请稍后重试');
     } finally {
       setExportLoading(null);
     }

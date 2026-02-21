@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
+import SignInPrompt from '@/components/common/SignInPrompt';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import {
@@ -18,7 +17,6 @@ import ClientDate from '@/components/common/ClientDate';
  * 积分中心页面
  */
 export default function CreditsPage() {
-  const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
   const {
@@ -46,13 +44,6 @@ export default function CreditsPage() {
   const safeRules = Array.isArray(rules) ? rules : [];
   const safeTransactions = Array.isArray(transactions) ? transactions : [];
 
-  // 未登录重定向
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login?redirect=/credits');
-    }
-  }, [authLoading, user, router]);
-
   // 处理签到
   const handleCheckin = async () => {
     if (!checkinStatus?.canCheckin || isCheckingIn) return;
@@ -62,7 +53,30 @@ export default function CreditsPage() {
     refreshCheckinStatus();
   };
 
-  if (authLoading || isLoading) {
+  if (authLoading) {
+    return (
+      <AppShell>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!user) {
+    return (
+      <AppShell>
+        <div className="flex h-full items-center justify-center p-8">
+          <SignInPrompt
+            title={t('credits.signInRequired')}
+            description={t('credits.signInToView')}
+          />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (isLoading) {
     return (
       <AppShell>
         <div className="flex h-64 items-center justify-center">
