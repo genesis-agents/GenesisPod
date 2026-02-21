@@ -301,7 +301,7 @@ MEDIUM_AUTHORITY = [
 | 属性     | 说明                                    |
 | -------- | --------------------------------------- |
 | **服务** | `AiStudioSourceService.searchLocalDB()` |
-| **存储** | PostgreSQL + MongoDB                    |
+| **存储** | PostgreSQL 16 (统一架构)                |
 | **用途** | 已入库的高质量资源检索                  |
 | **特点** | 已审核、质量可控                        |
 

@@ -23,61 +23,106 @@
 
 ```
 docs/
-├── system/                        # 系统级文档
-│   ├── diagnosis/                # 系统诊断报告
-│   └── decisions/                # 架构决策记录 (ADR)
+├── prd/                           # 产品需求 (已扁平化)
+│   ├── ai-apps/                   # AI 应用 PRD
+│   ├── ai-engine/                 # AI 引擎 PRD
+│   ├── ai-teams/                 # AI 协作 PRD
+│   ├── ai-research/              # AI 研究 PRD
+│   ├── infra/                    # 基础设施 PRD
+│   ├── features/                 # 功能设计
+│   ├── platform-evolution/        # 平台演进
+│   └── archive/                  # 历史归档
 │
 ├── architecture/                  # 架构设计
 │   ├── system/                   # 系统架构
-│   ├── infra/                    # 基础设施
-│   │   ├── plans/               # 基础设施改进计划
-│   │   ├── frontend/
-│   │   ├── backend/
-│   │   ├── database/
-│   │   └── ai-llm/
-│   ├── ai-engine/                # AI Engine 核心能力
-│   │   └── plans/               # AI Engine 计划
-│   ├── ai-teams/                 # AI Teams 协作机制
-│   │   └── plans/               # AI Teams 计划
-│   ├── ai-apps/                  # AI 应用
+│   ├── ai-engine/                # AI 引擎架构
+│   │   └── plans/               # 规划文档
+│   ├── ai-apps/                  # AI 应用架构
 │   │   ├── ai-office/
-│   │   │   └── plans/           # AI Office 计划
+│   │   │   └── plans/
 │   │   ├── ai-studio/
-│   │   │   └── plans/           # AI Studio 计划
-│   │   ├── ai-writing/
-│   │   │   └── plans/           # AI Writing 计划
-│   │   ├── ai-social/
-│   │   │   └── plans/           # AI Social 计划
-│   │   └── ai-image/
-│   │       └── plans/           # AI Image 计划
-│   └── api/                      # 对外 API
-│
-├── prd/                           # 产品需求
-│   ├── current/                  # 当前有效版本
-│   │   ├── ai-apps/
-│   │   ├── ai-teams/
-│   │   ├── ai-engine/
-│   │   ├── ai-research/
-│   │   ├── infra/
-│   │   └── features/
-│   └── archive/                  # 历史版本
-│
-├── features/                      # 功能文档
-│   ├── ai-engine/
-│   ├── ai-teams/
-│   └── ai-apps/
+│   │   │   └── plans/
+│   │   └── ...
+│   └── infra/                    # 基础设施架构
+│       └── plans/
 │
 ├── guides/                        # 开发指南
 │   ├── deployment/
 │   ├── development/
 │   └── testing/
 │
+├── decisions/                     # ADR 架构决策
+│
 ├── api/                           # API 接口文档
+│
 ├── analysis/                      # 分析报告
 │
-└── _archive/                      # 历史归档
+└── archive/                       # 历史归档
+```
+
+> **更新日志 (2026-02-21)**:
+>
+> - ✅ `prd/current/` → `prd/` (已扁平化)
+> - ✅ `architecture/*/plans/` → 模块目录 (已完成)
+> - ✅ decisions/ 已在顶层
+>   docs/
+>   ├── system/ # 系统级文档
+>   │ ├── diagnosis/ # 系统诊断报告
+>   │ └── decisions/ # 架构决策记录 (ADR)
+>   │
+>   ├── architecture/ # 架构设计
+>   │ ├── system/ # 系统架构
+>   │ ├── infra/ # 基础设施
+>   │ │ ├── plans/ # 基础设施改进计划
+>   │ │ ├── frontend/
+>   │ │ ├── backend/
+>   │ │ ├── database/
+>   │ │ └── ai-llm/
+>   │ ├── ai-engine/ # AI Engine 核心能力
+>   │ │ └── plans/ # AI Engine 计划
+>   │ ├── ai-teams/ # AI Teams 协作机制
+>   │ │ └── plans/ # AI Teams 计划
+>   │ ├── ai-apps/ # AI 应用
+>   │ │ ├── ai-office/
+>   │ │ │ └── plans/ # AI Office 计划
+>   │ │ ├── ai-studio/
+>   │ │ │ └── plans/ # AI Studio 计划
+>   │ │ ├── ai-writing/
+>   │ │ │ └── plans/ # AI Writing 计划
+>   │ │ ├── ai-social/
+>   │ │ │ └── plans/ # AI Social 计划
+>   │ │ └── ai-image/
+>   │ │ └── plans/ # AI Image 计划
+>   │ └── api/ # 对外 API
+>   │
+>   ├── prd/ # 产品需求
+>   │ ├── current/ # 当前有效版本
+>   │ │ ├── ai-apps/
+>   │ │ ├── ai-teams/
+>   │ │ ├── ai-engine/
+>   │ │ ├── ai-research/
+>   │ │ ├── infra/
+>   │ │ └── features/
+>   │ └── archive/ # 历史版本
+>   │
+>   ├── features/ # 功能文档
+>   │ ├── ai-engine/
+>   │ ├── ai-teams/
+>   │ └── ai-apps/
+>   │
+>   ├── guides/ # 开发指南
+>   │ ├── deployment/
+>   │ ├── development/
+>   │ └── testing/
+>   │
+>   ├── api/ # API 接口文档
+>   ├── analysis/ # 分析报告
+>   │
+>   └── \_archive/ # 历史归档
+
     ├── 2025-q4/
     └── 2026-q1/
+
 ```
 
 ---
@@ -101,23 +146,23 @@ docs/
 
 ## 快速导航
 
-### 系统
+### PRD (产品需求)
 
-- [系统诊断](system/diagnosis/)
-- [架构决策](system/decisions/)
+- [AI 应用 PRD](prd/ai-apps/)
+- [AI 引擎 PRD](prd/ai-engine/)
+- [AI 协作 PRD](prd/ai-teams/)
+- [基础设施 PRD](prd/infra/)
 
 ### 架构
 
 - [系统架构](architecture/system/)
-- [基础设施](architecture/infra/)
 - [AI Engine](architecture/ai-engine/)
-- [AI Teams](architecture/ai-teams/)
 - [AI Apps](architecture/ai-apps/)
+- [基础设施](architecture/infra/)
 
-### PRD
+### 决策
 
-- [当前 PRD](prd/current/)
-- [历史 PRD](prd/archive/)
+- [架构决策 (ADR)](decisions/)
 
 ### 分析报告
 
@@ -145,5 +190,6 @@ docs/
 
 ---
 
-**最后更新**: 2026-02-05
-**文档一致性检查**: [system/diagnosis/docs-code-consistency-check-2026-02-05.md](system/diagnosis/docs-code-consistency-check-2026-02-05.md)
+**最后更新**: 2026-02-21
+**目录结构版本**: v3.0 (扁平化)
+```

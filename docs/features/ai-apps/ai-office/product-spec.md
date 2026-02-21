@@ -98,15 +98,15 @@
 
 **支持的数据源类型**:
 
-| 数据源类型      | 支持格式                   | 采集能力                     | 优先级 |
-| --------------- | -------------------------- | ---------------------------- | ------ |
-| **YouTube视频** | 视频URL、播放列表、频道    | 元数据、字幕、转录、评论     | P0     |
-| **学术论文**    | PDF、arXiv、DOI            | 标题、摘要、全文、引用、作者 | P0     |
-| **网页内容**    | URL、RSS、Sitemap          | 文本、图片、结构化数据       | P0     |
-| **数据库**      | MySQL、PostgreSQL、MongoDB | 表数据、查询结果、统计信息   | P1     |
-| **文件系统**    | PDF、Word、Excel、TXT      | 文本、表格、元数据           | P1     |
-| **API接口**     | REST、GraphQL              | JSON/XML数据                 | P1     |
-| **社交媒体**    | Twitter、Reddit、LinkedIn  | 帖子、评论、用户数据         | P2     |
+| 数据源类型      | 支持格式                  | 采集能力                     | 优先级 |
+| --------------- | ------------------------- | ---------------------------- | ------ |
+| **YouTube视频** | 视频URL、播放列表、频道   | 元数据、字幕、转录、评论     | P0     |
+| **学术论文**    | PDF、arXiv、DOI           | 标题、摘要、全文、引用、作者 | P0     |
+| **网页内容**    | URL、RSS、Sitemap         | 文本、图片、结构化数据       | P0     |
+| **数据库**      | PostgreSQL 16             | 表数据、JSONB、统计信息      | P1     |
+| **文件系统**    | PDF、Word、Excel、TXT     | 文本、表格、元数据           | P1     |
+| **API接口**     | REST、GraphQL             | JSON/XML数据                 | P1     |
+| **社交媒体**    | Twitter、Reddit、LinkedIn | 帖子、评论、用户数据         | P2     |
 
 **核心功能**:
 
@@ -1140,8 +1140,8 @@ class DataVisualizationEngine {
 │  (调度、去重、质量控制)                                 │
 ├─────────────────────────────────────────────────────────┤
 │                   数据存储层                            │
-│  MongoDB: resource_youtube, resource_papers, ...        │
-│  MongoDB: data_collection_raw_data (统一索引)          │
+│  PostgreSQL 16: 结构化数据 + JSONB                     │
+│  (已移除 MongoDB，统一 PostgreSQL 架构)               │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -1585,7 +1585,7 @@ class ReportGenerator {
 
 - Frontend: Next.js 14 + React + Tailwind CSS
 - Backend: Next.js API Routes
-- Database: MongoDB
+- Database: PostgreSQL 16
 - AI: Vercel AI SDK + OpenAI/Anthropic
 - Document: docx.js
 
@@ -1670,7 +1670,7 @@ class ReportGenerator {
 
 | 项目       | 说明                               | 成本     |
 | ---------- | ---------------------------------- | -------- |
-| **服务器** | Vercel Pro + MongoDB Atlas         | $50-100  |
+| **服务器** | Vercel Pro + PostgreSQL 16         | $50-100  |
 | **AI API** | OpenAI + Anthropic (估计10K次调用) | $200-500 |
 | **存储**   | S3/云存储 (100GB)                  | $20-50   |
 | **CDN**    | Cloudflare/其他                    | $20-50   |
@@ -1794,12 +1794,12 @@ class ReportGenerator {
                            ↓↑
 ┌─────────────────────────────────────────────────────────┐
 │                   数据访问层 (DAL)                       │
-│   MongoDB ODM | File System | External APIs             │
+│   Prisma ORM | File System | External APIs             │
 └─────────────────────────────────────────────────────────┘
                            ↓↑
 ┌─────────────────────────────────────────────────────────┐
 │                   基础设施层                             │
-│   MongoDB Atlas | Vercel | S3 | Redis                   │
+│   PostgreSQL 16 | Vercel | S3 | Redis                   │
 │   OpenAI API | Anthropic API | Google AI API            │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -1813,7 +1813,7 @@ UI → API Route → 业务逻辑
                     ↓
            数据采集器 ← 外部API (YouTube/Papers/Web)
                     ↓
-              MongoDB存储 (去重检查)
+              PostgreSQL存储 (去重检查)
                     ↓
            AI处理引擎 ← AI API (GPT/Claude/Gemini)
                     ↓
@@ -1835,7 +1835,7 @@ UI → API Route → 业务逻辑
 | 技术              | 选择理由                              |
 | ----------------- | ------------------------------------- |
 | **Next.js**       | 全栈框架，SSR/SSG支持，良好的开发体验 |
-| **MongoDB**       | 灵活的文档模型，适合存储非结构化数据  |
+| **PostgreSQL 16** | 统一数据库架构，支持 JSONB 向量       |
 | **Vercel AI SDK** | 统一的AI接口，支持多种模型            |
 | **docx.js**       | 功能强大的Word生成库，纯JS实现        |
 | **exceljs**       | 全功能Excel库，支持复杂格式           |
