@@ -14,7 +14,6 @@ export {
   TopicDetail,
   TopicHistoryPanel,
   TopicReferencesPanel,
-  TopicReportView,
   TopicResearchLayout,
   TopicResearchTab,
   TopicTeamPanel,
@@ -53,10 +52,7 @@ export {
 } from './panels';
 
 // Dialog Components
-export {
-  CreateTopicDialog,
-  TopicSharingModal,
-} from './dialogs';
+export { CreateTopicDialog, TopicSharingModal } from './dialogs';
 
 // Collaboration Components
 export { ResearchCollaborationPanel } from './collaboration/ResearchCollaborationPanel';
