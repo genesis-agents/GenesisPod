@@ -4193,9 +4193,10 @@ enum CreditTransactionType {
   AI_WRITING // AI 写作消耗
   AI_IMAGE // AI 绘画消耗
   AI_SOCIAL // AI 社交内容消耗
-  DEEP_RESEARCH // 深度研究消耗
-  TOPIC_RESEARCH // 专题研究消耗
+  AI_RESEARCH // AI 研究消耗
+  AI_INSIGHTS // AI 洞察消耗
   NOTEBOOK_RESEARCH // 笔记本研究消耗
+  AI_PLANNING // AI 规划消耗
   LIBRARY // 资源库消耗
   NOTES // 笔记消耗
   COLLECTIONS // 收藏集消耗

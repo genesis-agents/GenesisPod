@@ -17,6 +17,7 @@ import {
   ReflectionService,
   ContextCompressionService,
 } from "../../../ai-engine/orchestration/services";
+import { BillingContext } from "../../../credits/billing-context";
 
 export interface PlanPhaseStatus {
   status: "pending" | "active" | "completed" | "skipped" | "failed";
@@ -609,6 +610,22 @@ export class PlanningOrchestratorService {
   // ==================== AI Execution Engine (Fix 3) ====================
 
   private async executePhaseAsync(
+    planId: string,
+    userId: string,
+    phase: number,
+  ): Promise<void> {
+    return BillingContext.run(
+      {
+        userId,
+        moduleType: "ai-planning",
+        operationType: "execute-phase",
+        referenceId: planId,
+      },
+      () => this.executePhaseAsyncInner(planId, userId, phase),
+    );
+  }
+
+  private async executePhaseAsyncInner(
     planId: string,
     userId: string,
     phase: number,

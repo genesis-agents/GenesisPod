@@ -142,8 +142,9 @@ const TYPE_COLORS: Record<string, string> = {
   AI_WRITING: 'bg-violet-100 text-violet-800',
   AI_IMAGE: 'bg-fuchsia-100 text-fuchsia-800',
   AI_SOCIAL: 'bg-lime-100 text-lime-800',
-  DEEP_RESEARCH: 'bg-amber-100 text-amber-800',
-  TOPIC_RESEARCH: 'bg-yellow-100 text-yellow-800',
+  AI_RESEARCH: 'bg-amber-100 text-amber-800',
+  AI_INSIGHTS: 'bg-yellow-100 text-yellow-800',
+  AI_PLANNING: 'bg-red-100 text-red-800',
   NOTEBOOK_RESEARCH: 'bg-sky-100 text-sky-800',
   LIBRARY: 'bg-emerald-100 text-emerald-800',
   NOTES: 'bg-stone-100 text-stone-800',
@@ -239,13 +240,22 @@ export default function CreditsManagementPage() {
       );
 
       if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as { message?: string };
+        const errorData = (await response.json().catch(() => ({}))) as {
+          message?: string;
+        };
         throw new Error(
           errorData.message || t('admin.credits.errors.fetchFailed')
         );
       }
 
-      const result = await response.json() as { data?: { accounts?: CreditAccount[]; pagination?: { totalPages?: number } }; accounts?: CreditAccount[]; pagination?: { totalPages?: number } };
+      const result = (await response.json()) as {
+        data?: {
+          accounts?: CreditAccount[];
+          pagination?: { totalPages?: number };
+        };
+        accounts?: CreditAccount[];
+        pagination?: { totalPages?: number };
+      };
       const data = result?.data ?? result;
       setAccounts(data.accounts || []);
       setTotalPages(data.pagination?.totalPages || 1);
@@ -271,8 +281,12 @@ export default function CreditsManagementPage() {
         throw new Error(t('admin.credits.errors.statsFailed'));
       }
 
-      const result = (await response.json()) as { data?: CreditsStats } | CreditsStats;
-      setStats((result as { data?: CreditsStats })?.data ?? result as CreditsStats);
+      const result = (await response.json()) as
+        | { data?: CreditsStats }
+        | CreditsStats;
+      setStats(
+        (result as { data?: CreditsStats })?.data ?? (result as CreditsStats)
+      );
     } catch (err) {
       logger.error('Failed to fetch credits stats:', err);
     }
@@ -291,7 +305,10 @@ export default function CreditsManagementPage() {
           throw new Error(t('admin.credits.errors.transactionsFailed'));
         }
 
-        const result = await response.json() as { data?: { transactions?: CreditTransaction[] }; transactions?: CreditTransaction[] };
+        const result = (await response.json()) as {
+          data?: { transactions?: CreditTransaction[] };
+          transactions?: CreditTransaction[];
+        };
         const data = result?.data ?? result;
         setTransactions(data.transactions || []);
       } catch (err) {
@@ -314,7 +331,9 @@ export default function CreditsManagementPage() {
       if (!response.ok) {
         throw new Error('Failed to fetch credit rules');
       }
-      const result = (await response.json()) as { data?: CreditRule[] } | CreditRule[];
+      const result = (await response.json()) as
+        | { data?: CreditRule[] }
+        | CreditRule[];
       const unwrapped = 'data' in result ? result.data : result;
       setCreditRules(Array.isArray(unwrapped) ? unwrapped : []);
       setEditedRules({});
@@ -448,7 +467,9 @@ export default function CreditsManagementPage() {
       );
 
       if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as { message?: string };
+        const errorData = (await response.json().catch(() => ({}))) as {
+          message?: string;
+        };
         throw new Error(
           errorData.message || t('admin.credits.errors.grantFailed')
         );
@@ -502,7 +523,9 @@ export default function CreditsManagementPage() {
       );
 
       if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as { message?: string };
+        const errorData = (await response.json().catch(() => ({}))) as {
+          message?: string;
+        };
         throw new Error(
           errorData.message || t('admin.credits.errors.freezeFailed')
         );
@@ -770,7 +793,9 @@ export default function CreditsManagementPage() {
                         {t('admin.credits.grant')}
                       </button>
                       <button
-                        onClick={() => { void handleToggleFreeze(selectedAccount); }}
+                        onClick={() => {
+                          void handleToggleFreeze(selectedAccount);
+                        }}
                         className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
                           selectedAccount.isFrozen
                             ? 'bg-blue-600 text-white hover:bg-blue-700'
