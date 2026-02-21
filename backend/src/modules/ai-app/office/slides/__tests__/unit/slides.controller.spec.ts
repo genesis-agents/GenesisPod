@@ -72,7 +72,15 @@ describe("SlidesController", () => {
 
     const mockVoiceNarrationSkill = {};
 
-    const mockPrismaService = {};
+    const mockPrismaService = {
+      slidesMission: {
+        findMany: jest.fn(() => Promise.resolve([])),
+        findFirst: jest.fn(() => Promise.resolve(null)),
+        findUnique: jest.fn(() => Promise.resolve(null)),
+        updateMany: jest.fn(() => Promise.resolve({ count: 0 })),
+        update: jest.fn(() => Promise.resolve(null)),
+      },
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SlidesController],
