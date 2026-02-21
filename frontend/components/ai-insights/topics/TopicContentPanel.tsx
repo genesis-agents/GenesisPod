@@ -1628,7 +1628,7 @@ export function TopicContentPanel({
         )}
 
         {/* Tab Content */}
-        <div className="flex-1 overflow-hidden">
+        <div data-export-content="insights" className="flex-1 overflow-hidden">
           {activeTab === 'report' && reportViewMode === 'continuous' && (
             <ReportEditPanel
               report={report}
