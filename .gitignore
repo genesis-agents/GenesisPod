@@ -60,6 +60,7 @@ prisma/migrations/**/migration.sql
 data/
 !.claude/skills/data/
 !**/src/**/data/
+!frontend/app/**/data/
 *.db
 *.sqlite
 
