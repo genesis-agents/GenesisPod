@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { AIMessage } from '../utils/types';
@@ -33,11 +33,21 @@ export default function AIChatMessages({
 }: AIChatMessagesProps) {
   const { t } = useTranslation();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) {
+        clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleCopy = (content: string, index: number) => {
     navigator.clipboard.writeText(content).catch(() => {});
     setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 1500);
+    if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopiedIndex(null), 1500);
   };
 
   return (
