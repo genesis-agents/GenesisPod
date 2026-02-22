@@ -322,7 +322,6 @@ export class VideoGenerationTool extends BaseTool<
 
   constructor() {
     super();
-    // defaultTimeout set in class property // 300 秒超时（视频生成可能很慢）
   }
 
   validateInput(input: VideoGenerationInput) {

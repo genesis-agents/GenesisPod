@@ -669,10 +669,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       try {
         parsed = JSON.parse(content.trim());
       } catch {
-        const firstBrace = content.indexOf("{");
-        const lastBrace = content.lastIndexOf("}");
-        if (firstBrace === -1 || lastBrace === -1) return null;
-        parsed = JSON.parse(content.slice(firstBrace, lastBrace + 1));
+        parsed = JSON.parse(this.extractFirstJsonObject(content) ?? "null");
       }
       const taskType = this.inferTaskType(input.prompt);
       const complexity = this.assessComplexity(input);
@@ -1303,6 +1300,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
               creativity: this.mapWorkStyleToCreativity(executor.workStyle),
               outputLength: this.mapDepthToOutputLength(
                 constraints.quality.depth,
+                executor.workStyle,
               ),
             },
             tools: tools.length > 0 ? tools : undefined,
@@ -1564,13 +1562,52 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
+   * 从 LLM 输出中提取第一个完整 JSON 对象（balanced-brace 算法）
+   * 解决 firstBrace/lastBrace 在多 JSON 对象时截取错误的问题
+   */
+  private extractFirstJsonObject(content: string): string | null {
+    const start = content.indexOf("{");
+    if (start === -1) return null;
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    for (let i = start; i < content.length; i++) {
+      const ch = content[i];
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (ch === "\\" && inString) {
+        escape = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+      if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) return content.slice(start, i + 1);
+      }
+    }
+    return null;
+  }
+
+  /**
    * 根据质量深度映射 outputLength（用于 taskProfile）
+   * depth 为主信号；standard 时用 workStyle.outputStyle 作为 tiebreaker
    */
   private mapDepthToOutputLength(
     depth: ConstraintProfile["quality"]["depth"],
+    workStyle?: ITeamMember["workStyle"],
   ): "short" | "medium" | "long" {
     if (depth === "comprehensive") return "long";
     if (depth === "quick") return "short";
+    // standard → 用 outputStyle 细化
+    if (workStyle?.outputStyle === "detailed") return "long";
+    if (workStyle?.outputStyle === "concise") return "short";
     return "medium";
   }
 
@@ -1727,13 +1764,8 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
             parsed = JSON.parse(reviewContent.trim());
           } catch {
             try {
-              const firstBrace = reviewContent.indexOf("{");
-              const lastBrace = reviewContent.lastIndexOf("}");
-              if (firstBrace !== -1 && lastBrace !== -1) {
-                parsed = JSON.parse(
-                  reviewContent.slice(firstBrace, lastBrace + 1),
-                );
-              }
+              const extracted = this.extractFirstJsonObject(reviewContent);
+              if (extracted) parsed = JSON.parse(extracted);
             } catch {
               // Both parse attempts failed; parsed remains null, falls through to degraded score
             }

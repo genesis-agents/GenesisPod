@@ -8356,7 +8356,7 @@ model AgentConfig {
 // ============ Agent Traces (AI Engine Observability) ============
 
 model AgentTrace {
-  id        String      @id @default(cuid())
+  id        String      @id @default(uuid())
   name      String
   type      String
   status    String
@@ -8373,7 +8373,7 @@ model AgentTrace {
 }
 
 model AgentSpan {
-  id           String     @id @default(cuid())
+  id           String     @id @default(uuid())
   traceId      String     @map("trace_id")
   parentSpanId String?    @map("parent_span_id")
   name         String

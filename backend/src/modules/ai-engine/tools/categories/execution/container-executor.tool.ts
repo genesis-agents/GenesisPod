@@ -393,7 +393,6 @@ export class ContainerExecutorTool extends BaseTool<
 
   constructor() {
     super();
-    // defaultTimeout set in class property // 90 秒超时（包含容器启动时间）
   }
 
   validateInput(input: ContainerExecutorInput) {
