@@ -18,6 +18,7 @@ import { ErrorTrackingService, AIMetricsService } from "../monitoring";
 import { AIAdminService } from "./ai-admin.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { TraceCollectorService } from "../../ai-engine/observability";
+import { EvalPipelineService } from "../../ai-engine/observability/eval-pipeline.service";
 import {
   RateLimitGuard,
   DistributedRateLimitGuard,
@@ -47,6 +48,7 @@ export class MonitoringAdminController {
     private readonly aiAdminService: AIAdminService,
     private readonly prismaService: PrismaService,
     private readonly traceCollectorService: TraceCollectorService,
+    private readonly evalPipelineService: EvalPipelineService,
     @Optional() private readonly rateLimitGuard?: RateLimitGuard,
     @Optional()
     private readonly distributedRateLimitGuard?: DistributedRateLimitGuard,
@@ -694,6 +696,16 @@ export class MonitoringAdminController {
       };
     }
     return trace;
+  }
+
+  @Post("traces/:id/evaluate")
+  @ApiOperation({ summary: "对指定 Trace 运行 AI 质量评估" })
+  @ApiResponse({ status: 200, description: "返回 EvalResult 评估结果" })
+  @ApiResponse({ status: 404, description: "Trace 不存在" })
+  async evaluateTrace(@Param("id") id: string) {
+    this.logger.log(`Admin: Evaluating trace: ${id}`);
+    const result = await this.evalPipelineService.evaluate(id);
+    return result;
   }
 
   // ==================== Private Methods ====================
