@@ -126,7 +126,9 @@ async function bootstrap() {
   app.enableCors({
     origin: (origin, callback) => {
       // 无 Origin 头的请求（健康检查、服务端调用、curl 等）始终放行
-      if (!origin) {
+      // origin === 'null'（字符串）：浏览器 opaque origin（跨域重定向、sandboxed iframe 等）同样放行
+      // 真正的安全由 JWT Auth Guard 保障，CORS 仅是浏览器级防护
+      if (!origin || origin === "null") {
         callback(null, true);
         return;
       }
