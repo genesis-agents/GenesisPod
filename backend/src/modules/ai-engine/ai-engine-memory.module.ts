@@ -9,16 +9,18 @@
  * - Conversation Memory
  */
 
-import { Module } from '@nestjs/common';
-import { PrismaModule } from '../../common/prisma/prisma.module';
+import { Module } from "@nestjs/common";
+import { PrismaModule } from "../../common/prisma/prisma.module";
 
 // Memory Stores
-import { ShortTermMemoryService } from './memory/stores/short-term-memory.service';
-import { LongTermMemoryService } from './memory/stores/long-term-memory.service';
+import { ShortTermMemoryService } from "./memory/stores/short-term-memory.service";
+import { LongTermMemoryService } from "./memory/stores/long-term-memory.service";
 import {
   InMemoryStore,
   ConversationMemory,
-} from './memory/stores/in-memory-store';
+} from "./memory/stores/in-memory-store";
+// Memory Coordinator (支柱三)
+import { MemoryCoordinatorService } from "./memory/memory-coordinator.service";
 
 /**
  * In-memory Store Factory
@@ -50,12 +52,14 @@ const conversationMemoryFactory = {
     // Services
     ShortTermMemoryService,
     LongTermMemoryService,
+    MemoryCoordinatorService,
   ],
   exports: [
     InMemoryStore,
     ConversationMemory,
     ShortTermMemoryService,
     LongTermMemoryService,
+    MemoryCoordinatorService,
   ],
 })
 export class AiEngineMemoryModule {}

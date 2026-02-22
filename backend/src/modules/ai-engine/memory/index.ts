@@ -14,3 +14,13 @@ export * from "./abstractions";
 
 // Stores
 export * from "./stores";
+
+// 支柱三：Memory OS 统一协调器
+export {
+  MemoryCoordinatorService,
+  type MemoryQuery,
+  type MemoryContext,
+  type MemoryFragment,
+  type MemoryEvent,
+  type MemoryEventType,
+} from "./memory-coordinator.service";
