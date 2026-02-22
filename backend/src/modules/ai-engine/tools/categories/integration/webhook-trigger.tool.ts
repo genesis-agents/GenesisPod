@@ -4,6 +4,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import axios, { AxiosRequestConfig } from "axios";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
@@ -405,15 +406,15 @@ export class WebhookTriggerTool extends BaseTool<
   }
 
   private async executeRequest(
-    _url: string,
+    url: string,
     method: HttpMethod,
     headers: Record<string, string>,
     payload: unknown,
-    _queryParams?: Record<string, string>,
-    _timeout?: number,
-    maxRetries?: number,
-    _retryDelay?: number,
-    _waitForResponse?: boolean,
+    queryParams?: Record<string, string>,
+    timeout?: number,
+    maxRetries: number = 0,
+    retryDelay: number = 1000,
+    waitForResponse: boolean = true,
   ): Promise<{
     statusCode: number;
     statusText: string;
@@ -421,44 +422,69 @@ export class WebhookTriggerTool extends BaseTool<
     body: unknown;
     retriesUsed: number;
   }> {
-    // 模拟请求延迟
-    await new Promise((resolve) =>
-      setTimeout(resolve, 200 + Math.random() * 300),
-    );
+    let attempt = 0;
 
-    // 模拟响应
-    // 实际实现应使用 axios:
-    // const response = await axios({
-    //   method,
-    //   url,
-    //   headers,
-    //   params: queryParams,
-    //   data: payload,
-    //   timeout,
-    // });
+    while (true) {
+      try {
+        // Fire-and-forget mode: don't wait for response
+        if (!waitForResponse) {
+          const config: AxiosRequestConfig = {
+            method,
+            url,
+            headers,
+            params: queryParams,
+            data: payload,
+            timeout: 5000,
+          };
+          axios(config).catch(() => {}); // intentionally ignore errors
+          return {
+            statusCode: 202,
+            statusText: "Accepted",
+            headers: {},
+            body: { queued: true },
+            retriesUsed: 0,
+          };
+        }
 
-    const mockResponse = {
-      statusCode: 200,
-      statusText: "OK",
-      headers: {
-        "content-type": "application/json",
-        "x-request-id": headers["X-Request-ID"],
-      },
-      body: {
-        received: true,
-        message: "Webhook received successfully",
-        timestamp: new Date().toISOString(),
-        method,
-        payload: payload ? "received" : "empty",
-      },
-      retriesUsed: 0,
-    };
+        const config: AxiosRequestConfig = {
+          method,
+          url,
+          headers,
+          params: queryParams,
+          data: payload !== undefined ? payload : undefined,
+          timeout: timeout || 30000,
+          validateStatus: () => true, // don't throw on non-2xx
+        };
 
-    // 模拟偶尔失败和重试
-    if (Math.random() < 0.1 && maxRetries && maxRetries > 0) {
-      mockResponse.retriesUsed = 1;
+        const response = await axios(config);
+
+        // Convert response headers to plain Record
+        const responseHeaders: Record<string, string> = {};
+        if (response.headers) {
+          for (const [k, v] of Object.entries(response.headers)) {
+            if (typeof v === "string") responseHeaders[k] = v;
+            else if (Array.isArray(v)) responseHeaders[k] = v.join(", ");
+          }
+        }
+
+        return {
+          statusCode: response.status,
+          statusText: response.statusText,
+          headers: responseHeaders,
+          body: response.data,
+          retriesUsed: attempt,
+        };
+      } catch (error) {
+        if (attempt < maxRetries) {
+          attempt++;
+          this.logger.warn(
+            `[executeRequest] Retry ${attempt}/${maxRetries} after ${retryDelay}ms`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        } else {
+          throw error;
+        }
+      }
     }
-
-    return mockResponse;
   }
 }

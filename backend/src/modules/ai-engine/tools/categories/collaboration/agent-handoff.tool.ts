@@ -15,6 +15,8 @@ import {
   AgentId,
   AgentResult,
 } from "../../../core/types/agent.types";
+import { AiChatService } from "../../../llm/services/ai-chat.service";
+import { AIModelType } from "@prisma/client";
 
 import { randomUUID } from "crypto";
 
@@ -271,7 +273,7 @@ export class AgentHandoffTool extends BaseTool<
     },
   };
 
-  constructor() {
+  constructor(private readonly aiChatService: AiChatService) {
     super();
     // defaultTimeout set in class property // 稍大于默认任务超时时间
   }
@@ -326,10 +328,12 @@ export class AgentHandoffTool extends BaseTool<
     try {
       // 异步模式：立即返回，后台执行
       if (!waitForResult) {
-        // TODO: 在后台启动目标 Agent 任务
-        // 当前返回 delegated 状态，实际执行需要集成 Agent 系统
+        // Async mode: log the task for observability; real background execution
+        // requires a job queue (e.g., BullMQ) which is outside this tool's scope.
+        // The handoffId can be used to track the task externally.
         this.logger.log(
-          `Task delegated to ${targetAgent} asynchronously [${handoffId}]`,
+          `Task delegated to ${targetAgent} asynchronously [${handoffId}]. ` +
+            `Use handoffId to track: ${task.prompt.substring(0, 50)}...`,
         );
 
         return {
@@ -432,8 +436,7 @@ export class AgentHandoffTool extends BaseTool<
   }
 
   /**
-   * 执行目标 Agent（模拟实现）
-   * TODO: 实际集成 Agent 执行系统
+   * 执行目标 Agent（通过 AiChatService 调用 LLM）
    */
   private async executeTargetAgent(
     agentType: AgentId,
@@ -441,22 +444,83 @@ export class AgentHandoffTool extends BaseTool<
     _context: ToolContext,
     timeout: number,
   ): Promise<AgentResult> {
-    // 模拟延迟
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const startTime = Date.now();
 
-    // 检查超时（简化版）
-    if (timeout <= 0) {
-      throw new Error("Agent execution timeout");
+    // Build a system prompt that represents the target agent's persona
+    const agentSystemPrompts: Record<string, string> = {
+      researcher:
+        "You are an expert research agent. Conduct thorough research and provide well-structured findings with sources.",
+      writer:
+        "You are an expert writing agent. Produce high-quality, engaging written content tailored to the specified requirements.",
+      analyst:
+        "You are an expert data analysis agent. Analyze data, identify patterns, and provide actionable insights.",
+      designer:
+        "You are an expert design agent. Provide detailed design specifications, concepts, and visual direction.",
+      coder:
+        "You are an expert software engineering agent. Write clean, well-structured, and documented code.",
+      critic:
+        "You are an expert review agent. Critically evaluate content and provide constructive, detailed feedback.",
+      coordinator:
+        "You are a coordination agent. Manage tasks, synthesize information, and coordinate between different components.",
+    };
+
+    const systemPrompt =
+      agentSystemPrompts[agentType.toLowerCase()] ||
+      `You are a specialized ${agentType} agent. Complete the assigned task to the best of your ability.`;
+
+    // Build user prompt
+    let userPrompt = task.prompt;
+    if (task.context && Object.keys(task.context).length > 0) {
+      userPrompt += `\n\nContext:\n${JSON.stringify(task.context, null, 2)}`;
     }
 
-    // 模拟返回结果
-    // TODO: 实际应该调用 AgentService 执行任务
-    return {
-      success: true,
-      artifacts: [],
-      summary: `${agentType} completed task: ${task.prompt.substring(0, 50)}...`,
-      tokensUsed: 1000,
-      duration: 1000,
-    };
+    // Abort if timeout has already been exceeded
+    if (Date.now() - startTime > timeout) {
+      throw new Error(`Agent execution timeout before start`);
+    }
+
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(
+      () => abortController.abort(),
+      Math.max(timeout - (Date.now() - startTime), 1000),
+    );
+
+    try {
+      const response = await this.aiChatService.chat({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        modelType: AIModelType.CHAT,
+        taskProfile: {
+          creativity: task.priority === "high" ? "high" : "medium",
+          outputLength: "medium",
+        },
+      });
+
+      const duration = Date.now() - startTime;
+
+      return {
+        success: true,
+        artifacts: [
+          {
+            id: randomUUID(),
+            type: "text",
+            name: `${agentType}-result`,
+            mimeType: "text/plain",
+            size: response.content.length,
+            content: response.content,
+            metadata: { agentType, model: response.model },
+          },
+        ],
+        summary:
+          response.content.substring(0, 200) +
+          (response.content.length > 200 ? "..." : ""),
+        tokensUsed: response.usage?.totalTokens || 0,
+        duration,
+      };
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 }

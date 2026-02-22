@@ -11,6 +11,7 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 // AgentId and AgentResult available from "../../../core/types/agent.types" if needed
+import { PrismaService } from "@/common/prisma/prisma.service";
 
 import { randomUUID } from "crypto";
 
@@ -339,7 +340,7 @@ export class HumanApprovalTool extends BaseTool<
     },
   };
 
-  constructor() {
+  constructor(private readonly prisma: PrismaService) {
     super();
     // defaultTimeout set in class property // 稍大于默认审批超时
   }
@@ -470,73 +471,106 @@ export class HumanApprovalTool extends BaseTool<
   }
 
   /**
-   * 等待人类响应（模拟实现）
-   * TODO: 实际集成 WebSocket 通知和数据库轮询
+   * 等待人类响应（DB 轮询实现）
+   * 将审批请求写入 LongTermMemory，轮询等待外部系统写入响应记录。
    */
   private async waitForHumanResponse(
     requestId: string,
     type: ApprovalType,
-    _prompt: string,
-    _context: ApprovalContext | undefined,
+    prompt: string,
+    context: ApprovalContext | undefined,
     options: ApprovalOptions,
-    _timeout: number,
+    timeout: number,
   ): Promise<Omit<HumanApprovalOutput, "respondedAt" | "metadata">> {
-    // 模拟延迟（实际应该等待用户响应）
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    const REQUEST_KEY = `approval:request:${requestId}`;
+    const RESPONSE_KEY = `approval:response:${requestId}`;
+    const USER_ID = "system";
+    const expiresAt = new Date(Date.now() + timeout + 60_000); // request lives timeout+1min
 
-    // 当前版本：自动批准，返回模拟数据
-    // TODO: 实际应该：
-    // 1. 发送 WebSocket 通知
-    // 2. 轮询数据库查询响应
-    // 3. 超时后使用默认操作
+    const requestPayload = {
+      requestId,
+      approvalType: type,
+      prompt,
+      context: (context || null) as unknown,
+      choices: (options.choices || null) as unknown,
+      defaultAction: options.defaultAction || null,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
 
-    this.logger.debug(
-      `Simulating human approval [${requestId}]: auto-approved`,
+    // 1. Store the approval request in DB (so external systems can read and respond)
+    await this.prisma.longTermMemory.upsert({
+      where: { userId_key: { userId: USER_ID, key: REQUEST_KEY } },
+      create: {
+        userId: USER_ID,
+        key: REQUEST_KEY,
+        type: "human_approval_request",
+        value: requestPayload as never,
+        importance: 8,
+        tags: ["human-approval", type],
+        expiresAt,
+      },
+      update: {
+        value: requestPayload as never,
+        expiresAt,
+      },
+    });
+
+    this.logger.log(
+      `[HumanApproval] Request stored in DB [${requestId}], polling for response (timeout: ${timeout}ms)`,
     );
 
-    // 根据类型返回不同的模拟响应
-    switch (type) {
-      case "confirm":
-        return {
-          approved: true,
-          timedOut: false,
+    // 2. Poll DB for response (external system writes RESPONSE_KEY)
+    const pollIntervalMs = 2000; // poll every 2 seconds
+    const deadline = Date.now() + timeout;
+
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+
+      const responseRecord = await this.prisma.longTermMemory.findUnique({
+        where: { userId_key: { userId: USER_ID, key: RESPONSE_KEY } },
+      });
+
+      if (responseRecord) {
+        const responseData = responseRecord.value as {
+          approved: boolean;
+          choice?: string;
+          input?: unknown;
+          feedback?: string;
         };
 
-      case "choose":
-        // 返回第一个选项
-        const firstChoice = options.choices?.[0]?.id;
+        this.logger.log(
+          `[HumanApproval] Response received [${requestId}]: approved=${responseData.approved}`,
+        );
+
+        // Clean up DB records
+        await Promise.all([
+          this.prisma.longTermMemory.deleteMany({
+            where: { userId: USER_ID, key: REQUEST_KEY },
+          }),
+          this.prisma.longTermMemory.deleteMany({
+            where: { userId: USER_ID, key: RESPONSE_KEY },
+          }),
+        ]).catch(() => {}); // cleanup failure is non-critical
+
         return {
-          approved: true,
+          approved: responseData.approved,
           response: {
-            choice: firstChoice,
+            choice: responseData.choice,
+            input: responseData.input,
+            feedback: responseData.feedback,
           },
           timedOut: false,
         };
-
-      case "input":
-        return {
-          approved: true,
-          response: {
-            input: { value: "User input placeholder" },
-          },
-          timedOut: false,
-        };
-
-      case "review":
-        return {
-          approved: true,
-          response: {
-            feedback: "内容审查通过，无需修改。",
-          },
-          timedOut: false,
-        };
-
-      default:
-        return {
-          approved: false,
-          timedOut: false,
-        };
+      }
     }
+
+    // 3. Timeout: clean up request and throw timeout error
+    await this.prisma.longTermMemory
+      .deleteMany({ where: { userId: USER_ID, key: REQUEST_KEY } })
+      .catch(() => {});
+
+    throw new Error(`Human approval timeout after ${timeout}ms [${requestId}]`);
   }
 
   /**

@@ -72,7 +72,10 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
 import { TraceCollectorService } from "../../observability/trace-collector.service";
 import { CheckpointManager } from "../../orchestration/checkpoints/checkpoint-manager";
-import { ExecutionContext } from "../../orchestration/abstractions/orchestrator.interface";
+import {
+  ExecutionContext,
+  StepResult,
+} from "../../orchestration/abstractions/orchestrator.interface";
 
 /**
  * 步骤执行结果（内部使用）
@@ -259,7 +262,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       }
 
       // ★ 保存 checkpoint：解析完成
-      this.saveCheckpoint(missionId, team.workflow.id, "parse_complete", {
+      void this.saveCheckpoint(missionId, team.workflow.id, "parse_complete", {
         taskType: intent.taskType,
         complexity: intent.complexity.overall,
         primaryGoal: intent.primaryGoal,
@@ -296,7 +299,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       }
 
       // ★ 保存 checkpoint：计划生成完成
-      this.saveCheckpoint(missionId, team.workflow.id, "plan_complete", {
+      void this.saveCheckpoint(missionId, team.workflow.id, "plan_complete", {
         stepCount: plan.steps.length,
         estimatedDuration: plan.estimatedDuration,
         estimatedCost: plan.estimatedCost,
@@ -464,11 +467,16 @@ export class MissionOrchestrator implements IMissionOrchestrator {
         }
 
         // ★ 保存 checkpoint：审核完成
-        this.saveCheckpoint(missionId, team.workflow.id, "review_complete", {
-          reviewCount: state.reviewResults.length,
-          passedCount: state.reviewResults.filter((r) => r.passed).length,
-          reworkCount: state.resourceUsage.reworkCount,
-        });
+        void this.saveCheckpoint(
+          missionId,
+          team.workflow.id,
+          "review_complete",
+          {
+            reviewCount: state.reviewResults.length,
+            passedCount: state.reviewResults.filter((r) => r.passed).length,
+            reworkCount: state.resourceUsage.reworkCount,
+          },
+        );
       }
 
       // Phase 5: Deliver - 生成交付物（使用导出工具）
@@ -601,7 +609,8 @@ export class MissionOrchestrator implements IMissionOrchestrator {
 4. 复杂度评估
 5. 建议的执行策略
 
-以 JSON 格式输出。`;
+以 JSON 格式输出。
+CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markdown, no code blocks. Start with { and end with }.`;
 
       // ★ 使用 Promise.race 强制超时
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -616,6 +625,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
           ],
           model: this.llmFactory.getDefaultModel(),
           taskProfile: { creativity: "low", outputLength: "short" },
+          responseFormat: "json",
         }),
         timeoutPromise,
       ]);
@@ -654,10 +664,16 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     input: MissionInput,
   ): ParsedIntent | null {
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return null;
-
-      const parsed = JSON.parse(jsonMatch[0]);
+      // Try direct parse first (JSON mode response), then fall back to extraction
+      let parsed: ReturnType<typeof JSON.parse>;
+      try {
+        parsed = JSON.parse(content.trim());
+      } catch {
+        const firstBrace = content.indexOf("{");
+        const lastBrace = content.lastIndexOf("}");
+        if (firstBrace === -1 || lastBrace === -1) return null;
+        parsed = JSON.parse(content.slice(firstBrace, lastBrace + 1));
+      }
       const taskType = this.inferTaskType(input.prompt);
       const complexity = this.assessComplexity(input);
 
@@ -917,7 +933,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
             // ★ 保存 checkpoint：步骤完成
             const context = await this.getContext(missionId);
             const plan = context.plan as MissionExecutionPlan;
-            this.saveCheckpoint(
+            void this.saveCheckpoint(
               missionId,
               team.workflow.id,
               `step_${step.id}_complete`,
@@ -997,7 +1013,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
           // ★ 保存 checkpoint：步骤完成（顺序执行）
           const context = await this.getContext(missionId);
           const plan = context.plan as MissionExecutionPlan;
-          this.saveCheckpoint(
+          void this.saveCheckpoint(
             missionId,
             team.workflow.id,
             `step_${step.id}_complete`,
@@ -1283,7 +1299,10 @@ export class MissionOrchestrator implements IMissionOrchestrator {
               { role: "user", content: userPrompt },
             ],
             model: executor.model,
-            temperature: this.getTemperatureFromWorkStyle(executor.workStyle),
+            taskProfile: {
+              creativity: this.mapWorkStyleToCreativity(executor.workStyle),
+              outputLength: "medium",
+            },
             tools: tools.length > 0 ? tools : undefined,
           });
 
@@ -1531,17 +1550,15 @@ export class MissionOrchestrator implements IMissionOrchestrator {
   }
 
   /**
-   * ★ 根据工作风格获取温度
+   * 根据工作风格映射 creativity 等级（用于 taskProfile）
    */
-  private getTemperatureFromWorkStyle(
+  private mapWorkStyleToCreativity(
     workStyle: ITeamMember["workStyle"],
-  ): number {
-    if (!workStyle) return 0.7;
-
-    // Use riskTolerance as proxy for creativity/temperature
-    if (workStyle.riskTolerance === "aggressive") return 0.9;
-    if (workStyle.riskTolerance === "conservative") return 0.3;
-    return 0.7;
+  ): "low" | "medium" | "high" {
+    if (!workStyle) return "medium";
+    if (workStyle.riskTolerance === "aggressive") return "high";
+    if (workStyle.riskTolerance === "conservative") return "low";
+    return "medium";
   }
 
   /**
@@ -1668,7 +1685,8 @@ export class MissionOrchestrator implements IMissionOrchestrator {
   "passed": boolean,
   "feedback": string,
   "issues": []
-}`;
+}
+CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markdown, no code blocks. Start with { and end with }.`;
 
           const response = await adapter.chat({
             messages: [
@@ -1677,6 +1695,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
             ],
             model: team.leader.model,
             taskProfile: { creativity: "low", outputLength: "short" },
+            responseFormat: "json",
           });
 
           if (response.usage) {
@@ -1688,9 +1707,25 @@ export class MissionOrchestrator implements IMissionOrchestrator {
             );
           }
 
-          const jsonMatch = (response.content || "").match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
+          const reviewContent = response.content || "";
+          // Try direct parse first (JSON mode response), then fall back to extraction
+          let parsed: ReturnType<typeof JSON.parse> | null = null;
+          try {
+            parsed = JSON.parse(reviewContent.trim());
+          } catch {
+            try {
+              const firstBrace = reviewContent.indexOf("{");
+              const lastBrace = reviewContent.lastIndexOf("}");
+              if (firstBrace !== -1 && lastBrace !== -1) {
+                parsed = JSON.parse(
+                  reviewContent.slice(firstBrace, lastBrace + 1),
+                );
+              }
+            } catch {
+              // Both parse attempts failed; parsed remains null, falls through to degraded score
+            }
+          }
+          if (parsed) {
             return {
               stepId,
               passed: parsed.passed ?? parsed.score >= 7,
@@ -2132,7 +2167,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
 
     try {
       const state = this.states.get(executionId);
-      const stepResults = new Map<string, any>();
+      const stepResults = new Map<string, StepResult>();
       if (state?.intermediateOutputs) {
         for (const [key, value] of state.intermediateOutputs.entries()) {
           stepResults.set(key, {

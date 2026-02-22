@@ -499,7 +499,7 @@ export class ContainerExecutorTool extends BaseTool<
   /**
    * 在容器中执行代码
    *
-   * ⚠️ PLACEHOLDER IMPLEMENTATION
+   * ⚠️ NOT IMPLEMENTED
    * 真实实现需要：
    * 1. 使用 Docker API 或 Kubernetes 创建容器
    * 2. 挂载代码文件到容器
@@ -508,11 +508,11 @@ export class ContainerExecutorTool extends BaseTool<
    * 5. 清理容器
    */
   private async executeInContainer(
-    code: string,
-    language: string,
-    image: string,
-    runtime: LanguageRuntime,
-    options: {
+    _code: string,
+    _language: string,
+    _image: string,
+    _runtime: LanguageRuntime,
+    _options: {
       timeout: number;
       memoryLimit: number;
       cpuLimit: number;
@@ -522,72 +522,11 @@ export class ContainerExecutorTool extends BaseTool<
       workDir: string;
     },
   ): Promise<ContainerExecutorOutput> {
-    const startTime = Date.now();
-
-    // ============================================================================
-    // PLACEHOLDER: 模拟容器执行
-    // 真实实现应该使用 dockerode 或 @docker/sdk 等库
-    // ============================================================================
-
-    this.logger.log(
-      `[PLACEHOLDER] Would execute in container:
-      Image: ${image}
-      Language: ${language}
-      Command: ${runtime.command.join(" ")}
-      Memory: ${options.memoryLimit}MB
-      CPU: ${options.cpuLimit} cores
-      Network: ${options.networkEnabled ? "enabled" : "disabled"}
-      WorkDir: ${options.workDir}
-      Code length: ${code.length} bytes`,
+    throw new Error(
+      "ContainerExecutor is not yet implemented. " +
+        "Real implementation requires dockerode integration. " +
+        "See the pseudocode comment below for implementation reference.",
     );
-
-    // 模拟执行延迟
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // 模拟成功执行
-    const executionTime = Date.now() - startTime;
-    const mockOutput = this.generateMockOutput(language, code);
-
-    return {
-      success: true,
-      stdout: mockOutput.stdout,
-      stderr: mockOutput.stderr,
-      exitCode: 0,
-      executionTime,
-      resourceUsage: {
-        cpuPercent: Math.random() * 50, // 0-50%
-        memoryBytes: Math.floor(Math.random() * 100 * 1024 * 1024), // 0-100MB
-        memoryMB: Math.floor(Math.random() * 100),
-        networkIO: options.networkEnabled
-          ? {
-              rx: Math.floor(Math.random() * 1024),
-              tx: Math.floor(Math.random() * 1024),
-            }
-          : undefined,
-      },
-      language,
-      image,
-      timeout: false,
-      oomKilled: false,
-    };
-  }
-
-  /**
-   * 生成模拟输出（用于演示）
-   */
-  private generateMockOutput(
-    language: string,
-    code: string,
-  ): { stdout: string; stderr: string } {
-    const codePreview = code.substring(0, 100);
-
-    return {
-      stdout:
-        `[PLACEHOLDER] Executed ${language} code successfully.\n` +
-        `Code preview: ${codePreview}${code.length > 100 ? "..." : ""}\n` +
-        `Output: Hello from ${language} container!\n`,
-      stderr: "",
-    };
   }
 
   /**

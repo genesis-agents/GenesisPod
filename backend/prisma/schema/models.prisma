@@ -8353,6 +8353,45 @@ model AgentConfig {
   @@map("agent_configs")
 }
 
+// ============ Agent Traces (AI Engine Observability) ============
+
+model AgentTrace {
+  id        String      @id @default(cuid())
+  name      String
+  type      String
+  status    String
+  startTime DateTime    @map("start_time")
+  endTime   DateTime?   @map("end_time")
+  duration  Int?
+  metadata  Json?
+  spans     AgentSpan[]
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  @@index([type, status])
+  @@index([startTime])
+  @@map("agent_traces")
+}
+
+model AgentSpan {
+  id           String     @id @default(cuid())
+  traceId      String     @map("trace_id")
+  parentSpanId String?    @map("parent_span_id")
+  name         String
+  type         String
+  status       String
+  startTime    DateTime   @map("start_time")
+  endTime      DateTime?  @map("end_time")
+  duration     Int?
+  metadata     Json?
+  output       Json?
+  error        String?
+  trace        AgentTrace @relation(fields: [traceId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@index([traceId])
+  @@map("agent_spans")
+}
+
 // ============ Research Template (Admin UI Configurable) ============
 
 model ResearchTemplate {

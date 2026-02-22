@@ -562,6 +562,7 @@ describe("AiChatService", () => {
         0.3, // temperature from taskProfile
         expect.any(Number),
         expect.any(String),
+        undefined, // responseFormat
       );
     });
 
@@ -588,6 +589,30 @@ describe("AiChatService", () => {
         0.5,
         expect.any(Number),
         expect.any(String),
+        undefined, // responseFormat
+      );
+    });
+
+    it("should pass responseFormat=json to callOpenAICompatibleAPI", async () => {
+      const mockConfig = createMockModelConfig();
+      mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-4o",
+        responseFormat: "json",
+      });
+
+      expect(mockApiCallerService.callOpenAICompatibleAPI).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(Array),
+        expect.any(Number),
+        expect.any(Number),
+        expect.any(Number),
+        expect.any(String),
+        "json", // responseFormat threaded through
       );
     });
 

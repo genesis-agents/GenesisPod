@@ -45,6 +45,7 @@ export class AiApiCallerService {
     temperature?: number,
     timeout: number = 120000,
     tokenParamName: string = "max_tokens",
+    responseFormat?: string,
   ): Promise<ChatCompletionResult> {
     // ★ 关键修复：确保 apiEndpoint 有效
     const effectiveEndpoint =
@@ -67,7 +68,7 @@ export class AiApiCallerService {
     }
 
     // ★ 构建请求体 - 只包含有效的参数
-    const requestBody: Record<string, any> = {
+    const requestBody: Record<string, unknown> = {
       model: modelId,
       messages: messages.map((m) => ({
         role: m.role,
@@ -80,6 +81,10 @@ export class AiApiCallerService {
     // ★ 只有当 temperature 有值时才包含，避免发送 null/undefined
     if (temperature !== undefined && temperature !== null) {
       requestBody.temperature = temperature;
+    }
+
+    if (responseFormat === "json") {
+      requestBody["response_format"] = { type: "json_object" };
     }
 
     this.logger.debug(
@@ -170,7 +175,14 @@ export class AiApiCallerService {
     maxTokens: number,
     temperature?: number,
     timeout: number = 120000,
+    responseFormat?: string,
   ): Promise<ChatCompletionResult> {
+    if (responseFormat === "json") {
+      this.logger.warn(
+        `[callAnthropicAPI] responseFormat="json" requested but Anthropic does not support json_object mode natively. ` +
+          `Relying on system prompt constraint only.`,
+      );
+    }
     // ★ 确保 apiEndpoint 有效
     const effectiveEndpoint =
       apiEndpoint?.trim() || "https://api.anthropic.com/v1/messages";
@@ -180,7 +192,7 @@ export class AiApiCallerService {
     const otherMessages = messages.filter((m) => m.role !== "system");
 
     // ★ 构建请求体 - 只包含有效的参数
-    const requestBody: Record<string, any> = {
+    const requestBody: Record<string, unknown> = {
       model: modelId,
       max_tokens: maxTokens,
       messages: otherMessages.map((m) => ({
@@ -234,6 +246,7 @@ export class AiApiCallerService {
     maxTokens: number,
     temperature?: number,
     timeout: number = 120000,
+    responseFormat?: string,
   ): Promise<ChatCompletionResult> {
     // ★ 确保 apiEndpoint 有效
     const effectiveEndpoint =
@@ -272,7 +285,7 @@ export class AiApiCallerService {
     }));
 
     // ★ 构建请求体 - 只包含有效的 temperature
-    const generationConfig: Record<string, any> = {
+    const generationConfig: Record<string, unknown> = {
       maxOutputTokens: maxTokens,
       topP: 0.95,
       topK: 40,
@@ -283,7 +296,11 @@ export class AiApiCallerService {
       generationConfig.temperature = temperature;
     }
 
-    const requestBody: any = {
+    if (responseFormat === "json") {
+      generationConfig["responseMimeType"] = "application/json";
+    }
+
+    const requestBody: Record<string, unknown> = {
       contents,
       generationConfig,
     };
@@ -340,13 +357,14 @@ export class AiApiCallerService {
     temperature?: number,
     timeout: number = 120000,
     tokenParamName: string = "max_tokens",
+    responseFormat?: string,
   ): Promise<ChatCompletionResult> {
     // ★ 确保 apiEndpoint 有效
     const effectiveEndpoint =
       apiEndpoint?.trim() || "https://api.x.ai/v1/chat/completions";
 
     // ★ 数据库驱动：使用配置的 tokenParamName
-    const requestBody: Record<string, any> = {
+    const requestBody: Record<string, unknown> = {
       model: modelId,
       messages: messages.map((m) => ({
         role: m.role,
@@ -358,6 +376,10 @@ export class AiApiCallerService {
     // 只有当 temperature 有值时才包含
     if (temperature !== undefined && temperature !== null) {
       requestBody.temperature = temperature;
+    }
+
+    if (responseFormat === "json") {
+      requestBody["response_format"] = { type: "json_object" };
     }
 
     this.logger.debug(`[callXAIAPI] model=${modelId}, maxTokens=${maxTokens}`);
@@ -442,9 +464,10 @@ export class AiApiCallerService {
   ): Promise<EmbeddingApiResult> {
     // Normalize base URL: strip trailing /models, /models/, or trailing slashes
     const baseUrl = (
-      apiEndpoint?.trim() ||
-      "https://generativelanguage.googleapis.com/v1beta"
-    ).replace(/\/models\/?$/, "").replace(/\/+$/, "");
+      apiEndpoint?.trim() || "https://generativelanguage.googleapis.com/v1beta"
+    )
+      .replace(/\/models\/?$/, "")
+      .replace(/\/+$/, "");
 
     const apiUrl = `${baseUrl}/models/${modelId}:batchEmbedContents`;
 

@@ -4,6 +4,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
+import { AIModelType } from "@prisma/client";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
@@ -164,8 +165,8 @@ export class TextGenerationTool extends BaseTool<
       prompt,
       systemPrompt,
       context,
-      maxTokens = 2000,
-      temperature = 0.7,
+      maxTokens,
+      temperature,
       outputFormat = "text",
     } = input;
 
@@ -192,12 +193,23 @@ export class TextGenerationTool extends BaseTool<
     }
     messages.push({ role: "user", content: fullPrompt });
 
+    // outputFormat → outputLength 映射
+    const outputLength =
+      outputFormat === "json"
+        ? "short"
+        : outputFormat === "markdown"
+          ? "long"
+          : "medium";
+
     try {
-      // 调用 AI 服务
+      // 调用 AI 服务（遵循 AI 调用规范：必须传 modelType + taskProfile）
       const response = await this.aiChatService.chat({
         messages,
-        maxTokens,
-        temperature,
+        modelType: AIModelType.CHAT,
+        taskProfile: { creativity: "medium", outputLength },
+        // 显式传入的参数优先级高于 taskProfile
+        ...(maxTokens !== undefined && { maxTokens }),
+        ...(temperature !== undefined && { temperature }),
       });
 
       return {

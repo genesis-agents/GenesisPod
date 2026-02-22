@@ -61,6 +61,7 @@ export class AiDirectKeyService {
     displayName?: string;
     capabilities?: string[];
     enableSearch?: boolean;
+    responseFormat?: string;
   }): Promise<ChatCompletionResult> {
     const {
       provider,
@@ -75,6 +76,7 @@ export class AiDirectKeyService {
       displayName,
       capabilities = [],
       enableSearch = true,
+      responseFormat,
     } = options;
 
     // Map taskProfile to parameters if provided
@@ -152,6 +154,9 @@ export class AiDirectKeyService {
                 mode: "auto",
                 return_citations: true,
               },
+              ...(responseFormat === "json"
+                ? { response_format: { type: "json_object" } }
+                : {}),
             },
             { Authorization: `Bearer ${apiKey}` },
             "grok",
@@ -232,7 +237,11 @@ export class AiDirectKeyService {
               })),
               ...tokenParam,
               ...reasoningParam,
-              temperature,
+              // o1/o3 模型不支持 temperature 参数
+              ...(!isO1O3Model ? { temperature } : {}),
+              ...(responseFormat === "json"
+                ? { response_format: { type: "json_object" } }
+                : {}),
             },
             { Authorization: `Bearer ${apiKey}` },
             "gpt-4",
@@ -241,6 +250,12 @@ export class AiDirectKeyService {
 
         case "anthropic":
         case "claude": {
+          if (responseFormat === "json") {
+            this.logger.warn(
+              `[BYOK] responseFormat="json" requested for Anthropic but native JSON mode is not supported. ` +
+                `Relying on system prompt constraint only.`,
+            );
+          }
           const systemMessage = fullMessages.find((m) => m.role === "system");
           const otherMessages = fullMessages.filter((m) => m.role !== "system");
           return await this.callClaudeApiWithKey(
@@ -251,6 +266,7 @@ export class AiDirectKeyService {
             otherMessages,
             maxTokens,
             temperature,
+            responseFormat,
           );
         }
 
@@ -266,6 +282,7 @@ export class AiDirectKeyService {
             displayName,
             capabilities,
             enableSearch,
+            responseFormat,
           );
 
         default:
@@ -505,7 +522,14 @@ export class AiDirectKeyService {
     messages: ChatMessage[],
     maxTokens: number,
     temperature: number,
+    responseFormat?: string,
   ): Promise<ChatCompletionResult> {
+    if (responseFormat === "json") {
+      this.logger.warn(
+        `[BYOK/Claude] responseFormat="json" requested but Anthropic does not support ` +
+          `json_object mode natively. Relying on system prompt constraint only.`,
+      );
+    }
     const dynamicTimeout = Math.max(
       120000,
       Math.min(600000, 120000 + Math.ceil(maxTokens / 1000) * 15000),
@@ -564,6 +588,7 @@ export class AiDirectKeyService {
     displayName?: string,
     capabilities: string[] = [],
     enableSearch: boolean = true,
+    responseFormat?: string,
   ): Promise<ChatCompletionResult> {
     const dynamicTimeout = Math.max(
       120000,
@@ -738,6 +763,7 @@ export class AiDirectKeyService {
         maxOutputTokens: number;
         temperature: number;
         responseModalities?: string[];
+        responseMimeType?: string;
       };
       tools?: Array<{ googleSearch: Record<string, never> }>;
       systemInstruction?: { parts: Array<{ text: string }> };
@@ -769,6 +795,10 @@ export class AiDirectKeyService {
         requestBody.systemInstruction = {
           parts: [{ text: systemMessage.content }],
         };
+      }
+
+      if (responseFormat === "json") {
+        requestBody.generationConfig.responseMimeType = "application/json";
       }
     }
 

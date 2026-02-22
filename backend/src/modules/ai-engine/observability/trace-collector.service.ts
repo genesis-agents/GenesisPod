@@ -1,5 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { randomUUID } from "crypto";
+import { Prisma } from "@prisma/client";
 import {
   TraceData,
   SpanData,
@@ -12,6 +13,7 @@ import {
   ExecutionStatus,
 } from "./trace.interface";
 import { LruMap } from "@/common/utils/lru-map";
+import { PrismaService } from "../../../common/prisma/prisma.service";
 
 /**
  * Trace 收集器服务
@@ -38,6 +40,8 @@ export class TraceCollectorService {
   /** Trace 按时间排序的 ID 列表（用于 FIFO 淘汰） */
   private traceIdsByTime: string[] = [];
 
+  constructor(@Optional() private readonly prisma?: PrismaService) {}
+
   /**
    * 开始一个新的 Trace
    * @param input Trace 创建参数
@@ -60,10 +64,16 @@ export class TraceCollectorService {
     this.traces.set(traceId, trace);
     this.traceIdsByTime.push(traceId);
 
-    // FIFO 淘汰 - 修复 off-by-one 错误
+    // FIFO 淘汰：size 达到 MAX_TRACES 时主动淘汰已完成的 trace，
+    // 确保在 LruMap 自身淘汰（按 LRU 顺序）之前先按业务规则淘汰（跳过 running）
     if (this.traces.size >= this.MAX_TRACES) {
       this.evictOldestTrace();
     }
+
+    // DB 持久化（fire-and-forget）
+    this.persistTrace(trace).catch((e) =>
+      this.logger.debug(`[Trace] persistTrace failed on startTrace: ${e}`),
+    );
 
     this.logger.debug(
       `[Trace] Started: ${input.name} (${input.type}) [${traceId}]`,
@@ -101,6 +111,11 @@ export class TraceCollectorService {
     this.spans.set(spanId, span);
     trace.spans.push(span);
 
+    // DB 持久化（fire-and-forget）
+    this.persistSpan(span).catch((e) =>
+      this.logger.debug(`[Trace] persistSpan failed on addSpan: ${e}`),
+    );
+
     this.logger.debug(
       `[Trace] Span added: ${input.name} (${input.type}) [${spanId}] -> Trace [${traceId}]`,
     );
@@ -127,6 +142,11 @@ export class TraceCollectorService {
     span.output = result.output;
     span.error = result.error;
 
+    // DB 持久化（fire-and-forget）
+    this.persistSpan(span).catch((e) =>
+      this.logger.debug(`[Trace] persistSpan failed on endSpan: ${e}`),
+    );
+
     this.logger.debug(
       `[Trace] Span ended: ${span.name} [${spanId}] - ${result.status} (${span.duration}ms)`,
     );
@@ -149,6 +169,11 @@ export class TraceCollectorService {
     trace.status = result.status;
     trace.duration =
       result.totalDuration ?? now.getTime() - trace.startTime.getTime();
+
+    // DB 持久化（fire-and-forget）
+    this.persistTrace(trace).catch((e) =>
+      this.logger.debug(`[Trace] persistTrace failed on endTrace: ${e}`),
+    );
 
     this.logger.log(
       `[Trace] Ended: ${trace.name} [${traceId}] - ${result.status} (${trace.duration}ms, ${trace.spans.length} spans)`,
@@ -244,6 +269,78 @@ export class TraceCollectorService {
   }
 
   // ==================== Private Methods ====================
+
+  /**
+   * 持久化 Trace 到 DB（upsert，write-through）
+   */
+  private async persistTrace(trace: TraceData): Promise<void> {
+    if (!this.prisma) return;
+    try {
+      await this.prisma.agentTrace.upsert({
+        where: { id: trace.id },
+        create: {
+          id: trace.id,
+          name: trace.name,
+          type: trace.type,
+          status: trace.status,
+          startTime: trace.startTime,
+          endTime: trace.endTime ?? null,
+          duration: trace.duration ?? null,
+          metadata: trace.metadata as Prisma.InputJsonValue,
+        },
+        update: {
+          status: trace.status,
+          endTime: trace.endTime ?? null,
+          duration: trace.duration ?? null,
+        },
+      });
+    } catch (error) {
+      this.logger.debug(
+        `[Trace] DB persist failed for trace ${trace.id}: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * 持久化 Span 到 DB（upsert，write-through）
+   */
+  private async persistSpan(span: SpanData): Promise<void> {
+    if (!this.prisma) return;
+    try {
+      await this.prisma.agentSpan.upsert({
+        where: { id: span.id },
+        create: {
+          id: span.id,
+          traceId: span.traceId,
+          parentSpanId: span.parentSpanId ?? null,
+          name: span.name,
+          type: span.type,
+          status: span.status,
+          startTime: span.startTime,
+          endTime: span.endTime ?? null,
+          duration: span.duration ?? null,
+          metadata: span.metadata as Prisma.InputJsonValue,
+          output: span.output
+            ? (span.output as Prisma.InputJsonValue)
+            : Prisma.DbNull,
+          error: span.error ?? null,
+        },
+        update: {
+          status: span.status,
+          endTime: span.endTime ?? null,
+          duration: span.duration ?? null,
+          output: span.output
+            ? (span.output as Prisma.InputJsonValue)
+            : Prisma.DbNull,
+          error: span.error ?? null,
+        },
+      });
+    } catch (error) {
+      this.logger.debug(
+        `[Trace] DB persist failed for span ${span.id}: ${error}`,
+      );
+    }
+  }
 
   /**
    * FIFO 淘汰最旧的 Trace

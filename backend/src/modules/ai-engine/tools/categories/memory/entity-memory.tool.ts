@@ -18,6 +18,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
@@ -424,15 +425,12 @@ export class EntityMemoryTool extends BaseTool<
     },
   };
 
-  // In-memory storage for demo purposes
-  // TODO: Replace with actual database storage (Prisma + PostgreSQL)
-  private entities: Map<string, Entity> = new Map();
-  private relations: Map<string, EntityRelation> = new Map();
-  private nameIndex: Map<string, string> = new Map(); // name -> entityId
+  private static readonly USER_ID = "system";
+  private static readonly ENTITY_TYPE = "entity";
+  private static readonly RELATION_TYPE = "entity_relation";
 
-  constructor() {
+  constructor(private readonly prisma: PrismaService) {
     super();
-    // defaultTimeout set in class property // 10 秒超时
   }
 
   /**
@@ -534,34 +532,38 @@ export class EntityMemoryTool extends BaseTool<
     entityData: EntityMemoryInput["entity"],
     _context: ToolContext,
   ): Promise<EntityMemoryOutput> {
-    const entityId = this.generateEntityId(entityData!.name);
+    // 使用 name 的 slug 作为稳定 key，实现按名称去重
+    const entityKey = this.generateEntityId(entityData!.name);
 
-    // 检查是否已存在
-    const existingId = this.nameIndex.get(entityData!.name.toLowerCase());
-    if (existingId) {
-      // 更新现有实体
-      const existing = this.entities.get(existingId)!;
-      existing.mentionCount++;
-      existing.lastMentionedAt = new Date();
+    // 检查是否已存在（Prisma upsert-like）
+    const existing = await this.prisma.longTermMemory.findUnique({
+      where: {
+        userId_key: { userId: EntityMemoryTool.USER_ID, key: entityKey },
+      },
+    });
+
+    if (existing) {
+      const entity = existing.value as unknown as Entity;
+      entity.mentionCount++;
+      entity.lastMentionedAt = new Date();
       if (entityData!.context) {
-        existing.contexts.push(entityData!.context);
+        entity.contexts.push(entityData!.context);
       }
-      // 合并属性
-      existing.properties = {
-        ...existing.properties,
-        ...entityData!.properties,
-      };
+      entity.properties = { ...entity.properties, ...entityData!.properties };
 
-      return {
-        success: true,
-        operation: EntityOperation.STORE,
-        entity: existing,
-      };
+      await this.prisma.longTermMemory.update({
+        where: {
+          userId_key: { userId: EntityMemoryTool.USER_ID, key: entityKey },
+        },
+        data: { value: entity as object },
+      });
+
+      return { success: true, operation: EntityOperation.STORE, entity };
     }
 
     // 创建新实体
     const entity: Entity = {
-      id: entityId,
+      id: entityKey,
       name: entityData!.name,
       type: entityData!.type,
       properties: entityData!.properties || {},
@@ -570,25 +572,32 @@ export class EntityMemoryTool extends BaseTool<
       contexts: entityData!.context ? [entityData!.context] : [],
     };
 
-    this.entities.set(entityId, entity);
-    this.nameIndex.set(entityData!.name.toLowerCase(), entityId);
+    await this.prisma.longTermMemory.create({
+      data: {
+        userId: EntityMemoryTool.USER_ID,
+        key: entityKey,
+        type: EntityMemoryTool.ENTITY_TYPE,
+        value: entity as object,
+        tags: [entity.type],
+      },
+    });
 
-    this.logger.log(`Stored entity: ${entity.name} [${entityId}]`);
+    this.logger.log(`Stored entity: ${entity.name} [${entityKey}]`);
 
-    return {
-      success: true,
-      operation: EntityOperation.STORE,
-      entity,
-    };
+    return { success: true, operation: EntityOperation.STORE, entity };
   }
 
   /**
    * 检索实体
    */
   private async retrieveEntity(entityId: string): Promise<EntityMemoryOutput> {
-    const entity = this.entities.get(entityId);
+    const record = await this.prisma.longTermMemory.findUnique({
+      where: {
+        userId_key: { userId: EntityMemoryTool.USER_ID, key: entityId },
+      },
+    });
 
-    if (!entity) {
+    if (!record || record.type !== EntityMemoryTool.ENTITY_TYPE) {
       return {
         success: false,
         operation: EntityOperation.RETRIEVE,
@@ -599,7 +608,7 @@ export class EntityMemoryTool extends BaseTool<
     return {
       success: true,
       operation: EntityOperation.RETRIEVE,
-      entity,
+      entity: record.value as unknown as Entity,
     };
   }
 
@@ -610,9 +619,13 @@ export class EntityMemoryTool extends BaseTool<
     entityId: string,
     updates: EntityMemoryInput["entity"],
   ): Promise<EntityMemoryOutput> {
-    const entity = this.entities.get(entityId);
+    const record = await this.prisma.longTermMemory.findUnique({
+      where: {
+        userId_key: { userId: EntityMemoryTool.USER_ID, key: entityId },
+      },
+    });
 
-    if (!entity) {
+    if (!record || record.type !== EntityMemoryTool.ENTITY_TYPE) {
       return {
         success: false,
         operation: EntityOperation.UPDATE,
@@ -620,7 +633,8 @@ export class EntityMemoryTool extends BaseTool<
       };
     }
 
-    // 更新属性
+    const entity = record.value as unknown as Entity;
+
     if (updates!.properties) {
       entity.properties = { ...entity.properties, ...updates!.properties };
     }
@@ -629,20 +643,27 @@ export class EntityMemoryTool extends BaseTool<
     }
     entity.lastMentionedAt = new Date();
 
-    return {
-      success: true,
-      operation: EntityOperation.UPDATE,
-      entity,
-    };
+    await this.prisma.longTermMemory.update({
+      where: {
+        userId_key: { userId: EntityMemoryTool.USER_ID, key: entityId },
+      },
+      data: { value: entity as object },
+    });
+
+    return { success: true, operation: EntityOperation.UPDATE, entity };
   }
 
   /**
    * 删除实体
    */
   private async deleteEntity(entityId: string): Promise<EntityMemoryOutput> {
-    const entity = this.entities.get(entityId);
+    const record = await this.prisma.longTermMemory.findUnique({
+      where: {
+        userId_key: { userId: EntityMemoryTool.USER_ID, key: entityId },
+      },
+    });
 
-    if (!entity) {
+    if (!record || record.type !== EntityMemoryTool.ENTITY_TYPE) {
       return {
         success: false,
         operation: EntityOperation.DELETE,
@@ -650,26 +671,35 @@ export class EntityMemoryTool extends BaseTool<
       };
     }
 
-    this.entities.delete(entityId);
-    this.nameIndex.delete(entity.name.toLowerCase());
+    const entity = record.value as unknown as Entity;
 
-    // 删除相关关系
-    for (const [relationId, relation] of this.relations.entries()) {
-      if (
-        relation.fromEntityId === entityId ||
-        relation.toEntityId === entityId
-      ) {
-        this.relations.delete(relationId);
-      }
+    // 删除实体
+    await this.prisma.longTermMemory.delete({
+      where: {
+        userId_key: { userId: EntityMemoryTool.USER_ID, key: entityId },
+      },
+    });
+
+    // 删除相关关系（fromEntityId 或 toEntityId 包含此实体的关系记录）
+    const relations = await this.prisma.longTermMemory.findMany({
+      where: {
+        userId: EntityMemoryTool.USER_ID,
+        type: EntityMemoryTool.RELATION_TYPE,
+      },
+    });
+    const toDelete = relations.filter((r) => {
+      const rel = r.value as unknown as EntityRelation;
+      return rel.fromEntityId === entityId || rel.toEntityId === entityId;
+    });
+    if (toDelete.length > 0) {
+      await this.prisma.longTermMemory.deleteMany({
+        where: { id: { in: toDelete.map((r) => r.id) } },
+      });
     }
 
     this.logger.log(`Deleted entity: ${entity.name} [${entityId}]`);
 
-    return {
-      success: true,
-      operation: EntityOperation.DELETE,
-      entity,
-    };
+    return { success: true, operation: EntityOperation.DELETE, entity };
   }
 
   /**
@@ -680,7 +710,12 @@ export class EntityMemoryTool extends BaseTool<
     relationData: EntityMemoryInput["relation"],
   ): Promise<EntityMemoryOutput> {
     // 验证实体存在
-    if (!this.entities.has(fromEntityId)) {
+    const fromExists = await this.prisma.longTermMemory.findUnique({
+      where: {
+        userId_key: { userId: EntityMemoryTool.USER_ID, key: fromEntityId },
+      },
+    });
+    if (!fromExists || fromExists.type !== EntityMemoryTool.ENTITY_TYPE) {
       return {
         success: false,
         operation: EntityOperation.ADD_RELATION,
@@ -688,7 +723,15 @@ export class EntityMemoryTool extends BaseTool<
       };
     }
 
-    if (!this.entities.has(relationData!.toEntityId)) {
+    const toExists = await this.prisma.longTermMemory.findUnique({
+      where: {
+        userId_key: {
+          userId: EntityMemoryTool.USER_ID,
+          key: relationData!.toEntityId,
+        },
+      },
+    });
+    if (!toExists || toExists.type !== EntityMemoryTool.ENTITY_TYPE) {
       return {
         success: false,
         operation: EntityOperation.ADD_RELATION,
@@ -696,7 +739,7 @@ export class EntityMemoryTool extends BaseTool<
       };
     }
 
-    const relationId = `${fromEntityId}-${relationData!.relationType}-${relationData!.toEntityId}`;
+    const relationId = `rel-${fromEntityId}-${relationData!.relationType}-${relationData!.toEntityId}`;
 
     const relation: EntityRelation = {
       id: relationId,
@@ -707,17 +750,25 @@ export class EntityMemoryTool extends BaseTool<
       createdAt: new Date(),
     };
 
-    this.relations.set(relationId, relation);
+    await this.prisma.longTermMemory.upsert({
+      where: {
+        userId_key: { userId: EntityMemoryTool.USER_ID, key: relationId },
+      },
+      create: {
+        userId: EntityMemoryTool.USER_ID,
+        key: relationId,
+        type: EntityMemoryTool.RELATION_TYPE,
+        value: relation as object,
+        tags: [relationData!.relationType],
+      },
+      update: { value: relation as object },
+    });
 
     this.logger.log(
       `Added relation: ${fromEntityId} -[${relationData!.relationType}]-> ${relationData!.toEntityId}`,
     );
 
-    return {
-      success: true,
-      operation: EntityOperation.ADD_RELATION,
-      relation,
-    };
+    return { success: true, operation: EntityOperation.ADD_RELATION, relation };
   }
 
   /**
@@ -727,7 +778,12 @@ export class EntityMemoryTool extends BaseTool<
     entityId: string,
     filter?: EntityMemoryInput["filter"],
   ): Promise<EntityMemoryOutput> {
-    if (!this.entities.has(entityId)) {
+    const entityRecord = await this.prisma.longTermMemory.findUnique({
+      where: {
+        userId_key: { userId: EntityMemoryTool.USER_ID, key: entityId },
+      },
+    });
+    if (!entityRecord || entityRecord.type !== EntityMemoryTool.ENTITY_TYPE) {
       return {
         success: false,
         operation: EntityOperation.QUERY_RELATIONS,
@@ -735,18 +791,24 @@ export class EntityMemoryTool extends BaseTool<
       };
     }
 
-    let relations = Array.from(this.relations.values()).filter(
-      (rel) => rel.fromEntityId === entityId || rel.toEntityId === entityId,
-    );
+    const records = await this.prisma.longTermMemory.findMany({
+      where: {
+        userId: EntityMemoryTool.USER_ID,
+        type: EntityMemoryTool.RELATION_TYPE,
+      },
+    });
 
-    // 应用过滤器
+    let relations = records
+      .map((r) => r.value as unknown as EntityRelation)
+      .filter(
+        (rel) => rel.fromEntityId === entityId || rel.toEntityId === entityId,
+      );
+
     if (filter?.relationType) {
       relations = relations.filter(
         (rel) => rel.relationType === filter.relationType,
       );
     }
-
-    // 应用限制
     if (filter?.limit) {
       relations = relations.slice(0, filter.limit);
     }
@@ -755,9 +817,7 @@ export class EntityMemoryTool extends BaseTool<
       success: true,
       operation: EntityOperation.QUERY_RELATIONS,
       relations,
-      metadata: {
-        totalCount: relations.length,
-      },
+      metadata: { totalCount: relations.length },
     };
   }
 
@@ -768,7 +828,13 @@ export class EntityMemoryTool extends BaseTool<
     query: string,
     filter?: EntityMemoryInput["filter"],
   ): Promise<EntityMemoryOutput> {
-    let entities = Array.from(this.entities.values());
+    const records = await this.prisma.longTermMemory.findMany({
+      where: {
+        userId: EntityMemoryTool.USER_ID,
+        type: EntityMemoryTool.ENTITY_TYPE,
+      },
+    });
+    let entities = records.map((r) => r.value as unknown as Entity);
 
     // 按名称模糊搜索
     const lowerQuery = query.toLowerCase();
@@ -805,6 +871,6 @@ export class EntityMemoryTool extends BaseTool<
    * 生成实体 ID
    */
   private generateEntityId(name: string): string {
-    return `entity-${name.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`;
+    return `entity-${name.toLowerCase().replace(/\s+/g, "-")}`;
   }
 }

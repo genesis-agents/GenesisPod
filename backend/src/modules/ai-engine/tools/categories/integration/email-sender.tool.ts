@@ -4,13 +4,14 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import * as nodemailer from "nodemailer";
+import { Transporter } from "nodemailer";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
   JSONSchema,
   ToolCategory,
 } from "../../abstractions/tool.interface";
-import { APP_CONFIG } from "@/common/config/app.config";
 
 // ============================================================================
 // Types
@@ -151,6 +152,27 @@ export class EmailSenderTool extends BaseTool<
   EmailSenderOutput
 > {
   private readonly logger = new Logger(EmailSenderTool.name);
+  private transporter: Transporter | null = null;
+
+  private getTransporter(): Transporter {
+    if (this.transporter) return this.transporter;
+
+    const host = process.env.SMTP_HOST || "smtp.gmail.com";
+    const port = parseInt(process.env.SMTP_PORT || "587", 10);
+    const user = process.env.SMTP_USER || "";
+    const pass = process.env.SMTP_PASS || "";
+
+    this.transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: user ? { user, pass } : undefined,
+      connectionTimeout: 10000,
+      greetingTimeout: 5000,
+    });
+
+    return this.transporter;
+  }
 
   readonly id = "email-sender";
   readonly category: ToolCategory = "integration";
@@ -296,9 +318,12 @@ export class EmailSenderTool extends BaseTool<
       cc,
       bcc,
       subject,
-      body: _body,
-      isHtml: _isHtml,
-      attachments: _attachments,
+      body,
+      isHtml = false,
+      attachments,
+      from,
+      priority = "normal",
+      replyTo,
       scheduledAt,
     } = input;
 
@@ -306,38 +331,70 @@ export class EmailSenderTool extends BaseTool<
       `[doExecute] Sending email to ${to.length} recipient(s): ${subject}`,
     );
 
+    const defaultFromEmail =
+      process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@example.com";
+    const defaultFromName = process.env.SMTP_FROM_NAME || "AI Engine";
+
     try {
-      // 模拟邮件发送
-      // 实际实现时应该使用 nodemailer 或邮件服务 API（如 SendGrid, Mailgun）
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const messageId = `<${Date.now()}.${Math.random().toString(36).substring(7)}@${APP_CONFIG.brand.name.toLowerCase()}.ai>`;
-      const allRecipients = [...to, ...(cc || []), ...(bcc || [])];
-
-      // 模拟收件人状态
-      const recipients = allRecipients.map((email) => ({
-        email,
-        status: "delivered" as const,
-      }));
-
-      // 检查是否为定时发送
+      // Scheduled emails: return queued status (actual scheduling requires a job queue)
       if (scheduledAt && new Date(scheduledAt) > new Date()) {
+        const messageId = `<${Date.now()}.${Math.random().toString(36).substring(7)}@scheduled>`;
+        const allRecipients = [...to, ...(cc || []), ...(bcc || [])];
         return {
           success: true,
           messageId,
           status: "scheduled",
-          recipients,
+          recipients: allRecipients.map((email) => ({
+            email,
+            status: "queued" as const,
+          })),
           scheduledAt,
         };
       }
 
-      this.logger.log(`[doExecute] Email sent successfully: ${messageId}`);
+      const transporter = this.getTransporter();
+
+      // Priority headers
+      const priorityHeaders: Record<string, string> = {};
+      if (priority === "high") {
+        priorityHeaders["X-Priority"] = "1";
+        priorityHeaders["X-MSMail-Priority"] = "High";
+      } else if (priority === "low") {
+        priorityHeaders["X-Priority"] = "5";
+        priorityHeaders["X-MSMail-Priority"] = "Low";
+      }
+
+      const mailOptions: nodemailer.SendMailOptions = {
+        from: from
+          ? `"${from.name || defaultFromName}" <${from.email}>`
+          : `"${defaultFromName}" <${defaultFromEmail}>`,
+        to: to.join(", "),
+        cc: cc?.join(", "),
+        bcc: bcc?.join(", "),
+        replyTo,
+        subject,
+        ...(isHtml ? { html: body } : { text: body }),
+        attachments: attachments?.map((a) => ({
+          filename: a.filename,
+          content: Buffer.from(a.content, "base64"),
+          contentType: a.contentType,
+        })),
+        headers: priorityHeaders,
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      const allRecipients = [...to, ...(cc || []), ...(bcc || [])];
+
+      this.logger.log(`[doExecute] Email sent successfully: ${info.messageId}`);
 
       return {
         success: true,
-        messageId,
+        messageId: info.messageId,
         status: "sent",
-        recipients,
+        recipients: allRecipients.map((email) => ({
+          email,
+          status: "delivered" as const,
+        })),
         sentAt: new Date().toISOString(),
       };
     } catch (error) {

@@ -11,6 +11,7 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 
+import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../../../llm/services/ai-chat.service";
 
 // ============================================================================
@@ -212,6 +213,7 @@ ${referenceCode}
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
+        modelType: AIModelType.CHAT,
         taskProfile: {
           creativity: "low", // 代码生成使用较低温度
           outputLength: "medium",

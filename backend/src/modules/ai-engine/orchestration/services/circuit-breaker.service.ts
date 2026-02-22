@@ -11,6 +11,7 @@
  * - 响应时间追踪
  * - 负载均衡支持
  * - 自动清理过期数据
+ * - Redis 持久化（写透策略，可选）
  */
 
 import {
@@ -18,7 +19,9 @@ import {
   Logger,
   OnModuleInit,
   OnModuleDestroy,
+  Optional,
 } from "@nestjs/common";
+import { CacheService } from "@/common/cache/cache.service";
 
 /**
  * 任务完成类型 - 区分不同的失败模式
@@ -100,6 +103,9 @@ export interface HealthMetrics {
 export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CircuitBreakerService.name);
 
+  // Redis key 前缀
+  private static readonly REDIS_PREFIX = "circuit-breaker:";
+
   // 熔断器状态
   private readonly breakers = new Map<string, CircuitBreakerState>();
 
@@ -116,7 +122,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
 
   private readonly config: Required<CircuitBreakerConfig>;
 
-  constructor() {
+  constructor(@Optional() private readonly cacheService?: CacheService) {
     // 默认配置
     this.config = {
       failureThreshold: 3,
@@ -131,11 +137,12 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
 
   // ==================== 生命周期 ====================
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     this.logger.log(
       `[CircuitBreaker] Initializing with TTL=${this.config.inactiveTtlMs}ms, cleanup interval=${this.config.cleanupIntervalMs}ms`,
     );
     this.startCleanupScheduler();
+    await this.loadFromRedis();
   }
 
   onModuleDestroy(): void {
@@ -181,6 +188,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
         this.logger.log(
           `[CircuitBreaker] Entity ${entityId} transitioning to HALF_OPEN state`,
         );
+        this.saveToRedis(entityId, breaker);
         return true; // 允许一次测试请求
       }
       return false;
@@ -235,6 +243,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.breakers.set(entityId, breaker);
+    this.saveToRedis(entityId, breaker);
   }
 
   /**
@@ -262,6 +271,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
         `[CircuitBreaker] Entity ${entityId} RATE LIMITED (${breaker.rateLimitCount} times), circuit OPEN for ${this.config.rateLimitCooldownMs / 1000}s. Error: ${errorMsg}`,
       );
       this.breakers.set(entityId, breaker);
+      this.saveToRedis(entityId, breaker);
       return;
     }
 
@@ -278,6 +288,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
         `[CircuitBreaker] Entity ${entityId} non-retryable error (${errorType}), circuit OPEN. Error: ${errorMsg}`,
       );
       this.breakers.set(entityId, breaker);
+      this.saveToRedis(entityId, breaker);
       return;
     }
 
@@ -304,6 +315,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.breakers.set(entityId, breaker);
+    this.saveToRedis(entityId, breaker);
   }
 
   /**
@@ -498,6 +510,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
     this.breakers.delete(entityId);
     this.responseTimes.delete(entityId);
     this.currentLoad.delete(entityId);
+    this.deleteFromRedis(entityId);
     this.logger.log(`[CircuitBreaker] Reset circuit for entity ${entityId}`);
   }
 
@@ -508,6 +521,13 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
     this.breakers.clear();
     this.responseTimes.clear();
     this.currentLoad.clear();
+    if (this.cacheService) {
+      this.cacheService
+        .del(`${CircuitBreakerService.REDIS_PREFIX}_index`)
+        .catch((err) =>
+          this.logger.warn(`[CircuitBreaker] Redis resetAll failed: ${err}`),
+        );
+    }
     this.logger.log(`[CircuitBreaker] Reset all circuits`);
   }
 
@@ -554,6 +574,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
         lastActivityTime: new Date(),
       };
       this.breakers.set(entityId, breaker);
+      this.saveToRedis(entityId, breaker);
     }
     // 更新最后活动时间
     breaker.lastActivityTime = new Date();
@@ -607,6 +628,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
         this.breakers.delete(entityId);
         this.responseTimes.delete(entityId);
         this.currentLoad.delete(entityId);
+        this.deleteFromRedis(entityId);
         cleanedCount++;
         this.logger.log(
           `[CircuitBreaker] Cleaned inactive breaker: ${entityId} (inactive for ${Math.round(inactiveTime / 1000 / 60 / 60)}h)`,
@@ -619,5 +641,89 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
         `[CircuitBreaker] Cleanup completed: removed ${cleanedCount} inactive breakers. Remaining: ${this.breakers.size}`,
       );
     }
+  }
+
+  // ==================== Redis 持久化 ====================
+
+  private async loadFromRedis(): Promise<void> {
+    if (!this.cacheService) return;
+    try {
+      const index = await this.cacheService.get<string[]>(
+        `${CircuitBreakerService.REDIS_PREFIX}_index`,
+      );
+      if (!index || index.length === 0) return;
+      let loaded = 0;
+      for (const entityId of index) {
+        const state = await this.cacheService.get<CircuitBreakerState>(
+          `${CircuitBreakerService.REDIS_PREFIX}${entityId}`,
+        );
+        if (state) {
+          // Restore Date objects (Redis serializes to strings)
+          state.lastActivityTime = new Date(state.lastActivityTime);
+          if (state.lastFailureTime)
+            state.lastFailureTime = new Date(state.lastFailureTime);
+          if (state.lastSuccessTime)
+            state.lastSuccessTime = new Date(state.lastSuccessTime);
+          if (state.cooldownUntil)
+            state.cooldownUntil = new Date(state.cooldownUntil);
+          if (state.lastRateLimitTime)
+            state.lastRateLimitTime = new Date(state.lastRateLimitTime);
+          this.breakers.set(entityId, state);
+          loaded++;
+        }
+      }
+      if (loaded > 0)
+        this.logger.log(
+          `[CircuitBreaker] Restored ${loaded} breaker states from Redis`,
+        );
+    } catch (error) {
+      this.logger.warn(`[CircuitBreaker] Failed to load from Redis: ${error}`);
+    }
+  }
+
+  private saveToRedis(entityId: string, state: CircuitBreakerState): void {
+    if (!this.cacheService) return;
+    const ttlSeconds = Math.ceil(this.config.inactiveTtlMs / 1000);
+    Promise.all([
+      this.cacheService.set(
+        `${CircuitBreakerService.REDIS_PREFIX}${entityId}`,
+        state,
+        ttlSeconds,
+      ),
+      this.updateRedisIndex(entityId, "add"),
+    ]).catch((err) =>
+      this.logger.warn(
+        `[CircuitBreaker] Redis save failed for ${entityId}: ${err}`,
+      ),
+    );
+  }
+
+  private deleteFromRedis(entityId: string): void {
+    if (!this.cacheService) return;
+    Promise.all([
+      this.cacheService.del(`${CircuitBreakerService.REDIS_PREFIX}${entityId}`),
+      this.updateRedisIndex(entityId, "remove"),
+    ]).catch((err) =>
+      this.logger.warn(
+        `[CircuitBreaker] Redis delete failed for ${entityId}: ${err}`,
+      ),
+    );
+  }
+
+  private async updateRedisIndex(
+    entityId: string,
+    action: "add" | "remove",
+  ): Promise<void> {
+    if (!this.cacheService) return;
+    const indexKey = `${CircuitBreakerService.REDIS_PREFIX}_index`;
+    const ttlSeconds = Math.ceil(this.config.inactiveTtlMs / 1000);
+    const index = (await this.cacheService.get<string[]>(indexKey)) || [];
+    if (action === "add") {
+      if (!index.includes(entityId)) index.push(entityId);
+    } else {
+      const i = index.indexOf(entityId);
+      if (i !== -1) index.splice(i, 1);
+    }
+    await this.cacheService.set(indexKey, index, ttlSeconds);
   }
 }

@@ -16,7 +16,7 @@
  * - 确认机制
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit, Optional } from "@nestjs/common";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
@@ -28,8 +28,13 @@ import {
   BUILTIN_AGENTS,
   BuiltinAgentId,
 } from "../../../core/types/agent.types";
+import { CacheService } from "@/common/cache/cache.service";
 
 import { randomUUID } from "crypto";
+
+const CACHE_PREFIX_MSG = "agent-comm:msg:";
+const CACHE_PREFIX_INBOX = "agent-comm:inbox:";
+const CACHE_TTL_SECONDS = 24 * 60 * 60; // 24 hours
 
 // ============================================================================
 // Types
@@ -301,10 +306,10 @@ export interface AgentCommunicationOutput {
  * ```
  */
 @Injectable()
-export class AgentCommunicationTool extends BaseTool<
-  AgentCommunicationInput,
-  AgentCommunicationOutput
-> {
+export class AgentCommunicationTool
+  extends BaseTool<AgentCommunicationInput, AgentCommunicationOutput>
+  implements OnModuleInit
+{
   private readonly logger = new Logger(AgentCommunicationTool.name);
 
   readonly id = "agent-communication";
@@ -430,12 +435,11 @@ export class AgentCommunicationTool extends BaseTool<
     },
   };
 
-  // In-memory storage for demo purposes
-  // TODO: Replace with actual message queue system (Redis, RabbitMQ, etc.)
+  // In-memory storage (L1 cache)
   private messages: Map<string, Message> = new Map();
   private inboxes: Map<AgentId, string[]> = new Map(); // Agent -> messageIds
 
-  constructor() {
+  constructor(@Optional() private readonly cacheService?: CacheService) {
     super();
     // defaultTimeout set in class property // 5 秒超时
 
@@ -443,6 +447,77 @@ export class AgentCommunicationTool extends BaseTool<
     Object.values(BUILTIN_AGENTS).forEach((agentId) => {
       this.inboxes.set(agentId, []);
     });
+  }
+
+  async onModuleInit(): Promise<void> {
+    await this.loadFromRedis();
+  }
+
+  // ==================== Redis 持久化 ====================
+
+  private async loadFromRedis(): Promise<void> {
+    if (!this.cacheService) return;
+    try {
+      // 1. Restore inboxes first (source of truth for which messages exist)
+      for (const agentId of Object.values(BUILTIN_AGENTS)) {
+        const inbox = await this.cacheService.get<string[]>(
+          `${CACHE_PREFIX_INBOX}${agentId}`,
+        );
+        if (inbox) this.inboxes.set(agentId, inbox);
+      }
+
+      // 2. Collect all unique messageIds from inboxes, then load messages
+      //    No separate index needed — avoids read-modify-write race condition.
+      const allMessageIds = new Set<string>();
+      for (const ids of this.inboxes.values()) {
+        ids.forEach((id) => allMessageIds.add(id));
+      }
+
+      let loaded = 0;
+      for (const messageId of allMessageIds) {
+        const msg = await this.cacheService.get<Message>(
+          `${CACHE_PREFIX_MSG}${messageId}`,
+        );
+        if (msg) {
+          // Restore Date objects (Redis serializes to strings)
+          msg.createdAt = new Date(msg.createdAt);
+          if (msg.sentAt) msg.sentAt = new Date(msg.sentAt);
+          if (msg.deliveredAt) msg.deliveredAt = new Date(msg.deliveredAt);
+          if (msg.readAt) msg.readAt = new Date(msg.readAt);
+          if (msg.repliedAt) msg.repliedAt = new Date(msg.repliedAt);
+          this.messages.set(messageId, msg);
+          loaded++;
+        }
+      }
+
+      if (loaded > 0)
+        this.logger.log(`[AgentComm] Restored ${loaded} messages from Redis`);
+    } catch (error) {
+      this.logger.warn(`[AgentComm] Failed to load from Redis: ${error}`);
+    }
+  }
+
+  private saveMessageToCache(message: Message): void {
+    if (!this.cacheService) return;
+    this.cacheService
+      .set(`${CACHE_PREFIX_MSG}${message.id}`, message, CACHE_TTL_SECONDS)
+      .catch((err) =>
+        this.logger.warn(
+          `[AgentComm] Redis save failed for ${message.id}: ${err}`,
+        ),
+      );
+  }
+
+  private saveInboxToCache(agentId: AgentId): void {
+    if (!this.cacheService) return;
+    const inbox = this.inboxes.get(agentId) || [];
+    this.cacheService
+      .set(`${CACHE_PREFIX_INBOX}${agentId}`, inbox, CACHE_TTL_SECONDS)
+      .catch((err) =>
+        this.logger.warn(
+          `[AgentComm] Redis inbox save failed for ${agentId}: ${err}`,
+        ),
+      );
   }
 
   /**
@@ -595,19 +670,23 @@ export class AgentCommunicationTool extends BaseTool<
     const inbox = this.inboxes.get(to);
     if (inbox) {
       inbox.push(messageId);
-      // 按优先级排序
+      // 按优先级排序（消息体不存在时 priority 降级为 NORMAL）
       inbox.sort((a, b) => {
-        const msgA = this.messages.get(a)!;
-        const msgB = this.messages.get(b)!;
+        const msgA = this.messages.get(a);
+        const msgB = this.messages.get(b);
         return (
-          this.getPriorityValue(msgB.priority) -
-          this.getPriorityValue(msgA.priority)
+          this.getPriorityValue(msgB?.priority ?? MessagePriority.NORMAL) -
+          this.getPriorityValue(msgA?.priority ?? MessagePriority.NORMAL)
         );
       });
     }
 
     // 更新状态为已送达
     message.status = MessageStatus.DELIVERED;
+
+    // 持久化到 Redis（fire-and-forget）
+    this.saveMessageToCache(message);
+    this.saveInboxToCache(to);
 
     this.logger.log(
       `Message sent from ${from} to ${to}: ${message.subject} [${messageId}]`,
@@ -754,9 +833,13 @@ export class AgentCommunicationTool extends BaseTool<
     if (result.success && result.message) {
       result.message.replyTo = replyToId;
 
+      // 持久化 reply 消息（含 replyTo 字段）
+      this.saveMessageToCache(result.message);
+
       // 更新原消息状态
       originalMessage.status = MessageStatus.REPLIED;
       originalMessage.repliedAt = new Date();
+      this.saveMessageToCache(originalMessage);
 
       this.logger.log(`Reply sent to message [${replyToId}]`);
     }
@@ -816,6 +899,7 @@ export class AgentCommunicationTool extends BaseTool<
     if (message.status === MessageStatus.DELIVERED) {
       message.status = MessageStatus.READ;
       message.readAt = new Date();
+      this.saveMessageToCache(message);
     }
 
     return {

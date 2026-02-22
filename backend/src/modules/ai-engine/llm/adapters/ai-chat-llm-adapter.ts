@@ -13,6 +13,7 @@ import { ConfigService } from "@nestjs/config";
 import { AiChatService } from "../services/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
+import { TaskProfile } from "../types";
 
 /**
  * 简化版 LLM 适配器接口（用于 BaseSkill）
@@ -24,6 +25,8 @@ export interface ISimpleLLMAdapter {
     model?: string;
     temperature?: number;
     maxTokens?: number;
+    taskProfile?: TaskProfile;
+    responseFormat?: string;
   }): Promise<{ content: string; tokensUsed?: number }>;
 }
 
@@ -56,7 +59,7 @@ export class AiChatLLMAdapter implements ISimpleLLMAdapter {
     private readonly configService: ConfigService,
     @Optional() private readonly prisma?: PrismaService,
   ) {
-    this.initializeDefaultModel();
+    void this.initializeDefaultModel();
   }
 
   /**
@@ -166,6 +169,8 @@ export class AiChatLLMAdapter implements ISimpleLLMAdapter {
     model?: string;
     temperature?: number;
     maxTokens?: number;
+    taskProfile?: TaskProfile;
+    responseFormat?: string;
   }): Promise<{ content: string; tokensUsed?: number }> {
     // 模型选择优先级：参数 > 数据库配置 > 环境变量 > 硬编码
     const model = options.model || (await this.getDefaultModel());
@@ -182,6 +187,8 @@ export class AiChatLLMAdapter implements ISimpleLLMAdapter {
         messages,
         maxTokens: options.maxTokens,
         temperature: options.temperature,
+        taskProfile: options.taskProfile,
+        responseFormat: options.responseFormat,
       });
 
       return {

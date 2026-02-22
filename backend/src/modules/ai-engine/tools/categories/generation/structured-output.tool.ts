@@ -11,6 +11,7 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 
+import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../../../llm/services/ai-chat.service";
 
 // ============================================================================
@@ -259,6 +260,7 @@ export class StructuredOutputTool extends BaseTool<
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
+        modelType: AIModelType.CHAT,
         taskProfile: {
           creativity:
             temperature <= 0.3 ? "low" : temperature <= 0.5 ? "medium" : "high",

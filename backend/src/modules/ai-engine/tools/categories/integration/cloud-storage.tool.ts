@@ -10,6 +10,15 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../abstractions/tool.interface";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { Readable } from "stream";
 
 // ============================================================================
 // Types
@@ -453,8 +462,8 @@ export interface CloudStorageOutput {
  *
  * 支持多个云存储提供商的文件操作：
  * - AWS S3
- * - Google Cloud Storage (GCS)
- * - Azure Blob Storage
+ * - Google Cloud Storage (GCS) - pending SDK installation
+ * - Azure Blob Storage - pending SDK installation
  * - MinIO (S3-compatible)
  *
  * 支持的操作：
@@ -746,6 +755,20 @@ export class CloudStorageTool extends BaseTool<
       `Executing ${input.operation} on ${input.provider} [task: ${context.executionId}]`,
     );
 
+    // Only S3 and MinIO are supported; GCS/Azure integration pending SDK installation
+    if (input.provider !== "s3" && input.provider !== "minio") {
+      return {
+        success: false,
+        operation: input.operation,
+        error: `Provider '${input.provider}' not yet integrated. Only 's3' and 'minio' are supported.`,
+        metadata: {
+          provider: input.provider,
+          bucket: this.getBucketName(input.config),
+          duration: Date.now() - startTime,
+        },
+      };
+    }
+
     try {
       let result: CloudStorageOutput;
 
@@ -799,6 +822,83 @@ export class CloudStorageTool extends BaseTool<
   }
 
   /**
+   * Create an S3Client from the provider config.
+   * Supports both AWS S3 (S3Config) and MinIO (MinIOConfig via S3-compatible endpoint).
+   */
+  private createS3Client(
+    config: S3Config | GCSConfig | AzureConfig | MinIOConfig,
+  ): S3Client {
+    // MinIOConfig uses accessKey/secretKey field names; S3Config uses accessKeyId/secretAccessKey
+    if ("endpoint" in config && "accessKey" in config) {
+      // MinIO config — TypeScript narrows config to MinIOConfig inside this block
+      const protocol = config.useSSL === false ? "http" : "https";
+      const endpoint = config.endpoint.startsWith("http")
+        ? config.endpoint
+        : `${protocol}://${config.endpoint}`;
+      return new S3Client({
+        region: "us-east-1",
+        endpoint,
+        forcePathStyle: true,
+        credentials:
+          config.accessKey && config.secretKey
+            ? {
+                accessKeyId: config.accessKey,
+                secretAccessKey: config.secretKey,
+              }
+            : undefined,
+      });
+    }
+
+    // S3 config
+    const s3Config = config as S3Config;
+    return new S3Client({
+      region: s3Config.region || "us-east-1",
+      credentials:
+        s3Config.accessKeyId && s3Config.secretAccessKey
+          ? {
+              accessKeyId: s3Config.accessKeyId,
+              secretAccessKey: s3Config.secretAccessKey,
+            }
+          : undefined, // falls back to environment credentials (AWS_ACCESS_KEY_ID, etc.)
+      ...(s3Config.endpoint
+        ? { endpoint: s3Config.endpoint, forcePathStyle: true }
+        : {}),
+    });
+  }
+
+  /**
+   * Get the bucket name from config regardless of provider type.
+   */
+  private getS3Bucket(
+    config: S3Config | GCSConfig | AzureConfig | MinIOConfig,
+  ): string {
+    if ("bucket" in config) return config.bucket;
+    if ("container" in config) return config.container;
+    return "unknown";
+  }
+
+  /**
+   * Build the base URL for a file in S3/MinIO.
+   */
+  private buildFileUrl(
+    config: S3Config | GCSConfig | AzureConfig | MinIOConfig,
+    key: string,
+  ): string {
+    if ("endpoint" in config && "accessKey" in config) {
+      // MinIO — TypeScript narrows config to MinIOConfig inside this block
+      const endpoint = config.endpoint.startsWith("http")
+        ? config.endpoint
+        : `https://${config.endpoint}`;
+      return `${endpoint}/${config.bucket}/${key}`;
+    }
+    const s3Config = config as S3Config;
+    if (s3Config.endpoint) {
+      return `${s3Config.endpoint}/${s3Config.bucket}/${key}`;
+    }
+    return `https://${s3Config.bucket}.s3.${s3Config.region || "us-east-1"}.amazonaws.com/${key}`;
+  }
+
+  /**
    * 执行上传操作
    */
   private async executeUpload(
@@ -810,35 +910,60 @@ export class CloudStorageTool extends BaseTool<
       throw new Error("Upload parameters are required");
     }
 
-    // TODO: 实际集成云存储 SDK
-    // 当前为模拟实现
     this.logger.debug(
       `Uploading ${uploadParams.files.length} files to ${input.provider}`,
     );
 
-    // 模拟上传延迟
-    await this.simulateApiCall();
+    const s3 = this.createS3Client(input.config);
+    const bucket = this.getS3Bucket(input.config);
 
-    const uploaded: FileObject[] = uploadParams.files.map((file) => ({
-      key: file.key,
-      size: this.estimateFileSize(file.content, file.contentType),
-      lastModified: new Date(),
-      etag: `etag-${Date.now()}`,
-      storageClass: "STANDARD",
-      presignedUrl:
-        file.permission === "public-read"
-          ? `https://${this.getBucketName(input.config)}.s3.amazonaws.com/${file.key}`
-          : undefined,
-      metadata: file.metadata,
-    }));
+    const uploaded: FileObject[] = [];
+    const failed: Array<{ key: string; error: string }> = [];
 
-    const totalSize = uploaded.reduce((sum, file) => sum + file.size, 0);
+    for (const file of uploadParams.files) {
+      try {
+        const contentBuffer = Buffer.from(
+          file.content,
+          file.contentType === "base64" ? "base64" : "utf-8",
+        );
+
+        const command = new PutObjectCommand({
+          Bucket: bucket,
+          Key: file.key,
+          Body: contentBuffer,
+          ContentType: file.mimeType || "application/octet-stream",
+          ACL: file.permission === "public-read" ? "public-read" : "private",
+          ...(file.metadata ? { Metadata: file.metadata } : {}),
+        });
+
+        await s3.send(command);
+
+        const fileUrl = this.buildFileUrl(input.config, file.key);
+
+        uploaded.push({
+          key: file.key,
+          size: contentBuffer.length,
+          lastModified: new Date(),
+          etag: `etag-${Date.now()}`,
+          storageClass: "STANDARD",
+          publicUrl: file.permission === "public-read" ? fileUrl : undefined,
+          metadata: file.metadata,
+        });
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
+        this.logger.error(`Failed to upload file ${file.key}: ${errorMsg}`);
+        failed.push({ key: file.key, error: errorMsg });
+      }
+    }
+
+    const totalSize = uploaded.reduce((sum, f) => sum + f.size, 0);
 
     return {
-      success: true,
+      success: failed.length === 0,
       operation: "upload",
       uploadResult: {
         uploaded,
+        ...(failed.length > 0 ? { failed } : {}),
         totalSize,
       },
     };
@@ -856,29 +981,68 @@ export class CloudStorageTool extends BaseTool<
       throw new Error("Download parameters are required");
     }
 
-    // TODO: 实际集成云存储 SDK
-    // 当前为模拟实现
     this.logger.debug(
       `Generating download URLs for ${downloadParams.keys.length} files`,
     );
 
-    // 模拟 API 调用
-    await this.simulateApiCall();
-
+    const s3 = this.createS3Client(input.config);
+    const bucket = this.getS3Bucket(input.config);
     const expiresIn = downloadParams.expiresIn || 3600;
-    const files: FileObject[] = downloadParams.keys.map((key) => ({
-      key,
-      size: 1024 * 100, // 模拟 100KB
-      lastModified: new Date(Date.now() - 86400000), // 1天前
-      etag: `etag-${key}`,
-      presignedUrl: `https://${this.getBucketName(input.config)}.s3.amazonaws.com/${key}?expires=${expiresIn}`,
-    }));
+
+    const files: FileObject[] = [];
+    const failed: Array<{ key: string; error: string }> = [];
+
+    for (const key of downloadParams.keys) {
+      try {
+        const getCommand = new GetObjectCommand({ Bucket: bucket, Key: key });
+
+        if (downloadParams.returnContent) {
+          // Fetch actual content for small files
+          const response = await s3.send(getCommand);
+          const stream = response.Body as Readable;
+          const chunks: Buffer[] = [];
+          for await (const chunk of stream) {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+          }
+          const buffer = Buffer.concat(chunks);
+
+          files.push({
+            key,
+            size: buffer.length,
+            lastModified: response.LastModified || new Date(),
+            etag: response.ETag,
+            metadata: response.Metadata,
+            // Store base64 content in presignedUrl field as a data URI for caller convenience
+            presignedUrl: `data:${response.ContentType || "application/octet-stream"};base64,${buffer.toString("base64")}`,
+          });
+        } else {
+          // Generate a presigned URL
+          const presignedUrl = await getSignedUrl(s3, getCommand, {
+            expiresIn,
+          });
+
+          files.push({
+            key,
+            size: 0, // Size unknown without a HeadObject call
+            lastModified: new Date(),
+            presignedUrl,
+          });
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
+        this.logger.error(
+          `Failed to generate download URL for ${key}: ${errorMsg}`,
+        );
+        failed.push({ key, error: errorMsg });
+      }
+    }
 
     return {
-      success: true,
+      success: failed.length === 0,
       operation: "download",
       downloadResult: {
         files,
+        ...(failed.length > 0 ? { failed } : {}),
       },
     };
   }
@@ -892,21 +1056,28 @@ export class CloudStorageTool extends BaseTool<
   ): Promise<CloudStorageOutput> {
     const { listParams = {} } = input;
 
-    // TODO: 实际集成云存储 SDK
-    // 当前为模拟实现
     this.logger.debug(`Listing objects in ${input.provider}`);
 
-    // 模拟 API 调用
-    await this.simulateApiCall();
+    const s3 = this.createS3Client(input.config);
+    const bucket = this.getS3Bucket(input.config);
 
-    // TODO: Use maxResults in actual implementation
-    // const maxResults = Math.min(listParams.maxResults || 100, 1000);
-    const objects: FileObject[] = Array.from({ length: 5 }, (_, i) => ({
-      key: `${listParams.prefix || ""}file-${i + 1}.txt`,
-      size: 1024 * (i + 1),
-      lastModified: new Date(Date.now() - i * 86400000),
-      etag: `etag-${i}`,
-      storageClass: "STANDARD",
+    const command = new ListObjectsV2Command({
+      Bucket: bucket,
+      Prefix: listParams.prefix || "",
+      MaxKeys: listParams.maxResults || 100,
+      ...(listParams.pageToken
+        ? { ContinuationToken: listParams.pageToken }
+        : {}),
+    });
+
+    const response = await s3.send(command);
+
+    const objects: FileObject[] = (response.Contents || []).map((obj) => ({
+      key: obj.Key!,
+      size: obj.Size || 0,
+      lastModified: obj.LastModified || new Date(),
+      etag: obj.ETag,
+      storageClass: obj.StorageClass,
     }));
 
     return {
@@ -915,7 +1086,10 @@ export class CloudStorageTool extends BaseTool<
       listResult: {
         objects,
         totalCount: objects.length,
-        hasMore: false,
+        ...(response.NextContinuationToken
+          ? { nextPageToken: response.NextContinuationToken }
+          : {}),
+        hasMore: response.IsTruncated || false,
       },
     };
   }
@@ -932,20 +1106,39 @@ export class CloudStorageTool extends BaseTool<
       throw new Error("Delete parameters are required");
     }
 
-    // TODO: 实际集成云存储 SDK
-    // 当前为模拟实现
     this.logger.debug(
       `Deleting ${deleteParams.keys.length} objects from ${input.provider}`,
     );
 
-    // 模拟 API 调用
-    await this.simulateApiCall();
+    const s3 = this.createS3Client(input.config);
+    const bucket = this.getS3Bucket(input.config);
+
+    const deleted: string[] = [];
+    const failed: Array<{ key: string; error: string }> = [];
+
+    for (const key of deleteParams.keys) {
+      try {
+        const command = new DeleteObjectCommand({ Bucket: bucket, Key: key });
+        await s3.send(command);
+        deleted.push(key);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
+        this.logger.error(`Failed to delete ${key}: ${errorMsg}`);
+        if (deleteParams.force) {
+          // In force mode, treat errors as soft failures but continue
+          failed.push({ key, error: errorMsg });
+        } else {
+          throw err;
+        }
+      }
+    }
 
     return {
-      success: true,
+      success: failed.length === 0,
       operation: "delete",
       deleteResult: {
-        deleted: deleteParams.keys,
+        deleted,
+        ...(failed.length > 0 ? { failed } : {}),
       },
     };
   }
@@ -963,29 +1156,5 @@ export class CloudStorageTool extends BaseTool<
       return config.container;
     }
     return "unknown";
-  }
-
-  /**
-   * 估算文件大小
-   */
-  private estimateFileSize(
-    content: string,
-    contentType: "base64" | "url",
-  ): number {
-    if (contentType === "base64") {
-      // Base64 解码后的大小约为原始大小的 3/4
-      return Math.floor((content.length * 3) / 4);
-    }
-    // URL 类型假设为 1MB（实际需要获取）
-    return 1024 * 1024;
-  }
-
-  /**
-   * 模拟 API 调用延迟
-   */
-  private async simulateApiCall(): Promise<void> {
-    // 模拟 200-1000ms 的网络和处理延迟
-    const delay = 200 + Math.random() * 800;
-    await new Promise((resolve) => setTimeout(resolve, delay));
   }
 }

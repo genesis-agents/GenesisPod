@@ -18,6 +18,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
@@ -394,15 +395,11 @@ export class KnowledgeBaseTool extends BaseTool<
     },
   };
 
-  // In-memory storage for demo purposes
-  // TODO: Replace with actual database storage (Prisma + PostgreSQL)
-  private entries: Map<string, KnowledgeEntry> = new Map();
-  private categoryIndex: Map<string, Set<string>> = new Map();
-  private tagIndex: Map<string, Set<string>> = new Map();
+  private static readonly USER_ID = "system";
+  private static readonly ENTRY_TYPE = "knowledge_entry";
 
-  constructor() {
+  constructor(private readonly prisma: PrismaService) {
     super();
-    // defaultTimeout set in class property // 10 秒超时
   }
 
   /**
@@ -519,11 +516,15 @@ export class KnowledgeBaseTool extends BaseTool<
       references: entryData!.references || [],
     };
 
-    this.entries.set(entryId, entry);
-
-    // 更新索引
-    this.updateCategoryIndex(entryId, entry.category);
-    entry.tags.forEach((tag) => this.updateTagIndex(entryId, tag));
+    await this.prisma.longTermMemory.create({
+      data: {
+        userId: KnowledgeBaseTool.USER_ID,
+        key: entryId,
+        type: KnowledgeBaseTool.ENTRY_TYPE,
+        value: entry as object,
+        tags: entry.tags,
+      },
+    });
 
     this.logger.log(`Created knowledge entry: ${entry.title} [${entryId}]`);
 
@@ -538,9 +539,13 @@ export class KnowledgeBaseTool extends BaseTool<
    * 读取知识条目
    */
   private async readEntry(entryId: string): Promise<KnowledgeBaseOutput> {
-    const entry = this.entries.get(entryId);
+    const record = await this.prisma.longTermMemory.findUnique({
+      where: {
+        userId_key: { userId: KnowledgeBaseTool.USER_ID, key: entryId },
+      },
+    });
 
-    if (!entry) {
+    if (!record || record.type !== KnowledgeBaseTool.ENTRY_TYPE) {
       return {
         success: false,
         operation: KnowledgeOperation.READ,
@@ -551,7 +556,7 @@ export class KnowledgeBaseTool extends BaseTool<
     return {
       success: true,
       operation: KnowledgeOperation.READ,
-      entry,
+      entry: record.value as unknown as KnowledgeEntry,
     };
   }
 
@@ -562,9 +567,13 @@ export class KnowledgeBaseTool extends BaseTool<
     entryId: string,
     updates: KnowledgeBaseInput["entry"],
   ): Promise<KnowledgeBaseOutput> {
-    const entry = this.entries.get(entryId);
+    const record = await this.prisma.longTermMemory.findUnique({
+      where: {
+        userId_key: { userId: KnowledgeBaseTool.USER_ID, key: entryId },
+      },
+    });
 
-    if (!entry) {
+    if (!record || record.type !== KnowledgeBaseTool.ENTRY_TYPE) {
       return {
         success: false,
         operation: KnowledgeOperation.UPDATE,
@@ -572,11 +581,8 @@ export class KnowledgeBaseTool extends BaseTool<
       };
     }
 
-    // 移除旧索引
-    this.removeCategoryIndex(entryId, entry.category);
-    entry.tags.forEach((tag) => this.removeTagIndex(entryId, tag));
+    const entry = record.value as unknown as KnowledgeEntry;
 
-    // 更新字段
     if (updates!.title) entry.title = updates!.title;
     if (updates!.content) entry.content = updates!.content;
     if (updates!.category) entry.category = updates!.category;
@@ -590,9 +596,12 @@ export class KnowledgeBaseTool extends BaseTool<
     entry.updatedAt = new Date();
     entry.version++;
 
-    // 更新新索引
-    this.updateCategoryIndex(entryId, entry.category);
-    entry.tags.forEach((tag) => this.updateTagIndex(entryId, tag));
+    await this.prisma.longTermMemory.update({
+      where: {
+        userId_key: { userId: KnowledgeBaseTool.USER_ID, key: entryId },
+      },
+      data: { value: entry as object, tags: entry.tags },
+    });
 
     this.logger.log(
       `Updated knowledge entry: ${entry.title} [${entryId}] (v${entry.version})`,
@@ -609,9 +618,13 @@ export class KnowledgeBaseTool extends BaseTool<
    * 删除知识条目
    */
   private async deleteEntry(entryId: string): Promise<KnowledgeBaseOutput> {
-    const entry = this.entries.get(entryId);
+    const record = await this.prisma.longTermMemory.findUnique({
+      where: {
+        userId_key: { userId: KnowledgeBaseTool.USER_ID, key: entryId },
+      },
+    });
 
-    if (!entry) {
+    if (!record || record.type !== KnowledgeBaseTool.ENTRY_TYPE) {
       return {
         success: false,
         operation: KnowledgeOperation.DELETE,
@@ -619,11 +632,13 @@ export class KnowledgeBaseTool extends BaseTool<
       };
     }
 
-    // 移除索引
-    this.removeCategoryIndex(entryId, entry.category);
-    entry.tags.forEach((tag) => this.removeTagIndex(entryId, tag));
+    const entry = record.value as unknown as KnowledgeEntry;
 
-    this.entries.delete(entryId);
+    await this.prisma.longTermMemory.delete({
+      where: {
+        userId_key: { userId: KnowledgeBaseTool.USER_ID, key: entryId },
+      },
+    });
 
     this.logger.log(`Deleted knowledge entry: ${entry.title} [${entryId}]`);
 
@@ -637,11 +652,21 @@ export class KnowledgeBaseTool extends BaseTool<
   /**
    * 搜索知识条目
    */
+  private async loadAllEntries(): Promise<KnowledgeEntry[]> {
+    const records = await this.prisma.longTermMemory.findMany({
+      where: {
+        userId: KnowledgeBaseTool.USER_ID,
+        type: KnowledgeBaseTool.ENTRY_TYPE,
+      },
+    });
+    return records.map((r) => r.value as unknown as KnowledgeEntry);
+  }
+
   private async searchEntries(
     query: string,
     filter?: KnowledgeBaseInput["filter"],
   ): Promise<KnowledgeBaseOutput> {
-    let entries = Array.from(this.entries.values());
+    let entries = await this.loadAllEntries();
 
     // 全文搜索
     const lowerQuery = query.toLowerCase();
@@ -690,7 +715,7 @@ export class KnowledgeBaseTool extends BaseTool<
   private async listEntries(
     filter?: KnowledgeBaseInput["filter"],
   ): Promise<KnowledgeBaseOutput> {
-    let entries = Array.from(this.entries.values());
+    let entries = await this.loadAllEntries();
 
     // 应用过滤器
     entries = this.applyFilter(entries, filter);
@@ -720,7 +745,8 @@ export class KnowledgeBaseTool extends BaseTool<
    * 列出所有分类
    */
   private async listCategories(): Promise<KnowledgeBaseOutput> {
-    const categories = Array.from(this.categoryIndex.keys()).sort();
+    const entries = await this.loadAllEntries();
+    const categories = [...new Set(entries.map((e) => e.category))].sort();
 
     return {
       success: true,
@@ -736,7 +762,14 @@ export class KnowledgeBaseTool extends BaseTool<
    * 列出所有标签
    */
   private async listTags(): Promise<KnowledgeBaseOutput> {
-    const tags = Array.from(this.tagIndex.keys()).sort();
+    const records = await this.prisma.longTermMemory.findMany({
+      where: {
+        userId: KnowledgeBaseTool.USER_ID,
+        type: KnowledgeBaseTool.ENTRY_TYPE,
+      },
+      select: { tags: true },
+    });
+    const tags = [...new Set(records.flatMap((r) => r.tags))].sort();
 
     return {
       success: true,
@@ -826,52 +859,6 @@ export class KnowledgeBaseTool extends BaseTool<
     }
 
     return score;
-  }
-
-  /**
-   * 更新分类索引
-   */
-  private updateCategoryIndex(entryId: string, category: string): void {
-    if (!this.categoryIndex.has(category)) {
-      this.categoryIndex.set(category, new Set());
-    }
-    this.categoryIndex.get(category)!.add(entryId);
-  }
-
-  /**
-   * 移除分类索引
-   */
-  private removeCategoryIndex(entryId: string, category: string): void {
-    const categorySet = this.categoryIndex.get(category);
-    if (categorySet) {
-      categorySet.delete(entryId);
-      if (categorySet.size === 0) {
-        this.categoryIndex.delete(category);
-      }
-    }
-  }
-
-  /**
-   * 更新标签索引
-   */
-  private updateTagIndex(entryId: string, tag: string): void {
-    if (!this.tagIndex.has(tag)) {
-      this.tagIndex.set(tag, new Set());
-    }
-    this.tagIndex.get(tag)!.add(entryId);
-  }
-
-  /**
-   * 移除标签索引
-   */
-  private removeTagIndex(entryId: string, tag: string): void {
-    const tagSet = this.tagIndex.get(tag);
-    if (tagSet) {
-      tagSet.delete(entryId);
-      if (tagSet.size === 0) {
-        this.tagIndex.delete(tag);
-      }
-    }
   }
 
   /**

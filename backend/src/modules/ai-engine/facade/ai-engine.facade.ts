@@ -19,17 +19,9 @@ import {
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { AiModelConfigService } from "../llm/services/ai-model-config.service";
-import {
-  CREATIVITY_TO_TEMPERATURE,
-  OUTPUT_LENGTH_TO_TOKENS,
-} from "../llm/types/task-profile";
 // ★ 架构重构：通过 ToolRegistry 调用搜索工具
 import type { ToolContext } from "../tools/abstractions/tool.interface";
-import {
-  TeamsService,
-  CreateMissionDto,
-  MissionStatus,
-} from "../teams/services/teams.service";
+import { TeamsService, MissionStatus } from "../teams/services/teams.service";
 import { TaskCompletionType } from "../orchestration/services/circuit-breaker.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
@@ -99,7 +91,12 @@ import type {
   ToolInfo,
   ToolCategory,
 } from "./types";
-import { TeamId } from "../teams/abstractions/team.interface";
+// ★ Sub-facades (plain classes, NOT @Injectable)
+import { ModelSubFacade } from "./sub-facades/model.sub-facade";
+import { TeamSubFacade } from "./sub-facades/team.sub-facade";
+import { MemorySubFacade } from "./sub-facades/memory.sub-facade";
+import { AgentSubFacade } from "./sub-facades/agent.sub-facade";
+import { ToolExecSubFacade } from "./sub-facades/tool-exec.sub-facade";
 
 /** 敏感词过滤列表（基础版） */
 const SENSITIVE_PATTERNS = [
@@ -141,10 +138,17 @@ const SENSITIVE_PATTERNS = [
 export class AIEngineFacade {
   private readonly logger = new Logger(AIEngineFacade.name);
 
+  // ★ Sub-facades — instantiated at the end of the constructor
+  private readonly modelSub!: ModelSubFacade;
+  private readonly teamSub!: TeamSubFacade;
+  private readonly memorySub!: MemorySubFacade;
+  private readonly agentSub!: AgentSubFacade;
+  private readonly toolExecSub!: ToolExecSubFacade;
+
   constructor(
     // ==================== 核心服务（必需）====================
     private readonly aiChatService: AiChatService,
-    private readonly modelConfigService: AiModelConfigService,
+    modelConfigService: AiModelConfigService,
 
     // ==================== 特性模块（可选，通过 Token 注入）====================
     @Optional()
@@ -182,10 +186,25 @@ export class AIEngineFacade {
     private readonly creditsService?: CreditsService,
     @Optional() private readonly modelFallbackService?: ModelFallbackService,
     @Optional()
-    private readonly modelResolver?: import("./model-resolver.service").ModelResolverService,
+    modelResolver?: import("./model-resolver.service").ModelResolverService,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
+
+    // ★ Instantiate sub-facades after all dependencies are ready
+    this.modelSub = new ModelSubFacade(
+      aiChatService,
+      modelConfigService,
+      modelFallbackService,
+      orchestration,
+      modelResolver,
+    );
+    this.teamSub = new TeamSubFacade(teamsService);
+    this.memorySub = new MemorySubFacade(memory);
+    this.agentSub = new AgentSubFacade(orchestration);
+    this.toolExecSub = new ToolExecSubFacade(tools, capabilityResolver, (req) =>
+      this.chat(req),
+    );
   }
 
   /**
@@ -1057,115 +1076,7 @@ export class AIEngineFacade {
   async selectModel(
     options: ModelSelectionOptions = {},
   ): Promise<ModelInfo | null> {
-    // ★ P1-1: 委托给 ModelResolverService（渐进迁移）
-    if (this.modelResolver) {
-      return this.modelResolver.selectModel(options);
-    }
-
-    this.logger.log(
-      `[selectModel] Starting selection with options=${JSON.stringify(options)}`,
-    );
-
-    const models = await this.getAvailableModelsExtended(
-      options.modelType || AIModelType.CHAT,
-    );
-
-    this.logger.log(
-      `[selectModel] Found ${models.length} models: ${models.map((m) => `${m.id}(reasoning=${m.isReasoning})`).join(", ")}`,
-    );
-
-    if (models.length === 0) {
-      this.logger.error("[selectModel] No models available!");
-      return null;
-    }
-
-    // 过滤条件
-    let candidates = models;
-
-    // 1. 过滤推理模型
-    if (options.requireReasoning) {
-      const reasoningModels = candidates.filter((m) => m.isReasoning);
-      this.logger.log(
-        `[selectModel] Reasoning filter: found ${reasoningModels.length} reasoning models`,
-      );
-      if (reasoningModels.length === 0) {
-        this.logger.warn(
-          "[selectModel] No reasoning models found, falling back to all models",
-        );
-        // 保持 candidates = models，不过滤
-      } else {
-        candidates = reasoningModels;
-      }
-    }
-
-    // 2. 过滤提供商
-    if (options.preferredProvider) {
-      const preferred = candidates.filter(
-        (m) =>
-          m.provider.toLowerCase() === options.preferredProvider?.toLowerCase(),
-      );
-      if (preferred.length > 0) {
-        candidates = preferred;
-        this.logger.debug(
-          `[selectModel] Provider filter: ${candidates.length} candidates for ${options.preferredProvider}`,
-        );
-      }
-    }
-
-    // 2.5 过滤模型黑名单（不可恢复错误如 Invalid API Key）
-    if (this.modelFallbackService) {
-      const unblocked = candidates.filter(
-        (m) => !this.modelFallbackService!.isModelBlocked(m.id),
-      );
-      if (unblocked.length > 0) {
-        if (unblocked.length < candidates.length) {
-          const blocked = candidates
-            .filter((m) => this.modelFallbackService!.isModelBlocked(m.id))
-            .map((m) => m.id);
-          this.logger.warn(
-            `[selectModel] Filtered blocked models: ${blocked.join(", ")}`,
-          );
-        }
-        candidates = unblocked;
-      } else {
-        this.logger.warn(
-          "[selectModel] All candidates blocked, keeping original list as fallback",
-        );
-      }
-    }
-
-    // 3. 过滤 maxTokens
-    if (options.minMaxTokens) {
-      const filtered = candidates.filter(
-        (m) => (m.maxTokens || 0) >= (options.minMaxTokens || 0),
-      );
-      if (filtered.length > 0) {
-        candidates = filtered;
-      }
-    }
-
-    // 4. 考虑熔断器状态选择最佳模型
-    if (this.orchestration?.circuitBreaker) {
-      const entityIds = candidates.map((m) => `chat:${m.id}`);
-      const bestEntityId =
-        this.orchestration?.circuitBreaker.selectBest(entityIds);
-
-      if (bestEntityId) {
-        const modelId = bestEntityId.replace("chat:", "");
-        const selected = candidates.find((m) => m.id === modelId);
-        if (selected) {
-          this.logger.log(
-            `[selectModel] Selected ${modelId} via circuit breaker`,
-          );
-          return selected;
-        }
-      }
-    }
-
-    // 5. 默认返回第一个可用的
-    const selected = candidates[0] || null;
-    this.logger.log(`[selectModel] Selected ${selected?.id || "NONE"}`);
-    return selected;
+    return this.modelSub.selectModel(options);
   }
 
   /**
@@ -1180,7 +1091,7 @@ export class AIEngineFacade {
    * const model = await facade.getReasoningModel();
    */
   async getReasoningModel(): Promise<ModelInfo | null> {
-    return this.selectModel({ requireReasoning: true });
+    return this.modelSub.getReasoningModel();
   }
 
   /**
@@ -1195,45 +1106,7 @@ export class AIEngineFacade {
   async getAvailableModelsExtended(
     modelType: AIModelType = AIModelType.CHAT,
   ): Promise<ModelInfo[]> {
-    // ★ P1-1: 委托给 ModelResolverService
-    if (this.modelResolver) {
-      return this.modelResolver.getAvailableModelsExtended(modelType);
-    }
-
-    this.logger.debug(
-      `[getAvailableModelsExtended] Querying models with modelType=${modelType}`,
-    );
-
-    // ★ 统一委托给 AiModelConfigService
-    const models =
-      await this.modelConfigService.getAllEnabledModelsByType(modelType);
-
-    this.logger.log(
-      `[getAvailableModelsExtended] Found ${models.length} models`,
-    );
-
-    return models.map((m) => {
-      const isReasoning =
-        m.isReasoning ?? this.aiChatService.isReasoningModel(m.modelId);
-      const isBlocked =
-        this.modelFallbackService?.isModelBlocked(m.modelId) ?? false;
-      const isAvailable =
-        !isBlocked &&
-        (this.orchestration?.circuitBreaker?.canExecute(`chat:${m.modelId}`) ??
-          true);
-
-      return {
-        id: m.modelId,
-        dbId: m.id,
-        name: m.displayName || m.modelId,
-        provider: m.provider,
-        isReasoning,
-        isAvailable,
-        maxTokens: m.maxTokens,
-        icon: undefined, // AiModelConfigService 不返回 icon，后续可扩展
-        isDefault: m.isDefault,
-      };
-    });
+    return this.modelSub.getAvailableModelsExtended(modelType);
   }
 
   /**
@@ -1259,25 +1132,7 @@ export class AIEngineFacade {
       isDefault?: boolean;
     }>
   > {
-    // ★ P1-1: 委托给 ModelResolverService
-    if (this.modelResolver) {
-      return this.modelResolver.getAvailableModels(modelType);
-    }
-
-    this.logger.debug(`[getAvailableModels] modelType=${modelType}`);
-
-    // ★ 统一委托给 AiModelConfigService
-    const models =
-      await this.modelConfigService.getEnabledModelsForFrontend(modelType);
-
-    return models.map((m) => ({
-      id: m.modelId,
-      dbId: m.id,
-      name: m.name,
-      provider: m.provider,
-      icon: m.icon,
-      isDefault: m.isDefault,
-    }));
+    return this.modelSub.getAvailableModels(modelType);
   }
 
   // ==================== 模型配置获取（供 AI Apps 使用）====================
@@ -1301,20 +1156,7 @@ export class AIEngineFacade {
     provider: string;
     maxTokens?: number;
   } | null> {
-    if (this.modelResolver) {
-      return this.modelResolver.getDefaultTextModel();
-    }
-    const config = await this.aiChatService.getDefaultModelByType(
-      AIModelType.CHAT,
-    );
-    if (!config) return null;
-    return {
-      id: config.id || config.modelId,
-      modelId: config.modelId,
-      displayName: config.displayName || config.modelId,
-      provider: config.provider,
-      maxTokens: config.maxTokens,
-    };
+    return this.modelSub.getDefaultTextModel();
   }
 
   /**
@@ -1336,20 +1178,7 @@ export class AIEngineFacade {
     provider: string;
     maxTokens?: number;
   } | null> {
-    if (this.modelResolver) {
-      return this.modelResolver.getDefaultImageModel();
-    }
-    const config = await this.aiChatService.getDefaultModelByType(
-      AIModelType.IMAGE_GENERATION,
-    );
-    if (!config) return null;
-    return {
-      id: config.id || config.modelId,
-      modelId: config.modelId,
-      displayName: config.displayName || config.modelId,
-      provider: config.provider,
-      maxTokens: config.maxTokens,
-    };
+    return this.modelSub.getDefaultImageModel();
   }
 
   /**
@@ -1380,26 +1209,7 @@ export class AIEngineFacade {
     secretKey?: string | null;
     modelType?: string;
   } | null> {
-    if (this.modelResolver) {
-      return this.modelResolver.getModelById(idOrModelId);
-    }
-    // ★ 统一委托给 AiModelConfigService
-    const config = await this.modelConfigService.getModelById(idOrModelId);
-
-    if (!config) return null;
-
-    return {
-      id: config.id,
-      modelId: config.modelId,
-      displayName: config.displayName || config.modelId,
-      provider: config.provider,
-      maxTokens: config.maxTokens,
-      apiEndpoint: config.apiEndpoint,
-      isReasoning: config.isReasoning ?? false,
-      // ★ 额外字段供 ImageGenerationService 等使用
-      apiKey: config.apiKey,
-      secretKey: config.secretKey,
-    };
+    return this.modelSub.getModelById(idOrModelId);
   }
 
   /**
@@ -1442,42 +1252,7 @@ export class AIEngineFacade {
     priceOutputPerMillion?: number | null;
     priority?: number | null;
   } | null> {
-    if (this.modelResolver) {
-      return this.modelResolver.getFullModelConfig(modelId);
-    }
-    // ★ 统一委托给 AiModelConfigService
-    const config = await this.modelConfigService.getModelById(modelId);
-
-    if (!config) return null;
-
-    this.logger.debug(
-      `[getFullModelConfig] Found model ${config.modelId} via AiModelConfigService`,
-    );
-    return {
-      id: config.id || config.modelId,
-      modelId: config.modelId,
-      displayName: config.displayName || config.modelId,
-      name: config.name || config.modelId,
-      provider: config.provider,
-      apiKey: config.apiKey || "",
-      secretKey: config.secretKey || null,
-      apiEndpoint: config.apiEndpoint || null,
-      maxTokens: config.maxTokens || null,
-      temperature: config.temperature || null,
-      isEnabled: config.isEnabled ?? true,
-      isDefault: config.isDefault ?? false,
-      isReasoning: config.isReasoning ?? false,
-      apiFormat: config.apiFormat || null,
-      supportsTemperature: config.supportsTemperature ?? true,
-      supportsStreaming: config.supportsStreaming ?? false,
-      supportsFunctionCalling: config.supportsFunctionCalling ?? false,
-      supportsVision: config.supportsVision ?? false,
-      tokenParamName: config.tokenParamName || null,
-      defaultTimeoutMs: config.defaultTimeoutMs || null,
-      priceInputPerMillion: config.priceInputPerMillion || null,
-      priceOutputPerMillion: config.priceOutputPerMillion || null,
-      priority: config.priority || null,
-    };
+    return this.modelSub.getFullModelConfig(modelId);
   }
 
   /**
@@ -1499,18 +1274,7 @@ export class AIEngineFacade {
     provider: string;
     maxTokens?: number;
   } | null> {
-    if (this.modelResolver) {
-      return this.modelResolver.getDefaultModelByType(modelType);
-    }
-    const config = await this.aiChatService.getDefaultModelByType(modelType);
-    if (!config) return null;
-    return {
-      id: config.id || config.modelId,
-      modelId: config.modelId,
-      displayName: config.displayName || config.modelId,
-      provider: config.provider,
-      maxTokens: config.maxTokens,
-    };
+    return this.modelSub.getDefaultModelByType(modelType);
   }
 
   // ==================== 搜索能力 ====================
@@ -1656,122 +1420,7 @@ export class AIEngineFacade {
     missionInput: MissionInput;
     progressCallback?: ProgressCallback;
   }): Promise<MissionResult> {
-    if (!this.teamsService) {
-      this.logger.warn("[startTeamMission] TeamsService not available");
-      return {
-        success: false,
-        output: null,
-        error: "TeamsService not available",
-      };
-    }
-
-    this.logger.debug(
-      `[startTeamMission] teamType=${request.teamType}, goal="${request.missionInput.goal}"`,
-    );
-
-    const teamId = this.mapTeamTypeToId(request.teamType);
-
-    const createDto: CreateMissionDto = {
-      teamId,
-      goal: request.missionInput.goal,
-      context: request.missionInput.context,
-      userId: request.missionInput.userId,
-      sessionId: request.missionInput.sessionId,
-      metadata: request.missionInput.metadata,
-    };
-
-    try {
-      // 执行任务
-      const missionId = await this.teamsService.executeMission(createDto);
-
-      // 轮询等待任务完成
-      const result = await this.waitForMissionCompletion(
-        missionId,
-        request.progressCallback,
-      );
-
-      return result;
-    } catch (error) {
-      this.logger.error(`[startTeamMission] Failed: ${error}`);
-      return {
-        success: false,
-        output: null,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  /**
-   * 等待任务完成
-   */
-  private async waitForMissionCompletion(
-    missionId: string,
-    progressCallback?: ProgressCallback,
-    timeoutMs: number = 300000, // 5 分钟超时
-    pollIntervalMs: number = 1000,
-  ): Promise<MissionResult> {
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeoutMs) {
-      const status = this.getMissionStatus(missionId);
-
-      if (!status) {
-        return {
-          success: false,
-          output: null,
-          error: `Mission ${missionId} not found`,
-        };
-      }
-
-      // 发送进度回调
-      if (progressCallback) {
-        progressCallback({
-          missionId,
-          phase: status.currentPhase || status.status,
-          progress: status.progress,
-          message: `Status: ${status.status}`,
-        });
-      }
-
-      // 检查是否完成
-      if (status.status === "completed") {
-        return {
-          success: true,
-          output: { missionId, status: "completed" },
-          summary: "Mission completed successfully",
-          executionTime: Date.now() - startTime,
-        };
-      }
-
-      if (status.status === "failed") {
-        return {
-          success: false,
-          output: null,
-          error: status.error || "Mission failed",
-          executionTime: Date.now() - startTime,
-        };
-      }
-
-      if (status.status === "cancelled") {
-        return {
-          success: false,
-          output: null,
-          error: "Mission was cancelled",
-          executionTime: Date.now() - startTime,
-        };
-      }
-
-      // 等待后继续轮询
-      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-    }
-
-    // 超时
-    return {
-      success: false,
-      output: null,
-      error: `Mission ${missionId} timed out after ${timeoutMs}ms`,
-      executionTime: timeoutMs,
-    };
+    return this.teamSub.startTeamMission(request);
   }
 
   /**
@@ -1787,13 +1436,7 @@ export class AIEngineFacade {
    * const cancelled = facade.cancelMission("mission-123");
    */
   cancelMission(missionId: string): boolean {
-    if (!this.teamsService) {
-      this.logger.warn("[cancelMission] TeamsService not available");
-      return false;
-    }
-
-    this.logger.debug(`[cancelMission] missionId=${missionId}`);
-    return this.teamsService.cancelMission(missionId);
+    return this.teamSub.cancelMission(missionId);
   }
 
   /**
@@ -1810,24 +1453,7 @@ export class AIEngineFacade {
    * console.log(`Phase: ${status.currentPhase}, Progress: ${status.progress}%`);
    */
   getMissionStatus(missionId: string): MissionStatus | null {
-    if (!this.teamsService) {
-      return null;
-    }
-
-    return this.teamsService.getMissionStatus(missionId);
-  }
-
-  /**
-   * 映射团队类型到团队 ID
-   */
-  private mapTeamTypeToId(teamType: TeamType | string): TeamId {
-    const mapping: Record<string, TeamId> = {
-      research: "research-team",
-      debate: "debate-team",
-      review: "review-team",
-      report: "report-team",
-    };
-    return mapping[teamType] || teamType;
+    return this.teamSub.getMissionStatus(missionId);
   }
 
   // ==================== 上下文能力 ====================
@@ -2208,27 +1834,7 @@ export class AIEngineFacade {
    * });
    */
   async storeMemory(request: StoreMemoryRequest): Promise<void> {
-    this.logger.debug(
-      `[storeMemory] sessionId=${request.sessionId}, type=${request.type}`,
-    );
-
-    if (request.type === "short" && this.memory?.shortTerm) {
-      await this.memory?.shortTerm.setWithSession(
-        request.sessionId,
-        "memory",
-        request.content,
-      );
-    } else if (request.type === "long" && this.memory?.longTerm) {
-      await this.memory?.longTerm.setWithUser(
-        request.sessionId,
-        "memory",
-        request.content,
-      );
-    } else {
-      this.logger.warn(
-        `[storeMemory] Memory service not available for type=${request.type}`,
-      );
-    }
+    return this.memorySub.storeMemory(request);
   }
 
   /**
@@ -2251,49 +1857,7 @@ export class AIEngineFacade {
    * });
    */
   async retrieveMemory(request: RetrieveMemoryRequest): Promise<MemoryItem[]> {
-    this.logger.debug(
-      `[retrieveMemory] sessionId=${request.sessionId}, topK=${request.topK}`,
-    );
-
-    const items: MemoryItem[] = [];
-
-    // 从短期记忆检索
-    if (this.memory?.shortTerm) {
-      const memory = await this.memory?.shortTerm.getWithSession(
-        request.sessionId,
-        "memory",
-      );
-      if (memory) {
-        items.push({
-          id: `short-${request.sessionId}`,
-          content: typeof memory === "string" ? memory : JSON.stringify(memory),
-          type: "short",
-          createdAt: new Date(),
-        });
-      }
-    }
-
-    // 从长期记忆检索
-    if (this.memory?.longTerm && request.query) {
-      const results = await this.memory?.longTerm.search(request.query, {
-        userId: request.sessionId,
-        limit: request.topK,
-      });
-      for (const result of results) {
-        items.push({
-          id: result.key,
-          content:
-            typeof result.value === "string"
-              ? result.value
-              : JSON.stringify(result.value),
-          type: "long",
-          score: result.score,
-          createdAt: new Date(),
-        });
-      }
-    }
-
-    return items;
+    return this.memorySub.retrieveMemory(request);
   }
 
   /**
@@ -2309,11 +1873,7 @@ export class AIEngineFacade {
    * await facade.clearMemory("session-123");
    */
   async clearMemory(sessionId: string): Promise<void> {
-    this.logger.debug(`[clearMemory] sessionId=${sessionId}`);
-
-    if (this.memory?.shortTerm) {
-      await this.memory?.shortTerm.deleteWithSession(sessionId, "memory");
-    }
+    return this.memorySub.clearMemory(sessionId);
   }
 
   // ==================== Session Memory (raw key-value) ====================
@@ -2324,8 +1884,7 @@ export class AIEngineFacade {
    * these methods expose raw key-value storage for arbitrary data (e.g. MessageWithContext[]).
    */
   async sessionMemoryGet(sessionId: string, key: string): Promise<unknown> {
-    if (!this.memory?.shortTerm) return undefined;
-    return this.memory.shortTerm.getWithSession(sessionId, key);
+    return this.memorySub.sessionMemoryGet(sessionId, key);
   }
 
   /**
@@ -2337,16 +1896,14 @@ export class AIEngineFacade {
     value: unknown,
     ttl?: number,
   ): Promise<void> {
-    if (!this.memory?.shortTerm) return;
-    await this.memory.shortTerm.setWithSession(sessionId, key, value, ttl);
+    return this.memorySub.sessionMemorySet(sessionId, key, value, ttl);
   }
 
   /**
    * Clear all session memory for a given session.
    */
   async sessionMemoryClear(sessionId: string): Promise<void> {
-    if (!this.memory?.shortTerm) return;
-    await this.memory.shortTerm.clearSession(sessionId);
+    return this.memorySub.sessionMemoryClear(sessionId);
   }
 
   // ==================== Agent 执行能力 ====================
@@ -2376,100 +1933,7 @@ export class AIEngineFacade {
   async executeAgent(
     request: AgentExecutionRequest,
   ): Promise<AgentExecutionResult> {
-    this.logger.debug(
-      `[executeAgent] agentType=${request.agentType}, task="${request.task.slice(0, 50)}..."`,
-    );
-
-    if (!this.orchestration?.agentExecutor) {
-      return {
-        success: false,
-        content: "",
-        tokensUsed: 0,
-        duration: 0,
-        error: "AgentExecutorService not available",
-        retryable: false,
-      };
-    }
-
-    const startTime = Date.now();
-
-    // 构建执行上下文
-    const executionContext = {
-      missionId:
-        (request.metadata?.missionId as string) || `agent-${Date.now()}`,
-      topicId: (request.metadata?.topicId as string) || "default",
-      task: {
-        id: `task-${Date.now()}`,
-        title: request.task.slice(0, 100),
-        description: request.task,
-        assigneeId: request.agentType,
-      },
-      executor: {
-        id: request.agentType,
-        agentName: request.agentType,
-        displayName: request.agentType,
-        aiModel: request.model || AIModelType.CHAT,
-        isLeader: false,
-        systemPrompt: request.systemPrompt,
-      },
-      systemPrompt: request.systemPrompt || "You are a helpful AI assistant.",
-      userPrompt: request.task,
-      searchContext: request.context,
-    };
-
-    // 映射 taskProfile 到参数
-    const config = {
-      maxTokens: request.config?.maxTokens,
-      temperature: request.config?.temperature,
-      enableSearch: request.config?.enableSearch ?? false,
-      maxRetries: request.config?.maxRetries ?? 3,
-      timeout: request.config?.timeout,
-    };
-
-    // 根据 taskProfile 设置参数
-    if (request.taskProfile) {
-      if (!config.temperature && request.taskProfile.creativity) {
-        config.temperature =
-          CREATIVITY_TO_TEMPERATURE[request.taskProfile.creativity] ?? 0.7;
-      }
-      if (!config.maxTokens && request.taskProfile.outputLength) {
-        config.maxTokens =
-          OUTPUT_LENGTH_TO_TOKENS[request.taskProfile.outputLength] ?? 4000;
-      }
-    }
-
-    try {
-      const result = await this.orchestration?.agentExecutor.executeTask(
-        executionContext,
-        config,
-      );
-
-      return {
-        success: result.success,
-        content: result.content,
-        tokensUsed: result.tokensUsed,
-        duration: result.duration,
-        error: result.error,
-        retryable: result.retryable,
-        searchResults: result.searchResults,
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      const errorMsg = error instanceof Error ? error.message : String(error);
-
-      this.logger.error(
-        `[executeAgent] Failed after ${duration}ms: ${errorMsg}`,
-      );
-
-      return {
-        success: false,
-        content: "",
-        tokensUsed: 0,
-        duration,
-        error: errorMsg,
-        retryable: true,
-      };
-    }
+    return this.agentSub.executeAgent(request);
   }
 
   /**
@@ -2487,10 +1951,7 @@ export class AIEngineFacade {
    * }
    */
   isAgentAvailable(agentId: string): boolean {
-    if (!this.orchestration?.agentExecutor) {
-      return false;
-    }
-    return this.orchestration?.agentExecutor.isAgentAvailable(agentId);
+    return this.agentSub.isAgentAvailable(agentId);
   }
 
   // ==================== Tool 执行能力 ====================
@@ -2519,114 +1980,7 @@ export class AIEngineFacade {
   async executeTool<T = unknown>(
     request: ToolExecutionRequest,
   ): Promise<ToolExecutionResult<T>> {
-    const executionId = `tool-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const startTime = Date.now();
-
-    this.logger.debug(
-      `[executeTool] toolId=${request.toolId}, executionId=${executionId}`,
-    );
-
-    if (!this.tools?.registry) {
-      return {
-        success: false,
-        error: {
-          code: "TOOL_REGISTRY_NOT_AVAILABLE",
-          message: "ToolRegistry not available",
-          retryable: false,
-        },
-        metadata: {
-          executionId,
-          duration: Date.now() - startTime,
-        },
-      };
-    }
-
-    // 查找工具
-    const tool = this.tools?.registry.tryGet(request.toolId);
-    if (!tool) {
-      return {
-        success: false,
-        error: {
-          code: "TOOL_NOT_FOUND",
-          message: `Tool "${request.toolId}" not found in registry`,
-          retryable: false,
-        },
-        metadata: {
-          executionId,
-          duration: Date.now() - startTime,
-        },
-      };
-    }
-
-    // 检查工具是否启用
-    if (tool.enabled === false) {
-      return {
-        success: false,
-        error: {
-          code: "TOOL_DISABLED",
-          message: `Tool "${request.toolId}" is disabled`,
-          retryable: false,
-        },
-        metadata: {
-          executionId,
-          duration: Date.now() - startTime,
-        },
-      };
-    }
-
-    // 构建执行上下文
-    const toolContext = {
-      executionId,
-      toolId: request.toolId,
-      userId: request.context?.userId,
-      sessionId: request.context?.sessionId,
-      workspaceId: request.context?.workspaceId,
-      timeout: request.timeout || tool.defaultTimeout || 30000,
-      createdAt: new Date(),
-    };
-
-    try {
-      // 执行工具
-      const result = await tool.execute(request.input, toolContext);
-      const duration = Date.now() - startTime;
-
-      return {
-        success: result.success,
-        data: result.data as T,
-        error: result.error
-          ? {
-              code: result.error.code,
-              message: result.error.message,
-              retryable: result.error.retryable,
-            }
-          : undefined,
-        metadata: {
-          executionId,
-          duration,
-          tokensUsed: result.metadata.tokensUsed,
-        },
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      const errorMsg = error instanceof Error ? error.message : String(error);
-
-      this.logger.error(
-        `[executeTool] Tool ${request.toolId} failed after ${duration}ms: ${errorMsg}`,
-      );
-
-      return {
-        success: false,
-        error: {
-          code: "TOOL_EXECUTION_ERROR",
-          message: errorMsg,
-          retryable: true,
-        },
-        metadata: {
-          executionId,
-          duration,
-        },
-      };
-    }
+    return this.toolExecSub.executeTool<T>(request);
   }
 
   /**
@@ -2643,22 +1997,7 @@ export class AIEngineFacade {
    * console.log(searchTools.map(t => t.name));
    */
   getAvailableTools(category?: ToolCategory): ToolInfo[] {
-    if (!this.tools?.registry) {
-      return [];
-    }
-
-    const tools = category
-      ? this.tools?.registry.getByCategory(category)
-      : this.tools?.registry.getEnabled();
-
-    return tools.map((tool) => ({
-      id: tool.id,
-      name: tool.name,
-      description: tool.description,
-      category: tool.category,
-      enabled: tool.enabled !== false,
-      tags: tool.tags,
-    }));
+    return this.toolExecSub.getAvailableTools(category);
   }
 
   /**
@@ -2676,10 +2015,7 @@ export class AIEngineFacade {
    * }
    */
   isToolAvailable(toolId: string): boolean {
-    if (!this.tools?.registry) {
-      return false;
-    }
-    return this.tools?.registry.isAvailable(toolId);
+    return this.toolExecSub.isToolAvailable(toolId);
   }
 
   /**
@@ -2700,15 +2036,7 @@ export class AIEngineFacade {
     description: string;
     parameters: object;
   }> {
-    if (!this.tools?.registry) {
-      return [];
-    }
-
-    const definitions = toolIds
-      ? this.tools?.registry.getFunctionDefinitions(toolIds)
-      : this.tools?.registry.getAllFunctionDefinitions();
-
-    return definitions;
+    return this.toolExecSub.getToolFunctionDefinitions(toolIds);
   }
 
   // ==================== ★ NEW: AI Capability 能力 ====================
@@ -2732,67 +2060,7 @@ export class AIEngineFacade {
   async getAvailableCapabilities(
     context: AICapabilityContext,
   ): Promise<CapabilitySummary> {
-    if (!this.capabilityResolver) {
-      this.logger.warn(
-        "[getAvailableCapabilities] AICapabilityResolver not available",
-      );
-      return { tools: [], skills: [], mcpTools: [] };
-    }
-
-    this.logger.debug(
-      `[getAvailableCapabilities] Resolving capabilities for context: ${JSON.stringify(context)}`,
-    );
-
-    // 解析所有能力
-    const { tools, skills, mcpTools } =
-      await this.capabilityResolver.resolveAllCapabilities(context);
-
-    // 构建工具摘要
-    const toolSummaries = tools.map((toolId) => {
-      const tool = this.tools?.registry?.tryGet(toolId);
-      return {
-        id: toolId,
-        name: tool?.name || toolId,
-        description: tool?.description || "",
-        category: tool?.category || ("information" as const),
-        enabled: tool?.enabled !== false,
-        functionDefinition: tool?.toFunctionDefinition() || {
-          name: toolId,
-          description: "",
-          parameters: { type: "object", properties: {} },
-        },
-      };
-    });
-
-    // 构建技能摘要
-    const skillSummaries = skills.map((skillId) => {
-      // Skills 需要通过 SkillRegistry 获取详细信息
-      return {
-        id: skillId,
-        name: skillId,
-        description: "",
-        domain: "common",
-        layer: "domain" as const,
-        enabled: true,
-      };
-    });
-
-    // 构建 MCP 工具摘要
-    const mcpToolSummaries = mcpTools.map((mcp) => ({
-      serverId: mcp.serverId,
-      toolName: mcp.toolName,
-      description: mcp.description,
-    }));
-
-    this.logger.log(
-      `[getAvailableCapabilities] Found ${toolSummaries.length} tools, ${skillSummaries.length} skills, ${mcpToolSummaries.length} MCP tools`,
-    );
-
-    return {
-      tools: toolSummaries,
-      skills: skillSummaries,
-      mcpTools: mcpToolSummaries,
-    };
+    return this.toolExecSub.getAvailableCapabilities(context);
   }
 
   /**
@@ -2839,51 +2107,7 @@ export class AIEngineFacade {
     }>;
     isError?: boolean;
   }> {
-    this.logger.log(
-      `[chatWithTools] Starting with context: ${JSON.stringify(request.context)}`,
-    );
-
-    if (!this.capabilityResolver || !this.tools?.executor) {
-      this.logger.warn(
-        "[chatWithTools] AICapabilityResolver or FunctionCallingExecutor not available",
-      );
-      // 降级到普通 chat
-      const result = await this.chat({
-        messages: request.messages,
-        modelType: request.modelType,
-        model: request.model,
-        taskProfile: request.taskProfile,
-      });
-
-      return {
-        content: result.content,
-        model: result.model,
-        tokensUsed: result.tokensUsed,
-        toolCalls: [],
-        isError: result.isError,
-      };
-    }
-
-    // TODO: 完整实现需要创建 LLMAdapter
-    // 当前返回占位符响应
-    this.logger.warn(
-      "[chatWithTools] Full implementation requires LLMAdapter - returning placeholder",
-    );
-
-    const result = await this.chat({
-      messages: request.messages,
-      modelType: request.modelType,
-      model: request.model,
-      taskProfile: request.taskProfile,
-    });
-
-    return {
-      content: result.content,
-      model: result.model,
-      tokensUsed: result.tokensUsed,
-      toolCalls: [],
-      isError: result.isError,
-    };
+    return this.toolExecSub.chatWithTools(request);
   }
 
   /**
@@ -2902,35 +2126,14 @@ export class AIEngineFacade {
     };
     executionConfig?: Partial<ExecutionConfig>;
   }): AsyncGenerator<AgentEvent> {
-    if (!this.tools?.executor || !this.tools?.llmAdapter) {
-      yield {
-        type: "error",
-        error: "Tool execution not available",
-      } as AgentEvent;
-      return;
-    }
-
-    this.tools.llmAdapter.setConfig({
-      provider: request.modelConfig.provider,
-      modelId: request.modelConfig.modelId,
-      apiKey: request.modelConfig.apiKey,
-      apiEndpoint: request.modelConfig.apiEndpoint,
-    });
-
-    yield* this.tools.executor.executeWithContext(
-      this.tools.llmAdapter,
-      request.systemPrompt,
-      request.userPrompt,
-      request.context,
-      request.executionConfig,
-    );
+    yield* this.toolExecSub.chatWithToolsStream(request);
   }
 
   /**
    * Check if streaming tool execution is available (executor + llmAdapter).
    */
   isToolExecutionAvailable(): boolean {
-    return !!(this.tools?.executor && this.tools?.llmAdapter);
+    return this.toolExecSub.isToolExecutionAvailable();
   }
 
   // ==================== 管理功能 ====================

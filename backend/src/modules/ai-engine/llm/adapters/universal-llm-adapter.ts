@@ -66,7 +66,7 @@ export class UniversalLLMAdapter implements ILLMAdapter {
     private readonly aiChatService: AiChatService,
     private readonly prisma: PrismaService,
   ) {
-    this.initializeFromDatabase();
+    void this.initializeFromDatabase();
   }
 
   /**
@@ -189,6 +189,7 @@ export class UniversalLLMAdapter implements ILLMAdapter {
         // 直接参数（优先级高于 TaskProfile）
         maxTokens: options.maxTokens,
         temperature: options.temperature,
+        responseFormat: options.responseFormat === "json" ? "json" : undefined,
       });
 
       // 构建响应

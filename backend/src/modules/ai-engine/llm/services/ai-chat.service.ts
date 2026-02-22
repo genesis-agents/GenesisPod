@@ -35,6 +35,8 @@ export interface ChatCompletionOptions {
   userId?: string;
   /** Trace ID（用于可观测性链路追踪） */
   traceId?: string;
+  /** 响应格式：json 时启用 JSON mode */
+  responseFormat?: string;
 }
 
 export interface ChatCompletionResult {
@@ -393,6 +395,7 @@ export class AiChatService {
       temperature,
       strictMode: optionStrictMode,
       userId,
+      responseFormat,
     } = options;
 
     this.logger.debug(`Generating chat completion with model: ${model}`);
@@ -416,6 +419,7 @@ export class AiChatService {
         temperature,
         optionStrictMode,
         userId,
+        responseFormat,
       );
     }
 
@@ -465,6 +469,7 @@ export class AiChatService {
     temperature?: number,
     optionStrictMode?: boolean,
     userId?: string,
+    responseFormat?: string,
   ): Promise<ChatCompletionResult> {
     const { modelId, apiEndpoint, provider } = config;
 
@@ -527,6 +532,7 @@ export class AiChatService {
               effectiveTemperature,
               timeout,
               tokenParamName,
+              responseFormat,
             );
 
           case "anthropic":
@@ -536,8 +542,9 @@ export class AiChatService {
               modelId,
               messages,
               maxTokens,
-              temperature,
+              effectiveTemperature,
               timeout,
+              responseFormat,
             );
 
           case "google":
@@ -547,8 +554,9 @@ export class AiChatService {
               modelId,
               messages,
               maxTokens,
-              temperature,
+              effectiveTemperature,
               timeout,
+              responseFormat,
             );
 
           case "xai":
@@ -561,6 +569,7 @@ export class AiChatService {
               temperature,
               timeout,
               tokenParamName,
+              responseFormat,
             );
 
           default:
@@ -573,6 +582,7 @@ export class AiChatService {
               effectiveTemperature,
               timeout,
               tokenParamName,
+              responseFormat,
             );
         }
       };
@@ -584,18 +594,23 @@ export class AiChatService {
       );
       result.apiKeySource = apiKeySource;
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const httpErr = error as {
+        type?: string;
+        response?: { status: number; data: Record<string, unknown> };
+      };
       let errorMsg = error instanceof Error ? error.message : String(error);
       let detailedError = "";
 
       // ★ Preserve AIError type for fallback decisions
-      const classifiedErrorType = error?.type as string | undefined;
+      const classifiedErrorType = httpErr.type;
 
-      if (error.response) {
-        const status = error.response.status;
-        const data = error.response.data;
+      if (httpErr.response) {
+        const status = httpErr.response.status;
+        const data = httpErr.response.data;
+        const errorData = data?.error as Record<string, unknown> | undefined;
         const apiErrorMsg =
-          data?.error?.message || data?.message || JSON.stringify(data);
+          errorData?.message || data?.message || JSON.stringify(data);
         detailedError = `Status: ${status}, API Error: ${apiErrorMsg}`;
         errorMsg = `${errorMsg} - ${detailedError}`;
       }
@@ -667,6 +682,7 @@ export class AiChatService {
     displayName?: string;
     capabilities?: string[];
     enableSearch?: boolean;
+    responseFormat?: string;
   }): Promise<ChatCompletionResult> {
     if (this.directKeyService) {
       return this.directKeyService.generateChatCompletionWithKey(options);
@@ -765,6 +781,7 @@ export class AiChatService {
     enableSearch?: boolean;
     userId?: string;
     traceId?: string;
+    responseFormat?: string;
   }): Promise<{
     content: string;
     usage?: { totalTokens: number };
@@ -789,6 +806,7 @@ export class AiChatService {
       enableSearch,
       userId,
       traceId,
+      responseFormat,
     } = options;
 
     // ★ Observability: Start trace span
@@ -855,6 +873,7 @@ export class AiChatService {
           displayName,
           capabilities,
           enableSearch,
+          responseFormat,
         });
 
         // ★ Guardrails: Output validation for BYOK path
@@ -1014,6 +1033,7 @@ export class AiChatService {
         temperature: effectiveTemperature,
         strictMode,
         userId,
+        responseFormat,
       });
       const duration = Date.now() - startTime;
 

@@ -10,6 +10,8 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../abstractions/tool.interface";
+import axios from "axios";
+import * as nodemailer from "nodemailer";
 
 // ============================================================================
 // Types
@@ -171,6 +173,11 @@ export interface WebhookConfig {
     type: "bearer" | "basic" | "api-key";
     token: string;
   };
+
+  /**
+   * Webhook 签名 secret（用于 X-Webhook-Secret header）
+   */
+  secret?: string;
 }
 
 /**
@@ -178,7 +185,7 @@ export interface WebhookConfig {
  */
 export interface FeishuConfig {
   /**
-   * 接收方 ID（open_id / chat_id）
+   * 接收方 ID（open_id / chat_id）或飞书机器人 Webhook URL
    */
   receiveId: string;
 
@@ -594,19 +601,70 @@ export class MessagePushTool extends BaseTool<
   ): Promise<MessagePushOutput> {
     const config = input.config as SlackConfig;
 
-    // TODO: 实际集成 Slack API
-    // 当前为模拟实现
     this.logger.debug(`Sending to Slack channel: ${config.channel}`);
 
-    // 模拟 API 调用
-    await this.simulateApiCall();
+    if (config.channel.startsWith("http")) {
+      // Incoming Webhook URL - post directly
+      const payload: Record<string, unknown> = {
+        text: input.message,
+        ...(config.username ? { username: config.username } : {}),
+        ...(config.iconEmoji ? { icon_emoji: config.iconEmoji } : {}),
+      };
+      const response = await axios.post(config.channel, payload, {
+        timeout: 10000,
+      });
+      if (response.status !== 200 || response.data !== "ok") {
+        throw new Error(
+          `Slack webhook error: ${JSON.stringify(response.data)}`,
+        );
+      }
+    } else {
+      // Slack Bot API
+      const token = config.token;
+      if (!token) {
+        throw new Error("Slack token required for channel messaging");
+      }
+      const payload: Record<string, unknown> = {
+        channel: config.channel,
+        text: input.message,
+        ...(config.username ? { username: config.username } : {}),
+        ...(config.threadTs ? { thread_ts: config.threadTs } : {}),
+      };
+      const response = await axios.post(
+        "https://slack.com/api/chat.postMessage",
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 10000,
+        },
+      );
+      if (!response.data.ok) {
+        throw new Error(`Slack API error: ${response.data.error}`);
+      }
+
+      return {
+        success: true,
+        status: "delivered",
+        messageId: response.data.ts
+          ? `slack-${response.data.ts}`
+          : `slack-${Date.now()}`,
+        deliveredAt: new Date(),
+        messageUrl: response.data.message?.permalink,
+        metadata: {
+          platform: "slack",
+          statusCode: response.status,
+        },
+      };
+    }
 
     return {
       success: true,
       status: "delivered",
       messageId: `slack-${Date.now()}`,
       deliveredAt: new Date(),
-      messageUrl: `https://slack.com/app/${config.channel}/message`,
       metadata: {
         platform: "slack",
         statusCode: 200,
@@ -623,12 +681,22 @@ export class MessagePushTool extends BaseTool<
   ): Promise<MessagePushOutput> {
     const config = input.config as DiscordConfig;
 
-    // TODO: 实际集成 Discord Webhook API
-    // 当前为模拟实现
     this.logger.debug(`Sending to Discord webhook: ${config.webhookUrl}`);
 
-    // 模拟 API 调用
-    await this.simulateApiCall();
+    const payload: Record<string, unknown> = {
+      content: input.message,
+      ...(config.username ? { username: config.username } : {}),
+      ...(config.avatarUrl ? { avatar_url: config.avatarUrl } : {}),
+      ...(config.tts !== undefined ? { tts: config.tts } : {}),
+    };
+
+    const response = await axios.post(config.webhookUrl, payload, {
+      timeout: 10000,
+    });
+
+    if (response.status !== 204 && response.status !== 200) {
+      throw new Error(`Discord webhook error: HTTP ${response.status}`);
+    }
 
     return {
       success: true,
@@ -637,7 +705,7 @@ export class MessagePushTool extends BaseTool<
       deliveredAt: new Date(),
       metadata: {
         platform: "discord",
-        statusCode: 204,
+        statusCode: response.status,
       },
     };
   }
@@ -651,12 +719,41 @@ export class MessagePushTool extends BaseTool<
   ): Promise<MessagePushOutput> {
     const config = input.config as EmailConfig;
 
-    // TODO: 实际集成 Email 服务 (SMTP/SendGrid/etc)
-    // 当前为模拟实现
     this.logger.debug(`Sending email to: ${config.to.join(", ")}`);
 
-    // 模拟 API 调用
-    await this.simulateApiCall();
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || "smtp.gmail.com",
+      port: parseInt(process.env.SMTP_PORT || "587", 10),
+      secure: false,
+      auth: process.env.SMTP_USER
+        ? {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS || "",
+          }
+        : undefined,
+      connectionTimeout: 10000,
+    });
+
+    const fromAddress =
+      process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@example.com";
+    const from = config.fromName
+      ? `${config.fromName} <${fromAddress}>`
+      : fromAddress;
+
+    const isHtml = input.format === "html";
+    await transporter.sendMail({
+      from,
+      to: config.to.join(", "),
+      ...(config.cc && config.cc.length > 0
+        ? { cc: config.cc.join(", ") }
+        : {}),
+      ...(config.bcc && config.bcc.length > 0
+        ? { bcc: config.bcc.join(", ") }
+        : {}),
+      subject: config.subject || input.message.substring(0, 78),
+      ...(config.replyTo ? { replyTo: config.replyTo } : {}),
+      ...(isHtml ? { html: input.message } : { text: input.message }),
+    });
 
     return {
       success: true,
@@ -679,12 +776,54 @@ export class MessagePushTool extends BaseTool<
   ): Promise<MessagePushOutput> {
     const config = input.config as WebhookConfig;
 
-    // TODO: 实际发送 HTTP 请求到 Webhook
-    // 当前为模拟实现
     this.logger.debug(`Sending to webhook: ${config.url}`);
 
-    // 模拟 API 调用
-    await this.simulateApiCall();
+    const payload: Record<string, unknown> = {
+      message: input.message,
+      timestamp: new Date().toISOString(),
+      ...(input.title ? { title: input.title } : {}),
+      ...(input.priority ? { priority: input.priority } : {}),
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(config.headers || {}),
+    };
+
+    // Apply auth header
+    if (config.auth) {
+      switch (config.auth.type) {
+        case "bearer":
+          headers["Authorization"] = `Bearer ${config.auth.token}`;
+          break;
+        case "basic":
+          headers["Authorization"] =
+            `Basic ${Buffer.from(config.auth.token).toString("base64")}`;
+          break;
+        case "api-key":
+          headers["X-API-Key"] = config.auth.token;
+          break;
+      }
+    }
+
+    // Apply secret header if configured
+    if (config.secret) {
+      headers["X-Webhook-Secret"] = config.secret;
+    }
+
+    const method = config.method || "POST";
+    const response = await axios.request({
+      method,
+      url: config.url,
+      data: payload,
+      headers,
+      timeout: 15000,
+      validateStatus: () => true, // Let us handle status ourselves
+    });
+
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`Webhook error: HTTP ${response.status}`);
+    }
 
     return {
       success: true,
@@ -693,7 +832,7 @@ export class MessagePushTool extends BaseTool<
       deliveredAt: new Date(),
       metadata: {
         platform: "webhook",
-        statusCode: 200,
+        statusCode: response.status,
       },
     };
   }
@@ -769,6 +908,8 @@ export class MessagePushTool extends BaseTool<
 
   /**
    * 发送到飞书
+   * receiveId 可以是飞书机器人 Webhook URL（以 http 开头）
+   * 或 open_id/chat_id（需要配合飞书 Bot Token，当前不支持）
    */
   private async sendToFeishu(
     input: MessagePushInput,
@@ -776,13 +917,31 @@ export class MessagePushTool extends BaseTool<
   ): Promise<MessagePushOutput> {
     const config = input.config as FeishuConfig;
 
-    // TODO: Integrate with FeishuService for actual message sending
     this.logger.debug(
       `Sending to Feishu: receiveId=${config.receiveId}, type=${config.receiveIdType || "open_id"}`,
     );
 
-    // Simulate API call
-    await this.simulateApiCall();
+    if (!config.receiveId.startsWith("http")) {
+      throw new Error(
+        "Feishu receiveId must be a webhook URL (starting with http). " +
+          "Direct open_id/chat_id messaging requires a Feishu Bot Token which is not configured.",
+      );
+    }
+
+    // Feishu Bot Webhook
+    const payload = {
+      msg_type: "text",
+      content: { text: input.message },
+    };
+
+    const response = await axios.post(config.receiveId, payload, {
+      timeout: 10000,
+    });
+
+    // Feishu webhook returns StatusCode=0 or code=0 on success
+    if (response.data?.StatusCode !== 0 && response.data?.code !== 0) {
+      throw new Error(`Feishu webhook error: ${JSON.stringify(response.data)}`);
+    }
 
     return {
       success: true,
@@ -791,17 +950,8 @@ export class MessagePushTool extends BaseTool<
       deliveredAt: new Date(),
       metadata: {
         platform: "feishu",
-        statusCode: 200,
+        statusCode: response.status,
       },
     };
-  }
-
-  /**
-   * 模拟 API 调用延迟
-   */
-  private async simulateApiCall(): Promise<void> {
-    // 模拟 100-500ms 的网络延迟
-    const delay = 100 + Math.random() * 400;
-    await new Promise((resolve) => setTimeout(resolve, delay));
   }
 }
