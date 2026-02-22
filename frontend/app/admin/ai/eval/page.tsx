@@ -380,9 +380,8 @@ export default function EvalDashboardPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const result: EvalResult = await res.json();
       setEvalResults((prev) => ({ ...prev, [traceId]: result }));
-    } catch (err) {
-      // Silently ignore eval errors — row stays evaluatable
-      console.error('Eval failed:', err);
+    } catch {
+      // Silently ignore eval errors — row stays evaluatable, button re-enabled
     } finally {
       setEvaluating((prev) => ({ ...prev, [traceId]: false }));
     }

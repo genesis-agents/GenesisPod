@@ -122,7 +122,7 @@ export class IntentRouterService {
    */
   async route(userIntent: string, context: AgentContext): Promise<RouteResult> {
     this.logger.debug(
-      `[route] userId=${context.userId} intent="${userIntent.slice(0, 80)}..."`,
+      `[route] userId=${context.userId} intent="${userIntent.length > 80 ? userIntent.slice(0, 80) + "..." : userIntent}"`,
     );
 
     let analysis: IntentAnalysis;
@@ -168,7 +168,7 @@ export class IntentRouterService {
   /**
    * 快捷方法：仅返回 TaskPlan
    */
-  async getplan(userIntent: string, context: AgentContext): Promise<TaskPlan> {
+  async getPlan(userIntent: string, context: AgentContext): Promise<TaskPlan> {
     return (await this.route(userIntent, context)).plan;
   }
 

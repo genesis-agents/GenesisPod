@@ -230,7 +230,7 @@ export function ApprovalCard({
           <span className="text-xs text-gray-400">{context.summary}</span>
         </div>
       )}
-      {context?.preview && (
+      {context?.preview && /^https?:\/\//i.test(context.preview) && (
         <img
           src={context.preview}
           alt="preview"

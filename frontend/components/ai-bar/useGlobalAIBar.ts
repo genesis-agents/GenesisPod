@@ -24,6 +24,7 @@ export function useGlobalAIBar(): GlobalAIBarState & GlobalAIBarActions {
   const [selectedAction, setSelectedAction] = useState<QuickAction | null>(
     null
   );
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const open = useCallback((initialQuery = '') => {
     setQuery(initialQuery);
@@ -34,7 +35,8 @@ export function useGlobalAIBar(): GlobalAIBarState & GlobalAIBarActions {
   const close = useCallback(() => {
     setIsOpen(false);
     // Delay clearing query so close animation can play
-    setTimeout(() => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => {
       setQuery('');
       setSelectedAction(null);
     }, 200);
@@ -57,7 +59,10 @@ export function useGlobalAIBar(): GlobalAIBarState & GlobalAIBarActions {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
   }, [toggle, close, isOpen]);
 
   return {

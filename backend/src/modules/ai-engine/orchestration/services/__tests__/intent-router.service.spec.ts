@@ -153,7 +153,7 @@ describe("IntentRouterService", () => {
         }),
       );
 
-      const plan = await service.getplan("hi", CTX);
+      const plan = await service.getPlan("hi", CTX);
       expect(plan.steps).toHaveLength(1);
       expect(plan.steps[0].module).toBe("ask");
     });

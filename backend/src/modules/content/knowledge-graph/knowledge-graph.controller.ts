@@ -10,7 +10,9 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
   BadRequestException,
+  Req,
 } from "@nestjs/common";
+import { Request } from "express";
 import { KnowledgeGraphService } from "./knowledge-graph.service.postgres";
 import { Public } from "../../../common/decorators/public.decorator";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
@@ -211,14 +213,16 @@ export class KnowledgeGraphController {
    */
   @Post("chat")
   async chat(
+    @Req() req: Request,
     @Body()
     body: {
       message: string;
-      userId?: string;
       collectionId?: string;
     },
   ) {
-    const { message, userId, collectionId } = body;
+    const { message, collectionId } = body;
+    // Always use authenticated user's ID — never trust client-supplied userId
+    const userId = (req.user as { id?: string })?.id;
     if (!message?.trim()) {
       throw new BadRequestException("message is required");
     }

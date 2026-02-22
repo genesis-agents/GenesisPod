@@ -95,26 +95,28 @@ export function useAgentTrace(traceId: string | null): UseAgentTraceResult {
       return;
     }
 
-    // Fetch immediately
-    fetchTrace();
+    let cancelled = false;
 
-    // Set up polling
-    const poll = () => {
+    // Single poll chain: fire immediately (delay=0), then every POLL_INTERVAL_MS
+    // while still running. This avoids two concurrent fetch chains.
+    const scheduleNext = (delay: number) => {
       timerRef.current = setTimeout(async () => {
+        if (cancelled) return;
         await fetchTrace();
-        // Continue polling only if still running
+        // Check latest status and continue only if still running
         setTrace((current) => {
-          if (current?.status === 'running') {
-            poll();
+          if (!cancelled && current?.status === 'running') {
+            scheduleNext(POLL_INTERVAL_MS);
           }
           return current;
         });
-      }, POLL_INTERVAL_MS);
+      }, delay);
     };
 
-    poll();
+    scheduleNext(0);
 
     return () => {
+      cancelled = true;
       if (timerRef.current) clearTimeout(timerRef.current);
       abortRef.current?.abort();
     };

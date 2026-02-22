@@ -238,10 +238,10 @@ export class EvalPipelineService {
       (s) => s.output !== null && s.output !== undefined,
     );
 
-    // 时长检查
+    // 时长检查（duration=0 或 null 表示执行未完成或数据异常，视为不合理）
     const duration = trace.duration ?? 0;
     const durationReasonable =
-      duration === 0 || duration <= MAX_REASONABLE_DURATION_MS;
+      duration > 0 && duration <= MAX_REASONABLE_DURATION_MS;
 
     // 判断是否通过
     let passed = true;

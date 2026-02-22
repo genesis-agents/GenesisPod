@@ -18,6 +18,8 @@ import { ErrorTrackingService, AIMetricsService } from "../monitoring";
 import { AIAdminService } from "./ai-admin.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { TraceCollectorService } from "../../ai-engine/observability";
+import { TraceType } from "../../ai-engine/observability/trace.interface";
+import { NotFoundException } from "@nestjs/common";
 import { EvalPipelineService } from "../../ai-engine/observability/eval-pipeline.service";
 import {
   RateLimitGuard,
@@ -669,7 +671,7 @@ export class MonitoringAdminController {
   ) {
     this.logger.log("Admin: Fetching trace list");
     return this.traceCollectorService.listTraces({
-      type: type as any,
+      type: type as TraceType | undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
     });
   }
@@ -690,10 +692,7 @@ export class MonitoringAdminController {
     this.logger.log(`Admin: Fetching trace detail: ${id}`);
     const trace = this.traceCollectorService.getTrace(id);
     if (!trace) {
-      return {
-        statusCode: 404,
-        message: "Trace not found",
-      };
+      throw new NotFoundException(`Trace ${id} not found`);
     }
     return trace;
   }

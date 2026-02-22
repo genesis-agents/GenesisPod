@@ -88,6 +88,8 @@ export function useApprovalQueue(): UseApprovalQueueReturn {
   const respond = useCallback(
     async (requestId: string, payload: RespondPayload) => {
       setResponding((prev) => new Set(prev).add(requestId));
+      // Optimistically remove from list
+      setApprovals((prev) => prev.filter((a) => a.requestId !== requestId));
       try {
         const res = await fetch(`${API_BASE}/${requestId}/respond`, {
           method: 'POST',
@@ -95,8 +97,10 @@ export function useApprovalQueue(): UseApprovalQueueReturn {
           body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        // Optimistically remove from list
-        setApprovals((prev) => prev.filter((a) => a.requestId !== requestId));
+      } catch (e) {
+        // Rollback optimistic removal — re-fetch to restore accurate state
+        setError(e instanceof Error ? e.message : 'Failed to submit response');
+        await fetchPending();
       } finally {
         setResponding((prev) => {
           const next = new Set(prev);
@@ -105,7 +109,7 @@ export function useApprovalQueue(): UseApprovalQueueReturn {
         });
       }
     },
-    []
+    [fetchPending]
   );
 
   const refresh = useCallback(() => {

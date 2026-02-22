@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamicImport from 'next/dynamic';
 import AppShell from '@/components/layout/AppShell';
@@ -312,7 +312,7 @@ function KnowledgeGraphPageContent() {
     }
   }, []);
 
-  const fetchGraphOverview = async () => {
+  const fetchGraphOverview = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -348,9 +348,9 @@ function KnowledgeGraphPageContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, collectionId]);
 
-  const buildGraph = async () => {
+  const buildGraph = useCallback(async () => {
     try {
       setBuilding(true);
       setError(null);
@@ -377,7 +377,7 @@ function KnowledgeGraphPageContent() {
     } finally {
       setBuilding(false);
     }
-  };
+  }, [fetchGraphOverview]);
 
   // 当 userId 或 collectionId 变化时重新获取数据
   useEffect(() => {
@@ -385,7 +385,7 @@ function KnowledgeGraphPageContent() {
     if (userId !== null) {
       fetchGraphOverview();
     }
-  }, [userId, collectionId]);
+  }, [userId, collectionId, fetchGraphOverview]);
 
   const hasData = graphData && graphData.nodes && graphData.nodes.length > 0;
 

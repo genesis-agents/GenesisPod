@@ -225,10 +225,13 @@ export class IntelligentModelRouterService {
     const stats: QualityStats[] = [];
 
     for (const [key, scores] of this.qualityHistory) {
-      const [taskType, complexityLevel] = key.split(":") as [
-        string,
-        ComplexityLevel,
-      ];
+      // Key format is "{taskType}:{complexityLevel}" — taskType itself may contain
+      // colons, so split at the LAST colon only.
+      const lastColon = key.lastIndexOf(":");
+      const taskType = lastColon === -1 ? key : key.slice(0, lastColon);
+      const complexityLevel = (
+        lastColon === -1 ? key : key.slice(lastColon + 1)
+      ) as ComplexityLevel;
       const avgScore = scores.reduce((s, v) => s + v, 0) / scores.length;
       const upgraded =
         scores.length >= MIN_SAMPLES_FOR_UPGRADE &&

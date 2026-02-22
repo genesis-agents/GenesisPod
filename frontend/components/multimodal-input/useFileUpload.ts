@@ -97,9 +97,15 @@ export function useFileUpload(): UseFileUploadReturn {
         const remaining = MAX_FILES - prev.length;
         if (remaining <= 0) return prev;
 
-        const toAdd = incoming
+        const processed = incoming.map(processFile);
+
+        // Revoke Object URLs for files that exceed the slot limit before discarding
+        processed.slice(remaining).forEach((f) => {
+          if (f?.previewUrl) URL.revokeObjectURL(f.previewUrl);
+        });
+
+        const toAdd = processed
           .slice(0, remaining)
-          .map(processFile)
           .filter((f): f is AttachedFile => f !== null);
 
         return [...prev, ...toAdd];
