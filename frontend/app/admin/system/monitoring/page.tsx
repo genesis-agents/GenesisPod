@@ -15,6 +15,9 @@ import {
   DollarSign,
   Server,
   AlertCircle,
+  GitBranch,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
@@ -98,6 +101,45 @@ interface AIDiagnosis {
     description: string;
     recommendation: string;
   }>;
+}
+
+// ─── Agent Trace types (mirrors backend trace.interface.ts) ───
+
+type TraceStatus = 'running' | 'success' | 'error';
+type TraceType =
+  | 'research_mission'
+  | 'team_execution'
+  | 'tool_call'
+  | 'mcp_request'
+  | 'a2a_task';
+
+interface TraceSummary {
+  id: string;
+  name: string;
+  type: TraceType;
+  status: TraceStatus;
+  startTime: string;
+  duration?: number;
+  spanCount: number;
+}
+
+interface SpanData {
+  id: string;
+  traceId: string;
+  parentSpanId?: string;
+  name: string;
+  type: string;
+  status: TraceStatus;
+  startTime: string;
+  endTime?: string;
+  duration?: number;
+  metadata: Record<string, unknown>;
+  error?: string;
+}
+
+interface TraceDetail extends TraceSummary {
+  spans: SpanData[];
+  metadata: Record<string, unknown>;
 }
 
 interface DashboardData {
@@ -301,9 +343,14 @@ export default function MonitoringPage() {
   const [error, setError] = useState<string | null>(null);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'errors' | 'ai'>(
-    'overview'
-  );
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'errors' | 'ai' | 'traces'
+  >('overview');
+  const [traces, setTraces] = useState<TraceSummary[]>([]);
+  const [tracesLoading, setTracesLoading] = useState(false);
+  const [expandedTraceId, setExpandedTraceId] = useState<string | null>(null);
+  const [traceDetail, setTraceDetail] = useState<TraceDetail | null>(null);
+  const [traceDetailLoading, setTraceDetailLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -375,6 +422,65 @@ export default function MonitoringPage() {
     const interval = setInterval(() => void fetchData(), 30000);
     return () => clearInterval(interval);
   }, [autoRefresh, fetchData]);
+
+  const fetchTraces = useCallback(async () => {
+    setTracesLoading(true);
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/admin/monitoring/traces?limit=20`,
+        { headers: getAuthHeader() }
+      ).catch(() => null);
+      if (res?.ok) {
+        const json = await res.json();
+        const list = (json?.data ?? json) as TraceSummary[];
+        setTraces(Array.isArray(list) ? list : []);
+      }
+    } finally {
+      setTracesLoading(false);
+    }
+  }, []);
+
+  // Auto-poll traces every 10 seconds when the traces tab is active
+  useEffect(() => {
+    if (activeTab !== 'traces') return;
+    void fetchTraces();
+    const interval = setInterval(() => void fetchTraces(), 10000);
+    return () => clearInterval(interval);
+  }, [activeTab, fetchTraces]);
+
+  const fetchTraceDetail = useCallback(
+    async (id: string) => {
+      if (expandedTraceId === id) {
+        setExpandedTraceId(null);
+        setTraceDetail(null);
+        return;
+      }
+      // Clear stale detail immediately to avoid briefly showing previous trace's data
+      setExpandedTraceId(id);
+      setTraceDetail(null);
+      setTraceDetailLoading(true);
+      // Capture the requested ID to guard against race conditions
+      const requestedId = id;
+      try {
+        const res = await fetch(
+          `${config.apiUrl}/admin/monitoring/traces/${id}`,
+          { headers: getAuthHeader() }
+        ).catch(() => null);
+        if (res?.ok) {
+          const json = await res.json();
+          const detail = (json?.data ?? json) as TraceDetail;
+          // Only apply result if this trace is still the expanded one
+          setExpandedTraceId((current) => {
+            if (current === requestedId) setTraceDetail(detail);
+            return current;
+          });
+        }
+      } finally {
+        setTraceDetailLoading(false);
+      }
+    },
+    [expandedTraceId]
+  );
 
   const renderOverviewTab = () => (
     <>
@@ -930,6 +1036,151 @@ export default function MonitoringPage() {
     </>
   );
 
+  const traceStatusColor = (status: TraceStatus) => {
+    if (status === 'running') return 'bg-blue-500';
+    if (status === 'success') return 'bg-green-500';
+    return 'bg-red-500';
+  };
+
+  const traceTypeBadge = (type: TraceType) => {
+    const map: Record<TraceType, string> = {
+      research_mission: 'bg-purple-100 text-purple-700',
+      team_execution: 'bg-orange-100 text-orange-700',
+      tool_call: 'bg-cyan-100 text-cyan-700',
+      mcp_request: 'bg-pink-100 text-pink-700',
+      a2a_task: 'bg-yellow-100 text-yellow-700',
+    };
+    return map[type] ?? 'bg-gray-100 text-gray-700';
+  };
+
+  const buildSpanTree = (spans: SpanData[]) => {
+    const roots: SpanData[] = [];
+    const children: Record<string, SpanData[]> = {};
+    for (const span of spans) {
+      if (span.parentSpanId) {
+        if (!children[span.parentSpanId]) children[span.parentSpanId] = [];
+        children[span.parentSpanId].push(span);
+      } else {
+        roots.push(span);
+      }
+    }
+    return { roots, children };
+  };
+
+  const renderSpan = (
+    span: SpanData,
+    depth: number,
+    children: Record<string, SpanData[]>
+  ): React.ReactNode => (
+    <div key={span.id} style={{ marginLeft: depth * 16 }} className="mb-1">
+      <div className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50">
+        <span
+          className={`h-2 w-2 shrink-0 rounded-full ${traceStatusColor(span.status)}`}
+        />
+        <span className="text-sm text-gray-700">{span.name}</span>
+        <span className="text-xs text-gray-400">{span.type}</span>
+        {span.duration !== undefined && (
+          <span className="ml-auto text-xs text-gray-400">
+            {span.duration}ms
+          </span>
+        )}
+      </div>
+      {children[span.id]?.map((child) =>
+        renderSpan(child, depth + 1, children)
+      )}
+    </div>
+  );
+
+  const renderTracesTab = () => (
+    <>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Agent Traces</h3>
+        <button
+          onClick={() => void fetchTraces()}
+          disabled={tracesLoading}
+          className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${tracesLoading ? 'animate-spin' : ''}`}
+          />
+          刷新
+        </button>
+      </div>
+
+      {tracesLoading && traces.length === 0 ? (
+        <div className="p-8 text-center text-sm text-gray-500">加载中…</div>
+      ) : traces.length === 0 ? (
+        <div className="rounded-lg bg-gray-50 p-8 text-center text-sm text-gray-500">
+          <GitBranch className="mx-auto mb-2 h-6 w-6 text-gray-400" />
+          暂无 Agent Trace 数据
+        </div>
+      ) : (
+        <div className="rounded-lg bg-white shadow">
+          {traces.map((trace) => (
+            <div key={trace.id} className="border-b last:border-b-0">
+              {/* Row */}
+              <button
+                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
+                onClick={() => void fetchTraceDetail(trace.id)}
+              >
+                {expandedTraceId === trace.id ? (
+                  <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+                )}
+                <span
+                  className={`h-2 w-2 shrink-0 rounded-full ${traceStatusColor(trace.status)}`}
+                />
+                <span className="flex-1 truncate text-sm font-medium text-gray-800">
+                  {trace.name}
+                </span>
+                <span
+                  className={`rounded px-2 py-0.5 text-xs font-medium ${traceTypeBadge(trace.type)}`}
+                >
+                  {trace.type.replace('_', ' ')}
+                </span>
+                <span className="w-16 text-right text-xs text-gray-400">
+                  {trace.spanCount} spans
+                </span>
+                {trace.duration !== undefined && (
+                  <span className="w-16 text-right text-xs text-gray-400">
+                    {trace.duration}ms
+                  </span>
+                )}
+                <span className="w-32 text-right text-xs text-gray-400">
+                  {new Date(trace.startTime).toLocaleTimeString()}
+                </span>
+              </button>
+
+              {/* Expanded detail */}
+              {expandedTraceId === trace.id && (
+                <div className="border-t bg-gray-50 px-4 py-3">
+                  {traceDetailLoading ? (
+                    <p className="text-sm text-gray-400">加载详情…</p>
+                  ) : traceDetail?.id === trace.id &&
+                    traceDetail.spans.length > 0 ? (
+                    (() => {
+                      const { roots, children } = buildSpanTree(
+                        traceDetail.spans
+                      );
+                      return (
+                        <div className="text-sm">
+                          {roots.map((root) => renderSpan(root, 0, children))}
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <p className="text-sm text-gray-400">无 Span 数据</p>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <AdminPageLayout
       title={t('admin.monitoring.title')}
@@ -980,7 +1231,7 @@ export default function MonitoringPage() {
         {/* Tabs */}
         <div className="mb-6 border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
-            {(['overview', 'errors', 'ai'] as const).map((tab) => (
+            {(['overview', 'errors', 'ai', 'traces'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -993,6 +1244,7 @@ export default function MonitoringPage() {
                 {tab === 'overview' && 'Overview'}
                 {tab === 'errors' && 'Error Tracking'}
                 {tab === 'ai' && 'AI Metrics'}
+                {tab === 'traces' && 'Agent Traces'}
               </button>
             ))}
           </nav>
@@ -1007,6 +1259,7 @@ export default function MonitoringPage() {
             {activeTab === 'overview' && renderOverviewTab()}
             {activeTab === 'errors' && renderErrorsTab()}
             {activeTab === 'ai' && renderAITab()}
+            {activeTab === 'traces' && renderTracesTab()}
           </>
         )}
       </div>

@@ -9,6 +9,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EmbeddingService } from "@/modules/ai-engine/rag/embedding/embedding.service";
 
@@ -51,28 +52,6 @@ export class TopicContextRetrievalService {
     private readonly prisma: PrismaService,
     private readonly embeddingService: EmbeddingService,
   ) {}
-
-  /**
-   * 计算两个向量的余弦相似度
-   */
-  private cosineSimilarity(a: number[], b: number[]): number {
-    if (!a || !b || a.length !== b.length || a.length === 0) {
-      return 0;
-    }
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    const magnitude = Math.sqrt(normA) * Math.sqrt(normB);
-    return magnitude === 0 ? 0 : dotProduct / magnitude;
-  }
 
   /**
    * 生成内容摘要
@@ -144,17 +123,15 @@ export class TopicContextRetrievalService {
         message.content.substring(0, 8000), // 限制长度
       );
 
-      // 存储嵌入
-      await this.prisma.topicMessageEmbedding.create({
-        data: {
-          messageId: message.id,
-          embedding: embeddingResult.embedding,
-          model: await this.embeddingService.getModel(),
-          dimensions: embeddingResult.embedding.length,
-          contentSummary: this.generateSummary(message.content),
-          tokenCount: embeddingResult.tokenCount,
-        },
-      });
+      // 存储嵌入（embedding 字段为 pgvector Unsupported 类型，必须使用 $executeRaw）
+      const vectorStr = `[${embeddingResult.embedding.join(",")}]`;
+      const embeddingModel = await this.embeddingService.getModel();
+      const contentSummary = this.generateSummary(message.content);
+      await this.prisma.$executeRaw(Prisma.sql`
+        INSERT INTO topic_message_embeddings (id, message_id, embedding, model, dimensions, content_summary, token_count, created_at, updated_at)
+        VALUES (gen_random_uuid(), ${message.id}, ${vectorStr}::vector, ${embeddingModel}, ${embeddingResult.embedding.length}, ${contentSummary}, ${embeddingResult.tokenCount ?? null}, now(), now())
+        ON CONFLICT (message_id) DO NOTHING
+      `);
 
       this.logger.log(
         `Embedded message ${messageId}: ${embeddingResult.embedding.length} dimensions`,
@@ -228,80 +205,83 @@ export class TopicContextRetrievalService {
       // 生成查询向量
       const queryEmbedding =
         await this.embeddingService.generateEmbedding(query);
+      const vectorStr = `[${queryEmbedding.embedding.join(",")}]`;
 
-      // 获取 Topic 的所有嵌入
-      const embeddings = await this.prisma.topicMessageEmbedding.findMany({
-        where: {
-          message: {
-            topicId,
-            deletedAt: null,
-            ...(excludeMessageIds.length > 0
-              ? { id: { notIn: excludeMessageIds } }
-              : {}),
-          },
-        },
-        include: {
-          message: {
-            select: {
-              id: true,
-              content: true,
-              createdAt: true,
-              sender: { select: { fullName: true, username: true } },
-              aiMember: { select: { displayName: true } },
-            },
-          },
-        },
-      });
+      // 可选的排除消息 ID 过滤片段
+      const excludeFilter =
+        excludeMessageIds.length > 0
+          ? Prisma.sql`AND tm.id != ALL(ARRAY[${Prisma.join(excludeMessageIds)}]::text[])`
+          : Prisma.sql``;
 
-      if (embeddings.length === 0) {
+      // 可选的最小内容长度过滤片段
+      const lengthFilter =
+        minContentLength > 0
+          ? Prisma.sql`AND LENGTH(tm.content) >= ${minContentLength}`
+          : Prisma.sql``;
+
+      // 使用 pgvector <=> 余弦距离运算符，DB 层完成相似度计算
+      interface RawRow {
+        message_id: string;
+        content_summary: string | null;
+        msg_content: string;
+        msg_created_at: Date;
+        sender_full_name: string | null;
+        sender_username: string | null;
+        ai_member_display_name: string | null;
+        similarity: number;
+      }
+
+      // 子查询模式：ORDER BY ... LIMIT 供 HNSW 索引使用，外层过滤阈值
+      const rows = await this.prisma.$queryRaw<RawRow[]>(Prisma.sql`
+        SELECT message_id, content_summary, msg_content, msg_created_at,
+               sender_full_name, sender_username, ai_member_display_name, similarity
+        FROM (
+          SELECT
+            tme.message_id,
+            tme.content_summary,
+            tm.content AS msg_content,
+            tm.created_at AS msg_created_at,
+            u.full_name AS sender_full_name,
+            u.username AS sender_username,
+            am.display_name AS ai_member_display_name,
+            1 - (tme.embedding <=> ${vectorStr}::vector) AS similarity
+          FROM topic_message_embeddings tme
+          JOIN topic_messages tm ON tme.message_id = tm.id
+          LEFT JOIN users u ON tm.sender_id = u.id
+          LEFT JOIN topic_ai_members am ON tm.ai_member_id = am.id
+          WHERE tm.topic_id = ${topicId}
+            AND tm.deleted_at IS NULL
+            ${excludeFilter}
+            ${lengthFilter}
+          ORDER BY tme.embedding <=> ${vectorStr}::vector
+          LIMIT ${limit}
+        ) sub
+        WHERE similarity >= ${threshold}
+      `);
+
+      if (rows.length === 0) {
         this.logger.debug(`No embeddings found for topic ${topicId}`);
         return [];
       }
 
-      // 计算相似度并排序
-      const results: RetrievedContext[] = [];
-
-      for (const e of embeddings) {
-        const storedVector = e.embedding as number[];
-        if (!storedVector || storedVector.length === 0) continue;
-
-        // 过滤短内容
-        if (
-          minContentLength > 0 &&
-          e.message.content.length < minContentLength
-        ) {
-          continue;
-        }
-
-        const similarity = this.cosineSimilarity(
-          queryEmbedding.embedding,
-          storedVector,
-        );
-
-        if (similarity >= threshold) {
-          const senderName = e.message.sender
-            ? e.message.sender.fullName || e.message.sender.username || "User"
-            : e.message.aiMember?.displayName || "AI";
-
-          results.push({
-            messageId: e.message.id,
-            content: e.message.content,
-            contentSummary: e.contentSummary,
-            similarity,
-            senderName,
-            createdAt: e.message.createdAt,
-          });
-        }
-      }
-
-      // 按相似度降序排列
-      results.sort((a, b) => b.similarity - a.similarity);
+      const results: RetrievedContext[] = rows.map((row) => ({
+        messageId: row.message_id,
+        content: row.msg_content,
+        contentSummary: row.content_summary,
+        similarity: Number(row.similarity),
+        senderName:
+          row.sender_full_name ||
+          row.sender_username ||
+          row.ai_member_display_name ||
+          "Unknown",
+        createdAt: row.msg_created_at,
+      }));
 
       this.logger.log(
-        `Retrieved ${Math.min(results.length, limit)} contexts for query (${results.length} matches above threshold)`,
+        `Retrieved ${results.length} contexts for topic ${topicId} (pgvector <=> query)`,
       );
 
-      return results.slice(0, limit);
+      return results;
     } catch (error) {
       this.logger.error(
         `Failed to retrieve context for topic ${topicId}:`,

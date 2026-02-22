@@ -73,19 +73,92 @@ interface IntentAnalysis {
 }
 
 // ─────────────────────────────────────────────────────────
-// Prompt
+// Module Registry & Prompt
 // ─────────────────────────────────────────────────────────
+
+/**
+ * 模块能力注册表 — 单一数据来源
+ * 包含 IntentRouter、ActionCards、Facade capability 所需的全部模块元数据
+ */
+const MODULE_REGISTRY_DATA: Record<
+  AppModule,
+  {
+    description: string;
+    phase: 1 | 2;
+    label: string;
+    iconName: string;
+    urlTemplate: string;
+  }
+> = {
+  research: {
+    description:
+      "Deep multi-step research report generation. Use when the user wants to investigate, analyze trends, or produce a research report.",
+    phase: 1,
+    label: "启动深度研究",
+    iconName: "Search",
+    urlTemplate: "/ai-research?q={input}",
+  },
+  writing: {
+    description:
+      "Long-form writing assistant. Use when the user wants to write articles, reports, documents, or structured content.",
+    phase: 2,
+    label: "开始长文写作",
+    iconName: "PenLine",
+    urlTemplate: "/ai-writing?q={input}",
+  },
+  teams: {
+    description:
+      "Multi-agent collaborative debate/discussion. Use when the user wants multiple perspectives, debate, or team analysis.",
+    phase: 2,
+    label: "创建 AI 辩论",
+    iconName: "Users",
+    urlTemplate: "/ai-teams?topic={input}",
+  },
+  image: {
+    description:
+      "AI image generation. Use when the user wants to generate, create, or draw images, illustrations, or visual content.",
+    phase: 1,
+    label: "生成图片",
+    iconName: "Image",
+    urlTemplate: "/ai-image?q={input}",
+  },
+  office: {
+    description:
+      "PPT/slides generation. Use when the user wants to create presentations, slide decks, or PowerPoint files.",
+    phase: 2,
+    label: "生成 PPT",
+    iconName: "Presentation",
+    urlTemplate: "/ai-office?q={input}",
+  },
+  insight: {
+    description:
+      "Topic intelligence & monitoring. Use when the user wants to monitor a topic, track trends, or get ongoing intelligence reports on a subject.",
+    phase: 1,
+    label: "专题洞察",
+    iconName: "TrendingUp",
+    urlTemplate: "/ai-insights?q={input}",
+  },
+  ask: {
+    description:
+      "Quick Q&A and conversation. Use as default for simple questions or when intent is unclear.",
+    phase: 1,
+    label: "智能问答",
+    iconName: "MessageSquare",
+    urlTemplate: "/ai-ask?q={input}",
+  },
+};
+
+/** 从 MODULE_REGISTRY_DATA 动态生成意图分析提示词的模块列表 */
+function buildModuleListPrompt(): string {
+  return Object.entries(MODULE_REGISTRY_DATA)
+    .map(([module, info]) => `- "${module}": ${info.description}`)
+    .join("\n");
+}
 
 const INTENT_ANALYSIS_PROMPT = `You are an AI intent analyzer for a multi-module AI platform. Analyze the user's intent and determine which AI modules should be invoked.
 
 Available modules:
-- "research": Deep multi-step research report generation. Use when the user wants to investigate, analyze trends, or produce a research report.
-- "writing": Long-form writing assistant. Use when the user wants to write articles, reports, documents, or structured content.
-- "teams": Multi-agent collaborative debate/discussion. Use when the user wants multiple perspectives, debate, or team analysis.
-- "image": AI image generation. Use when the user wants to generate, create, or draw images, illustrations, or visual content.
-- "office": PPT/slides generation. Use when the user wants to create presentations, slide decks, or PowerPoint files.
-- "insight": Topic intelligence & monitoring. Use when the user wants to monitor a topic, track trends, or get ongoing intelligence reports on a subject.
-- "ask": Quick Q&A and conversation. Use as default for simple questions or when intent is unclear.
+${buildModuleListPrompt()}
 
 Rules:
 1. A task may require multiple modules (e.g., research then writing).
@@ -98,7 +171,11 @@ Rules:
 Respond ONLY with valid JSON matching this schema:
 {
   "capabilities": [
-    { "module": "research"|"writing"|"teams"|"image"|"office"|"insight"|"ask", "action": "string describing what to do", "input": "the query/topic to pass to the module", "priority": 1 }
+    { "module": ${Object.keys(MODULE_REGISTRY_DATA)
+      .map((m) => `"${m}"`)
+      .join(
+        "|",
+      )}, "action": "string describing what to do", "input": "the query/topic to pass to the module", "priority": 1 }
   ],
   "confidence": 0.0-1.0,
   "reasoning": "brief explanation"
@@ -114,6 +191,9 @@ export class IntentRouterService {
 
   /** 低于此置信度时建议向用户确认 */
   private static readonly CONFIRMATION_THRESHOLD = 0.6;
+
+  /** 所有模块的统一注册表（单一数据来源） */
+  static readonly MODULE_REGISTRY = MODULE_REGISTRY_DATA;
 
   constructor(
     private readonly aiChatService: AiChatService,
@@ -138,7 +218,7 @@ export class IntentRouterService {
       this.logger.warn(
         `[route] Intent analysis failed, falling back to ask module: ${err instanceof Error ? err.message : String(err)}`,
       );
-      analysis = this.buildFallbackAnalysis();
+      analysis = this.buildFallbackAnalysis(userIntent);
     }
 
     const requirements: CapabilityRequirement[] = analysis.capabilities.map(
@@ -235,30 +315,44 @@ export class IntentRouterService {
       this.logger.warn(
         `[parseAnalysis] Failed to parse LLM response: ${err instanceof Error ? err.message : String(err)}`,
       );
-      return this.buildFallbackAnalysis();
+      return this.buildFallbackAnalysis(originalIntent);
     }
   }
 
   private validateModule(module: string): AppModule {
-    const valid: AppModule[] = [
-      "research",
-      "writing",
-      "teams",
-      "ask",
-      "image",
-      "office",
-      "insight",
-    ];
+    const valid = Object.keys(
+      IntentRouterService.MODULE_REGISTRY,
+    ) as AppModule[];
     return valid.includes(module as AppModule) ? (module as AppModule) : "ask";
   }
 
-  private buildFallbackAnalysis(): IntentAnalysis {
+  /**
+   * 返回所有已注册模块的能力描述（供 Facade 暴露给 AI Apps 使用）
+   * 静态方法：不依赖实例状态，可直接从 Facade 调用
+   */
+  static getRegisteredModules(): Array<{
+    module: AppModule;
+    description: string;
+    phase: 1 | 2;
+    label: string;
+    iconName: string;
+    urlTemplate: string;
+  }> {
+    return Object.entries(IntentRouterService.MODULE_REGISTRY).map(
+      ([module, info]) => ({
+        module: module as AppModule,
+        ...info,
+      }),
+    );
+  }
+
+  private buildFallbackAnalysis(originalIntent = ""): IntentAnalysis {
     return {
       capabilities: [
         {
           module: "ask",
           action: "直接问答",
-          input: "",
+          input: originalIntent,
           priority: 1,
         },
       ],

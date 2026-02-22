@@ -2,11 +2,12 @@
  * AI Engine - Vector Service
  * 向量存储与相似度搜索服务
  *
- * 使用 JSONB 存储向量，应用层计算相似度
- * 兼容 Railway PostgreSQL（无需 pgvector 扩展）
+ * 使用 pgvector 存储向量，数据库级余弦相似度搜索
+ * 支持 HNSW 索引，百万级向量毫秒响应
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 /**
@@ -19,8 +20,6 @@ export interface SimilaritySearchOptions {
   threshold?: number;
   /** 按知识库 ID 过滤 */
   knowledgeBaseIds?: string[];
-  /** 批处理大小 (默认: 1000) */
-  batchSize?: number;
 }
 
 /**
@@ -52,33 +51,7 @@ export class VectorService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * 计算两个向量的余弦相似度
-   *
-   * @param a 第一个向量
-   * @param b 第二个向量
-   * @returns 相似度分数 (0-1)
-   */
-  cosineSimilarity(a: number[], b: number[]): number {
-    if (!a || !b || a.length !== b.length || a.length === 0) {
-      return 0;
-    }
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    const magnitude = Math.sqrt(normA) * Math.sqrt(normB);
-    return magnitude === 0 ? 0 : dotProduct / magnitude;
-  }
-
-  /**
-   * 相似度搜索（使用 JSONB 嵌入）
+   * 相似度搜索（使用 pgvector <=> 余弦距离运算符）
    *
    * @param queryEmbedding 查询向量
    * @param options 搜索选项
@@ -88,22 +61,13 @@ export class VectorService {
     queryEmbedding: number[],
     options: SimilaritySearchOptions = {},
   ): Promise<SimilarityResult[]> {
-    const {
-      limit = 10,
-      threshold = 0.3,
-      knowledgeBaseIds,
-      batchSize = 1000,
-    } = options;
+    const { limit = 10, threshold = 0.3, knowledgeBaseIds } = options;
 
     this.logger.debug(
-      `Starting similarity search: limit=${limit}, threshold=${threshold}, kbIds=${knowledgeBaseIds?.length || "all"}`,
+      `Starting pgvector similarity search: limit=${limit}, threshold=${threshold}, kbIds=${knowledgeBaseIds?.length || "all"}`,
     );
 
-    // Pre-filter: resolve knowledgeBaseIds -> documentIds upfront using the
-    // indexed knowledge_base_documents.knowledge_base_id column, then filter
-    // ChildEmbedding via the denormalized ChildChunk.documentId field.
-    // This replaces a 3-level nested JOIN with a single IN-list lookup,
-    // dramatically reducing the candidate set for large embedding tables.
+    // Pre-filter: resolve knowledgeBaseIds → documentIds via ORM (indexed column)
     let documentIds: string[] | undefined;
     if (knowledgeBaseIds?.length) {
       const docs = await this.prisma.knowledgeBaseDocument.findMany({
@@ -112,7 +76,6 @@ export class VectorService {
       });
       documentIds = docs.map((d) => d.id);
 
-      // No documents in these knowledge bases – return early
       if (documentIds.length === 0) {
         this.logger.debug(
           `No documents found for knowledgeBaseIds=${knowledgeBaseIds.join(",")}, returning empty results`,
@@ -121,81 +84,53 @@ export class VectorService {
       }
     }
 
-    // Build where clause using pre-resolved documentIds for efficient filtering
-    const whereClause = documentIds?.length
-      ? {
-          childChunk: {
-            documentId: { in: documentIds },
-          },
-        }
-      : {};
+    const vectorStr = `[${queryEmbedding.join(",")}]`;
 
-    // Fetch and process embeddings in batches
-    const results: SimilarityResult[] = [];
-    let offset = 0;
-    let totalProcessed = 0;
-
-    while (true) {
-      const embeddings = await this.prisma.childEmbedding.findMany({
-        where: whereClause,
-        skip: offset,
-        take: batchSize,
-        select: {
-          childChunkId: true,
-          embedding: true,
-          childChunk: {
-            select: {
-              content: true,
-              parentChunkId: true,
-              parentChunk: {
-                select: {
-                  content: true,
-                  documentId: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      if (embeddings.length === 0) break;
-
-      for (const e of embeddings) {
-        const storedVector = e.embedding as number[];
-        if (
-          !storedVector ||
-          !Array.isArray(storedVector) ||
-          storedVector.length === 0
-        )
-          continue;
-
-        const similarity = this.cosineSimilarity(queryEmbedding, storedVector);
-
-        if (similarity >= threshold) {
-          results.push({
-            childChunkId: e.childChunkId,
-            parentChunkId: e.childChunk.parentChunkId,
-            documentId: e.childChunk.parentChunk.documentId,
-            content: e.childChunk.content,
-            parentContent: e.childChunk.parentChunk.content,
-            similarity,
-          });
-        }
-      }
-
-      totalProcessed += embeddings.length;
-      offset += batchSize;
-
-      // Early exit if we have enough high-quality results
-      if (results.length >= limit * 3) break;
+    interface RawResult {
+      child_chunk_id: string;
+      parent_chunk_id: string;
+      document_id: string;
+      content: string;
+      parent_content: string;
+      score: unknown;
     }
 
-    this.logger.debug(
-      `Processed ${totalProcessed} embeddings, found ${results.length} matches above threshold`,
-    );
+    // 子查询模式：让 HNSW 索引通过 ORDER BY ... LIMIT 找到最近邻，
+    // 再在外层过滤阈值，避免 WHERE 子句中重复计算距离影响索引选择
+    const docFilter = documentIds?.length
+      ? Prisma.sql`AND cc.document_id = ANY(ARRAY[${Prisma.join(documentIds)}]::text[])`
+      : Prisma.sql``;
 
-    // Sort by similarity descending and limit
-    return results.sort((a, b) => b.similarity - a.similarity).slice(0, limit);
+    const results = await this.prisma.$queryRaw<RawResult[]>(Prisma.sql`
+      SELECT child_chunk_id, parent_chunk_id, document_id, content, parent_content, score
+      FROM (
+        SELECT
+          ce.child_chunk_id,
+          cc.parent_chunk_id,
+          cc.document_id,
+          cc.content,
+          pc.content AS parent_content,
+          1 - (ce.embedding <=> ${vectorStr}::vector) AS score
+        FROM child_embeddings ce
+        JOIN child_chunks cc ON ce.child_chunk_id = cc.id
+        JOIN parent_chunks pc ON cc.parent_chunk_id = pc.id
+        WHERE true ${docFilter}
+        ORDER BY ce.embedding <=> ${vectorStr}::vector
+        LIMIT ${limit}
+      ) sub
+      WHERE score >= ${threshold}
+    `);
+
+    this.logger.debug(`pgvector search returned ${results.length} results`);
+
+    return results.map((r) => ({
+      childChunkId: r.child_chunk_id,
+      parentChunkId: r.parent_chunk_id,
+      documentId: r.document_id,
+      content: r.content,
+      parentContent: r.parent_content,
+      similarity: Number(r.score),
+    }));
   }
 
   /**
@@ -209,15 +144,8 @@ export class VectorService {
     queryEmbedding: number[],
     options: SimilaritySearchOptions = {},
   ): Promise<VectorSearchResult[]> {
-    const {
-      limit = 10,
-      threshold = 0.3,
-      knowledgeBaseIds,
-      batchSize = 1000,
-    } = options;
+    const { limit = 10, threshold = 0.3, knowledgeBaseIds } = options;
 
-    // Pre-filter: resolve knowledgeBaseIds -> documentIds upfront (same
-    // optimisation as similaritySearch – avoids 3-level nested JOIN).
     let documentIds: string[] | undefined;
     if (knowledgeBaseIds?.length) {
       const docs = await this.prisma.knowledgeBaseDocument.findMany({
@@ -234,58 +162,43 @@ export class VectorService {
       }
     }
 
-    const whereClause = documentIds?.length
-      ? {
-          childChunk: {
-            documentId: { in: documentIds },
-          },
-        }
-      : {};
+    const vectorStr = `[${queryEmbedding.join(",")}]`;
 
-    const results: VectorSearchResult[] = [];
-    let offset = 0;
-
-    while (true) {
-      const embeddings = await this.prisma.childEmbedding.findMany({
-        where: whereClause,
-        skip: offset,
-        take: batchSize,
-        include: {
-          childChunk: {
-            select: {
-              id: true,
-              content: true,
-            },
-          },
-        },
-      });
-
-      if (embeddings.length === 0) break;
-
-      for (const e of embeddings) {
-        const storedVector = e.embedding as number[];
-        if (!storedVector || storedVector.length === 0) continue;
-
-        const similarity = this.cosineSimilarity(queryEmbedding, storedVector);
-
-        if (similarity >= threshold) {
-          results.push({
-            chunkId: e.childChunkId,
-            content: e.childChunk.content,
-            similarity,
-          });
-        }
-      }
-
-      offset += batchSize;
-      if (results.length >= limit * 3) break;
+    interface RawSimpleResult {
+      child_chunk_id: string;
+      content: string;
+      score: unknown;
     }
 
-    return results.sort((a, b) => b.similarity - a.similarity).slice(0, limit);
+    const docFilter = documentIds?.length
+      ? Prisma.sql`AND cc.document_id = ANY(ARRAY[${Prisma.join(documentIds)}]::text[])`
+      : Prisma.sql``;
+
+    const results = await this.prisma.$queryRaw<RawSimpleResult[]>(Prisma.sql`
+      SELECT child_chunk_id, content, score
+      FROM (
+        SELECT
+          ce.child_chunk_id,
+          cc.content,
+          1 - (ce.embedding <=> ${vectorStr}::vector) AS score
+        FROM child_embeddings ce
+        JOIN child_chunks cc ON ce.child_chunk_id = cc.id
+        WHERE true ${docFilter}
+        ORDER BY ce.embedding <=> ${vectorStr}::vector
+        LIMIT ${limit}
+      ) sub
+      WHERE score >= ${threshold}
+    `);
+
+    return results.map((r) => ({
+      chunkId: r.child_chunk_id,
+      content: r.content,
+      similarity: Number(r.score),
+    }));
   }
 
   /**
-   * 存储嵌入
+   * 存储嵌入（使用 pgvector 格式）
    *
    * @param childChunkId 子块 ID
    * @param embedding 向量数据
@@ -296,23 +209,21 @@ export class VectorService {
     embedding: number[],
     model: string = "text-embedding-3-small",
   ): Promise<void> {
-    await this.prisma.childEmbedding.upsert({
-      where: { childChunkId },
-      create: {
-        childChunkId,
-        embedding,
-        model,
-        dimensions: embedding.length,
-      },
-      update: {
-        embedding,
-        model,
-        dimensions: embedding.length,
-      },
-    });
+    const vectorStr = `[${embedding.join(",")}]`;
+    const dimensions = embedding.length;
+
+    await this.prisma.$executeRaw(Prisma.sql`
+      INSERT INTO child_embeddings (id, child_chunk_id, embedding, model, dimensions, created_at, updated_at)
+      VALUES (gen_random_uuid(), ${childChunkId}, ${vectorStr}::vector, ${model}, ${dimensions}, NOW(), NOW())
+      ON CONFLICT (child_chunk_id) DO UPDATE SET
+        embedding = EXCLUDED.embedding,
+        model = EXCLUDED.model,
+        dimensions = EXCLUDED.dimensions,
+        updated_at = NOW()
+    `);
 
     this.logger.debug(
-      `Stored embedding for chunk ${childChunkId}: ${embedding.length} dimensions`,
+      `Stored pgvector embedding for chunk ${childChunkId}: ${dimensions} dimensions`,
     );
   }
 

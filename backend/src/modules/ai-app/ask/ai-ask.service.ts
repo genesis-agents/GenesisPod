@@ -46,48 +46,8 @@ export interface SuggestedAction {
   url: string;
 }
 
-/** 模块 → 行动卡片静态配置 */
-const MODULE_ACTION_CONFIG: Record<
-  string,
-  { label: string; description: string; iconName: string; urlTemplate: string }
-> = {
-  research: {
-    label: "启动深度研究",
-    description: "多步规划 · 完整报告",
-    iconName: "Search",
-    urlTemplate: "/ai-research?q={input}",
-  },
-  writing: {
-    label: "开始长文写作",
-    description: "结构化长文创作",
-    iconName: "PenLine",
-    urlTemplate: "/ai-writing?q={input}",
-  },
-  teams: {
-    label: "创建 AI 辩论",
-    description: "多 Agent 协作辩论",
-    iconName: "Users",
-    urlTemplate: "/ai-teams?topic={input}",
-  },
-  image: {
-    label: "生成图片",
-    description: "AI 图像创作",
-    iconName: "Image",
-    urlTemplate: "/ai-image?q={input}",
-  },
-  office: {
-    label: "生成 PPT",
-    description: "一键演示文稿",
-    iconName: "Presentation",
-    urlTemplate: "/ai-office?q={input}",
-  },
-  insight: {
-    label: "专题洞察",
-    description: "话题监控 · 趋势追踪",
-    iconName: "TrendingUp",
-    urlTemplate: "/ai-insights?q={input}",
-  },
-};
+// MODULE_ACTION_CONFIG 已迁移至 IntentRouterService.MODULE_REGISTRY（统一数据来源）
+// buildSuggestedActions 通过 aiFacade.listModuleCapabilities() 动态获取配置
 
 interface MessageWithContext {
   role: "user" | "assistant" | "system";
@@ -1179,6 +1139,7 @@ export class AiAskService {
    * 将 TaskPlan 转换为前端 SuggestedAction 列表
    * - 过滤 ask 模块（自身就是 ask）
    * - 每模块最多 1 张，总数 ≤ 3 张
+   * - 从 aiFacade.listModuleCapabilities() 动态获取模块配置
    */
   private buildSuggestedActions(
     userInput: string,
@@ -1188,11 +1149,15 @@ export class AiAskService {
     const seen = new Set<string>();
     const actions: SuggestedAction[] = [];
 
+    // 从 Facade 动态获取模块配置（单一数据来源）
+    const moduleCapabilities = this.aiFacade.listModuleCapabilities();
+    const capabilityMap = new Map(moduleCapabilities.map((c) => [c.module, c]));
+
     for (const step of plan.steps) {
       if (step.module === "ask") continue;
       if (seen.has(step.module)) continue;
 
-      const config = MODULE_ACTION_CONFIG[step.module];
+      const config = capabilityMap.get(step.module);
       if (!config) continue;
 
       seen.add(step.module);

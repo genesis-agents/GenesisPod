@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Logger,
   OnModuleInit,
+  Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { Prisma } from "@prisma/client";
@@ -86,6 +87,7 @@ import {
   TaskBreakdownData,
   TaskAssignee,
 } from "../interfaces";
+import { MemoryCoordinatorService } from "../../../../../ai-engine/memory/memory-coordinator.service";
 
 // 注：ReviewResult 已迁移至 ./utils/parsing.utils.ts
 
@@ -136,6 +138,7 @@ export class TeamMissionService implements OnModuleInit {
     private messageService: TeamMessageService,
     // ★ 团队成员服务：管理团队成员和 Leader
     private memberService: TeamMemberService,
+    @Optional() private memoryCoordinator?: MemoryCoordinatorService,
   ) {}
 
   /**
@@ -746,12 +749,14 @@ export class TeamMissionService implements OnModuleInit {
         await this.prisma.teamMission.update({
           where: { id: mission.id },
           data: {
-            mustConstraints: hardConstraints as unknown as Prisma.InputJsonValue,
+            mustConstraints:
+              hardConstraints as unknown as Prisma.InputJsonValue,
           },
         });
 
         // ★ 同时更新内存中的 mission 对象，确保后续流程可以访问
-        mission.mustConstraints = hardConstraints as unknown as Prisma.JsonValue;
+        mission.mustConstraints =
+          hardConstraints as unknown as Prisma.JsonValue;
 
         this.logger.log(
           `[startMission] Extracted ${hardConstraints.length} constraints from mission description:`,
@@ -827,12 +832,14 @@ export class TeamMissionService implements OnModuleInit {
         await this.prisma.teamMission.update({
           where: { id: mission.id },
           data: {
-            mustConstraints: mergedConstraints as unknown as Prisma.InputJsonValue,
+            mustConstraints:
+              mergedConstraints as unknown as Prisma.InputJsonValue,
           },
         });
 
         // 更新内存中的 mission 对象
-        mission.mustConstraints = mergedConstraints as unknown as Prisma.JsonValue;
+        mission.mustConstraints =
+          mergedConstraints as unknown as Prisma.JsonValue;
 
         // 发送世界观设定消息到群聊
         if (worldBuildingResult.settings) {
@@ -3203,6 +3210,31 @@ export class TeamMissionService implements OnModuleInit {
 
       // ★ 清理健康检查的恢复计数
       this.healthCheckService.cleanupCompletedMission(missionId);
+
+      // 反哺长期记忆（fire-and-forget，不阻塞主流程）
+      if (this.memoryCoordinator) {
+        this.memoryCoordinator
+          .store(
+            {
+              type: "knowledge",
+              key: `teams:mission:${missionId}`,
+              value: {
+                title: mission.title,
+                conclusion: (finalReport || mission.title).slice(0, 1500),
+                membersCount: mission.tasks.length,
+                completedAt: new Date().toISOString(),
+              },
+              importance: 0.75,
+              tags: ["teams", "mission", "completed"],
+            },
+            mission.createdById,
+          )
+          .catch((err: unknown) => {
+            this.logger.warn(
+              `[memory] Failed to store teams memory for mission ${missionId}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+      }
 
       // 广播任务完成 - 包含参与者 AI ID 列表，用于前端清除 typing 状态
       const participantAIIds = [

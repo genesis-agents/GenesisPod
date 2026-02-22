@@ -9,6 +9,7 @@ import { CreditsService } from "../../../credits/credits.service";
 import { ResearchIdeaService } from "../idea/research-idea.service";
 import { InsufficientCreditsException } from "../../../credits/exceptions/insufficient-credits.exception";
 import { BillingContext } from "../../../credits/billing-context";
+import { MemoryCoordinatorService } from "../../../ai-engine/memory/memory-coordinator.service";
 import {
   StartDeepResearchDto,
   DeepResearchSSEEvent,
@@ -49,6 +50,7 @@ export class DiscussionOrchestratorService {
     private readonly reportService: ReportSynthesizerService,
     @Optional() private readonly creditsService: CreditsService,
     @Optional() private readonly ideaService: ResearchIdeaService,
+    @Optional() private readonly memoryCoordinator: MemoryCoordinatorService,
   ) {}
 
   /**
@@ -287,6 +289,35 @@ export class DiscussionOrchestratorService {
       this.logger.log(
         `Discussion research completed: ${session.id}, sources: ${totalSources}, duration: ${duration.toFixed(1)}s`,
       );
+
+      // 反哺长期记忆（fire-and-forget，不阻塞主流程）
+      if (this.memoryCoordinator) {
+        this.memoryCoordinator
+          .store(
+            {
+              type: "knowledge",
+              key: `research:${session.id}`,
+              value: {
+                title: dto.query.slice(0, 100),
+                summary: (finalReport.executiveSummary || dto.query).slice(
+                  0,
+                  2000,
+                ),
+                url: `/ai-research/${projectId}`,
+                completedAt: new Date().toISOString(),
+                sources: totalSources,
+              },
+              importance: 0.8,
+              tags: ["research", "completed"],
+            },
+            project.userId,
+          )
+          .catch((err: unknown) => {
+            this.logger.warn(
+              `[memory] Failed to store research memory for session ${session.id}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+      }
 
       // Auto-extract ideas from discussion messages
       try {

@@ -19,6 +19,8 @@ import {
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { AiModelConfigService } from "../llm/services/ai-model-config.service";
+import { IntentRouterService } from "../orchestration/services/intent-router.service";
+import type { AppModule } from "../orchestration/services/task-planner.service";
 // ★ 架构重构：通过 ToolRegistry 调用搜索工具
 import type { ToolContext } from "../tools/abstractions/tool.interface";
 import {
@@ -2158,6 +2160,29 @@ export class AIEngineFacade {
     context: AICapabilityContext,
   ): Promise<CapabilitySummary> {
     return this.toolExecSub.getAvailableCapabilities(context);
+  }
+
+  /**
+   * Lists all registered AI module capabilities for dynamic UI/action card generation.
+   *
+   * Returns the unified module registry including description, phase, label, icon, and URL template.
+   * AI Apps can use this to build action cards without hardcoding module metadata.
+   *
+   * @returns Array of module capability descriptors
+   *
+   * @example
+   * const modules = facade.listModuleCapabilities();
+   * // Build action cards from modules (filter out 'ask' for suggestions)
+   */
+  listModuleCapabilities(): Array<{
+    module: AppModule;
+    description: string;
+    phase: 1 | 2;
+    label: string;
+    iconName: string;
+    urlTemplate: string;
+  }> {
+    return IntentRouterService.getRegisteredModules();
   }
 
   /**
