@@ -23,6 +23,11 @@ export interface ISimpleLLMAdapter {
   chat(options: {
     messages: Array<{ role: string; content: string }>;
     model?: string;
+    /**
+     * @deprecated 请使用 taskProfile.creativity 代替直接传 temperature。
+     * 直接传 temperature 会绕过项目 AI 调用规范（见 CLAUDE.md AI 开发指南）。
+     * 此字段保留仅为兼容历史调用，新代码请勿使用。
+     */
     temperature?: number;
     maxTokens?: number;
     taskProfile?: TaskProfile;
@@ -54,6 +59,9 @@ export class AiChatLLMAdapter implements ISimpleLLMAdapter {
   private cacheTime: number = 0;
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟缓存
 
+  /** 进行中的 DB 查询 Promise（防并发启动时重复查询） */
+  private pendingModelFetch: Promise<string | null> | null = null;
+
   constructor(
     private readonly aiChatService: AiChatService,
     private readonly configService: ConfigService,
@@ -82,21 +90,38 @@ export class AiChatLLMAdapter implements ISimpleLLMAdapter {
 
   /**
    * 从数据库获取默认 CHAT 模型
+   *
+   * 并发安全：共享同一个 in-flight Promise，防止启动时多个并发 chat() 调用
+   * 各自发起独立 DB 查询。缓存 TTL 为 5 分钟；如需立即刷新调用 clearCache()。
    */
-  private async getDefaultModelFromDb(): Promise<string | null> {
+  private getDefaultModelFromDb(): Promise<string | null> {
     if (!this.prisma) {
-      return null;
+      return Promise.resolve(null);
     }
 
-    // 检查缓存是否有效
+    // 缓存命中：直接返回
     const now = Date.now();
     if (this.cachedDefaultModel && now - this.cacheTime < this.CACHE_TTL_MS) {
-      return this.cachedDefaultModel;
+      return Promise.resolve(this.cachedDefaultModel);
     }
 
+    // 复用进行中的查询 Promise，防止并发时多次 DB round-trip
+    if (this.pendingModelFetch) {
+      return this.pendingModelFetch;
+    }
+
+    this.pendingModelFetch = this._fetchDefaultModelFromDb().finally(() => {
+      this.pendingModelFetch = null;
+    });
+    return this.pendingModelFetch;
+  }
+
+  /** 实际执行 DB 查询（仅由 getDefaultModelFromDb 调用） */
+  private async _fetchDefaultModelFromDb(): Promise<string | null> {
+    const now = Date.now();
     try {
       // 查找系统默认的 CHAT 模型
-      const defaultModel = await this.prisma.aIModel.findFirst({
+      const defaultModel = await this.prisma!.aIModel.findFirst({
         where: {
           modelType: AIModelType.CHAT,
           isDefault: true,
@@ -118,7 +143,7 @@ export class AiChatLLMAdapter implements ISimpleLLMAdapter {
       }
 
       // Fallback: 任意启用的 CHAT 模型
-      const anyModel = await this.prisma.aIModel.findFirst({
+      const anyModel = await this.prisma!.aIModel.findFirst({
         where: {
           modelType: AIModelType.CHAT,
           isEnabled: true,
@@ -202,15 +227,23 @@ export class AiChatLLMAdapter implements ISimpleLLMAdapter {
   }
 
   /**
-   * 估算 token 数
+   * 估算 token 数（CJK 感知）
+   * 中文字符约 2 token/字，英文约 1 token/4 字符。
    */
   countTokens(text: string): number {
-    // 简单估算：平均每4个字符一个token
-    return Math.ceil(text.length / 4);
+    if (!text) return 0;
+    const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+    const otherChars = text.length - chineseChars;
+    return Math.ceil(chineseChars * 2 + otherChars / 4);
   }
 
   /**
-   * 清除模型缓存（用于配置更新后）
+   * 清除模型缓存（用于配置更新后立即生效）
+   *
+   * 缓存 TTL 为 5 分钟，正常情况下无需手动调用。
+   * 以下场景需要主动调用：
+   * - 管理员在后台更改了默认 AI 模型配置
+   * - 单元测试之间需要隔离模型配置
    */
   clearCache(): void {
     this.cachedDefaultModel = null;

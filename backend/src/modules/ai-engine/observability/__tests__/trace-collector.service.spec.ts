@@ -336,34 +336,34 @@ describe("TraceCollectorService", () => {
       jest.useRealTimers();
     });
 
-    it("should return all traces by default (limit 50)", () => {
-      const result = service.listTraces();
+    it("should return all traces by default (limit 50)", async () => {
+      const result = await service.listTraces();
 
       expect(result).toHaveLength(3);
     });
 
-    it("should return traces sorted by startTime descending (newest first)", () => {
-      const result = service.listTraces();
+    it("should return traces sorted by startTime descending (newest first)", async () => {
+      const result = await service.listTraces();
 
       // Most recent first
       expect(result[0].name).toBe("Research 2");
     });
 
-    it("should filter by type", () => {
-      const result = service.listTraces({ type: "research_mission" });
+    it("should filter by type", async () => {
+      const result = await service.listTraces({ type: "research_mission" });
 
       expect(result).toHaveLength(2);
       expect(result.every((t) => t.type === "research_mission")).toBe(true);
     });
 
-    it("should limit results", () => {
-      const result = service.listTraces({ limit: 1 });
+    it("should limit results", async () => {
+      const result = await service.listTraces({ limit: 1 });
 
       expect(result).toHaveLength(1);
     });
 
-    it("should return TraceSummary format", () => {
-      const result = service.listTraces();
+    it("should return TraceSummary format", async () => {
+      const result = await service.listTraces();
       const first = result[0];
 
       expect(first).toHaveProperty("id");
@@ -374,7 +374,7 @@ describe("TraceCollectorService", () => {
       expect(first).toHaveProperty("spanCount");
     });
 
-    it("should include correct span count", () => {
+    it("should include correct span count", async () => {
       const traceId = service.startTrace({
         name: "With Spans",
         type: "tool_call",
@@ -382,7 +382,7 @@ describe("TraceCollectorService", () => {
       service.addSpan(traceId, { name: "S1", type: "llm_call" });
       service.addSpan(traceId, { name: "S2", type: "search" });
 
-      const result = service.listTraces();
+      const result = await service.listTraces();
       const withSpans = result.find((t) => t.name === "With Spans");
       expect(withSpans!.spanCount).toBe(2);
     });

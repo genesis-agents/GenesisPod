@@ -459,11 +459,18 @@ export class AgentCommunicationTool
     if (!this.cacheService) return;
     try {
       // 1. Restore inboxes first (source of truth for which messages exist)
+      //    合并策略：将 Redis 中的 messageId 列表与启动窗口期内已写入内存的合并，
+      //    防止 onModuleInit 并发运行期间发送的消息因覆盖而丢失。
       for (const agentId of Object.values(BUILTIN_AGENTS)) {
         const inbox = await this.cacheService.get<string[]>(
           `${CACHE_PREFIX_INBOX}${agentId}`,
         );
-        if (inbox) this.inboxes.set(agentId, inbox);
+        if (inbox) {
+          const existing = this.inboxes.get(agentId) || [];
+          // 去重合并：Redis 历史 + 启动窗口期新增
+          const merged = Array.from(new Set([...inbox, ...existing]));
+          this.inboxes.set(agentId, merged);
+        }
       }
 
       // 2. Collect all unique messageIds from inboxes, then load messages

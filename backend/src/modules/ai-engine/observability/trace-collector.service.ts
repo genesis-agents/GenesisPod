@@ -199,30 +199,68 @@ export class TraceCollectorService {
    * 列出最近的 Trace
    * @param options 筛选选项
    * @returns Trace 摘要列表
+   *
+   * 策略：优先读内存 LruMap；内存为空时（重启场景）回退到 DB 查询。
    */
-  listTraces(options: ListTracesOptions = {}): TraceSummary[] {
+  async listTraces(options: ListTracesOptions = {}): Promise<TraceSummary[]> {
     const limit = options.limit ?? 50;
     const traces = Array.from(this.traces.values());
 
-    // 按类型筛选
-    let filtered = traces;
-    if (options.type) {
-      filtered = traces.filter((t) => t.type === options.type);
+    // 内存有数据：直接返回，不查 DB
+    if (traces.length > 0) {
+      let filtered = traces;
+      if (options.type) {
+        filtered = traces.filter((t) => t.type === options.type);
+      }
+      filtered.sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
+      return filtered.slice(0, limit).map((trace) => ({
+        id: trace.id,
+        name: trace.name,
+        type: trace.type,
+        status: trace.status,
+        startTime: trace.startTime,
+        duration: trace.duration,
+        spanCount: trace.spans.length,
+      }));
     }
 
-    // 按时间倒序（最新的在前）
-    filtered.sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
+    // 内存为空，尝试 DB fallback（重启恢复场景）
+    if (!this.prisma) {
+      return [];
+    }
 
-    // 限制数量
-    return filtered.slice(0, limit).map((trace) => ({
-      id: trace.id,
-      name: trace.name,
-      type: trace.type,
-      status: trace.status,
-      startTime: trace.startTime,
-      duration: trace.duration,
-      spanCount: trace.spans.length,
-    }));
+    try {
+      this.logger.debug(
+        "[Trace] Memory empty, falling back to DB for listTraces",
+      );
+      const rows = await this.prisma.agentTrace.findMany({
+        where: options.type ? { type: options.type } : {},
+        orderBy: { startTime: "desc" },
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          status: true,
+          startTime: true,
+          duration: true,
+          _count: { select: { spans: true } },
+        },
+      });
+
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        type: row.type as TraceSummary["type"],
+        status: row.status as TraceSummary["status"],
+        startTime: row.startTime,
+        duration: row.duration ?? undefined,
+        spanCount: row._count.spans,
+      }));
+    } catch (error) {
+      this.logger.warn(`[Trace] DB fallback for listTraces failed: ${error}`);
+      return [];
+    }
   }
 
   /**
