@@ -38,7 +38,8 @@ export function RelatedResearchTab({ topicName }: RelatedResearchTabProps) {
           data?: ResearchProject[];
           projects?: ResearchProject[];
         };
-        const list = data.data ?? data.projects ?? [];
+        const raw = data.data ?? data.projects ?? [];
+        const list = Array.isArray(raw) ? raw : [];
         setProjects(list);
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;

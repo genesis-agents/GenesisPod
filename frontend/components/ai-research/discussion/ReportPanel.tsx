@@ -175,7 +175,7 @@ export function ReportPanel({
 
   // Completed Report View
   return (
-    <div className={cn('space-y-8', className)}>
+    <div className={cn('space-y-8', className)} data-export-content="research">
       {/* Report Header */}
       <div className="overflow-hidden rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 p-6 text-white">
         <div className="flex items-start justify-between">
@@ -336,7 +336,7 @@ export function ReportPanel({
                               quote={highlightedQuote}
                             />
                           ) : (
-                            <p className="line-clamp-3">{ref.snippet}</p>
+                            <p className="line-clamp-6">{ref.snippet}</p>
                           )}
                         </div>
                       )}

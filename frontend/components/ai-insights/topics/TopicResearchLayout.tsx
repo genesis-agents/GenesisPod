@@ -386,6 +386,7 @@ export function TopicResearchLayout({
         <div className="flex-1 overflow-hidden">
           <TopicContentPanel
             topicId={topic.id}
+            topicName={topic.name}
             report={report}
             dimensions={dimensions}
             evidence={evidence}

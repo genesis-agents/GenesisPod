@@ -192,7 +192,7 @@ export class ReportSynthesizerService {
       id: index + 1,
       title: source.title,
       url: source.url,
-      snippet: source.snippet.slice(0, 200),
+      snippet: source.snippet.slice(0, 500),
       accessedAt: new Date(),
     }));
   }
