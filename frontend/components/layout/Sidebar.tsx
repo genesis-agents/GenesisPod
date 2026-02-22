@@ -182,7 +182,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
     >
       {/* Header */}
       <div
-        className={`flex flex-shrink-0 items-center overflow-hidden px-3 py-2.5 ${showExpanded ? 'justify-between' : 'justify-center'}`}
+        className={`flex flex-shrink-0 items-center overflow-hidden border-b border-gray-100 px-3 py-3 ${showExpanded ? 'justify-between' : 'justify-center'}`}
       >
         {!showExpanded ? (
           /* Collapsed state: Logo with hover -> Toggle button */
@@ -238,7 +238,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       </div>
 
       {/* Main Navigation */}
-      <nav className="scrollbar-thin flex-1 overflow-y-auto overflow-x-hidden px-3 py-1">
+      <nav className="scrollbar-thin flex-1 overflow-y-auto overflow-x-hidden px-3 py-2">
         <div className="space-y-1">
           {/* AI Ask - Primary AI Chat Entry */}
           <Link
