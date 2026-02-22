@@ -1154,7 +1154,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     executor: ITeamMember,
     missionId: string,
     state: MissionExecutionState,
-    _constraints: ConstraintProfile,
+    constraints: ConstraintProfile,
   ): Promise<StepExecutionResult> {
     const context = await this.getContext(missionId);
     let totalTokens = 0;
@@ -1301,7 +1301,9 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
             model: executor.model,
             taskProfile: {
               creativity: this.mapWorkStyleToCreativity(executor.workStyle),
-              outputLength: "medium",
+              outputLength: this.mapDepthToOutputLength(
+                constraints.quality.depth,
+              ),
             },
             tools: tools.length > 0 ? tools : undefined,
           });
@@ -1562,6 +1564,17 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
+   * 根据质量深度映射 outputLength（用于 taskProfile）
+   */
+  private mapDepthToOutputLength(
+    depth: ConstraintProfile["quality"]["depth"],
+  ): "short" | "medium" | "long" {
+    if (depth === "comprehensive") return "long";
+    if (depth === "quick") return "short";
+    return "medium";
+  }
+
+  /**
    * 收集可用工具
    */
   private async collectAvailableTools(
@@ -1740,14 +1753,12 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       }
     }
 
-    // 降级
-    const score = Math.floor(Math.random() * 3) + 7;
+    // 降级：LLM 审核不可用，返回固定通过（score 7，不触发返工）
     return {
       stepId,
-      passed: score >= 7,
-      score,
-      feedback:
-        score >= 7 ? "审核通过，质量良好" : "需要改进，部分内容不够详细",
+      passed: true,
+      score: 7,
+      feedback: "LLM 审核不可用，降级通过",
       reviewedAt: new Date(),
     };
   }

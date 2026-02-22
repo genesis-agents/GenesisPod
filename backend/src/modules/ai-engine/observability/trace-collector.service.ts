@@ -352,7 +352,8 @@ export class TraceCollectorService {
     for (let i = 0; i < this.traceIdsByTime.length; i++) {
       const traceId = this.traceIdsByTime[i];
       const trace = this.traces.get(traceId);
-      if (trace && trace.status !== "running") {
+      // trace 为 undefined 说明 LruMap 已自动淘汰，也需要从 traceIdsByTime 清除（防内存泄漏）
+      if (!trace || trace.status !== "running") {
         evictedIndex = i;
         break;
       }
