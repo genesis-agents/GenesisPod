@@ -283,6 +283,7 @@ export function GlobalAIBar({
                   <AIMessageRenderer
                     content={answer || '（无回答内容）'}
                     className="text-sm"
+                    isDark
                   />
                 </div>
               )}
