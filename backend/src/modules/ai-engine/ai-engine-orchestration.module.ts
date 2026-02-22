@@ -41,6 +41,8 @@ import { ConstraintEnforcementService } from "./orchestration/services/constrain
 import { ContextCompressionService } from "./orchestration/services/context-compression.service";
 import { IntentDetectionService } from "./orchestration/services/intent-detection.service";
 import { ReflectionService } from "./orchestration/services/reflection.service";
+import { ComplexityAnalyzerService } from "./orchestration/services/complexity-analyzer.service";
+import { IntelligentModelRouterService } from "./orchestration/services/intelligent-model-router.service";
 
 // State Machine
 import { ExecutionStateManager } from "./orchestration/state-machine/execution-state.manager";
@@ -147,6 +149,8 @@ const checkpointManagerFactory = {
     ContextCompressionService,
     IntentDetectionService,
     ReflectionService,
+    ComplexityAnalyzerService,
+    IntelligentModelRouterService,
 
     // State Machine
     ExecutionStateManager,
@@ -178,6 +182,8 @@ const checkpointManagerFactory = {
     ContextCompressionService,
     IntentDetectionService,
     ReflectionService,
+    ComplexityAnalyzerService,
+    IntelligentModelRouterService,
     ExecutionStateManager,
   ],
 })

@@ -55,3 +55,17 @@ export {
   type ReflectionResult,
   type ReflectionConfig,
 } from "./reflection.service";
+
+// 支柱四：智能模型路由
+export {
+  ComplexityAnalyzerService,
+  type ComplexityLevel,
+  type TaskDescriptor,
+  type TaskComplexity,
+} from "./complexity-analyzer.service";
+
+export {
+  IntelligentModelRouterService,
+  type RoutingStrategy,
+  type RoutingResult,
+} from "./intelligent-model-router.service";
