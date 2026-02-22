@@ -1289,6 +1289,7 @@ export default function AskPage() {
             })
           );
           setMixtureResponses([]);
+          setMessageSuggestions(new Map());
         }
       } catch (error) {
         logger.error('Failed to load session:', error);
@@ -1302,6 +1303,7 @@ export default function AskPage() {
     setCurrentSessionId(null);
     setMessages([]);
     setMixtureResponses([]);
+    setMessageSuggestions(new Map());
     setInput('');
   }, []);
 

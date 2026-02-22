@@ -85,7 +85,7 @@ const MODULE_ACTION_CONFIG: Record<
     label: "专题洞察",
     description: "话题监控 · 趋势追踪",
     iconName: "TrendingUp",
-    urlTemplate: "/ai-insights",
+    urlTemplate: "/ai-insights?q={input}",
   },
 };
 
@@ -564,7 +564,7 @@ export class AiAskService {
             });
           }
 
-          // 并行检测意图（不阻塞主流程，所有异常静默捕获）
+          // 串行检测意图（AI 回复写入数据库后执行，所有异常静默捕获）
           const suggestedActions = await this.detectIntent(
             dto.content,
             userId,
