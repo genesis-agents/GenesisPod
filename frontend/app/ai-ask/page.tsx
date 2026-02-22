@@ -926,6 +926,7 @@ function ModelIcon({
 export default function AskPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const processedParamsRef = useRef(false);
   const { user, accessToken: token, loginWithGoogle } = useAuth();
   const { t } = useI18n();
   const { userMessageStyle, aiMessageStyle } = useThemeStore();
@@ -976,11 +977,13 @@ export default function AskPage() {
 
   // ?q=xxx — pre-fill input from Global AI Bar or ActionCards
   useEffect(() => {
+    if (processedParamsRef.current) return;
     const q = searchParams?.get('q');
     if (q?.trim()) {
+      processedParamsRef.current = true;
       setInput(q.trim());
     }
-  }, []); // Run only once on mount
+  }, [searchParams]); // searchParams may be null on first SSR render, re-run when populated
 
   // Random quote selection - changes on page load
   const randomQuote = useMemo(() => {

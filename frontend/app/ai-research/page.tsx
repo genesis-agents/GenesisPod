@@ -80,6 +80,7 @@ function getProjectGradient(projectId: string) {
 function ResearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const processedParamsRef = useRef(false);
   const { t } = useTranslation();
   const { user, isLoading: authLoading } = useAuth();
 
@@ -260,9 +261,12 @@ function ResearchPageContent() {
 
   // Read URL params on mount to support cross-module navigation pre-fill
   useEffect(() => {
+    if (processedParamsRef.current) return;
+
     // ?q=xxx — from Global AI Bar or ActionCards
     const q = searchParams?.get('q');
     if (q?.trim()) {
+      processedParamsRef.current = true;
       setNewProjectName(q.trim().slice(0, 200));
       setShowCreateDialog(true);
       return;
@@ -278,11 +282,12 @@ function ResearchPageContent() {
 
     if (!fromTopicId || !contextTitle) return;
 
+    processedParamsRef.current = true;
     const prefilledName = `深入研究：${contextTitle}`.slice(0, 200);
     setNewProjectName(prefilledName);
     setCrossModuleSource({ fromTopicId, contextTitle, contextSummary });
     setShowCreateDialog(true);
-  }, []); // Run only once on mount - intentionally empty deps to avoid re-triggering
+  }, [searchParams]); // searchParams may be null on first SSR render, re-run when populated
 
   // Filter projects by search query
   const filteredProjects = useMemo(

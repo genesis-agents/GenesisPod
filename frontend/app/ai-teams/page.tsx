@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAiGroupStore } from '@/stores/ai-teams';
@@ -26,6 +26,7 @@ export default function AIGroupPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const processedParamsRef = useRef(false);
   const { user, accessToken, isLoading: authLoading } = useAuth();
   const {
     topics,
@@ -80,11 +81,13 @@ export default function AIGroupPage() {
 
   // ?topic=xxx — from Global AI Bar or ActionCards
   useEffect(() => {
+    if (processedParamsRef.current) return;
     const topic = searchParams?.get('topic');
     if (!topic?.trim()) return;
+    processedParamsRef.current = true;
     setPrefilledTopic(topic.trim());
     setShowCreateDialog(true);
-  }, []); // Run only once on mount
+  }, [searchParams]); // searchParams may be null on first SSR render, re-run when populated
 
   // Fetch public topics when discover tab is active
   useEffect(() => {

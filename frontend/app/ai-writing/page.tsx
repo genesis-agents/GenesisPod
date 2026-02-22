@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
@@ -92,6 +92,7 @@ function getProjectGradient(projectId: string) {
 export default function AIWritingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const processedParamsRef = useRef(false);
   const { user, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
   const {
@@ -147,11 +148,13 @@ export default function AIWritingPage() {
 
   // ?q=xxx — from Global AI Bar or ActionCards
   useEffect(() => {
+    if (processedParamsRef.current) return;
     const q = searchParams?.get('q');
     if (!q?.trim()) return;
+    processedParamsRef.current = true;
     setCreateForm((prev) => ({ ...prev, description: q.trim() }));
     setShowCreateDialog(true);
-  }, []); // Run only once on mount
+  }, [searchParams]); // searchParams may be null on first SSR render, re-run when populated
 
   // Fetch style presets when dialog opens (create or edit)
   useEffect(() => {
