@@ -69,3 +69,18 @@ export {
   type RoutingStrategy,
   type RoutingResult,
 } from "./intelligent-model-router.service";
+
+// 支柱二：GenesisAgent 编排层
+export {
+  TaskPlannerService,
+  type TaskPlan,
+  type TaskStep,
+  type AppModule,
+  type CapabilityRequirement,
+} from "./task-planner.service";
+
+export {
+  IntentRouterService,
+  type AgentContext,
+  type RouteResult,
+} from "./intent-router.service";

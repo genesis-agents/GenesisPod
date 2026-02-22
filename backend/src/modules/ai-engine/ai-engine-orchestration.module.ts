@@ -43,6 +43,8 @@ import { IntentDetectionService } from "./orchestration/services/intent-detectio
 import { ReflectionService } from "./orchestration/services/reflection.service";
 import { ComplexityAnalyzerService } from "./orchestration/services/complexity-analyzer.service";
 import { IntelligentModelRouterService } from "./orchestration/services/intelligent-model-router.service";
+import { TaskPlannerService } from "./orchestration/services/task-planner.service";
+import { IntentRouterService } from "./orchestration/services/intent-router.service";
 
 // State Machine
 import { ExecutionStateManager } from "./orchestration/state-machine/execution-state.manager";
@@ -151,6 +153,8 @@ const checkpointManagerFactory = {
     ReflectionService,
     ComplexityAnalyzerService,
     IntelligentModelRouterService,
+    TaskPlannerService,
+    IntentRouterService,
 
     // State Machine
     ExecutionStateManager,
@@ -184,6 +188,8 @@ const checkpointManagerFactory = {
     ReflectionService,
     ComplexityAnalyzerService,
     IntelligentModelRouterService,
+    TaskPlannerService,
+    IntentRouterService,
     ExecutionStateManager,
   ],
 })
