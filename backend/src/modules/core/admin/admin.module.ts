@@ -16,6 +16,7 @@ import { MonitoringAdminController } from "./monitoring-admin.controller";
 import { CacheAdminController } from "./cache-admin.controller";
 import { AgentAdminController } from "./agent-admin.controller";
 import { ResearchAdminController } from "./research-admin.controller";
+import { ApprovalsAdminController } from "./approvals-admin.controller";
 import { MCPExternalAdminController } from "../../ai-engine/mcp/admin/mcp-external-admin.controller";
 import { AgentConfigService } from "../../ai-engine/agents/config/agent-config.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
@@ -60,6 +61,7 @@ import {
     MCPExternalAdminController, // /admin/mcp/external-servers/* routes
     AgentAdminController, // /admin/agents/* routes for agent configuration
     ResearchAdminController, // /admin/research/templates/* routes for research templates
+    ApprovalsAdminController, // /admin/approvals/* routes for human-in-the-loop approvals
   ],
   providers: [
     AdminService,
