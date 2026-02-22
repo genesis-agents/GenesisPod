@@ -53,7 +53,7 @@ export default function AIChatMessages({
                   : 'w-full cursor-text select-text bg-gray-100 text-gray-800'
               }`}
             >
-              <div className="prose-xs prose max-w-none text-xs leading-relaxed [&>*]:my-1 [&>ol]:my-1 [&>p]:my-1 [&>ul]:my-1">
+              <div className="prose-xs prose !max-w-none text-xs leading-relaxed [&>*]:my-1 [&>ol]:my-1 [&>p]:my-1 [&>ul]:my-1">
                 {(() => {
                   const { images, textContent } = extractImagesFromMarkdown(
                     msg.content
