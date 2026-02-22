@@ -471,7 +471,7 @@ export class AgentCommunicationTool
           const merged = Array.from(new Set([...inbox, ...existing]));
           this.inboxes.set(agentId, merged);
           // 将合并结果写回 Redis，确保下次重启时不再丢失启动窗口期消息
-          if (merged.length > (inbox as string[]).length) {
+          if (merged.length > inbox.length) {
             this.saveInboxToCache(agentId as AgentId);
           }
         }

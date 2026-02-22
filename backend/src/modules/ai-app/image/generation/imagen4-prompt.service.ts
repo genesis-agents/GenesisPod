@@ -13,6 +13,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIEngineFacade } from "../../../ai-engine/facade";
+import type { MissionEvent } from "../../../ai-engine/teams/abstractions/mission.interface";
 import {
   GenerateImageOptions,
   PromptEngineeringInsights,
@@ -213,29 +214,6 @@ export type TeamProgressCallback = (event: {
   message: string;
   data?: Record<string, unknown>;
 }) => void;
-
-// ============================================================================
-// Local types (avoid importing Engine internals)
-// ============================================================================
-
-/** Shape of events yielded by executeMissionStream */
-interface MissionStreamEventData {
-  stepId?: string;
-  result?: MissionStreamResult;
-  error?: string;
-  message?: string;
-}
-
-interface MissionStreamResult {
-  deliverables?: Array<{ type: string; content: unknown }>;
-}
-
-interface MissionStreamEvent {
-  type: string;
-  missionId: string;
-  timestamp: Date;
-  data?: MissionStreamEventData;
-}
 
 // ============================================================================
 // Service Implementation
@@ -512,7 +490,9 @@ export class Imagen4PromptService {
       // 处理任务完成
       if (event.type === "mission_completed") {
         // 从最终结果提取 agent 输出
-        const result = (event.data as MissionStreamEventData)?.result;
+        const result = event.data?.["result"] as
+          | { deliverables?: Array<{ type: string; content: unknown }> }
+          | undefined;
         if (result?.deliverables) {
           for (const deliverable of result.deliverables) {
             if (
@@ -552,10 +532,10 @@ export class Imagen4PromptService {
    * 从事件中解析 agent 输出
    */
   private parseAgentOutputFromEvent(
-    event: MissionStreamEvent,
+    event: MissionEvent,
   ): Partial<FourAgentOutputs> | null {
-    const stepId = event.data?.stepId as string | undefined;
-    const stepResult = event.data?.result;
+    const stepId = event.data?.["stepId"] as string | undefined;
+    const stepResult = event.data?.["result"];
 
     if (!stepId || !stepResult) {
       return null;

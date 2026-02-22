@@ -21,7 +21,12 @@ import { AiChatService } from "../llm/services/ai-chat.service";
 import { AiModelConfigService } from "../llm/services/ai-model-config.service";
 // ★ 架构重构：通过 ToolRegistry 调用搜索工具
 import type { ToolContext } from "../tools/abstractions/tool.interface";
-import { TeamsService, MissionStatus } from "../teams/services/teams.service";
+import {
+  TeamsService,
+  MissionStatus,
+  CreateMissionDto,
+} from "../teams/services/teams.service";
+import type { MissionEvent } from "../teams/abstractions/mission.interface";
 import { TaskCompletionType } from "../orchestration/services/circuit-breaker.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ModelFallbackService } from "../llm/model-fallback/model-fallback.service";
@@ -91,6 +96,18 @@ import type {
   ToolInfo,
   ToolCategory,
 } from "./types";
+// ★ Skill execution helpers
+import type {
+  ISkill,
+  SkillContext,
+  SkillResult,
+} from "../skills/abstractions/skill.interface";
+import { InputBindingResolver } from "../skills/runtime/input-binding-resolver";
+import type { BindingContext } from "../skills/runtime/input-binding-resolver";
+// Use import type to avoid circular: PromptSkillAdapter → AIEngineFacade → PromptSkillAdapter
+import type { PromptSkillAdapter } from "../skills/runtime/prompt-skill-adapter";
+import { AiChatLLMAdapter } from "../llm/adapters/ai-chat-llm-adapter";
+
 // ★ Sub-facades (plain classes, NOT @Injectable)
 import { ModelSubFacade } from "./sub-facades/model.sub-facade";
 import { TeamSubFacade } from "./sub-facades/team.sub-facade";
@@ -187,6 +204,9 @@ export class AIEngineFacade {
     @Optional() private readonly modelFallbackService?: ModelFallbackService,
     @Optional()
     modelResolver?: import("./model-resolver.service").ModelResolverService,
+    @Optional() private readonly llmAdapterForSkills?: AiChatLLMAdapter,
+    @Optional()
+    private readonly skillInputBindingResolver?: InputBindingResolver,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -1424,6 +1444,68 @@ export class AIEngineFacade {
   }
 
   /**
+   * Executes a skill with optional LLM adapter injection.
+   *
+   * Sets the LLM adapter on code-based skills that expose `setLLMAdapter`,
+   * then calls `skill.execute(input, context)`. PromptSkillAdapters already
+   * use the facade internally and do not need adapter injection.
+   *
+   * @param skill - The skill instance to execute
+   * @param input - Input data passed to the skill
+   * @param context - Skill execution context (executionId, skillId, etc.)
+   * @returns Skill execution result
+   */
+  async executeSkill(
+    skill: ISkill,
+    input: unknown,
+    context: SkillContext,
+  ): Promise<SkillResult> {
+    const hasSetLLMAdapter =
+      "setLLMAdapter" in skill &&
+      typeof (skill as { setLLMAdapter: unknown }).setLLMAdapter === "function";
+
+    if (hasSetLLMAdapter) {
+      if (this.llmAdapterForSkills) {
+        (
+          skill as { setLLMAdapter: (a: AiChatLLMAdapter) => void }
+        ).setLLMAdapter(this.llmAdapterForSkills);
+      } else {
+        this.logger.warn(
+          `[executeSkill] Skill "${context.skillId}" expects LLM adapter (setLLMAdapter) but llmAdapterForSkills is not available — execution may fail`,
+        );
+      }
+    }
+    return skill.execute(input, context);
+  }
+
+  /**
+   * Resolves declarative input bindings for a PromptSkillAdapter.
+   *
+   * Checks whether the given skill is a PromptSkillAdapter with declared
+   * input bindings, and if so, resolves those bindings against the provided
+   * context. Returns the resolved input map, or null if the skill is not
+   * a PromptSkillAdapter or has no bindings declared.
+   *
+   * @param skill - Skill instance (may or may not be a PromptSkillAdapter)
+   * @param bindingContext - Context for resolving binding declarations
+   * @returns Resolved input map, or null if not applicable
+   */
+  resolveSkillInputBindings(
+    skill: ISkill,
+    bindingContext: BindingContext,
+  ): Record<string, unknown> | null {
+    const adapter = skill as PromptSkillAdapter;
+    if (!adapter.isPromptSkillAdapter) {
+      return null;
+    }
+    const bindings = adapter.getInputBindings();
+    if (!bindings || !this.skillInputBindingResolver) {
+      return null;
+    }
+    return this.skillInputBindingResolver.resolve(bindings, bindingContext);
+  }
+
+  /**
    * Cancels a running team mission.
    *
    * Attempts to cancel an in-progress mission. Returns success status.
@@ -1454,6 +1536,21 @@ export class AIEngineFacade {
    */
   getMissionStatus(missionId: string): MissionStatus | null {
     return this.teamSub.getMissionStatus(missionId);
+  }
+
+  /**
+   * Executes a team mission and streams events as they occur.
+   *
+   * Yields MissionEvents (step_started, step_completed, mission_completed, etc.)
+   * in real-time as the team progresses through the mission.
+   *
+   * @param dto - Mission creation data including teamId, goal, context, and metadata
+   * @yields MissionEvent stream — one event per team step / lifecycle transition
+   */
+  async *executeMissionStream(
+    dto: CreateMissionDto,
+  ): AsyncGenerator<MissionEvent> {
+    yield* this.teamSub.executeMissionStream(dto);
   }
 
   // ==================== 上下文能力 ====================

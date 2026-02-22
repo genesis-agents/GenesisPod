@@ -168,6 +168,63 @@ onModuleInit() {
 - Push 失败时：`git pull --rebase` 然后重试，不要 force push
 - 一个 commit 只做一件事，不要混合无关变更
 
+### Git Worktree 多会话最佳实践
+
+**核心原则：每个并行会话必须在独立 Worktree 中工作，不允许多个 Claude 会话共享同一工作目录。**
+
+**启动并行会话：**
+
+```bash
+# 每个功能/任务开一个独立 worktree
+claude --worktree feat/oauth          # 终端 1
+claude --worktree fix/session-timeout # 终端 2
+claude --worktree test/ai-research    # 终端 3
+```
+
+**Sub-Agent 隔离（Task 工具必须加 isolation）：**
+
+```typescript
+// 让 Sub-Agent 在独立 worktree 中工作，防止越权污染主工作区
+Task({
+  subagent_type: "coder",
+  isolation: "worktree", // ← 必须加
+  prompt: "只允许修改以下文件：xxx\n...",
+});
+```
+
+**安全合并流程（合并前必须执行）：**
+
+```bash
+# 1. 查看所有活跃 worktree
+git worktree list
+
+# 2. 逐文件审查变更
+git diff main..worktree-feat-oauth
+
+# 3. 确认无越权修改后合并
+git checkout main
+git merge worktree-feat-oauth
+
+# 4. 合并后立即清理
+git worktree remove .claude/worktrees/feat-oauth
+git branch -d worktree-feat-oauth
+```
+
+**使用场景决策：**
+
+| 场景                   | 方式                          |
+| ---------------------- | ----------------------------- |
+| 两个独立功能并行开发   | 两个终端，各自 `--worktree`   |
+| 主线 + Sub-Agent 辅助  | `Task(isolation: "worktree")` |
+| 实验性改动不影响主分支 | `EnterWorktree` 工具          |
+| 多 Agent 需要互相协调  | Agent Teams                   |
+
+**注意事项：**
+
+- 新建 worktree 后需手动安装依赖：`npm install && npx prisma generate`
+- worktree 内的 git 操作（checkout、reset）只影响该目录，不影响其他 worktree
+- 退出会话时 Claude 会提示是否保留 worktree，有未合并提交时选择保留
+
 ---
 
 ## 代码规范
@@ -373,6 +430,6 @@ git commit -m "feat(module): description"
 
 ---
 
-**最后更新**: 2026-02-13
+**最后更新**: 2026-02-21
 **维护者**: Claude Code
-**版本**: 2.1
+**版本**: 2.2

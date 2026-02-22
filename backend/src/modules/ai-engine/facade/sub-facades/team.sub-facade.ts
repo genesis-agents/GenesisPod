@@ -11,6 +11,7 @@ import type {
   MissionStatus,
 } from "../../teams/services/teams.service";
 import type { TeamId } from "../../teams/abstractions/team.interface";
+import type { MissionEvent } from "../../teams/abstractions/mission.interface";
 import type {
   MissionInput,
   MissionResult,
@@ -71,6 +72,16 @@ export class TeamSubFacade {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  async *executeMissionStream(
+    dto: CreateMissionDto,
+  ): AsyncGenerator<MissionEvent> {
+    if (!this.teamsService) {
+      this.logger.warn("[executeMissionStream] TeamsService not available");
+      return;
+    }
+    yield* this.teamsService.executeMissionStream(dto);
   }
 
   cancelMission(missionId: string): boolean {

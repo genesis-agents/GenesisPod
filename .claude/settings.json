@@ -99,6 +99,17 @@
         ]
       }
     ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npm install --silent 2>&1 | tail -3 && npx prisma generate --silent 2>&1 | tail -3",
+            "timeout": 120000
+          }
+        ]
+      }
+    ],
     "SubagentStop": [
       {
         "matcher": "reviewer",

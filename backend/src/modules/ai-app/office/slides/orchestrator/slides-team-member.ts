@@ -6,12 +6,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
-import { AiChatLLMAdapter } from "@/modules/ai-engine/llm/adapters/ai-chat-llm-adapter";
-import {
-  InputBindingResolver,
-  PromptSkillAdapter,
-} from "@/modules/ai-engine/skills/runtime";
-import { ISkill } from "@/modules/ai-engine/skills/abstractions/skill.interface";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import {
   SlidesTask,
   SlidesTeamMemberRole,
@@ -32,8 +27,7 @@ export class SlidesTeamMember {
 
   constructor(
     private readonly skillRegistry: SkillRegistry,
-    private readonly llmAdapter: AiChatLLMAdapter,
-    private readonly inputBindingResolver: InputBindingResolver,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -108,24 +102,21 @@ export class SlidesTeamMember {
         };
       }
 
-      // 设置 LLM 适配器
-      if ("setLLMAdapter" in targetSkill) {
-        (
-          targetSkill as { setLLMAdapter: (adapter: unknown) => void }
-        ).setLLMAdapter(this.llmAdapter);
-      }
-
       // 构建 Skill 输入
       const skillInput = this.buildSkillInput(task, context, targetSkill);
 
-      // 执行 Skill
-      const skillResult = await targetSkill.execute(skillInput, {
-        executionId: context.executionId,
-        skillId: task.skillId,
-        sessionId: context.sessionId,
-        userId: "",
-        createdAt: new Date(),
-      });
+      // 执行 Skill（通过 Facade，内部处理 LLM 适配器注入）
+      const skillResult = await this.aiFacade.executeSkill(
+        targetSkill,
+        skillInput,
+        {
+          executionId: context.executionId,
+          skillId: task.skillId,
+          sessionId: context.sessionId,
+          userId: "",
+          createdAt: new Date(),
+        },
+      );
 
       if (!skillResult.success) {
         return {
@@ -165,7 +156,7 @@ export class SlidesTeamMember {
   private buildSkillInput(
     task: SlidesTask,
     context: SkillExecutionContext,
-    skill: ISkill,
+    skill: NonNullable<ReturnType<SkillRegistry["tryGet"]>>,
   ): unknown {
     // 优先使用 outputManager（新规范），回退到 previousOutputs（兼容）
     const getOutput = <T>(skillId: string): T | undefined => {
@@ -189,31 +180,34 @@ export class SlidesTeamMember {
       previousOutputs: context.previousOutputs,
     };
 
-    // ★ PromptSkillAdapter: 声明式 InputBinding 解析
-    const adapter = skill as PromptSkillAdapter;
-    if (adapter.isPromptSkillAdapter) {
-      const bindings = adapter.getInputBindings();
-      if (bindings) {
-        const resolved = this.inputBindingResolver.resolve(bindings, {
-          outputManager: context.outputManager,
-          context: {
-            ...context.globalContext,
-            sessionId: context.sessionId,
-          },
-          input: task.input as Record<string, unknown>,
-          previousOutputs: context.previousOutputs,
-        });
-        // PromptSkillAdapter: 只传 task 描述 + 声明式绑定的输入
-        // 不包含 previousOutputs（避免将全部 skill 输出重复传入 LLM，导致超出 context 限制）
-        // 不包含 context.sourceText（SKILL.md 声明 required: sourceText 的 skill 已通过 resolved.sourceText 获取）
-        return {
-          task: task.description,
-          themeId: context.globalContext.themeId,
-          stylePreference: context.globalContext.stylePreference,
-          ...resolved,
-        };
-      }
-      // No inputs declared — use baseInput only (no large previousOutputs)
+    // ★ PromptSkillAdapter: 声明式 InputBinding 解析（通过 Facade 封装）
+    const resolved = this.aiFacade.resolveSkillInputBindings(skill, {
+      outputManager: context.outputManager,
+      context: {
+        ...context.globalContext,
+        sessionId: context.sessionId,
+      },
+      input: task.input as Record<string, unknown>,
+      previousOutputs: context.previousOutputs,
+    });
+    if (resolved !== null) {
+      // PromptSkillAdapter: 只传 task 描述 + 声明式绑定的输入
+      // 不包含 previousOutputs（避免将全部 skill 输出重复传入 LLM，导致超出 context 限制）
+      // 不包含 context.sourceText（SKILL.md 声明 required: sourceText 的 skill 已通过 resolved.sourceText 获取）
+      return {
+        task: task.description,
+        themeId: context.globalContext.themeId,
+        stylePreference: context.globalContext.stylePreference,
+        ...resolved,
+      };
+    }
+    // resolveSkillInputBindings returns null in three cases:
+    //   (a) not a PromptSkillAdapter → falls through to the code-based switch below
+    //   (b) PromptSkillAdapter with no declared bindings → uses minimal input (intended)
+    //   (c) PromptSkillAdapter with declared bindings but skillInputBindingResolver unavailable
+    //       → graceful degradation: falls back to minimal input, bindings silently skipped.
+    //       This is intentional; the skill will still execute with task description only.
+    if ((skill as { isPromptSkillAdapter?: boolean }).isPromptSkillAdapter) {
       return {
         task: task.description,
         themeId: context.globalContext.themeId,
