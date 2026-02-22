@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import UserProfileButton from './UserProfileButton';
 import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +10,92 @@ import { useTranslation } from '@/lib/i18n';
 import { CURRENT_VERSION } from '@/lib/utils/changelog';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { config } from '@/lib/utils/config';
+import { Search, X } from 'lucide-react';
+
+// ─── Capability index for sidebar search ─────────────────
+
+interface Capability {
+  label: string;
+  href: string;
+  keywords: string[];
+}
+
+const CAPABILITIES: Capability[] = [
+  {
+    label: 'AI 问答',
+    href: '/ai-ask',
+    keywords: ['ask', 'chat', '问答', '对话', '智能'],
+  },
+  {
+    label: '探索发现',
+    href: '/explore',
+    keywords: ['explore', '探索', '搜索', '发现'],
+  },
+  {
+    label: '我的资源库',
+    href: '/library',
+    keywords: ['library', '资源', '知识库', 'rag', '文档'],
+  },
+  {
+    label: 'AI 洞察',
+    href: '/ai-insights',
+    keywords: ['insights', '洞察', '分析', 'topic'],
+  },
+  {
+    label: 'AI 研究',
+    href: '/ai-research',
+    keywords: ['research', '研究', '报告', '深度'],
+  },
+  {
+    label: 'AI Office',
+    href: '/ai-office',
+    keywords: ['office', 'ppt', '报告', '文档', '演示'],
+  },
+  {
+    label: 'AI 团队',
+    href: '/ai-teams',
+    keywords: ['teams', '团队', '协作', 'agent', '多智能体'],
+  },
+  {
+    label: 'AI 规划',
+    href: '/ai-planning',
+    keywords: ['planning', '规划', '任务', '计划'],
+  },
+  {
+    label: 'AI 模拟',
+    href: '/ai-simulation',
+    keywords: ['simulation', '模拟', '沙盒', '仿真'],
+  },
+  {
+    label: 'AI 写作',
+    href: '/ai-writing',
+    keywords: ['writing', '写作', '小说', '文章', '创作'],
+  },
+  {
+    label: 'AI 社交',
+    href: '/ai-social',
+    keywords: ['social', '社交', '内容', '营销'],
+  },
+  {
+    label: 'AI 商店',
+    href: '/ai-store',
+    keywords: ['store', '商店', '技能', '工具', 'skill'],
+  },
+  {
+    label: '管理后台',
+    href: '/admin/overview',
+    keywords: ['admin', '管理', '后台', '配置'],
+  },
+];
+
+function matchCapabilities(query: string): Capability[] {
+  const q = query.toLowerCase().trim();
+  if (!q) return [];
+  return CAPABILITIES.filter(
+    (c) =>
+      c.label.toLowerCase().includes(q) || c.keywords.some((k) => k.includes(q))
+  ).slice(0, 6);
+}
 
 // Sidebar Panel Toggle Icon - left narrow, right wide
 // Fill shows current visible state: expanded = right filled, collapsed = left filled
@@ -75,8 +161,30 @@ export default function Sidebar({ className = '' }: SidebarProps) {
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
+  const router = useRouter();
   const { isAdmin } = useAuth();
   const { t } = useTranslation();
+
+  // ── Capability search ─────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchResults = matchCapabilities(searchQuery);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  // Clear search on route change
+  useEffect(() => {
+    setSearchQuery('');
+  }, [pathname]);
+
+  // Click outside to close results
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchQuery('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   // 展开逻辑：pinned时始终展开，collapsed时hover展开，expanded时展开
   const showExpanded =
@@ -239,6 +347,54 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
       {/* Main Navigation */}
       <nav className="scrollbar-thin flex-1 overflow-y-auto overflow-x-hidden px-3 py-2">
+        {/* Capability search — only in expanded state */}
+        {showExpanded && (
+          <div ref={searchRef} className="relative mb-2">
+            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 focus-within:border-violet-300 focus-within:bg-white">
+              <Search className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索功能..."
+                className="flex-1 bg-transparent text-xs text-gray-700 placeholder-gray-400 outline-none"
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setSearchQuery('');
+                  if (e.key === 'Enter' && searchResults.length > 0) {
+                    router.push(searchResults[0].href);
+                    setSearchQuery('');
+                  }
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            {/* Results dropdown */}
+            {searchResults.length > 0 && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                {searchResults.map((cap) => (
+                  <button
+                    key={cap.href}
+                    onClick={() => {
+                      router.push(cap.href);
+                      setSearchQuery('');
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-700"
+                  >
+                    <Search className="h-3 w-3 shrink-0 text-gray-400" />
+                    {cap.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="space-y-1">
           {/* AI Ask - Primary AI Chat Entry */}
           <Link
