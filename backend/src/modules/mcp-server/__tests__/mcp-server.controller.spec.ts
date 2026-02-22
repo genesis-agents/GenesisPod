@@ -667,6 +667,7 @@ describe("MCPServerController Integration Tests (100% Coverage)", () => {
     it("returns text/event-stream Content-Type, Cache-Control: no-cache, and init event", (done) => {
       let data = "";
       let finished = false;
+      let safetyTimer: ReturnType<typeof setTimeout>;
 
       const req = request(app.getHttpServer())
         .get("/mcp")
@@ -698,6 +699,7 @@ describe("MCPServerController Integration Tests (100% Coverage)", () => {
         })
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .end((_err: Error | null, res: any) => {
+          clearTimeout(safetyTimer);
           if (res) {
             expect(res.headers["content-type"]).toMatch(/text\/event-stream/);
             expect(res.headers["cache-control"]).toBe("no-cache");
@@ -707,7 +709,7 @@ describe("MCPServerController Integration Tests (100% Coverage)", () => {
         });
 
       // Safety timeout — abort the request to avoid dangling connection
-      setTimeout(() => {
+      safetyTimer = setTimeout(() => {
         if (!finished) {
           finished = true;
           req.abort();

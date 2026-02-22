@@ -1,5 +1,10 @@
 import { NestFactory } from "@nestjs/core";
-import { ValidationPipe, LogLevel, Logger } from "@nestjs/common";
+import {
+  ValidationPipe,
+  LogLevel,
+  Logger,
+  RequestMethod,
+} from "@nestjs/common";
 import helmet from "helmet";
 import { Request, Response, NextFunction } from "express";
 import * as express from "express";
@@ -183,8 +188,10 @@ async function bootstrap() {
     });
   });
 
-  // API前缀
-  app.setGlobalPrefix("api/v1");
+  // API前缀（排除 .well-known/* 以支持 A2A 标准发现路径）
+  app.setGlobalPrefix("api/v1", {
+    exclude: [{ path: ".well-known/(.*)", method: RequestMethod.GET }],
+  });
 
   // 设置 Swagger API 文档（仅开发环境）
   if (!isProduction) {
