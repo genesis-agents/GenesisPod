@@ -21,12 +21,16 @@ function ModelBadges({ model }: { model: Record<string, any> }) {
   );
 }
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, AIModel } from '@/hooks';
 import { config } from '@/lib/utils/config';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import AskToolsButton from '@/components/ai-ask/AskToolsButton';
+import {
+  ActionCards,
+  type SuggestedAction,
+} from '@/components/ai-ask/ActionCards';
 import AppShell from '@/components/layout/AppShell';
 import SessionSidebar from '@/components/ai-ask/SessionSidebar';
 import MessageContextMenu from '@/components/ai-ask/MessageContextMenu';
@@ -921,6 +925,7 @@ function ModelIcon({
 
 export default function AskPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, accessToken: token, loginWithGoogle } = useAuth();
   const { t } = useI18n();
   const { userMessageStyle, aiMessageStyle } = useThemeStore();
@@ -952,6 +957,9 @@ export default function AskPage() {
     content: string;
     preview: string;
   } | null>(null);
+  const [messageSuggestions, setMessageSuggestions] = useState<
+    Map<string, SuggestedAction[]>
+  >(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
@@ -965,6 +973,14 @@ export default function AskPage() {
       selectedKnowledgeBases
     );
   }, [selectedKnowledgeBases]);
+
+  // ?q=xxx — pre-fill input from Global AI Bar or ActionCards
+  useEffect(() => {
+    const q = searchParams?.get('q');
+    if (q?.trim()) {
+      setInput(q.trim());
+    }
+  }, []); // Run only once on mount
 
   // Random quote selection - changes on page load
   const randomQuote = useMemo(() => {
@@ -1549,6 +1565,14 @@ export default function AskPage() {
                 },
               ];
             });
+            // Store suggested actions for this assistant message
+            if (result.suggestedActions?.length > 0) {
+              setMessageSuggestions((prev) => {
+                const next = new Map(prev);
+                next.set(result.assistantMessage.id, result.suggestedActions);
+                return next;
+              });
+            }
           }
         } else {
           // Fallback to simple chat if session creation fails
@@ -2085,6 +2109,13 @@ export default function AskPage() {
                               sources={message.ragSources}
                               maxSources={5}
                               defaultExpanded={false}
+                            />
+                          )}
+                        {/* AI OS Action Cards */}
+                        {message.role === 'assistant' &&
+                          messageSuggestions.has(message.id) && (
+                            <ActionCards
+                              actions={messageSuggestions.get(message.id)!}
                             />
                           )}
                         {/* Action buttons for assistant messages */}

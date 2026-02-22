@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
@@ -91,6 +91,7 @@ function getProjectGradient(projectId: string) {
 
 export default function AIWritingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
   const {
@@ -143,6 +144,14 @@ export default function AIWritingPage() {
       void fetchProjects();
     }
   }, [user, fetchProjects]);
+
+  // ?q=xxx — from Global AI Bar or ActionCards
+  useEffect(() => {
+    const q = searchParams?.get('q');
+    if (!q?.trim()) return;
+    setCreateForm((prev) => ({ ...prev, description: q.trim() }));
+    setShowCreateDialog(true);
+  }, []); // Run only once on mount
 
   // Fetch style presets when dialog opens (create or edit)
   useEffect(() => {

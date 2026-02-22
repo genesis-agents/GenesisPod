@@ -82,6 +82,9 @@ Available modules:
 - "research": Deep multi-step research report generation. Use when the user wants to investigate, analyze trends, or produce a research report.
 - "writing": Long-form writing assistant. Use when the user wants to write articles, reports, documents, or structured content.
 - "teams": Multi-agent collaborative debate/discussion. Use when the user wants multiple perspectives, debate, or team analysis.
+- "image": AI image generation. Use when the user wants to generate, create, or draw images, illustrations, or visual content.
+- "office": PPT/slides generation. Use when the user wants to create presentations, slide decks, or PowerPoint files.
+- "insight": Topic intelligence & monitoring. Use when the user wants to monitor a topic, track trends, or get ongoing intelligence reports on a subject.
 - "ask": Quick Q&A and conversation. Use as default for simple questions or when intent is unclear.
 
 Rules:
@@ -95,7 +98,7 @@ Rules:
 Respond ONLY with valid JSON matching this schema:
 {
   "capabilities": [
-    { "module": "research"|"writing"|"teams"|"ask", "action": "string describing what to do", "input": "the query/topic to pass to the module", "priority": 1 }
+    { "module": "research"|"writing"|"teams"|"image"|"office"|"insight"|"ask", "action": "string describing what to do", "input": "the query/topic to pass to the module", "priority": 1 }
   ],
   "confidence": 0.0-1.0,
   "reasoning": "brief explanation"
@@ -237,7 +240,15 @@ export class IntentRouterService {
   }
 
   private validateModule(module: string): AppModule {
-    const valid: AppModule[] = ["research", "writing", "teams", "ask"];
+    const valid: AppModule[] = [
+      "research",
+      "writing",
+      "teams",
+      "ask",
+      "image",
+      "office",
+      "insight",
+    ];
     return valid.includes(module as AppModule) ? (module as AppModule) : "ask";
   }
 

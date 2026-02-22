@@ -260,6 +260,15 @@ function ResearchPageContent() {
 
   // Read URL params on mount to support cross-module navigation pre-fill
   useEffect(() => {
+    // ?q=xxx — from Global AI Bar or ActionCards
+    const q = searchParams?.get('q');
+    if (q?.trim()) {
+      setNewProjectName(q.trim().slice(0, 200));
+      setShowCreateDialog(true);
+      return;
+    }
+
+    // ?action=create&fromTopicId=...&contextTitle=... — from Topic Insights
     const action = searchParams?.get('action');
     if (action !== 'create') return;
 

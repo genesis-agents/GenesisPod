@@ -35,6 +35,59 @@ import {
   RESPONSE_REQUIREMENTS,
 } from "./prompts/ask-system.prompt";
 import { CreateSessionDto, SendMessageDto } from "./dto";
+import { IntentRouterService } from "../../ai-engine/orchestration/services/intent-router.service";
+
+export interface SuggestedAction {
+  id: string;
+  label: string;
+  description: string;
+  module: string;
+  iconName: string;
+  url: string;
+}
+
+/** 模块 → 行动卡片静态配置 */
+const MODULE_ACTION_CONFIG: Record<
+  string,
+  { label: string; description: string; iconName: string; urlTemplate: string }
+> = {
+  research: {
+    label: "启动深度研究",
+    description: "多步规划 · 完整报告",
+    iconName: "Search",
+    urlTemplate: "/ai-research?q={input}",
+  },
+  writing: {
+    label: "开始长文写作",
+    description: "结构化长文创作",
+    iconName: "PenLine",
+    urlTemplate: "/ai-writing?q={input}",
+  },
+  teams: {
+    label: "创建 AI 辩论",
+    description: "多 Agent 协作辩论",
+    iconName: "Users",
+    urlTemplate: "/ai-teams?topic={input}",
+  },
+  image: {
+    label: "生成图片",
+    description: "AI 图像创作",
+    iconName: "Image",
+    urlTemplate: "/ai-image?q={input}",
+  },
+  office: {
+    label: "生成 PPT",
+    description: "一键演示文稿",
+    iconName: "Presentation",
+    urlTemplate: "/ai-office?q={input}",
+  },
+  insight: {
+    label: "专题洞察",
+    description: "话题监控 · 趋势追踪",
+    iconName: "TrendingUp",
+    urlTemplate: "/ai-insights",
+  },
+};
 
 interface MessageWithContext {
   role: "user" | "assistant" | "system";
@@ -63,6 +116,7 @@ export class AiAskService {
     private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly ragPipelineService: RAGPipelineService,
     @Optional() private readonly creditsService: CreditsService,
+    @Optional() private readonly intentRouterService: IntentRouterService,
   ) {}
 
   /**
@@ -510,12 +564,21 @@ export class AiAskService {
             });
           }
 
+          // 并行检测意图（不阻塞主流程，所有异常静默捕获）
+          const suggestedActions = await this.detectIntent(
+            dto.content,
+            userId,
+            sessionId,
+          );
+
           return {
             userMessage,
             assistantMessage,
             toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
             // Include RAG sources for frontend display
             ragSources: ragSources.length > 0 ? ragSources : undefined,
+            suggestedActions:
+              suggestedActions.length > 0 ? suggestedActions : undefined,
           };
         } catch (error) {
           this.logger.error(`Failed to get AI response: ${error}`);
@@ -1082,6 +1145,70 @@ export class AiAskService {
 
     // 直接截断
     return truncated;
+  }
+
+  /**
+   * 检测用户意图并生成建议行动卡片
+   * 所有异常静默捕获，不影响主流程
+   */
+  private async detectIntent(
+    userInput: string,
+    userId: string,
+    sessionId: string,
+  ): Promise<SuggestedAction[]> {
+    if (!this.intentRouterService) return [];
+
+    try {
+      const result = await this.intentRouterService.route(userInput, {
+        userId,
+        sessionId,
+      });
+
+      if (result.plan.confidence < 0.65) return [];
+
+      return this.buildSuggestedActions(userInput, result.plan);
+    } catch (err) {
+      this.logger.debug(
+        `[detectIntent] Silent failure: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * 将 TaskPlan 转换为前端 SuggestedAction 列表
+   * - 过滤 ask 模块（自身就是 ask）
+   * - 每模块最多 1 张，总数 ≤ 3 张
+   */
+  private buildSuggestedActions(
+    userInput: string,
+    plan: import("../../ai-engine/orchestration/services/task-planner.service").TaskPlan,
+  ): SuggestedAction[] {
+    const encodedInput = encodeURIComponent(userInput);
+    const seen = new Set<string>();
+    const actions: SuggestedAction[] = [];
+
+    for (const step of plan.steps) {
+      if (step.module === "ask") continue;
+      if (seen.has(step.module)) continue;
+
+      const config = MODULE_ACTION_CONFIG[step.module];
+      if (!config) continue;
+
+      seen.add(step.module);
+      actions.push({
+        id: `action-${step.module}`,
+        label: config.label,
+        description: config.description,
+        module: step.module,
+        iconName: config.iconName,
+        url: config.urlTemplate.replace("{input}", encodedInput),
+      });
+
+      if (actions.length >= 3) break;
+    }
+
+    return actions;
   }
 
   /**

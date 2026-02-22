@@ -19,7 +19,14 @@ import { Injectable, Logger } from "@nestjs/common";
 // ─────────────────────────────────────────────────────────
 
 /** 可用的 AI App 模块标识 */
-export type AppModule = "research" | "writing" | "teams" | "ask";
+export type AppModule =
+  | "research"
+  | "writing"
+  | "teams"
+  | "ask"
+  | "image"
+  | "office"
+  | "insight";
 
 /**
  * 单个任务步骤
@@ -86,8 +93,11 @@ export interface CapabilityRequirement {
 const MODULE_PHASE: Record<AppModule, 1 | 2> = {
   research: 1,
   ask: 1,
+  insight: 1,
   writing: 2,
   teams: 2,
+  image: 2,
+  office: 2,
 };
 
 // ─────────────────────────────────────────────────────────

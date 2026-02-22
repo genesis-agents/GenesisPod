@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAiGroupStore } from '@/stores/ai-teams';
 import {
@@ -25,6 +25,7 @@ type TabType = 'my-teams' | 'discover';
 export default function AIGroupPage() {
   const { t } = useTranslation();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, accessToken, isLoading: authLoading } = useAuth();
   const {
     topics,
@@ -37,6 +38,7 @@ export default function AIGroupPage() {
   const { models: aiModels } = useAIModels();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [prefilledTopic, setPrefilledTopic] = useState('');
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<TabType>('my-teams');
@@ -75,6 +77,14 @@ export default function AIGroupPage() {
         .catch((err) => logger.error('Failed to fetch join requests:', err));
     }
   }, [authLoading, isAuthenticated, fetchTopics]);
+
+  // ?topic=xxx — from Global AI Bar or ActionCards
+  useEffect(() => {
+    const topic = searchParams?.get('topic');
+    if (!topic?.trim()) return;
+    setPrefilledTopic(topic.trim());
+    setShowCreateDialog(true);
+  }, []); // Run only once on mount
 
   // Fetch public topics when discover tab is active
   useEffect(() => {
@@ -621,10 +631,15 @@ export default function AIGroupPage() {
       {showCreateDialog && (
         <CreateTopicDialog
           aiModels={aiModels}
-          onClose={() => setShowCreateDialog(false)}
+          initialName={prefilledTopic}
+          onClose={() => {
+            setShowCreateDialog(false);
+            setPrefilledTopic('');
+          }}
           onCreate={async (dto) => {
             const topic = await createTopic(dto);
             setShowCreateDialog(false);
+            setPrefilledTopic('');
             router.push(`/ai-teams/${topic.id}`);
           }}
         />
@@ -1102,15 +1117,17 @@ function TopicCard({
 // Create Topic Dialog
 function CreateTopicDialog({
   aiModels,
+  initialName = '',
   onClose,
   onCreate,
 }: {
   aiModels: AIModel[];
+  initialName?: string;
   onClose: () => void;
   onCreate: (dto: CreateTopicDto) => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName);
   const [description, setDescription] = useState('');
   const [selectedAI, setSelectedAI] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
