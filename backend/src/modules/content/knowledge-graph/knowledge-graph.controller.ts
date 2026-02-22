@@ -13,6 +13,8 @@ import {
 } from "@nestjs/common";
 import { KnowledgeGraphService } from "./knowledge-graph.service.postgres";
 import { Public } from "../../../common/decorators/public.decorator";
+import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { AIModelType } from "@prisma/client";
 
 /**
  * 知识图谱控制器
@@ -23,7 +25,10 @@ import { Public } from "../../../common/decorators/public.decorator";
 export class KnowledgeGraphController {
   private readonly logger = new Logger(KnowledgeGraphController.name);
 
-  constructor(private kgService: KnowledgeGraphService) {}
+  constructor(
+    private kgService: KnowledgeGraphService,
+    private aiChatService: AiChatService,
+  ) {}
 
   /**
    * 为单个资源构建知识图谱
@@ -195,5 +200,73 @@ export class KnowledgeGraphController {
   ) {
     this.logger.log(`Unlinking author "${authorName}" from resource ${id}`);
     return this.kgService.unlinkAuthor(id, authorName);
+  }
+
+  /**
+   * 知识图谱对话模式
+   * POST /api/v1/knowledge-graph/chat
+   *
+   * Body: { message: string, userId?: string, collectionId?: string }
+   * 基于当前图谱数据回答用户关于知识关联的问题
+   */
+  @Post("chat")
+  async chat(
+    @Body()
+    body: {
+      message: string;
+      userId?: string;
+      collectionId?: string;
+    },
+  ) {
+    const { message, userId, collectionId } = body;
+    if (!message?.trim()) {
+      throw new BadRequestException("message is required");
+    }
+
+    this.logger.log(
+      `[chat] userId=${userId ?? "anon"} msg="${message.slice(0, 60)}"`,
+    );
+
+    // 获取图谱概览作为上下文
+    let graphSummary = "No graph data available yet.";
+    try {
+      const overview = userId
+        ? await this.kgService.getUserGraphOverview(userId, { collectionId })
+        : await this.kgService.getGraphOverview();
+
+      const stats = (overview as { stats?: Record<string, number> })?.stats;
+      const nodes =
+        (overview as { nodes?: { label: string; type: string }[] })?.nodes ??
+        [];
+
+      // 构建紧凑的文本摘要（top 20 节点 + 统计）
+      const topNodes = nodes
+        .slice(0, 20)
+        .map((n) => `${n.type}:${n.label}`)
+        .join(", ");
+
+      graphSummary = stats
+        ? `Graph stats — Resources: ${stats.totalResources ?? 0}, Authors: ${stats.totalAuthors ?? 0}, Topics: ${stats.totalTopics ?? 0}, Tags: ${stats.totalTags ?? 0}, Edges: ${stats.totalEdges ?? 0}.\nTop nodes: ${topNodes || "none"}.`
+        : `Top nodes: ${topNodes || "none"}.`;
+    } catch {
+      // 图谱获取失败，使用默认摘要继续
+    }
+
+    const systemPrompt = `You are a knowledge graph assistant. The user is exploring a knowledge graph that connects resources, authors, topics, and tags.
+
+Current graph context:
+${graphSummary}
+
+Help the user understand the connections and insights in their knowledge graph. Answer questions about relationships, suggest what to explore, or help them discover patterns. Be concise and insightful.`;
+
+    const result = await this.aiChatService.chat({
+      messages: [{ role: "user", content: message }],
+      systemPrompt,
+      modelType: AIModelType.CHAT,
+      taskProfile: { creativity: "medium", outputLength: "medium" },
+      userId,
+    });
+
+    return { reply: result.content, model: result.model };
   }
 }

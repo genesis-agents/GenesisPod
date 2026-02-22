@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamicImport from 'next/dynamic';
 import AppShell from '@/components/layout/AppShell';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader, getCurrentUser } from '@/lib/utils/auth';
+import { MessageSquare, X, Send, Loader2, RefreshCw, Zap } from 'lucide-react';
 
 import { logger } from '@/lib/utils/logger';
 export const dynamic = 'force-dynamic';
@@ -66,6 +67,11 @@ interface GraphOverview {
     totalCollections?: number;
     totalNotes?: number;
   };
+}
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 function GraphLoadingSkeleton() {
@@ -129,6 +135,163 @@ function EmptyState({ onBuild }: { onBuild: () => void }) {
   );
 }
 
+// ─── Chat Panel ───────────────────────────────────────────────────────────────
+
+const SUGGESTED_QUESTIONS = [
+  'What topics appear most frequently?',
+  'Which authors have the most connections?',
+  'What are the key themes in my library?',
+];
+
+interface ChatPanelProps {
+  userId: string | null;
+  collectionId: string | null;
+  onClose: () => void;
+}
+
+function ChatPanel({ userId, collectionId, onClose }: ChatPanelProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const sendMessage = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || sending) return;
+
+    const userMsg: ChatMessage = { role: 'user', content: trimmed };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput('');
+    setSending(true);
+
+    try {
+      const res = await fetch(`${config.apiUrl}/knowledge-graph/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ message: trimmed, userId, collectionId }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: data.reply },
+      ]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Sorry, I encountered an error. Please try again.',
+        },
+      ]);
+      logger.error('Graph chat error:', err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="flex h-full w-80 flex-shrink-0 flex-col border-l border-gray-200 bg-white">
+      {/* Panel header */}
+      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-purple-500" />
+          <span className="text-sm font-semibold text-gray-800">
+            Graph Chat
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+        {messages.length === 0 ? (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">
+              Ask me anything about your knowledge graph — connections,
+              patterns, insights.
+            </p>
+            <div className="space-y-2">
+              {SUGGESTED_QUESTIONS.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => sendMessage(q)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-left text-xs text-gray-600 transition-colors hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          messages.map((msg, i) => (
+            <div
+              key={i}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-gray-100 text-gray-800'
+                }`}
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))
+        )}
+        {sending && (
+          <div className="flex justify-start">
+            <div className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-2">
+              <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+              <span className="text-xs text-gray-400">Thinking...</span>
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-gray-200 px-3 py-3">
+        <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-purple-400 focus-within:bg-white">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage(input);
+              }
+            }}
+            placeholder="Ask about your graph..."
+            className="flex-1 bg-transparent text-xs text-gray-800 placeholder-gray-400 outline-none"
+            disabled={sending}
+          />
+          <button
+            onClick={() => sendMessage(input)}
+            disabled={!input.trim() || sending}
+            className="rounded p-0.5 text-purple-500 hover:text-purple-700 disabled:opacity-30"
+          >
+            <Send className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 function KnowledgeGraphPageContent() {
   const searchParams = useSearchParams();
   const [graphData, setGraphData] = useState<GraphOverview | null>(null);
@@ -136,6 +299,7 @@ function KnowledgeGraphPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
 
   // 从 URL 获取 collectionId 参数
   const collectionId = searchParams?.get('collectionId');
@@ -269,6 +433,18 @@ function KnowledgeGraphPageContent() {
                 </span>
               </div>
             )}
+            {/* Chat toggle */}
+            <button
+              onClick={() => setChatOpen((v) => !v)}
+              className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                chatOpen
+                  ? 'border-purple-300 bg-purple-50 text-purple-700'
+                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Zap className="h-4 w-4" />
+              Chat
+            </button>
             <button
               onClick={buildGraph}
               disabled={building}
@@ -276,42 +452,12 @@ function KnowledgeGraphPageContent() {
             >
               {building ? (
                 <>
-                  <svg
-                    className="h-4 w-4 animate-spin"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Building...
                 </>
               ) : (
                 <>
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
+                  <RefreshCw className="h-4 w-4" />
                   Rebuild
                 </>
               )}
@@ -319,44 +465,56 @@ function KnowledgeGraphPageContent() {
           </div>
         </header>
 
-        {/* Content */}
-        <div className="flex-1 overflow-hidden">
-          {loading ? (
-            <GraphLoadingSkeleton />
-          ) : error ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-                  <svg
-                    className="h-8 w-8 text-red-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+        {/* Content + Chat Panel */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Graph area */}
+          <div className="flex-1 overflow-hidden">
+            {loading ? (
+              <GraphLoadingSkeleton />
+            ) : error ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+                    <svg
+                      className="h-8 w-8 text-red-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                  </div>
+                  <p className="mt-4 text-gray-600">{error}</p>
+                  <button
+                    onClick={fetchGraphOverview}
+                    className="mt-4 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                  </svg>
+                    Retry
+                  </button>
                 </div>
-                <p className="mt-4 text-gray-600">{error}</p>
-                <button
-                  onClick={fetchGraphOverview}
-                  className="mt-4 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
-                >
-                  Retry
-                </button>
               </div>
-            </div>
-          ) : hasData ? (
-            <KnowledgeGraphView
-              nodes={graphData.nodes}
-              edges={graphData.edges}
+            ) : hasData ? (
+              <KnowledgeGraphView
+                nodes={graphData.nodes}
+                edges={graphData.edges}
+              />
+            ) : (
+              <EmptyState onBuild={buildGraph} />
+            )}
+          </div>
+
+          {/* Chat panel */}
+          {chatOpen && (
+            <ChatPanel
+              userId={userId}
+              collectionId={collectionId ?? null}
+              onClose={() => setChatOpen(false)}
             />
-          ) : (
-            <EmptyState onBuild={buildGraph} />
           )}
         </div>
       </main>
