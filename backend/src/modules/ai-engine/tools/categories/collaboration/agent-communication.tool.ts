@@ -470,6 +470,10 @@ export class AgentCommunicationTool
           // 去重合并：Redis 历史 + 启动窗口期新增
           const merged = Array.from(new Set([...inbox, ...existing]));
           this.inboxes.set(agentId, merged);
+          // 将合并结果写回 Redis，确保下次重启时不再丢失启动窗口期消息
+          if (merged.length > (inbox as string[]).length) {
+            this.saveInboxToCache(agentId as AgentId);
+          }
         }
       }
 

@@ -248,6 +248,8 @@ export class AiChatLLMAdapter implements ISimpleLLMAdapter {
   clearCache(): void {
     this.cachedDefaultModel = null;
     this.cacheTime = 0;
+    // 同时取消进行中的查询，确保下次调用发起全新 DB 请求
+    this.pendingModelFetch = null;
     this.logger.debug("Model cache cleared");
   }
 }

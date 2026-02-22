@@ -1421,8 +1421,8 @@ function YouTubeTLDWContent() {
                                   onClick={() => {
                                     navigator.clipboard
                                       .writeText(msg.content)
+                                      .then(() => toast.success('已复制'))
                                       .catch(() => {});
-                                    toast.success('已复制');
                                   }}
                                   className="absolute right-2 top-2 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-700 group-hover:opacity-100"
                                   title="复制"

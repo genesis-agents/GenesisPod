@@ -3131,11 +3131,13 @@ function HomeContent() {
                                   onClick={() => {
                                     navigator.clipboard
                                       .writeText(msg.content)
+                                      .then(() =>
+                                        setToast({
+                                          message: '已复制',
+                                          type: 'success',
+                                        })
+                                      )
                                       .catch(() => {});
-                                    setToast({
-                                      message: '已复制',
-                                      type: 'success',
-                                    });
                                   }}
                                   className="absolute right-2 top-2 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-200 hover:text-gray-700 group-hover:opacity-100"
                                   title="复制"

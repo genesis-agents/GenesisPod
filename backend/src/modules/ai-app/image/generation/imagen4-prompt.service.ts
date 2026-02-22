@@ -12,12 +12,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { TeamsService, CreateMissionDto } from "../../../ai-engine/teams";
-import { BUILTIN_TEAMS } from "../../../ai-engine/teams/abstractions/team.interface";
-import {
-  MissionEvent,
-  MissionResult,
-} from "../../../ai-engine/teams/abstractions/mission.interface";
+import { AIEngineFacade } from "../../../ai-engine/facade";
 import {
   GenerateImageOptions,
   PromptEngineeringInsights,
@@ -220,6 +215,29 @@ export type TeamProgressCallback = (event: {
 }) => void;
 
 // ============================================================================
+// Local types (avoid importing Engine internals)
+// ============================================================================
+
+/** Shape of events yielded by executeMissionStream */
+interface MissionStreamEventData {
+  stepId?: string;
+  result?: MissionStreamResult;
+  error?: string;
+  message?: string;
+}
+
+interface MissionStreamResult {
+  deliverables?: Array<{ type: string; content: unknown }>;
+}
+
+interface MissionStreamEvent {
+  type: string;
+  missionId: string;
+  timestamp: Date;
+  data?: MissionStreamEventData;
+}
+
+// ============================================================================
 // Service Implementation
 // ============================================================================
 
@@ -227,7 +245,7 @@ export type TeamProgressCallback = (event: {
 export class Imagen4PromptService {
   private readonly logger = new Logger(Imagen4PromptService.name);
 
-  constructor(private readonly teamsService: TeamsService) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 使用 Visual Design Team 生成 Imagen 4 专属 prompt
@@ -289,8 +307,8 @@ export class Imagen4PromptService {
       const agentOutputs: FourAgentOutputs = {};
 
       // 创建 mission DTO
-      const missionDto: CreateMissionDto = {
-        teamId: BUILTIN_TEAMS.DESIGN,
+      const missionDto = {
+        teamId: "design",
         goal: missionContent,
         context: JSON.stringify({
           targetModel: "imagen-4.0-generate-001",
@@ -305,7 +323,7 @@ export class Imagen4PromptService {
       };
 
       // 流式执行
-      const eventGenerator = this.teamsService.executeMissionStream(missionDto);
+      const eventGenerator = this.aiFacade.executeMissionStream(missionDto);
 
       for await (const event of eventGenerator) {
         // 发送进度事件
@@ -427,8 +445,8 @@ export class Imagen4PromptService {
     const agentPhases = ["content", "layout", "visual", "style"] as const;
 
     // 创建 mission DTO
-    const missionDto: CreateMissionDto = {
-      teamId: BUILTIN_TEAMS.DESIGN,
+    const missionDto = {
+      teamId: "design",
       goal: missionContent,
       context: JSON.stringify({
         targetModel: "imagen-4.0-generate-001",
@@ -442,7 +460,7 @@ export class Imagen4PromptService {
     };
 
     // 流式执行并收集结果
-    const eventGenerator = this.teamsService.executeMissionStream(missionDto);
+    const eventGenerator = this.aiFacade.executeMissionStream(missionDto);
     let currentPhaseIndex = 0;
 
     for await (const event of eventGenerator) {
@@ -494,7 +512,7 @@ export class Imagen4PromptService {
       // 处理任务完成
       if (event.type === "mission_completed") {
         // 从最终结果提取 agent 输出
-        const result = event.data?.result as MissionResult | undefined;
+        const result = (event.data as MissionStreamEventData)?.result;
         if (result?.deliverables) {
           for (const deliverable of result.deliverables) {
             if (
@@ -534,7 +552,7 @@ export class Imagen4PromptService {
    * 从事件中解析 agent 输出
    */
   private parseAgentOutputFromEvent(
-    event: MissionEvent,
+    event: MissionStreamEvent,
   ): Partial<FourAgentOutputs> | null {
     const stepId = event.data?.stepId as string | undefined;
     const stepResult = event.data?.result;
@@ -545,16 +563,16 @@ export class Imagen4PromptService {
 
     // 根据 stepId 确定是哪个 agent
     if (stepId.includes("content")) {
-      return { content: stepResult as ContentAgentOutput };
+      return { content: stepResult as unknown as ContentAgentOutput };
     }
     if (stepId.includes("layout")) {
-      return { layout: stepResult as LayoutAgentOutput };
+      return { layout: stepResult as unknown as LayoutAgentOutput };
     }
     if (stepId.includes("visual")) {
-      return { visual: stepResult as VisualAgentOutput };
+      return { visual: stepResult as unknown as VisualAgentOutput };
     }
     if (stepId.includes("style")) {
-      return { style: stepResult as StyleAgentOutput };
+      return { style: stepResult as unknown as StyleAgentOutput };
     }
 
     return null;

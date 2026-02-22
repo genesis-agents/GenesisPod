@@ -44,10 +44,14 @@ export default function AIChatMessages({
   }, []);
 
   const handleCopy = (content: string, index: number) => {
-    navigator.clipboard.writeText(content).catch(() => {});
-    setCopiedIndex(index);
     if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current);
-    copyTimerRef.current = setTimeout(() => setCopiedIndex(null), 1500);
+    navigator.clipboard
+      .writeText(content)
+      .then(() => {
+        setCopiedIndex(index);
+        copyTimerRef.current = setTimeout(() => setCopiedIndex(null), 1500);
+      })
+      .catch(() => {});
   };
 
   return (
