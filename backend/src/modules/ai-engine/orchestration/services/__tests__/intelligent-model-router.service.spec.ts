@@ -79,6 +79,76 @@ describe("IntelligentModelRouterService", () => {
     });
   });
 
+  describe("recordQualityFeedback() + quality-driven upgrade", () => {
+    it("no feedback → no upgrade (adjusted=false)", () => {
+      const result = service.route({
+        input: "short task",
+        taskType: "research",
+      });
+      expect(result.adjusted).toBe(false);
+    });
+
+    it("3+ low-score samples trigger level upgrade", () => {
+      // Feed 3 failing scores for research:minimal
+      service.recordQualityFeedback("research", "minimal", 40);
+      service.recordQualityFeedback("research", "minimal", 35);
+      service.recordQualityFeedback("research", "minimal", 45);
+
+      // A minimal research task should now upgrade to simple
+      const result = service.route({
+        input: "short task", // analyzer scores minimal
+        taskType: "research",
+      });
+      expect(result.adjusted).toBe(true);
+      expect(result.adjustReason).toContain("quality history");
+    });
+
+    it("high-score samples do NOT trigger upgrade", () => {
+      service.recordQualityFeedback("ask", "minimal", 80);
+      service.recordQualityFeedback("ask", "minimal", 85);
+      service.recordQualityFeedback("ask", "minimal", 90);
+
+      const result = service.route({ input: "Hi", taskType: "ask" });
+      expect(result.adjusted).toBe(false);
+    });
+
+    it("fewer than MIN_SAMPLES samples skip upgrade", () => {
+      service.recordQualityFeedback("writing", "minimal", 20);
+      service.recordQualityFeedback("writing", "minimal", 25);
+      // only 2 samples, below MIN_SAMPLES=3
+
+      const result = service.route({ input: "Hi", taskType: "writing" });
+      expect(result.adjusted).toBe(false);
+    });
+  });
+
+  describe("getQualityStats()", () => {
+    it("returns empty array with no feedback", () => {
+      expect(service.getQualityStats()).toEqual([]);
+    });
+
+    it("returns stats sorted by avgScore ascending", () => {
+      service.recordQualityFeedback("a", "minimal", 30);
+      service.recordQualityFeedback("b", "simple", 80);
+
+      const stats = service.getQualityStats();
+      expect(stats[0].taskType).toBe("a");
+      expect(stats[0].avgScore).toBe(30);
+      expect(stats[1].taskType).toBe("b");
+      expect(stats[1].avgScore).toBe(80);
+    });
+
+    it("upgraded flag set when low average", () => {
+      service.recordQualityFeedback("x", "medium", 40);
+      service.recordQualityFeedback("x", "medium", 45);
+      service.recordQualityFeedback("x", "medium", 50);
+
+      const stats = service.getQualityStats();
+      const entry = stats.find((s) => s.taskType === "x");
+      expect(entry?.upgraded).toBe(true);
+    });
+  });
+
   describe("cost savings validation", () => {
     it("short classification task uses cheap model profile", () => {
       const profile = service.getProfile({

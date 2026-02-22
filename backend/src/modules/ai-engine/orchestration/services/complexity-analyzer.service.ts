@@ -47,6 +47,8 @@ export type ComplexityLevel =
 export interface TaskDescriptor {
   /** 用户输入 / 任务描述文本（用于估算 token 量） */
   input: string;
+  /** 任务类型标识（可选，用于质量历史路由优化） */
+  taskType?: string;
   /** 需要调用的工具数量（默认 0） */
   toolCount?: number;
   /** 协作 Agent 数量（默认 1，即单 LLM 调用） */

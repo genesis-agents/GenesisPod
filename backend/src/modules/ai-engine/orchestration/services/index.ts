@@ -68,6 +68,8 @@ export {
   IntelligentModelRouterService,
   type RoutingStrategy,
   type RoutingResult,
+  type QualityFeedback,
+  type QualityStats,
 } from "./intelligent-model-router.service";
 
 // 支柱二：GenesisAgent 编排层

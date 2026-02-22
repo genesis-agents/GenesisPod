@@ -35,6 +35,28 @@ import {
 // ─────────────────────────────────────────────────────────
 
 /**
+ * 质量反馈记录（由 EvalPipeline 写入）
+ */
+export interface QualityFeedback {
+  taskType: string;
+  complexityLevel: ComplexityLevel;
+  /** 归一化 0-100 的综合评分（来自 EvalResult.overallScore） */
+  score: number;
+  recordedAt: Date;
+}
+
+/** 质量统计快照（用于 Admin Dashboard） */
+export interface QualityStats {
+  key: string;
+  taskType: string;
+  complexityLevel: ComplexityLevel;
+  sampleCount: number;
+  avgScore: number;
+  /** 是否因质量不足已触发档位升级 */
+  upgraded: boolean;
+}
+
+/**
  * 路由策略 — 覆盖默认行为
  */
 export interface RoutingStrategy {
@@ -73,6 +95,13 @@ export interface RoutingResult {
 // Internal constants
 // ─────────────────────────────────────────────────────────
 
+/** 质量低于此阈值时触发档位升级 */
+const QUALITY_UPGRADE_THRESHOLD = 55;
+/** 至少需要此数量样本才做升级决策 */
+const MIN_SAMPLES_FOR_UPGRADE = 3;
+/** 每个 key 保留的最近 N 条记录（滑动窗口） */
+const MAX_HISTORY_PER_KEY = 20;
+
 const LEVEL_ORDER: ComplexityLevel[] = [
   "minimal",
   "simple",
@@ -89,6 +118,9 @@ const LEVEL_ORDER: ComplexityLevel[] = [
 export class IntelligentModelRouterService {
   private readonly logger = new Logger(IntelligentModelRouterService.name);
 
+  /** 质量历史：key = `${taskType}:${complexityLevel}` → 最近 N 条评分 */
+  private readonly qualityHistory = new Map<string, number[]>();
+
   constructor(private readonly complexityAnalyzer: ComplexityAnalyzerService) {}
 
   /**
@@ -99,6 +131,14 @@ export class IntelligentModelRouterService {
     let level = complexity.level;
     let adjusted = false;
     let adjustReason: string | undefined;
+
+    // 应用质量历史升级（在 strategy 之前，给 strategy 机会再覆盖）
+    const qualityUpgraded = this.applyQualityUpgrade(task.taskType, level);
+    if (qualityUpgraded !== level) {
+      adjustReason = `Level upgraded from ${level} to ${qualityUpgraded} (quality history below threshold)`;
+      level = qualityUpgraded;
+      adjusted = true;
+    }
 
     // 应用 forceMinLevel
     if (
@@ -140,6 +180,99 @@ export class IntelligentModelRouterService {
    */
   getProfile(task: TaskDescriptor, strategy?: RoutingStrategy): TaskProfile {
     return this.route(task, strategy).profile;
+  }
+
+  /**
+   * 记录 EvalPipeline 的质量反馈，用于反向优化路由决策。
+   * 通常由 EvalPipelineService.evaluate() 完成后 fire-and-forget 调用。
+   *
+   * @param taskType  任务类型标识（如 "research_mission"、"writing"）
+   * @param complexityLevel  本次路由使用的复杂度档位
+   * @param score  归一化综合分（0-100，来自 EvalResult.overallScore）
+   */
+  recordQualityFeedback(
+    taskType: string,
+    complexityLevel: ComplexityLevel,
+    score: number,
+  ): void {
+    const key = `${taskType}:${complexityLevel}`;
+    const existing = this.qualityHistory.get(key) ?? [];
+
+    // 滑动窗口：保留最近 N 条
+    const updated = [...existing, score].slice(-MAX_HISTORY_PER_KEY);
+    this.qualityHistory.set(key, updated);
+
+    const avg = updated.reduce((s, v) => s + v, 0) / updated.length;
+    this.logger.debug(
+      `[qualityFeedback] ${key} score=${score.toFixed(1)} avg=${avg.toFixed(1)} samples=${updated.length}`,
+    );
+
+    if (
+      updated.length >= MIN_SAMPLES_FOR_UPGRADE &&
+      avg < QUALITY_UPGRADE_THRESHOLD
+    ) {
+      this.logger.warn(
+        `[qualityFeedback] ${key} avg=${avg.toFixed(1)} below threshold=${QUALITY_UPGRADE_THRESHOLD}, ` +
+          `consider upgrading complexity level or model for this task type`,
+      );
+    }
+  }
+
+  /**
+   * 获取所有质量统计快照（Admin Dashboard 用）
+   */
+  getQualityStats(): QualityStats[] {
+    const stats: QualityStats[] = [];
+
+    for (const [key, scores] of this.qualityHistory) {
+      const [taskType, complexityLevel] = key.split(":") as [
+        string,
+        ComplexityLevel,
+      ];
+      const avgScore = scores.reduce((s, v) => s + v, 0) / scores.length;
+      const upgraded =
+        scores.length >= MIN_SAMPLES_FOR_UPGRADE &&
+        avgScore < QUALITY_UPGRADE_THRESHOLD;
+
+      stats.push({
+        key,
+        taskType,
+        complexityLevel,
+        sampleCount: scores.length,
+        avgScore: Math.round(avgScore * 10) / 10,
+        upgraded,
+      });
+    }
+
+    return stats.sort((a, b) => a.avgScore - b.avgScore);
+  }
+
+  /**
+   * 应用质量历史：若 taskType 在当前档位持续低分，自动升一档。
+   * 由 route() 内部调用。
+   */
+  private applyQualityUpgrade(
+    taskType: string | undefined,
+    level: ComplexityLevel,
+  ): ComplexityLevel {
+    if (!taskType) return level;
+
+    const key = `${taskType}:${level}`;
+    const scores = this.qualityHistory.get(key);
+    if (!scores || scores.length < MIN_SAMPLES_FOR_UPGRADE) return level;
+
+    const avg = scores.reduce((s, v) => s + v, 0) / scores.length;
+    if (avg < QUALITY_UPGRADE_THRESHOLD) {
+      const currentIdx = LEVEL_ORDER.indexOf(level);
+      const nextLevel = LEVEL_ORDER[currentIdx + 1];
+      if (nextLevel) {
+        this.logger.debug(
+          `[qualityUpgrade] ${key} avg=${avg.toFixed(1)} → upgrading ${level} → ${nextLevel}`,
+        );
+        return nextLevel;
+      }
+    }
+    return level;
   }
 
   /**
