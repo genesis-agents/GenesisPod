@@ -21,6 +21,8 @@ import {
 } from "./memory/stores/in-memory-store";
 // Memory Coordinator (支柱三)
 import { MemoryCoordinatorService } from "./memory/memory-coordinator.service";
+// Layer 4: Knowledge Graph
+import { KnowledgeGraphTool } from "./tools/categories/information/knowledge-graph.tool";
 
 /**
  * In-memory Store Factory
@@ -53,6 +55,9 @@ const conversationMemoryFactory = {
     ShortTermMemoryService,
     LongTermMemoryService,
     MemoryCoordinatorService,
+
+    // Layer 4: Knowledge Graph Tool (@Optional injection in MemoryCoordinator)
+    KnowledgeGraphTool,
   ],
   exports: [
     InMemoryStore,

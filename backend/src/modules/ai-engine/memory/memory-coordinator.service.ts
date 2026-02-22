@@ -21,9 +21,10 @@
  *   - Ask / Research 对话中：recall() 注入历史知识
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ShortTermMemoryService } from "./stores/short-term-memory.service";
 import { LongTermMemoryService } from "./stores/long-term-memory.service";
+import { KnowledgeGraphTool } from "../tools/categories/information/knowledge-graph.tool";
 
 // ─────────────────────────────────────────────────────────
 // Public types
@@ -106,8 +107,8 @@ export class MemoryCoordinatorService {
   constructor(
     private readonly shortTermMemory: ShortTermMemoryService,
     private readonly longTermMemory: LongTermMemoryService,
-    // Layer 4 预留接口 — KnowledgeGraphTool 成熟后注入
-    // @Optional() private readonly knowledgeGraph?: KnowledgeGraphTool,
+    // Layer 4: KnowledgeGraphTool — @Optional() 降级兼容（无 Prisma 时跳过）
+    @Optional() private readonly knowledgeGraph?: KnowledgeGraphTool,
   ) {}
 
   // ─── Public API ─────────────────────────────────────────
@@ -120,10 +121,10 @@ export class MemoryCoordinatorService {
     userId: string,
     sessionId?: string,
   ): Promise<MemoryContext> {
-    const layers = query.layers ?? [1, 2, 3];
+    const layers = query.layers ?? [1, 2, 3, 4];
     const limit = query.limit ?? 10;
 
-    const [l1, l2, l3] = await Promise.all([
+    const [l1, l2, l3, l4] = await Promise.all([
       layers.includes(1) && sessionId
         ? this.recallLayer1(query, sessionId).catch(() => [])
         : Promise.resolve([] as MemoryFragment[]),
@@ -133,9 +134,12 @@ export class MemoryCoordinatorService {
       layers.includes(3)
         ? this.recallLayer3(query, userId).catch(() => [])
         : Promise.resolve([] as MemoryFragment[]),
+      layers.includes(4) && this.knowledgeGraph
+        ? this.recallLayer4(query, userId).catch(() => [])
+        : Promise.resolve([] as MemoryFragment[]),
     ]);
 
-    const all = [...l1, ...l2, ...l3]
+    const all = [...l1, ...l2, ...l3, ...l4]
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
       .slice(0, limit);
 
@@ -143,7 +147,7 @@ export class MemoryCoordinatorService {
       1: l1.length,
       2: l2.length,
       3: l3.length,
-      4: 0,
+      4: l4.length,
     };
 
     this.logger.debug(
@@ -283,5 +287,46 @@ export class MemoryCoordinatorService {
         type: (record.type as MemoryEventType) ?? "knowledge",
       },
     ];
+  }
+
+  /**
+   * Layer 4: 从知识图谱中查找与查询关键词相关的实体（实体名称模糊匹配）
+   * 使用 find_entity queryType，将匹配到的图节点转为 MemoryFragment
+   */
+  private async recallLayer4(
+    query: MemoryQuery,
+    userId: string,
+  ): Promise<MemoryFragment[]> {
+    if (!this.knowledgeGraph) return [];
+
+    const result = await this.knowledgeGraph.execute(
+      {
+        queryType: "find_entity",
+        entityName: query.query,
+        limit: 8,
+      },
+      {
+        executionId: `memory-recall-${Date.now()}`,
+        toolId: "knowledge-graph",
+        userId,
+        createdAt: new Date(),
+      },
+    );
+
+    if (!result.success || !result.data?.nodes?.length) return [];
+
+    // 每个匹配节点 → 一条 MemoryFragment，relevanceScore 固定 0.7（图谱命中）
+    return result.data.nodes.map((node) => ({
+      layer: 4 as const,
+      key: `graph:${node.id}`,
+      value: {
+        entity: node.name,
+        type: node.type,
+        properties: node.properties,
+        resourceId: node.resourceId,
+      },
+      relevanceScore: 0.7,
+      type: "knowledge" as MemoryEventType,
+    }));
   }
 }
