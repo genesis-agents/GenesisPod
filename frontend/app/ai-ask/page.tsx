@@ -927,6 +927,7 @@ export default function AskPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const processedParamsRef = useRef(false);
+  const processedSessionRef = useRef(false);
   const { user, accessToken: token, loginWithGoogle } = useAuth();
   const { t } = useI18n();
   const { userMessageStyle, aiMessageStyle } = useThemeStore();
@@ -1300,6 +1301,16 @@ export default function AskPage() {
     },
     [token]
   );
+
+  // ?sessionId=xxx — auto-load session from Global AI Bar "继续对话" link
+  useEffect(() => {
+    if (processedSessionRef.current) return;
+    const sessionId = searchParams?.get('sessionId');
+    if (sessionId && token) {
+      processedSessionRef.current = true;
+      void loadSession(sessionId);
+    }
+  }, [searchParams, token, loadSession]);
 
   // Handle new session
   const handleNewSession = useCallback(() => {

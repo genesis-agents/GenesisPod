@@ -30,6 +30,7 @@ import {
   GlobalAIBarActions,
 } from './useGlobalAIBar';
 import { sendQuickAsk } from '@/lib/api/global-ai-bar';
+import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
 
 // ─────────────────────────────────────────────────────────
 // Quick action config
@@ -278,11 +279,11 @@ export function GlobalAIBar({
                   <span>{askError}</span>
                 </div>
               ) : (
-                <div
-                  className="max-h-[300px] overflow-y-auto px-4 py-3 text-sm leading-relaxed text-gray-200"
-                  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                >
-                  {answer || '（无回答内容）'}
+                <div className="max-h-[300px] overflow-y-auto overflow-x-hidden px-4 py-3">
+                  <AIMessageRenderer
+                    content={answer || '（无回答内容）'}
+                    className="text-sm"
+                  />
                 </div>
               )}
               {answerSessionId && (
