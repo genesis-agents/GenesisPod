@@ -210,7 +210,11 @@ export class WechatPublisherService {
     try {
       await page
         .waitForLoadState("networkidle", { timeout: 10000 })
-        .catch(() => {});
+        .catch((err: Error) => {
+          this.logger.debug(
+            `waitForLoadState timed out (non-critical): ${err.message}`,
+          );
+        });
 
       const url = page.url();
       if (url.includes("/cgi-bin/bizlogin") || url.includes("action=login")) {
@@ -429,9 +433,7 @@ export class WechatPublisherService {
   /**
    * 保存草稿
    */
-  private async saveDraft(
-    page: Page,
-  ): Promise<{
+  private async saveDraft(page: Page): Promise<{
     success: boolean;
     draftId?: string;
     draftUrl?: string;

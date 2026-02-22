@@ -253,7 +253,11 @@ export class SessionHealthCheckScheduler
       });
       await p
         .waitForLoadState("networkidle", { timeout: 15000 })
-        .catch(() => {});
+        .catch((err: Error) => {
+          this.logger.debug(
+            `waitForLoadState timed out (non-critical, URL check follows): ${err.message}`,
+          );
+        });
 
       const url = p.url();
 

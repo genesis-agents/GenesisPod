@@ -2,10 +2,14 @@ import { Injectable } from "@nestjs/common";
 import { TemplateBaseHelper } from "./templates/template-base.helper";
 
 /**
- * Template generator class that handles all template generation logic
- * Extracted from InfographicTemplateService to reduce file size
+ * Template generator class — migration target, not yet active.
  *
- * This class contains all the template generation methods:
+ * Current status: This class is a pre-created extraction target and is NOT
+ * imported or injected anywhere. The actual template generation methods still
+ * reside in the original infographic-template.service.ts and have NOT been
+ * migrated here yet.
+ *
+ * Planned methods to migrate from infographic-template.service.ts:
  * - generateConsultingInfographicHTML (cards layout)
  * - generateCenterVisualHTML
  * - generateTimelineHTML
@@ -15,16 +19,12 @@ import { TemplateBaseHelper } from "./templates/template-base.helper";
  * - generateFunnelHTML
  * - generateMatrixHTML
  * - generateRankingHTML
+ *
+ * Do NOT add this class to any module provider or inject it until
+ * the migration task is completed.
  */
 @Injectable()
 export class InfographicTemplatesGenerator extends TemplateBaseHelper {
-  /**
-   * NOTE: This file will contain the extracted template generation methods
-   * from the original infographic-template.service.ts file.
-   *
-   * Each method will be moved here to keep the main service file under 500 lines.
-   * The methods maintain their original signatures and logic.
-   */
-  // Template methods will be added here during the migration
-  // For now, this is a placeholder that will be populated with the actual methods
+  // Migration pending: template methods have not been moved here yet.
+  // See infographic-template.service.ts for the current implementations.
 }

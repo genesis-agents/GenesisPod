@@ -383,7 +383,11 @@ export class AiSocialService {
       });
       await page
         .waitForLoadState("networkidle", { timeout: 15000 })
-        .catch(() => {});
+        .catch((err: Error) => {
+          this.logger.debug(
+            `waitForLoadState timed out (non-critical): ${err.message}`,
+          );
+        });
 
       const url = page.url();
 

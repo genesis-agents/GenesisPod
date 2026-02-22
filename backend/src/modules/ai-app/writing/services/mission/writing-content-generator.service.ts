@@ -333,15 +333,15 @@ ${avoidancePrompt ? `【表达约束 - 禁止使用以下表达】\n${avoidanceP
       );
     }
 
-    // TODO: 实现完整的 generateFullStory 逻辑
-    // 由于此方法极其复杂（超过2000行），建议保留在主服务中
-    // 或者进一步拆分为更小的子方法
+    // 此方法故意为空：generateFullStory 的完整实现保留在 WritingMissionService 中。
+    // WritingContentGeneratorService.generateFullStory 目前未被任何调用方注入使用，
+    // 如需调用请通过 WritingMissionService.generateFullStory（private 方法）完成。
     this.logger.warn(
-      `[${missionId}] generateFullStory is a placeholder - full implementation needed`,
+      `[${missionId}] generateFullStory called on WritingContentGeneratorService — this method is not implemented here. Use WritingMissionService instead.`,
     );
 
     throw new Error(
-      "generateFullStory method needs to be implemented or kept in main service",
+      "generateFullStory is not implemented in WritingContentGeneratorService. The implementation lives in WritingMissionService.",
     );
   }
 }

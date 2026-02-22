@@ -421,7 +421,9 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
         }
 
         // 等待一小段时间确保 cookies 完全设置
-        await page.waitForTimeout(2000).catch(() => {});
+        await page.waitForTimeout(2000).catch((err: Error) => {
+          this.logger.debug(`waitForTimeout(2000) interrupted: ${err.message}`);
+        });
 
         // 保存会话数据
         let sessionData = (await this.browserService.saveSession(
@@ -433,7 +435,11 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
           this.logger.warn(
             `Session saved with 0 cookies, waiting and retrying...`,
           );
-          await page.waitForTimeout(3000).catch(() => {});
+          await page.waitForTimeout(3000).catch((err: Error) => {
+            this.logger.debug(
+              `waitForTimeout(3000) interrupted: ${err.message}`,
+            );
+          });
           sessionData = (await this.browserService.saveSession(
             sessionKey,
           )) as SessionData | null;

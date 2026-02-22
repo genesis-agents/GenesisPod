@@ -7724,13 +7724,22 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
       try {
         switch (update.type) {
           case "character_state":
-            // TODO: 更新角色状态
+            // 角色状态更新待实现：需要 CharacterStateService 支持
+            this.logger.debug(
+              `[${_projectId ?? "unknown"}] character_state update deferred (not yet implemented)`,
+            );
             break;
           case "timeline_event":
-            // TODO: 添加时间线事件
+            // 时间线事件待实现：需要 TimelineService 支持
+            this.logger.debug(
+              `[${_projectId ?? "unknown"}] timeline_event update deferred (not yet implemented)`,
+            );
             break;
           case "new_fact":
-            // TODO: 添加新事实
+            // 新事实待实现：需要 FactRepository 支持
+            this.logger.debug(
+              `[${_projectId ?? "unknown"}] new_fact update deferred (not yet implemented)`,
+            );
             break;
         }
       } catch (error) {
