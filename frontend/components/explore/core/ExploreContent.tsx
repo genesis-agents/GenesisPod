@@ -3105,75 +3105,83 @@ function HomeContent() {
 
                   {/* Chat Messages */}
                   {aiMessages.length > 0 && (
-                    <div className="space-y-3 border-t border-gray-200 pt-4">
-                      {aiMessages.map((msg, i) => (
-                        <div
-                          key={i}
-                          className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                        >
+                    <TextSelectionToolbar
+                      resourceId={selectedResource?.id}
+                      onAskAI={(text) => {
+                        setAiPanelState('expanded');
+                        setAiInput(text);
+                      }}
+                    >
+                      <div className="space-y-3 border-t border-gray-200 pt-4">
+                        {aiMessages.map((msg, i) => (
                           <div
-                            className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                              msg.role === 'user'
-                                ? 'bg-gradient-to-br from-red-500 to-red-600 text-white'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}
-                            onContextMenu={
-                              msg.role === 'assistant'
-                                ? (e) => handleContextMenu(e, msg.content)
-                                : undefined
-                            }
+                            key={i}
+                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                           >
-                            <div className="prose prose-sm max-w-none text-sm leading-relaxed [&>*]:my-1 [&>ol]:my-1 [&>p]:my-1 [&>ul]:my-1">
-                              {(() => {
-                                const { images, textContent } =
-                                  extractImagesFromMarkdown(msg.content);
-                                return (
-                                  <>
-                                    {images.map((img, idx) => (
-                                      <Base64Image
-                                        key={idx}
-                                        src={img.src}
-                                        alt={img.alt}
-                                      />
-                                    ))}
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                      {textContent}
-                                    </ReactMarkdown>
-                                  </>
-                                );
-                              })()}
-                            </div>
                             <div
-                              className={`mt-1 text-[10px] ${
+                              className={`rounded-lg px-3 py-2 ${
                                 msg.role === 'user'
-                                  ? 'text-red-100'
-                                  : 'text-gray-500'
+                                  ? 'max-w-[80%] bg-gradient-to-br from-red-500 to-red-600 text-white'
+                                  : 'w-full cursor-text select-text bg-gray-100 text-gray-800'
                               }`}
                             >
-                              <ClientDate date={msg.timestamp} format="time" />
+                              <div className="prose prose-sm !max-w-none text-sm leading-relaxed [&>*]:my-1 [&>ol]:my-1 [&>p]:my-1 [&>ul]:my-1">
+                                {(() => {
+                                  const { images, textContent } =
+                                    extractImagesFromMarkdown(msg.content);
+                                  return (
+                                    <>
+                                      {images.map((img, idx) => (
+                                        <Base64Image
+                                          key={idx}
+                                          src={img.src}
+                                          alt={img.alt}
+                                        />
+                                      ))}
+                                      <ReactMarkdown
+                                        remarkPlugins={[remarkGfm]}
+                                      >
+                                        {textContent}
+                                      </ReactMarkdown>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                              <div
+                                className={`mt-1 text-[10px] ${
+                                  msg.role === 'user'
+                                    ? 'text-red-100'
+                                    : 'text-gray-500'
+                                }`}
+                              >
+                                <ClientDate
+                                  date={msg.timestamp}
+                                  format="time"
+                                />
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
 
-                      {/* Inline Loading Message */}
-                      {isStreaming && (
-                        <div className="flex justify-start">
-                          <div className="max-w-[80%] rounded-lg bg-gray-100 px-3 py-2 text-gray-900">
-                            <div className="flex items-center gap-2">
-                              <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-red-600"></div>
-                              <p className="text-sm">
-                                {aiModels.find((m) => m.modelId === aiModel)
-                                  ?.name || aiModel}
-                                正在思考...
-                              </p>
+                        {/* Inline Loading Message */}
+                        {isStreaming && (
+                          <div className="flex justify-start">
+                            <div className="w-full rounded-lg bg-gray-100 px-3 py-2 text-gray-900">
+                              <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-red-600"></div>
+                                <p className="text-sm">
+                                  {aiModels.find((m) => m.modelId === aiModel)
+                                    ?.name || aiModel}
+                                  正在思考...
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      <div ref={chatEndRef} />
-                    </div>
+                        <div ref={chatEndRef} />
+                      </div>
+                    </TextSelectionToolbar>
                   )}
 
                   {/* Tips when no messages */}
