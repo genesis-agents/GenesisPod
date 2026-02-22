@@ -13,6 +13,7 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { ToastContainer } from '@/components/ui/Toast';
 import { toast } from '@/stores';
 import { CheckinModal, InsufficientCreditsModal } from '@/components/credits';
+import { GlobalAIBarProvider } from '@/components/ai-bar';
 
 /**
  * Create QueryClient with global error handling
@@ -51,7 +52,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       <I18nProvider>
         <ChunkErrorHandler />
         <ErrorBoundary>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <GlobalAIBarProvider>{children}</GlobalAIBarProvider>
+          </AuthProvider>
         </ErrorBoundary>
         <ToastContainer />
         {isHydrated && (
