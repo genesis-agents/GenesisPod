@@ -88,6 +88,8 @@ import { RAGPipelineService } from "./rag/pipeline";
 import { AiEngineTracingService, TraceCollectorService } from "./observability";
 import { AiObservabilityService } from "./observability/ai-observability.service";
 import { CostAttributionService } from "./observability/cost-attribution.service";
+// 支柱五：EvalPipeline
+import { EvalPipelineService } from "./observability/eval-pipeline.service";
 
 // Prompt Registry
 import { PromptRegistryService } from "./prompts/prompt-registry.service";
@@ -177,6 +179,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     TraceCollectorService,
     AiObservabilityService,
     CostAttributionService,
+    EvalPipelineService,
 
     // === Prompt Registry ===
     PromptRegistryService,
@@ -241,6 +244,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     TraceCollectorService,
     AiObservabilityService,
     CostAttributionService,
+    EvalPipelineService,
 
     // === Prompt Registry ===
     PromptRegistryService,
