@@ -575,13 +575,13 @@ describe("AiAskService", () => {
       expect(result).toHaveLength(3);
     });
 
-    it("replaces {input} placeholder with encoded user input", () => {
-      const input = "AI 趋势";
+    it("replaces {input} placeholder with encoded step.input (LLM-extracted topic)", () => {
+      // step.input is the LLM-extracted topic (e.g. "AI"), not the raw user message
       const result = (service as any).buildSuggestedActions(
-        input,
-        makePlan(["research"]),
+        "请帮我分析一下 AI 趋势的走向",
+        makePlan(["research"]), // makePlan sets step.input = "AI"
       );
-      expect(result[0].url).toContain(encodeURIComponent(input));
+      expect(result[0].url).toContain(encodeURIComponent("AI"));
       expect(result[0].url).not.toContain("{input}");
     });
 
