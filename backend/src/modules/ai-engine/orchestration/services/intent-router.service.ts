@@ -83,7 +83,10 @@ interface IntentAnalysis {
 const MODULE_REGISTRY_DATA: Record<
   AppModule,
   {
+    /** LLM 路由提示词（内部使用，不暴露给用户） */
     description: string;
+    /** 用户界面展示的简短说明（用于 ActionCards 等 UI） */
+    userDescription: string;
     phase: 1 | 2;
     label: string;
     iconName: string;
@@ -93,6 +96,7 @@ const MODULE_REGISTRY_DATA: Record<
   research: {
     description:
       "Deep multi-step research report generation. Use when the user wants to investigate, analyze trends, or produce a research report.",
+    userDescription: "深度调研此话题，生成多维度研究报告",
     phase: 1,
     label: "启动深度研究",
     iconName: "Search",
@@ -101,6 +105,7 @@ const MODULE_REGISTRY_DATA: Record<
   writing: {
     description:
       "Long-form writing assistant. Use when the user wants to write articles, reports, documents, or structured content.",
+    userDescription: "基于此话题创作长文章或报告",
     phase: 2,
     label: "开始长文写作",
     iconName: "PenLine",
@@ -109,6 +114,7 @@ const MODULE_REGISTRY_DATA: Record<
   teams: {
     description:
       "Multi-agent collaborative debate/discussion. Use when the user wants multiple perspectives, debate, or team analysis.",
+    userDescription: "多 AI 角色围绕此话题展开辩论讨论",
     phase: 2,
     label: "创建 AI 辩论",
     iconName: "Users",
@@ -117,6 +123,7 @@ const MODULE_REGISTRY_DATA: Record<
   image: {
     description:
       "AI image generation. Use when the user wants to generate, create, or draw images, illustrations, or visual content.",
+    userDescription: "生成与此话题相关的 AI 图片",
     phase: 2,
     label: "生成图片",
     iconName: "Image",
@@ -125,6 +132,7 @@ const MODULE_REGISTRY_DATA: Record<
   office: {
     description:
       "PPT/slides generation. Use when the user wants to create presentations, slide decks, or PowerPoint files.",
+    userDescription: "将此话题制作成 PPT 演示文稿",
     phase: 2,
     label: "生成 PPT",
     iconName: "Presentation",
@@ -133,6 +141,7 @@ const MODULE_REGISTRY_DATA: Record<
   insight: {
     description:
       "Deep topic insight & intelligence. Use when the user wants to gain deep insights into a specific topic, conduct multi-dimensional analysis, understand industry dynamics, explore a subject comprehensively, or produce a topic intelligence report. Trigger words: 洞察, 分析, 深度了解, 研究某个话题的多维度, 专题, insight, analyse.",
+    userDescription: "创建专题洞察，多维度深度分析此话题",
     phase: 1,
     label: "专题洞察",
     iconName: "TrendingUp",
@@ -141,6 +150,7 @@ const MODULE_REGISTRY_DATA: Record<
   ask: {
     description:
       "Quick Q&A and conversation. Use as default for simple questions or when intent is unclear.",
+    userDescription: "继续在 AI 问答中深入探讨",
     phase: 1,
     label: "智能问答",
     iconName: "MessageSquare",
@@ -334,6 +344,7 @@ export class IntentRouterService {
   static getRegisteredModules(): Array<{
     module: AppModule;
     description: string;
+    userDescription: string;
     phase: 1 | 2;
     label: string;
     iconName: string;

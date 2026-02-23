@@ -58,8 +58,8 @@ export function ActionCards({ actions }: { actions: SuggestedAction[] }) {
   };
 
   return (
-    <div className="mt-3 border-t border-white/5 pt-3">
-      <p className="mb-2 text-xs text-gray-500">想继续深入？</p>
+    <div className="mt-3 border-t border-gray-100 pt-3">
+      <p className="mb-2 text-xs text-gray-400">想继续深入？</p>
       <div className="flex flex-wrap gap-2">
         {actions.map((action) => {
           const Icon = ICON_MAP[action.iconName] ?? Search;
@@ -68,23 +68,23 @@ export function ActionCards({ actions }: { actions: SuggestedAction[] }) {
               key={action.id}
               href={action.url}
               onClick={() => handleActionClick(action)}
-              className="group flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 transition-all hover:border-blue-500/40 hover:bg-white/10"
+              className="group flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 transition-all hover:border-blue-500/40 hover:bg-blue-50"
             >
               <Icon
                 size={16}
-                className="shrink-0 text-gray-400 group-hover:text-blue-400"
+                className="shrink-0 text-gray-400 group-hover:text-blue-500"
               />
               <div className="min-w-0">
-                <p className="text-sm font-medium leading-tight text-gray-200">
+                <p className="text-sm font-medium leading-tight text-gray-700">
                   {action.label}
                 </p>
-                <p className="text-xs leading-tight text-gray-500">
+                <p className="text-xs leading-tight text-gray-400">
                   {action.description}
                 </p>
               </div>
               <ArrowRight
                 size={14}
-                className="ml-1 shrink-0 text-gray-600 group-hover:text-blue-400"
+                className="ml-1 shrink-0 text-gray-300 group-hover:text-blue-500"
               />
             </Link>
           );

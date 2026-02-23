@@ -74,6 +74,7 @@ interface TopicResearchTabProps {
   searchQuery: string;
   showCreateDialog: boolean;
   onShowCreateDialog: (show: boolean) => void;
+  initialCreateName?: string;
 }
 
 /**
@@ -86,6 +87,7 @@ export function TopicResearchTab({
   searchQuery,
   showCreateDialog,
   onShowCreateDialog,
+  initialCreateName = '',
 }: TopicResearchTabProps) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -280,6 +282,7 @@ export function TopicResearchTab({
         onCreated={handleTopicCreated}
         defaultType={activeType || ResearchTopicType.MACRO}
         editTopic={editingTopic} // ★ 传入要编辑的专题
+        initialName={initialCreateName}
       />
 
       {/* Sharing Modal */}

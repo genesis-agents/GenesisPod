@@ -1165,7 +1165,7 @@ export class AiAskService {
       actions.push({
         id: `action-${step.module}`,
         label: config.label,
-        description: config.description,
+        description: config.userDescription ?? config.description,
         module: step.module,
         iconName: config.iconName,
         url: config.urlTemplate.replace("{input}", encodedInput),

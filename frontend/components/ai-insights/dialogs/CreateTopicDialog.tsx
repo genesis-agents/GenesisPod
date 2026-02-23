@@ -24,6 +24,7 @@ interface CreateTopicDialogProps {
   onCreated: (topic: ResearchTopic) => void;
   defaultType?: ResearchTopicType;
   editTopic?: ResearchTopic | null; // ★ 编辑模式：传入要编辑的专题
+  initialName?: string; // ★ 预填专题名称（来自 AI Ask ActionCard 跳转）
 }
 
 // Icons
@@ -125,6 +126,7 @@ export function CreateTopicDialog({
   onCreated,
   defaultType = ResearchTopicType.MACRO,
   editTopic = null, // ★ 编辑模式
+  initialName = '',
 }: CreateTopicDialogProps) {
   const { t } = useTranslation();
   const {
@@ -355,10 +357,10 @@ export function CreateTopicDialog({
         setError(null);
       } else {
         // ★ 创建模式：重置表单
-        setStep('type');
+        setStep(initialName ? 'details' : 'type'); // 有预填名时跳过类型选择步骤
         setSelectedType(defaultType);
         setSelectedTemplate(null);
-        setName('');
+        setName(initialName);
         setDescription('');
         setRefreshFrequency(RefreshFrequency.WEEKLY);
         setSearchTimeRange('6months');
@@ -369,7 +371,7 @@ export function CreateTopicDialog({
         setError(null);
       }
     }
-  }, [isOpen, defaultType, editTopic]);
+  }, [isOpen, defaultType, editTopic, initialName]);
 
   const handleTypeSelect = (type: ResearchTopicType) => {
     setSelectedType(type);

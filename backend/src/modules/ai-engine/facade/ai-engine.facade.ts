@@ -2177,6 +2177,7 @@ export class AIEngineFacade {
   listModuleCapabilities(): Array<{
     module: AppModule;
     description: string;
+    userDescription: string;
     phase: 1 | 2;
     label: string;
     iconName: string;

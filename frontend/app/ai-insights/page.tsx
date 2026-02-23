@@ -5,7 +5,8 @@
  * Topic monitoring / intelligence dashboard
  */
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
   TopicResearchTab,
@@ -67,11 +68,22 @@ const PlusIcon = ({ className }: { className?: string }) => (
 // ==================== 主页面内容 ====================
 function InsightsPageContent() {
   const { t } = useTranslation();
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [topicActiveType, setTopicActiveType] =
     useState<ResearchTopicType | null>(null);
   const [showTopicCreateDialog, setShowTopicCreateDialog] = useState(false);
+  const [initialCreateName, setInitialCreateName] = useState('');
   const [showSkillsModal, setShowSkillsModal] = useState(false);
+
+  // Auto-open create dialog when navigated from AI Ask ActionCard with ?q= param
+  useEffect(() => {
+    const q = searchParams?.get('q');
+    if (q) {
+      setInitialCreateName(decodeURIComponent(q));
+      setShowTopicCreateDialog(true);
+    }
+  }, [searchParams]);
 
   return (
     <div className="h-full overflow-auto bg-gray-50">
@@ -147,6 +159,7 @@ function InsightsPageContent() {
           searchQuery={searchQuery}
           showCreateDialog={showTopicCreateDialog}
           onShowCreateDialog={setShowTopicCreateDialog}
+          initialCreateName={initialCreateName}
         />
       </div>
 
