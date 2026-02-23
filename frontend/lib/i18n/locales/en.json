@@ -3047,7 +3047,11 @@
       "monitoring": "Monitoring",
       "mcpServer": "MCP Server",
       "externalServices": "External Services",
-      "externalApi": "External API"
+      "externalApi": "External API",
+      "agents": "Agents",
+      "approvals": "Approvals",
+      "eval": "Evaluation",
+      "researchTemplates": "Research Templates"
     },
     "mcpServer": {
       "title": "MCP Server",
@@ -3880,6 +3884,8 @@
       "subtitle": "Click on configurable cards to manage settings",
       "backToOverview": "Back to Architecture",
       "layers": {
+        "agentOs": "Layer 5: Agent OS",
+        "agentOsDesc": "Intelligent orchestration & user entry — intent routing to AI app modules",
         "openApi": "Layer 4: Open API",
         "openApiDesc": "External interfaces for AI agents and third-party integrations",
         "aiApps": "Layer 3: AI Apps",
@@ -3896,6 +3902,10 @@
         "systemOps": "System Ops"
       },
       "cards": {
+        "aiAskEntryDesc": "Conversation entry point — routes user intent to the right AI app via Agent OS",
+        "agentsDesc": "Agent registry — manage registered AI agent configurations",
+        "intentRouter": "Intent Router",
+        "intentRouterDesc": "Parses user intent and dispatches to the appropriate AI app module",
         "mcpServerDesc": "MCP protocol endpoint for AI agent tool calls",
         "webhooks": "Webhooks",
         "webhooksDesc": "Event-driven notifications to external systems"

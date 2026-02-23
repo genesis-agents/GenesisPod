@@ -1,7 +1,8 @@
 /**
  * Admin Architecture Diagram Configuration
  *
- * Four-layer architecture visualization:
+ * Five-layer architecture visualization:
+ * Layer 5: Agent OS Layer (Intelligent Orchestration & User Entry)
  * Layer 4: Open API Layer (External Interfaces)
  * Layer 3: AI Apps Layer (Business Applications - Read-only)
  * Layer 2: AI Engine Layer (Core Capabilities)
@@ -12,13 +13,10 @@ import {
   Bot,
   UsersRound,
   Wrench,
-  Database,
   Shield,
   Sparkles,
   Users,
   Key,
-  Globe,
-  Mail,
   HardDrive,
   MessageSquare,
   Compass,
@@ -39,6 +37,9 @@ import {
   Activity,
   Radio,
   Webhook,
+  Share2,
+  TrendingUp,
+  Cpu,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -64,10 +65,42 @@ export interface ArchitectureLayer {
   id: string;
   titleKey: string; // i18n key for layer title
   subtitleKey?: string; // i18n key for subtitle
-  level: 1 | 2 | 3 | 4; // Layer level for styling
+  level: 1 | 2 | 3 | 4 | 5; // Layer level for styling
   cards?: ArchitectureCard[];
   groups?: CardGroup[]; // For grouped cards (AI Apps layer)
 }
+
+// Layer 5: Agent OS Layer (Intelligent Orchestration & User Entry)
+const agentOsLayer: ArchitectureLayer = {
+  id: 'agentOs',
+  titleKey: 'admin.architecture.layers.agentOs',
+  subtitleKey: 'admin.architecture.layers.agentOsDesc',
+  level: 5,
+  cards: [
+    {
+      id: 'aiAskEntry',
+      i18nKey: 'nav.aiAsk',
+      descriptionKey: 'admin.architecture.cards.aiAskEntryDesc',
+      icon: MessageSquare,
+      clickable: false,
+    },
+    {
+      id: 'agents',
+      i18nKey: 'admin.nav.agents',
+      descriptionKey: 'admin.architecture.cards.agentsDesc',
+      href: '/admin/ai/agents',
+      icon: Cpu,
+      clickable: true,
+    },
+    {
+      id: 'intentRouter',
+      i18nKey: 'admin.architecture.cards.intentRouter',
+      descriptionKey: 'admin.architecture.cards.intentRouterDesc',
+      icon: TrendingUp,
+      clickable: false,
+    },
+  ],
+};
 
 // Layer 4: Open API Layer (External Interfaces)
 const openApiLayer: ArchitectureLayer = {
@@ -185,6 +218,12 @@ const aiAppsLayer: ArchitectureLayer = {
           icon: Image,
           clickable: false,
         },
+        {
+          id: 'aiSocial',
+          i18nKey: 'nav.aiSocial',
+          icon: Share2,
+          clickable: false,
+        },
       ],
     },
     {
@@ -201,18 +240,6 @@ const aiAppsLayer: ArchitectureLayer = {
           id: 'aiSkills',
           i18nKey: 'nav.aiSkills',
           icon: Lightbulb,
-          clickable: false,
-        },
-      ],
-    },
-    {
-      id: 'mainEntry',
-      titleKey: 'nav.aiAsk',
-      cards: [
-        {
-          id: 'aiAsk',
-          i18nKey: 'nav.aiAsk',
-          icon: MessageSquare,
           clickable: false,
         },
       ],
@@ -379,6 +406,7 @@ const infrastructureLayer: ArchitectureLayer = {
 
 // Export all layers in order (top to bottom)
 export const ARCHITECTURE_LAYERS: ArchitectureLayer[] = [
+  agentOsLayer,
   openApiLayer,
   aiAppsLayer,
   aiEngineLayer,
@@ -387,8 +415,18 @@ export const ARCHITECTURE_LAYERS: ArchitectureLayer[] = [
 
 // Layer styling configurations - enhanced visual design
 export const LAYER_STYLES = {
+  5: {
+    // Agent OS - Indigo/Cyan theme (top layer)
+    badge: 'bg-cyan-100 text-cyan-700',
+    border: 'border-cyan-200',
+    accent: 'text-cyan-600',
+    bg: 'bg-gradient-to-br from-cyan-50/80 to-sky-50/50',
+    accentBar: 'bg-gradient-to-b from-cyan-500 to-sky-600',
+    iconBg: 'bg-cyan-100 text-cyan-600',
+    hoverBorder: 'hover:border-cyan-300',
+  },
   4: {
-    // Open API - Orange theme (top layer)
+    // Open API - Orange theme
     badge: 'bg-orange-100 text-orange-700',
     border: 'border-orange-200',
     accent: 'text-orange-600',

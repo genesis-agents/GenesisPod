@@ -3047,7 +3047,11 @@
       "notifications": "通知管理",
       "logs": "日志管理",
       "monitoring": "监控管理",
-      "mcpServer": "MCP 服务"
+      "mcpServer": "MCP 服务",
+      "agents": "Agent 管理",
+      "approvals": "审批管理",
+      "eval": "评估管理",
+      "researchTemplates": "研究模板"
     },
     "mcpServer": {
       "title": "MCP 服务",
@@ -3880,6 +3884,8 @@
       "subtitle": "点击可配置的卡片进入管理设置",
       "backToOverview": "返回架构图",
       "layers": {
+        "agentOs": "第五层：Agent OS",
+        "agentOsDesc": "智能编排与用户入口，意图路由到各 AI 应用模块",
         "openApi": "第四层：开放 API",
         "openApiDesc": "面向 AI Agent 和第三方的外部接口",
         "aiApps": "第三层：AI 应用",
@@ -3896,6 +3902,10 @@
         "systemOps": "系统运维"
       },
       "cards": {
+        "aiAskEntryDesc": "对话入口，通过 Agent OS 路由到合适的 AI 应用",
+        "agentsDesc": "Agent 注册表，管理已注册的 AI Agent 配置",
+        "intentRouter": "意图路由",
+        "intentRouterDesc": "解析用户意图，自动调度到对应 AI 应用模块",
         "mcpServerDesc": "面向 AI Agent 的 MCP 协议端点",
         "webhooks": "Webhooks",
         "webhooksDesc": "向外部系统推送事件通知"
