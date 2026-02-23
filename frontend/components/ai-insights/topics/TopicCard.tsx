@@ -272,11 +272,8 @@ export function TopicCard({
 
   // ★ 判断是否是自己的专题
   const isOwnTopic = currentUserId && topic.userId === currentUserId;
-  // ★ 判断是否显示申请加入按钮：非自己的 SHARED/PUBLIC 专题
-  const canApply =
-    !isOwnTopic &&
-    topic.visibility &&
-    ['SHARED', 'PUBLIC'].includes(topic.visibility);
+  // ★ 判断是否显示申请加入按钮：非自己的 SHARED 专题（PUBLIC 已公开可访问，无需申请）
+  const canApply = !isOwnTopic && topic.visibility === 'SHARED';
 
   // ★ 点击可见性标签打开共享设置弹窗
   const handleVisibilityClick = (e: React.MouseEvent) => {
