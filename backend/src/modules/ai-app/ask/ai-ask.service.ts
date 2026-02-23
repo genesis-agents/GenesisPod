@@ -1146,7 +1146,6 @@ export class AiAskService {
     userInput: string,
     plan: import("../../ai-engine/orchestration/services/task-planner.service").TaskPlan,
   ): SuggestedAction[] {
-    const encodedInput = encodeURIComponent(userInput);
     const seen = new Set<string>();
     const actions: SuggestedAction[] = [];
 
@@ -1160,6 +1159,11 @@ export class AiAskService {
 
       const config = capabilityMap.get(step.module);
       if (!config?.urlTemplate) continue;
+
+      // 优先用 LLM 从对话中提取的精炼话题（step.input），
+      // 而非原始用户消息（userInput），避免把长消息作为话题名
+      const topicInput = step.input?.trim() || userInput;
+      const encodedInput = encodeURIComponent(topicInput);
 
       seen.add(step.module);
       actions.push({
