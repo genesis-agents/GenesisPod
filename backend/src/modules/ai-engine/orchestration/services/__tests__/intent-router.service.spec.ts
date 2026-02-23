@@ -96,6 +96,63 @@ describe("IntentRouterService", () => {
     });
   });
 
+  describe("route() — insight module", () => {
+    it("'洞察一下 Agent OS' → insight module, no confirmation", async () => {
+      await build(
+        JSON.stringify({
+          capabilities: [
+            {
+              module: "insight",
+              action: "专题洞察",
+              input: "Agent OS",
+              priority: 1,
+            },
+          ],
+          confidence: 0.85,
+          reasoning: "user wants deep insights into Agent OS",
+        }),
+      );
+
+      const result = await service.route("洞察一下 Agent OS", CTX);
+      expect(result.plan.steps).toHaveLength(1);
+      expect(result.plan.steps[0].module).toBe("insight");
+      expect(result.requiresConfirmation).toBe(false);
+      expect(result.plan.confidence).toBe(0.85);
+    });
+
+    it("insight + writing → dag plan with dependency", async () => {
+      await build(
+        JSON.stringify({
+          capabilities: [
+            {
+              module: "insight",
+              action: "专题洞察",
+              input: "Agent OS",
+              priority: 1,
+            },
+            {
+              module: "writing",
+              action: "写分析报告",
+              input: "Agent OS 洞察报告",
+              priority: 2,
+            },
+          ],
+          confidence: 0.88,
+        }),
+      );
+
+      const result = await service.route(
+        "洞察 Agent OS 然后写一篇分析报告",
+        CTX,
+      );
+      expect(result.plan.steps).toHaveLength(2);
+      const writingStep = result.plan.steps.find(
+        (s) => s.module === "writing",
+      )!;
+      expect(writingStep.dependsOn.length).toBeGreaterThan(0);
+    });
+  });
+
   describe("route() — error resilience", () => {
     it("LLM returns malformed JSON → fallback to ask plan", async () => {
       await build("Sorry, I cannot process this request.");

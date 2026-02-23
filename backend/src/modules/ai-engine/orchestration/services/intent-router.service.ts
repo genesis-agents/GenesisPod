@@ -132,7 +132,7 @@ const MODULE_REGISTRY_DATA: Record<
   },
   insight: {
     description:
-      "Topic intelligence & monitoring. Use when the user wants to monitor a topic, track trends, or get ongoing intelligence reports on a subject.",
+      "Deep topic insight & intelligence. Use when the user wants to gain deep insights into a specific topic, conduct multi-dimensional analysis, understand industry dynamics, explore a subject comprehensively, or produce a topic intelligence report. Trigger words: 洞察, 分析, 深度了解, 研究某个话题的多维度, 专题, insight, analyse.",
     phase: 1,
     label: "专题洞察",
     iconName: "TrendingUp",
@@ -166,7 +166,8 @@ Rules:
 3. writing, teams, image, and office are "content generation" and run in phase 2 (after phase 1).
 4. Set priority: 1 = highest importance, higher number = lower priority.
 5. confidence: 0.9 = very clear intent, 0.7 = reasonable guess, 0.5 = uncertain, use "ask" as fallback.
-6. If the intent is simple conversation or unclear, output only one capability: ask with confidence <= 0.6.
+6. If the intent is simple conversation or unclear, output only one capability: ask with confidence < 0.6.
+7. When the user says "洞察" / "深度分析" / "insight into" / "analyse" / "专题" about a subject, always route to "insight" with confidence >= 0.8.
 
 Respond ONLY with valid JSON matching this schema:
 {
