@@ -1124,12 +1124,13 @@ export class AiAskService {
         sessionId,
       });
 
-      if (result.plan.confidence < 0.65) return [];
+      if (result.plan.confidence < IntentRouterService.CONFIRMATION_THRESHOLD)
+        return [];
 
       return this.buildSuggestedActions(userInput, result.plan);
     } catch (err) {
-      this.logger.debug(
-        `[detectIntent] Silent failure: ${err instanceof Error ? err.message : String(err)}`,
+      this.logger.warn(
+        `[detectIntent] Intent detection failed: ${err instanceof Error ? err.message : String(err)}`,
       );
       return [];
     }
@@ -1158,7 +1159,7 @@ export class AiAskService {
       if (seen.has(step.module)) continue;
 
       const config = capabilityMap.get(step.module);
-      if (!config) continue;
+      if (!config?.urlTemplate) continue;
 
       seen.add(step.module);
       actions.push({

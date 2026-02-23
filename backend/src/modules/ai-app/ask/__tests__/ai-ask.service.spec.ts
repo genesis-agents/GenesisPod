@@ -103,6 +103,40 @@ describe("AiAskService", () => {
       sessionMemoryGet: jest.fn().mockResolvedValue(undefined),
       sessionMemorySet: jest.fn().mockResolvedValue(undefined),
       sessionMemoryClear: jest.fn().mockResolvedValue(undefined),
+      listModuleCapabilities: jest.fn().mockReturnValue([
+        {
+          module: "research",
+          description: "Deep research",
+          phase: 1,
+          label: "启动深度研究",
+          iconName: "Search",
+          urlTemplate: "/ai-research?q={input}",
+        },
+        {
+          module: "image",
+          description: "Image generation",
+          phase: 2,
+          label: "生成图片",
+          iconName: "Image",
+          urlTemplate: "/ai-image?q={input}",
+        },
+        {
+          module: "writing",
+          description: "Long-form writing",
+          phase: 2,
+          label: "开始写作",
+          iconName: "PenLine",
+          urlTemplate: "/ai-writing?q={input}",
+        },
+        {
+          module: "ask",
+          description: "Quick Q&A",
+          phase: 1,
+          label: "智能问答",
+          iconName: "MessageSquare",
+          urlTemplate: "/ai-ask?q={input}",
+        },
+      ]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -361,6 +395,232 @@ describe("AiAskService", () => {
       const result = service.getAvailableTools();
 
       expect(result).toEqual([]);
+    });
+  });
+
+  // =========================================================================
+  // detectIntent (private — tested via direct instance access)
+  // =========================================================================
+
+  describe("detectIntent", () => {
+    const mockRouter = { route: jest.fn() };
+
+    beforeEach(() => {
+      (service as any).intentRouterService = mockRouter;
+    });
+
+    afterEach(() => {
+      mockRouter.route.mockReset();
+    });
+
+    it("returns empty array when intentRouterService is unavailable", async () => {
+      (service as any).intentRouterService = undefined;
+      const result = await (service as any).detectIntent(
+        "hello",
+        "user-1",
+        "sess-1",
+      );
+      expect(result).toEqual([]);
+    });
+
+    it("returns empty array when confidence is below CONFIRMATION_THRESHOLD (0.6)", async () => {
+      mockRouter.route.mockResolvedValue({
+        plan: {
+          steps: [
+            {
+              module: "research",
+              action: "研究",
+              input: "AI",
+              dependsOn: [],
+              priority: 1,
+            },
+          ],
+          confidence: 0.55,
+          executionMode: "sequential",
+        },
+        requiresConfirmation: true,
+      });
+
+      const result = await (service as any).detectIntent(
+        "研究 AI",
+        "user-1",
+        "sess-1",
+      );
+      expect(result).toEqual([]);
+    });
+
+    it("returns action cards when confidence >= CONFIRMATION_THRESHOLD", async () => {
+      mockRouter.route.mockResolvedValue({
+        plan: {
+          steps: [
+            {
+              module: "research",
+              action: "深度研究",
+              input: "AI trends",
+              dependsOn: [],
+              priority: 1,
+            },
+          ],
+          confidence: 0.8,
+          executionMode: "sequential",
+        },
+        requiresConfirmation: false,
+      });
+
+      const result = await (service as any).detectIntent(
+        "研究 AI 趋势",
+        "user-1",
+        "sess-1",
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].module).toBe("research");
+      expect(result[0].url).toContain("/ai-research");
+    });
+
+    it("returns action cards at exactly CONFIRMATION_THRESHOLD (boundary)", async () => {
+      mockRouter.route.mockResolvedValue({
+        plan: {
+          steps: [
+            {
+              module: "image",
+              action: "生成图片",
+              input: "sunset",
+              dependsOn: [],
+              priority: 1,
+            },
+          ],
+          confidence: 0.6, // exactly at threshold
+          executionMode: "sequential",
+        },
+        requiresConfirmation: false,
+      });
+
+      const result = await (service as any).detectIntent(
+        "画一张日落图片",
+        "user-1",
+        "sess-1",
+      );
+      expect(result).toHaveLength(1);
+    });
+
+    it("returns empty array and logs warn when route() throws", async () => {
+      const warnSpy = jest
+        .spyOn((service as any).logger, "warn")
+        .mockImplementation();
+      mockRouter.route.mockRejectedValue(new Error("LLM timeout"));
+
+      const result = await (service as any).detectIntent(
+        "hello",
+        "user-1",
+        "sess-1",
+      );
+      expect(result).toEqual([]);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[detectIntent]"),
+      );
+    });
+  });
+
+  // =========================================================================
+  // buildSuggestedActions (private — tested via direct instance access)
+  // =========================================================================
+
+  describe("buildSuggestedActions", () => {
+    type StepLike = {
+      id: string;
+      module: string;
+      action: string;
+      input: string;
+      dependsOn: string[];
+      priority: number;
+    };
+    type PlanLike = { steps: StepLike[]; confidence: number };
+
+    const makePlan = (modules: string[]): PlanLike => ({
+      steps: modules.map((m, i) => ({
+        id: `step-${i}`,
+        module: m,
+        action: "任务",
+        input: "AI",
+        dependsOn: [],
+        priority: i + 1,
+      })),
+      confidence: 0.9,
+    });
+
+    it("filters out ask module", () => {
+      const result = (service as any).buildSuggestedActions(
+        "hello",
+        makePlan(["ask", "research"]),
+      );
+      const modules = result.map((a: { module: string }) => a.module);
+      expect(modules).not.toContain("ask");
+      expect(modules).toContain("research");
+    });
+
+    it("deduplicates same module appearing multiple times", () => {
+      const result = (service as any).buildSuggestedActions(
+        "AI",
+        makePlan(["research", "research", "image"]),
+      );
+      const modules = result.map((a: { module: string }) => a.module);
+      expect(modules.filter((m: string) => m === "research")).toHaveLength(1);
+    });
+
+    it("caps output at 3 actions", () => {
+      const result = (service as any).buildSuggestedActions(
+        "test",
+        makePlan(["research", "image", "writing", "research"]),
+      );
+      expect(result).toHaveLength(3);
+    });
+
+    it("replaces {input} placeholder with encoded user input", () => {
+      const input = "AI 趋势";
+      const result = (service as any).buildSuggestedActions(
+        input,
+        makePlan(["research"]),
+      );
+      expect(result[0].url).toContain(encodeURIComponent(input));
+      expect(result[0].url).not.toContain("{input}");
+    });
+
+    it("skips modules with missing or empty urlTemplate", () => {
+      mockFacade.listModuleCapabilities.mockReturnValue([
+        {
+          module: "research",
+          description: "Research",
+          phase: 1,
+          label: "研究",
+          iconName: "Search",
+          urlTemplate: "", // falsy — should be skipped
+        },
+        {
+          module: "image",
+          description: "Image",
+          phase: 2,
+          label: "图片",
+          iconName: "Image",
+          urlTemplate: "/ai-image?q={input}",
+        },
+      ]);
+      const result = (service as any).buildSuggestedActions(
+        "test",
+        makePlan(["research", "image"]),
+      );
+      const modules = result.map((a: { module: string }) => a.module);
+      expect(modules).not.toContain("research");
+      expect(modules).toContain("image");
+    });
+
+    it("skips unknown modules not present in capability map", () => {
+      const result = (service as any).buildSuggestedActions(
+        "test",
+        makePlan(["unknownModule", "research"]),
+      );
+      const modules = result.map((a: { module: string }) => a.module);
+      expect(modules).not.toContain("unknownModule");
+      expect(modules).toContain("research");
     });
   });
 });

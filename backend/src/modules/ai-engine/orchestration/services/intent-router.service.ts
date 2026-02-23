@@ -117,7 +117,7 @@ const MODULE_REGISTRY_DATA: Record<
   image: {
     description:
       "AI image generation. Use when the user wants to generate, create, or draw images, illustrations, or visual content.",
-    phase: 1,
+    phase: 2,
     label: "生成图片",
     iconName: "Image",
     urlTemplate: "/ai-image?q={input}",
@@ -162,8 +162,8 @@ ${buildModuleListPrompt()}
 
 Rules:
 1. A task may require multiple modules (e.g., research then writing).
-2. research and ask are "information gathering" and run in phase 1.
-3. writing and teams are "content generation" and run in phase 2 (after phase 1).
+2. research, ask, and insight are "information gathering" and run in phase 1.
+3. writing, teams, image, and office are "content generation" and run in phase 2 (after phase 1).
 4. Set priority: 1 = highest importance, higher number = lower priority.
 5. confidence: 0.9 = very clear intent, 0.7 = reasonable guess, 0.5 = uncertain, use "ask" as fallback.
 6. If the intent is simple conversation or unclear, output only one capability: ask with confidence <= 0.6.
@@ -189,8 +189,8 @@ Respond ONLY with valid JSON matching this schema:
 export class IntentRouterService {
   private readonly logger = new Logger(IntentRouterService.name);
 
-  /** 低于此置信度时建议向用户确认 */
-  private static readonly CONFIRMATION_THRESHOLD = 0.6;
+  /** 低于此置信度时建议向用户确认（同时作为 AI Ask 层生成 ActionCards 的下限） */
+  static readonly CONFIRMATION_THRESHOLD = 0.6;
 
   /** 所有模块的统一注册表（单一数据来源） */
   static readonly MODULE_REGISTRY = MODULE_REGISTRY_DATA;
