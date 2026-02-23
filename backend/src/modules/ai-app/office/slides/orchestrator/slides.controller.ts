@@ -68,6 +68,7 @@ import {
   RateLimitGuard,
   RateLimit,
 } from "../../../../../common/guards/rate-limit.guard";
+import { Public } from "../../../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../../../common/types/express-request.types";
 import { BillingContext } from "../../../../credits/billing-context";
 import { Prisma } from "@prisma/client"; // needed for Prisma.JsonNull
@@ -231,8 +232,9 @@ export class SlidesController {
   // ============================================
 
   /**
-   * 获取可用主题列表
+   * 获取可用主题列表（公开接口，不需要登录）
    */
+  @Public()
   @Get("themes/list")
   async getThemesList() {
     this.logger.log("[getThemesList] Fetching available themes");
