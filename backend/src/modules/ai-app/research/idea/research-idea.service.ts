@@ -478,18 +478,28 @@ ${discussionContent}`;
       where: { projectId, type: ResearchIdeaType.CREATIVE_IDEA },
     });
 
+    // Re-query valid insight IDs from DB to avoid FK violation from stale in-memory data
+    // (the LLM call above takes time; insights could have been modified/deleted meanwhile)
+    const validInsightIds = new Set(
+      (
+        await this.prisma.researchIdea.findMany({
+          where: { projectId, type: ResearchIdeaType.INSIGHT },
+          select: { id: true },
+        })
+      ).map((r) => r.id),
+    );
+
     // Save creative ideas
     const ideaData = creativeIdeas.map((idea) => {
-      // Find the first matching source insight ID
       const sourceId = idea.sourceInsightIds.find((id) =>
-        insights.some((i) => i.id === id),
+        validInsightIds.has(id),
       );
       return {
         projectId,
         title: idea.title,
         description: idea.concept,
         type: ResearchIdeaType.CREATIVE_IDEA,
-        sourceInsightId: sourceId || null,
+        sourceInsightId: sourceId ?? null,
         tags: [idea.dimension],
         metadata: {
           concept: idea.concept,
