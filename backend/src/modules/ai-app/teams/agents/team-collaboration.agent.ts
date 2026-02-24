@@ -8,7 +8,7 @@
  * - DAGExecutor: 工作流编排
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import {
   PlanBasedAgent,
   BUILTIN_AGENTS,
@@ -22,8 +22,6 @@ import {
   BUILTIN_TOOLS,
   PlanStep,
 } from "../../../ai-engine/core/types/agent.types";
-import { VotingManager } from "../../../ai-engine/collaboration/patterns/voting-pattern";
-import { HandoffCoordinator } from "../../../ai-engine/collaboration/patterns/handoff-pattern";
 
 /**
  * 团队协作任务类型
@@ -161,25 +159,8 @@ export class TeamCollaborationAgent extends PlanBasedAgent {
     "collaboration",
   ];
 
-  constructor(
-    @Optional() private readonly votingManager?: VotingManager,
-    @Optional() private readonly handoffCoordinator?: HandoffCoordinator,
-  ) {
+  constructor() {
     super();
-  }
-
-  /**
-   * 获取投票管理器（用于共识投票流程）
-   */
-  protected getVotingManager(): VotingManager | undefined {
-    return this.votingManager;
-  }
-
-  /**
-   * 获取交接协调器（用于任务交接流程）
-   */
-  protected getHandoffCoordinator(): HandoffCoordinator | undefined {
-    return this.handoffCoordinator;
   }
 
   /**
@@ -631,7 +612,10 @@ export class TeamCollaborationAgent extends PlanBasedAgent {
       previousResult: Record<string, unknown>;
       contributions: Array<Record<string, unknown>>;
     },
-  ): Promise<{ data?: Record<string, unknown>; contribution?: Record<string, unknown> }> {
+  ): Promise<{
+    data?: Record<string, unknown>;
+    contribution?: Record<string, unknown>;
+  }> {
     const { topicId: _topicId, taskType } = context;
 
     // 根据工具类型模拟执行
