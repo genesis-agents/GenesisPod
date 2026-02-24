@@ -434,8 +434,10 @@ export class AiSimulationService {
 
     // Store intervention in run params
     const updatedParams = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
       ...(run.params as Record<string, any> | null),
       interventions: [
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
         ...((run.params as Record<string, any> | null)?.interventions || []),
         interventionRecord,
       ],
@@ -443,8 +445,10 @@ export class AiSimulationService {
 
     // Also store in worldState for frontend display
     const updatedWorldState = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
       ...(run.worldState as Record<string, any> | null),
       interventions: [
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
         ...((run.worldState as Record<string, any> | null)?.interventions ||
           []),
         interventionRecord,

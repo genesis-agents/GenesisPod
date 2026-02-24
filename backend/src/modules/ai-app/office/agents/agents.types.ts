@@ -17,6 +17,7 @@ export interface AgentInput {
   }>;
   urls?: string[];
   resourceIds?: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- open-ended agent options bag; shape varies by step type
   options?: Record<string, any>;
 }
 

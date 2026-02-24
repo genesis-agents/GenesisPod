@@ -287,17 +287,20 @@ ${content.substring(0, 10000)}${content.length > 10000 ? "\n...(内容已截断)
     aiCaller?: AiCallerFn,
   ): Promise<{ content: string; tokensUsed: number }> {
     const startTime = Date.now();
-    // ★ 优先使用 taskProfile，否则使用 legacy 参数
+    // ★ 优先使用 taskProfile；legacy temperature/maxTokens 仍被透传以保持向后兼容，
+    //    但当两者均未提供时，使用 taskProfile 替代硬编码默认值
     const opts: {
       maxTokens?: number;
       temperature?: number;
       taskProfile?: TaskProfile;
     } = options?.taskProfile
       ? { taskProfile: options.taskProfile }
-      : {
-          maxTokens: options?.maxTokens || 4000,
-          temperature: options?.temperature ?? 0.7,
-        };
+      : options?.temperature !== undefined || options?.maxTokens !== undefined
+        ? {
+            maxTokens: options.maxTokens,
+            temperature: options.temperature,
+          }
+        : { taskProfile: { creativity: "low", outputLength: "medium" } };
 
     try {
       let result: { content: string; tokensUsed: number };

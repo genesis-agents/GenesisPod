@@ -109,9 +109,16 @@ module.exports = {
         "**/*.config.ts",
         // Skill implementations extend engine skill base classes
         "**/skills/*.skill.ts",
-        // Re-export adapter files (direct engine imports justified — re-exporting engine internals to app layer)
+        // Re-export / bridge adapter files (direct engine imports justified)
         "**/office/common/content-analysis.service.ts",
+        "**/office/common/content-analysis.types.ts",
         "**/office/common/image-matching.service.ts",
+        // WritingAgentRegistry bridges IAgent/AgentOutput/AgentEvent from agent.interface to the writing module;
+        // facade exports a different AgentOutput (facade.types.ts) so re-export is not possible without a name clash
+        "**/writing/registry/writing-agent-registry.ts",
+        // TokenBudget shim re-exports ModelConfig/TokenBudget/ContentPriority/BudgetAllocation from orchestration;
+        // these types are implementation-specific and would introduce confusion if added to the public facade API
+        "**/teams/services/collaboration/context/token-budget.service.ts",
       ],
       rules: {
         "no-restricted-imports": [
@@ -194,6 +201,13 @@ module.exports = {
               // ════════════════════════════════════════════════════════════
               // ★ SECTION 5: Orchestration internals
               // ════════════════════════════════════════════════════════════
+              // Barrel index (covers 'import ... from ".../orchestration/services"'):
+              {
+                group: ["**/ai-engine/orchestration/services"],
+                message:
+                  "Import orchestration types from 'ai-engine/facade'. " +
+                  "Use AIEngineFacade getters instead of the barrel index.",
+              },
               // Specific services with dedicated facade accessors:
               {
                 group: [

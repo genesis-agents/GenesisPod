@@ -29,6 +29,7 @@ export interface AddDocumentInput {
   sourceUrl?: string;
   mimeType?: string;
   content: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- document metadata shape varies by ingestion source
   metadata?: Record<string, any>;
 }
 

@@ -336,6 +336,7 @@ export class AiSimulationController {
             roundNumber: latestTurn.roundNumber,
             adjudication: latestTurn.adjudication,
             hasBlackSwan: !!(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; adjudication shape varies by round
               latestTurn.adjudication as Record<string, any> | null
             )?.blackSwanEvent,
           };

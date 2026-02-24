@@ -22,5 +22,6 @@ export class UpdateTopicDto {
   avatar?: string;
 
   @IsOptional()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- open-ended settings bag; shape varies by team configuration
   settings?: Record<string, any>;
 }

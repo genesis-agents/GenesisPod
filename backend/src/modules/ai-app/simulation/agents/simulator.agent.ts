@@ -540,6 +540,7 @@ export class SimulatorAgent extends PlanBasedAgent {
   private calculateWorldState(
     previousRounds: SimulationRound[],
     _currentActions: TeamAction[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- world state is an open domain-specific dynamic record
   ): Record<string, any> {
     // 简化实现：返回基本状态
     return {
@@ -660,6 +661,7 @@ interface SimulationRound {
   roundNumber: number;
   actions: TeamAction[];
   blackSwanEvent?: BlackSwanEvent;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column; world state shape is domain-specific
   worldState: Record<string, any>;
   timestamp: string;
 }

@@ -12,6 +12,7 @@ import { BrowserService } from "../../../../common/browser/browser.service";
 export { SessionData };
 
 // Playwright types - will be properly typed when playwright-core is installed
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Playwright Page type alias; playwright-core not installed as direct dep
 type Page = any;
 
 // Platform login configuration

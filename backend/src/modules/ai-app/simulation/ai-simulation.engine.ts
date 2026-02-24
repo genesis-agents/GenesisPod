@@ -438,7 +438,9 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
 
     let currentRound = options?.resume ? run.currentRound || 0 : 0;
     const humanBreakEvery =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
       (run.params as Record<string, any> | null)?.humanBreakEvery !== undefined
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
         ? (run.params as Record<string, any> | null)?.humanBreakEvery
         : 2;
 
@@ -446,6 +448,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
       currentRound += 1;
       const turn = await this.processRound(run.id, currentRound);
       this.logger.log(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
         `[Simulation] Run ${run.id} finished round ${currentRound}, ruling=${(turn.adjudication as Record<string, any> | null)?.ruling}`,
       );
 
@@ -499,7 +502,9 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
     const submissions: Array<Record<string, unknown>> = [];
     const worldState = (run.worldState as Record<string, unknown> | null) || {};
     const irrationalProb =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
       (run.params as Record<string, any> | null)?.irrationalProb !== undefined
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
         ? (run.params as Record<string, any> | null)?.irrationalProb
         : 0.2;
     const chaosInjectedTeam =
@@ -529,6 +534,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
         chaosInjectedTeam &&
         isChaos &&
         Math.random() <
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
           ((run.params as Record<string, any> | null)?.chaosProb ?? 0.3);
 
       const submission = {
@@ -667,7 +673,9 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
 
     // Chaos / Black Swan toggle based on params
     const chaosProb =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
       (run.params as Record<string, any> | null)?.chaosProb ??
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
       (run.params as Record<string, any> | null)?.blackSwanProb ??
       0.1;
     const chaosTriggered = Math.random() < chaosProb;
@@ -801,6 +809,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
     const blackSwanEvents: unknown[] = [];
 
     // Missing data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column cast; runtime shape is untyped
     const worldState = (run.worldState as Record<string, any>) || {};
     const missing = ["market", "finance", "news", "regulation"].filter(
       (p) => !worldState[p] || worldState[p]?.error,

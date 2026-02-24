@@ -193,6 +193,9 @@ import { MemorySubFacade } from "./sub-facades/memory.sub-facade";
 import { AgentSubFacade } from "./sub-facades/agent.sub-facade";
 import { ToolExecSubFacade } from "./sub-facades/tool-exec.sub-facade";
 
+/** Skills 系统提示词 Token 预算（对应 TaskProfile outputLength="medium" 的 4000 tokens） */
+const SKILLS_PROMPT_TOKEN_BUDGET = 4000;
+
 /** 敏感词过滤列表（基础版） */
 const SENSITIVE_PATTERNS = [
   /password\s*[:=]\s*\S+/gi,
@@ -1018,14 +1021,14 @@ export class AIEngineFacade {
       taskType: request.taskType,
       domain: request.domain,
       additionalSkillIds: request.additionalSkills,
-      maxTokenBudget: 4000, // 默认 Skills Token 预算
+      maxTokenBudget: SKILLS_PROMPT_TOKEN_BUDGET,
     });
 
     // 2. 组装 System Prompt
     this.logger.log(`[Skills] Step 2: Building System Prompt...`);
     const buildResult = this.skills?.promptBuilder.buildSystemPrompt(skills, {
       context: request.skillContext,
-      maxTokens: 4000,
+      maxTokens: SKILLS_PROMPT_TOKEN_BUDGET,
       includeMetadata: false,
     });
 

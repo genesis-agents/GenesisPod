@@ -303,6 +303,7 @@ ${evidenceContent.substring(0, 3000)}
         taskProfile: { creativity: "low", outputLength: "medium" },
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- extractJsonFromAIResponse generic; result shape validated at runtime
       const result = extractJsonFromAIResponse<any>(response.content);
 
       if (!result.success || !result.data) {

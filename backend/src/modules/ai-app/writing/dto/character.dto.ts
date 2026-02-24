@@ -26,10 +26,12 @@ export class CreateCharacterDto {
 
   @IsOptional()
   @IsObject()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- character appearance is an open DTO; shape varies by character type
   appearance?: Record<string, any>;
 
   @IsOptional()
   @IsObject()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- character personality is an open DTO; shape varies by character type
   personality?: Record<string, any>;
 
   @IsOptional()
@@ -44,6 +46,7 @@ export class CreateCharacterDto {
 
   @IsOptional()
   @IsObject()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- character current state is an open DTO; shape varies at runtime
   currentState?: Record<string, any>;
 }
 
@@ -64,10 +67,12 @@ export class UpdateCharacterDto {
 
   @IsOptional()
   @IsObject()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- character appearance is an open DTO; shape varies by character type
   appearance?: Record<string, any>;
 
   @IsOptional()
   @IsObject()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- character personality is an open DTO; shape varies by character type
   personality?: Record<string, any>;
 
   @IsOptional()
@@ -82,6 +87,7 @@ export class UpdateCharacterDto {
 
   @IsOptional()
   @IsObject()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- character current state is an open DTO; shape varies at runtime
   currentState?: Record<string, any>;
 }
 
