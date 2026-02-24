@@ -132,6 +132,17 @@ import type {
   MemoryQuery,
   MemoryContext,
 } from "../memory/memory-coordinator.service";
+import { ReflectionService } from "../orchestration/services/reflection.service";
+import type {
+  ReflectionInput,
+  ReflectionResult,
+  ReflectionConfig,
+} from "../orchestration/services/reflection.service";
+import { ContextCompressionService } from "../orchestration/services/context-compression.service";
+import type {
+  CompressionOptions,
+  CompressionResult,
+} from "../orchestration/services/interfaces";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)
 import { ModelSubFacade } from "./sub-facades/model.sub-facade";
@@ -236,6 +247,9 @@ export class AIEngineFacade {
     @Optional() private readonly memoryCoordinator?: MemoryCoordinatorService,
     @Optional() private readonly intentRouterService?: IntentRouterService,
     @Optional() private readonly a2aBusService?: A2AMessageBusService,
+    @Optional() private readonly reflectionService?: ReflectionService,
+    @Optional()
+    private readonly contextCompressionService?: ContextCompressionService,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -275,6 +289,8 @@ export class AIEngineFacade {
       memoryCoordinator: !!this.memoryCoordinator,
       intentRouter: !!this.intentRouterService,
       a2aBus: !!this.a2aBusService,
+      reflection: !!this.reflectionService,
+      contextCompression: !!this.contextCompressionService,
     };
 
     this.logger.log(
@@ -2548,5 +2564,25 @@ export class AIEngineFacade {
   /** 清理 A2A 会话（释放订阅和历史消息） */
   a2aClearSession(sessionId: string): void {
     this.a2aBusService?.clearSession(sessionId);
+  }
+
+  // ==================== 反思（Reflection）====================
+
+  /** 对当前执行状态进行质量反思，返回评分、缺口和决策 */
+  reflect(
+    input: ReflectionInput,
+    config?: ReflectionConfig,
+  ): Promise<ReflectionResult> | undefined {
+    return this.reflectionService?.reflect(input, config);
+  }
+
+  // ==================== 上下文压缩（ContextCompression）====================
+
+  /** 压缩大上下文到目标大小，保留关键信息（AI 分块摘要，非简单截断） */
+  aiCompressContext(
+    content: string,
+    options?: CompressionOptions,
+  ): Promise<CompressionResult> | undefined {
+    return this.contextCompressionService?.compress(content, options);
   }
 }

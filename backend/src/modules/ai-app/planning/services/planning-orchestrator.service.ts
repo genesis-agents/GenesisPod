@@ -13,10 +13,6 @@ import { UpdatePlanDto } from "../dto/update-plan.dto";
 import { Prisma, TopicType, AIModelType } from "@prisma/client";
 import { AIEngineFacade } from "../../../ai-engine/facade";
 import type { ChatMessage, TaskProfile } from "../../../ai-engine/facade";
-import {
-  ReflectionService,
-  ContextCompressionService,
-} from "../../../ai-engine/orchestration/services";
 import { BillingContext } from "../../../credits/billing-context";
 
 export interface PlanPhaseStatus {
@@ -142,8 +138,6 @@ export class PlanningOrchestratorService {
     private readonly aiResponseService: AiResponseService,
     private readonly templateService: PlanningTemplateService,
     private readonly aiFacade: AIEngineFacade,
-    private readonly reflectionService: ReflectionService,
-    private readonly contextCompression: ContextCompressionService,
   ) {}
 
   // ==================== Plan CRUD ====================
@@ -829,7 +823,7 @@ export class PlanningOrchestratorService {
       // 7b. Quality gate (STANDARD and COMPREHENSIVE only)
       if (meta.planConfig.depth !== PlanningDepth.QUICK) {
         const qualityDimensions = this.getQualityDimensions(phase);
-        const reflection = await this.reflectionService.reflect(
+        const reflection = await this.aiFacade.reflect(
           {
             objective: `Phase ${phase} (${PHASE_LABELS[phase]}): ${meta.planConfig.goal}`,
             progressSummary: summary.substring(0, 8000),
@@ -840,68 +834,74 @@ export class PlanningOrchestratorService {
           { modelType: AIModelType.CHAT_FAST, completionThreshold: 60 },
         );
 
-        this.logger.log(
-          `Quality gate for phase ${phase}: score=${reflection.qualityScore}, gaps=${reflection.gaps.length}`,
-        );
+        if (!reflection) {
+          this.logger.warn(
+            `[planning] ReflectionService unavailable, skipping quality gate for phase ${phase}`,
+          );
+        } else {
+          this.logger.log(
+            `Quality gate for phase ${phase}: score=${reflection.qualityScore}, gaps=${reflection.gaps.length}`,
+          );
 
-        if (reflection.qualityScore < 50 && reflection.gaps.length > 0) {
-          // Retry with the last agent using quality feedback
-          const lastAgent = agents[agents.length - 1];
-          const retryPrompt = `质量评审反馈（评分：${reflection.qualityScore}/100）：\n${reflection.gaps.map((g) => `- ${g}`).join("\n")}\n\n请针对以上问题修正你的输出。保持原有结构，重点修正评审指出的问题。\n\n---\n\n你之前的输出：\n\n${completedResults[completedResults.length - 1].output}`;
+          if (reflection.qualityScore < 50 && reflection.gaps.length > 0) {
+            // Retry with the last agent using quality feedback
+            const lastAgent = agents[agents.length - 1];
+            const retryPrompt = `质量评审反馈（评分：${reflection.qualityScore}/100）：\n${reflection.gaps.map((g) => `- ${g}`).join("\n")}\n\n请针对以上问题修正你的输出。保持原有结构，重点修正评审指出的问题。\n\n---\n\n你之前的输出：\n\n${completedResults[completedResults.length - 1].output}`;
 
-          const retryMessages: ChatMessage[] = [
-            {
-              role: "system",
-              content:
-                lastAgent.systemPrompt || `你是${lastAgent.displayName}。`,
-            },
-            { role: "user", content: retryPrompt },
-          ];
+            const retryMessages: ChatMessage[] = [
+              {
+                role: "system",
+                content:
+                  lastAgent.systemPrompt || `你是${lastAgent.displayName}。`,
+              },
+              { role: "user", content: retryPrompt },
+            ];
 
-          const retryResponse = await this.aiFacade.chat({
-            messages: retryMessages,
-            modelType: AIModelType.CHAT,
-            taskProfile: this.getTaskProfileForPhase(
-              phase,
-              meta.planConfig.depth,
-            ),
-            model:
-              lastAgent.aiModel !== "default" ? lastAgent.aiModel : undefined,
-            billing: {
-              userId,
-              moduleType: "ai-planning",
-              operationType: `phase-${phase}-retry`,
-              referenceId: planId,
-            },
-          });
+            const retryResponse = await this.aiFacade.chat({
+              messages: retryMessages,
+              modelType: AIModelType.CHAT,
+              taskProfile: this.getTaskProfileForPhase(
+                phase,
+                meta.planConfig.depth,
+              ),
+              model:
+                lastAgent.aiModel !== "default" ? lastAgent.aiModel : undefined,
+              billing: {
+                userId,
+                moduleType: "ai-planning",
+                operationType: `phase-${phase}-retry`,
+                referenceId: planId,
+              },
+            });
 
-          if (!retryResponse.isError) {
-            // Save retry response as message
-            await this.aiResponseService.createAIMessage(
-              planId,
-              lastAgent.id,
-              retryResponse.content,
-              retryResponse.model,
-              retryResponse.tokensUsed,
-            );
+            if (!retryResponse.isError) {
+              // Save retry response as message
+              await this.aiResponseService.createAIMessage(
+                planId,
+                lastAgent.id,
+                retryResponse.content,
+                retryResponse.model,
+                retryResponse.tokensUsed,
+              );
 
-            // Replace summary with improved output
-            if (phase >= 5) {
-              summary = retryResponse.content;
-            } else {
-              // Replace the last agent's output
-              completedResults[completedResults.length - 1].output =
-                retryResponse.content;
-              summary = completedResults
-                .map((r) => `### ${r.agentName}\n\n${r.output}`)
-                .join("\n\n---\n\n");
+              // Replace summary with improved output
+              if (phase >= 5) {
+                summary = retryResponse.content;
+              } else {
+                // Replace the last agent's output
+                completedResults[completedResults.length - 1].output =
+                  retryResponse.content;
+                summary = completedResults
+                  .map((r) => `### ${r.agentName}\n\n${r.output}`)
+                  .join("\n\n---\n\n");
+              }
+
+              this.logger.log(
+                `Quality gate retry completed for phase ${phase}, plan ${planId}`,
+              );
             }
-
-            this.logger.log(
-              `Quality gate retry completed for phase ${phase}, plan ${planId}`,
-            );
           }
-        }
+        } // end else (reflection available)
       }
 
       await this.updatePhaseStatus(planId, phase, {
@@ -1017,11 +1017,13 @@ export class PlanningOrchestratorService {
         let summary = phaseStatus.summary;
         if (summary.length > perPhaseLimit) {
           try {
-            const result = await this.contextCompression.compress(summary, {
+            const result = await this.aiFacade.aiCompressContext(summary, {
               targetSize: perPhaseLimit,
               summaryStyle: i === 2 ? "analytical" : "detailed",
             });
-            summary = result.compressedContext;
+            if (result) {
+              summary = result.compressedContext;
+            }
           } catch (err) {
             this.logger.warn(
               `Context compression failed for phase ${i}, falling back to truncation: ${err instanceof Error ? err.message : err}`,
