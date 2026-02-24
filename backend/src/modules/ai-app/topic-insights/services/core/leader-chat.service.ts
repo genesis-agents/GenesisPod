@@ -11,10 +11,7 @@
 import { Injectable, Logger, forwardRef, Inject } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import {
-  IntentDetectionService,
-  UserIntent,
-} from "@/modules/ai-engine/orchestration/services";
+import { UserIntent } from "@/modules/ai-engine/facade";
 import { LeaderDecisionType, ResearchTaskStatus } from "@prisma/client";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
 import { sanitize } from "../../utils/prompt-sanitizer";
@@ -40,7 +37,6 @@ export class LeaderChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
-    private readonly intentDetectionService: IntentDetectionService,
     private readonly eventEmitter: ResearchEventEmitterService,
     @Inject(forwardRef(() => LeaderToolService))
     private readonly leaderToolService: LeaderToolService,
@@ -110,7 +106,7 @@ export class LeaderChatService {
 
     // 0. 使用 AI Engine 的意图检测服务进行快速预检测
     const intentResult =
-      this.intentDetectionService.detectIntent(sanitizedMessage);
+      this.aiFacade.intentDetector!.detectIntent(sanitizedMessage);
     this.logger.log(
       `[handleUserMessage] Intent detected: ${intentResult.intent} (confidence: ${intentResult.confidence})`,
     );
@@ -1049,20 +1045,24 @@ export class LeaderChatService {
 
       // 6. 获取团队成员配置（从 LeaderPlan）
       let teamMembersText = "团队尚未组建";
-      const leaderPlan = mission?.leaderPlan as any | null;
+      const leaderPlan = mission?.leaderPlan as Record<string, unknown> | null;
       if (
         leaderPlan?.agentAssignments &&
+        Array.isArray(leaderPlan.agentAssignments) &&
         leaderPlan.agentAssignments.length > 0
       ) {
-        teamMembersText = leaderPlan.agentAssignments
-          .map((a: any) => {
+        teamMembersText = (
+          leaderPlan.agentAssignments as Record<string, unknown>[]
+        )
+          .map((a) => {
             const parts = [
               `- **${a.agentName || a.agentId}** (${a.agentType})`,
             ];
             if (a.modelId) parts.push(`  - 模型: ${a.modelId}`);
-            if (a.skills?.length)
-              parts.push(`  - 技能: ${a.skills.join(", ")}`);
-            if (a.tools?.length) parts.push(`  - 工具: ${a.tools.join(", ")}`);
+            const skills = a.skills as string[] | undefined;
+            const tools = a.tools as string[] | undefined;
+            if (skills?.length) parts.push(`  - 技能: ${skills.join(", ")}`);
+            if (tools?.length) parts.push(`  - 工具: ${tools.join(", ")}`);
             if (a.role) parts.push(`  - 职责: ${a.role}`);
             return parts.join("\n");
           })

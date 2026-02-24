@@ -176,6 +176,9 @@ import { ContextInitializationService } from "../orchestration/services/context-
 import { TeamFactory } from "../teams/factory/team-factory";
 import { LongContentEngineService } from "../long-content/services/long-content-engine.service";
 import { ContinuationProtocolService } from "../long-content/services/continuation-protocol.service";
+import { MissionOrchestrator } from "../teams/orchestrator/mission-orchestrator";
+import { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
+import { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)
 import { ModelSubFacade } from "./sub-facades/model.sub-facade";
@@ -303,6 +306,9 @@ export class AIEngineFacade {
     private readonly longContentEngineSvc?: LongContentEngineService,
     @Optional()
     private readonly continuationProtocolSvc?: ContinuationProtocolService,
+    @Optional() private readonly missionOrchestratorSvc?: MissionOrchestrator,
+    @Optional() private readonly outputReviewerSvc?: OutputReviewerService,
+    @Optional() private readonly contextEvolutionSvc?: ContextEvolutionService,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -361,6 +367,9 @@ export class AIEngineFacade {
       teamFactory: !!this.teamFactorySvc,
       longContentEngine: !!this.longContentEngineSvc,
       continuationProtocol: !!this.continuationProtocolSvc,
+      missionOrchestrator: !!this.missionOrchestratorSvc,
+      outputReviewer: !!this.outputReviewerSvc,
+      contextEvolution: !!this.contextEvolutionSvc,
     };
 
     this.logger.log(
@@ -2835,5 +2844,25 @@ export class AIEngineFacade {
   /** 获取 VectorService（供 RAG 模块直接使用） */
   get vector(): VectorService | undefined {
     return this.vectorService;
+  }
+
+  /** 获取 MissionOrchestrator（供写作/团队任务编排使用） */
+  get missionOrchestrator(): MissionOrchestrator | undefined {
+    return this.missionOrchestratorSvc;
+  }
+
+  /** 获取 AICapabilityResolver（供需要直接调用 logCapabilityUsage 等方法的使用） */
+  get capabilityResolverService(): AICapabilityResolver | undefined {
+    return this.capabilityResolver;
+  }
+
+  /** 获取 OutputReviewerService（供任务审核使用） */
+  get outputReviewer(): OutputReviewerService | undefined {
+    return this.outputReviewerSvc;
+  }
+
+  /** 获取 ContextEvolutionService（供上下文演进使用） */
+  get contextEvolution(): ContextEvolutionService | undefined {
+    return this.contextEvolutionSvc;
   }
 }

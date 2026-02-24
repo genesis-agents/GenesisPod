@@ -8,10 +8,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import {
-  IntentDetectionService,
-  UserIntent,
-} from "@/modules/ai-engine/orchestration/services";
+import { UserIntent } from "@/modules/ai-engine/facade";
 import {
   LeaderDecisionType,
   ResearchTaskStatus,
@@ -87,7 +84,6 @@ export class ResearchLeaderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
-    private readonly intentDetectionService: IntentDetectionService,
     private readonly eventEmitter: ResearchEventEmitterService,
     private readonly leaderToolService: LeaderToolService,
   ) {}
@@ -553,7 +549,7 @@ export class ResearchLeaderService {
 
     // 0. 使用 AI Engine 的意图检测服务进行快速预检测
     const intentResult =
-      this.intentDetectionService.detectIntent(sanitizedMessage);
+      this.aiFacade.intentDetector!.detectIntent(sanitizedMessage);
     this.logger.log(
       `[handleUserMessage] Intent detected: ${intentResult.intent} (confidence: ${intentResult.confidence})`,
     );

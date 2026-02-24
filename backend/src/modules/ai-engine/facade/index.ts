@@ -24,4 +24,5 @@ export type {
   SimilarityResult,
 } from "../rag/vector/vector.service";
 export { TaskCompletionType } from "../orchestration/services/circuit-breaker.service";
+export { UserIntent } from "../orchestration/services/interfaces";
 export type { TeamInfo } from "../teams/services/teams.service";

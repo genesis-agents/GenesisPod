@@ -224,6 +224,15 @@ export function createMockAiEngineFacade() {
         provider: "deepseek",
         isReasoning: true,
       }),
+
+    intentDetector: {
+      detectIntent: jest.fn().mockReturnValue({
+        intent: "GENERAL_CHAT",
+        confidence: 0.5,
+      }),
+    },
+
+    getAvailableTools: jest.fn().mockReturnValue([]),
   };
 }
 

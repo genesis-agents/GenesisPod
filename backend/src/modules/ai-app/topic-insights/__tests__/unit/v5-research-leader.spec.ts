@@ -12,7 +12,6 @@ describe("ResearchLeaderService - V5 Methods", () => {
     service = new ResearchLeaderService(
       {} as any, // prisma
       mockAiFacade as any, // aiFacade
-      {} as any, // intentDetectionService
       {} as any, // eventEmitter
       {} as any, // leaderToolService
     );

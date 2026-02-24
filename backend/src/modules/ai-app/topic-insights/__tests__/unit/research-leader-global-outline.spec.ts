@@ -17,7 +17,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ResearchLeaderService } from "../../services/core/research-leader.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { IntentDetectionService } from "@/modules/ai-engine/orchestration/services";
 import { ResearchEventEmitterService } from "../../services/core/research-event-emitter.service";
 import { LeaderToolService } from "../../services/data/leader-tool.service";
 import { ResearchMissionService } from "../../services/core/research-mission.service";
@@ -29,9 +28,6 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
   let mockPrisma: ReturnType<typeof createMockPrisma>;
 
   // Mock all required dependencies
-  const mockIntentDetectionService = {
-    detectIntent: jest.fn(),
-  };
   const mockResearchEventEmitter = {
     emitLeaderResponse: jest.fn(),
   };
@@ -51,10 +47,6 @@ describe("ResearchLeaderService - planGlobalOutline", () => {
         ResearchLeaderService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AIEngineFacade, useValue: mockAiFacade },
-        {
-          provide: IntentDetectionService,
-          useValue: mockIntentDetectionService,
-        },
         {
           provide: ResearchEventEmitterService,
           useValue: mockResearchEventEmitter,

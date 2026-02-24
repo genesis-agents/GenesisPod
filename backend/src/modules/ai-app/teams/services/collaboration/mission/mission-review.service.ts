@@ -18,8 +18,10 @@ import { TopicEventEmitterService } from "../../events";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AIEngineFacade 访问熔断器服务
-import { TaskCompletionType } from "../../../../../ai-engine/orchestration/services";
-import { AIEngineFacade } from "../../../../../ai-engine/facade";
+import {
+  TaskCompletionType,
+  AIEngineFacade,
+} from "../../../../../ai-engine/facade";
 import { MissionStateManager } from "./mission-state.manager";
 import { parseReviewResult } from "../utils";
 import {
@@ -32,11 +34,8 @@ import {
   MissionContextPackage,
   HardConstraint,
 } from "../../../interfaces/mission-context.interface";
-// ★ AI Engine 能力下沉：注入 OutputReviewerService 和 ContextEvolutionService
-// 提供审核和修订的核心能力，通过 aiCaller 参数保留执行上下文
-import {
-  OutputReviewerService,
-  ContextEvolutionService,
+// Types only needed from engine internals
+import type {
   AiCallerFn,
   EstablishedFact,
 } from "../../../../../ai-engine/orchestration/services";
@@ -104,17 +103,12 @@ export class MissionReviewService {
     private longContentService: TeamsLongContentService,
     private aiFacade: AIEngineFacade,
     private stateManager: MissionStateManager,
-    // ★ AI Engine 能力下沉：注入审核服务
-    // 当前为预留接口，后续可逐步将审核逻辑委托给 AI Engine
-    private outputReviewerService: OutputReviewerService,
-    // ★ AI Engine 能力下沉：注入上下文演进服务
-    private contextEvolutionService: ContextEvolutionService,
     // ★ Leader 模型容错服务：支持重试和模型切换
     private leaderModelService: LeaderModelService,
   ) {
     // 验证 AI Engine 服务可用
     this.logger.debug(
-      `[MissionReviewService] AI Engine services injected: OutputReviewer=${!!this.outputReviewerService}, ContextEvolution=${!!this.contextEvolutionService}, LeaderModel=${!!this.leaderModelService}`,
+      `[MissionReviewService] AI Engine services injected: OutputReviewer=${!!this.aiFacade.outputReviewer}, ContextEvolution=${!!this.aiFacade.contextEvolution}, LeaderModel=${!!this.leaderModelService}`,
     );
   }
 
@@ -179,7 +173,7 @@ export class MissionReviewService {
 
     try {
       // 广播 Leader 开始审核
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_working",
         {
@@ -248,7 +242,7 @@ export class MissionReviewService {
       try {
         reviewHeartbeatTimer = setInterval(() => {
           reviewHeartbeatCount++;
-          this.topicEventEmitter.emitToTopic(
+          void this.topicEventEmitter.emitToTopic(
             mission.topicId,
             "mission:agent_working",
             {
@@ -271,7 +265,7 @@ export class MissionReviewService {
         const result = await this.leaderModelService.executeWithFallback(
           leader.aiModel,
           async (modelConfig) => {
-            return this.outputReviewerService.executeAICall(
+            return this.aiFacade.outputReviewer!.executeAICall(
               modelConfig.modelId,
               [
                 { role: "system", content: systemPrompt },
@@ -352,7 +346,7 @@ export class MissionReviewService {
       });
 
       // 清除 Leader 审核状态
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_done",
         {
@@ -483,16 +477,17 @@ export class MissionReviewService {
         currentContext?.entities?.map((e) => e.name) || [];
 
       // ==================== 阶段2：AI 提取新事实（事务外，避免长时间持锁） ====================
-      const extractionResult = await this.contextEvolutionService.extractFacts(
-        {
-          taskId: task.id,
-          taskTitle: task.title,
-          taskOutput,
-          existingFacts: currentFacts as EstablishedFact[],
-          existingEntities: currentEntities,
-        },
-        aiCaller,
-      );
+      const extractionResult =
+        await this.aiFacade.contextEvolution!.extractFacts(
+          {
+            taskId: task.id,
+            taskTitle: task.title,
+            taskOutput,
+            existingFacts: currentFacts as EstablishedFact[],
+            existingEntities: currentEntities,
+          },
+          aiCaller,
+        );
 
       if (extractionResult.facts.length === 0) {
         this.logger.debug(
@@ -519,7 +514,7 @@ export class MissionReviewService {
           []) as EstablishedFact[];
 
         // 合并事实（带数量限制）
-        const mergedFacts = this.contextEvolutionService.mergeFacts(
+        const mergedFacts = this.aiFacade.contextEvolution!.mergeFacts(
           latestFacts,
           extractionResult.facts,
         );
@@ -556,7 +551,7 @@ export class MissionReviewService {
       );
 
       // 通知前端上下文已更新
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:context_updated",
         {
@@ -721,14 +716,14 @@ export class MissionReviewService {
       }
 
       // ★ 修复：发送任务状态更新事件
-      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+      void this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
         missionId: mission.id,
         taskId: task.id,
         status: AgentTaskStatus.IN_PROGRESS,
       });
 
       // ★ 修复：广播 Agent 开始修订工作
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_working",
         {
@@ -771,7 +766,7 @@ export class MissionReviewService {
         const aiCaller = this.createAiCaller(callbacks, mission.id);
 
         // 委托给 AI Engine 执行
-        aiResponse = await this.outputReviewerService.executeAICall(
+        aiResponse = await this.aiFacade.outputReviewer!.executeAICall(
           assignedTo.aiModel,
           [
             { role: "system", content: systemPrompt },
@@ -804,14 +799,18 @@ export class MissionReviewService {
         });
 
         // ★ 修复：发送任务状态更新事件
-        this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
-          missionId: mission.id,
-          taskId: task.id,
-          status: AgentTaskStatus.REVISION_NEEDED,
-        });
+        void this.topicEventEmitter.emitToTopic(
+          mission.topicId,
+          "task:status",
+          {
+            missionId: mission.id,
+            taskId: task.id,
+            status: AgentTaskStatus.REVISION_NEEDED,
+          },
+        );
 
         // ★ 修复：清除 Agent 工作状态
-        this.topicEventEmitter.emitToTopic(
+        void this.topicEventEmitter.emitToTopic(
           mission.topicId,
           "mission:agent_done",
           {
@@ -857,14 +856,18 @@ export class MissionReviewService {
         });
 
         // ★ 修复：发送任务状态更新事件
-        this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
-          missionId: mission.id,
-          taskId: task.id,
-          status: AgentTaskStatus.REVISION_NEEDED,
-        });
+        void this.topicEventEmitter.emitToTopic(
+          mission.topicId,
+          "task:status",
+          {
+            missionId: mission.id,
+            taskId: task.id,
+            status: AgentTaskStatus.REVISION_NEEDED,
+          },
+        );
 
         // ★ 修复：清除 Agent 工作状态
-        this.topicEventEmitter.emitToTopic(
+        void this.topicEventEmitter.emitToTopic(
           mission.topicId,
           "mission:agent_done",
           {
@@ -906,7 +909,7 @@ export class MissionReviewService {
       });
 
       // ★ 修复：发送任务状态更新事件
-      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+      void this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
         missionId: mission.id,
         taskId: task.id,
         status: AgentTaskStatus.AWAITING_REVIEW,
@@ -914,7 +917,7 @@ export class MissionReviewService {
       });
 
       // ★ 修复：清除 Agent 工作状态（修订完成，等待 Leader 审核）
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_done",
         {
@@ -967,14 +970,14 @@ export class MissionReviewService {
       });
 
       // ★ 修复：发送任务状态更新事件
-      this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
+      void this.topicEventEmitter.emitToTopic(mission.topicId, "task:status", {
         missionId: mission.id,
         taskId: task.id,
         status: AgentTaskStatus.BLOCKED,
       });
 
       // ★ 修复：清除 Agent 工作状态
-      this.topicEventEmitter.emitToTopic(
+      void this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_done",
         {
@@ -1069,7 +1072,7 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
         "你是一位专业的内容审核助手，擅长快速提炼长文精华。请客观、准确地生成摘要。";
 
       // 委托给 AI Engine 执行
-      const response = await this.outputReviewerService.executeAICall(
+      const response = await this.aiFacade.outputReviewer!.executeAICall(
         leaderModel,
         [
           { role: "system", content: systemPrompt },
@@ -1138,7 +1141,7 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
     const establishedFacts = (contextPackage?.establishedFacts ||
       []) as EstablishedFact[];
     const establishedFactsSection =
-      this.contextEvolutionService.buildFactsPromptSection(establishedFacts);
+      this.aiFacade.contextEvolution!.buildFactsPromptSection(establishedFacts);
 
     return `你是团队 Leader，请审核以下任务产出。
 

@@ -23,32 +23,26 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "../../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
-// AI Capability Resolver - Skills 和 Tools 集成
-import {
-  AICapabilityResolver,
-  AICapabilityContext,
-} from "../../../../ai-engine/capabilities";
+// AI Capability Context type - from facade
+import type { AICapabilityContext } from "../../../../ai-engine/facade";
 
 // AI Engine 核心依赖 - 通过 TeamsModule (由 AiEngineModule 导出) 注入
-import {
-  MissionOrchestrator,
+import type {
   ITeam,
   MissionInput,
   MissionEvent,
   MissionResult,
 } from "../../../../ai-engine/teams";
-import { TeamFactory } from "../../../../ai-engine/teams/factory";
 import { TeamRegistry } from "../../../../ai-engine/teams/registry/team-registry";
 import { RoleRegistry } from "../../../../ai-engine/teams/registry/role-registry";
 import { ConstraintProfile } from "../../../../ai-engine/teams/constraints";
 
-// AI Engine Long Content - 长篇内容处理能力
-import {
-  LongContentEngineService,
+// AI Engine Long Content - 长篇内容处理能力 (types only)
+import type {
   LongContentProjectConfig,
   TaskExecutionContext,
 } from "../../../../ai-engine/long-content";
-import { GranularityLevel } from "../../../../ai-engine/long-content/interfaces";
+import type { GranularityLevel } from "../../../../ai-engine/long-content/interfaces";
 
 // Writing Agents
 import {
@@ -216,14 +210,10 @@ export class WritingMissionService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly missionOrchestrator: MissionOrchestrator,
-    private readonly teamFactory: TeamFactory,
     private readonly teamRegistry: TeamRegistry,
     private readonly roleRegistry: RoleRegistry,
     private readonly contextBuilder: ContextBuilderService,
     private readonly storyBibleService: StoryBibleService,
-    // AI Engine Long Content - 长篇内容处理
-    private readonly longContentEngine: LongContentEngineService,
     // Writing Agents (injected from module)
     private readonly storyArchitect: StoryArchitectAgent,
     private readonly bibleKeeper: BibleKeeperAgent,
@@ -232,8 +222,6 @@ export class WritingMissionService {
     private readonly editor: EditorAgent,
     // ★ P3 迁移：使用 AIEngineFacade 统一入口
     private readonly aiFacade: AIEngineFacade,
-    // ★ AI Capability Resolver - Skills 和 Tools 集成
-    private readonly capabilityResolver: AICapabilityResolver,
     // Event Emitter - 实时事件推送
     private readonly eventEmitter: WritingEventEmitterService,
     // Expression Memory - 表达冷却服务
@@ -327,17 +315,17 @@ export class WritingMissionService {
 
       // 从 AICapabilityResolver 获取技能提示
       const skillPrompts =
-        await this.capabilityResolver.getSkillPrompts(context);
+        await this.aiFacade.capabilityGetSkillPrompts(context);
 
-      if (skillPrompts.content && skillPrompts.usedSkills.length > 0) {
+      if (skillPrompts?.content && skillPrompts.usedSkills.length > 0) {
         this.logger.debug(
           `[SkillIntegration] Loaded ${skillPrompts.usedSkills.length} writing skills: ${skillPrompts.usedSkills.join(", ")}`,
         );
 
         // 记录技能使用
         for (const skillId of skillPrompts.usedSkills) {
-          await this.capabilityResolver
-            .logCapabilityUsage({
+          await this.aiFacade.capabilityResolverService
+            ?.logCapabilityUsage({
               capabilityType: "skill",
               capabilityId: skillId,
               agentId: params.projectId,
@@ -701,7 +689,9 @@ export class WritingMissionService {
    */
   private getWritingTeam(): ITeam {
     if (!this.writingTeam) {
-      this.writingTeam = this.teamFactory.createFromId(this.WRITING_TEAM_ID);
+      this.writingTeam = this.aiFacade.teamFactory!.createFromId(
+        this.WRITING_TEAM_ID,
+      );
       this.logger.log("Writing Team initialized on first use");
     }
     return this.writingTeam;
@@ -1367,7 +1357,7 @@ export class WritingMissionService {
     );
 
     // 更新 orchestrator 状态 - world-building 阶段开始
-    this.missionOrchestrator.updateState(missionId, {
+    this.aiFacade.missionOrchestrator!.updateState(missionId, {
       phase: "executing",
       currentSteps: ["world-building"],
       completedSteps: [],
@@ -1812,7 +1802,7 @@ ${storyCreativitySection}
     }
 
     // 更新 orchestrator 状态 - world-building 完成, plan 开始
-    this.missionOrchestrator.updateState(missionId, {
+    this.aiFacade.missionOrchestrator!.updateState(missionId, {
       phase: "executing",
       currentSteps: ["plan"],
       completedSteps: ["world-building"],
@@ -2197,7 +2187,7 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
     await this.createOutlineStructure(input.projectId, outline);
 
     // 更新 orchestrator 状态 - plan 完成, write 开始
-    this.missionOrchestrator.updateState(missionId, {
+    this.aiFacade.missionOrchestrator!.updateState(missionId, {
       phase: "executing",
       currentSteps: ["write"],
       completedSteps: ["world-building", "plan"],
@@ -3171,7 +3161,7 @@ ${narrativeConstraints}`;
 
       // 更新上下文（使用 LongContentEngine）
       try {
-        await this.longContentEngine.processTaskCompletion(
+        await this.aiFacade.longContentEngine!.processTaskCompletion(
           missionId,
           `chapter-${chapterNumber}`,
           `第${chapterNumber}章 ${chapterInfo.title}`,
@@ -3297,7 +3287,7 @@ ${narrativeConstraints}`;
     }
 
     // 更新 orchestrator 状态 - write/check/edit 完成, review 开始
-    this.missionOrchestrator.updateState(missionId, {
+    this.aiFacade.missionOrchestrator!.updateState(missionId, {
       phase: "reviewing",
       currentSteps: ["review"],
       completedSteps: ["plan", "context-injection", "write", "check", "edit"],
@@ -3353,7 +3343,7 @@ ${narrativeConstraints}`;
     const totalWords = this.countWords(fullContent);
 
     // 清理 LongContentEngine
-    this.longContentEngine.clearProject(missionId);
+    this.aiFacade.longContentEngine!.clearProject(missionId);
 
     this.logger.log(
       `[${missionId}] Long novel completed: ${totalVolumes} volumes, ${allChapters.length} chapters, ${totalWords} words`,
@@ -4975,7 +4965,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
 
     // 8. 执行任务
     try {
-      const result = yield* this.missionOrchestrator.execute(
+      const result = yield* this.aiFacade.missionOrchestrator!.execute(
         missionInput,
         team,
         constraints,
@@ -5001,12 +4991,12 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
       }
 
       // 12. 清理 LongContentEngine 项目
-      this.longContentEngine.clearProject(missionId);
+      this.aiFacade.longContentEngine!.clearProject(missionId);
 
       return writingResult;
     } catch (error) {
       // 清理 LongContentEngine 项目
-      this.longContentEngine.clearProject(missionId);
+      this.aiFacade.longContentEngine!.clearProject(missionId);
 
       await this.updateMissionRecord(dbMission.id, {
         missionId,
@@ -5140,7 +5130,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
       },
     };
 
-    await this.longContentEngine.initProject(config);
+    await this.aiFacade.longContentEngine!.initProject(config);
     this.logger.log(`LongContentEngine project initialized: ${missionId}`);
   }
 
@@ -5988,7 +5978,7 @@ ${instruction}
     let longContentContext: TaskExecutionContext | null = null;
     try {
       longContentContext =
-        await this.longContentEngine.buildTaskExecutionContext(
+        await this.aiFacade.longContentEngine!.buildTaskExecutionContext(
           missionId,
           input.chapterId || "main",
           input.userPrompt,
@@ -6145,7 +6135,7 @@ ${instruction}
           : `写作任务 ${missionId.slice(0, 8)}`;
 
         const completionResult =
-          await this.longContentEngine.processTaskCompletion(
+          await this.aiFacade.longContentEngine!.processTaskCompletion(
             missionId,
             input.chapterId || "main",
             taskTitle,
@@ -8126,7 +8116,8 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
     }
 
     // 获取 orchestrator 状态
-    const orchestratorState = this.missionOrchestrator.getState(missionId);
+    const orchestratorState =
+      this.aiFacade.missionOrchestrator!.getState(missionId);
 
     return {
       id: mission.id,
@@ -8219,7 +8210,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
     // 尝试取消所有相关的 orchestrator
     for (const mission of stuckMissions) {
       try {
-        await this.missionOrchestrator.cancel(mission.id);
+        await this.aiFacade.missionOrchestrator!.cancel(mission.id);
       } catch {
         // 忽略错误
       }
@@ -8256,7 +8247,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
       );
       // 尝试取消 orchestrator（可能在内存中）
       try {
-        await this.missionOrchestrator.cancel(missionId);
+        await this.aiFacade.missionOrchestrator!.cancel(missionId);
       } catch {
         // 忽略
       }
@@ -8306,7 +8297,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
 
     // 尝试取消 orchestrator 执行（忽略错误）
     try {
-      await this.missionOrchestrator.cancel(missionId);
+      await this.aiFacade.missionOrchestrator!.cancel(missionId);
     } catch (err) {
       this.logger.warn(
         `Failed to cancel orchestrator for mission ${missionId}: ${err instanceof Error ? err.message : err}`,

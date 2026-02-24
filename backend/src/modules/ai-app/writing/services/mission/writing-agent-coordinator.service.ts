@@ -7,7 +7,6 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIEngineFacade } from "../../../../ai-engine/facade";
-import { TeamFactory } from "../../../../ai-engine/teams/factory/team-factory";
 import { TeamRegistry } from "../../../../ai-engine/teams/registry/team-registry";
 import { RoleRegistry } from "../../../../ai-engine/teams/registry/role-registry";
 import { ITeam } from "../../../../ai-engine/teams/abstractions/team.interface";
@@ -57,7 +56,6 @@ export class WritingAgentCoordinator {
   private readonly MODEL_CACHE_TTL = 5 * 60 * 1000; // 5 分钟
 
   constructor(
-    private readonly teamFactory: TeamFactory,
     private readonly teamRegistry: TeamRegistry,
     private readonly roleRegistry: RoleRegistry,
     private readonly aiFacade: AIEngineFacade,
@@ -252,7 +250,9 @@ export class WritingAgentCoordinator {
    */
   getWritingTeam(): ITeam {
     if (!this.writingTeam) {
-      this.writingTeam = this.teamFactory.createFromId(this.WRITING_TEAM_ID);
+      this.writingTeam = this.aiFacade.teamFactory!.createFromId(
+        this.WRITING_TEAM_ID,
+      );
       this.logger.log("Writing Team initialized on first use");
     }
     return this.writingTeam;
