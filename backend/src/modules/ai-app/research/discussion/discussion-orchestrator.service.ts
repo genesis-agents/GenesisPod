@@ -11,6 +11,7 @@ import { InsufficientCreditsException } from "../../../credits/exceptions/insuff
 import { BillingContext } from "../../../credits/billing-context";
 import { MemoryCoordinatorService } from "../../../ai-engine/memory/memory-coordinator.service";
 import { TraceCollectorService } from "../../../ai-engine/observability/trace-collector.service";
+import { A2AMessageBusService } from "../../../ai-engine/teams/services/a2a-message-bus.service";
 import { ResearchReplannerService } from "./research-replanner.service";
 import {
   StartDeepResearchDto,
@@ -55,6 +56,7 @@ export class DiscussionOrchestratorService {
     @Optional() private readonly memoryCoordinator: MemoryCoordinatorService,
     @Optional() private readonly traceCollector: TraceCollectorService,
     @Optional() private readonly replanner: ResearchReplannerService,
+    @Optional() private readonly a2aBus: A2AMessageBusService,
   ) {}
 
   /**
@@ -187,6 +189,7 @@ export class DiscussionOrchestratorService {
         : undefined;
 
       const directions = await this.runIdeationPhase(
+        session.id,
         dto,
         team,
         allMessages,
@@ -225,6 +228,7 @@ export class DiscussionOrchestratorService {
         : undefined;
 
       await this.runExecutionPhase(
+        session.id,
         dto,
         team,
         directions,
@@ -350,6 +354,7 @@ export class DiscussionOrchestratorService {
         : undefined;
 
       await this.runFindingsPhase(
+        session.id,
         dto,
         team,
         searchRounds,
@@ -387,6 +392,7 @@ export class DiscussionOrchestratorService {
         : undefined;
 
       const report = await this.runSynthesisPhase(
+        session.id,
         dto,
         team,
         searchRounds,
@@ -501,12 +507,14 @@ export class DiscussionOrchestratorService {
       throw error;
     } finally {
       subject.complete();
+      this.a2aBus?.clearSession(session.id);
     }
   }
 
   // ==================== Phase 1: Ideation ====================
 
   private async runIdeationPhase(
+    sessionId: string,
     dto: StartDeepResearchDto,
     team: Map<string, AgentState>,
     allMessages: DiscussionMessage[],
@@ -544,7 +552,7 @@ export class DiscussionOrchestratorService {
       "proposal",
     );
     allMessages.push(msg1);
-    subject.next({ type: "discussion.message", data: msg1 });
+    this.publishMessage(sessionId, msg1, subject);
 
     // Round 2: 研究员们各自提 Ideas（并行）
     const researcherContext = op.researcherIdeation(directorResponse);
@@ -602,7 +610,7 @@ export class DiscussionOrchestratorService {
         "idea",
       );
       allMessages.push(msg);
-      subject.next({ type: "discussion.message", data: msg });
+      this.publishMessage(sessionId, msg, subject);
     }
 
     const [respA, respB, respC] = responses;
@@ -632,7 +640,7 @@ export class DiscussionOrchestratorService {
       "critique",
     );
     allMessages.push(msgAnalyst);
-    subject.next({ type: "discussion.message", data: msgAnalyst });
+    this.publishMessage(sessionId, msgAnalyst, subject);
 
     // Round 4: 总监综合，确定研究方向
     const summaryContext = op.directorSummary(analystResponse);
@@ -654,7 +662,7 @@ export class DiscussionOrchestratorService {
       "synthesis",
     );
     allMessages.push(msgSummary);
-    subject.next({ type: "discussion.message", data: msgSummary });
+    this.publishMessage(sessionId, msgSummary, subject);
 
     // 解析研究方向
     let directions = this.agentService.parseDirections(
@@ -693,6 +701,7 @@ export class DiscussionOrchestratorService {
   // ==================== Phase 2: Execution ====================
 
   private async runExecutionPhase(
+    sessionId: string,
     dto: StartDeepResearchDto,
     team: Map<string, AgentState>,
     directions: ResearchDirection[],
@@ -728,7 +737,7 @@ export class DiscussionOrchestratorService {
         "status",
       );
       allMessages.push(statusMsg);
-      subject.next({ type: "discussion.message", data: statusMsg });
+      this.publishMessage(sessionId, statusMsg, subject);
 
       // 执行搜索
       for (
@@ -790,6 +799,7 @@ export class DiscussionOrchestratorService {
   // ==================== Phase 3: Findings ====================
 
   private async runFindingsPhase(
+    sessionId: string,
     _dto: StartDeepResearchDto,
     team: Map<string, AgentState>,
     searchRounds: SearchRound[],
@@ -858,7 +868,7 @@ export class DiscussionOrchestratorService {
         "findings",
       );
       allMessages.push(msg);
-      subject.next({ type: "discussion.message", data: msg });
+      this.publishMessage(sessionId, msg, subject);
       findingsTexts.push(`${researcher.config.name}：${findings}`);
     }
 
@@ -882,7 +892,7 @@ export class DiscussionOrchestratorService {
       "cross_check",
     );
     allMessages.push(msgCrossCheck);
-    subject.next({ type: "discussion.message", data: msgCrossCheck });
+    this.publishMessage(sessionId, msgCrossCheck, subject);
 
     // 总监综合洞察
     const insightContext = op.insightRequest(crossCheck);
@@ -904,12 +914,13 @@ export class DiscussionOrchestratorService {
       "synthesis",
     );
     allMessages.push(msgInsight);
-    subject.next({ type: "discussion.message", data: msgInsight });
+    this.publishMessage(sessionId, msgInsight, subject);
   }
 
   // ==================== Phase 4: Synthesis ====================
 
   private async runSynthesisPhase(
+    sessionId: string,
     dto: StartDeepResearchDto,
     team: Map<string, AgentState>,
     searchRounds: SearchRound[],
@@ -931,7 +942,7 @@ export class DiscussionOrchestratorService {
       "status",
     );
     allMessages.push(writeStartMsg);
-    subject.next({ type: "discussion.message", data: writeStartMsg });
+    this.publishMessage(sessionId, writeStartMsg, subject);
 
     // 生成完整报告（单次生成，避免双重 LLM 调用导致超时/OOM）
     this.emitTyping(subject, writer);
@@ -953,7 +964,7 @@ export class DiscussionOrchestratorService {
       "draft",
     );
     allMessages.push(writeDoneMsg);
-    subject.next({ type: "discussion.message", data: writeDoneMsg });
+    this.publishMessage(sessionId, writeDoneMsg, subject);
 
     // 审稿人评审
     const reviewContext = op.reviewRequest(
@@ -980,7 +991,7 @@ export class DiscussionOrchestratorService {
       "review",
     );
     allMessages.push(reviewMsg);
-    subject.next({ type: "discussion.message", data: reviewMsg });
+    this.publishMessage(sessionId, reviewMsg, subject);
 
     return report;
   }
@@ -1074,6 +1085,27 @@ export class DiscussionOrchestratorService {
       throw new Error(`Agent "${id}" not initialized in team`);
     }
     return agent;
+  }
+
+  /**
+   * 统一消息发送：同时推送 SSE 事件和 A2A Bus 消息（供可观测性使用）
+   */
+  private publishMessage(
+    sessionId: string,
+    msg: DiscussionMessage,
+    subject: Subject<DeepResearchSSEEvent>,
+  ): void {
+    subject.next({ type: "discussion.message", data: msg });
+    void this.a2aBus?.publish({
+      sessionId,
+      fromAgentId: msg.agentRole,
+      type: "info_share",
+      payload: {
+        phase: msg.phase,
+        messageType: msg.messageType,
+        content: msg.content.slice(0, 500),
+      },
+    });
   }
 
   private emitTyping(
