@@ -15,10 +15,12 @@
 import {
   Injectable,
   Logger,
+  Optional,
   ConflictException,
   NotFoundException,
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
+import { TraceCollectorService } from "../../../../ai-engine/observability/trace-collector.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "../../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
@@ -258,6 +260,7 @@ export class WritingMissionService {
     private readonly styleService: WritingStyleService,
     private readonly qualityService: WritingQualityService,
     private readonly checkpointService: CheckpointService,
+    @Optional() private readonly traceCollector?: TraceCollectorService,
   ) {
     // 注册角色和团队配置（不需要 LLM）
     this.registerWritingRoles();
@@ -1006,6 +1009,21 @@ export class WritingMissionService {
     _userId: string,
     modelAssignments: RoleModelAssignment[],
   ): Promise<void> {
+    // ★ TraceCollector: 开始链路追踪
+    const traceId = this.traceCollector?.startTrace({
+      name: `AI Writing: ${input.missionType}`,
+      type: "research",
+      metadata: {
+        missionId,
+        missionType: input.missionType,
+        projectId: input.projectId,
+        targetWordCount: input.targetWordCount,
+      },
+    });
+
+    // ★ 内容生成 span（在 try 外声明，catch 可访问）
+    let generationSpanId: string | undefined;
+
     try {
       this.logger.log(`Running mission ${missionId} in background`);
 
@@ -1034,6 +1052,15 @@ export class WritingMissionService {
 
       let generatedContent: string | null = null;
       let totalWordCount = 0;
+
+      // ★ 开始内容生成 span
+      generationSpanId = traceId
+        ? this.traceCollector?.addSpan(traceId, {
+            name: `Content Generation (${input.missionType})`,
+            type: "synthesis",
+            metadata: { missionType: input.missionType, modelUsed: modelToUse },
+          })
+        : undefined;
 
       // 根据任务类型决定生成策略
       if (input.missionType === "full_story") {
@@ -1160,6 +1187,18 @@ export class WritingMissionService {
         }
 
         this.logger.log(`Mission ${missionId} completed successfully`);
+
+        // ★ 结束内容生成 span（成功）
+        if (generationSpanId) {
+          this.traceCollector?.endSpan(generationSpanId, {
+            status: "success",
+            output: { wordCount: totalWordCount, missionId },
+          });
+        }
+        // ★ 结束链路追踪（成功）
+        if (traceId) {
+          this.traceCollector?.endTrace(traceId, { status: "success" });
+        }
       } else {
         throw new Error("未能生成内容");
       }
@@ -1167,6 +1206,18 @@ export class WritingMissionService {
       this.logger.error(
         `Mission ${missionId} failed: ${(error as Error).message}`,
       );
+
+      // ★ 结束内容生成 span（失败）
+      if (generationSpanId) {
+        this.traceCollector?.endSpan(generationSpanId, {
+          status: "error",
+          error: (error as Error).message,
+        });
+      }
+      // ★ 结束链路追踪（失败）
+      if (traceId) {
+        this.traceCollector?.endTrace(traceId, { status: "error" });
+      }
 
       // ★ 发送任务失败事件
       await this.eventEmitter.emitMissionFailed(

@@ -13,6 +13,7 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
+import { TraceCollectorService } from "@/modules/ai-engine/observability/trace-collector.service";
 import { SlidesLeader } from "./slides-leader";
 import { SlidesTeamMember, TaskExecutionResult } from "./slides-team-member";
 import { SlidesRepository } from "./slides-repository";
@@ -43,6 +44,7 @@ export class SlidesTeamOrchestrator {
     private readonly leader: SlidesLeader,
     private readonly teamMember: SlidesTeamMember,
     @Optional() private readonly repository?: SlidesRepository,
+    @Optional() private readonly traceCollector?: TraceCollectorService,
   ) {
     this.persistenceEnabled = !!repository;
     this.logger.log(
@@ -88,6 +90,24 @@ export class SlidesTeamOrchestrator {
 
     this.logger.log(`[executeMission] Starting mission ${mission.id}`);
 
+    // ★ TraceCollector: 开始链路追踪
+    const traceId = this.traceCollector?.startTrace({
+      name: "AI Office: Slides",
+      type: "team_execution",
+      metadata: {
+        missionId: mission.id,
+        sessionId: input.sessionId,
+        targetPages: input.targetPages,
+      },
+    });
+
+    // ★ 各阶段 spanId（在 try 外声明，catch 可访问）
+    let planningSpanId: string | undefined;
+    let executingSpanId: string | undefined;
+    let reviewingSpanId: string | undefined;
+    let auditingSpanId: string | undefined;
+    let synthesisSpanId: string | undefined;
+
     const createdEvent = this.createEvent("mission:created", mission.id, {
       mission,
     });
@@ -96,19 +116,87 @@ export class SlidesTeamOrchestrator {
 
     try {
       // Phase 1: Leader 规划
+      planningSpanId = traceId
+        ? this.traceCollector?.addSpan(traceId, {
+            name: "Planning",
+            type: "planning",
+            metadata: { missionId: mission.id },
+          })
+        : undefined;
       yield* this.executePlanningPhase(mission, errors);
+      if (planningSpanId) {
+        this.traceCollector?.endSpan(planningSpanId, {
+          status: "success",
+          output: { taskCount: mission.tasks.length },
+        });
+      }
 
       // Phase 2: 任务执行
+      executingSpanId = traceId
+        ? this.traceCollector?.addSpan(traceId, {
+            name: "Task Execution",
+            type: "phase",
+            metadata: { totalTasks: mission.totalTasks },
+          })
+        : undefined;
       yield* this.executeTasksPhase(mission, errors);
+      if (executingSpanId) {
+        this.traceCollector?.endSpan(executingSpanId, {
+          status: "success",
+          output: { completedTasks: mission.completedTasks },
+        });
+      }
 
       // Phase 3: Leader 审核
+      reviewingSpanId = traceId
+        ? this.traceCollector?.addSpan(traceId, {
+            name: "Review",
+            type: "review",
+            metadata: { missionId: mission.id },
+          })
+        : undefined;
       yield* this.executeReviewPhase(mission, errors);
+      if (reviewingSpanId) {
+        this.traceCollector?.endSpan(reviewingSpanId, {
+          status: "success",
+          output: { completedTasks: mission.completedTasks },
+        });
+      }
 
       // Phase 4: 质量审计
+      auditingSpanId = traceId
+        ? this.traceCollector?.addSpan(traceId, {
+            name: "Quality Audit",
+            type: "evaluation",
+            metadata: { missionId: mission.id },
+          })
+        : undefined;
       yield* this.executeAuditPhase(mission, errors);
+      if (auditingSpanId) {
+        this.traceCollector?.endSpan(auditingSpanId, {
+          status: "success",
+          output: {
+            passed: (mission.metadata.qualityAudit as { passed?: boolean })
+              ?.passed,
+          },
+        });
+      }
 
       // Phase 5: Leader 综合
+      synthesisSpanId = traceId
+        ? this.traceCollector?.addSpan(traceId, {
+            name: "Synthesis",
+            type: "synthesis",
+            metadata: { missionId: mission.id },
+          })
+        : undefined;
       yield* this.executeSynthesisPhase(mission, errors);
+      if (synthesisSpanId) {
+        this.traceCollector?.endSpan(synthesisSpanId, {
+          status: "success",
+          output: { pageCount: mission.pages.length },
+        });
+      }
 
       // 完成
       mission.status = "completed";
@@ -148,6 +236,11 @@ export class SlidesTeamOrchestrator {
         );
       }
 
+      // ★ 结束链路追踪（成功）
+      if (traceId) {
+        this.traceCollector?.endTrace(traceId, { status: "success" });
+      }
+
       const completedEvent = this.createEvent("mission:completed", mission.id, {
         mission,
         duration,
@@ -163,6 +256,24 @@ export class SlidesTeamOrchestrator {
       this.logger.error(
         `[executeMission] Mission ${mission.id} failed: ${errorMsg}`,
       );
+
+      // ★ 结束当前活跃的 span（失败）
+      const activeSpanId =
+        synthesisSpanId ??
+        auditingSpanId ??
+        reviewingSpanId ??
+        executingSpanId ??
+        planningSpanId;
+      if (activeSpanId) {
+        this.traceCollector?.endSpan(activeSpanId, {
+          status: "error",
+          error: errorMsg,
+        });
+      }
+      // ★ 结束链路追踪（失败）
+      if (traceId) {
+        this.traceCollector?.endTrace(traceId, { status: "error" });
+      }
 
       mission.status = "failed";
       mission.currentPhase = "failed";
