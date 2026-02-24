@@ -11,7 +11,6 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { SkillLoaderService } from "@/modules/ai-engine/skills/loader/skill-loader.service";
 import { AIModelType } from "@prisma/client";
 import type { SectionPlan } from "../core/research-leader.service";
 import {
@@ -98,10 +97,7 @@ export interface SectionRevisionInput {
 export class SectionWriterService {
   private readonly logger = new Logger(SectionWriterService.name);
 
-  constructor(
-    private readonly aiFacade: AIEngineFacade,
-    private readonly skillLoader: SkillLoaderService,
-  ) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 撰写单个章节
@@ -627,8 +623,8 @@ export class SectionWriterService {
       for (const skillId of config.skills) {
         const fileId = skillIdMapping[skillId] || skillId.replace(/_/g, "-");
         // 同步获取技能（skillLoader 已在启动时预加载所有技能）
-        const skill = this.skillLoader
-          .getAllLoadedSkills()
+        const skill = this.aiFacade
+          .skillLoaderGetAll()
           .find((s) => s.metadata.id === fileId);
 
         if (skill) {

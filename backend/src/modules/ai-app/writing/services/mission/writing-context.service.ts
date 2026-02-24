@@ -7,8 +7,8 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AICapabilityResolver } from "../../../../ai-engine/capabilities/ai-capability-resolver.service";
-import type { AICapabilityContext } from "../../../../ai-engine/capabilities/ai-capability-resolver.service";
+import { AIEngineFacade } from "../../../../ai-engine/facade";
+import type { AICapabilityContext } from "../../../../ai-engine/facade";
 import { StyleTemplateService } from "../style/style-template.service";
 import { WriterAgent } from "../../agents";
 
@@ -25,7 +25,7 @@ export class WritingContextService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly capabilityResolver: AICapabilityResolver,
+    private readonly aiFacade: AIEngineFacade,
     private readonly styleTemplateService: StyleTemplateService,
     private readonly professionalVoice: ProfessionalVoiceService,
     private readonly sensoryImmersion: SensoryImmersionService,
@@ -55,30 +55,18 @@ export class WritingContextService {
         agentId: params.projectId, // 使用 projectId 作为 agentId 来追踪
       };
 
-      // 从 AICapabilityResolver 获取技能提示
+      // 从 AIEngineFacade 获取技能提示
       const skillPrompts =
-        await this.capabilityResolver.getSkillPrompts(context);
+        await this.aiFacade.capabilityGetSkillPrompts(context);
 
-      if (skillPrompts.content && skillPrompts.usedSkills.length > 0) {
+      if (
+        skillPrompts &&
+        skillPrompts.content &&
+        skillPrompts.usedSkills.length > 0
+      ) {
         this.logger.debug(
           `[SkillIntegration] Loaded ${skillPrompts.usedSkills.length} writing skills: ${skillPrompts.usedSkills.join(", ")}`,
         );
-
-        // 记录技能使用
-        for (const skillId of skillPrompts.usedSkills) {
-          await this.capabilityResolver
-            .logCapabilityUsage({
-              capabilityType: "skill",
-              capabilityId: skillId,
-              agentId: params.projectId,
-              success: true,
-            })
-            .catch((err) => {
-              this.logger.warn(
-                `Failed to log skill usage for ${skillId}: ${err.message}`,
-              );
-            });
-        }
 
         return skillPrompts.content;
       }

@@ -12,3 +12,14 @@ export type {
   EngineEvent,
 } from "../realtime/abstractions/event-emitter.interface";
 export type { SaveEvidenceRequest } from "../evidence/abstractions/evidence.interface";
+export type { AICapabilityContext } from "../capabilities/ai-capability-resolver.service";
+export type {
+  SkillPromptBundle,
+  SkillPromptOptions,
+} from "../capabilities/types";
+export type { SkillMdDefinition } from "../skills/types/skill-md.types";
+export type { EmbeddingResult } from "../rag/embedding";
+export type {
+  SimilaritySearchOptions,
+  SimilarityResult,
+} from "../rag/vector/vector.service";

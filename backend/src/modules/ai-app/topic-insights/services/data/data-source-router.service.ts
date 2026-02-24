@@ -21,10 +21,6 @@ import {
 // ★ 架构重构：通过 ToolRegistry 调用工具
 import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 
-// ★ RAG 服务导入 - 用于 LOCAL 数据源搜索
-import { EmbeddingService } from "@/modules/ai-engine/rag/embedding";
-import { VectorService } from "@/modules/ai-engine/rag/vector";
-
 import {
   DataSourceType,
   DataSourceResult,
@@ -33,7 +29,6 @@ import {
   DataSourcePlan,
 } from "../../types/data-source.types";
 import { ResearchTopic, TopicDimension } from "@prisma/client";
-import { AICapabilityResolver } from "@/modules/ai-engine/capabilities/ai-capability-resolver.service";
 import { DataSourcePlannerService } from "./data-source-planner.service";
 import {
   dataSourceToToolId,
@@ -85,14 +80,9 @@ export class DataSourceRouterService {
     private readonly federalRegisterTool: FederalRegisterTool,
     private readonly congressGovTool: CongressGovTool,
     private readonly whiteHouseNewsTool: WhiteHouseNewsTool,
-    // ★ AI 能力解析器（用于检查工具是否被 Admin 启用）
-    private readonly capabilityResolver: AICapabilityResolver,
     // ★ AI 数据源规划器
     private readonly dataSourcePlanner: DataSourcePlannerService,
-    // ★ RAG 服务 - 用于 LOCAL 数据源搜索
-    private readonly embeddingService: EmbeddingService,
-    private readonly vectorService: VectorService,
-    // ★ AI Facade - 用于 Social X 搜索（Grok Live Search）
+    // ★ AI Facade - 用于 Social X 搜索（Grok Live Search）、RAG 搜索、能力解析
     private readonly aiFacade: AIEngineFacade,
     // ★ P0: 数据源连接器注册中心（可选，向后兼容）
     @Optional()
@@ -1101,11 +1091,15 @@ export class DataSourceRouterService {
       );
 
       // 2. 生成查询嵌入向量
-      const queryEmbedding =
-        await this.embeddingService.generateEmbedding(query);
+      const queryEmbedding = await this.aiFacade.embeddingGenerate(query);
+
+      if (!queryEmbedding) {
+        this.logger.warn("[searchLocal] Failed to generate query embedding");
+        return [];
+      }
 
       // 3. 在指定知识库中进行相似度搜索
-      const searchResults = await this.vectorService.similaritySearch(
+      const searchResults = await this.aiFacade.vectorSimilaritySearch(
         queryEmbedding.embedding,
         {
           limit: maxResults,
@@ -1951,9 +1945,7 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
   private async isToolEnabled(toolId: string): Promise<boolean> {
     try {
       // 使用空上下文，只检查全局配置
-      const availableTools = await this.capabilityResolver.resolveToolsForAgent(
-        {},
-      );
+      const availableTools = await this.aiFacade.capabilityResolveTools({});
       return availableTools.includes(toolId);
     } catch (error) {
       this.logger.error(

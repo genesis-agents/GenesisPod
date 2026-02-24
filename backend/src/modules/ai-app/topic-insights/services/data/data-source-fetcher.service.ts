@@ -5,8 +5,6 @@ import {
   CongressGovTool,
   WhiteHouseNewsTool,
 } from "@/modules/ai-engine/tools/categories/information/policy";
-import { EmbeddingService } from "@/modules/ai-engine/rag/embedding";
-import { VectorService } from "@/modules/ai-engine/rag/vector";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import {
   DataSourceType,
@@ -38,8 +36,6 @@ export class DataSourceFetcherService {
     private readonly federalRegisterTool: FederalRegisterTool,
     private readonly congressGovTool: CongressGovTool,
     private readonly whiteHouseNewsTool: WhiteHouseNewsTool,
-    private readonly embeddingService: EmbeddingService,
-    private readonly vectorService: VectorService,
     private readonly aiFacade: AIEngineFacade,
   ) {}
 
@@ -476,10 +472,15 @@ export class DataSourceFetcherService {
         `[searchLocal] Searching ${knowledgeBaseIds.length} knowledge bases: "${query}"`,
       );
 
-      const queryEmbedding =
-        await this.embeddingService.generateEmbedding(query);
+      const queryEmbedding = await this.aiFacade.embeddingGenerate(query);
+      if (!queryEmbedding) {
+        this.logger.warn(
+          "[searchLocal] Failed to generate embedding for query",
+        );
+        return [];
+      }
 
-      const searchResults = await this.vectorService.similaritySearch(
+      const searchResults = await this.aiFacade.vectorSimilaritySearch(
         queryEmbedding.embedding,
         {
           limit: maxResults,

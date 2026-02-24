@@ -14,7 +14,7 @@ import {
 import { execSync } from "child_process";
 import { MCPToolResult } from "../types/platform.types";
 import { MCP_SERVER_CONFIGS } from "../config/platforms.config";
-import { MCPManager } from "@/modules/ai-engine/mcp/manager";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import {
   MCPServerConfig as UnifiedMCPServerConfig,
   MCPToolResult as UnifiedMCPToolResult,
@@ -29,7 +29,7 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MCPClientService.name);
   private readonly startingServers = new Set<string>();
 
-  constructor(private readonly mcpManager: MCPManager) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 转换 Social 模块的 MCPServerConfig 到统一的 MCPServerConfig
@@ -119,7 +119,7 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
 
       try {
         const unifiedConfig = this.convertConfig(config);
-        await this.mcpManager.registerOrUpdateServer(unifiedConfig);
+        await this.aiFacade.mcpManager?.registerOrUpdateServer(unifiedConfig);
         this.logger.log(`Registered MCP server: ${config.name} (${config.id})`);
         registered++;
       } catch (error) {
@@ -132,7 +132,7 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
     // 连接所有服务器
     if (registered > 0) {
       try {
-        await this.mcpManager.connectAll();
+        await this.aiFacade.mcpManager?.connectAll();
       } catch (error) {
         this.logger.error(
           `Failed to connect MCP servers: ${error instanceof Error ? error.message : String(error)}`,
@@ -145,7 +145,7 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
     this.logger.log("Shutting down Social MCP Client");
     for (const config of MCP_SERVER_CONFIGS) {
       try {
-        await this.mcpManager.disconnect(config.id);
+        await this.aiFacade.mcpManager?.disconnect(config.id);
       } catch (error) {
         this.logger.warn(
           `Failed to disconnect ${config.id}: ${(error as Error).message}`,
@@ -160,7 +160,7 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
    */
   async startServer(serverId: string): Promise<boolean> {
     try {
-      await this.mcpManager.connect(serverId);
+      await this.aiFacade.mcpManager?.connect(serverId);
       return true;
     } catch (error) {
       this.logger.error(
@@ -176,7 +176,7 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
    */
   async stopServer(serverId: string): Promise<void> {
     try {
-      await this.mcpManager.disconnect(serverId);
+      await this.aiFacade.mcpManager?.disconnect(serverId);
     } catch (error) {
       this.logger.error(
         `Failed to stop MCP server ${serverId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -194,8 +194,16 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
     args: Record<string, unknown>,
   ): Promise<MCPToolResult> {
     try {
+      const mgr = this.aiFacade.mcpManager;
+      if (!mgr) {
+        return {
+          success: false,
+          error: `MCP manager not available`,
+        };
+      }
+
       // 检查客户端是否存在
-      let client = this.mcpManager.getClient(serverId);
+      let client = mgr.getClient(serverId);
       if (!client) {
         // 防止并发启动同一服务器
         if (this.startingServers.has(serverId)) {
@@ -215,7 +223,7 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
             };
           }
           // Re-fetch after start
-          client = this.mcpManager.getClient(serverId);
+          client = mgr.getClient(serverId);
           if (!client) {
             return {
               success: false,
@@ -229,11 +237,11 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
 
       // 如果未连接，尝试连接
       if (!client.connected) {
-        await this.mcpManager.connect(serverId);
+        await mgr.connect(serverId);
       }
 
       // 调用工具
-      const result = await this.mcpManager.callTool(serverId, toolName, args);
+      const result = await mgr.callTool(serverId, toolName, args);
 
       // 转换为 Social 模块格式
       return this.convertToolResult(result);
@@ -251,14 +259,19 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
    */
   async listTools(serverId: string): Promise<unknown[]> {
     try {
-      let client = this.mcpManager.getClient(serverId);
+      const mgr = this.aiFacade.mcpManager;
+      if (!mgr) {
+        throw new Error(`MCP manager not available`);
+      }
+
+      let client = mgr.getClient(serverId);
       if (!client) {
         throw new Error(`Server ${serverId} not found`);
       }
 
       if (!client.connected) {
-        await this.mcpManager.connect(serverId);
-        client = this.mcpManager.getClient(serverId);
+        await mgr.connect(serverId);
+        client = mgr.getClient(serverId);
         if (!client) {
           throw new Error(`Failed to reconnect to ${serverId}`);
         }
@@ -282,7 +295,7 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
     status: string;
     lastError?: string;
   } | null {
-    const client = this.mcpManager.getClient(serverId);
+    const client = this.aiFacade.mcpManager?.getClient(serverId);
     if (!client) return null;
 
     return {
@@ -301,9 +314,10 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
     status: string;
     lastError?: string;
   }> {
-    const configs = this.mcpManager.getServerConfigs();
+    const mgr = this.aiFacade.mcpManager;
+    const configs = mgr?.getServerConfigs() ?? [];
     return configs.map((config) => {
-      const client = this.mcpManager.getClient(config.id);
+      const client = mgr?.getClient(config.id);
       return {
         id: config.id,
         name: config.name,
@@ -318,7 +332,7 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
    * ★ 现在从 MCPManager 检查连接状态
    */
   isServerAvailable(serverId: string): boolean {
-    const client = this.mcpManager.getClient(serverId);
+    const client = this.aiFacade.mcpManager?.getClient(serverId);
     return client?.connected ?? false;
   }
 }

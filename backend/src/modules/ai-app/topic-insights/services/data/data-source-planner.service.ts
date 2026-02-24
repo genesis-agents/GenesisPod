@@ -7,7 +7,6 @@ import {
   DataSourcePlan,
   DataSourceCapability,
 } from "../../types/data-source.types";
-import { AICapabilityResolver } from "@/modules/ai-engine/capabilities/ai-capability-resolver.service";
 import { dataSourceToToolId } from "../../config/data-source-mapping.config";
 
 /**
@@ -179,72 +178,33 @@ export class DataSourcePlannerService {
     {
       type: DataSourceType.PUBMED,
       displayName: "PubMed",
-      description:
-        "NCBI PubMed 生物医学文献搜索，覆盖医学、生命科学、生物技术",
-      useCases: [
-        "医学研究",
-        "生物技术",
-        "药物开发",
-        "临床试验",
-        "公共卫生",
-      ],
-      characteristics: [
-        "生物医学权威",
-        "MeSH 术语",
-        "临床证据",
-        "同行评审",
-      ],
+      description: "NCBI PubMed 生物医学文献搜索，覆盖医学、生命科学、生物技术",
+      useCases: ["医学研究", "生物技术", "药物开发", "临床试验", "公共卫生"],
+      characteristics: ["生物医学权威", "MeSH 术语", "临床证据", "同行评审"],
       requiresApiKey: false,
       isAvailable: true,
     },
     {
       type: DataSourceType.FINANCE_API,
       displayName: "Finance Data API",
-      description:
-        "金融数据搜索，获取公司信息、股票行情、市场数据",
-      useCases: [
-        "公司分析",
-        "股票研究",
-        "行业对比",
-        "市场数据",
-        "投资研究",
-      ],
-      characteristics: [
-        "实时行情",
-        "公司基本面",
-        "行业分类",
-        "全球市场",
-      ],
+      description: "金融数据搜索，获取公司信息、股票行情、市场数据",
+      useCases: ["公司分析", "股票研究", "行业对比", "市场数据", "投资研究"],
+      characteristics: ["实时行情", "公司基本面", "行业分类", "全球市场"],
       requiresApiKey: true,
       isAvailable: true,
     },
     {
       type: DataSourceType.WEATHER_API,
       displayName: "Weather Data API",
-      description:
-        "天气和气候数据搜索，获取全球天气预报和历史气候数据",
-      useCases: [
-        "气候研究",
-        "农业分析",
-        "能源需求",
-        "灾害评估",
-        "旅游规划",
-      ],
-      characteristics: [
-        "全球覆盖",
-        "实时数据",
-        "历史记录",
-        "免费开放",
-      ],
+      description: "天气和气候数据搜索，获取全球天气预报和历史气候数据",
+      useCases: ["气候研究", "农业分析", "能源需求", "灾害评估", "旅游规划"],
+      characteristics: ["全球覆盖", "实时数据", "历史记录", "免费开放"],
       requiresApiKey: false,
       isAvailable: true,
     },
   ];
 
-  constructor(
-    private readonly aiFacade: AIEngineFacade,
-    private readonly capabilityResolver: AICapabilityResolver,
-  ) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 为指定维度规划数据源
@@ -337,9 +297,7 @@ export class DataSourcePlannerService {
    */
   private async isToolEnabled(toolId: string): Promise<boolean> {
     try {
-      const availableTools = await this.capabilityResolver.resolveToolsForAgent(
-        {},
-      );
+      const availableTools = await this.aiFacade.capabilityResolveTools({});
       return availableTools.includes(toolId);
     } catch (error) {
       this.logger.debug(

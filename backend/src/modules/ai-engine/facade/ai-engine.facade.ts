@@ -152,6 +152,19 @@ import type {
   VoteRequest,
   VoteResult,
 } from "../collaboration/abstractions/collaborator.interface";
+import { EmbeddingService } from "../rag/embedding";
+import type { EmbeddingResult } from "../rag/embedding";
+import { VectorService } from "../rag/vector";
+import type {
+  SimilaritySearchOptions,
+  SimilarityResult,
+} from "../rag/vector/vector.service";
+import { MCPManager } from "../mcp/manager/mcp-manager";
+import type {
+  SkillPromptBundle,
+  SkillPromptOptions,
+} from "../capabilities/types";
+import type { SkillMdDefinition } from "../skills/types/skill-md.types";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)
 import { ModelSubFacade } from "./sub-facades/model.sub-facade";
@@ -262,6 +275,9 @@ export class AIEngineFacade {
     @Optional() private readonly synthesisEngine?: ReportSynthesisEngine,
     @Optional() private readonly evidenceManager?: EvidenceManagerService,
     @Optional() private readonly votingManager?: VotingManager,
+    @Optional() private readonly embeddingService?: EmbeddingService,
+    @Optional() private readonly vectorService?: VectorService,
+    @Optional() private readonly mcpManagerSvc?: MCPManager,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -306,6 +322,9 @@ export class AIEngineFacade {
       synthesisEngine: !!this.synthesisEngine,
       evidenceManager: !!this.evidenceManager,
       votingManager: !!this.votingManager,
+      embedding: !!this.embeddingService,
+      vector: !!this.vectorService,
+      mcp: !!this.mcpManagerSvc,
     };
 
     this.logger.log(
@@ -2645,5 +2664,63 @@ export class AIEngineFacade {
   /** 获取 ProgressTrackerService 实例（用于适配层直接调用） */
   get realtimeProgress() {
     return this.realtime?.progressTracker;
+  }
+
+  // ==================== 能力解析（AICapabilityResolver）====================
+
+  /** 解析 Agent 可用工具列表；服务不可用时返回空数组 */
+  async capabilityResolveTools(
+    context: AICapabilityContext,
+  ): Promise<string[]> {
+    return (await this.capabilityResolver?.resolveToolsForAgent(context)) ?? [];
+  }
+
+  /** 获取技能 Prompt 包；服务不可用时返回 null */
+  async capabilityGetSkillPrompts(
+    context: AICapabilityContext,
+    options?: SkillPromptOptions,
+  ): Promise<SkillPromptBundle | null> {
+    return (
+      (await this.capabilityResolver?.getSkillPrompts(context, options)) ?? null
+    );
+  }
+
+  // ==================== 技能加载（SkillLoaderService）====================
+
+  /** 获取所有已加载的技能定义；服务不可用时返回空数组 */
+  skillLoaderGetAll(): SkillMdDefinition[] {
+    return this.skills?.loader.getAllLoadedSkills() ?? [];
+  }
+
+  // ==================== Embedding（EmbeddingService）====================
+
+  /** 生成单条文本的向量嵌入；服务不可用时返回 null */
+  async embeddingGenerate(text: string): Promise<EmbeddingResult | null> {
+    return (await this.embeddingService?.generateEmbedding(text)) ?? null;
+  }
+
+  /** 获取当前嵌入模型标识；服务不可用时返回 null */
+  async embeddingGetModel(): Promise<string | null> {
+    return (await this.embeddingService?.getModel()) ?? null;
+  }
+
+  // ==================== 向量检索（VectorService）====================
+
+  /** 相似度向量搜索；服务不可用时返回空数组 */
+  async vectorSimilaritySearch(
+    queryEmbedding: number[],
+    options?: SimilaritySearchOptions,
+  ): Promise<SimilarityResult[]> {
+    return (
+      (await this.vectorService?.similaritySearch(queryEmbedding, options)) ??
+      []
+    );
+  }
+
+  // ==================== MCP（MCPManager）直接访问 ====================
+
+  /** 获取 MCPManager 实例（用于 MCP 适配层直接调用） */
+  get mcpManager(): MCPManager | undefined {
+    return this.mcpManagerSvc;
   }
 }

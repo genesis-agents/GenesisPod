@@ -13,10 +13,7 @@ describe("DataSourceRouterService - V5 Methods", () => {
       {} as any, // federalRegisterTool
       {} as any, // congressGovTool
       {} as any, // whiteHouseNewsTool
-      {} as any, // capabilityResolver
       {} as any, // dataSourcePlanner
-      {} as any, // embeddingService
-      {} as any, // vectorService
       {} as any, // aiFacade
     );
 

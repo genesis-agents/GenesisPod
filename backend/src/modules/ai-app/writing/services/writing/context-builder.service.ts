@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { StoryBibleService } from "../bible/story-bible.service";
-import { AICapabilityResolver } from "../../../../ai-engine/capabilities/ai-capability-resolver.service";
+import { AIEngineFacade } from "../../../../ai-engine/facade";
 
 /**
  * Context Builder Service
@@ -19,7 +19,7 @@ export class ContextBuilderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storyBibleService: StoryBibleService,
-    private readonly capabilityResolver: AICapabilityResolver,
+    private readonly aiFacade: AIEngineFacade,
   ) {
     void this.logger;
   }
@@ -30,12 +30,12 @@ export class ContextBuilderService {
    */
   async getContextSkillPrompts(projectId: string): Promise<string> {
     try {
-      const skillPrompts = await this.capabilityResolver.getSkillPrompts({
+      const skillPrompts = await this.aiFacade.capabilityGetSkillPrompts({
         domain: "writing",
         agentId: projectId,
       });
 
-      if (skillPrompts.content) {
+      if (skillPrompts && skillPrompts.content) {
         this.logger.debug(
           `[ContextBuilder] Loaded ${skillPrompts.usedSkills.length} writing skills for context`,
         );
@@ -51,7 +51,10 @@ export class ContextBuilderService {
     }
   }
 
-  async buildWritingContext(chapterId: string, bibleSnapshot?: Record<string, unknown>) {
+  async buildWritingContext(
+    chapterId: string,
+    bibleSnapshot?: Record<string, unknown>,
+  ) {
     const chapter = await this.prisma.writingChapter.findUnique({
       where: { id: chapterId },
       include: {
@@ -253,21 +256,23 @@ export class ContextBuilderService {
       `## 章节任务\n标题：${chapter.title}\n大纲：${chapter.outline || "无"}`,
     );
 
-    const characters = context.characters as Array<Record<string, unknown>> | undefined;
+    const characters = context.characters as
+      | Array<Record<string, unknown>>
+      | undefined;
     if (characters && characters.length > 0) {
-      sections.push(
-        `## 本章涉及角色\n${this.formatCharacters(characters)}`,
-      );
+      sections.push(`## 本章涉及角色\n${this.formatCharacters(characters)}`);
     }
 
-    const worldSettings = context.worldSettings as Array<Record<string, unknown>> | undefined;
+    const worldSettings = context.worldSettings as
+      | Array<Record<string, unknown>>
+      | undefined;
     if (worldSettings && worldSettings.length > 0) {
-      sections.push(
-        `## 场景设定\n${this.formatWorldSettings(worldSettings)}`,
-      );
+      sections.push(`## 场景设定\n${this.formatWorldSettings(worldSettings)}`);
     }
 
-    const previousContext = context.previousContext as Array<Record<string, unknown>> | undefined;
+    const previousContext = context.previousContext as
+      | Array<Record<string, unknown>>
+      | undefined;
     if (previousContext && previousContext.length > 0) {
       sections.push(
         `## 前情提要\n${this.formatPreviousContext(previousContext)}`,
@@ -286,13 +291,17 @@ export class ContextBuilderService {
       .join("\n\n");
   }
 
-  private formatWorldSettings(settings: Array<Record<string, unknown>>): string {
+  private formatWorldSettings(
+    settings: Array<Record<string, unknown>>,
+  ): string {
     return settings
       .map((s) => `### ${s.name} (${s.category})\n${s.description}`)
       .join("\n\n");
   }
 
-  private formatPreviousContext(chapters: Array<Record<string, unknown>>): string {
+  private formatPreviousContext(
+    chapters: Array<Record<string, unknown>>,
+  ): string {
     // 按上下文类型分组格式化
     const recent = chapters.filter((ch) => ch.contextType === "recent");
     const medium = chapters.filter((ch) => ch.contextType === "medium");

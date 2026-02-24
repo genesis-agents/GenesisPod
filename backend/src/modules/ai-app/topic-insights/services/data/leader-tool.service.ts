@@ -28,10 +28,7 @@ import {
   getCurrentDateString,
   getFreshnessRequirementDescription,
 } from "../../prompts/dimension-research.prompt";
-import {
-  AICapabilityResolver,
-  AICapabilityContext,
-} from "@/modules/ai-engine/capabilities/ai-capability-resolver.service";
+import type { AICapabilityContext } from "@/modules/ai-engine/facade";
 
 // ==================== Action Tool Types ====================
 
@@ -154,7 +151,6 @@ export class LeaderToolService {
   constructor(
     private readonly aiFacade: AIEngineFacade,
     private readonly toolRegistry: ToolRegistry,
-    private readonly capabilityResolver: AICapabilityResolver,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -642,7 +638,7 @@ export class LeaderToolService {
     // ★ 检查 web-search 工具是否可用
     if (capabilityContext) {
       const availableTools =
-        await this.capabilityResolver.resolveToolsForAgent(capabilityContext);
+        await this.aiFacade.capabilityResolveTools(capabilityContext);
 
       if (!availableTools.includes("web-search")) {
         this.logger.warn(
@@ -730,23 +726,7 @@ export class LeaderToolService {
       `[searchLatestData] Completed ${results.length} searches with ${results.reduce((sum, r) => sum + r.results.length, 0)} total results`,
     );
 
-    // ★ 记录工具使用日志
-    if (capabilityContext && results.length > 0) {
-      this.capabilityResolver
-        .logCapabilityUsage({
-          capabilityType: "tool",
-          capabilityId: "web-search",
-          agentId: capabilityContext.agentId,
-          userId: capabilityContext.userId,
-          teamId: capabilityContext.teamId,
-          success: true,
-        })
-        .catch((error) => {
-          this.logger.warn(
-            `Failed to log capability usage: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        });
-    }
+    // Note: capability usage logging is handled internally by the facade
 
     return results;
   }
@@ -771,7 +751,7 @@ export class LeaderToolService {
     // ★ 检查工具可用性（如果提供了 capability context）
     if (capabilityContext) {
       const availableTools =
-        await this.capabilityResolver.resolveToolsForAgent(capabilityContext);
+        await this.aiFacade.capabilityResolveTools(capabilityContext);
       this.logger.log(
         `[generateEnhancedPlanningContext] Available tools for Leader: ${availableTools.join(", ")}`,
       );
