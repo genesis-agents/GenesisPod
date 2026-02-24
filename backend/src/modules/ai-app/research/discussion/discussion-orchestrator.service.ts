@@ -9,7 +9,6 @@ import { CreditsService } from "../../../credits/credits.service";
 import { ResearchIdeaService } from "../idea/research-idea.service";
 import { InsufficientCreditsException } from "../../../credits/exceptions/insufficient-credits.exception";
 import { BillingContext } from "../../../credits/billing-context";
-import { MemoryCoordinatorService } from "../../../ai-engine/memory/memory-coordinator.service";
 import { AIEngineFacade } from "../../../ai-engine/facade";
 import { A2AMessageBusService } from "../../../ai-engine/teams/services/a2a-message-bus.service";
 import { ResearchReplannerService } from "./research-replanner.service";
@@ -53,7 +52,6 @@ export class DiscussionOrchestratorService {
     private readonly reportService: ReportSynthesizerService,
     @Optional() private readonly creditsService: CreditsService,
     @Optional() private readonly ideaService: ResearchIdeaService,
-    @Optional() private readonly memoryCoordinator: MemoryCoordinatorService,
     @Optional() private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly replanner: ResearchReplannerService,
     @Optional() private readonly a2aBus: A2AMessageBusService,
@@ -455,33 +453,31 @@ export class DiscussionOrchestratorService {
       }
 
       // 反哺长期记忆（fire-and-forget，不阻塞主流程）
-      if (this.memoryCoordinator) {
-        this.memoryCoordinator
-          .store(
-            {
-              type: "knowledge",
-              key: `research:${session.id}`,
-              value: {
-                title: dto.query.slice(0, 100),
-                summary: (finalReport.executiveSummary || dto.query).slice(
-                  0,
-                  2000,
-                ),
-                url: `/ai-research/${projectId}`,
-                completedAt: new Date().toISOString(),
-                sources: totalSources,
-              },
-              importance: 0.8,
-              tags: ["research", "completed"],
+      this.aiFacade
+        ?.coordinatorStore(
+          {
+            type: "knowledge",
+            key: `research:${session.id}`,
+            value: {
+              title: dto.query.slice(0, 100),
+              summary: (finalReport.executiveSummary || dto.query).slice(
+                0,
+                2000,
+              ),
+              url: `/ai-research/${projectId}`,
+              completedAt: new Date().toISOString(),
+              sources: totalSources,
             },
-            project.userId,
-          )
-          .catch((err: unknown) => {
-            this.logger.warn(
-              `[memory] Failed to store research memory for session ${session.id}: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-      }
+            importance: 0.8,
+            tags: ["research", "completed"],
+          },
+          project.userId,
+        )
+        ?.catch((err: unknown) => {
+          this.logger.warn(
+            `[memory] Failed to store research memory for session ${session.id}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
 
       // Auto-extract ideas from discussion messages
       try {

@@ -87,7 +87,7 @@ import {
   TaskBreakdownData,
   TaskAssignee,
 } from "../interfaces";
-import { MemoryCoordinatorService } from "../../../../../ai-engine/memory/memory-coordinator.service";
+import { AIEngineFacade } from "../../../../../ai-engine/facade";
 
 // 注：ReviewResult 已迁移至 ./utils/parsing.utils.ts
 
@@ -138,7 +138,7 @@ export class TeamMissionService implements OnModuleInit {
     private messageService: TeamMessageService,
     // ★ 团队成员服务：管理团队成员和 Leader
     private memberService: TeamMemberService,
-    @Optional() private memoryCoordinator?: MemoryCoordinatorService,
+    @Optional() private aiFacade?: AIEngineFacade,
   ) {}
 
   /**
@@ -3212,29 +3212,27 @@ export class TeamMissionService implements OnModuleInit {
       this.healthCheckService.cleanupCompletedMission(missionId);
 
       // 反哺长期记忆（fire-and-forget，不阻塞主流程）
-      if (this.memoryCoordinator) {
-        this.memoryCoordinator
-          .store(
-            {
-              type: "knowledge",
-              key: `teams:mission:${missionId}`,
-              value: {
-                title: mission.title,
-                conclusion: (finalReport || mission.title).slice(0, 1500),
-                membersCount: mission.tasks.length,
-                completedAt: new Date().toISOString(),
-              },
-              importance: 0.75,
-              tags: ["teams", "mission", "completed"],
+      this.aiFacade
+        ?.coordinatorStore(
+          {
+            type: "knowledge",
+            key: `teams:mission:${missionId}`,
+            value: {
+              title: mission.title,
+              conclusion: (finalReport || mission.title).slice(0, 1500),
+              membersCount: mission.tasks.length,
+              completedAt: new Date().toISOString(),
             },
-            mission.createdById,
-          )
-          .catch((err: unknown) => {
-            this.logger.warn(
-              `[memory] Failed to store teams memory for mission ${missionId}: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-      }
+            importance: 0.75,
+            tags: ["teams", "mission", "completed"],
+          },
+          mission.createdById,
+        )
+        ?.catch((err: unknown) => {
+          this.logger.warn(
+            `[memory] Failed to store teams memory for mission ${missionId}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
 
       // 广播任务完成 - 包含参与者 AI ID 列表，用于前端清除 typing 状态
       const participantAIIds = [

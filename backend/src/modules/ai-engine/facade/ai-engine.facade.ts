@@ -116,6 +116,12 @@ import type {
   EndSpanInput,
   EndTraceInput,
 } from "../observability/trace.interface";
+import { MemoryCoordinatorService } from "../memory/memory-coordinator.service";
+import type {
+  MemoryEvent,
+  MemoryQuery,
+  MemoryContext,
+} from "../memory/memory-coordinator.service";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)
 import { ModelSubFacade } from "./sub-facades/model.sub-facade";
@@ -217,6 +223,7 @@ export class AIEngineFacade {
     @Optional()
     private readonly skillInputBindingResolver?: InputBindingResolver,
     @Optional() private readonly traceCollector?: TraceCollectorService,
+    @Optional() private readonly memoryCoordinator?: MemoryCoordinatorService,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -253,6 +260,7 @@ export class AIEngineFacade {
       capabilities: !!this.capabilityResolver,
       credits: !!this.creditsService,
       traceCollector: !!this.traceCollector,
+      memoryCoordinator: !!this.memoryCoordinator,
     };
 
     this.logger.log(
@@ -2470,5 +2478,25 @@ export class AIEngineFacade {
   /** 结束一个 Trace */
   endTrace(traceId: string, input: EndTraceInput): void {
     this.traceCollector?.endTrace(traceId, input);
+  }
+
+  // ==================== 记忆协调器（MemoryCoordinator）====================
+
+  /** 写入跨层记忆（fire-and-forget，不阻塞主流程） */
+  coordinatorStore(
+    event: MemoryEvent,
+    userId: string,
+    sessionId?: string,
+  ): Promise<void> | undefined {
+    return this.memoryCoordinator?.store(event, userId, sessionId);
+  }
+
+  /** 并行召回跨层记忆 */
+  coordinatorRecall(
+    query: MemoryQuery,
+    userId: string,
+    sessionId?: string,
+  ): Promise<MemoryContext> | undefined {
+    return this.memoryCoordinator?.recall(query, userId, sessionId);
   }
 }
