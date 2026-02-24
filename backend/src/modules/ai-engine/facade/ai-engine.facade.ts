@@ -179,6 +179,7 @@ import { ContinuationProtocolService } from "../long-content/services/continuati
 import { MissionOrchestrator } from "../teams/orchestrator/mission-orchestrator";
 import { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
 import { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
+import { ContentFetchService } from "../content-fetch/content-fetch.service";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)
 import { ModelSubFacade } from "./sub-facades/model.sub-facade";
@@ -309,6 +310,7 @@ export class AIEngineFacade {
     @Optional() private readonly missionOrchestratorSvc?: MissionOrchestrator,
     @Optional() private readonly outputReviewerSvc?: OutputReviewerService,
     @Optional() private readonly contextEvolutionSvc?: ContextEvolutionService,
+    @Optional() private readonly contentFetchSvc?: ContentFetchService,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -370,6 +372,7 @@ export class AIEngineFacade {
       missionOrchestrator: !!this.missionOrchestratorSvc,
       outputReviewer: !!this.outputReviewerSvc,
       contextEvolution: !!this.contextEvolutionSvc,
+      contentFetch: !!this.contentFetchSvc,
     };
 
     this.logger.log(
@@ -2864,5 +2867,10 @@ export class AIEngineFacade {
   /** 获取 ContextEvolutionService（供上下文演进使用） */
   get contextEvolution(): ContextEvolutionService | undefined {
     return this.contextEvolutionSvc;
+  }
+
+  /** 获取 ContentFetchService（供内容抓取使用） */
+  get contentFetch(): ContentFetchService | undefined {
+    return this.contentFetchSvc;
   }
 }
