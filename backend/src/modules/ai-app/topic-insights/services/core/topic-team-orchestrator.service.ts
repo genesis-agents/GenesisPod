@@ -1,5 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { TraceCollectorService } from "@/modules/ai-engine/observability/trace-collector.service";
 import { RESEARCH_INTERNAL_EVENTS } from "./research-event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -112,6 +113,7 @@ export class TopicTeamOrchestratorService {
     private readonly researchCheckpointService: ResearchCheckpointService,
     private readonly dataSourceRouterService: DataSourceRouterService,
     private readonly researchTodoService: ResearchTodoService,
+    @Optional() private readonly traceCollector?: TraceCollectorService,
   ) {}
 
   /**
@@ -147,6 +149,8 @@ export class TopicTeamOrchestratorService {
 
     // ★ Hoist missionId so it's accessible in catch block for cleanup
     let missionId: string | undefined;
+    // ★ TraceCollector: hoist traceId so it's accessible in catch block
+    let traceId: string | undefined;
 
     try {
       // 1. 创建草稿报告
@@ -159,6 +163,18 @@ export class TopicTeamOrchestratorService {
       this.logger.log(
         `[executeRefresh] V5 depth: ${researchDepth} (cognitiveLoops=${depthConfig.maxCognitiveLoops}, revisions=${depthConfig.maxRevisionRounds})`,
       );
+
+      // ★ TraceCollector: start trace for this research mission
+      traceId = this.traceCollector?.startTrace({
+        name: `AI Insights: ${topic.name}`,
+        type: "research_mission",
+        metadata: {
+          topicId,
+          reportId: report.id,
+          researchDepth,
+          cognitiveLoops: depthConfig.maxCognitiveLoops,
+        },
+      });
 
       // 发送开始事件
       this.emitProgress({
@@ -195,8 +211,36 @@ export class TopicTeamOrchestratorService {
         });
 
         // 调用 Leader 规划
-        const leaderPlan =
-          await this.researchLeaderService.planResearch(topicId);
+        const leaderPlanSpanId = traceId
+          ? this.traceCollector?.addSpan(traceId, {
+              name: "Leader AI Planning",
+              type: "planning",
+              metadata: { topicId },
+            })
+          : undefined;
+        let leaderPlan: Awaited<
+          ReturnType<typeof this.researchLeaderService.planResearch>
+        >;
+        try {
+          leaderPlan = await this.researchLeaderService.planResearch(topicId);
+          if (leaderPlanSpanId) {
+            this.traceCollector?.endSpan(leaderPlanSpanId, {
+              status: "success",
+              output: {
+                dimensionsPlanned: leaderPlan.dimensions?.length ?? 0,
+                agentsAssigned: leaderPlan.agentAssignments?.length ?? 0,
+              },
+            });
+          }
+        } catch (planErr) {
+          if (leaderPlanSpanId) {
+            this.traceCollector?.endSpan(leaderPlanSpanId, {
+              status: "error",
+              error: String(planErr),
+            });
+          }
+          throw planErr;
+        }
 
         if (!leaderPlan.dimensions || leaderPlan.dimensions.length === 0) {
           throw new Error("Leader AI failed to plan dimensions");
@@ -471,8 +515,25 @@ export class TopicTeamOrchestratorService {
       }
 
       // 3. 并行执行维度研究（传递 Agent 分配信息以使用正确的工具和技能）
-      const { results: analysisResults, researchDesign: extractedDesign } =
-        await this.researchDimensionsInParallel(
+      const dimensionSpanId = traceId
+        ? this.traceCollector?.addSpan(traceId, {
+            name: "Dimension Research (Parallel)",
+            type: "phase",
+            metadata: {
+              missionId,
+              dimensionCount: dimensions.length,
+              parallelism,
+            },
+          })
+        : undefined;
+      let analysisResults: Awaited<
+        ReturnType<typeof this.researchDimensionsInParallel>
+      >["results"];
+      let extractedDesign: Awaited<
+        ReturnType<typeof this.researchDimensionsInParallel>
+      >["researchDesign"];
+      try {
+        const parallelResult = await this.researchDimensionsInParallel(
           topic,
           dimensions,
           report.id,
@@ -481,6 +542,30 @@ export class TopicTeamOrchestratorService {
           depthConfig,
           parallelism,
         );
+        analysisResults = parallelResult.results;
+        extractedDesign = parallelResult.researchDesign;
+        const successCount = analysisResults.filter(
+          (r) => r.status === "fulfilled",
+        ).length;
+        if (dimensionSpanId) {
+          this.traceCollector?.endSpan(dimensionSpanId, {
+            status: "success",
+            output: {
+              totalDimensions: dimensions.length,
+              successfulDimensions: successCount,
+              failedDimensions: dimensions.length - successCount,
+            },
+          });
+        }
+      } catch (dimErr) {
+        if (dimensionSpanId) {
+          this.traceCollector?.endSpan(dimensionSpanId, {
+            status: "error",
+            error: String(dimErr),
+          });
+        }
+        throw dimErr;
+      }
       researchDesign = extractedDesign;
 
       // V5: Checkpoint after Phase 2 (global outline + research design)
@@ -707,6 +792,13 @@ export class TopicTeamOrchestratorService {
           message: "质量审核员正在审核研究质量...",
         });
 
+        const reviewSpanId = traceId
+          ? this.traceCollector?.addSpan(traceId, {
+              name: "Quality Review",
+              type: "review",
+              metadata: { missionId, dimensionCount: dimensions.length },
+            })
+          : undefined;
         const reviewResult = await this.reviewResearchQuality(
           topic,
           dimensions,
@@ -716,6 +808,16 @@ export class TopicTeamOrchestratorService {
         this.logger.log(
           `Review completed: ${reviewResult.qualityLevel} (${reviewResult.overallScore.toFixed(1)}/100)`,
         );
+
+        if (reviewSpanId) {
+          this.traceCollector?.endSpan(reviewSpanId, {
+            status: "success",
+            output: {
+              qualityLevel: reviewResult.qualityLevel,
+              overallScore: reviewResult.overallScore,
+            },
+          });
+        }
 
         if (
           reviewResult.qualityLevel === ReviewQualityLevel.REJECTED ||
@@ -770,10 +872,26 @@ export class TopicTeamOrchestratorService {
           /* non-fatal */
         }
       }
+      const synthesisSpanId = traceId
+        ? this.traceCollector?.addSpan(traceId, {
+            name: "Report Synthesis",
+            type: "synthesis",
+            metadata: { missionId, reportId: report.id },
+          })
+        : undefined;
       const finalReport = await this.reportSynthesisService.synthesizeReport(
         topic,
         report.id,
       );
+      if (synthesisSpanId) {
+        this.traceCollector?.endSpan(synthesisSpanId, {
+          status: "success",
+          output: {
+            finalReportId: finalReport.id,
+            totalSources: finalReport.totalSources,
+          },
+        });
+      }
 
       // V5: Fact check (thorough mode only)
       if (depthConfig.factCheckEnabled) {
@@ -911,6 +1029,10 @@ export class TopicTeamOrchestratorService {
 
       this.logger.log(`Completed refresh for topic: ${topic.name}`);
 
+      if (traceId) {
+        this.traceCollector?.endTrace(traceId, { status: "success" });
+      }
+
       return finalReport;
     } catch (error) {
       const errorMessage =
@@ -976,6 +1098,12 @@ export class TopicTeamOrchestratorService {
             `[executeRefresh] Cleanup on error failed: ${cleanupErr}`,
           );
         }
+      }
+
+      if (traceId) {
+        this.traceCollector?.endTrace(traceId, {
+          status: "error",
+        });
       }
 
       this.logger.error(`Failed refresh for topic: ${topic.name}`, error);
