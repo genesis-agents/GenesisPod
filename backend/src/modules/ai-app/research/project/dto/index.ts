@@ -62,6 +62,15 @@ export class CreateStudioProjectDto {
   researchType?: "FAST" | "DEEP";
 
   @ApiPropertyOptional({
+    description: "可见性",
+    enum: ["PRIVATE", "PUBLIC"],
+    default: "PRIVATE",
+  })
+  @IsOptional()
+  @IsEnum(["PRIVATE", "PUBLIC"])
+  visibility?: "PRIVATE" | "PUBLIC";
+
+  @ApiPropertyOptional({
     description: "跨模块来源引用（从其他模块跳转创建时携带）",
   })
   @IsOptional()
@@ -99,6 +108,10 @@ export class UpdateProjectDto {
   @IsOptional()
   @IsEnum(["ACTIVE", "ARCHIVED"])
   status?: "ACTIVE" | "ARCHIVED";
+
+  @IsOptional()
+  @IsEnum(["PRIVATE", "PUBLIC"])
+  visibility?: "PRIVATE" | "PUBLIC";
 }
 
 // ==================== Source DTOs ====================

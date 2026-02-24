@@ -29,6 +29,8 @@ interface ResearchProject {
   name: string;
   description?: string;
   status: string;
+  visibility?: string;
+  userId?: string;
   sourcesCount?: number;
   notesCount?: number;
   createdAt: string;
@@ -236,6 +238,33 @@ function ResearchPageContent() {
         setError(t('common.loadError'));
       } finally {
         setDeleteProject(null);
+      }
+    },
+    [t]
+  );
+
+  const handleToggleVisibility = useCallback(
+    async (project: ResearchProject) => {
+      const newVisibility =
+        project.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
+      try {
+        const response = await fetch(
+          `${config.apiBaseUrl}/api/v1/ai-studio/projects/${project.id}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            body: JSON.stringify({ visibility: newVisibility }),
+          }
+        );
+        if (!response.ok) throw new Error('Failed to update visibility');
+        setProjects((prev) =>
+          prev.map((p) =>
+            p.id === project.id ? { ...p, visibility: newVisibility } : p
+          )
+        );
+      } catch (err) {
+        logger.error('Error toggling project visibility:', err);
+        setError(t('common.loadError'));
       }
     },
     [t]
@@ -495,87 +524,127 @@ function ResearchPageContent() {
                       <div className="absolute inset-0 rounded-2xl ring-2 ring-white/20 transition-all group-hover:ring-4 group-hover:ring-white/30" />
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
-                        {project.status === 'ACTIVE'
-                          ? t('aiResearch.status.active')
-                          : project.status}
-                      </span>
-                      {/* More menu */}
-                      <div
-                        className="relative"
-                        ref={menuOpenId === project.id ? menuRef : undefined}
-                      >
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuOpenId(
-                              menuOpenId === project.id ? null : project.id
-                            );
-                          }}
-                          className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100"
-                        >
+                      {project.visibility === 'PUBLIC' && (
+                        <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
                           <svg
-                            className="h-4 w-4"
-                            fill="currentColor"
+                            className="h-3 w-3"
+                            fill="none"
+                            stroke="currentColor"
                             viewBox="0 0 24 24"
                           >
-                            <circle cx="12" cy="5" r="1.5" />
-                            <circle cx="12" cy="12" r="1.5" />
-                            <circle cx="12" cy="19" r="1.5" />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
                           </svg>
-                        </button>
-                        {menuOpenId === project.id && (
-                          <div className="absolute right-0 top-8 z-20 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMenuOpenId(null);
-                                setRenameName(project.name);
-                                setRenameProject(project);
-                              }}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                          {t('aiResearch.visibility.public')}
+                        </span>
+                      )}
+                      {/* More menu — only show for own projects */}
+                      {(!project.userId || project.userId === user?.id) && (
+                        <div
+                          className="relative"
+                          ref={menuOpenId === project.id ? menuRef : undefined}
+                        >
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuOpenId(
+                                menuOpenId === project.id ? null : project.id
+                              );
+                            }}
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100"
+                          >
+                            <svg
+                              className="h-4 w-4"
+                              fill="currentColor"
+                              viewBox="0 0 24 24"
                             >
-                              <svg
-                                className="h-4 w-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
+                              <circle cx="12" cy="5" r="1.5" />
+                              <circle cx="12" cy="12" r="1.5" />
+                              <circle cx="12" cy="19" r="1.5" />
+                            </svg>
+                          </button>
+                          {menuOpenId === project.id && (
+                            <div className="absolute right-0 top-8 z-20 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMenuOpenId(null);
+                                  setRenameName(project.name);
+                                  setRenameProject(project);
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                />
-                              </svg>
-                              {t('aiResearch.project.rename')}
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMenuOpenId(null);
-                                setDeleteProject(project);
-                              }}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                            >
-                              <svg
-                                className="h-4 w-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                  />
+                                </svg>
+                                {t('aiResearch.project.rename')}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMenuOpenId(null);
+                                  void handleToggleVisibility(project);
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                />
-                              </svg>
-                              {t('common.delete')}
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  />
+                                </svg>
+                                {project.visibility === 'PUBLIC'
+                                  ? t('aiResearch.visibility.setPrivate')
+                                  : t('aiResearch.visibility.setPublic')}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMenuOpenId(null);
+                                  setDeleteProject(project);
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                              >
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                  />
+                                </svg>
+                                {t('common.delete')}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 

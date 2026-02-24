@@ -642,6 +642,12 @@
       "rename": "Rename",
       "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
     },
+    "visibility": {
+      "private": "Private",
+      "public": "Public",
+      "setPrivate": "Set Private",
+      "setPublic": "Set Public"
+    },
     "empty": {
       "noProjects": "No research projects yet",
       "noProjectsDesc": "Create your first research project to get started",

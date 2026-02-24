@@ -642,6 +642,12 @@
       "rename": "重命名",
       "deleteConfirm": "确定要删除研究项目「{{name}}」吗？此操作不可恢复。"
     },
+    "visibility": {
+      "private": "私有",
+      "public": "公开",
+      "setPrivate": "设为私有",
+      "setPublic": "设为公开"
+    },
     "empty": {
       "noProjects": "暂无研究项目",
       "noProjectsDesc": "创建你的第一个研究项目以开始使用",

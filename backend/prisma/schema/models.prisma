@@ -2181,6 +2181,7 @@ model ResearchProject {
   icon         String?               @db.VarChar(10) // Emoji icon
   color        String?               @db.VarChar(20) // Hex color code
   status       ResearchProjectStatus @default(ACTIVE)
+  visibility   String                @default("PRIVATE") @db.VarChar(20)
   researchType ResearchType          @default(FAST) @map("research_type")
 
   // 项目统计

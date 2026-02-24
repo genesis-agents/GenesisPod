@@ -30,6 +30,7 @@ export class ResearchProjectService {
         icon: dto.icon || "📚",
         color: dto.color || "#6366f1",
         researchType: dto.researchType || "DEEP",
+        visibility: dto.visibility || "PRIVATE",
         lastAccessAt: new Date(),
         ...(dto.crossModuleSource && {
           crossModuleSource: dto.crossModuleSource,
@@ -61,21 +62,42 @@ export class ResearchProjectService {
       skip?: number;
     },
   ) {
-    const where: any = {
-      userId,
-      status: options?.status || "ACTIVE",
+    const statusFilter = options?.status || "ACTIVE";
+    const baseConditions: Record<string, unknown> = {
+      status: statusFilter,
     };
 
     if (options?.researchType) {
-      where.researchType = options.researchType;
+      baseConditions.researchType = options.researchType;
     }
 
-    if (options?.search) {
-      where.OR = [
-        { name: { contains: options.search, mode: "insensitive" } },
-        { description: { contains: options.search, mode: "insensitive" } },
-      ];
-    }
+    const searchConditions = options?.search
+      ? [
+          { name: { contains: options.search, mode: "insensitive" as const } },
+          {
+            description: {
+              contains: options.search,
+              mode: "insensitive" as const,
+            },
+          },
+        ]
+      : undefined;
+
+    // Include user's own projects + public projects from others
+    const where: any = {
+      ...baseConditions,
+      OR: [
+        {
+          userId,
+          ...(searchConditions ? { OR: searchConditions } : {}),
+        },
+        {
+          visibility: "PUBLIC",
+          userId: { not: userId },
+          ...(searchConditions ? { OR: searchConditions } : {}),
+        },
+      ],
+    };
 
     const [projects, total] = await Promise.all([
       this.prisma.researchProject.findMany({
@@ -142,15 +164,20 @@ export class ResearchProjectService {
       throw new NotFoundException("Project not found");
     }
 
-    if (project.userId !== userId) {
+    const isOwner = project.userId === userId;
+    const isPublic = project.visibility === "PUBLIC";
+
+    if (!isOwner && !isPublic) {
       throw new ForbiddenException("Access denied");
     }
 
-    // Update last access time
-    await this.prisma.researchProject.update({
-      where: { id: projectId },
-      data: { lastAccessAt: new Date() },
-    });
+    // Update last access time only for the owner
+    if (isOwner) {
+      await this.prisma.researchProject.update({
+        where: { id: projectId },
+        data: { lastAccessAt: new Date() },
+      });
+    }
 
     return project;
   }
@@ -183,6 +210,7 @@ export class ResearchProjectService {
         ...(dto.icon && { icon: dto.icon }),
         ...(dto.color && { color: dto.color }),
         ...(dto.status && { status: dto.status }),
+        ...(dto.visibility && { visibility: dto.visibility }),
       },
       include: {
         _count: {

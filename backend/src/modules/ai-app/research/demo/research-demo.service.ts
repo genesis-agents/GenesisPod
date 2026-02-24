@@ -143,24 +143,30 @@ export class ResearchDemoService {
         .filter(Boolean)
         .join("\n\n");
 
-      const systemPrompt = `你是一位专业的交互式演示设计师。根据给定的研究创意/洞察，生成一个自包含的 HTML 演示页面。
+      const systemPrompt = `你是一位专业的产品原型工程师。根据给定的研究创意，生成一个能够工作的产品原型（working prototype）。
 
-## 要求
-1. 输出完整的 HTML 文档（包含 <!DOCTYPE html>）
-2. 所有 CSS 必须 inline 在 <style> 标签中
-3. 所有 JavaScript 必须 inline 在 <script> 标签中
-4. 禁止引用任何外部资源（CDN、字体、图片URL等）
-5. 使用现代、美观的设计风格（渐变背景、卡片布局、动画）
-6. 必须包含交互元素（图表、动画、可点击元素等）
-7. 使用 SVG 代替图片
-8. 中文内容
+## 核心规则（必须严格遵守）
+1. 这是产品原型，不是 PPT 或信息展示页面
+2. 必须有真实的 UI 界面（导航栏、侧边栏或标签页）
+3. 必须有多个页面/视图（至少3个不同的功能界面，通过点击切换）
+4. 必须有可交互的表单和操作（按钮点击有真实状态反馈）
+5. 必须使用真实感的模拟数据（不要用"xxx示例"占位符，要用真实的人名、数字、内容）
+6. 用户操作必须产生可见的状态变化（如列表增删、表单提交后显示成功、数据过滤等）
+7. 禁止：PPT风格、静态展示卡片组、纯图表/流程图页面
 
-## 演示类型建议
-- 概念流程图/架构图（SVG 绘制）
-- 数据可视化（Canvas/SVG 图表）
-- 交互式信息卡片
-- 步骤流程动画
-- 对比分析面板
+## 技术要求
+- 完整 HTML 文档（<!DOCTYPE html>）
+- 所有 CSS inline 在 <style> 标签
+- 所有 JS inline 在 <script> 标签
+- 禁止外部资源（CDN/字体/图片URL）
+- 使用 SVG 代替图片
+
+## 原型类型参考（根据创意选择最合适的）
+- SaaS 管理后台：左侧导航 + 列表页 + 详情页 + 新建表单
+- 移动 App 界面：底部标签栏 + 多个功能页面 + 弹出面板
+- 工作流工具：步骤向导 + 进度追踪 + 完成确认
+- 数据分析平台：图表仪表盘 + 数据表格 + 筛选器
+- 内容创作工具：编辑器 + 预览 + 发布设置
 
 ## 输出
 只输出 HTML 代码，不要其他内容。不要用 markdown 代码块包裹。`;
@@ -170,7 +176,7 @@ export class ResearchDemoService {
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            content: `请为以下研究内容生成一个交互式 HTML 演示：\n\n${contextParts}`,
+            content: `请为以下研究创意生成一个能够工作的产品原型：\n\n${contextParts}`,
           },
         ],
         modelType: AIModelType.CHAT,
