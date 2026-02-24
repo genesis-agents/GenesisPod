@@ -760,7 +760,7 @@ export class AiModelConfigService {
         `[getEnabledModelsForFrontend] Called with userId=${userId || "NONE"}, modelType=${modelType || "ALL"}`,
       );
 
-      const where: any = { isEnabled: true };
+      const where: Record<string, unknown> = { isEnabled: true };
       if (modelType) {
         where.modelType = modelType;
       }
@@ -837,7 +837,7 @@ export class AiModelConfigService {
         );
         if (extraProviders.length > 0) {
           // First, try to find disabled models in database
-          const extraWhere: any = {
+          const extraWhere: Record<string, unknown> = {
             isEnabled: false,
             provider: { in: extraProviders, mode: "insensitive" as const },
           };
@@ -936,7 +936,7 @@ export class AiModelConfigService {
 
       if (userId) {
         const userKeyModels = result.filter((m) => m.isUserKey);
-        const byokModels = result.filter((m) => (m as any).isByokGenerated);
+        const byokModels = result.filter((m) => (m as Record<string, unknown>).isByokGenerated);
         this.logger.debug(
           `[getEnabledModelsForFrontend] Returning ${result.length} models, ${userKeyModels.length} with isUserKey (${byokModels.length} BYOK generated): [${userKeyModels.map((m) => m.name).join(", ")}]`,
         );
@@ -1070,17 +1070,18 @@ export class AiModelConfigService {
     if (!userId) return null;
 
     try {
-      const where: any = {
-        OR: [
-          { modelId: { equals: idOrModelId, mode: "insensitive" } },
-          { name: { equals: idOrModelId, mode: "insensitive" } },
-        ],
-        isEnabled: false,
-      };
+      const orClauses: Array<Record<string, unknown>> = [
+        { modelId: { equals: idOrModelId, mode: "insensitive" } },
+        { name: { equals: idOrModelId, mode: "insensitive" } },
+      ];
       // Also try UUID match
       if (idOrModelId.length > 30) {
-        where.OR.push({ id: idOrModelId });
+        orClauses.push({ id: idOrModelId });
       }
+      const where: Record<string, unknown> = {
+        OR: orClauses,
+        isEnabled: false,
+      };
       if (modelTypes) {
         where.modelType = { in: modelTypes };
       }

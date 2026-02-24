@@ -32,17 +32,12 @@ import type {
   MissionInput,
   MissionEvent,
   MissionResult,
-} from "../../../../ai-engine/teams";
-import { TeamRegistry } from "../../../../ai-engine/teams/registry/team-registry";
-import { RoleRegistry } from "../../../../ai-engine/teams/registry/role-registry";
-import { ConstraintProfile } from "../../../../ai-engine/teams/constraints";
-
-// AI Engine Long Content - 长篇内容处理能力 (types only)
-import type {
+  ConstraintProfile,
   LongContentProjectConfig,
   TaskExecutionContext,
-} from "../../../../ai-engine/long-content";
-import type { GranularityLevel } from "../../../../ai-engine/long-content/interfaces";
+  GranularityLevel,
+} from "../../../../ai-engine/facade";
+import { TeamRegistry, RoleRegistry } from "../../../../ai-engine/facade";
 
 // Writing Agents
 import {

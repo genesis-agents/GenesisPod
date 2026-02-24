@@ -38,7 +38,7 @@ import {
 import type {
   AiCallerFn,
   EstablishedFact,
-} from "../../../../../ai-engine/orchestration/services";
+} from "../../../../../ai-engine/facade";
 
 /**
  * 审核服务回调接口

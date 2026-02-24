@@ -11,20 +11,20 @@ import {
   TemporalDimension,
 } from "./content-analysis.types";
 
-// Image types - re-exported from AI Engine
+// Image types - re-exported from AI Engine via facade
 export {
   ImageType,
   ImagePlacement,
   type ImageMatchingRule,
   type ImageRequirement,
   IMAGE_MATCHING_RULES,
-} from "../../../ai-engine/image/matching/image-matching.types";
+} from "../../../ai-engine/facade";
 
 import {
   ImageType,
   ImagePlacement,
-  type ImageRequirement,
-} from "../../../ai-engine/image/matching/image-matching.types";
+} from "../../../ai-engine/facade";
+import type { ImageRequirement } from "../../../ai-engine/facade";
 
 // ============================================================================
 // 模板类型定义

@@ -7,11 +7,11 @@
  * - SkillsMP 安装的 skills 通过此桥接自动进入执行管线
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { SkillRegistry } from "../registry/skill-registry";
 import { SkillLoaderService } from "../loader/skill-loader.service";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
-import { AIEngineFacade } from "../../facade/ai-engine.facade";
+import type { AIEngineFacade } from "../../facade/ai-engine.facade";
 import { SkillMdDefinition } from "../types/skill-md.types";
 import { PromptSkillAdapter } from "./prompt-skill-adapter";
 import { ISkill } from "../abstractions/skill.interface";
@@ -30,6 +30,8 @@ export class PromptSkillBridge {
     private readonly skillRegistry: SkillRegistry,
     private readonly skillLoader: SkillLoaderService,
     private readonly promptBuilder: SkillPromptBuilder,
+    // forwardRef breaks the circular import: PromptSkillBridge ↔ AIEngineFacade
+    @Inject(forwardRef(() => require("../../facade/ai-engine.facade").AIEngineFacade))
     private readonly facade: AIEngineFacade,
   ) {}
 

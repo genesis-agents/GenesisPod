@@ -23,8 +23,7 @@
 
 import { Module, OnModuleInit, Logger, forwardRef } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
-import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
-import { PromptSkillBridge } from "@/modules/ai-engine/skills/runtime";
+import { SkillRegistry, PromptSkillBridge } from "@/modules/ai-engine/facade";
 import { AiEngineModule } from "@/modules/ai-engine/ai-engine.module";
 import { AIModelService } from "../../core/ai-model.service";
 import { PrismaModule } from "@/common/prisma/prisma.module";

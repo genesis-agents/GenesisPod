@@ -355,7 +355,7 @@ export class ImageDesignerAgent extends PlanBasedAgent {
   async *execute(plan: AgentPlan): AsyncGenerator<AgentEvent> {
     this.logger.log(`[execute] Starting image design for task: ${plan.taskId}`);
 
-    const input = (plan as any).input as AgentInput;
+    const input = (plan as AgentPlan & { input?: AgentInput }).input;
     if (!input) {
       yield {
         type: "error",
@@ -376,6 +376,7 @@ export class ImageDesignerAgent extends PlanBasedAgent {
         plan,
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- artifact shape varies by step type
       const artifacts: any[] = [];
       let enhancedPrompt = input.prompt || "";
       let infographicHtml = "";
@@ -459,6 +460,7 @@ export class ImageDesignerAgent extends PlanBasedAgent {
   ): Promise<{
     enhancedPrompt?: string;
     html?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- artifact shape varies by step type
     artifact?: any;
     content?: string;
   }> {

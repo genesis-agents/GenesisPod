@@ -17,7 +17,7 @@ import type {
   ContinuationState,
   ExpectedOutput,
   QualityDashboard,
-} from "../../../../ai-engine/long-content";
+} from "../../../../ai-engine/facade";
 import { AIEngineFacade } from "../../../../ai-engine/facade";
 
 /**

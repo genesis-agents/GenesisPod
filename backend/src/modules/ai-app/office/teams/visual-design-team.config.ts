@@ -15,13 +15,15 @@
  */
 
 import {
-  TeamConfig,
   BUILTIN_TEAMS,
-} from "../../../ai-engine/teams/abstractions/team.interface";
-import { BUILTIN_ROLES } from "../../../ai-engine/teams/abstractions/role.interface";
-import { WorkflowConfig } from "../../../ai-engine/teams/abstractions/workflow.interface";
-import { createConstraintProfile } from "../../../ai-engine/teams/constraints/constraint-profile";
-import { BUILTIN_TOOLS } from "../../../ai-engine/core/types/agent.types";
+  BUILTIN_ROLES,
+  createConstraintProfile,
+  BUILTIN_TOOLS,
+} from "../../../ai-engine/facade";
+import type {
+  TeamConfig,
+  WorkflowConfig,
+} from "../../../ai-engine/facade";
 
 // ============================================================================
 // Agent System Prompts - 针对 Imagen 4 优化的专业提示词

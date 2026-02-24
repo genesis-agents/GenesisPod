@@ -307,7 +307,7 @@ export class ResearchTodoService {
         progress: 100,
         completedAt: new Date(),
         actualMs: todo.startedAt ? Date.now() - todo.startedAt.getTime() : null,
-        result: result ? (result as any) : undefined,
+        result: result ? (result as Prisma.InputJsonValue) : undefined,
         statusMessage: "已完成",
       },
     });
@@ -336,7 +336,7 @@ export class ResearchTodoService {
         status: ResearchTodoStatus.FAILED,
         completedAt: new Date(),
         actualMs: todo.startedAt ? Date.now() - todo.startedAt.getTime() : null,
-        result: { error } as any,
+        result: { error } as Prisma.InputJsonValue,
         statusMessage: `失败: ${error}`,
       },
     });

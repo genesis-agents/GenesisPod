@@ -14,7 +14,7 @@ import {
   WritingMissionService,
   WritingMissionInput,
 } from "../mission/writing-mission.service";
-import { MissionEvent } from "../../../../ai-engine/teams/abstractions/mission.interface";
+import type { MissionEvent } from "../../../../ai-engine/facade";
 
 @Injectable()
 export class ChapterWritingService {
@@ -82,6 +82,7 @@ export class ChapterWritingService {
     // Verify access
     await this.getChapter(id, userId);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma update input type is complex and varies by DTO shape
     const updateData: any = { ...dto };
 
     // Update word count if content is provided

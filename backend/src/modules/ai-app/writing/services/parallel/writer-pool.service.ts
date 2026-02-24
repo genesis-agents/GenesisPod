@@ -69,7 +69,7 @@ export class WriterPoolService {
   }
 
   getPoolStatus() {
-    const status: any[] = [];
+    const status: unknown[] = [];
     for (const [id, writer] of this.pool) {
       status.push({
         id,

@@ -131,11 +131,13 @@ export abstract class ReactiveAgent<
           toolCalls: response.toolCalls,
         });
 
-        for (const result of results) {
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+          const toolCall = response.toolCalls[i];
           messages.push({
             role: "tool",
             content: JSON.stringify(result.output),
-            toolCallId: result.toolId,
+            toolCallId: toolCall.id,
           });
         }
       } else {
@@ -317,8 +319,17 @@ export abstract class ReactiveAgent<
     input: TInput,
     context: AgentContext,
   ): LLMMessage[] {
-    const agentInput = input as unknown as AgentInput;
-    return this.buildMessages(agentInput.prompt, context);
+    if (!this.isAgentInput(input)) {
+      throw AgentError.executionFailed(this.id, 'Input missing required prompt field');
+    }
+    return this.buildMessages(input.prompt, context);
+  }
+
+  /**
+   * 类型守卫：检查 input 是否符合 AgentInput
+   */
+  private isAgentInput(v: unknown): v is AgentInput {
+    return typeof v === 'object' && v !== null && 'prompt' in v;
   }
 
   /**

@@ -102,11 +102,12 @@ export class ReportSynthesisService {
         });
 
         return report;
-      } catch (error: any) {
+      } catch (error: unknown) {
         // 检查是否是唯一约束冲突（并发创建导致）
+        const e = error as { code?: string; message?: string };
         const isUniqueConstraintError =
-          error?.code === "P2002" ||
-          error?.message?.includes("Unique constraint");
+          e.code === "P2002" ||
+          e.message?.includes("Unique constraint");
 
         if (isUniqueConstraintError && attempt < maxRetries) {
           this.logger.warn(

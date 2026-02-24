@@ -219,7 +219,7 @@ export class KnowledgeBaseService {
               if (Array.isArray(transcript)) {
                 // Convert transcript segments to text
                 resource.content = transcript
-                  .map((seg: any) => seg.text || "")
+                  .map((seg: Record<string, unknown>) => (seg["text"] as string) || "")
                   .join(" ");
               }
             }

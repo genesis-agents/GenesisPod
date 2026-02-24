@@ -16,7 +16,7 @@ import {
   JsonSchema,
 } from "../abstractions/skill.interface";
 import { SkillMdDefinition, SkillInputBinding } from "../types/skill-md.types";
-import { AIEngineFacade } from "../../facade/ai-engine.facade";
+import type { AIEngineFacade } from "../../facade/ai-engine.facade";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
 
 export class PromptSkillAdapter implements ISkill<unknown, unknown> {

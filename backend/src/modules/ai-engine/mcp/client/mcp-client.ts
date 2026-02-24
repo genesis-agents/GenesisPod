@@ -4,6 +4,7 @@
  */
 
 import { Logger } from "@nestjs/common";
+import type { ChildProcess } from "child_process";
 import {
   IMCPClient,
   MCPServerInfo,
@@ -329,7 +330,7 @@ export abstract class BaseMCPClient implements IMCPClient {
  * Stdio MCP 客户端
  */
 export class StdioMCPClient extends BaseMCPClient {
-  private process: any;
+  private process: ChildProcess | null = null;
   private buffer = "";
 
   protected async doConnect(): Promise<void> {
@@ -379,7 +380,7 @@ export class StdioMCPClient extends BaseMCPClient {
   protected async doDisconnect(): Promise<void> {
     if (this.process) {
       this.process.kill();
-      this.process = undefined;
+      this.process = null;
     }
   }
 

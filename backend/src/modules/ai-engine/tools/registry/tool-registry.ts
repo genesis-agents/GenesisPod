@@ -220,13 +220,18 @@ export class ToolRegistry
 
   /**
    * ★ NEW: 估算工具列表的 Token 消耗
-   * 精简摘要：约 30-50 tokens/工具
-   * 完整定义：约 100-300 tokens/工具
+   * 基于 JSON schema 字符串长度估算，而非固定魔法常量。
+   * compact 模式约 1 token/10 字符，完整模式约 1 token/4 字符。
    */
   estimateTokens(ids: string[], compact = true): number {
-    const count = ids.filter((id) => this.isAvailable(id)).length;
-    // 估算值：精简约 40 tokens，完整约 200 tokens
-    return compact ? count * 40 : count * 200;
+    return ids
+      .filter((id) => this.isAvailable(id))
+      .reduce((sum, id) => {
+        const tool = this.tryGet(id);
+        if (!tool) return sum;
+        const schemaLen = JSON.stringify(tool.inputSchema ?? {}).length;
+        return sum + Math.ceil(compact ? schemaLen / 10 : schemaLen / 4);
+      }, 0);
   }
 
   /**

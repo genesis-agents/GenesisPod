@@ -215,9 +215,9 @@ export class AICapabilityResolver {
               description: tool.description,
             });
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           this.logger.warn(
-            `Failed to list tools from MCP server ${server.serverId}: ${error.message}`,
+            `Failed to list tools from MCP server ${server.serverId}: ${error instanceof Error ? error.message : String(error)}`,
           );
         }
       }
@@ -601,8 +601,8 @@ export class AICapabilityResolver {
       this.logger.debug(
         `Logged ${log.capabilityType} usage: ${log.capabilityId} (success=${log.success})`,
       );
-    } catch (error: any) {
-      this.logger.warn(`Failed to log capability usage: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.warn(`Failed to log capability usage: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

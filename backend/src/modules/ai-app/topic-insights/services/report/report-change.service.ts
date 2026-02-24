@@ -189,7 +189,7 @@ export class ReportChangeService {
     userId: string,
     changeIds?: string[],
   ) {
-    const where: any = {
+    const where: Record<string, unknown> = {
       reportId,
       checkedInAt: null,
     };

@@ -17,7 +17,7 @@ import {
   PlanningTemplateService,
 } from "./services";
 import { PLANNING_TEAM_CONFIG } from "./config";
-import { TeamRegistry } from "../../ai-engine/teams/registry/team-registry";
+import { TeamRegistry } from "../../ai-engine/facade";
 
 @Module({
   imports: [PrismaModule, AiEngineModule, AiTeamsModule],

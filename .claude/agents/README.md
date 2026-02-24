@@ -724,6 +724,86 @@ mkdir -p scripts/new-agent
 
 ---
 
+### arch-guardian Agent
+
+**用途：** 快速检查近期代码变更是否引入架构违规，作为 PR 的前置守卫
+
+**核心功能：**
+
+- ✅ Facade 边界检查（ai-app 是否绕过 facade 直接访问 ai-engine 内部）
+- ✅ Registry 导入路径检查（AgentRegistry/TeamRegistry 必须从 facade 导入）
+- ✅ 反向依赖检测（ai-engine 是否反向依赖 ai-app）
+- ✅ LLM 硬编码检测（model 名称、temperature、maxTokens）
+- ✅ ESLint 覆盖缺口检查（新增 Engine 子目录是否已加入限制规则）
+
+**配置文件：**
+
+- Agent 定义：`.claude/agents/arch-guardian.md`
+- 命令：`.claude/commands/arch-guard.md`
+
+**使用场景：**
+
+```bash
+# 场景1：PR 提交前的快速自检
+/arch-guard
+
+# 场景2：新增 ai-engine 子模块后
+"检查刚才新增的 ai-engine/new-module 是否已被 ESLint 规则覆盖"
+
+# 场景3：Task 工具调用
+Task({ subagent_type: "arch-guardian", prompt: "检查最近变更的架构合规性" })
+```
+
+**调用方式：**
+
+```
+/arch-guard
+```
+
+---
+
+### arch-auditor Agent
+
+**用途：** 对整个代码库进行全量架构合规审计，生成持久化报告，追踪架构健康趋势
+
+**核心功能：**
+
+- ✅ Facade 边界全量扫描（所有 ai-app 文件）
+- ✅ 反向依赖全量扫描
+- ✅ LLM 硬编码全量检查
+- ✅ 注册模式合规检查（onModuleInit 注册情况）
+- ✅ 模块依赖图分析（.module.ts imports 层级）
+- ✅ ESLint 规则完备性评估
+- ✅ 架构健康评分 + 跨次对比趋势
+- ✅ 输出持久化报告至 `docs/audits/`
+
+**配置文件：**
+
+- Agent 定义：`.claude/agents/arch-auditor.md`
+- 命令：`.claude/commands/arch-audit.md`
+- 报告目录：`docs/audits/`
+
+**使用场景：**
+
+```bash
+# 场景1：月度定期审计
+/arch-audit
+
+# 场景2：重大重构后验证效果
+"对本次 Facade 重构进行全量审计，生成报告"
+
+# 场景3：Release 前确保合规
+Task({ subagent_type: "arch-auditor", prompt: "执行全量架构审计" })
+```
+
+**调用方式：**
+
+```
+/arch-audit
+```
+
+---
+
 ## 审计与合规
 
 ### 审计日志

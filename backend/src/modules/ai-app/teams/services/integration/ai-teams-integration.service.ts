@@ -10,12 +10,16 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import type { TeamInfo } from "../../../../ai-engine/facade";
-import { AIEngineFacade } from "../../../../ai-engine/facade";
-import { TeamRegistry } from "../../../../ai-engine/teams/registry/team-registry";
-import { RoleRegistry } from "../../../../ai-engine/teams/registry/role-registry";
-import { TeamConfig } from "../../../../ai-engine/teams/abstractions/team.interface";
-import { ConstraintProfile } from "../../../../ai-engine/teams/constraints/constraint-profile";
-import { WorkflowConfig } from "../../../../ai-engine/teams/abstractions/workflow.interface";
+import {
+  AIEngineFacade,
+  TeamRegistry,
+  RoleRegistry,
+} from "../../../../ai-engine/facade";
+import type {
+  TeamConfig,
+  ConstraintProfile,
+  WorkflowConfig,
+} from "../../../../ai-engine/facade";
 import {
   CreateCustomTeamDto,
   UpdateCustomTeamDto,

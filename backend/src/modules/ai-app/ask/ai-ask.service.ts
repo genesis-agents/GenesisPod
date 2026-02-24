@@ -690,7 +690,7 @@ export class AiAskService {
       throw new NotFoundException("Session not found");
     }
 
-    const where: any = { sessionId };
+    const where: Record<string, unknown> = { sessionId };
     if (before) {
       where.createdAt = { lt: before };
     }

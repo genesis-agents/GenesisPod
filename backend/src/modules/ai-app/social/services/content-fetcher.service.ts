@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SocialContentSourceType } from "@prisma/client";
 import { AIEngineFacade } from "../../../ai-engine/facade";
-import { sanitizeForDb, sanitizeJson } from "../../../ai-engine/content-fetch";
+import { sanitizeForDb, sanitizeJson } from "../../../ai-engine/facade";
 
 export interface FetchedContent {
   title: string;

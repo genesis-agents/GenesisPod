@@ -12,7 +12,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { TaskProfile } from "@/modules/ai-engine/llm/types";
+import type { TaskProfile } from "@/modules/ai-engine/facade";
 import type { AIModelType as _AIModelType } from "@prisma/client"; // 保留用于类型参考
 
 export interface CoherenceIssue {

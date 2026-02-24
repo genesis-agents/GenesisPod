@@ -7,9 +7,8 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIEngineFacade } from "../../../../ai-engine/facade";
-import { TeamRegistry } from "../../../../ai-engine/teams/registry/team-registry";
-import { RoleRegistry } from "../../../../ai-engine/teams/registry/role-registry";
-import { ITeam } from "../../../../ai-engine/teams/abstractions/team.interface";
+import { TeamRegistry, RoleRegistry } from "../../../../ai-engine/facade";
+import type { ITeam } from "../../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
 // Writing Agents

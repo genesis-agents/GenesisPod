@@ -83,16 +83,16 @@ export class ResearchMemoryService implements OnModuleDestroy {
 
       // 2. 构建任务结果摘要（限制长度以避免 token 溢出）
       const taskResults = mission.tasks.map((task) => {
-        const result = task.result as any;
+        const result = task.result as Record<string, unknown> | null;
         return {
           dimensionName: task.dimensionName || "未知维度",
-          summary: result?.summary || task.resultSummary || "无摘要",
+          summary: (result?.["summary"] as string | undefined) || task.resultSummary || "无摘要",
           keyFindings:
-            result?.keyFindings?.slice(0, 5) ||
-            result?.analysisResult?.keyFindings?.slice(0, 5) ||
+            (result?.["keyFindings"] as unknown[] | undefined)?.slice(0, 5) ||
+            ((result?.["analysisResult"] as Record<string, unknown> | undefined)?.["keyFindings"] as unknown[] | undefined)?.slice(0, 5) ||
             [],
-          trends: result?.trends?.slice(0, 3) || [],
-          challenges: result?.challenges?.slice(0, 3) || [],
+          trends: (result?.["trends"] as unknown[] | undefined)?.slice(0, 3) || [],
+          challenges: (result?.["challenges"] as unknown[] | undefined)?.slice(0, 3) || [],
         };
       });
 
@@ -305,9 +305,9 @@ export class ResearchMemoryService implements OnModuleDestroy {
     taskResults: Array<{
       dimensionName: string;
       summary: string;
-      keyFindings: any[];
-      trends: any[];
-      challenges: any[];
+      keyFindings: unknown[];
+      trends: unknown[];
+      challenges: unknown[];
     }>,
   ): string {
     const resultsText = taskResults
@@ -317,13 +317,13 @@ export class ResearchMemoryService implements OnModuleDestroy {
 **摘要**: ${task.summary}
 
 **关键发现**:
-${task.keyFindings.map((f, i) => `${i + 1}. ${typeof f === "string" ? f : f.finding || f.title || JSON.stringify(f)}`).join("\n")}
+${task.keyFindings.map((f, i) => { const fr = f as Record<string, unknown>; return `${i + 1}. ${typeof f === "string" ? f : (fr["finding"] || fr["title"] || JSON.stringify(f))}`; }).join("\n")}
 
 **趋势**:
-${task.trends.map((t, i) => `${i + 1}. ${typeof t === "string" ? t : t.description || JSON.stringify(t)}`).join("\n")}
+${task.trends.map((t, i) => { const tr = t as Record<string, unknown>; return `${i + 1}. ${typeof t === "string" ? t : (tr["description"] || JSON.stringify(t))}`; }).join("\n")}
 
 **挑战**:
-${task.challenges.map((c, i) => `${i + 1}. ${typeof c === "string" ? c : c.description || JSON.stringify(c)}`).join("\n")}
+${task.challenges.map((c, i) => { const cr = c as Record<string, unknown>; return `${i + 1}. ${typeof c === "string" ? c : (cr["description"] || JSON.stringify(c))}`; }).join("\n")}
 `;
       })
       .join("\n\n---\n\n");

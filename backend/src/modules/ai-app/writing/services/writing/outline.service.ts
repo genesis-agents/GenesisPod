@@ -270,11 +270,12 @@ export class OutlineService {
     }));
   }
 
-  private suggestDependencies(chapter: any, allChapters: any[]) {
+  private suggestDependencies(chapter: unknown, allChapters: unknown[]) {
     // Simple heuristic: depend on previous chapter
+    const c = chapter as Record<string, unknown>;
     const previousChapter = allChapters.find(
-      (c) => c.chapterNumber === chapter.chapterNumber - 1,
+      (ch) => (ch as Record<string, unknown>)["chapterNumber"] === (c["chapterNumber"] as number) - 1,
     );
-    return previousChapter ? [previousChapter.id] : [];
+    return previousChapter ? [(previousChapter as Record<string, unknown>)["id"] as string] : [];
   }
 }

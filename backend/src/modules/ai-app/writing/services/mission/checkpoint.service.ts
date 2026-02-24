@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 /**
@@ -112,7 +113,7 @@ export class CheckpointService {
       await this.prisma.writingMission.update({
         where: { id: missionId },
         data: {
-          result: resultData as any, // Prisma Json 类型
+          result: resultData as unknown as Prisma.InputJsonValue, // Prisma Json 类型
         },
       });
 
@@ -192,6 +193,7 @@ export class CheckpointService {
           ? { ...mission.result }
           : {};
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deleting dynamic JSON property from Prisma result
       delete (result as any).checkpoint;
 
       await this.prisma.writingMission.update({

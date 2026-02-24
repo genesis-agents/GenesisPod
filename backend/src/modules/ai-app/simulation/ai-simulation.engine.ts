@@ -771,11 +771,11 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
     if (!run) return {};
 
     const keyFindings: string[] = [];
-    const monologueLog: any[] = [];
+    const monologueLog: unknown[] = [];
     const causalChain: Array<{
       round: number;
       cause: string;
-      effect: any;
+      effect: { significance?: string } | null;
       timestamp: Date;
     }> = [];
     const biasesDetected: Array<{
@@ -826,12 +826,12 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
     }
 
     // Scan turns and build analysis
-    const teamActions: Record<string, any[]> = {};
-    let prevWorldState: Record<string, any> | null = null;
+    const teamActions: Record<string, unknown[]> = {};
+    let prevWorldState: Record<string, unknown> | null = null;
 
     for (const turn of run.turns) {
-      const adjudication = turn.adjudication as Record<string, any>;
-      const currentWorldState = turn.worldState as Record<string, any>;
+      const adjudication = turn.adjudication as Record<string, unknown>;
+      const currentWorldState = turn.worldState as Record<string, unknown>;
 
       // Track state changes for causal chain
       if (prevWorldState && currentWorldState) {
@@ -883,18 +883,20 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
         }
       }
 
-      const submissions = (turn.submissions as any[]) || [];
+      const submissions = (turn.submissions as Array<{ agentId?: string; team?: string; role?: string; publicAction?: string; irrational?: boolean; companyId?: string; innerMonologue?: string; visibility?: string; timestamp?: string; chaosInjected?: boolean }>) || [];
       submissions.forEach((s) => {
         const agent = run.scenario.agents.find((a) => a.id === s.agentId);
 
         // Build team action history
-        if (!teamActions[s.team]) teamActions[s.team] = [];
-        teamActions[s.team].push({
-          round: turn.roundNumber,
-          role: s.role,
-          action: s.publicAction,
-          irrational: s.irrational,
-        });
+        if (s.team !== undefined) {
+          if (!teamActions[s.team]) teamActions[s.team] = [];
+          teamActions[s.team].push({
+            round: turn.roundNumber,
+            role: s.role,
+            action: s.publicAction,
+            irrational: s.irrational,
+          });
+        }
 
         // Detect irrational behavior
         if (s.irrational) {
@@ -926,7 +928,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
 
     // Analyze team behavior patterns
     for (const [team, actions] of Object.entries(teamActions)) {
-      const irrationalCount = actions.filter((a) => a.irrational).length;
+      const irrationalCount = actions.filter((a) => (a as { irrational?: boolean }).irrational).length;
       if (irrationalCount > actions.length * 0.3) {
         blindspots.push({
           type: "team_behavior",
@@ -977,30 +979,31 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
    * 检测状态变化以构建因果链
    */
   private detectStateChange(
-    prev: Record<string, any>,
-    current: Record<string, any>,
+    prev: Record<string, unknown>,
+    current: Record<string, unknown>,
   ): { changes: string[]; significance: "high" | "medium" | "low" } | null {
     const changes: string[] = [];
     let significance: "high" | "medium" | "low" = "low";
 
     // Check for black swan
-    if (!prev.blackSwan && current.blackSwan) {
-      changes.push(`黑天鹅事件: ${current.blackSwan.name}`);
+    if (!prev["blackSwan"] && current["blackSwan"]) {
+      const blackSwan = current["blackSwan"] as { name?: string };
+      changes.push(`黑天鹅事件: ${blackSwan.name}`);
       significance = "high";
     }
 
     // Check for irrational bias
-    if (!prev.irrationalBias && current.irrationalBias) {
+    if (!prev["irrationalBias"] && current["irrationalBias"]) {
       changes.push("非理性波动注入");
       if (significance === "low") significance = "medium";
     }
 
     // Check submissions count change
     if (
-      prev.last_submissions !== current.last_submissions &&
-      current.last_submissions
+      prev["last_submissions"] !== current["last_submissions"] &&
+      current["last_submissions"]
     ) {
-      changes.push(`提交数: ${current.last_submissions}`);
+      changes.push(`提交数: ${current["last_submissions"]}`);
     }
 
     if (changes.length === 0) return null;

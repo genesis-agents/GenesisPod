@@ -18,7 +18,7 @@ import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import {
   MCPServerConfig as UnifiedMCPServerConfig,
   MCPToolResult as UnifiedMCPToolResult,
-} from "@/modules/ai-engine/mcp/abstractions";
+} from "@/modules/ai-engine/facade";
 
 /**
  * ★ Social Module MCP Client Service (Refactored)

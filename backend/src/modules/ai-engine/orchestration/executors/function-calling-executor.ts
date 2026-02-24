@@ -125,8 +125,10 @@ export interface ExecutionConfig {
   maxToolCalls: number;
   parallelToolCalls: boolean;
   enableRetry: boolean;
-  temperature: number;
-  maxTokens: number;
+  /** @deprecated Use taskProfile.creativity instead */
+  temperature?: number;
+  /** @deprecated Use taskProfile.outputLength instead */
+  maxTokens?: number;
   /** ★ TaskProfile for semantic parameter mapping */
   taskProfile?: import("../../llm/types").TaskProfile;
 }
@@ -189,8 +191,6 @@ export class FunctionCallingExecutor {
     maxToolCalls: 20,
     parallelToolCalls: false,
     enableRetry: true,
-    temperature: 0.7,
-    maxTokens: 4096,
     taskProfile: {
       creativity: "medium",
       outputLength: "medium",
@@ -696,10 +696,10 @@ export class FunctionCallingExecutor {
       // Use provided taskProfile
       requestOptions.taskProfile = cfg.taskProfile;
     } else {
-      // Map legacy temperature/maxTokens to taskProfile
+      // Map legacy temperature/maxTokens to taskProfile (fallback for backward compat)
       requestOptions.taskProfile = {
-        creativity: this.mapTemperatureToCreativity(cfg.temperature),
-        outputLength: this.mapMaxTokensToOutputLength(cfg.maxTokens),
+        creativity: this.mapTemperatureToCreativity(cfg.temperature ?? 0.7),
+        outputLength: this.mapMaxTokensToOutputLength(cfg.maxTokens ?? 4096),
       };
     }
 

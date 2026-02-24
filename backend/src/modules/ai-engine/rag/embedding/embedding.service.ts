@@ -139,9 +139,9 @@ export class EmbeddingService {
       }
 
       if (apiKey) {
-        const modelAny = model as any;
+        const modelAny = model as Record<string, unknown>;
         const apiFormat = this.resolveApiFormat(
-          modelAny.apiFormat,
+          modelAny.apiFormat as string | null | undefined,
           model.provider,
         );
         this.cachedConfig = {

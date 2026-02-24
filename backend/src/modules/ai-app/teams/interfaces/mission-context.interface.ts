@@ -20,4 +20,4 @@ export {
   createEmptyContextPackage,
   validateContextPackage,
   mergeContextPackages,
-} from "../../../ai-engine/teams/abstractions/mission-context.interface";
+} from "../../../ai-engine/facade";

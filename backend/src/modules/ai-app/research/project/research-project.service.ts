@@ -84,7 +84,7 @@ export class ResearchProjectService {
       : undefined;
 
     // Include user's own projects + public projects from others
-    const where: any = {
+    const where: Record<string, unknown> = {
       ...baseConditions,
       OR: [
         {

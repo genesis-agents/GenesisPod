@@ -83,9 +83,6 @@ export class RetryStrategy {
     jitter: true,
   };
 
-  private static readonly FALLBACK_TOOLS: Partial<
-    Record<string, string | null>
-  > = {};
 
   constructor(config?: Partial<RetryStrategyConfig>) {
     this.config = { ...RetryStrategy.DEFAULT_CONFIG, ...config };
@@ -165,18 +162,41 @@ export class RetryStrategy {
     return delay;
   }
 
-  getFallback(toolType: string): string | null {
-    return RetryStrategy.FALLBACK_TOOLS[toolType] || null;
-  }
-
   classifyError(error: unknown, toolId: ToolId): RetryToolError {
     const err = error instanceof Error ? error : new Error(String(error));
     const message = err.message.toLowerCase();
+    const status = (error as { status?: number })?.status;
 
     let errorType = ToolErrorType.UNKNOWN;
     let retryable = false;
 
-    if (message.includes("rate limit") || message.includes("429")) {
+    // 优先检查 HTTP 状态码（跨 provider 一致）
+    if (status === 429) {
+      errorType = ToolErrorType.RATE_LIMIT;
+      retryable = true;
+    } else if (status === 503) {
+      errorType = ToolErrorType.SERVICE_UNAVAILABLE;
+      retryable = true;
+    } else if (status === 408 || status === 504) {
+      errorType = ToolErrorType.TIMEOUT;
+      retryable = true;
+    } else if (status !== undefined && status >= 500) {
+      errorType = ToolErrorType.SERVICE_UNAVAILABLE;
+      retryable = true;
+    } else if (status === 400) {
+      errorType = ToolErrorType.INVALID_INPUT;
+      retryable = false;
+    } else if (status === 401 || status === 403) {
+      errorType = ToolErrorType.PERMISSION_DENIED;
+      retryable = false;
+    } else if (status === 404) {
+      errorType = ToolErrorType.RESOURCE_NOT_FOUND;
+      retryable = false;
+    } else if (status === 402) {
+      errorType = ToolErrorType.QUOTA_EXCEEDED;
+      retryable = false;
+    } else if (message.includes("rate limit") || message.includes("429")) {
+      // 字符串匹配降级为 fallback
       errorType = ToolErrorType.RATE_LIMIT;
       retryable = true;
     } else if (message.includes("timeout") || message.includes("timed out")) {
@@ -248,14 +268,14 @@ export interface RetryOptions {
  */
 export function WithRetry(options?: RetryOptions) {
   return function (
-    _target: any,
+    _target: object,
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ) {
     const originalMethod = descriptor.value;
     const strategy = new RetryStrategy(options);
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: unknown[]) {
       const result = await strategy.executeWithRetry(
         () => originalMethod.apply(this, args),
         "unknown",

@@ -14,7 +14,7 @@ export interface ISimulationService {
     userId: string,
     name: string,
     description: string,
-    config?: Record<string, any>,
+    config?: Record<string, unknown>,
   ): Promise<{
     id: string;
     name: string;
@@ -34,7 +34,7 @@ export interface ISimulationService {
     }>,
   ): Promise<{
     roundNumber: number;
-    results: any;
+    results: unknown;
   }>;
 
   /**
@@ -42,7 +42,7 @@ export interface ISimulationService {
    */
   getSimulationResults?(scenarioId: string): Promise<{
     scenarioId: string;
-    rounds: any[];
+    rounds: unknown[];
     summary?: string;
   }>;
 }

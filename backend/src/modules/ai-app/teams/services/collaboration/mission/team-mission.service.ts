@@ -17,8 +17,8 @@ import {
 } from "@prisma/client";
 import { CreateMissionDto } from "../../../dto/create-mission.dto";
 // ★ 架构重构：通过 ToolRegistry 调用工具
-import { ToolRegistry } from "../../../../../ai-engine/tools/registry/tool-registry";
-import type { ToolContext } from "../../../../../ai-engine/tools/abstractions/tool.interface";
+import { ToolRegistry } from "../../../../../ai-engine/facade";
+import type { ToolContext } from "../../../../../ai-engine/facade";
 import { TopicEventEmitterService } from "../../events";
 import {
   mapWithConcurrency,

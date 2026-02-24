@@ -5,7 +5,7 @@
  * 实现动态任务规划、审核修订、质量审计
  */
 
-import type { ISkillOutputManager } from "@/modules/ai-engine/skills";
+import type { ISkillOutputManager } from "@/modules/ai-engine/facade";
 import type { GeneratedSlide, PPTOutline } from "../types/slides.types";
 
 // ============================================

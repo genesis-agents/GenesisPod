@@ -376,6 +376,7 @@ export class AiSocialService {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Playwright Page type not available in this context
   private async validateWechatSession(page: any): Promise<boolean> {
     try {
       await page.goto("https://mp.weixin.qq.com/cgi-bin/home", {

@@ -120,7 +120,7 @@ export class ResearchProjectChatService {
 
     // Get selected sources for context
     // IMPORTANT: Maintain the order of selectedSourceIds for consistent citation mapping
-    let sourceContext: any[] = [];
+    let sourceContext: Array<{ id: string; title: string; abstract: string | null; content: string | null; sourceType: string; aiSummary: string | null }> = [];
     if (dto.selectedSourceIds && dto.selectedSourceIds.length > 0) {
       const sources = await this.prisma.researchProjectSource.findMany({
         where: {
@@ -141,7 +141,7 @@ export class ResearchProjectChatService {
       const sourceMap = new Map(sources.map((s) => [s.id, s]));
       sourceContext = dto.selectedSourceIds
         .map((id) => sourceMap.get(id))
-        .filter(Boolean);
+        .filter((s): s is NonNullable<typeof s> => s != null);
     }
 
     // Build context from sources
@@ -221,14 +221,15 @@ export class ResearchProjectChatService {
         sourceContext,
         tokensUsed: responseTokens,
       };
-    } catch (error: any) {
-      this.logger.error(`AI chat failed: ${error.message}`);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`AI chat failed: ${errMsg}`);
 
       // Return error message as AI response
       const errorMessage: ChatMessage = {
         id: `msg-${Date.now() + 1}`,
         role: "assistant",
-        content: `抱歉，AI 回复生成失败：${error.message}。请稍后重试。`,
+        content: `抱歉，AI 回复生成失败：${errMsg}。请稍后重试。`,
         timestamp: new Date().toISOString(),
       };
 
@@ -245,7 +246,7 @@ export class ResearchProjectChatService {
         userMessage,
         aiMessage: errorMessage,
         sourceContext,
-        error: error.message,
+        error: errMsg,
       };
     }
   }
@@ -253,7 +254,7 @@ export class ResearchProjectChatService {
   /**
    * Build context text from sources
    */
-  private buildSourceContext(sources: any[]): string {
+  private buildSourceContext(sources: Array<{ id: string; title: string; abstract: string | null; content: string | null; sourceType: string; aiSummary: string | null }>): string {
     if (sources.length === 0) {
       return "";
     }

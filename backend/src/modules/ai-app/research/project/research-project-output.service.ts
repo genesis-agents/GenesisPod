@@ -588,6 +588,7 @@ export class ResearchProjectOutputService {
   private async generateOutputAsync(
     outputId: string,
     outputType: OutputTypeValue,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma source shape varies; private method
     sources: any[],
     model: string,
     options?: Record<string, unknown>,
@@ -677,6 +678,7 @@ export class ResearchProjectOutputService {
    * Build user prompt with source content
    */
   private buildUserPrompt(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma source shape varies; private method
     sources: any[],
     options?: Record<string, unknown>,
   ): string {

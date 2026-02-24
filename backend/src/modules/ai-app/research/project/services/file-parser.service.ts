@@ -126,9 +126,10 @@ export class FileParserService {
           mimeType: file.mimetype,
         },
       };
-    } catch (error: any) {
-      this.logger.error(`Failed to parse PDF: ${error.message}`);
-      throw new BadRequestException(`Failed to parse PDF: ${error.message}`);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to parse PDF: ${errMsg}`);
+      throw new BadRequestException(`Failed to parse PDF: ${errMsg}`);
     }
   }
 
@@ -154,10 +155,11 @@ export class FileParserService {
           mimeType: file.mimetype,
         },
       };
-    } catch (error: any) {
-      this.logger.error(`Failed to parse Word document: ${error.message}`);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to parse Word document: ${errMsg}`);
       throw new BadRequestException(
-        `Failed to parse Word document: ${error.message}`,
+        `Failed to parse Word document: ${errMsg}`,
       );
     }
   }

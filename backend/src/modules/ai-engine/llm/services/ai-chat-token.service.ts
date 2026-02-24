@@ -66,6 +66,7 @@ export class AiChatTokenService {
   /**
    * 解析 API 响应中的 token 使用量
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw LLM response object; structure varies by provider
   parseTokenUsage(response: any): {
     promptTokens: number;
     completionTokens: number;

@@ -107,6 +107,8 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
     successCount: 0,
     failureCount: 0,
     totalTokensUsed: 0,
+    toolsCalled: [] as string[],
+    skillsCalled: [] as string[],
   };
 
   constructor() {
@@ -158,7 +160,6 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
   ): Promise<AgentResult<TOutput>> {
     const startTime = new Date();
     const executionId = context.executionId || uuid();
-    this.stats.totalExecutions++;
 
     const toolsCalled: string[] = [];
     const skillsCalled: string[] = [];
@@ -211,6 +212,8 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
           skillsCalled,
         ),
       };
+    } finally {
+      this.stats.totalExecutions++;
     }
   }
 
@@ -317,7 +320,11 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
       createdAt: new Date(),
     };
 
-    return tool.execute(toolInput, toolContext) as Promise<ToolResult<T>>;
+    const result = await (tool.execute(toolInput, toolContext) as Promise<ToolResult<T>>);
+    if (result.success) {
+      this.stats.toolsCalled.push(toolId);
+    }
+    return result;
   }
 
   /**
@@ -349,9 +356,13 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
       createdAt: new Date(),
     };
 
-    return skill.execute(skillInput, skillContext) as Promise<
+    const result = await (skill.execute(skillInput, skillContext) as Promise<
       SkillResult<TSkillOutput>
-    >;
+    >);
+    if (result.success) {
+      this.stats.skillsCalled.push(skillId);
+    }
+    return result;
   }
 
   /**
@@ -423,22 +434,42 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
   }
 
   /**
-   * 解析 JSON 响应
+   * 解析 JSON 响应（多级 fallback）
+   * 1. Markdown 代码块（```json ... ```）
+   * 2. 直接 JSON.parse
+   * 3. 正则提取第一个 { } / [ ] 块
    */
   protected parseJsonResponse<T>(content: string, fallback?: T): T {
-    try {
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      const jsonStr = jsonMatch ? jsonMatch[1].trim() : content.trim();
-      return JSON.parse(jsonStr);
-    } catch (error) {
-      if (fallback !== undefined) {
-        this.logger.warn(`[${this.id}] Failed to parse JSON, using fallback`);
-        return fallback;
+    const attempts: Array<() => T> = [
+      // 1. Markdown 代码块
+      () => {
+        const match = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (!match) throw new Error('no markdown block');
+        return JSON.parse(match[1].trim()) as T;
+      },
+      // 2. 直接解析
+      () => JSON.parse(content.trim()) as T,
+      // 3. 提取第一个 JSON 对象或数组
+      () => {
+        const objMatch = content.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+        if (!objMatch) throw new Error('no json structure found');
+        return JSON.parse(objMatch[1]) as T;
+      },
+    ];
+
+    for (const attempt of attempts) {
+      try {
+        return attempt();
+      } catch {
+        // 继续下一级
       }
-      throw new Error(
-        `Failed to parse JSON response: ${(error as Error).message}`,
-      );
     }
+
+    if (fallback !== undefined) {
+      this.logger.warn(`[${this.id}] Failed to parse JSON, using fallback`);
+      return fallback;
+    }
+    throw new Error('Failed to parse JSON response: no valid JSON found');
   }
 
   /**

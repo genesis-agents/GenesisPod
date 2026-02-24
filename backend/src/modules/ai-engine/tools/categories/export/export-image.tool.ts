@@ -351,6 +351,7 @@ export class ExportImageTool extends BaseTool<
       await page.setContent(html, { waitUntil: "networkidle0" });
 
       // 截图
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Playwright screenshot options type
       const screenshotOptions: any = {
         type: format === "jpeg" ? "jpeg" : "png",
         omitBackground: format === "png",

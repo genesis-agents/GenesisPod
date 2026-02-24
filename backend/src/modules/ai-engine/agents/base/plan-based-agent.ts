@@ -182,7 +182,7 @@ export abstract class PlanBasedAgent implements IPlanBasedAgent {
       id: this.id,
       name: this.name,
       description: this.description,
-      icon: "🤖",
+      icon: "bot",
       color: "#6B7280",
       capabilities: this.capabilities,
       templates: this.templates,
@@ -194,14 +194,14 @@ export abstract class PlanBasedAgent implements IPlanBasedAgent {
    * 生成唯一步骤 ID
    */
   protected generateStepId(): string {
-    return `step_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `step_${crypto.randomUUID()}`;
   }
 
   /**
    * 生成唯一任务 ID
    */
   protected generateTaskId(): string {
-    return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `task_${crypto.randomUUID()}`;
   }
 }
 

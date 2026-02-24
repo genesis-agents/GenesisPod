@@ -191,23 +191,24 @@ export class VotingManager {
     // 根据策略计算
     switch (request.strategy) {
       case "majority":
-        return this.calculateMajority(votes, tally, expectedParticipants);
+        return this.calculateMajority(votes, tally, expectedParticipants, session.id);
 
       case "unanimous":
-        return this.calculateUnanimous(votes, tally, expectedParticipants);
+        return this.calculateUnanimous(votes, tally, expectedParticipants, session.id);
 
       case "weighted":
-        return this.calculateWeighted(votes, tally, expectedParticipants);
+        return this.calculateWeighted(votes, tally, expectedParticipants, session.id);
 
       case "ranked":
         return this.calculateRanked(
           votes,
           request.options,
           expectedParticipants,
+          session.id,
         );
 
       default:
-        return this.calculateMajority(votes, tally, expectedParticipants);
+        return this.calculateMajority(votes, tally, expectedParticipants, session.id);
     }
   }
 
@@ -218,6 +219,7 @@ export class VotingManager {
     votes: Vote[],
     tally: Record<string, number>,
     expectedParticipants: number,
+    sessionId: string,
   ): VoteResult {
     // 计票
     for (const vote of votes) {
@@ -241,7 +243,7 @@ export class VotingManager {
     const consensus = maxVotes >= threshold;
 
     return {
-      voteId: votes[0]?.voterId ? votes[0].voterId : "",
+      voteId: sessionId,
       winner: consensus ? winner : undefined,
       tally,
       consensus,
@@ -257,6 +259,7 @@ export class VotingManager {
     votes: Vote[],
     tally: Record<string, number>,
     expectedParticipants: number,
+    sessionId: string,
   ): VoteResult {
     // 计票
     for (const vote of votes) {
@@ -272,7 +275,7 @@ export class VotingManager {
     );
 
     return {
-      voteId: "",
+      voteId: sessionId,
       winner: allSame ? nonAbstainVotes[0]?.optionId : undefined,
       tally,
       consensus: allSame && nonAbstainVotes.length > 0,
@@ -288,6 +291,7 @@ export class VotingManager {
     votes: Vote[],
     tally: Record<string, number>,
     expectedParticipants: number,
+    sessionId: string,
   ): VoteResult {
     // 加权计票
     for (const vote of votes) {
@@ -308,7 +312,7 @@ export class VotingManager {
     }
 
     return {
-      voteId: "",
+      voteId: sessionId,
       winner,
       tally,
       consensus: maxWeight > 0,
@@ -318,19 +322,23 @@ export class VotingManager {
   }
 
   /**
-   * 排名投票计算（Instant Runoff Voting）
+   * 排名投票计算（简化实现：仅取第一偏好，等价于 FIRST_CHOICE）
+   *
+   * 当前为简化实现，仅取第一选择，等价于 FIRST_CHOICE。
+   * 完整的即时决选投票（IRV）需要多轮淘汰，未在此实现。
    */
   private calculateRanked(
     votes: Vote[],
     options: VoteOption[],
     expectedParticipants: number,
+    sessionId: string,
   ): VoteResult {
     const tally: Record<string, number> = {};
     for (const option of options) {
       tally[option.id] = 0;
     }
 
-    // 简化实现：使用第一选择
+    // 简化实现：使用第一选择（rank[0] 是选项的索引）
     for (const vote of votes) {
       if (vote.rank && vote.rank.length > 0) {
         const firstChoice = options[vote.rank[0]]?.id;
@@ -350,7 +358,7 @@ export class VotingManager {
     }
 
     return {
-      voteId: "",
+      voteId: sessionId,
       winner,
       tally,
       consensus: maxVotes > votes.length / 2,

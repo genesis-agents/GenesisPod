@@ -221,9 +221,10 @@ export class GeminiImageAdapter extends BaseImageAdapter {
       );
 
       return this.parseImagenResponse(response.data, model);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Fallback to predict endpoint or Gemini Flash
-      if (error.response?.status === 404) {
+      const e = error as { response?: { status?: number } };
+      if (e.response?.status === 404) {
         this.logger.warn(`Imagen generateImages not found, trying predict...`);
         return this.generateWithImagenPredict(
           apiKey,
@@ -299,6 +300,7 @@ export class GeminiImageAdapter extends BaseImageAdapter {
   /**
    * 解析 Gemini 响应
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
   private parseGeminiResponse(data: any, model: string): ImageGenerationResult {
     const candidates = data.candidates;
     if (!candidates || candidates.length === 0) {
@@ -331,6 +333,7 @@ export class GeminiImageAdapter extends BaseImageAdapter {
   /**
    * 解析 Imagen 响应
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
   private parseImagenResponse(data: any, model: string): ImageGenerationResult {
     const images = data?.generatedImages;
     if (!images || images.length === 0) {

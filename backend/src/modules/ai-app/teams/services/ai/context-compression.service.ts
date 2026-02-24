@@ -16,4 +16,4 @@ export {
   type SummaryChunk,
   type CompressionResult,
   type CompressionOptions,
-} from "../../../../ai-engine/orchestration/services";
+} from "../../../../ai-engine/facade";

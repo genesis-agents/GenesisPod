@@ -4,10 +4,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { HttpService } from "@nestjs/axios";
-import { ConfigService } from "@nestjs/config";
-import { ResourceType } from "@prisma/client";
-import { firstValueFrom } from "rxjs";
+import { ResourceType, AIModelType } from "@prisma/client";
+import { AIEngineFacade } from "../../../ai-engine/facade";
 
 export interface UrlClassificationResult {
   /**
@@ -48,8 +46,6 @@ export interface UrlClassificationResult {
 @Injectable()
 export class AiUrlClassifierService {
   private readonly logger = new Logger(AiUrlClassifierService.name);
-  private readonly litellmBaseUrl: string;
-  private readonly classificationModel: string;
 
   // 资源类型描述映射，用于 AI 分类
   private readonly resourceTypeDescriptions: Record<string, string> = {
@@ -67,17 +63,7 @@ export class AiUrlClassifierService {
     RSS: "RSS 订阅源 - 任何 RSS/Atom feed 链接",
   };
 
-  constructor(
-    private readonly httpService: HttpService,
-    private readonly configService: ConfigService,
-  ) {
-    this.litellmBaseUrl =
-      this.configService.get<string>("LITELLM_BASE_URL") ||
-      "http://localhost:4000";
-    this.classificationModel =
-      this.configService.get<string>("CLASSIFICATION_MODEL") ||
-      "claude-3-5-sonnet-20241022";
-  }
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 使用 AI 对 URL 进行分类
@@ -504,37 +490,31 @@ Only include alternatives if there are other plausible classifications with conf
   /**
    * 调用 LLM 进行分类
    *
-   * 任务配置映射 (TaskProfile equivalent):
-   * - creativity: "low" (temperature: 0.3) - URL分类需要确定性
-   * - outputLength: "minimal" (max_tokens: 500) - 简短的分类结果
+   * 通过 AIEngineFacade 统一入口调用，使用 TaskProfile 语义化配置：
+   * - creativity: "deterministic" — URL 分类需要确定性输出
+   * - outputLength: "minimal"    — 简短的 JSON 分类结果
    */
   private async callLLM(prompt: string): Promise<string> {
-    const response = await firstValueFrom(
-      this.httpService.post(
-        `${this.litellmBaseUrl}/v1/chat/completions`,
+    const response = await this.aiFacade.chat({
+      messages: [
         {
-          model: this.classificationModel,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a URL classification assistant. Always respond with valid JSON.",
-            },
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          max_tokens: 500, // TaskProfile: outputLength="minimal"
-          temperature: 0.3, // TaskProfile: creativity="low"
+          role: "system",
+          content:
+            "You are a URL classification assistant. Always respond with valid JSON.",
         },
         {
-          timeout: 30000,
+          role: "user",
+          content: prompt,
         },
-      ),
-    );
+      ],
+      modelType: AIModelType.CHAT,
+      taskProfile: {
+        creativity: "deterministic",
+        outputLength: "minimal",
+      },
+    });
 
-    return response.data.choices[0].message.content;
+    return response.content;
   }
 
   /**

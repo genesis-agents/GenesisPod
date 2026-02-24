@@ -117,7 +117,83 @@ module.exports = {
           "error",
           {
             patterns: [
-              // ★ Orchestration services — must go through AIEngineFacade
+              // ════════════════════════════════════════════════════════════
+              // ★ SECTION 1: Registry & Agent internals
+              //   AgentRegistry, TeamRegistry, RoleRegistry, SkillRegistry,
+              //   ToolRegistry, BUILTIN_TOOLS, BUILTIN_ROLES, IAgent, etc.
+              //   are all re-exported from facade/index.ts — use that path.
+              // ════════════════════════════════════════════════════════════
+              {
+                group: ["**/ai-engine/agents/**"],
+                message:
+                  "Import AgentRegistry, IAgent, BaseAgent types, etc. from 'ai-engine/facade'. " +
+                  "If you need to extend BaseAgent/PlanBasedAgent (class inheritance), add your file to ESLint excludedFiles.",
+              },
+              {
+                group: ["**/ai-engine/tools/**"],
+                message:
+                  "Import ToolRegistry, ToolContext, ITool, BUILTIN_TOOLS, etc. from 'ai-engine/facade'.",
+              },
+              {
+                group: ["**/ai-engine/core/**"],
+                message:
+                  "Import BUILTIN_TOOLS, BUILTIN_ROLES, agent type constants, etc. from 'ai-engine/facade'.",
+              },
+
+              // ════════════════════════════════════════════════════════════
+              // ★ SECTION 2: LLM types
+              //   TaskProfile, AIModelType, ModelFallbackOptions, AIModelConfig
+              //   are re-exported from facade/index.ts.
+              // ════════════════════════════════════════════════════════════
+              {
+                group: ["**/ai-engine/llm/**"],
+                message:
+                  "Import TaskProfile, AIModelType, ModelFallbackOptions, etc. from 'ai-engine/facade'.",
+              },
+
+              // ════════════════════════════════════════════════════════════
+              // ★ SECTION 3: Skills internals
+              //   SkillRegistry and PromptSkillBridge are re-exported from facade.
+              // ════════════════════════════════════════════════════════════
+              {
+                group: ["**/ai-engine/skills/**"],
+                message:
+                  "Import SkillRegistry, SkillContext, PromptSkillBridge, etc. from 'ai-engine/facade'. " +
+                  "If you need to implement ISkill (class inheritance), add your file to ESLint excludedFiles.",
+              },
+
+              // ════════════════════════════════════════════════════════════
+              // ★ SECTION 4: Teams internals
+              //   TeamRegistry, RoleRegistry, TeamConfig, WorkflowConfig,
+              //   ConstraintProfile, createConstraintProfile, MissionContext,
+              //   MissionEvent, ITeam, etc. are re-exported from facade.
+              // ════════════════════════════════════════════════════════════
+              {
+                group: [
+                  "**/ai-engine/teams/abstractions/**",
+                  "**/ai-engine/teams/constraints/**",
+                  "**/ai-engine/teams/registry/**",
+                  "**/ai-engine/teams/services/**",
+                ],
+                message:
+                  "Import TeamRegistry, RoleRegistry, TeamConfig, WorkflowConfig, ConstraintProfile, " +
+                  "createConstraintProfile, MissionEvent, MissionContext, ITeam, etc. from 'ai-engine/facade'. " +
+                  "For team *.config.ts files (which reference many abstractions), they are in ESLint excludedFiles.",
+              },
+              // ★ Team orchestration services — must go through AIEngineFacade
+              {
+                group: [
+                  "**/ai-engine/teams/orchestrator/mission-orchestrator*",
+                  "**/ai-engine/teams/factory/team-factory*",
+                ],
+                message:
+                  "Use facade.missionOrchestrator or facade.teamFactory instead.",
+              },
+
+              // ════════════════════════════════════════════════════════════
+              // ★ SECTION 5: Orchestration internals
+              // ════════════════════════════════════════════════════════════
+              // Specific services with dedicated facade accessors:
               {
                 group: [
                   "**/ai-engine/orchestration/services/intent-detection*",
@@ -131,44 +207,122 @@ module.exports = {
                 message:
                   "Inject AIEngineFacade and access via facade.intentDetector / facade.outputReviewer / etc.",
               },
-              // ★ Team orchestration services — must go through AIEngineFacade
+              // Broader orchestration internals:
               {
                 group: [
-                  "**/ai-engine/teams/orchestrator/mission-orchestrator*",
-                  "**/ai-engine/teams/factory/team-factory*",
+                  "**/ai-engine/orchestration/executors/**",
+                  "**/ai-engine/orchestration/state-machine/**",
+                  "**/ai-engine/orchestration/utils/**",
+                  "**/ai-engine/orchestration/interfaces/**",
                 ],
                 message:
-                  "Use facade.missionOrchestrator or facade.teamFactory instead.",
+                  "Access orchestration internals only through AIEngineFacade. " +
+                  "If a type is missing from facade/index.ts, add it there first.",
               },
-              // ★ Long-content engine service — must go through AIEngineFacade
+
+              // ════════════════════════════════════════════════════════════
+              // ★ SECTION 6: RAG internals
+              //   EmbeddingResult, SimilaritySearchOptions, etc. re-exported from facade.
+              // ════════════════════════════════════════════════════════════
+              {
+                group: ["**/ai-engine/rag/**"],
+                message:
+                  "Import EmbeddingResult, SimilaritySearchOptions, SimilarityResult from 'ai-engine/facade'. " +
+                  "For RAGPipelineService, add it to facade/index.ts exports first.",
+              },
+
+              // ════════════════════════════════════════════════════════════
+              // ★ SECTION 7: Long-content internals
+              // ════════════════════════════════════════════════════════════
               {
                 group: [
                   "**/ai-engine/long-content/services/long-content-engine*",
                 ],
                 message: "Use facade.longContentEngine instead.",
               },
-              // ★ AI capabilities — must go through AIEngineFacade
               {
-                group: ["**/ai-engine/capabilities/*"],
+                group: [
+                  "**/ai-engine/long-content/interfaces/**",
+                  "**/ai-engine/long-content/types/**",
+                  "**/ai-engine/long-content/long-content.module*",
+                ],
+                message:
+                  "Do not import LongContentModule or its interfaces directly. " +
+                  "AiEngineModule already includes it. Add missing types to facade/index.ts.",
+              },
+
+              // ════════════════════════════════════════════════════════════
+              // ★ SECTION 8: Other engine capabilities
+              // ════════════════════════════════════════════════════════════
+              // AI capabilities — must go through AIEngineFacade
+              {
+                group: ["**/ai-engine/capabilities/**"],
                 message:
                   "Use AIEngineFacade.capabilityGetSkillPrompts() or facade.capabilityResolverService instead.",
               },
-              // ★ Realtime — must go through AIEngineFacade
+              // Realtime — must go through AIEngineFacade
               {
                 group: ["**/ai-engine/realtime/**"],
                 message:
                   "Use AIEngineFacade.emitToRoom()/emitProgress() instead.",
               },
-              // ★ Memory stores — must go through AIEngineFacade
+              // Memory stores — must go through AIEngineFacade
               {
-                group: ["**/ai-engine/memory/stores/*"],
+                group: ["**/ai-engine/memory/stores/**"],
                 message:
                   "Use AIEngineFacade.storeMemory()/retrieveMemory() instead.",
               },
-              // ★ Content fetch service — must go through AIEngineFacade
+              // Content fetch — must go through AIEngineFacade
               {
-                group: ["**/ai-engine/content-fetch/content-fetch.service*"],
+                group: ["**/ai-engine/content-fetch/**"],
                 message: "Use facade.contentFetch instead.",
+              },
+              // Engine interfaces (image tokens, simulation interfaces)
+              {
+                group: ["**/ai-engine/interfaces/**"],
+                message:
+                  "Add required interface or token to facade/index.ts, then import from 'ai-engine/facade'.",
+              },
+              // MCP abstractions
+              {
+                group: ["**/ai-engine/mcp/**"],
+                message:
+                  "Add MCP abstractions to facade/index.ts, then import from 'ai-engine/facade'.",
+              },
+              // Image engine internals
+              {
+                group: ["**/ai-engine/image/**"],
+                message:
+                  "Add image matching types to facade/index.ts, then import from 'ai-engine/facade'.",
+              },
+              // Content analysis internals
+              {
+                group: ["**/ai-engine/content-analysis/**"],
+                message:
+                  "Add content analysis types to facade/index.ts, then import from 'ai-engine/facade'.",
+              },
+
+              // ════════════════════════════════════════════════════════════
+              // ★ SECTION 9: Preventive — not yet accessed but must stay clean
+              // ════════════════════════════════════════════════════════════
+              {
+                group: [
+                  "**/ai-engine/synthesis/**",
+                  "**/ai-engine/search/**",
+                  "**/ai-engine/quality/**",
+                  "**/ai-engine/collaboration/**",
+                  "**/ai-engine/guardrails/**",
+                  "**/ai-engine/evidence/**",
+                  "**/ai-engine/a2a/**",
+                  "**/ai-engine/prompts/**",
+                  "**/ai-engine/observability/**",
+                  "**/ai-engine/constraint/**",
+                  "**/ai-engine/common/**",
+                  "**/ai-engine/api/**",
+                ],
+                message:
+                  "Access AI Engine internals only through 'ai-engine/facade'. " +
+                  "If a symbol is missing from facade/index.ts, add it there first.",
               },
             ],
           },

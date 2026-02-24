@@ -7,7 +7,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIEngineFacade } from "../../../ai-engine/facade";
-import { TaskProfile } from "../../../ai-engine/llm/types";
+import type { TaskProfile } from "../../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import {
   PromptEngineeringInsights,
@@ -242,13 +242,14 @@ export class PromptEnhancementService {
       const designJournalRaw = parsed.design_journal ?? parsed.designJournal;
       if (Array.isArray(designJournalRaw)) {
         insights.designJournal = designJournalRaw
-          .map((entry: any, index: number): PromptDesignJournalEntry | null => {
+          .map((entry: unknown, index: number): PromptDesignJournalEntry | null => {
             if (entry && typeof entry === "object") {
-              const title = normalizeString(entry.title) || `Step ${index + 1}`;
+              const e = entry as Record<string, unknown>;
+              const title = normalizeString(e["title"] as string | undefined) || `Step ${index + 1}`;
               const narrative =
-                normalizeString(entry.narrative) ??
-                normalizeString(entry.description) ??
-                normalizeString(entry.text);
+                normalizeString(e["narrative"] as string | undefined) ??
+                normalizeString(e["description"] as string | undefined) ??
+                normalizeString(e["text"] as string | undefined);
               if (narrative) {
                 return { title, narrative };
               }
@@ -268,17 +269,17 @@ export class PromptEnhancementService {
       const sectionsRaw = Array.isArray(infoRaw.sections)
         ? infoRaw.sections
         : [];
-      const sections: PromptSection[] = sectionsRaw.map((section: any) => ({
-        title: normalizeString(section.title),
-        summary: normalizeString(section.summary ?? section.description),
-        bullets: toArray(section.bullets ?? section.points),
-        metrics: Array.isArray(section.metrics)
-          ? section.metrics
-              .map((metric: any) => ({
-                label: normalizeString(metric.label) || undefined,
-                value: normalizeString(metric.value) || undefined,
+      const sections: PromptSection[] = sectionsRaw.map((section: Record<string, unknown>) => ({
+        title: normalizeString(section["title"] as string | undefined),
+        summary: normalizeString((section["summary"] ?? section["description"]) as string | undefined),
+        bullets: toArray((section["bullets"] ?? section["points"]) as unknown),
+        metrics: Array.isArray(section["metrics"])
+          ? (section["metrics"] as Record<string, unknown>[])
+              .map((metric: Record<string, unknown>) => ({
+                label: normalizeString(metric["label"] as string | undefined) || undefined,
+                value: normalizeString(metric["value"] as string | undefined) || undefined,
                 comparison:
-                  normalizeString(metric.comparison ?? metric.delta) ||
+                  normalizeString((metric["comparison"] ?? metric["delta"]) as string | undefined) ||
                   undefined,
               }))
               .filter((metric: { label?: string; value?: string }) =>
@@ -286,22 +287,22 @@ export class PromptEnhancementService {
               )
           : [],
         visual:
-          section.visual || section.chart
+          section["visual"] || section["chart"]
             ? {
                 type: normalizeString(
-                  section.visual?.type ?? section.chart?.type,
+                  ((section["visual"] as Record<string, unknown> | undefined)?.["type"] ?? (section["chart"] as Record<string, unknown> | undefined)?.["type"]) as string | undefined,
                 ),
                 description: normalizeString(
-                  section.visual?.description ?? section.chart?.description,
+                  ((section["visual"] as Record<string, unknown> | undefined)?.["description"] ?? (section["chart"] as Record<string, unknown> | undefined)?.["description"]) as string | undefined,
                 ),
               }
             : undefined,
         iconType: normalizeString(
-          section.icon_type ?? section.iconType ?? section.icon,
+          (section["icon_type"] ?? section["iconType"] ?? section["icon"]) as string | undefined,
         ),
         sectionType:
-          section.section_type === "summary" ||
-          section.sectionType === "summary"
+          section["section_type"] === "summary" ||
+          section["sectionType"] === "summary"
             ? "summary"
             : "main",
       }));

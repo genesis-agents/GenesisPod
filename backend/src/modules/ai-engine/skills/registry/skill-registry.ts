@@ -3,7 +3,7 @@
  * 技能注册表实现
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { BaseRegistry, IRegistry, RegistryStats } from "../../core/interfaces";
 import {
   ISkill,
@@ -20,6 +20,7 @@ export class SkillRegistry
   extends BaseRegistry<ISkill>
   implements IRegistry<ISkill>
 {
+  private readonly logger = new Logger(SkillRegistry.name);
   private readonly byLayer = new Map<string, Set<string>>();
   private readonly byDomain = new Map<string, Set<string>>();
   private readonly byTag = new Map<string, Set<string>>();
@@ -194,7 +195,22 @@ export class SkillRegistry
     const currentMajor = parseInt(skill.version.split(".")[0], 10);
     const requiredMajor = parseInt(requiredVersion.split(".")[0], 10);
 
+    if (isNaN(currentMajor) || isNaN(requiredMajor)) {
+      this.logger.warn(
+        `Invalid version format for skill ${skillId}: current=${skill.version}, required=${requiredVersion}`,
+      );
+      return true; // 格式无效时宽松兼容
+    }
+
     return currentMajor === requiredMajor;
+  }
+
+  /**
+   * 检测常见 ReDoS 模式（嵌套量词）
+   */
+  private isSafeRegex(pattern: string): boolean {
+    // 检测 (a+)+、(a*)* 等危险嵌套量词
+    return !/([\+\*\?]\)[\+\*]|\(\?:[^)]+\|[^)]+\)[\+\*])/.test(pattern);
   }
 
   /**
@@ -217,7 +233,19 @@ export class SkillRegistry
         } else if (triggerType === "intent") {
           isMatch = value === trigger.condition;
         } else if (triggerType === "context" || triggerType === "event") {
-          isMatch = new RegExp(trigger.condition, "i").test(value);
+          if (!this.isSafeRegex(trigger.condition)) {
+            this.logger.warn(
+              `Potentially unsafe regex skipped: ${trigger.condition}`,
+            );
+            continue;
+          }
+          try {
+            isMatch = new RegExp(trigger.condition, "i").test(value);
+          } catch {
+            this.logger.warn(
+              `Invalid regex in skill trigger: ${trigger.condition}`,
+            );
+          }
         }
 
         if (isMatch) {

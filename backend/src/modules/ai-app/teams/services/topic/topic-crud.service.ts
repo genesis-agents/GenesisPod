@@ -13,7 +13,7 @@ export class TopicCrudService {
   private readonly logger = new Logger(TopicCrudService.name);
 
   // ★ 用户 Topics 列表缓存：避免频繁查询
-  private topicsCache = new Map<string, { topics: any[]; cachedAt: number }>();
+  private topicsCache = new Map<string, { topics: unknown[]; cachedAt: number }>();
   private readonly TOPICS_CACHE_TTL_MS = 10 * 1000; // 10秒缓存
 
   constructor(private prisma: PrismaService) {

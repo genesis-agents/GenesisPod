@@ -18,6 +18,7 @@ import {
   ContentAnalysis,
   BackgroundDecision,
   TemplateLayoutType,
+  InformationArchitecture,
 } from "../core/engine.types";
 
 // Agent 系统提示词
@@ -247,7 +248,7 @@ export class AgentExecutorService {
    */
   async executeLayoutAgent(
     contentAnalysis: ContentAnalysis,
-    informationArchitecture: any,
+    informationArchitecture: InformationArchitecture,
   ): Promise<AgentResult<LayoutAgentOutput>> {
     const startTime = Date.now();
 
@@ -257,7 +258,7 @@ export class AgentExecutorService {
           contentAnalysis,
           sections: informationArchitecture.sections?.length || 0,
           hasMetrics: informationArchitecture.sections?.some(
-            (s: any) => s.metrics?.length > 0,
+            (s) => (s.metrics?.length ?? 0) > 0,
           ),
         },
         null,

@@ -111,28 +111,28 @@ ${content}
       }
 
       // 过滤和转换
-      const verifiableClaims = result.data.claims
+      const verifiableClaims = (result.data.claims as Array<Record<string, unknown>>)
         .filter(
-          (c: any) =>
-            c.type !== "opinion" &&
-            c.isVerifiable !== false &&
+          (c) =>
+            c["type"] !== "opinion" &&
+            c["isVerifiable"] !== false &&
             mergedConfig.verificationPriorities.includes(
-              c.verificationPriority,
+              (c["verificationPriority"] as "high" | "medium" | "low") || "medium",
             ),
         )
         .slice(0, mergedConfig.maxClaimsPerSection)
-        .map((c: any, index: number) => ({
+        .map((c, index: number) => ({
           id: `claim-${sectionId}-${index}`,
-          text: c.text,
-          type: c.type as ClaimType,
+          text: c["text"] as string,
+          type: c["type"] as ClaimType,
           location: {
             sectionId,
-            paragraphIndex: c.paragraphIndex || 0,
-            sentenceIndex: c.sentenceIndex || 0,
+            paragraphIndex: (c["paragraphIndex"] as number) || 0,
+            sentenceIndex: (c["sentenceIndex"] as number) || 0,
             charStart: 0,
-            charEnd: c.text.length,
+            charEnd: (c["text"] as string).length,
           },
-          verificationPriority: c.verificationPriority || "medium",
+          verificationPriority: (c["verificationPriority"] as "high" | "medium" | "low") || "medium",
           extractedAt: new Date(),
         }));
 

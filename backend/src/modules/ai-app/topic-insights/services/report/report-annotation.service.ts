@@ -65,7 +65,7 @@ export class ReportAnnotationService {
    * 获取报告的所有批注
    */
   async getAnnotations(reportId: string, status?: AnnotationStatus) {
-    const where: any = { reportId };
+    const where: Record<string, unknown> = { reportId };
     if (status) {
       where.status = status;
     }
@@ -210,7 +210,7 @@ export class ReportAnnotationService {
     userId: string,
     annotationIds?: string[],
   ) {
-    const where: any = {
+    const where: Record<string, unknown> = {
       reportId,
       status: AnnotationStatus.OPEN,
     };

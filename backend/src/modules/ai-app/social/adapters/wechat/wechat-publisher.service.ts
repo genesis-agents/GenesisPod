@@ -19,6 +19,7 @@ import {
 import { SocialContent } from "../../types";
 
 // Use Page type from Playwright (available via PlaywrightService)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Playwright Page type alias for browser automation
 type Page = any;
 
 // 微信公众号选择器配置
@@ -268,6 +269,7 @@ export class WechatPublisherService {
     // 从页面 JS 提取
     try {
       const pageToken = await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- browser window interop
         const w = window as any;
         return w.wx?.commonData?.t || w.cgiData?.t || "";
       });

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
-import type { ToolContext } from "@/modules/ai-engine/tools/abstractions/tool.interface";
+import { ToolRegistry } from "@/modules/ai-engine/facade";
+import type { ToolContext } from "@/modules/ai-engine/facade";
 
 /**
  * 提取的图表信息

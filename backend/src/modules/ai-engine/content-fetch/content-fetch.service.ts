@@ -113,6 +113,7 @@ export class ContentFetchService {
     private readonly webExtractor: WebContentExtractionService,
     @Optional()
     @Inject(YOUTUBE_SERVICE_TOKEN)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- injected service type unknown at compile time
     private readonly youtubeService?: any,
   ) {}
 

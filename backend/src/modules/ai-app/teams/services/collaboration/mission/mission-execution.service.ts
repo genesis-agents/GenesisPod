@@ -20,10 +20,10 @@ import {
   MessageContentType,
 } from "@prisma/client";
 import { AIEngineFacade, ChatMessage } from "../../../../../ai-engine/facade";
-import type { TaskProfile } from "../../../../../ai-engine/llm/types/task-profile";
+import type { TaskProfile } from "../../../../../ai-engine/facade";
 // ★ 架构重构：通过 ToolRegistry 调用工具
-import { ToolRegistry } from "../../../../../ai-engine/tools/registry/tool-registry";
-import type { ToolContext } from "../../../../../ai-engine/tools/abstractions/tool.interface";
+import { ToolRegistry } from "../../../../../ai-engine/facade";
+import type { ToolContext } from "../../../../../ai-engine/facade";
 import { TopicEventEmitterService } from "../../events";
 import {
   mapWithConcurrency,

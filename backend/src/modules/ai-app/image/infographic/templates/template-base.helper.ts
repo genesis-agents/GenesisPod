@@ -78,7 +78,7 @@ export class TemplateBaseHelper {
    */
   protected getBackgroundStyle(
     styleKey: InfographicStyle,
-    colors: any,
+    colors: Record<string, string | string[]>,
     isDarkMode: boolean,
     backgroundImageBase64?: string,
   ): string {

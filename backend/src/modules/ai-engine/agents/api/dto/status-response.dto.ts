@@ -75,11 +75,13 @@ export class StatusReportResponseDto {
   @ApiProperty({
     description: "Agent 状态详情",
   })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- agent status shape varies by agent type
   agents!: Record<string, any>;
 
   @ApiProperty({
     description: "统计信息",
     type: AgentStatsDto,
   })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   stats!: any;
 }

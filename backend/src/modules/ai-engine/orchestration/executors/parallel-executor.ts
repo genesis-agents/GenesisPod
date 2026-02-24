@@ -124,7 +124,14 @@ export class ParallelExecutor extends BaseExecutor {
       }
 
       // 启动新的步骤（不超过并发限制）
+      let startedAny = false;
+      let consecutiveSkips = 0;
       while (running.size < this.maxConcurrency && pending.length > 0) {
+        // All remaining steps have unmet deps — break inner loop to avoid infinite cycling
+        if (consecutiveSkips >= pending.length) {
+          break;
+        }
+
         const step = pending.shift()!;
 
         // 检查依赖是否满足
@@ -136,9 +143,13 @@ export class ParallelExecutor extends BaseExecutor {
           if (unmetDeps.length > 0) {
             // 依赖未满足，放回队列末尾
             pending.push(step);
+            consecutiveSkips++;
             continue;
           }
         }
+
+        startedAny = true;
+        consecutiveSkips = 0;
 
         // 启动步骤执行
         const promise = (async () => {
@@ -154,6 +165,14 @@ export class ParallelExecutor extends BaseExecutor {
         })();
 
         running.set(step.id, promise);
+      }
+
+      // 死锁检测：所有 pending 步骤的依赖都指向已失败/跳过节点
+      if (!startedAny && running.size === 0) {
+        this.logger.error(
+          'Deadlock detected: unresolvable step dependencies, breaking execution loop',
+        );
+        break;
       }
 
       // 等待至少一个步骤完成

@@ -39,7 +39,6 @@ interface CircuitBreakerState {
  * 默认执行配置
  */
 const DEFAULT_CONFIG: ExecutionConfig = {
-  maxTokens: 4000,
   taskProfile: {
     creativity: "medium",
     outputLength: "medium",

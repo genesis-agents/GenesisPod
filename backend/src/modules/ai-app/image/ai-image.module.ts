@@ -7,9 +7,11 @@ import { SecretsModule } from "../../core/secrets/secrets.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 // ★ 依赖反转: 导入 token 用于提供 ImageGenerationService 实现
-import { IMAGE_GENERATION_SERVICE } from "../../ai-engine/tools/abstractions/generation-services.interface";
-import { IMAGE_GENERATION_SERVICE_TOKEN } from "../../ai-engine/interfaces/image.interface";
-import { AgentRegistry } from "../../ai-engine/agents/registry";
+import {
+  IMAGE_GENERATION_SERVICE,
+  IMAGE_GENERATION_SERVICE_TOKEN,
+  AgentRegistry,
+} from "../../ai-engine/facade";
 import { ImageDesignerAgent } from "./agents";
 
 // Generation

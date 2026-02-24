@@ -9,12 +9,12 @@
  * - AI Writing: 扩展 Story Bible 特有的上下文
  */
 
-import {
+import type {
   MissionContextPackage,
   CoreEntity,
   HardConstraint,
   EstablishedFact,
-} from "../../../ai-engine/teams/abstractions/mission-context.interface";
+} from "../../../ai-engine/facade";
 
 // ==================== Story Bible 扩展类型 ====================
 

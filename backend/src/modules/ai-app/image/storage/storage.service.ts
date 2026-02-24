@@ -7,7 +7,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { R2StorageService } from "../../../core/storage/r2-storage.service";
-import { GeneratedImageResult } from "../core/image.types";
+import {
+  GeneratedImageResult,
+  ProcessingStep,
+  PromptEngineeringInsights,
+} from "../core/image.types";
 
 /**
  * 检查预签名 URL 是否即将过期（提前 1 天刷新）
@@ -178,8 +182,8 @@ export class ImageStorageService {
         createdAt: img.createdAt.toISOString(),
         textModelUsed: img.textModelUsed || undefined,
         imageModelUsed: img.imageModelUsed || undefined,
-        processingSteps: (img.processingSteps as any) || undefined,
-        promptInsights: (img.promptInsights as any) || undefined,
+        processingSteps: (img.processingSteps as unknown as ProcessingStep[] | undefined) || undefined,
+        promptInsights: (img.promptInsights as unknown as PromptEngineeringInsights | undefined) || undefined,
       });
     }
 

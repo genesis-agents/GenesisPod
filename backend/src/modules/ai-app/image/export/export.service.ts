@@ -265,6 +265,7 @@ export class ExportService {
   ): Promise<ExportResult> {
     try {
       // 动态导入 pptxgenjs (避免没安装时报错)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic import, no type definitions available
       let PptxGenJS: any;
       try {
         PptxGenJS = require("pptxgenjs");

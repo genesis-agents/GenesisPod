@@ -126,6 +126,7 @@ export class StabilityImageAdapter extends BaseImageAdapter {
   /**
    * 解析响应
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
   private parseResponse(data: any, model: string): ImageGenerationResult {
     const artifacts = data.artifacts;
     if (!artifacts || artifacts.length === 0) {
@@ -133,6 +134,7 @@ export class StabilityImageAdapter extends BaseImageAdapter {
     }
 
     return {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
       images: artifacts.map((artifact: any) => ({
         url: `data:image/png;base64,${artifact.base64}`,
         isBase64: true,

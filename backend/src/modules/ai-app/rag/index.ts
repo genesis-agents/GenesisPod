@@ -7,10 +7,9 @@
 
 export * from "./rag.module";
 
-// 从 AI Engine 重新导出核心能力 (向后兼容)
+// 从 AI Engine Facade 重新导出核心能力 (向后兼容)
 export {
   EmbeddingService,
-  EmbeddingModelConfig,
   EmbeddingResult,
   EmbeddingBatch,
   VectorService,
@@ -18,12 +17,15 @@ export {
   SimilarityResult,
   VectorSearchResult,
   DocumentChunker,
-  ChunkingConfig,
   DEFAULT_CHUNKING_CONFIG,
   ChildChunkData,
   ParentChunkData,
   ChunkedDocument,
-} from "../../ai-engine/rag";
+} from "../../ai-engine/facade";
+export type {
+  EmbeddingModelConfig,
+  ChunkingConfig,
+} from "../../ai-engine/facade";
 
 // 业务服务
 export * from "./services/document-processor.service";

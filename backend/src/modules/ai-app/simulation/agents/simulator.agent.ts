@@ -255,7 +255,7 @@ export class SimulatorAgent extends PlanBasedAgent {
   async *execute(plan: AgentPlan): AsyncGenerator<AgentEvent> {
     this.logger.log(`[execute] Starting simulation for task: ${plan.taskId}`);
 
-    const input = (plan as any).input as AgentInput;
+    const input = (plan as AgentPlan & { input?: AgentInput }).input;
     if (!input) {
       yield {
         type: "error",

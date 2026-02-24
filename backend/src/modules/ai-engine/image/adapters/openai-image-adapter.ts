@@ -139,6 +139,7 @@ export class OpenAIImageAdapter extends BaseImageAdapter {
   /**
    * 解析响应
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
   private parseResponse(data: any, model: string): ImageGenerationResult {
     const images = data.data;
     if (!images || images.length === 0) {
@@ -146,6 +147,7 @@ export class OpenAIImageAdapter extends BaseImageAdapter {
     }
 
     return {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response
       images: images.map((img: any) => ({
         url: img.url,
         isBase64: false,

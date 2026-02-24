@@ -16,6 +16,7 @@ import {
   ResearchTopicStatus,
   RefreshFrequency,
   DimensionStatus,
+  type TopicDimension,
 } from "@prisma/client";
 
 /**
@@ -72,7 +73,7 @@ export class TopicCrudService {
       });
 
       // 只有用户提供了自定义维度时才创建
-      let dimensions: any[] = [];
+      let dimensions: TopicDimension[] = [];
       if (dimensionsToCreate.length > 0) {
         dimensions = await Promise.all(
           dimensionsToCreate.map((dim, index) =>
@@ -141,7 +142,7 @@ export class TopicCrudService {
     const topicIds = visibleTopicIds.map((t) => t.id);
 
     // 构建最终查询条件
-    const where: any = {
+    const where: Record<string, unknown> = {
       id: { in: topicIds },
     };
 
@@ -514,7 +515,7 @@ export class TopicCrudService {
     // 验证专题读取权限（支持公开专题访问）
     await this.verifyTopicReadAccess(userId, topicId);
 
-    const where: any = { topicId };
+    const where: Record<string, unknown> = { topicId };
 
     if (query.status) {
       where.status = query.status;

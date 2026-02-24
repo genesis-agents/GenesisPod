@@ -6,7 +6,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { TopicRole } from "@prisma/client";
+import { TopicRole, AgentWorkStyle } from "@prisma/client";
 import {
   AddMemberDto,
   AddMembersDto,
@@ -357,7 +357,7 @@ export class TopicMembershipService {
         agentIdentity: dto.agentIdentity,
         isLeader: dto.isLeader,
         expertiseAreas: dto.expertiseAreas,
-        workStyle: dto.workStyle as any,
+        workStyle: dto.workStyle as AgentWorkStyle | undefined,
       },
     });
   }

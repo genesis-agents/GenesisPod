@@ -589,12 +589,12 @@ export class ReportSynthesizerService {
 
       return {
         executiveSummary: parsed.executiveSummary || "",
-        sections: (parsed.sections || []).map((s: any) => ({
+        sections: (parsed.sections || []).map((s: Record<string, unknown>) => ({
           title:
-            s.title ||
+            (s["title"] as string) ||
             (language === "en-US" ? "Untitled Section" : "未命名章节"),
-          content: s.content || "",
-          citations: s.citations || [],
+          content: (s["content"] as string) || "",
+          citations: (s["citations"] as unknown[]) || [],
         })),
         conclusion: parsed.conclusion || "",
       };

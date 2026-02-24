@@ -675,7 +675,7 @@ export class AiTeamsService {
           content: dto.content,
           contentType: dto.contentType || MessageContentType.TEXT,
           replyToId: dto.replyToId,
-          parsedUrls: parsedUrls.length > 0 ? (parsedUrls as any) : undefined,
+          parsedUrls: parsedUrls.length > 0 ? (parsedUrls as unknown as Prisma.InputJsonValue) : undefined,
         },
         include: {
           sender: {
@@ -704,6 +704,7 @@ export class AiTeamsService {
       // 创建attachments
       if (dto.attachments && dto.attachments.length > 0) {
         await tx.topicMessageAttachment.createMany({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- linkPreview JSON shape varies
           data: dto.attachments.map((a) => ({
             messageId: msg.id,
             type: a.type,
@@ -712,6 +713,7 @@ export class AiTeamsService {
             size: a.size,
             mimeType: a.mimeType,
             resourceId: a.resourceId,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON field type mismatch
             linkPreview: a.linkPreview as any,
           })),
         });
@@ -992,10 +994,8 @@ export class AiTeamsService {
             select: { createdAt: true },
           });
           if (fromMsg) {
-            where.createdAt = {
-              ...(where.createdAt as any),
-              gte: fromMsg.createdAt,
-            };
+            const existing = typeof where.createdAt === "object" && where.createdAt !== null && !(where.createdAt instanceof Date) ? where.createdAt as Prisma.DateTimeFilter : {};
+            where.createdAt = { ...existing, gte: fromMsg.createdAt };
           }
         }
 
@@ -1005,10 +1005,8 @@ export class AiTeamsService {
             select: { createdAt: true },
           });
           if (toMsg) {
-            where.createdAt = {
-              ...(where.createdAt as any),
-              lte: toMsg.createdAt,
-            };
+            const existing = typeof where.createdAt === "object" && where.createdAt !== null && !(where.createdAt instanceof Date) ? where.createdAt as Prisma.DateTimeFilter : {};
+            where.createdAt = { ...existing, lte: toMsg.createdAt };
           }
         }
 

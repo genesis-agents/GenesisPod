@@ -30,8 +30,8 @@ import {
 import type { GeneratedSlide, PPTOutline } from "../types/slides.types";
 import {
   createSkillOutputManager,
-  ISkillOutputManager,
-} from "@/modules/ai-engine/skills";
+} from "@/modules/ai-engine/facade";
+import type { ISkillOutputManager } from "@/modules/ai-engine/facade";
 
 @Injectable()
 export class SlidesTeamOrchestrator {
@@ -1081,7 +1081,9 @@ export class SlidesTeamOrchestrator {
           const page: GeneratedSlide = {
             id: uuidv4(),
             index: result.pageNumber || mission.pages.length,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- placeholder empty spec/content, typed by GeneratedSlide
             spec: {} as any,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- placeholder empty spec/content, typed by GeneratedSlide
             content: {} as any,
             images: [],
             renderedHtml: result.html,
@@ -1127,7 +1129,9 @@ export class SlidesTeamOrchestrator {
               const page: GeneratedSlide = {
                 id: uuidv4(),
                 index: pageResult.pageNumber || mission.pages.length,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- placeholder spec with title, typed by GeneratedSlide
                 spec: { title: pageResult.title } as any,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- placeholder empty content, typed by GeneratedSlide
                 content: {} as any,
                 images: [],
                 renderedHtml: html,

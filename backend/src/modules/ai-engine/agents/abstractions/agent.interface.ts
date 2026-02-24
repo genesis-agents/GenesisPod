@@ -89,7 +89,7 @@ export interface AgentMemory {
   workingMemory?: JsonObject;
 
   /** 长期记忆键值存储 */
-  longTermMemory?: Map<string, unknown>;
+  longTermMemory?: Record<string, unknown>;
 }
 
 /**

@@ -92,7 +92,7 @@ export class CharacterService {
     }
 
     // If currentState is being updated, add to stateTimeline
-    const updateData: any = { ...dto };
+    const updateData: Record<string, unknown> = { ...(dto as Record<string, unknown>) };
     if (dto.currentState) {
       updateData.stateTimeline = {
         push: {
@@ -210,7 +210,7 @@ export class CharacterService {
       // 从 personality 中提取 traits
       traits:
         typeof char.personality === "object" && char.personality
-          ? (char.personality as any).traits || []
+          ? (char.personality as Record<string, unknown> | null)?.["traits"] as unknown[] || []
           : [],
     }));
 
@@ -332,7 +332,7 @@ export class CharacterService {
       }
 
       // 2. ★ 从 personality.relationships 中提取关系（用于未显式添加关系的角色）
-      const personality = char.personality as any;
+      const personality = char.personality as Record<string, unknown> | null;
       this.logger.debug(
         `Character ${char.name} personality.relationships: ${JSON.stringify(personality?.relationships || "none")}`,
       );

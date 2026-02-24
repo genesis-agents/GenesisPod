@@ -6,7 +6,7 @@
  */
 
 // Pipeline-specific types
-export {
+export type {
   RAGQuery,
   RAGOptions,
   RAGResponse,
@@ -19,18 +19,11 @@ export {
   KnowledgeBaseStats,
   SyncResult,
   GoogleDriveFile,
-} from "../../../ai-engine/rag/pipeline/rag-pipeline.interfaces";
+} from "../../../ai-engine/facade";
 
 // Embedding types (moved from pipeline to avoid duplicate exports)
-export {
-  EmbeddingResult,
-  EmbeddingBatch,
-} from "../../../ai-engine/rag/embedding";
+export type { EmbeddingResult, EmbeddingBatch } from "../../../ai-engine/facade";
 
 // Shared types from chunking (already exported by ai-engine/rag)
-export {
-  ChunkingConfig,
-  DEFAULT_CHUNKING_CONFIG,
-  ChildChunkData,
-  ParentChunkData,
-} from "../../../ai-engine/rag/chunking";
+export type { ChunkingConfig, ChildChunkData, ParentChunkData } from "../../../ai-engine/facade";
+export { DEFAULT_CHUNKING_CONFIG } from "../../../ai-engine/facade";

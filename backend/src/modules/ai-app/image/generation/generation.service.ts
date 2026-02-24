@@ -20,7 +20,7 @@ import {
   DataFetchingService,
   DataFetchingResult,
 } from "../../../../common/content-processing/data-fetching.service";
-import { AIModelType } from "@prisma/client";
+import { AIModelType, Prisma } from "@prisma/client";
 import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 import {
   ProcessingStep,
@@ -729,8 +729,8 @@ export class AiImageService {
           textModelUsed: textModelUsed || null,
           imageModelUsed: imageModelUsed || null,
           isBookmarked: false,
-          processingSteps: processingSteps as any,
-          promptInsights: promptInsights as any,
+          processingSteps: processingSteps as unknown as Prisma.InputJsonValue,
+          promptInsights: promptInsights as unknown as Prisma.InputJsonValue,
         },
       });
 

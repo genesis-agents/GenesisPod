@@ -37,6 +37,7 @@ import {
   A2ATaskStatus,
 } from "./abstractions/a2a.interface";
 import { TeamsService } from "../teams/services/teams.service";
+import type { ConstraintProfile } from "../teams/constraints/constraint-profile";
 import { TeamId } from "../teams/abstractions/team.interface";
 import { LruMap } from "@/common/utils/lru-map";
 import { TraceCollectorService } from "../observability/trace-collector.service";
@@ -122,7 +123,7 @@ export class A2AController {
     this.logger.log(`Create task request for skill: ${request.skillId}`);
 
     // P1 #17: Rate limit per API key (from guard-injected metadata)
-    const apiKeyId = (request as any).a2aApiKeyId || "unknown";
+    const apiKeyId = (request as A2ATaskRequest & { a2aApiKeyId?: string }).a2aApiKeyId || "unknown";
     this.checkRateLimit(apiKeyId);
 
     // P0 #7: Validate input content
@@ -246,7 +247,7 @@ export class A2AController {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         context: (request.config?.context ?? "") as string,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        constraints: request.config?.constraints as any,
+        constraints: request.config?.constraints as Partial<ConstraintProfile> | undefined,
         metadata: {
           ...sanitizedMetadata,
           a2aSkillId: request.skillId,

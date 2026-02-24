@@ -87,6 +87,7 @@ export class PromptTemplateService {
   /**
    * 将数据库模型转换为业务数据结构
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw Prisma model result without importing specific type
   private buildTemplateData(template: any): PromptTemplateData {
     return {
       id: template.id,

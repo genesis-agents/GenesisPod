@@ -12,8 +12,8 @@
  * 调用本服务完成通用操作。
  */
 
-import { Injectable, Logger } from "@nestjs/common";
-import { AIEngineFacade } from "../facade/ai-engine.facade";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
+import type { AIEngineFacade } from "../facade/ai-engine.facade";
 import { AIModelType } from "@prisma/client";
 import {
   SynthesisSection,
@@ -29,7 +29,11 @@ import { sanitizeMarkdownContent } from "../../../common/utils/sanitize-content.
 export class ReportSynthesisEngine {
   private readonly logger = new Logger(ReportSynthesisEngine.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(
+    // forwardRef breaks the circular import cycle: ReportSynthesisEngine ↔ AIEngineFacade
+    @Inject(forwardRef(() => require("../facade/ai-engine.facade").AIEngineFacade))
+    private readonly aiFacade: AIEngineFacade,
+  ) {}
 
   /**
    * 生成单个报告章节

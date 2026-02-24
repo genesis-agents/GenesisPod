@@ -14,6 +14,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { ChapterWritingContext } from "../../interfaces/writing-context.interface";
@@ -146,15 +147,15 @@ export class FactExtractorService {
       }
 
       // 转换为 ExtractedFact 类型并添加章节编号
-      const facts: ExtractedFact[] = factsData.map((fact: any) => ({
-        type: fact.type as FactType,
-        subject: fact.subject || "",
-        predicate: fact.predicate || "",
-        object: fact.object || undefined,
-        confidence: fact.confidence || 0.5,
-        evidence: fact.evidence || "",
+      const facts: ExtractedFact[] = factsData.map((fact: Record<string, unknown>) => ({
+        type: fact["type"] as FactType,
+        subject: (fact["subject"] as string) || "",
+        predicate: (fact["predicate"] as string) || "",
+        object: (fact["object"] as string) || undefined,
+        confidence: (fact["confidence"] as number) || 0.5,
+        evidence: (fact["evidence"] as string) || "",
         chapterNumber: context.chapter.chapterNumber,
-        storyTime: fact.storyTime || undefined,
+        storyTime: (fact["storyTime"] as string) || undefined,
         extractedAt: new Date().toISOString(),
       }));
 
@@ -211,7 +212,7 @@ export class FactExtractorService {
       await this.prisma.writingChapter.update({
         where: { id: chapterId },
         data: {
-          metadata: updatedMetadata as any,
+          metadata: updatedMetadata as unknown as Prisma.InputJsonValue,
         },
       });
 
@@ -362,7 +363,7 @@ export class FactExtractorService {
 
       // 构建 FactConflict 对象
       const conflicts: FactConflict[] = conflictsData
-        .map((conflictData: any) => {
+        .map((conflictData: Record<string, unknown>) => {
           // 尝试从描述中找到相关的事实
           const existingFact = previousFacts[0]; // 简化处理
           const newFact = newFacts[0]; // 简化处理
@@ -370,9 +371,9 @@ export class FactExtractorService {
           return {
             existingFact,
             newFact,
-            conflictType: conflictData.conflictType as ConflictType,
-            description: conflictData.description || "Unknown conflict",
-            severity: conflictData.severity as "CRITICAL" | "WARNING" | "INFO",
+            conflictType: conflictData["conflictType"] as ConflictType,
+            description: (conflictData["description"] as string) || "Unknown conflict",
+            severity: conflictData["severity"] as "CRITICAL" | "WARNING" | "INFO",
           };
         })
         .filter((c) => c !== null) as FactConflict[];
@@ -481,6 +482,7 @@ export class FactExtractorService {
   /**
    * 解析 JSON 响应（处理 Markdown 代码块）
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON.parse returns any by design
   private parseJsonResponse(content: string): any {
     try {
       // 尝试直接解析

@@ -87,19 +87,20 @@ export class PostWriteValidationService {
 
   private checkCharacterConsistency(
     content: string,
-    characters: any[],
+    characters: unknown[],
   ): ConsistencyIssue[] {
     const issues: ConsistencyIssue[] = [];
 
     for (const character of characters) {
+      const c = character as Record<string, unknown>;
       // Check if character name is mentioned
-      if (content.includes(character.name)) {
+      if (content.includes(c["name"] as string)) {
         // Check appearance descriptions
-        const appearance = character.appearance;
+        const appearance = c["appearance"];
         if (appearance) {
           // Check for conflicting descriptions
           // This is a simplified check - could be enhanced with NLP
-          for (const [_key, value] of Object.entries(appearance)) {
+          for (const [_key, value] of Object.entries(appearance as Record<string, unknown>)) {
             if (typeof value === "string" && value.length > 0) {
               // Look for contradicting descriptions
               // Placeholder logic - would need NLP in production
@@ -114,14 +115,15 @@ export class PostWriteValidationService {
 
   private checkTerminologyConsistency(
     content: string,
-    terminologies: any[],
+    terminologies: unknown[],
   ): ConsistencyIssue[] {
     const issues: ConsistencyIssue[] = [];
 
     for (const term of terminologies) {
+      const t = term as Record<string, unknown>;
       // Check if term variants are used inconsistently
-      if (term.variants?.length > 0) {
-        const usedVariants = term.variants.filter((v: string) =>
+      if ((t["variants"] as unknown[] | undefined)?.length ?? 0 > 0) {
+        const usedVariants = (t["variants"] as string[]).filter((v: string) =>
           content.includes(v),
         );
         if (usedVariants.length > 1) {
@@ -129,10 +131,10 @@ export class PostWriteValidationService {
             type: "TERMINOLOGY",
             severity: "WARNING",
             location: "Multiple locations",
-            description: `术语 "${term.term}" 使用了多个变体`,
-            expected: term.term,
+            description: `术语 "${t["term"] as string}" 使用了多个变体`,
+            expected: t["term"] as string,
             found: usedVariants.join(", "),
-            suggestion: `统一使用 "${term.term}"`,
+            suggestion: `统一使用 "${t["term"] as string}"`,
           });
         }
       }
@@ -143,13 +145,14 @@ export class PostWriteValidationService {
 
   private checkWorldConsistency(
     _content: string,
-    worldSettings: any[],
+    worldSettings: unknown[],
   ): ConsistencyIssue[] {
     const issues: ConsistencyIssue[] = [];
 
     for (const setting of worldSettings) {
+      const s = setting as Record<string, unknown>;
       // Check if setting rules are violated
-      if (setting.rules?.length > 0) {
+      if ((s["rules"] as unknown[] | undefined)?.length ?? 0 > 0) {
         // Placeholder for rule checking logic
         // Would need NLP/LLM to properly check rule violations
       }

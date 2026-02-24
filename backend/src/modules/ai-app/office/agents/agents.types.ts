@@ -63,12 +63,13 @@ export interface AgentStreamEvent {
     | "error";
   timestamp: string;
   taskId: string;
-  data?: any;
+  data?: unknown;
 }
 
 // 任务存储（内存，生产环境应使用 Redis）
 export interface TaskStore {
   tasks: Map<string, AgentTask>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SSE event shape varies by task type
   streams: Map<string, any[]>; // taskId -> events
 }
 

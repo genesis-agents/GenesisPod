@@ -10,7 +10,8 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import * as request from "supertest";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const request = require("supertest");
 import { MCPServerController } from "../mcp-server.controller";
 import { MCPServerService } from "../mcp-server.service";
 import { MCPApiKeyGuard } from "../guards/mcp-api-key.guard";

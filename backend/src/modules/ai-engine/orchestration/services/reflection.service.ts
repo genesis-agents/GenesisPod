@@ -16,9 +16,9 @@
  * ★ P0 能力沉淀：从 Deep Research SelfReflectionService 提取
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-import { AIEngineFacade } from "../../facade";
+import type { AIEngineFacade } from "../../facade/ai-engine.facade";
 
 // ==================== 类型定义 ====================
 
@@ -125,7 +125,10 @@ const DEFAULT_CONFIG: Required<ReflectionConfig> = {
 export class ReflectionService {
   private readonly logger = new Logger(ReflectionService.name);
 
-  constructor(private readonly aiFacade: AIEngineFacade) {}
+  constructor(
+    @Inject(forwardRef(() => require("../../facade/ai-engine.facade").AIEngineFacade))
+    private readonly aiFacade: AIEngineFacade,
+  ) {}
 
   /**
    * 执行反思评估

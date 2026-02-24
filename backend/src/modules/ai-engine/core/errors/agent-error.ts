@@ -147,6 +147,7 @@ export class AgentError extends EngineError {
 
   /**
    * 超过最大迭代次数 (别名)
+   * @deprecated Use maxIterationsExceeded instead
    */
   static maxIterationsReached(
     agentId: string,
@@ -166,7 +167,7 @@ export class AgentError extends EngineError {
   ): AgentError {
     return new AgentError(
       `Invalid execution mode '${mode}' for agent '${agentId}'. Supported: ${supportedModes.join(", ")}`,
-      AgentErrorCode.NOT_READY,
+      AgentErrorCode.INVALID_MODE,
       { agentId, details: { mode, supportedModes }, retryable: false },
     );
   }
@@ -181,7 +182,7 @@ export class AgentError extends EngineError {
   ): AgentError {
     return new AgentError(
       `Agent '${agentId}' missing ${dependencyType}: ${dependencyId}`,
-      AgentErrorCode.NOT_READY,
+      AgentErrorCode.MISSING_DEPENDENCY,
       { agentId, details: { dependencyType, dependencyId }, retryable: false },
     );
   }

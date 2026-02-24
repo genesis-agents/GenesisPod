@@ -531,8 +531,8 @@ export class WritingPersistence {
   async getProjectMissions(
     projectId: string,
     status?: string,
-  ): Promise<{ items: any[]; total: number }> {
-    const where: any = { projectId };
+  ): Promise<{ items: unknown[]; total: number }> {
+    const where: Record<string, unknown> = { projectId };
     if (status) {
       where.status = status.toUpperCase();
     }
@@ -556,8 +556,8 @@ export class WritingPersistence {
         startedAt: m.startedAt,
         completedAt: m.completedAt,
         result: m.result,
-        progress: (m.result as any)?.progress || 0,
-        currentStep: (m.result as any)?.currentStep || "",
+        progress: (m.result as Record<string, unknown> | null)?.["progress"] as number || 0,
+        currentStep: (m.result as Record<string, unknown> | null)?.["currentStep"] as string || "",
       })),
       total,
     };

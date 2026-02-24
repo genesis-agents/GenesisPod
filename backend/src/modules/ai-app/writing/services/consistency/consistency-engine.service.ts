@@ -1,6 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { PostWriteValidationService } from "./post-write-validation.service";
+import {
+  PostWriteValidationService,
+  ConsistencyIssue,
+} from "./post-write-validation.service";
 import { ConflictResolutionService } from "./conflict-resolution.service";
 import { ChapterCoherenceService } from "./chapter-coherence.service";
 import { ContextBuilderService } from "../writing/context-builder.service";
@@ -15,7 +18,7 @@ export class ConsistencyEngineService {
     private readonly contextBuilder: ContextBuilderService,
   ) {}
 
-  async buildWritingContext(chapterId: string, bibleSnapshot?: any) {
+  async buildWritingContext(chapterId: string, bibleSnapshot?: Record<string, unknown>) {
     return this.contextBuilder.buildWritingContext(chapterId, bibleSnapshot);
   }
 
@@ -96,8 +99,8 @@ export class ConsistencyEngineService {
     };
   }
 
-  async resolveConflicts(chapterId: string, issues: any[]) {
-    return this.conflictResolution.resolve(chapterId, issues);
+  async resolveConflicts(chapterId: string, issues: unknown[]) {
+    return this.conflictResolution.resolve(chapterId, issues as ConsistencyIssue[]);
   }
 
   /**

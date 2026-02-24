@@ -186,6 +186,7 @@ import { RoleRegistry } from "../teams/registry/role-registry";
 import { SkillRegistry } from "../skills/registry/skill-registry";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)
+import type { ModelResolverService } from "./model-resolver.service";
 import { ModelSubFacade } from "./sub-facades/model.sub-facade";
 import { TeamSubFacade } from "./sub-facades/team.sub-facade";
 import { MemorySubFacade } from "./sub-facades/memory.sub-facade";
@@ -280,7 +281,7 @@ export class AIEngineFacade {
     private readonly creditsService?: CreditsService,
     @Optional() private readonly modelFallbackService?: ModelFallbackService,
     @Optional()
-    modelResolver?: import("./model-resolver.service").ModelResolverService,
+    modelResolver?: ModelResolverService,
     @Optional() private readonly llmAdapterForSkills?: AiChatLLMAdapter,
     @Optional()
     private readonly skillInputBindingResolver?: InputBindingResolver,

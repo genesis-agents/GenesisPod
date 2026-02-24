@@ -9,10 +9,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import {
-  StateCategory,
-  ExecutionStateStats,
-} from "@/modules/ai-engine/orchestration/state-machine";
+import { StateCategory } from "@/modules/ai-engine/facade";
+import type { ExecutionStateStats } from "@/modules/ai-engine/facade";
 import { AIEngineFacade } from "../../../../../ai-engine/facade";
 
 /**

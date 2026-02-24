@@ -63,7 +63,7 @@ export class PlatformImportService {
 
     // Query resources that user has bookmarked (upvoted/saved)
     // sourceUrl is non-nullable in schema (String, not String?), so filter out empty strings
-    const where: any = {
+    const where: Record<string, unknown> = {
       upvotes: {
         some: { userId },
       },
@@ -233,7 +233,7 @@ export class PlatformImportService {
     const { search, page = 1, limit = 20 } = options || {};
     const skip = (page - 1) * limit;
 
-    const where: any = { userId };
+    const where: Record<string, unknown> = { userId };
 
     if (search) {
       where.OR = [

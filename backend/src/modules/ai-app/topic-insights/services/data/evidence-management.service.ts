@@ -37,7 +37,7 @@ export class EvidenceManagementService {
     // ★ 默认 500 条，确保报告引用能完整显示
     const { skip = 0, take = 500, sourceType, minCredibility } = options;
 
-    const where: any = { reportId };
+    const where: Record<string, unknown> = { reportId };
 
     if (sourceType) {
       where.sourceType = sourceType;

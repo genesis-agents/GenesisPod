@@ -10,9 +10,6 @@ import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { PromptSkillBridge } from "../../ai-engine/facade";
 import { CreditsModule } from "../../credits/credits.module";
 
-// AI Engine Long Content (for long-form writing) - 直接文件导入
-import { LongContentModule } from "../../ai-engine/long-content/long-content.module";
-
 // WebSocket Gateway and Event Emitter
 import { AiWritingGateway } from "./ai-writing.gateway";
 import { WritingEventEmitterService } from "./services/events/writing-event-emitter.service";
@@ -110,7 +107,6 @@ import {
   imports: [
     PrismaModule,
     AiEngineModule,
-    LongContentModule,
     ConfigModule,
     CreditsModule,
   ],

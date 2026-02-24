@@ -84,6 +84,7 @@ export class AiChatModelConfigService {
    * 从数据库模型构建 AIModelConfig
    * ★ 统一处理所有字段，兼容新旧数据库
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private buildModelConfig(model: any): AIModelConfig {
     const modelAny = model;
     const isReasoning =

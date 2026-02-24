@@ -203,6 +203,7 @@ export class ImageGenerationService {
    * ★ 使用 getApiKeyForModel 从 Secret Manager 解析 API Key
    */
   async callImageGenerationAPI(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- modelConfig shape varies by provider
     modelConfig: any,
     prompt: string,
     dimensions: { width: number; height: number },
@@ -296,6 +297,7 @@ export class ImageGenerationService {
    * ★ apiKey 已在 callImageGenerationAPI 中通过 Secret Manager 解析
    */
   private async callImageToImageAPI(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- modelConfig shape varies by provider
     modelConfig: any,
     apiKey: string,
     referenceImageBase64: string,
@@ -473,10 +475,11 @@ export class ImageGenerationService {
       }
 
       throw new Error("No image data in Gemini response");
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Extract error message from API response
-      if (error.response?.data) {
-        const errorData = error.response.data;
+      const e = error as { response?: { status?: number; data?: { error?: { message?: string }; promptFeedback?: { blockReason?: string } } }; message?: string };
+      if (e.response?.data) {
+        const errorData = e.response.data;
         let errorMessage = "Gemini image generation failed";
 
         if (errorData.error?.message) {
@@ -560,9 +563,10 @@ export class ImageGenerationService {
 
       const mimeType = imageData.imageType || "image/png";
       return `data:${mimeType};base64,${imageData.bytesBase64Encoded}`;
-    } catch (error: any) {
-      const errorStatus = error.response?.status;
-      const errorData = error.response?.data;
+    } catch (error: unknown) {
+      const e = error as { response?: { status?: number; data?: { error?: { message?: string }; message?: string } }; message?: string };
+      const errorStatus = e.response?.status;
+      const errorData = e.response?.data;
 
       // If 404, try predict endpoint
       if (errorStatus === 404) {
@@ -589,8 +593,8 @@ export class ImageGenerationService {
         errorMessage = errorData.message;
       } else if (typeof errorData === "string") {
         errorMessage = errorData;
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else if (e.message) {
+        errorMessage = e.message;
       }
 
       // Check for content moderation errors
@@ -663,9 +667,10 @@ export class ImageGenerationService {
       }
 
       return `data:image/png;base64,${imageData}`;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const e = error as { response?: { status?: number; data?: unknown } };
       this.logger.error(
-        `Imagen predict error: ${error.response?.status} - ${JSON.stringify(error.response?.data).slice(0, 300)}`,
+        `Imagen predict error: ${e.response?.status} - ${JSON.stringify(e.response?.data).slice(0, 300)}`,
       );
       // Fallback to Gemini 2.0 Flash
       this.logger.warn(

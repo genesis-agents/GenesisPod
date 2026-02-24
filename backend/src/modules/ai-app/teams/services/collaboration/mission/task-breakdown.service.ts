@@ -22,7 +22,7 @@ import {
 
 // ★ AI Engine 服务（通过 AIEngineFacade 访问）
 import { AIEngineFacade } from "../../../../../ai-engine/facade";
-import { TeamMemberInfo } from "../../../../../ai-engine/orchestration/services/interfaces";
+import type { TeamMemberInfo } from "../../../../../ai-engine/facade";
 
 @Injectable()
 export class TaskBreakdownService {

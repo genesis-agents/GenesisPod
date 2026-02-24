@@ -58,17 +58,19 @@ export class BrandKitService {
    * 获取用户的所有品牌套件
    */
   async findByUser(userId: string): Promise<BrandKit[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma queryRaw returns any[]
     const brandKits = await this.prisma.$queryRaw<any[]>`
       SELECT * FROM brand_kits WHERE user_id = ${userId} ORDER BY updated_at DESC
     `;
 
-    return brandKits.map((kit: any) => this.mapToBrandKit(kit));
+    return brandKits.map((kit: Record<string, unknown>) => this.mapToBrandKit(kit));
   }
 
   /**
    * 获取单个品牌套件
    */
   async findById(id: string, userId: string): Promise<BrandKit> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma queryRaw returns any[]
     const brandKits = await this.prisma.$queryRaw<any[]>`
       SELECT * FROM brand_kits WHERE id = ${id} AND user_id = ${userId} LIMIT 1
     `;
@@ -172,19 +174,19 @@ export class BrandKitService {
   /**
    * 映射数据库对象到 BrandKit 类型
    */
-  private mapToBrandKit(dbKit: any): BrandKit {
+  private mapToBrandKit(dbKit: Record<string, unknown>): BrandKit {
     return {
-      id: dbKit.id,
-      name: dbKit.name,
-      description: dbKit.description,
-      colors: dbKit.colors || [],
-      fonts: dbKit.fonts || [],
-      logos: dbKit.logos || {},
-      voice: dbKit.voice,
-      defaultStyle: dbKit.defaultStyle || "consulting",
-      userId: dbKit.userId,
-      createdAt: dbKit.createdAt?.toISOString(),
-      updatedAt: dbKit.updatedAt?.toISOString(),
+      id: dbKit["id"] as string,
+      name: dbKit["name"] as string,
+      description: dbKit["description"] as string | undefined,
+      colors: (dbKit["colors"] as BrandKit["colors"]) || [],
+      fonts: (dbKit["fonts"] as BrandKit["fonts"]) || [],
+      logos: (dbKit["logos"] as BrandKit["logos"]) || {},
+      voice: dbKit["voice"] as BrandKit["voice"] | undefined,
+      defaultStyle: ((dbKit["defaultStyle"] as string) || "consulting") as BrandKit["defaultStyle"],
+      userId: (dbKit["userId"] as string) || "",
+      createdAt: ((dbKit["createdAt"] as { toISOString?: () => string } | undefined)?.toISOString?.()) || "",
+      updatedAt: ((dbKit["updatedAt"] as { toISOString?: () => string } | undefined)?.toISOString?.()) || "",
     };
   }
 

@@ -13,7 +13,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIEngineFacade } from "../../../ai-engine/facade";
-import type { MissionEvent } from "../../../ai-engine/teams/abstractions/mission.interface";
+import type { MissionEvent } from "../../../ai-engine/facade";
 import {
   GenerateImageOptions,
   PromptEngineeringInsights,

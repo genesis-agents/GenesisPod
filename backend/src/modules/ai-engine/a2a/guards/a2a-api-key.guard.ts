@@ -67,15 +67,17 @@ export class A2AApiKeyGuard implements CanActivate {
     }
   }
 
-  private extractApiKey(request: any): string | null {
+  private extractApiKey(request: { headers: Record<string, string | string[] | undefined> }): string | null {
     // Bearer token
-    const authHeader = request.headers["authorization"];
+    const authHeaderRaw = request.headers["authorization"];
+    const authHeader = Array.isArray(authHeaderRaw) ? authHeaderRaw[0] : authHeaderRaw;
     if (authHeader?.startsWith("Bearer ")) {
       return authHeader.slice(7);
     }
 
     // X-API-Key header
-    const apiKeyHeader = request.headers["x-api-key"];
+    const apiKeyHeaderRaw = request.headers["x-api-key"];
+    const apiKeyHeader = Array.isArray(apiKeyHeaderRaw) ? apiKeyHeaderRaw[0] : apiKeyHeaderRaw;
     if (apiKeyHeader) {
       return apiKeyHeader;
     }

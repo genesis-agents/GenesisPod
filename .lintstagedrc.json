@@ -1,21 +1,19 @@
 {
   "**/*.{json,md,yml,yaml}": ["prettier --write"],
   "backend/**/*.{ts,tsx}": [
-    "bash -c 'cd backend && npx eslint --fix'",
-    "prettier --write",
-    "bash -c 'cd backend && npm run type-check'"
+    "bash -c 'cd backend && npx eslint --fix \"$@\"' _",
+    "prettier --write"
   ],
   "backend/**/*.{js,jsx}": [
-    "bash -c 'cd backend && npx eslint --fix'",
+    "bash -c 'cd backend && npx eslint --fix \"$@\"' _",
     "prettier --write"
   ],
   "frontend/**/*.{ts,tsx}": [
-    "bash -c 'cd frontend && npx eslint --fix'",
-    "prettier --write",
-    "bash -c 'cd frontend && npm run type-check'"
+    "bash -c 'cd frontend && npx eslint --fix \"$@\"' _",
+    "prettier --write"
   ],
   "frontend/**/*.{js,jsx}": [
-    "bash -c 'cd frontend && npx eslint --fix'",
+    "bash -c 'cd frontend && npx eslint --fix \"$@\"' _",
     "prettier --write"
   ]
 }

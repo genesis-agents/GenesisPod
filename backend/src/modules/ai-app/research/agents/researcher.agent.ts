@@ -7,6 +7,9 @@
  */
 
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
+
+/** Research source reference */
+type ResearchSource = { title?: string; url?: string; snippet?: string; [key: string]: unknown };
 import {
   PlanBasedAgent,
   BUILTIN_AGENTS,
@@ -273,7 +276,7 @@ export class ResearcherAgent extends PlanBasedAgent {
   async *execute(plan: AgentPlan): AsyncGenerator<AgentEvent> {
     this.logger.log(`[execute] Starting research for task: ${plan.taskId}`);
 
-    const input = (plan as any).input as AgentInput;
+    const input = (plan as AgentPlan & { input?: AgentInput }).input;
     if (!input) {
       yield {
         type: "error",
@@ -295,7 +298,7 @@ export class ResearcherAgent extends PlanBasedAgent {
       };
 
       let researchContent = "";
-      let sources: any[] = [];
+      let sources: ResearchSource[] = [];
 
       // 执行每个步骤
       for (let i = 0; i < plan.steps.length; i++) {
@@ -390,9 +393,9 @@ export class ResearcherAgent extends PlanBasedAgent {
       projectId?: string;
       userId: string;
       previousContent: string;
-      sources: any[];
+      sources: ResearchSource[];
     },
-  ): Promise<{ content?: string; sources?: any[] }> {
+  ): Promise<{ content?: string; sources?: ResearchSource[] }> {
     const { projectId, userId } = context;
 
     switch (step.toolId) {
@@ -455,7 +458,7 @@ export class ResearcherAgent extends PlanBasedAgent {
   private async generateResearchContent(
     prompt: string,
     previousContent: string,
-    sources: any[],
+    sources: ResearchSource[],
   ): Promise<string> {
     // 简化实现:生成研究报告结构
     const report = `

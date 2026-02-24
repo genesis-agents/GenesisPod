@@ -31,7 +31,7 @@ import {
   FactCheckerSkill,
   FactCheckerInput,
 } from "../skills/fact-checker.skill";
-import { SkillContext } from "@/modules/ai-engine/skills/abstractions/skill.interface";
+import type { SkillContext } from "@/modules/ai-engine/facade";
 
 // ============================================
 // Types

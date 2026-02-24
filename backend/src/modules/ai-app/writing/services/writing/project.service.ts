@@ -48,7 +48,7 @@ export class ProjectService {
   ) {
     const { status, limit = 20, cursor } = options;
 
-    const where: any = { ownerId: userId };
+    const where: Record<string, unknown> = { ownerId: userId };
     if (status) {
       where.status = status;
     }

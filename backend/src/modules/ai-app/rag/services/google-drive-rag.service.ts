@@ -569,7 +569,7 @@ export class GoogleDriveRAGService {
   /**
    * Get OAuth2 client for Google Drive API
    */
-  private async getOAuthClient(connection: any): Promise<OAuth2Client> {
+  private async getOAuthClient(connection: { id: string; accessToken: string; refreshToken: string; tokenExpiry: string | Date }): Promise<OAuth2Client> {
     const oauth2Client = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,

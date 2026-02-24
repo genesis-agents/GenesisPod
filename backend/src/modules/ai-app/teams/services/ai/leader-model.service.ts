@@ -9,8 +9,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import type { ModelFallbackOptions } from "@/modules/ai-engine/llm/model-fallback";
-import type { AIModelConfig } from "@/modules/ai-engine/llm";
+import type { ModelFallbackOptions, AIModelConfig } from "@/modules/ai-engine/facade";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { AIError } from "@/common/ai-orchestration/error-classifier";
 

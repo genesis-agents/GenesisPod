@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { MessageContentType, TopicType, Prisma } from "@prisma/client";
+import { MessageContentType, TopicType, Prisma, MergeMode } from "@prisma/client";
 import { ForwardMessagesDto, BookmarkMessageDto } from "../../dto";
 
 /**
@@ -90,7 +90,7 @@ export class TopicForwardBookmarkService {
         targetType: dto.targetType,
         targetTopicId: dto.targetTopicId,
         targetUserId: dto.targetUserId,
-        mergeMode: mergeMode as any,
+        mergeMode: mergeMode as MergeMode,
         forwardNote: dto.forwardNote,
         forwardedById: userId,
       },

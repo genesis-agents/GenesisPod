@@ -260,9 +260,9 @@ export class QualityMonitorService {
       return {
         level: 2,
         action: "adjust_temperature",
-        actionParams: { temperature: 0.5, maxTokensIncrease: 500 },
+        actionParams: { creativity: "low", maxTokensIncrease: 500 },
         reason: `连续 ${trend.consecutiveDeclines} 个任务质量持续下降`,
-        details: "降低 temperature 并增加 max_tokens",
+        details: "降低 creativity 并增加 max_tokens（通过 TaskProfile 语义参数）",
         autoApply: config.autoIntervention.autoApplyLevel2,
         expectedImprovement: "稳定输出质量，预期改善 10-15%",
         suggestedAt: new Date(),
@@ -329,7 +329,7 @@ export class QualityMonitorService {
         break;
 
       case "adjust_temperature":
-        record.resultDetails = `已调整参数: temperature=${intervention.actionParams?.temperature}`;
+        record.resultDetails = `已调整参数: creativity=${intervention.actionParams?.creativity}`;
         break;
 
       case "upgrade_model":

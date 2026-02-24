@@ -17,7 +17,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
+import { ToolRegistry } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   AIModelType,

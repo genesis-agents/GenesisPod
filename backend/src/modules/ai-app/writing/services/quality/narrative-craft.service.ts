@@ -23,7 +23,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { TaskProfile } from "@/modules/ai-engine/llm/types";
+import type { TaskProfile } from "@/modules/ai-engine/facade";
 import type { AIModelType as _AIModelType } from "@prisma/client"; // 保留用于类型参考
 
 // ==================== 禁止模式库 ====================
@@ -1014,6 +1014,7 @@ export class NarrativeCraftService {
         const afterPart = paragraphs.slice(maxIdx + 1).join("\n\n");
         if (afterPart) {
           // 将 afterPart 暂存，稍后拼接回去
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- temporary cross-call state storage
           (this as any)._tempAfterPart = afterPart;
         }
         rewriteMode = "full";
@@ -1163,9 +1164,11 @@ ${targetPart}
 
         // 如果是 full 模式，需要拼接后面的内容
         if (rewriteMode === "full") {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- temporary cross-call state storage
           const afterPart = (this as any)._tempAfterPart;
           if (afterPart) {
             newContent = `${newContent}\n\n${afterPart}`;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- temporary cross-call state storage
             delete (this as any)._tempAfterPart; // 清理临时变量
           }
         }

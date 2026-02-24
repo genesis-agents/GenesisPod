@@ -9,17 +9,18 @@ export class ChapterDependencyService {
     void this.logger;
   }
 
-  async analyze(chapters: any[]): Promise<Map<string, string[]>> {
+  async analyze(chapters: unknown[]): Promise<Map<string, string[]>> {
     const dependencyGraph = new Map<string, string[]>();
 
     for (const chapter of chapters) {
+      const c = chapter as Record<string, unknown>;
       // Use explicit dependencies if set, otherwise infer from chapter number
       const dependencies =
-        chapter.dependsOn?.length > 0
-          ? chapter.dependsOn
+        (c["dependsOn"] as unknown[] | undefined)?.length ?? 0 > 0
+          ? c["dependsOn"] as string[]
           : this.inferDependencies(chapter, chapters);
 
-      dependencyGraph.set(chapter.id, dependencies);
+      dependencyGraph.set((chapter as Record<string, unknown>)["id"] as string, dependencies);
     }
 
     // Validate no circular dependencies
@@ -28,12 +29,13 @@ export class ChapterDependencyService {
     return dependencyGraph;
   }
 
-  private inferDependencies(chapter: any, allChapters: any[]): string[] {
+  private inferDependencies(chapter: unknown, allChapters: unknown[]): string[] {
     // Simple heuristic: each chapter depends on the previous one
+    const c = chapter as Record<string, unknown>;
     const previousChapter = allChapters.find(
-      (c) => c.chapterNumber === chapter.chapterNumber - 1,
+      (ch) => (ch as Record<string, unknown>)["chapterNumber"] === (c["chapterNumber"] as number) - 1,
     );
-    return previousChapter ? [previousChapter.id] : [];
+    return previousChapter ? [(previousChapter as Record<string, unknown>)["id"] as string] : [];
   }
 
   private validateNoCycles(graph: Map<string, string[]>) {

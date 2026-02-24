@@ -70,8 +70,7 @@ import {
 } from "./services";
 // 注意：UrlParserService 和 WebContentExtractionService 由 @Global() ContentProcessingModule 提供
 import { TeamMemberAgent, TeamCollaborationAgent } from "./agents";
-import { TeamRegistry } from "../../ai-engine/teams/registry/team-registry";
-import { AgentRegistry } from "../../ai-engine/agents/registry";
+import { TeamRegistry, AgentRegistry } from "../../ai-engine/facade";
 import { DEBATE_TEAM_CONFIG } from "./teams";
 
 @Module({

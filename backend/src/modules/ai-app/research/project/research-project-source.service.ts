@@ -7,8 +7,8 @@ import {
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 // ★ 架构重构：通过 ToolRegistry 调用工具，不再直接调用 SearchService
-import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
-import type { ToolContext } from "@/modules/ai-engine/tools/abstractions/tool.interface";
+import { ToolRegistry } from "@/modules/ai-engine/facade";
+import type { ToolContext } from "@/modules/ai-engine/facade";
 import { AddSourceDto, SearchSourcesDto } from "./dto";
 import { FileParserService } from "./services/file-parser.service";
 import { APP_CONFIG } from "@/common/config/app.config";

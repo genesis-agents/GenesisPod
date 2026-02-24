@@ -12,14 +12,13 @@ import { DataSourceConnectorRegistry } from "./connectors/data-source-connector.
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 
 // ★ 政策研究工具导入
+// ★ 架构重构：通过 ToolRegistry 调用工具
 import {
+  ToolRegistry,
   FederalRegisterTool,
   CongressGovTool,
   WhiteHouseNewsTool,
-} from "@/modules/ai-engine/tools/categories/information/policy";
-
-// ★ 架构重构：通过 ToolRegistry 调用工具
-import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
+} from "@/modules/ai-engine/facade";
 
 import {
   DataSourceType,

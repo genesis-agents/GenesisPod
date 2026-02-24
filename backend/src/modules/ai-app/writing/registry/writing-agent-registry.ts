@@ -8,14 +8,18 @@
  */
 
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import {
+// Non-conflicting types via facade
+import type {
   IAgent,
   AgentContext,
   AgentResult,
-  AgentOutput,
   AgentCapability,
-  AgentEvent,
   ExecutionPlan,
+} from "../../../ai-engine/facade";
+// AgentOutput/AgentEvent kept at internal path — facade export conflicts with orchestration types
+import type {
+  AgentOutput,
+  AgentEvent,
 } from "../../../ai-engine/agents/abstractions/agent.interface";
 
 // ==================== Writing Agent 接口 ====================

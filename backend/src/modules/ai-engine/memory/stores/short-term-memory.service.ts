@@ -4,6 +4,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { LruMap } from "@/common/utils/lru-map";
 
 /**
@@ -23,7 +24,12 @@ interface MemoryItem {
  */
 @Injectable()
 export class ShortTermMemoryService {
-  private readonly sessions = new LruMap<string, Map<string, MemoryItem>>(1000);
+  private readonly sessions: LruMap<string, Map<string, MemoryItem>>;
+
+  constructor(private readonly configService: ConfigService) {
+    const capacity = this.configService.get<number>('AI_ENGINE_STM_CAPACITY', 1000);
+    this.sessions = new LruMap<string, Map<string, MemoryItem>>(capacity);
+  }
 
   /**
    * 获取会话存储

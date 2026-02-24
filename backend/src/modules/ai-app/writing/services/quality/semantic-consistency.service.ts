@@ -13,7 +13,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { TaskProfile } from "@/modules/ai-engine/llm/types";
+import type { TaskProfile } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
 // ==================== 重试配置 ====================

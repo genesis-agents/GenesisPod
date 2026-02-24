@@ -9,10 +9,11 @@
  * 3. 识别页面和 UI 元素
  * 4. 生成问题描述
  *
- * ★ 架构说明：
- * - 通过 AIEngineFacade 获取模型配置（包括 API Key）
- * - Vision API 调用需要特殊的多模态消息格式，AiChatService 尚不支持
- * - 因此保留直接调用 Vision API 的逻辑，但密钥来源改为 AIEngineFacade
+ * ★ 架构说明（已知限制）：
+ * - 模型配置和 API Key 通过 AIEngineFacade 获取 ✓
+ * - Vision API 需要图片 + 文本的多模态消息格式，当前 ChatMessage 仅支持 content: string
+ * - 因此暂时保留直接调用各 provider Vision API 的逻辑
+ * - TODO: 当 AIEngineFacade 支持多模态消息后，应改为 facade.chat() 统一调用
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -22,6 +23,12 @@ import type {
   ScreenshotAnalysis,
   FeedbackAttachment,
 } from "../triage/triage-decision.types";
+
+// TaskProfile 映射常量（待 AIEngineFacade 支持多模态后，改用 taskProfile 语义化配置）
+// creativity: "low" → temperature 0.3（截图分析需要准确提取，不需要创意）
+// outputLength: "short" → maxTokens 1000（结构化 JSON 分析结果，无需长输出）
+const VISION_TEMPERATURE = 0.3;
+const VISION_MAX_TOKENS = 1000;
 
 const VISION_PROMPT = `你是一个专业的软件测试工程师，正在分析用户提交的 bug 截图。
 
@@ -200,8 +207,8 @@ export class ScreenshotAnalyzerService {
           },
         ],
         generationConfig: {
-          maxOutputTokens: 1000, // TaskProfile: outputLength="short"
-          temperature: 0.3, // TaskProfile: creativity="low"
+          maxOutputTokens: VISION_MAX_TOKENS,
+          temperature: VISION_TEMPERATURE,
         },
       }),
     });
@@ -269,8 +276,8 @@ export class ScreenshotAnalyzerService {
             ],
           },
         ],
-        max_tokens: 1000, // TaskProfile: outputLength="short"
-        temperature: 0.3, // TaskProfile: creativity="low"
+        max_tokens: VISION_MAX_TOKENS,
+        temperature: VISION_TEMPERATURE,
       }),
     });
 
@@ -328,7 +335,7 @@ export class ScreenshotAnalyzerService {
       },
       body: JSON.stringify({
         model: modelConfig.modelId,
-        max_tokens: 1000,
+        max_tokens: VISION_MAX_TOKENS,
         messages: [
           {
             role: "user",

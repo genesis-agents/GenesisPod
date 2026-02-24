@@ -70,10 +70,8 @@ export class TopicSummariesService {
         select: { createdAt: true },
       });
       if (fromMsg) {
-        where.createdAt = {
-          ...(where.createdAt as any),
-          gte: fromMsg.createdAt,
-        };
+        const existing = typeof where.createdAt === "object" && where.createdAt !== null && !(where.createdAt instanceof Date) ? where.createdAt as Prisma.DateTimeFilter : {};
+        where.createdAt = { ...existing, gte: fromMsg.createdAt };
       }
     }
 
@@ -83,7 +81,8 @@ export class TopicSummariesService {
         select: { createdAt: true },
       });
       if (toMsg) {
-        where.createdAt = { ...(where.createdAt as any), lte: toMsg.createdAt };
+        const existing = typeof where.createdAt === "object" && where.createdAt !== null && !(where.createdAt instanceof Date) ? where.createdAt as Prisma.DateTimeFilter : {};
+        where.createdAt = { ...existing, lte: toMsg.createdAt };
       }
     }
 

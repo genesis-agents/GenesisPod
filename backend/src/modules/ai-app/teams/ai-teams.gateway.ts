@@ -411,7 +411,7 @@ export class AiTeamsGateway
   }
 
   // 广播消息给指定用户（跨房间）
-  emitToUser(userId: string, event: string, data: any) {
+  emitToUser(userId: string, event: string, data: unknown) {
     const socketIds = this.userSockets.get(userId);
     if (socketIds) {
       socketIds.forEach((socketId) => {
@@ -421,7 +421,7 @@ export class AiTeamsGateway
   }
 
   // 广播消息给Topic内所有成员
-  async emitToTopic(topicId: string, event: string, data: any) {
+  async emitToTopic(topicId: string, event: string, data: unknown) {
     const roomName = `topic:${topicId}`;
     // 心跳事件不输出日志（太频繁）
     const isHeartbeat = event === "mission:agent_working";

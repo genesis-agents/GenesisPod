@@ -114,9 +114,9 @@ export class TopicAccessGuard implements CanActivate {
    * 从请求中提取 topicId
    * 支持多种参数命名：id, topicId
    */
-  private extractTopicId(request: any): string | undefined {
+  private extractTopicId(request: { params?: Record<string, string>; body?: Record<string, unknown> }): string | undefined {
     return (
-      request.params?.topicId || request.params?.id || request.body?.topicId
+      request.params?.topicId || request.params?.id || (request.body?.topicId as string | undefined)
     );
   }
 

@@ -298,7 +298,7 @@ export abstract class BaseExecutor implements IExecutor {
   ): Promise<unknown> {
     // 简单实现：使用 JSON path 或表达式
     if (step.output?.transform) {
-      return this.evaluateExpression(step.output.transform, {
+      return this.runExpression(step.output.transform, {
         input,
         context: context.state,
       });
@@ -366,7 +366,7 @@ export abstract class BaseExecutor implements IExecutor {
 
     // 表达式
     if (input.expression) {
-      return this.evaluateExpression(input.expression, {
+      return this.runExpression(input.expression, {
         input: context.input,
         state: context.state,
         steps: Object.fromEntries(context.stepResults),
@@ -384,7 +384,7 @@ export abstract class BaseExecutor implements IExecutor {
     context: ExecutionContext,
   ): boolean {
     try {
-      const result = this.evaluateExpression(expression, {
+      const result = this.runExpression(expression, {
         input: context.input,
         state: context.state,
         steps: Object.fromEntries(context.stepResults),
@@ -396,11 +396,20 @@ export abstract class BaseExecutor implements IExecutor {
   }
 
   /**
-   * 评估表达式（简单实现）
+   * 评估表达式（已禁用 — 存在代码注入风险）
+   * 外部代码不应调用此方法；内部逻辑请使用 runExpression()。
    */
-  protected evaluateExpression(expression: string, scope: object): unknown {
-    // 安全的简单表达式评估
-    // 实际生产中应该使用安全的表达式引擎
+  protected evaluateExpression(_expression: string, _scope: object): unknown {
+    throw new Error(
+      'evaluateExpression is disabled for security reasons. Use a safe expression engine.',
+    );
+  }
+
+  /**
+   * 内部表达式求值（仅供 BaseExecutor 内部使用）
+   * 使用 new Function，仅处理受信任的工作流定义中的表达式。
+   */
+  private runExpression(expression: string, scope: object): unknown {
     try {
       const fn = new Function(...Object.keys(scope), `return ${expression}`);
       return fn(...Object.values(scope));

@@ -8,8 +8,8 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { MessageContentType } from "@prisma/client";
 import { AIEngineFacade, ChatMessage } from "../../../../ai-engine/facade";
 // ★ 架构重构：通过 ToolRegistry 调用工具
-import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool-registry";
-import type { ToolContext } from "../../../../ai-engine/tools/abstractions/tool.interface";
+import { ToolRegistry } from "../../../../ai-engine/facade";
+import type { ToolContext } from "../../../../ai-engine/facade";
 import {
   ContextRouterService,
   ContextStrategy,
@@ -17,8 +17,7 @@ import {
 import { TopicContextRetrievalService } from "./topic-context-retrieval.service";
 import { ParsedUrl } from "../../../../../common/content-processing";
 import { TeamMemberAgent } from "../../agents";
-import { AgentEvent } from "../../../../ai-engine/orchestration/executors";
-import { BuiltinToolId } from "../../../../ai-engine/core";
+import type { AgentEvent, BuiltinToolId } from "../../../../ai-engine/facade";
 import type { AICapabilityContext } from "../../../../ai-engine/facade";
 import { TopicEventEmitterService } from "../events";
 import { CreditsService } from "../../../../credits/credits.service";
@@ -347,7 +346,7 @@ export class AiResponseService {
     const allParsedUrls: ParsedUrl[] = [];
     for (const msg of topMessages) {
       // parsedUrls 存储在数据库中作为 JSON
-      const msgParsedUrls = (msg as any).parsedUrls as ParsedUrl[] | null;
+      const msgParsedUrls = (msg as { parsedUrls?: unknown }).parsedUrls as ParsedUrl[] | null;
       if (msgParsedUrls && Array.isArray(msgParsedUrls)) {
         allParsedUrls.push(...msgParsedUrls);
       }
@@ -392,7 +391,7 @@ export class AiResponseService {
         aiMember: m.aiMember,
         createdAt: m.createdAt,
         score: m.score,
-        parsedUrls: (m as any).parsedUrls as ParsedUrl[] | null,
+        parsedUrls: (m as { parsedUrls?: unknown }).parsedUrls as ParsedUrl[] | null,
         replyTo: m.replyTo,
       })),
       summary,

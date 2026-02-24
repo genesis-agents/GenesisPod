@@ -213,20 +213,25 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
       }
 
       // 检查超时的节点（watchdog）
+      // 先收集超时节点，避免迭代 Map 时直接删除
+      const timedOut: string[] = [];
       for (const [nodeId, startTime] of nodeStartTimes) {
         if (Date.now() - startTime > WATCHDOG_TIMEOUT) {
-          const stuckNode = dag.get(nodeId);
-          if (stuckNode && stuckNode.status === "running") {
-            stuckNode.status = "failed";
-            nodeStartTimes.delete(nodeId);
-            running.delete(nodeId);
-            this.skipDependents(nodeId, dag);
-            onEvent(
-              this.createEvent("step_failed", context, nodeId, {
-                error: `Node timed out after ${WATCHDOG_TIMEOUT / 1000}s`,
-              }),
-            );
-          }
+          timedOut.push(nodeId);
+        }
+      }
+      for (const nodeId of timedOut) {
+        const stuckNode = dag.get(nodeId);
+        if (stuckNode && stuckNode.status === "running") {
+          stuckNode.status = "failed";
+          nodeStartTimes.delete(nodeId);
+          running.delete(nodeId);
+          this.skipDependents(nodeId, dag);
+          onEvent(
+            this.createEvent("step_failed", context, nodeId, {
+              error: `Node timed out after ${WATCHDOG_TIMEOUT / 1000}s`,
+            }),
+          );
         }
       }
 
@@ -324,17 +329,20 @@ export class DAGExecutor extends BaseExecutor implements OnModuleDestroy {
   }
 
   /**
-   * 跳过所有依赖失败节点的节点
+   * 跳过所有依赖失败节点的节点（BFS，避免深层图的递归栈溢出）
    */
   private skipDependents(nodeId: string, dag: Map<string, DAGNode>): void {
-    const node = dag.get(nodeId);
-    if (!node) return;
-
-    for (const dependentId of node.dependents) {
-      const dependent = dag.get(dependentId);
-      if (dependent && dependent.status === "pending") {
-        dependent.status = "skipped";
-        this.skipDependents(dependentId, dag);
+    const queue = [nodeId];
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      const node = dag.get(id);
+      if (!node) continue;
+      for (const depId of node.dependents) {
+        const dep = dag.get(depId);
+        if (dep && dep.status === "pending") {
+          dep.status = "skipped";
+          queue.push(depId);
+        }
       }
     }
   }

@@ -18,16 +18,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "../../../../ai-engine/facade";
-import {
-  UserIntent,
-  ContextStrategy,
-} from "../../../../ai-engine/orchestration/services";
+import { UserIntent, ContextStrategy } from "../../../../ai-engine/facade";
 
 // 重导出 AI Engine 的类型（向后兼容）
-export {
-  UserIntent,
-  ContextStrategy,
-} from "../../../../ai-engine/orchestration/services";
+export { UserIntent, ContextStrategy } from "../../../../ai-engine/facade";
 
 // 上下文路由结果
 export interface ContextRouteResult {

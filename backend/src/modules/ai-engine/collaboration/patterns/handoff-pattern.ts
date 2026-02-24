@@ -69,7 +69,7 @@ export class HandoffCoordinator {
   }
 
   /**
-   * 发起交接
+   * 发起交接（公开入口，depth=0）
    */
   async initiateHandoff(
     request: HandoffRequest,
@@ -79,6 +79,28 @@ export class HandoffCoordinator {
       timeout: number,
     ) => Promise<HandoffResponse | null>,
   ): Promise<HandoffResponse> {
+    return this.initiateHandoffInternal(request, onMessage, waitForResponse, 0);
+  }
+
+  /**
+   * 发起交接（内部实现，带深度限制防止无限递归）
+   */
+  private async initiateHandoffInternal(
+    request: HandoffRequest,
+    onMessage: (msg: CollaborationMessage) => Promise<void>,
+    waitForResponse: (
+      fromAgentId: string,
+      timeout: number,
+    ) => Promise<HandoffResponse | null>,
+    depth: number,
+  ): Promise<HandoffResponse> {
+    if (depth >= 5) {
+      this.logger.warn(
+        `Handoff max depth exceeded (${depth}), aborting fallback chain`,
+      );
+      return { accepted: false, message: 'Max handoff depth exceeded' };
+    }
+
     const handoffId = uuid();
     const state: HandoffState = {
       id: handoffId,
@@ -126,14 +148,15 @@ export class HandoffCoordinator {
         }
 
         if (response.suggestedAgent && this.config.autoFallback) {
-          // 尝试备选 Agent
+          // 尝试备选 Agent（递归，增加深度计数）
           this.logger.log(
             `Handoff ${handoffId} rejected, trying suggested agent: ${response.suggestedAgent}`,
           );
-          return this.initiateHandoff(
+          return this.initiateHandoffInternal(
             { ...request, toAgentId: response.suggestedAgent },
             onMessage,
             waitForResponse,
+            depth + 1,
           );
         }
 

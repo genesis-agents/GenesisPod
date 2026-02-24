@@ -196,14 +196,9 @@ export function decryptSession<T>(encryptedData: string): T {
 export function generateKey(): string {
   const key = crypto.randomBytes(KEY_LENGTH);
   const keyHex = key.toString("hex");
-  // Using console.log here is intentional - this is a CLI utility script
-  // eslint-disable-next-line no-console
-  console.log("Generated SESSION_ENCRYPTION_KEY:");
-  // eslint-disable-next-line no-console
-  console.log(keyHex);
-  // eslint-disable-next-line no-console
-  console.log("\nAdd to your .env file:");
-  // eslint-disable-next-line no-console
-  console.log(`SESSION_ENCRYPTION_KEY=${keyHex}`);
+  logger.log("Generated SESSION_ENCRYPTION_KEY:");
+  logger.log(keyHex);
+  logger.log("Add to your .env file:");
+  logger.log(`SESSION_ENCRYPTION_KEY=${keyHex}`);
   return keyHex;
 }

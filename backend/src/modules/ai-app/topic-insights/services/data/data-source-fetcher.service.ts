@@ -1,10 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 import {
+  ToolRegistry,
   FederalRegisterTool,
   CongressGovTool,
   WhiteHouseNewsTool,
-} from "@/modules/ai-engine/tools/categories/information/policy";
+} from "@/modules/ai-engine/facade";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import {
   DataSourceType,

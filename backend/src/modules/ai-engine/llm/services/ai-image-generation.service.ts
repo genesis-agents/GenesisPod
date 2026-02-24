@@ -134,13 +134,15 @@ export class AiImageGenerationService {
       }
 
       throw new Error("No image data in response");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const e = error as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const errMsg = e.response?.data?.error?.message || e.message;
       this.logger.error(
-        `DALL-E 3 API error: ${error.response?.data?.error?.message || error.message}`,
+        `DALL-E 3 API error: ${errMsg}`,
       );
 
       return {
-        content: `抱歉，图像生成失败: ${error.response?.data?.error?.message || error.message}\n\n请检查 OpenAI API Key 是否有 DALL-E 3 的访问权限。`,
+        content: `抱歉，图像生成失败: ${errMsg}\n\n请检查 OpenAI API Key 是否有 DALL-E 3 的访问权限。`,
         model: "dall-e-3",
         tokensUsed: 0,
       };
@@ -212,6 +214,7 @@ export class AiImageGenerationService {
       // Try SDK format first (generatedImages)
       if (data.generatedImages && data.generatedImages.length > 0) {
         images = data.generatedImages
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response item
           .map((img: any, index: number) => {
             const imageBytes = img.image?.imageBytes || img.imageBytes;
             if (imageBytes) {
@@ -230,6 +233,7 @@ export class AiImageGenerationService {
         data.predictions.length > 0
       ) {
         images = data.predictions
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API response item
           .map((pred: any, index: number) => {
             const imageBytes =
               pred.bytesBase64Encoded || pred.image?.imageBytes;
@@ -257,11 +261,12 @@ export class AiImageGenerationService {
         `[Imagen] No images found in response: ${JSON.stringify(data).substring(0, 1000)}`,
       );
       throw new Error("No images generated - check response format");
-    } catch (error: any) {
-      const errorMsg = error.response?.data?.error?.message || error.message;
+    } catch (error: unknown) {
+      const e = error as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const errorMsg = e.response?.data?.error?.message || e.message;
       this.logger.error(`[Imagen] API error: ${errorMsg}`);
       this.logger.error(
-        `[Imagen] Full error: ${JSON.stringify(error.response?.data || {}).substring(0, 1000)}`,
+        `[Imagen] Full error: ${JSON.stringify(e.response?.data || {}).substring(0, 1000)}`,
       );
 
       return {
