@@ -35,7 +35,6 @@ import {
   RESPONSE_REQUIREMENTS,
 } from "./prompts/ask-system.prompt";
 import { CreateSessionDto, SendMessageDto } from "./dto";
-import { IntentRouterService } from "../../ai-engine/orchestration/services/intent-router.service";
 
 export interface SuggestedAction {
   id: string;
@@ -76,7 +75,6 @@ export class AiAskService {
     private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly ragPipelineService: RAGPipelineService,
     @Optional() private readonly creditsService: CreditsService,
-    @Optional() private readonly intentRouterService: IntentRouterService,
   ) {}
 
   /**
@@ -1116,15 +1114,15 @@ export class AiAskService {
     userId: string,
     sessionId: string,
   ): Promise<SuggestedAction[]> {
-    if (!this.intentRouterService) return [];
-
     try {
-      const result = await this.intentRouterService.route(userInput, {
+      const result = await this.aiFacade.routeIntent(userInput, {
         userId,
         sessionId,
       });
 
-      if (result.plan.confidence < IntentRouterService.CONFIRMATION_THRESHOLD)
+      if (!result) return [];
+
+      if (result.plan.confidence < AIEngineFacade.INTENT_CONFIRMATION_THRESHOLD)
         return [];
 
       return this.buildSuggestedActions(userInput, result.plan);

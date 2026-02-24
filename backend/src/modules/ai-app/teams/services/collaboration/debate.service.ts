@@ -23,7 +23,6 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AIEngineFacade, ChatMessage } from "../../../../ai-engine/facade";
 import { DebateStatus, DebateRole, DebateAgent, Prisma } from "@prisma/client";
 import { VotingManager } from "../../../../ai-engine/collaboration/patterns/voting-pattern";
-import { A2AMessageBusService } from "../../../../ai-engine/teams/services/a2a-message-bus.service";
 
 // 辩论消息类型（用于Agent的conversationHistory）
 interface DebateHistoryMessage {
@@ -59,7 +58,6 @@ export class DebateService {
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly votingManager?: VotingManager,
-    @Optional() private readonly a2aBus?: A2AMessageBusService,
   ) {
     if (!votingManager) {
       this.logger.warn(
@@ -379,7 +377,7 @@ export class DebateService {
     );
 
     // 通过 A2A Bus 广播辩论发言，供可观测性系统记录消息流
-    void this.a2aBus?.publish({
+    void this.aiFacade.a2aPublish({
       sessionId,
       fromAgentId: agentId,
       type: "info_share",
@@ -497,7 +495,7 @@ export class DebateService {
         `[Debate] Final consensus position: ${consensusPosition}`,
       );
     }
-    this.a2aBus?.clearSession(sessionId);
+    this.aiFacade.a2aClearSession(sessionId);
   }
 
   /**
@@ -653,7 +651,7 @@ export class DebateService {
       },
     });
     this.logger.log(`[Debate] Session ${sessionId} marked as completed`);
-    this.a2aBus?.clearSession(sessionId);
+    this.aiFacade.a2aClearSession(sessionId);
   }
 
   /**

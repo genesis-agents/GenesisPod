@@ -19,8 +19,18 @@ import {
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { AiModelConfigService } from "../llm/services/ai-model-config.service";
-import { IntentRouterService } from "../orchestration/services/intent-router.service";
+import {
+  IntentRouterService,
+  AgentContext,
+  RouteResult,
+} from "../orchestration/services/intent-router.service";
 import type { AppModule } from "../orchestration/services/task-planner.service";
+import { A2AMessageBusService } from "../teams/services/a2a-message-bus.service";
+import type {
+  A2AMessageType,
+  A2APriority,
+  A2AMessage,
+} from "../teams/abstractions/a2a-message.interface";
 // ★ 架构重构：通过 ToolRegistry 调用搜索工具
 import type { ToolContext } from "../tools/abstractions/tool.interface";
 import {
@@ -224,6 +234,8 @@ export class AIEngineFacade {
     private readonly skillInputBindingResolver?: InputBindingResolver,
     @Optional() private readonly traceCollector?: TraceCollectorService,
     @Optional() private readonly memoryCoordinator?: MemoryCoordinatorService,
+    @Optional() private readonly intentRouterService?: IntentRouterService,
+    @Optional() private readonly a2aBusService?: A2AMessageBusService,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -261,6 +273,8 @@ export class AIEngineFacade {
       credits: !!this.creditsService,
       traceCollector: !!this.traceCollector,
       memoryCoordinator: !!this.memoryCoordinator,
+      intentRouter: !!this.intentRouterService,
+      a2aBus: !!this.a2aBusService,
     };
 
     this.logger.log(
@@ -2498,5 +2512,41 @@ export class AIEngineFacade {
     sessionId?: string,
   ): Promise<MemoryContext> | undefined {
     return this.memoryCoordinator?.recall(query, userId, sessionId);
+  }
+
+  // ==================== 意图路由（IntentRouter）====================
+
+  /** 意图置信度阈值（低于此值需要用户确认） */
+  static readonly INTENT_CONFIRMATION_THRESHOLD =
+    IntentRouterService.CONFIRMATION_THRESHOLD;
+
+  /** 路由用户意图，返回 TaskPlan 和是否需要确认 */
+  routeIntent(
+    userIntent: string,
+    context: AgentContext,
+  ): Promise<RouteResult> | undefined {
+    return this.intentRouterService?.route(userIntent, context);
+  }
+
+  // ==================== A2A 消息总线（A2ABus）====================
+
+  /** 发布 A2A 消息（Agent 间通信） */
+  a2aPublish<TPayload = unknown>(params: {
+    sessionId: string;
+    fromAgentId: string;
+    toAgentId?: string;
+    type: A2AMessageType;
+    payload: TPayload;
+    priority?: A2APriority;
+    replyToId?: string;
+    correlationId?: string;
+    ttlMs?: number;
+  }): Promise<A2AMessage<TPayload>> | undefined {
+    return this.a2aBusService?.publish(params);
+  }
+
+  /** 清理 A2A 会话（释放订阅和历史消息） */
+  a2aClearSession(sessionId: string): void {
+    this.a2aBusService?.clearSession(sessionId);
   }
 }
