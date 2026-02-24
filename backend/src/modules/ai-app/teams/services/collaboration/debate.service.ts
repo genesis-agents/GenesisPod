@@ -497,6 +497,7 @@ export class DebateService {
         `[Debate] Final consensus position: ${consensusPosition}`,
       );
     }
+    this.a2aBus?.clearSession(sessionId);
   }
 
   /**
@@ -652,6 +653,7 @@ export class DebateService {
       },
     });
     this.logger.log(`[Debate] Session ${sessionId} marked as completed`);
+    this.a2aBus?.clearSession(sessionId);
   }
 
   /**
