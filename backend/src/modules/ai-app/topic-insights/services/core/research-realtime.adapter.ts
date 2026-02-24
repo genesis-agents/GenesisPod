@@ -14,12 +14,8 @@ import {
   OnModuleDestroy,
   Optional,
 } from "@nestjs/common";
-import { EngineEventEmitterService } from "@/modules/ai-engine/realtime/services/engine-event-emitter.service";
-import { ProgressTrackerService } from "@/modules/ai-engine/realtime/services/progress-tracker.service";
-import {
-  RoomConfig,
-  EngineEvent,
-} from "@/modules/ai-engine/realtime/abstractions/event-emitter.interface";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import type { RoomConfig, EngineEvent } from "@/modules/ai-engine/facade";
 import { ResearchEventType } from "./research-event-emitter.service";
 
 /**
@@ -64,12 +60,11 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
   /** 清理间隔：10 分钟 */
   private cleanupIntervalId?: NodeJS.Timeout;
 
-  constructor(
-    @Optional() private readonly engineEmitter?: EngineEventEmitterService,
-    @Optional() private readonly progressTracker?: ProgressTrackerService,
-  ) {
+  constructor(@Optional() private readonly aiFacade?: AIEngineFacade) {
     // ★ 检查 Engine 服务是否可用
-    this.isEnabled = !!(engineEmitter && progressTracker);
+    this.isEnabled = !!(
+      aiFacade?.realtimeEmitter && aiFacade?.realtimeProgress
+    );
   }
 
   onModuleInit() {
@@ -168,12 +163,12 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
     missionId: string,
     isQuickMode: boolean = false,
   ): void {
-    if (!this.isEnabled || !this.progressTracker) return; // ★ 优雅降级
+    if (!this.isEnabled || !this.aiFacade?.realtimeProgress) return; // ★ 优雅降级
 
     const phases = isQuickMode ? QUICK_RESEARCH_PHASES : RESEARCH_PHASES;
     const roomConfig = this.createMissionRoomConfig(missionId);
 
-    this.progressTracker.create({
+    this.aiFacade?.realtimeProgress?.create({
       id: missionId,
       type: "research_mission",
       name: `研究任务 ${missionId}`,
@@ -182,7 +177,7 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
       metadata: { topicId, isQuickMode },
     });
 
-    this.progressTracker.start(missionId);
+    this.aiFacade?.realtimeProgress?.start(missionId);
     this.logger.debug(
       `Started tracking mission ${missionId} with ${phases.length} phases`,
     );
@@ -192,8 +187,8 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
    * 开始阶段
    */
   startPhase(missionId: string, phaseId: string, message?: string): void {
-    if (!this.isEnabled || !this.progressTracker) return; // ★ 优雅降级
-    this.progressTracker.startPhase(missionId, phaseId, message);
+    if (!this.isEnabled || !this.aiFacade?.realtimeProgress) return; // ★ 优雅降级
+    this.aiFacade?.realtimeProgress?.startPhase(missionId, phaseId, message);
   }
 
   /**
@@ -206,15 +201,16 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
     progress: number,
     message?: string,
   ): number {
-    if (!this.isEnabled || !this.progressTracker) return 0; // ★ 优雅降级
+    if (!this.isEnabled || !this.aiFacade?.realtimeProgress) return 0; // ★ 优雅降级
 
-    this.progressTracker.updatePhaseProgress(
+    this.aiFacade?.realtimeProgress?.updatePhaseProgress(
       missionId,
       phaseId,
       progress,
       message,
     );
-    const progressEvent = this.progressTracker.getProgress(missionId);
+    const progressEvent =
+      this.aiFacade?.realtimeProgress?.getProgress(missionId);
     return progressEvent?.progress ?? 0;
   }
 
@@ -222,16 +218,16 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
    * 完成阶段
    */
   completePhase(missionId: string, phaseId: string, message?: string): void {
-    if (!this.isEnabled || !this.progressTracker) return; // ★ 优雅降级
-    this.progressTracker.completePhase(missionId, phaseId, message);
+    if (!this.isEnabled || !this.aiFacade?.realtimeProgress) return; // ★ 优雅降级
+    this.aiFacade?.realtimeProgress?.completePhase(missionId, phaseId, message);
   }
 
   /**
    * 获取当前进度
    */
   getMissionProgress(missionId: string): number {
-    if (!this.isEnabled || !this.progressTracker) return 0; // ★ 优雅降级
-    const progress = this.progressTracker.getProgress(missionId);
+    if (!this.isEnabled || !this.aiFacade?.realtimeProgress) return 0; // ★ 优雅降级
+    const progress = this.aiFacade?.realtimeProgress?.getProgress(missionId);
     return progress?.progress ?? 0;
   }
 
@@ -239,8 +235,8 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
    * 完成任务追踪
    */
   completeMissionTracking(missionId: string, message?: string): void {
-    if (!this.isEnabled || !this.progressTracker) return; // ★ 优雅降级
-    this.progressTracker.complete(missionId, message);
+    if (!this.isEnabled || !this.aiFacade?.realtimeProgress) return; // ★ 优雅降级
+    this.aiFacade?.realtimeProgress?.complete(missionId, message);
     this.logger.debug(`Completed tracking for mission ${missionId}`);
   }
 
@@ -248,8 +244,8 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
    * 任务失败
    */
   failMissionTracking(missionId: string, error: string): void {
-    if (!this.isEnabled || !this.progressTracker) return; // ★ 优雅降级
-    this.progressTracker.fail(missionId, error);
+    if (!this.isEnabled || !this.aiFacade?.realtimeProgress) return; // ★ 优雅降级
+    this.aiFacade?.realtimeProgress?.fail(missionId, error);
     this.logger.debug(`Failed tracking for mission ${missionId}: ${error}`);
   }
 
@@ -280,20 +276,20 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
    * 发送事件到专题房间
    */
   emitToTopic<T>(topicId: string, eventType: string, data: T): void {
-    if (!this.isEnabled || !this.engineEmitter) return; // ★ 优雅降级
+    if (!this.isEnabled || !this.aiFacade?.realtimeEmitter) return; // ★ 优雅降级
     const roomConfig = this.createTopicRoomConfig(topicId);
     const event = this.createEvent(eventType, data, topicId);
-    this.engineEmitter.emitToRoom(roomConfig, event);
+    this.aiFacade?.realtimeEmitter?.emitToRoom(roomConfig, event);
   }
 
   /**
    * 发送事件到任务房间
    */
   emitToMission<T>(missionId: string, eventType: string, data: T): void {
-    if (!this.isEnabled || !this.engineEmitter) return; // ★ 优雅降级
+    if (!this.isEnabled || !this.aiFacade?.realtimeEmitter) return; // ★ 优雅降级
     const roomConfig = this.createMissionRoomConfig(missionId);
     const event = this.createEvent(eventType, data, undefined, missionId);
-    this.engineEmitter.emitToRoom(roomConfig, event);
+    this.aiFacade?.realtimeEmitter?.emitToRoom(roomConfig, event);
   }
 
   /**
@@ -473,7 +469,7 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
     callback: (eventType: string, data: unknown) => void,
   ): () => void {
     // ★ 优雅降级：如果服务不可用，返回空操作
-    if (!this.isEnabled || !this.engineEmitter) {
+    if (!this.isEnabled || !this.aiFacade?.realtimeEmitter) {
       return () => {};
     }
 
@@ -481,17 +477,20 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
 
     // 订阅所有研究相关事件
     const unsubscribers = Object.values(ResearchEventType).map((eventType) =>
-      this.engineEmitter!.subscribe(eventType, (event: EngineEvent) => {
-        // 检查事件是否属于该专题
-        if (event.metadata?.sessionId === topicId) {
-          callback(event.type, event.payload);
-        }
-      }),
+      this.aiFacade?.realtimeEmitter?.subscribe(
+        eventType,
+        (event: EngineEvent) => {
+          // 检查事件是否属于该专题
+          if (event.metadata?.sessionId === topicId) {
+            callback(event.type, event.payload);
+          }
+        },
+      ),
     );
 
     // 创建取消订阅函数
     const unsubscribe = () => {
-      unsubscribers.forEach((unsub) => unsub());
+      unsubscribers.forEach((unsub) => unsub?.());
       this.subscriptionRegistry.delete(subscriptionId);
     };
 
@@ -521,23 +520,26 @@ export class ResearchRealtimeAdapter implements OnModuleInit, OnModuleDestroy {
     callback: (eventType: string, data: unknown) => void,
   ): () => void {
     // ★ 优雅降级：如果服务不可用，返回空操作
-    if (!this.isEnabled || !this.engineEmitter) {
+    if (!this.isEnabled || !this.aiFacade?.realtimeEmitter) {
       return () => {};
     }
 
     const subscriptionId = this.generateSubscriptionId("mission", missionId);
 
     const unsubscribers = Object.values(ResearchEventType).map((eventType) =>
-      this.engineEmitter!.subscribe(eventType, (event: EngineEvent) => {
-        if (event.metadata?.correlationId === missionId) {
-          callback(event.type, event.payload);
-        }
-      }),
+      this.aiFacade?.realtimeEmitter?.subscribe(
+        eventType,
+        (event: EngineEvent) => {
+          if (event.metadata?.correlationId === missionId) {
+            callback(event.type, event.payload);
+          }
+        },
+      ),
     );
 
     // 创建取消订阅函数
     const unsubscribe = () => {
-      unsubscribers.forEach((unsub) => unsub());
+      unsubscribers.forEach((unsub) => unsub?.());
       this.subscriptionRegistry.delete(subscriptionId);
     };
 

@@ -1,7 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { ReportSynthesisEngine } from "@/modules/ai-engine/synthesis";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import {
@@ -65,7 +64,6 @@ export class ReportSynthesisService {
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
     private readonly reportEditor: ReportEditorService,
-    private readonly synthesisEngine: ReportSynthesisEngine,
   ) {}
 
   /**
@@ -966,7 +964,7 @@ export class ReportSynthesisService {
       parts.push("\n");
     }
 
-    return this.synthesisEngine.sanitizeReport(parts.join("\n"));
+    return this.aiFacade.sanitizeReport(parts.join("\n"));
   }
 
   /**
@@ -1949,7 +1947,7 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
     }
 
     // ★ 清理 AI 生成内容中的格式问题（使用 Engine 通用清洗）
-    return this.synthesisEngine.sanitizeReport(parts.join("\n"));
+    return this.aiFacade.sanitizeReport(parts.join("\n"));
   }
 
   /**

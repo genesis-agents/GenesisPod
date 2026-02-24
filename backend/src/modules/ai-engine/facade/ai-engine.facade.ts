@@ -143,6 +143,15 @@ import type {
   CompressionOptions,
   CompressionResult,
 } from "../orchestration/services/interfaces";
+import { ReportSynthesisEngine } from "../synthesis/report-synthesis.service";
+import { EvidenceManagerService } from "../evidence/services/evidence-manager.service";
+import type { SaveEvidenceRequest } from "../evidence/abstractions/evidence.interface";
+import { VotingManager } from "../collaboration/patterns/voting-pattern";
+import type { VotingSession } from "../collaboration/patterns/voting-pattern";
+import type {
+  VoteRequest,
+  VoteResult,
+} from "../collaboration/abstractions/collaborator.interface";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)
 import { ModelSubFacade } from "./sub-facades/model.sub-facade";
@@ -250,6 +259,9 @@ export class AIEngineFacade {
     @Optional() private readonly reflectionService?: ReflectionService,
     @Optional()
     private readonly contextCompressionService?: ContextCompressionService,
+    @Optional() private readonly synthesisEngine?: ReportSynthesisEngine,
+    @Optional() private readonly evidenceManager?: EvidenceManagerService,
+    @Optional() private readonly votingManager?: VotingManager,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -291,6 +303,9 @@ export class AIEngineFacade {
       a2aBus: !!this.a2aBusService,
       reflection: !!this.reflectionService,
       contextCompression: !!this.contextCompressionService,
+      synthesisEngine: !!this.synthesisEngine,
+      evidenceManager: !!this.evidenceManager,
+      votingManager: !!this.votingManager,
     };
 
     this.logger.log(
@@ -2584,5 +2599,51 @@ export class AIEngineFacade {
     options?: CompressionOptions,
   ): Promise<CompressionResult> | undefined {
     return this.contextCompressionService?.compress(content, options);
+  }
+
+  // ==================== 报告合成（ReportSynthesisEngine）====================
+
+  /** 清洗报告 Markdown（移除多余空行、格式规范化）；服务不可用时原样返回 */
+  sanitizeReport(text: string): string {
+    return this.synthesisEngine?.sanitizeReport(text) ?? text;
+  }
+
+  // ==================== 证据管理（EvidenceManager）====================
+
+  /** 保存证据到 Engine Evidence 存储 */
+  evidenceSave(request: SaveEvidenceRequest): Promise<void> | undefined {
+    return this.evidenceManager?.save(request).then(() => undefined);
+  }
+
+  // ==================== 投票管理（VotingManager）====================
+
+  /** 创建投票会话；VotingManager 不可用时返回 undefined */
+  votingCreate(request: VoteRequest): VotingSession | undefined {
+    return this.votingManager?.createVote(request);
+  }
+
+  /** 投票（某个投票人为某个选项投票） */
+  votingCastVote(sessionId: string, voterId: string, optionId: string): void {
+    this.votingManager?.castVote(sessionId, voterId, optionId);
+  }
+
+  /** 关闭投票并计票；VotingManager 不可用时返回 undefined */
+  votingClose(
+    sessionId: string,
+    totalVoters: number,
+  ): VoteResult | null | undefined {
+    return this.votingManager?.closeVote(sessionId, totalVoters);
+  }
+
+  // ==================== 实时推送（Realtime）直接访问 ====================
+
+  /** 获取 EngineEventEmitterService 实例（用于适配层直接调用） */
+  get realtimeEmitter() {
+    return this.realtime?.eventEmitter;
+  }
+
+  /** 获取 ProgressTrackerService 实例（用于适配层直接调用） */
+  get realtimeProgress() {
+    return this.realtime?.progressTracker;
   }
 }

@@ -13,16 +13,10 @@
  * 4. 可选的Judge角色进行总结和裁决
  */
 
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  Optional,
-} from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AIEngineFacade, ChatMessage } from "../../../../ai-engine/facade";
 import { DebateStatus, DebateRole, DebateAgent, Prisma } from "@prisma/client";
-import { VotingManager } from "../../../../ai-engine/collaboration/patterns/voting-pattern";
 
 // 辩论消息类型（用于Agent的conversationHistory）
 interface DebateHistoryMessage {
@@ -57,14 +51,7 @@ export class DebateService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
-    @Optional() private readonly votingManager?: VotingManager,
-  ) {
-    if (!votingManager) {
-      this.logger.warn(
-        "[Debate] VotingManager not available - debates will run without voting-based consensus",
-      );
-    }
-  }
+  ) {}
 
   /**
    * 创建新的辩论会话
@@ -508,13 +495,10 @@ export class DebateService {
     redPosition: { id: string; displayName: string; position: string },
     bluePosition: { id: string; displayName: string; position: string },
   ): Promise<{ winner?: string; consensus: boolean } | null> {
-    if (!this.votingManager) {
-      return null;
-    }
-
     try {
       // 创建投票会话
-      const session = this.votingManager.createVote({
+      const session = this.aiFacade.votingCreate({
+        id: `debate-${sessionId}-round-${round}`,
         topic: `第 ${round} 轮辩论投票`,
         options: [
           {
@@ -532,6 +516,10 @@ export class DebateService {
         deadline: new Date(Date.now() + 60000), // 1分钟超时（实际上是同步投票）
         initiator: "debate-system", // 系统发起的投票
       });
+
+      if (!session) {
+        return null; // VotingManager not available
+      }
 
       this.logger.log(
         `[Debate] Created voting session ${session.id} for round ${round}`,
@@ -556,11 +544,11 @@ export class DebateService {
         // 基于评分投票
         const preferredOption =
           redScore > blueScore ? redPosition.id : bluePosition.id;
-        this.votingManager.castVote(session.id, voterId, preferredOption);
+        this.aiFacade.votingCastVote(session.id, voterId, preferredOption);
       }
 
       // 关闭投票并获取结果
-      const result = this.votingManager.closeVote(session.id, voters.length);
+      const result = this.aiFacade.votingClose(session.id, voters.length);
 
       if (result) {
         this.logger.log(

@@ -1,7 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AIEngineFacade } from "../../../ai-engine/facade";
-import { ReportSynthesisEngine } from "../../../ai-engine/synthesis";
 import {
   SearchRound,
   SearchSource,
@@ -26,10 +25,7 @@ import {
 export class ReportSynthesizerService {
   private readonly logger = new Logger(ReportSynthesizerService.name);
 
-  constructor(
-    private readonly aiFacade: AIEngineFacade,
-    private readonly synthesisEngine: ReportSynthesisEngine,
-  ) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 生成完整研究报告
@@ -92,14 +88,14 @@ export class ReportSynthesizerService {
 
     // ★ 清理 AI 生成内容中的格式问题（使用 Engine 通用清洗）
     return {
-      executiveSummary: this.synthesisEngine.sanitizeReport(
+      executiveSummary: this.aiFacade.sanitizeReport(
         reportContent.executiveSummary,
       ),
       sections: reportContent.sections.map((section) => ({
         ...section,
-        content: this.synthesisEngine.sanitizeReport(section.content),
+        content: this.aiFacade.sanitizeReport(section.content),
       })),
-      conclusion: this.synthesisEngine.sanitizeReport(reportContent.conclusion),
+      conclusion: this.aiFacade.sanitizeReport(reportContent.conclusion),
       references: allReferences,
       metadata: {
         totalSources: sources.length + previousRefsCount,
