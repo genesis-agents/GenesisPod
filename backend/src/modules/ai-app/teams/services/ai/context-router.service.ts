@@ -17,8 +17,8 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { AIEngineFacade } from "../../../../ai-engine/facade";
 import {
-  IntentDetectionService,
   UserIntent,
   ContextStrategy,
 } from "../../../../ai-engine/orchestration/services";
@@ -57,7 +57,7 @@ export class ContextRouterService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly intentDetectionService: IntentDetectionService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -69,14 +69,16 @@ export class ContextRouterService {
     mentionedAiIds: string[],
   ): Promise<ContextRouteResult> {
     // 1. 使用 AI Engine 的意图检测服务
-    const detectionResult = this.intentDetectionService.detectIntent(
+    const detectionResult = this.aiFacade.intentDetector?.detectIntent(
       userMessage,
       { mentionedCount: mentionedAiIds.length },
     );
 
-    // 映射意图（兼容旧的意图枚举）
-    const intent = this.mapIntent(detectionResult.intent);
-    const strategy = detectionResult.strategy;
+    // 映射意图（兼容旧的意图枚举）；若检测器不可用则回退默认值
+    const intent = this.mapIntent(
+      detectionResult?.intent ?? UserIntent.GENERAL_CHAT,
+    );
+    const strategy = detectionResult?.strategy ?? ContextStrategy.STANDARD;
 
     this.logger.log(
       `[ContextRouter] Detected intent: ${intent}, strategy: ${strategy}`,

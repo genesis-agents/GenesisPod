@@ -165,6 +165,13 @@ import type {
   SkillPromptOptions,
 } from "../capabilities/types";
 import type { SkillMdDefinition } from "../skills/types/skill-md.types";
+import { CircuitBreakerService } from "../orchestration/services/circuit-breaker.service";
+import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
+import { TaskDecomposerService } from "../orchestration/services/task-decomposer.service";
+import { IntentDetectionService } from "../orchestration/services/intent-detection.service";
+import { ExecutionStateManager } from "../orchestration/state-machine/execution-state.manager";
+import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
+import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)
 import { ModelSubFacade } from "./sub-facades/model.sub-facade";
@@ -278,6 +285,14 @@ export class AIEngineFacade {
     @Optional() private readonly embeddingService?: EmbeddingService,
     @Optional() private readonly vectorService?: VectorService,
     @Optional() private readonly mcpManagerSvc?: MCPManager,
+    @Optional() private readonly circuitBreakerSvc?: CircuitBreakerService,
+    @Optional() private readonly agentExecutorSvc?: AgentExecutorService,
+    @Optional() private readonly taskDecomposerSvc?: TaskDecomposerService,
+    @Optional() private readonly intentDetectorSvc?: IntentDetectionService,
+    @Optional() private readonly execStateMgrSvc?: ExecutionStateManager,
+    @Optional()
+    private readonly fnCallingAdapterSvc?: FunctionCallingLLMAdapter,
+    @Optional() private readonly fnCallingExecutorSvc?: FunctionCallingExecutor,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -325,6 +340,13 @@ export class AIEngineFacade {
       embedding: !!this.embeddingService,
       vector: !!this.vectorService,
       mcp: !!this.mcpManagerSvc,
+      circuitBreaker: !!this.circuitBreakerSvc,
+      agentExecutor: !!this.agentExecutorSvc,
+      taskDecomposer: !!this.taskDecomposerSvc,
+      intentDetector: !!this.intentDetectorSvc,
+      execStateManager: !!this.execStateMgrSvc,
+      fnCallingAdapter: !!this.fnCallingAdapterSvc,
+      fnCallingExecutor: !!this.fnCallingExecutorSvc,
     };
 
     this.logger.log(
@@ -2722,5 +2744,47 @@ export class AIEngineFacade {
   /** 获取 MCPManager 实例（用于 MCP 适配层直接调用） */
   get mcpManager(): MCPManager | undefined {
     return this.mcpManagerSvc;
+  }
+
+  // ==================== 编排服务（Orchestration）直接访问 ====================
+
+  /** 获取 CircuitBreakerService（用于 Teams 执行层负载控制） */
+  get circuitBreaker(): CircuitBreakerService | undefined {
+    return this.circuitBreakerSvc;
+  }
+
+  /** 获取 AgentExecutorService（用于 Teams 任务执行） */
+  get agentExecutor(): AgentExecutorService | undefined {
+    return this.agentExecutorSvc;
+  }
+
+  /** 获取 TaskDecomposerService（用于 Teams 任务分解） */
+  get taskDecomposer(): TaskDecomposerService | undefined {
+    return this.taskDecomposerSvc;
+  }
+
+  /** 获取 IntentDetectionService（用于上下文意图识别） */
+  get intentDetector(): IntentDetectionService | undefined {
+    return this.intentDetectorSvc;
+  }
+
+  /** 获取 ExecutionStateManager（用于任务状态跟踪） */
+  get execStateManager(): ExecutionStateManager | undefined {
+    return this.execStateMgrSvc;
+  }
+
+  /** 获取 FunctionCallingLLMAdapter（用于函数调用 LLM） */
+  get functionCallingAdapter(): FunctionCallingLLMAdapter | undefined {
+    return this.fnCallingAdapterSvc;
+  }
+
+  /** 获取 FunctionCallingExecutor（用于函数调用执行） */
+  get functionCallingExecutor(): FunctionCallingExecutor | undefined {
+    return this.fnCallingExecutorSvc;
+  }
+
+  /** 获取 ModelFallbackService（用于模型容错切换） */
+  get modelFallback(): ModelFallbackService | undefined {
+    return this.modelFallbackService;
   }
 }

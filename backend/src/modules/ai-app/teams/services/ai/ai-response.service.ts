@@ -17,13 +17,9 @@ import {
 import { TopicContextRetrievalService } from "./topic-context-retrieval.service";
 import { ParsedUrl } from "../../../../../common/content-processing";
 import { TeamMemberAgent } from "../../agents";
-import { FunctionCallingLLMAdapter } from "../../../../ai-engine/llm/adapters";
-import {
-  FunctionCallingExecutor,
-  AgentEvent,
-} from "../../../../ai-engine/orchestration/executors";
+import { AgentEvent } from "../../../../ai-engine/orchestration/executors";
 import { BuiltinToolId } from "../../../../ai-engine/core";
-import { AICapabilityContext } from "../../../../ai-engine/capabilities/ai-capability-resolver.service";
+import type { AICapabilityContext } from "../../../../ai-engine/facade";
 import { TopicEventEmitterService } from "../events";
 import { CreditsService } from "../../../../credits/credits.service";
 import { InsufficientCreditsException } from "../../../../credits/exceptions/insufficient-credits.exception";
@@ -46,8 +42,6 @@ export class AiResponseService {
     private toolRegistry: ToolRegistry,
     private contextRouter: ContextRouterService,
     private teamMemberAgent: TeamMemberAgent,
-    private functionCallingLLMAdapter: FunctionCallingLLMAdapter,
-    private functionCallingExecutor: FunctionCallingExecutor,
     private topicEventEmitter: TopicEventEmitterService,
     @Optional() private contextRetrievalService: TopicContextRetrievalService,
     @Optional() private creditsService: CreditsService,
@@ -1674,8 +1668,16 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       `[generateWithTools] Generating response with ${toolTypes.length} tools for ${aiMember.displayName}`,
     );
 
-    // 配置 LLM Adapter (使用 AI Engine 的 FunctionCallingLLMAdapter)
-    this.functionCallingLLMAdapter.setConfig({
+    // 配置 LLM Adapter (使用 AI Engine 的 FunctionCallingLLMAdapter，通过 Facade 访问)
+    if (
+      !this.aiFacade.functionCallingAdapter ||
+      !this.aiFacade.functionCallingExecutor
+    ) {
+      throw new Error(
+        "FunctionCallingLLMAdapter or FunctionCallingExecutor is not available",
+      );
+    }
+    this.aiFacade.functionCallingAdapter.setConfig({
       aiMemberId: aiMember.id,
       workspaceId: topicId,
     });
@@ -1705,22 +1707,23 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
     try {
       // T2 Fix: 使用 executeWithContext() 替代 execute()
       // executeWithContext() 会通过 AICapabilityResolver 解析可用工具
-      const eventGenerator = this.functionCallingExecutor.executeWithContext(
-        this.functionCallingLLMAdapter,
-        systemPrompt,
-        userPrompt,
-        capabilityContext,
-        {
-          maxIterations: 5,
-          maxToolCalls: 10,
-          parallelToolCalls: false,
-          enableRetry: true,
-          taskProfile: {
-            creativity: "medium",
-            outputLength: "standard",
+      const eventGenerator =
+        this.aiFacade.functionCallingExecutor.executeWithContext(
+          this.aiFacade.functionCallingAdapter,
+          systemPrompt,
+          userPrompt,
+          capabilityContext,
+          {
+            maxIterations: 5,
+            maxToolCalls: 10,
+            parallelToolCalls: false,
+            enableRetry: true,
+            taskProfile: {
+              creativity: "medium",
+              outputLength: "standard",
+            },
           },
-        },
-      );
+        );
 
       // 收集所有事件并推送 WebSocket
       for await (const event of eventGenerator) {

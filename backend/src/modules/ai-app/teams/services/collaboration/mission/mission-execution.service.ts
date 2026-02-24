@@ -31,7 +31,6 @@ import {
 } from "../../../../../../common/utils/concurrency.utils";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
-import { CircuitBreakerService } from "../../../../../ai-engine/orchestration/services";
 import { MissionStateManager } from "./mission-state.manager";
 import { RETRY_CONFIG, AGENT_SWITCH_CONFIG } from "../config";
 import {
@@ -50,14 +49,7 @@ import {
   TaskAssignee,
 } from "../interfaces";
 import { MissionContextPackage } from "../../../interfaces/mission-context.interface";
-// ★ AI Engine 能力下沉：注入 AgentExecutorService
-// 提供 Agent 执行的核心能力（熔断器、重试等），当前保持现有实现以确保兼容性
-import { AgentExecutorService } from "../../../../../ai-engine/orchestration/services";
-// ★ AI Tools & Skills Integration: 集成 AICapabilityResolver
-import {
-  AICapabilityResolver,
-  AICapabilityContext,
-} from "../../../../../ai-engine/capabilities/ai-capability-resolver.service";
+import type { AICapabilityContext } from "../../../../../ai-engine/facade";
 
 /**
  * 执行服务回调接口
@@ -137,19 +129,13 @@ export class MissionExecutionService {
     private toolRegistry: ToolRegistry,
     private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
-    private circuitBreaker: CircuitBreakerService,
     private stateManager: MissionStateManager,
-    // ★ AI Engine 能力下沉：注入执行服务
-    // 当前为预留接口，后续可逐步将执行逻辑委托给 AI Engine
-    private agentExecutorService: AgentExecutorService,
     // ★ Leader 模型容错服务：支持重试和模型切换
     private leaderModelService: LeaderModelService,
-    // ★ AI Tools & Skills Integration: 注入 AICapabilityResolver
-    private capabilityResolver: AICapabilityResolver,
   ) {
     // 验证 AI Engine 服务可用
     this.logger.debug(
-      `[MissionExecutionService] AI Engine services injected: AgentExecutor=${!!this.agentExecutorService}, LeaderModel=${!!this.leaderModelService}, CapabilityResolver=${!!this.capabilityResolver}`,
+      `[MissionExecutionService] AI Engine services injected: LeaderModel=${!!this.leaderModelService}`,
     );
   }
 
@@ -570,7 +556,7 @@ export class MissionExecutionService {
       const candidates = allMembers.filter((m: TeamMemberBase) => {
         if (failedAgentIds.includes(m.id)) return false;
         if (m.isLeader) return false;
-        if (!this.circuitBreaker.canExecute(m.id)) {
+        if (!this.aiFacade.circuitBreaker?.canExecute(m.id)) {
           this.logger.debug(
             `[findAlternativeAgentWithCircuitBreaker] Agent ${m.displayName} excluded (circuit breaker open)`,
           );
@@ -584,7 +570,7 @@ export class MissionExecutionService {
           (m: TeamMemberBase) =>
             m.isLeader &&
             !failedAgentIds.includes(m.id) &&
-            this.circuitBreaker.canExecute(m.id),
+            this.aiFacade.circuitBreaker?.canExecute(m.id),
         );
         if (leader) {
           this.logger.log(
@@ -602,7 +588,7 @@ export class MissionExecutionService {
       }
 
       // 使用 Circuit Breaker 的健康评分选择最佳 Agent
-      const bestAgentId = this.circuitBreaker.selectBest(
+      const bestAgentId = this.aiFacade.circuitBreaker?.selectBest(
         candidates.map((c: TeamMemberBase) => c.id),
       );
 
@@ -1036,7 +1022,7 @@ export class MissionExecutionService {
       };
 
       const capabilities =
-        await this.capabilityResolver.resolveAllCapabilities(capabilityContext);
+        await this.aiFacade.getAvailableCapabilities(capabilityContext);
 
       this.logger.log(
         `[executeTask] Agent ${assignedTo.displayName} capabilities: ` +
@@ -1180,7 +1166,7 @@ export class MissionExecutionService {
       );
     } finally {
       this.stateManager.finishTask(task.id);
-      this.circuitBreaker.decrementLoad(assignedTo.id);
+      this.aiFacade.circuitBreaker?.decrementLoad(assignedTo.id);
       this.logger.debug(
         `[executeTask] Released lock for task "${task.title}" (${task.id})`,
       );
@@ -1203,10 +1189,10 @@ export class MissionExecutionService {
     let switchCount = 0;
 
     // 检查初始 Agent 是否可用
-    if (!this.circuitBreaker.canExecute(currentAgent.id)) {
-      const cooldownRemaining = this.circuitBreaker.getCooldownRemaining(
-        currentAgent.id,
-      );
+    if (!this.aiFacade.circuitBreaker?.canExecute(currentAgent.id)) {
+      const cooldownRemaining =
+        this.aiFacade.circuitBreaker?.getCooldownRemaining(currentAgent.id) ??
+        0;
       const cooldownSeconds = Math.ceil(cooldownRemaining / 1000);
       this.logger.warn(
         `[executeTask] Agent ${currentAgent.displayName} is in cooldown for ${cooldownSeconds}s, finding alternative`,
@@ -1249,7 +1235,7 @@ export class MissionExecutionService {
       }
     }
 
-    this.circuitBreaker.incrementLoad(currentAgent.id);
+    this.aiFacade.circuitBreaker?.incrementLoad(currentAgent.id);
     const taskStartTime = Date.now();
 
     // Agent 切换循环
@@ -1314,7 +1300,10 @@ export class MissionExecutionService {
         aiResponse = { content: result.content };
 
         const responseTime = Date.now() - taskStartTime;
-        this.circuitBreaker.recordSuccess(currentAgent.id, responseTime);
+        this.aiFacade.circuitBreaker?.recordSuccess(
+          currentAgent.id,
+          responseTime,
+        );
 
         this.logger.log(
           `[executeTask] Task "${task.title}" completed successfully by ${currentAgent.displayName} after ${result.attempts} attempt(s) in ${responseTime}ms`,
@@ -1326,8 +1315,14 @@ export class MissionExecutionService {
       failedAgentIds.push(currentAgent.id);
       const errorMsg = result.error || "Unknown error";
 
-      const errorType = this.circuitBreaker.parseErrorType(errorMsg);
-      this.circuitBreaker.recordFailure(currentAgent.id, errorType, errorMsg);
+      const errorType = this.aiFacade.circuitBreaker?.parseErrorType(errorMsg);
+      if (errorType !== undefined) {
+        this.aiFacade.circuitBreaker?.recordFailure(
+          currentAgent.id,
+          errorType,
+          errorMsg,
+        );
+      }
 
       this.logger.warn(
         `[executeTask] Agent ${currentAgent.displayName} failed after ${result.attempts} retries: ${errorMsg}`,
@@ -1381,8 +1376,8 @@ export class MissionExecutionService {
         return null;
       }
 
-      this.circuitBreaker.decrementLoad(currentAgent.id);
-      this.circuitBreaker.incrementLoad(alternativeAgent.id);
+      this.aiFacade.circuitBreaker?.decrementLoad(currentAgent.id);
+      this.aiFacade.circuitBreaker?.incrementLoad(alternativeAgent.id);
 
       this.logger.log(
         `[executeTask] Switching from ${currentAgent.displayName} to ${alternativeAgent.displayName}`,
@@ -1846,7 +1841,9 @@ export class MissionExecutionService {
         ? now - new Date(task.updatedAt).getTime()
         : stuckTimeoutMs + 1;
 
-      const canRetry = this.circuitBreaker.canExecute(task.assignedTo.id);
+      const canRetry = this.aiFacade.circuitBreaker?.canExecute(
+        task.assignedTo.id,
+      );
 
       if (canRetry && taskAge < stuckTimeoutMs) {
         await this.prisma.agentTask.update({
@@ -1876,9 +1873,10 @@ export class MissionExecutionService {
           `[Mission ${mission.id}] Force completing blocked task after ${Math.round(taskAge / 60000)} min: ${task.title}`,
         );
       } else {
-        const cooldown = this.circuitBreaker.getCooldownRemaining(
-          task.assignedTo.id,
-        );
+        const cooldown =
+          this.aiFacade.circuitBreaker?.getCooldownRemaining(
+            task.assignedTo.id,
+          ) ?? 0;
         this.logger.debug(
           `[Mission ${mission.id}] Cannot retry ${task.title}, agent in cooldown (${Math.round(cooldown / 1000)}s remaining)`,
         );

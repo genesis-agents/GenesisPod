@@ -4,7 +4,6 @@ import {
   BadRequestException,
   Logger,
   OnModuleInit,
-  Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { Prisma } from "@prisma/client";
@@ -27,11 +26,8 @@ import {
 } from "../../../../../../common/utils/concurrency.utils";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
-// ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务
-import {
-  CircuitBreakerService,
-  TaskCompletionType,
-} from "../../../../../ai-engine/orchestration/services";
+// ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务（通过 AIEngineFacade 访问）
+import { TaskCompletionType } from "../../../../../ai-engine/orchestration/services";
 import { EmailService } from "../../../../../core/email/email.service";
 import { ConfigService } from "@nestjs/config";
 import {
@@ -120,7 +116,6 @@ export class TeamMissionService implements OnModuleInit {
     private toolRegistry: ToolRegistry,
     private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
-    private circuitBreaker: CircuitBreakerService,
     private emailService: EmailService,
     private configService: ConfigService,
     private missionContextService: MissionContextService,
@@ -138,7 +133,7 @@ export class TeamMissionService implements OnModuleInit {
     private messageService: TeamMessageService,
     // ★ 团队成员服务：管理团队成员和 Leader
     private memberService: TeamMemberService,
-    @Optional() private aiFacade?: AIEngineFacade,
+    private aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -1709,10 +1704,10 @@ export class TeamMissionService implements OnModuleInit {
       let switchCount = 0;
 
       // 🔒 Circuit Breaker: 检查初始 Agent 是否可用
-      if (!this.circuitBreaker.canExecute(currentAgent.id)) {
-        const cooldownRemaining = this.circuitBreaker.getCooldownRemaining(
-          currentAgent.id,
-        );
+      if (!this.aiFacade.circuitBreaker?.canExecute(currentAgent.id)) {
+        const cooldownRemaining =
+          this.aiFacade.circuitBreaker?.getCooldownRemaining(currentAgent.id) ??
+          0;
         const cooldownSeconds = Math.ceil(cooldownRemaining / 1000);
         this.logger.warn(
           `[executeTask] Agent ${currentAgent.displayName} is in cooldown for ${cooldownSeconds}s, finding alternative`,
@@ -1751,7 +1746,7 @@ export class TeamMissionService implements OnModuleInit {
       }
 
       // 增加当前 Agent 负载计数
-      this.circuitBreaker.incrementLoad(currentAgent.id);
+      this.aiFacade.circuitBreaker?.incrementLoad(currentAgent.id);
       const taskStartTime = Date.now();
 
       // 外层循环：Agent 切换
@@ -1822,7 +1817,10 @@ export class TeamMissionService implements OnModuleInit {
 
           // 🔒 Circuit Breaker: 记录成功
           const responseTime = Date.now() - taskStartTime;
-          this.circuitBreaker.recordSuccess(currentAgent.id, responseTime);
+          this.aiFacade.circuitBreaker?.recordSuccess(
+            currentAgent.id,
+            responseTime,
+          );
 
           this.logger.log(
             `[executeTask] Task "${task.title}" completed successfully by ${currentAgent.displayName} after ${result.attempts} attempt(s) in ${responseTime}ms`,
@@ -1835,8 +1833,11 @@ export class TeamMissionService implements OnModuleInit {
         const errorMsg = result.error || "Unknown error";
 
         // 🔒 Circuit Breaker: 记录失败
-        const errorType = this.circuitBreaker.parseErrorType(errorMsg);
-        this.circuitBreaker.recordFailure(currentAgent.id, errorType, errorMsg);
+        const cb = this.aiFacade.circuitBreaker;
+        const errorType = cb?.parseErrorType(errorMsg);
+        if (cb && errorType !== undefined) {
+          cb.recordFailure(currentAgent.id, errorType, errorMsg);
+        }
 
         this.logger.warn(
           `[executeTask] Agent ${currentAgent.displayName} failed after ${result.attempts} retries: ${errorMsg} (errorType: ${errorType})`,
@@ -1896,8 +1897,8 @@ export class TeamMissionService implements OnModuleInit {
         }
 
         // 切换到新 Agent，减少旧 Agent 负载，增加新 Agent 负载
-        this.circuitBreaker.decrementLoad(currentAgent.id);
-        this.circuitBreaker.incrementLoad(alternativeAgent.id);
+        this.aiFacade.circuitBreaker?.decrementLoad(currentAgent.id);
+        this.aiFacade.circuitBreaker?.incrementLoad(alternativeAgent.id);
 
         this.logger.log(
           `[executeTask] Switching from ${currentAgent.displayName} to ${alternativeAgent.displayName}`,
@@ -2169,7 +2170,7 @@ export class TeamMissionService implements OnModuleInit {
       this.stateManager.finishTask(task.id);
 
       // 🔒 Circuit Breaker: 减少 Agent 负载计数
-      this.circuitBreaker.decrementLoad(assignedTo.id);
+      this.aiFacade.circuitBreaker?.decrementLoad(assignedTo.id);
 
       this.logger.debug(
         `[executeTask] Released lock for task "${task.title}" (${task.id})`,
@@ -2211,7 +2212,7 @@ export class TeamMissionService implements OnModuleInit {
         if (m.isLeader) return false;
 
         // 排除正在冷却中的 Agent
-        if (!this.circuitBreaker.canExecute(m.id)) {
+        if (!this.aiFacade.circuitBreaker?.canExecute(m.id)) {
           this.logger.debug(
             `[findAlternativeAgentWithCircuitBreaker] Excluding ${m.displayName} (in cooldown)`,
           );
@@ -2231,7 +2232,7 @@ export class TeamMissionService implements OnModuleInit {
           (m: TeamMemberBase) =>
             m.isLeader &&
             !failedAgentIds.includes(m.id) &&
-            this.circuitBreaker.canExecute(m.id),
+            this.aiFacade.circuitBreaker?.canExecute(m.id),
         );
         if (leader) {
           this.logger.log(
@@ -2250,16 +2251,18 @@ export class TeamMissionService implements OnModuleInit {
 
       // 使用 Circuit Breaker 选择最佳 Agent
       const candidateIds = candidates.map((c: TeamMemberBase) => c.id);
-      const bestAgentId = this.circuitBreaker.selectBest(candidateIds);
+      const bestAgentId =
+        this.aiFacade.circuitBreaker?.selectBest(candidateIds);
 
       if (bestAgentId) {
         const selected = candidates.find(
           (c: TeamMemberBase) => c.id === bestAgentId,
         );
         if (selected) {
-          const metrics = this.circuitBreaker.getHealthMetrics(bestAgentId);
+          const metrics =
+            this.aiFacade.circuitBreaker?.getHealthMetrics(bestAgentId);
           this.logger.log(
-            `[findAlternativeAgentWithCircuitBreaker] Selected: ${selected.displayName} (successRate: ${(metrics.successRate * 100).toFixed(0)}%, load: ${metrics.currentLoad})`,
+            `[findAlternativeAgentWithCircuitBreaker] Selected: ${selected.displayName} (successRate: ${metrics ? (metrics.successRate * 100).toFixed(0) : "N/A"}%, load: ${metrics?.currentLoad ?? "N/A"})`,
           );
           return selected;
         }
@@ -2724,7 +2727,7 @@ export class TeamMissionService implements OnModuleInit {
             });
 
             // 记录到 Circuit Breaker
-            this.circuitBreaker.recordFailure(
+            this.aiFacade.circuitBreaker?.recordFailure(
               task.assignedTo.id,
               TaskCompletionType.CONTENT_ERROR,
               `Task "${task.title}" blocked after max revisions`,
@@ -3017,8 +3020,11 @@ export class TeamMissionService implements OnModuleInit {
       });
 
       // 记录到 Circuit Breaker
-      const errorType = this.circuitBreaker.parseErrorType(errorMsg);
-      this.circuitBreaker.recordFailure(assignedTo.id, errorType, errorMsg);
+      const cb2 = this.aiFacade.circuitBreaker;
+      const errorType = cb2?.parseErrorType(errorMsg);
+      if (cb2 && errorType !== undefined) {
+        cb2.recordFailure(assignedTo.id, errorType, errorMsg);
+      }
 
       // 发送失败通知
       const leaderName =
@@ -3402,7 +3408,9 @@ export class TeamMissionService implements OnModuleInit {
         : stuckTimeoutMs + 1;
 
       // 检查 Circuit Breaker 是否允许重试
-      const canRetry = this.circuitBreaker.canExecute(task.assignedTo.id);
+      const canRetry = this.aiFacade.circuitBreaker?.canExecute(
+        task.assignedTo.id,
+      );
 
       if (canRetry && taskAge < stuckTimeoutMs) {
         // 可以重试：重置为 PENDING
@@ -3435,9 +3443,10 @@ export class TeamMissionService implements OnModuleInit {
         );
       } else {
         // Circuit Breaker 不允许重试，记录日志
-        const cooldown = this.circuitBreaker.getCooldownRemaining(
-          task.assignedTo.id,
-        );
+        const cooldown =
+          this.aiFacade.circuitBreaker?.getCooldownRemaining(
+            task.assignedTo.id,
+          ) ?? 0;
         this.logger.debug(
           `[Mission ${mission.id}] Cannot retry ${task.title}, agent ${task.assignedTo.agentName || task.assignedTo.displayName} in cooldown (${Math.round(cooldown / 1000)}s remaining)`,
         );

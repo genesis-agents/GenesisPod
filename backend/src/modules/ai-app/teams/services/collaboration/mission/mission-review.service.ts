@@ -17,11 +17,9 @@ import {
 import { TopicEventEmitterService } from "../../events";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
-// ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务
-import {
-  CircuitBreakerService,
-  TaskCompletionType,
-} from "../../../../../ai-engine/orchestration/services";
+// ★ AI Engine 能力下沉：使用 AIEngineFacade 访问熔断器服务
+import { TaskCompletionType } from "../../../../../ai-engine/orchestration/services";
+import { AIEngineFacade } from "../../../../../ai-engine/facade";
 import { MissionStateManager } from "./mission-state.manager";
 import { parseReviewResult } from "../utils";
 import {
@@ -104,7 +102,7 @@ export class MissionReviewService {
     private prisma: PrismaService,
     private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
-    private circuitBreaker: CircuitBreakerService,
+    private aiFacade: AIEngineFacade,
     private stateManager: MissionStateManager,
     // ★ AI Engine 能力下沉：注入审核服务
     // 当前为预留接口，后续可逐步将审核逻辑委托给 AI Engine
@@ -632,7 +630,7 @@ export class MissionReviewService {
           },
         });
 
-        this.circuitBreaker.recordFailure(
+        this.aiFacade.circuitBreaker?.recordFailure(
           task.assignedTo.id,
           TaskCompletionType.CONTENT_ERROR,
           `Task "${task.title}" blocked after max revisions`,
@@ -986,8 +984,14 @@ export class MissionReviewService {
         },
       );
 
-      const errorType = this.circuitBreaker.parseErrorType(errorMsg);
-      this.circuitBreaker.recordFailure(assignedTo.id, errorType, errorMsg);
+      const errorType =
+        this.aiFacade.circuitBreaker?.parseErrorType(errorMsg) ??
+        TaskCompletionType.API_ERROR;
+      this.aiFacade.circuitBreaker?.recordFailure(
+        assignedTo.id,
+        errorType,
+        errorMsg,
+      );
 
       const leaderName =
         mission.leader?.agentName || mission.leader?.displayName || "Leader";

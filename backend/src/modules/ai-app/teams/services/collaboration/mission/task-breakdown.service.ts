@@ -20,8 +20,8 @@ import {
   TaskBreakdownData,
 } from "../interfaces";
 
-// ★ AI Engine 服务
-import { TaskDecomposerService } from "../../../../../ai-engine/orchestration/services/task-decomposer.service";
+// ★ AI Engine 服务（通过 AIEngineFacade 访问）
+import { AIEngineFacade } from "../../../../../ai-engine/facade";
 import { TeamMemberInfo } from "../../../../../ai-engine/orchestration/services/interfaces";
 
 @Injectable()
@@ -30,8 +30,8 @@ export class TaskBreakdownService {
 
   constructor(
     private prisma: PrismaService,
-    // ★ 注入 AI Engine 的任务分解服务
-    private taskDecomposer: TaskDecomposerService,
+    // ★ 通过 AIEngineFacade 访问任务分解服务
+    private aiFacade: AIEngineFacade,
   ) {}
 
   // ==================== 任务分解解析 ====================
@@ -54,10 +54,17 @@ export class TaskBreakdownService {
     }));
 
     // ★ 委托给 AI Engine 解析
-    const result = this.taskDecomposer.parseTaskBreakdown({
+    const result = this.aiFacade.taskDecomposer?.parseTaskBreakdown({
       content,
       teamMembers: memberInfos,
     });
+
+    if (!result) {
+      this.logger.warn(
+        "[parseTaskBreakdown] taskDecomposer unavailable, returning empty breakdown",
+      );
+      return { understanding: "", tasks: [], executionPlan: "", risks: "" };
+    }
 
     // ★ 转换结果为 AI Teams 格式
     const tasks: TaskBreakdownItem[] = result.tasks.map((t) => ({
@@ -313,10 +320,18 @@ export class TaskBreakdownService {
     }));
 
     // ★ 委托给 AI Engine 执行再平衡
-    const rebalancedTasks = this.taskDecomposer.rebalanceTaskAssignments(
-      taskDefinitions,
-      memberInfos,
-    );
+    const rebalancedTasks =
+      this.aiFacade.taskDecomposer?.rebalanceTaskAssignments(
+        taskDefinitions,
+        memberInfos,
+      );
+
+    if (!rebalancedTasks) {
+      this.logger.warn(
+        "[rebalanceTaskAssignments] taskDecomposer unavailable, skipping rebalance",
+      );
+      return;
+    }
 
     // ★ 更新原数组中的任务分配
     for (
