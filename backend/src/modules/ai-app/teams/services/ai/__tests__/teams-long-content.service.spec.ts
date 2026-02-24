@@ -17,6 +17,7 @@ import { TaskGranularityService } from "../../../../../ai-engine/long-content/se
 import { SlidingWindowContextService } from "../../../../../ai-engine/long-content/services/sliding-window-context.service";
 import { QualityMonitorService } from "../../../../../ai-engine/long-content/services/quality-monitor.service";
 import { AiChatService } from "../../../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "../../../../../ai-engine/facade";
 
 describe("TeamsLongContentService", () => {
   let service: TeamsLongContentService;
@@ -27,15 +28,31 @@ describe("TeamsLongContentService", () => {
   };
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    // Build real engine services for integration-style testing
+    const engineModule: TestingModule = await Test.createTestingModule({
       providers: [
-        TeamsLongContentService,
         LongContentEngineService,
         ContinuationProtocolService,
         TaskGranularityService,
         SlidingWindowContextService,
         QualityMonitorService,
         { provide: AiChatService, useValue: mockAiChatService },
+      ],
+    }).compile();
+
+    const longContentEngine = engineModule.get(LongContentEngineService);
+    const continuationProtocol = engineModule.get(ContinuationProtocolService);
+
+    // Create a minimal AIEngineFacade mock exposing the needed services
+    const mockFacade = {
+      longContentEngine,
+      continuationProtocol,
+    } as unknown as AIEngineFacade;
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        TeamsLongContentService,
+        { provide: AIEngineFacade, useValue: mockFacade },
       ],
     }).compile();
 

@@ -58,7 +58,7 @@ import {
   getCurrentDateString,
   getFreshnessRequirementDescription,
 } from "../../prompts/dimension-research.prompt";
-import { AICapabilityContext } from "@/modules/ai-engine/capabilities/ai-capability-resolver.service";
+import type { AICapabilityContext } from "@/modules/ai-engine/facade";
 
 /**
  * 维度 Mission 执行结果

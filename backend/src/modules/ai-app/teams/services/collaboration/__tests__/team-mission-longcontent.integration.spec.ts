@@ -166,12 +166,25 @@ describe("TeamMissionService Long Content Integration", () => {
         },
         {
           provide: AIEngineFacade,
-          useValue: {
+          useFactory: (
+            longContentEngine: LongContentEngineService,
+            continuationProtocol: ContinuationProtocolService,
+            contextInit: ContextInitializationService,
+          ) => ({
             chat: jest.fn().mockResolvedValue({
               content: "Mock AI response",
               tokensUsed: 100,
             }),
-          },
+            circuitBreaker: mockCircuitBreakerService,
+            contextInit,
+            longContentEngine,
+            continuationProtocol,
+          }),
+          inject: [
+            LongContentEngineService,
+            ContinuationProtocolService,
+            ContextInitializationService,
+          ],
         },
         {
           provide: MissionContextService,
@@ -318,7 +331,9 @@ describe("TeamMissionService Long Content Integration", () => {
       .mockImplementation(async (config) => {
         capturedCalls.longContentInit.push(config);
         // 实际调用原方法
-        return (teamsLongContentService as any).longContentEngine.initProject({
+        return (
+          teamsLongContentService as any
+        ).aiFacade?.longContentEngine?.initProject({
           projectId: config.missionId,
           projectTitle: config.missionTitle,
           projectDescription: config.missionDescription,

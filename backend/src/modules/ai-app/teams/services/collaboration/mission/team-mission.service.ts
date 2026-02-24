@@ -27,7 +27,7 @@ import {
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务（通过 AIEngineFacade 访问）
-import { TaskCompletionType } from "../../../../../ai-engine/orchestration/services";
+import { TaskCompletionType } from "../../../../../ai-engine/facade";
 import { EmailService } from "../../../../../core/email/email.service";
 import { ConfigService } from "@nestjs/config";
 import {
@@ -54,8 +54,7 @@ import {
 } from "./mission-ai-caller.service";
 import { TeamMessageService } from "./team-message.service";
 import { TeamMemberService } from "./team-member.service";
-// ★ AI Engine 能力下沉：使用 AI Engine 的上下文初始化服务
-import { ContextInitializationService } from "../../../../../ai-engine/orchestration/services";
+// ★ AI Engine 能力下沉：使用 AI Engine 的上下文初始化服务（通过 AIEngineFacade 访问）
 import { RETRY_CONFIG, AGENT_SWITCH_CONFIG } from "../config";
 import {
   isRetryableError,
@@ -124,7 +123,6 @@ export class TeamMissionService implements OnModuleInit {
     private lifecycleService: MissionLifecycleService,
     private retryService: MissionRetryService,
     private healthCheckService: MissionHealthCheckService,
-    private contextInitializationService: ContextInitializationService,
     // ★ Leader 模型容错服务：支持重试和模型切换
     private leaderModelService: LeaderModelService,
     // ★ AI 调用服务：封装基础 AI 调用和 Token 追踪
@@ -771,7 +769,7 @@ export class TeamMissionService implements OnModuleInit {
     // 解决问题：用户只写"写一部宫廷小说"，多个Agent各自发明设定导致不一致
     try {
       const worldBuildingResult =
-        await this.contextInitializationService.buildWorldContext(
+        await this.aiFacade.contextInit?.buildWorldContext(
           mission.title,
           mission.description || "",
           async (_model, messages, options) => {
@@ -809,7 +807,7 @@ export class TeamMissionService implements OnModuleInit {
           mission.leader.aiModel,
         );
 
-      if (worldBuildingResult.needed && worldBuildingResult.hardConstraints) {
+      if (worldBuildingResult?.needed && worldBuildingResult.hardConstraints) {
         this.logger.log(
           `[startMission] World building completed: ${worldBuildingResult.hardConstraints.length} constraints, type: ${worldBuildingResult.contentType}`,
         );
@@ -837,11 +835,11 @@ export class TeamMissionService implements OnModuleInit {
           mergedConstraints as unknown as Prisma.JsonValue;
 
         // 发送世界观设定消息到群聊
-        if (worldBuildingResult.settings) {
+        if (worldBuildingResult?.settings) {
           const settingsMessage =
-            this.contextInitializationService.formatWorldSettingsMessage(
+            this.aiFacade.contextInit?.formatWorldSettingsMessage(
               worldBuildingResult.settings,
-            );
+            ) ?? "";
           await this.sendMessageToTopic(
             mission.topicId,
             mission.leader.id,

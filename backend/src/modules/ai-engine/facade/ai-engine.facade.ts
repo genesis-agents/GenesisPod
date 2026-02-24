@@ -172,6 +172,10 @@ import { IntentDetectionService } from "../orchestration/services/intent-detecti
 import { ExecutionStateManager } from "../orchestration/state-machine/execution-state.manager";
 import { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
 import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
+import { ContextInitializationService } from "../orchestration/services/context-initialization.service";
+import { TeamFactory } from "../teams/factory/team-factory";
+import { LongContentEngineService } from "../long-content/services/long-content-engine.service";
+import { ContinuationProtocolService } from "../long-content/services/continuation-protocol.service";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)
 import { ModelSubFacade } from "./sub-facades/model.sub-facade";
@@ -293,6 +297,12 @@ export class AIEngineFacade {
     @Optional()
     private readonly fnCallingAdapterSvc?: FunctionCallingLLMAdapter,
     @Optional() private readonly fnCallingExecutorSvc?: FunctionCallingExecutor,
+    @Optional() private readonly contextInitSvc?: ContextInitializationService,
+    @Optional() private readonly teamFactorySvc?: TeamFactory,
+    @Optional()
+    private readonly longContentEngineSvc?: LongContentEngineService,
+    @Optional()
+    private readonly continuationProtocolSvc?: ContinuationProtocolService,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -347,6 +357,10 @@ export class AIEngineFacade {
       execStateManager: !!this.execStateMgrSvc,
       fnCallingAdapter: !!this.fnCallingAdapterSvc,
       fnCallingExecutor: !!this.fnCallingExecutorSvc,
+      contextInit: !!this.contextInitSvc,
+      teamFactory: !!this.teamFactorySvc,
+      longContentEngine: !!this.longContentEngineSvc,
+      continuationProtocol: !!this.continuationProtocolSvc,
     };
 
     this.logger.log(
@@ -2786,5 +2800,30 @@ export class AIEngineFacade {
   /** 获取 ModelFallbackService（用于模型容错切换） */
   get modelFallback(): ModelFallbackService | undefined {
     return this.modelFallbackService;
+  }
+
+  /** 获取 TeamsService 实例（用于 ai-teams-integration 适配层） */
+  get teams(): TeamsService | undefined {
+    return this.teamsService;
+  }
+
+  /** 获取 ContextInitializationService（用于 mission 上下文初始化） */
+  get contextInit(): ContextInitializationService | undefined {
+    return this.contextInitSvc;
+  }
+
+  /** 获取 TeamFactory（用于写作/团队协调器） */
+  get teamFactory(): TeamFactory | undefined {
+    return this.teamFactorySvc;
+  }
+
+  /** 获取 LongContentEngineService（用于长内容处理） */
+  get longContentEngine(): LongContentEngineService | undefined {
+    return this.longContentEngineSvc;
+  }
+
+  /** 获取 ContinuationProtocolService（用于续写协议） */
+  get continuationProtocol(): ContinuationProtocolService | undefined {
+    return this.continuationProtocolSvc;
   }
 }
