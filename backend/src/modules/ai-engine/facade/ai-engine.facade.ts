@@ -180,6 +180,10 @@ import { MissionOrchestrator } from "../teams/orchestrator/mission-orchestrator"
 import { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
 import { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
 import { ContentFetchService } from "../content-fetch/content-fetch.service";
+import { AgentRegistry } from "../agents/registry";
+import { TeamRegistry } from "../teams/registry/team-registry";
+import { RoleRegistry } from "../teams/registry/role-registry";
+import { SkillRegistry } from "../skills/registry/skill-registry";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)
 import { ModelSubFacade } from "./sub-facades/model.sub-facade";
@@ -311,6 +315,11 @@ export class AIEngineFacade {
     @Optional() private readonly outputReviewerSvc?: OutputReviewerService,
     @Optional() private readonly contextEvolutionSvc?: ContextEvolutionService,
     @Optional() private readonly contentFetchSvc?: ContentFetchService,
+    // ★ Registry getters — 供 AI App 模块注册/查询时使用
+    @Optional() private readonly agentRegistrySvc?: AgentRegistry,
+    @Optional() private readonly teamRegistrySvc?: TeamRegistry,
+    @Optional() private readonly roleRegistrySvc?: RoleRegistry,
+    @Optional() private readonly skillRegistrySvc?: SkillRegistry,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -373,6 +382,10 @@ export class AIEngineFacade {
       outputReviewer: !!this.outputReviewerSvc,
       contextEvolution: !!this.contextEvolutionSvc,
       contentFetch: !!this.contentFetchSvc,
+      agentRegistry: !!this.agentRegistrySvc,
+      teamRegistry: !!this.teamRegistrySvc,
+      roleRegistry: !!this.roleRegistrySvc,
+      skillRegistry: !!this.skillRegistrySvc,
     };
 
     this.logger.log(
@@ -2872,5 +2885,35 @@ export class AIEngineFacade {
   /** 获取 ContentFetchService（供内容抓取使用） */
   get contentFetch(): ContentFetchService | undefined {
     return this.contentFetchSvc;
+  }
+
+  // ==================== Registry Getters ====================
+  // AI App 模块通过这些 getter 访问 Registry，无需直接注入 Engine 内部类
+
+  /** 获取 ToolRegistry（工具注册表） */
+  get toolRegistry():
+    | import("../tools/registry/tool-registry").ToolRegistry
+    | undefined {
+    return this.tools?.registry;
+  }
+
+  /** 获取 AgentRegistry（Agent 注册表） */
+  get agentRegistry(): AgentRegistry | undefined {
+    return this.agentRegistrySvc;
+  }
+
+  /** 获取 TeamRegistry（团队注册表） */
+  get teamRegistry(): TeamRegistry | undefined {
+    return this.teamRegistrySvc;
+  }
+
+  /** 获取 RoleRegistry（角色注册表） */
+  get roleRegistry(): RoleRegistry | undefined {
+    return this.roleRegistrySvc;
+  }
+
+  /** 获取 SkillRegistry（技能注册表） */
+  get skillRegistry(): SkillRegistry | undefined {
+    return this.skillRegistrySvc;
   }
 }
