@@ -10,7 +10,6 @@ import { ResearchIdeaService } from "../idea/research-idea.service";
 import { InsufficientCreditsException } from "../../../credits/exceptions/insufficient-credits.exception";
 import { BillingContext } from "../../../credits/billing-context";
 import { AIEngineFacade } from "../../../ai-engine/facade";
-import { A2AMessageBusService } from "../../../ai-engine/teams/services/a2a-message-bus.service";
 import { ResearchReplannerService } from "./research-replanner.service";
 import {
   StartDeepResearchDto,
@@ -54,7 +53,6 @@ export class DiscussionOrchestratorService {
     @Optional() private readonly ideaService: ResearchIdeaService,
     @Optional() private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly replanner: ResearchReplannerService,
-    @Optional() private readonly a2aBus: A2AMessageBusService,
   ) {}
 
   /**
@@ -503,7 +501,7 @@ export class DiscussionOrchestratorService {
       throw error;
     } finally {
       subject.complete();
-      this.a2aBus?.clearSession(session.id);
+      this.aiFacade?.a2aClearSession(session.id);
     }
   }
 
@@ -1092,7 +1090,7 @@ export class DiscussionOrchestratorService {
     subject: Subject<DeepResearchSSEEvent>,
   ): void {
     subject.next({ type: "discussion.message", data: msg });
-    void this.a2aBus?.publish({
+    void this.aiFacade?.a2aPublish({
       sessionId,
       // Discussion agents are virtual roles with no UUID; agentRole is their stable identifier
       fromAgentId: msg.agentRole,

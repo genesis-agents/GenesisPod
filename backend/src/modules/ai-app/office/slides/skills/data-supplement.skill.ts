@@ -13,7 +13,7 @@ import {
   SkillLayer,
   SKILL_LAYERS,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
 // ★ 架构重构：通过 ToolRegistry 调用工具
 import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool-registry";
 import type { ToolContext } from "../../../../ai-engine/tools/abstractions/tool.interface";
@@ -128,7 +128,7 @@ export class DataSupplementSkill implements ISkill<
   readonly version = "4.0.0";
 
   constructor(
-    @Optional() private readonly llmFactory: LLMFactory,
+    @Optional() private readonly aiFacade: AIEngineFacade,
     // ★ 架构重构：通过 ToolRegistry 调用工具
     @Optional() private readonly toolRegistry: ToolRegistry,
   ) {}
@@ -599,16 +599,14 @@ ${resultsSummary}
     ];
 
     try {
-      // 不指定 provider，使用数据库默认适配器
-      const adapter = this.llmFactory?.getAdapter();
-      if (!adapter) {
+      if (!this.aiFacade) {
         this.logger.warn("[extractDataFromResults] No LLM adapter available");
         return { extractedData: {}, tokensUsed: 0 };
       }
 
-      const response = await adapter.chat({
+      const response = await this.aiFacade.chat({
         messages,
-        // model 留空，由 UniversalLLMAdapter 从数据库获取默认模型
+        modelType: "CHAT" as const,
         taskProfile: {
           creativity: "deterministic",
           outputLength: "short",
@@ -619,7 +617,7 @@ ${resultsSummary}
         this.logger.warn("[extractDataFromResults] AI extraction failed");
         return {
           extractedData: {},
-          tokensUsed: response.usage?.totalTokens || 0,
+          tokensUsed: response.tokensUsed || 0,
         };
       }
 
@@ -629,14 +627,14 @@ ${resultsSummary}
         this.logger.warn("[extractDataFromResults] No JSON found in response");
         return {
           extractedData: {},
-          tokensUsed: response.usage?.totalTokens || 0,
+          tokensUsed: response.tokensUsed || 0,
         };
       }
 
       const extracted = JSON.parse(jsonMatch[0]);
       return {
         extractedData: extracted as Record<string, string>,
-        tokensUsed: response.usage?.totalTokens || 0,
+        tokensUsed: response.tokensUsed || 0,
       };
     } catch (error) {
       this.logger.error(`[extractDataFromResults] Error: ${error}`);
