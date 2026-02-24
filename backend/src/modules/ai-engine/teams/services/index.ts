@@ -8,3 +8,5 @@ export {
   MissionStatus,
   TeamInfo,
 } from "./teams.service";
+
+export { A2AMessageBusService } from "./a2a-message-bus.service";

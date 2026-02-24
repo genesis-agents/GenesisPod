@@ -19,6 +19,7 @@ import { ConstraintEngine } from "./constraints/constraint-engine";
 import { MissionOrchestrator } from "./orchestrator/mission-orchestrator";
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";
+import { A2AMessageBusService } from "./services/a2a-message-bus.service";
 import { TeamsController } from "./controllers/teams.controller";
 
 // AI Engine 核心依赖
@@ -47,6 +48,7 @@ import { CheckpointManager } from "../orchestration/checkpoints/checkpoint-manag
   providers: [
     RoleRegistry,
     TeamRegistry,
+    A2AMessageBusService,
     // ConstraintEngine 依赖 CostController
     {
       provide: ConstraintEngine,
@@ -153,6 +155,7 @@ import { CheckpointManager } from "../orchestration/checkpoints/checkpoint-manag
     MissionOrchestrator,
     TeamsService,
     CheckpointManager,
+    A2AMessageBusService,
   ],
 })
 export class TeamsModule implements OnModuleInit {

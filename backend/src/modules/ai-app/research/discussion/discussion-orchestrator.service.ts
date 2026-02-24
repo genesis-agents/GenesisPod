@@ -10,6 +10,8 @@ import { ResearchIdeaService } from "../idea/research-idea.service";
 import { InsufficientCreditsException } from "../../../credits/exceptions/insufficient-credits.exception";
 import { BillingContext } from "../../../credits/billing-context";
 import { MemoryCoordinatorService } from "../../../ai-engine/memory/memory-coordinator.service";
+import { TraceCollectorService } from "../../../ai-engine/observability/trace-collector.service";
+import { ResearchReplannerService } from "./research-replanner.service";
 import {
   StartDeepResearchDto,
   DeepResearchSSEEvent,
@@ -51,6 +53,8 @@ export class DiscussionOrchestratorService {
     @Optional() private readonly creditsService: CreditsService,
     @Optional() private readonly ideaService: ResearchIdeaService,
     @Optional() private readonly memoryCoordinator: MemoryCoordinatorService,
+    @Optional() private readonly traceCollector: TraceCollectorService,
+    @Optional() private readonly replanner: ResearchReplannerService,
   ) {}
 
   /**
@@ -114,6 +118,13 @@ export class DiscussionOrchestratorService {
     const allMessages: DiscussionMessage[] = [];
     const searchRounds: SearchRound[] = [];
 
+    // Start observability trace
+    const traceId = this.traceCollector?.startTrace({
+      name: `Research: ${dto.query.slice(0, 80)}`,
+      type: "research",
+      metadata: { projectId, depth: dto.options?.depth || "standard" },
+    });
+
     // 获取项目 userId 用于积分检查
     const project = await this.prisma.researchProject.findUnique({
       where: { id: projectId },
@@ -168,6 +179,13 @@ export class DiscussionOrchestratorService {
         },
       });
 
+      const ideationSpanId = traceId
+        ? this.traceCollector?.addSpan(traceId, {
+            name: "ideation",
+            type: "phase",
+          })
+        : undefined;
+
       const directions = await this.runIdeationPhase(
         dto,
         team,
@@ -175,6 +193,13 @@ export class DiscussionOrchestratorService {
         subject,
         language,
       );
+
+      if (ideationSpanId) {
+        this.traceCollector?.endSpan(ideationSpanId, {
+          status: "success",
+          output: { directionsCount: directions.length },
+        });
+      }
 
       await this.updateSession(session.id, {
         status: DeepResearchStatus.SEARCHING,
@@ -192,6 +217,13 @@ export class DiscussionOrchestratorService {
         },
       });
 
+      const executionSpanId = traceId
+        ? this.traceCollector?.addSpan(traceId, {
+            name: "execution",
+            type: "phase",
+          })
+        : undefined;
+
       await this.runExecutionPhase(
         dto,
         team,
@@ -201,6 +233,93 @@ export class DiscussionOrchestratorService {
         subject,
         language,
       );
+
+      // ========== Dynamic Replanning ==========
+      if (this.replanner && searchRounds.length > 0) {
+        const replanSpanId = traceId
+          ? this.traceCollector?.addSpan(traceId, {
+              name: "replanning",
+              type: "evaluation",
+            })
+          : undefined;
+
+        const replanResult = await this.replanner.evaluateAndReplan(
+          dto.query,
+          searchRounds,
+          dto.options?.language,
+        );
+
+        if (
+          replanResult.needsReplan &&
+          replanResult.additionalSteps.length > 0
+        ) {
+          this.logger.log(
+            `[Replanner] Adding ${replanResult.additionalSteps.length} extra searches: ${replanResult.record?.reason}`,
+          );
+
+          for (const step of replanResult.additionalSteps) {
+            const roundNum = searchRounds.length + 1;
+            subject.next({
+              type: "search_progress",
+              data: {
+                round: roundNum,
+                totalRounds: roundNum,
+                query: step.query,
+                resultsCount: 0,
+                message:
+                  language === "en-US"
+                    ? `[Gap Fill] Searching: ${step.query}`
+                    : `[补充搜索] 查询: ${step.query}`,
+              },
+            });
+
+            const round = await this.withTimeout(
+              this.searchService.executeStep(step, roundNum),
+              this.STAGE_TIMEOUT,
+              `Replan search ${roundNum}`,
+            ).catch((err: unknown) => {
+              this.logger.warn(
+                `[Replanner] Extra search failed: ${err instanceof Error ? err.message : String(err)}`,
+              );
+              return null;
+            });
+
+            if (round) {
+              searchRounds.push(round);
+              subject.next({
+                type: "search_progress",
+                data: {
+                  round: roundNum,
+                  totalRounds: roundNum,
+                  query: step.query,
+                  resultsCount: round.resultsCount,
+                  message:
+                    language === "en-US"
+                      ? `[Gap Fill] Found ${round.resultsCount} additional sources`
+                      : `[补充搜索] 找到 ${round.resultsCount} 个来源`,
+                },
+              });
+            }
+          }
+        }
+
+        if (replanSpanId) {
+          this.traceCollector?.endSpan(replanSpanId, {
+            status: "success",
+            output: {
+              replanned: replanResult.needsReplan,
+              addedSteps: replanResult.additionalSteps.length,
+            },
+          });
+        }
+      }
+
+      if (executionSpanId) {
+        this.traceCollector?.endSpan(executionSpanId, {
+          status: "success",
+          output: { searchRounds: searchRounds.length },
+        });
+      }
 
       await this.updateSession(session.id, {
         searchRounds: searchRounds as unknown as Record<string, unknown>[],
@@ -220,6 +339,13 @@ export class DiscussionOrchestratorService {
         status: DeepResearchStatus.FINDINGS as DeepResearchStatus,
       });
 
+      const findingsSpanId = traceId
+        ? this.traceCollector?.addSpan(traceId, {
+            name: "findings",
+            type: "phase",
+          })
+        : undefined;
+
       await this.runFindingsPhase(
         dto,
         team,
@@ -228,6 +354,10 @@ export class DiscussionOrchestratorService {
         subject,
         language,
       );
+
+      if (findingsSpanId) {
+        this.traceCollector?.endSpan(findingsSpanId, { status: "success" });
+      }
 
       await this.updateSession(session.id, {
         discussion: allMessages as unknown as Record<string, unknown>[],
@@ -246,6 +376,13 @@ export class DiscussionOrchestratorService {
         status: DeepResearchStatus.SYNTHESIZING,
       });
 
+      const synthesisSpanId = traceId
+        ? this.traceCollector?.addSpan(traceId, {
+            name: "synthesis",
+            type: "phase",
+          })
+        : undefined;
+
       const report = await this.runSynthesisPhase(
         dto,
         team,
@@ -254,6 +391,16 @@ export class DiscussionOrchestratorService {
         subject,
         language,
       );
+
+      if (synthesisSpanId) {
+        this.traceCollector?.endSpan(synthesisSpanId, {
+          status: "success",
+          output: {
+            sections: report.sections.length,
+            references: report.references.length,
+          },
+        });
+      }
 
       // ========== 完成 ==========
       const totalSources = this.countUniqueSources(searchRounds);
@@ -289,6 +436,14 @@ export class DiscussionOrchestratorService {
       this.logger.log(
         `Discussion research completed: ${session.id}, sources: ${totalSources}, duration: ${duration.toFixed(1)}s`,
       );
+
+      // End observability trace
+      if (traceId) {
+        this.traceCollector?.endTrace(traceId, {
+          status: "success",
+          totalDuration: Date.now() - startTime,
+        });
+      }
 
       // 反哺长期记忆（fire-and-forget，不阻塞主流程）
       if (this.memoryCoordinator) {
@@ -328,6 +483,13 @@ export class DiscussionOrchestratorService {
         );
       }
     } catch (error) {
+      // End trace on failure
+      if (traceId) {
+        this.traceCollector?.endTrace(traceId, {
+          status: "error",
+          totalDuration: Date.now() - startTime,
+        });
+      }
       await this.updateSession(session.id, {
         status: DeepResearchStatus.FAILED,
         error: error instanceof Error ? error.message : String(error),

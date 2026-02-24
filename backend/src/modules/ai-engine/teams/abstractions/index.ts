@@ -94,6 +94,17 @@ export {
   MissionEvent,
 } from "./mission.interface";
 
+// A2A Message Protocol
+export {
+  A2AMessageType,
+  A2APriority,
+  A2AMessage,
+  TaskRequestPayload,
+  TaskResultPayload,
+  InfoSharePayload,
+  A2AMessageHandler,
+} from "./a2a-message.interface";
+
 // Mission Context Package
 export {
   HardConstraint,

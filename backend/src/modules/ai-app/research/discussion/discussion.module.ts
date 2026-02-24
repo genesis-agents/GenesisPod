@@ -23,6 +23,7 @@ import { ReportSynthesizerService } from "./report-synthesizer.service";
 import { DiscussionAgentService } from "./discussion-agent.service";
 import { DiscussionOrchestratorService } from "./discussion-orchestrator.service";
 import { ResearchIdeaService } from "../idea/research-idea.service";
+import { ResearchReplannerService } from "./research-replanner.service";
 
 const services = [
   DiscussionResearchService,
@@ -33,6 +34,7 @@ const services = [
   DiscussionAgentService,
   DiscussionOrchestratorService,
   ResearchIdeaService,
+  ResearchReplannerService,
 ];
 
 @Module({

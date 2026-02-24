@@ -88,6 +88,7 @@ import { RAGPipelineService } from "./rag/pipeline";
 import { AiEngineTracingService, TraceCollectorService } from "./observability";
 import { AiObservabilityService } from "./observability/ai-observability.service";
 import { CostAttributionService } from "./observability/cost-attribution.service";
+import { ObservabilityController } from "./observability/observability.controller";
 // 支柱五：EvalPipeline
 import { EvalPipelineService } from "./observability/eval-pipeline.service";
 
@@ -151,7 +152,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     PromptsModule,
     CreditsModule, // ★ 积分服务（用于 Facade 自动计费）
   ],
-  controllers: [AiCoreController],
+  controllers: [AiCoreController, ObservabilityController],
   providers: [
     // === Facade Feature Providers (分组注入) ===
     ...FACADE_FEATURE_PROVIDERS,

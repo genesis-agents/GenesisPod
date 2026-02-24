@@ -7,6 +7,7 @@
  * Trace 类型
  */
 export type TraceType =
+  | "research" // 深度研究会话
   | "research_mission" // 研究任务
   | "team_execution" // 团队协作执行
   | "tool_call" // 工具调用
@@ -23,7 +24,9 @@ export type SpanType =
   | "analysis" // 分析
   | "synthesis" // 综合
   | "review" // 审查
-  | "planning"; // 规划
+  | "planning" // 规划
+  | "phase" // 研究阶段（ideation / execution / findings / synthesis）
+  | "evaluation"; // 评估（replanning等）
 
 /**
  * 执行状态
