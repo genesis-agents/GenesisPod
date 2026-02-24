@@ -99,32 +99,76 @@ module.exports = {
       },
     },
     {
-      // AI-App modules should use AIEngineFacade instead of direct ai-engine imports
+      // AI-App modules must access AI Engine only through AIEngineFacade or Registry
+      // See CLAUDE.md: "所有 AI App 模块只通过 AIEngineFacade 和 Registry 访问 AI Engine"
       files: ["**/modules/ai-app/**/*.ts"],
+      excludedFiles: [
+        // Agent files may extend BaseAgent/PlanBasedAgent (inheritance pattern)
+        "**/agents/*.agent.ts",
+        // Team config files must reference abstract interfaces
+        "**/*.config.ts",
+        // Skill implementations extend engine skill base classes
+        "**/skills/*.skill.ts",
+        // Re-export adapter files
+        "**/common/*.service.ts",
+      ],
       rules: {
         "no-restricted-imports": [
           "error",
           {
             patterns: [
+              // ★ Orchestration services — must go through AIEngineFacade
               {
-                group: ["**/ai-engine/tools/registry/*"],
+                group: [
+                  "**/ai-engine/orchestration/services/intent-detection*",
+                  "**/ai-engine/orchestration/services/output-reviewer*",
+                  "**/ai-engine/orchestration/services/context-evolution*",
+                  "**/ai-engine/orchestration/services/circuit-breaker*",
+                  "**/ai-engine/orchestration/services/agent-executor*",
+                  "**/ai-engine/orchestration/services/task-planner*",
+                  "**/ai-engine/orchestration/services/task-decomposer*",
+                ],
                 message:
-                  "Use AIEngineFacade.executeTool()/getAvailableTools() instead.",
+                  "Inject AIEngineFacade and access via facade.intentDetector / facade.outputReviewer / etc.",
               },
+              // ★ Team orchestration services — must go through AIEngineFacade
+              {
+                group: [
+                  "**/ai-engine/teams/orchestrator/mission-orchestrator*",
+                  "**/ai-engine/teams/factory/team-factory*",
+                ],
+                message:
+                  "Use facade.missionOrchestrator or facade.teamFactory instead.",
+              },
+              // ★ Long-content engine service — must go through AIEngineFacade
+              {
+                group: [
+                  "**/ai-engine/long-content/services/long-content-engine*",
+                ],
+                message: "Use facade.longContentEngine instead.",
+              },
+              // ★ AI capabilities — must go through AIEngineFacade
               {
                 group: ["**/ai-engine/capabilities/*"],
                 message:
-                  "Use AIEngineFacade.getAvailableCapabilities() instead.",
+                  "Use AIEngineFacade.capabilityGetSkillPrompts() or facade.capabilityResolverService instead.",
               },
+              // ★ Realtime — must go through AIEngineFacade
               {
                 group: ["**/ai-engine/realtime/**"],
                 message:
                   "Use AIEngineFacade.emitToRoom()/emitProgress() instead.",
               },
+              // ★ Memory stores — must go through AIEngineFacade
               {
                 group: ["**/ai-engine/memory/stores/*"],
                 message:
                   "Use AIEngineFacade.storeMemory()/retrieveMemory() instead.",
+              },
+              // ★ Content fetch service — must go through AIEngineFacade
+              {
+                group: ["**/ai-engine/content-fetch/content-fetch.service*"],
+                message: "Use facade.contentFetch instead.",
               },
             ],
           },
