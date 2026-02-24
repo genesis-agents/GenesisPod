@@ -122,7 +122,7 @@ export class PostWriteValidationService {
     for (const term of terminologies) {
       const t = term as Record<string, unknown>;
       // Check if term variants are used inconsistently
-      if ((t["variants"] as unknown[] | undefined)?.length ?? 0 > 0) {
+      if (((t["variants"] as unknown[] | undefined)?.length ?? 0) > 0) {
         const usedVariants = (t["variants"] as string[]).filter((v: string) =>
           content.includes(v),
         );
@@ -152,7 +152,7 @@ export class PostWriteValidationService {
     for (const setting of worldSettings) {
       const s = setting as Record<string, unknown>;
       // Check if setting rules are violated
-      if ((s["rules"] as unknown[] | undefined)?.length ?? 0 > 0) {
+      if (((s["rules"] as unknown[] | undefined)?.length ?? 0) > 0) {
         // Placeholder for rule checking logic
         // Would need NLP/LLM to properly check rule violations
       }

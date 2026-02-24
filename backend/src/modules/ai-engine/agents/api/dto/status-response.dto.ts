@@ -82,6 +82,5 @@ export class StatusReportResponseDto {
     description: "统计信息",
     type: AgentStatsDto,
   })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  stats!: any;
+  stats!: AgentStatsDto;
 }

@@ -84,7 +84,7 @@ export class AiChatModelConfigService {
    * 从数据库模型构建 AIModelConfig
    * ★ 统一处理所有字段，兼容新旧数据库
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma result with complex select loses its inferred type at the call site; typed at the return boundary via AIModelConfig
   private buildModelConfig(model: any): AIModelConfig {
     const modelAny = model;
     const isReasoning =

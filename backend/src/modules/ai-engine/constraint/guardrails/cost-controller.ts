@@ -251,7 +251,7 @@ export class CostController {
     // Write record to Redis (CacheService handles errors internally)
     if (this.cacheService) {
       const dateKey = fullRecord.timestamp.toISOString().slice(0, 10);
-      this.cacheService.set(
+      void this.cacheService.set(
         `ai:cost:record:${fullRecord.category}:${dateKey}:${fullRecord.id}`,
         fullRecord,
         86400,
@@ -355,7 +355,7 @@ export class CostController {
     this.budgets.set(budget.id, budget);
 
     if (this.cacheService) {
-      this.cacheService.set(
+      void this.cacheService.set(
         `ai:cost:budget:${budget.id}`,
         budget,
         this.budgetTtlSeconds(budget),
@@ -446,7 +446,7 @@ export class CostController {
 
       // Sync updated budget to Redis
       if (this.cacheService) {
-        this.cacheService.set(
+        void this.cacheService.set(
           `ai:cost:budget:${budget.id}`,
           budget,
           this.budgetTtlSeconds(budget),
