@@ -640,6 +640,24 @@ async function deploy(): Promise<void> {
       console.log("   OK research_projects.cross_module_source");
     }
 
+    // Check if research_projects.visibility column exists
+    // ★ 2026-02-23: PRIVATE/PUBLIC visibility control
+    const researchProjectVisibilityCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'research_projects' AND column_name = 'visibility'
+      ) as exists
+    `;
+    if (!researchProjectVisibilityCheck[0]?.exists) {
+      console.log("   Adding research_projects.visibility column...");
+      await prisma.$executeRaw`ALTER TABLE "research_projects" ADD COLUMN IF NOT EXISTS "visibility" VARCHAR(20) NOT NULL DEFAULT 'PRIVATE'`;
+      console.log("   Added research_projects.visibility");
+    } else {
+      console.log("   OK research_projects.visibility");
+    }
+
     const researchTopicLinkedResearchIdsCheck = await prisma.$queryRaw<
       Array<{ exists: boolean }>
     >`
