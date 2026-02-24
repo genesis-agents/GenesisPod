@@ -1098,6 +1098,7 @@ export class DiscussionOrchestratorService {
     subject.next({ type: "discussion.message", data: msg });
     void this.a2aBus?.publish({
       sessionId,
+      // Discussion agents are virtual roles with no UUID; agentRole is their stable identifier
       fromAgentId: msg.agentRole,
       type: "info_share",
       payload: {
