@@ -781,6 +781,14 @@ export class TopicTeamOrchestratorService {
       }
 
       // 5. 质量审核阶段（non-fatal）
+      // ★ Hoist reviewSpanId outside try so catch can end it on error
+      const reviewSpanId = traceId
+        ? this.traceCollector?.addSpan(traceId, {
+            name: "Quality Review",
+            type: "review",
+            metadata: { missionId, dimensionCount: dimensions.length },
+          })
+        : undefined;
       try {
         this.emitProgress({
           topicId,
@@ -792,13 +800,6 @@ export class TopicTeamOrchestratorService {
           message: "质量审核员正在审核研究质量...",
         });
 
-        const reviewSpanId = traceId
-          ? this.traceCollector?.addSpan(traceId, {
-              name: "Quality Review",
-              type: "review",
-              metadata: { missionId, dimensionCount: dimensions.length },
-            })
-          : undefined;
         const reviewResult = await this.reviewResearchQuality(
           topic,
           dimensions,
@@ -829,6 +830,12 @@ export class TopicTeamOrchestratorService {
           );
         }
       } catch (reviewError) {
+        if (reviewSpanId) {
+          this.traceCollector?.endSpan(reviewSpanId, {
+            status: "error",
+            error: String(reviewError),
+          });
+        }
         this.logger.warn(
           `[executeRefresh] Quality review failed (non-fatal): ${reviewError}`,
         );
@@ -879,18 +886,29 @@ export class TopicTeamOrchestratorService {
             metadata: { missionId, reportId: report.id },
           })
         : undefined;
-      const finalReport = await this.reportSynthesisService.synthesizeReport(
-        topic,
-        report.id,
-      );
-      if (synthesisSpanId) {
-        this.traceCollector?.endSpan(synthesisSpanId, {
-          status: "success",
-          output: {
-            finalReportId: finalReport.id,
-            totalSources: finalReport.totalSources,
-          },
-        });
+      let finalReport: TopicReport;
+      try {
+        finalReport = await this.reportSynthesisService.synthesizeReport(
+          topic,
+          report.id,
+        );
+        if (synthesisSpanId) {
+          this.traceCollector?.endSpan(synthesisSpanId, {
+            status: "success",
+            output: {
+              finalReportId: finalReport.id,
+              totalSources: finalReport.totalSources,
+            },
+          });
+        }
+      } catch (synthErr) {
+        if (synthesisSpanId) {
+          this.traceCollector?.endSpan(synthesisSpanId, {
+            status: "error",
+            error: String(synthErr),
+          });
+        }
+        throw synthErr;
       }
 
       // V5: Fact check (thorough mode only)
