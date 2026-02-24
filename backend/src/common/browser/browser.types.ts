@@ -1,6 +1,6 @@
 /**
  * Browser Types
- * AI Engine 核心能力 - 通用浏览器管理类型定义
+ * 通用浏览器管理类型定义（共享基础设施）
  */
 
 export interface SessionData {

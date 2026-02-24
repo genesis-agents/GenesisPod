@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { SessionData } from "../types/platform.types";
-import { BrowserService } from "../../../ai-engine/browser/browser.service";
+import { BrowserService } from "../../../../common/browser/browser.service";
 
 // Re-export SessionData for backward compatibility
 export { SessionData };

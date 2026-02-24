@@ -58,9 +58,6 @@ import { ContentAnalysisModule } from "./content-analysis/content-analysis.modul
 // Content Fetch (generic URL fetch capability)
 import { ContentFetchModule } from "./content-fetch/content-fetch.module";
 
-// Browser (通用浏览器生命周期管理)
-import { BrowserModule } from "./browser/browser.module";
-
 // Synthesis (报告合成通用能力)
 import { SynthesisModule } from "./synthesis/synthesis.module";
 
@@ -139,9 +136,6 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
 
-    // Browser (通用浏览器生命周期管理)
-    BrowserModule,
-
     // Synthesis (报告合成通用能力)
     SynthesisModule,
 
@@ -212,9 +206,6 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // Content Fetch (generic URL fetch capability)
     ContentFetchModule,
-
-    // Browser (通用浏览器生命周期管理)
-    BrowserModule,
 
     // Synthesis (报告合成通用能力)
     SynthesisModule,
