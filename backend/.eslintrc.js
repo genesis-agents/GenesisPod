@@ -109,8 +109,9 @@ module.exports = {
         "**/*.config.ts",
         // Skill implementations extend engine skill base classes
         "**/skills/*.skill.ts",
-        // Re-export adapter files
-        "**/common/*.service.ts",
+        // Re-export adapter files (direct engine imports justified — re-exporting engine internals to app layer)
+        "**/office/common/content-analysis.service.ts",
+        "**/office/common/image-matching.service.ts",
       ],
       rules: {
         "no-restricted-imports": [

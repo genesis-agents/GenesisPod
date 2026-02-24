@@ -150,6 +150,11 @@ export class CostController {
 
   /**
    * 默认定价（USD per million tokens）
+   *
+   * NOTE: Model name strings here are intentional — this is a pricing reference table
+   * for cost estimation, not LLM call configuration. New models should be added when
+   * their public pricing is available. This is a legitimate exception to the no-hardcoded-
+   * model-names rule (which applies to LLM call sites, not pricing metadata).
    */
   private static readonly DEFAULT_PRICING: ModelPricing[] = [
     { model: "gpt-4o", inputPricePerMillion: 2.5, outputPricePerMillion: 10 },
