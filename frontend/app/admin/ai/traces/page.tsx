@@ -56,7 +56,15 @@ const STATUS_COLORS: Record<string, string> = {
   error: 'bg-red-100 text-red-800',
 };
 
-const TYPE_FILTERS = ['all', 'research', 'agent', 'mission', 'tool'];
+// Values must match backend TraceType union in trace.interface.ts
+const TYPE_FILTERS = [
+  'all',
+  'research',
+  'research_mission',
+  'team_execution',
+  'tool_call',
+  'a2a_task',
+];
 
 function formatDuration(ms?: number): string {
   if (!ms) return '-';

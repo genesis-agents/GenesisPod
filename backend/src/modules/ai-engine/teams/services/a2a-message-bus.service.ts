@@ -126,7 +126,8 @@ export class A2AMessageBusService {
       }
     }
 
-    // Check TTL
+    // TTL check: with synchronous in-process delivery, the delta is always ~0ms
+    // so this guard never triggers in practice. Retained for future async models.
     if (message.ttlMs && now - message.timestamp.getTime() > message.ttlMs) {
       this.logger.warn(`[A2A] Message ${message.id} expired before delivery`);
       return message;

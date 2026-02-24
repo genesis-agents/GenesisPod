@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { randomUUID } from "crypto";
 import { AIModelType } from "@prisma/client";
 import { AIEngineFacade } from "../../../ai-engine/facade";
 import { SearchRound, ResearchPlanStep, ResearchStepType } from "./types";
@@ -65,8 +66,8 @@ export class ResearchReplannerService {
 
       const additionalSteps: ResearchPlanStep[] = response.additionalQueries
         .slice(0, 3)
-        .map((q, idx) => ({
-          id: `replan_${Date.now()}_${idx}`,
+        .map((q) => ({
+          id: `replan_${randomUUID()}`,
           type: q.type,
           query: q.query,
           rationale: q.rationale,

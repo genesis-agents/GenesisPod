@@ -257,13 +257,16 @@ export class DiscussionOrchestratorService {
             `[Replanner] Adding ${replanResult.additionalSteps.length} extra searches: ${replanResult.record?.reason}`,
           );
 
+          const replanTotal =
+            searchRounds.length + replanResult.additionalSteps.length;
+
           for (const step of replanResult.additionalSteps) {
             const roundNum = searchRounds.length + 1;
             subject.next({
               type: "search_progress",
               data: {
                 round: roundNum,
-                totalRounds: roundNum,
+                totalRounds: replanTotal,
                 query: step.query,
                 resultsCount: 0,
                 message:
@@ -290,7 +293,7 @@ export class DiscussionOrchestratorService {
                 type: "search_progress",
                 data: {
                   round: roundNum,
-                  totalRounds: roundNum,
+                  totalRounds: replanTotal,
                   query: step.query,
                   resultsCount: round.resultsCount,
                   message:

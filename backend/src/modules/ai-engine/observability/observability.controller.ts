@@ -31,14 +31,17 @@ export class ObservabilityController {
     @Query("type") type?: string,
     @Query("limit") limit?: string,
   ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : 50;
     const traces = await this.traceCollector.listTraces({
       type: type as TraceType | undefined,
-      limit: limit ? parseInt(limit, 10) : 50,
+      limit: Number.isNaN(parsedLimit) ? 50 : parsedLimit,
     });
 
     return { data: traces };
   }
 
+  // NOTE: @Get("stats") MUST be declared before @Get(":id") to prevent NestJS
+  // from treating the literal string "stats" as a trace ID. Do not reorder.
   @Get("stats")
   getStats() {
     return { data: this.traceCollector.getStats() };
