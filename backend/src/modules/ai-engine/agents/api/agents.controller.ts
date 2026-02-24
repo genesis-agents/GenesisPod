@@ -86,9 +86,17 @@ export class AgentsController {
   async getStatus(): Promise<StatusReportResponseDto> {
     const report = this.orchestrator.getStatusReport();
     const agentStats = this.agentRegistry.getStats();
+    const totalTasks = Object.values(agentStats.byId).reduce(
+      (sum, s) => sum + s.executions,
+      0,
+    );
     return {
       agents: report,
-      stats: agentStats,
+      stats: {
+        registeredAgents: agentStats.total,
+        availableTools: 0, // ToolRegistry not injected here; use facade layer for full stats
+        totalTasks,
+      },
     };
   }
 
@@ -176,7 +184,7 @@ export class AgentsController {
     });
 
     // 异步执行任务
-    this.executeTaskAsync(task.id, input, body.agentId, userId);
+    void this.executeTaskAsync(task.id, input, body.agentId, userId);
 
     return {
       taskId: task.id,
@@ -300,7 +308,9 @@ export class AgentsController {
     @Param("taskId") taskId: string,
   ): Promise<ArtifactsResponseDto> {
     const artifacts = await this.agentsService.getArtifacts(taskId);
-    return { artifacts: artifacts as unknown as ArtifactsResponseDto["artifacts"] };
+    return {
+      artifacts: artifacts as unknown as ArtifactsResponseDto["artifacts"],
+    };
   }
 
   /**

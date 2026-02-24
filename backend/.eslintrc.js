@@ -116,9 +116,6 @@ module.exports = {
         // WritingAgentRegistry bridges IAgent/AgentOutput/AgentEvent from agent.interface to the writing module;
         // facade exports a different AgentOutput (facade.types.ts) so re-export is not possible without a name clash
         "**/writing/registry/writing-agent-registry.ts",
-        // TokenBudget shim re-exports ModelConfig/TokenBudget/ContentPriority/BudgetAllocation from orchestration;
-        // these types are implementation-specific and would introduce confusion if added to the public facade API
-        "**/teams/services/collaboration/context/token-budget.service.ts",
       ],
       rules: {
         "no-restricted-imports": [

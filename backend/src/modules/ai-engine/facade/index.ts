@@ -37,7 +37,11 @@ export { RoleRegistry } from "../teams/registry/role-registry";
 export { SkillRegistry } from "../skills/registry/skill-registry";
 
 // ★ High-frequency types used across AI App modules
-export type { TaskProfile, CreativityLevel, OutputLengthLevel } from "../llm/types";
+export type {
+  TaskProfile,
+  CreativityLevel,
+  OutputLengthLevel,
+} from "../llm/types";
 export type { TeamConfig, ITeam } from "../teams/abstractions/team.interface";
 export { BUILTIN_TEAMS } from "../teams/abstractions/team.interface";
 export type { WorkflowConfig } from "../teams/abstractions/workflow.interface";
@@ -45,7 +49,11 @@ export type { ConstraintProfile } from "../teams/constraints/constraint-profile"
 export { BUILTIN_ROLES } from "../teams/abstractions/role.interface";
 export { BUILTIN_TOOLS } from "../core/types/agent.types";
 export { createConstraintProfile } from "../teams/constraints/constraint-profile";
-export type { MissionEvent, MissionInput, MissionResult } from "../teams/abstractions/mission.interface";
+export type {
+  MissionEvent,
+  MissionInput,
+  MissionResult,
+} from "../teams/abstractions/mission.interface";
 export type { ToolContext, ITool } from "../tools/abstractions/tool.interface";
 
 // ★ Batch 1 补充导出 — 所有 AI App 模块所需的额外符号
@@ -68,6 +76,12 @@ export type {
   AiCallerFn,
 } from "../orchestration/services/interfaces";
 export { TokenBudgetService } from "../orchestration/services";
+export type {
+  ModelConfig as TokenBudgetModelConfig,
+  TokenBudget,
+  ContentPriority,
+  BudgetAllocation,
+} from "../orchestration/services/token-budget.service";
 export { OutputReviewerService } from "../orchestration/services/output-reviewer.service";
 export { ContextEvolutionService } from "../orchestration/services/context-evolution.service";
 export { AgentExecutorService } from "../orchestration/services/agent-executor.service";
@@ -92,7 +106,10 @@ export type {
 // Content-fetch tokens & utilities（for ai-social.module.ts + content-fetcher.service.ts）
 // Direct imports to avoid loading ContentFetchModule barrel (prevents circular dep chain)
 export { YOUTUBE_SERVICE_TOKEN } from "../content-fetch/content-fetch.service";
-export { sanitizeForDb, sanitizeJson } from "../content-fetch/content-fetch.types";
+export {
+  sanitizeForDb,
+  sanitizeJson,
+} from "../content-fetch/content-fetch.types";
 
 // LLM Adapter（for ask/adapters/index.ts）
 export { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
