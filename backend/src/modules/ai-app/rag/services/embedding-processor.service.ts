@@ -5,9 +5,9 @@
  * Uses AI Engine's EmbeddingService for generation and VectorService for storage
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { EmbeddingService, VectorService } from "../../../ai-engine/rag";
+import { AIEngineFacade } from "../../../ai-engine/facade";
 
 const BATCH_SIZE = 50;
 
@@ -17,8 +17,7 @@ export class EmbeddingProcessorService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly embeddingService: EmbeddingService,
-    private readonly vectorService: VectorService,
+    @Optional() private readonly aiFacade?: AIEngineFacade,
   ) {}
 
   /**
@@ -57,7 +56,7 @@ export class EmbeddingProcessorService {
     );
 
     let generatedCount = 0;
-    const model = await this.embeddingService.getModel();
+    const model = await this.aiFacade!.embedding!.getModel();
 
     // Process in batches
     for (let i = 0; i < chunksWithoutEmbeddings.length; i += BATCH_SIZE) {
@@ -67,7 +66,7 @@ export class EmbeddingProcessorService {
       try {
         // Generate embeddings using AI Engine's EmbeddingService
         const embeddingResult =
-          await this.embeddingService.generateEmbeddings(texts);
+          await this.aiFacade!.embedding!.generateEmbeddings(texts);
 
         // Store embeddings using AI Engine's VectorService
         for (let j = 0; j < batch.length; j++) {
@@ -75,7 +74,11 @@ export class EmbeddingProcessorService {
           const embedding = embeddingResult.embeddings[j];
 
           if (embedding && embedding.length > 0) {
-            await this.vectorService.storeEmbedding(chunk.id, embedding, model);
+            await this.aiFacade!.vector!.storeEmbedding(
+              chunk.id,
+              embedding,
+              model,
+            );
             generatedCount++;
           }
         }
@@ -122,11 +125,11 @@ export class EmbeddingProcessorService {
     }
 
     const texts = chunksWithoutEmbeddings.map((chunk) => chunk.content);
-    const model = await this.embeddingService.getModel();
+    const model = await this.aiFacade!.embedding!.getModel();
 
     try {
       const embeddingResult =
-        await this.embeddingService.generateEmbeddings(texts);
+        await this.aiFacade!.embedding!.generateEmbeddings(texts);
 
       let generatedCount = 0;
       for (let i = 0; i < chunksWithoutEmbeddings.length; i++) {
@@ -134,7 +137,11 @@ export class EmbeddingProcessorService {
         const embedding = embeddingResult.embeddings[i];
 
         if (embedding && embedding.length > 0) {
-          await this.vectorService.storeEmbedding(chunk.id, embedding, model);
+          await this.aiFacade!.vector!.storeEmbedding(
+            chunk.id,
+            embedding,
+            model,
+          );
           generatedCount++;
         }
       }

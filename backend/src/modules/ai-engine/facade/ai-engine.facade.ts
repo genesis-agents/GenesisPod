@@ -2826,4 +2826,14 @@ export class AIEngineFacade {
   get continuationProtocol(): ContinuationProtocolService | undefined {
     return this.continuationProtocolSvc;
   }
+
+  /** 获取 EmbeddingService（供 RAG 模块直接使用） */
+  get embedding(): EmbeddingService | undefined {
+    return this.embeddingService;
+  }
+
+  /** 获取 VectorService（供 RAG 模块直接使用） */
+  get vector(): VectorService | undefined {
+    return this.vectorService;
+  }
 }
