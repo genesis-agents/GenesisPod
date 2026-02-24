@@ -26,11 +26,13 @@ export class CreateCharacterDto {
 
   @IsOptional()
   @IsObject()
-  appearance?: Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column; Record<string,unknown> is not assignable to InputJsonValue
+  appearance?: Record<string, any>;
 
   @IsOptional()
   @IsObject()
-  personality?: Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column; Record<string,unknown> is not assignable to InputJsonValue
+  personality?: Record<string, any>;
 
   @IsOptional()
   @IsString()
@@ -44,7 +46,8 @@ export class CreateCharacterDto {
 
   @IsOptional()
   @IsObject()
-  currentState?: Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column; Record<string,unknown> is not assignable to InputJsonValue
+  currentState?: Record<string, any>;
 }
 
 export class UpdateCharacterDto {
@@ -64,11 +67,13 @@ export class UpdateCharacterDto {
 
   @IsOptional()
   @IsObject()
-  appearance?: Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column; Record<string,unknown> is not assignable to InputJsonValue
+  appearance?: Record<string, any>;
 
   @IsOptional()
   @IsObject()
-  personality?: Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column; Record<string,unknown> is not assignable to InputJsonValue
+  personality?: Record<string, any>;
 
   @IsOptional()
   @IsString()
@@ -82,7 +87,8 @@ export class UpdateCharacterDto {
 
   @IsOptional()
   @IsObject()
-  currentState?: Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma JSON column; Record<string,unknown> is not assignable to InputJsonValue
+  currentState?: Record<string, any>;
 }
 
 export class CreateCharacterRelationshipDto {

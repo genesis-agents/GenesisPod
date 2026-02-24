@@ -44,11 +44,7 @@
     "src/collections/**",
     "src/learning-paths/**",
     "src/recommendations/**",
-    "src/modules/ai-engine/collaboration/patterns/__tests__/**",
-    "src/modules/ai-engine/collaboration/todo/__tests__/**",
-    "src/modules/ai-engine/orchestration/executors/__tests__/base-executor.spec.ts",
-    "src/modules/ai-engine/orchestration/executors/__tests__/retry-strategy.spec.ts",
-    "src/modules/ai-engine/skills/api/__tests__/**",
-    "src/modules/ai-engine/skills/loader/__tests__/**"
+    "**/*.spec.ts",
+    "**/__tests__/**"
   ]
 }
