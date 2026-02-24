@@ -1,6 +1,6 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { TraceCollectorService } from "@/modules/ai-engine/observability/trace-collector.service";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { RESEARCH_INTERNAL_EVENTS } from "./research-event-emitter.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -113,7 +113,7 @@ export class TopicTeamOrchestratorService {
     private readonly researchCheckpointService: ResearchCheckpointService,
     private readonly dataSourceRouterService: DataSourceRouterService,
     private readonly researchTodoService: ResearchTodoService,
-    @Optional() private readonly traceCollector?: TraceCollectorService,
+    @Optional() private readonly aiFacade?: AIEngineFacade,
   ) {}
 
   /**
@@ -165,7 +165,7 @@ export class TopicTeamOrchestratorService {
       );
 
       // ★ TraceCollector: start trace for this research mission
-      traceId = this.traceCollector?.startTrace({
+      traceId = this.aiFacade?.startTrace({
         name: `AI Insights: ${topic.name}`,
         type: "research_mission",
         metadata: {
@@ -212,7 +212,7 @@ export class TopicTeamOrchestratorService {
 
         // 调用 Leader 规划
         const leaderPlanSpanId = traceId
-          ? this.traceCollector?.addSpan(traceId, {
+          ? this.aiFacade?.addSpan(traceId, {
               name: "Leader AI Planning",
               type: "planning",
               metadata: { topicId },
@@ -224,7 +224,7 @@ export class TopicTeamOrchestratorService {
         try {
           leaderPlan = await this.researchLeaderService.planResearch(topicId);
           if (leaderPlanSpanId) {
-            this.traceCollector?.endSpan(leaderPlanSpanId, {
+            this.aiFacade?.endSpan(leaderPlanSpanId, {
               status: "success",
               output: {
                 dimensionsPlanned: leaderPlan.dimensions?.length ?? 0,
@@ -234,7 +234,7 @@ export class TopicTeamOrchestratorService {
           }
         } catch (planErr) {
           if (leaderPlanSpanId) {
-            this.traceCollector?.endSpan(leaderPlanSpanId, {
+            this.aiFacade?.endSpan(leaderPlanSpanId, {
               status: "error",
               error: String(planErr),
             });
@@ -516,7 +516,7 @@ export class TopicTeamOrchestratorService {
 
       // 3. 并行执行维度研究（传递 Agent 分配信息以使用正确的工具和技能）
       const dimensionSpanId = traceId
-        ? this.traceCollector?.addSpan(traceId, {
+        ? this.aiFacade?.addSpan(traceId, {
             name: "Dimension Research (Parallel)",
             type: "phase",
             metadata: {
@@ -548,7 +548,7 @@ export class TopicTeamOrchestratorService {
           (r) => r.status === "fulfilled",
         ).length;
         if (dimensionSpanId) {
-          this.traceCollector?.endSpan(dimensionSpanId, {
+          this.aiFacade?.endSpan(dimensionSpanId, {
             status: "success",
             output: {
               totalDimensions: dimensions.length,
@@ -559,7 +559,7 @@ export class TopicTeamOrchestratorService {
         }
       } catch (dimErr) {
         if (dimensionSpanId) {
-          this.traceCollector?.endSpan(dimensionSpanId, {
+          this.aiFacade?.endSpan(dimensionSpanId, {
             status: "error",
             error: String(dimErr),
           });
@@ -783,7 +783,7 @@ export class TopicTeamOrchestratorService {
       // 5. 质量审核阶段（non-fatal）
       // ★ Hoist reviewSpanId outside try so catch can end it on error
       const reviewSpanId = traceId
-        ? this.traceCollector?.addSpan(traceId, {
+        ? this.aiFacade?.addSpan(traceId, {
             name: "Quality Review",
             type: "review",
             metadata: { missionId, dimensionCount: dimensions.length },
@@ -811,7 +811,7 @@ export class TopicTeamOrchestratorService {
         );
 
         if (reviewSpanId) {
-          this.traceCollector?.endSpan(reviewSpanId, {
+          this.aiFacade?.endSpan(reviewSpanId, {
             status: "success",
             output: {
               qualityLevel: reviewResult.qualityLevel,
@@ -831,7 +831,7 @@ export class TopicTeamOrchestratorService {
         }
       } catch (reviewError) {
         if (reviewSpanId) {
-          this.traceCollector?.endSpan(reviewSpanId, {
+          this.aiFacade?.endSpan(reviewSpanId, {
             status: "error",
             error: String(reviewError),
           });
@@ -880,7 +880,7 @@ export class TopicTeamOrchestratorService {
         }
       }
       const synthesisSpanId = traceId
-        ? this.traceCollector?.addSpan(traceId, {
+        ? this.aiFacade?.addSpan(traceId, {
             name: "Report Synthesis",
             type: "synthesis",
             metadata: { missionId, reportId: report.id },
@@ -893,7 +893,7 @@ export class TopicTeamOrchestratorService {
           report.id,
         );
         if (synthesisSpanId) {
-          this.traceCollector?.endSpan(synthesisSpanId, {
+          this.aiFacade?.endSpan(synthesisSpanId, {
             status: "success",
             output: {
               finalReportId: finalReport.id,
@@ -903,7 +903,7 @@ export class TopicTeamOrchestratorService {
         }
       } catch (synthErr) {
         if (synthesisSpanId) {
-          this.traceCollector?.endSpan(synthesisSpanId, {
+          this.aiFacade?.endSpan(synthesisSpanId, {
             status: "error",
             error: String(synthErr),
           });
@@ -1048,7 +1048,7 @@ export class TopicTeamOrchestratorService {
       this.logger.log(`Completed refresh for topic: ${topic.name}`);
 
       if (traceId) {
-        this.traceCollector?.endTrace(traceId, { status: "success" });
+        this.aiFacade?.endTrace(traceId, { status: "success" });
       }
 
       return finalReport;
@@ -1119,7 +1119,7 @@ export class TopicTeamOrchestratorService {
       }
 
       if (traceId) {
-        this.traceCollector?.endTrace(traceId, {
+        this.aiFacade?.endTrace(traceId, {
           status: "error",
         });
       }

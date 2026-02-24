@@ -10,7 +10,7 @@ import { ResearchIdeaService } from "../idea/research-idea.service";
 import { InsufficientCreditsException } from "../../../credits/exceptions/insufficient-credits.exception";
 import { BillingContext } from "../../../credits/billing-context";
 import { MemoryCoordinatorService } from "../../../ai-engine/memory/memory-coordinator.service";
-import { TraceCollectorService } from "../../../ai-engine/observability/trace-collector.service";
+import { AIEngineFacade } from "../../../ai-engine/facade";
 import { A2AMessageBusService } from "../../../ai-engine/teams/services/a2a-message-bus.service";
 import { ResearchReplannerService } from "./research-replanner.service";
 import {
@@ -54,7 +54,7 @@ export class DiscussionOrchestratorService {
     @Optional() private readonly creditsService: CreditsService,
     @Optional() private readonly ideaService: ResearchIdeaService,
     @Optional() private readonly memoryCoordinator: MemoryCoordinatorService,
-    @Optional() private readonly traceCollector: TraceCollectorService,
+    @Optional() private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly replanner: ResearchReplannerService,
     @Optional() private readonly a2aBus: A2AMessageBusService,
   ) {}
@@ -121,7 +121,7 @@ export class DiscussionOrchestratorService {
     const searchRounds: SearchRound[] = [];
 
     // Start observability trace
-    const traceId = this.traceCollector?.startTrace({
+    const traceId = this.aiFacade?.startTrace({
       name: `Research: ${dto.query.slice(0, 80)}`,
       type: "research",
       metadata: { projectId, depth: dto.options?.depth || "standard" },
@@ -182,7 +182,7 @@ export class DiscussionOrchestratorService {
       });
 
       const ideationSpanId = traceId
-        ? this.traceCollector?.addSpan(traceId, {
+        ? this.aiFacade?.addSpan(traceId, {
             name: "ideation",
             type: "phase",
           })
@@ -198,7 +198,7 @@ export class DiscussionOrchestratorService {
       );
 
       if (ideationSpanId) {
-        this.traceCollector?.endSpan(ideationSpanId, {
+        this.aiFacade?.endSpan(ideationSpanId, {
           status: "success",
           output: { directionsCount: directions.length },
         });
@@ -221,7 +221,7 @@ export class DiscussionOrchestratorService {
       });
 
       const executionSpanId = traceId
-        ? this.traceCollector?.addSpan(traceId, {
+        ? this.aiFacade?.addSpan(traceId, {
             name: "execution",
             type: "phase",
           })
@@ -241,7 +241,7 @@ export class DiscussionOrchestratorService {
       // ========== Dynamic Replanning ==========
       if (this.replanner && searchRounds.length > 0) {
         const replanSpanId = traceId
-          ? this.traceCollector?.addSpan(traceId, {
+          ? this.aiFacade?.addSpan(traceId, {
               name: "replanning",
               type: "evaluation",
             })
@@ -311,7 +311,7 @@ export class DiscussionOrchestratorService {
         }
 
         if (replanSpanId) {
-          this.traceCollector?.endSpan(replanSpanId, {
+          this.aiFacade?.endSpan(replanSpanId, {
             status: "success",
             output: {
               replanned: replanResult.needsReplan,
@@ -322,7 +322,7 @@ export class DiscussionOrchestratorService {
       }
 
       if (executionSpanId) {
-        this.traceCollector?.endSpan(executionSpanId, {
+        this.aiFacade?.endSpan(executionSpanId, {
           status: "success",
           output: { searchRounds: searchRounds.length },
         });
@@ -347,7 +347,7 @@ export class DiscussionOrchestratorService {
       });
 
       const findingsSpanId = traceId
-        ? this.traceCollector?.addSpan(traceId, {
+        ? this.aiFacade?.addSpan(traceId, {
             name: "findings",
             type: "phase",
           })
@@ -364,7 +364,7 @@ export class DiscussionOrchestratorService {
       );
 
       if (findingsSpanId) {
-        this.traceCollector?.endSpan(findingsSpanId, { status: "success" });
+        this.aiFacade?.endSpan(findingsSpanId, { status: "success" });
       }
 
       await this.updateSession(session.id, {
@@ -385,7 +385,7 @@ export class DiscussionOrchestratorService {
       });
 
       const synthesisSpanId = traceId
-        ? this.traceCollector?.addSpan(traceId, {
+        ? this.aiFacade?.addSpan(traceId, {
             name: "synthesis",
             type: "phase",
           })
@@ -402,7 +402,7 @@ export class DiscussionOrchestratorService {
       );
 
       if (synthesisSpanId) {
-        this.traceCollector?.endSpan(synthesisSpanId, {
+        this.aiFacade?.endSpan(synthesisSpanId, {
           status: "success",
           output: {
             sections: report.sections.length,
@@ -448,7 +448,7 @@ export class DiscussionOrchestratorService {
 
       // End observability trace
       if (traceId) {
-        this.traceCollector?.endTrace(traceId, {
+        this.aiFacade?.endTrace(traceId, {
           status: "success",
           totalDuration: Date.now() - startTime,
         });
@@ -494,7 +494,7 @@ export class DiscussionOrchestratorService {
     } catch (error) {
       // End trace on failure
       if (traceId) {
-        this.traceCollector?.endTrace(traceId, {
+        this.aiFacade?.endTrace(traceId, {
           status: "error",
           totalDuration: Date.now() - startTime,
         });

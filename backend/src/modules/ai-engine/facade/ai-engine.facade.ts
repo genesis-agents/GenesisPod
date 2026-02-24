@@ -109,6 +109,13 @@ import type { BindingContext } from "../skills/runtime/input-binding-resolver";
 // Use import type to avoid circular: PromptSkillAdapter → AIEngineFacade → PromptSkillAdapter
 import type { PromptSkillAdapter } from "../skills/runtime/prompt-skill-adapter";
 import { AiChatLLMAdapter } from "../llm/adapters/ai-chat-llm-adapter";
+import { TraceCollectorService } from "../observability/trace-collector.service";
+import type {
+  CreateTraceInput,
+  CreateSpanInput,
+  EndSpanInput,
+  EndTraceInput,
+} from "../observability/trace.interface";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)
 import { ModelSubFacade } from "./sub-facades/model.sub-facade";
@@ -209,6 +216,7 @@ export class AIEngineFacade {
     @Optional() private readonly llmAdapterForSkills?: AiChatLLMAdapter,
     @Optional()
     private readonly skillInputBindingResolver?: InputBindingResolver,
+    @Optional() private readonly traceCollector?: TraceCollectorService,
   ) {
     this.logger.log("AIEngineFacade initialized");
     this.logFeatureAvailability();
@@ -244,6 +252,7 @@ export class AIEngineFacade {
       teams: !!this.teamsService,
       capabilities: !!this.capabilityResolver,
       credits: !!this.creditsService,
+      traceCollector: !!this.traceCollector,
     };
 
     this.logger.log(
@@ -2439,5 +2448,27 @@ export class AIEngineFacade {
         this.realtime.eventEmitter as { setServer: (s: unknown) => void }
       ).setServer(server);
     }
+  }
+
+  // ==================== 可观测性能力（Trace / Span）====================
+
+  /** 开始一个新的 Trace，返回 traceId（或 undefined 如果 TraceCollector 不可用） */
+  startTrace(input: CreateTraceInput): string | undefined {
+    return this.traceCollector?.startTrace(input);
+  }
+
+  /** 在指定 Trace 下添加一个 Span，返回 spanId（或 undefined） */
+  addSpan(traceId: string, input: CreateSpanInput): string | undefined {
+    return this.traceCollector?.addSpan(traceId, input);
+  }
+
+  /** 结束一个 Span */
+  endSpan(spanId: string, input: EndSpanInput): void {
+    this.traceCollector?.endSpan(spanId, input);
+  }
+
+  /** 结束一个 Trace */
+  endTrace(traceId: string, input: EndTraceInput): void {
+    this.traceCollector?.endTrace(traceId, input);
   }
 }
